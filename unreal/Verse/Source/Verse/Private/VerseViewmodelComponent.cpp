@@ -380,8 +380,14 @@ void UVerseViewmodelComponent::HandleFire(const FVerseFireEvent& Event)
 	LastShotCounter = Event.ShotCounter;
 	const float AdsScale = FMath::Lerp(1.f, 0.45f, AdsSmoothed);
 	const float Jitter = FMath::FRandRange(-1.f, 1.f);
-	KickPos += FVector(-Pose.KickBackCm, 0.15 * Jitter, 0.25 * Pose.KickBackCm) * AdsScale;
-	KickRot += FRotator(Pose.KickPitchDeg * FMath::FRandRange(0.85f, 1.15f), 0.6f * Jitter, 1.2f * Jitter) * AdsScale;
+	// A shot is a hit on the weapon: part of it is a jump, the rest a velocity the spring below carries
+	// into a short overshoot and back, so the gun snaps up and settles instead of sliding home.
+	const FVector PosPeak = FVector(-Pose.KickBackCm, 0.25 * Jitter, 0.25 * Pose.KickBackCm) * AdsScale;
+	const FVector RotPeak = FVector(Pose.KickPitchDeg * FMath::FRandRange(0.85f, 1.15f), 0.9f * Jitter, 1.6f * Jitter) * AdsScale;
+	KickPos += PosPeak * KickJump;
+	KickRot += RotPeak * KickJump;
+	KickPosVel += PosPeak * (KickSpringOmega * KickImpulse);
+	KickRotVel += RotPeak * (KickSpringOmega * KickImpulse);
 	BoltCycle = 1.f;
 	FlashUntil = Now() + MuzzleFlashSeconds;
 	if (Flash)
@@ -478,7 +484,9 @@ void UVerseViewmodelComponent::Step(float Dt)
 		Flash->SetVisibility(false);
 		FlashLight->SetVisibility(false);
 		KickPos = FVector::ZeroVector;
-		KickRot = FRotator::ZeroRotator;
+		KickRot = FVector::ZeroVector;
+		KickPosVel = FVector::ZeroVector;
+		KickRotVel = FVector::ZeroVector;
 		return;
 	}
 
@@ -563,10 +571,22 @@ void UVerseViewmodelComponent::Step(float Dt)
 	Rot += FRotator(Sway.Y * 0.8f, Sway.X * 0.8f, Sway.X * 0.6f) * SwayScale;
 
 	// Shot kick springs back.
-	KickPos = FMath::Lerp(KickPos, FVector::ZeroVector, double(Approach(16.f, Dt)));
-	KickRot = FMath::Lerp(KickRot, FRotator::ZeroRotator, Approach(13.f, Dt));
+	// Shot kick: a damped spring (about 4.5 Hz, light overshoot) on position and on rotation.
+	{
+		const int32 SubSteps = FMath::Clamp(FMath::CeilToInt(Dt / 0.008f), 1, 8);
+		const float H = Dt / float(SubSteps);
+		const double K = double(KickSpringOmega) * KickSpringOmega;
+		const double C = 2.0 * KickSpringZeta * KickSpringOmega;
+		for (int32 I = 0; I < SubSteps; ++I)
+		{
+			KickPosVel += (-K * KickPos - C * KickPosVel) * H;
+			KickPos += KickPosVel * H;
+			KickRotVel += (-K * KickRot - C * KickRotVel) * H;
+			KickRot += KickRotVel * H;
+		}
+	}
 	Pos += KickPos;
-	Rot += KickRot;
+	Rot += FRotator(KickRot.X, KickRot.Y, KickRot.Z);
 
 	LocalPose = FTransform(Rot, Pos);
 	Root->SetRelativeTransform(LocalPose);

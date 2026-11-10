@@ -1615,6 +1615,20 @@ def set_pet_id(pet_id: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     _patch_table(path, "ui", "pet_id", normalized)
 
 
+def set_look_id(look_id: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
+    """Persist ``[ui] look_id`` (the in-app look, docs/looks.md).
+
+    Whether the look exists is the caller's check; a value that is not
+    id-shaped is refused, so no path or garbage reaches the shared file.
+    """
+    from dodaios.core.config import normalize_look_id  # noqa: PLC0415
+
+    normalized = normalize_look_id(look_id)
+    if normalized is None:
+        raise ValueError(f"not a look id: {look_id!r}")
+    _patch_table(path, "ui", "look_id", normalized)
+
+
 def set_pet_scale(scale: float, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     """Persist ``[ui] pet_scale`` (the pet size slider), clamped to 0.5–2.0.
 

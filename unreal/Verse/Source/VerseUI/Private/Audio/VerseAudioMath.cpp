@@ -175,8 +175,8 @@ namespace Verse::Audio
 		}
 	}
 
-	bool BoltClosestApproach(const FVector& Origin, const FVector& Direction, const FVector& Listener,
-		float BoltSpeedMps, float& OutDistanceM, float& OutTimeS, FVector& OutPoint)
+	bool BulletClosestApproach(const FVector& Origin, const FVector& Direction, const FVector& Listener,
+		float BulletSpeedMps, float& OutDistanceM, float& OutTimeS, FVector& OutPoint)
 	{
 		const FVector Dir = Direction.GetSafeNormal();
 		const double AlongCm = FVector::DotProduct(Listener - Origin, Dir);
@@ -186,7 +186,7 @@ namespace Verse::Audio
 		}
 		OutPoint = Origin + Dir * AlongCm;
 		OutDistanceM = float(FVector::Dist(Listener, OutPoint) / 100.0);
-		OutTimeS = float(AlongCm / 100.0 / FMath::Max(1.f, BoltSpeedMps));
+		OutTimeS = float(AlongCm / 100.0 / FMath::Max(1.f, BulletSpeedMps));
 		return true;
 	}
 

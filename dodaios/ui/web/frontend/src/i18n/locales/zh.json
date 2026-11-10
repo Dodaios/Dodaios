@@ -3671,6 +3671,14 @@
       "land_warning": "列表中仓库的代码会在你未查看拉取请求的情况下被更改。只添加你信任其测试的仓库。",
       "land_add": "添加仓库",
       "land_remove": "移除 {repo}"
+    },
+    "look": {
+      "title": "外观",
+      "description": "应用中语音球位置显示的内容。外观来自社区市场，只能绘制：它们只获得语音状态和音量。",
+      "orb": "语音球（默认）",
+      "by": "作者：{author}",
+      "saved": "外观已切换。",
+      "failed": "此外观未能启动，因此显示语音球。"
     }
   },
   "telephony_view": {
@@ -6669,7 +6677,17 @@
     "install_failed": "安装失败（{status}）",
     "contents_failed": "无法读取该条目（{status}）",
     "err_identity_start": "无法开始登录（{status}）",
-    "err_identity_failed": "登录失败"
+    "err_identity_failed": "登录失败",
+    "filter_looks": "外观",
+    "shelf_looks": "外观",
+    "shelf_looks_hint": "替代语音球位置的视觉效果",
+    "kind_look": "外观",
+    "landed_look": "在设置中“外观”旁边选择它。",
+    "look_home": "设置",
+    "look_reach": "它只能绘制。它只获得语音状态和音量：无法联网、无法访问文件、无法访问应用。",
+    "look_license": "许可证",
+    "look_attribution": "署名",
+    "look_size": "下载大小"
   },
   "costs_view": {
     "title": "费用与 Token",
@@ -7938,7 +7956,21 @@
       "lookup_one": "查找了工具",
       "lookup_other": "查找了工具",
       "asked_one": "向你提问",
-      "asked_other": "向你提问"
+      "asked_other": "向你提问",
+      "fetch_one": "打开了一个网页",
+      "fetch_other": "打开了 {count} 个网页",
+      "todo_one": "更新了待办清单",
+      "todo_other": "更新了待办清单",
+      "message_one": "给一个智能体发了消息",
+      "message_other": "发送了 {count} 条消息",
+      "agents_list_one": "查看了智能体",
+      "agents_list_other": "查看了智能体",
+      "stop_one": "停止了一个任务",
+      "stop_other": "停止了 {count} 个任务",
+      "more_one": "{list}，以及另外 1 项操作",
+      "more_other": "{list}，以及另外 {count} 项操作",
+      "failed_one": "{count} 项失败",
+      "failed_other": "{count} 项失败"
     },
     "act_n": {
       "command": "运行了 {count} 条命令",
@@ -11255,6 +11287,17 @@
     "state_waiting": "等待你确认",
     "state_failed": "失败",
     "open": "打开"
+  },
+  "voice_call": {
+    "voice_title": "声音",
+    "voice_loading": "正在加载声音…",
+    "voice_none": "此语音通路没有可选的声音。",
+    "voice_unavailable": "无法读取声音列表。",
+    "voice_applies_next_call": "下次通话生效",
+    "voice_saved": "声音已更改。",
+    "voice_saved_next_call": "声音已保存，下次通话生效。",
+    "voice_save_failed": "无法更改声音。",
+    "all_settings": "全部语音设置"
   },
   "design": {
     "settings": {

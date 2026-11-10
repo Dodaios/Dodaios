@@ -8,7 +8,7 @@ files under `unreal/Verse/Content/Verse/Audio/` enter git (Git LFS).
 | File | Job |
 |---|---|
 | `dsp.py` | Seeded DSP primitives (noise, filters, modes, room responses) |
-| `recipes.py` | One recipe per sound family: weapon layers, bolts, impacts on the 8 materials, footsteps per surface, foley, reloads, melee, finisher, destruction per piece class, debris, drones, gadgets, beds, UI |
+| `recipes.py` | One recipe per sound family: weapon layers (real-gun reports: supersonic crack, muzzle blast, action; no tonal parts), bullet flybys (crack and zip), spent casings, impacts on the 8 materials, footsteps per surface, foley, reloads, melee, finisher, destruction per piece class, debris, drones, gadgets, beds, UI |
 | `build_audio.py` | Renders every variant of `unreal/Verse/Data/audio/cues.json` into `art/verse/.cache/audio/` (ignored) |
 | `import_audio.py` | Build, then import under the machine lock (`editor/import_sounds.py` in the headless editor) into `SW_*` sound waves and `DA_AudioCues`, then the licence audit |
 | `loudness.py` | ITU-R BS.1770-4 integrated loudness and true peak |
@@ -22,8 +22,16 @@ Runtime side: `unreal/Verse/Source/VerseUI/{Public,Private}/Audio/`
 - A sound of anyone but the listener is attenuated to exactly the
   `DA_Audibility` range of its `Noise.*` tag, the range the bot hears it at
   (fairness F6). Sounds the bot cannot hear (crouch steps, lean, equip) play
-  only for their own player. The listener's own bolt impacts are shooter
+  only for their own player. The listener's own bullet impacts are shooter
   feedback (cue `range_m`), as the bot gets its own hit confirms.
+- Weapons fire bullets. Four sound profiles (`pistol`, `smg`, `rifle`,
+  `marksman`); `cues.json` `weapon_ids` maps each weapon id to one. A bullet
+  passing within `flyby.radius_m` plays `bullet_flyby` at its closest point,
+  timed by the firing weapon's `ProjectileSpeed` (`flyby.bullet_speed_mps`
+  when the weapon has no definition). Every shot drops a `casing_<profile>`
+  at the shooter's feet (`casing.drop_m` below the muzzle) after
+  `casing.delay_s`; it is queued only when the listener is within the cue's
+  `range_m` (8 m).
 - At most 64 voices; a cue over its own limit replaces its oldest voice, over
   the global cap the lowest-priority voice is stolen.
 - The table is `DA_Audibility` (Core): the cue set's own pointer, else the

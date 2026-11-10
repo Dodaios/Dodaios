@@ -24,7 +24,7 @@ namespace VerseBotFakes
 		W->FireMode = EVerseFireMode::Auto;
 		W->RPM = 690.f;
 		W->MagazineSize = 30;
-		W->ProjectileSpeed = 300.f;
+		W->ProjectileSpeed = 880.f;
 		W->RecoilRandomFraction = 0.15f;
 		W->RecoilKickTime = 0.035f;
 		W->RecoilRecoveryRate = 5.f;

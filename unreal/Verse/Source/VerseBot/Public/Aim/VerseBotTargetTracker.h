@@ -64,7 +64,7 @@ public:
 	static constexpr double ReversalStepS = 0.1;
 	static constexpr double ReversalLookbackS = 0.7;
 	/** Bolt speed (README Projectiles), m/s; the weapon asset's value wins when given. */
-	static constexpr double DefaultBoltSpeedMps = 300.0;
+	static constexpr double DefaultBoltSpeedMps = 880.0;
 
 	void Reset(const FVerseBotTrackParams& InParams, uint64 Seed);
 	void SetParams(const FVerseBotTrackParams& InParams) { Params = InParams; }

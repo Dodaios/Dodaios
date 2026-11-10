@@ -15,7 +15,8 @@
 
 // Verse.Combat.Events.*: the hub events Fire, Hit, Penetration, Death, Reload and Gadget with the
 // transports of combat-state.md 5.1 (WP02.10), and the authority fire path end to end.
-// Verse.Combat.Presentation.*: own bolts amber, the opponent's red, removal rules (WP02.11).
+// Verse.Combat.Presentation.*: bullets with yellow-white tracers on tracer rounds only,
+// gravity drop, casings, removal rules (WP02.11, ballistics decision).
 
 namespace VerseEventsTest
 {
@@ -183,25 +184,28 @@ bool FVersePresentationBolts::RunTest(const FString&)
 	Foe.ShotCounter = 9;
 	Hub->OnFire.Broadcast(Own);
 	Hub->OnFire.Broadcast(Foe);
-	TestEqual(TEXT("one own bolt"), P->NumOwn(), 1);
-	TestEqual(TEXT("one foe bolt"), P->NumFoe(), 1);
-	const FLinearColor Amber = VerseCombatTags::BoltColor(VerseCombatTags::Presentation_Bolt_Amber, true);
-	const FLinearColor Red = VerseCombatTags::BoltColor(VerseCombatTags::Presentation_Bolt_Red, false);
+	TestEqual(TEXT("one own round"), P->NumOwn(), 1);
+	TestEqual(TEXT("one foe round"), P->NumFoe(), 1);
+	const FLinearColor Tracer = UVerseBoltPresentation::TracerColor();
 	for (const FVerseVisualBolt& B : P->GetBolts())
 	{
-		TestTrue(TEXT("own amber, foe red"), B.Color.Equals(B.bOwn ? Amber : Red));
+		TestTrue(TEXT("one tracer colour for every shooter"), B.Color.Equals(Tracer));
 	}
-	TestTrue(TEXT("amber is amber"), Amber.R > 0.9f && Amber.G > 0.4f && Amber.G < 0.7f && Amber.B < 0.15f);
-	TestTrue(TEXT("red is red"), Red.R > 0.8f && Red.G < 0.15f && Red.B < 0.15f);
+	TestTrue(TEXT("tracer is yellow-white, not a coloured bolt"), Tracer.R > 0.9f && Tracer.G > 0.65f && Tracer.B > 0.3f && Tracer.B < Tracer.G);
+	TestEqual(TEXT("each shot ejects a casing"), P->GetCasings().Num(), 2);
+	TestEqual(TEXT("the opponent's muzzle flashes (the viewmodel draws the own one)"), P->GetMuzzleFlashes().Num(), 1);
+	TestEqual(TEXT("powder smoke at the opponent's muzzle only (the own muzzle sits at the eye)"), P->GetPuffs().Num(), 1);
 
 	// Echo of the own shot is not drawn twice.
 	Hub->OnFire.Broadcast(Own);
 	TestEqual(TEXT("no duplicate"), P->NumOwn(), 1);
 
-	// Flight: 300 m/s, drawn ahead of the muzzle.
+	// Flight: 880 m/s with gravity drop, drawn ahead of the muzzle.
 	Clock += 0.1;
 	P->Advance(Clock);
-	TestEqual(TEXT("head at 30 m after 0.1 s"), UVerseBoltPresentation::HeadAt(P->GetBolts()[0], Clock).X, 3000.0, 1.0);
+	const FVector Head = UVerseBoltPresentation::HeadAt(P->GetBolts()[0], Clock);
+	TestEqual(TEXT("head at 88 m after 0.1 s"), Head.X, 8800.0, 1.0);
+	TestEqual(TEXT("dropped 4.9 cm after 0.1 s"), Head.Z, -0.5 * 981.0 * 0.01, 0.01);
 
 	// Rejected removes the own bolt; the cosmetic hit ends the foe bolt with an impact.
 	UVerseWeaponComponent::OnAnyShotRejected.Broadcast(1, 5);

@@ -26,7 +26,7 @@
 	"FalloffStart": 10,
 	"FalloffEnd": 25,
 	"FalloffMinFraction": 0.6,
-	"ProjectileSpeed": 300,
+	"ProjectileSpeed": 400,
 	"MaxRange": 100,
 	"PenetrationPower": 60,
 	"MaxPenetrations": 2,
@@ -103,5 +103,7 @@
 	"BloomRecoveryDelay": 0.1,
 	"NoiseLoudness": 1.0,
 	"BoltColorOwn": "Verse.Presentation.Bolt.Amber",
-	"BoltColorFoe": "Verse.Presentation.Bolt.Red"
+	"BoltColorFoe": "Verse.Presentation.Bolt.Red",
+	"TracerInterval": 4,
+	"TracerLastRounds": 3
 }

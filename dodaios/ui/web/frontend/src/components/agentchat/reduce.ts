@@ -1075,6 +1075,21 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       const messageId = str(p.message_id) || undefined;
       return updateHost(base, turnId, agentId, ev.ts_ms, (turn) => {
         const last = turn.blocks[turn.blocks.length - 1];
+        // The CLI may open a new live block between two snapshots of the same
+        // message's thinking. That block belongs to the earlier one: drop it
+        // and update the earlier block, so one thought never shows twice.
+        const before = turn.blocks[turn.blocks.length - 2];
+        if (last && last.kind === "reasoning" && last.live && messageId
+          && before && before.kind === "reasoning" && before.messageId === messageId) {
+          return {
+            ...turn,
+            blocks: [...turn.blocks.slice(0, -2), {
+              ...before,
+              text: text || last.text || before.text,
+              durationMs: durationMs ?? before.durationMs,
+            }],
+          };
+        }
         if (last && last.kind === "reasoning" && last.live) {
           return {
             ...turn,

@@ -3139,8 +3139,14 @@ class RealtimeVoiceSession:
                         # Seed BEFORE the provider handshake, not just the text
                         # brain. The same history grounds later tool delegation
                         # and transport reconnects on every voice surface.
+                        # Off the loop: the seed reads the lead's whole endless
+                        # conversation from SQLite, and on the voice loop that
+                        # read stalled the app window for ~10 s at call start
+                        # (live 2026-11-10). The seed pop is thread-safe by
+                        # contract (BrainManager.take_voice_history_seed).
+                        seed = await asyncio.to_thread(take_seed)
                         self._delegate_history = [
-                            message for message in take_seed()
+                            message for message in seed
                             if message.role in {"user", "assistant"}
                         ]
                     self._resume_history_loaded = True

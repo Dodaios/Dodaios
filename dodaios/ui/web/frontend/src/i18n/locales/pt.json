@@ -3671,6 +3671,14 @@
       "land_warning": "O código de um repositório da lista muda sem que veja primeiro o pull request. Adicione apenas repositórios em cujos testes confia.",
       "land_add": "Adicionar repositório",
       "land_remove": "Remover {repo}"
+    },
+    "look": {
+      "title": "Aspeto",
+      "description": "O que aparece na app no lugar do orbe de voz. Os aspetos vêm do Marketplace da comunidade e só podem desenhar: recebem o estado da voz e o volume, mais nada.",
+      "orb": "Orbe de voz (predefinido)",
+      "by": "de {author}",
+      "saved": "Aspeto alterado.",
+      "failed": "Este aspeto não arrancou, por isso aparece o orbe de voz."
     }
   },
   "telephony_view": {
@@ -6669,7 +6677,17 @@
     "install_failed": "A instalação falhou ({status})",
     "contents_failed": "Não foi possível ler essa entrada ({status})",
     "err_identity_start": "Não foi possível iniciar o início de sessão ({status})",
-    "err_identity_failed": "o início de sessão falhou"
+    "err_identity_failed": "o início de sessão falhou",
+    "filter_looks": "Aspetos",
+    "shelf_looks": "Aspetos",
+    "shelf_looks_hint": "Visuais que ocupam o lugar do orbe de voz",
+    "kind_look": "Aspeto",
+    "landed_look": "Escolha-o nas Definições, junto a Aspeto da app.",
+    "look_home": "Definições",
+    "look_reach": "Só pode desenhar. Recebe o estado da voz e o volume, mais nada: sem internet, sem ficheiros, sem acesso à app.",
+    "look_license": "Licença",
+    "look_attribution": "Créditos",
+    "look_size": "Tamanho da transferência"
   },
   "costs_view": {
     "title": "Gastos e Tokens",
@@ -7938,7 +7956,21 @@
       "lookup_one": "consultou ferramentas",
       "lookup_other": "consultou ferramentas",
       "asked_one": "perguntou a você",
-      "asked_other": "perguntou a você"
+      "asked_other": "perguntou a você",
+      "fetch_one": "abriu uma página",
+      "fetch_other": "abriu {count} páginas",
+      "todo_one": "atualizou a lista de tarefas",
+      "todo_other": "atualizou a lista de tarefas",
+      "message_one": "escreveu a um agente",
+      "message_other": "enviou {count} mensagens",
+      "agents_list_one": "verificou os agentes",
+      "agents_list_other": "verificou os agentes",
+      "stop_one": "parou uma tarefa",
+      "stop_other": "parou {count} tarefas",
+      "more_one": "{list} e mais uma ação",
+      "more_other": "{list} e mais {count} ações",
+      "failed_one": "{count} falhou",
+      "failed_other": "{count} falharam"
     },
     "act_n": {
       "command": "executou {count} comandos",
@@ -11255,6 +11287,17 @@
     "state_waiting": "Aguarda a tua confirmação",
     "state_failed": "Falhou",
     "open": "Abrir"
+  },
+  "voice_call": {
+    "voice_title": "Voz",
+    "voice_loading": "A carregar vozes…",
+    "voice_none": "Este caminho de voz não tem vozes para escolher.",
+    "voice_unavailable": "Não foi possível ler as vozes.",
+    "voice_applies_next_call": "Aplica-se à próxima chamada",
+    "voice_saved": "Voz alterada.",
+    "voice_saved_next_call": "Voz guardada para a próxima chamada.",
+    "voice_save_failed": "Não foi possível alterar a voz.",
+    "all_settings": "Todas as definições de voz"
   },
   "design": {
     "settings": {

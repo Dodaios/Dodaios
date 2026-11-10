@@ -133,14 +133,103 @@ def cc0_layer(r, file: str, synth: str, synth_gain: float = 0.6, length_s: float
 
 
 WEAPONS = {
-    # base thump, crack band, mech clack base, laser sweep start, tail decay
+    # A real gun report, no tonal parts: crack = the supersonic N-wave and its broadband snap
+    # (duration ms, gain, top Hz), blast = the muzzle blast pressure pulse (positive phase ms),
+    # low = the 60-250 Hz blast body (lo Hz, hi Hz, decay s), mid = the broadband blast energy
+    # (lo Hz, hi Hz, decay s), bark = its level against the low body, limit = peak limiting dB,
+    # drive = saturation, tail = room decay s,
+    # clack = action base Hz, action = how the mechanism cycles.
     "rifle": dict(
-        thump=(150, 44), crack=(1400, 12000), clack=1650, zap=(2600, 340), tail=1.7, mass=1.0
+        crack=(0.32, 1.0, 15000),
+        blast=2.0,
+        low=(55, 250, 0.06),
+        mid=(300, 6000, 0.03),
+        bark=1.5,
+        limit=12.0,
+        drive=3.5,
+        length=0.5,
+        tail=1.7,
+        clack=1650,
+        action="rotary",
+    ),
+    "marksman": dict(
+        crack=(0.40, 1.15, 16000),
+        blast=1.8,
+        low=(48, 230, 0.075),
+        mid=(280, 5500, 0.035),
+        bark=1.4,
+        limit=12.0,
+        drive=3.8,
+        length=0.6,
+        tail=2.1,
+        clack=1450,
+        action="rotary",
+    ),
+    "smg": dict(
+        crack=(0.22, 0.45, 9000),
+        blast=2.4,
+        low=(70, 280, 0.045),
+        mid=(320, 3800, 0.022),
+        bark=1.4,
+        limit=11.0,
+        drive=3.2,
+        length=0.38,
+        tail=1.3,
+        clack=2100,
+        action="blowback",
     ),
     "pistol": dict(
-        thump=(190, 62), crack=(1900, 14000), clack=2300, zap=(3400, 520), tail=1.2, mass=0.7
+        crack=(0.20, 0.32, 7000),
+        blast=3.0,
+        low=(65, 300, 0.045),
+        mid=(250, 3200, 0.024),
+        bark=1.3,
+        limit=10.0,
+        drive=3.0,
+        length=0.4,
+        tail=1.2,
+        clack=2300,
+        action="slide",
     ),
 }
+
+
+def _unit(x):
+    return x / (np.max(np.abs(x)) + 1e-9)
+
+
+def _crack(r, length_s, dur_ms, top_hz, offset_s=0.0):
+    """Supersonic crack: an N-wave plus a sub-ms broadband snap, a few ms long."""
+    shock = dsp.n_wave(length_s, dur_ms / 1000 * r.uniform(0.9, 1.1), offset_s=offset_s)
+    shock = dsp.lowpass(dsp.highpass(shock, 700, 2), top_hz, 2)
+    snap = dsp.highpass(dsp.white(r, length_s), 2000, 2) * dsp.env_exp(length_s, 0.0025, 0.0001)
+    snap = dsp.lowpass(dsp.pad(snap, length_s, offset_s), top_hz, 2)
+    return _unit(shock) + 0.55 * _unit(snap)
+
+
+def _blast(r, length_s, w):
+    """Muzzle blast: pressure pulse, heavy low body and broadband mid energy, all from noise."""
+    pulse = dsp.friedlander(length_s, w["blast"] / 1000 * r.uniform(0.9, 1.1))
+    pulse = dsp.lowpass(dsp.highpass(pulse, 45, 2), 5000, 2)
+    lo, hi, low_decay = w["low"]
+    low = dsp.lowpass(dsp.highpass(dsp.white(r, length_s), lo, 2), hi, 4)
+    low = dsp.peak_eq(low, 90, 0.9, 5.0) * dsp.env_exp(length_s, low_decay, 0.0015)
+    mlo, mhi, mid_decay = w["mid"]
+    mid = dsp.bandpass(dsp.white(r, length_s), mlo, mhi) * dsp.env_exp(length_s, mid_decay, 0.0004)
+    return 0.9 * _unit(pulse) + 1.0 * _unit(low) + w["bark"] * _unit(mid)
+
+
+def _report(r, weapon, length_s=None):
+    """The dry gun report (muzzle side): crack, blast, a hint of the action, limited for punch."""
+    w = WEAPONS[weapon]
+    length = length_s or w["length"]
+    dur_ms, crack_gain, top = w["crack"]
+    crack = _crack(r, length, dur_ms, top)
+    blast = _blast(r, length, w)
+    click = _clack(r, length, w["clack"] * 1.3, 0.008, 0.6)
+    x = dsp.mix(length, (blast, 1.0), (crack, 0.8 * crack_gain), (click, 0.08, 0.012))
+    x = dsp.peak_limit(_unit(x), -w["limit"])
+    return dsp.saturate(_unit(x), w["drive"])
 
 
 @recipe("weapon_mech")
@@ -148,27 +237,19 @@ def weapon_mech(r, weapon: str, **_):
     w = WEAPONS[weapon]
     length = 0.22
     first = _clack(r, length, w["clack"], 0.03)
-    if weapon == "rifle":
+    if w["action"] == "rotary":
         second = _clack(r, length, w["clack"] * 0.82, 0.04, 0.7)
         return dsp.mix(length, (first, 1.0), (second, 0.65, 0.048 + r.uniform(-0.004, 0.004)))
+    if w["action"] == "blowback":
+        carrier = _clack(r, length, w["clack"] * 0.9, 0.02, 0.9)
+        return dsp.mix(length, (first, 1.0), (carrier, 0.6, 0.026 + r.uniform(-0.003, 0.003)))
     slide = _clack(r, length, w["clack"] * 1.15, 0.025, 1.2)
     return dsp.mix(length, (first, 1.0), (slide, 0.5, 0.032))
 
 
 @recipe("weapon_body")
 def weapon_body(r, weapon: str, **_):
-    w = WEAPONS[weapon]
-    length = 0.45
-    thump = _thud(
-        r, length, w["thump"][0] * r.uniform(0.95, 1.05), w["thump"][1], 0.09 * w["mass"], 3.0
-    )
-    crack = dsp.bandpass(dsp.white(r, length), *w["crack"]) * dsp.env_exp(length, 0.018, 0.0002)
-    zap = dsp.sweep(w["zap"][0] * r.uniform(0.96, 1.04), w["zap"][1], length, 6.0)
-    zap = dsp.saturate(zap * dsp.env_exp(length, 0.07), 1.6)
-    grit = dsp.bandpass(dsp.white(r, length), 300, 2500) * dsp.env_exp(length, 0.05)
-    x = 1.0 * thump + 0.9 * crack + 0.28 * zap + 0.35 * grit
-    x = dsp.peak_eq(x, 95, 0.8, 4.0)
-    return dsp.fade(dsp.saturate(x, 1.8), 0.0002, 0.05)
+    return dsp.fade(_report(r, weapon), 0.0001, 0.05)
 
 
 @recipe("weapon_tail")
@@ -189,37 +270,73 @@ def weapon_tp_near(r, weapon: str, **_):
     length = 0.9
     body = weapon_body(r, weapon)
     mech = weapon_mech(r, weapon)
-    x = dsp.mix(length, (body, 1.0), (mech, 0.35))
-    x = dsp.lowpass(x, 9000, 2)
-    return dsp.fade(_room(r, x, length, 0.7, 2500, 0.3), 0.0005, 0.1)
+    x = dsp.mix(length, (body, 1.0), (mech, 0.25))
+    x = dsp.lowpass(x, 10000, 2)
+    return dsp.fade(_room(r, x, length, 0.7, 2500, 0.3), 0.0003, 0.1)
 
 
 @recipe("weapon_tp_far")
 def weapon_tp_far(r, weapon: str, **_):
+    """A distant shot: the crack thins to a faint high snap, the blast is a dull low boom."""
     w = WEAPONS[weapon]
     length = w["tail"] * 1.9
-    body = dsp.lowpass(weapon_body(r, weapon), 1100, 4)
-    body = dsp.mix(length, (body, 1.0, 0.004))
-    ir = dsp.room_ir(r, length, w["tail"] * 1.5, 900, early=(0.03, 0.055, 0.09, 0.14))
-    x = 0.6 * body + 1.0 * dsp.convolve(body, ir, length)
-    return dsp.fade(x, 0.004, 0.3)
+    dur_ms, crack_gain, _top = w["crack"]
+    thin = dsp.highpass(_crack(r, length, dur_ms * 0.6, 9000), 2500, 2)
+    boom = dsp.lowpass(_blast(r, length, w), 700, 4)
+    boom = dsp.saturate(_unit(boom), 1.6)
+    # The air took the top off the blast and smeared its onset; the thin snap is all that is left
+    # of the crack.
+    body = dsp.mix(length, (thin, 0.1 * crack_gain), (boom, 1.0, 0.004 + r.uniform(0.0, 0.004)))
+    ir = dsp.room_ir(r, length, w["tail"] * 1.5, 700, early=(0.03, 0.055, 0.09, 0.14))
+    x = 0.6 * body + 1.0 * dsp.convolve(dsp.lowpass(body, 900, 2), ir, length)
+    return dsp.fade(x, 0.003, 0.3)
 
 
-# --------------------------------------------------------------------------- bolts
+# --------------------------------------------------------------------------- bullets
 
 
-@recipe("bolt_flyby")
-def bolt_flyby(r, **_):
-    length = 0.42
-    t = dsp.t_axis(length)
-    center = 0.16 + r.uniform(-0.02, 0.02)
-    bell = np.exp(-(((t - center) / 0.055) ** 2))
-    whoosh = _scrape(r, length, 700, 5200, 0.0)
-    buzz = dsp.sweep(1250 * r.uniform(0.95, 1.05), 430, length, 3.0)
-    buzz = dsp.saturate(buzz, 2.5)
-    crackle = dsp.highpass(dsp.white(r, length), 5000, 2) * (r.random(len(t)) < 0.02)
-    x = (0.7 * whoosh + 0.45 * buzz + 0.3 * crackle) * bell
-    return dsp.fade(dsp.lowpass(x, 11000, 2))
+@recipe("bullet_flyby")
+def bullet_flyby(r, **_):
+    """A bullet passing close: the sharp supersonic snap, then a short airy zip that falls away."""
+    length = 0.32
+    at = 0.01
+    snap = _crack(r, length, 0.18 * r.uniform(0.85, 1.15), 16000, offset_s=at)
+    echo = dsp.lowpass(dsp.pad(snap, length, 0.014 + r.uniform(0.0, 0.012)), 5000, 2)
+    zip_len = 0.22
+    zip_ = dsp.glide_bandpass(
+        dsp.white(r, zip_len), 5200 * r.uniform(0.9, 1.1), 1500 * r.uniform(0.9, 1.1), 1.4, 2.5
+    )
+    zip_ = _unit(zip_ * dsp.env_exp(zip_len, 0.05, 0.002))
+    hush = _unit(dsp.lowpass(dsp.white(r, zip_len), 900, 2) * dsp.env_exp(zip_len, 0.035, 0.003))
+    x = dsp.mix(
+        length, (snap, 1.0), (echo, 0.22), (zip_, 0.45, at + 0.002), (hush, 0.18, at + 0.004)
+    )
+    return dsp.fade(x, 0.0002, 0.03)
+
+
+@recipe("casing")
+def casing(r, size: str = "rifle", **_):
+    """A spent brass casing on concrete: bright inharmonic pings, bouncing smaller and faster."""
+    rifle = size == "rifle"
+    length = 0.6
+    base = (3300 if rifle else 4600) * r.uniform(0.94, 1.06)
+    ratios = [1.0, 1.47, 2.09] if rifle else [1.0, 1.38, 1.93]
+    decay = 0.05 if rifle else 0.035
+    bounces = 3 + int(r.integers(0, 2))
+    when, gap, gain = 0.0, r.uniform(0.09, 0.12), 1.0
+    parts = []
+    for _ in range(bounces):
+        freqs = [min(base * k * r.uniform(0.985, 1.015), 9000) for k in ratios]
+        decays = [decay * r.uniform(0.6, 1.2) / (1 + 0.5 * i) for i in range(3)]
+        ring = dsp.modes(r, 0.2, freqs, decays, [1.0, 0.6, 0.35], 0.004)
+        tick = _burst(r, 0.2, 3000, 12000, 0.0012, 0.0001)
+        parts.append((0.6 * ring + 0.5 * tick, gain, when))
+        when += gap
+        gap = max(0.04, gap * r.uniform(0.5, 0.65))
+        gain *= r.uniform(0.45, 0.65)
+    roll = _debris(r, 0.25, 30, 4000, 11000, 0.003)
+    parts.append((roll, 0.12 * gain, when))
+    return dsp.fade(dsp.mix(length, *parts), 0.0002, 0.05)
 
 
 MATERIALS = {
@@ -393,7 +510,7 @@ def _mag_in(r, length, heavy=1.0):
 
 @recipe("reload")
 def reload(r, weapon: str, empty: bool, **_):
-    rifle = weapon == "rifle"
+    rifle = weapon in ("rifle", "marksman", "smg")
     length = (2.6 if empty else 1.9) if rifle else (1.9 if empty else 1.4)
     parts = [(_cloth(r, 0.5, 0.6), 0.4, 0.0), (_mag_out(r, 0.4), 1.0, 0.12)]
     seat_at = 0.95 if rifle else 0.7
@@ -423,7 +540,7 @@ def equip(r, weapon: str, **_):
         draw = _scrape(r, 0.25, 2500, 11000, 0.0) * dsp.env_adsr(0.25, 0.02, 0.05, 0.8, 0.15)
         return dsp.fade(dsp.mix(length, (draw, 0.8), (ring, 0.25, 0.2)))
     clink = _debris(r, length, 8, 2500, 8000, 0.02, 0.05, 0.25)
-    check = _clack(r, 0.3, 1700 if weapon == "rifle" else 2200, 0.02, 0.8)
+    check = _clack(r, 0.3, 1700 if weapon in ("rifle", "marksman") else 2200, 0.02, 0.8)
     return dsp.fade(dsp.mix(length, (_cloth(r, 0.5, 1.0), 0.7), (clink, 0.3), (check, 0.8, 0.38)))
 
 

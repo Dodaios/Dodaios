@@ -3671,6 +3671,14 @@
       "land_warning": "Der Code eines gelisteten Repositorys ändert sich, ohne dass du den Pull Request vorher ansiehst. Füge nur Repositorys hinzu, deren Tests du vertraust.",
       "land_add": "Repository hinzufügen",
       "land_remove": "{repo} entfernen"
+    },
+    "look": {
+      "title": "Look",
+      "description": "Was in der App an der Stelle des Sprach-Orbs erscheint. Looks kommen aus dem Community-Marktplatz und können nur zeichnen: Sie bekommen den Sprachzustand und die Lautstärke, sonst nichts.",
+      "orb": "Sprach-Orb (Standard)",
+      "by": "von {author}",
+      "saved": "Look gewechselt.",
+      "failed": "Dieser Look ist nicht gestartet, deshalb ist der Sprach-Orb zu sehen."
     }
   },
   "telephony_view": {
@@ -6669,7 +6677,17 @@
     "install_failed": "Installation fehlgeschlagen ({status})",
     "contents_failed": "Dieser Eintrag konnte nicht gelesen werden ({status})",
     "err_identity_start": "Anmeldung konnte nicht gestartet werden ({status})",
-    "err_identity_failed": "Anmeldung fehlgeschlagen"
+    "err_identity_failed": "Anmeldung fehlgeschlagen",
+    "filter_looks": "Looks",
+    "shelf_looks": "Looks",
+    "shelf_looks_hint": "Visuals, die den Platz des Sprach-Orbs einnehmen",
+    "kind_look": "Look",
+    "landed_look": "Wähle ihn in den Einstellungen aus, neben Darstellung.",
+    "look_home": "Einstellungen",
+    "look_reach": "Er kann nur zeichnen. Er bekommt den Sprachzustand und die Lautstärke, sonst nichts: kein Internet, keine Dateien, kein Zugriff auf die App.",
+    "look_license": "Lizenz",
+    "look_attribution": "Urheber",
+    "look_size": "Downloadgröße"
   },
   "costs_view": {
     "title": "Kosten & Tokens",
@@ -7938,7 +7956,21 @@
       "lookup_one": "Werkzeuge nachgeschlagen",
       "lookup_other": "Werkzeuge nachgeschlagen",
       "asked_one": "dich gefragt",
-      "asked_other": "dich gefragt"
+      "asked_other": "dich gefragt",
+      "fetch_one": "eine Seite abgerufen",
+      "fetch_other": "{count} Seiten abgerufen",
+      "todo_one": "die Aufgabenliste aktualisiert",
+      "todo_other": "die Aufgabenliste aktualisiert",
+      "message_one": "einem Agenten geschrieben",
+      "message_other": "{count} Nachrichten gesendet",
+      "agents_list_one": "die Agenten geprüft",
+      "agents_list_other": "die Agenten geprüft",
+      "stop_one": "eine Aufgabe gestoppt",
+      "stop_other": "{count} Aufgaben gestoppt",
+      "more_one": "{list} und eine weitere Aktion",
+      "more_other": "{list} und {count} weitere Aktionen",
+      "failed_one": "{count} fehlgeschlagen",
+      "failed_other": "{count} fehlgeschlagen"
     },
     "act_n": {
       "command": "{count} Befehle ausgeführt",
@@ -11255,6 +11287,17 @@
     "state_waiting": "Wartet auf dein Okay",
     "state_failed": "Fehlgeschlagen",
     "open": "Öffnen"
+  },
+  "voice_call": {
+    "voice_title": "Stimme",
+    "voice_loading": "Stimmen werden geladen…",
+    "voice_none": "Für diesen Sprachweg gibt es keine Stimme zur Auswahl.",
+    "voice_unavailable": "Die Stimmen konnten nicht gelesen werden.",
+    "voice_applies_next_call": "Gilt ab dem nächsten Anruf",
+    "voice_saved": "Stimme geändert.",
+    "voice_saved_next_call": "Stimme für den nächsten Anruf gespeichert.",
+    "voice_save_failed": "Die Stimme konnte nicht geändert werden.",
+    "all_settings": "Alle Spracheinstellungen"
   },
   "design": {
     "settings": {

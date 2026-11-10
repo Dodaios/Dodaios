@@ -59,6 +59,11 @@ public:
 	/** First-person scale towards the camera: small enough to stay in front of any wall. */
 	static constexpr float ViewmodelScale = 0.25f;
 	static constexpr float MuzzleFlashSeconds = 0.05f;
+	/** Shot kick spring: natural frequency (rad/s), damping ratio (below 1 = a little overshoot), and how a shot splits into a jump and a velocity. */
+	static constexpr double KickSpringOmega = 28.0;
+	static constexpr double KickSpringZeta = 0.55;
+	static constexpr double KickJump = 0.4;
+	static constexpr double KickImpulse = 0.9;
 	/** Muzzle flash light: lumens, and how far ahead of the eye it sits (past the drawn weapon). */
 	static constexpr float FlashLumens = 1200.f;
 	static constexpr float FlashLightForwardCm = 80.f;
@@ -127,8 +132,11 @@ private:
 	// Motion state.
 	float EquipStartedAt = -100.f;
 	float EquipSeconds = 0.3f;
+	/** Shot kick: position (cm) and rotation (pitch, yaw, roll in degrees) with their spring velocities. */
 	FVector KickPos = FVector::ZeroVector;
-	FRotator KickRot = FRotator::ZeroRotator;
+	FVector KickRot = FVector::ZeroVector;
+	FVector KickPosVel = FVector::ZeroVector;
+	FVector KickRotVel = FVector::ZeroVector;
 	float BoltCycle = 0.f;
 	float FlashUntil = -1.f;
 	FRotator LastViewRotation = FRotator::ZeroRotator;

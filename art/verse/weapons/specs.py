@@ -305,7 +305,7 @@ class VfxSpec:
 VFX: tuple[VfxSpec, ...] = (
     VfxSpec(
         "SM_Vfx_Bolt",
-        "laser bolt core and glow sleeve, 60 cm long, +X along flight",
+        "tracer streak core and sleeve, 60 cm long, +X along flight",
         "MI_Weapon_Vfx_BoltOwn",
     ),
     VfxSpec("SM_Vfx_MuzzleFlash", "crossed flash cards on +X", "MI_Weapon_Vfx_MuzzleOwn"),
@@ -319,12 +319,12 @@ VFX: tuple[VfxSpec, ...] = (
 
 #: Weapon VFX material instances: (MI, master, use). The scorch is a decal (no mesh).
 VFX_MATERIALS: tuple[tuple[str, str, str], ...] = (
-    ("MI_Weapon_Vfx_BoltOwn", "M_Verse_Emissive", "own bolt, amber"),
-    ("MI_Weapon_Vfx_BoltFoe", "M_Verse_Emissive", "opponent bolt, red"),
+    ("MI_Weapon_Vfx_BoltOwn", "M_Verse_Emissive", "tracer streak (recoloured yellow-white at runtime)"),
+    ("MI_Weapon_Vfx_BoltFoe", "M_Verse_Emissive", "legacy opponent streak (unused at runtime)"),
     ("MI_Weapon_Vfx_MuzzleOwn", "M_Verse_Emissive", "own muzzle flash, amber"),
     ("MI_Weapon_Vfx_MuzzleFoe", "M_Verse_Emissive", "opponent muzzle flash, red"),
     ("MI_Weapon_Vfx_Sparks", "M_Verse_Emissive", "impact sparks, amber-white"),
-    ("MI_Weapon_Vfx_Scorch", "M_Verse_Decal", "impact scorch decal, oil black"),
+    ("MI_Weapon_Vfx_Scorch", "M_Verse_Decal", "bullet hole decal (tinted per surface at runtime)"),
 )
 
 

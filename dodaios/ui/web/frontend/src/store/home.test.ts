@@ -27,6 +27,38 @@ describe("why a call ended (the call window's note)", () => {
     expect(useHomeStore.getState().callProblem).toMatchObject({ message: "" });
   });
 
+  it("names the refusal when the provider said no and the call ends", () => {
+    const home = useHomeStore.getState();
+    home.ingest("VoiceSessionStarted", { session_id: "call" }, 1);
+    home.ingest("VoiceProviderRefused", {
+      session_id: "call", provider: "openai-live", kind: "plan",
+      message: "Your account does not offer this voice connection on its current plan. This call cannot continue right now.",
+      continued_on: "",
+    }, 2);
+    home.ingest("VoiceSessionEnded", { session_id: "call", hangup_reason: "error" }, 3);
+    expect(useHomeStore.getState().callProblem?.message).toContain("current plan");
+    expect(useHomeStore.getState().callNotice).toBeNull();
+  });
+
+  it("notes a change of voice path while the call goes on, and drops it when the call ends", () => {
+    const home = useHomeStore.getState();
+    home.ingest("VoiceSessionStarted", { session_id: "call" }, 1);
+    home.ingest("VoiceProviderRefused", {
+      session_id: "call", provider: "openai-live", kind: "plan",
+      message: "No plan. I am continuing this call with the classic voice path.",
+      continued_on: "pipeline",
+    }, 2);
+    expect(useHomeStore.getState().callNotice).toEqual({ message: "No plan. I am continuing this call with the classic voice path." });
+    expect(useHomeStore.getState().callProblem).toBeNull();
+    home.ingest("VoiceSessionEnded", { session_id: "call", hangup_reason: "hotkey" }, 3);
+    expect(useHomeStore.getState().callNotice).toBeNull();
+  });
+
+  it("ignores a refusal without words", () => {
+    useHomeStore.getState().ingest("VoiceProviderRefused", { continued_on: "", message: "" }, 1);
+    expect(useHomeStore.getState().callProblem).toBeNull();
+  });
+
   it("leaves no note after an ordinary hang-up", () => {
     const home = useHomeStore.getState();
     home.ingest("VoiceSessionStarted", { session_id: "call" }, 1);

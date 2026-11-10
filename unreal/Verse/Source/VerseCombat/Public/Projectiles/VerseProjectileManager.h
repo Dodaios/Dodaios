@@ -12,14 +12,21 @@ class IVersePieceDamage;
 class UVersePenetrationTable;
 class UVerseWeaponDefinition;
 
-/** One bolt in flight (server). Not an actor (combat-state.md 5). */
+/**
+ * One bullet in flight (server). Not an actor (combat-state.md 5). The code keeps the historic
+ * name "bolt" for a round in flight; since the ballistics decision it is a real bullet: muzzle
+ * velocity per weapon class and gravity drop (README decision table).
+ */
 struct FVerseBolt
 {
 	FVerseFireEvent Fire;
 	TWeakObjectPtr<const UVerseWeaponDefinition> Weapon;
 	TWeakObjectPtr<AActor> Shooter;
 	FVector Position = FVector::ZeroVector;
+	/** Direction of the current flight segment (the velocity's direction). */
 	FVector Dir = FVector::ForwardVector;
+	/** cm/s; starts at ProjectileSpeed along the fire direction, gravity bends it down. */
+	FVector Velocity = FVector::ZeroVector;
 	/** Distance flown, cm. */
 	double Travelled = 0.0;
 	/** Server time at which the bolt is at Position. */
@@ -56,8 +63,9 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnVerseBoltResolved, const FVerseBoltResult
 using FVerseBoltWorldTrace = TFunction<bool(const FVector& Start, const FVector& End, const AActor* Ignore, FHitResult& OutHit)>;
 
 /**
- * Server bolts (WP02.7, combat-state.md 5, 6). Each tick every bolt moves ProjectileSpeed x dt
- * (300 m/s = 5 m per 60 Hz tick), straight, no drop, and despawns at MaxRange. A new bolt first
+ * Server bullets (WP02.7, combat-state.md 5, 6). Each tick every bullet moves along its velocity
+ * (muzzle velocity ProjectileSpeed, e.g. 880 m/s = 14.7 m per 60 Hz tick) with gravity drop
+ * (GravityCmS2), one straight segment per tick, and despawns after MaxRange of path. A new bullet first
  * covers the shooter's latency (capped 250 ms) in tick-sized segments traced against hit bodies
  * rewound to the time the bolt was at that point; later segments trace current bodies. Per
  * segment: pieces (IVersePenetrationQuery), the world on VerseBolt (Bulwarks included), then
@@ -73,6 +81,14 @@ public:
 	static constexpr float MaxLatencyS = 0.25f;
 	/** Fixed server step, s (architecture.md 3.2: 60 Hz). */
 	static constexpr float ServerStepS = 1.f / 60.f;
+	/** Bullet drop: standard gravity, cm/s^2 (a few cm over the hangar's ranges). */
+	static constexpr double GravityCmS2 = 981.0;
+
+	/** Where a bullet fired from Origin along Dir at SpeedCmS is after T seconds (no hits). */
+	static FVector BallisticPosition(const FVector& Origin, const FVector& Dir, double SpeedCmS, double T)
+	{
+		return Origin + Dir * (SpeedCmS * T) - FVector(0.0, 0.0, 0.5 * GravityCmS2 * T * T);
+	}
 
 	static UVerseProjectileManager* Get(const UObject* WorldContextObject);
 
@@ -111,8 +127,8 @@ public:
 	FOnVerseBoltResolved OnBoltResolved;
 
 private:
-	/** Moves one bolt over [From, To] by Len cm, resolving what it meets; PoseTime < 0 = current bodies. */
-	void StepBolt(FVerseBolt& Bolt, double Len, double PoseTime, double EndTime);
+	/** Moves one bullet by Dt seconds of flight, resolving what it meets; PoseTime < 0 = current bodies. */
+	void StepBolt(FVerseBolt& Bolt, double Dt, double PoseTime, double EndTime);
 	void Resolve(FVerseBolt& Bolt, EVerseShotResult Result, EVerseHitZone Zone, bool bKillingBlow, AActor* HitActor,
 		const FVector& Where);
 	bool TraceWorld(const FVector& Start, const FVector& End, const AActor* Ignore, FHitResult& Out) const;

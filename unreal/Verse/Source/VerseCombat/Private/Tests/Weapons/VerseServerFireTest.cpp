@@ -294,7 +294,7 @@ bool FVersePresentationServerStops::RunTest(const FString&)
 		FFakeVersePenetrationQuery Query;
 		FFakeVersePieceDamage PieceDamage;
 		AActor* Blocker = nullptr;
-		const double StopX = 900.0; // beyond the latency advance of the first tick (at most 5 m)
+		const double StopX = 2000.0; // beyond the latency advance of the first tick (14.7 m at rifle speed)
 		const FVector Eye = Rig.Pawn->GetPawnViewLocation();
 		if (Stop == EStop::Piece)
 		{

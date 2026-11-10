@@ -270,7 +270,9 @@ function EntryAction({
         ? "marketplace.filter_plugins"
         : entry.kind === "skill"
           ? "marketplace.filter_skills"
-          : "marketplace.filter_agents",
+          : entry.kind === "look"
+            ? "marketplace.look_home"
+            : "marketplace.filter_agents",
     );
     return (
       <div className="flex shrink-0 items-center gap-2">
@@ -369,6 +371,20 @@ function Reach({ entry, t }: { entry: Entry; t: Translate }) {
           : t("marketplace.agent_asks_default"),
     });
     rows.push({ label: t("marketplace.agent_instructions"), text: entry.agent.instructions });
+  }
+
+  if (entry.kind === "look") {
+    rows.push({ label: t("marketplace.look_reach") });
+    if (entry.license) rows.push({ label: t("marketplace.look_license"), value: entry.license });
+    if (entry.attribution) {
+      rows.push({ label: t("marketplace.look_attribution"), value: entry.attribution });
+    }
+    if (entry.sizeBytes) {
+      rows.push({
+        label: t("marketplace.look_size"),
+        value: `${(entry.sizeBytes / (1024 * 1024)).toFixed(1)} MB`,
+      });
+    }
   }
 
   if (entry.portableAgents) {

@@ -362,7 +362,7 @@ Info blue and status green from §5.1 are dropped from the world.
 | Worn bare steel (edges) | #A9ADB2 | ≤ 3 % | §3 brushed steel |
 | Work-light white (sources) | #F2F4F5, #D9DDE0 | 3–8 % | §5.1 |
 | Signal red (lamps, opponent bolts) | #E3242B | ≤ 1.5 % | §5.1 |
-| Amber (lamps, screens, own bolts) | #F2A33A | ≤ 0.8 % | §5.1 |
+| Amber (lamps, screens, muzzle flashes) | #F2A33A | ≤ 0.8 % | §5.1 |
 | Hazard yellow (worn bands only) | #D9B23A | ≤ 1 % | §3 |
 | Brand gold (rank, commander marks only) | #C8A24A | ≤ 0.5 % | §5.1 |
 

@@ -122,6 +122,32 @@ function humanize(name: string): string {
   return capitalize(name.split(/[-_\s.]+/).filter(Boolean).join(" ").toLowerCase());
 }
 
+/**
+ * The helper tools coding CLIs share, by bucket. Keys are bare names,
+ * lowercase, without "-" or "_".
+ */
+const CLI_HELPERS: Record<string, string> = {
+  webfetch: "fetch", fetchurl: "fetch",
+  todowrite: "todo", todoread: "todo", updateplan: "todo",
+  sendmessage: "message",
+  listagents: "agents_list",
+  taskstop: "stop", killshell: "stop", killbash: "stop",
+};
+
+/** Buckets whose count is the number of distinct targets, not of calls. */
+const FILE_BUCKETS: ReadonlySet<string> = new Set(["read", "edit", "write"]);
+
+/** How many kinds of work a counted line names before the rest become "and 3 more". */
+export const SUMMARY_PARTS = 3;
+
+/** A bare PascalCase tool name of two or more words: "ListAgents", "WebFetch". */
+const PASCAL_TOOL = /^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+$/;
+
+/** "ListAgents" → "List agents". */
+function spacedPascal(name: string): string {
+  return capitalize(name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase());
+}
+
 function oneLine(text: string, max: number): string {
   const clean = text.replace(/\s+/g, " ").trim();
   return clean.length > max ? `${clean.slice(0, max - 1).trimEnd()}…` : clean;
@@ -547,6 +573,17 @@ export function callOf(block: ToolBlock, turn: TurnStatus, t: Translate, lang: s
     const text = named ? tr(t, `call.${action}`, { target: shortPath(named) }) : capitalize(tr(t, `act.${action}_one`));
     return { ...base, ...diffSize(block), kind: action, text, bucket: action };
   }
+  // A coding CLI's own helper tools say what they did ("Fetched a page").
+  const bare = block.name.trim().toLowerCase().replace(/[-_\s]/g, "");
+  if (bare === "websearch") {
+    const query = oneLine(firstString(record, ["query", "q"]), 100);
+    return { ...base, kind: "web", text: capitalize(tr(t, "family.web")), detail: query, bucket: "family:web" };
+  }
+  const helper = CLI_HELPERS[bare];
+  if (helper) {
+    const detail = oneLine(firstString(record, ["url", "description", "message", "summary", "task_id", "shell_id"]), 100);
+    return { ...base, kind: "tool", text: capitalize(tr(t, `act.${helper}_one`)), detail, bucket: helper };
+  }
   const family = description.family;
   const result = status === "done" ? terseResult(block, t, lang) : "";
   if (FAMILIES.has(family)) {
@@ -570,7 +607,9 @@ export function callOf(block: ToolBlock, turn: TurnStatus, t: Translate, lang: s
     return { ...base, kind: "tool", text: label, detail: oneLine(own.detail, 100), result, bucket: `used:${label}` };
   }
   const raw = OWN_SINGLE.test(block.name) ? bareToolName(block.name) : description.label || view.service || block.name;
-  const label = /[A-Z]/.test(raw) ? raw : humanize(bareToolName(raw));
+  // A CLI's own tool in PascalCase ("ListAgents") reads as words ("List agents").
+  const pascal = PASCAL_TOOL.test(block.name.trim()) ? spacedPascal(block.name.trim()) : "";
+  const label = pascal || (/[A-Z]/.test(raw) ? raw : humanize(bareToolName(raw)));
   if (view.integration || family === "mcp" || family === "service") {
     const service = view.service || label;
     return { ...base, kind: "service", text: label, detail: oneLine(description.detail, 100), result, bucket: `used:${service}`, brand: view.identity.logo ? view.identity.key ?? service : null };
@@ -583,23 +622,37 @@ const COUNTED_KINDS: ReadonlySet<string> = new Set(["command", "read", "list", "
 
 /**
  * "Ran commands, searched the web, used Linear" — a stretch in one line. With
- * `counted`, a kind that ran more than once says how often ("ran 6 commands").
+ * `counted`, a kind that ran more than once says how often ("ran 6 commands"),
+ * files count once however often they were touched, three kinds are named and
+ * the rest fold into "and 2 more", and failed calls are counted at the end.
  */
 export function summarize(calls: Call[], t: Translate, lang: string, counted = false): string {
   if (calls.length === 1) return calls[0].text;
-  const counts = new Map<string, number>();
-  for (const call of calls) counts.set(call.bucket, (counts.get(call.bucket) ?? 0) + 1);
+  const targets = new Map<string, Set<string>>();
+  for (const call of calls) {
+    const seen = targets.get(call.bucket) ?? new Set<string>();
+    seen.add(counted && FILE_BUCKETS.has(call.bucket) ? call.text : call.id);
+    targets.set(call.bucket, seen);
+  }
   const used: string[] = [];
   const parts: string[] = [];
-  for (const [bucket, n] of counts) {
+  for (const [bucket, seen] of targets) {
+    const n = seen.size;
     if (bucket.startsWith("used:")) used.push(bucket.slice(5));
     else if (bucket.startsWith("agent:")) parts.push(bucket.slice(6));
     else if (bucket.startsWith("family:")) parts.push(tr(t, `family.${bucket.slice(7)}`));
     else if (counted && n > 1 && COUNTED_KINDS.has(bucket)) parts.push(tr(t, `act_n.${bucket}`, { count: n }));
-    else parts.push(tr(t, `act.${bucket}_${plural(lang, n)}`));
+    else parts.push(tr(t, `act.${bucket}_${plural(lang, n)}`, { count: n }));
   }
   if (used.length) parts.push(tr(t, "act.used", { what: used.slice(0, 3).join(", ") }));
-  return capitalize(parts.join(", "));
+  if (!counted) return capitalize(parts.join(", "));
+  const shown = parts.length > SUMMARY_PARTS + 1 ? parts.slice(0, SUMMARY_PARTS) : parts;
+  const hidden = parts.length - shown.length;
+  let line = shown.join(", ");
+  if (hidden > 0) line = tr(t, `act.more_${plural(lang, hidden)}`, { list: line, count: hidden });
+  const failed = calls.filter((call) => call.status === "failed" || call.status === "blocked" || call.status === "declined").length;
+  if (failed > 0) line = `${line}, ${tr(t, `act.failed_${plural(lang, failed)}`, { count: failed })}`;
+  return capitalize(line);
 }
 
 /** Lay out a turn's blocks as its timeline. */

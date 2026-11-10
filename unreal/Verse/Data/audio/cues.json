@@ -5,7 +5,15 @@
  "content_root": "/Game/Verse/Audio",
  "weapon_profiles": {
   "pistol": "pistol",
-  "rifle": "rifle"
+  "smg": "smg",
+  "rifle": "rifle",
+  "marksman": "marksman"
+ },
+ "weapon_ids": {
+  "tallow": "pistol",
+  "skitter": "smg",
+  "graveline": "rifle",
+  "longsight": "marksman"
  },
  "default_weapon_profile": "rifle",
  "cues": [
@@ -338,10 +346,338 @@
    "licence": "own"
   },
   {
-   "id": "bolt_flyby",
+   "id": "wpn_smg_fp_mech",
+   "group": "Weapons",
+   "bus": "Weapons",
+   "recipe": "weapon_mech",
+   "params": {
+    "weapon": "smg"
+   },
+   "variants": 3,
+   "seed": 9100,
+   "peak_db": -6,
+   "space": "2d",
+   "noise": "",
+   "range_m": 0.0,
+   "volume": [
+    0.92,
+    1.0
+   ],
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "priority": 10,
+   "max_voices": 6,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "wpn_smg_fp_body",
+   "group": "Weapons",
+   "bus": "Weapons",
+   "recipe": "weapon_body",
+   "params": {
+    "weapon": "smg"
+   },
+   "variants": 3,
+   "seed": 9200,
+   "peak_db": -1,
+   "space": "2d",
+   "noise": "",
+   "range_m": 0.0,
+   "volume": [
+    0.92,
+    1.0
+   ],
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "priority": 10,
+   "max_voices": 6,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "wpn_smg_tail",
+   "group": "Weapons",
+   "bus": "Weapons",
+   "recipe": "weapon_tail",
+   "params": {
+    "weapon": "smg"
+   },
+   "variants": 3,
+   "seed": 9300,
+   "peak_db": -9,
+   "space": "2d",
+   "noise": "",
+   "range_m": 0.0,
+   "volume": [
+    0.92,
+    1.0
+   ],
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "priority": 8,
+   "max_voices": 4,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "wpn_smg_tp_near",
+   "group": "Weapons",
+   "bus": "Weapons",
+   "recipe": "weapon_tp_near",
+   "params": {
+    "weapon": "smg"
+   },
+   "variants": 3,
+   "seed": 9400,
+   "peak_db": -1,
+   "space": "3d",
+   "noise": "Noise.Shot",
+   "range_m": 0.0,
+   "volume": [
+    0.92,
+    1.0
+   ],
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "priority": 10,
+   "max_voices": 6,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "wpn_smg_tp_far",
+   "group": "Weapons",
+   "bus": "Weapons",
+   "recipe": "weapon_tp_far",
+   "params": {
+    "weapon": "smg"
+   },
+   "variants": 3,
+   "seed": 9500,
+   "peak_db": -3,
+   "space": "3d",
+   "noise": "Noise.Shot",
+   "range_m": 0.0,
+   "volume": [
+    0.92,
+    1.0
+   ],
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "priority": 9,
+   "max_voices": 4,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "wpn_smg_tp_tail",
+   "group": "Weapons",
+   "bus": "Weapons",
+   "recipe": "weapon_tail",
+   "params": {
+    "weapon": "smg",
+    "decay_s": 2.0,
+    "bright": 1800
+   },
+   "variants": 2,
+   "seed": 9600,
+   "peak_db": -9,
+   "space": "3d",
+   "noise": "Noise.Shot",
+   "range_m": 0.0,
+   "volume": [
+    0.92,
+    1.0
+   ],
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "priority": 7,
+   "max_voices": 4,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "wpn_marksman_fp_mech",
+   "group": "Weapons",
+   "bus": "Weapons",
+   "recipe": "weapon_mech",
+   "params": {
+    "weapon": "marksman"
+   },
+   "variants": 3,
+   "seed": 9700,
+   "peak_db": -6,
+   "space": "2d",
+   "noise": "",
+   "range_m": 0.0,
+   "volume": [
+    0.92,
+    1.0
+   ],
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "priority": 10,
+   "max_voices": 6,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "wpn_marksman_fp_body",
+   "group": "Weapons",
+   "bus": "Weapons",
+   "recipe": "weapon_body",
+   "params": {
+    "weapon": "marksman"
+   },
+   "variants": 3,
+   "seed": 9800,
+   "peak_db": -1,
+   "space": "2d",
+   "noise": "",
+   "range_m": 0.0,
+   "volume": [
+    0.92,
+    1.0
+   ],
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "priority": 10,
+   "max_voices": 6,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "wpn_marksman_tail",
+   "group": "Weapons",
+   "bus": "Weapons",
+   "recipe": "weapon_tail",
+   "params": {
+    "weapon": "marksman"
+   },
+   "variants": 3,
+   "seed": 9900,
+   "peak_db": -9,
+   "space": "2d",
+   "noise": "",
+   "range_m": 0.0,
+   "volume": [
+    0.92,
+    1.0
+   ],
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "priority": 8,
+   "max_voices": 4,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "wpn_marksman_tp_near",
+   "group": "Weapons",
+   "bus": "Weapons",
+   "recipe": "weapon_tp_near",
+   "params": {
+    "weapon": "marksman"
+   },
+   "variants": 3,
+   "seed": 10000,
+   "peak_db": -1,
+   "space": "3d",
+   "noise": "Noise.Shot",
+   "range_m": 0.0,
+   "volume": [
+    0.92,
+    1.0
+   ],
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "priority": 10,
+   "max_voices": 6,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "wpn_marksman_tp_far",
+   "group": "Weapons",
+   "bus": "Weapons",
+   "recipe": "weapon_tp_far",
+   "params": {
+    "weapon": "marksman"
+   },
+   "variants": 3,
+   "seed": 10100,
+   "peak_db": -3,
+   "space": "3d",
+   "noise": "Noise.Shot",
+   "range_m": 0.0,
+   "volume": [
+    0.92,
+    1.0
+   ],
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "priority": 9,
+   "max_voices": 4,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "wpn_marksman_tp_tail",
+   "group": "Weapons",
+   "bus": "Weapons",
+   "recipe": "weapon_tail",
+   "params": {
+    "weapon": "marksman",
+    "decay_s": 2.0,
+    "bright": 1800
+   },
+   "variants": 2,
+   "seed": 10200,
+   "peak_db": -9,
+   "space": "3d",
+   "noise": "Noise.Shot",
+   "range_m": 0.0,
+   "volume": [
+    0.92,
+    1.0
+   ],
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "priority": 7,
+   "max_voices": 4,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "bullet_flyby",
    "group": "Impacts",
    "bus": "Impacts",
-   "recipe": "bolt_flyby",
+   "recipe": "bullet_flyby",
    "params": {},
    "variants": 3,
    "seed": 2300,
@@ -359,6 +695,114 @@
    ],
    "priority": 9,
    "max_voices": 4,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "casing_rifle",
+   "group": "Foley",
+   "bus": "Foley",
+   "recipe": "casing",
+   "params": {
+    "size": "rifle"
+   },
+   "variants": 4,
+   "seed": 10900,
+   "peak_db": -14,
+   "space": "3d",
+   "noise": "",
+   "range_m": 8.0,
+   "volume": [
+    0.8,
+    1.0
+   ],
+   "pitch": [
+    0.93,
+    1.07
+   ],
+   "priority": 2,
+   "max_voices": 6,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "casing_pistol",
+   "group": "Foley",
+   "bus": "Foley",
+   "recipe": "casing",
+   "params": {
+    "size": "pistol"
+   },
+   "variants": 4,
+   "seed": 11000,
+   "peak_db": -14,
+   "space": "3d",
+   "noise": "",
+   "range_m": 8.0,
+   "volume": [
+    0.8,
+    1.0
+   ],
+   "pitch": [
+    0.93,
+    1.07
+   ],
+   "priority": 2,
+   "max_voices": 6,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "casing_smg",
+   "group": "Foley",
+   "bus": "Foley",
+   "recipe": "casing",
+   "params": {
+    "size": "pistol"
+   },
+   "variants": 4,
+   "seed": 11100,
+   "peak_db": -14,
+   "space": "3d",
+   "noise": "",
+   "range_m": 8.0,
+   "volume": [
+    0.8,
+    1.0
+   ],
+   "pitch": [
+    0.93,
+    1.07
+   ],
+   "priority": 2,
+   "max_voices": 6,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "casing_marksman",
+   "group": "Foley",
+   "bus": "Foley",
+   "recipe": "casing",
+   "params": {
+    "size": "rifle"
+   },
+   "variants": 4,
+   "seed": 11200,
+   "peak_db": -14,
+   "space": "3d",
+   "noise": "",
+   "range_m": 8.0,
+   "volume": [
+    0.8,
+    1.0
+   ],
+   "pitch": [
+    0.93,
+    1.07
+   ],
+   "priority": 2,
+   "max_voices": 6,
    "loop": false,
    "licence": "own"
   },
@@ -1069,6 +1513,118 @@
    "licence": "own"
   },
   {
+   "id": "rld_smg_tactical",
+   "group": "Reloads",
+   "bus": "Foley",
+   "recipe": "reload",
+   "params": {
+    "weapon": "smg",
+    "empty": false
+   },
+   "variants": 2,
+   "seed": 10300,
+   "peak_db": -5,
+   "space": "3d",
+   "noise": "Noise.Reload",
+   "range_m": 0.0,
+   "volume": [
+    0.95,
+    1.0
+   ],
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "priority": 7,
+   "max_voices": 2,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "rld_smg_empty",
+   "group": "Reloads",
+   "bus": "Foley",
+   "recipe": "reload",
+   "params": {
+    "weapon": "smg",
+    "empty": true
+   },
+   "variants": 2,
+   "seed": 10400,
+   "peak_db": -5,
+   "space": "3d",
+   "noise": "Noise.Reload",
+   "range_m": 0.0,
+   "volume": [
+    0.95,
+    1.0
+   ],
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "priority": 7,
+   "max_voices": 2,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "rld_marksman_tactical",
+   "group": "Reloads",
+   "bus": "Foley",
+   "recipe": "reload",
+   "params": {
+    "weapon": "marksman",
+    "empty": false
+   },
+   "variants": 2,
+   "seed": 10500,
+   "peak_db": -5,
+   "space": "3d",
+   "noise": "Noise.Reload",
+   "range_m": 0.0,
+   "volume": [
+    0.95,
+    1.0
+   ],
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "priority": 7,
+   "max_voices": 2,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "rld_marksman_empty",
+   "group": "Reloads",
+   "bus": "Foley",
+   "recipe": "reload",
+   "params": {
+    "weapon": "marksman",
+    "empty": true
+   },
+   "variants": 2,
+   "seed": 10600,
+   "peak_db": -5,
+   "space": "3d",
+   "noise": "Noise.Reload",
+   "range_m": 0.0,
+   "volume": [
+    0.95,
+    1.0
+   ],
+   "pitch": [
+    0.98,
+    1.02
+   ],
+   "priority": 7,
+   "max_voices": 2,
+   "loop": false,
+   "licence": "own"
+  },
+  {
    "id": "eqp_rifle",
    "group": "Reloads",
    "bus": "Foley",
@@ -1105,6 +1661,60 @@
    },
    "variants": 2,
    "seed": 5100,
+   "peak_db": -8,
+   "space": "2d",
+   "noise": "",
+   "range_m": 0.0,
+   "volume": [
+    0.92,
+    1.0
+   ],
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "priority": 4,
+   "max_voices": 2,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "eqp_smg",
+   "group": "Reloads",
+   "bus": "Foley",
+   "recipe": "equip",
+   "params": {
+    "weapon": "smg"
+   },
+   "variants": 2,
+   "seed": 10700,
+   "peak_db": -8,
+   "space": "2d",
+   "noise": "",
+   "range_m": 0.0,
+   "volume": [
+    0.92,
+    1.0
+   ],
+   "pitch": [
+    0.96,
+    1.04
+   ],
+   "priority": 4,
+   "max_voices": 2,
+   "loop": false,
+   "licence": "own"
+  },
+  {
+   "id": "eqp_marksman",
+   "group": "Reloads",
+   "bus": "Foley",
+   "recipe": "equip",
+   "params": {
+    "weapon": "marksman"
+   },
+   "variants": 2,
+   "seed": 10800,
    "peak_db": -8,
    "space": "2d",
    "noise": "",

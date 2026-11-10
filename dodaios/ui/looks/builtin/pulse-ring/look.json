@@ -1,0 +1,11 @@
+{
+  "format": "dodaios-look/1",
+  "id": "pulse-ring",
+  "name": "Pulse Ring",
+  "description": "A calm gold ring that breathes at rest, follows your voice while listening and pulses while Dodaios talks.",
+  "author": "Dodaios",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "entry": "index.html",
+  "preview": "preview.svg"
+}
