@@ -340,6 +340,7 @@
     "pets": "Mis mascotas",
     "self_build": "Hecho para ti",
     "games": "Ajustes de juegos",
+    "notifications": "Notificaciones",
     "phone": "Teléfono"
   },
   "assistant_view": {
@@ -11110,6 +11111,47 @@
         "tone": "El tono suena duro."
       }
     }
+  },
+  "notify": {
+    "title": "Notificaciones",
+    "subtitle": "Así te avisa Dodaios mientras la app está en segundo plano.",
+    "enabled": "Notificaciones de escritorio",
+    "enabled_hint": "Texto silencioso en tu escritorio. Nunca se habla.",
+    "kinds_title": "Avísame cuando",
+    "kind_reminder": "venza un recordatorio",
+    "kind_needs_you": "un agente me necesite",
+    "kind_approval": "una aprobación esté esperando",
+    "kind_finished": "un agente termine",
+    "quiet_title": "No molestar",
+    "quiet_hint": "Sin notificaciones entre estas horas.",
+    "quiet_from": "Desde",
+    "quiet_to": "Hasta",
+    "telegram_title": "Aprobaciones en Telegram",
+    "telegram_hint": "Una aprobación pendiente también llega a tu chat de Telegram, con botones de Permitir y Rechazar.",
+    "telegram_not_connected": "Conecta Telegram en Plugins para usar esto.",
+    "test": "Enviar una notificación de prueba",
+    "test_shown": "Mostrada.",
+    "test_held": "Retenida: {reason}",
+    "test_unsupported": "Este sistema no tiene notificaciones de escritorio.",
+    "load_failed": "No se pudieron cargar los ajustes.",
+    "save_failed": "El cambio no se guardó."
+  },
+  "reminders": {
+    "due_title": "Recordatorio",
+    "done": "Hecho",
+    "marked_done": "Hecho",
+    "snooze": "Posponer",
+    "snooze_15": "15 min",
+    "snooze_1h": "1 hora",
+    "snooze_3h": "3 horas",
+    "snooze_tomorrow": "Mañana",
+    "snoozed_until": "Pospuesto hasta {when}",
+    "captured_title": "{count} elementos capturados",
+    "captured_one": "1 elemento capturado",
+    "undo": "Deshacer",
+    "undone": "Eliminado",
+    "task": "Tarea",
+    "failed": "No ha funcionado. Inténtalo de nuevo."
   },
   "mobile": {
     "settings": {

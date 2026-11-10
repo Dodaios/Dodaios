@@ -340,6 +340,7 @@
     "pets": "我的宠物",
     "self_build": "为你构建",
     "games": "游戏设置",
+    "notifications": "通知",
     "phone": "手机"
   },
   "assistant_view": {
@@ -11110,6 +11111,47 @@
         "tone": "语气显得严厉。"
       }
     }
+  },
+  "notify": {
+    "title": "通知",
+    "subtitle": "应用在后台时，Dodaios 通过这些方式联系你。",
+    "enabled": "桌面通知",
+    "enabled_hint": "桌面上的静默文字，绝不会发出语音。",
+    "kinds_title": "在以下情况提醒我",
+    "kind_reminder": "提醒到期",
+    "kind_needs_you": "有代理需要我",
+    "kind_approval": "有审批等待处理",
+    "kind_finished": "有代理完成了工作",
+    "quiet_title": "请勿打扰",
+    "quiet_hint": "在这段时间内不发送通知。",
+    "quiet_from": "从",
+    "quiet_to": "到",
+    "telegram_title": "在 Telegram 中审批",
+    "telegram_hint": "等待中的审批也会发送到你的 Telegram 聊天，并带有“允许”和“拒绝”按钮。",
+    "telegram_not_connected": "请先在“插件”中连接 Telegram。",
+    "test": "发送测试通知",
+    "test_shown": "已显示。",
+    "test_held": "已拦截：{reason}",
+    "test_unsupported": "此系统没有桌面通知。",
+    "load_failed": "无法加载设置。",
+    "save_failed": "更改未保存。"
+  },
+  "reminders": {
+    "due_title": "提醒",
+    "done": "完成",
+    "marked_done": "已完成",
+    "snooze": "稍后",
+    "snooze_15": "15 分钟",
+    "snooze_1h": "1 小时",
+    "snooze_3h": "3 小时",
+    "snooze_tomorrow": "明天",
+    "snoozed_until": "已推迟到 {when}",
+    "captured_title": "已记录 {count} 项",
+    "captured_one": "已记录 1 项",
+    "undo": "撤销",
+    "undone": "已移除",
+    "task": "任务",
+    "failed": "没有成功，请再试一次。"
   },
   "mobile": {
     "settings": {

@@ -340,6 +340,7 @@
     "pets": "Meine Pets",
     "self_build": "Für dich gebaut",
     "games": "Spieleinstellungen",
+    "notifications": "Benachrichtigungen",
     "phone": "Telefon"
   },
   "assistant_view": {
@@ -11110,6 +11111,47 @@
         "tone": "Der Ton wirkt harsch."
       }
     }
+  },
+  "notify": {
+    "title": "Benachrichtigungen",
+    "subtitle": "So erreicht dich Dodaios, während die App im Hintergrund ist.",
+    "enabled": "Desktop-Benachrichtigungen",
+    "enabled_hint": "Stiller Text auf deinem Desktop. Es wird nie gesprochen.",
+    "kinds_title": "Sag mir, wenn",
+    "kind_reminder": "eine Erinnerung fällig ist",
+    "kind_needs_you": "ein Agent mich braucht",
+    "kind_approval": "eine Freigabe wartet",
+    "kind_finished": "ein Agent fertig ist",
+    "quiet_title": "Nicht stören",
+    "quiet_hint": "Keine Benachrichtigungen zwischen diesen Zeiten.",
+    "quiet_from": "Von",
+    "quiet_to": "Bis",
+    "telegram_title": "Freigaben in Telegram",
+    "telegram_hint": "Eine wartende Freigabe erreicht auch deinen Telegram-Chat, mit den Knöpfen Erlauben und Ablehnen.",
+    "telegram_not_connected": "Verbinde Telegram unter Plugins, um das zu nutzen.",
+    "test": "Testbenachrichtigung senden",
+    "test_shown": "Angezeigt.",
+    "test_held": "Zurückgehalten: {reason}",
+    "test_unsupported": "Dieses System hat keine Desktop-Benachrichtigungen.",
+    "load_failed": "Die Einstellungen konnten nicht geladen werden.",
+    "save_failed": "Die Änderung wurde nicht gespeichert."
+  },
+  "reminders": {
+    "due_title": "Erinnerung",
+    "done": "Erledigt",
+    "marked_done": "Erledigt",
+    "snooze": "Später",
+    "snooze_15": "15 Min.",
+    "snooze_1h": "1 Stunde",
+    "snooze_3h": "3 Stunden",
+    "snooze_tomorrow": "Morgen",
+    "snoozed_until": "Verschoben auf {when}",
+    "captured_title": "{count} Einträge aufgenommen",
+    "captured_one": "1 Eintrag aufgenommen",
+    "undo": "Rückgängig",
+    "undone": "Entfernt",
+    "task": "Aufgabe",
+    "failed": "Das hat nicht geklappt. Versuch es noch einmal."
   },
   "mobile": {
     "settings": {

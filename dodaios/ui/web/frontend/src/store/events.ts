@@ -95,6 +95,9 @@ export type SectionId =
   // Phone: pair a phone with the companion app, its notifications and the
   // owner-only WhatsApp channel (docs/mobile-companion.md). A Settings-hub page.
   | "phone"
+  // Notifications: desktop notifications, quiet hours, approvals in Telegram
+  // (dodaios/notify). A Settings-hub page.
+  | "notifications"
   | "dictionary"
   | "dictation"
   // The three tabs added by the merged voice section. "dictation" (default
@@ -156,6 +159,7 @@ export const SECTION_IDS = [
   "pets",
   "games",
   "phone",
+  "notifications",
   "dictionary",
   "dictation",
   // `satisfies` only catches array entries that are missing from the union,
@@ -256,6 +260,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   pets: "My Pets",
   games: "Game settings",
   phone: "Phone",
+  notifications: "Notifications",
   dictionary: "Dictionary",
   dictation: "Dictation",
   // Plain English, deliberately NOT the "{name} Voice" brand: these labels are
@@ -306,6 +311,7 @@ export const SECTION_LABEL_KEYS: Record<SectionId, string> = {
   pets: "nav.pets",
   games: "nav.games",
   phone: "nav.phone",
+  notifications: "nav.notifications",
   dictionary: "nav.dictionary",
   dictation: "nav.dictation",
   "voice-shortcuts": "shell_sections.voice_shortcuts",

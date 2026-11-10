@@ -340,6 +340,7 @@
     "pets": "My Pets",
     "self_build": "Built for you",
     "games": "Game settings",
+    "notifications": "Notifications",
     "phone": "Phone"
   },
   "assistant_view": {
@@ -11110,6 +11111,47 @@
         "tone": "The tone reads harsh."
       }
     }
+  },
+  "notify": {
+    "title": "Notifications",
+    "subtitle": "How Dodaios reaches you while the app is in the background.",
+    "enabled": "Desktop notifications",
+    "enabled_hint": "Silent text on your desktop. Nothing is ever spoken.",
+    "kinds_title": "Tell me when",
+    "kind_reminder": "A reminder is due",
+    "kind_needs_you": "An agent needs me",
+    "kind_approval": "An approval is waiting",
+    "kind_finished": "An agent finished",
+    "quiet_title": "Do not disturb",
+    "quiet_hint": "No notifications between these times.",
+    "quiet_from": "From",
+    "quiet_to": "Until",
+    "telegram_title": "Approvals in Telegram",
+    "telegram_hint": "A waiting approval also reaches your Telegram chat, with Allow and Deny buttons.",
+    "telegram_not_connected": "Connect Telegram under Plugins to use this.",
+    "test": "Send a test notification",
+    "test_shown": "Shown.",
+    "test_held": "Held back: {reason}",
+    "test_unsupported": "This system has no desktop notifications.",
+    "load_failed": "The settings could not be loaded.",
+    "save_failed": "The change was not saved."
+  },
+  "reminders": {
+    "due_title": "Reminder",
+    "done": "Done",
+    "marked_done": "Done",
+    "snooze": "Snooze",
+    "snooze_15": "15 min",
+    "snooze_1h": "1 hour",
+    "snooze_3h": "3 hours",
+    "snooze_tomorrow": "Tomorrow",
+    "snoozed_until": "Snoozed until {when}",
+    "captured_title": "Captured {count} items",
+    "captured_one": "Captured 1 item",
+    "undo": "Undo",
+    "undone": "Removed",
+    "task": "Task",
+    "failed": "That did not work. Try again."
   },
   "mobile": {
     "settings": {

@@ -84,6 +84,9 @@ const GamesTab = lazy(() =>
 const PhoneTab = lazy(() =>
   import("@/views/PhoneView").then((m) => ({ default: m.PhoneView })),
 );
+const NotificationsTab = lazy(() =>
+  import("@/views/NotificationsView").then((m) => ({ default: m.NotificationsView })),
+);
 const CostsTab = lazy(() =>
   import("@/views/CostsView").then((m) => ({ default: m.CostsView })),
 );
@@ -103,6 +106,7 @@ type HubNavId =
   | "appshots"
   | "pets"
   | "games"
+  | "notifications"
   | "profile"
   | "agent-instructions"
   | "trust"
@@ -122,6 +126,7 @@ const HUB_NAV_GROUPS: readonly { labelKey: string; ids: readonly HubNavId[] }[] 
       "appshots",
       "pets",
       "games",
+      "notifications",
       "profile",
       "agent-instructions",
       "trust",
@@ -151,6 +156,7 @@ const TAB_CONTENT: Record<HubNavId | "telephony-setup", LazyExoticComponent<Comp
   shortcuts: ShortcutsTab,
   pets: PetsTab,
   games: GamesTab,
+  notifications: NotificationsTab,
   trust: TrustTab,
   costs: CostsTab,
   feedback: FeedbackTab,
@@ -186,6 +192,8 @@ function resolveHubTab(active: string): { content: HubNavId | "telephony-setup";
       return { content: "pets", highlight: "pets" };
     case "games":
       return { content: "games", highlight: "games" };
+    case "notifications":
+      return { content: "notifications", highlight: "notifications" };
     case "trust":
       return { content: "trust", highlight: "trust" };
     case "costs":
