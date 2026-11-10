@@ -200,22 +200,46 @@ def offered_tools() -> list[Any]:
     ]
 
 
+#: What a vendor CLI accepts from one MCP tool call: Claude Code rejects a
+#: result over ``MAX_MCP_OUTPUT_TOKENS`` (25 000 tokens by default). A bigger
+#: result used to reach it unbounded and cost the whole call. The limit is a
+#: receiver maximum, not a cost cap: set ``DODAIOS_MCP_MAX_OUTPUT_TOKENS`` (or
+#: the CLI's own ``MAX_MCP_OUTPUT_TOKENS``, which is honoured too) to raise it.
+_MCP_DEFAULT_MAX_OUTPUT_TOKENS: Final[int] = 25_000
+#: JSON tokenizes at about three characters per token; stay under the limit.
+_MCP_CHARS_PER_TOKEN: Final[int] = 3
+
+
+def mcp_max_output_chars() -> int:
+    """The character budget of one MCP tool result, from the receiver's token limit."""
+    import os
+
+    for key in ("DODAIOS_MCP_MAX_OUTPUT_TOKENS", "MAX_MCP_OUTPUT_TOKENS"):
+        raw = os.environ.get(key, "").strip()
+        if raw.isdigit() and int(raw) > 0:
+            return int(raw) * _MCP_CHARS_PER_TOKEN
+    return _MCP_DEFAULT_MAX_OUTPUT_TOKENS * _MCP_CHARS_PER_TOKEN
+
+
 def _render(result: Any) -> str:
-    """A ToolResult as the text the model reads back."""
+    """A ToolResult as the text the model reads back, within the receiver's limit."""
+    from dodaios.core.bounded_json import bound_json, bound_text
+
+    limit = mcp_max_output_chars()
     if result is None:
         return "The tool returned nothing."
     output = getattr(result, "output", None)
     error = getattr(result, "error", None)
     if not getattr(result, "success", False):
-        return f"Tool failed: {error or 'no reason given'}"
+        return bound_text(f"Tool failed: {error or 'no reason given'}", limit)
     if output is None:
         return "Done."
     if isinstance(output, str):
-        return output
+        return bound_text(output, limit)
     try:
-        return json.dumps(output, ensure_ascii=False, default=str)
+        return bound_json(output, limit)
     except (TypeError, ValueError):
-        return str(output)
+        return bound_text(str(output), limit)
 
 
 # Per-image byte budget for images handed back over MCP. Matches the
@@ -386,6 +410,7 @@ __all__ = [
     "CHAT_SESSION_REF",
     "approval_snapshot",
     "build_server",
+    "mcp_max_output_chars",
     "offered_tools",
     "wire_read_only",
 ]

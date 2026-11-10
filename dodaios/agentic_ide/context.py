@@ -45,7 +45,8 @@ _MAX_CHARS = 4500
 _HEADER = (
     "[AGENTIC IDE — focused coding mode is ON]\n"
     "The user is coding in the repository below with agents in terminals T1, T2, ... "
-    "(grid order, left to right). To instruct a terminal, call agentic-ide-prompt with "
+    "(grid order, left to right). To instruct a terminal, call agentic-ide-prompt (without "
+    "that tool, workspace-orchestrate send to the terminal's id) with "
     "the user's words whole, every constraint and file included; a prompt writer that "
     "has read the repo builds the brief, so do not summarise or rewrite. To see what an "
     "agent did, call agentic-ide-terminal-report. A pane marked STILL BEING WRITTEN has "

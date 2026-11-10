@@ -98,7 +98,7 @@ def test_list_empty(app_with_manager: FastAPI) -> None:
         r = client.get("/api/missions")
     assert r.status_code == 200
     body = r.json()
-    assert body == {"missions": [], "total": 0}
+    assert body == {"missions": [], "total": 0, "next_cursor": None}
 
 
 def test_dispatch_then_list_contains_mission(
@@ -156,6 +156,23 @@ def test_list_active_leaves_out_missions_that_ended(app_with_manager: FastAPI) -
         # An explicit state wins over the shortcut.
         both = client.get("/api/missions?active=true&state=CANCELLED").json()
         assert [m["id"] for m in both["missions"]] == [ended["mission_id"]]
+
+
+def test_list_pages_newest_first_with_total_and_cursor(app_with_manager: FastAPI) -> None:
+    with TestClient(app_with_manager) as client:
+        made = [
+            client.post("/api/missions/dispatch", json={"prompt": f"m{i}"}).json()["mission_id"]
+            for i in range(5)
+        ]
+        first = client.get("/api/missions?limit=2").json()
+        assert first["total"] == 5 and len(first["missions"]) == 2
+        assert first["next_cursor"]
+        second = client.get(f"/api/missions?limit=2&cursor={first['next_cursor']}").json()
+        third = client.get(f"/api/missions?limit=2&cursor={second['next_cursor']}").json()
+        seen = [m["id"] for page in (first, second, third) for m in page["missions"]]
+        assert sorted(seen) == sorted(made) and len(set(seen)) == 5
+        assert third["next_cursor"] is None and second["total"] == 5
+        assert client.get("/api/missions?limit=2&cursor=garbage").status_code == 400
 
 
 def test_list_rejects_unknown_state(app_with_manager: FastAPI) -> None:
