@@ -74,8 +74,9 @@ def approval_snapshot() -> dict[str, Any]:
 
 #: Tools never offered to a chat session, by name. A spawn vehicle would let the
 #: session start a background worker that starts another one — the recursion the
-#: router tiers exist to prevent (AP-5/AP-14). The session IS the heavy worker
-#: here; it has no reason to hire one.
+#: router tiers exist to prevent (AP-5/AP-14). A coding thread or a society seat
+#: IS the heavy worker here; it has no reason to hire one. The one exception is
+#: the lead's own chat (``_withheld_for``): the lead delegates, on every seat.
 _WITHHELD: Final[frozenset[str]] = frozenset(
     {
         "spawn-worker",
@@ -112,14 +113,35 @@ def _wire_name(name: str) -> str | None:
     return f"{name.replace('/', '_')[:47]}_{digest}"
 
 
-def _wire_catalog(entries: list[Any]) -> dict[str, Any]:
+def _withheld_for(session_id: str | None) -> frozenset[str]:
+    """The tools ``session_id`` is not offered: the lead's chat keeps its delegation tools.
+
+    The lead is the person's one assistant and delegates work through the
+    Dodaios tools on every seat; the recursion guard is for workers and society
+    seats, which stay on the full list.
+    """
+    if not session_id:
+        return _WITHHELD
+    is_lead = getattr(_gateway(), "is_lead_session", None)
+    try:
+        lead = bool(is_lead(session_id)) if callable(is_lead) else False
+    except Exception:  # noqa: BLE001 - an unknown session is not the lead
+        lead = False
+    if not lead:
+        return _WITHHELD
+    from dodaios.brain.lead_manifest import LEAD_SPAWN_TOOLS
+
+    return _WITHHELD - LEAD_SPAWN_TOOLS
+
+
+def _wire_catalog(entries: list[Any], withheld: frozenset[str] = _WITHHELD) -> dict[str, Any]:
     """Reject ambiguous aliases instead of routing a call to the wrong tool."""
     result: dict[str, Any] = {}
     collisions: set[str] = set()
     for entry in entries:
         canonical = str(entry.name)
         wire = _wire_name(canonical)
-        if wire is None or canonical in _WITHHELD or wire in collisions:
+        if wire is None or canonical in withheld or wire in collisions:
             continue
         if wire in result:
             del result[wire]
@@ -140,7 +162,7 @@ async def _session_wire_catalog() -> dict[str, Any]:
         return {}
     if task_scope is not None:
         entries = [entry for entry in entries if entry.name in task_scope.names]
-    return _wire_catalog(entries)
+    return _wire_catalog(entries, _withheld_for(session_id))
 
 
 def _read_only(entry: Any, args: dict[str, Any] | None = None) -> bool:
@@ -326,7 +348,7 @@ def build_server() -> Any:
         gateway = _gateway()
         if gateway is None:
             return failed("Dodaios is still starting up.")
-        if name in _WITHHELD:
+        if name in _withheld_for(CHAT_SESSION_REF.get()):
             return failed(
                 f"{name} is not available from the chat — you ARE the worker. Do the work yourself."
             )

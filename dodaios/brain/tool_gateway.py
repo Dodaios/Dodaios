@@ -13,6 +13,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, cast
 from uuid import UUID
 
+from dodaios.brain.lead_manifest import LEAD_DROPPED_TOOLS, VOICE_SUPERSEDED_TOOLS
 from dodaios.core.protocols import (
     RiskTier,
     SupervisorToolDescriptor,
@@ -22,30 +23,10 @@ from dodaios.core.protocols import (
 )
 
 _VALID_RISK_TIERS = frozenset({"safe", "monitor", "ask", "block"})
-# Live sessions operate the screen with ``computer`` (ADR-0039). These would
-# start a second model's mission, or move/click/type in screen units the live
-# model never sees, so they are not part of the voice catalog.
-_VOICE_SUPERSEDED_TOOLS = frozenset(
-    {
-        "computer_use",
-        "computer-use",
-        "dispatch_to_harness",
-        "dispatch-to-harness",
-        "click",
-        "move_mouse",
-        "drag",
-        "scroll",
-        "type_text",
-        "hotkey",
-        "screenshot",
-    }
-)
-
-
-# The ambient-pane prompt tools pick a pane the model never named. The lead
-# addresses a pane by its stable id through ``workspace-orchestrate`` instead;
-# other surfaces that rely on these keep them.
-_LEAD_DROPPED_TOOLS = frozenset({"agentic-ide-prompt", "agentic-ide-fanout"})
+# The lead's seat exceptions (voice-only tools, what a call supersedes, the
+# ambient-pane tools the lead drops) are named in ``lead_manifest``.
+_VOICE_SUPERSEDED_TOOLS = VOICE_SUPERSEDED_TOOLS
+_LEAD_DROPPED_TOOLS = LEAD_DROPPED_TOOLS
 
 
 class BrainSupervisorToolGateway:
@@ -61,6 +42,7 @@ class BrainSupervisorToolGateway:
         | None = None,
         workspace_tool: Tool | None = None,
         lead_session: Callable[[str], bool] | None = None,
+        lead_hands: Callable[[str], dict[str, Any]] | None = None,
     ) -> None:
         self._manager = manager
         self._session_tool = session_tool
@@ -68,6 +50,7 @@ class BrainSupervisorToolGateway:
         self._session_tools = session_tools
         self._workspace_tool = workspace_tool
         self._lead_session = lead_session
+        self._lead_hands = lead_hands
         self._lock = threading.Lock()
         self._fingerprint: tuple[tuple[str, int], ...] = ()
         self._catalog_version = 0
@@ -143,15 +126,24 @@ class BrainSupervisorToolGateway:
             return False
 
     def lead_extra_tools(self) -> dict[str, Any]:
-        """What the lead has beyond the shared tools: addressed-pane coding and the board.
+        """What the lead has beyond the shared tools: addressed-pane coding, the board, the team.
 
         ``workspace-orchestrate`` and ``workspace-git`` address coding panes by
         stable id (voice has had them all along); ``work_board`` is the one
-        read of what runs and who needs the person.
+        read of what runs and who needs the person; ``ask_agent`` relays a
+        conversation with a team agent and ``product_help`` answers how-to
+        questions from the built-in guide. The exceptions between seats are
+        listed in ``lead_manifest``.
         """
         from dodaios.brain.work_board_tool import WorkBoardTool
+        from dodaios.plugins.tool.product_help import ProductHelpTool
 
-        extra: dict[str, Any] = {}
+        extra: dict[str, Any] = {ProductHelpTool.name: ProductHelpTool()}
+        if "message_agent" in self._live_tools():
+            from dodaios.plugins.tool.ask_agent import AskAgentTool
+            from dodaios.society.runtime import current_runtime
+
+            extra[AskAgentTool.name] = AskAgentTool(runtime_resolver=current_runtime)
         if self._workspace_tool is not None:
             extra[self._workspace_tool.name] = self._workspace_tool
             workspaces = getattr(self._workspace_tool, "gateway", None)
@@ -167,13 +159,23 @@ class BrainSupervisorToolGateway:
         return extra
 
     def lead_tools(self) -> dict[str, Any]:
-        """The typed lead's tool set: the shared tools, addressed-pane coding, the board."""
+        """The lead's tool set, the same on every seat (see ``lead_manifest``)."""
         tools = {
             name: tool
             for name, tool in self._live_tools().items()
             if name not in _LEAD_DROPPED_TOOLS
         }
         tools.update(self.lead_extra_tools())
+        return tools
+
+    def lead_session_tools(self, session_id: str) -> dict[str, Any]:
+        """The lead's tools for one chat: the shared set plus the chat's own hands."""
+        tools = self.lead_tools()
+        if self._lead_hands is not None:
+            try:
+                tools.update(self._lead_hands(session_id))
+            except Exception:  # noqa: BLE001 - a chat without its own hands still has the rest
+                pass
         return tools
 
     def _voice_tools(self) -> dict[str, Any]:
@@ -215,7 +217,7 @@ class BrainSupervisorToolGateway:
 
         tools["update_soul"] = UpdateSoulTool()
         # The live prompt carries only a short product brief; exact how-to
-        # answers come from the built-in guide on demand.
+        # answers come from the built-in guide on demand (the lead has it too).
         tools["product_help"] = ProductHelpTool()
         # A spoken "remember this" in a live call is saved while the call
         # runs, into the MEMORY.md every later conversation reads. Voice-only
@@ -270,7 +272,7 @@ class BrainSupervisorToolGateway:
         elif request.origin == "agent-chat" and self.is_lead_session(
             ref.removeprefix("agent-chat:")
         ):
-            tools = self.lead_tools()
+            tools = self.lead_session_tools(ref.removeprefix("agent-chat:"))
         else:
             tools = self._live_tools()
         scoped = None
@@ -338,7 +340,7 @@ class BrainSupervisorToolGateway:
             if tools is not None:
                 return self._describe(tools)
         catalog = (
-            self._describe(self.lead_tools())
+            self._describe(self.lead_session_tools(session_id))
             if self.is_lead_session(session_id)
             else self.catalog()
         )

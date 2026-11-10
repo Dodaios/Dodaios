@@ -798,6 +798,52 @@ def claude_stream_input(prompt: str) -> str:
     )
 
 
+#: The vendor tools Claude Code does not get on an identity turn (the lead's and a
+#: society seat's). They reach the web or the machine, or start a sub-agent, without
+#: passing the Dodaios gateway, where the risk tiers, the origin ledger, the outbound
+#: check and the audit log live (AP-3):
+#:
+#: * ``WebSearch`` / ``WebFetch``: the Dodaios web tools stamp every result with its origin.
+#: * ``Task`` / ``Agent``: the lead delegates through the Dodaios tools; a society seat
+#:   is a worker and hires nobody.
+_VENDOR_WEB_AND_AGENT_TOOLS: Final[tuple[str, ...]] = ("WebSearch", "WebFetch", "Task", "Agent")
+
+#: The lead's shell goes through ``run_shell`` on the Dodaios gateway, which tiers
+#: every command by its impact. The vendor's own shell would run the same command
+#: with no tier, no approval card and no audit record (the live lead ran 34 of them).
+#: The vendor's file tools stay: they act in the chat's working folder and the
+#: chat's permission mode applies to them. A society seat keeps its vendor shell
+#: because its briefing promises one in its own workspace and it also has
+#: ``society_shell``.
+_VENDOR_SHELL_TOOLS: Final[tuple[str, ...]] = (
+    "Bash",
+    "BashOutput",
+    "KillShell",
+    "KillBash",
+    "PowerShell",
+    "Monitor",
+)
+
+
+def identity_turn_flags(runner: str, identity: dodaios_harness.Identity) -> list[str]:
+    """The flags that keep an identity turn (lead or society seat) inside the gateway.
+
+    Claude Code (and GLM, which is Claude Code): ``--strict-mcp-config`` loads only
+    the Dodaios server, so the person's own MCP servers and the cloud connectors of
+    their Claude account (a mail connector, say) are not reachable around the trust
+    layer; the vendor's web, sub-agent and (for the lead) shell tools are removed.
+    Grok Build: its web tools are disabled. Codex does the equivalent in ``plan_codex``.
+    The other seats have no flag for it; ``docs/lead-seat-parity.md`` lists the gaps.
+    """
+    society = identity.session_id.startswith("society:")
+    if runner == "claude-cli":
+        removed = _VENDOR_WEB_AND_AGENT_TOOLS + (() if society else _VENDOR_SHELL_TOOLS)
+        return ["--strict-mcp-config", "--disallowedTools", ",".join(removed)]
+    if runner == "grok-cli":
+        return ["--disable-web-search"]
+    return []
+
+
 def plan_claude(
     *,
     prompt: str,
@@ -914,6 +960,8 @@ def _plan_claude_code(
     mcp_config = dodaios_harness.mcp_config_json(identity.session_id if identity else None)
     if mcp_config:
         argv += ["--mcp-config", mcp_config]
+        if identity is not None:
+            argv += identity_turn_flags("claude-cli", identity)
         if identity is not None and identity.path is not None:
             argv += ["--append-system-prompt-file", str(identity.path)]
         elif identity is not None:
@@ -985,6 +1033,8 @@ def plan_grok(
         # "User cancelled"). Jarvis' gateway still gates every call.
         argv += ["--always-approve"]
     argv += ["--rules", KEEP_GOING_ON_TOOL_FAILURE]
+    if identity is not None:
+        argv += identity_turn_flags("grok-cli", identity)
     if model:
         argv += ["-m", model]
     if effort:
@@ -1383,6 +1433,8 @@ def plan_codex(
         argv += ["--ignore-user-config", "--ignore-rules"]
         for feature in ("browser_use", "plugins", "computer_use", "apps", "web_search_request"):
             argv += ["--disable", feature]
+        # The vendor's own web search is off too: results come from the Dodaios web tools.
+        argv += ["-c", 'web_search="disabled"']
     # The TUI's presets, spelled out for ``exec`` (codex 0.149): Read only /
     # Auto (workspace-write) / Full access (``--yolo``), plus "approve for
     # me" — Codex's own reviewer model decides what would have asked you,
@@ -4045,7 +4097,9 @@ def isolate_task_tools(argv: list[str], runner: str) -> None:
     a flag given twice, so each goes in once.
     """
     if runner == "claude-cli":
-        argv += ["--tools", "", "--strict-mcp-config"]
+        argv += ["--tools", ""]
+        if "--strict-mcp-config" not in argv:
+            argv.append("--strict-mcp-config")
         return
     if runner != "codex-cli":
         raise CliUnavailable("The selected runner cannot isolate task tools.")

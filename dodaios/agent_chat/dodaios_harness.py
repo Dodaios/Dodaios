@@ -87,9 +87,12 @@ _SHARED_PREAMBLE: Final[str] = (
     f"`mcp__{_SERVER_NAME}__<tool>`; Grok Build names them `{_SERVER_NAME}__<tool>`, called "
     "through use_tool. They act on the running app and the person's connected accounts and "
     "are already signed in; prefer them over a shell, a CLI, a skill or the browser for the "
-    "person's own apps, data and machine. Your own file and shell tools cover this chat's "
-    f"working folder; `mcp__{_SERVER_NAME}__run_shell` / `{_SERVER_NAME}__run_shell` cover "
-    "the rest of the machine.\n\n"
+    "person's own apps, data and machine. Your own file tools cover this chat's "
+    f"working folder. Run shell commands with `mcp__{_SERVER_NAME}__run_shell` / "
+    f"`{_SERVER_NAME}__run_shell` and look things up on the web with the Dodaios web tools "
+    "(search_web; society_browser for reading a page): only the Dodaios tools are checked "
+    "against the person's rules and recorded, so where your own shell or web tools are "
+    "switched off, use these.\n\n"
     "When the person selects the browser (@browser, @browser-use, [tools: core:browser]), "
     f"use society_browser from the `{_SERVER_NAME}` MCP server, the live browser in the "
     "Options rail; if it is unavailable, say so.\n\n"
@@ -114,13 +117,15 @@ ACTING_PREAMBLE: Final[str] = (
     "list for them, read the items, then make it a living page with living_page."
 )
 
-#: The closing block of the assistant's own chat (the Jarvis surface). There
-#: the turn itself is the worker: the background workers of old are retired.
+#: The closing block of the assistant's own chat (the Jarvis surface). The
+#: assistant is the lead: work that fits an agent's hands goes out through the
+#: Dodaios tools (the same set on every seat), never through the vendor CLI's
+#: own sub-agent tool, which would run outside the trust layer.
 SYSTEM_PREAMBLE: Final[str] = (
     _SHARED_PREAMBLE
     + "\n\n"
     + ACTING_PREAMBLE
-    + " You are this turn's worker: spawn no sub-agents."
+    + " Delegate through the Dodaios tools; do not use your vendor's own sub-agent tool."
 )
 
 #: The closing block of a coding thread in the Agentic IDE (a Claude Code seat

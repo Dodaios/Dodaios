@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
+from dodaios.brain.lead_manifest import LEAD_DROPPED_TOOLS
 from dodaios.core.protocols import ChatCompletion, Tool
 
 log = logging.getLogger(__name__)
@@ -186,7 +187,7 @@ def _jarvis_tools(_cfg: Any, _brain: Any, session: Any) -> dict[str, Tool]:
 
 
 #: Tools the lead does not get: they pick an ambient pane instead of addressing one.
-_LEAD_DROPPED_TOOLS: Final[frozenset[str]] = frozenset({"agentic-ide-prompt", "agentic-ide-fanout"})
+_LEAD_DROPPED_TOOLS: Final[frozenset[str]] = LEAD_DROPPED_TOOLS
 
 
 def _jarvis_filter(_session: Any) -> Callable[[dict[str, Tool]], dict[str, Tool]]:
