@@ -11,9 +11,8 @@ reads is untouched afterwards.
 
 from __future__ import annotations
 
-from typing import Any
-
 import asyncio
+from typing import Any
 
 import pytest
 
@@ -496,3 +495,46 @@ async def test_surface_prompt_never_carries_a_finished_turns_directive() -> None
     m._build_turn_context = lambda: ""  # type: ignore[method-assign]
     prompt, _ = await m.render_surface_prompt(user_text="hi")
     assert "DIRECTIVE-STALE" not in prompt
+
+
+async def test_concurrent_turns_never_see_each_others_gate_and_voice_signals() -> None:
+    """Gate state and the voice signals are per ``generate`` call, also after it returns."""
+    from dodaios.brain.manager import _BRAIN_TURN_STATE, _LAST_TURN_VALUES, _BrainTurnState
+
+    m = _prompt_manager()
+    both_set = asyncio.Event()
+    armed = 0
+
+    async def turn(tool: str, failed: bool, suppressed: bool) -> tuple[str, bool, bool, bool]:
+        nonlocal armed
+        state = _BrainTurnState(m)
+        token = _BRAIN_TURN_STATE.set(state)
+        try:
+            m._evidence_required_tool = tool
+            m._last_turn_all_failed = failed
+            m._last_turn_suppressed = suppressed
+            armed += 1
+            if armed == 2:
+                both_set.set()
+            await both_set.wait()
+            during = (m._evidence_required_tool, m._last_turn_all_failed, m._last_turn_suppressed)
+        finally:
+            _LAST_TURN_VALUES.set((m, dict(state.values)))
+            _BRAIN_TURN_STATE.reset(token)
+        # what a voice caller reads right after its own generate() returned
+        return (during[0], during[1], during[2], m._last_turn_all_failed)
+
+    a, b = await asyncio.gather(
+        asyncio.create_task(turn("tool-a", True, False)),
+        asyncio.create_task(turn("tool-b", False, True)),
+    )
+    assert a == ("tool-a", True, False, True)
+    assert b == ("tool-b", False, True, False)
+
+
+async def test_a_manager_wide_value_set_outside_a_turn_still_reads_back() -> None:
+    m = _prompt_manager()
+    m._last_turn_all_failed = True
+    assert m._last_turn_all_failed is True
+    m._last_turn_all_failed = False
+    assert m._last_turn_all_failed is False
