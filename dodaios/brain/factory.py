@@ -97,6 +97,8 @@ ROUTER_TOOLS = frozenset({
     # Jobs ledger (2026-11-10): read-only handle on the work the lead started.
     "job-status",
     "await-jobs",
+    # Independent, read-only check of delegated work (2026-11-10).
+    "verify-delegate",
     # Command Registry executor (2026-07-09): run ONE curated app command
     # (dodaios/commands/registry.py) through the SAME REST endpoint the UI
     # uses, in-process via ASGI transport. Enum-constrained command_id +

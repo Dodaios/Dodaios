@@ -202,10 +202,18 @@ class _BrainTurnState:
     (``render_surface_prompt``) installs an empty one.
     """
 
-    __slots__ = ("active_turn_identity", "evidence_directive", "memory_context_suffix", "owner")
+    __slots__ = (
+        "active_turn_identity",
+        "evidence_directive",
+        "memory_context_suffix",
+        "owner",
+        "values",
+    )
 
     def __init__(self, owner: Any) -> None:
         self.owner = owner
+        #: Values of the ``_TurnField`` attributes (gate state, voice signals).
+        self.values: dict[str, Any] = {}
         self.evidence_directive = ""
         self.memory_context_suffix = ""
         self.active_turn_identity: tuple[str, str | None] | None = None
@@ -215,6 +223,56 @@ _BRAIN_TURN_STATE: ContextVar[_BrainTurnState | None] = ContextVar(
     "dodaios.brain.manager.brain_turn_state",
     default=None,
 )
+
+#: The per-turn values of the turn that finished last IN THIS TASK (owner,
+#: values). A voice caller reads ``_last_turn_all_failed`` right after its own
+#: ``generate`` returns; the value must be its own turn's, not whichever
+#: concurrent turn of another session finished last.
+_LAST_TURN_VALUES: ContextVar[tuple[Any, dict[str, Any]] | None] = ContextVar(
+    "dodaios.brain.manager.last_turn_values",
+    default=None,
+)
+
+
+class _TurnField:
+    """A manager attribute whose value belongs to ONE ``generate`` call.
+
+    Inside a turn it lives on that turn's ``_BrainTurnState``, so brain turns of
+    different sessions that run concurrently never see each other's gate
+    state or voice signals. Outside a turn it reads what this task's last turn
+    left (``_LAST_TURN_VALUES``), then the manager-wide last value, so voice
+    code that reads a signal after ``generate`` returned keeps working.
+    """
+
+    __slots__ = ("default", "name")
+
+    def __init__(self, default: Any) -> None:
+        self.default = default
+        self.name = ""
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self.name = name
+
+    def __get__(self, obj: Any, objtype: type | None = None) -> Any:
+        if obj is None:
+            return self
+        state = _BRAIN_TURN_STATE.get()
+        if state is not None and state.owner is obj:
+            return state.values.get(self.name, self.default)
+        last = _LAST_TURN_VALUES.get()
+        if last is not None and last[0] is obj and self.name in last[1]:
+            return last[1][self.name]
+        return obj.__dict__.get("_turn_last_" + self.name, self.default)
+
+    def __set__(self, obj: Any, value: Any) -> None:
+        state = _BRAIN_TURN_STATE.get()
+        if state is not None and state.owner is obj:
+            state.values[self.name] = value
+            return
+        last = _LAST_TURN_VALUES.get()
+        if last is not None and last[0] is obj:
+            _LAST_TURN_VALUES.set(None)
+        obj.__dict__["_turn_last_" + self.name] = value
 
 #: Bounds for the conversation-context block appended to a Computer-Use goal.
 #: The deterministic gate ships the RAW current utterance as the mission goal;
@@ -2519,7 +2577,7 @@ class BrainManager:
         # whether to speak a spoken "all providers are down" fallback instead
         # of returning silently to LISTENING. A legitimate empty turn
         # (suppress_response fire-and-forget) leaves this False.
-        self._last_turn_all_failed: bool = False
+        self._last_turn_all_failed = False
         # AD-OE6 companion signal. True for exactly one turn when the winning
         # provider finished with ``suppress_response`` (a fire-and-forget
         # ``spawn_worker`` background mission that reports back over the bus).
@@ -2529,7 +2587,7 @@ class BrainManager:
         # drop the user into silence — it gets a spoken clarifying question
         # (live "Jarvis antwortet nie" cause 2026-06-08: conversational turns
         # returned a function_call and the turn ended mute).
-        self._last_turn_suppressed: bool = False
+        self._last_turn_suppressed = False
         # AD-OE6 companion signal #2. True for exactly one turn when the winning
         # provider executed a DESKTOP-ACTION tool (computer_use / open_app /
         # click / type / …) but produced no narration text. A wordless desktop
@@ -2540,7 +2598,7 @@ class BrainManager:
         # spoke "Wie meinst du das genau?" — so a successful action looked like
         # incomprehension. The pipeline reads this to speak a confirmation
         # instead. Reset to False each turn; only the winning provider sets it.
-        self._last_turn_executed_action_tool: bool = False
+        self._last_turn_executed_action_tool = False
         # Rotation cursor for the localized "brain unreachable" spoken fallback
         # (_provider_down_phrase). Advances once per total-failure turn so the
         # phrase varies instead of repeating verbatim.
@@ -5144,15 +5202,23 @@ class BrainManager:
     # mandatory-tool directive + the tool that must stay visible even on a
     # smalltalk-classified turn ("was steht heute an" matches the smalltalk
     # allowlist forms). Reset at the start of every generate() turn.
-    _evidence_required_tool: str = ""
+    _evidence_required_tool = _TurnField("")
     # True when the mandated tool this turn is a WRITE/create action (e.g.
     # contact-upsert) rather than a read lookup — switches the honest backstop
     # to write wording and lets a clarifying question stand. Reset per turn.
-    _evidence_required_is_write: bool = False
+    _evidence_required_is_write = _TurnField(False)
     # The external-data domain (calendar/email/cloud/…) a READ mandate targets,
     # so an unmet mandate's spoken fallback can NAME the capability instead of
     # the generic "the tool" (B3, 2026-06-30). Reset per turn.
-    _evidence_required_domain: str = ""
+    _evidence_required_domain = _TurnField("")
+    # Per-turn gate and voice signals (see ``_TurnField``): concurrent brain
+    # turns of different sessions never share them.
+    _public_fact_prefetched = _TurnField(False)
+    _last_turn_all_failed = _TurnField(False)
+    _last_turn_suppressed = _TurnField(False)
+    _last_turn_executed_action_tool = _TurnField(False)
+    _turn_substantive = _TurnField(False)
+    _turn_needs_tools = _TurnField(False)
 
     def _local_brain_turn_state(self) -> _BrainTurnState | None:
         state = _BRAIN_TURN_STATE.get()
@@ -5361,7 +5427,7 @@ class BrainManager:
         self._skill_match_class = ""
         self._skill_meta_turn = ""
         try:
-            from dodaios.skills import guards, match_eval, match_log
+            from dodaios.skills import guards, match_eval
             from dodaios.skills.autofire_policy import classify, may_capture
             from dodaios.skills.skill_context import try_get_skill_context
 
@@ -7043,7 +7109,6 @@ class BrainManager:
         """
         try:
             from dodaios.agentic_ide import clarify as ide_clarify
-            from dodaios.agentic_ide import fanout as ide_fanout
             from dodaios.agentic_ide import intent as ide_intent
         except Exception:  # noqa: BLE001 - optional surface
             return None
@@ -10376,6 +10441,10 @@ class BrainManager:
             # inspectable once the turn is over, never read by a concurrent one.
             self._evidence_directive_last = brain_state.evidence_directive
             self._active_turn_identity_last = brain_state.active_turn_identity
+            self.__dict__.update(
+                {"_turn_last_" + k: v for k, v in brain_state.values.items()}
+            )
+            _LAST_TURN_VALUES.set((self, dict(brain_state.values)))
             _BRAIN_TURN_STATE.reset(brain_state_token)
             _SKILL_TURN_STATE.reset(skill_token)
             _TURN_OVERRIDE.reset(override_token)

@@ -589,6 +589,28 @@ async def run_brain_turn(
         )
     _note_skill_trigger(brain, text)
 
+    # The lead's turn verifies its answer against the tool log and takes typed
+    # messages that arrive mid-turn (the CLI seat's steering, for the brain).
+    steer_inbox: list[str] = []
+    steer_open = False
+    if session.surface == "jarvis" and _is_lead(session.session_id):
+        from dodaios.agent_chat.turn_verify import lead_loop_control
+
+        def _drain_steer() -> list[str]:
+            taken, steer_inbox[:] = list(steer_inbox), []
+            return taken
+
+        async def _steer(message: str) -> bool:
+            if not steer_open or handle.cancel.is_set():
+                return False
+            steer_inbox.append(message)
+            return True
+
+        override = replace(override, loop_control=lead_loop_control(_drain_steer))
+        if handle.on_steer is not None:
+            steer_open = True
+            handle.on_steer(_steer)
+
     if bridge is not None:
         from dodaios.society.surface import requires_explicit_approval
 
@@ -641,9 +663,23 @@ async def run_brain_turn(
         log.exception("brain chat turn %s failed", turn_id)
         status, error = "error", f"{type(exc).__name__}: {exc}"
     finally:
+        steer_open = False
+        if handle.on_steer is not None:
+            handle.on_steer(None)
         if bridge is not None:
             bridge.disarm(ref)
         mirror.stop()
+    if steer_inbox:
+        # Typed as the answer was being closed: say so instead of dropping it.
+        await emit(
+            "notice",
+            {
+                "kind": "steer_arrived_late",
+                "turn_id": turn_id,
+                "text": "This message arrived as the turn ended and was not read. "
+                "Send it again: " + " / ".join(steer_inbox)[:600],
+            },
+        )
 
     if status == "done" and handle.cancel.is_set():
         status = "cancelled"

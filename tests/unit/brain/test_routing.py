@@ -1955,6 +1955,8 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
             # Jobs ledger (2026-11-10): read-only status / wait on started work.
             "job-status",
             "await-jobs",
+            # Independent, read-only check of delegated work (2026-11-10).
+            "verify-delegate",
             # Agent society voice tools (2026-09-02): ONE typed ASSIGN to a
             # named agent with an immediate ack (monitor) and a read-only
             # status answer (safe). The society scheduler, not the tool,
