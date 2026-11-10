@@ -187,10 +187,10 @@ function CallDetails({ call, className = "mb-1.5 mt-0.5" }: { call: Call; classN
   if (diff && diff.length > 0 && !block.isError) return <div className={className}><DiffView files={diff} /></div>;
   const input = call.kind === "command" ? "" : inputText(block.input);
   return <div className={cn(className, "space-y-1.5 select-text")}>
-    {call.kind === "command" && <pre className="m-0 overflow-x-auto rounded-lg bg-secondary px-3 py-2 font-mono text-xs leading-5 text-foreground scrollbar-jarvis">$ {inputText((block.input as Record<string, unknown> | null)?.command ?? call.text)}</pre>}
+    {call.kind === "command" && <pre className="m-0 max-h-24 overflow-y-auto whitespace-pre-wrap rounded-lg bg-secondary px-3 py-2 font-mono text-xs leading-5 text-foreground [overflow-wrap:anywhere] scrollbar-jarvis">$ {inputText((block.input as Record<string, unknown> | null)?.command ?? call.text)}</pre>}
     {input && input !== "{}" && <pre className="m-0 max-h-48 overflow-auto rounded-lg bg-secondary px-3 py-2 font-mono text-xs leading-5 text-muted-foreground scrollbar-jarvis">{input}</pre>}
     {output
-      ? <pre className={cn("m-0 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg border border-border px-3 py-2 font-mono text-xs leading-5 scrollbar-jarvis", block.isError ? "text-destructive" : "text-foreground-secondary")}>{output}</pre>
+      ? <pre className={cn("m-0 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-border px-3 py-2 font-mono text-xs leading-5 [overflow-wrap:anywhere] scrollbar-jarvis", block.isError ? "text-destructive" : "text-foreground-secondary")}>{output}</pre>
       : block.output === null ? null : <p className="text-xs text-muted-foreground">{t("thread_turn.no_output")}</p>}
   </div>;
 }
@@ -200,42 +200,12 @@ function callTail(call: Call, t: (key: string) => string): string {
   return isFailed(call) && call.reason ? call.reason : call.status === "interrupted" ? t("thread_turn.interrupted") : "";
 }
 
-/** A call in a line of the thread: a command by what it was, any other call by its own words. */
-function callWords(call: Call, t: (key: string) => string): string {
-  return call.kind === "command" ? capitalize(tr(t, "act.command_one")) : call.text;
-}
+/** The kinds of call a line of the thread names by what they were ("Ran a command", "Read a file"). */
+const PLAIN_KINDS: ReadonlySet<string> = new Set(["command", "read", "list", "search", "edit", "write", "image"]);
 
-/** A lone call between two things the agent said: a line of the thread that opens to its details. */
-function CallRow({ call, stamp }: { call: Call; stamp?: number }) {
-  const t = useT();
-  const [open, setOpen] = useState(false);
-  const failed = isFailed(call);
-  const running = call.status === "running";
-  const command = call.kind === "command";
-  const text = callWords(call, t);
-  const detail = command ? "" : call.detail || call.result;
-  const tail = callTail(call, t);
-  // The shine paints the label's own text, so a running row is one run of words.
-  const label = running
-    ? [text, detail].filter(Boolean).join("  ")
-    : <>
-      <span>{text}</span>
-      {detail && <span className="ml-1.5 text-muted-foreground/70">{detail}</span>}
-      {tail && <span className="ml-1.5 text-muted-foreground/70">— {tail}</span>}
-    </>;
-  return <WorkRow
-    label={label}
-    ariaLabel={failed ? fill(t("thread_turn.call_failed"), { call: call.text }) : undefined}
-    trailing={<>
-      <DiffStat added={call.added} removed={call.removed} />
-      {failed && <X aria-hidden className="h-3 w-3 shrink-0 text-destructive/70" />}
-    </>}
-    stamp={stamp}
-    live={running}
-    expanded={open}
-    onToggle={() => setOpen(!open)}>
-    <CallDetails call={call} />
-  </WorkRow>;
+/** A lone call as its line says it: what it was. What it acted on is one click away, in its row. */
+function callWords(call: Call, t: (key: string) => string): string {
+  return PLAIN_KINDS.has(call.kind) ? capitalize(tr(t, `act.${call.kind}_one`)) : call.text;
 }
 
 const THOUGHT_PROSE = cn(PROSE, "text-foreground-secondary dark:text-foreground-secondary prose-p:text-foreground-secondary prose-li:text-foreground-secondary");
@@ -270,13 +240,6 @@ function ThoughtView({ text }: { text: string }) {
  */
 export const THREAD_MEDIA = "[&_[data-kind=image]_img]:max-h-48 [&_[data-kind=image]_img]:max-w-sm [&_[data-kind=image]_img]:border [&_[data-kind=image]_img]:border-border";
 
-/** A stretch of one step: that step as a line of the thread. */
-function LoneStep({ item, running }: { item: StretchItem; running: boolean }) {
-  const t = useT();
-  if (item.kind === "call") return <CallRow call={item.call} stamp={item.startedMs} />;
-  return running ? <WorkRow label={t("thread_turn.thinking")} live /> : null;
-}
-
 const CARD_ROW = "group/step flex w-full min-w-0 items-center gap-1.5 px-3.5 py-2 text-left text-sm leading-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
 
 /**
@@ -284,14 +247,17 @@ const CARD_ROW = "group/step flex w-full min-w-0 items-center gap-1.5 px-3.5 py-
  * what it acted on a step brighter, then the chevron right after the words.
  * A row with something behind it opens in place.
  */
-function CardRow({ label, openLabel, detail, mono = false, trailing, live = false, ariaLabel, testId, children }: {
+function CardRow({ label, openLabel, detail, mono = false, trailing, live = false, ariaLabel, testId, startOpen = false, children }: {
   label: ReactNode;
   /** What the row reads while open, when what it opens to already says the label. */
   openLabel?: ReactNode;
   detail?: ReactNode; mono?: boolean; trailing?: ReactNode; live?: boolean;
-  ariaLabel?: string; testId?: string; children?: ReactNode;
+  ariaLabel?: string; testId?: string;
+  /** The row is the only one of its card and what it opens to is the point (a picture). */
+  startOpen?: boolean;
+  children?: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen);
   const words = <>
     <span className={cn("truncate text-muted-foreground transition-colors", detail ? "shrink-0" : "min-w-0",
       children && !live && "group-hover/step:text-foreground", live && "live-tool-shine")}>{open && openLabel ? openLabel : label}</span>
@@ -307,7 +273,7 @@ function CardRow({ label, openLabel, detail, mono = false, trailing, live = fals
   </div>;
 }
 
-function CardStep({ item, running }: { item: StretchItem; running: boolean }) {
+function CardStep({ item, running, lone = false }: { item: StretchItem; running: boolean; lone?: boolean }) {
   const t = useT();
   if (item.kind === "thought") return running ? <CardRow label={t("thread_turn.thinking")} live /> : null;
   const call = item.call;
@@ -320,6 +286,7 @@ function CardStep({ item, running }: { item: StretchItem; running: boolean }) {
     detail={command ? call.text : call.detail || call.result}
     mono={command}
     live={call.status === "running"}
+    startOpen={lone && call.kind === "image"}
     ariaLabel={failed ? fill(t("thread_turn.call_failed"), { call: call.text }) : undefined}
     trailing={<>
       {tail && <span className="min-w-0 truncate text-muted-foreground/70">— {tail}</span>}
@@ -331,27 +298,35 @@ function CardStep({ item, running }: { item: StretchItem; running: boolean }) {
 }
 
 /**
- * The calls between two pieces of the agent's prose, as one line: a lone
- * step on its own line, else what the calls did with a chevron. The line
- * stays closed until the reader opens it; while the turn works in it, it
- * carries the live shine. Opened, it shows a card with one row per step.
+ * The calls between two pieces of the agent's prose, as one line: what they
+ * did, with a chevron. The line stays closed until the reader opens it; while
+ * the turn works in it, it carries the live shine. Opened, it shows a card
+ * with one row per step — a lone call too, so every line opens the same way
+ * and a command's output never lands in the thread unasked.
  */
 function StretchView({ stretch, running }: { stretch: Stretch; running: boolean }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  if (stretch.items.length === 1) return <LoneStep item={stretch.items[0]} running={running} />;
-  const label = stretch.label;
+  const calls = stretch.items.flatMap((item) => item.kind === "call" ? [item.call] : []);
+  // Only the wordless thought of a running turn: one live line, nothing to open.
+  if (calls.length === 0) return running ? <WorkRow label={t("thread_turn.thinking")} live /> : null;
+  const label = calls.length === 1 ? callWords(calls[0], t) : stretch.label;
+  const failed = calls.length === 1 && isFailed(calls[0]);
   return <WorkRow
     label={label}
-    ariaLabel={stretch.live ? fill(t("thread_turn.steps_so_far"), { summary: label, count: stretch.items.length }) : undefined}
-    trailing={<DiffStat added={stretch.added} removed={stretch.removed} />}
+    ariaLabel={stretch.live ? fill(t("thread_turn.steps_so_far"), { summary: label, count: stretch.items.length })
+      : failed ? fill(t("thread_turn.call_failed"), { call: calls[0].text }) : undefined}
+    trailing={<>
+      <DiffStat added={stretch.added} removed={stretch.removed} />
+      {failed && <X aria-hidden className="h-3 w-3 shrink-0 text-destructive/70" />}
+    </>}
     stamp={stretch.startedMs}
     live={stretch.live}
     expanded={open}
     onToggle={() => setOpen(!open)}>
     <div role="region" aria-label={t("thread_turn.steps")} data-testid="thread-steps"
       className="mb-2 mt-0.5 divide-y divide-border overflow-hidden rounded-xl border border-border">
-      {stretch.items.map((item) => <CardStep key={item.id} item={item} running={running} />)}
+      {stretch.items.map((item) => <CardStep key={item.id} item={item} running={running} lone={stretch.items.length === 1} />)}
     </div>
   </WorkRow>;
 }
