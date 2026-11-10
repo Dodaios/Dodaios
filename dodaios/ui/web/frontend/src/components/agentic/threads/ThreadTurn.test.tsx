@@ -23,13 +23,10 @@ describe("a thread turn in an agent chat", () => {
   it("reads a streaming turn like a thread and folds it once it answered", () => {
     const blocks = [thought("r1", "**Checking the inbox**\n\nThree new mails."), tool("c1", "gh pr list"), tool("c2", "gh pr view 3", { output: null, durationMs: null })];
     const { rerender } = render(<ThreadTurn turn={turn(blocks, "running")} prompts="inline" />);
-    // The running stretch stays closed; opened, the worded thought is one short row.
-    const line = screen.getByRole("button", { name: /steps so far/ });
-    expect(line.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByTestId("thread-thought")).toBeNull();
-    fireEvent.click(line);
+    // The worded thought reads as prose; the running stretch stays closed.
     expect(screen.getByTestId("thread-thought").textContent).toContain("Checking the inbox");
-    expect(screen.queryByText("Three new mails.")).toBeNull();
+    expect(screen.getByText("Three new mails.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /steps so far/ }).getAttribute("aria-expanded")).toBe("false");
     expect(screen.getByTestId("thread-working").textContent).toMatch(/^Working for /);
     const done = [...blocks.slice(0, 2), { ...blocks[2], output: "ok", durationMs: 200 } as ToolBlock, { kind: "text" as const, id: "a", text: "Two PRs wait for review." }];
     rerender(<ThreadTurn turn={turn(done)} prompts="inline" receipt="1.2k tokens" />);
@@ -39,7 +36,6 @@ describe("a thread turn in an agent chat", () => {
     expect(screen.getByTestId("thread-worked-for").textContent).toContain("Worked for 5.0s");
     expect(screen.getByTestId("thread-turn-closing").textContent).toContain("1.2k tokens");
     fireEvent.click(screen.getByTestId("thread-worked-for"));
-    fireEvent.click(screen.getByRole("button", { name: /^Checking the inbox/ }));
     expect(screen.getByTestId("thread-thought").textContent).toContain("Checking the inbox");
   });
 
