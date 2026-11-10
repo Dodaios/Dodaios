@@ -127,6 +127,24 @@ export interface CommunityAgentWire {
   installed: boolean;
 }
 
+/** A published look: a visual in the voice orb's place (docs/looks.md). */
+export interface CommunityLookWire {
+  name: string;
+  title: string;
+  description: string;
+  publisher?: string | null;
+  publisher_id?: number | null;
+  version?: string | null;
+  published_at?: string | null;
+  license?: string | null;
+  attribution?: string | null;
+  source_url?: string | null;
+  preview_url?: string | null;
+  size_bytes?: number | null;
+  featured?: boolean;
+  installed: boolean;
+}
+
 export interface CommunityResponse {
   status: "fresh" | "fetched" | "revalidating" | "stale" | "unavailable" | "disabled";
   revision?: number | null;
@@ -135,6 +153,8 @@ export interface CommunityResponse {
   skills: CommunitySkillWire[];
   /** Absent from a backend older than agent templates. */
   agents?: CommunityAgentWire[];
+  /** Absent from a backend older than looks. */
+  looks?: CommunityLookWire[];
 }
 
 /** One readable file of a published entry — mirrors ``_text_file`` server-side. */

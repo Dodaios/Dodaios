@@ -9,15 +9,16 @@ import type { AgentTemplateWire } from "@/lib/agentShare";
 import type { SectionId } from "@/store/events";
 import type {
   CommunityAgentWire,
+  CommunityLookWire,
   CommunityPluginWire,
   CommunityResponse,
   CommunitySkillWire,
 } from "@/views/PluginsCommunity";
 
-export type Kind = "plugin" | "skill" | "agent";
+export type Kind = "plugin" | "skill" | "agent" | "look";
 export type StoreFilter = "all" | Kind | "installed" | "mine";
 
-export const KINDS: readonly Kind[] = ["plugin", "skill", "agent"];
+export const KINDS: readonly Kind[] = ["plugin", "skill", "agent", "look"];
 
 /** One entry of any kind, flattened into what the store draws. */
 export interface Entry {
@@ -71,6 +72,11 @@ export interface Entry {
    */
   pending?: "checking" | "failed" | "published" | null;
   pendingProblems?: string[];
+  /** Looks only: the preview picture, the license, the credit line and the download size. */
+  previewUrl?: string | null;
+  license?: string | null;
+  attribution?: string | null;
+  sizeBytes?: number | null;
 }
 
 /** Where an installed entry of this kind lives in the app. */
@@ -78,6 +84,8 @@ export const HOME_SECTION: Record<Kind, SectionId> = {
   plugin: "plugins",
   skill: "skills",
   agent: "agents",
+  // A look is picked under Settings, next to Appearance.
+  look: "settings",
 };
 
 /**
@@ -170,6 +178,27 @@ export function agentEntry(a: CommunityAgentWire): Entry {
   };
 }
 
+export function lookEntry(l: CommunityLookWire): Entry {
+  return {
+    kind: "look",
+    name: l.name,
+    title: l.title || l.name,
+    description: readableText(l.description),
+    publisher: l.publisher,
+    publisherId: publisherId(l.publisher_id),
+    version: l.version,
+    publishedAt: l.published_at ?? null,
+    categories: [],
+    sourceUrl: l.source_url,
+    installed: Boolean(l.installed),
+    featured: Boolean(l.featured),
+    previewUrl: l.preview_url ?? null,
+    license: l.license ?? null,
+    attribution: readableText(l.attribution),
+    sizeBytes: typeof l.size_bytes === "number" ? l.size_bytes : null,
+  };
+}
+
 /** Featured first, then the newest publication, then by name. */
 export function storeOrder(a: Entry, b: Entry): number {
   // What you just published comes first, so you see it the moment you return.
@@ -188,6 +217,7 @@ export function entriesOf(data: CommunityResponse | undefined): Entry[] {
     ...(data.plugins ?? []).map(pluginEntry),
     ...(data.skills ?? []).map(skillEntry),
     ...(data.agents ?? []).map(agentEntry),
+    ...(data.looks ?? []).map(lookEntry),
   ].sort(storeOrder);
 }
 
@@ -254,6 +284,7 @@ export function filterCounts(entries: Entry[], login: string | null): Record<Sto
     plugin: count("plugin"),
     skill: count("skill"),
     agent: count("agent"),
+    look: count("look"),
     installed: count("installed"),
     mine: login ? count("mine") : 0,
   };
