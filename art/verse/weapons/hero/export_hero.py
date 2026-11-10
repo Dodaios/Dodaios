@@ -138,7 +138,7 @@ def unwrap(body) -> None:
 
     boxes = []
     for ax, chart in charts:
-        pts = [project(ax, l.vert.co) for f in chart for l in f.loops]
+        pts = [project(ax, lp.vert.co) for f in chart for lp in f.loops]
         xs, ys = [p[0] for p in pts], [p[1] for p in pts]
         boxes.append((ax, chart, min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys)))
     pad = 0.0012  # metres between charts
@@ -156,9 +156,9 @@ def unwrap(body) -> None:
     extent = max(side, y + shelf)
     for ax, chart, x0, y0, ox, oy in placed:
         for f in chart:
-            for l in f.loops:
-                px, py = project(ax, l.vert.co)
-                l[uv].uv = ((px - x0 + ox) / extent, (py - y0 + oy) / extent)
+            for lp in f.loops:
+                px, py = project(ax, lp.vert.co)
+                lp[uv].uv = ((px - x0 + ox) / extent, (py - y0 + oy) / extent)
     bm.to_mesh(body.data)
     bm.free()
     print(f"[hero] unwrap: {len(charts)} charts, atlas side {extent * 100:.1f} cm")

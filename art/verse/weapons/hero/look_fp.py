@@ -47,7 +47,7 @@ def _room():
     plane("WallFar", (30, 6), (6.0, 0, 0.8), (0, math.radians(90), 0), (0.12, 0.12, 0.125))
     plane("WallL", (30, 6), (0, 4.0, 0.8), (math.radians(90), 0, 0), (0.16, 0.16, 0.165))
     plane("WallR", (30, 6), (0, -4.0, 0.8), (math.radians(-90), 0, 0), (0.16, 0.16, 0.165))
-    for i, x in enumerate((-2.0, 1.5, 5.0)):
+    for x in (-2.0, 1.5, 5.0):
         bpy.ops.object.light_add(type="AREA", location=(x, 0.6, 3.0))
         light = bpy.context.active_object
         light.data.shape = "RECTANGLE"

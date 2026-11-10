@@ -186,7 +186,7 @@ def cut(target: bpy.types.Object, cutter: bpy.types.Object) -> None:
 
 
 def engrave(target: bpy.types.Object, text: str, origin, height: float, depth: float = 0.0005):
-    """Cut `text` into the +Y (left) face of `target`, reading front to back along +X... from the left."""
+    """Cut `text` into the +Y (left) face of `target`, read from the weapon's left side."""
     curve = bpy.data.curves.new(f"Txt_{target.name}_{len(target.modifiers)}", "FONT")
     curve.body = text
     curve.size = height
