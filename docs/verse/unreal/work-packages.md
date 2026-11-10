@@ -147,7 +147,7 @@ mantle, a slide and a lean in the fixture map; automation report.
 
 **Goal.** Server-authoritative, client-predicted firearms with magazines,
 tactical and empty reloads, a learnable recoil pattern that really climbs,
-visible 300 m/s bolts, lag-compensated per-bone hits, damage, and the two
+ballistic bullets (README "Projectiles"), lag-compensated per-bone hits, damage, and the two
 start gadgets.
 
 **Owned.** `Source/VerseCombat/{Public,Private}/{Weapons,Inventory,Projectiles,Damage,LagComp,Gadgets}/**`;
@@ -176,7 +176,7 @@ lives in `Damage/`.
 | 2.8 | Lag compensation: 1 s per-bone ring buffer, 250 ms cap, query API reused by WP04 | Ring buffer and tests |
 | 2.9 | Damage: `UVerseHealthSet`, GAS damage effect, zone multipliers, falloff, armor first, ruleset hooks, `FVerseDeathEvent` | Damage code and tests |
 | 2.10 | Hub events Fire, Hit, Penetration, Death, Reload with the transports of combat-state 5.1 | Events and transport tests |
-| 2.11 | Bolt presentation: own predicted bolt amber, opponent bolt red from `FVerseFireEvent`, impact VFX only from the cosmetic hit event; placeholder VFX until WP14.9 | Presentation component |
+| 2.11 | Bullet presentation: own predicted shot, the opponent's from `FVerseFireEvent`; muzzle flash, smoke, ejected casings, tracer streak on tracer rounds only, impact VFX by surface only from the cosmetic hit event; placeholder VFX until WP14.9 | Presentation component |
 | 2.12 | Bulwark ability and actor (GAS, prediction key) per `combat-state.md` 2.3 | Ability, actor and tests |
 | 2.13 | Breach charge ability and actor: plant, fuse, detonation through `IVersePieceDamage` with breach radius, pawn damage with self-damage per `combat-state.md` 2.3 | Ability, actor and tests |
 | 2.14 | Skitter (SMG) and Longsight (DMR) data on the same schema, invariants green | Two assets |
@@ -187,7 +187,7 @@ lives in `Damage/`.
 | A2.2 | `Verse.Combat.Damage.ZonesAndFalloff` | Table-driven, every weapon and zone at 0 m, start, mid, end and beyond, exact to 1e-4 hp. Graveline: 4 upper-torso hits kill at 25 m or less, 2 head hits kill |
 | A2.3 | `Verse.Combat.FireRate` | Measured over a full magazine: Graveline 690 RPM within 1 %; Tallow never above 380 |
 | A2.4 | `Verse.Combat.Reload.Times` | Tactical and empty reload times within 1 tick of the asset; tactical leaves magazine + 1; cancel before commit keeps the old magazine |
-| A2.5 | `Verse.Combat.Projectile.Flight` | Speed 300 m/s within 0.5 %, zero drop over `MaxRange`, despawn at `MaxRange` plus at most 5 m |
+| A2.5 | `Verse.Combat.Projectile.Flight` | Muzzle velocity within 0.5 %, on the gravity arc within 0.5 cm over `MaxRange`, despawn at `MaxRange` plus at most 5 m; `Verse.Combat.Definitions.Ballistics` holds the velocities per class and the tracer rule |
 | A2.6 | `Verse.Combat.Prediction.FireReconcile` (netcode test) | At 60 ms lag, predicted bolt origin within 1 cm of the server's; a rejected shot's bolt disappears within one round trip plus 1 tick; ammo count never diverges after reconcile |
 | A2.7 | `Verse.Combat.LagComp.Rewind` | A target strafing at 6.5 m/s is hit at 60, 120 and 250 ms lag when the client aim was on it; at 300 ms the rewind clamps to 250 ms |
 | A2.8 | Cost | 64 bolts in flight: projectile manager at most 0.2 ms server game thread per tick |
@@ -196,12 +196,12 @@ lives in `Damage/`.
 | A2.11 | `Verse.Combat.Gadget.Breach` (GD2 to GD4) | Detonation 2.5 s after the plant within 1 tick; pawn damage at 0, 1.5, 3.0 m equals 120, 60, 0 to 1e-4 hp, owner included; the target piece reaches its breach result in 100 of 100 plants |
 
 **Evidence.** Recoil spray plot (pitch and yaw per shot, 10 seeds) as PNG
-and JSON; netcode report; first-person screenshot of amber and red bolts in
+and JSON; netcode report; first-person screenshot of tracer rounds in
 flight; automation report.
 
 ### WP03 Penetration and material table
 
-**Goal.** Bolts that pass, lose damage on, and leave glowing holes in
+**Goal.** Bullets that pass, lose damage on, and leave holes in
 materials according to one table, with sightlines through holes that the
 person and the bot share exactly.
 
@@ -722,7 +722,7 @@ Arsenal; `combat-state.md` 3 (`BoltColorOwn`, `BoltColorFoe`).
 | 14.6 | Hookbill knife (`Root`, `SOCKET_Tip`) | Assets |
 | 14.7 | Bulwark and breach charge models | Assets |
 | 14.8 | Skitter SMG and Longsight DMR | Assets |
-| 14.9 | Bolt VFX (amber own, red foe), muzzle, impact sparks and scorch | VFX |
+| 14.9 | Bullet VFX: tracer streak, muzzle flash, impact sparks and bullet holes (recoloured at runtime by the presentation since the ballistics decision) | VFX |
 | 14.10 | First-person shading pass: black steel, wear, oil, viewmodel lighting | Material instances |
 
 | Id | Acceptance test | Pass |

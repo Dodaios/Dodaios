@@ -75,6 +75,10 @@ const UVerseAudibilityTable& UVerseAudioCueSet::GetAudibility() const
 
 FName UVerseAudioCueSet::WeaponProfileFor(FName WeaponId) const
 {
+	if (const FName* Mapped = WeaponIdProfiles.Find(WeaponId))
+	{
+		return *Mapped;
+	}
 	const FString Id = WeaponId.ToString();
 	for (const FName& Profile : WeaponProfiles)
 	{

@@ -21,8 +21,9 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 // Verse.Visual.Combat.Bolts (WP02.11 evidence, rendered lane only: scripts/unreal/screenshot.py):
-// a first-person view with the viewer's own bolts in amber and the opponent's in red, frozen mid
-// flight. Synthetic scene (dark floor, one work light); the PNG goes to the proof folder.
+// a first-person view of gunfire with real rounds: the viewer's own tracer rounds and casings, the
+// opponent's tracers, muzzle flashes and smoke, impacts with sparks and bullet holes on the floor,
+// frozen mid flight. Synthetic scene (dark floor, one work light); the PNG goes to the proof folder.
 
 namespace VerseBoltVisual
 {
@@ -99,6 +100,8 @@ namespace VerseBoltVisual
 			return;
 		}
 		Present->LocalPlayerIdOverride = 1;
+		// The last rounds of a magazine: every round below is a tracer, so the streaks show.
+		Present->RoundsLeftOverride = [](int32, FName) { return 0; };
 		double Clock = 100.0;
 		Present->ClockOverride = [&Clock]() { return Clock; };
 		UVerseEventHub* Hub = UVerseEventHub::Get(World);
@@ -127,7 +130,25 @@ namespace VerseBoltVisual
 			Clock = 100.0 - 0.02 * I;
 			Hub->OnFire.Broadcast(E);
 		}
-		// Freeze the flight mid-way so the shot holds still while shaders and streaming settle.
+		// Rounds of the opponent's that already landed on the floor ahead: sparks and holes.
+		for (int32 I = 0; I < 3; ++I)
+		{
+			FVerseHitEvent Hit;
+			Hit.InstigatorId = 2;
+			Hit.VictimId = -1;
+			Hit.ShotCounter = uint16(40 + I);
+			Hit.ImpactWorld = FVector(700 + 120 * I, -90 + 110 * I, 0);
+			Hit.Direction = FVector(0.3, 0.5, -0.8).GetSafeNormal();
+			Clock = 100.02;
+			Hub->OnHit.Broadcast(Hit);
+		}
+		// Let the casings fly a few frames, then freeze mid-way so the shot holds still while shaders
+		// and streaming settle.
+		for (double T = 100.0; T <= 100.0301; T += 1.0 / 120.0)
+		{
+			Present->ClockOverride = [T]() { return T; };
+			Present->Advance(T);
+		}
 		Present->ClockOverride = []() { return 100.03; };
 		Present->Advance(100.03);
 	}
@@ -147,8 +168,10 @@ bool FVerseVisualBolts::RunTest(const FString&)
 		VerseBoltVisual::Setup(S);
 		TestTrue(TEXT("a game world to draw in"), S->World.IsValid());
 		const UVerseBoltPresentation* P = UVerseBoltPresentation::Get(S->World.Get());
-		TestTrue(TEXT("own bolts in flight"), P && P->NumOwn() == 6);
-		TestTrue(TEXT("opponent bolts in flight"), P && P->NumFoe() == 4);
+		TestTrue(TEXT("own rounds in flight"), P && P->NumOwn() == 6);
+		TestTrue(TEXT("opponent rounds in flight"), P && P->NumFoe() == 4);
+		TestTrue(TEXT("all tracer rounds (end of magazine)"), P && P->NumTracers() == 10);
+		TestTrue(TEXT("casings in the air"), P && P->GetCasings().Num() == 10);
 		return true;
 	}));
 	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(2.0f));

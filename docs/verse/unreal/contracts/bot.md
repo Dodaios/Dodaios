@@ -316,7 +316,7 @@ Port of the concept in `bot/aim.ts`, in first person, on look input:
 | Acquire error | On a new target: random direction, magnitude abs(N(1, 0.35)) x `AcquireErrorDeg`, pitch x 0.5, fading with tau `AcquireMs` / 3 |
 | OU wander | `x += -k x dt + sd sqrt(2 k dt) N(0,1)`, `k = AimNoiseRate`, `sd = AimNoiseDeg`, pitch x 0.6 |
 | Turn rate | Look step capped at `TurnRateDegS`; settles with `1 - exp(-AimStiffness dt)`; floor 0.02 deg per tick |
-| Lead | Bolt flight time (300 m/s) x `LeadSkill` x (1 + N(0, `LeadNoise`)) |
+| Lead | Bullet flight time (the weapon's muzzle velocity) x `LeadSkill` x (1 + N(0, `LeadNoise`)); no drop compensation, as a person does not hold over at hangar ranges |
 | Aim point | Head with `HeadAimChance` per engagement, else upper torso; if only some sample points are visible, the visible one closest to the chosen point |
 | Recoil | The weapon's pattern part is pulled down predictively by `RecoilPatternComp` (the bot "knows" the pattern as a practised person does); the random part (about 15 %, README) is corrected only after `TrackLatencyMs`, with gain `RecoilResidualGain`, through the normal aim controller |
 | Fire tolerance | Fires when the aim error is within `FireTolerance` x the target's angular half-width (`brain.ts:878-882`) |
@@ -358,7 +358,7 @@ the text file `unreal/Verse/Data/bot/tiers.json` (diffable, patchable by the
 harness like today's tuning patch in `harness/cli.ts`); the commandlet
 `VerseImportBotTiers` writes the assets from it and CI fails if they
 differ. Values below are starting values: anchors were re-chosen for first
-person and 300 m/s bolts, spacing keeps today's tier ratios (`tiers.ts:66-160`).
+person and the original 300 m/s bolts (bullets fly at 375 to 940 m/s since 2026-11-10), spacing keeps today's tier ratios (`tiers.ts:66-160`).
 `tiers.ts` ratio column: hard/normal and elite/normal of the matching
 today field, where one exists.
 

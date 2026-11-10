@@ -74,6 +74,7 @@ def test_noise_ranges_match_the_audibility_contract():
         REPO / "unreal/Verse/Source/VerseCore/Private/Noise/VerseAudibilityTable.cpp"
     ).read_text()
     rows = dict(re.findall(r"MakeRow\(Noise_(\w+), ([\w.]+)f?,", core))
+
     def key(tag: str) -> str:
         return tag.removeprefix("Noise.").replace(".", "_")
 
@@ -128,6 +129,11 @@ def test_cpp_mix_defaults_match_mix_json():
     assert default("ReferenceM") == mix["distance"]["reference_m"]
     assert default("Rolloff") == mix["distance"]["rolloff"]
     assert default("LimiterThresholdDb") == mix["limiter"]["threshold_db"]
+    assert default("FlybyRadiusM") == mix["flyby"]["radius_m"]
+    assert default("BulletSpeedMps") == mix["flyby"]["bullet_speed_mps"]
+    assert default("CasingDelayMinS") == mix["casing"]["delay_s"][0]
+    assert default("CasingDelayMaxS") == mix["casing"]["delay_s"][1]
+    assert default("CasingDropM") == mix["casing"]["drop_m"]
 
 
 def test_build_is_deterministic(tmp_path, cues):
@@ -181,3 +187,160 @@ def test_licence_audit_rejects_an_unknown_licence(cues):
     doc["cues"][0]["licence"] = "unknown"
     problems = audit_licences.audit(doc, audit_licences.ledger_rows(), Path("/nonexistent"), False)
     assert any("neither 'own'" in p for p in problems)
+
+
+# --------------------------------------------------------------------------- bullets, no sci-fi
+
+#: Weapon and bullet cues are real-gun sounds: broadband, no tone and no sweep. The action
+#: (fp_mech) and the casing ring like metal on purpose; they are held to the no-sweep rule only.
+TONAL_FRACTION_MAX = 0.3
+LOCAL_FLATNESS_MIN = 0.6
+SWEEP_FRAMES_MAX = 4
+
+
+def _onset(x: np.ndarray) -> int:
+    return int(np.argmax(np.abs(x) > np.max(np.abs(x)) * 0.1))
+
+
+def local_flatness(x: np.ndarray, length_s: float = 0.05) -> float:
+    """Spectral flatness of the first 50 ms after the onset, against the spectrum's own smooth
+    envelope (200 Hz to 12 kHz): noise of any colour reads near 1, a standing tone pulls it down."""
+    from scipy.ndimage import median_filter
+
+    start = _onset(x)
+    seg = x[start : start + dsp.seconds(length_s)]
+    n, hop, w = 512, 128, np.hanning(512)
+    frames = [seg[i : i + n] * w for i in range(0, max(1, len(seg) - n + 1), hop)]
+    p = np.mean([np.abs(np.fft.rfft(f, 4096)) ** 2 for f in frames], axis=0)
+    ratio = p / (median_filter(p, size=129, mode="nearest") + 1e-30)
+    f = np.fft.rfftfreq(4096, 1 / dsp.SR)
+    q = ratio[(f >= 200) & (f <= 12000)] + 1e-30
+    return float(np.exp(np.mean(np.log(q))) / np.mean(q))
+
+
+def dominant_peaks(x: np.ndarray, prom_db: float = 12.0) -> list[float | None]:
+    """Per 5 ms hop (10 ms window): the frequency of the strongest peak that stands prom_db above
+    the frame's own local spectral median (300 Hz to 12 kHz), or None when there is none."""
+    from scipy.ndimage import median_filter
+
+    n, hop = dsp.seconds(0.010), dsp.seconds(0.005)
+    w = np.hanning(n)
+    f = np.fft.rfftfreq(4096, 1 / dsp.SR)
+    band = (f >= 300) & (f <= 12000)
+    starts = range(0, len(x) - n + 1, hop)
+    rms = np.array([np.sqrt(np.mean(x[i : i + n] ** 2)) for i in starts])
+    active = rms >= rms.max() * 10 ** (-40 / 20)
+    out: list[float | None] = []
+    for j, i in enumerate(starts):
+        if not active[j]:
+            out.append(None)
+            continue
+        p = np.abs(np.fft.rfft(x[i : i + n] * w, 4096)) ** 2
+        ratio = (p / (median_filter(p, size=61, mode="nearest") + 1e-30))[band]
+        k = int(np.argmax(ratio))
+        out.append(float(f[band][k]) if 10 * np.log10(ratio[k] + 1e-30) >= prom_db else None)
+    return out
+
+
+def longest_sweep(peaks: list[float | None], max_step: float = 0.2, min_glide: float = 0.15) -> int:
+    """Longest run of successive frames whose dominant peak glides one way (steps up to 20 %, at
+    least 15 % in all): the track a sine sweep leaves. A held ring or noise leaves none."""
+    best, chain, way = 0, [], 0
+    for fk in peaks:
+        if fk is None:
+            chain, way = [], 0
+            continue
+        if not chain:
+            chain = [fk]
+            continue
+        if fk == chain[-1]:
+            continue
+        if abs(fk - chain[-1]) <= max_step * chain[-1]:
+            step = 1 if fk > chain[-1] else -1
+            if way not in (0, step):
+                chain = [chain[-1]]
+            way = step
+            chain.append(fk)
+        else:
+            chain, way = [fk], 0
+        if len(chain) > 1 and abs(chain[-1] - chain[0]) >= min_glide * chain[0]:
+            best = max(best, len(chain))
+    return best
+
+
+def tonal_metrics(x: np.ndarray) -> tuple[float, float, int]:
+    """(local flatness of the first 50 ms, fraction of frames with a standing peak, sweep run)."""
+    peaks = dominant_peaks(x)
+    tonal = sum(1 for p in peaks if p is not None) / max(1, len(peaks))
+    return local_flatness(x), tonal, longest_sweep(peaks)
+
+
+def test_the_tone_detector_catches_a_sweep_and_passes_noise():
+    sweep = dsp.sweep(2600, 340, 0.45, 6.0) * dsp.env_exp(0.45, 0.07)
+    _, tonal, run = tonal_metrics(sweep)
+    assert run >= 20 and tonal > 0.5
+    noise = dsp.bandpass(dsp.white(dsp.rng(3), 0.45), 300, 4000) * dsp.env_exp(0.45, 0.05)
+    flat, tonal, run = tonal_metrics(noise)
+    assert run <= SWEEP_FRAMES_MAX and tonal < TONAL_FRACTION_MAX and flat > LOCAL_FLATNESS_MIN
+
+
+def _bullet_cues(cues):
+    return [
+        c
+        for c in cues["cues"]
+        if c["recipe"].startswith("weapon_") or c["recipe"] in ("bullet_flyby", "casing")
+    ]
+
+
+def test_weapon_and_flyby_cues_have_no_tonal_sweep(cues):
+    """Bullets, not energy bolts: no tone and no sweep in any shot, tail or flyby; the metal rings
+    of the action and the casing may ring but never glide."""
+    checked = 0
+    for c in _bullet_cues(cues):
+        for v in range(int(c["variants"])):
+            flat, tonal, run = tonal_metrics(build_audio.render_variant(c, v))
+            checked += 1
+            assert run <= SWEEP_FRAMES_MAX, (c["id"], v, run)
+            if c["recipe"] in ("weapon_mech", "casing"):
+                continue
+            assert flat >= LOCAL_FLATNESS_MIN, (c["id"], v, flat)
+            assert tonal <= TONAL_FRACTION_MAX, (c["id"], v, tonal)
+    assert checked > 0
+
+
+def test_bullet_recipes_use_no_oscillator_sweep():
+    import inspect
+
+    for name in ("weapon_mech", "weapon_body", "weapon_tail", "weapon_tp_near", "weapon_tp_far"):
+        assert "sweep(" not in inspect.getsource(recipes.RECIPES[name]), name
+    for helper in (recipes._report, recipes._blast, recipes._crack, recipes.bullet_flyby):
+        assert "sweep(" not in inspect.getsource(helper), helper.__name__
+
+
+def test_every_weapon_has_a_complete_sound_profile(cues):
+    """weapon_ids maps every weapon of Data/weapons to a profile that has all of its cues."""
+    weapons = {p.stem for p in (REPO / "unreal/Verse/Data/weapons").glob("*.json")} - {"gadgets"}
+    assert set(cues["weapon_ids"]) == weapons
+    assert set(cues["weapon_ids"].values()) <= set(cues["weapon_profiles"])
+    ids = {c["id"] for c in cues["cues"]}
+    layers = ("fp_mech", "fp_body", "tail", "tp_near", "tp_far", "tp_tail")
+    for profile in cues["weapon_profiles"]:
+        assert profile in recipes.WEAPONS
+        need = [f"wpn_{profile}_{layer}" for layer in layers]
+        need += [f"rld_{profile}_tactical", f"rld_{profile}_empty", f"eqp_{profile}"]
+        need += [f"casing_{profile}"]
+        assert not [n for n in need if n not in ids], profile
+    assert "bullet_flyby" in ids and "bolt_flyby" not in ids
+
+
+def test_casing_is_a_quiet_nearby_foley_cue(cues):
+    casings = [c for c in cues["cues"] if c["recipe"] == "casing"]
+    assert casings
+    for c in casings:
+        assert c["bus"] == "Foley" and c["space"] == "3d" and not c["noise"]
+        assert 0 < c["range_m"] <= 10 and c["priority"] <= 3 and c["variants"] >= 3
+        x = build_audio.render_variant(c, 0)
+        spectrum = np.abs(np.fft.rfft(x)) ** 2
+        f = np.fft.rfftfreq(len(x), 1 / dsp.SR)
+        bright = spectrum[(f >= 3000) & (f <= 12000)].sum()
+        assert bright > 0.8 * spectrum.sum(), c["id"]

@@ -100,13 +100,13 @@ namespace VerseLagCompTest
 		}
 
 		/** The client's aim: lead the target as it shows it (pose at view time V) to where bolt and target meet. */
-		static FVector AimFor(double ViewTime)
+		static FVector AimFor(double ViewTime, double SpeedCmS)
 		{
 			double Tau = 0.06;
 			for (int32 I = 0; I < 20; ++I)
 			{
 				const FVector Chest = RootAt(ViewTime + Tau) + FVector(0, 0, 135);
-				Tau = FVector::Dist(Chest, Muzzle) / 30000.0;
+				Tau = FVector::Dist(Chest, Muzzle) / SpeedCmS;
 			}
 			return (RootAt(ViewTime + Tau) + FVector(0, 0, 135) - Muzzle).GetSafeNormal();
 		}
@@ -119,7 +119,7 @@ namespace VerseLagCompTest
 			E.WeaponId = W.WeaponId;
 			E.ShotCounter = 1;
 			E.Origin = Muzzle;
-			E.Direction = AimFor(Now - AimLag);
+			E.Direction = AimFor(Now - AimLag, double(W.ProjectileSpeed) * 100.0);
 			Manager->SpawnBoltFrom(E, W, float(Lag_), nullptr);
 			Advance(Now + 0.5);
 			return Results.Num() == 1 ? Results[0].Result : EVerseShotResult::Rejected;

@@ -1,14 +1,15 @@
 {
  "schema": "verse.audio.mix/1",
  "owner": "WP19",
- "master_gain_db": -7.7,
+ "master_gain_db": -5.7,
  "bus_gain_db": {"Weapons": 0.0, "Impacts": -3.0, "Foley": -4.0, "Destruction": -2.0, "Gadgets": -3.0, "Ambience": -6.0, "UI": -8.0},
  "limiter": {"threshold_db": -2.5, "lookahead_ms": 3.0, "attack_ms": 1.0, "release_ms": 120.0},
  "max_voices": 64,
  "dormant_unmute_fade_s": 0.15,
  "distance": {"reference_m": 1.5, "rolloff": 0.6, "fade_start_fraction": 0.7, "floor_db": -48.0},
  "shot_layers": {"near_full_m": 8.0, "far_full_m": 35.0},
- "flyby": {"radius_m": 3.5, "bolt_speed_mps": 300.0},
+ "flyby": {"radius_m": 3.5, "bullet_speed_mps": 880.0},
+ "casing": {"delay_s": [0.35, 0.55], "drop_m": 1.5},
  "debris_settle_delay_s": [0.6, 0.9],
  "occlusion_refresh_s": 0.25
 }

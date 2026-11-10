@@ -213,6 +213,7 @@ startup_chime = true
 orb_style = "jarvis_bar"
 bar_persistent = true        # keep the bar visible at all times (not only during a voice session)
 pet_id = "gigi"              # desktop pet (orb_style = "pet"): built-in id, your own u… id, or "none"
+look_id = "orb"              # in-app look where the voice orb sits: "orb" or a look id (docs/looks.md)
 pet_scale = 1.0              # pet size multiplier, 0.5–2.0
 pet_bubble = true            # show the pet's status bubble (what Dodaios is doing)
 pet_strip_always = false     # true: the pet's buttons always show; false: only while active or hovered

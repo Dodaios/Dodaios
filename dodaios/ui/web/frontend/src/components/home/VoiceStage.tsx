@@ -13,6 +13,7 @@ import { ScrollToEndButton } from "@/components/ui/scroll-to-end-button";
 import { Greeting } from "@/components/home/Greeting";
 import { PetMark } from "@/components/pets/PetMark";
 import { VoiceGlow } from "@/components/home/VoiceGlow";
+import { LookSlot } from "@/components/looks/LookSlot";
 import { useSpokenCursor } from "@/components/home/useSpokenCursor";
 import { TurnSteps, traceWorthShowing } from "@/components/home/TurnSteps";
 import { traceModel } from "@/lib/thinkingSteps";
@@ -102,7 +103,9 @@ export function VoiceStage({ onExit }: { onExit?: () => void } = {}) {
         data-testid="voice-stage"
         data-empty="true"
       >
-        <VoiceGlow active={active} thinking={voiceState === "thinking"} />
+        <LookSlot state={voiceState ?? "idle"} className="absolute inset-x-0 bottom-0 h-[38vh] w-full">
+          <VoiceGlow active={active} thinking={voiceState === "thinking"} />
+        </LookSlot>
         <div className="relative flex w-full max-w-[680px] flex-1 flex-col justify-center gap-7 px-6 pb-[14vh]">
           <Greeting subtitle={t("home.voice_subtitle")} />
           <VoiceBar hint={hint} onExit={onExit} />
@@ -117,7 +120,9 @@ export function VoiceStage({ onExit }: { onExit?: () => void } = {}) {
       data-testid="voice-stage"
       data-empty="false"
     >
-      <VoiceGlow active={active} thinking={voiceState === "thinking"} />
+      <LookSlot state={voiceState ?? "idle"} className="absolute inset-x-0 bottom-0 h-[38vh] w-full">
+        <VoiceGlow active={active} thinking={voiceState === "thinking"} />
+      </LookSlot>
       <ScrollArea ref={rootRef} className="relative min-h-0 w-full flex-1" data-testid="voice-transcript">
         <div
           ref={contentRef}

@@ -1068,6 +1068,25 @@ def normalize_force_spawn_mode(value: object) -> str:
 _PET_ID_SHAPE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
 
 
+#: The voice orb itself, the default "look" (docs/looks.md).
+ORB_LOOK_ID = "orb"
+
+#: The SHAPE of a look id (``dodaios.ui.looks.manifest.LOOK_ID_RE``) or "orb".
+_LOOK_ID_SHAPE = re.compile(r"^[a-z0-9][a-z0-9-]{1,47}$")
+
+
+def normalize_look_id(value: object) -> str | None:
+    """Lower-cased, trimmed look id, or ``None`` when it cannot be one.
+
+    Shape only: whether the look exists is decided where looks are listed.
+    The shape admits no separator, no dot and no drive letter.
+    """
+    if not isinstance(value, str):
+        return None
+    look_id = value.strip().lower()
+    return look_id if _LOOK_ID_SHAPE.fullmatch(look_id) else None
+
+
 def normalize_pet_id(value: object) -> str | None:
     """Lower-cased, trimmed pet id, or ``None`` when it cannot be one.
 
@@ -2137,6 +2156,10 @@ class UIConfig(BaseModel):
     # validator only sanitizes the SHAPE so a hand-edited value cannot brick
     # the load. Vocabulary: dodaios.ui.pets.states.
     pet_id: str = DEFAULT_PET_ID
+    # The in-app look shown where the voice orb sits (docs/looks.md): "orb"
+    # (the default) or the id of a built-in or installed look. A look that is
+    # gone from disk falls back to the orb in the app, never here.
+    look_id: str = ORB_LOOK_ID
     # Pet size multiplier on top of the monitor DPI scale, 0.5–2.0.
     pet_scale: float = 1.0
     # Show the status bubble under the pet's control strip.
@@ -2174,6 +2197,12 @@ class UIConfig(BaseModel):
         if f != f or f in (float("inf"), float("-inf")):  # NaN / ±inf
             return 1.0
         return max(0.5, min(2.0, f))
+
+    @field_validator("look_id", mode="before")
+    @classmethod
+    def _sanitize_look_id(cls, v: object) -> object:
+        # A hand-edited value that is not id-shaped falls back to the orb.
+        return normalize_look_id(v) or ORB_LOOK_ID
 
     @field_validator("pet_id", mode="before")
     @classmethod

@@ -66,7 +66,7 @@ bool FVerseProjectileFlight::RunTest(const FString&)
 		Rig.Manager->SpawnBoltFrom(VerseProjectileTest::Fire(Origin, Dir, 1, W->WeaponId), *W, 0.f, nullptr);
 		TestEqual(TEXT("one bolt in flight"), Rig.Manager->NumActive(), 1);
 		const double Start = Rig.Now;
-		double MaxDrop = 0.0;
+		double MaxDropErr = 0.0;
 		int32 Ticks = 0;
 		double SpeedErr = 0.0;
 		while (Rig.Manager->NumActive() > 0 && Ticks < 10000)
@@ -79,14 +79,15 @@ bool FVerseProjectileFlight::RunTest(const FString&)
 				const FVerseBolt& B = Rig.Manager->GetBolts()[0];
 				const double Speed = FVector::Dist(Before, B.Position) / VerseWp02Test::Tick;
 				SpeedErr = FMath::Max(SpeedErr, FMath::Abs(Speed - W->ProjectileSpeed * 100.0) / (W->ProjectileSpeed * 100.0));
-				// Drop: distance of the bolt from the firing line.
-				const FVector Rel = B.Position - Origin;
-				MaxDrop = FMath::Max(MaxDrop, (Rel - Dir * FVector::DotProduct(Rel, Dir)).Size());
+				// Drop: the bullet follows the gravity arc (0.5 g t^2 below the firing line).
+				const double T = Rig.Now - Start;
+				const FVector Want = UVerseProjectileManager::BallisticPosition(Origin, Dir, W->ProjectileSpeed * 100.0, T);
+				MaxDropErr = FMath::Max(MaxDropErr, FVector::Dist(B.Position, Want));
 			}
 		}
 		const FString Id = W->WeaponId.ToString();
 		TestTrue(FString::Printf(TEXT("%s: speed within 0.5 %% (%.4f %%)"), *Id, SpeedErr * 100.0), SpeedErr <= 0.005);
-		TestTrue(FString::Printf(TEXT("%s: zero drop (%.6f cm)"), *Id, MaxDrop), MaxDrop < 0.01);
+		TestTrue(FString::Printf(TEXT("%s: on the gravity arc within 0.5 cm (%.4f cm)"), *Id, MaxDropErr), MaxDropErr < 0.5);
 		if (TestEqual(TEXT("resolved once"), Rig.Results.Num(), 1))
 		{
 			const double Range = W->MaxRange * 100.0;
@@ -108,7 +109,10 @@ bool FVerseProjectileLatencyAdvance::RunTest(const FString&)
 	{
 		return false;
 	}
-	for (const float Latency : {0.f, 0.06f, 0.12f, 0.25f, 0.3f, 2.f})
+	// A rifle round covers its whole range in range / speed (about 170 ms): a latency advance past
+	// that ends the round as a miss on the spot, so the advance is checked inside the flight time.
+	const double FlightS = G->MaxRange / G->ProjectileSpeed;
+	for (const float Latency : {0.f, 0.03f, 0.06f, 0.12f, float(FlightS) - 0.01f})
 	{
 		VerseProjectileTest::FRig Rig;
 		Rig.Manager->SpawnBoltFrom(VerseProjectileTest::Fire(FVector(0, 0, 5000), FVector(1, 0, 0)), *G, Latency, nullptr);
@@ -116,8 +120,15 @@ bool FVerseProjectileLatencyAdvance::RunTest(const FString&)
 		{
 			continue;
 		}
-		const double Want = FMath::Min(Latency, 0.25f) * G->ProjectileSpeed * 100.0;
-		TestEqual(FString::Printf(TEXT("latency %.2f s advances %.0f cm (capped at 250 ms)"), Latency, Want), Rig.Manager->GetBolts()[0].Travelled, Want, 0.5);
+		const double Want = Latency * G->ProjectileSpeed * 100.0;
+		TestEqual(FString::Printf(TEXT("latency %.2f s advances %.0f cm"), Latency, Want), Rig.Manager->GetBolts()[0].Travelled, Want, 0.5);
+	}
+	// Beyond the flight time (and the 250 ms cap) the round is gone at once.
+	for (const float Latency : {float(FlightS) + 0.02f, 0.25f, 0.3f, 2.f})
+	{
+		VerseProjectileTest::FRig Rig;
+		Rig.Manager->SpawnBoltFrom(VerseProjectileTest::Fire(FVector(0, 0, 5000), FVector(1, 0, 0)), *G, Latency, nullptr);
+		TestEqual(FString::Printf(TEXT("latency %.2f s: the round has used up its range"), Latency), Rig.Manager->NumActive(), 0);
 	}
 	return true;
 }
@@ -183,7 +194,8 @@ bool FVerseProjectileTraceOrder::RunTest(const FString&)
 		}
 		if (Pens.Num() == 2)
 		{
-			TestEqual(TEXT("power 100 - 25 - 25"), Pens[1].PowerAfter, 50.f, 1e-3f);
+			// One 14.7 m chord carries the traced thickness through float precision: 0.01 of 100 power.
+			TestEqual(TEXT("power 100 - 25 - 25"), Pens[1].PowerAfter, 50.f, 1e-2f);
 		}
 		TestTrue(TEXT("HitBody result"), Rig.Results.Num() == 1 && Rig.Results[0].Result == EVerseShotResult::HitBody);
 	}
@@ -331,10 +343,10 @@ bool FVerseProjectileCost::RunTest(const FString&)
 	Rig.World.TickFrames(2);
 	Rig.Lag->Record(Rig.Now);
 
-	// Five waves of 64 bolts, 20 measured ticks each (150 m range = 30 ticks), after two warm-up ticks.
+	// Twenty waves of 64 rounds, 6 measured ticks each (a 150 m round at 880 m/s lives about 10 ticks), after two warm-up ticks.
 	TArray<double> Ms;
 	int32 MinAlive = 64;
-	for (int32 Wave = 0; Wave < 5; ++Wave)
+	for (int32 Wave = 0; Wave < 20; ++Wave)
 	{
 		Rig.Manager->Clear();
 		for (int32 I = 0; I < 64; ++I)
@@ -343,7 +355,7 @@ bool FVerseProjectileCost::RunTest(const FString&)
 			Rig.Manager->SpawnBoltFrom(VerseProjectileTest::Fire(FVector(0, 0, 150), Dir, uint16(Wave * 64 + I + 1)), *G, 0.f, nullptr);
 		}
 		Rig.Step(2);
-		for (int32 I = 0; I < 20; ++I)
+		for (int32 I = 0; I < 6; ++I)
 		{
 			Rig.Step();
 			Ms.Add(Rig.Manager->GetLastStepSeconds() * 1000.0);
@@ -351,7 +363,7 @@ bool FVerseProjectileCost::RunTest(const FString&)
 		}
 	}
 	TestEqual(TEXT("64 in flight through every measured tick"), MinAlive, 64);
-	TestTrue(TEXT("bolts passed the walls"), PieceDamage.Calls.Num() >= 64 * 5);
+	TestTrue(TEXT("bolts passed the walls"), PieceDamage.Calls.Num() >= 64 * 20);
 	Ms.Sort();
 	const double Median = Ms[Ms.Num() / 2];
 	const double P99 = Ms[FMath::Min(Ms.Num() - 1, int32(FMath::CeilToInt(Ms.Num() * 0.99)) - 1)];

@@ -214,7 +214,7 @@ with a client timestamp), the server simulates and replicates state.
 | Server tick | `NetServerMaxTickRate=60`; pawns replicate at 60 Hz, pieces and pickups on change |
 | Client frame rate | Uncapped up to the display (120+ target) |
 | Collections | `FFastArraySerializer` for piece states, magazines in the world, match score |
-| Projectiles | Not actors. The server runs a projectile manager that steps bolt segments (300 m/s, no drop) each tick. A fire event (shooter, weapon, seed, origin, direction, server time) goes out as an unreliable multicast; clients draw the bolt from it. The firing client draws its own bolt at once (predicted) and reconciles on the server's hit result |
+| Projectiles | Not actors. The server runs a projectile manager that steps bullet segments (muzzle velocity per weapon, gravity drop; README "Projectiles") each tick. A fire event (shooter, weapon, seed, origin, direction, server time) goes out as an unreliable multicast; clients draw the shot from it (muzzle flash, casing, a tracer only on tracer rounds). The firing client draws its own shot at once (predicted) and reconciles on the server's hit result |
 | Hit validation | Server rewinds per-bone hit boxes to the shooter's view time (ring buffer, 1 s, every server tick), caps rewind at 250 ms |
 | Abilities | GAS for health/armor attributes, damage effects, gadgets and the finisher; local prediction keys for gadgets. Weapon fire stays custom C++ (cheaper and deterministic per seed) |
 

@@ -3,7 +3,7 @@
 
 The replay is ``unreal/Verse/Data/audio/reference_duel.json``: a fixed 90 s
 hangar duel as the listener hears it (own shots, the opponent's shots at
-range, flybys, impacts, footsteps, reloads, breaks, a breach and a finisher
+range, bullet flybys, spent casings, impacts, footsteps, reloads, breaks, a breach and a finisher
 over the hangar bed). The mix uses the same rules as
 ``UVerseAudioSubsystem``: cue volumes, bus gains and master gain from
 ``mix.json``, the distance curve of ``VerseAudioAttenuation.cpp``, the shot
@@ -151,6 +151,19 @@ def render(events: list[dict], length_s: float, cues: dict, mix: dict, cache: Pa
                 place(f"wpn_{w}_tp_near", at, g * (1 - far))
                 place(f"wpn_{w}_tp_far", at, g * far)
                 place(f"wpn_{w}_tp_tail", at, g)
+            # The spent casing lands at the shooter's feet a moment later (cue range_m, as flybys).
+            casing = cues.get(f"casing_{w}")
+            if casing:
+                lo, hi = mix["casing"]["delay_s"]
+                drop = mix["casing"]["drop_m"]
+                when = at + float(picker.rng.uniform(lo, hi))
+                cg = (
+                    1.0
+                    if ev.get("own")
+                    else distance_gain(float(np.hypot(d, drop)), float(casing["range_m"]), dist)
+                )
+                if cg > 0.0:
+                    place(f"casing_{w}", when, cg)
             continue
         cue_id = ev["cue"]
         c = cues[cue_id]

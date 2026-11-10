@@ -50,11 +50,11 @@ namespace Verse::Audio
 	VERSEUI_API FName ImpactCueFor(EVersePenetrationMaterial Material);
 
 	/**
-	 * Closest approach of a bolt (origin, unit direction, cm) to the listener: distance in m and the
-	 * time after the shot in s at BoltSpeedMps. False when the closest point is behind the muzzle.
+	 * Closest approach of a bullet (origin, unit direction, cm) to the listener: distance in m and the
+	 * time after the shot in s at BulletSpeedMps. False when the closest point is behind the muzzle.
 	 */
-	VERSEUI_API bool BoltClosestApproach(const FVector& Origin, const FVector& Direction, const FVector& Listener,
-		float BoltSpeedMps, float& OutDistanceM, float& OutTimeS, FVector& OutPoint);
+	VERSEUI_API bool BulletClosestApproach(const FVector& Origin, const FVector& Direction, const FVector& Listener,
+		float BulletSpeedMps, float& OutDistanceM, float& OutTimeS, FVector& OutPoint);
 }
 
 /** Sound through pieces between listener and source. */

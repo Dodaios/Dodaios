@@ -3671,6 +3671,14 @@
       "land_warning": "Der Code eines gelisteten Repositorys ändert sich, ohne dass du den Pull Request vorher ansiehst. Füge nur Repositorys hinzu, deren Tests du vertraust.",
       "land_add": "Repository hinzufügen",
       "land_remove": "{repo} entfernen"
+    },
+    "look": {
+      "title": "Look",
+      "description": "Was in der App an der Stelle des Sprach-Orbs erscheint. Looks kommen aus dem Community-Marktplatz und können nur zeichnen: Sie bekommen den Sprachzustand und die Lautstärke, sonst nichts.",
+      "orb": "Sprach-Orb (Standard)",
+      "by": "von {author}",
+      "saved": "Look gewechselt.",
+      "failed": "Dieser Look ist nicht gestartet, deshalb ist der Sprach-Orb zu sehen."
     }
   },
   "telephony_view": {

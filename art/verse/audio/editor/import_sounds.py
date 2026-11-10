@@ -72,7 +72,10 @@ def make_mix(mix, occ):
         "shot_near_full_m": mix["shot_layers"]["near_full_m"],
         "shot_far_full_m": mix["shot_layers"]["far_full_m"],
         "flyby_radius_m": mix["flyby"]["radius_m"],
-        "bolt_speed_mps": mix["flyby"]["bolt_speed_mps"],
+        "bullet_speed_mps": mix["flyby"]["bullet_speed_mps"],
+        "casing_delay_min_s": mix["casing"]["delay_s"][0],
+        "casing_delay_max_s": mix["casing"]["delay_s"][1],
+        "casing_drop_m": mix["casing"]["drop_m"],
         "settle_delay_min_s": mix["debris_settle_delay_s"][0],
         "settle_delay_max_s": mix["debris_settle_delay_s"][1],
         "occlusion_refresh_s": mix["occlusion_refresh_s"],
@@ -123,6 +126,7 @@ def write_cue_set(cues_doc, mix, occ, waves):
     asset.set_editor_property("cues", cues)
     asset.set_editor_property("mix", make_mix(mix, occ))
     asset.set_editor_property("weapon_profiles", list(cues_doc["weapon_profiles"].keys()))
+    asset.set_editor_property("weapon_id_profiles", dict(cues_doc.get("weapon_ids", {})))
     asset.set_editor_property("default_weapon_profile", cues_doc["default_weapon_profile"])
     unreal.EditorAssetLibrary.save_loaded_asset(asset, only_if_is_dirty=False)
     return asset

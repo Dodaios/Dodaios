@@ -126,18 +126,18 @@ Sockets are relative to `Root`; their positions are in
 
 | Asset | Use | Material |
 |---|---|---|
-| `SM_Vfx_Bolt` | laser bolt core and glow sleeve, 60 cm long, +X along flight | `MI_Weapon_Vfx_BoltOwn` |
+| `SM_Vfx_Bolt` | tracer streak core and sleeve, 60 cm long, +X along flight | `MI_Weapon_Vfx_BoltOwn` |
 | `SM_Vfx_MuzzleFlash` | crossed flash cards on +X | `MI_Weapon_Vfx_MuzzleOwn` |
 | `SM_Vfx_ImpactSparks` | spark streak burst along +X (surface normal) | `MI_Weapon_Vfx_Sparks` |
 
 | Material instance | Master | Use |
 |---|---|---|
-| `MI_Weapon_Vfx_BoltOwn` | `M_Verse_Emissive` | own bolt, amber |
-| `MI_Weapon_Vfx_BoltFoe` | `M_Verse_Emissive` | opponent bolt, red |
+| `MI_Weapon_Vfx_BoltOwn` | `M_Verse_Emissive` | tracer streak (recoloured yellow-white at runtime) |
+| `MI_Weapon_Vfx_BoltFoe` | `M_Verse_Emissive` | legacy opponent streak (unused at runtime) |
 | `MI_Weapon_Vfx_MuzzleOwn` | `M_Verse_Emissive` | own muzzle flash, amber |
 | `MI_Weapon_Vfx_MuzzleFoe` | `M_Verse_Emissive` | opponent muzzle flash, red |
 | `MI_Weapon_Vfx_Sparks` | `M_Verse_Emissive` | impact sparks, amber-white |
-| `MI_Weapon_Vfx_Scorch` | `M_Verse_Decal` | impact scorch decal, oil black |
+| `MI_Weapon_Vfx_Scorch` | `M_Verse_Decal` | bullet hole decal (tinted per surface at runtime) |
 
 Bolts are opaque unlit emissive rods (84 triangles, no translucency, no
 overdraw): own `MI_Weapon_Vfx_BoltOwn` amber `#F2A33A`, opponent
