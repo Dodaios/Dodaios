@@ -74,7 +74,6 @@ export function AgentModelPicker({
 }) {
   const t = useT();
   const olderLabel = t("agent_chat.older_models");
-  const defaultLabel = t("agent_chat.model_default");
   const newThreadHint = t("ide_threads.hint_new_thread");
   const notInstalledHint = t("agent_chat.provider_not_installed");
   const connectFirstHint = t("ide_threads.hint_connect_first");
@@ -105,13 +104,14 @@ export function AgentModelPicker({
     return {
       id: provider.id,
       label: agentName(provider),
-      options: [
-        { value: brainValue(provider.id, ""), label: defaultLabel, triggerLabel: agentName(provider), description: owner(), hint, disabled, searchText: agentName(provider) },
-        ...ranked.current.map(toOption),
-      ],
+      options: ranked.current.length || ranked.older.length
+        ? ranked.current.map(toOption)
+        // A CLI that publishes no model list can only be picked as itself;
+        // the row carries the agent's name, never a "Default model" label.
+        : [{ value: brainValue(provider.id, ""), label: agentName(provider), description: owner(), hint, disabled, searchText: agentName(provider) }],
       more: ranked.older.length ? { label: olderLabel, options: ranked.older.map(toOption) } : undefined,
     };
-  }), [providers, liveModels, lockedProvider, draft.provider, draft.model, saved, olderLabel, defaultLabel, newThreadHint, notInstalledHint, connectFirstHint]);
+  }), [providers, liveModels, lockedProvider, draft.provider, draft.model, saved, olderLabel, newThreadHint, notInstalledHint, connectFirstHint]);
   // The rail on the panel's left: one mark per coding agent, plus favourites.
   const sections = useMemo<BrainSection[]>(() => providers.map((provider) => ({
     id: provider.id,

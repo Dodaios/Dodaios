@@ -27,7 +27,7 @@ export function visibleModels(seat: BrainSeat, models: CuratedModel[], expanded:
 }
 
 /** CLI-owned credentials need no duplicate account entry in the app. */
-export function modelSeats(options: ProviderOption[], providers: SocietyProviderRow[], live: Record<string, CuratedModel[]>, defaultModelLabel = "Default model"): BrainSeat[] {
+export function modelSeats(options: ProviderOption[], providers: SocietyProviderRow[], live: Record<string, CuratedModel[]>): BrainSeat[] {
   const usable = options.map((option) => ({ ...option,
     connected: option.connected || (option.cli_installed === true && providers.some((row) => row.id === option.id && row.subscription && row.accounts.some((account) => account.connected))),
   }));
@@ -44,10 +44,11 @@ export function modelSeats(options: ProviderOption[], providers: SocietyProvider
     const models = [...new Map(seat.provider.curated_models.filter((model) => model.tools !== false)
       .map((model) => [model.id, model])).values()];
     // The IDE can launch a CLI without a model override. Preserve that same
-    // choice when the vendor keeps its catalog private or its discovery fails.
+    // choice when the vendor keeps its catalog private or its discovery fails;
+    // the row is named after the agent, never "Default model".
     // API/local seats still need their own model ids; an empty id is not one.
     if (seat.kind === "subscription" && models.length === 0) {
-      models.push({ id: "", label: defaultModelLabel });
+      models.push({ id: "", label: seat.provider.label });
     }
     return { ...seat, provider: { ...seat.provider, curated_models: models } };
   });

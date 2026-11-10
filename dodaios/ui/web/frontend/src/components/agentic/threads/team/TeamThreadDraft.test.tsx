@@ -86,9 +86,9 @@ it("lets the person set each member's seat, model and effort", async () => {
   const calls = mount();
   await screen.findByTestId("team-draft-member-1");
 
-  // Every row says what it is set to; the model starts on the seat's default.
+  // Every row says what it is set to; the model starts on the seat's strongest model, never on "default".
   expect(screen.getByTestId("team-draft-select-0").dataset.value).toBe("claude-api");
-  expect(screen.getByTestId("team-draft-model-0").dataset.value).toBe("");
+  expect(screen.getByTestId("team-draft-model-0").dataset.value).toBe("claude-opus-5-5");
   // A seat without a model list keeps its default and offers no effort.
   expect(screen.getByTestId("team-draft-model-1").dataset.disabled).toBe("true");
   expect(screen.queryByTestId("team-draft-effort-1")).toBeNull();

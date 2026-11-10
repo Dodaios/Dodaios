@@ -77,6 +77,7 @@ import { societyDisplayName } from "@/lib/societyDisplayName";
 import { createAgentChatStore, useAgentChatStore, type AgentChatStoreHook } from "@/store/agentChat";
 import { bindVoiceChat, warmAgentChatSession, type AgentChatSurface, type ApprovalDecision } from "@/lib/agentChatApi";
 import { offeredModels, useSavedHiddenModels } from "@/lib/agentProviderPrefs";
+import { rankModels } from "@/lib/modelRanking";
 
 import { AgentSwatch, agentColor } from "../AgentSwatch";
 import { bubbleTint, type BubbleTint } from "@/lib/bubbleTint";
@@ -573,7 +574,9 @@ function ModelPicker() {
       return true;
     });
     // Models switched off on the API Keys page stay out; the current pick stays.
-    return offeredModels(chosen, listed, chosen.id === draft.provider ? draft.model : "", savedHidden);
+    const ranked = rankModels(offeredModels(chosen, listed, chosen.id === draft.provider ? draft.model : "", savedHidden).filter((m) => m.id));
+    // Strongest first; earlier versions follow the current lineup.
+    return [...ranked.current, ...ranked.older];
   }, [chosen, liveModels, draft.provider, draft.model, savedHidden]);
 
   useEffect(() => {
@@ -590,7 +593,7 @@ function ModelPicker() {
   }, [open]);
 
   const label = current ? current.label : t("society.chat.model_default");
-  const modelLabel = draft.model || t("society.chat.model_provider_default");
+  const modelLabel = draft.model || current?.label || t("society.chat.model_provider_default");
   const locked = locks?.provider ?? locks?.model;
 
   return (
@@ -630,7 +633,7 @@ function ModelPicker() {
             ))}
           </ul>
           <ul className="max-h-72 w-1/2 overflow-y-auto py-1">
-            {chosen ? (
+            {chosen && models.length === 0 ? (
               <li>
                 <button
                   type="button"
@@ -643,7 +646,7 @@ function ModelPicker() {
                     draft.provider === chosen.id && !draft.model && "bg-secondary",
                   )}
                 >
-                  {t("society.chat.model_provider_default")}
+                  {chosen.label}
                 </button>
               </li>
             ) : null}
@@ -666,7 +669,7 @@ function ModelPicker() {
                 </button>
               </li>
             ))}
-            {chosen && models.length === 0 ? (
+            {chosen && models.length === 0 && chosen.models_source === "live" ? (
               <li className="px-2.5 py-1.5 text-xs text-muted-foreground">{t("society.chat.models_loading")}</li>
             ) : null}
           </ul>
