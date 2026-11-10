@@ -292,6 +292,26 @@ def install(
 
 
 @app.command()
+def remove(
+    item_id: str = typer.Argument(..., help="Marketplace name, e.g. three-bullet-brief."),
+    yes: bool = options.yes_opt(),
+    dry_run: bool = options.dry_opt(),
+) -> None:
+    """Remove an installed marketplace entry by name — a plugin or a skill.
+
+    The mirror of ``install``: the app resolves the kind. A plugin is
+    disconnected and leaves the plugin list; a skill is deleted. An agent is
+    let go from the Agents section, and the answer says so.
+    """
+    invoke.run(
+        "DELETE",
+        f"/api/marketplace/community/install/{item_id}",
+        assume_yes=yes,
+        dry_run=dry_run,
+    )
+
+
+@app.command()
 def browse() -> None:
     """Show everything the community marketplace offers, and what you already have."""
     from dodaios.cli_ctl.__main__ import as_json, make_client

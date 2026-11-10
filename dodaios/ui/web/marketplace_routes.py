@@ -1185,6 +1185,68 @@ async def disconnect(plugin_id: str, request: Request) -> dict[str, Any]:
 # ----------------------------------------------------------------------
 
 
+#: The converted plugins of the index object last browsed. Converting a
+#: manifest is pure in the manifest, and the index object is the same one from
+#: poll to poll until the feed changes (community_source keeps it in memory),
+#: so the store's minute-by-minute poll does not convert every plugin again.
+_converted_cache: tuple[int, list[tuple[Any, dict[str, Any]]]] | None = None
+
+
+def _converted_plugins(index: Any) -> list[tuple[Any, dict[str, Any]]]:
+    """Every plugin entry of ``index`` with its install-independent wire item.
+
+    Each entry is run through the SAME converter the install path uses. The
+    items are shared between calls: callers copy before they add install state.
+    """
+    global _converted_cache
+    from dodaios.marketplace.agent_plugins_loader import (
+        AgentPluginError,
+        convert_manifest,
+    )
+
+    if _converted_cache is not None and _converted_cache[0] == id(index):
+        cached = _converted_cache[1]
+        # ``id`` is only unique among live objects; the entries pin identity.
+        if len(cached) == len(index.plugins) and all(
+            pair[0] is entry for pair, entry in zip(cached, index.plugins, strict=True)
+        ):
+            return cached
+
+    out: list[tuple[Any, dict[str, Any]]] = []
+    for entry in index.plugins:
+        base = {
+            "name": entry.name,
+            "publisher": entry.publisher,
+            "publisher_id": getattr(entry, "publisher_id", None),
+            "featured": bool(getattr(entry, "featured", False)),
+            "version": entry.version,
+            "published_at": entry.published_at,
+            "source_url": entry.source_url,
+        }
+        try:
+            spec = convert_manifest(
+                entry.plugin_json,
+                entry.mcp_json,
+                publisher=entry.publisher,
+                version=entry.version,
+                source_url=entry.source_url,
+            )
+            if spec.id != entry.name:
+                raise AgentPluginError(
+                    f"index name {entry.name!r} does not match manifest name {spec.id!r}"
+                )
+        except AgentPluginError as exc:
+            # Not swallowed: the reason travels to the UI on an invalid entry.
+            out.append((entry, {**base, "valid": False, "error": str(exc)}))
+            continue
+        item = spec.model_dump(mode="json")
+        item.update(base)
+        item["valid"] = True
+        out.append((entry, item))
+    _converted_cache = (id(index), out)
+    return out
+
+
 def _community_payload(
     index: Any, status: str, installed_agents: frozenset[str] = frozenset()
 ) -> dict[str, Any]:
@@ -1197,10 +1259,7 @@ def _community_payload(
     the user skills directory.
     """
     from dodaios.core.paths import user_skills_dir
-    from dodaios.marketplace.agent_plugins_loader import (
-        AgentPluginError,
-        convert_manifest,
-    )
+    from dodaios.marketplace.community_source import skill_description
 
     catalog = load_catalog()
     installed_specs = {spec.id: spec for spec in catalog.plugins}
@@ -1209,34 +1268,14 @@ def _community_payload(
     skills: list[dict[str, Any]] = []
     agents: list[dict[str, Any]] = []
     if index is not None:
-        for entry in index.plugins:
-            base = {
-                "name": entry.name,
-                "publisher": entry.publisher,
-                "version": entry.version,
-                "published_at": entry.published_at,
-                "source_url": entry.source_url,
-            }
-            try:
-                spec = convert_manifest(
-                    entry.plugin_json,
-                    entry.mcp_json,
-                    publisher=entry.publisher,
-                    version=entry.version,
-                    source_url=entry.source_url,
-                )
-                if spec.id != entry.name:
-                    raise AgentPluginError(
-                        f"index name {entry.name!r} does not match manifest name {spec.id!r}"
-                    )
-            except AgentPluginError as exc:
+        for entry, converted in _converted_plugins(index):
+            if not converted["valid"]:
                 # Surfaced to the UI as an invalid entry carrying the reason.
-                plugins.append({**base, "valid": False, "error": str(exc)})
+                plugins.append(dict(converted))
                 continue
-            item = spec.model_dump(mode="json")
-            item.update(base)
-            item["valid"] = True
-            existing = installed_specs.get(spec.id)
+            item = dict(converted)
+            spec_id = item["id"]
+            existing = installed_specs.get(spec_id)
             item["installed"] = existing is not None and existing.source == "community"
             item["installed_version"] = existing.version if existing is not None else None
             # A community name colliding with a shipped plugin is never
@@ -1251,8 +1290,12 @@ def _community_payload(
                 {
                     "name": skill.name,
                     "title": skill.title or skill.name,
-                    "description": skill.description,
+                    # The listing text, or what the skill's own frontmatter
+                    # says when the listing text is unusable.
+                    "description": skill_description(skill),
                     "publisher": skill.publisher,
+                    "publisher_id": skill.publisher_id,
+                    "featured": skill.featured,
                     "version": skill.version,
                     "published_at": skill.published_at,
                     "categories": list(skill.categories),
@@ -1280,6 +1323,8 @@ def _community_payload(
                     "title": agent_entry.title or agent_entry.name,
                     "description": agent_entry.description,
                     "publisher": agent_entry.publisher,
+                    "publisher_id": agent_entry.publisher_id,
+                    "featured": agent_entry.featured,
                     "version": agent_entry.version,
                     "published_at": agent_entry.published_at,
                     "categories": list(agent_entry.categories),
@@ -1323,7 +1368,9 @@ async def community_browse(request: Request, response: Response) -> dict[str, An
     from dodaios.marketplace import community_source
 
     response.headers["Cache-Control"] = "no-store"
-    index, status = await community_source.get_index()
+    # Browsing answers from what is cached and revalidates behind the
+    # response, so opening the store never waits on the registry.
+    index, status = await community_source.get_index(background=True)
     return _community_payload(index, status, _installed_agent_names(request))
 
 
@@ -1523,15 +1570,16 @@ async def community_contents(item_id: str, response: Response) -> dict[str, Any]
 
     response.headers["Cache-Control"] = "no-store"
     index, _ = await community_source.get_index()
-    plugin = skill = None
+    plugin = skill = agent = None
     if index is not None:
         plugin = next((e for e in index.plugins if e.name == item_id), None)
         skill = next((s for s in index.skills if s.name == item_id), None)
-    entry = plugin or skill
+        agent = next((a for a in index.agents if a.name == item_id), None)
+    entry = plugin or skill or agent
     if entry is None:
         raise _install_by_name_404(item_id, index)
 
-    kind = "plugin" if plugin is not None else "skill"
+    kind = "plugin" if plugin is not None else "skill" if skill is not None else "agent"
     out: dict[str, Any] = {
         "kind": kind,
         "name": entry.name,
@@ -1544,8 +1592,32 @@ async def community_contents(item_id: str, response: Response) -> dict[str, Any]
         "error": None,
     }
 
+    # The feed embeds the published folder file by file. Reading it there
+    # needs no second host: the page opens at once, works offline, and shows
+    # exactly the bytes the index was built from.
+    embedded = community_source.entry_files(entry)
+    if embedded:
+        out["files"] = [
+            _text_file(f["path"], f["text"])
+            if f["text"] is not None
+            else {
+                "path": f["path"],
+                "size": f["size"],
+                "text": "(not shown: this file is not text, or is too large to embed)",
+                "truncated": True,
+            }
+            for f in embedded
+        ]
+        return out
+
     if plugin is not None:
         out["files"] = _plugin_manifest_files(plugin)
+        return out
+
+    if agent is not None:
+        out["files"] = [
+            _text_file("agent.json", json.dumps(agent.agent, indent=2, ensure_ascii=False))
+        ]
         return out
 
     if not skill.raw_url:
@@ -1843,6 +1915,63 @@ async def community_install_by_name(item_id: str, request: Request) -> dict[str,
     # install finished — a per-branch publish would be two chances to forget.
     await _announce_install(request, result)
     return result
+
+
+def _installed_user_skill(name: str) -> str | None:
+    """The folder name of the installed user skill called ``name``, or None.
+
+    The name comes from the URL, so it is never joined into a path: it is
+    compared with the folders that are really there, and the folder's own name
+    is what gets returned. A name like ``../x`` then simply matches nothing.
+    """
+    from dodaios.core.paths import user_skills_dir
+
+    try:
+        for child in user_skills_dir().iterdir():
+            if child.name == name and (child / "SKILL.md").is_file():
+                return child.name
+    except OSError:
+        # No skills folder yet (or it cannot be listed): nothing is installed.
+        return None
+    return None
+
+
+@router.delete("/community/install/{item_id}")
+async def community_remove_by_name(item_id: str, request: Request) -> dict[str, Any]:
+    """Remove what ``POST /community/install/{item_id}`` installed, by name.
+
+    The mirror of the by-name installer: the caller does not have to know
+    whether the name is a plugin or a skill. A plugin leaves the way
+    ``DELETE /community/plugins/{id}`` removes it (tokens revoked, catalog
+    entry and usage card gone); a skill leaves the way the Skills view deletes
+    it. An agent is a teammate with its own history, so it is not removed from
+    here — the answer says where to do that.
+    """
+    spec = load_catalog().by_id(item_id)
+    if spec is not None and spec.source == "community":
+        result = await community_uninstall(item_id)
+        return {**result, "kind": "plugin", "id": item_id}
+
+    skill_name = _installed_user_skill(item_id)
+    if skill_name is not None:
+        from dodaios.ui.web.skills_routes import delete_skill
+
+        delete_skill(skill_name, request)
+        return {"ok": True, "removed": True, "kind": "skill", "id": skill_name}
+
+    from dodaios.marketplace import community_source
+
+    # No network for a question the cache answers: is this name an agent?
+    index = community_source.cached_index()
+    if index is not None and any(a.name == item_id for a in index.agents):
+        raise HTTPException(
+            status_code=409,
+            detail="An agent is removed from the Agents section, where its work is kept.",
+        )
+    raise HTTPException(
+        status_code=404,
+        detail=f"Nothing named {item_id!r} from the marketplace is installed.",
+    )
 
 
 @router.delete("/community/plugins/{plugin_id}")

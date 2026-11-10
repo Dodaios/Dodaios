@@ -2,35 +2,16 @@
  * Component tests for MarketplaceView — the storefront section.
  *
  * What is pinned here is what the section exists for: one search across all
- * three published kinds, a detail drawer that shows the published files BEFORE
- * an install button is reachable (this is unreviewed third-party content), and
- * a landing that names where the thing went instead of a bare green tick.
+ * three published kinds, an entry page that shows what the entry reaches and
+ * the published files next to the install button (this is unreviewed
+ * third-party content, and nothing installs from a list row), and a landing
+ * that names where the thing went instead of a bare green tick.
  *
  * No jest-dom in this repo — assertions use toBeTruthy()/toBeNull().
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-// ViewHeader lives in ChatsView, which drags the whole chat surface into the
-// render; the view only needs its shape.
-vi.mock("@/views/ChatsView", () => ({
-  ViewHeader: ({
-    title,
-    subtitle,
-    right,
-  }: {
-    title: string;
-    subtitle?: string;
-    right?: React.ReactNode;
-  }) => (
-    <header>
-      <h2>{title}</h2>
-      {subtitle && <p>{subtitle}</p>}
-      {right}
-    </header>
-  ),
-}));
 
 const openExternalUrl = vi.fn();
 vi.mock("@/lib/openExternal", () => ({
@@ -38,7 +19,7 @@ vi.mock("@/lib/openExternal", () => ({
 }));
 
 import { MarketplaceView } from "@/views/MarketplaceView";
-import { MARKETPLACE_REPO_URL } from "@/lib/branding";
+import { MARKETPLACE_WEB_URL } from "@/lib/branding";
 import { setUiLanguage } from "@/i18n";
 import { useEventStore } from "@/store/events";
 import type { CommunityResponse } from "@/views/PluginsCommunity";
@@ -174,10 +155,10 @@ describe("MarketplaceView", () => {
 
     expect(await screen.findByText("Sentry")).toBeTruthy();
     expect(screen.getByText("Three Bullet Brief")).toBeTruthy();
-    // The count in the subtitle covers every kind, not just the plugins.
-    expect(screen.getByText(/2 published entries/)).toBeTruthy();
-    // Wallpapers were retired as a marketplace kind: no filter, no shelf.
-    expect(screen.queryByRole("button", { name: /Wallpapers/ })).toBeNull();
+    // The "All" count covers every kind, not just the plugins.
+    expect(screen.getByRole("tab", { name: /All 2/ })).toBeTruthy();
+    // Wallpapers were retired as a marketplace kind: no filter, no group.
+    expect(screen.queryByRole("tab", { name: /Wallpapers/ })).toBeNull();
   });
 
   it("searches across kinds at once", async () => {
@@ -198,7 +179,7 @@ describe("MarketplaceView", () => {
     renderView();
     await screen.findByText("Sentry");
 
-    fireEvent.click(screen.getByRole("button", { name: /Skills 1/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Skills 1/ }));
 
     expect(screen.queryByText("Sentry")).toBeNull();
     expect(screen.getByText("Three Bullet Brief")).toBeTruthy();
@@ -249,7 +230,7 @@ describe("MarketplaceView", () => {
     fireEvent.click(screen.getByText("Three Bullet Brief"));
 
     // The unreviewed-content warning and the real file are both on screen.
-    expect(await screen.findByText("SKILL.md")).toBeTruthy();
+    expect((await screen.findAllByText("SKILL.md")).length).toBeGreaterThan(0);
     expect(screen.getByText(/nobody reviewed it by hand/i)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Install" })).toBeTruthy();
   });
@@ -296,10 +277,10 @@ describe("MarketplaceView", () => {
     setUiLanguage("de");
     renderView();
 
-    // The German strings resolve from the locale file, including the count
-    // template whose {count} token this view fills itself.
-    expect(await screen.findByText(/2 veröffentlichte Einträge/)).toBeTruthy(); // i18n-allow
-    expect(screen.getByLabelText(/Plugins, Skills und Agenten durchsuchen/)).toBeTruthy(); // i18n-allow
+    // The German strings resolve from the locale files: the always-loaded
+    // one (the search) and the section's own chunk (the opening line).
+    expect(await screen.findByText(/aus der Community/)).toBeTruthy(); // i18n-allow
+    expect(await screen.findByLabelText(/Plugins, Skills und Agenten durchsuchen/)).toBeTruthy(); // i18n-allow
 
     setUiLanguage("es");
     expect(await screen.findByLabelText(/Buscar plugins, skills y agentes/)).toBeTruthy(); // i18n-allow
@@ -310,9 +291,10 @@ describe("MarketplaceView", () => {
     renderView();
     await screen.findByText("Sentry");
 
-    fireEvent.click(screen.getByRole("button", { name: /Storefront/ }));
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Open the website/ }));
 
-    expect(openExternalUrl).toHaveBeenCalledWith(MARKETPLACE_REPO_URL);
+    expect(openExternalUrl).toHaveBeenCalledWith(MARKETPLACE_WEB_URL);
   });
 
   it("opens the Publish Studio in the app instead of sending people to the website", async () => {
@@ -326,11 +308,12 @@ describe("MarketplaceView", () => {
     expect(openExternalUrl).not.toHaveBeenCalled();
   });
 
-  it("offers the GitHub sign-in from the header and shows the code", async () => {
+  it("offers the GitHub sign-in from the menu and shows the code", async () => {
     installFetchMock();
     renderView();
     await screen.findByText("Sentry");
-    fireEvent.click(await screen.findByTestId("publisher-chip-signed-out"));
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Sign in with GitHub/ }));
     expect(await screen.findByTestId("github-signin-dialog")).toBeTruthy();
     expect(await screen.findByTestId("device-code")).toBeTruthy();
     expect(screen.getByText("WXYZ")).toBeTruthy();
@@ -356,8 +339,8 @@ describe("MarketplaceView", () => {
       target: { value: "crisp bullets" },
     });
 
-    expect(screen.getByRole("button", { name: /Plugins 0/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Skills 1/ })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /Plugins 0/ })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /Skills 1/ })).toBeTruthy();
   });
 
   it("points an empty search at the built-in catalog", async () => {
@@ -404,16 +387,19 @@ describe("MarketplaceView", () => {
     });
   });
 
-  it("hides the publish promise when publishing is switched off", async () => {
+  it("offers no way to publish when publishing is switched off", async () => {
     identity = { enabled: false, signed_in: false };
     installFetchMock();
     renderView();
+    await screen.findByText("Sentry");
 
-    // The identity answers after the index; wait for the hero to settle on it.
+    // The identity answers after the index; wait for the page to settle on it.
     await waitFor(() => {
-      expect(screen.getByTestId("marketplace-hero").textContent).not.toMatch(/sign in with GitHub/i);
+      expect(screen.queryByTestId("marketplace-publish")).toBeNull();
     });
-    expect(screen.queryByTestId("hero-publish")).toBeNull();
+    expect(screen.queryByTestId("marketplace-publish-row")).toBeNull();
+    // Importing a file needs no account, so that row stays.
+    expect(screen.getByTestId("marketplace-import-agent")).toBeTruthy();
   });
 
   it("says the index is switched off instead of calling the shelves empty", async () => {
@@ -422,9 +408,9 @@ describe("MarketplaceView", () => {
 
     expect(await screen.findAllByText(/switched off in this install/i)).toBeTruthy();
     expect(screen.queryByText(/Nothing is published in this category/i)).toBeNull();
-    // No invitation onto shelves that do not exist.
-    expect(screen.queryByTestId("marketplace-hero")).toBeNull();
-    expect(screen.queryByText(/Share what you built/i)).toBeNull();
+    // No search over, and no invitation onto, a store that does not exist.
+    expect(screen.queryByLabelText(/Search plugins/i)).toBeNull();
+    expect(screen.queryByTestId("marketplace-publish-row")).toBeNull();
   });
 
   it("says a package could not be read instead of claiming it has no files", async () => {
@@ -448,15 +434,95 @@ describe("MarketplaceView", () => {
     expect(screen.queryByText(/publishes no readable text files/i)).toBeNull();
   });
 
-  it("keeps the search shortcut away from the page while the sheet is open", async () => {
+  it("keeps the search shortcut for the store, not for an open entry", async () => {
     installFetchMock();
     renderView();
-    fireEvent.click(await screen.findByText("Sentry"));
-    await screen.findByRole("dialog");
+    await screen.findByText("Sentry");
 
+    fireEvent.keyDown(window, { key: "/" });
+    expect(document.activeElement).toBe(screen.getByLabelText(/Search plugins/i));
+    (document.activeElement as HTMLElement).blur();
+
+    fireEvent.click(screen.getByText("Sentry"));
+    await screen.findByTestId("marketplace-entry");
     fireEvent.keyDown(window, { key: "/" });
 
     expect(document.activeElement).not.toBe(screen.getByLabelText(/Search plugins/i));
+  });
+
+  it("goes back to the store with its search intact", async () => {
+    installFetchMock();
+    renderView();
+    await screen.findByText("Sentry");
+    fireEvent.change(screen.getByLabelText(/Search plugins/i), { target: { value: "sentry" } });
+
+    fireEvent.click(screen.getByText("Sentry"));
+    await screen.findByTestId("marketplace-entry");
+    fireEvent.click(screen.getByRole("button", { name: "Marketplace" }));
+
+    expect(screen.queryByTestId("marketplace-entry")).toBeNull();
+    expect((screen.getByLabelText(/Search plugins/i) as HTMLInputElement).value).toBe("sentry");
+  });
+
+  it("leaves an open entry on Escape", async () => {
+    installFetchMock();
+    renderView();
+    fireEvent.click(await screen.findByText("Sentry"));
+    await screen.findByTestId("marketplace-entry");
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(screen.queryByTestId("marketplace-entry")).toBeNull();
+  });
+
+  it("removes an installed entry from its page", async () => {
+    const fetchMock = installFetchMock({ skills: [{ ...INDEX.skills[0], installed: true }] });
+    const base = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/install/three-bullet-brief") && init?.method === "DELETE") {
+        return { ok: true, status: 200, json: async () => ({ ok: true }) } as Response;
+      }
+      return base!(input, init);
+    });
+    renderView();
+
+    fireEvent.click(await screen.findByText("Three Bullet Brief"));
+    await screen.findByTestId("marketplace-entry");
+    fireEvent.click(within(screen.getByTestId("marketplace-entry")).getByRole("button", { name: "More" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+
+    expect(await screen.findByText("Three Bullet Brief removed")).toBeTruthy();
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          String(url) === "/api/marketplace/community/install/three-bullet-brief" &&
+          (init as RequestInit | undefined)?.method === "DELETE",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not offer to install a service the app already ships", async () => {
+    installFetchMock({ plugins: [{ ...INDEX.plugins[0], seed_conflict: true }] });
+    renderView();
+
+    fireEvent.click(await screen.findByText("Sentry"));
+
+    // The backend refuses this install, so the page must not promise it.
+    expect(await screen.findByText(/already built into the app/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Open in Plugins/ }));
+    await waitFor(() => {
+      expect(useEventStore.getState().activeSection).toBe("plugins");
+    });
+  });
+
+  it("leads with the registry's pick and lists it only once", async () => {
+    installFetchMock({ plugins: [{ ...INDEX.plugins[0], featured: true }] });
+    renderView();
+
+    expect(await screen.findByTestId("marketplace-spotlight-sentry")).toBeTruthy();
+    expect(screen.queryByTestId("marketplace-row-sentry")).toBeNull();
+    expect(screen.getByTestId("marketplace-row-three-bullet-brief")).toBeTruthy();
   });
 
   it("filters to the signed-in account's own publications", async () => {
@@ -483,7 +549,7 @@ describe("MarketplaceView", () => {
     const chip = await screen.findByTestId("publisher-chip");
     expect(chip.textContent).toContain("@octocat");
 
-    fireEvent.click(screen.getByRole("button", { name: /Mine 2/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Mine 2/ }));
     expect(screen.getByText("Three Bullet Brief")).toBeTruthy();
     expect(screen.getByText("Sentry")).toBeTruthy();
     expect(screen.queryByText("Someone Else's Skill")).toBeNull();
