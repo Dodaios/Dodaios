@@ -9,7 +9,7 @@
  * A second hand-written list anywhere would be the classic drift trap (AP-4):
  * a section added here would silently never appear on the deck.
  */
-import { Gamepad2, KeyRound, Smartphone, type LucideIcon } from "lucide-react";
+import { Gamepad2, KeyRound, ShieldCheck, Smartphone, type LucideIcon } from "lucide-react";
 import {
   AgentsIcon,
   ArtifactsIcon,
@@ -267,6 +267,7 @@ export const SETTINGS_HUB_ONLY_ITEMS: NavItem[] = [
   { id: "games", labelKey: "nav.games", icon: Gamepad2, fallbackLabel: "Game settings" },
   // Phone: pair the companion app, see paired phones, the WhatsApp switch.
   { id: "phone", labelKey: "nav.phone", icon: Smartphone, fallbackLabel: "Phone" },
+  { id: "trust", labelKey: "trust.nav", icon: ShieldCheck, fallbackLabel: "Trust and privacy" },
 ];
 
 /**
@@ -295,6 +296,7 @@ export const SETTINGS_HUB_IDS: readonly SectionId[] = [
   "pets",
   "games",
   "phone",
+  "trust",
   "costs",
   "feedback",
 ];

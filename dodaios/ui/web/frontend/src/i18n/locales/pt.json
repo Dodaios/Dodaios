@@ -11086,6 +11086,31 @@
     "import_saved": "{added} memórias importadas, {existing} já conhecidas.",
     "cancel": "Cancelar"
   },
+  "trust": {
+    "nav": "Confiança e privacidade",
+    "undo": {
+      "toast": "Feito: {what}",
+      "toast_plain": "Feito.",
+      "button": "Desfazer",
+      "done": "Desfeito.",
+      "failed": "Não foi possível desfazer."
+    },
+    "card": {
+      "always_asks": "Isto pergunta sempre; nenhuma regra o ignora.",
+      "limit": {
+        "money": "Há dinheiro envolvido.",
+        "credentials": "Há uma senha ou chave envolvida.",
+        "permanent_delete": "Isto apaga definitivamente.",
+        "new_recipient": "Primeira mensagem para este destinatário a partir daqui."
+      },
+      "check": {
+        "secret": "O texto contém algo que parece um segredo.",
+        "unknown_recipient": "Nunca contactado antes: {detail}",
+        "mistyped_domain": "Quis dizer {detail}?",
+        "tone": "O tom soa duro."
+      }
+    }
+  },
   "mobile": {
     "settings": {
       "title": "Telefone",

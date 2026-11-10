@@ -126,7 +126,8 @@ export type LocaleChunk =
   | "memory"
   | "ship"
   | "self_build"
-  | "verse_settings";
+  | "verse_settings"
+  | "trust";
 
 const SHIP_LOCALES = import.meta.glob("./locales/ship/*.json");
 
@@ -247,6 +248,16 @@ const CHUNK_LOADERS: Record<LocaleChunk, Record<UiLanguage, () => Promise<unknow
     es: () => import("./locales/verse_settings/es.json"),
     zh: () => import("./locales/verse_settings/zh.json"),
     pt: () => import("./locales/verse_settings/pt.json"),
+  },
+  // Settings → Trust and privacy: the rules page and the "what it knows" overview.
+  // The nav label and the undo toast ride in the startup bundle (`trust.*` in
+  // the main files); everything else waits for this chunk.
+  trust: {
+    en: () => import("./locales/trust/en.json"),
+    de: () => import("./locales/trust/de.json"),
+    es: () => import("./locales/trust/es.json"),
+    zh: () => import("./locales/trust/zh.json"),
+    pt: () => import("./locales/trust/pt.json"),
   },
 };
 

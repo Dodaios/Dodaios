@@ -47,6 +47,7 @@ from typing import Any, Final
 from uuid import UUID
 
 from dodaios.core.events import ActionApprovalRequired, ActionApproved, ActionDenied, ActionProposed
+from dodaios.trust.hooks import before_execute
 
 log = logging.getLogger(__name__)
 
@@ -207,6 +208,10 @@ class ChatApprovalBridge:
         """The ``approved_by`` label when the stance decides without a card, else None."""
         name = _bare(tool_name)
         if grant.stance == "always_ask" or grant.force_ask(name, args or {}):
+            return None
+        # A hard limit (money, credentials, deleting for good, a new recipient)
+        # and a doubtful send need a person: no stance and no "always" answers.
+        if before_execute(tool_name, args or {}).needs_person:
             return None
         if grant.stance == "bypass":
             if grant.force_ask(name, args or {}):
