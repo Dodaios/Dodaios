@@ -57,36 +57,32 @@ _CLAUDE: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "default",
         "Ask before acting",
-        "Claude Code's default: reads run freely; edits and commands show an "
-        "approval card here in the chat before they run.",
+        "Reads run freely. Edits and commands wait for an approval card here in the chat.",
     ),
     PermissionMode(
         "acceptEdits",
         "Auto-accept edits",
-        "Edits and file writes in the working folder run without asking; "
-        "shell commands still ask (an approval card here in the chat).",
+        "File edits in the working folder run. Shell commands still ask.",
     ),
     PermissionMode(
         "plan",
         "Plan",
-        "Read and plan only — nothing is changed; the finished plan asks before building starts.",
+        "Reads and plans, changes nothing. The finished plan asks before building.",
     ),
     PermissionMode(
         "auto",
-        "Auto (classifier)",
-        "Claude Code's own classifier approves routine actions and asks only "
-        "for the risky ones (approval card here in the chat).",
+        "Auto",
+        "Claude Code approves routine actions itself and asks only for risky ones.",
     ),
     PermissionMode(
         "dontAsk",
         "Don't ask",
-        "Never prompt: anything that would need a prompt is denied outright.",
+        "Never asks. Anything that would need approval is declined.",
     ),
     PermissionMode(
         "bypassPermissions",
         "Bypass permissions",
-        "Everything runs without asking — edits, commands, the lot. Use on a "
-        "folder you can afford to lose.",
+        "Everything runs without asking. Use it on a folder you can afford to lose.",
     ),
 )
 
@@ -94,33 +90,28 @@ _CODEX: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "read-only",
         "Read only",
-        "The sandbox lets the agent read; edits and commands that write are "
-        "blocked (Codex `--sandbox read-only`).",
+        "The agent can read. Edits and commands that write are blocked.",
     ),
     PermissionMode(
         "approve-for-me",
         "Ask (auto-review)",
-        "Codex's own reviewer model approves or declines what would have "
-        "asked you — the one ask-stance a headless run has "
-        "(`--approve-for-me`); the sandbox stays workspace-write.",
+        "Codex's own reviewer approves or declines what would have asked you.",
     ),
     PermissionMode(
         "auto",
         "Auto",
-        "Edits and commands inside the working folder run on their own; "
-        "anything outside it or on the network is blocked "
-        "(`--sandbox workspace-write`).",
+        "Edits and commands run inside the working folder. Other folders and the "
+        "network are blocked.",
     ),
     PermissionMode(
         "plan",
         "Plan",
-        "Read and plan only — a read-only sandbox; nothing is changed.",
+        "Reads and plans in a read-only sandbox. Nothing is changed.",
     ),
     PermissionMode(
         "full-access",
         "Full access",
-        "No sandbox, no approvals — the agent may touch anything on this "
-        "machine (`--dangerously-bypass-approvals-and-sandbox`).",
+        "No sandbox and no approvals. The agent may touch anything on this machine.",
     ),
 )
 
@@ -128,20 +119,17 @@ _AGY: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "accept-edits",
         "Auto-accept edits",
-        "Edits run on their own. In this chat the CLI cannot ask back — a "
-        "command that still wanted a confirmation used to abort the whole "
-        "turn — so commands run too (`--dangerously-skip-permissions`). "
-        "Plan is the read-only stance.",
+        "Edits run on their own. Commands run too, because this CLI cannot ask back in a chat.",
     ),
     PermissionMode(
         "plan",
         "Plan",
-        "Read and plan only — nothing is changed.",
+        "Reads and plans, changes nothing.",
     ),
     PermissionMode(
         "skip-permissions",
         "Skip permissions",
-        "Everything runs without asking (`--dangerously-skip-permissions`).",
+        "Everything runs without asking.",
     ),
 )
 
@@ -149,20 +137,17 @@ _GROK: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "default",
         "Ask before acting",
-        "Grok Build's default would ask; in this chat the CLI cannot ask back — "
-        "a prompt that still wanted confirmation used to abort the whole turn — "
-        "so tools run (`--always-approve`). Plan is the read-only stance.",
+        "Grok cannot ask back in a chat, so tools run. Plan is the read-only stance.",
     ),
     PermissionMode(
         "acceptEdits",
         "Auto-accept edits",
-        "Edits and commands run without asking. Print-mode Grok cannot answer a "
-        "permission prompt, so this chat also auto-approves shell calls.",
+        "Edits and commands run without asking.",
     ),
     PermissionMode(
         "plan",
         "Plan",
-        "Read and plan only — nothing is changed.",
+        "Reads and plans, changes nothing.",
     ),
     PermissionMode(
         "bypassPermissions",
@@ -175,20 +160,17 @@ _OPENCODE: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "default",
         "Ask before acting",
-        "OpenCode's own permission rules decide; a headless run cannot ask "
-        "back, so anything they would have asked about is declined and "
-        "reported to the model.",
+        "OpenCode's own rules decide. Anything they would ask about is declined.",
     ),
     PermissionMode(
         "plan",
         "Plan",
-        "OpenCode's plan agent — read and plan only; nothing is changed.",
+        "OpenCode's plan agent. Reads and plans, changes nothing.",
     ),
     PermissionMode(
         "auto",
         "Full access",
-        "Every permission OpenCode's rules do not deny outright is granted "
-        "without asking (`--auto`).",
+        "Grants every permission that OpenCode's rules do not deny outright.",
     ),
 )
 
@@ -196,13 +178,12 @@ _KIMI: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "auto",
         "Full access",
-        "Kimi's print mode runs fully autonomous: tools run without asking.",
+        "Kimi runs on its own. Tools run without asking.",
     ),
     PermissionMode(
         "plan",
         "Plan",
-        "The agent is asked to investigate and answer with a plan instead of "
-        "acting. Kimi enforces nothing here — read the plan before building.",
+        "Asks for a plan instead of action. Kimi does not enforce it, so read the plan first.",
     ),
 )
 
@@ -210,8 +191,7 @@ _CUSTOM: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "auto",
         "CLI's own policy",
-        "A CLI you added runs its headless command as written; whatever it may "
-        "do is decided by that CLI, not by this chat.",
+        "Runs your CLI's command as written. That CLI decides what it may do.",
     ),
 )
 
@@ -219,8 +199,7 @@ _DSH: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "auto",
         "Harness policy",
-        "The headless profile never asks; DeepSeek Harness's own permission "
-        "policy, set in its own settings, decides what runs.",
+        "Never asks. DeepSeek Harness's own settings decide what runs.",
     ),
 )
 
@@ -228,18 +207,17 @@ _CURSOR: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "ask",
         "Ask",
-        "Read-only exploration — Cursor CLI's Ask mode; nothing is changed.",
+        "Read-only exploration. Nothing is changed.",
     ),
     PermissionMode(
         "plan",
         "Plan",
-        "Design the approach before coding — Cursor CLI's Plan mode.",
+        "Designs the approach before coding.",
     ),
     PermissionMode(
         "auto",
         "Agent",
-        "Full access to tools for coding tasks. In the chat, print mode "
-        "applies edits without asking (``--force``).",
+        "Full tool access. In the chat, edits apply without asking.",
     ),
 )
 
@@ -247,18 +225,18 @@ _API: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "ask",
         "Ask before acting",
-        "Reads run freely; every edit, write and shell command shows an "
-        "approval card here in the chat before it runs.",
+        "Reads run freely. Edits, writes and shell commands wait for an approval "
+        "card here in the chat.",
     ),
     PermissionMode(
         "accept-edits",
         "Auto-accept edits",
-        "Edits and writes in the working folder run on their own; shell commands still ask.",
+        "Edits and writes in the working folder run. Shell commands still ask.",
     ),
     PermissionMode(
         "plan",
         "Plan",
-        "Read and plan only — the agent gets no editing or shell tools.",
+        "Reads and plans. The agent gets no editing or shell tools.",
     ),
     PermissionMode(
         "auto",
@@ -271,19 +249,17 @@ _JARVIS: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "ask",
         "Ask before acting",
-        "Reads run freely; edits, shell commands and Dodaios' consequential actions "
-        "show an approval card here in the chat before they run.",
+        "Reads run freely. Edits, commands and consequential actions wait for an approval card.",
     ),
     PermissionMode(
         "accept-edits",
         "Auto-accept edits",
-        "File writes and edits in the working folder run without asking; shell "
-        "commands and consequential actions still ask.",
+        "File edits in the working folder run. Commands and consequential actions still ask.",
     ),
     PermissionMode(
         "plan",
         "Plan",
-        "Read and plan only — nothing is changed.",
+        "Reads and plans, changes nothing.",
     ),
     PermissionMode(
         "bypass",
