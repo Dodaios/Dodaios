@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_Extinguisher_3_N.T_Hangar_Extinguisher_3_N",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_Extinguisher_3_N.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "05be96e1c49e5f7b22c9bab8b2c917b1cc553a193e1f83b8f748b01b812f2ac3"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "caaa26dd438e827e994c69605091d58ecc6a152813ece776cc561e0b24a8433a"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_Extinguisher_3_N",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "korean_fire_extinguisher_01",
+      "map": "nor_gl"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Normalmap",
+    "flip_green": true,
+    "group": "WorldNormalMap",
+    "max_size": 512,
+    "srgb": false
+  }
+}

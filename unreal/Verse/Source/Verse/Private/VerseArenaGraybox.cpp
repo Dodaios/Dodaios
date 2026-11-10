@@ -57,7 +57,7 @@ namespace VerseArenaGrayboxPrivate
 	constexpr float FillKelvin = 6500.f;
 	constexpr float FillLux = 18.f;
 	/** Soft shadowless bounce stand-ins over the arena (lumens each): faces the work lights miss stay readable. */
-	constexpr float BounceLumens = 14000.f;
+	constexpr float BounceLumens = 3000.f;
 	/** Largest rendered box edge (cm); bigger boxes render as tiles (collision stays one box). */
 	constexpr double MaxTileCm = 600.0;
 	/** Repair drone docks (arena.md 7): high on the west, north and east walls, world cm. */
@@ -825,13 +825,18 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 		S.bOverride_AutoExposureBias = true;
 		S.AutoExposureBias = 0.f;
 		S.bOverride_BloomIntensity = true;
-		S.BloomIntensity = 0.35f;
+		S.BloomIntensity = 0.55f;
 		S.bOverride_BloomThreshold = true;
 		S.BloomThreshold = 1.0f;
 		S.bOverride_VignetteIntensity = true;
-		S.VignetteIntensity = 0.25f;
+		S.VignetteIntensity = 0.35f;
+		// A filmic finish (arena.md 9.3): fine grain and a trace of lens fringe at the edges.
+		S.bOverride_FilmGrainIntensity = true;
+		S.FilmGrainIntensity = 0.12f;
+		S.bOverride_SceneFringeIntensity = true;
+		S.SceneFringeIntensity = 0.2f;
 		S.bOverride_ColorContrast = true;
-		S.ColorContrast = FVector4(1.08, 1.08, 1.08, 1.0);
+		S.ColorContrast = FVector4(1.16, 1.16, 1.16, 1.0);
 		S.bOverride_ColorSaturation = true;
 		S.ColorSaturation = FVector4(0.92, 0.92, 0.92, 1.0);
 		S.bOverride_ColorGainShadows = true;
@@ -855,6 +860,8 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 		S.LumenSceneLightingQuality = 2.f;
 		S.bOverride_LumenFinalGatherQuality = true;
 		S.LumenFinalGatherQuality = 2.f;
+		S.bOverride_LumenReflectionQuality = true;
+		S.LumenReflectionQuality = 2.f;
 		S.bOverride_AmbientOcclusionIntensity = true;
 		S.AmbientOcclusionIntensity = 0.6f;
 		S.bOverride_AmbientOcclusionRadius = true;
@@ -876,7 +883,7 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 		SavedFogFalloff = Fog->FogHeightFalloff;
 		SavedFogStart = Fog->StartDistance;
 		bFogSaved = true;
-		Fog->SetFogDensity(0.03f);
+		Fog->SetFogDensity(0.022f);
 		Fog->SetFogHeightFalloff(0.12f);
 		Fog->SetStartDistance(400.f);
 		Fog->SetVolumetricFog(true);

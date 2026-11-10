@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_Duct_1_BC.T_Hangar_Duct_1_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_Duct_1_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "81713c62687c83794cc7b8145826550cc81a71fa07438c714f19b601b7ed32cf"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "e17a732494acf18dc4f1d9518a1297758d1437acad7d98110a4550a537428b17"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_Duct_1_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "modular_airduct_rectangular_01",
+      "map": "diff"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": true
+  }
+}

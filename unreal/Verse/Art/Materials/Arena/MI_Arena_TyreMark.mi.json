@@ -1,0 +1,25 @@
+{
+  "name": "MI_Arena_TyreMark",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Decal.M_Verse_Decal",
+  "replaces": "M_Arena_TyreMark",
+  "scalars": {
+    "Opacity": 0.7,
+    "Roughness": 0.6
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseRadialMask": false
+  },
+  "textures": {
+    "DecalMask": "/Game/Verse/Textures/Arena/T_Arena_Wear_Tyre_M.T_Arena_Wear_Tyre_M"
+  },
+  "vectors": {
+    "BaseTint": [
+      0.006,
+      0.006,
+      0.006,
+      1.0
+    ]
+  }
+}

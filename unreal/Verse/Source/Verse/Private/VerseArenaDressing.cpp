@@ -169,7 +169,7 @@ FString AVerseArenaGraybox::LookFor(const TSharedPtr<FJsonObject>& Box)
 	{
 		if (StartsWith(Id, TEXT("console_")))
 		{
-			return TEXT("Console_Body");
+			return TEXT("Hidden");  // drawn by the art pass as the kit console (VerseArenaArt.cpp)
 		}
 		if (StartsWith(Id, TEXT("cover_crate")))
 		{
@@ -257,6 +257,11 @@ void AVerseArenaGraybox::AddDressing(const TCHAR* MeshName, const FTransform& Tr
 	UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *KitMesh(MeshName), nullptr, LOAD_NoWarn | LOAD_Quiet);
 	if (!Mesh)
 	{
+		// Kit props outside the hangar and engineering families (consoles, lockers) live under Props too.
+		Mesh = LoadObject<UStaticMesh>(nullptr, *FString::Printf(TEXT("%sProps/%s.%s"), Kit, MeshName, MeshName), nullptr, LOAD_NoWarn | LOAD_Quiet);
+	}
+	if (!Mesh)
+	{
 		return;
 	}
 	if (UInstancedStaticMeshComponent* Component = DressingFor(Mesh, Override ? MaterialFor(Override) : nullptr, bShadow))
@@ -289,6 +294,7 @@ void AVerseArenaGraybox::DressBox(const TSharedPtr<FJsonObject>& Box)
 	const double Length = bAlongX ? S.X : S.Y;
 	const FVector Along = bAlongX ? FVector(1.0, 0.0, 0.0) : FVector(0.0, 1.0, 0.0);
 	const FVector Start = bAlongX ? FVector(Min.X, C.Y, 0.0) : FVector(C.X, Min.Y, 0.0);
+	DressArtBox(Box);
 
 	// Fences: posts, rails and a faint mesh screen above the barriers (sight passes, as in play).
 	if (StartsWith(Id, TEXT("fence_")))
@@ -488,10 +494,9 @@ void AVerseArenaGraybox::DressHall()
 			{
 				AddDressing(TEXT("SM_Eng_PowerConduit"), FTransform(Facing, Face + In * 64.0 + (Run.bAlongX ? FVector(-170.0, 0.0, 0.0) : FVector(0.0, -170.0, 0.0))));
 			}
-			// A white strip between modules, as on the reference deck.
-			const FVector Seam = Face + In * 4.0 + (Run.bAlongX ? FVector(240.0, 0.0, 0.0) : FVector(0.0, 240.0, 0.0));
-			AddTrim(TEXT("Arena_LedStrip"), Seam + FVector(0.0, 0.0, 1050.0), Run.bAlongX ? FVector(14.0, 4.0, 700.0) : FVector(4.0, 14.0, 700.0),
-				FRotator::ZeroRotator, false);
+			// A dark steel pilaster between modules (the white strips here read as a light show).
+			const FVector Seam = Face + In * 8.0 + (Run.bAlongX ? FVector(240.0, 0.0, 0.0) : FVector(0.0, 240.0, 0.0));
+			AddTrim(TEXT("Struct_Gunmetal"), Seam + FVector(0.0, 0.0, 860.0), Run.bAlongX ? FVector(22.0, 16.0, 1720.0) : FVector(16.0, 22.0, 1720.0));
 		}
 	}
 
@@ -707,5 +712,6 @@ void AVerseArenaGraybox::Dress(UWorld& World, const TSharedPtr<FJsonObject>& Roo
 	}
 	DressHall();
 	DressDecals();
+	DressArt();
 	UE_LOG(LogVerse, Log, TEXT("[VerseArena] dressing: %d instances on %d components"), DressingInstances, Dressing.Num());
 }

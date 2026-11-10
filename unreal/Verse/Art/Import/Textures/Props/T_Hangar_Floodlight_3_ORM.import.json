@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_Floodlight_3_ORM.T_Hangar_Floodlight_3_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_Floodlight_3_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "7fe410ccd5483491121a7b537e9c50d7d391efdcef6aea88053467381f11a057"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "4f8fe251eb31144de0eff820a7aef205d306b3b5dd4a19aff0ad4e87ca50a767"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_Floodlight_3_ORM",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "security_light",
+      "map": "arm"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 256,
+    "srgb": false
+  }
+}

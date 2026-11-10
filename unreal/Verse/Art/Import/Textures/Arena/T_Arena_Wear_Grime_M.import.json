@@ -1,0 +1,35 @@
+{
+  "asset_path": "/Game/Verse/Textures/Arena/T_Arena_Wear_Grime_M.T_Arena_Wear_Grime_M",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/arena/T_Arena_Wear_Grime_M.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "f4e4cced2387e16aa415f8f53f1555cbde69c21c2cd36bb4c3a4063ebde650f4"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Arena_Wear_Grime_M",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "mask": "Grime"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/grime.py",
+    "function": "main"
+  },
+  "texture": {
+    "channels": {
+      "r": "coverage"
+    },
+    "compression": "Grayscale",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": false
+  }
+}

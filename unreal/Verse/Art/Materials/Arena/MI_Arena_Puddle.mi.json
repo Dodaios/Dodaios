@@ -1,0 +1,25 @@
+{
+  "name": "MI_Arena_Puddle",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Decal.M_Verse_Decal",
+  "replaces": "M_Arena_Puddle",
+  "scalars": {
+    "Opacity": 0.7,
+    "Roughness": 0.12
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseRadialMask": false
+  },
+  "textures": {
+    "DecalMask": "/Game/Verse/Textures/Arena/T_Arena_Wear_Puddle_M.T_Arena_Wear_Puddle_M"
+  },
+  "vectors": {
+    "BaseTint": [
+      0.03,
+      0.03,
+      0.032,
+      1.0
+    ]
+  }
+}

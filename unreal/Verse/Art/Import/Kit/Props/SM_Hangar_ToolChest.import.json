@@ -1,0 +1,66 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_ToolChest.SM_Hangar_ToolChest",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_ToolChest.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "e0c10a54336f4cae10822e1b1f940aedac6dbcef36e574af71f904160a7b750c"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "2f66fbb723cd52382f73daec184b68d9b36842a488ecaf120e5c3a6354e9dea4",
+      "bc5a4009a544a9504849b951afd984d6ac7c5adb0d43c5a08c0a834f8e811a01",
+      "c2bde4e96af4aad171e57e00ff78f0aa9e3b603286a2c74cd6d7c2a20c487342",
+      "d5552ee63ac9bc53527ee1bf19bcbd31d8424bcc15fe9861f79bba917e857828",
+      "da37ba2a8d064637c7206cb091597275986e788ce379bee58a96c949cce06511"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        34.269,
+        20.358,
+        65.184
+      ],
+      "min": [
+        -34.269,
+        -20.358,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_ToolChest_1.MI_Hangar_ToolChest_1",
+        "slot": "M_Hangar_ToolChest_1"
+      }
+    ],
+    "triangles": 13360,
+    "uv_sets": 1,
+    "vertices": 11073
+  },
+  "name": "SM_Hangar_ToolChest",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "metal_tool_chest"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

@@ -64,7 +64,14 @@ namespace VerseHangarArtTest
 		{TEXT("09_bot"), FVector(4250.0, 3650.0, 0.0), 0.0, -4.0, false, true},
 		{TEXT("10_bot_ads"), FVector(4250.0, 3650.0, 0.0), 0.0, -4.0, true, true},
 		{TEXT("11_bot_live"), FVector(4250.0, 3650.0, 0.0), 0.0, -4.0, false, false, true},
-	};
+		// The hall around the arena (arena.md 9.3), seen from inside it (a player outside the arena
+		// is out of bounds): the apron and the parked gunship from the booth's upper room, the west
+		// bay over the fence from the west catwalk, the cranes from the gunship's roof.
+		{TEXT("12_hall_apron"), FVector(3300.0, 4050.0, 630.0), 62.0, -6.0, false},
+		{TEXT("13_west_bay"), FVector(2630.0, 900.0, 600.0), 175.0, -14.0, false},
+		{TEXT("14_roof_cranes"), FVector(5000.0, 1800.0, 300.0), 175.0, 26.0, false},
+		{TEXT("15_east_canyon_bay"), FVector(7380.0, 3600.0, 0.0), 265.0, -2.0, false},
+};
 
 	/**
 	 * The tour is about the room: the bot waits, out of sight, in the armoury, or (bShowBot)

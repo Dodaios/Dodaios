@@ -1,0 +1,69 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Pipes_P8.SM_Hangar_Pipes_P8",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_Pipes_P8.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "10c669dec9b1711447bae87cdff7220b5ac7c5e3aff4059dacc52d1572159eea"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "2e11e1a7dabd56b1e158364f48b0b388bf316fcab61a01274740db75dbafa448",
+      "455d3a0fe95b7900a08cbebb23cfb2c341672fcb67ae7355d776e53cfa3d0688",
+      "4c65dcb651a3d345517fa93ad7c6e48f2388f4e8bb347446f70317c16049867b",
+      "7fff7d4604491eeb7531ad5f7520517015c72ec7316d1e865d62f23f976dfed6",
+      "84a43ca11a4f1ac84f7fc8336a4e9b7b333d30c13e540f3ff42e662dc6f91b53",
+      "c0233f66b18e3374dfbbb8c8078a41f6571a0809d3eb14dd9d3c332265cfde7b",
+      "ed4728fde567efe420e3a6e1bdc4238b26c2782218737c7e2de88eeca1e91fb2",
+      "ef8a75c402a8871903dcaa147b023d57c640d0de4c7a8acdfdee822861656a92"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        13.315,
+        15.38,
+        37.883
+      ],
+      "min": [
+        -13.315,
+        -15.38,
+        -0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_Pipes_2.MI_Hangar_Pipes_2",
+        "slot": "M_Hangar_Pipes_2"
+      }
+    ],
+    "triangles": 5788,
+    "uv_sets": 1,
+    "vertices": 6009
+  },
+  "name": "SM_Hangar_Pipes_P8",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "modular_industrial_pipes_01"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}
