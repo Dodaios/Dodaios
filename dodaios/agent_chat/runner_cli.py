@@ -60,6 +60,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shutil
 import time
 import uuid
@@ -106,9 +107,28 @@ _READLINE_LIMIT: Final[int] = 16 * 1024 * 1024
 #: A coding-agent turn has no wall-clock limit: a session may run for days.
 #: Stop ends it; a stalled ACP runtime ends through its own watchdog.
 _TURN_TIMEOUT_S: Final[float | None] = None
-#: A CLI that sent its terminal result and then printed nothing for this long
-#: is stuck, not busy (background sub-agents keep printing while they work).
-_EXIT_AFTER_RESULT_S: Final[float] = 600.0
+#: Once a CLI gave its final answer (its ``result`` line) and runs nothing in
+#: the background, the turn waits this long for the process to exit by
+#: itself, then ends without it: the answer is in. A CLI that still has open
+#: background tasks is waited for as long as they run — no clock (#1112).
+_RESULT_EXIT_GRACE_S: Final[float] = 1.0
+#: A CLI that answered may go on shutting down (SessionEnd/Stop hooks, a
+#: memory pass, flushing its session file) after its turn ended. Behind the
+#: finished turn it is read on, and killed only once it printed nothing for
+#: this long: it is not killed while it still works.
+_REAP_GRACE_S: Final[float] = 120.0
+#: The same silence limit once the session's next turn waits for it.
+_REAP_HURRY_S: Final[float] = 15.0
+#: After the process exited, its pipes get this long to drain. A grandchild
+#: that inherited them (Windows: ``py.exe`` gone, ``python.exe`` alive) would
+#: otherwise hold the turn open until it ends — hours, in one case.
+_PIPE_DRAIN_S: Final[float] = 1.5
+#: How long a killed CLI gets to be gone before the turn moves on regardless.
+_KILL_WAIT_S: Final[float] = 2.0
+#: A Grok turn idle without its result for this long waits on background
+#: work, even when no tool result named it (``grok_idle_wait``).
+_GROK_IDLE_HINT_S: Final[float] = 10.0
+_EXIT_POLL_S: Final[float] = 0.05
 #: agy's print mode stops itself after 5 min unless told otherwise.
 _AGY_PRINT_TIMEOUT: Final[str] = f"{365 * 24 * 3600}s"
 
@@ -1809,6 +1829,10 @@ class _ClaudeState:
     result_text: str = ""
     #: The turn's ``result`` line arrived — stdin may close, the CLI exits.
     saw_result: bool = False
+    #: The latest ``result`` is the turn's last word: no task ended and no
+    #: message started since. A task that ends after a result wakes the
+    #: agent again (Claude Code), so the turn is not over until it answers.
+    answered: bool = False
     #: Last tool_result that came back as an error — used when the CLI then
     #: aborts the turn instead of thinking again (Grok print-mode cancel).
     last_tool_error: str | None = None
@@ -1825,6 +1849,15 @@ class _ClaudeState:
     idle: bool = False
     #: The task list the last ``background_wait`` event named.
     wait_sent: tuple[str, ...] = ()
+    #: Grok Build: its stream has no task lines, so open background work is
+    #: read from tool results instead (``_grok_track_tasks``).
+    grok: bool = False
+    #: Grok Build: what each tool call said it does (its ``description``), so
+    #: a background shell's wait can name it.
+    call_notes: dict[str, str] = field(default_factory=dict)
+    #: Grok Build: the calls whose tool can start background work; only
+    #: their results are read for a task id.
+    background_calls: set[str] = field(default_factory=set)
     #: The model a sub-agent's messages last reported (sub-agent states only).
     reported_model: str = ""
 
@@ -1944,6 +1977,17 @@ def _content_text(content: Any) -> str:
 _CLAUDE_TASK_SUBTYPES: Final = frozenset(
     {"task_started", "task_progress", "task_updated", "task_notification"}
 )
+#: The ``task_updated`` statuses that mean a task is over. Anything else
+#: (running, pending, a status this code does not know yet) keeps it open:
+#: closing a live task early would end its turn under it.
+_TASK_ENDED_STATUSES: Final = frozenset(
+    {
+        "completed", "complete", "done", "succeeded", "success",
+        "failed", "failure", "error", "errored",
+        "killed", "stopped", "cancelled", "canceled", "aborted",
+        "interrupted", "timed_out", "timeout", "expired", "exited",
+    }
+)
 
 
 def subagent_status(raw: str) -> str:
@@ -2018,10 +2062,96 @@ def _claude_track_task(obj: dict[str, Any], st: _ClaudeState) -> None:
         return
     if subtype == "task_updated":
         patch = obj.get("patch") if isinstance(obj.get("patch"), dict) else {}
-        if str(patch.get("status") or "") in {"", "running", "pending"}:
+        if str(patch.get("status") or "").lower() not in _TASK_ENDED_STATUSES:
             return
     if subtype in {"task_updated", "task_notification"}:
-        st.open_tasks.pop(task_id, None)
+        if st.open_tasks.pop(task_id, None) is not None and st.saw_result:
+            # Claude Code wakes the agent with the task's outcome: the
+            # result already sent is no longer the turn's last word.
+            st.answered = False
+
+
+#: Grok Build's own words for background work it started, as they read in a
+#: tool result (grok 1.0.77): a background shell (``run_terminal_command``
+#: with ``background: true``), a background sub-agent (``spawn_subagent``)
+#: and a ``monitor``.
+_GROK_TASK_STARTED: Final = (
+    re.compile(r"<task-id>\s*([\w-]+)\s*</task-id>"),
+    re.compile(r"Subagent started in background\.\s*subagent_id:\s*([\w-]+)"),
+    re.compile(r"Monitor started \(task ([\w-]+)"),
+)
+#: A task's end as Grok reports it: the reminder it appends to a later tool
+#: result, and the status block of ``get_command_or_subagent_output``.
+_GROK_TASK_ENDED: Final = (
+    re.compile(
+        r"Background task \"([\w-]+)\" (?:completed|failed|was killed|killed|"
+        r"cancelled|canceled|stopped|timed out|exited)"
+    ),
+)
+_GROK_TASK_STATUS: Final = re.compile(r"=== Task ([\w-]+) ===.*?Status:\s*([\w-]+)", re.DOTALL)
+_GROK_TASK_LIVE: Final = frozenset({"running", "pending", "in_progress", "queued", "started"})
+#: Grok tools that may start background work (grok 1.0.77; ``task`` and
+#: ``run_terminal_cmd`` are the older spellings). A file read that happens to
+#: contain ``<task-id>`` never opens a task.
+_GROK_BACKGROUND_TOOLS: Final = frozenset(
+    {"run_terminal_command", "run_terminal_cmd", "spawn_subagent", "task", "monitor"}
+)
+#: Said while a Grok turn waits on work its tool results never named.
+GROK_BACKGROUND_WORK: Final = "background work"
+
+
+def _grok_track_tasks(text: str, st: _ClaudeState, call_id: str = "") -> None:
+    """Keep Grok Build's open background tasks from what its tool results say.
+
+    Grok's ``streaming-messages-json`` has no task lines (Claude Code's
+    ``system`` ``task_*``): a background shell, sub-agent or monitor shows
+    only as the tool result that started it, and its end only as words in a
+    later result. These are read here. What they miss — a task whose end the
+    model never reads back — is covered by Grok itself: a print-mode run
+    holds its ``result`` line until every background task ended, so that
+    line clears whatever is left (``translate_claude_line``), and a turn
+    that went quiet before it gets a generic wait (``grok_idle_wait``).
+    """
+    if not text:
+        return
+    for pattern in _GROK_TASK_STARTED if call_id in st.background_calls else ():
+        for match in pattern.finditer(text):
+            task_id = match.group(1)
+            what = ""
+            if pattern is _GROK_TASK_STARTED[1]:
+                described = re.search(r"description:\s*(.+)", text[match.end():])
+                what = described.group(1).strip() if described else ""
+            what = what or st.call_notes.get(call_id, "")
+            st.open_tasks[task_id] = (what.splitlines() or ["background task"])[0][:120]
+    for pattern in _GROK_TASK_ENDED:
+        for match in pattern.finditer(text):
+            st.open_tasks.pop(match.group(1), None)
+    for match in _GROK_TASK_STATUS.finditer(text):
+        if match.group(2).lower() not in _GROK_TASK_LIVE:
+            st.open_tasks.pop(match.group(1), None)
+
+
+def grok_idle_wait(st: Any) -> list[dict[str, Any]]:
+    """A Grok turn that ended its message, has no result yet and named no task.
+
+    Grok holds its ``result`` line while background work it started still
+    runs, so an idle Grok without a result is waiting on something, even
+    when no tool result said what. Called by the drive loop once the stream
+    has been quiet for a moment, so a normal turn end (``result`` follows at
+    once) never flashes a wait.
+    """
+    if (
+        not getattr(st, "grok", False)
+        or not st.idle
+        or st.saw_result
+        or st.wait_sent
+        or st.open_tasks
+    ):
+        return []
+    st.wait_sent = (GROK_BACKGROUND_WORK,)
+    return [
+        make_event("background_wait", {"turn_id": st.turn_id, "tasks": [GROK_BACKGROUND_WORK]})
+    ]
 
 
 def _claude_outstanding(st: Any) -> bool:
@@ -2100,7 +2230,7 @@ def _claude_task_events(obj: dict[str, Any], st: _ClaudeState) -> list[dict[str,
     if subtype == "task_updated":
         patch = obj.get("patch") if isinstance(obj.get("patch"), dict) else {}
         status = str(patch.get("status") or "")
-        if status in {"", "running", "pending"}:
+        if status.lower() not in _TASK_ENDED_STATUSES:
             return []
         return [
             make_event(
@@ -2149,6 +2279,7 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
             st.current_message_id = str(mid)
             # The agent works again (a finished task woke it): no longer waiting.
             st.idle = False
+            st.answered = False
             out.extend(_claude_wait_events(st))
         elif et == "content_block_start":
             block = ev.get("content_block") or {}
@@ -2289,6 +2420,12 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
                 st.emitted_tool_ids.add(call_id)
                 name = str(block.get("name") or "tool")
                 args = block.get("input") or {}
+                if st.grok and isinstance(args, dict):
+                    note = str(args.get("description") or args.get("command") or "").strip()
+                    if note:
+                        st.call_notes[call_id] = note
+                    if name in _GROK_BACKGROUND_TOOLS or args.get("background") is True:
+                        st.background_calls.add(call_id)
                 out.append(
                     make_event(
                         "tool_call",
@@ -2322,8 +2459,13 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
         content = message.get("content") or []
         if isinstance(content, list):
             for block in content:
+                if st.grok and isinstance(block, dict) and block.get("type") == "text":
+                    # A reminder Grok adds as its own user text (a task's end).
+                    _grok_track_tasks(str(block.get("text") or ""), st)
                 if isinstance(block, dict) and block.get("type") == "tool_result":
                     output = _content_text(block.get("content"))
+                    if st.grok:
+                        _grok_track_tasks(output, st, str(block.get("tool_use_id") or ""))
                     is_error = bool(block.get("is_error"))
                     if is_error and output.strip():
                         st.last_tool_error = output.strip()
@@ -2339,11 +2481,20 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
                             },
                         )
                     )
+        elif st.grok and isinstance(content, str):
+            _grok_track_tasks(content, st)
+        if st.grok:
+            out.extend(_claude_wait_events(st))
         return out
 
     if kind == "result":
         st.saw_result = True
+        st.answered = True
         st.idle = True
+        if st.grok:
+            # Grok prints its result only once all its background work ended
+            # (headless mode waits for it): nothing it started is still open.
+            st.open_tasks.clear()
         out.extend(_claude_wait_events(st))
         st.result_text = str(obj.get("result") or "")
         if obj.get("is_error"):
@@ -3900,6 +4051,9 @@ async def _run_cli_once(
     bridge: Any | None = None,
 ) -> _Outcome:
     session = handle.session
+    # The previous turn's CLI may still be shutting down after its answer.
+    if not await _await_lingering(session.session_id, getattr(handle, "cancel", None)):
+        return _Outcome("cancelled", None, {}, None, None)
     cwd = _resolved_cwd(session.cwd or Path.home())
     effort = normalize_effort(session.provider, session.effort)
     # The picked model's own levels when the catalog knows them (``None`` =
@@ -4261,6 +4415,8 @@ async def _drive_cli(
     else:
         make_state, translate = _SHAPES[plan.shape]
         state = make_state(handle.turn_id, vendor_session)
+        if runner == "grok-cli" and isinstance(state, _ClaudeState):
+            state.grok = True
     # Lines that are not the CLI's JSON — a banner, a warning, the whole
     # answer of a plain-text CLI — shown as they come, and kept as the answer
     # of last resort when the stream said nothing else.
@@ -4281,7 +4437,9 @@ async def _drive_cli(
                 line = await proc.stderr.readline()
             except ValueError:
                 # A diagnostic line past the read limit: dropped, never fatal.
+                reads[0] += 1
                 continue
+            reads[0] += 1
             if not line:
                 return
             text = line.decode("utf-8", errors="replace").rstrip()
@@ -4304,6 +4462,9 @@ async def _drive_cli(
         nonlocal grace_kill, status, error_text
         assert proc.stdout is not None
         while True:
+            # Between lines: the drain after exit may stop reading here, never
+            # while a line is still being translated (``_natural_end``).
+            busy[0] = False
             try:
                 raw = await proc.stdout.readline()
             except ValueError:
@@ -4319,6 +4480,8 @@ async def _drive_cli(
                 )
                 _kill(proc)
                 return
+            reads[0] += 1
+            busy[0] = True
             activity[0] = time.monotonic()
             if hosted and getattr(proc, "handed_over", False):
                 return
@@ -4345,6 +4508,7 @@ async def _drive_cli(
             if replay:
                 if obj.get("type") not in ("control_request", "control_response"):
                     translate(obj, state)
+                    _note_settled()
                 continue
             if plan.acp is not None:
                 if _provider_error() or handle.cancel.is_set():
@@ -4365,6 +4529,7 @@ async def _drive_cli(
                         grace_kill = asyncio.get_running_loop().call_later(
                             _ACP_EXIT_GRACE_S, _kill, proc
                         )
+                    _note_settled()
                 continue
             if plan.control_init is not None:
                 if obj.get("type") == "control_request":
@@ -4383,6 +4548,16 @@ async def _drive_cli(
             if plan.keep_stdin and getattr(state, "saw_result", False):
                 # The turn is over; closing stdin lets the CLI exit.
                 _close_stdin()
+            _note_settled()
+
+    def _note_settled() -> None:
+        # The answer is in and nothing runs in the background: the turn may
+        # end without waiting for the process (``_RESULT_EXIT_GRACE_S``). A
+        # task opened again (a woken agent starts one) takes that back.
+        if _answer_settled(state):
+            settled.set()
+        else:
+            settled.clear()
 
     def _remember_cli_commands(obj: dict[str, Any]) -> None:
         """Hand the commands Claude Code reports to the thread's "/" picker."""
@@ -4738,8 +4913,25 @@ async def _drive_cli(
 
         native_gate.register(handle.session.session_id, gate_decider)
     grace_kill: asyncio.TimerHandle | None = None
+    settled = asyncio.Event()
+
+    async def _watch_grok_idle() -> None:
+        """Say a Grok turn waits on background work its stream never named."""
+        if not getattr(state, "grok", False):
+            return
+        while True:
+            await asyncio.sleep(min(_ACP_WATCH_TICK_S, _GROK_IDLE_HINT_S / 2))
+            if time.monotonic() - activity[0] < _GROK_IDLE_HINT_S:
+                continue
+            for ev in grok_idle_wait(state):
+                await handle.emit(ev)
+
     # Stall watchdog state: the last stdout frame, and an open approval card.
     activity = [time.monotonic()]
+    #: Lines read from either pipe: the drain after exit counts them, never a clock.
+    reads = [0]
+    #: The pump is handling a line it read (translating, emitting).
+    busy = [False]
     approval_pending = [0]  # open approval / question cards (a count)
     # POSIX: descendants that leave the process group (setsid) are remembered
     # while the runtime runs and reaped with it (Windows: the job object).
@@ -4774,34 +4966,20 @@ async def _drive_cli(
     watcher = asyncio.create_task(_watch_cancel())
     provider_watcher = asyncio.create_task(_watch_provider_failure())
     stall_watcher = asyncio.create_task(_watch_stall())
-    exit_watcher: asyncio.Task[None] | None = None
-    lingered = [False]
+    hint_watcher = asyncio.create_task(_watch_grok_idle())
+    natural: asyncio.Task[None] | None = None
+    #: The turn ended on its answer, maybe before the process exited.
+    ended_on_answer = False
+    #: ... and the process was still shutting down: it is reaped in the
+    #: background (``_reap_after_answer``), which also releases a hosted one.
+    reap_later = False
     try:
-        # EOF is not process exit: a CLI may close both pipes and keep
-        # running. The deadlines must also cover waiting for the process.
         deadline = None if getattr(handle, "goal_turn", False) else timeout_s
-        async with asyncio.timeout(deadline) as scope:
-
-            async def _watch_exit_after_result() -> None:
-                # No limit on the work itself, but a CLI that gave its final
-                # answer and then stays alive in silence is stuck, not busy.
-                while True:
-                    await asyncio.sleep(_ACP_WATCH_TICK_S)
-                    if not getattr(state, "saw_result", False):
-                        continue
-                    if approval_pending[0] or _claude_outstanding(state):
-                        # A card waits for a person, or background tasks and
-                        # sub-agents still run: silence is not "stuck".
-                        activity[0] = time.monotonic()
-                        continue
-                    if time.monotonic() - activity[0] > _EXIT_AFTER_RESULT_S:
-                        break
-                lingered[0] = True
-                scope.reschedule(asyncio.get_running_loop().time())
-
-            exit_watcher = asyncio.create_task(_watch_exit_after_result())
-            await asyncio.gather(pump, drain, feeder)
-            await proc.wait()
+        async with asyncio.timeout(deadline):
+            natural = asyncio.create_task(
+                _natural_end(proc, pump, drain, feeder, lambda: reads[0], lambda: busy[0])
+            )
+            ended_on_answer = await _until_end_or_answer(natural, settled, state)
     except TimeoutError:
         log.warning(
             "agent chat %s: %s timed out (result=%s, returncode=%s, stdout_done=%s)",
@@ -4814,13 +4992,7 @@ async def _drive_cli(
         await _acp_cancel()
         _kill(proc)
         status = "error"
-        if lingered[0]:
-            error_text = (
-                f"{runner} did not finish within {int(_EXIT_AFTER_RESULT_S)} s"
-                " of its final answer."
-            )
-        else:
-            error_text = f"{runner} did not finish within {int(timeout_s or 0)} s."
+        error_text = f"{runner} did not finish within {int(timeout_s or 0)} s."
     except asyncio.CancelledError:
         if hosted and not handle.cancel.is_set():
             # The app is going away, nobody pressed Stop: the CLI keeps working
@@ -4838,39 +5010,59 @@ async def _drive_cli(
         watcher.cancel()
         provider_watcher.cancel()
         stall_watcher.cancel()
-        if exit_watcher is not None:
-            exit_watcher.cancel()
-        for task in (pump, drain, feeder):
-            if not task.done():
+        hint_watcher.cancel()
+        # Nothing the process prints from here on reaches this turn: lines
+        # after its answer can no longer change what was translated.
+        for task in (natural, pump, drain, feeder):
+            if task is not None and not task.done():
                 task.cancel()
         await asyncio.gather(
-            watcher,
-            provider_watcher,
-            stall_watcher,
+            *(t for t in (natural, watcher, provider_watcher, stall_watcher, hint_watcher) if t),
             pump,
             drain,
             feeder,
             return_exceptions=True,
         )
-        if tracker is not None:
-            tracker.close()
-        if tree is not None:
-            tree.close()
-        if proc.returncode is None and not getattr(proc, "detached", False):
-            _kill(proc)
-            try:
-                await asyncio.wait_for(proc.wait(), timeout=5)
-            except TimeoutError:
-                log.warning("Agent CLI did not reap after cancellation")
         if grace_kill is not None:
             grace_kill.cancel()
-        _release_plan(plan)
+
+        def _cleanup() -> None:
+            if tracker is not None:
+                tracker.close()
+            if tree is not None:
+                tree.close()
+            _release_plan(plan)
+
+        detached = bool(getattr(proc, "detached", False))
+        reap_later = (
+            ended_on_answer
+            and proc.returncode is None
+            and not detached
+            # Another app process carries a handed-over turn on: never reap it.
+            and not getattr(proc, "handed_over", False)
+        )
+        if reap_later:
+            # The answer is in: the turn ends now, the CLI finishes its own
+            # shutdown (or is killed after a grace) behind it.
+            _linger(
+                session.session_id,
+                lambda hurry: _reap_after_answer(
+                    hurry, proc, handle.turn_id, runner, hosted, _cleanup
+                ),
+            )
+        else:
+            if proc.returncode is None and not detached:
+                _kill(proc)
+                if not await _exited_within(proc, _KILL_WAIT_S):
+                    log.warning("Agent CLI did not reap after cancellation")
+            _cleanup()
+            _close_pipes(proc)
 
     if hosted and getattr(proc, "handed_over", False):
         from dodaios.agent_chat.turn_host_client import TurnHandedOver
 
         raise TurnHandedOver(handle.turn_id)
-    if hosted:
+    if hosted and not reap_later:
         # Handled to the end: the host (or its spool file) may drop the lines.
         proc.release()
         if getattr(proc, "host_lost", False) and not handle.cancel.is_set():
@@ -5023,6 +5215,269 @@ async def _deliver_codex_images(
             )
         )
     return True
+
+
+def _answer_settled(state: Any) -> bool:
+    """The CLI gave its final answer, is idle and runs nothing in the background.
+
+    Claude-shaped CLIs (Claude Code, Grok, GLM) keep ``answered``: their
+    latest ``result`` with no task ended and no message started since. A
+    task that ends after a result wakes Claude Code again, and its next
+    answer is part of this turn. ACP runtimes know only their ``result``;
+    the other shapes end with their process, as before.
+    """
+    answered = getattr(state, "answered", None)
+    if answered is None:
+        answered = getattr(state, "saw_result", False)
+    if not answered or not getattr(state, "idle", True):
+        return False
+    # Background tasks of the CLI itself or of a sub-agent it started.
+    return not _claude_outstanding(state)
+
+
+async def _until_exit(proc: Any) -> None:
+    """Until the process itself exited — not until its pipes closed.
+
+    A pipe's EOF can wait on a grandchild that inherited it, for hours.
+    """
+    while proc.returncode is None:  # noqa: ASYNC110 — no awaitable for exit alone
+        await asyncio.sleep(_EXIT_POLL_S)
+
+
+async def _exited_within(proc: Any, limit_s: float) -> bool:
+    try:
+        await asyncio.wait_for(_until_exit(proc), limit_s)
+    except TimeoutError:
+        # Still running after the limit: the caller decides what happens next.
+        return False
+    return True
+
+
+def _close_pipes(proc: Any) -> None:
+    """Let go of an exited process's pipes a surviving grandchild still holds."""
+    transport = getattr(proc, "_transport", None)
+    if transport is None or proc.returncode is None:
+        return
+    with suppress(Exception):
+        transport.close()
+
+
+def _unread(proc: Any) -> int:
+    """What already arrived on the process's pipes and no reader took yet."""
+    total = 0
+    for stream in (getattr(proc, "stdout", None), getattr(proc, "stderr", None)):
+        buffer = getattr(stream, "_buffer", None)
+        if buffer is not None:
+            total += len(buffer)
+            continue
+        queue = getattr(stream, "_queue", None)  # turn_host_client._LineStream
+        if queue is not None:
+            total += queue.qsize()
+    return total
+
+
+async def _pipes_went_quiet(
+    readers: set[asyncio.Task[None]], lines_read: Callable[[], int], window_s: float
+) -> bool:
+    """Whether a whole wait window passed with no line read and nothing buffered.
+
+    Counted, not clocked: an event loop that stalled past the window still
+    finds the lines it had not read yet (the buffer check), so a stall never
+    cuts a ``result`` that already arrived.
+    """
+    seen = lines_read()
+    await asyncio.wait(readers, timeout=window_s)
+    for _ in range(3):  # let completions that arrived during a stall run
+        await asyncio.sleep(0)
+    return lines_read() == seen
+
+
+async def _natural_end(
+    proc: Any,
+    pump: asyncio.Task[None],
+    drain: asyncio.Task[None],
+    feeder: asyncio.Task[None],
+    lines_read: Callable[[], int],
+    handling: Callable[[], bool] = lambda: False,
+) -> None:
+    """The CLI's own end: it exited and its output was read.
+
+    EOF is not process exit (a CLI may close both pipes and keep running),
+    and process exit is not EOF (a grandchild may hold the pipes): wait for
+    the exit, then read on while lines still come; stop after a whole
+    ``_PIPE_DRAIN_S`` window with no line read, nothing left buffered and no
+    line half handled (its ``result`` may be the one being translated).
+    """
+    await _until_exit(proc)
+    while True:
+        pending = {t for t in (pump, drain, feeder) if not t.done()}
+        if not pending:
+            return
+        quiet = await _pipes_went_quiet(pending, lines_read, _PIPE_DRAIN_S)
+        if quiet and not _unread(proc) and not handling():
+            return
+
+
+async def _until_end_or_answer(
+    natural: asyncio.Task[None], settled: asyncio.Event, state: Any
+) -> bool:
+    """Wait for the CLI's end, or for its answer with nothing left running.
+
+    Returns True when the turn ends on its answer while the process may
+    still be shutting down; False when the process ended by itself.
+    """
+    while True:
+        answer = asyncio.ensure_future(settled.wait())
+        try:
+            done, _ = await asyncio.wait(
+                {natural, answer}, return_when=asyncio.FIRST_COMPLETED
+            )
+        finally:
+            answer.cancel()
+        if natural in done:
+            natural.result()
+            return False
+        # The answer is in: most CLIs exit within a moment, keeping their
+        # real exit code; one that takes longer is not waited for.
+        finished, _ = await asyncio.wait({natural}, timeout=_RESULT_EXIT_GRACE_S)
+        if finished:
+            natural.result()
+            return False
+        if _answer_settled(state):
+            return True
+        # The agent woke or a task opened meanwhile: the turn goes on.
+
+
+#: CLIs that answered and are still shutting down, by chat session. The
+#: session's next turn waits for them, so two processes never write one
+#: vendor session at once.
+_LINGERING: dict[str, set[asyncio.Task[None]]] = {}
+#: Set once the session's next turn waits: a lingering CLI then gets the
+#: shorter silence limit (``_REAP_HURRY_S``).
+_HURRY: dict[str, asyncio.Event] = {}
+
+
+def _linger(session_id: str, work: Callable[[asyncio.Event], Awaitable[None]]) -> None:
+    hurry = _HURRY.setdefault(session_id, asyncio.Event())
+    task = asyncio.ensure_future(work(hurry))
+    tasks = _LINGERING.setdefault(session_id, set())
+    tasks.add(task)
+
+    def _done(t: asyncio.Task[None]) -> None:
+        tasks.discard(t)
+        if not tasks and _LINGERING.get(session_id) is tasks:
+            _LINGERING.pop(session_id, None)
+            _HURRY.pop(session_id, None)
+
+    task.add_done_callback(_done)
+
+
+async def _await_lingering(session_id: str, cancel: asyncio.Event | None = None) -> bool:
+    """The previous turn's CLI, if it is still shutting down, ends first.
+
+    False when Stop was pressed meanwhile: the new turn then never starts.
+    """
+    tasks = list(_LINGERING.get(session_id, ()))
+    if not tasks:
+        return not (cancel is not None and cancel.is_set())
+    hurry = _HURRY.get(session_id)
+    if hurry is not None:
+        hurry.set()
+    waiting = asyncio.ensure_future(
+        asyncio.gather(*(asyncio.shield(t) for t in tasks), return_exceptions=True)
+    )
+    stop = asyncio.ensure_future(cancel.wait()) if cancel is not None else None
+    try:
+        await asyncio.wait(
+            {waiting, *([stop] if stop else [])}, return_when=asyncio.FIRST_COMPLETED
+        )
+    finally:
+        waiting.cancel()
+        if stop is not None:
+            stop.cancel()
+    return not (cancel is not None and cancel.is_set())
+
+
+async def _reap_after_answer(
+    hurry: asyncio.Event,
+    proc: Any,
+    turn_id: str,
+    runner: str,
+    hosted: bool,
+    cleanup: Callable[[], None],
+) -> None:
+    """A CLI whose turn already ended on its answer: let it finish, or kill it.
+
+    Its pipes are read on (a full pipe would block it), and it is killed only
+    after it printed nothing for ``_REAP_GRACE_S`` (``_REAP_HURRY_S`` once
+    the next turn waits): post-answer work such as a SessionEnd hook or a
+    session-file flush runs to its end.
+    """
+    lines = [0]
+
+    async def _read(stream: Any) -> None:
+        if stream is None:
+            return
+        while True:
+            try:
+                raw = await stream.readline()
+            except ValueError:
+                # An over-long line is dropped; it still counts as output read.
+                lines[0] += 1
+                continue
+            except Exception:  # noqa: BLE001 — a closed pipe ends the reader
+                return
+            if not raw:
+                return
+            lines[0] += 1
+
+    readers = [asyncio.ensure_future(_read(proc.stdout)), asyncio.ensure_future(_read(proc.stderr))]
+    exit_task = asyncio.ensure_future(_until_exit(proc))
+    try:
+        while not exit_task.done():
+            if getattr(proc, "handed_over", False) or getattr(proc, "detached", False):
+                return  # another app process owns it now
+            limit = _REAP_HURRY_S if hurry.is_set() else _REAP_GRACE_S
+            seen = lines[0]
+            waits: set[asyncio.Future[Any]] = {exit_task}
+            hurried = None if hurry.is_set() else asyncio.ensure_future(hurry.wait())
+            if hurried is not None:
+                waits.add(hurried)
+            try:
+                await asyncio.wait(waits, timeout=limit, return_when=asyncio.FIRST_COMPLETED)
+            finally:
+                if hurried is not None:
+                    hurried.cancel()
+            if exit_task.done() or (hurried is not None and hurried.done()):
+                continue
+            if lines[0] != seen or _unread(proc):
+                continue  # it still works
+            if getattr(proc, "handed_over", False) or getattr(proc, "detached", False):
+                return
+            log.info(
+                "agent chat %s: %s printed nothing for %.0f s after its answer; stopping it",
+                turn_id,
+                runner,
+                limit,
+            )
+            _kill(proc)
+            if not await _exited_within(proc, _KILL_WAIT_S):
+                log.warning("agent chat %s: %s did not exit after kill", turn_id, runner)
+            break
+    finally:
+        exit_task.cancel()
+        for reader in readers:
+            reader.cancel()
+        await asyncio.gather(exit_task, *readers, return_exceptions=True)
+        handed = getattr(proc, "handed_over", False) or getattr(proc, "detached", False)
+        try:
+            if not handed:
+                cleanup()
+        finally:
+            _close_pipes(proc)
+            if hosted and not handed:
+                with suppress(Exception):
+                    proc.release()
 
 
 def _kill(proc: asyncio.subprocess.Process) -> None:

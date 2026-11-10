@@ -108,6 +108,11 @@ def _stop_caller() -> str:
 _ORPHANED_TURN_ERROR: Final = turn_errors.APP_RESTARTED
 
 Subscriber = asyncio.Queue[dict[str, Any]]
+#: The last item a subscriber that fell too far behind receives: its reader
+#: closes and re-syncs from the store (``AgentChatService._drop_subscriber``).
+SUBSCRIBER_DROPPED: Final[dict[str, Any]] = {"kind": "subscriber_dropped", "payload": {}}
+#: How long a send waits for a finished turn's cleanup before it is busy.
+_FINISHING_WAIT_S: Final[float] = 10.0
 
 
 #: The app's loop, resolved by the route layer BEFORE it takes its build lock
@@ -468,7 +473,9 @@ def _current_task() -> asyncio.Task[Any] | None:
 
 
 class _Running:
-    __slots__ = ("asks", "task", "cancel", "turn_id", "setup_task", "ready", "detached")
+    __slots__ = (
+        "asks", "task", "cancel", "turn_id", "setup_task", "ready", "detached", "finished"
+    )
 
     def __init__(self, turn_id: str, cancel: asyncio.Event) -> None:
         self.turn_id = turn_id
@@ -481,6 +488,8 @@ class _Running:
         #: The app is shutting down and this turn's CLI keeps running in the
         #: turn host: the task ends without closing the turn.
         self.detached = False
+        #: The turn's ``turn_finished`` is published; only its cleanup runs.
+        self.finished = False
 
 
 class AgentChatService:
@@ -1026,6 +1035,24 @@ class AgentChatService:
         run = self._running.get(session_id)
         return bool(run and (run.task is None or not run.task.done()))
 
+    def reports_running(self, session_id: str) -> bool:
+        """``running`` as the UI reads it: false from the turn's ``turn_finished`` on.
+
+        The task still runs its cleanup for a moment after that event; a
+        session list fetched because of the event must not call it running.
+        """
+        if not self.is_running(session_id):
+            return False
+        run = self._running.get(session_id)
+        return not (run is not None and run.finished and session_id not in self._preparing)
+
+    async def _await_finishing(self, session_id: str) -> None:
+        """A turn that published its end and only cleans up: a send waits for it."""
+        run = self._running.get(session_id)
+        if run is None or not run.finished or run.task is None or run.task.done():
+            return
+        await asyncio.wait({run.task}, timeout=_FINISHING_WAIT_S)
+
     @property
     def parked_work(self) -> ParkedWorkBoard:
         """Requests whose delegates still work after their turn closed."""
@@ -1110,6 +1137,18 @@ class AgentChatService:
         return [aid for aid, sid in self._approval_session.items() if sid == session_id]
 
     # ----------------------------------------------------------- subscribe
+
+    def _drop_subscriber(self, session_id: str, q: Subscriber) -> None:
+        """A reader that stopped draining: told so, then dropped.
+
+        What it missed is in the store; the sentinel lets its handler close
+        the socket so the client reconnects and re-syncs from its last seq,
+        instead of waiting on a queue nothing feeds any more.
+        """
+        while not q.empty():
+            q.get_nowait()
+        q.put_nowait(SUBSCRIBER_DROPPED)
+        self.unsubscribe(session_id, q)
 
     def subscribe(self, session_id: str) -> Subscriber:
         q: Subscriber = asyncio.Queue(maxsize=4096)
@@ -1212,6 +1251,12 @@ class AgentChatService:
             event = self._readable_error(session_id, event)
         stored = self.store.append_event(session_id, event)
         if event.get("kind") == "turn_finished":
+            # Before anyone hears of it: a session list fetched on this event
+            # must already read the turn as over (``reports_running``).
+            run = self._running.get(session_id)
+            finished_id = str((event.get("payload") or {}).get("turn_id") or "")
+            if run is not None and run.turn_id == finished_id:
+                run.finished = True
             self._announce_jarvis_turn(session_id, event)
         for listener in list(getattr(self, "_event_listeners", ())):
             try:
@@ -1224,8 +1269,8 @@ class AgentChatService:
             except asyncio.QueueFull:
                 # A reader that stopped draining is dropped: the WS handler
                 # re-syncs from the store when it reconnects.
-                log.debug("agent chat: subscriber queue full for %s — dropping it", session_id)
-                self.unsubscribe(session_id, q)
+                log.info("agent chat: subscriber queue full for %s — dropping it", session_id)
+                self._drop_subscriber(session_id, q)
 
     def _readable_error(self, session_id: str, event: dict[str, Any]) -> dict[str, Any]:
         """``event`` with its error as a short reason; a raw dump moves to ``error_details``.
@@ -1410,6 +1455,10 @@ class AgentChatService:
             command = re.match(r"^/([a-z]+)(?:\s|$)", text.strip())
             if command and command[1] in {row["name"] for row in COMMANDS}:
                 raise ValueError("Use the chat command endpoint for slash commands")
+        if session_id in self._preparing:
+            raise SessionBusy(session_id)
+        # The UI calls a turn idle from its turn_finished on (reports_running).
+        await self._await_finishing(session_id)
         if session_id in self._preparing:
             raise SessionBusy(session_id)
         if self.is_running(session_id):

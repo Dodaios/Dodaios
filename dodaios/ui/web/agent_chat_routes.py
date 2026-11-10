@@ -81,6 +81,7 @@ from dodaios.agent_chat.service import (
     RULE_BREADTHS,
     RULE_NARROWS,
     RULE_SCOPES,
+    SUBSCRIBER_DROPPED,
     AgentChatService,
     NoSuchSession,
     SessionBusy,
@@ -152,6 +153,16 @@ class VoiceChatResponse(BaseModel):
     session_id: str | None
     fresh: bool
     voice_session_id: str | None = None
+
+
+def _reported_running(svc: Any, session_id: str) -> bool:
+    """The ``running`` flag the UI shows: idle from the turn's own end on.
+
+    Services without ``reports_running`` (other surfaces, test doubles) fall
+    back to ``is_running``.
+    """
+    reports = getattr(svc, "reports_running", None)
+    return bool(reports(session_id) if reports else svc.is_running(session_id))
 
 
 def _voice_chat_answer(svc: AgentChatService) -> VoiceChatResponse:
@@ -1002,7 +1013,7 @@ def list_sessions(
         if surface is None and s.surface in HIDDEN_SURFACES:
             continue
         d = s.to_dict()
-        d["running"] = svc.is_running(s.session_id)
+        d["running"] = _reported_running(svc, s.session_id)
         if s.surface == "agent":
             d["pending_approvals"] = svc.pending_approvals(s.session_id)
             d["cli_title"] = _cli_title(svc, s)
@@ -2189,7 +2200,7 @@ async def session_stream(ws: WebSocket, session_id: str) -> None:
             await close_orphans(svc, session_id)
         events = svc.store.list_events(session_id, after_seq=after)
         d = session.to_dict()
-        d["running"] = svc.is_running(session_id)
+        d["running"] = _reported_running(svc, session_id)
         d["pending_approvals"] = svc.pending_approvals(session_id)
         d["pending_questions"] = svc.pending_questions(session_id)
         await ws.send_json({"type": "snapshot", "session": d, "events": events})
@@ -2220,6 +2231,12 @@ async def session_stream(ws: WebSocket, session_id: str) -> None:
                     await ws.send_json({"type": "ping"})
                     continue
                 ev = getter.result()
+                if ev is SUBSCRIBER_DROPPED:
+                    # This reader fell too far behind and the service let it
+                    # go: close, so the client reconnects from its last seq
+                    # and the snapshot brings back what it missed.
+                    await ws.close(code=1013, reason="stream fell behind; reconnect")
+                    break
                 # Persisted events carry seq; transient deltas carry 0. Skip
                 # persisted ones the snapshot already had.
                 seq = int(ev.get("seq") or 0)
