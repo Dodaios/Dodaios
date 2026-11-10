@@ -10,6 +10,7 @@
 #include "Melee/VerseMeleeComponent.h"
 #include "VerseCombatDriverComponent.h"
 #include "VerseIntegrationSubsystem.h"
+#include "VerseViewmodelComponent.h"
 #include "Weapons/VerseWeaponComponent.h"
 
 AVerseDefaultCharacter::AVerseDefaultCharacter(const FObjectInitializer& ObjectInitializer)
@@ -29,6 +30,7 @@ AVerseDefaultCharacter::AVerseDefaultCharacter(const FObjectInitializer& ObjectI
 	Melee = CreateDefaultSubobject<UVerseMeleeComponent>(TEXT("Melee"));
 	Gadgets = CreateDefaultSubobject<UVerseGadgetComponent>(TEXT("Gadgets"));
 	CombatDriver = CreateDefaultSubobject<UVerseCombatDriverComponent>(TEXT("CombatDriver"));
+	Viewmodel = CreateDefaultSubobject<UVerseViewmodelComponent>(TEXT("Viewmodel"));
 }
 
 UAbilitySystemComponent* AVerseDefaultCharacter::GetAbilitySystemComponent() const

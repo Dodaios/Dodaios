@@ -727,6 +727,20 @@ async def get_catalog_recommended(provider_id: str) -> dict[str, Any]:
     return await ollama_pull.recommendations()
 
 
+@router.get("/quickstart")
+async def get_quickstart(provider_id: str, request: Request) -> dict[str, Any]:
+    """The one model "Use a free local model" would set up here, and what is missing.
+
+    Hardware, the installed-first chat pick and the runtime state in one
+    answer, so the one-click button can say what it is about to do before it
+    installs or downloads anything.
+    """
+    _require_pull_capable(provider_id)
+    from dodaios.brain.ollama_quickstart import quickstart_plan
+
+    return await quickstart_plan(_resolve_cfg(request))
+
+
 @router.get("/catalog/{name:path}/tags")
 async def get_catalog_tags(provider_id: str, name: str) -> dict[str, Any]:
     """Every tag of one library model with size, quantization, context and fit."""

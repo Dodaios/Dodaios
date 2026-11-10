@@ -187,6 +187,21 @@ exposure. The placement schema has no volume kind, so the level owner puts
 the fog actor and the post volume into `LV_Hangar` from these values (open,
 below). Palette shares of art-pipeline 8.1 are measured on the rendered build.
 
+### 9.1 Runtime graybox until the level import
+
+Until the placements land in `LV_Hangar`, `AVerseArenaGraybox` (primary module) builds the arena
+from `Data/arena/hangar_graybox.json` when a duel starts and removes it on leave:
+
+- the 114 `piece` boxes as `AVerseDestructible` with a breach frame (a box with a hole through
+  its thin axis) under one `AVerseDestructionManager`, three repair drones on wall docks, the
+  proxies registered with the penetration subsystem and the bolt hole record, and short-lived
+  debris chunks on every hole and breach;
+- the look of section 9: one cool 6500 K fill against the 4300 K work lights, manual exposure
+  (`ArenaExposureEV100`), bloom 0.35, vignette 0.25, a warm-highlight and cool-shadow grade,
+  the deck fog at density 0.03 with falloff 0.12 and a 4 m start.
+
+`Verse.Visual.HangarFeel` shows it (screenshot lane).
+
 ## 10. Open items
 
 | Item | Needs |

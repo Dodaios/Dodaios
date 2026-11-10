@@ -224,24 +224,49 @@ def guess_kind(text: str) -> str:
 
 
 def remember_explicitly(
-    content: str, *, evidence: str = "", source: str = "remember tool", kind: str | None = None
+    content: str,
+    *,
+    evidence: str = "",
+    source: str = "remember tool",
+    kind: str | None = None,
+    anchor: dict[str, Any] | None = None,
 ) -> WriteResult:
     """Save an explicit "remember that ..." in the user's own words.
 
-    Raises ``LookupError`` while no vault runs.
+    ``anchor`` says where it was said (``session_id``, ``turn_id``,
+    ``message_seq``); without one, the chat turn running right now is used,
+    so the memory links back to the message. Raises ``LookupError`` while no
+    vault runs.
     """
     vault = _active
     if vault is None:
         raise LookupError("the memory vault is not running")
+    where = dict(anchor) if anchor else _running_turn_anchor()
+    where.pop("user", None)
     result = vault.remember(
         content,
         kind or guess_kind(content),
         origin="user",
-        source={"via": source, "evidence": evidence[:500]},
+        source={**where, "via": source, "evidence": evidence[:500]},
     )
     if result.action == "added":
         changed()
     return result
+
+
+def _running_turn_anchor() -> dict[str, Any]:
+    """The chat turn this call runs in, as an anchor; ``{}`` outside a chat turn."""
+    from dodaios.core.chat_turn import current_chat_turn
+
+    turn = current_chat_turn.get()
+    if turn is None or not turn.direct_user:
+        return {}
+    found: dict[str, Any] = {"channel": "chat"}
+    if turn.session_id:
+        found["session_id"] = turn.session_id
+    if turn.turn_id:
+        found["turn_id"] = turn.turn_id
+    return found
 
 
 _NAME_PATTERNS = (
@@ -329,7 +354,8 @@ def agent_block(*, max_chars: int = AGENT_BLOCK_MAX_CHARS) -> str:
             m
             for kind in AGENT_KINDS
             for m in vault.list(kind=kind)
-            if m.sensitivity == "normal" and m.scope == "global"
+            # A memory the user marked private never reaches their agents.
+            if m.sensitivity == "normal" and m.scope in ("global", "work")
         ]
     except Exception:  # noqa: BLE001 — the agents work on without the user's preferences
         log.debug("memory vault: agent block unavailable", exc_info=True)

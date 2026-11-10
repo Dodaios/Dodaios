@@ -27,6 +27,7 @@ from typing import Any
 from dodaios.memory.vault.models import (
     KINDS,
     ORIGINS,
+    SCOPES,
     SENSITIVITIES,
     Memory,
     SearchHit,
@@ -234,6 +235,9 @@ class MemoryVault:
         with self._lock:
             now = self.now()
             existing = self._current_by_hash(digest, scope, now)
+            if existing is None and scope == "global":
+                # The same sentence the user marked work or private is not new.
+                existing = self._current_by_hash_any_scope(digest, now)
             if existing is not None:
                 if pinned and not existing.pinned:
                     self.pin(existing.id, True)
@@ -367,6 +371,21 @@ class MemoryVault:
             )
             if cur.rowcount:
                 self._audit("pin" if pinned else "unpin", memory_id, {})
+            self._db.commit()
+            return bool(cur.rowcount)
+
+    def set_scope(self, memory_id: str, scope: str) -> bool:
+        """Mark a memory ``work``, ``private`` or back to unmarked (``global``).
+
+        A label like a pin: the sentence and its versions stay as they are;
+        a later version inherits it (:meth:`supersede`).
+        """
+        if scope not in SCOPES:
+            raise ValueError(f"unknown scope {scope!r}")
+        with self._lock:
+            cur = self._db.execute("UPDATE memory SET scope=? WHERE id=?", (scope, memory_id))
+            if cur.rowcount:
+                self._audit("scope", memory_id, {"scope": scope})
             self._db.commit()
             return bool(cur.rowcount)
 
@@ -795,6 +814,14 @@ class MemoryVault:
             f"SELECT {_prefixed()} FROM memory m "  # noqa: S608 - constant columns
             f"WHERE m.content_hash=? AND m.scope=? AND {_CURRENT}",
             (digest, scope, now),
+        ).fetchone()
+        return self._row_to_memory(row) if row else None
+
+    def _current_by_hash_any_scope(self, digest: str, now: str) -> Memory | None:
+        row = self._db.execute(
+            f"SELECT {_prefixed()} FROM memory m "  # noqa: S608 - constant columns
+            f"WHERE m.content_hash=? AND {_CURRENT} LIMIT 1",
+            (digest, now),
         ).fetchone()
         return self._row_to_memory(row) if row else None
 

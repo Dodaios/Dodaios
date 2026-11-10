@@ -348,7 +348,18 @@ function Save-VerifiedDownload {
         $previous = $ProgressPreference
         $ProgressPreference = 'SilentlyContinue'
         try {
-            Invoke-WebRequest -Uri $Url -OutFile $Path -UseBasicParsing
+            # A dropped connection on a slow or filtered network is the common
+            # failure here; two more tries with a short pause clear most of it.
+            for ($Attempt = 1; ; $Attempt++) {
+                try {
+                    Invoke-WebRequest -Uri $Url -OutFile $Path -UseBasicParsing
+                    break
+                } catch {
+                    if ($Attempt -ge 3) { throw }
+                    Write-Note "download interrupted - retrying ($Attempt/3) ..."
+                    Start-Sleep -Seconds (2 * $Attempt)
+                }
+            }
         } finally {
             $ProgressPreference = $previous
         }
@@ -1233,7 +1244,20 @@ Write-Ok 'virtual environment ready'
 
 Write-Note 'installing bootstrap dependencies (rich, packaging) - this can take a moment'
 & $VenvPython -m pip install --quiet --upgrade pip rich packaging
-if ($LASTEXITCODE -ne 0) { Write-Err 'bootstrap pip install failed.'; exit 1 }
+if ($LASTEXITCODE -ne 0) {
+    # Once more: a dropped connection or a file an antivirus scanner still
+    # holds open usually clears within seconds.
+    Write-Note 'bootstrap install failed - retrying once ...'
+    Start-Sleep -Seconds 4
+    & $VenvPython -m pip install --quiet --upgrade pip rich packaging
+}
+if ($LASTEXITCODE -ne 0) {
+    Write-Err 'bootstrap pip install failed.'
+    Write-Note 'Check your connection, then run the installer again.'
+    Write-Note 'If your antivirus quarantined a file, restore it and allow the Dodaios folder first.'
+    Write-Note 'Help: https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/install-dodaios.md#troubleshooting'
+    exit 1
+}
 Write-Ok 'bootstrap dependencies ready'
 
 # ----------------------------------------------------------------- hand off

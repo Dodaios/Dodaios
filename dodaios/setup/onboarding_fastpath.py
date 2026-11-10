@@ -81,6 +81,12 @@ def state_payload(path: Path | None = None) -> dict:
         # The guided tour of the real app runs once, after the completion
         # restart; the frontend shows it while completed and not yet toured.
         "tour_completed": s.get("tour_completed_at") is not None,
+        # The lead conversation introduces itself once after setup. Due only
+        # when THIS build completed setup, never for an older install.
+        "first_conversation_due": (
+            s.get("first_conversation_due_at") is not None
+            and s.get("first_conversation_done_at") is None
+        ),
         "legal_references": WAKE_WORD_LEGAL_REFERENCES,
         "steps": ONBOARDING_STEPS,
     }

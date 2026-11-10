@@ -9,9 +9,23 @@
  * was learned), every earlier version, and what can be done.
  */
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Check, CircleOff, Compass, MousePointerClick, Pencil, Pin, PinOff, Quote, Search, Trash2, X } from "lucide-react";
+import {
+  Check,
+  CircleOff,
+  Compass,
+  MessageSquareQuote,
+  MousePointerClick,
+  Pencil,
+  Pin,
+  PinOff,
+  Quote,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { anchorOf, jumpToMessage } from "@/lib/memorySource";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "./ConfirmDialog";
 import {
@@ -19,9 +33,12 @@ import {
   endMemory,
   forgetMemory,
   pinMemory,
+  setMemoryScope,
   useVaultHistory,
   MEMORY_KINDS,
+  MEMORY_SCOPES,
   type MemoryKind,
+  type MemoryScope,
   type VaultMemory,
 } from "@/lib/personalMemoryApi";
 import { KIND_STYLE, kindColor } from "./kinds";
@@ -302,6 +319,11 @@ function Row({
         {subject && <span className="font-semibold text-foreground-strong">{subject} </span>}
         <span className={subject ? "text-foreground-secondary" : undefined}>{body}</span>
       </p>
+      {scopeOf(memory) !== "global" && (
+        <span data-testid="vault-row-scope" className="shrink-0 rounded-full border border-border px-1.5 text-[10px] text-muted-foreground">
+          {t(`memory_trust.scope_${scopeOf(memory)}`)}
+        </span>
+      )}
       {memory.pinned && <Pin className="h-3 w-3 shrink-0 text-[hsl(4_86%_58%)]" aria-label={t("vault.pinned")} />}
     </li>
   );
@@ -329,6 +351,7 @@ function Inspector({
   const Icon = KIND_STYLE[memory.kind].icon;
   const evidence = typeof memory.source?.evidence === "string" ? memory.source.evidence.trim() : "";
   const sourceFile = typeof memory.source?.file === "string" ? memory.source.file : "";
+  const anchor = anchorOf(memory.source);
 
   const act = async (work: () => Promise<unknown>, done: string) => {
     try {
@@ -439,7 +462,32 @@ function Inspector({
           </blockquote>
         )}
         {sourceFile && <p className="mt-1.5 font-mono text-[11px] text-muted-foreground">{sourceFile}</p>}
+        {anchor && (
+          <button
+            type="button"
+            data-testid="vault-source-link"
+            onClick={() => {
+              void jumpToMessage(anchor, { navigate: true }).then((found) => {
+                if (!found) notify(t("memory_trust.source_not_loaded"));
+              });
+            }}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-md text-[12px] font-medium text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <MessageSquareQuote className="h-3.5 w-3.5 text-muted-foreground" />
+            {t("memory_trust.source_open")}
+          </button>
+        )}
       </Section>
+
+      {memory.current && (
+        <Section title={t("memory_trust.scope_title")}>
+          <ScopeChoice
+            value={scopeOf(memory)}
+            onChange={(scope) => act(() => setMemoryScope(memory.id, scope), t("memory_trust.scope_saved"))}
+          />
+          <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">{fill(t("memory_trust.scope_hint"), { name })}</p>
+        </Section>
+      )}
 
       {memory.entities.length > 0 && (
         <Section title={t("vault.entities_title")}>
@@ -516,6 +564,36 @@ function Inspector({
           notify(t("vault.forgotten"));
         }}
       />
+    </div>
+  );
+}
+
+/** A memory's scope, with anything unknown read as unmarked. */
+export function scopeOf(memory: Pick<VaultMemory, "scope">): MemoryScope {
+  return (MEMORY_SCOPES as readonly string[]).includes(memory.scope) ? (memory.scope as MemoryScope) : "global";
+}
+
+/** One control: where this memory belongs (unmarked, work, private). */
+function ScopeChoice({ value, onChange }: { value: MemoryScope; onChange: (scope: MemoryScope) => void }) {
+  const t = useT();
+  return (
+    <div role="radiogroup" aria-label={t("memory_trust.scope_title")} className="inline-flex h-8 items-center rounded-lg bg-sheen/[0.06] p-0.5">
+      {MEMORY_SCOPES.map((scope) => (
+        <button
+          key={scope}
+          type="button"
+          role="radio"
+          aria-checked={value === scope}
+          data-testid={`vault-scope-${scope}`}
+          onClick={() => value !== scope && onChange(scope)}
+          className={cn(
+            "h-7 whitespace-nowrap rounded-md px-3 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            value === scope ? "bg-surface-raised text-foreground-strong shadow-sm" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {t(`memory_trust.scope_${scope}`)}
+        </button>
+      ))}
     </div>
   );
 }

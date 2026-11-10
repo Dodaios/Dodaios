@@ -222,6 +222,13 @@ _ONBOARDING_KEYS = (
     # The guided tour of the real app, shown once after the completion
     # restart. Reset with the rest so a replayed first run tours again.
     "tour_completed_at",
+    # The first conversation: after setup the lead conversation introduces
+    # itself and asks three questions. It is due only for an install that
+    # completed setup with this build (so existing installs never see it),
+    # and it is finished once answered or skipped.
+    "first_conversation_due_at",
+    "first_conversation_done_at",
+    "first_conversation_outcome",
 )
 
 
@@ -275,6 +282,8 @@ def get_onboarding_state(path: Path | None = None) -> dict[str, Any]:
         "terms_version": s.get("terms_version") or None,
         "wake_word_acknowledged_at": s.get("wake_word_acknowledged_at") or None,
         "tour_completed_at": s.get("tour_completed_at") or None,
+        "first_conversation_due_at": s.get("first_conversation_due_at") or None,
+        "first_conversation_done_at": s.get("first_conversation_done_at") or None,
     }
 
 
@@ -301,7 +310,37 @@ def acknowledge_wake_word(path: Path | None = None) -> None:
 
 
 def mark_onboarding_complete(path: Path | None = None) -> None:
-    _merge_state({"onboarding_completed_at": _now_iso()}, path)
+    """Record setup as done and make the first conversation due.
+
+    Only this moment marks the first conversation due, so an install that
+    finished setup with an older build (no marker) never sees it.
+    """
+    now = _now_iso()
+    updates: dict[str, Any] = {"onboarding_completed_at": now}
+    if not load_setup_state(path).get("first_conversation_done_at"):
+        updates["first_conversation_due_at"] = now
+    _merge_state(updates, path)
+
+
+FIRST_CONVERSATION_OUTCOMES = ("done", "skipped")
+
+
+def is_first_conversation_due(path: Path | None = None) -> bool:
+    """True while the first conversation was made due and is not finished yet."""
+    s = load_setup_state(path)
+    due = s.get("first_conversation_due_at")
+    done = s.get("first_conversation_done_at")
+    return isinstance(due, str) and bool(due) and not done
+
+
+def finish_first_conversation(outcome: str, path: Path | None = None) -> None:
+    """Record the first conversation as answered (``done``) or ``skipped``."""
+    if outcome not in FIRST_CONVERSATION_OUTCOMES:
+        raise ValueError(f"unknown first conversation outcome {outcome!r}")
+    _merge_state(
+        {"first_conversation_done_at": _now_iso(), "first_conversation_outcome": outcome},
+        path,
+    )
 
 
 def mark_tour_complete(path: Path | None = None) -> None:
@@ -372,5 +411,8 @@ __all__ = [
     "accept_terms",
     "acknowledge_wake_word",
     "mark_onboarding_complete",
+    "is_first_conversation_due",
+    "finish_first_conversation",
+    "FIRST_CONVERSATION_OUTCOMES",
     "reset_onboarding",
 ]
