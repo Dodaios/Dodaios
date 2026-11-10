@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/bootStagger", () => ({ bootSettled: () => Promise.resolve() }));
 vi.mock("@/lib/openExternal", () => ({ openExternalUrl: vi.fn(async () => true) }));
 
+import { PluginReconnectHost } from "./PluginReconnectHost";
 import { PluginReconnectNotices } from "./PluginReconnectNotices";
 
 type Row = { id: string; display_name: string; status: string; reauth_at?: string | null };
@@ -73,6 +74,19 @@ describe("plugin reconnect notices", () => {
       { timeout: 6000 },
     );
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/plugins/notion/connect/start"))).toBe(true);
+  });
+
+  it("loads the cards only once a connection has ended", async () => {
+    plugins = [{ id: "gmail", display_name: "Gmail", status: "connected" }];
+    serve();
+    const calm = render(<PluginReconnectHost />);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(screen.queryByTestId("plugin-reconnect-notice")).toBeNull();
+    calm.unmount();
+
+    plugins = [{ id: "notion", display_name: "Notion", status: "needs_reauth", reauth_at: null }];
+    render(<PluginReconnectHost />);
+    expect((await screen.findByTestId("plugin-reconnect-notice")).textContent).toContain("Notion");
   });
 
   it("shows at most three cards", async () => {
