@@ -74,7 +74,7 @@ def _json_object(text: str) -> dict[str, Any]:
         return {}
     try:
         data = json.loads(match.group(0))
-    except ValueError:
+    except ValueError:  # not JSON: the caller reads it as no decisions, i.e. ignore
         return {}
     return data if isinstance(data, dict) else {}
 
@@ -91,7 +91,7 @@ def parse(
             continue
         try:
             index = int(item.get("event"))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError):  # a malformed item is skipped; its event stays ignore
             continue
         if not 1 <= index <= len(events) or index in chosen:
             continue
