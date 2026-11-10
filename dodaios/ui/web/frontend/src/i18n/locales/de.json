@@ -10727,7 +10727,6 @@
       "cancel": "Zurück",
       "model_of": "Modell von Mitglied {number}",
       "effort_of": "Aufwand von Mitglied {number}",
-      "model_default": "Standardmodell",
       "effort_default": "Standardaufwand",
       "add_pick": "Welcher Coding-Agent oder Anbieter kommt ins Team?",
       "search": "Suchen",
@@ -11238,5 +11237,22 @@
       "microphone_denied": "Das Mikrofon wurde nicht erlaubt.",
       "empty": "Noch nichts hier. Sag Hallo."
     }
+  },
+  "living_pages": {
+    "label": "Live-Seite",
+    "updated": "Aktualisiert {0}",
+    "every": "Aktualisiert sich alle {0}",
+    "stopped": "Wird nicht mehr aktualisiert",
+    "stop": "Aktualisierung stoppen",
+    "resume": "Wieder aktualisieren",
+    "stop_failed": "Die Aktualisierung ließ sich nicht stoppen.",
+    "resume_failed": "Die Aktualisierung ließ sich nicht starten.",
+    "result_title": "Erledigt",
+    "state_created": "Erstellt",
+    "state_updated": "Aktualisiert",
+    "state_draft": "Entwurf",
+    "state_waiting": "Wartet auf dein Okay",
+    "state_failed": "Fehlgeschlagen",
+    "open": "Öffnen"
   }
 }

@@ -429,7 +429,7 @@ test.each([
   extraProviders = [provider(id, { runner, cli_installed: true, curated_models: [], default_model: "", effort_levels: [], default_effort: "" })];
   mount(); await open(); show(id);
   const group = screen.getByRole("group", { name: id });
-  fireEvent.click(within(group).getByRole("menuitemradio", { name: /Default model/ }));
+  fireEvent.click(within(group).getByRole("menuitemradio", { name: new RegExp(`^${id}`) }));
   await waitFor(() => expect(posts[0]).toEqual({ provider: id, model: "", effort: "", account_id: "" }));
 });
 

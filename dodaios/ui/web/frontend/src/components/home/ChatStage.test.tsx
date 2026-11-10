@@ -337,8 +337,8 @@ describe("ChatStage (agent chat)", () => {
     fireEvent.click(screen.getByTestId("composer-model"));
     const panel = await screen.findByTestId("composer-model-panel");
     const options = within(panel).getAllByRole("option").map((el) => el.getAttribute("data-value"));
+    // Strongest first, and no "default" row: the person picks a model.
     expect(options).toEqual([
-      "claude-api\u0001",
       "claude-api\u0001claude-opus-5",
       "claude-api\u0001claude-sonnet-5",
     ]);

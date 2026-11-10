@@ -439,7 +439,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
   }, [providers, health, providerIcon, t]);
 
   // The front page's single brain pick: every offered provider as a group,
-  // its default first, then its models (live when loaded, else curated).
+  // its models strongest first (live when loaded, else curated).
   // Each row says whose model it is on a quiet second line; the rail on the
   // panel's left picks which provider's rows are listed.
   const brainProviders = useMemo<ProviderOption[]>(() => {
@@ -486,18 +486,11 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
       return {
         id: p.id,
         label: p.label,
-        options: [
-          {
-            value: brainValue(p.id, ""),
-            label: t("agent_chat.model_default"),
-            triggerLabel: p.label,
-            description: owner(),
-            hint,
-            disabled,
-            searchText: `${p.label} ${p.family}`,
-          },
-          ...current.map(toOption),
-        ],
+        // Strongest model first, no "default" row: a person picks the model.
+        // A provider that lists none can only be picked as itself.
+        options: current.length || older.length
+          ? current.map(toOption)
+          : [{ value: brainValue(p.id, ""), label: p.label, description: owner(), hint, disabled, searchText: `${p.label} ${p.family}` }],
         more: older.length ? { label: t("agent_chat.older_models"), options: older.map(toOption) } : undefined,
       };
     });
@@ -521,10 +514,10 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
     });
     // Models switched off on the API Keys page stay out; the current pick stays.
     const { current, older } = rankModels(offeredModels(provider, modelList, draft.model, savedHidden).filter((m) => m.id));
-    const options: ComboboxOption[] = [
-      { value: "", label: t("agent_chat.model_default"), hint: provider.label },
-      ...current.map(toOption),
-    ];
+    // Strongest model first, no "default" row; a provider that lists none is picked as itself.
+    const options: ComboboxOption[] = current.length || older.length
+      ? current.map(toOption)
+      : [{ value: "", label: provider.label }];
     return [{
       id: "models",
       options,
@@ -970,7 +963,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
           value={draft.model}
           groups={modelGroups}
           onChange={(v) => void setDraft({ model: v })}
-          fallbackLabel={draft.model || t("agent_chat.model_default")}
+          fallbackLabel={draft.model || provider?.label || t("agent_chat.pick_model")}
           searchPlaceholder={t("agent_chat.search_models")}
           icon={<Brain className="h-3.5 w-3.5" aria-hidden />}
           disabled={!provider || Boolean(locks?.model)}

@@ -51,6 +51,7 @@ import { openQuestionOf } from "@/components/agentchat/questions/questionModel";
 import { jitteredDelay, requestConnect } from "../lib/connectBudget";
 import { HISTORY_CHANGED, reuseHistoryRows } from "@/lib/historyRequests";
 import { offerUndo } from "@/lib/undoToast";
+import { bestModelId } from "@/lib/modelRanking";
 
 /**
  * The agent chat's store — one per SURFACE (`createAgentChatStore`).
@@ -800,7 +801,9 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
               permission_modes: Array.isArray(p.permission_modes) ? p.permission_modes : [],
               default_permission_mode: p.default_permission_mode ?? "",
               default_effort: p.default_effort ?? "",
-              default_model: p.default_model ?? "",
+              // No provider starts on "its default model": a row that names none
+              // opens on its strongest listed model, so the person sees what runs.
+              default_model: p.default_model || bestModelId(Array.isArray(p.curated_models) ? p.curated_models : []),
             })),
           };
           set({ catalog, connections, catalogStale: false, catalogError: null, backendOutdated });
@@ -836,6 +839,10 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
           } else {
             draft = {
               ...draft,
+              // A pick saved before models were chosen by name ("" = the
+              // provider's default) settles on the row's model. The brain's own
+              // selection is the person's and stays as saved.
+              model: draft.model || catalog.selection ? draft.model : known.default_model, // (model set) or (brain selection) keeps the pick
               effort: onLadder(draft.effort, known.effort_levels, known.default_effort),
               // A stored mode the row's ladder does not offer (a vendor word
               // from before the unified ladder, a pick made on another
