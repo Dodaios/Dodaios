@@ -1338,6 +1338,8 @@ def _community_payload(
                 }
             )
 
+    _add_own_pending(index, plugins, skills)
+
     return {
         "status": status,
         "revision": getattr(index, "revision", None),
@@ -1346,6 +1348,60 @@ def _community_payload(
         "skills": skills,
         "agents": agents,
     }
+
+
+def _add_own_pending(
+    index: Any, plugins: list[dict[str, Any]], skills: list[dict[str, Any]]
+) -> None:
+    """Show what this install just published, before the feed lists it.
+
+    A record replaces the feed's older version of the same package, so the
+    person sees the version they just uploaded. Agent templates keep the
+    flow they already have (the roster card), so only plugins and skills are
+    added here.
+    """
+    from dodaios.marketplace import own_submissions
+
+    try:
+        records = own_submissions.pending(index)
+    except Exception:  # noqa: BLE001 - the store must render without this list
+        log.warning("marketplace: own submissions unreadable", exc_info=True)
+        return
+    for record in records:
+        common = {
+            "name": record["name"],
+            "description": record.get("description") or "",
+            "publisher": record.get("publisher"),
+            "version": record.get("version"),
+            "published_at": None,
+            "installed": False,
+            "pending": record.get("state") or "checking",
+            "pending_problems": list(record.get("problems") or []),
+            "pending_url": record.get("issue_url"),
+        }
+        if record.get("kind") == "skill":
+            skills[:] = [s for s in skills if s.get("name") != record["name"]]
+            skills.append(
+                {
+                    **common,
+                    "title": record.get("title") or record["name"],
+                    "featured": False,
+                    "categories": list(record.get("categories") or []),
+                    "source_url": None,
+                }
+            )
+        elif record.get("kind") == "plugin":
+            plugins[:] = [p for p in plugins if (p.get("id") or p.get("name")) != record["name"]]
+            plugins.append(
+                {
+                    **common,
+                    "id": record["name"],
+                    "display_name": record.get("title"),
+                    "valid": True,
+                    "featured": False,
+                    "seed_conflict": False,
+                }
+            )
 
 
 def _installed_agent_names(request: Request) -> frozenset[str]:

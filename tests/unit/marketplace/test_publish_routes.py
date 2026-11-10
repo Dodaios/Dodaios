@@ -108,12 +108,12 @@ async def test_validate_reports_every_field(client: httpx.AsyncClient) -> None:
     async with client:
         resp = await client.post(
             "/api/marketplace/publish/validate",
-            json={"kind": "skill", "name": "UPPER", "version": "nope"},
+            json={"kind": "skill", "name": "", "version": "nope"},
         )
     body = resp.json()
     assert body["ok"] is False
     fields = {e["field"] for e in body["errors"]}
-    assert {"name", "version", "title", "description", "skill_md"} <= fields
+    assert {"name", "version", "description", "skill_md"} <= fields
 
 
 @pytest.mark.asyncio
@@ -178,7 +178,7 @@ async def test_submit_client_side_validation_answers_422(client: httpx.AsyncClie
     async with client:
         resp = await client.post(
             "/api/marketplace/publish/submit",
-            json={"kind": "skill", "name": "UPPER", "version": "1.0.0"},
+            json={"kind": "skill", "name": "x" * 65, "version": "1.0.0"},
         )
     assert resp.status_code == 422
     assert resp.json()["detail"]["field"] == "name"

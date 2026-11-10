@@ -18,6 +18,7 @@ import { PublisherAvatar } from "@/components/marketplace/PublishIdentity";
 import { localeForUiLanguage } from "@/components/runs/format";
 import { fill, useI18nStore } from "@/i18n";
 import { openExternalUrl } from "@/lib/openExternal";
+import { cn } from "@/lib/utils";
 import { useEntryContents } from "./api";
 import { EntryMark } from "./EntryMark";
 import { categoryLabel, type Entry } from "./model";
@@ -223,6 +224,34 @@ function EntryAction({
   removing,
 }: EntryPageProps) {
   if (entry.broken) return null;
+
+  // Just published from here: visible at once, installable once the
+  // registry checks pass and the feed lists it.
+  if (entry.pending) {
+    const failed = entry.pending === "failed";
+    return (
+      <div className="flex max-w-sm shrink-0 flex-col items-end gap-1.5 text-right" data-testid="entry-pending">
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 text-base font-medium",
+            failed ? "text-destructive" : "text-muted-foreground",
+          )}
+        >
+          {failed ? <AlertTriangle className="h-4 w-4" /> : <Loader2 className="h-4 w-4 animate-spin" />}
+          {t(failed ? "marketplace.pending_failed" : "marketplace.pending_checking")}
+        </span>
+        <span className="text-sm text-muted-foreground">
+          {t(failed ? "marketplace.pending_failed_body" : "marketplace.pending_checking_body")}
+        </span>
+        {failed &&
+          (entry.pendingProblems ?? []).map((problem, i) => (
+            <span key={i} className="text-sm text-destructive">
+              {problem}
+            </span>
+          ))}
+      </div>
+    );
+  }
 
   // The app ships this service itself. The registry entry of the same name
   // cannot be installed over it, so the page offers the way to the real one.
