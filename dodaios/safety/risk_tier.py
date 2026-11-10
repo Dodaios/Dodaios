@@ -173,17 +173,32 @@ _HUMAN_APPROVAL_ACTIONS: dict[str, frozenset[str]] = {
 }
 
 
-def requires_human_approval(tool: Tool, args: dict[str, Any]) -> bool:
-    """True when only a person may approve this call (never a whitelist or bypass)."""
+def requires_human_approval(
+    tool: Tool, args: dict[str, Any], *, include_hard_limits: bool = True
+) -> bool:
+    """True when only a person may approve this call (never a whitelist or bypass).
+
+    Besides the fixed set above, every hard limit of the trust layer
+    (``dodaios.trust.hard_limits``: moving money, handling credentials,
+    deleting for good, writing to a new recipient) needs a person. The fixed
+    set needs a person's CLICK every time; a hard limit is also satisfied by
+    the person asking for exactly that action by name (the explicit-intent
+    waiver), which is why the executor can ask for the fixed set alone.
+    """
     name = str(getattr(tool, "name", "") or "")
     if name in _HUMAN_APPROVAL_TOOLS:
         return True
     actions = _HUMAN_APPROVAL_ACTIONS.get(name)
-    if actions is None:
+    if actions is not None:
+        action = str((args or {}).get("action") or "").strip().lower()
+        # An unreadable action is treated as the dangerous one.
+        if action in actions or not action:
+            return True
+    if not include_hard_limits:
         return False
-    action = str((args or {}).get("action") or "").strip().lower()
-    # An unreadable action is treated as the dangerous one.
-    return action in actions or not action
+    from dodaios.trust.hard_limits import hard_limit_for
+
+    return hard_limit_for(name, args or {}) is not None
 
 
 def _blacklist_candidates(tool: Tool, args: dict[str, Any]) -> tuple[str, ...]:

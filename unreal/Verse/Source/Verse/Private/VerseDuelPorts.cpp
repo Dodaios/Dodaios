@@ -18,6 +18,7 @@
 #include "Movement/VerseMovementQuery.h"
 #include "VerseDefaultCharacter.h"
 #include "VerseDuelSubsystem.h"
+#include "VerseViewmodelComponent.h"
 #include "Weapons/VerseCombatEvents.h"
 #include "Weapons/VerseSpread.h"
 #include "Weapons/VerseWeaponComponent.h"
@@ -224,6 +225,16 @@ bool FVerseDuelHudSource::GetView(FVerseHudView& Out) const
 	Out.Rotation = View.Rotation;
 	Out.HorizontalFovDeg = View.FOV;
 	return true;
+}
+
+bool FVerseDuelHudSource::IsAimingThroughOptic() const
+{
+	APlayerController* PC = LocalController();
+	const AVerseDefaultCharacter* Person = PC ? Cast<AVerseDefaultCharacter>(PC->GetPawn()) : nullptr;
+	const UVerseWeaponComponent* Weapon = UVerseWeaponComponent::FindOn(PC ? PC->GetPawn() : nullptr);
+	const UVerseViewmodelComponent* Viewmodel = Person ? Person->GetViewmodel() : nullptr;
+	// Past half the ADS blend the reflex dot is on the view axis; two marks there read as one blur.
+	return Weapon && Viewmodel && Viewmodel->HasOptic() && Weapon->GetAdsBlend01() > 0.5f;
 }
 
 bool FVerseDuelHudSource::GetPredictedBoltDirection(FVector& OutDirection, float& OutSpreadHalfAngleDeg) const

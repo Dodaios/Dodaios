@@ -94,6 +94,9 @@ _OWN_PREFIX: Final[str] = "society_"
 _SOCIETY_DENIED: Final[frozenset[str]] = frozenset(
     {
         "memory-forget",
+        # Reminders are the user's own dated memories (ADR-0044: agents never
+        # write the user's memory). The lead sets them on the front page.
+        "reminders",
         "run-shell",
         "run_shell",
         "RunCommand",

@@ -139,6 +139,8 @@ public:
 	 * then sits on the camera axis.
 	 */
 	virtual bool GetPredictedBoltDirection(FVector& OutDirection, float& OutSpreadHalfAngleDeg) const = 0;
+	/** True while the person aims through a sight with its own reticle: the HUD crosshair steps aside. */
+	virtual bool IsAimingThroughOptic() const { return false; }
 
 	virtual FText GetDisplayName(int32 PlayerId) const = 0;
 	virtual bool IsBot(int32 PlayerId) const = 0;

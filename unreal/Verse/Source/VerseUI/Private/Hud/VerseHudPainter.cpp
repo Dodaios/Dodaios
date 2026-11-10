@@ -365,7 +365,8 @@ void FVerseHudPainter::PaintCrosshair(const FVerseHudFrame& Frame, FVerseHudDraw
 	// Markers centre on the crosshair even while it is hidden.
 	Out.CrosshairCentre = Centre;
 
-	const bool bHidden = Frame.bKillCam || Frame.Model->IsLocalDead() || Frame.Pawn.Phase != EVerseCombatPhase::Alive;
+	const bool bHidden = Frame.bKillCam || Frame.Model->IsLocalDead() || Frame.Pawn.Phase != EVerseCombatPhase::Alive
+		|| (Frame.Source && Frame.Source->IsAimingThroughOptic());
 	if (bHidden)
 	{
 		return;

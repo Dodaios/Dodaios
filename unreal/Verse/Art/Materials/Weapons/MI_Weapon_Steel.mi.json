@@ -4,14 +4,14 @@
   "parent": "/Game/Verse/Materials/Master/M_Verse_Weapon.M_Verse_Weapon",
   "replaces": "M_Weapon_Steel",
   "scalars": {
-    "EdgeMetallic": 1.0,
+    "EdgeMetallic": 0.6,
     "EdgeWear": 1.0,
     "GrimeAmount": 0.45,
-    "Metallic": 1.0,
+    "Metallic": 0.25,
     "NoiseScale": 9.0,
     "OilAmount": 0.45,
-    "RoughnessMax": 0.5,
-    "RoughnessMin": 0.22
+    "RoughnessMax": 0.52,
+    "RoughnessMin": 0.28
   },
   "schema": "verse.mi/1",
   "switches": {},

@@ -847,6 +847,8 @@ run-skill = "dodaios.plugins.tool.run_skill:RunSkillTool"
 # Personal memory vault (ADR-0044) — search and forget (router-tier).
 memory-search = "dodaios.plugins.tool.memory_vault:MemorySearchTool"
 memory-forget = "dodaios.plugins.tool.memory_vault:MemoryForgetTool"
+# Reminders from plain speech and brain dumps into tasks (dodaios/notify).
+reminders = "dodaios.plugins.tool.reminders:RemindersTool"
 # Profile-write (2026-05-30) — deterministic writer for the structured USER.md
 # clusters (the Knowledge matrix + per-turn system-prompt source). Router-tier,
 # write, monitor. Closes the gap left by the soft-disabled legacy Curator.
