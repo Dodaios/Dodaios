@@ -32,6 +32,9 @@ export type HubTabId =
   | "appshots"
   | "pets"
   | "games"
+  | "notifications"
+  | "trust"
+  | "phone"
   | "profile"
   | "agent-instructions"
   | "socials"
@@ -73,6 +76,7 @@ export const HUB_GROUPS: readonly { id: string; labelKey: string; entries: reado
     entries: [
       { kind: "tab", id: "profile" },
       page("language", "design.settings.language_app", Languages),
+      { kind: "tab", id: "notifications" },
       { kind: "link", id: "memory", labelKey: "design.settings.memory", icon: WikiIcon },
     ],
   },
@@ -92,6 +96,7 @@ export const HUB_GROUPS: readonly { id: string; labelKey: string; entries: reado
       { kind: "tab", id: "apikeys" },
       { kind: "link", id: "plugins", labelKey: "design.settings.plugins", icon: ExtensionsIcon },
       { kind: "tab", id: "computers" },
+      { kind: "tab", id: "phone" },
     ],
   },
   {
@@ -100,6 +105,7 @@ export const HUB_GROUPS: readonly { id: string; labelKey: string; entries: reado
     entries: [
       { kind: "tab", id: "agent-instructions" },
       page("behavior", "design.settings.behavior", SlidersHorizontal),
+      { kind: "tab", id: "trust" },
       { kind: "link", id: "agents", labelKey: "design.settings.agents", icon: AgentsIcon },
     ],
   },
@@ -158,6 +164,9 @@ export function resolveHubTab(
     case "shortcuts":
     case "pets":
     case "games":
+    case "notifications":
+    case "trust":
+    case "phone":
     case "costs":
     case "feedback":
     case "apikeys":

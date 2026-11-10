@@ -1,0 +1,25 @@
+{
+  "name": "MI_Arena_Sign_Row2",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Decal.M_Verse_Decal",
+  "replaces": "M_Arena_Sign_Row2",
+  "scalars": {
+    "Opacity": 0.85,
+    "Roughness": 0.65
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseRadialMask": false
+  },
+  "textures": {
+    "DecalMask": "/Game/Verse/Textures/Arena/T_Arena_Sign_Row2_M.T_Arena_Sign_Row2_M"
+  },
+  "vectors": {
+    "BaseTint": [
+      0.6,
+      0.6,
+      0.58,
+      1.0
+    ]
+  }
+}

@@ -654,6 +654,11 @@ telegram = "dodaios.channels.telegram:TelegramChannel"
 # optional [channels] extra; token via Credential Manager (key "discord_bot_token"
 # / ENV DISCORD_BOT_TOKEN). Enable [Message Content Intent] in the bot settings.
 discord = "dodaios.channels.discord:DiscordChannel"
+# Owner-only WhatsApp channel over a local linked-device bridge. Off by default
+# (mobile/whatsapp.json in the data dir or DODAIOS_WHATSAPP_ENABLED); starts
+# silently when off. No library dependency: the bridge is a separate process
+# (docs/mobile-companion.md).
+whatsapp = "dodaios.channels.whatsapp:WhatsAppChannel"
 
 [project.entry-points."jarvis.realtime"]
 # Provider-neutral speech-to-speech plugins. Every adapter loads lazily; the
@@ -819,6 +824,13 @@ navigate = "dodaios.plugins.tool.navigate:NavigateTool"
 # set on every turn that did not ask (dodaios/brain/artifact_gate.py). Never in
 # a worker set (AP-5/AP-14).
 create-artifact = "dodaios.plugins.tool.create_artifact:CreateArtifactTool"
+# Living pages (2026-11-10) - a page in the Artifacts section the lead keeps
+# current through one routine of its own (dodaios/artifacts/living*.py), and
+# the result card a multi-app request ends with. Router-tier; living-page is
+# monitor (one page + one own routine), show-result-card is safe (a card in
+# the conversation). Neither spawns (AP-5/AP-14). ADR-0011 amendment "Living pages".
+living-page = "dodaios.plugins.tool.living_page:LivingPageTool"
+show-result-card = "dodaios.plugins.tool.result_card:ResultCardTool"
 # Command Registry executor (2026-07-09) — run ONE curated app command
 # (provider switch, wake word, language, volume, missions/tasks, restart)
 # through the SAME REST endpoint the UI uses, in-process via ASGI. Enum-
@@ -840,6 +852,8 @@ run-skill = "dodaios.plugins.tool.run_skill:RunSkillTool"
 # Personal memory vault (ADR-0044) — search and forget (router-tier).
 memory-search = "dodaios.plugins.tool.memory_vault:MemorySearchTool"
 memory-forget = "dodaios.plugins.tool.memory_vault:MemoryForgetTool"
+# Reminders from plain speech and brain dumps into tasks (dodaios/notify).
+reminders = "dodaios.plugins.tool.reminders:RemindersTool"
 # Profile-write (2026-05-30) — deterministic writer for the structured USER.md
 # clusters (the Knowledge matrix + per-turn system-prompt source). Router-tier,
 # write, monitor. Closes the gap left by the soft-disabled legacy Curator.

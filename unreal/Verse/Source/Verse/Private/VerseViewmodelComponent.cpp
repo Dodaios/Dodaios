@@ -103,9 +103,11 @@ FVerseViewmodelPose UVerseViewmodelComponent::PoseFor(FName WeaponId)
 	{
 		// Graveline and any rifle without its own row: the sight sits right of and below the
 		// crosshair and the barrel points at it, so the weapon fills the lower right quarter.
+		// Aiming, the slim reflex frame sits 24 cm out: its 4 cm frame spans about a tenth of
+		// the view and the tall riser keeps rail and receiver low in the frame.
 		P.HipOffset = FVector(26.0, 11.0, -17.0);
 		P.HipRotation = FRotator(2.0, -4.0, 0.0);
-		P.SightDistance = 19.0;
+		P.SightDistance = GravelineSightDistanceCm;
 		P.KickBackCm = 2.4;
 		P.KickPitchDeg = 2.6;
 	}
@@ -227,7 +229,7 @@ void UVerseViewmodelComponent::Build()
 	// from the eye (first-person scale), so the light sits about 35 cm away from it.
 	FillLight = NewObject<UPointLightComponent>(Owner, TEXT("ViewmodelFillLight"));
 	FillLight->SetupAttachment(Camera);
-	FillLight->SetRelativeLocation(FVector(-12.0, 22.0, 28.0));
+	FillLight->SetRelativeLocation(FVector(22.0, 6.0, 24.0));  // ahead and above the handguard, so its vents read at the hip
 	FillLight->SetIntensityUnits(ELightUnits::Lumens);
 	FillLight->SetIntensity(FillLumens);
 	FillLight->SetLightColor(FLinearColor(1.f, 0.93f, 0.84f));
@@ -285,6 +287,22 @@ bool UVerseViewmodelComponent::IsShowing() const
 	return Mesh && Mesh->IsVisible() && Mesh->GetSkinnedAsset() != nullptr;
 }
 
+bool UVerseViewmodelComponent::HasOptic() const
+{
+	if (!IsShowing())
+	{
+		return false;
+	}
+	for (const FName& Slot : Mesh->GetMaterialSlotNames())
+	{
+		if (Slot.ToString().Contains(TEXT("Optic")))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void UVerseViewmodelComponent::ShowWeapon(FName WeaponId)
 {
 	if (!Mesh || WeaponId == ShownWeaponId)
@@ -299,7 +317,8 @@ void UVerseViewmodelComponent::ShowWeapon(FName WeaponId)
 	if (Asset)
 	{
 		// Seen from a hand's width, the polished weapon steel mirrored the bright hangar ceiling
-		// and the sight's inner walls burned white. A satin, less metallic finish (M_Verse_Weapon parameters) keeps it readable.
+		// and the sight's inner walls burned white. A satin finish (rougher, less oil) keeps it
+		// readable; metal-ness stays the recipe's (coated steel is mostly dielectric).
 		// Reticle and lens keep their own look.
 		const TArray<FName> Slots = Mesh->GetMaterialSlotNames();
 		for (int32 Index = 0; Index < Slots.Num(); ++Index)
@@ -313,7 +332,6 @@ void UVerseViewmodelComponent::ShowWeapon(FName WeaponId)
 			{
 				Satin->SetScalarParameterValue(TEXT("RoughnessMin"), ViewmodelRoughnessMin);
 				Satin->SetScalarParameterValue(TEXT("RoughnessMax"), 0.7f);
-				Satin->SetScalarParameterValue(TEXT("Metallic"), 0.75f);
 				Satin->SetScalarParameterValue(TEXT("OilAmount"), 0.08f);
 			}
 		}

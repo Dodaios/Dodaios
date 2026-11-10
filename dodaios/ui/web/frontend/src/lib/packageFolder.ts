@@ -174,23 +174,15 @@ function normalizePaths(files: NamedFile[]): NamedFile[] {
  * so detection below stays one code path; its stem seeds the package name
  * when the frontmatter has none (a literal "SKILL" is not a name).
  */
-async function loneSkillFile(
-  files: NamedFile[],
-): Promise<{ files: NamedFile[]; stem: string } | null> {
+function loneSkillFile(files: NamedFile[]): { files: NamedFile[]; stem: string } | null {
   if (files.length !== 1) return null;
   const only = files[0];
   const base = only.path.split("/").pop() ?? only.path;
   if (!/\.md$/i.test(base)) return null;
   const stem = base.replace(/\.md$/i, "");
   const named = /^skill$/i.test(stem);
-  // A README.md dropped by mistake is not a skill: only the canonical name or
-  // a frontmatter opener says "this file is the package".
-  if (!named && only.file.size <= MAX_READ_BYTES) {
-    const head = await readText(only.file.slice(0, 16));
-    if (!head.replace(/^﻿/, "").startsWith("---")) return null;
-  } else if (!named) {
-    return null;
-  }
+  // Any one Markdown file is accepted: the form shows it before anything is
+  // uploaded, and the server adds the frontmatter a plain file lacks.
   return {
     files: [{ path: "SKILL.md", file: only.file }],
     stem: named ? "" : stem,
@@ -209,7 +201,7 @@ function slugFromStem(stem: string): string {
 
 /** Turn the recognized files of a package directory into a prefilled draft. */
 export async function folderToDraft(input: NamedFile[]): Promise<FolderDraft> {
-  const lone = await loneSkillFile(input);
+  const lone = loneSkillFile(input);
   const files = (lone ? lone.files : normalizePaths(input)).filter(
     (f) => INTERESTING.test(f.path) && f.file.size <= MAX_READ_BYTES,
   );
@@ -303,8 +295,5 @@ export async function folderToDraft(input: NamedFile[]): Promise<FolderDraft> {
     fm.title ||
     (draft.name ? draft.name.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "");
   if (fm.category) draft.categories = fm.category;
-  if (!draft.skill_md.startsWith("---")) {
-    warnings.push(translate("plugins_package.no_frontmatter"));
-  }
   return draft;
 }

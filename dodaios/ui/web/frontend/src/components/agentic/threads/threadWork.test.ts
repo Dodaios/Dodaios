@@ -35,7 +35,7 @@ describe("thread work groups", () => {
     expect(list.map((row) => row.kind)).toEqual(["thought", "work", "thought", "work", "text"]);
     const [commands, mixed] = groups(list);
     expect(commands.items.map((item) => item.kind)).toEqual(["call", "call"]);
-    expect(commands.summary).toBe("Ran commands");
+    expect(commands.summary).toBe("Ran 2 commands");
     expect(mixed.items).toHaveLength(2);
     expect(mixed.sole).toBeNull();
     expect(commands.live).toBe(false);

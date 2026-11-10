@@ -1506,3 +1506,25 @@ the vault holds the user's personal facts.
 
 - `tests/unit/brain/test_routing.py` (exact router set)
 - `tests/unit/memory/vault/test_learning_into_vault.py` (both tools)
+
+## Amendment 2026-11-10: Living pages
+
+`living-page` and `show-result-card` join `ROUTER_TOOLS`.
+
+- `living-page` (risk `monitor`) keeps a page in the Artifacts section current:
+  `create` writes one self-contained page from rows the assistant already
+  read, and adds one routine of the assistant's own that refreshes it on a
+  schedule (`dodaios/artifacts/living.py`, `living_refresh.py`). A refresh
+  run calls `update` with the complete rows. `stop` deletes the routine. The
+  page is rendered by the app, not by a mission worker, and the routine never
+  bills an API key (the routine runner's rule).
+- `show-result-card` (risk `safe`) posts one card into the calling
+  conversation that lists what a request across apps produced, with links,
+  and marks drafts and parts that wait for the person's go.
+
+Neither spawns, and neither is in a worker set.
+
+### Regression guards
+
+- `tests/unit/brain/test_routing.py` (exact router set)
+- `tests/unit/plugins/tool/test_living_page_tool.py` (both tools)

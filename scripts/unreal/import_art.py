@@ -17,6 +17,7 @@ Slate application, which a commandlet does not create (assertion
     python scripts/unreal/import_art.py calib [--export] [--importer interchange|legacy]
     python scripts/unreal/import_art.py masters [--only M_Verse_Weapon] [--no-save]   (WP14)
     python scripts/unreal/import_art.py materials [--only MI_A,MI_B] [--no-save]      (WP14)
+    python scripts/unreal/import_art.py bind [--only SM_A,SM_B] [--no-save]   (MIs into mesh slots)
     python scripts/unreal/import_art.py lookdev                                       (WP14, GPU)
     python scripts/unreal/import_art.py wp14 [--no-lookdev]    (WP14: all of it in one hold)
 
@@ -148,9 +149,9 @@ def _print_report(report: dict) -> None:
 def forwarded_args(options: argparse.Namespace) -> list[str]:
     """The verse_pipeline.cli arguments for a parsed host command (without calib's)."""
     forwarded: list[str] = [options.command]
-    if options.command in ("assets", "validate", "masters", "materials") and options.only:
+    if options.command in ("assets", "validate", "masters", "materials", "bind") and options.only:
         forwarded += ["--only", options.only]
-    if options.command in ("assets", "masters", "materials") and options.no_save:
+    if options.command in ("assets", "masters", "materials", "bind") and options.no_save:
         forwarded.append("--no-save")
     if options.command == "placements":
         forwarded += ["--deck", options.deck]
@@ -184,6 +185,9 @@ def main(argv: list[str] | None = None) -> int:
         cmd = sub.add_parser(name, help=f"WP14: build the {name} from text")
         cmd.add_argument("--only", default="")
         cmd.add_argument("--no-save", action="store_true")
+    bind = sub.add_parser("bind", help="set every mesh slot to the MI of its import record")
+    bind.add_argument("--only", default="")
+    bind.add_argument("--no-save", action="store_true")
     sub.add_parser("lookdev", help="WP14: render the look evidence frames (GPU)")
     wp14 = sub.add_parser("wp14", help="WP14: LUT, masters, MIs, weapons, validate, lookdev")
     wp14.add_argument("--no-lookdev", action="store_true")

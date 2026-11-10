@@ -39,6 +39,7 @@ public:
 	virtual void GetPawnState(FVerseHudPawnState& Out) const override;
 	virtual bool GetView(FVerseHudView& Out) const override;
 	virtual bool GetPredictedBoltDirection(FVector& OutDirection, float& OutSpreadHalfAngleDeg) const override;
+	virtual bool IsAimingThroughOptic() const override;
 	virtual FText GetDisplayName(int32 PlayerId) const override;
 	virtual bool IsBot(int32 PlayerId) const override;
 	virtual FName GetBotTier(int32 PlayerId) const override;

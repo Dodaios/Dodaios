@@ -851,73 +851,54 @@
   "transmission": 0.0
  },
  "M_PropsInd_ContainerGrey": {
-  "alpha": 1.0,
   "base": [
-   0.8,
-   0.8,
-   0.8
+   0.32,
+   0.33,
+   0.335
   ],
-  "emission": [
-   1.0,
-   1.0,
-   1.0
-  ],
-  "source": "viewport",
-  "strength": 0.0,
-  "transmission": 0.0
+  "metallic": 0.3,
+  "source": "builder"
  },
  "M_PropsInd_ContainerGunmetal": {
-  "alpha": 1.0,
   "base": [
-   0.8,
-   0.8,
-   0.8
+   0.11,
+   0.12,
+   0.135
   ],
-  "emission": [
-   1.0,
-   1.0,
-   1.0
-  ],
-  "source": "viewport",
-  "strength": 0.0,
-  "transmission": 0.0
+  "metallic": 0.3,
+  "source": "builder"
  },
  "M_PropsInd_ContainerOlive": {
-  "alpha": 1.0,
   "base": [
-   0.8,
-   0.8,
-   0.8
+   0.1,
+   0.105,
+   0.085
   ],
-  "emission": [
-   1.0,
-   1.0,
-   1.0
-  ],
-  "source": "viewport",
-  "strength": 0.0,
-  "transmission": 0.0
+  "metallic": 0.3,
+  "source": "builder"
  },
  "M_PropsInd_CoreHot": {
   "base": [
-   0.8,
-   0.8,
-   0.8
-  ],
-  "source": "viewport"
- },
- "M_PropsInd_FieldBlue": {
-  "base": [
-   0.8,
-   0.8,
-   0.8
+   1.0,
+   0.55,
+   0.2
   ],
   "emission": [
+   1.0,
+   0.55,
+   0.2
+  ],
+  "source": "builder",
+  "strength": 8.0
+ },
+ "M_PropsInd_FieldBlue": {
+  "alpha": 0.2,
+  "base": [
    0.16,
    0.42,
    1.0
   ],
-  "source": "viewport"
+  "source": "builder"
  },
  "M_PropsInd_GlassDark": {
   "alpha": 1.0,
@@ -938,114 +919,83 @@
   "transmission": 0.0
  },
  "M_PropsInd_Haze": {
+  "alpha": 0.2,
   "base": [
-   0.8,
-   0.8,
-   0.8
+   0.22,
+   0.25,
+   0.3
   ],
-  "source": "viewport"
+  "source": "builder"
  },
  "M_PropsInd_HullPaint": {
-  "alpha": 1.0,
   "base": [
-   0.8,
-   0.8,
-   0.8
+   0.36,
+   0.365,
+   0.36
   ],
-  "emission": [
-   1.0,
-   1.0,
-   1.0
-  ],
-  "source": "viewport",
-  "strength": 0.0,
-  "transmission": 0.0
+  "metallic": 0.0,
+  "source": "builder"
  },
  "M_PropsInd_LampDim": {
   "base": [
-   0.8,
-   0.8,
-   0.8
+   0.85,
+   0.88,
+   0.95
   ],
-  "source": "viewport",
+  "emission": [
+   0.85,
+   0.88,
+   0.95
+  ],
+  "source": "builder",
   "strength": 3.0
  },
  "M_PropsInd_LampFlood": {
   "base": [
-   0.8,
-   0.8,
-   0.8
+   0.95,
+   0.97,
+   1.0
   ],
-  "source": "viewport",
+  "emission": [
+   0.95,
+   0.97,
+   1.0
+  ],
+  "source": "builder",
   "strength": 45.0
  },
  "M_PropsInd_StencilAmber": {
   "base": [
-   0.8,
-   0.8,
-   0.8
+   0.45,
+   0.3,
+   0.05
   ],
-  "emission": [
-   1.0,
-   1.0,
-   1.0
-  ],
-  "metallic": 0.0,
-  "roughness": 0.62,
-  "source": "viewport",
-  "strength": 0.0,
-  "transmission": 0.0
+  "source": "builder"
  },
  "M_PropsInd_StencilDark": {
   "base": [
-   0.8,
-   0.8,
-   0.8
+   0.035,
+   0.037,
+   0.04
   ],
-  "emission": [
-   1.0,
-   1.0,
-   1.0
-  ],
-  "metallic": 0.0,
-  "roughness": 0.62,
-  "source": "viewport",
-  "strength": 0.0,
-  "transmission": 0.0
+  "source": "builder"
  },
  "M_PropsInd_StencilRed": {
   "base": [
-   0.8,
-   0.8,
-   0.8
+   0.32,
+   0.03,
+   0.025
   ],
-  "emission": [
-   1.0,
-   1.0,
-   1.0
-  ],
-  "metallic": 0.0,
-  "roughness": 0.62,
-  "source": "viewport",
-  "strength": 0.0,
-  "transmission": 0.0
+  "source": "builder"
  },
  "M_PropsInd_Tread": {
-  "alpha": 1.0,
   "base": [
-   0.8,
-   0.8,
-   0.8
-  ],
-  "emission": [
-   1.0,
-   1.0,
-   1.0
+   0.12,
+   0.125,
+   0.13
   ],
   "metallic": 0.85,
-  "source": "viewport",
-  "strength": 0.0,
-  "transmission": 0.0
+  "source": "builder"
  },
  "M_Recess_Dark": {
   "alpha": 1.0,

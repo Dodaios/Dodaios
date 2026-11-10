@@ -1,6 +1,6 @@
 import { useTranscriptView } from "../society/chat/useTranscriptView";
 import { PairConversationBoundary } from "@/components/agentchat/PairConversation";
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useEventStore } from "@/store/events";
 import { useHomeStore } from "@/store/home";
@@ -47,7 +47,14 @@ function CallSlot() {
     const timer = window.setTimeout(() => void import("@/components/home/CallWindow"), 1500);
     return () => window.clearTimeout(timer);
   }, []);
-  return callLive || waiting ? <Suspense fallback={null}><CallWindow /></Suspense> : null;
+  // Once a call has shown, the window decides for itself when to leave: it
+  // stays a moment after the call ends, so a reason that arrives right after
+  // the hang-up lands in the same window instead of a second one.
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (callLive || waiting) setShown(true);
+  }, [callLive, waiting]);
+  return shown || callLive || waiting ? <Suspense fallback={null}><CallWindow /></Suspense> : null;
 }
 
 /**

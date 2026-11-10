@@ -566,6 +566,11 @@ class AgentChatService:
         # command"), per session: a matching call runs without a card. They
         # live as long as the app runs, like the chat's other "always".
         self._narrow_rules: dict[str, list[dict[str, str]]] = {}
+        # A reversible action the executor ran for one of these chats leaves
+        # its inverse in the undo ledger; the chat posts the undo notice.
+        from dodaios.trust.undo import undo_ledger
+
+        self._stop_undo_notices = undo_ledger().on_recorded(self._on_undo_recorded)
         # Tools whose "Always allow" the card just saved on the society agent,
         # by session: the approval bridge must not also wave the whole tool
         # through for the chat (a rule for one action would read wider).
@@ -1616,6 +1621,28 @@ class AgentChatService:
                 )
                 if image_context:
                     prompt += "\n\n" + image_context
+            if (
+                session.surface == "jarvis"
+                and direct_user
+                and incoming is None
+                and not control_owned
+                and text
+            ):
+                # "What's this?" / "turn this mail into an event": with Screen
+                # Context on, "this" is what is on screen (screen_reference).
+                from dodaios.agent_chat.screen_reference import screen_context_block
+
+                screen_block = await screen_context_block(
+                    text,
+                    session_id=session_id,
+                    cwd=session.cwd,
+                    locale=output_language,
+                    bus=self._bus(),
+                )
+                if screen_block:
+                    prompt += "\n\n" + screen_block
+                    if display_text is None:
+                        display_text = text
             # Agent cards serialize Add selections as capability pins. Translate the
             # browser pin to the same validated receipt used by the root composer.
             if session.surface == "jarvis" and any(
@@ -2431,13 +2458,21 @@ class AgentChatService:
         args: dict[str, Any],
         summary: str,
     ) -> str:
-        # The same tool call asked again after a restart answers on the card
-        # the person already sees (_hold_unanswered_approvals).
-        if self._narrow_allows(session_id, name, args):
-            # The person's own narrow rule from an earlier card covers this call.
-            return "allow"
-        if name in self._tool_always.get(session_id, ()):
-            return "allow"
+        # A hard limit (money, credentials, deleting for good, a new recipient)
+        # always asks: no rule of the person's, however it was saved, covers it.
+        from dodaios.trust.hooks import before_execute
+
+        limited = before_execute(name, args).needs_person
+        if not limited:
+            # The same tool call asked again after a restart answers on the card
+            # the person already sees (_hold_unanswered_approvals).
+            if self._narrow_allows(session_id, name, args):
+                # The person's own narrow rule from an earlier card covers this call.
+                return "allow"
+            if name in self._tool_always.get(session_id, ()):
+                return "allow"
+            if self._standing_rule_allows(session_id, name, args):
+                return "allow"
         held = self._unanswered.pop((session_id, turn_id, call_id), "") if call_id else ""
         approval_id = held if held and held not in self._approvals else uuid.uuid4().hex
         loop = asyncio.get_running_loop()
@@ -2483,6 +2518,13 @@ class AgentChatService:
             feedback = self._approval_feedback.pop(approval_id, "")
             if feedback and call_id:
                 self._deny_feedback[(session_id, call_id)] = feedback
+        if decision == "allow_always":
+            from dodaios.trust.hard_limits import NO_RULE_LIMITS, hard_limit_for
+
+            if hard_limit_for(name, args) in NO_RULE_LIMITS:
+                # Money, credentials, deleting for good: this call runs once
+                # and nothing is remembered, whatever the answer asked for.
+                decision = "allow"
         await self._emit(
             session_id,
             make_event(
@@ -2640,9 +2682,15 @@ class AgentChatService:
         restarts (the Jarvis and society surfaces, whose tools ask through the
         approval bridge). Nothing else is ever widened from here.
         """
+        from dodaios.trust.hard_limits import NO_RULE_LIMITS, hard_limit_for
+
         from .approval_bridge import _bare
         from .approval_card import app_label
 
+        if kind == "always_allow" and hard_limit_for(name, args or {}) in NO_RULE_LIMITS:
+            # No standing "always" for money, credentials or deleting for good.
+            # (A new recipient asks anyway; the rule itself is fine to keep.)
+            return None
         rule: dict[str, Any] | None = None
         if narrow:
             rule = self._narrow_rule_from_card(session, name, args or {}, kind, scope, narrow)
@@ -2662,6 +2710,12 @@ class AgentChatService:
             rule = {"kind": kind, "pattern": bare, "app": app_label(bare), "verb": ""}
         if rule is None:
             return None
+        if scope == "chat" and kind == "always_allow":
+            # A chat rule outlives the chat: it is the person's standing rule,
+            # listed and revocable on the Trust page (dodaios/trust/rules.py).
+            standing = self._persist_standing_rule(session, name, args or {}, rule)
+            if standing is not None:
+                rule["rule_id"] = standing["id"]
         await self._emit(
             session.session_id,
             make_event(
@@ -2676,6 +2730,7 @@ class AgentChatService:
                     "app": rule.get("app", ""),
                     "verb": rule.get("verb", ""),
                     "still_asks": bool(rule.get("still_asks")),
+                    **({"rule_id": rule["rule_id"]} if rule.get("rule_id") else {}),
                     **(
                         {"narrow": rule["narrow"], "target": rule.get("target", "")}
                         if rule.get("narrow")
@@ -2685,6 +2740,118 @@ class AgentChatService:
             ),
         )
         return rule
+
+    # ------------------------------------------------------------ standing rules
+
+    def _persist_standing_rule(
+        self, session: Any, name: str, args: dict[str, Any], rule: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Write a chat rule into the person's standing rules; ``None`` if that failed."""
+        from dodaios.trust.rules import trust_rules
+
+        from .approval_bridge import _bare
+        from .approval_card import narrow_tool
+
+        try:
+            narrow = str(rule.get("narrow") or "")
+            if narrow:
+                entry = next(
+                    (
+                        r
+                        for r in self._narrow_rules.get(session.session_id, [])
+                        if r.get("kind") == narrow
+                        and r.get("tool", "").lower() == narrow_tool(name).lower()
+                    ),
+                    None,
+                )
+                target = str((entry or {}).get("value") or "")
+                if not target:
+                    return None
+                return trust_rules().add(
+                    tool=narrow_tool(name),
+                    kind=narrow,
+                    target=target,
+                    label=str(rule.get("target") or target),
+                    app=str(rule.get("app") or ""),
+                )
+            return trust_rules().add(
+                tool=_bare(name), kind="tool", label=str(rule.get("app") or _bare(name)),
+                app=str(rule.get("app") or ""),
+            )
+        except Exception:  # noqa: BLE001 — the chat still remembers for this run
+            log.warning("agent chat: could not persist a standing rule for %s", name, exc_info=True)
+            return None
+
+    def _standing_rule_allows(self, session_id: str, name: str, args: dict[str, Any]) -> bool:
+        """Whether one of the person's standing rules (Trust page) covers this call."""
+        from dodaios.trust.rules import trust_rules
+
+        session = self.store.get_session(session_id)
+        cwd = str(session.cwd or "") if session is not None else ""
+        try:
+            return trust_rules().allows(name, args or {}, cwd=cwd) is not None
+        except Exception:  # noqa: BLE001 — no match: the card asks as usual
+            log.warning("agent chat: standing rule check failed for %s", name, exc_info=True)
+            return False
+
+    def forget_standing_rule(self, rule: dict[str, Any]) -> None:
+        """A rule revoked on the Trust page stops covering calls in every open chat."""
+        tool = str(rule.get("tool") or "").lower()
+        kind = str(rule.get("kind") or "")
+        target = str(rule.get("target") or "")
+        if not tool:
+            return
+        if kind == "tool":
+            for bag in (self._always_allowed, self._tool_always):
+                for names in bag.values():
+                    for name in [n for n in names if n.lower() == tool]:
+                        names.discard(name)
+            if self._bridge is not None:
+                for grant in list(self._bridge._grants.values()):
+                    for name in [n for n in grant.always_allowed if n.lower() == tool]:
+                        grant.always_allowed.discard(name)
+        elif kind in ("folder", "command"):
+            for rules in self._narrow_rules.values():
+                rules[:] = [
+                    r
+                    for r in rules
+                    if not (
+                        r.get("kind") == kind
+                        and r.get("tool", "").lower() == tool
+                        and r.get("value", "") == target
+                    )
+                ]
+
+    # ------------------------------------------------------------ undo
+
+    def _on_undo_recorded(self, entry: dict[str, Any]) -> None:
+        """The undo ledger kept an inverse: tell the chat it came from (an undo toast)."""
+        session_id = str(entry.get("session_id") or "")
+        if not session_id or self.store.get_session(session_id) is None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:  # recorded off the loop (a sync test): no chat to tell
+            return
+        task = loop.create_task(
+            self._emit(
+                session_id,
+                make_event(
+                    "notice",
+                    {
+                        "kind": "undo_available",
+                        "undo_id": entry.get("id"),
+                        "tool": entry.get("tool"),
+                        "text": entry.get("label") or "",
+                        "expires_ms": entry.get("expires_ms"),
+                        **({"turn_id": t} if (t := self._running_turn_id(session_id)) else {}),
+                    },
+                ),
+            ),
+            name=f"agent-chat-undo-notice-{session_id[:8]}",
+        )
+        self._question_tasks.add(task)
+        task.add_done_callback(self._question_tasks.discard)
 
     def _narrow_rule_from_card(
         self,

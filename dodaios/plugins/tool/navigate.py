@@ -53,6 +53,8 @@ KNOWN: frozenset[str] = frozenset(
         "agent-instructions",
         # Appshots: the shortcut and destination for showing the front window.
         "appshots",
+        # Phone: the paired phone's companion app, its notifications, WhatsApp.
+        "phone",
         "dictionary",
         "dictation",
         "voice-shortcuts",
@@ -73,10 +75,16 @@ KNOWN: frozenset[str] = frozenset(
         "pets",
         # Game settings: per-game sensitivity, keybinds, audio and video.
         "games",
+        # Notifications: desktop notifications, quiet hours and approvals in
+        # Telegram. A Settings-hub page.
+        "notifications",
         # Keyboard shortcuts: every shortcut in one place, with a key tester.
         "shortcuts",
         # Built for you: what the self-building loop made, with keep and undo.
         "self-build",
+        # Trust & privacy: what runs without asking, what is known and where
+        # it goes. A Settings-hub page.
+        "trust",
     }
 )
 
@@ -279,6 +287,19 @@ _ALIASES: dict[str, str] = {
     # is already the section id, and anything broader ("animals") would pull
     # ordinary questions about animals onto a settings page.
     "my pets": "pets",
+    "notifications": "notifications",
+    "notification settings": "notifications",
+    "quiet hours": "notifications",
+    "benachrichtigungen": "notifications",  # i18n-allow: input vocab
+    "notificaciones": "notifications",  # i18n-allow: input vocab
+    "trust": "trust",
+    "trust and privacy": "trust",
+    "privacy": "trust",
+    "permissions": "trust",
+    "what you may do": "trust",
+    "vertrauen": "trust",  # i18n-allow: input vocab
+    "datenschutz": "trust",  # i18n-allow: input vocab
+    "privacidad": "trust",  # i18n-allow: input vocab
     "game settings": "games",
     "gaming settings": "games",
     "games": "games",

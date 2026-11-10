@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/weapons/SK_Weapon_Graveline.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "f5376d3dd4d06ff4830052e7639ae5ac475dabff741cd5095b541bdea89355b4"
+    "sha256": "114f13af1f6212b0b42230d639a59d932d576e3539d6c6c72beab7e25ae3e88c"
   },
   "kind": "skeletal_mesh",
   "license": {
@@ -18,7 +18,11 @@
   },
   "lightmap": "none",
   "lod": {
-    "mode": "single"
+    "mode": "auto",
+    "screen_sizes": [
+      1.0,
+      0.5
+    ]
   },
   "mesh": {
     "bones": [
@@ -30,24 +34,24 @@
     ],
     "bounds_cm": {
       "max": [
-        73.25,
-        3.6,
-        13.3
+        74.4,
+        4.1,
+        16.25
       ],
       "min": [
-        -31.75,
-        -3.3,
-        -13.59
+        -32.5,
+        -3.0,
+        -15.046
       ]
     },
     "material_slots": [
       {
-        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Steel.MI_Weapon_Steel",
-        "slot": "M_Weapon_Steel"
-      },
-      {
         "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Polymer.MI_Weapon_Polymer",
         "slot": "M_Weapon_Polymer"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Steel.MI_Weapon_Steel",
+        "slot": "M_Weapon_Steel"
       },
       {
         "mi": "/Game/Verse/Materials/Instances/Weapons/MI_Weapon_Grip.MI_Weapon_Grip",
@@ -68,9 +72,9 @@
       "SOCKET_Sight",
       "SOCKET_Support"
     ],
-    "triangles": 3984,
+    "triangles": 15332,
     "uv_sets": 1,
-    "vertices": 2072
+    "vertices": 7960
   },
   "name": "SK_Weapon_Graveline",
   "nanite": {

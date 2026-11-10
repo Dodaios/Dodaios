@@ -337,8 +337,8 @@ describe("ChatStage (agent chat)", () => {
     fireEvent.click(screen.getByTestId("composer-model"));
     const panel = await screen.findByTestId("composer-model-panel");
     const options = within(panel).getAllByRole("option").map((el) => el.getAttribute("data-value"));
+    // Strongest first, and no "default" row: the person picks a model.
     expect(options).toEqual([
-      "claude-api\u0001",
       "claude-api\u0001claude-opus-5",
       "claude-api\u0001claude-sonnet-5",
     ]);
@@ -752,7 +752,7 @@ describe("ChatStage (agent chat)", () => {
     act(() => { useHomeStore.setState({ callPending: false }); useEventStore.setState({ voiceState: "listening" }); });
     expect(screen.getByTestId("call-window").getAttribute("data-state")).toBe("listening");
     // Ended on a problem: the window stays with the reason.
-    act(() => { useEventStore.setState({ voiceState: "idle" }); useHomeStore.setState({ callProblem: { message: "refused" } }); });
+    act(() => { useEventStore.setState({ voiceState: "idle" }); useHomeStore.setState({ callProblem: { message: "refused", at: Date.now() } }); });
     expect(screen.getByTestId("call-window").getAttribute("data-state")).toBe("failed");
     act(() => useHomeStore.setState({ callProblem: null }));
     expect(screen.queryByTestId("call-window")).toBeNull();

@@ -1828,6 +1828,9 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
             # tools"): search and forget, router-tier only.
             "memory-search",
             "memory-forget",
+            # Reminders (dodaios/notify): dated memories delivered on time, and
+            # brain dumps into tasks. Router-tier only; never a spawn.
+            "reminders",
             # CLI-Integration (2026-05-24): virtual loader that expands to one
             # cli_<name> tool per connected & usable CLI. Router-tier only — a
             # cli_<name> tool is a direct safe-gated action, never a recursive
@@ -1945,6 +1948,10 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
             # dodaios/brain/artifact_gate.py), because the mandate is that an
             # artifact is asked for, never volunteered.
             "create-artifact",
+            # Living pages (2026-11-10): a page the lead keeps current and the
+            # result card of a multi-app request. Never spawns.
+            "living-page",
+            "show-result-card",
             # Agent society voice tools (2026-09-02): ONE typed ASSIGN to a
             # named agent with an immediate ack (monitor) and a read-only
             # status answer (safe). The society scheduler, not the tool,

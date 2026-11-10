@@ -31,9 +31,11 @@ a bad submission merge.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import re
+import unicodedata
 from collections.abc import Mapping
 from typing import Any
 
@@ -84,6 +86,9 @@ _UA = {"User-Agent": HTTP_USER_AGENT}
 # ---------------------------------------------------------------------------
 
 _NAME_RE = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$")
+#: What a person may type as a package name: anything, special characters
+#: included, up to this many characters. The registry id is derived from it.
+MAX_NAME_CHARS = 64
 _SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
 MAX_FILE_BYTES = 128 * 1024
 # Re-exported under this module's existing name, but the VALUE comes from
@@ -125,6 +130,95 @@ def _is_valid_name(text: str) -> bool:
     return bool(_NAME_RE.fullmatch(text)) and ".." not in text and "--" not in text
 
 
+# Letters NFKD does not split into a base letter plus a mark.
+_ASCII_FOLD = str.maketrans(
+    {
+        "ß": "ss",  # i18n-allow
+        "æ": "ae",
+        "Æ": "ae",
+        "ø": "o",
+        "Ø": "o",
+        "œ": "oe",
+        "Œ": "oe",
+        "ł": "l",
+        "Ł": "l",
+    }
+)
+
+
+def package_id(text: str) -> str:
+    """The registry id for whatever a person typed as the package name.
+
+    "STE-80 Humanizer!" becomes ``ste-80-humanizer``. A name that already
+    follows the registry rule comes back unchanged, so existing packages keep
+    their id. A name with no usable letter at all (only emoji, say) gets a
+    stable id from its hash, so the same name always maps to the same id.
+    """
+    raw = text.strip()
+    folded = unicodedata.normalize("NFKD", raw.translate(_ASCII_FOLD))
+    ascii_text = folded.encode("ascii", "ignore").decode("ascii").lower()
+    slug = re.sub(r"[^a-z0-9.]+", "-", ascii_text)
+    slug = re.sub(r"[.-]{2,}", "-", slug).strip(".-")
+    slug = slug[:MAX_NAME_CHARS].strip(".-")
+    if not slug:
+        digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:10]
+        slug = f"package-{digest}"
+    return slug
+
+
+_FRONTMATTER_RE = re.compile(r"\A﻿?---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.DOTALL)
+_BLOCK_MARKERS = frozenset({"|", ">", "|-", ">-", "|+", ">+"})
+
+
+def frontmatter_value(skill_md: str, key: str) -> str:
+    """A top-level one-line ``key: value`` from the SKILL.md frontmatter, or ``""``."""
+    match = _FRONTMATTER_RE.match(skill_md)
+    if not match:
+        return ""
+    for line in match.group(1).splitlines():
+        found = re.match(rf"^{re.escape(key)}\s*:\s*(.*)$", line)
+        if found:
+            value = found.group(1).strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                value = value[1:-1]
+            return "" if value in _BLOCK_MARKERS else value
+    return ""
+
+
+def with_skill_name(skill_md: str, name: str, description: str = "") -> str:
+    """SKILL.md with its frontmatter ``name`` set to the registry id.
+
+    The registry refuses a skill whose frontmatter name differs from the
+    package id, and a person who typed a free name cannot be expected to
+    match it by hand. A file without frontmatter gets one, so a plain
+    Markdown file is publishable too.
+    """
+    summary = json.dumps(" ".join(description.split()) or name, ensure_ascii=False)
+    match = _FRONTMATTER_RE.match(skill_md)
+    if not match:
+        body = skill_md.lstrip("﻿")
+        return f"---\nname: {name}\ndescription: {summary}\n---\n\n{body}"
+    lines = match.group(1).splitlines()
+    for index, line in enumerate(lines):
+        if re.match(r"^name\s*:", line):
+            lines[index] = f"name: {name}"
+            break
+    else:
+        lines.insert(0, f"name: {name}")
+    if not any(re.match(r"^description\s*:", line) for line in lines):
+        lines.append(f"description: {summary}")
+    start, end = match.span(1)
+    return skill_md[:start] + "\n".join(lines) + skill_md[end:]
+
+
+def _name_error(raw: str) -> FieldError | None:
+    if not raw:
+        return FieldError("Give the package a name.", "name")
+    if len(raw) > MAX_NAME_CHARS:
+        return FieldError(f"The name is longer than {MAX_NAME_CHARS} characters.", "name")
+    return None
+
+
 def validate_draft(draft: dict[str, Any]) -> tuple[dict[str, Any] | None, list[FieldError]]:
     """Normalize and check a submission draft.
 
@@ -137,16 +231,15 @@ def validate_draft(draft: dict[str, Any]) -> tuple[dict[str, Any] | None, list[F
     if kind not in ("plugin", "skill", "agent"):
         return None, [FieldError('kind must be "plugin", "skill" or "agent"', "kind")]
 
-    name = str(draft.get("name") or "").strip()
-    name_is_valid = _is_valid_name(name)
-    if not name_is_valid:
-        errors.append(
-            FieldError(
-                "name must be 1-64 chars of a-z 0-9 - . "
-                '(no leading/trailing separators, no ".." or "--")',
-                "name",
-            )
-        )
+    # The name is free text (special characters welcome, at most 64
+    # characters); the registry id is derived from it, and the typed text
+    # stays the title people see.
+    display_name = str(draft.get("name") or "").strip()
+    name_problem = _name_error(display_name)
+    if name_problem is not None:
+        errors.append(name_problem)
+    name = package_id(display_name) if display_name else ""
+    name_is_valid = name_problem is None and _is_valid_name(name)
     version = str(draft.get("version") or "").strip()
     if not _SEMVER_RE.fullmatch(version):
         errors.append(FieldError("version must be plain SemVer, e.g. 1.0.0", "version"))
@@ -156,14 +249,21 @@ def validate_draft(draft: dict[str, Any]) -> tuple[dict[str, Any] | None, list[F
     if kind == "agent":
         _validate_agent_draft(draft, value, errors)
     elif kind == "skill":
-        title = str(draft.get("title") or "").strip()
-        description = str(draft.get("description") or "").strip()
         raw_skill_md = draft.get("skill_md")
         skill_md = raw_skill_md if isinstance(raw_skill_md, str) else ""
+        title = str(draft.get("title") or "").strip() or display_name
+        description = (
+            str(draft.get("description") or "").strip()
+            or frontmatter_value(skill_md, "description").strip()
+        )
+        if skill_md and name_is_valid:
+            skill_md = with_skill_name(skill_md, name, description)
         if not title:
             errors.append(FieldError("title is required for a skill", "title"))
         if not description:
-            errors.append(FieldError("description is required for a skill", "description"))
+            errors.append(
+                FieldError("Add a short description of what the skill does.", "description")
+            )
         elif _utf16_len(description) > MAX_DESCRIPTION_CHARS:
             errors.append(
                 FieldError(f"description longer than {MAX_DESCRIPTION_CHARS} chars", "description")
@@ -196,6 +296,9 @@ def validate_draft(draft: dict[str, Any]) -> tuple[dict[str, Any] | None, list[F
         if not isinstance(plugin_json, dict):
             errors.append(FieldError("plugin_json object is required for a plugin", "plugin_json"))
             plugin_json = {}
+        elif name_is_valid:
+            # The registry wants plugin.json's name to be the package id.
+            plugin_json = {**plugin_json, "name": name}
         desc = plugin_json.get("description")
         if isinstance(desc, str) and _utf16_len(desc) > MAX_DESCRIPTION_CHARS:
             errors.append(
@@ -232,7 +335,7 @@ def validate_draft(draft: dict[str, Any]) -> tuple[dict[str, Any] | None, list[F
         # reported, and an invalid `plugin_name` here would only add a
         # confusing second one.
         skills, skill_errors = (
-            _validate_bundled_skills(draft.get("skills"), plugin_name=name)
+            _validate_bundled_skills(_named_bundled_skills(draft.get("skills")), plugin_name=name)
             if name_is_valid
             else ([], [])
         )
@@ -298,6 +401,31 @@ def _validate_agent_draft(
         categories=categories,
         agent=template if isinstance(template, dict) else {},
     )
+
+
+def _named_bundled_skills(raw: Any) -> Any:
+    """Bundled skills with registry ids as names and matching frontmatter.
+
+    A folder called "My Skill (v2)" becomes ``my-skill-v2``, and its SKILL.md
+    frontmatter gets the same id, which the registry requires. Anything that
+    is not the expected shape passes through untouched so the authority
+    reports it.
+    """
+    if not isinstance(raw, list):
+        return raw
+    named: list[Any] = []
+    for item in raw:
+        skill_name = item.get("name") if isinstance(item, dict) else None
+        skill_md = item.get("skill_md") if isinstance(item, dict) else None
+        if not (isinstance(skill_name, str) and skill_name.strip() and isinstance(skill_md, str)):
+            named.append(item)
+            continue
+        skill_id = package_id(skill_name)
+        description = frontmatter_value(skill_md, "description")
+        named.append(
+            {**item, "name": skill_id, "skill_md": with_skill_name(skill_md, skill_id, description)}
+        )
+    return named
 
 
 def _validate_bundled_skills(
@@ -540,7 +668,20 @@ async def submit(
     if tokens is None:
         raise SubmitError(401, "sign in with GitHub first")
     if not endpoint:
-        return await submit_issue(normalized, tokens, repo, transport=transport)
+        from dodaios.marketplace import own_submissions
+
+        earlier_issue = own_submissions.previous_failed_issue(
+            str(normalized["kind"]), str(normalized["name"])
+        )
+        result = await submit_issue(normalized, tokens, repo, transport=transport)
+        # The store shows the package at once, marked "being checked", and a
+        # refused earlier try stops cluttering the registry's issue list.
+        own_submissions.record(normalized, result, result.get("publisher"))
+        if earlier_issue is not None and earlier_issue != result.get("issue_number"):
+            await own_submissions.close_issue(
+                repo, earlier_issue, tokens.access, transport=transport
+            )
+        return result
     try:
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, transport=transport) as client:
             r = await client.post(
@@ -565,10 +706,7 @@ async def submit(
 
 
 def issue_title(normalized: dict[str, Any]) -> str:
-    return (
-        f"{INTAKE_TITLE_TAG} {normalized['kind']}: {normalized['name']} "
-        f"{normalized['version']}"
-    )
+    return f"{INTAKE_TITLE_TAG} {normalized['kind']}: {normalized['name']} {normalized['version']}"
 
 
 def issue_body(normalized: dict[str, Any]) -> str:
@@ -632,9 +770,11 @@ async def submit_issue(
         raise SubmitError(502, f"GitHub is unreachable: {exc}") from exc
     if r.status_code == 201:
         data = r.json()
+        user = data.get("user") if isinstance(data.get("user"), dict) else {}
         return {
             "issue_url": data.get("html_url"),
             "issue_number": data.get("number"),
+            "publisher": user.get("login"),
             "submission_path": f"submissions/{normalized['name']}.json",
         }
     if r.status_code == 401:
@@ -658,7 +798,7 @@ async def live_status(name: str, version: str, *, force: bool = False) -> dict[s
     This is the honest "it is live" signal: the same feed every store client
     reads. ``force`` bypasses the TTL for the watch-until-live poller.
     """
-    from dodaios.marketplace import community_source
+    from dodaios.marketplace import community_source, own_submissions
 
     index, status = await community_source.get_index(force=force)
     live = False
@@ -668,4 +808,15 @@ async def live_status(name: str, version: str, *, force: bool = False) -> dict[s
             if entry.name == name and (entry.version or "") == version:
                 live = True
                 break
-    return {"name": name, "version": version, "live": live, "feed_status": status}
+    check: dict[str, Any] = {"state": "live" if live else "checking", "problems": []}
+    if not live:
+        token: str | None = None
+        try:
+            tokens = await asyncio.to_thread(TokenStore().load, PUBLISHER_TOKEN_ID)
+            token = tokens.access if tokens is not None else None
+        except Exception:  # noqa: BLE001 - a locked keyring only costs rate limit
+            token = None
+        item = await own_submissions.refresh_from_issue(name, version, registry_repo(), token)
+        if item is not None:
+            check = {"state": item.get("state", "checking"), "problems": item.get("problems", [])}
+    return {"name": name, "version": version, "live": live, "feed_status": status, **check}

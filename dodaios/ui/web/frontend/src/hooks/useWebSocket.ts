@@ -40,6 +40,7 @@ import { petKeys } from "@/hooks/usePets";
 import { focusChatComposer, startNewTextChat } from "@/lib/newChat";
 import { SPEAKER_MUTE_EVENT } from "@/lib/speakerMute";
 import { onAgentAttention, seedAgentAttention } from "@/components/society/attention/attentionBus";
+import { onNotificationOpened } from "@/lib/notifyOpen";
 import { handleVerseOpen, VERSE_STATUS_EVENT, type VerseOpenPayload } from "@/components/verseHost/openRequest";
 
 let singleton: WSClient | null = null;
@@ -709,6 +710,8 @@ export function useWebSocket(): void {
         }
 
         if (env.event_name === "AgentAttentionChanged") onAgentAttention(env.payload, queryClient);
+        // A clicked desktop notification: open the conversation at that message.
+        if (env.event_name === "NotificationOpened") onNotificationOpened(env.payload);
 
         if (env.event_name === "ToastNotification") {
           const p = env.payload as { kind?: string; message?: string };

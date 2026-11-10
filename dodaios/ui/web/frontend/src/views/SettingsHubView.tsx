@@ -90,8 +90,17 @@ const PetsTab = lazy(() =>
 const GamesTab = lazy(() =>
   import("@/views/VerseSettingsView").then((m) => ({ default: m.VerseSettingsView })),
 );
+const PhoneTab = lazy(() =>
+  import("@/views/PhoneView").then((m) => ({ default: m.PhoneView })),
+);
+const NotificationsTab = lazy(() =>
+  import("@/views/NotificationsView").then((m) => ({ default: m.NotificationsView })),
+);
 const CostsTab = lazy(() =>
   import("@/views/CostsView").then((m) => ({ default: m.CostsView })),
+);
+const TrustTab = lazy(() =>
+  import("@/views/TrustView").then((m) => ({ default: m.TrustView })),
 );
 const FeedbackTab = lazy(() =>
   import("@/views/feedback/FeedbackView").then((m) => ({
@@ -107,10 +116,13 @@ const TAB_CONTENT: Record<HubContent, LazyExoticComponent<ComponentType>> = {
   apikeys: ApiKeysTab,
   "telephony-setup": TelephonySetupTab,
   computers: ComputersTab,
+  phone: PhoneTab,
   appshots: AppshotsTab,
   shortcuts: ShortcutsTab,
   pets: PetsTab,
   games: GamesTab,
+  notifications: NotificationsTab,
+  trust: TrustTab,
   costs: CostsTab,
   feedback: FeedbackTab,
 };

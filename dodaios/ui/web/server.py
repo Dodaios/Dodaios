@@ -554,8 +554,10 @@ class WebServer:
         from .local_voice_routes import router as local_voice_router
         from .marketplace_publish_routes import router as marketplace_publish_router
         from .marketplace_routes import router as marketplace_router
+        from .living_pages_routes import router as living_pages_router
         from .mcp_routes import router as mcp_router
         from .personal_memory_routes import router as personal_memory_router
+        from .notify_routes import router as notify_router
         from .mission_billing_routes import router as mission_billing_router
         from .missions_auth import router as missions_auth_router
         from .missions_pty_routes import router as missions_pty_router
@@ -566,6 +568,7 @@ class WebServer:
         from .missions_ws_routes import (
             router as missions_ws_router,
         )
+        from .mobile_routes import router as mobile_router
         from .onboarding_routes import router as onboarding_router
         from .outputs_routes import router as outputs_router
         from .permissions_routes import router as permissions_router
@@ -596,6 +599,7 @@ class WebServer:
         from .telephony_routes import router as telephony_router
         from .tool_model_routes import router as tool_model_router
         from .tools_routes import router as tools_router
+        from .trust_routes import router as trust_router
         from .update_routes import router as update_router
         from .voice_call_routes import router as voice_call_router
         from .wallpaper_routes import router as wallpaper_router
@@ -749,6 +753,8 @@ class WebServer:
         # Settings -> Computers: the user's own servers and local VMs over SSH.
         app.include_router(server_pairing_router)
         app.include_router(computers_router)
+        # Settings -> Phone: the paired phone's companion app and its pushes.
+        app.include_router(mobile_router)
         # Desktop pets — the `pet` overlay style's pets, look and visibility.
         app.include_router(pets_router)
         app.include_router(dictionary_router)
@@ -863,6 +869,12 @@ class WebServer:
         app.include_router(onboarding_router)
         # Personal memory vault API (ADR-0044): items, history, export, import.
         app.include_router(personal_memory_router)
+        # Living pages: pages the assistant keeps current (stop/resume refresh).
+        app.include_router(living_pages_router)
+        # Reminders and desktop notifications (dodaios/notify).
+        app.include_router(notify_router)
+        # Trust & privacy: standing rules, undo, the "what it knows" overview.
+        app.include_router(trust_router)
         # ConnectionManager singleton for the global event stream. Attached
         # to MissionBus.subscribe_all() in start().
         app.state.missions_ws_manager = _MissionsConnMgr()
@@ -3115,6 +3127,23 @@ class WebServer:
             _init_channel_stack_guarded(), name="channel-bootstrap"
         )
 
+        # Desktop notifications and the reminder scheduler (dodaios/notify).
+        # Only the default app delivers: a second (dev) instance would tell
+        # every reminder twice.
+        try:
+            from dodaios.core.instance import current_instance
+            from dodaios.notify import wiring as notify_wiring
+
+            notify_wiring.install(
+                app_state=self.app.state,
+                bus=self.bus,
+                cfg=self.cfg,
+                get_service=lambda: getattr(self.app.state, "agent_chat", None),
+                start_scheduler=current_instance().owns_ambient_duties,
+            )
+        except Exception as exc:  # noqa: BLE001 — the app runs without notifications
+            logger.opt(exception=exc).warning("notify: not started")
+
         # Run the deferred registry disk scans (skill + doc reload_sync) off the
         # boot critical path. Each is a blocking glob + FTS index build (~hundreds
         # of ms) that nothing at BOOT_READY needs — the views tolerate an empty
@@ -3735,6 +3764,13 @@ class WebServer:
         )
         bridge.start()
         self._channel_chat_bridge = bridge
+        try:
+            # Push to the paired phone: needs-you cards and lead notices.
+            from dodaios.mobile.notify import install as install_mobile_push
+
+            install_mobile_push(self.bus, config=self.cfg)
+        except Exception as exc:  # noqa: BLE001 — a phone push problem never breaks boot
+            logger.debug("Mobile push notifier init failed: {}", exc)
         self.app.state.channel_chat_bridge = bridge
 
         if "telegram" in manager.started():
@@ -3960,6 +3996,13 @@ class WebServer:
             publish=self.bus.publish,
             society=lambda: getattr(self.app.state, "society", None),
         )
+        # Waiting approvals also reach the owner's Telegram (dodaios/notify).
+        try:
+            from dodaios.notify import wiring as notify_wiring
+
+            notify_wiring.attach_chat_service(service, app_state=self.app.state, cfg=self.cfg)
+        except Exception as exc:  # noqa: BLE001 — the chat works without Telegram buttons
+            logger.opt(exception=exc).warning("notify: Telegram approvals not attached")
         return service
 
     def _schedule_registry_bootstraps(self) -> None:
@@ -4345,6 +4388,13 @@ class WebServer:
                 logger.opt(exception=exc).warning("SessionRecorder shutdown failed")
             self._session_recorder = None
             self.app.state.session_store = None
+
+        try:
+            from dodaios.notify import wiring as notify_wiring
+
+            await notify_wiring.shutdown()
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning("notify shutdown failed")
 
         channel_manager = getattr(self.app.state, "channel_manager", None)
         friend_registry = getattr(self.app.state, "friend_registry", None)

@@ -5,6 +5,7 @@ import type { AgentLaunchPicks, SplitAgentChoice } from "@/components/agentic/Ag
 import type { AgentChatCatalog, AgentChatProvider, AgentChatSession } from "@/lib/agentChatApi";
 import type { ChatAttachment } from "@/lib/agentChatApi";
 import { type AgentChatStore, type ComposerDraft, type ProviderOption } from "@/store/agentChat";
+import { bestModelId } from "@/lib/modelRanking";
 import { useEventStore } from "@/store/events";
 import { translate } from "@/i18n";
 
@@ -52,7 +53,7 @@ export function agentAsProvider(agent: SplitAgentChoice): ProviderOption {
     runner: "cli",
     models_source: "curated",
     curated_models: picks.models,
-    default_model: picks.defaultModel,
+    default_model: picks.defaultModel || bestModelId(picks.models),
     keyless: false,
     native_resume: false,
     effort_levels: picks.effortLevels,

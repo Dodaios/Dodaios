@@ -7,6 +7,7 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
+#include "Engine/Texture2D.h"
 #include "Fonts/FontMeasure.h"
 #include "GlobalRenderResources.h"
 #include "Framework/Application/SlateApplication.h"
@@ -145,6 +146,7 @@ void FVerseHudDrawList::Reset()
 	Rects.Reset();
 	Tris.Reset();
 	Labels.Reset();
+	Icons.Reset();
 	CrosshairCentre = FVector2D::ZeroVector;
 	bCrosshairVisible = false;
 }
@@ -156,6 +158,7 @@ int32 FVerseHudDrawList::CountTag(FName Tag) const
 	for (const FRect& R : Rects) { Count += R.Tag == Tag; }
 	for (const FTri& T : Tris) { Count += T.Tag == Tag; }
 	for (const FLabel& T : Labels) { Count += T.Tag == Tag; }
+	for (const FIcon& I : Icons) { Count += I.Tag == Tag; }
 	return Count;
 }
 
@@ -186,6 +189,18 @@ FVerseTextMeasure FVerseHudPainter::DefaultMeasure()
 		}
 		return FVector2D(Width * Size * 1.333, Size * 1.6);
 	};
+}
+
+FVector2D FVerseHudPainter::MeasureFace(const FText& Value, int32 Size, FName Typeface)
+{
+	if (FSlateApplication::IsInitialized())
+	{
+		const TSharedRef<FSlateFontMeasure> FontMeasure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
+		return FontMeasure->Measure(Value, FCoreStyle::GetDefaultFontStyle(Typeface, Size));
+	}
+	// Without Slate: the bold estimate, narrower for a condensed face.
+	const FVector2D Bold = DefaultMeasure()(Value, Size, true);
+	return Typeface.ToString().Contains(TEXT("Condensed")) ? FVector2D(Bold.X * 0.82, Bold.Y) : Bold;
 }
 
 FIntVector FVerseHudPainter::MarkerShape(EVerseHitMarkerKind Kind)
@@ -266,6 +281,7 @@ void FVerseHudPainter::Paint(const FVerseHudFrame& Frame, FVerseHudDrawList& Out
 		for (FVerseHudDrawList::FRect& R : Out.Rects) { Fade(R.Colour, R.Tag); }
 		for (FVerseHudDrawList::FTri& T : Out.Tris) { Fade(T.Colour, T.Tag); }
 		for (FVerseHudDrawList::FLabel& L : Out.Labels) { Fade(L.Colour, L.Tag); }
+		for (FVerseHudDrawList::FIcon& I : Out.Icons) { Fade(I.Colour, I.Tag); }
 	}
 }
 
@@ -365,7 +381,8 @@ void FVerseHudPainter::PaintCrosshair(const FVerseHudFrame& Frame, FVerseHudDraw
 	// Markers centre on the crosshair even while it is hidden.
 	Out.CrosshairCentre = Centre;
 
-	const bool bHidden = Frame.bKillCam || Frame.Model->IsLocalDead() || Frame.Pawn.Phase != EVerseCombatPhase::Alive;
+	const bool bHidden = Frame.bKillCam || Frame.Model->IsLocalDead() || Frame.Pawn.Phase != EVerseCombatPhase::Alive
+		|| (Frame.Source && Frame.Source->IsAimingThroughOptic());
 	if (bHidden)
 	{
 		return;
@@ -533,47 +550,80 @@ void FVerseHudPainter::PaintDamage(const FVerseHudFrame& Frame, FVerseHudDrawLis
 
 namespace
 {
-	/** Draws an item silhouette into Box (see VerseHudIcons). */
-	void Icon(FVerseHudDrawList& Out, FName ItemId, const FBox2D& Box, int32 Align, const FLinearColor& Colour, FName Tag)
+	const FName FaceNumber(TEXT("BoldCondensed"));
+	const FName FaceBold(TEXT("Bold"));
+
+	/** Dark ink for text and icons on the lit row. */
+	const FLinearColor Ink(0.030f, 0.028f, 0.026f, 1.f);
+	/** Dark amber that reads on the lit row. */
+	const FLinearColor InkAmber(0.62f, 0.30f, 0.02f, 1.f);
+	/** Plates of the unlit rows and chips. */
+	const FLinearColor PlateTone(0.016f, 0.016f, 0.018f, 0.68f);
+
+	/** A label in one face of the default font, without the drop shadow (it sits on a plate). */
+	FVector2D Label(FVerseHudDrawList& Out, const FVector2D& Anchor, const FText& Value, int32 Size, FName Face, const FLinearColor& Colour,
+		EVerseTextAlign Align, float MaxWidth, FName Tag)
 	{
-		VerseHudIcons::Triangulate(ItemId, Box, Align, [&](const FVector2D& A, const FVector2D& B, const FVector2D& C)
+		FVerseHudDrawList::FLabel L;
+		L.Text = Value;
+		L.FontSize = Size;
+		L.bBold = true;
+		L.Typeface = Face;
+		L.bShadow = false;
+		L.Colour = Colour;
+		L.Align = Align;
+		L.MaxWidth = MaxWidth;
+		L.Tag = Tag;
+		L.Size = FVerseHudPainter::MeasureFace(Value, Size, Face);
+		FVector2D TopLeft = Anchor;
+		if (Align == EVerseTextAlign::Centre)
 		{
-			Out.Tris.Add({A, B, C, Colour, Tag});
-		});
+			TopLeft.X -= L.Size.X * 0.5;
+		}
+		else if (Align == EVerseTextAlign::Right)
+		{
+			TopLeft.X -= L.Size.X;
+		}
+		L.Position = TopLeft;
+		Out.Labels.Add(L);
+		return L.Size;
 	}
 
-	/** A plate lit from its left edge, fading out towards the numbers (the selected row). */
-	void GlowPlate(FVerseHudDrawList& Out, const FVector2D& Min, const FVector2D& Size, const FLinearColor& Base, const FLinearColor& Glow, FName Tag)
+	/** Places an item icon: Height tall (less if MaxWidth binds), its left edge at X, centred on CentreY. Returns its width. */
+	float Icon(FVerseHudDrawList& Out, FName ItemId, float X, float CentreY, float Height, float MaxWidth, const FLinearColor& Colour, FName Tag)
 	{
-		FillRect(Out, Min, Size, Base, Tag);
-		const int32 Slices = 32;
-		const double LitW = Size.X * 0.7;
-		const double SliceW = LitW / Slices;
+		const float Aspect = VerseHudIcons::Aspect(ItemId);
+		if (Aspect <= 0.f)
+		{
+			return 0.f;
+		}
+		const float W = FMath::Min(Height * Aspect, MaxWidth);
+		const float H = W / Aspect;
+		Out.Icons.Add({FVector2D(X, CentreY - H * 0.5f), FVector2D(X + W, CentreY + H * 0.5f), ItemId, Colour, Tag});
+		return W;
+	}
+
+	/** The selected row: a light plate, brightest at the left, fading towards the numbers. */
+	void LitPlate(FVerseHudDrawList& Out, const FVector2D& Min, const FVector2D& Size, FName Tag)
+	{
+		const int32 Slices = 40;
+		const double SliceW = Size.X / Slices;
 		for (int32 I = 0; I < Slices; ++I)
 		{
-			const float T = 1.f - float(I) / Slices;
-			FillRect(Out, FVector2D(Min.X + I * SliceW, Min.Y), FVector2D(SliceW, Size.Y), WithAlpha(Glow, T * T), Tag);
+			const float T = float(I) / (Slices - 1);
+			FillRect(Out, FVector2D(Min.X + I * SliceW, Min.Y), FVector2D(SliceW, Size.Y), WithAlpha(VerseUiTheme::Text, FMath::Lerp(0.96f, 0.72f, T)), Tag);
 		}
 	}
 
-	/** A key cap: filled when the slot is active, outlined otherwise. Returns its width. */
-	float KeyChip(FVerseHudDrawList& Out, const FVerseTextMeasure& Measure, const FVerseUiLayout& L, const FVector2D& Min, float Side,
-		const FText& Key, bool bActive, FName Tag)
+	/** A key cap with its key name; Light = light cap with dark letter. Returns its width. */
+	float KeyChip(FVerseHudDrawList& Out, const FVerseUiLayout& L, const FVector2D& Min, float Side, const FText& Key, bool bLight, FName Tag)
 	{
-		const int32 Size = L.FontSize(Side > L.Px(15.f) ? 10.f : 9.f);
-		const FVector2D TextSize = Measure(Key, Size, true);
-		const float W = FMath::Max(Side, float(TextSize.X) + L.Px(6.f));
-		if (bActive)
-		{
-			FillRect(Out, Min, FVector2D(W, Side), VerseUiTheme::Text, Tag);
-		}
-		else
-		{
-			FillRect(Out, Min, FVector2D(W, Side), FLinearColor(0.f, 0.f, 0.f, 0.35f), Tag);
-			Outline(Out, Min, FVector2D(W, Side), 1.f, WithAlpha(VerseUiTheme::TextDim, 0.8f), Tag);
-		}
-		const FLinearColor Ink = bActive ? FLinearColor(0.02f, 0.02f, 0.02f, 1.f) : VerseUiTheme::TextDim;
-		Text(Out, Measure, FVector2D(Min.X + W * 0.5f, Min.Y + (Side - TextSize.Y) * 0.5f), Key, Size, true, Ink, EVerseTextAlign::Centre, 0.f, Tag);
+		const int32 Size = L.FontSize(Side * 0.62f / L.Scale);
+		const FVector2D TextSize = FVerseHudPainter::MeasureFace(Key, Size, FaceBold);
+		const float W = FMath::Max(Side, float(TextSize.X) + L.Px(7.f));
+		FillRect(Out, Min, FVector2D(W, Side), bLight ? VerseUiTheme::Text : Ink, Tag);
+		Label(Out, FVector2D(Min.X + W * 0.5f, Min.Y + (Side - TextSize.Y) * 0.5f), Key, Size, FaceBold, bLight ? Ink : VerseUiTheme::Text,
+			EVerseTextAlign::Centre, 0.f, Tag);
 		return W;
 	}
 
@@ -589,6 +639,21 @@ namespace
 		case EVerseLoadoutSlot::GadgetB: return Or(Keys.GadgetB, TEXT("T"));
 		}
 		return FText::GetEmpty();
+	}
+
+	/** Magazine and reserve of a holstered weapon, right-aligned at Right; both boxes end on one line (one baseline). Returns the left edge. */
+	float AmmoPair(FVerseHudDrawList& Out, const FVerseUiLayout& L, float Right, float RowY, float RowH, const FText& Mag, int32 MagSize, const FText& Reserve,
+		int32 ReserveSize, FName MagTag, FName ReserveTag)
+	{
+		const FVector2D MagMeasured = FVerseHudPainter::MeasureFace(Mag, MagSize, FaceNumber);
+		const FVector2D ReserveMeasured = FVerseHudPainter::MeasureFace(Reserve, ReserveSize, FaceNumber);
+		const float MagTop = RowY + (RowH - MagMeasured.Y) * 0.5f;
+		const float Bottom = MagTop + MagMeasured.Y;
+		Label(Out, FVector2D(Right, Bottom - ReserveMeasured.Y), Reserve, ReserveSize, FaceNumber, VerseUiTheme::TextDim, EVerseTextAlign::Right, 0.f,
+			ReserveTag);
+		const float MagRight = Right - float(ReserveMeasured.X) - L.Px(5.f);
+		Label(Out, FVector2D(MagRight, MagTop), Mag, MagSize, FaceNumber, VerseUiTheme::Text, EVerseTextAlign::Right, 0.f, MagTag);
+		return MagRight - float(MagMeasured.X);
 	}
 }
 
@@ -622,14 +687,14 @@ void FVerseHudPainter::PaintLoadout(const FVerseHudFrame& Frame, FVerseHudDrawLi
 		Weapons.Reset();
 	}
 
-	// Sizes at 1080p: a narrow column, low rows, the selected one taller.
-	const float W = L.Px(232.f);
+	// Sizes at 1080p: one narrow column; the drawn weapon's row is taller and lit.
+	const float W = L.Px(250.f);
 	const float Gap = L.Px(3.f);
-	const float ActiveH = L.Px(38.f);
-	const float RowH = L.Px(24.f);
-	const float HealthH = L.Px(22.f);
-	const float GadgetH = L.Px(22.f);
-	const float Pad = L.Px(7.f);
+	const float ActiveH = L.Px(44.f);
+	const float RowH = L.Px(30.f);
+	const float HealthH = L.Px(26.f);
+	const float ChipH = L.Px(28.f);
+	const float Pad = L.Px(8.f);
 	const bool bGadgets = bShowKit && Pawn.Gadgets.Num() > 0;
 
 	auto IsActive = [&Pawn](const FVerseHudWeaponSlot& Slot) { return Pawn.bHasWeapon && Slot.Slot == Pawn.ActiveSlot; };
@@ -640,13 +705,13 @@ void FVerseHudPainter::PaintLoadout(const FVerseHudFrame& Frame, FVerseHudDrawLi
 	}
 	if (bGadgets)
 	{
-		Height += L.Px(6.f) + GadgetH;
+		Height += L.Px(6.f) + ChipH;
 	}
 	const FVector2D Origin = L.Place(EVerseUiAnchor::BottomRight, FVector2D(W, Height), FVector2D(8.f, 8.f));
 	const float Right = Origin.X + W;
 	float Y = Origin.Y;
 
-	// Gadgets: chips on one line above the weapons, right-aligned: key, icon, charges or cooldown.
+	// Gadgets: one chip each on a line above the weapons, right-aligned: key, icon, charges.
 	if (bGadgets)
 	{
 		float X = Right;
@@ -654,201 +719,187 @@ void FVerseHudPainter::PaintLoadout(const FVerseHudFrame& Frame, FVerseHudDrawLi
 		{
 			const FVerseHudGadgetState& G = Pawn.Gadgets[I];
 			const bool bReady = G.Charges > 0 && G.CooldownRemaining <= 0.f;
-			const float Pip = L.Px(5.f);
-			const float PipGap = L.Px(3.f);
-			const int32 Pips = FMath::Max(G.MaxCharges, G.Charges);
-			FText Cooldown;
-			FVector2D CooldownSize = FVector2D::ZeroVector;
+			FText Count;
 			if (G.CooldownRemaining > 0.f)
 			{
 				FFormatNamedArguments Args;
 				Args.Add(TEXT("seconds"), Num(S, FMath::CeilToInt(G.CooldownRemaining)));
-				Cooldown = S.Format(TEXT("verse.hud.cooldown"), Args);
-				CooldownSize = Measure(Cooldown, L.FontSize(9.f), true);
+				Count = S.Format(TEXT("verse.hud.cooldown"), Args);
 			}
+			else
+			{
+				Count = Num(S, G.Charges);
+			}
+			const int32 CountSize = L.FontSize(15.f);
+			const FVector2D CountMeasured = MeasureFace(Count, CountSize, FaceNumber);
 			const FText Key = KeyFor(Frame.Keys, I == 0 ? EVerseLoadoutSlot::GadgetA : EVerseLoadoutSlot::GadgetB);
-			const float KeySide = L.Px(14.f);
-			const float KeyW = FMath::Max(KeySide, float(Measure(Key, L.FontSize(9.f), true).X) + L.Px(6.f));
-			const bool bHasIcon = VerseHudIcons::Shape(G.GadgetId).Num() > 0;
+			const float KeySide = L.Px(16.f);
+			const float KeyW = FMath::Max(KeySide, float(MeasureFace(Key, L.FontSize(KeySide * 0.62f / L.Scale), FaceBold).X) + L.Px(7.f));
+			const bool bHasIcon = VerseHudIcons::Has(G.GadgetId);
 			const FText ShortName = S.Get(FString::Printf(TEXT("verse.item.%s.short"), *G.GadgetId.ToString().ToLower()));
-			const float IconW = bHasIcon ? L.Px(16.f) : float(Measure(ShortName, L.FontSize(9.f), true).X);
-			const float Tail = Cooldown.IsEmpty() ? Pips * (Pip + PipGap) - PipGap : float(CooldownSize.X);
-			const float ChipW = L.Px(4.f) + KeyW + L.Px(6.f) + IconW + L.Px(6.f) + Tail + L.Px(7.f);
+			const float IconH = L.Px(18.f);
+			const float IconW = bHasIcon ? IconH * VerseHudIcons::Aspect(G.GadgetId) : float(MeasureFace(ShortName, L.FontSize(10.f), FaceBold).X);
+			const float ChipW = L.Px(6.f) + KeyW + L.Px(8.f) + IconW + L.Px(8.f) + float(CountMeasured.X) + L.Px(9.f);
 			X -= ChipW;
 			const FVector2D CP(X, Y);
 			X -= L.Px(4.f);
-			FillRect(Out, CP, FVector2D(ChipW, GadgetH), WithAlpha(VerseUiTheme::Steel, 0.62f), TagGadget);
-			float CX = CP.X + L.Px(4.f);
-			KeyChip(Out, Measure, L, FVector2D(CX, CP.Y + (GadgetH - KeySide) * 0.5f), KeySide, Key, false, TEXT("gadget.key"));
-			CX += KeyW + L.Px(6.f);
-			const FLinearColor Ink = bReady ? VerseUiTheme::Text : WithAlpha(VerseUiTheme::TextDim, 0.8f);
+			FillRect(Out, CP, FVector2D(ChipW, ChipH), PlateTone, TagGadget);
+			float CX = CP.X + L.Px(6.f);
+			KeyChip(Out, L, FVector2D(CX, CP.Y + (ChipH - KeySide) * 0.5f), KeySide, Key, true, TEXT("gadget.key"));
+			CX += KeyW + L.Px(8.f);
+			const FLinearColor Tone = bReady ? VerseUiTheme::Text : WithAlpha(VerseUiTheme::TextDim, 0.9f);
 			if (bHasIcon)
 			{
-				const float IconH = L.Px(13.f);
-				Icon(Out, G.GadgetId, FBox2D(FVector2D(CX, CP.Y + (GadgetH - IconH) * 0.5f), FVector2D(CX + IconW, CP.Y + (GadgetH + IconH) * 0.5f)), 0, Ink,
-					TagGadget);
+				Icon(Out, G.GadgetId, CX, CP.Y + ChipH * 0.5f, IconH, IconW, Tone, TEXT("gadget.icon"));
 			}
 			else
 			{
 				// Unknown gadget: its short name stands in for the icon.
-				Text(Out, Measure, FVector2D(CX, CP.Y + (GadgetH - Measure(ShortName, L.FontSize(9.f), true).Y) * 0.5f), ShortName, L.FontSize(9.f), true, Ink,
-					EVerseTextAlign::Left, 0.f, TEXT("gadget.name"));
+				const FVector2D NameSize = MeasureFace(ShortName, L.FontSize(10.f), FaceBold);
+				Label(Out, FVector2D(CX, CP.Y + (ChipH - NameSize.Y) * 0.5f), ShortName, L.FontSize(10.f), FaceBold, Tone, EVerseTextAlign::Left, 0.f,
+					TEXT("gadget.name"));
 			}
-			CX += IconW + L.Px(6.f);
-			if (!Cooldown.IsEmpty())
-			{
-				Text(Out, Measure, FVector2D(CX, CP.Y + (GadgetH - CooldownSize.Y) * 0.5f), Cooldown, L.FontSize(9.f), true, VerseUiTheme::TextDim,
-					EVerseTextAlign::Left, 0.f, TEXT("gadget.cooldown"));
-			}
-			else
-			{
-				for (int32 C = 0; C < Pips; ++C)
-				{
-					const FVector2D PipPos(CX + C * (Pip + PipGap), CP.Y + (GadgetH - Pip) * 0.5f);
-					if (C < G.Charges)
-					{
-						FillRect(Out, PipPos, FVector2D(Pip, Pip), VerseUiTheme::Amber, TagGadget);
-					}
-					else
-					{
-						Outline(Out, PipPos, FVector2D(Pip, Pip), 1.f, VerseUiTheme::TextDim, TagGadget);
-					}
-				}
-			}
+			CX += IconW + L.Px(8.f);
+			Label(Out, FVector2D(CX, CP.Y + (ChipH - CountMeasured.Y) * 0.5f), Count, CountSize, FaceNumber,
+				G.CooldownRemaining > 0.f ? VerseUiTheme::TextDim : Tone, EVerseTextAlign::Left, 0.f,
+				G.CooldownRemaining > 0.f ? FName(TEXT("gadget.cooldown")) : FName(TEXT("gadget.charges")));
 		}
-		Y += GadgetH + L.Px(6.f);
+		Y += ChipH + L.Px(6.f);
 	}
 
-	// Weapons: one row per slot; the drawn one is taller, lit, and carries the ammo count.
+	// Weapons: one row per slot in slot order.
 	for (const FVerseHudWeaponSlot& Slot : Weapons)
 	{
 		const bool bActive = IsActive(Slot);
 		const float H = bActive ? ActiveH : RowH;
 		const FVector2D RP(Origin.X, Y);
 		Y += H + Gap;
-		const FLinearColor Ink = bActive ? VerseUiTheme::Text : WithAlpha(VerseUiTheme::TextDim, 0.9f);
+		const float NumRight = RP.X + W - Pad - L.Px(4.f);
+
 		if (bActive)
 		{
-			GlowPlate(Out, RP, FVector2D(W, H), WithAlpha(VerseUiTheme::Steel, 0.72f), WithAlpha(VerseUiTheme::Text, 0.2f), TagWeapon);
-			FillRect(Out, RP, FVector2D(L.Px(2.f), H), VerseUiTheme::Amber, TagWeapon);
+			LitPlate(Out, RP, FVector2D(W, H), TagWeapon);
+			FillRect(Out, RP, FVector2D(L.Px(3.f), H), VerseUiTheme::Amber, TagWeapon);
 		}
 		else
 		{
-			FillRect(Out, RP, FVector2D(W, H), WithAlpha(VerseUiTheme::Steel, 0.5f), TagWeapon);
+			FillRect(Out, RP, FVector2D(W, H), PlateTone, TagWeapon);
 		}
 
-		const float KeySide = bActive ? L.Px(17.f) : L.Px(14.f);
-		const float KeyW = KeyChip(Out, Measure, L, FVector2D(RP.X + Pad + L.Px(2.f), RP.Y + (H - KeySide) * 0.5f), KeySide, KeyFor(Frame.Keys, Slot.Slot),
-			bActive, bActive ? FName(TEXT("weapon.key")) : FName(TEXT("weapon.slot_key")));
-		const float IconX = RP.X + Pad + L.Px(2.f) + KeyW + L.Px(10.f);
-		const float IconH = bActive ? L.Px(20.f) : L.Px(13.f);
-		const float IconW = bActive ? L.Px(72.f) : L.Px(50.f);
-		if (VerseHudIcons::Shape(Slot.WeaponId).Num() > 0)
+		const float KeySide = bActive ? L.Px(19.f) : L.Px(16.f);
+		const float KeyX = RP.X + Pad + L.Px(3.f);
+		const float KeyW = KeyChip(Out, L, FVector2D(KeyX, RP.Y + (H - KeySide) * 0.5f), KeySide, KeyFor(Frame.Keys, Slot.Slot), !bActive,
+			bActive ? FName(TEXT("weapon.key")) : FName(TEXT("weapon.slot_key")));
+		const float IconX = KeyX + KeyW + L.Px(12.f);
+		const FLinearColor Tone = bActive ? Ink : WithAlpha(VerseUiTheme::Text, 0.82f);
+		// The icon takes the room the numbers leave (they are laid out first).
+		auto DrawIcon = [&](float NumbersLeft)
 		{
-			const FBox2D IconBox(FVector2D(IconX, RP.Y + (H - IconH) * 0.5f), FVector2D(IconX + IconW, RP.Y + (H + IconH) * 0.5f));
-			Icon(Out, Slot.WeaponId, IconBox, -1, Ink, bActive ? FName(TEXT("weapon.icon")) : FName(TEXT("weapon.slot_icon")));
-		}
-		else
-		{
-			// Unknown weapon: its name stands in for the icon.
-			const int32 NameSize = L.FontSize(bActive ? 11.f : 9.f);
-			const FText Name = ItemName(S, Slot.WeaponId);
-			Text(Out, Measure, FVector2D(IconX, RP.Y + (H - Measure(Name, NameSize, true).Y) * 0.5f), Name, NameSize, true, Ink, EVerseTextAlign::Left, IconW,
-				bActive ? FName(TEXT("weapon.name")) : FName(TEXT("weapon.slot_name")));
-		}
-
-		if (!Slot.bUsesAmmo)
-		{
-			continue;
-		}
-		const float NumRight = RP.X + W - Pad - L.Px(3.f);
-		if (bActive)
-		{
-			const bool bLow = Pawn.MagazineSize > 0 && Pawn.Magazine * 4 <= Pawn.MagazineSize;
-			const int32 MagSize = L.FontSize(21.f);
-			const int32 SmallSize = L.FontSize(10.f);
-			const FText Mag = Num(S, Pawn.Magazine);
-			const FVector2D MagMeasured = Measure(Mag, MagSize, true);
-			const float MagTop = RP.Y + (H - MagMeasured.Y) * 0.5f;
-			const float Baseline = MagTop + MagMeasured.Y * 0.8f;
-
-			float X = NumRight;
-			if (Pawn.bReloading)
+			const float Room = FMath::Max(0.f, NumbersLeft - L.Px(12.f) - IconX);
+			if (VerseHudIcons::Has(Slot.WeaponId))
 			{
-				const FString Key = Pawn.bTacticalReload ? TEXT("verse.hud.reload_tactical") : TEXT("verse.hud.reload_empty");
-				const FText Label = S.Get(Key);
-				const FVector2D LabelSize = Measure(Label, L.FontSize(9.f), true);
-				Text(Out, Measure, FVector2D(X, Baseline - LabelSize.Y * 0.8f), Label, L.FontSize(9.f), true, VerseUiTheme::Amber, EVerseTextAlign::Right,
-					W * 0.3f, TEXT("weapon.reload"));
-				X -= FMath::Min<float>(LabelSize.X, W * 0.3f) + L.Px(7.f);
-				const FVector2D BarPos(RP.X + L.Px(2.f), RP.Y + H - L.Px(2.f));
-				FillRect(Out, BarPos, FVector2D(W - L.Px(2.f), L.Px(2.f)), WithAlpha(VerseUiTheme::TextDim, 0.35f), TagWeapon);
-				FillRect(Out, BarPos, FVector2D((W - L.Px(2.f)) * FMath::Clamp(Pawn.ReloadProgress, 0.f, 1.f), L.Px(2.f)), VerseUiTheme::Amber, TagWeapon);
+				Icon(Out, Slot.WeaponId, IconX, RP.Y + H * 0.5f, bActive ? L.Px(26.f) : L.Px(20.f), FMath::Min(Room, bActive ? L.Px(108.f) : L.Px(72.f)), Tone,
+					bActive ? FName(TEXT("weapon.icon")) : FName(TEXT("weapon.slot_icon")));
 			}
 			else
 			{
-				const FText Reserve = Num(S, Pawn.Reserve);
-				const FVector2D ReserveSize = Measure(Reserve, SmallSize, true);
-				Text(Out, Measure, FVector2D(X, Baseline - ReserveSize.Y * 0.8f), Reserve, SmallSize, true, VerseUiTheme::TextDim, EVerseTextAlign::Right, 0.f,
-					TEXT("weapon.reserve"));
-				X -= ReserveSize.X + L.Px(7.f);
+				// Unknown weapon: its name stands in for the icon.
+				const int32 NameSize = L.FontSize(bActive ? 12.f : 10.f);
+				const FText Name = ItemName(S, Slot.WeaponId);
+				Label(Out, FVector2D(IconX, RP.Y + (H - MeasureFace(Name, NameSize, FaceBold).Y) * 0.5f), Name, NameSize, FaceBold, Tone, EVerseTextAlign::Left,
+					Room, bActive ? FName(TEXT("weapon.name")) : FName(TEXT("weapon.slot_name")));
 			}
-			if (Pawn.bChambered && Pawn.Magazine > 0)
-			{
-				const FVector2D Plus = Text(Out, Measure, FVector2D(X, MagTop + L.Px(3.f)), S.Get(TEXT("verse.hud.chambered")), L.FontSize(9.f), true,
-					VerseUiTheme::Gold, EVerseTextAlign::Right, 0.f, TEXT("weapon.chambered"));
-				X -= Plus.X + L.Px(1.f);
-			}
-			const FLinearColor MagInk = bLow ? VerseUiTheme::Red : Pawn.bReloading ? VerseUiTheme::TextDim : VerseUiTheme::Text;
-			const FVector2D MagDrawn = Text(Out, Measure, FVector2D(X, MagTop), Mag, MagSize, true, MagInk, EVerseTextAlign::Right, 0.f, TEXT("weapon.magazine"));
-			if (bLow)
-			{
-				// Low ammo is also a mark under the number (never colour alone).
-				FillRect(Out, FVector2D(X - MagDrawn.X, Baseline + L.Px(3.f)), FVector2D(MagDrawn.X, L.Px(2.f)), VerseUiTheme::Red, TagWeapon);
-			}
+		};
+
+		if (!Slot.bUsesAmmo)
+		{
+			DrawIcon(NumRight);
+			continue;
+		}
+		if (!bActive)
+		{
+			DrawIcon(AmmoPair(Out, L, NumRight, RP.Y, H, Num(S, Slot.Magazine), L.FontSize(16.f), Num(S, Slot.Reserve), L.FontSize(11.f),
+				TEXT("weapon.slot_magazine"), TEXT("weapon.slot_reserve")));
+			continue;
+		}
+
+		const bool bLow = Pawn.MagazineSize > 0 && Pawn.Magazine * 4 <= Pawn.MagazineSize;
+		const FLinearColor MagInk = bLow ? VerseUiTheme::Red : Pawn.bReloading ? WithAlpha(Ink, 0.45f) : Ink;
+		FText Second;
+		FName SecondFace = FaceNumber;
+		FLinearColor SecondInk = WithAlpha(Ink, 0.55f);
+		FName SecondTag = TEXT("weapon.reserve");
+		int32 SecondSize = L.FontSize(15.f);
+		if (Pawn.bReloading)
+		{
+			Second = S.Get(Pawn.bTacticalReload ? TEXT("verse.hud.reload_tactical") : TEXT("verse.hud.reload_empty"));
+			SecondFace = FaceBold;
+			SecondInk = InkAmber;
+			SecondTag = TEXT("weapon.reload");
+			SecondSize = L.FontSize(10.f);
 		}
 		else
 		{
-			const int32 MagSize = L.FontSize(11.f);
-			const int32 SmallSize = L.FontSize(8.f);
-			const FText Reserve = Num(S, Slot.Reserve);
-			const FText Mag = Num(S, Slot.Magazine);
-			const FVector2D MagMeasured = Measure(Mag, MagSize, true);
-			const float MagTop = RP.Y + (H - MagMeasured.Y) * 0.5f;
-			const FVector2D ReserveSize = Measure(Reserve, SmallSize, true);
-			Text(Out, Measure, FVector2D(NumRight, MagTop + MagMeasured.Y * 0.8f - ReserveSize.Y * 0.8f), Reserve, SmallSize, true,
-				WithAlpha(VerseUiTheme::TextDim, 0.75f), EVerseTextAlign::Right, 0.f, TEXT("weapon.slot_reserve"));
-			Text(Out, Measure, FVector2D(NumRight - ReserveSize.X - L.Px(5.f), MagTop), Mag, MagSize, true, VerseUiTheme::TextDim, EVerseTextAlign::Right, 0.f,
-				TEXT("weapon.slot_magazine"));
+			Second = Num(S, Pawn.Reserve);
+		}
+		// Right to left: reserve (or the reload label), a small "+1" for the chambered round, the magazine.
+		const FText Mag = Num(S, Pawn.Magazine);
+		const int32 MagSize = L.FontSize(28.f);
+		const FVector2D MagMeasured = MeasureFace(Mag, MagSize, FaceNumber);
+		const float MagTop = RP.Y + (H - MagMeasured.Y) * 0.5f;
+		const float MagBottom = MagTop + MagMeasured.Y;
+		const FVector2D SecondMeasured = MeasureFace(Second, SecondSize, SecondFace);
+		// The reload label may take half the row; the icon shrinks to what is left.
+		Label(Out, FVector2D(NumRight, MagBottom - SecondMeasured.Y), Second, SecondSize, SecondFace, SecondInk, EVerseTextAlign::Right, W * 0.5f, SecondTag);
+		float MagRight = NumRight - float(SecondMeasured.X) - L.Px(6.f);
+		if (Pawn.bChambered && Pawn.Magazine > 0)
+		{
+			const FVector2D PlusSize = Label(Out, FVector2D(MagRight, MagTop + L.Px(4.f)), S.Get(TEXT("verse.hud.chambered")), L.FontSize(11.f), FaceBold,
+				InkAmber, EVerseTextAlign::Right, 0.f, TEXT("weapon.chambered"));
+			MagRight -= float(PlusSize.X) + L.Px(1.f);
+		}
+		Label(Out, FVector2D(MagRight, MagTop), Mag, MagSize, FaceNumber, MagInk, EVerseTextAlign::Right, 0.f, TEXT("weapon.magazine"));
+		DrawIcon(MagRight - float(MagMeasured.X));
+		if (bLow)
+		{
+			// Low ammo is also a mark under the number (never colour alone).
+			FillRect(Out, FVector2D(MagRight - float(MagMeasured.X), MagBottom - L.Px(5.f)), FVector2D(float(MagMeasured.X), L.Px(2.f)), VerseUiTheme::Red,
+				TagWeapon);
+		}
+		if (Pawn.bReloading)
+		{
+			const FVector2D BarPos(RP.X + L.Px(3.f), RP.Y + H - L.Px(3.f));
+			const float BarW = W - L.Px(3.f);
+			FillRect(Out, BarPos, FVector2D(BarW, L.Px(3.f)), WithAlpha(Ink, 0.18f), TagWeapon);
+			FillRect(Out, BarPos, FVector2D(BarW * FMath::Clamp(Pawn.ReloadProgress, 0.f, 1.f), L.Px(3.f)), VerseUiTheme::Amber, TagWeapon);
 		}
 	}
 
-	// Health: one slim line at the foot of the column.
+	// Health: one slim row at the foot of the column.
 	{
 		const FVector2D HP(Origin.X, Origin.Y + Height - HealthH);
-		FillRect(Out, HP, FVector2D(W, HealthH), WithAlpha(VerseUiTheme::Steel, 0.5f), TagVitals);
+		FillRect(Out, HP, FVector2D(W, HealthH), PlateTone, TagVitals);
 		const float Fraction = Pawn.MaxHealth > 0.f ? FMath::Clamp(Pawn.Health / Pawn.MaxHealth, 0.f, 1.f) : 0.f;
 		const bool bLow = Fraction < 0.3f;
-		const FLinearColor Ink = bLow ? VerseUiTheme::Red : VerseUiTheme::Text;
+		const FLinearColor Tone = bLow ? VerseUiTheme::Red : VerseUiTheme::Text;
 
-		// A small cross, then the number, then the bar.
-		const float CrossS = L.Px(9.f);
-		const float CrossT = FMath::Max(1.f, L.Px(2.6f));
-		const FVector2D CC(HP.X + Pad + L.Px(2.f) + CrossS * 0.5f, HP.Y + HealthH * 0.5f);
-		FillRect(Out, CC - FVector2D(CrossS * 0.5f, CrossT * 0.5f), FVector2D(CrossS, CrossT), Ink, TagVitals);
-		FillRect(Out, CC - FVector2D(CrossT * 0.5f, CrossS * 0.5f), FVector2D(CrossT, CrossS), Ink, TagVitals);
+		const float CrossS = L.Px(11.f);
+		const float CrossT = FMath::Max(1.f, L.Px(3.f));
+		const FVector2D CC(HP.X + Pad + L.Px(3.f) + CrossS * 0.5f, HP.Y + HealthH * 0.5f);
+		FillRect(Out, CC - FVector2D(CrossS * 0.5f, CrossT * 0.5f), FVector2D(CrossS, CrossT), Tone, TagVitals);
+		FillRect(Out, CC - FVector2D(CrossT * 0.5f, CrossS * 0.5f), FVector2D(CrossT, CrossS), Tone, TagVitals);
 		const FText Value = Num(S, FMath::CeilToInt(Pawn.Health));
-		const int32 ValueSize = L.FontSize(12.f);
-		const FVector2D ValueMeasured = Measure(Value, ValueSize, true);
-		const float NumX = CC.X + CrossS * 0.5f + L.Px(6.f);
-		Text(Out, Measure, FVector2D(NumX, HP.Y + (HealthH - ValueMeasured.Y) * 0.5f), Value, ValueSize, true, Ink, EVerseTextAlign::Left, 0.f,
+		const int32 ValueSize = L.FontSize(17.f);
+		const FVector2D ValueMeasured = MeasureFace(Value, ValueSize, FaceNumber);
+		const float NumX = CC.X + CrossS * 0.5f + L.Px(8.f);
+		Label(Out, FVector2D(NumX, HP.Y + (HealthH - ValueMeasured.Y) * 0.5f), Value, ValueSize, FaceNumber, Tone, EVerseTextAlign::Left, 0.f,
 			TEXT("vitals.health"));
 
-		const float BarX = NumX + FMath::Max<float>(L.Px(28.f), ValueMeasured.X + L.Px(8.f));
+		const float BarX = NumX + FMath::Max<float>(L.Px(30.f), float(ValueMeasured.X) + L.Px(10.f));
 		const FVector2D BarPos(BarX, HP.Y + HealthH * 0.5f - L.Px(2.f));
-		const FVector2D BarSize(Right - Pad - L.Px(3.f) - BarX, L.Px(4.f));
-		FillRect(Out, BarPos, BarSize, WithAlpha(VerseUiTheme::Text, 0.12f), TagVitals);
-		FillRect(Out, BarPos, FVector2D(BarSize.X * Fraction, BarSize.Y), bLow ? VerseUiTheme::Red : WithAlpha(VerseUiTheme::Text, 0.9f), TagVitals);
+		const FVector2D BarSize(Right - Pad - L.Px(4.f) - BarX, L.Px(4.f));
+		FillRect(Out, BarPos, BarSize, WithAlpha(VerseUiTheme::Text, 0.14f), TagVitals);
+		FillRect(Out, BarPos, FVector2D(BarSize.X * Fraction, BarSize.Y), Tone, TagVitals);
 		// Low health also shows as notches (not colour alone).
 		if (bLow)
 		{
@@ -865,17 +916,19 @@ void FVerseHudPainter::PaintLoadout(const FVerseHudFrame& Frame, FVerseHudDrawLi
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("seconds"), Seconds(S, Pawn.SpawnProtectionRemaining));
-		const FText Label = S.Format(TEXT("verse.hud.protected"), Args);
-		const int32 Size = L.FontSize(10.f);
-		const FVector2D Measured = Measure(Label, Size, true);
+		const FText Text = S.Format(TEXT("verse.hud.protected"), Args);
+		const int32 Size = L.FontSize(11.f);
+		const FVector2D Measured = MeasureFace(Text, Size, FaceBold);
 		const float Sq = L.Px(11.f);
 		const float MaxText = W - Sq - L.Px(6.f);
-		const float LineY = Origin.Y - L.Px(8.f) - FMath::Max<float>(Measured.Y, Sq);
-		Text(Out, Measure, FVector2D(Right, LineY), Label, Size, true, VerseUiTheme::Blocked, EVerseTextAlign::Right, MaxText, TEXT("vitals.protected"));
-		const float TextW = FMath::Min<float>(Measured.X, MaxText);
-		Outline(Out, FVector2D(Right - TextW - L.Px(6.f) - Sq, LineY + (Measured.Y - Sq) * 0.5f), FVector2D(Sq, Sq), FMath::Max(1.f, L.Px(1.5f)),
+		const float LineY = Origin.Y - L.Px(8.f) - FMath::Max<float>(float(Measured.Y), Sq);
+		Label(Out, FVector2D(Right, LineY), Text, Size, FaceBold, VerseUiTheme::Blocked, EVerseTextAlign::Right, MaxText, TEXT("vitals.protected"));
+		Out.Labels.Last().bShadow = true;
+		const float TextW = FMath::Min<float>(float(Measured.X), MaxText);
+		Outline(Out, FVector2D(Right - TextW - L.Px(6.f) - Sq, LineY + (float(Measured.Y) - Sq) * 0.5f), FVector2D(Sq, Sq), FMath::Max(1.f, L.Px(1.5f)),
 			VerseUiTheme::Blocked, TEXT("vitals.protected"));
 	}
+	(void)Measure;
 }
 
 void FVerseHudPainter::PaintScore(const FVerseHudFrame& Frame, FVerseHudDrawList& Out, const FVerseTextMeasure& Measure)
@@ -1046,6 +1099,18 @@ void FVerseHudCanvasRenderer::Render(UCanvas* Canvas, const FVerseHudDrawList& L
 		Tri.BlendMode = SE_BLEND_Translucent;
 		C->DrawItem(Tri);
 	}
+	for (const FVerseHudDrawList::FIcon& I : List.Icons)
+	{
+		const FVector2D Box = I.Max - I.Min;
+		UTexture2D* Texture = VerseHudIcons::Texture(I.ItemId, float(Box.Y));
+		if (!Texture || !Texture->GetResource())
+		{
+			continue;
+		}
+		FCanvasTileItem Tile(I.Min, Texture->GetResource(), Box, I.Colour);
+		Tile.BlendMode = SE_BLEND_Translucent;
+		C->DrawItem(Tile);
+	}
 	for (const FVerseHudDrawList::FLine& L : List.Lines)
 	{
 		FCanvasLineItem Line(L.A, L.B);
@@ -1061,9 +1126,13 @@ void FVerseHudCanvasRenderer::Render(UCanvas* Canvas, const FVerseHudDrawList& L
 	}
 	for (const FVerseHudDrawList::FLabel& T : List.Labels)
 	{
-		FCanvasTextItem Text(T.Position, T.Text, FCoreStyle::GetDefaultFontStyle(T.bBold ? "Bold" : "Regular", T.FontSize), T.Colour);
+		const FName Face = !T.Typeface.IsNone() ? T.Typeface : FName(T.bBold ? TEXT("Bold") : TEXT("Regular"));
+		FCanvasTextItem Text(T.Position, T.Text, FCoreStyle::GetDefaultFontStyle(Face, T.FontSize), T.Colour);
 		Text.Font = Font;
-		Text.EnableShadow(FLinearColor(0.f, 0.f, 0.f, 0.8f * T.Colour.A), FVector2D(1.0, 1.0));
+		if (T.bShadow)
+		{
+			Text.EnableShadow(FLinearColor(0.f, 0.f, 0.f, 0.8f * T.Colour.A), FVector2D(1.0, 1.0));
+		}
 		Text.BlendMode = SE_BLEND_Translucent;
 		C->DrawItem(Text);
 	}

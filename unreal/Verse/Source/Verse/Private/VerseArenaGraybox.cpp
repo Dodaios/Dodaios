@@ -8,6 +8,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Dom/JsonObject.h"
 #include "Engine/DirectionalLight.h"
+#include "Engine/PointLight.h"
+#include "Components/PointLightComponent.h"
 #include "Engine/PostProcessVolume.h"
 #include "Engine/RectLight.h"
 #include "Engine/SpotLight.h"
@@ -21,6 +23,8 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "MeshDescription.h"
 #include "Misc/App.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "NavMesh/RecastNavMesh.h"
@@ -51,13 +55,22 @@ namespace VerseArenaGrayboxPrivate
 	constexpr float WorkLightKelvin = 4300.f;
 	constexpr float PracticalKelvin = 6200.f;
 	constexpr float FillKelvin = 6500.f;
-	constexpr float FillLux = 22.f;
+	constexpr float FillLux = 18.f;
+	/** Soft shadowless bounce stand-ins over the arena (lumens each): faces the work lights miss stay readable. */
+	constexpr float BounceLumens = 14000.f;
+	/** Largest rendered box edge (cm); bigger boxes render as tiles (collision stays one box). */
+	constexpr double MaxTileCm = 600.0;
 	/** Repair drone docks (arena.md 7): high on the west, north and east walls, world cm. */
 	const FVector DroneDocks[] = {FVector(2620.0, 2400.0, 900.0), FVector(5000.0, 4280.0, 900.0), FVector(7380.0, 2400.0, 900.0)};
 
-	FLinearColor ColorFor(const FString& Material)
+	FLinearColor ColorFor(const FString& Look)
 	{
-		// Charcoal hall, warm steel, muted containers; linear values (art-pipeline 8.1 shares).
+		// Stand-in colours for looks whose MI is missing: charcoal hall, muted containers.
+		const FString Material = Look.Contains(TEXT("Container")) ? FString(TEXT("container_wall"))
+			: Look.Contains(TEXT("Glass")) ? FString(TEXT("glass"))
+			: Look.Contains(TEXT("Grating")) ? FString(TEXT("catwalk_grating"))
+			: Look.Contains(TEXT("Shuttle")) ? FString(TEXT("cladding_panel"))
+			: Look;
 		if (Material == TEXT("container_wall"))
 		{
 			return FLinearColor(0.16f, 0.07f, 0.035f);
@@ -87,6 +100,30 @@ namespace VerseArenaGrayboxPrivate
 			return FLinearColor(0.12f, 0.12f, 0.125f);
 		}
 		return FLinearColor(0.18f, 0.18f, 0.18f);
+	}
+
+	/** Instance group folder of a look (`lib/unreal_materials.py` GROUPS, first match wins). */
+	const TCHAR* InstanceGroup(const FString& Look)
+	{
+		struct FGroup
+		{
+			const TCHAR* Key;
+			const TCHAR* Value;
+		};
+		static const FGroup Groups[] = {
+			{TEXT("Floor_"), TEXT("Floors")}, {TEXT("Deck_"), TEXT("Markings")}, {TEXT("Wall_"), TEXT("Walls")}, {TEXT("Ceiling_"), TEXT("Walls")},
+			{TEXT("Recess_"), TEXT("Walls")}, {TEXT("Section_"), TEXT("Walls")}, {TEXT("Struct_"), TEXT("Metal")}, {TEXT("Trim_"), TEXT("Metal")},
+			{TEXT("Rubber_"), TEXT("Metal")}, {TEXT("Hull_"), TEXT("Hull")}, {TEXT("Light_"), TEXT("Lights")}, {TEXT("Emit_"), TEXT("Lights")},
+			{TEXT("Indicator_"), TEXT("Lights")}, {TEXT("Console_"), TEXT("Consoles")}, {TEXT("Screen"), TEXT("Screens")}, {TEXT("Glass_"), TEXT("Glass")},
+		};
+		for (const auto& Group : Groups)
+		{
+			if (Look.StartsWith(Group.Key, ESearchCase::CaseSensitive))
+			{
+				return Group.Value;
+			}
+		}
+		return TEXT("Props");
 	}
 
 	FVector ReadVector(const TSharedPtr<FJsonObject>& Object, const TCHAR* Field)
@@ -158,6 +195,38 @@ namespace VerseArenaGrayboxPrivate
 		return FBox(Min, Max);
 	}
 
+	UStaticMesh* BuildBoxMesh(const TArray<FBox>& Parts, UMaterialInterface* Material, UObject* Outer, const TCHAR* Name, bool bCollision);
+
+	/** Container wall thickness (cm, layout.py `container_wall`): the corrugation is built for it. */
+	constexpr double ContainerWallCm = 0.4;
+
+	/**
+	 * The intact look of a container wall: the unit slab with vertical ribs proud of both faces, so
+	 * the walls read as corrugated steel. Render only; the piece's proxy stays the plain box. The
+	 * ribs are sized in unit space for the 4 mm wall, which the piece scales to its real size.
+	 */
+	UStaticMesh* BuildCorrugated(int32 Axis, UMaterialInterface* Material, UObject* Outer)
+	{
+		TArray<FBox> Parts;
+		Parts.Add(FBox(FVector(-50.0), FVector(50.0)));
+		const int32 Along = Axis == 0 ? 1 : 0;           // the horizontal axis the ribs repeat along
+		const double Proud = 2.2 / ContainerWallCm * 100.0;  // 2.2 cm in unit space
+		const int32 Ribs = 22;
+		for (int32 I = 0; I < Ribs; ++I)
+		{
+			const double Mid = -50.0 + 100.0 * (I + 0.5) / Ribs;
+			FVector Min(-50.0), Max(50.0);
+			Min[Along] = Mid - 100.0 / Ribs * 0.22;
+			Max[Along] = Mid + 100.0 / Ribs * 0.22;
+			Min[Axis] = -50.0 - Proud;
+			Max[Axis] = 50.0 + Proud;
+			Min.Z = -48.0;
+			Max.Z = 48.0;
+			Parts.Add(FBox(Min, Max));
+		}
+		return BuildBoxMesh(Parts, Material, Outer, TEXT("GrayboxCorrugated"), false);
+	}
+
 	/**
 	 * A unit cube with a hole through it along Axis (the breached look and proxy of a graybox
 	 * piece), as boxes around the hole: render triangles plus one simple collision box per part.
@@ -190,7 +259,12 @@ namespace VerseArenaGrayboxPrivate
 		Make(A1, 50.0, -50.0, 50.0);   // other side
 		Make(A0, A1, -50.0, B0);       // below (or one end)
 		Make(A0, A1, B1, 50.0);        // above (or other end)
+		return BuildBoxMesh(Parts, Material, Outer, TEXT("GrayboxBreachFrame"), true);
+	}
 
+	/** Boxes (unit-cube cm) as one static mesh, optionally with one simple collision box per part. */
+	UStaticMesh* BuildBoxMesh(const TArray<FBox>& Parts, UMaterialInterface* Material, UObject* Outer, const TCHAR* Name, bool bCollision)
+	{
 		FMeshDescription Desc;
 		FStaticMeshAttributes Attr(Desc);
 		Attr.Register();
@@ -225,7 +299,7 @@ namespace VerseArenaGrayboxPrivate
 			Quad(P(0, 0, 1), P(0, 1, 1), P(1, 1, 1), P(1, 0, 1), FVector3f(0, 0, 1));
 			Quad(P(0, 1, 0), P(0, 0, 0), P(1, 0, 0), P(1, 1, 0), FVector3f(0, 0, -1));
 		}
-		UStaticMesh* Mesh = NewObject<UStaticMesh>(Outer, MakeUniqueObjectName(Outer, UStaticMesh::StaticClass(), TEXT("GrayboxBreachFrame")), RF_Transient);
+		UStaticMesh* Mesh = NewObject<UStaticMesh>(Outer, MakeUniqueObjectName(Outer, UStaticMesh::StaticClass(), Name), RF_Transient);
 		Mesh->GetStaticMaterials().Add(FStaticMaterial(Material, TEXT("Frame")));
 		UStaticMesh::FBuildMeshDescriptionsParams Params;
 		Params.bFastBuild = true;
@@ -233,6 +307,10 @@ namespace VerseArenaGrayboxPrivate
 		Params.bCommitMeshDescription = false;
 		Params.bMarkPackageDirty = false;
 		Mesh->BuildFromMeshDescriptions({&Desc}, Params);
+		if (!bCollision)
+		{
+			return Mesh;
+		}
 		Mesh->CreateBodySetup();
 		if (UBodySetup* Body = Mesh->GetBodySetup())
 		{
@@ -292,28 +370,36 @@ AVerseArenaGraybox* AVerseArenaGraybox::BuildIfMissing(UWorld& World)
 	return Graybox;
 }
 
-UMaterialInterface* AVerseArenaGraybox::MaterialFor(const FString& Material)
+UMaterialInterface* AVerseArenaGraybox::MaterialFor(const FString& Look)
 {
 	using namespace VerseArenaGrayboxPrivate;
-	if (TObjectPtr<UMaterialInterface>* Found = Materials.Find(Material))
+	if (TObjectPtr<UMaterialInterface>* Found = Materials.Find(Look))
 	{
 		return *Found;
 	}
-	UMaterialInterface* Result = nullptr;
-	if (UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, MaterialPath))
+	// The kit MI (art-pipeline 7: `MI_<Name>` in the group folder of its name prefix).
+	const FString Name = TEXT("MI_") + Look;
+	const FString Path = FString::Printf(TEXT("/Game/Verse/Materials/Instances/%s/%s.%s"), InstanceGroup(Look), *Name, *Name);
+	UMaterialInterface* Result = LoadObject<UMaterialInterface>(nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet);
+	if (!Result)
 	{
-		UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(Base, this);
-		Mid->SetVectorParameterValue(TEXT("Color"), ColorFor(Material));
-		Result = Mid;
+		// Not built yet (import_art.py materials): a tinted basic shape keeps the arena readable.
+		if (UMaterialInterface* Base = LoadObject<UMaterialInterface>(nullptr, MaterialPath))
+		{
+			UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(Base, this);
+			Mid->SetVectorParameterValue(TEXT("Color"), ColorFor(Look));
+			Result = Mid;
+		}
+		UE_LOG(LogVerse, Warning, TEXT("[VerseArena] no material instance %s, using a flat stand-in"), *Path);
 	}
-	Materials.Add(Material, Result);
+	Materials.Add(Look, Result);
 	return Result;
 }
 
-UInstancedStaticMeshComponent* AVerseArenaGraybox::SurfaceFor(const FString& Material, bool bSolid, bool bGlass)
+UInstancedStaticMeshComponent* AVerseArenaGraybox::SurfaceFor(const FString& Look, bool bSolid, bool bGlass, bool bVisible)
 {
 	using namespace VerseArenaGrayboxPrivate;
-	const FString Key = FString::Printf(TEXT("%s_%d"), *Material, bSolid ? 1 : 0);
+	const FString Key = FString::Printf(TEXT("%s_%d_%d"), *Look, bSolid ? 1 : 0, bGlass ? 1 : 0);
 	if (TObjectPtr<UInstancedStaticMeshComponent>* Found = Surfaces.Find(Key))
 	{
 		return *Found;
@@ -321,9 +407,16 @@ UInstancedStaticMeshComponent* AVerseArenaGraybox::SurfaceFor(const FString& Mat
 	UInstancedStaticMeshComponent* Surface = NewObject<UInstancedStaticMeshComponent>(this, FName(*(TEXT("Surface_") + Key)));
 	Surface->SetMobility(EComponentMobility::Static);
 	Surface->SetStaticMesh(LoadObject<UStaticMesh>(nullptr, CubePath));
-	if (UMaterialInterface* Look = MaterialFor(Material))
+	if (!bVisible)
 	{
-		Surface->SetMaterial(0, Look);
+		// Collision only: the dressing draws what stands here (fences, railings).
+		Surface->SetVisibility(false);
+		Surface->SetCastShadow(false);
+	}
+	else if (UMaterialInterface* Material = MaterialFor(Look.EndsWith(TEXT("_Tiles")) ? Look.LeftChop(6) : Look))
+	{
+		Surface->SetMaterial(0, Material);
+		Surface->SetCastShadow(!bGlass);
 	}
 	if (bSolid)
 	{
@@ -355,8 +448,7 @@ AVerseDestructible* AVerseArenaGraybox::SpawnPiece(UWorld& World, const TSharedP
 		return nullptr;
 	}
 	UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, CubePath);
-	const FString MaterialName = Box->GetStringField(TEXT("material"));
-	UMaterialInterface* Look = MaterialFor(MaterialName);
+	UMaterialInterface* Look = MaterialFor(LookFor(Box));
 	const FVector Center = ReadVector(Box, TEXT("center"));
 	const FVector Size = ReadVector(Box, TEXT("size"));
 	const int32 Axis = ThinAxis(Size);
@@ -385,7 +477,8 @@ AVerseDestructible* AVerseArenaGraybox::SpawnPiece(UWorld& World, const TSharedP
 	Piece->SetPieceGuid(FGuid(Hash, 0x56455253u, 0x48414E47u, uint32(Kind.Class)));
 	if (UStaticMeshComponent* Render = Piece->GetRenderComponent())
 	{
-		Render->SetStaticMesh(Cube);
+		const bool bCorrugated = Kind.Class == EVersePieceClass::ContainerWall && Axis != 2 && FMath::IsNearlyEqual(Size[Axis], ContainerWallCm, 0.01);
+		Render->SetStaticMesh(bCorrugated ? BuildCorrugated(Axis, Look, this) : Cube);
 		Render->SetMaterial(0, Look);
 		Render->SetCastShadow(Kind.Class != EVersePieceClass::GlassPane);
 	}
@@ -407,7 +500,7 @@ void AVerseArenaGraybox::SpawnDestruction(UWorld& World, const TArray<TSharedPtr
 		for (const TSharedPtr<FJsonObject>& Box : PieceBoxes)
 		{
 			const FString Material = Box->GetStringField(TEXT("material"));
-			AddSlab(SurfaceFor(Material, true, Material == TEXT("glass")),
+			AddSlab(SurfaceFor(LookFor(Box), true, Material == TEXT("glass")),
 				FTransform(FQuat::Identity, ReadVector(Box, TEXT("center")), ReadVector(Box, TEXT("size")) / 100.0));
 		}
 		return;
@@ -499,7 +592,7 @@ void AVerseArenaGraybox::DressDrones()
 		{
 			Body->SetStaticMesh(Cube);
 			Body->SetRelativeScale3D(FVector(0.5, 0.5, 0.2));
-			Body->SetMaterial(0, MaterialFor(TEXT("armor_steel")));
+			Body->SetMaterial(0, MaterialFor(TEXT("Struct_Gunmetal")));
 		}
 		UStaticMeshComponent* Eye = NewObject<UStaticMeshComponent>(Drone, TEXT("GrayboxEye"));
 		Eye->SetStaticMesh(Sphere);
@@ -520,7 +613,7 @@ void AVerseArenaGraybox::DressDrones()
 			Pod->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			Pod->SetRelativeLocation(Rotor);
 			Pod->SetRelativeScale3D(FVector(0.18, 0.18, 0.05));
-			Pod->SetMaterial(0, MaterialFor(TEXT("sheet_metal")));
+			Pod->SetMaterial(0, MaterialFor(TEXT("Arena_ShuttleDark")));
 			Pod->SetupAttachment(Drone->GetRootComponent());
 			Pod->RegisterComponent();
 		}
@@ -671,10 +764,23 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 		S.LocalExposureHighlightContrastScale = 0.75f;
 		S.bOverride_LocalExposureShadowContrastScale = true;
 		S.LocalExposureShadowContrastScale = 0.75f;
-		// The graybox's dark albedo bounces little: a stronger Lumen bounce lifts the walls the
-		// work lights do not reach.
+		// Lumen GI and reflections (arena.md 9): big boxes render as tiles, so the surface cache
+		// stays fine; metal (grating, trusses, the black weapon) needs Lumen's reflections to read.
+		// The shadowless bounce points only lift what the bounce misses.
+		S.bOverride_DynamicGlobalIlluminationMethod = true;
+		S.DynamicGlobalIlluminationMethod = EDynamicGlobalIlluminationMethod::Lumen;
+		S.bOverride_ReflectionMethod = true;
+		S.ReflectionMethod = EReflectionMethod::Lumen;
 		S.bOverride_IndirectLightingIntensity = true;
-		S.IndirectLightingIntensity = 2.2f;
+		S.IndirectLightingIntensity = 1.0f;
+		S.bOverride_LumenSceneLightingQuality = true;
+		S.LumenSceneLightingQuality = 2.f;
+		S.bOverride_LumenFinalGatherQuality = true;
+		S.LumenFinalGatherQuality = 2.f;
+		S.bOverride_AmbientOcclusionIntensity = true;
+		S.AmbientOcclusionIntensity = 0.6f;
+		S.bOverride_AmbientOcclusionRadius = true;
+		S.AmbientOcclusionRadius = 120.f;
 		Spawned.Add(Post);
 	}
 
@@ -696,6 +802,9 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 		Fog->SetFogHeightFalloff(0.12f);
 		Fog->SetStartDistance(400.f);
 		Fog->SetVolumetricFog(true);
+		// Forward scattering: the work-light cones read as soft shafts toward the player.
+		SavedFogScattering = Fog->VolumetricFogScatteringDistribution;
+		Fog->SetVolumetricFogScatteringDistribution(0.55f);
 		break;
 	}
 }
@@ -710,11 +819,20 @@ void AVerseArenaGraybox::SetExposureEV100(float EV100)
 
 void AVerseArenaGraybox::RestoreLook()
 {
+	for (const TWeakObjectPtr<UDirectionalLightComponent>& Light : MutedLights)
+	{
+		if (UDirectionalLightComponent* C = Light.Get())
+		{
+			C->SetVisibility(true);
+		}
+	}
+	MutedLights.Reset();
 	if (UExponentialHeightFogComponent* Fog = DeckFog.Get(); Fog && bFogSaved)
 	{
 		Fog->SetFogDensity(SavedFogDensity);
 		Fog->SetFogHeightFalloff(SavedFogFalloff);
 		Fog->SetStartDistance(SavedFogStart);
+		Fog->SetVolumetricFogScatteringDistribution(SavedFogScattering);
 	}
 	bFogSaved = false;
 }
@@ -748,7 +866,30 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 		const bool bSolid = Box->GetBoolField(TEXT("solid"));
 		const FVector Center = ReadVector(Box, TEXT("center"));
 		const FVector Size = ReadVector(Box, TEXT("size"));
-		AddSlab(SurfaceFor(Material, bSolid, Material == TEXT("glass")), FTransform(FQuat::Identity, Center, Size / 100.0));
+		const FString Look = LookFor(Box);
+		const bool bGlass = Material == TEXT("glass");
+		const bool bVisible = Look != TEXT("Hidden");
+		const bool bTile = bVisible && !bGlass && FApp::CanEverRender() && Size.GetMax() > MaxTileCm;
+		AddSlab(SurfaceFor(Look, bSolid, bGlass, bVisible && !bTile), FTransform(FQuat::Identity, Center, Size / 100.0));
+		if (bTile)
+		{
+			// Big boxes render as tiles of at most MaxTileCm: one huge scaled cube gets a coarse
+			// Lumen surface cache, which shows as blocky light on floors and walls.
+			UInstancedStaticMeshComponent* Tiles = SurfaceFor(Look + TEXT("_Tiles"), false, false);
+			const FIntVector Count(FMath::CeilToInt(Size.X / MaxTileCm), FMath::CeilToInt(Size.Y / MaxTileCm), FMath::CeilToInt(Size.Z / MaxTileCm));
+			const FVector Step(Size.X / Count.X, Size.Y / Count.Y, Size.Z / Count.Z);
+			const FVector Origin = Center - Size * 0.5 + Step * 0.5;
+			for (int32 X = 0; X < Count.X; ++X)
+			{
+				for (int32 Y = 0; Y < Count.Y; ++Y)
+				{
+					for (int32 Z = 0; Z < Count.Z; ++Z)
+					{
+						Tiles->AddInstance(FTransform(FQuat::Identity, Origin + Step * FVector(X, Y, Z), Step / 100.0), true);
+					}
+				}
+			}
+		}
 	}
 	for (const TSharedPtr<FJsonValue>& Value : Root->GetArrayField(TEXT("ramps")))
 	{
@@ -763,7 +904,7 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 		const FQuat Rotation = Basis.ToQuat();
 		const FVector Up = Rotation.GetUpVector();
 		const FVector Center = (Start + End) * 0.5 - Up * (Thick * 0.5);
-		AddSlab(SurfaceFor(TEXT("concrete"), true, false), FTransform(Rotation, Center, FVector(Along.Size(), Width, Thick) / 100.0));
+		AddSlab(SurfaceFor(TEXT("Floor_Grating"), true, false), FTransform(Rotation, Center, FVector(Along.Size(), Width, Thick) / 100.0));
 	}
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -783,6 +924,16 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 	{
 		SpawnDestruction(*World, PieceBoxes);
 	}
+	if (FApp::CanEverRender())
+	{
+		Dress(*World, Root);
+		// The duel is played, not debugged: no engine developer lines over it outside the editor
+		// (`-ScreenMessages` keeps them).
+		if (!GIsEditor && !FParse::Param(FCommandLine::Get(), TEXT("ScreenMessages")))
+		{
+			GAreScreenMessagesEnabled = false;
+		}
+	}
 	if (UVerseEventHub* Hub = UVerseEventHub::Get(World))
 	{
 		FractureHandle = Hub->OnFracture.AddUObject(this, &AVerseArenaGraybox::HandleFracture);
@@ -790,12 +941,21 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 
 	if (World->GetNetMode() != NM_DedicatedServer)
 	{
-		// One shadowless cool fill keeps the space between the warm work-light cones readable (the
-		// graybox has no bounce-friendly albedo or light cards yet). One only: two directional lights
-		// compete for forward shading and volumetric fog.
+		// One shadowless cool fill keeps the space between the warm work-light cones readable. One
+		// only: two directional lights compete for forward shading and volumetric fog, so other
+		// directional lights of the world go dark while the arena stands.
+		for (TActorIterator<ADirectionalLight> It(World); It; ++It)
+		{
+			if (UDirectionalLightComponent* Other = Cast<UDirectionalLightComponent>(It->GetLightComponent()); Other && Other->IsVisible())
+			{
+				Other->SetVisibility(false);
+				MutedLights.Add(Other);
+			}
+		}
 		if (ADirectionalLight* Fill = World->SpawnActor<ADirectionalLight>(FVector(5000.0, 2400.0, 1500.0), FRotator(-26.0, 35.0, 0.0), Params))
 		{
 			UDirectionalLightComponent* C = CastChecked<UDirectionalLightComponent>(Fill->GetLightComponent());
+			C->SetForwardShadingPriority(1);
 			C->SetMobility(EComponentMobility::Movable);
 			C->SetIntensity(FillLux);
 			C->SetUseTemperature(true);
@@ -820,7 +980,7 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 					C->SetMobility(EComponentMobility::Movable);
 					C->SetOuterConeAngle(float(Light->GetNumberField(TEXT("coneDeg")) * 0.5));
 					C->SetInnerConeAngle(float(Light->GetNumberField(TEXT("coneDeg")) * 0.25));
-					C->SetVolumetricScatteringIntensity(0.45f);
+					C->SetVolumetricScatteringIntensity(1.4f);
 					Component = C;
 					Spawned.Add(Spot);
 				}
@@ -842,6 +1002,45 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath)
 			Component->SetTemperature(bSpot ? WorkLightKelvin : PracticalKelvin);
 			Component->SetAttenuationRadius(float(Light->GetNumberField(TEXT("attenuationCm"))));
 			Component->SetCastShadows(bSpot && Shadowed++ < MaxShadowedLights);
+			// The fixture the light comes from: a lamp housing on a hanger, or a lit panel.
+			if (bSpot)
+			{
+				const double Size = At.Z > 1000.0 ? 90.0 : 50.0;
+				AddTrim(TEXT("Struct_Gunmetal"), At + FVector(0.0, 0.0, 22.0), FVector(Size, Size, 36.0));
+				AddTrim(TEXT("Arena_LampWarm"), At + FVector(0.0, 0.0, 3.0), FVector(Size - 14.0, Size - 14.0, 2.0), FRotator::ZeroRotator, false);
+				if (At.Z > 1000.0)
+				{
+					AddTrim(TEXT("Struct_Gunmetal"), FVector(At.X, At.Y, (At.Z + 2100.0) * 0.5 + 20.0), FVector(8.0, 8.0, 2100.0 - At.Z - 40.0));
+				}
+			}
+			else
+			{
+				AddTrim(TEXT("Arena_LedStrip"), At + FVector(0.0, 0.0, 2.0), FVector(160.0, 30.0, 2.0), FRotator::ZeroRotator, false);
+			}
+		}
+		// Bounce: broad, shadowless, cool points high over the arena stand in for the light the
+		// floor and walls throw back, so no face the work lights miss renders black.
+		for (const double X : {3000.0, 5000.0, 7000.0})
+		{
+			for (const double Y : {1100.0, 2400.0, 3700.0})
+			{
+				if (APointLight* Bounce = World->SpawnActor<APointLight>(FVector(X, Y, 1100.0), FRotator::ZeroRotator, Params))
+				{
+					UPointLightComponent* C = CastChecked<UPointLightComponent>(Bounce->GetLightComponent());
+					C->SetMobility(EComponentMobility::Movable);
+					C->SetIntensityUnits(ELightUnits::Lumens);
+					C->SetIntensity(BounceLumens);
+					C->SetAttenuationRadius(2600.f);
+					C->SetSourceRadius(300.f);
+					C->SetSoftSourceRadius(300.f);
+					C->SetUseTemperature(true);
+					C->SetTemperature(FillKelvin);
+					C->SetCastShadows(false);
+					C->SetSpecularScale(0.15f);
+					C->SetVolumetricScatteringIntensity(0.f);
+					Spawned.Add(Bounce);
+				}
+			}
 		}
 		ApplyLook(*World);
 	}

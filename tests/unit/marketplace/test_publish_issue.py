@@ -104,6 +104,7 @@ async def test_submit_opens_the_issue_as_the_user(monkeypatch: pytest.MonkeyPatc
     assert result == {
         "issue_url": "https://github.com/PersonalJarvis/marketplace/issues/9",
         "issue_number": 9,
+        "publisher": None,
         "submission_path": "submissions/inbox-butler.json",
     }
 

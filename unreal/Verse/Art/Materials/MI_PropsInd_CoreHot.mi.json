@@ -11,9 +11,9 @@
   "textures": {},
   "vectors": {
     "EmissiveColor": [
-      0.8,
-      0.8,
-      0.8,
+      1.0,
+      0.55,
+      0.2,
       1.0
     ]
   }

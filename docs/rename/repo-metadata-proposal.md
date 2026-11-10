@@ -8,19 +8,18 @@ metadata that carries it. Related: [migration-plan.md](migration-plan.md).
 
 ## Canonical tagline
 
-> **Dodaios is an open-source agent OS for your desktop: it runs your coding agents, browser and apps by voice or chat, on your own machine.**
+> **The open-source superagent for your desktop. One agent that runs all your other agents.**
 
-The first half is the definition the maintainer chose on October 13, 2026. The
-maintainer settled on the full sentence on October 26, 2026; the second half says
-in concrete words what "agent OS" means. Use it word for word. The
+The maintainer moved from "agent OS" to "superagent" on November 10, 2026: one
+agent that you talk to and that runs your coding agents and your own agents. Use it word for word. The
 README marks it with a `canonical tagline` comment.
 
 ## 1. GitHub description
 
-Tagline plus the rename note, 162 characters (limit 350):
+Tagline plus the rename note, 113 characters (limit 350):
 
 ```text
-Dodaios is an open-source agent OS for your desktop: it runs your coding agents, browser and apps by voice or chat, on your own machine. Formerly Personal Jarvis.
+The open-source superagent for your desktop. One agent that runs all your other agents. Formerly Personal Jarvis.
 ```
 
 Website field: `https://dodaios.ai`.
