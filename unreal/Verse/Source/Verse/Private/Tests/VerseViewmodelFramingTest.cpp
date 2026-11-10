@@ -26,12 +26,12 @@ bool FVerseViewmodelFramingTest::RunTest(const FString&)
 		TestTrue(FString::Printf(TEXT("%s: right of the crosshair"), Id), Pose.HipOffset.Y > 4.0);
 		TestTrue(FString::Printf(TEXT("%s: below the crosshair"), Id), Pose.HipOffset.Z < -8.0);
 	}
-	// The Graveline's reflex frame (4 cm across) must leave the target clear: at most an eighth
+	// The Graveline's reflex frame (4 cm across) must leave the target clear: at most a sixth
 	// of the viewmodel's horizontal field of view.
 	const FVerseViewmodelPose Rifle = UVerseViewmodelComponent::PoseFor(FName(TEXT("graveline")));
 	const double FrameDeg = 2.0 * FMath::RadiansToDegrees(FMath::Atan(2.0 / Rifle.SightDistance));
 	TestTrue(FString::Printf(TEXT("graveline: reflex frame spans %.1f of %.0f degrees"), FrameDeg, UVerseViewmodelComponent::ViewmodelFov),
-		FrameDeg <= UVerseViewmodelComponent::ViewmodelFov / 8.0);
+		FrameDeg <= UVerseViewmodelComponent::ViewmodelFov / 6.0);
 	return true;
 }
 

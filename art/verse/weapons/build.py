@@ -330,22 +330,18 @@ def _reflex_sight(b: Builder, dot: Vec3) -> None:
     )
     riser_top = base_top - 0.008
     riser = riser_top - 0.1035
-    b.box(
-        (0.042, 0.022, riser),
-        (x - 0.012, 0.0, 0.1035 + riser / 2),
-        S,
-        chamfer=0.003,
-        taper=(0.9, 0.0),
-    )
-    for side in (1.0, -1.0):  # lightening pockets on the riser's flanks
+    # Open riser: two angled legs and a rear brace, so the rail shows through the tunnel.
+    for side in (1.0, -1.0):
         b.box(
-            (0.026, 0.002, riser * 0.5),
+            (0.042, 0.005, riser),
             (x - 0.012, side * 0.0105, 0.1035 + riser / 2),
-            P,
-            chamfer=0.0,
+            S,
+            chamfer=0.0018,
+            taper=(0.8, 0.0),
         )
+    b.box((0.006, 0.026, riser * 0.6), (x - 0.030, 0.0, 0.1035 + riser * 0.3), S, chamfer=0.0015)
     b.box((0.040, inner_y + 2 * post, 0.008), (x - 0.010, 0.0, base_top - 0.004), S, chamfer=0.0025)
-    b.box((0.010, 0.012, 0.006), (x - 0.025, 0.0, base_top + 0.002), P, chamfer=0.002)
+    b.box((0.010, 0.012, 0.004), (x - 0.025, 0.0, base_top + 0.0005), P, chamfer=0.0015)
     # Window frame: two posts with gussets at their feet and a hood reaching a little forward.
     for side in (1.0, -1.0):
         y = side * (inner_y / 2 + post / 2)
