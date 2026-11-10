@@ -45,14 +45,26 @@ usage_caller: contextvars.ContextVar[str] = contextvars.ContextVar(
     "jarvis_usage_caller", default=""
 )
 
+#: The row label for calls made inside :func:`usage_context`, when the caller
+#: names one (the agent gateway writes ``agent:<agent_id>`` here).
+usage_label: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "jarvis_usage_label", default=""
+)
+
+#: Label prefix the agent gateway tags its calls with, so the report can name
+#: the Dodaios agent a call was made for.
+AGENT_LABEL_PREFIX = "agent:"
+
 
 @contextlib.contextmanager
-def usage_context(caller: str) -> Iterator[None]:
-    """Tag every model call made inside the block with *caller*."""
+def usage_context(caller: str, label: str = "") -> Iterator[None]:
+    """Tag every model call made inside the block with *caller* (and *label*)."""
     token = usage_caller.set(caller)
+    label_token = usage_label.set(label)
     try:
         yield
     finally:
+        usage_label.reset(label_token)
         usage_caller.reset(token)
 
 
@@ -251,7 +263,7 @@ def record_usage(
                 max(0, int(tokens_cached)),
                 float(cost_usd or 0.0),
                 str(caller if caller is not None else current_caller()),
-                str(label or "")[:120],
+                str(label or usage_label.get() or "")[:120],
             )
         )
     except Exception:  # noqa: BLE001 — accounting must never cost a call
