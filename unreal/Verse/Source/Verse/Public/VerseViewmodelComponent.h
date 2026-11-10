@@ -59,6 +59,13 @@ public:
 	/** First-person scale towards the camera: small enough to stay in front of any wall. */
 	static constexpr float ViewmodelScale = 0.25f;
 	static constexpr float MuzzleFlashSeconds = 0.05f;
+	/** Muzzle flash light: lumens, and how far ahead of the eye it sits (past the drawn weapon). */
+	static constexpr float FlashLumens = 1200.f;
+	static constexpr float FlashLightForwardCm = 80.f;
+	/** Fill light on the held weapon, lumens; it sits above and right of the eye (camera space, cm, drawn space). */
+	static constexpr float FillLumens = 170.f;
+	/** Lowest roughness of the held weapon's surfaces: satin, so the steel never mirrors the ceiling. */
+	static constexpr float ViewmodelRoughnessMin = 0.45f;
 
 	/** The pose table per weapon id (pure, tests read it). */
 	static FVerseViewmodelPose PoseFor(FName WeaponId);
@@ -100,6 +107,9 @@ private:
 	TObjectPtr<UPointLightComponent> FlashLight;
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInstanceDynamic> FlashMaterial;
+	/** Soft key light on lighting channel 1: lights the held weapon only, never the world. */
+	UPROPERTY(Transient)
+	TObjectPtr<UPointLightComponent> FillLight;
 
 	FName ShownWeaponId;
 	EVerseLoadoutSlot LastSlot = EVerseLoadoutSlot::Primary;
