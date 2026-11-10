@@ -80,7 +80,7 @@ namespace VerseHangarArtTest
 			{
 				if (APawn* Bot = It->GetPawn())
 				{
-					const FVector Ahead = FRotator(0.0, View.Yaw, 0.0).Vector();
+					
 					Bot->TeleportTo(View.Floor + Ahead * 900.0 + FVector(0.0, 0.0, 100.0), (-Ahead).Rotation(), false, true);
 				}
 				continue;
