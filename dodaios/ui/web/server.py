@@ -554,6 +554,7 @@ class WebServer:
         from .local_voice_routes import router as local_voice_router
         from .marketplace_publish_routes import router as marketplace_publish_router
         from .marketplace_routes import router as marketplace_router
+        from .living_pages_routes import router as living_pages_router
         from .mcp_routes import router as mcp_router
         from .personal_memory_routes import router as personal_memory_router
         from .mission_billing_routes import router as mission_billing_router
@@ -863,6 +864,8 @@ class WebServer:
         app.include_router(onboarding_router)
         # Personal memory vault API (ADR-0044): items, history, export, import.
         app.include_router(personal_memory_router)
+        # Living pages: pages the assistant keeps current (stop/resume refresh).
+        app.include_router(living_pages_router)
         # ConnectionManager singleton for the global event stream. Attached
         # to MissionBus.subscribe_all() in start().
         app.state.missions_ws_manager = _MissionsConnMgr()

@@ -11029,5 +11029,22 @@
       "cancel": "Cancel"
     },
     "raw": "Raw"
+  },
+  "living_pages": {
+    "label": "Living page",
+    "updated": "Updated {0}",
+    "every": "Refreshes every {0}",
+    "stopped": "Not refreshing",
+    "stop": "Stop refreshing",
+    "resume": "Refresh again",
+    "stop_failed": "The refresh could not be stopped.",
+    "resume_failed": "The refresh could not be started.",
+    "result_title": "Done",
+    "state_created": "Created",
+    "state_updated": "Updated",
+    "state_draft": "Draft",
+    "state_waiting": "Waits for your go",
+    "state_failed": "Failed",
+    "open": "Open"
   }
 }

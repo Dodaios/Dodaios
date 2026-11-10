@@ -11029,5 +11029,22 @@
       "cancel": "取消"
     },
     "raw": "原始数据"
+  },
+  "living_pages": {
+    "label": "实时页面",
+    "updated": "更新于{0}",
+    "every": "每{0}刷新一次",
+    "stopped": "已停止刷新",
+    "stop": "停止刷新",
+    "resume": "重新开始刷新",
+    "stop_failed": "无法停止刷新。",
+    "resume_failed": "无法开始刷新。",
+    "result_title": "已完成",
+    "state_created": "已创建",
+    "state_updated": "已更新",
+    "state_draft": "草稿",
+    "state_waiting": "等待你确认",
+    "state_failed": "失败",
+    "open": "打开"
   }
 }

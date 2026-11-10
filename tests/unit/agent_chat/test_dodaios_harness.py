@@ -204,6 +204,17 @@ def test_the_preamble_names_the_prefix_the_tools_actually_get():
     assert "jarvis__" not in society
 
 
+def test_the_lead_chains_apps_drafts_outgoing_parts_and_ends_with_one_card():
+    """A request across apps runs to the end, sends nothing unasked, and shows a card."""
+    acting = dodaios_harness.ACTING_PREAMBLE
+    assert acting in dodaios_harness.SYSTEM_PREAMBLE
+    assert "draft and not sent" in acting
+    assert "show_result_card once" in acting
+    assert "living_page" in acting
+    # Society seats keep their own closing block.
+    assert acting not in dodaios_harness.SOCIETY_PREAMBLE
+
+
 def test_every_cli_shape_mounts_the_server_under_the_one_name(monkeypatch):
     """Claude's JSON, Codex' overrides and the Grok block must agree on the name."""
     monkeypatch.setattr(dodaios_harness, "control_key", lambda: "k")

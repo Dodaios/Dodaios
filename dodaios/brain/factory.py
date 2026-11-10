@@ -89,6 +89,11 @@ ROUTER_TOOLS = frozenset({
     # ._hide_artifact_tool_without_request over dodaios/brain/artifact_gate).
     # Membership here is what makes it REACHABLE; the gate decides WHEN.
     "create-artifact",
+    # Living pages (2026-11-10): a page the lead keeps current through one
+    # routine of its own, and the result card a multi-app request ends with.
+    # Direct monitor/safe actions, never a spawn (AP-5/AP-14).
+    "living-page",
+    "show-result-card",
     # Command Registry executor (2026-07-09): run ONE curated app command
     # (dodaios/commands/registry.py) through the SAME REST endpoint the UI
     # uses, in-process via ASGI transport. Enum-constrained command_id +

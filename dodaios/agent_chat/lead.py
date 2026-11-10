@@ -250,7 +250,11 @@ async def answer_in_lead(svc: Any, text: str, *, source: str, timeout_s: float =
     sid = session.session_id
     queue = svc.subscribe(sid)
     try:
-        turn_id, _queued = await send_or_queue(svc, sid, text)
+        from dodaios.agent_chat.screen_reference import away_from_screen
+
+        # "this" in a message from away is not the desk's screen.
+        with away_from_screen():
+            turn_id, _queued = await send_or_queue(svc, sid, text)
         log.debug("lead thread: a %s message joins the conversation", source)
         parts: list[str] = []
         seen_own = bool(turn_id)

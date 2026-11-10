@@ -11029,5 +11029,22 @@
       "cancel": "Cancelar"
     },
     "raw": "Datos sin formato"
+  },
+  "living_pages": {
+    "label": "Página viva",
+    "updated": "Actualizada {0}",
+    "every": "Se actualiza cada {0}",
+    "stopped": "Ya no se actualiza",
+    "stop": "Detener la actualización",
+    "resume": "Actualizar de nuevo",
+    "stop_failed": "No se pudo detener la actualización.",
+    "resume_failed": "No se pudo iniciar la actualización.",
+    "result_title": "Hecho",
+    "state_created": "Creado",
+    "state_updated": "Actualizado",
+    "state_draft": "Borrador",
+    "state_waiting": "Espera tu confirmación",
+    "state_failed": "Falló",
+    "open": "Abrir"
   }
 }

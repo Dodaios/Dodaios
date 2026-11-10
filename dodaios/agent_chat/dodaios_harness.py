@@ -96,9 +96,31 @@ _SHARED_PREAMBLE: Final[str] = (
     "Approval cards are pending work, not failures."
 )
 
+#: How the assistant's own chat acts for the person across apps: one request
+#: that chains several apps runs to the end in one turn, outgoing parts stay
+#: drafts unless the person said to send, and the turn ends with ONE summary
+#: plus the result card (``show_result_card``). A page to keep current is a
+#: living page (``living_page``).
+ACTING_PREAMBLE: Final[str] = (
+    "Requests across apps: when one request chains several apps (\"turn this mail into a "
+    "calendar event and a task, and draft the reply\"), do every step in this turn with "
+    "your Dodaios tools without stopping to ask between steps; read what you need first, "
+    "then create. Creating things in the person's own apps (an event, a task, a note, a "
+    "page) is fine. Anything that goes out to other people (a mail, a message, an "
+    "invitation, a post) is prepared as a draft and not sent, unless the person said to "
+    "send it in this request. End with one short summary of what you made and what waits "
+    "for their go, and call show_result_card once with each thing (kind, label, state, "
+    "and the link the app returned). When the person asks you to keep, track or watch a "
+    "list for them, read the items, then make it a living page with living_page."
+)
+
 #: The closing block of the assistant's own chat (the Jarvis surface). There
 #: the turn itself is the worker: the background workers of old are retired.
-SYSTEM_PREAMBLE: Final[str] = _SHARED_PREAMBLE + " You are this turn's worker: spawn no sub-agents."
+SYSTEM_PREAMBLE: Final[str] = (
+    _SHARED_PREAMBLE
+    + " You are this turn's worker: spawn no sub-agents.\n\n"
+    + ACTING_PREAMBLE
+)
 
 #: The closing block of a coding thread in the Agentic IDE (a Claude Code seat
 #: with no assistant identity). The same transport facts, but the CLI keeps its
@@ -649,6 +671,7 @@ async def build_identity(
 
 
 __all__ = [
+    "ACTING_PREAMBLE",
     "COMPACT_MAX_CHARS",
     "HEADER_NAME",
     "KEY_ENV_VAR",

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -57,6 +57,7 @@ import { useThemeValue } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import { artifactKind, isTextKind } from "@/lib/artifactKind";
 import { CapacityDecisionPanel } from "@/components/missions/CapacityDecisionPanel";
+import { isLivingSlug } from "@/components/visualization/livingPage";
 import { cleanRequest } from "@/lib/runRequest";
 import { useEventStore } from "@/store/events";
 import { openExternalUrl } from "@/lib/openExternal";
@@ -82,6 +83,9 @@ import {
 
 export { buildRailRows, filterRailRows, parseArtifactUtterance };
 export type { RailFilter };
+
+// Only a living page needs its refresh strip; load it when one is open.
+const LivingPageBar = lazy(() => import("@/components/visualization/LivingPageBar"));
 
 /**
  * The Artifacts section — everything a run produced, as a library first and
@@ -834,6 +838,7 @@ function ArtifactStage({ visual }: { visual: VisualArtifact }) {
    * so a light app shows a light artifact even on a dark-mode machine. */
   const theme = useThemeValue();
   const [failed, setFailed] = useState(false);
+  const [livingVersion, setLivingVersion] = useState(0);
   const id = visualId(visual);
   // A new file must not inherit the previous file's failure verdict.
   useEffect(() => setFailed(false), [id]);
@@ -865,11 +870,18 @@ function ArtifactStage({ visual }: { visual: VisualArtifact }) {
   }
 
   if (visual.kind === "page") {
+    const living = isLivingSlug(visual.slug);
     return (
       <div className="flex h-full flex-col">
+        {living && (
+          <Suspense fallback={null}>
+            <LivingPageBar slug={visual.slug} onUpdated={setLivingVersion} />
+          </Suspense>
+        )}
         <iframe
-          key={`${id}:${theme}`}
-          src={`${artifactPageUrl(visual.slug, visual.path)}?theme=${theme}`}
+          // A living page reloads when its refresh rewrote it.
+          key={`${id}:${theme}:${living ? livingVersion : 0}`}
+          src={`${artifactPageUrl(visual.slug, visual.path)}?theme=${theme}${living ? `&v=${livingVersion}` : ""}`}
           title={visual.title}
           data-testid="visualization-frame"
           onError={() => setFailed(true)}
