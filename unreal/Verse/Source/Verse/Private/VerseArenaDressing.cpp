@@ -673,7 +673,6 @@ void AVerseArenaGraybox::DressDecals()
 	Sign(TEXT("Arena_Sign_KeepClear"), FVector(3200.0, 2040.0, 0.0), 0.0, 520.0, 130.0);
 	Sign(TEXT("Arena_Sign_Lift"), FVector(2560.0, 1400.0, 0.0), 90.0, 420.0, 105.0);
 	Sign(TEXT("Arena_Sign_Bay"), FVector(4850.0, 4120.0, 0.0), 0.0, 360.0, 90.0);
-	Sign(TEXT("Arena_Sign_Bay"), FVector(2900.0, 560.0, 0.0), 135.0, 360.0, 90.0);
 	Sign(TEXT("Arena_Sign_NoStep"), FVector(5000.0, 2000.0, 300.0), 180.0, 300.0, 75.0);
 	for (double Y = 1300.0; Y < 4200.0; Y += 1200.0)
 	{
