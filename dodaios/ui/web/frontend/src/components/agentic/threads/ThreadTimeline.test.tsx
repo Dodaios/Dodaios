@@ -92,6 +92,28 @@ describe("thread work log", () => {
     expect(screen.queryByText("gh pr list")).toBeNull();
   });
 
+  it("names a command by the agent's own words for it", () => {
+    const said = (id: string, command: string, description: string) => tool(id, command, { input: { command, description } });
+    show(turn([
+      said("c1", "grep -n ']\(\./' README.md", "Show the lines with relative links"),
+      { kind: "text", id: "n1", text: "Seven links are relative." },
+      said("c2", "sed -i 's/a/b/' README.md", "Make links absolute"),
+      tool("c3", "git push"),
+    ], "running"));
+    // A lone command's line is its purpose; the command is behind its row.
+    const lone = screen.getByRole("button", { name: /^Show the lines with relative links/ });
+    expect(screen.queryByText(/grep -n/)).toBeNull();
+    fireEvent.click(lone);
+    fireEvent.click(screen.getByTestId("thread-steps").querySelector("button")!);
+    expect(screen.getByText(/grep -n/)).toBeTruthy();
+    // In a card, a described command reads by its purpose, an undescribed one by its line.
+    fireEvent.click(screen.getByRole("button", { name: /steps so far/ }));
+    const card = screen.getAllByTestId("thread-steps")[1];
+    expect(card.textContent).toContain("Make links absolute");
+    expect(card.textContent).not.toContain("sed -i");
+    expect(card.textContent).toContain("git push");
+  });
+
   it("keeps the answer in view when a thought lands after it", () => {
     show(turn([
       tool("c1", "gh pr view 1191"),
