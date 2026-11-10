@@ -57,7 +57,7 @@ _CLAUDE: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "default",
         "Ask before acting",
-        "Reads run freely. Edits and commands wait for an approval card here in the chat.",
+        "Edits and commands wait for an approval card here in the chat.",
     ),
     PermissionMode(
         "acceptEdits",
@@ -67,12 +67,12 @@ _CLAUDE: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "plan",
         "Plan",
-        "Reads and plans, changes nothing. The finished plan asks before building.",
+        "Reads and plans, changes nothing. Asks before building.",
     ),
     PermissionMode(
         "auto",
         "Auto",
-        "Claude Code approves routine actions itself and asks only for risky ones.",
+        "Approves routine actions itself, asks only for risky ones.",
     ),
     PermissionMode(
         "dontAsk",
@@ -82,7 +82,7 @@ _CLAUDE: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "bypassPermissions",
         "Bypass permissions",
-        "Everything runs without asking. Use it on a folder you can afford to lose.",
+        "Nothing asks. Use it on a folder you can afford to lose.",
     ),
 )
 
