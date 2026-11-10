@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { ArrowUp, History, Paperclip, Square, SquarePen, Trash2 } from "lucide-react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { preloadLocalModel } from "@/lib/agentChatApi";
 import { joinProviderOptions } from "@/store/agentChat";
 import { ChatAttachmentStrip } from "@/components/agentchat/ChatAttachmentStrip";
 import { DictationButton } from "@/components/agentchat/DictationButton";
@@ -82,6 +83,12 @@ export function SideChatTab() {
   // Send during a dictation sends once the transcript is in the box.
   const sendRef = useRef<() => void>(() => undefined);
   const dictation = useComposerDictation(setDictated, () => sendRef.current());
+
+  // A local model loads while the message is typed or dictated, not after send.
+  const composing = dictation.dictating || message.trim().length > 0;
+  useEffect(() => {
+    if (composing) preloadLocalModel(draft.provider, draft.model);
+  }, [composing, draft.provider, draft.model]);
 
   // Files for the next message, kept per chat like the typed text.
   const [attachError, setAttachError] = useState("");

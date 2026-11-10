@@ -39,21 +39,26 @@ def test_german_looking_login_passes_the_language_gate() -> None:
 
 def test_every_row_carries_the_escape_marker() -> None:
     people = [_person(f"user{i}") for i in range(update_contributors.PER_ROW * 2 + 1)]
-    rows = update_contributors.render(people).splitlines()
+    lines = update_contributors.render(people).splitlines()
+    rows = [line for line in lines if line.startswith("<tr>")]
 
+    assert lines[0] == "<table>" and lines[-1] == "</table>"
     assert len(rows) == 3
     assert all(row.endswith("<!-- i18n-allow -->") for row in rows)
 
 
-def test_user_cell_keeps_the_avatar_markup() -> None:
+def test_user_cell_shows_avatar_and_name() -> None:
     block = update_contributors.render(
         [{"login": "octocat", "avatar_url": "https://avatars.example/octocat?v=4"}]
     )
 
     assert block == (
-        '<a href="https://github.com/octocat">'
-        '<img src="https://avatars.example/octocat?v=4&s=48" '
-        'width="48" height="48" alt="octocat"></a> <!-- i18n-allow -->'
+        "<table>\n"
+        '<tr><td align="center"><a href="https://github.com/octocat">'
+        '<img src="https://avatars.example/octocat?v=4&s=64" '
+        'width="64" height="64" alt="octocat"><br>'
+        "<sub><b>octocat</b></sub></a></td></tr> <!-- i18n-allow -->\n"
+        "</table>"
     )
 
 
@@ -135,8 +140,8 @@ def test_wall_includes_pull_authors_and_unlinked_names_without_emails() -> None:
     assert "one@local" not in block
     assert "claude" not in block
     assert "dependabot" not in block
-    assert "Commits not linked to a GitHub account: " in block
-    assert "Joana Lütke" in block  # i18n-allow
+    assert "Commits not linked" not in block
+    assert "Joana Lütke" not in block  # i18n-allow
     assert "PilarJ" in block
     added = [("README.md", n, line) for n, line in enumerate(block.splitlines(), start=1)]
     assert check_no_new_german.find_violations(added, []) == []

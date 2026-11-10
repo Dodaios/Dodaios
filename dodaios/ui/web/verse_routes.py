@@ -32,7 +32,6 @@ WebSockets (their own auth; exempt from the session cookie check):
 from __future__ import annotations
 
 import asyncio
-import importlib
 import logging
 from pathlib import Path
 from typing import Any, Literal
@@ -389,21 +388,21 @@ async def verse_bridge(ws: WebSocket) -> None:
 
 @router.websocket("/signal")
 async def verse_signal(ws: WebSocket) -> None:
-    """Pixel Streaming signalling; served by WP20's ``signal`` module once it lands."""
-    await ws.accept()
-    peer = ws.client.host if ws.client is not None else None
+    """Pixel Streaming signalling (loopback check and handshake are the hub's)."""
+    await get_host(ws.app).signal.serve(ws)
+
+
+@router.post("/signal/ticket", summary="A single-use ticket for the side panel's signalling socket")
+def verse_signal_ticket(request: Request) -> dict[str, Any]:
+    from dodaios.verse_host import signal as sig
     from dodaios.verse_host.bridge import is_loopback
 
-    if not is_loopback(peer):
-        await ws.close(code=P.CLOSE_PEER, reason="loopback only")
-        return
-    try:
-        signal = importlib.import_module("dodaios.verse_host.signal")
-    except ImportError:  # WP20 signalling not installed yet; closes 1013
-        await ws.close(code=P.CLOSE_TRY_LATER, reason="signalling not available")
-        return
-    serve = getattr(signal, "serve", None)
-    if serve is None:
-        await ws.close(code=P.CLOSE_TRY_LATER, reason="signalling not available")
-        return
-    await serve(ws, get_host(ws.app))
+    if not is_loopback(request.client.host if request.client else None):
+        raise HTTPException(status_code=403, detail="loopback only")
+    host = get_host(request.app)
+    return {
+        "ticket": host.signal.mint_player_ticket(),
+        "expires_in": sig.TICKET_TTL_S,
+        "path": sig.SIGNAL_PATH,
+        "protocol": sig.PROTOCOL,
+    }

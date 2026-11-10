@@ -30,6 +30,7 @@ bool FVersePrimarySmokeTest::RunTest(const FString& Parameters)
 		TEXT("VerseBot"),
 		TEXT("VerseUI"),
 		TEXT("VerseStream"),
+		TEXT("VerseAbilities"),
 		TEXT("Verse"),
 	};
 	for (const TCHAR* Name : Modules)

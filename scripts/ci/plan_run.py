@@ -7,14 +7,15 @@ at once queue everything behind it. So the width of a run follows what the
 run has to prove, not what could be run:
 
 ``pr``     A pull request (or a branch run the merge train dispatched). Fast
-           feedback: the whole Linux and Windows suite and every affected lane
-           on Linux and Windows. No macOS: five macOS slots serve every run,
-           and with macOS legs on each push, pull requests waited 6 to 25
-           minutes for a slot on 2026-10-13. It is the admission ticket to
-           the merge queue.
+           feedback: the whole Linux suite, the Windows tests the change can
+           reach (select_tests.py; the whole Windows suite when it reaches
+           everything) and every affected lane on Linux and Windows. No
+           macOS: five macOS slots serve every run, and with macOS legs on
+           each push, pull requests waited 6 to 25 minutes for a slot on
+           2026-10-13. It is the admission ticket to the merge queue.
 ``queue``  A merge-queue group, or a push that reached main without one. The
-           blocking proof of the exact tree main gets: everything ``pr`` runs
-           plus AT MOST TWO macOS jobs. One runs the macOS tests the change
+           blocking proof of the exact tree main gets: everything ``pr`` runs,
+           the whole Windows suite, plus AT MOST TWO macOS jobs. One runs the macOS tests the change
            can reach (select_tests.py; the macOS-focused set when the change
            reaches everything). The other builds the Apple Silicon desktop
            bundle when the macOS lane is affected. Five macOS slots serve
@@ -107,6 +108,12 @@ def decide(
         # The macOS tests the change can reach (select_tests.py) run before it
         # lands; the wide matrix runs the whole macOS suite instead.
         "mac_impact": tier == "queue" and not macos,
+        # A pull request runs the Windows tests its change can reach; the
+        # queue runs the whole Windows suite before anything lands. Six
+        # Windows shards on every push held a third of the 60-job pool on
+        # 2026-11-09, while 21 of 30 merged changes reached at most 900 of
+        # 2809 test files (most fewer than 160): one runner instead of six.
+        "win_impact": pr_mode,
     }
 
 

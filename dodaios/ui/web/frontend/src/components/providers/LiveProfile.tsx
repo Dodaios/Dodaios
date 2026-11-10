@@ -39,7 +39,13 @@ export interface LiveProfileState {
   subscription?: {
     account_id: string;
     account_connected: boolean;
+    /** What the last call start proved: "ready", "unavailable" or "unverified". */
     voice_status: string;
+    /** Why voice is unavailable: "voice_not_offered" or "access_denied". */
+    voice_code?: string;
+    voice_reason?: string;
+    /** The plan the login names for itself, e.g. "free" or "plus". */
+    plan?: string;
     reason?: string;
   };
 }
@@ -258,8 +264,15 @@ export function LiveProfile({ onSaved, onAuthModeChange, selectedAuthMode, keyFi
   // "Saved & active" button read as a broken control; the saved state is a
   // quiet line instead.
   const showSave = !ready || dirty;
+  // The server's verdict on the saved account. A connected account the voice
+  // route refused is not "Saved & active": no call can start with it.
+  const savedSubscription = subscription && profile.data?.subscription?.account_id === accountId
+    ? profile.data.subscription : undefined;
+  const voiceBlocked = Boolean(account?.connected && savedSubscription?.voice_status === "unavailable");
   const statusText = billingPending
     ? t("live.billing_pending")
+    : ready && !dirty && voiceBlocked
+      ? t("live.ready_voice_unavailable")
     : ready && !dirty
       ? t("live.ready")
       : credentialReady
@@ -279,7 +292,7 @@ export function LiveProfile({ onSaved, onAuthModeChange, selectedAuthMode, keyFi
           >
             <span
               aria-hidden="true"
-              className={ready && !dirty ? "h-1.5 w-1.5 rounded-full bg-success" : "h-1.5 w-1.5 rounded-full bg-warning"}
+              className={ready && !dirty && !voiceBlocked ? "h-1.5 w-1.5 rounded-full bg-success" : "h-1.5 w-1.5 rounded-full bg-warning"}
             />
             {statusText}
           </span>
@@ -314,8 +327,9 @@ export function LiveProfile({ onSaved, onAuthModeChange, selectedAuthMode, keyFi
             <div className="px-4 py-3">
               <LiveSubscriptionAccount group={group} accountId={value.subscription_account_id ?? ""}
                 loading={accounts.isPending} disabled={saving}
-                voiceStatus={profile.data?.subscription?.account_id === accountId
-                  ? profile.data.subscription.voice_status : "unverified"}
+                voiceStatus={savedSubscription?.voice_status ?? "unverified"}
+                voiceCode={savedSubscription?.voice_code ?? ""}
+                plan={savedSubscription?.plan ?? ""}
                 onAccountChange={(subscription_account_id) => update({ subscription_account_id })}
                 onConnected={() => {
                   void queryClient.invalidateQueries({ queryKey: ["live-subscription-accounts"] });

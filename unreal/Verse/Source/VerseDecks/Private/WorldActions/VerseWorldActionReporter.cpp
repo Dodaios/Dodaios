@@ -78,6 +78,14 @@ TArray<FName> FVerseWorldActionReporter::VisitedRooms(FName Deck) const
 	return Out;
 }
 
+TSharedPtr<FJsonObject> FVerseWorldActionReporter::ToBridgeData(const FVerseWorldAction& Action)
+{
+	TSharedPtr<FJsonObject> Data = MakeShared<FJsonObject>();
+	Data->SetStringField(TEXT("action"), Action.Action);
+	Data->SetStringField(TEXT("ref"), Action.Ref);
+	return Data;
+}
+
 FString FVerseWorldActionReporter::ToBridgeJson(const FVerseWorldAction& Action, const FString& Id, double Ts)
 {
 	const TSharedRef<FJsonObject> Data = MakeShared<FJsonObject>();

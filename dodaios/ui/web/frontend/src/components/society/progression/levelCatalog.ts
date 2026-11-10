@@ -8,7 +8,7 @@
  * The client keeps its own copy of the rewards and the curve so the Verse
  * still reads right when the running backend is older than this build (the
  * desktop app keeps its Python until it restarts). The rank ladder itself
- * lives in `verse/ranks/ranks.ts`.
+ * lives in `progression/ranks.ts`.
  */
 
 export const SUBJECT_KINDS = ["person", "agent", "pet"] as const;

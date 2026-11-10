@@ -49,6 +49,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+#: How many data objects of each received frame type the report keeps.
+RECEIVED_DATA_CAP = 50
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -141,6 +144,8 @@ class Report:
     scenario: str
     sent: dict[str, int] = field(default_factory=dict)
     received: dict[str, int] = field(default_factory=dict)
+    #: The first RECEIVED_DATA_CAP data objects of each received type, in arrival order.
+    received_data: dict[str, list] = field(default_factory=dict)
     skipped: list[str] = field(default_factory=list)
     expectations: list[dict] = field(default_factory=list)
     invalid_from_verse: list[str] = field(default_factory=list)
@@ -159,6 +164,7 @@ class Report:
             "done": self.done,
             "sent": dict(sorted(self.sent.items())),
             "received": dict(sorted(self.received.items())),
+            "received_data": dict(sorted(self.received_data.items())),
             "skipped": self.skipped,
             "expectations": self.expectations,
             "invalid_from_verse": self.invalid_from_verse,
@@ -255,6 +261,9 @@ class Session:
             type_ = frame.get("type") if isinstance(frame, dict) else None
             counts = self.bridge.report.received
             counts[str(type_)] = counts.get(str(type_), 0) + 1
+            kept = self.bridge.report.received_data.setdefault(str(type_), [])
+            if len(kept) < RECEIVED_DATA_CAP and isinstance(frame, dict):
+                kept.append(frame.get("data"))
             errors = self.bridge.schema.validate_frame(frame)
             entry = self.bridge.schema.entry(type_) if isinstance(type_, str) else None
             if errors:
@@ -421,11 +430,13 @@ class Session:
             )
 
         ok = True
+        waited_from = time.monotonic()
         try:
             async with self.changed:
                 await asyncio.wait_for(self.changed.wait_for(found), step["timeout_ms"] / 1000)
         except TimeoutError:
             ok = False
+        waited_ms = round((time.monotonic() - waited_from) * 1000)
         if ok:
             # Consume the first match so a later expect waits for a fresh frame.
             for n, f in enumerate(self.received):
@@ -437,6 +448,7 @@ class Session:
                 "type": want["type"],
                 "data": want.get("data", {}),
                 "ok": ok,
+                "waited_ms": waited_ms,
                 "optional": bool(step.get("optional")),
             }
         )

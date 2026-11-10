@@ -228,6 +228,8 @@ export interface SubagentState {
   description: string;
   /** The vendor's agent kind ("general-purpose", "Explore"); "" when it names none. */
   agentType: string;
+  /** The model it runs on, as the CLI reports or the spawn call names it; "" when unknown. */
+  model: string;
   /** The whole task the main agent gave it. */
   prompt: string;
   /** It runs beside the main agent; the spawn call's own result is only a receipt. */
@@ -328,6 +330,11 @@ export interface TurnItem {
    * agent ended its message, the CLI wakes it again once they finish.
    */
   waitingOn?: string[];
+  /**
+   * Closed on screen by the person's Stop before the backend confirmed it
+   * (`stopTurnLocally`). The real `turn_finished` still settles it once more.
+   */
+  provisional?: boolean;
 }
 
 export interface ErrorItem {
@@ -654,6 +661,7 @@ function emptySubagent(startedMs: number): SubagentState {
   return {
     description: "",
     agentType: "",
+    model: "",
     prompt: "",
     background: false,
     threadId: "",
@@ -1163,8 +1171,9 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
     case "subagent_progress": {
       if (!agentId) return base;
       return updateTurn(base, turnId, (turn) =>
-        updateSubagent(turn, agentId, ev.ts_ms, (sub) => sub.status !== "running" ? sub : {
+        updateSubagent(turn, agentId, ev.ts_ms, (sub) => sub.status !== "running" ? { ...sub, model: str(p.model) || sub.model } : {
           ...sub,
+          model: str(p.model) || sub.model,
           activity: str(p.activity) || sub.activity,
           lastTool: str(p.last_tool) || sub.lastTool,
           tokens: num(p.tokens) ?? sub.tokens,
@@ -1326,10 +1335,17 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       // Older event logs can contain a stale reader's timeout after the real
       // process completed. Only a terminal event settles a turn, and it does
       // so once; streamed text alone never suppresses a genuine timeout.
+      // A Stop closed on screen first (`provisional`) is the exception: the
+      // backend's own end replaces it with the real status, duration and usage.
       const existing = base.items[findTurn(base.items, turnId)];
-      if (existing?.type === "turn" && existing.durationMs !== null) return base;
+      if (existing?.type === "turn" && existing.durationMs !== null && !existing.provisional) return base;
       const status = str(p.status, "done") as TurnStatus;
-      const finished = updateTurn(base, turnId, (turn) => ({
+      const provisional = p.provisional === true;
+      const finished = updateTurn(base, turnId, (prior) => {
+        const turn = { ...prior };
+        delete turn.provisional;
+        if (provisional) turn.provisional = true;
+        return {
         ...turn,
         status: status === "running" ? "done" : status,
         // A turn that ended mid-stream closes its live reasoning block, and
@@ -1368,7 +1384,8 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         ...(Array.isArray(p.background) && p.background.length > 0
           ? { background: (p.background as unknown[]).map((name) => str(name)) }
           : {}),
-      }));
+        };
+      });
       return {
         ...finished,
         pendingApprovals: finished.pendingApprovals.filter((a) => a.turnId !== turnId),
@@ -1477,6 +1494,21 @@ export function reduceEvents(tl: Timeline, events: AgentChatEvent[]): Timeline {
   let cur = tl;
   for (const ev of events) cur = reduceEvent(cur, ev);
   return cur;
+}
+
+/**
+ * Close the running turn on screen the moment the person presses Stop. The
+ * backend can take seconds to confirm (an ACP runtime gets a grace period to
+ * acknowledge the cancel before it is killed); until then the turn reads as
+ * stopped, and the real `turn_finished` replaces this provisional end.
+ */
+export function localStopEvent(turnId: string, nowMs: number): AgentChatEvent {
+  // seq 0: a local event never moves the replay cursor the socket resumes from.
+  return { seq: 0, ts_ms: nowMs, kind: "turn_finished", payload: { turn_id: turnId, status: "cancelled", provisional: true } };
+}
+
+export function stopTurnLocally(tl: Timeline, turnId: string, nowMs: number): Timeline {
+  return reduceEvent(tl, localStopEvent(turnId, nowMs));
 }
 
 /** The turn still running, if any. */

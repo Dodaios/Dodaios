@@ -129,6 +129,30 @@ class SubscriptionLiveVoiceSession(LiveVoiceSession):
         self._settle_task_report(delivered=False)
         self._notify_pause()
 
+    async def _start(self, message: dict) -> None:
+        """Start the call and remember what the start proved about the account.
+
+        The settings page shows "connected" for any signed-in account. Only a
+        call start learns whether voice is offered to it, so that answer is
+        kept for the page (issue #828).
+        """
+        try:
+            await super()._start(message)
+        except Exception as exc:
+            await self._record_voice_outcome(str(getattr(exc, "code", "") or ""))
+            raise
+        if self._connection is not None and not self._closing:
+            await self._record_voice_outcome("ready")
+
+    async def _record_voice_outcome(self, code: str) -> None:
+        record = getattr(self._auth, "record_voice_outcome", None)
+        if not code or not callable(record):
+            return
+        try:
+            await asyncio.to_thread(record, code)
+        except Exception:  # noqa: BLE001 - a settings hint must never end a call
+            log.warning("Subscription voice outcome could not be recorded.", exc_info=True)
+
     async def handle_control(self, message: dict) -> None:
         if message.get("type") == "cancel_work":
             await super().handle_control(message)
@@ -391,6 +415,7 @@ class SubscriptionLiveVoiceSession(LiveVoiceSession):
             "quota_exhausted",
             "rate_limited",
             "invalid_configuration",
+            "network_unreachable",
             "subscription_auth_unavailable",
             "subscription_unavailable",
             "subscription_account_changed",
@@ -398,17 +423,30 @@ class SubscriptionLiveVoiceSession(LiveVoiceSession):
             "context_capacity",
         }
         code = code if code in safe else "subscription_unavailable"
+        from dodaios.plugins.realtime.openai_subscription_live import static_failure_message
+
+        # A classified cause keeps its own sentence: "allowance exhausted" and
+        # "sign in again" need different actions, and one generic line for
+        # both left the person guessing. The generic line keeps its code so
+        # the surface can translate it.
+        specific = static_failure_message(code)
         await self._send_json(
             {
                 "type": "provider_error" if terminal else "provider_warning",
                 "code": code,
                 "reason": code,
-                "error": (
-                    "ChatGPT subscription access could not complete this request. "
-                    "No API key was used."
+                **(
+                    {"error": f"{specific} No API key was used."}
+                    if specific
+                    else {
+                        "error": (
+                            "ChatGPT subscription access could not complete this request. "
+                            "No API key was used."
+                        ),
+                        # Stable code the desktop UI translates; ``error`` stays.
+                        "message_code": "subscription_request_failed",
+                    }
                 ),
-                # Stable code the desktop UI translates; ``error`` stays.
-                "message_code": "subscription_request_failed",
             }
         )
         if terminal:

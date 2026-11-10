@@ -12,7 +12,7 @@ import { useProgression } from "../../progression/progressionStore";
 import type { AgentRunState } from "../../data";
 import { dutyOf, type DutyStatus } from "./dutyStatus";
 import { rankView, type RankView } from "./rankModel";
-import type { UniformId } from "./ranks";
+import type { UniformId } from "../../progression/ranks";
 
 /** The rank view of `subjectId` (`person`, `agent:<id>`, `pet:<id>`); a new recruit until the server says more. */
 export function useSubjectRank(subjectId: string): RankView {

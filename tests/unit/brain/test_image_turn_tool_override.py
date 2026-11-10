@@ -38,7 +38,7 @@ def _surface() -> dict:
         "spawn_worker": object(),  # unattended background agent — hidden
         "multi_spawn": object(),  # ditto
         "contact-upsert": object(),  # silent record write — hidden
-        "wiki-ingest": object(),  # ditto
+        "remember": object(),  # ditto
         "google_calendar": object(),  # ditto
         "call-contact": object(),  # ditto
         "update_profile": object(),  # ditto
@@ -61,7 +61,7 @@ def test_screen_turn_hides_the_unattended_vehicles() -> None:
         "spawn_worker",
         "multi_spawn",
         "contact-upsert",
-        "wiki-ingest",
+        "remember",
         "google_calendar",
         "call-contact",
         "update_profile",
@@ -89,9 +89,9 @@ def test_screen_turn_mandate_exempts_a_hidden_tool() -> None:
     # A mandated record write (say-do via resolve_save_mandate) outranks the
     # hide, exactly as it does in the signalless gate (AD-CLI8).
     ingest = object()
-    m = _mgr({"wiki-ingest": ingest, "contact-upsert": object()}, required="wiki-ingest")
+    m = _mgr({"remember": ingest, "contact-upsert": object()}, required="remember")
     out = m._image_turn_tool_override()
-    assert out["wiki-ingest"] is ingest
+    assert out["remember"] is ingest
     assert "contact-upsert" not in out
 
 

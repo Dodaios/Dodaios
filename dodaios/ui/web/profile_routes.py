@@ -192,9 +192,9 @@ def _candidate_to_dict(cand: Any, reason: str, idx: int) -> dict[str, Any]:
 
 def _learned_name(request: Request) -> str | None:
     try:
-        from dodaios.brain.identity_card import learned_user_name  # noqa: PLC0415
+        from dodaios.memory.vault.runtime import learned_user_name  # noqa: PLC0415
 
-        return learned_user_name(getattr(request.app.state, "config", None))
+        return learned_user_name()
     except Exception:  # noqa: BLE001 — no learned name is the honest answer
         log.debug("learned user name unavailable", exc_info=True)
         return None
@@ -235,7 +235,7 @@ async def get_profile(request: Request) -> dict[str, Any]:
         "user": {
             "name": profile.name,
             # What to CALL the person: the name set in USER.md, else the one
-            # the memory has learned (the user's wiki entity page). Kept apart
+            # the memory has learned (the memory vault's profile). Kept apart
             # from `name` so the Profile editor never shows a learned name as
             # if it had been saved.
             "display_name": profile.name or _learned_name(request),

@@ -46,7 +46,7 @@ LEAD_AGENT_ID: Final[str] = "jarvis"
 
 #: The ship's decks, top to bottom: the refs a ``deck_discovered`` or an
 #: ``inspection`` report may name. The frontend's copy is
-#: ``components/society/verse/decks.ts`` (``DECK_IDS``); a parity test holds
+#: ``components/society/progression/decks.ts`` (``DECK_IDS``); a parity test holds
 #: them together.
 VERSE_DECKS: Final[tuple[str, ...]] = ("bridge", "ops", "engineering", "hangar")
 
@@ -260,7 +260,7 @@ RANK_TIERS: Final[tuple[RankTier, ...]] = ("deck", "line", "command", "flag")
 #: The rank ladder everyone aboard climbs, lowest first: (first level, rank
 #: id, tier). The commander, every officer and the companion drone share it,
 #: so a rank means the same thing on every name plate. The frontend's copy is
-#: ``components/society/verse/ranks/ranks.ts`` (with the rank plate's tile
+#: ``components/society/progression/ranks.ts`` (with the rank plate's tile
 #: pattern); its words are ``verse.ranks.rank.<id>``.
 RANKS: Final[tuple[tuple[int, str, RankTier], ...]] = (
     (1, "recruit", "deck"),

@@ -8,6 +8,7 @@ import {
   PatConnectDialog,
   PkceConnectDialog,
   sortPluginsByName,
+  supportsOwnClient,
   type Plugin,
   PluginsView,
 } from "@/views/PluginsView";
@@ -561,6 +562,80 @@ describe("PluginsView opens the PKCE pre-connect dialog", () => {
       expect(screen.getByRole("dialog")).toBeDefined(),
     );
     expect(screen.getByText(/Connect Gmail/i)).toBeDefined();
+  });
+});
+
+// #1217: with the publisher Google client ready, Connect goes straight to the
+// browser, so the own-client form needs its own entry point on the plugin page.
+describe("PluginsView own OAuth client entry point", () => {
+  it("opens the client form from the plugin menu even when the publisher client is ready", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/marketplace/plugins") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            version: 1,
+            schema_version: "t",
+            total: 1,
+            connected: 0,
+            plugins: [
+              {
+                id: "youtube_studio",
+                display_name: "YouTube Studio",
+                description: "Channel",
+                category: "Media",
+                logo_slug: "youtube",
+                auth: { mode: "oauth_pkce_loopback" },
+                oauth_client_family: "google",
+                oauth_client_configured: true,
+                auth_standard: { ready: true, source: "publisher", fallback: false },
+                status: "not_connected",
+                live_callable: false,
+              },
+            ],
+          }),
+        } as Response;
+      }
+      if (url.endsWith("/files")) {
+        return { ok: true, status: 200, json: async () => ({ files: [] }) } as Response;
+      }
+      // Any connect call means the menu entry started OAuth instead of
+      // showing the form.
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    (globalThis as unknown as { fetch: typeof fetch }).fetch =
+      fetchMock as unknown as typeof fetch;
+
+    renderPluginsView();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "YouTube Studio" })).toBeDefined(),
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "YouTube Studio" }));
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Connect" })).toBeDefined(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^More actions/ }));
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: /use your own oauth client/i }),
+    );
+
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeDefined());
+    expect(screen.getByLabelText(/client id/i)).toBeDefined();
+    expect(screen.getByLabelText(/client secret/i)).toBeDefined();
+  });
+
+  it("keeps the menu entry off plugins without an OAuth client family", () => {
+    expect(
+      supportsOwnClient({
+        authMode: "pat_paste",
+        id: "vercel",
+      } as unknown as Parameters<typeof supportsOwnClient>[0]),
+    ).toBe(false);
   });
 });
 

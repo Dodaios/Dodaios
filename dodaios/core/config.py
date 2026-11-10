@@ -1768,183 +1768,6 @@ class BrainConfig(BaseModel):
         self.tool_model = value
 
 
-class WikiCuratorConfig(BaseModel):
-    """Curator LLM settings for the long-term wiki memory (Phase B1).
-
-    The curator turns one new source (a BrainTurnCompleted summary or a
-    MissionCompleted hand-off) into a small set
-    of structured wiki page updates. The LLM is intentionally provider-
-    agnostic: ``provider=""`` falls back to ``brain.primary`` and
-    ``model=""`` falls back to the resolved provider's ``model`` field
-    under ``brain.providers``.
-    """
-
-    model_config = ConfigDict(extra="allow")
-
-    provider: str = ""  # "" = fall back to brain.primary
-    model: str = ""  # "" = provider default model
-    # Headroom for a complete proposal; the streaming truncation guard
-    # rejects any residual length-capped generation. The Stage-2 judge
-    # returns FULL page bodies per add/update, so a batched response
-    # needs several thousand tokens (live 2026-07-17: 4000 truncated on
-    # every provider and stalled the whole chain).
-    max_output_tokens: int = 8000
-    # Background path — latency-insensitive. CLI-login providers (codex
-    # via ChatGPT OAuth) regularly need >90 s for a full 8-candidate
-    # batch with complete page bodies; a timeout that always fires turns
-    # the fallback provider into a 90 s tax on every failed primary.
-    timeout_s: float = 180.0
-
-
-class SessionRollupConfig(BaseModel):
-    """Session-rollup worker settings (Phase B7, mid-term memory tier).
-
-    The rollup worker watches the awareness ``IdleEntered`` event stream
-    and turns the L2 episodes of a single work session into one
-    Markdown digest under ``data/workspace/sessions/<date>-<id>.md``.
-    Provider resolution follows ``WikiCuratorConfig`` — empty fields
-    fall back to ``brain.primary`` and the provider's default model.
-
-    Trigger thresholds:
-
-    ``session_idle_threshold_minutes``
-        How long idle must be before the worker treats it as session-end.
-        Default 120 minutes (2 hours) — bridges short lunch breaks
-        without flushing, captures end-of-day naturally.
-
-    ``min_episodes_for_rollup``
-        Skip the LLM call when there are fewer episodes — a one-episode
-        "session" rarely justifies a digest.
-
-    ``max_active_sessions``
-        Rolling window cap. Sessions older than this number get moved
-        to ``data/workspace/_archive/sessions/``. Default 5 per the plan.
-
-    ``timeout_s``
-        Outer ``asyncio.wait_for`` cap on the brain call.
-
-    ``user_entity_slug``
-        Slug of the user's own entity page. Empty or unsafe values resolve to
-        the neutral ``user`` slug in the conversation-memory pipeline, so a
-        fresh install uses ``entities/user.md`` and carries no personal name.
-        Onboarding may configure a safe slug later. When that page exists,
-        every session page links it in the ``## Related`` backbone footer,
-        wiring each session into the graph through the shared user hub instead
-        of floating as an island.
-    """
-
-    model_config = ConfigDict(extra="allow")
-
-    enabled: bool = True
-    provider: str = ""
-    model: str = ""
-    session_idle_threshold_minutes: int = 120
-    min_episodes_for_rollup: int = 2
-    max_active_sessions: int = 5
-    # A 400-word digest paragraph needs ~700 tokens of headroom; the
-    # streaming truncation guard rejects anything still length-capped.
-    max_output_tokens: int = 1200
-    timeout_s: float = 30.0
-    user_entity_slug: str = ""
-    # D2 (2026-06): the awareness-episode -> durable session-page feed is
-    # retired. The worker still READS awareness episodes and still produces
-    # the rollup paragraph (live awareness is unaffected), but the durable
-    # wiki *page write* is gated off by default. Conversation (VoiceFactBridge)
-    # is the sole wiki feed now. Flip to True only to re-enable the legacy
-    # window-focus session pages.
-    wiki_write_enabled: bool = False
-
-
-class SchedulerConfig(BaseModel):
-    """Settings for ``CuratorScheduler`` (Phase B5 — Agent D).
-
-    Controls the cooldown window, the optional periodic-run gate, the
-    lock-file location, and the stale-lock threshold.
-
-    The defaults are deliberately conservative — periodic runs are
-    disabled by default so the system stays quiet unless explicitly
-    opted in.
-
-    ``lock_path`` must NOT live inside the Obsidian vault directory
-    (``wiki/obsidian-vault/``); that path is watched by Obsidian and a
-    lock file there would create noise in the sidebar.  The default
-    ``data/wiki_curator.lock`` is gitignored.
-    """
-
-    model_config = ConfigDict(extra="allow")
-
-    cooldown_seconds: int = 60
-    enable_periodic: bool = False
-    periodic_interval_minutes: int = 30
-    lock_path: Path = Path("data/wiki_curator.lock")
-    lock_stale_after_seconds: int = 300
-    # A durable candidate must become visible in the vault promptly, but not
-    # necessarily on its own dedicated judge run: each Stage-2 run re-sends an
-    # ~11k-char system prompt plus full neighbour page bodies, so firing per
-    # candidate multiplied that fixed cost across every fact-yielding turn
-    # (2026-07-28 cost audit). Three coalesces an active conversation's burst
-    # into one run, and the age flush below still bounds how long a LONE
-    # candidate can wait — that pair is what keeps spec A4's visibility
-    # promise.
-    consolidate_after_candidates: int = 3
-    # Age-based flush (spec A4): even below the count threshold, pending
-    # candidates older than this become a JOURNAL trigger so a quiet fresh
-    # install still produces visible pages. 0 disables the age flush.
-    flush_pending_max_age_minutes: int = 10
-
-
-class ExtractorConfig(BaseModel):
-    """Settings for the Stage-1 ``ConversationFactExtractor`` (Wave 2).
-
-    ``[memory.wiki.extractor]``. The extractor's provider/model are NOT
-    configured here — both curator stages resolve through the single
-    ``[memory.wiki.curator]`` provider/model pair (the Wiki settings card
-    drives them together). This section only holds the extraction gates.
-    The extractor reviews only explicitly saved turns (the voice bridge's
-    acknowledgement path) and user-started backfills; ``enabled = false``
-    turns both off.
-    """
-
-    model_config = ConfigDict(extra="allow")
-
-    enabled: bool = True
-    # Turns shorter than this never reach the LLM (smalltalk floor).
-    min_user_chars: int = 12
-    max_output_tokens: int = 4_000
-    timeout_s: float = 30.0
-    # Personal-salience floor (1-5): candidates the model scores below this
-    # are dropped in Stage 1. 3 keeps peripheral personal facts and drops
-    # world-knowledge trivia; raise it for a leaner vault. The default equals
-    # dodaios/memory/wiki/constants.py DEFAULT_SALIENCE (unscored candidates
-    # sit exactly on the floor).
-    min_salience: int = 3
-    # Rollback switch to the pre-basis regime: when False, behavioral
-    # (lived-experience) grounding is treated as ungrounded and only
-    # explicit assertions survive.
-    behavioral_inference: bool = True
-
-
-class WikiMemoryConfig(BaseModel):
-    """Root of the ``[memory.wiki]`` block (Phase B1+B7 + Wave 2).
-
-    Holds the Curator LLM section (B1), the session-rollup section (B7) and
-    the Stage-1 extractor section (Wave 2). Defaults are chosen so a config
-    without the section loads cleanly as ``WikiMemoryConfig()``.
-
-    The former ``[memory.wiki.voice_bridge]`` table (``aggressive_mode``,
-    ``min_user_chars``, ``rate_limit_seconds``) configured the automatic
-    review of every user turn, removed 2026-09-30. An old ``jarvis.toml``
-    that still carries it keeps validating through ``extra="allow"`` (AP-16)
-    and the values are ignored.
-    """
-
-    model_config = ConfigDict(extra="allow")
-
-    curator: WikiCuratorConfig = Field(default_factory=WikiCuratorConfig)
-    session_rollup: SessionRollupConfig = Field(default_factory=SessionRollupConfig)
-    extractor: ExtractorConfig = Field(default_factory=ExtractorConfig)
-
-
 class LegacyCuratorConfig(BaseModel):
     """B4 Soft-Disable gate (2026-05-17).
 
@@ -2015,14 +1838,12 @@ class MemoryVaultConfig(BaseModel):
 
 
 class MemoryConfig(BaseModel):
-    recall_store: str = "sqlite"
     # chromadb was removed (2026-06-28); there is no chroma backend in
     # dodaios/memory/. Default to the sqlite store so a fresh install does not
     # point the archival tier at a backend that no longer exists.
     archival_store: str = "sqlite"
     retention_days_recall: int = 90
     data_dir: str = "./data"
-    wiki: WikiMemoryConfig = Field(default_factory=WikiMemoryConfig)
     legacy_curator: LegacyCuratorConfig = Field(default_factory=LegacyCuratorConfig)
     learning: JarvisLearningConfig = Field(default_factory=JarvisLearningConfig)
     vault: MemoryVaultConfig = Field(default_factory=MemoryVaultConfig)
@@ -3262,102 +3083,16 @@ class ReviewConfig(BaseModel):
 
 
 class WikiIntegrationConfig(BaseModel):
-    """Bootstrap configuration for the wiki write-wiring (Phase B5, Agent A).
+    """``[wiki_integration]`` — where the retired wiki vault lived (ADR-0044).
 
-    Controls whether the ``SessionRollupWorker`` (B7) and ``WikiCurator``
-    (B1) are wired into the app's startup flow and subscribed to the
-    ``IdleEntered`` event bus event.
+    Read once by the memory vault's legacy import and the agent-notebook
+    adoption; nothing writes there any more. Other keys an old config still
+    carries are accepted and ignored.
     """
 
     model_config = ConfigDict(extra="allow")
 
-    enabled: bool = True
     vault_root: Path = Path("wiki/obsidian-vault")
-    subscribe_idle: bool = True  # listen for IdleEntered
-    fallback_to_direct_ingest: bool = True  # when scheduler is missing
-
-    # Languages the search-alias bridge writes into each page
-    # (dodaios/memory/wiki/search_aliases.py). Pages are written in English by
-    # the fact extractor, so a user who ASKS in another language cannot reach
-    # them by keyword ("Flugzeuge" never matches "aircraft"). Listing that
-    # language here makes every page carry the words its owner would actually
-    # say. Empty = derive from the other language signals (reply_language, UI,
-    # STT); those are frequently all "en"/"auto" even for a non-English
-    # speaker, which is why this explicit list exists rather than a guess.
-    search_alias_languages: list[str] = Field(default_factory=list)
-
-    # Runaway guard on how OFTEN the wiki may call a model on its own per
-    # local day (consolidator judge, split-and-retry halves, write-time search
-    # aliases, explicitly saved turns' extraction). Read by
-    # dodaios/memory/wiki/background_guard.py. It counts calls only — it never
-    # shortens a prompt, a context window or an output budget. When reached,
-    # the work waits until the next day and one log line says so. Generous on
-    # purpose: a normal day needs a handful; values below 1 count as 1.
-    max_background_llm_calls_per_day: int = 200
-
-
-class WikiContextConfig(BaseModel):
-    """Configuration for the wiki context injector (B5 Agent C).
-
-    Controls latency-bounded wiki-snippet injection into the brain system
-    prompt before each router-tier turn.  ``enabled = false`` disables the
-    whole injection path with zero overhead.
-
-    Wave-2 cleanup task: nest this under ``WikiIntegrationConfig.context``
-    and migrate callers off the top-level ``cfg.wiki_context`` field.
-
-    ``extra="allow"`` is mandatory and matches every sibling wiki sub-table
-    (WikiCurator/SessionRollup/Scheduler/Extractor/WikiMemory/
-    WikiIntegration): a self-mod or drift-guard write of an unknown future
-    key must survive validation rather than being silently dropped (AP-16).
-    """
-
-    model_config = ConfigDict(extra="allow")
-
-    enabled: bool = True
-    max_chars: int = 12_000
-    # 150 (was 80): the vault search opens its SQLite connection lazily
-    # inside this budget, so the first qualifying turn of a process regularly
-    # timed out. The factory warms the connection at boot; the wider budget
-    # covers a lost warm-up race and stays inaudible next to the brain call.
-    latency_budget_ms: int = 150
-    # 3 (was 4): short given names ("Joy", "Uwe") and initialisms ("BMW")
-    # are exactly the tokens a memory question hangs on; the old floor made
-    # them structurally unsearchable (2026-08-11 recall audit).
-    min_keyword_length: int = 3
-
-    # Relevance gate (dodaios/brain/wiki_relevance.py). Retrieval always
-    # returns a ranked list, so without a gate every unrelated question gets
-    # a personal note welded onto its answer. ``relevance_gate = false``
-    # restores the ungated behaviour: search every turn, inject every hit.
-    # With the gate on, every turn beyond greeting length is SEARCHED
-    # (retrieval-first); the gate grades how strictly the hits are filtered.
-    relevance_gate: bool = True
-    # Share of the question's content terms a hit must cover to be injected.
-    min_coverage: float = 0.5
-    # The stricter bar applied when the turn has no personal anchor (world-
-    # shaped questions, statements): a page must cover nearly the whole
-    # question before it may ride along uninvited.
-    strict_min_coverage: float = 0.75
-    # Share of the best hit's score (within the SAME search call) a hit must
-    # reach. Relative by design — the vault's scores are only comparable
-    # within one call, so an absolute cutoff would be noise.
-    min_relative_score: float = 0.35
-
-    # Semantic search (dodaios/memory/wiki/semantic_search.py): find pages by
-    # what they mean, across languages, next to the word search. Off unless
-    # the user switches it on in the app, because switching it on downloads a
-    # 135 MB model once and keeps it in memory. Written only by the app's own
-    # switch (config_writer.set_wiki_semantic_search).
-    semantic_search: bool = False
-
-    # Ambient personal knowledge — the standing identity card
-    # (dodaios/brain/identity_card.py). Unlike the per-turn snippets above this
-    # is a precomputed, LLM-free distillation of the user's own profile that
-    # rides in the CACHED system-prompt prefix. ``false`` removes the block
-    # entirely; the cap is an upper bound only (never raises the hard 600).
-    identity_card: bool = True
-    identity_card_max_chars: int = 4_000
 
 
 class VoiceConfig(BaseModel):
@@ -4522,10 +4257,6 @@ class Phase6SafetyConfig(BaseModel):
     auto_approve_tool_families: list[str] = Field(
         default_factory=lambda: [
             "search_web",
-            "wiki-list",
-            "wiki-recall",
-            "wiki-page-read",
-            "wiki-ingest",
             "session-latest-turn",
         ]
     )
@@ -4893,14 +4624,8 @@ class JarvisConfig(BaseModel):
     performance: PerformanceConfig = Field(default_factory=PerformanceConfig)
     # Wave 0 (omni-latency) — hot-path latency span instrumentation toggle.
     latency: LatencyConfig = Field(default_factory=LatencyConfig)
-    # Phase B5 — wiki write-wiring: SessionRollupWorker + WikiCurator bootstrap (Agent A).
+    # The retired wiki vault's location, read once by the legacy import (ADR-0044).
     wiki_integration: WikiIntegrationConfig = Field(default_factory=WikiIntegrationConfig)
-    # Phase B5 — CuratorScheduler (Agent D). Top-level field — Wave-2 cleanup task
-    # is to move this into ``WikiIntegrationConfig.scheduler`` and migrate callers.
-    wiki_scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
-    # Phase B5 — wiki context injection (Agent C). Top-level field — Wave-2
-    # cleanup task is to move this into ``WikiIntegrationConfig.context``.
-    wiki_context: WikiContextConfig = Field(default_factory=WikiContextConfig)
     # Pre-Thinking-Ack Flash-Brain (parallel-running short concierge-style
     # acknowledgment LLM). Opt-in via [ack_brain].enabled = true.
     # Forward-reference + late import at the bottom of this module avoids
@@ -5362,6 +5087,30 @@ def _heal_legacy_codex_realtime_once(path: Path) -> None:
         )
 
 
+_LIVE_VOICE_PROFILE_HEALED: set[Path] = set()
+
+
+def _heal_live_voice_profile_once(path: Path) -> None:
+    """Free a saved GPT-Live setup from a leftover classic voice profile."""
+    if path in _LIVE_VOICE_PROFILE_HEALED:
+        return
+    _LIVE_VOICE_PROFILE_HEALED.add(path)
+    try:
+        from dodaios.core.config_writer import retire_voice_profile_under_live
+
+        healed = retire_voice_profile_under_live(path=path)
+    except Exception:  # noqa: BLE001 - a boot repair must not block startup
+        logging.getLogger(__name__).warning(
+            "Could not repair the voice profile of the saved GPT-Live setup.",
+            exc_info=True,
+        )
+        return
+    if healed:
+        logging.getLogger(__name__).warning(
+            "Retired a classic voice profile that blocked the saved GPT-Live setup."
+        )
+
+
 def _heal_dictation_hotkeys_once(path: Path) -> None:
     """Run the one-time dictation-shortcut backfill. Never raises, never blocks.
 
@@ -5401,6 +5150,9 @@ def load_config(
         # config still pinning it is routed onto the stable subscription
         # profile before the first parse so the UI and runtime see one state.
         _heal_legacy_codex_realtime_once(config_file)
+        # A GPT-Live setup saved over a classic voice profile could not start
+        # a call (issue #828). Repair that pairing before the first parse.
+        _heal_live_voice_profile_once(config_file)
         # One-time dictation-shortcut backfill BEFORE the file is read, so the
         # very first boot after the update already sees the healed values
         # (BUG-010 config drift; see config_writer for why a marker and not an

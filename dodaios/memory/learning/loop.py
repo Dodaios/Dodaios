@@ -459,9 +459,16 @@ class JarvisLearningLoop:
         for why in rejected:
             log.info("learning: rejected a vault op — %s", why)
         source = {"via": "review", "reason": reason, **_seat_of(reviewer)}
-        written = await asyncio.to_thread(reconcile.apply, vault, ops, source=source)
+        receipts: list[dict[str, str]] = []
+        written = await asyncio.to_thread(
+            reconcile.apply, vault, ops, source=source, receipts=receipts
+        )
         if written:
             vault_runtime.changed()
+        if receipts:
+            from dodaios.agent_chat.lead import post_learned
+
+            await post_learned(receipts)
         return written, True
 
     def _apply_proposal(self, proposal: Proposal, reason: str, seat: dict[str, str]) -> int:
@@ -712,10 +719,7 @@ def _import_legacy_once(config: Any, vault: Any) -> None:
     from dodaios.memory.vault import runtime as vault_runtime
 
     try:
-        from dodaios.memory.wiki.vault_root import resolve_vault_root
-
-        raw = getattr(getattr(config, "wiki_integration", None), "vault_root", None)
-        wiki_root = resolve_vault_root(raw or None).path
+        wiki_root = legacy_import.legacy_wiki_root(config)
     except Exception:  # noqa: BLE001 — no wiki configured: import the other sources only
         log.info("memory vault import: no wiki vault found", exc_info=True)
         wiki_root = None

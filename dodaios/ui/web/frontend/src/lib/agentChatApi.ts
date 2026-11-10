@@ -157,6 +157,8 @@ export interface AgentChatSession {
   /** Absent on a backend older than the surface split; the store keeps such rows. */
   surface?: AgentChatSurface;
   account_id?: string;
+  /** A coding thread's placement: the computer its turns run on; empty = this one. */
+  computer_id?: string;
   vendor_session: string | null;
   created_ms: number;
   updated_ms: number;
@@ -395,6 +397,16 @@ export function fetchAgentChatSessions(
   });
 }
 
+/** The lead's one endless conversation; the server creates it on first use. */
+export async function fetchLeadSession(): Promise<AgentChatSession> {
+  return json<AgentChatSession>(await fetch("/api/agent-chat/lead"), "lead-failed");
+}
+
+/** Start the lead's model fresh; the conversation and memory stay. */
+export async function freshStartLead(): Promise<void> {
+  await json<unknown>(await fetch("/api/agent-chat/lead/fresh-start", { method: "POST" }), "fresh-start-failed");
+}
+
 export interface CreateSessionInput {
   provider: string;
   account_id?: string;
@@ -404,6 +416,8 @@ export interface CreateSessionInput {
   permission_mode?: string;
   title?: string;
   surface?: AgentChatSurface;
+  /** A coding thread's placement; empty or absent = this computer. */
+  computer_id?: string;
 }
 
 export async function createAgentChatSession(input: CreateSessionInput): Promise<AgentChatSession> {
@@ -420,7 +434,7 @@ export async function createAgentChatSession(input: CreateSessionInput): Promise
 }
 
 export type PatchSessionInput = Partial<
-  Pick<AgentChatSession, "title" | "provider" | "model" | "effort" | "cwd" | "permission_mode">
+  Pick<AgentChatSession, "title" | "provider" | "model" | "effort" | "cwd" | "permission_mode" | "computer_id">
 >;
 
 export async function patchAgentChatSession(
@@ -482,6 +496,27 @@ export function warmAgentChatSession(sessionId: string): void {
 
 const WARM_COOLDOWN_MS = 60_000;
 const lastWarm = new Map<string, number>();
+
+/**
+ * Load a local model (Ollama) while the person types or dictates, so the
+ * first answer does not wait for the model to load. The backend does nothing
+ * for hosted providers. Fire and forget, at most every 30 s per model.
+ */
+export function preloadLocalModel(provider: string, model: string): void {
+  if (!provider) return;
+  const key = `${provider}/${model}`;
+  const now = Date.now();
+  if (now - (lastPreload.get(key) ?? 0) < PRELOAD_COOLDOWN_MS) return;
+  lastPreload.set(key, now);
+  void fetch("/api/agent-chat/preload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider, model }),
+  }).catch(() => undefined);
+}
+
+const PRELOAD_COOLDOWN_MS = 30_000;
+const lastPreload = new Map<string, number>();
 
 /** Messages the server holds for a chat's next turn; they survive a page reload. */
 export interface AgentChatQueue {

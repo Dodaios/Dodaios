@@ -208,3 +208,28 @@ it.each(["cancel", "account-change", "unmount"])("cancels native provisioning on
   await Promise.resolve();
   expect(startLoginFlow).not.toHaveBeenCalled();
 });
+
+const connectedGroup: AccountPlatformGroup = {
+  ...group,
+  accounts: [{ ...group.accounts[0], connected: true, mode: "subscription" }],
+};
+
+it("says that a connected account was refused voice instead of only showing connected", () => {
+  render(<LiveSubscriptionAccount group={connectedGroup} accountId="" loading={false} disabled={false}
+    voiceStatus="unavailable" voiceCode="voice_not_offered" plan="free"
+    onAccountChange={vi.fn()} onConnected={vi.fn()} />);
+  expect(screen.getByText("live.subscription_connected", { exact: false })).toBeTruthy();
+  expect(screen.getByRole("alert").textContent).toBe("live.subscription_voice_not_offered");
+  expect(screen.getByTestId("live-subscription-plan").textContent).toContain("live.subscription_plan");
+  expect(screen.queryByText("live.subscription_voice_ready")).toBeNull();
+});
+
+it("confirms voice only after a call start verified it", () => {
+  const view = render(<LiveSubscriptionAccount group={connectedGroup} accountId="" loading={false} disabled={false}
+    voiceStatus="unverified" onAccountChange={vi.fn()} onConnected={vi.fn()} />);
+  expect(screen.queryByText("live.subscription_voice_ready")).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
+  view.rerender(<LiveSubscriptionAccount group={connectedGroup} accountId="" loading={false} disabled={false}
+    voiceStatus="ready" onAccountChange={vi.fn()} onConnected={vi.fn()} />);
+  expect(screen.getByText("live.subscription_voice_ready")).toBeTruthy();
+});

@@ -13,7 +13,7 @@ import {
   voiceInputLevelRef,
 } from "@/lib/voiceInputLevel";
 
-import { BrowserRealtimeControl, waveformPhase } from "./BrowserRealtimeControl";
+import { BrowserRealtimeControl, localStartFailureKey, waveformPhase } from "./BrowserRealtimeControl";
 
 const fakes = vi.hoisted(() => ({
   prepareAudio: vi.fn(() => vi.fn()),
@@ -60,6 +60,8 @@ vi.mock("@/i18n", () => ({ useT: () => (key: string) => key }));
 vi.mock("@/lib/realtimeAudio", () => ({
   browserRealtimeSupportIssue: () => fakes.supportIssue,
   RealtimeAudioSupportError: class extends Error {},
+  realtimeStartFailure: (error: unknown) =>
+    (error as { reason?: string } | null)?.reason ?? null,
   RealtimeAudioClient: class {
     constructor(
       callbacks: NonNullable<typeof fakes.callbacks>,
@@ -73,6 +75,25 @@ vi.mock("@/lib/realtimeAudio", () => ({
     disconnect = fakes.disconnect;
   },
 }));
+
+describe("localStartFailureKey", () => {
+  it.each([
+    ["NotFoundError", "sidebar.realtime_microphone_missing"],
+    ["NotReadableError", "sidebar.realtime_microphone_busy"],
+    ["NotAllowedError", "sidebar.realtime_microphone_denied"],
+  ])("maps a %s microphone failure", (name, key) => {
+    expect(localStartFailureKey(new DOMException("refused", name), false)).toBe(key);
+  });
+
+  it("points a desktop window at the system settings on every system", () => {
+    expect(localStartFailureKey(new DOMException("refused", "NotAllowedError"), true))
+      .toBe("sidebar.realtime_microphone_denied_desktop");
+  });
+
+  it("leaves an unknown failure to the generic line", () => {
+    expect(localStartFailureKey(new Error("anything"), false)).toBeNull();
+  });
+});
 
 describe("BrowserRealtimeControl", () => {
   beforeEach(() => {
@@ -163,6 +184,61 @@ describe("BrowserRealtimeControl", () => {
       expect(screen.getByRole("alert").textContent).toContain("sidebar.realtime_error");
       act(() => fakes.callbacks?.onStatus?.("disconnected", { reason: "late close" }));
       expect(fetchSpy).toHaveBeenCalledOnce();
+    });
+
+    it("shows a request the provider rejected instead of dropping it", async () => {
+      const toasts = vi.spyOn(useEventStore.getState(), "pushToast");
+      render(<BrowserRealtimeControl controlOnly />);
+      request("rejected-request", "start", firstRequest);
+      await waitFor(() => expect(fakes.callbacks).not.toBeNull());
+      act(() => fakes.callbacks?.onStatus?.("error", {
+        recoverable: true, message: "A voice request was rejected.",
+      }));
+      expect(toasts).toHaveBeenCalledWith("warning", "A voice request was rejected.");
+    });
+
+    it("names a blocked audio connection instead of blaming the provider", async () => {
+      fakes.connect.mockRejectedValueOnce(
+        Object.assign(new Error("GPT-Live media connection failed"), { reason: "media_failed" }),
+      );
+      render(<BrowserRealtimeControl controlOnly />);
+      request("media-failure", "start", firstRequest);
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce());
+      expect(screen.getByRole("alert").textContent).toContain("sidebar.realtime_media_failed");
+    });
+
+    it("answers a wake request when the voice engine never becomes ready", async () => {
+      vi.useFakeTimers();
+      try {
+        fakes.available = false;
+        render(<BrowserRealtimeControl controlOnly />);
+        request("unavailable-start", "start", firstRequest);
+        expect(fetchSpy).not.toHaveBeenCalled();
+        await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
+        expect(fetchSpy).toHaveBeenCalledOnce();
+        expect(fetchSpy.mock.calls[0][0]).toBe("/api/voice/startup-failed");
+        expect(fakes.connect).not.toHaveBeenCalled();
+        expect(screen.getByRole("alert").textContent).toContain("sidebar.realtime_start_unavailable");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("starts a waiting wake request once the voice engine reports ready", async () => {
+      vi.useFakeTimers();
+      try {
+        fakes.available = false;
+        const view = render(<BrowserRealtimeControl controlOnly />);
+        request("late-ready", "start", firstRequest);
+        fakes.available = true;
+        view.rerender(<BrowserRealtimeControl controlOnly />);
+        // A store update re-runs the request effect with the new availability.
+        request("unrelated", "noop");
+        await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
+        expect(fetchSpy).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("preserves request correlation while a hidden browser waits for visibility", async () => {

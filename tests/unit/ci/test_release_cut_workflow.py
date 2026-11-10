@@ -340,6 +340,20 @@ def test_resume_requires_merged_current_version_and_admission(tmp_path, override
         assert "git push origin v1.2.3" not in commands
 
 
+def test_resume_admits_with_mains_admit_rules(tmp_path):
+    # A resume checks out the older version commit; its own admit copy could
+    # not know a later fix, and the v4.2.1 resume waited on it for hours.
+    result, commands = _exercise(
+        tmp_path, ["Select an already merged version commit", "Admit the release commit"]
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    fetch = commands.index("git show origin/main:scripts/ci/release_admit.py")
+    admit = [command for command in commands if "--ci-only" in command]
+    expected = f"python ./release_admit_main.py --ci-only --sha {_SHA} --repo example/project"
+    assert admit == [expected]
+    assert commands.index(admit[0]) > fetch
+
+
 def test_resume_names_the_version_commit_when_given_a_later_one(tmp_path):
     result, commands = _exercise(
         tmp_path, ["Select an already merged version commit"], PARENT_VERSION="1.2.3"

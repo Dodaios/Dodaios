@@ -21,8 +21,8 @@ Three sources are merged, because any one of them hides people:
 * Commits whose email GitHub could not link to an account come back as
   anonymous names. When every merged pull request with that git name was
   opened by one account, the commits are credited to that account. Otherwise
-  the name is written out. The email is never written: those addresses are
-  local hostnames, and putting them on the README would publish them.
+  they are left off the wall. Neither the name nor the email is written: a
+  git name is often a family member's machine login, not the contributor.
 
 Two kinds of accounts are deliberately excluded:
 
@@ -65,8 +65,8 @@ END = "<!-- contributors:end -->"
 EXCLUDED_LOGINS = frozenset({"claude"})
 
 #: Avatars per row, matching the layout OpenClaw uses. Purely cosmetic.
-PER_ROW = 10
-AVATAR_PX = 48
+PER_ROW = 7
+AVATAR_PX = 64
 
 #: Inline marker that scripts/ci/check_no_new_german.py skips.
 LANGUAGE_GATE_ESCAPE = "i18n-allow"
@@ -307,23 +307,15 @@ def _avatar_src(url: str) -> str:
 
 
 def _user_cell(person: dict) -> str:
+    """One table cell: the avatar with the GitHub login underneath."""
     login = person["login"]
     safe = html.escape(login, quote=True)
     return (
-        f'<a href="https://github.com/{safe}">'
+        f'<td align="center"><a href="https://github.com/{safe}">'
         f'<img src="{_avatar_src(person.get("avatar_url") or "")}" '
-        f'width="{AVATAR_PX}" height="{AVATAR_PX}" alt="{safe}"></a>'
+        f'width="{AVATAR_PX}" height="{AVATAR_PX}" alt="{safe}"><br>'
+        f"<sub><b>{safe}</b></sub></a></td>"
     )
-
-
-def _name_cell(person: dict) -> str:
-    """A person GitHub could not link to an account. No email in the markup."""
-    name = str(person.get("name") or "").strip()
-    safe = html.escape(name, quote=True)
-    query = urllib.parse.quote(f'repo:{REPO} author-name:"{name}"', safe="")
-    href = f"https://github.com/search?q={query}&type=commits"
-    count = int(person.get("contributions") or 0)
-    return f'<a href="{href}">{safe}</a> ({count})'
 
 
 def _marked(line: str) -> str:
@@ -334,26 +326,22 @@ def _marked(line: str) -> str:
 
 
 def render(people: list[dict]) -> str:
-    """Avatars for accounts, then the names GitHub could not link.
+    """A table of GitHub accounts, ``PER_ROW`` to a row, name under each avatar.
 
-    Accounts stay a grid of ``PER_ROW`` so the wall wraps the way it always
-    has. People with no account follow, most work first, with the commit
-    count in parentheses. Their emails are not part of the line.
+    People with no linked account are left out. Their only identity is a git
+    author name, which is often someone else's machine login, so printing it
+    would name the wrong person.
     """
-    if not people:
-        return "_Nobody yet. That first square is yours._"
-
     accounts = [person for person in people if person.get("login")]
-    named = [person for person in people if not person.get("login")]
+    if not accounts:
+        return "_Nobody yet. That first square is yours._"
     rows = [
-        _marked(" ".join(_user_cell(person) for person in accounts[i : i + PER_ROW]))
+        _marked(
+            "<tr>" + "".join(_user_cell(person) for person in accounts[i : i + PER_ROW]) + "</tr>"
+        )
         for i in range(0, len(accounts), PER_ROW)
     ]
-    for i in range(0, len(named), PER_ROW):
-        chunk = named[i : i + PER_ROW]
-        body = " · ".join(_name_cell(person) for person in chunk)
-        rows.append(_marked(f"Commits not linked to a GitHub account: {body}"))
-    return "\n".join(rows)
+    return "\n".join(["<table>", *rows, "</table>"])
 
 
 def splice(text: str, block: str) -> str:

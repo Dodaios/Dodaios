@@ -12,8 +12,8 @@
  * §2); the const arrays in lib/societyApi.ts are pinned to the Python enums by
  * the five-layer parity test (AP-4).
  */
-import { useCallback, useEffect } from "react";
-import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useCallback, useContext, useEffect, useSyncExternalStore } from "react";
+import { QueryClientContext, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { MentionPlugin } from "./chat/mentionItems";
 
 import type { AgentApprovalMode, AgentRuntime, BrowserMode, Checkpoint, SocietyAgentRow } from "@/lib/societyApi";
@@ -900,4 +900,21 @@ export function useRetireAgent() {
 /** The one lead of the society (MASTERPLAN §2.5) — the agent who carries out a retirement. */
 export function findLead(agents: readonly SocietyAgent[]): SocietyAgent | null {
   return agents.find((a) => a.tier === "lead") ?? null;
+}
+
+/**
+ * The roster the app already loaded, read without asking for it and without
+ * needing a query client: surfaces outside the Agents section (the front
+ * page's chat inside the IDE, say) use it for faces when it is there and do
+ * without it when it is not.
+ */
+export function useCachedRosterAgents(): readonly SocietyAgent[] | undefined {
+  const client = useContext(QueryClientContext);
+  const read = useCallback(() => client?.getQueryData<RosterData>(ROSTER_QUERY_KEY), [client]);
+  const subscribe = useCallback(
+    (notify: () => void) => client?.getQueryCache().subscribe(notify) ?? (() => {}),
+    [client],
+  );
+  const data = useSyncExternalStore(subscribe, read, read);
+  return data && !data.sample ? data.agents : undefined;
 }

@@ -128,11 +128,11 @@ class TestSkipList:
         # both spellings.
         assert generate_ack("screen-snapshot", {}, picker=_fresh()) is None
 
-    def test_fast_wiki_reads_are_skipped(self) -> None:
+    def test_fast_memory_reads_are_skipped(self) -> None:
         # A ~70 ms passive memory read must not get a spoken "one moment"
         # (2026-07-06 redesign, R6).
-        assert generate_ack("wiki-recall", {}, picker=_fresh()) is None
-        assert generate_ack("wiki_search", {"q": "x"}, picker=_fresh()) is None
+        assert generate_ack("memory-search", {}, picker=_fresh()) is None
+        assert generate_ack("memory_search", {"query": "x"}, picker=_fresh()) is None
 
     def test_empty_tool_name_returns_none(self) -> None:
         assert generate_ack("", {}, picker=_fresh()) is None

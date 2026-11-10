@@ -9880,12 +9880,32 @@ class SpeechPipeline:
         if handover_budget_s is not None:
             from dodaios.live.runtime import run_browser_call
 
-            return await run_browser_call(
+            outcome: dict[str, str] = {}
+            reason = await run_browser_call(
                 self._bus, self._hangup_event,
                 timeout_s=max(45.0, handover_budget_s + 5.0),
                 input_buffer=input_buffer,
                 session_id=self._current_voice_session_id or "",
+                outcome=outcome,
             )
+            if outcome.get("cause") == "timeout":
+                # No window took the call. The window that would show an error
+                # never saw the request, so without this the connecting state
+                # ends in idle with no reason anywhere (issue #828).
+                log.warning(
+                    "Voice start timed out: the app window did not take the call."
+                )
+                self._last_realtime_start_error = {
+                    "provider": "",
+                    "message": (
+                        "The app window did not start the voice call in time. "
+                        "Open the main window and start voice again."
+                    ),
+                    "at": time.time(),
+                }
+            elif not outcome:
+                self._last_realtime_start_error = None
+            return reason
         allow_classic_fallback = True
         try:
             from dodaios.realtime.desktop import (

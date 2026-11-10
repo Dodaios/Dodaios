@@ -327,21 +327,9 @@ class TestSeedRegistry:
             # 'openclaw' capability id was still being advertised).
             "tool.spawn-worker",
             "tool.run-skill",
-            "tool.wiki-recall",
-            "tool.wiki-page-read",
-            "tool.wiki-ingest",
+            "tool.memory-search",
         ):
             assert tool in ids, f"{tool!r} missing from seed"
-
-    def test_polite_wiki_system_write_resolves_to_ingest(self) -> None:
-        """Wiki destination wins even when the fact mentions travel."""
-        cap = self.reg.resolve_intent(
-            "Kannst du bitte mein Wiki-System eintragen, dass ich morgen nach "  # i18n-allow
-            "Beispielstadt reisen will?"  # i18n-allow
-        )
-
-        assert cap is not None
-        assert cap.id == "tool.wiki-ingest"
 
     def test_dispatch_to_harness_capability_removed(self) -> None:
         """The dead dispatch-to-harness capability must not reappear (2026-06-28)."""
@@ -406,7 +394,6 @@ class TestSeedRegistry:
             "tool.screen-snapshot",
             "tool.spawn-worker",
             "tool.run-skill",
-            "tool.wiki-ingest",
         }
         caps_by_id = {c.id: c for c in self.reg.all()}
         for cap_id in action_ids:
@@ -417,8 +404,7 @@ class TestSeedRegistry:
     def test_requires_evidence_false_for_read_only(self) -> None:
         """Read-only tools must have requires_evidence=False."""
         read_only_ids = {
-            "tool.wiki-recall",
-            "tool.wiki-page-read",
+            "tool.memory-search",
         }
         caps_by_id = {c.id: c for c in self.reg.all()}
         for cap_id in read_only_ids:
@@ -436,10 +422,10 @@ class TestSeedRegistry:
         assert result is not None
         assert result.id == "local.open_app"
 
-    def test_wiki_recall_no_evidence(self) -> None:
+    def test_memory_search_no_evidence(self) -> None:
         result = self.reg.resolve_intent("Suche im Wiki nach Python")
         assert result is not None
-        assert result.id == "tool.wiki-recall"
+        assert result.id == "tool.memory-search"
         assert result.requires_evidence is False
 
     def test_run_shell_matches(self) -> None:

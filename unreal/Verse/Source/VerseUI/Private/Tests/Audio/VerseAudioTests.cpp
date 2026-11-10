@@ -407,6 +407,8 @@ bool FVerseAudioDormant::RunTest(const FString&)
 	{
 		return false;
 	}
+	// The UI subsystem of the world pushes the app default volume (0.7); this test is about full volume.
+	Rig.Audio->SetUserVolume(1.f);
 	Rig.Audio->SetAmbience(EVerseAmbience::Hangar);
 	TestEqual(TEXT("visible: full volume"), Rig.Sink->Master, 1.f);
 	Rig.Audio->SetDormant(true);
@@ -717,6 +719,212 @@ bool FVerseAudioShippedCues::RunTest(const FString&)
 	Report.Num(TEXT("sound_waves"), Sounds);
 	Report.Num(TEXT("problems"), Problems);
 	WriteProof(TEXT("19.9"), TEXT("shipped_cues.json"), Report);
+	return true;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Parity rows of work stream S13 (audio): R-12, H-14, L-07, Z-14, D-17.
+
+namespace VerseAudioParity
+{
+	/** The UI, lift and deck cues the base test cue set lacks. */
+	void AddParityCues(UVerseAudioCueSet* Set)
+	{
+		for (const TCHAR* Id : {TEXT("ui_level_bell"), TEXT("ui_panel_open"), TEXT("ui_panel_close"), TEXT("lift_door_open"),
+				 TEXT("lift_door_close")})
+		{
+			AddCue(Set, Id, false, nullptr, 0, 4, 2);
+		}
+		AddCue(Set, TEXT("lift_ride"), false, nullptr, 0, 4, 1, true, 4.f, 1);
+		for (const TCHAR* Id : {TEXT("amb_bridge"), TEXT("amb_ops"), TEXT("amb_engineering")})
+		{
+			AddCue(Set, Id, false, nullptr, 0, 2, 1, true, 10.f, 1);
+		}
+		Set->RebuildIndex();
+	}
+
+	/** Adds every cue the duel needs that the cue set does not have yet. */
+	void AddDuelCues(UVerseAudioCueSet* Set)
+	{
+		TArray<FName> Profiles = Set->WeaponProfiles;
+		Profiles.AddUnique(Set->DefaultWeaponProfile);
+		for (const FName& Id : UVerseAudioSubsystem::DuelCueIds(Profiles))
+		{
+			if (!Set->FindCue(Id))
+			{
+				AddCue(Set, *Id.ToString(), false, nullptr, 0, 4, 2);
+			}
+		}
+		Set->RebuildIndex();
+	}
+}
+
+// R-12: the level bell plays on award and is silent when switched off; other UI cues still play.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseParityR12, "Verse.Parity.R.12", VERSE_AUDIO_TEST_FLAGS)
+bool FVerseParityR12::RunTest(const FString&)
+{
+	FRig Rig;
+	if (!Rig.Make(*this))
+	{
+		return false;
+	}
+	VerseAudioParity::AddParityCues(Rig.Audio->GetCueSet());
+	Rig.Audio->PlayUi(EVerseUiSound::LevelBell);
+	TestEqual(TEXT("the bell plays on award"), Rig.Sink->CountOf(TEXT("ui_level_bell")), 1);
+
+	Rig.Audio->SetLevelSoundEnabled(false);
+	Rig.Audio->PlayUi(EVerseUiSound::LevelBell);
+	TestEqual(TEXT("switched off: no second bell"), Rig.Sink->CountOf(TEXT("ui_level_bell")), 1);
+	Rig.Audio->PlayUi(EVerseUiSound::Click);
+	TestEqual(TEXT("switched off: other UI cues still play"), Rig.Sink->CountOf(TEXT("ui_click")), 1);
+
+	Rig.Audio->SetLevelSoundEnabled(true);
+	Rig.Audio->PlayUi(EVerseUiSound::LevelBell);
+	TestEqual(TEXT("switched on again: the bell plays"), Rig.Sink->CountOf(TEXT("ui_level_bell")), 2);
+	return true;
+}
+
+// H-14: a HUD panel open and close each make a click in the audio event log.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseParityH14, "Verse.Parity.H.14", VERSE_AUDIO_TEST_FLAGS)
+bool FVerseParityH14::RunTest(const FString&)
+{
+	FRig Rig;
+	if (!Rig.Make(*this))
+	{
+		return false;
+	}
+	VerseAudioParity::AddParityCues(Rig.Audio->GetCueSet());
+	Rig.Audio->ClearEventLog();
+	Rig.Audio->PlayUi(EVerseUiSound::PanelOpen);
+	Rig.Audio->PlayUi(EVerseUiSound::PanelClose);
+	TestNotNull(TEXT("open click in the audio log"), LastOf(*Rig.Audio, TEXT("ui_panel_open")));
+	TestNotNull(TEXT("close click in the audio log"), LastOf(*Rig.Audio, TEXT("ui_panel_close")));
+	TestEqual(TEXT("one voice each"), Rig.Sink->CountOf(TEXT("ui_panel_open")) + Rig.Sink->CountOf(TEXT("ui_panel_close")), 2);
+	const FVerseAudioLogEntry* Open = LastOf(*Rig.Audio, TEXT("ui_panel_open"));
+	TestTrue(TEXT("a UI cue is not spatial"), Open && !Open->bSpatial);
+	return true;
+}
+
+// L-07: a lift ride emits the door-close, ride and door-open cues in that order; the ride loop stops.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseParityL07, "Verse.Parity.L.07", VERSE_AUDIO_TEST_FLAGS)
+bool FVerseParityL07::RunTest(const FString&)
+{
+	FRig Rig;
+	if (!Rig.Make(*this))
+	{
+		return false;
+	}
+	VerseAudioParity::AddParityCues(Rig.Audio->GetCueSet());
+	Rig.Audio->ClearEventLog();
+	Rig.Audio->PlayLift(EVerseLiftSound::DoorClose);
+	Rig.Advance(0.5f);
+	Rig.Audio->PlayLift(EVerseLiftSound::RideStart);
+	Rig.Advance(1.f);
+	Rig.Audio->PlayLift(EVerseLiftSound::RideStop);
+	Rig.Advance(0.5f);
+	Rig.Audio->PlayLift(EVerseLiftSound::DoorOpen);
+
+	TArray<FName> Order;
+	for (const FVerseAudioLogEntry& E : Rig.Audio->GetEventLog())
+	{
+		if (E.CueId.ToString().StartsWith(TEXT("lift_")) && !E.bStop)
+		{
+			Order.Add(E.CueId);
+		}
+	}
+	TestEqual(TEXT("three lift cues"), Order.Num(), 3);
+	if (Order.Num() == 3)
+	{
+		TestEqual(TEXT("door closes first"), Order[0], FName(TEXT("lift_door_close")));
+		TestEqual(TEXT("then the ride"), Order[1], FName(TEXT("lift_ride")));
+		TestEqual(TEXT("doors open last"), Order[2], FName(TEXT("lift_door_open")));
+	}
+	Rig.Advance(0.6f);
+	TestEqual(TEXT("the ride loop has stopped"), Rig.Audio->GetLoopCount(), 0);
+	return true;
+}
+
+// Z-14 (audio): each deck plays its own loop; Dormant mutes; volume 0 silences; ui_sound off mutes.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseParityZ14Loops, "Verse.Parity.Z.14.Loops", VERSE_AUDIO_TEST_FLAGS)
+bool FVerseParityZ14Loops::RunTest(const FString&)
+{
+	FRig Rig;
+	if (!Rig.Make(*this))
+	{
+		return false;
+	}
+	VerseAudioParity::AddParityCues(Rig.Audio->GetCueSet());
+	const TPair<EVerseAmbience, const TCHAR*> Decks[] = {
+		{EVerseAmbience::Bridge, TEXT("amb_bridge")}, {EVerseAmbience::Ops, TEXT("amb_ops")},
+		{EVerseAmbience::Engineering, TEXT("amb_engineering")}, {EVerseAmbience::Hangar, TEXT("amb_hangar")}};
+	for (const TPair<EVerseAmbience, const TCHAR*>& Deck : Decks)
+	{
+		Rig.Audio->SetAmbience(Deck.Key);
+		TestNotNull(FString::Printf(TEXT("%s plays"), Deck.Value), LastOf(*Rig.Audio, Deck.Value));
+		Rig.Advance(2.f);
+		TestEqual(TEXT("only the new loop remains"), Rig.Audio->GetLoopCount(), 1);
+	}
+	Rig.Audio->SetDormant(true);
+	TestEqual(TEXT("hidden: muted"), Rig.Sink->Master, 0.f);
+	Rig.Audio->SetDormant(false);
+	Rig.Advance(0.3f);
+	TestTrue(TEXT("shown: audible"), Rig.Sink->Master > 0.f);
+	Rig.Audio->SetUiSoundEnabled(false);
+	TestEqual(TEXT("ui_sound off mutes the ambience"), Rig.Sink->Master, 0.f);
+	Rig.Audio->SetUiSoundEnabled(true);
+	Rig.Audio->SetUserVolume(0.f);
+	TestEqual(TEXT("volume 0 silences"), Rig.Sink->Master, 0.f);
+	return true;
+}
+
+// D-17: the duel sound set is loaded on entry; no cue is missing on the first shot.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseParityD17, "Verse.Parity.D.17", VERSE_AUDIO_TEST_FLAGS)
+bool FVerseParityD17::RunTest(const FString&)
+{
+	FRig Rig;
+	if (!Rig.Make(*this))
+	{
+		return false;
+	}
+	// The base set lacks cues of the duel set: entry reports them instead of failing at the shot.
+	TestTrue(TEXT("a set with gaps reports them on entry"), Rig.Audio->PreloadDuelSet().Num() > 0);
+	TestTrue(TEXT("the duel set was preloaded"), Rig.Audio->IsDuelSetPreloaded());
+
+	VerseAudioParity::AddParityCues(Rig.Audio->GetCueSet());
+	VerseAudioParity::AddDuelCues(Rig.Audio->GetCueSet());
+	TestEqual(TEXT("complete set: nothing missing at entry"), Rig.Audio->PreloadDuelSet().Num(), 0);
+
+	// The first shot of each profile finds every layer.
+	for (const TCHAR* Weapon : {TEXT("rifle_ar1"), TEXT("pistol_p1")})
+	{
+		FVerseFireEvent Fire;
+		Fire.ShooterId = LocalId;
+		Fire.WeaponId = Weapon;
+		Fire.Origin = FVector(0.0, 0.0, 150.0);
+		Fire.Direction = FVector(1.0, 0.0, 0.0);
+		Rig.Hub->OnFire.Broadcast(Fire);
+		Rig.Advance(0.5f);
+	}
+	for (const TCHAR* Profile : {TEXT("rifle"), TEXT("pistol")})
+	{
+		for (const TCHAR* Layer : {TEXT("fp_mech"), TEXT("fp_body")})
+		{
+			const FName Cue = *FString::Printf(TEXT("wpn_%s_%s"), Profile, Layer);
+			TestTrue(FString::Printf(TEXT("first shot plays %s"), *Cue.ToString()), Rig.Sink->CountOf(Cue) > 0);
+		}
+	}
+
+	// The shipped cue list names every cue of the duel set.
+	FString Json;
+	const FString Path = FPaths::Combine(FPaths::ProjectDir(), TEXT("Data"), TEXT("audio"), TEXT("cues.json"));
+	if (TestTrue(TEXT("cues.json readable"), FFileHelper::LoadFileToString(Json, *Path)))
+	{
+		for (const FName& Id : UVerseAudioSubsystem::DuelCueIds({TEXT("rifle"), TEXT("pistol")}))
+		{
+			TestTrue(FString::Printf(TEXT("cues.json has %s"), *Id.ToString()),
+				Json.Contains(FString::Printf(TEXT("\"id\": \"%s\""), *Id.ToString())));
+		}
+	}
 	return true;
 }
 

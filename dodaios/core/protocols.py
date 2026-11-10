@@ -287,6 +287,20 @@ class ContinuousVoiceStart:
     on_startup_phase: Callable[[str], None] | None = None
 
 
+class VoiceStartError(RuntimeError):
+    """A voice start failure that carries a sentence written for the person.
+
+    ``str(error)`` stays the technical line for logs and classification.
+    ``user_message`` is fixed, authored text: never a provider body, a
+    credential or a URL, so a surface may show it as it is.
+    """
+
+    def __init__(self, message: str, *, user_message: str, code: str = "unavailable") -> None:
+        super().__init__(message)
+        self.user_message = user_message
+        self.code = code
+
+
 class ContinuousVoiceConnection(Protocol):
     session_id: str
     answer_sdp: str

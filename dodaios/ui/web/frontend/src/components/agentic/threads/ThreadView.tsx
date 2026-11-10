@@ -9,6 +9,7 @@ import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeThreadsStore, type SplitThread, type ThreadSelection } from "@/store/ideThreads";
 import { useThreadTerminalsStore } from "@/store/threadTerminals";
 import { openSubagentOf, useThreadSubagentsStore, type SubagentRow } from "@/store/threadSubagents";
+import { ThreadRunsOn } from "./ThreadRunsOn";
 import { ThreadBranchBar, type ThreadCheckout } from "./ThreadBranchBar";
 import { ThreadComposer } from "./ThreadComposer";
 import { ThreadHeader } from "./ThreadHeader";
@@ -65,10 +66,11 @@ export function ThreadView({ onScreen, column }: {
   // The sub-agent whose conversation shows instead of the main thread's, by its spawn
   // call. It lives in a store so the sidebar's sub-agent rows open it too.
   const openAgent = useThreadSubagentsStore((state) => openSubagentOf(state.open, selection.sessionId));
+  // This column's thread: a side column opens its own sub-agents, not the sidebar's pick.
+  const ownSessionId = selection.sessionId;
   const setOpenAgent = useCallback((id: string | null) => {
-    const sessionId = useIdeThreadsStore.getState().selection.sessionId;
-    if (sessionId) useThreadSubagentsStore.getState().openAgent(sessionId, id);
-  }, []);
+    if (ownSessionId) useThreadSubagentsStore.getState().openAgent(ownSessionId, id);
+  }, [ownSessionId]);
   // Sub-agents the CLI filed on its own (Codex), read for the open thread.
   const [discovered, setDiscovered] = useState<{ sessionId: string; agents: DiscoveredAgent[] } | null>(null);
   const projectAnchor = useRef<HTMLButtonElement | null>(null);
@@ -110,6 +112,11 @@ export function ThreadView({ onScreen, column }: {
         return;
       }
       threads.rememberProject(created, pending);
+    } else if (pending && (selection.sessionId || selection.team)) {
+      // The person opened another thread before the draft's thread existed:
+      // the send files that thread under its project itself (onSessionCreated),
+      // and a leftover mark must not refile or adopt a later thread.
+      startingIn.current = null;
     }
     if (selection.sessionId) {
       if (store.activeSessionId !== selection.sessionId) store.openSession(selection.sessionId);
@@ -227,26 +234,29 @@ export function ThreadView({ onScreen, column }: {
   const agentItems = useMemo(() => (agent ? [subagentTurn(agent)] : []), [agent]);
   const userCount = timeline.items.filter((item) => item.type === "user").length;
 
-  // The sidebar lists the open thread's sub-agents under it.
+  // The sidebar lists the open thread's sub-agents under it — the main
+  // column's thread only; a side column never overwrites or clears those rows.
   useEffect(() => {
+    if (column) return;
     const rows: SubagentRow[] = agents.map((entry) => ({
       id: entry.id, parentId: entry.parentId, depth: entry.depth, title: entry.title,
       agentType: entry.agentType, status: entry.status, waiting: entry.waiting,
     }));
     useThreadSubagentsStore.getState().publish(selection.team ? null : selection.sessionId, rows);
-  }, [agents, selection.sessionId, selection.team]);
-  useEffect(() => () => useThreadSubagentsStore.getState().publish(null, []), []);
+  }, [agents, selection.sessionId, selection.team, column]);
+  useEffect(() => () => { if (!column) useThreadSubagentsStore.getState().publish(null, []); }, [column]);
 
   // Another thread, or a new message to the main agent, brings the main conversation back.
   useEffect(() => {
+    if (column) return;
     const open = useThreadSubagentsStore.getState().open;
     if (open && open.sessionId !== selection.sessionId) useThreadSubagentsStore.getState().openAgent(open.sessionId, null);
-  }, [selection.sessionId]);
+  }, [selection.sessionId, column]);
   const sentCount = useRef(userCount);
   useEffect(() => {
     if (userCount > sentCount.current) setOpenAgent(null);
     sentCount.current = userCount;
-  }, [userCount]);
+  }, [userCount, setOpenAgent]);
 
   // Escape leaves a sub-agent's conversation for the one it came from.
   useEffect(() => {
@@ -280,8 +290,13 @@ export function ThreadView({ onScreen, column }: {
   const [buildBefore, buildAfter = ""] = t("ide_threads.build_in").split("{project}");
   const empty = isDraft && timeline.items.length === 0;
 
-  const strip = <ThreadBranchBar folder={folder} draft={isDraft} checkout={checkout} onCheckout={setCheckout}
-    base={base} onBase={setBase} locked={running} />;
+  const runsOn = <ThreadRunsOn computerId={session?.computer_id ?? draft.computerId ?? ""} locked={running}
+    onChange={(computerId) => void chatStore.getState().setDraft({ computerId })} />;
+  const strip = <>
+    {runsOn}
+    <ThreadBranchBar folder={folder} draft={isDraft} checkout={checkout} onCheckout={setCheckout}
+      base={base} onBase={setBase} locked={running} />
+  </>;
 
   return <div className="relative flex h-full min-h-0 flex-col" data-testid="thread-view">
     {memberOf && <BackToTeam teamId={memberOf} projectId={project.id} />}
@@ -315,8 +330,8 @@ export function ThreadView({ onScreen, column }: {
           : <ThreadTimeline items={items} sessionId={selection.sessionId} bottomInset={composerHeight} folder={folder} />}
         <div ref={composerBox} className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background from-70% to-transparent px-5 pb-4 pt-6">
           <div className="pointer-events-auto">
-            <SubagentDock entries={agents} openId={agent ? agent.id : null} onOpen={setOpenAgent} />
-            <ThreadComposer threadKey={threadKey} prepareDraft={prepareDraft} onSessionCreated={rememberCreated} autoFocusNonce={focusNonce} strip={strip} onScreen={onScreen} />
+            <ThreadComposer threadKey={threadKey} prepareDraft={prepareDraft} onSessionCreated={rememberCreated} autoFocusNonce={focusNonce} strip={strip} onScreen={onScreen}
+              tray={<SubagentDock entries={agents} openId={agent ? agent.id : null} onOpen={setOpenAgent} />} />
           </div>
         </div>
       </OpenSubagent.Provider>}

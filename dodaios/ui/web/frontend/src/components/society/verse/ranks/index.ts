@@ -5,7 +5,7 @@
  * - Hooks: `useSubjectRank`, `useCommanderRank`, `useCommanderUniform`, `useDutyBoard`.
  * - UI: `RankPlate`, `RankCard` (HUD), `RanksOverlay` (service record + promotion notice).
  */
-export * from "./ranks";
+export * from "../../progression/ranks";
 export * from "./dutyStatus";
 export { RankPlate, PLATE_ASPECT, slotCentre } from "./RankPlate";
 export { Ribbon } from "./Ribbon";

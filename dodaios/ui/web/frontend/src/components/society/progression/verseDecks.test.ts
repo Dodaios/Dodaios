@@ -8,7 +8,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { DECK_IDS } from "../verse/decks";
+import { DECK_IDS } from "./decks";
 import { reportWorldAction } from "./progressionApi";
 import { METERED_DECKS } from "./useProgressionSync";
 

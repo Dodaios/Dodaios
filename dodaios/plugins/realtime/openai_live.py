@@ -10,6 +10,47 @@ from urllib.parse import quote
 
 log = logging.getLogger(__name__)
 
+# One fixed sentence per classified refusal. The provider's body never leaves
+# open_session; these are what the person reads instead.
+_START_REFUSALS = {
+    "bad_key": "OpenAI rejected the API key. Check the OpenAI key under API Keys.",
+    "no_credits": (
+        "The OpenAI API account has no credit left. Add credit on the OpenAI "
+        "platform, then start voice again."
+    ),
+    "rate_limited": "OpenAI is rate limiting this API key. Try again in a moment.",
+    "access_denied": (
+        "OpenAI denied this API key access to GPT-Live. Check the key's project "
+        "permissions and the organization's verification."
+    ),
+    "model_unavailable": "This OpenAI API key cannot use the selected GPT-Live voice model.",
+    "invalid_configuration": (
+        "OpenAI rejected the voice session settings. Check the voice and model "
+        "under API Keys > Live calls."
+    ),
+    "unreachable": "OpenAI voice is temporarily unavailable. Try again shortly.",
+}
+
+
+def _start_refusal(status: int, cause: str) -> tuple[str, str]:
+    """Pick the refusal code and its sentence from classification only."""
+    if cause in {"no_credits", "rate_limited", "unreachable"}:
+        code = cause
+    elif status == 401:
+        code = "bad_key"
+    elif status == 403:
+        code = "access_denied"
+    elif status == 404:
+        code = "model_unavailable"
+    elif status in {400, 422}:
+        code = "invalid_configuration"
+    elif cause in _START_REFUSALS:
+        code = cause
+    else:
+        return "unavailable", ""
+    return code, _START_REFUSALS[code]
+
+
 class OpenAILiveConnection:
     """One primary socket or WebRTC sideband; the application owns tool execution."""
 
@@ -160,12 +201,17 @@ class OpenAILiveProvider:
                         # Only the classification leaves this scope, never the
                         # provider's body (AP-34): "no_credits" and "rate_limited"
                         # share HTTP 429 and need different words for the user.
+                        from dodaios.core.protocols import VoiceStartError
+
                         cause = classify_provider_error(
                             f"HTTP {response.status_code} {response.text[:2000]}"
                         )
-                        raise RuntimeError(
+                        code, sentence = _start_refusal(response.status_code, cause)
+                        raise VoiceStartError(
                             "OpenAI Live session creation failed "
-                            f"(HTTP {response.status_code}, {cause})."
+                            f"(HTTP {response.status_code}, {cause}).",
+                            user_message=sentence,
+                            code=code,
                         )
                     payload = response.json()
                     session_id = payload["session"]["id"]

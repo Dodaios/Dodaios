@@ -47,7 +47,6 @@ from dodaios.cli_ctl.commands import socials as socials_cmd
 from dodaios.cli_ctl.commands import system as system_cmd
 from dodaios.cli_ctl.commands import tasks as tasks_cmd
 from dodaios.cli_ctl.commands import telephony as telephony_cmd
-from dodaios.cli_ctl.commands import wiki as wiki_cmd
 from dodaios.cli_ctl.commands import workflows as workflows_cmd
 from dodaios.core.branding import CONTROL_CLI_COMMAND_NAME
 
@@ -153,7 +152,6 @@ app.add_typer(commands_cmd.app, name="commands")
 app.add_typer(computer_use_cmd.app, name="computer-use")
 app.add_typer(config_cmd.app, name="config")
 app.add_typer(missions_cmd.app, name="missions")
-app.add_typer(wiki_cmd.app, name="wiki")
 app.add_typer(sessions_cmd.app, name="sessions")
 app.add_typer(skills_cmd.app, name="skills")
 app.add_typer(outputs_cmd.app, name="outputs")

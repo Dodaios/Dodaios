@@ -39,6 +39,8 @@ export interface SubagentEntry {
   parentId: string | null;
   title: string;
   agentType: string;
+  /** The model it runs on, readable ("Haiku 5.5"); "" when the CLI does not say. */
+  model: string;
   prompt: string;
   status: SubagentStatus;
   summary: string;
@@ -71,6 +73,24 @@ export function isLaunchReceipt(output: string | null): boolean {
   return Boolean(output && /^(Async agent launched|agentId:)/i.test(output.trim()));
 }
 
+const ALIASES: Record<string, string> = { haiku: "Haiku", sonnet: "Sonnet", opus: "Opus", fable: "Fable", inherit: "" };
+
+/**
+ * A model id the way a person reads it: "claude-haiku-5-5" → "Haiku 5.5",
+ * "sonnet" → "Sonnet". Other vendors' ids already read well and stay as given.
+ */
+export function modelName(raw: string): string {
+  const id = raw.trim();
+  if (!id) return "";
+  const lower = id.toLowerCase();
+  if (lower in ALIASES) return ALIASES[lower];
+  if (!lower.startsWith("claude-")) return id;
+  const parts = lower.slice("claude-".length).split(/[-_]/).filter((part) => !/^\d{8}$/.test(part) && part !== "latest");
+  const words = parts.filter((part) => !/^\d+$/.test(part)).map((word) => word[0].toUpperCase() + word.slice(1));
+  const version = parts.filter((part) => /^\d+$/.test(part)).join(".");
+  return [...words, version].filter(Boolean).join(" ") || id;
+}
+
 function firstLine(value: string, max = 80): string {
   const line = value.split(/\r?\n/).find((part) => part.trim())?.trim() ?? "";
   return line.length > max ? `${line.slice(0, max - 1).trimEnd()}…` : line;
@@ -95,6 +115,7 @@ function derived(block: ToolBlock, turnStatus: TurnStatus): SubagentState {
   return {
     description: text(input.description) || text(input.title) || text(input.name),
     agentType: text(input.subagent_type) || text(input.agent_type) || text(input.agent) || text(input.role),
+    model: text(input.model),
     prompt,
     background: Boolean(input.run_in_background),
     threadId: "",
@@ -122,6 +143,7 @@ function entryOf(block: ToolBlock, turn: TurnItem, depth: number, parentId: stri
     parentId,
     title,
     agentType: sub.agentType || text(input.subagent_type),
+    model: modelName(sub.model || text(input.model)),
     prompt: sub.prompt || text(input.prompt),
     status: sub.status,
     summary: sub.summary,
@@ -328,7 +350,7 @@ export function mergeDiscovered(items: TimelineItem[], agents: readonly Discover
       kind: "tool", callId: `codex:${agent.thread_id}`, name: "spawn_agent", input: null, output: null,
       isError: false, durationMs: null, approval: null, startedMs: agent.started_ms,
       subagent: {
-        description: pathTitle(agent.path) || agent.nickname, agentType: agent.nickname || (agent.role !== "default" ? agent.role : ""),
+        description: pathTitle(agent.path) || agent.nickname, agentType: agent.nickname || (agent.role !== "default" ? agent.role : ""), model: "",
         prompt: "", background: true, threadId: agent.thread_id, status, summary: agent.summary,
         activity: "", lastTool: "", tokens: null, toolUses: null, durationMs: null,
         startedMs: agent.started_ms, finishedMs: status === "running" ? null : agent.updated_ms || null, blocks,

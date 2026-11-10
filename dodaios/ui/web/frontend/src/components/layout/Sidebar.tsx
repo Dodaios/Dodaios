@@ -4,7 +4,7 @@ import {
   Mic,
   ChevronDown,
   MoreHorizontal,
-  Plus,
+  MessageCircle,
 } from "lucide-react";
 import {
   NAV_GROUPS,
@@ -26,11 +26,12 @@ import { clsx } from "clsx";
 import { cn } from "@/lib/utils";
 import { lazy, Suspense, useMemo, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { useT } from "@/i18n";
-import { RecentChats } from "@/components/home/RecentChats";
+import { EarlierChatsLink } from "@/components/home/EarlierChatsLink";
 import { useHomeStore } from "@/store/home";
 import { LazyIdeProjectTree } from "@/components/agentic/LazyIdeProjectTree";
 import { IDE_SECTIONS } from "@/lib/ideSections";
 import { useIdeProjectsStore } from "@/store/ideProjects";
+import { useIdeThreadsStore } from "@/store/ideThreads";
 import { SidebarSearchBar } from "@/components/layout/SidebarSearchBar";
 import { SidebarMoreFlyout } from "@/components/layout/SidebarMoreFlyout";
 import { useQuickSwitchSettings } from "@/store/quickSwitchSettings";
@@ -228,6 +229,10 @@ export function Sidebar({
    * long as any of them is running.
    */
   const onIdeSection = IDE_SECTIONS.includes(active);
+  // The IDE's thread layout lists search as a row under its other start
+  // rows (ThreadTree), so its header keeps the name instead of the field.
+  const threadLayout = useIdeThreadsStore((s) => s.layout) === "threads" && onIdeSection;
+  const headerSearch = searchBarOn && !threadLayout;
   // An empty chat on the front page: nothing open, nothing being read.
   const onEmptyChat = useAgentChatStore(
     (st) => active === "chats" && !st.activeSessionId && st.timeline.items.length === 0,
@@ -401,7 +406,7 @@ export function Sidebar({
             railed ? "flex-col justify-center gap-1.5" : "w-full gap-2",
           )}
         >
-          {(railed || !searchBarOn) && <span
+          {(railed || !headerSearch) && <span
             data-testid="sidebar-style-avatar"
             data-variant="logo"
             title={railed ? `${assistantName} — ${voiceLabel}` : undefined}
@@ -425,7 +430,7 @@ export function Sidebar({
               the loudest spot in the column. The dot says "fine" on its own
               (its hover and accessible name still carry the word); the word
               only appears when there IS news: starting, offline, error. */}
-          {!railed && searchBarOn && (
+          {!railed && headerSearch && (
             <SidebarSearchBar
               assistantName={assistantName}
               status={
@@ -467,7 +472,7 @@ export function Sidebar({
               }
             />
           )}
-          {!railed && !searchBarOn && (
+          {!railed && !headerSearch && (
             <div
               className="flex min-w-0 flex-1 items-center gap-2 text-sm"
               title={voiceLabel}
@@ -547,15 +552,14 @@ export function Sidebar({
           </div>
         </nav>) : <nav aria-label={t("sidebar.sections")} className="space-y-px px-2 py-2">
           <ul className="space-y-px">
-            {/* One door: a fresh typed chat. Voice is a mode INSIDE the chat
-                now (its top bar's button), so there is nothing to choose
-                between here (2026-10-01). */}
+            {/* One door: the one endless conversation (2026-11-09). Voice is
+                a mode INSIDE it (its top bar's button). */}
             <li><button type="button" data-testid="sidebar-new-chat" data-tour="new-chat"
-              aria-label={t("sidebar.new_chat")} title={t("sidebar.new_chat")}
+              aria-label={t("sidebar.conversation")} title={t("sidebar.conversation")}
               className={cn(rowClass, onEmptyChat && "bg-secondary text-foreground-strong")}
               onClick={() => { useHomeStore.getState().setSurface("chat"); startNewTextChat(); }}>
-              <Plus aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" />
-              {!railed && <span>{t("sidebar.new_chat")}</span>}
+              <MessageCircle aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" />
+              {!railed && <span>{t("sidebar.conversation")}</span>}
             </button></li>
             {/* The order the maintainer chose (2026-11-02): the agents, where
                 they code, the Verse, the voice, then the extensions and the
@@ -581,7 +585,7 @@ export function Sidebar({
         </nav>}
         {!railed && (onIdeSection
           ? <LazyIdeProjectTree />
-          : <><Suspense fallback={null}><SidebarAgents /></Suspense><section className="mt-5 px-2 pb-3" aria-label={t("sidebar.recent_chats")}><RecentChats /></section></>)}
+          : <><Suspense fallback={null}><SidebarAgents /></Suspense><section className="mt-5 px-2 pb-3" aria-label={t("sidebar.earlier_chats")}><EarlierChatsLink /></section></>)}
       </div>
 
       {/* The footer is one button now, not a popup: it opens the Settings hub

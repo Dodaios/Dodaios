@@ -47,6 +47,7 @@ const PROVIDER_FAMILY_LOGOS: Record<string, FamilyLogo> = {
   nvidia: { file: "nvidia.svg", render: "colour" },
   ollama: { file: "ollama.svg", render: "mono" },
   openai: { file: "openai.svg", render: "mono" },
+  opencode: { file: "opencode.svg", render: "mono" },
   openrouter: { file: "openrouter.svg", render: "mono" },
   litellm: { file: "litellm.svg", render: "colour" },
   oracle: { file: "oracle.svg", render: "mono" },
@@ -80,6 +81,8 @@ function assetUrl(file: string): string | undefined {
  */
 export function providerFamily(providerId: string): string | null {
   const id = providerId.toLowerCase();
+  // A CLI the user added: its own mark, never a brand guessed from its name.
+  if (id.startsWith("custom-")) return null;
   if (id.includes("vertex")) return "google-cloud";
   if (id.includes("antigravity") || id === "agy-cli") return "antigravity";
   if (id.includes("gemini")) return "gemini";
@@ -90,6 +93,7 @@ export function providerFamily(providerId: string): string | null {
   if (id.includes("litellm")) return "litellm";
   if (id.includes("groq")) return "groq";
   if (id.includes("ollama")) return "ollama";
+  if (id === "opencode" || id === "opencode-cli") return "opencode";
   if (id.includes("elevenlabs")) return "elevenlabs";
   if (id.includes("cartesia")) return "cartesia";
   if (id.includes("inworld")) return "inworld";

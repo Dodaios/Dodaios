@@ -13,7 +13,7 @@ import type { AwardEvent, ProgressionSnapshot, SubjectLevel } from "./progressio
 import { PERSON_SUBJECT, rewardsOf } from "./progressionApi";
 import { MAX_LEVEL, type RewardId, type SubjectKind } from "./levelCatalog";
 import { loadUniformChoice, progressFor, rewardsBetween, saveUniformChoice, type UniformChoice } from "./cosmetics";
-import { isPromotion } from "../verse/ranks/ranks";
+import { isPromotion } from "./ranks";
 
 export interface Celebration {
   id: number;

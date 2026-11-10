@@ -202,6 +202,12 @@ def backend_for(agent: Any, workspace: Path) -> ShellBackend:
     return default_backend()
 
 
+def thread_agent_id(session_id: str) -> str:
+    """The workspace/launcher key of a coding thread placed on a computer."""
+    safe = "".join(ch for ch in session_id if ch.isalnum())[:16] or "thread"
+    return f"thread-{safe}"
+
+
 async def placement_for_session(session: Any) -> tuple[str, str] | None:
     """``(computer_id, agent_id)`` when a society chat's agent runs elsewhere.
 
@@ -209,7 +215,12 @@ async def placement_for_session(session: Any) -> tuple[str, str] | None:
     agent or an agent on this computer answers ``None`` (run locally).
     """
     if getattr(session, "surface", "") != "society":
-        return None
+        # A coding thread placed on a computer: a stable per-thread key takes
+        # the place of an agent id for its workspace and launcher files.
+        computer_id = str(getattr(session, "computer_id", "") or "")
+        if not computer_id:
+            return None
+        return computer_id, thread_agent_id(str(getattr(session, "session_id", "") or ""))
     session_id = str(getattr(session, "session_id", "") or "")
     if not session_id.startswith("society:"):
         return None

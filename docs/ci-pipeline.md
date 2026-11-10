@@ -24,8 +24,8 @@ to prove (`scripts/ci/plan_run.py` emits the tier and every job matrix):
 
 | Tier | When | What runs | Target |
 | --- | --- | --- | --- |
-| `pr` | pull request, branch run dispatched by the merge train | Static gates, the whole Linux + Windows suite, every affected lane on Linux and Windows. No macOS. | ~10 min |
-| `queue` | merge-queue group; a push that reached main without the queue | Everything `pr` runs plus at most two macOS jobs: the macOS tests the change can reach, filled up to about five minutes with the tests that name macOS (one runner), and the Apple Silicon desktop bundle when the macOS lane is affected. The blocking proof of the exact tree main gets. | ~10-13 min |
+| `pr` | pull request, branch run dispatched by the merge train | Static gates, the whole Linux suite, the Windows tests the change can reach (the whole Windows suite when it reaches everything), every affected lane on Linux and Windows. No macOS. | ~10 min |
+| `queue` | merge-queue group; a push that reached main without the queue | Everything `pr` runs, the whole Windows suite, plus at most two macOS jobs: the macOS tests the change can reach, filled up to about five minutes with the tests that name macOS (one runner), and the Apple Silicon desktop bundle when the macOS lane is affected. The blocking proof of the exact tree main gets. | ~10-13 min |
 | `full` | nightly, release tag, manual full dispatch | The wide matrix: Intel macOS, the ARM runners, every interpreter, the macOS test shards, all three macOS desktop rows, and the Hermes install on Windows. A red nightly opens the issue "Nightly CI is red" (`nightly-alert.yml`). | ~40 min |
 | proven | push to main of a commit the merge queue already passed | `detect` and `CI gate` only. | under 1 min |
 
@@ -104,7 +104,7 @@ request, merge queue, and again on the push of the same commit).
 | `live third-party sites` | Nightly only and non-blocking: the opt-in live checks of pages the app parses (`JARVIS_LIVE_NETWORK_TESTS=1`, ollama.com's library). A site redesign shows as a failed step and a run warning, never as a red gate. | — |
 | `python contracts (fast)` | Import cleanliness on the bare install, the named contract guards, skill-routing precision and recall, plugin auth. Blocking, no baseline. | — |
 | `tests linux 1..6` | The whole suite in six shards. Batches of files run in fresh processes with a wall-clock budget; a failed batch is re-run file by file, a failed file once more (a pass there is reported as flaky). A file that runs out of its budget alone gets one more attempt with twice that budget, capped at the file ceiling: a file without history starts on the generic floor, and a pass there is reported as flaky and enters the history with its real duration. | `scripts/ci/run_tests_parallel.py` |
-| `tests windows 1..6` | The whole suite in six shards on every tier, pull requests included, so a Windows-only failure blocks the pull request instead of ejecting it from the merge queue. | `scripts/ci/run_tests_parallel.py` |
+| `tests windows 1..6` | Merge queue, main and nightly: the whole suite in six shards. Pull request: the tests the change can reach, selected once in `detect`, on one runner (two for more than 450 files); a change that reaches everything runs the six shards, one that reaches no test runs the smoke tests. Six shards on every push held a third of the 60-job pool on 2026-11-09, while 21 of 30 merged changes reached fewer than 900 of 2809 test files. The price: a Windows-only failure in a test the change does not reach shows up in the merge queue, not on the pull request. | `scripts/ci/select_tests.py`, `scripts/ci/run_tests_parallel.py` |
 | `tests macos 1..3` | The whole suite on macOS: nightly, release and manual runs with macOS only. | — |
 | `tests macos impact` | Merge queue: the macOS tests the change can reach, before it lands, on one runner. A change that reaches everything (the pipeline, conftest, the lockfile) runs the macOS-focused set instead: the tests of the code that asks for or acts on a macOS facility, about 200 files. Either selection is filled up to about five minutes with the tests that name macOS or belong to the macOS lane. Selected once, in `detect`. | `scripts/ci/select_tests.py --one-runner` |
 | `test report + floor` | Proves the six Linux shards cover every discovered file exactly once, enforces the min-passed floor. Detection freezes one shared duration snapshot for all shards, including partial reruns. | `scripts/ci/ratchet_tests.py` |
@@ -238,6 +238,16 @@ Changes that pass alone and break together stop in the queue instead of on
 main. A failed entry leaves the queue; the entries behind it are rebuilt
 without it.
 
+The queue groups by the newest entry (`grouping_strategy: HEADGREEN`): each
+entry's run tests main plus every entry ahead of it, so a green entry merges
+together with all entries ahead of it, even if one of their own runs is still
+going or failed on a flake. When a group is rebuilt or merged, GitHub deletes
+its `gh-readonly-queue/...` branch but lets the runs on it finish;
+`.github/workflows/queue-sweep.yml` cancels them (on every new group and every
+queue merge, only on a 404 for the branch). On 2026-11-09 such runs took a
+third of the queue's runner minutes while the live groups waited 8 to 20
+minutes for one of the 60 runners.
+
 Agents push branches named `codex/…`, `claude/…`, `agent/…`, `gemini/…`,
 `cursor/…` or `bot/…`, or add the `auto-merge` label to any pull request. The
 merge train runs on every push to main, after every CI run (pull request or
@@ -364,6 +374,12 @@ and the script refuses to land from it. Work starts on a branch cut from
 the main checkout follows with `git pull --ff-only` once the pull request has
 merged. Hooks come from the checkout a command runs in, so a worktree cut
 before a hook existed does not have it until it is rebased.
+
+A checkout that several sessions share, the one the desktop app runs from, is
+marked with `git config dodaios.sharedCheckout true`. Its primary worktree
+stays on `main`: the `post-checkout` hook warns the moment it is switched to
+another branch, and the commit hook refuses a commit there on any branch.
+Linked worktrees and clones without the setting are not affected.
 
 It rebases onto the latest main with the same conflict engine, runs the
 static gates, runs the tests the diff can reach, pushes, and asks GitHub to
@@ -699,7 +715,11 @@ request. A checkout of main builds it locally: `npm run build` in
 `dodaios/ui/web/frontend`; the desktop app that follows main does that by
 itself (`main_follow.py`). Never commit the result.
 
-Merge queue: `max_entries_to_build` is 3 (ruleset 24704136; raised from 2 on
-2026-10-26, 12 pull requests were waiting at about 7.5 minutes each).
+Merge queue: `max_entries_to_build` is 5 and `grouping_strategy` is
+`HEADGREEN` (ruleset 24704136; 2 → 3 on 2026-10-26, 3 → 5 and `ALLGREEN` →
+`HEADGREEN` on 2026-11-09). With 3 entries in flight and about 30 minutes per
+group run, the queue merged about 6 pull requests an hour while about 8 an
+hour arrived; 26 were waiting. The runner minutes the queue sweep frees pay
+for the two extra groups.
 
 Dependabot covers npm through security updates only.

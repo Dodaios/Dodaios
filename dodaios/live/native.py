@@ -75,7 +75,6 @@ _DIRECT_TOOL_PREFERENCE = (
     "spotify",
     "home_assistant",
     "memory-search",
-    "wiki-recall",
     "product_help",
 )
 

@@ -58,3 +58,28 @@ def test_ci_runner_is_left_alone(repo, monkeypatch):
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
 
     assert check_commit_branch.main(["--quiet"]) == check_commit_branch.EXIT_OK
+
+
+def test_shared_checkout_refuses_a_feature_branch(repo, capsys):
+    _git(repo, "config", check_commit_branch.SHARED_CHECKOUT_KEY, "true")
+    _git(repo, "switch", "-q", "-c", "claude/some-topic")
+
+    assert check_commit_branch.main(["--quiet"]) == check_commit_branch.EXIT_PROTECTED
+    err = capsys.readouterr().err
+    assert "shared main checkout" in err
+    assert "git switch main" in err
+
+
+def test_worktree_of_a_shared_checkout_is_free(repo, monkeypatch):
+    _git(repo, "config", check_commit_branch.SHARED_CHECKOUT_KEY, "true")
+    linked = repo.parent / f"{repo.name}-linked"
+    _git(repo, "worktree", "add", "-q", "-b", "claude/some-topic", str(linked))
+    monkeypatch.chdir(linked)
+
+    assert check_commit_branch.main(["--quiet"]) == check_commit_branch.EXIT_OK
+
+
+def test_shared_checkout_still_refuses_main(repo):
+    _git(repo, "config", check_commit_branch.SHARED_CHECKOUT_KEY, "true")
+
+    assert check_commit_branch.main(["--quiet"]) == check_commit_branch.EXIT_PROTECTED

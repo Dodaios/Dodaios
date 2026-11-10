@@ -9,6 +9,9 @@ import { ScrollToEndButton } from "@/components/ui/scroll-to-end-button";
 import { scrollViewportOf, useStickToBottom } from "@/hooks/useStickToBottom";
 import { AgentComposer } from "@/components/agentchat/AgentComposer";
 import { AgentTimeline } from "@/components/agentchat/AgentTimeline";
+import { rosterFaces } from "@/components/agentchat/InternalMessageRun";
+import { useCachedRosterAgents } from "@/components/society/data";
+import { societyDisplayName } from "@/lib/societyDisplayName";
 import { BinaryCursorField } from "@/components/home/BinaryCursorField";
 import { Greeting } from "@/components/home/Greeting";
 import { VoiceThreadStage } from "@/components/home/VoiceThreadStage";
@@ -64,6 +67,12 @@ export function ChatStage() {
 function ChatStageContent() {
   const t = useT();
   const assistantName = useEventStore((s) => s.assistantName);
+  // Agent messages show each agent's own pet, which only the roster knows.
+  const roster = useCachedRosterAgents();
+  const faces = useMemo(
+    () => (roster ? rosterFaces(roster, (agent) => societyDisplayName(agent, assistantName ?? "")) : undefined),
+    [roster, assistantName],
+  );
   const surface = useAgentChat((s) => s.surface);
   const allItems = useAgentChat((s) => s.timeline.items);
   const cwd = useAgentChat((s) => s.draft.cwd);
@@ -253,6 +262,7 @@ function ChatStageContent() {
             // the maintainer kept; every other surface draws the rail.
             traceLook={isJarvis ? "rail" : "classic"}
             traceCompanion={isJarvis}
+            agentsById={faces}
           />
           <div ref={spacerRef} aria-hidden data-testid="chat-bottom-spacer" className="shrink-0" />
         </div>

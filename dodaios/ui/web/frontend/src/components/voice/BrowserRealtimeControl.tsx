@@ -17,6 +17,7 @@ import {
   browserRealtimeSupportIssue,
   RealtimeAudioClient,
   RealtimeAudioSupportError,
+  realtimeStartFailure,
   type BrowserRealtimeSupportIssue,
 } from "@/lib/realtimeAudio";
 import { useEventStore, type VoiceState } from "@/store/events";
@@ -82,6 +83,39 @@ async function reportHostMicrophoneDenied(): Promise<void> {
     console.warn("Microphone permission report failed:", error);
   }
 }
+
+/**
+ * The sentence for a start that failed on this device, or `null` when the
+ * cause is unknown and the generic line is the honest one.
+ *
+ * Every local failure used to read "test the active provider": a missing
+ * microphone, a firewall that blocks the audio connection and a slow network
+ * all sent the person to check a credential that was never the problem.
+ */
+export function localStartFailureKey(cause: unknown, desktop: boolean): string | null {
+  if (cause instanceof DOMException) {
+    if (cause.name === "NotAllowedError" || cause.name === "SecurityError") {
+      return desktop
+        ? "sidebar.realtime_microphone_denied_desktop"
+        : "sidebar.realtime_microphone_denied";
+    }
+    if (cause.name === "NotFoundError" || cause.name === "OverconstrainedError") {
+      return "sidebar.realtime_microphone_missing";
+    }
+    if (cause.name === "NotReadableError" || cause.name === "AbortError") {
+      return "sidebar.realtime_microphone_busy";
+    }
+  }
+  const reason = realtimeStartFailure(cause);
+  if (reason === "audio_device_timeout") return "sidebar.realtime_audio_device_timeout";
+  if (reason === "media_failed") return "sidebar.realtime_media_failed";
+  if (reason === "start_timeout") return "sidebar.realtime_start_timeout";
+  if (reason === "webrtc_unsupported") return "sidebar.realtime_webrtc_unsupported";
+  return null;
+}
+
+/** How long a wake request waits for the voice engine to report ready. */
+const START_UNAVAILABLE_GRACE_MS = 6_000;
 
 function startupRequestId(payload: unknown): string | null {
   const id = (payload as { request_id?: unknown } | null)?.request_id;
@@ -156,6 +190,8 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
   // leaves it waiting out the full handshake budget for nothing.
   const pendingStart = useRef<{ id: string; ts: number; requestId: string | null } | null>(null);
   const nativeRequestRef = useRef<string | null>(null);
+  // A wake request that arrived while the voice engine reported "not ready".
+  const unavailableStart = useRef<{ id: string; timer: number } | null>(null);
   const initialNativeStartPending = useRef(false);
   const connectionGenerationRef = useRef(0);
   // A progress/preamble surface line is not the end of the turn. After the
@@ -353,6 +389,16 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
           } else if (status === "provider_warning") {
             // Recoverable: the session continues. A note, never an error.
             setNotice(backendDetail || t("sidebar.realtime_provider_warning"));
+          } else if (status === "error") {
+            // The provider rejected one request and the call goes on. This
+            // status used to be dropped, so a refused request looked like the
+            // assistant ignoring the person.
+            const rejected =
+              (typeof payload.message === "string" ? payload.message.trim() : "") ||
+              backendDetail ||
+              t("sidebar.realtime_provider_warning");
+            setNotice(rejected);
+            if (local || controlOnly) pushToast("warning", rejected);
           } else if (status === "webrtc_transport_unavailable") {
             setNotice(t("sidebar.realtime_webrtc_degraded"));
           } else if (status === "error_spoken") {
@@ -448,14 +494,16 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
       // ("Open System Settings") takes over; a wake-started call never does.
       const hostDenied = micDenied && isEmbeddedMacWindow();
       if (hostDenied && options?.fromGesture) void reportHostMicrophoneDenied();
+      // The embedded window has no site settings on any system: there the
+      // operating system decides about the microphone, not a browser page.
+      const failureKey = localStartFailureKey(cause, hasEmbeddedDesktopBridge());
+      console.warn("Voice start failed:", cause);
       const message =
         cause instanceof RealtimeAudioSupportError
           ? supportMessage(cause.issue)
-          : hostDenied
-            ? t("sidebar.realtime_microphone_denied_desktop")
-            : micDenied
-              ? t("sidebar.realtime_microphone_denied")
-              : startFailed;
+          : failureKey
+            ? t(failureKey)
+            : startFailed;
       if (local) {
         endLocalCall(message);
         return;
@@ -471,6 +519,7 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
     requiresWebRtcOffer,
     webRtcStartEventRequired,
     browserAudio,
+    controlOnly,
     setTranscription,
     setVoice,
     startBudgetMs,
@@ -522,7 +571,31 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
     const action = (event.payload as { action?: string })?.action;
     const requestId = startupRequestId(event.payload);
     if (action === "start") {
-      if (!realtimeAvailable) return;
+      if (!realtimeAvailable) {
+        // The desktop is already waiting for this call. Give provider
+        // discovery a moment, then answer: a request this page silently
+        // ignores leaves the desktop "connecting" for a minute and ends in
+        // idle with no reason shown.
+        if (requestId && unavailableStart.current?.id !== event.id) {
+          if (unavailableStart.current) window.clearTimeout(unavailableStart.current.timer);
+          const timer = window.setTimeout(() => {
+            if (unavailableStart.current?.id !== event.id) return;
+            unavailableStart.current = null;
+            if (handledRequest.current === event.id) return;
+            handledRequest.current = event.id;
+            void reportNativeStartupFailure(requestId);
+            setState("error");
+            setError(t("sidebar.realtime_start_unavailable"));
+            setVoice("error");
+          }, START_UNAVAILABLE_GRACE_MS);
+          unavailableStart.current = { id: event.id, timer };
+        }
+        return;
+      }
+      if (unavailableStart.current) {
+        window.clearTimeout(unavailableStart.current.timer);
+        unavailableStart.current = null;
+      }
       if (requestId && nativeRequestRef.current && requestId !== nativeRequestRef.current &&
           initialNativeStartPending.current && clientRef.current) {
         // The native owner can replace its pending request without emitting an
@@ -545,13 +618,17 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
     }
     if (action === "stop") {
       handledRequest.current = event.id;
+      if (unavailableStart.current) {
+        window.clearTimeout(unavailableStart.current.timer);
+        unavailableStart.current = null;
+      }
       // A retired native wake must never end a newer wake or a browser-held
       // call. Legacy backends retain their existing uncorrelated stop behavior.
       if (requestId && requestId !== nativeRequestRef.current && requestId !== pendingStart.current?.requestId) return;
       pendingStart.current = null;
       void stop();
     }
-  }, [events, browserAudio, wakeOwner, canStartInBackground, realtimeAvailable, start, stop, state]);
+  }, [events, browserAudio, wakeOwner, canStartInBackground, realtimeAvailable, start, stop, state, setVoice, t]);
 
   useEffect(() => {
     // This surface owns BOTH directions while it is live: it holds the
@@ -580,6 +657,8 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
       nativeRequestRef.current = null;
       initialNativeStartPending.current = false;
       pendingStart.current = null;
+      if (unavailableStart.current) window.clearTimeout(unavailableStart.current.timer);
+      unavailableStart.current = null;
       const client = clientRef.current;
       clientRef.current = null;
       setBrowserVoiceInputOwnership(false);

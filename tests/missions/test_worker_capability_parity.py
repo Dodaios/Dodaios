@@ -33,7 +33,7 @@ def _inventory() -> WorkerCapabilityInventory:
                 "env": {"ACCESS_TOKEN": "secret-value"},
             }
         },
-        app_commands=("session-latest-turn", "wiki-ingest"),
+        app_commands=("session-latest-turn",),
     )
 
 
@@ -86,7 +86,6 @@ def test_registry_drives_the_restricted_worker_command_surface() -> None:
         "provider-test",
         "wake-word-get",
         "audio-devices-list",
-        "wiki-ingest",
         "session-latest-turn",
         "tools-list",
         "missions-list",
@@ -104,14 +103,11 @@ def test_config_command_is_rejected_from_worker_inventory() -> None:
 
 
 def test_worker_knowledge_surface_baseline() -> None:
-    """The wiki triple plus the always-on research pair (ADR-0030).
+    """The always-on research pair (ADR-0030); the personal memory stays with the assistant.
     Control surfaces and the excluded tools stay out."""
     tools = set(restricted_worker_knowledge_tools())
 
     assert tools == {
-        "wiki-list",
-        "wiki-recall",
-        "wiki-page-read",
         "search_web",
         "contact-lookup",
     }
@@ -129,7 +125,7 @@ def test_every_granted_knowledge_tool_passes_the_broker_denylist() -> None:
         assert worker_tool_name_allowed(name), name
 
 
-def test_mission_inventory_combines_wiki_reads_with_relevant_connectors(
+def test_mission_inventory_combines_research_tools_with_relevant_connectors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from dodaios.missions import init as missions_init
@@ -146,13 +142,10 @@ def test_mission_inventory_combines_wiki_reads_with_relevant_connectors(
     )
 
     inventory = missions_init._assemble_worker_capability_inventory(
-        "Review the Wiki and my relevant email."
+        "Research the topic and review my relevant email."
     )
 
     assert set(inventory.native_tool_names) == {
-        "wiki-list",
-        "wiki-recall",
-        "wiki-page-read",
         "search_web",
         "contact-lookup",
         "gmail",

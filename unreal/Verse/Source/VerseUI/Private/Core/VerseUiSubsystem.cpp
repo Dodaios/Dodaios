@@ -1,11 +1,13 @@
 #include "Core/VerseUiSubsystem.h"
 
+#include "Audio/VerseAudioSubsystem.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "CanvasItem.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Core/VerseUiDefaultPorts.h"
 #include "Core/VerseUiTheme.h"
+#include "Input/VerseDeckControlComponent.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
@@ -1041,6 +1043,17 @@ void UVerseUiSubsystem::PublishSettings()
 	PublishCVar(TEXT("Verse.Settings.InvertY"), AppSettings.bInvertY ? TEXT("1") : TEXT("0"), TEXT("Invert look Y (VerseUI)"));
 	PublishCVar(TEXT("Verse.Settings.ReducedMotion"), AppSettings.bReducedMotion ? TEXT("1") : TEXT("0"), TEXT("Reduced motion (VerseUI)"));
 	PublishCVar(TEXT("Verse.Settings.Volume"), FString::SanitizeFloat(AppSettings.Volume), TEXT("Master volume 0-1 (VerseUI)"));
+	PublishCVar(TEXT("Verse.Settings.ViewMode"), AppSettings.ViewMode, TEXT("Deck view restored from the app config: third, first, overview (VerseUI)"));
+	// Z-14, R-12: the app-wide sound switch, the level bell switch and the volume reach the audio subsystem.
+	if (UWorld* World = GetWorld())
+	{
+		if (UVerseAudioSubsystem* Audio = World->GetSubsystem<UVerseAudioSubsystem>())
+		{
+			Audio->SetUiSoundEnabled(AppSettings.bUiSound);
+			Audio->SetLevelSoundEnabled(AppSettings.bLevelSound);
+			Audio->SetUserVolume(AppSettings.Volume);
+		}
+	}
 	WriteGoreSetting(GetWorld(), AppSettings.Gore);
 	WriteViewSettings(UserSettings ? UserSettings->DuelFov : 100.f, AppSettings);
 	ApplyKeyBindingsToInput();
@@ -1143,6 +1156,12 @@ bool UVerseUiSubsystem::HandleKey(const FKey& Key)
 		ReturnToApp(TEXT("return_key"));
 		return true;
 	case EVerseUiCommand::EscMenu:
+		// On a deck, Escape first ends mouse look, then closes the crew card (parity K-05); only
+		// with nothing of the deck's open does it reach the menu.
+		if (Screen == EVerseUiScreen::None && UVerseDeckControlComponent::TryEscape(GetWorld()))
+		{
+			return true;
+		}
 		ShowScreen(Screen == EVerseUiScreen::None ? EVerseUiScreen::EscMenu
 			: Screen == EVerseUiScreen::Settings ? EVerseUiScreen::EscMenu
 			: EVerseUiScreen::None);

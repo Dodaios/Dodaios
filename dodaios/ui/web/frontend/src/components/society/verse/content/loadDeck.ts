@@ -6,7 +6,7 @@
  * A deck that is missing or broken is an error the stage shows, never a
  * half-built scene.
  */
-import type { DeckId } from "../decks";
+import type { DeckId } from "../../progression/decks";
 import {
   STATION_KINDS, type Deck, type NavGrid, type PlateImages, type PlateLevel, type RealtimeContent, type Socket, type Station, type StationKind,
 } from "./deck";

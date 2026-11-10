@@ -22,10 +22,12 @@ afterEach(cleanup);
 describe("a thread turn that waits for its background tasks", () => {
   it("says it waits, and on what, instead of plain Working", () => {
     render(<ThreadTurn turn={turnOf(waiting())} />);
-    const line = screen.getByTestId("thread-working").textContent ?? "";
-    expect(line).toMatch(/^Waiting for 2 background tasks · /);
-    expect(line).toContain("Run the full test suite, git push");
-    expect(line).not.toContain("Working for");
+    const heading = screen.getByTestId("thread-waiting-background").textContent ?? "";
+    expect(heading).toMatch(/^Waiting for 2 background tasks·/);
+    expect(screen.getByTestId("thread-working").textContent).not.toContain("Working for");
+    // One line per task, so a long name never runs into the next one.
+    const tasks = screen.getByTestId("thread-waiting-tasks").querySelectorAll("li");
+    expect([...tasks].map((task) => task.textContent)).toEqual(["Run the full test suite", "git push"]);
   });
 
   it("goes back to Working once the agent picks up again", () => {

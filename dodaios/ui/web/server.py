@@ -259,10 +259,6 @@ class WebServer:
         self._task_runner: Any | None = None
         self._task_scheduler_task: asyncio.Task[None] | None = None
         self._task_cancel_token: Any | None = None
-        # Phase B5 wiki write-wiring handle — shutdown() called in stop().
-        self._wiki_integration_handle: Any | None = None
-        # Phase B3 wiki live-reload watchdog handle — shutdown() called in stop().
-        self._wiki_watcher: Any | None = None
         self._channel_chat_bridge: Any | None = None
         # Pre-Thinking-Ack (Flash-Brain) bridge: translate AnnouncementRequested
         # events with kind="preamble" into MessageSent(role="preamble") so the
@@ -559,7 +555,6 @@ class WebServer:
         from .marketplace_publish_routes import router as marketplace_publish_router
         from .marketplace_routes import router as marketplace_router
         from .mcp_routes import router as mcp_router
-        from .memory_vault_routes import router as memory_vault_router
         from .personal_memory_routes import router as personal_memory_router
         from .mission_billing_routes import router as mission_billing_router
         from .missions_auth import router as missions_auth_router
@@ -588,7 +583,6 @@ class WebServer:
         from .sessions_routes import router as sessions_router
         from .settings_routes import router as settings_router
         from .setup_report_routes import router as setup_report_router
-        from .setup_routes import router as setup_router
         from .skills_routes import router as skills_router
         from .socials_routes import router as socials_router
         from .society_browser_routes import router as society_browser_router
@@ -605,8 +599,6 @@ class WebServer:
         from .update_routes import router as update_router
         from .voice_call_routes import router as voice_call_router
         from .wallpaper_routes import router as wallpaper_router
-        from .wiki_routes import router as wiki_router
-        from .wiki_ws import router as wiki_ws_router
         from .workflows_routes import router as workflows_router
         from .workspace_clis_routes import router as workspace_clis_router
         from .workspace_routes import router as workspace_router
@@ -867,20 +859,10 @@ class WebServer:
         # inspect/cancel desktop goals — auto-exposed as `jarvis api
         # computer-use <op>` by the dynamic CLI layer.
         app.include_router(computer_use_router)
-        # Phase B9 — Obsidian Setup Wizard (detect install + register vault).
-        app.include_router(setup_router)
         # First-time onboarding guide (/api/onboarding/*).
         app.include_router(onboarding_router)
-        # Phase B3 — Wiki view (read-only REST API over the Obsidian vault).
-        app.include_router(wiki_router)
-        # Path-addressed Memory section API (index, reader, map, edits).
-        app.include_router(memory_vault_router)
         # Personal memory vault API (ADR-0044): items, history, export, import.
         app.include_router(personal_memory_router)
-        # Phase B3 — Desktop wiki view live-reload WS endpoint.
-        # Forwards WikiPageChanged events from the shared EventBus to
-        # subscribed UI clients. WikiWatcher is started in start().
-        app.include_router(wiki_ws_router)
         # ConnectionManager singleton for the global event stream. Attached
         # to MissionBus.subscribe_all() in start().
         app.state.missions_ws_manager = _MissionsConnMgr()
@@ -3008,23 +2990,6 @@ class WebServer:
             )
         _boot_mark("flight_recorder")
 
-        # Phase B5 wiki write-wiring — SessionRollupWorker + WikiCurator.
-        # Subscribes to IdleEntered; gracefully disabled when wiki_integration
-        # is not configured or enabled is False.
-        try:
-            await self._init_wiki_integration()
-        except Exception as exc:  # noqa: BLE001
-            logger.opt(exception=exc).warning(
-                "WikiIntegration init failed — wiki write-wiring inactive"
-            )
-            try:
-                from dodaios.memory.wiki.health import health as _wiki_health
-
-                _wiki_health.record_bootstrap(False, error=str(exc))
-            except Exception:  # noqa: BLE001 — health recording must never break boot
-                logger.debug("wiki health.record_bootstrap(False) failed", exc_info=True)
-        _boot_mark("wiki_integration")
-
         # The self-building loop's ledger: opens self_build.db, nothing else at
         # boot. Observers and builders register themselves later.
         try:
@@ -3056,28 +3021,6 @@ class WebServer:
             logger.opt(exception=exc).warning(
                 "Learning loop init failed — the assistant will not learn this run"
             )
-
-        # Reconcile the derived FTS5 index after readiness. This repairs stale
-        # rows after a vault switch without extending the startup critical path.
-        try:
-            self._init_wiki_boot_index(background=True)
-        except Exception as exc:  # noqa: BLE001
-            logger.opt(exception=exc).warning(
-                "WikiBootIndex-Init failed — vault search may return no hits "
-                "until the first page write or a manual reindex"
-            )
-        _boot_mark("wiki_boot_index")
-
-        # Phase B3 wiki live-reload — start the WikiWatcher so file
-        # changes in the vault publish WikiPageChanged events that the
-        # /api/wiki/live WS endpoint forwards to the desktop tab.
-        try:
-            self._init_wiki_watcher()
-        except Exception as exc:  # noqa: BLE001
-            logger.opt(exception=exc).warning(
-                "WikiWatcher init failed — desktop wiki live-reload inactive"
-            )
-        _boot_mark("wiki_watcher")
 
         # Voice-session recorder + store for the transcription view.
         # Sub-setup: runs sync (SQLite-WAL, no async loop needed), but is
@@ -3520,196 +3463,6 @@ class WebServer:
                 name="mission-capacity-resume",
             )
 
-    async def _init_wiki_integration(self) -> None:
-        """Phase B5 wiki write-wiring: bootstrap SessionRollupWorker + WikiCurator.
-
-        Subscribes to ``IdleEntered``; writes session digests into the
-        Obsidian vault at session end.  No-op when
-        ``cfg.wiki_integration.enabled`` is False.
-        """
-        from dodaios.memory.wiki.integration import bootstrap_wiki_integration
-        from dodaios.memory.wiki.page import MarkdownPageRepository
-
-        wiki_cfg = self.cfg.wiki_integration
-        if not wiki_cfg.enabled:
-            logger.info("wiki_integration: disabled — skipping bootstrap")
-            try:
-                from dodaios.memory.wiki.health import health as _wiki_health
-
-                _wiki_health.record_bootstrap(False, error="disabled in config")
-            except Exception:  # noqa: BLE001 — health recording must never break boot
-                logger.debug("wiki health.record_bootstrap(disabled) failed", exc_info=True)
-            return
-
-        repo = MarkdownPageRepository()
-        from dodaios.memory.wiki.vault_root import resolve_vault_root
-
-        vault_root = resolve_vault_root(wiki_cfg.vault_root).path
-
-        def _wiki_scheduler_factory(*, curator):  # noqa: ANN001, ANN202
-            """Build the CuratorScheduler (cooldown + VaultLock, Wave-2 B4).
-
-            Gates the Stage-2 consolidation drain; the consolidator itself is
-            attached later via ``scheduler.attach_consolidator``.
-            """
-            from dodaios.memory.wiki.lock import VaultLock
-            from dodaios.memory.wiki.scheduler import CuratorScheduler
-
-            sched_cfg = self.cfg.wiki_scheduler
-            lock_path = Path(sched_cfg.lock_path)
-            if not lock_path.is_absolute():
-                lock_path = Path.cwd() / lock_path
-            return CuratorScheduler(
-                curator=curator,
-                lock=VaultLock(
-                    lock_path,
-                    stale_after_seconds=int(sched_cfg.lock_stale_after_seconds),
-                ),
-                config=sched_cfg,
-            )
-
-        handle = await bootstrap_wiki_integration(
-            bus=self.bus,
-            repo=repo,
-            vault_root=vault_root,
-            config=wiki_cfg,
-            brain_caller=None,  # curator uses BrainProviderRegistry internally
-            scheduler_factory=_wiki_scheduler_factory,
-        )
-        self._wiki_integration_handle = handle
-        logger.info("wiki_integration: bootstrap_wiki_integration succeeded")
-        # No periodic re-review of voice sessions: the six-hourly auto-backfill
-        # was removed on 2026-09-30 together with the per-turn and end-of-call
-        # extraction (it billed paid keys while nobody was at the PC). The
-        # manual POST /api/wiki/backfill is the explicit control.
-        try:
-            from dodaios.memory.wiki.health import health as _wiki_health
-
-            _wiki_health.record_bootstrap(True)
-        except Exception:  # noqa: BLE001 — health recording must never break boot
-            logger.debug("wiki health.record_bootstrap(True) failed", exc_info=True)
-
-    def _init_wiki_boot_index(self, *, background: bool = False) -> None:
-        """Rebuild the derived FTS view against the active vault.
-
-        Production uses a daemon thread after app readiness (AP-26). Tests and
-        explicit callers may keep the synchronous default for deterministic
-        verification.
-        """
-        import sqlite3
-        import threading
-
-        from dodaios.memory.wiki.db_path import resolve_wiki_db_path
-        from dodaios.memory.wiki.fts_index import rebuild_index
-
-        def _resume_semantic_search() -> None:
-            # Semantic search, when the user switched it on: its own thread
-            # loads the model and encodes only the pages that changed. Called
-            # on every way out of this function, so the switch always learns
-            # an honest state, also when there is no vault to search.
-            try:
-                from dodaios.memory.wiki import semantic_setup
-
-                semantic_setup.resume(self.cfg)
-            except Exception:  # noqa: BLE001 - the word search stands on its own
-                logger.opt(exception=True).warning(
-                    "wiki_boot_index: semantic search could not be resumed"
-                )
-
-        wiki_cfg = self.cfg.wiki_integration
-        if not wiki_cfg.enabled:
-            _resume_semantic_search()
-            return
-
-        from dodaios.memory.wiki.vault_root import resolve_vault_root
-
-        vault_root = resolve_vault_root(wiki_cfg.vault_root).path
-        if not vault_root.is_dir():
-            logger.info("wiki_boot_index: vault missing — skipping ({})", vault_root)
-            _resume_semantic_search()
-            return
-
-        db_path = resolve_wiki_db_path(self.cfg.memory.data_dir)
-
-        def _reconcile() -> None:
-            db_path.parent.mkdir(parents=True, exist_ok=True)
-            conn = sqlite3.connect(str(db_path), check_same_thread=False)
-            try:
-                indexed = rebuild_index(vault_root, conn)
-                logger.info(
-                    "wiki_boot_index: reconciled {} page(s) from {} into {}",
-                    indexed,
-                    vault_root,
-                    db_path,
-                )
-            except Exception as exc:  # noqa: BLE001
-                logger.opt(exception=exc).warning(
-                    "wiki_boot_index: background reconciliation failed"
-                )
-                try:
-                    from dodaios.memory.wiki.health import health as _wiki_health
-
-                    _wiki_health.record_chain_failure(f"wiki index reconciliation failed: {exc}")
-                except Exception:  # noqa: BLE001
-                    logger.debug("wiki index health recording failed", exc_info=True)
-            finally:
-                conn.close()
-            # Behind the word index, so it never competes with start-up (AP-26).
-            _resume_semantic_search()
-
-        if background:
-            thread = threading.Thread(
-                target=_reconcile,
-                name="jarvis-wiki-index-reconcile",
-                daemon=True,
-            )
-            thread.start()
-            self._wiki_index_thread = thread
-            return
-        _reconcile()
-
-    def _init_wiki_watcher(self) -> None:
-        """Phase B3 — start the WikiWatcher for desktop live-reload.
-
-        Watches the configured vault root and publishes WikiPageChanged
-        events on the shared bus. Failures are logged but never raised;
-        the desktop app must boot when the vault is empty or watchdog
-        cannot start an observer.
-        """
-        from dodaios.memory.wiki.db_path import resolve_wiki_db_path
-        from dodaios.memory.wiki.vault_root import resolve_vault_root
-        from dodaios.memory.wiki.watcher import WikiWatcher
-
-        wiki_cfg = self.cfg.wiki_integration
-        if not wiki_cfg.enabled:
-            logger.info("wiki_watcher: wiki_integration disabled — skipping")
-            return
-
-        vault_root = resolve_vault_root(wiki_cfg.vault_root).path
-        db_path = resolve_wiki_db_path(self.cfg.memory.data_dir)
-
-        watcher = WikiWatcher(
-            vault_root=vault_root,
-            bus=self.bus,
-            db_path=db_path,
-        )
-        try:
-            started = watcher.start()
-        except FileNotFoundError as exc:
-            logger.warning("wiki_watcher: vault missing: {}", exc)
-            return
-        except PermissionError as exc:
-            logger.warning("wiki_watcher: permission denied: {}", exc)
-            return
-
-        if not started:
-            logger.info("wiki_watcher: did not start — live-reload inactive")
-            return
-
-        self._wiki_watcher = watcher
-        self.app.state.wiki_watcher = watcher
-        logger.info("wiki_watcher: started for vault {}", vault_root)
-
     async def _init_task_stack(self) -> None:
         """Phase-5 task-queue wiring (BUG-007).
 
@@ -3967,7 +3720,19 @@ class WebServer:
         )
         self.app.state.friend_registry = registry
         self.app.state.channel_manager = manager
-        bridge = ChannelChatBridge(bus=self.bus, manager=manager)
+        from .agent_chat_routes import _service_from_state
+
+        app_state = self.app.state
+
+        def _lead_chat_service() -> Any:
+            try:
+                return _service_from_state(app_state)
+            except Exception:  # noqa: BLE001 — the classic chat path stays
+                return None
+
+        bridge = ChannelChatBridge(
+            bus=self.bus, manager=manager, get_chat_service=_lead_chat_service
+        )
         bridge.start()
         self._channel_chat_bridge = bridge
         self.app.state.channel_chat_bridge = bridge
@@ -4442,26 +4207,6 @@ class WebServer:
                 self._board_aggregator.close()
             except Exception as exc:  # noqa: BLE001
                 logger.opt(exception=exc).debug("Board-Aggregator close(): {}", exc)
-
-        # Phase B5 wiki write-wiring: unsubscribe + drain in-flight rollup task.
-        wiki_handle = getattr(self, "_wiki_integration_handle", None)
-        if wiki_handle is not None:
-            try:
-                await wiki_handle.shutdown()
-            except Exception as exc:  # noqa: BLE001
-                logger.opt(exception=exc).debug("WikiIntegration.shutdown() failed")
-            self._wiki_integration_handle = None
-
-        # Phase B3 wiki live-reload: stop the watchdog observer cleanly
-        # before uvicorn unwinds. The bus is still alive at this point
-        # so any final debounce-fired events can publish without raising.
-        wiki_watcher = getattr(self, "_wiki_watcher", None)
-        if wiki_watcher is not None:
-            try:
-                await wiki_watcher.shutdown()
-            except Exception as exc:  # noqa: BLE001
-                logger.opt(exception=exc).debug("WikiWatcher.shutdown() failed")
-            self._wiki_watcher = None
 
         # Terminate PTY sessions before uvicorn goes down — prevents reader
         # threads from trying to write into a closed loop.

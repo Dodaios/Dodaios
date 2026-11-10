@@ -1692,3 +1692,39 @@ async def test_composer_image_and_text_reach_same_active_backend_turn(make_sessi
         if isinstance(event, VoiceTranscriptUpdated) and event.attachments
     ]
     assert [row["name"] for row in shown[0].attachments] == ["shot.png"]
+
+
+async def test_classified_failure_names_its_cause_instead_of_the_generic_line(make_session):
+    session, _, _, messages, _, _ = make_session([])
+    await session._failure("quota_exhausted", terminal=True)
+    failure = next(message for message in messages if message.get("type") == "provider_error")
+    assert failure["code"] == "quota_exhausted"
+    assert failure["error"] == (
+        "The ChatGPT subscription voice allowance is exhausted. No API key was used."
+    )
+    # The generic translation key would replace the specific sentence.
+    assert "message_code" not in failure
+
+
+async def test_start_outcome_is_remembered_for_the_settings_page(make_session, monkeypatch):
+    from dodaios.live.session import LiveVoiceSession
+    from dodaios.plugins.realtime.openai_subscription_live import SubscriptionLiveError
+
+    session, _, _, _, _, _ = make_session([])
+    recorded = []
+    session._auth = SimpleNamespace(record_voice_outcome=recorded.append)
+
+    async def refused(self, message):
+        raise SubscriptionLiveError("voice_not_offered", plan="free")
+
+    monkeypatch.setattr(LiveVoiceSession, "_start", refused)
+    with pytest.raises(SubscriptionLiveError):
+        await session._start({"type": "audio_start"})
+    assert recorded == ["voice_not_offered"]
+
+    async def started(self, message):
+        return None
+
+    monkeypatch.setattr(LiveVoiceSession, "_start", started)
+    await session._start({"type": "audio_start"})
+    assert recorded == ["voice_not_offered", "ready"]

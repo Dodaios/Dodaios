@@ -252,6 +252,8 @@ export function useComposerTypeahead(
         case "Enter":
         case "Tab": {
           if (ev.shiftKey && ev.key === "Enter") return false;
+          // Enter that confirms an IME conversion belongs to the IME, not to the list.
+          if (ev.nativeEvent?.isComposing) return false;
           const item = items[activeIndex];
           if (!item) {
             // Nothing to pick: Tab does nothing, Enter falls through to send.

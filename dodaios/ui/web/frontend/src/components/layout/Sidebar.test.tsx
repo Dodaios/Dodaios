@@ -230,11 +230,11 @@ describe("Sidebar new-conversation button", () => {
     useEventStore.setState({ conversations: [], messages: [], activeThreadId: null });
   });
 
-  test("opens an empty typed chat in one click, even from voice mode", async () => {
+  test("opens the one conversation in one click, even from voice mode", async () => {
     useHomeStore.setState({ surface: "voice", transcript: [] });
     renderSidebar();
     const button = screen.getByTestId("sidebar-new-chat");
-    expect(button.textContent).toContain("New chat");
+    expect(button.textContent).toContain("Conversation");
     await act(async () => { button.click(); await Promise.resolve(); });
     expect(useHomeStore.getState().surface).toBe("chat");
     expect(useEventStore.getState().activeSection).toBe("chats");
@@ -668,12 +668,12 @@ describe("compact sidebar navigation", () => {
   });
   afterEach(() => cleanup());
 
-  test("keeps core destinations above visible recent chats", () => {
+  test("keeps core destinations above the earlier-chats link", () => {
     renderSidebar();
     for (const id of ["agents", "verse", "dictation", "visualization", "agentic-ide", "plugins", "marketplace"]) {
       expect(screen.getByTestId(`nav-row-${id}`)).toBeTruthy();
     }
-    expect(screen.getByTestId("recent-chats")).toBeTruthy();
+    expect(screen.getByTestId("earlier-chats")).toBeTruthy();
     expect(screen.queryByTestId("nav-row-wallpaper")).toBeNull();
     expect(screen.queryByTestId("nav-row-memory")).toBeNull();
     // Built for you lives behind "More" now.
@@ -703,7 +703,7 @@ describe("compact sidebar navigation", () => {
     fireEvent.click(screen.getByTestId("nav-row-memory"));
     expect(useEventStore.getState().activeSection).toBe("memory");
     expect(screen.queryByTestId("sidebar-more-panel")).toBeNull();
-    expect(screen.getByTestId("recent-chats")).toBeTruthy();
+    expect(screen.getByTestId("earlier-chats")).toBeTruthy();
   });
 
   test("More closes on Escape and on a second click", () => {

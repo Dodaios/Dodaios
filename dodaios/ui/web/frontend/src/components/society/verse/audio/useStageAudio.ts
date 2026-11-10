@@ -5,7 +5,7 @@
  * it is hidden. The level follows the Verse volume setting.
  */
 import { useEffect, useRef, useState } from "react";
-import type { DeckId } from "../decks";
+import type { DeckId } from "../../progression/decks";
 import { useViewSettings } from "../engine/realtime/viewSettings";
 import { verseAudio, type SoundName, type Voice } from "./verseAudio";
 

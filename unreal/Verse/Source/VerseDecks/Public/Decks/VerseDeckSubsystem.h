@@ -47,6 +47,13 @@ public:
 
 	static UVerseDeckSubsystem* Get(const UObject* WorldContextObject);
 
+	/**
+	 * The deck named by `-VerseDeck=<id>` in `CommandLine` (parity Q-09): the deck the launch loads
+	 * instead of the default. NAME_None when absent, unknown, or in a Shipping build.
+	 */
+	static FName ParseStartupDeck(const TCHAR* CommandLine);
+	FName GetStartupDeck() const { return StartupDeck; }
+
 	/** Rides the lift to `Deck`. False when it is the current deck, unknown, or a ride is running. */
 	bool RequestDeck(FName Deck);
 

@@ -57,6 +57,12 @@ def test_only_subscription_cli_providers_use_cli_login() -> None:
             assert spec.secret_keys == ()
             assert provider_billing(spec) == "subscription"
             assert spec.brain_switchable is False
+        elif spec.id == "opencode":
+            assert spec.auth_mode == "opencode"
+            assert spec.login_cli == ("opencode", "auth", "login")
+            assert spec.secret_keys == ()
+            assert provider_billing(spec) == "subscription"
+            assert spec.brain_switchable is False
         else:
             assert spec.login_cli is None, f"{spec.id}: unexpected login_cli"
 
