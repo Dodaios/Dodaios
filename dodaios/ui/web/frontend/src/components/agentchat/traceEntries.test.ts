@@ -6,7 +6,7 @@ import pt from "@/i18n/locales/pt.json";
 import { reduceThinkingSteps, type ThinkingStep } from "@/lib/thinkingSteps";
 import type { ToolBlock, TurnBlock } from "./reduce";
 import {
-  buildTimeline, callOf, commandBinary, isIdentifier, outputGist, ownServerTool, shortPath, traceDuration, withoutCd,
+  buildTimeline, callOf, commandBinary, summarize, isIdentifier, outputGist, ownServerTool, shortPath, traceDuration, withoutCd,
   type ActivityEntry, type Call, type TimelineOptions,
 } from "./traceEntries";
 import { stepsToBlocks } from "./VoiceWorkTrace";
@@ -245,5 +245,39 @@ describe("calls a person reads", () => {
   it("says a bare wildcard listing lists the folder", () => {
     expect(only(tool("l", { name: "Glob", input: { pattern: "*" }, output: "" })).text).toBe("Listed a folder");
     expect(only(tool("l", { name: "LS", input: { path: "src/app" }, output: "" })).text).toBe("Listed src/app");
+  });
+});
+
+describe("counted stretch lines", () => {
+  const read = (id: string, path: string, over: Partial<ToolBlock> = {}) => tool(id, { name: "Read", input: { file_path: path }, ...over });
+  const line = (blocks: ToolBlock[], tr = t, lang = "en") => summarize(blocks.map((b) => callOf(b, "done", tr, lang)), tr, lang, true);
+
+  it("counts each kind of work, and files once however often they were read", () => {
+    expect(line([tool("a"), tool("b"), read("r1", "src/a.ts"), read("r2", "src/a.ts"), read("r3", "src/b.ts")])).toBe("Ran 2 commands, read 2 files");
+  });
+
+  it("names three kinds and folds the rest into a count", () => {
+    expect(line([
+      tool("a"), read("r", "a.ts"),
+      tool("e", { name: "Edit", input: { file_path: "a.ts", old_string: "x", new_string: "y" } }),
+      tool("f", { name: "WebFetch", input: { url: "https://example.com" } }),
+      tool("s", { name: "TaskStop", input: { task_id: "t1" } }),
+    ])).toBe("Ran a command, read a file, edited a file and 2 more");
+  });
+
+  it("says how many calls failed", () => {
+    expect(line([tool("a"), tool("b", { isError: true, output: "Exit code 1" })])).toBe("Ran 2 commands, 1 failed");
+  });
+
+  it("reads the same counts in German", () => {
+    expect(line([tool("a"), tool("b"), read("r", "a.ts")], translator(de as Dict), "de")).toBe("2 Befehle ausgeführt, eine Datei gelesen"); // i18n-allow: German locale fixture
+  });
+
+  it("names a coding CLI's helper tools in words, never by their ids", () => {
+    expect(only(tool("x", { name: "WebFetch", input: { url: "https://example.com" } })).text).toBe("Fetched a page");
+    expect(only(tool("x", { name: "WebSearch", input: { query: "recoil springs" } })).text).toBe("Searched the web");
+    expect(only(tool("x", { name: "TodoWrite", input: { todos: [] } })).text).toBe("Updated the to-do list");
+    expect(only(tool("x", { name: "ListAgents", input: {} })).text).toBe("Checked the agents");
+    expect(only(tool("x", { name: "CronCreate", input: {} })).text).toBe("Cron create");
   });
 });
