@@ -126,6 +126,10 @@ def machine_addresses() -> set[str]:
             for item in addrs:
                 if item.family in (socket.AF_INET, socket.AF_INET6):
                     found.add(item.address.split("%", 1)[0])
+    if len(found) > 2:
+        return found
+    # Only without psutil: resolving the host name can block for half a minute
+    # on macOS (mDNS), and the interface list above already holds its addresses.
     with contextlib.suppress(OSError):
         for info in socket.getaddrinfo(socket.gethostname(), None):
             found.add(str(info[4][0]).split("%", 1)[0])
@@ -162,11 +166,20 @@ class LocalIcePolicy:
     """Keeps every ICE candidate on this machine: host candidates only, own addresses only."""
 
     def __init__(self, local_addresses: Iterable[str] | None = None) -> None:
-        addresses = machine_addresses() if local_addresses is None else set(local_addresses)
-        self._local: set[ipaddress.IPv4Address | ipaddress.IPv6Address] = set()
-        for item in addresses:
-            with contextlib.suppress(ValueError):
-                self._local.add(ipaddress.ip_address(item.split("%", 1)[0]))
+        # Read on first use, not when the host is built: the lookup is network I/O.
+        self._given = None if local_addresses is None else set(local_addresses)
+        self._resolved: set[ipaddress.IPv4Address | ipaddress.IPv6Address] | None = None
+
+    @property
+    def _local(self) -> set[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+        if self._resolved is None:
+            addresses = machine_addresses() if self._given is None else self._given
+            resolved: set[ipaddress.IPv4Address | ipaddress.IPv6Address] = set()
+            for item in addresses:
+                with contextlib.suppress(ValueError):
+                    resolved.add(ipaddress.ip_address(item.split("%", 1)[0]))
+            self._resolved = resolved
+        return self._resolved
 
     def allows(self, candidate: str, *, from_player: bool) -> bool:
         parsed = IceCandidate.parse(candidate)
