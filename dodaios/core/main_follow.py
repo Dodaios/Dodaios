@@ -598,9 +598,10 @@ class MainFollower:
         self.status.busy = "build"
         if self._source_is_checked(folder):
             # The source is exactly what CI type-checked before the commit could
-            # land. Checking it again here held ~2.4 GB for the length of the
-            # build (measured: tsc at 2.3 GB resident beside the running app),
-            # on every update, for an answer that is already known.
+            # land. Checking it again here ran tsc at 2.3 GB resident beside the
+            # running app before the bundling even started, on every update,
+            # for an answer that is already known. The bundling itself is the
+            # higher peak (4.3 GB measured) and is unchanged.
             built = _run(
                 [npm, "run", BUNDLE_SCRIPT],
                 folder,

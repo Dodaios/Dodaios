@@ -22,7 +22,7 @@
  * skips when the caller vouches for the source: the desktop app's follower
  * (`core/main_follow.py`) sets `DODAIOS_BUNDLE_SOURCE_CHECKED=1` when the tree
  * is byte for byte the commit CI type-checked, because a second check there
- * costs about 2.4 GB of memory on every update.
+ * holds about 2.4 GB beside the running app on every update.
  */
 import { spawn } from "node:child_process";
 import fs from "node:fs";
