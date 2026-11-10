@@ -7863,7 +7863,8 @@
       "crashed": "{runtime} stopped with an error. Try again.",
       "the_agent": "The agent"
     },
-    "technical_details": "Technical details"
+    "technical_details": "Technical details",
+    "ran": "Ran"
   },
   "work_trace": {
     "tool_failed": "A tool action failed",

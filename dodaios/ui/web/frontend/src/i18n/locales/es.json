@@ -7863,7 +7863,8 @@
       "crashed": "{runtime} se detuvo con un error. Inténtalo de nuevo.",
       "the_agent": "El agente"
     },
-    "technical_details": "Detalles técnicos"
+    "technical_details": "Detalles técnicos",
+    "ran": "Ejecutó"
   },
   "work_trace": {
     "tool_failed": "Falló una acción de herramienta",
