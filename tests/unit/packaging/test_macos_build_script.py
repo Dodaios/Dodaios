@@ -526,3 +526,104 @@ def test_a_malformed_entitlements_file_fails_before_any_signing(tmp_path: Path) 
     assert not normalized.exists()
     calls = (tmp_path / "plutil.log").read_text(encoding="utf-8").splitlines()
     assert [call.split()[0] for call in calls] == ["-lint"]  # never reached -convert
+
+
+# --------------------------------------------------------------------- disk image
+
+_FAKE_HDIUTIL = """#!/usr/bin/env bash
+# Fails "Resource busy" (or with FAKE_HDIUTIL_ERROR) until the call count
+# reaches FAKE_HDIUTIL_OK_AT, then writes the image.
+count_file="${FAKE_HDIUTIL_COUNT}"
+n=$(( $(cat "$count_file" 2>/dev/null || echo 0) + 1 ))
+echo "$n" > "$count_file"
+if [ "$n" -lt "${FAKE_HDIUTIL_OK_AT}" ]; then
+  echo "hdiutil: create failed - ${FAKE_HDIUTIL_ERROR:-Resource busy}" >&2
+  exit 1
+fi
+for last; do :; done
+echo "created: $last"
+touch "$last"
+"""
+
+
+def _create_dmg_section() -> str:
+    """The create_dmg function of build.sh, cut out by its own markers."""
+    script = BUILD_SH.read_text(encoding="utf-8")
+    start_marker = "# --- create_dmg (begin) ---"
+    end_marker = "# --- create_dmg (end) ---"
+    assert start_marker in script and end_marker in script, (
+        "build.sh was restructured: update the markers that cut out create_dmg"
+    )
+    return script[script.index(start_marker) : script.index(end_marker)]
+
+
+def _run_create_dmg(tmp_path: Path, ok_at: int, error: str = "Resource busy"):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    tool = bin_dir / "hdiutil"
+    tool.write_text(_FAKE_HDIUTIL, encoding="utf-8")
+    tool.chmod(0o755)
+    harness = tmp_path / "harness.sh"
+    harness.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        "DRY_RUN=0\n"
+        "VOLUME_NAME=Dodaios\n"
+        "log() { printf '[macos-build] %s\n' \"$*\"; }\n"
+        + _create_dmg_section()
+        + '\ncreate_dmg "$1" "$2"\necho BUILT\n',
+        encoding="utf-8",
+    )
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    dmg = tmp_path / "out.dmg"
+    count = tmp_path / "count"
+    env = {
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}",
+        "HOME": str(tmp_path),
+        "FAKE_HDIUTIL_COUNT": str(count),
+        "FAKE_HDIUTIL_OK_AT": str(ok_at),
+        "FAKE_HDIUTIL_ERROR": error,
+        "DMG_RETRY_PAUSE_S": "0",
+    }
+    result = subprocess.run(
+        ["bash", str(harness), str(stage), str(dmg)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+        check=False,
+    )
+    calls = int(count.read_text(encoding="utf-8")) if count.exists() else 0
+    return result, calls, dmg
+
+
+def test_a_busy_hdiutil_is_tried_again_until_the_image_is_built(tmp_path: Path) -> None:
+    # The nightly installer build failed once on "hdiutil: create failed - Resource busy".
+    result, calls, dmg = _run_create_dmg(tmp_path, ok_at=3)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert calls == 3
+    assert dmg.exists()
+    assert "BUILT" in result.stdout
+    assert result.stdout.count("hdiutil is busy") == 2
+
+
+def test_a_busy_hdiutil_gives_up_after_five_attempts(tmp_path: Path) -> None:
+    result, calls, dmg = _run_create_dmg(tmp_path, ok_at=99)
+    assert result.returncode != 0
+    assert calls == 5
+    assert "BUILT" not in result.stdout
+
+
+def test_any_other_hdiutil_error_stops_the_build_at_once(tmp_path: Path) -> None:
+    result, calls, _ = _run_create_dmg(tmp_path, ok_at=99, error="No space left on device")
+    assert result.returncode != 0
+    assert calls == 1
+    assert "No space left on device" in result.stdout
+    assert "BUILT" not in result.stdout
+
+
+def test_the_rehearsal_prints_the_image_command_once(layout: Path) -> None:
+    result = _rehearse(layout)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.count("+ hdiutil create") == 1
