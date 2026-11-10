@@ -544,6 +544,11 @@ def fallback_is_known_dead(provider: str, model: str | None = None) -> bool:
     except Exception:  # noqa: BLE001 — a health read never breaks a turn
         log.debug("seat health: fallback check failed", exc_info=True)
         return False
+    # Only a rejected key or login (provider-wide) or an unavailable model is
+    # skipped. A usage limit may be per model (a free sibling model of the same
+    # provider can still answer), so the chain decides that itself.
+    if found is not None and not found.blocked:
+        return False
     if found is not None:
         log.info("Skipping fallback %s: %s", provider, found.reason())
     return found is not None
