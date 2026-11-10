@@ -39,6 +39,8 @@ _LIVE = (
     "message_agent",
     "society_status",
     "missions-list",
+    "job_status",
+    "await_jobs",
     "run_shell",
     "search_web",
     "agentic-ide-prompt",
@@ -103,6 +105,8 @@ async def test_the_lead_is_the_same_on_the_brain_seat_the_cli_seat_and_voice(mon
     # What the person was promised: delegation, the board, the team, addressed panes.
     assert {
         "spawn-worker",
+        "job_status",
+        "await_jobs",
         "work_board",
         "ask_agent",
         "product_help",
