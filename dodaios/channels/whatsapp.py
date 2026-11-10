@@ -212,6 +212,7 @@ class WhatsAppChannel:
         self._active = False
         self._pairing_closes_at = time.monotonic() + FIRST_CONTACT_PAIRING_WINDOW_S
         self._dropped = 0
+        self._event_handler_ref: Any = None
 
     @classmethod
     def from_context(cls, ctx: ChannelContext) -> WhatsAppChannel:
@@ -226,16 +227,37 @@ class WhatsAppChannel:
 
     # ---------------------------------------------------------------- life
 
+    def _subscribe_bus(self) -> None:
+        """Every channel listens on the bus for its lifetime (the adapter contract)."""
+        if self._event_handler_ref is None:
+            self._event_handler_ref = self._on_bus_event
+            self._bus.subscribe_all(self._event_handler_ref)
+
+    def _unsubscribe_bus(self) -> None:
+        if self._event_handler_ref is None:
+            return
+        wildcards = getattr(self._bus, "_wildcard_subscribers", None)
+        if wildcards is not None and self._event_handler_ref in wildcards:
+            wildcards.remove(self._event_handler_ref)
+        self._event_handler_ref = None
+
+    async def _on_bus_event(self, event: Event) -> None:
+        """Replies reach the owner through the chat bridge's ``send_message``;
+        no bus event is ever pushed to the chat uncalled."""
+        return None
+
     async def start(self) -> None:
         if self._started:
             return
         if not self._cfg.enabled:
+            self._subscribe_bus()
             self._started = True
             log.info("WhatsAppChannel disabled (enabled=false) — skipping")
             return
         if self._transport is None:
             self._transport = BridgeTransport(self._cfg.bridge_url)
         await self._transport.start(self._on_bridge_message)
+        self._subscribe_bus()
         self._started = True
         self._active = True
         owner = "set" if self._cfg.owner_jid else "unclaimed"
@@ -244,6 +266,7 @@ class WhatsAppChannel:
     async def stop(self) -> None:
         if not self._started:
             return
+        self._unsubscribe_bus()
         if self._transport is not None and self._active:
             try:
                 await self._transport.stop()

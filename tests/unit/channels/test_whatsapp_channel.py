@@ -49,10 +49,15 @@ async def _next(channel: WhatsAppChannel) -> ChannelMessage:
 
 @pytest.mark.asyncio
 async def test_disabled_channel_starts_silently_without_a_transport() -> None:
-    channel = WhatsAppChannel(EventBus(), WhatsAppConfig(enabled=False))
+    bus = EventBus()
+    channel = WhatsAppChannel(bus, WhatsAppConfig(enabled=False))
+    before = len(bus._wildcard_subscribers)
     await channel.start()
     assert channel.status()["enabled"] is False and channel.status()["running"] is False
+    # The adapter contract: a started channel listens on the bus, a stopped one does not.
+    assert len(bus._wildcard_subscribers) == before + 1
     await channel.stop()
+    assert len(bus._wildcard_subscribers) == before
 
 
 @pytest.mark.asyncio
