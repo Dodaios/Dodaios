@@ -194,7 +194,7 @@ bool FVersePresentationBolts::RunTest(const FString&)
 	TestTrue(TEXT("tracer is yellow-white, not a coloured bolt"), Tracer.R > 0.9f && Tracer.G > 0.65f && Tracer.B > 0.3f && Tracer.B < Tracer.G);
 	TestEqual(TEXT("each shot ejects a casing"), P->GetCasings().Num(), 2);
 	TestEqual(TEXT("the opponent's muzzle flashes (the viewmodel draws the own one)"), P->GetMuzzleFlashes().Num(), 1);
-	TestTrue(TEXT("powder smoke at the muzzles"), P->GetPuffs().Num() >= 2);
+	TestEqual(TEXT("powder smoke at the opponent's muzzle only (the own muzzle sits at the eye)"), P->GetPuffs().Num(), 1);
 
 	// Echo of the own shot is not drawn twice.
 	Hub->OnFire.Broadcast(Own);
