@@ -198,7 +198,8 @@ function CallLine({ call, renderers }: { call: Call; renderers: TimelineRenderer
   return <div className="min-w-0" data-trace-entry="call" data-kind={call.kind} data-status={call.status}>
     <button type="button" className={lineButton} aria-expanded={running ? undefined : open} disabled={running} onClick={() => setOpen(!open)}>
       <CallMark call={call} />
-      <span className={cn("min-w-0 truncate", running && "trace-shimmer")} title={call.text}>{call.text}</span>
+      {/* Beside a reason the words keep half the line, so neither is cut to a stub. */}
+      <span className={cn("min-w-0 truncate", running && "trace-shimmer", (problem || quiet) && "max-w-[50%] shrink-0")} title={call.text}>{call.text}</span>
       {/* The detail takes only the room the words leave. */}
       {call.detail ? <span className="min-w-0 flex-1 basis-0 truncate text-muted-foreground/70" title={call.detail}>{call.detail}</span> : null}
       {call.added || call.removed ? <span className="shrink-0 font-mono text-xs tabular-nums">
@@ -206,8 +207,11 @@ function CallLine({ call, renderers }: { call: Call; renderers: TimelineRenderer
       </span> : null}
       {/* Why it failed reads on the same line: a line of its own would come
           and go with the call and make the chat jump. */}
-      {problem || quiet ? <span className={cn("min-w-0 truncate", problem ? "text-destructive" : "text-muted-foreground")}
-        title={call.reason || undefined}>{tr(t, `state.${call.status}`)}{problem && call.reason ? `: ${call.reason}` : ""}</span> : null}
+      {/* The mark carries the state; the words stay in the trace's own quiet ink. */}
+      {problem || quiet ? <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground" title={call.reason || undefined}>
+        {problem ? <span aria-hidden className="trace-flag" /> : null}
+        <span className="min-w-0 truncate">{tr(t, `state.${call.status}`)}{problem && call.reason ? `: ${call.reason}` : ""}</span>
+      </span> : null}
       {!running ? <Chevron open={open} /> : null}
     </button>
     {/* Why a call failed reads without opening anything. */}
@@ -220,8 +224,9 @@ function CallDetails({ call, renderers }: { call: Call; renderers: TimelineRende
   const t = useT();
   // The measured time lives here, not on the line: the line stays clean.
   const took = call.block.durationMs ? <p className="text-xs leading-5 tabular-nums text-muted-foreground">{tr(t, "took", { duration: traceDuration(call.block.durationMs) })}</p> : null;
-  const why = call.reason ? <p className={cn("text-xs leading-5 [overflow-wrap:anywhere]", call.status === "failed" || call.status === "blocked" ? "text-destructive" : "text-muted-foreground")}>
-    {tr(t, `state.${call.status}`)}: {call.reason}
+  const why = call.reason ? <p className="flex items-center gap-1.5 text-xs leading-5 text-foreground-secondary [overflow-wrap:anywhere]">
+    {call.status === "failed" || call.status === "blocked" ? <span aria-hidden className="trace-flag" /> : null}
+    <span className="min-w-0">{tr(t, `state.${call.status}`)}: {call.reason}</span>
   </p> : null;
   if (call.kind === "command") {
     const input = call.block.input && typeof call.block.input === "object" ? call.block.input as Record<string, unknown> : {};
@@ -257,7 +262,7 @@ export function TraceMessageLine({ message }: { message: TraceMessage }) {
       <MessagesSquare aria-hidden className={glyph} strokeWidth={1.75} />
       <span className="shrink-0 text-foreground-secondary">{message.outgoing ? `→ ${message.name}` : message.name}</span>
       <span className="min-w-0 flex-1 basis-0 truncate text-muted-foreground/70">{preview}</span>
-      {message.failed ? <span className="shrink-0 text-destructive">{tr(t, "state.failed")}</span> : null}
+      {message.failed ? <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground"><span aria-hidden className="trace-flag" />{tr(t, "state.failed")}</span> : null}
       <Chevron open={open} />
     </button>
     {open ? <div className="mb-2 ml-[7px] min-w-0 border-l border-border pl-4 pt-0.5">

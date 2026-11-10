@@ -400,7 +400,11 @@ export function SettingsHubView() {
           {/* One measure for every tab: each page runs the full width of this
               column with its header and body on the same left edge, and the
               column centres once a very wide window would stretch rows apart. */}
-          <div data-testid="settings-hub-column" className="mx-auto h-full w-full max-w-[1440px]">
+          {/* Game settings is a full game menu and uses the whole width. */}
+          <div
+            data-testid="settings-hub-column"
+            className={cn("mx-auto h-full w-full", content !== "games" && "max-w-[1440px]")}
+          >
             <Suspense fallback={<HubLoadingFallback />}>
               {content === "settings"
                 ? <SettingsTab searchTarget={searchTarget} onSearchTargetHandled={() => setSearchTarget(null)} />

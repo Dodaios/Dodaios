@@ -43,7 +43,6 @@ const SOURCE_FILES = [
     .filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f))
     .map((f) => join(AGENTCHAT_DIR, f)),
   join(SRC, "components", "home", "ChatStage.tsx"),
-  join(SRC, "components", "home", "RecentChats.tsx"),
   join(SRC, "components", "home", "AllChatsDialog.tsx"),
   join(SRC, "components", "home", "chatRows.ts"),
 ];

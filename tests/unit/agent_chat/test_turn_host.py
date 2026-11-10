@@ -952,3 +952,93 @@ def test_the_folder_fallback_of_stop_only_matches_coding_agent_clis() -> None:
     assert not _is_agent_cli(["powershell.exe", "-NoExit", "-Command", "cd /r"])
     assert not _is_agent_cli(["Code.exe", "/r"])
     assert not _is_agent_cli(["node", "server.js", "/r"])
+
+
+async def test_the_boot_reattach_carries_on_turns_before_any_window_asked_for_the_chat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, app_host_mode: Any
+) -> None:
+    """The background service has no window: the boot reattach builds the chat first.
+
+    It builds it in a plain worker thread, where the app's loop cannot be found
+    by asking; every turn the host still held was closed as "The app restarted"
+    (2026-11-09).
+    """
+    from types import SimpleNamespace
+
+    from dodaios.agent_chat import service as service_mod
+    from dodaios.ui.web import agent_chat_routes
+
+    monkeypatch.setattr(service_mod, "_KNOWN_LOOP", None)
+    monkeypatch.setattr(agent_chat_routes, "_REATTACH_DELAY_S", 0.0)
+    monkeypatch.setattr(turn_host_client, "spool_dir", lambda: tmp_path / "spool")
+    monkeypatch.setattr(turn_host_client, "_host_alive", lambda state: False)
+
+    async def no_live_host(*, start: bool = True) -> None:
+        return None
+
+    monkeypatch.setattr(turn_host_client, "get_client", no_live_host)
+    db = tmp_path / "agent_chat.db"
+    store = AgentChatStore(db)
+    kept = store.create_session(
+        provider="claude-api", model="m", effort="medium", cwd=str(tmp_path), surface="agent"
+    )
+    turn_id = f"t-{kept.session_id}"
+    store.append_event(
+        kept.session_id, {"kind": "turn_started", "ts_ms": 1_000, "payload": {"turn_id": turn_id}}
+    )
+    _spool_record(tmp_path, session_id=kept.session_id, turn_id=turn_id, acked=0)
+
+    state = SimpleNamespace(
+        agent_chat=None, agent_chat_factory=lambda: AgentChatService(AgentChatStore(db))
+    )
+    task = agent_chat_routes.schedule_turn_reattach(state)
+    assert task is not None
+    await task
+    svc = state.agent_chat
+    assert svc is not None
+    await svc.wait_reattached()
+    run = svc._running.get(kept.session_id)
+    if run is not None and run.task is not None:
+        await asyncio.wait_for(run.task, timeout=10)
+
+    finished = store.list_events(kept.session_id)[-1]
+    assert finished["kind"] == "turn_finished"
+    assert finished["payload"]["status"] == "done"
+    store.close()
+
+
+async def test_a_shutdown_while_reattaching_leaves_the_turns_for_the_next_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, app_host_mode: Any
+) -> None:
+    """The background service hands the app back while it still asks the host."""
+    asked = asyncio.Event()
+
+    async def busy_host(*, start: bool = True) -> None:
+        asked.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(turn_host_client, "may_hold_turns", lambda: True)
+    monkeypatch.setattr(turn_host_client, "get_client", busy_host)
+    db = tmp_path / "agent_chat.db"
+    store = AgentChatStore(db)
+    session = store.create_session(
+        provider="claude-api", model="m", effort="medium", cwd=str(tmp_path), surface="agent"
+    )
+    turn_id = f"t-{session.session_id}"
+    store.append_event(
+        session.session_id,
+        {"kind": "turn_started", "ts_ms": 1_000, "payload": {"turn_id": turn_id}},
+    )
+
+    svc = AgentChatService(AgentChatStore(db))
+    await asyncio.wait_for(asked.wait(), timeout=5)
+    assert svc.is_running(session.session_id)
+
+    await asyncio.wait_for(svc.cancel_all(), timeout=10)
+
+    assert not svc.is_running(session.session_id)
+    assert [kind for kind in (e["kind"] for e in store.list_events(session.session_id))] == [
+        "turn_started"
+    ]
+    assert [t[1] for t in store.open_turns()] == [turn_id]
+    store.close()

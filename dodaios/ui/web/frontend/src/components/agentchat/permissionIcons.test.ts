@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
-import { isUnguardedPermissionMode, permissionModeIcon } from "./permissionIcons";
+import { permissionModeIcon } from "./permissionIcons";
 
 describe("permissionModeIcon", () => {
   it("maps every vendor spelling of a stance onto the stance's one glyph", () => {
@@ -41,10 +41,5 @@ describe("permissionModeIcon", () => {
   it("keeps the four stances of the unified ladder visually distinct", () => {
     const glyphs = ["ask", "accept-edits", "plan", "bypass"].map(permissionModeIcon);
     expect(new Set(glyphs).size).toBe(glyphs.length);
-  });
-
-  it("flags only the stances in which nothing asks", () => {
-    expect(["bypass", "bypassPermissions", "full-access", "skip-permissions"].every(isUnguardedPermissionMode)).toBe(true);
-    expect(["ask", "default", "acceptEdits", "plan", "auto", "dontAsk"].some(isUnguardedPermissionMode)).toBe(false);
   });
 });

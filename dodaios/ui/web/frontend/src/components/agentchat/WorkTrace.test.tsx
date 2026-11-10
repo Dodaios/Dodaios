@@ -1,7 +1,8 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { groupTrace, groupActivityTrace, livePetState, splitConversationTurn, WorkTrace, traceDuration } from "./WorkTrace";
 import { traceToolIdentity } from "./traceActivity";
+import { failureReason } from "./traceEntries";
 import type { TextBlock, ToolBlock, TurnBlock, TurnStatus } from "./reduce";
 
 const tool = (id: string, over: Partial<ToolBlock> = {}): ToolBlock => ({
@@ -203,22 +204,35 @@ describe("work trace", () => {
     expect(splitConversationTurn([tool("a"), reply("done", "Ready."), failed]).after).toEqual([failed]);
   });
 
-  it("keeps a failed tool and its outcome visible after a conversation completes", () => {
+  /** Open every stretch of calls the opened fold shows. */
+  const openStretches = (container: HTMLElement) => {
+    for (const line of Array.from(container.querySelectorAll<HTMLElement>("[data-trace-entry='activity'] > button[aria-expanded='false']"))) fireEvent.click(line);
+  };
+
+  it("folds a failed tool with the work once the turn has answered, and says so quietly", () => {
+    // The complaint this guards (maintainer, 2026-11-10): failed steps stood
+    // between the question and the answer as red rows of raw tool output,
+    // with a red warning under the answer.
     const failed = tool("err", { isError: true, output: "Upload failed" });
     const { container } = render(<WorkTrace {...props} conversation blocks={[tool("a"), failed, reply("done", "I prepared a draft.")]} />);
-    expect(screen.getByText("Upload failed")).toBeTruthy();
-    expect(container.querySelector('[data-trace-tool="err"]')).toBeTruthy();
-    expect(screen.getByTestId("tool-failure-warning").textContent).toContain("A tool action failed");
+    expect(screen.queryByText(/Upload failed/)).toBeNull();
+    expect(container.querySelector('[data-trace-tool="err"]')).toBeNull();
+    expect(screen.queryByTestId("tool-failure-warning")).toBeNull();
+    expect(container.querySelector(".text-destructive")).toBeNull();
+    // The fold names it in its own ink, and assistive technology still hears it.
+    const fold = screen.getByTestId("conversation-work-fold").querySelector("button")!;
+    expect(screen.getByTestId("trace-failed-count").textContent).toBe("1 step did not work");
     expect(screen.getByRole("status").textContent).toContain("A tool action failed");
     expect(screen.getAllByRole("status").at(-1)?.textContent).toContain("Done");
-    const fold = screen.getByTestId("conversation-work-fold").querySelector("button")!;
+    // One tap shows the step and why it did not work; still nothing in red ink.
     fireEvent.click(fold);
-    // Open, the timeline takes over; its header and the warning still name the failure.
-    expect(fold.textContent).toContain("1 failed");
-    expect(screen.getByTestId("tool-failure-warning")).toBeTruthy();
+    openStretches(container);
+    expect(screen.getAllByText("Failed: Upload failed").length).toBeGreaterThan(0);
+    expect(container.querySelector(".text-destructive")).toBeNull();
+    expect(container.querySelector(".trace-flag")).toBeTruthy();
   });
 
-  it("keeps a failed question poll visible after a conversation completes", () => {
+  it("keeps a failed question poll in the folded work after a conversation completes", () => {
     const failedPoll = tool("poll", {
       name: "society_ask_user",
       input: { wait_for: "closed-question" },
@@ -226,9 +240,58 @@ describe("work trace", () => {
       output: "The question is closed.",
     });
     const { container } = render(<WorkTrace {...props} conversation blocks={[tool("a"), failedPoll, reply("done", "I could not get an answer.")]} />);
-    expect(container.querySelector('[data-trace-tool="poll"]')).toBeTruthy();
-    expect(screen.getByText("The question is closed.")).toBeTruthy();
-    expect(screen.getByTestId("tool-failure-warning")).toBeTruthy();
+    expect(screen.getByTestId("trace-failed-count").textContent).toBe("1 step did not work");
+    openWork();
+    openStretches(container);
+    expect(screen.getAllByText(/The question is closed\./).length).toBeGreaterThan(0);
+  });
+
+  it("says a failed step in plain words and keeps the tool's own words otherwise", () => {
+    const t = (key: string) => ({
+      "trace_report.reason.signed_out": "the sign-in has expired; reconnect it under Plugins",
+      "trace_report.reason.rate_limited": "the service asked to slow down",
+      "trace_report.reason.unavailable": "the service had a problem on its side",
+      "trace_report.reason.timed_out": "it took too long to answer",
+      "trace_report.reason.forbidden": "the account is not allowed to do this",
+    } as Record<string, string>)[key] ?? key;
+    expect(failureReason("Tool failed: x: HTTP 401; reconnect in Plugins or check account permissions", t)).toBe("the sign-in has expired; reconnect it under Plugins");
+    expect(failureReason("HTTP 429 Too Many Requests", t)).toBe("the service asked to slow down");
+    expect(failureReason("upstream said: status code 503", t)).toBe("the service had a problem on its side");
+    expect(failureReason("Request timed out after 30s", t)).toBe("it took too long to answer");
+    // A bare exit code gives way to the shell's own last clause.
+    expect(failureReason("Exit code 126\n/usr/bin/bash: line 3: /c/Program Files/WindowsApps/PythonSoftwareFoundation.PythonManager_26.4.240.0_x64__qbz5n2kfra8p0/python: Permission denied", t))
+      .toBe("Permission denied (exit code 126)");
+    // Anything else is the tool's first line, and a status code deep in a long output is not a reason.
+    expect(failureReason("Upload failed", t)).toBe("Upload failed");
+    expect(failureReason("3 tests failed\nGET /login returned HTTP 401 as expected", t)).toBe("3 tests failed");
+  });
+
+  it("closes a failed turn with a note on a normal surface, never red ink", () => {
+    const { container } = render(<WorkTrace {...props} status="error" error="The model stopped answering." blocks={[tool("a")]} />);
+    const note = screen.getByRole("alert");
+    expect(note.className).toContain("trace-note");
+    expect(note.textContent).toBe("The model stopped answering.");
+    expect(container.querySelector(".text-destructive")).toBeNull();
+  });
+
+  it("rests without a state line in a messenger conversation, and keeps it for a turn that needs one", () => {
+    const answer = (text: string, _id: string, live: boolean) => <p data-testid="own-reply" data-live={String(live)}>{text}</p>;
+    const { rerender } = render(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[tool("a"), reply("done", "All set.")]} receipt={<span>219 tokens</span>} />);
+    // The caller draws the reply itself.
+    expect(screen.getByTestId("own-reply").textContent).toBe("All set.");
+    expect(screen.getByTestId("own-reply").getAttribute("data-live")).toBe("false");
+    // Time and usage wait under the turn; "Done" is only there to be read out.
+    const status = screen.getByRole("status");
+    expect(status.className).toContain("trace-meta");
+    expect(status.textContent).toContain("12s");
+    expect(status.textContent).toContain("219 tokens");
+    expect(within(status).getByText("Done").className).toBe("sr-only");
+    // A running turn and a turn without an answer keep their line in view.
+    rerender(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[reply("mid", "Looking.")]} />);
+    expect(screen.getByRole("status").className).not.toContain("trace-meta");
+    expect(screen.getByTestId("own-reply").getAttribute("data-live")).toBe("true");
+    rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[tool("a")]} />);
+    expect(screen.getByRole("status").className).not.toContain("trace-meta");
   });
 
   it("treats a tool-only turn as work", () => {

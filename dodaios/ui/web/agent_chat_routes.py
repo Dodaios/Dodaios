@@ -432,6 +432,13 @@ def schedule_turn_reattach(state: Any) -> asyncio.Task[None] | None:
     except RuntimeError:
         log.debug("agent chat: boot reattach not scheduled — no running loop")
         return None
+    # The service is built below in a plain worker thread, where it cannot
+    # find the app's loop by asking. Without it every turn the host still ran
+    # was closed as "The app restarted" — always in the background service,
+    # which has no window whose requests record the loop first (2026-11-09).
+    from dodaios.agent_chat.service import remember_app_loop
+
+    remember_app_loop(loop)
 
     async def _run() -> None:
         await asyncio.sleep(_REATTACH_DELAY_S)

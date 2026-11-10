@@ -152,6 +152,7 @@ skills and plugins — and you never have to know which one you are looking at:
 
 ```bash
 dodaios marketplace install three-bullet-brief
+dodaios marketplace remove three-bullet-brief    # a plugin or a skill, by name
 dodaios marketplace browse                       # everything on offer + what you have
 ```
 

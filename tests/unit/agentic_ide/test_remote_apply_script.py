@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from dodaios.agentic_ide.remote import _APPLY
+from dodaios.agentic_ide.remote import _APPLY, SYNCED_REF
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 
@@ -62,6 +62,7 @@ def _run_apply(home: Path, dest: str) -> subprocess.CompletedProcess[str]:
         base=shlex.quote(""),
         branch=shlex.quote(""),
         snap=shlex.quote("0" * 40),
+        synced=SYNCED_REF,
     )
     return subprocess.run(
         [BASH, "-s"],

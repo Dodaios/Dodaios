@@ -122,14 +122,17 @@ _FINISHING_WAIT_S: Final[float] = 10.0
 _KNOWN_LOOP: asyncio.AbstractEventLoop | None = None
 
 
-def remember_app_loop() -> None:
+def remember_app_loop(loop: asyncio.AbstractEventLoop | None = None) -> None:
     """Find and record the app's loop, so building the service never asks it.
 
     Call it without holding any lock the loop could be waiting for: from a
-    worker thread, finding the loop waits until the loop answers.
+    worker thread, finding the loop waits until the loop answers. A caller on
+    the loop passes it: the boot reattach builds the service in a plain
+    ``asyncio.to_thread`` thread, where asking finds no loop at all.
     """
     global _KNOWN_LOOP  # one process-wide reference, set before the service is built
-    loop, _on_loop = _app_loop()
+    if loop is None:
+        loop, _on_loop = _app_loop()
     if loop is not None:
         _KNOWN_LOOP = loop
 
@@ -582,6 +585,11 @@ class AgentChatService:
         self._voice_call_chats: dict[str, str] = {}
         # The archived voice chat's history while one is continued (bind_voice_chat).
         self._voice_archive_history: Callable[[], list[Any]] | None = None
+        # Sessions whose restart turn is held while the turn host is asked
+        # (``_seal_orphaned_turns``): a shutdown in that window leaves them
+        # open for the next process instead of stopping their CLI.
+        self._held_for_reattach: set[str] = set()
+        self._reattach_task: Any = None
         self._retire_cli_seats()
         self._seal_orphaned_turns()
 
@@ -611,6 +619,11 @@ class AgentChatService:
             log.warning("agent chat: could not look for turns a restart left open", exc_info=True)
             return
         loop, on_loop = _app_loop()
+        if loop is None and orphans:
+            log.warning(
+                "agent chat: built outside the app's loop, so open thread turns "
+                "cannot be carried on"
+            )
         hosted_possible: bool | None = None
         deferred: list[tuple[str, str, int, int]] = []
         sealed = 0
@@ -636,6 +649,7 @@ class AgentChatService:
                 held = _Running(turn_id, asyncio.Event())
                 held.setup_task = None
                 self._running[session_id] = held
+                self._held_for_reattach.add(session_id)
             if on_loop:
                 self._reattach_task = loop.create_task(
                     self._reattach_hosted(deferred), name="agent-chat-reattach"
@@ -649,7 +663,7 @@ class AgentChatService:
 
     async def wait_reattached(self) -> None:
         """Until the restart's thread turns are reattached or sealed (tests, tools)."""
-        task = getattr(self, "_reattach_task", None)
+        task = self._reattach_task
         if task is None:
             return
         if isinstance(task, asyncio.Future):
@@ -665,6 +679,10 @@ class AgentChatService:
         """Carry on every open thread turn whose CLI the turn host still holds."""
         try:
             await self._reattach_hosted_turns(orphans)
+        except asyncio.CancelledError:
+            # Shutdown mid-reattach: the turns stay open and their CLIs stay
+            # in the host for the next process (``_stop_reattach``).
+            raise
         except Exception:  # noqa: BLE001 — a held thread must never stay on Working
             log.exception("agent chat: reattaching thread turns failed")
             for session_id, turn_id, started_ms, last_ms in orphans:
@@ -713,10 +731,17 @@ class AgentChatService:
             if proc is None or held is None or held.turn_id != turn_id:
                 if held is not None and held.turn_id == turn_id and held.task is None:
                     self._running.pop(session_id, None)
+                    self._held_for_reattach.discard(session_id)
                     held.ready.set()
                 if self.store.turn_terminal(session_id, turn_id) is None:
+                    log.info(
+                        "agent chat: turn %s ended by the restart (turn host %s)",
+                        turn_id,
+                        "does not hold it" if client is not None else "not reachable",
+                    )
                     self._publish_event(session_id, _orphan_event(turn_id, started_ms, last_ms))
                 continue
+            self._held_for_reattach.discard(session_id)
             self._resume_hosted_turn(session_id, held, proc)
             resumed += 1
         # A CLI the host holds for a turn nobody has open any more (closed by
@@ -2343,6 +2368,7 @@ class AgentChatService:
             await self._controls.close()
         from dodaios.agent_chat import turn_host_client
 
+        await self._stop_reattach()
         hosted = turn_host_client.live_turn_ids()
         detached: list[asyncio.Task[None]] = []
         for run in list(self._running.values()):
@@ -2356,6 +2382,28 @@ class AgentChatService:
         turn_host_client.detach_all()
         for sid in list(dict.fromkeys([*self._running, *self._preparing])):
             await self.cancel(sid)
+
+    async def _stop_reattach(self) -> None:
+        """Shutdown while restart turns are still being reattached: leave them open.
+
+        The background service hands the app back seconds after it booted,
+        often while it still asks the turn host about the turns it found open.
+        Cancelling those held turns would stop CLIs that are still working,
+        and closing them showed "The app restarted" on turns the next process
+        could have carried on (2026-11-09). They stay open in the store and
+        the host keeps their CLIs for the next process.
+        """
+        task = self._reattach_task
+        if task is not None and not task.done():
+            task.cancel()
+            waited = task if isinstance(task, asyncio.Future) else asyncio.wrap_future(task)
+            await asyncio.gather(waited, return_exceptions=True)
+        for session_id in list(self._held_for_reattach):
+            held = self._running.get(session_id)
+            if held is not None and held.task is None:
+                self._running.pop(session_id, None)
+                held.ready.set()
+        self._held_for_reattach.clear()
 
     @property
     def controls(self) -> Any:

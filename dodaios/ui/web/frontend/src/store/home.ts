@@ -47,6 +47,19 @@ interface HomeStore {
    */
   liveReply: string;
   liveSessionId: string | null;
+  /**
+   * A call asked for from this window that the host has not answered yet:
+   * the call window opens at the click, not when the first state arrives.
+   */
+  callPending: boolean;
+  setCallPending: (pending: boolean) => void;
+  /**
+   * Why the last call ended on its own (a start the provider refused, a
+   * connection that broke), until the person closes the note or calls
+   * again. An empty message means the reason is not known.
+   */
+  callProblem: { message: string } | null;
+  setCallProblem: (problem: { message: string } | null) => void;
   /** History row captured when this call starts; navigation cannot reassign it. */
   liveConversationId: string | null;
   ingest: (name: string, payload: unknown, tsMs: number) => void;
@@ -115,6 +128,14 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
   transcript: [],
   liveReply: "",
   liveSessionId: null,
+  callPending: false,
+  setCallPending: (callPending) => set({ callPending }),
+  callProblem: null,
+  // A named reason is never replaced by an unnamed one for the same call.
+  setCallProblem: (callProblem) => {
+    if (callProblem && !callProblem.message && get().callProblem?.message) return;
+    set({ callProblem, ...(callProblem ? { callPending: false } : {}) });
+  },
   liveConversationId: null,
   ingest: (name, payload, tsMs) => {
     // Late captions, spoken replies, and tool traces belong to the completed
@@ -137,6 +158,10 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
       const sessionId = (payload as { session_id?: string } | null)?.session_id;
       if (sessionId && get().liveSessionId && sessionId !== get().liveSessionId) return;
       const reason = (payload as { hangup_reason?: string } | null)?.hangup_reason;
+      // A call that ended on an error says so in the call window, even when
+      // nothing named the reason.
+      if (reason === "error") get().setCallProblem({ message: "" });
+      set({ callPending: false });
       // A provider handover continues the same call. A real hangup opens an
       // empty lane; the completed conversation remains in the history rail.
       if (reason !== "realtime_fallback" && reason !== "desktop_fallback") {
@@ -148,7 +173,8 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
           // Close the old timeline and unbind its backend voice context now,
           // even when the front page/card is closed. This does not start or
           // stop a call, so a later wake cannot be cancelled by a reset effect.
-          useAgentChatStore.getState().newChat();
+          // The one conversation stays on screen; only a voice archive left it.
+          if (!useAgentChatStore.getState().activeSessionId) useAgentChatStore.getState().newChat();
         }
         events.setTranscription("", true);
         // Remember this even while the card is closed. Returning to Jarvis
@@ -170,18 +196,19 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
       const continued = get().continuedVoiceId;
       set({
         freshVoicePending: false,
+        callPending: false,
+        callProblem: null,
         // The lead's card shows a running call, however it was started.
         jarvisCardMode: "voice",
         liveSessionId: sessionId,
         liveConversationId: continued && events.activeKind === "voice" && events.activeThreadId === continued
           ? continued : sessionId,
       });
-      // Wake words and external call controls start the same voice session as
-      // the composer button. Follow that session in the open Jarvis chat
-      // without starting another call or navigating away from other work.
-      if (useEventStore.getState().activeSection === "chats" && !get().agentChatId && get().surface === "chat") {
-        get().setSurface("voice");
-      }
+      // Wake words and external call controls start the same call as the
+      // composer button: the conversation stays on screen and the call window
+      // shows the call (components/home/CallWindow). A stored voice surface
+      // from older builds goes back to the chat.
+      if (get().surface !== "chat") get().setSurface("chat");
     }
     const before = get().transcript;
     const after = reduceTranscript(before, name, payload, tsMs);

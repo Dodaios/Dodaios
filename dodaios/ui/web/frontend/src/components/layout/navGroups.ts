@@ -157,7 +157,7 @@ export const NAV_GROUPS: NavItem[][] = [
       fallbackLabel: "Artifacts",
     },
     { id: "board", labelKey: "nav.board", icon: BoardIcon },
-    { id: "memory", labelKey: "nav.wiki", icon: WikiIcon },
+    { id: "memory", labelKey: "nav.memory", icon: WikiIcon },
     { id: "docs", labelKey: "nav.docs", icon: DocsIcon },
   ],
   // 2) Tools — the instruments: transcription, the run inspector, the CLIs
