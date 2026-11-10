@@ -752,7 +752,7 @@ describe("ChatStage (agent chat)", () => {
     act(() => { useHomeStore.setState({ callPending: false }); useEventStore.setState({ voiceState: "listening" }); });
     expect(screen.getByTestId("call-window").getAttribute("data-state")).toBe("listening");
     // Ended on a problem: the window stays with the reason.
-    act(() => { useEventStore.setState({ voiceState: "idle" }); useHomeStore.setState({ callProblem: { message: "refused" } }); });
+    act(() => { useEventStore.setState({ voiceState: "idle" }); useHomeStore.setState({ callProblem: { message: "refused", at: Date.now() } }); });
     expect(screen.getByTestId("call-window").getAttribute("data-state")).toBe("failed");
     act(() => useHomeStore.setState({ callProblem: null }));
     expect(screen.queryByTestId("call-window")).toBeNull();

@@ -941,6 +941,7 @@
       "mute_failed": "无法切换麦克风。",
       "failed": "这次通话没有成功",
       "failed_unknown": "没有收到原因。请检查语音设置后重试。",
+      "ended": "通话已结束",
       "settings": "语音设置",
       "mute": "关闭麦克风",
       "unmute": "打开麦克风"
