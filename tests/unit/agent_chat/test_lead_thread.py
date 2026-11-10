@@ -283,3 +283,109 @@ def test_answer_in_lead_returns_the_reply_of_its_own_turn(tmp_path: Path, monkey
         assert sid
 
     asyncio.run(scenario())
+
+
+# ---- CLI seat: one conversation for the model too (catch-up, fresh start, summary) -------------
+
+
+async def _cli_turn(svc: AgentChatService, sid: str, prompt: str, answer: str) -> None:
+    from dodaios.agent_chat.events import make_event
+
+    turn = f"cli-{prompt}"
+    await svc._emit(sid, make_event("user_message", {"text": prompt}))  # noqa: SLF001
+    await svc._emit(  # noqa: SLF001
+        sid, make_event("turn_started", {"turn_id": turn, "runner": "claude-cli"})
+    )
+    await svc._emit(  # noqa: SLF001
+        sid, make_event("assistant_text", {"turn_id": turn, "message_id": turn, "text": answer})
+    )
+    await svc._emit(  # noqa: SLF001
+        sid, make_event("turn_finished", {"turn_id": turn, "status": "done"})
+    )
+
+
+def test_a_resumed_cli_turn_sees_what_landed_since_its_last_turn(tmp_path: Path) -> None:
+    from dodaios.agent_chat import dodaios_harness
+    from dodaios.agent_chat.runner_cli import _with_identity
+
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        svc.store.save_chat_selection(ChatSelection("claude-api", "m", "low"))
+        sid = svc.lead_session().session_id
+        await _cli_turn(svc, sid, "first typed", "first answer")
+        # Nothing new landed: the resumed prompt is untouched.
+        quiet = await dodaios_harness.build_identity(
+            session_id=sid, turn_id="t", user_text="x",
+            history=svc.store.list_events(sid), resume="vendor-1", with_file=False,
+        )
+        assert _with_identity("next", quiet, "vendor-1") == "next"
+        await svc.import_voice_turn(sid, "book the flight I mentioned", "Booked it")
+        ident = await dodaios_harness.build_identity(
+            session_id=sid, turn_id="t", user_text="x",
+            history=svc.store.list_events(sid), resume="vendor-1", with_file=False,
+        )
+        prompt = _with_identity("do what I just said", ident, "vendor-1")
+        assert prompt.startswith("<since_your_last_turn>")
+        assert "book the flight I mentioned" in prompt and "Booked it" in prompt
+        assert "first typed" not in prompt  # the CLI's own turn is not repeated
+        assert prompt.endswith("do what I just said")
+        # A fresh conversation carries the transcript instead, never the block.
+        fresh = await dodaios_harness.build_identity(
+            session_id=sid, turn_id="t", user_text="x",
+            history=svc.store.list_events(sid), resume=None, with_file=False,
+        )
+        assert fresh.catchup == "" and "book the flight I mentioned" in fresh.text
+
+    asyncio.run(scenario())
+
+
+def test_the_catch_up_keeps_the_newest_entries_and_counts_the_rest() -> None:
+    from dodaios.agent_chat import dodaios_harness
+
+    events: list[dict] = [
+        {"kind": "turn_started", "payload": {"turn_id": "a", "runner": "claude-cli"}},
+        {"kind": "turn_finished", "payload": {"turn_id": "a"}},
+    ]
+    for n in range(10):
+        events.append({"kind": "user_message", "payload": {"text": f"spoken {n} " + "x" * 50}})
+    block = dodaios_harness.since_last_turn_block(events, max_chars=200)
+    assert "spoken 9" in block and "spoken 0" not in block
+    assert "older entries left out" in block
+
+
+def test_fresh_start_on_a_cli_seat_forgets_the_vendor_session(tmp_path: Path) -> None:
+    from dodaios.society.conversation import ConversationArchive
+
+    class _Runtime:
+        def __init__(self, svc: AgentChatService) -> None:
+            self.conversations = ConversationArchive(tmp_path / "archive.db")
+
+    async def scenario() -> None:
+        from dodaios.agent_chat import dodaios_harness
+        from dodaios.society import runtime as society_runtime
+
+        svc = _service(tmp_path)
+        svc.store.save_chat_selection(ChatSelection("claude-api", "m", "low"))
+        sid = svc.lead_session().session_id
+        await _cli_turn(svc, sid, "old typed", "old answer")
+        svc.store.update_session(sid, vendor_session="vendor-1")
+        previous = society_runtime.current_runtime()
+        society_runtime.set_current_runtime(_Runtime(svc))  # type: ignore[arg-type]
+        try:
+            assert lead.fresh_start(svc)
+            assert not svc.store.get_session(sid).vendor_session
+            await _cli_turn(svc, sid, "new typed", "new answer")
+            # The next fresh CLI identity leads with the checkpoint summary and
+            # carries only what came after it.
+            ident = await dodaios_harness.build_identity(
+                session_id=sid, turn_id="t", user_text="x",
+                history=svc.store.list_events(sid), resume=None, with_file=False,
+            )
+            text = ident.text
+            assert lead.FRESH_START_SUMMARY in text
+            assert "new typed" in text and "old typed" not in text
+            assert text.index(lead.FRESH_START_SUMMARY) < text.index("new typed")
+        finally:
+            society_runtime.set_current_runtime(previous)
+
+    asyncio.run(scenario())

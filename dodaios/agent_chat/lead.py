@@ -27,11 +27,12 @@ SURFACE: Final[str] = "jarvis"
 _lock = threading.RLock()
 
 
-def chat_seat(svc: Any) -> dict[str, str] | None:
-    """The provider / model / effort the person last picked for the chat.
+def _new_chat_seat(svc: Any) -> dict[str, str] | None:
+    """The pick a NEW lead conversation starts on (never "what answers now").
 
     In order: the last explicit chat pick, the seat of the newest Jarvis
-    chat. ``None`` when neither offers a provider of the chat surface.
+    chat. ``None`` when neither offers a provider of the chat surface. The
+    seat the lead actually answers on is :func:`lead_seat`, the one definition.
     """
     from dodaios.agent_chat.catalog import offers
 
@@ -54,6 +55,41 @@ def chat_seat(svc: Any) -> dict[str, str] | None:
             seat["account_id"] = session.account_id
         return seat
     return None
+
+
+def lead_seat(svc: Any) -> dict[str, str] | None:
+    """THE lead's seat: what the lead conversation answers on right now.
+
+    The one definition every background reader uses (the learning reviewer,
+    ``society.seat_brain.jarvis_seat``): the lead session's own provider,
+    model, effort and login, with the runner that
+    ``AgentChatService.send`` picks for it (the provider's subscription seat
+    when one is signed in, else ``resolve_runner(..., surface="jarvis")``).
+    ``None`` when there is no lead conversation yet; the caller then falls
+    back to the configured Agents tier. Blocking (login probes): call it in a
+    thread.
+    """
+    from dodaios.agent_chat.service import resolve_runner
+    from dodaios.core.task_agent import subscription_seat
+
+    session = lead_session(svc, create=False)
+    if session is None or not session.provider:
+        return None
+    provider = session.provider
+    account = str(getattr(session, "account_id", "") or "")
+    seat = subscription_seat(provider)
+    if seat is not None:
+        provider, runner = seat
+    else:
+        runner = resolve_runner(provider, surface=SURFACE, account_id=account)
+    return {
+        "provider": provider,
+        # ``send`` keeps the pick's model when it maps the provider to a seat.
+        "model": str(session.model or ""),
+        "effort": str(getattr(session, "effort", "") or ""),
+        "account_id": account,
+        "runner": runner,
+    }
 
 
 def _default_seat(provider_hint: str = "") -> dict[str, str] | None:
@@ -103,7 +139,7 @@ def lead_session(svc: Any, *, create: bool = True, provider_hint: str = "") -> A
         if session is None:
             if not create:
                 return None
-            seat = chat_seat(svc) or _default_seat(provider_hint)
+            seat = _new_chat_seat(svc) or _default_seat(provider_hint)
             if seat is None:
                 log.warning("lead thread: no chat provider is available")
                 return None
@@ -293,12 +329,26 @@ FRESH_START_SUMMARY = (
 )
 
 
+def checkpoint_for(session_id: str) -> tuple[int, str]:
+    """The lead's compaction checkpoint ``(through_seq, summary)``; ``(0, "")`` when none."""
+    archive = _archive()
+    if archive is None:
+        return 0, ""
+    try:
+        through, summary = archive.checkpoint(session_id)
+    except Exception:  # noqa: BLE001 — no summary is a usable answer
+        log.debug("lead thread: checkpoint read failed", exc_info=True)
+        return 0, ""
+    return int(through), str(summary)
+
+
 def fresh_start(svc: Any) -> int | None:
     """Start the model light without ending the conversation.
 
     Moves the compaction checkpoint to the newest event with a short note as
     its summary, so the next turn carries no earlier history. The thread,
-    its archive and the memory stay. Blocking (SQLite). Returns the event
+    its archive and the memory stay. A CLI seat also drops its vendor
+    session, so the next turn really starts a new conversation. Blocking (SQLite). Returns the event
     seq the fresh start begins after, or ``None`` when there is no
     conversation or no archive.
     """
@@ -310,6 +360,10 @@ def fresh_start(svc: Any) -> int | None:
     through = int(events[-1]["seq"]) if events else 0
     archive.ingest(session.session_id, svc.store.list_events(session.session_id))
     archive.save_checkpoint(session.session_id, through, FRESH_START_SUMMARY)
+    if session.vendor_session:
+        # A CLI seat resumes its own vendor conversation: forget it, or the next
+        # turn would carry the full old context and "fresh" would be a no-op.
+        svc.store.update_session(session.session_id, vendor_session="")
     return through
 
 
@@ -359,6 +413,39 @@ async def post_learned(receipts: list[dict[str, Any]]) -> None:
         log.warning("lead thread: learned-memory notice not posted", exc_info=True)
 
 
+async def post_memory_health(text: str, *, provider: str = "", cause: str = "") -> bool:
+    """Write one memory-health notice in the conversation. Never spoken.
+
+    The learning loop uses it when a configuration fault (spent usage limit,
+    rejected key, signed-out subscription) stops the reviews. Returns whether
+    the notice was posted; a missing conversation is not an error.
+    """
+    try:
+        from dodaios.society.runtime import current_runtime
+
+        runtime = current_runtime()
+        svc = runtime.chat_service() if runtime is not None else None
+        if svc is None:
+            return False
+        session = lead_session(svc, create=False)
+        if session is None:
+            return False
+        await svc.post_notice(
+            session.session_id,
+            {
+                "kind": "memory_health",
+                "status": "done",
+                "text": text,
+                "provider": provider,
+                "cause": cause,
+            },
+        )
+        return True
+    except Exception:  # noqa: BLE001 — a notice is a courtesy; the turns stay pending anyway
+        log.warning("lead thread: memory-health notice not posted", exc_info=True)
+        return False
+
+
 def _archive() -> Any | None:
     try:
         from dodaios.society.runtime import current_runtime
@@ -373,12 +460,13 @@ __all__ = [
     "SURFACE",
     "adopt_seat",
     "answer_in_lead",
-    "chat_seat",
     "fresh_start",
     "is_lead",
+    "lead_seat",
     "lead_session",
     "lead_session_id",
     "post_learned",
+    "post_memory_health",
     "search_conversation",
     "voice_history",
 ]

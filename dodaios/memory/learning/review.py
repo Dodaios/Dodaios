@@ -335,6 +335,150 @@ def _failure_kind(exc: BaseException) -> str:
     return "error"
 
 
+#: Why a review failed for a reason only the person can fix. Everything else
+#: (a timeout, an overloaded provider, a bad reply) is transient and retried.
+CAUSE_TRANSIENT: Final = "transient"
+CAUSE_USAGE_LIMIT: Final = "usage_limit"
+CAUSE_BILLING: Final = "billing"
+CAUSE_AUTH: Final = "auth"
+CAUSE_LOGGED_OUT: Final = "logged_out"
+
+#: Wording of a missing or signed-out credential, matched in lower case.
+_LOGGED_OUT_PHRASES: Final[tuple[str, ...]] = (
+    "not logged in",
+    "please run /login",
+    "login required",
+    "log in again",
+    "not signed in",
+    "sign in again",
+    "session expired",
+    "token expired",
+    "credentials.json",
+)
+_BILLING_PHRASES: Final[tuple[str, ...]] = (
+    "insufficient_quota",
+    "insufficient credits",
+    "insufficient balance",
+    "no credits",
+    "out of credits",
+    "credit balance is too low",
+    "exceeded your current quota",
+)
+_AUTH_PHRASES: Final[tuple[str, ...]] = (
+    "unauthorized",
+    "invalid api key",
+    "invalid x-api-key",
+    "incorrect api key",
+    "invalid_api_key",
+    "authentication_error",
+    "authentication failed",
+    "no api key",
+    "missing api key",
+    "api key not found",
+    "api_key not set",
+    "api key is not set",
+    "api_key is not set",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewFailure:
+    """Why the last review attempt failed, and on which seat (no credential)."""
+
+    cause: str
+    provider: str = ""
+    model: str = ""
+    runner: str = ""
+    billing: str = ""
+
+    @property
+    def configuration(self) -> bool:
+        """True when retrying cannot help until the person changes something."""
+        return self.cause != CAUSE_TRANSIENT
+
+
+def classify_failure(exc: BaseException, choice: SeatChoice) -> ReviewFailure:
+    """Sort a failed review call into a configuration fault or a transient one.
+
+    A spent usage limit or quota, a rejected key (401) and a signed-out
+    subscription do not fix themselves, however often the review retries.
+    """
+    from dodaios.agent_runtimes.provider_errors import classify
+
+    seat = choice.seat
+    where = {
+        "provider": seat.provider,
+        "model": seat.model,
+        "runner": seat.runner,
+        "billing": choice.billing,
+    }
+    try:
+        refusal = classify(seat.provider, exc)
+    except Exception:  # noqa: BLE001 - classification is best effort: unknown means transient
+        refusal = None
+    if refusal is not None:
+        if refusal.code == "usage_limit":
+            return ReviewFailure(CAUSE_USAGE_LIMIT, **where)
+        if refusal.code == "billing":
+            return ReviewFailure(CAUSE_BILLING, **where)
+    text = " ".join(f"{err}" for err in _chain(exc)).lower()
+    status = next(
+        (
+            v
+            for err in _chain(exc)
+            for v in (getattr(err, "status_code", None), getattr(err, "status", None))
+            if isinstance(v, int)
+        ),
+        None,
+    )
+    if status == 402 or any(p in text for p in _BILLING_PHRASES):
+        return ReviewFailure(CAUSE_BILLING, **where)
+    if any(p in text for p in _LOGGED_OUT_PHRASES):
+        return ReviewFailure(CAUSE_LOGGED_OUT, **where)
+    if status in (401, 403) or re.search(r"\b401\b", text) or any(p in text for p in _AUTH_PHRASES):
+        return ReviewFailure(CAUSE_AUTH, **where)
+    return ReviewFailure(CAUSE_TRANSIENT, **where)
+
+
+def _chain(exc: BaseException) -> list[BaseException]:
+    seen: list[BaseException] = []
+    current: BaseException | None = exc
+    while current is not None and current not in seen and len(seen) < 5:
+        seen.append(current)
+        current = current.__cause__ or current.__context__
+    return seen
+
+
+def health_sentence(failure: ReviewFailure) -> str:
+    """The one readable sentence for the conversation: the seat and the fix."""
+    from dodaios.agent_chat.catalog import provider_row
+
+    row = provider_row(failure.provider)
+    label = row.label if row is not None else failure.provider or "the assistant's provider"
+    model = f" ({failure.model})" if failure.model else ""
+    seat = f"{label}{model}"
+    change = (
+        "To pick another reviewer, set provider and model under [memory.learning] in "
+        "jarvis.toml, or switch the chat to a provider that still works."
+    )
+    if failure.cause == CAUSE_USAGE_LIMIT:
+        what = f"the {seat} plan has used up its allowance"
+        fix = f"Wait for the allowance to reset. {change}"
+    elif failure.cause == CAUSE_BILLING:
+        what = f"{seat} has no credits or quota left on its key"
+        fix = f"Top up the account with the provider. {change}"
+    elif failure.cause == CAUSE_LOGGED_OUT:
+        what = f"{seat} is signed out"
+        fix = f"Sign in again under Settings, in the provider's card. {change}"
+    else:
+        what = f"{seat} rejected its key or login"
+        fix = f"Check it under Settings, API keys. {change}"
+    return (
+        f"I cannot learn right now: {what}, so the memory review stopped. "
+        f"Nothing is lost; what you said stays queued and is reviewed once it works. {fix}"
+    )
+
+
 def _billing(seat: Any) -> str:
     from dodaios.society.seat_brain import bills_per_token
 
@@ -417,6 +561,8 @@ class ModelReviewer:
         self._max_tokens = max_tokens
         self._caller = caller
         self.last_choice: SeatChoice | None = None
+        #: Why the last call returned ``None`` (``None`` = answered or no seat).
+        self.last_failure: ReviewFailure | None = None
 
     def _live_config(self) -> Any:
         """The config the chat reads its seat from (the brain manager's), else ours."""
@@ -431,6 +577,7 @@ class ModelReviewer:
 
         config = self._live_config()
         self.last_choice = None
+        self.last_failure = None
         try:
             choices = await asyncio.to_thread(seat_choices, config)
         except SeatUnavailable as exc:
@@ -474,4 +621,9 @@ class ModelReviewer:
         except Exception as exc:  # noqa: BLE001 - a failed attempt; the next seat or a retry
             # A fixed category only: nothing derived from the call (which carries
             # the person's conversation) or a provider's error body is logged (AP-34).
-            return False, _failure_kind(exc)
+            failure = classify_failure(exc, choice)
+            # A configuration fault on any asked seat wins over a transient one.
+            previous = self.last_failure
+            if previous is None or (failure.configuration and not previous.configuration):
+                self.last_failure = failure
+            return False, f"{_failure_kind(exc)}, {failure.cause}"

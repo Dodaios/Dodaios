@@ -23,7 +23,10 @@ Turns stay pending until a review has really looked at them: a failed or
 cancelled review hands them back, and a failing reviewer is retried after a
 growing pause, never on every turn. The reviewer asks the Jarvis lead's
 provider, on its subscription when one is signed in (``review.seat_choices``),
-so after four failed reviews in a row the turns are dropped with one log line.
+so after four failed reviews in a row the turns are dropped with one log line,
+unless the cause is a configuration fault (a spent usage limit, a rejected key,
+a signed-out login): then the turns stay pending, and ONE written notice
+(``memory_health``) tells the person which seat stopped and how to fix it.
 Every review and merge call leaves a ``review`` line in the learning ledger
 naming its seat, its billing mode and how it ended (``answered``, ``failed``,
 ``dropped``). Nothing here runs on the voice path.
@@ -125,6 +128,11 @@ class JarvisLearningLoop:
         self._subscriptions: list[tuple[type[Any], Any]] = []
         self._bus: Any = None
         self._stopped = False
+        #: Why the latest unanswered review failed (read by ``review``).
+        self._last_failure: Any = None
+        #: The configuration fault already written up in the conversation
+        #: (cause, provider, model); ``None`` after a recovery.
+        self._health_key: tuple[str, str, str] | None = None
         #: Model calls made (diagnostics and tests).
         self.review_calls = 0
         self.compact_calls = 0
@@ -414,13 +422,23 @@ class JarvisLearningLoop:
             answered = False
             written = 0
             outcome = "failed"
+            self._last_failure = None
             try:
                 written, answered = await self._review_said(said, reason, anchors)
             finally:
                 conversation.reviewing = False
                 if answered:
                     outcome = "answered"
-                if not answered and conversation.failures + 1 >= _MAX_FAILURES:
+                fault = self._last_failure if not answered else None
+                #: Only the person can fix a configuration fault (a spent limit,
+                #: a rejected key, a signed-out login), so the turns wait for
+                #: that instead of being dropped after a few useless retries.
+                waiting_on_person = bool(fault is not None and fault.configuration)
+                if (
+                    not answered
+                    and not waiting_on_person
+                    and conversation.failures + 1 >= _MAX_FAILURES
+                ):
                     # The seat kept failing: give these turns up (turns that
                     # arrived meanwhile stay) and start the count afresh.
                     outcome = "dropped"
@@ -438,7 +456,7 @@ class JarvisLearningLoop:
                     conversation.unreviewed = min(conversation.unreviewed + count, _KEEP_TURNS)
                     conversation.failures += 1
                     conversation.retry_at = time.monotonic() + min(
-                        _BACKOFF_CAP_S, _BACKOFF_S * 2 ** (conversation.failures - 1)
+                        _BACKOFF_CAP_S, _BACKOFF_S * 2 ** min(conversation.failures - 1, 12)
                     )
                 else:
                     conversation.failures = 0
@@ -450,11 +468,40 @@ class JarvisLearningLoop:
                 changes=written,
                 seat=_seat_of(self._reviewer),
             )
+            await self._note_health(answered, self._last_failure)
             if written:
                 log.info("learning: %d notebook change(s) from %s", written, key)
                 await self._compact_locked()
                 await asyncio.to_thread(self.notebook.warm)
             return written
+
+    async def _note_health(self, answered: bool, failure: Any) -> None:
+        """Write ONE notice per configuration fault; reset it on recovery.
+
+        Never spoken, never on every failure: again only when the cause (or
+        the seat) changes, or after a review answered and a new fault follows.
+        """
+        if answered:
+            self._health_key = None
+            return
+        if failure is None or not failure.configuration:
+            return
+        key = (failure.cause, failure.provider, failure.model)
+        if key == self._health_key:
+            return
+        from dodaios.agent_chat.lead import post_memory_health
+        from dodaios.memory.learning.review import health_sentence
+
+        log.warning(
+            "learning: reviews stopped on %s/%s (%s); turns are kept until it is fixed",
+            failure.provider,
+            failure.model or "default model",
+            failure.cause,
+        )
+        if await post_memory_health(
+            health_sentence(failure), provider=failure.provider, cause=failure.cause
+        ):
+            self._health_key = key
 
     async def _review_said(
         self,
@@ -480,6 +527,7 @@ class JarvisLearningLoop:
             log.warning("learning: reviewer failed", exc_info=True)
             raw = None
         if raw is None:
+            self._last_failure = getattr(self._reviewer, "last_failure", None)
             return 0, False
         seat = _seat_of(self._reviewer)
         # Evidence may come from the picked turns only: nothing else was shown.
@@ -523,6 +571,7 @@ class JarvisLearningLoop:
             log.warning("learning: vault reviewer failed", exc_info=True)
             raw = None
         if raw is None:
+            self._last_failure = getattr(reviewer, "last_failure", None)
             return 0, False
         ops, rejected = reconcile.validate(
             raw, user_texts=[row["user"] for row in said], shown=shown

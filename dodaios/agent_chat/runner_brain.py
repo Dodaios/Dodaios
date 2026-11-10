@@ -1,10 +1,11 @@
 """The Jarvis surface's runner: Jarvis' own brain, driven by text.
 
-This is what the front page's chat runs on — every seat of it, since that
-surface gave up its CLI seats (2026-08-26): a provider API behind a key, or
-a server on this machine. A typed turn is the same turn a spoken one is —
-``BrainManager.generate`` with its router, its tools, its memory, its wiki
-and its safety tiers — with the keyboard in place of the microphone. Nothing
+This is what the front page's chat runs on when its seat is an API row (a
+provider API behind a key, or a server on this machine). A seat on a vendor CLI
+(Claude Code and the others, ``surface_kits`` ``cli_seats``) runs on
+``runner_cli`` as Jarvis instead. A typed turn is the same turn a spoken one is
+-- ``BrainManager.generate`` with its router, its tools, its memory, its wiki
+and its safety tiers -- with the keyboard in place of the microphone. Nothing
 here spawns a coding CLI or a second agent loop; there is one assistant in
 this app and this is how you type at it (maintainer, 2026-08-25).
 
