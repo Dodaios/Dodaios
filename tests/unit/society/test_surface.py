@@ -264,6 +264,53 @@ async def test_briefing_is_deterministic_and_complete(rt: SocietyRuntime):
     assert "You do not assign work" in a
 
 
+async def test_briefing_offers_unconnected_plugins_as_a_connect_card(rt: SocietyRuntime):
+    """A plugin without a connection is named with the tool that offers it, so
+    the agent shows a Connect card instead of answering that it cannot do it."""
+    agent, _ = await rt.roster.create(name="Mailbox", title="Mail agent")
+    catalog = rt.catalog()
+    roster = await rt.roster.list()
+    plain = build_briefing(agent, catalog, roster)
+    assert "Not connected" not in plain
+    offered = build_briefing(agent, catalog, roster, unconnected=["notion", "gmail", ""])
+    assert "Not connected: gmail, notion. " in offered
+    assert "society_request_connect(kind='plugin', id=...)" in offered
+    assert offered.index("Not connected") < offered.index("Capability epoch")
+    # A denied plugin is not offered: connecting it would still not reach the agent.
+    agent.denies = ["plugin:notion"]
+    denied = build_briefing(agent, catalog, roster, unconnected=["notion", "gmail"])
+    assert "Not connected: gmail. " in denied
+
+
+async def test_unconnected_plugins_come_from_the_connection_state(rt: SocietyRuntime):
+    assert rt.unconnected_plugins() == []
+    rt._plugin_state = lambda: (["gmail", "notion", "vercel"], {"gmail"})  # noqa: SLF001 — test seam
+    rt._usable_cache = None  # noqa: SLF001 — test seam
+    assert rt.unconnected_plugins() == ["notion", "vercel"]
+
+
+async def test_the_leads_chat_gets_the_connect_card_with_what_it_can_offer(rt: SocietyRuntime):
+    """The lead has no society briefing: the tool itself names the plugins."""
+    from dodaios.society.connect_tool import (
+        CONNECT_TOOL_NAME,
+        RequestConnectTool,
+        lead_connect_tools,
+    )
+
+    rt._plugin_state = lambda: (["gmail", "notion"], {"gmail"})  # noqa: SLF001 — test seam
+    rt._usable_cache = None  # noqa: SLF001 — test seam
+    tools = lead_connect_tools(SimpleNamespace(session_id="chat-1"))
+    tool = tools[CONNECT_TOOL_NAME]
+    assert tool.description.startswith(RequestConnectTool.description)
+    assert "Not connected right now: notion." in tool.description
+    # Nothing to offer: the plain description, and the class text stays untouched.
+    rt._plugin_state = lambda: (["gmail"], {"gmail"})  # noqa: SLF001 — test seam
+    rt._usable_cache = None  # noqa: SLF001 — test seam
+    plain = lead_connect_tools(SimpleNamespace(session_id="chat-1"))[CONNECT_TOOL_NAME]
+    assert plain.description == RequestConnectTool.description
+    assert lead_connect_tools(SimpleNamespace(session_id="")) == {}
+
+
 async def test_capability_epoch_changes_when_hands_change(rt: SocietyRuntime):
     before = capability_epoch(rt.catalog())
     rt._get_tools = lambda: {**TOOLS, "spotify": _tool("spotify")}  # noqa: SLF001 — test seam

@@ -23,6 +23,7 @@ import { InputIsolationBanner } from "@/components/layout/InputIsolationBanner";
 import { VoiceWarmingBanner } from "@/components/layout/VoiceWarmingBanner";
 import { MainView } from "@/components/layout/MainView";
 import { ToastLayer } from "@/components/ToastLayer";
+import { PluginReconnectHost } from "@/components/PluginReconnectHost";
 import { CommandActivityLayer } from "@/components/CommandActivityLayer";
 import { AppshotEditorHost } from "@/components/appshot/AppshotEditorHost";
 import { EditContextMenu } from "@/components/EditContextMenu";
@@ -368,7 +369,9 @@ export default function App() {
         </div>
       </main>
 
-      <ToastLayer />
+      <ToastLayer>
+        <PluginReconnectHost />
+      </ToastLayer>
       <CommandActivityLayer />
       {/* The appshot editor, over whatever is open (a click on the appshot
           card in the screen corner opens it). */}

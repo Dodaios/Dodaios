@@ -7731,6 +7731,12 @@
     "connected": "{label} ligado",
     "declined": "{label} não ligado"
   },
+  "plugin_reconnect": {
+    "subtitle": "A ligação expirou",
+    "action": "Voltar a ligar",
+    "waiting": "Conclui o início de sessão",
+    "code": "Código: {code}"
+  },
   "question_card": {
     "aria": "Pergunta do agente",
     "title_one": "{agent} tem uma pergunta",

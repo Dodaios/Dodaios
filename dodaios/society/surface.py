@@ -22,13 +22,14 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, Final, cast
 
 from dodaios.core.protocols import Tool, ToolResult
 from dodaios.core.response_style import (
     AGENT_QUESTION_GUIDANCE,
+    CONNECT_GUIDANCE,
     CONVERSATIONAL_RESPONSE_STYLE,
     CREDENTIAL_GUIDANCE,
     KEEP_GOING_ON_TOOL_FAILURE,
@@ -897,9 +898,19 @@ async def society_system_extra(cfg: Any, brain: Any, session: Any) -> str:
     team = rt.team_leads.briefing(agent.agent_id)
     if team:
         context += "\n\n" + team
+    # A routine has no Connect card to offer (society_tools), so it hears no offer.
+    routine = is_routine_session(str(getattr(session, "session_id", "") or ""))
+    unconnected = [] if routine else rt.unconnected_plugins()
     return (
         build_briefing(
-            agent, catalog, roster, browser=browser, learned=learned, memory=memory, config=cfg
+            agent,
+            catalog,
+            roster,
+            browser=browser,
+            learned=learned,
+            memory=memory,
+            unconnected=unconnected,
+            config=cfg,
         )
         + context
     )
@@ -991,9 +1002,13 @@ def build_briefing(
     browser: dict[str, Any] | None = None,
     learned: list[dict[str, str]] | None = None,
     memory: str | None = None,
+    unconnected: Sequence[str] = (),
     config: Any = LIVE,
 ) -> str:
     """The per-agent system-prompt addendum (agent-definition §3.3).
+
+    ``unconnected``: marketplace plugin ids the person has not connected or has
+    to sign in to again; the agent may offer them with a Connect card.
 
     Pure and deterministic: same roster row + same catalog + same roster +
     same wake phrase → the same bytes, so the provider prompt cache stays warm
@@ -1066,6 +1081,9 @@ def build_briefing(
         hands.append("Also available — " + also + ".")
     if not focus_rows and not others:
         hands.append("No connected capabilities beyond your society tools right now.")
+    offer = sorted({p for p in unconnected if p and _allowed(f"plugin:{p}")})
+    if offer:
+        hands.append("Not connected: " + ", ".join(offer) + ". " + CONNECT_GUIDANCE)
     hands.append(f"Capability epoch: {capability_epoch(catalog)}")
     parts.append("\n".join(hands))
 
