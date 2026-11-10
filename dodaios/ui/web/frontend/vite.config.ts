@@ -70,8 +70,41 @@ function materialIconAssets(): Plugin {
   };
 }
 
+const MOBILE_STRINGS_ID = "virtual:mobile-strings";
+const MOBILE_LANGUAGES = ["en", "de", "es", "pt", "zh"] as const;
+
+/**
+ * The phone companion's strings, inlined from the `mobile.app` namespace of
+ * every locale file. The phone bundle must share NO module with the desktop
+ * entry (a shared module becomes a common chunk and changes how the desktop
+ * starts), so it cannot import the locale JSON; this hands it the one
+ * namespace it needs instead.
+ */
+function mobileStrings(): Plugin {
+  const resolved = "\0" + MOBILE_STRINGS_ID;
+  const localeFile = (lang: string) => path.resolve(__dirname, `src/i18n/locales/${lang}.json`);
+  return {
+    name: "mobile-strings",
+    resolveId(source) {
+      return source === MOBILE_STRINGS_ID ? resolved : undefined;
+    },
+    load(id) {
+      if (id !== resolved) return undefined;
+      const out: Record<string, unknown> = {};
+      for (const lang of MOBILE_LANGUAGES) {
+        this.addWatchFile(localeFile(lang));
+        const tree = JSON.parse(fs.readFileSync(localeFile(lang), "utf8")) as {
+          mobile?: { app?: Record<string, string> };
+        };
+        out[lang] = tree.mobile?.app ?? {};
+      }
+      return `export default ${JSON.stringify(out)};`;
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [safePublication(__dirname), react(), materialIconAssets(), missingNameGate(__dirname), notices.plugin],
+  plugins: [safePublication(__dirname), react(), materialIconAssets(), missingNameGate(__dirname), notices.plugin, mobileStrings()],
   worker: { plugins: () => [notices.workerPlugin()] },
   // The society's figures are binary glTF; Vite serves them as fingerprinted
   // assets (docs/agent-society/character-pipeline.md §4.2).
@@ -98,6 +131,15 @@ export default defineConfig({
   build: {
     outDir: "../dist",
     emptyOutDir: true,
+    // Two documents: the desktop app and the phone companion (dist/m/index.html,
+    // served at /m/). The phone entry imports nothing the desktop entry does,
+    // so the desktop's startup chunk is unchanged by its presence.
+    rollupOptions: {
+      input: {
+        index: path.resolve(__dirname, "index.html"),
+        mobile: path.resolve(__dirname, "m/index.html"),
+      },
+    },
     // No source maps in production builds. They bloat the bundle, expose the
     // full original source, and bake the absolute build path (e.g. a personal
     // C:\Users\... home dir) into the .map files — none of which belongs in the
