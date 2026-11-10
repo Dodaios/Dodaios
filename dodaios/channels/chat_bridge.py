@@ -286,6 +286,7 @@ def _language_of(text: str) -> str:
 
         code = resolve_turn_language(None, text)
     except Exception:  # noqa: BLE001
+        log.debug("ChannelChatBridge: reply language not detected", exc_info=True)
         return "en"
     return code if code in _LANGS else "en"
 
