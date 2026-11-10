@@ -7940,6 +7940,14 @@
       "asked_one": "perguntou a você",
       "asked_other": "perguntou a você"
     },
+    "act_n": {
+      "command": "executou {count} comandos",
+      "read": "leu {count} arquivos",
+      "list": "listou {count} pastas",
+      "edit": "editou {count} arquivos",
+      "write": "criou {count} arquivos",
+      "image": "viu {count} imagens"
+    },
     "call": {
       "read": "Leu {target}",
       "list": "Listou {target}",

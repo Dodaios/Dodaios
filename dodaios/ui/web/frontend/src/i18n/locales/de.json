@@ -7940,6 +7940,14 @@
       "asked_one": "dich gefragt",
       "asked_other": "dich gefragt"
     },
+    "act_n": {
+      "command": "{count} Befehle ausgeführt",
+      "read": "{count} Dateien gelesen",
+      "list": "{count} Ordner aufgelistet",
+      "edit": "{count} Dateien bearbeitet",
+      "write": "{count} Dateien erstellt",
+      "image": "{count} Bilder angesehen"
+    },
     "call": {
       "read": "{target} gelesen",
       "list": "{target} aufgelistet",
