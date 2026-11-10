@@ -102,7 +102,7 @@ class WatchdogStore:
         out = dict(DEFAULT_SETTINGS)
         try:
             stored = json.loads(raw) if raw else {}
-        except ValueError:
+        except ValueError:  # damaged settings row: the defaults apply
             stored = {}
         if isinstance(stored, dict):
             for name, default in DEFAULT_SETTINGS.items():
@@ -302,7 +302,7 @@ def _finding_row(row: sqlite3.Row) -> dict[str, Any]:
     for name in ("evidence", "actions"):
         try:
             out[name] = json.loads(out.get(name) or ("{}" if name == "evidence" else "[]"))
-        except ValueError:
+        except ValueError:  # damaged column reads as empty evidence or no actions
             out[name] = {} if name == "evidence" else []
     return out
 

@@ -186,7 +186,7 @@ class Watchdog:
         """Report how long the app was down if the last run ended without a clean stop."""
         try:
             previous = json.loads(self.heartbeat_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except (OSError, ValueError):  # no readable heartbeat: a first run, nothing to report
             return None
         if not isinstance(previous, dict) or previous.get("boot_id") == self.boot_id:
             return None

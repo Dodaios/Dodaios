@@ -84,7 +84,7 @@ def parse_verdict(text: str) -> Verdict | None:
         return None
     try:
         data = json.loads(match.group(0))
-    except ValueError:
+    except ValueError:  # not JSON: the answer is unusable, so there is no verdict
         return None
     if not isinstance(data, dict):
         return None

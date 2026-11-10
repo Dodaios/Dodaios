@@ -108,7 +108,7 @@ class LiveSources:
         try:
             self._hop(_noop, _PING_TIMEOUT_S)
             self._stalled_since = None
-        except LoopUnresponsive:
+        except LoopUnresponsive:  # reported below as snap.loop_ok = False
             if self._stalled_since is None:
                 self._stalled_since = time.monotonic()
             snap.loop_ok = False
@@ -157,7 +157,7 @@ class LiveSources:
             ids = [r[0][0] for r in views]
             try:
                 states = self._hop(lambda: self._turn_states(ids))
-            except LoopUnresponsive:
+            except LoopUnresponsive:  # turn states stay unknown; the loop check reports it
                 states = {}
         out: list[TurnView] = []
         for (row, sigs) in views:
@@ -185,7 +185,7 @@ class LiveSources:
         for kind, raw in reversed(rows):
             try:
                 payload = json.loads(raw)
-            except ValueError:
+            except ValueError:  # a damaged event row carries no call to compare
                 continue
             call_id = str(payload.get("call_id") or "")
             if kind == "tool_result":
@@ -371,7 +371,7 @@ class LiveActions:
             if finding.repair == checks.ACT_REQUEUE:
                 note = self._hop(lambda: self.requeue(str(finding.evidence.get("job_id"))))
                 return note
-        except LoopUnresponsive:
+        except LoopUnresponsive:  # no answer means no repair; the finding becomes a notice
             return None
         except Exception:  # noqa: BLE001 - a failed repair becomes a notice, never a crash
             log.warning("watchdog: repair failed for %s", finding.key, exc_info=True)
