@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { ChatThought } from "./ChatThought";
 import { buildThreadRows, isFailed, joinStretches, type Stretch, type StretchItem, type ThreadRow } from "./threadWork";
 import { flattenMarks } from "@/lib/plainMarks";
-import { SubagentCard, SubagentGroup } from "./ThreadSubagents";
+import { SubagentRun } from "./ThreadSubagents";
 import { listSubagents } from "./subagents";
 import { turnErrorText } from "@/components/agentchat/turnError";
 
@@ -549,9 +549,9 @@ export function ApprovalPrompt({ block, onDecide }: { block: ToolBlock; onDecide
  * A card the turn ended on is no step: it stays with the answer it belongs to.
  */
 /**
- * Rows with each run of sub-agents spawned one after another drawn as one:
- * a lone sub-agent keeps its card, several read as one group with a line
- * each, so a batch of agents never buries the conversation in cards.
+ * Rows with each run of sub-agents spawned one after another drawn as one
+ * line of the thread ("Ran 3 sub-agents"), a lone sub-agent too, so a batch
+ * of agents reads like any other step instead of burying the conversation.
  */
 export function joinAgentRuns(rows: readonly ThreadRow[]): (ThreadRow | { kind: "agents"; id: string; blocks: ToolBlock[] })[] {
   const out: (ThreadRow | { kind: "agents"; id: string; blocks: ToolBlock[] })[] = [];
@@ -561,7 +561,7 @@ export function joinAgentRuns(rows: readonly ThreadRow[]): (ThreadRow | { kind: 
     let j = i;
     while (j + 1 < rows.length && rows[j + 1].kind === "agent") j++;
     const run = rows.slice(i, j + 1) as Extract<ThreadRow, { kind: "agent" }>[];
-    out.push(run.length === 1 ? row : { kind: "agents", id: `agents:${row.id}`, blocks: run.map((entry) => entry.block) });
+    out.push({ kind: "agents", id: `agents:${row.id}`, blocks: run.map((entry) => entry.block) });
     i = j;
   }
   return out;
@@ -695,7 +695,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
       : answer ? workedFor : timed("no_answer");
   const renderRows = (list: readonly ThreadRow[]) => joinStretches(joinAgentRuns(list), { running }).map((row) =>
     row.kind === "stretch" ? <StretchView key={row.id} stretch={row} running={running} />
-      : row.kind === "agents" ? <SubagentGroup key={row.id} blocks={row.blocks} turn={turn} /> : renderRow(row));
+      : row.kind === "agents" ? <SubagentRun key={row.id} blocks={row.blocks} turn={turn} /> : renderRow(row));
   const renderRow = (row: ThreadRow) => {
     // Work is drawn as stretches (renderRows), never as a row of its own.
     if (row.kind === "work") return null;
@@ -704,7 +704,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
       <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl bg-secondary px-4 py-2.5 text-base leading-6 text-foreground [overflow-wrap:anywhere]">{(row as { text: string }).text}</div>
     </div>;
     if (row.kind === "text") return <div key={row.id} className={cn(PROSE, THREAD_MEDIA)}><ChatMarkdown text={row.text} /></div>;
-    if (row.kind === "agent") return <SubagentCard key={row.id} block={row.block} turn={turn} />;
+    if (row.kind === "agent") return <SubagentRun key={row.id} blocks={[row.block]} turn={turn} />;
     // A secret is pasted where it is asked for, never into a composer.
     if (row.block.credential) return <CredentialCard key={row.id} credential={row.block.credential} />;
     if (inline) {
