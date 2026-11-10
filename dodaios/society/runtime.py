@@ -839,6 +839,13 @@ class SocietyRuntime:
             return
         session_id = agent.session_id
         if agent.agent_id == LEAD_AGENT_ID:
+            from dodaios.agent_chat.proactive_checks import quiet_result
+
+            if quiet_result(payload):
+                # A lead routine with nothing to say posts nothing (the
+                # "needs you" check answers with its sentinel most of the time).
+                log.info("society: a quiet lead routine result was not posted")
+                return
             try:
                 from dodaios.agent_chat.lead import lead_session
 
