@@ -655,7 +655,8 @@ void AVerseArenaGraybox::DressDecals()
 		Place(bOil ? TEXT("Arena_OilStain") : TEXT("Arena_Scuff"), At, bOil ? Rng.FRandRange(60.f, 220.f) : Rng.FRandRange(120.f, 380.f));
 	}
 	// Stencilled markings (signage.py masks): text along the lanes, row numbers at the canyon,
-	// the deck number on the hero wall. Sizes are the decal's width and height in cm.
+	// the deck number on the hero wall. Sizes are the decal's width and height in cm. A floor
+	// sign's yaw is the yaw its main reader faces plus 90, so the text reads upright to them.
 	auto Sign = [&](const TCHAR* Look, const FVector& At, double Yaw, double Width, double Height, bool bWall = false)
 	{
 		UDecalComponent* Decal = NewObject<UDecalComponent>(this);
@@ -668,12 +669,12 @@ void AVerseArenaGraybox::DressDecals()
 		Decal->RegisterComponent();
 		++DressingInstances;
 	};
-	Sign(TEXT("Arena_Sign_KeepClear"), FVector(3200.0, 760.0, 0.0), 0.0, 520.0, 130.0);
-	Sign(TEXT("Arena_Sign_KeepClear"), FVector(3200.0, 2040.0, 0.0), 180.0, 520.0, 130.0);
+	Sign(TEXT("Arena_Sign_KeepClear"), FVector(3200.0, 760.0, 0.0), 180.0, 520.0, 130.0);
+	Sign(TEXT("Arena_Sign_KeepClear"), FVector(3200.0, 2040.0, 0.0), 0.0, 520.0, 130.0);
 	Sign(TEXT("Arena_Sign_Lift"), FVector(2560.0, 1400.0, 0.0), 90.0, 420.0, 105.0);
 	Sign(TEXT("Arena_Sign_Bay"), FVector(4850.0, 4120.0, 0.0), 0.0, 360.0, 90.0);
-	Sign(TEXT("Arena_Sign_Bay"), FVector(2900.0, 560.0, 0.0), 0.0, 360.0, 90.0);
-	Sign(TEXT("Arena_Sign_NoStep"), FVector(5000.0, 2000.0, 300.0), 90.0, 300.0, 75.0);
+	Sign(TEXT("Arena_Sign_Bay"), FVector(2900.0, 560.0, 0.0), 135.0, 360.0, 90.0);
+	Sign(TEXT("Arena_Sign_NoStep"), FVector(5000.0, 2000.0, 300.0), 180.0, 300.0, 75.0);
 	for (double Y = 1300.0; Y < 4200.0; Y += 1200.0)
 	{
 		Sign(TEXT("Arena_Sign_Arrow"), FVector(5850.0, Y, 0.0), 90.0, 320.0, 80.0);
