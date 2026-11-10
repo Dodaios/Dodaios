@@ -5,7 +5,7 @@
     "file": "art/verse/.cache/unreal/weapons/SK_Weapon_Graveline.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "f5376d3dd4d06ff4830052e7639ae5ac475dabff741cd5095b541bdea89355b4"
+    "sha256": "9c8e2d858e5ef5279ec1014ee3406bfc81c44363d9064e2866d66a382f6182ff"
   },
   "kind": "skeleton",
   "license": {
@@ -22,14 +22,14 @@
     ],
     "bounds_cm": {
       "max": [
-        73.25,
-        3.6,
-        13.3
+        74.4,
+        4.1,
+        16.25
       ],
       "min": [
-        -31.75,
-        -3.3,
-        -13.59
+        -32.5,
+        -3.0,
+        -15.046
       ]
     },
     "material_slots": [],
@@ -39,9 +39,9 @@
       "SOCKET_Sight",
       "SOCKET_Support"
     ],
-    "triangles": 3984,
+    "triangles": 15140,
     "uv_sets": 1,
-    "vertices": 2072
+    "vertices": 7864
   },
   "name": "SKEL_Weapon_Graveline",
   "owner": "WP14",
