@@ -26,16 +26,21 @@ import { EmptyState } from "@/components/ui/empty-state";
 import {
   MEMORY_KINDS,
   VAULT_KEYS,
+  undoForget,
   useVaultItems,
+  type MemoryOrigin,
   useVaultOverview,
 } from "@/lib/personalMemoryApi";
 import { IN_MIND_STYLE, KIND_STYLE } from "@/components/memoryVault/kinds";
-import { MemoryBrowser, scopeOf, type Shelf } from "@/components/memoryVault/MemoryBrowser";
+import { MemoryBrowser, scopeOf, type ListSort, type Shelf } from "@/components/memoryVault/MemoryBrowser";
 import { MemoryFiles } from "@/components/memoryVault/MemoryFiles";
 import { HowItWorks } from "@/components/memoryVault/HowItWorks";
 import { NewMemorySheet } from "@/components/memoryVault/NewMemorySheet";
 import { Portability } from "@/components/memoryVault/Portability";
 import { LearningPause } from "@/components/memoryVault/LearningPause";
+
+/** How many memories one request brings; "Show more" asks for another page. */
+const PAGE = 200;
 
 type Mode = "memories" | "files" | "how";
 
@@ -49,16 +54,46 @@ export function MemoryView(): JSX.Element {
   const [query, setQuery] = useState("");
   const [space, setSpace] = useState<"all" | "work" | "private">("all");
   const [adding, setAdding] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; undo?: string } | null>(null);
+  const [origin, setOrigin] = useState<MemoryOrigin | "">("");
+  const [period, setPeriod] = useState<"any" | "7" | "30" | "365">("any");
+  const [sort, setSort] = useState<ListSort>("kind");
+  const [selecting, setSelecting] = useState(false);
+  const [pageSize, setPageSize] = useState(PAGE);
+  // The period reads as a start date; recomputed only when the choice changes.
+  const since = useMemo(
+    () => (period === "any" ? "" : new Date(Date.now() - Number(period) * 86_400_000).toISOString().slice(0, 10)),
+    [period],
+  );
 
   const overview = useVaultOverview();
-  const items = useVaultItems(query, shelf === "history");
+  const items = useVaultItems(query, shelf === "history", {
+    origin,
+    since,
+    sort: sort === "newest" ? "newest" : "",
+    limit: pageSize,
+  });
 
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: VAULT_KEYS.all }), [queryClient]);
-  const notify = useCallback((message: string) => {
-    setToast(message);
-    window.setTimeout(() => setToast((current) => (current === message ? null : current)), 3200);
+  const notify = useCallback((message: string, undo?: string) => {
+    const entry = { message, undo };
+    setToast(entry);
+    window.setTimeout(() => setToast((current) => (current === entry ? null : current)), undo ? 60_000 : 3200);
   }, []);
+  const onUndoable = useCallback(
+    (message: string, token: string | null | undefined) => notify(message, token ?? undefined),
+    [notify],
+  );
+  const undo = async (token: string) => {
+    setToast(null);
+    try {
+      const result = await undoForget(token);
+      await refresh();
+      notify(fill(t("vault.undone"), { count: result.restored }));
+    } catch (error) {
+      notify(error instanceof Error ? error.message : String(error));
+    }
+  };
 
   // Cmd/Ctrl+N adds a memory, Cmd/Ctrl+F searches.
   useEffect(() => {
@@ -263,6 +298,54 @@ export function MemoryView(): JSX.Element {
             </div>
           </header>
 
+          {mode === "memories" && (
+            <div
+              data-testid="vault-filters"
+              className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2 text-[12px]"
+            >
+              <FilterSelect
+                label={t("vault.filter_origin")}
+                testId="vault-filter-origin"
+                value={origin}
+                onChange={(value) => {
+                  setOrigin(value as MemoryOrigin | "");
+                  setPageSize(PAGE);
+                }}
+                options={[
+                  { value: "", label: t("vault.filter_any") },
+                  { value: "user", label: t("vault.origin_user") },
+                  { value: "inferred", label: t("vault.origin_inferred") },
+                  { value: "imported", label: t("vault.origin_imported") },
+                ]}
+              />
+              <FilterSelect
+                label={t("vault.filter_period")}
+                testId="vault-filter-period"
+                value={period}
+                onChange={(value) => {
+                  setPeriod(value as typeof period);
+                  setPageSize(PAGE);
+                }}
+                options={[
+                  { value: "any", label: t("vault.filter_any") },
+                  { value: "7", label: t("vault.period_7") },
+                  { value: "30", label: t("vault.period_30") },
+                  { value: "365", label: t("vault.period_365") },
+                ]}
+              />
+              <FilterSelect
+                label={t("vault.sort_label")}
+                testId="vault-sort"
+                value={sort}
+                onChange={(value) => setSort(value as ListSort)}
+                options={[
+                  { value: "kind", label: t("vault.sort_kind") },
+                  { value: "newest", label: t("vault.sort_newest") },
+                ]}
+              />
+            </div>
+          )}
+
           <div className="min-h-0 flex-1">
             {mode === "memories" && (
               <MemoryBrowser
@@ -275,6 +358,13 @@ export function MemoryView(): JSX.Element {
                 onChanged={refresh}
                 notify={notify}
                 onAdd={() => setAdding(true)}
+                sort={sort}
+                selecting={selecting}
+                onSelectingChange={setSelecting}
+                onUndoable={onUndoable}
+                total={items.data?.total}
+                hasMore={Boolean(items.data?.has_more)}
+                onMore={() => setPageSize((size) => size + PAGE)}
               />
             )}
             {mode === "files" && <MemoryFiles />}
@@ -307,12 +397,54 @@ export function MemoryView(): JSX.Element {
       {toast && (
         <div
           role="status"
-          className="pointer-events-none fixed bottom-8 left-1/2 z-[70] -translate-x-1/2 rounded-full border border-border bg-popover/95 px-4 py-2 text-[13px] text-popover-foreground shadow-float backdrop-blur"
+          className="fixed bottom-8 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-3 rounded-full border border-border bg-popover/95 px-4 py-2 text-[13px] text-popover-foreground shadow-float backdrop-blur"
         >
-          {toast}
+          {toast.message}
+          {toast.undo && (
+            <button
+              type="button"
+              data-testid="vault-undo"
+              onClick={() => void undo(toast.undo as string)}
+              className="font-medium text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t("vault.undo")}
+            </button>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  testId,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  testId: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label className="inline-flex items-center gap-1.5 text-muted-foreground">
+      {label}
+      <select
+        data-testid={testId}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-7 rounded-md border border-border bg-sheen/[0.04] px-2 text-[12px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

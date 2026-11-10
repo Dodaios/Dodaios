@@ -131,14 +131,29 @@ export function useVaultOverview() {
   return useQuery({ queryKey: VAULT_KEYS.overview, queryFn: () => request<VaultOverview>(BASE) });
 }
 
-export function useVaultItems(q: string, history: boolean) {
+export interface VaultItemFilters {
+  origin?: MemoryOrigin | "";
+  /** ISO date (`2026-11-01`): memories recorded on or after it. */
+  since?: string;
+  sort?: "newest" | "";
+  limit?: number;
+}
+
+export function useVaultItems(q: string, history: boolean, filters: VaultItemFilters = {}) {
+  const { origin = "", since = "", sort = "", limit = 0 } = filters;
   return useQuery({
-    queryKey: VAULT_KEYS.items(q, history),
+    queryKey: [...VAULT_KEYS.items(q, history), origin, since, sort, limit],
     queryFn: () => {
       const params = new URLSearchParams();
       if (q.trim()) params.set("q", q.trim());
       if (history) params.set("history", "true");
-      return request<{ items: VaultMemory[]; count: number }>(`${BASE}/items?${params}`);
+      if (origin) params.set("origin", origin);
+      if (since) params.set("since", since);
+      if (sort) params.set("sort", sort);
+      if (limit) params.set("limit", String(limit));
+      return request<{ items: VaultMemory[]; count: number; total?: number; has_more?: boolean }>(
+        `${BASE}/items?${params}`,
+      );
     },
     placeholderData: (previous) => previous,
   });
@@ -180,8 +195,21 @@ export const pinMemory = (id: string, pinned: boolean) =>
 export const endMemory = (id: string) =>
   request<{ ok: boolean }>(`${BASE}/items/${encodeURIComponent(id)}/end`, { method: "POST" });
 
+/** What a forget answers: how many versions went, and how to take it back for a short time. */
+export interface ForgetResult {
+  forgotten: number;
+  undo_token?: string | null;
+  undo_seconds?: number;
+}
+
 export const forgetMemory = (id: string) =>
-  request<{ forgotten: number }>(`${BASE}/items/${encodeURIComponent(id)}`, { method: "DELETE" });
+  request<ForgetResult>(`${BASE}/items/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const forgetMany = (ids: string[]) =>
+  request<ForgetResult>(`${BASE}/forget`, { method: "POST", body: JSON.stringify({ ids }) });
+
+export const undoForget = (token: string) =>
+  request<{ restored: number }>(`${BASE}/undo/${encodeURIComponent(token)}`, { method: "POST" });
 
 export const importBundle = (file: Blob) =>
   request<ImportReport>(`${BASE}/import`, {

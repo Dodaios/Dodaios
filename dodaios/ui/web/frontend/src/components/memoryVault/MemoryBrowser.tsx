@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   Check,
+  CheckSquare,
   CircleOff,
   Compass,
   MessageSquareQuote,
@@ -31,6 +32,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import {
   editMemory,
   endMemory,
+  forgetMany,
   forgetMemory,
   pinMemory,
   setMemoryScope,
@@ -42,6 +44,9 @@ import {
   type VaultMemory,
 } from "@/lib/personalMemoryApi";
 import { KIND_STYLE, kindColor } from "./kinds";
+
+/** How the list is ordered: grouped by kind, or one flat list, newest first. */
+export type ListSort = "kind" | "newest";
 
 export type Shelf = "all" | "in_mind" | "pinned" | "history" | MemoryKind;
 
@@ -76,6 +81,13 @@ export function MemoryBrowser({
   onChanged,
   notify,
   onAdd,
+  sort = "kind",
+  selecting = false,
+  onSelectingChange = () => undefined,
+  onUndoable = () => undefined,
+  total,
+  hasMore = false,
+  onMore = () => undefined,
 }: {
   shelf: Shelf;
   query: string;
@@ -86,8 +98,21 @@ export function MemoryBrowser({
   onChanged: () => Promise<unknown>;
   notify: (message: string) => void;
   onAdd: () => void;
+  sort?: ListSort;
+  selecting?: boolean;
+  onSelectingChange?: (on: boolean) => void;
+  /** A forget that can be taken back: the message and the undo token. */
+  onUndoable?: (message: string, token: string | null | undefined) => void;
+  total?: number;
+  hasMore?: boolean;
+  onMore?: () => void;
 }) {
   const t = useT();
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [forgettingMany, setForgettingMany] = useState(false);
+  useEffect(() => {
+    if (!selecting) setPicked(new Set());
+  }, [selecting]);
   const rows = useMemo(() => {
     switch (shelf) {
       case "all":
@@ -107,12 +132,16 @@ export function MemoryBrowser({
   // a group are sorted by what they are about, so "Lukas: ..." facts sit
   // together; a search keeps the ranking it came with.
   const groups = useMemo(() => {
+    if (sort === "newest") {
+      const flat = [...rows].sort((a, b) => b.recorded_at.localeCompare(a.recorded_at));
+      return flat.length ? [{ kind: null as MemoryKind | null, members: flat }] : [];
+    }
     return MEMORY_KINDS.map((kind) => {
       const members = rows.filter((m) => m.kind === kind);
       if (!query) members.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
-      return { kind, members };
+      return { kind: kind as MemoryKind | null, members };
     }).filter((group) => group.members.length > 0);
-  }, [rows, query]);
+  }, [rows, query, sort]);
   const ordered = useMemo(() => groups.flatMap((group) => group.members), [groups]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -179,6 +208,51 @@ export function MemoryBrowser({
         }}
         className="mx-auto min-h-0 w-full max-w-[860px] overflow-y-auto px-3 pb-6 pt-2 focus-visible:outline-none"
       >
+        <li
+          role="presentation"
+          data-testid="vault-toolbar"
+          className="sticky top-0 z-[2] flex flex-wrap items-center gap-2 bg-card/95 px-3 py-2 backdrop-blur"
+        >
+          {selecting ? (
+            <>
+              <span className="text-[12px] tabular-nums text-foreground-secondary" data-testid="vault-picked-count">
+                {fill(t("vault.selected_count"), { count: picked.size })}
+              </span>
+              <button
+                type="button"
+                data-testid="vault-select-all"
+                onClick={() => setPicked(new Set(ordered.map((m) => m.id)))}
+                className="rounded-md px-2 py-1 text-[12px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {t("vault.select_all")}
+              </button>
+              <span className="ml-auto flex items-center gap-1.5">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  data-testid="vault-forget-selected"
+                  disabled={picked.size === 0}
+                  className="text-destructive hover:bg-destructive/10"
+                  onClick={() => setForgettingMany(true)}
+                >
+                  <Trash2 /> {t("vault.forget_selected")}
+                </Button>
+                <Button size="sm" variant="ghost" data-testid="vault-select-done" onClick={() => onSelectingChange(false)}>
+                  {t("vault.select_done")}
+                </Button>
+              </span>
+            </>
+          ) : (
+            <button
+              type="button"
+              data-testid="vault-select"
+              onClick={() => onSelectingChange(true)}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <CheckSquare className="h-3.5 w-3.5" /> {t("vault.select")}
+            </button>
+          )}
+        </li>
         {shelf === "all" && !query && (
           <li role="presentation" data-testid="vault-summary" className="px-3 pb-2 pt-3">
             <p className="text-[13px] leading-relaxed text-foreground-secondary">
@@ -196,20 +270,36 @@ export function MemoryBrowser({
         )}
         {groups.map((group) => (
           <li key={group.kind} role="presentation" data-testid="vault-group">
-            <GroupHeading kind={group.kind} count={group.members.length} />
-            <ul role="group" aria-label={t(`vault.kind_${group.kind}`)}>
+            {group.kind && <GroupHeading kind={group.kind} count={group.members.length} />}
+            <ul role="group" aria-label={group.kind ? t(`vault.kind_${group.kind}`) : t("vault.sort_newest")}>
               {group.members.map((memory) => (
                 <Row
                   key={memory.id}
                   memory={memory}
                   inMind={inMind.has(memory.id)}
                   selected={memory.id === selected?.id}
-                  onSelect={() => setSelectedId(memory.id)}
+                  checked={selecting ? picked.has(memory.id) : undefined}
+                  showDate={sort === "newest"}
+                  onSelect={() => {
+                    if (!selecting) return setSelectedId(memory.id);
+                    setPicked((current) => {
+                      const next = new Set(current);
+                      if (!next.delete(memory.id)) next.add(memory.id);
+                      return next;
+                    });
+                  }}
                 />
               ))}
             </ul>
           </li>
         ))}
+        {hasMore && (
+          <li role="presentation" className="px-3 py-4 text-center">
+            <Button size="sm" variant="ghost" data-testid="vault-more" onClick={onMore}>
+              {fill(t("vault.show_more"), { shown: rows.length, total: total ?? rows.length })}
+            </Button>
+          </li>
+        )}
       </ul>
       <div className="hidden min-h-0 border-l border-border lg:block">
         {!selected && (
@@ -229,9 +319,26 @@ export function MemoryBrowser({
             name={name}
             onChanged={onChanged}
             notify={notify}
+            onUndoable={onUndoable}
           />
         )}
       </div>
+      <ConfirmDialog
+        open={forgettingMany}
+        title={t("vault.forget_many_title")}
+        description={fill(t("vault.forget_many_body"), { name, count: picked.size })}
+        confirmLabel={t("vault.forget")}
+        items={ordered.filter((m) => picked.has(m.id)).map((m) => m.text)}
+        onClose={() => setForgettingMany(false)}
+        onConfirm={async () => {
+          const result = await forgetMany([...picked]);
+          setForgettingMany(false);
+          setPicked(new Set());
+          onSelectingChange(false);
+          await onChanged();
+          onUndoable(fill(t("vault.forgotten_many"), { count: result.forgotten }), result.undo_token);
+        }}
+      />
       {/* Narrow windows: the inspector slides in over the list. */}
       {selectedId && selected && (
         <div className="fixed inset-0 z-[60] flex justify-end bg-scrim/30 lg:hidden" onClick={() => setSelectedId(null)}>
@@ -254,6 +361,7 @@ export function MemoryBrowser({
               name={name}
               onChanged={onChanged}
               notify={notify}
+              onUndoable={onUndoable}
             />
           </div>
         </div>
@@ -288,11 +396,16 @@ function Row({
   memory,
   inMind,
   selected,
+  checked,
+  showDate = false,
   onSelect,
 }: {
   memory: VaultMemory;
   inMind: boolean;
   selected: boolean;
+  /** Set while picking several: the row shows a checkbox. */
+  checked?: boolean;
+  showDate?: boolean;
   onSelect: () => void;
 }) {
   const t = useT();
@@ -301,15 +414,25 @@ function Row({
     <li
       id={`vault-row-${memory.id}`}
       role="option"
-      aria-selected={selected}
+      aria-selected={checked ?? selected}
       data-testid="vault-row"
       onClick={onSelect}
       className={cn(
         "group ml-[30px] flex cursor-default items-baseline gap-2 rounded-lg px-2.5 py-1.5 transition-colors",
-        selected ? "bg-accent-soft" : "hover:bg-sheen/[0.04]",
+        (checked ?? selected) ? "bg-accent-soft" : "hover:bg-sheen/[0.04]",
         !memory.current && "opacity-60",
       )}
     >
+      {checked !== undefined && (
+        <input
+          type="checkbox"
+          readOnly
+          checked={checked}
+          tabIndex={-1}
+          aria-label={memory.text}
+          className="h-3.5 w-3.5 shrink-0 self-center"
+        />
+      )}
       <span
         className={cn("h-1.5 w-1.5 shrink-0 -translate-y-px rounded-full", inMind ? "bg-accent" : "bg-transparent")}
         title={inMind ? t("vault.shelf_in_mind") : undefined}
@@ -324,6 +447,9 @@ function Row({
           {t(`memory_trust.scope_${scopeOf(memory)}`)}
         </span>
       )}
+      {showDate && (
+        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{formatDay(memory.recorded_at)}</span>
+      )}
       {memory.pinned && <Pin className="h-3 w-3 shrink-0 text-[hsl(4_86%_58%)]" aria-label={t("vault.pinned")} />}
     </li>
   );
@@ -335,12 +461,14 @@ function Inspector({
   name,
   onChanged,
   notify,
+  onUndoable,
 }: {
   memory: VaultMemory;
   inMind: boolean;
   name: string;
   onChanged: () => Promise<unknown>;
   notify: (message: string) => void;
+  onUndoable: (message: string, token: string | null | undefined) => void;
 }) {
   const t = useT();
   const [editing, setEditing] = useState(false);
@@ -558,10 +686,10 @@ function Inspector({
         items={[memory.text]}
         onClose={() => setForgetting(false)}
         onConfirm={async () => {
-          await forgetMemory(memory.id);
+          const result = await forgetMemory(memory.id);
           setForgetting(false);
           await onChanged();
-          notify(t("vault.forgotten"));
+          onUndoable(t("vault.forgotten"), result.undo_token);
         }}
       />
     </div>
