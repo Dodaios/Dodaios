@@ -20,6 +20,34 @@ function ev(kind: string, payload: Record<string, unknown>, persisted = true): A
 }
 
 describe("agent-chat reduce", () => {
+  it("shows a turn's work when its turn_started is missing from the log", () => {
+    // A partly restored history: the opening message and turn_started are gone.
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("reasoning", { turn_id: "lost", message_id: "m1", text: "Reading the code" }),
+      ev("tool_call", { turn_id: "lost", call_id: "c1", name: "Bash", input: { command: "ls" } }),
+      ev("tool_result", { turn_id: "lost", call_id: "c1", output: "a.py" }),
+      ev("assistant_text", { turn_id: "lost", message_id: "m2", text: "Fixed it." }),
+      ev("turn_finished", { turn_id: "lost", status: "error", error: "The app restarted while this turn was running. Send it again." }),
+      ev("user_message", { text: "Next question" }),
+      ev("turn_started", { turn_id: "next" }),
+      ev("assistant_text", { turn_id: "next", message_id: "m3", text: "Answer" }),
+    ]);
+    expect(tl.items.map((item) => item.type)).toEqual(["turn", "user", "turn"]);
+    const lost = tl.items[0] as TurnItem;
+    expect(lost).toMatchObject({ id: "lost", status: "error" });
+    expect(lost.durationMs).not.toBeNull();
+    expect(lost.blocks.map((b) => b.kind)).toEqual(["reasoning", "tool", "text"]);
+  });
+
+  it("does not open a turn for an end, a usage update or a live delta alone", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("usage_delta", { turn_id: "gone", usage: { output_tokens: 3 } }),
+      ev("text_delta", { turn_id: "gone", message_id: "m", text: "partial" }, false),
+      ev("turn_finished", { turn_id: "gone", status: "done" }),
+    ]);
+    expect(tl.items).toEqual([]);
+  });
+
   it.each(["done", "error", "cancelled"])("preserves the first %s completion through live delivery and replay", (status) => {
     const start = ev("turn_started", { turn_id: "settled" });
     const answer = ev("assistant_text", { turn_id: "settled", text: "Fix committed locally." });
@@ -171,8 +199,8 @@ describe("agent-chat reduce", () => {
     const tl = reduceEvents(EMPTY_TIMELINE, [ev("turn_started", { turn_id: "t3" })]);
     const same = reduceEvent(tl, ev("text_delta", { turn_id: "t3", message_id: "m", text: "" }, false));
     expect(same).toBe(tl);
-    const unknownTurn = reduceEvent(tl, ev("tool_call", { turn_id: "nope", call_id: "c" }));
-    expect(unknownTurn.items).toEqual(tl.items);
+    const unknownTurn = reduceEvent(tl, ev("text_delta", { turn_id: "nope", message_id: "m", text: "x" }, false));
+    expect(unknownTurn.items).toBe(tl.items);
   });
 
   it("closes live reasoning on the finished block and exposes session patches once", () => {
