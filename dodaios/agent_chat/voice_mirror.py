@@ -82,6 +82,7 @@ class VoiceChatMirror:
                 provider=str(getattr(event, "provider", "") or ""),
                 model=str(getattr(event, "model", "") or ""),
                 voice_turn_id=str(getattr(event, "turn_id", "") or ""),
+                tool_calls=tuple(getattr(event, "tool_calls", ()) or ()),
             )
         except Exception as exc:  # noqa: BLE001 — an observer must never break a turn
             log.debug("voice chat mirror skipped a turn: %s", exc)

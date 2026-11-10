@@ -180,7 +180,7 @@ async def test_owner_private_chat_continues_the_lead_conversation(monkeypatch) -
 
     asked: list[str] = []
 
-    async def fake_answer(svc, text, *, source, timeout_s=900.0):
+    async def fake_answer(svc, text, *, source, timeout_s=900.0, **_kw):
         asked.append(text)
         return "Lisbon, in June."
 
@@ -244,3 +244,161 @@ def test_only_discord_direct_messages_of_the_owner_reach_the_lead() -> None:
     assert bridge._lead_service("discord", msg({"discord_dm": False})) is None  # noqa: SLF001
     assert bridge._lead_service("discord", msg({"discord_dm": True, "friend_id": "f"})) is None  # noqa: SLF001
     assert bridge._lead_service("discord", msg({})) is None  # noqa: SLF001
+
+
+class _CardSvc:
+    """A chat service with one open approval and one open question."""
+
+    def __init__(self, *, approvals: list[str], questions: list[str]) -> None:
+        self.approvals = approvals
+        self.questions = questions
+        self.resolved: list[tuple[str, str]] = []
+        self.answered: list[str] = []
+
+    def lead_session(self, *_a, **_k):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(session_id="lead-1")
+
+    def pending_approvals(self, session_id: str) -> list[str]:
+        return list(self.approvals)
+
+    def pending_questions(self, session_id: str) -> list[str]:
+        return list(self.questions)
+
+    def resolve_approval(self, session_id: str, approval_id: str, decision: str) -> bool:
+        self.resolved.append((approval_id, decision))
+        return True
+
+    async def answer_by_message(self, session_id: str, text: str) -> dict:
+        self.answered.append(text)
+        return {"consumed": True, "question_id": "q1"}
+
+
+async def _run_owner_message(monkeypatch, svc, text: str, answer_fn=None):
+    from dodaios.agent_chat import lead
+
+    monkeypatch.setattr(lead, "lead_session", lambda s, **_k: s.lead_session())
+    if answer_fn is not None:
+        monkeypatch.setattr(lead, "answer_in_lead", answer_fn)
+    channel = _ReplyChannel()
+    bridge = ChannelChatBridge(
+        bus=EventBus(), manager=_Manager(channel), get_chat_service=lambda: svc
+    )
+    bridge.start()
+    owner = {"telegram_chat_id": 12345, "friend_id": None}
+    await channel.queue.put(
+        ChannelMessage(session_id=uuid4(), kind="text", content=text, metadata=owner)
+    )
+    return bridge, channel
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status", "text", "needle"),
+    [
+        ("error", "Where is the wedding?", "error"),
+        ("timeout", "Where is the wedding?", "too long"),
+        ("empty", "Where is the wedding?", "without an answer"),
+        ("error", "Ich brauche den Plan für morgen, bitte schnell", "Fehler"),  # i18n-allow
+    ],
+)
+async def test_the_owner_always_gets_an_answer(monkeypatch, status, text, needle) -> None:
+    async def fake_answer(svc, text, *, source, report=None, on_card=None, **_kw):
+        report.status = status
+        return ""
+
+    bridge, channel = await _run_owner_message(
+        monkeypatch, _CardSvc(approvals=[], questions=[]), text, fake_answer
+    )
+    await asyncio.wait_for(channel.got.wait(), timeout=2.0)
+    await bridge.stop()
+    line = channel.sent[0].content
+    assert needle in line and "app" in line.lower()
+
+
+@pytest.mark.asyncio
+async def test_a_crashing_turn_still_answers(monkeypatch) -> None:
+    async def boom(svc, text, **_kw):
+        raise RuntimeError("provider said something private")
+
+    bridge, channel = await _run_owner_message(
+        monkeypatch, _CardSvc(approvals=[], questions=[]), "hello there", boom
+    )
+    await asyncio.wait_for(channel.got.wait(), timeout=2.0)
+    await bridge.stop()
+    assert "private" not in channel.sent[0].content
+    assert "couldn't finish" in channel.sent[0].content
+
+
+@pytest.mark.asyncio
+async def test_an_open_card_is_sent_to_the_chat(monkeypatch) -> None:
+    from dodaios.agent_chat.lead import LeadCard
+
+    async def fake_answer(svc, text, *, source, report=None, on_card=None, **_kw):
+        await on_card(LeadCard("approval", "Send the mail to Max", []))
+        await on_card(LeadCard("question", "Which day?", ["Monday", "Friday"]))
+        return "Done."
+
+    svc = _CardSvc(approvals=[], questions=[])
+    bridge, channel = await _run_owner_message(monkeypatch, svc, "mail Max", fake_answer)
+    for _ in range(100):
+        if len(channel.sent) == 3:
+            break
+        await asyncio.sleep(0.02)
+    await bridge.stop()
+    texts = [m.content for m in channel.sent]
+    assert "Send the mail to Max" in texts[0] and "yes or no" in texts[0]
+    assert "Which day?" in texts[1] and "Monday, Friday" in texts[1]
+    assert texts[2] == "Done."
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("word", "decision"), [("Yes", "allow"), ("nein", "deny"), ("OK!", "allow")]
+)
+async def test_yes_or_no_from_the_chat_settles_the_open_approval(
+    monkeypatch, word, decision
+) -> None:
+    asked: list[str] = []
+
+    async def fake_answer(svc, text, **_kw):
+        asked.append(text)
+        return "x"
+
+    svc = _CardSvc(approvals=["ap-1", "ap-2"], questions=[])
+    bridge, _channel = await _run_owner_message(monkeypatch, svc, word, fake_answer)
+    await asyncio.sleep(0.1)
+    await bridge.stop()
+    assert svc.resolved == [("ap-1", decision)]
+    assert asked == []  # consumed: it did not start a new turn
+
+
+@pytest.mark.asyncio
+async def test_a_message_answers_the_open_question(monkeypatch) -> None:
+    asked: list[str] = []
+
+    async def fake_answer(svc, text, **_kw):
+        asked.append(text)
+        return "x"
+
+    svc = _CardSvc(approvals=[], questions=["qid"])
+    bridge, _channel = await _run_owner_message(monkeypatch, svc, "On Friday", fake_answer)
+    await asyncio.sleep(0.1)
+    await bridge.stop()
+    assert svc.answered == ["On Friday"] and asked == []
+
+
+@pytest.mark.asyncio
+async def test_without_an_open_card_yes_is_an_ordinary_message(monkeypatch) -> None:
+    asked: list[str] = []
+
+    async def fake_answer(svc, text, **_kw):
+        asked.append(text)
+        return "ok then"
+
+    svc = _CardSvc(approvals=[], questions=[])
+    bridge, channel = await _run_owner_message(monkeypatch, svc, "yes", fake_answer)
+    await asyncio.wait_for(channel.got.wait(), timeout=2.0)
+    await bridge.stop()
+    assert asked == ["yes"] and svc.resolved == []
