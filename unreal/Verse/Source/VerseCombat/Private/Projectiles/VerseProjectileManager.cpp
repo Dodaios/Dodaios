@@ -299,7 +299,11 @@ void UVerseProjectileManager::StepBolt(FVerseBolt& Bolt, double Dt, double PoseT
 		const double PieceDist = FVector::Dist(P0, Piece.Entry);
 		// The nearest of world (Bulwarks included), body and piece wins. The world trace may stop on
 		// this piece's own proxy, so a world hit counts as nearer only 1 cm before the entry.
-		const bool bWorldFirst = bWorld && WorldDist < PieceDist - 1.0;
+		// A Bulwark is also world geometry to the penetration trace (no piece slot): it is the same
+		// surface as the world hit, and a Bulwark never lets a round through, so it takes the hit.
+		const bool bBulwarkHere = bWorld && Piece.PieceIndex == VersePenetration::NoPiece && Cast<AVerseBulwark>(WorldHit.GetActor())
+			&& WorldDist <= PieceDist + 1.0;
+		const bool bWorldFirst = bWorld && (WorldDist < PieceDist - 1.0 || bBulwarkHere);
 		const bool bBodyFirst = bBody && Body.Distance < PieceDist;
 		if (bWorldFirst || bBodyFirst)
 		{
