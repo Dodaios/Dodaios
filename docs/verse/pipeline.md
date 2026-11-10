@@ -319,6 +319,9 @@ No other file changes: the engine discovers decks by id and manifest.
   `scripts/verse` are on `sys.path`; an exception inside Blender exits 1; heavy
   jobs wait for `art/verse/.cache/gpu.lock`. `DODAIOS_BLENDER` overrides the
   executable.
+- Cycles runs on the GPU (OptiX, then CUDA) whenever one is present: the
+  bootstrap pins every scene's device to GPU for the whole run, so scripts need
+  not set `scene.cycles.device`. `VERSE_CYCLES_DEVICE=CPU` forces the CPU.
 - Interactive (agents): `scripts/verse/mcp_bridge.py` talks to the Blender MCP
   add-on's local TCP server.
 
