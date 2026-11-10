@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import socket
 from pathlib import Path
 
 import pytest
@@ -504,3 +505,29 @@ def test_no_token_or_key_in_logs(setup, caplog):
     text = "\n".join(lines)
     assert TOKEN not in text
     assert sig.derive_streamer_key(TOKEN) not in text
+
+
+def test_building_the_policy_does_no_address_lookup(monkeypatch):
+    # The host builds one per start; on macOS the host-name lookup took 35 s.
+    calls = []
+    monkeypatch.setattr(sig, "machine_addresses", lambda: calls.append(1) or {"10.0.0.7"})
+    policy = sig.LocalIcePolicy()
+    assert calls == []
+    assert policy.allows("candidate:1 1 udp 1 10.0.0.7 5000 typ host", from_player=True)
+    assert not policy.allows("candidate:1 1 udp 1 10.0.0.8 5001 typ host", from_player=True)
+    assert calls == [1]
+
+
+def test_interface_addresses_skip_the_host_name_lookup(monkeypatch):
+    psutil = pytest.importorskip("psutil")
+    monkeypatch.setattr(
+        psutil,
+        "net_if_addrs",
+        lambda: {"en0": [type("A", (), {"family": socket.AF_INET, "address": "192.168.1.5"})()]},
+    )
+
+    def no_lookup(*_a, **_k):
+        raise AssertionError("host-name lookup")
+
+    monkeypatch.setattr(sig.socket, "getaddrinfo", no_lookup)
+    assert "192.168.1.5" in sig.machine_addresses()
