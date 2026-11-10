@@ -18,7 +18,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Brain, History, Pin, Plus, Search, X } from "lucide-react";
+import { Brain, FileText, History, Pin, Plus, Search, X } from "lucide-react";
 import { fill, useLocaleChunk, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
@@ -163,6 +163,13 @@ export function MemoryView(): JSX.Element {
                 setShelf("history");
               }}
             />
+            <SidebarItem
+              active={mode === "files"}
+              icon={<FileText />}
+              hue="220 9% 56%"
+              label={t("vault.shelf_files")}
+              onClick={() => setMode("files")}
+            />
             <SidebarLabel>{t("vault.kinds_label")}</SidebarLabel>
             {MEMORY_KINDS.filter((kind) => (byKind[kind] ?? 0) > 0 || shelf === kind).map((kind) => {
               const Icon = KIND_STYLE[kind].icon;
@@ -197,7 +204,6 @@ export function MemoryView(): JSX.Element {
               onChange={setMode}
               options={[
                 { value: "memories", label: t("vault.mode_memories") },
-                { value: "files", label: t("vault.mode_files") },
                 { value: "how", label: t("vault.mode_how_short") },
               ]}
             />

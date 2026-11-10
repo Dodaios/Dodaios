@@ -1,13 +1,15 @@
 /**
  * The memories list and the inspector beside it.
  *
- * A row is one sentence with its kind's glyph; a blue compass marks the
- * memories the assistant carries into every conversation. The inspector
- * explains one memory: what it says, where it came from (with the user's own
- * words when it was learned), every earlier version, and what can be done.
+ * The list is grouped by kind, each group with a plain heading and one line
+ * that says what belongs there. A row shows what the memory is about in bold
+ * ("Lukas") and what it says beside it; a blue dot marks the memories the
+ * assistant carries into every conversation. The inspector explains one
+ * memory: what it says, where it came from (with the user's own words when it
+ * was learned), every earlier version, and what can be done.
  */
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Check, CircleOff, Compass, Pencil, Pin, PinOff, Quote, Search, Trash2, X } from "lucide-react";
+import { Check, CircleOff, Compass, MousePointerClick, Pencil, Pin, PinOff, Quote, Search, Trash2, X } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -18,12 +20,27 @@ import {
   forgetMemory,
   pinMemory,
   useVaultHistory,
+  MEMORY_KINDS,
   type MemoryKind,
   type VaultMemory,
 } from "@/lib/personalMemoryApi";
 import { KIND_STYLE, kindColor } from "./kinds";
 
 export type Shelf = "all" | "in_mind" | "pinned" | "history" | MemoryKind;
+
+/** "Lukas: Born 1922" -> subject "Lukas", body "Born 1922". */
+export function splitSubject(raw: string): { subject: string | null; body: string } {
+  // A trailing "Source: ..." note is bookkeeping; the inspector shows the origin.
+  const text = raw.trim().replace(/\s+Source:\s[^\n]*$/, "");
+  const match = /^([^:\n]{1,48}):\s+([\s\S]+)$/.exec(text);
+  if (!match) return { subject: null, body: text };
+  const body = match[2].charAt(0).toUpperCase() + match[2].slice(1);
+  return { subject: match[1].trim(), body };
+}
+
+function sortKey(memory: VaultMemory): string {
+  return (splitSubject(memory.text).subject ?? memory.text).toLocaleLowerCase();
+}
 
 export function formatDay(stamp: string | null | undefined): string {
   if (!stamp) return "";
@@ -69,8 +86,20 @@ export function MemoryBrowser({
     }
   }, [items, shelf, inMind]);
 
+  // One group per kind, in the fixed kind order. Without a search the rows of
+  // a group are sorted by what they are about, so "Lukas: ..." facts sit
+  // together; a search keeps the ranking it came with.
+  const groups = useMemo(() => {
+    return MEMORY_KINDS.map((kind) => {
+      const members = rows.filter((m) => m.kind === kind);
+      if (!query) members.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+      return { kind, members };
+    }).filter((group) => group.members.length > 0);
+  }, [rows, query]);
+  const ordered = useMemo(() => groups.flatMap((group) => group.members), [groups]);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = rows.find((m) => m.id === selectedId) ?? rows[0] ?? null;
+  const selected = ordered.find((m) => m.id === selectedId) ?? null;
   useEffect(() => {
     if (selectedId && !rows.some((m) => m.id === selectedId)) setSelectedId(null);
   }, [rows, selectedId]);
@@ -85,9 +114,10 @@ export function MemoryBrowser({
   }, [selectedId]);
 
   const move = (step: number) => {
-    if (!rows.length) return;
-    const index = Math.max(0, rows.findIndex((m) => m.id === selected?.id));
-    const next = rows[Math.min(rows.length - 1, Math.max(0, index + step))];
+    if (!ordered.length) return;
+    const at = ordered.findIndex((m) => m.id === selected?.id);
+    const index = at < 0 ? (step > 0 ? -1 : ordered.length) : at;
+    const next = ordered[Math.min(ordered.length - 1, Math.max(0, index + step))];
     setSelectedId(next.id);
     document.getElementById(`vault-row-${next.id}`)?.scrollIntoView({ block: "nearest" });
   };
@@ -130,19 +160,50 @@ export function MemoryBrowser({
             move(-1);
           }
         }}
-        className="mx-auto min-h-0 w-full max-w-[860px] overflow-y-auto px-2 py-2 focus-visible:outline-none"
+        className="mx-auto min-h-0 w-full max-w-[860px] overflow-y-auto px-3 pb-6 pt-2 focus-visible:outline-none"
       >
-        {rows.map((memory) => (
-          <Row
-            key={memory.id}
-            memory={memory}
-            inMind={inMind.has(memory.id)}
-            selected={memory.id === selected?.id}
-            onSelect={() => setSelectedId(memory.id)}
-          />
+        {shelf === "all" && !query && (
+          <li role="presentation" data-testid="vault-summary" className="px-3 pb-2 pt-3">
+            <p className="text-[13px] leading-relaxed text-foreground-secondary">
+              {fill(t("vault.summary"), {
+                name,
+                count: rows.filter((m) => m.current).length,
+                inMind: inMind.size,
+              })}
+            </p>
+            <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
+              {t("vault.shelf_in_mind")}
+            </p>
+          </li>
+        )}
+        {groups.map((group) => (
+          <li key={group.kind} role="presentation" data-testid="vault-group">
+            <GroupHeading kind={group.kind} count={group.members.length} />
+            <ul role="group" aria-label={t(`vault.kind_${group.kind}`)}>
+              {group.members.map((memory) => (
+                <Row
+                  key={memory.id}
+                  memory={memory}
+                  inMind={inMind.has(memory.id)}
+                  selected={memory.id === selected?.id}
+                  onSelect={() => setSelectedId(memory.id)}
+                />
+              ))}
+            </ul>
+          </li>
         ))}
       </ul>
       <div className="hidden min-h-0 border-l border-border lg:block">
+        {!selected && (
+          <div className="flex h-full flex-col items-center justify-center gap-2 px-10 text-center">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sheen/[0.06] text-muted-foreground">
+              <MousePointerClick className="h-5 w-5" />
+            </span>
+            <p className="text-[14px] font-medium text-foreground-strong">{t("vault.pick_title")}</p>
+            <p className="max-w-[280px] text-[12px] leading-relaxed text-muted-foreground">{t("vault.pick_body")}</p>
+          </div>
+        )}
         {selected && (
           <Inspector
             key={selected.id}
@@ -184,6 +245,28 @@ export function MemoryBrowser({
   );
 }
 
+function GroupHeading({ kind, count }: { kind: MemoryKind; count: number }) {
+  const t = useT();
+  const Icon = KIND_STYLE[kind].icon;
+  return (
+    <div className="sticky top-0 z-[1] flex items-center gap-2.5 bg-card/95 px-3 pb-2 pt-5 backdrop-blur">
+      <span
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+        style={{ backgroundColor: kindColor(kind, 0.14), color: kindColor(kind) }}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-semibold text-foreground-strong">
+          {t(`vault.kind_${kind}`)}
+          <span className="ml-1.5 font-normal tabular-nums text-muted-foreground">{count}</span>
+        </p>
+        <p className="truncate text-[11px] text-muted-foreground">{t(`vault.kind_desc_${kind}`)}</p>
+      </div>
+    </div>
+  );
+}
+
 function Row({
   memory,
   inMind,
@@ -196,8 +279,7 @@ function Row({
   onSelect: () => void;
 }) {
   const t = useT();
-  const style = KIND_STYLE[memory.kind];
-  const Icon = style.icon;
+  const { subject, body } = splitSubject(memory.text);
   return (
     <li
       id={`vault-row-${memory.id}`}
@@ -206,30 +288,21 @@ function Row({
       data-testid="vault-row"
       onClick={onSelect}
       className={cn(
-        "group flex cursor-default items-start gap-3 rounded-xl px-3 py-2.5 transition-colors",
+        "group ml-[30px] flex cursor-default items-baseline gap-2 rounded-lg px-2.5 py-1.5 transition-colors",
         selected ? "bg-accent-soft" : "hover:bg-sheen/[0.04]",
         !memory.current && "opacity-60",
       )}
     >
       <span
-        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
-        style={{ backgroundColor: kindColor(memory.kind, 0.14), color: kindColor(memory.kind) }}
-      >
-        <Icon className="h-3.5 w-3.5" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className={cn("line-clamp-2 text-[13px] leading-snug text-foreground", !memory.current && "line-through")}>
-          {memory.text}
-        </p>
-        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-          {t(`vault.kind_${memory.kind}`)}
-          {memory.entities.length > 0 && ` · ${memory.entities.join(", ")}`}
-        </p>
-      </div>
-      <span className="mt-1 flex shrink-0 items-center gap-1 text-muted-foreground">
-        {memory.pinned && <Pin className="h-3 w-3 text-[hsl(4_86%_58%)]" aria-label={t("vault.pinned")} />}
-        {inMind && <Compass className="h-3.5 w-3.5 text-accent" aria-label={t("vault.shelf_in_mind")} />}
-      </span>
+        className={cn("h-1.5 w-1.5 shrink-0 -translate-y-px rounded-full", inMind ? "bg-accent" : "bg-transparent")}
+        title={inMind ? t("vault.shelf_in_mind") : undefined}
+        aria-label={inMind ? t("vault.shelf_in_mind") : undefined}
+      />
+      <p className={cn("min-w-0 flex-1 text-[13px] leading-snug text-foreground", !memory.current && "line-through")}>
+        {subject && <span className="font-semibold text-foreground-strong">{subject} </span>}
+        <span className={subject ? "text-foreground-secondary" : undefined}>{body}</span>
+      </p>
+      {memory.pinned && <Pin className="h-3 w-3 shrink-0 text-[hsl(4_86%_58%)]" aria-label={t("vault.pinned")} />}
     </li>
   );
 }
