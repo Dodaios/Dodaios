@@ -7873,7 +7873,8 @@
       "crashed": "{runtime} parou com um erro. Tente novamente.",
       "the_agent": "O agente"
     },
-    "technical_details": "Detalhes técnicos"
+    "technical_details": "Detalhes técnicos",
+    "ran": "Executou"
   },
   "work_trace": {
     "tool_failed": "Uma ação de ferramenta falhou",

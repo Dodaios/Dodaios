@@ -1,5 +1,5 @@
 import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowDown, Bot, Check, ChevronDown, ChevronRight, Copy, Diff, FileText, MessageCircleQuestion, ShieldAlert, X } from "lucide-react";
+import { ArrowDown, Bot, Check, ChevronDown, ChevronRight, Copy, Diff, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, MessageCircleQuestion, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
@@ -236,59 +236,96 @@ const THOUGHT_PROSE = cn(PROSE, "text-foreground-secondary dark:text-foreground-
  */
 export const THREAD_MEDIA = "[&_[data-kind=image]_img]:max-h-48 [&_[data-kind=image]_img]:max-w-sm [&_[data-kind=image]_img]:border [&_[data-kind=image]_img]:border-border";
 
-const CARD_ROW = "group/step flex w-full min-w-0 items-center gap-1.5 px-3 py-2 text-left text-sm leading-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
+/** The mark a step of an opened line wears: what kind of work it was. */
+function stepIcon(item: StretchItem): ReactNode {
+  if (item.kind !== "call") return <Lightbulb />;
+  switch (item.call.kind) {
+    case "command": return <SquareTerminal />;
+    case "read": return <FileText />;
+    case "edit": return <Pencil />;
+    case "write": return <FilePlus2 />;
+    case "list": return <FolderOpen />;
+    case "search": return <Search />;
+    case "image": return <ImageIcon />;
+    case "web": return <Globe />;
+    default: return <Wrench />;
+  }
+}
+
+const STEP_ROW = "group/step flex w-full min-w-0 items-center gap-2 rounded-md py-[3px] text-left text-sm leading-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
- * One row of an opened stretch's card: what the step was in the quiet tone,
- * what it acted on a step brighter, then the chevron right after the words.
- * A row with something behind it opens in place.
+ * One step of an opened line, the way a log reads it: the step's mark, what
+ * it did in the quiet tone and what it acted on a step brighter ("Ran
+ * git status", "Edited host.py +8 -2"). A step with something behind it opens
+ * in place, under its words.
  */
-function CardRow({ label, openLabel, detail, mono = false, trailing, live = false, ariaLabel, testId, startOpen = false, children }: {
-  label: ReactNode;
-  /** What the row reads while open, when what it opens to already says the label. */
-  openLabel?: ReactNode;
-  detail?: ReactNode; mono?: boolean; trailing?: ReactNode; live?: boolean;
-  ariaLabel?: string; testId?: string;
-  /** The row is the only one of its card and what it opens to is the point (a picture). */
+function StepRow({ icon, words, trailing, live = false, title, ariaLabel, testId, startOpen = false, children }: {
+  icon: ReactNode;
+  words: ReactNode;
+  trailing?: ReactNode;
+  live?: boolean;
+  title?: string;
+  ariaLabel?: string;
+  testId?: string;
+  /** The step is the only one of its line and what it opens to is the point (a picture, a thought). */
   startOpen?: boolean;
   children?: ReactNode;
 }) {
   const [open, setOpen] = useState(startOpen);
-  const words = <>
-    <span className={cn("truncate text-muted-foreground transition-colors duration-100", detail ? "shrink-0" : "min-w-0",
-      children && !live && "group-hover/step:text-foreground-secondary", live && "live-tool-shine")}>{open && openLabel ? openLabel : label}</span>
-    {detail && <span className={cn("min-w-0 truncate text-foreground-secondary", mono && "font-mono text-[13px]")}>{detail}</span>}
+  const line = <>
+    <span aria-hidden className="flex h-5 w-4 shrink-0 items-center justify-center text-muted-foreground/80 [&_svg]:h-3.5 [&_svg]:w-3.5">{icon}</span>
+    <span className={cn("min-w-0 truncate text-muted-foreground transition-colors duration-100",
+      children && !live && "group-hover/step:text-foreground-secondary", live && "live-tool-shine")}>{words}</span>
     {trailing}
-    {children && <ChevronRight aria-hidden strokeWidth={2.25} className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-100 ease-out group-hover/step:text-foreground-secondary motion-reduce:transition-none", open && "rotate-90")} />}
+    {children && <ChevronRight aria-hidden strokeWidth={2.25} className={cn(
+      "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-[transform,opacity] duration-100 ease-out motion-reduce:transition-none",
+      open ? "rotate-90 opacity-100" : "opacity-0 group-hover/step:opacity-100 group-focus-visible/step:opacity-100",
+    )} />}
   </>;
   return <div className="min-w-0" data-testid={testId}>
     {children
-      ? <button type="button" aria-expanded={open} aria-label={ariaLabel} onClick={() => setOpen(!open)} className={CARD_ROW}>{words}</button>
-      : <div className={CARD_ROW}>{words}</div>}
-    {open && children}
+      ? <button type="button" aria-expanded={open} aria-label={ariaLabel} title={title} onClick={() => setOpen(!open)} className={STEP_ROW}>{line}</button>
+      : <div className={STEP_ROW} title={title}>{line}</div>}
+    {open && children && <div className="mb-2 ml-6 mt-1 [&_pre]:max-h-56">{children}</div>}
   </div>;
 }
 
-function CardStep({ item, running, lone = false }: { item: StretchItem; running: boolean; lone?: boolean }) {
+/** What a step acted on, a step brighter than its verb; a file reads underlined. */
+function Target({ text, file = false }: { text: string; file?: boolean }) {
+  return <span className={cn("text-foreground-secondary", file && "underline decoration-muted-foreground/50 decoration-1 underline-offset-[3px]")}>{text}</span>;
+}
+
+/** A call's words with what it acted on lifted out: "Read " + "src/app.ts". */
+function callLine(call: Call, t: (key: string) => string): ReactNode {
+  if (call.kind === "command") return <>{t("thread_turn.ran")} <Target text={call.text} /></>;
+  const target = call.target ?? "";
+  const at = target ? call.text.indexOf(target) : -1;
+  if (at >= 0) {
+    const file = call.kind === "read" || call.kind === "edit" || call.kind === "write" || call.kind === "list";
+    return <>{call.text.slice(0, at)}<Target text={target} file={file} />{call.text.slice(at + target.length)}</>;
+  }
+  const detail = call.detail || call.result;
+  return detail ? <>{call.text} <Target text={detail} /></> : call.text;
+}
+
+function StepView({ item, running, lone = false }: { item: StretchItem; running: boolean; lone?: boolean }) {
   const t = useT();
   if (item.kind === "said") {
     const gist = thoughtGist(item.text);
-    return <CardRow label={gist} openLabel={t("work_trace.thought")} testId="thread-thought" startOpen={lone}>
-      {(lone || gist !== item.text.trim()) && <div className={cn(THOUGHT_PROSE, "select-text px-3 pb-2.5 pt-0 text-sm leading-[21px] prose-p:leading-[21px]")}><ChatMarkdown text={item.text} /></div>}
-    </CardRow>;
+    return <StepRow icon={stepIcon(item)} words={gist} live={item.live && running} testId="thread-thought" startOpen={lone}>
+      {(lone || gist !== item.text.trim()) && <div className={cn(THOUGHT_PROSE, "select-text text-sm leading-[21px] prose-p:leading-[21px]")}><ChatMarkdown text={item.text} /></div>}
+    </StepRow>;
   }
-  if (item.kind === "thought") return running ? <CardRow label={t("thread_turn.thinking")} live /> : null;
+  if (item.kind === "thought") return running ? <StepRow icon={stepIcon(item)} words={t("thread_turn.thinking")} live /> : null;
   const call = item.call;
   const failed = isFailed(call);
-  const command = call.kind === "command";
-  const purpose = command ? callPurpose(call) : "";
   const tail = callTail(call, t);
-  return <CardRow
-    // A command reads in the agent's own words for it; without those, as what
-    // it was and then the line itself in the terminal's type.
-    label={purpose || (command ? capitalize(tr(t, "act.command_one")) : call.text)}
-    detail={purpose ? undefined : command ? call.text : call.detail || call.result}
-    mono={command}
+  return <StepRow
+    icon={stepIcon(item)}
+    words={callLine(call, t)}
+    // The agent's own words for a command stay one hover away.
+    title={callPurpose(call) || undefined}
     live={call.status === "running"}
     startOpen={lone && call.kind === "image"}
     ariaLabel={failed ? fill(t("thread_turn.call_failed"), { call: call.text }) : undefined}
@@ -297,15 +334,16 @@ function CardStep({ item, running, lone = false }: { item: StretchItem; running:
       <DiffStat added={call.added} removed={call.removed} />
       {failed && <X aria-hidden className="h-3 w-3 shrink-0 text-destructive/70" />}
     </>}>
-    <CallDetails call={call} className="px-3 pb-2.5" />
-  </CardRow>;
+    <CallDetails call={call} className="" />
+  </StepRow>;
 }
 
 /**
  * Everything between two things the agent said, as one line: what its calls
  * did, with a chevron. The line stays closed until the reader opens it; while
  * the turn works in it, it carries the live shine and the agent's newest
- * thought reads under it. Opened, it shows a card with one row per step — a
+ * thought reads under it. Opened, it lists every step under it, one quiet
+ * row each with its mark (no box), scrolling once the list runs long — a
  * lone call too, so every line opens the same way and a command's output
  * never lands in the thread unasked.
  */
@@ -335,8 +373,8 @@ function StretchView({ stretch, running }: { stretch: Stretch; running: boolean 
       expanded={open}
       onToggle={() => setOpen(!open)}>
       <div role="region" aria-label={t("thread_turn.steps")} data-testid="thread-steps"
-        className="mb-1.5 mt-3.5 divide-y divide-border/70 overflow-hidden rounded-xl border border-border/70">
-        {stretch.items.map((item) => <CardStep key={item.id} item={item} running={running} lone={stretch.items.length === 1} />)}
+        className="mb-1 mt-3 max-h-[22rem] overflow-y-auto overscroll-contain pr-1 scrollbar-jarvis">
+        {stretch.items.map((item) => <StepView key={item.id} item={item} running={running} lone={stretch.items.length === 1} />)}
       </div>
     </WorkRow>
     {now && <p data-testid="thread-thought-live" className="m-0 mt-3 line-clamp-3 text-sm leading-[21px] text-muted-foreground [overflow-wrap:anywhere]">{flattenMarks(now.text)}</p>}

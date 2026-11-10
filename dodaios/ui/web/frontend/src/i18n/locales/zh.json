@@ -7873,7 +7873,8 @@
       "crashed": "{runtime} 因错误而停止。请重试。",
       "the_agent": "智能体"
     },
-    "technical_details": "技术详情"
+    "technical_details": "技术详情",
+    "ran": "运行了"
   },
   "work_trace": {
     "tool_failed": "一个工具操作失败",

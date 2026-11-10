@@ -57,6 +57,8 @@ export interface Call {
   removed: number;
   /** A terse result for tools that are not commands ("3 results", a message). */
   result: string;
+  /** What the call acted on, as its words name it ("src/app.ts", a search pattern); "" when none. */
+  target?: string;
   /** The stretch summary's bucket ("command", "family:wiki", "used:Linear"). */
   bucket: string;
   /** A brand to draw instead of a plain glyph: a plugin, an MCP server, a CLI vendor. */
@@ -552,26 +554,26 @@ export function callOf(block: ToolBlock, turn: TurnStatus, t: Translate, lang: s
     const path = firstString(record, ACTION_KEYS.read) || description.detail;
     // Codex says "Viewed an image"; the file name follows quieter.
     if (IMAGE_FILE.test(path)) return { ...base, kind: "image", text: capitalize(tr(t, "act.image_one")), detail: shortPath(path), bucket: "image" };
-    return { ...base, kind: "read", text: tr(t, "call.read", { target: shortPath(path) }), bucket: "read" };
+    return { ...base, kind: "read", text: tr(t, "call.read", { target: shortPath(path) }), target: shortPath(path), bucket: "read" };
   }
   if (action === "list") {
     const path = firstString(record, ACTION_KEYS.list) || description.detail || ".";
     // "Listed *" says nothing: a bare wildcard or the current folder is the folder itself.
     const text = /^(?:\.[\\/]?|\*{1,2}(?:[\\/]\*)?(?:\.\*)?)$/.test(path.trim())
       ? capitalize(tr(t, "act.list_one")) : tr(t, "call.list", { target: shortPath(path) });
-    return { ...base, kind: "list", text, bucket: "list" };
+    return { ...base, kind: "list", text, target: text.includes(shortPath(path)) ? shortPath(path) : "", bucket: "list" };
   }
   if (action === "search") {
     const pattern = oneLine(firstString(record, ACTION_KEYS.search) || description.detail, 60);
     const where = firstString(record, ["path", "glob", "include"]);
     const text = where ? tr(t, "call.search_in", { pattern, path: shortPath(where) }) : tr(t, "call.search", { pattern });
-    return { ...base, kind: "search", text, bucket: "search" };
+    return { ...base, kind: "search", text, target: pattern, bucket: "search" };
   }
   if (action === "edit" || action === "write") {
     // A runtime that names only its tool ("write_file") never makes that the file.
     const named = firstString(record, ACTION_KEYS[action]) || (isIdentifier(description.detail) ? "" : description.detail);
     const text = named ? tr(t, `call.${action}`, { target: shortPath(named) }) : capitalize(tr(t, `act.${action}_one`));
-    return { ...base, ...diffSize(block), kind: action, text, bucket: action };
+    return { ...base, ...diffSize(block), kind: action, text, target: named ? shortPath(named) : "", bucket: action };
   }
   // A coding CLI's own helper tools say what they did ("Fetched a page").
   const bare = block.name.trim().toLowerCase().replace(/[-_\s]/g, "");

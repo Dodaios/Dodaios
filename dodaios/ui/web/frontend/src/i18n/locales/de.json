@@ -7873,7 +7873,8 @@
       "crashed": "{runtime} wurde mit einem Fehler beendet. Versuch es noch einmal.",
       "the_agent": "Der Agent"
     },
-    "technical_details": "Technische Details"
+    "technical_details": "Technische Details",
+    "ran": "Ausgeführt:"
   },
   "work_trace": {
     "tool_failed": "Eine Tool-Aktion ist fehlgeschlagen",

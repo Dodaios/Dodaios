@@ -38,7 +38,7 @@ describe("thread work log", () => {
     expect(screen.getByText("All green.")).toBeTruthy();
   });
 
-  it("keeps the running stretch closed and opens it to a card of every step", () => {
+  it("keeps the running stretch closed and opens it to a list of every step", () => {
     show(turn([tool("c1", "npm run build"), tool("c2", "npm test", { output: null, durationMs: null })], "running"));
     // Never open by itself.
     const line = screen.getByRole("button", { name: /steps so far/ });
@@ -47,10 +47,12 @@ describe("thread work log", () => {
     expect(screen.queryByTestId("thread-steps")).toBeNull();
     expect(screen.queryByText("npm run build")).toBeNull();
     fireEvent.click(line);
-    // One row per step; a command says what it was, then the line itself.
-    const card = screen.getByTestId("thread-steps");
-    expect(card.children).toHaveLength(2);
-    expect(card.textContent).toContain("Ran a command");
+    // One row per step, no box: its mark, "Ran", then the line itself.
+    const list = screen.getByTestId("thread-steps");
+    expect(list.children).toHaveLength(2);
+    expect(list.className).not.toContain("border");
+    expect(list.querySelectorAll("svg").length).toBeGreaterThanOrEqual(2);
+    expect(list.textContent).toContain("Ran npm run build");
     expect(screen.getByText("npm run build")).toBeTruthy();
     expect(screen.getByText("npm test")).toBeTruthy();
     expect(screen.getByTestId("thread-working").textContent).toMatch(/^Working for /);
@@ -106,14 +108,13 @@ describe("thread work log", () => {
     const lone = screen.getByRole("button", { name: /^Show the lines with relative links/ });
     expect(screen.queryByText(/grep -n/)).toBeNull();
     fireEvent.click(lone);
-    fireEvent.click(screen.getByTestId("thread-steps").querySelector("button")!);
-    expect(screen.getByText(/grep -n/)).toBeTruthy();
-    // In a card, a described command reads by its purpose, an undescribed one by its line.
+    expect(screen.getByTestId("thread-steps").textContent).toContain("grep -n");
+    // Opened, every step reads as what it ran; the agent's words for it are its hover title.
     fireEvent.click(screen.getByRole("button", { name: /steps so far/ }));
-    const card = screen.getAllByTestId("thread-steps")[1];
-    expect(card.textContent).toContain("Make links absolute");
-    expect(card.textContent).not.toContain("sed -i");
-    expect(card.textContent).toContain("git push");
+    const list = screen.getAllByTestId("thread-steps")[1];
+    expect(list.textContent).toContain("Ran sed -i");
+    expect(list.querySelector("[title='Make links absolute']")).toBeTruthy();
+    expect(list.textContent).toContain("git push");
   });
 
   it("keeps the answer in view when a thought lands after it", () => {
