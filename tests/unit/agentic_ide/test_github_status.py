@@ -643,3 +643,11 @@ def test_a_wait_is_bounded_when_the_read_is_slow(boards, monkeypatch):
     assert answer["refreshing"] and answer["waiting"] == ["t1"]
     boards.release.set()
     _settle(lambda: not status._front_reads)
+
+
+def test_a_pull_request_carries_its_title_and_size():
+    value = status.parse_status(
+        TARGET, payload(pr(title="feat: approval modes", additions=731, deletions=30)), 1
+    )
+    assert (value.title, value.additions, value.deletions) == ("feat: approval modes", 731, 30)
+    assert value.to_dict()["title"] == "feat: approval modes"

@@ -43,6 +43,7 @@ query($owner: String!, $name: String!, $branch: String!, $ref: String!, $prIds: 
 }
 fragment PR on PullRequest {
   id number url title state isDraft isInMergeQueue headRefName headRefOid createdAt
+  additions deletions
   locked mergeable mergeStateStatus reviewDecision
   headRepository { nameWithOwner }
   commits(last: 1) { nodes { commit { oid statusCheckRollup { ...Rollup } } } }
@@ -176,6 +177,10 @@ class BranchStatus:
     merge_status: str = ""
     review: str = ""
     locked: bool = False
+    # The pull request's title and its size in changed lines.
+    title: str = ""
+    additions: int = 0
+    deletions: int = 0
     # The session's other branches, newest first; set on the one a header shows.
     others: list[BranchStatus] = field(default_factory=list)
 
@@ -313,6 +318,9 @@ def parse_status(target: Checkout, payload: dict[str, Any], fetched_at: float) -
         status.merge_status = str(pr.get("mergeStateStatus") or "UNKNOWN").lower()
         status.review = str(pr.get("reviewDecision") or "").lower()
         status.locked = bool(pr.get("locked"))
+        status.title = str(pr.get("title") or "")
+        status.additions = int(pr.get("additions") or 0)
+        status.deletions = int(pr.get("deletions") or 0)
         commits = (pr.get("commits") or {}).get("nodes") or []
         commit = (commits[-1].get("commit") or {}) if commits else {}
         # PR checks are usable only for the current remote tip (or a deleted
