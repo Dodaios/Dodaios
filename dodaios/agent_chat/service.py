@@ -28,7 +28,7 @@ import sqlite3
 import time
 import traceback
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, Final
@@ -415,6 +415,25 @@ def _message_answer(spec: QuestionSpec, text: str) -> QuestionAnswer:
                                    source=MESSAGE)
             return answer_from(spec, option_index=index, text=None, source=MESSAGE)
     return answer_from(spec, option_index=None, text=typed, source=MESSAGE)
+
+
+#: Said of a voice call's tool when the call event carries no result text.
+_VOICE_TOOL_NOTE: Final[str] = "(ran during the voice call; its result was not recorded here)"
+_VOICE_TOOL_OUTPUT_CAP: Final[int] = 400
+
+
+def _voice_tool_records(tool_calls: Sequence[str | dict[str, Any]]) -> list[tuple[str, str]]:
+    """``(name, short output)`` of each tool a voice turn ran, in order."""
+    records: list[tuple[str, str]] = []
+    for item in tool_calls or ():
+        if isinstance(item, dict):
+            name = str(item.get("name") or "").strip()
+            output = str(item.get("output") or "").strip()[:_VOICE_TOOL_OUTPUT_CAP]
+        else:
+            name, output = str(item or "").strip(), ""
+        if name:
+            records.append((name, output or _VOICE_TOOL_NOTE))
+    return records
 
 
 def _first_open(answers: list[QuestionAnswer | None] | tuple[QuestionAnswer | None, ...]) -> int:
@@ -2253,6 +2272,7 @@ class AgentChatService:
         provider: str = "",
         model: str = "",
         voice_turn_id: str = "",
+        tool_calls: Sequence[str | dict[str, Any]] = (),
     ) -> str | None:
         """File one SPOKEN turn into a session's timeline, without answering it.
 
@@ -2271,6 +2291,13 @@ class AgentChatService:
         how the turn was said. Returns the imported turn id, or ``None`` when
         there was nothing worth keeping (both texts empty) or this voice turn
         was already imported.
+
+        ``tool_calls`` are the tools the call ran (a name, or a dict with
+        ``name`` and a short ``output``); they are filed as ``tool_call`` /
+        ``tool_result`` pairs before the reply, so the next typed turn can tell
+        a call that sent the mail from one that only talked about it. What the
+        person said also feeds the proactive cues (open loops, check-ins) like
+        a typed turn of the lead's conversation does.
         """
         user = (user_text or "").strip()
         reply = (assistant_text or "").strip()
@@ -2287,6 +2314,8 @@ class AgentChatService:
                 self._mirrored_voice_turns.clear()
         if user:
             await self._emit(session_id, make_event("user_message", {"text": user}))
+            if session.surface == "jarvis":
+                await self._read_voice_cues(session_id, user, tool_calls)
         if not reply:
             return None
         turn_id = uuid.uuid4().hex
@@ -2308,6 +2337,29 @@ class AgentChatService:
                 },
             ),
         )
+        for name, output in _voice_tool_records(tool_calls):
+            call_id = f"voice_{uuid.uuid4().hex[:12]}"
+            await self._emit(
+                session_id,
+                make_event(
+                    "tool_call",
+                    {"turn_id": turn_id, "call_id": call_id, "name": name, "input": {}},
+                ),
+            )
+            await self._emit(
+                session_id,
+                make_event(
+                    "tool_result",
+                    {
+                        "turn_id": turn_id,
+                        "call_id": call_id,
+                        "name": name,
+                        "output": output,
+                        "is_error": False,
+                        "duration_ms": 0,
+                    },
+                ),
+            )
         await self._emit(
             session_id,
             make_event(
@@ -2329,6 +2381,18 @@ class AgentChatService:
             ),
         )
         return turn_id
+
+    async def _read_voice_cues(
+        self, session_id: str, user_text: str, tool_calls: Sequence[str | dict[str, Any]]
+    ) -> None:
+        """Open loops and check-ins from a spoken turn; never breaks the import."""
+        try:
+            from dodaios.agent_chat.surface_kits import read_proactive_cues
+
+            names = tuple(name for name, _output in _voice_tool_records(tool_calls))
+            await read_proactive_cues(session_id, user_text, names)
+        except Exception:  # noqa: BLE001 — a missed cue is not worth a lost transcript
+            log.warning("agent chat %s: cues not read from a voice turn", session_id, exc_info=True)
 
     def signal_cancel(self, session_id: str, *, expected_turn_id: str | None = None) -> bool:
         """Stop planning synchronously before releasing an in-flight tool reply."""

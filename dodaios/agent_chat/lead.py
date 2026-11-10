@@ -17,6 +17,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from typing import Any, Final
 
 log = logging.getLogger(__name__)
@@ -271,17 +273,78 @@ def search_conversation(query: str, *, limit: int = 6) -> list[dict[str, Any]]:
     return rows
 
 
-async def answer_in_lead(svc: Any, text: str, *, source: str, timeout_s: float = 900.0) -> str:
+def _joined(parts: list[str]) -> str:
+    return chr(10).join(p for p in parts if p).strip()
+
+
+@dataclass(slots=True)
+class LeadReport:
+    """How an :func:`answer_in_lead` call ended, for a caller that must say so.
+
+    ``status``: ``done`` (an answer), ``empty`` (the turn finished without
+    text), ``error`` / ``cancelled`` (the turn ended that way), ``timeout``,
+    ``not_sent`` (the queued message never started) or ``no_session``.
+    """
+
+    status: str = ""
+    turn_id: str = ""
+
+
+@dataclass(slots=True)
+class LeadCard:
+    """A card the lead's turn opened and waits on: ``kind`` is approval or question."""
+
+    kind: str
+    summary: str
+    options: list[str]
+
+
+def _card_of(kind: str, payload: dict[str, Any]) -> LeadCard | None:
+    if kind == "approval_required":
+        summary = str(payload.get("summary") or payload.get("name") or "").strip()
+        return LeadCard("approval", summary[:300], [])
+    if kind == "question_required":
+        questions = payload.get("questions")
+        first = questions[0] if isinstance(questions, list) and questions else {}
+        first = first if isinstance(first, dict) else {}
+        options = first.get("options") if isinstance(first.get("options"), list) else []
+        labels = [str(o.get("label") or "").strip() for o in options if isinstance(o, dict)]
+        return LeadCard(
+            "question", str(first.get("question") or "").strip()[:300], [x for x in labels if x]
+        )
+    return None
+
+
+def open_approval_ids(svc: Any, session_id: str) -> list[str]:
+    """Approval cards of the lead conversation that still wait for a decision."""
+    pending = getattr(svc, "pending_approvals", None)
+    return list(pending(session_id)) if callable(pending) else []
+
+
+async def answer_in_lead(
+    svc: Any,
+    text: str,
+    *,
+    source: str,
+    timeout_s: float = 900.0,
+    report: LeadReport | None = None,
+    on_card: Callable[[LeadCard], Awaitable[None]] | None = None,
+) -> str:
     """Send ``text`` into the lead conversation and return the reply text.
 
     For messages from outside the app (the owner's Telegram chat). A message
-    that arrives while a turn runs waits in the conversation's queue; its own
-    turn is found by its text. Returns "" when no answer came in time.
+    that arrives while a turn runs waits in the conversation's queue; the
+    queue's ``message_dequeued`` notice names the turn it became. Returns ""
+    when no answer came in time; ``report`` then says why. ``on_card`` is told
+    about an approval or question card the turn opens, so the person away from
+    the desk can answer it from the same chat.
     """
     from dodaios.agent_chat.send_queue import send_or_queue
 
+    report = report if report is not None else LeadReport()
     session = lead_session(svc)
     if session is None:
+        report.status = "no_session"
         return ""
     sid = session.session_id
     queue = svc.subscribe(sid)
@@ -290,33 +353,66 @@ async def answer_in_lead(svc: Any, text: str, *, source: str, timeout_s: float =
 
         # "this" in a message from away is not the desk's screen.
         with away_from_screen():
-            turn_id, _queued = await send_or_queue(svc, sid, text)
+            turn_id, queue_id = await send_or_queue(svc, sid, text)
         log.debug("lead thread: a %s message joins the conversation", source)
         parts: list[str] = []
-        seen_own = bool(turn_id)
+        # Events of a turn can arrive before the notice that names it.
+        early: list[tuple[str, dict[str, Any]]] = []
         loop = asyncio.get_running_loop()
         deadline = loop.time() + timeout_s
+
+        async def handle(kind: str, payload: dict[str, Any]) -> bool:
+            """Fold one event of our turn; True once the turn is over."""
+            if kind == "assistant_text":
+                parts.append(str(payload.get("text") or ""))
+            elif kind in ("approval_required", "question_required"):
+                card = _card_of(kind, payload)
+                if card is not None and on_card is not None:
+                    try:
+                        await on_card(card)
+                    except Exception:  # noqa: BLE001 — a card line that cannot be sent costs only itself
+                        log.warning("lead thread: card line not sent", exc_info=True)
+            elif kind == "turn_finished":
+                status = str(payload.get("status") or "done")
+                text_out = _joined(parts)
+                report.status = (
+                    status if status in ("error", "cancelled") and not text_out
+                    else "done" if text_out else "empty"
+                )
+                return True
+            return False
+
+        if turn_id:
+            report.turn_id = turn_id
         while True:
             left = deadline - loop.time()
             if left <= 0:
+                report.status = "timeout"
                 return ""
             event = await asyncio.wait_for(queue.get(), timeout=left)
             payload = event.get("payload") or {}
-            kind = event.get("kind")
+            kind = str(event.get("kind") or "")
             if not turn_id:
-                # Queued: our message starts the first turn after it appears.
-                if kind == "user_message" and str(payload.get("text") or "") == text:
-                    seen_own = True
-                elif seen_own and kind == "turn_started":
-                    turn_id = str(payload.get("turn_id") or "")
+                if kind == "notice" and str(payload.get("queue_id") or "") == queue_id:
+                    if payload.get("kind") != "message_dequeued":
+                        continue
+                    if payload.get("status") != "sent" or not payload.get("turn_id"):
+                        report.status = "not_sent"
+                        return ""
+                    turn_id = report.turn_id = str(payload["turn_id"])
+                    for early_kind, early_payload in early:
+                        if await handle(early_kind, early_payload):
+                            return _joined(parts)
+                    early.clear()
+                elif payload.get("turn_id"):
+                    early.append((kind, payload))
                 continue
             if str(payload.get("turn_id") or "") != turn_id:
                 continue
-            if kind == "assistant_text":
-                parts.append(str(payload.get("text") or ""))
-            elif kind == "turn_finished":
-                return "\n".join(p for p in parts if p).strip()
+            if await handle(kind, payload):
+                return _joined(parts)
     except TimeoutError:  # no reply in time: the documented empty answer
+        report.status = "timeout"
         return ""
     finally:
         svc.unsubscribe(sid, queue)
@@ -459,7 +555,10 @@ def _archive() -> Any | None:
 __all__ = [
     "SURFACE",
     "adopt_seat",
+    "LeadCard",
+    "LeadReport",
     "answer_in_lead",
+    "open_approval_ids",
     "fresh_start",
     "is_lead",
     "lead_seat",

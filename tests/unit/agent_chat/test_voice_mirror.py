@@ -280,3 +280,88 @@ def test_a_continued_voice_chat_is_not_copied_into_a_typed_chat(tmp_path: Path) 
         asyncio.run(scenario())
     finally:
         continue_voice_session(None)
+
+
+def test_voice_turn_files_its_tool_record_before_the_reply(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        session = _open_session(svc)
+        await svc.import_voice_turn(
+            session.session_id,
+            "Send the mail to Max",
+            "Done, the mail is on its way.",
+            tool_calls=["send_mail", {"name": "calendar_add", "output": "Event created"}],
+        )
+        events = svc.store.list_events(session.session_id)
+        kinds = [e["kind"] for e in events]
+        assert kinds == [
+            "user_message",
+            "turn_started",
+            "tool_call",
+            "tool_result",
+            "tool_call",
+            "tool_result",
+            "assistant_text",
+            "turn_finished",
+        ]
+        calls = [e["payload"] for e in events if e["kind"] == "tool_call"]
+        results = [e["payload"] for e in events if e["kind"] == "tool_result"]
+        assert [c["name"] for c in calls] == ["send_mail", "calendar_add"]
+        assert [r["call_id"] for r in results] == [c["call_id"] for c in calls]
+        assert results[1]["output"] == "Event created"
+        # Honest about what is unknown: no invented result for the first tool.
+        assert "not recorded" in results[0]["output"]
+
+    asyncio.run(scenario())
+
+
+def test_voice_turn_feeds_the_proactive_cues(tmp_path: Path, monkeypatch) -> None:
+    seen: list[tuple[str, str, tuple[str, ...]]] = []
+
+    async def fake_cues(session_id: str, text: str, tool_names: tuple[str, ...] = ()) -> None:
+        seen.append((session_id, text, tool_names))
+
+    monkeypatch.setattr("dodaios.agent_chat.surface_kits.read_proactive_cues", fake_cues)
+
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        session = _open_session(svc)
+        await svc.import_voice_turn(
+            session.session_id,
+            "I'll call Max tomorrow",
+            "Good plan.",
+            tool_calls=["schedule_routine"],
+        )
+        await svc.import_voice_turn(session.session_id, "hello", "", voice_turn_id="u-only")
+        # An agent chat is not the lead's conversation: its words are no promise.
+        other = svc.create_session(provider="openai", model="m", effort="low", surface="agent")
+        await svc.import_voice_turn(other.session_id, "I'll call Anna tomorrow", "ok")
+        assert seen[0] == (session.session_id, "I'll call Max tomorrow", ("schedule_routine",))
+        assert [s[1] for s in seen] == ["I'll call Max tomorrow", "hello"]
+
+    asyncio.run(scenario())
+
+
+def test_the_mirror_passes_the_calls_tools_on(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        svc = _service(tmp_path)
+        _open_session(svc)
+        bus = EventBus()
+        VoiceChatMirror(lambda: svc).attach(bus)
+        await bus.publish(
+            VoiceTurnCompleted(
+                session_id="call-1",
+                turn_id="v-tools",
+                user_text="open the mail",
+                jarvis_text="Opened.",
+                tool_calls=("open_app",),
+            )
+        )
+        await asyncio.sleep(0.1)
+        sid = svc.lead_session().session_id
+        names = [
+            e["payload"]["name"] for e in svc.store.list_events(sid) if e["kind"] == "tool_call"
+        ]
+        assert names == ["open_app"]
+
+    asyncio.run(scenario())

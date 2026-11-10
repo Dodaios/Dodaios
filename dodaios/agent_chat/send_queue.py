@@ -65,6 +65,10 @@ class _Queued:
     attachments: list[dict[str, Any]] | None
     tool_choices: list[str] | None
     timezone: str | None = None
+    #: Written away from the desk (Telegram, Discord, WhatsApp): the drain loop
+    #: sets it around the send, so the screen context follows the message and
+    #: not whoever queued first.
+    away: bool = False
 
 
 @dataclass(slots=True)
@@ -199,6 +203,7 @@ async def send_or_queue(
     Exactly one of the two is non-empty. Raises ``SessionBusy`` for a chat
     that does not queue and :class:`QueueFull` when the queue is full.
     """
+    from dodaios.agent_chat.screen_reference import is_away
     from dodaios.agent_chat.service import SessionBusy
     from dodaios.tasks.context import client_timezone
 
@@ -243,7 +248,9 @@ async def send_or_queue(
     # Earlier waiting messages go first, so a new one never overtakes them.
     if len(pending.items) >= MAX_QUEUED and not first:
         raise QueueFull(session_id)
-    item = _Queued(uuid.uuid4().hex, text, attachments, tool_choices, client_timezone.get())
+    item = _Queued(
+        uuid.uuid4().hex, text, attachments, tool_choices, client_timezone.get(), is_away()
+    )
     # Recovery reads persisted notices off-thread. A generation fence detects
     # an admission that both starts and finishes while that snapshot is read.
     svc._society_send_generation = getattr(svc, "_society_send_generation", 0) + 1
@@ -284,6 +291,7 @@ async def _fail(svc: Any, session_id: str, item: _Queued) -> None:
 
 
 async def _drain_loop(svc: Any, session_id: str, pending: _ChatQueue) -> None:
+    from dodaios.agent_chat.screen_reference import away_from_screen
     from dodaios.agent_chat.service import SessionBusy
     from dodaios.tasks.context import client_timezone
 
@@ -297,9 +305,10 @@ async def _drain_loop(svc: Any, session_id: str, pending: _ChatQueue) -> None:
         head = pending.items[0]
         token = client_timezone.set(head.timezone)
         try:
-            await svc.send(
-                session_id, head.text, head.attachments, tool_choices=head.tool_choices
-            )
+            with away_from_screen(head.away):
+                turn_id = await svc.send(
+                    session_id, head.text, head.attachments, tool_choices=head.tool_choices
+                )
         except SessionBusy:  # the seat is still taken: this message simply waits longer
             continue
         except Exception:  # noqa: BLE001 — reported in the chat, then the next one runs
@@ -314,7 +323,8 @@ async def _drain_loop(svc: Any, session_id: str, pending: _ChatQueue) -> None:
         await _notice(
             svc,
             session_id,
-            {"kind": "message_dequeued", "queue_id": head.queue_id, "status": "sent"},
+            {"kind": "message_dequeued", "queue_id": head.queue_id, "status": "sent",
+             "turn_id": str(turn_id or "")},
         )
 
 
