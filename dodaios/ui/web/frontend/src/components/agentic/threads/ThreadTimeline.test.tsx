@@ -38,10 +38,19 @@ describe("thread work log", () => {
     expect(screen.getByText("All green.")).toBeTruthy();
   });
 
-  it("keeps the running group open with every step so far and the turn clock", () => {
+  it("keeps the running stretch closed on the step it is on, and opens to a card of every step", () => {
     show(turn([tool("c1", "npm run build"), tool("c2", "npm test", { output: null, durationMs: null })], "running"));
-    expect(screen.getByRole("button", { name: /steps so far/ }).getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByText("npm test")).toBeTruthy();
+    // Never open by itself: the closed line reads the step the agent is on.
+    const line = screen.getByRole("button", { name: /steps so far/ });
+    expect(line.getAttribute("aria-expanded")).toBe("false");
+    expect(line.textContent).toContain("npm test");
+    expect(screen.queryByTestId("thread-steps")).toBeNull();
+    expect(screen.queryByText("npm run build")).toBeNull();
+    fireEvent.click(line);
+    // One row per step; a command says what it was, then the line itself.
+    const card = screen.getByTestId("thread-steps");
+    expect(card.children).toHaveLength(2);
+    expect(card.textContent).toContain("Ran a command");
     expect(screen.getByText("npm run build")).toBeTruthy();
     expect(screen.getByTestId("thread-working").textContent).toMatch(/^Working for /);
   });
@@ -67,9 +76,9 @@ describe("thread work log", () => {
     const first = screen.getByRole("button", { name: /^gh run list/ });
     expect(first.getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByText("The gate never ran.")).toBeNull();
-    // The stretch the turn is still in is open and shows its steps.
-    expect(screen.getByRole("button", { name: /steps so far/ }).getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByText("gh pr list")).toBeTruthy();
+    // The stretch the turn is still in stays closed too.
+    expect(screen.getByRole("button", { name: /steps so far/ }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText("gh pr list")).toBeNull();
     fireEvent.click(first);
     expect(screen.getByText("The gate never ran.")).toBeTruthy();
     expect(screen.getByText("Checking the workflow.")).toBeTruthy();
