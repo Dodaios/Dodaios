@@ -130,7 +130,9 @@ ENGINE: dict[str, frozenset[str]] = {
             "GameplayTasks",
             "InputCore",
             "Json",
+            "MeshDescription",
             "NavigationSystem",
+            "PhysicsCore",
             "StaticMeshDescription",
         }
     ),
