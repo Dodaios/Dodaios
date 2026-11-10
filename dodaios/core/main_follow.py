@@ -26,6 +26,11 @@ that nudge, for a person who opted in (``[agentic_ide] follow_main``):
   lost: no mission running, no live voice call, no speech session. Coding agent
   panes live in their own terminal host and survive it. Until then the status
   says a restart is pending.
+* The checkout also moves without the follower: a coding agent's done gate
+  fast-forwards it after its own merge, a person pulls. The follower notices
+  that ``HEAD`` is no longer the commit it last handled and does the same
+  rebuild and restart for it. Without that the app kept running the old code
+  and serving the old bundle until the next update it happened to make itself.
 
 Only the instance that owns the ambient duties follows, and only a checkout
 whose top level is the folder this package was imported from: a linked
@@ -313,6 +318,9 @@ class MainFollower:
         self._wake = threading.Event()
         self._thread: threading.Thread | None = None
         self._logged_reason = ""
+        #: The commit whose bundle is built and whose restart is accounted for:
+        #: the one this process started from, then every one handled since.
+        self._handled_head = ""
 
     # ------------------------------------------------------------ lifecycle
 
@@ -391,9 +399,18 @@ class MainFollower:
                 return status
             status.head = _git(["rev-parse", "HEAD"], self.root).stdout.strip()
             status.remote = _git(["rev-parse", "origin/main"], self.root).stdout.strip()
+            moved_outside = bool(
+                status.head and self._handled_head and status.head != self._handled_head
+            )
+            if moved_outside and not self._adopt_outside_update(status):
+                return status  # the reason is noted; the next round looks again
+            if status.head and not self._handled_head:
+                self._handled_head = status.head
             if not status.head or status.head == status.remote:
                 status.blocked_by = []
                 self._note("")
+                if moved_outside and status.restart_pending and self._idle():
+                    self._try_restart()
                 return status
             if (
                 _git(["merge-base", "--is-ancestor", "HEAD", "origin/main"], self.root).returncode
@@ -473,6 +490,45 @@ class MainFollower:
         self.poke()
         return True
 
+    def _adopt_outside_update(self, status: FollowStatus) -> bool:
+        """Somebody else moved the checkout: rebuild and restart as for an own update.
+
+        One attempt per commit, exactly like an update the follower makes itself:
+        a build that fails is reported and not repeated every minute.
+        """
+        previous, self._handled_head = self._handled_head, status.head
+        listed = _git(["diff", "--name-only", previous, status.head], self.root)
+        if listed.returncode != 0:
+            # The old commit is gone (a rewritten branch): nothing to compare with.
+            logger.info("Follow main: the checkout moved to {} outside the app.", status.head[:10])
+            return True
+        changed = [line.strip() for line in listed.stdout.splitlines() if line.strip()]
+        logger.info(
+            "Follow main: the checkout moved to {} outside the app ({} file(s) changed).",
+            status.head[:10],
+            len(changed),
+        )
+        status.busy = "update"
+        try:
+            return self._apply(status, changed)
+        finally:
+            status.busy = ""
+
+    def _apply(self, status: FollowStatus, changed: list[str]) -> bool:
+        """Install, rebuild and plan the restart the changed files call for."""
+        frontend = any(path.startswith((f"{FRONTEND}/", f"{DIST}/")) for path in changed)
+        backend = any(
+            (path.endswith(".py") and not path.startswith(_NOT_APP_CODE)) or path in _PIP_INPUTS
+            for path in changed
+        )
+        if any(path in _PIP_INPUTS for path in changed) and not self._install_python():
+            return False
+        if frontend and not self._build(npm_install=any(path in _NPM_INPUTS for path in changed)):
+            return False
+        if backend:
+            status.restart_pending = True
+        return True
+
     def _update(self, status: FollowStatus) -> None:
         if self._locked(status):
             return
@@ -496,20 +552,10 @@ class MainFollower:
             status.last_update = time.time()
             status.last_subject = _git(["log", "-1", "--format=%s"], self.root).stdout.strip()
             status.head = _git(["rev-parse", "HEAD"], self.root).stdout.strip()
+            self._handled_head = status.head
             logger.info("Follow main: updated to {} ({})", status.head[:10], status.last_subject)
-            frontend = any(path.startswith((f"{FRONTEND}/", f"{DIST}/")) for path in changed)
-            backend = any(
-                (path.endswith(".py") and not path.startswith(_NOT_APP_CODE)) or path in _PIP_INPUTS
-                for path in changed
-            )
-            if any(path in _PIP_INPUTS for path in changed) and not self._install_python():
+            if not self._apply(status, changed):
                 return
-            if frontend and not self._build(
-                npm_install=any(path in _NPM_INPUTS for path in changed)
-            ):
-                return
-            if backend:
-                status.restart_pending = True
             self._note("")
         finally:
             status.busy = ""
