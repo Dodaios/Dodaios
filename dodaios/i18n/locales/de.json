@@ -172,7 +172,25 @@
     "stt_unavailable": "Entschuldige, ich habe dich akustisch gerade nicht verstanden. Sag es bitte noch einmal.",
     "realtime_unavailable": "Die Realtime-Verbindung ist gerade nicht verfügbar. Ich wechsle für diese Sitzung zur klassischen Sprachverarbeitung.",
     "timeout_tool_stall": "Ich habe rechtzeitig keine Antwort bekommen. Ein Tool, auf das ich gewartet habe, hat nicht reagiert.",
-    "timeout_no_answer": "Das konnte ich gerade nicht herausfinden."
+    "timeout_no_answer": "Das konnte ich gerade nicht herausfinden.",
+    "provider_refused": {
+      "plan": "Dein {provider}-Konto bietet diese Sprachverbindung im aktuellen Tarif nicht an.",
+      "key": "Der {provider}-Schlüssel für Sprache wurde abgelehnt. Prüfe ihn in den Spracheinstellungen.",
+      "credit": "Das Guthaben für {provider}-Sprache ist aufgebraucht. Lade es beim Anbieter auf, dann geht es wieder.",
+      "busy": "{provider}-Sprache ist gerade ausgelastet und hat den Anruf abgelehnt.",
+      "unreachable": "{provider}-Sprache war nicht erreichbar.",
+      "rejected": "{provider} hat die Spracheinstellungen abgelehnt. Prüfe Stimme und Modell in den Spracheinstellungen.",
+      "continued_pipeline": "Ich führe diesen Anruf über den klassischen Sprachweg weiter.",
+      "continued_realtime": "Ich führe diesen Anruf über eine andere Sprachverbindung weiter.",
+      "ended": "Dieser Anruf kann gerade nicht weitergehen."
+    },
+    "brief": {
+      "today": "Heute: {items}.",
+      "item_at": "um {time} {text}",
+      "more": "und {count} weitere.",
+      "open": "Noch offen: {items}.",
+      "nothing": "Für heute ist nichts geplant, soweit ich weiß."
+    }
   },
   "missions": {
     "announcer": {

@@ -76,6 +76,60 @@ describe("CallWindow (a call inside the conversation)", () => {
     expect(screen.queryByTestId("call-waiting")).toBeNull();
   });
 
+  it("says in its own words when the chosen provider refused and the call went on another way", () => {
+    useEventStore.setState({ voiceState: "listening" });
+    useHomeStore.setState({ callNotice: { message: "No plan. I am continuing this call with the classic voice path." } });
+    render(<CallWindow />);
+    expect(screen.getByTestId("call-notice").textContent).toContain("classic voice path");
+    expect(screen.getByTestId("call-status").textContent).toContain("Listening");
+  });
+
+  it("opens the voice list behind the gear and picks a voice through the backend", async () => {
+    let picked = "";
+    vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url);
+      if (path === "/api/voice/mic-mute") return new Response(JSON.stringify({ muted: false }));
+      if (path === "/api/voice/voices" && init?.method === "PUT") {
+        picked = (JSON.parse(String(init.body)) as { voice: string }).voice;
+        return new Response(JSON.stringify({ ok: true, applies: "now" }));
+      }
+      if (path === "/api/voice/voices") {
+        return new Response(JSON.stringify({
+          path: "tts", provider: "gemini-flash-tts", applies: "now", current: "Kore", default: "Kore",
+          voices: [{ id: "Kore", label: "Kore" }, { id: "Puck", label: "Puck" }],
+        }));
+      }
+      return new Response(JSON.stringify({}));
+    }));
+    useEventStore.setState({ voiceState: "listening" });
+    render(<CallWindow />);
+    fireEvent.click(screen.getByTestId("call-settings"));
+    await waitFor(() => expect(screen.getAllByTestId("call-voice-option")).toHaveLength(2));
+    const options = screen.getAllByTestId("call-voice-option");
+    expect(options[0].getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(options[1]);
+    await waitFor(() => expect(picked).toBe("Puck"));
+    await waitFor(() => expect(screen.getAllByTestId("call-voice-option")[1].getAttribute("aria-selected")).toBe("true"));
+    // The list goes away again; the call window is still the call.
+    fireEvent.click(screen.getByTestId("call-voice-done"));
+    expect(screen.queryByTestId("call-voice-picker")).toBeNull();
+    expect(screen.getByTestId("call-waiting")).toBeTruthy();
+  });
+
+  it("says so when the engine has no voice to choose", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url) === "/api/voice/voices") {
+        return new Response(JSON.stringify({ path: "realtime", provider: "x", voices: [], current: "", default: "", applies: "now" }));
+      }
+      return new Response(JSON.stringify({ muted: false }));
+    }));
+    useEventStore.setState({ voiceState: "listening" });
+    render(<CallWindow />);
+    fireEvent.click(screen.getByTestId("call-settings"));
+    await waitFor(() => expect(screen.getByTestId("call-voice-none")).toBeTruthy());
+    expect(screen.getByTestId("call-voice-all-settings")).toBeTruthy();
+  });
+
   it("turns the microphone off and on through the backend", async () => {
     useEventStore.setState({ voiceState: "listening" });
     render(<CallWindow />);

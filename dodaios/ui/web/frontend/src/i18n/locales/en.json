@@ -11025,5 +11025,16 @@
       "cancel": "Cancel"
     },
     "raw": "Raw"
+  },
+  "voice_call": {
+    "voice_title": "Voice",
+    "voice_loading": "Loading voices…",
+    "voice_none": "This voice path has no voice to choose from.",
+    "voice_unavailable": "The voices could not be read.",
+    "voice_applies_next_call": "Applies to the next call",
+    "voice_saved": "Voice changed.",
+    "voice_saved_next_call": "Voice saved for the next call.",
+    "voice_save_failed": "The voice could not be changed.",
+    "all_settings": "All voice settings"
   }
 }

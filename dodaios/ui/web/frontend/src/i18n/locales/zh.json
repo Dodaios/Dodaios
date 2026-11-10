@@ -11025,5 +11025,16 @@
       "cancel": "取消"
     },
     "raw": "原始数据"
+  },
+  "voice_call": {
+    "voice_title": "声音",
+    "voice_loading": "正在加载声音…",
+    "voice_none": "此语音通路没有可选的声音。",
+    "voice_unavailable": "无法读取声音列表。",
+    "voice_applies_next_call": "下次通话生效",
+    "voice_saved": "声音已更改。",
+    "voice_saved_next_call": "声音已保存，下次通话生效。",
+    "voice_save_failed": "无法更改声音。",
+    "all_settings": "全部语音设置"
   }
 }

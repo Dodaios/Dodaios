@@ -11025,5 +11025,16 @@
       "cancel": "Abbrechen"
     },
     "raw": "Rohdaten"
+  },
+  "voice_call": {
+    "voice_title": "Stimme",
+    "voice_loading": "Stimmen werden geladen…",
+    "voice_none": "Für diesen Sprachweg gibt es keine Stimme zur Auswahl.",
+    "voice_unavailable": "Die Stimmen konnten nicht gelesen werden.",
+    "voice_applies_next_call": "Gilt ab dem nächsten Anruf",
+    "voice_saved": "Stimme geändert.",
+    "voice_saved_next_call": "Stimme für den nächsten Anruf gespeichert.",
+    "voice_save_failed": "Die Stimme konnte nicht geändert werden.",
+    "all_settings": "Alle Spracheinstellungen"
   }
 }

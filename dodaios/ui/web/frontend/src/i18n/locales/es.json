@@ -11025,5 +11025,16 @@
       "cancel": "Cancelar"
     },
     "raw": "Datos sin formato"
+  },
+  "voice_call": {
+    "voice_title": "Voz",
+    "voice_loading": "Cargando voces…",
+    "voice_none": "Esta vía de voz no ofrece voces para elegir.",
+    "voice_unavailable": "No se pudieron leer las voces.",
+    "voice_applies_next_call": "Se aplica a la próxima llamada",
+    "voice_saved": "Voz cambiada.",
+    "voice_saved_next_call": "Voz guardada para la próxima llamada.",
+    "voice_save_failed": "No se pudo cambiar la voz.",
+    "all_settings": "Todos los ajustes de voz"
   }
 }

@@ -60,6 +60,14 @@ interface HomeStore {
    */
   callProblem: { message: string } | null;
   setCallProblem: (problem: { message: string } | null) => void;
+  /**
+   * A change of voice path during this call, in the backend's own words
+   * (`VoiceProviderRefused` with `continued_on`): the chosen provider refused
+   * and the call went on through another one or the classic pipeline. Shown
+   * under the call's status until the call ends.
+   */
+  callNotice: { message: string } | null;
+  setCallNotice: (notice: { message: string } | null) => void;
   /** History row captured when this call starts; navigation cannot reassign it. */
   liveConversationId: string | null;
   ingest: (name: string, payload: unknown, tsMs: number) => void;
@@ -136,8 +144,25 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
     if (callProblem && !callProblem.message && get().callProblem?.message) return;
     set({ callProblem, ...(callProblem ? { callPending: false } : {}) });
   },
+  callNotice: null,
+  setCallNotice: (callNotice) => set({ callNotice }),
   liveConversationId: null,
   ingest: (name, payload, tsMs) => {
+    if (name === "VoiceProviderRefused") {
+      // The chosen provider said no (plan, key, credit, busy). With a
+      // continuation the call goes on and the window says what changed;
+      // without one the call is ending and this is the reason the "failed"
+      // window shows — named here, before the generic error end arrives.
+      const refusal = payload as { message?: unknown; continued_on?: unknown } | null;
+      const message = typeof refusal?.message === "string" ? refusal.message.trim() : "";
+      if (!message) return;
+      if (typeof refusal?.continued_on === "string" && refusal.continued_on) {
+        set({ callNotice: { message } });
+      } else {
+        get().setCallProblem({ message });
+      }
+      return;
+    }
     // Late captions, spoken replies, and tool traces belong to the completed
     // call. Keep its blank successor empty until a call or selection starts.
     if (get().freshVoicePending && name !== "VoiceSessionStarted" && name !== "VoiceSessionEnded") return;
@@ -161,7 +186,7 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
       // A call that ended on an error says so in the call window, even when
       // nothing named the reason.
       if (reason === "error") get().setCallProblem({ message: "" });
-      set({ callPending: false });
+      set({ callPending: false, callNotice: null });
       // A provider handover continues the same call. A real hangup opens an
       // empty lane; the completed conversation remains in the history rail.
       if (reason !== "realtime_fallback" && reason !== "desktop_fallback") {
@@ -198,6 +223,7 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
         freshVoicePending: false,
         callPending: false,
         callProblem: null,
+        callNotice: null,
         // The lead's card shows a running call, however it was started.
         jarvisCardMode: "voice",
         liveSessionId: sessionId,

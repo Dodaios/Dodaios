@@ -11025,5 +11025,16 @@
       "cancel": "Cancelar"
     },
     "raw": "Dados em bruto"
+  },
+  "voice_call": {
+    "voice_title": "Voz",
+    "voice_loading": "A carregar vozes…",
+    "voice_none": "Este caminho de voz não tem vozes para escolher.",
+    "voice_unavailable": "Não foi possível ler as vozes.",
+    "voice_applies_next_call": "Aplica-se à próxima chamada",
+    "voice_saved": "Voz alterada.",
+    "voice_saved_next_call": "Voz guardada para a próxima chamada.",
+    "voice_save_failed": "Não foi possível alterar a voz.",
+    "all_settings": "Todas as definições de voz"
   }
 }

@@ -172,7 +172,25 @@
     "stt_unavailable": "Sorry, I didn't catch that just now. Could you say it again?",
     "realtime_unavailable": "The realtime connection is unavailable right now. I am switching this session to the classic voice pipeline.",
     "timeout_tool_stall": "I couldn't get an answer in time. A tool I was waiting on didn't respond.",
-    "timeout_no_answer": "I couldn't find that out just now."
+    "timeout_no_answer": "I couldn't find that out just now.",
+    "provider_refused": {
+      "plan": "Your {provider} account does not offer this voice connection on its current plan.",
+      "key": "The {provider} key for voice was rejected. Check it under Voice settings.",
+      "credit": "The credit for {provider} voice is used up. Top it up with the provider and it will work again.",
+      "busy": "{provider} voice is busy right now and refused the call.",
+      "unreachable": "{provider} voice could not be reached.",
+      "rejected": "{provider} rejected the voice settings. Check the voice and model under Voice settings.",
+      "continued_pipeline": "I am continuing this call with the classic voice path.",
+      "continued_realtime": "I am continuing this call on another voice connection.",
+      "ended": "This call cannot continue right now."
+    },
+    "brief": {
+      "today": "Today: {items}.",
+      "item_at": "at {time}, {text}",
+      "more": "and {count} more.",
+      "open": "Still open: {items}.",
+      "nothing": "Nothing is scheduled for today, as far as I know."
+    }
   },
   "missions": {
     "announcer": {

@@ -8,6 +8,12 @@ Endpoints (mounted by the WebServer in ``_build_app()``):
                               wake word — same path as the call hotkey).
     POST /api/voice/hangup  → hard-stop the voice channel (same contract as the
                               hangup hotkey).
+    POST /api/voice/warm    → warm the next call's cold parts (imports, the
+                              provider transport, TTS/STT clients) while the
+                              pointer is still on its way to the button.
+    GET  /api/voice/voices  → the voices the CURRENT voice path can speak with
+                              (realtime provider or classic TTS) and the one
+                              in use; PUT picks one.
 
 The click path is deliberately the SAME one the call hotkey and the chats
 "Speak in this conversation" button take — ``SpeechPipeline.request_voice_session``
@@ -189,3 +195,175 @@ async def voice_hangup() -> dict[str, Any]:
     if pipeline is None or not hasattr(pipeline, "request_voice_hangup"):
         raise HTTPException(status_code=503, detail="voice-pipeline-unavailable")
     return {"stopped": bool(pipeline.request_voice_hangup())}
+
+
+def _config(request: Request) -> Any:
+    state = request.app.state
+    return getattr(state, "config", None) or getattr(state, "cfg", None)
+
+
+@router.post("/warm")
+async def voice_warm(request: Request) -> dict[str, bool]:
+    """Warm what the next call needs; answers at once (issue #154).
+
+    The composer calls this when the pointer reaches the call button. The
+    work runs in the background and is debounced, so a hovering pointer
+    cannot start it twice. Nothing here bills a provider.
+    """
+    from dodaios.speech.call_warmup import call_warmer
+
+    started = await call_warmer().kick(_pipeline(), _config(request))
+    return {"warming": started}
+
+
+# ── Voice choice ──────────────────────────────────────────────────────────────
+
+
+class VoiceChoice(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    voice: str = Field(min_length=1, max_length=200)
+
+
+def _voice_path(cfg: Any, pipeline: Any) -> tuple[str, str]:
+    """``(path, provider)``: which engine speaks the next (or running) call.
+
+    ``path`` is ``"live"`` (a Live-surface provider), ``"realtime"`` (another
+    realtime provider) or ``"tts"`` (the classic pipeline). A running session
+    wins over configuration; without one the configured mode decides.
+    """
+    mode = ""
+    provider = ""
+    status_fn = getattr(pipeline, "voice_engine_status", None)
+    if callable(status_fn):
+        try:
+            status = status_fn() or {}
+        except Exception:  # noqa: BLE001 — a status that cannot be read is "not active"
+            status = {}
+        if status.get("session_active"):
+            mode = str(status.get("active_session_mode") or "")
+            provider = str(status.get("active_session_provider") or "")
+        if not mode:
+            mode = str(status.get("configured_mode") or "")
+    if not mode:
+        mode = str(getattr(getattr(cfg, "voice", None), "mode", "") or "pipeline")
+    if mode != "realtime":
+        return "tts", ""
+    if not provider:
+        realtime = getattr(getattr(cfg, "brain", None), "realtime", None)
+        provider = str(getattr(realtime, "provider", "") or "").strip()
+    if not provider:
+        return "tts", ""
+    from dodaios.ui.web.provider_spec import get_spec
+
+    spec = get_spec(provider)
+    if spec is not None and getattr(spec, "configuration_surface", "") == "live":
+        return "live", provider
+    return "realtime", provider
+
+
+def _live_voices(cfg: Any) -> tuple[list[dict[str, str]], str]:
+    from dodaios.plugins.realtime.openai_subscription_live import SUBSCRIPTION_VOICES
+    from dodaios.ui.web.live_routes import LIVE_API_VOICES, _profile_for_runtime
+
+    profile = _profile_for_runtime(cfg)
+    if profile.auth_mode == "chatgpt_subscription":
+        names: tuple[str, ...] = tuple(SUBSCRIPTION_VOICES)
+        current = str(profile.subscription_voice or "")
+    else:
+        names = LIVE_API_VOICES
+        current = str(profile.voice or "")
+    return [{"id": name, "label": name.capitalize()} for name in names], current
+
+
+@router.get("/voices")
+def voice_voices(request: Request) -> dict[str, Any]:
+    """The voices the current voice path offers, and the one in use.
+
+    One list for the call window's picker, whatever speaks: a Live-surface
+    provider (its profile voice), another realtime provider (its curated
+    catalog) or the classic TTS provider (its curated or per-model voices).
+    ``applies`` says whether a pick reaches a running call (``"now"``) or the
+    next one (``"next_call"``). An engine without a choice answers an empty
+    list; that is an answer, not an error.
+    """
+    cfg = _config(request)
+    pipeline = _pipeline()
+    path, provider = _voice_path(cfg, pipeline)
+    if path == "live":
+        voices, current = _live_voices(cfg)
+        return {
+            "path": path, "provider": provider, "voices": voices,
+            "current": current, "default": "", "applies": "next_call",
+        }
+    if path == "realtime":
+        from dodaios.brain.model_catalog import REALTIME_VOICES
+        from dodaios.ui.web.provider_routes import _current_realtime_selection
+
+        _model, current = _current_realtime_selection(cfg, provider)
+        voices = [
+            {"id": v.id, "label": v.label} for v in REALTIME_VOICES.get(provider, [])
+        ]
+        return {
+            "path": path, "provider": provider, "voices": voices,
+            "current": current, "default": "", "applies": "now",
+        }
+    from dodaios.ui.web.provider_routes import _active_tts, _tts_voice_entries
+
+    tts_provider = str(_active_tts(request) or "")
+    if not tts_provider:
+        return {
+            "path": path, "provider": "", "voices": [],
+            "current": "", "default": "", "applies": "now",
+        }
+    try:
+        entries, _model, default = _tts_voice_entries(tts_provider, "")
+    except HTTPException:
+        # A provider without a curated voice list has no choice to offer.
+        entries, default = [], ""
+    persisted = str(getattr(getattr(cfg, "tts", None), "voice_de", "") or "")
+    ids = {str(e["id"]) for e in entries}
+    return {
+        "path": path,
+        "provider": tts_provider,
+        "voices": [{"id": str(e["id"]), "label": str(e["id"])} for e in entries],
+        "current": persisted if persisted in ids else "",
+        "default": default,
+        "applies": "now",
+    }
+
+
+@router.put("/voices")
+async def voice_voices_set(body: VoiceChoice, request: Request) -> dict[str, Any]:
+    """Pick a voice for the current voice path; persists and applies.
+
+    Delegates to the one writer each path already has, so the call window
+    and the settings pages can never disagree about where a voice lives.
+    """
+    cfg = _config(request)
+    path, provider = _voice_path(cfg, _pipeline())
+    voice = body.voice.strip()
+    if path == "live":
+        from dodaios.ui.web.live_routes import _profile_for_runtime, save_live_profile
+
+        profile = _profile_for_runtime(cfg)
+        field = "subscription_voice" if profile.auth_mode == "chatgpt_subscription" else "voice"
+        voices, _current = _live_voices(cfg)
+        if voice not in {v["id"] for v in voices}:
+            raise HTTPException(status_code=422, detail="unknown-voice")
+        await save_live_profile(profile.model_copy(update={field: voice}), request)
+        return {
+            "ok": True, "path": path, "provider": provider,
+            "voice": voice, "applies": "next_call",
+        }
+    if path == "realtime":
+        from dodaios.ui.web.provider_routes import RealtimeOptionsBody, set_realtime_options
+
+        await set_realtime_options(provider, RealtimeOptionsBody(voice=voice), request)
+        return {"ok": True, "path": path, "provider": provider, "voice": voice, "applies": "now"}
+    from dodaios.ui.web.provider_routes import TtsVoiceBody, _active_tts, set_tts_voice_selection
+
+    await set_tts_voice_selection(TtsVoiceBody(voice=voice), request)
+    return {
+        "ok": True, "path": path, "provider": str(_active_tts(request) or ""),
+        "voice": voice, "applies": "now",
+    }

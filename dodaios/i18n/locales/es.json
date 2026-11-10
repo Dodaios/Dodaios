@@ -172,7 +172,25 @@
     "stt_unavailable": "Perdona, no te he entendido bien ahora mismo. ¿Puedes repetirlo, por favor?",
     "realtime_unavailable": "La conexión en tiempo real no está disponible ahora mismo. Cambiaré esta sesión al sistema de voz clásico.",
     "timeout_tool_stall": "No pude obtener una respuesta a tiempo. Una herramienta que esperaba no respondió.",
-    "timeout_no_answer": "No pude averiguar eso ahora mismo."
+    "timeout_no_answer": "No pude averiguar eso ahora mismo.",
+    "provider_refused": {
+      "plan": "Tu cuenta de {provider} no ofrece esta conexión de voz en su plan actual.",
+      "key": "La clave de {provider} para voz fue rechazada. Revísala en los ajustes de voz.",
+      "credit": "El crédito de voz de {provider} se ha agotado. Recárgalo con el proveedor y volverá a funcionar.",
+      "busy": "La voz de {provider} está saturada ahora mismo y rechazó la llamada.",
+      "unreachable": "No se pudo contactar con la voz de {provider}.",
+      "rejected": "{provider} rechazó los ajustes de voz. Revisa la voz y el modelo en los ajustes de voz.",
+      "continued_pipeline": "Continúo esta llamada por la vía de voz clásica.",
+      "continued_realtime": "Continúo esta llamada por otra conexión de voz.",
+      "ended": "Esta llamada no puede continuar ahora mismo."
+    },
+    "brief": {
+      "today": "Hoy: {items}.",
+      "item_at": "a las {time}, {text}",
+      "more": "y {count} más.",
+      "open": "Todavía pendiente: {items}.",
+      "nothing": "No hay nada previsto para hoy, que yo sepa."
+    }
   },
   "missions": {
     "announcer": {
