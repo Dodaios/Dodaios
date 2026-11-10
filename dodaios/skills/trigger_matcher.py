@@ -1,26 +1,16 @@
-"""TriggerMatcher: mappt Voice-Utterances / Hotkey-Presses / Cron-Ticks auf Skills.
+"""TriggerMatcher: mappt Voice-Utterances / Hotkey-Presses auf Skills.
 
-Prioritäten bei Collision: hotkey > voice > cron.
+Prioritäten bei Collision: hotkey > voice.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import re
 import time
-from collections.abc import AsyncIterator
-from datetime import datetime
 
 from .builtin import BUILTIN_SKILL_NAMES
 from .registry import SkillRegistry
 from .schema import Skill, SkillLifecycleState
-
-try:
-    from croniter import croniter  # type: ignore
-    _HAVE_CRONITER = True
-except Exception:  # pragma: no cover
-    croniter = None  # type: ignore
-    _HAVE_CRONITER = False
 
 log = logging.getLogger(__name__)
 
@@ -225,68 +215,6 @@ class TriggerMatcher:
                 if normalize_hotkey(t.combo) == target:
                     return sk
         return None
-
-    # ------------------------------------------------------------------
-    # Cron
-    # ------------------------------------------------------------------
-
-    def _next_fire(self, cron_expr: str, base: datetime) -> datetime | None:
-        if not _HAVE_CRONITER:
-            return None
-        try:
-            it = croniter(cron_expr, base)  # type: ignore[operator]
-            return it.get_next(datetime)
-        except Exception:  # noqa: BLE001
-            return None
-
-    async def run_cron_scheduler(
-        self,
-        stop_event: asyncio.Event,
-        now_fn=datetime.now,
-    ) -> AsyncIterator[Skill]:
-        """Langläufiger Scheduler — yielded Skill, wenn ein Cron-Trigger feuert.
-
-        Pseudo-Code:
-            while not stop:
-                compute soonest (skill, next_fire) pair
-                sleep until next_fire
-                yield skill
-        """
-        if not _HAVE_CRONITER:
-            log.warning("croniter nicht installiert — cron-scheduler inactive")
-            return
-        while not stop_event.is_set():
-            now = now_fn()
-            soonest: tuple[datetime, Skill] | None = None
-            for sk in self.registry.by_trigger("schedule"):
-                if not self._is_matchable(sk):
-                    continue
-                if sk.frontmatter is None:
-                    continue
-                for t in sk.frontmatter.triggers:
-                    if t.type != "schedule" or not t.cron:
-                        continue
-                    nxt = self._next_fire(t.cron, now)
-                    if nxt is None:
-                        continue
-                    if soonest is None or nxt < soonest[0]:
-                        soonest = (nxt, sk)
-            if soonest is None:
-                # Keine Cron-Skills — in 60s nochmal gucken
-                try:
-                    await asyncio.wait_for(stop_event.wait(), timeout=60.0)
-                except TimeoutError:
-                    pass
-                continue
-            fire_at, skill = soonest
-            delay = max(0.0, (fire_at - now).total_seconds())
-            try:
-                await asyncio.wait_for(stop_event.wait(), timeout=delay)
-                # stop_event wurde gesetzt → Ende
-                return
-            except TimeoutError:
-                pass
-            yield skill
 
     # ------------------------------------------------------------------
     # Priority-Arbitration

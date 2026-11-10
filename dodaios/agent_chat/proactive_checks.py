@@ -41,8 +41,10 @@ QUIET_TAG: Final[str] = "lead-quiet"
 ADAPTIVE_TAG: Final[str] = "lead-adaptive"
 #: Tag prefixes of lead routines that are quiet by nature: a living page's
 #: refresh (``living-page:<id>``, ``artifacts/living_refresh.py``) shows its
-#: update on the page itself, so the conversation gets no card per run.
-QUIET_TAG_PREFIXES: Final[tuple[str, ...]] = ("living-page:",)
+#: update on the page itself, so the conversation gets no card per run; a
+#: scheduled skill (``skill-cron:<name>:<n>``, ``skills/cron_routines.py``)
+#: posts its result, not a start card.
+QUIET_TAG_PREFIXES: Final[tuple[str, ...]] = ("living-page:", "skill-cron:")
 CHECK_TITLE: Final[str] = "Needs you"
 #: The exact reply of a check with nothing worth saying.
 NOTHING: Final[str] = "NOTHING_TO_REPORT"
