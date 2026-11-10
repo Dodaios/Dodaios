@@ -1,0 +1,256 @@
+# Golden routing cases: memory, settings, mail and calendar, routines, costs and navigation.
+
+# ---- memory ------------------------------------------------------------------
+- id: memory-search-birthday-en
+  category: memory
+  lang: en
+  utterance: "What do you remember about my sister's birthday?"
+  expect: {tool: memory-search, effect: read}
+- id: memory-search-birthday-de
+  category: memory
+  lang: de
+  utterance: "Was weißt du noch über den Geburtstag meiner Schwester?"
+  expect: {tool: memory-search, effect: read}
+- id: memory-search-history-en
+  category: memory
+  lang: en
+  utterance: "Where did I live before Hamburg? Check how that changed over time."
+  expect: {tool: memory-search, args: {history: true}, effect: read}
+- id: memory-search-talk-de
+  category: memory
+  lang: de
+  utterance: "Worüber haben wir gestern beim Budget gesprochen?"
+  expect: {tool: memory-search, effect: read}
+- id: memory-search-es
+  category: memory
+  lang: es
+  utterance: "¿Qué te dije sobre mi viaje a Sevilla?"
+  expect: {tool: memory-search, effect: read}
+- id: memory-forget-city-en
+  category: memory
+  lang: en
+  utterance: "Forget that I live in Hamburg."
+  expect: {tool: memory-forget, args: {about: Hamburg}}
+- id: memory-forget-city-de
+  category: memory
+  lang: de
+  utterance: "Vergiss, dass ich in Hamburg wohne."
+  expect: {tool: memory-forget, args: {about: Hamburg}}
+- id: memory-profile-preference-en
+  category: memory
+  lang: en
+  utterance: "From now on keep your answers short, I hate long explanations."
+  expect: {tool: update_profile}
+- id: memory-profile-name-de
+  category: memory
+  lang: de
+  utterance: "Nenn mich ab jetzt Rufus, nicht Ruben."
+  expect: {tool: update_profile}
+- id: memory-contact-upsert-en
+  category: memory
+  lang: en
+  utterance: "Save Anna Weber's phone number: 0151 2345678."
+  expect: {tool: contact-upsert, args: {name: Anna}}
+- id: memory-contact-lookup-de
+  category: memory
+  lang: de
+  utterance: "Wie ist die Telefonnummer von Anna Weber?"
+  expect: {tool: contact-lookup, args: {name: Anna}, effect: read}
+
+# ---- settings ----------------------------------------------------------------
+- id: settings-dark-mode-en
+  category: settings
+  lang: en
+  utterance: "Switch the app to dark mode."
+  expect: {tool: set_config_value, args: {path: theme}}
+- id: settings-speech-speed-de
+  category: settings
+  lang: de
+  utterance: "Sprich bitte etwas langsamer."
+  expect: {tool: set_config_value, args: {path: tts}}
+- id: settings-list-en
+  category: settings
+  lang: en
+  utterance: "Which settings can you change for me?"
+  expect: {tool: list_mutable_settings, also_accept: [describe-app-settings], effect: read}
+- id: settings-current-value-en
+  category: settings
+  lang: en
+  utterance: "What is my current text-to-speech speed?"
+  expect: {tool: get_config_value, also_accept: [describe-app-settings], effect: read}
+- id: settings-volume-de
+  category: settings
+  lang: de
+  utterance: "Stell die Lautstärke deiner Stimme auf 30 Prozent."
+  expect: {tool: tts-volume-set}
+- id: settings-wake-word-en
+  category: settings
+  lang: en
+  utterance: "Change the wake word to Hey Atlas."
+  expect: {tool: wake-word-set, args: {phrase: Atlas}}
+- id: settings-reply-language-es
+  category: settings
+  lang: es
+  utterance: "A partir de ahora respóndeme siempre en español."
+  expect: {tool: reply-language-set, args: {language: es}}
+- id: settings-reply-language-de
+  category: settings
+  lang: de
+  utterance: "Antworte mir ab jetzt immer auf Deutsch."
+  expect: {tool: reply-language-set, args: {language: de}}
+- id: settings-find-action-pt
+  category: settings
+  lang: pt
+  utterance: "Desativa as notificações do ecrã inicial."
+  expect: {tools: [find-app-action, set_config_value]}
+- id: settings-providers-list-en
+  category: settings
+  lang: en
+  utterance: "Which model providers do I have connected?"
+  expect: {tool: providers-list, also_accept: [describe-app-settings], effect: read}
+
+# ---- mail_calendar -----------------------------------------------------------
+- id: mail-check-en
+  category: mail_calendar
+  lang: en
+  utterance: "Check my mail, is there anything from the accountant?"
+  expect: {tool: gmail, args: {action: list_messages}, effect: read}
+- id: mail-check-de
+  category: mail_calendar
+  lang: de
+  utterance: "Schau mal, ob heute etwas vom Steuerberater in meinen E-Mails ist."
+  expect: {tool: gmail, args: {action: list_messages}, effect: read}
+- id: mail-check-es
+  category: mail_calendar
+  lang: es
+  utterance: "Revisa mi correo, ¿hay algo nuevo de mi jefe?"
+  expect: {tool: gmail, args: {action: list_messages}, effect: read}
+- id: calendar-today-en
+  category: mail_calendar
+  lang: en
+  utterance: "What is on my calendar tomorrow?"
+  expect: {tool: google_calendar, args: {action: list_events}, effect: read}
+- id: calendar-today-de
+  category: mail_calendar
+  lang: de
+  utterance: "Was steht morgen in meinem Kalender?"
+  expect: {tool: google_calendar, args: {action: list_events}, effect: read}
+- id: calendar-create-en
+  category: mail_calendar
+  lang: en
+  utterance: "Schedule a meeting with Anna on Thursday at 3 pm, one hour."
+  expect: {tool: google_calendar, args: {action: create_event}}
+- id: calendar-create-pt
+  category: mail_calendar
+  lang: pt
+  utterance: "Marca uma reunião com a Anna na quinta-feira às 15h."
+  expect: {tool: google_calendar, args: {action: create_event}}
+- id: drive-find-en
+  category: mail_calendar
+  lang: en
+  utterance: "Find the file named budget 2026 in my Drive."
+  expect: {tool: google_drive, args: {action: list_files}, effect: read}
+- id: slack-search-en
+  category: mail_calendar
+  lang: en
+  utterance: "Search Slack for the release date Anna mentioned."
+  expect: {tool: slack, args: {action: search_messages}, effect: read}
+
+# ---- routines: schedules, reminders, skills ---------------------------------
+- id: routine-morning-briefing-en
+  category: routines
+  lang: en
+  utterance: "Every morning at 8 send me a briefing with my calendar and the top news."
+  expect: {tool: society-create-routine}
+- id: routine-morning-briefing-de
+  category: routines
+  lang: de
+  utterance: "Schick mir jeden Morgen um 8 Uhr eine Zusammenfassung mit meinem Kalender und den wichtigsten Nachrichten."
+  expect: {tool: society-create-routine}
+- id: routine-weekly-report-es
+  category: routines
+  lang: es
+  utterance: "Cada viernes a las 17:00 prepara un informe semanal de las ventas."
+  expect: {tool: society-create-routine}
+- id: routine-list-en
+  category: routines
+  lang: en
+  utterance: "List my routines."
+  expect: {tool: society-list-routines, also_accept: [tasks-list], effect: read}
+- id: reminder-create-en
+  category: routines
+  lang: en
+  utterance: "Remind me tomorrow at 9 to call the dentist."
+  expect: {tool: reminders, args: {action: create}}
+- id: reminder-create-de
+  category: routines
+  lang: de
+  utterance: "Erinner mich morgen um 9 Uhr daran, den Zahnarzt anzurufen."
+  expect: {tool: reminders, args: {action: create}}
+- id: reminder-list-pt
+  category: routines
+  lang: pt
+  utterance: "Que lembretes tenho para esta semana?"
+  expect: {tool: reminders, args: {action: list}, effect: read}
+- id: skill-create-en
+  category: routines
+  lang: en
+  utterance: "Create a skill that turns a pasted meeting transcript into action items."
+  expect: {tool: create-skill}
+- id: skill-run-de
+  category: routines
+  lang: de
+  utterance: "Führe den Skill für das Daily Standup aus."
+  expect: {tool: run-skill}
+- id: skill-list-en
+  category: routines
+  lang: en
+  utterance: "Which skills do I have?"
+  expect: {tool: skills-list, effect: read}
+
+# ---- costs_ui: costs and moving around the app --------------------------------
+- id: costs-spent-en
+  category: costs_ui
+  lang: en
+  utterance: "How much did I spend on tokens this week?"
+  expect: {tools: [find-app-action, run-app-action, navigate], args: {"*": cost}}
+- id: costs-spent-de
+  category: costs_ui
+  lang: de
+  utterance: "Wie viel haben mich die Modelle diese Woche gekostet?"
+  expect: {tools: [find-app-action, run-app-action, navigate], args: {"*": [cost, kosten]}}
+- id: costs-open-de
+  category: costs_ui
+  lang: de
+  utterance: "Zeig mir die Kostenübersicht."
+  expect: {tool: navigate, args: {section: costs}}
+- id: nav-settings-en
+  category: costs_ui
+  lang: en
+  utterance: "Open the settings."
+  expect: {tool: navigate, args: {section: settings}}
+- id: nav-agents-de
+  category: costs_ui
+  lang: de
+  utterance: "Zeig mir die Agenten."
+  expect: {tool: navigate, args: {section: agents}}
+- id: nav-memory-es
+  category: costs_ui
+  lang: es
+  utterance: "Abre el panel de memoria."
+  expect: {tool: navigate, args: {section: memory}}
+- id: nav-marketplace-en
+  category: costs_ui
+  lang: en
+  utterance: "Take me to the marketplace."
+  expect: {tool: navigate, args: {section: marketplace}}
+- id: nav-chats-pt
+  category: costs_ui
+  lang: pt
+  utterance: "Mostra-me as conversas."
+  expect: {tool: navigate, args: {section: chats}}
+- id: marketplace-browse-en
+  category: costs_ui
+  lang: en
+  utterance: "What is in the marketplace right now?"
+  expect: {tool: marketplace-browse, effect: read}

@@ -481,3 +481,6 @@ dodaios/voice_engine/bench/corpus/de.json
 #     real transcripts that pin it ---
 dodaios/sessions/chat_titles.py
 tests/unit/sessions/test_chat_titles.py
+
+# --- Lead routing golden set: simulated bilingual user requests are the data under test ---
+tests/fixtures/lead_routing/*
