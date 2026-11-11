@@ -236,7 +236,7 @@ class BitwardenBackend:
         try:
             code, out = self._run(["bw", "status", "--nointeraction"], self._env())
             state = json.loads(out).get("status") if code == 0 else None
-        except (BackendError, ValueError, AttributeError):  # a safe BackendError, never the raw answer
+        except (BackendError, ValueError, AttributeError):  # reported as unavailable
             return BackendStatus(self.name, True, False, "unavailable")
         if state == "unlocked":
             return BackendStatus(self.name, True, True, "ready")
