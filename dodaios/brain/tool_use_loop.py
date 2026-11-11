@@ -40,7 +40,9 @@ from dodaios.core.protocols import (
     ImageBlock,
     ReasoningEffort,
     Tool,
+    ToolResult,
 )
+from dodaios.core.tool_read_only import allows_read
 from dodaios.core.turn_language import TURN_LANGUAGE, resolve_output_language
 from dodaios.i18n import catalog as i18n_catalog
 from dodaios.safety.tool_executor import VOICE_CONFIRM_SENTINEL, ToolExecutor
@@ -116,6 +118,12 @@ _DUPLICATE_CALL_FINAL_DIRECTIVE = (
     "ran and its result is available above. Answer the user NOW from that "
     "evidence. Do not call any more tools."
 )
+
+
+#: A parallel read that has not answered after this long is abandoned with a
+#: failed result, so one hung lookup cannot hold the rest of its round. Far
+#: above any real read; a hang guard, not a budget.
+_PARALLEL_READ_TIMEOUT_S = 300.0
 
 
 def _cap_tool_result_json(payload: Any) -> str:
@@ -730,6 +738,44 @@ class ToolUseLoop:
         self._control = loop_control
         self._last_phase: tuple[str, str] | None = None
 
+    def _parallel_read_candidate(
+        self,
+        call: dict[str, Any],
+        user_utterance: str,
+        intent_level: str | None,
+        evidence_required_tool: str,
+    ) -> tuple[Tool, str, Any] | None:
+        """``(tool, registered name, args)`` when this call may run ahead of its turn.
+
+        Only a plain read qualifies: the tool declares itself read-only for
+        these arguments, needs no approval (``safe`` tier) and writes its own
+        final answer nowhere. A call any guard of the sequential path would
+        block, or that is unknown, is left to that path, so running early
+        never executes something the guards would have refused.
+        """
+        name = call.get("name", "")
+        args = call.get("input", {})
+        tool, name = self._resolve_tool(name)
+        if tool is None or not isinstance(args, dict):
+            return None
+        tool, name, args = self._reroute_music_tool(tool, name, args, user_utterance)
+        if (
+            tool is None
+            or getattr(tool, "risk_tier", "safe") != "safe"
+            or getattr(tool, "suppress_response", False)
+            or name == "spawn_worker"
+            or name in SPAWN_VEHICLE_TOOL_NAMES
+            or name in CU_VEHICLE_TOOL_NAMES
+            or not allows_read(tool, args)
+            or _is_side_effect_tool(tool)
+            or _is_stt_hallucinated(name, args)[0]
+            or _should_block_action_as_research(
+                tool, name, user_utterance, intent_level, evidence_required_tool
+            )
+        ):
+            return None
+        return tool, name, args
+
     def _resolve_tool(self, requested: str) -> tuple[Tool | None, str]:
         """Look up a model-requested tool name, tolerating separator/case drift.
 
@@ -1258,7 +1304,87 @@ class ToolUseLoop:
             # end the turn when nothing else in it produced a result.
             meta_debug_ack: str | None = None
             unknown_tool_requested = False
-            for tc in agg.tool_calls:
+            # Independent reads of one round run together (see
+            # ``_parallel_read_run``); everything else keeps model order, and a
+            # read that follows an action starts only once that action is done.
+            round_calls = list(agg.tool_calls)
+            prefetched: dict[int, tuple[str, asyncio.Task[Any]]] = {}
+            round_lang = resolve_output_language(
+                reply_language, "unknown", user_utterance,
+                conversation_language=conversation_language,
+            )
+
+            def _exec_tool(
+                tool_obj: Any, args_in: Any, lang: str, why: str = agg.text or ""
+            ) -> Awaitable[Any]:
+                return self._executor.execute(
+                    tool_obj, args_in,
+                    # A turn whose text the application composed (a
+                    # continuation with delegated results) names the
+                    # person's own request for the tools' checks.
+                    user_utterance=str(
+                        self._tool_context.get("person_request") or user_utterance
+                    ),
+                    config_snapshot={
+                        **self._tool_context,
+                        "output_language": lang,
+                        "voice_confirm": voice_confirm,
+                    },
+                    trace_id=tid,
+                    # Session-Decision-Log: the model's natural-language text
+                    # emitted alongside this tool call IS the "why". Captured
+                    # for free (no extra call); the executor redacts + caps it.
+                    rationale=why,
+                )
+
+            async def _timed_read(tool_obj: Any, args_in: Any, lang: str) -> Any:
+                try:
+                    return await asyncio.wait_for(
+                        _exec_tool(tool_obj, args_in, lang), _PARALLEL_READ_TIMEOUT_S
+                    )
+                except TimeoutError:
+                    log.warning(
+                        "tool_use_loop: parallel read %s abandoned after %ss",
+                        getattr(tool_obj, "name", "tool"), _PARALLEL_READ_TIMEOUT_S,
+                    )
+                    return ToolResult(
+                        success=False,
+                        output=None,
+                        error=(
+                            f"{getattr(tool_obj, 'name', 'tool')} did not answer within "
+                            f"{int(_PARALLEL_READ_TIMEOUT_S)}s and was abandoned."
+                        ),
+                    )
+
+            def _start_read_run(
+                start: int,
+                calls: list[dict[str, Any]] = round_calls,
+                lang: str = round_lang,
+                early: dict[int, tuple[str, asyncio.Task[Any]]] = prefetched,
+            ) -> None:
+                run: list[tuple[int, Any, str, Any]] = []
+                for j in range(start, len(calls)):
+                    picked = self._parallel_read_candidate(
+                        calls[j], user_utterance, intent_level,
+                        evidence_required_tool,
+                    )
+                    if picked is None:
+                        break
+                    run.append((j, *picked))
+                if len(run) < 2:
+                    return
+                for j, tool_obj, name_obj, args_obj in run:
+                    task = asyncio.ensure_future(_timed_read(tool_obj, args_obj, lang))
+                    # Never leave an unretrieved exception behind if the round
+                    # ends before this result is consumed.
+                    task.add_done_callback(
+                        lambda t: t.cancelled() or t.exception()
+                    )
+                    early[j] = (name_obj, task)
+
+            for call_index, tc in enumerate(round_calls):
+                if call_index not in prefetched:
+                    _start_read_run(call_index)
                 tool_name = tc.get("name", "")
                 tool_args = tc.get("input", {})
                 call_id = tc.get("id", "")
@@ -1549,29 +1675,12 @@ class ToolUseLoop:
                     # bare utterance — a lone "Now" must not flip a German turn
                     # to English (forensic 2026-06-18). One value, honoring the
                     # pin AND conversation stickiness (Runtime Output Language).
-                    out_lang = resolve_output_language(
-                        reply_language, "unknown", user_utterance,
-                        conversation_language=conversation_language,
-                    )
-                    result = await self._executor.execute(
-                        tool, tool_args,
-                        # A turn whose text the application composed (a
-                        # continuation with delegated results) names the
-                        # person's own request for the tools' checks.
-                        user_utterance=str(
-                            self._tool_context.get("person_request") or user_utterance
-                        ),
-                        config_snapshot={
-                            **self._tool_context,
-                            "output_language": out_lang,
-                            "voice_confirm": voice_confirm,
-                        },
-                        trace_id=tid,
-                        # Session-Decision-Log: the model's natural-language text
-                        # emitted alongside this tool call IS the "why". Captured
-                        # for free (no extra call); the executor redacts + caps it.
-                        rationale=agg.text or "",
-                    )
+                    out_lang = round_lang
+                    early = prefetched.pop(call_index, None)
+                    if early is not None and early[0] == tool_name:
+                        result = await early[1]
+                    else:
+                        result = await _exec_tool(tool, tool_args, out_lang)
                     # Two-turn voice/chat confirmation: the executor deferred this
                     # consequential tool instead of blocking. Speak a short
                     # confirmation question and END the turn (no second brain

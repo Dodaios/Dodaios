@@ -33,10 +33,12 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Final
 
+from dodaios.brain.tool_search import rank_tools
 from dodaios.core.protocols import ExecutionContext, RiskTier, Tool, ToolResult
 
 __all__ = [
     "CORE_PRIORITY",
+    "DEFAULT_DIRECT",
     "FIND_TOOLS_NAME",
     "FindToolsTool",
     "ROLE_BASE",
@@ -85,6 +87,22 @@ CORE_PRIORITY: Final[tuple[str, ...]] = (
     "list_mutable_settings",
     "get_config_value",
     "set_config_value",
+)
+
+#: The direct set of a brain-seat turn when deferral is on by default: the
+#: everyday core plus the work-tracking and delegation hands. Appended AFTER
+#: ``CORE_PRIORITY`` so that tuple's order, which small models depend on, never
+#: moves. This order is the order of the schemas on the wire; it is part of
+#: the prompt-cache prefix, so it is a frozen constant and never follows the
+#: registry order, the turn's content or the window. Everything else (every
+#: connected-server and plugin tool, and the rarer built-ins) is reached
+#: through ``find_tools`` in the same turn.
+DEFAULT_DIRECT: Final[tuple[str, ...]] = (
+    *CORE_PRIORITY,
+    "work_board",
+    "job_status",
+    "await_jobs",
+    "ask_agent",
 )
 
 #: What a caller with a role is shown besides the tools the role names: the
@@ -202,6 +220,20 @@ def plan_surface(
     return SurfacePlan(direct=direct, deferred={name: tools[name] for name in passed})
 
 
+def order_direct(
+    direct: Mapping[str, Tool], order: Iterable[str] = DEFAULT_DIRECT
+) -> dict[str, Tool]:
+    """``direct`` in the frozen order of ``order``; names outside it follow, in their own order.
+
+    A tool the turn added (the one a gate mandated) therefore lands at the end
+    instead of shifting every schema behind it.
+    """
+    rank = {canonical(name): index for index, name in enumerate(order)}
+    outside = len(rank)
+    names = sorted(direct, key=lambda name: rank.get(canonical(name), outside))
+    return {name: direct[name] for name in names}
+
+
 def _words(text: str) -> set[str]:
     return set(_WORD_RE.findall((text or "").lower()))
 
@@ -279,15 +311,7 @@ class FindToolsTool:
         terms = _words(query) - _STOP_WORDS
         if not terms:
             return sorted(self._deferred)
-        scored: list[tuple[int, str]] = []
-        for name, tool in self._deferred.items():
-            in_name = len(terms & _words(name))
-            in_text = len(terms & _words(getattr(tool, "description", "") or ""))
-            score = in_name * 3 + in_text
-            if score:
-                scored.append((score, name))
-        scored.sort(key=lambda item: (-item[0], item[1]))
-        return [name for _score, name in scored]
+        return rank_tools(query, self._deferred)
 
     async def execute(self, args: dict[str, Any], ctx: ExecutionContext) -> ToolResult:
         query = str((args or {}).get("query") or "").strip()
