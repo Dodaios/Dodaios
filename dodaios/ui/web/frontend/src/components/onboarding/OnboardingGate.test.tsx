@@ -135,6 +135,71 @@ it("closes the guide when setup completes", async () => {
   await waitFor(() => expect(screen.queryByTestId("guide")).toBeNull());
 });
 
+/** A backend whose answer the test can change between two looks. */
+function stubLive(first: object) {
+  const answer: { state: object | "error" } = { state: first };
+  const fetchMock = vi.fn().mockImplementation(() =>
+    answer.state === "error"
+      ? Promise.reject(new Error("net"))
+      : Promise.resolve({ ok: true, json: () => Promise.resolve(answer.state) }),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  return { answer, fetchMock };
+}
+
+it("closes the guide on focus once another window finished setup", async () => {
+  const { answer } = stubLive({ ...base, completed: false, tour_completed: false });
+  render(<OnboardingGate />);
+  await screen.findByTestId("guide");
+  answer.state = { ...base, completed: true, tour_completed: true };
+  act(() => {
+    window.dispatchEvent(new Event("focus"));
+  });
+  await waitFor(() => expect(screen.queryByTestId("guide")).toBeNull());
+  expect(screen.queryByTestId("tour")).toBeNull();
+});
+
+it("keeps the guide on focus while setup is still open everywhere", async () => {
+  const { fetchMock } = stubLive({ ...base, completed: false, tour_completed: false });
+  render(<OnboardingGate />);
+  await screen.findByTestId("guide");
+  const before = fetchMock.mock.calls.length;
+  act(() => {
+    window.dispatchEvent(new Event("focus"));
+  });
+  await waitFor(() => expect(fetchMock.mock.calls.length).toBe(before + 1));
+  await new Promise((r) => setTimeout(r, 20));
+  expect(screen.getByTestId("guide")).toBeDefined();
+});
+
+it("keeps the guide when the look on focus fails", async () => {
+  const { answer, fetchMock } = stubLive({ ...base, completed: false, tour_completed: false });
+  render(<OnboardingGate />);
+  await screen.findByTestId("guide");
+  answer.state = "error";
+  const before = fetchMock.mock.calls.length;
+  act(() => {
+    window.dispatchEvent(new Event("focus"));
+  });
+  await waitFor(() => expect(fetchMock.mock.calls.length).toBe(before + 1));
+  await new Promise((r) => setTimeout(r, 20));
+  expect(screen.getByTestId("guide")).toBeDefined();
+});
+
+it("does not ask the backend on focus once setup is done", async () => {
+  const { fetchMock } = stubLive({ ...base, completed: true, tour_completed: true });
+  render(<OnboardingGate />);
+  await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+  await new Promise((r) => setTimeout(r, 20));
+  const before = fetchMock.mock.calls.length;
+  act(() => {
+    window.dispatchEvent(new Event("focus"));
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await new Promise((r) => setTimeout(r, 20));
+  expect(fetchMock.mock.calls.length).toBe(before);
+});
+
 it("replays the setup on a finished install without completing it", async () => {
   stub({ ...base, completed: true, tour_completed: true });
   window.history.replaceState(null, "", "/?onboarding=force");
