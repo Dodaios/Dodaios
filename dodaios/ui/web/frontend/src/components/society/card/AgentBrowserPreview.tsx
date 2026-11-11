@@ -247,6 +247,25 @@ export function AgentBrowserPreview({ agent }: { agent: SocietyAgent }) {
             className="text-xs underline underline-offset-2">{t("society.browser_profiles.google_signin_help")}</a>
         </div>
       </div>}
+      {state.takeoverRequest && !state.manual && <div role="alert" data-testid="browser-takeover-request"
+        className="mt-3 grid gap-2 rounded-lg border border-border bg-secondary/40 p-3 text-sm text-foreground">
+        <strong>{t("society.browser_takeover.requested")}</strong>
+        <p>{state.takeoverRequest.reason}</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <button className={signInClass} disabled={!live || !state.connected || state.controlPending}
+            onClick={() => { setExpanded(true); control("takeover", { enabled: true }); }}>
+            {t("society.browser_live.take_control")}
+          </button>
+        </div>
+      </div>}
+      {state.manual && !state.loginMode && <p role="status" data-testid="browser-takeover-hint"
+        className="mt-2 text-center text-xs text-muted-foreground">
+        {t("society.browser_takeover.private_hint")}
+      </p>}
+      {state.handback && !state.manual && <p role="status" data-testid="browser-handback"
+        className="mt-2 text-center text-xs text-muted-foreground">
+        {t(state.handback.typed ? "society.browser_takeover.handed_back_typed" : "society.browser_takeover.handed_back")}
+      </p>}
       {state.approval && <div className="mt-2 text-xs">
         <p>{t("society.browser_live.approval")} {state.approval.action}</p>
         <button className={buttonClass} onClick={() => void approve(true)}>{t("society.browser_live.allow")}</button>

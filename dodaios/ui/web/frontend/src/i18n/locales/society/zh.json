@@ -127,6 +127,12 @@
       "record_spent": "已花费 {0}",
       "record_last_active": "最近活跃 {0}"
     },
+    "browser_takeover": {
+      "requested": "智能体请你接管它的浏览器",
+      "private_hint": "现在由你控制。你输入的内容只会发送到网页：不会被记录，智能体也看不到。",
+      "handed_back": "已交还。智能体知道你让它停在哪个页面。",
+      "handed_back_typed": "已交还。智能体知道你让它停在哪个页面，但不知道你输入了什么。"
+    },
     "browser_profiles": {
       "profile_unavailable": "配置文件已断开 — 请选择一个配置文件",
       "chrome_offline": "Chrome 已断开",

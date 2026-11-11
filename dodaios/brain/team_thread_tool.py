@@ -49,7 +49,7 @@ class TeamThreadTool:
         "working, the open issues and the newest entries; after=<seq> for later ones), answer "
         "(team_id + text: the person's answer or a steer; it settles a disagreement the thread "
         "waits on), pause, resume, accept (take the plan or work as it is), stop. For ONE "
-        "agent's work use delegate_to_agent or workspace-orchestrate instead."
+        "agent's work use delegate (target agent:<name> or pane:<id>) instead."
     )
     schema: dict[str, Any] = {
         "type": "object",

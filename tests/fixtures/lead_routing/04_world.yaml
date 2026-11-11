@@ -259,17 +259,17 @@
   category: ambiguous
   lang: de
   utterance: "Lass Skaut die Preise der Konkurrenz vergleichen."
-  expect: {tool: delegate_to_agent, args: {agent: Sk}}
+  expect: {tool: delegate, args: {target: "agent:Sk"}}
 - id: ambiguous-misheard-mailbox-en
   category: ambiguous
   lang: en
   utterance: "Mail box, please answer the invoice mail from yesterday."
-  expect: {tool: delegate_to_agent, args: {agent: mail}}
+  expect: {tool: delegate, args: {target: "agent:mail"}}
 - id: ambiguous-unnamed-agent-en
   category: ambiguous
   lang: en
   utterance: "Have someone research the best espresso machines under 400 euros."
-  expect: {tool: delegate_to_agent}
+  expect: {tool: delegate, args: {target: agent}}
   note: "No agent named: the lead picks the fitting one."
 - id: ambiguous-no-antecedent-en
   category: ambiguous
@@ -287,7 +287,7 @@
   lang: en
   utterance: "Have T2 fix the typo in the README."
   requires: [workspace-orchestrate]
-  expect: {tool: workspace-orchestrate, args: {"*": T2}}
+  expect: {tool: delegate, args: {target: "pane:T2"}}
   note: "A call-sign is a coding pane, never a society agent."
 - id: ambiguous-just-a-question-about-agents-en
   category: ambiguous

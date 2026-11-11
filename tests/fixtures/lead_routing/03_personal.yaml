@@ -167,17 +167,17 @@
   category: routines
   lang: en
   utterance: "Every morning at 8 send me a briefing with my calendar and the top news."
-  expect: {tool: society-create-routine}
+  expect: {tool: delegate, args: {target: routine}, also_accept: [society-create-routine]}
 - id: routine-morning-briefing-de
   category: routines
   lang: de
   utterance: "Schick mir jeden Morgen um 8 Uhr eine Zusammenfassung mit meinem Kalender und den wichtigsten Nachrichten."
-  expect: {tool: society-create-routine}
+  expect: {tool: delegate, args: {target: routine}, also_accept: [society-create-routine]}
 - id: routine-weekly-report-es
   category: routines
   lang: es
   utterance: "Cada viernes a las 17:00 prepara un informe semanal de las ventas."
-  expect: {tool: society-create-routine}
+  expect: {tool: delegate, args: {target: routine}, also_accept: [society-create-routine]}
 - id: routine-list-en
   category: routines
   lang: en

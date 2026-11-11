@@ -84,6 +84,37 @@ async def _prepared() -> list[dict[str, Any]]:
         return []
 
 
+def _browsers() -> list[dict[str, Any]]:
+    """The agents' live browsers that run a task or wait for the person to take over."""
+    from dodaios.society.runtime import current_runtime
+
+    try:
+        runtime = current_runtime()
+        sessions = list(runtime.browser.live.sessions.values()) if runtime is not None else []
+        from dodaios.society.display_name import display_name
+
+        names = {a.agent_id: display_name(a) for a in runtime.roster.snapshot()} if sessions else {}
+        rows = []
+        for session in sessions:
+            request = session.takeover.request
+            running = session.run_lock.locked()
+            if request is None and not running:
+                continue
+            rows.append(
+                {
+                    "agent_id": session.agent_id,
+                    "running": running,
+                    "request_id": (request or {}).get("id", ""),
+                    "reason": (request or {}).get("reason", ""),
+                    "title": names.get(session.agent_id, ""),
+                }
+            )
+        return rows
+    except Exception:  # noqa: BLE001 - the light stands on its other sources
+        log.warning("status light: browsers unavailable", exc_info=True)
+        return []
+
+
 async def compute(request: Request) -> dict[str, Any]:
     from dodaios.brain.seat_health import get_seat_health
     from dodaios.core.status_light import build_status_light
@@ -104,7 +135,7 @@ async def compute(request: Request) -> dict[str, Any]:
         seats = []
     return build_status_light(
         board=board, jobs=open_jobs, attention=cards, seats=seats, findings=_findings(),
-        prepared=prepared,
+        prepared=prepared, browsers=_browsers(),
     )
 
 

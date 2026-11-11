@@ -552,6 +552,9 @@ void AVerseArenaGraybox::DressArtBox(const TSharedPtr<FJsonObject>& Box)
 	const bool bCover = Id.StartsWith(TEXT("barrier_")) || Id.StartsWith(TEXT("cover_wall_")) || Id.StartsWith(TEXT("lowwall_"))
 		|| Id.StartsWith(TEXT("column_")) || Id.StartsWith(TEXT("cover_column_"));
 	const bool bContainer = Id.EndsWith(TEXT("_roof")) && Box->GetStringField(TEXT("zone")) == TEXT("arena_canyon") && !Id.StartsWith(TEXT("hung"));
+	// The booth's solid walls (its cladding pieces break, so they stay plain).
+	const bool bBoothWall = Box->GetStringField(TEXT("zone")) == TEXT("arena_booth") && Piece.IsEmpty()
+		&& (Id.StartsWith(TEXT("wall_")) || Id.StartsWith(TEXT("upper_wall_")));
 	const TArray<TSharedPtr<FJsonValue>>& C = Box->GetArrayField(TEXT("center"));
 	const TArray<TSharedPtr<FJsonValue>>& S = Box->GetArrayField(TEXT("size"));
 	const FVector Centre(C[0]->AsNumber(), C[1]->AsNumber(), C[2]->AsNumber());
@@ -675,7 +678,7 @@ void AVerseArenaGraybox::DressArtBox(const TSharedPtr<FJsonObject>& Box)
 		}
 		return;
 	}
-	if (!bCover && !bContainer)
+	if (!bCover && !bContainer && !bBoothWall)
 	{
 		return;
 	}
@@ -707,6 +710,32 @@ void AVerseArenaGraybox::DressArtBox(const TSharedPtr<FJsonObject>& Box)
 		const FVector Extent = bLong ? FVector(Len, Depth, Height) : FVector(Depth, Len, Height);
 		AddTrim(Look, FVector(At.X, At.Y, Z), Extent, FRotator::ZeroRotator, bShadow);
 	};
+	// Kit wall modules (WP12 SM_Wall_*: bevelled panels, recesses, trim) over one face of a box:
+	// origin on the face, front 2 cm proud, back kept inside the box's half thickness.
+	auto Panel = [&](double Side, double From, double Height)
+	{
+		const bool bTall = Height > 500.0;
+		const double Unit = Run >= 360.0 ? (bTall ? 240.0 : 480.0) : (Run >= 180.0 ? 240.0 : 120.0);
+		const TCHAR* Mesh = bTall ? TEXT("SM_Wall_240_H540") : (Unit == 480.0 ? TEXT("SM_Wall_480") : (Unit == 240.0 ? TEXT("SM_Wall_240") : TEXT("SM_Wall_120")));
+		const int32 Count = FMath::Max(1, FMath::RoundToInt(Run / Unit));
+		const double Width = Run / Count;
+		const FVector Normal = Across * Side;
+		const double Yaw = FMath::RadiansToDegrees(FMath::Atan2(Normal.Y, Normal.X)) - 90.0;
+		const FVector Scale(Width / Unit, FMath::Min(1.0, Thick * 0.5 / 30.0), Height / (bTall ? 540.0 : 450.0));
+		for (int32 I = 0; I < Count; ++I)
+		{
+			const FVector At = Centre + RunDir * (-Run * 0.5 + Width * (I + 0.5)) + Normal * (Thick * 0.5);
+			AddDressing(Mesh, FTransform(FRotator(0.0, Yaw, 0.0), FVector(At.X, At.Y, From), Scale));
+		}
+	};
+	const bool bPanelled = (Id.StartsWith(TEXT("barrier_")) && Size.Z > 400.0) || Id.StartsWith(TEXT("cover_wall_")) || bBoothWall;
+	if (bPanelled)
+	{
+		// Both faces; the perimeter keeps its hazard band on top visible.
+		const double Height = Id.StartsWith(TEXT("barrier_")) ? Top - Bottom - 16.0 : Top - Bottom;
+		Panel(-1.0, Bottom, Height);
+		Panel(1.0, Bottom, Height);
+	}
 	const bool bWallLike = Id.StartsWith(TEXT("barrier_")) || Id.StartsWith(TEXT("cover_wall_")) || Id.StartsWith(TEXT("lowwall_"));
 	if (Id.StartsWith(TEXT("barrier_")) && Box->GetStringField(TEXT("zone")) == TEXT("shell"))
 	{
@@ -718,7 +747,7 @@ void AVerseArenaGraybox::DressArtBox(const TSharedPtr<FJsonObject>& Box)
 		const FRotator Flat = FRotator::MakeFromEuler(bLong ? FVector(0.0, 90.0, 0.0) : FVector(90.0, 0.0, 0.0));
 		for (double T = -Run * 0.5 + 30.0; T + 61.4 < Run * 0.5; T += 61.4)
 		{
-			const FVector At = Centre + RunDir * T + Across * (In * (Face + 4.0));
+			const FVector At = Centre + RunDir * T + Across * (In * (Face + 7.0));
 			AddDressing(TEXT("SM_Hangar_Cables_Double"), FTransform(Flat, FVector(At.X, At.Y, 380.0)), nullptr, false);
 		}
 		// Deck number painted big on every perimeter segment, as hangar bays are marked.
@@ -729,7 +758,7 @@ void AVerseArenaGraybox::DressArtBox(const TSharedPtr<FJsonObject>& Box)
 		int32 Index = 0;
 		for (double T = -Run * 0.5 + 200.0; T < Run * 0.5 - 100.0; T += 400.0, ++Index)
 		{
-			const FVector At = Centre + RunDir * T + Across * (In * (Face + 2.0));
+			const FVector At = Centre + RunDir * T + Across * (In * (Face + 5.0));
 			if (Index % 2 == 0)
 			{
 				AddProp(TEXT("SM_Hangar_WallLamp"), FVector(At.X, At.Y, 330.0), Yaw);
@@ -741,7 +770,7 @@ void AVerseArenaGraybox::DressArtBox(const TSharedPtr<FJsonObject>& Box)
 			}
 		}
 	}
-	if (bWallLike && Bottom < 5.0)
+	if (bWallLike && !bPanelled && Bottom < 5.0)
 	{
 		// Cast concrete: a stepped foot on both faces and the joints between 2.4 m segments.
 		for (const double Side : {-1.0, 1.0})
@@ -819,7 +848,7 @@ void AVerseArenaGraybox::DressArt()
 	{
 		UInstancedStaticMeshComponent* Component = Pair.Value;
 		const UStaticMesh* Mesh = Component ? Component->GetStaticMesh() : nullptr;
-		if (!Mesh || !Mesh->GetName().StartsWith(TEXT("SM_Wall_480")))
+		if (!Mesh || !Mesh->GetName().StartsWith(TEXT("SM_Wall_")))
 		{
 			continue;
 		}

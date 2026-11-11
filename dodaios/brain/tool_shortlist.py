@@ -41,6 +41,8 @@ __all__ = [
     "DEFAULT_DIRECT",
     "FIND_TOOLS_NAME",
     "FindToolsTool",
+    "LEAD_DEFERRED",
+    "LEAD_DIRECT",
     "ROLE_BASE",
     "SurfacePlan",
     "canonical",
@@ -104,6 +106,21 @@ DEFAULT_DIRECT: Final[tuple[str, ...]] = (
     "await_jobs",
     "job_stop",
     "ask_agent",
+)
+
+#: Hand-off tools the lead reaches through ``delegate`` instead of seeing next
+#: to it: each one overlaps another, and every overlap was a routing decision the
+#: model could get wrong. They stay callable, behind ``find_tools``. Canonical names.
+LEAD_DEFERRED: Final[frozenset[str]] = frozenset({"spawn_worker", "delegate_to_agent"})
+
+#: The direct set of the LEAD's brain-seat turns: ``DEFAULT_DIRECT`` with the
+#: overlapping hand-off tools replaced by the ``delegate`` front door, in the same
+#: place (the frozen order is part of the prompt-cache prefix). ``message_agent``
+#: and ``ask_agent`` stay: talking to an agent is not a hand-off and has no job.
+LEAD_DIRECT: Final[tuple[str, ...]] = tuple(
+    "delegate" if name == "spawn_worker" else name
+    for name in DEFAULT_DIRECT
+    if name not in LEAD_DEFERRED or name == "spawn_worker"
 )
 
 #: What a caller with a role is shown besides the tools the role names: the

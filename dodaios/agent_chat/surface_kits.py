@@ -168,12 +168,14 @@ def _society_tools(cfg: Any, brain: Any, session: Any) -> dict[str, Tool]:
 
 def _jarvis_tools(_cfg: Any, _brain: Any, session: Any) -> dict[str, Tool]:
     from dodaios.agent_chat.folder_tools import folder_tools
+    from dodaios.society.browser.takeover_tool import lead_takeover_tools
     from dodaios.society.browser.tool import lead_browser_tools
     from dodaios.society.connect_tool import lead_connect_tools
 
     stance = "plan" if getattr(session, "permission_mode", "") == "plan" else "ask"
     tools = folder_tools(Path(getattr(session, "cwd", "") or _chat_workspace()), stance=stance)
     tools.update(lead_browser_tools(session))
+    tools.update(lead_takeover_tools(session))
     # A service the task needs is offered as a Connect card in the chat.
     tools.update(lead_connect_tools(session))
     # Addressed-pane coding, the repository tool and the work board: the lead

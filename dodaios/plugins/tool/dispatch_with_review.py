@@ -1,5 +1,8 @@
 """dispatch_with_review tool: callable by the main Jarvis (Phase 8.4).
 
+DEPRECATED: no longer an entry point and never offered to a model; production review
+belongs to the Mission Manager lifecycle (ADR-0011). Kept for its direct-call tests.
+
 Plan reference: §6.4, §AD-6 (selective activation). This tool is the ONLY
 switch that activates the quality-gate pipeline. The main Jarvis calls it
 explicitly when the task justifies it — code generation, skill authoring,

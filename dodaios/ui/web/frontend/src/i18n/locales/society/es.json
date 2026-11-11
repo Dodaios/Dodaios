@@ -127,6 +127,12 @@
       "record_spent": "{0} gastado",
       "record_last_active": "última actividad {0}"
     },
+    "browser_takeover": {
+      "requested": "El agente te pide que tomes el control de su navegador",
+      "private_hint": "Tienes el control. Lo que escribes va solo a la página: no se registra y el agente nunca lo ve.",
+      "handed_back": "Devuelto. El agente sabe en qué página lo dejaste.",
+      "handed_back_typed": "Devuelto. El agente sabe en qué página lo dejaste, no lo que escribiste."
+    },
     "browser_profiles": {
       "profile_unavailable": "Perfil desconectado — elige un perfil",
       "chrome_offline": "Chrome desconectado",

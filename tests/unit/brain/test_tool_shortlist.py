@@ -534,3 +534,38 @@ async def test_a_deferred_tool_is_found_and_runs_in_the_same_turn() -> None:
     assert "srv1/save_issue" in deferred
     ran = await surface["srv1/save_issue"].execute({"x": 1}, _ctx())
     assert ran.success
+
+
+def test_the_lead_sees_delegate_where_the_overlapping_hand_off_tools_were() -> None:
+    from dodaios.brain.lead_doctrine import LEAD_TURN
+    from dodaios.brain.tool_shortlist import DEFAULT_DIRECT, LEAD_DIRECT
+
+    assert "delegate" in LEAD_DIRECT
+    assert not {"spawn_worker", "delegate_to_agent"} & set(LEAD_DIRECT)
+    # Same slot, same length: the frozen order is part of the prompt-cache prefix.
+    assert len(LEAD_DIRECT) == len(DEFAULT_DIRECT) - 1
+    assert LEAD_DIRECT.index("delegate") == DEFAULT_DIRECT.index("spawn_worker")
+    # message_agent / ask_agent stay: talking to an agent is not a hand-off.
+    assert {"message_agent", "ask_agent"} <= set(LEAD_DIRECT)
+
+    tools = _big_surface()
+    for name in ("delegate", "spawn_worker"):
+        tools[name] = _tool(name)
+    token = LEAD_TURN.set(True)
+    try:
+        surface, deferred = _mgr(defer=True)._shortlist_tools(
+            tools, _Brain(1_048_576), system_prompt="", history=None
+        )
+    finally:
+        LEAD_TURN.reset(token)
+    shown = _shown(surface, deferred)
+    assert "delegate" in shown
+    assert "spawn_worker" in deferred and "delegate_to_agent" in deferred
+    # Deferred, not removed: both stay callable by name.
+    assert "spawn_worker" in surface and "delegate_to_agent" in surface
+    # A non-lead turn keeps the old core.
+    other, other_deferred = _mgr(defer=True)._shortlist_tools(
+        tools, _Brain(1_048_576), system_prompt="", history=None
+    )
+    assert "spawn_worker" in _shown(other, other_deferred)
+    assert "delegate" in other_deferred

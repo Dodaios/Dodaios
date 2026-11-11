@@ -844,9 +844,11 @@ def _register_runtime_manager(manager: Any) -> None:
             # seat reaches it over MCP.
             from types import SimpleNamespace
 
+            from dodaios.society.browser.takeover_tool import lead_takeover_tools
             from dodaios.society.connect_tool import lead_connect_tools
 
-            return lead_connect_tools(SimpleNamespace(session_id=session_id))
+            session = SimpleNamespace(session_id=session_id)
+            return {**lead_connect_tools(session), **lead_takeover_tools(session)}
 
         runtime_refs.set_brain_manager(manager)
         runtime_refs.set_supervisor_tool_gateway(

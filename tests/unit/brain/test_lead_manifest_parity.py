@@ -59,11 +59,12 @@ def _gateway(live=_LIVE):
     workspace = _Tool("workspace-orchestrate")
     workspace.gateway = object()
     connect = _Tool("society_request_connect")
+    takeover = _Tool("request_browser_takeover")
     return BrainSupervisorToolGateway(
         manager,
         workspace_tool=workspace,
         lead_session=lambda sid: sid == "lead",
-        lead_hands=lambda sid: {connect.name: connect},
+        lead_hands=lambda sid: {connect.name: connect, takeover.name: takeover},
     )
 
 
@@ -82,6 +83,11 @@ def _brain_seat_names(gateway, monkeypatch) -> set[str]:
     connect = _Tool("society_request_connect")
     monkeypatch.setattr(
         "dodaios.society.connect_tool.lead_connect_tools", lambda session: {connect.name: connect}
+    )
+    takeover = _Tool("request_browser_takeover")
+    monkeypatch.setattr(
+        "dodaios.society.browser.takeover_tool.lead_takeover_tools",
+        lambda session=None: {takeover.name: takeover},
     )
     monkeypatch.setattr("dodaios.society.browser.tool.lead_browser_tools", lambda session=None: {})
     runtime_refs.set_supervisor_tool_gateway(gateway)
@@ -113,6 +119,7 @@ async def test_the_lead_is_the_same_on_the_brain_seat_the_cli_seat_and_voice(mon
         "workspace-orchestrate",
         "workspace-git",
         "society_request_connect",
+        "request_browser_takeover",
     } <= cli
 
 async def test_the_older_spawn_vehicles_are_not_offered_to_the_lead_over_mcp():

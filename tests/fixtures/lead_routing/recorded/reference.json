@@ -3,70 +3,82 @@
  "kind": "synthetic: derived from the expectations, not a model output",
  "responses": {
   "delegate-scout-research-en": {
-   "tool": "delegate_to_agent",
+   "tool": "delegate",
    "input": {
-    "agent": "Scout"
+    "target": "agent:Scout"
    }
   },
   "delegate-scout-research-de": {
-   "tool": "delegate_to_agent",
+   "tool": "delegate",
    "input": {
-    "agent": "Scout"
+    "target": "agent:Scout"
    }
   },
   "delegate-mailbox-invoice-en": {
-   "tool": "delegate_to_agent",
+   "tool": "delegate",
    "input": {
-    "agent": "Mailbox"
+    "target": "agent:Mailbox"
    }
   },
   "delegate-mailbox-invoice-de": {
-   "tool": "delegate_to_agent",
+   "tool": "delegate",
    "input": {
-    "agent": "Mailbox"
+    "target": "agent:Mailbox"
    }
   },
   "delegate-archivist-summary-en": {
-   "tool": "delegate_to_agent",
+   "tool": "delegate",
    "input": {
-    "agent": "Archivist"
+    "target": "agent:Archivist"
    }
   },
   "delegate-archivist-summary-de": {
-   "tool": "delegate_to_agent",
+   "tool": "delegate",
    "input": {
-    "agent": "Archivist"
+    "target": "agent:Archivist"
    }
   },
   "delegate-scout-es": {
-   "tool": "delegate_to_agent",
+   "tool": "delegate",
    "input": {
-    "agent": "Scout"
+    "target": "agent:Scout"
    }
   },
   "delegate-scout-pt": {
-   "tool": "delegate_to_agent",
+   "tool": "delegate",
    "input": {
-    "agent": "Scout"
+    "target": "agent:Scout"
    }
   },
   "delegate-team-en": {
-   "tool": "delegate_to_agent"
+   "tool": "delegate",
+   "input": {
+    "target": "agent"
+   }
   },
   "delegate-team-de": {
-   "tool": "delegate_to_agent"
+   "tool": "delegate",
+   "input": {
+    "target": "agent"
+   }
   },
   "delegate-tell-to-test-en": {
-   "tool": "delegate_to_agent",
+   "tool": "delegate",
    "input": {
-    "agent": "Mailbox"
+    "target": "agent:Mailbox"
    }
   },
   "delegate-background-worker-en": {
-   "tool": "spawn_worker"
+   "tool": "delegate",
+   "input": {
+    "target": "mission"
+   }
   },
   "delegate-background-worker-de": {
-   "tool": "spawn_worker"
+   "tool": "delegate",
+   "input": {
+    "target": "mission"
+   }
   },
   "ask-scout-sources-en": {
    "tool": "message_agent",
@@ -125,37 +137,33 @@
    }
   },
   "pane-fix-bug-t2-en": {
-   "tool": "workspace-orchestrate",
+   "tool": "delegate",
    "input": {
-    "action": "resolve",
-    "task": "T2"
+    "target": "pane:T2"
    }
   },
   "pane-fix-bug-t2-de": {
-   "tool": "workspace-orchestrate",
+   "tool": "delegate",
    "input": {
-    "action": "resolve",
-    "task": "T2"
+    "target": "pane:T2"
    }
   },
   "pane-lint-t3-de": {
-   "tool": "workspace-orchestrate",
+   "tool": "delegate",
    "input": {
-    "action": "resolve",
-    "task": "T3"
+    "target": "pane:T3"
    }
   },
   "pane-refactor-t1-en": {
-   "tool": "workspace-orchestrate",
+   "tool": "delegate",
    "input": {
-    "action": "resolve",
-    "task": "T1"
+    "target": "pane:T1"
    }
   },
   "pane-named-codex-en": {
-   "tool": "workspace-orchestrate",
+   "tool": "delegate",
    "input": {
-    "action": "resolve"
+    "target": "pane"
    }
   },
   "pane-observe-t2-en": {
@@ -198,53 +206,51 @@
    "tool": "workspace-git"
   },
   "pane-fix-bug-t2-pt": {
-   "tool": "workspace-orchestrate",
+   "tool": "delegate",
    "input": {
-    "action": "resolve",
-    "task": "T2"
+    "target": "pane:T2"
    }
   },
   "pane-fix-bug-t5-es": {
-   "tool": "workspace-orchestrate",
+   "tool": "delegate",
    "input": {
-    "action": "resolve",
-    "task": "T5"
+    "target": "pane:T5"
    }
   },
   "team-three-models-plan-en": {
-   "tool": "team_thread",
+   "tool": "delegate",
    "input": {
-    "action": "start"
+    "target": "team_thread"
    }
   },
   "team-three-models-plan-de": {
-   "tool": "team_thread",
+   "tool": "delegate",
    "input": {
-    "action": "start"
+    "target": "team_thread"
    }
   },
   "team-plan-build-review-de": {
-   "tool": "team_thread",
+   "tool": "delegate",
    "input": {
-    "action": "start"
+    "target": "team_thread"
    }
   },
   "team-plan-build-review-en": {
-   "tool": "team_thread",
+   "tool": "delegate",
    "input": {
-    "action": "start"
+    "target": "team_thread"
    }
   },
   "team-debate-es": {
-   "tool": "team_thread",
+   "tool": "delegate",
    "input": {
-    "action": "start"
+    "target": "team_thread"
    }
   },
   "team-second-opinion-pt": {
-   "tool": "team_thread",
+   "tool": "delegate",
    "input": {
-    "action": "start"
+    "target": "team_thread"
    }
   },
   "team-status-en": {
@@ -536,13 +542,22 @@
    }
   },
   "routine-morning-briefing-en": {
-   "tool": "society-create-routine"
+   "tool": "delegate",
+   "input": {
+    "target": "routine"
+   }
   },
   "routine-morning-briefing-de": {
-   "tool": "society-create-routine"
+   "tool": "delegate",
+   "input": {
+    "target": "routine"
+   }
   },
   "routine-weekly-report-es": {
-   "tool": "society-create-routine"
+   "tool": "delegate",
+   "input": {
+    "target": "routine"
+   }
   },
   "routine-list-en": {
    "tool": "society-list-routines"
@@ -816,19 +831,22 @@
    }
   },
   "ambiguous-misheard-scout-de": {
-   "tool": "delegate_to_agent",
+   "tool": "delegate",
    "input": {
-    "agent": "Sk"
+    "target": "agent:Sk"
    }
   },
   "ambiguous-misheard-mailbox-en": {
-   "tool": "delegate_to_agent",
+   "tool": "delegate",
    "input": {
-    "agent": "mail"
+    "target": "agent:mail"
    }
   },
   "ambiguous-unnamed-agent-en": {
-   "tool": "delegate_to_agent"
+   "tool": "delegate",
+   "input": {
+    "target": "agent"
+   }
   },
   "ambiguous-no-antecedent-en": {
    "tool": "none",
@@ -841,13 +859,135 @@
    }
   },
   "ambiguous-pane-vs-agent-en": {
-   "tool": "workspace-orchestrate",
+   "tool": "delegate",
    "input": {
-    "task": "T2"
+    "target": "pane:T2"
    }
   },
   "ambiguous-just-a-question-about-agents-en": {
    "tool": "society_status"
+  },
+  "delegate-front-agent-paraphrase-en": {
+   "tool": "delegate",
+   "input": {
+    "target": "agent:Scout"
+   }
+  },
+  "delegate-front-agent-paraphrase-de": {
+   "tool": "delegate",
+   "input": {
+    "target": "agent:Archivist"
+   }
+  },
+  "delegate-front-agent-es": {
+   "tool": "delegate",
+   "input": {
+    "target": "agent:Mailbox"
+   }
+  },
+  "delegate-front-agent-pt": {
+   "tool": "delegate",
+   "input": {
+    "target": "agent:Archivist"
+   }
+  },
+  "delegate-front-pane-id-en": {
+   "tool": "delegate",
+   "input": {
+    "target": "pane:T2"
+   }
+  },
+  "delegate-front-pane-id-de": {
+   "tool": "delegate",
+   "input": {
+    "target": "pane:T3"
+   }
+  },
+  "delegate-front-pane-es": {
+   "tool": "delegate",
+   "input": {
+    "target": "pane:T4"
+   }
+  },
+  "delegate-front-pane-callsign-en": {
+   "tool": "delegate",
+   "input": {
+    "target": "pane:T1"
+   }
+  },
+  "delegate-front-team-en": {
+   "tool": "delegate",
+   "input": {
+    "target": "team_thread"
+   }
+  },
+  "delegate-front-team-de": {
+   "tool": "delegate",
+   "input": {
+    "target": "team_thread"
+   }
+  },
+  "delegate-front-team-pt": {
+   "tool": "delegate",
+   "input": {
+    "target": "team_thread"
+   }
+  },
+  "delegate-front-mission-en": {
+   "tool": "delegate",
+   "input": {
+    "target": "mission"
+   }
+  },
+  "delegate-front-mission-de": {
+   "tool": "delegate",
+   "input": {
+    "target": "mission"
+   }
+  },
+  "delegate-front-routine-en": {
+   "tool": "delegate",
+   "input": {
+    "target": "routine"
+   }
+  },
+  "delegate-front-routine-de": {
+   "tool": "delegate",
+   "input": {
+    "target": "routine"
+   }
+  },
+  "answer-no-spawn-storage-companies-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-no-spawn-storage-companies-de": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-no-spawn-feature-question-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-no-spawn-feature-question-de": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-no-spawn-explain-worker-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-no-spawn-how-it-works-es": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-no-spawn-opinion-de": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "answer-no-spawn-news-pt": {
+   "tool": "none",
+   "text": "(answers directly)"
   }
  }
 }

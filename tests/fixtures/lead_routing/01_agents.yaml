@@ -7,68 +7,68 @@
   category: delegate_agent
   lang: en
   utterance: "Let Scout research the three best note-taking apps and write me a short comparison."
-  expect: {tool: delegate_to_agent, args: {agent: Scout}}
+  expect: {tool: delegate, args: {target: "agent:Scout"}}
 - id: delegate-scout-research-de
   category: delegate_agent
   lang: de
   utterance: "Lass Scout die drei besten Notiz-Apps recherchieren und mir einen kurzen Vergleich schreiben."
-  expect: {tool: delegate_to_agent, args: {agent: Scout}}
+  expect: {tool: delegate, args: {target: "agent:Scout"}}
 - id: delegate-mailbox-invoice-en
   category: delegate_agent
   lang: en
   utterance: "Mailbox, answer the invoice mail from Müller and say we pay on Friday."
-  expect: {tool: delegate_to_agent, args: {agent: Mailbox}}
+  expect: {tool: delegate, args: {target: "agent:Mailbox"}}
 - id: delegate-mailbox-invoice-de
   category: delegate_agent
   lang: de
   utterance: "Mailbox, beantworte bitte die Rechnungsmail von Müller und schreib, dass wir am Freitag zahlen."
-  expect: {tool: delegate_to_agent, args: {agent: Mailbox}}
+  expect: {tool: delegate, args: {target: "agent:Mailbox"}}
 - id: delegate-archivist-summary-en
   category: delegate_agent
   lang: en
   utterance: "Archivist, summarize last week's meeting notes into one page."
-  expect: {tool: delegate_to_agent, args: {agent: Archivist}}
+  expect: {tool: delegate, args: {target: "agent:Archivist"}}
 - id: delegate-archivist-summary-de
   category: delegate_agent
   lang: de
   utterance: "Archivist, fass bitte die Notizen der letzten Woche auf einer Seite zusammen."
-  expect: {tool: delegate_to_agent, args: {agent: Archivist}}
+  expect: {tool: delegate, args: {target: "agent:Archivist"}}
 - id: delegate-scout-es
   category: delegate_agent
   lang: es
   utterance: "Pídele a Scout que investigue los precios de los vuelos a Lisboa para marzo."
-  expect: {tool: delegate_to_agent, args: {agent: Scout}}
+  expect: {tool: delegate, args: {target: "agent:Scout"}}
 - id: delegate-scout-pt
   category: delegate_agent
   lang: pt
   utterance: "Pede ao Scout para pesquisar os melhores hotéis em Lisboa para março."
-  expect: {tool: delegate_to_agent, args: {agent: Scout}}
+  expect: {tool: delegate, args: {target: "agent:Scout"}}
 - id: delegate-team-en
   category: delegate_agent
   lang: en
   utterance: "Give that to the team: collect all open questions from the last three customer calls."
-  expect: {tool: delegate_to_agent}
+  expect: {tool: delegate, args: {target: agent}}
 - id: delegate-team-de
   category: delegate_agent
   lang: de
   utterance: "Gib das an das Team: sammelt alle offenen Fragen aus den letzten drei Kundengesprächen."
-  expect: {tool: delegate_to_agent}
+  expect: {tool: delegate, args: {target: agent}}
 - id: delegate-tell-to-test-en
   category: delegate_agent
   lang: en
   utterance: "Tell Mailbox to test the new out-of-office template and report what went wrong."
-  expect: {tool: delegate_to_agent, args: {agent: Mailbox}}
+  expect: {tool: delegate, args: {target: "agent:Mailbox"}}
   note: "'tell X to test Y' is an assignment, not a chat message."
 - id: delegate-background-worker-en
   category: delegate_agent
   lang: en
   utterance: "Spawn a background worker that builds a small Flask app with a login page."
-  expect: {tool: spawn_worker}
+  expect: {tool: delegate, args: {target: mission}}
 - id: delegate-background-worker-de
   category: delegate_agent
   lang: de
   utterance: "Starte einen Hintergrund-Agenten, der eine kleine Flask-App mit Login-Seite baut."
-  expect: {tool: spawn_worker}
+  expect: {tool: delegate, args: {target: mission}}
 
 # ---- ask_agent: a question to an agent, a note to an agent ----------------
 - id: ask-scout-sources-en
