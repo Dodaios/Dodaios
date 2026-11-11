@@ -11375,5 +11375,34 @@
       "agent_working": "Em que está {agent} a trabalhar?",
       "agent_waiting": "De que precisa {agent} de mim?"
     }
+  },
+  "status_light": {
+    "label": "Estado",
+    "title": "Estado",
+    "summary_running": "{count} em andamento",
+    "summary_needs": "{count} precisam de você",
+    "idle": "Tudo calmo",
+    "summary_joined": "{running} · {needs}",
+    "needs_heading": "Precisam de você",
+    "running_heading": "Em andamento",
+    "trouble_heading": "Vale conferir",
+    "empty": "Nada em andamento e ninguém esperando por você.",
+    "unavailable": "O estado não está disponível agora.",
+    "close": "Fechar",
+    "open_hint": "Abrir",
+    "kind_pane": "Agente de código",
+    "kind_team": "Equipe",
+    "kind_mission": "Missão",
+    "kind_task": "Rotina",
+    "kind_job": "Tarefa",
+    "kind_question": "Pergunta",
+    "kind_approval": "Aprovação",
+    "kind_credential": "Pedido de chave",
+    "kind_proposal": "Proposta",
+    "class_quota": "limite de uso atingido",
+    "class_rate_limit": "limitado por um momento",
+    "class_auth": "login ou chave recusados",
+    "class_model_unavailable": "modelo indisponível",
+    "class_other": "falhas recentes"
   }
 }

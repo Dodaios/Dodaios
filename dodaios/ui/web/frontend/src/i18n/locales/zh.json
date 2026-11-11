@@ -11375,5 +11375,34 @@
       "agent_working": "{agent} 正在做什么？",
       "agent_waiting": "{agent} 需要我做什么？"
     }
+  },
+  "status_light": {
+    "label": "状态",
+    "title": "状态",
+    "summary_running": "{count} 项运行中",
+    "summary_needs": "{count} 项需要你",
+    "idle": "一切平静",
+    "summary_joined": "{running} · {needs}",
+    "needs_heading": "需要你",
+    "running_heading": "运行中",
+    "trouble_heading": "请留意",
+    "empty": "没有运行中的任务，也没有等你的事项。",
+    "unavailable": "暂时无法获取状态。",
+    "close": "关闭",
+    "open_hint": "打开",
+    "kind_pane": "编程智能体",
+    "kind_team": "团队",
+    "kind_mission": "任务",
+    "kind_task": "例行任务",
+    "kind_job": "作业",
+    "kind_question": "问题",
+    "kind_approval": "审批",
+    "kind_credential": "密钥请求",
+    "kind_proposal": "提议",
+    "class_quota": "已达使用上限",
+    "class_rate_limit": "暂时限流",
+    "class_auth": "登录或密钥被拒绝",
+    "class_model_unavailable": "模型不可用",
+    "class_other": "近期出错"
   }
 }
