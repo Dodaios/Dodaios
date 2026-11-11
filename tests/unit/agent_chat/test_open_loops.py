@@ -100,9 +100,10 @@ def test_without_a_vault_nothing_happens(monkeypatch) -> None:
 
 def test_today_follows_the_persons_timezone() -> None:
     # 25 hours apart: the two dates always differ, whatever the clock says.
+    # Between 10:00 and 11:00 UTC they are even two calendar days apart.
     ahead = open_loops._today_in("Pacific/Kiritimati")  # noqa: SLF001
     behind = open_loops._today_in("Pacific/Pago_Pago")  # noqa: SLF001
-    assert (ahead - behind).days == 1
+    assert (ahead - behind).days in (1, 2)
     assert open_loops._today_in("Not/AZone") == open_loops._today_in("")  # noqa: SLF001
 
 
