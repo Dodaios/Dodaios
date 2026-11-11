@@ -25,6 +25,10 @@ export const GROUPS: readonly { key: ResourceGroupKey; color: string }[] = [
 /** How far back the charts reach, in seconds. */
 export const WINDOW_S = 300;
 
+/** Row ids the server uses for this app and for the operating system. */
+export const SELF_ROW = "self";
+export const SYSTEM_ROW = "system";
+
 export interface ChartPoint {
   t: number;
   agents: number;
@@ -70,24 +74,29 @@ export function sortByMetric<T extends ResourceLoad>(rows: readonly T[], metric:
 const RANK_SAMPLES = 15;
 
 /**
- * Agents in the order the list shows them: heaviest first, but by a figure
- * that holds still.
+ * Rows (agents, or apps) in the order a list shows them: heaviest first, but
+ * by a figure that holds still.
  *
  * Processor load jumps from sample to sample, and a list sorted by the latest
  * one reshuffles every two seconds: the row under the pointer is another row
  * by the time it is clicked. So the processor ranking is the mean of the last
  * half minute. Memory moves slowly enough to rank as it stands.
  */
-export function rankAgents(agents: readonly ResourceAgent[], history: ResourceHistory, metric: Metric): ResourceAgent[] {
-  if (metric !== "cpu") return sortByMetric(agents, metric);
-  const steady = (agent: ResourceAgent) => {
-    const recent = (history.agents[agent.id]?.cpu ?? []).slice(-RANK_SAMPLES).filter((value): value is number => value !== null);
-    return recent.length > 0 ? recent.reduce((sum, value) => sum + value, 0) / recent.length : agent.cpu_percent;
+export function rankRows<T extends ResourceLoad & { id: string }>(rows: readonly T[], history: ResourceHistory, metric: Metric): T[] {
+  if (metric !== "cpu") return sortByMetric(rows, metric);
+  const steady = (row: T) => {
+    const recent = (history.rows[row.id]?.cpu ?? []).slice(-RANK_SAMPLES).filter((value): value is number => value !== null);
+    return recent.length > 0 ? recent.reduce((sum, value) => sum + value, 0) / recent.length : row.cpu_percent;
   };
-  return agents
-    .map((agent, index) => ({ agent, index, value: steady(agent) }))
-    .sort((a, b) => b.value - a.value || b.agent.memory_mb - a.agent.memory_mb || a.index - b.index)
-    .map((item) => item.agent);
+  return rows
+    .map((row, index) => ({ row, index, value: steady(row) }))
+    .sort((a, b) => b.value - a.value || b.row.memory_mb - a.row.memory_mb || a.index - b.index)
+    .map((item) => item.row);
+}
+
+/** One row's own line under a metric; empty where the server sent none. */
+export function rowLine(history: ResourceHistory, id: string, metric: Metric): readonly (number | null)[] {
+  return history.rows[id]?.[metric] ?? [];
 }
 
 /** The stacked series of one metric as chart rows; the card's load has one series. */
@@ -112,35 +121,50 @@ export function chartPoints(history: ResourceHistory, metric: Metric): ChartPoin
   }));
 }
 
-/**
- * An SVG path through a series, left to right, on a box of the given size.
- *
- * Leading nulls (the time before an agent existed) are skipped, so its line
- * starts where it started. ``ceiling`` fixes the top of the scale; without it
- * the line fills the box, with a floor so a flat idle series stays flat
- * instead of being stretched into noise.
- */
-export function sparkPath(
-  values: readonly (number | null)[],
-  width: number,
-  height: number,
-  options: { ceiling?: number; floor?: number; slots?: number } = {},
-): string {
+interface PathOptions {
+  /** Fixes the top of the scale; without it the line fills the box. */
+  ceiling?: number;
+  /** The least the top of the scale may be, so a flat idle series stays flat. */
+  floor?: number;
+  /** Samples a full window holds, so a short history sits at the right edge. */
+  slots?: number;
+}
+
+function pathPoints(values: readonly (number | null)[], width: number, height: number, options: PathOptions): [number, number][] {
   const slots = Math.max(2, options.slots ?? values.length);
   const offset = slots - values.length;
   const present = values.filter((value): value is number => value !== null);
-  if (present.length === 0) return "";
+  if (present.length === 0) return [];
   const top = options.ceiling ?? Math.max(options.floor ?? 0, ...present);
   const scale = top > 0 ? top : 1;
-  const points: string[] = [];
+  const points: [number, number][] = [];
   values.forEach((value, index) => {
     if (value === null) return;
-    const x = ((index + offset) / (slots - 1)) * width;
-    const y = height - 1 - (Math.min(value, scale) / scale) * (height - 2);
-    points.push(`${points.length === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`);
+    points.push([((index + offset) / (slots - 1)) * width, height - 1 - (Math.min(value, scale) / scale) * (height - 2)]);
   });
-  if (points.length === 1) points.push(points[0].replace("M", "L"));
-  return points.join(" ");
+  return points;
+}
+
+/**
+ * An SVG path through a series, left to right, on a box of the given size.
+ * Leading nulls (the time before a row existed) are skipped, so its line
+ * starts where it started.
+ */
+export function sparkPath(values: readonly (number | null)[], width: number, height: number, options: PathOptions = {}): string {
+  const points = pathPoints(values, width, height, options);
+  if (points.length === 0) return "";
+  if (points.length === 1) points.push(points[0]);
+  return points.map(([x, y], index) => `${index === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+}
+
+/** The same line, and the area under it down to the baseline. */
+export function areaPath(values: readonly (number | null)[], width: number, height: number, options: PathOptions = {}): { line: string; area: string } {
+  const line = sparkPath(values, width, height, options);
+  const points = pathPoints(values, width, height, options);
+  if (points.length === 0) return { line: "", area: "" };
+  const first = points[0][0].toFixed(1);
+  const last = points[points.length - 1][0].toFixed(1);
+  return { line, area: `${line} L${last} ${height} L${first} ${height} Z` };
 }
 
 /** What an agent row is called: its pane or thread name, else the CLI's. */

@@ -4,12 +4,14 @@ import { SIDE_PANEL_TAB_IDS } from "@/store/ideSidePanel";
 import { SIDE_PANEL_TABS } from "../sidePanelTabs";
 import {
   agentTitle,
+  areaPath,
   chartPoints,
   formatMemory,
   formatPercent,
   largest,
   metricValue,
-  rankAgents,
+  rankRows,
+  rowLine,
   sortByMetric,
   sparkPath,
 } from "./resourcesModel";
@@ -70,34 +72,35 @@ describe("the order of the agent list", () => {
   const history = (lines: Record<string, (number | null)[]>): ResourceHistory => ({
     t: [],
     series: {},
-    agents: Object.fromEntries(Object.entries(lines).map(([id, cpu]) => [id, { cpu, memory: cpu }])),
+    row_points: 90,
+    rows: Object.fromEntries(Object.entries(lines).map(([id, cpu]) => [id, { cpu, memory: cpu }])),
   });
 
   it("does not reshuffle on one busy sample", () => {
     const agents = [agent("steady", 8, 100), agent("spike", 60, 100)];
     const brief = history({ steady: [10, 10, 10, 10, 10, 10, 10, 8], spike: [0, 0, 0, 0, 0, 0, 0, 60] });
-    expect(rankAgents(agents, brief, "cpu").map((item) => item.id)).toEqual(["steady", "spike"]);
+    expect(rankRows(agents, brief, "cpu").map((item) => item.id)).toEqual(["steady", "spike"]);
     // Load that lasts does move it to the top.
     const lasting = history({ steady: [10, 10, 10, 10, 10, 10, 10, 8], spike: [0, 0, 0, 60, 60, 60, 60, 60] });
-    expect(rankAgents(agents, lasting, "cpu").map((item) => item.id)).toEqual(["spike", "steady"]);
+    expect(rankRows(agents, lasting, "cpu").map((item) => item.id)).toEqual(["spike", "steady"]);
   });
 
   it("looks back half a minute, not over the whole window", () => {
     const old = [...Array(40).fill(90), ...Array(15).fill(0)];
     const agents = [agent("was-busy", 0, 100), agent("is-busy", 5, 100)];
     const lines = history({ "was-busy": old, "is-busy": Array(55).fill(5) });
-    expect(rankAgents(agents, lines, "cpu").map((item) => item.id)).toEqual(["is-busy", "was-busy"]);
+    expect(rankRows(agents, lines, "cpu").map((item) => item.id)).toEqual(["is-busy", "was-busy"]);
   });
 
   it("ranks an agent without a line by its current figure and breaks ties by memory", () => {
     const agents = [agent("small", 0, 100), agent("new", 3, 50), agent("large", 0, 900)];
     const lines = history({ small: [0, 0], large: [null, 0] });
-    expect(rankAgents(agents, lines, "cpu").map((item) => item.id)).toEqual(["new", "large", "small"]);
+    expect(rankRows(agents, lines, "cpu").map((item) => item.id)).toEqual(["new", "large", "small"]);
   });
 
   it("ranks memory as it stands", () => {
     const agents = [agent("a", 50, 100), agent("b", 0, 900)];
-    expect(rankAgents(agents, history({ a: [50], b: [0] }), "memory").map((item) => item.id)).toEqual(["b", "a"]);
+    expect(rankRows(agents, history({ a: [50], b: [0] }), "memory").map((item) => item.id)).toEqual(["b", "a"]);
   });
 });
 
@@ -114,7 +117,8 @@ describe("chart series", () => {
       "memory.agents": [20, 21, 22],
       gpu: [0, 15, 40],
     },
-    agents: {},
+    row_points: 90,
+    rows: {},
   };
 
   it("stacks the four owners of one metric", () => {
@@ -183,5 +187,27 @@ describe("the side panel registry", () => {
     const letters = SIDE_PANEL_TABS.map((item) => item.shortcut);
     expect(new Set(letters).size).toBe(letters.length);
     expect(letters).not.toContain("T");
+  });
+});
+
+describe("a row's own curve", () => {
+  const history: ResourceHistory = {
+    t: [],
+    series: {},
+    row_points: 4,
+    rows: { "app:Blender": { cpu: [null, 10, 20], memory: [null, 100, 200] } },
+  };
+
+  it("reads the line of the chosen metric, and nothing where none was sent", () => {
+    expect(rowLine(history, "app:Blender", "cpu")).toEqual([null, 10, 20]);
+    expect(rowLine(history, "app:Blender", "gpu")).toEqual([]);
+    expect(rowLine(history, "app:Gone", "memory")).toEqual([]);
+  });
+
+  it("closes the line down to the baseline for the filled area", () => {
+    const { line, area } = areaPath([null, 10, 20], 30, 12, { slots: 4 });
+    expect(line).toBe("M20.0 6.0 L30.0 1.0");
+    expect(area).toBe("M20.0 6.0 L30.0 1.0 L30.0 12 L20.0 12 Z");
+    expect(areaPath([], 30, 12)).toEqual({ line: "", area: "" });
   });
 });

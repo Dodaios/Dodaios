@@ -9399,13 +9399,21 @@
       "end_cancel": "Cancelar",
       "end_failed": "Não foi possível terminar: {message}",
       "app_note": "Janela, núcleo e processos auxiliares",
-      "other_note": "O sistema e todos os outros programas",
       "role": {
         "core": "Núcleo",
         "window": "Janela",
         "terminal_host": "Anfitrião de terminais",
         "thread_host": "Anfitrião de conversas"
-      }
+      },
+      "apps_title": "Apps",
+      "apps_show_all": "Mostrar todas as {count}",
+      "apps_show_fewer": "Mostrar menos",
+      "apps_more": "{count} apps mais pequenas",
+      "app_used_by": "usada por {agents}",
+      "system_title": "Sistema",
+      "system_note": "O sistema operativo e os seus serviços",
+      "peak": "Pico {value}",
+      "row_window": "Últimos {minutes} min"
     }
   },
   "appshots": {

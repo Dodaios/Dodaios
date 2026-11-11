@@ -27,7 +27,9 @@ from loguru import logger
 from dodaios.agentic_ide.resource_usage import (
     INTERPRETERS,
     LAUNCHERS,
+    SELF_ROW,
     SHELLS,
+    SYSTEM_ROW,
     AgentSignature,
     KnownRoot,
     Link,
@@ -48,6 +50,9 @@ STALE_S = 20.0
 PRIME_S = 0.4
 #: Points kept for the charts: five minutes at one sample every two seconds.
 HISTORY_POINTS = 150
+#: Points sent per row (agent, app): its own last two minutes. A hundred rows
+#: with the full window would be most of every answer.
+ROW_POINTS = 60
 #: Local connections are read at most this often and remembered this long.
 LINKS_EVERY_S = 4.0
 LINK_MEMORY_S = 45.0
@@ -100,7 +105,9 @@ class _Previous:
 class _History:
     t: deque[float]
     series: dict[str, deque[float]] = field(default_factory=dict)
-    agents: dict[str, tuple[deque[float | None], deque[float | None]]] = field(default_factory=dict)
+    #: Per row (an agent, an app, this app, the system): processor %, memory MB
+    #: and graphics %, None for the samples before the row existed.
+    rows: dict[str, tuple[deque[float | None], ...]] = field(default_factory=dict)
 
 
 def read_system() -> SystemReading:
@@ -364,6 +371,7 @@ class ResourceSampler:
             role_of=_role,
         )
         self._owned_tools = usage.pop("owned_tools")
+        loads: dict[str, tuple[float, float, float]] = usage.pop("row_loads")
 
         per_core: list[float] = []
         busy_sum = total_sum = 0.0
@@ -387,8 +395,23 @@ class ResourceSampler:
         # What no listed process accounts for (the kernel, processes that ended
         # inside the window) belongs to "everything else", so the parts add up
         # to the machine's own figure.
+        listed_cpu = known_cpu + groups["other"]["cpu_percent"]
+        listed_memory = known_memory + groups["other"]["memory_mb"]
         groups["other"]["cpu_percent"] = round(max(0.0, cpu_percent - known_cpu), 1)
         groups["other"]["memory_mb"] = round(max(0.0, memory_used / _MB - known_memory), 1)
+        # The same remainder, as a row: what no process shows is the system's.
+        system_row = usage["os"]
+        system_row["cpu_percent"] = round(
+            system_row["cpu_percent"] + max(0.0, cpu_percent - listed_cpu), 1
+        )
+        system_row["memory_mb"] = round(
+            system_row["memory_mb"] + max(0.0, memory_used / _MB - listed_memory), 1
+        )
+        loads[SYSTEM_ROW] = (
+            system_row["cpu_percent"],
+            system_row["memory_mb"],
+            system_row["gpu_percent"],
+        )
 
         self._remember(rows, system)
         wall = self._wall()
@@ -413,12 +436,15 @@ class ResourceSampler:
             },
             **usage,
         }
-        self._record(payload)
-        payload["history"] = self._history_payload()
+        self._record(payload, loads)
+        shown = {row["id"] for row in payload["agents"]} | {row["id"] for row in payload["apps"]}
+        payload["history"] = self._history_payload(shown | {SELF_ROW, SYSTEM_ROW})
         return payload
 
     # ------------------------------------------------------------ history
-    def _record(self, payload: dict[str, Any]) -> None:
+    def _record(
+        self, payload: dict[str, Any], loads: dict[str, tuple[float, float, float]]
+    ) -> None:
         history = self._history
         history.t.append(round(payload["ts"], 2))
         system = payload["system"]
@@ -439,31 +465,27 @@ class ResourceSampler:
                 series = deque([0.0] * (length - 1), maxlen=HISTORY_POINTS)
                 history.series[key] = series
             series.append(value)
-        seen = set()
-        for agent in payload["agents"]:
-            seen.add(agent["id"])
-            pair = history.agents.get(agent["id"])
-            if pair is None:
-                pair = (
-                    deque([None] * (length - 1), maxlen=HISTORY_POINTS),
-                    deque([None] * (length - 1), maxlen=HISTORY_POINTS),
-                )
-                history.agents[agent["id"]] = pair
-            pair[0].append(agent["cpu_percent"])
-            pair[1].append(agent["memory_mb"])
-        for agent_id in list(history.agents):
-            if agent_id in seen:
-                continue
-            del history.agents[agent_id]  # it ended; its line ends with it
+        for row_id, load in loads.items():
+            lines = history.rows.get(row_id)
+            if lines is None:
+                lines = tuple(deque([None] * (length - 1), maxlen=HISTORY_POINTS) for _ in range(3))
+                history.rows[row_id] = lines
+            for line, value in zip(lines, load, strict=True):
+                line.append(value)
+        for row_id in [row_id for row_id in history.rows if row_id not in loads]:
+            del history.rows[row_id]  # it ended; its line ends with it
 
-    def _history_payload(self) -> dict[str, Any]:
+    def _history_payload(self, shown: set[str]) -> dict[str, Any]:
+        """The series, and the lines of the rows this answer shows."""
         history = self._history
         return {
             "t": list(history.t),
             "series": {key: list(values) for key, values in history.series.items()},
-            "agents": {
-                agent_id: {"cpu": list(pair[0]), "memory": list(pair[1])}
-                for agent_id, pair in history.agents.items()
+            "row_points": ROW_POINTS,
+            "rows": {
+                row_id: _row_lines(lines)
+                for row_id, lines in history.rows.items()
+                if row_id in shown
             },
         }
 
@@ -505,6 +527,17 @@ class ResourceSampler:
             except psutil.Error:  # it ended between the wait and the kill
                 continue
         return len(victims)
+
+
+def _row_lines(lines: tuple[deque[float | None], ...]) -> dict[str, list[float | None]]:
+    """A row's recent lines; the graphics line only where it ever left zero."""
+    recent = [list(line)[-ROW_POINTS:] for line in lines]
+    # Whole megabytes: a row's memory line is drawn, never read to the decimal.
+    memory: list[float | None] = [None if v is None else float(round(v)) for v in recent[1]]
+    found: dict[str, list[float | None]] = {"cpu": recent[0], "memory": memory}
+    if any(recent[2]):
+        found["gpu"] = recent[2]
+    return found
 
 
 def _app_module(cmdline: Sequence[str]) -> bool:

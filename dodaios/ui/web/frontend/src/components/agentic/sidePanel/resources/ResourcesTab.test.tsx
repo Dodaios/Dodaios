@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { endResourceTools, fetchResources, type ResourceLoad, type ResourceSnapshot } from "@/lib/resourcesApi";
+import {
+  endResourceTools,
+  fetchResources,
+  type ResourceApp,
+  type ResourceLoad,
+  type ResourceSnapshot,
+} from "@/lib/resourcesApi";
 import { ResourcesTab } from "./ResourcesTab";
 
 vi.mock("@/lib/resourcesApi", () => ({ fetchResources: vi.fn(), endResourceTools: vi.fn() }));
@@ -13,6 +19,10 @@ vi.mock("./ResourceChart", () => ({
 
 function load(cpu: number, memory: number, extra: Partial<ResourceLoad> = {}): ResourceLoad {
   return { cpu_percent: cpu, memory_mb: memory, processes: 2, threads: 8, gpu_memory_mb: 0, gpu_percent: 0, ...extra };
+}
+
+function app(label: string, cpu: number, memory: number, extra: Partial<ResourceApp> = {}): ResourceApp {
+  return { ...load(cpu, memory), id: `app:${label}`, label, instances: 1, parts: [{ ...load(cpu, memory), label }], used_by: [], ...extra };
 }
 
 function snapshot(overrides: Partial<ResourceSnapshot> = {}): ResourceSnapshot {
@@ -78,11 +88,31 @@ function snapshot(overrides: Partial<ResourceSnapshot> = {}): ResourceSnapshot {
       },
     ],
     app: { ...load(2, 1024), parts: [{ ...load(1.5, 600), role: "core" }, { ...load(0.5, 424), role: "appshot.picker" }] },
-    other: { ...load(4, 9000), top: [{ ...load(3, 700), name: "Chrome" }] },
+    apps: [
+      app("Chrome", 1, 3000, { instances: 2, processes: 24 }),
+      app("Blender", 31, 2100, {
+        gpu_memory_mb: 1500,
+        gpu_percent: 40,
+        processes: 3,
+        used_by: ["pane:abc"],
+        parts: [{ ...load(29, 2000), label: "Blender" }, { ...load(2, 100), label: "bake_textures" }],
+      }),
+      app("Code", 3, 1000),
+    ],
+    app_count: 3,
+    apps_more: load(0, 0, { processes: 0 }),
+    os: { ...load(4.5, 6000, { processes: 140 }), parts: [{ ...load(2, 300), label: "Svchost" }, { ...load(1, 90), label: "Dwm" }] },
     history: {
       t: [996, 998, 1000],
       series: { cpu: [10, 30, 37.4], memory: [50, 50, 50], gpu: [0, 5, 12] },
-      agents: { "pane:abc": { cpu: [null, 20, 25], memory: [null, 1200, 1300] } },
+      row_points: 90,
+      rows: {
+        "pane:abc": { cpu: [null, 20, 25], memory: [null, 1200, 1300], gpu: [null, 2, 3] },
+        "app:Blender": { cpu: [20, 35, 31], memory: [1900, 2000, 2100], gpu: [10, 44, 40] },
+        "app:Chrome": { cpu: [1, 1, 1], memory: [3000, 3000, 3000] },
+        self: { cpu: [2, 2, 2], memory: [1000, 1010, 1024] },
+        system: { cpu: [4, 4, 4.5], memory: [6000, 6000, 6000] },
+      },
     },
     ...overrides,
   };
@@ -110,6 +140,10 @@ async function shown() {
 
 function agentOrder(): string[] {
   return screen.getAllByTestId("resources-agent").map((row) => row.getAttribute("data-agent-id") ?? "");
+}
+
+function appOrder(): string[] {
+  return screen.getAllByTestId("resources-app").map((row) => row.getAttribute("data-row-id") ?? "");
 }
 
 describe("ResourcesTab", () => {
@@ -166,6 +200,51 @@ describe("ResourcesTab", () => {
     expect(linked.textContent).toContain("2.1 GB");
   });
 
+  it("draws an opened row's own curve with its peak", async () => {
+    await shown();
+    const pane = screen.getAllByTestId("resources-agent")[0];
+    const chart = within(pane).getByTestId("resources-row-chart");
+    expect(chart.textContent).toContain("Peak 25 %");
+    expect(chart.textContent).toContain("Last 3 min");
+    fireEvent.click(screen.getByTestId("resources-tile-memory"));
+    expect(within(screen.getAllByTestId("resources-agent")[1]).getByTestId("resources-row-chart").textContent).toContain("Peak 1.3 GB");
+  });
+
+  it("gives every app a row of its own, whether an agent uses it or not", async () => {
+    await shown();
+    expect(screen.getByTestId("resources-app-count").textContent).toBe("4"); // three apps and this one
+    expect(appOrder()).toEqual(["app:Blender", "app:Code", "app:Chrome"]);
+    const [blender, , chrome] = screen.getAllByTestId("resources-app");
+    expect(blender.textContent).toContain("Blender");
+    expect(blender.textContent).toContain("31 %");
+    expect(blender.textContent).toContain("2.1 GB");
+    // An app an agent is connected to names the agent.
+    expect(blender.textContent).toContain("3 processes · used by T1 · Fix the login test");
+    expect(chrome.textContent).toContain("Chrome×2");
+    expect(chrome.textContent).toContain("24 processes");
+    expect(chrome.textContent).not.toContain("used by");
+  });
+
+  it("opens an app into its curve and its parts", async () => {
+    await shown();
+    const blender = screen.getAllByTestId("resources-app")[0];
+    expect(within(blender).queryByTestId("resources-part")).toBeNull();
+    fireEvent.click(within(blender).getByRole("button"));
+    expect(within(blender).getByTestId("resources-row-chart").textContent).toContain("Peak 35 %");
+    expect(within(blender).getAllByTestId("resources-part").map((part) => part.textContent)).toEqual([
+      expect.stringContaining("Blender"),
+      expect.stringContaining("bake_textures"),
+    ]);
+  });
+
+  it("opens the heaviest app when no agent is running", async () => {
+    fetchMock.mockResolvedValue(snapshot({ agents: [] }));
+    await shown();
+    expect(screen.getByText("No coding agent is running.")).toBeTruthy();
+    expect(screen.getByTestId("resources-agent-count").textContent).toBe("0");
+    expect(within(screen.getAllByTestId("resources-app")[0]).getAllByTestId("resources-part")).toHaveLength(2);
+  });
+
   it("turns the whole view to memory when that meter is chosen, and remembers it", async () => {
     await shown();
     expect(screen.getByTestId("resources-chart").getAttribute("data-metric")).toBe("cpu");
@@ -175,6 +254,7 @@ describe("ResourcesTab", () => {
 
     expect(screen.getByTestId("resources-chart").getAttribute("data-metric")).toBe("memory");
     expect(agentOrder()).toEqual(["thread:s1", "pane:abc"]);
+    expect(appOrder()).toEqual(["app:Chrome", "app:Blender", "app:Code"]);
     expect(within(screen.getByTestId("resources-legend")).getByText("3 GB")).toBeTruthy();
     expect(screen.queryByTestId("resources-cores")).toBeNull();
     expect(localStorage.getItem("jarvis.agenticIde.resources.metric")).toBe("memory");
@@ -184,7 +264,7 @@ describe("ResourcesTab", () => {
     expect(screen.getByTestId("resources-tile-memory").getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("shows graphics memory per agent under the graphics meter", async () => {
+  it("ranks by graphics memory under the graphics meter", async () => {
     await shown();
     fireEvent.click(screen.getByTestId("resources-tile-gpu"));
     expect(screen.getByTestId("resources-chart").getAttribute("data-metric")).toBe("gpu");
@@ -193,6 +273,10 @@ describe("ResourcesTab", () => {
     expect(pane.getAttribute("data-agent-id")).toBe("pane:abc");
     expect(pane.textContent).toContain("512 MB");
     expect(within(pane).getByTestId("resources-linked").textContent).toContain("1.5 GB");
+    const blender = screen.getAllByTestId("resources-app")[0];
+    expect(blender.getAttribute("data-row-id")).toBe("app:Blender");
+    expect(blender.textContent).toContain("40 %");
+    expect(blender.textContent).toContain("1.5 GB");
   });
 
   it("does not offer the graphics meter where the card cannot be read", async () => {
@@ -213,19 +297,40 @@ describe("ResourcesTab", () => {
     expect(cells[0].getAttribute("title")).toBe("Core 1: 80 %");
   });
 
-  it("opens this app and everything else on request", async () => {
+  it("lists this app and the system beside the apps", async () => {
     await shown();
-    const app = screen.getByTestId("resources-app");
-    expect(app.textContent).not.toContain("appshot.picker");
-    fireEvent.click(within(app).getByRole("button"));
-    expect(app.textContent).toContain("Core");
-    expect(app.textContent).toContain("appshot.picker");
-    const other = screen.getByTestId("resources-other");
-    // The remainder of the machine's figure, not the sum of listed processes.
-    expect(other.textContent).toContain("5.9 %");
-    expect(other.textContent).toContain("10 GB");
-    fireEvent.click(within(other).getByRole("button"));
-    expect(other.textContent).toContain("Chrome");
+    const self = screen.getByTestId("resources-self");
+    expect(self.textContent).toContain("This app");
+    expect(self.textContent).not.toContain("appshot.picker");
+    fireEvent.click(within(self).getByRole("button"));
+    expect(self.textContent).toContain("Core");
+    expect(self.textContent).toContain("appshot.picker");
+    const system = screen.getByTestId("resources-system");
+    expect(system.textContent).toContain("System");
+    expect(system.textContent).toContain("4.5 %");
+    expect(system.textContent).toContain("5.9 GB");
+    fireEvent.click(within(system).getByRole("button"));
+    expect(system.textContent).toContain("Svchost");
+  });
+
+  it("shows ten apps until the reader asks for all, then the small ones as one line", async () => {
+    const many = Array.from({ length: 14 }, (_, index) => app(`Tool${index}`, 0, 100 - index));
+    fetchMock.mockResolvedValue(
+      snapshot({ agents: [], apps: many, app_count: 31, apps_more: load(0.2, 77, { processes: 17 }) }),
+    );
+    await shown();
+    expect(screen.getAllByTestId("resources-app")).toHaveLength(10);
+    expect(screen.queryByTestId("resources-apps-more")).toBeNull();
+    const toggle = screen.getByTestId("resources-apps-toggle");
+    expect(toggle.textContent).toBe("Show all 14");
+
+    fireEvent.click(toggle);
+
+    expect(screen.getAllByTestId("resources-app")).toHaveLength(14);
+    expect(screen.getByTestId("resources-apps-more").textContent).toContain("17 smaller apps");
+    expect(screen.getByTestId("resources-apps-more").textContent).toContain("77 MB");
+    expect(toggle.textContent).toBe("Show fewer");
+    expect(screen.getByTestId("resources-app-count").textContent).toBe("32");
   });
 
   it("ends a tool only after the reader confirms, then measures again", async () => {
@@ -261,11 +366,12 @@ describe("ResourcesTab", () => {
     expect(screen.getByText("It could not be ended: Only available on this computer.")).toBeTruthy();
   });
 
-  it("says so when no agent is running", async () => {
-    fetchMock.mockResolvedValue(snapshot({ agents: [] }));
+  it("offers no way to end an app", async () => {
     await shown();
-    expect(screen.getByText("No coding agent is running.")).toBeTruthy();
-    expect(screen.getByTestId("resources-agent-count").textContent).toBe("0");
+    for (const row of screen.getAllByTestId("resources-app")) {
+      fireEvent.click(within(row).getAllByRole("button")[0]);
+      expect(within(row).queryByTestId("resources-end")).toBeNull();
+    }
   });
 
   it("reports a first reading that failed", async () => {

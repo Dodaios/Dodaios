@@ -2,7 +2,8 @@
 
 The **Resources** tab of the IDE's side panel answers one question: who is
 using this computer right now. It shows processor, memory and graphics load,
-and splits each of them by owner.
+and splits each of them by owner. Every agent and every app on the machine is
+a row of its own, whether or not an agent has anything to do with it.
 
 ## What it shows
 
@@ -13,8 +14,16 @@ and splits each of them by owner.
 | Coding agents | One row per pane, per thread, and per coding CLI found running anywhere else on the machine. |
 | Inside an agent | The CLI itself, then every tool it started: an MCP server, a test run, a build, a browser, a shell. The same tool started several times is one line. |
 | Connected apps | A program outside the agent's own processes that holds a local connection to one of its tools: a 3D editor behind its MCP server, a browser showing its dev server. Its load is shown beside the agent and is not added to the agent's total. |
-| This app | The window, the core and the helper processes. |
-| Everything else | The system and every other program: the remainder of the machine's own figure, so the parts add up to the meters. |
+| Apps | Every other program on the machine, heaviest first: a 3D editor, a browser, a code editor, a terminal with what runs in it. Several windows of one program are one row. A row opens into the program's own curve and its largest parts. An app an agent is connected to names that agent. |
+| This app | The window, the core and the helper processes; the first row of the apps. |
+| System | The operating system and its services, plus what no process accounts for, so the rows add up to the meters. |
+
+In the chart, the apps no agent is connected to and the system are one band,
+"everything else".
+
+A program starts where the desktop shell or a service manager started
+something, and is everything below that point. The ten heaviest apps are
+listed; the rest open on request, and the smallest are summed in one line.
 
 A tool an agent started can be ended from its row. Nothing else can: the
 server accepts only handles it gave out with the last reading, and checks that

@@ -9399,13 +9399,21 @@
       "end_cancel": "Abbrechen",
       "end_failed": "Das Beenden ist fehlgeschlagen: {message}",
       "app_note": "Fenster, Kern und Hilfsprozesse",
-      "other_note": "Das System und jedes andere Programm",
       "role": {
         "core": "Kern",
         "window": "Fenster",
         "terminal_host": "Terminal-Host",
         "thread_host": "Thread-Host"
-      }
+      },
+      "apps_title": "Apps",
+      "apps_show_all": "Alle {count} anzeigen",
+      "apps_show_fewer": "Weniger anzeigen",
+      "apps_more": "{count} kleinere Apps",
+      "app_used_by": "genutzt von {agents}",
+      "system_title": "System",
+      "system_note": "Das Betriebssystem und seine Dienste",
+      "peak": "Spitze {value}",
+      "row_window": "Letzte {minutes} min"
     }
   },
   "appshots": {

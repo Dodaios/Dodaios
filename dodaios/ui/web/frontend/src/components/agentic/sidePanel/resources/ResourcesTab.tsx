@@ -11,15 +11,18 @@ import {
 import { cn } from "@/lib/utils";
 import { isSectionOnScreen } from "@/store/tiling";
 import { ResourceChart } from "./ResourceChart";
-import { AgentRow, GroupRow, roleLabel } from "./ResourceRows";
+import { AgentRow, Figures, LoadRow, processesText, roleLabel } from "./ResourceRows";
 import {
   GROUPS,
   METRICS,
+  SELF_ROW,
+  SYSTEM_ROW,
   WINDOW_S,
+  agentTitle,
   formatMemory,
   formatPercent,
   largest,
-  rankAgents,
+  rankRows,
   sparkPath,
   type Metric,
 } from "./resourcesModel";
@@ -27,6 +30,8 @@ import {
 /** One sample every two seconds while the view is on screen. */
 const POLL_MS = 2000;
 const METRIC_KEY = "jarvis.agenticIde.resources.metric";
+/** Apps listed before the reader asks for all of them. */
+const APPS_SHOWN = 10;
 
 /**
  * The colours of the four owners, as custom properties so one set serves the
@@ -151,15 +156,38 @@ function Cores({ cores, locale }: { cores: readonly number[]; locale: string }) 
   );
 }
 
-/** The resource view: three meters, who used what over time, and the agents behind it. */
+function SectionHead({ title, count, countTestId, columns }: { title: string; count: number; countTestId: string; columns?: [string, string] }) {
+  return (
+    <h3 className="mb-1 flex items-center gap-2 px-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <span className="min-w-0 flex-1 truncate">
+        {title}
+        <span data-testid={countTestId} className="ml-2 rounded bg-muted px-1.5 text-[10px] font-normal tabular-nums">
+          {count}
+        </span>
+      </span>
+      {columns ? (
+        <span className="flex shrink-0 text-[10px] font-normal normal-case tracking-normal tabular-nums">
+          <span className="w-[52px] text-right">{columns[0]}</span>
+          <span className="w-[62px] text-right">{columns[1]}</span>
+        </span>
+      ) : null}
+    </h3>
+  );
+}
+
+/**
+ * The resource view: three meters, who used what over time, and under them
+ * every agent and every app on the machine as a row of its own.
+ */
 export function ResourcesTab() {
   const t = useT();
   const locale = useRunLocale();
   const { snapshot, error, refresh } = useResources();
   const [metric, setMetricState] = useState<Metric>(storedMetric);
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
+  const [allApps, setAllApps] = useState(false);
   const [actionError, setActionError] = useState("");
-  const firstAgents = useRef(false);
+  const firstRows = useRef(false);
 
   const setMetric = useCallback((next: Metric) => {
     setMetricState(next);
@@ -179,15 +207,19 @@ export function ResourcesTab() {
     });
   }, []);
 
-  const agents = useMemo(() => (snapshot ? rankAgents(snapshot.agents, snapshot.history, metric) : []), [snapshot, metric]);
+  const agents = useMemo(() => (snapshot ? rankRows(snapshot.agents, snapshot.history, metric) : []), [snapshot, metric]);
+  const apps = useMemo(() => (snapshot ? rankRows(snapshot.apps, snapshot.history, metric) : []), [snapshot, metric]);
 
-  // The first reading opens the heaviest agent, so the breakdown is visible
-  // without a click; after that the reader's own choices stand.
+  // The first reading opens the heaviest agent (or, with none running, the
+  // heaviest app), so a breakdown is visible without a click; after that the
+  // reader's own choices stand.
   useEffect(() => {
-    if (firstAgents.current || agents.length === 0) return;
-    firstAgents.current = true;
-    setOpen(new Set([agents[0].id]));
-  }, [agents]);
+    if (firstRows.current || !snapshot) return;
+    const first = agents[0]?.id ?? apps[0]?.id;
+    if (!first) return;
+    firstRows.current = true;
+    setOpen(new Set([first]));
+  }, [snapshot, agents, apps]);
 
   const endTool = useCallback(
     async (tool: ResourceTool) => {
@@ -224,17 +256,24 @@ export function ResourcesTab() {
   const gpu = system.gpu;
   const shown: Metric = metric === "gpu" && !gpu ? "cpu" : metric;
   const slots = Math.max(2, Math.round(WINDOW_S / Math.max(1, POLL_MS / 1000)));
-  const rowMax = largest(agents, shown);
-  // "Everything else" as the remainder of the machine's own figure, so the
-  // rows add up to the meters above them.
-  const otherLoad = { ...snapshot.other, cpu_percent: groups.other.cpu_percent, memory_mb: groups.other.memory_mb };
+  const rowMinutes = Math.max(1, Math.round((history.row_points * POLL_MS) / 60_000));
+  const agentMax = largest(agents, shown);
+  const appMax = Math.max(largest(apps, shown), largest([snapshot.app], shown));
+  const visibleApps = allApps ? apps : apps.slice(0, APPS_SHOWN);
+  const hiddenApps = snapshot.app_count - snapshot.apps.length;
+  const agentNames = new Map(agents.map((agent) => [agent.id, agentTitle(agent, t("ide_side_panel.resources.thread_untitled"))]));
   const groupValue = (key: (typeof GROUPS)[number]["key"]) =>
     shown === "cpu"
       ? formatPercent(groups[key].cpu_percent, locale)
       : formatMemory(groups[key].memory_mb, locale);
+  const columns: [string, string] = [
+    t(`ide_side_panel.resources.col.${shown === "gpu" ? "gpu" : "cpu"}`),
+    t(`ide_side_panel.resources.col.${shown === "gpu" ? "vram" : "memory"}`),
+  ];
 
   return (
     <section data-testid="resources-tab" data-metric={shown} className={cn("flex h-full min-h-0 flex-col", PALETTE)}>
+      {/* Rows change places as load shifts; the browser must not scroll to follow one. */}
       <div className="scrollbar-jarvis min-h-0 flex-1 space-y-3 overflow-y-auto px-3 pb-4 pt-3 [overflow-anchor:none]">
         <div className="flex gap-2">
           <Tile
@@ -321,18 +360,12 @@ export function ResourcesTab() {
         ) : null}
 
         <section aria-label={t("ide_side_panel.resources.agents_title")}>
-          <h3 className="mb-1 flex items-center gap-2 px-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <span className="min-w-0 flex-1 truncate">
-              {t("ide_side_panel.resources.agents_title")}
-              <span data-testid="resources-agent-count" className="ml-2 rounded bg-muted px-1.5 text-[10px] font-normal tabular-nums">
-                {agents.length}
-              </span>
-            </span>
-            <span className="flex shrink-0 text-[10px] font-normal normal-case tracking-normal tabular-nums">
-              <span className="w-[52px] text-right">{t(`ide_side_panel.resources.col.${shown === "gpu" ? "gpu" : "cpu"}`)}</span>
-              <span className="w-[62px] text-right">{t(`ide_side_panel.resources.col.${shown === "gpu" ? "vram" : "memory"}`)}</span>
-            </span>
-          </h3>
+          <SectionHead
+            title={t("ide_side_panel.resources.agents_title")}
+            count={agents.length}
+            countTestId="resources-agent-count"
+            columns={columns}
+          />
           {agents.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-[11.5px] text-muted-foreground">
               {t("ide_side_panel.resources.agents_empty")}
@@ -346,8 +379,8 @@ export function ResourcesTab() {
                   history={history}
                   metric={shown}
                   locale={locale}
-                  max={rowMax}
-                  slots={slots}
+                  max={agentMax}
+                  minutes={rowMinutes}
                   open={open.has(agent.id)}
                   onToggle={() => toggle(agent.id)}
                   onEnd={endTool}
@@ -357,32 +390,109 @@ export function ResourcesTab() {
           )}
         </section>
 
-        <ul className="space-y-1.5 border-t border-border pt-2">
-          <GroupRow
-            testId="resources-app"
-            title={t("ide_side_panel.resources.group.app")}
-            note={t("ide_side_panel.resources.app_note")}
-            color="var(--rs-app)"
-            load={snapshot.app}
-            parts={snapshot.app.parts.map((part) => ({ ...part, label: roleLabel(t, part.role) }))}
-            metric={shown}
-            locale={locale}
-            open={open.has("group:app")}
-            onToggle={() => toggle("group:app")}
+        <section aria-label={t("ide_side_panel.resources.apps_title")}>
+          <SectionHead
+            title={t("ide_side_panel.resources.apps_title")}
+            count={snapshot.app_count + 1}
+            countTestId="resources-app-count"
+            columns={columns}
           />
-          <GroupRow
-            testId="resources-other"
-            title={t("ide_side_panel.resources.group.other")}
-            note={t("ide_side_panel.resources.other_note")}
-            color="var(--rs-other)"
-            load={otherLoad}
-            parts={snapshot.other.top.map((part) => ({ ...part, label: part.name }))}
-            metric={shown}
-            locale={locale}
-            open={open.has("group:other")}
-            onToggle={() => toggle("group:other")}
-          />
-        </ul>
+          <ul className="space-y-1.5">
+            <LoadRow
+              testId="resources-self"
+              rowId={SELF_ROW}
+              title={t("ide_side_panel.resources.group.app")}
+              name={t("ide_side_panel.resources.group.app")}
+              note={`${t("ide_side_panel.resources.app_note")} · ${processesText(t, snapshot.app.processes)}`}
+              color="var(--rs-app)"
+              load={snapshot.app}
+              parts={snapshot.app.parts.map((part) => ({ ...part, label: roleLabel(t, part.role) }))}
+              history={history}
+              metric={shown}
+              locale={locale}
+              max={appMax}
+              minutes={rowMinutes}
+              open={open.has(SELF_ROW)}
+              onToggle={() => toggle(SELF_ROW)}
+            />
+            {visibleApps.map((app) => {
+              const users = app.used_by.map((id) => agentNames.get(id)).filter((name): name is string => Boolean(name));
+              return (
+                <LoadRow
+                  key={app.id}
+                  testId="resources-app"
+                  rowId={app.id}
+                  name={app.label}
+                  title={
+                    <>
+                      {app.label}
+                      {app.instances > 1 ? (
+                        <span className="ml-1 font-normal text-muted-foreground">
+                          {fill(t("ide_side_panel.resources.instances"), { count: app.instances })}
+                        </span>
+                      ) : null}
+                    </>
+                  }
+                  note={[
+                    processesText(t, app.processes),
+                    users.length > 0 ? fill(t("ide_side_panel.resources.app_used_by"), { agents: users.join(", ") }) : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  color={app.used_by.length > 0 ? "var(--rs-linked)" : "var(--rs-other)"}
+                  load={app}
+                  parts={app.parts}
+                  history={history}
+                  metric={shown}
+                  locale={locale}
+                  max={appMax}
+                  minutes={rowMinutes}
+                  open={open.has(app.id)}
+                  onToggle={() => toggle(app.id)}
+                />
+              );
+            })}
+            {apps.length > APPS_SHOWN ? (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setAllApps((value) => !value)}
+                  aria-expanded={allApps}
+                  data-testid="resources-apps-toggle"
+                  className="w-full rounded-md px-1.5 py-1 text-left text-[11.5px] text-accent hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {allApps
+                    ? t("ide_side_panel.resources.apps_show_fewer")
+                    : fill(t("ide_side_panel.resources.apps_show_all"), { count: apps.length })}
+                </button>
+              </li>
+            ) : null}
+            {allApps && hiddenApps > 0 ? (
+              <li data-testid="resources-apps-more" className="flex items-center gap-2 px-1.5 py-1">
+                <span className="min-w-0 flex-1 truncate pl-[22px] text-[11.5px] text-muted-foreground">
+                  {fill(t("ide_side_panel.resources.apps_more"), { count: hiddenApps })}
+                </span>
+                <Figures load={snapshot.apps_more} metric={shown} locale={locale} />
+              </li>
+            ) : null}
+            <LoadRow
+              testId="resources-system"
+              rowId={SYSTEM_ROW}
+              title={t("ide_side_panel.resources.system_title")}
+              name={t("ide_side_panel.resources.system_title")}
+              note={t("ide_side_panel.resources.system_note")}
+              color="var(--rs-other)"
+              load={snapshot.os}
+              parts={snapshot.os.parts}
+              history={history}
+              metric={shown}
+              locale={locale}
+              minutes={rowMinutes}
+              open={open.has(SYSTEM_ROW)}
+              onToggle={() => toggle(SYSTEM_ROW)}
+            />
+          </ul>
+        </section>
       </div>
     </section>
   );

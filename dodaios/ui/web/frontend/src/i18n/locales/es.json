@@ -9399,13 +9399,21 @@
       "end_cancel": "Cancelar",
       "end_failed": "No se ha podido finalizar: {message}",
       "app_note": "Ventana, núcleo y procesos auxiliares",
-      "other_note": "El sistema y todos los demás programas",
       "role": {
         "core": "Núcleo",
         "window": "Ventana",
         "terminal_host": "Host de terminales",
         "thread_host": "Host de hilos"
-      }
+      },
+      "apps_title": "Apps",
+      "apps_show_all": "Mostrar las {count}",
+      "apps_show_fewer": "Mostrar menos",
+      "apps_more": "{count} apps más pequeñas",
+      "app_used_by": "usada por {agents}",
+      "system_title": "Sistema",
+      "system_note": "El sistema operativo y sus servicios",
+      "peak": "Pico {value}",
+      "row_window": "Últimos {minutes} min"
     }
   },
   "appshots": {

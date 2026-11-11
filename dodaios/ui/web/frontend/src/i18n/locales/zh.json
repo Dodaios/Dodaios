@@ -9399,13 +9399,21 @@
       "end_cancel": "取消",
       "end_failed": "无法结束：{message}",
       "app_note": "窗口、核心和辅助进程",
-      "other_note": "系统和其他所有程序",
       "role": {
         "core": "核心",
         "window": "窗口",
         "terminal_host": "终端宿主",
         "thread_host": "会话宿主"
-      }
+      },
+      "apps_title": "应用",
+      "apps_show_all": "显示全部 {count} 个",
+      "apps_show_fewer": "收起",
+      "apps_more": "{count} 个较小的应用",
+      "app_used_by": "由 {agents} 使用",
+      "system_title": "系统",
+      "system_note": "操作系统及其服务",
+      "peak": "峰值 {value}",
+      "row_window": "最近 {minutes} 分钟"
     }
   },
   "appshots": {

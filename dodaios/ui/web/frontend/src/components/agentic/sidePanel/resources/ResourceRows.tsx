@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import {
   Bot,
+  Box,
   Cable,
   ChevronRight,
   Cpu,
@@ -21,9 +22,11 @@ import { cn } from "@/lib/utils";
 import { AgentMark } from "../../AgentMark";
 import {
   agentTitle,
+  areaPath,
   formatMemory,
   formatPercent,
   metricValue,
+  rowLine,
   sortByMetric,
   sparkPath,
   type Metric,
@@ -76,7 +79,7 @@ function ShareBar({ value, max, color }: { value: number; max: number; color: st
   );
 }
 
-/** An agent's own last minutes, scaled to its own peak: the shape is the point, the figures say how much. */
+/** A row's own last minutes, scaled to its own peak: the shape is the point, the figures say how much. */
 function Spark({ values, slots }: { values: readonly (number | null)[]; slots: number }) {
   const path = sparkPath(values, 56, 18, { floor: 2, slots });
   if (!path) return <span aria-hidden className="w-14 shrink-0" />;
@@ -84,6 +87,50 @@ function Spark({ values, slots }: { values: readonly (number | null)[]; slots: n
     <svg aria-hidden viewBox="0 0 56 18" className="h-[18px] w-14 shrink-0 text-muted-foreground">
       <path d={path} fill="none" stroke="currentColor" strokeWidth={1.25} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
+  );
+}
+
+/**
+ * The row's own curve, large enough to read: what it did over the last
+ * minutes under the chosen metric, with its peak named beside it.
+ */
+function RowChart({
+  rowId,
+  history,
+  metric,
+  locale,
+  color,
+  minutes,
+}: {
+  rowId: string;
+  history: ResourceHistory;
+  metric: Metric;
+  locale: string;
+  color: string;
+  minutes: number;
+}) {
+  const t = useT();
+  const values = rowLine(history, rowId, metric);
+  const present = values.filter((value): value is number => value !== null);
+  if (present.length < 2) return null;
+  const peak = Math.max(...present);
+  const floor = metric === "memory" ? 1 : 2;
+  const { line, area } = areaPath(values, 100, 40, { floor, slots: history.row_points });
+  return (
+    <figure data-testid="resources-row-chart" className="mb-1 px-1.5 pt-1">
+      <svg aria-hidden viewBox="0 0 100 40" preserveAspectRatio="none" className="h-10 w-full">
+        <path d={area} fill={color} fillOpacity={0.16} />
+        <path d={line} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+      </svg>
+      <figcaption className="mt-0.5 flex justify-between text-[10.5px] text-muted-foreground">
+        <span>
+          {fill(t("ide_side_panel.resources.peak"), {
+            value: metric === "memory" ? formatMemory(peak, locale) : formatPercent(peak, locale),
+          })}
+        </span>
+        <span>{fill(t("ide_side_panel.resources.row_window"), { minutes })}</span>
+      </figcaption>
+    </figure>
   );
 }
 
@@ -131,21 +178,19 @@ interface AgentRowProps {
   metric: Metric;
   locale: string;
   max: number;
-  /** Samples a full window holds, so a short history sits at the right edge. */
-  slots: number;
+  /** Minutes a row's own curve covers. */
+  minutes: number;
   open: boolean;
   onToggle: () => void;
   onEnd: (tool: ResourceTool) => Promise<void>;
 }
 
 /** One agent: a line that says who and how much, and under it what it is made of. */
-export function AgentRow({ agent, history, metric, locale, max, slots, open, onToggle, onEnd }: AgentRowProps) {
+export function AgentRow({ agent, history, metric, locale, max, minutes, open, onToggle, onEnd }: AgentRowProps) {
   const t = useT();
   const [confirm, setConfirm] = useState<string | null>(null);
   const [ending, setEnding] = useState(false);
   const title = agentTitle(agent, t("ide_side_panel.resources.thread_untitled"));
-  const line = history.agents[agent.id];
-  const memory = metric !== "cpu";
   const sub = [
     agent.kind === "pane" || agent.kind === "thread" ? agent.agent_label : "",
     t(`ide_side_panel.resources.kind.${agent.kind}`),
@@ -183,14 +228,13 @@ export function AgentRow({ agent, history, metric, locale, max, slots, open, onT
           <span className="block truncate text-[12.5px] font-medium text-foreground">{title}</span>
           <span className="block truncate text-[11px] text-muted-foreground">{sub.join(" · ")}</span>
         </span>
-        {line ? (
-          <Spark values={memory ? line.memory : line.cpu} slots={slots} />
-        ) : null}
+        <Spark values={rowLine(history, agent.id, metric)} slots={history.row_points} />
         <Figures load={agent} metric={metric} locale={locale} />
       </button>
       <ShareBar value={metricValue(agent, metric)} max={max} color="var(--rs-agents)" />
       {open ? (
         <div className="ml-[22px] border-l border-border pl-2">
+          <RowChart rowId={agent.id} history={history} metric={metric} locale={locale} color="var(--rs-agents)" minutes={minutes} />
           <ul>
             <DetailLine
               icon={Cpu}
@@ -304,57 +348,90 @@ export function AgentRow({ agent, history, metric, locale, max, slots, open, onT
   );
 }
 
-interface GroupRowProps {
+interface LoadRowProps {
   testId: string;
-  title: string;
+  /** The row's id in the history; also names the row for tests. */
+  rowId: string;
+  title: ReactNode;
+  /** The title as plain words, for the button's label. */
+  name: string;
   note: string;
   color: string;
   load: ResourceLoad;
   parts: (ResourceLoad & { label: string })[];
+  history: ResourceHistory;
   metric: Metric;
   locale: string;
+  /** The heaviest row of the list, for the bar; omitted = no bar. */
+  max?: number;
+  minutes: number;
   open: boolean;
   onToggle: () => void;
 }
 
-/** This app, or everything else: one line, and its largest members when opened. */
-export function GroupRow({ testId, title, note, color, load, parts, metric, locale, open, onToggle }: GroupRowProps) {
+/**
+ * Anything that is not an agent: an app, this app, the system. The same line
+ * as an agent's, and its own curve and its largest parts when opened.
+ */
+export function LoadRow({
+  testId,
+  rowId,
+  title,
+  name,
+  note,
+  color,
+  load,
+  parts,
+  history,
+  metric,
+  locale,
+  max,
+  minutes,
+  open,
+  onToggle,
+}: LoadRowProps) {
   const t = useT();
   const rows = sortByMetric(parts, metric);
   return (
-    <li data-testid={testId} className="space-y-1">
+    <li data-testid={testId} data-row-id={rowId} className="space-y-1">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        aria-label={fill(t("ide_side_panel.resources.details_of"), { target: title })}
+        aria-label={fill(t("ide_side_panel.resources.details_of"), { target: name })}
         className={ROW_BUTTON}
       >
         <ChevronRight
           aria-hidden
           className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none", open && "rotate-90")}
         />
-        <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: color }} />
+        <span aria-hidden className="mx-[3px] h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: color }} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[12.5px] font-medium text-foreground">{title}</span>
           <span className="block truncate text-[11px] text-muted-foreground">{note}</span>
         </span>
+        <Spark values={rowLine(history, rowId, metric)} slots={history.row_points} />
         <Figures load={load} metric={metric} locale={locale} />
       </button>
+      {max !== undefined ? <ShareBar value={metricValue(load, metric)} max={max} color={color} /> : null}
       {open ? (
-        <ul className="ml-[22px] border-l border-border pl-2">
-          {rows.map((part) => (
-            <DetailLine
-              key={part.label}
-              icon={Cpu}
-              title={part.label}
-              note={processCount(t, part.processes)}
-              load={part}
-              metric={metric}
-              locale={locale}
-            />
-          ))}
-        </ul>
+        <div className="ml-[22px] border-l border-border pl-2">
+          <RowChart rowId={rowId} history={history} metric={metric} locale={locale} color={color} minutes={minutes} />
+          <ul>
+            {rows.map((part) => (
+              <DetailLine
+                key={part.label}
+                testId="resources-part"
+                icon={Box}
+                title={part.label}
+                note={processCount(t, part.processes)}
+                load={part}
+                metric={metric}
+                locale={locale}
+              />
+            ))}
+          </ul>
+        </div>
       ) : null}
     </li>
   );
@@ -363,4 +440,9 @@ export function GroupRow({ testId, title, note, color, load, parts, metric, loca
 /** A role of this app's own processes as a person would name it. */
 export function roleLabel(t: (key: string) => string, role: string): string {
   return KNOWN_ROLES.has(role) ? t(`ide_side_panel.resources.role.${role}`) : role;
+}
+
+/** "12 processes", for a row's second line. */
+export function processesText(t: (key: string) => string, count: number): string {
+  return processCount(t, count);
 }
