@@ -1,20 +1,21 @@
 {
   "name": "MI_Starfield",
   "owner": "WP12",
-  "parent": "/Game/Verse/Materials/Master/M_Verse_Emissive.M_Verse_Emissive",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Space.M_Verse_Space",
   "replaces": "M_Starfield",
   "scalars": {
-    "EmissiveNits": 400.0
+    "Planet": 1.0,
+    "SpaceGain": 1.0,
+    "StarScale": 4.0
   },
   "schema": "verse.mi/1",
   "switches": {},
-  "textures": {},
-  "vectors": {
-    "EmissiveColor": [
-      0.000713,
-      0.000713,
-      0.000837,
-      1.0
-    ]
-  }
+  "textures": {
+    "CloudMap": "/Game/Verse/Kit/Space/T_Space_EarthClouds_M.T_Space_EarthClouds_M",
+    "DayMap": "/Game/Verse/Kit/Space/T_Space_EarthDay_BC.T_Space_EarthDay_BC",
+    "NightMap": "/Game/Verse/Kit/Space/T_Space_EarthNight_E.T_Space_EarthNight_E",
+    "ReliefMap": "/Game/Verse/Kit/Space/T_Space_EarthRelief_M.T_Space_EarthRelief_M",
+    "StarMap": "/Game/Verse/Kit/Space/T_Space_Stars_E.T_Space_Stars_E"
+  },
+  "vectors": {}
 }

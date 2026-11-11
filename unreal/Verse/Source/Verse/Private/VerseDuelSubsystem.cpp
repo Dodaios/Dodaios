@@ -26,7 +26,9 @@
 #include "HangarSwitch/VerseHangarSwitchSubsystem.h"
 #include "Inventory/VerseInventoryComponent.h"
 #include "Inventory/VerseWeaponSlot.h"
+#include "Crew/VerseCrewPawn.h"
 #include "Misc/App.h"
+#include "VerseCrewBody.h"
 #include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
 #include "Misc/OutputDeviceRedirector.h"
@@ -232,6 +234,24 @@ void UVerseDuelSubsystem::DressCommander()
 	if (Commander && UVerseSovereignBody::Dress(Commander))
 	{
 		Commander->RefreshBody();
+	}
+}
+
+void UVerseDuelSubsystem::DressCrew(float DeltaTime)
+{
+	// Crew pawns come and go with crew life: give each new one its real body (twice a second).
+	CrewDressS -= DeltaTime;
+	if (CrewDressS > 0.f)
+	{
+		return;
+	}
+	CrewDressS = 0.5f;
+	for (TActorIterator<AVerseCrewPawn> It(GetWorld()); It; ++It)
+	{
+		if (It->FindComponentByClass<UVerseCrewBody>() == nullptr)
+		{
+			UVerseCrewBody::Dress(*It);
+		}
 	}
 }
 
@@ -774,6 +794,7 @@ void UVerseDuelSubsystem::Tick(float DeltaTime)
 	{
 		RegisterObservers();
 	}
+	DressCrew(DeltaTime);
 	if (!bDuelRunning)
 	{
 		return;

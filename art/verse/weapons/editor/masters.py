@@ -22,6 +22,20 @@ LUT_PATH = "/Game/Verse/PostProcess/T_Verse_Grade_LUT_M.T_Verse_Grade_LUT_M"
 WHITE = "/Engine/EngineResources/WhiteSquareTexture.WhiteSquareTexture"
 BLACK = "/Engine/EngineResources/Black.Black"
 FLAT_NORMAL = "/Engine/EngineMaterials/FlatNormal.FlatNormal"
+#: The space view's per-frame values (`AVerseSpaceView` writes them every tick).
+SPACE_MPC = "/Game/Verse/Materials/Master/MPC_Verse_Space.MPC_Verse_Space"
+#: Vector parameters of SPACE_MPC: name, default (x, y, z, w).
+SPACE_MPC_VECTORS = (
+    ("EarthCentre", (0.0, -0.64, 0.95, 0.0)),
+    ("EarthRow0", (1.0, 0.0, 0.0, 0.0)),
+    ("EarthRow1", (0.0, 1.0, 0.0, 0.0)),
+    ("EarthRow2", (0.0, 0.0, 1.0, 0.0)),
+    ("SunDir", (0.0, 0.5, 0.85, 0.0)),
+    # x spin, y cloud spin, z sun radiance, w night gain
+    ("Spin", (0.0, 0.35, 8.0, 3.0)),
+    # x haze gain, y star gain, z planet (0 or 1), w ready (0 until the view runs)
+    ("Gains", (0.6, 1.0, 1.0, 0.0)),
+)
 
 #: Linear caps of the black-only weapon rule (sRGB #1A1A1B and #3B3F47).
 WEAPON_BASE_CAP = (0.0103, 0.0103, 0.0109)
@@ -214,6 +228,12 @@ MASTERS: list[MasterSpec] = [
             _p("scalar", "Sheen", 0.0, "Cloth sheen at grazing angles"),
             _p("scalar", "Specular", 0.5, "Dielectric specular (0.5 = 4 %; dull cloth lower)"),
             _p("scalar", "SubsurfaceAmount", 0.0, "Skin subsurface opacity"),
+            _p(
+                "vector",
+                "EmissiveColor",
+                (0.0, 0.0, 0.0, 1.0),
+                "Self-light in nits (lit rank-plate tiles, VerseRanks::ApplyLook)",
+            ),
         ],
     ),
     MasterSpec(
@@ -255,6 +275,22 @@ MASTERS: list[MasterSpec] = [
             _p("texture", "DecalMask", WHITE, "Shape mask, R"),
             _p("switch", "UseRadialMask", False, "Procedural round mask with ragged rim (scorch)"),
             _p("scalar", "NoiseScale", 6.0, "Rim noise frequency"),
+        ],
+    ),
+    MasterSpec(
+        "M_Verse_Space",
+        MASTER_FOLDER,
+        "Space outside the windows: Earth, atmosphere, sun and stars per pixel (spaceShader.ts)",
+        [
+            _p("texture", "DayMap", BLACK, "Earth by day, equirectangular (sRGB)"),
+            _p("texture", "NightMap", BLACK, "City lights (sRGB)"),
+            _p("texture", "CloudMap", BLACK, "Cloud cover in R (linear)"),
+            _p("texture", "ReliefMap", BLACK, "R,G terrain slope (0.5 flat), B open water"),
+            _p("texture", "StarMap", BLACK, "Star sky in three.js axes, brightness / StarScale"),
+            _p("scalar", "StarScale", 4.0, "Brightness the star sky was stored below"),
+            _p("scalar", "Planet", 1.0, "0 draws the stars alone"),
+            _p("scalar", "SpaceGain", 1.0, "Brightness after the exposure is taken out"),
+            _p("scalar", "Calibrate", 0.0, "1 draws a ramp of known values (calibration)"),
         ],
     ),
 ]
@@ -407,6 +443,279 @@ float3 c0 = Texture2DSampleLevel(Lut, LutSampler, (px + float2(b0 * n, 0)) * inv
 float3 c1 = Texture2DSampleLevel(Lut, LutSampler, (px + float2(b1 * n, 0)) * inv, 0).rgb;
 return lerp(c0, c1, fb);
 """
+
+
+# Port of engine/realtime/spaceShader.ts (three.js), in its frame: lengths in Earth radii,
+# directions in three.js axes (+Y up), so every formula reads the same. Unreal world
+# directions become three.js ones by swapping Y and Z (coordinates.md section 1).
+SPACE_HELPERS = r"""
+struct FVerseSpace
+{
+	float3 C;
+	float3 SunDir;
+	float SunRadiance;
+
+	float2 Sphere(float3 d, float r)
+	{
+		float b = dot(C, d);
+		float c = dot(C, C) - r * r;
+		float h = b * b - c;
+		if (h < 0.0) return float2(1e9, -1e9);
+		h = sqrt(h);
+		return float2(b - h, b + h);
+	}
+	float2 Density(float3 p)
+	{
+		float alt = max(length(p - C) - 1.0, 0.0);
+		return float2(exp(-alt / 0.00145), exp(-alt / 0.00025));
+	}
+	float3 Extinction(float2 depth)
+	{
+		return exp(-(float3(36.9, 86.0, 210.9) * depth.x + 133.8 * 1.11 * depth.y));
+	}
+	float2 SunDepth(float3 p)
+	{
+		float3 o = p - C;
+		float b = dot(o, SunDir);
+		float c = dot(o, o) - 1.0165 * 1.0165;
+		float far = -b + sqrt(max(b * b - c, 0.0));
+		float cg = dot(o, o) - 0.9995;
+		if (b < 0.0 && b * b - cg > 0.0) return float2(1e4, 1e4);
+		float2 depth = float2(0.0, 0.0);
+		float prev = 0.0;
+		[unroll] for (int i = 1; i <= 6; i++)
+		{
+			float s = float(i) / 6.0;
+			float t = far * s * s;
+			depth += Density(p + SunDir * (0.5 * (prev + t))) * (t - prev);
+			prev = t;
+		}
+		return depth;
+	}
+	float3 SunAt(float3 p)
+	{
+		float3 zenith = Extinction(float2(0.00145, 0.00025));
+		return Extinction(SunDepth(p)) / zenith * SunRadiance;
+	}
+	float3 OnSphere(float3 d, float r, float2 hit)
+	{
+		float3 p = hit.x < 1e8 ? d * hit.x : d * dot(C, d);
+		return C + normalize(p - C) * r;
+	}
+	float2 Equirect(float3 local, float turn)
+	{
+		float lon = atan2(-local.z, local.x) - turn;
+		return float2(lon / (2.0 * PI) + 0.5, 0.5 - asin(clamp(local.y, -1.0, 1.0)) / PI);
+	}
+	float4 Seamless(Texture2D Map, SamplerState Smp, float2 uv)
+	{
+		float2 uv2 = float2(frac(uv.x + 0.5) - 0.5, uv.y);
+		float2 dx = ddx(uv), dy = ddy(uv);
+		float2 dx2 = ddx(uv2), dy2 = ddy(uv2);
+		if (abs(dx2.x) + abs(dy2.x) < abs(dx.x) + abs(dy.x)) { dx = dx2; dy = dy2; }
+		return Map.SampleGrad(Smp, uv, dx, dy);
+	}
+	// three.js AgXToneMapping (tonemapping_pars_fragment), linear sRGB in and out.
+	float3 AgX(float3 c)
+	{
+		float3 r = float3(0.6274, 0.0691, 0.0164) * c.r + float3(0.3293, 0.9195, 0.0880) * c.g + float3(0.0433, 0.0113, 0.8956) * c.b;
+		r = float3(0.856627153315983, 0.137318972929847, 0.11189821299995) * r.r
+			+ float3(0.0951212405381588, 0.761241990602591, 0.0767994186031903) * r.g
+			+ float3(0.0482516061458583, 0.101439036467562, 0.811302368396859) * r.b;
+		r = saturate((log2(max(r, 1e-10)) + 12.47393) / (4.026069 + 12.47393));
+		float3 x2 = r * r;
+		float3 x4 = x2 * x2;
+		r = 15.5 * x4 * x2 - 40.14 * x4 * r + 31.96 * x4 - 6.868 * x2 * r + 0.4298 * x2 + 0.1191 * r - 0.00232;
+		r = float3(1.1271005818144368, -0.1413297634984383, -0.14132976349843826) * r.r
+			+ float3(-0.11060664309660323, 1.157823702216272, -0.11060664309660294) * r.g
+			+ float3(-0.016493938717834573, -0.016493938717834257, 1.2519364065950405) * r.b;
+		r = pow(max(r, 0.0), 2.2);
+		r = float3(1.6605, -0.1246, -0.0182) * r.r + float3(-0.5876, 1.1329, -0.1006) * r.g + float3(-0.0728, -0.0083, 1.1187) * r.b;
+		return saturate(r);
+	}
+	float3 Srgb(float3 c)
+	{
+		return c <= 0.0031308 ? c * 12.92 : 1.055 * pow(max(c, 0.0), 1.0 / 2.4) - 0.055;
+	}
+	// The game's tonemapper undone, per channel: displayed sRGB value -> log2 of the scene value
+	// that shows it (measured, `kit/props/space/space_calibrate.py`), sampled at (i / 32)^2.
+	float3 Inverse(float3 s)
+	{
+		const float R[33] = { UE_INVERSE_R };
+		const float G[33] = { UE_INVERSE_G };
+		const float B[33] = { UE_INVERSE_B };
+		float3 x = sqrt(clamp(s, 0.0, 0.985)) * 32.0;
+		int3 i = min((int3)floor(x), 31);
+		float3 f = x - i;
+		return float3(lerp(R[i.x], R[i.x + 1], f.x), lerp(G[i.y], G[i.y + 1], f.y), lerp(B[i.z], B[i.z + 1], f.z));
+	}
+};
+"""  # noqa: E501
+
+def _space_inverse() -> dict[str, str]:
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "kit/props/space/tonemap_inverse.json"
+    tables = json.loads(path.read_text(encoding="utf-8"))["log2_scene"]
+    return {c: ", ".join(f"{v:.5f}" for v in tables[c]) for c in "rgb"}
+
+
+for _c, _row in _space_inverse().items():
+    SPACE_HELPERS = SPACE_HELPERS.replace(f"UE_INVERSE_{_c.upper()}", _row)
+
+SPACE_MAIN = r"""
+FVerseSpace S;
+S.C = Centre.xyz;
+S.SunDir = normalize(Sun.xyz);
+S.SunRadiance = Spin.z;
+float3 r0 = Row0.xyz;
+float3 r1 = Row1.xyz;
+float3 r2 = Row2.xyz;
+// The view ray: Unreal world -> three.js axes (swap Y and Z).
+float3 d = normalize(float3(-Cam.x, -Cam.z, -Cam.y));
+
+float3 starColour = S.Seamless(StarMap, StarMapSampler, S.Equirect(d, 0.0)).rgb * StarScale * Gains.y;
+float alpha = 0.0;
+float3 premul = float3(0.0, 0.0, 0.0);
+if (Planet * Gains.z > 0.5)
+{
+	float2 top = S.Sphere(d, 1.0165);
+	float2 ground = S.Sphere(d, 1.0);
+	float2 cloud = S.Sphere(d, 1.0018);
+	bool hitGround = ground.x < 1e8 && ground.x > 0.0;
+	bool hitCloud = cloud.x < 1e8 && cloud.x > 0.0;
+
+	// Texture lookups on every pixel so the derivatives stay defined.
+	float3 gp = S.OnSphere(d, 1.0, ground);
+	float3 gn = normalize(gp - S.C);
+	float3 gLocal = float3(dot(r0, gn), dot(r1, gn), dot(r2, gn));
+	float2 guv = S.Equirect(gLocal, Spin.x);
+	float3 day = S.Seamless(DayMap, DayMapSampler, guv).rgb;
+	float3 lights = S.Seamless(NightMap, NightMapSampler, guv).rgb;
+	float4 relief = S.Seamless(ReliefMap, ReliefMapSampler, guv);
+	float3 cp = S.OnSphere(d, 1.0018, cloud);
+	float3 cn = normalize(cp - S.C);
+	float2 cuv = S.Equirect(float3(dot(r0, cn), dot(r1, cn), dot(r2, cn)), Spin.y);
+	float cover = S.Seamless(CloudMap, CloudMapSampler, cuv).r;
+
+	// The sun's disc and glare (behind everything else).
+	float cosSun = dot(d, S.SunDir);
+	float disc = smoothstep(0.999955, 0.99997, cosSun);
+	float glare = pow(max(cosSun, 0.0), 2200.0) * 0.35 + pow(max(cosSun, 0.0), 120.0) * 0.012;
+	float3 colour = float3(1.0, 0.97, 0.92) * (disc * 60.0 + glare) * S.SunRadiance;
+
+	float far = hitGround ? ground.x : top.y;
+	float near = max(top.x, 0.0);
+	float3 transmit = float3(1.0, 1.0, 1.0);
+	float3 inscatter = float3(0.0, 0.0, 0.0);
+	if (top.x < 1e8 && top.y > 0.0)
+	{
+		float mu = cosSun;
+		float pivot = clamp(dot(S.C, d), near, far);
+		float3 ray = float3(0.0, 0.0, 0.0);
+		float3 mie = float3(0.0, 0.0, 0.0);
+		float2 depth = float2(0.0, 0.0);
+		float prevT = near;
+		for (int h = 0; h < 2; h++)
+		{
+			float span = h == 0 ? pivot - near : far - pivot;
+			if (span <= 0.0) continue;
+			for (int i = 1; i <= 12; i++)
+			{
+				float s = float(i) / 12.0;
+				float t = h == 0 ? near + span * (1.0 - (1.0 - s) * (1.0 - s)) : pivot + span * s * s;
+				float ds = t - prevT;
+				float3 p = d * (0.5 * (prevT + t));
+				float2 dens = S.Density(p) * ds;
+				depth += dens * 0.5;
+				float3 att = S.Extinction(S.SunDepth(p) + depth);
+				depth += dens * 0.5;
+				ray += dens.x * att;
+				mie += dens.y * att;
+				prevT = t;
+			}
+		}
+		float rayPhase = 3.0 / (16.0 * PI) * (1.0 + mu * mu);
+		float g = 0.76;
+		float g2 = g * g;
+		float miePhase = 3.0 / (8.0 * PI) * ((1.0 - g2) * (1.0 + mu * mu)) / ((2.0 + g2) * pow(1.0 + g2 - 2.0 * g * mu, 1.5));
+		inscatter = (ray * float3(36.9, 86.0, 210.9) * rayPhase + mie * 133.8 * miePhase) / S.Extinction(float2(0.00145, 0.00025)) * S.SunRadiance * Gains.x;
+		transmit = S.Extinction(depth);
+	}
+
+	if (hitGround || hitCloud)
+	{
+		// Ground: terrain slope from the relief map, in the local east/north frame.
+		float3 north = normalize(r1);
+		float3 east = normalize(cross(north, gn));
+		float3 up = cross(gn, east);
+		float2 slope = (relief.rg - 0.5) * 2.0;
+		float water = relief.b;
+		float3 n = normalize(gn + (east * slope.x + up * slope.y) * (1.0 - water) * 0.6);
+		float muG = dot(n, S.SunDir);
+		float3 sunAtGround = S.SunAt(gp);
+		// Cloud shadow: the cover a little towards the sun.
+		float3 shadowP = gp + (S.SunDir - gn * dot(S.SunDir, gn)) * ((1.0018 - 1.0) / max(dot(S.SunDir, gn), 0.15));
+		float3 sn = normalize(shadowP - S.C);
+		float shade = 1.0 - 0.6 * S.Seamless(CloudMap, CloudMapSampler, S.Equirect(float3(dot(r0, sn), dot(r1, sn), dot(r2, sn)), Spin.y)).r;
+		float3 albedo = day * lerp(1.0, 0.85, water);
+		float3 groundColour = albedo / PI * max(muG, 0.0) * sunAtGround * shade;
+		// Sun glint on open water.
+		float3 hv = normalize(S.SunDir - d);
+		float nh = max(dot(gn, hv), 0.0);
+		float a2 = 0.045;
+		float dn = nh * nh * (a2 - 1.0) + 1.0;
+		float ggx = a2 / (PI * dn * dn);
+		float fresnel = 0.02 + 0.98 * pow(1.0 - max(dot(-d, hv), 0.0), 5.0);
+		groundColour += water * ggx * fresnel * max(dot(gn, S.SunDir), 0.0) * sunAtGround * shade * 0.25;
+		// City lights on the night side.
+		float night = smoothstep(0.04, -0.12, dot(gn, S.SunDir));
+		groundColour += lights * lights * Spin.w * night * (1.0 - 0.8 * cover);
+
+		// Cloud layer over it.
+		float muC = dot(cn, S.SunDir);
+		float3 sunAtCloud = S.SunAt(cp);
+		float ca = smoothstep(0.08, 0.75, cover) * 0.97;
+		float3 cloudColour = (0.92 / PI) * (max(muC, 0.0) * 0.9 + 0.1 * smoothstep(-0.1, 0.2, muC)) * sunAtCloud * lerp(0.75, 1.0, cover);
+		float3 surface = hitGround ? lerp(groundColour, cloudColour, ca) : cloudColour;
+		float cover01 = hitGround ? 1.0 : ca;
+		colour = colour * (1.0 - cover01) + surface * cover01;
+		alpha = cover01;
+	}
+	premul = colour * transmit + inscatter;
+	float behind = 1.0 - dot(transmit, float3(0.333, 0.333, 0.333));
+	alpha = alpha + (1.0 - alpha) * behind;
+	premul *= Gains.w;
+	alpha *= Gains.w;
+}
+// Front to back as spaceView.ts renderBehind: the planet, then the stars it dims.
+float3 outColour = premul + starColour * (1.0 - alpha);
+if (Planet * Gains.z > 0.5)
+{
+	// The halo three.js's bloom pass (RealtimeBackdrop BLOOM) spreads round the sun, fitted to
+	// its render at a 50 degree view: angle from the sun in degrees. A screen-space bloom has
+	// nothing to spread while the sun is off the screen, so the halo fades out there.
+	float3 sunUe = normalize(Sun.xyz).xzy;
+	float4 sunClip = mul(float4(sunUe, 0.0), ResolvedView.TranslatedWorldToClip);
+	float2 sunNdc = sunClip.xy / max(abs(sunClip.w), 1e-6);
+	float onScreen = sunClip.w > 0.0 ? smoothstep(1.3, 1.0, max(abs(sunNdc.x), abs(sunNdc.y))) : 0.0;
+	float th = degrees(acos(clamp(dot(d, normalize(Sun.xyz)), -1.0, 1.0)));
+	float halo = 9.5 * exp(-th / 0.25) + 1.56 * exp(-th / 1.55) + 0.174 * exp(-th / 5.6);
+	outColour += float3(1.0, 0.97, 0.92) * halo * onScreen * (Spin.z / 8.0) * Gains.w;
+}
+float exposure = max(Exposure, 1e-8);
+if (Calibrate > 0.5)
+{
+	// A ramp of known scene values, 2^-12 at the left to 2^6 at the right, to measure the tonemapper.
+	return exp2(lerp(-12.0, 6.0, saturate(ScreenUV.x))) / exposure;
+}
+// What three.js shows (AgX at exposure 0), then the game's tonemapper undone, so the view reads
+// the same through Unreal's grade.
+float3 shown = S.Srgb(S.AgX(outColour * SpaceGain));
+float3 scene = exp2(S.Inverse(shown));
+return (shown > 0.002 ? scene : 0.0) / exposure;
+"""  # noqa: E501
 
 
 def post_code(ev_min: float, ev_max: float) -> str:
@@ -862,6 +1171,7 @@ def build_character(g: Graph) -> None:
     g.out("Nrm", "", "MP_NORMAL")
     g.out("Specular", "", "MP_SPECULAR")
     g.out("SubsurfaceAmount", "", "MP_OPACITY")
+    g.out("EmissiveColor", "", "MP_EMISSIVE_COLOR")
 
 
 def build_decal(g: Graph) -> None:
@@ -908,6 +1218,68 @@ def build_post(g: Graph, ev_min: float, ev_max: float) -> None:
     g.out("Grade", "", "MP_EMISSIVE_COLOR")
 
 
+def build_space(g: Graph) -> None:
+    u = g.u
+    mpc = u.load_asset(SPACE_MPC)
+    if mpc is None:
+        g.errors.append(f"{g.mat.get_name()}: {SPACE_MPC} missing")
+    for name, _default in SPACE_MPC_VECTORS:
+        node = g.node(u.MaterialExpressionCollectionParameter, f"Mpc{name}")
+        node.set_editor_property("collection", mpc)
+        node.set_editor_property("parameter_name", name)
+    g.node(u.MaterialExpressionCameraVectorWS, "Cam")
+    g.node(u.MaterialExpressionEyeAdaptation, "Exposure")
+    g.node(u.MaterialExpressionScreenPosition, "ScreenPos")
+    g.custom(
+        "Space",
+        SPACE_HELPERS + "\n" + SPACE_MAIN,
+        {
+            "Cam": ("Cam", ""),
+            "Centre": ("MpcEarthCentre", ""),
+            "Row0": ("MpcEarthRow0", ""),
+            "Row1": ("MpcEarthRow1", ""),
+            "Row2": ("MpcEarthRow2", ""),
+            "Sun": ("MpcSunDir", ""),
+            "Spin": ("MpcSpin", ""),
+            "Gains": ("MpcGains", ""),
+            "DayMap": ("DayMap", ""),
+            "NightMap": ("NightMap", ""),
+            "CloudMap": ("CloudMap", ""),
+            "ReliefMap": ("ReliefMap", ""),
+            "StarMap": ("StarMap", ""),
+            "StarScale": ("StarScale", ""),
+            "Planet": ("Planet", ""),
+            "SpaceGain": ("SpaceGain", ""),
+            "Calibrate": ("Calibrate", ""),
+            "ScreenUV": ("ScreenPos", "ViewportUV"),
+            "Exposure": ("Exposure", ""),
+        },
+    )
+    g.out("Space", "", "MP_EMISSIVE_COLOR")
+
+
+def ensure_space_collection(u):
+    """MPC_Verse_Space with SPACE_MPC_VECTORS (created or brought up to date)."""
+    folder, name = SPACE_MPC.split(".")[0].rsplit("/", 1)
+    lib = u.EditorAssetLibrary
+    path = f"{folder}/{name}"
+    if lib.does_asset_exist(path):
+        mpc = lib.load_asset(path)
+    else:
+        factory = u.MaterialParameterCollectionFactoryNew()
+        tools = u.AssetToolsHelpers.get_asset_tools()
+        mpc = tools.create_asset(name, folder, u.MaterialParameterCollection, factory)
+    vectors = []
+    for pname, default in SPACE_MPC_VECTORS:
+        v = u.CollectionVectorParameter()
+        v.set_editor_property("parameter_name", pname)
+        v.set_editor_property("default_value", u.LinearColor(*default))
+        vectors.append(v)
+    mpc.set_editor_property("vector_parameters", vectors)
+    lib.save_loaded_asset(mpc, only_if_is_dirty=False)
+    return mpc
+
+
 BUILDERS = {
     "M_Verse_Weapon": build_weapon,
     "M_Verse_Surface": build_surface,
@@ -917,6 +1289,7 @@ BUILDERS = {
     "M_Verse_Screen": build_screen,
     "M_Verse_Character": build_character,
     "M_Verse_Decal": build_decal,
+    "M_Verse_Space": build_space,
 }
 
 
@@ -935,6 +1308,13 @@ def _material_settings(u, name: str, mat) -> None:
     if name == "M_Verse_Decal":
         mat.set_editor_property("material_domain", u.MaterialDomain.MD_DEFERRED_DECAL)
         mat.set_editor_property("blend_mode", u.BlendMode.BLEND_TRANSLUCENT)
+    if name == "M_Verse_Space":
+        # Unlit, translucent without fog: the deck's haze must not grey the sky, and none of it
+        # lights the deck (three.js draws it behind the deck the same way).
+        mat.set_editor_property("shading_model", u.MaterialShadingModel.MSM_UNLIT)
+        mat.set_editor_property("blend_mode", u.BlendMode.BLEND_TRANSLUCENT)
+        mat.set_editor_property("use_translucency_vertex_fog", False)
+        mat.set_editor_property("two_sided", True)
     # A packaged or -game build never compiles a usage on demand: without these flags the decks'
     # instanced and Nanite meshes render with the engine's default checker material.
     if name not in ("M_Verse_Decal", POST_TONEMAP.name):
@@ -977,6 +1357,8 @@ def run(only: list[str], *, save: bool = True) -> dict:
     for spec in specs:
         if wanted and spec.name not in wanted:
             continue
+        if spec.name == "M_Verse_Space":
+            ensure_space_collection(u)
         mat = _ensure(u, spec.folder, spec.name)
         g = Graph(u, mat)
         for p in spec.params:
