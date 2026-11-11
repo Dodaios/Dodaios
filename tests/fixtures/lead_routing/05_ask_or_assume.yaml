@@ -1,0 +1,85 @@
+# Golden routing cases: value of information. When the action is reversible and
+# the most plausible reading is clear, the lead acts and states the assumption.
+# When the answer is missing for an irreversible action, the lead asks one
+# question (first move: no tool, the question is the answer) or hits approval.
+
+# ---- act with an assumption: reversible, plausible reading --------------------
+- id: assume-meeting-time-en
+  category: ambiguous
+  lang: en
+  utterance: "Put a meeting with Anna on my calendar tomorrow afternoon."
+  expect: {tool: google_calendar, args: {action: create_event}}
+  note: "Reversible entry, afternoon is enough: pick a slot, say which, no question."
+- id: assume-meeting-time-de
+  category: ambiguous
+  lang: de
+  utterance: "Trag mir morgen Nachmittag einen Termin mit Anna in den Kalender ein."
+  expect: {tool: google_calendar, args: {action: create_event}}
+  note: "Ein Eintrag lässt sich löschen: eine Uhrzeit wählen und nennen, nicht fragen."
+- id: assume-reminder-time-en
+  category: ambiguous
+  lang: en
+  utterance: "Remind me to call the dentist."
+  expect: {tool: reminders, args: {action: create}}
+  note: "No time given: a sensible default is stated, a reminder is cheap to move."
+- id: assume-reminder-time-es
+  category: ambiguous
+  lang: es
+  utterance: "Recuérdame llamar al dentista mañana."
+  expect: {tool: reminders, args: {action: create}}
+- id: assume-draft-not-send-de
+  category: ambiguous
+  lang: de
+  utterance: "Schreib Anna eine Antwort auf ihre Rechnungsmail."
+  expect: {tool: gmail, effect: action}
+  note: "Ein Entwurf ist umkehrbar; er liegt bereit, statt vorher zu fragen."
+  requires: [gmail]
+- id: assume-search-memory-first-en
+  category: memory
+  lang: en
+  utterance: "Which airline do I usually fly with?"
+  expect: {tool: memory-search, effect: read}
+  note: "The answer is in memory: look it up, never ask the owner."
+- id: assume-search-memory-first-de
+  category: memory
+  lang: de
+  utterance: "Wo habe ich mein letztes Hotel in Wien gebucht?"
+  expect: {tool: memory-search, effect: read}
+- id: assume-open-section-pt
+  category: ambiguous
+  lang: pt
+  utterance: "Abre as configurações."
+  expect: {tool: navigate, args: {section: settings}}
+  note: "Opening a screen is reversible: do it."
+
+# ---- ask once: irreversible or a required parameter is missing ----------------
+- id: ask-send-mail-no-recipient-en
+  category: ambiguous
+  lang: en
+  utterance: "Send the contract to him."
+  expect: {tool: none}
+  note: "Irreversible send and no recipient anywhere: one question, no tool."
+- id: ask-send-mail-no-recipient-de
+  category: ambiguous
+  lang: de
+  utterance: "Schick ihm den Vertrag."
+  expect: {tool: none}
+  note: "Unwiderruflich und kein Empfänger bekannt: eine Frage, kein Tool."
+- id: ask-delete-which-en
+  category: ambiguous
+  lang: en
+  utterance: "Delete the old file."
+  expect: {tool: none}
+  note: "Which file is unknown and deleting cannot be undone: ask which one."
+- id: ask-send-mail-approval-en
+  category: approval
+  lang: en
+  utterance: "Send Anna the invoice mail right now."
+  expect: {tool: gmail, args: {action: send_message}, approval: true}
+  note: "Everything is known: no question, the approval card is the confirmation."
+- id: ask-call-no-name-es
+  category: ambiguous
+  lang: es
+  utterance: "Llama a mi contacto y dile que llego tarde."
+  expect: {tool: none}
+  note: "A call cannot be taken back and the contact is not named: ask who."

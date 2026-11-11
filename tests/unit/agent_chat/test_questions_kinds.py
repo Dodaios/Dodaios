@@ -292,17 +292,21 @@ def test_the_tool_offers_the_kinds_without_requiring_options() -> None:
 
 
 def test_the_tool_reports_multi_picks_and_a_skipped_question() -> None:
-    def answers(specs: Any) -> Any:
-        return [
-            answer_from(specs[0], option_index=None, text=None, option_indices=[1, 2]),
-            answer_json(specs[1], {"skip": True}),
-        ]
+    def picks(specs: Any) -> Any:
+        return [answer_from(specs[0], option_index=None, text=None, option_indices=[1, 2])]
 
-    args = {"questions": [_FEATURES, _NAME]}
-    result = asyncio.run(_tool("society:ada", _Service(answers)).execute(args, None))
+    result = asyncio.run(
+        _tool("society:ada", _Service(picks)).execute({"questions": [_FEATURES]}, None)
+    )
     assert result.success
-    first, second = result.output["answers"]
+    (first,) = result.output["answers"]
     assert first["picked"] == ["Search", "Export"] and first["answer"] == "Search\nExport"
+
+    def skip(specs: Any) -> Any:
+        return [answer_json(specs[0], {"skip": True})]
+
+    result = asyncio.run(_tool("society:ada", _Service(skip)).execute({"questions": [_NAME]}, None))
+    (second,) = result.output["answers"]
     assert second["source"] == DECLINED
     assert "decide it yourself" in result.output["note"]
 

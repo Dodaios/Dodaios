@@ -242,7 +242,8 @@ def test_tool_returns_the_persons_answers() -> None:
     service = _FakeService()
     result = asyncio.run(_tool("society:ada", service).execute(dict(_ARGS), None))
     assert result.success
-    assert [r["answer"] for r in result.output["answers"]] == ["Postgres", "VPS"]
+    # One question at a time: the second took its recommendation (ask gate).
+    assert [r["answer"] for r in result.output["answers"]] == ["Postgres", "Laptop"]
     assert result.output["answers"][0]["recommended"] is False
     assert service.asked == [("society:ada", "Ada")]
 
@@ -254,7 +255,7 @@ def test_a_slow_answer_is_polled_in_slices() -> None:
     assert first.success and first.output["status"] == "waiting"
     assert first.output["question_id"] == "q1" and "wait_for" in first.output["note"]
     second = asyncio.run(tool.execute({"wait_for": "q1"}, None))
-    assert [r["answer"] for r in second.output["answers"]] == ["Postgres", "VPS"]
+    assert [r["answer"] for r in second.output["answers"]] == ["Postgres", "Laptop"]
     assert service.asked == [("society:ada", "Ada")]  # polling never opens a new card
     gone = asyncio.run(tool.execute({"wait_for": "nope"}, None))
     assert not gone.success

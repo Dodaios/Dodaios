@@ -867,6 +867,67 @@
   "ambiguous-just-a-question-about-agents-en": {
    "tool": "society_status"
   },
+  "assume-meeting-time-en": {
+   "tool": "google_calendar",
+   "input": {
+    "action": "create_event"
+   }
+  },
+  "assume-meeting-time-de": {
+   "tool": "google_calendar",
+   "input": {
+    "action": "create_event"
+   }
+  },
+  "assume-reminder-time-en": {
+   "tool": "reminders",
+   "input": {
+    "action": "create"
+   }
+  },
+  "assume-reminder-time-es": {
+   "tool": "reminders",
+   "input": {
+    "action": "create"
+   }
+  },
+  "assume-draft-not-send-de": {
+   "tool": "gmail"
+  },
+  "assume-search-memory-first-en": {
+   "tool": "memory-search"
+  },
+  "assume-search-memory-first-de": {
+   "tool": "memory-search"
+  },
+  "assume-open-section-pt": {
+   "tool": "navigate",
+   "input": {
+    "section": "settings"
+   }
+  },
+  "ask-send-mail-no-recipient-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "ask-send-mail-no-recipient-de": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "ask-delete-which-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "ask-send-mail-approval-en": {
+   "tool": "gmail",
+   "input": {
+    "action": "send_message"
+   }
+  },
+  "ask-call-no-name-es": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
   "delegate-front-agent-paraphrase-en": {
    "tool": "delegate",
    "input": {

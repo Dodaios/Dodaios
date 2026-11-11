@@ -15,6 +15,9 @@
                                               what happened (``weeks``): Brier score and a
                                               reliability table, overall, per tool class,
                                               per seat and per week.
+* ``GET    /api/trust/asking``                value-of-information asking (``weeks``): cards shown,
+                                              answered from memory, acted on an assumption, and the
+                                              needless / should-have-asked rates.
 * ``GET    /api/trust/receipts/{id}``         the receipt of one action.
 * ``GET    /api/trust/privacy``               what the assistant knows and where it goes.
 * ``GET    /api/trust/recipients``            who has been written to from here.
@@ -226,6 +229,20 @@ def calibration(weeks: int = Query(default=26, ge=1, le=520)) -> dict[str, Any]:
 
     since = int((time.time() - weeks * 7 * 86400) * 1000)
     return audit_report(audit_log(), since)
+
+
+@router.get("/asking")
+def asking(weeks: int = Query(default=26, ge=1, le=520)) -> dict[str, Any]:
+    from pathlib import Path
+
+    from dodaios.core.config import DATA_DIR
+    from dodaios.evals.agent_score.asking import ask_report
+    from dodaios.evals.agent_score.turns import read_lead_turns
+    from dodaios.trust.ask_log import ask_log
+
+    since = int((time.time() - weeks * 7 * 86400) * 1000)
+    turns = read_lead_turns(Path(DATA_DIR) / "agent_chat.db", since)
+    return ask_report(ask_log().rows(since), turns)
 
 
 @router.get("/receipts/{receipt_id}")
