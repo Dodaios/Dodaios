@@ -263,6 +263,12 @@ void UVerseDuelSubsystem::BuildHallIfOnHangar()
 	{
 		return;
 	}
+	// The deck subsystem still names the hangar while the next deck's world begins play: only the
+	// hangar's own level gets the hall (it was built under the bridge, ops and engineering).
+	if (!World->GetOutermost()->GetName().Contains(TEXT("LV_Hangar")))
+	{
+		return;
+	}
 	// The rooms that hold a deck station (arrivals, lift lobby) stay free of the hall's loose props.
 	TArray<FVerseDeckRoom> KeepClear;
 	if (const FVerseDeckManifest* Manifest = Decks->GetManifest(UVerseHangarSwitchSubsystem::HangarDeck))

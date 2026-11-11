@@ -116,8 +116,19 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Verse|Decks")
 	TObjectPtr<UExponentialHeightFogComponent> Fog;
 
+	/**
+	 * The deck's camera look (art-pipeline 7, "Tone map"): manual exposure at the look's EV100,
+	 * Lumen GI and reflections, bloom, vignette and a light grade. Without it the engine's auto
+	 * exposure pushed every dark deck to white.
+	 */
+	UPROPERTY(VisibleAnywhere, Category = "Verse|Decks")
+	TObjectPtr<class UPostProcessComponent> Post;
+
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<ULocalLightComponent>> Lights;
+
+	/** Fixture points spread over a room's floor polygon (deck-local cm) at height ZCm. */
+	static TArray<FVector> FixtureGrid(const struct FVerseDeckRoom& Room, int32 Count, double ZCm);
 
 private:
 	TArray<double> BlinkHz;

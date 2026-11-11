@@ -57,10 +57,18 @@ MASTER = "/Game/Verse/Materials/Master/{0}.{0}"
 #: Parameters of the WP14 masters a WP12 recipe may set, by group.
 MASTER_PARAMS = {
     "M_Verse_Surface": {
-        "scalars": {"RoughnessMin", "RoughnessMax", "Metallic", "EdgeWear", "GrimeAmount"},
+        "scalars": {
+            "RoughnessMin",
+            "RoughnessMax",
+            "Metallic",
+            "EdgeWear",
+            "GrimeAmount",
+            "TriplanarScale",
+            "TriplanarWorld",
+        },
         "vectors": {"BaseTint"},
-        "switches": {"UseTriplanar"},
-        "textures": set(),
+        "switches": {"UseTriplanar", "UseTextureSet"},
+        "textures": {"Set1_BC", "Set1_N", "Set1_ORM"},
     },
     "M_Verse_Floor": {
         "scalars": {"RoughnessMin", "RoughnessMax", "WearAmount"},
@@ -222,6 +230,31 @@ def _short(blender_name: str) -> str:
     return short
 
 
+#: Deck surface families that sample a scanned texture set (Poly Haven, CC0, imported by
+#: art/verse/decks/hangar/unreal_arena/textures.py), world-aligned triplanar, the tint multiplying
+#: its luminance: (name prefix, set, repeats per metre). Flat tints read as plastic in Unreal.
+TEXTURE_FAMILIES: tuple[tuple[str, str, float], ...] = (
+    ("Wall_", "Panel", 0.45),
+    ("Section_", "Panel", 0.6),
+    ("Recess_", "Panel", 0.8),
+    ("Ceiling_", "Panel", 0.5),
+    ("Hull_", "Paint", 0.5),
+    ("Struct_", "Paint", 0.7),
+)
+TEXTURE_SET_PATH = "/Game/Verse/Textures/Arena/T_Arena_{set}_{map}.T_Arena_{set}_{map}"
+#: Wear and grime of the deck surfaces: the scanned set carries most of it, so the procedural
+#: layers stay light (strong grime drew dark blotches over whole walls).
+SURFACE_EDGE_WEAR = 0.2
+SURFACE_GRIME = 0.12
+
+
+def _texture_family(short: str) -> tuple[str, float] | None:
+    for prefix, set_name, scale in TEXTURE_FAMILIES:
+        if short.startswith(prefix):
+            return set_name, scale
+    return None
+
+
 def _family(short: str) -> tuple[float, float, float]:
     for prefix, rmin, rmax, metal in SURFACE_FAMILIES:
         if short.startswith(prefix):
@@ -282,9 +315,24 @@ def recipe(blender_name: str, rgb, tint: Mapping | None = None) -> dict:
         doc = _doc(name, blender_name, "M_Verse_Surface")
         doc["vectors"]["BaseTint"] = _rgba(rgb)
         doc["scalars"].update(
-            RoughnessMin=rmin, RoughnessMax=rmax, Metallic=metal, EdgeWear=0.4, GrimeAmount=0.3
+            RoughnessMin=rmin,
+            RoughnessMax=rmax,
+            Metallic=metal,
+            EdgeWear=SURFACE_EDGE_WEAR,
+            GrimeAmount=SURFACE_GRIME,
         )
         doc["switches"]["UseTriplanar"] = False
+        textured = _texture_family(short)
+        if textured:
+            set_name, scale = textured
+            doc["switches"].update(UseTriplanar=True, UseTextureSet=True)
+            doc["scalars"].update(TriplanarScale=scale, TriplanarWorld=1.0)
+            doc["textures"] = {
+                f"Set1_{key}": TEXTURE_SET_PATH.format(set=set_name, map=key)
+                for key in ("BC", "N", "ORM")
+            }
+            # The set's luminance averages about a half, so the surfaces read a step darker than
+            # their flat tint: the charcoal of the reference decks.
     return doc
 
 
