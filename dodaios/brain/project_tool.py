@@ -12,10 +12,13 @@ independent evaluator judges the success criteria met on that evidence.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Final
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.projects.engine import ProjectError, get_engine
+
+log = logging.getLogger(__name__)
 
 _READS: Final[frozenset[str]] = frozenset({"status", "list"})
 _ACTIONS: Final[tuple[str, ...]] = (
@@ -128,9 +131,10 @@ class ProjectTool:
         pid = str(args.get("project_id") or "").strip()
         try:
             return ToolResult(True, await self._run(engine, action, pid, args, session))
-        except ProjectError as exc:
+        except ProjectError as exc:  # a refusal the model reads in the tool result
             return ToolResult(False, "", str(exc))
         except Exception as exc:  # noqa: BLE001 - the project store is a courtesy surface
+            log.warning("project tool: %s failed", action, exc_info=True)
             return ToolResult(False, "", f"The projects store is unavailable: {exc}")
 
     @staticmethod

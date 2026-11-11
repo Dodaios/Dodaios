@@ -501,6 +501,7 @@ class ProjectEngine:
         try:
             verdict = await self._evaluator(project, self._events(project), background)
         except EvaluatorUnavailable as exc:
+            log.info("projects: %s cannot be judged now: %s", project.id, exc)
             self._save(project)
             return CloseResult(False, project.status, f"The criteria could not be judged: {exc}")
         except Exception as exc:  # noqa: BLE001 - a failed check never closes a project

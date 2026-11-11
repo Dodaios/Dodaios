@@ -548,7 +548,7 @@ class LiveActions:
             result = await get_engine().close(
                 project_id, "abandon", reason="Closed from the watchdog notice."
             )
-        except ProjectError:
+        except ProjectError:  # a refused close (unknown or already closed) has no effect
             return False
         return result.closed
 
@@ -558,7 +558,7 @@ class LiveActions:
 
         try:
             await get_engine().set_status(project_id, status, decision=decision, kind=kind)
-        except ProjectError:
+        except ProjectError:  # a refused change (unknown or already closed) has no effect
             return False
         return True
 

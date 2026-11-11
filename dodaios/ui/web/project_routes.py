@@ -33,12 +33,12 @@ def _fail(exc: ProjectError) -> HTTPException:
 
 
 @router.get("")
-async def list_projects(all: bool = False) -> dict[str, Any]:  # noqa: A002 - query name
+def list_projects(all: bool = False) -> dict[str, Any]:  # noqa: A002 - query name
     return {"projects": get_engine().summaries(open_only=not all)}
 
 
 @router.get("/metrics")
-async def metrics() -> dict[str, Any]:
+def metrics() -> dict[str, Any]:
     return project_metrics(get_engine().store)
 
 
