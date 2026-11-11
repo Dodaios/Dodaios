@@ -23,28 +23,27 @@ describe("a thread turn in an agent chat", () => {
   it("reads a streaming turn like a thread and folds it once it answered", () => {
     const blocks = [thought("r1", "**Checking the inbox**\n\nThree new mails."), tool("c1", "gh pr list"), tool("c2", "gh pr view 3", { output: null, durationMs: null })];
     const { rerender } = render(<ThreadTurn turn={turn(blocks, "running")} prompts="inline" />);
-    // The running stretch stays closed; its thought is a row of the card, not prose in the thread.
+    // The thought reads as one short sentence; the running stretch after it stays closed.
+    expect(screen.getByTestId("thread-thought-sentence").textContent).toBe("Checking the inbox");
     const line = screen.getByRole("button", { name: /steps so far/ });
     expect(line.getAttribute("aria-expanded")).toBe("false");
     expect(line.textContent).toContain("Ran 2 commands");
-    expect(screen.queryByTestId("thread-thought")).toBeNull();
     expect(screen.getByTestId("thread-working").textContent).toMatch(/^Working for /);
     const done = [...blocks.slice(0, 2), { ...blocks[2], output: "ok", durationMs: 200 } as ToolBlock, { kind: "text" as const, id: "a", text: "Two PRs wait for review." }];
     rerender(<ThreadTurn turn={turn(done)} prompts="inline" receipt="1.2k tokens" />);
     // Finished: only the answer and the "Worked for" line stay; one tap brings the work back.
     expect(screen.getByText("Two PRs wait for review.")).toBeTruthy();
-    expect(screen.queryByTestId("thread-thought")).toBeNull();
+    expect(screen.queryByTestId("thread-thought-sentence")).toBeNull();
     expect(screen.getByTestId("thread-worked-for").textContent).toContain("Worked for 5.0s");
     expect(screen.getByTestId("thread-turn-closing").textContent).toContain("1.2k tokens");
     fireEvent.click(screen.getByTestId("thread-worked-for"));
-    fireEvent.click(screen.getByRole("button", { name: /^Ran 2 commands/ }));
-    expect(screen.getByTestId("thread-thought").textContent).toContain("Checking the inbox");
+    expect(screen.getByTestId("thread-thought-sentence").textContent).toBe("Checking the inbox");
   });
 
   it("never draws a thought the model did not put into words", () => {
     render(<ThreadTurn turn={turn([thought("r1", ""), tool("c1", "ls"), { kind: "text", id: "a", text: "Done." }])} prompts="inline" />);
     fireEvent.click(screen.getByTestId("thread-worked-for"));
-    expect(screen.queryByTestId("thread-thought")).toBeNull();
+    expect(screen.queryByTestId("thread-thought-sentence")).toBeNull();
     expect(screen.queryByText("Thinking")).toBeNull();
   });
 

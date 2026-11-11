@@ -27,12 +27,11 @@ describe("thread work log", () => {
     expect(screen.getByText("All green.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Ran 2 commands/ })).toBeNull();
     fireEvent.click(screen.getByTestId("thread-worked-for"));
-    // The thought and its calls are ONE closed line that counts what ran.
+    // The thought reads as one sentence; its calls are ONE closed line that counts what ran.
+    expect(screen.getByTestId("thread-thought-sentence").textContent).toBe("Checking the build");
     const header = screen.getByRole("button", { name: /^Ran 2 commands/ });
-    expect(screen.queryByTestId("thread-thought")).toBeNull();
     expect(screen.queryByText("npm test")).toBeNull();
     fireEvent.click(header);
-    expect(screen.getByTestId("thread-thought").textContent).toContain("Checking the build");
     expect(screen.getByText("npm run build")).toBeTruthy();
     expect(screen.getByText("npm test")).toBeTruthy();
     expect(screen.getByText("All green.")).toBeTruthy();
@@ -58,7 +57,7 @@ describe("thread work log", () => {
     expect(screen.getByTestId("thread-working").textContent).toMatch(/^Working for /);
   });
 
-  it("keeps thoughts out of the thread, except the one the running turn is having", () => {
+  it("reads every thought as one short sentence between the lines, a repeat once", () => {
     show(turn([
       thought("r1", "Checking the workflow."),
       tool("c1", "gh run list"),
@@ -68,22 +67,15 @@ describe("thread work log", () => {
       tool("c2", "gh pr list"),
       thought("r3", "Nobody is on it.\n\nI will look at main.", true),
     ], "running"));
-    // A stretch the agent has spoken after: one closed line, no thought in the thread.
-    const first = screen.getAllByRole("button", { name: /^Ran a command/ })[0];
-    expect(first.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByText("Checking the workflow.")).toBeNull();
-    expect(screen.queryByText("The gate never ran.")).toBeNull();
-    // The stretch the turn is in: closed, with the newest thought under its line.
-    expect(screen.getByRole("button", { name: /steps so far/ }).getAttribute("aria-expanded")).toBe("false");
-    // One short sentence of the live thought, at reading size; the whole thought is its title.
-    const live = screen.getByTestId("thread-thought-live");
-    expect(live.textContent).toBe("Nobody is on it.");
-    expect(live.getAttribute("title")).toBe("Nobody is on it. I will look at main.");
-    // Opened, the first stretch tells each thought once, as a row.
-    fireEvent.click(first);
-    const rows = screen.getAllByTestId("thread-thought").map((row) => row.textContent);
-    expect(rows.filter((text) => text?.includes("The gate never ran."))).toHaveLength(1);
-    expect(rows.some((text) => text?.includes("Checking the workflow."))).toBe(true);
+    // Each thought is one white sentence, a repeated one told once.
+    const sentences = screen.getAllByTestId("thread-thought-sentence").map((row) => row.textContent);
+    expect(sentences).toEqual(["Checking the workflow.", "The gate never ran.", "Nobody is on it."]);
+    // The work between them stays closed lines.
+    expect(screen.getAllByRole("button", { name: /^Ran a command/ })[0].getAttribute("aria-expanded")).toBe("false");
+    // A longer thought opens to its whole text.
+    expect(screen.queryByText("I will look at main.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Nobody is on it." }));
+    expect(screen.getByText("I will look at main.")).toBeTruthy();
   });
 
   it("opens a thought of its own to its whole text with one click", () => {
@@ -93,7 +85,7 @@ describe("thread work log", () => {
       { kind: "text", id: "a", text: "Done." },
       tool("c9", "ls"),
     ], "running"));
-    const line = screen.getByRole("button", { name: /^Thought/ });
+    const line = screen.getByRole("button", { name: "Reading the config." });
     expect(screen.queryByText("Now the router.")).toBeNull();
     fireEvent.click(line);
     expect(screen.getByText("Now the router.")).toBeTruthy();
@@ -129,10 +121,9 @@ describe("thread work log", () => {
     ]));
     expect(screen.getByText("Fetching the description.")).toBeTruthy();
     expect(screen.getByText("The pull request adds two pets.")).toBeTruthy();
-    expect(screen.queryByTestId("thread-thought")).toBeNull();
+    expect(screen.queryByTestId("thread-thought-sentence")).toBeNull();
     fireEvent.click(screen.getByTestId("thread-worked-for"));
-    fireEvent.click(screen.getByRole("button", { name: /^Ran a command/ }));
-    expect(screen.getByTestId("thread-thought").textContent).toContain("Summarizing the pull request.");
+    expect(screen.getByTestId("thread-thought-sentence").textContent).toBe("Summarizing the pull request.");
   });
 
   it("folds a preamble that an earlier step separates from the answer", () => {

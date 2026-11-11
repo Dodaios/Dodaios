@@ -181,13 +181,18 @@ type StretchRow = WorkGroup | Extract<ThreadRow, { kind: "thought" }>;
  * agent's words, cards and sub-agents stay rows of their own and end a
  * stretch. A thought that only repeats the one before it is told once. The
  * stretch the running turn ends on is live.
+ *
+ * `thoughtsApart`: a thought in words stays a row of its own between the
+ * stretches (a thread reads it as one short sentence), so the work between
+ * two thoughts is its own line.
  */
 export function joinStretches<T extends { kind: string }>(
   rows: readonly T[],
-  options: { t: Translate; lang: string; running: boolean; titles?: Readonly<Record<string, string>> },
+  options: { t: Translate; lang: string; running: boolean; titles?: Readonly<Record<string, string>>; thoughtsApart?: boolean },
 ): (T | Stretch)[] {
   const out: (T | Stretch)[] = [];
   let run: StretchRow[] = [];
+  let lastApart = "";
   const flush = () => {
     if (!run.length) return;
     const items: StretchItem[] = [];
@@ -218,9 +223,15 @@ export function joinStretches<T extends { kind: string }>(
     run = [];
   };
   for (const row of rows) {
-    if (row.kind === "work" || row.kind === "thought") run.push(row as unknown as StretchRow);
+    if (row.kind === "thought" && options.thoughtsApart) {
+      flush();
+      const text = (row as unknown as { text: string }).text.trim();
+      if (text !== lastApart) out.push(row);
+      lastApart = text;
+    } else if (row.kind === "work" || row.kind === "thought") run.push(row as unknown as StretchRow);
     else {
       flush();
+      if (row.kind === "text") lastApart = "";
       out.push(row);
     }
   }
