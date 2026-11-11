@@ -39,6 +39,9 @@ FVerseDeckLook FVerseDeckLook::For(FName Deck)
 		Look.VolumetricExtinction = 1.4;
 		Look.ExposureEV100 = 7.0;
 		Look.WorkLightKelvin = 5400.0;
+		// The lift and the commander spawn face the lobby's back wall; west looks across the
+		// arrivals apron into the hall.
+		Look.ArrivalYawDeg = 180.0;
 	}
 	return Look;
 }

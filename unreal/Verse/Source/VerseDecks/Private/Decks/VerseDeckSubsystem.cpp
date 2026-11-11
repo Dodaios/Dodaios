@@ -327,6 +327,10 @@ void UVerseDeckSubsystem::SpawnDeckActors(UWorld* World, FName Deck, bool bByLif
 		FTransform Arrival;
 		if (Manifest->ArrivalTransform(bByLift, Arrival))
 		{
+			if (const TOptional<double> Yaw = FVerseDeckLook::For(Deck).ArrivalYawDeg; Yaw.IsSet())
+			{
+				Arrival.SetRotation(FRotator(0.0, Yaw.GetValue(), 0.0).Quaternion());
+			}
 			DeckCamera->FrameArrival(Arrival);
 			if (APlayerController* Controller = World->GetFirstPlayerController())
 			{
