@@ -562,6 +562,16 @@
     "telegram_denied": "Rechazado desde Telegram.",
     "telegram_settled": "Decidido en la app.",
     "telegram_expired": "Esta solicitud ya no está abierta.",
+    "call_ring_title": "{agent} llama por una decisión urgente",
+    "call_opening_approval": "{agent} necesita una decisión tuya: {summary}. Di sí para permitirlo, no para rechazarlo o luego para dejarlo abierto.",
+    "call_opening_question": "{agent} tiene una pregunta que no puede esperar: {summary}. La respuesta recomendada es {answer}. Di sí para aceptarla o luego para dejarlo abierto.",
+    "call_opening_notice": "{agent} te necesita para algo urgente: {summary}. Abre la app para responder.",
+    "call_reprompt": "Perdona, no te he entendido. ¿Sí, no o luego?",
+    "call_done_allowed": "Hecho, está permitido. Adiós.",
+    "call_done_denied": "Hecho, está rechazado. Adiós.",
+    "call_done_answered": "Hecho, usé la respuesta recomendada. Adiós.",
+    "call_done_open": "Vale, sigue abierto para ti en la app. Adiós.",
+    "call_done_gone": "Esa decisión ya no está abierta. Adiós.",
     "test_title": "Las notificaciones están activadas",
     "test_body": "Así te avisa Dodaios mientras la app está en segundo plano."
   }

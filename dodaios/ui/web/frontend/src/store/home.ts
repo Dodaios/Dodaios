@@ -69,6 +69,13 @@ interface HomeStore {
    */
   callNotice: { message: string } | null;
   setCallNotice: (notice: { message: string } | null) => void;
+  /**
+   * An urgent decision rings (`UrgentCallRinging`, the owner's opt-in
+   * "call me for urgent decisions"): a silent card in the call window the owner
+   * answers or dismisses. Nothing is spoken until they act.
+   */
+  ringing: UrgentRing | null;
+  setRinging: (ring: UrgentRing | null) => void;
   /** History row captured when this call starts; navigation cannot reassign it. */
   liveConversationId: string | null;
   ingest: (name: string, payload: unknown, tsMs: number) => void;
@@ -79,6 +86,15 @@ interface HomeStore {
   seedTranscript: (lines: TranscriptLine[]) => void;
   /** Tests and a fresh session. */
   resetTranscript: () => void;
+}
+
+/** An urgent decision that rings the call window. */
+export interface UrgentRing {
+  kind: string;
+  refId: string;
+  sessionId: string;
+  agent: string;
+  summary: string;
 }
 
 /**
@@ -148,8 +164,26 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
   },
   callNotice: null,
   setCallNotice: (callNotice) => set({ callNotice }),
+  ringing: null,
+  setRinging: (ringing) => set({ ringing }),
   liveConversationId: null,
   ingest: (name, payload, tsMs) => {
+    if (name === "UrgentCallRinging") {
+      const ring = (payload ?? {}) as Record<string, unknown>;
+      const refId = typeof ring.ref_id === "string" ? ring.ref_id : "";
+      if (refId) {
+        set({
+          ringing: {
+            kind: typeof ring.kind === "string" ? ring.kind : "approval",
+            refId,
+            sessionId: typeof ring.session_id === "string" ? ring.session_id : "",
+            agent: typeof ring.agent === "string" ? ring.agent : "",
+            summary: typeof ring.summary === "string" ? ring.summary : "",
+          },
+        });
+      }
+      return;
+    }
     if (name === "VoiceProviderRefused") {
       // The chosen provider said no (plan, key, credit, busy). With a
       // continuation the call goes on and the window says what changed;

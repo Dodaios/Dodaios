@@ -52,6 +52,7 @@ from dodaios.speech.hangup import (
     hangup_confirmation_question,
 )
 
+from . import decision_calls
 from .audio import (
     STT_SAMPLE_RATE,
     TTS_SAMPLE_RATE,
@@ -269,6 +270,12 @@ class TelephonyCallSession:
                     self._hangup_confirmation.arm(voice_turn)
                 return
 
+            # A call placed for one owner decision reads the answer itself.
+            decision_call = decision_calls.get(self.call_sid)
+            if decision_call is not None:
+                await self._answer_decision(decision_call, text)
+                return
+
             # Completeness gating (spec §5) — route on classifier verdict.
             # Fail-open: any exception → treat as COMPLETE and dispatch normally
             # (AD-OE6 zero-silent-drop; AP-9/11 no LLM on this path).
@@ -304,6 +311,28 @@ class TelephonyCallSession:
                 pass
         finally:
             self._processing = False
+
+    async def _answer_decision(self, call: decision_calls.DecisionCall, text: str) -> None:
+        """Yes / no / later for the one decision this call carries, then hang up."""
+        answer = decision_calls.classify_answer(text)
+        if answer is None and not call.asked_again:
+            call.asked_again = True
+            if call.reprompt:
+                await self._speak(call.reprompt)
+                return
+        if answer is None or (answer == decision_calls.YES and not call.accepts_yes):
+            answer = decision_calls.LATER
+        if answer == decision_calls.LATER:
+            reply = call.later_reply
+        else:
+            try:
+                reply = await call.resolve(answer)
+            except Exception:  # noqa: BLE001 — the card stays open; say so, never claim it ran
+                log.warning("telephony[%s] decision not applied", self.call_sid, exc_info=True)
+                reply = call.later_reply
+        if reply:
+            await self._speak(scrub_for_voice(reply, language=self._lang_short()).cleaned)
+        await self.end(reason=f"decision_{answer}", status=CALL_COMPLETED)
 
     # -- completeness gating (spec §5, telephony surface) ------------------
 
@@ -583,6 +612,7 @@ class TelephonyCallSession:
             return
         self._ended = True
         self._end_reason = reason
+        decision_calls.discard(self.call_sid)
         if not self._any_audio and status == CALL_COMPLETED:
             status = CALL_NO_AUDIO
         self.status = status

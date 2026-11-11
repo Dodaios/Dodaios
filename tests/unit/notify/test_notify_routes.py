@@ -142,3 +142,14 @@ def test_without_a_vault_the_routes_say_so(tmp_path: Path) -> None:
     app.include_router(router)
     with TestClient(app) as client:
         assert client.get("/api/notify/reminders").status_code == 503
+
+
+def test_urgent_call_is_off_by_default_and_saves_only_on_request(client: TestClient) -> None:
+    assert client.get("/api/notify/settings").json()["urgent_call"]["enabled"] is False
+    saved = client.put(
+        "/api/notify/settings",
+        json={"urgent_call": {"enabled": True, "route": "phone", "events": {"watchdog": False}}},
+    ).json()["urgent_call"]
+    assert saved["enabled"] is True and saved["route"] == "phone"
+    assert saved["events"] == {"approval": True, "question": True, "watchdog": False}
+    assert client.get("/api/notify/settings").json()["urgent_call"] == saved
