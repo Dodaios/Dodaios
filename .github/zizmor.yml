@@ -3,9 +3,6 @@
 rules:
   dangerous-triggers:
     ignore:
-      # Runs on a merged PR but checks out `main` only and executes nothing
-      # from the pull request; the push token reaches the commit step alone.
-      - contributors.yml
       # Both react to completed runs of this repository's own workflows.
       # release-finalize acts on main / release tags only. merge-train runs
       # PR code solely in its read-only `integrate` job without secrets
