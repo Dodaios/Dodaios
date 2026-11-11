@@ -97,6 +97,7 @@ ROUTER_TOOLS = frozenset({
     # Jobs ledger (2026-11-10): read-only handle on the work the lead started.
     "job-status",
     "await-jobs",
+    "trace-explain",
     # Independent, read-only check of delegated work (2026-11-10).
     "verify-delegate",
     # Watchdog (2026-11-11): what is stuck / repaired, and the notice's actions.

@@ -148,6 +148,25 @@ def session_ref(scope: dict[str, Any]) -> str | None:
     return None
 
 
+_SPAN_HEADER = b"x-jarvis-span"
+
+
+def span_ref(scope: dict[str, Any]) -> str | None:
+    """The trace span the harness header names, or ``None``.
+
+    Trusted like the session header: only the harness writes it into the CLI's
+    MCP config, and a value of any other shape is dropped. It carries no
+    authority beyond placing work in the trace tree.
+    """
+    from dodaios.orchestrator.traces import SPAN_ID_RE
+
+    for raw_name, raw_value in scope.get("headers") or ():
+        if raw_name == _SPAN_HEADER:
+            value = raw_value.decode("latin-1").strip()
+            return value if SPAN_ID_RE.fullmatch(value) else None
+    return None
+
+
 async def _reject(send: Any, status: int, body: bytes) -> None:
     await send(
         {
@@ -309,12 +328,15 @@ def build_mcp_asgi_app() -> Any:
         # the tool call in a task started from this request, which inherits
         # the context, and the tool server reads it when it builds the
         # executor's approval surface (dodaios_tools_server.approval_snapshot).
+        from dodaios.core.chat_turn import mcp_span_ref
         from dodaios.mcp.dodaios_tools_server import CHAT_SESSION_REF
 
         token = CHAT_SESSION_REF.set(session_ref(scope))
+        span_token = mcp_span_ref.set(span_ref(scope))
         try:
             await manager.handle_request(scope, receive, send)
         finally:
+            mcp_span_ref.reset(span_token)
             CHAT_SESSION_REF.reset(token)
 
     return app

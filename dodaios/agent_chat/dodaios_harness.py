@@ -69,6 +69,25 @@ _SERVER_NAME: Final[str] = MCP_TOOLS_SERVER_NAME
 #: unattended surface, exactly as before.
 HEADER_NAME: Final[str] = "X-Jarvis-Chat-Session"
 
+#: The span of the turn the CLI runs for, next to the session header. The harness
+#: sets it from the turn in flight; the route validates its shape. It places the
+#: work a vendor CLI starts over MCP in the causal trace tree
+#: (``dodaios.orchestrator.traces``). It is never read from a tool argument.
+SPAN_HEADER_NAME: Final[str] = "X-Jarvis-Span"
+
+
+def _turn_span(session_id: str | None) -> str:
+    """The span of the chat turn running for ``session_id`` right now, else ``""``."""
+    try:
+        from dodaios.core.chat_turn import current_chat_turn, turn_span_id
+
+        turn = current_chat_turn.get()
+        if turn is not None and session_id and turn.session_id == session_id:
+            return turn_span_id(turn)
+    except Exception:  # noqa: BLE001 - a missing span only loses a trace link
+        log.debug("agent chat: no turn span for the MCP header", exc_info=True)
+    return ""
+
 #: The closing block of a society agent's seat. Its briefing already carries the
 #: reply style and the working contract; this adds only the transport facts.
 SOCIETY_PREAMBLE: Final[str] = (
@@ -192,6 +211,8 @@ def mcp_config_json(session_id: str | None = None) -> str | None:
         }
         if session_id:
             headers[HEADER_NAME] = session_id
+            if span := _turn_span(session_id):
+                headers[SPAN_HEADER_NAME] = span
         return json.dumps(
             {"mcpServers": {_SERVER_NAME: {"type": "http", "url": url, "headers": headers}}},
             ensure_ascii=False,
@@ -224,7 +245,9 @@ def codex_config_args(session_id: str | None = None) -> list[str]:
         if session_id:
             args += [
                 "-c",
-                f'mcp_servers.{_SERVER_NAME}.http_headers={{"{HEADER_NAME}"="{session_id}"}}',
+                f'mcp_servers.{_SERVER_NAME}.http_headers={{"{HEADER_NAME}"="{session_id}"'
+                + (f',"{SPAN_HEADER_NAME}"="{span}"' if (span := _turn_span(session_id)) else "")
+                + "}",
                 "-c",
                 f"mcp_servers.{_SERVER_NAME}.required=true",
                 # Codex cuts an MCP call off after 60 s by default. An agent's
@@ -273,6 +296,8 @@ def agy_mcp_server_entry(session_id: str | None = None) -> dict[str, Any] | None
         headers: dict[str, str] = {"Authorization": f"Bearer {key}"}
         if session_id:
             headers[HEADER_NAME] = session_id
+            if span := _turn_span(session_id):
+                headers[SPAN_HEADER_NAME] = span
         return {"serverUrl": url, "headers": headers}
     except Exception:  # noqa: BLE001 — see mcp_config_json
         log.warning("agent chat: could not build the Dodaios agy MCP entry", exc_info=True)
@@ -333,6 +358,8 @@ def grok_mcp_server_entry(session_id: str | None = None) -> dict[str, Any] | Non
         }
         if session_id:
             entry["headers"] = {HEADER_NAME: session_id}
+            if span := _turn_span(session_id):
+                entry["headers"][SPAN_HEADER_NAME] = span
         return entry
     except Exception:  # noqa: BLE001 — see mcp_config_json
         log.warning("agent chat: could not build the Dodaios grok MCP entry", exc_info=True)
@@ -789,6 +816,7 @@ __all__ = [
     "ACTING_PREAMBLE",
     "COMPACT_MAX_CHARS",
     "HEADER_NAME",
+    "SPAN_HEADER_NAME",
     "KEY_ENV_VAR",
     "CODING_PREAMBLE",
     "SOCIETY_PREAMBLE",

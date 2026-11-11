@@ -1955,6 +1955,7 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
             # Jobs ledger (2026-11-10): read-only status / wait on started work.
             "job-status",
             "await-jobs",
+            "trace-explain",
             # Independent, read-only check of delegated work (2026-11-10).
             "verify-delegate",
             "watchdog-status",

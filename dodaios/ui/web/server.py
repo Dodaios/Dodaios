@@ -602,6 +602,7 @@ class WebServer:
         from .telephony_routes import router as telephony_router
         from .tool_model_routes import router as tool_model_router
         from .tools_routes import router as tools_router
+        from .traces_routes import router as traces_router
         from .trust_routes import router as trust_router
         from .update_routes import router as update_router
         from .voice_call_routes import router as voice_call_router
@@ -688,6 +689,8 @@ class WebServer:
         app.include_router(cli_router)
         # Spend & Tokens — a read model over sessions/missions/agent-chat.
         app.include_router(costs_router)
+        # Causal trace tree: lead turn -> assignment -> agent turn -> job.
+        app.include_router(traces_router)
         # Command Registry — the one machine-readable catalog of app commands
         # (consumed by the app-command brain tool, the UI, CLI, and docs gen).
         app.include_router(commands_router)

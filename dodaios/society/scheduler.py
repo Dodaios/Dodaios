@@ -265,7 +265,13 @@ class SocietyScheduler:
                 to_agent=env.from_agent,
                 trace_id=env.trace_id,
                 parent_event_id=env.event_id,
-                payload={"run_id": run_id, "text": f"{display_name(target)} took the task"},
+                payload={
+                    "run_id": run_id,
+                    "text": f"{display_name(target)} took the task",
+                    # Causal trace: the claimed turn hangs from the assignment.
+                    "parent_span_id": env.event_id,
+                    "span_id": run_id[5:] if run_id.startswith("turn:") else "",
+                },
             )
         )
 

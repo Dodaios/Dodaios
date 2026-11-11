@@ -142,6 +142,9 @@ async def track_request(runtime: Any, request: SocietyEnvelope) -> None:
         owner=owner if owner[0] else (session, ""),
         probe=probe,
         meta={"event_id": request.event_id, "trace_id": request.trace_id},
+        # The assignment is a node of the trace; the agent turn it starts hangs from it.
+        span_id=request.event_id,
+        parent_span_id=str(request.payload.get("parent_span_id") or ""),
     )
     if reply_policy(request) != "always":
         return  # Recorded as a job, but the turn does not wait for it.
