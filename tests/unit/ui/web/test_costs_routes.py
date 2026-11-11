@@ -320,3 +320,10 @@ def test_a_rolling_window_keeps_its_exact_width(client: TestClient) -> None:
     """Snapping moves the end, never the width — the chart's grain depends on it."""
     body = client.get("/api/costs/summary?days=30").json()
     assert body["until_ms"] - body["since_ms"] == 30 * 24 * 60 * 60 * 1000
+
+
+def test_agent_score_route_answers_on_an_empty_install(tmp_path: Path) -> None:
+    body = _client(tmp_path / "data").get("/api/costs/agent-score").json()
+    assert body["turns"] == 0
+    assert body["windows"] == []
+    assert body["lifetime"]["score"] is None
