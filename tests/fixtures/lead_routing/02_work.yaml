@@ -93,32 +93,58 @@
   category: team_thread
   lang: en
   utterance: "Let three models plan the migration to Postgres and compare their plans."
-  expect: {tools: [find-app-action, run-app-action], args: {"*": team}}
+  expect: {tool: team_thread, args: {action: start}, approval: true, effect: action}
 - id: team-three-models-plan-de
   category: team_thread
   lang: de
   utterance: "Lass drei Modelle die Migration auf Postgres planen und ihre Pläne vergleichen."
-  expect: {tools: [find-app-action, run-app-action], args: {"*": team}}
+  expect: {tool: team_thread, args: {action: start}, approval: true, effect: action}
 - id: team-plan-build-review-de
   category: team_thread
   lang: de
   utterance: "Claude soll planen, Codex bauen und Gemini prüfen: die neue Suchfunktion."
-  expect: {tools: [find-app-action, run-app-action], args: {"*": team}}
+  expect: {tool: team_thread, args: {action: start}, approval: true, effect: action}
 - id: team-plan-build-review-en
   category: team_thread
   lang: en
   utterance: "Start a team thread: Claude plans, Codex builds, Gemini reviews the new search feature."
-  expect: {tools: [find-app-action, run-app-action], args: {"*": team}}
+  expect: {tool: team_thread, args: {action: start}, approval: true, effect: action}
 - id: team-debate-es
   category: team_thread
   lang: es
   utterance: "Que tres modelos debatan si deberíamos migrar a microservicios."
-  expect: {tools: [find-app-action, run-app-action], args: {"*": team}}
+  expect: {tool: team_thread, args: {action: start}, approval: true, effect: action}
 - id: team-second-opinion-pt
   category: team_thread
   lang: pt
   utterance: "Quero que três modelos dêem a sua opinião sobre a arquitetura da nova API."
-  expect: {tools: [find-app-action, run-app-action], args: {"*": team}}
+  expect: {tool: team_thread, args: {action: start}, approval: true, effect: action}
+
+- id: team-status-en
+  category: team_thread
+  lang: en
+  utterance: "How is the team thread on the Postgres migration doing?"
+  expect: {tool: team_thread, args: {action: status}, effect: read}
+- id: team-status-de
+  category: team_thread
+  lang: de
+  utterance: "Wie weit ist der Team-Thread zur neuen Suchfunktion?"
+  expect: {tool: team_thread, args: {action: status}, effect: read}
+- id: team-list-en
+  category: team_thread
+  lang: en
+  utterance: "Which team threads do I have, and which of them are still working?"
+  expect: {tool: team_thread, args: {action: list}, effect: read}
+- id: team-answer-en
+  category: team_thread
+  lang: en
+  utterance: "Tell the team thread that we go with plan B and they should continue."
+  expect: {tool: team_thread, args: {action: answer}, effect: action}
+- id: team-seats-de
+  category: team_thread
+  lang: de
+  utterance: "Welche Modelle kann ich für einen Team-Thread einsetzen?"
+  expect: {tool: team_thread, args: {action: seats}}
 
 # ---- mission_artifact: missions and artifacts -------------------------------
 - id: artifact-dashboard-en
@@ -171,6 +197,23 @@
   lang: de
   utterance: "Brich Mission 42 ab."
   expect: {tool: mission-cancel, args: {mission_id: "42"}, approval: true}
+
+# ---- artifacts: what the agents made (read) ---------------------------------
+- id: artifacts-last-output-en
+  category: mission_artifact
+  lang: en
+  utterance: "Show me what the agent produced for the last mission."
+  expect: {tool: artifacts, args: {action: list}, effect: read}
+- id: artifacts-files-de
+  category: mission_artifact
+  lang: de
+  utterance: "Welche Dateien hat der Agent bei der letzten Recherche geschrieben?"
+  expect: {tool: artifacts, args: {action: [list, files]}, effect: read}
+- id: artifacts-living-page-en
+  category: mission_artifact
+  lang: en
+  utterance: "What is on my parcels page right now?"
+  expect: {tool: artifacts, args: {action: living}, effect: read}
 
 # ---- status: what is running, what became of it ------------------------------
 - id: status-scout-doing-en

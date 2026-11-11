@@ -130,15 +130,24 @@ class BrainSupervisorToolGateway:
 
         ``workspace-orchestrate`` and ``workspace-git`` address coding panes by
         stable id (voice has had them all along); ``work_board`` is the one
-        read of what runs and who needs the person; ``ask_agent`` relays a
+        read of what runs and who needs the person; ``team_thread``, ``costs_summary``
+        and ``artifacts`` reach team threads, spend and the agents' output;
+        ``ask_agent`` relays a
         conversation with a team agent and ``product_help`` answers how-to
         questions from the built-in guide. The exceptions between seats are
         listed in ``lead_manifest``.
         """
+        from dodaios.brain.artifacts_tool import ArtifactsTool
+        from dodaios.brain.costs_summary_tool import CostsSummaryTool
+        from dodaios.brain.team_thread_tool import TeamThreadTool
         from dodaios.brain.work_board_tool import WorkBoardTool
         from dodaios.plugins.tool.product_help import ProductHelpTool
 
         extra: dict[str, Any] = {ProductHelpTool.name: ProductHelpTool()}
+        # Thin reads and starts over the app's own routes (the ecosystem the lead
+        # must reach: team threads, spend, what the agents made).
+        for tool in (TeamThreadTool(), CostsSummaryTool(), ArtifactsTool()):
+            extra[tool.name] = tool
         if "message_agent" in self._live_tools():
             from dodaios.plugins.tool.ask_agent import AskAgentTool
             from dodaios.society.runtime import current_runtime

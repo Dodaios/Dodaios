@@ -13,6 +13,7 @@ READ_VERBS: frozenset[str] = frozenset(
         "list", "list_messages", "get_message", "list_events", "list_files", "get_file",
         "read_file", "search", "search_messages", "read_history", "read_thread", "get_state",
         "list_entities", "now_playing", "status", "observe", "inspect", "resolve", "context",
+        "files", "living", "seats",
     }
 )
 

@@ -482,7 +482,11 @@ async def identity_prompt(
     render = getattr(brain, "render_surface_prompt", None) if brain is not None else None
     if callable(render):
         try:
-            system_prompt, turn_context = await render(user_text=user_text)
+            from dodaios.agent_chat.runner_brain import _is_lead
+
+            system_prompt, turn_context = await render(
+                user_text=user_text, lead=_is_lead(session_id)
+            )
             if system_prompt.strip():
                 parts.append(system_prompt.strip())
             if turn_context.strip():

@@ -603,6 +603,9 @@ async def run_brain_turn(
         kit_tools=kit_tools,
         system_extra=system_extra,
     )
+    if session.surface == "jarvis" and _is_lead(session.session_id):
+        # The lead conversation gets the lead doctrine and the ecosystem map.
+        override = replace(override, lead=True)
     if person_request:
         # Tools that check a call against what the person asked for (a task
         # unrelated to the turn, an authorized fan-out) read the request, not

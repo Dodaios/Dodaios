@@ -57,6 +57,12 @@
   utterance: "Wie ist die Telefonnummer von Anna Weber?"
   expect: {tool: contact-lookup, args: {name: Anna}, effect: read}
 
+- id: doctrine-memory-before-asking-en
+  category: memory
+  lang: en
+  utterance: "Book me a flight to Lisbon with the airline I usually fly with."
+  expect: {tools: [memory-search], also_accept: [gmail]}
+
 # ---- settings ----------------------------------------------------------------
 - id: settings-dark-mode-en
   category: settings
@@ -213,12 +219,27 @@
   category: costs_ui
   lang: en
   utterance: "How much did I spend on tokens this week?"
-  expect: {tools: [find-app-action, run-app-action, navigate], args: {"*": cost}}
+  expect: {tool: costs_summary, also_accept: [navigate], effect: read}
 - id: costs-spent-de
   category: costs_ui
   lang: de
   utterance: "Wie viel haben mich die Modelle diese Woche gekostet?"
-  expect: {tools: [find-app-action, run-app-action, navigate], args: {"*": [cost, kosten]}}
+  expect: {tool: costs_summary, also_accept: [navigate], effect: read}
+- id: costs-today-agents-en
+  category: costs_ui
+  lang: en
+  utterance: "What did my agents use today?"
+  expect: {tool: costs_summary, effect: read}
+- id: costs-today-agents-de
+  category: costs_ui
+  lang: de
+  utterance: "Was haben die Agenten heute verbraucht?"
+  expect: {tool: costs_summary, effect: read}
+- id: costs-seat-headroom-en
+  category: costs_ui
+  lang: en
+  utterance: "Does my Claude subscription still have room before I start a big job?"
+  expect: {tool: costs_summary, effect: read}
 - id: costs-open-de
   category: costs_ui
   lang: de

@@ -49,3 +49,24 @@ away: the vendor's tools are all the chat has.
 
 The gaps are honest: those CLIs have no flag to switch the vendor tools off from the
 command line. Closing them needs a per-CLI config file written for the turn.
+
+## The doctrine and the ecosystem map
+
+Two constant blocks ride in the lead conversation's prompt, on the brain runner and on
+the CLI identity alike, and nowhere else (not on a society seat, a worker or a plain
+call): `LEAD_DOCTRINE` (`dodaios/brain/lead_doctrine.py`, at most 1,500 characters, placed
+right after the persona) and the ecosystem map (`dodaios/brain/lead_ecosystem.py`, after
+the team card). The brain runner marks the turn with `TurnOverride.lead`; the CLI identity
+asks `render_surface_prompt(lead=True)`. Both blocks are byte-stable, so they stay in the
+cached prefix.
+
+The map is generated from code: the sidebar section ids (`navigate`'s `KNOWN`), the Command
+Registry's sections, the coding agents the app can run, and a table that names the lead
+read path of every section (a lead tool, or a `GET /api/...` app action). A new sidebar
+section without a read path fails `tests/unit/brain/test_lead_ecosystem.py`.
+
+Three thin tools reach the gaps the map exposed, all over the routes the UI uses:
+`team_thread` (start asks first and returns a `job_id`; status, answer and the controls),
+`costs_summary` (today and week per agent, seat and model, seats in trouble, plan headroom)
+and `artifacts` (list, files, read, living pages). They are lead-only
+(`LEAD_ONLY_TOOLS` in the manifest); a call keeps its native paths.
