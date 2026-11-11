@@ -308,8 +308,22 @@ class Watchdog:
             self.store.mark_notified([r["key"] for r in pending], now=now)
             self.store.log("notified", detail=f"{len(pending)} finding(s)", now=now)
             report["notified"] = len(pending)
+            self._report_urgent(pending)
         else:
             self.store.log("notice_deferred", detail="the conversation was not reachable", now=now)
+
+    def _report_urgent(self, notified: list[dict[str, Any]]) -> None:
+        """Hand each critical finding to the opt-in urgent caller, once, with its notice."""
+        report = getattr(self.actions, "report_urgent", None)
+        if report is None:
+            return
+        for row in notified:
+            if checks.severity_of(str(row.get("kind") or "")) != "critical":
+                continue
+            try:
+                report(row)
+            except Exception:  # noqa: BLE001 - the call is an extra; the notice already stands
+                log.info("watchdog: urgent report failed for %s", row.get("key"), exc_info=True)
 
 
 # ------------------------------------------------------------ module handle

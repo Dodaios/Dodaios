@@ -22,6 +22,21 @@ def _default_db() -> Path:
     return Path(cfg.DATA_DIR) / "agent_chat.db"
 
 
+def _preparation(since_ms: int) -> dict | None:
+    """The prepared-in-advance counts, or ``None`` before anything was ever prepared."""
+    from dodaios.core import config as cfg
+    from dodaios.lead_triggers.prepared import PreparedStore
+
+    path = Path(cfg.DATA_DIR) / "prepared_items.db"
+    if not path.exists():
+        return None
+    store = PreparedStore(path)
+    try:
+        return store.stats(since_ms)
+    finally:
+        store.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="python -m dodaios.evals.agent_score", description=__doc__)
     p.add_argument("--db", type=Path, help="agent_chat.db (default: the app data directory's)")
@@ -53,6 +68,7 @@ def main(argv: list[str] | None = None) -> int:
         load_config(cfg_path),
         since_ms=since,
         audit=audit_log(),
+        preparation=_preparation(since),
     )
     print(json.dumps(report, indent=2) if args.json else format_table(report))
     if not args.no_write:

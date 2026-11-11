@@ -1,6 +1,7 @@
 """Import the WP13 characters, skeleton, physics, IK rig and clips into Unreal.
 
     python art/verse/characters/import_characters.py [--only A,B]
+    python art/verse/characters/import_characters.py --drones   (the drones, `drones_ue_import.py`)
 
 Needs the export first (`python scripts/verse/export_unreal.py characters`)
 and a built editor (`python scripts/unreal/build.py editor`). Runs the
@@ -28,16 +29,21 @@ import import_art  # noqa: E402
 
 SCRIPT = Path(__file__).resolve().parent / "fps" / "ue_import.py"
 RESULT = art_common.CACHE_ROOT / "results" / "characters.json"
+DRONE_SCRIPT = Path(__file__).resolve().parent / "drones_ue_import.py"
+DRONE_RESULT = art_common.CACHE_ROOT / "results" / "drones.json"
 TIMEOUT_S = 3600
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--only", default="")
+    parser.add_argument("--drones", action="store_true", help="import the drones instead")
     options = parser.parse_args(argv)
-    if not RESULT.is_file():
+    script, result = (DRONE_SCRIPT, DRONE_RESULT) if options.drones else (SCRIPT, RESULT)
+    if not result.is_file():
         print(
-            f"[verse] {art_common.rel(RESULT)} missing: run export_unreal.py characters",
+            f"[verse] {art_common.rel(result)} missing: run export_unreal.py"
+            f" {'drones' if options.drones else 'characters'}",
             file=sys.stderr,
         )
         return 1
@@ -46,10 +52,10 @@ def main(argv: list[str] | None = None) -> int:
     log = import_art.REPORT_DIR / f"characters-{stamp}.log"
     report.parent.mkdir(parents=True, exist_ok=True)
     command = import_art.command_line(log)
-    command[2] = f"-ExecutePythonScript={SCRIPT}"
+    command[2] = f"-ExecutePythonScript={script}"
     env = dict(
         os.environ,
-        VERSE_CHAR_RESULT=str(RESULT),
+        VERSE_CHAR_RESULT=str(result),
         VERSE_CHAR_REPORT=str(report),
         VERSE_CHAR_ONLY=options.only,
         VERSE_CHAR_QUIT="1",

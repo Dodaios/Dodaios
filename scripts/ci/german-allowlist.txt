@@ -489,3 +489,9 @@ tests/fixtures/lead_routing/*
 #     German requests the ranking is pinned against ---
 dodaios/brain/tool_search.py
 tests/unit/brain/test_tool_search_ranking.py
+
+# --- Life admin (2026-11-11): German keyword patterns that recognise bills, renewals and
+#     appointments in the owner's mail, and the German draft templates (product surface) ---
+dodaios/life_admin/extractors.py
+dodaios/life_admin/prepare.py
+tests/unit/life_admin/*

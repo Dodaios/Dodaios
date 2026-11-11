@@ -36,7 +36,7 @@ def test_route_returns_the_summary(monkeypatch) -> None:
 
 def test_route_answers_without_any_source(monkeypatch) -> None:
     body = _client(monkeypatch, board={}, cards=[]).get("/api/status-light").json()
-    assert body["counts"] == {"running": 0, "needs_you": 0}
+    assert body["counts"] == {"running": 0, "needs_you": 0, "prepared": 0}
 
 
 def test_two_reads_within_the_window_share_one_fold(monkeypatch) -> None:

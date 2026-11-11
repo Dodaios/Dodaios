@@ -108,6 +108,7 @@ def build_status_light(
     attention: Iterable[Mapping[str, Any]] = (),
     seats: Iterable[Any] = (),
     findings: Iterable[Mapping[str, Any]] = (),
+    prepared: Iterable[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """Fold the sources into ``{running, needs_you, trouble, counts, tone}``.
 
@@ -115,6 +116,8 @@ def build_status_light(
     ``ref``) is not listed twice. ``attention`` is the per-agent cards list.
     ``seats`` are :class:`~dodaios.brain.seat_health.SeatVerdict` values.
     ``findings`` are the watchdog's open findings (``key``, ``kind``, ``title``).
+    ``prepared`` are drafts and fixes made in advance that wait for the person; they are
+    counted and listed apart from "needs you" and never raise the tone.
     """
     running, board_needs, mission_ids = _from_board(board or {})
     for job in jobs:
@@ -162,11 +165,26 @@ def build_status_light(
         }
         for f in findings
     ]
+    waiting = [
+        {
+            "id": _text(p.get("id"), 120),
+            "kind": _text(p.get("kind"), 60),
+            "title": _text(p.get("title")),
+            "thread_key": _text(p.get("thread_key"), 200),
+            "link": {"section": "agents"},
+        }
+        for p in prepared
+    ]
     return {
-        "counts": {"running": len(running), "needs_you": len(needs_you)},
+        "counts": {
+            "running": len(running),
+            "needs_you": len(needs_you),
+            "prepared": len(waiting),
+        },
         "running": running[:MAX_ROWS],
         "needs_you": needs_you[:MAX_ROWS],
         "trouble": trouble[:MAX_ROWS],
         "findings": stuck[:MAX_ROWS],
+        "prepared": waiting[:MAX_ROWS],
         "tone": "warn" if trouble or stuck else "calm",
     }

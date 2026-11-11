@@ -2,6 +2,7 @@
 
 #include "Camera/VerseDeckCamera.h"
 #include "Commander/VerseDeckCommander.h"
+#include "Life/VerseDeckDrone.h"
 #include "Decks/VerseDeckLook.h"
 #include "Dom/JsonObject.h"
 #include "Engine/Engine.h"
@@ -344,6 +345,8 @@ void UVerseDeckSubsystem::SpawnDeckActors(UWorld* World, FName Deck, bool bByLif
 				{
 					Control->OnDeckArrived(Deck, *Manifest, Arrival, DeckCamera);
 				}
+				// The companion at the commander's heel and the utility drones on their rounds.
+				AVerseDeckDrone::SpawnForDeck(World, *Manifest);
 			}
 		}
 		Camera = DeckCamera;

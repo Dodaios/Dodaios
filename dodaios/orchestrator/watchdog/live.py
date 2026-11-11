@@ -364,6 +364,9 @@ def _held_finding(finding: Finding) -> bool:
         return False
 
 
+_urgent_tasks: set[asyncio.Task[Any]] = set()
+
+
 class LiveActions:
     def __init__(
         self, runtime: Any, hop: LoopHop, config: Callable[[], Any] | None = None
@@ -416,6 +419,25 @@ class LiveActions:
         except Exception:  # noqa: BLE001 - the notice stays pending for the next scan
             log.info("watchdog: notice not posted", exc_info=True)
             return False
+
+    def report_urgent(self, row: dict[str, Any]) -> None:
+        """A critical finding to the opt-in urgent caller (a no-op while it is off or held)."""
+        from dodaios.notify import wiring
+
+        caller = wiring._urgent_caller
+        if caller is None or stop_holds().blocking(session=str(row.get("open_ref") or "")):
+            return
+        key, title = str(row.get("key") or ""), str(row.get("title") or "")
+
+        async def start() -> None:
+            task = asyncio.get_running_loop().create_task(
+                caller.report_finding(key, title, checks.severity_of(str(row.get("kind") or ""))),
+                name="watchdog-urgent",
+            )
+            _urgent_tasks.add(task)
+            task.add_done_callback(_urgent_tasks.discard)
+
+        self._hop(start)
 
     def quiet_hours(self) -> bool:
         async def read() -> bool:

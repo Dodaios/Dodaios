@@ -280,6 +280,28 @@ and normal maps (the scan's occlusion multiplied into the colour), half-size ORM
 replace any of them later by mesh path; their files go to the git-ignored
 `Content/Verse/External/` (art-pipeline 11).
 
+### 9.4 Fab and Megascans packs
+
+Licensed packs never enter the repo (art-pipeline 11). They live in a Fab vault, an empty UE 5.7
+project outside every git tree (`C:/demo/fab-vault/FabVault.uproject`, Python and Editor
+Scripting plugins on), and reach a checkout only as git-ignored files:
+
+1. The user adds a pack to the vault from the Epic launcher (Fab Library, "Add to Project",
+   FabVault).
+2. `python scripts/unreal/fab_migrate.py --pack <Name> [--source <vault folder>] [--only SM_A,SM_B]
+   --target <worktree> --target C:/demo/play` runs the vault editor headless under the machine
+   lock (`fab_vault_editor.py`): it moves the pack to `/Game/Verse/External/<Name>` once (with
+   reference fix-up), moves shared dependencies such as Megascans master materials to
+   `/Game/Verse/External/_Shared/`, and copies the package closure of the chosen assets into each
+   target's `unreal/Verse/Content/Verse/External/`. `--self-test` proves the round trip with a
+   generated test pack.
+3. `unreal/Verse/Data/arena/external_swaps.json` maps a kit mesh to its licensed replacement
+   (`"SM_Hangar_Drum": {"mesh": "/Game/Verse/External/...", "scale": 1, "yaw": 0, "lift_cm": 0}`).
+   `AddDressing` uses the replacement only when it loads, so CI and other clones keep the CC0
+   kit; the art pass logs how many instances came from External/.
+4. Packaged builds cook External/ with the rest of `/Game/Verse`. Add one provenance row per pack
+   to `art/verse/LICENSES.md` (licence name and Fab URL).
+
 `Verse.Visual.HangarArt` tours the arena from a player's eye (both spawns, mid, cover, looking
 up, ADS, the booth, the catwalk) into `Saved/Harness/proof/art/`.
 

@@ -1,0 +1,26 @@
+{
+  "asset_path": "/Game/Verse/Animations/Drones/A_Drone_Utility_Drive.A_Drone_Utility_Drive",
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/drones/clips/A_Drone_Utility_Drive.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "785197ed918f398f53a04fdfa986f98880c9768f9bf313154cd6fdf41e094a9a"
+  },
+  "kind": "animation",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "A_Drone_Utility_Drive",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "fps": 30,
+      "loop": true
+    },
+    "builder": "art/verse/characters/drones.py",
+    "function": "utility_clips"
+  }
+}

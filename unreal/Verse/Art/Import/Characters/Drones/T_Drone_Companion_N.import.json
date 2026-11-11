@@ -1,0 +1,34 @@
+{
+  "asset_path": "/Game/Verse/Characters/Drones/Textures/T_Drone_Companion_N.T_Drone_Companion_N",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/drones/textures/T_SK_Drone_Companion_Normal.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "277b4a9a87114524837715d6ec84e417dc508cc75c79ee274f9bc9fd8bae8260"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Drone_Companion_N",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "kind": "Companion"
+    },
+    "builder": "art/verse/characters/drones_unreal.py",
+    "function": "build_one"
+  },
+  "texture": {
+    "channels": {},
+    "compression": "Normalmap",
+    "flip_green": true,
+    "group": "CharacterNormalMap",
+    "max_size": 512,
+    "never_stream": true,
+    "srgb": false
+  }
+}

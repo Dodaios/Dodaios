@@ -11,6 +11,7 @@ assets that ship, the committed import records
     python scripts/verse/export_unreal.py weapons [--only SK_Weapon_Graveline,...]
     python scripts/verse/export_unreal.py textures [--only T_Verse_Grade_LUT_M]
     python scripts/verse/export_unreal.py characters [--only A,B] [--no-lock]
+    python scripts/verse/export_unreal.py drones [--no-lock]
     python scripts/verse/export_unreal.py deck <deck> [--zone Z]
 
 `calib` exports the `fbx-ue/1` calibration assets (`kit/calib.py`) into the
@@ -415,6 +416,31 @@ def export_characters(only: str, lock: bool = True) -> int:
     return 0
 
 
+DRONES_ENTRY = HERE.parent.parent / "art" / "verse" / "characters" / "drones_unreal.py"
+
+
+def export_drones(lock: bool = True) -> int:
+    """WP13: both drones of `drones.py` (meshes, skeletons, clips, atlases), then their records."""
+    out_dir = art_common.CACHE_ROOT / "drones"
+    result = art_common.CACHE_ROOT / "results" / "drones.json"
+    result.unlink(missing_ok=True)
+    args = ["--out", str(out_dir), "--result", str(result)]
+    if lock:
+        with art_common.heavy_lock("export_unreal drones"):
+            blender.run(DRONES_ENTRY, args, lock=False, device="cpu", timeout=1800)
+    else:
+        blender.run(DRONES_ENTRY, args, lock=False, device="cpu", timeout=1800)
+    payload = json.loads(result.read_text(encoding="utf-8"))
+    sys.path.insert(0, str(art_common.REPO_ROOT / "art" / "verse"))
+    from characters import drone_records  # noqa: PLC0415 - needs art/verse on sys.path
+
+    changed = drone_records.write_all(payload, art_common.PROJECT_DIR)
+    for path in changed:
+        print(f"[verse] drones: wrote {art_common.rel(Path(path))}")
+    print(f"[verse] drones: {len(payload['drones'])} drones, {len(changed)} files changed")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -433,6 +459,8 @@ def main(argv: list[str] | None = None) -> int:
     chars = sub.add_parser("characters", help="WP13: rig, meshes, clips and their records")
     chars.add_argument("--only", default="")
     chars.add_argument("--no-lock", action="store_true", help="CPU-only run outside the lock")
+    drones = sub.add_parser("drones", help="WP13: the drones, their skeletons, clips and records")
+    drones.add_argument("--no-lock", action="store_true", help="CPU-only run outside the lock")
     options = parser.parse_args(argv)
     try:
         if options.mode == "piece":
@@ -445,6 +473,8 @@ def main(argv: list[str] | None = None) -> int:
             return export_weapons([n for n in options.only.split(",") if n])
         if options.mode == "characters":
             return export_characters(options.only, lock=not options.no_lock)
+        if options.mode == "drones":
+            return export_drones(lock=not options.no_lock)
     except blender.BlenderError as error:
         print(error, file=sys.stderr)
         return 1

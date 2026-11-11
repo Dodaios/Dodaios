@@ -1311,6 +1311,65 @@ async def post_lead_checkin(body: LeadCheckinBody) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+class LeadLifeAdminBody(BaseModel):
+    enabled: bool = False
+    #: ``off`` or ``mon`` .. ``sun``: the weekly written digest.
+    digest_day: str = "off"
+    #: Local wall-clock time, ``HH:MM``.
+    digest_time: str = "09:00"
+    in_brief: bool = True
+    categories: dict[str, bool] = Field(default_factory=dict)
+    timezone: str = ""
+
+
+@router.get("/lead/life-admin", summary="Life admin: settings and the open items (off by default)")
+async def get_lead_life_admin() -> dict[str, Any]:
+    from dodaios.life_admin.service import state
+
+    return await state()
+
+
+@router.put("/lead/life-admin", summary="Turn life admin on or off, set the digest and kinds")
+async def put_lead_life_admin(body: LeadLifeAdminBody) -> dict[str, Any]:
+    from dodaios.life_admin.service import apply_settings
+    from dodaios.life_admin.settings import LifeAdminSettings
+
+    try:
+        return await apply_settings(LifeAdminSettings.from_dict(body.model_dump()))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post("/lead/life-admin/items/{item_id}/prepare", summary="Prepare a draft; sends nothing")
+async def prepare_lead_life_admin_item(item_id: str) -> dict[str, Any]:
+    from dodaios.life_admin.service import prepare_item
+
+    item = await prepare_item(item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="No such open item")
+    return item
+
+
+@router.post("/lead/life-admin/items/{item_id}/dismiss", summary="Never show this item again")
+async def dismiss_lead_life_admin_item(item_id: str) -> dict[str, Any]:
+    from dodaios.life_admin.service import dismiss_item
+
+    if not await dismiss_item(item_id):
+        raise HTTPException(status_code=404, detail="No such item")
+    return {"id": item_id, "status": "dismissed"}
+
+
+@router.post("/lead/life-admin/items/{item_id}/done", summary="Mark this item done")
+async def finish_lead_life_admin_item(item_id: str) -> dict[str, Any]:
+    from dodaios.life_admin.service import finish_item
+
+    if not await finish_item(item_id):
+        raise HTTPException(status_code=404, detail="No such item")
+    return {"id": item_id, "status": "done"}
+
+
 class LeadTriggerEventBody(BaseModel):
     #: ``mail`` | ``calendar`` | ``github`` | ``automation`` | ``channel``.
     source: str
@@ -1354,6 +1413,45 @@ async def promote_lead_trigger_policy(policy_id: str) -> dict[str, Any]:
     if await service.promote(policy_id) is None:
         raise HTTPException(status_code=404, detail="Unknown policy")
     return await service.view()
+
+
+@router.get("/lead/prepared", summary="Drafts and fixes prepared in advance, waiting for the owner")
+async def get_lead_prepared(thread_key: str = "") -> dict[str, Any]:
+    preparer = _trigger_service().preparer
+    if preparer is None:
+        return {"items": [], "stats": None, "settings": None}
+    items = await preparer.waiting(thread_key)
+    return {
+        "items": [i.to_dict() for i in items],
+        "stats": preparer.items.stats(),
+        "settings": (await preparer.settings()).to_dict(),
+    }
+
+
+@router.put("/lead/prepared/settings", summary="Switch the kinds of preparation on or off")
+async def put_lead_prepared_settings(body: dict[str, Any]) -> dict[str, Any]:
+    from dodaios.lead_triggers.prepare import PrepareSettings
+
+    preparer = _trigger_service().preparer
+    if preparer is None:
+        raise HTTPException(status_code=503, detail="Preparation is not available")
+    return (await preparer.save_settings(PrepareSettings.from_dict(body))).to_dict()
+
+
+@router.post("/lead/prepared/{item_id}/{outcome}", summary="Mark a prepared item used or not")
+async def resolve_lead_prepared(item_id: str, outcome: str) -> dict[str, Any]:
+    if outcome not in ("used", "discard"):
+        raise HTTPException(status_code=404, detail="Unknown outcome")
+    preparer = _trigger_service().preparer
+    if preparer is None:
+        raise HTTPException(status_code=503, detail="Preparation is not available")
+    done = (
+        preparer.items.mark_used(item_id) if outcome == "used"
+        else preparer.items.mark_discarded(item_id)
+    )
+    if not done:
+        raise HTTPException(status_code=404, detail="No such waiting item")
+    return {"ok": True}
 
 
 @router.post(
