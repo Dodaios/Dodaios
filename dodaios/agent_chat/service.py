@@ -1383,6 +1383,10 @@ class AgentChatService:
             event = self._readable_error(session_id, event)
         stored = self.store.append_event(session_id, event)
         if event.get("kind") == "turn_finished":
+            from dodaios.orchestrator import traces
+
+            traces.close_turn(str((event.get("payload") or {}).get("turn_id") or ""),
+                              event.get("payload") or {})
             # Before anyone hears of it: a session list fetched on this event
             # must already read the turn as over (``reports_running``).
             run = self._running.get(session_id)
@@ -2007,14 +2011,37 @@ class AgentChatService:
 
         async def _body() -> None:
             started = time.monotonic()
+            from dodaios.society.delivery import incoming_context
+
+            # What caused this turn: an assignment (the delivery names its event
+            # id) or nothing above it. The person's own message is a root.
+            cause = incoming if incoming is not None else incoming_context.get()
+            if cause is not None and cause.sender_kind == "user":
+                cause = None
+            if routine_run:
+                turn_origin = "routine"
+            elif cause is not None:
+                turn_origin = "agent"
+            elif background_result:
+                turn_origin = "chat"
+            else:
+                turn_origin = "chat" if direct_user else "system"
             origin = ChatTurn(
                 session_id,
                 turn_id,
                 display_text if display_text is not None else text,
                 direct_user and incoming is None,
                 str(handle.trace_id),
+                span_id=turn_id,
+                parent_span_id=cause.message_id if cause is not None else "",
+                origin=turn_origin,
             )
             origin_token = current_chat_turn.set(origin)
+            from dodaios.orchestrator import traces
+
+            traces.open_turn(
+                origin, provider=session.provider, model=session.model, runner=selected_runner or ""
+            )
             from dodaios.agent_chat.turn_completion import TurnCompletion
 
             completion = (

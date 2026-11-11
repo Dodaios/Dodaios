@@ -234,4 +234,53 @@ class AwaitJobsTool:
         return ToolResult(True, output)
 
 
-__all__ = ["DEFAULT_AWAIT_S", "MAX_AWAIT_S", "AwaitJobsTool", "JobStatusTool"]
+class TraceExplainTool:
+    """Why a piece of work took this long and cost this much, from the trace tree."""
+
+    name: str = "trace_explain"
+    risk_tier: str = "safe"
+    is_action_tool: bool = False
+    description: str = (
+        "Explain where the time and cost of a piece of work went. Give a job_id (from "
+        "delegate_to_agent, spawn_worker, create_artifact...) or a turn_id. It reads the "
+        "causal trace tree (lead turn, assignment, agent turn, mission or artifact) and "
+        "returns a compact summary: elapsed time, cost, the longest chain, the slowest and "
+        "costliest steps, and what failed or is still running. Read-only, instant, no model "
+        "call."
+    )
+    schema: dict[str, Any] = {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string", "description": "A job_id or a turn_id."},
+            "job_id": {"type": "string", "description": "Same as id, for a job."},
+            "turn_id": {"type": "string", "description": "Same as id, for a turn."},
+        },
+    }
+
+    async def execute(self, args: dict[str, Any], ctx: ExecutionContext) -> ToolResult:
+        from dodaios.orchestrator import traces
+
+        args = args or {}
+        target = str(args.get("id") or args.get("job_id") or args.get("turn_id") or "").strip()
+        if not target:
+            return ToolResult(False, "", "Give a job_id or a turn_id.")
+        try:
+            root = await asyncio.to_thread(traces.resolve_root, target)
+            tree = await asyncio.to_thread(traces.build_tree, root) if root else None
+        except Exception as exc:  # noqa: BLE001
+            log.warning("trace_explain: trace stores unavailable", exc_info=True)
+            return ToolResult(False, "", f"The trace stores are unavailable: {exc}")
+        if tree is None:
+            return ToolResult(False, "", f"No trace is recorded for {target}.")
+        focus = target if target != root else ""
+        # A job id is not always the node id (an assignment's node is its event id).
+        job = jobs.get_ledger().get(target)
+        if job is not None:
+            focus = job.span_id or job.id
+        return ToolResult(
+            True,
+            {"root": root, "summary": traces.explain(tree, focus), "nodes": tree["node_count"]},
+        )
+
+
+__all__ = ["DEFAULT_AWAIT_S", "MAX_AWAIT_S", "AwaitJobsTool", "JobStatusTool", "TraceExplainTool"]
