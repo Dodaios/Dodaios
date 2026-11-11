@@ -166,6 +166,27 @@ describe("ThreadView", () => {
     expect(screen.getByTestId("thread-worked-steps")).toBeTruthy();
   });
 
+  it("draws Claude Code's magic words in the rainbow, in the box and in the sent message", async () => {
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    const box = screen.getByTestId("thread-composer-input");
+    fireEvent.change(box, { target: { value: "fix the login test" } });
+    expect(screen.queryByTestId("thread-composer-magic")).toBeNull();
+    fireEvent.change(box, { target: { value: "ultrathink: fix the login test" } });
+    const backdrop = screen.getByTestId("thread-composer-magic");
+    expect(backdrop.textContent).toContain("ultrathink: fix the login test");
+    expect(within(backdrop).getByTestId("magic-word").textContent).toBe("ultrathink");
+    // The textarea's own text turns see-through, so the backdrop's colours show.
+    expect(box.className).toContain("text-transparent");
+
+    act(() => {
+      useThreadChatStore.getState().ingest({ seq: 1, ts_ms: 1000, kind: "user_message", payload: { text: "ultracode the migration" } });
+    });
+    await waitFor(() => expect(within(screen.getByTestId("thread-user-message")).getByTestId("magic-word").textContent).toBe("ultracode"));
+  });
+
   it("says a message reaches a Claude turn that only waits for its background tasks", async () => {
     useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
     api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
