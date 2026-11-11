@@ -8,6 +8,7 @@ from typing import Any
 from uuid import uuid4
 
 from dodaios.core.protocols import CapacityDeferred, RoutineDeferred
+from dodaios.safety.reversibility import autonomy_origin
 
 from .chat_binding import SURFACE, _workspace, pair_for
 from .display_name import display_name
@@ -383,7 +384,13 @@ async def run_owned_routine(
     answer = ""
     read_failures = 0
     try:
-        turn_id = await service.send(session.session_id, task, direct_user=False, routine_run=True)
+        # Everything this turn does runs without the owner: its tool calls are
+        # judged by reversibility and honour the owner's stop holds.
+        origin = "trigger" if "lead-trigger" in tags else "routine"
+        with autonomy_origin(origin, task_id=task_id, agent_id=agent.agent_id):
+            turn_id = await service.send(
+                session.session_id, task, direct_user=False, routine_run=True
+            )
         while True:
             if cancel_token is not None and cancel_token.is_cancelled():
                 raise asyncio.CancelledError

@@ -246,10 +246,10 @@ async def patch_task(
     scheduler = _require_scheduler(request)
     try:
         if body.enabled:
-            await scheduler.resume(task_id)
+            await scheduler.resume(task_id, owner=True)
             new_state = "scheduled"
         else:
-            await scheduler.pause(task_id)
+            await scheduler.pause(task_id, owner_reason="Paused by the owner")
             new_state = "paused"
     except TaskNotFound as exc:
         raise HTTPException(status_code=404, detail="Task not found") from exc

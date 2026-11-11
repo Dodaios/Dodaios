@@ -3779,7 +3779,10 @@ class WebServer:
                 return None
 
         bridge = ChannelChatBridge(
-            bus=self.bus, manager=manager, get_chat_service=_lead_chat_service
+            bus=self.bus,
+            manager=manager,
+            get_chat_service=_lead_chat_service,
+            get_scheduler=lambda: getattr(app_state, "task_scheduler", None),
         )
         bridge.start()
         self._channel_chat_bridge = bridge

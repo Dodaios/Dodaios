@@ -264,6 +264,13 @@ class TriggerService:
             del state["notes"][:-MAX_NOTES]
             record["outcome"] = "noted"
         elif verdict.action == "act":
+            # The owner's stop on this trigger policy (or on everything) holds:
+            # the decision is recorded, no job starts.
+            from dodaios.safety.stop_hold import stop_holds
+
+            if stop_holds().blocking(trigger=policy.id) is not None:
+                record["outcome"] = "held_by_owner"
+                return
             try:
                 job = await self._starter(verdict.event, policy, verdict.reason)
                 record["job"] = job

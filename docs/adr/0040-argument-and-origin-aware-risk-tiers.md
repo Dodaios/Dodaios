@@ -252,3 +252,36 @@ evaluator (AP-31).
 - **Per-tool hooks only.** `risk_tier_for_args` could grow target checks tool
   by tool, but a tool cannot know origin without the ledger, and MCP and
   marketplace tools would stay uncovered.
+
+## Reversibility for unattended calls, and the owner's stop
+
+Chunk D is implemented in a narrower form that does not need a target list.
+
+**Reversibility as an input.** `dodaios/safety/reversibility.py` classes every
+call as `reversible` (nothing changes, or an undo exists), `recoverable` (can be
+put right with effort) or `irreversible` (a send, a payment, a post, a share, a
+delete without a trash, a credential change). A tool may declare
+`reversibility` or `reversibility_for_args`; the app's own tools are in a table;
+anything else is read from the effect class above, and an unclassifiable tool is
+`reversible` only when its tier is `safe`.
+
+A calling layer declares that its calls run without the owner with
+`config_snapshot["autonomy_origin"]` (`routine`, `trigger`, `watchdog`, `agent`)
+or the `autonomy_origin(...)` block. For those calls only, a `recoverable` or
+`irreversible` action needs an approval unless the owner's whitelist or a
+standing rule covers it. Bypass never answers it, and with nobody to ask the
+call ends as `approval_unavailable`. A call the owner started directly has no
+origin and keeps today's behaviour. The routine runner and the scheduled tool
+step declare `routine`. A layer that runs calls on its own (an event-trigger
+input, the watchdog) sets its origin and calls `blocking_for_job` before it
+repairs or re-queues work.
+
+**Stop holds.** `dodaios/safety/stop_hold.py` persists an owner stop or pause
+with its scope (`everything`, `job`, `routine`, `trigger`, `agent`, `session`),
+reason and source. It is checked by the executor for unattended calls, by the
+scheduler before it runs or resumes a routine, and by repair paths through
+`blocking_for_job(job)`. It holds across follow-up messages, new sessions and
+restarts, and only the owner lifts it. `stop_everything` (desk button, or the
+owner's "stop" on Telegram, Discord or WhatsApp) writes the hold first, then
+cancels turns, pauses routines, closes open jobs and fires the emergency stop,
+all under one deadline, and returns one written confirmation.
