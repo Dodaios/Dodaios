@@ -369,7 +369,6 @@ export function ThreadTree() {
                 openThread(session.session_id, project.id);
               }}
               onDoubleClick={() => setRenaming({ sessionId: session.session_id, title: threadTitle(session) })}
-              title={threadTitle(session)}
               className={cn(
                 ROW, "flex-1 py-1", FOCUS_RING,
                 selected ? "text-foreground-strong" : "text-foreground-secondary group-hover/thread:text-foreground",
@@ -380,7 +379,9 @@ export function ThreadTree() {
                   ? <AgentMark agent={mark.agent} label={mark.label} variant="plain" size="sm" />
                   : <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />}
               </span>
-              <span className="min-w-0 flex-1 truncate">{threadTitle(session)}</span>
+              {/* The full name shows over the name only: on the whole row it came
+                  up over the pull request card as well. */}
+              <span title={threadTitle(session)} className="min-w-0 flex-1 truncate">{threadTitle(session)}</span>
               {/* Marks on the right, one column each: its pull requests, where it works, what it is doing. */}
               <ThreadPullRequests sessionId={session.session_id} />
               {/* The pull request and worktree marks stay in sight on hover; only
