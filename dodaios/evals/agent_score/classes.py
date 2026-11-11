@@ -66,6 +66,7 @@ TOOL_CLASS: Final[dict[str, str]] = {
     "await_jobs": "status_orchestration",
     "job_stop": "status_orchestration",
     "work_board": "status_orchestration",
+    "project": "status_orchestration",
     "tasks": "status_orchestration",
     "create_artifact": "artifacts",
     "living_page": "artifacts",

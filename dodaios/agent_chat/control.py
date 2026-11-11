@@ -327,6 +327,8 @@ class ChatControls:
             if not arguments:
                 raise ValueError(f"/{command} needs an argument")
             return await self._tool(sid, command, arguments)
+        if command == "project":
+            return await self._project(sid, arguments, state)
         if command in ("recap", "review"):
             self._idle(sid)
             prompt = (
@@ -349,6 +351,37 @@ class ChatControls:
                 )
             }
         raise ValueError("Unknown command")
+
+    async def _project(self, sid: str, arguments: str, state: ChatControlState) -> dict[str, Any]:
+        """``/project``: list, confirm or resume projects; with a goal, the lead starts one."""
+        from dodaios.projects.engine import ProjectError, get_engine
+
+        engine = get_engine()
+        if not arguments:
+            return {"projects": engine.summaries()}
+        words = arguments.split()
+        try:
+            if words[0] == "confirm" and len(words) == 3:
+                return {"project": engine.view(await engine.confirm(words[1], words[2]))}
+            if words[0] == "resume" and len(words) == 2:
+                return {"project": engine.view(await engine.set_status(words[1], "active"))}
+        except ProjectError as exc:
+            raise ValueError(str(exc)) from exc
+        self._idle(sid)
+        if state.mode == "plan":
+            raise ValueError("Plan mode permits reads only; leave it with /build")
+        return {
+            "turn_id": await self._send(
+                sid,
+                "The owner wants this done as a project, tracked across days: "
+                + arguments
+                + "\n\nUse the project tool: create it with the goal, observable success "
+                "criteria and a plan of sub-goals (owner, dependencies, the evidence that "
+                "proves each done), then start the first ready sub-goals with the usual "
+                "tools and link their job ids. Say briefly what you set up.",
+                control_owned=True,
+            )
+        }
 
     def _idle(self, sid: str) -> None:
         if self.service.is_running(sid) or sid in self.jobs:

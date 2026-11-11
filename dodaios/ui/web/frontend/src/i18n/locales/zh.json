@@ -8198,7 +8198,8 @@
       "remember": "保存一条记忆",
       "message": "发送内部消息",
       "review": "审查最新结果",
-      "routines": "管理这个智能体的例程"
+      "routines": "管理这个智能体的例程",
+      "project": "将多日目标作为项目跟踪"
     },
     "help": "对话命令",
     "plan_active": "计划模式 · 只读",

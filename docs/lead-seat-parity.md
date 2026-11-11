@@ -70,3 +70,16 @@ Three thin tools reach the gaps the map exposed, all over the routes the UI uses
 `costs_summary` (today and week per agent, seat and model, seats in trouble, plan headroom)
 and `artifacts` (list, files, read, living pages). They are lead-only
 (`LEAD_ONLY_TOOLS` in the manifest); a call keeps its native paths.
+
+## Projects
+
+`project` (`dodaios/brain/project_tool.py`, engine in `dodaios/projects/`) is the lead's tool
+for multi-step, multi-day work. A project is the goal, success criteria and a plan of
+sub-goals, stored in `projects.db`. Sub-goals run as ordinary jobs; `link` attaches the job id.
+Progress is read from the jobs ledger and `verify_delegate`, never from the model: the model
+cannot mark a sub-goal done. A review every day (or the owner's choice) re-plans a failed
+sub-goal once, then asks the owner, and writes one short notice into the lead conversation
+only when something changed. It needs no model for progress; the criteria check at the end
+runs on a seat background work may use. A project with no progress for its stall window
+becomes a watchdog finding (resume, rescope, close). `/project` lists projects or asks the
+lead to start one; `GET /api/projects` reads them. There is no Projects view in the UI yet.

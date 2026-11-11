@@ -23,6 +23,7 @@ CommandName = Literal[
     "message",
     "review",
     "routines",
+    "project",
 ]
 GoalStatus = Literal["active", "paused", "blocked", "complete", "cleared"]
 
@@ -100,4 +101,5 @@ COMMANDS: tuple[dict[str, str], ...] = (
     {"name": "message", "kind": "control", "example": "/message @Agent Hello"},
     {"name": "review", "kind": "control", "example": "/review"},
     {"name": "routines", "kind": "local", "example": "/routines"},
+    {"name": "project", "kind": "control", "example": "/project Ship the new onboarding"},
 )
