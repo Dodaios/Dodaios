@@ -26,6 +26,12 @@ FVerseDeckLook FVerseDeckLook::For(FName Deck)
 		// The crew's living deck: a little warmer and a step brighter than the bridge.
 		Look.ExposureEV100 = 3.0;
 		Look.WorkLightKelvin = 5200.0;
+		// The spawn's third-person camera ends up behind the lobby wall in the void: a black first
+		// frame. The commander arrives in the lobby's west aisle instead, looking through the west
+		// door (x 7220, y 3300) down into the corridor, the camera inside the lobby (y up to 4600).
+		Look.ArrivalLocationCm = FVector(7250.0, 4250.0, 0.0);
+		Look.ArrivalYawDeg = -90.0;
+		Look.ArrivalPitchDeg = 8.0;
 		Look.SpaceOutward = FVector(-0.377894, -0.925849, 0.0);
 	}
 	else if (Id == TEXT("engineering"))
