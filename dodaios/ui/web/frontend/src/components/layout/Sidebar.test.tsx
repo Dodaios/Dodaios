@@ -17,6 +17,7 @@ import { useHomeStore } from "@/store/home";
 import { useIdeChatStore } from "@/store/ideChat";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeThreadsStore } from "@/store/ideThreads";
+import { useStatusLightStore } from "@/components/layout/statusLightStore";
 import { sectionPrefetch } from "@/lib/sectionPrefetch";
 import { SECTION_PREFETCH_DELAY_MS } from "@/hooks/useSectionPrefetch";
 
@@ -348,12 +349,16 @@ describe("Sidebar settings-hub entry", () => {
 
 describe("Sidebar assistant name header", () => {
   beforeEach(() => {
+    // The field stands atop the IDE's workspace list; beside the
+    // conversation search is one of the shortcut rows instead.
+    useIdeThreadsStore.setState({ layout: "grid" });
     useEventStore.setState({
       voiceState: "idle",
       transcription: "",
       transcriptionFinal: true,
       connected: true,
       voiceReady: true,
+      activeSection: "agentic-ide",
     });
   });
 
@@ -685,6 +690,35 @@ describe("the sidebar holds the two places and nothing else", () => {
     expect(screen.queryByTestId("sidebar-more-toggle")).toBeNull();
     expect(screen.queryByTestId("sidebar-due")).toBeNull();
     expect(screen.queryByTestId("earlier-chats")).toBeNull();
+  });
+
+  test("offers search and the four pages reached most, in the maintainer's order", () => {
+    renderSidebar();
+    const rows = ["sidebar-search-row", "sidebar-shortcut-plugins", "sidebar-shortcut-dictation", "sidebar-shortcut-visualization", "sidebar-shortcut-appshots"]
+      .map((id) => screen.getByTestId(id));
+    for (let i = 1; i < rows.length; i++) {
+      expect(rows[i - 1].compareDocumentPosition(rows[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+    expect(screen.queryByTestId("sidebar-search")).toBeNull();
+    fireEvent.click(screen.getByTestId("sidebar-search-row"));
+    expect(useQuickSwitcher.getState().open).toBe(true);
+    act(() => useQuickSwitcher.getState().hide());
+    fireEvent.click(screen.getByTestId("sidebar-shortcut-appshots"));
+    expect(useEventStore.getState().activeSection).toBe("appshots");
+  });
+
+  test("lists what waits on the person, and stays quiet when nothing does", () => {
+    renderSidebar();
+    expect(screen.queryByTestId("sidebar-status")).toBeNull();
+    act(() => useStatusLightStore.setState({ light: {
+      counts: { running: 0, needs_you: 1 }, running: [], trouble: [], findings: [], tone: "calm",
+      needs_you: [{ kind: "approval", id: "a1", title: "Write the July manifest", state: "waiting", link: { section: "board" } }],
+    } }));
+    const needs = screen.getByTestId("sidebar-status-needs");
+    expect(needs.textContent).toContain("Write the July manifest");
+    fireEvent.click(screen.getByTestId("status-light-row"));
+    expect(useEventStore.getState().activeSection).toBe("board");
+    act(() => useStatusLightStore.setState({ light: null }));
   });
 
   test("keeps the marketplace beside the profile button", () => {

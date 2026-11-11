@@ -1,6 +1,6 @@
-import { Loader2, Mic, MoreHorizontal } from "lucide-react";
+import { Loader2, Mic, MoreHorizontal, Search } from "lucide-react";
 import { SETTINGS_HUB_IDS } from "@/components/layout/navGroups";
-import { useEventStore } from "@/store/events";
+import { useEventStore, type SectionId } from "@/store/events";
 import { useSectionPrefetch } from "@/hooks/useSectionPrefetch";
 import { useVoiceReadiness } from "@/hooks/useVoiceReadiness";
 import { useVoiceMode } from "@/hooks/useVoiceMode";
@@ -19,7 +19,9 @@ import { SidebarModeSwitch, type SidebarMode } from "@/components/layout/Sidebar
 import { useQuickSwitchSettings } from "@/store/quickSwitchSettings";
 import { useAppInstance } from "@/hooks/useAppInstance";
 import { usePublishIdentity } from "@/hooks/usePublishIdentity";
-import { MarketplaceIcon } from "@/components/icons/sectionIcons";
+import { ArtifactsIcon, CaptureIcon, ExtensionsIcon, MarketplaceIcon, SpeechIcon } from "@/components/icons/sectionIcons";
+import { SidebarStatus } from "@/components/layout/SidebarStatus";
+import { useQuickSwitcher } from "@/store/quickSwitcher";
 import { startNewTextChat } from "@/lib/newChat";
 import { useUserName } from "@/hooks/useUserName";
 import { apiKeysHealthError } from "@/lib/apiKeysTab";
@@ -55,6 +57,14 @@ const VOICE_STATE_STYLE: Record<string, { dot: string; pulse: boolean }> = {
   // negotiating" phase, which no backend state covers. Half up, so amber.
   connecting: { dot: "bg-warning", pulse: true },
 };
+
+/** The pages reached most from beside the conversation, in the maintainer's order. */
+const SHORTCUTS: readonly { id: SectionId; labelKey: string; Icon: typeof Search; also: readonly SectionId[] }[] = [
+  { id: "plugins", labelKey: "nav.plugins", Icon: ExtensionsIcon, also: ["skills", "mcps"] },
+  { id: "dictation", labelKey: "nav.dictation", Icon: SpeechIcon, also: ["dictionary", "voice-shortcuts", "voice-language", "voice-api-keys"] },
+  { id: "visualization", labelKey: "nav.visualization", Icon: ArtifactsIcon, also: [] },
+  { id: "appshots", labelKey: "nav.appshots", Icon: CaptureIcon, also: [] },
+];
 
 export interface SidebarProps {
   /**
@@ -154,7 +164,8 @@ export function Sidebar({
   // The IDE's thread list carries search as one of its own start rows
   // (ThreadTree), so there the field atop the column steps aside.
   const threadLayout = useIdeThreadsStore((s) => s.layout) === "threads" && onIdeSection;
-  const headerSearch = searchBarOn && !threadLayout;
+  // Beside the conversation, search is the first of the shortcut rows instead.
+  const headerSearch = searchBarOn && onIdeSection && !threadLayout;
   const identity = usePublishIdentity();
   const userName = useUserName();
   // The person by first name once the Profile knows it, else their
@@ -314,8 +325,36 @@ export function Sidebar({
           </div>
         </nav>) : <>
           {/* The IDE lists its folders here. Beside the conversation the column
-              stays empty: the assistant's own panel stands to the right of it. */}
-          {onIdeSection && <LazyIdeProjectTree />}
+              holds a few ways out (search and the pages reached most) and,
+              under them, what waits on the person and what runs. The
+              assistant's own panel stands to the right of the conversation. */}
+          {onIdeSection ? <LazyIdeProjectTree /> : <>
+            <nav aria-label={t("sidebar.sections")} data-testid="sidebar-shortcuts" className="px-2 pt-1">
+              <ul className="space-y-px">
+                {searchBarOn && <li>
+                  <button type="button" data-testid="sidebar-search-row" onClick={() => useQuickSwitcher.getState().show()} className={rowClass}>
+                    <Search aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" />
+                    <span className="truncate">{t("quick_switch.sidebar_search")}</span>
+                  </button>
+                </li>}
+                {SHORTCUTS.map((item) => {
+                  const { id, labelKey, Icon, also } = item;
+                  const here = active === id || also.includes(active);
+                  return <li key={id}>
+                    <button type="button" data-testid={`sidebar-shortcut-${id}`} data-tour={`nav-${item.id}`} onClick={() => setActive(id)}
+                      aria-current={here ? "page" : undefined}
+                      title={id === "plugins" && pluginsNeedReconnect ? pluginWarnTitle : undefined}
+                      className={cn(rowClass, here && "bg-secondary text-foreground-strong")}>
+                      <Icon aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" />
+                      <span className="min-w-0 flex-1 truncate text-left">{t(labelKey)}</span>
+                      {id === "plugins" && pluginsNeedReconnect && <span data-testid="sidebar-shortcut-warn" role="status" aria-label={pluginWarnTitle} className="h-2 w-2 shrink-0 rounded-full bg-warning" />}
+                    </button>
+                  </li>;
+                })}
+              </ul>
+            </nav>
+            <SidebarStatus />
+          </>}
         </>}
       </div>
 

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { clsx } from "clsx";
+import { X } from "lucide-react";
 
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { useEventStore, type SectionId } from "@/store/events";
-import { openAgent, type CardKind } from "@/views/society/agentNavigation";
+import { useEventStore } from "@/store/events";
+import { useNavSidebarStore } from "@/store/navSidebar";
 
 import {
   useStatusLightStore,
@@ -14,11 +15,11 @@ import {
   type StatusRow,
   type StatusTrouble,
 } from "./statusLightStore";
+import { StatusGroup, goToStatusRow } from "./statusRows";
 
 /** Width of the popover and its distance from the window edges. */
 const PANEL_W = 340;
 const EDGE = 12;
-const CARD_KINDS: readonly string[] = ["question", "approval", "credential", "proposal"];
 
 /**
  * The glanceable status light in the window caption: "2 running · 1 needs you".
@@ -27,7 +28,10 @@ const CARD_KINDS: readonly string[] = ["question", "approval", "credential", "pr
  * person chooses to. It never pops up, animates, sounds or toasts on its own;
  * only its words change. A subtle amber dot says a login or usage limit is in
  * trouble. Clicking opens a compact list; each row goes to its place (a card in
- * an agent's chat, the Agentic IDE, the board).
+ * the conversation, the Agentic IDE, the board).
+ *
+ * Beside the conversation the open sidebar lists the same rows itself
+ * (`SidebarStatus`), so there the chip steps aside rather than say it twice.
  */
 export function StatusLight({ className }: { className?: string }) {
   const t = useT();
@@ -37,6 +41,9 @@ export function StatusLight({ className }: { className?: string }) {
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const [left, setLeft] = useState(EDGE);
+  const onConversation = useEventStore((s) => s.activeSection === "chats");
+  const sidebarOpen = !useNavSidebarStore((s) => s.collapsed);
+  const inSidebar = onConversation && sidebarOpen;
 
   useEffect(() => watchStatusLight(), []);
 
@@ -89,18 +96,11 @@ export function StatusLight({ className }: { className?: string }) {
   const summary = parts.length > 0 ? parts.join(" · ") : t("status_light.idle");
 
   const go = (row: StatusRow) => {
-    const { link } = row;
-    if (link.agent_id) {
-      openAgent(link.agent_id, {
-        sessionId: link.session_id || undefined,
-        cardRef: link.ref_id || undefined,
-        kind: CARD_KINDS.includes(row.kind) ? (row.kind as CardKind) : undefined,
-      });
-    } else if (link.section) {
-      useEventStore.getState().setActiveSection(link.section as SectionId);
-    }
+    goToStatusRow(row);
     setOpen(false);
   };
+
+  if (inSidebar) return null;
 
   return (
     <>
@@ -146,7 +146,7 @@ export function StatusLight({ className }: { className?: string }) {
           data-testid="status-light-panel"
           style={{ left, width: `min(${PANEL_W}px, calc(100vw - ${EDGE * 2}px))` }}
           className={cn(
-            "fixed top-10 z-[150] overflow-hidden rounded-[24px] bg-popover text-popover-foreground shadow-float outline-none ring-1 ring-inset ring-border/50",
+            "fixed top-10 z-[150] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-float outline-none",
             "origin-top motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:duration-150",
           )}
         >
@@ -190,17 +190,14 @@ function StatusPanel({
   const empty = needs.length === 0 && running.length === 0 && trouble.length === 0 && findings.length === 0;
   return (
     <div className="flex max-h-[min(70vh,520px)] min-h-0 flex-col" data-testid="status-light-content">
-      <header className="flex items-center gap-2 px-4 pb-1 pt-3.5">
-        <h2 className="m-0 flex-1 text-[15px] font-semibold text-foreground-strong">{t("status_light.title")}</h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full px-2.5 py-1 text-[13px] text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {t("status_light.close")}
+      <header className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+        <h2 className="m-0 flex-1 text-base font-semibold text-foreground-strong">{t("status_light.title")}</h2>
+        <button type="button" onClick={onClose} aria-label={t("status_light.close")} title={t("status_light.close")}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <X aria-hidden className="h-4 w-4" />
         </button>
       </header>
-      <div className="chat-scroller min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-1">
+      <div className="chat-scroller min-h-0 flex-1 overflow-y-auto px-2 py-3">
         {!loaded ? (
           <p role={error ? "alert" : "status"} className="px-3 py-6 text-center text-[13px] text-muted-foreground">
             {error ? t("status_light.unavailable") : "…"}
@@ -211,11 +208,11 @@ function StatusPanel({
           </p>
         ) : (
           <>
-            <Section title={t("status_light.needs_heading")} rows={needs} onGo={onGo} testId="status-light-needs" />
-            <Section title={t("status_light.running_heading")} rows={running} onGo={onGo} testId="status-light-running" />
+            <StatusGroup title={t("status_light.needs_heading")} rows={needs} onGo={onGo} testId="status-light-needs" />
+            <StatusGroup title={t("status_light.running_heading")} rows={running} running onGo={onGo} testId="status-light-running" />
             {(trouble.length > 0 || findings.length > 0) && (
-              <section className="px-1 pt-3" data-testid="status-light-trouble">
-                <h3 className="m-0 px-3 pb-1 text-[12px] font-medium text-muted-foreground">{t("status_light.trouble_heading")}</h3>
+              <section className="pt-3 first:pt-0" data-testid="status-light-trouble">
+                <h3 className="m-0 px-2 pb-1 text-sm text-muted-foreground">{t("status_light.trouble_heading")}</h3>
                 <ul className="m-0 flex list-none flex-col p-0">
                   {trouble.map((seat) => (
                     <li key={`${seat.provider}/${seat.account}`} className="flex items-center gap-2 px-3 py-1.5 text-[13px]">
@@ -248,40 +245,3 @@ function troubleLabel(t: (key: string) => string, cls: string): string {
   return t(`status_light.class_${known.includes(cls) ? cls : "other"}`);
 }
 
-function Section({
-  title,
-  rows,
-  onGo,
-  testId,
-}: {
-  title: string;
-  rows: StatusRow[];
-  onGo: (row: StatusRow) => void;
-  testId: string;
-}) {
-  const t = useT();
-  if (rows.length === 0) return null;
-  return (
-    <section className="px-1 pt-3 first:pt-1" data-testid={testId}>
-      <h3 className="m-0 px-3 pb-1 text-[12px] font-medium text-muted-foreground">
-        {title} <span className="tabular-nums">{rows.length}</span>
-      </h3>
-      <ul className="m-0 flex list-none flex-col p-0">
-        {rows.map((row) => (
-          <li key={`${row.kind}:${row.id}:${row.title}`}>
-            <button
-              type="button"
-              onClick={() => onGo(row)}
-              title={t("status_light.open_hint")}
-              data-testid="status-light-row"
-              className="flex w-full items-baseline gap-2 rounded-2xl px-3 py-1.5 text-left text-[13px] hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span className="shrink-0 text-muted-foreground">{t(`status_light.kind_${row.kind}`)}</span>
-              <span className="min-w-0 flex-1 truncate text-foreground">{row.title}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
