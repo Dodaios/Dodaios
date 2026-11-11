@@ -39,8 +39,17 @@ _service: TriggerService | None = None
 _runner: ProducerRunner | None = None
 _poll_task: asyncio.Task[None] | None = None
 _bound: set[int] = set()
-#: Answers "does a stop hold cover triggers right now?"; the hold feature plugs in here.
-_hold_check: Any = lambda: False  # noqa: E731
+
+
+def _triggers_held() -> bool:
+    """True while the owner's stop holds everything or all triggers (``trigger:*``)."""
+    from dodaios.safety.stop_hold import stop_holds
+
+    return stop_holds().blocking(trigger="*") is not None
+
+
+#: Answers "does a stop hold cover triggers right now?"; tests may swap it.
+_hold_check: Any = _triggers_held
 
 
 def _runtime() -> Any | None:
@@ -444,6 +453,17 @@ def get_preparer(store: Any) -> Preparer:
     return _preparer
 
 
+def _delivery_held(sub: Any) -> bool:
+    """The owner's stop on everything, the trigger policy, the job or its agent blocks delivery."""
+    from dodaios.safety.stop_hold import stop_holds
+
+    policy = str((sub.mandate or {}).get("policy_id") or "")
+    holds = stop_holds()
+    return holds.blocking(trigger="*") is not None or holds.blocking(
+        job=sub.job_id, trigger=policy, agent=str(sub.target or "")
+    ) is not None
+
+
 def get_service() -> TriggerService | None:
     """The process's service, built on first use; ``None`` while no society runs."""
     global _service
@@ -455,6 +475,7 @@ def get_service() -> TriggerService | None:
             runtime.store, seat=_seat, starter=_start_job, notifier=_notify, quiet=_quiet,
             subscriptions=_subscription_store(), deliverer=deliver_to_job,
             preparer=get_preparer(runtime.store),
+            hold=_delivery_held,
         )
     return _service
 
