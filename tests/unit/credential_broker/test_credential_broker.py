@@ -240,7 +240,8 @@ async def test_the_bridge_asks_the_owner_with_a_card_that_names_the_site(
     )
     assert lease is not None and lease.used == ["cred:github.com/owner"]
     assert approvals.enqueued[0]["capability"] == "core:credentials"
-    assert "github.com" in approvals.enqueued[0]["summary"]
+    assert approvals.enqueued[0]["action"]["handle"] == "cred:github.com/owner"
+    assert approvals.enqueued[0]["summary"].split()[3] == "github.com"
     assert CANARY not in json.dumps(approvals.enqueued)
     lease.release()
     assert await prepare_broker_logins(
@@ -383,3 +384,24 @@ def test_the_owner_chooses_the_backend_and_it_persists(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         again.set_backend("nope")
     assert asyncio.run(again.statuses()) == [{"name": "local"}, {"name": "local"}]
+
+
+def test_a_look_alike_host_never_matches_the_credential(tmp_path: Path) -> None:
+    from urllib.parse import urlparse
+
+    evil = "https://github.com.evil.example/login"
+    assert urlparse(evil).hostname != "github.com"
+    items = [
+        {"type": 1, "name": "Evil", "login": {
+            "username": "u", "password": "pw-evil-value", "uris": [{"uri": evil}]}},
+        {"type": 1, "name": "Evil2", "login": {
+            "username": "u", "password": "pw-evil-value", "uris": [{"uri": "https://evilgithub.com"}]}},
+    ]
+    bw = BitwardenBackend(bw_runner("unlocked", items, []), which=lambda _n: "bw")
+    assert bw.list_handles("ada", "github.com") == []
+    with pytest.raises(BackendError):
+        bw.resolve("ada", Handle("github.com", "evil"))
+    broker, _ = make_broker(tmp_path)
+    broker.rules.add("ada", HANDLE)
+    assert broker.rules.find("ada", "github.com.evil.example") is None
+    assert broker.rules.find("ada", "evilgithub.com") is None

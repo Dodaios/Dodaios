@@ -365,7 +365,7 @@ async def credentials_overview() -> dict[str, Any]:
     broker, rt = _broker()
     agents = {a.agent_id: str(getattr(a, "name", "") or a.agent_id) for a in await rt.roster.list()}
     handles: list[dict[str, Any]] = []
-    error = ""
+    error = error_code = ""
     try:
         if broker.active_name() == "local":
             for agent_id, name in agents.items():
@@ -374,8 +374,11 @@ async def credentials_overview() -> dict[str, Any]:
         else:
             for info in await broker.handles(""):
                 handles.append({**info.to_dict(), "agent_id": "", "agent": ""})
-    except BackendError as exc:  # the panel shows the backend's own safe reason
-        error = str(exc)
+    except BackendError:
+        # Details stay in the server log; the panel gets a stable code and a plain message.
+        log.warning("credentials: the backend could not be read", exc_info=True)
+        error_code = "backend_unavailable"
+        error = "The password manager could not be read. Check that it is unlocked."
     rules = [{**r, "agent": agents.get(r["agent_id"], r["agent_id"])} for r in broker.rules.items()]
     return {
         "backend": broker.active_name(),
@@ -383,6 +386,7 @@ async def credentials_overview() -> dict[str, Any]:
         "handles": handles,
         "rules": rules,
         "error": error,
+        "error_code": error_code,
     }
 
 
