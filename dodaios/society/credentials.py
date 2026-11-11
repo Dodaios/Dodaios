@@ -704,6 +704,12 @@ class CredentialVault:
                 scoped[user_name] = username
         return out
 
+    def login_values(self, agent_id: str, key: str) -> tuple[str, str] | None:
+        """``(username, password)`` of one stored login, for the credential broker only."""
+        self.values(agent_id)
+        with self._lock:
+            return self._logins.get(agent_id, {}).get(key)
+
     def public_username(self, agent_id: str, key: str) -> str | None:
         """The login's username when it is not private, else ``None``."""
         self.values(agent_id)

@@ -30,6 +30,7 @@ two that reach the roster or the tool executor await.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid
@@ -37,6 +38,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
+from pydantic import BaseModel, Field
 
 from dodaios.trust.audit import audit_log
 from dodaios.trust.hard_limits import HARD_LIMITS
@@ -323,6 +325,100 @@ def _lead_service_from(state: Any) -> Any:
     except Exception:  # noqa: BLE001 — no chat service: routines and jobs are still stopped
         log.warning("stop everything: chat service unavailable", exc_info=True)
         return None
+
+
+# ------------------------------------------------------------ credentials
+#
+# The Credentials section (dodaios/credential_broker): handles never values, the
+# backend's state, the per-site always-rules. Owner-only: every write carries
+# ``x-jarvis-dangerous`` so an agent driving the app's CLI cannot reach it.
+
+
+class BackendBody(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+
+
+class SessionBody(BaseModel):
+    backend: str = Field(min_length=1, max_length=40)
+    #: The owner's own unlock key (``bw unlock --raw``): never a master password.
+    key: str = Field(default="", max_length=512)
+
+
+class OtpMailBody(BaseModel):
+    on: bool
+
+
+def _broker() -> Any:
+    from dodaios.credential_broker import broker_for
+    from dodaios.society.runtime import current_runtime
+
+    rt = current_runtime()
+    if rt is None:
+        raise HTTPException(status_code=503, detail="the credential store is not running")
+    return broker_for(rt.data_dir), rt
+
+
+@router.get("/credentials")
+async def credentials_overview() -> dict[str, Any]:
+    from dodaios.credential_broker import BackendError
+
+    broker, rt = _broker()
+    agents = {a.agent_id: str(getattr(a, "name", "") or a.agent_id) for a in await rt.roster.list()}
+    handles: list[dict[str, Any]] = []
+    error = ""
+    try:
+        if broker.active_name() == "local":
+            for agent_id, name in agents.items():
+                for info in await asyncio.to_thread(broker.backend().list_handles, agent_id):
+                    handles.append({**info.to_dict(), "agent_id": agent_id, "agent": name})
+        else:
+            for info in await broker.handles(""):
+                handles.append({**info.to_dict(), "agent_id": "", "agent": ""})
+    except BackendError as exc:
+        error = str(exc)
+    rules = [{**r, "agent": agents.get(r["agent_id"], r["agent_id"])} for r in broker.rules.items()]
+    return {
+        "backend": broker.active_name(),
+        "backends": await broker.statuses(),
+        "handles": handles,
+        "rules": rules,
+        "error": error,
+    }
+
+
+@router.put("/credentials/backend", openapi_extra={"x-jarvis-dangerous": True})
+def credentials_set_backend(body: BackendBody) -> dict[str, Any]:
+    broker, _ = _broker()
+    try:
+        broker.set_backend(body.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "backend": broker.active_name()}
+
+
+@router.put("/credentials/session", openapi_extra={"x-jarvis-dangerous": True})
+def credentials_set_session(body: SessionBody) -> dict[str, Any]:
+    broker, _ = _broker()
+    if not broker.set_session(body.backend, body.key):
+        raise HTTPException(status_code=400, detail="this backend needs no session key")
+    return {"ok": True}
+
+
+@router.delete("/credentials/rules/{rule_id}", openapi_extra={"x-jarvis-dangerous": True})
+def credentials_revoke_rule(rule_id: str) -> dict[str, Any]:
+    broker, _ = _broker()
+    rule = broker.rules.revoke(rule_id)
+    if rule is None:
+        raise HTTPException(status_code=404, detail="no such rule")
+    return {"ok": True, "rule": rule}
+
+
+@router.put("/credentials/rules/{rule_id}/otp-mail", openapi_extra={"x-jarvis-dangerous": True})
+def credentials_otp_mail(rule_id: str, body: OtpMailBody) -> dict[str, Any]:
+    broker, _ = _broker()
+    if not broker.rules.set_otp_from_mail(rule_id, body.on):
+        raise HTTPException(status_code=404, detail="no such rule")
+    return {"ok": True}
 
 
 __all__ = ["router"]

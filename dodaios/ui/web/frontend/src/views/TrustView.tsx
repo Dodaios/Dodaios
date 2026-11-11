@@ -7,6 +7,8 @@
  * - "What it knows": connected accounts, what is learned (with the learning
  *   switch), which providers see what (local vs cloud), channels, the screen.
  *
+ * - "Credentials": the logins agents may name by handle (never a value), the
+ *   backend they come from and its lock state, and the sites allowed to sign in.
  * - "Self-changes": what the assistant changed in itself (skills, instructions, tools,
  *   code), each with its diff and regression result, one-click rollback, and the
  *   owner approval that core changes wait for.
@@ -21,12 +23,13 @@ import { ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { TabBar } from "@/components/layout/SectionTabBar";
 import { AuditLog } from "@/components/trust/AuditLog";
+import { CredentialsPanel } from "@/components/trust/CredentialsPanel";
 import { PrivacyOverview } from "@/components/trust/PrivacyOverview";
 import { SelfChanges } from "@/components/trust/SelfChanges";
 import { TrustRules } from "@/components/trust/TrustRules";
 import { useLocaleChunk, useT } from "@/i18n";
 
-type Tab = "rules" | "privacy" | "changes" | "audit";
+type Tab = "rules" | "privacy" | "credentials" | "changes" | "audit";
 
 export function TrustView({ initialTab = "rules" }: { initialTab?: Tab }) {
   const ready = useLocaleChunk("trust");
@@ -44,6 +47,7 @@ export function TrustView({ initialTab = "rules" }: { initialTab?: Tab }) {
             tabs={[
               { id: "rules", label: t("trust.page.tab_rules") },
               { id: "privacy", label: t("trust.page.tab_privacy") },
+              { id: "credentials", label: t("trust.page.tab_credentials") },
               { id: "changes", label: t("trust.page.tab_changes") },
               { id: "audit", label: t("trust.page.tab_audit") },
             ]}
@@ -57,6 +61,8 @@ export function TrustView({ initialTab = "rules" }: { initialTab?: Tab }) {
           <TrustRules />
         ) : tab === "privacy" ? (
           <PrivacyOverview />
+        ) : tab === "credentials" ? (
+          <CredentialsPanel />
         ) : tab === "changes" ? (
           <SelfChanges />
         ) : (
