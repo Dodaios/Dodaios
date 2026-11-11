@@ -59,7 +59,7 @@ def test_control_api_is_import_light_and_preserves_sessions(
 def test_python_sql_and_typescript_control_names_match() -> None:
     root = Path(__file__).resolve().parents[2]
     ts = (root / "dodaios/ui/web/frontend/src/lib/chatControlApi.ts").read_text(encoding="utf-8")
-    assert len(COMMANDS) == len(get_args(CommandName)) == 16
+    assert len(COMMANDS) == len(get_args(CommandName)) == 17
     for name in get_args(CommandName):
         assert f'"{name}"' in ts
     for status in get_args(GoalStatus):
