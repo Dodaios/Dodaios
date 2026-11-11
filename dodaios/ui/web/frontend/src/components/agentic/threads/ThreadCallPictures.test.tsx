@@ -30,16 +30,16 @@ describe("pictures a tool brought back", () => {
     expect(callPictures([viewed, answer, { ...picture, id: "media-def" }]).moved.size).toBe(0);
   });
 
-  it("show full size only once the call's line is opened; the line itself carries a small preview", () => {
+  it("show large under the call's line once the work is in view, never in the answer", () => {
     render(<ThreadTimeline items={[turn([viewed, picture, answer])]} sessionId="s1" bottomInset={0} />);
     expect(screen.getByText("The menu shows three entries.")).toBeTruthy();
     expect(document.querySelector("img")).toBeNull();
     fireEvent.click(screen.getByTestId("thread-worked-for"));
-    // Folded open: only the small preview at the end of the line.
-    const big = () => Array.from(document.querySelectorAll("img")).filter((img) => !img.closest("[data-testid=thread-line-pictures]"));
-    expect(big()).toHaveLength(0);
-    expect(screen.getByTestId("thread-line-pictures").querySelector("img")?.getAttribute("src")).toContain("/api/outputs/s/files/shot.png");
+    // Folded open: the picture stands large under its line, not in the answer.
+    expect(screen.getByTestId("thread-line-picture").querySelector("img")?.getAttribute("src")).toContain("/api/outputs/s/files/shot.png");
+    // Opened, the line shows its steps; the picture is behind its own row.
     fireEvent.click(screen.getByRole("button", { name: /Viewed an image/i }));
-    expect(big()[0]?.getAttribute("src")).toContain("/api/outputs/s/files/shot.png");
+    expect(screen.queryByTestId("thread-line-picture")).toBeNull();
+    expect(screen.getByTestId("thread-steps").querySelector("img")?.getAttribute("src")).toContain("/api/outputs/s/files/shot.png");
   });
 });

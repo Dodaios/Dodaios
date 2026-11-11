@@ -4,6 +4,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 
 import { useT } from "@/i18n";
 import { openExternalUrl } from "@/lib/openExternal";
+import { cn } from "@/lib/utils";
 
 export type MediaKind = "image" | "video" | "audio";
 
@@ -38,8 +39,12 @@ export function mediaKind(raw: string): MediaKind | null {
   return EXTENSIONS[path.split(".").pop()?.toLowerCase() ?? ""] ?? null;
 }
 
-/** Image, video, or audio that a chat message can show without the markdown parser. */
-export function MediaPreview({ src, label, kind }: { src: string; label: string; kind: MediaKind }) {
+/**
+ * Image, video, or audio that a chat message can show without the markdown parser.
+ * `bare` draws only the picture itself (no margin, no download line): a
+ * thread's screenshot under its line.
+ */
+export function MediaPreview({ src, label, kind, bare = false }: { src: string; label: string; kind: MediaKind; bare?: boolean }) {
   const t = useT();
   const [failedSource, setFailedSource] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -59,7 +64,7 @@ export function MediaPreview({ src, label, kind }: { src: string; label: string;
       }
     };
   }, [safe, kind, failed, revision]);
-  return <Dialog.Root open={expanded} onOpenChange={setExpanded}><span className="my-3 block min-w-0 max-w-full" data-testid="chat-media" data-kind={kind}>
+  return <Dialog.Root open={expanded} onOpenChange={setExpanded}><span className={cn("block min-w-0 max-w-full", !bare && "my-3")} data-testid="chat-media" data-kind={kind}>
     {failed ? <span role="status" className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
       <AlertCircle aria-hidden className="h-4 w-4 shrink-0" />{unavailable}
       {safe ? <button type="button" onClick={() => { setFailedSource(null); setRevision(value => value + 1); }} className="shrink-0 rounded px-2 py-1 text-foreground underline focus-visible:ring-2 focus-visible:ring-ring">{t("chat_media.retry")}</button> : null}
@@ -67,12 +72,12 @@ export function MediaPreview({ src, label, kind }: { src: string; label: string;
       aria-label={t("chat_media.expand").replace("{file}", label)}
       className="group relative block max-w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <img key={revision} src={safe!} alt={label} loading="lazy" decoding="async" onError={() => { setFailedSource(src); setExpanded(false); }}
-        className="m-0 max-h-[520px] max-w-full rounded-lg object-contain" />
+        className={cn("m-0 max-w-full rounded-lg object-contain", bare ? "max-h-[440px] border border-border/70" : "max-h-[520px]")} />
       <Maximize2 aria-hidden className="absolute bottom-2 right-2 h-6 w-6 rounded bg-background/90 p-1 text-foreground opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
     </button></Dialog.Trigger> : kind === "video" ? <video ref={node => { playerRef.current = node; }} key={`${revision}:${safe}`} src={safe!} aria-label={label} controls playsInline preload="metadata"
       onError={() => { setFailedSource(src); setExpanded(false); }} className="max-h-[520px] w-full rounded-lg bg-muted" />
       : <audio ref={node => { playerRef.current = node; }} key={`${revision}:${safe}`} src={safe!} aria-label={label} controls preload="metadata" onError={() => { setFailedSource(src); setExpanded(false); }} className="w-full" />}
-    {safe ? <a href={safe} download={safe.startsWith("/api/outputs/") ? true : undefined}
+    {bare ? null : safe ? <a href={safe} download={safe.startsWith("/api/outputs/") ? true : undefined}
       onClick={event => {
         if (!safe.startsWith("/api/outputs/")) {
           event.preventDefault();
