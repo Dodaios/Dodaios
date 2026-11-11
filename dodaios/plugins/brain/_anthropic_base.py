@@ -265,6 +265,10 @@ def reasoning_kwargs(model: str, effort: str | None) -> dict[str, Any]:
         level = picked
     else:
         order = ("low", "medium", "high", "xhigh", "max")
+        # The multi-agent steps have no API counterpart: Claude Code's
+        # ``ultracode`` runs on ``xhigh`` (the CLI's own mapping), Codex's
+        # ``ultra`` sits above ``max``. Neither falls to the lowest step.
+        picked = {"ultracode": "xhigh", "ultra": "max"}.get(picked, picked)
         idx = order.index(picked) if picked in order else 0
         lower = [lvl for lvl in ladder if order.index(lvl) <= idx]
         level = lower[-1] if lower else ladder[0]

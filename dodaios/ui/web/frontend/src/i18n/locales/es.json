@@ -1182,6 +1182,7 @@
     "effort_xhigh": "Muy alto",
     "effort_max": "Máximo",
     "effort_ultra": "Ultra (delega tareas)",
+    "effort_ultracode": "Ultracode (multiagente)",
     "mode_build": "Construir",
     "mode_plan": "Planificar",
     "build_hint": "Modo construir: el agente puede cambiar archivos. Clic para el modo planificar.",

@@ -1182,6 +1182,7 @@
     "effort_xhigh": "超高",
     "effort_max": "最高",
     "effort_ultra": "极致（委派任务）",
+    "effort_ultracode": "Ultracode（多智能体）",
     "mode_build": "构建",
     "mode_plan": "计划",
     "build_hint": "构建模式——智能体可以修改文件。点击切换到计划模式。",

@@ -174,6 +174,39 @@ def test_claude_planner_passes_the_cli_mode_through(monkeypatch, tmp_path: Path)
     }
 
 
+def test_claude_planner_turns_ultracode_into_xhigh_plus_the_setting(monkeypatch, tmp_path: Path):
+    """Ultracode is no ``--effort`` value: xhigh plus the ``ultracode`` setting."""
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
+
+    def argv_for(effort: str, mode: str) -> list[str]:
+        return plan_claude(
+            prompt="hi", cwd=tmp_path, model="", effort=effort, permission_mode=mode, resume=None
+        ).argv
+
+    for mode in ("bypass", "ask"):
+        argv = argv_for("ultracode", mode)
+        assert argv[argv.index("--effort") + 1] == "xhigh"
+        assert argv.count("--settings") == 1
+        assert json.loads(argv[argv.index("--settings") + 1]) == {"ultracode": True}
+    # Any other level sends no settings at all.
+    assert "--settings" not in argv_for("max", "ask")
+    assert "--settings" not in argv_for("high", "bypass")
+
+
+def test_ultra_code_is_offered_only_where_claude_code_answers():
+    from dodaios.agent_chat.effort import effort_for_model, normalize_effort
+
+    claude = provider_row("claude-api")
+    assert claude is not None
+    assert claude.to_dict()["effort_levels"][-1] == "ultracode"
+    assert normalize_effort("claude-api", "ultracode") == "ultracode"
+    # A model with its own shorter ladder folds it to its top step.
+    assert effort_for_model("claude-api", "ultracode", ("low", "medium", "high", "max")) == "max"
+    # Codex's ultra and Claude Code's ultracode fold onto each other's lower neighbour.
+    assert normalize_effort("openai-codex", "ultracode") == "ultra"
+    assert normalize_effort("claude-api", "ultra") == "max"
+
+
 def test_claude_planner_asks_for_thinking_summaries(monkeypatch, tmp_path: Path):
     """Print mode leaves thinking blocks empty; summaries are the thread's reasoning."""
     from dodaios import claude_auth
@@ -620,6 +653,9 @@ def test_anthropic_adapter_effort_and_temperature_rules():
     assert reasoning_kwargs("claude-haiku-4-5-20251001", "high") == {}
     # none/minimal mean "as little as possible" -> the lowest rung.
     assert reasoning_kwargs("claude-sonnet-5", "none")["output_config"] == {"effort": "low"}
+    # The multi-agent steps never fall to low: Ultracode runs on xhigh, ultra on max.
+    assert reasoning_kwargs("claude-opus-5", "ultracode")["output_config"] == {"effort": "xhigh"}
+    assert reasoning_kwargs("claude-opus-5", "ultra")["output_config"] == {"effort": "max"}
 
 
 def test_claude_planner_asks_for_tool_summaries(monkeypatch, tmp_path: Path):
