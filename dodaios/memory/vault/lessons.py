@@ -94,6 +94,7 @@ def load_state(vault: MemoryVault) -> dict[str, Any]:
     try:
         data = json.loads(vault.get_meta(STATE_KEY) or "{}")
     except ValueError:
+        log.warning("lessons: unreadable state in the vault, starting afresh")
         data = {}
     if not isinstance(data, dict):
         data = {}
@@ -112,6 +113,7 @@ def _chain(vault: MemoryVault, memory: Memory) -> set[str]:
     try:
         return {m.id for m in vault.history(memory.id)} | {memory.id}
     except Exception:  # noqa: BLE001 - a broken chain must not stop a lookup
+        log.warning("lessons: could not read a memory history", exc_info=True)
         return {memory.id}
 
 
@@ -232,6 +234,7 @@ def metrics(vault: MemoryVault) -> dict[str, Any]:
     try:
         tidy = json.loads(vault.get_meta(TIDY_KEY) or "{}")
     except ValueError:
+        log.warning("lessons: unreadable tidy-up record in the vault")
         tidy = {}
     notes = current_notes(vault)
     return {
