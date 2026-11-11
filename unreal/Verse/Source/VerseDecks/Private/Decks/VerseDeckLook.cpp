@@ -33,7 +33,8 @@ FVerseDeckLook FVerseDeckLook::For(FName Deck)
 		Look.FogDensity = 0.035;
 		Look.FogHeightFalloff = 0.12;
 		Look.VolumetricExtinction = 1.6;
-		Look.ExposureEV100 = 3.5;
+		// One step brighter than the bridge: the haze swallows light, and the reactor hall must read.
+		Look.ExposureEV100 = 3.0;
 		Look.WorkLightKelvin = 4800.0;
 		Look.SpaceOutward = FVector(-0.990347, 0.138613, 0.0);
 	}
@@ -206,6 +207,12 @@ namespace VerseDeckLookPrivate
 	/** Fixtures one socket or one unlit room spreads at most, and the light budget of a deck. */
 	constexpr int32 MaxFixturesPerSocket = 24;
 	constexpr int32 MaxFixturesPerUnlitRoom = 12;
+	/** Unlit rooms larger than this get the larger grid, so a reactor hall is not lit by pools. */
+	constexpr double LargeRoomM2 = 800.0;
+	constexpr int32 MaxFixturesPerLargeUnlitRoom = 20;
+	/** A room whose light sockets give less than this many lumens per square metre counts as unlit:
+	 *  one status lamp or reactor glow does not light a hall. */
+	constexpr double MinRoomLumenPerM2 = 5.0;
 	constexpr int32 MaxDeckLights = 160;
 	/** Lumens of one fixture of the default grid in a room no light socket covers. */
 	constexpr double DefaultFixtureLumen = 4500.0;
@@ -430,27 +437,40 @@ int32 AVerseDeckLighting::Build(const FVerseDeckManifest& Manifest)
 		BlinkHz.Add(0.0);
 		BaseIntensity.Add(static_cast<float>(ScreenGlowLumen));
 	}
-	// Rooms no light socket covers (the bridge's crew pits) get a default fixture grid at the height
-	// of the deck's highest light, so no room of a deck renders black.
+	// Rooms no light socket covers (the bridge's crew pits), or only a status lamp lights (the reactor
+	// hall), get a default fixture grid at the height of the deck's highest light, so no room of a
+	// deck renders black.
 	double TopZ = 0.0;
-	TSet<FName> LitRooms;
+	TMap<FName, double> RoomLumen;
 	for (const FVerseDeckSocket& Socket : Manifest.Sockets)
 	{
 		if (Socket.Kind == FName(TEXT("light")))
 		{
 			TopZ = FMath::Max(TopZ, Socket.Transform.GetLocation().Z);
-			LitRooms.Add(Socket.Room);
+			RoomLumen.FindOrAdd(Socket.Room) += Socket.LightLumen;
 		}
 	}
 	for (const FVerseDeckRoom& Room : Manifest.Rooms)
 	{
-		if (LitRooms.Contains(Room.Id) || Room.PolygonCm.Num() < 3)
+		if (Room.PolygonCm.Num() < 3)
 		{
 			continue;
 		}
+		double AreaM2 = 0.0;
+		for (int32 I = 0, J = Room.PolygonCm.Num() - 1; I < Room.PolygonCm.Num(); J = I++)
+		{
+			AreaM2 += Room.PolygonCm[J].X * Room.PolygonCm[I].Y - Room.PolygonCm[I].X * Room.PolygonCm[J].Y;
+		}
+		AreaM2 = FMath::Abs(AreaM2) * 0.5 / 10000.0;
+		const double* Lumen = RoomLumen.Find(Room.Id);
+		if (Lumen && *Lumen >= MinRoomLumenPerM2 * AreaM2)
+		{
+			continue;
+		}
+		const int32 GridCount = AreaM2 > LargeRoomM2 ? MaxFixturesPerLargeUnlitRoom : MaxFixturesPerUnlitRoom;
 		// Under the deck's highest light, or a standard ceiling when no light hangs high enough.
 		const double FixtureZ = TopZ > Room.ZCm + 200.0 ? TopZ - 20.0 : Room.ZCm + DefaultCeilingCm;
-		for (const FVector& Point : FixtureGrid(Room, MaxFixturesPerUnlitRoom, FixtureZ))
+		for (const FVector& Point : FixtureGrid(Room, GridCount, FixtureZ))
 		{
 			if (Lights.Num() >= MaxDeckLights)
 			{
