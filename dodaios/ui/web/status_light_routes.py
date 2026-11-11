@@ -72,6 +72,7 @@ async def compute(request: Request) -> dict[str, Any]:
     try:
         seats = get_seat_health().troubled()
     except Exception:  # noqa: BLE001
+        log.warning("status light: seat health unavailable", exc_info=True)
         seats = []
     return build_status_light(board=board, jobs=open_jobs, attention=cards, seats=seats)
 
