@@ -79,7 +79,7 @@ beforeEach(() => {
   api.sendAgentChatMessage.mockReset().mockResolvedValue({ turn_id: "t1" });
   api.patchAgentChatSession.mockReset().mockResolvedValue(sessionRow());
   useIdeProjectsStore.setState({ projects: [project], activeWorkspaceId: null });
-  useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, order: {}, focusNonce: 0 });
+  useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, focusNonce: 0 });
   useThreadChatStore.getState().newChat();
   useThreadSubagentsStore.setState({ sessionId: null, rows: [], open: null });
 });
@@ -306,17 +306,15 @@ describe("ThreadTree", () => {
     expect(useIdeThreadsStore.getState().selection).toEqual({ projectId: "p1", sessionId: null, team: "new" });
   });
 
-  it("moves a thread with Alt and the arrow keys and keeps that order", async () => {
-    api.fetchAgentChatSessions.mockResolvedValue([
-      sessionRow({ session_id: "s1", cli_title: "Older", updated_ms: 1 }),
-      sessionRow({ session_id: "s2", cli_title: "Newer", updated_ms: 5 }),
-    ]);
+  it("lists threads newest first and folds the rest behind Show more after 20", async () => {
+    // Stamps 0..22 in a shuffled order, so the list has to sort them itself.
+    api.fetchAgentChatSessions.mockResolvedValue(Array.from({ length: 23 }, (_, index) =>
+      sessionRow({ session_id: `s${index}`, cli_title: `Thread ${index}`, updated_ms: (index * 7) % 23 })));
     render(<ThreadTree />);
-    await waitFor(() => expect(screen.getByText("Older")).toBeTruthy());
-    const titles = () => screen.getAllByTestId(/^thread-row-/).map((row) => row.textContent);
-    expect(titles()[0]).toContain("Newer");
-    fireEvent.keyDown(screen.getByText("Older"), { key: "ArrowUp", altKey: true });
-    expect(titles()[0]).toContain("Older");
-    expect(useIdeThreadsStore.getState().order).toEqual({ p1: ["s1", "s2"] });
+    const stamps = () => screen.queryAllByTestId(/^thread-row-s\d+$/)
+      .map((row) => (Number(row.getAttribute("data-testid")?.slice("thread-row-s".length)) * 7) % 23);
+    await waitFor(() => expect(stamps()).toEqual(Array.from({ length: 20 }, (_, index) => 22 - index)));
+    fireEvent.click(screen.getByRole("button", { name: "Show 3 more" }));
+    expect(stamps()).toEqual(Array.from({ length: 23 }, (_, index) => 22 - index));
   });
 });
