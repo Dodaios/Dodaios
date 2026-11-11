@@ -255,6 +255,13 @@ deck view and the duel show it alike:
   (drums, shelving with cartons and crates, military crates, ammo cans, jerrycans, a stores cart),
   jersey barrier lines with tyres, floodlights, and the parked gunship (`SM_Hangar_Shuttle`) on
   its pad in front of the hall door.
+- **Cover** (`DressArtBox`, a few cm proud, render only): cast-concrete feet and segment joints on
+  barriers and cover walls, lamps, a cable run and power boards on the perimeter's inner face,
+  angle guards and base plates on columns, stiffeners and lugs on the hanging blast screens, ISO
+  corner castings and locking bars on containers, webbing on crates, steel joists under the raised
+  decks and roofs that never break; the booth's consoles draw the kit console (their boxes only
+  collide). The hull wall modules' backlit slots are dark in the hangar, and the fence is open
+  rails (a glazed screen veiled the hall).
 - **Wear**: puddles that mirror the lamps, tug tracks, grime at the foot of every wall and cover
   box, rust streaks down walls, barriers and containers (`DressArtBox`). Masks: `grime.py`.
 

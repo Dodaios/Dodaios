@@ -6,6 +6,8 @@
 #include "Dom/JsonObject.h"
 #include "Engine/RectLight.h"
 #include "Engine/SpotLight.h"
+#include "Engine/PointLight.h"
+#include "Components/PointLightComponent.h"
 #include "Components/SpotLightComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
@@ -104,6 +106,32 @@ void AVerseArenaGraybox::DressArtRoof()
 		const double Bottom = 1430.0;
 		AddProp(TEXT("SM_Hangar_Crane_Bridge"), FVector(X, 2400.0, Bottom), 90.0, FVector(3.4, 1.5, 1.45));
 		AddProp(TEXT("SM_Hangar_Crane_Winch"), FVector(X, X < 5000.0 ? 1900.0 : 3000.0, Bottom - 180.0), 90.0, FVector(1.45));
+	}
+	// Amber beacons on both ends of each bridge and on the arena's perimeter corners.
+	UWorld* BeaconWorld = GetWorld();
+	const FVector Beacons[] = {FVector(3600.0, 700.0, 1900.0), FVector(3600.0, 4100.0, 1900.0), FVector(6600.0, 700.0, 1900.0), FVector(6600.0, 4100.0, 1900.0),
+		FVector(2470.0, 370.0, 470.0), FVector(7530.0, 370.0, 470.0), FVector(2470.0, 4430.0, 470.0), FVector(7530.0, 4430.0, 470.0)};
+	for (const FVector& At : Beacons)
+	{
+		AddTrim(TEXT("Struct_Gunmetal"), At - FVector(0.0, 0.0, 12.0), FVector(26.0, 26.0, 10.0));
+		AddTrim(TEXT("Indicator_Amber"), At + FVector(0.0, 0.0, 6.0), FVector(18.0, 18.0, 22.0), FRotator::ZeroRotator, false);
+		if (BeaconWorld && BeaconWorld->GetNetMode() != NM_DedicatedServer)
+		{
+			FActorSpawnParameters Params;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			if (APointLight* Lamp = BeaconWorld->SpawnActor<APointLight>(At + FVector(0.0, 0.0, 6.0), FRotator::ZeroRotator, Params))
+			{
+				UPointLightComponent* C = CastChecked<UPointLightComponent>(Lamp->GetLightComponent());
+				C->SetMobility(EComponentMobility::Movable);
+				C->SetIntensityUnits(ELightUnits::Lumens);
+				C->SetIntensity(900.f);
+				C->SetAttenuationRadius(700.f);
+				C->SetLightColor(FLinearColor(1.0f, 0.55f, 0.12f));
+				C->SetCastShadows(false);
+				C->SetVolumetricScatteringIntensity(2.0f);
+				Spawned.Add(Lamp);
+			}
+		}
 	}
 	// The runway beams the bridges ride on, along the hall at both ends of the span.
 	for (const double Y : {300.0, 4500.0})
@@ -427,6 +455,7 @@ void AVerseArenaGraybox::DressArtWear()
 void AVerseArenaGraybox::DressArtBox(const TSharedPtr<FJsonObject>& Box)
 {
 	const FString Id = Box->GetStringField(TEXT("id"));
+	const FString Piece = Box->HasField(TEXT("piece")) ? Box->GetStringField(TEXT("piece")) : FString();
 	const bool bCover = Id.StartsWith(TEXT("barrier_")) || Id.StartsWith(TEXT("cover_wall_")) || Id.StartsWith(TEXT("lowwall_"))
 		|| Id.StartsWith(TEXT("column_")) || Id.StartsWith(TEXT("cover_column_"));
 	const bool bContainer = Id.EndsWith(TEXT("_roof")) && Box->GetStringField(TEXT("zone")) == TEXT("arena_canyon") && !Id.StartsWith(TEXT("hung"));
@@ -483,6 +512,74 @@ void AVerseArenaGraybox::DressArtBox(const TSharedPtr<FJsonObject>& Box)
 			}
 		}
 		AddWear(TEXT("Arena_Grime"), FVector(Centre.X, Centre.Y, 0.0), 0.0, Size.X + 140.0, Size.Y + 140.0, false);
+		return;
+	}
+	if (Id == TEXT("hung_container"))
+	{
+		// The hung container reads as one: corrugation ribs down both long faces, castings.
+		const double Low = Centre.Z - Size.Z * 0.5;
+		const double High = Centre.Z + Size.Z * 0.5;
+		for (const double Side : {-1.0, 1.0})
+		{
+			for (double X = -Size.X * 0.5 + 15.0; X < Size.X * 0.5 - 10.0; X += 30.0)
+			{
+				AddTrim(TEXT("Arena_ContainerRust"), FVector(Centre.X + X, Centre.Y + Side * (Size.Y * 0.5 + 2.0), Centre.Z), FVector(14.0, 4.0, Size.Z - 24.0));
+			}
+		}
+		for (const double A : {-0.5, 0.5})
+		{
+			for (const double B : {-0.5, 0.5})
+			{
+				for (const double Z : {Low + 9.0, High - 9.0})
+				{
+					AddTrim(TEXT("Struct_Gunmetal"), FVector(Centre.X + A * (Size.X - 16.0), Centre.Y + B * (Size.Y - 16.0), Z), FVector(22.0, 22.0, 20.0));
+				}
+			}
+		}
+		return;
+	}
+	if (Piece == TEXT("glass"))
+	{
+		// Glazing in a steel frame with a mullion: the frame stays when the pane breaks.
+		const bool bLongX = Size.X >= Size.Y;
+		const double Run = bLongX ? Size.X : Size.Y;
+		const FVector RunDir = bLongX ? FVector(1.0, 0.0, 0.0) : FVector(0.0, 1.0, 0.0);
+		const FVector Edge = bLongX ? FVector(Run + 10.0, 12.0, 8.0) : FVector(12.0, Run + 10.0, 8.0);
+		AddTrim(TEXT("Struct_Gunmetal"), Centre + FVector(0.0, 0.0, Size.Z * 0.5), Edge);
+		AddTrim(TEXT("Struct_Gunmetal"), Centre - FVector(0.0, 0.0, Size.Z * 0.5), Edge);
+		for (const double T : {-0.5, 0.0, 0.5})
+		{
+			const FVector At = Centre + RunDir * (T * Run);
+			AddTrim(TEXT("Struct_Gunmetal"), At, bLongX ? FVector(8.0, 12.0, Size.Z + 8.0) : FVector(12.0, 8.0, Size.Z + 8.0));
+		}
+		return;
+	}
+	if (Id.StartsWith(TEXT("screen_")) || Id.StartsWith(TEXT("cover_screen_")))
+	{
+		// Armour plate on a frame: vertical stiffeners on both faces every 1.5 m, a stringer at mid
+		// height and lifting lugs on top.
+		const bool bLongX = Size.X >= Size.Y;
+		const double Run = bLongX ? Size.X : Size.Y;
+		const double Thick = bLongX ? Size.Y : Size.X;
+		const FVector RunDir = bLongX ? FVector(1.0, 0.0, 0.0) : FVector(0.0, 1.0, 0.0);
+		const FVector Across = bLongX ? FVector(0.0, 1.0, 0.0) : FVector(1.0, 0.0, 0.0);
+		const double Top = Centre.Z + Size.Z * 0.5;
+		const double Low = Centre.Z - Size.Z * 0.5;
+		for (const double Side : {-1.0, 1.0})
+		{
+			for (double T = -Run * 0.5 + 75.0; T < Run * 0.5; T += 150.0)
+			{
+				const FVector At = Centre + RunDir * T + Across * (Side * (Thick * 0.5 + 4.0));
+				AddTrim(TEXT("Struct_Gunmetal"), FVector(At.X, At.Y, (Top + Low + 30.0) * 0.5), bLongX ? FVector(10.0, 8.0, Size.Z - 34.0) : FVector(8.0, 10.0, Size.Z - 34.0));
+			}
+			const FVector Mid = Centre + Across * (Side * (Thick * 0.5 + 3.0));
+			AddTrim(TEXT("Struct_Gunmetal"), FVector(Mid.X, Mid.Y, Centre.Z + 20.0), bLongX ? FVector(Run - 10.0, 6.0, 12.0) : FVector(6.0, Run - 10.0, 12.0));
+		}
+		for (const double T : {-0.35, 0.35})
+		{
+			const FVector At = Centre + RunDir * (T * Run);
+			AddTrim(TEXT("Struct_Gunmetal"), FVector(At.X, At.Y, Top + 10.0), bLongX ? FVector(14.0, Thick + 6.0, 20.0) : FVector(Thick + 6.0, 14.0, 20.0));
+		}
 		return;
 	}
 	if (!bCover && !bContainer)
