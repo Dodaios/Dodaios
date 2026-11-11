@@ -700,6 +700,7 @@ def _retire_host(state: dict[str, Any] | None) -> bool:
         try:
             proc.wait(RETIRE_WAIT_S)
         except psutil.TimeoutExpired:
+            log.info("turn host: pid %s did not end when asked; killing it", state.get("pid"))
             proc.kill()
             proc.wait(RETIRE_WAIT_S)
     except Exception as exc:  # noqa: BLE001 - gone already is the goal; else the old host stays
