@@ -1796,6 +1796,7 @@ class ToolUseLoop:
                         ok=bool(tool_result_payload.get("success")),
                         blocked=bool(tool_result_payload.get("blocked")),
                         preview=str(body)[:200],
+                        receipt=str((getattr(result, "receipt", None) or {}).get("state") or ""),
                     ))
                 # A tool just finished — another active-work boundary. Reset the
                 # no-progress deadline so a slow tool (a vision capture, an MCP

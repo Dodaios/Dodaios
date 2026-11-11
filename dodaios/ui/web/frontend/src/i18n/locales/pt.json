@@ -7967,7 +7967,9 @@
     "command": "Executar comando",
     "edit": "Editar ficheiro",
     "write": "Escrever ficheiro",
-    "memory": "A atualizar a memória"
+    "memory": "A atualizar a memória",
+    "receipt": "Comprovativo",
+    "receipt_none": "Sem prova externa"
   },
   "trace_report": {
     "locale": "pt-PT",

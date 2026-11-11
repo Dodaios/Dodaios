@@ -11,6 +11,7 @@ the executor fetches transcript confidence + wake age and decides whether
 """
 from __future__ import annotations
 
+import dataclasses
 import logging
 import time
 from collections.abc import Callable
@@ -287,6 +288,125 @@ class ToolExecutor:
             error=f"{APPROVAL_UNAVAILABLE_PREFIX} ({reason})",
         )
 
+    # ------------------------------------------------------------------
+    # Audit + receipts (dodaios/trust): written here because this is the one
+    # entry point every tool call takes, and by code, never by a tool.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _outcome(result: ToolResult, trail: dict[str, Any]) -> str:
+        error = str(result.error or "")
+        if result.success:
+            return "executed"
+        if error == VOICE_CONFIRM_SENTINEL:
+            return "awaiting_confirmation"
+        if trail.get("blocked"):
+            return "blocked"
+        if error.startswith(APPROVAL_TIMEOUT_PREFIX):
+            return "timeout"
+        if error.startswith(APPROVAL_UNAVAILABLE_PREFIX):
+            return "unavailable"
+        if error.startswith((APPROVAL_DENIED_PREFIX, "Plan mode")):
+            return "denied"
+        if error.startswith("cancelled"):
+            return "cancelled"
+        return "failed"
+
+    def _attach_receipt(
+        self,
+        tool: Tool,
+        args: dict[str, Any],
+        result: ToolResult,
+        config_snapshot: dict[str, Any] | None,
+        trail: dict[str, Any],
+    ) -> ToolResult:
+        """Prove a successful call with a receipt (never raises, never fails the call)."""
+        if not result.success:
+            return result
+        try:
+            from dodaios.trust.receipts import build_receipt, is_side_effect
+
+            from .origin import tool_effect
+
+            effect = str(trail.get("effect") or "") or tool_effect(tool, args)
+            tier = str(trail.get("tier") or getattr(tool, "risk_tier", "") or "")
+            receipt = build_receipt(
+                str(trail["id"]),
+                tool,
+                args,
+                result,
+                config_snapshot,
+                side_effect=is_side_effect(tool, args, effect=effect, tier=tier),
+            )
+        except Exception as exc:  # noqa: BLE001 — a receipt must never cost the call
+            log.debug("receipt for %s failed: %s", tool.name, exc)
+            return result
+        trail["receipt"] = receipt
+        try:
+            return dataclasses.replace(result, receipt=receipt)
+        except Exception:  # noqa: BLE001 — a result type that cannot carry one still ran
+            return result
+
+    @staticmethod
+    def _receipt_fields(result: ToolResult) -> dict[str, str]:
+        receipt = getattr(result, "receipt", None)
+        if not receipt or receipt.get("state") == "read":
+            return {}
+        links = receipt.get("links") or []
+        return {
+            "receipt_id": str(receipt.get("id") or ""),
+            "receipt_state": str(receipt.get("state") or ""),
+            "receipt_summary": str(receipt.get("summary") or ""),
+            "receipt_link": str(links[0]) if links else "",
+        }
+
+    def _audit(
+        self,
+        tool: Tool,
+        args: dict[str, Any],
+        tid: UUID,
+        config_snapshot: dict[str, Any] | None,
+        result: ToolResult,
+        trail: dict[str, Any],
+        t_start: float,
+    ) -> None:
+        """Append this call to the owner's audit log. Never raises."""
+        try:
+            from dodaios.trust.audit import approval_of, audit_log, origin_of
+            from dodaios.trust.undo import session_of
+
+            origin, detail = origin_of(config_snapshot)
+            outcome = self._outcome(result, trail)
+            mode, by = approval_of(
+                needs_confirm=bool(trail.get("needs_confirm")),
+                approved_by=trail.get("approved_by"),
+                decision_by=trail.get("decision_by"),
+                tier=str(trail.get("tier") or ""),
+            )
+            receipt = trail.get("receipt")
+            audit_log().record(
+                {
+                    "id": trail["id"],
+                    "trace_id": str(tid),
+                    "tool": tool.name,
+                    "action": str((args or {}).get("action") or ""),
+                    "origin": origin,
+                    "origin_detail": detail,
+                    "session_id": session_of(config_snapshot),
+                    "approval": mode,
+                    "approval_by": by,
+                    "tier": trail.get("tier") or "",
+                    "effect": trail.get("effect") or "",
+                    "outcome": outcome,
+                    "error": "" if result.success else str(result.error or ""),
+                    "duration_ms": int((time.perf_counter() - t_start) * 1000),
+                    "args_preview": safe_preview(args),
+                    "receipt": receipt if receipt and receipt.get("state") != "read" else None,
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 — the audit never costs the call
+            log.debug("audit row for %s skipped: %s", tool.name, exc)
+
     async def execute(
         self,
         tool: Tool,
@@ -300,6 +420,35 @@ class ToolExecutor:
         cancel_token: CancelToken | None = None,
     ) -> ToolResult:
         tid = trace_id or uuid4()
+        t_start = time.perf_counter()
+        trail: dict[str, Any] = {"id": uuid4().hex[:16]}
+        result = await self._execute_gated(
+            tool,
+            args,
+            user_utterance=user_utterance,
+            config_snapshot=config_snapshot,
+            memory_read=memory_read,
+            tid=tid,
+            rationale=rationale,
+            cancel_token=cancel_token,
+            trail=trail,
+        )
+        self._audit(tool, args, tid, config_snapshot, result, trail, t_start)
+        return result
+
+    async def _execute_gated(
+        self,
+        tool: Tool,
+        args: dict[str, Any],
+        *,
+        user_utterance: str,
+        config_snapshot: dict[str, Any] | None,
+        memory_read: Any | None,
+        tid: UUID,
+        rationale: str,
+        cancel_token: CancelToken | None,
+        trail: dict[str, Any],
+    ) -> ToolResult:
         t_start = time.perf_counter()
 
         if (config_snapshot or {}).get("chat_read_only"):
@@ -322,17 +471,21 @@ class ToolExecutor:
         try:
             decision = self._evaluator.evaluate(tool, args)
         except ActionBlocked as exc:
+            trail["blocked"] = True
             await self._bus.publish(ActionDenied(
                 trace_id=tid,
                 tool_name=tool.name,
                 reason=f"blacklist: {exc.pattern}",
             ))
             return ToolResult(success=False, output=None, error=str(exc))
+        trail["tier"] = decision.tier
+        trail["decision_by"] = decision.approved_by
 
         # Where the call's target came from (ADR-0040, record only). Settled
         # here, before an approval ticket exists, so nothing but the publish
         # sits between arming it and ``ActionProposed``.
         origin = self._target_origin(tool, args, tid, user_utterance)
+        trail["effect"] = origin.effect
 
         # 2. Plausibility check (Phase 4): the result can force confirmation
         # even when the tier workflow does not (for example, ``monitor``).
@@ -348,6 +501,7 @@ class ToolExecutor:
         # not a rule, a whitelist, a stance or an unattended bridge.
         trust = before_execute(tool.name, args)
         if trust.blocked:
+            trail["blocked"] = True
             reason = trust.block_reason()
             await self._bus.publish(ActionDenied(trace_id=tid, tool_name=tool.name, reason=reason))
             return ToolResult(
@@ -394,6 +548,8 @@ class ToolExecutor:
                         tool.name, exc,
                     )
         needs_confirm = tier_confirm or plaus_confirm
+        trail["needs_confirm"] = needs_confirm
+        trail["approved_by"] = approved_by
         # A bound chat owns its approval stance through ChatApprovalBridge.
         # Calls from voice, tasks, missions and other app surfaces use the
         # global default. This never overrides the block/read-only/cancel
@@ -579,6 +735,7 @@ class ToolExecutor:
                     error = f"{APPROVAL_DENIED_PREFIX} ({who_or_reason})"
                 return ToolResult(success=False, output=None, error=error)
             approved_by = who_or_reason  # "user" or "auto"
+            trail["approved_by"] = approved_by
 
         if cancel_token is not None and cancel_token.is_cancelled():
             await self._bus.publish(ActionDenied(
@@ -615,6 +772,7 @@ class ToolExecutor:
 
         self._record_result_origin(tool, tid, result, args)
         after_execute(tool.name, args, result, config_snapshot)
+        result = self._attach_receipt(tool, args, result, config_snapshot, trail)
         duration_ms = int((time.perf_counter() - t_start) * 1000)
         await self._bus.publish(ActionExecuted(
             trace_id=tid,
@@ -623,6 +781,7 @@ class ToolExecutor:
             duration_ms=duration_ms,
             error=result.error,
             output_preview=safe_preview(result.output),
+            **self._receipt_fields(result),
         ))
         return result
 
@@ -657,6 +816,12 @@ class ToolExecutor:
                 error="voice-confirm expired (no pending action for this turn)",
             )
         tool, args = pending
+        trail: dict[str, Any] = {
+            "id": uuid4().hex[:16],
+            "needs_confirm": True,
+            "approved_by": "user",
+            "tier": str(getattr(tool, "risk_tier", "") or ""),
+        }
         ctx = ExecutionContext(
             trace_id=trace_id,
             user_utterance=user_utterance,
@@ -676,9 +841,12 @@ class ToolExecutor:
                 duration_ms=duration_ms,
                 error=str(exc),
             ))
-            return ToolResult(success=False, output=None, error=str(exc))
+            failed = ToolResult(success=False, output=None, error=str(exc))
+            self._audit(tool, args, trace_id, config_snapshot, failed, trail, t_start)
+            return failed
         self._record_result_origin(tool, trace_id, result, args)
         after_execute(tool.name, args, result, config_snapshot)
+        result = self._attach_receipt(tool, args, result, config_snapshot, trail)
         duration_ms = int((time.perf_counter() - t_start) * 1000)
         await self._bus.publish(ActionExecuted(
             trace_id=trace_id,
@@ -687,7 +855,9 @@ class ToolExecutor:
             duration_ms=duration_ms,
             error=result.error,
             output_preview=safe_preview(result.output),
+            **self._receipt_fields(result),
         ))
+        self._audit(tool, args, trace_id, config_snapshot, result, trail, t_start)
         return result
 
     async def cancel_pending(self, trace_id: UUID, *, reason: str = "voice_vetoed") -> bool:

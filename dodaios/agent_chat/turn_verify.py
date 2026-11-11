@@ -77,9 +77,18 @@ def claimed_actions(answer: str) -> list[str]:
 
 
 def _satisfied(family: str, log: tuple[ToolRecord, ...]) -> bool:
+    """Whether a successful tool of this kind ran AND, where the executor gave
+    receipts, the receipt backs the claim: a call without a side effect backs
+    nothing, and "I sent" needs a send receipt with hard evidence (a message id),
+    not just a tool that returned ok. A record with no receipt state (a path that
+    does not go through the executor) is judged by its name, as before."""
     words = _FAMILIES[family][1]
     return any(
-        record.ok and not record.blocked and any(w in record.name.lower() for w in words)
+        record.ok
+        and not record.blocked
+        and any(w in record.name.lower() for w in words)
+        and record.receipt != "read"
+        and not (family == "sent" and record.receipt == "none")
         for record in log
     )
 

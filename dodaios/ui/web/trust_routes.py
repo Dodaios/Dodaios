@@ -7,6 +7,11 @@
 * ``DELETE /api/trust/agent-rules/{agent_id}``  ``?pattern=`` drop one agent rule.
 * ``GET    /api/trust/undo``                  the undo ledger (recent entries).
 * ``POST   /api/trust/undo/{undo_id}``        run the inverse of one action.
+* ``GET    /api/trust/audit``                 every gateway action, newest first
+                                              (``day``, ``tool``, ``origin``, ``outcome``,
+                                              ``limit``, ``before``); read-only by design.
+* ``GET    /api/trust/audit/export``          ``?format=csv|json`` plus the same filters.
+* ``GET    /api/trust/receipts/{id}``         the receipt of one action.
 * ``GET    /api/trust/privacy``               what the assistant knows and where it goes.
 * ``GET    /api/trust/recipients``            who has been written to from here.
 * ``DELETE /api/trust/recipients``            ``?recipient=`` forget one.
@@ -22,7 +27,9 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import Response
 
+from dodaios.trust.audit import audit_log
 from dodaios.trust.hard_limits import HARD_LIMITS
 from dodaios.trust.recipients import known_recipients
 from dodaios.trust.rules import trust_rules
@@ -163,6 +170,51 @@ async def run_undo(undo_id: str) -> dict[str, Any]:
         ledger.set_runner(_run_inverse)
     entry = await ledger.undo(undo_id)
     return {"ok": entry.get("state") == "undone", "entry": entry}
+
+
+# ------------------------------------------------------------ audit
+# Read-only on purpose: the log is written by the tool executor alone, and no
+# route here (or tool anywhere) edits or deletes a row.
+
+
+@router.get("/audit")
+def list_audit(
+    day: str = Query("", max_length=10),
+    tool: str = Query("", max_length=200),
+    origin: str = Query("", max_length=20),
+    outcome: str = Query("", max_length=30),
+    limit: int = Query(200, ge=1, le=5000),
+    before: int = Query(0, ge=0),
+) -> dict[str, Any]:
+    log_ = audit_log()
+    page = log_.query(
+        day=day, tool=tool, origin=origin, outcome=outcome, limit=limit, before_seq=before
+    )
+    return {**page, **log_.facets(), "chain": log_.verify()}
+
+
+@router.get("/audit/export")
+def export_audit(
+    format: str = Query("json", pattern="^(csv|json)$"),  # noqa: A002 — the query name is the API
+    day: str = Query("", max_length=10),
+    tool: str = Query("", max_length=200),
+    origin: str = Query("", max_length=20),
+    outcome: str = Query("", max_length=30),
+) -> Response:
+    media, body = audit_log().export(format, day=day, tool=tool, origin=origin, outcome=outcome)
+    return Response(
+        content=body,
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="dodaios-audit.{format}"'},
+    )
+
+
+@router.get("/receipts/{receipt_id}")
+def get_receipt(receipt_id: str) -> dict[str, Any]:
+    row = audit_log().get(receipt_id)
+    if row is None or not row.get("receipt"):
+        raise HTTPException(status_code=404, detail="no receipt under that id")
+    return {"receipt": row["receipt"], "action": {k: v for k, v in row.items() if k != "receipt"}}
 
 
 # ------------------------------------------------------------ privacy

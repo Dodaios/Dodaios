@@ -718,6 +718,13 @@ class ActionExecuted(Event):
     # ToolExecutor before publish (``dodaios.core.redact.safe_preview``) so no
     # raw secret reaches the bus / session DB / local diary.
     output_preview: str = ""
+    # Action receipt (dodaios.trust.receipts): the audit row id, its state
+    # ("backed" | "none"), a one-line summary and the first link. Empty for a
+    # call without a side effect. The full receipt is at /api/trust/receipts/{id}.
+    receipt_id: str = ""
+    receipt_state: str = ""
+    receipt_summary: str = ""
+    receipt_link: str = ""
 
 
 # ----------------------------------------------------------------------

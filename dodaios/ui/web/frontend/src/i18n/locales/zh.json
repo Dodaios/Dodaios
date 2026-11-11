@@ -7967,7 +7967,9 @@
     "command": "运行命令",
     "edit": "编辑文件",
     "write": "写入文件",
-    "memory": "正在更新记忆"
+    "memory": "正在更新记忆",
+    "receipt": "凭证",
+    "receipt_none": "无外部证据"
   },
   "trace_report": {
     "locale": "zh",

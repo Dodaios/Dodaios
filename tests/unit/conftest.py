@@ -45,6 +45,7 @@ def _fresh_trust_stores(tmp_path_factory: pytest.TempPathFactory):
     purpose; between tests that persistence would leak one test's "always
     allow" or "already wrote to a@b.c" into the next one's approval card.
     """
+    from dodaios.trust.audit import AuditLog, set_audit_log
     from dodaios.trust.recipients import KnownRecipients, set_known_recipients
     from dodaios.trust.rules import TrustRules, set_trust_rules
     from dodaios.trust.undo import undo_ledger
@@ -52,8 +53,12 @@ def _fresh_trust_stores(tmp_path_factory: pytest.TempPathFactory):
     root = tmp_path_factory.mktemp("trust")
     set_trust_rules(TrustRules(root / "rules.json"))
     set_known_recipients(KnownRecipients(root / "recipients.json"))
+    audit = AuditLog(root / "audit.db")
+    set_audit_log(audit)
     undo_ledger()._reset_for_tests()
     yield
+    audit.close()
+    set_audit_log(None)
     set_trust_rules(None)
     set_known_recipients(None)
     undo_ledger()._reset_for_tests()
