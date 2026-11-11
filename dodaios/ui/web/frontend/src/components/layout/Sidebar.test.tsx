@@ -721,6 +721,26 @@ describe("the sidebar holds the two places and nothing else", () => {
     act(() => useStatusLightStore.setState({ light: null }));
   });
 
+  test("a failing provider reads as its name and what is wrong, and opens the API keys", () => {
+    renderSidebar();
+    act(() => useStatusLightStore.setState({ light: {
+      counts: { running: 0, needs_you: 0 }, running: [], needs_you: [], trouble: [], tone: "warn",
+      findings: [{
+        id: "seat_failure:openai-live-subscription:realtime:model_unavailable", kind: "seat_failure",
+        title: "openai-live-subscription (realtime) is failing: model_unavailable",
+        provider: "OpenAI GPT-Live (ChatGPT subscription)", modality: "realtime", status: "model_unavailable",
+      }],
+    } }));
+    const row = screen.getByTestId("status-light-finding");
+    expect(row.textContent).toContain("OpenAI GPT-Live");
+    expect(row.textContent).toContain("model not available · ChatGPT subscription");
+    expect(row.textContent).toContain("model not available");
+    expect(row.textContent).not.toContain("model_unavailable");
+    fireEvent.click(row);
+    expect(useEventStore.getState().activeSection).toBe("apikeys");
+    act(() => useStatusLightStore.setState({ light: null }));
+  });
+
   test("keeps the marketplace beside the profile button", () => {
     renderSidebar();
     fireEvent.click(screen.getByTestId("nav-row-marketplace"));

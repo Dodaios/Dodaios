@@ -11695,6 +11695,8 @@
     "class_rate_limit": "rate limited for a moment",
     "class_auth": "login or key rejected",
     "class_model_unavailable": "model not available",
-    "class_other": "recent failures"
+    "class_other": "recent failures",
+    "finding_label": "Health check",
+    "open_keys": "Open API keys"
   }
 }

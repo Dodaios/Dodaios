@@ -11695,6 +11695,8 @@
     "class_rate_limit": "limitado por um momento",
     "class_auth": "login ou chave recusados",
     "class_model_unavailable": "modelo indisponível",
-    "class_other": "falhas recentes"
+    "class_other": "falhas recentes",
+    "finding_label": "Verificação de estado",
+    "open_keys": "Abrir chaves de API"
   }
 }

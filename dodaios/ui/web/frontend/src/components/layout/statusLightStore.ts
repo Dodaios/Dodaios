@@ -40,6 +40,11 @@ export interface StatusFinding {
   id: string;
   kind: string;
   title: string;
+  /** A failing provider's readable name; set only on a provider failure. */
+  provider?: string;
+  modality?: string;
+  /** The raw failure (`model_unavailable`, `bad_key`, `no_credits`). */
+  status?: string;
 }
 
 export interface StatusLightData {
