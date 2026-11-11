@@ -3551,11 +3551,14 @@ class BrainManager:
             kwargs["direct_tools"] = override.tools_direct
         return kwargs
 
-    async def render_surface_prompt(self, *, user_text: str) -> tuple[str, str]:
+    async def render_surface_prompt(
+        self, *, user_text: str, lead: bool = False
+    ) -> tuple[str, str]:
         """(system prompt, turn context) for an external agent that should BE Jarvis.
 
         A subscription CLI seat on the typed chat runs its own loop, but the
-        head it runs with is this one: the same layers ``_build_system_prompt``
+        head it runs with is this one (``lead``: the lead conversation, which also gets
+        the lead doctrine and the ecosystem map): the same layers ``_build_system_prompt``
         stacks for a voice turn (name, soul, persona, the assistant file, the
         user's profile, people, contacts, the identity card, core memory, the
         skills section, the tool-routing rules), the wiki context this turn's
@@ -3565,10 +3568,14 @@ class BrainManager:
         """
         # An empty turn state: this prompt never carries a voice turn's
         # evidence directive, recall or provider identity.
+        from dodaios.brain.lead_doctrine import LEAD_TURN
+
         empty_token = _BRAIN_TURN_STATE.set(_BrainTurnState(self))
+        lead_token = LEAD_TURN.set(lead)
         try:
             base = self._build_system_prompt()
         finally:
+            LEAD_TURN.reset(lead_token)
             _BRAIN_TURN_STATE.reset(empty_token)
         prompt = base
         recalled = await self._vault_recall(user_text)
@@ -3983,6 +3990,14 @@ class BrainManager:
             return target_prefix + raw_output[len(de_prefix):]
         return raw_output
 
+    @staticmethod
+    def _is_lead_turn() -> bool:
+        """Is this prompt build for the lead conversation (either runner)?"""
+        from dodaios.brain.lead_doctrine import LEAD_TURN
+
+        override = _TURN_OVERRIDE.get()
+        return bool(override is not None and override.lead) or LEAD_TURN.get()
+
     def _build_system_prompt(self) -> str:
         """Builds the system prompt with Jarvis-Agent-style workspace injection.
 
@@ -4040,6 +4055,15 @@ class BrainManager:
         persona_block = load_effective_persona_prompt()
         if persona_block:
             parts.append(persona_block)
+
+        # The lead conversation only (both runners): the operating doctrine, placed
+        # right after the persona it refines. Constant text, so it stays in the
+        # cached prefix; the ecosystem map follows the lead card below.
+        lead_turn = self._is_lead_turn()
+        if lead_turn:
+            from dodaios.brain.lead_doctrine import LEAD_DOCTRINE
+
+            parts.append(LEAD_DOCTRINE)
 
         # User's own standing-instructions file (CLAUDE.md equivalent),
         # named after the assistant (e.g. Assistant.md). Distinct from the persona: the
@@ -4185,6 +4209,16 @@ class BrainManager:
                         parts.append(_live)
             except Exception:  # noqa: BLE001 — the card is a convenience, never a turn breaker
                 log.debug("lead card section omitted", exc_info=True)
+
+        if lead_turn:
+            # What exists in the app and how the lead reads it; generated from code,
+            # byte-stable (dodaios/brain/lead_ecosystem.py).
+            try:
+                from dodaios.brain.lead_ecosystem import render_ecosystem_map
+
+                parts.append(render_ecosystem_map())
+            except Exception:  # noqa: BLE001 — the map is a convenience, never a turn breaker
+                log.debug("ecosystem map omitted", exc_info=True)
 
         # Evidence gate directive (per-turn, AD-CLI8): forces a tool call
         # before any answer about an external-data domain. Empty on normal
