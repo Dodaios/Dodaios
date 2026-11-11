@@ -66,7 +66,20 @@ bool FVerseParityN06::RunTest(const FString&)
 	{
 		return false;
 	}
-	const FFormatNamedArguments Args = SampleArguments();
+	// A sample value for every placeholder the English catalogue uses: a fixed list fell behind the
+	// strings ({fps}, {ms}, {value}, {action} were added later) and reported braces for keys whose
+	// callers pass those arguments.
+	FFormatNamedArguments Args = SampleArguments();
+	for (const FString& Key : Keys)
+	{
+		for (const FString& Name : PlaceholdersOf(Strings.GetIn(Key, TEXT("en"))))
+		{
+			if (!Args.Contains(Name))
+			{
+				Args.Add(Name, FText::FromString(TEXT("7")));
+			}
+		}
+	}
 	int32 WithPlaceholder = 0;
 	for (const FString& Key : Keys)
 	{
