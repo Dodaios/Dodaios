@@ -232,6 +232,46 @@ describe("ChatStage (agent chat)", () => {
     expect(screen.getByRole("textbox")).toBeTruthy();
   });
 
+  it("sits on one line at rest, turns tall at a line break and returns once empty", () => {
+    render(<ChatStage />);
+    const composer = screen.getByTestId("agent-composer");
+    expect(composer.getAttribute("data-shape")).toBe("line");
+    const box = screen.getByRole("textbox");
+    box.textContent = "first line";
+    fireEvent.input(box);
+    expect(composer.getAttribute("data-shape")).toBe("line");
+    box.textContent = "first line\nsecond line";
+    fireEvent.input(box);
+    expect(composer.getAttribute("data-shape")).toBe("tall");
+    // A shorter text keeps it tall: the controls do not jump while typing.
+    box.textContent = "first";
+    fireEvent.input(box);
+    expect(composer.getAttribute("data-shape")).toBe("tall");
+    box.textContent = "";
+    fireEvent.input(box);
+    expect(composer.getAttribute("data-shape")).toBe("line");
+  });
+
+  it("turns the round action into Hang up while a call runs", () => {
+    useEventStore.setState({ voiceState: "listening" });
+    try {
+      render(<ChatStage />);
+      expect(screen.queryByTestId("composer-voice-mode")).toBeNull();
+      expect(screen.getByTestId("composer-hang-up").textContent).toContain("Hang up");
+      // The microphone button is the call's mute switch, not dictation.
+      expect(screen.queryByTestId("dictation-button")).toBeNull();
+      expect(screen.getByTestId("composer-call-mute").getAttribute("aria-pressed")).toBe("false");
+      // Typed words during a call still go out as a message.
+      const box = screen.getByRole("textbox");
+      box.textContent = "a note";
+      fireEvent.input(box);
+      expect(screen.getByTestId("composer-send")).toBeTruthy();
+      expect(screen.queryByTestId("composer-hang-up")).toBeNull();
+    } finally {
+      useEventStore.setState({ voiceState: "idle" });
+    }
+  });
+
   it("restores an unsent multiline draft after leaving the chat section", () => {
     const text = "  Draft to finish later\nKeep this second line too.  ";
     const first = render(<ChatStage />);
@@ -751,6 +791,9 @@ describe("ChatStage (agent chat)", () => {
     // Running, however it was started.
     act(() => { useHomeStore.setState({ callPending: false }); useEventStore.setState({ voiceState: "listening" }); });
     expect(screen.getByTestId("call-window").getAttribute("data-state")).toBe("listening");
+    // One set of call controls: the composer's, none in the window.
+    expect(within(screen.getByTestId("call-window")).queryByTestId("call-hang-up")).toBeNull();
+    expect(screen.getByTestId("composer-hang-up")).toBeTruthy();
     // Ended on a problem: the window stays with the reason.
     act(() => { useEventStore.setState({ voiceState: "idle" }); useHomeStore.setState({ callProblem: { message: "refused", at: Date.now() } }); });
     expect(screen.getByTestId("call-window").getAttribute("data-state")).toBe("failed");

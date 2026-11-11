@@ -35,9 +35,10 @@ const CallWindow = lazy(() =>
  * The running call's window (components/home/CallWindow), hung on the top
  * edge of whatever wraps it: the composer, so the window stands on it. It
  * shows for every call, however it was started, the wake word and the call
- * hotkey included.
+ * hotkey included. Over a composer the window leaves the microphone switch
+ * and the hang-up to the composer's own row.
  */
-function CallSlot() {
+function CallSlot({ composerControls = false }: { composerControls?: boolean }) {
   const callLive = useEventStore((s) => Boolean(s.voiceState) && s.voiceState !== "idle" && s.voiceState !== "error");
   // Asked for at the click, or ended on a problem that still has to be read.
   const waiting = useHomeStore((s) => s.callPending || s.callProblem !== null);
@@ -54,7 +55,7 @@ function CallSlot() {
   useEffect(() => {
     if (callLive || waiting) setShown(true);
   }, [callLive, waiting]);
-  return shown || callLive || waiting ? <Suspense fallback={null}><CallWindow /></Suspense> : null;
+  return shown || callLive || waiting ? <Suspense fallback={null}><CallWindow composerControls={composerControls} /></Suspense> : null;
 }
 
 /**
@@ -270,7 +271,7 @@ function ChatStageContent() {
           <Suspense fallback={<Greeting />}><FirstConversation fallback={<Greeting suggestions />} /></Suspense>
         </div>
         <div className="relative w-full max-w-[720px] px-6 pb-5 pt-2">
-          <CallSlot />
+          <CallSlot composerControls />
           {/* The digits make way while the pointer is on the composer. */}
           <div data-binary-field-off>
             <AgentComposer autoFocus />
@@ -316,7 +317,7 @@ function ChatStageContent() {
       </ScrollArea>
       <div className="relative w-full max-w-[720px] px-6 pb-5 pt-2">
         {!atEnd && <ScrollToEndButton onClick={jumpToEnd} testId="chat-scroll-end" />}
-        {isJarvis && <CallSlot />}
+        {isJarvis && <CallSlot composerControls />}
         <AgentComposer />
       </div>
     </div>

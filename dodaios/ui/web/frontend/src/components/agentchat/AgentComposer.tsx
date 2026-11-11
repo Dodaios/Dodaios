@@ -9,6 +9,8 @@ import {
   FolderOpen,
   Gauge,
   Hammer,
+  Mic,
+  MicOff,
   NotebookPen,
   Paperclip,
   ShieldCheck,
@@ -47,10 +49,12 @@ import { captureComposerDraftTarget, readComposerDraft, useComposerDraft, writeC
 import { useAppshotClaim } from "@/components/agentchat/useAppshotClaim";
 import { PetMark } from "@/components/pets/PetMark";
 import { useVoiceModeSwitch } from "@/components/home/assistantStatus";
+import { useCallMute } from "@/components/home/useCallMute";
 import { fill, useT } from "@/i18n";
 import { attachFilePasteBridge } from "@/lib/editActions";
 import { cn } from "@/lib/utils";
 import { warmVoiceCall } from "@/lib/voiceApi";
+import "./composerPill.css";
 
 /**
  * The composer — the front page's one control for talking to Jarvis by
@@ -93,13 +97,15 @@ import { warmVoiceCall } from "@/lib/voiceApi";
  * A pick applies to the open session at once (the backend patches it and
  * the next turn runs on it); with no session open it seeds the next one.
  *
- * The front page (`jarvis` surface) draws the same controls as one quiet
- * row under the text (2026-10-05): a round "+", then three labelled picks
- * split by hairlines — the brain (provider mark and model, one menu with a
- * provider rail and favourites), the effort word, the permission stance as
- * glyph and word — and on the right dictation and one round blue button
- * that is voice mode while the box is empty, Send once there is something
- * to send, and Stop while a turn runs. The IDE keeps the labelled pills:
+ * The front page (`jarvis` surface) is one pill at rest (2026-11-11): a
+ * round "+" and the permission stance as its glyph left of the box; right of
+ * it the brain ("Opus 5.5 · High": provider mark and model, then the effort
+ * word, each its own menu), dictation and one round white action that is a
+ * call while the box is empty, Send once there is something to send, Stop
+ * while a turn runs, and "Hang up" during a call (when the microphone button
+ * mutes the call). A second line of text, a line break or a file turns the
+ * pill into a card: the box on top, the controls in a row under it, until
+ * the box is empty again (composerPill.css). The IDE keeps the labelled pills:
  * there a folder, a stance and a model are things a person checks before
  * every run.
  */
@@ -171,6 +177,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
   // Not an aliased narrowing: the IDE branch below still names the surface.
   const minimal: boolean = String(surface) === "jarvis";
   const voiceMode = useVoiceModeSwitch();
+  const callMute = useCallMute(minimal && voiceMode.live);
 
   // A copy from before paints the picks at once; the fresh read still runs.
   useEffect(() => {
@@ -477,6 +484,9 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
       const toOption = (m: CuratedModel): ComboboxOption => ({
         value: brainValue(p.id, m.id),
         label: m.label || m.id,
+        // The provider's mark stands before the name on the composer, so the
+        // name drops the family word the mark already says ("Opus 5.5").
+        triggerLabel: shortModelLabel(m.label || m.id, p.label),
         description: owner(m.note),
         hint,
         disabled,
@@ -651,12 +661,63 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
       ? t("voice_state.booting")
       : t("voice_state.offline");
 
+  // The front page's box is one line at rest. It turns tall the moment the
+  // words need a second line, a line break is typed or files ride along, and
+  // stays tall until it is empty again: a box that flipped back whenever a
+  // line got shorter would move the controls under the cursor while typing.
+  const fieldWrapRef = useRef<HTMLDivElement | null>(null);
+  const [tall, setTall] = useState(false);
+  const hasAttachments = files.attachments.length > 0 || files.analyzing > 0;
+  useLayoutEffect(() => {
+    if (!minimal) return;
+    const box = fieldWrapRef.current?.querySelector<HTMLElement>('[role="textbox"]');
+    const measure = () => {
+      if (!value.trim() && !hasAttachments) return setTall(false);
+      if (hasAttachments || value.includes("\n")) return setTall(true);
+      if (!box) return;
+      const style = window.getComputedStyle(box);
+      const line = parseFloat(style.lineHeight) || 26;
+      const pad = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+      if (box.scrollHeight - pad > line * 1.5) setTall(true);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined" || !box) return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [minimal, value, hasAttachments]);
+
+  const field = (
+    <ComposerChipField
+      ref={fieldRef}
+      placeholder={placeholder}
+      disabled={!connected && !commands.enabled}
+      autoFocus={autoFocus}
+      onSubmit={() => (dictating ? stopDictationAndSend() : void onSend())}
+      onDraftChange={(draft) => {
+        writeComposerDraft(store, activeSessionId, { text: draft.text, choices: draft.choices });
+      }}
+      onKeyDown={(ev) => {
+        if (commands.onKeyDown(ev)) return true;
+        pasteRescue.onKeyDown(ev);
+        if (typeahead.onKeyDown(ev)) return true;
+        return false;
+      }}
+      onPasteFiles={(e) => {
+        pasteRescue.onPaste();
+        files.onPaste(e);
+      }}
+      className={cn("scrollbar-jarvis", minimal ? "composer-pill-field min-h-[40px] px-2 py-2 text-base leading-6" : "max-h-[50vh] text-reading")}
+    />
+  );
+
   return (
     <div
       ref={cardRef}
       data-testid="agent-composer"
       data-tour="chat-composer"
       data-dragging={files.dragging ? "true" : undefined}
+      data-shape={minimal ? (tall ? "tall" : "line") : undefined}
       // The whole card is the drop target, not just the text box: someone
       // dragging a screenshot aims at the composer, and a target smaller than
       // the thing it looks like is a target people miss.
@@ -664,7 +725,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
       className={cn(
         "relative flex flex-col transition-[border-color,box-shadow]",
         minimal
-          ? "gap-2 rounded-3xl border border-border bg-card px-3 pb-3 pt-3.5 shadow-rim focus-within:border-border-strong"
+          ? "composer-pill gap-1 rounded-[28px] border border-border bg-card p-2 shadow-rim focus-within:border-border-strong"
           : "gap-2 rounded-2xl border border-border-strong bg-card p-3 shadow-rim focus-within:border-primary/40",
         files.dragging && "border-primary/60",
       )}
@@ -699,54 +760,64 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
         onHover={typeahead.setActiveIndex}
         onPick={typeahead.pick}
       />
-      <ComposerChipField
-        ref={fieldRef}
-        placeholder={placeholder}
-        disabled={!connected && !commands.enabled}
-        autoFocus={autoFocus}
-        onSubmit={() => (dictating ? stopDictationAndSend() : void onSend())}
-        onDraftChange={(draft) => {
-          writeComposerDraft(store, activeSessionId, { text: draft.text, choices: draft.choices });
-        }}
-        onKeyDown={(ev) => {
-          if (commands.onKeyDown(ev)) return true;
-          pasteRescue.onKeyDown(ev);
-          if (typeahead.onKeyDown(ev)) return true;
-          return false;
-        }}
-        onPasteFiles={(e) => {
-          pasteRescue.onPaste();
-          files.onPaste(e);
-        }}
-        className={cn("max-h-[50vh] scrollbar-jarvis", minimal ? "min-h-[64px] px-2 text-base" : "text-reading")}
-      />
       {minimal ? (
-        <div className="flex min-w-0 items-center gap-0.5" data-testid="composer-row">
-          <ComposerAddMenu
-            key={activeSessionId ?? "new"}
-            compact
-            anchorRef={cardRef}
-            provider={draft.provider}
-            model={draft.model}
-            cwd={draft.cwd}
-            stance={draft.permissionMode}
-            selected={selectedTools}
-            onChange={setSelectedTools}
-            onInsert={(row) => fieldRef.current?.insertChip(row)}
-            onAttach={() => fileInputRef.current?.click()}
-            onFolder={() => void onPickFolder()}
-            onConnect={(row) =>
-              setActiveSection(
-                row.category === "mcp" ? "mcps" : row.category === "skills" ? "skills" : "plugins",
-              )
-            }
-            disabled={!connected || busy}
-          />
-          {/* Who answers, how hard it thinks, what it may do — three labelled
-              picks in one line, split by hairlines. Each opens its own menu:
-              the models with a provider rail, the effort ladder with the
-              provider's default marked, the stances with one line each. */}
-          <span className="flex min-w-0 items-center" data-testid="composer-brain">
+        // One line at rest — "+" on the left, the box, then the brain, the
+        // microphone and the round action — the way the well-worn chat
+        // composers sit. Once the words need a second line (or files ride
+        // along) the box takes the full width on top and the controls drop
+        // to one row under it, and it stays that way until the box is empty
+        // again, so the controls never jump back and forth while typing.
+        <div className="composer-pill-grid" data-tall={tall ? "true" : undefined} data-testid="composer-row">
+          <div className="composer-pill-lead">
+            <ComposerAddMenu
+              key={activeSessionId ?? "new"}
+              compact
+              anchorRef={cardRef}
+              provider={draft.provider}
+              model={draft.model}
+              cwd={draft.cwd}
+              stance={draft.permissionMode}
+              selected={selectedTools}
+              onChange={setSelectedTools}
+              onInsert={(row) => fieldRef.current?.insertChip(row)}
+              onAttach={() => fileInputRef.current?.click()}
+              onFolder={() => void onPickFolder()}
+              onConnect={(row) =>
+                setActiveSection(
+                  row.category === "mcp" ? "mcps" : row.category === "skills" ? "skills" : "plugins",
+                )
+              }
+              disabled={!connected || busy}
+            />
+            {/* What the assistant may do, as its glyph alone; the name and
+                what it lets through are on the tooltip and in the menu. */}
+            {provider && permissionModes.length > 0 && (
+              <span
+                title={locks?.permissionMode ?? [permissionLabel, permissionDescription].filter(Boolean).join(" — ")}
+                className="inline-flex shrink-0"
+              >
+                <Combobox
+                  value={permissionValue}
+                  groups={permissionMenuGroups}
+                  onChange={(v) => void setDraft({ permissionMode: v })}
+                  ariaLabel={permissionLabel ? `${t("agent_chat.pick_permission")}: ${permissionLabel}` : t("agent_chat.pick_permission")}
+                  fallbackLabel={t("agent_chat.pick_permission")}
+                  disabled={Boolean(locks?.permissionMode)}
+                  testId="composer-permission"
+                  triggerHint={false}
+                  iconOnly
+                  panelMinWidth={320}
+                  className={cn(COMPOSER_CONTROL_CLASS, "w-9 justify-center rounded-full px-0 text-muted-foreground")}
+                />
+              </span>
+            )}
+          </div>
+          <div ref={fieldWrapRef} className="composer-pill-main">
+            {field}
+          </div>
+          <div className="composer-pill-trail" data-testid="composer-brain">
+            {/* Who answers and how hard it thinks read as one phrase:
+                "Opus 5.5 · High". Each half opens its own menu. */}
             <ComposerBrainPicker
               value={brainValue(draft.provider, draft.model)}
               groups={brainGroups}
@@ -770,7 +841,8 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
               triggerPrefix={provider ? providerIcon(provider) : undefined}
               disabled={!catalog || (Boolean(locks?.provider) && Boolean(locks?.model))}
               title={locks?.model ?? locks?.provider}
-              className="min-w-0"
+              chevron={!showEffort}
+              className="min-w-0 max-w-[200px] max-sm:[&_span.truncate]:sr-only"
               onLocalModelReady={(model) => {
                 // The new download is not in the catalog yet: read it again.
                 void setDraft({ provider: "ollama", model });
@@ -778,129 +850,133 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
               }}
             />
             {showEffort && (
-              <>
-                <ControlSeparator />
-                <span className="inline-flex shrink-0" title={locks?.effort}>
-                  <Combobox
-                    value={draft.effort}
-                    groups={effortMenuGroups}
-                    onChange={(v) => void setDraft({ effort: v })}
-                    ariaLabel={t("agent_chat.pick_effort")}
-                    fallbackLabel={effortLabel(draft.effort, t)}
-                    disabled={Boolean(locks?.effort)}
-                    testId="composer-effort"
-                    triggerHint={false}
-                    panelMinWidth={220}
-                    className={COMPOSER_CONTROL_CLASS}
-                  />
-                </span>
-              </>
-            )}
-          </span>
-          {provider && permissionModes.length > 0 && (
-            <>
-              <ControlSeparator />
-              {/* The stance as glyph and word, in the row's one grey like
-                  every other pick — no stance is singled out by colour. */}
-              <span
-                title={locks?.permissionMode ?? [permissionLabel, permissionDescription].filter(Boolean).join(" — ")}
-                className="inline-flex min-w-0 shrink"
-              >
+              <span className="-ml-1.5 inline-flex shrink-0" title={locks?.effort}>
                 <Combobox
-                  value={permissionValue}
-                  groups={permissionMenuGroups}
-                  onChange={(v) => void setDraft({ permissionMode: v })}
-                  ariaLabel={permissionLabel ? `${t("agent_chat.pick_permission")}: ${permissionLabel}` : t("agent_chat.pick_permission")}
-                  fallbackLabel={t("agent_chat.pick_permission")}
-                  disabled={Boolean(locks?.permissionMode)}
-                  testId="composer-permission"
+                  value={draft.effort}
+                  groups={effortMenuGroups}
+                  onChange={(v) => void setDraft({ effort: v })}
+                  ariaLabel={t("agent_chat.pick_effort")}
+                  fallbackLabel={effortLabel(draft.effort, t)}
+                  disabled={Boolean(locks?.effort)}
+                  testId="composer-effort"
                   triggerHint={false}
-                  panelMinWidth={320}
-                  className={cn(
-                    COMPOSER_CONTROL_CLASS,
-                    "max-w-[200px] max-md:[&>span.truncate]:sr-only",
-                  )}
+                  panelMinWidth={220}
+                  className={cn(COMPOSER_CONTROL_CLASS, "pl-1.5 text-muted-foreground")}
                 />
               </span>
-            </>
-          )}
-          <span className="min-w-2 flex-1" />
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="sr-only"
-            tabIndex={-1}
-            onChange={(event) => {
-              const picked = Array.from(event.currentTarget.files ?? []);
-              event.currentTarget.value = "";
-              if (picked.length > 0) files.attachFiles(picked);
-            }}
-          />
-          <DictationButton
-            dictating={dictating}
-            onToggle={toggleDictation}
-            disabled={!connected}
-            startLabel={t("chats_view.dictation_start")}
-            stopLabel={t("chats_view.dictation_stop")}
-            shape="round"
-          />
-          {/* One round action in the signal blue: voice mode while the box is
-              empty, Send once there is something to send, Stop while a turn
-              runs. */}
-          {live && canQueue && (
-            <button type="button" onClick={() => void cancel()} aria-label={t("agent_chat.stop")}
-              title={t("agent_chat.stop")} data-testid="composer-stop"
-              className={cn(ROUND_ACTION_CLASS, "bg-secondary text-foreground hover:bg-secondary/80")}>
-              <Square className="h-3 w-3 fill-current" />
-            </button>
-          )}
-          {live && !canQueue && !commands.isCommand && !(commands.canSteer && value.trim()) ? (
-            <button
-              type="button"
-              onClick={() => void cancel()}
-              aria-label={t("agent_chat.stop")}
-              title={t("agent_chat.stop")}
-              data-testid="composer-stop"
-              className={cn(ROUND_ACTION_CLASS, "bg-accent text-accent-foreground hover:bg-accent/85")}
-            >
-              <Square className="h-3 w-3 fill-current" />
-            </button>
-          ) : value.trim() || files.attachments.length > 0 || dictating || commands.isCommand ? (
-            <button
-              type="button"
-              onClick={() => (dictating ? stopDictationAndSend() : void onSend())}
-              disabled={!canSend && !canFinishDictation}
-              aria-label={t("agent_chat.send")}
-              data-testid="composer-send"
-              className={cn(
-                ROUND_ACTION_CLASS,
-                canSend || canFinishDictation
-                  ? "bg-accent text-accent-foreground hover:bg-accent/85"
-                  : "bg-secondary text-muted-foreground",
-              )}
-            >
-              <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={voiceMode.enter}
-              // The pointer on its way to the button is the earliest moment
-              // to warm the call (imports, transport, TTS/STT); issue #154.
-              onPointerEnter={() => warmVoiceCall()}
-              onFocus={() => warmVoiceCall()}
-              disabled={voiceMode.busy}
-              aria-label={t("assistant_chat.voice_enter")}
-              title={fill(t("assistant_chat.voice_enter_hint"), { name: assistantName })}
-              data-testid="composer-voice-mode"
-              className={cn(ROUND_ACTION_CLASS, "bg-accent text-accent-foreground hover:bg-accent/85 disabled:opacity-60")}
-            >
-              <AudioLines className="h-4 w-4" />
-            </button>
-          )}
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="sr-only"
+              tabIndex={-1}
+              onChange={(event) => {
+                const picked = Array.from(event.currentTarget.files ?? []);
+                event.currentTarget.value = "";
+                if (picked.length > 0) files.attachFiles(picked);
+              }}
+            />
+            {voiceMode.live ? (
+              // On a call the microphone button is the call's: off and on again.
+              <button
+                type="button"
+                onClick={callMute.toggleMute}
+                aria-pressed={callMute.muted}
+                aria-label={callMute.muted ? t("home.call.unmute") : t("home.call.mute")}
+                title={callMute.muted ? t("home.call.unmute") : t("home.call.mute")}
+                data-testid="composer-call-mute"
+                className={cn(
+                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong",
+                  callMute.muted ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                )}
+              >
+                {callMute.muted ? <MicOff className="h-[18px] w-[18px]" aria-hidden /> : <Mic className="h-[18px] w-[18px]" aria-hidden />}
+              </button>
+            ) : (
+              <DictationButton
+                dictating={dictating}
+                onToggle={toggleDictation}
+                disabled={!connected}
+                startLabel={t("chats_view.dictation_start")}
+                stopLabel={t("chats_view.dictation_stop")}
+                shape="round"
+                className="h-9 w-9 [&>svg]:h-[18px] [&>svg]:w-[18px]"
+              />
+            )}
+            {/* One round action: a call while the box is empty, Send once
+                there is something to send, Stop while a turn runs, and
+                "Hang up" while a call is on. */}
+            {live && canQueue && (
+              <button type="button" onClick={() => void cancel()} aria-label={t("agent_chat.stop")}
+                title={t("agent_chat.stop")} data-testid="composer-stop"
+                className={cn(ROUND_ACTION_CLASS, "bg-foreground text-background hover:bg-foreground/85")}>
+                <Square className="h-3 w-3 fill-current" />
+              </button>
+            )}
+            {live && !canQueue && !commands.isCommand && !(commands.canSteer && value.trim()) ? (
+              <button
+                type="button"
+                onClick={() => void cancel()}
+                aria-label={t("agent_chat.stop")}
+                title={t("agent_chat.stop")}
+                data-testid="composer-stop"
+                className={cn(ROUND_ACTION_CLASS, "bg-foreground text-background hover:bg-foreground/85")}
+              >
+                <Square className="h-3 w-3 fill-current" />
+              </button>
+            ) : value.trim() || files.attachments.length > 0 || dictating || commands.isCommand ? (
+              <button
+                type="button"
+                onClick={() => (dictating ? stopDictationAndSend() : void onSend())}
+                disabled={!canSend && !canFinishDictation}
+                aria-label={t("agent_chat.send")}
+                title={t("agent_chat.send")}
+                data-testid="composer-send"
+                className={cn(
+                  ROUND_ACTION_CLASS,
+                  canSend || canFinishDictation
+                    ? "bg-foreground text-background hover:bg-foreground/85"
+                    : "bg-secondary text-faint-foreground",
+                )}
+              >
+                <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2.5} />
+              </button>
+            ) : voiceMode.live ? (
+              <button
+                type="button"
+                onClick={voiceMode.exit}
+                disabled={voiceMode.busy}
+                aria-label={t("agentic_grid.voice_bubble.hang_up_title")}
+                title={t("agentic_grid.voice_bubble.hang_up_title")}
+                data-testid="composer-hang-up"
+                className="ml-1 inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-foreground pl-3 pr-3.5 text-sm font-medium text-background transition-colors hover:bg-foreground/85 disabled:opacity-60"
+              >
+                <span aria-hidden className="composer-call-dot" />
+                {t("agentic_grid.voice_bubble.hang_up")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={voiceMode.enter}
+                // The pointer on its way to the button is the earliest moment
+                // to warm the call (imports, transport, TTS/STT); issue #154.
+                onPointerEnter={() => warmVoiceCall()}
+                onFocus={() => warmVoiceCall()}
+                disabled={voiceMode.busy}
+                aria-label={t("assistant_chat.voice_enter")}
+                title={fill(t("assistant_chat.voice_enter_hint"), { name: assistantName })}
+                data-testid="composer-voice-mode"
+                className={cn(ROUND_ACTION_CLASS, "bg-foreground text-background hover:bg-foreground/85 disabled:opacity-60")}
+              >
+                <AudioLines className="h-[18px] w-[18px]" />
+              </button>
+            )}
+          </div>
         </div>
       ) : (
+      <>
+      {field}
       <div className="flex flex-wrap items-center gap-1">
         {surface === "jarvis" && (
           <ComposerAddMenu
@@ -1127,6 +1203,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
           </button>
         )}
       </div>
+      </>
       )}
       {backendOutdated && (
         <div
@@ -1297,9 +1374,16 @@ function Pick({
   );
 }
 
-/** The thin upright line between two picks on the front page's row. */
-function ControlSeparator() {
-  return <span aria-hidden className="mx-0.5 hidden h-4 w-px shrink-0 bg-border-strong sm:block" />;
+/**
+ * A model's name without its family's word when the provider's mark already
+ * says it: "Claude Opus 5.5" from "Claude Code" reads "Opus 5.5". A name that
+ * would be left empty, or that does not start with that word, stays whole.
+ */
+export function shortModelLabel(label: string, providerLabel: string): string {
+  const family = providerLabel.trim().split(/\s+/)[0] ?? "";
+  if (!family || !label.toLowerCase().startsWith(`${family.toLowerCase()} `)) return label;
+  const rest = label.slice(family.length).trim();
+  return rest || label;
 }
 
 /** The front page's one round action — voice mode, Send or Stop. */

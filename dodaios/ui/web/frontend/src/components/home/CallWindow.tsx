@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Mic, MicOff, Phone, PhoneOff, Settings2 } from "lucide-react";
 
 import { useVoiceCall } from "@/components/agentic/useVoiceCall";
@@ -13,6 +13,7 @@ import { resolveAgentChatApproval } from "@/lib/agentChatApi";
 import { cn } from "@/lib/utils";
 import { useEventStore, type VoiceState } from "@/store/events";
 import { useHomeStore } from "@/store/home";
+import { useCallMute } from "./useCallMute";
 import "./callWindow.css";
 
 const STATUS_KEY: Record<VoiceState, string> = {
@@ -58,7 +59,14 @@ const CallVoicePicker = lazy(() => import("@/components/home/CallVoicePicker"));
  * positioned ancestor (`bottom: 100%`), so it is mounted inside the
  * composer's own wrapper.
  */
-export function CallWindow() {
+export function CallWindow({ composerControls = false }: {
+  /**
+   * The composer under the window carries the call's microphone switch and
+   * its hang-up, so the window shows the call alone: no second set of
+   * buttons for the same two things.
+   */
+  composerControls?: boolean;
+} = {}) {
   const t = useT();
   const assistantName = useEventStore((s) => s.assistantName);
   const voiceState = (useEventStore((s) => s.voiceState) ?? "idle") as VoiceState;
@@ -75,12 +83,10 @@ export function CallWindow() {
   const ringing = useHomeStore((s) => s.ringing);
   const setRinging = useHomeStore((s) => s.setRinging);
   const { active, busy, connecting, toggleCall } = useVoiceCall();
-  const [muted, setMuted] = useState(false);
   // The gear opens the voice list inside the window; a new call closes it.
   const [voicePanel, setVoicePanel] = useState(false);
-  // A flip answers with the new state; an older read must not undo it.
-  const flipped = useRef(false);
   const live = active || connecting;
+  const { muted, toggleMute } = useCallMute(live);
 
   // The moment the call stopped, noted while rendering so the window is
   // still there on the very render that sees the call gone.
@@ -112,29 +118,8 @@ export function CallWindow() {
   }, [ringing, setRinging]);
 
   useEffect(() => {
-    if (!live) return;
-    let alive = true;
-    flipped.current = false;
-    setVoicePanel(false);
-    void fetch("/api/voice/mic-mute")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body: { muted?: boolean } | null) => {
-        if (alive && !flipped.current && typeof body?.muted === "boolean") setMuted(body.muted);
-      },
-        () => undefined);
-    return () => { alive = false; };
+    if (live) setVoicePanel(false);
   }, [live]);
-
-  const toggleMute = useCallback(() => {
-    flipped.current = true;
-    void fetch("/api/voice/mic-mute", { method: "POST" })
-      .then(async (r) => {
-        if (!r.ok) throw new Error(String(r.status));
-        const body = (await r.json()) as { muted?: boolean };
-        setMuted(Boolean(body.muted));
-      })
-      .catch(() => pushToast("error", t("home.call.mute_failed")));
-  }, [pushToast, t]);
 
   // This call's words only: the work behind an answer is in the conversation.
   const lines = useMemo(
@@ -292,7 +277,7 @@ export function CallWindow() {
         </div>
       )}
 
-      <footer className="relative flex items-center justify-center gap-4 pb-4 pt-2">
+      {!composerControls && <footer className="relative flex items-center justify-center gap-4 pb-4 pt-2">
         <button type="button" onClick={toggleMute} disabled={!live} aria-pressed={muted} data-testid="call-mute"
           aria-label={muted ? t("home.call.unmute") : t("home.call.mute")} title={muted ? t("home.call.unmute") : t("home.call.mute")}
           className={cn(
@@ -306,7 +291,7 @@ export function CallWindow() {
           className="inline-flex h-11 w-16 items-center justify-center rounded-full bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/85 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <PhoneOff className="h-[18px] w-[18px]" aria-hidden />
         </button>
-      </footer>
+      </footer>}
     </section>
   );
 }
