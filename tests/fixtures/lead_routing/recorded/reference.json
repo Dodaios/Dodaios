@@ -212,39 +212,69 @@
    }
   },
   "team-three-models-plan-en": {
-   "tool": "find-app-action",
+   "tool": "team_thread",
    "input": {
-    "task": "team"
+    "action": "start"
    }
   },
   "team-three-models-plan-de": {
-   "tool": "find-app-action",
+   "tool": "team_thread",
    "input": {
-    "task": "team"
+    "action": "start"
    }
   },
   "team-plan-build-review-de": {
-   "tool": "find-app-action",
+   "tool": "team_thread",
    "input": {
-    "task": "team"
+    "action": "start"
    }
   },
   "team-plan-build-review-en": {
-   "tool": "find-app-action",
+   "tool": "team_thread",
    "input": {
-    "task": "team"
+    "action": "start"
    }
   },
   "team-debate-es": {
-   "tool": "find-app-action",
+   "tool": "team_thread",
    "input": {
-    "task": "team"
+    "action": "start"
    }
   },
   "team-second-opinion-pt": {
-   "tool": "find-app-action",
+   "tool": "team_thread",
    "input": {
-    "task": "team"
+    "action": "start"
+   }
+  },
+  "team-status-en": {
+   "tool": "team_thread",
+   "input": {
+    "action": "status"
+   }
+  },
+  "team-status-de": {
+   "tool": "team_thread",
+   "input": {
+    "action": "status"
+   }
+  },
+  "team-list-en": {
+   "tool": "team_thread",
+   "input": {
+    "action": "list"
+   }
+  },
+  "team-answer-en": {
+   "tool": "team_thread",
+   "input": {
+    "action": "answer"
+   }
+  },
+  "team-seats-de": {
+   "tool": "team_thread",
+   "input": {
+    "action": "seats"
    }
   },
   "artifact-dashboard-en": {
@@ -284,6 +314,24 @@
    "tool": "mission-cancel",
    "input": {
     "mission_id": "42"
+   }
+  },
+  "artifacts-last-output-en": {
+   "tool": "artifacts",
+   "input": {
+    "action": "list"
+   }
+  },
+  "artifacts-files-de": {
+   "tool": "artifacts",
+   "input": {
+    "action": "list"
+   }
+  },
+  "artifacts-living-page-en": {
+   "tool": "artifacts",
+   "input": {
+    "action": "living"
    }
   },
   "status-scout-doing-en": {
@@ -384,6 +432,9 @@
    "input": {
     "name": "Anna"
    }
+  },
+  "doctrine-memory-before-asking-en": {
+   "tool": "memory-search"
   },
   "settings-dark-mode-en": {
    "tool": "set_config_value",
@@ -524,16 +575,19 @@
    "tool": "skills-list"
   },
   "costs-spent-en": {
-   "tool": "find-app-action",
-   "input": {
-    "task": "cost"
-   }
+   "tool": "costs_summary"
   },
   "costs-spent-de": {
-   "tool": "find-app-action",
-   "input": {
-    "task": "cost"
-   }
+   "tool": "costs_summary"
+  },
+  "costs-today-agents-en": {
+   "tool": "costs_summary"
+  },
+  "costs-today-agents-de": {
+   "tool": "costs_summary"
+  },
+  "costs-seat-headroom-en": {
+   "tool": "costs_summary"
   },
   "costs-open-de": {
    "tool": "navigate",
@@ -693,6 +747,14 @@
    "text": "(answers directly)"
   },
   "answer-quick-fact-no-search-de": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "doctrine-small-thing-yourself-en": {
+   "tool": "none",
+   "text": "(answers directly)"
+  },
+  "doctrine-knows-its-ecosystem-de": {
    "tool": "none",
    "text": "(answers directly)"
   },

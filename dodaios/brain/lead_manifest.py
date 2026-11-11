@@ -63,6 +63,9 @@ VOICE_SUPERSEDED_TOOLS: Final[frozenset[str]] = frozenset(
 LEAD_ONLY_TOOLS: Final[Mapping[str, str]] = {
     "work_board": "the voice call's native task_status answers the same question",
     "society_request_connect": "the Connect card needs a chat to show it in",
+    "team_thread": "a typed lead starts and steers team threads; a call hands that to the chat",
+    "costs_summary": "a typed lead answers spend questions; a call opens the Costs section",
+    "artifacts": "a typed lead lists and reads what the agents made; a call shows it on screen",
 }
 
 #: The folder tools: a brain seat's file hands. A CLI seat uses the vendor's own

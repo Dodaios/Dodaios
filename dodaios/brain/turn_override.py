@@ -136,6 +136,10 @@ class TurnOverride:
         manager's own ``_system_prompt_extra``. Empty leaves the prompt
         byte-identical; a surface with its own briefing sets it for its
         turns only.
+    ``lead``
+        This is the lead conversation (the person's one assistant). Its prompt
+        gets the lead doctrine and the ecosystem map after the persona
+        (``dodaios/brain/lead_doctrine.py``); every other turn is byte-identical.
     ``loop_control``
         Steering, phase reports and the verification pass for this turn
         (``dodaios/brain/loop_control.py``). ``None`` leaves the tool-use loop
@@ -153,6 +157,7 @@ class TurnOverride:
     max_turns: int | None = None
     allow_force_spawn: bool = False
     system_extra: str = ""
+    lead: bool = False
     loop_control: LoopControl | None = None
     receipt: TurnReceipt = field(default_factory=TurnReceipt)
 
