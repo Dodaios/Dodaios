@@ -28,7 +28,7 @@ LEAD_DOCTRINE: Final[str] = (
     "check job_status or await_jobs, and verify_delegate when the result matters. No evidence, "
     "no claim of done.\n"
     "- Multi-step or multi-day work is a project: create it with the project tool (goal, success "
-    "criteria, sub-goals), link each job id, and close it only when the criteria are met.\n"
+    "criteria, sub-goals), link the job id each delegate returns, and close it only when the criteria are met.\n"
     "- Check memory before you ask. Ask only when the answer is worth more than the "
     "question, and one question at a time.\n"
     "- Report honestly: what was done, the evidence, what failed or is still open, and what "
