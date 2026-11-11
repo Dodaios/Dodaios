@@ -94,6 +94,7 @@ class TriggerService:
         subscriptions: SubscriptionStore | None = None,
         deliverer: Deliverer | None = None,
         hold: HoldCheck = lambda _sub: False,
+        preparer: Any | None = None,
     ) -> None:
         self._store = store
         #: The lead's own mail address as of the last settings read (for sync callers).
@@ -102,10 +103,15 @@ class TriggerService:
         self._quiet, self._clock = quiet, clock
         self._batch_window_s, self._retry_s = batch_window_s, retry_s
         self._subs, self._deliverer, self._hold = subscriptions, deliverer, hold
+        self._preparer = preparer
         self._stage1 = Stage1(clock)
         self._state: dict[str, Any] | None = None
         self._lock = asyncio.Lock()
         self._timer: asyncio.Task[None] | None = None
+
+    @property
+    def preparer(self) -> Any | None:
+        return self._preparer
 
     # ------------------------------------------------------------ persistence
 
@@ -254,12 +260,19 @@ class TriggerService:
         if self._timer is not None and self._timer is not asyncio.current_task():
             self._timer.cancel()
             await asyncio.gather(self._timer, return_exceptions=True)
+        if self._preparer is not None:
+            await self._preparer.close()
 
     # ---------------------------------------------------------------- stage 2
 
     async def process(self) -> bool:
         """Decide the waiting candidates, batched. True while anything still waits."""
         settings = await self.settings()
+        if self._preparer is not None:
+            try:
+                await self._preparer.expire()
+            except Exception:  # noqa: BLE001 - expiry is housekeeping; the pass goes on
+                log.debug("lead triggers: expiry failed", exc_info=True)
         async with self._lock:
             state = await self._load()
             await self._flush_held(state)
@@ -347,6 +360,8 @@ class TriggerService:
             except Exception as exc:  # noqa: BLE001 - recorded; the next event is unaffected
                 log.warning("lead triggers: job did not start", exc_info=True)
                 record["outcome"], record["error"] = "failed", str(exc)[:200]
+        elif verdict.action == "prepare":
+            await self._start_prepare(verdict, policy, record)
         else:  # ask
             event = verdict.event
             key = f"{policy.id}:{event.source}:{event.thread_key or event.event_id}"
@@ -357,6 +372,41 @@ class TriggerService:
                 record["outcome"] = "held"
             else:
                 await self._notify(state, key, record)
+
+    async def _start_prepare(
+        self, verdict: Verdict, policy: Policy, record: dict[str, Any]
+    ) -> None:
+        """Work in advance: runs in the background, result kept for the owner, nothing pushed."""
+        from dodaios.safety.stop_hold import stop_holds
+
+        if stop_holds().blocking(trigger=policy.id) is not None:
+            record["outcome"] = "held_by_owner"
+            return
+        if self._preparer is None:
+            record["outcome"] = "prepare_unavailable"
+            return
+        record_id = record["id"]
+
+        async def done(outcome: str) -> None:
+            await self._finish_prepare(record_id, outcome)
+
+        try:
+            record["outcome"] = await self._preparer.start(
+                verdict.event, policy.id, verdict.reason, done
+            )
+        except Exception as exc:  # noqa: BLE001 - recorded; the next event is unaffected
+            log.warning("lead triggers: preparation did not start", exc_info=True)
+            record["outcome"], record["error"] = "failed", str(exc)[:200]
+
+    async def _finish_prepare(self, record_id: str, outcome: str) -> None:
+        """The background work ended: the decision log shows how (a silent end is only counted)."""
+        async with self._lock:
+            state = await self._load()
+            self._count(state, outcome)
+            for entry in state["log"]:
+                if entry["id"] == record_id:
+                    entry["outcome"] = outcome
+            await self._save()
 
     def _notified_recently(self, state: dict[str, Any], key: str) -> bool:
         now = self._clock()
@@ -490,7 +540,9 @@ class TriggerService:
         settings = await self.settings()
         async with self._lock:
             state = await self._load()
+            prepared = self._preparer.items.stats() if self._preparer is not None else None
             return {
+                "prepared": prepared,
                 "settings": settings.to_dict(),
                 "counts": dict(state["counts"]),
                 "waiting": len(state["pending"]),

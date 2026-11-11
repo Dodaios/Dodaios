@@ -111,3 +111,39 @@ The table is many-to-many (`thread_subscriptions.db`).
 - Measured in the trigger view (`delivery.direct`, `delivery.lead_decisions`,
   `delivery.handed_back`), the decision log (`deliver` entries) and
   `watchdog_status` (`event_routing`).
+
+## Acting in advance (`prepare`)
+
+A fifth decision, `prepare`, next to ignore / note / act / ask: a policy asks for
+something to be got ready before the owner has asked for it. Three kinds exist,
+each OFF until the owner switches it on (`PUT /api/agent-chat/lead/prepared/settings`):
+
+- **meeting_invite**: reads the invite, finds conflicts with the owner's calendar
+  (overlap in code, touching edges do not count), gathers earlier threads with the
+  attendees from memory and mail, and drafts an accept / decline / propose reply. A
+  conflict never yields "accept".
+- **mail_reply**: drafts the reply the owner would probably write, in the style
+  their memory vault records. The draft step may decide no reply is needed.
+- **ci_failure**: only on the owner's own pull request. A bounded background job
+  reproduces the failure in a throwaway worktree (budget: `ci_budget_s`, default
+  900 s, cancelled when it runs out). A proposed fix (diff plus the passing test
+  run) is kept only if the failure reproduces and a small fix passes (at most 120
+  changed lines in 5 files). Anything else is silent: it is counted, nothing shows.
+
+Rules that hold for all three:
+
+- Nothing is sent, booked, bought or applied. Results are stored in
+  `prepared_items.db` and carry `sent: false` / `applied: false`; using one still goes
+  through the normal approval.
+- Delivery is passive: items show when the owner looks (`GET /api/agent-chat/lead/prepared`
+  with an optional `thread_key`, the next brief, the `prepared` count and rows of the
+  status light). Never a notification, never spoken. Unused items expire silently after
+  `expire_days` (default 7).
+- Only a subscription or local seat is used; with none connected the work is skipped.
+  `observe` mode records "would have prepared"; an owner stop on the policy holds.
+- Measured: the decision log (outcome `preparing` -> `prepared` / `prepared_silent`),
+  `view().prepared` and the lead score's "Prepared in advance" component
+  (prepared, used, discarded, expired, silent, use rate).
+- Life-admin items (birthdays, renewals, bills) belong to the life-admin layer.
+- Not done here: feeding the watchdog's critical findings to the urgent-call
+  reporter; that waits until the urgent-call change is on main.
