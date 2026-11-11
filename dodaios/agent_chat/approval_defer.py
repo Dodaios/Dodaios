@@ -54,7 +54,7 @@ def call_key(name: str, args: dict[str, Any]) -> str:
 
     try:
         body = json.dumps(args or {}, sort_keys=True, ensure_ascii=False, default=str)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError):  # unserialisable arguments still get a stable identity
         body = repr(sorted((args or {}).items(), key=lambda kv: str(kv[0])))
     return f"{_bare(name)}\n{body}"
 
@@ -195,8 +195,8 @@ class DeferredApprovals:
                         item.session_id, prompt, display_text=label, background_result=True
                     )
                 except SessionBusy:
-                    pass
-                except NoSuchSession:
+                    pass  # another turn took the seat first; try again shortly
+                except NoSuchSession:  # the chat was deleted: nothing left to continue
                     return
                 else:
                     return

@@ -687,11 +687,11 @@ def _valid_time(value: str) -> bool:
         try:
             datetime.strptime(text, "%Y-%m-%d")
             return True
-        except ValueError:
+        except ValueError:  # not a real calendar date
             return False
     try:
         datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
+    except ValueError:  # not an ISO date-time
         return False
     return "T" in text
 
