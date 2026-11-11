@@ -213,6 +213,16 @@ export interface ToolBlock {
   startedMs: number;
   /** The sub-agent this call spawned, when the runner reported one (`subagent_*` events). */
   subagent?: SubagentState;
+  /** The action receipt the gateway attached to a side-effect call (proof, or "no external evidence"). */
+  receipt?: ToolReceipt;
+}
+
+/** Proof that a call's side effect happened; `none` = the tool could not show any. */
+export interface ToolReceipt {
+  id: string;
+  state: "backed" | "none";
+  summary: string;
+  link: string;
 }
 
 /** How a sub-agent stands: still working, or how it ended. */
@@ -902,6 +912,14 @@ function withOrphanTurn(tl: Timeline, ev: AgentChatEvent, seq: number, turnId: s
   return { ...tl, items: [...tl.items, turn] };
 }
 
+function receiptOf(raw: unknown): { receipt?: ToolReceipt } {
+  if (!raw || typeof raw !== "object") return {};
+  const r = raw as Record<string, unknown>;
+  const id = str(r.id);
+  if (!id || (r.state !== "backed" && r.state !== "none")) return {};
+  return { receipt: { id, state: r.state, summary: str(r.summary), link: str(r.link) } };
+}
+
 /** Fold one event. Pure; returns `tl` itself when nothing changed. */
 export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
   const p = ev.payload ?? {};
@@ -1173,6 +1191,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
             ...(ex?.question ? { question: ex.question } : {}),
             ...(ex?.credential ? { credential: ex.credential } : {}),
             ...(ex?.subagent ? { subagent: ex.subagent } : {}),
+            ...receiptOf(p.receipt),
             kind: "tool",
             callId,
             name: ex?.name ?? str(p.name),

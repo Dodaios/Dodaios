@@ -7967,7 +7967,9 @@
     "command": "Befehl ausführen",
     "edit": "Datei bearbeiten",
     "write": "Datei schreiben",
-    "memory": "Updating Memory"
+    "memory": "Updating Memory",
+    "receipt": "Beleg",
+    "receipt_none": "Kein externer Nachweis"
   },
   "trace_report": {
     "locale": "de",

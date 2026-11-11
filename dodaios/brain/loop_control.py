@@ -51,6 +51,10 @@ class ToolRecord:
     blocked: bool = False
     #: First ~200 characters of the result (or the error), for the verifier.
     preview: str = ""
+    #: The call's receipt state (``dodaios.trust.receipts``): "backed" (hard
+    #: evidence), "none" (a side effect with no external evidence), "read" (no
+    #: side effect), or "" when the call carried none.
+    receipt: str = ""
 
 
 @dataclass(frozen=True, slots=True)

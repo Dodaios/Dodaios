@@ -7,6 +7,9 @@
  * - "What it knows": connected accounts, what is learned (with the learning
  *   switch), which providers see what (local vs cloud), channels, the screen.
  *
+ * - "Activity log": every tool action with who started it, how it was approved,
+ *   how it ended and its receipt; read-only, exportable as CSV or JSON.
+ *
  * Strings live in the `trust` locale chunk; the view waits for it so no key
  * ever paints.
  */
@@ -14,11 +17,12 @@ import { useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { TabBar } from "@/components/layout/SectionTabBar";
+import { AuditLog } from "@/components/trust/AuditLog";
 import { PrivacyOverview } from "@/components/trust/PrivacyOverview";
 import { TrustRules } from "@/components/trust/TrustRules";
 import { useLocaleChunk, useT } from "@/i18n";
 
-type Tab = "rules" | "privacy";
+type Tab = "rules" | "privacy" | "audit";
 
 export function TrustView({ initialTab = "rules" }: { initialTab?: Tab }) {
   const ready = useLocaleChunk("trust");
@@ -36,6 +40,7 @@ export function TrustView({ initialTab = "rules" }: { initialTab?: Tab }) {
             tabs={[
               { id: "rules", label: t("trust.page.tab_rules") },
               { id: "privacy", label: t("trust.page.tab_privacy") },
+              { id: "audit", label: t("trust.page.tab_audit") },
             ]}
             active={tab}
             onChange={(id) => setTab(id as Tab)}
@@ -43,7 +48,7 @@ export function TrustView({ initialTab = "rules" }: { initialTab?: Tab }) {
         }
       />
       <div className="min-h-0 flex-1 overflow-y-auto pb-10 scrollbar-jarvis">
-        {tab === "rules" ? <TrustRules /> : <PrivacyOverview />}
+        {tab === "rules" ? <TrustRules /> : tab === "privacy" ? <PrivacyOverview /> : <AuditLog />}
       </div>
     </div>
   );
