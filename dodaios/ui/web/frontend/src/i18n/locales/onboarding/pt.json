@@ -76,7 +76,6 @@
       "labels": {
         "chat": "Chat",
         "voice": "Chat de voz",
-        "agents": "Agentes",
         "ide": "IDE agêntico",
         "plugins": "Plugins",
         "wake": "Palavra de ativação",
@@ -85,7 +84,6 @@
       "stops": {
         "chat": "Olá, sou o {pet}! Deixa-me mostrar-te a aplicação. Este é o teu chat com {name}. Escreve aqui o que quiseres: uma pergunta, uma tarefa, um ficheiro para analisar. Nunca tens de escolher uma ferramenta ou um modelo; {name} decide o que é preciso.",
         "voice": "Preferes falar? Isto é o chat de voz. Clica na barra, diz a tua palavra de ativação ou prime o teu atalho de Chamada e depois fala. A onda mostra quem está a falar.",
-        "agents": "Trabalhos grandes, como uma pesquisa, um relatório ou um site, vão para os teus agentes. São a equipa de {name}, cada um com a sua função e modelo. Abre Agentes para os veres a trabalhar, conversar com um deles ou criar o teu.",
         "ide": "O IDE agêntico executa agentes de programação como o Claude Code e o Codex em terminais reais, nos teus próprios projetos. Escreve-lhes diretamente ou deixa {name} orientá-los por voz.",
         "plugins": "Os plugins ligam {name} às aplicações que usas: email, calendário, notas, casa inteligente e muito mais. Cada um torna-se uma nova ferramenta, e tudo o que envia ou altera algo pede-te autorização primeiro.",
         "wake": "A tua palavra de ativação está aqui nas Definições. Diz \"Olá {name}\" e {name} fica a ouvir. Altera a palavra, escolhe o idioma ou testa-a a qualquer momento.",

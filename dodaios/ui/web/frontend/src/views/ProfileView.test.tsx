@@ -243,16 +243,12 @@ describe("details", () => {
     await waitFor(() => expect(stats.textContent).toContain("3,795"));
   });
 
-  it("shows the Jarvis agents, lead first, then by runs, without archived ones", async () => {
+  it("lists no agents: named agents are not part of the product", async () => {
     installFetchMock(BASE_ROUTES);
     renderWithClient(<ProfileView />);
 
-    const agents = await screen.findByTestId("profile-agents");
-    await waitFor(() => expect(within(agents).getAllByRole("listitem")).toHaveLength(3));
-    const names = within(agents).getAllByRole("listitem").map((li) => li.textContent);
-    expect(names[1]).toBe("E-Mail-Agent");
-    expect(names[2]).toBe("Scout");
-    expect(agents.textContent).not.toContain("Retired");
+    await screen.findByTestId("profile-insights");
+    expect(screen.queryByTestId("profile-agents")).toBeNull();
   });
 
   it("lists the insight facts", async () => {

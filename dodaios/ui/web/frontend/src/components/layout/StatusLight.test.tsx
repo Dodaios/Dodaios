@@ -2,9 +2,13 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useEventStore } from "@/store/events";
+import { useNavSidebarStore } from "@/store/navSidebar";
 import { useAgentNavigation } from "@/views/society/agentNavigation";
 import { StatusLight } from "./StatusLight";
 import { useStatusLightStore, type StatusLightData } from "./statusLightStore";
+
+const chat = vi.hoisted(() => ({ activeSessionId: null as string | null, openSession: vi.fn() }));
+vi.mock("@/store/agentChat", () => ({ useAgentChatStore: { getState: () => chat } }));
 
 const LIGHT: StatusLightData = {
   counts: { running: 2, needs_you: 1 },
@@ -33,7 +37,10 @@ function answer(body: StatusLightData) {
 beforeEach(() => {
   useStatusLightStore.setState({ light: null, error: false });
   useAgentNavigation.setState({ request: null, onScreen: null });
-  useEventStore.setState({ activeSection: "chats" });
+  chat.openSession.mockReset();
+  useNavSidebarStore.setState({ collapsed: false });
+  // The chip shows wherever the sidebar does not list the rows itself.
+  useEventStore.setState({ activeSection: "board" });
 });
 afterEach(() => {
   cleanup();
@@ -88,16 +95,39 @@ describe("StatusLight", () => {
     expect(screen.queryByTestId("status-light-panel")).toBeNull();
   });
 
-  it("opens a needs-you card in the agent's chat", async () => {
+  it("opens the assistant's own card in its conversation", async () => {
     vi.stubGlobal("fetch", answer(LIGHT));
     render(<StatusLight />);
     await act(async () => {});
     fireEvent.click(screen.getByTestId("status-light"));
     fireEvent.click(screen.getByText("Which database?"));
-    const request = useAgentNavigation.getState().request;
-    expect(request).toMatchObject({ agentId: "jarvis", sessionId: "s1", cardRef: "q1", kind: "question" });
-    expect(useEventStore.getState().activeSection).toBe("agents");
+    // Not the retired Agents page: the conversation, on the chat the card lives in.
+    expect(useEventStore.getState().activeSection).toBe("chats");
+    expect(chat.openSession).toHaveBeenCalledWith("s1");
+    expect(useAgentNavigation.getState().request).toBeNull();
+  });
+
+  it("opens another agent's card with that agent", async () => {
+    const other = { ...LIGHT, needs_you: [{ ...LIGHT.needs_you[0], link: { agent_id: "scout", session_id: "s2", ref_id: "q1" } }] };
+    vi.stubGlobal("fetch", answer(other));
+    render(<StatusLight />);
+    await act(async () => {});
+    fireEvent.click(screen.getByTestId("status-light"));
+    fireEvent.click(screen.getByText("Which database?"));
+    expect(useAgentNavigation.getState().request).toMatchObject({ agentId: "scout", sessionId: "s2", cardRef: "q1", kind: "question" });
     expect(screen.queryByTestId("status-light-panel")).toBeNull();
+  });
+
+  it("steps aside beside the conversation, where the open sidebar lists the rows", async () => {
+    vi.stubGlobal("fetch", answer(LIGHT));
+    useEventStore.setState({ activeSection: "chats" });
+    render(<StatusLight />);
+    await act(async () => {});
+    expect(screen.queryByTestId("status-light")).toBeNull();
+    // It still keeps the data fresh for that list.
+    expect(useStatusLightStore.getState().light?.counts.needs_you).toBe(1);
+    act(() => useNavSidebarStore.setState({ collapsed: true }));
+    expect(screen.getByTestId("status-light")).toBeTruthy();
   });
 
   it("takes a running row to its section", async () => {

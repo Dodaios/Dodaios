@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, MessageCircle } from "lucide-react";
 
 import { useT } from "@/i18n";
-import { useSocietyRoster } from "@/components/society/data";
 import { writeComposerDraft } from "@/components/agentchat/composerDrafts";
 import { useAgentChatStore } from "@/store/agentChat";
 import { buildSuggestions, type DueItem } from "@/components/home/suggestionPicks";
@@ -27,15 +26,13 @@ function focusComposer(): void {
 
 /**
  * Two or three quiet chips under the greeting on the empty front page, from
- * what falls due soon and the agents at work (components/home/
- * suggestionPicks). Nothing shows when there is nothing to offer, so a
+ * what falls due soon (components/home/suggestionPicks). Nothing shows when there is nothing to offer, so a
  * quiet day keeps the page to the greeting alone. A chip fills the composer;
  * it never sends.
  */
 export default function GreetingSuggestions() {
   const t = useT();
   const [due, setDue] = useState<DueItem[]>([]);
-  const roster = useSocietyRoster();
 
   useEffect(() => {
     let live = true;
@@ -49,13 +46,7 @@ export default function GreetingSuggestions() {
     return () => { live = false; };
   }, []);
 
-  const agents = useMemo(
-    () => (roster.data && !roster.data.sample
-      ? roster.data.agents.filter((a) => a.tier !== "lead" && a.lifecycle !== "archived")
-      : []),
-    [roster.data],
-  );
-  const suggestions = useMemo(() => buildSuggestions(due, agents, t), [due, agents, t]);
+  const suggestions = useMemo(() => buildSuggestions(due, [], t), [due, t]);
   if (suggestions.length === 0) return null;
 
   const pick = (text: string) => {

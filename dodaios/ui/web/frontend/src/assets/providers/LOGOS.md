@@ -54,6 +54,7 @@ Two render paths, chosen per file and recorded in the table:
 | cartesia | Cartesia's own site icon, `https://cartesia.ai/favicon.svg` | vendor asset | own ground | 2026-08-23 |
 | claude | lobehub/lobe-icons `claude-color.svg` | MIT | colour | 2026-08-23 |
 | contabo | simple-icons `contabo.svg` (Computers section, provider gallery) | CC0-1.0 | mono | 2026-09-28 |
+| deepseek | lobehub/lobe-icons, `@lobehub/icons-static-svg` 1.102.0 `icons/deepseek-color.svg` (root width/height/style dropped; also the DeepSeek Harness mark) | MIT | colour | 2026-11-11 |
 | digitalocean | simple-icons `digitalocean.svg` (Computers section, cloud import) | CC0-1.0 | mono | 2026-09-28 |
 | elevenlabs | lobehub/lobe-icons `elevenlabs.svg` | MIT | mono | 2026-08-23 |
 | gemini | lobehub/lobe-icons `gemini-color.svg` | MIT | colour | 2026-08-23 |

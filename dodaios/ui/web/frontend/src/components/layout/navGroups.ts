@@ -76,6 +76,9 @@ export interface NavItem {
   // coding-agent CLIs against the user's own filesystem, which is a step
   // riskier than the rest of the app, so the row says so up front.
   beta?: boolean;
+  // The section still answers to its id (deep links, voice commands), but
+  // no list offers it any more: not the deck, the quick switcher or a tile.
+  retired?: boolean;
 }
 
 
@@ -122,7 +125,9 @@ export const NAV_GROUPS: NavItem[][] = [
   [{ id: "chats", labelKey: "nav.chats", icon: ChatIcon }],
   // 1) Workspace — what the user builds with and reads back.
   [
-    { id: "agents", labelKey: "nav.agents", icon: AgentsIcon },
+    // Named agents are no longer part of the product (2026-11-11): the
+    // assistant and the Agentic IDE are. The id stays until its page goes.
+    { id: "agents", labelKey: "nav.agents", icon: AgentsIcon, retired: true },
     // Built for you — what the self-building loop made on its own, why, and
     // the one place to keep, undo or pause it (docs/self-build.md).
     {
@@ -240,6 +245,11 @@ export const NAV_GROUPS: NavItem[][] = [
     },
   ],
 ];
+
+/** The sections a list may offer: `NAV_GROUPS` without the retired ones. */
+export const LISTED_NAV_GROUPS: NavItem[][] = NAV_GROUPS
+  .map((group) => group.filter((item) => !item.retired))
+  .filter((group) => group.length > 0);
 
 /**
  * Feedback lives in the sidebar's footer beside the brain card, not in a

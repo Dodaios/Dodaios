@@ -1,77 +1,17 @@
 /**
- * The lower half of the profile: the Jarvis agents used most, and a plain
- * list of facts drawn from the activity data.
- *
- * Favourite agents are the society roster's own figures (the lead first,
- * then by runs). Insights are a label on the left and the figure on the
- * right; every row is a real number from `/api/board/insights`, and a row
- * whose source is empty is left out rather than shown as a zero.
+ * The lower half of the profile: a plain list of facts drawn from the
+ * activity data. A label on the left and the figure on the right; every row
+ * is a real number from `/api/board/insights`, and a row whose source is
+ * empty is left out rather than shown as a zero.
  */
-import { rankAgents } from "@/components/layout/SidebarAgents";
-import { AgentSwatch } from "@/components/society/AgentSwatch";
-import { useSocietyRoster } from "@/components/society/data";
 import { useBoardInsights, type BoardInsights } from "@/hooks/useBoardInsights";
 import { fill, useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
-import { societyDisplayName } from "@/lib/societyDisplayName";
-import { useEventStore } from "@/store/events";
 import { agentLabel, chatProviderLabel, formatDay } from "@/lib/boardInsights";
 import { summarize, weekDelta } from "@/views/profile/activity";
 
 /** A Monday, so a weekday index 0…6 maps onto Monday…Sunday. */
 const A_MONDAY = new Date(2024, 0, 1);
-
-const FAVOURITES_MAX = 8;
-
-export function FavoriteAgents() {
-  const t = useT();
-  const ui = useRunLocale();
-  const assistantName = useEventStore((s) => s.assistantName);
-  const roster = useSocietyRoster();
-
-  // The sample roster is a stand-in for an unreachable backend; showing its
-  // invented agents here would read as the person's own.
-  const agents = roster.data && !roster.data.sample ? roster.data.agents : [];
-  const lead = agents.find((a) => a.tier === "lead" && a.lifecycle !== "archived");
-  const shown = [...(lead ? [lead] : []), ...rankAgents(agents)].slice(0, FAVOURITES_MAX);
-  if (!roster.isLoading && shown.length === 0) return null;
-
-  return (
-    <section data-testid="profile-agents" aria-labelledby="profile-agents-title" className="flex flex-col gap-3">
-      <h2 id="profile-agents-title" className="text-base font-semibold text-foreground-strong">
-        {t("profile_view.top_agents_title")}
-      </h2>
-      {roster.isLoading ? (
-        <div aria-hidden className="flex gap-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-12 w-12 animate-pulse rounded-xl bg-secondary" />
-          ))}
-        </div>
-      ) : (
-        <ul className="flex flex-wrap gap-x-3 gap-y-4">
-          {shown.map((agent) => {
-            const name = societyDisplayName(agent, assistantName);
-            const runs = agent.stats?.runs ?? 0;
-            return (
-              <li
-                key={agent.agentId}
-                title={fill(t(runs === 1 ? "profile_view.top_agents_runs_one" : "profile_view.top_agents_runs"), {
-                  0: runs.toLocaleString(ui),
-                })}
-                className="flex w-20 flex-col items-center gap-1.5"
-              >
-                <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-card">
-                  <AgentSwatch agent={agent} size={30} />
-                </span>
-                <span className="w-full truncate text-center text-xs text-muted-foreground">{name}</span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
-  );
-}
 
 interface Fact {
   label: string;

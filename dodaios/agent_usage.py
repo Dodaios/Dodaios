@@ -387,7 +387,12 @@ def _read_json_file(path: Path) -> Any | None:
 
 #: The endpoint Claude Code itself reads its usage from. An OAuth bearer is the
 #: only credential it accepts, which is exactly what a signed-in seat holds.
-_CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+#: ``cedar_ember=1`` is the read the CLI makes for its reset menu: the same
+#: usage answer plus the seat's banked resets, so one request carries both
+#: and the per-login rate limit is not spent twice. ``skip_spend=1`` leaves out
+#: the extra-usage billing block nothing here shows.
+_CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1"
+_CLAUDE_PLAIN_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 
 #: Required by the OAuth surface; without it the bearer is rejected as if it
 #: were an API key.
@@ -545,6 +550,11 @@ _REMEMBERED: dict[str, dict[str, Any]] = {}
 #: Whether the file was read in this process; a list so it mutates in place.
 _REMEMBERED_LOADED: list[bool] = [False]
 
+#: Stream windows that are no limit of the plan: the week counted together
+#: with extra usage (Claude Code's own status line calls it "7d_oi") and the
+#: extra-usage credit. The plan's real week arrives as ``seven_day``.
+_CLAUDE_STREAM_SKIPPED: frozenset[str] = frozenset({"seven_day_overage_included", "overage"})
+
 #: The stream's names for Claude's windows: (kind, scope label).
 _CLAUDE_STREAM_WINDOWS: dict[str, tuple[str, str | None]] = {
     "five_hour": ("session", None),
@@ -596,7 +606,15 @@ def _write_remembered(snapshot: dict[str, dict[str, Any]]) -> None:
 
 
 def _window_key(window: UsageWindow) -> tuple[str, str]:
-    return window.kind, window.scope_label or window.raw_label or ""
+    """One key per limit, whichever source named it.
+
+    The endpoint calls the overall week ``weekly_all`` and the stream calls it
+    ``seven_day``; both are the same limit, so the provider's raw name only
+    tells two windows apart when nothing else does (an unrecognised one).
+    """
+    if window.kind == "other":
+        return window.kind, window.raw_label or ""
+    return window.kind, window.scope_label or ""
 
 
 def _window_from_dict(raw: Any) -> UsageWindow | None:
@@ -620,11 +638,15 @@ def _window_from_dict(raw: Any) -> UsageWindow | None:
     )
 
 
-def _remember(account_id: str, windows: tuple[UsageWindow, ...], as_of: float) -> None:
+def _remember(
+    account_id: str, windows: tuple[UsageWindow, ...], as_of: float, *, complete: bool = False
+) -> None:
     """Keep *windows* for the seat, merged over what it already had.
 
     A stream event names one or two windows; the others the seat had stay, so
     a turn that reports the week never wipes the session window read earlier.
+    A *complete* reading (the usage endpoint lists every limit the plan has)
+    replaces them instead: a limit the plan no longer has must not linger.
     Saved at once from a worker thread, and off the event loop from the
     stream pump.
     """
@@ -635,14 +657,19 @@ def _remember(account_id: str, windows: tuple[UsageWindow, ...], as_of: float) -
         entry = _REMEMBERED.get(account_id) or {}
         known: dict[tuple[str, str], UsageWindow] = {}
         for old in (_window_from_dict(d) for d in entry.get("windows") or []):
-            if old is not None:
+            if old is not None and not complete and not _skipped(old):
                 known[_window_key(old)] = old
         for window in windows:
             known[_window_key(window)] = window
         _REMEMBERED[account_id] = {
+            **entry,
             "as_of": max(float(entry.get("as_of") or 0.0), as_of),
             "windows": [w.to_dict() for w in known.values()],
         }
+    _persist_remembered()
+
+
+def _persist_remembered() -> None:
     try:
         asyncio.get_running_loop()
     except RuntimeError:
@@ -651,6 +678,127 @@ def _remember(account_id: str, windows: tuple[UsageWindow, ...], as_of: float) -
         return
     # The stream pump, on the event loop: never block it on a file write.
     threading.Thread(target=_save_remembered, name="agent-usage-save", daemon=True).start()
+
+
+# --------------------------------------------------- claude, banked resets
+#
+# Claude plans can hold resets: a grant refills a limit early, some only once
+# that limit is reached. The usage endpoint names them ``cedar_ember`` (the
+# kept resets, in grants) and ``juniper_tide`` (the weekly reset offer). They
+# are read from the same answer as the usage and remembered beside it, so the
+# panel still shows them while the endpoint rate-limits the login. Nothing
+# here ever spends one.
+
+#: The limit kinds a grant names (``clears``).
+_CLAUDE_RESET_LIMITS = frozenset({"session", "weekly", "weekly_scoped", "full"})
+
+
+def _iso_text(value: Any) -> str | None:
+    return value if isinstance(value, str) and value else None
+
+
+def _claude_reset_limits(raw: Any) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    return [item for item in raw if isinstance(item, str) and item in _CLAUDE_RESET_LIMITS]
+
+
+def _claude_grant(raw: Any) -> dict[str, Any] | None:
+    """One banked grant, or ``None`` when it lacks an id or a count."""
+    if not isinstance(raw, dict):
+        return None
+    grant_id = raw.get("id")
+    left = raw.get("resets_left")
+    if not isinstance(grant_id, str) or not grant_id:
+        return None
+    if isinstance(left, bool) or not isinstance(left, int) or left < 0:
+        return None
+    total = raw.get("resets_total")
+    label = raw.get("label")
+    kind = raw.get("type")
+    reason = raw.get("unavailable_reason")
+    return {
+        "id": grant_id,
+        "label": label.strip() if isinstance(label, str) and label.strip() else None,
+        "resets_left": left,
+        "resets_total": total
+        if isinstance(total, int) and not isinstance(total, bool) and total >= left
+        else left,
+        "starts_at": _iso_text(raw.get("starts_at")),
+        "ends_at": _iso_text(raw.get("ends_at")),
+        "clears": _claude_reset_limits(raw.get("clears")),
+        "paused": raw.get("paused") is True,
+        "usable_now": raw.get("usable_now") is True,
+        "use_requires_limit": raw.get("use_requires_limit") is not False,
+        "type": kind if kind in ("session", "weekly", "full") else None,
+        "unavailable_reason": reason if isinstance(reason, str) else None,
+    }
+
+
+def _claude_resets(payload: Any) -> dict[str, Any] | None:
+    """The banked resets in one usage answer, or ``None`` when it names none.
+
+    ``eligible`` false keeps its reason: ``surface`` means the provider does
+    not show the resets to this kind of client, which is not the same as a
+    plan without resets.
+    """
+    if not isinstance(payload, dict):
+        return None
+    kept = payload.get("cedar_ember")
+    weekly = payload.get("juniper_tide")
+    if not isinstance(kept, dict) and not isinstance(weekly, dict):
+        return None
+    result: dict[str, Any] = {"eligible": False, "ineligible_reason": None, "grants": []}
+    if isinstance(kept, dict):
+        result["eligible"] = kept.get("eligible") is True
+        reason = kept.get("ineligible_reason")
+        result["ineligible_reason"] = reason if isinstance(reason, str) else None
+        result["at_limit"] = kept.get("at_limit") is True
+        result["cooldown_until"] = _iso_text(kept.get("cooldown_until"))
+        grants = kept.get("grants")
+        if result["eligible"] and isinstance(grants, list):
+            result["grants"] = [g for g in (_claude_grant(raw) for raw in grants) if g]
+    if isinstance(weekly, dict) and weekly.get("eligible") is True:
+        per_week = weekly.get("resets_per_week")
+        result["weekly"] = {
+            "available": weekly.get("available") is True,
+            "resets_per_week": per_week
+            if isinstance(per_week, int) and not isinstance(per_week, bool) and per_week > 0
+            else 1,
+            "next_available_at": _iso_text(weekly.get("next_available_at")),
+        }
+    return result
+
+
+def _remember_resets(account_id: str, resets: dict[str, Any], as_of: float) -> None:
+    with _REMEMBERED_LOCK:
+        _load_remembered()
+        entry = dict(_REMEMBERED.get(account_id) or {})
+        entry["resets"] = {**resets, "as_of": as_of}
+        _REMEMBERED[account_id] = entry
+    _persist_remembered()
+
+
+def claude_resets(account_id: str) -> dict[str, Any] | None:
+    """The seat's banked Claude resets as last read, with ``as_of``; ``None`` = never read.
+
+    Read the seat's usage first (:func:`read_usage`): that request is the one
+    that carries them.
+    """
+    with _REMEMBERED_LOCK:
+        _load_remembered()
+        entry = _REMEMBERED.get(account_id) or {}
+        resets = entry.get("resets")
+    if not isinstance(resets, dict):
+        return None
+    if time.time() - float(resets.get("as_of") or 0.0) > _REMEMBER_MAX_AGE_S:
+        return None
+    return dict(resets)
+
+
+def _skipped(window: UsageWindow) -> bool:
+    """A remembered stream window that is no limit of the plan (see ``_CLAUDE_STREAM_SKIPPED``)."""
+    return window.kind == "other" and (window.raw_label or "") in _CLAUDE_STREAM_SKIPPED
 
 
 def _epoch_of_iso(value: str | None) -> float | None:
@@ -673,14 +821,16 @@ def _remembered_usage(account: AgentAccount, plan: str | None) -> AccountUsage |
     now = time.time()
     if now - as_of > _REMEMBER_MAX_AGE_S:
         return None
-    windows: list[UsageWindow] = []
+    # Keyed, so a file written before the key was fixed shows each limit once.
+    by_key: dict[tuple[str, str], UsageWindow] = {}
     for window in (_window_from_dict(d) for d in entry.get("windows") or []):
-        if window is None:
+        if window is None or _skipped(window):
             continue
         resets = _epoch_of_iso(window.resets_at)
         if resets is not None and resets <= now:
             continue
-        windows.append(window)
+        by_key[_window_key(window)] = window
+    windows = list(by_key.values())
     if not windows:
         return None
     return AccountUsage(
@@ -715,6 +865,8 @@ def _claude_stream_windows(info: Any) -> tuple[UsageWindow, ...]:
         blocks[top] = {"utilization": info.get("utilization"), "resetsAt": info.get("resetsAt")}
     windows: list[UsageWindow] = []
     for name, block in blocks.items():
+        if name in _CLAUDE_STREAM_SKIPPED:
+            continue
         fraction = block.get("utilization")
         if isinstance(fraction, bool) or not isinstance(fraction, (int, float)):
             continue
@@ -769,17 +921,22 @@ def _claude_usage(account: AgentAccount) -> AccountUsage:
     login = claude_login_in(account.config_dir)
 
     if login.status == "valid" and login.access_token:
-        payload = _http_get_json(
-            _CLAUDE_USAGE_URL,
-            {
-                "Authorization": f"Bearer {login.access_token}",
-                "anthropic-beta": _CLAUDE_OAUTH_BETA,
-                "Accept": "application/json",
-            },
-        )
+        headers = {
+            "Authorization": f"Bearer {login.access_token}",
+            "anthropic-beta": _CLAUDE_OAUTH_BETA,
+            "Accept": "application/json",
+        }
+        payload = _http_get_json(_CLAUDE_USAGE_URL, headers)
+        resets = _claude_resets(payload)
+        if resets is not None:
+            _remember_resets(account.id, resets, time.time())
         windows = _claude_windows(payload)
+        if not windows and isinstance(payload, dict):
+            # An answer without usage numbers: the plain read, once, so the
+            # reset flag can never cost the meter.
+            windows = _claude_windows(_http_get_json(_CLAUDE_PLAIN_USAGE_URL, headers))
         if windows:
-            _remember(account.id, windows, time.time())
+            _remember(account.id, windows, time.time(), complete=True)
             return AccountUsage(
                 account_id=account.id,
                 platform=account.platform,
@@ -1226,6 +1383,7 @@ __all__ = [
     "WARNING_PERCENT",
     "AccountUsage",
     "UsageWindow",
+    "claude_resets",
     "clear_cache",
     "collect",
     "note_claude_rate_limit",

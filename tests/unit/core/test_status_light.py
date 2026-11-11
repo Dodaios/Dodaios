@@ -94,6 +94,22 @@ def test_watchdog_findings_set_a_warning_tone() -> None:
     assert light["findings"] == [{"id": "f1", "kind": "silent_turn", "title": "Turn is silent"}]
 
 
+def test_a_failing_provider_finding_names_the_provider_and_the_failure() -> None:
+    light = build_status_light(
+        findings=[{
+            "key": "seat_failure:openai-live-subscription:realtime:model_unavailable",
+            "kind": "seat_failure",
+            "title": "openai-live-subscription (realtime) is failing: model_unavailable",
+            "evidence": {"provider": "openai-live-subscription", "modality": "realtime",
+                         "status": "model_unavailable", "provider_label": "OpenAI GPT-Live"},
+        }]
+    )
+    row = light["findings"][0]
+    assert row["provider"] == "OpenAI GPT-Live"
+    assert row["modality"] == "realtime"
+    assert row["status"] == "model_unavailable"
+
+
 def test_prepared_items_are_counted_apart_and_never_warn() -> None:
     light = build_status_light(
         prepared=[{"id": "pr1", "kind": "mail_reply", "title": "Reply to Bob", "thread_key": "t1"}]

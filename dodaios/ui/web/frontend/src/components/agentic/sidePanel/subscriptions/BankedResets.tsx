@@ -96,9 +96,12 @@ export function BankedResets({ accountId, accountName, revision, onUsage }: {
     }
   };
 
+  const stamp = (iso: string) => new Intl.DateTimeFormat(lang, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
   const eligible = (credit: ResetCredit) => credit.redeemable
     && (!credit.expires_at || Date.parse(credit.expires_at) > Date.now());
-  const useButton = (credit: ResetCredit | null) => (
+  // A provider whose resets are spent in its own CLI (Claude) has no login key
+  // here: its rows are shown, never offered for use.
+  const useButton = (credit: ResetCredit | null) => !snapshot?.account_key ? null : (
     <button type="button" className={BUTTON} disabled={busy || loading || !!pending || !!confirm || !snapshot?.can_redeem || (!!credit && !eligible(credit))}
       onClick={() => { if (snapshot?.account_key) setConfirm({ credit, accountKey: snapshot.account_key, accountName }); setOutcome(""); }}>
       {t(`${BASE}.use`)}
@@ -119,13 +122,21 @@ export function BankedResets({ accountId, accountName, revision, onUsage }: {
           <p className="text-muted-foreground">{t(`${BASE}.count_only`)}</p>{useButton(null)}
         </div>}
         {snapshot.credits?.map((credit) => <div key={credit.id} className="space-y-1 rounded-md bg-muted/50 p-2">
-          <p className="break-words font-medium text-foreground">{credit.title || t(`${BASE}.reset_name`)}</p>
+          <p className="break-words font-medium text-foreground">{credit.title || t(credit.kind === "weekly" ? `${BASE}.weekly_name` : `${BASE}.reset_name`)}</p>
           {credit.description && <p className="break-words text-muted-foreground">{credit.description}</p>}
-          <p className="text-muted-foreground">{credit.expires_at
-            ? fill(t(`${BASE}.expires`), { when: new Intl.DateTimeFormat(lang, { dateStyle: "medium", timeStyle: "short" }).format(new Date(credit.expires_at)) })
-            : t(`${BASE}.expiry_unknown`)}</p>
+          {typeof credit.resets_left === "number" && <p className="text-muted-foreground">
+            {fill(t(`${BASE}.left`), { left: credit.resets_left, total: credit.resets_total ?? credit.resets_left })}
+            {" · "}
+            {credit.paused ? t(`${BASE}.paused`) : credit.usable_now ? t(`${BASE}.usable_now`) : credit.use_requires_limit ? t(`${BASE}.usable_at_limit`) : t(`${BASE}.not_usable_now`)}
+          </p>}
+          {credit.kind === "weekly"
+            ? credit.next_available_at && <p className="text-muted-foreground">{fill(t(`${BASE}.next_available`), { when: stamp(credit.next_available_at) })}</p>
+            : <p className="text-muted-foreground">{credit.expires_at
+              ? fill(t(`${BASE}.expires`), { when: stamp(credit.expires_at) })
+              : t(`${BASE}.expiry_unknown`)}</p>}
           {useButton(credit)}
         </div>)}
+        {!snapshot.account_key && !!snapshot.credits?.length && <p className="text-muted-foreground">{t(`${BASE}.use_in_cli`)}</p>}
       </>}
       {!loading && snapshot && snapshot.status !== "ok" && <p className="text-muted-foreground">{t(`${BASE}.${snapshot.status}`)}</p>}
       {confirm && !pending && <div role="group" aria-label={t(`${BASE}.confirm_title`)} className="space-y-2 rounded-md border border-border p-2">

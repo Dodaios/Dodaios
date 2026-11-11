@@ -120,7 +120,9 @@ def load(*, verify_exists: bool = True) -> list[RecentWorkspace]:
     out: list[RecentWorkspace] = []
     for item in _load_raw():
         path = str(item.get("path") or "").strip()
-        if not path:
+        # A relative entry ("." was seen in a real store) names no folder a
+        # person chose: it means whatever the app's working directory is today.
+        if not path or not Path(path).expanduser().is_absolute():
             continue
         # Filtered on read as well as on write, so a store polluted before this
         # rule existed cleans itself up the next time anything is written.
@@ -163,7 +165,16 @@ def remember(path: str, *, terminals: int, agents: dict[str, int]) -> None:
     if is_throwaway(path):
         logger.debug("Agentic IDE: not remembering throwaway folder {}", path)
         return
-    resolved = str(Path(path).expanduser())
+    expanded = Path(path).expanduser()
+    if not expanded.is_absolute():
+        # Stored as typed, "." would be listed as a folder called "." and would
+        # open a different place after every restart. Pin it to where it is now.
+        try:
+            expanded = expanded.resolve()
+        except OSError as exc:
+            logger.debug("Agentic IDE: not remembering unresolvable folder {}: {}", path, exc)
+            return
+    resolved = str(expanded)
     entry = RecentWorkspace(
         path=resolved,
         name=Path(resolved).name or resolved,

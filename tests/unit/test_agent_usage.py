@@ -659,6 +659,77 @@ def test_a_live_reading_is_remembered_and_a_reset_window_is_dropped(
     assert [w.kind for w in agent_usage.read_usage(seat).windows] == ["weekly"]
 
 
+def test_the_week_shows_once_whichever_source_named_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The endpoint's ``weekly_all`` and the stream's ``seven_day`` are one limit, and the
+    stream's week-with-extra-usage is no limit of the plan (live report, 2026-11-11)."""
+    from datetime import UTC, datetime
+
+    from dodaios import agent_accounts
+
+    _signed_in(monkeypatch)
+    seat = _account("claude", tmp_path)
+    monkeypatch.setattr(agent_accounts, "list_accounts", lambda _platform: [seat])
+    later = datetime.fromtimestamp(_future(48), UTC).isoformat()
+    payload = {
+        "limits": [
+            {"kind": "weekly_all", "group": "weekly", "percent": 41, "resets_at": later},
+            {
+                "kind": "weekly_scoped",
+                "group": "weekly",
+                "percent": 56,
+                "resets_at": later,
+                "scope": {"model": {"display_name": "Fable"}},
+            },
+        ]
+    }
+    monkeypatch.setattr(agent_usage, "_http_get_json", lambda url, headers: payload)
+    agent_usage.read_usage(seat)
+    agent_usage.note_claude_rate_limit(
+        str(tmp_path),
+        {
+            "unifiedWindows": {
+                "seven_day": {"utilization": 0.41, "resetsAt": _future(48)},
+                "seven_day_overage_included": {"utilization": 0.58, "resetsAt": _future(48)},
+            }
+        },
+    )
+    monkeypatch.setattr(agent_usage, "_http_get_json", lambda url, headers: None)
+    agent_usage.clear_cache()
+    usage = agent_usage.read_usage(seat)
+    assert sorted((w.kind, w.scope_label) for w in usage.windows) == [
+        ("weekly", None),
+        ("weekly_scoped", "Fable"),
+    ]
+
+
+def test_a_full_reading_drops_a_limit_the_plan_no_longer_has(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A plan with only a weekly limit never keeps showing an old five-hour window."""
+    from datetime import UTC, datetime
+
+    from dodaios import agent_accounts
+
+    _signed_in(monkeypatch)
+    seat = _account("claude", tmp_path)
+    monkeypatch.setattr(agent_accounts, "list_accounts", lambda _platform: [seat])
+    agent_usage.note_claude_rate_limit(
+        str(tmp_path),
+        {"unifiedWindows": {"five_hour": {"utilization": 0.3, "resetsAt": _future(3)}}},
+    )
+    later = datetime.fromtimestamp(_future(48), UTC).isoformat()
+    payload = {
+        "limits": [{"kind": "weekly_all", "group": "weekly", "percent": 41, "resets_at": later}]
+    }
+    monkeypatch.setattr(agent_usage, "_http_get_json", lambda url, headers: payload)
+    agent_usage.read_usage(seat)
+    monkeypatch.setattr(agent_usage, "_http_get_json", lambda url, headers: None)
+    agent_usage.clear_cache()
+    assert [w.kind for w in agent_usage.read_usage(seat).windows] == ["weekly"]
+
+
 def test_a_rate_limited_login_is_not_asked_again_at_once(monkeypatch: pytest.MonkeyPatch) -> None:
     """Asking every minute keeps a 429 alive; the next try waits, and only for that login."""
     monkeypatch.setattr(agent_usage, "_http_get_json", _REAL_HTTP_GET_JSON)
@@ -681,3 +752,96 @@ def test_a_rate_limited_login_is_not_asked_again_at_once(monkeypatch: pytest.Mon
     assert agent_usage._http_get_json("https://example.invalid/usage", one) is None
     assert agent_usage._http_get_json("https://example.invalid/usage", two) is None
     assert attempts == ["Bearer one", "Bearer two"]
+
+
+def _reset_payload(eligible: bool = True, reason: str | None = None) -> dict:
+    """The usage answer with the seat's kept resets, as the endpoint shapes it."""
+    from datetime import UTC, datetime
+
+    later = datetime.fromtimestamp(_future(30), UTC).isoformat()
+    return {
+        "seven_day": {"utilization": 20.0, "resets_at": later},
+        "cedar_ember": {
+            "eligible": eligible,
+            "ineligible_reason": reason,
+            "at_limit": False,
+            "exhausted": [],
+            "grants": [
+                {
+                    "id": "grant-1",
+                    "label": "Welcome reset",
+                    "resets_total": 2,
+                    "resets_left": 1,
+                    "ends_at": later,
+                    "clears": ["session", "weekly", "bogus"],
+                    "usable_now": False,
+                    "use_requires_limit": True,
+                    "type": "full",
+                },
+                {"id": "", "resets_left": 3},
+                {"id": "grant-2", "resets_left": -1},
+            ],
+            "next_grant_id": "grant-1",
+        },
+        "juniper_tide": {"eligible": False, "ineligible_reason": "surface"},
+    }
+
+
+def test_banked_claude_resets_come_with_the_usage_and_outlast_a_rate_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One request carries usage and resets; a 429 later still shows the resets."""
+    _signed_in(monkeypatch)
+    seat = _account("claude", tmp_path)
+    asked: list[str] = []
+
+    def answer(url: str, headers: dict) -> dict:
+        asked.append(url)
+        return _reset_payload()
+
+    monkeypatch.setattr(agent_usage, "_http_get_json", answer)
+    assert agent_usage.read_usage(seat).source == "live"
+    assert asked == [agent_usage._CLAUDE_USAGE_URL]
+    assert "cedar_ember=1" in asked[0]
+
+    monkeypatch.setattr(agent_usage, "_http_get_json", lambda url, headers: None)
+    resets = agent_usage.claude_resets(seat.id)
+    assert resets is not None
+    assert resets["eligible"] is True
+    assert "weekly" not in resets, "an ineligible weekly offer is not shown"
+    (grant,) = resets["grants"]
+    assert grant["id"] == "grant-1"
+    assert (grant["resets_left"], grant["resets_total"]) == (1, 2)
+    assert grant["clears"] == ["session", "weekly"]
+    assert grant["use_requires_limit"] is True
+
+    # A new process reads them back from disk, and the windows stayed beside them.
+    agent_usage.clear_cache()
+    assert agent_usage.claude_resets(seat.id)["grants"][0]["label"] == "Welcome reset"
+    assert [w.kind for w in agent_usage.read_usage(seat).windows] == ["weekly"]
+
+
+def test_a_usage_answer_without_reset_blocks_names_none() -> None:
+    assert agent_usage._claude_resets({"seven_day": {"utilization": 3}}) is None
+    assert agent_usage._claude_resets(None) is None
+    hidden = agent_usage._claude_resets(_reset_payload(eligible=False, reason="surface"))
+    assert hidden is not None
+    assert (hidden["eligible"], hidden["ineligible_reason"], hidden["grants"]) == (
+        False,
+        "surface",
+        [],
+    )
+
+
+def test_an_answer_without_numbers_falls_back_to_the_plain_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _signed_in(monkeypatch)
+    seat = _account("claude", tmp_path)
+    answers = {
+        agent_usage._CLAUDE_USAGE_URL: {"cedar_ember": {"eligible": False}},
+        agent_usage._CLAUDE_PLAIN_USAGE_URL: {"seven_day": {"utilization": 41.0}},
+    }
+    monkeypatch.setattr(agent_usage, "_http_get_json", lambda url, headers: answers[url])
+    usage = agent_usage.read_usage(seat)
+    assert [(w.kind, w.percent) for w in usage.windows] == [("weekly", 41)]

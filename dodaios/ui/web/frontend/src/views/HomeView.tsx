@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useHomeStore } from "@/store/home";
 import { useAgentChatStore } from "@/store/agentChat";
 import { AssistantChat } from "@/components/home/AssistantChat";
+import { startNewTextChat } from "@/lib/newChat";
 import {
   hasActivityDemand,
   panelOpen,
@@ -14,7 +15,9 @@ import {
   type PanelChoice,
 } from "@/components/home/activityDemand";
 
-// The activity panel is not needed for first paint.
+// Neither panel is needed for first paint.
+// Who the assistant is and what belongs to it; reads its routines, files and skills.
+const AssistantPanel = lazy(() => import("@/components/home/AssistantPanel"));
 const LeadActivityPanel = lazy(() =>
   import("@/components/home/LeadActivityPanel").then((m) => ({ default: m.LeadActivityPanel })),
 );
@@ -49,9 +52,12 @@ function usePresence(open: boolean): { mounted: boolean; shown: boolean } {
  * The front page — the "chats" section.
  *
  * ONE endless conversation with the assistant, with a voice mode inside it
- * (components/home/AssistantChat), and on wide windows an activity panel on
- * the right: what waits on the person, what runs, what finished, and the
- * morning brief. A running call shows as a card over the conversation.
+ * (components/home/AssistantChat), and on wide windows one panel on the
+ * right. At rest it is the assistant's own panel: its face, its routines,
+ * its files and skills (components/home/AssistantPanel). The activity panel
+ * takes that place while it is open: what waits on the person, what runs,
+ * what finished, and the morning brief. A running call shows as a card over
+ * the conversation.
  *
  * The panel is closed on a quiet page and opens by itself once something
  * waits on the person or work runs (components/home/activityDemand). A
@@ -71,6 +77,11 @@ export function HomeView() {
   const showPanel = !agentChatId;
   const open = showPanel && panelOpen(choice, demand);
   const { mounted, shown } = usePresence(open);
+  /** From an earlier chat on the stage back to the one conversation. */
+  const backToConversation = () => {
+    useHomeStore.getState().setSurface("chat");
+    startNewTextChat();
+  };
   return (
     <div className="flex h-full min-h-0" data-testid="home-view">
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
@@ -87,6 +98,13 @@ export function HomeView() {
           </button>
         )}
       </div>
+      {showPanel && !mounted && (
+        <div data-testid="assistant-panel-frame" className="hidden lg:flex">
+          <Suspense fallback={null}>
+            <AssistantPanel onConversation={backToConversation} />
+          </Suspense>
+        </div>
+      )}
       {showPanel && mounted && (
         <div
           data-testid="lead-activity-frame"

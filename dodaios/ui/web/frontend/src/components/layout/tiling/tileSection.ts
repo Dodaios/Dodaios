@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 
-import { NAV_FOOTER_ITEMS, NAV_GROUPS, type NavItem } from "@/components/layout/navGroups";
+import { LISTED_NAV_GROUPS, NAV_FOOTER_ITEMS, type NavItem } from "@/components/layout/navGroups";
 import { isTileable } from "@/lib/tilingLayout";
 import { sectionWindow } from "@/lib/sectionWindows";
 import { useEventStore, type SectionId } from "@/store/events";
@@ -19,7 +19,7 @@ export function useStageSection(): SectionId {
 }
 
 /** Every sidebar row whose section can sit in a tile, in sidebar order. */
-export const TILEABLE_NAV_ITEMS: readonly NavItem[] = [...NAV_GROUPS.flat(), ...NAV_FOOTER_ITEMS]
+export const TILEABLE_NAV_ITEMS: readonly NavItem[] = [...LISTED_NAV_GROUPS.flat(), ...NAV_FOOTER_ITEMS]
   .filter((item) => isTileable(item.id));
 
 /** The sidebar row that fronts `section` (a hub's tabs share their hub's row). */
@@ -31,6 +31,6 @@ export function navItemFor(section: SectionId): NavItem | undefined {
 }
 
 /** The tileable rows grouped the way the sidebar groups them. */
-export const TILEABLE_NAV_GROUPS: readonly (readonly NavItem[])[] = [...NAV_GROUPS, NAV_FOOTER_ITEMS]
+export const TILEABLE_NAV_GROUPS: readonly (readonly NavItem[])[] = [...LISTED_NAV_GROUPS, NAV_FOOTER_ITEMS]
   .map((group) => group.filter((item) => isTileable(item.id)))
   .filter((group) => group.length > 0);

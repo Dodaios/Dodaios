@@ -61,6 +61,7 @@ BRAIN_BY_PROVIDER: Final[dict[str, tuple[str, str]]] = {
     "litellm": ("dodaios.plugins.brain.litellm", "LiteLLMBrain"),
     "grok": ("dodaios.plugins.brain.grok", "GrokBrain"),
     "nvidia": ("dodaios.plugins.brain.nvidia", "NvidiaBrain"),
+    "deepseek": ("dodaios.plugins.brain.deepseek", "DeepSeekBrain"),
     "claude-api": ("dodaios.plugins.brain.claude_api", "ClaudeAPIBrain"),
     "gemini": ("dodaios.plugins.brain.gemini", "GeminiBrain"),
     "vertex": ("dodaios.plugins.brain.vertex", "VertexBrain"),

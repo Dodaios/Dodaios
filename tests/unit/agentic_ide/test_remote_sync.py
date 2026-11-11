@@ -656,3 +656,110 @@ async def test_a_thread_folder_without_git_says_its_work_stays_behind(
     await thread_sync.return_work(turn, "vps-1", plain, placement)
 
     assert len(turn.notices) == 1 and "no git history" in turn.notices[0]
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://github.com/Owner/Repo.git", "https://github.com/Owner/Repo.git"),
+        ("git@github.com:Owner/Repo.git", "https://github.com/Owner/Repo.git"),
+        ("ssh://git@gitlab.com:2222/group/repo.git", "https://gitlab.com/group/repo.git"),
+        ("https://user:ghp_secret@github.com/Owner/Repo.git", "https://github.com/Owner/Repo.git"),
+        ("C:/Users/me/repos/origin.git", None),
+        ("/srv/git/origin.git", None),
+        ("../origin.git", None),
+    ],
+)
+def test_the_server_gets_a_fetchable_address_without_this_computers_secrets(
+    url: str, expected: str | None
+) -> None:
+    assert remote.public_fetch_url(url) == expected
+
+
+def _published(project: Path, tmp_path: Path) -> Path:
+    """Give ``project`` an upstream holding its first commit; one more stays local."""
+    origin = tmp_path / "origin.git"
+    _git(tmp_path, "init", "-q", "--bare", str(origin))
+    _git(origin, "config", "uploadpack.allowReachableSHA1InWant", "true")
+    _git(project, "remote", "add", "origin", origin.as_uri())
+    _git(project, "push", "-q", "-u", "origin", "main")
+    (project / "local_only.py").write_text("x = 'not pushed'\n", encoding="utf-8")
+    _git(project, "add", "-A")
+    _git(project, "commit", "-q", "-m", "local only")
+    return origin
+
+
+async def test_a_first_copy_fetches_the_pushed_part_on_the_server_and_sends_only_the_rest(
+    project: Path, tmp_path: Path, copies: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A whole-history bundle made a first copy of a big repository take minutes."""
+    _published(project, tmp_path)
+    # A file:// address stands in for the hosting service here.
+    monkeypatch.setattr(remote, "public_fetch_url", lambda url: url)
+    pushed = _git(project, "rev-parse", "HEAD~1")
+    (project / "app.py").write_text("print('draft')\n", encoding="utf-8")
+    server = tmp_path / "server-home"
+    server.mkdir()
+    pool = LocalPool(server)
+
+    placement = await remote.push_code(pool, project)
+
+    there = Path(placement.remote_folder)
+    assert _git(there, "rev-parse", "--is-shallow-repository") == "true", "no history was sent"
+    assert _git(there, "rev-parse", remote.SEED_REF) == pushed
+    assert _git(there, "rev-parse", "HEAD") == _git(project, "rev-parse", "HEAD")
+    assert (there / "local_only.py").read_text(encoding="utf-8") == "x = 'not pushed'\n"
+    assert (there / "app.py").read_text(encoding="utf-8") == "print('draft')\n"
+
+    (there / "made_there.py").write_text("y = 2\n", encoding="utf-8")
+    outcome = await remote.pull_code(
+        pool, project, placement.remote_folder, placement.offload_snapshot, "vps", per_turn=True
+    )
+    assert outcome.applied, outcome.message
+    assert (project / "made_there.py").read_text(encoding="utf-8") == "y = 2\n"
+
+    second = await remote.push_code(pool, project)
+    assert Path(second.remote_folder) == there
+    assert (there / "made_there.py").read_text(encoding="utf-8") == "y = 2\n"
+
+
+async def test_a_first_copy_still_works_when_the_server_cannot_fetch(
+    project: Path, tmp_path: Path, copies: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _published(project, tmp_path)
+    monkeypatch.setattr(remote, "public_fetch_url", lambda _url: (tmp_path / "gone.git").as_uri())
+    server = tmp_path / "server-home"
+    server.mkdir()
+
+    placement = await remote.push_code(LocalPool(server), project)
+
+    there = Path(placement.remote_folder)
+    assert _git(there, "rev-parse", "--is-shallow-repository") == "false", "history was sent"
+    assert (there / "local_only.py").is_file()
+    assert _git(there, "rev-parse", "HEAD") == _git(project, "rev-parse", "HEAD")
+
+
+async def test_a_next_turn_with_nothing_new_leaves_the_servers_checkout_alone(
+    project: Path, tmp_path: Path, copies: None
+) -> None:
+    """Checkout, reset and refresh walk every file; for nothing new they are skipped."""
+    (project / "app.py").write_text("print('draft')\n", encoding="utf-8")
+    server = tmp_path / "server-home"
+    server.mkdir()
+    pool = LocalPool(server)
+    first = await remote.push_code(pool, project)
+    there = Path(first.remote_folder)
+    index = there / ".git" / "index"
+    stamp = index.stat().st_mtime_ns
+
+    second = await remote.push_code(pool, project)
+
+    assert index.stat().st_mtime_ns == stamp, "the server's checkout was not redone"
+    assert _git(there, "rev-parse", remote.SYNCED_REF) == second.offload_snapshot
+    assert not _refs(there, "refs/jarvis/backup")
+
+    (project / "app.py").write_text("print('edited here')\n", encoding="utf-8")
+    await remote.push_code(pool, project)
+
+    assert (there / "app.py").read_text(encoding="utf-8") == "print('edited here')\n"
+    assert not _refs(there, "refs/jarvis/backup"), "the server held nothing of its own"

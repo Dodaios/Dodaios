@@ -4,7 +4,7 @@ import { CalendarClock, ListChecks } from "lucide-react";
 import { useT, useUiLanguage } from "@/i18n";
 import { forgetMemory } from "@/lib/personalMemoryApi";
 import { cn } from "@/lib/utils";
-import { dueLabel } from "@/components/layout/SidebarDue";
+import { dueLabel } from "@/components/agentchat/reminders/dueLabel";
 import type { NoticeItem } from "../reduce";
 
 type Captured = { id: string; text: string; due_at: string | null; reminder: boolean };

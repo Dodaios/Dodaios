@@ -221,6 +221,7 @@ PROVIDER_SECRET_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {
         ("openai_api_key", "OPENAI_API_KEY"),
     ),
     "openrouter": (("openrouter_api_key", "OPENROUTER_API_KEY"),),
+    "deepseek": (("deepseek_api_key", "DEEPSEEK_API_KEY"),),
     # LiteLLM proxy (OpenAI-compatible gateway the user hosts). The master key
     # is the proxy's own env name; a virtual key saved in the app wins.
     "litellm": (
@@ -5990,6 +5991,7 @@ _SECRET_BASE_FAMILIES: tuple[str, ...] = (
     "claude-api",
     "openai",
     "openrouter",
+    "deepseek",
     "litellm",
     "groq",
     "nvidia",

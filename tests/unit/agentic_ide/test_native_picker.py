@@ -278,3 +278,157 @@ def test_handing_over_the_foreground_right_is_a_no_op_elsewhere(
 ) -> None:
     monkeypatch.setattr(sys, "platform", "linux")
     native_picker._let_the_dialog_take_the_foreground()  # must not raise
+
+
+# --------------------------------------------------------------------------- #
+# Windows: the fast route                                                     #
+# --------------------------------------------------------------------------- #
+@pytest.fixture
+def fast_route(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    """The Python helper route with a pretend interpreter and owner window.
+
+    Returns the list of owner windows that were handed back to the app.
+    """
+    released: list[int] = []
+    monkeypatch.setattr(
+        native_picker, "support", lambda: native_picker.PickerSupport(True, "powershell")
+    )
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(native_picker, "_helper_python", lambda: "python.exe")
+    monkeypatch.setattr(native_picker, "_foreground_window", lambda: 4242)
+    monkeypatch.setattr(native_picker, "_release_owner", released.append)
+    monkeypatch.setattr(native_picker, "_let_the_dialog_take_the_foreground", lambda: None)
+    return released
+
+
+def test_the_helper_is_given_the_window_the_click_came_from(
+    tmp_path: Path, fast_route: list[int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The folder window is owned by the app window, so it opens in front of
+    the app and nothing else; the always-on-top form is not needed."""
+    seen: list[list[str]] = []
+
+    def _run(argv: list[str], **_k: object) -> _Completed:
+        seen.append(argv)
+        return _Completed(stdout=_marked(str(tmp_path)))
+
+    monkeypatch.setattr(native_picker.subprocess, "run", _run)
+
+    assert native_picker.choose_folder(start=str(tmp_path)).path == str(tmp_path)
+    assert len(seen) == 1
+    argv = seen[0]
+    assert argv[0] == "python.exe"
+    assert argv[-3].endswith("folder_dialog_win.py")
+    assert argv[-2:] == ["4242", str(tmp_path)]
+    # No PowerShell, and so no C# compile on the way to the window.
+    assert "powershell" not in argv
+    assert fast_route == [4242]
+
+
+def test_closing_the_fast_window_is_a_cancel(
+    fast_route: list[int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[list[str]] = []
+
+    def _run(argv: list[str], **_k: object) -> _Completed:
+        calls.append(argv)
+        return _Completed(returncode=1)
+
+    monkeypatch.setattr(native_picker.subprocess, "run", _run)
+
+    result = native_picker.choose_folder()
+
+    assert result.cancelled is True
+    # A cancel is an answer: PowerShell must not open a second window after it.
+    assert len(calls) == 1
+
+
+def test_a_failed_helper_falls_back_to_powershell(
+    tmp_path: Path, fast_route: list[int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[list[str]] = []
+
+    def _run(argv: list[str], **_k: object) -> _Completed:
+        calls.append(argv)
+        if len(calls) == 1:
+            return _Completed(stderr="OSError: COM call failed", returncode=3)
+        return _Completed(stdout=_marked(str(tmp_path)))
+
+    monkeypatch.setattr(native_picker.subprocess, "run", _run)
+
+    assert native_picker.choose_folder().path == str(tmp_path)
+    assert calls[1][0] == "powershell"
+    assert "-STA" in calls[1]
+
+
+def test_the_app_window_is_handed_back_even_when_the_helper_is_killed(
+    fast_route: list[int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A modal window disables its owner and enables it again when it closes.
+    A helper that timed out never reaches the second half, and the app would
+    stay dead to every click."""
+
+    def _timeout(*_a: object, **_k: object) -> None:
+        raise subprocess.TimeoutExpired(cmd="python.exe", timeout=1)
+
+    monkeypatch.setattr(native_picker.subprocess, "run", _timeout)
+
+    result = native_picker.choose_folder(timeout=1)
+
+    assert result.error and "too long" in result.error
+    assert fast_route == [4242]
+
+
+def test_without_a_window_to_own_it_the_fast_route_is_not_taken(
+    tmp_path: Path, fast_route: list[int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(native_picker, "_foreground_window", lambda: 0)
+    calls: list[list[str]] = []
+
+    def _run(argv: list[str], **_k: object) -> _Completed:
+        calls.append(argv)
+        return _Completed(stdout=_marked(str(tmp_path)))
+
+    monkeypatch.setattr(native_picker.subprocess, "run", _run)
+
+    assert native_picker.choose_folder().path == str(tmp_path)
+    assert [argv[0] for argv in calls] == ["powershell"]
+    assert fast_route == []
+
+
+def test_the_branded_launcher_is_not_used_as_the_interpreter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """In the desktop app ``sys.executable`` is a renamed copy of pythonw that
+    finds its standard library through the registry and cannot start with -I.
+    The interpreter beside the standard library on ``sys.path`` is used."""
+    install = tmp_path / "Python311"
+    (install / "Lib").mkdir(parents=True)
+    (install / "python.exe").write_bytes(b"")
+    branded = tmp_path / "bin" / "DodaiosApp.exe"
+    branded.parent.mkdir()
+    branded.write_bytes(b"")
+    monkeypatch.setattr(sys, "executable", str(branded))
+    monkeypatch.setattr(sys, "prefix", str(tmp_path / "nowhere"))
+    monkeypatch.setattr(sys, "base_prefix", str(tmp_path / "nowhere"))
+    monkeypatch.setattr(sys, "path", [str(install / "Lib"), str(install / "DLLs")])
+
+    assert native_picker._helper_python() == str(install / "python.exe")
+
+
+def test_the_dialog_helper_needs_only_the_standard_library() -> None:
+    """It runs with -I and -S in a bare interpreter: an import from the app, or
+    from any installed package, would fail there and send every click down the
+    slow route."""
+    import ast
+
+    helper = Path(native_picker.__file__).with_name("folder_dialog_win.py")
+    tree = ast.parse(helper.read_text(encoding="utf-8"))
+    imported: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            imported.add((node.module or "").split(".")[0])
+
+    assert imported <= {"__future__", "ctypes", "sys", "threading", "time"}

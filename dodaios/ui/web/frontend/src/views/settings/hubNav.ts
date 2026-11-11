@@ -1,9 +1,9 @@
 /**
- * The Settings hub's left navigation: five groups a person can name without
- * reading them — You, Voice, Connections, Agents, Advanced.
+ * The Settings hub's left navigation: six groups a person can name without
+ * reading them — You, Voice, Connections, Assistant, Tools, Advanced.
  *
- * Nothing was removed to get there; every page and every option is still
- * reachable, only regrouped. An entry is one of three kinds:
+ * The app's sidebar holds only the conversation and the Agentic IDE, so this
+ * is where every other page is reached from. An entry is one of three kinds:
  *
  *   tab   a section id the hub renders itself (Profile, API Keys, Spend …).
  *         The section id IS the state, so deep links keep landing on it.
@@ -13,14 +13,21 @@
  *         is the whole page, which is also where a bare "settings" deep link,
  *         a search hit and the first-run guide land.
  *   link  a section that has its own page outside the hub (Memory, Dictation,
- *         Plugins, Agents). Picking it leaves Settings for that page.
+ *         Plugins, Artifacts, the tools). Picking it leaves Settings for that
+ *         page.
  */
 import type { LucideIcon } from "lucide-react";
 import { AudioLines, Languages, SlidersHorizontal } from "lucide-react";
 import {
-  AgentsIcon,
+  ArtifactsIcon,
+  BoardIcon,
+  BuiltIcon,
+  DocsIcon,
   ExtensionsIcon,
+  MarketplaceIcon,
+  MicrophoneIcon,
   SpeechIcon,
+  TerminalIcon,
   WikiIcon,
 } from "@/components/icons/sectionIcons";
 import type { SectionId } from "@/store/events";
@@ -105,7 +112,21 @@ export const HUB_GROUPS: readonly { id: string; labelKey: string; entries: reado
       { kind: "tab", id: "agent-instructions" },
       page("behavior", "design.settings.behavior", SlidersHorizontal),
       { kind: "tab", id: "trust" },
-      { kind: "link", id: "agents", labelKey: "design.settings.agents", icon: AgentsIcon },
+    ],
+  },
+  // What used to be the sidebar's own rows. Each keeps its page; only the
+  // way in moved here.
+  {
+    id: "tools",
+    labelKey: "nav.group_tools",
+    entries: [
+      { kind: "link", id: "visualization", labelKey: "nav.visualization", icon: ArtifactsIcon },
+      { kind: "link", id: "marketplace", labelKey: "nav.marketplace", icon: MarketplaceIcon },
+      { kind: "link", id: "clis", labelKey: "nav.clis_hub", icon: TerminalIcon },
+      { kind: "link", id: "sessions", labelKey: "nav.sessions", icon: MicrophoneIcon },
+      { kind: "link", id: "board", labelKey: "nav.board", icon: BoardIcon },
+      { kind: "link", id: "docs", labelKey: "nav.docs", icon: DocsIcon },
+      { kind: "link", id: "self-build", labelKey: "nav.self_build", icon: BuiltIcon },
     ],
   },
   {

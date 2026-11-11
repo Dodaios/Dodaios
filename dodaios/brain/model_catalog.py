@@ -70,6 +70,7 @@ CATALOG_PROVIDERS: tuple[str, ...] = (
     "openrouter",
     "grok",
     "nvidia",
+    "deepseek",
     # User-hosted OpenAI-compatible gateway. The catalog is the proxy's
     # own /models list; there is no curated fallback (the names are aliases
     # the user defined).
@@ -133,6 +134,7 @@ _ENDPOINTS: dict[str, _CatalogEndpoint] = {
     # xAI uses the OpenAI-compatible ``data[].id`` model roster and requires
     # the same bearer key used for Grok inference.
     "grok": _CatalogEndpoint("https://api.x.ai/v1", "/models", "bearer"),
+    "deepseek": _CatalogEndpoint("https://api.deepseek.com", "/models", "bearer"),
     # NVIDIA NIM speaks the OpenAI-compatible ``data[].id`` shape. Its catalog is
     # PUBLIC (verified 2026-07-08: an unauthenticated GET returns the full model
     # list), so ``bearer_opt`` like OpenRouter — the picker fills in before a key
@@ -302,6 +304,10 @@ CURATED_MODELS: dict[str, list[ModelInfo]] = {
     # unreachable. NVIDIA-hosted current families (Nemotron leads: it is NVIDIA's
     # own). A valid key supersedes this with the live list, so a newly hosted
     # model still shows up automatically.
+    "deepseek": [
+        ModelInfo(id="deepseek-flash", label="DeepSeek Flash", input_modalities=("text",)),
+        ModelInfo(id="deepseek-v4-pro", label="DeepSeek V4 Pro", input_modalities=("text",)),
+    ],
     "nvidia": _curated(
         [
             ("nvidia/llama-3.1-nemotron-ultra-253b-v1", "Nemotron Ultra 253B"),
@@ -987,7 +993,8 @@ def parse_models_response(provider: str, payload: dict) -> list[ModelInfo]:
                 id=raw,
                 label=label,
                 output_modalities=_output_modalities(m),
-                input_modalities=_input_modalities(m),
+                # The native DeepSeek adapter currently supports text input only.
+                input_modalities=("text",) if provider == "deepseek" else _input_modalities(m),
                 supported_parameters=_supported_parameters(m),
                 pricing=_pricing(m),
                 created=_created(m),
