@@ -44,6 +44,11 @@ const TEMPLATES: Record<string, string[]> = {
   "action_card.outcome.": ["allow", "allow_always", "deny", "expired", "cancel"],
   "action_card.outcome_note.": ["expired", "cancel", "deny"],
   "action_card.rule.scope_": ["agent", "chat"],
+  "action_card.preview.field.": [
+    "to", "cc", "bcc", "subject", "body", "attachments", "message_id", "title", "start", "end", "attendees", "location",
+    "description", "event_id", "text", "path", "size", "folder", "command", "action", "amount", "currency", "payee",
+    "recipient", "merchant", "price", "quantity", "order_id", "invoice", "memo", "reference", "item", "iban", "account",
+  ],
   "action_card.rule.": ["always_verb", "always_app", "always_generic", "ask_verb", "ask_app", "ask_generic"],
 };
 

@@ -39,6 +39,7 @@ a task of its own and the decision published when it lands.
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable
@@ -47,6 +48,7 @@ from typing import Any, Final
 from uuid import UUID
 
 from dodaios.core.events import ActionApprovalRequired, ActionApproved, ActionDenied, ActionProposed
+from dodaios.safety import approval_amendments
 from dodaios.trust.hooks import before_execute
 
 log = logging.getLogger(__name__)
@@ -112,6 +114,9 @@ class ChatApprovalBridge:
         #: when the card saved a rule on the agent instead: that rule (perhaps
         #: one action only) governs, and the chat must not widen it.
         self.chat_keeps_always: Callable[[str, str], bool] = lambda _sid, _tool: True
+        #: ``(session_id, call_id) -> text``: why the person (or the chat, for a
+        #: card set aside) refused, handed to the agent as the denial's reason.
+        self.deny_reason: Callable[[str, str], str] = lambda _sid, _call: ""
         bus.subscribe(ActionProposed, self._on_proposed)
         bus.subscribe(ActionApprovalRequired, self._on_required)
         bus.subscribe(ActionApproved, self._on_settled)
@@ -233,6 +238,7 @@ class ChatApprovalBridge:
             call_id = grant.call_id_for(event.tool_name) or ""
         except Exception:  # noqa: BLE001 — a missing row is cosmetic, the card still asks
             log.debug("chat approval bridge: no timeline row for %s", event.tool_name)
+        before = copy.deepcopy(args)
         try:
             decision = await grant.ask(call_id, event.tool_name, args, summary)
         except Exception:  # noqa: BLE001 — the ticket must be answered either way
@@ -241,6 +247,10 @@ class ChatApprovalBridge:
         # Our own answer below must not read as "settled elsewhere".
         self._forget(event.trace_id, asyncio.current_task())
         if decision in ("allow", "allow_always"):
+            if args != before:
+                # The person edited the call on the card: the executor runs their
+                # version, after checking it through its own gate again.
+                approval_amendments.put(event.trace_id, args, _changed(before, args))
             if decision == "allow_always" and self._chat_keeps(grant, event.tool_name):
                 grant.always_allowed.add(_bare(event.tool_name))
             await self._bus.publish(
@@ -250,9 +260,28 @@ class ChatApprovalBridge:
             )
             return
         reason = "cancelled" if decision == "cancel" else "declined by the person"
+        said = ""
+        try:
+            said = self.deny_reason(grant.session_id, call_id) if decision == "deny" else ""
+        except Exception:  # noqa: BLE001 — the plain reason still says no
+            log.debug("chat approval bridge: no denial reason", exc_info=True)
+        if said:
+            reason = f"{reason}: {said}"[:1500]
         await self._bus.publish(
             ActionDenied(trace_id=event.trace_id, tool_name=event.tool_name, reason=reason)
         )
+
+
+def _changed(before: dict[str, Any], after: dict[str, Any]) -> dict[str, dict[str, str]]:
+    """``{argument: {before, after}}`` for the arguments the person's edit changed."""
+    out: dict[str, dict[str, str]] = {}
+    for key in {*before, *after}:
+        if before.get(key) != after.get(key):
+            out[str(key)] = {
+                "before": str(before.get(key, ""))[:2000],
+                "after": str(after.get(key, ""))[:2000],
+            }
+    return out
 
 
 def _bare(tool_name: str) -> str:

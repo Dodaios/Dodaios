@@ -352,6 +352,12 @@ def _failure_line(status: str, language: str) -> str:
 def _card_line(card: Any, language: str) -> str:
     summary = card.summary or ""
     if card.kind == "approval":
+        preview = getattr(card, "preview", None)
+        if preview:
+            # The same essentials as the app's card, in the owner's language.
+            from dodaios.agent_chat.approval_preview import compact_line
+
+            summary = compact_line(preview, language) or summary
         return _CARD_APPROVAL.get(language, _CARD_APPROVAL["en"]).format(summary=summary)
     options = ""
     if card.options:

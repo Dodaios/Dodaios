@@ -62,7 +62,53 @@ export interface ApprovalCardInfo {
   hardLimit?: HardLimit;
   /** The outbound check's findings (dodaios/trust/outbound.py), read out as cautions. */
   checks?: OutboundCheck[];
+  /** The exact action as structured fields (dodaios/agent_chat/approval_preview.py). */
+  preview?: ApprovalPreview;
 }
+
+export type PreviewClass = "mail" | "calendar" | "message" | "file_delete" | "file_write" | "shell" | "payment";
+export type PreviewKind = "text" | "multiline" | "time" | "path" | "code" | "people";
+
+export interface PreviewItem {
+  text: string;
+  /** A recipient the person never wrote to from here before. */
+  new: boolean;
+}
+
+export interface PreviewField {
+  key: string;
+  kind: PreviewKind;
+  value: string;
+  items: PreviewItem[];
+  /** Plain text the person may change before approving. */
+  editable: boolean;
+}
+
+export interface PreviewDiffLine {
+  op: "+" | "-" | " " | "@";
+  text: string;
+}
+
+export interface PreviewDiff {
+  path: string;
+  creates: boolean;
+  added: number;
+  removed: number;
+  truncated: boolean;
+  lines: PreviewDiffLine[];
+}
+
+export interface ApprovalPreview {
+  cls: PreviewClass;
+  /** Sent, deleted, overwritten or paid: there is no undo. */
+  irreversible: boolean;
+  fields: PreviewField[];
+  diff?: PreviewDiff;
+  compact: string;
+}
+
+/** What the person changed on the card: field key -> (before, after). */
+export type ApprovalEdits = Record<string, { before: string; after: string }>;
 
 export type HardLimit = "money" | "credentials" | "permanent_delete" | "new_recipient";
 /** The hard limits for which no standing rule may be saved. */
@@ -88,6 +134,8 @@ export interface SavedApprovalRule {
   target?: string;
 }
 
+const PREVIEW_CLASSES = new Set<PreviewClass>(["mail", "calendar", "message", "file_delete", "file_write", "shell", "payment"]);
+const PREVIEW_KINDS = new Set<PreviewKind>(["text", "multiline", "time", "path", "code", "people"]);
 const KINDS = new Set<ApprovalSourceKind>(["terminal", "files", "browser", "computer", "plan", "agent", "connector", "tool"]);
 const HARD_LIMITS = new Set<HardLimit>(["money", "credentials", "permanent_delete", "new_recipient"]);
 const CHECK_CODES = new Set<OutboundCheck["code"]>(["secret", "unknown_recipient", "mistyped_domain", "tone"]);
@@ -116,7 +164,39 @@ export function parseApprovalCard(payload: Record<string, unknown>): ApprovalCar
     ...(payload.creates === true ? { creates: true } : {}),
     ...(HARD_LIMITS.has(text(payload.hard_limit) as HardLimit) ? { hardLimit: text(payload.hard_limit) as HardLimit } : {}),
     ...(Array.isArray(payload.checks) ? { checks: parseChecks(payload.checks) } : {}),
+    ...previewPart(payload.preview),
   };
+}
+
+function previewPart(raw: unknown): { preview: ApprovalPreview } | Record<string, never> {
+  const row = record(raw);
+  const cls = text(row?.class) as PreviewClass;
+  if (!row || !PREVIEW_CLASSES.has(cls)) return {};
+  const fields = (Array.isArray(row.fields) ? row.fields : []).flatMap((entry): PreviewField[] => {
+    const f = record(entry);
+    const kind = text(f?.kind) as PreviewKind;
+    const key = text(f?.key);
+    if (!f || !key || !PREVIEW_KINDS.has(kind)) return [];
+    const items = (Array.isArray(f.items) ? f.items : []).flatMap((it): PreviewItem[] => {
+      const item = record(it);
+      return item && text(item.text) ? [{ text: text(item.text), new: item.new === true }] : [];
+    });
+    return [{ key, kind, value: text(f.value), items, editable: f.editable === true }];
+  });
+  const d = record(row.diff);
+  const diff: PreviewDiff | undefined = d ? {
+    path: text(d.path),
+    creates: d.creates === true,
+    added: typeof d.added === "number" ? d.added : 0,
+    removed: typeof d.removed === "number" ? d.removed : 0,
+    truncated: d.truncated === true,
+    lines: (Array.isArray(d.lines) ? d.lines : []).flatMap((l): PreviewDiffLine[] => {
+      const line = record(l);
+      const op = text(line?.op);
+      return line && (op === "+" || op === "-" || op === " " || op === "@") ? [{ op, text: text(line.text) }] : [];
+    }),
+  } : undefined;
+  return { preview: { cls, irreversible: row.irreversible === true, fields, ...(diff ? { diff } : {}), compact: text(row.compact) } };
 }
 
 function parseChecks(raw: unknown[]): OutboundCheck[] {

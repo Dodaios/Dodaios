@@ -58,12 +58,15 @@ def fold_events(events: list[dict[str, Any]], *, running: bool = False) -> dict[
             approval_id = str(payload.get("approval_id") or "")
             if not approval_id:
                 continue
+            preview = payload.get("preview") if isinstance(payload.get("preview"), dict) else {}
             row = {
                 "id": f"ap-{approval_id}",
                 "kind": "approval",
                 "approval_id": approval_id,
                 "name": _text(payload.get("name"), 120),
-                "text": _text(payload.get("brief") or payload.get("summary"), 600),
+                "text": _text(
+                    preview.get("compact") or payload.get("brief") or payload.get("summary"), 600
+                ),
                 "ts_ms": ts,
                 "decision": None,
             }
