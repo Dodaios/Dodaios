@@ -127,6 +127,8 @@ private:
 	void BuildHallIfOnHangar();
 	/** Puts the Sovereign skin on the deck commander. */
 	void DressCommander();
+	/** Gives the commander the hoverboard (B) and the Arc Storm (F) and binds the deck keys to them. */
+	void EquipCommanderAbilities(class AVerseDeckCommander& Commander);
 	/** Crew pawns wear the officer or technician body with their rank (UVerseCrewBody). */
 	void DressCrew(float DeltaTime);
 	float CrewDressS = 0.f;
@@ -167,6 +169,9 @@ private:
 	FDelegateHandle PerceptHandle;
 	FDelegateHandle DeckArrivedHandle;
 	TWeakObjectPtr<class AVerseDeckCamera> DeckCamera;
+	FDelegateHandle BoardKeyHandle;
+	FDelegateHandle PowerKeyHandle;
+	TWeakObjectPtr<class UVerseDeckControlComponent> BoundDeckControl;
 	FDelegateHandle BridgeFrameHandle;
 	FDelegateHandle QuickStartHandle;
 };

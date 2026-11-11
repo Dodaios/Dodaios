@@ -22,12 +22,15 @@
 #include "Gadgets/VerseGadgetComponent.h"
 #include "HAL/FileManager.h"
 #include "HAL/IConsoleManager.h"
+#include "Abilities/VerseArcStormComponent.h"
+#include "Abilities/VerseHoverboardComponent.h"
 #include "Abilities/VerseSovereignBody.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/VerseDeckCamera.h"
 #include "Commander/VerseDeckCommander.h"
 #include "Decks/VerseDeckSubsystem.h"
 #include "HangarSwitch/VerseHangarSwitchSubsystem.h"
+#include "Input/VerseDeckControlComponent.h"
 #include "Inventory/VerseInventoryComponent.h"
 #include "Inventory/VerseWeaponSlot.h"
 #include "Lifecycle/VerseLifecycle.h"
@@ -244,6 +247,59 @@ void UVerseDuelSubsystem::DressCommander()
 	{
 		Commander->RefreshBody();
 	}
+	if (Commander)
+	{
+		EquipCommanderAbilities(*Commander);
+	}
+}
+
+void UVerseDuelSubsystem::EquipCommanderAbilities(AVerseDeckCommander& Commander)
+{
+	// The abilities live in VerseAbilities, the keys in the deck control (VerseDecks), and neither
+	// may include the other: the integration puts the components on the commander and binds B
+	// and F to them. Both stay off in the arena on their own (the hub's arena switch).
+	UVerseHoverboardComponent* Board = Commander.FindComponentByClass<UVerseHoverboardComponent>();
+	if (!Board)
+	{
+		Board = NewObject<UVerseHoverboardComponent>(&Commander, TEXT("Hoverboard"));
+		Board->SetupAttachment(Commander.GetRootComponent());
+		Board->RegisterComponent();
+	}
+	UVerseArcStormComponent* Arc = Commander.FindComponentByClass<UVerseArcStormComponent>();
+	if (!Arc)
+	{
+		Arc = NewObject<UVerseArcStormComponent>(&Commander, TEXT("ArcStorm"));
+		Arc->SetupAttachment(Commander.GetRootComponent());
+		Arc->RegisterComponent();
+	}
+	Arc->SetBody(Commander.GetMesh());
+	UVerseDeckControlComponent* Control = UVerseDeckControlComponent::Get(GetWorld());
+	if (!Control)
+	{
+		return;
+	}
+	if (UVerseDeckControlComponent* Old = BoundDeckControl.Get())
+	{
+		Old->OnBoard.Remove(BoardKeyHandle);
+		Old->OnPower.Remove(PowerKeyHandle);
+	}
+	TWeakObjectPtr<UVerseHoverboardComponent> WeakBoard(Board);
+	TWeakObjectPtr<UVerseArcStormComponent> WeakArc(Arc);
+	BoardKeyHandle = Control->OnBoard.AddLambda([WeakBoard]()
+	{
+		if (UVerseHoverboardComponent* Target = WeakBoard.Get())
+		{
+			Target->Toggle();
+		}
+	});
+	PowerKeyHandle = Control->OnPower.AddLambda([WeakArc](bool bHeld)
+	{
+		if (UVerseArcStormComponent* Target = WeakArc.Get())
+		{
+			Target->SetHeld(bHeld);
+		}
+	});
+	BoundDeckControl = Control;
 }
 
 void UVerseDuelSubsystem::DressCrew(float DeltaTime)
