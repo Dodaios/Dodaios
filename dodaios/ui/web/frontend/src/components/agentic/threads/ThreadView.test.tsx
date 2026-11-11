@@ -348,4 +348,23 @@ describe("ThreadTree", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show 3 more" }));
     expect(stamps()).toEqual(Array.from({ length: 23 }, (_, index) => 22 - index));
   });
+
+  it("draws a day line where the threads cross into an earlier day, and none over today's", async () => {
+    const now = Date.now();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(12, 0, 0, 0);
+    api.fetchAgentChatSessions.mockResolvedValue([
+      sessionRow({ session_id: "s1", cli_title: "Today A", updated_ms: now }),
+      sessionRow({ session_id: "s2", cli_title: "Yesterday A", updated_ms: yesterday.getTime() }),
+      sessionRow({ session_id: "s3", cli_title: "Yesterday B", updated_ms: yesterday.getTime() - 1 }),
+    ]);
+    render(<ThreadTree />);
+    await waitFor(() => expect(screen.getByText("Yesterday A")).toBeTruthy());
+    const lines = screen.getAllByTestId("thread-day-line");
+    expect(lines.map((line) => line.getAttribute("aria-label"))).toEqual(["Yesterday"]);
+    const before = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(before(screen.getByTestId("thread-row-s1"), lines[0])).toBe(true);
+    expect(before(lines[0], screen.getByTestId("thread-row-s2"))).toBe(true);
+  });
 });
