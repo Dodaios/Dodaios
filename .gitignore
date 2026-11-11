@@ -531,3 +531,10 @@ eval-results/
 art/verse/.cache/
 # Pipeline smoke deck: cooked locally by scripts/verse/cook.py, never shipped.
 dodaios/ui/web/frontend/public/verse/decks/testbed/
+
+# Verse third-party content whose licence forbids public redistribution (Fab, Megascans,
+# paid packs). Lives only on the machine and in packaged builds, never committed
+# (docs/verse/unreal/contracts/art-pipeline.md section 11; check_art_text.py enforces it).
+unreal/Verse/Content/Verse/External/
+unreal/Verse/Art/External/
+art/verse/External/

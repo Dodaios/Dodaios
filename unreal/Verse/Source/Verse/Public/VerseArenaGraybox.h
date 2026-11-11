@@ -125,6 +125,17 @@ private:
 	void DressArtBox(const TSharedPtr<class FJsonObject>& Box);
 	/** A scanned kit prop (`SM_Hangar_<Name>`, origin at its foot) at a floor point, yaw in degrees. */
 	void AddProp(const TCHAR* Name, const FVector& At, double Yaw = 0.0, const FVector& Scale = FVector::OneVector, bool bShadow = true);
+	/**
+	 * The Fab or Megascans mesh that replaces a kit mesh (`Data/arena/external_swaps.json`, art
+	 * under the git-ignored `Content/Verse/External/`); nullptr when there is no entry or the
+	 * mesh is not on this machine, so CI and other clones keep the CC0 kit. Adjusts the transform
+	 * by the entry's scale, yaw and lift.
+	 */
+	UStaticMesh* ExternalSwap(const TCHAR* KitName, FTransform& InOutTransform);
+	/** Entries of external_swaps.json by kit mesh name, read once per build. */
+	TMap<FString, TSharedPtr<class FJsonObject>> ExternalSwaps;
+	bool bExternalSwapsRead = false;
+	int32 ExternalSwapsUsed = 0;
 	/** A decal of a wear look projected along -Z (floor) or into a wall facing Yaw. */
 	void AddWear(const TCHAR* Look, const FVector& At, double Yaw, double Width, double Height, bool bWall);
 	void ApplyLook(UWorld& World);

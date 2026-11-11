@@ -264,9 +264,16 @@ void AVerseArenaGraybox::AddDressing(const TCHAR* MeshName, const FTransform& Tr
 	{
 		return;
 	}
+	// A licensed replacement from the git-ignored External folder, when this checkout has it.
+	FTransform Placed = Transform;
+	if (UStaticMesh* Swap = ExternalSwap(MeshName, Placed))
+	{
+		Mesh = Swap;
+		Override = nullptr;
+	}
 	if (UInstancedStaticMeshComponent* Component = DressingFor(Mesh, Override ? MaterialFor(Override) : nullptr, bShadow))
 	{
-		Component->AddInstance(Transform, true);
+		Component->AddInstance(Placed, true);
 		++DressingInstances;
 	}
 }
