@@ -202,13 +202,13 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
           <Group id="voice" title={t("sidebar.voice")}>
             <button type="button" data-testid="assistant-voice-model" onClick={() => openSettings("voice")}
               className={cn(ROW_BUTTON, "border-b border-border")}>
-              <span className="min-w-0 flex-1 truncate text-sm text-foreground">{t("sidebar.voice_model")}</span>
-              <span className="min-w-0 truncate text-sm text-muted-foreground">{voice.providerLabel}</span>
+              <span className="shrink-0 text-sm text-foreground">{t("sidebar.voice_model")}</span>
+              <span className="min-w-0 flex-1 truncate text-right text-sm text-muted-foreground">{voice.providerLabel}</span>
               <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             </button>
             <button type="button" data-testid="assistant-voice-wake" onClick={() => openSettings("wake-word")} className={ROW_BUTTON}>
-              <span className="min-w-0 flex-1 truncate text-sm text-foreground">{t("sidebar.wake_word")}</span>
-              <span className="min-w-0 truncate text-sm text-muted-foreground">{profile.data?.wake_phrase ?? ""}</span>
+              <span className="shrink-0 text-sm text-foreground">{t("sidebar.wake_word")}</span>
+              <span className="min-w-0 flex-1 truncate text-right text-sm text-muted-foreground">{profile.data?.wake_phrase ?? ""}</span>
               <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             </button>
           </Group>
