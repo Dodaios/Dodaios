@@ -75,6 +75,20 @@ export function tightestWindow(usage: AccountUsage | null): UsageWindow | null {
   return usage.windows.reduce((worst, window) => (window.percent > worst.percent ? window : worst));
 }
 
+/**
+ * The one limit a compact chip names: the plan's general weekly limit. A
+ * model-scoped weekly limit (e.g. "Week · Fable") is a sub-limit and only
+ * appears in the expanded list. Without a general weekly limit the chip falls
+ * back to the fullest unscoped limit, then to the fullest limit at all.
+ */
+export function headlineWindow(usage: AccountUsage | null): UsageWindow | null {
+  if (!usage || usage.status !== "ok" || usage.windows.length === 0) return null;
+  const weekly = usage.windows.find((window) => window.kind === "weekly");
+  if (weekly) return weekly;
+  const unscoped = usage.windows.filter((window) => window.kind !== "weekly_scoped");
+  return tightestWindow({ ...usage, windows: unscoped.length > 0 ? unscoped : usage.windows });
+}
+
 export type ResetText =
   | { key: "reset_soon" }
   | { key: "reset_in_minutes"; vars: { m: number } }
