@@ -341,6 +341,10 @@ _ACCOUNT_ENVS: ContextVar[dict[str, dict[str, str]] | None] = ContextVar(
 _PREPARED_MODELS: ContextVar[dict[str, list[dict[str, Any]] | None] | None] = ContextVar(
     "cli_catalog.models", default=None
 )
+#: platform -> the seat the CURRENT turn's CLI was started on. Set by
+#: :func:`run_cli_turn`, filled by :func:`_account_env`; a refused turn reads
+#: it to know which seat ran out (``_continue_on_next_seat``).
+_TURN_SEATS: ContextVar[dict[str, str] | None] = ContextVar("agent_chat.turn_seats", default=None)
 
 
 @contextmanager
@@ -437,6 +441,7 @@ def _account_env(platform: str) -> dict[str, str]:
         else:
             account = agent_accounts.active_account(platform)  # type: ignore[arg-type]
         account = _seat_with_budget(platform, account)
+        _note_turn_seat(platform, account.id)
         _share_user_setup(platform, account.id)
         env = agent_accounts.spawn_env(platform, account.id, base=os.environ)  # type: ignore[arg-type]
     except CliUnavailable:
@@ -504,6 +509,29 @@ def _seat_with_budget(platform: str, account: Any) -> Any:
     except Exception as exc:  # noqa: BLE001 - the pinned seat is still a valid answer
         log.debug("Seat failover unavailable for %s (%s)", platform, type(exc).__name__)
         return account
+
+
+def _note_turn_seat(platform: str, account_id: str) -> None:
+    """Remember the seat this turn runs on, and let the seat watch see it."""
+    seats = _TURN_SEATS.get()
+    if seats is None:  # model discovery, not a turn
+        return
+    seats[platform] = account_id
+    try:
+        from dodaios.agentic_ide import seat_switch
+
+        seat_switch.note_in_use(platform, account_id)
+    except Exception as exc:  # noqa: BLE001 - watching a seat is additive
+        log.debug("Seat watch unavailable for %s (%s)", platform, type(exc).__name__)
+
+
+def _is_usage_limit(error: str | None) -> bool:
+    """Whether a failed turn's error says the seat's plan is used up."""
+    if not error:
+        return False
+    from dodaios.brain import seat_health
+
+    return seat_health.classify_seat_failure(error) == seat_health.CLASS_QUOTA
 
 
 #: Runner -> (account platform, resume kind) for the CLIs whose conversations
@@ -3790,6 +3818,88 @@ def _merge_cli_outcome(first: _Outcome, second: _Outcome) -> _Outcome:
     )
 
 
+#: The thread notice that says a turn moved to the next subscription.
+SEAT_SWITCH_NOTICE_KIND: Final[str] = "seat_switched"
+
+
+def _ensure_seat_watch() -> None:
+    """Start the seat watch, so the seats threads run on are watched too."""
+    try:
+        from dodaios.agentic_ide import seat_switch
+
+        seat_switch.ensure_watch()
+    except Exception as exc:  # noqa: BLE001 - watching seats is additive
+        log.debug("Seat watch not started (%s)", type(exc).__name__)
+
+
+async def _continue_on_next_seat(
+    handle: TurnHandle,
+    outcome: _Outcome,
+    runner: str,
+    turn_seats: dict[str, str],
+    *,
+    started_work: bool,
+    run_again: Callable[[str, str | None], Awaitable[_Outcome]],
+    user_text: str,
+    resume: str | None,
+) -> _Outcome:
+    """Carry a turn its seat's usage limit cut off on to the next subscription.
+
+    Only for CLIs whose conversation can follow a seat
+    (``_SEAT_CONVERSATIONS``) and only with auto switch on
+    (:func:`dodaios.agentic_ide.seat_switch.fail_over` decides the seat). The
+    same conversation resumes on the new seat (``_carry_thread_conversation``
+    copies it there): a turn that already worked is told to continue, one
+    the provider refused before it started gets the person's message again.
+    Once per turn; with no other seat left the refusal stands.
+    """
+    pair = _SEAT_CONVERSATIONS.get(runner)
+    if pair is None or not _is_usage_limit(outcome.error):
+        return outcome
+    platform = pair[0]
+    spent = turn_seats.get(platform)
+    if not spent:
+        return outcome
+    try:
+        from dodaios.agentic_ide import seat_switch
+        from dodaios.society.remote import placement_for_session
+
+        if await placement_for_session(handle.session) is not None:
+            return outcome  # another computer's CLI runs on that computer's own login
+        target = await seat_switch.fail_over(platform, spent, error=outcome.error or "")
+        if not target or target == spent:
+            return outcome
+        from_label, to_label = await asyncio.to_thread(
+            lambda: (seat_switch._label(spent), seat_switch._label(target))
+        )
+    except Exception as exc:  # noqa: BLE001 - the refusal stays the honest answer
+        log.warning("agent chat %s: no seat failover (%s)", handle.turn_id, exc)
+        return outcome
+    log.info(
+        "agent chat %s: %s seat %s hit its usage limit; continuing on %s",
+        handle.turn_id,
+        platform,
+        spent,
+        target,
+    )
+    await handle.emit(
+        make_event(
+            "notice",
+            {
+                "kind": SEAT_SWITCH_NOTICE_KIND,
+                "text": f"{from_label} reached its usage limit; continuing on {to_label}.",
+                "platform": platform,
+                "from_label": from_label,
+                "to_label": to_label,
+            },
+        )
+    )
+    conversation = outcome.vendor_session or resume
+    prompt = seat_switch.CONTINUE_PROMPT if started_work and conversation else user_text
+    again = await run_again(prompt, conversation)
+    return _merge_cli_outcome(outcome, again)
+
+
 async def _surface_identity(session: Any) -> str | None:
     """A surface whose identity is per session (an agent-society member's
     briefing) hands that text over; ``None`` keeps Jarvis' own layers."""
@@ -3887,6 +3997,9 @@ async def run_cli_turn(
             (prompt_override or "") + "\nRespond in this language: " + handle.output_language
         )
     account_token = ACCOUNT_OVERRIDE.set(getattr(session, "account_id", "") or "")
+    turn_seats: dict[str, str] = {}
+    seats_token = _TURN_SEATS.set(turn_seats)
+    _ensure_seat_watch()
     if identity:
         ident = await dodaios_harness.build_identity(
             session_id=session.session_id,
@@ -4001,7 +4114,21 @@ async def run_cli_turn(
                 bridge=bridge,
             )
             outcome = _merge_cli_outcome(outcome, recovered)
+        if outcome.status == "error" and not handle.cancel.is_set():
+            outcome = await _continue_on_next_seat(
+                handle,
+                outcome,
+                runner,
+                turn_seats,
+                started_work=recovery.had_tool_calls,
+                run_again=lambda prompt, conversation: _run_cli_once(
+                    handle, prompt, runner, conversation, identity=ident, bridge=bridge
+                ),
+                user_text=user_text,
+                resume=resume,
+            )
     finally:
+        _TURN_SEATS.reset(seats_token)
         unregister_turn(session.session_id, tool_context)
         ACCOUNT_OVERRIDE.reset(account_token)
         if bridge is not None and identity:

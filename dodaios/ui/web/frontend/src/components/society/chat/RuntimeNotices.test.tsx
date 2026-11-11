@@ -4,7 +4,10 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { NoticeItem } from "@/components/agentchat/reduce";
 import { NoticeLine } from "./AgentChatPanel";
 
-vi.mock("@/i18n", () => ({ useT: () => (key: string) => key, fill: (text: string) => text }));
+vi.mock("@/i18n", () => ({
+  useT: () => (key: string) => (key === "society.chat.seat_switched_line" ? "{0} -> {1}" : key),
+  fill: (text: string) => text,
+}));
 afterEach(cleanup);
 
 function notice(kind: string, data: Record<string, unknown>, text = "English from the runtime"): NoticeItem {
@@ -41,4 +44,9 @@ it("labels a routine run with the routine's name, not the first line of its prom
   const card = screen.getByRole("button");
   expect(card.textContent).toContain("Morning inbox");
   expect(card.textContent).not.toContain("Read every new mail");
+});
+
+it("says quietly that a usage limit moved the turn to the next subscription", () => {
+  render(<NoticeLine item={notice("seat_switched", { from_label: "Ultra A", to_label: "Ultra B" })} />);
+  expect(screen.getByTestId("seat-switched").textContent).toBe("Ultra A -> Ultra B");
 });

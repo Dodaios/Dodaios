@@ -429,3 +429,104 @@ def test_with_nowhere_to_go_a_refilled_seat_carries_on_in_place(
     assert registry.moves == []
     assert registry.prompts == ["pane:h1"]
     assert seat_switch.handled_stop(pane.resume.id) == 1000.0
+
+
+def test_a_thread_refused_for_its_limit_hands_every_seat_user_on(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seats = _seats({"default": None, "Second": None})
+    default, second = seats
+    _fake_snapshots(monkeypatch, seats, ["a@x", "b@x"])
+    idle = _Pane("T1", default.id)
+    working = _Pane("T2", default.id, busy="working")
+    registry = _Registry([_Workspace("w", [idle, working])])
+    seat_switch._STATE.registry = registry
+    monkeypatch.setattr(seat_switch, "_cached_usage", lambda _p: {})
+
+    target = asyncio.run(seat_switch.fail_over("claude", default.id, error="You've hit your limit"))
+
+    assert target == second.id
+    assert agent_accounts.active_account("claude").id == second.id
+    assert seat_switch.is_exhausted(default.id)
+    # Panes on the spent seat follow: idle ones now, working ones after their turn.
+    assert registry.moves == [("T1", second.id)]
+    assert working.pending_account == second.id
+    assert registry.prompts == []
+    assert seat_switch.status()["events"][0]["reason"] == "limit"
+
+
+def test_without_panes_a_thread_failover_still_moves_the_active_seat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seats = _seats({"default": None, "Second": None})
+    default, second = seats
+    _fake_snapshots(monkeypatch, seats, ["a@x", "b@x"])
+    monkeypatch.setattr(seat_switch, "_panes_registry", lambda: None)
+    monkeypatch.setattr(seat_switch, "_cached_usage", lambda _p: {})
+    monkeypatch.setattr(
+        agent_accounts,
+        "describe",
+        lambda account: AccountSnapshot(
+            account=account, connected=True, mode="subscription", message=""
+        ),
+    )
+
+    assert asyncio.run(seat_switch.fail_over("claude", default.id)) == second.id
+    assert agent_accounts.active_account("claude").id == second.id
+    # A thread pinned to the spent seat runs its next turn on the new one.
+    assert seat_switch.preferred_seat("claude", default.id) == second.id
+    event = seat_switch.status()["events"][0]
+    assert (event["reason"], event["to_account"]) == ("limit", second.id)
+
+
+def test_a_thread_failover_respects_the_switch_and_an_empty_bench(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seats = _seats({"default": None, "Second": None})
+    default, second = seats
+    _fake_snapshots(monkeypatch, seats, ["a@x", "b@x"])
+    monkeypatch.setattr(seat_switch, "_panes_registry", lambda: None)
+    monkeypatch.setattr(seat_switch, "_cached_usage", lambda _p: {})
+
+    agent_accounts.set_auto_switch(enabled=False)
+    assert asyncio.run(seat_switch.fail_over("claude", default.id)) is None
+    assert agent_accounts.active_account("claude").id == default.id
+
+    agent_accounts.set_auto_switch(enabled=True)
+    seat_switch._STATE.exhausted[second.id] = seat_switch._now() + 600
+    assert asyncio.run(seat_switch.fail_over("claude", default.id)) is None
+    assert agent_accounts.active_account("claude").id == default.id
+    assert seat_switch.status()["events"][0]["reason"] == "no_seat"
+
+
+def test_a_seat_only_threads_use_is_watched_for_the_threshold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seats = _seats({"default": None, "Second": None, "Third": None})
+    default, second, third = seats
+    _fake_snapshots(monkeypatch, seats, ["a@x", "b@x", "c@x"])
+    agent_accounts.set_active("claude", second.id)
+    # A society agent pinned to the default seat; no pane anywhere.
+    seat_switch.note_in_use("claude", default.id)
+    readings = {
+        default.id: _usage(default, 99),
+        second.id: _usage(second, 30),
+        third.id: _usage(third, 10),
+    }
+    monkeypatch.setattr(seat_switch, "_cached_usage", lambda _p: readings)
+
+    asyncio.run(seat_switch._check_thresholds(seat_switch._NoPanes(), 97.0))
+
+    assert seat_switch.is_exhausted(default.id)
+    # The work goes where everything else already runs.
+    assert agent_accounts.active_account("claude").id == second.id
+
+
+def test_seats_threads_used_long_ago_are_no_longer_watched(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seat_switch.note_in_use("claude", "claude:a")
+    assert seat_switch._outside_seats() == {"claude": {"claude:a"}}
+    later = seat_switch._now() + seat_switch.OUTSIDE_SEAT_TTL_S + 1
+    monkeypatch.setattr(seat_switch, "_now", lambda: later)
+    assert seat_switch._outside_seats() == {}
