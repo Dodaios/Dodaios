@@ -1,0 +1,66 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_StoreCart.SM_Hangar_StoreCart",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_StoreCart.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "19b809109329b7fa67a05d592652093a198aa933b8d7fe51c2c56550272bf424"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "7e779d7f7385307ebb332aec41bafff10c21972aaf92382f30cacb16957e7d37",
+      "956ee8d02021aba0b5fdbf393029b0aaabd7d29076caa3a5678e394f79adcca1",
+      "a4fcd4309516e6005b5f3636399bd801df72fc75986831fad9cc5c31b737070a",
+      "ae46bc3aceda8234515054b3b4595db14e7eb72148100b5c2cafe1de7393410c",
+      "f420b66b2e56513542b9598f038eb5f5ce120746735997807e58552049884043"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        80.167,
+        55.137,
+        137.738
+      ],
+      "min": [
+        -80.167,
+        -55.137,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_StoreCart_1.MI_Hangar_StoreCart_1",
+        "slot": "M_Hangar_StoreCart_1"
+      }
+    ],
+    "triangles": 18902,
+    "uv_sets": 1,
+    "vertices": 17224
+  },
+  "name": "SM_Hangar_StoreCart",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "industrial_storage_cart"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

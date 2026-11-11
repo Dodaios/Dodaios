@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_AirUnit_3_N.T_Hangar_AirUnit_3_N",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_AirUnit_3_N.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "de9f9226e9e53d28e39e7aa66f140040595cb9af361b74b7623e326b8426db95"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "14f105cda9172290be2e8b23b8e895099b65e222619850af3b13105901d922e2"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_AirUnit_3_N",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "exterior_aircon_unit",
+      "map": "nor_gl"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Normalmap",
+    "flip_green": true,
+    "group": "WorldNormalMap",
+    "max_size": 1024,
+    "srgb": false
+  }
+}

@@ -80,3 +80,43 @@ def test_bind_forwards_only_and_no_save():
     finally:
         import_art.run_pipeline = original
     assert seen["argv"] == ["bind", "--only", "SM_A,SM_B", "--no-save"]
+
+
+ART_PASS = SOURCE / "VerseArenaArt.cpp"
+PROP_RECORDS = REPO_ROOT / "unreal" / "Verse" / "Art" / "Import" / "Kit" / "Props"
+PROP_MIS = REPO_ROOT / "unreal" / "Verse" / "Art" / "Materials" / "HangarProps"
+
+
+def test_every_mesh_the_art_pass_places_has_an_import_record():
+    """`SM_Hangar_*` names in VerseArenaArt.cpp (arena.md 9.3) are imported kit props."""
+    meshes = set(
+        re.findall(r'TEXT\("(SM_Hangar_[A-Za-z0-9_]+)"\)', ART_PASS.read_text(encoding="utf-8"))
+    )
+    assert len(meshes) >= 30
+    missing = sorted(m for m in meshes if not (PROP_RECORDS / f"{m}.import.json").is_file())
+    assert not missing
+
+
+def test_every_look_the_art_pass_names_has_a_recipe():
+    names = {p.name[: -len(".mi.json")] for p in ARENA_MIS.glob("*.mi.json")}
+    looks = set(re.findall(r'TEXT\("(Arena_[A-Za-z]+)"\)', ART_PASS.read_text(encoding="utf-8")))
+    assert {"Arena_Puddle", "Arena_Leak", "Arena_Grime", "Arena_TyreMark"} <= looks
+    assert not sorted(look for look in looks if f"MI_{look}" not in names)
+
+
+def test_scanned_prop_slots_name_a_recipe_or_a_kit_fallback():
+    """Each slot of a scanned prop points at its own MI recipe or at an existing kit MI."""
+    recipes = {p.name[: -len(".mi.json")] for p in PROP_MIS.glob("*.mi.json")}
+    assert recipes
+    for path in PROP_RECORDS.glob("SM_Hangar_*.import.json"):
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if record["source"]["builder"] != "art/verse/decks/hangar/unreal_arena/props.py":
+            continue
+        assert record["license"]["kind"] == "ledger"
+        for slot in record["mesh"]["material_slots"]:
+            mi = slot["mi"].rsplit(".", 1)[1]
+            assert mi in recipes or mi in {
+                "MI_Arena_LampWarm",
+                "MI_Glass_Clear",
+                "MI_Struct_Gunmetal",
+            }, f"{record['name']}: {mi}"

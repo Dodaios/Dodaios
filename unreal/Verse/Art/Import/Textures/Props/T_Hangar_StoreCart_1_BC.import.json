@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_StoreCart_1_BC.T_Hangar_StoreCart_1_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_StoreCart_1_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "0e241b8a5bbaa3bfe95d34f4fffbcd39f5b67789968069869f78e977b38dc54e"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "7e779d7f7385307ebb332aec41bafff10c21972aaf92382f30cacb16957e7d37"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_StoreCart_1_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "industrial_storage_cart",
+      "map": "diff"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": true
+  }
+}

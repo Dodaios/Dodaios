@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_DrumC_1_ORM.T_Hangar_DrumC_1_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_DrumC_1_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "1a3995264ac3d041b594be859e4f345ca69b5a25d22a7a9d98d13b0c34159367"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "2cec2338b36d7322bef55e6a1d0884b223c5ed383cf986a58bfa461478c64c7e"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_DrumC_1_ORM",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "barrel_03",
+      "map": "arm"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 256,
+    "srgb": false
+  }
+}

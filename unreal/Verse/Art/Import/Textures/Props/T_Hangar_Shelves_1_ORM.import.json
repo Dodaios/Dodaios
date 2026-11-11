@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_Shelves_1_ORM.T_Hangar_Shelves_1_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_Shelves_1_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "8dcffabadb616b07c6695f7da213e9832a6109b79c40215036d1d50629c40a68"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "858629eeaa8f68ddb4fc1a813afe6ed988ded3d6d49184ec45a14611760f0bb3"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_Shelves_1_ORM",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "steel_frame_shelves_01",
+      "map": "arm"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 512,
+    "srgb": false
+  }
+}

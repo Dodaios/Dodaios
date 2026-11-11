@@ -224,16 +224,55 @@ spawns, cover, sight lines, piece ids and the bot's data stay exactly those of `
   the pad, lane and chevron markings, a hazard edge and a red band in the launch well, floor
   lights.
 - **Light**: the fill is the world's only visible directional light while the arena stands
-  (others are muted and come back on leave); exposure EV100 4.0. Nine broad shadowless points
-  over the arena stand in for bounce light, and the arena's post volume turns Lumen off (screen
-  space reflections and AO instead): Lumen's distance-field tracing over the stretched graybox
-  cubes drew metre-sized blocks on every big face. Big boxes render as tiles of at most 6 m;
+  (others are muted and come back on leave); exposure EV100 4.0. Lumen GI and
+  reflections are on; nine weak shadowless points over the arena only lift what the bounce
+  misses. Big boxes render as tiles of at most 6 m (one stretched cube gave Lumen a coarse surface
+  cache that drew metre-sized blocks);
   their collision stays one box. Container walls render corrugated (ribs proud of both faces,
   render only; the proxy stays the plain box).
 - **Masters**: every Verse master is flagged for instanced and Nanite meshes. Without it a
   `-game` or packaged build drew every kit and arena surface with the engine's default
   checker material. Outside the editor the
   engine's on-screen developer lines are off (`-ScreenMessages` keeps them).
+
+### 9.3 Art pass
+
+Direction: a grounded, working military-industrial hangar deck, twenty years in service. Charcoal
+steel and dark concrete; gold and amber only as signal (hazard bands, stencils, warning lamps).
+Gameplay reads first: cover keeps its silhouette, clutter stays in the hall bays and on the walls,
+the lanes stay clean, and nothing new collides.
+
+`VerseArenaArt.cpp` (`AVerseArenaGraybox::DressArt`, called from `Dress`) adds, hall-level, so the
+deck view and the duel show it alike:
+
+- **Roof**: two overhead cranes (bridge, trolley and hook) on runway beams over the arena,
+  high-bay lamps under every girder, six skylights with shadowed rect lights that throw slanted
+  shafts through the haze.
+- **Walls**: a supply duct on braces, three service pipes and a cable bundle on every hull wall,
+  wall lamps, power boards, utility cabinets, air units, extinguishers, alarms, roller shutters
+  and ladders, cameras in the corners.
+- **Bays**: work stations (welding cart, tool trolley and chest, generator, gas bottles), stores
+  (drums, shelving with cartons and crates, military crates, ammo cans, jerrycans, a stores cart),
+  jersey barrier lines with tyres, floodlights, and the parked gunship (`SM_Hangar_Shuttle`) on
+  its pad in front of the hall door. Bay clusters and the gunship skip the deck rooms that hold a
+  station (`InKeptClearRoom`: arrivals, lift lobby), so on the deck view the apron stays free.
+- **Cover** (`DressArtBox`, a few cm proud, render only): cast-concrete feet and segment joints on
+  barriers and cover walls, lamps, a cable run and power boards on the perimeter's inner face,
+  angle guards and base plates on columns, stiffeners and lugs on the hanging blast screens, ISO
+  corner castings and locking bars on containers, webbing on crates, steel joists under the raised
+  decks and roofs that never break; the booth's consoles draw the kit console (their boxes only
+  collide). The hull wall modules' backlit slots are dark in the hangar, and the fence is open
+  rails (a glazed screen veiled the hall).
+- **Wear**: puddles that mirror the lamps, tug tracks, grime at the foot of every wall and cover
+  box, rust streaks down walls, barriers and containers (`DressArtBox`). Masks: `grime.py`.
+
+The scanned props are Poly Haven models (CC0), built by
+`art/verse/decks/hangar/unreal_arena/props.py`: glTF and maps into the cache with ledger rows,
+`fbx-ue/1` export with the origin at the foot, `SM_Hangar_<Name>` records, 512 or 1024 px colour
+and normal maps (the scan's occlusion multiplied into the colour), half-size ORM maps and one
+`MI_Hangar_<Name>_<n>` per material on `M_Verse_Surface` (UV mode). Fab and Megascans packs can
+replace any of them later by mesh path; their files go to the git-ignored
+`Content/Verse/External/` (art-pipeline 11).
 
 `Verse.Visual.HangarArt` tours the arena from a player's eye (both spawns, mid, cover, looking
 up, ADS, the booth, the catwalk) into `Saved/Harness/proof/art/`.

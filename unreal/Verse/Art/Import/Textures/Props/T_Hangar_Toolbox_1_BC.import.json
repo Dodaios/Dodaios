@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_Toolbox_1_BC.T_Hangar_Toolbox_1_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_Toolbox_1_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "5ab8b2692ed66bbe6526c466814a4b997184d55b946486f52c29889185c36277"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "21e1d21880e49db3fde0457d53b78a70db61234a201da9f0181dd0880b110473"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_Toolbox_1_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "metal_toolbox",
+      "map": "diff"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 512,
+    "srgb": true
+  }
+}

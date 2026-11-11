@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_WallLamp_2_ORM.T_Hangar_WallLamp_2_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_WallLamp_2_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "b45e19a148ab32cf6b162e302ccf5d9fb6430f5e09fa5efda726231c3f7a77ab"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "a3ba7f76ff395ada04a804b94f4f2f506bc994336189916d2a414173e2360069"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_WallLamp_2_ORM",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "industrial_wall_lamp",
+      "map": "arm"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 256,
+    "srgb": false
+  }
+}

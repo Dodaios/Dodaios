@@ -1,0 +1,66 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_PlasticCrate.SM_Hangar_PlasticCrate",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_PlasticCrate.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "e2431831e8fd3f9f5143f4d3af0962143a77b0f059ee33820af12ce782ac6797"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "a7d01166ab720a51036e9390cb6aa2f8ef057b9d976062bf78205a089100e087",
+      "b102504f012af9f5b8d3e229a106f6cd74df485f3650558e03fad22b33147452",
+      "bbe5394d543ab57819e926bd23158e8c00706b929273508d79e3b3230001b33e",
+      "cb4629a4ab7e6f7aa5d6ba9d3dcd6affe59553386acc7612cd5a8bb8f263f05f",
+      "fb7f0b70da651e260aec7ee3506ecdc8aad62e65d2bf9341609e2a18749591bd"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        24.055,
+        13.248,
+        26.593
+      ],
+      "min": [
+        -24.055,
+        -13.249,
+        -0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_PlasticCrate_1.MI_Hangar_PlasticCrate_1",
+        "slot": "M_Hangar_PlasticCrate_1"
+      }
+    ],
+    "triangles": 21740,
+    "uv_sets": 1,
+    "vertices": 23974
+  },
+  "name": "SM_Hangar_PlasticCrate",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "plastic_crate_03"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

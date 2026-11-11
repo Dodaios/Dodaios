@@ -1,0 +1,66 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_FireAlarm.SM_Hangar_FireAlarm",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_FireAlarm.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "368e8ed7f5fb39c8c6a71a2e6547d7186623c56893b6966762a7ecc51d8b5636"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "45aa3e47120decf5a28e81a2586e3a4c8d6cdb10ba5ceed66d905de74fe1dbb7",
+      "4a924f45a0f23036a938e06a251677f9654f39507f0e13d06cc4a0b05c83b959",
+      "b98f4fe9f190b74581cdff5a9e075d42cd48c16c5f9aba321c5dfe8ce93058a7",
+      "f65b6fe5ed53c248497fe833ac66d5b8c452e28db4b02b8d1b67109fcc2ce132",
+      "fc0558110922f7f5ae83e488b913857b576946a33ef46c89886f7c6de722e660"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        4.972,
+        1.319,
+        14.364
+      ],
+      "min": [
+        -4.972,
+        -1.319,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_FireAlarm_1.MI_Hangar_FireAlarm_1",
+        "slot": "M_Hangar_FireAlarm_1"
+      }
+    ],
+    "triangles": 2703,
+    "uv_sets": 1,
+    "vertices": 2995
+  },
+  "name": "SM_Hangar_FireAlarm",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "fire_alarm"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

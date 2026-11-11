@@ -1,0 +1,66 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Drum.SM_Hangar_Drum",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_Drum.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "f743fbdc0802cd18e38011cc339c18452a5193f88d26e5c8cfa3c9439b5fc3cc"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "a7e5a7b03bbe0c9c56bf1ac09b24121a5d19148428e9e6eac326c803fc297098",
+      "e084945dedd6a3379c6f3e97842cac89df7169797707e123a5e5b42c135d6888",
+      "eab507df7719f0e7a3615bd22bb7bc0c09fed83bfc44e72a51451f8069c2d374",
+      "fa4750d64c6f568c8de3e36bc631348710329cf2d6d9c8c87bd2e47a96bc4fcb",
+      "fe8369c1ac796059b62a091c0db7367dc420aa2cee212672e48f991f4208da98"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        28.152,
+        28.152,
+        88.0
+      ],
+      "min": [
+        -28.152,
+        -28.152,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_Drum_1.MI_Hangar_Drum_1",
+        "slot": "M_Hangar_Drum_1"
+      }
+    ],
+    "triangles": 2682,
+    "uv_sets": 1,
+    "vertices": 2052
+  },
+  "name": "SM_Hangar_Drum",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "Barrel_01"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

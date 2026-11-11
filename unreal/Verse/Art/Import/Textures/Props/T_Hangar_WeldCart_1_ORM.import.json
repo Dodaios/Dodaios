@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_WeldCart_1_ORM.T_Hangar_WeldCart_1_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_WeldCart_1_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "2246be2d57dfc7fe24641db0172690b846bb3948a5d86dc3828c6d8bf6c12c48"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "6b5036f5ff4d8aa1b25da4aeb504a92d1a29373e22299080b3186b6385b6504d"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_WeldCart_1_ORM",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "portable_welding_cart",
+      "map": "arm"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 512,
+    "srgb": false
+  }
+}

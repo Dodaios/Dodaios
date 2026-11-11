@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_Cables_2_BC.T_Hangar_Cables_2_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_Cables_2_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "3d7c6649b8f8f5c68884e5eb41706ae0b03f5c49b8b27dce4c8cf641ba4632e0"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "7dba8bfdd0a9c46294b5ec4930b4420b102a817469bf002d24136f8c3310c519"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_Cables_2_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "modular_electric_cables",
+      "map": "diff"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 512,
+    "srgb": true
+  }
+}

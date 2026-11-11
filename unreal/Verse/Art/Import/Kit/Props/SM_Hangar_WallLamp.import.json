@@ -1,0 +1,74 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_WallLamp.SM_Hangar_WallLamp",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_WallLamp.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "b9511d2389fa5525d1d19778c6b13e18310592a0b7b885487d86799a05e1d93c"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "215457a5d41ae5d999e94f4ea0f424ff769940e71e1449ce712f35687e33af67",
+      "427bafa2f14d9f81a5949507d5d6915bfb4b70a8e5e5076a3a18c7de49b3d78b",
+      "5a2c0d8bdb52fe168727f4200818ac0c2adbded32f0b9dc09cfe224249f9e266",
+      "70adef2921bfcf985f951f9f85fca8dbfb63dc84535613c3872684fea65ab025",
+      "73ce4f34d90aee29db9a5e301934c0642bf89136353d7e400f63db1c2f99f345",
+      "a3ba7f76ff395ada04a804b94f4f2f506bc994336189916d2a414173e2360069",
+      "cf80eeeb6fec87499fb8444f554eae62e471ad79f8906d6fd693d7fde53b012f",
+      "d0a6a08b5e2e83ff8d6eb61bb5daa74654b4ff8d9c634348c87f83dbda4837a2",
+      "e0f824b7e639fceb7ca5b7b7f67a8168bc53db184b818770126167d16d424b2e"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        13.673,
+        7.019,
+        42.991
+      ],
+      "min": [
+        -13.673,
+        -7.019,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_WallLamp_1.MI_Hangar_WallLamp_1",
+        "slot": "M_Hangar_WallLamp_1"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_WallLamp_2.MI_Hangar_WallLamp_2",
+        "slot": "M_Hangar_WallLamp_2"
+      }
+    ],
+    "triangles": 4446,
+    "uv_sets": 1,
+    "vertices": 3588
+  },
+  "name": "SM_Hangar_WallLamp",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "industrial_wall_lamp"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

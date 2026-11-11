@@ -1,0 +1,35 @@
+{
+  "asset_path": "/Game/Verse/Textures/Arena/T_Arena_Wear_Leak_M.T_Arena_Wear_Leak_M",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/arena/T_Arena_Wear_Leak_M.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "d311538cf8a000af171af54066c13c121667feacbdd26c31d838fb6ac6450d52"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Arena_Wear_Leak_M",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "mask": "Leak"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/grime.py",
+    "function": "main"
+  },
+  "texture": {
+    "channels": {
+      "r": "coverage"
+    },
+    "compression": "Grayscale",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": false
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_AmmoCan_1_ORM.T_Hangar_AmmoCan_1_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_AmmoCan_1_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "6f1800fe341bb0791b5b6ec661253ac3a7be0b30de5ec2a52ccf1705a6e439b0"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "fc4ce56bc139d7482ea6e59e5410a19f58af07631d02840a6f0bbf08a1b33189"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_AmmoCan_1_ORM",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "ammo_box",
+      "map": "arm"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 256,
+    "srgb": false
+  }
+}

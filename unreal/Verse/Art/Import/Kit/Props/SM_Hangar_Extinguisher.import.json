@@ -1,0 +1,80 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Extinguisher.SM_Hangar_Extinguisher",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_Extinguisher.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "cff5a6628db1339a5aa11eeb395f846e393ca8128e399c6d1a15acbb43b7f05c"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "2c8fa0a85d5acc5f4e784ecefd8bfd16e1aafd112e553bfcece0c81c9b129eea",
+      "2d56948aa72a9bad6133db3e6b17fa0df1a56cdf25db4b7e21e6ceb21999a038",
+      "2d874513cfb6d7485b67e936ee32e7af14992da6a5eedf980dbdfc32a2119987",
+      "3b299c54cb9b6f72d4f79e6ecd2f8cfcc618292c87881de1d17892b5ca668896",
+      "412712fddc3654d801949889f78c9ee92d8855624a1fe1057be29a38e766bda0",
+      "542b45184bb0ea66cdd2f180792148c45d45862a12f1ac341f798e53029015b9",
+      "565f9e41909165c2bead24b722746e29ba55e8eb5e541f61fe0d1ef7e66d2ecf",
+      "a460dd65b63477bb641196d77393258af0c8a6e2a64728156cb45d92658c86bd",
+      "b6ba7a7cafa04557c93dc63b44260b635863f0a95f8ba1445b75758dac3443d3",
+      "ca7e49959126aa51e2d4ab440aeb9f7ff17a8a6d025b116f6327f2343ee041af",
+      "caaa26dd438e827e994c69605091d58ecc6a152813ece776cc561e0b24a8433a"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        13.998,
+        18.372,
+        65.925
+      ],
+      "min": [
+        -13.998,
+        -18.372,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_Extinguisher_1.MI_Hangar_Extinguisher_1",
+        "slot": "M_Hangar_Extinguisher_1"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_Extinguisher_2.MI_Hangar_Extinguisher_2",
+        "slot": "M_Hangar_Extinguisher_2"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_Extinguisher_3.MI_Hangar_Extinguisher_3",
+        "slot": "M_Hangar_Extinguisher_3"
+      }
+    ],
+    "triangles": 9913,
+    "uv_sets": 1,
+    "vertices": 6875
+  },
+  "name": "SM_Hangar_Extinguisher",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "korean_fire_extinguisher_01"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

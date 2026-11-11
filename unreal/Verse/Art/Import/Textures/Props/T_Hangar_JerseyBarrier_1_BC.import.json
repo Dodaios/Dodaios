@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_JerseyBarrier_1_BC.T_Hangar_JerseyBarrier_1_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_JerseyBarrier_1_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "dc9246c5455f138caf7840e5ba4076f95b4e742ceb6f4e37f8704b5ffc31792f"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "88b2d79829ffec7b11ac4d9c8554328f30b665d2c17f634197fde4f1ca8696fe"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_JerseyBarrier_1_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "concrete_road_barrier",
+      "map": "diff"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": true
+  }
+}

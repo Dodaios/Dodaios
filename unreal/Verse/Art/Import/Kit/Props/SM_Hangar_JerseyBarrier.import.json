@@ -1,0 +1,66 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_JerseyBarrier.SM_Hangar_JerseyBarrier",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_JerseyBarrier.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "d936d37d573d6a8c25165858859d4c23d153136764342f557b4aed64ff162cc9"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "64a4f9bc6e4af64d714a252c3c13428c430a60569deba3d52ca6b7dd3aa70d8c",
+      "88b2d79829ffec7b11ac4d9c8554328f30b665d2c17f634197fde4f1ca8696fe",
+      "b940847648012f2db8c24b16e07ad1e39b3bd33ea493203364deca209606e4b4",
+      "c1072f51ff5c3d7158f0fbb0aa26e82b816b745b9f03639c4816832af2b37c52",
+      "c371e87d303fff3f0c9fbe88520f7837514364e5c66aac3244e115ffa673d061"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        77.268,
+        31.937,
+        83.105
+      ],
+      "min": [
+        -77.268,
+        -31.937,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_JerseyBarrier_1.MI_Hangar_JerseyBarrier_1",
+        "slot": "M_Hangar_JerseyBarrier_1"
+      }
+    ],
+    "triangles": 60928,
+    "uv_sets": 1,
+    "vertices": 31514
+  },
+  "name": "SM_Hangar_JerseyBarrier",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "concrete_road_barrier"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

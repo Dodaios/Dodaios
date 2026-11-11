@@ -111,6 +111,22 @@ private:
 	void DressBox(const TSharedPtr<class FJsonObject>& Box);
 	/** Oil stains and scuffs on the arena floor (deferred decals, seeded). */
 	void DressDecals();
+	/**
+	 * The art pass of arena.md 9.3 (VerseArenaArt.cpp): scanned props, roof cranes and high-bay
+	 * lamps, skylight shafts, wall services, work bays and wear decals. Hall-level only, so the
+	 * deck view and the duel show it alike; nothing collides.
+	 */
+	void DressArt();
+	void DressArtRoof();
+	void DressArtWalls();
+	void DressArtBays();
+	void DressArtWear();
+	/** Wear on one arena box (grime at its foot, rust streaks on its faces); decals only. */
+	void DressArtBox(const TSharedPtr<class FJsonObject>& Box);
+	/** A scanned kit prop (`SM_Hangar_<Name>`, origin at its foot) at a floor point, yaw in degrees. */
+	void AddProp(const TCHAR* Name, const FVector& At, double Yaw = 0.0, const FVector& Scale = FVector::OneVector, bool bShadow = true);
+	/** A decal of a wear look projected along -Z (floor) or into a wall facing Yaw. */
+	void AddWear(const TCHAR* Look, const FVector& At, double Yaw, double Width, double Height, bool bWall);
 	void ApplyLook(UWorld& World);
 	void RestoreLook();
 	AVerseDestructible* SpawnPiece(UWorld& World, const TSharedPtr<class FJsonObject>& Box);

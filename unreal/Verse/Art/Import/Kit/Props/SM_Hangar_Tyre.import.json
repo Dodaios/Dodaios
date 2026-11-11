@@ -1,0 +1,66 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Tyre.SM_Hangar_Tyre",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_Tyre.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "594ddca26c4178c907154e602316a4d59f283c23de79ae2cf7687f69f6f727a0"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "0e34ce658c0844c0c94022233226d495930d514c917a5fa15ffee4760567439e",
+      "34b716e140408985ddbab7d4bf1d8d430edf834cd2fd4639d82b14cb393fa73e",
+      "3bcf192f5b99a7a574f9e21e75927043e6726c601a5da15e3210a31db05e12d4",
+      "659e7982c2de92ca1d13194c97bf112b6dec22d91daecc88e3912d37ce1b7252",
+      "ba7b417eb3dc747c356ac3cd1f125754755684eb664737a9f1fc9e490c0b766e"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        30.0,
+        8.25,
+        60.0
+      ],
+      "min": [
+        -30.0,
+        -8.25,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_Tyre_1.MI_Hangar_Tyre_1",
+        "slot": "M_Hangar_Tyre_1"
+      }
+    ],
+    "triangles": 2880,
+    "uv_sets": 1,
+    "vertices": 2090
+  },
+  "name": "SM_Hangar_Tyre",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "old_tyre"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

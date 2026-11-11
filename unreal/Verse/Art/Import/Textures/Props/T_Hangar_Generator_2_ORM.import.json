@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_Generator_2_ORM.T_Hangar_Generator_2_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_Generator_2_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "1cce50fbb6536892622e1291c400d6492039e9fd55c84101b6f14a3736ce34c9"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "10236e967baddd90ec7d4ab68969b06fb419f98782a2796db94edc0249b0dad2"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_Generator_2_ORM",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "portable_generator",
+      "map": "arm"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 512,
+    "srgb": false
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "MI_Hangar_WallLamp_1",
+  "owner": "WP11",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
+  "replaces": "M_Hangar_WallLamp_1",
+  "scalars": {
+    "EdgeWear": 0.0,
+    "GrimeAmount": 0.0,
+    "Metallic": 0.006,
+    "NoiseScale": 0.6,
+    "RoughnessMax": 1.0,
+    "RoughnessMin": 1.0
+  },
+  "schema": "verse.mi/1",
+  "switches": {
+    "UseTextureSet": true,
+    "UseTriplanar": false
+  },
+  "textures": {
+    "Set1_BC": "/Game/Verse/Textures/Props/T_Hangar_WallLamp_1_BC.T_Hangar_WallLamp_1_BC",
+    "Set1_N": "/Game/Verse/Textures/Props/T_Hangar_WallLamp_1_N.T_Hangar_WallLamp_1_N",
+    "Set1_ORM": "/Game/Verse/Textures/Props/T_Hangar_WallLamp_1_ORM.T_Hangar_WallLamp_1_ORM"
+  },
+  "vectors": {
+    "BaseTint": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ]
+  }
+}

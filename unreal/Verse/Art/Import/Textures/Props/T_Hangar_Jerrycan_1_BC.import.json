@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_Jerrycan_1_BC.T_Hangar_Jerrycan_1_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_Jerrycan_1_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "e394eec36261c6647e62000d75d73a4e1d2b4b89885fcf59b22aaaa93339040a"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "64781939c4b3f739c52c335d26473def75d736173f3cc11a50ac2876d511d123"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_Jerrycan_1_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "metal_jerrycan",
+      "map": "diff"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 512,
+    "srgb": true
+  }
+}

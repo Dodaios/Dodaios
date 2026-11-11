@@ -1,0 +1,66 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_MetalRack.SM_Hangar_MetalRack",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_MetalRack.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "0b02ea87d3c33b18a9ee48c0930ad7cb6212cef096defc9ba9de7a7ebb278820"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "295c2d48ad55289fed76b7438513520cadd94516639ab8ffd8790ffe7c903dbb",
+      "3222c47e6fac0d103afec06b8a53476828777f5282d6703266010ecf587ad49e",
+      "b3523f947b3ebd960d508361bb323cec5a959d0b7043a8a7118ffab781925a65",
+      "b8cfa4138b7c0e0e69738c6f24dec7fecdc2f336f524312db48167816776fd13",
+      "e757448bd448460ecb6c7218e7857c8d071f271e3cdc2bd013ca63d824c0c308"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        45.771,
+        30.0,
+        190.0
+      ],
+      "min": [
+        -45.771,
+        -30.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_MetalRack_1.MI_Hangar_MetalRack_1",
+        "slot": "M_Hangar_MetalRack_1"
+      }
+    ],
+    "triangles": 6372,
+    "uv_sets": 1,
+    "vertices": 7224
+  },
+  "name": "SM_Hangar_MetalRack",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "worn_metal_rack"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

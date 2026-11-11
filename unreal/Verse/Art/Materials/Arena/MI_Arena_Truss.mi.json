@@ -6,11 +6,13 @@
   "scalars": {
     "EdgeWear": 0.1,
     "GrimeAmount": 0.1,
-    "Metallic": 0.85,
+    "Metallic": 0.55,
     "NoiseScale": 0.04,
+    "PanelCm": 300.0,
+    "PanelDark": 0.45,
     "RoughnessMax": 1.0,
-    "RoughnessMin": 0.75,
-    "TriplanarScale": 0.8,
+    "RoughnessMin": 0.55,
+    "TriplanarScale": 0.45,
     "TriplanarWorld": 0.0
   },
   "schema": "verse.mi/1",
@@ -19,15 +21,15 @@
     "UseTriplanar": true
   },
   "textures": {
-    "Set1_BC": "/Game/Verse/Textures/Arena/T_Arena_Panel_BC.T_Arena_Panel_BC",
-    "Set1_N": "/Game/Verse/Textures/Arena/T_Arena_Panel_N.T_Arena_Panel_N",
-    "Set1_ORM": "/Game/Verse/Textures/Arena/T_Arena_Panel_ORM.T_Arena_Panel_ORM"
+    "Set1_BC": "/Game/Verse/Textures/Arena/T_Arena_Paint_BC.T_Arena_Paint_BC",
+    "Set1_N": "/Game/Verse/Textures/Arena/T_Arena_Paint_N.T_Arena_Paint_N",
+    "Set1_ORM": "/Game/Verse/Textures/Arena/T_Arena_Paint_ORM.T_Arena_Paint_ORM"
   },
   "vectors": {
     "BaseTint": [
-      1.618,
-      1.691,
-      1.765,
+      0.5,
+      0.51,
+      0.54,
       1.0
     ],
     "EdgeTint": [

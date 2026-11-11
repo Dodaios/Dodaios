@@ -1,0 +1,66 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Ladder.SM_Hangar_Ladder",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_Ladder.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "b8dd4ab2fd831429be01bf8204868b7a874fc83b34773d4e86f0c637105bc339"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "3154595e9a43befafb994f7faf60f084cb929bbdf4b29be24d7d3cee62fa6a34",
+      "40cd96307107f0fc068b174c496d2f5611495160f915a4c293f55e2109235b13",
+      "68df434461bc1ed2dff4ec10bd34c14a3b319706da512a520f4291abe6fb5132",
+      "e5d5265fa87cec63bb60a5ec54b787235d257b4e6c45ab7edcc68e7cbb515206",
+      "e8dc89873db016f78d585747aa7f2bb253ce4f620269ad4aeac2eba42d9e4ebd"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        33.075,
+        8.881,
+        213.456
+      ],
+      "min": [
+        -33.075,
+        -8.881,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_Ladder_1.MI_Hangar_Ladder_1",
+        "slot": "M_Hangar_Ladder_1"
+      }
+    ],
+    "triangles": 29140,
+    "uv_sets": 1,
+    "vertices": 23114
+  },
+  "name": "SM_Hangar_Ladder",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "ladder_sectioned_01"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}
