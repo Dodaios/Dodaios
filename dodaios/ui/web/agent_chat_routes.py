@@ -663,6 +663,8 @@ def _catalog_rows(
                 d["models_source"] = "curated"
             else:
                 d["models_source"] = "live"
+                # "Ultracode" is a Claude Code switch; the API has no such step.
+                d["effort_levels"] = [lvl for lvl in d["effort_levels"] if lvl != "ultracode"]
         # The permission ladder is the RUNNER's (Claude Code's modes when the
         # CLI answers, the API runner's when only a key is there), so the
         # composer shows the words the thing that runs actually understands —

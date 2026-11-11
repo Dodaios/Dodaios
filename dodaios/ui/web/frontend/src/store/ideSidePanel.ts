@@ -26,7 +26,7 @@ import {
  */
 
 /** Every function the panel can show. A new one is a new id plus a registry entry. */
-export type SidePanelTabId = "browser" | "agents" | "changes" | "files" | "search" | "git" | "skills" | "chat" | "subscriptions" | "resources" | `terminal:${string}`;
+export type SidePanelTabId = "browser" | "agents" | "changes" | "files" | "search" | "git" | "skills" | "chat" | "subscriptions" | "resources" | "file" | `terminal:${string}`;
 
 export interface SidePanelTerminal {
   id: `terminal:${string}`;
@@ -39,7 +39,7 @@ export interface SidePanelTerminal {
 
 export const MAX_TERMINAL_TABS = 16;
 
-export const SIDE_PANEL_TAB_IDS: readonly SidePanelTabId[] = ["browser", "agents", "changes", "files", "search", "git", "skills", "chat", "subscriptions", "resources"];
+export const SIDE_PANEL_TAB_IDS: readonly SidePanelTabId[] = ["browser", "agents", "changes", "files", "search", "git", "skills", "chat", "subscriptions", "resources", "file"];
 
 /**
  * DOM id of the panel host, for the toggle's `aria-controls`.

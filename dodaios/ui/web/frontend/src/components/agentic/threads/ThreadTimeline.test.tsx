@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ToolBlock, TurnBlock, TurnItem, TurnStatus } from "@/components/agentchat/reduce";
+import { useIdeSidePanelStore } from "@/store/ideSidePanel";
+import { useSideFileStore } from "@/store/sideFile";
 import { pictureUrls, projectPath, ThreadTimeline } from "./ThreadTimeline";
 
 const tool = (id: string, command: string, over: Partial<ToolBlock> = {}): ToolBlock => ({
@@ -173,6 +175,43 @@ describe("changed files card", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show changes" }));
     expect(screen.getByText("d.ts")).toBeTruthy();
     expect(screen.getAllByRole("button", { expanded: true }).length).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe("a file beside the thread", () => {
+  const write = (id: string, path: string): ToolBlock =>
+    tool(id, "", { name: "Write", input: { file_path: path, content: "print(1)\nprint(2)" } });
+
+  beforeEach(() => {
+    useSideFileStore.setState({ file: null, nonce: 0 });
+    useIdeSidePanelStore.setState({ open: false, tabs: [], layout: null, focusedPane: null });
+  });
+
+  it("opens a changed file in the side panel's File tab", () => {
+    render(<ThreadTimeline items={[turn([write("w1", "src/app.py")])]} sessionId="s1" bottomInset={0} folder="C:/Repo" />);
+    fireEvent.click(screen.getByTestId("thread-changed-file-open"));
+    const file = useSideFileStore.getState().file;
+    expect(file?.path).toBe("src/app.py");
+    expect(file?.folder).toBe("C:/Repo");
+    expect(file?.diff?.[0].added).toBe(2);
+    expect(useIdeSidePanelStore.getState().open).toBe(true);
+    expect(useIdeSidePanelStore.getState().active).toBe("file");
+  });
+
+  it("opens the file a step names without opening the step", () => {
+    render(<ThreadTimeline items={[turn([write("w1", "C:/demo/scratch/patch.py"), { kind: "text", id: "n1", text: "Done." }])]} sessionId="s1" bottomInset={0} />);
+    fireEvent.click(screen.getByTestId("thread-worked-for"));
+    // The work line first; the changed-files card under the answer names the file too.
+    fireEvent.click(screen.getAllByRole("button", { name: /patch\.py/, expanded: false })[0]);
+    const target = screen.getByTestId("thread-file-target");
+    const step = target.closest("button");
+    fireEvent.click(target);
+    expect(useSideFileStore.getState().file?.path).toBe("C:/demo/scratch/patch.py");
+    expect(step?.getAttribute("aria-expanded")).toBe("false");
+    // The opened step's path is a button too, for the keyboard.
+    fireEvent.click(step!);
+    fireEvent.click(screen.getByTestId("thread-diff-open"));
+    expect(useSideFileStore.getState().nonce).toBe(2);
   });
 });
 

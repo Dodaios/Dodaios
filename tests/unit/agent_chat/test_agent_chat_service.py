@@ -681,7 +681,9 @@ def _exercise_routes(client: TestClient, tmp_path: Path) -> None:
     ids = [p["id"] for p in cat["providers"]]
     assert "claude-api" in ids and "openai" in ids and "openai-codex" in ids
     claude = next(p for p in cat["providers"] if p["id"] == "claude-api")
-    assert claude["effort_levels"][-1] == "max"
+    # "Ultracode" tops the ladder only where Claude Code answers; the API runner stops at max.
+    top = "ultracode" if claude["runner"] == "claude-cli" else "max"
+    assert claude["effort_levels"][-1] == top
     assert cat["default_cwd"] == str(tmp_path)
 
     created = client.post(

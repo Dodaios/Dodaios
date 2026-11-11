@@ -7,6 +7,7 @@ import { useEventStore } from "@/store/events";
 import { fill, useT } from "@/i18n";
 import { ThreadFolderChip } from "./ThreadFolderChip";
 import { ThreadMachineChip } from "./ThreadMachineChip";
+import { ThreadPlanUsage } from "./ThreadPlanUsage";
 import { ThreadMenuHeading, ThreadMenuItem, ThreadMenuSearch, ThreadPopover } from "./ThreadPopover";
 
 /** Where a new thread's agent works: the project's own checkout, or a worktree of its own. */
@@ -38,7 +39,8 @@ export function useGitInfo(folder: string): { info: GitRepoInfo | null; loading:
  * the machine, the folder, the branch. A new thread chooses all three, and
  * whether it gets a worktree of its own (the branch is then the one the
  * worktree starts from). A running thread names its folder and leaves the
- * branch alone while the agent works.
+ * branch alone while the agent works. At the right end: how much of the plan
+ * the thread's agent runs on is spent.
  */
 export function ThreadBranchBar({
   folder,
@@ -54,6 +56,7 @@ export function ThreadBranchBar({
   base,
   onBase,
   locked,
+  platform = "",
 }: {
   /** The thread's folder — the project's for a new thread. */
   folder: string;
@@ -73,6 +76,8 @@ export function ThreadBranchBar({
   onBase: (branch: string) => void;
   /** The agent is working: switching its branch now would pull files from under it. */
   locked: boolean;
+  /** The Agentic IDE key of the thread's CLI, whose plan usage the bar shows; "" = none. */
+  platform?: string;
 }) {
   const t = useT();
   const pushToast = useEventStore((state) => state.pushToast);
@@ -123,6 +128,7 @@ export function ThreadBranchBar({
         <ChevronDown aria-hidden className="h-3 w-3 shrink-0" />
       </button>}
     </div>
+    <ThreadPlanUsage platform={platform} className={BUTTON} />
     {draft && repo && <button type="button" aria-pressed={checkout === "worktree"} data-testid="thread-worktree-toggle"
       className={cn(BUTTON, "shrink-0", checkout === "worktree" && "bg-secondary text-foreground")}
       title={t("ide_threads.worktree_toggle_title")}

@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from "react";
-import { Activity, Bot, CreditCard, FileDiff, Files, FolderTree, GitBranch, Globe, MessageSquare, Search, type LucideIcon } from "lucide-react";
+import { Activity, Bot, CreditCard, FileCode2, FileDiff, Files, FolderTree, GitBranch, Globe, MessageSquare, Search, type LucideIcon } from "lucide-react";
 import type { SidePanelTabId } from "@/store/ideSidePanel";
 import { AgentsOverview } from "./AgentsOverview";
 import { BrowserTab } from "./browser/BrowserTab";
@@ -17,6 +17,11 @@ import { SubscriptionsTab } from "./subscriptions/SubscriptionsTab";
  */
 const ResourcesTab = lazy(() =>
   import("./resources/ResourcesTab").then((module) => ({ default: module.ResourcesTab })),
+);
+
+/** The file a thread pointed at; it pulls in the code highlighter's wrapper only when opened. */
+const FileTab = lazy(() =>
+  import("./file/FileTab").then((module) => ({ default: module.FileTab })),
 );
 
 /** One function the side panel can show. */
@@ -120,6 +125,17 @@ export const SIDE_PANEL_TABS: readonly SidePanelTabDef[] = [
     render: () => (
       <Suspense fallback={null}>
         <ResourcesTab />
+      </Suspense>
+    ),
+  },
+  {
+    id: "file",
+    labelKey: "ide_side_panel.tabs.file",
+    shortcut: "E",
+    icon: FileCode2,
+    render: () => (
+      <Suspense fallback={null}>
+        <FileTab />
       </Suspense>
     ),
   },

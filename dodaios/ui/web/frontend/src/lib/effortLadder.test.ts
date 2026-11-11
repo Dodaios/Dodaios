@@ -24,6 +24,13 @@ describe("snapEffort", () => {
   it("has no level for a model without an effort knob", () => {
     expect(snapEffort("medium", [], "high")).toBe("");
   });
+
+  it("folds Claude Code's Ultracode and Codex's Ultra onto each other's lower step", () => {
+    const codex = ["low", "medium", "high", "xhigh", "max", "ultra"];
+    expect(snapEffort("ultracode", codex, "medium")).toBe("ultra");
+    expect(snapEffort("ultra", [...CLAUDE, "ultracode"], "high")).toBe("max");
+    expect(snapEffort("ultracode", ["low", "medium", "high", "max"], "high")).toBe("max");
+  });
 });
 
 describe("effortLadder", () => {

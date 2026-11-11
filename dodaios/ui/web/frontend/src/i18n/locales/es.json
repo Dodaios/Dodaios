@@ -1182,6 +1182,7 @@
     "effort_xhigh": "Muy alto",
     "effort_max": "Máximo",
     "effort_ultra": "Ultra (delega tareas)",
+    "effort_ultracode": "Ultracode (multiagente)",
     "mode_build": "Construir",
     "mode_plan": "Planificar",
     "build_hint": "Modo construir: el agente puede cambiar archivos. Clic para el modo planificar.",
@@ -7978,7 +7979,9 @@
     "technical_details": "Detalles técnicos",
     "ran": "Ejecutó",
     "getting_ready": "Preparando",
-    "tokens_hint": "Entrada {input} tokens nuevos ({cached} más reutilizados de la caché) · salida {output} tokens"
+    "tokens_hint": "Entrada {input} tokens nuevos ({cached} más reutilizados de la caché) · salida {output} tokens",
+    "open_beside": "Mostrar en el panel lateral",
+    "open_file_beside": "Mostrar {file} en el panel lateral"
   },
   "work_trace": {
     "tool_failed": "Falló una acción de herramienta",
@@ -8498,7 +8501,8 @@
       "subscriptions": "Suscripciones",
       "office": "Dodaios Verse",
       "chat": "Chat",
-      "resources": "Recursos"
+      "resources": "Recursos",
+      "file": "Archivo"
     },
     "subscriptions": {
       "bank": {
@@ -9417,6 +9421,19 @@
       "axis_ago_seconds": "-{seconds} s",
       "else_title": "Todo lo demás es sobre todo",
       "else_more": "+{count} más"
+    },
+    "file": {
+      "empty": "Haz clic en un archivo del trabajo de un hilo para leerlo aquí.",
+      "views": "Vistas del archivo",
+      "view_file": "Archivo",
+      "view_change": "Cambio",
+      "reload": "Volver a leer el archivo",
+      "loading": "Leyendo el archivo",
+      "binary": "Este archivo no es texto, así que no se puede mostrar aquí.",
+      "too_large": "Este archivo es demasiado grande para mostrarlo aquí.",
+      "unavailable": "No se puede leer este archivo. Puede que se haya movido o eliminado.",
+      "no_workspace": "Abre un proyecto para leer archivos aquí.",
+      "show_change": "Mostrar el cambio"
     }
   },
   "appshots": {
@@ -10753,7 +10770,17 @@
     "open_side_by_side": "Abrir al lado",
     "drop_side_by_side": "Suelta para abrirlo al lado",
     "drop_replace": "Suelta para reemplazar este hilo",
-    "close_column": "Cerrar {target}"
+    "close_column": "Cerrar {target}",
+    "plan_usage": {
+      "heading": "Uso del plan",
+      "session": "Sesión",
+      "weekly": "Semana",
+      "weekly_scoped": "Semana · {scope}",
+      "monthly": "Mes",
+      "other": "Límite",
+      "chip": "{limit} {percent} %",
+      "title": "{plan}: límite {limit} usado al {percent} %. Haz clic para ver todos los límites y cuándo se restablecen."
+    }
   },
   "ide_view": {
     "split_right": "Derecha",

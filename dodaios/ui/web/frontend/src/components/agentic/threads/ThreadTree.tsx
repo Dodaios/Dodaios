@@ -16,7 +16,7 @@ import { SubagentFoldToggle, ThreadTreeSubagents } from "./ThreadTreeSubagents";
 import { ThreadPullRequests } from "./ThreadPullRequests";
 import { ThreadSearch } from "./ThreadSearch";
 import { LiveVoiceIcon, NewThreadIcon, SearchThreadsIcon, TeamThreadIcon } from "./ThreadStartIcons";
-import { THREAD_DRAG_MIME, THREAD_PROJECT_DRAG_MIME, projectIdFor, setDraggedThread, shortAge, threadDayBreak, threadStatus, threadTitle, threadWorktree, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
+import { THREAD_DRAG_MIME, THREAD_PROJECT_DRAG_MIME, projectIdFor, setDraggedThread, shortAge, threadDayBreak, threadOrderMs, threadStatus, threadTitle, threadWorktree, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
 
 const EXPANSION_KEY = "jarvis.ide.threadExpansion.v1";
 /** Threads a project shows before "Show more": enough to fill a tall sidebar. */
@@ -314,7 +314,7 @@ export function ThreadTree() {
         {shown.map((session, index) => {
           const selected = session.session_id === openSessionId && selection.sessionId !== null;
           // A hairline with the day's name wherever the list crosses into an earlier day.
-          const day = threadDayBreak(session.updated_ms, index > 0 ? shown[index - 1].updated_ms : null, locale);
+          const day = threadDayBreak(threadOrderMs(session), index > 0 ? threadOrderMs(shown[index - 1]) : null, locale);
           const dayLine = day && <DayLine label={day} />;
           const status = threadStatus(session, seen, openSessionId);
           const mark = agentOf.get(session.provider);

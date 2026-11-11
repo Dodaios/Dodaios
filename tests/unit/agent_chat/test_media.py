@@ -369,3 +369,49 @@ def test_producing_tools_still_post_their_media(tmp_path, name):
         tool_name=name,
     )
     assert len(result) == 2 and "![image]" in result[1]["payload"]["text"]
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "mcp__claude-in-chrome__computer",
+        "mcp__Claude_Preview__preview_screenshot",
+        "mcp__playwright__browser_take_screenshot",
+        "mcp__computer-use__screenshot",
+    ],
+)
+def test_capture_tools_post_the_screenshot_they_returned(tmp_path, name):
+    """What the agent just captured shows in its thread, like a desktop app's trace."""
+    encoded = base64.b64encode(PNG).decode()
+    blocks = [
+        {"type": "text", "text": "Took a screenshot of https://example.test/badge.svg"},
+        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": encoded}},
+    ]
+    cwd = tmp_path / "work"
+    cwd.mkdir()
+    result = media.normalize_media_event(
+        event(json.dumps(blocks)),
+        cwd=cwd,
+        outputs_root=tmp_path / "archive",
+        scope="s",
+        tool_name=name,
+    )
+    pictures = [item for item in result if item["kind"] == "assistant_text"]
+    assert len(pictures) == 1 and "![image]" in pictures[0]["payload"]["text"]
+    # Only the picture it returned: the URL it mentions is never fetched or shown.
+    assert "badge.svg" not in pictures[0]["payload"]["text"]
+
+
+def test_a_capture_tool_naming_a_file_posts_nothing(tmp_path):
+    cwd = tmp_path / "work"
+    cwd.mkdir()
+    (cwd / "old.png").write_bytes(PNG)
+    output = {"path": "old.png", "url": "https://example.test/hero.png"}
+    result = media.normalize_media_event(
+        event(output),
+        cwd=cwd,
+        outputs_root=tmp_path / "archive",
+        scope="s",
+        tool_name="browser_snapshot",
+    )
+    assert [item["kind"] for item in result] == ["tool_result"]
