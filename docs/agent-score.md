@@ -115,6 +115,32 @@ tool offers one (`dry_run_args(args)` on the tool, or a boolean `dry_run`
 argument), otherwise one ask through the approval card. Reversible actions and
 unattended runs are never interrupted by it.
 
+## Asking component (value of information)
+
+A question card is shown only when the answer is worth more than the question.
+Before any card, the ask-gate (`dodaios/agent_chat/ask_gate.py`) decides, with
+no model call:
+
+1. a current memory that names the answer answers it (`answer_from_memory`);
+2. a reversible pending action with a stated confidence of at least 0.7 goes
+   ahead on the asker's recommendation (`act_with_assumption`);
+3. while clarify questions are off (`voice.clarify_incomplete_enabled`, the
+   default), a card is allowed only for a recoverable or irreversible action
+   (an unclassified one counts as recoverable) or a missing required parameter;
+4. otherwise one question is asked, the first listed (`ask`); the rest of a
+   multi-question call take their recommendations (`trimmed`).
+
+The asker gives `pending_action`, `confidence` and `missing_required` on the
+`society_ask_user` call. Every decision is one row in `trust/ask_log.db`.
+
+The report adds an `asking` component: cards shown, answered from memory, acted
+with an assumption, the **needless** rate (a card whose answer was already in
+memory, or where the owner said "you knew that" / "just do it") and the
+**should-have-asked** rate (an assumption the owner's next message corrected or
+undid). It also gives questions per turn and the mean turn utility with and
+without a card. It does not change Y_user. The same numbers are served at
+`GET /api/trust/asking` (query: `weeks`).
+
 ## What it does not measure
 
 - It is **not** an intelligence quotient and is not comparable between people:

@@ -60,6 +60,7 @@ def main(argv: list[str] | None = None) -> int:
 
         cfg_path = user_data_dir() / "agent_score.json"
     since = int((time.time() - args.since_days * 86400) * 1000) if args.since_days else 0
+    from dodaios.trust.ask_log import ask_log
     from dodaios.trust.audit import audit_log
 
     report = build_report(
@@ -69,6 +70,7 @@ def main(argv: list[str] | None = None) -> int:
         since_ms=since,
         audit=audit_log(),
         preparation=_preparation(since),
+        asks=ask_log(),
     )
     print(json.dumps(report, indent=2) if args.json else format_table(report))
     if not args.no_write:

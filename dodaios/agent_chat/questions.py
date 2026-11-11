@@ -68,6 +68,8 @@ MESSAGE: Final[str] = "message"
 MOVED_ON: Final[str] = "moved_on"
 #: The person answered this same question earlier; no new card was shown.
 RECALLED: Final[str] = "recalled"
+#: The ask-gate found the answer in memory; no card was shown (ask_gate.py).
+MEMORY: Final[str] = "memory"
 #: Sources where nobody picked the answer: the agent's own recommendation applies.
 DEFAULTED: Final[frozenset[str]] = frozenset({TIMEOUT, SKIPPED, MOVED_ON, UNATTENDED})
 
@@ -488,6 +490,11 @@ def for_agent(answer: QuestionAnswer) -> dict[str, Any]:
         }
     if answer.source == RECALLED:
         return {"person_answered": True, "note": "The person already answered this earlier."}
+    if answer.source == MEMORY:
+        return {
+            "person_answered": False,
+            "note": "This comes from the person's memory, not from a new answer.",
+        }
     return {}
 
 
@@ -501,6 +508,7 @@ __all__ = [
     "DECLINED",
     "DEFAULTED",
     "KINDS",
+    "MEMORY",
     "MESSAGE",
     "MOVED_ON",
     "MULTI",
