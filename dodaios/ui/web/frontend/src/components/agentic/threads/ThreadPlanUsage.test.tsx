@@ -23,30 +23,32 @@ const accounts: AgentAccountsResponse = {
     accounts: [account("default", "one@example.com"), account("second", "two@example.com")] }],
 };
 
-function reading(id: string, session: number, weekly: number): AccountUsage {
+function reading(id: string, session: number, weekly: number, fable = 0): AccountUsage {
   return { account_id: id, platform: "claude", status: "ok", source: "live", as_of: 0, message: "", plan: "Ultra",
     windows: [
       { kind: "session", percent: session, severity: session >= 95 ? "critical" : "normal", resets_at: null, window_minutes: 300, scope_label: null, raw_label: null },
       { kind: "weekly", percent: weekly, severity: "normal", resets_at: null, window_minutes: 10080, scope_label: null, raw_label: null },
+      { kind: "weekly_scoped", percent: fable, severity: fable >= 80 ? "warning" : "normal", resets_at: null, window_minutes: 10080, scope_label: "Fable", raw_label: null },
     ] };
 }
 
 beforeEach(() => {
   api.fetchAgentAccounts.mockResolvedValue(accounts);
-  api.fetchAgentUsage.mockResolvedValue({ accounts: [reading("default", 10, 20), reading("second", 97, 40)], ttl_seconds: 60, generated_at: 0 });
+  api.fetchAgentUsage.mockResolvedValue({ accounts: [reading("default", 10, 20), reading("second", 97, 59, 86)], ttl_seconds: 60, generated_at: 0 });
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("ThreadPlanUsage", () => {
-  it("shows the active seat's limit closest to running out, and every limit on click", async () => {
+  it("shows the active seat's weekly limit, and every limit on click", async () => {
     render(<ThreadPlanUsage platform="claude" className="" />);
     const chip = await screen.findByTestId("thread-plan-usage");
     expect(chip.textContent).toContain("Ultra");
-    expect(chip.textContent).toContain("5 h 97%");
-    expect(chip.dataset.severity).toBe("critical");
+    expect(chip.textContent).toContain("Week 59%");
+    expect(chip.textContent).not.toContain("Fable");
+    expect(chip.dataset.severity).toBe("normal");
     fireEvent.click(chip);
     const details = await screen.findByTestId("thread-plan-usage-details");
-    expect(details.querySelectorAll("[data-testid=subscription-window]")).toHaveLength(2);
+    expect(details.querySelectorAll("[data-testid=subscription-window]")).toHaveLength(3);
     expect(screen.getByText("two@example.com")).toBeTruthy();
   });
 
