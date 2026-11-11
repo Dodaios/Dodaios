@@ -78,6 +78,9 @@ class Turn:
     session_id: str = ""
     turn_id: str = ""
     seq: int = 0
+    #: A tool failed in this turn and the assistant worked around it, or the
+    #: owner denied an approval: a short factual line, see ``loop.tool_trace``.
+    trace: str = ""
 
     def anchor(self) -> dict[str, Any]:
         """The message this turn's user text came from (empty values left out)."""
@@ -112,6 +115,8 @@ def excerpt(turns: list[Turn], picked: list[int]) -> list[dict[str, str]]:
         row = {"user": turns[index].user}
         if before:
             row["assistant_before"] = " ".join(before.split())[:_ASSISTANT_CONTEXT_CHARS]
+        if turns[index].trace:
+            row["tool_trace"] = turns[index].trace
         rows.append(row)
     return rows
 
@@ -305,6 +310,8 @@ class SeatChoice:
     seat: Any
     billing: str
     why: str
+    #: The person named this seat in ``[memory.learning]``: never filtered out.
+    explicit: bool = False
 
     def describe(self) -> str:
         """Provider, model, runner and billing mode: identifiers, never a credential."""
@@ -518,7 +525,7 @@ def seat_choices(config: Any) -> list[SeatChoice]:
         # The person picked the reviewer for this loop: that provider on its
         # ordinary credential, with its model or its router-tier one.
         seat = Seat(provider, str(cfg.model or "").strip(), runner="brain", agent_key=False)
-        return [SeatChoice(seat, _billing(seat), "the [memory.learning] provider")]
+        return [SeatChoice(seat, _billing(seat), "the [memory.learning] provider", explicit=True)]
     seat = jarvis_seat(config)
     billing = _billing(seat)
     if billing != BILLING_METERED:
@@ -554,12 +561,16 @@ class ModelReviewer:
         parser: Callable[[str], Any] = parse,
         max_tokens: int = REVIEW_MAX_TOKENS,
         caller: str = "learning",
+        allow_metered: bool = True,
     ) -> None:
         self._config = config
         self._system = system
         self._parse = parser
         self._max_tokens = max_tokens
         self._caller = caller
+        #: False for scheduled background work: it never bills a key per token
+        #: (the person's own explicit ``[memory.learning]`` choice excepted).
+        self._allow_metered = allow_metered
         self.last_choice: SeatChoice | None = None
         #: Why the last call returned ``None`` (``None`` = answered or no seat).
         self.last_failure: ReviewFailure | None = None
@@ -583,6 +594,8 @@ class ModelReviewer:
         except SeatUnavailable as exc:
             log.info("learning review: the assistant seat is unavailable (%s)", exc)
             return None
+        if not self._allow_metered:
+            choices = [c for c in choices if c.billing != BILLING_METERED or c.explicit]
         for choice in choices:
             self.last_choice = choice
             try:

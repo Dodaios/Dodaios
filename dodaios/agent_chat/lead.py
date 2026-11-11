@@ -558,6 +558,25 @@ async def post_memory_health(text: str, *, provider: str = "", cause: str = "") 
         return False
 
 
+async def post_memory_tidy(text: str) -> bool:
+    """Write the one summary notice of a memory tidy-up pass. Never spoken."""
+    try:
+        from dodaios.society.runtime import current_runtime
+
+        runtime = current_runtime()
+        svc = runtime.chat_service() if runtime is not None else None
+        session = lead_session(svc, create=False) if svc is not None else None
+        if svc is None or session is None:
+            return False
+        await svc.post_notice(
+            session.session_id, {"kind": "memory_tidy", "status": "done", "text": text}
+        )
+        return True
+    except Exception:  # noqa: BLE001 — a notice is a courtesy; the memory is already tidied
+        log.warning("lead thread: memory tidy-up notice not posted", exc_info=True)
+        return False
+
+
 def _archive() -> Any | None:
     try:
         from dodaios.society.runtime import current_runtime

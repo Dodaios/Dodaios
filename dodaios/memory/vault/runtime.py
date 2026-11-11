@@ -179,6 +179,7 @@ def turn_block(user_text: str, *, compact: bool = False) -> str:
             for h in vault.search(" ".join(words), limit=TURN_LIMIT * 2)
             if h.memory.id not in in_mind
         ]
+        hits = _with_lessons(vault, user_text, hits, in_mind)
     except Exception:  # noqa: BLE001 — recall must never break a turn
         log.warning("memory vault: per-message recall failed", exc_info=True)
         return ""
@@ -207,6 +208,29 @@ def turn_block(user_text: str, *, compact: bool = False) -> str:
     except Exception:  # noqa: BLE001 — a usage counter is not worth failing a turn over
         log.debug("memory vault: could not count recall use", exc_info=True)
     return _TURN_HEADER + "\n" + "\n".join(lines)
+
+
+def _with_lessons(vault: Any, user_text: str, hits: list[Any], in_mind: set[str]) -> list[Any]:
+    """Rank lessons and how-to notes that fit this message in with the search hits.
+
+    A lesson is recalled by what it was about (its words and the situation
+    that triggered it), not only by the words of its sentence, and it ranks
+    next to the best hit: the rule matters more than a related fact.
+    """
+    from dodaios.memory.vault import lessons
+    from dodaios.memory.vault.models import SearchHit
+
+    fitting = [(m, s) for m, s in lessons.recall(vault, user_text) if m.id not in in_mind]
+    if not fitting:
+        return hits
+    top = hits[0].score if hits else 1.0
+    best: dict[str, SearchHit] = {h.memory.id: h for h in hits}
+    for memory, similarity in fitting:
+        score = top * min(1.5, 0.6 + similarity)
+        known = best.get(memory.id)
+        if known is None or known.score < score:
+            best[memory.id] = SearchHit(memory, score)
+    return sorted(best.values(), key=lambda h: h.score, reverse=True)
 
 
 _KIND_HINTS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(

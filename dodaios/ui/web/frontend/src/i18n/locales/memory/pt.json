@@ -348,6 +348,7 @@
     "how_learn_3": "A memória fica atualizada",
     "how_learn_3_body": "O novo é adicionado, o que muda substitui a versão antiga e nada é apagado a menos que você peça.",
     "how_footer": "Cada mudança aparece aqui, e você pode desfazer ou esquecer qualquer uma.",
+    "how_learning": "Lições guardadas: {lessons} · guias práticos: {how_to} · correções que você precisou repetir: {repeats}",
     "mode_how_short": "Como funciona",
     "pause": "Pausar o aprendizado",
     "pause_resume": "Aprendizado pausado · retomar",

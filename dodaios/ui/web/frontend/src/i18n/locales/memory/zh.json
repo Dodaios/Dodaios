@@ -348,6 +348,7 @@
     "how_learn_3": "记忆保持最新",
     "how_learn_3_body": "新事实会被添加，变化的内容会替换旧版本，除非你要求，否则不会删除任何内容。",
     "how_footer": "每一次更改都列在这里，你可以撤销或遗忘其中任何一项。",
+    "how_learning": "已记住的教训：{lessons} · 操作笔记：{how_to} · 你不得不重复的纠正：{repeats}",
     "mode_how_short": "工作原理",
     "pause": "暂停学习",
     "pause_resume": "学习已暂停 · 恢复",

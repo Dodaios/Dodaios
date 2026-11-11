@@ -21,12 +21,15 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, Final
 
+from dodaios.memory.vault import lessons
 from dodaios.memory.vault.models import KINDS, Memory
 from dodaios.memory.vault.store import MemoryVault
+from dodaios.memory.vault.store import _secret_check as _secret
 
 log = logging.getLogger(__name__)
 
@@ -60,9 +63,19 @@ _SYSTEM: Final[str] = (
     '"no, I meant ...") is kind procedural with "pin": true; it then rides '
     'along in every conversation. A plan, deadline or appointment gets "due": '
     "YYYY-MM-DD.\n"
+    'A correction of the assistant also becomes a lesson: "note": "lesson", '
+    '"trigger": the situation that called for the rule, in a few words ("sending '
+    'a report by email"), and text = the rule itself. A lesson that restates a '
+    "stored lesson is an update of it, never a second add. A turn can carry "
+    '"tool_trace": a tool failed and the assistant worked around it. Only when '
+    "that is reusable later (how to do X on this machine or for this user) add it "
+    'as "note": "how_to", kind procedural, no pin, evidence = the user quote that '
+    'asked for the task, text = the working way in one sentence, "trigger" = the '
+    "task. One-off errors, typos and flaky outages are not how-tos.\n"
     'Return only JSON: {{"ops": [{{"op": "add|update|invalidate", "id": "", '
     '"kind": "", "text": "", "entities": [], "evidence": "", '
-    '"sensitivity": "normal", "valid_to": "", "due": "", "pin": false}}]}}\n'
+    '"sensitivity": "normal", "valid_to": "", "due": "", "pin": false, '
+    '"note": "", "trigger": ""}}]}}\n'
     "text = one self-contained declarative sentence in the user's language, under "
     f"{MAX_TEXT_CHARS} characters, with dates as YYYY-MM-DD. entities = names of "
     "people, places, organisations or things it is about. id = the stored memory an "
@@ -88,6 +101,10 @@ class Op:
     valid_to: str | None = None
     due_at: str | None = None
     pin: bool = False
+    #: ``lesson`` or ``how_to`` (see ``vault.lessons``), else empty.
+    note: str = ""
+    #: The situation that called for the rule, kept to recall it later.
+    trigger: str = ""
 
 
 def parse(text: str) -> list[dict[str, Any]]:
@@ -123,6 +140,11 @@ def build_prompt(said: list[dict[str, str]], memories: list[Memory]) -> str:
         for m in memories
     ]
     return json.dumps({"memories": stored, "turns": said}, ensure_ascii=False, indent=1)
+
+
+def _hidden(text: str) -> bool:
+    """Invisible or unassigned characters can smuggle hidden text into a trigger."""
+    return any(unicodedata.category(ch) in ("Cf", "Co", "Cn") for ch in text)
 
 
 def _norm(text: str) -> str:
@@ -179,8 +201,17 @@ def validate(
         if valid_to is not None and len(valid_to) == 10:
             valid_to += "T23:59:59+00:00"
         due_at = _iso_date(str(item.get("due") or "").strip())
-        # Only a standing rule may pin itself into every conversation.
-        pin = bool(item.get("pin")) and (kind or "") == "procedural"
+        note = str(item.get("note") or "").strip().lower()
+        if note not in lessons.NOTES:
+            note = ""
+        trigger = " ".join(str(item.get("trigger") or "").split())[: lessons.MAX_TRIGGER_CHARS]
+        if trigger and (_secret(trigger) or _hidden(trigger)):
+            trigger = ""
+        if note and op == "add":
+            kind = "procedural"
+        # Only a standing rule may pin itself into every conversation; a how-to
+        # note is found by recall when the task comes up again.
+        pin = bool(item.get("pin")) and (kind or "") == "procedural" and note != lessons.HOW_TO
         if kind == "ephemeral" and valid_to is None:
             rejected.append("ephemeral without valid_to")
             continue
@@ -197,6 +228,8 @@ def validate(
                 valid_to=valid_to,
                 due_at=due_at,
                 pin=pin,
+                note=note,
+                trigger=trigger,
             )
         )
     return accepted, rejected
@@ -249,6 +282,15 @@ def apply(
     for op in ops:
         where = anchor_for(op.evidence, anchors or [])
         src = {**source, **where, "evidence": op.evidence}
+        note, trigger = op.note, op.trigger
+        if op.op == "update" and not note:
+            prior = vault.get(op.memory_id)
+            note = lessons.note_of(prior) if prior is not None else ""
+            trigger = trigger or str(prior.source.get("trigger") or "") if prior else trigger
+        if note:
+            src["note"] = note
+        if trigger:
+            src["trigger"] = trigger
         # What the conversation notice needs to jump to the message.
         link = {k: where[k] for k in ("session_id", "turn_id", "message_seq") if k in where} | {
             "evidence": op.evidence
@@ -268,6 +310,8 @@ def apply(
                     pinned=op.pin,
                 )
                 written += result.action == "added"
+                if op.pin and result.action == "added" and result.memory is not None:
+                    lessons.note_auto_pin(vault, result.memory.id)
                 if result.action == "added" and result.memory is not None and receipts is not None:
                     receipts.append(
                         {
@@ -290,6 +334,7 @@ def apply(
                 )
                 if op.pin and result.memory is not None:
                     vault.pin(result.memory.id, True)
+                    lessons.note_auto_pin(vault, result.memory.id)
                 written += result.action == "superseded"
                 if (
                     result.action == "superseded"
