@@ -1308,6 +1308,58 @@ async def post_lead_checkin(body: LeadCheckinBody) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+class LeadTriggerEventBody(BaseModel):
+    #: ``mail`` | ``calendar`` | ``github`` | ``automation`` | ``channel``.
+    source: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+def _trigger_service() -> Any:
+    from dodaios.lead_triggers.wiring import get_service
+
+    service = get_service()
+    if service is None:
+        raise HTTPException(status_code=503, detail="The agent society is not running")
+    return service
+
+
+@router.get("/lead/triggers", summary="Event trigger rules, drop counts and the decision log")
+async def get_lead_triggers() -> dict[str, Any]:
+    return await _trigger_service().view()
+
+
+@router.put("/lead/triggers", summary="Set the accept mode, source rules and policies")
+async def put_lead_triggers(body: dict[str, Any]) -> dict[str, Any]:
+    from dodaios.lead_triggers import TriggerSettings
+
+    service = _trigger_service()
+    await service.save_settings(TriggerSettings.from_dict(body))
+    return await service.view()
+
+
+@router.post("/lead/triggers/policies/{policy_id}/promote", summary="Let one policy act")
+async def promote_lead_trigger_policy(policy_id: str) -> dict[str, Any]:
+    service = _trigger_service()
+    if await service.promote(policy_id) is None:
+        raise HTTPException(status_code=404, detail="Unknown policy")
+    return await service.view()
+
+
+@router.post(
+    "/lead/triggers/events",
+    status_code=202,
+    summary="Feed one event (mail, calendar, code host) into the trigger intake",
+    openapi_extra={"x-jarvis-dangerous": True},
+)
+async def post_lead_trigger_event(body: LeadTriggerEventBody) -> dict[str, str]:
+    from dodaios.lead_triggers.event import SOURCES
+    from dodaios.lead_triggers.wiring import submit_payload
+
+    if body.source not in SOURCES:
+        raise HTTPException(status_code=422, detail=f"source must be one of {', '.join(SOURCES)}")
+    return {"verdict": await submit_payload(body.source, body.payload)}
+
+
 @router.post("/lead/fresh-start", summary="Start the lead's model fresh; the thread stays")
 async def lead_fresh_start(request: Request) -> dict[str, Any]:
     from dodaios.agent_chat.lead import fresh_start, lead_session

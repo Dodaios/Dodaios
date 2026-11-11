@@ -547,6 +547,7 @@
   },
   "notify": {
     "reminder_title": "Lembrete",
+    "trigger_ask": "Um evento de «{source}» corresponde à tua regra «{policy}»: {summary}. Queres que eu trate disso?",
     "an_agent": "Um agente",
     "needs_you_title": "{agent} precisa de você",
     "needs_you_body": "Abra a conversa para responder.",
