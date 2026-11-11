@@ -35,6 +35,14 @@ struct VERSEDECKS_API FVerseDeckLook
 	 * Unset: the socket's own heading.
 	 */
 	TOptional<double> ArrivalYawDeg;
+	/**
+	 * World point (cm, on the floor) the commander and the camera arrive at instead of the socket,
+	 * when the socket stands in a closed room (the hangar's lift lobby has a ceiling over it).
+	 * Unset: the socket's own location.
+	 */
+	TOptional<FVector> ArrivalLocationCm;
+	/** Camera pitch (degrees, up positive) of the first third-person frame on arrival. */
+	TOptional<double> ArrivalPitchDeg;
 
 	static FVerseDeckLook For(FName Deck);
 };
