@@ -300,6 +300,10 @@ void AVerseArenaGraybox::DressArtBays()
 	// A work station: welding cart, tool trolley and chest, generator, gas bottles and drums.
 	auto Station = [this](const FVector& At, double Yaw)
 	{
+		if (InKeptClearRoom(At))
+		{
+			return;  // a deck station's room keeps to the deck's own furniture
+		}
 		const FTransform Frame(FRotator(0.0, Yaw, 0.0), At);
 		auto Put = [&](const TCHAR* Name, double X, double Y, double LocalYaw, double Scale = 1.0)
 		{
@@ -342,6 +346,10 @@ void AVerseArenaGraybox::DressArtBays()
 	// Fuel and stores: drums on and around a pallet, crates, cartons on shelving.
 	auto Stores = [this](const FVector& At, double Yaw, int32 Seed)
 	{
+		if (InKeptClearRoom(At))
+		{
+			return;
+		}
 		FRandomStream Rng(Seed);
 		const FTransform Frame(FRotator(0.0, Yaw, 0.0), At);
 		auto Put = [&](const TCHAR* Name, double X, double Y, double Z, double LocalYaw)
@@ -379,6 +387,10 @@ void AVerseArenaGraybox::DressArtBays()
 	// A barrier line: jersey barriers in a row, tyres stacked behind them.
 	auto Barriers = [this](const FVector& From, double Yaw, int32 Count)
 	{
+		if (InKeptClearRoom(From))
+		{
+			return;
+		}
 		const FVector Dir = FRotator(0.0, Yaw, 0.0).Vector();
 		for (int32 I = 0; I < Count; ++I)
 		{
@@ -406,8 +418,12 @@ void AVerseArenaGraybox::DressArtBays()
 	Stores(FVector(1400.0, 5850.0, 0.0), 0.0, 31);
 	Station(FVector(6400.0, 5600.0, 0.0), 180.0);
 	// The parked gunship on the apron in front of the hall door, seen through the arena fence.
-	AddProp(TEXT("SM_Hangar_Shuttle"), FVector(4950.0, 5330.0, 0.0), 90.0);
-	AddDressing(TEXT("SM_Hangar_LandingPad"), FTransform(FRotator::ZeroRotator, FVector(4950.0, 5330.0, 0.5), FVector(1.25, 1.0, 1.0)), nullptr, false);
+	// On the deck view the apron is the arrivals room and stays clear for its station.
+	if (!InKeptClearRoom(FVector(4950.0, 5330.0, 0.0)))
+	{
+		AddProp(TEXT("SM_Hangar_Shuttle"), FVector(4950.0, 5330.0, 0.0), 90.0);
+		AddDressing(TEXT("SM_Hangar_LandingPad"), FTransform(FRotator::ZeroRotator, FVector(4950.0, 5330.0, 0.5), FVector(1.25, 1.0, 1.0)), nullptr, false);
+	}
 	Barriers(FVector(2700.0, 4720.0, 0.0), 0.0, 4);
 	// Floodlights on stands of the bays, aimed at the work.
 	AddProp(TEXT("SM_Hangar_Floodlight"), FVector(1000.0, 2700.0, 0.0), 30.0, FVector(1.6));

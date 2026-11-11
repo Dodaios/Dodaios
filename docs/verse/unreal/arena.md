@@ -254,7 +254,8 @@ deck view and the duel show it alike:
 - **Bays**: work stations (welding cart, tool trolley and chest, generator, gas bottles), stores
   (drums, shelving with cartons and crates, military crates, ammo cans, jerrycans, a stores cart),
   jersey barrier lines with tyres, floodlights, and the parked gunship (`SM_Hangar_Shuttle`) on
-  its pad in front of the hall door.
+  its pad in front of the hall door. Bay clusters and the gunship skip the deck rooms that hold a
+  station (`InKeptClearRoom`: arrivals, lift lobby), so on the deck view the apron stays free.
 - **Cover** (`DressArtBox`, a few cm proud, render only): cast-concrete feet and segment joints on
   barriers and cover walls, lamps, a cable run and power boards on the perimeter's inner face,
   angle guards and base plates on columns, stiffeners and lugs on the hanging blast screens, ISO
