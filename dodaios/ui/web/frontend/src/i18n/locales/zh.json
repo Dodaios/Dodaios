@@ -11695,6 +11695,8 @@
     "class_rate_limit": "暂时限流",
     "class_auth": "登录或密钥被拒绝",
     "class_model_unavailable": "模型不可用",
-    "class_other": "近期出错"
+    "class_other": "近期出错",
+    "finding_label": "健康检查",
+    "open_keys": "打开 API 密钥"
   }
 }

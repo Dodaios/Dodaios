@@ -11695,6 +11695,8 @@
     "class_rate_limit": "kurz gedrosselt",
     "class_auth": "Login oder Schlüssel abgelehnt",
     "class_model_unavailable": "Modell nicht verfügbar",
-    "class_other": "zuletzt Fehler"
+    "class_other": "zuletzt Fehler",
+    "finding_label": "Zustandsprüfung",
+    "open_keys": "API-Schlüssel öffnen"
   }
 }

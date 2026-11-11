@@ -64,10 +64,24 @@ def _findings() -> list[dict[str, Any]]:
 
     try:
         running = supervisor.current()
-        return list(running.store.open_findings(25)) if running is not None else []
+        found = list(running.store.open_findings(25)) if running is not None else []
     except Exception:  # noqa: BLE001
         log.warning("status light: watchdog findings unavailable", exc_info=True)
         return []
+    return [_with_provider_label(f) for f in found]
+
+
+def _with_provider_label(finding: dict[str, Any]) -> dict[str, Any]:
+    """Put the provider's readable name beside its id, so a row never shows a raw id."""
+    from dodaios.ui.web.provider_spec import get_spec
+
+    evidence = finding.get("evidence")
+    if not isinstance(evidence, dict) or not evidence.get("provider"):
+        return finding
+    spec = get_spec(str(evidence["provider"]))
+    if spec is None:
+        return finding
+    return {**finding, "evidence": {**evidence, "provider_label": spec.label}}
 
 
 async def _prepared() -> list[dict[str, Any]]:

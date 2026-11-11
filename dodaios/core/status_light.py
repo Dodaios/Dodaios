@@ -101,6 +101,28 @@ def _from_board(
     return running, needs, missions
 
 
+def _finding(f: Mapping[str, Any]) -> dict[str, Any]:
+    """One watchdog finding as a row; a failing provider also says which one and how.
+
+    ``provider`` is the provider's readable name when the caller put one in the
+    evidence (``provider_label``), else its id; ``modality`` and ``status`` let the
+    list say "Realtime · model not available" instead of the raw sentence.
+    """
+    row: dict[str, Any] = {
+        "id": _text(f.get("key"), 120),
+        "kind": _text(f.get("kind"), 60),
+        "title": _text(f.get("title")),
+    }
+    evidence = f.get("evidence")
+    if isinstance(evidence, Mapping):
+        provider = _text(evidence.get("provider_label") or evidence.get("provider"), 80)
+        if provider:
+            row["provider"] = provider
+            row["modality"] = _text(evidence.get("modality"), 40)
+            row["status"] = _text(evidence.get("status"), 40)
+    return row
+
+
 def build_status_light(
     *,
     board: Mapping[str, Any] | None = None,
@@ -183,14 +205,7 @@ def build_status_light(
         }
         for seat in seats
     ]
-    stuck = [
-        {
-            "id": _text(f.get("key"), 120),
-            "kind": _text(f.get("kind"), 60),
-            "title": _text(f.get("title")),
-        }
-        for f in findings
-    ]
+    stuck = [_finding(f) for f in findings]
     waiting = [
         {
             "id": _text(p.get("id"), 120),
