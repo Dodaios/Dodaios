@@ -328,7 +328,7 @@ def _login_key(url: str, headers: dict[str, str]) -> tuple[str, str]:
 def _retry_after_s(value: str | None) -> float:
     try:
         return max(0.0, float(value)) if value else 0.0
-    except ValueError:
+    except ValueError:  # an HTTP-date Retry-After: the fixed back-off applies
         return 0.0
 
 
@@ -658,7 +658,7 @@ def _epoch_of_iso(value: str | None) -> float | None:
         return None
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
-    except ValueError:
+    except ValueError:  # an unreadable reset time keeps the window shown
         return None
 
 
