@@ -34,7 +34,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from .turn_host import FROZEN_FLAG, MAX_FRAME_BYTES, PROTOCOL_VERSION, TOKEN_ENV
+from .turn_host import BUILD, FROZEN_FLAG, MAX_FRAME_BYTES, PROTOCOL_VERSION, TOKEN_ENV
 
 log = logging.getLogger(__name__)
 
@@ -192,6 +192,10 @@ class _HostStdin:
             self._closed = True
             self._cli._send({"op": "close_stdin"})
 
+    def mark_closed(self) -> None:
+        """The host closed it already (nobody read the turn for a while)."""
+        self._closed = True
+
 
 class HostedCli:
     """One CLI in the turn host, shaped like ``asyncio.subprocess.Process``."""
@@ -223,6 +227,10 @@ class HostedCli:
         self.host_lost = False
         #: Another app process took the host over and carries this turn on.
         self.handed_over = False
+        #: The host leaves stdin open after the CLI's result line, so a
+        #: message can still reach an agent that waits for its background
+        #: tasks. False on a host from an older build, which closes it there.
+        self.stdin_after_result = False
         self._spool_path = spool_path
 
     # ------------------------------------------------------- process calls
@@ -276,6 +284,11 @@ class HostedCli:
             self.pid = int(reply.get("pid") or self.pid)
             if self.stdin is None and self.meta.get("keep_stdin"):
                 self.stdin = _HostStdin(self)
+            # An older host says nothing here and closes stdin at the result.
+            stdin_open = reply.get("stdin_open")
+            self.stdin_after_result = stdin_open is True
+            if stdin_open is False and self.stdin is not None:
+                self.stdin.mark_closed()
             self._acked = int(reply.get("acked") or 0)
             self.stdout.replay_upto = self._acked
             for line in reply.get("stderr") or ():
@@ -317,6 +330,7 @@ class TurnHostClient:
         writer: asyncio.StreamWriter,
         turns: list[dict[str, Any]],
         host_pid: int,
+        build: str = "",
     ) -> None:
         self._reader = reader
         self._writer = writer
@@ -329,6 +343,10 @@ class TurnHostClient:
         self._next_rid = 1
         self._closed = False
         self.host_pid = host_pid
+        #: The host runs other code than this app (it outlives app updates).
+        self.outdated = build != BUILD
+        #: Spawns on their way to the host.
+        self._spawning = 0
         self.turns = {str(t.get("id")): t for t in turns if isinstance(t, dict) and t.get("id")}
         self._reader_task = self._loop.create_task(self._read_loop(), name="turn-host-client")
 
@@ -347,25 +365,38 @@ class TurnHostClient:
         meta: dict[str, Any],
         close_stdin_on: str = "",
     ) -> HostedCli:
-        reply = await self._request(
-            {
-                "op": "spawn",
-                "argv": list(argv),
-                "cwd": cwd,
-                "env": dict(env) if env is not None else None,
-                "stdin": stdin,
-                "keep_stdin": keep_stdin,
-                "close_stdin_on": close_stdin_on,
-                "meta": meta,
-            }
-        )
-        if not reply.get("ok"):
-            raise RuntimeError(str(reply.get("error") or "The turn host refused the spawn."))
-        cli = HostedCli(
-            self, str(reply["id"]), int(reply.get("pid") or 0), meta, has_stdin=stdin is not None
-        )
-        self._register(cli)
-        return cli
+        self._spawning += 1
+        try:
+            reply = await self._request(
+                {
+                    "op": "spawn",
+                    "argv": list(argv),
+                    "cwd": cwd,
+                    "env": dict(env) if env is not None else None,
+                    "stdin": stdin,
+                    "keep_stdin": keep_stdin,
+                    "close_stdin_on": close_stdin_on,
+                    "meta": meta,
+                }
+            )
+            if not reply.get("ok"):
+                raise RuntimeError(str(reply.get("error") or "The turn host refused the spawn."))
+            cli = HostedCli(
+                self,
+                str(reply["id"]),
+                int(reply.get("pid") or 0),
+                meta,
+                has_stdin=stdin is not None,
+            )
+            cli.stdin_after_result = bool(reply.get("stdin_after_result"))
+            self._register(cli)
+            return cli
+        finally:
+            self._spawning -= 1
+
+    def holds_nothing(self) -> bool:
+        """No turn in the host that this app knows of: none running, read or uncollected."""
+        return not self._procs and not self.turns and not self._spawning
 
     async def attach(self, host_id: str) -> HostedCli | None:
         """Take over a turn that was running (or ended) before this client attached."""
@@ -592,7 +623,14 @@ async def _open(*, start: bool) -> TurnHostClient | None:
                 limit=MAX_FRAME_BYTES,
             )
             if found is not None:
-                return _client_from(*found)
+                client = _client_from(*found)
+                if not (client.outdated and client.holds_nothing()):
+                    return client
+                # Another build's host with no turn to lose: a new one takes its place.
+                client.detach()
+                if not await asyncio.to_thread(_retire_host, state):
+                    return None  # it stays; turns run in-process until it is gone
+                break
             if time.monotonic() >= deadline or not await asyncio.to_thread(_host_alive, state):
                 break
             await asyncio.sleep(delay)
@@ -634,9 +672,61 @@ def _client_from(
     reader: asyncio.StreamReader, writer: asyncio.StreamWriter, reply: dict[str, Any]
 ) -> TurnHostClient:
     turns = [t for t in reply.get("turns") or () if isinstance(t, dict)]
-    client = TurnHostClient(reader, writer, turns, int(reply.get("pid") or 0))
+    client = TurnHostClient(
+        reader, writer, turns, int(reply.get("pid") or 0), str(reply.get("build") or "")
+    )
     log.info("turn host attached (pid %s) — %d turn(s) held", client.host_pid, len(turns))
     return client
+
+
+#: How long a retired host gets to exit before it is killed.
+RETIRE_WAIT_S = 5.0
+
+
+def _retire_host(state: dict[str, Any] | None) -> bool:
+    """End a turn host that holds no turn, so a host of this build can start.
+
+    Only the process the state file names, and only while it still is a turn
+    host (``_host_alive`` checks its command line and boot): a reused pid is
+    never touched. False when it could not be ended.
+    """
+    if not state or not _host_alive(state):
+        return True
+    try:
+        import psutil
+
+        proc = psutil.Process(int(state["pid"]))
+        proc.terminate()
+        try:
+            proc.wait(RETIRE_WAIT_S)
+        except psutil.TimeoutExpired:
+            log.info("turn host: pid %s did not end when asked; killing it", state.get("pid"))
+            proc.kill()
+            proc.wait(RETIRE_WAIT_S)
+    except Exception as exc:  # noqa: BLE001 - gone already is the goal; else the old host stays
+        log.info("turn host: retiring pid %s: %s", state.get("pid"), exc)
+        return not _host_alive(state)
+    log.info("turn host: retired the idle host of another build (pid %s)", state.get("pid"))
+    return True
+
+
+async def _renew_outdated(client: TurnHostClient) -> TurnHostClient | None:
+    """Replace a connected host of another build once it holds no turn."""
+    global _client
+    async with _connect_lock():
+        if _client is not client:
+            return _client if _client is not None and _client.connected else None
+        if not (client.outdated and client.holds_nothing()):
+            return client
+        client.detach()
+        _client = None
+        try:
+            # ``_open`` finds the old host idle, retires it and starts a new one.
+            _client = await _open(start=True)
+        except Exception:  # noqa: BLE001 - no host means the CLI runs in-process
+            log.warning("turn host: could not replace the old host", exc_info=True)
+            _client = None
+        return _client
 
 
 async def get_client(*, start: bool = True) -> TurnHostClient | None:
@@ -669,6 +759,8 @@ async def spawn(
 ) -> HostedCli | None:
     """Start ``argv`` in the turn host, or ``None`` when no host can take it."""
     client = await get_client(start=True)
+    if client is not None and client.outdated and client.holds_nothing():
+        client = await _renew_outdated(client)
     if client is None:
         return None
     try:

@@ -165,6 +165,37 @@ describe("ThreadView", () => {
     fireEvent.click(screen.getByTestId("thread-worked-for"));
     expect(screen.getByTestId("thread-worked-steps")).toBeTruthy();
   });
+
+  it("says a message reaches a Claude turn that only waits for its background tasks", async () => {
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    const store = useThreadChatStore.getState();
+    act(() => {
+      store.ingest({ seq: 1, ts_ms: 1000, kind: "user_message", payload: { text: "watch the build" } });
+      store.ingest({ seq: 2, ts_ms: 1000, kind: "turn_started", payload: { turn_id: "t1", provider: "claude-api", model: "", effort: "high", runner: "claude-cli" } });
+      store.ingest({ seq: 3, ts_ms: 1500, kind: "assistant_text", payload: { turn_id: "t1", message_id: "m1", text: "The build runs." } });
+      store.ingest({ seq: 4, ts_ms: 1600, kind: "background_wait", payload: { turn_id: "t1", tasks: ["Watch the build"] } });
+    });
+    const box = screen.getByTestId("thread-composer-input");
+    await waitFor(() => expect(box.getAttribute("placeholder")).toBe("Steer the agent while it works"));
+    fireEvent.change(box, { target: { value: "also run the linter" } });
+    expect(screen.getByTestId("thread-send-mode").getAttribute("data-mode")).toBe("steer");
+    await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
+    await waitFor(() => expect(api.sendAgentChatMessage.mock.calls[0]?.[1]).toBe("also run the linter"));
+
+    // The server took it into the running turn, picture included: it shows there as the person's own line.
+    act(() => {
+      store.ingest({ seq: 5, ts_ms: 1700, kind: "user_message", payload: {
+        turn_id: "t1", steered: true, typed: "also run the linter", text: "also run the linter\n\n[composed attachment text]",
+        attachments: [{ name: "shot.png", kind: "image", described_by: "none", url: "/files/shot.png" }],
+      } });
+    });
+    const steered = screen.getByTestId("thread-steer-message");
+    expect(steered.textContent).toBe("also run the linter");
+    expect(within(steered).getByAltText("shot.png").getAttribute("src")).toBe("/files/shot.png");
+  });
 });
 
 describe("ThreadTree", () => {
