@@ -22,6 +22,9 @@ hot path; here it is computed once and cached in the session).
 from __future__ import annotations
 
 import os
+import re
+import stat
+import sys
 from collections import deque
 from dataclasses import asdict, dataclass, field
 from pathlib import Path, PurePosixPath
@@ -83,7 +86,7 @@ _INSTRUCTION_FILES: tuple[str, ...] = (
     "README.md",
 )
 
-_MAX_ENTRIES = 400
+_MAX_ENTRIES = 1_000
 _MAX_WORKSPACE_ENTRIES = 2_000
 _MAX_SKILLS = 60
 
@@ -191,6 +194,59 @@ def _is_hidden(name: str) -> bool:
     return name.startswith(".")
 
 
+# Folders a tool writes into every project and nobody opens as a workspace.
+# They are listed with the hidden ones: out of the way, one switch away. Kept
+# to names that mean one thing only; "dist" and "build" can be somebody's
+# project and stay visible.
+_CLUTTER_DIRS = frozenset({"__pycache__", "node_modules"})
+
+# Whether a per-entry ``stat`` can say more about "hidden" than the name does.
+# Windows keeps it in the file attributes (free: ``scandir`` already has them),
+# macOS in the BSD flags. Linux has only the dot, so the call is skipped there.
+_STAT_KNOWS_HIDDEN = os.name == "nt" or sys.platform == "darwin"
+
+
+def _hidden_state(item: os.DirEntry[str]) -> tuple[bool, bool]:
+    """``(hidden, system_internal)`` for one directory entry.
+
+    Hidden is what the file manager of this machine hides: a leading dot
+    everywhere, the Hidden attribute on Windows (``AppData``, ``ProgramData``),
+    the hidden flag on macOS (``~/Library``). The picker lists those only when
+    asked to.
+
+    ``system_internal`` is narrower and is never listed: on Windows a folder
+    that is Hidden AND System belongs to the operating system. That is the
+    recycle bin, ``System Volume Information``, and the compatibility links of
+    older Windows versions (``Application Data``, ``Cookies``, ``Start Menu``
+    and their localised names), which exist in every account folder and refuse
+    to be opened. Listed, they looked like ordinary folders that were broken.
+    """
+    if _is_hidden(item.name) or item.name in _CLUTTER_DIRS:
+        return True, False
+    if not _STAT_KNOWS_HIDDEN:
+        return False, False
+    try:
+        info = item.stat(follow_symlinks=False)
+    except OSError:
+        return False, False
+    attributes = getattr(info, "st_file_attributes", 0)
+    if attributes:
+        hidden = bool(attributes & stat.FILE_ATTRIBUTE_HIDDEN)
+        system = bool(attributes & stat.FILE_ATTRIBUTE_SYSTEM)
+        return hidden, hidden and system
+    flags = getattr(info, "st_flags", 0)
+    return bool(flags & getattr(stat, "UF_HIDDEN", 0)), False
+
+
+_DIGITS = re.compile(r"(\d+)")
+
+
+def _natural_key(name: str) -> list[object]:
+    """Sort key that reads numbers as numbers: "New folder (9)" before "(10)"."""
+    parts = _DIGITS.split(name.casefold())
+    return [int(part) if index % 2 else part for index, part in enumerate(parts)]
+
+
 def _looks_like_project(entry_path: Path) -> tuple[bool, bool]:
     """(is_project, is_repo) from marker files, without descending."""
     is_repo = (entry_path / ".git").exists()
@@ -231,7 +287,16 @@ def start_points() -> list[FolderEntry]:
 
     home = Path.home()
     add(home, "Home")
-    for conventional in ("Desktop", "Documents", "Projects", "Code", "dev", "src", "repos"):
+    for conventional in (
+        "Desktop",
+        "Documents",
+        "Downloads",
+        "Projects",
+        "Code",
+        "dev",
+        "src",
+        "repos",
+    ):
         add(home / conventional)
 
     if os.name == "nt":
@@ -245,10 +310,68 @@ def start_points() -> list[FolderEntry]:
     return out
 
 
+_DRIVE_ONLY = re.compile(r"[A-Za-z]:")
+
+
+def resolve_folder_path(raw: str | Path, base: str | Path | None = None) -> Path:
+    """The folder a typed path means, the way a shell would read it.
+
+    Lexical, apart from one lookup for the spelling: nothing here needs the
+    folder to exist, so a path that is not one yet still comes back in the form
+    it would have.
+
+    * ``~`` and environment variables (``%USERPROFILE%``, ``$HOME``) expand.
+    * A relative path is relative to ``base``, the folder on screen, and to
+      the home folder when there is none. It is never relative to the working
+      directory of the server process: that is wherever the app was started
+      from, a place the person typing has never seen.
+    * ``..`` folds away, so the answer is the folder and not the route to it.
+    * A bare drive (``C:``) means the root of that drive. Windows itself reads
+      it as "the current directory on C:", which is again the server's.
+    * On Windows the spelling on disk wins over the spelling that was typed
+      (``c:/users/me`` becomes ``C:/Users/me``), because this path becomes the
+      name of the workspace.
+    """
+    text = os.path.expandvars(os.fspath(raw).strip())
+    if os.name == "nt" and _DRIVE_ONLY.fullmatch(text):
+        text += os.sep
+    try:
+        candidate = Path(text).expanduser()
+    except RuntimeError:  # no home folder to expand "~" with
+        candidate = Path(text)
+    if not candidate.is_absolute():
+        try:
+            anchor = Path(base).expanduser() if base else Path.home()
+        except RuntimeError:
+            anchor = Path.home()
+        candidate = anchor / candidate
+    resolved = Path(os.path.normpath(candidate))
+    if os.name != "nt":
+        return resolved
+    try:
+        on_disk = os.path.realpath(resolved)
+    except OSError:
+        return resolved
+    # Only the spelling may change. A path that leads through a link keeps the
+    # form the person used, so a mapped or redirected folder stays recognisable.
+    if os.path.normcase(on_disk) == os.path.normcase(str(resolved)):
+        return Path(on_disk)
+    return resolved
+
+
 def list_dir(
     path: str | Path, *, include_hidden: bool = False
 ) -> tuple[list[FolderEntry], str | None]:
-    """Sub-directories of ``path``. Returns ``(entries, error_message)``."""
+    """Sub-directories of ``path``. Returns ``(entries, error_message)``.
+
+    Sorted by name, numbers read as numbers: the order every file manager
+    uses. Projects used to be sorted to the top, which put a long account
+    folder in an order nobody could scan ("sonnet5.5" above "Apps").
+
+    Everything the person could open is listed, build folders included. Only
+    hidden folders wait for ``include_hidden``, and folders that belong to the
+    operating system are left out (see :func:`_hidden_state`).
+    """
     target = Path(path).expanduser()
     try:
         if not target.is_dir():
@@ -259,41 +382,48 @@ def list_dir(
     except OSError as exc:
         return [], f"Could not open {target}: {exc}"
 
-    entries: list[FolderEntry] = []
+    children: list[tuple[str, Path]] = []
     try:
         with os.scandir(target) as it:
             for item in it:
-                if len(entries) >= _MAX_ENTRIES:
-                    break
-                name = item.name
-                if name in _SKIP_DIRS:
-                    continue
-                if not include_hidden and _is_hidden(name):
+                hidden, system_internal = _hidden_state(item)
+                if system_internal or (hidden and not include_hidden):
                     continue
                 try:
-                    if not item.is_dir(follow_symlinks=False):
+                    # Links are followed: a linked project folder is a folder
+                    # to the person who made the link. One level cannot loop.
+                    if not item.is_dir():
                         continue
                 except OSError:
                     continue
-                child = Path(item.path)
-                is_project, is_repo = _looks_like_project(child)
-                entries.append(
-                    FolderEntry(
-                        name=name,
-                        path=str(child),
-                        is_project=is_project,
-                        is_repo=is_repo,
-                    )
-                )
+                children.append((item.name, Path(item.path)))
     except PermissionError:
         return [], f"Dodaios is not allowed to look inside {target}. Pick another folder."
     except OSError as exc:
         return [], f"Cannot read {target}: {exc}"
 
-    # Projects first, then alphabetically — the folder the user came for is
-    # almost always a project.
-    entries.sort(key=lambda e: (not e.is_project, e.name.lower()))
+    # Sorted before the cut, so a very large folder loses its tail and not a
+    # random part: the order `scandir` yields is the file system's own.
+    children.sort(key=lambda child: _natural_key(child[0]))
+    del children[_MAX_ENTRIES:]
+
+    # One question per folder, the one the list shows the answer to: is it a
+    # repository. The full marker check (:func:`_looks_like_project`) costs a
+    # dozen file lookups per folder and only ever fed the old projects-first
+    # order; on a home folder with two hundred entries it took half a second.
+    entries: list[FolderEntry] = []
+    for name, child in children:
+        try:
+            is_repo = (child / ".git").exists()
+        except OSError:
+            is_repo = False
+        entries.append(FolderEntry(name=name, path=str(child), is_project=is_repo, is_repo=is_repo))
     return entries, None
+
+
+def is_listing_cut(entries: list[FolderEntry]) -> bool:
+    """True when :func:`list_dir` stopped at its limit and more folders exist."""
+    return len(entries) >= _MAX_ENTRIES
 
 
 def list_workspace_dir(
@@ -434,9 +564,12 @@ def search_folders(
                     # Hidden folders are matched only when the query itself
                     # starts with a dot (".claude", ".config") — that is the
                     # one time a person means one — and are never walked into:
-                    # ".cache" alone can hold more entries than the budget.
-                    hidden = _is_hidden(name)
-                    if hidden and not needle.startswith("."):
+                    # ".cache" alone can hold more entries than the budget, and
+                    # so can "AppData", which Windows hides by attribute.
+                    hidden, system_internal = _hidden_state(item)
+                    if system_internal:
+                        continue
+                    if hidden and not (needle.startswith(".") and _is_hidden(name)):
                         continue
                     try:
                         if not item.is_dir(follow_symlinks=False):
@@ -651,9 +784,11 @@ __all__ = [
     "WorkspaceEntry",
     "WorkspaceListing",
     "create_folder",
+    "is_listing_cut",
     "list_dir",
     "list_workspace_dir",
     "probe_project",
+    "resolve_folder_path",
     "search_folders",
     "start_points",
 ]
