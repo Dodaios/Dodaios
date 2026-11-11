@@ -59,7 +59,8 @@ CREATE TABLE IF NOT EXISTS agent_chat_sessions (
     account_id       TEXT NOT NULL DEFAULT '',
     runtime          TEXT NOT NULL DEFAULT '',
     computer_id      TEXT NOT NULL DEFAULT '',
-    last_message_ms  INTEGER NOT NULL DEFAULT 0
+    last_message_ms  INTEGER NOT NULL DEFAULT 0,
+    speed            TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS agent_chat_events (
     session_id  TEXT NOT NULL,
@@ -206,6 +207,9 @@ class AgentChatSession:
     #: agent's); the creation time until the first one. The sidebar orders by
     #: it, so a thread's tool calls and answers never move it in the list.
     last_message_ms: int = 0
+    #: The coding CLI's speed tier (``dodaios.agent_chat.speed``): Claude
+    #: Code's fast mode, a Codex service tier. Empty = the standard speed.
+    speed: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -307,6 +311,11 @@ class AgentChatStore:
                 "WHERE e.session_id = agent_chat_sessions.session_id "
                 "AND e.kind IN ('user_message', 'agent_message')), created_ms)"
             )
+        if "speed" not in have:
+            # The CLI's speed tier; empty = the standard speed (the pre-column behaviour).
+            self._conn.execute(
+                "ALTER TABLE agent_chat_sessions ADD COLUMN speed TEXT NOT NULL DEFAULT ''"
+            )
 
     def close(self) -> None:
         with self._lock:
@@ -385,6 +394,7 @@ class AgentChatStore:
         account_id: str = "",
         runtime: str = "",
         computer_id: str = "",
+        speed: str = "",
     ) -> AgentChatSession:
         if surface not in SURFACES:
             raise ValueError(f"surface must be one of {SURFACES}, not {surface!r}")
@@ -397,8 +407,8 @@ class AgentChatStore:
             self._conn.execute(
                 "INSERT INTO agent_chat_sessions (session_id, title, provider, model, effort, "
                 "cwd, permission_mode, vendor_session, created_ms, updated_ms, message_count, "
-                "preview, surface, account_id, runtime, computer_id, last_message_ms) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 0, '', ?, ?, ?, ?, ?)",
+                "preview, surface, account_id, runtime, computer_id, last_message_ms, speed) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 0, '', ?, ?, ?, ?, ?, ?)",
                 (
                     sid,
                     title,
@@ -414,6 +424,7 @@ class AgentChatStore:
                     runtime,
                     computer_id,
                     now,
+                    speed,
                 ),
             )
             self._conn.commit()
@@ -540,8 +551,8 @@ class AgentChatStore:
         return ordered[: max(1, int(limit))]
 
     def update_session(self, session_id: str, **fields: Any) -> AgentChatSession | None:
-        """Set any of title / provider / model / effort / cwd / permission_mode /
-        vendor_session. Unknown keys are ignored so a route can pass its body
+        """Set any of title / provider / model / effort / speed / cwd /
+        permission_mode / vendor_session. Unknown keys are ignored so a route can pass its body
         through after validation. ``surface`` is deliberately NOT settable: a
         session is born on one chat and stays there."""
         allowed = {
@@ -549,6 +560,7 @@ class AgentChatStore:
             "provider",
             "model",
             "effort",
+            "speed",
             "cwd",
             "permission_mode",
             "vendor_session",
@@ -1143,4 +1155,5 @@ class AgentChatStore:
             last_message_ms=(
                 int(row["last_message_ms"] or 0) if "last_message_ms" in row.keys() else 0
             ),
+            speed=str(row["speed"] or "") if "speed" in row.keys() else "",
         )

@@ -3,6 +3,13 @@
 // one-to-one; nothing here decides behaviour.
 import { createHistoryRequests } from "@/lib/historyRequests";
 
+/** One speed tier of a coding CLI's model ("" is always the standard speed). */
+export interface ModelSpeed {
+  id: string;
+  label: string;
+  note?: string;
+}
+
 export interface CuratedModel {
   id: string;
   label: string;
@@ -14,6 +21,11 @@ export interface CuratedModel {
   efforts?: string[];
   /** A short note for the picker's hint ("retires 2026-08-31"). */
   note?: string;
+  /**
+   * The speed tiers this model offers on the signed-in account (Claude
+   * Code's fast mode, Codex's Fast / Ultrafast). Absent = no speed pick.
+   */
+  speeds?: ModelSpeed[];
   /** Catalog capabilities; absent/null means unknown, not unsupported. */
   tools?: boolean | null;
   vision?: boolean | null;
@@ -154,6 +166,8 @@ export interface AgentChatSession {
   effort: string;
   cwd: string;
   permission_mode: string;
+  /** The coding CLI's speed tier; empty or absent = standard. */
+  speed?: string;
   /** Absent on a backend older than the surface split; the store keeps such rows. */
   surface?: AgentChatSurface;
   account_id?: string;
@@ -446,6 +460,8 @@ export interface CreateSessionInput {
   account_id?: string;
   model?: string;
   effort?: string | null;
+  /** The coding CLI's speed tier; empty or absent = standard. */
+  speed?: string;
   cwd?: string | null;
   permission_mode?: string;
   title?: string;
@@ -470,7 +486,7 @@ export async function createAgentChatSession(input: CreateSessionInput): Promise
 }
 
 export type PatchSessionInput = Partial<
-  Pick<AgentChatSession, "title" | "provider" | "model" | "effort" | "cwd" | "permission_mode" | "computer_id">
+  Pick<AgentChatSession, "title" | "provider" | "model" | "effort" | "speed" | "cwd" | "permission_mode" | "computer_id">
 >;
 
 export async function patchAgentChatSession(

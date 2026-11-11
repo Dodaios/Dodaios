@@ -77,6 +77,7 @@ def fork_session(
         provider=source.provider,
         model=source.model,
         effort=source.effort,
+        speed=source.speed,
         cwd=cwd or source.cwd,
         permission_mode=source.permission_mode,
         title=title or source.title,

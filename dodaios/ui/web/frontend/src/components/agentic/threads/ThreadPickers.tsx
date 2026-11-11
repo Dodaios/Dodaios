@@ -1,20 +1,22 @@
 import { useMemo } from "react";
+import { Zap } from "lucide-react";
 import { brainValue, splitBrainValue } from "@/components/agentchat/AgentComposer";
 import { ComposerBrainPicker, type BrainSection } from "@/components/agentchat/ComposerBrainPicker";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { Combobox, type ComboboxGroup, type ComboboxOption } from "@/components/ui/combobox";
 import { useT } from "@/i18n";
-import { isApiRunner, type CuratedModel } from "@/lib/agentChatApi";
+import { isApiRunner, type CuratedModel, type ModelSpeed } from "@/lib/agentChatApi";
 import { offeredModels, useSavedHiddenModels } from "@/lib/agentProviderPrefs";
 import { effortLadder } from "@/lib/effortLadder";
 import { rankModels } from "@/lib/modelRanking";
 import type { ComposerDraft, ProviderOption } from "@/store/agentChat";
 
 /**
- * The three picks under a thread's composer: which coding agent and model
- * answer, how hard it thinks, and how much it may do without asking. Quiet
- * text buttons until opened; each opens the app's own searchable list.
+ * The picks under a thread's composer: which coding agent and model answer,
+ * how hard it thinks, how fast it runs (where the agent has a fast mode), and
+ * how much it may do without asking. Quiet text buttons until opened; each
+ * opens the app's own searchable list.
  */
 
 /** One quiet control in the composer's toolbar: 28 px, medium weight, a lift on hover. */
@@ -147,6 +149,56 @@ export function EffortPicker({ provider, draft, liveModels, onPick, separated = 
     <Combobox ariaLabel={t("agent_chat.pick_effort")} testId="thread-effort-picker" value={draft.effort}
       groups={[{ id: "effort", options: levels.map((level) => ({ value: level, label: effortLabel(level, t) })) }]}
       onChange={onPick} fallbackLabel={effortLabel(draft.effort, t)} triggerHint={false} className={TRIGGER} />
+  </>;
+}
+
+/** The speed tiers the picked model offers ([] = no speed pick for it). */
+export function speedsOf(provider: ProviderOption, liveModels: Record<string, CuratedModel[]>, model: string): ModelSpeed[] {
+  const row = modelsOf(provider, liveModels).find((entry) => entry.id === model);
+  return row?.speeds ?? [];
+}
+
+/**
+ * Fast mode: Claude Code's on Opus, Codex's service tiers (Fast, and
+ * Ultrafast where the plan has it). Only drawn when the picked model offers
+ * one. At the standard speed it is a dim bolt and nothing else; a faster
+ * tier lights the bolt and names itself.
+ */
+export function SpeedPicker({ provider, draft, liveModels, onPick, separated = false }: {
+  separated?: boolean;
+  provider: ProviderOption | null;
+  draft: ComposerDraft;
+  liveModels: Record<string, CuratedModel[]>;
+  onPick: (speed: string) => void;
+}) {
+  const t = useT();
+  const speeds = useMemo(
+    () => (provider ? speedsOf(provider, liveModels, draft.model) : []),
+    [provider, liveModels, draft.model],
+  );
+  if (speeds.length === 0) return null;
+  const current = speeds.some((speed) => speed.id === draft.speed) ? draft.speed ?? "" : "";
+  const options: ComboboxOption[] = [
+    {
+      value: "",
+      label: t("agent_chat.speed_standard"),
+      description: t("agent_chat.speed_standard_note"),
+      icon: <Zap aria-hidden className="h-3.5 w-3.5 opacity-60" />,
+    },
+    ...speeds.map((speed) => ({
+      value: speed.id,
+      label: speed.label,
+      // Claude Code's one tier is ours to word; a Codex tier keeps the CLI's own line.
+      description: speed.id === "fast" || !speed.note ? t("agent_chat.speed_fast_note") : speed.note,
+      icon: <Zap aria-hidden className="h-3.5 w-3.5 fill-current text-accent" />,
+    })),
+  ];
+  return <>
+    {separated && <Separator />}
+    <Combobox ariaLabel={t("agent_chat.speed_aria")} testId="thread-speed-picker" value={current}
+      groups={[{ id: "speed", label: t("agent_chat.speed_aria"), options }]}
+      onChange={onPick} fallbackLabel={t("agent_chat.speed_standard")} triggerHint={false}
+      iconOnly={!current} chevron={Boolean(current)} panelMinWidth={300} className={TRIGGER} />
   </>;
 }
 
