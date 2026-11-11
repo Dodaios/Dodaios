@@ -236,3 +236,18 @@ async def test_the_block_marker_carries_hold_references() -> None:
         assert not (await executor.execute(tool, {})).success
     with autonomy_origin("routine", agent_id="bob"):
         assert (await executor.execute(tool, {})).success
+
+
+# ------------------------------------------------------------------- audit
+
+
+async def test_held_and_unavailable_outcomes_still_write_an_audit_row() -> None:
+    from dodaios.trust.audit import audit_log
+
+    executor, _ = _executor()
+    slack = _Tool("slack", risk_tier="monitor")
+    await _run(executor, slack, {"action": "post_message"}, "routine")  # approval unavailable
+    stop_holds().hold("everything", reason="r")
+    await _run(executor, _Tool("search_web", risk_tier="safe"), {}, "routine")  # held
+    rows = audit_log().query(limit=20)["entries"]
+    assert {r["tool"] for r in rows} >= {"slack", "search_web"}
