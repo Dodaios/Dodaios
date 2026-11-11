@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowUp, CornerDownRight, Hammer, ListChecks, Loader2, MessageCircleQuestion, ShieldAlert, Square, X } from "lucide-react";
+import { ArrowUp, Hammer, ListChecks, Loader2, MessageCircleQuestion, ShieldAlert, Square, X } from "lucide-react";
 import { ChatAttachmentStrip } from "@/components/agentchat/ChatAttachmentStrip";
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
 import { ComposerTypeahead } from "@/components/agentchat/ComposerTypeahead";
@@ -9,7 +9,7 @@ import { releaseHeldFiles, useChatAttachments, type HeldFiles } from "@/componen
 import { useComposerDictation } from "@/components/agentchat/useComposerDictation";
 import { useComposerTypeahead } from "@/components/agentchat/useComposerTypeahead";
 import { fill, useT } from "@/i18n";
-import { discardQueuedMessage, fetchAgentChatQueue, resumeAgentChatQueue, steerQueuedMessage, type AgentChatSession, type ApprovalDecision, type ChatAttachment, type PlanDecision, type SendDelivery } from "@/lib/agentChatApi";
+import { discardQueuedMessage, fetchAgentChatQueue, resumeAgentChatQueue, sendQueuedNow, type AgentChatSession, type ApprovalDecision, type ChatAttachment, type PlanDecision, type SendDelivery } from "@/lib/agentChatApi";
 import { joinProviderOptions, type ComposerDraft, type ProviderOption } from "@/store/agentChat";
 import { cn } from "@/lib/utils";
 import { effortLadder, snapEffort } from "@/lib/effortLadder";
@@ -613,15 +613,15 @@ export function ThreadComposer({
       {queue.map((entry) => <div key={entry.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm">
         <span className="shrink-0 text-xs text-muted-foreground">{t("ide_threads.queued")}</span>
         <span className="min-w-0 flex-1 truncate text-foreground">{entry.text}</span>
-        {steers && running && <button type="button" aria-label={t("ide_threads.steer_queued")} title={t("ide_threads.steer_queued")} data-testid="thread-queue-steer"
+        <button type="button" data-testid="thread-queue-send-now"
+          title={t(steers && running ? "ide_threads.send_now_steer_title" : running ? "ide_threads.send_now_stop_title" : "ide_threads.send_now_title")}
           onClick={() => {
             if (!activeSessionId) return;
-            void steerQueuedMessage(activeSessionId, entry.id).then(
-              (steered) => { if (!steered) setProblem(t("ide_threads.steer_queued_failed")); },
-              (error) => setProblem(error instanceof Error ? error.message : String(error)),
-            );
+            setPaused(false);
+            void sendQueuedNow(activeSessionId, entry.id).catch((error) => setProblem(error instanceof Error ? error.message : String(error)));
           }}
-          className="rounded p-0.5 text-muted-foreground hover:text-foreground"><CornerDownRight className="h-3.5 w-3.5" /></button>}
+          className="flex shrink-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <ArrowUp className="h-3 w-3" />{t("ide_threads.send_now")}</button>
         <button type="button" aria-label={t("ide_threads.remove_queued")} onClick={() => { if (activeSessionId) void discardQueuedMessage(activeSessionId, entry.id).catch((error) => setProblem(error instanceof Error ? error.message : String(error))); }}
           className="rounded p-0.5 text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
       </div>)}

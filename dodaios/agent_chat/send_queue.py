@@ -52,6 +52,7 @@ __all__ = [
     "recover_waiting",
     "resume",
     "send_or_queue",
+    "send_waiting_now",
     "steer_waiting",
     "try_steer",
 ]
@@ -236,6 +237,38 @@ async def steer_waiting(svc: Any, session_id: str, queue_id: str) -> bool:
         {"kind": "message_dequeued", "queue_id": queue_id, "status": "steered"},
     )
     return True
+
+
+async def send_waiting_now(svc: Any, session_id: str, queue_id: str) -> str:
+    """The person's "send it now" on a waiting message: ``steered``, ``next`` or ``""``.
+
+    A CLI that takes a message mid-turn gets it at once (``steered``). Any
+    other agent, or a CLI that refuses it, has its running turn stopped and
+    the message starts as the very next turn, ahead of the others (``next``);
+    a stopped (paused) queue is released for it. ``""``: the message is gone.
+    """
+    pending = getattr(svc, "_society_send_queues", {}).get(session_id)
+    if pending is None:
+        return ""
+    if await steer_waiting(svc, session_id, queue_id):
+        return "steered"
+    index = next((i for i, item in enumerate(pending.items) if item.queue_id == queue_id), -1)
+    if index < 0:
+        return ""
+    item = pending.items[index]
+    del pending.items[index]
+    pending.items.appendleft(item)
+    pending.paused = False
+    if svc.is_running(session_id):
+        await svc.cancel(session_id)
+        seal = getattr(svc, "seal_stopped_turn", None)
+        if seal is not None and not svc.is_running(session_id):
+            await seal(session_id)
+    if pending.drain is None or pending.drain.done():
+        pending.drain = asyncio.create_task(
+            _drain(svc, session_id, pending), name=f"chat-queue-{session_id[-24:]}"
+        )
+    return "next"
 
 
 def pause(svc: Any, session_id: str) -> None:

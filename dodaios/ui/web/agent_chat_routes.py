@@ -2007,13 +2007,20 @@ async def discard_queued(session_id: str, queue_id: str, request: Request) -> di
     return {"removed": await send_queue.discard(svc, session_id, queue_id)}
 
 
-@router.post("/sessions/{session_id}/queue/{queue_id}/steer")
-async def steer_queued(session_id: str, queue_id: str, request: Request) -> dict[str, Any]:
-    """Send one waiting message into the running turn now instead of after it."""
+@router.post(
+    "/sessions/{session_id}/queue/{queue_id}/send-now",
+    summary="Send one waiting message now instead of after the running turn",
+    # An agent that cannot take a message mid-turn has that turn stopped so
+    # the message starts at once: work in flight is lost, like Stop.
+    openapi_extra={"x-jarvis-dangerous": True},
+)
+async def send_queued_now(session_id: str, queue_id: str, request: Request) -> dict[str, Any]:
+    """Steer the message into the running turn, or stop the turn and start it next."""
     svc = await _async_service(request)
     if svc.store.get_session(session_id) is None:
         raise HTTPException(status_code=404, detail="session not found")
-    return {"steered": await send_queue.steer_waiting(svc, session_id, queue_id)}
+    outcome = await send_queue.send_waiting_now(svc, session_id, queue_id)
+    return {"steered": outcome == "steered", "next": outcome == "next"}
 
 
 @router.post("/sessions/{session_id}/approvals/{approval_id}")

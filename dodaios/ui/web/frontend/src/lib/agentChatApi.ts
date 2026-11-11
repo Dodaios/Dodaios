@@ -593,16 +593,20 @@ export async function resumeAgentChatQueue(sessionId: string): Promise<AgentChat
   );
 }
 
-/** Send a waiting message into the running turn now; false when it keeps waiting. */
-export async function steerQueuedMessage(sessionId: string, queueId: string): Promise<boolean> {
-  const result = await json<{ steered: boolean }>(
+/**
+ * Send a waiting message now: into the running turn when its CLI takes it
+ * (`steered`), otherwise the turn stops and it starts next (`next`);
+ * `gone` when it already started or was taken back.
+ */
+export async function sendQueuedNow(sessionId: string, queueId: string): Promise<"steered" | "next" | "gone"> {
+  const result = await json<{ steered: boolean; next: boolean }>(
     await fetch(
-      `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/queue/${encodeURIComponent(queueId)}/steer`,
+      `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/queue/${encodeURIComponent(queueId)}/send-now`,
       { method: "POST" },
     ),
     "queue-failed",
   );
-  return result.steered;
+  return result.steered ? "steered" : result.next ? "next" : "gone";
 }
 
 export async function discardQueuedMessage(sessionId: string, queueId: string): Promise<void> {
