@@ -1,5 +1,5 @@
 import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowDown, Bot, Check, ChevronDown, ChevronRight, Copy, Diff, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, MessageCircleQuestion, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
+import { ArrowDown, Bot, Check, ChevronDown, ChevronRight, Copy, Diff, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
@@ -19,6 +19,8 @@ import { flattenMarks } from "@/lib/plainMarks";
 import { SubagentRun } from "./ThreadSubagents";
 import { listSubagents } from "./subagents";
 import { turnErrorText } from "@/components/agentchat/turnError";
+import { useSideFileStore } from "@/store/sideFile";
+import { DiffStat, DiffView } from "./ThreadDiff";
 
 /**
  * A thread's conversation: the person's messages on the right, the agent's
@@ -132,32 +134,6 @@ function WorkRow({
   </div>;
 }
 
-function DiffStat({ added, removed }: { added: number; removed: number }) {
-  if (!added && !removed) return null;
-  return <span className="inline-flex shrink-0 items-baseline gap-1.5 text-[13px] tabular-nums">
-    {added > 0 && <span className="text-success">+{added}</span>}
-    {removed > 0 && <span className="text-destructive">−{removed}</span>}
-  </span>;
-}
-
-function DiffView({ files }: { files: DiffFile[] }) {
-  return <div className="space-y-2">
-    {files.map((file, index) => <div key={`${file.path}:${index}`} className="overflow-hidden rounded-lg border border-border bg-card">
-      {file.path && <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 font-mono text-xs text-muted-foreground">
-        <span className="min-w-0 flex-1 truncate">{file.path}</span><DiffStat added={file.added} removed={file.removed} />
-      </div>}
-      <pre className="m-0 max-h-80 overflow-auto py-1 font-mono text-xs leading-5 scrollbar-jarvis">
-        {file.lines.map((line, i) => line.kind === "gap"
-          ? <div key={i} className="px-3 text-muted-foreground">⋯</div>
-          : <div key={i} className={cn("whitespace-pre px-3", line.kind === "add" && "diff-line-add", line.kind === "del" && "diff-line-del")}>
-            <span aria-hidden className="mr-2 select-none opacity-60">{line.kind === "add" ? "+" : line.kind === "del" ? "-" : " "}</span>{line.text}
-          </div>)}
-        {file.truncated > 0 && <div className="px-3 text-muted-foreground">… {file.truncated} more lines</div>}
-      </pre>
-    </div>)}
-  </div>;
-}
-
 function inputText(input: unknown): string {
   if (input == null) return "";
   if (typeof input === "string") return input;
@@ -198,13 +174,17 @@ function CallDetails({ call, className = "mb-1.5 mt-0.5" }: { call: Call; classN
   const block = call.block;
   const pictures = useContext(CallMedia).get(block.callId);
   const diff = useMemo(() => toolDiff(block.name, block.input, block.output), [block.name, block.input, block.output]);
+  const folder = useContext(ThreadFolder);
   const output = readableOutput(block).trim();
   if (pictures?.length) {
     return <div className={cn(className, PROSE, THREAD_MEDIA)}>
       {pictures.map((text, index) => <ChatMarkdown key={index} text={text} />)}
     </div>;
   }
-  if (diff && diff.length > 0 && !block.isError) return <div className={className}><DiffView files={diff} /></div>;
+  if (diff && diff.length > 0 && !block.isError) {
+    const open = (file: DiffFile) => useSideFileStore.getState().show({ path: file.path, folder, diff: diff.filter((other) => other.path === file.path) });
+    return <div className={className}><DiffView files={diff} onOpen={open} /></div>;
+  }
   const input = call.kind === "command" ? "" : inputText(block.input);
   return <div className={cn(className, "space-y-1.5 select-text")}>
     {call.kind === "command" && <pre className="m-0 max-h-24 overflow-y-auto whitespace-pre-wrap rounded-lg bg-secondary px-3 py-2 font-mono text-xs leading-5 text-foreground [overflow-wrap:anywhere] scrollbar-jarvis">$ {inputText((block.input as Record<string, unknown> | null)?.command ?? call.text)}</pre>}
@@ -323,19 +303,43 @@ function StepRow({ icon, words, trailing, live = false, title, ariaLabel, testId
   </div>;
 }
 
-/** What a step acted on, a step brighter than its verb; a file reads underlined. */
-function Target({ text, file = false }: { text: string; file?: boolean }) {
-  return <span className={cn("text-foreground-secondary", file && "underline decoration-muted-foreground/50 decoration-1 underline-offset-[3px]")}>{text}</span>;
+/**
+ * What a step acted on, a step brighter than its verb; a file reads
+ * underlined. A file the step names opens in the side panel on a click; the
+ * rest of the line still opens the step.
+ */
+function Target({ text, file = false, onOpen }: { text: string; file?: boolean; onOpen?: () => void }) {
+  const t = useT();
+  const look = cn("text-foreground-secondary", file && "underline decoration-muted-foreground/50 decoration-1 underline-offset-[3px]");
+  if (!onOpen) return <span className={look}>{text}</span>;
+  // Inside the step's own button, where a nested button is not allowed: the
+  // keyboard reaches the same file through the opened step's path button.
+  return <span title={t("thread_turn.open_beside")} data-testid="thread-file-target"
+    onClick={(event) => { event.stopPropagation(); event.preventDefault(); onOpen(); }}
+    className={cn(look, "cursor-pointer hover:text-foreground hover:decoration-foreground/60")}>{text}</span>;
+}
+
+/** The file a read, write or edit acted on, as the tool named it; "" for any other step. */
+export function callFilePath(call: Call): string {
+  if (call.kind !== "read" && call.kind !== "edit" && call.kind !== "write") return "";
+  const input = call.block.input;
+  if (!input || typeof input !== "object" || Array.isArray(input)) return "";
+  const record = input as Record<string, unknown>;
+  for (const key of ["file_path", "path", "notebook_path", "filename"]) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
 }
 
 /** A call's words with what it acted on lifted out: "Read " + "src/app.ts". */
-function callLine(call: Call, t: (key: string) => string): ReactNode {
+function callLine(call: Call, t: (key: string) => string, onOpenFile?: () => void): ReactNode {
   if (call.kind === "command") return <>{t("thread_turn.ran")} <Target text={call.text} /></>;
   const target = call.target ?? "";
   const at = target ? call.text.indexOf(target) : -1;
   if (at >= 0) {
     const file = call.kind === "read" || call.kind === "edit" || call.kind === "write" || call.kind === "list";
-    return <>{call.text.slice(0, at)}<Target text={target} file={file} />{call.text.slice(at + target.length)}</>;
+    return <>{call.text.slice(0, at)}<Target text={target} file={file} onOpen={file ? onOpenFile : undefined} />{call.text.slice(at + target.length)}</>;
   }
   const detail = call.detail || call.result;
   return detail ? <>{call.text} <Target text={detail} /></> : call.text;
@@ -344,6 +348,7 @@ function callLine(call: Call, t: (key: string) => string): ReactNode {
 function StepView({ item, running, lone = false }: { item: StretchItem; running: boolean; lone?: boolean }) {
   const t = useT();
   const media = useContext(CallMedia);
+  const folder = useContext(ThreadFolder);
   if (item.kind === "said") {
     const gist = thoughtGist(item.text);
     return <StepRow icon={stepIcon(item)} words={gist} live={item.live && running} testId="thread-thought" startOpen={lone}>
@@ -356,9 +361,15 @@ function StepView({ item, running, lone = false }: { item: StretchItem; running:
   const tail = callTail(call, t);
   // A step that brought pictures back shows them small at its end, so the reader finds it.
   const pictures = pictureUrls(media.get(call.block.callId) ?? []);
+  const filePath = callFilePath(call);
+  const openFile = filePath ? () => {
+    const block = call.block;
+    const diff = block.isError ? null : toolDiff(block.name, block.input, block.output);
+    useSideFileStore.getState().show({ path: filePath, folder, diff: diff?.length ? diff : null });
+  } : undefined;
   return <StepRow
     icon={stepIcon(item)}
-    words={callLine(call, t)}
+    words={callLine(call, t, openFile)}
     // The agent's own words for a command stay one hover away.
     title={callPurpose(call) || undefined}
     live={call.status === "running"}
@@ -643,9 +654,9 @@ export function ChangedFiles({ turn }: { turn: TurnItem }) {
       {shown.map((row) => {
         const { folder, name } = splitPath(projectPath(row.path, root));
         const open = openPaths.has(row.path);
-        return <li key={row.path}>
+        return <li key={row.path} className="group/file relative">
           <button type="button" aria-expanded={open} onClick={() => togglePath(row.path)} title={row.path}
-            className="flex w-full items-center gap-3 px-3 py-1.5 text-left text-sm hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+            className="flex w-full items-center gap-3 py-1.5 pl-3 pr-10 text-left text-sm hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
             {/* The folder gives way first, cut from its left, so the name stays readable. */}
             <span className="flex min-w-0 flex-1">
               {folder && <span dir="rtl" className="min-w-0 shrink-[999] truncate text-left text-muted-foreground">
@@ -654,6 +665,12 @@ export function ChangedFiles({ turn }: { turn: TurnItem }) {
               <span className="min-w-0 max-w-full shrink-0 truncate text-foreground">{name}</span>
             </span>
             <ChangeCount added={row.added} removed={row.removed} />
+          </button>
+          <button type="button" aria-label={fill(t("thread_turn.open_file_beside"), { file: name })} title={t("thread_turn.open_beside")}
+            data-testid="thread-changed-file-open"
+            onClick={() => useSideFileStore.getState().show({ path: row.path, folder: root, diff: row.files })}
+            className="absolute right-2 top-1 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover/file:opacity-100">
+            <PanelRight aria-hidden className="h-3.5 w-3.5" />
           </button>
           {open && <div className="px-3 pb-2 pt-0.5"><DiffView files={row.files.map((file) => ({ ...file, path: "" }))} /></div>}
         </li>;

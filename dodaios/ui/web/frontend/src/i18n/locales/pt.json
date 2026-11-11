@@ -7979,7 +7979,9 @@
     "technical_details": "Detalhes técnicos",
     "ran": "Executou",
     "getting_ready": "A preparar",
-    "tokens_hint": "Entrada {input} tokens novos ({cached} reutilizados da cache) · saída {output} tokens"
+    "tokens_hint": "Entrada {input} tokens novos ({cached} reutilizados da cache) · saída {output} tokens",
+    "open_beside": "Mostrar no painel lateral",
+    "open_file_beside": "Mostrar {file} no painel lateral"
   },
   "work_trace": {
     "tool_failed": "Uma ação de ferramenta falhou",
@@ -8499,7 +8501,8 @@
       "subscriptions": "Subscrições",
       "office": "Dodaios Verse",
       "chat": "Chat",
-      "resources": "Recursos"
+      "resources": "Recursos",
+      "file": "Arquivo"
     },
     "subscriptions": {
       "bank": {
@@ -9407,6 +9410,19 @@
         "terminal_host": "Anfitrião de terminais",
         "thread_host": "Anfitrião de conversas"
       }
+    },
+    "file": {
+      "empty": "Clique em um arquivo no trabalho de um thread para lê-lo aqui.",
+      "views": "Visualizações do arquivo",
+      "view_file": "Arquivo",
+      "view_change": "Alteração",
+      "reload": "Ler o arquivo novamente",
+      "loading": "Lendo o arquivo",
+      "binary": "Este arquivo não é texto, por isso não pode ser exibido aqui.",
+      "too_large": "Este arquivo é grande demais para ser exibido aqui.",
+      "unavailable": "Não é possível ler este arquivo. Ele pode ter sido movido ou excluído.",
+      "no_workspace": "Abra um projeto para ler arquivos aqui.",
+      "show_change": "Mostrar a alteração"
     }
   },
   "appshots": {

@@ -7979,7 +7979,9 @@
     "technical_details": "Technical details",
     "ran": "Ran",
     "getting_ready": "Getting ready",
-    "tokens_hint": "Input {input} tokens new to the model ({cached} more reused from the cache) · output {output} tokens"
+    "tokens_hint": "Input {input} tokens new to the model ({cached} more reused from the cache) · output {output} tokens",
+    "open_beside": "Show in the side panel",
+    "open_file_beside": "Show {file} in the side panel"
   },
   "work_trace": {
     "tool_failed": "A tool action failed",
@@ -8499,7 +8501,8 @@
       "subscriptions": "Subscriptions",
       "office": "Dodaios Verse",
       "chat": "Chat",
-      "resources": "Resources"
+      "resources": "Resources",
+      "file": "File"
     },
     "subscriptions": {
       "bank": {
@@ -9407,6 +9410,19 @@
         "terminal_host": "Terminal host",
         "thread_host": "Thread host"
       }
+    },
+    "file": {
+      "empty": "Click a file in a thread's work to read it here.",
+      "views": "File views",
+      "view_file": "File",
+      "view_change": "Change",
+      "reload": "Read the file again",
+      "loading": "Reading the file",
+      "binary": "This file is not text, so it cannot be shown here.",
+      "too_large": "This file is too large to show here.",
+      "unavailable": "This file cannot be read. It may have been moved or deleted.",
+      "no_workspace": "Open a project to read files here.",
+      "show_change": "Show the change"
     }
   },
   "appshots": {

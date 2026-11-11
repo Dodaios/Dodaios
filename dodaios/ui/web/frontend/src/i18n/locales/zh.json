@@ -7979,7 +7979,9 @@
     "technical_details": "技术详情",
     "ran": "运行了",
     "getting_ready": "正在准备",
-    "tokens_hint": "输入 {input} 个新词元（另有 {cached} 个来自缓存）· 输出 {output} 个词元"
+    "tokens_hint": "输入 {input} 个新词元（另有 {cached} 个来自缓存）· 输出 {output} 个词元",
+    "open_beside": "在侧边栏中显示",
+    "open_file_beside": "在侧边栏中显示 {file}"
   },
   "work_trace": {
     "tool_failed": "一个工具操作失败",
@@ -8499,7 +8501,8 @@
       "subscriptions": "订阅",
       "office": "Dodaios Verse",
       "chat": "聊天",
-      "resources": "资源"
+      "resources": "资源",
+      "file": "文件"
     },
     "subscriptions": {
       "bank": {
@@ -9407,6 +9410,19 @@
         "terminal_host": "终端宿主",
         "thread_host": "会话宿主"
       }
+    },
+    "file": {
+      "empty": "点击线程工作记录中的文件，即可在此阅读。",
+      "views": "文件视图",
+      "view_file": "文件",
+      "view_change": "更改",
+      "reload": "重新读取文件",
+      "loading": "正在读取文件",
+      "binary": "此文件不是文本，无法在此显示。",
+      "too_large": "此文件太大，无法在此显示。",
+      "unavailable": "无法读取此文件，它可能已被移动或删除。",
+      "no_workspace": "打开一个项目即可在此阅读文件。",
+      "show_change": "显示更改"
     }
   },
   "appshots": {
