@@ -540,3 +540,33 @@ def test_an_outside_move_of_files_the_app_never_loads_changes_nothing(
     _git(app, "pull", "-q", "--ff-only")
     status = follower.tick()
     assert recorder.builds == [] and recorder.restarts == 0 and not status.restart_pending
+
+
+def test_a_changed_package_file_registers_the_plugins_again(
+    setup: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """New entry points (tools) are only seen after the checkout is installed again."""
+    from dodaios.core import main_follow
+
+    app, other = setup
+    pip_calls: list[list[str]] = []
+    real_run = main_follow._run
+
+    def fake_run(args, cwd, **kwargs):
+        if args[1:3] == ["-m", "pip"]:
+            pip_calls.append(list(args[3:]))
+            return subprocess.CompletedProcess(args, 0, "", "")
+        return real_run(args, cwd, **kwargs)
+
+    monkeypatch.setattr(main_follow, "_run", fake_run)
+    _land(other, {"requirements.txt": "x==1\n"}, "build: requirements only")
+    Recorder().follower(app).tick()
+    assert pip_calls == [["install", "--quiet", "-r", "requirements.txt"]]
+    pip_calls.clear()
+    _land(other, {"pyproject.toml": "[project]\nname='x'\n"}, "feat: a new tool")
+    status = Recorder(idle=False).follower(app).tick()
+    assert pip_calls == [
+        ["install", "--quiet", "-r", "requirements.txt"],
+        ["install", "--quiet", "--no-deps", "-e", "."],
+    ]
+    assert status.restart_pending
