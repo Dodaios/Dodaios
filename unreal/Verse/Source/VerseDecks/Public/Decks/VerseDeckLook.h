@@ -43,6 +43,11 @@ struct VERSEDECKS_API FVerseDeckLook
 	TOptional<FVector> ArrivalLocationCm;
 	/** Camera pitch (degrees, up positive) of the first third-person frame on arrival. */
 	TOptional<double> ArrivalPitchDeg;
+	/**
+	 * Degrees the commander's body turns from the camera's heading on arrival: a three-quarter
+	 * stance shows the costume's front trim instead of a plain back. 0 = facing away.
+	 */
+	double ArrivalBodyTurnDeg = 0.0;
 
 	static FVerseDeckLook For(FName Deck);
 };
