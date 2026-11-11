@@ -265,7 +265,7 @@ class AuditLog:
         raw = fields.get("receipt") or ""
         try:
             row["receipt"] = json.loads(raw) if raw else None
-        except ValueError:
+        except ValueError:  # a damaged receipt column reads as "no receipt"; the row still lists
             row["receipt"] = None
         return row
 

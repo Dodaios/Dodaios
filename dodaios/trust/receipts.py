@@ -102,7 +102,7 @@ def _jsonish(value: Any) -> Any:
         if text[:1] in ("{", "["):
             try:
                 return json.loads(text)
-            except ValueError:
+            except ValueError:  # not JSON after all: the text itself is the result
                 return value
     return value
 
@@ -112,7 +112,7 @@ def _text(value: Any, limit: int = 20_000) -> str:
         return value[:limit]
     try:
         return json.dumps(value, ensure_ascii=False, default=str)[:limit]
-    except (TypeError, ValueError):
+    except (TypeError, ValueError):  # not serializable: its plain string form still searches
         return str(value)[:limit]
 
 
