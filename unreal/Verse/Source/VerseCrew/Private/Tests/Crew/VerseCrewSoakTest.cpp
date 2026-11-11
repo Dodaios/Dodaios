@@ -64,6 +64,12 @@ bool FVerseCrewSoakTest::RunTest(const FString&)
 	TickMs.Reserve(Ticks);
 	TArray<double> WallMs;
 	WallMs.Reserve(Ticks);
+	// What the crew itself measured inside its tick (wall), and whether bridge frames came in:
+	// tells a frame the crew's own work made heavy from one the box made slow.
+	TArray<double> CrewMs;
+	CrewMs.Reserve(Ticks);
+	TArray<bool> HadFrames;
+	HadFrames.Reserve(Ticks);
 	const FVerseCrewDeck* Ops = W.Crew->FindDeck(FName(TEXT("ops")));
 	const FVector OpsCentre = Ops ? Ops->OriginCm + FVector(4800.f, 3000.f, 90.f) : FVector::ZeroVector;
 	int32 NextAgent = 40;
@@ -128,9 +134,12 @@ bool FVerseCrewSoakTest::RunTest(const FString&)
 			W.Bridge.Send(W.Crew, TEXT("meetings.update"), M);
 			MeetingUntil = -1.0;
 		}
+		const bool bFrames = Tick == 0 || (Tick > 0 && Tick % (20 * 30) == 0) || (Tick > 0 && Tick % (90 * 30) == 0) || Tick % (300 * 30) == 0;
 		W.Crew->Tick(Dt);
 		TickMs.Add(Clock.Ms(CpuStart, FVerseCrewThreadClock::Cycles()));
 		WallMs.Add((FPlatformTime::Seconds() - WallStart) * 1000.0);
+		CrewMs.Add(W.Crew->GetStats().LastTickMs);
+		HadFrames.Add(bFrames);
 		if (Tick % 30 == 0)
 		{
 			// Crowd check once a second: walking capsules that overlap (closer than two radii).
@@ -175,6 +184,26 @@ bool FVerseCrewSoakTest::RunTest(const FString&)
 	const double WallP99 = Percentile(WallMs, 0.99);
 	const double WallP999 = Percentile(WallMs, 0.999);
 	const FVerseCrewStats& CrewStats = W.Crew->GetStats();
+	// The heaviest frames, for telling real crew cost from noise.
+	TArray<int32> Heaviest;
+	for (int32 I = 0; I < TickMs.Num(); ++I)
+	{
+		Heaviest.Add(I);
+	}
+	Heaviest.Sort([&TickMs](int32 A, int32 B) { return TickMs[A] > TickMs[B]; });
+	Heaviest.SetNum(FMath::Min(8, Heaviest.Num()));
+	TArray<TSharedPtr<FJsonValue>> HeavyRows;
+	for (const int32 I : Heaviest)
+	{
+		AddInfo(FString::Printf(TEXT("heavy frame %d: cpu %.4f wall %.4f crew tick %.4f ms, bridge frames %d"), I, TickMs[I], WallMs[I], CrewMs[I], HadFrames[I] ? 1 : 0));
+		const TSharedRef<FJsonObject> Row = MakeShared<FJsonObject>();
+		Row->SetNumberField(TEXT("frame"), I);
+		Row->SetNumberField(TEXT("cpu_ms"), TickMs[I]);
+		Row->SetNumberField(TEXT("wall_ms"), WallMs[I]);
+		Row->SetNumberField(TEXT("crew_tick_ms"), CrewMs[I]);
+		Row->SetBoolField(TEXT("bridge_frames"), HadFrames[I]);
+		HeavyRows.Add(MakeShared<FJsonValueObject>(Row));
+	}
 	AddInfo(FString::Printf(TEXT("frames %d: cpu mean %.4f p99 %.4f p99.9 %.4f max %.4f ms (%d over 1 ms); wall p99 %.4f p99.9 %.4f max %.4f ms (%d over 1 ms)"),
 		TickMs.Num(), Mean, P99, P999, Max, Over1Ms, WallP99, WallP999, WallMax, WallOver1Ms));
 	AddInfo(FString::Printf(TEXT("stuck %d; overlaps %d; yields %d; replans %d; spawned %d (pool reuses %d); nav paths %d, fallbacks %d, blocked %d; worst plan %.3f spawn %.3f path %.3f ms; peak queue %d; walk_together %d"),
@@ -226,6 +255,7 @@ bool FVerseCrewSoakTest::RunTest(const FString&)
 	Report->SetNumberField(TEXT("arrivals"), CrewStats.Arrivals);
 	Report->SetNumberField(TEXT("walk_together"), W.Bridge.Count(TEXT("progression.action"), TEXT("walk_together")));
 	Report->SetNumberField(TEXT("team_briefing"), W.Bridge.Count(TEXT("progression.action"), TEXT("team_briefing")));
+	Report->SetArrayField(TEXT("heaviest_frames"), HeavyRows);
 	A::WriteProof(TEXT("WP15.9"), TEXT("soak.json"), Report);
 	return true;
 }

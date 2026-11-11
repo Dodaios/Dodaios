@@ -1,0 +1,629 @@
+{
+ "bounds_cm": {
+  "max": [
+   10000.0,
+   5500.0,
+   0.0
+  ],
+  "min": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ "deck": "hangar",
+ "generator": {
+  "blender": "0.0.0",
+  "script": "flight_deck_routes.py",
+  "version": "1"
+ },
+ "level": "/Game/Verse/Decks/Hangar/LV_Hangar",
+ "placements": [],
+ "rooms": [],
+ "schema": "verse.placement/1",
+ "sockets": [
+  {
+   "id": "waypoint-cargo_01",
+   "kind": "waypoint",
+   "location": [
+    6600.0,
+    540.0,
+    0.0
+   ],
+   "props": {
+    "loop": "cargo",
+    "manifest_id": "cargo_01",
+    "order": "1",
+    "yaw_deg": "90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-cargo_02",
+   "kind": "waypoint",
+   "location": [
+    7620.0,
+    540.0,
+    0.0
+   ],
+   "props": {
+    "loop": "cargo",
+    "manifest_id": "cargo_02",
+    "order": "2",
+    "yaw_deg": "0.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.7071068,
+    0.7071068
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-cargo_03",
+   "kind": "waypoint",
+   "location": [
+    7620.0,
+    4400.0,
+    0.0
+   ],
+   "props": {
+    "loop": "cargo",
+    "manifest_id": "cargo_03",
+    "order": "3",
+    "yaw_deg": "90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-cargo_04",
+   "kind": "waypoint",
+   "location": [
+    8470.0,
+    4400.0,
+    0.0
+   ],
+   "props": {
+    "loop": "cargo",
+    "manifest_id": "cargo_04",
+    "order": "4",
+    "yaw_deg": "180.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    -0.7071068,
+    0.7071068
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-cargo_05",
+   "kind": "waypoint",
+   "location": [
+    8470.0,
+    540.0,
+    0.0
+   ],
+   "props": {
+    "loop": "cargo",
+    "manifest_id": "cargo_05",
+    "order": "5",
+    "yaw_deg": "90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-cargo_06",
+   "kind": "waypoint",
+   "location": [
+    9460.0,
+    540.0,
+    0.0
+   ],
+   "props": {
+    "loop": "cargo",
+    "manifest_id": "cargo_06",
+    "order": "6",
+    "yaw_deg": "0.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.7071068,
+    0.7071068
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-cargo_07",
+   "kind": "waypoint",
+   "location": [
+    9460.0,
+    4400.0,
+    0.0
+   ],
+   "props": {
+    "loop": "cargo",
+    "manifest_id": "cargo_07",
+    "order": "7",
+    "yaw_deg": "-90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-cargo_08",
+   "kind": "waypoint",
+   "location": [
+    6600.0,
+    4400.0,
+    0.0
+   ],
+   "props": {
+    "loop": "cargo",
+    "manifest_id": "cargo_08",
+    "order": "8",
+    "yaw_deg": "180.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    -0.7071068,
+    0.7071068
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-front_01",
+   "kind": "waypoint",
+   "location": [
+    2700.0,
+    4500.0,
+    0.0
+   ],
+   "props": {
+    "loop": "front",
+    "manifest_id": "front_01",
+    "order": "1",
+    "yaw_deg": "90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-front_02",
+   "kind": "waypoint",
+   "location": [
+    4700.0,
+    4500.0,
+    0.0
+   ],
+   "props": {
+    "loop": "front",
+    "manifest_id": "front_02",
+    "order": "2",
+    "yaw_deg": "90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-front_03",
+   "kind": "waypoint",
+   "location": [
+    6400.0,
+    4500.0,
+    0.0
+   ],
+   "props": {
+    "loop": "front",
+    "manifest_id": "front_03",
+    "order": "3",
+    "yaw_deg": "-90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-pad_01",
+   "kind": "waypoint",
+   "location": [
+    4020.0,
+    1100.0,
+    0.0
+   ],
+   "props": {
+    "loop": "pad",
+    "manifest_id": "pad_01",
+    "order": "1",
+    "yaw_deg": "90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-pad_02",
+   "kind": "waypoint",
+   "location": [
+    6000.0,
+    1100.0,
+    0.0
+   ],
+   "props": {
+    "loop": "pad",
+    "manifest_id": "pad_02",
+    "order": "2",
+    "yaw_deg": "11.31"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.6339884,
+    0.7733425
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-pad_03",
+   "kind": "waypoint",
+   "location": [
+    6240.0,
+    2300.0,
+    0.0
+   ],
+   "props": {
+    "loop": "pad",
+    "manifest_id": "pad_03",
+    "order": "3",
+    "yaw_deg": "-12.09"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.77764,
+    0.6287098
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-pad_04",
+   "kind": "waypoint",
+   "location": [
+    6000.0,
+    3420.0,
+    0.0
+   ],
+   "props": {
+    "loop": "pad",
+    "manifest_id": "pad_04",
+    "order": "4",
+    "yaw_deg": "-90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-pad_05",
+   "kind": "waypoint",
+   "location": [
+    4020.0,
+    3420.0,
+    0.0
+   ],
+   "props": {
+    "loop": "pad",
+    "manifest_id": "pad_05",
+    "order": "5",
+    "yaw_deg": "-177.95"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.7196428,
+    -0.6943444
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-pad_06",
+   "kind": "waypoint",
+   "location": [
+    3980.0,
+    2300.0,
+    0.0
+   ],
+   "props": {
+    "loop": "pad",
+    "manifest_id": "pad_06",
+    "order": "6",
+    "yaw_deg": "178.09"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    -0.6952231,
+    0.718794
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-wall_01",
+   "kind": "waypoint",
+   "location": [
+    600.0,
+    540.0,
+    0.0
+   ],
+   "props": {
+    "loop": "wall",
+    "manifest_id": "wall_01",
+    "order": "1",
+    "yaw_deg": "90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-wall_02",
+   "kind": "waypoint",
+   "location": [
+    2800.0,
+    540.0,
+    0.0
+   ],
+   "props": {
+    "loop": "wall",
+    "manifest_id": "wall_02",
+    "order": "2",
+    "yaw_deg": "90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-wall_03",
+   "kind": "waypoint",
+   "location": [
+    7200.0,
+    540.0,
+    0.0
+   ],
+   "props": {
+    "loop": "wall",
+    "manifest_id": "wall_03",
+    "order": "3",
+    "yaw_deg": "90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-wall_04",
+   "kind": "waypoint",
+   "location": [
+    9400.0,
+    540.0,
+    0.0
+   ],
+   "props": {
+    "loop": "wall",
+    "manifest_id": "wall_04",
+    "order": "4",
+    "yaw_deg": "-90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-well_01",
+   "kind": "waypoint",
+   "location": [
+    600.0,
+    2340.0,
+    0.0
+   ],
+   "props": {
+    "loop": "well",
+    "manifest_id": "well_01",
+    "order": "1",
+    "yaw_deg": "90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-well_02",
+   "kind": "waypoint",
+   "location": [
+    3600.0,
+    2340.0,
+    0.0
+   ],
+   "props": {
+    "loop": "well",
+    "manifest_id": "well_02",
+    "order": "2",
+    "yaw_deg": "159.04"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    -0.5666939,
+    0.8239284
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-well_03",
+   "kind": "waypoint",
+   "location": [
+    3960.0,
+    1400.0,
+    0.0
+   ],
+   "props": {
+    "loop": "well",
+    "manifest_id": "well_03",
+    "order": "3",
+    "yaw_deg": "-155.77"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.839762,
+    -0.5429546
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-well_04",
+   "kind": "waypoint",
+   "location": [
+    3600.0,
+    600.0,
+    0.0
+   ],
+   "props": {
+    "loop": "well",
+    "manifest_id": "well_04",
+    "order": "4",
+    "yaw_deg": "-90.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   "station": null
+  },
+  {
+   "id": "waypoint-well_05",
+   "kind": "waypoint",
+   "location": [
+    600.0,
+    600.0,
+    0.0
+   ],
+   "props": {
+    "loop": "well",
+    "manifest_id": "well_05",
+    "order": "5",
+    "yaw_deg": "0.0"
+   },
+   "room": "flight_deck",
+   "rotation": [
+    0.0,
+    0.0,
+    0.7071068,
+    0.7071068
+   ],
+   "station": null
+  }
+ ],
+ "source": {
+  "builder": "art/verse/decks/hangar/flight_deck_routes.py",
+  "sha256": "4c47de38dc38f5bc60ebe01dd90e49b4db8c7bfa1e55fd684ddc17feb6f1f612"
+ },
+ "zone": "flight_deck_routes"
+}
