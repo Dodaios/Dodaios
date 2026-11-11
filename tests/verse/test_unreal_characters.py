@@ -189,6 +189,9 @@ def test_records_follow_the_schema():
         assert path.name == f"{doc['name']}.import.json"
 
 
+HUMANS = {m.name for m in K.MESHES}
+
+
 def test_every_mesh_cites_a_ledger_row_or_own():
     ledger = (REPO / "art/verse/LICENSES.md").read_text(encoding="utf-8")
     for path, doc in _records():
@@ -197,7 +200,10 @@ def test_every_mesh_cites_a_ledger_row_or_own():
         if lic["kind"] == "ledger":
             for sha in lic["ledger_sha256"]:
                 assert sha in ledger, (path, sha)
-        if doc["kind"] == "skeletal_mesh":
+        if doc["kind"] == "skeletal_mesh" and doc["name"] not in HUMANS:
+            # the drones: own work on their own skeletons (`drones_unreal.py`)
+            assert lic == {"kind": "own"}, path
+        elif doc["kind"] == "skeletal_mesh":
             assert lic == {"kind": "ledger", "ledger_sha256": [R.BASE_MESH_LEDGER]}
             assert doc["mesh"]["triangles"] <= 80_000
             assert S.check_names(doc["mesh"]["bones"]) == []
