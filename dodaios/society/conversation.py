@@ -473,7 +473,9 @@ async def prepare_history(
             remaining.insert(0, retained_request)
     if compact_only:
         return []
-    history = brain_history_from_events(remaining, max_messages=None)
+    history = brain_history_from_events(
+        remaining, max_messages=None, recall_ids=getattr(session, "surface", None) == "jarvis"
+    )
     if summary:
         recalled = await asyncio.to_thread(archive.search, sid, query, limit=4)
         excerpts = "\n".join(
@@ -524,7 +526,9 @@ async def fallback_history(
         tail.append(event)
         used += cost
     tail.reverse()
-    history = brain_history_from_events(tail, max_messages=None)
+    history = brain_history_from_events(
+        tail, max_messages=None, recall_ids=getattr(session, "surface", None) == "jarvis"
+    )
     if summary:
         history.insert(
             0,

@@ -89,6 +89,8 @@ def normalize(source: str, payload: Mapping[str, Any]) -> TriggerEvent:
     raw_ids = payload.get("ids")
     ids = [str(i) for i in raw_ids] if isinstance(raw_ids, list | tuple) else []
     single = pick("id", "message_id", "event_id", "delivery_id")
+    # An event rebuilt from its own dict carries its prefixed ``event_id``; keep the id stable.
+    single = single.removeprefix(f"{source}:") if single.startswith(f"{source}:") else single
     if single and single not in ids:
         ids.insert(0, single)
     received = payload.get("received_at")
