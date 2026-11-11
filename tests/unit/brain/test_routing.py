@@ -1952,6 +1952,7 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
             # result card of a multi-app request. Never spawns.
             "living-page",
             "show-result-card",
+            "write-report",
             # Jobs ledger (2026-11-10): read-only status / wait on started work.
             "job-status",
             "await-jobs",

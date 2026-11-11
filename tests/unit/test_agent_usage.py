@@ -149,7 +149,7 @@ def test_claude_reports_a_disk_reading_as_cached_with_the_providers_timestamp(
     assert usage.status == "ok"
     assert usage.source == "cached"
     assert usage.as_of == pytest.approx(1786557552.405)
-    assert usage.plan == "Max 20x"
+    assert usage.plan == "Ultra"
     assert len(usage.windows) == 3
 
 
@@ -845,3 +845,18 @@ def test_an_answer_without_numbers_falls_back_to_the_plain_read(
     monkeypatch.setattr(agent_usage, "_http_get_json", lambda url, headers: answers[url])
     usage = agent_usage.read_usage(seat)
     assert [(w.kind, w.percent) for w in usage.windows] == [("weekly", 41)]
+
+
+@pytest.mark.parametrize(
+    ("tier", "plan"),
+    [
+        ("default_claude_max_20x", "Ultra"),
+        ("default_claude_max_5x", "Max"),
+        ("default_claude_ultra", "Ultra"),
+        ("default_claude_pro", "Pro"),
+    ],
+)
+def test_claude_plan_uses_the_current_plan_names(tier: str, plan: str) -> None:
+    """Anthropic renamed Max 20x to Ultra and Max 5x to Max on 2026-10-30."""
+    claude_json = {"oauthAccount": {"organizationRateLimitTier": tier}}
+    assert agent_usage._claude_plan_name(claude_json) == plan

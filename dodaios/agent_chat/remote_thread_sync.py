@@ -25,6 +25,10 @@ log = logging.getLogger(__name__)
 #: ``notice.kind`` of the line that says where a remote turn's work went.
 NOTICE_KIND = "remote_work"
 
+#: The event that names each step of setting a turn up on the other computer,
+#: for the "Setting up" line a thread shows until the agent's first words.
+SETUP_KIND = "setup_step"
+
 #: One exchange at a time per computer and folder: the copy on the other
 #: computer is one git checkout, and two git commands in it collide.
 _LOCKS: dict[tuple[str, str], asyncio.Lock] = {}
@@ -50,6 +54,17 @@ async def _emit_notice(handle: Any, text: str) -> None:
     )
 
 
+async def emit_step(handle: Any, step: str, **details: str) -> None:
+    """Tell the thread which setup step began (``connect``, ``fetch``, ``send``,
+    ``unpack``, ``start``). Never fails the turn: the line is a courtesy."""
+    try:
+        await handle.emit(
+            make_event(SETUP_KIND, {"turn_id": handle.turn_id, "step": step, **details})
+        )
+    except Exception as exc:  # noqa: BLE001 - a lost progress line must not stop the turn
+        log.debug("agent chat %s: setup step %s not shown: %s", handle.turn_id, step, exc)
+
+
 async def send_folder(handle: Any, computer_id: str, folder: Path) -> Any:
     """Copy the thread's folder to the computer for the turn about to start.
 
@@ -63,6 +78,11 @@ async def send_folder(handle: Any, computer_id: str, folder: Path) -> Any:
 
     pool = pool_for(computer_id)
     name = _computer_name(computer_id)
+    await emit_step(handle, "connect", where=name)
+
+    async def progress(step: str, details: dict[str, str]) -> None:
+        await emit_step(handle, step, **details)
+
     async with _lock(computer_id, folder):
         try:
             left = await remote.pull_unreturned(pool, folder, name)
@@ -81,7 +101,7 @@ async def send_folder(handle: Any, computer_id: str, folder: Path) -> Any:
             )
         if left is not None and left.message:
             await _emit_notice(handle, left.message)
-        return await remote.push_code(pool, folder)
+        return await remote.push_code(pool, folder, progress=progress)
 
 
 async def return_work(handle: Any, computer_id: str, folder: Path, placement: Any) -> None:

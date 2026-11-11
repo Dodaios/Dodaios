@@ -309,6 +309,10 @@ class MessageBody(BaseModel):
     #: message; the wire shape of ``drop_analysis.DropAnalysis``.
     attachments: list[dict[str, Any]] = Field(default_factory=list)
     tool_choices: list[str] = Field(default_factory=list, max_length=24)
+    #: A message typed while a coding thread's turn runs: ``now`` goes into the
+    #: running turn when its CLI takes one (ahead of waiting messages),
+    #: ``after`` waits and starts as the next turn, ``auto`` steers when it can.
+    delivery: Literal["auto", "now", "after"] = "auto"
 
 
 class ApprovalBody(BaseModel):
@@ -1805,8 +1809,14 @@ async def post_message(session_id: str, body: MessageBody, request: Request) -> 
     try:
         # A coding thread whose running CLI takes a message mid-turn is steered:
         # the text goes into the turn like typing into a terminal.
-        if await try_steer(
-            svc, session_id, body.text, body.attachments, tool_choices=body.tool_choices
+        # The person may ask for the other way: wait for the agent to finish.
+        if body.delivery != "after" and await try_steer(
+            svc,
+            session_id,
+            body.text,
+            body.attachments,
+            tool_choices=body.tool_choices,
+            overtake=body.delivery == "now",
         ):
             return {"turn_id": "", "session_id": session_id, "steered": True}
         # A created agent's chat queues a message behind its running turn
@@ -1995,6 +2005,22 @@ async def discard_queued(session_id: str, queue_id: str, request: Request) -> di
     if svc.store.get_session(session_id) is None:
         raise HTTPException(status_code=404, detail="session not found")
     return {"removed": await send_queue.discard(svc, session_id, queue_id)}
+
+
+@router.post(
+    "/sessions/{session_id}/queue/{queue_id}/send-now",
+    summary="Send one waiting message now instead of after the running turn",
+    # An agent that cannot take a message mid-turn has that turn stopped so
+    # the message starts at once: work in flight is lost, like Stop.
+    openapi_extra={"x-jarvis-dangerous": True},
+)
+async def send_queued_now(session_id: str, queue_id: str, request: Request) -> dict[str, Any]:
+    """Steer the message into the running turn, or stop the turn and start it next."""
+    svc = await _async_service(request)
+    if svc.store.get_session(session_id) is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    outcome = await send_queue.send_waiting_now(svc, session_id, queue_id)
+    return {"steered": outcome == "steered", "next": outcome == "next"}
 
 
 @router.post("/sessions/{session_id}/approvals/{approval_id}")

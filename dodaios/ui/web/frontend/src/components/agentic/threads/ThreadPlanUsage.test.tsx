@@ -24,7 +24,7 @@ const accounts: AgentAccountsResponse = {
 };
 
 function reading(id: string, session: number, weekly: number): AccountUsage {
-  return { account_id: id, platform: "claude", status: "ok", source: "live", as_of: 0, message: "", plan: "Max 20x",
+  return { account_id: id, platform: "claude", status: "ok", source: "live", as_of: 0, message: "", plan: "Ultra",
     windows: [
       { kind: "session", percent: session, severity: session >= 95 ? "critical" : "normal", resets_at: null, window_minutes: 300, scope_label: null, raw_label: null },
       { kind: "weekly", percent: weekly, severity: "normal", resets_at: null, window_minutes: 10080, scope_label: null, raw_label: null },
@@ -41,7 +41,7 @@ describe("ThreadPlanUsage", () => {
   it("shows the active seat's limit closest to running out, and every limit on click", async () => {
     render(<ThreadPlanUsage platform="claude" className="" />);
     const chip = await screen.findByTestId("thread-plan-usage");
-    expect(chip.textContent).toContain("Max 20x");
+    expect(chip.textContent).toContain("Ultra");
     expect(chip.textContent).toContain("5 h 97%");
     expect(chip.dataset.severity).toBe("critical");
     fireEvent.click(chip);

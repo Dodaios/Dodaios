@@ -44,9 +44,9 @@ beforeEach(() => {
           ttl_seconds: 60,
           generated_at: 0,
           accounts: [
-            { account_id: "claude:default", platform: "claude", status: "ok", source: "live", as_of: 0, message: "", plan: "Max 20x",
+            { account_id: "claude:default", platform: "claude", status: "ok", source: "live", as_of: 0, message: "", plan: "Ultra",
               windows: [{ kind: "session", percent: 65.4, severity: "normal", resets_at: null, window_minutes: null, scope_label: null, raw_label: null }] },
-            { account_id: "claude:two", platform: "claude", status: "ok", source: "live", as_of: 0, message: "", plan: "Max 20x",
+            { account_id: "claude:two", platform: "claude", status: "ok", source: "live", as_of: 0, message: "", plan: "Ultra",
               windows: [{ kind: "session", percent: 100, severity: "critical", resets_at: null, window_minutes: null, scope_label: null, raw_label: null }] },
           ],
         };
@@ -74,7 +74,7 @@ describe("SubscriptionAccounts", () => {
     const first = await screen.findByTestId("subscription-account-row-claude:default");
     expect(first.textContent).toContain("me@example.com");
     await waitFor(() => expect(first.textContent).toContain("65%"));
-    expect(first.textContent).toContain("Max 20x");
+    expect(first.textContent).toContain("Ultra");
     const second = screen.getByTestId("subscription-account-row-claude:two");
     expect(within(second).getByText("providers_page.account_active")).toBeTruthy();
     await waitFor(() => expect(second.textContent).toContain("100%"));

@@ -901,7 +901,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
                 startLabel={t("chats_view.dictation_start")}
                 stopLabel={t("chats_view.dictation_stop")}
                 shape="round"
-                className="h-9 w-9 [&>svg]:h-[18px] [&>svg]:w-[18px]"
+                idleClassName="h-9 w-9 [&>svg]:h-[18px] [&>svg]:w-[18px]"
               />
             )}
             {/* One round action: a call while the box is empty, Send once

@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { CodingModeBadge } from "@/components/layout/CodingModeBadge";
 import { SectionNavButtons } from "@/components/layout/SectionNavButtons";
 import { LayoutMenuButton } from "@/components/layout/tiling/LayoutMenuButton";
-import { IdeLayoutSwitch } from "@/components/agentic/threads/IdeLayoutSwitch";
+import { AppSurfaceSwitch } from "@/components/layout/AppSurfaceSwitch";
 import { IDE_SECTIONS } from "@/lib/ideSections";
 import { openExternalUrl } from "@/lib/openExternal";
 import { IdeSidePanelToggle } from "@/components/agentic/sidePanel/IdeSidePanelToggle";
@@ -27,8 +27,9 @@ import { useDesktopChrome, WindowControls } from "@/components/layout/WindowCont
  *
  * It is one thin row at the top of the window: back/forward at the left, the
  * empty middle to drag the window, and minimize, maximize and close at the
- * right. Theme, restart and the sidebar toggles are not caption buttons; the
- * theme lives in Settings. On the Agentic IDE the caption also carries the
+ * right. The middle carries the app's own switch, Dodaios or IDE. Theme,
+ * restart and the sidebar toggles are not caption buttons; the theme lives in
+ * Settings. On the Agentic IDE the caption also carries the
  * panel toggles beside the window buttons: the thread layout's terminal
  * drawer, then the side panel.
  *
@@ -103,7 +104,8 @@ export function TopBar() {
           if (chrome.frameless) chrome.command("maximize");
         }}
       />
-      <IdeCaptionSwitch />
+      {/* Tool windows show one view only, so there is no place to switch. */}
+      {!solo && <SurfaceCaptionSwitch />}
       <div className="flex shrink-0 items-center">
         <CodingModeBadge />
         <IdeCaptionPanelToggle />
@@ -116,17 +118,14 @@ export function TopBar() {
 }
 
 /**
- * The Agentic IDE's grid / threads switch, centred in the caption. Only on the
- * IDE: everywhere else the caption's middle stays the window's drag handle.
- * It floats over that handle rather than splitting it, so the strip keeps
- * dragging on both sides of the switch.
+ * Dodaios or IDE, centred in the caption on every screen. It floats over the
+ * drag handle rather than splitting it, so the strip keeps dragging on both
+ * sides of the switch.
  */
-function IdeCaptionSwitch() {
-  const onIde = useEventStore((s) => IDE_SECTIONS.includes(s.activeSection));
-  if (!onIde) return null;
+function SurfaceCaptionSwitch() {
   return (
     <div className="pointer-events-none absolute inset-y-0 left-1/2 flex -translate-x-1/2 items-center">
-      <IdeLayoutSwitch className="pointer-events-auto" />
+      <AppSurfaceSwitch className="pointer-events-auto" />
     </div>
   );
 }

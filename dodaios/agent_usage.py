@@ -196,7 +196,7 @@ class AccountUsage:
     #: provider's own timestamp, which is the entire reason it is reported.
     as_of: float | None = None
     message: str = ""
-    #: Display-only plan name, e.g. "Max 20x". Never used for a decision.
+    #: Display-only plan name, e.g. "Ultra". Never used for a decision.
     plan: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -401,9 +401,13 @@ _CLAUDE_OAUTH_BETA = "oauth-2025-04-20"
 #: Rate-limit tiers as the account file spells them, mapped to what the plan is
 #: called on the invoice. Unknown tiers fall through to a tidied version of the
 #: raw string rather than to nothing — a new plan name must still show up.
+#: Since 2026-10-30 Anthropic sells the former "Max 20x" as "Ultra" and the
+#: former "Max 5x" as "Max"; the account file still carries the old tier keys.
 _CLAUDE_PLAN_NAMES: dict[str, str] = {
-    "default_claude_max_20x": "Max 20x",
-    "default_claude_max_5x": "Max 5x",
+    "default_claude_max_20x": "Ultra",
+    "default_claude_max_5x": "Max",
+    "default_claude_ultra": "Ultra",
+    "default_claude_max": "Max",
     "default_claude_pro": "Pro",
     "default_claude_team": "Team",
     "default_claude_enterprise": "Enterprise",

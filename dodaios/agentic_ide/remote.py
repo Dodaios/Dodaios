@@ -40,7 +40,7 @@ import tarfile
 import tempfile
 import time
 import uuid
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
@@ -87,6 +87,22 @@ _IDENTITY_ENV = {
 
 class MoveError(RuntimeError):
     """A move failed; the message is written for the user."""
+
+
+#: Told each step of a copy as it begins: ``(step, details)``. The steps are
+#: ``fetch`` (the server fetches the pushed part itself; ``host``), ``send``
+#: (this computer sends the rest) and ``unpack`` (the server sets the files up).
+Progress = Callable[[str, dict[str, str]], Awaitable[None]]
+
+
+async def _tell(progress: Progress | None, step: str, **details: str) -> None:
+    """Report a step; a listener that fails never fails the copy."""
+    if progress is None:
+        return
+    try:
+        await progress(step, details)
+    except Exception as exc:  # noqa: BLE001 - progress is a courtesy, the copy goes on
+        log.debug("remote copy: progress listener failed at %s: %s", step, exc)
 
 
 @dataclass(frozen=True)
@@ -473,6 +489,11 @@ def public_fetch_url(url: str) -> str | None:
     return f"{match.group('scheme')}://{rest}"
 
 
+def _url_host(url: str) -> str:
+    """``github.com`` for ``https://github.com/owner/repo.git``."""
+    return re.sub(r"^[a-z]+://", "", url).split("/", 1)[0].rsplit("@", 1)[-1]
+
+
 def upstream_seed(top: Path) -> tuple[str, str] | None:
     """``(url, commit)``: the newest commit of HEAD's history its remote has.
 
@@ -505,7 +526,9 @@ def upstream_seed(top: Path) -> tuple[str, str] | None:
     return None
 
 
-async def _seed_from_upstream(pool: SshPtyPool, top: Path, remote_top: str) -> str | None:
+async def _seed_from_upstream(
+    pool: SshPtyPool, top: Path, remote_top: str, progress: Progress | None = None
+) -> str | None:
     """Let the server fetch the files from the repository's own remote.
 
     Sending the whole history as a bundle is what made a first copy of a big
@@ -517,6 +540,7 @@ async def _seed_from_upstream(pool: SshPtyPool, top: Path, remote_top: str) -> s
     if seed is None:
         return None
     url, sha = seed
+    await _tell(progress, "fetch", host=_url_host(url))
     started = time.monotonic()
     code, out, err = await pool.run(
         _SEED.format(
@@ -559,8 +583,13 @@ async def _download(pool: SshPtyPool, remote: str, local: Path) -> None:
         await sftp.get(remote, str(local))
 
 
-async def push_code(pool: SshPtyPool, local_folder: Path) -> Placement:
-    """Put ``local_folder`` (as it is right now) onto the server."""
+async def push_code(
+    pool: SshPtyPool, local_folder: Path, *, progress: Progress | None = None
+) -> Placement:
+    """Put ``local_folder`` (as it is right now) onto the server.
+
+    ``progress`` hears each step as it begins, for a reader who waits on it.
+    """
     home = await pool.home()
     code, _out, _err = await pool.run("command -v git >/dev/null")
     if code != 0:
@@ -568,7 +597,7 @@ async def push_code(pool: SshPtyPool, local_folder: Path) -> Placement:
     top = await asyncio.to_thread(git_toplevel, local_folder)
     if top is None:
         remote = remote_folder_for(home, local_folder)
-        held = await _push_tarball(pool, local_folder, remote)
+        held = await _push_tarball(pool, local_folder, remote, progress)
         return Placement(remote_folder=remote, offload_snapshot=None, left_behind=tuple(held))
 
     remote_top = remote_folder_for(home, top)
@@ -584,9 +613,10 @@ async def push_code(pool: SshPtyPool, local_folder: Path) -> Placement:
     known = await _remote_known(pool, remote_top)
     if not known:
         # A first copy: the server fetches what is already pushed itself.
-        seeded = await _seed_from_upstream(pool, top, remote_top)
+        seeded = await _seed_from_upstream(pool, top, remote_top, progress)
         if seeded:
             known = [seeded]
+    await _tell(progress, "send")
     with tempfile.TemporaryDirectory(prefix="jarvis-bundle-") as tmp:
         bundle = Path(tmp) / "offload.bundle"
         await asyncio.to_thread(_git, top, "update-ref", ref, snap)
@@ -614,6 +644,7 @@ async def push_code(pool: SshPtyPool, local_folder: Path) -> Placement:
         snap=shlex.quote(snap),
         synced=SYNCED_REF,
     )
+    await _tell(progress, "unpack")
     code, out, err = await pool.run(script, timeout_s=600)
     if code != 0 or "ok" not in out:
         detail = (err or out).strip().splitlines()
@@ -656,8 +687,11 @@ def _tar_filter(held: set[str]) -> object:
     return keep
 
 
-async def _push_tarball(pool: SshPtyPool, folder: Path, remote: str) -> list[str]:
+async def _push_tarball(
+    pool: SshPtyPool, folder: Path, remote: str, progress: Progress | None = None
+) -> list[str]:
     """Copy a folder without git; returns the files that stayed here."""
+    await _tell(progress, "send")
     size, held = await asyncio.to_thread(_tar_plan, folder)
     if size > MAX_TARBALL_BYTES:
         # Measured before anything is packed: building a 5 GB archive only to
@@ -676,6 +710,7 @@ async def _push_tarball(pool: SshPtyPool, folder: Path, remote: str) -> list[str
         archive_name = f"{uuid.uuid4().hex[:12]}.tar.gz"
         sync_dir = f"{home}/{SYNC_DIR}"
         await _upload(pool, archive, f"{sync_dir}/{archive_name}")
+    await _tell(progress, "unpack")
     # Relative archive name: some tars read "C:/..." as a remote host.
     code, _out, err = await pool.run(
         f"mkdir -p {shlex.quote(remote)} && cd {shlex.quote(sync_dir)} && "

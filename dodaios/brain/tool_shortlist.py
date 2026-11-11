@@ -106,6 +106,7 @@ DEFAULT_DIRECT: Final[tuple[str, ...]] = (
     "await_jobs",
     "job_stop",
     "ask_agent",
+    "write_report",
 )
 
 #: Hand-off tools the lead reaches through ``delegate`` instead of seeing next

@@ -153,7 +153,7 @@ def _display(platform: Platform) -> str:
 SCHEMA_VERSION = 1
 
 #: A label the user can actually read back in a pane header. Long enough for
-#: "Work account (Max 20x)", short enough not to break the switcher's layout.
+#: "Work account (Ultra)", short enough not to break the switcher's layout.
 MAX_LABEL_CHARS = 60
 
 #: Runaway guard, not a product ceiling — nobody holds this many seats, but a

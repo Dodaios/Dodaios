@@ -305,6 +305,19 @@ export interface UserItem {
 
 export type TeamEvent = "update" | "check" | "resumed";
 
+/** One step of setting a turn up on another computer (`setup_step`). */
+export interface SetupStep {
+  /** connect | fetch | send | unpack | start */
+  step: string;
+  /** The computer's name (`connect`). */
+  where: string;
+  /** The code host the server fetched from (`fetch`). */
+  host: string;
+  /** The CLI started there (`start`). */
+  cli: string;
+  atMs: number;
+}
+
 /** The frame the team engine puts on a lead's managing turn (dodaios/society/team_lead.py `_frame`). */
 const TEAM_FRAME = /^\[team (update|goal check|goal resumed) for team /;
 const TEAM_EVENTS: Record<string, TeamEvent> = { update: "update", "goal check": "check", "goal resumed": "resumed" };
@@ -351,6 +364,11 @@ export interface TurnItem {
    * agent ended its message, the CLI wakes it again once they finish.
    */
   waitingOn?: string[];
+  /**
+   * The setup steps of a turn placed on another computer (`setup_step`), in
+   * the order they began; shown until the agent's first output.
+   */
+  setup?: SetupStep[];
   /**
    * Closed on screen by the person's Stop before the backend confirmed it
    * (`stopTurnLocally`). The real `turn_finished` still settles it once more.
@@ -1303,6 +1321,18 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
     case "background_wait": {
       const tasks = Array.isArray(p.tasks) ? p.tasks.map((task) => str(task)).filter(Boolean) : [];
       return updateTurn(base, turnId, (turn) => ({ ...turn, waitingOn: tasks }));
+    }
+
+    case "setup_step": {
+      const step = str(p.step);
+      if (!step) return base;
+      const entry: SetupStep = { step, where: str(p.where), host: str(p.host), cli: str(p.cli), atMs: ev.ts_ms };
+      return updateTurn(base, turnId, (turn) => {
+        const steps = turn.setup ?? [];
+        // The same step told twice (a retry) stays one line.
+        if (steps.length > 0 && steps[steps.length - 1].step === step) return turn;
+        return { ...turn, setup: [...steps, entry] };
+      });
     }
 
     case "usage_delta": {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_THREAD_COLUMNS, threadColumns, useIdeThreadsStore } from "./ideThreads";
 
 describe("ideThreads store", () => {
@@ -29,10 +29,14 @@ describe("ideThreads store", () => {
     expect(useIdeThreadsStore.getState().selection).toEqual({ projectId: "p1", sessionId: "s8" });
   });
 
-  it("remembers the layout across a reload", () => {
+  it("switches the layout for this run only: the IDE always opens in chat", async () => {
     useIdeThreadsStore.getState().setLayout("threads");
-    expect(useIdeThreadsStore.getState().layout).toBe("threads");
-    expect(localStorage.getItem("jarvis.agenticIde.layout.v1")).toBe('"threads"');
+    useIdeThreadsStore.getState().setLayout("grid");
+    expect(useIdeThreadsStore.getState().layout).toBe("grid");
+    expect(localStorage.getItem("jarvis.agenticIde.layout.v1")).toBeNull();
+    vi.resetModules();
+    const fresh = await import("./ideThreads");
+    expect(fresh.useIdeThreadsStore.getState().layout).toBe("threads");
   });
 
   it("opens a draft, then adopts the session its first message created", () => {

@@ -1,9 +1,9 @@
-import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, memo, startTransition, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, Bot, Check, ChevronDown, ChevronRight, Copy, Diff, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
-import { STEER_PREFIX, waitsOnCard, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserAttachment, type UserItem } from "@/components/agentchat/reduce";
+import { STEER_PREFIX, waitsOnCard, type SetupStep, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserAttachment, type UserItem } from "@/components/agentchat/reduce";
 import { toolDiff, type DiffFile } from "@/components/agentchat/toolDiff";
 import { capitalize, plural, readableOutput, tr, traceDuration, type Call } from "@/components/agentchat/traceEntries";
 import { fill, useI18nStore, useT } from "@/i18n";
@@ -808,6 +808,40 @@ function WorkingLine({ since, starting, agents, usage }: {
 }
 
 /**
+ * The live line of a turn being set up on another computer, until the agent's
+ * first output: "Setting up on <computer>" with the clock, then one line per
+ * step under a thin rail. A finished step keeps its time and a check; the
+ * step under way shines and ticks.
+ */
+export function SetupLine({ steps, since }: { steps: readonly SetupStep[]; since: number }) {
+  const t = useT();
+  const where = steps.find((entry) => entry.where)?.where ?? "";
+  const label = (entry: SetupStep) => fill(t(`thread_turn.setup_step_${entry.step}`), {
+    host: entry.host || "git", cli: entry.cli || "the agent",
+  });
+  return <div className="min-w-0 text-sm text-muted-foreground" data-testid="thread-working">
+    <div className="flex h-6 min-w-0 items-center gap-2" data-testid="thread-setting-up">
+      <PetMark size={20} state="working" />
+      <span className="live-tool-shine truncate">{where ? fill(t("thread_turn.setup_on"), { where }) : t("thread_turn.setup_generic")}</span>
+      <span aria-hidden className="text-muted-foreground/50">·</span>
+      <span className="shrink-0 text-muted-foreground/80"><Elapsed since={since} /></span>
+    </div>
+    <ul className="ml-[9.5px] mt-0.5 space-y-0.5 border-l border-border/70 pl-3.5" data-testid="thread-setup-steps">
+      {steps.map((entry, index) => {
+        const next = steps[index + 1];
+        return <li key={`${index}:${entry.step}`} className="flex min-w-0 items-center gap-1.5 text-[13px] leading-5" data-step={entry.step} data-done={next ? "true" : "false"}>
+          {next
+            ? <><Check aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground/70" /><span className="truncate text-muted-foreground/80">{label(entry)}</span>
+              <span className="shrink-0 text-xs tabular-nums text-muted-foreground/60">{traceDuration(Math.max(0, next.atMs - entry.atMs))}</span></>
+            : <><span aria-hidden className="h-3 w-3 shrink-0" /><span className="live-tool-shine truncate text-muted-foreground/90">{label(entry)}</span>
+              <span className="shrink-0 text-xs text-muted-foreground/60"><Elapsed since={entry.atMs} /></span></>}
+        </li>;
+      })}
+    </ul>
+  </div>;
+}
+
+/**
  * The live line of a turn whose agent ended its message and waits for its own
  * background tasks: a quiet heading with the clock, then one line per task
  * under a thin rail, so a long task name never runs into the next one.
@@ -972,6 +1006,8 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     {running
       ? waitingOn.length > 0
         ? <BackgroundWait tasks={waitingOn} since={turn.startedMs} />
+        : turn.blocks.length === 0 && (turn.setup?.length ?? 0) > 0
+        ? <SetupLine steps={turn.setup!} since={turn.startedMs} />
         : <WorkingLine since={turn.startedMs} starting={turn.blocks.length === 0} agents={agentsWorking} usage={turn.liveUsage} />
       : <>
         {turn.status === "error" && turn.error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{turnErrorText(turn.error, t)}</p>}
@@ -1007,6 +1043,11 @@ function ItemView({ item, tone }: { item: TimelineItem } & Pick<ThreadTurnProps,
   </div>;
 }
 
+/** How many of a just-opened thread's newest items paint before the rest. */
+const OPENING_TAIL = 6;
+/** No thread painted yet: the column just mounted. */
+const OPENING = Symbol("opening");
+
 /**
  * The scrolling column. It follows the newest line while the reader is at
  * the bottom and stays put once they scroll up to read; a button brings them
@@ -1026,6 +1067,21 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
   const pinned = useRef(true);
   const [away, setAway] = useState(false);
 
+  // A thread opened from another one (or from a new thread's page) paints its
+  // newest messages first and the older ones a moment later, out of the way
+  // of the click: drawing a long conversation at once held the window still
+  // for a good part of a second.
+  const [settled, setSettled] = useState<string | null | typeof OPENING>(OPENING);
+  const fresh = settled !== sessionId;
+  const hasItems = items.length > 0;
+  const shown = fresh && items.length > OPENING_TAIL ? items.slice(-OPENING_TAIL) : items;
+  useEffect(() => {
+    // An empty column is the thread still loading: the rest waits for its messages.
+    if (!fresh || !hasItems) return;
+    const frame = requestAnimationFrame(() => startTransition(() => setSettled(sessionId)));
+    return () => cancelAnimationFrame(frame);
+  }, [fresh, sessionId, hasItems]);
+
   // A newly opened thread starts at its newest message.
   useLayoutEffect(() => {
     pinned.current = true;
@@ -1033,6 +1089,20 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
     const box = scroller.current;
     if (box) box.scrollTop = box.scrollHeight;
   }, [sessionId]);
+
+  // Its messages come in with a short fade instead of a hard cut.
+  const revealed = useRef<string | null | typeof OPENING>(OPENING);
+  useLayoutEffect(() => {
+    if (!hasItems || revealed.current === sessionId) return;
+    revealed.current = sessionId;
+    const content = scroller.current?.firstElementChild;
+    if (!content || typeof content.animate !== "function") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    content.animate(
+      [{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }],
+      { duration: 180, easing: "cubic-bezier(0.2, 0, 0, 1)" },
+    );
+  }, [sessionId, hasItems]);
 
   useLayoutEffect(() => {
     const box = scroller.current;
@@ -1062,7 +1132,7 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
       className="relative h-full overflow-y-auto scrollbar-jarvis">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 pt-6" style={{ paddingBottom: bottomInset + 24 }}>
         {lead}
-        {items.map((item) => <ItemView key={item.id} item={item} tone={tone} />)}
+        {shown.map((item) => <ItemView key={item.id} item={item} tone={tone} />)}
       </div>
     </div>
     {away && <button type="button" aria-label={t("ide_threads.scroll_newest")}
