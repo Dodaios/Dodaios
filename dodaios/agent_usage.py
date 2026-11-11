@@ -387,7 +387,12 @@ def _read_json_file(path: Path) -> Any | None:
 
 #: The endpoint Claude Code itself reads its usage from. An OAuth bearer is the
 #: only credential it accepts, which is exactly what a signed-in seat holds.
-_CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+#: ``cedar_ember=1`` is the read the CLI makes for its reset menu: the same
+#: usage answer plus the seat's banked resets, so one request carries both
+#: and the per-login rate limit is not spent twice. ``skip_spend=1`` leaves out
+#: the extra-usage billing block nothing here shows.
+_CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1"
+_CLAUDE_PLAIN_USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 
 #: Required by the OAuth surface; without it the bearer is rejected as if it
 #: were an API key.
@@ -640,9 +645,14 @@ def _remember(account_id: str, windows: tuple[UsageWindow, ...], as_of: float) -
         for window in windows:
             known[_window_key(window)] = window
         _REMEMBERED[account_id] = {
+            **entry,
             "as_of": max(float(entry.get("as_of") or 0.0), as_of),
             "windows": [w.to_dict() for w in known.values()],
         }
+    _persist_remembered()
+
+
+def _persist_remembered() -> None:
     try:
         asyncio.get_running_loop()
     except RuntimeError:
@@ -651,6 +661,122 @@ def _remember(account_id: str, windows: tuple[UsageWindow, ...], as_of: float) -
         return
     # The stream pump, on the event loop: never block it on a file write.
     threading.Thread(target=_save_remembered, name="agent-usage-save", daemon=True).start()
+
+
+# --------------------------------------------------- claude, banked resets
+#
+# Claude plans can hold resets: a grant refills a limit early, some only once
+# that limit is reached. The usage endpoint names them ``cedar_ember`` (the
+# kept resets, in grants) and ``juniper_tide`` (the weekly reset offer). They
+# are read from the same answer as the usage and remembered beside it, so the
+# panel still shows them while the endpoint rate-limits the login. Nothing
+# here ever spends one.
+
+#: The limit kinds a grant names (``clears``).
+_CLAUDE_RESET_LIMITS = frozenset({"session", "weekly", "weekly_scoped", "full"})
+
+
+def _iso_text(value: Any) -> str | None:
+    return value if isinstance(value, str) and value else None
+
+
+def _claude_reset_limits(raw: Any) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    return [item for item in raw if isinstance(item, str) and item in _CLAUDE_RESET_LIMITS]
+
+
+def _claude_grant(raw: Any) -> dict[str, Any] | None:
+    """One banked grant, or ``None`` when it lacks an id or a count."""
+    if not isinstance(raw, dict):
+        return None
+    grant_id = raw.get("id")
+    left = raw.get("resets_left")
+    if not isinstance(grant_id, str) or not grant_id:
+        return None
+    if isinstance(left, bool) or not isinstance(left, int) or left < 0:
+        return None
+    total = raw.get("resets_total")
+    label = raw.get("label")
+    kind = raw.get("type")
+    reason = raw.get("unavailable_reason")
+    return {
+        "id": grant_id,
+        "label": label.strip() if isinstance(label, str) and label.strip() else None,
+        "resets_left": left,
+        "resets_total": total
+        if isinstance(total, int) and not isinstance(total, bool) and total >= left
+        else left,
+        "starts_at": _iso_text(raw.get("starts_at")),
+        "ends_at": _iso_text(raw.get("ends_at")),
+        "clears": _claude_reset_limits(raw.get("clears")),
+        "paused": raw.get("paused") is True,
+        "usable_now": raw.get("usable_now") is True,
+        "use_requires_limit": raw.get("use_requires_limit") is not False,
+        "type": kind if kind in ("session", "weekly", "full") else None,
+        "unavailable_reason": reason if isinstance(reason, str) else None,
+    }
+
+
+def _claude_resets(payload: Any) -> dict[str, Any] | None:
+    """The banked resets in one usage answer, or ``None`` when it names none.
+
+    ``eligible`` false keeps its reason: ``surface`` means the provider does
+    not show the resets to this kind of client, which is not the same as a
+    plan without resets.
+    """
+    if not isinstance(payload, dict):
+        return None
+    kept = payload.get("cedar_ember")
+    weekly = payload.get("juniper_tide")
+    if not isinstance(kept, dict) and not isinstance(weekly, dict):
+        return None
+    result: dict[str, Any] = {"eligible": False, "ineligible_reason": None, "grants": []}
+    if isinstance(kept, dict):
+        result["eligible"] = kept.get("eligible") is True
+        reason = kept.get("ineligible_reason")
+        result["ineligible_reason"] = reason if isinstance(reason, str) else None
+        result["at_limit"] = kept.get("at_limit") is True
+        result["cooldown_until"] = _iso_text(kept.get("cooldown_until"))
+        grants = kept.get("grants")
+        if result["eligible"] and isinstance(grants, list):
+            result["grants"] = [g for g in (_claude_grant(raw) for raw in grants) if g]
+    if isinstance(weekly, dict) and weekly.get("eligible") is True:
+        per_week = weekly.get("resets_per_week")
+        result["weekly"] = {
+            "available": weekly.get("available") is True,
+            "resets_per_week": per_week
+            if isinstance(per_week, int) and not isinstance(per_week, bool) and per_week > 0
+            else 1,
+            "next_available_at": _iso_text(weekly.get("next_available_at")),
+        }
+    return result
+
+
+def _remember_resets(account_id: str, resets: dict[str, Any], as_of: float) -> None:
+    with _REMEMBERED_LOCK:
+        _load_remembered()
+        entry = dict(_REMEMBERED.get(account_id) or {})
+        entry["resets"] = {**resets, "as_of": as_of}
+        _REMEMBERED[account_id] = entry
+    _persist_remembered()
+
+
+def claude_resets(account_id: str) -> dict[str, Any] | None:
+    """The seat's banked Claude resets as last read, with ``as_of``; ``None`` = never read.
+
+    Read the seat's usage first (:func:`read_usage`): that request is the one
+    that carries them.
+    """
+    with _REMEMBERED_LOCK:
+        _load_remembered()
+        entry = _REMEMBERED.get(account_id) or {}
+        resets = entry.get("resets")
+    if not isinstance(resets, dict):
+        return None
+    if time.time() - float(resets.get("as_of") or 0.0) > _REMEMBER_MAX_AGE_S:
+        return None
+    return dict(resets)
 
 
 def _epoch_of_iso(value: str | None) -> float | None:
@@ -769,15 +895,20 @@ def _claude_usage(account: AgentAccount) -> AccountUsage:
     login = claude_login_in(account.config_dir)
 
     if login.status == "valid" and login.access_token:
-        payload = _http_get_json(
-            _CLAUDE_USAGE_URL,
-            {
-                "Authorization": f"Bearer {login.access_token}",
-                "anthropic-beta": _CLAUDE_OAUTH_BETA,
-                "Accept": "application/json",
-            },
-        )
+        headers = {
+            "Authorization": f"Bearer {login.access_token}",
+            "anthropic-beta": _CLAUDE_OAUTH_BETA,
+            "Accept": "application/json",
+        }
+        payload = _http_get_json(_CLAUDE_USAGE_URL, headers)
+        resets = _claude_resets(payload)
+        if resets is not None:
+            _remember_resets(account.id, resets, time.time())
         windows = _claude_windows(payload)
+        if not windows and isinstance(payload, dict):
+            # An answer without usage numbers: the plain read, once, so the
+            # reset flag can never cost the meter.
+            windows = _claude_windows(_http_get_json(_CLAUDE_PLAIN_USAGE_URL, headers))
         if windows:
             _remember(account.id, windows, time.time())
             return AccountUsage(
@@ -1226,6 +1357,7 @@ __all__ = [
     "WARNING_PERCENT",
     "AccountUsage",
     "UsageWindow",
+    "claude_resets",
     "clear_cache",
     "collect",
     "note_claude_rate_limit",

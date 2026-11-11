@@ -114,3 +114,24 @@ it("keeps the account identity that was presented for confirmation across refres
   fireEvent.click(screen.getByRole("button", { name: "Confirm and use reset" }));
   await waitFor(() => expect(consumeAccountReset).toHaveBeenCalledWith("codex:test", expect.objectContaining({ account_key: inventory.account_key })));
 });
+
+it("lists a Claude seat's kept resets with what is left, and offers none for use here", async () => {
+  vi.mocked(fetchAccountResets).mockResolvedValue({
+    ...inventory, account_id: "claude:test", available_count: 3, can_redeem: false, account_key: null,
+    manage_url: "https://claude.ai/settings/usage",
+    credits: [
+      { id: "grant-1", title: "Welcome reset", description: null, expires_at: "2099-11-01T12:00:00Z", redeemable: false,
+        resets_left: 2, resets_total: 3, usable_now: false, use_requires_limit: true },
+      { id: "weekly", title: null, description: null, expires_at: null, redeemable: false, kind: "weekly",
+        resets_left: 1, resets_total: 1, usable_now: true, next_available_at: null },
+    ],
+  });
+  mount();
+  await screen.findByText("3 available");
+  expect(screen.getByText("Welcome reset")).toBeTruthy();
+  expect(screen.getByText(/2 of 3 left/).textContent).toContain("usable once you reach a limit");
+  expect(screen.getByText("Weekly reset")).toBeTruthy();
+  expect(screen.getByText(/1 of 1 left/).textContent).toContain("usable now");
+  expect(screen.queryByRole("button", { name: "Use reset" })).toBeNull();
+  expect(screen.getByText(/Claude Code offers these resets/)).toBeTruthy();
+});
