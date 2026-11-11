@@ -15,7 +15,11 @@ import {
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CreatePetDialog } from "@/components/pets/CreatePetDialog";
 import { PetControlStripPreview } from "@/components/pets/PetControlStripPreview";
+import { ModelPetPreview } from "@/components/pets/CubeCatStage";
 import { PetSprite, integerScaleFor } from "@/components/pets/PetSprite";
+import { ShaderPetMark } from "@/components/pets/ShaderPetMark";
+import { JarvisOrbView } from "@/components/pets/DodaiosOrbView";
+import { ShaderPetPreview } from "@/components/pets/ShaderPetPreview";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useKeybinds } from "@/hooks/useHotkey";
@@ -29,7 +33,7 @@ import {
 } from "@/hooks/usePets";
 import { useRestartApp } from "@/hooks/useRestartApp";
 import { useT } from "@/i18n";
-import { NO_PET_ID, PET_STATES } from "@/lib/petStates";
+import { NO_PET_ID, PET_STATES, type PetState } from "@/lib/petStates";
 import { previewPetScale, type Pet } from "@/lib/petsApi";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
@@ -54,7 +58,8 @@ const STATE_CYCLE_MS = 2500;
 const HERO_SPRITE_PX = 168;
 const TILE_SPRITE_PX = 96;
 const SCALE_MIN = 0.5;
-const SCALE_MAX = 2;
+// 1.0 is a 180px figure. 4.0 is 720px, so a second display can hold a figure.
+const SCALE_MAX = 4;
 /** Fine enough that the thumb glides; the pet itself grows in whole pixels. */
 const SCALE_STEP = 0.01;
 
@@ -74,6 +79,17 @@ function useStateCycle(enabled: boolean): number {
   return index;
 }
 
+type PetGroup = "all" | "pixel" | "shader" | "model" | "scene";
+
+function petGroup(pet: Pet): Exclude<PetGroup, "all"> {
+  if (pet.kind === "shader") return "shader";
+  if (pet.kind === "model") return "model";
+  if (pet.kind === "scene") return "scene";
+  return "pixel";
+}
+
+const PET_FILTERS: PetGroup[] = ["all", "pixel", "shader", "model"];
+
 export function PetsView() {
   const t = useT();
   const pushToast = useEventStore((s) => s.pushToast);
@@ -81,6 +97,7 @@ export function PetsView() {
   const overlay = useOverlayStyle();
   const keybinds = useKeybinds();
   const select = useSelectPet();
+  const saveSettings = useSavePetSettings();
   const setVisible = useSetPetVisible();
   const remove = useDeletePet();
   const restartApp = useRestartApp();
@@ -90,12 +107,19 @@ export function PetsView() {
   const [pendingDelete, setPendingDelete] = useState<Pet | null>(null);
   const [switchingStyle, setSwitchingStyle] = useState(false);
   const [needsRestart, setNeedsRestart] = useState(false);
+  const [kindFilter, setKindFilter] = useState<PetGroup>("all");
+  const reduced = useReducedMotion() ?? false;
 
   const data = pets.data;
   const activePet =
     data && data.active !== NO_PET_ID
       ? data.pets.find((pet) => pet.id === data.active) ?? null
       : null;
+  const stateIndex = useStateCycle(Boolean(activePet) && !reduced);
+  const state = PET_STATES[stateIndex];
+  const shownPets = (data?.pets ?? []).filter(
+    (pet) => kindFilter === "all" || petGroup(pet) === kindFilter,
+  );
   const styleIsPet = overlay.config?.style === "pet";
   const shortcut = keybinds.config?.keybinds?.pet_toggle ?? "";
 
@@ -132,6 +156,16 @@ export function PetsView() {
       onError: (error) =>
         pushToast("error", t("pets.save_error").replace("{0}", (error as Error).message)),
     });
+  }
+
+  function setChat(next: boolean) {
+    saveSettings.mutate(
+      { chat: next },
+      {
+        onError: (error) =>
+          pushToast("error", t("pets.save_error").replace("{0}", (error as Error).message)),
+      },
+    );
   }
 
   function toggleVisible() {
@@ -182,16 +216,28 @@ export function PetsView() {
                   {data?.visible === false ? t("pets.show") : t("pets.hide")}
                 </Button>
               )}
-              <label className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-1.5">
-                <span className="text-sm font-medium text-foreground">{t("pets.enabled_label")}</span>
-                <Switch
-                  data-testid="pets-enabled"
-                  checked={styleIsPet}
-                  disabled={!overlay.config || switchingStyle}
-                  aria-label={t("pets.enabled_label")}
-                  onCheckedChange={(next) => void setPetEnabled(next)}
-                />
-              </label>
+              <div className="flex flex-col items-stretch gap-2">
+                <label className="flex w-full items-center justify-between gap-2.5 rounded-lg border border-border bg-card px-3 py-1.5">
+                  <span className="text-sm font-medium text-foreground">{t("pets.enabled_label")}</span>
+                  <Switch
+                    data-testid="pets-enabled"
+                    checked={styleIsPet}
+                    disabled={!overlay.config || switchingStyle}
+                    aria-label={t("pets.enabled_label")}
+                    onCheckedChange={(next) => void setPetEnabled(next)}
+                  />
+                </label>
+                <label className="flex w-full items-center justify-between gap-2.5 rounded-lg border border-border bg-card px-3 py-1.5">
+                  <span className="text-sm font-medium text-foreground">{t("pets.chat_label")}</span>
+                  <Switch
+                    data-testid="pets-chat"
+                    checked={data?.chat !== false}
+                    disabled={!data || saveSettings.isPending}
+                    aria-label={t("pets.chat_label")}
+                    onCheckedChange={setChat}
+                  />
+                </label>
+              </div>
             </div>
           }
         />
@@ -262,6 +308,9 @@ export function PetsView() {
           <>
             <ActivePetCard
               pet={activePet}
+              state={state}
+              reduced={reduced}
+              shaderBackdrop={data?.shader_backdrop ?? 0}
               loading={!data}
               description={activePet ? describe(activePet) : t("pets.none_description")}
               customizeOpen={customizeOpen}
@@ -279,17 +328,43 @@ export function PetsView() {
 
             <div className="mb-3 mt-8 flex items-center justify-between gap-4">
               <h2 className="text-lg font-semibold text-foreground-strong">{t("pets.my_pets")}</h2>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                data-testid="pets-create"
-                disabled={!data}
-                onClick={() => setCreateOpen(true)}
-              >
-                <Plus aria-hidden />
-                {t("pets.create")}
-              </Button>
+              <div className="flex items-center gap-2">
+                <div
+                  role="radiogroup"
+                  aria-label={t("pets.filter_label")}
+                  className="flex rounded-lg border border-border bg-card p-0.5"
+                >
+                  {PET_FILTERS.map((group) => (
+                    <button
+                      key={group}
+                      type="button"
+                      role="radio"
+                      aria-checked={kindFilter === group}
+                      data-testid={`pets-filter-${group}`}
+                      onClick={() => setKindFilter(group)}
+                      className={cn(
+                        "rounded-md px-2.5 py-1 text-sm",
+                        kindFilter === group
+                          ? "bg-accent/15 text-foreground"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {t(`pets.filter_${group}`)}
+                    </button>
+                  ))}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  data-testid="pets-create"
+                  disabled={!data}
+                  onClick={() => setCreateOpen(true)}
+                >
+                  <Plus aria-hidden />
+                  {t("pets.create")}
+                </Button>
+              </div>
             </div>
 
             <ul
@@ -306,6 +381,7 @@ export function PetsView() {
                 ))
               ) : (
                 <>
+                  {kindFilter === "all" && (
                   <li>
                     <PetTile
                       id={NO_PET_ID}
@@ -319,7 +395,8 @@ export function PetsView() {
                       <PetControlStripPreview size="sm" companion />
                     </PetTile>
                   </li>
-                  {data.pets.map((pet) => (
+                  )}
+                  {shownPets.map((pet) => (
                     <li key={pet.id}>
                       <PetTile
                         id={pet.id}
@@ -332,11 +409,7 @@ export function PetsView() {
                         onDelete={pet.builtin ? undefined : () => setPendingDelete(pet)}
                         deleteLabel={t("pets.delete_named").replace("{0}", pet.name)}
                       >
-                        <PetSprite
-                          pet={pet}
-                          state="idle"
-                          scale={integerScaleFor(pet.frame_size, TILE_SPRITE_PX)}
-                        />
+                        <PetIdle pet={pet} reduced={reduced} />
                       </PetTile>
                     </li>
                   ))}
@@ -345,6 +418,7 @@ export function PetsView() {
             </ul>
           </>
         )}
+
       </div>
 
       <CreatePetDialog
@@ -366,8 +440,107 @@ export function PetsView() {
   );
 }
 
+function PetIdle({
+  pet,
+  reduced,
+  hero = false,
+  state = "idle",
+  backdrop = 0,
+}: {
+  pet: Pet;
+  reduced: boolean;
+  hero?: boolean;
+  state?: PetState;
+  backdrop?: number;
+}) {
+  // shortcut: each live card holds one WebGL context, and a browser allows
+  // about 16, so a long grid of shader pets leaves the later cards blank.
+  // A tile ignores `state` and stays on idle. Only the hero walks the list.
+  const t = useT();
+  const shown: PetState = hero ? state : "idle";
+  const shade = hero ? backdrop : 0;
+  const edge = hero ? "h-full w-full" : "h-24 w-24";
+  if (pet.kind === "model") {
+    return (
+      <div className={edge}>
+        <ModelPetPreview
+          url={pet.model_url ?? ""}
+          clip={pet.clips?.[shown] ?? pet.clips?.idle ?? "idle"}
+          options={pet.options}
+          reduced={reduced}
+        />
+      </div>
+    );
+  }
+  if (pet.kind === "scene") {
+    return <div className={edge}><JarvisOrbView state={shown} reduced={reduced} backdrop={shade} /></div>;
+  }
+  if (pet.kind === "shader" && pet.shader_url) {
+    return <div className={edge}><ShaderPetPreview url={pet.shader_url} state={shown} reduced={reduced} backdrop={shade} /></div>;
+  }
+  if (pet.kind === "shader") return <ShaderPetMark className={edge} />;
+  return (
+    <PetSprite
+      pet={pet}
+      state={shown}
+      scale={integerScaleFor(pet.frame_size, hero ? HERO_SPRITE_PX : TILE_SPRITE_PX)}
+      label={hero ? `${pet.name}: ${t(`pets.states.${shown}`)}` : undefined}
+    />
+  );
+}
+
+function BackdropSlider({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (next: number, commit: boolean) => void;
+}) {
+  const t = useT();
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <div className="w-full max-w-[260px]">
+      <div className="flex items-center justify-between gap-3">
+        <label htmlFor="pets-backdrop" className="text-xs font-medium text-foreground">
+          {t("pets.backdrop_label")}
+        </label>
+        <span className="font-mono text-xs text-muted-foreground">{`${Math.round(value * 100)}%`}</span>
+      </div>
+      <p className="mt-0.5 text-center text-xs text-muted-foreground">{t("pets.backdrop_hint")}</p>
+      <input
+        id="pets-backdrop"
+        ref={input}
+        type="range"
+        data-testid="pets-backdrop"
+        min={0}
+        max={1}
+        step={0.01}
+        value={value}
+        aria-valuemin={0}
+        aria-valuemax={1}
+        aria-valuenow={value}
+        onChange={(event) => onChange(Number(event.target.value), false)}
+        onPointerDown={() => {
+          window.addEventListener(
+            "pointerup",
+            () => {
+              if (input.current) onChange(Number(input.current.value), true);
+            },
+            { once: true },
+          );
+        }}
+        onKeyUp={(event) => onChange(Number(event.currentTarget.value), true)}
+        className="mt-1 w-full accent-primary"
+      />
+    </div>
+  );
+}
+
 function ActivePetCard({
   pet,
+  state,
+  reduced,
+  shaderBackdrop,
   loading,
   description,
   customizeOpen,
@@ -375,6 +548,9 @@ function ActivePetCard({
   children,
 }: {
   pet: Pet | null;
+  state: PetState;
+  reduced: boolean;
+  shaderBackdrop: number;
   loading: boolean;
   description: string;
   customizeOpen: boolean;
@@ -382,10 +558,36 @@ function ActivePetCard({
   children?: React.ReactNode;
 }) {
   const t = useT();
-  const reduced = useReducedMotion() ?? false;
-  const stateIndex = useStateCycle(Boolean(pet) && !reduced);
-  const state = PET_STATES[stateIndex];
+  const pushToast = useEventStore((s) => s.pushToast);
+  const save = useSavePetSettings();
   const stateLabel = t(`pets.states.${state}`);
+  const showBackdrop = pet?.kind === "shader" || pet?.kind === "scene";
+  const [backdrop, setBackdrop] = useState(shaderBackdrop);
+  const dragging = useRef(false);
+  useEffect(() => {
+    if (!dragging.current) setBackdrop(shaderBackdrop);
+  }, [shaderBackdrop]);
+
+  function changeBackdrop(next: number, commit: boolean) {
+    const rounded = Math.round(next * 100) / 100;
+    if (commit) {
+      dragging.current = false;
+      setBackdrop(rounded);
+      if (rounded === shaderBackdrop) return;
+      save.mutate(
+        { shader_backdrop: rounded },
+        {
+          onError: (error) => {
+            setBackdrop(shaderBackdrop);
+            pushToast("error", t("pets.save_error").replace("{0}", (error as Error).message));
+          },
+        },
+      );
+      return;
+    }
+    dragging.current = true;
+    setBackdrop(rounded);
+  }
 
   return (
     <section
@@ -398,11 +600,12 @@ function ActivePetCard({
           {loading ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
           ) : pet ? (
-            <PetSprite
+            <PetIdle
               pet={pet}
+              reduced={reduced}
+              hero
               state={state}
-              scale={integerScaleFor(pet.frame_size, HERO_SPRITE_PX)}
-              label={`${pet.name}: ${stateLabel}`}
+              backdrop={showBackdrop ? backdrop : 0}
             />
           ) : (
             <p className="text-sm text-muted-foreground">{t("pets.none_description")}</p>
@@ -416,6 +619,20 @@ function ActivePetCard({
             {stateLabel}
           </span>
         )}
+        {pet?.kind === "shader" && (
+          <p data-testid="pets-shader-note" className="max-w-[260px] text-center text-xs text-muted-foreground">
+            {t("pets.shader_note")}
+          </p>
+        )}
+        {(pet?.kind === "model" || pet?.kind === "scene") && (
+          <p
+            data-testid={pet.kind === "scene" ? "pets-scene-note" : "pets-model-note"}
+            className="max-w-[260px] text-center text-xs text-muted-foreground"
+          >
+            {t(pet.kind === "scene" ? "pets.cube_cat.note" : "pets.model_note")}
+          </p>
+        )}
+        {showBackdrop && <BackdropSlider value={backdrop} onChange={changeBackdrop} />}
         <PetControlStripPreview companion />
       </div>
 

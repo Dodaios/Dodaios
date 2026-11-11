@@ -21,10 +21,12 @@ from types import MappingProxyType
 from dodaios.ui.pets.states import (
     FRAME_SIZES,
     MAX_FRAMES_PER_STATE,
+    MODEL_PET_FORMAT,
     NO_PET_ID,
     ONE_SHOT_STATES,
     PET_FORMAT,
     PET_STATES,
+    SHADER_PET_FORMAT,
     STATE_FALLBACKS,
 )
 
@@ -39,6 +41,9 @@ _SHEET_NAME_RE = re.compile(r"^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}\.png$")
 
 #: Name of an idle act: a short lowercase slug (``"fire"``, ``"yawn"``).
 ACT_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,23}$")
+
+#: A clip name inside a GLB (``idle``, ``gesture-positive``).
+CLIP_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
 #: Most idle acts one pet may declare.
 MAX_ACTS = 12
@@ -81,6 +86,16 @@ class AnimationSpec:
 
 
 @dataclass(frozen=True)
+class ModelOptions:
+    """How a GLB pet is framed. Omitted keys keep the cube cat's camera."""
+
+    height: float = 0.7
+    eye: tuple[float, float, float] = (1.05, 0.55, 1.9)
+    #: Where the camera looks, as a fraction of ``height`` up from the feet.
+    aim: float = 0.62
+
+
+@dataclass(frozen=True)
 class PetManifest:
     """A validated ``pet.json``.
 
@@ -100,6 +115,27 @@ class PetManifest:
     #: ``acts_sheet``. Optional; without them the pet just idles.
     acts: Mapping[str, AnimationSpec] = field(default_factory=lambda: MappingProxyType({}))
     acts_sheet: str | None = None
+    #: ``sprite`` is a sheet. ``shader`` is a fragment file. ``model`` is a GLB.
+    kind: str = "sprite"
+    shader: str | None = None
+    #: A model pet: the GLB file name, and the clip each declared state plays.
+    model: str | None = None
+    clips: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    options: ModelOptions = field(default_factory=ModelOptions)
+
+    def clip_for(self, state: str) -> str:
+        """The clip a model plays for ``state``, following ``STATE_FALLBACKS``."""
+        if state not in PET_STATES:
+            raise KeyError(f"unknown pet state {state!r}")
+        resolved = state
+        seen: set[str] = set()
+        while resolved not in self.clips:
+            seen.add(resolved)
+            resolved = STATE_FALLBACKS.get(resolved, "idle")
+            if resolved in seen:
+                resolved = "idle"
+                break
+        return self.clips[resolved]
 
     def spec_for(self, state: str) -> tuple[str, AnimationSpec]:
         """Return ``(resolved_state, spec)`` for ``state``.
@@ -122,6 +158,30 @@ class PetManifest:
 
     def to_json(self) -> dict:
         """The ``pet.json`` shape (``builtin`` is not part of the file)."""
+        if self.kind == "shader":
+            return {
+                "format": SHADER_PET_FORMAT,
+                "id": self.id,
+                "name": self.name,
+                "description": self.description,
+                "shader": self.shader,
+            }
+        if self.kind == "model":
+            return {
+                "format": MODEL_PET_FORMAT,
+                "id": self.id,
+                "name": self.name,
+                "description": self.description,
+                "model": self.model,
+                "animations": {
+                    state: self.clips[state] for state in PET_STATES if state in self.clips
+                },
+                "options": {
+                    "height": self.options.height,
+                    "eye": list(self.options.eye),
+                    "aim": self.options.aim,
+                },
+            }
         out = {
             "format": PET_FORMAT,
             "id": self.id,
@@ -199,18 +259,8 @@ def _parse_animation(state: str, raw: object) -> AnimationSpec:
     )
 
 
-def parse_manifest(data: object, *, builtin: bool) -> PetManifest:
-    """Validate a decoded ``pet.json`` and return the manifest.
-
-    ``builtin`` selects the id rule: a built-in id is a short slug, a
-    user-created one is ``u`` plus 16 hex digits. Raises
-    :class:`PetManifestError` on the first broken rule.
-    """
-    if not isinstance(data, Mapping):
-        raise PetManifestError("pet.json must be a JSON object.")
-    if data.get("format") != PET_FORMAT:
-        raise PetManifestError(f'pet.json must declare "format": "{PET_FORMAT}".')
-
+def _identity(data: Mapping, *, builtin: bool) -> tuple[str, str, str]:
+    """The id, name and description shared by both pet formats."""
     pet_id = data.get("id")
     if not isinstance(pet_id, str) or pet_id == NO_PET_ID:
         raise PetManifestError("The pet id is missing or reserved.")
@@ -237,6 +287,116 @@ def parse_manifest(data: object, *, builtin: bool) -> PetManifest:
         raise PetManifestError(
             f"The description is longer than {MAX_DESCRIPTION_CHARS} characters."
         )
+    return pet_id, name, description
+
+
+def _parse_shader_manifest(data: Mapping, *, builtin: bool) -> PetManifest:
+    """A shader pet: a fragment file, no sheet and no animation rows."""
+    from dodaios.ui.pets.shader import SHADER_FILE
+
+    pet_id, name, description = _identity(data, builtin=builtin)
+    shader = data.get("shader", SHADER_FILE)
+    if not isinstance(shader, str) or shader != SHADER_FILE:
+        raise PetManifestError(f"'shader' must be '{SHADER_FILE}'.")
+    return PetManifest(
+        id=pet_id,
+        name=name,
+        description=description,
+        frame_size=0,
+        sheet="",
+        animations=MappingProxyType({}),
+        builtin=builtin,
+        kind="shader",
+        shader=shader,
+    )
+
+
+def _parse_model_manifest(data: Mapping, *, builtin: bool) -> PetManifest:
+    """A model pet: a GLB, a clip name per state, and an optional camera."""
+    from dodaios.ui.pets.glb import MODEL_FILE
+
+    pet_id, name, description = _identity(data, builtin=builtin)
+    model = data.get("model", MODEL_FILE)
+    if not isinstance(model, str) or model != MODEL_FILE:
+        raise PetManifestError(f"'model' must be '{MODEL_FILE}'.")
+    raw_clips = data.get("animations")
+    if not isinstance(raw_clips, Mapping) or not raw_clips:
+        raise PetManifestError("pet.json needs an 'animations' object.")
+    unknown = sorted(str(key) for key in raw_clips if key not in PET_STATES)
+    if unknown:
+        raise PetManifestError(f"Unknown animation state: {unknown[0]}.")
+    if "idle" not in raw_clips:
+        raise PetManifestError("Animation 'idle' is required.")
+    clips: dict[str, str] = {}
+    for state, clip in raw_clips.items():
+        if not isinstance(clip, str) or not CLIP_NAME_RE.match(clip):
+            raise PetManifestError(f"Animation '{state}' must name a clip in the model.")
+        clips[str(state)] = clip
+    return PetManifest(
+        id=pet_id,
+        name=name,
+        description=description,
+        frame_size=0,
+        sheet="",
+        animations=MappingProxyType({}),
+        builtin=builtin,
+        kind="model",
+        model=model,
+        clips=MappingProxyType(clips),
+        options=_parse_options(data.get("options", {})),
+    )
+
+
+def _parse_options(raw: object) -> ModelOptions:
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, Mapping):
+        raise PetManifestError("'options' must be an object.")
+    height = _option_number(raw, "height", 0.7) if "height" in raw else 0.7
+    aim = _option_number(raw, "aim", 0.62) if "aim" in raw else 0.62
+    if not 0.05 <= height <= 5:
+        raise PetManifestError("'options.height' must be between 0.05 and 5.")
+    if not 0 <= aim <= 2:
+        raise PetManifestError("'options.aim' must be between 0 and 2.")
+    eye = ModelOptions.eye
+    if "eye" in raw:
+        value = raw["eye"]
+        if (
+            not isinstance(value, list)
+            or len(value) != 3
+            or any(isinstance(item, bool) or not isinstance(item, int | float) for item in value)
+        ):
+            raise PetManifestError("'options.eye' must be three numbers.")
+        eye = (float(value[0]), float(value[1]), float(value[2]))
+        if any(not -20 <= item <= 20 for item in eye):
+            raise PetManifestError("'options.eye' must stay between -20 and 20.")
+    return ModelOptions(height=height, eye=eye, aim=aim)
+
+
+def _option_number(data: Mapping, key: str, default: float) -> float:
+    value = data.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise PetManifestError(f"'options.{key}' must be a number.")
+    return float(value)
+
+
+def parse_manifest(data: object, *, builtin: bool) -> PetManifest:
+    """Validate a decoded ``pet.json`` and return the manifest.
+
+    ``builtin`` selects the id rule: a built-in id is a short slug, a
+    user-created one is ``u`` plus 16 hex digits. Raises
+    :class:`PetManifestError` on the first broken rule.
+    """
+    if not isinstance(data, Mapping):
+        raise PetManifestError("pet.json must be a JSON object.")
+    if data.get("format") == SHADER_PET_FORMAT:
+        return _parse_shader_manifest(data, builtin=builtin)
+    if data.get("format") == MODEL_PET_FORMAT:
+        return _parse_model_manifest(data, builtin=builtin)
+    if data.get("format") != PET_FORMAT:
+        raise PetManifestError(f'pet.json must declare "format": "{PET_FORMAT}".')
+
+    pet_id, name, description = _identity(data, builtin=builtin)
 
     frame_size = data.get("frame_size")
     if (

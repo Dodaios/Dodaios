@@ -1,0 +1,24 @@
+{
+  "format": "jarvis-model-pet/1",
+  "id": "cube-cat",
+  "name": "Cube Cat",
+  "description": "A blocky cat that runs in place.",
+  "model": "model.glb",
+  "animations": {
+    "idle": "idle",
+    "listening": "idle",
+    "thinking": "eat",
+    "talking": "gesture-positive",
+    "success": "dance",
+    "error": "gesture-negative",
+    "sleeping": "static",
+    "working": "walk",
+    "searching": "run",
+    "held": "static"
+  },
+  "options": {
+    "height": 0.7,
+    "eye": [1.05, 0.55, 1.9],
+    "aim": 0.62
+  }
+}

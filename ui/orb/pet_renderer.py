@@ -43,8 +43,10 @@ from typing import Any
 
 from PIL import Image
 
+from dodaios.ui.pets.manifest import PetManifestError
 from dodaios.ui.pets.states import NO_PET_ID
 from ui.orb import controls as orb_controls
+from ui.orb.shader_desktop import shader_source_for_id
 
 log = logging.getLogger("jarvis.orb")
 
@@ -89,6 +91,54 @@ ACT_GAP_S = (90.0, 240.0)
 _ACT_KEY = "act:"
 
 _ColorKey = tuple[int, int, int]
+
+
+def strip_layout_scale(dpi_ratio: float, *, points: bool) -> float:
+    """The strip window's scale. ``1.0`` is the designed size.
+
+    A point-based window (macOS) is already in logical pixels, so a retina
+    ratio of 2 must not make the window twice as big. Windows and X11 size
+    windows in pixels, so they keep the DPI ratio and the strip matches the
+    figure. ``pet_scale`` is never part of this.
+    """
+    if points:
+        return 1.0
+    try:
+        ratio = float(dpi_ratio)
+    except (TypeError, ValueError):
+        return 1.0
+    if not math.isfinite(ratio):
+        return 1.0
+    return max(0.25, ratio)
+
+
+def strip_bitmap_scale(device_pixel_ratio: float) -> float:
+    """Device pixels to draw per logical point of the strip. Never below 1.
+
+    The window stays at :func:`strip_layout_scale`. This only adds pixels so
+    a retina screen is not asked to scale a 1x bitmap up.
+    """
+    try:
+        ratio = float(device_pixel_ratio)
+    except (TypeError, ValueError):
+        return 1.0
+    if not math.isfinite(ratio) or ratio < 1.0:
+        return 1.0
+    return ratio
+
+
+def backing_pixel_ratio() -> float:
+    """Device pixels per point on this screen. 1 where a window pixel is a pixel."""
+    if sys.platform != "darwin":
+        return 1.0
+    try:
+        from AppKit import NSScreen
+
+        screen = NSScreen.mainScreen()
+        value = float(screen.backingScaleFactor()) if screen is not None else 1.0
+    except Exception:  # noqa: BLE001 — no AppKit: draw at 1x rather than guess
+        return 1.0
+    return strip_bitmap_scale(value)
 
 
 def dpi_ratio_for(points_per_inch: float | None, platform: str = sys.platform) -> float:
@@ -304,6 +354,7 @@ class PetRenderer:
         self._size = (1, 1)
         self._figure_width = 0
         self._blank: Image.Image | None = None
+        self._shader_source: str | None = None
         self._pet_id = NO_PET_ID
         self._level = 0.0
         self._level_at = -math.inf
@@ -316,6 +367,24 @@ class PetRenderer:
     def load(self, pet_id: str) -> None:
         """(Re)load the pet and pre-scale every frame. Keeps the state machine."""
         requested = str(pet_id or "").strip() or NO_PET_ID
+        self._shader_source = None
+        if requested != NO_PET_ID:
+            try:
+                source = shader_source_for_id(requested)
+            except PetManifestError as exc:
+                # A broken shader must not fall through: the sprite loader
+                # would substitute the default pixel pet.
+                log.warning("pet %r shader failed (%s); showing the strip only", requested, exc)
+                self._pack = None
+                self._pet_id = NO_PET_ID
+                self._rescale()
+                return
+            if source is not None:
+                self._pack = None
+                self._pet_id = requested
+                self._shader_source = source
+                self._rescale()
+                return
         pack = None
         if requested != NO_PET_ID:
             try:
@@ -347,6 +416,15 @@ class PetRenderer:
         self._act_names: tuple[str, ...] = ()
         self._act = None
         self._blank = None
+        if self._shader_source:
+            # The thought bubble sizes itself from a sprite's scale factor.
+            # 48 is the usual cell, so the bubble matches a sprite this big.
+            ratio = max(0.1, self._dpi_ratio) * max(0.1, self._pet_scale)
+            edge = max(32, int(round(PET_TARGET_FIGURE_PX * ratio)))
+            self._factor = max(1, int(round(edge / 48)))
+            self._size = (edge, edge)
+            self._figure_width = edge
+            return
         pack = self._pack
         if pack is None:
             self._use_strip_only_size()
@@ -403,8 +481,13 @@ class PetRenderer:
         return self._pet_id
 
     @property
+    def shader_source(self) -> str | None:
+        """The fragment text when this pet is a shader, else ``None``."""
+        return self._shader_source
+
+    @property
     def has_figure(self) -> bool:
-        return self._pack is not None
+        return self._pack is not None or self._shader_source is not None
 
     @property
     def size(self) -> tuple[int, int]:
@@ -422,8 +505,12 @@ class PetRenderer:
 
     @property
     def strip_scale(self) -> float:
-        """The control strip's scale: the monitor's DPI ratio times ``pet_scale``."""
-        return max(0.25, self._dpi_ratio * self._pet_scale)
+        """Logical scale of the control strip. Not ``pet_scale``.
+
+        The size slider changes the figure only. On macOS the window stays at
+        the 100 % design; the bitmap is drawn at the device pixel ratio.
+        """
+        return strip_layout_scale(self._dpi_ratio, points=sys.platform == "darwin")
 
     @property
     def machine(self) -> Any:
@@ -438,6 +525,8 @@ class PetRenderer:
 
     def greet(self) -> None:
         """Briefly nod on activation, using the selected pet's listening row."""
+        if self._shader_source:
+            return
         if self.has_figure and self.state() == "listening":
             self._greet_until = float(self._clock()) + 0.7
 
@@ -488,6 +577,17 @@ class PetRenderer:
 
     def _level_fresh(self) -> bool:
         return float(self._clock()) - self._level_at <= LEVEL_FRESH_S
+
+    def voice_level(self) -> float:
+        """Smoothed loudness while talking or listening, else 0.
+
+        The overlay already chooses the source: the assistant's voice while
+        it speaks, the microphone while it listens. Other states stay quiet
+        so a sample that has not gone stale yet cannot move the shader.
+        """
+        if self.state() not in ("talking", "listening") or not self._level_fresh():
+            return 0.0
+        return max(0.0, min(1.0, self._smoothed))
 
     # -- frame selection -------------------------------------------------
 
@@ -555,6 +655,8 @@ class PetRenderer:
     def frame_key(self, t: float = 0.0) -> Hashable:
         """A key that changes exactly when the picture on screen changes."""
         _ = t
+        if self._shader_source:
+            return ("shader", self._pet_id, self._size)
         if self._pack is None:
             return ("none", self._size)
         resolved, _spec, index, _elapsed, _driven = self._current()
@@ -568,6 +670,8 @@ class PetRenderer:
         waits: list[float] = []
         if self._greet_until > float(self._clock()) and self.state() == "listening":
             waits.append(1 / 30)
+        if self._shader_source and self.state() in ("talking", "listening"):
+            waits.append(LEVEL_POLL_MS / 1000.0)
         change = self._machine.next_change_in()
         if change is not None:
             waits.append(max(0.0, float(change)))

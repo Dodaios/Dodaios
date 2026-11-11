@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
 import tomllib
 from pathlib import Path
 from types import SimpleNamespace
@@ -89,6 +90,10 @@ class FakeDesktop:
         self.calls.append(("set_pet_look", scale, bubble, strip_always))
         return {"ok": True, "applied_live": self._applied}
 
+    def set_pet_shader_backdrop(self, opacity: float) -> dict:
+        self.calls.append(("set_pet_shader_backdrop", opacity))
+        return {"ok": True, "applied_live": self._applied}
+
     def set_pet_visible(self, visible: bool) -> dict:
         self.calls.append(("set_pet_visible", visible))
         self.visible = visible
@@ -103,6 +108,9 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     builtin = tmp_path / "builtin"
     _write_builtin(builtin, DEFAULT_PET_ID)
     _write_builtin(builtin, "miso")
+    shipped = Path(__file__).resolve().parents[3] / "dodaios/ui/pets/builtin"
+    shutil.copytree(shipped / "wisp-swarm", builtin / "wisp-swarm")
+    shutil.copytree(shipped / "cube-cat", builtin / "cube-cat")
     monkeypatch.setattr(loader, "builtin_root", lambda: builtin)
     data = tmp_path / "data"
     data.mkdir()
@@ -146,6 +154,7 @@ def test_list_returns_state_and_every_pet(env) -> None:
     assert body["active"] == DEFAULT_PET_ID
     assert body["scale"] == 1.0
     assert body["bubble"] is True
+    assert body["chat"] is True
     assert body["visible"] is True
     ids = [p["id"] for p in body["pets"]]
     assert ids[0] == DEFAULT_PET_ID  # the default pet leads
@@ -157,8 +166,29 @@ def test_list_returns_state_and_every_pet(env) -> None:
     # Every state is resolved, so no client repeats the fallback table.
     assert set(gigi["animations"]) == set(PET_STATES)
     assert gigi["animations"]["sleeping"] == gigi["animations"]["idle"]
+    assert gigi["kind"] == "sprite"
+    assert gigi["shader_url"] == ""
+    # Wisp Swarm is the built-in shader pack. The cube cat is a model pack.
+    shader = body["pets"][ids.index("wisp-swarm")]
+    assert shader["kind"] == "shader"
+    assert shader["builtin"] is True
+    assert shader["sheet_url"] == ""
+    assert shader["shader_url"] == "/api/pets/wisp-swarm/shader.frag"
+    cat = body["pets"][ids.index("cube-cat")]
+    assert cat["kind"] == "model"
+    assert cat["builtin"] is True
+    assert cat["model_url"] == "/api/pets/cube-cat/model.glb"
+    assert cat["clips"]["thinking"] == "eat"
+    assert cat["clips"]["searching"] == "run"
+    assert cat["options"]["height"] == 0.7
+    assert cat["options"]["aim"] == 0.62
+    orb_scene = body["pets"][ids.index("jarvis-orb")]
+    assert orb_scene["kind"] == "scene"
+    assert orb_scene["builtin"] is True
+    assert orb_scene["shader_url"] == ""
     assert set(gigi) == {
-        "id", "name", "description", "builtin", "frame_size", "animations", "sheet_url"
+        "id", "name", "description", "builtin", "kind", "frame_size",
+        "animations", "sheet_url", "shader_url",
     }
 
 
@@ -216,6 +246,14 @@ def test_put_active_saves_applies_and_announces(env) -> None:
     assert (event.pet_id, event.scale, event.bubble, event.visible) == ("miso", 1.0, True, True)
 
 
+def test_put_active_accepts_the_orb_and_the_cube_cat(env) -> None:
+    for pet_id in ("wisp-swarm", "cube-cat", "jarvis-orb"):
+        r = env.client.put("/api/pets/active", json={"pet_id": pet_id})
+        assert r.status_code == 200, r.text
+        assert r.json()["active"] == pet_id
+        assert env.client.get("/api/pets").json()["active"] == pet_id
+
+
 def test_put_active_accepts_none(env) -> None:
     r = env.client.put("/api/pets/active", json={"pet_id": "none"})
     assert r.status_code == 200
@@ -254,15 +292,15 @@ def test_a_dev_instance_does_not_change_the_shared_pet(env, monkeypatch) -> None
 
 
 def test_put_settings_clamps_saves_and_applies(env) -> None:
-    r = env.client.put("/api/pets/settings", json={"scale": 5, "bubble": False})
+    r = env.client.put("/api/pets/settings", json={"scale": 9, "bubble": False})
     assert r.status_code == 200
     body = r.json()
-    assert (body["scale"], body["bubble"]) == (2.0, False)
-    assert _toml_ui(env)["pet_scale"] == 2.0
+    assert (body["scale"], body["bubble"]) == (4.0, False)
+    assert _toml_ui(env)["pet_scale"] == 4.0
     assert _toml_ui(env)["pet_bubble"] is False
-    assert env.app.state.desktop_app.calls == [("set_pet_look", 2.0, False, False)]
+    assert env.app.state.desktop_app.calls == [("set_pet_look", 4.0, False, False)]
     (event,) = env.app.state.bus.events
-    assert (event.scale, event.bubble) == (2.0, False)
+    assert (event.scale, event.bubble) == (4.0, False)
 
 
 def test_a_preview_resizes_live_but_writes_and_announces_nothing(env) -> None:
@@ -297,6 +335,34 @@ def test_the_always_on_strip_is_saved_applied_and_reported(env) -> None:
 
 def test_put_settings_needs_something_to_change(env) -> None:
     assert env.client.put("/api/pets/settings", json={}).status_code == 400
+
+
+def test_shader_backdrop_defaults_clear_and_round_trips(env) -> None:
+    assert env.client.get("/api/pets").json()["shader_backdrop"] == 0.0
+    assert "pet_shader_backdrop" not in _toml_ui(env)
+    r = env.client.put("/api/pets/settings", json={"shader_backdrop": 1.4})
+    assert r.status_code == 200
+    assert r.json()["shader_backdrop"] == 1.0
+    assert _toml_ui(env)["pet_shader_backdrop"] == 1.0
+    assert env.app.state.desktop_app.calls == [("set_pet_shader_backdrop", 1.0)]
+    assert env.client.get("/api/pets").json()["shader_backdrop"] == 1.0
+    r = env.client.put("/api/pets/settings", json={"shader_backdrop": -0.2})
+    assert r.status_code == 200
+    assert r.json()["shader_backdrop"] == 0.0
+
+
+def test_chat_defaults_on_and_can_be_turned_off(env) -> None:
+    """An old config has no key. The chat pet stays until the user turns it off."""
+    assert "pet_chat" not in _toml_ui(env)
+    assert env.client.get("/api/pets").json()["chat"] is True
+    r = env.client.put("/api/pets/settings", json={"chat": False})
+    assert r.status_code == 200
+    assert r.json()["chat"] is False
+    assert _toml_ui(env)["pet_chat"] is False
+    assert env.app.state.desktop_app.calls == []
+    assert env.client.get("/api/pets").json()["chat"] is False
+    env.client.put("/api/pets/settings", json={"chat": True})
+    assert env.client.get("/api/pets").json()["chat"] is True
 
 
 def test_visibility_is_runtime_only(env) -> None:
@@ -361,6 +427,35 @@ def test_upload_refusals_are_400_with_a_sentence(env, sheet: bytes) -> None:
 
 def test_upload_rejects_a_frame_size_that_is_not_a_number(env) -> None:
     assert _upload(env, frame_size="big").status_code == 400
+
+
+def test_upload_a_shader_pet_and_serve_its_source(env) -> None:
+    source = "void main() { gl_FragColor = vec4(uTime, uState, uBlend, 1.0); }\n"
+    created = env.client.post(
+        "/api/pets",
+        files={"shader": ("orb.frag", source, "text/plain")},
+        data={"name": "Tide", "description": "Rings."},
+    )
+    assert created.status_code == 201, created.text
+    pet = created.json()
+    assert pet["kind"] == "shader"
+    assert pet["sheet_url"] == ""
+    assert pet["animations"] == {}
+    body = env.client.get(pet["shader_url"])
+    assert body.status_code == 200
+    assert "gl_FragColor" in body.text
+    assert env.client.get(f"/api/pets/{pet['id']}/sheet.png").status_code == 404
+
+
+def test_upload_rejects_a_shader_with_a_sampler(env) -> None:
+    source = "void main() { sampler2D tex; gl_FragColor = vec4(1.0); }\n"
+    created = env.client.post(
+        "/api/pets",
+        files={"shader": ("orb.frag", source, "text/plain")},
+        data={"name": "Tide", "description": ""},
+    )
+    assert created.status_code == 400
+    assert "sampler" in created.json()["detail"]
 
 
 def test_a_body_declared_too_large_is_refused_before_parsing(env) -> None:

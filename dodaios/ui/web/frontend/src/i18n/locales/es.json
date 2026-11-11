@@ -9663,8 +9663,8 @@
   },
   "pets": {
     "title": "Mis mascotas",
-    "subtitle": "Un pequeño compañero de píxeles que flota en tu escritorio y reacciona mientras {name} escucha, piensa y habla. Pulsa {0} para ocultarlo o mostrarlo.",
-    "subtitle_no_shortcut": "Un pequeño compañero de píxeles que flota en tu escritorio y reacciona mientras {name} escucha, piensa y habla. Asigna un atajo en Personalizar para ocultarlo o mostrarlo.",
+    "subtitle": "Un pequeño compañero que flota en tu escritorio y reacciona mientras {name} escucha, piensa y habla. Pulsa {0} para ocultarlo o mostrarlo.",
+    "subtitle_no_shortcut": "Un pequeño compañero que flota en tu escritorio y reacciona mientras {name} escucha, piensa y habla. Asigna un atajo en Personalizar para ocultarlo o mostrarlo.",
     "hide": "Ocultar mascota",
     "show": "Mostrar mascota",
     "open_settings": "Elegir mascota",
@@ -9673,6 +9673,7 @@
     "use_pet": "Usar mascota en el escritorio",
     "style_saved": "La mascota ya está en tu escritorio.",
     "enabled_label": "Mascota en el escritorio",
+    "chat_label": "Mascota en el chat",
     "style_off_saved": "La mascota está apagada. Dodaios Bar vuelve a tu escritorio.",
     "restart_hint": "Guardado. Reinicia {name} para ver la mascota en tu escritorio.",
     "load_error": "No se pudieron cargar tus mascotas: {0}",
@@ -9685,9 +9686,16 @@
     "bubble_hint": "Líneas breves bajo la mascota que dicen qué está haciendo {name}.",
     "strip_label": "Mostrar siempre los botones",
     "strip_hint": "Desactivado: los botones bajo la mascota solo aparecen mientras {name} escucha, piensa o habla, o al señalar la mascota.",
+    "backdrop_label": "Fondo",
+    "backdrop_hint": "Negro detrás de un shader o del orbe. A la izquierda es transparente.",
     "shortcut_hint": "Oculta la mascota o la trae de nuevo al frente.",
     "my_pets": "Mis mascotas",
     "create": "Crear mascota",
+    "filter_label": "Mostrar",
+    "filter_all": "Todas",
+    "filter_pixel": "Píxeles",
+    "filter_shader": "Shaders",
+    "filter_model": "Modelos",
     "created": "{0} está lista.",
     "none_name": "Ninguna",
     "none_description": "Solo la barra de controles",
@@ -9708,6 +9716,13 @@
       "working": "Trabajando",
       "searching": "Buscando",
       "held": "En brazos"
+    },
+    "shader_note": "Este shader se ve en el escritorio, aquí y en un compañero del Verse.",
+    "model_note": "Este modelo se ve en el escritorio, aquí y en un compañero del Verse.",
+    "cube_cat": {
+      "title": "Gato de cubos",
+      "short": "Gato",
+      "note": "El gato se ve en esta página y en el Verse."
     },
     "builtin": {
       "gigi": {
@@ -9736,11 +9751,17 @@
       },
       "dodaios": {
         "description": "La figura encapuchada del logotipo: la punta de la capucha se levanta al escuchar y la capa vuela al saltar."
+      },
+      "wisp-swarm": {
+        "description": "Una nube de fuegos fatuos de pleno verano que se inclina para escuchar, se agita al pensar y brilla en oro cuando algo sale bien."
+      },
+      "cube-cat": {
+        "description": "Un gato de cubos que corre en el sitio."
       }
     },
     "create_dialog": {
       "title": "Crear mascota",
-      "description": "Sube una hoja de sprites, ponle nombre a tu mascota y se unirá a las demás.",
+      "description": "Sube una hoja de sprites o un shader de fragmento, ponle nombre a tu mascota y se unirá a las demás.",
       "name_label": "Nombre",
       "name_placeholder": "Por ejemplo: Pixel",
       "description_label": "Descripción",
@@ -9759,8 +9780,18 @@
       "manifest_hint": "Un pet.json fija los fotogramas, la velocidad y la repetición de cada fila. Sin él, las filas se leen en el orden de arriba y se cuentan los fotogramas de cada fila.",
       "manifest_choose": "Añadir pet.json",
       "manifest_remove": "Quitar",
+      "shader_label": "Shader de fragmento",
+      "shader_hint": "Un archivo .frag o .glsl, de hasta 16 KB. Escribe gl_FragColor. uTime, uState, uStateFrom, uBlend y uLevel ya están declarados. uState va de 0 a 9, en el orden de los estados, y un cambio mezcla las dos imágenes. uLevel va de 0 a 1 para el aspecto que se dibuja: la voz del asistente si ese estado habla, el micrófono si escucha, y 0 en los demás casos.",
+      "shader_choose": "Elegir shader",
+      "shader_type": "Elige un archivo .frag o .glsl.",
+      "model_label": "Modelo 3D",
+      "model_hint": "Un archivo .glb de hasta 8 MB, más un pet.json que diga qué clip se reproduce en cada estado.",
+      "model_choose": "Elegir modelo",
+      "model_type": "Elige un archivo .glb.",
+      "model_too_big": "Este modelo ocupa más de 8 MB.",
+      "model_needs_manifest": "Un modelo necesita un pet.json que asigne un clip a cada estado.",
       "error_name": "Ponle un nombre a tu mascota.",
-      "error_no_sheet": "Elige una hoja de sprites.",
+      "error_no_sheet": "Elige una hoja de sprites, un shader o un modelo.",
       "error_not_png": "Elige una imagen PNG.",
       "error_too_big": "Esta imagen ocupa más de 2 MB.",
       "error_manifest": "El manifiesto debe ser un archivo .json.",

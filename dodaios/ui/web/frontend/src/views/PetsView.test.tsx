@@ -1,6 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const motionPref = vi.hoisted(() => ({ reduced: false }));
+vi.mock("framer-motion", async () => {
+  const actual = await vi.importActual<typeof import("framer-motion")>("framer-motion");
+  return { ...actual, useReducedMotion: () => motionPref.reduced };
+});
 
 import { PetsView } from "@/views/PetsView";
 import { useEventStore } from "@/store/events";
@@ -38,7 +44,35 @@ function stubServer({ style = "pet" }: { style?: string } = {}) {
     strip_always: false,
     visible: true,
     style,
-    pets: [pet("gigi", "Gigi", true), pet("miso", "Miso", true), pet("u0123456789abcdef", "Pixel", false)],
+    pets: [
+      pet("gigi", "Gigi", true),
+      pet("miso", "Miso", true),
+      {
+        ...pet("wisp-swarm", "Wisp Swarm", true),
+        kind: "shader" as const,
+        frame_size: 0,
+        sheet_url: "",
+        shader_url: "/api/pets/wisp-swarm/shader.frag",
+        animations: {},
+      },
+      {
+        ...pet("cube-cat", "Cube Cat", true),
+        kind: "model" as const,
+        frame_size: 0,
+        sheet_url: "",
+        animations: {},
+        clips: { idle: "idle", listening: "look" },
+      },
+      {
+        ...pet("jarvis-orb", "Dodaios Orb", true),
+        kind: "scene" as const,
+        frame_size: 0,
+        sheet_url: "",
+        animations: {},
+        description: "A glowing orb with rings.",
+      },
+      pet("u0123456789abcdef", "Pixel", false),
+    ],
   };
   const calls: Call[] = [];
   const json = (body: unknown, status = 200) => ({
@@ -120,10 +154,93 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  motionPref.reduced = false;
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
 describe("PetsView", () => {
+  it("walks the hero through states and leaves a grid tile on idle", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    stubServer();
+    renderView();
+
+    const card = await screen.findByTestId("pets-active-card");
+    const hero = within(card).getByTestId("pet-sprite");
+    const tile = within(screen.getByTestId("pet-tile-gigi")).getByTestId("pet-sprite");
+    expect(hero.getAttribute("data-state")).toBe("idle");
+    expect(tile.getAttribute("data-state")).toBe("idle");
+    expect(within(card).getByTestId("pets-state-label").textContent).toBe("Idle");
+
+    await act(async () => {
+      vi.advanceTimersByTime(2500);
+    });
+    expect(hero.getAttribute("data-state")).toBe("listening");
+    expect(tile.getAttribute("data-state")).toBe("idle");
+    expect(within(screen.getByTestId("pet-tile-miso")).getByTestId("pet-sprite").getAttribute("data-state")).toBe("idle");
+    expect(within(card).getByTestId("pets-state-label").textContent).toBe("Listening");
+  });
+
+  it("keeps the hero on idle when motion is reduced", async () => {
+    motionPref.reduced = true;
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    stubServer();
+    renderView();
+    const card = await screen.findByTestId("pets-active-card");
+    await act(async () => {
+      vi.advanceTimersByTime(2500);
+    });
+    expect(within(card).getByTestId("pet-sprite").getAttribute("data-state")).toBe("idle");
+  });
+
+  it("offers a backdrop slider for a shader and the orb, not a pixel pet", async () => {
+    const { calls } = stubServer();
+    renderView();
+    await screen.findByTestId("pet-tile-gigi");
+    expect(screen.queryByTestId("pets-backdrop")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("pet-tile-wisp-swarm"));
+    const slider = await screen.findByTestId("pets-backdrop");
+    expect((slider as HTMLInputElement).value).toBe("0");
+    expect(screen.getByText("Backdrop")).toBeTruthy();
+    const card = screen.getByTestId("pets-active-card");
+    expect(within(card).getByTestId("shader-pet-preview").getAttribute("data-backdrop")).toBe("0");
+    expect(
+      within(screen.getByTestId("pet-tile-wisp-swarm")).getByTestId("shader-pet-preview").getAttribute("data-backdrop"),
+    ).toBe("0");
+
+    fireEvent.pointerDown(slider);
+    fireEvent.change(slider, { target: { value: "0.4" } });
+    expect(within(card).getByTestId("shader-pet-preview").getAttribute("data-backdrop")).toBe("0.4");
+    expect(
+      within(screen.getByTestId("pet-tile-wisp-swarm")).getByTestId("shader-pet-preview").getAttribute("data-backdrop"),
+    ).toBe("0");
+    fireEvent.pointerUp(window);
+
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: "PUT",
+        url: "/api/pets/settings",
+        body: { shader_backdrop: 0.4 },
+      }),
+    );
+    await waitFor(() => expect((screen.getByTestId("pets-backdrop") as HTMLInputElement).value).toBe("0.4"));
+
+    fireEvent.click(screen.getByTestId("pet-tile-jarvis-orb"));
+    await waitFor(() =>
+      expect(screen.getByTestId("pet-tile-jarvis-orb").getAttribute("aria-pressed")).toBe("true"),
+    );
+    expect((screen.getByTestId("pets-backdrop") as HTMLInputElement).value).toBe("0.4");
+    expect(within(screen.getByTestId("pets-active-card")).getByTestId("jarvis-orb-preview").getAttribute("data-backdrop")).toBe("0.4");
+    expect(
+      within(screen.getByTestId("pet-tile-jarvis-orb")).getByTestId("jarvis-orb-preview").getAttribute("data-backdrop"),
+    ).toBe("0");
+
+    fireEvent.click(screen.getByTestId("pet-tile-gigi"));
+    await waitFor(() => expect(screen.getByTestId("pet-tile-gigi").getAttribute("aria-pressed")).toBe("true"));
+    expect(screen.queryByTestId("pets-backdrop")).toBeNull();
+  });
+
   it("lists None first, then every pet, and rings the active one", async () => {
     stubServer();
     renderView();
@@ -136,6 +253,9 @@ describe("PetsView", () => {
     expect(screen.getByTestId("pet-tile-miso").getAttribute("aria-pressed")).toBe("false");
     // Built-in copy comes from the locale, a custom pet keeps its own text.
     expect(within(grid).getByText("A cat: ears up while listening, curls up to sleep.")).toBeTruthy();
+    expect(screen.getByTestId("pets-filter-all").getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByTestId("wisp-swarm-stage")).toBeNull();
+    expect(screen.queryByTestId("cube-cat-stage")).toBeNull();
     expect(within(grid).getByText("Pixel from the API")).toBeTruthy();
   });
 
@@ -143,6 +263,65 @@ describe("PetsView", () => {
     stubServer();
     renderView();
     expect(await screen.findByText(/Press Alt \+ Win \+ P to hide or show it\./)).toBeTruthy();
+  });
+
+  it("selects the wisp wedding shader and the cube cat from the grid", async () => {
+    const { calls } = stubServer();
+    renderView();
+
+    fireEvent.click(await screen.findByTestId("pet-tile-wisp-swarm"));
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: "PUT",
+        url: "/api/pets/active",
+        body: { pet_id: "wisp-swarm" },
+      }),
+    );
+    expect(screen.getAllByTestId("shader-pet-preview")).toHaveLength(2);
+    expect(within(screen.getByTestId("pet-tile-wisp-swarm")).getByTestId("shader-pet-preview")).toBeTruthy();
+    expect(screen.getByTestId("pets-shader-note")).toBeTruthy();
+    expect(
+      screen.getAllByText(
+        "A midsummer cloud of wisps that leans in to listen, churns while it thinks, and flares gold when something goes right.",
+      ).length,
+    ).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByTestId("pet-tile-cube-cat"));
+    await waitFor(() =>
+      expect(screen.getByTestId("pet-tile-cube-cat").getAttribute("aria-pressed")).toBe("true"),
+    );
+    const cats = screen.getAllByTestId("model-pet-preview");
+    expect(cats).toHaveLength(2);
+    expect(cats.every((cat) => cat.getAttribute("data-clip") === "idle")).toBe(true);
+    expect(within(screen.getByTestId("pet-tile-cube-cat")).getByTestId("model-pet-preview")).toBeTruthy();
+    expect(screen.getByTestId("pets-model-note")).toBeTruthy();
+  });
+
+  it("filters the grid by pixels, shaders and models", async () => {
+    stubServer();
+    renderView();
+    await screen.findByTestId("pet-tile-gigi");
+
+    fireEvent.click(screen.getByTestId("pets-filter-shader"));
+    expect(screen.getByTestId("pet-tile-wisp-swarm")).toBeTruthy();
+    expect(screen.queryByTestId("pet-tile-gigi")).toBeNull();
+    expect(screen.queryByTestId("pet-tile-cube-cat")).toBeNull();
+    expect(screen.queryByTestId("pet-tile-jarvis-orb")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("pets-filter-model"));
+    expect(screen.getByTestId("pet-tile-cube-cat")).toBeTruthy();
+    expect(screen.queryByTestId("pet-tile-wisp-swarm")).toBeNull();
+    expect(screen.queryByTestId("pet-tile-jarvis-orb")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("pets-filter-pixel"));
+    expect(screen.getByTestId("pet-tile-gigi")).toBeTruthy();
+    expect(screen.queryByTestId("pet-tile-wisp-swarm")).toBeNull();
+    expect(screen.queryByTestId("pet-tile-jarvis-orb")).toBeNull();
+    expect(screen.queryByTestId("pet-tile-none")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("pets-filter-all"));
+    expect(screen.getByTestId("pet-tile-jarvis-orb")).toBeTruthy();
+    expect(within(screen.getByTestId("pet-tile-jarvis-orb")).getByTestId("jarvis-orb-preview")).toBeTruthy();
   });
 
   it("selects a pet with one click", async () => {
@@ -220,6 +399,29 @@ describe("PetsView", () => {
     expect(calls.some((call) => call.url === "/api/pets/active")).toBe(false);
   });
 
+  it("shows Pet on chat on by default and saves turning it off", async () => {
+    const { calls } = stubServer();
+    renderView();
+
+    const chat = await screen.findByTestId("pets-chat");
+    const desktop = await screen.findByTestId("pets-enabled");
+    expect(desktop.compareDocumentPosition(chat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(desktop.closest("label")?.className).toContain("justify-between");
+    expect(chat.closest("label")?.className).toContain("justify-between");
+    await waitFor(() => expect((chat as HTMLButtonElement).disabled).toBe(false));
+    expect(chat.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(chat);
+
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: "PUT",
+        url: "/api/pets/settings",
+        body: { chat: false },
+      }),
+    );
+    await waitFor(() => expect(chat.getAttribute("aria-checked")).toBe("false"));
+  });
+
   it("turns the pet on from the header switch", async () => {
     const { calls } = stubServer({ style: "jarvis_bar" });
     renderView();
@@ -282,6 +484,8 @@ describe("PetsView", () => {
     await waitFor(() => expect((customize as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(customize);
     const slider = await screen.findByTestId("pets-size");
+    expect((slider as HTMLInputElement).max).toBe("4");
+    expect((slider as HTMLInputElement).value).toBe("1");
     fireEvent.pointerDown(slider);
     fireEvent.change(slider, { target: { value: "1.37" } });
 

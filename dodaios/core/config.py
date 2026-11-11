@@ -1100,12 +1100,28 @@ def normalize_pet_id(value: object) -> str | None:
     return pet_id if _PET_ID_SHAPE.fullmatch(pet_id) else None
 
 
-def clamp_pet_scale(value: object) -> float:
-    """The pet size multiplier, clamped to 0.5–2.0.
+def clamp_shader_backdrop(value: object) -> float:
+    """Opacity of the black disc behind a shader pet or the Jarvis orb.
 
-    Same sanitizing as ``bar_size_scale``: a non-numeric or non-finite value
-    becomes 1.0. One definition for the config load, the TOML writer and the
-    pets route, so the three can never disagree about the range.
+    0 is clear (the wallpaper shows through) and 1 is solid black. A
+    non-numeric or non-finite value becomes 0, so an old config stays clear.
+    """
+    try:
+        f = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):  # Invalid saved backdrops use the documented 0.0 default.
+        return 0.0
+    if f != f or f in (float("inf"), float("-inf")):
+        return 0.0
+    return max(0.0, min(1.0, f))
+
+
+def clamp_pet_scale(value: object) -> float:
+    """The pet size multiplier, clamped to 0.5–4.0.
+
+    1.0 is a 180px figure. 4.0 is 720px, large enough for a second display.
+    A non-numeric or non-finite value becomes 1.0. One definition for the
+    config load, the TOML writer, the pets route and the live overlay, so
+    they can never disagree about the range.
     """
     try:
         f = float(value)  # type: ignore[arg-type]
@@ -1113,7 +1129,7 @@ def clamp_pet_scale(value: object) -> float:
         return 1.0
     if f != f or f in (float("inf"), float("-inf")):  # NaN / ±inf
         return 1.0
-    return max(0.5, min(2.0, f))
+    return max(0.5, min(4.0, f))
 
 
 class BrainRoutingConfig(BaseModel):
@@ -2165,13 +2181,19 @@ class UIConfig(BaseModel):
     # (the default) or the id of a built-in or installed look. A look that is
     # gone from disk falls back to the orb in the app, never here.
     look_id: str = ORB_LOOK_ID
-    # Pet size multiplier on top of the monitor DPI scale, 0.5–2.0.
+    # Pet size multiplier on top of the monitor DPI scale, 0.5–4.0.
     pet_scale: float = 1.0
     # Show the status bubble under the pet's control strip.
     pet_bubble: bool = True
     # Keep the pet's control strip on screen at all times. Off (default): it
     # shows only while Jarvis listens, thinks or talks, or under the pointer.
     pet_strip_always: bool = False
+    # Show the user's pet in the main chat (empty-chat mascot, Jarvis composer
+    # chip, live work line). Absent in an old config means on.
+    pet_chat: bool = True
+    # Black disc behind a shader pet or the Jarvis orb. 0 is clear, 1 is solid.
+    # Pixel pets and models ignore it. Absent in an old config stays clear.
+    pet_shader_backdrop: float = 0.0
     # Remembered "open with" choice for Outputs artifacts: an opener id
     # ("default" = OS default app, "browser", or an editor key like "code").
     # Empty = ask via the chooser dialog on first open. Desktop-only.
@@ -2221,6 +2243,11 @@ class UIConfig(BaseModel):
     @classmethod
     def _clamp_pet_scale(cls, v: object) -> object:
         return clamp_pet_scale(v)
+
+    @field_validator("pet_shader_backdrop", mode="before")
+    @classmethod
+    def _clamp_shader_backdrop(cls, v: object) -> object:
+        return clamp_shader_backdrop(v)
 
 
 class DuckingConfig(BaseModel):

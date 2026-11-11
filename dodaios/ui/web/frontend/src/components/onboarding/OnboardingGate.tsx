@@ -52,6 +52,21 @@ export function OnboardingGate({ activeSection }: { activeSection?: string } = {
   const [setupReplay, setSetupReplay] = useState(0);
   const forced = useMemo(() => param("onboarding") === "force", []);
 
+  // A window that opened while setup looked unfinished keeps the dialog up
+  // even after another window finished it. Checking again on focus closes it.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "hidden") return;
+      void onb.refetch();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [onb]);
+
   useEffect(() => {
     const onChanged = () => {
       void onb.refetch();

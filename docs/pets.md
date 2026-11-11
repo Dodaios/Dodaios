@@ -305,13 +305,115 @@ committed PNGs match the script). User-created pets live in
 | `flick` | Flick | An original house elf: huge ears shoot up to listen and droop on errors, scrubs while working, sleeps under its ears |
 | `aurelia` | Aurelia | An original princess in an emerald gown: tilts her head to listen, writes letters with a quill, twirls on success |
 
+## Shader format `jarvis-shader-pet/1`
+
+A shader pet is a folder with a fragment file instead of a sprite sheet.
+Wisp Swarm ships as one: `dodaios/ui/pets/builtin/wisp-swarm/`. Replace
+`shader.frag` there to change that pet.
+
+| Id | Name | Idea |
+|---|---|---|
+| `wisp-swarm` | Wisp Swarm | A midsummer cloud of wisps that leans in to listen, churns while it thinks, and flares gold when something goes right |
+
+An uploaded shader is the same
+two files under the user's pet folder.
+
+```text
+<pet-id>/
+  pet.json
+  shader.frag
+```
+
+```json
+{
+  "format": "jarvis-shader-pet/1",
+  "id": "u0123456789abcdef",
+  "name": "Tide",
+  "description": "A slow ringed orb.",
+  "shader": "shader.frag"
+}
+```
+
+The app owns the sphere, the vertex shader and the uniforms. The file is
+helpers plus `void main`, and it writes `gl_FragColor`. Every My Pets
+card plays that pet's idle animation. The desktop figure draws a model
+pet from its GLB, and draws the Jarvis orb as the same scene the page
+plays. The shader can read
+`uTime` (seconds), `uState` and `uStateFrom` (0–9, in `PET_STATES` order),
+`uBlend` (0 at the start of a change, 1 when the new state has arrived)
+and `uLevel` (0–1). Each of the two passes sets `uLevel` from its own
+state: `uLevel` is the state being entered and `uLevelFrom` is the state
+being left. Talking uses the assistant's voice, listening uses the
+microphone, and every other state sends 0, so a leftover sample does not
+keep moving the pet. `vLocal`, `vNormal` and `vView` are the sphere
+varyings. The file must not declare uniforms, varyings, samplers or
+precision, and it must not use `#include`, `#version`, `#extension`,
+`#define`, `#pragma` or `#undef`.
+
+A state change draws the shader twice, once at `uStateFrom` and once at
+`uState`, and mixes the two colours over about a third of a second. A
+shader that only branches on `uState` still flows. Reduced motion snaps
+to the new state in My Pets and on a worn companion.
+
+The desktop figure is a separate window, not the Tk sprite surface. On
+macOS it is a Qt window painted with real alpha, the same way the Jarvis
+Bar is: fully clear pixels are not part of the window. On Windows the
+same image goes through `UpdateLayeredWindow`, so the glow is real alpha
+and a clear pixel is the desktop and does not take the click. The sprite
+loader still has no frames for a shader. The pet renderer reads the
+fragment itself and does not substitute the default pixel pet. If PySide6
+cannot start, the figure stays clear and the control strip remains.
+
+The source is at most 16 KB of UTF-8. A `while` is rejected, including one
+hidden with a backslash at the end of a line. A `for` may only count a
+fixed number of times, at most 32, with the same counter in the test and
+the increment, written as `for (int i = 0; i < 8; i++) { ... }`. The body
+must be a brace block, and it must not assign to that counter. Nested
+loops multiply and may run at most 160 times together (Wisp Swarm is
+32×5); two loops one after another do not multiply. The create dialog
+compiles the shader when the browser has WebGL and says so when it does
+not; the server repeats the text checks and does not compile.
+
+A model pet is a folder with a GLB instead of a sprite sheet. The cube
+cat ships as one: `dodaios/ui/pets/builtin/cube-cat/`. Another model, a
+cube dog, is the same two files. It does not need its own program.
+
+```text
+<pet-id>/
+  pet.json
+  model.glb
+```
+
+```json
+{
+  "format": "jarvis-model-pet/1",
+  "id": "u0123456789abcdef",
+  "name": "Cube Dog",
+  "description": "A blocky dog.",
+  "model": "model.glb",
+  "animations": { "idle": "idle", "searching": "run" },
+  "options": { "height": 0.7, "eye": [1.05, 0.55, 1.9], "aim": 0.62 }
+}
+```
+
+`animations` maps a pet state to a clip name in the file. `idle` is
+required; a missing state uses the same fallback as a sprite. `options`
+is optional and frames the model: `height` in metres, `eye` the camera
+position, `aim` how far up the body the camera looks, as a fraction of
+`height`. The file is at most 8 MB. The upload is stored as `model.glb`;
+the file's own name is ignored.
+
 ## Adding a pet
 
 - **As a user:** Settings → My Pets → Create pet. Upload a sheet in the
-  layout above (a template PNG is offered for download), add a name and a
-  one-sentence description, optionally a `pet.json`. Without a manifest the
-  rows are read in `PET_STATES` order and the frame count per row is the
-  number of non-empty cells.
+  layout above (a template PNG is offered for download), a `.frag` /
+  `.glsl` fragment shader, or a `.glb` model with a `pet.json`, add a
+  name and a one-sentence description, optionally a `pet.json` for a
+  sprite. Without a sprite manifest the rows are read in `PET_STATES`
+  order and the frame count per row is the number of non-empty cells. A
+  shader upload writes `shader.frag` and its own manifest. A model upload
+  writes `model.glb` and keeps the clip map from the uploaded `pet.json`.
+  The file's own name is ignored.
 - **As a developer:** add a builder to `scripts/pets/build_pets.py`, run it,
   and commit the generated folder. The parity and completeness tests require
   every built-in pet to provide all ten states.
@@ -364,7 +466,7 @@ Control-strip actions: `bell` (handled in the surface, reported through
 |---|---|---|
 | `[ui] orb_style` | `jarvis_bar` | `pet` selects the pet |
 | `[ui] pet_id` | `gigi` | Active pet (built-in id, `u…` id or `none`) |
-| `[ui] pet_scale` | `1.0` | Size multiplier, 0.5–2.0 |
+| `[ui] pet_scale` | `1.0` | Size multiplier, 0.5–4.0 (1.0 is 180px) |
 | `[ui] pet_bubble` | `true` | Show the thought bubble |
 | `[ui] pet_strip_always` | `false` | Keep the control strip up even at rest |
 | `[trigger] hotkey_pet_toggle` | `alt+win+p` | Hide / show the pet; empty disables it |
@@ -373,13 +475,14 @@ Control-strip actions: `bell` (handled in the surface, reported through
 
 | Method and path | Body / result |
 |---|---|
-| `GET /api/pets` | `{active, scale, bubble, visible, pets: [{id, name, description, builtin, frame_size, animations, sheet_url}]}` |
-| `GET /api/pets/{id}/sheet.png` | The sprite sheet |
+| `GET /api/pets` | `{active, scale, bubble, visible, pets: [{id, name, description, builtin, kind, frame_size, animations, sheet_url, shader_url, model_url, clips, options}]}`. `kind` is `sprite`, `shader`, `model` or `scene`. `wisp-swarm` (Wisp Swarm) is the built-in shader pack (`builtin/wisp-swarm`). `cube-cat` is the built-in model pack (`builtin/cube-cat`). `jarvis-orb` is built in and has no folder. Selecting any of them is saved the same way. The desktop figure draws a shader pet, a model pet from its GLB, and the Jarvis orb as that scene. The cube cat and the Jarvis orb also play on this page and in the Verse |
+| `GET /api/pets/{id}/sheet.png` | The sprite sheet. A shader pet answers 404 |
+| `GET /api/pets/{id}/shader.frag` | A shader pet's fragment source (`text/plain`). A sprite answers 404 |
 | `GET /api/pets/template.png` | The empty sprite-sheet template (48 px cells, rows in state order) |
 | `PUT /api/pets/active` | `{pet_id}` → saves `[ui] pet_id`, applies live |
 | `PUT /api/pets/settings` | `{scale?, bubble?, strip_always?, preview?}` → applies live, then saves; `preview: true` (a size-slider drag step) only applies live, writes nothing and sends no `PetChanged` |
 | `POST /api/pets/visibility` | `{visible}` → runtime only |
-| `POST /api/pets` | multipart: `sheet` (PNG), `name`, `description`, optional `manifest` (JSON), optional `frame_size` → the new pet |
+| `POST /api/pets` | multipart: `sheet` (PNG) or `shader` (fragment text), `name`, `description`, optional `manifest` (JSON, sprites), optional `frame_size` → the new pet |
 | `DELETE /api/pets/{id}` | user-created pets only |
 
 ## Performance budget
@@ -387,9 +490,11 @@ Control-strip actions: `bell` (handled in the surface, reported through
 The pet must cost next to nothing while idle:
 
 - every frame is scaled once (nearest-neighbour, an integer factor chosen
-  from the figure's visible size so it reads about 180 logical px tall,
-  times the monitor DPI and `pet_scale`) and cached as a Tk image; the strip
-  (about 0.3 × the figure) and the card scale with it;
+  from the figure's visible size so it reads about 180 logical px tall
+  at `pet_scale` 1.0, times the monitor DPI and `pet_scale`) and cached as a
+  Tk image; the control strip and the card stay at their 100% logical size.
+  The strip's bitmap is drawn at the screen's device pixel ratio, so a retina
+  window is not a 1x image scaled up;
 - the window repaints only when the frame key changes (frame index, plus the
   level bucket while talking), and the timer sleeps until the next frame
   boundary: 6 fps idle, 3 fps asleep, 8–10 fps active, nothing while hidden;

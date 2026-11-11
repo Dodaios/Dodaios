@@ -1630,7 +1630,7 @@ def set_look_id(look_id: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
 
 
 def set_pet_scale(scale: float, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
-    """Persist ``[ui] pet_scale`` (the pet size slider), clamped to 0.5–2.0.
+    """Persist ``[ui] pet_scale`` (the pet size slider), clamped to 0.5–4.0.
 
     Same sanitizing as :func:`set_bar_size_scale` (``clamp_pet_scale``): a
     non-numeric or non-finite value is stored as 1.0, never as an out-of-range
@@ -1649,6 +1649,18 @@ def set_pet_bubble(enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
 def set_pet_strip_always(enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     """Persist ``[ui] pet_strip_always`` (keep the pet's control strip up)."""
     _patch_table(path, "ui", "pet_strip_always", bool(enabled))
+
+
+def set_pet_chat(enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
+    """Persist ``[ui] pet_chat`` (show the pet in the main chat)."""
+    _patch_table(path, "ui", "pet_chat", bool(enabled))
+
+
+def set_pet_shader_backdrop(opacity: float, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
+    """Persist ``[ui] pet_shader_backdrop`` (black disc behind a shader or the orb)."""
+    from dodaios.core.config import clamp_shader_backdrop  # noqa: PLC0415
+
+    _patch_table(path, "ui", "pet_shader_backdrop", clamp_shader_backdrop(opacity))
 
 
 def set_bar_follow_cursor_monitor(enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE) -> None:

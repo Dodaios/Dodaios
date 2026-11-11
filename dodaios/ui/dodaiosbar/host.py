@@ -173,6 +173,8 @@ def dispatch(surface: Any, msg: dict[str, Any]) -> bool:
             None if bubble is None else bool(bubble),
             None if strip is None else bool(strip),
         )
+    elif op == "set_pet_shader_backdrop":
+        _call(surface, "set_pet_shader_backdrop", float(msg.get("opacity") or 0.0))
     elif op == "set_pet_outcome":
         _call(surface, "set_pet_outcome", str(msg.get("kind", "")))
     elif op == "set_pet_action":
@@ -393,6 +395,7 @@ def _build_surface(cfg: dict[str, Any]) -> Any:
             pet_scale=1.0 if pet_scale is None else float(pet_scale),
             pet_bubble=bool(cfg.get("pet_bubble", True)),
             pet_strip_always=bool(cfg.get("pet_strip_always", False)),
+            pet_shader_backdrop=float(cfg.get("pet_shader_backdrop") or 0.0),
         )
     kwargs = {
         key: cfg[key]

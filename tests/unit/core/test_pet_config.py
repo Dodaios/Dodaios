@@ -20,6 +20,7 @@ from dodaios.core.config import (
     TriggerConfig,
     UIConfig,
     clamp_pet_scale,
+    clamp_shader_backdrop,
     normalize_pet_id,
 )
 from dodaios.trigger.hotkey import combos_collide, normalized_combo_tokens, validate_hotkey
@@ -42,6 +43,8 @@ def test_defaults() -> None:
     assert ui.pet_scale == 1.0
     assert ui.pet_bubble is True
     assert ui.pet_strip_always is False
+    assert ui.pet_chat is True
+    assert ui.pet_shader_backdrop == 0.0
 
 
 @pytest.mark.parametrize(
@@ -82,8 +85,10 @@ def test_pet_id_shape_matches_the_manifest_rules() -> None:
     [
         (1.0, 1.0),
         ("1.5", 1.5),
+        (2.0, 2.0),
+        (4.0, 4.0),
         (0.1, 0.5),
-        (9, 2.0),
+        (9, 4.0),
         ("big", 1.0),
         (float("nan"), 1.0),
         (float("inf"), 1.0),
@@ -93,6 +98,15 @@ def test_pet_id_shape_matches_the_manifest_rules() -> None:
 def test_pet_scale_is_clamped(raw: object, expected: float) -> None:
     assert UIConfig(pet_scale=raw).pet_scale == expected
     assert clamp_pet_scale(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [(0, 0.0), (0.4, 0.4), (2, 1.0), (-1, 0.0), (float("nan"), 0.0), ("nope", 0.0)],
+)
+def test_shader_backdrop_is_clamped(raw: object, expected: float) -> None:
+    assert UIConfig(pet_shader_backdrop=raw).pet_shader_backdrop == expected
+    assert clamp_shader_backdrop(raw) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -109,15 +123,17 @@ def test_writers_persist_the_three_ui_keys(tmp_path: Path) -> None:
     toml.write_text('[ui]\norb_style = "pet"  # kept\n', encoding="utf-8")
 
     config_writer.set_pet_id("Miso", path=toml)
-    config_writer.set_pet_scale(3.0, path=toml)
+    config_writer.set_pet_scale(9.0, path=toml)
     config_writer.set_pet_bubble(False, path=toml)
     config_writer.set_pet_strip_always(True, path=toml)
+    config_writer.set_pet_shader_backdrop(1.5, path=toml)
 
     ui = _ui_table(toml)
     assert ui["pet_id"] == "miso"
-    assert ui["pet_scale"] == 2.0  # clamped before it reaches the disk
+    assert ui["pet_scale"] == 4.0  # clamped before it reaches the disk
     assert ui["pet_bubble"] is False
     assert ui["pet_strip_always"] is True
+    assert ui["pet_shader_backdrop"] == 1.0
     assert ui["orb_style"] == "pet"
     assert "# kept" in toml.read_text(encoding="utf-8")  # comments survive
 

@@ -105,6 +105,12 @@ def test_mascot_frame_binds_photo_to_its_overlay_root(monkeypatch) -> None:
     mascot._mac_transparent = False
     mascot._image_id = None
     mascot._photo = None
+    # Production __init__ sets these before the frame loop. The shader sync
+    # reads them; a partial double used to raise and skip the re-arm.
+    mascot._style = "orb"
+    mascot._shader_host = None
+    mascot._user_hidden = False
+    mascot._figure_passthrough = False
 
     mascot._schedule_frame()
 
@@ -117,6 +123,8 @@ def test_mascot_bubble_binds_named_fonts_to_its_toplevel(monkeypatch) -> None:
     from ui.orb import overlay as orb_mod
 
     class _Top:
+        def title(self, _text: str) -> None: ...
+
         def overrideredirect(self, _enabled: bool) -> None: ...
 
         def wm_attributes(self, *_args: object) -> None: ...
@@ -146,3 +154,40 @@ def test_mascot_bubble_binds_named_fonts_to_its_toplevel(monkeypatch) -> None:
 
     assert bubble._top is top
     assert font_roots == [top, top]
+
+
+def test_shader_sync_failure_still_arms_the_next_frame(monkeypatch) -> None:
+    from ui.orb.overlay import OrbOverlay
+
+    root = _Root()
+    canvas = _Canvas()
+
+    def _photo(image: Image.Image, **_kwargs: object) -> object:
+        assert image.size == (4, 4)
+        return object()
+
+    monkeypatch.setattr(ImageTk, "PhotoImage", _photo)
+
+    def _boom(self: OrbOverlay) -> None:
+        raise RuntimeError("shader sync failed")
+
+    monkeypatch.setattr(OrbOverlay, "_sync_shader_figure", _boom)
+
+    mascot = OrbOverlay.__new__(OrbOverlay)
+    mascot._running = True
+    mascot._root = root
+    mascot._canvas = canvas
+    mascot._renderer = _Renderer()
+    mascot._mode = "listen"
+    mascot._ext_level = 0.0
+    mascot._t0 = 0.0
+    mascot._mac_transparent = False
+    mascot._image_id = None
+    mascot._photo = None
+    mascot._style = "orb"
+    mascot._shader_host = None
+    mascot._shader_sync_error_logged = False
+
+    mascot._schedule_frame()
+
+    assert root.scheduled, "a shader sync failure must not stop the animation"

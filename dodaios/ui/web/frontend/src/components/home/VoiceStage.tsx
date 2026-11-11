@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ScrollToEndButton } from "@/components/ui/scroll-to-end-button";
 import { Greeting } from "@/components/home/Greeting";
+import { ChatPet } from "@/components/pets/ChatPet";
 import { PetMark } from "@/components/pets/PetMark";
 import { VoiceGlow } from "@/components/home/VoiceGlow";
 import { LookSlot } from "@/components/looks/LookSlot";
@@ -160,9 +161,11 @@ export function VoiceStage({ onExit }: { onExit?: () => void } = {}) {
             <TranscriptLine who={assistantName} text={liveAnswer} user={false} live playbackEligible={active} />
           )}
           {active && (voiceState === "thinking" || voiceState === "speaking") && !traceShowsPet && (
-            <div className="pl-0.5" data-testid="voice-turn-indicator" aria-hidden>
-              <PetMark size={48} state={voiceState === "speaking" ? "talking" : "working"} />
-            </div>
+            <ChatPet>
+              <div className="pl-0.5" data-testid="voice-turn-indicator" aria-hidden>
+                <PetMark size={48} state={voiceState === "speaking" ? "talking" : "working"} />
+              </div>
+            </ChatPet>
           )}
         </div>
       </ScrollArea>

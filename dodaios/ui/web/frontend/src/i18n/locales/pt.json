@@ -9663,8 +9663,8 @@
   },
   "pets": {
     "title": "Os meus Pets",
-    "subtitle": "Um pequeno companheiro pixelizado que flutua no teu ambiente de trabalho e reage enquanto {name} ouve, pensa e fala. Prime {0} para o ocultar ou mostrar.",
-    "subtitle_no_shortcut": "Um pequeno companheiro pixelizado que flutua no teu ambiente de trabalho e reage enquanto {name} ouve, pensa e fala. Define um atalho em Personalizar para o ocultar ou mostrar.",
+    "subtitle": "Um pequeno companheiro que flutua no teu ambiente de trabalho e reage enquanto {name} ouve, pensa e fala. Prime {0} para o ocultar ou mostrar.",
+    "subtitle_no_shortcut": "Um pequeno companheiro que flutua no teu ambiente de trabalho e reage enquanto {name} ouve, pensa e fala. Define um atalho em Personalizar para o ocultar ou mostrar.",
     "hide": "Ocultar pet",
     "show": "Mostrar pet",
     "open_settings": "Escolher o teu pet",
@@ -9673,6 +9673,7 @@
     "use_pet": "Usar pet no ambiente de trabalho",
     "style_saved": "O pet está agora no teu ambiente de trabalho.",
     "enabled_label": "Pet no ambiente de trabalho",
+    "chat_label": "Pet no chat",
     "style_off_saved": "O pet está desligado. A Dodaios Bar voltou ao teu ambiente de trabalho.",
     "restart_hint": "Guardado. Reinicia {name} para levar o pet para o ambiente de trabalho.",
     "load_error": "Não foi possível carregar os teus pets: {0}",
@@ -9685,9 +9686,16 @@
     "bubble_hint": "Frases curtas por baixo do pet que dizem o que {name} está a fazer.",
     "strip_label": "Mostrar sempre os botões",
     "strip_hint": "Desligado: os botões por baixo do pet só aparecem enquanto {name} ouve, pensa ou fala, ou quando apontas para o pet.",
+    "backdrop_label": "Fundo",
+    "backdrop_hint": "Preto atrás de um shader ou do orbe. À esquerda fica transparente.",
     "shortcut_hint": "Oculta o pet ou volta a trazê-lo para a frente.",
     "my_pets": "Os meus pets",
     "create": "Criar pet",
+    "filter_label": "Mostrar",
+    "filter_all": "Todos",
+    "filter_pixel": "Pixels",
+    "filter_shader": "Shaders",
+    "filter_model": "Modelos",
     "created": "{0} está pronto.",
     "none_name": "Nenhum",
     "none_description": "Apenas a barra de controlo",
@@ -9708,6 +9716,13 @@
       "working": "A trabalhar",
       "searching": "A procurar",
       "held": "A ser transportado"
+    },
+    "shader_note": "Este shader aparece no ambiente de trabalho, aqui e num companheiro do Verse.",
+    "model_note": "Este modelo aparece no ambiente de trabalho, aqui e num companheiro do Verse.",
+    "cube_cat": {
+      "title": "Gato de cubos",
+      "short": "Gato",
+      "note": "O gato aparece nesta página e no Verse."
     },
     "builtin": {
       "gigi": {
@@ -9736,11 +9751,17 @@
       },
       "dodaios": {
         "description": "A figura encapuzada do logótipo: a ponta do capuz levanta-se para ouvir e a capa voa num salto."
+      },
+      "wisp-swarm": {
+        "description": "Uma nuvem de verão de fogos-fátuos que se inclina para ouvir, agita-se quando pensa e brilha a ouro quando algo corre bem."
+      },
+      "cube-cat": {
+        "description": "Um gato de cubos que corre no lugar."
       }
     },
     "create_dialog": {
       "title": "Criar pet",
-      "description": "Carrega uma sprite sheet, dá um nome ao teu pet e ele junta-se aos teus pets.",
+      "description": "Carrega uma sprite sheet ou um shader de fragmento, dá um nome ao teu pet e ele junta-se aos teus pets.",
       "name_label": "Nome",
       "name_placeholder": "Por exemplo: Pixel",
       "description_label": "Descrição",
@@ -9759,8 +9780,18 @@
       "manifest_hint": "Um pet.json define os frames, a velocidade e o ciclo de cada linha. Sem ele, as linhas são lidas pela ordem acima e os frames de cada linha são contados.",
       "manifest_choose": "Adicionar pet.json",
       "manifest_remove": "Remover",
+      "shader_label": "Shader de fragmento",
+      "shader_hint": "Um ficheiro .frag ou .glsl, até 16 KB. Escreve gl_FragColor. uTime, uState, uStateFrom, uBlend e uLevel já estão declarados. uState vai de 0 a 9, na ordem dos estados, e uma mudança mistura os dois aspetos. uLevel vai de 0 a 1 para o aspeto que está a ser desenhado: a voz do assistente se esse estado fala, o microfone se ouve, e 0 nos outros casos.",
+      "shader_choose": "Escolher shader",
+      "shader_type": "Escolhe um ficheiro .frag ou .glsl.",
+      "model_label": "Modelo 3D",
+      "model_hint": "Um ficheiro .glb até 8 MB, mais um pet.json que diga qual o clip de cada estado.",
+      "model_choose": "Escolher modelo",
+      "model_type": "Escolhe um ficheiro .glb.",
+      "model_too_big": "Este modelo tem mais de 8 MB.",
+      "model_needs_manifest": "Um modelo precisa de um pet.json que associe um clip a cada estado.",
       "error_name": "Dá um nome ao teu pet.",
-      "error_no_sheet": "Escolhe uma sprite sheet.",
+      "error_no_sheet": "Escolhe uma sprite sheet, um shader ou um modelo.",
       "error_not_png": "Escolhe uma imagem PNG.",
       "error_too_big": "Esta imagem tem mais de 2 MB.",
       "error_manifest": "O manifesto tem de ser um ficheiro .json.",

@@ -15,7 +15,9 @@ from ui.orb.drag_persistence import (
     clamp_to_work_area,
     clear_position_in_toml,
     load_position_from_toml,
+    load_saved_position,
     resolve_placement,
+    restore_pet_origin,
     save_position_to_toml,
 )
 
@@ -233,6 +235,79 @@ def test_clear_removes_three_keys_keeps_rest(tmp_path: Path):
 
 def test_clear_is_noop_when_file_missing(tmp_path: Path):
     clear_position_in_toml(tmp_path / "absent.toml")  # must not raise
+
+
+def test_a_drag_with_no_monitor_name_round_trips(tmp_path: Path):
+    """macOS and Linux save a spot with an empty monitor name."""
+    p = tmp_path / "j.toml"
+    p.write_text("[ui]\npet_id = \"gigi\"\n", encoding="utf-8")
+    save_position_to_toml(p, MascotPosition(monitor="", x_relative=640, y_relative=480))
+    assert load_saved_position(p) == MascotPosition(monitor="", x_relative=640, y_relative=480)
+    assert 'pet_id = "gigi"' in p.read_text(encoding="utf-8")
+
+
+def test_an_undragged_file_is_not_a_saved_pet_spot(tmp_path: Path):
+    p = tmp_path / "j.toml"
+    p.write_text("[profile]\nname = 'x'\n", encoding="utf-8")
+    assert load_saved_position(p) is None
+
+
+def test_a_saved_spot_with_no_monitor_is_kept_and_clamped_on_screen():
+    screen = (0, 0, 1920, 1080)
+    home = restore_pet_origin(
+        MascotPosition(monitor="", x_relative=400, y_relative=300),
+        [],
+        fallback_screen=screen,
+        width=100,
+        height=120,
+    )
+    assert home == (400, 300)
+    off = restore_pet_origin(
+        MascotPosition(monitor="", x_relative=9000, y_relative=-40),
+        [],
+        fallback_screen=screen,
+        width=100,
+        height=120,
+    )
+    assert off == (1920 - 100 - DEFAULT_MARGIN_PX, DEFAULT_MARGIN_PX)
+
+
+def test_a_missing_monitor_is_clamped_onto_the_screen_that_remains():
+    screens = [_screen("\\\\.\\DISPLAY1", primary=True, x=0, y=0, w=1920, h=1080)]
+    home = restore_pet_origin(
+        MascotPosition(monitor="\\\\.\\DISPLAY99", x_relative=400, y_relative=80),
+        screens,
+        fallback_screen=(0, 0, 800, 600),
+        width=100,
+        height=120,
+    )
+    assert home == (400, 80)
+    # A monitor that is still plugged in keeps the pin, primary or not.
+    assert (
+        restore_pet_origin(
+            MascotPosition(monitor="\\\\.\\DISPLAY1", x_relative=400, y_relative=80),
+            screens,
+            fallback_screen=(0, 0, 800, 600),
+            width=100,
+            height=120,
+        )
+        == (400, 80)
+    )
+
+
+def test_a_pin_on_a_connected_second_monitor_is_kept():
+    screens = [
+        _screen("\\\\.\\DISPLAY1", primary=True, x=0, y=0, w=1920, h=1080),
+        _screen("\\\\.\\DISPLAY2", primary=False, x=1920, y=0, w=1920, h=1080),
+    ]
+    home = restore_pet_origin(
+        MascotPosition(monitor="\\\\.\\DISPLAY2", x_relative=100, y_relative=200),
+        screens,
+        fallback_screen=(0, 0, 800, 600),
+        width=100,
+        height=120,
+    )
+    assert home == (1920 + 100, 200)
 
 
 # ---------------------------------------------------------------------------

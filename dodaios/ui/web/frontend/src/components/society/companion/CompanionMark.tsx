@@ -1,7 +1,9 @@
 import { useContext } from "react";
 import { QueryClientContext } from "@tanstack/react-query";
 
+import { JarvisOrbMark } from "@/components/pets/DodaiosOrbMark";
 import { PetSprite } from "@/components/pets/PetSprite";
+import { ShaderPetMark } from "@/components/pets/ShaderPetMark";
 import { PetStageContext } from "@/components/pets/petStage";
 import { usePetById } from "@/hooks/usePets";
 import type { PetState } from "@/lib/petStates";
@@ -67,8 +69,14 @@ function PetFace({ petId, size, thinking = false, state, fallback }: MarkProps &
   const staged = useContext(PetStageContext);
   if (pet === undefined) return <span aria-hidden className="inline-block shrink-0" style={{ width: size, height: size }} />;
   if (pet === null) return fallback;
-  return <span className="agent-pet-face relative inline-flex shrink-0" data-agent-pet={pet.id}>
-    <PetSprite pet={pet} state={state ?? staged ?? (thinking ? "working" : "idle")} px={size} />
+  const pose = state ?? staged ?? (thinking ? "working" : "idle");
+  const face = pet.kind === "shader"
+    ? <ShaderPetMark className="h-full w-full" />
+    : pet.kind === "scene"
+      ? <JarvisOrbMark className="h-full w-full" />
+      : <PetSprite pet={pet} state={pose} px={size} />;
+  return <span className="agent-pet-face relative inline-flex shrink-0" data-agent-pet={pet.id} style={{ width: size, height: size }}>
+    {face}
     {thinking && !state && !staged && <WorkingBadge size={size} />}
   </span>;
 }

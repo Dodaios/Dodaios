@@ -41,6 +41,19 @@ describe("companionFor", () => {
     expect(companionFlies(companion)).toBe(true);
   });
 
+  it("keeps the wisp wedding shader and the cube cat instead of Gigi", () => {
+    expect(companionFor(pet({
+      id: "wisp-swarm", builtin: true, kind: "shader", frame_size: 0, sheet_url: "",
+      shader_url: "/api/pets/wisp-swarm/shader.frag", animations: {},
+    }))).toMatchObject({ kind: "shader", shaderUrl: "/api/pets/wisp-swarm/shader.frag", gait: "float" });
+    expect(companionFor(pet({
+      id: "cube-cat", builtin: true, kind: "model", frame_size: 0, sheet_url: "", animations: {},
+    })).kind).toBe("clip");
+    expect(companionFor(pet({
+      id: "jarvis-orb", builtin: true, kind: "scene", frame_size: 0, sheet_url: "", animations: {},
+    }))).toMatchObject({ kind: "scene", gait: "float" });
+  });
+
   it("falls back to Gigi for a drawn pet without a usable idle row", () => {
     expect(companionFor(pet({ id: "u0123456789abcdef", animations: {} }))).toBe(GIGI_COMPANION);
   });

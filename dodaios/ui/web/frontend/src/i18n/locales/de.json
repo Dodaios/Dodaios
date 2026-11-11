@@ -9663,8 +9663,8 @@
   },
   "pets": {
     "title": "Meine Pets",
-    "subtitle": "Ein kleiner Pixel-Begleiter, der auf deinem Desktop schwebt und reagiert, während {name} zuhört, nachdenkt und spricht. Mit {0} blendest du ihn aus oder wieder ein.",
-    "subtitle_no_shortcut": "Ein kleiner Pixel-Begleiter, der auf deinem Desktop schwebt und reagiert, während {name} zuhört, nachdenkt und spricht. Unter „Anpassen“ legst du ein Tastenkürzel zum Aus- und Einblenden fest.",
+    "subtitle": "Ein kleiner Begleiter, der auf deinem Desktop schwebt und reagiert, während {name} zuhört, nachdenkt und spricht. Mit {0} blendest du ihn aus oder wieder ein.",
+    "subtitle_no_shortcut": "Ein kleiner Begleiter, der auf deinem Desktop schwebt und reagiert, während {name} zuhört, nachdenkt und spricht. Unter „Anpassen“ legst du ein Tastenkürzel zum Aus- und Einblenden fest.",
     "hide": "Pet ausblenden",
     "show": "Pet einblenden",
     "open_settings": "Pet auswählen",
@@ -9673,6 +9673,7 @@
     "use_pet": "Pet auf dem Desktop nutzen",
     "style_saved": "Das Pet ist jetzt auf deinem Desktop.",
     "enabled_label": "Pet auf dem Desktop",
+    "chat_label": "Pet im Chat",
     "style_off_saved": "Das Pet ist aus. Die Dodaios Bar ist wieder auf deinem Desktop.",
     "restart_hint": "Gespeichert. Starte {name} neu, damit das Pet auf deinem Desktop erscheint.",
     "load_error": "Deine Pets konnten nicht geladen werden: {0}",
@@ -9685,9 +9686,16 @@
     "bubble_hint": "Kurze Zeilen unter dem Pet, die zeigen, was {name} gerade tut.",
     "strip_label": "Knöpfe immer anzeigen",
     "strip_hint": "Aus: Die Knöpfe unter dem Pet erscheinen nur, während {name} zuhört, nachdenkt oder spricht, oder wenn du auf das Pet zeigst.",
+    "backdrop_label": "Hintergrund",
+    "backdrop_hint": "Schwarz hinter einem Shader oder der Kugel. Links ist es durchsichtig.",
     "shortcut_hint": "Blendet das Pet aus oder holt es wieder nach vorn.",
     "my_pets": "Meine Pets",
     "create": "Pet erstellen",
+    "filter_label": "Anzeigen",
+    "filter_all": "Alle",
+    "filter_pixel": "Pixel",
+    "filter_shader": "Shader",
+    "filter_model": "Modelle",
     "created": "{0} ist fertig.",
     "none_name": "Keins",
     "none_description": "Nur die Steuerleiste",
@@ -9708,6 +9716,13 @@
       "working": "Arbeitet",
       "searching": "Sucht",
       "held": "Wird getragen"
+    },
+    "shader_note": "Dieser Shader läuft auf dem Desktop, hier und bei einem Begleiter in der Verse.",
+    "model_note": "Dieses Modell läuft auf dem Desktop, hier und bei einem Begleiter in der Verse.",
+    "cube_cat": {
+      "title": "Würfelkatze",
+      "short": "Katze",
+      "note": "Die Katze läuft auf dieser Seite und in der Verse."
     },
     "builtin": {
       "gigi": {
@@ -9736,11 +9751,17 @@
       },
       "dodaios": {
         "description": "Die Kapuzenfigur aus dem Logo: Die Kapuzenspitze richtet sich beim Zuhören auf, der Umhang fliegt beim Hüpfen."
+      },
+      "wisp-swarm": {
+        "description": "Eine Mittsommerwolke aus Irrlichtern, die sich zum Zuhören neigt, beim Nachdenken wirbelt und gold aufleuchtet, wenn etwas gelingt."
+      },
+      "cube-cat": {
+        "description": "Eine kantige Katze, die auf der Stelle läuft."
       }
     },
     "create_dialog": {
       "title": "Pet erstellen",
-      "description": "Lade ein Sprite-Sheet hoch, gib deinem Pet einen Namen, und es kommt zu deinen Pets.",
+      "description": "Lade ein Sprite-Sheet oder einen Fragment-Shader hoch, gib deinem Pet einen Namen, und es kommt zu deinen Pets.",
       "name_label": "Name",
       "name_placeholder": "Zum Beispiel: Pixel",
       "description_label": "Beschreibung",
@@ -9759,8 +9780,18 @@
       "manifest_hint": "Eine pet.json legt für jede Zeile Bilder, Tempo und Wiederholung fest. Ohne sie werden die Zeilen in der Reihenfolge oben gelesen und die Bilder jeder Zeile gezählt.",
       "manifest_choose": "pet.json hinzufügen",
       "manifest_remove": "Entfernen",
+      "shader_label": "Fragment-Shader",
+      "shader_hint": "Eine .frag- oder .glsl-Datei, höchstens 16 KB. Schreibe gl_FragColor. uTime, uState, uStateFrom, uBlend und uLevel sind schon deklariert. uState ist 0 bis 9, in der Reihenfolge der Zustände, und ein Wechsel mischt die beiden Bilder. uLevel ist 0 bis 1 für das gezeichnete Bild: die Stimme der Assistenz, wenn dieser Zustand spricht, das Mikrofon, wenn er zuhört, sonst 0.",
+      "shader_choose": "Shader wählen",
+      "shader_type": "Wähle eine .frag- oder .glsl-Datei.",
+      "model_label": "3D-Modell",
+      "model_hint": "Eine .glb-Datei bis 8 MB plus eine pet.json, die für jeden Zustand den Clip nennt.",
+      "model_choose": "Modell wählen",
+      "model_type": "Wähle eine .glb-Datei.",
+      "model_too_big": "Dieses Modell ist größer als 8 MB.",
+      "model_needs_manifest": "Ein Modell braucht eine pet.json, die jedem Zustand einen Clip zuordnet.",
       "error_name": "Gib deinem Pet einen Namen.",
-      "error_no_sheet": "Wähle ein Sprite-Sheet aus.",
+      "error_no_sheet": "Wähle ein Sprite-Sheet, einen Shader oder ein Modell.",
       "error_not_png": "Wähle ein PNG-Bild aus.",
       "error_too_big": "Dieses Bild ist größer als 2 MB.",
       "error_manifest": "Das Manifest muss eine .json-Datei sein.",
