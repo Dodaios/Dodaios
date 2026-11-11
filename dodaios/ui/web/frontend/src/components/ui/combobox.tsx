@@ -131,6 +131,11 @@ export interface ComboboxProps {
   onOpenChange?: (open: boolean) => void;
   /** The panel's narrowest width; defaults to 288 px. */
   panelMinWidth?: number;
+  /**
+   * Which rows carry the check, for a menu that holds two independent picks
+   * (the effort and the fast mode). Defaults to the row whose value is `value`.
+   */
+  isChecked?: (value: string) => boolean;
 }
 
 /** Panel height cap — roughly nine rows, enough to show that more exist. */
@@ -268,6 +273,7 @@ export function Combobox({
   triggerIcon = true,
   chevron = true,
   triggerPrefix,
+  isChecked,
   browseGroups,
   aside,
   browseHeader,
@@ -718,7 +724,7 @@ export function Combobox({
               {visibleGroups.map((group, groupIndex) => {
                 const renderOption = (option: ComboboxOption, occurrenceId: string) => {
                   const isActive = activeOption?.id === occurrenceId;
-                  const isSelected = option.value === value;
+                  const isSelected = isChecked ? isChecked(option.value) : option.value === value;
                   return (
                     <div
                       key={option.value}

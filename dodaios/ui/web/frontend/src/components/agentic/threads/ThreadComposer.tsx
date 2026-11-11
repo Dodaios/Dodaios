@@ -13,7 +13,7 @@ import { discardQueuedMessage, fetchAgentChatQueue, resumeAgentChatQueue, type A
 import { joinProviderOptions, type ComposerDraft, type ProviderOption } from "@/store/agentChat";
 import { cn } from "@/lib/utils";
 import { effortLadder, snapEffort } from "@/lib/effortLadder";
-import { AccessPicker, AgentModelPicker, EffortPicker, SpeedPicker, modelsOf } from "./ThreadPickers";
+import { AccessPicker, AgentModelPicker, EffortPicker, modelsOf } from "./ThreadPickers";
 import { useRecalledMessages } from "./recalledMessages";
 import { MagicWordText } from "./MagicWordText";
 import { MAGIC_WORD_RUNNERS, hasMagicWord } from "@/lib/magicWords";
@@ -636,9 +636,7 @@ export function ThreadComposer({
           lockedProvider={started && activeSessionId ? draft.provider : null}
           onPick={(nextProvider, model) => void pick(nextProvider !== draft.provider ? { provider: nextProvider, model } : { model })} />
         <EffortPicker provider={provider} draft={draft} liveModels={liveModels} separated
-          onPick={(effort) => void pick({ effort })} />
-        <SpeedPicker provider={provider} draft={draft} liveModels={liveModels} separated
-          onPick={(speed) => void pick({ speed })} />
+          onPick={(effort) => void pick({ effort })} onPickSpeed={(speed) => void pick({ speed })} />
         <AccessPicker provider={provider} draft={draft} separated
           onPick={(permissionMode) => void pick({ permissionMode })} />
         </div>
