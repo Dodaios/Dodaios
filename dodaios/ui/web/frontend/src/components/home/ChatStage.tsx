@@ -16,7 +16,7 @@ import { societyDisplayName } from "@/lib/societyDisplayName";
 import { BinaryCursorField } from "@/components/home/BinaryCursorField";
 import { Greeting } from "@/components/home/Greeting";
 import { VoiceThreadStage } from "@/components/home/VoiceThreadStage";
-import type { ApprovalDecision } from "@/lib/agentChatApi";
+import type { ApprovalDecision, ApprovalRuleChoice } from "@/lib/agentChatApi";
 import { fill, useT } from "@/i18n";
 import { folderLeaf } from "@/lib/folderPath";
 import { useHistoryPolling } from "@/hooks/useHistoryPolling";
@@ -134,7 +134,8 @@ function ChatStageContent() {
     [catalog],
   );
   const onDecide = useCallback(
-    (approvalId: string, decision: ApprovalDecision) => decide(approvalId, decision),
+    (approvalId: string, decision: ApprovalDecision, rule?: ApprovalRuleChoice, feedback?: string, edits?: Record<string, string>) =>
+      (rule || feedback || edits ? decide(approvalId, decision, rule, feedback, edits) : decide(approvalId, decision)),
     [decide],
   );
 

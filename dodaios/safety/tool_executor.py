@@ -15,6 +15,7 @@ import dataclasses
 import logging
 import time
 from collections.abc import Callable
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
@@ -36,6 +37,7 @@ from dodaios.core.protocols import (
 from dodaios.core.redact import safe_preview
 from dodaios.trust.hooks import after_execute, before_execute
 
+from . import approval_amendments
 from .approval import TIMEOUT_REASON, ApprovalWorkflow
 from .approval_surface import (
     CONVERSATIONAL,
@@ -85,6 +87,23 @@ APPROVAL_UNAVAILABLE_OUTCOME = "approval_unavailable"
 # transcript and the seconds since the last wake trigger. On
 # ``None`` returns the executor behaves as before (no plausibility check).
 PlausibilityContextFn = Callable[[], "tuple[Transcript | None, float | None]"]
+
+
+def _with_edit_note(result: ToolResult, changes: dict[str, dict[str, str]]) -> ToolResult:
+    """``result`` with a note that the person edited the call before approving it."""
+    from dodaios.agent_chat.approval_preview import edits_note
+
+    note = edits_note(changes)
+    if not note:
+        return result
+    output = result.output
+    if isinstance(output, dict):
+        output = {**output, "approval_edits": note}
+    elif isinstance(output, str):
+        output = f"{output}\n\n{note}"
+    else:
+        output = {"result": output, "approval_edits": note}
+    return replace(result, output=output)
 
 
 def _optional_string(value: Any) -> str | None:
@@ -737,6 +756,36 @@ class ToolExecutor:
             approved_by = who_or_reason  # "user" or "auto"
             trail["approved_by"] = approved_by
 
+        # 3.9 The person's inline edit of the approved call (card text fields).
+        # What runs is their version, but only after it passes the very gate the
+        # original call passed: the blacklist and the outbound checks.
+        amendment = approval_amendments.take(tid)
+        edit_changes: dict[str, dict[str, str]] = {}
+        if amendment is not None and needs_confirm:
+            new_args, edit_changes = amendment
+            try:
+                self._evaluator.evaluate(tool, new_args)
+            except ActionBlocked as exc:
+                await self._bus.publish(ActionDenied(
+                    trace_id=tid, tool_name=tool.name, reason=f"blacklist: {exc.pattern}",
+                ))
+                return ToolResult(success=False, output=None, error=str(exc))
+            edited_trust = before_execute(tool.name, new_args)
+            if edited_trust.blocked:
+                reason = edited_trust.block_reason()
+                await self._bus.publish(
+                    ActionDenied(trace_id=tid, tool_name=tool.name, reason=reason)
+                )
+                return ToolResult(
+                    success=False,
+                    output={
+                        "outcome": "outbound_blocked",
+                        "checks": edited_trust.to_dict()["checks"],
+                    },
+                    error=f"{APPROVAL_DENIED_PREFIX} (the edited version: {reason})",
+                )
+            args = new_args
+
         if cancel_token is not None and cancel_token.is_cancelled():
             await self._bus.publish(ActionDenied(
                 trace_id=tid,
@@ -772,6 +821,8 @@ class ToolExecutor:
 
         self._record_result_origin(tool, tid, result, args)
         after_execute(tool.name, args, result, config_snapshot)
+        if edit_changes:
+            result = _with_edit_note(result, edit_changes)
         result = self._attach_receipt(tool, args, result, config_snapshot, trail)
         duration_ms = int((time.perf_counter() - t_start) * 1000)
         await self._bus.publish(ActionExecuted(

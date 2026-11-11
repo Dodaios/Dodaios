@@ -317,6 +317,9 @@ class ApprovalBody(BaseModel):
     narrow: str = ""
     #: Why a card was declined, handed to the agent as the deny message.
     feedback: str = ""
+    #: Inline edits of the action's text fields (preview field key -> new text),
+    #: applied before it runs; the action allows only plain text fields.
+    edits: dict[str, str] = Field(default_factory=dict)
 
 
 class ApprovalRuleBody(BaseModel):
@@ -1876,15 +1879,19 @@ async def resolve_approval(
         )
     if body.narrow and body.scope != "chat":
         raise HTTPException(status_code=400, detail="a narrow rule needs scope chat")
-    ok = svc.resolve_approval(
-        session_id,
-        approval_id,
-        body.decision,
-        scope=body.scope,
-        breadth=body.breadth,
-        narrow=body.narrow,
-        feedback=body.feedback,
-    )
+    try:
+        ok = svc.resolve_approval(
+            session_id,
+            approval_id,
+            body.decision,
+            scope=body.scope,
+            breadth=body.breadth,
+            narrow=body.narrow,
+            feedback=body.feedback,
+            edits=body.edits or None,
+        )
+    except ValueError as exc:  # an edit the action does not allow; the card stays open
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not ok:
         if await svc.close_stale_approval(session_id, approval_id):
             # The card outlived what it asked for (an app restart, a second

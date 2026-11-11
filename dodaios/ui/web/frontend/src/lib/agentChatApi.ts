@@ -684,16 +684,19 @@ export async function resolveAgentChatApproval(
   rule?: ApprovalRuleChoice,
   /** What the person typed on a declined card; the agent reads it as the reason. */
   feedback?: string,
+  /** The person's inline edits of the action's text fields (field key -> new text). */
+  edits?: Record<string, string>,
 ): Promise<void> {
   const why = decision === "deny" ? feedback?.trim() : "";
+  const changed = decision !== "deny" && edits && Object.keys(edits).length ? { edits } : {};
   await json(
     await fetch(approvalUrl(sessionId, approvalId), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(
         rule && decision === "allow_always"
-          ? { decision, scope: rule.scope, breadth: rule.breadth ?? "action", ...(rule.narrow ? { narrow: rule.narrow } : {}) }
-          : { decision, ...(why ? { feedback: why } : {}) },
+          ? { decision, scope: rule.scope, breadth: rule.breadth ?? "action", ...(rule.narrow ? { narrow: rule.narrow } : {}), ...changed }
+          : { decision, ...(why ? { feedback: why } : {}), ...changed },
       ),
     }),
     "approval-failed",

@@ -31,6 +31,12 @@ Kinds (``payload`` keys in brackets):
 ``approval_resolved``  [turn_id, approval_id, decision]   decision: allow |
                         allow_always | deny | cancel | expired (nothing waits
                         on the card any more: a restart, or the call asked again)
+                        ``edited`` (when the person changed the action's text before
+                        allowing it): ``{field: {before, after}}``; ``deferred`` when the
+                        card had been set aside while the person wrote on
+``approval_deferred``  [turn_id, approval_id]   the chat moved on to a new message: the
+                        card stays open, the call was refused with that reason, and an
+                        Allow later runs the call (approval_defer.py)
 ``question_required``  [turn_id, question_id, asker, questions, deferred?] — a question
                         card; ``deferred`` = an end-of-turn card (turn_prompts)
                         whose answers go to the agent as the next message

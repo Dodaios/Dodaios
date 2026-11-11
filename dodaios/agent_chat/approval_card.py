@@ -33,6 +33,10 @@ event has none of them and the card falls back to the tool name and summary.
              (:func:`display_paths`). The full path stays in ``detail``.
 ``hard_limit`` one of ``dodaios.trust.hard_limits.HARD_LIMITS`` when the call
              touches an action no rule may lift; the card offers no "Always".
+``preview``  the exact action as structured fields (:mod:`.approval_preview`):
+             the mail as it will be sent, the invite, the file and its diff,
+             the command and its folder; ``editable`` fields may be changed
+             inline before approving.
 ``checks``   the outbound check's findings (``dodaios.trust.outbound``), each
              ``{code, severity, detail}``, read out as cautions.
 
@@ -194,6 +198,11 @@ def _describe(
     if kind == "files" and _creates_files(args, cwd):
         # "Create this file?", not "Change this file?", for a file not there yet.
         fields["creates"] = True
+    from .approval_preview import build_preview
+
+    preview = build_preview(name, args, cwd)
+    if preview is not None:
+        fields["preview"] = preview
     # The trust layer's verdict, for the card to say: a hard limit means no
     # "Always allow" is offered; outbound findings are read out as cautions.
     from dodaios.trust.hooks import before_execute

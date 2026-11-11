@@ -3,7 +3,7 @@ import type { ChatControlState } from "@/lib/chatControlApi";
 import { hideAskBlocks } from "./askFence";
 import { hideMeetingPass } from "./meetingPass";
 import { readToolChoices, type ToolChoice } from "./toolChoices";
-import { parseApprovalCard, parseSavedRule, type ApprovalCardInfo, type RuleScope, type SavedApprovalRule } from "./actionCard/approvalInfo";
+import { parseApprovalCard, parseSavedRule, type ApprovalCardInfo, type ApprovalEdits, type RuleScope, type SavedApprovalRule } from "./actionCard/approvalInfo";
 import { userAttachments, type UserAttachment } from "./userAttachment";
 
 export { userAttachments, type UserAttachment };
@@ -63,6 +63,10 @@ export interface ApprovalState {
   rule?: SavedApprovalRule;
   /** The person answered here and the answer is on its way: nothing waits on them any more. */
   answering?: boolean;
+  /** The chat moved on to a new message: the card stays open and an Allow later runs the call. */
+  deferred?: boolean;
+  /** What the person changed in the action's text before allowing it. */
+  edited?: ApprovalEdits;
 }
 
 /** One prepared answer on an agent's question card. */
@@ -719,10 +723,21 @@ function mapToolDeep(
   return null;
 }
 
+function parseEdited(raw: unknown): ApprovalEdits | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out: ApprovalEdits = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const row = value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+    if (row) out[key] = { before: str(row.before), after: str(row.after) };
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /** A row whose approval was never answered, closed as `expired` — its sub-agent's rows too. */
 function expireOpenApproval(block: TurnBlock): TurnBlock {
   if (block.kind !== "tool") return block;
-  const open = block.approval !== null && block.approval.decision === null;
+  // A card set aside (the chat moved on) stays open: an Allow later still runs it.
+  const open = block.approval !== null && block.approval.decision === null && !block.approval.deferred;
   const inner = block.subagent?.blocks.map(expireOpenApproval);
   const innerChanged = inner !== undefined && inner.some((b, i) => b !== block.subagent?.blocks[i]);
   if (!open && !innerChanged) return block;
@@ -792,6 +807,21 @@ export function markApprovalAnswering(tl: Timeline, approvalId: string, answerin
     return blocks && blocks !== turn.blocks ? { ...turn, blocks } : turn;
   };
   const items = tl.items.map((item) => (item.type === "turn" ? patch(item) : item));
+  return items.some((item, i) => item !== tl.items[i]) ? { ...tl, items } : tl;
+}
+
+/** Patch the approval `approvalId` (set aside, edited) on whichever turn holds its card. */
+export function patchApproval(tl: Timeline, approvalId: string, patch: Partial<ApprovalState>, turnId = ""): Timeline {
+  const apply = (turn: TurnItem): TurnItem => {
+    const blocks = mapToolDeep(
+      turn.blocks,
+      (b) => b.approval?.approvalId === approvalId,
+      (b) => (b.approval ? { ...b, approval: { ...b.approval, ...patch } } : b),
+    );
+    return blocks && blocks !== turn.blocks ? { ...turn, blocks } : turn;
+  };
+  if (turnId) return updateTurn(tl, turnId, apply);
+  const items = tl.items.map((item) => (item.type === "turn" ? apply(item) : item));
   return items.some((item, i) => item !== tl.items[i]) ? { ...tl, items } : tl;
 }
 
@@ -1329,8 +1359,19 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
 
     case "approval_resolved": {
       const scope = str(p.scope);
-      return settleApproval(base, str(p.approval_id), str(p.decision), turnId,
+      const edited = parseEdited(p.edited);
+      const approvalId = str(p.approval_id);
+      const withEdits = edited ? patchApproval(base, approvalId, { edited }, turnId) : base;
+      return settleApproval(withEdits, approvalId, str(p.decision), turnId,
         scope === "agent" || scope === "chat" ? scope : undefined);
+    }
+
+    case "approval_deferred": {
+      // The person wrote on while the card waited: it stays open on its row, but
+      // nothing in the composer waits on it any more.
+      const approvalId = str(p.approval_id);
+      const marked = patchApproval(base, approvalId, { deferred: true }, turnId);
+      return { ...marked, pendingApprovals: marked.pendingApprovals.filter((a) => a.approvalId !== approvalId) };
     }
 
     case "question_required": {

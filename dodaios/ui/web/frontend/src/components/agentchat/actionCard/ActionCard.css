@@ -309,3 +309,36 @@
     transition: none !important;
   }
 }
+
+/* The exact action: fields as they will run, new recipients, a diff, inline edits. */
+.approval-preview { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.approval-preview-flag { margin: 0; font-size: 12px; font-weight: 500; color: hsl(var(--warning)); }
+.approval-preview-fields { margin: 0; border-radius: 12px; background: hsl(var(--secondary) / 0.6); padding: 4px 12px; }
+.approval-preview-row { display: grid; grid-template-columns: minmax(64px, 96px) minmax(0, 1fr); gap: 2px 12px; padding: 6px 0; font-size: 13px; line-height: 20px; }
+.approval-preview-row + .approval-preview-row { border-top: 1px solid hsl(var(--border) / 0.5); }
+.approval-preview-row dt { color: hsl(var(--muted-foreground)); }
+.approval-preview-row dd { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 2px 8px; min-width: 0; margin: 0; color: hsl(var(--foreground)); }
+.approval-preview-value { min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere; }
+.approval-preview-multiline { white-space: pre-wrap; max-height: 14rem; overflow: auto; }
+.approval-preview-code { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; white-space: pre-wrap; }
+.approval-preview-people { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.approval-preview-people li { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; border-radius: 999px; background: hsl(var(--background) / 0.7); overflow-wrap: anywhere; }
+.approval-preview-people li[data-new] { background: hsl(var(--warning) / 0.15); box-shadow: inset 0 0 0 1px hsl(var(--warning) / 0.5); }
+.approval-preview-new { font-size: 11px; font-weight: 600; color: hsl(var(--warning)); }
+.approval-preview-tools { display: inline-flex; gap: 2px; margin-left: auto; }
+.approval-preview-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 999px; color: hsl(var(--muted-foreground)); }
+.approval-preview-icon svg { width: 13px; height: 13px; }
+.approval-preview-icon:hover { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
+.approval-preview-icon:focus-visible, .approval-preview-input:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
+.approval-preview-input { width: 100%; border-radius: 8px; border: 1px solid hsl(var(--border)); background: hsl(var(--background)); padding: 4px 8px; font: inherit; color: inherit; resize: vertical; }
+.approval-preview-edited { font-size: 11px; color: hsl(var(--success)); }
+.approval-preview-diff { border-radius: 12px; background: hsl(var(--secondary) / 0.6); padding: 6px 12px; min-width: 0; }
+.approval-preview-diff-head { display: flex; gap: 8px; margin: 0 0 4px; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.approval-preview-diff-add { color: hsl(var(--success)); }
+.approval-preview-diff-del { color: hsl(var(--destructive)); }
+.approval-preview-diff pre { margin: 0; max-height: 14rem; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; line-height: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.approval-preview-diff-line { display: block; }
+.approval-preview-diff-line[data-op="+"] { background: hsl(var(--success) / 0.12); }
+.approval-preview-diff-line[data-op="-"] { background: hsl(var(--destructive) / 0.12); }
+.approval-preview-diff-line[data-op="@"] { color: hsl(var(--muted-foreground)); }
+.approval-preview-edits { display: flex; flex-direction: column; gap: 2px; }
