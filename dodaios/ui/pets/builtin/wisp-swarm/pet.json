@@ -1,0 +1,7 @@
+{
+  "format": "jarvis-shader-pet/1",
+  "id": "wisp-swarm",
+  "name": "Wisp Swarm",
+  "description": "A midsummer cloud of wisps that leans in to listen, churns while it thinks, and flares gold when something goes right.",
+  "shader": "shader.frag"
+}

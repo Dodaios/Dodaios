@@ -30,7 +30,13 @@ from typing import TYPE_CHECKING, Any
 
 from filelock import FileLock, Timeout
 
-from dodaios.core.config import DATA_DIR, JarvisConfig, clamp_pet_scale, load_config
+from dodaios.core.config import (
+    DATA_DIR,
+    JarvisConfig,
+    clamp_pet_scale,
+    clamp_shader_backdrop,
+    load_config,
+)
 from dodaios.core.instance import current_instance
 from dodaios.core.process_utils import drop_inherited_electron_node_mode, ensure_standard_streams
 from dodaios.i18n import catalog as i18n_catalog
@@ -3840,6 +3846,9 @@ class DesktopApp:
             "pet_scale": clamp_pet_scale(getattr(ui, "pet_scale", 1.0)),
             "pet_bubble": bool(getattr(ui, "pet_bubble", True)),
             "pet_strip_always": bool(getattr(ui, "pet_strip_always", False)),
+            "pet_shader_backdrop": clamp_shader_backdrop(
+                getattr(ui, "pet_shader_backdrop", 0.0)
+            ),
         }
 
     def _hide_on_idle_for(self, style: str) -> bool:
@@ -3911,6 +3920,17 @@ class DesktopApp:
         except Exception as exc:  # noqa: BLE001
             logger.warning("pet look not stored in config: {}", exc)
         return {"ok": True, "applied_live": self._pet_call("set_pet_look", clamped, flag, strip)}
+
+    def set_pet_shader_backdrop(self, opacity: float) -> dict[str, object]:
+        """Apply the shader/orb black-disc opacity live (``PUT /api/pets/settings``)."""
+        from loguru import logger
+
+        shade = clamp_shader_backdrop(opacity)
+        try:
+            self.cfg.ui.pet_shader_backdrop = shade
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("pet shader backdrop not stored in config: {}", exc)
+        return {"ok": True, "applied_live": self._pet_call("set_pet_shader_backdrop", shade)}
 
     def set_pet_visible(self, visible: bool) -> dict[str, object]:
         """Hide or show the pet for this run (``POST /api/pets/visibility``).

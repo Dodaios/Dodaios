@@ -735,6 +735,7 @@ class SubprocessMascotOverlay(SubprocessBarOverlay):
         pet_scale: float = 1.0,
         pet_bubble: bool = True,
         pet_strip_always: bool = False,
+        pet_shader_backdrop: float = 0.0,
     ) -> None:
         super().__init__()
         self._mascot_path = mascot_path
@@ -748,6 +749,7 @@ class SubprocessMascotOverlay(SubprocessBarOverlay):
         self._pet_scale = float(pet_scale)
         self._pet_bubble = bool(pet_bubble)
         self._pet_strip_always = bool(pet_strip_always)
+        self._pet_shader_backdrop = float(pet_shader_backdrop)
         self._speaker_muted = False
         self._user_visible = True
         self._on_compose: Callable[[], None] | None = None
@@ -764,6 +766,7 @@ class SubprocessMascotOverlay(SubprocessBarOverlay):
             "pet_scale": self._pet_scale,
             "pet_bubble": self._pet_bubble,
             "pet_strip_always": self._pet_strip_always,
+            "pet_shader_backdrop": self._pet_shader_backdrop,
         }
 
     @property
@@ -811,6 +814,10 @@ class SubprocessMascotOverlay(SubprocessBarOverlay):
                 "strip_always": None if strip_always is None else bool(strip_always),
             }
         )
+
+    def set_pet_shader_backdrop(self, opacity: float) -> None:
+        self._pet_shader_backdrop = float(opacity)
+        self._send({"op": "set_pet_shader_backdrop", "opacity": self._pet_shader_backdrop})
 
     def set_pet_outcome(self, kind: str) -> None:
         self._send({"op": "set_pet_outcome", "kind": str(kind)})

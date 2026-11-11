@@ -11,6 +11,9 @@ import { companionEyeColors, type CompanionAppearance } from "./appearance";
 import { advancePetTrail, createPetTrail, petDisplayPosition, recordOwner, type PetTrail, type TrailPoint } from "./trail";
 import { useWornPet } from "./companionPetStore";
 import { companionFlies, type CompanionPet } from "./petCompanions";
+import { CubeCatModel } from "./CubeCatModel";
+import { JarvisOrbCompanion } from "@/components/pets/DodaiosOrbView";
+import { ShaderPet } from "./ShaderPetModel";
 import { PetModel, VoxelPet, type PetDrive } from "./PetModel";
 import { advanceSkin, createSkinMaterial } from "./skinMaterial";
 import { CreatureModel } from "./CreatureModel";
@@ -50,7 +53,11 @@ function WornPet({ pet, drive, paused }: { pet: CompanionPet; drive?: { current:
   const still = useRef<PetDrive>({ speed: 0, mood: "idle" });
   const lift = companionFlies(pet) ? WORN_PET_LIFT_M : 0;
   return <group position={[0, lift, 0]}>
-    {pet.kind === "model" ? <PetModel pet={pet} drive={drive ?? still} reduced={reduced} paused={paused} />
+    {pet.kind === "shader" && pet.shaderUrl
+      ? <ShaderPet url={pet.shaderUrl} drive={drive ?? still} reduced={reduced} paused={paused} heightM={pet.heightM} />
+      : pet.kind === "scene" ? <JarvisOrbCompanion drive={drive ?? still} reduced={reduced} paused={paused} />
+      : pet.kind === "clip" ? <CubeCatModel url={pet.modelUrl} clip={pet.clipName} drive={drive ?? still} reduced={reduced} paused={paused} heightM={pet.heightM} />
+      : pet.kind === "model" ? <PetModel pet={pet} drive={drive ?? still} reduced={reduced} paused={paused} />
       : pet.kind === "voxel" ? <VoxelPet pet={pet} reduced={reduced} paused={paused} />
       // Gigi worn by an agent: the lead's own hover model at companion size.
       : <ShapeModel appearance={GIGI_LOOK} lead />}

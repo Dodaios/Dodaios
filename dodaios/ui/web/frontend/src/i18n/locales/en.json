@@ -9663,8 +9663,8 @@
   },
   "pets": {
     "title": "My Pets",
-    "subtitle": "A small pixel companion that floats on your desktop and reacts as {name} listens, thinks and talks. Press {0} to hide or show it.",
-    "subtitle_no_shortcut": "A small pixel companion that floats on your desktop and reacts as {name} listens, thinks and talks. Set a shortcut under Customize to hide or show it.",
+    "subtitle": "A small companion that floats on your desktop and reacts as {name} listens, thinks and talks. Press {0} to hide or show it.",
+    "subtitle_no_shortcut": "A small companion that floats on your desktop and reacts as {name} listens, thinks and talks. Set a shortcut under Customize to hide or show it.",
     "hide": "Hide pet",
     "show": "Show pet",
     "open_settings": "Choose your pet",
@@ -9686,9 +9686,16 @@
     "bubble_hint": "Short lines under the pet that say what {name} is doing.",
     "strip_label": "Always show the buttons",
     "strip_hint": "Off: the buttons under the pet appear only while {name} listens, thinks or talks, or when you point at the pet.",
+    "backdrop_label": "Backdrop",
+    "backdrop_hint": "Black behind a shader or the orb. The left end is clear.",
     "shortcut_hint": "Hides the pet, or brings it back to the front.",
     "my_pets": "My pets",
     "create": "Create pet",
+    "filter_label": "Show",
+    "filter_all": "All",
+    "filter_pixel": "Pixels",
+    "filter_shader": "Shaders",
+    "filter_model": "Models",
     "created": "{0} is ready.",
     "none_name": "None",
     "none_description": "Just the control strip",
@@ -9709,6 +9716,13 @@
       "working": "Working",
       "searching": "Searching",
       "held": "Being carried"
+    },
+    "shader_note": "This shader plays on the desktop, here, and on a companion in the Verse.",
+    "model_note": "This model plays on the desktop, here, and on a companion in the Verse.",
+    "cube_cat": {
+      "title": "Cube cat",
+      "short": "Cat",
+      "note": "Plays here and in the Verse."
     },
     "builtin": {
       "gigi": {
@@ -9737,11 +9751,17 @@
       },
       "dodaios": {
         "description": "The hooded figure of the logo: the hood's tip perks up to listen, the cape flies on a hop."
+      },
+      "wisp-swarm": {
+        "description": "A midsummer cloud of wisps that leans in to listen, churns while it thinks, and flares gold when something goes right."
+      },
+      "cube-cat": {
+        "description": "A blocky cat that runs in place."
       }
     },
     "create_dialog": {
       "title": "Create pet",
-      "description": "Upload a sprite sheet, give your pet a name, and it joins your pets.",
+      "description": "Upload a sprite sheet or a fragment shader, give your pet a name, and it joins your pets.",
       "name_label": "Name",
       "name_placeholder": "For example: Pixel",
       "description_label": "Description",
@@ -9760,8 +9780,18 @@
       "manifest_hint": "A pet.json sets each row's frames, speed and looping. Without one, the rows are read in the order above and the frames of each row are counted.",
       "manifest_choose": "Add pet.json",
       "manifest_remove": "Remove",
+      "shader_label": "Fragment shader",
+      "shader_hint": "A .frag or .glsl file, up to 16 KB. Write gl_FragColor. uTime, uState, uStateFrom, uBlend and uLevel are already declared. uState is 0 to 9, in pet-state order, and a change mixes the two looks. uLevel is 0 to 1: the voice while talking or listening, else 0.",
+      "shader_choose": "Choose shader",
+      "shader_type": "Choose a .frag or .glsl file.",
+      "model_label": "3D model",
+      "model_hint": "A .glb file up to 8 MB, plus a pet.json that names which clip plays for each state.",
+      "model_choose": "Choose model",
+      "model_type": "Choose a .glb file.",
+      "model_too_big": "This model is larger than 8 MB.",
+      "model_needs_manifest": "A model needs a pet.json that maps each state to a clip.",
       "error_name": "Give your pet a name.",
-      "error_no_sheet": "Choose a sprite sheet.",
+      "error_no_sheet": "Choose a sprite sheet, a shader, or a model.",
       "error_not_png": "Choose a PNG image.",
       "error_too_big": "This image is larger than 2 MB.",
       "error_manifest": "The manifest must be a .json file.",

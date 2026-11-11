@@ -301,6 +301,19 @@ def test_concurrent_toggles_never_lose_the_remembered_volume(pipeline: _Pipeline
 # --- the look: filled discs, a glossy orb, proportions ---------------------------
 
 
+def test_the_gap_between_the_three_controls_is_clear() -> None:
+    frame = controls.render_pet_strip(controls.PetStripState(), 1.0, KEY)
+    layout = controls.pet_strip_layout(1.0)
+    pcx, _pcy, pr = layout.pen
+    x0, y0, _x1, y1 = layout.pill
+    gap_x = (int(pcx + pr) + x0) // 2
+    assert frame.getpixel((gap_x, (y0 + y1) // 2)) == KEY
+    assert frame.getpixel((0, 0)) == KEY
+    ccx, ccy, cr = layout.call
+    phone_gap = (layout.pill[2] + int(ccx - cr)) // 2
+    assert frame.getpixel((phone_gap, int(ccy))) == KEY
+
+
 def test_the_pen_and_the_pill_are_filled_without_a_ring() -> None:
     frame = controls.render_pet_strip(controls.PetStripState(), 1.0)
     layout = controls.pet_strip_layout(1.0)

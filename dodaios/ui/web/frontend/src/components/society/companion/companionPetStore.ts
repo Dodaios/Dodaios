@@ -13,7 +13,7 @@ import { create } from "zustand";
 import { MASCOT_PET_ID, useOverlayStyle } from "@/hooks/useOverlayStyle";
 import { pickActivePet, petKeys } from "@/hooks/usePets";
 import { fetchPets } from "@/lib/petsApi";
-import { companionFor, GIGI_COMPANION, type CompanionPet } from "./petCompanions";
+import { companionFor, CUBE_CAT, GIGI_COMPANION, type CompanionPet } from "./petCompanions";
 
 interface CompanionPetState {
   pet: CompanionPet;
@@ -24,7 +24,8 @@ interface CompanionPetState {
 }
 
 export function sameCompanion(a: CompanionPet, b: CompanionPet): boolean {
-  return a.id === b.id && a.kind === b.kind && a.sheetUrl === b.sheetUrl && a.frameSize === b.frameSize
+  return a.id === b.id && a.kind === b.kind && a.sheetUrl === b.sheetUrl && a.shaderUrl === b.shaderUrl
+    && a.frameSize === b.frameSize
     && a.idle?.row === b.idle?.row && a.idle?.frames === b.idle?.frames && a.idle?.fps === b.idle?.fps;
 }
 
@@ -74,6 +75,7 @@ export function useSyncCompanionPet(): void {
       const companion = companionFor(pet);
       if (companion.id === pet.id) catalog[pet.id] = companion;
     }
+    catalog[CUBE_CAT.id] = CUBE_CAT;
     setCatalog(catalog);
   }, [data, mascot, setPet, setCatalog]);
 }

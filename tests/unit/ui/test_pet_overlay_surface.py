@@ -514,6 +514,10 @@ def test_hover_or_drag_after_the_fade_shows_the_strip_again() -> None:
     pet._watch_strip_pointer()
     assert pet._pointer_over_orb is True
     assert strip.calls == ["show"]
+    strip.visible = False
+    strip.calls.clear()
+    pet._apply_shader_event({"op": "move", "x": 40, "y": 40})
+    assert strip.calls == ["show"]
     # show() is what paints the bar again. A faded strip comes back solid.
     bare = PetControlStrip.__new__(PetControlStrip)
     bare._opacity = 0.0
@@ -544,6 +548,62 @@ def test_the_strip_fade_is_a_short_ramp() -> None:
     assert strip_fade_opacity(0) == 1
     assert strip_fade_opacity(STRIP_FADE_MS / 2000) == pytest.approx(0.5)
     assert strip_fade_opacity(STRIP_FADE_MS / 1000) == 0
+
+
+def test_the_macos_strip_window_receives_a_fading_frame() -> None:
+    """The visible strip is the Qt window. A window-opacity call never paints a fade."""
+    from PySide6.QtGui import QImage, qAlpha, qBlue, qGreen, qRed
+
+    from ui.orb.shader_desktop import strip_frame
+    from ui.orb.shader_host import ShaderFigureHost
+
+    frame = controls.render_pet_strip(controls.PetStripState(), 1.0, (255, 0, 255))
+    pet = OrbOverlay(style="pet")
+    row = PetControlStrip.__new__(PetControlStrip)
+    row._visible = True
+    row._opacity = 1.0
+    row._qt_surface = True
+    row._render_frame = lambda: frame  # type: ignore[method-assign]
+    row._orb_x = 0
+    row._orb_w = frame.width
+    row._width = frame.width
+    row._height = frame.height
+    row._row_y = lambda: 0  # type: ignore[method-assign]
+    pet._controls = row  # type: ignore[assignment]
+    sent: list[dict[str, object]] = []
+    host = ShaderFigureHost(lambda _event: None)
+    host._proc = object()
+    host._send = lambda payload: sent.append(payload) or True  # type: ignore[method-assign]
+    pet._shader_host = host
+    row._on_qt = pet._present_pet_strip
+
+    assert pet._present_pet_strip() is True
+    row._set_opacity(0.5)
+    assert [item["op"] for item in sent] == ["strip", "strip"]
+    assert sent[1]["premul"] is True
+    full = strip_frame(sent[0]["png"], bool(sent[0].get("premul")))
+    faded = strip_frame(sent[1]["png"], True)
+    solid = gap = None
+    for y in range(full.height()):
+        for x in range(full.width()):
+            pixel = full.pixel(x, y)
+            if gap is None and qAlpha(pixel) == 0:
+                gap = (x, y)
+            ink = max(qRed(pixel), qGreen(pixel), qBlue(pixel))
+            if solid is None and qAlpha(pixel) == 255 and ink > 20:
+                solid = (x, y)
+        if solid is not None and gap is not None:
+            break
+    assert solid is not None and gap is not None
+    assert faded.format() == QImage.Format.Format_ARGB32_Premultiplied
+    assert qAlpha(faded.pixel(*gap)) == 0
+    assert max(qRed(faded.pixel(*gap)), qGreen(faded.pixel(*gap)), qBlue(faded.pixel(*gap))) == 0
+    assert qAlpha(faded.pixel(*solid)) == pytest.approx(127, abs=2)
+    faded_px = faded.pixel(*solid)
+    full_px = full.pixel(*solid)
+    faded_ink = max(qRed(faded_px), qGreen(faded_px), qBlue(faded_px))
+    full_ink = max(qRed(full_px), qGreen(full_px), qBlue(full_px))
+    assert faded_ink < full_ink
 
 
 def test_a_wanted_strip_cancels_the_fade_at_full_opacity() -> None:

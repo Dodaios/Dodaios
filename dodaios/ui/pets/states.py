@@ -73,8 +73,14 @@ NO_PET_ID: str = "none"
 #: The pet a fresh install shows.
 DEFAULT_PET_ID: str = "gigi"
 
-#: Manifest format tag written into every ``pet.json``.
+#: Manifest format tag written into every sprite ``pet.json``.
 PET_FORMAT: str = "jarvis-pet/1"
+
+#: A pet whose picture is a fragment shader instead of a sprite sheet.
+SHADER_PET_FORMAT: str = "jarvis-shader-pet/1"
+
+#: A pet whose picture is a GLB model. ``animations`` names a clip per state.
+MODEL_PET_FORMAT: str = "jarvis-model-pet/1"
 
 #: Frame edge lengths a sprite sheet may use, in source pixels.
 FRAME_SIZES: tuple[int, ...] = (32, 48, 64)

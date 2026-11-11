@@ -12,10 +12,26 @@ export interface Pet {
   name: string;
   description: string;
   builtin: boolean;
+  /** A shader pet draws a fragment file. A scene pet is a built-in Three.js scene. Absent means a sprite. */
+  kind?: "sprite" | "shader" | "model" | "scene";
   frame_size: number;
   /** Keyed by pet state; a custom pet may leave states out (see STATE_FALLBACKS). */
   animations: Partial<Record<string, PetAnimation>>;
   sheet_url: string;
+  /** Set for a shader pet: the fragment source. */
+  shader_url?: string;
+  /** Set for a model pet: the GLB and the clip each state plays. */
+  model_url?: string;
+  clips?: Partial<Record<string, string>>;
+  options?: ModelOptions;
+}
+
+/** Camera for a GLB pet, from ``pet.json`` ``options``. */
+export interface ModelOptions {
+  height: number;
+  eye: [number, number, number];
+  /** Look target, as a fraction of ``height`` up from the feet. */
+  aim: number;
 }
 
 export interface PetsState {
@@ -27,6 +43,8 @@ export interface PetsState {
   strip_always: boolean;
   /** The pet in the main chat (`[ui] pet_chat`). Absent on an old answer means on. */
   chat?: boolean;
+  /** Black disc behind a shader or the orb (`[ui] pet_shader_backdrop`). Absent means clear. */
+  shader_backdrop?: number;
   visible: boolean;
   pets: Pet[];
 }
@@ -36,10 +54,15 @@ export interface PetSettingsPatch {
   bubble?: boolean;
   strip_always?: boolean;
   chat?: boolean;
+  shader_backdrop?: number;
 }
 
 export interface CreatePetInput {
-  sheet: File;
+  sheet?: File | null;
+  /** A fragment shader. When set, this pet is a shader pet and the sheet is ignored. */
+  shader?: File | null;
+  /** A GLB model. Requires ``manifest`` (the pet.json that names its clips). */
+  model?: File | null;
   name: string;
   description: string;
   frameSize?: number;
@@ -112,7 +135,9 @@ export function setPetVisible(visible: boolean): Promise<unknown> {
 
 export function createPet(input: CreatePetInput): Promise<Pet> {
   const form = new FormData();
-  form.append("sheet", input.sheet);
+  if (input.model) form.append("model", input.model);
+  else if (input.shader) form.append("shader", input.shader);
+  else if (input.sheet) form.append("sheet", input.sheet);
   form.append("name", input.name);
   form.append("description", input.description);
   if (input.frameSize) form.append("frame_size", String(input.frameSize));

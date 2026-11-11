@@ -1656,6 +1656,13 @@ def set_pet_chat(enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     _patch_table(path, "ui", "pet_chat", bool(enabled))
 
 
+def set_pet_shader_backdrop(opacity: float, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
+    """Persist ``[ui] pet_shader_backdrop`` (black disc behind a shader or the orb)."""
+    from dodaios.core.config import clamp_shader_backdrop  # noqa: PLC0415
+
+    _patch_table(path, "ui", "pet_shader_backdrop", clamp_shader_backdrop(opacity))
+
+
 def set_bar_follow_cursor_monitor(enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     """Persist ``[ui] bar_follow_cursor_monitor`` (the 'follow the mouse to the
     active monitor' toggle).

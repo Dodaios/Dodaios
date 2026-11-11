@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Download, FileJson, ImageUp, Loader2, X } from "lucide-react";
+import { Download, FileCode, FileJson, ImageUp, Loader2, X } from "lucide-react";
 
+import { compilePetShader, shaderSourceError } from "@/components/society/companion/shaderPet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCreatePet } from "@/hooks/usePets";
@@ -14,9 +15,10 @@ import { cn } from "@/lib/utils";
 const MAX_NAME = 40;
 const MAX_DESCRIPTION = 140;
 const MAX_SHEET_BYTES = 2 * 1024 * 1024;
+const MAX_MODEL_BYTES = 8 * 1024 * 1024;
 const DEFAULT_FRAME_SIZE = 48;
 
-type Field = "name" | "description" | "sheet" | "manifest";
+type Field = "name" | "description" | "sheet" | "manifest" | "shader" | "model";
 
 /**
  * Which field a server refusal belongs to, read from its `detail`. The
@@ -28,6 +30,8 @@ export function fieldForDetail(detail: string): Field {
   if (text.includes("manifest") || text.includes("pet.json")) return "manifest";
   if (text.includes("description")) return "description";
   if (/\bname\b/.test(text)) return "name";
+  if (text.includes("shader")) return "shader";
+  if (text.includes("model") || text.includes("clip") || text.includes(".glb")) return "model";
   return "sheet";
 }
 
@@ -37,6 +41,15 @@ function isPng(file: File): boolean {
 
 function isJson(file: File): boolean {
   return file.type === "application/json" || file.name.toLowerCase().endsWith(".json");
+}
+
+function isModelFile(file: File): boolean {
+  return file.name.toLowerCase().endsWith(".glb");
+}
+
+function isShaderFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return name.endsWith(".frag") || name.endsWith(".glsl");
 }
 
 /**
@@ -59,11 +72,15 @@ export function CreatePetDialog({
   const create = useCreatePet();
   const formId = useId();
   const sheetInput = useRef<HTMLInputElement>(null);
+  const shaderInput = useRef<HTMLInputElement>(null);
+  const modelInput = useRef<HTMLInputElement>(null);
   const manifestInput = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [sheet, setSheet] = useState<File | null>(null);
+  const [shader, setShader] = useState<File | null>(null);
+  const [model, setModel] = useState<File | null>(null);
   const [sheetUrl, setSheetUrl] = useState<string | null>(null);
   const [frameSize, setFrameSize] = useState<number>(DEFAULT_FRAME_SIZE);
   const [manifest, setManifest] = useState<File | null>(null);
@@ -75,6 +92,8 @@ export function CreatePetDialog({
     setName("");
     setDescription("");
     setSheet(null);
+    setShader(null);
+    setModel(null);
     setFrameSize(DEFAULT_FRAME_SIZE);
     setManifest(null);
     setErrors({});
@@ -105,6 +124,43 @@ export function CreatePetDialog({
     setSheet(file);
   }
 
+  async function pickShader(file: File | undefined) {
+    if (!file) return;
+    if (!isShaderFile(file)) {
+      setErrors((e) => ({ ...e, shader: t("pets.create_dialog.shader_type") }));
+      return;
+    }
+    const text = typeof file.text === "function"
+      ? await file.text()
+      : await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.addEventListener("load", () => resolve(String(reader.result ?? "")));
+          reader.addEventListener("error", () => reject(reader.error ?? new Error("unreadable")));
+          reader.readAsText(file);
+        });
+    const problem = shaderSourceError(text) ?? compilePetShader(text);
+    if (problem) {
+      setErrors((e) => ({ ...e, shader: problem }));
+      return;
+    }
+    setErrors((e) => ({ ...e, shader: undefined }));
+    setShader(file);
+  }
+
+  function pickModel(file: File | undefined) {
+    if (!file) return;
+    if (!isModelFile(file)) {
+      setErrors((e) => ({ ...e, model: t("pets.create_dialog.model_type") }));
+      return;
+    }
+    if (file.size > MAX_MODEL_BYTES) {
+      setErrors((e) => ({ ...e, model: t("pets.create_dialog.model_too_big") }));
+      return;
+    }
+    setErrors((e) => ({ ...e, model: undefined }));
+    setModel(file);
+  }
+
   function pickManifest(file: File | undefined) {
     if (!file) return;
     if (!isJson(file)) {
@@ -120,8 +176,9 @@ export function CreatePetDialog({
     const trimmed = name.trim();
     const next: Partial<Record<Field, string>> = {};
     if (!trimmed) next.name = t("pets.create_dialog.error_name");
-    if (!sheet) next.sheet = t("pets.create_dialog.error_no_sheet");
-    if (next.name || next.sheet) {
+    if (!sheet && !shader && !model) next.sheet = t("pets.create_dialog.error_no_sheet");
+    if (model && !manifest) next.model = t("pets.create_dialog.model_needs_manifest");
+    if (next.name || next.sheet || next.model) {
       setErrors(next);
       return;
     }
@@ -129,7 +186,9 @@ export function CreatePetDialog({
     try {
       const manifestText = manifest ? await manifest.text() : null;
       const pet = await create.mutateAsync({
-        sheet: sheet as File,
+        sheet: shader || model ? null : sheet,
+        shader: model ? null : shader,
+        model,
         name: trimmed,
         description: description.trim(),
         frameSize,
@@ -283,6 +342,98 @@ export function CreatePetDialog({
                 </div>
               </div>
               {fieldError("sheet")}
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                {t("pets.create_dialog.shader_label")}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {t("pets.create_dialog.shader_hint")}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {shader ? (
+                  <>
+                    <span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground">
+                      <FileCode className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="truncate">{shader.name}</span>
+                    </span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setShader(null)}>
+                      {t("pets.create_dialog.manifest_remove")}
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => shaderInput.current?.click()}
+                  >
+                    <FileCode aria-hidden />
+                    {t("pets.create_dialog.shader_choose")}
+                  </Button>
+                )}
+                <input
+                  ref={shaderInput}
+                  type="file"
+                  accept=".frag,.glsl,text/plain"
+                  className="sr-only"
+                  tabIndex={-1}
+                  data-testid="create-pet-shader"
+                  aria-label={t("pets.create_dialog.shader_label")}
+                  onChange={(event) => {
+                    void pickShader(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+              </div>
+              {fieldError("shader")}
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                {t("pets.create_dialog.model_label")}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {t("pets.create_dialog.model_hint")}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {model ? (
+                  <>
+                    <span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground">
+                      <FileCode className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="truncate">{model.name}</span>
+                    </span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setModel(null)}>
+                      {t("pets.create_dialog.manifest_remove")}
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => modelInput.current?.click()}
+                  >
+                    <FileCode aria-hidden />
+                    {t("pets.create_dialog.model_choose")}
+                  </Button>
+                )}
+                <input
+                  ref={modelInput}
+                  type="file"
+                  accept=".glb,model/gltf-binary"
+                  className="sr-only"
+                  tabIndex={-1}
+                  data-testid="create-pet-model"
+                  aria-label={t("pets.create_dialog.model_label")}
+                  onChange={(event) => {
+                    pickModel(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+              </div>
+              {fieldError("model")}
             </div>
 
             <div>

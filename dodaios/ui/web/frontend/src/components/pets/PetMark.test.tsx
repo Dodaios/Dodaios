@@ -85,6 +85,32 @@ describe("PetMark", () => {
     expect(reactive.dataset.state).toBe("idle");
   });
 
+  it("draws a shader, a model and the orb in the chat mark", async () => {
+    const shader: Pet = {
+      ...pet("wisp-swarm"),
+      kind: "shader",
+      shader_url: "/api/pets/wisp-swarm/shader.frag",
+    };
+    renderWith({ ...pets("wisp-swarm"), pets: [shader, pet("gigi")] }, <PetMark size={48} state="working" />);
+    expect(await screen.findByTestId("shader-pet-preview")).toBeTruthy();
+    expect(screen.queryByTestId("pet-sprite")).toBeNull();
+    cleanup();
+
+    const model: Pet = {
+      ...pet("cube-cat"),
+      kind: "model",
+      model_url: "/api/pets/cube-cat/model.glb",
+      clips: { idle: "idle", working: "walk" },
+    };
+    renderWith({ ...pets("cube-cat"), pets: [model, pet("gigi")] }, <PetMark size={48} state="working" />);
+    expect((await screen.findByTestId("model-pet-preview")).dataset.clip).toBe("walk");
+    cleanup();
+
+    const scene: Pet = { ...pet("jarvis-orb"), kind: "scene" };
+    renderWith({ ...pets("jarvis-orb"), pets: [scene, pet("gigi")] }, <PetMark size={48} state="talking" />);
+    expect((await screen.findByTestId("jarvis-orb-preview")).dataset.state).toBe("talking");
+  });
+
   it("keeps an empty box of the final size outside a query client", () => {
     render(<PetMark size={40} />);
     const box = screen.getByTestId("pet-mark");

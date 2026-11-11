@@ -1100,6 +1100,21 @@ def normalize_pet_id(value: object) -> str | None:
     return pet_id if _PET_ID_SHAPE.fullmatch(pet_id) else None
 
 
+def clamp_shader_backdrop(value: object) -> float:
+    """Opacity of the black disc behind a shader pet or the Jarvis orb.
+
+    0 is clear (the wallpaper shows through) and 1 is solid black. A
+    non-numeric or non-finite value becomes 0, so an old config stays clear.
+    """
+    try:
+        f = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):  # Invalid saved backdrops use the documented 0.0 default.
+        return 0.0
+    if f != f or f in (float("inf"), float("-inf")):
+        return 0.0
+    return max(0.0, min(1.0, f))
+
+
 def clamp_pet_scale(value: object) -> float:
     """The pet size multiplier, clamped to 0.5–4.0.
 
@@ -2176,6 +2191,9 @@ class UIConfig(BaseModel):
     # Show the user's pet in the main chat (empty-chat mascot, Jarvis composer
     # chip, live work line). Absent in an old config means on.
     pet_chat: bool = True
+    # Black disc behind a shader pet or the Jarvis orb. 0 is clear, 1 is solid.
+    # Pixel pets and models ignore it. Absent in an old config stays clear.
+    pet_shader_backdrop: float = 0.0
     # Remembered "open with" choice for Outputs artifacts: an opener id
     # ("default" = OS default app, "browser", or an editor key like "code").
     # Empty = ask via the chooser dialog on first open. Desktop-only.
@@ -2225,6 +2243,11 @@ class UIConfig(BaseModel):
     @classmethod
     def _clamp_pet_scale(cls, v: object) -> object:
         return clamp_pet_scale(v)
+
+    @field_validator("pet_shader_backdrop", mode="before")
+    @classmethod
+    def _clamp_shader_backdrop(cls, v: object) -> object:
+        return clamp_shader_backdrop(v)
 
 
 class DuckingConfig(BaseModel):

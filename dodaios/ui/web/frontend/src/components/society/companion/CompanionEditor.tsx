@@ -4,7 +4,10 @@ import { type CompanionAppearance } from "./appearance";
 import { CompanionMark } from "./CompanionMark";
 import "../calmSheet.css";
 import { PetSprite } from "@/components/pets/PetSprite";
+import { JarvisOrbMark } from "@/components/pets/DodaiosOrbMark";
+import { ShaderPetMark } from "@/components/pets/ShaderPetMark";
 import { usePets } from "@/hooks/usePets";
+import { CUBE_CAT } from "./petCompanions";
 import gigiMark from "@/assets/gigi-companion-avatar.png";
 import { lazy, Suspense } from "react";
 const CompanionPreview = lazy(() => import("./CompanionPreview").then(m => ({ default: m.CompanionPreview })));
@@ -32,8 +35,18 @@ export function CompanionEditor({ value, onChange, disabled = false, lead = fals
       <div className="flex flex-wrap gap-2">{pets.map(pet => <button key={pet.id} type="button" title={pet.name}
         aria-label={pet.name} aria-pressed={value.pet === pet.id} onClick={() => update({ pet: pet.id })}
         className="calm-tile h-14 w-14" data-on={value.pet === pet.id}>
-        <PetSprite pet={pet} state={value.pet === pet.id ? "success" : "idle"} px={44} />
-      </button>)}</div>
+        {pet.kind === "shader"
+          ? <ShaderPetMark className="h-10 w-10" />
+          : pet.kind === "scene"
+            ? <JarvisOrbMark className="h-10 w-10" />
+            : <PetSprite pet={pet} state={value.pet === pet.id ? "success" : "idle"} px={44} />}
+      </button>)}
+      <button type="button" title={t("pets.cube_cat.title")} aria-label={t("pets.cube_cat.title")}
+        aria-pressed={value.pet === CUBE_CAT.id} onClick={() => update({ pet: CUBE_CAT.id })}
+        className="calm-tile h-14 min-w-14 px-2 text-[12px]" data-on={value.pet === CUBE_CAT.id} data-testid="cube-cat-wear">
+        {t("pets.cube_cat.short")}
+      </button>
+      </div>
     </div>}
     <label className="flex items-center justify-between gap-3 text-[14px]">{t("society.companion.visible")}
       <Switch checked={value.enabled} onCheckedChange={enabled => update({ enabled })} aria-label={t("society.companion.visible")} />

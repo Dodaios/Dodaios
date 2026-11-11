@@ -70,6 +70,8 @@ class AlphaWindow:
         self._photo: ImageTk.PhotoImage | None = None
         self._image_id: int | None = None
         top = tk.Toplevel(parent)
+        # Not "JarvisOrb": that title is the figure, which a shader pet hides.
+        top.title(f"JarvisOrb{name}")
         top.overrideredirect(True)
         top.wm_attributes("-topmost", True)
         if sys.platform == "darwin":
