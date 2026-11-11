@@ -232,6 +232,10 @@ class RunShellTool:
                 proc.kill()
                 await proc.wait()
                 return ToolResult(success=False, output=None, error=f"Timeout after {timeout_s}s")
+            except asyncio.CancelledError:
+                # Stopped (a job_stop, a stopped turn): the command must not outlive it.
+                proc.kill()
+                raise
         except FileNotFoundError as exc:
             return ToolResult(success=False, output=None, error=f"Not found: {exc}")
         except Exception as exc:  # noqa: BLE001

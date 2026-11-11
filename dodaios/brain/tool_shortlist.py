@@ -102,6 +102,7 @@ DEFAULT_DIRECT: Final[tuple[str, ...]] = (
     "work_board",
     "job_status",
     "await_jobs",
+    "job_stop",
     "ask_agent",
 )
 

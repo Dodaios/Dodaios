@@ -52,6 +52,12 @@ def register_delegated_work(work: DelegatedWork) -> bool:
     return True
 
 
+def can_register_delegated_work() -> bool:
+    """Whether work registered now would be held by a chat turn's wait."""
+    turn = current_chat_turn.get()
+    return bool(turn and turn.direct_user and (turn.session_id, turn.turn_id) in _owners)
+
+
 def register_dispatch(task: asyncio.Task, names: list[str]) -> None:
     """Reserve the wait before a delayed coding launch can outlive its caller."""
 

@@ -60,10 +60,16 @@ async def _read(ids: list[str]) -> tuple[list[jobs.Job], list[str]]:
     return list(fresh), unknown
 
 
-def _view(job: jobs.Job) -> dict[str, Any]:
+def _view(job: jobs.Job, *, full: bool = False) -> dict[str, Any]:
     row = job.to_dict()
     if job.state == "blocked":
         row["needs_attention"] = True
+    if full and job.kind == "async_tool" and job.settled:
+        from dodaios.orchestrator import async_tools
+
+        saved = async_tools.read_result(job.id)
+        if saved is not None:
+            row["result"] = saved
     return row
 
 
@@ -98,6 +104,13 @@ class JobStatusTool:
             "open_only": {
                 "type": "boolean",
                 "description": "When listing, only queued or running jobs.",
+            },
+            "full": {
+                "type": "boolean",
+                "description": (
+                    "Include the saved full result of a finished background tool call "
+                    "(its job_id came back with started: true)."
+                ),
             },
         },
     }
@@ -135,7 +148,7 @@ class JobStatusTool:
         output: dict[str, Any] = {
             "open": open_count,
             "settled": len(rows) - open_count,
-            "jobs": [_view(job) for job in rows],
+            "jobs": [_view(job, full=bool(args.get("full"))) for job in rows],
         }
         if unknown:
             output["unknown_ids"] = unknown
@@ -283,4 +296,52 @@ class TraceExplainTool:
         )
 
 
-__all__ = ["DEFAULT_AWAIT_S", "MAX_AWAIT_S", "AwaitJobsTool", "JobStatusTool", "TraceExplainTool"]
+class JobStopTool:
+    """Cancel a slow tool call that went on as a background job."""
+
+    name: str = "job_stop"
+    risk_tier: str = "monitor"
+    is_action_tool: bool = True
+    description: str = (
+        "Stop a background job by its job_id. Use it for a slow tool call (a shell "
+        "command, a browser task) that came back with started: true and that the "
+        "person no longer wants, or that is stuck. The work is cancelled and the job "
+        "ends as 'cancelled'. A job that already finished is reported as finished. "
+        "Missions, artifacts and agent hand-offs are not stopped here."
+    )
+    schema: dict[str, Any] = {
+        "type": "object",
+        "properties": {
+            "job_id": {"type": "string", "description": "The job_id of the running job."},
+        },
+        "required": ["job_id"],
+    }
+
+    async def execute(self, args: dict[str, Any], ctx: ExecutionContext) -> ToolResult:
+        job_id = str((args or {}).get("job_id") or "").strip()
+        if not job_id:
+            return ToolResult(False, "", "'job_id' is required.")
+        from dodaios.orchestrator import async_tools
+
+        try:
+            outcome = async_tools.stop(job_id)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("job_stop: ledger unavailable", exc_info=True)
+            return ToolResult(False, "", f"The jobs ledger is unavailable: {exc}")
+        if outcome == "unknown":
+            return ToolResult(
+                False, "",
+                f"No stoppable background job {job_id}. Only slow tool calls that returned "
+                "started: true can be stopped here.",
+            )
+        return ToolResult(True, {"job_id": job_id, "outcome": outcome})
+
+
+__all__ = [
+    "DEFAULT_AWAIT_S",
+    "MAX_AWAIT_S",
+    "AwaitJobsTool",
+    "JobStatusTool",
+    "JobStopTool",
+    "TraceExplainTool",
+]
