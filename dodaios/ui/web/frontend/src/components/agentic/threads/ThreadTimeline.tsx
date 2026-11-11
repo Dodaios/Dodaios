@@ -986,7 +986,9 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
         pinned.current = atBottom;
         setAway(!atBottom);
       }}
-      className="h-full overflow-y-auto scrollbar-jarvis">
+      // Positioned, so every absolute piece inside (a screen-reader-only
+      // status line) is clipped here instead of stretching the column below.
+      className="relative h-full overflow-y-auto scrollbar-jarvis">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 pt-6" style={{ paddingBottom: bottomInset + 24 }}>
         {lead}
         {items.map((item) => <ItemView key={item.id} item={item} tone={tone} />)}
