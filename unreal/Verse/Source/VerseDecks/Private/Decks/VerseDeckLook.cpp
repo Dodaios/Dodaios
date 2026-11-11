@@ -23,8 +23,9 @@ FVerseDeckLook FVerseDeckLook::For(FName Deck)
 	else if (Id == TEXT("ops"))
 	{
 		Look.FogDensity = 0.02;
-		Look.ExposureEV100 = 4.0;
-		Look.WorkLightKelvin = 5600.0;
+		// The crew's living deck: warmer and a step brighter than the bridge.
+		Look.ExposureEV100 = 3.0;
+		Look.WorkLightKelvin = 4500.0;
 		Look.SpaceOutward = FVector(-0.377894, -0.925849, 0.0);
 	}
 	else if (Id == TEXT("engineering"))
@@ -207,7 +208,7 @@ namespace VerseDeckLookPrivate
 	constexpr int32 MaxFixturesPerUnlitRoom = 12;
 	constexpr int32 MaxDeckLights = 160;
 	/** Lumens of one fixture of the default grid in a room no light socket covers. */
-	constexpr double DefaultFixtureLumen = 3000.0;
+	constexpr double DefaultFixtureLumen = 4500.0;
 	/** Fixture height above the floor of an unlit room when no deck light hangs high enough. */
 	constexpr double DefaultCeilingCm = 380.0;
 	/** Lumens of the glow in front of each screen socket. */
@@ -456,8 +457,9 @@ int32 AVerseDeckLighting::Build(const FVerseDeckManifest& Manifest)
 				break;
 			}
 			URectLightComponent* Rect = NewObject<URectLightComponent>(this);
-			Rect->SetSourceWidth(90.f);
-			Rect->SetSourceHeight(30.f);
+			// Soft ceiling panels: wide enough that the walls catch light, not only the floor below.
+			Rect->SetSourceWidth(120.f);
+			Rect->SetSourceHeight(60.f);
 			Rect->SetMobility(EComponentMobility::Movable);
 			Rect->SetupAttachment(Root);
 			Rect->SetRelativeLocationAndRotation(Point, FRotator(-90.0, 0.0, 0.0));
