@@ -8,31 +8,31 @@
   lang: en
   utterance: "Fix the failing login test in T2."
   requires: [workspace-orchestrate]
-  expect: {tool: workspace-orchestrate, args: {action: [resolve, send], "*": T2}}
+  expect: {tool: delegate, args: {target: "pane:T2"}}
 - id: pane-fix-bug-t2-de
   category: coding_pane
   lang: de
   utterance: "Behebe den fehlschlagenden Login-Test in T2."
   requires: [workspace-orchestrate]
-  expect: {tool: workspace-orchestrate, args: {action: [resolve, send], "*": T2}}
+  expect: {tool: delegate, args: {target: "pane:T2"}}
 - id: pane-lint-t3-de
   category: coding_pane
   lang: de
   utterance: "Lass T3 die Linter-Fehler im Frontend beheben."
   requires: [workspace-orchestrate]
-  expect: {tool: workspace-orchestrate, args: {action: [resolve, send], "*": T3}}
+  expect: {tool: delegate, args: {target: "pane:T3"}}
 - id: pane-refactor-t1-en
   category: coding_pane
   lang: en
   utterance: "Tell T1 to refactor the payment module and keep the tests green."
   requires: [workspace-orchestrate]
-  expect: {tool: workspace-orchestrate, args: {action: [resolve, send], "*": T1}}
+  expect: {tool: delegate, args: {target: "pane:T1"}}
 - id: pane-named-codex-en
   category: coding_pane
   lang: en
   utterance: "Ask the Codex terminal to add pagination to the orders endpoint."
   requires: [workspace-orchestrate]
-  expect: {tool: workspace-orchestrate, args: {action: [resolve, send]}}
+  expect: {tool: delegate, args: {target: pane}}
 - id: pane-observe-t2-en
   category: coding_pane
   lang: en
@@ -80,45 +80,45 @@
   lang: pt
   utterance: "Corrige o teste de login que está a falhar no T2."
   requires: [workspace-orchestrate]
-  expect: {tool: workspace-orchestrate, args: {action: [resolve, send], "*": T2}}
+  expect: {tool: delegate, args: {target: "pane:T2"}}
 - id: pane-fix-bug-t5-es
   category: coding_pane
   lang: es
   utterance: "Pídele a T5 que arregle el error de paginación."
   requires: [workspace-orchestrate]
-  expect: {tool: workspace-orchestrate, args: {action: [resolve, send], "*": T5}}
+  expect: {tool: delegate, args: {target: "pane:T5"}}
 
 # ---- team_thread: several models working one task --------------------------
 - id: team-three-models-plan-en
   category: team_thread
   lang: en
   utterance: "Let three models plan the migration to Postgres and compare their plans."
-  expect: {tool: team_thread, args: {action: start}, approval: true, effect: action}
+  expect: {tool: delegate, args: {target: team_thread}, effect: action}
 - id: team-three-models-plan-de
   category: team_thread
   lang: de
   utterance: "Lass drei Modelle die Migration auf Postgres planen und ihre Pläne vergleichen."
-  expect: {tool: team_thread, args: {action: start}, approval: true, effect: action}
+  expect: {tool: delegate, args: {target: team_thread}, effect: action}
 - id: team-plan-build-review-de
   category: team_thread
   lang: de
   utterance: "Claude soll planen, Codex bauen und Gemini prüfen: die neue Suchfunktion."
-  expect: {tool: team_thread, args: {action: start}, approval: true, effect: action}
+  expect: {tool: delegate, args: {target: team_thread}, effect: action}
 - id: team-plan-build-review-en
   category: team_thread
   lang: en
   utterance: "Start a team thread: Claude plans, Codex builds, Gemini reviews the new search feature."
-  expect: {tool: team_thread, args: {action: start}, approval: true, effect: action}
+  expect: {tool: delegate, args: {target: team_thread}, effect: action}
 - id: team-debate-es
   category: team_thread
   lang: es
   utterance: "Que tres modelos debatan si deberíamos migrar a microservicios."
-  expect: {tool: team_thread, args: {action: start}, approval: true, effect: action}
+  expect: {tool: delegate, args: {target: team_thread}, effect: action}
 - id: team-second-opinion-pt
   category: team_thread
   lang: pt
   utterance: "Quero que três modelos dêem a sua opinião sobre a arquitetura da nova API."
-  expect: {tool: team_thread, args: {action: start}, approval: true, effect: action}
+  expect: {tool: delegate, args: {target: team_thread}, effect: action}
 
 - id: team-status-en
   category: team_thread

@@ -1,0 +1,132 @@
+# Golden routing cases: the `delegate` front door (one tool, a typed target) and the
+# knowledge questions that must never start work. Every utterance is simulated user
+# input: matching data, the content under test. Schema and rules: docs/lead-routing-evals.md
+
+# ---- target agent: a named society agent ---------------------------------
+- id: delegate-front-agent-paraphrase-en
+  category: delegate_agent
+  lang: en
+  utterance: "Could you get Scout to dig into competitor pricing and send me the highlights?"
+  expect: {tool: delegate, args: {target: "agent:Scout"}}
+- id: delegate-front-agent-paraphrase-de
+  category: delegate_agent
+  lang: de
+  utterance: "Kannst du Archivist bitten, die Verträge von 2024 nach Kündigungsfristen zu durchsuchen?"
+  expect: {tool: delegate, args: {target: "agent:Archivist"}}
+- id: delegate-front-agent-es
+  category: delegate_agent
+  lang: es
+  utterance: "Mailbox, responde al correo del proveedor y confirma la entrega del lunes."
+  expect: {tool: delegate, args: {target: "agent:Mailbox"}}
+- id: delegate-front-agent-pt
+  category: delegate_agent
+  lang: pt
+  utterance: "Pede ao Archivist para resumir as atas das últimas duas reuniões."
+  expect: {tool: delegate, args: {target: "agent:Archivist"}}
+
+# ---- target pane: a coding agent already open in the Agentic IDE ----------
+- id: delegate-front-pane-id-en
+  category: coding_pane
+  lang: en
+  utterance: "Send T2 this task: rebase the branch onto main and re-run the test suite."
+  expect: {tool: delegate, args: {target: "pane:T2"}}
+- id: delegate-front-pane-id-de
+  category: coding_pane
+  lang: de
+  utterance: "Gib T3 den Auftrag, die Migration zu schreiben und die Tests dazu zu ergänzen."
+  expect: {tool: delegate, args: {target: "pane:T3"}}
+- id: delegate-front-pane-es
+  category: coding_pane
+  lang: es
+  utterance: "Dile a T4 que añada validación al formulario de registro."
+  expect: {tool: delegate, args: {target: "pane:T4"}}
+- id: delegate-front-pane-callsign-en
+  category: coding_pane
+  lang: en
+  utterance: "Tell T1 to update the changelog for the release and open a pull request."
+  expect: {tool: delegate, args: {target: "pane:T1"}}
+
+# ---- target team_thread: several models on one task ---------------------------
+- id: delegate-front-team-en
+  category: team_thread
+  lang: en
+  utterance: "Get Claude and Codex to plan the new billing module together and have Gemini review it."
+  expect: {tool: delegate, args: {target: team_thread}, effect: action}
+- id: delegate-front-team-de
+  category: team_thread
+  lang: de
+  utterance: "Lass zwei Modelle gemeinsam einen Plan für den Datenexport schreiben und gegenseitig prüfen."
+  expect: {tool: delegate, args: {target: team_thread}, effect: action}
+- id: delegate-front-team-pt
+  category: team_thread
+  lang: pt
+  utterance: "Quero que três modelos planeiem juntos a nova página de definições e revejam o plano."
+  expect: {tool: delegate, args: {target: team_thread}, effect: action}
+
+# ---- target mission: one background worker with a work product -----------------
+- id: delegate-front-mission-en
+  category: mission_artifact
+  lang: en
+  utterance: "In the background, build a script that renames my holiday photos by date, as a worker."
+  expect: {tool: delegate, args: {target: mission}}
+- id: delegate-front-mission-de
+  category: mission_artifact
+  lang: de
+  utterance: "Lass im Hintergrund einen Worker ein Skript schreiben, das meine Rechnungen nach Datum sortiert."
+  expect: {tool: delegate, args: {target: mission}}
+
+# ---- target routine: work on a schedule -------------------------------------------
+- id: delegate-front-routine-en
+  category: routines
+  lang: en
+  utterance: "Have Scout check the competitor blogs every Monday at 9 and tell me what changed."
+  expect: {tool: delegate, args: {target: routine}, also_accept: [society-create-routine]}
+- id: delegate-front-routine-de
+  category: routines
+  lang: de
+  utterance: "Mailbox soll jeden Freitag um 16 Uhr die offenen Rechnungen zusammenfassen."
+  expect: {tool: delegate, args: {target: routine}, also_accept: [society-create-routine]}
+
+# ---- knowledge questions: answer, never hand work off -------------------------
+# These are what the regex gates for the spawn tools protected. The gates stay for
+# the surfaces that still have the old tools; the lead is measured here.
+- id: answer-no-spawn-storage-companies-en
+  category: answer_directly
+  lang: en
+  utterance: "Which companies have that much storage space?"
+  expect: {tool: none}
+- id: answer-no-spawn-storage-companies-de
+  category: answer_directly
+  lang: de
+  utterance: "Welche Unternehmen haben so viel Speicherplatz?"
+  expect: {tool: none}
+- id: answer-no-spawn-feature-question-en
+  category: answer_directly
+  lang: en
+  utterance: "Can an agent do research for me in the background?"
+  expect: {tool: none, also_accept: [product_help]}
+- id: answer-no-spawn-feature-question-de
+  category: answer_directly
+  lang: de
+  utterance: "Kann ein Agent im Hintergrund für mich recherchieren?"
+  expect: {tool: none, also_accept: [product_help]}
+- id: answer-no-spawn-explain-worker-en
+  category: answer_directly
+  lang: en
+  utterance: "What is the difference between a mission and a team thread?"
+  expect: {tool: none, also_accept: [product_help]}
+- id: answer-no-spawn-how-it-works-es
+  category: answer_directly
+  lang: es
+  utterance: "¿Cómo funciona un agente en segundo plano?"
+  expect: {tool: none, also_accept: [product_help]}
+- id: answer-no-spawn-opinion-de
+  category: answer_directly
+  lang: de
+  utterance: "Was hältst du von Rust im Vergleich zu Go für ein kleines Kommandozeilenwerkzeug?"
+  expect: {tool: none}
+- id: answer-no-spawn-news-pt
+  category: answer_directly
+  lang: pt
+  utterance: "Quem ganhou o campeonato de Fórmula 1 no ano passado?"
+  expect: {tool: none, also_accept: [search_web]}

@@ -57,7 +57,24 @@ log = logging.getLogger(__name__)
 # Registered names of every tool that dispatches a background worker mission.
 # Kept tiny and explicit — mirrors ``_SPAWN_TOOL_NAMES`` in
 # ``dodaios.brain.manager`` (parity-tested in tests/unit/brain/test_spawn_gate.py).
-SPAWN_VEHICLE_TOOL_NAMES: frozenset[str] = frozenset({"spawn_worker", "multi_spawn"})
+SPAWN_VEHICLE_TOOL_NAMES: frozenset[str] = frozenset({"spawn_worker"})
+
+
+def is_spawn_vehicle_call(tool_name: str, args: object) -> bool:
+    """Whether this call starts a background worker mission.
+
+    ``spawn_worker`` always does. The lead's ``delegate`` front door does only for
+    ``target=mission``: a hand-off to a named agent, a coding pane, a team thread,
+    a routine or a skill has its own gates and is never held to the explicit
+    delegation rule (a user who says "Mailbox, answer the invoice mail" named no
+    "agent" and still asked for exactly that hand-off).
+    """
+    name = (tool_name or "").strip().lower().replace("-", "_")
+    if name in SPAWN_VEHICLE_TOOL_NAMES:
+        return True
+    if name != "delegate" or not isinstance(args, dict):
+        return False
+    return str(args.get("target") or "").strip().lower() == "mission"
 
 
 # Explicit delegation vocabulary (DE/EN/ES). A bare "agent" is deliberately
@@ -743,6 +760,7 @@ __all__ = [
     "SPAWN_BLOCKED_ADDRESSED_PANE_FEEDBACK",
     "SPAWN_BLOCKED_MODEL_FEEDBACK",
     "SPAWN_VEHICLE_TOOL_NAMES",
+    "is_spawn_vehicle_call",
     "DelegationOfferWindow",
     "active_force_spawn_mode",
     "addressed_pane_blocks_spawn",
