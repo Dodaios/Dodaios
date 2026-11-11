@@ -91,6 +91,54 @@ _ACT_KEY = "act:"
 _ColorKey = tuple[int, int, int]
 
 
+def strip_layout_scale(dpi_ratio: float, *, points: bool) -> float:
+    """The strip window's scale. ``1.0`` is the designed size.
+
+    A point-based window (macOS) is already in logical pixels, so a retina
+    ratio of 2 must not make the window twice as big. Windows and X11 size
+    windows in pixels, so they keep the DPI ratio and the strip matches the
+    figure. ``pet_scale`` is never part of this.
+    """
+    if points:
+        return 1.0
+    try:
+        ratio = float(dpi_ratio)
+    except (TypeError, ValueError):
+        return 1.0
+    if not math.isfinite(ratio):
+        return 1.0
+    return max(0.25, ratio)
+
+
+def strip_bitmap_scale(device_pixel_ratio: float) -> float:
+    """Device pixels to draw per logical point of the strip. Never below 1.
+
+    The window stays at :func:`strip_layout_scale`. This only adds pixels so
+    a retina screen is not asked to scale a 1x bitmap up.
+    """
+    try:
+        ratio = float(device_pixel_ratio)
+    except (TypeError, ValueError):
+        return 1.0
+    if not math.isfinite(ratio) or ratio < 1.0:
+        return 1.0
+    return ratio
+
+
+def backing_pixel_ratio() -> float:
+    """Device pixels per point on this screen. 1 where a window pixel is a pixel."""
+    if sys.platform != "darwin":
+        return 1.0
+    try:
+        from AppKit import NSScreen
+
+        screen = NSScreen.mainScreen()
+        value = float(screen.backingScaleFactor()) if screen is not None else 1.0
+    except Exception:  # noqa: BLE001 — no AppKit: draw at 1x rather than guess
+        return 1.0
+    return strip_bitmap_scale(value)
+
+
 def dpi_ratio_for(points_per_inch: float | None, platform: str = sys.platform) -> float:
     """The display scale factor from what Tk reports as one inch, in pixels.
 
@@ -422,8 +470,12 @@ class PetRenderer:
 
     @property
     def strip_scale(self) -> float:
-        """The control strip's scale: the monitor's DPI ratio times ``pet_scale``."""
-        return max(0.25, self._dpi_ratio * self._pet_scale)
+        """Logical scale of the control strip. Not ``pet_scale``.
+
+        The size slider changes the figure only. On macOS the window stays at
+        the 100 % design; the bitmap is drawn at the device pixel ratio.
+        """
+        return strip_layout_scale(self._dpi_ratio, points=sys.platform == "darwin")
 
     @property
     def machine(self) -> Any:

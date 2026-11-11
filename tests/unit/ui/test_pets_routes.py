@@ -147,6 +147,7 @@ def test_list_returns_state_and_every_pet(env) -> None:
     assert body["scale"] == 1.0
     assert body["bubble"] is True
     assert body["visible"] is True
+    assert body["chat"] is True
     ids = [p["id"] for p in body["pets"]]
     assert ids[0] == DEFAULT_PET_ID  # the default pet leads
     assert "miso" in ids
@@ -254,15 +255,15 @@ def test_a_dev_instance_does_not_change_the_shared_pet(env, monkeypatch) -> None
 
 
 def test_put_settings_clamps_saves_and_applies(env) -> None:
-    r = env.client.put("/api/pets/settings", json={"scale": 5, "bubble": False})
+    r = env.client.put("/api/pets/settings", json={"scale": 9, "bubble": False})
     assert r.status_code == 200
     body = r.json()
-    assert (body["scale"], body["bubble"]) == (2.0, False)
-    assert _toml_ui(env)["pet_scale"] == 2.0
+    assert (body["scale"], body["bubble"]) == (4.0, False)
+    assert _toml_ui(env)["pet_scale"] == 4.0
     assert _toml_ui(env)["pet_bubble"] is False
-    assert env.app.state.desktop_app.calls == [("set_pet_look", 2.0, False, False)]
+    assert env.app.state.desktop_app.calls == [("set_pet_look", 4.0, False, False)]
     (event,) = env.app.state.bus.events
-    assert (event.scale, event.bubble) == (2.0, False)
+    assert (event.scale, event.bubble) == (4.0, False)
 
 
 def test_a_preview_resizes_live_but_writes_and_announces_nothing(env) -> None:
@@ -297,6 +298,20 @@ def test_the_always_on_strip_is_saved_applied_and_reported(env) -> None:
 
 def test_put_settings_needs_something_to_change(env) -> None:
     assert env.client.put("/api/pets/settings", json={}).status_code == 400
+
+
+def test_chat_defaults_on_and_can_be_turned_off(env) -> None:
+    """An old config has no key. The chat pet stays until the user turns it off."""
+    assert "pet_chat" not in _toml_ui(env)
+    assert env.client.get("/api/pets").json()["chat"] is True
+    r = env.client.put("/api/pets/settings", json={"chat": False})
+    assert r.status_code == 200
+    assert r.json()["chat"] is False
+    assert _toml_ui(env)["pet_chat"] is False
+    assert env.app.state.desktop_app.calls == []
+    assert env.client.get("/api/pets").json()["chat"] is False
+    env.client.put("/api/pets/settings", json={"chat": True})
+    assert env.client.get("/api/pets").json()["chat"] is True
 
 
 def test_visibility_is_runtime_only(env) -> None:

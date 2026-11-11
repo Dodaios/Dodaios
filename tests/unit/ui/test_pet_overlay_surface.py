@@ -21,7 +21,7 @@ from dodaios.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
 from dodaios.ui.overlay_styles import MASCOT_PET_ID
 from dodaios.ui.pets.loader import builtin_root, load_pet
 from ui.orb import controls
-from ui.orb.overlay import OrbOverlay
+from ui.orb.overlay import STRIP_FADE_MS, OrbOverlay, PetControlStrip, strip_fade_opacity
 from ui.orb.pet_renderer import PetRenderer
 
 # --- OrbOverlay (never started: no Tk root under pytest) --------------------------
@@ -102,7 +102,7 @@ def test_pet_calls_are_safe_before_the_window_exists() -> None:
     pet.set_speaker_muted(True)
     pet.toggle_visible()
     assert pet._pet_id == "gigi"
-    assert pet._pet_scale == 0.5  # clamped into 0.5–2.0
+    assert pet._pet_scale == 0.5  # below the floor clamps up
     assert pet._pet_bubble is True
     assert pet._mic_muted is True and pet._speaker_muted is True
 
@@ -231,9 +231,9 @@ def test_set_pet_look_clamps_and_applies() -> None:
     app = _app(orb=surface)
     result = app.set_pet_look(scale=7.0, bubble=False)
     assert result == {"ok": True, "applied_live": True}
-    assert app.cfg.ui.pet_scale == 2.0
+    assert app.cfg.ui.pet_scale == 4.0
     assert app.cfg.ui.pet_bubble is False
-    assert surface.calls[-1] == ("set_pet_look", 2.0, False, None)
+    assert surface.calls[-1] == ("set_pet_look", 4.0, False, None)
     app.set_pet_look(strip_always=True)
     assert app.cfg.ui.pet_strip_always is True
     assert surface.calls[-1] == ("set_pet_look", None, None, True)
@@ -433,6 +433,9 @@ class _Strip:
     def hide_after_grace(self) -> None:
         self.calls.append("grace")
 
+    def fade_out(self) -> None:
+        self.calls.append("fade")
+
 
 def _pet_with_strip(pet_id: str = "gigi") -> tuple[OrbOverlay, _Strip]:
     pet = OrbOverlay(style="pet", pet_id=pet_id)
@@ -447,7 +450,7 @@ def test_an_idle_pet_shows_only_the_figure() -> None:
     pet._mode = "idle"
     assert pet._pet_strip_wanted() is False
     pet._sync_controls_visibility()
-    assert strip.calls == ["grace"]
+    assert strip.calls == ["fade"]
 
 
 @pytest.mark.parametrize("mode", ["listen", "think", "speak", "dictate", "dictate_transcribing"])
@@ -465,8 +468,94 @@ def test_hovering_the_pet_brings_the_strip_and_leaving_lets_it_go() -> None:
     assert strip.calls == ["show"]
     assert pet._pet_strip_wanted() is True
     pet._on_orb_pointer_leave()
-    assert strip.calls == ["show", "grace"]
+    assert strip.calls == ["show", "fade"]
     assert pet._pet_strip_wanted() is False
+
+
+def test_a_stuck_hover_flag_fades_once_the_pointer_is_outside() -> None:
+    """Leave often never fires. The hover flags must not keep the strip up."""
+    pet, strip = _pet_with_strip()
+    strip.visible = True
+    pet._mode = "idle"
+    pet._mascot_x = pet._mascot_y = 0
+    pet._win_w = pet._win_h = 100
+    pet._on_orb_pointer_enter()
+    pet._pointer_over_orb = True  # Leave never arrived
+    strip.pointer_inside = True
+    pet._drag_drop_xy = (40, 40)  # mouse-up, pointer still on the pet
+    pet._pointer_xy = lambda: (40, 40)  # type: ignore[method-assign]
+    pet._root = None
+    pet._watch_strip_pointer()
+    assert "fade" not in strip.calls
+    pet._pointer_xy = lambda: (900, 900)  # type: ignore[method-assign]
+    pet._watch_strip_pointer()
+    assert pet._pointer_over_orb is False
+    assert strip.pointer_inside is False
+    assert pet._pet_strip_wanted() is False
+    assert strip.calls[-1] == "fade"
+
+
+def test_hover_or_drag_after_the_fade_shows_the_strip_again() -> None:
+    """A finished fade withdraws the strip. The pet itself must bring it back."""
+    pet, strip = _pet_with_strip()
+    strip.visible = True
+    pet._mode = "idle"
+    pet._mascot_x = pet._mascot_y = 0
+    pet._win_w = pet._win_h = 100
+    pet._pointer_over_orb = False
+    pet._drag_drop_xy = None
+    pet._pointer_xy = lambda: (900, 900)  # type: ignore[method-assign]
+    pet._root = None
+    pet._watch_strip_pointer()
+    assert strip.calls[-1] == "fade"
+    strip.visible = False
+    strip.calls.clear()
+    pet._pointer_xy = lambda: (40, 40)  # type: ignore[method-assign]
+    pet._watch_strip_pointer()
+    assert pet._pointer_over_orb is True
+    assert strip.calls == ["show"]
+    # show() is what paints the bar again. A faded strip comes back solid.
+    bare = PetControlStrip.__new__(PetControlStrip)
+    bare._opacity = 0.0
+    bare._visible = False
+    bare._fade_id = None
+    bare._parent = None
+    bare._top = None
+    bare._qt_surface = True
+    bare.show()
+    assert bare._opacity == 1.0
+
+
+def test_always_on_and_a_live_voice_keep_the_strip_up_when_the_pointer_leaves() -> None:
+    pet, strip = _pet_with_strip()
+    pet._mode = "idle"
+    pet._pet_strip_always = True
+    pet._on_orb_pointer_leave()
+    assert strip.calls == ["show"]
+    strip.calls.clear()
+    pet._pet_strip_always = False
+    pet._mode = "listen"
+    pet._on_orb_pointer_leave()
+    assert strip.calls == ["show"]
+
+
+def test_the_strip_fade_is_a_short_ramp() -> None:
+    assert 300 <= STRIP_FADE_MS <= 400
+    assert strip_fade_opacity(0) == 1
+    assert strip_fade_opacity(STRIP_FADE_MS / 2000) == pytest.approx(0.5)
+    assert strip_fade_opacity(STRIP_FADE_MS / 1000) == 0
+
+
+def test_a_wanted_strip_cancels_the_fade_at_full_opacity() -> None:
+    strip = PetControlStrip.__new__(PetControlStrip)
+    strip._keep_visible = lambda: True
+    strip._visible = True
+    strip._opacity = 0.4
+    applied: list[float] = []
+    strip._set_opacity = lambda opacity: applied.append(opacity)  # type: ignore[method-assign]
+    strip._cancel_fade = lambda: None  # type: ignore[method-assign]
+    strip.fade_out()
+    assert applied == [1.0]
 
 
 def test_the_pointer_on_the_strip_keeps_it_up() -> None:

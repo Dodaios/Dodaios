@@ -125,6 +125,23 @@ it("fails open (renders nothing) on a fetch error", async () => {
   await waitFor(() => expect(screen.queryByTestId("guide")).toBeNull(), { timeout: 500 });
 });
 
+it("drops the guide when a later read says setup is already done", async () => {
+  let reads = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ...base, completed: reads++ > 0, tour_completed: true }),
+    })),
+  );
+  render(<OnboardingGate />);
+  await screen.findByTestId("guide");
+  act(() => {
+    window.dispatchEvent(new Event("focus"));
+  });
+  await waitFor(() => expect(screen.queryByTestId("guide")).toBeNull());
+});
+
 it("closes the guide when setup completes", async () => {
   stub({ ...base, completed: false, tour_completed: false });
   render(<OnboardingGate />);

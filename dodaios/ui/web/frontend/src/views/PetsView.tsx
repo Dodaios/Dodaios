@@ -54,7 +54,8 @@ const STATE_CYCLE_MS = 2500;
 const HERO_SPRITE_PX = 168;
 const TILE_SPRITE_PX = 96;
 const SCALE_MIN = 0.5;
-const SCALE_MAX = 2;
+// 1.0 is a 180px figure. 4.0 is 720px, so a second display can hold a figure.
+const SCALE_MAX = 4;
 /** Fine enough that the thumb glides; the pet itself grows in whole pixels. */
 const SCALE_STEP = 0.01;
 
@@ -81,6 +82,7 @@ export function PetsView() {
   const overlay = useOverlayStyle();
   const keybinds = useKeybinds();
   const select = useSelectPet();
+  const saveSettings = useSavePetSettings();
   const setVisible = useSetPetVisible();
   const remove = useDeletePet();
   const restartApp = useRestartApp();
@@ -124,6 +126,16 @@ export function PetsView() {
     } finally {
       setSwitchingStyle(false);
     }
+  }
+
+  function setChat(next: boolean) {
+    saveSettings.mutate(
+      { chat: next },
+      {
+        onError: (error) =>
+          pushToast("error", t("pets.save_error").replace("{0}", (error as Error).message)),
+      },
+    );
   }
 
   function choose(petId: string) {
@@ -182,16 +194,28 @@ export function PetsView() {
                   {data?.visible === false ? t("pets.show") : t("pets.hide")}
                 </Button>
               )}
-              <label className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-1.5">
-                <span className="text-sm font-medium text-foreground">{t("pets.enabled_label")}</span>
-                <Switch
-                  data-testid="pets-enabled"
-                  checked={styleIsPet}
-                  disabled={!overlay.config || switchingStyle}
-                  aria-label={t("pets.enabled_label")}
-                  onCheckedChange={(next) => void setPetEnabled(next)}
-                />
-              </label>
+              <div className="flex flex-col items-stretch gap-2">
+                <label className="flex w-full items-center justify-between gap-2.5 rounded-lg border border-border bg-card px-3 py-1.5">
+                  <span className="text-sm font-medium text-foreground">{t("pets.enabled_label")}</span>
+                  <Switch
+                    data-testid="pets-enabled"
+                    checked={styleIsPet}
+                    disabled={!overlay.config || switchingStyle}
+                    aria-label={t("pets.enabled_label")}
+                    onCheckedChange={(next) => void setPetEnabled(next)}
+                  />
+                </label>
+                <label className="flex w-full items-center justify-between gap-2.5 rounded-lg border border-border bg-card px-3 py-1.5">
+                  <span className="text-sm font-medium text-foreground">{t("pets.chat_label")}</span>
+                  <Switch
+                    data-testid="pets-chat"
+                    checked={data?.chat !== false}
+                    disabled={!data || saveSettings.isPending}
+                    aria-label={t("pets.chat_label")}
+                    onCheckedChange={setChat}
+                  />
+                </label>
+              </div>
             </div>
           }
         />

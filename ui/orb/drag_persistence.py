@@ -80,6 +80,33 @@ def clamp_to_work_area(
     return (max(min_x, min(abs_x, max_x)), max(min_y, min(abs_y, max_y)))
 
 
+def clamp_window_origin(
+    x: int,
+    y: int,
+    screen: tuple[int, int, int, int],
+    *,
+    width: int,
+    height: int,
+    margin_px: int = DEFAULT_MARGIN_PX,
+) -> tuple[int, int]:
+    """Pull a window's top-left onto ``screen``.
+
+    A window bigger than the screen stays at the margin.
+    """
+    sx, sy, sw, sh = screen
+    wide = max(1, int(width))
+    tall = max(1, int(height))
+    min_x = sx + margin_px
+    min_y = sy + margin_px
+    max_x = sx + sw - wide - margin_px
+    max_y = sy + sh - tall - margin_px
+    if max_x < min_x:
+        max_x = min_x
+    if max_y < min_y:
+        max_y = min_y
+    return (max(min_x, min(int(x), max_x)), max(min_y, min(int(y), max_y)))
+
+
 def _assert_visibility_contract(
     placement: ResolvedPlacement,
     screens: Sequence[_ScreenSnapshot],
@@ -191,6 +218,41 @@ def resolve_placement(
     )
 
 
+def restore_pet_origin(
+    persisted: MascotPosition,
+    screens: Sequence[_ScreenSnapshot],
+    *,
+    fallback_screen: tuple[int, int, int, int],
+    width: int,
+    height: int,
+) -> tuple[int, int] | None:
+    """Where a saved pet spot opens.
+
+    A named monitor that is still connected keeps the spot, including a
+    second display. A missing monitor, or a spot with no monitor name, is
+    pulled onto a screen that exists. The caller must not delete that spot.
+    """
+    named = None
+    if persisted.monitor:
+        named = next((s for s in screens if s.name == persisted.monitor), None)
+    if named is not None:
+        raw_x = named.geometry[0] + persisted.x_relative
+        raw_y = named.geometry[1] + persisted.y_relative
+        return clamp_window_origin(
+            raw_x, raw_y, named.geometry, width=width, height=height
+        )
+    if persisted.monitor and screens:
+        home = next((s for s in screens if s.is_primary), screens[0])
+        raw_x = home.geometry[0] + persisted.x_relative
+        raw_y = home.geometry[1] + persisted.y_relative
+        area = home.geometry
+    else:
+        raw_x = persisted.x_relative
+        raw_y = persisted.y_relative
+        area = fallback_screen
+    return clamp_window_origin(raw_x, raw_y, area, width=width, height=height)
+
+
 # ---------------------------------------------------------------------------
 # TOML load / save / clear — atomic, comment-preserving.
 # ---------------------------------------------------------------------------
@@ -213,6 +275,35 @@ def load_position_from_toml(path: Path) -> MascotPosition | None:
         monitor = ""
     x_rel = int(section.get("position_x_relative", DEFAULT_X_RELATIVE))
     y_rel = int(section.get("position_y_relative", DEFAULT_Y_RELATIVE))
+    return MascotPosition(monitor=monitor, x_relative=x_rel, y_relative=y_rel)
+
+
+def load_saved_position(path: Path) -> MascotPosition | None:
+    """A spot a drag wrote. None when the file has no position keys.
+
+    ``load_position_from_toml`` fills defaults when the keys are absent, so a
+    file that was never dragged looks like a pin. An empty monitor name is a
+    real pin: macOS and Linux have no Win32 device name.
+    """
+    if not path.is_file():
+        return None
+    try:
+        with path.open("rb") as f:
+            data = tomllib.load(f)
+    except (tomllib.TOMLDecodeError, OSError) as exc:
+        logger.warning("load_saved_position: %s", exc)
+        return None
+    section = (data.get("overlay") or {}).get("mascot") or {}
+    if "position_x_relative" not in section or "position_y_relative" not in section:
+        return None
+    try:
+        x_rel = int(section["position_x_relative"])
+        y_rel = int(section["position_y_relative"])
+    except (TypeError, ValueError):
+        return None
+    monitor = section.get("position_monitor", "")
+    if not isinstance(monitor, str):
+        monitor = ""
     return MascotPosition(monitor=monitor, x_relative=x_rel, y_relative=y_rel)
 
 
@@ -427,10 +518,13 @@ __all__ = [
     "ResolvedPlacement",
     "_ScreenSnapshot",
     "clamp_to_work_area",
+    "clamp_window_origin",
     "clear_position_in_toml",
     "load_allow_secondary_monitor_pin",
     "load_position_from_toml",
+    "load_saved_position",
     "resolve_placement",
+    "restore_pet_origin",
     "save_position_to_toml",
     "screens_from_tk",
 ]

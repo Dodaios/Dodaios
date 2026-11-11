@@ -9673,6 +9673,7 @@
     "use_pet": "在桌面上使用宠物",
     "style_saved": "宠物已出现在你的桌面上。",
     "enabled_label": "桌面宠物",
+    "chat_label": "聊天宠物",
     "style_off_saved": "宠物已关闭。Dodaios Bar 已回到你的桌面上。",
     "restart_hint": "已保存。重启 {name} 即可让宠物出现在桌面上。",
     "load_error": "无法加载你的宠物：{0}",

@@ -202,6 +202,29 @@ describe("PetsView", () => {
     expect(screen.queryByTestId("pets-style-notice")).toBeNull();
   });
 
+  it("shows Pet on chat on by default and saves turning it off", async () => {
+    const { calls } = stubServer();
+    renderView();
+
+    const chat = await screen.findByTestId("pets-chat");
+    const desktop = await screen.findByTestId("pets-enabled");
+    expect(desktop.compareDocumentPosition(chat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(desktop.closest("label")?.className).toContain("justify-between");
+    expect(chat.closest("label")?.className).toContain("justify-between");
+    await waitFor(() => expect((chat as HTMLButtonElement).disabled).toBe(false));
+    expect(chat.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(chat);
+
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: "PUT",
+        url: "/api/pets/settings",
+        body: { chat: false },
+      }),
+    );
+    await waitFor(() => expect(chat.getAttribute("aria-checked")).toBe("false"));
+  });
+
   it("turns the pet off from the header switch and keeps the chosen pet", async () => {
     const { calls } = stubServer();
     renderView();

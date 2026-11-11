@@ -9673,6 +9673,7 @@
     "use_pet": "Use pet on desktop",
     "style_saved": "The pet is now on your desktop.",
     "enabled_label": "Pet on desktop",
+    "chat_label": "Pet on chat",
     "style_off_saved": "The pet is off. The Dodaios Bar is back on your desktop.",
     "restart_hint": "Saved. Restart {name} to bring the pet to your desktop.",
     "load_error": "Your pets could not be loaded: {0}",

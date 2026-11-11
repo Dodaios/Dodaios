@@ -66,6 +66,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageTk
 
 from dodaios.core.config import DEFAULT_CONFIG_FILE as JARVIS_TOML_PATH
+from dodaios.core.config import clamp_pet_scale
 from dodaios.core.win32_dpi import ensure_dpi_awareness as _ensure_dpi_awareness
 from dodaios.ui.dodaiosbar.modes import ACTIVE_VOICE_MODES, MODES
 from dodaios.ui.overlay_styles import LEGACY_STYLE_ALIASES, MASCOT_PET_ID, ORB_STYLES
@@ -86,12 +87,20 @@ from ui.orb.drag_persistence import (
     clear_position_in_toml,
     load_allow_secondary_monitor_pin,
     load_position_from_toml,
+    load_saved_position,
     resolve_placement,
+    restore_pet_origin,
     save_position_to_toml,
     screens_from_tk,
 )
 from ui.orb.notice_stack import PetNoticeStack
-from ui.orb.pet_renderer import PET_TARGET_EDGE_PX, PetRenderer, dpi_ratio_for
+from ui.orb.pet_renderer import (
+    PET_TARGET_EDGE_PX,
+    PetRenderer,
+    backing_pixel_ratio,
+    dpi_ratio_for,
+    strip_bitmap_scale,
+)
 from ui.orb.taskbar import (
     MascotAnchor,
     compute_mascot_position,
@@ -1729,6 +1738,10 @@ class OrbControlRow:
         self._pressed_action: str | None = None
         self._click_block_until = 0.0
         self._on_action: Callable[[str], None] | None = None
+        # macOS Tk paints the strip's clear pixels black. When this is set,
+        # the artwork goes to the Qt window and this Tk window stays hidden.
+        self._qt_surface = False
+        self._on_qt: Callable[[], object] | None = None
         self._width, self._height = self._row_size()
         self._build()
 
@@ -1808,6 +1821,12 @@ class OrbControlRow:
         self._canvas = canvas
         self._repaint()
 
+    def _notify_qt(self) -> object:
+        callback = self._on_qt
+        if callback is None:
+            return None
+        return callback()
+
     # -- geometry -------------------------------------------------------
 
     def update_anchor(self, orb_x: int, orb_y: int) -> None:
@@ -1833,6 +1852,8 @@ class OrbControlRow:
             self._top.geometry(f"{self._width}x{self._height}+{x}+{y}")
         except tk.TclError:
             pass
+        if self._qt_surface and self._visible:
+            self._notify_qt()
 
     # -- state ----------------------------------------------------------
 
@@ -1870,6 +1891,8 @@ class OrbControlRow:
                 self._canvas.itemconfigure(self._image_id, image=self._photo)
         except tk.TclError:
             pass
+        if self._qt_surface and self._visible:
+            self._notify_qt()
 
     # -- visibility -----------------------------------------------------
 
@@ -1878,6 +1901,11 @@ class OrbControlRow:
             return
         self._cancel_pending_hide()
         self._place()
+        if self._qt_surface:
+            self._visible = True
+            if self._notify_qt() is not False:
+                return
+            self._qt_surface = False
         try:
             self._top.deiconify()
             if self._mac_transparent:
@@ -1900,6 +1928,8 @@ class OrbControlRow:
         except tk.TclError:
             pass
         self._visible = False
+        if self._qt_surface:
+            self._notify_qt()
 
     def hide_after_grace(self) -> None:
         """Hide unless the pointer comes back within :attr:`HOVER_GRACE_MS`."""
@@ -2006,6 +2036,38 @@ class OrbControlRow:
             )
 
 
+#: How long the pet strip takes to fade once the pointer has left it.
+STRIP_FADE_MS = 360
+
+
+def strip_fade_opacity(elapsed_s: float, duration_s: float = STRIP_FADE_MS / 1000) -> float:
+    """Opacity of a strip that started fading ``elapsed_s`` ago. 1, then down to 0."""
+    if elapsed_s <= 0 or duration_s <= 0:
+        return 1.0
+    if elapsed_s >= duration_s:
+        return 0.0
+    return 1.0 - elapsed_s / duration_s
+
+
+def fade_keyed_frame(frame: Image.Image, opacity: float) -> Image.Image:
+    """Move keyed artwork toward the colour key. Key pixels stay the key.
+
+    Tk's ``-alpha`` fights ``-transparentcolor``, so the Windows/X11 strip
+    fades in the bitmap. The macOS strip fades the Qt window instead.
+    """
+    if opacity >= 1:
+        return frame
+    arr = np.array(frame.convert("RGB"))
+    if opacity <= 0:
+        arr[:] = COLOR_KEY_RGB
+        return Image.fromarray(arr, "RGB")
+    solid = (arr != COLOR_KEY_RGB).any(axis=-1)
+    faded = arr.astype(np.float32)
+    key = COLOR_KEY_RGB.astype(np.float32)
+    faded[solid] = faded[solid] * opacity + key * (1.0 - opacity)
+    return Image.fromarray(faded.astype(np.uint8), "RGB")
+
+
 class PetControlStrip(OrbControlRow):
     """The pet's control strip — see ``ui.orb.controls`` (``PET_ACTIONS``).
 
@@ -2038,6 +2100,11 @@ class PetControlStrip(OrbControlRow):
         keep_visible: Callable[[], bool] | None = None,
     ) -> None:
         self._scale = float(scale)
+        #: Bitmap scale. The window stays at ``_scale``; this only adds pixels.
+        self._draw_scale = 1.0
+        self._opacity = 1.0
+        self._fade_id: str | None = None
+        self._fade_t0 = 0.0
         self._keep_visible = keep_visible
         self._on_drag_press = on_drag_press
         self._on_drag_motion = on_drag_motion
@@ -2059,9 +2126,12 @@ class PetControlStrip(OrbControlRow):
         return orb_controls.pet_strip_size(self._scale)
 
     def _render_frame(self) -> Image.Image:
-        return orb_controls.render_pet_strip(
-            self._state, self._scale, tuple(int(c) for c in COLOR_KEY_RGB)
+        frame = orb_controls.render_pet_strip(
+            self._state, self._draw_scale, tuple(int(c) for c in COLOR_KEY_RGB)
         )
+        if self._opacity < 1 and not self._qt_surface:
+            return fade_keyed_frame(frame, self._opacity)
+        return frame
 
     def _hit(self, x: float, y: float) -> str | None:
         return orb_controls.pet_hit_test(x, y, self._scale)
@@ -2084,7 +2154,7 @@ class PetControlStrip(OrbControlRow):
         return self._scale
 
     def set_scale(self, scale: float) -> None:
-        """Re-lay the strip at another scale (``pet_scale`` or DPI changed)."""
+        """Re-lay the strip when the display scale changes."""
         scale = float(scale)
         if scale == self._scale:
             return
@@ -2098,6 +2168,108 @@ class PetControlStrip(OrbControlRow):
         self._repaint()
         if self._visible:
             self._place()
+
+    @property
+    def draw_scale(self) -> float:
+        return self._draw_scale
+
+    def set_draw_scale(self, scale: float) -> None:
+        """Draw the curves at ``scale`` pixels per logical point. The window stays put."""
+        scale = strip_bitmap_scale(scale)
+        if scale == self._draw_scale:
+            return
+        self._draw_scale = scale
+        self._repaint()
+
+    def show(self) -> None:
+        self._cancel_fade()
+        was_hidden = not self._visible
+        self._set_opacity(1.0)
+        super().show()
+        if was_hidden:
+            # The Qt window did not exist for the first assignment.
+            self._set_opacity(1.0)
+
+    def hide(self) -> None:
+        self._cancel_fade()
+        super().hide()
+        self._opacity = 1.0
+
+    def fade_out(self) -> None:
+        """Ease the strip out. A reason to stay cancels the fade at full opacity."""
+        if self._keep_visible is not None and self._keep_visible():
+            self._cancel_fade()
+            self._set_opacity(1.0)
+            return
+        if not self._visible:
+            return
+        self._cancel_pending_hide()
+        self._begin_fade()
+
+    def _set_opacity(self, opacity: float) -> None:
+        opacity = 0.0 if opacity <= 0 else 1.0 if opacity >= 1 else float(opacity)
+        if opacity == self._opacity:
+            return
+        if abs(opacity - self._opacity) < 0.02 and opacity not in (0.0, 1.0):
+            return
+        self._opacity = opacity
+        if self._qt_surface:
+            # The visible strip is the Qt window. Send it a new frame.
+            if self._visible:
+                self._notify_qt()
+            return
+        if self._visible:
+            self._repaint()
+
+    def _begin_fade(self) -> None:
+        if self._fade_id is not None:
+            return
+        self._fade_t0 = time.monotonic()
+        self._arm_fade()
+
+    def _fade_host(self) -> tk.Misc | None:
+        # The macOS strip toplevel stays withdrawn; the Qt window is on screen.
+        # Drive the fade from the root the overlay already runs.
+        parent = getattr(self, "_parent", None)
+        return parent if parent is not None else self._top
+
+    def _arm_fade(self) -> None:
+        host = self._fade_host()
+        if host is None:
+            return
+        try:
+            self._fade_id = host.after(32, self._fade_tick)
+        except tk.TclError:
+            self._fade_tick()
+
+    def _fade_tick(self) -> None:
+        self._fade_id = None
+        if not self._visible:
+            return
+        if self._keep_visible is not None and self._keep_visible():
+            self._set_opacity(1.0)
+            return
+        opacity = strip_fade_opacity(time.monotonic() - self._fade_t0)
+        self._set_opacity(opacity)
+        if opacity <= 0:
+            self.hide()
+            return
+        self._arm_fade()
+
+    def _cancel_fade(self) -> None:
+        fade_id = self._fade_id
+        self._fade_id = None
+        host = self._fade_host()
+        if fade_id is None or host is None:
+            return
+        try:
+            host.after_cancel(fade_id)
+        except tk.TclError:
+            pass
+
+    def destroy(self) -> None:
+        self._cancel_fade()
+        super().destroy()
 
     # -- state ------------------------------------------------------------
 
@@ -2144,10 +2316,13 @@ class PetControlStrip(OrbControlRow):
     # -- pointer ----------------------------------------------------------
 
     def hide_after_grace(self) -> None:
-        """Hide after the grace, unless the overlay still wants the strip up."""
-        if self._keep_visible is not None and self._keep_visible():
-            return
-        super().hide_after_grace()
+        """Start the fade, unless the overlay still wants the strip up."""
+        self.fade_out()
+
+    def _on_enter(self, event: tk.Event) -> None:
+        super()._on_enter(event)
+        self._cancel_fade()
+        self._set_opacity(1.0)
 
     def _grace_elapsed(self) -> None:
         # The conversation may have started during the grace.
@@ -2196,17 +2371,6 @@ class PetControlStrip(OrbControlRow):
             self._on_context(event)
 
 
-def _clamp_pet_scale(value: object) -> float:
-    """``[ui] pet_scale`` as a usable multiplier (0.5–2.0, 1.0 when unusable)."""
-    try:
-        scale = float(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return 1.0
-    if not math.isfinite(scale):
-        return 1.0
-    return max(0.5, min(2.0, scale))
-
-
 #: Pet Tk images kept per frame key. A pet has at most 7 states x 8 frames;
 #: the bound only matters when a user flips between pets or sizes.
 PET_PHOTO_CACHE_MAX = 64
@@ -2228,6 +2392,25 @@ PET_LEVEL_FRESH_S = 0.25
 #: speech is being transcribed there is no signal left, only work.
 PET_VOICE_MODES = ("listen", "speak", "dictate")
 PET_THINK_MODES = ("think", "dictate_transcribing")
+
+
+def _box_contains(x0: int, y0: int, width: int, height: int, x: int, y: int) -> bool:
+    return width > 0 and height > 0 and x0 <= x < x0 + width and y0 <= y < y0 + height
+
+
+def _strip_contains(row: object, x: int, y: int) -> bool:
+    """True when the pointer is on the strip's last placed rectangle."""
+    if getattr(row, "visible", True) is False:
+        return False
+    width = getattr(row, "_width", None)
+    height = getattr(row, "_height", None)
+    orb_x = getattr(row, "_orb_x", None)
+    orb_w = getattr(row, "_orb_w", None)
+    row_y = getattr(row, "_row_y", None)
+    if not callable(row_y) or not all(isinstance(v, int) for v in (width, height, orb_x, orb_w)):
+        return False
+    left = orb_x + orb_w // 2 - width // 2
+    return _box_contains(left, int(row_y()), width, height, x, y)
 
 
 class OrbOverlay:
@@ -2300,10 +2483,12 @@ class OrbOverlay:
         #: discs under the ghost would read as a toolbar bolted to a cartoon.
         self._controls: OrbControlRow | None = None
         self._pointer_over_orb = False
+        self._drag_drop_xy: tuple[int, int] | None = None
+        self._drag_follow_id: str | None = None
         self._speaker_muted = False
         # --- the desktop pet (style "pet", docs/pets.md) ---
         self._pet_id = str(pet_id or DEFAULT_PET_ID).strip() or DEFAULT_PET_ID
-        self._pet_scale = _clamp_pet_scale(1.0 if pet_scale is None else pet_scale)
+        self._pet_scale = clamp_pet_scale(1.0 if pet_scale is None else pet_scale)
         self._pet_bubble = bool(pet_bubble)
         #: ``[ui] pet_strip_always``: the strip stays up even at rest.
         self._pet_strip_always = bool(pet_strip_always)
@@ -2490,7 +2675,27 @@ class OrbOverlay:
         # before migrating to the pin, so the user always SEES the orb on
         # boot regardless of where it was last dragged.
         self._boot_flash_target_xy: tuple[int, int] | None = None
-        if persisted is not None and persisted.monitor:
+        # A saved pet spot stays, including on a second monitor that is still
+        # plugged in. A missing display is pulled onto a screen that exists.
+        pet_origin: tuple[int, int] | None = None
+        if self._style == "pet":
+            saved = load_saved_position(JARVIS_TOML_PATH)
+            if saved is not None:
+                pet_origin = restore_pet_origin(
+                    saved,
+                    screens_from_tk(self._root),
+                    fallback_screen=(0, 0, screen_w, screen_h),
+                    width=self._win_w,
+                    height=self._win_h + self._pet_below_height(),
+                )
+        if pet_origin is not None:
+            x, y = pet_origin
+            self._manual_pinned = True
+            self._mascot_x = x
+            self._mascot_y = y
+            anchor = MascotAnchor(x=x, y=y, taskbar_aligned=False)
+            self._root.geometry(f"{self._win_w}x{self._win_h}+{x}+{y}")
+        elif persisted is not None and persisted.monitor:
             screens = screens_from_tk(self._root)
             allow_secondary = load_allow_secondary_monitor_pin(JARVIS_TOML_PATH)
             placement = resolve_placement(
@@ -2690,11 +2895,11 @@ class OrbOverlay:
         )
 
     def _pet_strip_scale(self) -> float:
-        """The strip's scale: the monitor's DPI ratio times ``pet_scale``."""
+        """Logical scale of the strip window. Not the pet size, not retina pixels."""
         renderer = self._renderer
         if isinstance(renderer, PetRenderer):
             return renderer.strip_scale
-        return max(0.25, self._dpi_ratio * self._pet_scale)
+        return 1.0 if sys.platform == "darwin" else max(0.25, self._dpi_ratio)
 
     def _pet_below_height(self) -> int:
         """Height of what hangs under the pet's figure: the gap plus the strip."""
@@ -2709,6 +2914,7 @@ class OrbOverlay:
         row = self._controls
         if isinstance(row, PetControlStrip):
             row.set_scale(scale)
+            row.set_draw_scale(strip_bitmap_scale(backing_pixel_ratio()))
         notices = self._notices
         if notices is not None:
             strip_w, _strip_h = orb_controls.pet_strip_size(scale)
@@ -2853,6 +3059,11 @@ class OrbOverlay:
     def _on_drag_press(self, event: tk.Event) -> None:
         if self._root is None:
             return
+        if self._style == "pet":
+            self._stop_drag_follow()
+            row = self._controls
+            if row is not None:
+                row.show()
         self._drag_state = _DragState(
             start_root_x=event.x_root,
             start_root_y=event.y_root,
@@ -2915,6 +3126,11 @@ class OrbOverlay:
         if self._controls is not None:
             self._controls.update_anchor(self._mascot_x, self._mascot_y)
         self._sync_notice_anchor()
+        if self._style == "pet":
+            # Leave does not fire when the window moves under the pointer.
+            # Do not hide now: the pointer is still on the pet. Fade only
+            # after it has actually moved off both windows.
+            self._arm_strip_fade_after_drag()
 
         self._manual_pinned = True
         try:
@@ -3010,9 +3226,11 @@ class OrbOverlay:
 
     def _on_orb_pointer_enter(self, _event: tk.Event | None = None) -> None:
         self._pointer_over_orb = True
+        self._drag_drop_xy = None
         row = self._controls
         if row is not None:
             row.show()
+        self._schedule_strip_watch()
 
     def _pet_strip_wanted(self) -> bool:
         """Should the pet's strip be up right now?
@@ -3033,13 +3251,111 @@ class OrbOverlay:
         row = self._controls
         return self._pointer_over_orb or (row is not None and row.pointer_inside)
 
+    def _pointer_xy(self) -> tuple[int, int] | None:
+        root = self._root
+        if root is None:
+            return None
+        try:
+            x, y = root.winfo_pointerxy()
+        except (tk.TclError, AttributeError, TypeError, ValueError):
+            return None
+        return int(x), int(y)
+
+    def _pointer_on_pet(self, x: int, y: int) -> bool:
+        if _box_contains(self._mascot_x, self._mascot_y, self._win_w, self._win_h, x, y):
+            return True
+        row = self._controls
+        return row is not None and _strip_contains(row, x, y)
+
+    def _note_pointer(self, x: int, y: int) -> None:
+        """Believe the pointer's position. Used only after it has moved."""
+        self._pointer_over_orb = _box_contains(
+            self._mascot_x, self._mascot_y, self._win_w, self._win_h, x, y
+        )
+        row = self._controls
+        if row is None:
+            return
+        inside = _strip_contains(row, x, y)
+        if hasattr(row, "_pointer_inside"):
+            row._pointer_inside = inside
+        elif hasattr(row, "pointer_inside"):
+            row.pointer_inside = inside
+
+    def _stop_drag_follow(self) -> None:
+        follow_id, root = self._drag_follow_id, self._root
+        self._drag_follow_id = None
+        self._drag_drop_xy = None
+        if follow_id is None or root is None:
+            return
+        try:
+            root.after_cancel(follow_id)
+        except tk.TclError:
+            pass
+
+    def _arm_strip_fade_after_drag(self) -> None:
+        """The drop is not a leave. Remember it, then watch the pointer."""
+        self._drag_drop_xy = self._pointer_xy()
+        self._schedule_strip_watch()
+
+    def _schedule_strip_watch(self) -> None:
+        """Poll the pointer while the pet is up. Leave often never arrives."""
+        if (
+            self._drag_follow_id is not None
+            or self._root is None
+            or self._style != "pet"
+            or not self._running
+        ):
+            return
+        try:
+            self._drag_follow_id = self._root.after(50, self._watch_strip_pointer)
+        except (tk.TclError, AttributeError):
+            pass
+
+    def _watch_strip_pointer(self) -> None:
+        """Fade from where the pointer is, not from the hover flags.
+
+        Those flags stick when the window moves, or when Qt never sends Leave.
+        A drag drop is not a leave until the pointer actually moves.
+        """
+        self._drag_follow_id = None
+        row = self._controls
+        if self._style != "pet" or row is None or not self._window_mapped():
+            return
+        # A finished fade withdraws the strip and used to stop this poll, so
+        # the next hover never called show. Keep watching the pet itself.
+        if self._drag_state is not None:
+            row.show()
+            self._schedule_strip_watch()
+            return
+        xy = self._pointer_xy()
+        if xy is None or (self._drag_drop_xy is not None and xy == self._drag_drop_xy):
+            self._schedule_strip_watch()
+            return
+        self._drag_drop_xy = None
+        self._note_pointer(*xy)
+        self._let_pet_strip_go(row)
+        self._schedule_strip_watch()
+
+    def _let_pet_strip_go(self, row: OrbControlRow | None) -> None:
+        """Fade the pet strip, or bring it back if it is still wanted."""
+        if row is None:
+            return
+        if self._pet_strip_wanted():
+            row.show()
+            return
+        fade = getattr(row, "fade_out", None)
+        if callable(fade):
+            fade()
+            return
+        row.hide_after_grace()
+
     def _on_orb_pointer_leave(self, _event: tk.Event | None = None) -> None:
         self._pointer_over_orb = False
         row = self._controls
         if row is None:
             return
         if self._style == "pet":
-            row.hide_after_grace()  # a no-op while the strip is still wanted
+            self._let_pet_strip_go(row)
             return
         # A live conversation keeps the controls out: hanging up is the one
         # thing the user reaches for mid-call, and hunting for a row that hides
@@ -3061,8 +3377,9 @@ class OrbOverlay:
                 row.hide()
             elif self._pet_strip_wanted():
                 row.show()
+                self._schedule_strip_watch()
             else:
-                row.hide_after_grace()
+                self._let_pet_strip_go(row)
             return
         # Never on its own: the row is the orb's controls, so a mode change
         # arriving while the sphere is withdrawn must not float four buttons
@@ -3981,7 +4298,7 @@ class OrbOverlay:
     ) -> None:
         """Apply the pet's size, bubble and always-on strip live. Thread-safe."""
         if scale is not None:
-            self._pet_scale = _clamp_pet_scale(scale)
+            self._pet_scale = clamp_pet_scale(scale)
         if bubble is not None:
             self._pet_bubble = bool(bubble)
         if strip_always is not None:

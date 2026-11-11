@@ -45,6 +45,7 @@ import {
 import type { ToolChoice } from "@/components/agentchat/toolChoices";
 import { captureComposerDraftTarget, readComposerDraft, useComposerDraft, writeComposerDraft } from "./composerDrafts";
 import { useAppshotClaim } from "@/components/agentchat/useAppshotClaim";
+import { ChatPet } from "@/components/pets/ChatPet";
 import { PetMark } from "@/components/pets/PetMark";
 import { useVoiceModeSwitch } from "@/components/home/assistantStatus";
 import { fill, useT } from "@/i18n";
@@ -942,7 +943,9 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
           className="inline-flex h-7 max-w-[180px] shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-2 text-xs font-medium text-foreground"
         >
           {surface === "jarvis" ? (
-            <PetMark size={20} />
+            <ChatPet>
+              <PetMark size={20} />
+            </ChatPet>
           ) : (
             <FolderCode className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
           )}

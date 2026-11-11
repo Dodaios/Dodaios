@@ -124,10 +124,13 @@ class ActiveBody(BaseModel):
 class SettingsBody(BaseModel):
     """All optional; only the ones sent are changed."""
 
-    scale: float | None = Field(default=None, description="Size multiplier, 0.5–2.0")
+    scale: float | None = Field(default=None, description="Size multiplier, 0.5–4.0")
     bubble: bool | None = Field(default=None, description="Show the status bubble")
     strip_always: bool | None = Field(
         default=None, description="Keep the control strip up even at rest"
+    )
+    chat: bool | None = Field(
+        default=None, description="Show the pet in the main chat. Absent means leave it."
     )
     preview: bool = Field(
         default=False,
@@ -170,6 +173,11 @@ def _configured_bubble(request: Request) -> bool:
 
 def _configured_strip_always(request: Request) -> bool:
     return bool(getattr(_ui(request), "pet_strip_always", False))
+
+
+def _configured_chat(request: Request) -> bool:
+    """On when the key was never saved, so an old config keeps today's chat pet."""
+    return bool(getattr(_ui(request), "pet_chat", True))
 
 
 def _pet_visible(request: Request) -> bool:
@@ -302,6 +310,7 @@ def _state(request: Request, active: str) -> dict[str, Any]:
         "scale": _configured_scale(request),
         "bubble": _configured_bubble(request),
         "strip_always": _configured_strip_always(request),
+        "chat": _configured_chat(request),
         "visible": _pet_visible(request),
     }
 
@@ -404,31 +413,38 @@ async def put_active(body: ActiveBody, request: Request) -> dict[str, Any]:
 
 @router.put("/settings")
 async def put_settings(body: SettingsBody, request: Request) -> dict[str, Any]:
-    """Change the pet's size, status bubble or always-on strip; saved and applied live."""
-    if body.scale is None and body.bubble is None and body.strip_always is None:
+    """Change the pet's size, status bubble, always-on strip or chat mark."""
+    look = body.scale is not None or body.bubble is not None or body.strip_always is not None
+    if not look and body.chat is None:
         raise HTTPException(
-            status_code=400, detail="Send at least one of 'scale', 'bubble', 'strip_always'."
+            status_code=400,
+            detail="Send at least one of 'scale', 'bubble', 'strip_always', 'chat'.",
         )
     _refuse_on_secondary_instance()
 
     from dodaios.core import config_writer
 
     # Memory, then the desktop, then disk: the pet resizes without waiting
-    # for the locked TOML write behind it.
+    # for the locked TOML write behind it. Chat never touches the desktop figure.
     if body.scale is not None:
         _set_ui_value(request, "pet_scale", clamp_pet_scale(body.scale))
     if body.bubble is not None:
         _set_ui_value(request, "pet_bubble", bool(body.bubble))
     if body.strip_always is not None:
         _set_ui_value(request, "pet_strip_always", bool(body.strip_always))
+    if body.chat is not None:
+        _set_ui_value(request, "pet_chat", bool(body.chat))
 
-    applied_live, detail = await _apply(
-        request,
-        "set_pet_look",
-        _configured_scale(request),
-        _configured_bubble(request),
-        _configured_strip_always(request),
-    )
+    if look:
+        applied_live, detail = await _apply(
+            request,
+            "set_pet_look",
+            _configured_scale(request),
+            _configured_bubble(request),
+            _configured_strip_always(request),
+        )
+    else:
+        applied_live, detail = True, ""
     active = _configured_pet_id(request)
     if body.preview:
         # One step of a slider drag: the release that follows saves and announces it.
@@ -449,6 +465,8 @@ async def put_settings(body: SettingsBody, request: Request) -> dict[str, Any]:
         writes.append(
             ("pet_strip_always", config_writer.set_pet_strip_always, bool(body.strip_always))
         )
+    if body.chat is not None:
+        writes.append(("pet_chat", config_writer.set_pet_chat, bool(body.chat)))
     persisted = True
     for key, write, value in writes:
         try:
