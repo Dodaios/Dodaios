@@ -406,19 +406,26 @@ async def test_a_queued_message_can_be_taken_back():
     assert chat.sent == []
 
 
-async def test_try_steer_goes_to_the_running_cli_only_for_plain_text():
+async def test_try_steer_goes_to_the_running_cli_with_text_and_files_but_no_tool_picks():
     chat = BusyChat(surface="agent")
     chat.busy.add("t1")
-    steered: list[str] = []
+    steered: list[tuple[str, list | None]] = []
 
-    async def steer(session_id: str, text: str) -> bool:
-        steered.append(text)
-        return True
+    async def steer(session_id: str, text: str, attachments: list | None = None) -> bool:
+        steered.append((text, attachments))
+        # Whether the running CLI reads files mid-turn is the service's call.
+        return not attachments or attachments[0]["name"] != "refused.png"
 
     chat.steer = steer
+    picture = [{"name": "a.png"}]
     assert await send_queue.try_steer(chat, "t1", "go left")
-    assert not await send_queue.try_steer(chat, "t1", "pic", [{"name": "a.png"}])
-    assert steered == ["go left"]
+    assert await send_queue.try_steer(chat, "t1", "look", picture)
+    assert await send_queue.try_steer(chat, "t1", "", picture)  # a picture alone
+    assert not await send_queue.try_steer(chat, "t1", "pic", [{"name": "refused.png"}])
+    assert not await send_queue.try_steer(chat, "t1", "with a tool", tool_choices=["x"])
+    assert not await send_queue.try_steer(chat, "t1", "  ")
+    assert [text for text, _ in steered] == ["go left", "look", "", "pic"]
+    assert steered[0][1] is None and steered[1][1] == picture
     chat.surface = "society"
     assert not await send_queue.try_steer(chat, "t1", "go right")
 
@@ -454,6 +461,69 @@ async def test_service_steer_writes_to_the_cli_and_records_the_message():
     svc._set_steerer("s", "turn-1", None)
     assert not svc.can_steer("s")
     run.task.cancel()
+
+
+async def test_service_steer_hands_a_picture_to_a_cli_that_reads_it_mid_turn(tmp_path):
+    from dodaios.agent_chat.service import AgentChatService, _Running
+
+    drops = tmp_path / ".jarvis" / "drops"
+    drops.mkdir(parents=True)
+    (drops / "shot.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    attachment = {
+        "name": "shot.png",
+        "reference": '".jarvis/drops/shot.png"',
+        "kind": "image",
+        "detail": "a described screenshot",
+        "described_by": "vision",
+        "note": "",
+    }
+    svc = AgentChatService.__new__(AgentChatService)
+    svc._running, svc._preparing, svc._steerers = {}, {}, {}
+    provider = {"value": "claude-api"}
+    svc.store = SimpleNamespace(
+        get_session=lambda sid: SimpleNamespace(
+            session_id=sid, provider=provider["value"], surface="agent", cwd=str(tmp_path)
+        )
+    )
+    events: list[dict] = []
+
+    async def emit(session_id: str, event: dict) -> None:
+        events.append(event)
+
+    svc._emit = emit
+    run = _Running("turn-1", asyncio.Event())
+    run.task = asyncio.create_task(asyncio.sleep(5))
+    svc._running["s"] = run
+    written: list[tuple[str, tuple[str, ...]]] = []
+
+    async def writer(text: str, images: tuple[str, ...] = ()) -> bool:
+        written.append((text, images))
+        return True
+
+    svc._set_steerer("s", "turn-1", writer)
+    try:
+        from dodaios.agent_chat import service as service_module
+
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(service_module, "session_runner", lambda session: "claude-cli")
+            assert await svc.steer("s", "what is wrong here?", [attachment])
+            prompt, images = written[0]
+            assert prompt.startswith("what is wrong here?")
+            assert images == (str(drops / "shot.png"),)
+            # The CLI sees the picture itself: its description is not sent as well.
+            assert "a described screenshot" not in prompt
+            assert "look at it directly" in prompt and "shot.png" in prompt
+            payload = events[0]["payload"]
+            assert payload["steered"] is True and payload["turn_id"] == "turn-1"
+            assert payload["typed"] == "what is wrong here?" and payload["text"] == prompt
+            assert [row["name"] for row in payload["attachments"]] == ["shot.png"]
+
+            # A seat that cannot read files mid-turn leaves the message for the next turn.
+            patch.setattr(service_module, "session_runner", lambda session: "codex-cli")
+            assert not await svc.steer("s", "and this?", [attachment])
+            assert len(written) == 1 and len(events) == 1
+    finally:
+        run.task.cancel()
 
 
 async def test_each_queued_message_keeps_its_own_away_flag():

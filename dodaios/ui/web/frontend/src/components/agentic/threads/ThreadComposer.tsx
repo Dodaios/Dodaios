@@ -17,8 +17,12 @@ import { AccessPicker, AgentModelPicker, EffortPicker, modelsOf } from "./Thread
 import { useRecalledMessages } from "./recalledMessages";
 import { rememberSeat, rememberedSeat, threadAgents, useThreadChat } from "./threadModel";
 
-/** Coding agents that take a message while they work: what is typed then steers the running turn. */
-const STEERABLE_AGENTS = new Set(["claude-cli", "glm-cli"]);
+/**
+ * Runners that take a message while their turn is open, at work or waiting
+ * for background tasks: what is typed then reaches the running turn. A
+ * runner, never a provider id: the Claude row is "claude-api" run by "claude-cli".
+ */
+const STEERABLE_RUNNERS = new Set(["claude-cli", "glm-cli"]);
 
 /** Draft text per thread, so switching threads never loses a half-written message. */
 const drafts = new Map<string, string>();
@@ -349,7 +353,7 @@ export function ThreadComposer({
   const running = runningTurn(timeline) !== null || Boolean(activeSession?.running);
   const started = timeline.items.length > 0;
   // Claude Code and GLM take a message while they work; every other agent queues it.
-  const steers = STEERABLE_AGENTS.has(draft.provider);
+  const steers = STEERABLE_RUNNERS.has(provider?.runner ?? "");
 
   // A coding thread only runs on a coding agent: an API row left in the draft
   // from elsewhere moves to the first connected CLI.

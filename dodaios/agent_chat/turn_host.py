@@ -48,6 +48,21 @@ over; the old one hands its turns over without ending them). A client acknowledg
 line it has fully handled (``ack``); after a reconnect, ``attach`` answers
 with the acknowledged ``seq`` and then replays all lines in order before
 streaming live ones, so translator state can be rebuilt exactly.
+
+## Stdin after the answer
+
+Claude Code keeps reading stdin after its ``result`` line, and it can still be
+waiting for background tasks then. While an app reads the turn, stdin stays
+open so a message the person writes meanwhile reaches the agent; the app
+closes it once the turn is over. A turn nobody has read for
+:data:`UNWATCHED_STDIN_S` gets its stdin closed here, so the CLI ends by
+itself with no app to do it.
+
+## Builds
+
+The host outlives the app, so it can run older code than the app that attaches
+to it. ``hello`` answers with :data:`BUILD`; an app that finds another build
+holding no turn replaces the host (``turn_host_client``).
 """
 
 from __future__ import annotations
@@ -55,6 +70,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import hashlib
 import hmac
 import json
 import os
@@ -93,6 +109,25 @@ LINE_LIMIT = 16 * 1024 * 1024
 #: but are not kept, so a runaway CLI cannot exhaust memory.
 MAX_KEPT_BYTES = 256 * 1024 * 1024
 
+#: A turn past its result line whose lines no app has read for this long gets
+#: its stdin closed: the CLI then ends once its own work is done. Long enough
+#: for an app restart to attach again first.
+UNWATCHED_STDIN_S = 120.0
+
+
+def _build_id() -> str:
+    """What tells this host's code from another build's: its source, else the version."""
+    try:
+        return hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16]
+    except OSError:  # no readable source (a frozen build): the release names it
+        from dodaios import __version__
+
+        return f"v{__version__}"
+
+
+#: Sent in the ``hello`` reply. A host from before this field sends none.
+BUILD = _build_id()
+
 _STDERR_TAIL = 40
 #: After a CLI exited, its pipes get this long without a new line before the
 #: host stops reading and reports the exit. A grandchild that inherited them
@@ -121,16 +156,19 @@ class HostedTurn:
     exit_code: int | None = None
     streaming: bool = False
     pumps: list[asyncio.Task[None]] = field(default_factory=list)
-    #: A stdout JSON line of this ``type`` ends the turn: stdin is closed so
-    #: the CLI exits, even with no app attached to do it (Claude Code's
-    #: ``result``; it otherwise waits on its open stdin for ever).
+    #: A stdout JSON line of this ``type`` is the turn's answer (Claude Code's
+    #: ``result``). The CLI reads stdin on after it and never exits while
+    #: stdin is open: the reading app closes it, or the host does once nobody
+    #: has read the turn for ``UNWATCHED_STDIN_S``.
     close_stdin_on: str = ""
     #: A Claude Code task notice came before the first ``result``: the empty
-    #: ``result`` that answers it is not the turn's end
+    #: ``result`` that answers it is not the turn's answer
     #: (``claude_result_without_model_turn``).
     notice_pending: bool = False
-    #: The line that closed stdin was read; later lines change nothing.
-    stdin_done: bool = False
+    #: The answer line was read; later lines change nothing.
+    answered: bool = False
+    #: Since when no app has been reading this turn's lines (monotonic).
+    unwatched_since: float | None = None
     #: Lines read from either pipe so far: the drain after exit counts them.
     reads: int = 0
     #: Lines a pump read and is still storing or sending.
@@ -196,7 +234,12 @@ class TurnHost:
     """The server: CLI processes, their kept output, and one client."""
 
     def __init__(
-        self, token: str, spool_dir: Path, *, idle_exit_s: float = IDLE_EXIT_S
+        self,
+        token: str,
+        spool_dir: Path,
+        *,
+        idle_exit_s: float = IDLE_EXIT_S,
+        unwatched_stdin_s: float = UNWATCHED_STDIN_S,
     ) -> None:
         from dodaios.core.process_tree import make_process_tree
 
@@ -205,6 +248,7 @@ class TurnHost:
         self._turns: dict[str, HostedTurn] = {}
         self._client: _Client | None = None
         self._idle_exit_s = idle_exit_s
+        self._unwatched_stdin_s = unwatched_stdin_s
         self._idle_since: float | None = time.monotonic()
         self._stop = asyncio.Event()
         # One kill-on-close container for every CLI: if the host dies, its
@@ -248,6 +292,7 @@ class TurnHost:
             running = any(turn.alive for turn in self._turns.values())
             attached = self._client is not None and not self._client.closed
             now = time.monotonic()
+            self._close_unwatched_stdin(now, attached)
             if running or attached:
                 self._idle_since = None
                 continue
@@ -256,6 +301,22 @@ class TurnHost:
             elif now - self._idle_since >= self._idle_exit_s:
                 logger.info("Turn host idle for {:.0f} s — exiting", now - self._idle_since)
                 self._stop.set()
+
+    def _close_unwatched_stdin(self, now: float, attached: bool) -> None:
+        """Close stdin of answered turns no app has read for a while.
+
+        Claude Code waits on an open stdin for ever. With an app reading, the
+        app decides when the turn is over; without one the CLI must still end.
+        """
+        for turn in self._turns.values():
+            if not turn.alive or not turn.answered:
+                continue
+            if attached and turn.streaming:
+                turn.unwatched_since = None
+            elif turn.unwatched_since is None:
+                turn.unwatched_since = now
+            elif now - turn.unwatched_since >= self._unwatched_stdin_s:
+                _close_stdin(turn)
 
     def _spool_unclaimed(self) -> None:
         """Write every ended turn nobody collected to disk for the next app start."""
@@ -318,6 +379,7 @@ class TurnHost:
                 "ok": True,
                 "pid": os.getpid(),
                 "proto": PROTOCOL_VERSION,
+                "build": BUILD,
                 "turns": [turn.summary() for turn in self._turns.values()],
             }
         )
@@ -441,7 +503,8 @@ class TurnHost:
         ]
         asyncio.create_task(self._reap(turn), name=f"turn-reap-{turn.turn_id[:8]}")
         logger.info("Turn host: started turn {} (pid {})", turn.turn_id, proc.pid)
-        return {"id": turn.turn_id, "pid": proc.pid}
+        # ``stdin_after_result``: this host leaves stdin open past the answer.
+        return {"id": turn.turn_id, "pid": proc.pid, "stdin_after_result": True}
 
     async def _attach(self, client: _Client, rid: Any, turn: HostedTurn | None) -> None:
         if turn is None:
@@ -458,6 +521,7 @@ class TurnHost:
                 "acked": turn.acked,
                 "stderr": list(turn.stderr_tail),
                 "truncated": turn.truncated,
+                "stdin_open": _stdin_open(turn),
             }
         )
         # Replay every kept line in order, then switch to live streaming with
@@ -501,9 +565,8 @@ class TurnHost:
             else:
                 turn.lines.append(text)
                 turn.kept_bytes += len(raw)
-            if turn.close_stdin_on and not turn.stdin_done and _ends_input(turn, text):
-                turn.stdin_done = True
-                _close_stdin(turn)
+            if turn.close_stdin_on and not turn.answered and _is_answer(turn, text):
+                turn.answered = True
             client = self._client
             if turn.streaming and client is not None and not client.closed:
                 turn.in_flight += 1
@@ -618,8 +681,11 @@ def claude_result_without_model_turn(obj: dict[str, Any]) -> bool:
     )
 
 
-def _ends_input(turn: HostedTurn, text: str) -> bool:
-    """Whether this stdout line is the one after which the CLI needs no stdin."""
+def _is_answer(turn: HostedTurn, text: str) -> bool:
+    """Whether this stdout line is the turn's answer (``close_stdin_on``).
+
+    From it on, stdin is closed once no app reads the turn any more.
+    """
     obj = _line_object(text)
     kind = str(obj.get("type") or "")
     if kind == "system" and obj.get("subtype") == "task_notification":
@@ -629,6 +695,11 @@ def _ends_input(turn: HostedTurn, text: str) -> bool:
         return False
     notice, turn.notice_pending = turn.notice_pending, False
     return not (notice and claude_result_without_model_turn(obj))
+
+
+def _stdin_open(turn: HostedTurn) -> bool:
+    stdin = turn.proc.stdin
+    return stdin is not None and not stdin.is_closing()
 
 
 def _close_stdin(turn: HostedTurn) -> None:

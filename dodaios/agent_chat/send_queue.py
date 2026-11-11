@@ -173,19 +173,25 @@ async def try_steer(
 ) -> bool:
     """Hand a message to the running turn's CLI; False when it must queue or start instead.
 
-    Only a coding thread whose running turn can take a message does this, and
-    only a plain-text one: files and tool picks travel with a new turn. Messages
-    already waiting keep their place, so a steer never overtakes them.
+    Only a coding thread whose running turn can take a message does this:
+    while the agent works, and while it waits for its background tasks after
+    an answer. Tool picks travel with a new turn; files go along when the CLI
+    reads them mid-turn (the service decides). Messages already waiting keep
+    their place, so a steer never overtakes them.
     """
     session = svc.store.get_session(session_id)
     if session is None or getattr(session, "surface", "") != "agent":
         return False
-    if attachments or tool_choices or not text.strip():
+    if tool_choices or not (text.strip() or attachments):
         return False
     if has_waiting(svc, session_id) or not svc.is_running(session_id):
         return False
     steer = getattr(svc, "steer", None)
-    return bool(steer is not None and await steer(session_id, text))
+    if steer is None:
+        return False
+    if attachments:
+        return bool(await steer(session_id, text, attachments))
+    return bool(await steer(session_id, text))
 
 
 def pause(svc: Any, session_id: str) -> None:

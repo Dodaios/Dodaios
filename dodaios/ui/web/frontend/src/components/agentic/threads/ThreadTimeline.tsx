@@ -3,7 +3,7 @@ import { ArrowDown, Bot, Check, ChevronDown, ChevronRight, Copy, Diff, FilePlus2
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
-import { STEER_PREFIX, waitsOnCard, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserItem } from "@/components/agentchat/reduce";
+import { STEER_PREFIX, waitsOnCard, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserAttachment, type UserItem } from "@/components/agentchat/reduce";
 import { toolDiff, type DiffFile } from "@/components/agentchat/toolDiff";
 import { capitalize, plural, readableOutput, tr, traceDuration, type Call } from "@/components/agentchat/traceEntries";
 import { fill, useI18nStore, useT } from "@/i18n";
@@ -503,6 +503,18 @@ function clock(ms: number): string {
   return new Date(ms).toLocaleTimeString(localeForUiLanguage(useI18nStore.getState().ui), { hour: "2-digit", minute: "2-digit" });
 }
 
+/** The files of one message inside its bubble: pictures as thumbnails, anything else as a chip. */
+function SentFiles({ files }: { files: readonly UserAttachment[] }) {
+  if (files.length === 0) return null;
+  return <div className="mb-2 flex flex-wrap justify-end gap-2">
+    {files.map((file) => file.url && file.kind === "image"
+      ? <img key={file.name} src={file.url} alt={file.name} className="h-24 max-w-[200px] rounded-lg border border-border object-cover" />
+      : <span key={file.name} className="inline-flex max-w-[240px] items-center gap-1.5 rounded-md border border-border bg-background/60 px-2 py-1 text-xs text-muted-foreground">
+        <FileText aria-hidden className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{file.name}</span>
+      </span>)}
+  </div>;
+}
+
 function UserBubble({ item }: { item: UserItem }) {
   const t = useT();
   return <div className="group flex flex-col items-end gap-1" data-testid="thread-user-message">
@@ -511,13 +523,7 @@ function UserBubble({ item }: { item: UserItem }) {
       <span className="truncate">{t("society.chat.coding_thread_author").replace("{0}", item.author.name)}</span>
     </div>}
     <div className="max-w-[80%] rounded-2xl bg-secondary px-4 py-2.5 text-foreground">
-      {item.attachments.length > 0 && <div className="mb-2 flex flex-wrap justify-end gap-2">
-        {item.attachments.map((file) => file.url && file.kind === "image"
-          ? <img key={file.name} src={file.url} alt={file.name} className="h-24 max-w-[200px] rounded-lg border border-border object-cover" />
-          : <span key={file.name} className="inline-flex max-w-[240px] items-center gap-1.5 rounded-md border border-border bg-background/60 px-2 py-1 text-xs text-muted-foreground">
-            <FileText aria-hidden className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{file.name}</span>
-          </span>)}
-      </div>}
+      <SentFiles files={item.attachments} />
       {item.text && <div className="whitespace-pre-wrap text-base leading-6 [overflow-wrap:anywhere]">{item.text}</div>}
     </div>
     <div className="flex items-center gap-1 pr-1 text-xs text-muted-foreground opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
@@ -859,8 +865,11 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     // Work is drawn as stretches (renderRows); a thought reads as one sentence between them.
     if (row.kind === "work") return null;
     if (row.kind === "thought") return <ThoughtSentence key={row.id} text={row.text} />;
-    if (isSteerRow(row)) return <div key={row.id} className="flex justify-end" data-testid="thread-steer-message">
-      <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl bg-secondary px-4 py-2.5 text-base leading-6 text-foreground [overflow-wrap:anywhere]">{(row as { text: string }).text}</div>
+    if (row.kind === "text" && isSteerRow(row)) return <div key={row.id} className="flex justify-end" data-testid="thread-steer-message">
+      <div className="max-w-[80%] rounded-2xl bg-secondary px-4 py-2.5 text-foreground">
+        <SentFiles files={row.block.attachments ?? []} />
+        {row.text && <div className="whitespace-pre-wrap text-base leading-6 [overflow-wrap:anywhere]">{row.text}</div>}
+      </div>
     </div>;
     if (row.kind === "text") return <div key={row.id} className={cn(PROSE, THREAD_MEDIA)}><ChatMarkdown text={row.text} /></div>;
     if (row.kind === "agent") return <SubagentRun key={row.id} blocks={[row.block]} turn={turn} />;

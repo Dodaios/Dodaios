@@ -155,9 +155,10 @@ class TurnHandle:
     #: A continuation keeps the turn's already resolved language and identity.
     continuation: bool = False
     #: A runner whose CLI accepts a message while it works registers a writer
-    #: here (``async (text) -> accepted``) and clears it with ``None`` when the
-    #: turn ends. The service's ``steer`` calls it (mid-turn steering).
-    on_steer: Callable[[Callable[[str], Awaitable[bool]] | None], None] | None = None
+    #: here (``async (text) -> accepted``; a CLI seat also takes the message's
+    #: picture files, ``async (text, images) -> accepted``) and clears it with
+    #: ``None`` when the turn ends. The service's ``steer`` calls it.
+    on_steer: Callable[[Callable[..., Awaitable[bool]] | None], None] | None = None
 
 
 async def _plain_images(handle: TurnHandle, brain: Any) -> tuple[Any, ...]:
