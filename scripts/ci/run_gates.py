@@ -58,7 +58,6 @@ def _gates(base: str) -> list[Gate]:
         Gate("webgl-contexts", ((PY, ci + "check_webgl_contexts_released.py"),)),
         Gate("plugin-auth-contract", ((PY, ci + "check_plugin_auth_contract.py"),)),
         Gate("unreal-build-dag", ((PY, "scripts/unreal/check_build_dag.py"),)),
-        Gate("unreal-forbidden-names", ((PY, "scripts/unreal/check_forbidden_names.py"),)),
         Gate("unreal-art-text", ((PY, "scripts/unreal/check_art_text.py"),)),
         Gate(
             "reference-docs",

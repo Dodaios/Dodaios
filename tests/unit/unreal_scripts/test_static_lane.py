@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from scripts.unreal import check_build_dag, check_forbidden_names, check_lfs
+from scripts.unreal import check_build_dag, check_lfs
 
 REPO = Path(__file__).resolve().parents[3]
 WORKFLOWS = REPO / ".github" / "workflows"
@@ -19,8 +19,6 @@ UNREAL_WORKFLOWS = (
     "unreal-gauntlet.yml",
     "unreal-perf.yml",
 )
-#: A made-up word that is only ever forbidden by the test's own hash list.
-PLANTED = "zorblaxion"
 
 
 def _git(cwd: Path, *args: str, data: bytes | None = None) -> str:
@@ -67,53 +65,6 @@ def _commit(repo: Path, rel: str, data: bytes) -> None:
         rel,
     )
     _git(repo, "commit", "-q", "-m", f"add {rel}")
-
-
-# --- forbidden names ---
-
-
-def test_a_planted_name_fails_through_a_test_only_hash(tmp_path):
-    hash_file = tmp_path / "planted.sha256"
-    hash_file.write_text("\n".join(sorted(check_forbidden_names.entry_hashes(PLANTED))) + "\n")
-    hashes = check_forbidden_names.load_hashes(hash_file)
-    assert check_forbidden_names.scan_text(f"class AZorblaxionRifle; // {PLANTED}", hashes)
-    assert check_forbidden_names.scan_text("UVerseBalanceGauntletController", hashes) == []
-    # The real list never contains the planted word.
-    assert not check_forbidden_names.scan_text(PLANTED, check_forbidden_names.load_hashes())
-
-
-def test_forbidden_names_cli_takes_an_extra_hash_file(tmp_path, monkeypatch, capsys):
-    hash_file = tmp_path / "planted.sha256"
-    hash_file.write_text("\n".join(sorted(check_forbidden_names.entry_hashes(PLANTED))) + "\n")
-    target = REPO / "unreal" / "Verse" / "Harness" / "schema" / "bout.schema.json"
-    rel = target.relative_to(REPO).as_posix()
-    assert check_forbidden_names.main(["--hash-file", str(hash_file), rel]) == 0
-    monkeypatch.setattr(check_forbidden_names, "REPO_ROOT", tmp_path)
-    (tmp_path / "unreal").mkdir()
-    (tmp_path / "unreal" / "x.cpp").write_text(f"// the {PLANTED} carbine\n", encoding="utf-8")
-    assert check_forbidden_names.main(["--hash-file", str(hash_file), "unreal/x.cpp"]) == 1
-    assert "forbidden name" in capsys.readouterr().out
-
-
-@pytest.mark.parametrize(
-    "folder", ["Renders", "renders", "Screenshots", "Evidence", "models", "Build"]
-)
-def test_banned_folder_names_fail_in_any_case(folder):
-    found = check_forbidden_names.scan_folders([f"unreal/Verse/Content/{folder}/T_A.uasset"])
-    assert found and folder in found[0]
-
-
-def test_the_engine_build_folder_is_the_one_exception():
-    assert check_forbidden_names.scan_folders(["unreal/Verse/Build/Windows/Verse.ico"]) == []
-    assert check_forbidden_names.scan_folders(["unreal/Verse/Build/Renders/x.png"])
-    assert check_forbidden_names.scan_folders(["dodaios/build/x.py"]) == []
-
-
-def test_engine_sample_content_fails():
-    assert check_forbidden_names.scan_folders(["unreal/Verse/Content/StarterContent/a.uasset"])
-    assert check_forbidden_names.scan_folders(
-        ["unreal/Verse/Content/Chars/SKM_Manny_Simple.uasset"]
-    )
 
 
 # --- LFS ---

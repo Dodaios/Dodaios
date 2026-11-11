@@ -35,7 +35,7 @@ public:
 	FColor Cursor;
 
 	/**
-	 * Monospace font. The IDE draws JetBrains Mono (SIL OFL); the repo takes own or CC0 assets only,
+	 * Monospace font. The IDE draws JetBrains Mono (SIL OFL); any licence is allowed with a provenance row,
 	 * so the default is the engine's own monospace face until the integration owner decides.
 	 */
 	UPROPERTY(EditAnywhere, Category = "Terminal")

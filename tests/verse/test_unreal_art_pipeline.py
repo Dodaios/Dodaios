@@ -15,6 +15,7 @@ import math
 import random
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -442,7 +443,7 @@ def test_texture_records_follow_the_texture_rules(tmp_path):
     assert "linear" in errors
 
 
-def test_banned_names_folders_and_engine_content(tmp_path):
+def test_banned_names_and_folders_fail_but_engine_content_is_allowed(tmp_path):
     root = _scratch_root(tmp_path)
     _write(root / "unreal/Verse/Content/Verse/Kit/Thing.uasset", "pointer")
     _write(root / "unreal/Verse/Content/Verse/Kit/SKM_Manny_Simple.uasset", "pointer")
@@ -450,9 +451,23 @@ def test_banned_names_folders_and_engine_content(tmp_path):
     _write(root / "unreal/Verse/Build/Windows/icon.txt", "allowed")
     errors = "\n".join(_errors(root))
     assert "Thing: prefix not in art-pipeline section 3" in errors
-    assert "engine sample content" in errors
+    assert "engine sample content" not in errors
     assert "folder name 'Renders' is banned" in errors
     assert "Build" not in errors
+
+
+def test_a_tracked_external_file_fails_and_a_local_external_asset_is_ignored(tmp_path):
+    root = _scratch_root(tmp_path)
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    _write(root / ".gitignore", "External/\n")
+    # Local-only third-party content: on disk, git-ignored, needs no import record.
+    _write(root / "unreal/Verse/Content/Verse/External/Pack/SM_Rock_A.uasset", "pointer")
+    assert _errors(root) == []
+    subprocess.run(
+        ["git", "add", "-f", "unreal/Verse/Content/Verse/External"], cwd=root, check=True
+    )
+    errors = "\n".join(_errors(root))
+    assert "git-ignored External/ folder" in errors
 
 
 def test_material_recipes_reject_banned_colours(tmp_path):

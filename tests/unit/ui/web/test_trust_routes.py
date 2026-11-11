@@ -145,3 +145,39 @@ def test_privacy_and_recipients(client, monkeypatch) -> None:
     ]
     assert http.delete("/api/trust/recipients?recipient=ada@example.com").status_code == 200
     assert http.delete("/api/trust/recipients?recipient=ada@example.com").status_code == 404
+
+
+# ------------------------------------------------------------ credentials
+
+
+def test_credentials_overview_lists_handles_never_values(client, monkeypatch, tmp_path) -> None:
+    from dodaios.credential_broker import CredentialBroker, Handle, LocalVaultBackend, SiteRules
+    from dodaios.society.credentials import CredentialVault
+    from tests.fakes.fake_secret_store import FakeSecretStore
+
+    http, _chat = client
+    canary = "Cnry-route-9f3a7c1e5b"
+    vault = CredentialVault(tmp_path / "v", secrets=FakeSecretStore())
+    vault.store_login("ada", "github", "owner", canary, url="https://github.com/login")
+    broker = CredentialBroker({"local": LocalVaultBackend(lambda: vault)}, SiteRules(tmp_path / "s.json"))
+    broker.rules.add("ada", Handle("github.com", "github"))
+
+    async def roster() -> list[Any]:
+        return [SimpleNamespace(agent_id="ada", name="Ada")]
+
+    runtime = SimpleNamespace(data_dir=tmp_path, roster=SimpleNamespace(list=roster))
+    monkeypatch.setattr(trust_routes, "_broker", lambda: (broker, runtime))
+    body = http.get("/api/trust/credentials").json()
+    assert body["backend"] == "local"
+    assert [h["handle"] for h in body["handles"]] == ["cred:github.com/github"]
+    assert body["handles"][0]["agent"] == "Ada"
+    assert canary not in http.get("/api/trust/credentials").text
+    rule = body["rules"][0]
+    assert http.put(f"/api/trust/credentials/rules/{rule['id']}/otp-mail", json={"on": True}).status_code == 200
+    assert broker.rules.items()[0]["otp_from_mail"] is True
+    assert http.put("/api/trust/credentials/backend", json={"name": "nope"}).status_code == 400
+    assert http.put(
+        "/api/trust/credentials/session", json={"backend": "local", "key": "x"}
+    ).status_code == 400
+    assert http.delete(f"/api/trust/credentials/rules/{rule['id']}").status_code == 200
+    assert http.delete(f"/api/trust/credentials/rules/{rule['id']}").status_code == 404

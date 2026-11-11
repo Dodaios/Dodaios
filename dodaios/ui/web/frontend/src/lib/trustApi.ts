@@ -238,3 +238,56 @@ export const decideSelfChange = (id: string, action: "approve" | "reject" | "kee
 
 export const rollbackSelfChangesSince = (sinceMs: number) =>
   post("/api/self-change/rollback-since", { since_ms: sinceMs });
+
+// ---- Credentials (dodaios/credential_broker): handles and states, never values.
+
+export interface CredentialBackendStatus {
+  name: "local" | "bitwarden" | "1password";
+  installed: boolean;
+  unlocked: boolean;
+  state: "ready" | "locked" | "not_installed" | "unavailable";
+}
+
+export interface CredentialHandle {
+  handle: string;
+  domain: string;
+  account: string;
+  label: string;
+  backend: string;
+  has_totp: boolean;
+  agent_id: string;
+  agent: string;
+}
+
+export interface CredentialSiteRule {
+  id: string;
+  agent_id: string;
+  agent: string;
+  domain: string;
+  handle: string;
+  otp_from_mail: boolean;
+  created_ms: number;
+}
+
+export interface CredentialsOverview {
+  backend: string;
+  backends: CredentialBackendStatus[];
+  handles: CredentialHandle[];
+  rules: CredentialSiteRule[];
+  error: string;
+}
+
+export const fetchCredentials = () => request<CredentialsOverview>("/api/trust/credentials");
+
+export const setCredentialBackend = (name: string) =>
+  request<{ ok: boolean }>("/api/trust/credentials/backend", json({ name }));
+
+/** The owner's own unlock key, kept in memory by the server; an empty key locks. */
+export const setCredentialSession = (backend: string, key: string) =>
+  request<{ ok: boolean }>("/api/trust/credentials/session", json({ backend, key }));
+
+export const revokeCredentialRule = (id: string) =>
+  request<{ ok: boolean }>(`/api/trust/credentials/rules/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const setCredentialOtpMail = (id: string, on: boolean) =>
+  request<{ ok: boolean }>(`/api/trust/credentials/rules/${encodeURIComponent(id)}/otp-mail`, json({ on }));

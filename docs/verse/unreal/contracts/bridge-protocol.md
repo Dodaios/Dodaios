@@ -400,7 +400,7 @@ arena mid-set, or Verse quitting, sends the unfinished set with `outcome`
 | `end_reason` | `set_complete`, `player_left`, `verse_quit`, `crash_recovered` (sent on the next launch from the saved pending result), `app_quit` |
 | `match_time_s` | Match time of the set, paused time excluded |
 | `stats` | Integers, non-negative; the server clamps implausible values (more than 1 kill per 2 s of match time) and logs them |
-| `weapons[].weapon_id` | Ids from the weapon DataAsset (fictional names only) |
+| `weapons[].weapon_id` | Ids from the weapon DataAsset (any name) |
 
 Backend additions:
 

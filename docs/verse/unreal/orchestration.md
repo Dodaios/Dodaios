@@ -48,7 +48,7 @@ column "G0 items" maps them.
 | GC0.1 | `doctor.py` green on the dev box and the runner | Log in the gate issue |
 | GC0.2 | `unreal-build` green on `main`: Win64 Development Editor, Win64 Development Game, Linux Development Game | CI run link |
 | GC0.3 | All `Verse.Contract.*` and `Verse.*.Smoke` tests green under `-nullrhi`; backend contract pytest green, including the G0.11 golden fixtures | `index.json` report counts |
-| GC0.4 | `unreal-static` green: DAG check, forbidden-name scan, LFS pointer check, size gate, licence ledger; the repo gates of architecture §8.4 green on the same PR (junk, language, design references, docs privacy) | CI run link |
+| GC0.4 | `unreal-static` green: DAG check, LFS pointer check, size gate, licence ledger; the repo gates of architecture §8.4 green on the same PR (junk, language, design references, docs privacy) | CI run link |
 | GC0.5 | Every contract file says "frozen v1" and names its tests | Grep in the gate issue |
 | GC0.6 | The pilot reached `agent_done_gate.py` DONE, and a fresh clone of `main` with LFS on gets every object the pilot pushed | Gate output, clone log |
 | GC0.7 | Section 4 limits replaced by measured values | The PR that did it |
@@ -74,7 +74,7 @@ Gate check ids carry the `GC` prefix so they never read as the G0 items of
 | GC1.2 | No open contract change request; contract tests still green |
 | GC1.3 | Every invariant named in `contracts/` (recoil R1-R6, gadgets GD1 to GD4, deathmatch D1-D6, destruction DR1-DR6, bot B1-B8, fairness F1-F7, L1, BR1) has a test, and the test is green or explicitly marked as needing integration (listed, not silent) |
 | GC1.4 | `main` builds all three targets; no package still depends on a stub of its own interface |
-| GC1.5 | Forbidden-name scan zero over `unreal/`, `art/verse/`, `docs/verse/`, commit messages and PR titles of the phase |
+| GC1.5 | Every third-party asset added in the phase has a provenance row in `art/verse/LICENSES.md`, and nothing under an `External/` folder is tracked |
 
 ### Phase 2: integration and autonomous playtests
 
@@ -129,14 +129,13 @@ the app works; `agent_done_gate.py` DONE for every branch of the phase.
 
 ### 3.2 Writing rules
 
-English everywhere. Never name other games, studios, franchises or real
-firearm makes or models: code, asset names, comments, commits, PR titles and
-bodies, docs, test names. Weapons are fictional and modelled on no real
-firearm. Assets are own work or CC0, recorded in `art/verse/LICENSES.md`.
-The `unreal-static` forbidden-name scan enforces this; a hit blocks the PR.
-No repo gate checks names in `.cpp`, `.h`, `.cs` or `.uasset` metadata, so
-agents run `scripts/unreal/check_forbidden_names.py` on their diff before
-each commit. The repo-wide rules (no `.fbx`, `.wav`, `.exr` or video, banned
+English everywhere. No naming restriction: real names of games, studios,
+franchises and firearm makes and models are allowed (README Legal, lifted
+2026-11-10). Assets may come from any source and licence (README Assets),
+each recorded with a provenance row in `art/verse/LICENSES.md`. Assets whose
+licence forbids public redistribution live only in the git-ignored
+`External/` folders and are never committed; `unreal-static` fails if one
+is tracked. The repo-wide rules (no `.fbx`, `.wav`, `.exr` or video, banned
 folder names, English in `.ini` files, no user-profile paths in docs) are in
 architecture §8.4.
 
@@ -277,7 +276,7 @@ the acceptance list. It must:
    rendered, destroyed or missing actors, contract invariants it touches.
    It writes at least one probing test; a probe that exposes a bug is handed
    to the author to keep.
-4. Run the forbidden-name scan and the licence ledger check on the diff.
+4. Run the licence ledger check (`check_art_text.py`) on the diff.
 5. Answer `PASS` or `FAIL` with reproduction steps.
 
 Two `FAIL` rounds on the same sub-task go to the package lead.
@@ -345,16 +344,15 @@ Setup: python scripts/unreal/worktree.py new wp<nn>-<k>-<slug>
 Work only in that worktree, on branch claude/verse-wp<nn>-<k>-<slug> off origin/main.
 
 Rules:
-- English only. Never name other games, studios, franchises or real firearm
-  makes or models anywhere, including commits and PR text.
-- Own or CC0 assets only, recorded in art/verse/LICENSES.md.
+- English only. No naming restriction (README Legal).
+- Any asset licence is allowed, each recorded in art/verse/LICENSES.md. Assets that
+  may not be redistributed publicly go only into the git-ignored External/ folders.
 - Builds, tests, cooks and screenshots only through scripts/unreal/*.py (they
   take the machine lock). Build once per change, not per edit.
 - No interactive editor, no input to the person's windows, no git stash.
 - Repo gates (architecture §8.4): never commit .fbx, .wav, .exr or video;
   no folder named Build, Models, Env, Logs, Dist, Video, Renders, Evidence,
-  Recordings or Screenshots; no user-profile paths in docs; run
-  scripts/unreal/check_forbidden_names.py on the diff before each commit.
+  Recordings or Screenshots; no user-profile paths in docs.
 - PR title: type(verse): subject, lower case, imperative.
 - Need a contract change? Open a verse-contract issue (orchestration §3.4),
   stop that part, continue the rest.

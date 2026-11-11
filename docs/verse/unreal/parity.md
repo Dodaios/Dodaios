@@ -18,7 +18,7 @@ Every row has an automated check. A row passes when its check is green on
 | `BT` | Backend pytest with a scripted fake Verse peer on `WS /api/verse/bridge` (`tests/unit/verse_host/`) | Python CI |
 | `VT` | Vitest of the web pieces that stay (launcher card, panel stream, bus handlers) | Frontend CI |
 | `SS` | Harness screenshot of a fixed camera on the GPU build, compared with a stored reference (SSIM ≥ 0.9) plus the palette-share check of `contracts/art-pipeline.md` | `unreal-perf` |
-| `ST` | Static check over files (schema, key coverage, forbidden names) | `unreal-static` |
+| `ST` | Static check over files (schema, key coverage, tracked External files) | `unreal-static` |
 
 `scripts/unreal/parity_report.py` (new) reads the row ids in this file,
 matches them to test results by id (`Verse.Parity.D.07` ↔ row `D-07`) and

@@ -2,13 +2,13 @@
 """Licence audit of every Verse sound (WP19.9, acceptance A19.6).
 
 Every sound asset must cite ``own`` (built by ``recipes.py``) or the ledger
-rows of ``art/verse/LICENSES.md`` that cover its CC0 source recordings.
+rows of ``art/verse/LICENSES.md`` that cover its third-party source recordings.
 
 Checks:
 1. Each cue in ``cues.json`` has a licence ``own`` or ``cc0:<key>[,<key>]``.
 2. A CC0 cue names the recording(s) it reads; each file has a ledger row
-   whose Asset column lists every key the cue cites, whose licence is CC0
-   and whose SHA-256 matches the file in the repo.
+   whose Asset column lists every key the cue cites, whose licence column is
+   filled (any licence; the ledger is no longer CC0-only) and whose SHA-256 matches the file in the repo.
 3. Each ``SW_*.uasset`` under ``unreal/Verse/Content/Verse/Audio/`` is a
    variant of a cue in ``cues.json`` (no orphan, so no uncited sound), and
    with ``--require-assets`` every variant has its asset.
@@ -76,8 +76,8 @@ def audit(cues_doc: dict, rows: list[dict], content: Path, require_assets: bool)
             if row is None:
                 problems.append(f"{cid}: no ledger row for {f}")
                 continue
-            if row["license"] != "CC0":
-                problems.append(f"{cid}: ledger row for {f} is {row['license']}, not CC0")
+            if not row["license"].strip():
+                problems.append(f"{cid}: ledger row for {f} names no licence")
             missing = [k for k in keys if k not in row["asset"].split()]
             if missing:
                 problems.append(f"{cid}: ledger row for {f} does not list {', '.join(missing)}")
