@@ -90,14 +90,14 @@ def _clip(text: Any, limit: int) -> str:
 def _int(value: Any) -> int | None:
     try:
         return None if value is None else int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError):  # a malformed figure reads as unknown
         return None
 
 
 def _float(value: Any) -> float | None:
     try:
         return None if value is None else float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError):  # a malformed figure reads as unknown
         return None
 
 
