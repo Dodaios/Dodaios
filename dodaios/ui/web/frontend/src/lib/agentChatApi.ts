@@ -162,6 +162,11 @@ export interface AgentChatSession {
   vendor_session: string | null;
   created_ms: number;
   updated_ms: number;
+  /**
+   * When a message last reached the thread (the person's or another agent's);
+   * the creation time before the first. Absent on an older backend.
+   */
+  last_message_ms?: number;
   message_count: number;
   preview: string;
   running?: boolean;
