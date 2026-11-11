@@ -41,7 +41,7 @@ import de from "@/i18n/locales/de.json";
 import es from "@/i18n/locales/es.json";
 import {
   NAV_FOOTER_ITEMS,
-  NAV_GROUPS,
+  LISTED_NAV_GROUPS,
   SETTINGS_HUB_ONLY_ITEMS,
   type NavItem,
 } from "@/components/layout/navGroups";
@@ -190,7 +190,7 @@ function expand(item: NavItem): QuickSwitchEntry[] {
 
 /** Every place the switcher can take you, in sidebar order. */
 export const QUICK_SWITCH_ENTRIES: readonly QuickSwitchEntry[] = [
-  ...NAV_GROUPS.flat(),
+  ...LISTED_NAV_GROUPS.flat(),
   ...SETTINGS_HUB_ONLY_ITEMS,
   ...NAV_FOOTER_ITEMS,
 ].flatMap(expand);

@@ -1,3 +1,4 @@
+import { useIdeProjectsSeed } from "@/components/agentic/useIdeProjectsSeed";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, Loader2, Mic, MoreHorizontal, Pencil, Plus, Search, SquarePen, SquarePlus, Trash2, Users, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
@@ -103,6 +104,7 @@ function SectionLabel({ label, children }: { label: string; children?: ReactNode
  */
 export function ThreadTree() {
   const t = useT();
+  useIdeProjectsSeed();
   const locale = useRunLocale();
   const projects = useIdeProjectsStore((state) => state.projects);
   const connectProject = useIdeProjectsStore((state) => state.connectProject);

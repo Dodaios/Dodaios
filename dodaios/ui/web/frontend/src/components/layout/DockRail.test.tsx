@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { DOCK_RAIL_GEOMETRY, DockRail } from "@/components/layout/DockRail";
-import { NAV_FOOTER_ITEMS, NAV_GROUPS } from "@/components/layout/navGroups";
+import { LISTED_NAV_GROUPS, NAV_FOOTER_ITEMS } from "@/components/layout/navGroups";
 import { useEventStore } from "@/store/events";
 
 // usePluginAttention polls /api/marketplace/plugins; the test drives it.
@@ -16,7 +16,7 @@ vi.mock("@/hooks/usePluginAttention", () => ({
 }));
 
 // The rail lists the footer's Feedback row too, behind one more hairline.
-const ITEMS = [...NAV_GROUPS.flat(), ...NAV_FOOTER_ITEMS];
+const ITEMS = [...LISTED_NAV_GROUPS.flat(), ...NAV_FOOTER_ITEMS];
 const { BASE, GAP, PAD_TOP } = DOCK_RAIL_GEOMETRY;
 
 /** clientY that lands on the centre of icon `i` (jsdom rects sit at 0,0). */
@@ -58,7 +58,7 @@ describe("DockRail", () => {
   });
   afterEach(() => cleanup());
 
-  test("shows every section of the sidebar's NAV_GROUPS as one named button", () => {
+  test("shows every listed section as one named button", () => {
     renderRail();
     for (const item of ITEMS) {
       expect(screen.getByTestId(`nav-row-${item.id}`)).toBeTruthy();

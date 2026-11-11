@@ -8,13 +8,15 @@ import {
   SIDEBAR_RAIL_AT_WIDTH,
   SIDEBAR_RAIL_WIDTH,
 } from "@/components/layout/Sidebar";
-import { NAV_GROUPS, NAV_FOOTER_ITEMS, SETTINGS_HUB_IDS } from "@/components/layout/navGroups";
+import { LISTED_NAV_GROUPS, NAV_FOOTER_ITEMS, SETTINGS_HUB_IDS } from "@/components/layout/navGroups";
+import { HUB_GROUPS } from "@/views/settings/hubNav";
 import { isSectionId, useEventStore } from "@/store/events";
 import { useQuickSwitcher } from "@/store/quickSwitcher";
 import { useQuickSwitchSettings } from "@/store/quickSwitchSettings";
 import { useHomeStore } from "@/store/home";
 import { useIdeChatStore } from "@/store/ideChat";
 import { useIdeProjectsStore } from "@/store/ideProjects";
+import { useIdeThreadsStore } from "@/store/ideThreads";
 import { sectionPrefetch } from "@/lib/sectionPrefetch";
 import { SECTION_PREFETCH_DELAY_MS } from "@/hooks/useSectionPrefetch";
 
@@ -27,15 +29,10 @@ test.each([SIDEBAR_DEFAULT_WIDTH, SIDEBAR_RAIL_WIDTH])(
       useEventStore.setState({ activeSection: "chats" });
       renderSidebar(width);
       expect(warm).not.toHaveBeenCalled();
-      fireEvent.mouseEnter(screen.getByTestId("nav-row-agents"));
-      act(() => { vi.advanceTimersByTime(SECTION_PREFETCH_DELAY_MS); });
-      expect(warm).toHaveBeenCalledExactlyOnceWith("agents");
-      expect(useEventStore.getState().activeSection).toBe("chats");
       fireEvent.focus(screen.getByTestId("sidebar-profile-toggle"));
       act(() => { vi.advanceTimersByTime(SECTION_PREFETCH_DELAY_MS); });
-      expect(warm).toHaveBeenLastCalledWith("profile");
-      fireEvent.click(screen.getByTestId("nav-row-agents"));
-      expect(useEventStore.getState().activeSection).toBe("agents");
+      expect(warm).toHaveBeenCalledExactlyOnceWith("profile");
+      expect(useEventStore.getState().activeSection).toBe("chats");
     } finally {
       cleanup();
       warm.mockRestore();
@@ -62,20 +59,23 @@ test("IDE rail keeps workspace options and Dodaios Live reachable", () => {
   cleanup();
 });
 
-test("IDE sidebar puts Projects first and returns to the normal chat navigation", async () => {
-  act(() => useEventStore.setState({ activeSection: "agentic-ide" }));
+test("the folder list stays in both places, under the switch", async () => {
+  act(() => {
+    useIdeThreadsStore.setState({ layout: "grid" });
+    useEventStore.setState({ activeSection: "agentic-ide" });
+  });
   try {
     renderSidebar();
     // The project tree is a lazy chunk: a cold CI runner can take longer than the default second to load it.
     expect(await screen.findByTestId("ide-project-tree", undefined, { timeout: 10_000 })).toBeDefined();
-    // The agents list lives in the IDE's right-hand side panel now.
-    expect(screen.queryByTestId("ide-workspace-agents")).toBeNull();
-    expect(screen.queryByTestId("sidebar-new-chat")).toBeNull();
-    expect(screen.queryByTestId("nav-row-agentic-ide")).toBeNull();
-    // No "Back to Jarvis" row: the caption's back arrow leaves the IDE.
-    expect(screen.queryByTestId("ide-back-to-jarvis")).toBeNull();
+    expect(screen.getByTestId("sidebar-mode-ide").getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByTestId("sidebar-mode-dodaios").getAttribute("aria-checked")).toBe("false");
+    // The earlier chats belong to the conversation, not to the IDE.
+    expect(screen.queryByTestId("earlier-chats")).toBeNull();
     act(() => useEventStore.setState({ activeSection: "chats" }));
-    expect(screen.getByTestId("sidebar-new-chat")).toBeDefined();
+    expect(screen.getByTestId("ide-project-tree")).toBeDefined();
+    expect(screen.getByTestId("sidebar-mode-dodaios").getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByTestId("earlier-chats")).toBeTruthy();
   } finally {
     // A failure here must not leave the IDE section and its sidebar behind for the next test.
     cleanup();
@@ -190,16 +190,15 @@ describe("Sidebar voice header", () => {
     expect(screen.queryByText("auflegen")).toBeNull();
   });
 
-  test("starts with New chat without duplicate voice controls", () => {
+  test("starts with the switch, without duplicate voice controls", () => {
     renderSidebar();
     expect(screen.queryByTestId("home-surface-switch")).toBeNull();
-    expect(screen.getByTestId("sidebar-new-chat")).toBeTruthy();
+    expect(screen.getByTestId("sidebar-mode-switch")).toBeTruthy();
   });
 });
 
-// New chat must let users choose either surface without changing the current
-// conversation until they make a choice.
-describe("Sidebar new-conversation button", () => {
+// The two places of the app: the conversation with the assistant and the IDE.
+describe("Sidebar mode switch", () => {
   beforeEach(() => {
     vi.stubGlobal(
       "fetch",
@@ -229,10 +228,16 @@ describe("Sidebar new-conversation button", () => {
     useEventStore.setState({ conversations: [], messages: [], activeThreadId: null });
   });
 
+  test("lights neither half while another page is on screen", () => {
+    renderSidebar();
+    expect(screen.getByTestId("sidebar-mode-dodaios").getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByTestId("sidebar-mode-ide").getAttribute("aria-checked")).toBe("false");
+  });
+
   test("opens the one conversation in one click, even from voice mode", async () => {
     useHomeStore.setState({ surface: "voice", transcript: [] });
     renderSidebar();
-    const button = screen.getByTestId("sidebar-new-chat");
+    const button = screen.getByTestId("sidebar-mode-dodaios");
     expect(button.textContent).toContain("Dodaios");
     await act(async () => { button.click(); await Promise.resolve(); });
     expect(useHomeStore.getState().surface).toBe("chat");
@@ -243,10 +248,23 @@ describe("Sidebar new-conversation button", () => {
   test("never starts a voice run — voice is a mode inside the chat now", async () => {
     useHomeStore.setState({ surface: "chat", transcript: [] });
     renderSidebar();
-    await act(async () => { screen.getByTestId("sidebar-new-chat").click(); await Promise.resolve(); });
+    await act(async () => { screen.getByTestId("sidebar-mode-dodaios").click(); await Promise.resolve(); });
     expect(useHomeStore.getState().surface).toBe("chat");
     const calls = (globalThis.fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls;
     expect(calls.some((c) => String(c[0]) === "/api/chats/voice/new")).toBe(false);
+  });
+
+  test("the other half opens the Agentic IDE", () => {
+    renderSidebar();
+    act(() => { screen.getByTestId("sidebar-mode-ide").click(); });
+    expect(useEventStore.getState().activeSection).toBe("agentic-ide");
+  });
+
+  test("opening a thread from the list beside the conversation leads into the IDE", () => {
+    useEventStore.setState({ activeSection: "chats" });
+    renderSidebar();
+    act(() => useIdeThreadsStore.getState().openThread("session-1", "project-1"));
+    expect(useEventStore.getState().activeSection).toBe("agentic-ide");
   });
 });
 
@@ -270,14 +288,11 @@ describe("Sidebar header avatar", () => {
   // The mark is the user's pet (Gigi by default), drawn by PetMark from the
   // pets answer — never the old static Gigi image.
   test("renders the pet mark, not the old Gigi image", () => {
-    // The mark heads the identity row, which returns when the quick
-    // switcher (and with it the search bar) is switched off.
-    useQuickSwitchSettings.setState({ enabled: false });
+    // The pet is the assistant's face: it heads the assistant's half of the switch.
     const { container } = renderSidebar();
-    useQuickSwitchSettings.setState({ enabled: true });
     const avatar = container.querySelector('[data-testid="sidebar-style-avatar"]');
     expect(avatar).not.toBeNull();
-    expect(avatar?.getAttribute("data-variant")).toBe("logo");
+    expect(screen.getByTestId("sidebar-mode-dodaios").contains(avatar)).toBe(true);
     expect(avatar?.querySelector('[data-testid="pet-mark"]')).toBeTruthy();
     expect(avatar?.querySelector("img")).toBeNull();
   });
@@ -388,12 +403,11 @@ describe("Sidebar assistant name header", () => {
     expect(useQuickSwitcher.getState().open).toBe(false);
   });
 
-  test("switching the quick switcher off brings the name row back", () => {
-    useEventStore.setState({ assistantName: "Ruben" });
+  test("switching the quick switcher off takes the field away, the switch stays", () => {
     useQuickSwitchSettings.setState({ enabled: false });
     renderSidebar();
     expect(screen.queryByTestId("sidebar-search")).toBeNull();
-    expect(screen.getByText("Ruben")).toBeTruthy();
+    expect(screen.getByTestId("sidebar-mode-switch")).toBeTruthy();
     useQuickSwitchSettings.setState({ enabled: true });
   });
 });
@@ -408,23 +422,25 @@ describe("Sidebar plugin reconnect indicator", () => {
     pluginAttentionMock.needsReconnect = false;
   });
 
-  test("shows an amber dot on Plugins, MCPs & Skills when a plugin needs reconnect", () => {
+  test("marks the profile button when a plugin needs reconnect", () => {
     // A revoked / expired plugin must be visible app-wide, not only on the
-    // Plugins page — the sidebar carries an amber dot on the row that fronts
-    // Plugins ("Plugins, MCPs & Skills", id "plugins").
+    // Plugins page. Plugins are reached through Settings, so the button that
+    // leads there carries the amber dot and names the plugin.
     pluginAttentionMock.needsReconnect = true;
 
     renderSidebar();
 
-    expect(screen.getByTestId("nav-warn-plugins")).toBeTruthy();
+    const dot = screen.getByTestId("sidebar-profile-attention");
+    expect(dot.getAttribute("aria-label")).toContain("Cloudflare");
+    expect(dot.className).toContain("bg-warning");
   });
 
-  test("no amber dot when every plugin is healthy", () => {
+  test("no dot when every plugin is healthy", () => {
     pluginAttentionMock.needsReconnect = false;
 
     renderSidebar();
 
-    expect(screen.queryByTestId("nav-warn-plugins")).toBeNull();
+    expect(screen.queryByTestId("sidebar-profile-attention")).toBeNull();
   });
 });
 
@@ -527,12 +543,8 @@ describe("Sidebar icon rail", () => {
     renderSidebar(SIDEBAR_DEFAULT_WIDTH);
 
     expect(screen.getByTestId("sidebar").dataset.railed).toBe("false");
-    fireEvent.click(screen.getByTestId("sidebar-more-toggle"));
-    // The label is ON the row, and names the workspace rather than carrying
-    // the retired generic "Chat" label shown in the product screenshot.
-    expect(screen.getByTestId("nav-row-agentic-ide").textContent).toContain(
-      "Agentic IDE",
-    );
+    expect(screen.getByTestId("sidebar-mode-ide").textContent).toContain("IDE");
+    expect(screen.getByTestId("sidebar-mode-dodaios").textContent).toContain("Dodaios");
   });
 
   test("drops to icons once dragged past the snap point", () => {
@@ -544,33 +556,36 @@ describe("Sidebar icon rail", () => {
     // shows half a word per row and reads as a rendering fault, so it is
     // skipped rather than rendered at the dragged width.
     expect(aside.style.width).toBe(`${SIDEBAR_RAIL_WIDTH}px`);
-    expect(screen.getByTestId("nav-row-agents").getAttribute("aria-label")).toBeTruthy();
+    expect(screen.getByTestId("sidebar-mode-ide").textContent).toBe("");
   });
 
-  test("keeps every destination named once its label is off the screen", () => {
+  test("keeps both places named once their labels are off the screen", () => {
     renderSidebar(SIDEBAR_RAIL_WIDTH);
 
-    const row = screen.getByTestId("nav-row-agents");
-    expect(row.getAttribute("aria-label")).toBeTruthy();
-    expect(row.getAttribute("title")).toBe(row.getAttribute("aria-label"));
+    for (const id of ["sidebar-mode-dodaios", "sidebar-mode-ide"]) {
+      const half = screen.getByTestId(id);
+      expect(half.getAttribute("aria-label")).toBeTruthy();
+      expect(half.getAttribute("title")).toBe(half.getAttribute("aria-label"));
+    }
   });
 
-  test("still switches section on a click", () => {
+  test("still switches place on a click", () => {
     renderSidebar(SIDEBAR_RAIL_WIDTH);
 
     act(() => {
-      screen.getByTestId("nav-row-agents").click();
+      screen.getByTestId("sidebar-mode-ide").click();
     });
 
-    expect(useEventStore.getState().activeSection).toBe("agents");
+    expect(useEventStore.getState().activeSection).toBe("agentic-ide");
   });
 
-  test("keeps the rail canvas transparent and the active control glassy", () => {
+  test("keeps the rail canvas transparent and lists no folders", () => {
     renderSidebar(SIDEBAR_RAIL_WIDTH);
 
     const sidebar = screen.getByTestId("sidebar");
     expect(sidebar.querySelector(".jarvis-shell-surface")).toBeNull();
-    expect(screen.getByTestId("sidebar-new-chat")).toBeTruthy();
+    expect(screen.getByTestId("sidebar-mode-switch")).toBeTruthy();
+    expect(screen.queryByTestId("earlier-chats")).toBeNull();
   });
 
   test("keeps the wake-word hint and realtime control off the rail", () => {
@@ -585,8 +600,9 @@ describe("Sidebar icon rail", () => {
     renderSidebar(SIDEBAR_RAIL_WIDTH);
 
     expect(screen.queryByText("auflegen")).toBeNull();
-    // …and the navigation, which is the reason the rail exists, is still there.
-    expect(screen.getByTestId("sidebar-new-chat")).toBeTruthy();
+    expect(screen.queryByTestId("sidebar-voice-label")).toBeNull();
+    // …and the switch, which is the reason the rail exists, is still there.
+    expect(screen.getByTestId("sidebar-mode-switch")).toBeTruthy();
   });
 });
 
@@ -660,75 +676,27 @@ describe("Sidebar collapse state", () => {
   });
 });
 
-describe("compact sidebar navigation", () => {
+describe("the sidebar holds the two places and nothing else", () => {
   beforeEach(() => {
     useEventStore.setState({ activeSection: "chats", connected: true });
     useIdeChatStore.setState({ workspaces: [], view: "chat" });
   });
   afterEach(() => cleanup());
 
-  test("keeps core destinations above the earlier-chats link", () => {
+  test("lists no sections of its own", () => {
     renderSidebar();
-    for (const id of ["agents", "dictation", "visualization", "agentic-ide", "plugins", "marketplace"]) {
-      expect(screen.getByTestId(`nav-row-${id}`)).toBeTruthy();
+    for (const id of ["agents", "dictation", "visualization", "agentic-ide", "plugins", "memory", "self-build", "verse"]) {
+      expect(screen.queryByTestId(`nav-row-${id}`)).toBeNull();
     }
-    expect(screen.getByTestId("earlier-chats")).toBeTruthy();
-    expect(screen.queryByTestId("nav-row-wallpaper")).toBeNull();
-    expect(screen.queryByTestId("nav-row-memory")).toBeNull();
-    // Built for you lives behind "More" now.
-    expect(screen.queryByTestId("nav-row-self-build")).toBeNull();
-  });
-
-  test("opens Jarvis Voice directly with artifacts in the main list", () => {
-    useHomeStore.setState({ surface: "chat" });
-    renderSidebar();
-    // Artifacts sits directly in the main list (where the retired "Jarvis
-    // Tools" folder used to be) — no "Show more" needed to reach it.
-    expect(screen.getByTestId("nav-row-visualization")).toBeTruthy();
-    fireEvent.click(screen.getByTestId("nav-row-dictation"));
-    expect(useHomeStore.getState().surface).toBe("chat");
-    expect(useEventStore.getState().activeSection).toBe("dictation");
-    fireEvent.click(screen.getByTestId("nav-row-visualization"));
-    expect(useEventStore.getState().activeSection).toBe("visualization");
-  });
-
-  test("More opens a side panel that closes on a pick", () => {
-    renderSidebar();
-    expect(screen.queryByTestId("sidebar-more-panel")).toBeNull();
-    fireEvent.click(screen.getByTestId("sidebar-more-toggle"));
-    const panel = screen.getByTestId("sidebar-more-panel");
-    // Portaled beside the column, not pushed into it.
-    expect(screen.getByTestId("sidebar").contains(panel)).toBe(false);
-    fireEvent.click(screen.getByTestId("nav-row-memory"));
-    expect(useEventStore.getState().activeSection).toBe("memory");
-    expect(screen.queryByTestId("sidebar-more-panel")).toBeNull();
+    expect(screen.queryByTestId("sidebar-more-toggle")).toBeNull();
+    expect(screen.queryByTestId("sidebar-due")).toBeNull();
     expect(screen.getByTestId("earlier-chats")).toBeTruthy();
   });
 
-  test("More closes on Escape and on a second click", () => {
+  test("keeps the marketplace beside the profile button", () => {
     renderSidebar();
-    fireEvent.click(screen.getByTestId("sidebar-more-toggle"));
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.queryByTestId("sidebar-more-panel")).toBeNull();
-    fireEvent.click(screen.getByTestId("sidebar-more-toggle"));
-    fireEvent.click(screen.getByTestId("sidebar-more-toggle"));
-    expect(screen.queryByTestId("sidebar-more-panel")).toBeNull();
-  });
-
-  test("has no Verse row", () => {
-    renderSidebar();
-    expect(screen.queryByTestId("nav-row-verse")).toBeNull();
-  });
-
-  test("shows the agents, the IDE, the voice, the extensions and the artifacts in that order", () => {
-    renderSidebar();
-    const order = ["agents", "agentic-ide", "dictation", "plugins", "visualization"].map(
-      (id) => screen.getByTestId(`nav-row-${id}`),
-    );
-    for (let i = 1; i < order.length; i++) {
-      expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    }
-    expect(screen.getByTestId("nav-row-agentic-ide").textContent).not.toContain("Beta");
+    fireEvent.click(screen.getByTestId("nav-row-marketplace"));
+    expect(useEventStore.getState().activeSection).toBe("marketplace");
   });
 
   test("the profile button opens the hub — hub tabs are the hub's own tests", () => {
@@ -741,14 +709,18 @@ describe("compact sidebar navigation", () => {
     expect(screen.queryByTestId("sidebar-profile-panel")).toBeNull();
   });
 
-  test("every registered destination remains reachable", () => {
+  test("every listed destination remains reachable", () => {
     renderSidebar();
-    fireEvent.click(screen.getByTestId("sidebar-more-toggle"));
-    for (const item of [...NAV_GROUPS.flat(), ...NAV_FOOTER_ITEMS]) {
-      // Hub entries are one profile-button click away (covered above); the
-      // hub selects their tab itself (see SettingsHubView.test).
+    const hubLinks = new Set<string>(
+      HUB_GROUPS.flatMap((group) => group.entries).flatMap((entry) => (entry.kind === "link" ? [entry.id] : [])),
+    );
+    for (const item of [...LISTED_NAV_GROUPS.flat(), ...NAV_FOOTER_ITEMS]) {
+      // Hub tabs are one profile-button click away; the hub selects them itself.
       if ((SETTINGS_HUB_IDS as readonly string[]).includes(item.id)) continue;
-      expect(screen.getByTestId(item.id === "chats" ? "sidebar-new-chat" : `nav-row-${item.id}`)).toBeTruthy();
+      if (item.id === "chats") expect(screen.getByTestId("sidebar-mode-dodaios")).toBeTruthy();
+      else if (item.id === "agentic-ide") expect(screen.getByTestId("sidebar-mode-ide")).toBeTruthy();
+      // Every other page is a link inside the Settings hub.
+      else expect(hubLinks.has(item.id), item.id).toBe(true);
     }
     // And every hub id is still a valid section id — an id the hub lists
     // that stops resolving strands deep links, the deck and voice commands.

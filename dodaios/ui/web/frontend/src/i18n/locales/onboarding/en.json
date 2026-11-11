@@ -76,7 +76,6 @@
       "labels": {
         "chat": "Chat",
         "voice": "Voice chat",
-        "agents": "Agents",
         "ide": "Agentic IDE",
         "plugins": "Plugins",
         "wake": "Wake word",
@@ -85,7 +84,6 @@
       "stops": {
         "chat": "Hi, I'm {pet}! Let me show you around. This is your chat with {name}. Type anything here: a question, a task, a file to look at. You never pick a tool or a model yourself; {name} decides what's needed.",
         "voice": "Rather talk? This is voice chat. Click the bar, say your wake word or press your Call shortcut, then just speak. The wave shows who is talking.",
-        "agents": "Big jobs like research, a report or a website go to your agents. They're {name}'s team, each with its own role and model. Open Agents to watch them work, chat with one or create your own.",
         "ide": "The Agentic IDE runs coding agents such as Claude Code and Codex in real terminals, on your own projects. Type to them directly, or let {name} steer them by voice.",
         "plugins": "Plugins connect {name} to the apps you use: mail, calendar, notes, smart home and more. Each one becomes a new tool, and anything that sends or changes something asks you first.",
         "wake": "Your wake word lives here in Settings. Say \"Hey {name}\" and {name} listens. Change the word, pick its language or test it anytime.",

@@ -19,9 +19,9 @@ const GENERAL_SECTIONS = [
 
 const entries = HUB_GROUPS.flatMap((group) => group.entries);
 
-describe("the Settings hub's five groups", () => {
-  it("are You, Voice, Connections, Agents, Advanced — in that order", () => {
-    expect(HUB_GROUPS.map((group) => group.id)).toEqual(["you", "voice", "connections", "agents", "advanced"]);
+describe("the Settings hub's six groups", () => {
+  it("are You, Voice, Connections, Assistant, Tools, Advanced — in that order", () => {
+    expect(HUB_GROUPS.map((group) => group.id)).toEqual(["you", "voice", "connections", "agents", "tools", "advanced"]);
   });
 
   it("drop no tab: every former entry is still listed, exactly once", () => {

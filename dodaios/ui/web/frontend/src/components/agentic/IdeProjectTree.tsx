@@ -1,3 +1,4 @@
+import { useIdeProjectsSeed } from "@/components/agentic/useIdeProjectsSeed";
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUpRight, Check, Copy, CopyPlus, Folder, FolderGit2, GitBranch, FolderOpen, FolderPlus, Globe, Loader2, Mic, MoreHorizontal, OctagonPause, Pencil, Pin, PinOff, Plus, Server, SquareCode, Trash2, X, type LucideIcon } from "lucide-react";
@@ -123,6 +124,7 @@ function saveExpansion(value: Record<string, boolean>): void {
 
 /** Compact, accessible navigation over real projects and their workspace IDs. */
 export function IdeProjectTree() {
+  useIdeProjectsSeed();
   const t = useT();
   const projects = useIdeProjectsStore((state) => state.projects);
   const activeWorkspaceId = useIdeProjectsStore((state) => state.activeWorkspaceId);
