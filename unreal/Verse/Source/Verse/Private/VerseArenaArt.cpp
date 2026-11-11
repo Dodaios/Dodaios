@@ -4,6 +4,10 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/RectLightComponent.h"
 #include "Dom/JsonObject.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 #include "Engine/RectLight.h"
 #include "Engine/SpotLight.h"
 #include "Engine/PointLight.h"
@@ -77,6 +81,47 @@ namespace VerseArenaArtPrivate
 	{
 		return Wall.bAlongX && Wall.Inward < 0.0 && T > DoorMinX - 150.0 && T < DoorMaxX + 150.0;
 	}
+}
+
+UStaticMesh* AVerseArenaGraybox::ExternalSwap(const TCHAR* KitName, FTransform& InOutTransform)
+{
+	if (!bExternalSwapsRead)
+	{
+		bExternalSwapsRead = true;
+		FString Text;
+		TSharedPtr<FJsonObject> Root;
+		const FString Path = FPaths::Combine(FPaths::ProjectDir(), TEXT("Data/arena/external_swaps.json"));
+		if (FFileHelper::LoadFileToString(Text, *Path) && FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), Root) && Root)
+		{
+			const TSharedPtr<FJsonObject>* Swaps = nullptr;
+			if (Root->TryGetObjectField(TEXT("swaps"), Swaps))
+			{
+				for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Swaps)->Values)
+				{
+					ExternalSwaps.Add(Pair.Key, Pair.Value->AsObject());
+				}
+			}
+		}
+	}
+	const TSharedPtr<FJsonObject>* Entry = ExternalSwaps.Find(KitName);
+	if (!Entry || !Entry->IsValid())
+	{
+		return nullptr;
+	}
+	UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *(*Entry)->GetStringField(TEXT("mesh")), nullptr, LOAD_NoWarn | LOAD_Quiet);
+	if (!Mesh)
+	{
+		return nullptr;  // External/ is not on this machine: the CC0 kit mesh stays
+	}
+	double Scale = 1.0;
+	double Yaw = 0.0;
+	double Lift = 0.0;
+	(*Entry)->TryGetNumberField(TEXT("scale"), Scale);
+	(*Entry)->TryGetNumberField(TEXT("yaw"), Yaw);
+	(*Entry)->TryGetNumberField(TEXT("lift_cm"), Lift);
+	++ExternalSwapsUsed;
+	InOutTransform = FTransform(FRotator(0.0, Yaw, 0.0)) * FTransform(FQuat::Identity, FVector(0.0, 0.0, Lift), FVector(Scale)) * InOutTransform;
+	return Mesh;
 }
 
 void AVerseArenaGraybox::AddProp(const TCHAR* Name, const FVector& At, double Yaw, const FVector& Scale, bool bShadow)
@@ -791,5 +836,6 @@ void AVerseArenaGraybox::DressArt()
 	DressArtWalls();
 	DressArtBays();
 	DressArtWear();
-	UE_LOG(LogVerse, Log, TEXT("[VerseArena] art pass: %d instances"), DressingInstances - Before);
+	UE_LOG(LogVerse, Log, TEXT("[VerseArena] art pass: %d instances, %d from External/ (of %d swap entries)"), DressingInstances - Before,
+		ExternalSwapsUsed, ExternalSwaps.Num());
 }
