@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 import time
 import uuid
 from collections.abc import Callable, Mapping
@@ -39,6 +38,7 @@ from dodaios.agent_chat.approval_bridge import ChatApprovalBridge, ChatGrant, ap
 from dodaios.agent_chat.effort import normalize_effort
 from dodaios.agent_chat.events import make_event
 from dodaios.agent_chat.folder_tools import PLAN_STANCE, folder_tools, plan_filter
+from dodaios.agent_chat.lead_turn_contract import explicit_skill, resolve_skill_pick
 from dodaios.agent_chat.runner_api import messages_from_events
 from dodaios.agent_chat.surface_kits import kit_for
 from dodaios.agent_chat.tool_catalog import ToolChoice
@@ -906,57 +906,20 @@ def _agent_secret(resolver: Callable[[str], str | None], provider: str) -> str |
         return None
 
 
-#: A leading ``/slug`` — the composer's slash pick — and whatever follows it.
-_EXPLICIT_SKILL_RE = re.compile(r"^\s*/([A-Za-z0-9][\w.:-]*)(?:\s+|$)(.*)$", re.DOTALL)
-
-
-def explicit_skill(text: str) -> tuple[str, str] | None:
-    """``("slug", "the rest")`` when the message opens with ``/slug``, else None.
-
-    The composer's ``/`` typeahead lists the registry's active skills by
-    slug; picking one puts ``/slug`` at the head of the sentence. That pick
-    is an order, not a hint, so it is honoured before any trigger-phrase
-    matching — the same precedence a CLI gives its slash commands.
-    """
-    m = _EXPLICIT_SKILL_RE.match(text or "")
-    if m is None:
-        return None
-    return m.group(1), m.group(2).strip()
-
-
 def _note_skill_trigger(brain: Any, text: str) -> None:
     """The desktop text path's pre-brain hook, verbatim in effect: a skill
     whose trigger matches is noted on the brain, which injects its
     instructions into this turn (desktop_app._on_user_message). A leading
-    ``/slug`` names the skill outright and wins over the trigger matcher."""
+    ``/slug`` names the skill outright and wins over the trigger matcher. The
+    resolution is the lead turn contract's, shared with the CLI seats."""
+    note = getattr(brain, "note_skill_trigger", None)
+    if not callable(note):
+        return
+    pick = resolve_skill_pick(text)
+    if pick is None:
+        return
     try:
-        from dodaios.skills.skill_context import try_get_skill_context
-        from dodaios.skills.trigger_matcher import TriggerMatcher
-
-        skill_ctx = try_get_skill_context()
-        note = getattr(brain, "note_skill_trigger", None)
-        if skill_ctx is None or not callable(note):
-            return
-        explicit = explicit_skill(text)
-        if explicit is not None:
-            slug, rest = explicit
-            try:
-                skill = skill_ctx.registry.resolve(slug)
-            except KeyError:  # not a skill's name: the trigger matcher gets its turn
-                log.debug("brain runner: /%s names no active skill", slug)
-            else:
-                note(skill.name, content=rest, source="chat")
-                return
-        match_result = TriggerMatcher(skill_ctx.registry).match_voice_with_match(text, lang="auto")
-        if match_result is None:
-            return
-        matched, regex_match = match_result
-        content = ""
-        for group in reversed(regex_match.groups()):
-            if group and group.strip():
-                content = group.strip()
-                break
-        note(matched.name, content=content, source="chat")
+        note(pick.name, content=pick.content, source=pick.source)
     except Exception:  # noqa: BLE001 — the hook is defensive; a crash must never cost the turn
         log.debug("brain runner: skill pre-hook skipped", exc_info=True)
 
@@ -969,6 +932,7 @@ __all__ = [
     "brain_history_from_events",
     "brain_manager",
     "build_override",
+    "explicit_skill",
     "kit_payload",
     "run_brain_turn",
 ]

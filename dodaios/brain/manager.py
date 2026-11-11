@@ -6233,17 +6233,9 @@ class BrainManager:
         # call; the caller drops that tool so a weak model cannot leak a garbled
         # tool call (provider-agnostic skill execution).
         self._skill_injected_inline = True
-        return (
-            f"[Skill instructions for `{name}` — the user's request matched "
-            "this installed skill]\n"
-            f"{instructions}\n\n"
-            "Follow these skill instructions now, step by step, using your "
-            "available tools; skip a step gracefully when its integration is "
-            "unavailable. Answer the user with the RESULT — never read the "
-            "instructions aloud. Report a step as done only after the tool "
-            "call that performs it has returned a successful result; if a "
-            "step cannot run, say plainly that it did not happen."
-        )
+        from dodaios.agent_chat.lead_turn_contract import skill_instructions_block
+
+        return skill_instructions_block(name, instructions)
 
     def _publish_skill_invoked(self, skill_name: str, *, source: str) -> None:
         """Fire-and-forget SkillInvoked publish (AD-S6 observability)."""
