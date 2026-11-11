@@ -329,18 +329,37 @@ if [ "$(pwd -P)" = "$(cd "$HOME" && pwd -P)" ]; then
   exit 1
 fi
 [ -d .git ] || git init -q
-if git rev-parse -q --verify HEAD >/dev/null && [ -n "$(git status --porcelain)" ]; then
-  export GIT_INDEX_FILE="$(mktemp)"; git read-tree HEAD; git add -A; t=$(git write-tree)
+git fetch -q "$BUNDLE" "$REF:$REF"
+rm -f "$BUNDLE"
+HEAD_NOW=$(git rev-parse -q --verify HEAD || true)
+if [ -n "$HEAD_NOW" ]; then
+  # The files as they are, hashed through a copy of the folder's own index
+  # (timestamps kept), so only what changed is read; an index built from HEAD
+  # re-hashes every file.
+  IDX="$(git rev-parse --git-path index)"
+  export GIT_INDEX_FILE="$(mktemp)"
+  if [ -f "$IDX" ]; then cp -p "$IDX" "$GIT_INDEX_FILE"; else git read-tree HEAD; fi
+  git add -A; t=$(git write-tree)
+  rm -f "$GIT_INDEX_FILE"; unset GIT_INDEX_FILE
+  ON=$(git symbolic-ref -q --short HEAD || true)
+  # Already the files being sent, on the same commit and branch (a thread's
+  # next turn when nothing changed in between): the checkout, the reset and
+  # the index refresh below each walk every file and change nothing here.
+  if [ "$HEAD_NOW" = "$BASE" ] && [ "$ON" = "$BRANCH" ] \
+     && [ "$t" = "$(git rev-parse "$SNAP^{{tree}}")" ]; then
+    git update-ref {synced} "$SNAP"
+    echo ok
+    exit 0
+  fi
   # Files this computer already has (given to the server, or handed back by
   # it) need no backup: a thread would leave one behind on every turn.
-  if [ "$t" != "$(git rev-parse -q --verify "{synced}^{{tree}}" || true)" ]; then
+  if [ "$t" != "$(git rev-parse "HEAD^{{tree}}")" ] \
+     && [ "$t" != "$(git rev-parse -q --verify "{synced}^{{tree}}" || true)" ]; then
     c=$(git -c user.name=Dodaios -c user.email=jarvis@localhost commit-tree "$t" -p HEAD \
         -m "jarvis: server state before sync")
     git update-ref "refs/jarvis/backup/$(date +%s)" "$c"
   fi
-  rm -f "$GIT_INDEX_FILE"; unset GIT_INDEX_FILE
 fi
-git fetch -q "$BUNDLE" "$REF:$REF"
 if [ -n "$BASE" ]; then
   if [ -n "$BRANCH" ]; then git checkout -q -f -B "$BRANCH" "$BASE"
   else git checkout -q -f --detach "$BASE"; fi
@@ -348,7 +367,6 @@ fi
 git read-tree -u --reset "$SNAP"
 if [ -n "$BASE" ]; then git reset -q; fi
 git update-ref {synced} "$SNAP"
-rm -f "$BUNDLE"
 echo ok
 """
 
@@ -403,6 +421,129 @@ async def _remote_known(pool: SshPtyPool, remote_folder: str) -> list[str]:
     ]
 
 
+#: On the server: the commit a first copy was fetched as from the repository's
+#: own remote. Being a ref, it counts as known, so bundles leave it out.
+SEED_REF = "refs/jarvis/seed"
+
+# One commit, no history: the files the server needs, nothing more. Prompts
+# are off, so a private repository the server cannot read fails at once
+# instead of waiting for a password nobody types; the caller then sends the
+# history as a bundle, as before.
+_SEED = r"""
+set -e
+DEST={dest}; URL={url}; SHA={sha}
+mkdir -p "$DEST"
+cd "$DEST"
+if [ "$(pwd -P)" = "$(cd "$HOME" && pwd -P)" ]; then
+  echo "refusing to set up the code in the home folder itself" >&2
+  exit 1
+fi
+[ -d .git ] || git init -q
+export GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never GIT_ASKPASS=true SSH_ASKPASS=true
+git fetch -q --depth=1 --no-tags "$URL" "$SHA"
+git cat-file -e "$SHA^{{commit}}"
+git update-ref {seed} "$SHA"
+echo seeded
+"""
+
+#: ``user@host:path``, the short form of an SSH remote.
+_SCP_URL = re.compile(r"^(?:[^@/\s]+@)?(?P<host>[A-Za-z0-9.-]+):(?!//)(?P<path>[^\s]+)$")
+
+
+def public_fetch_url(url: str) -> str | None:
+    """An address the server can fetch ``url``'s repository from, or ``None``.
+
+    SSH remotes become HTTPS (the server has no key of this computer's), and
+    a user or token written into the address is dropped: it is this
+    computer's secret, and the server may be rented or shared. A path on
+    this computer means nothing there.
+    """
+    url = url.strip()
+    scp = _SCP_URL.match(url)
+    if scp and "\\" not in url and not re.match(r"^[A-Za-z]:", url):
+        return f"https://{scp.group('host')}/{scp.group('path').lstrip('/')}"
+    match = re.match(r"^(?P<scheme>https?|ssh|git)://(?:[^@/]*@)?(?P<rest>[^\s]+)$", url)
+    if not match:
+        return None
+    rest = match.group("rest")
+    if match.group("scheme") == "ssh":
+        # ssh://git@host:2222/owner/repo: the port belongs to SSH, not HTTPS.
+        host, _, path = rest.partition("/")
+        return f"https://{host.split(':', 1)[0]}/{path}" if path else None
+    return f"{match.group('scheme')}://{rest}"
+
+
+def upstream_seed(top: Path) -> tuple[str, str] | None:
+    """``(url, commit)``: the newest commit of HEAD's history its remote has.
+
+    The branch's upstream when it has one, else the remote's default branch.
+    ``None`` when the folder has no remote, or none the server could reach.
+    """
+    head = _head(top)
+    branch = _branch(top)
+    if head is None:
+        return None
+    remote = "origin"
+    if branch:
+        try:
+            remote = _git(top, "config", "--get", f"branch.{branch}.remote") or remote
+        except MoveError:  # no upstream configured: the default remote is tried
+            pass
+    try:
+        url = public_fetch_url(_git(top, "remote", "get-url", remote))
+    except MoveError:  # no such remote: nothing to seed from
+        return None
+    if url is None:
+        return None
+    for ref in ("@{upstream}", f"refs/remotes/{remote}/HEAD"):
+        try:
+            base = _git(top, "merge-base", head, ref)
+        except MoveError:  # no upstream, or no default branch known: try the next
+            continue
+        if re.fullmatch(r"[0-9a-f]{40}", base):
+            return url, base
+    return None
+
+
+async def _seed_from_upstream(pool: SshPtyPool, top: Path, remote_top: str) -> str | None:
+    """Let the server fetch the files from the repository's own remote.
+
+    Sending the whole history as a bundle is what made a first copy of a big
+    repository take minutes (348 MB for this project's own). The server
+    fetches one commit instead and the bundle carries only what came after.
+    Returns that commit, or ``None`` when the server could not fetch it.
+    """
+    seed = await asyncio.to_thread(upstream_seed, top)
+    if seed is None:
+        return None
+    url, sha = seed
+    started = time.monotonic()
+    code, out, err = await pool.run(
+        _SEED.format(
+            dest=shlex.quote(remote_top),
+            url=shlex.quote(url),
+            sha=shlex.quote(sha),
+            seed=SEED_REF,
+        ),
+        timeout_s=600,
+    )
+    if code != 0 or "seeded" not in out:
+        said = (err or out).strip().splitlines()
+        log.info(
+            "remote copy: fetching %s on the server failed (%s); sending the history instead",
+            url,
+            said[-1][:200] if said else code,
+        )
+        return None
+    log.info(
+        "remote copy: the server fetched %s from %s in %.1fs",
+        sha[:12],
+        url,
+        time.monotonic() - started,
+    )
+    return sha
+
+
 async def _upload(pool: SshPtyPool, local: Path, remote: str) -> None:
     remote = await pool.sftp_path(remote)
     session = await pool.connection()
@@ -441,6 +582,11 @@ async def push_code(pool: SshPtyPool, local_folder: Path) -> Placement:
     head = await asyncio.to_thread(_head, top)
     branch = await asyncio.to_thread(_branch, top)
     known = await _remote_known(pool, remote_top)
+    if not known:
+        # A first copy: the server fetches what is already pushed itself.
+        seeded = await _seed_from_upstream(pool, top, remote_top)
+        if seeded:
+            known = [seeded]
     with tempfile.TemporaryDirectory(prefix="jarvis-bundle-") as tmp:
         bundle = Path(tmp) / "offload.bundle"
         await asyncio.to_thread(_git, top, "update-ref", ref, snap)
@@ -550,10 +696,15 @@ async def _push_tarball(pool: SshPtyPool, folder: Path, remote: str) -> list[str
 _PACK = r"""
 set -e
 cd {dest}
+IDX="$(git rev-parse --git-path index)"
 export GIT_INDEX_FILE="$(mktemp)"; rm -f "$GIT_INDEX_FILE"  # a name only: git makes the file
 # A folder sent before its first commit has no HEAD here either.
 if git rev-parse -q --verify HEAD >/dev/null
-then git read-tree HEAD; set -- -p HEAD
+then
+  # The folder's own index (timestamps kept) lets ``add -A`` hash only what
+  # changed; one read from HEAD re-hashes every file of the checkout.
+  if [ -f "$IDX" ]; then cp -p "$IDX" "$GIT_INDEX_FILE"; else git read-tree HEAD; fi
+  set -- -p HEAD
 else set --
 fi
 git add -A; t=$(git write-tree)
