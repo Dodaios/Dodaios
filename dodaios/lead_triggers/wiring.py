@@ -466,6 +466,13 @@ async def submit_event(event: TriggerEvent) -> str:
         return "unavailable"
     if event.scope.startswith(AGENT_SCOPE_PREFIX):
         return await service.submit_agent_mail(event)
+    if event.source in ("mail", "calendar"):
+        try:
+            from dodaios.life_admin.service import ingest_trigger_event
+
+            await ingest_trigger_event(event)  # a no-op until life admin is on
+        except Exception:  # noqa: BLE001 - the life-admin ledger never blocks the intake
+            log.debug("life admin: event not ingested", exc_info=True)
     return await service.submit(event)
 
 

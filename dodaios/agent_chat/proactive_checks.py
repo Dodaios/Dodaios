@@ -115,6 +115,7 @@ def skip_reason(
     waiting_agents: int,
     agent_turns_since: int,
     external_sources: int | None,
+    life_admin_urgent: int = 0,
 ) -> str:
     """Why a check needs no model call right now, or ``""`` when it must look.
 
@@ -126,7 +127,7 @@ def skip_reason(
     ``None`` for a count means it could not be read, which always runs the
     check (an unreadable signal never hides something).
     """
-    if due_loops > 0:
+    if due_loops > 0 or life_admin_urgent > 0:
         return ""
     topics = set(settings.topics)
     if "deadlines" in topics and due_deadlines > 0:
@@ -139,7 +140,18 @@ def skip_reason(
 
 
 async def precheck_skip(runtime: Any, service: Any, tags: tuple[str, ...]) -> str:
-    """:func:`skip_reason` for a live "needs you" run; ``""`` for any other routine."""
+    """:func:`skip_reason` for a live "needs you" run and the life-admin digest;
+    ``""`` for any other routine."""
+    from dodaios.life_admin.service import DIGEST_TAG
+
+    if DIGEST_TAG in tags:
+        from dodaios.life_admin.service import digest_skip_reason
+
+        try:
+            return await digest_skip_reason()
+        except Exception:  # noqa: BLE001 - an unreadable ledger runs the digest
+            log.debug("life admin: digest pre-check unreadable", exc_info=True)
+            return ""
     if CHECK_TAG not in tags:
         return ""
     import asyncio
@@ -165,6 +177,9 @@ async def precheck_skip(runtime: Any, service: Any, tags: tuple[str, ...]) -> st
             exclude_session=lead_session_id(service) or "",
         )
         sources = await asyncio.to_thread(lambda: len(connected_plugin_ids(TokenStore())))
+        from dodaios.life_admin.service import peek_urgent_count
+
+        urgent = await peek_urgent_count()
         return skip_reason(
             settings,
             due_loops=len(loops),
@@ -172,6 +187,7 @@ async def precheck_skip(runtime: Any, service: Any, tags: tuple[str, ...]) -> st
             waiting_agents=waiting,
             agent_turns_since=turns,
             external_sources=sources,
+            life_admin_urgent=urgent,
         )
     except Exception:  # noqa: BLE001 - an unreadable signal runs the check
         log.debug("lead check: pre-check unreadable, running the model", exc_info=True)
@@ -216,7 +232,34 @@ async def run_context(task_store: Any, task_id: str, tags: tuple[str, ...]) -> s
             flagged = ""
         if flagged:
             parts.append(flagged)
+    parts.extend(await _life_admin_parts(tags))
     return "\n\n".join(parts)
+
+
+async def _life_admin_parts(tags: tuple[str, ...]) -> list[str]:
+    """The life-admin text for this routine (digest list, brief section, urgent items).
+
+    Empty while life admin is off; each item is handed out once."""
+    from dodaios.agent_chat.proactive import BRIEF_TAG
+    from dodaios.life_admin import service as life
+
+    readers = []
+    if life.DIGEST_TAG in tags:
+        readers.append(life.digest_context)
+    if CHECK_TAG in tags:
+        readers.append(life.urgent_context)
+    if BRIEF_TAG in tags:
+        readers.append(life.brief_context)
+    parts: list[str] = []
+    for reader in readers:
+        try:
+            text = await reader()
+        except Exception:  # noqa: BLE001 - the run goes on without the life-admin text
+            log.warning("life admin: context unreadable for %s", reader.__name__, exc_info=True)
+            continue
+        if text:
+            parts.append(text)
+    return parts
 
 
 async def _previous_result(task_store: Any, task_id: str) -> str:
