@@ -173,4 +173,22 @@ describe("ThreadTree", () => {
     await waitFor(() => expect(JSON.parse(localStorage.getItem("jarvis.ide.threadExpansion.v1") ?? "{}")).toEqual({ p2: true }));
     expect(screen.getAllByText("New thread").filter((node) => node.closest("[aria-current=page]"))).toHaveLength(1);
   });
+
+  it("lists a folder's terminal grids under its threads and opens one on the grid face", () => {
+    const grid = { id: "w1", name: "Release", folder: app.path, branch: null, terminals: 3, live_terminals: 0,
+      focus_mode: false, created_at: 0, last_active_at: 0, active: false, status: "open", restorable: false };
+    const withGrid = { ...app, workspaces: [grid] } as IdeProject;
+    localStorage.setItem("jarvis.ide.threadExpansion.v1", JSON.stringify({ p1: true }));
+    useIdeProjectsStore.setState({ projects: [withGrid, notes], activeWorkspaceId: null, action: null });
+    useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, focusNonce: 0 });
+    render(<ThreadTree />);
+    const row = screen.getByTestId("thread-grid-w1");
+    expect(row.textContent).toContain("Release");
+    expect(row.textContent).toContain("3");
+    fireEvent.click(row);
+    expect(useIdeThreadsStore.getState().layout).toBe("grid");
+    expect(useIdeProjectsStore.getState().action).toMatchObject({ kind: "activate-workspace", workspaceId: "w1" });
+    fireEvent.contextMenu(row);
+    expect(useIdeProjectsStore.getState().action).toMatchObject({ kind: "workspace-options", workspaceId: "w1" });
+  });
 });

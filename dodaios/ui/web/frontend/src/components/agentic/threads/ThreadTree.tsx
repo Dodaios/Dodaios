@@ -1,6 +1,6 @@
 import { useIdeProjectsSeed } from "@/components/agentic/useIdeProjectsSeed";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, Loader2, Mic, MoreHorizontal, Pencil, Plus, Search, SquarePen, SquarePlus, Trash2, Users, X } from "lucide-react";
+import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, LayoutGrid, Loader2, Mic, MoreHorizontal, Pencil, Plus, Search, SquarePen, SquarePlus, Trash2, Users, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
@@ -109,6 +109,10 @@ export function ThreadTree() {
   const projects = useIdeProjectsStore((state) => state.projects);
   const connectProject = useIdeProjectsStore((state) => state.connectProject);
   const toggleVoice = useIdeProjectsStore((state) => state.toggleVoice);
+  const activateWorkspace = useIdeProjectsStore((state) => state.activateWorkspace);
+  const openWorkspaceOptions = useIdeProjectsStore((state) => state.openWorkspaceOptions);
+  const activeWorkspaceId = useIdeProjectsStore((state) => state.activeWorkspaceId);
+  const gridOnScreen = useIdeThreadsStore((state) => state.layout) === "grid";
   // In this layout search is a row of the list, not the field atop the sidebar.
   const searchOn = useQuickSwitchSettings((state) => state.enabled);
   const pushToast = useEventStore((state) => state.pushToast);
@@ -228,6 +232,12 @@ export function ThreadTree() {
     if (!target) { connectProject(); return; }
     setProjectOpen(target.id, true);
     start(target.id);
+  };
+
+  /** A folder's terminal grid: the IDE turns to its grid face and brings that workspace forward. */
+  const openGrid = (workspaceId: string) => {
+    useIdeThreadsStore.getState().setLayout("grid");
+    activateWorkspace(workspaceId);
   };
 
   const projectRow = (project: IdeProject) => {
@@ -408,6 +418,20 @@ export function ThreadTree() {
           className={cn("flex min-h-7 items-center gap-2 rounded-md text-left text-sm text-muted-foreground hover:text-foreground", TITLE_INSET, FOCUS_RING)}>
           <Plus aria-hidden className="h-3.5 w-3.5" />{t("ide_threads.start_thread")}
         </button>}
+        {/* The folder's terminal grids, under its threads: one list for both. */}
+        {project.workspaces.map((workspace) => {
+          const label = `${t("ide_threads.layout_grid")}: ${workspace.name}`;
+          const current = gridOnScreen && workspace.id === activeWorkspaceId;
+          return <button key={workspace.id} type="button" data-testid={`thread-grid-${workspace.id}`}
+            aria-label={label} title={label} aria-current={current ? "true" : undefined}
+            onClick={() => openGrid(workspace.id)}
+            onContextMenu={(event) => { event.preventDefault(); openWorkspaceOptions(workspace.id); }}
+            className={cn(ROW, "w-full transition-colors hover:bg-muted hover:text-foreground", current ? "bg-secondary text-foreground-strong" : "text-foreground-secondary", FOCUS_RING)}>
+            <LayoutGrid aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+            <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
+            {workspace.terminals > 0 && <span className="shrink-0 pr-1 text-xs tabular-nums text-foreground-faint">{workspace.terminals}</span>}
+          </button>;
+        })}
         {stored.length > 0 && <button type="button" aria-expanded={archiveShown}
           data-testid={`thread-archived-${project.id}`}
           onClick={() => setArchiveOpen((current) => ({ ...current, [project.id]: !archiveShown }))}
