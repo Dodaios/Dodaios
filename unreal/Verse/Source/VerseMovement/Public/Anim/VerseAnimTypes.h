@@ -7,6 +7,17 @@
 
 class UAnimSequence;
 
+/**
+ * Secondary motion on one bone (the Sovereign's cloak): `MeshRotation` turns the bone about
+ * its own head in the mesh's component space, after the clips (the bone keeps its animated
+ * local pose; its parent may have swung before it). List parents before children.
+ */
+struct FVerseBoneSwing
+{
+	FName Bone;
+	FQuat MeshRotation = FQuat::Identity;
+};
+
 /** Weapon class the upper body holds (clip sets of work-packages.md WP13.6). */
 UENUM(BlueprintType)
 enum class EVerseAnimWeapon : uint8

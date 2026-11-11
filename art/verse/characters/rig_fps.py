@@ -18,16 +18,22 @@ on the male skeleton, the reference pose of `SKEL_Verse_Human`.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
 
 import bpy
+from mathutils import Vector
 
 from characters import build as CB
 from characters import common as C
 from characters import crew
+from characters import looks as LK
+from characters import looks_sovereign as LS
 from characters import outfits as O
+from characters import paint as PT
+from characters import sovereign as SOV  # registers the Sovereign's materials
 from characters.fps import catalogue as K
 from characters.fps import clips as CL
 from characters.fps import export as EX
@@ -88,6 +94,9 @@ QA_CLIPS = {
     "A_Crew_Sit_Type": (0.0,),
     "A_Stand_Lean_L": (0.0,),
 }
+#: Uniforms whose meshes carry their painted atlas (base colour, normal, ORM) into Unreal,
+#: exactly as the three.js build paints them (`build.py`, `paint.texture`).
+PAINTERS = {"Sovereign": LS.sovereign}
 #: Garment objects the crew build hides (nobody wears the cap, `build.TIERS`).
 HIDDEN = {"Cap"}
 
@@ -96,22 +105,41 @@ def _srgb_hex(h: str) -> list[float]:
     return [round(x, 5) for x in CB._srgb_to_linear(h)] + [1.0]
 
 
-def _material_values(mat, uniform: str) -> dict:
+def _material_values(mat, uniform: str, textures: dict | None = None) -> dict:
     base = C_strip(mat.name)
     bsdf = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
     colour = list(bsdf.inputs["Base Color"].default_value) if bsdf else [0.2, 0.2, 0.2, 1.0]
+    if bsdf and bsdf.inputs["Base Color"].is_linked:
+        # an atlas-wired copy (`paint.textured_copy`): the factor multiplies the atlas
+        colour = list(PT.get_factor(mat)) + [1.0]
     rough = float(bsdf.inputs["Roughness"].default_value) if bsdf else 0.6
     metal = float(bsdf.inputs["Metallic"].default_value) if bsdf else 0.0
     override = UNIFORM_COLOURS.get(uniform, {}).get(base)
     if override:
         colour = _srgb_hex(override)
-    return {
+    out = {
         "slot": base,
         "mi": mi_path(uniform, base),
         "base_color": [round(float(c), 5) for c in colour[:3]] + [1.0],
         "roughness": round(rough, 4),
         "metallic": round(metal, 4),
     }
+    if bsdf is not None:
+        # Blender's Specular IOR Level 0.5 is Unreal's Specular 0.5 (F0 4 %); the Sovereign's
+        # fabrics are duller (`sovereign.dull_specular`)
+        level = float(bsdf.inputs["Specular IOR Level"].default_value)
+        if abs(level - 0.5) > 1e-3:
+            out["specular"] = round(level, 4)
+    if not mat.use_backface_culling:
+        out["two_sided"] = True  # the glTF export's doubleSided: single-sheet garments
+    extra = O.MATERIALS.get(base, (None, None, None, {}))[3] if base in O.MATERIALS else {}
+    if extra.get("sheen"):
+        out["sheen"] = round(float(extra["sheen"]), 4)
+    if extra.get("emit"):
+        out["emit"] = round(float(extra["emit"]), 4)
+    elif textures and base not in PT.UNTEXTURED:
+        out["textures"] = dict(textures)
+    return out
 
 
 def C_strip(name: str) -> str:  # noqa: N802 - keeps the "M_" prefix visible at call sites
@@ -146,17 +174,65 @@ class Variant:
             raise RuntimeError(f"FPS rig {v}: " + "; ".join(problems))
 
 
+def with_optional_bones(fps_arm, own_arm, name: str):
+    """A copy of the FPS armature plus the optional bones (`S.OPTIONAL_PARENT`) of `own_arm`.
+
+    A builder with its own skeleton (the Sovereign's cloak) keeps those bones where it put
+    them: the crew and the FPS skeleton share the same body landmarks and world space.
+    """
+    arm = fps_arm.copy()
+    arm.data = fps_arm.data.copy()
+    arm.name = arm.data.name = f"FPS_{name}"
+    C.link(arm)
+    extra = [b for b in own_arm.data.bones if b.name in S.OPTIONAL_PARENT]
+    C.set_active(arm)
+    bpy.ops.object.mode_set(mode="EDIT")
+    eb = arm.data.edit_bones
+    for bone in extra:
+        e = eb.new(bone.name)
+        e.head, e.tail = bone.head_local.copy(), bone.tail_local.copy()
+        e.align_roll(Vector((0, -1, 0)))
+    for bone in extra:
+        # unconnected, like every FPS bone: the cm conversion moves each head on its own
+        eb[bone.name].parent = eb[S.OPTIONAL_PARENT[bone.name]]
+    bpy.ops.object.mode_set(mode="OBJECT")
+    return arm
+
+
 def build_mesh(var: Variant, spec: K.MeshSpec, out: Path) -> dict:
     ctx = var.ctx
     builder = K.UNIFORMS[spec.uniform][0]
-    fn = getattr(O, builder, None) or getattr(crew, builder)
+    fn = getattr(O, builder, None) or getattr(crew, builder, None) or getattr(SOV, builder)
     ctx.hi, ctx.look = None, {}
     ctx.export_arm = None
     objs = [o for o in fn(ctx) if o.type == "MESH"]
     keep = [o for o in objs if o.name.split(".")[0] not in HIDDEN]
+    textures = None
+    painter = PAINTERS.get(spec.uniform)
+    if painter is not None:
+        # the same atlas the three.js build paints (build.py): part names without suffixes
+        for o in objs:
+            o.name = o.name.split(".")[0]
+        tex_dir = out / "textures"
+        PT.texture(
+            spec.name,
+            keep,
+            painter(ctx),
+            hi=getattr(ctx, "hi", None),
+            weight=LK.density(ctx),
+            debug_dir=tex_dir,
+        )
+        CB.apply_defaults(spec.name, keep)  # the three.js build's default colours
+        textures = {
+            key: (tex_dir / f"T_{spec.name}_{key}.png").relative_to(EX.UE.REPO_ROOT).as_posix()
+            for key in ("BaseColor", "Normal", "ORM")
+        }
+    arm = var.arm
+    if ctx.export_arm is not None:
+        arm = with_optional_bones(var.arm, ctx.export_arm, spec.name)
     worst = 0
     for o in keep:
-        worst = max(worst, R.rebind(o, var.arm, var.wmap))
+        worst = max(worst, R.rebind(o, arm, var.wmap))
     copies = []
     for o in keep:
         c = o.copy()
@@ -182,8 +258,8 @@ def build_mesh(var: Variant, spec: K.MeshSpec, out: Path) -> dict:
     if len(joined.vertex_groups) != len(names):
         for name in names[len(joined.vertex_groups) :]:
             joined.vertex_groups.new(name=name)
-    joined.parent = var.arm
-    joined.modifiers.new("Armature", "ARMATURE").object = var.arm
+    joined.parent = arm
+    joined.modifiers.new("Armature", "ARMATURE").object = arm
     slots = []
     seen = set()
     for m in joined.data.materials:
@@ -193,8 +269,18 @@ def build_mesh(var: Variant, spec: K.MeshSpec, out: Path) -> dict:
         if base in seen:
             continue
         seen.add(base)
-        slots.append(_material_values(m, spec.uniform))
-    entry = EX.export_mesh(spec.name, var.arm, joined, out, slots)
+        slots.append(_material_values(m, spec.uniform, textures))
+    # the atlas-wired copies ('M_X@<mesh>') export under the slot names the records use
+    with PT.export_names(spec.name):
+        entry = EX.export_mesh(spec.name, arm, joined, out, slots)
+    if textures:
+        entry["textures"] = {
+            key: {
+                "file": path,
+                "sha256": hashlib.sha256((EX.UE.REPO_ROOT / path).read_bytes()).hexdigest(),
+            }
+            for key, path in textures.items()
+        }
     entry.update(
         uniform=spec.uniform,
         variant=spec.variant,

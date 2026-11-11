@@ -1,0 +1,34 @@
+{
+  "asset_path": "/Game/Verse/Characters/Sovereign/Textures/T_Sovereign_BC.T_Sovereign_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/characters/meshes/textures/T_SK_Sovereign_BaseColor.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "3461974afaf6fe6f232e412839dfccc03be8ef345ef53f96a7ec1f31d8b531b7"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Sovereign_BC",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "mesh": "SK_Sovereign"
+    },
+    "builder": "art/verse/characters/rig_fps.py",
+    "function": "build_mesh"
+  },
+  "texture": {
+    "channels": {},
+    "compression": "Default",
+    "flip_green": false,
+    "group": "Character",
+    "max_size": 2048,
+    "never_stream": true,
+    "srgb": true
+  }
+}

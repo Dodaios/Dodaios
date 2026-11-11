@@ -131,6 +131,7 @@
         "srgb": { "type": "boolean" },
         "compression": { "enum": ["Default", "Normalmap", "Masks", "BC7", "Grayscale", "HDR"] },
         "flip_green": { "type": "boolean" },
+        "never_stream": { "type": "boolean" },
         "channels": { "type": "object", "additionalProperties": { "type": "string" } }
       }
     },

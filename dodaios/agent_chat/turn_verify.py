@@ -15,7 +15,7 @@ from typing import Final
 
 from dodaios.brain.loop_control import Ask, LoopControl, ToolRecord, VerifyOutcome, VerifyRequest
 
-__all__ = ["claimed_actions", "lead_loop_control", "verify_answer"]
+__all__ = ["claimed_actions", "lead_loop_control", "verify_answer", "verify_answer_sync"]
 
 #: action family -> (first-person past-tense claim, tool-name words that satisfy it)
 _FAMILIES: Final[dict[str, tuple[re.Pattern[str], tuple[str, ...]]]] = {
@@ -93,12 +93,14 @@ def _satisfied(family: str, log: tuple[ToolRecord, ...]) -> bool:
     )
 
 
-async def verify_answer(request: VerifyRequest, ask: Ask) -> VerifyOutcome:  # noqa: ARG001
-    """Accept, or send the turn back once when the answer claims unproven actions."""
-    missing = [f for f in claimed_actions(request.answer) if not _satisfied(f, request.tool_log)]
+def verify_answer_sync(
+    answer: str, tool_log: tuple[ToolRecord, ...]
+) -> VerifyOutcome:
+    """The deterministic verdict; the lead's post-turn contract calls it on every seat."""
+    missing = [f for f in claimed_actions(answer) if not _satisfied(f, tool_log)]
     if not missing:
         return VerifyOutcome(accepted=True)
-    failed = [r.name for r in request.tool_log if not r.ok or r.blocked]
+    failed = [r.name for r in tool_log if not r.ok or r.blocked]
     names = ", ".join(sorted(set(failed))[:6])
     note = f" (these failed or were blocked: {names})" if failed else ""
     claims = "; ".join(f"{m} something" for m in missing)
@@ -107,6 +109,11 @@ async def verify_answer(request: VerifyRequest, ask: Ask) -> VerifyOutcome:  # n
         instruction=_REVISE.format(claims=claims, failed=note),
         detail="claimed actions without a matching successful tool call: " + ", ".join(missing),
     )
+
+
+async def verify_answer(request: VerifyRequest, ask: Ask) -> VerifyOutcome:  # noqa: ARG001
+    """Accept, or send the turn back once when the answer claims unproven actions."""
+    return verify_answer_sync(request.answer, request.tool_log)
 
 
 def lead_loop_control(drain_steer) -> LoopControl:  # type: ignore[no-untyped-def]

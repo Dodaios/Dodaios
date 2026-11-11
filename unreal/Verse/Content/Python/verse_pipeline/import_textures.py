@@ -68,6 +68,9 @@ def import_texture(record: dict, png: Path, *, save: bool = True):
         texture.set_editor_property(
             "lod_group", getattr(unreal.TextureGroup, GROUPS[spec["group"]])
         )
+    if spec.get("never_stream"):
+        # small hero atlases stay fully resident (no low-mip blocks while streaming in)
+        texture.set_editor_property("never_stream", True)
     if save:
         unreal.EditorAssetLibrary.save_loaded_asset(texture, only_if_is_dirty=False)
     return texture

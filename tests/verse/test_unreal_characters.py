@@ -131,6 +131,18 @@ def test_cpp_bone_table_matches_python():
     assert [(b, p or None) for b, p in pairs] == list(S.BONES)
 
 
+def test_cpp_optional_bones_match_python():
+    text = CPP.read_text(encoding="utf-8")
+    block = text.split("// OPTIONAL-BONES-BEGIN")[1].split("// OPTIONAL-BONES-END")[0]
+    pairs = re.findall(r'B\(TEXT\("([^"]+)"\), TEXT\("([^"]+)"\)\)', block)
+    assert pairs == list(S.CLOAK_BONES)
+
+
+def test_check_names_accepts_the_optional_cloak_bones():
+    assert S.check_names(list(S.NAMES) + [b for b, _ in S.CLOAK_BONES]) == []
+    assert S.check_hierarchy(dict(S.BONES) | dict(S.CLOAK_BONES)) == []
+
+
 def test_cpp_hit_zone_table_matches_hit_bodies():
     """combat-state 5: the bone -> EVerseHitZone table ships with PHYS_Verse_Human."""
     text = CPP.read_text(encoding="utf-8")
@@ -199,7 +211,8 @@ def test_mi_recipes_follow_the_schema():
     for path in recipes:
         doc = json.loads(path.read_text(encoding="utf-8"))
         jsonschema.validate(doc, schema)
-        assert doc["parent"] == R.CHARACTER_MASTER
+        # glowing slots (the Sovereign's eyes) sit on the emissive master
+        assert doc["parent"] in (R.CHARACTER_MASTER, R.EMISSIVE_MASTER)
 
 
 def test_write_all_is_stable(tmp_path):

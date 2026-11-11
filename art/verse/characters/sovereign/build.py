@@ -3,6 +3,7 @@
 
     python art/verse/characters/sovereign/build.py                       # every asset
     python art/verse/characters/sovereign/build.py --only M_Sov_ArcBolt  # listed assets only
+    python art/verse/characters/sovereign/build.py --turntable           # SK_Sovereign, four sides
 
 Runs ``unreal_assets.py`` in a headless editor (``-ExecutePythonScript``) under
 the machine-wide gpu-heavy lock (``scripts/unreal/with_lock.py``); it writes
@@ -43,10 +44,36 @@ def editor_command(script: Path, log: Path) -> list[str]:
     ]
 
 
+def turntable(out_dir: Path, ev: float) -> int:
+    """Render SK_Sovereign from four sides (`turntable.py`) on the GPU, offscreen."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "turntable.json").unlink(missing_ok=True)
+    command = editor_command(HERE / "turntable.py", out_dir / "turntable.log")
+    command = [c for c in command if c != "-nullrhi"]
+    command += ["-d3d12", "-RenderOffscreen", "-ResX=640", "-ResY=360"]
+    env = dict(os.environ)
+    env.update(
+        VERSE_SOV_TURNTABLE_OUT=str(out_dir), VERSE_SOV_TURNTABLE_EV=str(ev), VERSE_SOV_QUIT="1"
+    )
+    code = with_lock.run_locked(command, label="sovereign turntable (s7)", env=env)
+    report = out_dir / "turntable.json"
+    if not report.exists():
+        print(f"[sovereign] turntable: editor exited {code} without a report")
+        return code or 1
+    data = json.loads(report.read_text(encoding="utf-8"))
+    print(f"[sovereign] turntable ok={data.get('ok')} frames={data.get('frames')} in {out_dir}")
+    return 0 if data.get("ok") else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--only", nargs="+", default=[], help="rebuild only these assets")
+    parser.add_argument("--turntable", action="store_true", help="render SK_Sovereign (proof)")
+    parser.add_argument("--ev", type=float, default=1.0, help="turntable exposure bias")
     options = parser.parse_args(argv)
+    if options.turntable:
+        proof = REPO / "unreal" / "Verse" / "Saved" / "Harness" / "proof" / "S7" / "turntable"
+        return turntable(proof, options.ev)
     unknown = sorted(set(options.only) - set(ASSETS))
     if unknown:
         parser.error(f"unknown assets: {', '.join(unknown)}")

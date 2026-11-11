@@ -115,6 +115,8 @@ private:
 	/** The hangar deck stands in the dressed hall from its first frame (the duel adds the arena). */
 	void HandleDeckArrived(FName Deck, bool bByLift);
 	void BuildHallIfOnHangar();
+	/** Puts the Sovereign skin on the deck commander. */
+	void DressCommander();
 	void ReadCommandLine();
 	void UpdatePerson();
 	void Spectate();

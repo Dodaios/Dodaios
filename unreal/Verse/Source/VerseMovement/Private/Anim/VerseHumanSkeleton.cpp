@@ -91,6 +91,25 @@ TConstArrayView<TPair<FName, FName>> Bones()
 	return Table;
 }
 
+TConstArrayView<TPair<FName, FName>> OptionalBones()
+{
+	static const TArray<TPair<FName, FName>> Table = []()
+	{
+		TArray<TPair<FName, FName>> Out;
+		auto B = [&Out](const TCHAR* Bone, const TCHAR* Parent) { Out.Emplace(FName(Bone), FName(Parent)); };
+		// OPTIONAL-BONES-BEGIN
+		B(TEXT("Cloak_R1"), TEXT("Spine_03"));
+		B(TEXT("Cloak_R2"), TEXT("Cloak_R1"));
+		B(TEXT("Cloak_C1"), TEXT("Spine_03"));
+		B(TEXT("Cloak_C2"), TEXT("Cloak_C1"));
+		B(TEXT("Cloak_L1"), TEXT("Spine_03"));
+		B(TEXT("Cloak_L2"), TEXT("Cloak_L1"));
+		// OPTIONAL-BONES-END
+		return Out;
+	}();
+	return Table;
+}
+
 TConstArrayView<TPair<FName, float>> SpineShares()
 {
 	static const TArray<TPair<FName, float>> Table = []()
@@ -239,6 +258,7 @@ TConstArrayView<const TCHAR*> MeshPaths()
 		TEXT("/Game/Verse/Characters/Crew/SK_Crew_F.SK_Crew_F"),
 		TEXT("/Game/Verse/Characters/Opponent/SK_Opponent_M.SK_Opponent_M"),
 		TEXT("/Game/Verse/Characters/Opponent/SK_Opponent_F.SK_Opponent_F"),
+		TEXT("/Game/Verse/Characters/Sovereign/SK_Sovereign.SK_Sovereign"),
 		// MESHES-END
 	};
 	return MakeArrayView(Table);

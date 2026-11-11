@@ -31,6 +31,7 @@ struct VERSEMOVEMENT_API FVerseAnimInstanceProxy : public FAnimInstanceProxy
 	float IdleTime = 0.f;
 	FVerseAnimBones Bones;
 	FVerseAnimEvalInfo LastInfo;
+	TArray<FVerseBoneSwing> Swings;
 	float SlotWeight = 0.f;
 	float SourceWeight = 1.f;
 	float TotalWeight = 0.f;
@@ -80,6 +81,10 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Verse|Anim")
 	void SetFootIKEnabled(bool bEnabled) { bFootIK = bEnabled; }
+
+	/** Secondary motion applied after the clips each frame (cloak bones); empty stops it. */
+	void SetBoneSwings(TArray<FVerseBoneSwing> InSwings) { BoneSwings = MoveTemp(InSwings); }
+	const TArray<FVerseBoneSwing>& GetBoneSwings() const { return BoneSwings; }
 
 	/**
 	 * Mirror the instance on `SourceBody` (the pawn's world body): this
@@ -134,6 +139,7 @@ private:
 	bool bSourceSearched = false;
 	/** The override clip resolved for `OverrideName`, loaded only when the name changes. */
 	FName OverrideName;
+	TArray<FVerseBoneSwing> BoneSwings;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAnimSequence> OverrideClip;

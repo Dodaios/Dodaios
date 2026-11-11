@@ -90,7 +90,7 @@ def _task(fbx: Path, folder: str, name: str, options):
     return list(task.get_editor_property("imported_object_paths") or [])
 
 
-def mesh_options(skeleton):
+def mesh_options(skeleton, name: str = ""):
     ui = unreal.FbxImportUI()
     ui.set_editor_property("import_mesh", True)
     ui.set_editor_property("import_as_skeletal", True)
@@ -107,7 +107,10 @@ def mesh_options(skeleton):
     data.set_editor_property("import_meshes_in_bone_hierarchy", True)
     data.set_editor_property("use_t0_as_ref_pose", False)
     data.set_editor_property(
-        "normal_import_method", unreal.FBXNormalImportMethod.FBXNIM_IMPORT_NORMALS
+        "normal_import_method",
+        unreal.FBXNormalImportMethod.FBXNIM_COMPUTE_NORMALS
+        if name in K.FULL_DETAIL
+        else unreal.FBXNormalImportMethod.FBXNIM_IMPORT_NORMALS,
     )
     return ui
 
@@ -180,7 +183,7 @@ def import_meshes(result: dict, only: set[str]) -> None:
             error(f"{name}: {S.SKELETON} missing; import {K.SKELETON_SOURCE} first")
             continue
         folder = path.rsplit("/", 1)[0]
-        imported = _task(REPO / entry["file"], folder, name, mesh_options(skeleton))
+        imported = _task(REPO / entry["file"], folder, name, mesh_options(skeleton, name))
         mesh = ASSETS.load_asset(path)
         if not isinstance(mesh, unreal.SkeletalMesh):
             error(f"{name}: import gave {imported}")
@@ -198,13 +201,18 @@ def import_meshes(result: dict, only: set[str]) -> None:
             tag_and_save(skeleton, entry["sha256"])
         set_lods(mesh)
         tag_and_save(mesh, entry["sha256"])
+        # A mesh with optional bones (the Sovereign's cloak) merges them into the shared
+        # skeleton on import; keep that on disk, or the mesh no longer matches its skeleton.
+        if skeleton is not None and name != K.SKELETON_SOURCE:
+            ASSETS.save_loaded_asset(skeleton, only_if_is_dirty=True)
         REPORT["imported"].append(name)
 
 
 def set_lods(mesh) -> None:
     try:
         subsystem = unreal.get_editor_subsystem(unreal.SkeletalMeshEditorSubsystem)
-        ok = subsystem.regenerate_lod(mesh, new_lod_count=4, regenerate_even_if_imported=True)
+        count = 1 if mesh.get_name() in K.FULL_DETAIL else 4
+        ok = subsystem.regenerate_lod(mesh, new_lod_count=count, regenerate_even_if_imported=True)
         note(f"{mesh.get_name()}: LODs regenerated={ok}")
     except Exception as exc:  # noqa: BLE001 - LOD generation is best effort, reported
         note(f"{mesh.get_name()}: LOD generation unavailable ({exc})")

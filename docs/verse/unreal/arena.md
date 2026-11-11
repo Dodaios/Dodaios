@@ -267,6 +267,8 @@ deck view and the duel show it alike:
   7200 K, cool shadows and warm highlights in the grade; catwalks, stairs and ramps in tread plate
   (`MI_Arena_Grating`, Poly Haven `metal_grate_rusty`); the deck number painted on every
   perimeter segment.
+- **Deck view**: the hall part has no arena work lights, so every second lamp of every second
+  row casts a real spot light there (`HallLampLumens`, 3900 K, one in four shadowed).
 - **Wear**: puddles that mirror the lamps, tug tracks, grime at the foot of every wall and cover
   box, rust streaks down walls, barriers and containers (`DressArtBox`). Masks: `grime.py`.
 

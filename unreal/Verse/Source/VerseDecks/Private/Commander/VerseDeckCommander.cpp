@@ -174,11 +174,38 @@ void AVerseDeckCommander::SetUniform(FName InUniform, const FLinearColor& Colour
 	ApplyUniform();
 }
 
+void AVerseDeckCommander::ForEachShape(TFunctionRef<void(UMeshComponent*)> Fn) const
+{
+	TInlineComponentArray<UMeshComponent*> Meshes(this);
+	for (UMeshComponent* Part : Meshes)
+	{
+		if (Part != GetMesh())
+		{
+			Fn(Part);
+		}
+	}
+}
+
+bool AVerseDeckCommander::HasSkin() const
+{
+	return GetMesh() != nullptr && GetMesh()->GetSkeletalMeshAsset() != nullptr;
+}
+
+void AVerseDeckCommander::RefreshBody()
+{
+	const bool bSkin = HasSkin();
+	ForEachShape([this, bSkin](UMeshComponent* Part) { Part->SetVisibility(bBodyVisible && !bSkin); });
+	if (GetMesh())
+	{
+		GetMesh()->SetVisibility(bBodyVisible && bSkin);
+	}
+}
+
 void AVerseDeckCommander::ApplyUniform()
 {
 	using namespace VerseDeckCommanderPrivate;
-	TInlineComponentArray<UMeshComponent*> Meshes(this);
-	for (UMeshComponent* Part : Meshes)
+	// The uniform colours the placeholder shapes only; the Sovereign skin keeps its own look.
+	ForEachShape([this](UMeshComponent* Part)
 	{
 		const bool bHead = Part == Head;
 		const bool bPlate = Part == RankPlate;
@@ -204,7 +231,7 @@ void AVerseDeckCommander::ApplyUniform()
 				Dynamic->SetVectorParameterValue(Param, bHead ? HeadColour : bPlate ? PlateColour : UniformColour);
 			}
 		}
-	}
+	});
 }
 
 void AVerseDeckCommander::SetBodyVisible(bool bVisible)
@@ -214,11 +241,7 @@ void AVerseDeckCommander::SetBodyVisible(bool bVisible)
 		return;
 	}
 	bBodyVisible = bVisible;
-	TInlineComponentArray<UMeshComponent*> Meshes(this);
-	for (UMeshComponent* Part : Meshes)
-	{
-		Part->SetVisibility(bVisible);
-	}
+	RefreshBody();
 }
 
 double AVerseDeckCommander::GetFloorSpeed() const

@@ -20,6 +20,8 @@
 #include "Gadgets/VerseGadgetComponent.h"
 #include "HAL/FileManager.h"
 #include "HAL/IConsoleManager.h"
+#include "Abilities/VerseSovereignBody.h"
+#include "Commander/VerseDeckCommander.h"
 #include "Decks/VerseDeckSubsystem.h"
 #include "HangarSwitch/VerseHangarSwitchSubsystem.h"
 #include "Inventory/VerseInventoryComponent.h"
@@ -220,6 +222,17 @@ void UVerseDuelSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 void UVerseDuelSubsystem::HandleDeckArrived(FName Deck, bool bByLift)
 {
 	BuildHallIfOnHangar();
+	DressCommander();
+}
+
+void UVerseDuelSubsystem::DressCommander()
+{
+	// The person walks the decks as the Sovereign, the skin they designed (stream S7).
+	AVerseDeckCommander* Commander = AVerseDeckCommander::Find(GetWorld());
+	if (Commander && UVerseSovereignBody::Dress(Commander))
+	{
+		Commander->RefreshBody();
+	}
 }
 
 void UVerseDuelSubsystem::BuildHallIfOnHangar()
