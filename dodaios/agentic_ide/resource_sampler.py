@@ -139,8 +139,8 @@ def read_links() -> list[Link]:
 
     try:
         connections = psutil.net_connections(kind="tcp")
-    except (psutil.Error, OSError, RuntimeError):
-        return []  # macOS answers only for a privileged caller
+    except (psutil.Error, OSError, RuntimeError):  # macOS answers only a privileged caller
+        return []
     endpoints: dict[int, int] = {}
     listening: set[int] = set()
     for item in connections:
@@ -491,18 +491,18 @@ class ResourceSampler:
                 if abs(int(process.create_time()) - started[pid]) > 1:
                     continue  # the id was reused by another process
                 victims.extend([*process.children(recursive=True), process])
-            except psutil.Error:
+            except psutil.Error:  # it ended by itself, which is what was asked for
                 continue
         for process in victims:
             try:
                 process.terminate()
-            except psutil.Error:
+            except psutil.Error:  # already gone, or not ours to end; the count says how many were
                 continue
         _gone, alive = psutil.wait_procs(victims, timeout=1.5)
         for process in alive:
             try:
                 process.kill()
-            except psutil.Error:
+            except psutil.Error:  # it ended between the wait and the kill
                 continue
         return len(victims)
 

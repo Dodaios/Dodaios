@@ -209,7 +209,7 @@ def _run_smi(arguments: list[str]) -> str:
             check=False,
             creationflags=_NO_WINDOW,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, subprocess.TimeoutExpired):  # no tool or no answer: the caller stops asking
         return ""
     return result.stdout if result.returncode == 0 else ""
 
@@ -217,7 +217,7 @@ def _run_smi(arguments: list[str]) -> str:
 def _number(text: str) -> float:
     try:
         return float(text.strip())
-    except ValueError:
+    except ValueError:  # the driver prints [N/A] for a value it withholds
         return 0.0
 
 

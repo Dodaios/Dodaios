@@ -157,8 +157,8 @@ def read_processes() -> list[ProcessRow]:
     if _WINDOWS:
         try:
             return _read_windows()
-        except (OSError, AttributeError, ValueError):
-            pass  # an exotic Windows build: the slow way still answers
+        except (OSError, AttributeError, ValueError):  # an exotic Windows build
+            pass  # the portable reader below still answers
     return _read_portable()
 
 
@@ -225,12 +225,12 @@ def command_line(pid: int) -> tuple[str, ...]:
     if _WINDOWS:
         try:
             return _command_line_windows(pid)
-        except (OSError, AttributeError, ValueError):
+        except (OSError, AttributeError, ValueError):  # empty is the documented answer
             return ()
     import psutil
 
     try:
         parts = psutil.Process(pid).cmdline()
-    except (psutil.Error, OSError):
+    except (psutil.Error, OSError):  # it ended or belongs to another user: no arguments
         return ()
     return tuple(part[:_MAX_ARGUMENT_CHARS] for part in parts[:_MAX_ARGUMENTS])
