@@ -33,8 +33,7 @@ FVerseDeckLook FVerseDeckLook::For(FName Deck)
 		Look.FogDensity = 0.035;
 		Look.FogHeightFalloff = 0.12;
 		Look.VolumetricExtinction = 1.6;
-		// One step brighter than the bridge: the haze swallows light, and the reactor hall must read.
-		Look.ExposureEV100 = 3.0;
+		Look.ExposureEV100 = 3.5;
 		Look.WorkLightKelvin = 4800.0;
 		Look.SpaceOutward = FVector(-0.990347, 0.138613, 0.0);
 	}
