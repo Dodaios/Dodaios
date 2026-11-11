@@ -934,11 +934,6 @@ call-contact = "dodaios.plugins.tool.call_contact:CallContactTool"
 [tool.setuptools.exclude-package-data]
 # Resource globs must never distribute interpreter caches or their build paths.
 "*" = ["*.pyc", "*.pyo", "**/__pycache__/*"]
-# The Verse deck scenes (about 70 MB compressed) push the wheel past PyPI's
-# 100 MiB file limit (v4.2.1 was refused). The desktop installers bundle the
-# source tree's dist and keep them; a pip install shows the decks as not
-# cooked yet (content/loadDeck.ts).
-dodaios = ["ui/web/dist/verse/decks/*"]
 
 [tool.setuptools.package-data]
 # Read via Path(__file__) by conductor.core.store / conductor.core.seed.

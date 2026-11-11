@@ -958,8 +958,8 @@ GIT_VERBOSITY='--quiet'
 #   2. a mid-transfer disconnect aborts the install -> retry a clean clone
 #      up to 3 times before giving up with an honest message.
 GIT_NET_OPTS='-c http.lowSpeedLimit=1024 -c http.lowSpeedTime=30'
-# An install never downloads the Unreal Verse's LFS binaries (unreal/**); the
-# Verse arrives as its own package (docs/verse/unreal/architecture.md 8.4).
+# An install never downloads Git LFS objects: older releases carry LFS
+# pointers for large binaries, and a ref pinned to one must not pull those.
 GIT_LFS_SKIP_SMUDGE=1
 export GIT_LFS_SKIP_SMUDGE
 

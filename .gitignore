@@ -525,16 +525,9 @@ scripts/figures/cache/
 brag-output/
 eval-results/
 
-# Dodaios Verse production pipeline: derived data (generated .blend files,
-# downloaded CC0 source textures, render scratch). Cooked output is committed
-# under dodaios/ui/web/frontend/public/verse/ instead.
-art/verse/.cache/
-# Pipeline smoke deck: cooked locally by scripts/verse/cook.py, never shipped.
-dodaios/ui/web/frontend/public/verse/decks/testbed/
-
-# Verse third-party content whose licence forbids public redistribution (Fab, Megascans,
-# paid packs). Lives only on the machine and in packaged builds, never committed
-# (docs/verse/unreal/contracts/art-pipeline.md section 11; check_art_text.py enforces it).
-unreal/Verse/Content/Verse/External/
-unreal/Verse/Art/External/
-art/verse/External/
+# The Unreal Verse and its art pipeline left the repository. A checkout that
+# had them keeps local leftovers (build output, caches, third-party content
+# whose licence forbids redistribution); none of it may ever be committed.
+/unreal/
+/art/verse/
+/dodaios/ui/web/frontend/public/verse/

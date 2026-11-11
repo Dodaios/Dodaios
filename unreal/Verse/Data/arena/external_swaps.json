@@ -1,5 +1,0 @@
-{
-  "schema": "verse.external_swaps/1",
-  "note": "Kit mesh name -> licensed mesh under /Game/Verse/External/ (git-ignored, copied by scripts/unreal/fab_migrate.py). Missing meshes fall back to the CC0 kit. Optional: scale, yaw, lift_cm.",
-  "swaps": {}
-}

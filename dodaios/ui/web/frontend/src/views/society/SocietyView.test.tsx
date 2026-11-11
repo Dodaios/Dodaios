@@ -1,6 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { useVerseModeStore } from "@/store/verseMode";
 import { LAST_AGENT_STORAGE_KEY } from "./lastAgent";
 import { SocietyView } from "./SocietyView";
 
@@ -26,9 +25,6 @@ vi.mock("@/components/society/data", () => ({ useQuickCreateAgent: () => quick.c
   { agentId: "lead", name: "Lead", tier: "lead", state: "idle" },
   { agentId: "specialist", name: "Specialist", tier: "specialist", state: "idle" },
 ] }, isLoading: false }) }));
-vi.mock("@/views/DodaiosAgentsView", () => ({ DodaiosAgentsView: ({ active, onSelectAgent, onOpenAgents, onMarsSelectionChange }: any) => (
-  <div data-testid="map" data-active={active}><button onClick={() => onSelectAgent("specialist")}>Map specialist</button><button onClick={onOpenAgents}>Map fallback</button><div data-mars-ui><input aria-label="Mars draft" /></div><div data-mars-mode="player"><button>Player viewport</button></div><div data-mars-mode="follow"><button>Follow viewport</button></div><button onClick={() => onMarsSelectionChange(false)}>Previous world</button><button onClick={() => onMarsSelectionChange(true)}>Mars world</button></div>
-) }));
 vi.mock("@/components/society/mars/MarsStationPanel", () => ({ MarsStationPanel: ({ onClose }: any) => <aside aria-label="Mars station"><button onClick={onClose}>Close station</button></aside> }));
 vi.mock("@/components/society/card/AgentCardOverlay", () => ({ AgentCardOverlay: ({ agent, embedded, onSelectAgent, onSelectGroup, onCreate, railHeader }: any) => (
   <div data-testid="workspace" data-embedded={String(embedded)}>
@@ -61,18 +57,6 @@ it("opens a group from the agent rail and returns to an individual member chat",
   expect(screen.getByTestId("group-workspace").textContent).toContain("Launch team");
   fireEvent.click(screen.getByText("Open member"));
   expect(screen.getByTestId("workspace").textContent).toContain("Specialist");
-});
-
-it("opens straight into the full-window Verse when the sidebar asked for it", async () => {
-  useVerseModeStore.setState({ requested: true, open: false });
-  render(<SocietyView />);
-  const map = await screen.findByTestId("map");
-  expect(map.dataset.active).toBe("true");
-  expect(useVerseModeStore.getState()).toMatchObject({ requested: false, open: true });
-  fireEvent.click(screen.getByTestId("verse-back"));
-  expect(screen.getByTestId("society-world-surface").getAttribute("aria-hidden")).toBe("true");
-  expect(useVerseModeStore.getState().open).toBe(false);
-  expect(screen.queryByTestId("verse-back")).toBeNull();
 });
 
 it("restores the most recently selected agent after the view is remounted", () => {

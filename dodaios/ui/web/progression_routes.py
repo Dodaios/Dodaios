@@ -5,8 +5,8 @@
 - ``POST /api/progression/actions``  → report a world action from the Verse (metered server-side)
 
 Duel XP is never a world action: ``duel_won``, ``duel_lost`` and
-``duel_finisher`` are server rules that only a ``duel.result`` from the Unreal
-Verse pays (``ProgressionService.record_duel``), so ``/actions`` refuses them.
+``duel_finisher`` are server rules that only a ``duel.result`` pays
+(``ProgressionService.record_duel``), so ``/actions`` refuses them.
 
 Live awards travel as ``ProgressionAwarded`` over the WebSocket; this API is
 the first read and the catch-up after a reconnect.

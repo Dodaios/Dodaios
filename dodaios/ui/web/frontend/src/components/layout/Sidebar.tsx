@@ -1,5 +1,4 @@
 import {
-  Building2,
   Loader2,
   Mic,
   ChevronDown,
@@ -15,7 +14,6 @@ import {
 } from "@/components/layout/navGroups";
 import { useEventStore } from "@/store/events";
 import { useTilingStore } from "@/store/tiling";
-import { useVerseModeStore } from "@/store/verseMode";
 import { useSelfBuildWaiting } from "@/hooks/useSelfBuild";
 import { useSectionPrefetch } from "@/hooks/useSectionPrefetch";
 import { useVoiceReadiness } from "@/hooks/useVoiceReadiness";
@@ -334,7 +332,7 @@ export function Sidebar({
   // behind "Show more" that users reached for daily, while the tools folder
   // duplicated exactly what "Show more" already lists.
   // "Built for you" moved behind "More" (2026-11-02): the main list is the
-  // agents, the IDE, the Verse, the voice, the extensions and the artifacts.
+  // agents, the IDE, the voice, the extensions and the artifacts.
   const primaryIds = ["chats", "agents", "dictation", "visualization", "agentic-ide", "plugins", "marketplace"];
   // The Settings hub owns its entries — they live in the hub's left
   // navigation now, so "Show more" must not list them a second time. The set
@@ -347,28 +345,12 @@ export function Sidebar({
   // Rows read quietly: regular weight, light ink at
   // rest (muted grey made every entry look disabled), the icon in the same
   // ink, a lift on hover. Section labels and tail rows stay muted.
-  // The Verse is not a section of its own: it is the Agents section's
-  // full-window "Verse" face (the playable ship). Its row opens Agents and
-  // switches that face on; Escape or the caption switch leads back.
-  const verseOn = useVerseModeStore((s) => s.open);
-  const verseItem: NavItem = {
-    ...findItem("agents"),
-    labelKey: "nav.verse",
-    fallbackLabel: "Verse",
-    icon: Building2,
-    matchIds: undefined,
-  };
-  const openVerse = () => {
-    useVerseModeStore.getState().request();
-    setActive("agents");
-  };
   const rowClass = "flex min-h-8 w-full items-center gap-3 rounded-lg px-3 text-base text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   const renderRow = (raw: NavItem, compact = railed) => {
     const item = presentNavItem(raw, surface);
     const isActive = item.matchIds ? item.matchIds.includes(active) : item.id === active;
     return <NavRow key={item.id} item={item} label={resolveNavLabel(t, item)} compact={compact}
-      // While the Verse covers the Agents section, its own row is the lit one.
-      active={isActive && !(item.id === "agents" && verseOn)}
+      active={isActive}
       badge={item.id === "agents" ? agentsCount : item.id === "self-build" ? selfBuildWaiting : undefined}
       betaLabel={item.beta ? t("nav.agentic_ide_beta") : undefined}
       alert={item.id === "apikeys" && apikeysHasError} alertTitle={t("sidebar.apikeys_alert")}
@@ -564,13 +546,10 @@ export function Sidebar({
               {!railed && <span>{t("sidebar.conversation")}</span>}
             </button></li>
             {/* The order the maintainer chose (2026-11-02): the agents, where
-                they code, the Verse, the voice, then the extensions and the
-                artifacts.
+                they code, the voice, then the extensions and the artifacts.
                 Everything else sits behind "More". */}
             {renderRow(findItem("agents"))}
             {renderRow(findItem("agentic-ide"))}
-            <NavRow key="verse" rowId="verse" item={verseItem} label={resolveNavLabel(t, verseItem)}
-              compact={railed} active={active === "agents" && verseOn} onClick={openVerse} />
             {renderRow(findItem("dictation"))}
           </ul>
           <ul className="space-y-px">
@@ -639,7 +618,6 @@ function NavRow({
   warn = false,
   warnTitle,
   expand,
-  rowId,
   onClick,
   children,
 }: {
@@ -667,12 +645,10 @@ function NavRow({
   warn?: boolean;
   /** Plain-language hover text for the warn dot. */
   warnTitle?: string;
-  /** Test id when the row is not a section of its own (the Verse). */
-  rowId?: string;
   onClick: () => void;
 }) {
   const prefetch = useSectionPrefetch(item.id);
-  const id = rowId ?? item.id;
+  const id = item.id;
   const Icon = item.icon;
   const hint = alert ? alertTitle : warn ? warnTitle : undefined;
   /*

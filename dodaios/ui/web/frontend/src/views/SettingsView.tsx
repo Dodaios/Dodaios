@@ -13,7 +13,6 @@ import { AudioDevicesGroup } from "@/views/settings/AudioDevicesGroup";
 import { SystemPromptGroup } from "@/views/settings/SystemPromptGroup";
 import { SelfBuildGroup } from "@/views/settings/SelfBuildGroup";
 import { ApprovalModesGroup } from "@/views/settings/ApprovalModesGroup";
-import { VerseSettingsGroup } from "@/components/verseHost/VerseSettingsGroup";
 import { SettingsGroupBoundary } from "@/views/settings/SettingsGroupBoundary";
 import { settingsInputCls } from "@/views/settings/SettingsBlock";
 import {
@@ -137,7 +136,7 @@ export function SettingsView({ searchTarget, onSearchTargetHandled, sections, ti
 }
 
 /** Groups the whole page folds under "More options": set once, rarely changed. */
-const FOLDED_SECTIONS: ReadonlySet<string> = new Set(["music", "overlay-taskbar", "verse"]);
+const FOLDED_SECTIONS: ReadonlySet<string> = new Set(["music", "overlay-taskbar"]);
 
 function isFoldedTarget(target: string | null | undefined): boolean {
   return Boolean(target && FOLDED_SECTIONS.has(target));
@@ -193,7 +192,6 @@ const SECTIONS: readonly { id: string; render: () => React.ReactNode }[] = [
   { id: "self-build", render: () => <SelfBuildGroup /> },
   { id: "music", render: () => <MusicGroup /> },
   { id: "overlay-taskbar", render: () => <OverlayTaskbarGroup /> },
-  { id: "verse", render: () => <VerseSettingsGroup /> },
 ];
 
 /** "Autopilot toasts" — the one row of the former "More" group. */

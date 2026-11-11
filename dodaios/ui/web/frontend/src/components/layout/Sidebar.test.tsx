@@ -8,7 +8,6 @@ import {
   SIDEBAR_RAIL_AT_WIDTH,
   SIDEBAR_RAIL_WIDTH,
 } from "@/components/layout/Sidebar";
-import { useVerseModeStore } from "@/store/verseMode";
 import { NAV_GROUPS, NAV_FOOTER_ITEMS, SETTINGS_HUB_IDS } from "@/components/layout/navGroups";
 import { isSectionId, useEventStore } from "@/store/events";
 import { useQuickSwitcher } from "@/store/quickSwitcher";
@@ -670,7 +669,7 @@ describe("compact sidebar navigation", () => {
 
   test("keeps core destinations above the earlier-chats link", () => {
     renderSidebar();
-    for (const id of ["agents", "verse", "dictation", "visualization", "agentic-ide", "plugins", "marketplace"]) {
+    for (const id of ["agents", "dictation", "visualization", "agentic-ide", "plugins", "marketplace"]) {
       expect(screen.getByTestId(`nav-row-${id}`)).toBeTruthy();
     }
     expect(screen.getByTestId("earlier-chats")).toBeTruthy();
@@ -716,22 +715,14 @@ describe("compact sidebar navigation", () => {
     expect(screen.queryByTestId("sidebar-more-panel")).toBeNull();
   });
 
-  test("the Verse row opens Agents and asks for the full-window Verse", () => {
-    useVerseModeStore.setState({ requested: false, open: false });
+  test("has no Verse row", () => {
     renderSidebar();
-    fireEvent.click(screen.getByTestId("nav-row-verse"));
-    expect(useEventStore.getState().activeSection).toBe("agents");
-    expect(useVerseModeStore.getState().requested).toBe(true);
-    // Lit while the Verse is on screen, and the Agents row steps back.
-    act(() => useVerseModeStore.setState({ requested: false, open: true }));
-    expect(screen.getByTestId("nav-row-verse").className).toContain("jarvis-nav-active");
-    expect(screen.getByTestId("nav-row-agents").className).not.toContain("jarvis-nav-active");
-    act(() => useVerseModeStore.setState({ open: false }));
+    expect(screen.queryByTestId("nav-row-verse")).toBeNull();
   });
 
-  test("shows the agents, the IDE, the Verse, the voice, the extensions and the artifacts in that order", () => {
+  test("shows the agents, the IDE, the voice, the extensions and the artifacts in that order", () => {
     renderSidebar();
-    const order = ["agents", "agentic-ide", "verse", "dictation", "plugins", "visualization"].map(
+    const order = ["agents", "agentic-ide", "dictation", "plugins", "visualization"].map(
       (id) => screen.getByTestId(`nav-row-${id}`),
     );
     for (let i = 1; i < order.length; i++) {

@@ -5,7 +5,7 @@ import { HUB_GROUPS, HUB_PAGES, PAGE_ENTRIES, entryKey, resolveHubTab } from "@/
 
 /** Every tab the hub showed before the regrouping (2026-11-10). */
 const FORMER_TABS = [
-  "settings", "shortcuts", "appshots", "pets", "games", "profile",
+  "settings", "shortcuts", "appshots", "pets", "profile",
   "agent-instructions", "socials", "computers", "apikeys", "costs", "feedback",
   // Added on main alongside the regrouping: notifications, trust, phone.
   "notifications", "trust", "phone",
@@ -14,7 +14,7 @@ const FORMER_TABS = [
 /** The General page's groups (SettingsView SECTIONS). */
 const GENERAL_SECTIONS = [
   "languages", "app", "voice", "wake-word", "system-prompt", "approvals",
-  "self-build", "music", "overlay-taskbar", "verse",
+  "self-build", "music", "overlay-taskbar",
 ];
 
 const entries = HUB_GROUPS.flatMap((group) => group.entries);

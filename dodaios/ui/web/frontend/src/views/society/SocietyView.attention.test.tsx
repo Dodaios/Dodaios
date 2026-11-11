@@ -27,7 +27,6 @@ vi.mock("@/components/society/data", () => ({ useQuickCreateAgent: () => vi.fn()
   { agentId: "jarvis", name: "Lead", tier: "lead", state: "idle" },
   { agentId: "scout", name: "Scout", tier: "specialist", state: "waiting" },
 ] }, isLoading: false }) }));
-vi.mock("@/views/DodaiosAgentsView", () => ({ DodaiosAgentsView: () => <div data-testid="map" /> }));
 vi.mock("@/components/society/card/AgentCardOverlay", () => ({ AgentCardOverlay: ({ agent }: any) => <div data-testid="workspace">{agent.name}</div> }));
 vi.mock("@/components/society/roster/RosterRail", () => ({ RosterRail: () => <div data-testid="roster" /> }));
 vi.mock("@/components/society/attention/AttentionBell", () => ({ AttentionBell: () => <button data-testid="attention-bell" /> }));

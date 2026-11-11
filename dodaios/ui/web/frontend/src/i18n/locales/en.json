@@ -330,7 +330,6 @@
     "jarvisx": "Dodaios X",
     "marketplace": "Marketplace",
     "agentic_ide": "Agentic IDE",
-    "verse": "Verse",
     "agentic_ide_beta": "Beta",
     "voice": "{name} Voice",
     "voice_shortcuts": "Shortcuts",
@@ -339,7 +338,6 @@
     "shortcuts": "Keyboard shortcuts",
     "pets": "My Pets",
     "self_build": "Built for you",
-    "games": "Game settings",
     "notifications": "Notifications",
     "phone": "Phone"
   },
@@ -10487,7 +10485,6 @@
     "layout_aria": "IDE layout",
     "layout_grid": "Terminal grid",
     "layout_threads": "Threads",
-    "layout_verse": "Dodaios Verse",
     "terminal_needs_folder": "Terminal needs a project folder",
     "hide_terminal": "Hide terminal",
     "show_terminal": "Show terminal",

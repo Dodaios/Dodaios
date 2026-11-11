@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import copy
-import json
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -17,10 +14,6 @@ from dodaios.core.bus import EventBus
 from dodaios.core.events import Event, ProgressionAwarded
 from dodaios.progression.duel_stats import DuelResultError
 from dodaios.progression.service import ProgressionService
-
-_GOLDEN = (
-    Path(__file__).resolve().parents[1] / "verse_host/fixtures/bridge/replies/duel.result.json"
-)
 
 
 def duel(match_id: str = "m_1", **over: Any) -> dict[str, Any]:
@@ -321,51 +314,3 @@ async def test_without_the_event_type_the_result_still_records(setup, monkeypatc
     monkeypatch.delattr(events, "VerseDuelRecorded", raising=False)
     reply = await service.record_duel(duel("m_noevent"))
     assert reply["recorded"] is True
-
-
-_SCHEMA = (
-    Path(__file__).resolve().parents[3]
-    / "unreal/Verse/Tests/Data/bridge/verse.bridge.1.schema.json"
-)
-
-
-@pytest.mark.skipif(not _SCHEMA.exists(), reason="G0.11 bridge schema not on this branch")
-async def test_every_reply_and_the_snapshot_stats_match_the_bridge_schema(setup):
-    jsonschema = pytest.importorskip("jsonschema")
-    schema = json.loads(_SCHEMA.read_text(encoding="utf-8"))
-
-    def check(def_name: str, value: Any) -> None:
-        jsonschema.validate(value, {**schema, "$ref": f"#/$defs/{def_name}"})
-
-    service, _, _, _ = setup
-    payloads = [
-        duel("a"),
-        duel("b", outcome="lost", stats={"finishers": 2}),
-        duel("c", outcome="unfinished", opponent={"tier": "elite", "adaptive": True}),
-        duel("d", opponent={"kind": "player", "tier": None}),
-        duel("a"),
-    ]
-    for payload in payloads:
-        if payload["opponent"].get("tier") is None:
-            payload["opponent"].pop("tier")
-        else:
-            check("data.duel.result", payload)
-        check("result.duel.result", await service.record_duel(payload))
-    check("duel_stats", service.bridge_duel_stats())
-    assert set(service.bridge_duel_stats()["by_tier"]) == {"hard", "adaptive"}
-
-
-@pytest.mark.skipif(not _GOLDEN.exists(), reason="G0.11 golden fixtures not on this branch")
-async def test_the_golden_duel_results_record_with_the_replies_awards(setup):
-    """Every golden ``duel.result`` records; the reply pays at least the golden awards."""
-    service, _, _, _ = setup
-    pairs = json.loads(_GOLDEN.read_text(encoding="utf-8"))
-    for pair in pairs:
-        reply = await service.record_duel(copy.deepcopy(pair["request"]["data"]))
-        golden = pair["reply"]["data"]["result"]
-        assert reply["recorded"] is golden["recorded"]
-        mine = [(a["xp_source"], a["xp"]) for a in reply["awards"]]
-        for award in golden["awards"]:
-            assert (award["xp_source"], award["xp"]) in mine
-        if not golden["awards"]:
-            assert mine == []

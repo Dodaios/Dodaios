@@ -9,7 +9,7 @@ steps that share one ``update_id``:
 * ``unchanged`` — the write finished but changed nothing (a duplicate);
 * ``failed``    — the write raised; whatever the file held before still holds.
 
-The UI (the lead pet's thought bubble in the Jarvis Verse) shows "Updating
+The UI (the lead pet's thought bubble) shows "Updating
 memory · MEMORY.md" for ``pending`` and claims success only on ``saved``.
 
 Only the bare file name, the agent id and the operation cross this boundary —

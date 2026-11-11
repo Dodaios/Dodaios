@@ -89,9 +89,6 @@ export type SectionId =
   // My Pets: the desktop pet — which one, its size, its bubble, and custom
   // pets from a sprite sheet (docs/pets.md). A Settings-hub page.
   | "pets"
-  // Game settings: the Dodaios Verse's in-game settings menu (graphics,
-  // audio, mouse, keybinds, gameplay, HUD, accessibility). A Settings-hub page.
-  | "games"
   // Phone: pair a phone with the companion app, its notifications and the
   // owner-only WhatsApp channel (docs/mobile-companion.md). A Settings-hub page.
   | "phone"
@@ -157,7 +154,6 @@ export const SECTION_IDS = [
   "appshots",
   "shortcuts",
   "pets",
-  "games",
   "phone",
   "notifications",
   "dictionary",
@@ -258,7 +254,6 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   appshots: "Appshots",
   shortcuts: "Keyboard shortcuts",
   pets: "My Pets",
-  games: "Game settings",
   phone: "Phone",
   notifications: "Notifications",
   dictionary: "Dictionary",
@@ -309,7 +304,6 @@ export const SECTION_LABEL_KEYS: Record<SectionId, string> = {
   appshots: "nav.appshots",
   shortcuts: "nav.shortcuts",
   pets: "nav.pets",
-  games: "nav.games",
   phone: "nav.phone",
   notifications: "nav.notifications",
   dictionary: "nav.dictionary",

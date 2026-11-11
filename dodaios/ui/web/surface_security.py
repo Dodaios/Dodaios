@@ -1211,11 +1211,6 @@ class SurfaceSecurity:
         if kind == "websocket" and path == "/api/telephony/media":
             await self.app(scope, receive, send)
             return
-        if kind == "websocket" and path == "/api/verse/bridge":
-            # Verse.exe has no session cookie: the route checks the loopback
-            # peer and the per-launch token of its hello frame instead.
-            await self.app(scope, receive, send)
-            return
 
         if kind == "http":
             # Browser preflights do not carry cookies or Authorization. Once

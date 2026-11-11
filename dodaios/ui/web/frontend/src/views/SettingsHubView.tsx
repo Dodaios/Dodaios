@@ -87,9 +87,6 @@ const ShortcutsTab = lazy(() =>
 const PetsTab = lazy(() =>
   import("@/views/PetsView").then((m) => ({ default: m.PetsView })),
 );
-const GamesTab = lazy(() =>
-  import("@/views/VerseSettingsView").then((m) => ({ default: m.VerseSettingsView })),
-);
 const PhoneTab = lazy(() =>
   import("@/views/PhoneView").then((m) => ({ default: m.PhoneView })),
 );
@@ -120,7 +117,6 @@ const TAB_CONTENT: Record<HubContent, LazyExoticComponent<ComponentType>> = {
   appshots: AppshotsTab,
   shortcuts: ShortcutsTab,
   pets: PetsTab,
-  games: GamesTab,
   notifications: NotificationsTab,
   trust: TrustTab,
   costs: CostsTab,
@@ -377,10 +373,9 @@ export function SettingsHubView() {
           {/* One measure for every tab: each page runs the full width of this
               column with its header and body on the same left edge, and the
               column centres once a very wide window would stretch rows apart. */}
-          {/* Game settings is a full game menu and uses the whole width. */}
           <div
             data-testid="settings-hub-column"
-            className={cn("mx-auto h-full w-full", content !== "games" && "max-w-[1440px]")}
+            className="mx-auto h-full w-full max-w-[1440px]"
           >
             <Suspense fallback={<HubLoadingFallback />}>
               {content === "settings"

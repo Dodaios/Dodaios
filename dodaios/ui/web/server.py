@@ -75,8 +75,8 @@ DIST_DIR = WEB_DIR / "dist"
 INDEX_FILE = DIST_DIR / "index.html"
 ASSETS_DIR = DIST_DIR / "assets"
 
-# The Verse ships pre-rendered plates and 3D models; Windows' MIME registry
-# does not know these types, and a wrong type makes the WebView refuse them.
+# The app ships 3D models and AVIF images; Windows' MIME registry does not
+# know these types, and a wrong type makes the WebView refuse them.
 for _suffix, _media_type in (
     (".avif", "image/avif"),
     (".glb", "model/gltf-binary"),
@@ -844,7 +844,7 @@ class WebServer:
         app.include_router(browser_profile_router)
         app.include_router(society_figure_router)
         app.include_router(drop_router)
-        # The Jarvis Verse level system (dodaios/progression): a bus listener
+        # The level system (dodaios/progression): a bus listener
         # that pays XP for real achievements. Constructing it opens nothing;
         # start() subscribes it and the ledger opens on the first award.
         from dodaios.progression import ProgressionService
@@ -861,11 +861,6 @@ class WebServer:
         )
         app.state.progression = self._progression
         app.include_router(progression_router)
-        # The Unreal Verse host (dodaios/verse_host): status, launch and the
-        # verse.bridge/1 socket. Nothing starts until the first show.
-        from .verse_routes import router as verse_router
-
-        app.include_router(verse_router)
         # Default: no recorder wired up — _init_session_stack() in start()
         # sets this once it succeeds.
         app.state.session_store = None
@@ -2958,15 +2953,6 @@ class WebServer:
 
         _boot_mark("uvicorn_serve")
 
-        # The Unreal Verse host launches nothing at start; with the dev_bridge
-        # flag on it renews the editor's discovery file (contract 1).
-        try:
-            from .verse_routes import start_verse_host
-
-            await start_verse_host(self.app, resolved_port)
-        except Exception:  # noqa: BLE001 -- the Verse never blocks the app start
-            logger.opt(exception=True).warning("Verse host start step failed")
-
         # Voice-ready UI backstop (permanent "starting up" bug): the frontend's
         # startup banner + top-left "STARTING…" status clear ONLY on a
         # VoiceBootStatus(ready=True). If the speech pipeline crashes during
@@ -4125,15 +4111,6 @@ class WebServer:
             await stop_appshot_shortcut()
         except Exception:
             logger.opt(exception=True).warning("Appshot helpers failed to stop")
-
-        # Ask a running Verse to save and quit (lifecycle.quit app_quit) and
-        # delete the dev discovery file that holds a token.
-        try:
-            from .verse_routes import stop_verse_host
-
-            await stop_verse_host(self.app)
-        except Exception:  # noqa: BLE001 -- independent resources must still shut down
-            logger.opt(exception=True).warning("Verse host stop failed")
 
         if runtime_refs.get_web_app() is self.app:
             runtime_refs.set_web_app(None)

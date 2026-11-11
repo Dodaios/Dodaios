@@ -330,7 +330,6 @@
     "jarvisx": "Dodaios X",
     "marketplace": "Marketplace",
     "agentic_ide": "IDE agéntico",
-    "verse": "Verse",
     "agentic_ide_beta": "Beta",
     "voice": "Voz de {name}",
     "voice_shortcuts": "Atajos",
@@ -339,7 +338,6 @@
     "shortcuts": "Atajos de teclado",
     "pets": "Mis mascotas",
     "self_build": "Hecho para ti",
-    "games": "Ajustes de juegos",
     "notifications": "Notificaciones",
     "phone": "Teléfono"
   },
@@ -10487,7 +10485,6 @@
     "layout_aria": "Diseño del IDE",
     "layout_grid": "Cuadrícula de terminales",
     "layout_threads": "Hilos",
-    "layout_verse": "Dodaios Verse",
     "terminal_needs_folder": "El terminal necesita una carpeta de proyecto",
     "hide_terminal": "Ocultar terminal",
     "show_terminal": "Mostrar terminal",
