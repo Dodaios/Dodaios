@@ -178,6 +178,15 @@ def test_a_new_size_rescales_and_reports_the_change() -> None:
     assert renderer.set_look(pet_scale=2.0) is False  # same size, no window change
 
 
+def test_the_size_slider_leaves_the_control_strip_alone() -> None:
+    renderer, _calls = _renderer(_Clock(), dpi_ratio=1.5)
+    assert renderer.strip_scale == 1.5
+    renderer.set_look(pet_scale=2.0)
+    assert renderer.strip_scale == 1.5
+    renderer.set_look(pet_scale=0.5)
+    assert renderer.strip_scale == 1.5
+
+
 # --- frame keys and pacing ------------------------------------------------------
 
 

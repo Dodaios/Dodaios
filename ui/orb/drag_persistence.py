@@ -9,7 +9,9 @@ Public surface:
   - MascotPosition (frozen dataclass)
   - clamp_to_work_area(x, y, monitor_geo, mascot_size_px) -> (x, y)
   - resolve_placement(persisted, screens, mascot_size_px) -> ResolvedPlacement
+  - resolve_pet_home(pinned, screens, fallback_area) -> PetHome
   - load_position_from_toml(path) -> MascotPosition | None
+  - load_pinned_position(path) -> MascotPosition | None
   - save_position_to_toml(path, pos) -> None
   - clear_position_in_toml(path) -> None
   - screens_from_tk(root) -> list[_ScreenSnapshot]   (Win32 EnumDisplayMonitors)
@@ -191,29 +193,103 @@ def resolve_placement(
     )
 
 
+@dataclass(frozen=True)
+class PetHome:
+    """Where a pinned pet opens: a work area and the unclamped spot on it."""
+
+    area: tuple[int, int, int, int]  # (x, y, w, h) of the screen it opens on
+    abs_x: int
+    abs_y: int
+    displaced: bool  # the monitor it was pinned to is not connected
+
+
+def resolve_pet_home(
+    pinned: MascotPosition,
+    screens: Sequence[_ScreenSnapshot],
+    *,
+    fallback_area: tuple[int, int, int, int],
+) -> PetHome:
+    """Resolve the spot a pet was dragged to, on whatever screens exist now.
+
+    The pet stays on screen while idle, so unlike the orb (BUG-027) it may
+    open on a secondary monitor: the user sees where it is. A pin whose
+    monitor is gone opens at the same offset on the primary screen and is
+    reported as ``displaced``; the caller keeps the saved pin so the pet
+    goes back when that monitor returns. Without a monitor list (macOS,
+    Linux) the offsets count from ``fallback_area``.
+
+    The spot is not clamped here: the caller knows the window's size.
+    """
+    if not screens:
+        fx, fy, _fw, _fh = fallback_area
+        return PetHome(
+            area=fallback_area,
+            abs_x=fx + pinned.x_relative,
+            abs_y=fy + pinned.y_relative,
+            displaced=False,
+        )
+    home = next((s for s in screens if s.name == pinned.monitor), None)
+    displaced = home is None and bool(pinned.monitor)
+    if home is None:
+        home = next((s for s in screens if s.is_primary), screens[0])
+    return PetHome(
+        area=home.geometry,
+        abs_x=home.geometry[0] + pinned.x_relative,
+        abs_y=home.geometry[1] + pinned.y_relative,
+        displaced=displaced,
+    )
+
+
 # ---------------------------------------------------------------------------
 # TOML load / save / clear — atomic, comment-preserving.
 # ---------------------------------------------------------------------------
 
 
-def load_position_from_toml(path: Path) -> MascotPosition | None:
-    """Read [overlay.mascot] from jarvis.toml. None if file is missing."""
+def _read_mascot_table(path: Path) -> dict | None:
+    """The ``[overlay.mascot]`` table; None when the file is missing or broken."""
     if not path.is_file():
         return None
     try:
         with path.open("rb") as f:
             data = tomllib.load(f)
     except (tomllib.TOMLDecodeError, OSError) as exc:
-        logger.warning("load_position_from_toml: %s", exc)
+        logger.warning("overlay.mascot position unreadable: %s", exc)
         return None
-    overlay = data.get("overlay") or {}
-    section = overlay.get("mascot") or {}
+    section = (data.get("overlay") or {}).get("mascot") or {}
+    return section if isinstance(section, dict) else {}
+
+
+def _position_from_table(section: dict) -> MascotPosition:
     monitor = section.get("position_monitor", "")
     if not isinstance(monitor, str):
         monitor = ""
     x_rel = int(section.get("position_x_relative", DEFAULT_X_RELATIVE))
     y_rel = int(section.get("position_y_relative", DEFAULT_Y_RELATIVE))
     return MascotPosition(monitor=monitor, x_relative=x_rel, y_relative=y_rel)
+
+
+def load_position_from_toml(path: Path) -> MascotPosition | None:
+    """Read [overlay.mascot] from jarvis.toml. None if file is missing."""
+    section = _read_mascot_table(path)
+    return None if section is None else _position_from_table(section)
+
+
+def load_pinned_position(path: Path) -> MascotPosition | None:
+    """The spot a drag saved. None when nothing was ever pinned.
+
+    :func:`load_position_from_toml` fills in defaults, so it cannot tell a
+    pin from an untouched file. Here both offsets must be present. The
+    monitor name may be empty: only Windows names its monitors.
+    """
+    section = _read_mascot_table(path)
+    if section is None:
+        return None
+    if "position_x_relative" not in section or "position_y_relative" not in section:
+        return None
+    try:
+        return _position_from_table(section)
+    except (TypeError, ValueError):
+        return None
 
 
 def load_allow_secondary_monitor_pin(path: Path) -> bool:
@@ -424,12 +500,15 @@ __all__ = [
     "DEFAULT_X_RELATIVE",
     "DEFAULT_Y_RELATIVE",
     "MascotPosition",
+    "PetHome",
     "ResolvedPlacement",
     "_ScreenSnapshot",
     "clamp_to_work_area",
     "clear_position_in_toml",
     "load_allow_secondary_monitor_pin",
+    "load_pinned_position",
     "load_position_from_toml",
+    "resolve_pet_home",
     "resolve_placement",
     "save_position_to_toml",
     "screens_from_tk",

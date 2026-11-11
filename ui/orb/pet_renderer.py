@@ -422,8 +422,12 @@ class PetRenderer:
 
     @property
     def strip_scale(self) -> float:
-        """The control strip's scale: the monitor's DPI ratio times ``pet_scale``."""
-        return max(0.25, self._dpi_ratio * self._pet_scale)
+        """The control strip's scale: the monitor's DPI ratio.
+
+        ``pet_scale`` sizes the figure only. The strip is a set of buttons,
+        and buttons that shrink with a small pet are hard to hit.
+        """
+        return max(0.25, self._dpi_ratio)
 
     @property
     def machine(self) -> Any:

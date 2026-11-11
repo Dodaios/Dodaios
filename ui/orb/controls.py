@@ -549,7 +549,7 @@ class PetStripLayout:
 
 @functools.lru_cache(maxsize=16)
 def pet_strip_layout(scale: float = 1.0) -> PetStripLayout:
-    """The strip's geometry at ``scale`` (DPI ratio times ``pet_scale``)."""
+    """The strip's geometry at ``scale`` (the monitor's DPI ratio)."""
     pad = _spx(PET_STRIP_PADDING, scale)
     slot = _spx(PET_SLOT, scale)
     gap = _spx(PET_PEN_GAP, scale)

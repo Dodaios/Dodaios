@@ -85,7 +85,9 @@ from ui.orb.drag_persistence import (
     clamp_to_work_area,
     clear_position_in_toml,
     load_allow_secondary_monitor_pin,
+    load_pinned_position,
     load_position_from_toml,
+    resolve_pet_home,
     resolve_placement,
     save_position_to_toml,
     screens_from_tk,
@@ -1931,6 +1933,22 @@ class OrbControlRow:
     def pointer_inside(self) -> bool:
         return self._pointer_inside
 
+    def contains(self, x: int, y: int) -> bool:
+        """True when the screen point is on the row where it was last placed."""
+        if not self._visible:
+            return False
+        left = self._orb_x + self._orb_w // 2 - self._width // 2
+        top = self._row_y()
+        return left <= x < left + self._width and top <= y < top + self._height
+
+    def sync_pointer(self, x: int, y: int) -> bool:
+        """Take the pointer's real position over the last Enter or Leave."""
+        inside = self.contains(x, y)
+        self._pointer_inside = inside
+        if not inside:
+            self._set_hovered(None)
+        return inside
+
     @property
     def window(self) -> tk.Toplevel | None:
         return self._top
@@ -2006,6 +2024,15 @@ class OrbControlRow:
             )
 
 
+def strip_fade_alpha(elapsed_s: float, duration_s: float) -> float:
+    """Opacity of a strip that began to fade ``elapsed_s`` ago: 1 down to 0."""
+    if duration_s <= 0 or elapsed_s >= duration_s:
+        return 0.0
+    if elapsed_s <= 0:
+        return 1.0
+    return 1.0 - elapsed_s / duration_s
+
+
 class PetControlStrip(OrbControlRow):
     """The pet's control strip — see ``ui.orb.controls`` (``PET_ACTIONS``).
 
@@ -2021,6 +2048,14 @@ class PetControlStrip(OrbControlRow):
     #: Longer than the orb row's: the pointer crosses a gap between the
     #: figure and the strip, and a strip that vanishes on the way is a miss.
     HOVER_GRACE_MS = 600
+    #: After the grace the strip fades out instead of blinking off. The fade
+    #: is the window's own opacity, so no frame is drawn for it.
+    FADE_MS = 220
+    FADE_STEP_MS = 20
+
+    _fade_id: str | None = None
+    _fade_t0 = 0.0
+    _alpha = 1.0
 
     def __init__(
         self,
@@ -2084,7 +2119,7 @@ class PetControlStrip(OrbControlRow):
         return self._scale
 
     def set_scale(self, scale: float) -> None:
-        """Re-lay the strip at another scale (``pet_scale`` or DPI changed)."""
+        """Re-lay the strip at another scale (the monitor's DPI changed)."""
         scale = float(scale)
         if scale == self._scale:
             return
@@ -2144,17 +2179,79 @@ class PetControlStrip(OrbControlRow):
     # -- pointer ----------------------------------------------------------
 
     def hide_after_grace(self) -> None:
-        """Hide after the grace, unless the overlay still wants the strip up."""
-        if self._keep_visible is not None and self._keep_visible():
+        """Fade out after the grace, unless the overlay still wants the strip up."""
+        if self._still_wanted() or self._fade_id is not None:
             return
         super().hide_after_grace()
 
+    def _still_wanted(self) -> bool:
+        return self._pointer_inside or (self._keep_visible is not None and self._keep_visible())
+
     def _grace_elapsed(self) -> None:
+        self._hide_after_id = None
         # The conversation may have started during the grace.
-        if self._keep_visible is not None and self._keep_visible():
-            self._hide_after_id = None
+        if not self._visible or self._still_wanted():
             return
-        super()._grace_elapsed()
+        self._fade_t0 = time.monotonic()
+        self._fade_tick()
+
+    def _fade_tick(self) -> None:
+        self._fade_id = None
+        if not self._visible:
+            return
+        if self._still_wanted():
+            self._set_alpha(1.0)
+            return
+        alpha = strip_fade_alpha(time.monotonic() - self._fade_t0, self.FADE_MS / 1000)
+        if alpha <= 0.0 or self._top is None:
+            self.hide()
+            return
+        self._set_alpha(alpha)
+        try:
+            self._fade_id = self._top.after(self.FADE_STEP_MS, self._fade_tick)
+        except tk.TclError:
+            self.hide()
+
+    def _stop_fade(self) -> None:
+        """Stop the fade's timer. The opacity is left where it was."""
+        fade_id, self._fade_id = self._fade_id, None
+        if fade_id is None or self._top is None:
+            return
+        try:
+            self._top.after_cancel(fade_id)
+        except tk.TclError:
+            logging.getLogger("jarvis.orb").debug("strip fade cancel failed", exc_info=True)
+
+    def _set_alpha(self, alpha: float) -> None:
+        if self._top is None or alpha == self._alpha:
+            return
+        try:
+            self._top.wm_attributes("-alpha", alpha)
+        except tk.TclError:
+            # No window opacity here: the strip stays solid, then hides.
+            logging.getLogger("jarvis.orb").debug("strip opacity unavailable", exc_info=True)
+            return
+        self._alpha = alpha
+
+    def show(self) -> None:
+        self._stop_fade()
+        self._set_alpha(1.0)
+        super().show()
+
+    def hide(self) -> None:
+        self._stop_fade()
+        super().hide()
+        # Solid again only once it is off screen, so it never flashes back.
+        self._set_alpha(1.0)
+
+    def destroy(self) -> None:
+        self._stop_fade()
+        super().destroy()
+
+    def _on_enter(self, event: tk.Event) -> None:
+        self._stop_fade()
+        self._set_alpha(1.0)
+        super()._on_enter(event)
 
     def _on_press(self, event: tk.Event) -> None:
         # Every press may become a drag — on a control too. The strip is all
@@ -2274,6 +2371,10 @@ class OrbOverlay:
         # loop into clamp-only mode and tells boot to skip the taskbar
         # anchor.
         self._manual_pinned: bool = False
+        #: The spot the pet was dragged to, and whether its monitor is
+        #: unplugged right now (the pet then waits on another screen).
+        self._pet_home: MascotPosition | None = None
+        self._pet_displaced = False
         self._drag_state: _DragState | None = None
         # Double-double-click on the orb fires this callback (user spec
         # 2026-05-17 + revision 2026-05-18: two double-clicks within
@@ -2490,7 +2591,18 @@ class OrbOverlay:
         # before migrating to the pin, so the user always SEES the orb on
         # boot regardless of where it was last dragged.
         self._boot_flash_target_xy: tuple[int, int] | None = None
-        if persisted is not None and persisted.monitor:
+        # The pet stays on screen while idle, so it opens where it was dragged
+        # to, a secondary monitor included, and without the flash.
+        pet_pin = load_pinned_position(JARVIS_TOML_PATH) if self._style == "pet" else None
+        if pet_pin is not None:
+            self._pet_home = pet_pin
+            self._manual_pinned = True
+            self._mascot_x, self._mascot_y = self._pet_home_xy(
+                pet_pin, screens_from_tk(self._root)
+            )
+            anchor = MascotAnchor(x=self._mascot_x, y=self._mascot_y, taskbar_aligned=False)
+            self._root.geometry(f"{self._win_w}x{self._win_h}+{self._mascot_x}+{self._mascot_y}")
+        elif persisted is not None and persisted.monitor:
             screens = screens_from_tk(self._root)
             allow_secondary = load_allow_secondary_monitor_pin(JARVIS_TOML_PATH)
             placement = resolve_placement(
@@ -2690,11 +2802,11 @@ class OrbOverlay:
         )
 
     def _pet_strip_scale(self) -> float:
-        """The strip's scale: the monitor's DPI ratio times ``pet_scale``."""
+        """The strip's scale: the monitor's DPI ratio, whatever the pet's size."""
         renderer = self._renderer
         if isinstance(renderer, PetRenderer):
             return renderer.strip_scale
-        return max(0.25, self._dpi_ratio * self._pet_scale)
+        return max(0.25, self._dpi_ratio)
 
     def _pet_below_height(self) -> int:
         """Height of what hangs under the pet's figure: the gap plus the strip."""
@@ -2728,6 +2840,42 @@ class OrbOverlay:
             x, y, monitor_geo, mascot_size_px=self._win_h + self._pet_below_height()
         )
         return clamped_x, clamped_y
+
+    def _pet_home_xy(self, pin: MascotPosition, screens: list) -> tuple[int, int]:
+        """Where the pinned pet stands on the screens that exist now.
+
+        Records whether the monitor of the pin is unplugged: the pet then
+        waits at the same offset on the primary screen and the pin is kept.
+        """
+        fallback = (0, 0, 1920, 1080)
+        if self._root is not None:
+            try:
+                fallback = (0, 0, self._root.winfo_screenwidth(), self._root.winfo_screenheight())
+            except tk.TclError:
+                logging.getLogger("jarvis.orb").debug("screen size unavailable", exc_info=True)
+        home = resolve_pet_home(pin, screens, fallback_area=fallback)
+        self._pet_displaced = home.displaced
+        return self._clamp_position(home.abs_x, home.abs_y, home.area)
+
+    def _follow_pet_home(self, screens: list) -> None:
+        """Track the monitor of the pinned pet while the app runs.
+
+        Unplugged: remember that, so the clamp that follows does not overwrite
+        the saved pin. Plugged back in: the pet goes home.
+        """
+        pin = self._pet_home
+        if self._style != "pet" or pin is None or not pin.monitor or not screens:
+            return
+        if not any(s.name == pin.monitor for s in screens):
+            self._pet_displaced = True
+            return
+        if not self._pet_displaced or self._drag_state is not None or self._root is None:
+            return
+        x, y = self._pet_home_xy(pin, screens)
+        self._mascot_x, self._mascot_y = x, y
+        self._work_area_cache = None
+        self._root.geometry(f"{self._win_w}x{self._win_h}+{x}+{y}")
+        self._move_attached(x, y, self._root.winfo_screenwidth())
 
     def _move_attached(self, x: int, y: int, screen_w: int) -> None:
         """Bring the bubble and the control row along after the window moved."""
@@ -2763,6 +2911,7 @@ class OrbOverlay:
             screen_h = self._root.winfo_screenheight()
             if self._manual_pinned:
                 screens = screens_from_tk(self._root)
+                self._follow_pet_home(screens)
                 monitor_geo, monitor_name = self._monitor_at_orb_center(screens)
                 clamped_x, clamped_y = self._clamp_position(
                     self._mascot_x, self._mascot_y, monitor_geo
@@ -2772,17 +2921,19 @@ class OrbOverlay:
                     self._mascot_y = clamped_y
                     self._root.geometry(f"{self._win_w}x{self._win_h}+{clamped_x}+{clamped_y}")
                     self._move_attached(clamped_x, clamped_y, screen_w)
-                    try:
-                        save_position_to_toml(
-                            JARVIS_TOML_PATH,
-                            MascotPosition(
-                                monitor=monitor_name,
-                                x_relative=clamped_x - monitor_geo[0],
-                                y_relative=clamped_y - monitor_geo[1],
-                            ),
-                        )
-                    except OSError:
-                        pass
+                    # A pet waiting for its monitor keeps the pin it was given.
+                    if not self._pet_displaced:
+                        try:
+                            save_position_to_toml(
+                                JARVIS_TOML_PATH,
+                                MascotPosition(
+                                    monitor=monitor_name,
+                                    x_relative=clamped_x - monitor_geo[0],
+                                    y_relative=clamped_y - monitor_geo[1],
+                                ),
+                            )
+                        except OSError:
+                            pass
             else:
                 anchor = self._resolve_anchor(screen_w, screen_h)
                 if (anchor.x, anchor.y) != (self._mascot_x, self._mascot_y):
@@ -2794,6 +2945,7 @@ class OrbOverlay:
                 # Same cadence, one more job: a persistent pet must not sink
                 # under a freshly opened window (see _reassert_topmost).
                 self._reassert_topmost()
+                self._reconcile_pet_hover()
         except (tk.TclError, OSError):
             logging.getLogger("jarvis.orb").debug("orb position recheck skipped", exc_info=True)
         if self._root is not None:
@@ -2860,6 +3012,8 @@ class OrbOverlay:
             offset_y=event.y_root - self._mascot_y,
             moved=False,
         )
+        if self._style == "pet":
+            self._sync_controls_visibility()  # the strip stays for the whole press
         try:
             self._root.configure(cursor="fleur")
         except tk.TclError:
@@ -2895,6 +3049,7 @@ class OrbOverlay:
         state = self._drag_state
         self._drag_state = None
         if state is None or not state.moved:
+            self._settle_pet_strip()
             return  # click, not drag
         if self._style == "pet":
             self._apply_pet_feed("on_held", False)
@@ -2917,19 +3072,20 @@ class OrbOverlay:
         self._sync_notice_anchor()
 
         self._manual_pinned = True
+        pin = MascotPosition(
+            monitor=monitor_name,
+            x_relative=self._mascot_x - monitor_geo[0],
+            y_relative=self._mascot_y - monitor_geo[1],
+        )
+        self._pet_home = pin
+        self._pet_displaced = False
         try:
-            save_position_to_toml(
-                JARVIS_TOML_PATH,
-                MascotPosition(
-                    monitor=monitor_name,
-                    x_relative=self._mascot_x - monitor_geo[0],
-                    y_relative=self._mascot_y - monitor_geo[1],
-                ),
-            )
+            save_position_to_toml(JARVIS_TOML_PATH, pin)
         except OSError as exc:
             # Persistence failure is non-fatal — orb stays at new position
             # for this session; next restart falls back to default.
             print(f"[orb] save_position_to_toml failed: {exc}")
+        self._settle_pet_strip()
 
     def set_on_mute_toggle(self, callback: Callable[[], None] | None) -> None:
         """Inject the Jarvis-wide mute toggle action.
@@ -3024,6 +3180,9 @@ class OrbOverlay:
         """
         if self._pet_strip_always or self._figure_id() == NO_PET_ID:
             return True
+        if self._drag_state is not None:
+            # Held or dragged: the hover flags are stale until the release.
+            return True
         if self._mode in ACTIVE_VOICE_MODES + PET_VOICE_MODES + PET_THINK_MODES:
             return True
         notices = self._notices
@@ -3032,6 +3191,54 @@ class OrbOverlay:
             return True
         row = self._controls
         return self._pointer_over_orb or (row is not None and row.pointer_inside)
+
+    def _pointer_xy(self) -> tuple[int, int] | None:
+        """The pointer in screen pixels; None when Tk cannot say."""
+        if self._root is None:
+            return None
+        try:
+            x, y = self._root.winfo_pointerxy()
+        except (tk.TclError, TypeError, ValueError):
+            return None
+        return int(x), int(y)
+
+    def _read_pet_hover(self) -> bool:
+        """Set both hover flags from where the pointer is. False when unknown."""
+        row = self._controls
+        xy = self._pointer_xy()
+        if row is None or xy is None:
+            return False
+        x, y = xy
+        self._pointer_over_orb = (
+            self._mascot_x <= x < self._mascot_x + self._win_w
+            and self._mascot_y <= y < self._mascot_y + self._win_h
+        )
+        row.sync_pointer(x, y)
+        return True
+
+    def _settle_pet_strip(self) -> None:
+        """Let the strip follow the pointer again once a press has ended.
+
+        While the button is down the pointer can outrun the window, and a
+        window that moves under a still pointer gets no Enter or Leave. So
+        the strip stays for the press, and the release reads the pointer.
+        """
+        if self._style != "pet" or self._controls is None:
+            return
+        self._read_pet_hover()
+        self._sync_controls_visibility()
+
+    def _reconcile_pet_hover(self) -> None:
+        """Drop a hover that outlived the pointer (a Leave that never came)."""
+        row = self._controls
+        if row is None or self._drag_state is not None:
+            return
+        if not (self._pointer_over_orb or row.pointer_inside):
+            return
+        if not self._read_pet_hover():
+            return
+        if not (self._pointer_over_orb or row.pointer_inside):
+            self._sync_controls_visibility()
 
     def _on_orb_pointer_leave(self, _event: tk.Event | None = None) -> None:
         self._pointer_over_orb = False
@@ -3468,6 +3675,8 @@ class OrbOverlay:
         if self._root is None:
             return
         self._manual_pinned = False
+        self._pet_home = None
+        self._pet_displaced = False
         self._drag_state = None
         try:
             clear_position_in_toml(JARVIS_TOML_PATH)
