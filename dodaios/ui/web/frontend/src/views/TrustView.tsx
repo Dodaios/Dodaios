@@ -7,6 +7,9 @@
  * - "What it knows": connected accounts, what is learned (with the learning
  *   switch), which providers see what (local vs cloud), channels, the screen.
  *
+ * - "Self-changes": what the assistant changed in itself (skills, instructions, tools,
+ *   code), each with its diff and regression result, one-click rollback, and the
+ *   owner approval that core changes wait for.
  * - "Activity log": every tool action with who started it, how it was approved,
  *   how it ended and its receipt; read-only, exportable as CSV or JSON.
  *
@@ -19,10 +22,11 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { TabBar } from "@/components/layout/SectionTabBar";
 import { AuditLog } from "@/components/trust/AuditLog";
 import { PrivacyOverview } from "@/components/trust/PrivacyOverview";
+import { SelfChanges } from "@/components/trust/SelfChanges";
 import { TrustRules } from "@/components/trust/TrustRules";
 import { useLocaleChunk, useT } from "@/i18n";
 
-type Tab = "rules" | "privacy" | "audit";
+type Tab = "rules" | "privacy" | "changes" | "audit";
 
 export function TrustView({ initialTab = "rules" }: { initialTab?: Tab }) {
   const ready = useLocaleChunk("trust");
@@ -40,6 +44,7 @@ export function TrustView({ initialTab = "rules" }: { initialTab?: Tab }) {
             tabs={[
               { id: "rules", label: t("trust.page.tab_rules") },
               { id: "privacy", label: t("trust.page.tab_privacy") },
+              { id: "changes", label: t("trust.page.tab_changes") },
               { id: "audit", label: t("trust.page.tab_audit") },
             ]}
             active={tab}
@@ -48,7 +53,15 @@ export function TrustView({ initialTab = "rules" }: { initialTab?: Tab }) {
         }
       />
       <div className="min-h-0 flex-1 overflow-y-auto pb-10 scrollbar-jarvis">
-        {tab === "rules" ? <TrustRules /> : tab === "privacy" ? <PrivacyOverview /> : <AuditLog />}
+        {tab === "rules" ? (
+          <TrustRules />
+        ) : tab === "privacy" ? (
+          <PrivacyOverview />
+        ) : tab === "changes" ? (
+          <SelfChanges />
+        ) : (
+          <AuditLog />
+        )}
       </div>
     </div>
   );

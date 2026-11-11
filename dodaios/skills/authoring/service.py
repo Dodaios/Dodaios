@@ -215,18 +215,21 @@ class SkillAuthoringService:
             )
 
         rendered = render_skill_md(req)
-
-        # Atomic write: temp file in the (newly created) slug dir, then replace.
-        target_dir.mkdir(parents=True, exist_ok=True)
         skill_path = target_dir / _SKILL_FILENAME
-        tmp = skill_path.with_suffix(skill_path.suffix + ".tmp")
-        try:
-            tmp.write_text(rendered, encoding="utf-8")
-            tmp.replace(skill_path)
-        except OSError as exc:
-            raise SkillAuthoringError(
-                f"Could not write skill: {exc}", status=500
-            ) from exc
+
+        if self._agent_made(req) and self._record_self_change(req, slug, rendered):
+            pass  # the self-change registry gated and wrote the file
+        else:
+            # Atomic write: temp file in the (newly created) slug dir, then replace.
+            target_dir.mkdir(parents=True, exist_ok=True)
+            tmp = skill_path.with_suffix(skill_path.suffix + ".tmp")
+            try:
+                tmp.write_text(rendered, encoding="utf-8")
+                tmp.replace(skill_path)
+            except OSError as exc:
+                raise SkillAuthoringError(
+                    f"Could not write skill: {exc}", status=500
+                ) from exc
 
         # Refresh so the new skill is immediately listable + the response shows
         # the parsed state. reload_sync is the synchronous path (the watcher
@@ -241,6 +244,45 @@ class SkillAuthoringService:
 
         await self._emit_created(created, req.author)
         return created
+
+    @staticmethod
+    def _agent_made(req: SkillCreateRequest) -> bool:
+        """Skills the assistant wrote itself: the AI creator (draft) and the self-build loop."""
+        return req.state == "draft" or req.author == "Dodaios (self-built)"
+
+    def _record_self_change(self, req: SkillCreateRequest, slug: str, rendered: str) -> bool:
+        """Gate an agent-made skill through the self-change registry and write it.
+
+        Returns False when no registry runs (tests, headless tools): the caller writes the
+        file itself. Raises when the gate blocks the skill or it waits for the owner.
+        """
+        from dodaios import self_change
+
+        registry = self_change.current()
+        if registry is None:
+            return False
+        from dodaios.self_change.registry import FileHandler
+
+        change = registry.propose(
+            self_change.Draft(
+                surface=self_change.Surface.SKILL,
+                target=slug,
+                after=rendered,
+                author=req.author or "agent:skill-creator",
+                reason=req.description[:300],
+                ref=f"skill:{slug}",
+            ),
+            handler=FileHandler(lambda target: self._root / target / _SKILL_FILENAME),
+        )
+        if change.state in (self_change.State.TRIAL, self_change.State.LIVE):
+            return True
+        if change.state is self_change.State.PROPOSED:
+            raise SkillAuthoringError(
+                f"This skill needs the owner's approval first ({change.note}).", status=403
+            )
+        raise SkillAuthoringError(
+            f"The skill did not pass the self-change check: {change.note}", status=422
+        )
 
     async def _emit_created(self, skill: Skill, author: str) -> None:
         bus = self._bus

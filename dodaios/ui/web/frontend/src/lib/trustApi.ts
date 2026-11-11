@@ -183,3 +183,58 @@ export const auditExportUrl = (format: "csv" | "json", filter: AuditFilter) => {
   const query = auditQuery({ ...filter, before: undefined });
   return `/api/trust/audit/export${query ? `${query}&` : "?"}format=${format}`;
 };
+
+export type SelfChangeState = "proposed" | "trial" | "live" | "reverted" | "blocked";
+export type SelfChangeSurface =
+  | "skill"
+  | "prompt"
+  | "instructions"
+  | "tool"
+  | "code"
+  | "config"
+  | "routine"
+  | "agent";
+
+export interface SelfChange {
+  id: string;
+  surface: SelfChangeSurface;
+  target: string;
+  version: number;
+  diff: string;
+  author: string;
+  turn: string;
+  reason: string;
+  state: SelfChangeState;
+  core: boolean;
+  core_reasons: string[];
+  gate: { status?: string; checks?: { name: string; status: string; detail: string }[] };
+  note: string;
+  created_ms: number;
+  updated_ms: number;
+}
+
+export interface SelfChangeSummary {
+  total: number;
+  waiting: number;
+  on_trial: number;
+  live: number;
+  reverted: number;
+  blocked: number;
+}
+
+/** The self-change registry (dodaios/self_change). Recording and grading have no route. */
+export const fetchSelfChanges = () =>
+  request<{ changes: SelfChange[]; summary: SelfChangeSummary }>("/api/self-change");
+
+const post = (url: string, body?: unknown) =>
+  request<{ ok: boolean; reverted?: SelfChange[] }>(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+
+export const decideSelfChange = (id: string, action: "approve" | "reject" | "keep" | "rollback") =>
+  post(`/api/self-change/${encodeURIComponent(id)}/${action}`);
+
+export const rollbackSelfChangesSince = (sinceMs: number) =>
+  post("/api/self-change/rollback-since", { since_ms: sinceMs });
