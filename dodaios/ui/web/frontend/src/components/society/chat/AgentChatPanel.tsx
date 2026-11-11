@@ -951,6 +951,14 @@ export function NoticeLine({ item }: { item: NoticeItem }) {
   if (item.kind === "context_rollover") {
     return <p className="py-1 text-center text-[12px] text-muted-foreground">{t("society.chat.context_rollover")}</p>;
   }
+  if (item.kind === "seat_switched") {
+    // A usage limit moved the turn to the next subscription; the work went on.
+    return <p className="py-1 text-center text-[12px] text-muted-foreground" data-testid="seat-switched">
+      {t("society.chat.seat_switched_line")
+        .replace("{0}", String(item.data.from_label ?? ""))
+        .replace("{1}", String(item.data.to_label ?? ""))}
+    </p>;
+  }
   if (item.kind === "runtime_setup") {
     const runtime = String(item.data.runtime ?? "");
     return <p className="py-1 text-center text-[12px] text-muted-foreground" data-testid="runtime-setup-notice">

@@ -257,6 +257,18 @@ export function AgentTimeline({
           </div>
         );
       }
+      if (item.kind === "seat_switched") {
+        // The turn ran into its subscription's usage limit and carried on on
+        // the next one: a quiet line, the work itself was not interrupted.
+        return (
+          <p key={item.id} data-message-id={item.id} data-testid="seat-switched"
+            className="mx-auto max-w-[85%] py-1 text-center text-xs text-muted-foreground">
+            {t("society.chat.seat_switched_line")
+              .replace("{0}", String(item.data.from_label ?? ""))
+              .replace("{1}", String(item.data.to_label ?? ""))}
+          </p>
+        );
+      }
       if (item.kind === "background_result_lost") {
         return (
           <p key={item.id} data-message-id={item.id} role="alert"

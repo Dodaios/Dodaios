@@ -37,8 +37,16 @@ one already past the threshold. When there is none, nothing moves and the
 status says so; once the refusing seat refills, its cut-off panes are told to
 continue where they are.
 
-Never on the boot path (AP-26): the watch starts with the first workspace and
-costs a few small file reads per tick while panes run.
+**Everywhere, not only in panes.** Chat threads, the lead and society agents
+run the same CLIs on the same seats. A turn of theirs reports the seat it runs
+on (:func:`note_in_use`), so the threshold watch covers those seats too and
+their next turn starts on the next subscription. A turn the provider refuses
+mid-work hands itself on (:func:`fail_over`): the seat leaves rotation, the
+active seat moves on (and with it every pane on the spent seat), and the
+thread resumes its own conversation on the new seat and carries on.
+
+Never on the boot path (AP-26): the watch starts with the first workspace or
+the first CLI turn and costs a few small file reads per tick while work runs.
 """
 
 from __future__ import annotations
@@ -83,6 +91,10 @@ EXHAUSTED_FALLBACK_S = 3600.0
 #: its CLI would throw the half-written prompt away. The move waits like one
 #: behind a running turn.
 TYPING_GRACE_S = 60.0
+
+#: How long a seat a thread or agent turn ran on stays watched. Long enough to
+#: cover the gap between two turns of the same conversation.
+OUTSIDE_SEAT_TTL_S = 30 * 60.0
 
 #: Recent switches kept for the panel. A handful is all anyone reads.
 MAX_EVENTS = 20
@@ -147,9 +159,16 @@ class _State:
     manual: dict[str, str] = field(default_factory=dict)
     #: Continue prompts in flight, held so the loop cannot drop them.
     nudges: set[asyncio.Task[None]] = field(default_factory=set)
+    #: The Agentic IDE registry the watch moves panes in, once one exists.
+    registry: Any = None
 
 
 _STATE = _State()
+
+# (platform, account id) -> when a thread or agent turn last ran on it. Written
+# from planning code that may run in a worker thread, hence the lock.
+_OUTSIDE: dict[tuple[str, str], float] = {}
+_OUTSIDE_LOCK = threading.Lock()
 
 # conversation id -> the limit stop (epoch) a switch already answered.
 _HANDLED: dict[str, float] | None = None
@@ -174,6 +193,9 @@ def reset() -> None:
     _STATE.seen_stops.clear()
     _STATE.manual.clear()
     _STATE.nudges.clear()
+    _STATE.registry = None
+    with _OUTSIDE_LOCK:
+        _OUTSIDE.clear()
     with _HANDLED_LOCK:
         _HANDLED = None
 
@@ -404,6 +426,103 @@ def preferred_seat(platform: str, account_id: str | None) -> str | None:
     if not snapshot.connected or snapshot.mode != "subscription":
         return None
     return active.id
+
+
+# ------------------------------------------------------ work outside panes
+
+
+def note_in_use(platform: str, account_id: str | None) -> None:
+    """A thread or agent turn runs on this seat: watch it like a pane's.
+
+    Thread-safe and cheap; it does not start the watch (:func:`ensure_watch`
+    does, from the event loop).
+    """
+    if not platform or not account_id:
+        return
+    with _OUTSIDE_LOCK:
+        _OUTSIDE[(platform, account_id)] = _now()
+
+
+def _outside_seats() -> dict[str, set[str]]:
+    """Seats recent thread and agent turns ran on, by platform."""
+    cutoff = _now() - OUTSIDE_SEAT_TTL_S
+    found: dict[str, set[str]] = {}
+    with _OUTSIDE_LOCK:
+        for key in [key for key, at in _OUTSIDE.items() if at < cutoff]:
+            _OUTSIDE.pop(key, None)
+        for platform, account_id in _OUTSIDE:
+            found.setdefault(platform, set()).add(account_id)
+    return found
+
+
+def _panes_registry() -> Any:
+    """The Agentic IDE registry when one exists; never creates one."""
+    if _STATE.registry is not None:
+        return _STATE.registry
+    from . import session
+
+    return session._REGISTRY
+
+
+class _NoPanes:
+    """The registry the watch reads before any workspace was opened."""
+
+    sessions: tuple[()] = ()
+
+
+async def fail_over(platform: str, account_id: str, *, error: str = "") -> str | None:
+    """A thread or agent turn on ``account_id`` was refused for its usage limit.
+
+    The seat (and every seat signed in as the same login) leaves rotation
+    until its reset, the next subscription becomes the active seat and every
+    pane still on the spent seat follows it, busy ones after their turn.
+    Returns the seat the refused turn should carry on on, or ``None`` when
+    auto switch is off or no other subscription has budget left.
+    """
+    from dodaios import agent_accounts
+    from dodaios.brain.seat_health import parse_reset_time
+
+    if not platform or not account_id:
+        return None
+    choice = await asyncio.to_thread(agent_accounts.auto_switch)
+    if not choice.enabled:
+        return None
+    usage = await asyncio.to_thread(_cached_usage, platform)
+    leaving_all = await asyncio.to_thread(_same_login_ids, platform, {account_id})
+    until = parse_reset_time(error) or _refill_at(usage.get(account_id), 99.0)
+    _set_exhausted(leaving_all, until)
+    active = await asyncio.to_thread(agent_accounts.active_account, platform)
+    seat = await asyncio.to_thread(
+        functools.partial(
+            choose_seat, platform, {account_id}, usage, choice.at_percent, prefer=active.id
+        )
+    )
+    if seat is None:
+        label = await asyncio.to_thread(_label, account_id)
+        _report_empty(platform, {account_id}, label, "limit")
+        return None
+    _STATE.reported_empty.discard((platform, frozenset({account_id})))
+    registry = _panes_registry()
+    async with _lock():
+        if registry is not None:
+            await _switch(registry, platform, seat.id, reason="limit", only_from=leaving_all)
+        else:
+            if _STATE.manual.get(platform) != seat.id:
+                _STATE.manual.pop(platform, None)
+            await asyncio.to_thread(agent_accounts.set_active, platform, seat.id)
+            from_label = await asyncio.to_thread(_label, account_id)
+            _record(
+                SwitchEvent(
+                    at=_now(),
+                    platform=platform,
+                    reason="limit",
+                    to_account=seat.id,
+                    to_label=seat.label,
+                    from_label=from_label,
+                )
+            )
+    ensure_watch()
+    return seat.id
 
 
 # --------------------------------------------------------------- the moves
@@ -787,7 +906,12 @@ async def _check_thresholds(registry: Registry, at_percent: float) -> None:
         for _session, term in _local_panes(registry, platform):
             if term.status == "live" and term.account:
                 platforms.setdefault(platform, set()).add(term.account)
+    # Seats chat threads and agents ran on lately: their next turn moves too.
+    for platform, seats in _outside_seats().items():
+        platforms.setdefault(platform, set()).update(seats)
     for platform, in_use in platforms.items():
+        if len(await asyncio.to_thread(agent_accounts.list_accounts, platform)) < 2:
+            continue  # one seat: nowhere to move, so nothing worth reading
         usage = await asyncio.to_thread(_cached_usage, platform)
         if not usage:
             continue
@@ -838,12 +962,14 @@ async def _tick(registry: Registry) -> None:
         await _check_thresholds(registry, choice.at_percent)
 
 
-async def _run(registry: Registry) -> None:
-    """Watch until the last workspace closes; the next one starts it again."""
+async def _run() -> None:
+    """Watch while work runs: until the last workspace closes and no thread or
+    agent turn used a seat lately. The next one starts it again."""
     try:
         while True:
             await asyncio.sleep(WATCH_INTERVAL_S)
-            if not registry.sessions:
+            registry = _panes_registry() or _NoPanes()
+            if not registry.sessions and not _outside_seats():
                 return
             try:
                 await _tick(registry)
@@ -856,14 +982,20 @@ async def _run(registry: Registry) -> None:
 
 
 def start(registry: Registry) -> None:
-    """Make sure the watch runs for ``registry``. Idempotent."""
+    """Make sure the watch runs and moves panes in ``registry``. Idempotent."""
+    _STATE.registry = registry
+    ensure_watch()
+
+
+def ensure_watch() -> None:
+    """Make sure the watch runs. Idempotent; a no-op off the event loop."""
     if _STATE.task is not None and not _STATE.task.done():
         return
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:  # no loop: called outside the server, nothing to schedule
         return
-    _STATE.task = loop.create_task(_run(registry), name="agentic-ide-seat-switch")
+    _STATE.task = loop.create_task(_run(), name="agentic-ide-seat-switch")
 
 
 def stop() -> None:
@@ -895,8 +1027,11 @@ __all__ = [
     "CONTINUE_PROMPT",
     "SwitchEvent",
     "choose_seat",
+    "ensure_watch",
+    "fail_over",
     "handled_stop",
     "is_exhausted",
+    "note_in_use",
     "preferred_seat",
     "reset",
     "spent_percent",

@@ -7208,6 +7208,7 @@
       "browser_takeover_done": "Devuelto",
       "browser_takeover_expired": "Ya no hace falta",
       "fresh_start_line": "Nuevo comienzo: los mensajes anteriores siguen arriba y en la memoria",
+      "seat_switched_line": "{0} alcanzó su límite de uso. La conversación continúa en {1}",
       "context_rollover": "Contexto de trabajo nuevo: se conservan la memoria y los mensajes recientes",
       "stop_reason_max_tokens": "La respuesta se detuvo en el límite de salida del modelo; puede estar incompleta.",
       "stop_reason_max_turn_requests": "El agente alcanzó su límite de pasos para un turno; el trabajo puede estar sin terminar.",

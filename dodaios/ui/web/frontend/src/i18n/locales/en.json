@@ -7208,6 +7208,7 @@
       "browser_takeover_done": "Handed back",
       "browser_takeover_expired": "No longer needed",
       "fresh_start_line": "Fresh start: earlier messages stay above and in memory",
+      "seat_switched_line": "{0} reached its usage limit. This conversation continues on {1}",
       "context_rollover": "Fresh working context — memory and recent messages carried over",
       "stop_reason_max_tokens": "The answer stopped at the model's output limit; it may be incomplete.",
       "stop_reason_max_turn_requests": "The agent reached its step limit for one turn; the work may be unfinished.",
