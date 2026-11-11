@@ -68,7 +68,10 @@ view, menus) the limit is the person's: `display` (default) follows the
 refresh rate of the monitor the window is on, a number is a fixed cap and
 `unlimited` lifts it. In the background the cap is 30 fps; the bridge
 lifecycle (panel 30, dormant 2) and the panel stream (30) cap on top. A
-`t.MaxFPS` from the console or `-ExecCmds` wins. Low latency
+`t.MaxFPS` from the console or `-ExecCmds` wins. While the person plays
+(foreground, no lifecycle or stream cap) the process runs at above-normal
+priority on Windows, so builds and agents on the same PC interrupt the game
+threads less. Low latency
 (`display.low_latency`, on by default) turns on the engine's max-tick-rate
 handler: NVIDIA Reflex through the engine's Reflex plugin on Win64.
 

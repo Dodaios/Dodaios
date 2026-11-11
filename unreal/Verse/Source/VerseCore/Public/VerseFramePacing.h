@@ -13,6 +13,9 @@
  *   applies; its default follows the refresh rate of the display the window is on;
  * - while the Verse window is not the foreground window at most BackgroundFps.
  *
+ * While the person plays (foreground, no lifecycle or stream cap) the process runs at
+ * above-normal priority (Windows), so builds and agents on the same PC interrupt it less.
+ *
  * A t.MaxFPS set from the console or the command line (-ExecCmds, perf runs) wins: the pacer
  * never overrides a value set with a higher priority than code.
  */

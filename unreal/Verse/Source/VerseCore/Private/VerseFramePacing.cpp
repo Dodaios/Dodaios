@@ -27,6 +27,25 @@ namespace VerseFramePacingPrivate
 	constexpr double DisplayReadInterval = 2.0;
 	double LastDisplayRead = -1.0e9;
 	float DisplayHz = 0.f;
+	/** -1 unknown, 0 normal, 1 raised. */
+	int32 PriorityRaised = -1;
+
+	/**
+	 * Above-normal priority while the person plays (foreground, no lifecycle or stream cap): other
+	 * work on the PC (builds, agents) then preempts the game threads less. Measured on the
+	 * packaged 1440p hangar deck view under background load: 1 % low 97 -> 177 fps.
+	 */
+	void SetRaisedPriority(bool bRaise)
+	{
+		if (PriorityRaised == int32(bRaise))
+		{
+			return;
+		}
+		PriorityRaised = int32(bRaise);
+#if PLATFORM_WINDOWS
+		::SetPriorityClass(::GetCurrentProcess(), bRaise ? ABOVE_NORMAL_PRIORITY_CLASS : NORMAL_PRIORITY_CLASS);
+#endif
+	}
 
 	void Lower(float& Cap, float Candidate)
 	{
@@ -133,6 +152,8 @@ void FVerseFramePacing::Apply()
 	{
 		return;
 	}
+	VerseFramePacingPrivate::SetRaisedPriority(
+		FApp::HasFocus() && VerseFramePacingPrivate::LifecycleCap <= 0.f && VerseFramePacingPrivate::StreamCap <= 0.f);
 	IConsoleVariable* Var = IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS"));
 	if (!Var)
 	{
