@@ -659,3 +659,32 @@ async def test_the_dequeued_notice_names_the_turn_the_message_became():
     await _until(lambda: any(p.get("status") == "sent" for _, p in chat.notices))
     sent = next(p for _, p in chat.notices if p.get("status") == "sent")
     assert (sent["queue_id"], sent["turn_id"]) == (queue_id, "turn-1")
+
+
+async def test_a_waiting_message_can_be_edited_before_it_starts():
+    chat = BusyChat("agent")
+    chat.busy.add("thread-1")
+    _, queue_id = await send_or_queue(chat, "thread-1", "first draft")
+    assert await send_queue.edit_waiting(chat, "thread-1", queue_id, "second thought")
+    # The chat's waiting line takes the new words under the same queue_id.
+    assert chat.notices[-1][1] == {
+        "kind": "message_queued", "queue_id": queue_id, "text": "second thought", "edited": True,
+    }
+    assert send_queue.queue_state(chat, "thread-1")["items"] == [
+        {"queue_id": queue_id, "text": "second thought"},
+    ]
+    # Empty words with no files would send nothing; an unknown id changes nothing.
+    assert not await send_queue.edit_waiting(chat, "thread-1", queue_id, "   ")
+    assert not await send_queue.edit_waiting(chat, "thread-1", "gone", "x")
+    chat.busy.clear()
+    await _until(lambda: chat.sent == [("thread-1", "second thought")])
+
+
+async def test_an_edited_waiting_message_survives_a_restart_with_its_new_words():
+    chat = BusyChat("agent")
+    saved: dict[str, dict] = {}
+    chat.store.save_queued_message = lambda qid, sid, payload: saved.__setitem__(qid, payload)
+    chat.busy.add("thread-1")
+    _, queue_id = await send_or_queue(chat, "thread-1", "before")
+    await send_queue.edit_waiting(chat, "thread-1", queue_id, "after")
+    assert saved[queue_id]["text"] == "after"

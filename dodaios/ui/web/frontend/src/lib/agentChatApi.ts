@@ -609,6 +609,18 @@ export async function sendQueuedNow(sessionId: string, queueId: string): Promise
   return result.steered ? "steered" : result.next ? "next" : "gone";
 }
 
+/** New words for a waiting message; false when it already started or is gone. */
+export async function editQueuedMessage(sessionId: string, queueId: string, text: string): Promise<boolean> {
+  const result = await json<{ edited: boolean }>(
+    await fetch(
+      `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/queue/${encodeURIComponent(queueId)}`,
+      { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) },
+    ),
+    "queue-failed",
+  );
+  return result.edited;
+}
+
 export async function discardQueuedMessage(sessionId: string, queueId: string): Promise<void> {
   await json<{ removed: boolean }>(
     await fetch(
