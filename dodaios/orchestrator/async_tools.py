@@ -367,6 +367,15 @@ def _hand_off(
     )
 
 
+def cancel_running(job_id: str) -> bool:
+    """Cancel the work of a job in this process without touching its row."""
+    entry = _running.get(job_id)
+    if entry is None or entry.task.done():
+        return False
+    entry.task.cancel()
+    return True
+
+
 def stop(job_id: str) -> str:
     """Cancel a running async job: ``stopped``, ``finished`` or ``unknown``."""
     job = jobs.get_ledger().get(job_id)

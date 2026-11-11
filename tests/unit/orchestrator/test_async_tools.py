@@ -271,3 +271,15 @@ async def test_stopping_a_shell_job_kills_the_command(turn):
     await asyncio.wait({entry.task}, timeout=5)
     assert entry.task.cancelled()
     assert jobs.get_ledger().get(job_id).state == "cancelled"
+
+
+async def test_stop_everything_cancels_running_async_tool_work(turn):
+    from dodaios.safety.stop_everything import _stop_jobs
+
+    tool = SlowTool()
+    started = await async_tools.run_tool(tool, {"command": "sleep 900"}, _ctx())
+    job_id = started.output["job_id"]
+    assert _stop_jobs(jobs.get_ledger(), "owner stop") == 1
+    await asyncio.sleep(0.02)
+    assert tool.cancelled
+    assert jobs.get_ledger().get(job_id).state == "cancelled"
