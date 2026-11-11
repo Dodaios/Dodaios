@@ -4,8 +4,8 @@
   "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
   "replaces": "M_PropsInd_HullPaint",
   "scalars": {
-    "EdgeWear": 0.4,
-    "GrimeAmount": 0.3,
+    "EdgeWear": 0.2,
+    "GrimeAmount": 0.12,
     "Metallic": 0.0,
     "RoughnessMax": 0.75,
     "RoughnessMin": 0.45
