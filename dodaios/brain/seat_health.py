@@ -435,6 +435,14 @@ class SeatHealth:
                 seat.until_class == CLASS_AUTH,
             )
 
+    def troubled(self) -> list[SeatVerdict]:
+        """Every seat with a live verdict, for a glance at which logins are in trouble."""
+        with self._lock:
+            self._ensure_loaded()
+            keys = sorted(self._seats)
+        found = (self.verdict(provider, account) for provider, account in keys)
+        return [verdict for verdict in found if verdict is not None]
+
     def failure_counts(self, provider: str | None, account: str | None = "") -> dict[str, int]:
         """Failures of the last 24 h per class."""
         now = self._clock()
