@@ -15,9 +15,12 @@ import re
 import time
 from typing import Any
 
+from dodaios.brain.loop_control import ToolRecord
+
+from .events import make_event
 from .questions import CANCELLED, MAX_ASKS_PER_TURN, for_agent
 from .secret_requests import asks_for_secret, claims_stored_secret
-from .task_recovery import ToolRecovery
+from .task_recovery import ToolRecovery, blocks_automatic_recovery
 
 log = logging.getLogger(__name__)
 
@@ -95,6 +98,17 @@ def offer_instead_of_action(request: str, response: str) -> bool:
     return len(answer) <= 2400 and (bool(_OFFER.search(answer)) or blocking_question)
 
 
+_OFFER_CORRECTION = (
+    "The previous answer offered to do the requested work but did not execute it. "
+    "Carry out the original request now within the existing permissions. "
+    "Decide optional implementation details yourself. If essential information "
+    "really is missing, use society_ask_user and continue after its answer. "
+    "Do not end with another offer or plain-text confirmation question. "
+    "Honor any answers already received, including a decision to stop or change scope. "
+    "Do not repeat completed actions or invent success.\nOriginal request:\n"
+)
+
+
 class TurnCompletion:
     def __init__(
         self,
@@ -104,12 +118,21 @@ class TurnCompletion:
         *,
         allow_correction: bool,
         context: str | None = None,
+        lead: bool = False,
     ) -> None:
         self.service = service
         self.handle = handle
         self.request = request
         self.context = context or request
         self.allow_correction = allow_correction
+        # The lead's turn contract: the same post-turn checks on every seat (the
+        # offer guard, the claim check against the tool log, the reply language),
+        # without the society-only guards (credential field, background promises,
+        # question cards).
+        self.lead = lead
+        self.tool_log: list[ToolRecord] = []
+        self.claim_corrected = False
+        self.language_corrected = False
         self.corrected = False
         self.last_text = ""
         self.finish_event: dict[str, Any] | None = None
@@ -146,6 +169,9 @@ class TurnCompletion:
         if kind == "assistant_text":
             self.last_text = str(payload.get("text") or "")
             self.texts.append(self.last_text)
+            if self.lead:
+                await self.handle.emit(event)
+                return
             from .background_work import has_scheduled_work, promises_background_work
 
             self.background_unregistered = (
@@ -169,6 +195,16 @@ class TurnCompletion:
                 self.credential_asked = True
         elif kind == "tool_result":
             name, _ = self.calls.pop(str(payload.get("call_id") or ""), ("", {}))
+            if self.lead and name:
+                text = payload.get("output")
+                text = text if isinstance(text, str) else json.dumps(text, default=str)
+                self.tool_log.append(
+                    ToolRecord(
+                        name=name,
+                        ok=not payload.get("is_error"),
+                        blocked=blocks_automatic_recovery(text[:8000]),
+                    )
+                )
             if name == "society_propose_change" and not payload.get("is_error"):
                 output = payload.get("output")
                 if isinstance(output, str):
@@ -194,6 +230,8 @@ class TurnCompletion:
         if not self.finish_event or self.finish_event["payload"].get("status") != "done":
             return None
         sid = self.handle.session.session_id
+        if self.lead:
+            return await self._lead_correction(sid)
         cards = set(self.service.undelivered_questions(sid, self.handle.turn_id)) - self.answered
         if cards:
             rows = []
@@ -265,16 +303,57 @@ class TurnCompletion:
             and offer_instead_of_action(self.request, self.last_text)
         ):
             self.corrected = True
-            return (
-                "The previous answer offered to do the requested work but did not execute it. "
-                "Carry out the original request now within the existing permissions. "
-                "Decide optional implementation details yourself. If essential information "
-                "really is missing, use society_ask_user and continue after its answer. "
-                "Do not end with another offer or plain-text confirmation question. "
-                "Honor any answers already received, including a decision to stop or change scope. "
-                "Do not repeat completed actions or invent success.\nOriginal request:\n"
-                + self.context
+            return _OFFER_CORRECTION + self.context
+        return None
+
+    async def _lead_correction(self, sid: str) -> str | None:
+        """One corrective follow-up per kind, judged from the event log alone.
+
+        Order: an answer that claims unproven work, an offer where the person
+        asked for action, then a reply in the wrong language. A claim that is
+        still unproven after its follow-up is not left standing silently: one
+        notice says so.
+        """
+        from .lead_turn_contract import language_correction, unbacked_claim_instruction
+
+        if (
+            not self.allow_correction
+            or self.receipts.declined
+            or self.service.pending_approvals(sid)
+        ):
+            return None
+        unbacked = unbacked_claim_instruction(self.last_text, tuple(self.tool_log))
+        if unbacked is not None:
+            instruction, detail = unbacked
+            if not self.claim_corrected:
+                self.claim_corrected = True
+                return instruction + "\nOriginal request:\n" + self.context
+            log.warning("lead turn %s: %s (after one correction)", self.handle.turn_id, detail)
+            await self.handle.emit(
+                make_event(
+                    "notice",
+                    {
+                        "kind": "unbacked_claim",
+                        "turn_id": self.handle.turn_id,
+                        "text": "The last answer says work was done that no tool call of this "
+                        "turn confirms. Treat it as not done until you see it in the timeline.",
+                    },
+                )
             )
+            return None
+        if (
+            not self.corrected
+            and not self.did_work
+            and not self.receipts.blocked
+            and offer_instead_of_action(self.request, self.last_text)
+        ):
+            self.corrected = True
+            return _OFFER_CORRECTION + self.context
+        language = getattr(self.handle, "output_language", "")
+        wrong = None if self.language_corrected else language_correction(self.last_text, language)
+        if wrong is not None:
+            self.language_corrected = True
+            return wrong
         return None
 
     async def _credential_correction(self, sid: str) -> str | None:

@@ -1923,6 +1923,38 @@ class AgentChatService:
             )
 
             bus = self._bus()
+            # The lead's one turn contract, whatever seat runs it
+            # (lead_turn_contract): the reply language comes from the one
+            # resolver, a CLI seat also gets the skill and recall blocks, and
+            # the answer is checked after the turn (TurnCompletion, lead mode).
+            from dodaios.agent_chat.lead import is_lead
+
+            lead_contract = (
+                session.surface == "jarvis"
+                and direct_user
+                and incoming is None
+                and control_runner is None
+                and not native_goal
+                and not kit.plain
+                and bool(text)
+                and is_lead(self, session_id)
+            )
+            lead_pre = None
+            if lead_contract:
+                from dodaios.agent_chat import lead_turn_contract
+                from dodaios.agent_chat.runner_brain import brain_manager
+                from dodaios.agent_chat.runner_cli import _CLAUDE_CODE_RUNNERS
+
+                if not output_language:
+                    manager = brain_manager()
+                    output_language = lead_turn_contract.resolve_language(
+                        text, history, getattr(manager, "reply_language", "auto")
+                    )
+                if runner != "brain" and supports_cli_runner(runner) and not background_result:
+                    lead_pre = await lead_turn_contract.prepare(
+                        text,
+                        carries_recall=runner in _CLAUDE_CODE_RUNNERS or not session.vendor_session,
+                    )
             # A plain chat's system prompt is the surface's own. Written per
             # turn, so its workspace notes follow the session's folder.
             plain_system = (
@@ -2022,8 +2054,11 @@ class AgentChatService:
                     self, handle, origin.user_text,
                     allow_correction=origin.direct_user and not read_only,
                     context=prompt,
+                    lead=session.surface != "society",
                 )
-                if session.surface == "society" and control_runner is None and not native_goal
+                if (
+                    session.surface == "society" and control_runner is None and not native_goal
+                ) or lead_contract
                 else None
             )
             run_handle = (
@@ -2072,6 +2107,8 @@ class AgentChatService:
                     # Requests still running behind this turn; the brain
                     # runner carries the same note in its briefing.
                     background = self.parked_work.context_note(session_id)
+                    if lead_pre is not None and not active_handle.continuation:
+                        run_prompt = lead_pre.apply(run_prompt)
                     vendor = await run_cli_turn(
                         active_handle,
                         run_prompt
