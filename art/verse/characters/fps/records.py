@@ -18,6 +18,32 @@ from characters.fps import skeleton as S
 BASE_MESH_LEDGER = "811f43accbb31a88266d932f8f5563b2d13586fca0ba2693aad1f5fe582b3515"
 BUILDER = "art/verse/characters/rig_fps.py"
 CHARACTER_MASTER = "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character"
+#: Glowing slots (the Sovereign's eyes) light themselves: the emissive master.
+EMISSIVE_MASTER = "/Game/Verse/Materials/Master/M_Verse_Emissive.M_Verse_Emissive"
+#: Blender emission strength -> EmissiveNits of `M_Verse_Emissive`.
+EMIT_TO_NITS = 12.0
+#: Atlas maps -> (texture parameter of the character master, import settings).
+ATLAS_MAPS = {
+    "BaseColor": (
+        "BaseColorMap",
+        {"srgb": True, "compression": "Default", "group": "Character", "flip_green": False},
+    ),
+    "ORM": (
+        "ORMMap",
+        {"srgb": False, "compression": "Masks", "group": "Character", "flip_green": False},
+    ),
+    # painted in Blender (OpenGL, +Y): Unreal reads DirectX normals
+    "Normal": (
+        "NormalMap",
+        {
+            "srgb": False,
+            "compression": "Normalmap",
+            "group": "CharacterNormalMap",
+            "flip_green": True,
+        },
+    ),
+}
+ATLAS_MAX_SIZE = 2048
 LOD_SCREEN_SIZES = [1.0, 0.5, 0.25, 0.12]
 
 
@@ -63,7 +89,9 @@ def mesh_record(entry: dict) -> dict:
         },
         "nanite": {"enabled": False},
         "collision": {"profile": "Verse_NoCollision", "source": "none", "primitives": 0},
-        "lod": {"mode": "auto", "screen_sizes": LOD_SCREEN_SIZES},
+        "lod": {"mode": "single", "screen_sizes": [1.0]}
+        if spec.name in K.FULL_DETAIL
+        else {"mode": "auto", "screen_sizes": LOD_SCREEN_SIZES},
         "lightmap": "none",
         "license": {"kind": "ledger", "ledger_sha256": [BASE_MESH_LEDGER]},
         "owner": K.OWNER,
@@ -103,18 +131,80 @@ def clip_record(entry: dict) -> dict:
     }
 
 
-def mi_recipe(uniform: str, slot: dict) -> dict:
+#: Atlas map -> texture name suffix (art-pipeline naming: _BC, _N, _ORM).
+ATLAS_SUFFIX = {"BaseColor": "BC", "Normal": "N", "ORM": "ORM"}
+
+
+def texture_name(mesh: str, key: str) -> str:
+    """`T_<Uniform>_<BC|N|ORM>`: the atlas map of a painted character mesh."""
+    spec = next(m for m in K.MESHES if m.name == mesh)
+    return f"T_{spec.uniform}_{ATLAS_SUFFIX[key]}"
+
+
+def texture_path(mesh: str, key: str) -> str:
+    """Unreal object path of one atlas map of a painted character mesh."""
+    spec = next(m for m in K.MESHES if m.name == mesh)
+    name = texture_name(mesh, key)
+    return f"{K.CHAR_ROOT}/{spec.uniform}/Textures/{name}.{name}"
+
+
+def texture_record(mesh: str, key: str, export: dict) -> dict:
+    name = texture_name(mesh, key)
+    settings = ATLAS_MAPS[key][1]
+    return {
+        "schema": "verse.import/1",
+        "name": name,
+        "asset_path": texture_path(mesh, key),
+        "kind": "texture",
+        "source": {"builder": BUILDER, "function": "build_mesh", "args": {"mesh": mesh}},
+        "export": {
+            "format": "png",
+            "settings_id": "png-ue/1",
+            "file": export["file"],
+            "sha256": export["sha256"],
+            "blender": "0.0.0",
+        },
+        "texture": {**settings, "max_size": ATLAS_MAX_SIZE, "never_stream": True, "channels": {}},
+        "lightmap": "none",
+        "license": {"kind": "own"},
+        "owner": K.OWNER,
+    }
+
+
+def mi_recipe(uniform: str, slot: dict, mesh: str | None = None) -> dict:
     name = slot["mi"].rsplit(".", 1)[1]
+    if slot.get("emit"):
+        return {
+            "schema": "verse.mi/1",
+            "name": name,
+            "parent": EMISSIVE_MASTER,
+            "scalars": {"EmissiveNits": round(slot["emit"] * EMIT_TO_NITS, 3)},
+            "vectors": {"EmissiveColor": slot["base_color"]},
+            "textures": {},
+            "switches": {},
+            "owner": K.OWNER,
+            "replaces": slot["slot"],
+            **({"two_sided": True} if slot.get("two_sided") else {}),
+        }
+    scalars = {"Roughness": slot["roughness"], "Metallic": slot["metallic"]}
+    if slot.get("sheen"):
+        scalars["Sheen"] = slot["sheen"]
+    if slot.get("specular") is not None:
+        scalars["Specular"] = slot["specular"]
+    textures = {}
+    if mesh and slot.get("textures"):
+        textures = {ATLAS_MAPS[key][0]: texture_path(mesh, key) for key in slot["textures"]}
     return {
         "schema": "verse.mi/1",
         "name": name,
         "parent": CHARACTER_MASTER,
-        "scalars": {"Roughness": slot["roughness"], "Metallic": slot["metallic"]},
+        "scalars": scalars,
         "vectors": {"BaseTint": slot["base_color"]},
-        "textures": {},
+        "textures": textures,
         "switches": {},
         "owner": K.OWNER,
         "replaces": slot["slot"],
+        **({"two_sided": True} if slot.get("two_sided") else {}),
     }
 
 
@@ -133,7 +223,18 @@ def write_all(result: dict, project: Path, art: Path) -> list[str]:
         put(imports / "Characters" / spec.uniform / f"{spec.name}.import.json", mesh_record(entry))
         for slot in entry["material_slots"]:
             name = slot["mi"].rsplit(".", 1)[1]
-            put(project / "Art" / "Materials" / f"{name}.mi.json", mi_recipe(spec.uniform, slot))
+            put(
+                project / "Art" / "Materials" / f"{name}.mi.json",
+                mi_recipe(spec.uniform, slot, spec.name),
+            )
+        for key, export in entry.get("textures", {}).items():
+            put(
+                imports
+                / "Characters"
+                / spec.uniform
+                / f"{texture_name(spec.name, key)}.import.json",
+                texture_record(spec.name, key, export),
+            )
     source = by_name.get(K.SKELETON_SOURCE)
     if source is not None:
         put(

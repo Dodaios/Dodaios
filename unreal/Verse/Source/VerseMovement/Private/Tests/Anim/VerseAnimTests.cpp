@@ -223,7 +223,18 @@ bool FVerseAnimSkeletonBonesTest::RunTest(const FString& Parameters)
 	const FReferenceSkeleton& Ref = Skeleton->GetReferenceSkeleton();
 	TestTrue(FString::Printf(TEXT("%d bones, at most %d"), Ref.GetNum(), VerseHuman::MaxBones), Ref.GetNum() <= VerseHuman::MaxBones);
 	const TConstArrayView<TPair<FName, FName>> Bones = VerseHuman::Bones();
-	TestEqual(TEXT("bone count equals art-pipeline 12.1"), Ref.GetNum(), Bones.Num());
+	// The frozen bones plus the optional ones a mesh merged in (the Sovereign's cloak).
+	int32 Optional = 0;
+	for (const TPair<FName, FName>& Bone : VerseHuman::OptionalBones())
+	{
+		const int32 Index = Ref.FindBoneIndex(Bone.Key);
+		if (Index != INDEX_NONE)
+		{
+			++Optional;
+			TestEqual(FString::Printf(TEXT("parent of %s"), *Bone.Key.ToString()), Ref.GetBoneName(Ref.GetParentIndex(Index)).ToString(), Bone.Value.ToString());
+		}
+	}
+	TestEqual(TEXT("bone count equals art-pipeline 12.1 plus the optional bones"), Ref.GetNum(), Bones.Num() + Optional);
 	int32 Matched = 0;
 	for (const TPair<FName, FName>& Bone : Bones)
 	{

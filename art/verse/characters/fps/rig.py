@@ -288,6 +288,8 @@ class WeightMap:
                 add(f"Foot{s}", w)
             elif base == "Toe":
                 add(f"Ball{s}", w)
+            elif ob in S.OPTIONAL_PARENT:
+                add(ob, w)  # the Sovereign's cloak bones keep their own weights
             else:
                 raise KeyError(f"no FPS mapping for crew bone {ob}")
         return out
@@ -308,7 +310,7 @@ def apply_weights(ob, weights: dict[str, np.ndarray], limit: int = S.MAX_INFLUEN
 
     Returns the largest influence count of any vertex.
     """
-    names = [n for n in S.DEFORM if n in weights]
+    names = [n for n in S.DEFORM + tuple(S.OPTIONAL_PARENT) if n in weights]
     n = len(ob.data.vertices)
     W = np.zeros((n, len(names)))
     for j, name in enumerate(names):

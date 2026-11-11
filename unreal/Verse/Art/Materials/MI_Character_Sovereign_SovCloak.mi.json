@@ -1,0 +1,28 @@
+{
+  "name": "MI_Character_Sovereign_SovCloak",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_SovCloak",
+  "scalars": {
+    "Metallic": 0.0,
+    "Roughness": 0.62,
+    "Sheen": 0.05,
+    "Specular": 0.3
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {
+    "BaseColorMap": "/Game/Verse/Characters/Sovereign/Textures/T_Sovereign_BC.T_Sovereign_BC",
+    "NormalMap": "/Game/Verse/Characters/Sovereign/Textures/T_Sovereign_N.T_Sovereign_N",
+    "ORMMap": "/Game/Verse/Characters/Sovereign/Textures/T_Sovereign_ORM.T_Sovereign_ORM"
+  },
+  "two_sided": true,
+  "vectors": {
+    "BaseTint": [
+      0.01,
+      0.009,
+      0.012,
+      1.0
+    ]
+  }
+}

@@ -212,6 +212,7 @@ MASTERS: list[MasterSpec] = [
             _p("scalar", "Roughness", 1.0, "Roughness without a map (multiplies ORM green)"),
             _p("scalar", "Metallic", 1.0, "Metallic without a map (multiplies ORM blue)"),
             _p("scalar", "Sheen", 0.0, "Cloth sheen at grazing angles"),
+            _p("scalar", "Specular", 0.5, "Dielectric specular (0.5 = 4 %; dull cloth lower)"),
             _p("scalar", "SubsurfaceAmount", 0.0, "Skin subsurface opacity"),
         ],
     ),
@@ -846,15 +847,20 @@ def build_character(g: Graph) -> None:
         {"Orm": ("Orm", ""), "Metallic": ("Metallic", "")},
         out="1",
     )
+    # A Custom node gets the raw texels (no UnpackNormalMap): unpack XY to -1..1 and rebuild Z,
+    # which also covers BC5 normal maps (no blue channel). Raw 0..1 values tilted every normal
+    # toward its tangent, so shading broke at each UV island border.
     g.custom(
         "Nrm",
-        "return Texture2DSample(Tex, TexSampler, UV).rgb;",
+        "float2 xy = Texture2DSample(Tex, TexSampler, UV).rg * 2.0 - 1.0;\n"
+        "return float3(xy, sqrt(saturate(1.0 - dot(xy, xy))));",
         {"Tex": ("NormalMap", ""), "UV": ("UV", "")},
     )
     g.out("Colour", "", "MP_BASE_COLOR")
     g.out("Rough", "", "MP_ROUGHNESS")
     g.out("Metal", "", "MP_METALLIC")
     g.out("Nrm", "", "MP_NORMAL")
+    g.out("Specular", "", "MP_SPECULAR")
     g.out("SubsurfaceAmount", "", "MP_OPACITY")
 
 

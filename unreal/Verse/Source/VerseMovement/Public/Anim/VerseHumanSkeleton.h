@@ -19,6 +19,9 @@ namespace VerseHuman
 
 	/** (bone, parent) in hierarchy order; the root's parent is NAME_None. */
 	VERSEMOVEMENT_API TConstArrayView<TPair<FName, FName>> Bones();
+	/** Optional bones only some meshes carry, merged into the skeleton when they import:
+	 *  the Sovereign's cloak (`skeleton.CLOAK_BONES`), as (bone, parent). */
+	VERSEMOVEMENT_API TConstArrayView<TPair<FName, FName>> OptionalBones();
 
 	/** Lean and aim offsets spread over three spine bones: (bone, share), shares sum to 1. */
 	VERSEMOVEMENT_API TConstArrayView<TPair<FName, float>> SpineShares();

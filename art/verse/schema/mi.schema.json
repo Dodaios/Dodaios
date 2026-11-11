@@ -37,6 +37,7 @@
       "additionalProperties": { "type": "string", "pattern": "^/Game/Verse/[A-Za-z0-9_/]+/(T_[A-Za-z0-9_]+)\\.(T_[A-Za-z0-9_]+)$" }
     },
     "switches": { "type": "object", "additionalProperties": { "type": "boolean" } },
+    "two_sided": { "type": "boolean", "description": "Render both faces (garments made of single sheets); a base property override." },
     "owner": { "type": "string", "pattern": "^WP[0-9]{2}$" },
     "replaces": { "type": ["string", "null"], "pattern": "^M_[A-Za-z0-9_]+$" }
   }
