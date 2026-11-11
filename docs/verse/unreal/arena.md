@@ -275,7 +275,11 @@ deck view and the duel show it alike:
   the lobby both have ceilings from y 4600, which filled the frame), facing the arena centre
   (`ArrivalYawDeg` -118.4) with the camera raised (`ArrivalPitchDeg` 14): the first frame shows the
   hall, its skylights, lamps and crane with the commander in front. In hall mode a warm key from
-  behind the camera and two narrow back rims light the arrival spot. Unreal only; the sockets keep
+  behind the camera, an eye-axis light at trim height and two narrow back rims light the arrival
+  spot, and the commander stands turned 25 degrees (`ArrivalBodyTurnDeg`). The Sovereign's cloak
+  albedo is 0.01 and its gold trim runs along the cape hem, whose visible face from behind is the
+  shaded underside, so the back reads as sheen only; a trim that reads from behind needs the
+  costume's material, not more light. Unreal only; the sockets keep
   the shared positions and headings of coordinates.md 3.2, and the lift still runs from them.
 - **Wall cladding**: the perimeter (above its hazard band), the cover walls and the booth's solid
   walls carry the WP12 kit wall modules (`SM_Wall_480/240/120`, `SM_Wall_240_H540`), front 2 cm

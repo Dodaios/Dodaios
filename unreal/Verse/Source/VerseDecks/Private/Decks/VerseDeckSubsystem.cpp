@@ -345,14 +345,17 @@ void UVerseDeckSubsystem::SpawnDeckActors(UWorld* World, FName Deck, bool bByLif
 					float Radius = 0.f;
 					float HalfHeight = 0.f;
 					Pawn->GetSimpleCollisionCylinder(Radius, HalfHeight);
-					Pawn->SetActorLocationAndRotation(Arrival.GetLocation() + FVector(0.0, 0.0, HalfHeight), Arrival.Rotator(), false, nullptr, ETeleportType::TeleportPhysics);
+					const FRotator Body = Arrival.Rotator() + FRotator(0.0, ArrivalLook.ArrivalBodyTurnDeg, 0.0);
+					Pawn->SetActorLocationAndRotation(Arrival.GetLocation() + FVector(0.0, 0.0, HalfHeight), Body, false, nullptr, ETeleportType::TeleportPhysics);
 					Controller->SetControlRotation(Arrival.Rotator());
 				}
 				Controller->SetViewTarget(DeckCamera);
 				// The commander walks the deck under the deck's own keys and mouse (stream S5).
 				if (UVerseDeckControlComponent* Control = UVerseDeckControlComponent::Ensure(Controller))
 				{
-					Control->OnDeckArrived(Deck, *Manifest, Arrival, DeckCamera);
+					FTransform BodyArrival = Arrival;
+					BodyArrival.SetRotation((Arrival.Rotator() + FRotator(0.0, ArrivalLook.ArrivalBodyTurnDeg, 0.0)).Quaternion());
+					Control->OnDeckArrived(Deck, *Manifest, BodyArrival, DeckCamera);
 				}
 				// The companion at the commander's heel and the utility drones on their rounds.
 				AVerseDeckDrone::SpawnForDeck(World, *Manifest);

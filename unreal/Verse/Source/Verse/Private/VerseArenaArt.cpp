@@ -220,6 +220,9 @@ void AVerseArenaGraybox::DressArtRoof()
 		};
 		const FArrivalLight ArrivalLights[] = {
 			{Spot - Ahead * 260.0 + Right * 140.0 + FVector(0.0, 0.0, 340.0), 14000.f, 4200.f},
+			// From the camera's own line: the gold trim is metal, so it only flares toward the
+			// viewer when the light sits near the eye.
+			{Spot - Ahead * 330.0 + FVector(0.0, 0.0, 160.0), 80000.f, 3800.f},
 			// Grazing rims from ahead and to either side: the hood, shoulders and trim catch a
 			// bright edge against the darker deck behind.
 			{Spot + Ahead * 260.0 + Right * 110.0 + FVector(0.0, 0.0, 300.0), 40000.f, 4600.f},
