@@ -10657,7 +10657,17 @@
     "open_side_by_side": "Open side by side",
     "drop_side_by_side": "Drop to open side by side",
     "drop_replace": "Drop to replace this thread",
-    "close_column": "Close {target}"
+    "close_column": "Close {target}",
+    "plan_usage": {
+      "heading": "Plan usage",
+      "session": "Session",
+      "weekly": "Week",
+      "weekly_scoped": "Week · {scope}",
+      "monthly": "Month",
+      "other": "Limit",
+      "chip": "{limit} {percent}%",
+      "title": "{plan}: {limit} limit {percent}% used. Click for every limit and when it resets."
+    }
   },
   "ide_view": {
     "split_right": "Right",

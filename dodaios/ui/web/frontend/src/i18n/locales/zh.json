@@ -10657,7 +10657,17 @@
     "open_side_by_side": "并排打开",
     "drop_side_by_side": "松开以并排打开",
     "drop_replace": "松开以替换此线程",
-    "close_column": "关闭 {target}"
+    "close_column": "关闭 {target}",
+    "plan_usage": {
+      "heading": "套餐用量",
+      "session": "会话",
+      "weekly": "每周",
+      "weekly_scoped": "每周 · {scope}",
+      "monthly": "每月",
+      "other": "限额",
+      "chip": "{limit} {percent}%",
+      "title": "{plan}：{limit} 限额已用 {percent}%。点击查看所有限额及重置时间。"
+    }
   },
   "ide_view": {
     "split_right": "右侧",

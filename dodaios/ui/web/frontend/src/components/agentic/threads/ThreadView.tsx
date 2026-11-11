@@ -289,10 +289,16 @@ export function ThreadView({ onScreen, column }: {
   const [buildBefore, buildAfter = ""] = t("ide_threads.build_in").split("{project}");
   const empty = isDraft && timeline.items.length === 0;
 
+  // The CLI the thread runs, whose plan usage the bar shows. A thread placed on
+  // another computer spends that machine's login, which this one cannot read.
+  const computerId = session?.computer_id ?? draft.computerId ?? "";
+  const providerId = session?.provider ?? draft.provider;
+  const platform = computerId ? "" : catalog?.providers.find((row) => row.id === providerId)?.agent ?? "";
+
   // The bar tucks under the composer card, so it must come right after it.
   const strip = <ThreadBranchBar folder={folder} project={project} projects={visible}
     onProject={(id) => useIdeThreadsStore.getState().newThread(id)} onConnect={connectProject}
-    computerId={session?.computer_id ?? draft.computerId ?? ""}
+    computerId={computerId} platform={platform}
     onComputer={(computerId) => void chatStore.getState().setDraft({ computerId })}
     draft={isDraft} checkout={checkout} onCheckout={setCheckout} base={base} onBase={setBase} locked={running} />;
 

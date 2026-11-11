@@ -166,8 +166,8 @@ function UsageBar({ window, now }: { window: UsageWindow; now: number }) {
   );
 }
 
-/** The expanded part of a row: every limit of the plan, or why there is none. */
-function UsageDetails({ usage, now }: { usage: AccountUsage | null; now: number }) {
+/** Every limit of a plan, or why there is none: a row's expanded part here, and the thread bar's usage popover. */
+export function UsageDetails({ usage, now }: { usage: AccountUsage | null; now: number }) {
   const t = useT();
   const lang = useRunLocale();
   if (!usage) {
