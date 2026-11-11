@@ -37,8 +37,14 @@ def _job(job_id: str, ref: str = "") -> SimpleNamespace:
 
 
 def test_counts_and_links() -> None:
-    card = {"kind": "question", "agent_id": "jarvis", "session_id": "s", "ref_id": "q1",
-            "summary": "Which database?", "since_ms": 5}
+    card = {
+        "kind": "question",
+        "agent_id": "jarvis",
+        "session_id": "s",
+        "ref_id": "q1",
+        "summary": "Which database?",
+        "since_ms": 5,
+    }
     light = build_status_light(board=BOARD, attention=[card], jobs=[_job("j1")])
     kinds = [row["kind"] for row in light["running"]]
     assert kinds == ["pane", "team", "mission", "task", "job"]
@@ -78,3 +84,11 @@ def test_seat_health_lists_only_live_verdicts() -> None:
     assert [seat.provider for seat in troubled] == ["openai"]
     now[0] += 10 * 24 * 3600
     assert health.troubled() == []
+
+
+def test_watchdog_findings_set_a_warning_tone() -> None:
+    light = build_status_light(
+        findings=[{"key": "f1", "kind": "silent_turn", "title": "Turn is silent"}]
+    )
+    assert light["tone"] == "warn"
+    assert light["findings"] == [{"id": "f1", "kind": "silent_turn", "title": "Turn is silent"}]

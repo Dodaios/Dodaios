@@ -10,6 +10,7 @@ import { openAgent, type CardKind } from "@/views/society/agentNavigation";
 import {
   useStatusLightStore,
   watchStatusLight,
+  type StatusFinding,
   type StatusRow,
   type StatusTrouble,
 } from "./statusLightStore";
@@ -153,6 +154,7 @@ export function StatusLight({ className }: { className?: string }) {
             needs={light?.needs_you ?? []}
             running={light?.running ?? []}
             trouble={light?.trouble ?? []}
+            findings={light?.findings ?? []}
             loaded={light !== null}
             error={error}
             onGo={go}
@@ -169,6 +171,7 @@ function StatusPanel({
   needs,
   running,
   trouble,
+  findings,
   loaded,
   error,
   onGo,
@@ -177,13 +180,14 @@ function StatusPanel({
   needs: StatusRow[];
   running: StatusRow[];
   trouble: StatusTrouble[];
+  findings: StatusFinding[];
   loaded: boolean;
   error: boolean;
   onGo: (row: StatusRow) => void;
   onClose: () => void;
 }) {
   const t = useT();
-  const empty = needs.length === 0 && running.length === 0 && trouble.length === 0;
+  const empty = needs.length === 0 && running.length === 0 && trouble.length === 0 && findings.length === 0;
   return (
     <div className="flex max-h-[min(70vh,520px)] min-h-0 flex-col" data-testid="status-light-content">
       <header className="flex items-center gap-2 px-4 pb-1 pt-3.5">
@@ -209,7 +213,7 @@ function StatusPanel({
           <>
             <Section title={t("status_light.needs_heading")} rows={needs} onGo={onGo} testId="status-light-needs" />
             <Section title={t("status_light.running_heading")} rows={running} onGo={onGo} testId="status-light-running" />
-            {trouble.length > 0 && (
+            {(trouble.length > 0 || findings.length > 0) && (
               <section className="px-1 pt-3" data-testid="status-light-trouble">
                 <h3 className="m-0 px-3 pb-1 text-[12px] font-medium text-muted-foreground">{t("status_light.trouble_heading")}</h3>
                 <ul className="m-0 flex list-none flex-col p-0">
@@ -221,6 +225,12 @@ function StatusPanel({
                         {seat.account ? ` · ${seat.account}` : ""}
                       </span>
                       <span className="shrink-0 text-muted-foreground">{troubleLabel(t, seat.class)}</span>
+                    </li>
+                  ))}
+                  {findings.map((finding) => (
+                    <li key={finding.id} className="flex items-center gap-2 px-3 py-1.5 text-[13px]" data-testid="status-light-finding">
+                      <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-warning" />
+                      <span className="min-w-0 flex-1 truncate text-foreground">{finding.title}</span>
                     </li>
                   ))}
                 </ul>

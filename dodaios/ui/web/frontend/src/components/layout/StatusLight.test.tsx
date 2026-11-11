@@ -22,6 +22,7 @@ const LIGHT: StatusLightData = {
     },
   ],
   trouble: [],
+  findings: [],
   tone: "calm",
 };
 
@@ -114,5 +115,16 @@ describe("StatusLight", () => {
     await act(async () => {});
     fireEvent.click(screen.getByTestId("status-light"));
     expect(screen.getByRole("alert").textContent).toContain("not available");
+  });
+  it("lists watchdog findings and warns", async () => {
+    vi.stubGlobal(
+      "fetch",
+      answer({ ...LIGHT, tone: "warn", findings: [{ id: "f1", kind: "silent_turn", title: "Turn is silent" }] }),
+    );
+    render(<StatusLight />);
+    await act(async () => {});
+    expect(screen.getByTestId("status-light").getAttribute("data-tone")).toBe("warn");
+    fireEvent.click(screen.getByTestId("status-light"));
+    expect(screen.getByTestId("status-light-finding").textContent).toContain("Turn is silent");
   });
 });

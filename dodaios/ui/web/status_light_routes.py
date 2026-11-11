@@ -58,6 +58,18 @@ async def _attention_cards(request: Request) -> list[dict[str, Any]]:
         return []
 
 
+def _findings() -> list[dict[str, Any]]:
+    """The running watchdog's open findings; none while it is not running."""
+    from dodaios.orchestrator.watchdog import supervisor
+
+    try:
+        running = supervisor.current()
+        return list(running.store.open_findings(25)) if running is not None else []
+    except Exception:  # noqa: BLE001
+        log.warning("status light: watchdog findings unavailable", exc_info=True)
+        return []
+
+
 async def compute(request: Request) -> dict[str, Any]:
     from dodaios.brain.seat_health import get_seat_health
     from dodaios.core.status_light import build_status_light
@@ -74,7 +86,9 @@ async def compute(request: Request) -> dict[str, Any]:
     except Exception:  # noqa: BLE001
         log.warning("status light: seat health unavailable", exc_info=True)
         seats = []
-    return build_status_light(board=board, jobs=open_jobs, attention=cards, seats=seats)
+    return build_status_light(
+        board=board, jobs=open_jobs, attention=cards, seats=seats, findings=_findings()
+    )
 
 
 @router.get("", summary="What runs and what needs the person, for a glance")

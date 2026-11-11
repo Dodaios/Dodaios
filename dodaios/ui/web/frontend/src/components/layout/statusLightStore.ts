@@ -36,11 +36,18 @@ export interface StatusTrouble {
   blocked: boolean;
 }
 
+export interface StatusFinding {
+  id: string;
+  kind: string;
+  title: string;
+}
+
 export interface StatusLightData {
   counts: { running: number; needs_you: number };
   running: StatusRow[];
   needs_you: StatusRow[];
   trouble: StatusTrouble[];
+  findings: StatusFinding[];
   tone: "calm" | "warn";
 }
 
@@ -71,6 +78,7 @@ export function refreshStatusLight(): Promise<void> {
           running: body.running ?? [],
           needs_you: body.needs_you ?? [],
           trouble: body.trouble ?? [],
+          findings: body.findings ?? [],
           tone: body.tone === "warn" ? "warn" : "calm",
         },
       });

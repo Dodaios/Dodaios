@@ -63,13 +63,15 @@ def _from_board(
         for member in team.get("working") or []:
             if isinstance(member, Mapping):
                 agent_id = _text(member.get("agent_id") or member.get("id"), 120)
-                running.append({
-                    "kind": "team",
-                    "id": agent_id,
-                    "title": _text(member.get("name") or agent_id, 80),
-                    "state": "working",
-                    "link": {"agent_id": agent_id} if agent_id else {"section": "agents"},
-                })
+                running.append(
+                    {
+                        "kind": "team",
+                        "id": agent_id,
+                        "title": _text(member.get("name") or agent_id, 80),
+                        "state": "working",
+                        "link": {"agent_id": agent_id} if agent_id else {"section": "agents"},
+                    }
+                )
     rows = board.get("missions")
     for row in rows if isinstance(rows, list) else []:
         if not isinstance(row, Mapping):
@@ -87,13 +89,15 @@ def _from_board(
     tasks = board.get("tasks")
     for row in tasks if isinstance(tasks, list) else []:
         if isinstance(row, Mapping):
-            running.append({
-                "kind": "task",
-                "id": _text(row.get("task_id"), 120),
-                "title": _text(row.get("title")),
-                "state": str(row.get("state") or "running"),
-                "link": {"section": "agents"},
-            })
+            running.append(
+                {
+                    "kind": "task",
+                    "id": _text(row.get("task_id"), 120),
+                    "title": _text(row.get("title")),
+                    "state": str(row.get("state") or "running"),
+                    "link": {"section": "agents"},
+                }
+            )
     return running, needs, missions
 
 
@@ -103,24 +107,28 @@ def build_status_light(
     jobs: Iterable[Any] = (),
     attention: Iterable[Mapping[str, Any]] = (),
     seats: Iterable[Any] = (),
+    findings: Iterable[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """Fold the sources into ``{running, needs_you, trouble, counts, tone}``.
 
     ``jobs`` are open ledger jobs; one that a board mission already shows (same
     ``ref``) is not listed twice. ``attention`` is the per-agent cards list.
     ``seats`` are :class:`~dodaios.brain.seat_health.SeatVerdict` values.
+    ``findings`` are the watchdog's open findings (``key``, ``kind``, ``title``).
     """
     running, board_needs, mission_ids = _from_board(board or {})
     for job in jobs:
         if str(getattr(job, "ref", "") or "") in mission_ids:
             continue
-        running.append({
-            "kind": "job",
-            "id": job.id,
-            "title": _text(job.title) or job.kind,
-            "state": job.state,
-            "link": {"section": "agents"},
-        })
+        running.append(
+            {
+                "kind": "job",
+                "id": job.id,
+                "title": _text(job.title) or job.kind,
+                "state": job.state,
+                "link": {"section": "agents"},
+            }
+        )
     needs_you = [
         {
             "kind": str(card.get("kind") or ""),
@@ -146,10 +154,19 @@ def build_status_light(
         }
         for seat in seats
     ]
+    stuck = [
+        {
+            "id": _text(f.get("key"), 120),
+            "kind": _text(f.get("kind"), 60),
+            "title": _text(f.get("title")),
+        }
+        for f in findings
+    ]
     return {
         "counts": {"running": len(running), "needs_you": len(needs_you)},
         "running": running[:MAX_ROWS],
         "needs_you": needs_you[:MAX_ROWS],
         "trouble": trouble[:MAX_ROWS],
-        "tone": "warn" if trouble else "calm",
+        "findings": stuck[:MAX_ROWS],
+        "tone": "warn" if trouble or stuck else "calm",
     }
