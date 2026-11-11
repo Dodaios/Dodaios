@@ -23,11 +23,19 @@ from .event import TriggerEvent
 from .filter import CANDIDATE, Stage1
 from .policy import Verdict, build_prompt, parse
 from .settings import Policy, TriggerSettings
+from .subscriptions import (
+    Subscription,
+    SubscriptionStore,
+    delivery_text,
+    make_mandate,
+    mandate_problem,
+)
 
 log = logging.getLogger(__name__)
 
 META_SETTINGS: Final[str] = "lead.triggers.settings"
 META_STATE: Final[str] = "lead.triggers.state"
+DELIVERED: Final[str] = "delivered"
 BATCH: Final[int] = 25
 MAX_PENDING: Final[int] = 200
 MAX_LOG: Final[int] = 200
@@ -41,6 +49,12 @@ Seat = Callable[[str], Awaitable[str | None]]
 Starter = Callable[[TriggerEvent, Policy, str], Awaitable[str]]
 #: ``(decision record) -> None``: writes the person one notice.
 Notifier = Callable[[dict[str, Any]], Awaitable[None]]
+#: ``(subscription, event, message) -> outcome``: hands the event to the owning job through the
+#: kind's own message path. Outcomes: ``delivered``, ``gone`` (the job ended), ``unsupported``,
+#: ``busy``, ``failed``. No model is involved.
+Deliverer = Callable[[Subscription, TriggerEvent, str], Awaitable[str]]
+#: ``(subscription) -> True`` while the owner's stop hold blocks work for this job.
+HoldCheck = Callable[[Subscription], bool]
 
 
 class MetaStore(Protocol):
@@ -72,11 +86,15 @@ class TriggerService:
         clock: Callable[[], float] = time.time,
         batch_window_s: float = 3.0,
         retry_s: float = 300.0,
+        subscriptions: SubscriptionStore | None = None,
+        deliverer: Deliverer | None = None,
+        hold: HoldCheck = lambda _sub: False,
     ) -> None:
         self._store = store
         self._seat, self._starter, self._notifier = seat, starter, notifier
         self._quiet, self._clock = quiet, clock
         self._batch_window_s, self._retry_s = batch_window_s, retry_s
+        self._subs, self._deliverer, self._hold = subscriptions, deliverer, hold
         self._stage1 = Stage1(clock)
         self._state: dict[str, Any] | None = None
         self._lock = asyncio.Lock()
@@ -130,11 +148,15 @@ class TriggerService:
             if settings.accept == "off":
                 return "off"
             self._count(state, "received")
-            verdict = self._stage1.verdict(event, settings)
+            owners = self._subs.for_thread(event.source, event.thread_key) if self._subs else []
+            verdict = self._stage1.verdict(event, settings, thread_owned=bool(owners))
             if verdict != CANDIDATE:
                 self._count(state, f"dropped_{verdict}")
                 await self._save()
                 return verdict
+            if owners and await self._deliver(state, settings, event, owners):
+                await self._save()
+                return DELIVERED
             self._count(state, "candidates")
             state["pending"].append({"event": event.to_dict(), "queued_at": self._clock()})
             if len(state["pending"]) > MAX_PENDING:
@@ -207,6 +229,7 @@ class TriggerService:
     async def _apply(
         self, state: dict[str, Any], settings: TriggerSettings, verdict: Verdict
     ) -> None:
+        self._count(state, "lead_decisions")
         if verdict.action == "ignore":
             self._count(state, "model_ignored")
             return
@@ -242,8 +265,13 @@ class TriggerService:
             record["outcome"] = "noted"
         elif verdict.action == "act":
             try:
-                record["job"] = await self._starter(verdict.event, policy, verdict.reason)
+                job = await self._starter(verdict.event, policy, verdict.reason)
+                record["job"] = job
                 record["outcome"] = "started"
+                self.subscribe(
+                    verdict.event, str(job), kind="routine", target=str(job),
+                    mandate=make_mandate(verdict.event, origin="trigger", policy_id=policy.id),
+                )
             except Exception as exc:  # noqa: BLE001 - recorded; the next event is unaffected
                 log.warning("lead triggers: job did not start", exc_info=True)
                 record["outcome"], record["error"] = "failed", str(exc)[:200]
@@ -284,6 +312,105 @@ class TriggerService:
                 if entry["id"] == item["record"]["id"]:
                     entry["outcome"] = item["record"]["outcome"]
 
+    # ---------------------------------------------------------- subscriptions
+
+    def subscribe(
+        self,
+        event: TriggerEvent,
+        job_id: str,
+        *,
+        kind: str = "",
+        target: str = "",
+        mandate: dict[str, Any] | None = None,
+    ) -> bool:
+        """A job that started from ``event`` follows the event's thread from now on.
+
+        The mandate is written once, here; a later call for the same job and thread keeps it.
+        """
+        if self._subs is None or not event.thread_key or not job_id:
+            return False
+        return self._subs.subscribe(
+            event.source, event.thread_key, job_id, kind=kind, target=target,
+            mandate=mandate or make_mandate(event, origin="lead"),
+        )
+
+    def unsubscribe(self, job_id: str, source: str = "", thread_key: str = "") -> int:
+        """Stop delivering to a job (all its threads when none is named). Rows dropped."""
+        return self._subs.unsubscribe(job_id, source, thread_key) if self._subs else 0
+
+    def job_ended(self, job_id: str) -> int:
+        """The job finished: nothing is delivered to it any more."""
+        return self.unsubscribe(job_id)
+
+    async def _deliver(
+        self,
+        state: dict[str, Any],
+        settings: TriggerSettings,
+        event: TriggerEvent,
+        owners: list[Subscription],
+    ) -> bool:
+        """Hand the event to every owning job, by code. True when at least one took it."""
+        if self._deliverer is None or self._subs is None:
+            return False
+        taken: list[str] = []
+        for sub in owners:
+            if self._hold(sub):
+                self._count(state, "delivery_held")
+                continue
+            problem = mandate_problem(sub.mandate, event, settings)
+            if problem:
+                self._count(state, f"delivery_blocked_{problem}")
+                continue
+            try:
+                outcome = await self._deliverer(sub, event, delivery_text(event, sub))
+            except Exception:  # noqa: BLE001 - a failed hand-over goes to the lead instead
+                log.warning("lead triggers: direct delivery failed", exc_info=True)
+                outcome = "failed"
+            if outcome == "gone":
+                self._subs.unsubscribe(sub.job_id, sub.source, sub.thread_key)
+                self._count(state, "subscription_ended")
+            elif outcome == DELIVERED:
+                self._subs.record_delivery(event, sub.job_id)
+                self._count(state, "direct_deliveries")
+                taken.append(sub.job_id)
+            else:
+                self._count(state, f"delivery_{outcome}")
+        if taken:
+            state["log"].append({
+                "id": f"d{int(self._clock() * 1000)}{len(state['log'])}",
+                "at": self._clock(), "action": "deliver", "policy_id": "", "policy_text": "",
+                "reason": "the thread belongs to a running job", "event": _summary(event),
+                "mode": "code", "outcome": DELIVERED, "jobs": taken,
+            })
+            del state["log"][:-MAX_LOG]
+        return bool(taken)
+
+    async def handback(
+        self, event_id: str, reason: str = "", job_id: str = "", unsubscribe: bool = False
+    ) -> str:
+        """A job returns an event it was handed: the lead sees it as a normal candidate.
+
+        Returns ``handed_back``, or ``unknown_event`` when that event was never delivered to
+        the job. The event skips subscriptions (it cannot bounce back to its owner).
+        """
+        found = self._subs.delivery(event_id, job_id) if self._subs else None
+        if found is None:
+            return "unknown_event"
+        owner, event = found
+        async with self._lock:
+            state = await self._load()
+            state["pending"].append({
+                "event": event.to_dict(), "queued_at": self._clock(),
+                "handed_back_by": owner, "handback_reason": " ".join(reason.split())[:200],
+            })
+            del state["pending"][:-MAX_PENDING]
+            self._count(state, "handed_back")
+            await self._save()
+        if unsubscribe and self._subs:
+            self._subs.unsubscribe(owner, event.source, event.thread_key)
+        self._arm(self._batch_window_s)
+        return "handed_back"
+
     # ------------------------------------------------------------------ views
 
     async def view(self) -> dict[str, Any]:
@@ -297,6 +424,11 @@ class TriggerService:
                 "waiting": len(state["pending"]),
                 "log": list(reversed(state["log"])),
                 "notes": len(state["notes"]),
+                "delivery": {
+                    "direct": int(state["counts"].get("direct_deliveries", 0)),
+                    "lead_decisions": int(state["counts"].get("lead_decisions", 0)),
+                    "handed_back": int(state["counts"].get("handed_back", 0)),
+                },
             }
 
     async def promote(self, policy_id: str) -> TriggerSettings | None:

@@ -44,6 +44,19 @@ def _store() -> tuple[WatchdogStore, bool]:
     return WatchdogStore(Path(DATA_DIR) / supervisor.STORE_FILE), False
 
 
+async def _event_routing() -> dict[str, int]:
+    """Events delivered straight to their owning job versus decided by the lead's model."""
+    try:
+        from dodaios.lead_triggers import wiring
+
+        service = wiring.get_service()
+        view = await service.view() if service is not None else {}
+        return dict(view.get("delivery") or {})
+    except Exception:  # noqa: BLE001 - a measurement never fails the status read
+        log.debug("watchdog_status: event routing unavailable", exc_info=True)
+        return {}
+
+
 def _row(row: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {
         "id": row["key"], "kind": row["kind"], "title": row["title"],
@@ -91,6 +104,7 @@ class WatchdogStatusTool:
                     for e in events[:_LOG_MAX]
                 ],
             }
+            output["event_routing"] = await _event_routing()
             if watchdog is not None and watchdog.last_scan_ms:
                 output["last_scan_min_ago"] = max(0, (now - watchdog.last_scan_ms) // 60000)
             if not opened:

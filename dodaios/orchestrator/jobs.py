@@ -319,7 +319,10 @@ class JobLedger:
             row = self._conn.execute(
                 _SELECT_ONE, (job_id,)
             ).fetchone()
-        return _job(row)
+        updated = _job(row)
+        if updated.state in FINAL_STATES:
+            _notify_ended(updated)
+        return updated
 
     def get(self, job_id: str) -> Job | None:
         with self._lock:
@@ -358,6 +361,23 @@ _probes: dict[str, Probe] = {}
 #: kind -> rebuilds a probe for a job from an earlier boot, when its evidence is
 #: durable (a mission's own store). Kinds without one become ``interrupted``.
 _rehydrators: dict[str, Callable[[Job], Probe | None]] = {}
+
+
+#: Called once a job reaches a final state (thread subscriptions end with their job).
+_end_listeners: list[Callable[[Job], None]] = []
+
+
+def register_end_listener(listener: Callable[[Job], None]) -> None:
+    if listener not in _end_listeners:
+        _end_listeners.append(listener)
+
+
+def _notify_ended(job: Job) -> None:
+    for listener in list(_end_listeners):
+        try:
+            listener(job)
+        except Exception:  # noqa: BLE001 - a listener never fails the work it observes
+            log.warning("jobs: end listener failed for %s", job.id, exc_info=True)
 
 
 def register_rehydrator(kind: str, build: Callable[[Job], Probe | None]) -> None:
@@ -595,6 +615,7 @@ __all__ = [
     "owner_of",
     "probe_for",
     "refresh",
+    "register_end_listener",
     "register_rehydrator",
     "set_ledger",
     "start",
