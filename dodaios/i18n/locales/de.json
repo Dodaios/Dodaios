@@ -562,6 +562,16 @@
     "telegram_denied": "Über Telegram abgelehnt.",
     "telegram_settled": "In der App entschieden.",
     "telegram_expired": "Diese Anfrage ist nicht mehr offen.",
+    "call_ring_title": "{agent} ruft wegen einer dringenden Entscheidung an",
+    "call_opening_approval": "{agent} braucht eine Entscheidung von dir: {summary}. Sag ja zum Erlauben, nein zum Ablehnen oder später, um es offen zu lassen.",
+    "call_opening_question": "{agent} hat eine Frage, die nicht warten kann: {summary}. Die empfohlene Antwort ist {answer}. Sag ja, um sie zu nehmen, oder später, um es offen zu lassen.",
+    "call_opening_notice": "{agent} braucht dich bei etwas Dringendem: {summary}. Bitte öffne die App, um zu antworten.",
+    "call_reprompt": "Entschuldigung, das habe ich nicht verstanden. Ja, nein oder später?",
+    "call_done_allowed": "Erledigt, es ist erlaubt. Tschüss.",
+    "call_done_denied": "Erledigt, es ist abgelehnt. Tschüss.",
+    "call_done_answered": "Erledigt, ich habe die empfohlene Antwort genommen. Tschüss.",
+    "call_done_open": "In Ordnung, es bleibt in der App für dich offen. Tschüss.",
+    "call_done_gone": "Diese Entscheidung ist nicht mehr offen. Tschüss.",
     "test_title": "Benachrichtigungen sind an",
     "test_body": "So erreicht dich Dodaios, während die App im Hintergrund ist."
   }

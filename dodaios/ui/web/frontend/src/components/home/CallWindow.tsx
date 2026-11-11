@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Mic, MicOff, PhoneOff, Settings2 } from "lucide-react";
+import { Mic, MicOff, Phone, PhoneOff, Settings2 } from "lucide-react";
 
 import { useVoiceCall } from "@/components/agentic/useVoiceCall";
 import { TranscriptLine } from "@/components/home/VoiceStage";
@@ -9,6 +9,7 @@ import { PetMark } from "@/components/pets/PetMark";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useStickToBottom } from "@/hooks/useStickToBottom";
 import { fill, useT } from "@/i18n";
+import { resolveAgentChatApproval } from "@/lib/agentChatApi";
 import { cn } from "@/lib/utils";
 import { useEventStore, type VoiceState } from "@/store/events";
 import { useHomeStore } from "@/store/home";
@@ -30,6 +31,8 @@ const WINDOW = "call-window pointer-events-auto absolute bottom-full z-20 mb-3 f
 const END_LINGER_MS = 900;
 /** How long a failed call's note stays when nobody closes it. */
 const PROBLEM_TTL_MS = 2 * 60_000;
+/** How long an urgent ring waits for an answer before the card goes by itself. */
+const RING_TTL_MS = 5 * 60_000;
 
 // The voice list behind the gear: not needed for first paint.
 const CallVoicePicker = lazy(() => import("@/components/home/CallVoicePicker"));
@@ -69,6 +72,8 @@ export function CallWindow() {
   const problem = useHomeStore((s) => s.callProblem);
   const notice = useHomeStore((s) => s.callNotice);
   const setCallProblem = useHomeStore((s) => s.setCallProblem);
+  const ringing = useHomeStore((s) => s.ringing);
+  const setRinging = useHomeStore((s) => s.setRinging);
   const { active, busy, connecting, toggleCall } = useVoiceCall();
   const [muted, setMuted] = useState(false);
   // The gear opens the voice list inside the window; a new call closes it.
@@ -98,6 +103,13 @@ export function CallWindow() {
     const timer = window.setTimeout(() => setCallProblem(null), Math.max(0, problemAt + PROBLEM_TTL_MS - Date.now()));
     return () => window.clearTimeout(timer);
   }, [live, problemAt, setCallProblem]);
+
+  // An urgent ring nobody answered goes by itself.
+  useEffect(() => {
+    if (!ringing) return;
+    const timer = window.setTimeout(() => setRinging(null), RING_TTL_MS);
+    return () => window.clearTimeout(timer);
+  }, [ringing, setRinging]);
 
   useEffect(() => {
     if (!live) return;
@@ -142,6 +154,52 @@ export function CallWindow() {
   const name = assistantName || t("agentic_grid.voice_bubble.assistant_fallback");
   const label = fill(t("home.call.label"), { name });
   const openSettings = () => setActiveSection("voice-api-keys");
+
+  if (ringing && !live && !pending) {
+    // The owner's opt-in "call me for urgent decisions": silent until they act.
+    const answer = (decision: "allow" | "deny") => {
+      setRinging(null);
+      void resolveAgentChatApproval(ringing.sessionId, ringing.refId, decision).catch(
+        () => pushToast("error", t("notify.save_failed")),
+      );
+    };
+    return (
+      <section data-testid="call-window" data-state="ringing" role="alertdialog" aria-label={t("notify.urgent_ring_title")} className={WINDOW}>
+        <VoiceGlow active={false} className="h-[68%]" />
+        <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-8 py-6 text-center">
+          <Phone className="h-8 w-8 animate-pulse text-foreground-strong" aria-hidden />
+          <p className="text-[15px] font-semibold text-foreground-strong">
+            {ringing.agent ? `${ringing.agent}: ` : ""}{t("notify.urgent_ring_title")}
+          </p>
+          <p className="max-w-[26rem] text-sm text-foreground-secondary [overflow-wrap:anywhere]" data-testid="call-ring-summary">
+            {ringing.summary}
+          </p>
+        </div>
+        <footer className="relative flex items-center justify-center gap-3 pb-5 pt-2">
+          {ringing.kind === "approval" && (
+            <>
+              <button type="button" onClick={() => answer("allow")} data-testid="call-ring-allow"
+                className="inline-flex h-9 items-center rounded-full bg-foreground px-4 text-sm font-medium text-background transition-colors hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                {t("notify.urgent_ring_allow")}
+              </button>
+              <button type="button" onClick={() => answer("deny")} data-testid="call-ring-deny"
+                className="inline-flex h-9 items-center rounded-full bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                {t("notify.urgent_ring_deny")}
+              </button>
+            </>
+          )}
+          <button type="button" onClick={() => { setRinging(null); setActiveSection("chats"); }} data-testid="call-ring-open"
+            className="inline-flex h-9 items-center rounded-full bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {t("notify.urgent_ring_open")}
+          </button>
+          <button type="button" onClick={() => setRinging(null)} data-testid="call-ring-later"
+            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {t("notify.urgent_ring_later")}
+          </button>
+        </footer>
+      </section>
+    );
+  }
 
   if (!live && !pending && !problem && !ending) return null;
   if (!live && !pending && problem) {

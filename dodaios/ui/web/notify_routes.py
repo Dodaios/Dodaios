@@ -34,6 +34,7 @@ class SettingsPatch(BaseModel):
     quiet_hours: dict[str, Any] | None = None
     telegram_approvals: bool | None = None
     phone: dict[str, bool] | None = None
+    urgent_call: dict[str, Any] | None = None
 
 
 class NewReminder(BaseModel):

@@ -14,6 +14,22 @@ export type NotifyKind = (typeof NOTIFY_KINDS)[number];
 export const PHONE_KINDS = ["decisions", "results", "failures", "progress", "brief"] as const;
 export type PhoneKind = (typeof PHONE_KINDS)[number];
 
+export const URGENT_EVENTS = ["approval", "question", "watchdog"] as const;
+export type UrgentEvent = (typeof URGENT_EVENTS)[number];
+
+/** "Call me for urgent decisions": off until the owner turns it on. */
+export interface UrgentCallSettings {
+  enabled: boolean;
+  events: Record<UrgentEvent, boolean>;
+  keywords: string[];
+  deadline_min: number;
+  max_per_day: number;
+  escalate_after_min: number;
+  route: "desktop" | "phone";
+  /** E.164, e.g. +4915112345678; empty = no phone call. */
+  phone_number: string;
+}
+
 export interface QuietHours {
   enabled: boolean;
   /** Local wall-clock times, `HH:MM`. */
@@ -28,6 +44,7 @@ export interface NotifySettings {
   telegram_approvals: boolean;
   /** Which lead updates reach the phone chat (Telegram, Discord DM, WhatsApp). */
   phone: Record<PhoneKind, boolean>;
+  urgent_call?: UrgentCallSettings;
 }
 
 export interface NotifySettingsPatch {
@@ -36,6 +53,9 @@ export interface NotifySettingsPatch {
   quiet_hours?: Partial<QuietHours>;
   telegram_approvals?: boolean;
   phone?: Partial<Record<PhoneKind, boolean>>;
+  urgent_call?: Partial<Omit<UrgentCallSettings, "events">> & {
+    events?: Partial<Record<UrgentEvent, boolean>>;
+  };
 }
 
 export interface NotifyVerdict {
