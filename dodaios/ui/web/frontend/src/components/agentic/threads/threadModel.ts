@@ -130,7 +130,17 @@ export function projectIdFor(
   return best?.id ?? null;
 }
 
-/** Every project's threads, newest first. Threads outside every project are left out. */
+/**
+ * The moment a thread row is ordered by: the last message that reached it.
+ * Tool calls and answers of a working thread leave it alone, so threads that
+ * run side by side keep their places; `updated_ms` is the fallback for a
+ * backend without the field.
+ */
+export function threadOrderMs(session: Pick<AgentChatSession, "updated_ms" | "last_message_ms">): number {
+  return session.last_message_ms || session.updated_ms;
+}
+
+/** Every project's threads, newest message first. Threads outside every project are left out. */
 export function threadsByProject(
   sessions: readonly AgentChatSession[],
   projects: readonly IdeProject[],
@@ -144,7 +154,7 @@ export function threadsByProject(
     if (list) list.push(session);
     else out.set(projectId, [session]);
   }
-  for (const list of out.values()) list.sort((a, b) => b.updated_ms - a.updated_ms);
+  for (const list of out.values()) list.sort((a, b) => threadOrderMs(b) - threadOrderMs(a));
   return out;
 }
 
@@ -199,9 +209,9 @@ function daysApart(laterMs: number, earlierMs: number): number {
  * then "Mon, 9 Nov". Null while the row shares its day with the row above, and
  * for today's rows at the top of the list, which need no heading.
  *
- * The day is the one of the thread's last activity, the same moment the list
- * is sorted by: a thread started on Monday that still works on Wednesday
- * stands under Wednesday.
+ * The day is the one of the thread's last message (`threadOrderMs`), the same
+ * moment the list is sorted by: a thread started on Monday and written to
+ * again on Wednesday stands under Wednesday.
  */
 export function threadDayBreak(activityMs: number, aboveMs: number | null, locale: string, now = Date.now()): string | null {
   const age = daysApart(now, activityMs);

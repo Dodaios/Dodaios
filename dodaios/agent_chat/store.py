@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS agent_chat_sessions (
     surface          TEXT NOT NULL DEFAULT 'agent',
     account_id       TEXT NOT NULL DEFAULT '',
     runtime          TEXT NOT NULL DEFAULT '',
-    computer_id      TEXT NOT NULL DEFAULT ''
+    computer_id      TEXT NOT NULL DEFAULT '',
+    last_message_ms  INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS agent_chat_events (
     session_id  TEXT NOT NULL,
@@ -201,6 +202,10 @@ class AgentChatSession:
     #: A coding thread's placement: the connected computer its turns run on
     #: (``dodaios.computers``); empty = this computer.
     computer_id: str = ""
+    #: When a message last reached the thread (the person's, or another
+    #: agent's); the creation time until the first one. The sidebar orders by
+    #: it, so a thread's tool calls and answers never move it in the list.
+    last_message_ms: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -289,6 +294,18 @@ class AgentChatStore:
             # A coding thread's placement; empty = this computer.
             self._conn.execute(
                 "ALTER TABLE agent_chat_sessions ADD COLUMN computer_id TEXT NOT NULL DEFAULT ''"
+            )
+        if "last_message_ms" not in have:
+            # The sidebar's order key; an old row takes its newest message's
+            # time, or its creation time when it has none.
+            self._conn.execute(
+                "ALTER TABLE agent_chat_sessions ADD COLUMN last_message_ms INTEGER NOT NULL DEFAULT 0"
+            )
+            self._conn.execute(
+                "UPDATE agent_chat_sessions SET last_message_ms = COALESCE(("
+                "SELECT MAX(e.ts_ms) FROM agent_chat_events e "
+                "WHERE e.session_id = agent_chat_sessions.session_id "
+                "AND e.kind IN ('user_message', 'agent_message')), created_ms)"
             )
 
     def close(self) -> None:
@@ -380,8 +397,8 @@ class AgentChatStore:
             self._conn.execute(
                 "INSERT INTO agent_chat_sessions (session_id, title, provider, model, effort, "
                 "cwd, permission_mode, vendor_session, created_ms, updated_ms, message_count, "
-                "preview, surface, account_id, runtime, computer_id) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 0, '', ?, ?, ?, ?)",
+                "preview, surface, account_id, runtime, computer_id, last_message_ms) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 0, '', ?, ?, ?, ?, ?)",
                 (
                     sid,
                     title,
@@ -396,6 +413,7 @@ class AgentChatStore:
                     account_id,
                     runtime,
                     computer_id,
+                    now,
                 ),
             )
             self._conn.commit()
@@ -760,10 +778,10 @@ class AgentChatStore:
                 text = str(payload.get("text") or "")
                 self._conn.execute(
                     "UPDATE agent_chat_sessions SET message_count = message_count + 1, "
-                    "updated_ms = ?, preview = ?, "
+                    "updated_ms = ?, last_message_ms = ?, preview = ?, "
                     "title = CASE WHEN title = '' THEN ? ELSE title END "
                     "WHERE session_id = ?",
-                    (ts_ms, text[:_PREVIEW_MAX_CHARS], _title_from(text), session_id),
+                    (ts_ms, ts_ms, text[:_PREVIEW_MAX_CHARS], _title_from(text), session_id),
                 )
             elif kind == "assistant_text":
                 text = " ".join(str(payload.get("text") or "").split())
@@ -1122,4 +1140,7 @@ class AgentChatStore:
             account_id=str(row["account_id"] or "") if "account_id" in row.keys() else "",
             runtime=str(row["runtime"] or "") if "runtime" in row.keys() else "",
             computer_id=str(row["computer_id"] or "") if "computer_id" in row.keys() else "",
+            last_message_ms=(
+                int(row["last_message_ms"] or 0) if "last_message_ms" in row.keys() else 0
+            ),
         )
