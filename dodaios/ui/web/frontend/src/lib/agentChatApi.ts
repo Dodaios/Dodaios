@@ -575,6 +575,18 @@ export async function resumeAgentChatQueue(sessionId: string): Promise<AgentChat
   );
 }
 
+/** Send a waiting message into the running turn now; false when it keeps waiting. */
+export async function steerQueuedMessage(sessionId: string, queueId: string): Promise<boolean> {
+  const result = await json<{ steered: boolean }>(
+    await fetch(
+      `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/queue/${encodeURIComponent(queueId)}/steer`,
+      { method: "POST" },
+    ),
+    "queue-failed",
+  );
+  return result.steered;
+}
+
 export async function discardQueuedMessage(sessionId: string, queueId: string): Promise<void> {
   await json<{ removed: boolean }>(
     await fetch(
@@ -585,11 +597,18 @@ export async function discardQueuedMessage(sessionId: string, queueId: string): 
   );
 }
 
+/**
+ * A message typed while a coding thread's turn runs: `now` goes into the
+ * running turn (when its CLI takes one), `after` waits and starts as the next turn.
+ */
+export type SendDelivery = "now" | "after";
+
 export async function sendAgentChatMessage(
   sessionId: string,
   text: string,
   attachments: ChatAttachment[] = [],
   toolChoices: string[] = [],
+  delivery?: SendDelivery,
 ): Promise<{ turn_id: string; steered?: boolean; queued?: boolean; queue_id?: string }> {
   const result = await json<{ turn_id: string; steered?: boolean; queued?: boolean; queue_id?: string }>(
     await fetch(`/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/messages`, {
@@ -599,6 +618,7 @@ export async function sendAgentChatMessage(
         text,
         attachments,
         ...(toolChoices.length ? { tool_choices: toolChoices } : {}),
+        ...(delivery ? { delivery } : {}),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }),
     }),

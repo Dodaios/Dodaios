@@ -196,6 +196,40 @@ describe("ThreadView", () => {
     expect(steered.textContent).toBe("also run the linter");
     expect(within(steered).getByAltText("shot.png").getAttribute("src")).toBe("/files/shot.png");
   });
+
+  it("lets the person hold a message until the agent is done, and remembers that pick", async () => {
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
+    api.sendAgentChatMessage.mockResolvedValue({ turn_id: "", queued: true, queue_id: "q1" });
+    const view = render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    const store = useThreadChatStore.getState();
+    act(() => {
+      store.ingest({ seq: 1, ts_ms: 1000, kind: "user_message", payload: { text: "refactor the parser" } });
+      store.ingest({ seq: 2, ts_ms: 1000, kind: "turn_started", payload: { turn_id: "t1", provider: "claude-api", model: "", effort: "high", runner: "claude-cli" } });
+    });
+    // The pick shows as soon as the agent works, before anything is typed.
+    await waitFor(() => expect(screen.getByTestId("thread-send-mode").getAttribute("data-mode")).toBe("steer"));
+    fireEvent.click(screen.getByTestId("thread-follow-up-queue"));
+    expect(screen.getByTestId("thread-send-mode").getAttribute("data-mode")).toBe("queue");
+    const box = screen.getByTestId("thread-composer-input");
+    expect(box.getAttribute("placeholder")).toBe("Queue a follow-up for when the agent is done");
+    fireEvent.change(box, { target: { value: "then update the docs" } });
+    await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
+    await waitFor(() => expect(api.sendAgentChatMessage).toHaveBeenCalled());
+    expect(api.sendAgentChatMessage.mock.calls[0]?.[1]).toBe("then update the docs");
+    expect(api.sendAgentChatMessage.mock.calls[0]?.[4]).toBe("after");
+
+    // Another thread view later starts with the same pick.
+    view.unmount();
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(screen.getByTestId("thread-follow-up-queue").getAttribute("aria-checked")).toBe("true"));
+    fireEvent.click(screen.getByTestId("thread-follow-up-steer"));
+    fireEvent.change(screen.getByTestId("thread-composer-input"), { target: { value: "stop, use the old parser" } });
+    await act(async () => { fireEvent.keyDown(screen.getByTestId("thread-composer-input"), { key: "Enter" }); });
+    await waitFor(() => expect(api.sendAgentChatMessage).toHaveBeenCalledTimes(2));
+    expect(api.sendAgentChatMessage.mock.calls[1]?.[4]).toBe("now");
+  });
 });
 
 describe("ThreadTree", () => {

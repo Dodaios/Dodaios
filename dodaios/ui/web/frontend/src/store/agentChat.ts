@@ -41,6 +41,7 @@ import {
   type ApprovalRuleChoice,
   type ApprovalRuleRequest,
   type ChatAttachment,
+  type SendDelivery,
   type CuratedModel,
   type PatchSessionInput,
   type ProviderHealth,
@@ -208,7 +209,7 @@ export interface AgentChatStore {
   openSession: (sessionId: string) => void;
   removeSession: (sessionId: string) => Promise<void>;
   /** Send the sentence, with whatever files the composer is holding for it. */
-  send: (text: string, attachments?: ChatAttachment[], toolChoices?: string[], onSessionCreated?: (session: AgentChatSession) => void) => Promise<void | "sent" | "failed" | "stale">;
+  send: (text: string, attachments?: ChatAttachment[], toolChoices?: string[], onSessionCreated?: (session: AgentChatSession) => void, delivery?: SendDelivery) => Promise<void | "sent" | "failed" | "stale">;
   /** Stop the running turn; `via` names the control that asked, for the log. */
   cancel: (via?: string) => Promise<void>;
   /**
@@ -1134,7 +1135,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
         void get().loadSessions();
       },
 
-      send: async (text, attachments = [], toolChoices = [], onSessionCreated) => {
+      send: async (text, attachments = [], toolChoices = [], onSessionCreated, delivery) => {
         const content = text.trim();
         // A message may be files alone — dropping a screenshot and pressing
         // Enter is a complete gesture — but never nothing at all.
@@ -1187,7 +1188,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
           // a message sent right after Stop waits for that instead of
           // bouncing off the busy session.
           await stopping.get(sid);
-          await sendAgentChatMessage(sid, content, attachments, toolChoices);
+          await sendAgentChatMessage(sid, content, attachments, toolChoices, delivery);
           // The message is in: its turn is on the way even before the socket
           // says so, and the stop control and the row's spinner show it.
           sentAt.set(sid, Date.now());
