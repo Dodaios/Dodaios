@@ -121,4 +121,10 @@ class HandbackEventTool:
         return ToolResult(True, {"handed_back": True, "event_id": event_id})
 
 
-__all__ = ["FollowThreadTool", "HandbackEventTool"]
+class SocietyHandbackEventTool(HandbackEventTool):
+    """The same tool under the name the society agent surface requires (``society_`` prefix)."""
+
+    name: str = "society_handback_event"
+
+
+__all__ = ["FollowThreadTool", "HandbackEventTool", "SocietyHandbackEventTool"]
