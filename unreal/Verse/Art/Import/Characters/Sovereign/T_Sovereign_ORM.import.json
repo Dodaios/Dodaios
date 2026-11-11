@@ -1,0 +1,34 @@
+{
+  "asset_path": "/Game/Verse/Characters/Sovereign/Textures/T_Sovereign_ORM.T_Sovereign_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/characters/meshes/textures/T_SK_Sovereign_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "be9fc4d826106515005cad3f4d623d4feb09d801429cd350d99d9582fd5a351f"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Sovereign_ORM",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "mesh": "SK_Sovereign"
+    },
+    "builder": "art/verse/characters/rig_fps.py",
+    "function": "build_mesh"
+  },
+  "texture": {
+    "channels": {},
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "Character",
+    "max_size": 2048,
+    "never_stream": true,
+    "srgb": false
+  }
+}

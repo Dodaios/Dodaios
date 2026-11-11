@@ -62,6 +62,7 @@ void FVerseAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float Del
 	{
 		Frame = Instance->Frame;
 		IdleTime = Instance->GetIdleTime();
+		Swings = Instance->BoneSwings;
 	}
 }
 
@@ -76,6 +77,44 @@ void FVerseAnimInstanceProxy::CacheBones()
 	FAnimInstanceProxy::CacheBones();
 	Bones.Build(GetRequiredBones());
 	bBonesValid = Bones.IsValid();
+}
+
+namespace VerseAnimInstancePrivate
+{
+	/** Rotation of a bone in component space: the product of the local rotations up to the root. */
+	FQuat ComponentRotation(const FCompactPose& Pose, FCompactPoseBoneIndex Index)
+	{
+		FQuat Rotation = FQuat::Identity;
+		while (Index.IsValid())
+		{
+			Rotation = Pose[Index].GetRotation() * Rotation;
+			Index = Pose.GetParentBoneIndex(Index);
+		}
+		return Rotation;
+	}
+
+	/** local' = parent^-1 * swing * parent * local: the bone turns about its head in component space
+	 *  (the same rule as the three.js cloak, `actors/cloak.ts` setLocal). */
+	void ApplySwings(const TArray<FVerseBoneSwing>& Swings, FCompactPose& Pose)
+	{
+		const FBoneContainer& Container = Pose.GetBoneContainer();
+		for (const FVerseBoneSwing& Swing : Swings)
+		{
+			const int32 PoseIndex = Container.GetPoseBoneIndexForBoneName(Swing.Bone);
+			if (PoseIndex == INDEX_NONE)
+			{
+				continue;
+			}
+			const FCompactPoseBoneIndex Index = Container.MakeCompactPoseIndex(FMeshPoseBoneIndex(PoseIndex));
+			if (!Index.IsValid())
+			{
+				continue;
+			}
+			const FQuat Parent = ComponentRotation(Pose, Pose.GetParentBoneIndex(Index));
+			FTransform& Local = Pose[Index];
+			Local.SetRotation((Parent.Inverse() * Swing.MeshRotation * Parent * Local.GetRotation()).GetNormalized());
+		}
+	}
 }
 
 bool FVerseAnimInstanceProxy::Evaluate(FPoseContext& Output)
@@ -98,6 +137,7 @@ bool FVerseAnimInstanceProxy::Evaluate(FPoseContext& Output)
 		FAnimationPoseData OutData(Output);
 		SlotEvaluatePose(FullBodySlot, SourceData, SourceWeight, OutData, SlotWeight, TotalWeight);
 	}
+	VerseAnimInstancePrivate::ApplySwings(Swings, Output.Pose);
 	return true;
 }
 

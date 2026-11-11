@@ -118,6 +118,10 @@ def apply(unreal, recipe: dict, *, save: bool) -> list[str]:
     overrides.set_editor_property(
         "blend_mode", unreal.BlendMode.BLEND_MASKED if masked else unreal.BlendMode.BLEND_OPAQUE
     )
+    # garments of single sheets (the three.js materials are double-sided) show both faces
+    two_sided = bool(recipe.get("two_sided", False))
+    overrides.set_editor_property("override_two_sided", two_sided)
+    overrides.set_editor_property("two_sided", two_sided)
     mi.set_editor_property("base_property_overrides", overrides)
     unreal.EditorAssetLibrary.set_metadata_tag(mi, "VerseRecipeOwner", recipe["owner"])
     mel.update_material_instance(mi)

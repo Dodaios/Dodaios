@@ -31,7 +31,14 @@ UNIFORMS = {
     "Commander": ("build_officer", "command", "commander uniform"),
     "Crew": ("build_technician", None, "crew coverall"),
     "Opponent": ("build_trooper", None, "black tactical opponent"),
+    # The commander's own skin (docs/verse/sovereign.md): male body only, plus the cloak bones.
+    "Sovereign": ("build_sovereign", None, "the Sovereign: robe, mantle and open cloak"),
 }
+#: Uniforms built for one body variant only.
+SINGLE_VARIANT = {"Sovereign": "M"}
+#: Hero meshes keep their full detail at every distance (no generated LODs): the
+#: Sovereign's thin gold piping and folds do not survive a mesh reduction.
+FULL_DETAIL = frozenset({"SK_Sovereign"})
 
 
 @dataclass(frozen=True)
@@ -46,9 +53,14 @@ class MeshSpec:
 
 
 MESHES: tuple[MeshSpec, ...] = tuple(
-    MeshSpec(f"SK_{uniform}_{variant}", uniform, variant)
+    MeshSpec(
+        f"SK_{uniform}" if uniform in SINGLE_VARIANT else f"SK_{uniform}_{variant}",
+        uniform,
+        variant,
+    )
     for uniform in UNIFORMS
     for variant in VARIANTS
+    if SINGLE_VARIANT.get(uniform, variant) == variant
 )
 #: The mesh whose rest pose becomes the shared skeleton's reference pose.
 SKELETON_SOURCE = "SK_Commander_M"

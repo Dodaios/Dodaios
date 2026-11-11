@@ -17,8 +17,9 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnVerseCommanderArrived, const FVector& /*F
  * Nobody possesses it. The deck control (`UVerseDeckControlComponent` on the player controller)
  * drives it each frame with the held keys relative to the view, or sends it along a path on the
  * deck's nav grid after a click; the player controller keeps its duel pawn parked for the arena.
- * The body is a placeholder of engine shapes until the WP13 rig takes over (stream S7 puts the
- * Sovereign skin on it); it already wears the uniform colour and can salute.
+ * The body is the Sovereign skin once the game dresses it (`UVerseSovereignBody`, stream S7,
+ * on the character mesh); until then, and without the skin in the build, a placeholder of
+ * engine shapes that wears the uniform colour and can salute.
  */
 UCLASS()
 class VERSEDECKS_API AVerseDeckCommander : public ACharacter
@@ -71,6 +72,11 @@ public:
 	void SetBodyVisible(bool bVisible);
 	bool IsBodyVisible() const { return bBodyVisible; }
 
+	/** True when the character mesh carries a skin (the Sovereign): the shapes stay hidden. */
+	bool HasSkin() const;
+	/** Shows the skin or the shapes after the skin was put on (or taken off). */
+	void RefreshBody();
+
 	/** Walking backwards in a shooter view: the walk plays in reverse. */
 	bool IsBackpedalling() const { return bReverse; }
 	/** Current walking speed on the floor, cm/s. */
@@ -105,6 +111,8 @@ protected:
 
 private:
 	void ApplyUniform();
+	/** The placeholder shapes (every mesh component but the character mesh). */
+	void ForEachShape(TFunctionRef<void(UMeshComponent*)> Fn) const;
 	void FollowPath(float DeltaSeconds);
 	void Step(const FVector2D& Dir, double FaceYawDeg, double Speed, float DeltaSeconds);
 

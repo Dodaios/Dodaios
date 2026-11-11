@@ -75,6 +75,16 @@ BONES: tuple[tuple[str, str | None], ...] = tuple(bone_table())
 NAMES: tuple[str, ...] = tuple(name for name, _ in BONES)
 PARENT: dict[str, str | None] = dict(BONES)
 
+#: The Sovereign's cloak (docs/verse/sovereign.md): six bones only its mesh carries,
+#: merged into the skeleton when it imports. The shared clips never key them; the cloak
+#: spring (VerseCloak) swings them at runtime.
+CLOAK_BONES: tuple[tuple[str, str], ...] = tuple(
+    (f"Cloak_{c}{k}", "Spine_03" if k == 1 else f"Cloak_{c}1")
+    for c in ("R", "C", "L")
+    for k in (1, 2)
+)
+OPTIONAL_PARENT: dict[str, str] = dict(CLOAK_BONES)
+
 #: Bones that skin the mesh. IK, weapon and camera bones never carry weights.
 NON_DEFORM: frozenset[str] = frozenset(
     {"Root", "Camera", "Weapon_L", "Weapon_R"} | {n for n in NAMES if n.startswith("IK_")}
@@ -140,7 +150,7 @@ def check_names(names: list[str] | tuple[str, ...]) -> list[str]:
     if len(given) > MAX_BONES:
         problems.append(f"{len(given)} bones, at most {MAX_BONES}")
     missing = [n for n in NAMES if n not in given]
-    extra = [n for n in given if n not in PARENT]
+    extra = [n for n in given if n not in PARENT and n not in OPTIONAL_PARENT]
     if missing:
         problems.append(f"missing bones: {', '.join(missing)}")
     if extra:
@@ -154,6 +164,6 @@ def check_hierarchy(parents: dict[str, str | None]) -> list[str]:
     """Problems of a {bone: parent} map against the frozen hierarchy."""
     return [
         f"{bone}: parent {parents.get(bone)!r}, want {want!r}"
-        for bone, want in BONES
+        for bone, want in BONES + CLOAK_BONES
         if bone in parents and parents[bone] != want
     ]

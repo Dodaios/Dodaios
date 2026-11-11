@@ -1,0 +1,173 @@
+{
+  "asset_path": "/Game/Verse/Characters/Sovereign/SK_Sovereign.SK_Sovereign",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/characters/meshes/SK_Sovereign.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "ddc683d52f813c01b03f6e80d4e8b326ec63b1f2457c80b7c122aa57483df8a3"
+  },
+  "kind": "skeletal_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "811f43accbb31a88266d932f8f5563b2d13586fca0ba2693aad1f5fe582b3515"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single",
+    "screen_sizes": [
+      1.0
+    ]
+  },
+  "mesh": {
+    "bones": [
+      "Root",
+      "Hips",
+      "Spine_01",
+      "Spine_02",
+      "Spine_03",
+      "Neck",
+      "Head",
+      "Camera",
+      "Clavicle_L",
+      "UpperArm_L",
+      "UpperArm_Twist_L",
+      "LowerArm_L",
+      "LowerArm_Twist_L",
+      "Hand_L",
+      "Thumb_01_L",
+      "Thumb_02_L",
+      "Thumb_03_L",
+      "Index_01_L",
+      "Index_02_L",
+      "Index_03_L",
+      "Middle_01_L",
+      "Middle_02_L",
+      "Middle_03_L",
+      "Ring_01_L",
+      "Ring_02_L",
+      "Ring_03_L",
+      "Pinky_01_L",
+      "Pinky_02_L",
+      "Pinky_03_L",
+      "Weapon_L",
+      "Clavicle_R",
+      "UpperArm_R",
+      "UpperArm_Twist_R",
+      "LowerArm_R",
+      "LowerArm_Twist_R",
+      "Hand_R",
+      "Thumb_01_R",
+      "Thumb_02_R",
+      "Thumb_03_R",
+      "Index_01_R",
+      "Index_02_R",
+      "Index_03_R",
+      "Middle_01_R",
+      "Middle_02_R",
+      "Middle_03_R",
+      "Ring_01_R",
+      "Ring_02_R",
+      "Ring_03_R",
+      "Pinky_01_R",
+      "Pinky_02_R",
+      "Pinky_03_R",
+      "Weapon_R",
+      "Cloak_R1",
+      "Cloak_R2",
+      "Cloak_C1",
+      "Cloak_C2",
+      "Cloak_L1",
+      "Cloak_L2",
+      "Thigh_L",
+      "Thigh_Twist_L",
+      "Calf_L",
+      "Calf_Twist_L",
+      "Foot_L",
+      "Ball_L",
+      "Thigh_R",
+      "Thigh_Twist_R",
+      "Calf_R",
+      "Calf_Twist_R",
+      "Foot_R",
+      "Ball_R",
+      "IK_Foot_Root",
+      "IK_Foot_L",
+      "IK_Foot_R",
+      "IK_Hand_Root",
+      "IK_Hand_Gun",
+      "IK_Hand_L",
+      "IK_Hand_R"
+    ],
+    "bounds_cm": {
+      "max": [
+        48.801,
+        29.314,
+        187.089
+      ],
+      "min": [
+        -48.531,
+        -41.016,
+        -0.226
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Sovereign_Skin.MI_Character_Sovereign_Skin",
+        "slot": "M_Skin"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Sovereign_SovRobe.MI_Character_Sovereign_SovRobe",
+        "slot": "M_SovRobe"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Sovereign_Boots.MI_Character_Sovereign_Boots",
+        "slot": "M_Boots"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Sovereign_SovTrim.MI_Character_Sovereign_SovTrim",
+        "slot": "M_SovTrim"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Sovereign_Belt.MI_Character_Sovereign_Belt",
+        "slot": "M_Belt"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Sovereign_SovEye.MI_Character_Sovereign_SovEye",
+        "slot": "M_SovEye"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Sovereign_SovCloak.MI_Character_Sovereign_SovCloak",
+        "slot": "M_SovCloak"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Sovereign_SovLining.MI_Character_Sovereign_SovLining",
+        "slot": "M_SovLining"
+      }
+    ],
+    "triangles": 32456,
+    "uv_sets": 1,
+    "vertices": 16434
+  },
+  "name": "SK_Sovereign",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "uniform": "Sovereign",
+      "variant": "M"
+    },
+    "builder": "art/verse/characters/rig_fps.py",
+    "function": "build_mesh"
+  }
+}
