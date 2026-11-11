@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
   createAgentChatSession: vi.fn(),
   sendAgentChatMessage: vi.fn(),
   patchAgentChatSession: vi.fn(),
+  searchAgentChatSessions: vi.fn(),
 }));
 vi.mock("@/lib/agentChatApi", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/agentChatApi")>()), ...api }));
 const teams = vi.hoisted(() => ({ rows: [] as unknown[] }));
@@ -70,6 +71,9 @@ function sessionRow(extra: Partial<AgentChatSession> = {}): AgentChatSession {
 beforeEach(() => {
   localStorage.clear();
   vi.stubGlobal("WebSocket", FakeSocket);
+  // The thread search's list (cmdk) measures itself; jsdom has no ResizeObserver.
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+  Element.prototype.scrollIntoView ??= () => {};
   FakeSocket.instances = [];
   api.fetchAgentChatCatalog.mockReset().mockResolvedValue(CATALOG);
   api.fetchAgentConnections.mockReset().mockResolvedValue([]);
@@ -78,6 +82,7 @@ beforeEach(() => {
   api.createAgentChatSession.mockReset().mockResolvedValue(sessionRow());
   api.sendAgentChatMessage.mockReset().mockResolvedValue({ turn_id: "t1" });
   api.patchAgentChatSession.mockReset().mockResolvedValue(sessionRow());
+  api.searchAgentChatSessions.mockReset().mockResolvedValue([]);
   useIdeProjectsStore.setState({ projects: [project], activeWorkspaceId: null });
   useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, focusNonce: 0 });
   useThreadChatStore.getState().newChat();
@@ -174,23 +179,37 @@ describe("ThreadTree", () => {
     expect(useIdeThreadsStore.getState().selection).toEqual({ projectId: "p1", sessionId: null });
   });
 
-  it("opens the search from its own start row and hides that row while search is off", async () => {
-    api.fetchAgentChatSessions.mockResolvedValue([]);
-    const settings = (await import("@/store/quickSwitchSettings")).useQuickSwitchSettings;
-    const switcher = (await import("@/store/quickSwitcher")).useQuickSwitcher;
-    const enabled = settings.getState().enabled;
-    try {
-      settings.setState({ enabled: true });
-      const view = render(<ThreadTree />);
-      fireEvent.click(screen.getByTestId("thread-tree-search"));
-      expect(switcher.getState().open).toBe(true);
-      switcher.getState().hide();
-      act(() => settings.setState({ enabled: false }));
-      view.rerender(<ThreadTree />);
-      expect(screen.queryByTestId("thread-tree-search")).toBeNull();
-    } finally {
-      settings.setState({ enabled });
-    }
+  it("searches the threads by title at once and by message from the server", async () => {
+    api.fetchAgentChatSessions.mockResolvedValue([
+      sessionRow({ cli_title: "Fix login test", updated_ms: 5 }),
+      sessionRow({ session_id: "s2", title: "Header polish", updated_ms: 9 }),
+      sessionRow({ session_id: "s3", cwd: "/elsewhere", title: "stray login" }),
+    ]);
+    api.searchAgentChatSessions.mockResolvedValue([
+      { session_id: "s2", snippet: "the login button moves left", seq: 4, kind: "user_message", ts_ms: 9, matches: 2,
+        title_match: false, title: "Header polish", cwd: "/repo", updated_ms: 9 },
+      { session_id: "s3", snippet: "login elsewhere", seq: 1, kind: "user_message", ts_ms: 1, matches: 1,
+        title_match: false, title: "stray login", cwd: "/elsewhere", updated_ms: 1 },
+    ]);
+    render(<ThreadTree />);
+    await waitFor(() => expect(screen.getByText("Fix login test")).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId("thread-tree-search"));
+    const dialog = await screen.findByTestId("thread-search");
+    // Empty, it lists the newest threads of the sidebar's projects.
+    expect(within(dialog).getByTestId("thread-search-row-s2")).toBeTruthy();
+    expect(within(dialog).queryByTestId("thread-search-row-s3")).toBeNull();
+
+    fireEvent.change(within(dialog).getByTestId("thread-search-input"), { target: { value: "login" } });
+    expect(within(dialog).getByTestId("thread-search-row-s1")).toBeTruthy();
+    await waitFor(() => expect(within(dialog).getByTestId("thread-search-row-s2").textContent).toContain("the login button moves left"));
+    expect(api.searchAgentChatSessions).toHaveBeenCalledWith("login", expect.anything());
+    // A hit outside every project is not listed, as in the sidebar.
+    expect(within(dialog).queryByTestId("thread-search-row-s3")).toBeNull();
+
+    fireEvent.click(within(dialog).getByTestId("thread-search-row-s2"));
+    expect(useIdeThreadsStore.getState().selection).toEqual({ projectId: "p1", sessionId: "s2" });
+    await waitFor(() => expect(screen.queryByTestId("thread-search")).toBeNull());
   });
 
   it("archives a thread from its menu and brings it back from the project's archive", async () => {

@@ -139,6 +139,8 @@ CREATE TABLE IF NOT EXISTS jarvis_lead_session (
 _VOICE_DEDUP_KEEP_MS: Final[int] = 30 * 24 * 3600 * 1000
 _TITLE_MAX_CHARS = 80
 _PREVIEW_MAX_CHARS = 120
+#: How much of a matching message the thread search shows.
+_SNIPPET_CHARS: Final = 140
 # The permission ladders live in dodaios/agent_chat/permissions.py (per
 # runner); the store keeps whatever id the route validated.
 
@@ -211,6 +213,23 @@ def _title_from(text: str) -> str:
     return line
 
 
+def _fold(value: Any) -> str:
+    """Caseless form for search (SQLite's ``lower`` only folds ASCII)."""
+    return value.casefold() if isinstance(value, str) else ""
+
+
+def _snippet(text: str, needle: str) -> str:
+    """One line of ``text`` around the first ``needle`` (already folded)."""
+    line = " ".join(text.split())
+    at = line.casefold().find(needle)
+    if at < 0:
+        return line[: _SNIPPET_CHARS]
+    start = max(0, at - _SNIPPET_CHARS // 3)
+    end = min(len(line), start + _SNIPPET_CHARS)
+    start = max(0, min(start, end - _SNIPPET_CHARS))
+    return ("…" if start else "") + line[start:end].strip() + ("…" if end < len(line) else "")
+
+
 class AgentChatStore:
     """Sessions + event log. ``db_path=":memory:"`` for tests."""
 
@@ -220,6 +239,8 @@ class AgentChatStore:
             Path(self._path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(self._path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        # The thread search's caseless match (``search_sessions``).
+        self._conn.create_function("dodaios_fold", 1, _fold, deterministic=True)
         self._lock = threading.Lock()
         #: The mode a session was in before it entered plan mode (this run only).
         self._mode_before_plan: dict[str, str] = {}
@@ -439,6 +460,66 @@ class AgentChatStore:
                 (len(prefix), prefix, suffix, max(1, len(suffix)), suffix, int(limit)),
             ).fetchall()
         return [self._row_to_session(r) for r in rows]
+
+    def search_sessions(
+        self, query: str, *, surface: str = DEFAULT_SURFACE, limit: int = 50
+    ) -> list[dict[str, Any]]:
+        """Sessions of ``surface`` whose title or messages contain ``query``.
+
+        Case-insensitive for every alphabet (``str.casefold``, not SQLite's
+        ASCII-only ``LIKE``). Newest activity first; each hit carries the
+        latest matching message as ``snippet`` (with its ``seq``) and how many
+        messages matched, so the thread search can show why a thread came up,
+        and the session's ``title`` / ``cwd`` / ``updated_ms`` for a thread the
+        sidebar has not loaded. A title-only match has an empty snippet.
+        """
+        needle = " ".join((query or "").split()).casefold()
+        if not needle:
+            return []
+        with self._lock:
+            sessions = self._conn.execute(
+                "SELECT session_id, title, cwd, updated_ms FROM agent_chat_sessions WHERE surface = ?",
+                (surface,),
+            ).fetchall()
+            rows = self._conn.execute(
+                "SELECT e.session_id, e.seq, e.ts_ms, e.kind, "
+                "json_extract(e.payload, '$.text') AS text "
+                "FROM agent_chat_events e JOIN agent_chat_sessions s "
+                "ON s.session_id = e.session_id "
+                "WHERE s.surface = ? AND e.kind IN ('user_message', 'agent_message', 'assistant_text') "
+                "AND instr(dodaios_fold(json_extract(e.payload, '$.text')), ?) > 0 "
+                "ORDER BY e.seq DESC",
+                (surface, needle),
+            ).fetchall()
+        hits: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            hit = hits.get(row["session_id"])
+            if hit is None:
+                hits[row["session_id"]] = {
+                    "session_id": row["session_id"],
+                    "snippet": _snippet(str(row["text"] or ""), needle),
+                    "seq": int(row["seq"]),
+                    "kind": str(row["kind"]),
+                    "ts_ms": int(row["ts_ms"]),
+                    "matches": 1,
+                    "title_match": False,
+                }
+            else:
+                hit["matches"] += 1
+        known = {row["session_id"]: row for row in sessions}
+        for row in sessions:
+            if needle not in _fold(row["title"]):
+                continue
+            hit = hits.setdefault(row["session_id"], {
+                "session_id": row["session_id"], "snippet": "", "seq": 0, "kind": "",
+                "ts_ms": int(row["updated_ms"]), "matches": 0, "title_match": True,
+            })
+            hit["title_match"] = True
+        for hit in hits.values():
+            row = known[hit["session_id"]]
+            hit.update(title=row["title"], cwd=row["cwd"], updated_ms=int(row["updated_ms"]))
+        ordered = sorted(hits.values(), key=lambda hit: hit["updated_ms"], reverse=True)
+        return ordered[: max(1, int(limit))]
 
     def update_session(self, session_id: str, **fields: Any) -> AgentChatSession | None:
         """Set any of title / provider / model / effort / cwd / permission_mode /
