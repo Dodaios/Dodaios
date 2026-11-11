@@ -21,6 +21,7 @@ import { listSubagents } from "./subagents";
 import { turnErrorText } from "@/components/agentchat/turnError";
 import { useSideFileStore } from "@/store/sideFile";
 import { DiffStat, DiffView } from "./ThreadDiff";
+import { MagicWordText } from "./MagicWordText";
 
 /**
  * A thread's conversation: the person's messages on the right, the agent's
@@ -533,8 +534,12 @@ function SentFiles({ files }: { files: readonly UserAttachment[] }) {
   </div>;
 }
 
+/** Whether this thread's agent acts on "ultrathink" / "ultracode" (Claude Code), so they show in its rainbow. */
+export const MagicWords = createContext(false);
+
 function UserBubble({ item }: { item: UserItem }) {
   const t = useT();
+  const magic = useContext(MagicWords);
   return <div className="group flex flex-col items-end gap-1" data-testid="thread-user-message">
     {item.author && <div className="flex items-center gap-1.5 pr-1 text-xs text-muted-foreground" data-testid="thread-message-author">
       <Bot aria-hidden className="h-3.5 w-3.5 shrink-0" />
@@ -542,7 +547,7 @@ function UserBubble({ item }: { item: UserItem }) {
     </div>}
     <div className="max-w-[80%] rounded-2xl bg-secondary px-4 py-2.5 text-foreground">
       <SentFiles files={item.attachments} />
-      {item.text && <div className="whitespace-pre-wrap text-base leading-6 [overflow-wrap:anywhere]">{item.text}</div>}
+      {item.text && <div className="whitespace-pre-wrap text-base leading-6 [overflow-wrap:anywhere]">{magic ? <MagicWordText text={item.text} /> : item.text}</div>}
     </div>
     <div className="flex items-center gap-1 pr-1 text-xs text-muted-foreground opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
       <span className="tabular-nums">{clock(item.tsMs)}</span>

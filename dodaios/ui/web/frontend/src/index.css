@@ -384,6 +384,54 @@ label,
       opacity: 1;
     }
   }
+
+  /* Claude Code's magic words ("ultrathink", "ultracode") in the thread
+     composer and the sent message: the seven colours of the CLI's own
+     rainbow, drifting slowly. Colour only, so the composer's backdrop keeps
+     every glyph exactly where the textarea draws it. */
+  .magic-word-rainbow {
+    /* Two rainbows on a strip twice the word's width: the word always shows
+       all seven colours, and moving the strip by one width loops seamlessly. */
+    background-image: linear-gradient(
+      90deg,
+      rgb(235 95 87),
+      rgb(245 139 87),
+      rgb(250 195 95),
+      rgb(145 200 130),
+      rgb(130 170 220),
+      rgb(155 130 200),
+      rgb(200 130 180),
+      rgb(235 95 87),
+      rgb(245 139 87),
+      rgb(250 195 95),
+      rgb(145 200 130),
+      rgb(130 170 220),
+      rgb(155 130 200),
+      rgb(200 130 180),
+      rgb(235 95 87)
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: magic-word-rainbow 3s linear infinite;
+  }
+
+  @keyframes magic-word-rainbow {
+    from {
+      background-position: 0% 50%;
+    }
+    to {
+      background-position: 100% 50%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .magic-word-rainbow {
+      animation: none;
+    }
+  }
 }
 ::-webkit-scrollbar {
   width: 10px;
