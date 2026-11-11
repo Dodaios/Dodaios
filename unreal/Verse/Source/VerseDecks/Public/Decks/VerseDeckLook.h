@@ -29,6 +29,12 @@ struct VERSEDECKS_API FVerseDeckLook
 	double ExposureEV100 = 6.0;
 	/** Work-light temperature where a socket gives none, kelvin. */
 	double WorkLightKelvin = 5600.0;
+	/**
+	 * Unreal yaw (degrees) the commander and the deck camera take on arrival, when the deck's
+	 * arrival sockets face a wall in third person (their yaw faces the web deck's fixed camera).
+	 * Unset: the socket's own heading.
+	 */
+	TOptional<double> ArrivalYawDeg;
 
 	static FVerseDeckLook For(FName Deck);
 };

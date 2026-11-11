@@ -269,6 +269,12 @@ deck view and the duel show it alike:
   perimeter segment.
 - **Deck view**: the hall part has no arena work lights, so every second lamp of every second
   row casts a real spot light there (`HallLampLumens`, 3900 K, one in four shadowed).
+  The hangar's arrival sockets (lift, commander spawn) face the lobby's back wall in third
+  person, so `FVerseDeckLook::ArrivalYawDeg` turns the arrival west, across the apron into the
+  hall (Unreal only; the sockets keep the shared heading of coordinates.md 3.2).
+- **Wall cladding**: the perimeter (above its hazard band), the cover walls and the booth's solid
+  walls carry the WP12 kit wall modules (`SM_Wall_480/240/120`, `SM_Wall_240_H540`), front 2 cm
+  proud, back inside the box; their backlit slots are dark like the hull's.
 - **Wear**: puddles that mirror the lamps, tug tracks, grime at the foot of every wall and cover
   box, rust streaks down walls, barriers and containers (`DressArtBox`). Masks: `grime.py`.
 
