@@ -61,7 +61,7 @@ describe("AccountUsageMeters", () => {
       <AccountUsageMeters
         now={NOW}
         usage={usage({
-          plan: "Max 20x",
+          plan: "Ultra",
           windows: [
             window_({ kind: "session", percent: 2, window_minutes: 300 }),
             window_({ kind: "weekly", percent: 55 }),
@@ -82,7 +82,7 @@ describe("AccountUsageMeters", () => {
     // The scoped budget names WHAT it is scoped to — a second unlabelled
     // "Weekly" bar at 99% would read as a contradiction of the first.
     expect(screen.getByText(/Fable/)).toBeTruthy();
-    expect(screen.getByText("Max 20x")).toBeTruthy();
+    expect(screen.getByText("Ultra")).toBeTruthy();
   });
 
   it("says a disk reading is not a live one", () => {

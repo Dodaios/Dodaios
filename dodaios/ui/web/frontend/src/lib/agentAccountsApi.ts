@@ -103,7 +103,7 @@ export interface AccountUsage {
   /** Epoch SECONDS the numbers were true at. */
   as_of: number | null;
   message: string;
-  /** Display-only plan name, e.g. "Max 20x". */
+  /** Display-only plan name, e.g. "Ultra". */
   plan: string | null;
 }
 
