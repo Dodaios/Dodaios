@@ -179,6 +179,24 @@ def test_a_denied_write_does_not_run(monkeypatch, tmp_path):
     assert answers == [{"behavior": "deny", "message": "The person declined this action."}]
 
 
+def test_bypass_answers_the_prompts_plan_mode_brings_but_the_plan_still_asks(
+    monkeypatch, tmp_path
+):
+    # The model entered plan mode itself in a "Bypass permissions" chat; the
+    # CLI then asked about every shell command (live 2026-11-11).
+    requests = [
+        _can_use("Bash", {"command": "ls components | head"}, "r1"),
+        _can_use("Write", {"file_path": "a.txt", "content": "x"}, "r2"),
+        _can_use("ExitPlanMode", {"plan": "Build it"}, "r3"),
+    ]
+    answers, asked = _turn(monkeypatch, tmp_path, requests, mode="bypassPermissions")
+    assert asked == ["ExitPlanMode"]
+    assert [a["behavior"] for a in answers] == ["allow", "allow", "allow"]
+    # Any other pick keeps its cards.
+    _, asked = _turn(monkeypatch, tmp_path, requests[:1], mode="acceptEdits")
+    assert asked == ["Bash"]
+
+
 def _read_only(names: set[str]):
     async def wire_read_only(_session_id: str, wire: str, _args: Any = None) -> bool:
         return wire in names

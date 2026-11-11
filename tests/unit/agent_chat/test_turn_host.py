@@ -349,8 +349,14 @@ async def test_a_restarted_app_asks_again_on_the_card_already_on_screen(
     monkeypatch.setattr(turn_host_client, "get_client", no_live_host)
     db = tmp_path / "agent_chat.db"
     store = AgentChatStore(db)
+    # "Ask": the default Claude Code pick, Bypass, answers a prompt without a card.
     session = store.create_session(
-        provider="claude-api", model="m", effort="medium", cwd=str(tmp_path), surface="agent"
+        provider="claude-api",
+        model="m",
+        effort="medium",
+        cwd=str(tmp_path),
+        surface="agent",
+        permission_mode="default",
     )
     sid = session.session_id
 
@@ -444,7 +450,12 @@ async def test_an_approval_the_old_app_never_answered_opens_again_after_a_restar
     store = AgentChatStore(":memory:")
     try:
         session = store.create_session(
-            provider="claude-api", model="m", effort="medium", cwd=str(tmp_path), surface="agent"
+            provider="claude-api",
+            model="m",
+            effort="medium",
+            cwd=str(tmp_path),
+            surface="agent",
+            permission_mode="default",
         )
         meta = {
             "session_id": session.session_id,

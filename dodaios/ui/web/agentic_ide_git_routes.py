@@ -14,6 +14,8 @@ Endpoints (all under ``/api/agentic-ide/git``)::
     POST /branch/open         Open a branch's checkout in the file manager or an editor
     GET  /github/repos        The person's GitHub repositories, for the one-time pick
     PUT  /github/binding      Remember which GitHub repository a workspace folder is
+    GET  /github/linked       Which connected folder is which GitHub repository
+    POST /github/clone        Bring a GitHub repository onto this computer
     POST /prepare             Git half of opening a workspace or an agent
     POST /commit              Stage everything and commit
     POST /push                Push the current branch (sets upstream once)
@@ -55,6 +57,7 @@ from dodaios.agentic_ide import (
     git_changes,
     git_ops,
     git_overview,
+    github_clone,
     github_link,
     github_pulls,
     github_status,
@@ -525,6 +528,27 @@ def bind_github_repository(req: BindingRequest) -> dict:
         raise HTTPException(status_code=500, detail="The choice could not be saved.") from exc
     git_overview.clear_cache()
     return {"ok": True, "repo": req.repo.strip()}
+
+
+class CloneRequest(BaseModel):
+    repo: str = Field(..., min_length=3, max_length=200, description="owner/name")
+
+
+@router.get("/github/linked", summary="Which connected folder is which GitHub repository")
+def linked_github_repositories() -> dict:
+    """What the thread composer's folder list needs to tell a repository that
+    is already on this computer from one it would have to download."""
+    return {"linked": github_clone.linked_repositories()}
+
+
+@router.post("/github/clone", summary="Bring a GitHub repository onto this computer")
+def clone_github_repository(req: CloneRequest) -> dict:
+    """Clone into the app's own folder in the person's home, or find the clone
+    made earlier. The destination is never the client's to choose."""
+    try:
+        return github_clone.clone_repository(req.repo, github_link.credential()).to_dict()
+    except GitError as exc:
+        raise _fail(exc) from exc
 
 
 @router.post("/prepare", summary="Prepare a checkout for a new workspace or agent")

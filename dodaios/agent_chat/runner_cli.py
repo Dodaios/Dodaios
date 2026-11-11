@@ -750,6 +750,26 @@ def claude_rules_cover(rules: Iterable[dict[str, Any]], tool_name: str, tool_inp
     return False
 
 
+def claude_bypass_chosen(runner: str, session: Any) -> bool:
+    """Whether the person picked "Bypass permissions" for this Claude Code session.
+
+    "Bypass permissions" promises that nothing asks. Claude Code keeps that
+    promise until the model calls ``EnterPlanMode`` on its own: from then on
+    the process sends a permission prompt for every shell command, and each
+    one became an approval card (live 2026-11-11). The session's stored mode
+    is still the person's pick, so the runner answers those prompts itself.
+    The plan approval (``ExitPlanMode``) and the model's own questions
+    (``AskUserQuestion``) are not permission prompts and still reach the person.
+    """
+    stance = str(getattr(session, "permission_mode", "") or "")
+    if not stance:
+        return False
+    try:
+        return normalize_permission(runner, stance) == "bypassPermissions"
+    except Exception:  # noqa: BLE001 - an unknown runner or mode asks, as before
+        return False
+
+
 async def dodaios_read_free(session: Any, tool_name: str, tool_input: Any) -> bool:
     """Whether a Claude Code prompt for one of Dodaios' own tools needs no card.
 
@@ -4691,11 +4711,14 @@ async def _drive_cli(
                 await _respond(request_id, await _claude_question(tool_input))
                 return
             if tool_name != "ExitPlanMode" and (
-                claude_rules_cover(always_rules, tool_name, tool_input)
+                claude_bypass_chosen(runner, session)
+                or claude_rules_cover(always_rules, tool_name, tool_input)
                 or await dodaios_read_free(session, tool_name, tool_input)
             ):
-                # Covered by this process's own "Always allow", or a read of
-                # Dodaios' own tools that Ask never puts in front of the person.
+                # The person picked "Bypass permissions" (the CLI still asks
+                # once the model enters plan mode itself), covered by this
+                # process's own "Always allow", or a read of Dodaios' own
+                # tools that Ask never puts in front of the person.
                 await _respond(request_id, {"behavior": "allow", "updatedInput": tool_input})
                 return
             summary = str(req.get("description") or "") or _claude_request_summary(

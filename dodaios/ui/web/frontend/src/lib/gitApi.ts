@@ -214,6 +214,25 @@ export function pruneWorktrees(folder: string): Promise<{ ok: boolean }> {
   return post("/worktrees/prune", { folder });
 }
 
+/** `project id → owner/name` for the connected folders that are a GitHub repository. */
+export async function fetchLinkedRepos(signal?: AbortSignal): Promise<Record<string, string>> {
+  const res = await fetch(`${BASE}/github/linked`, { signal });
+  if (!res.ok) throw await failure(res);
+  return ((await res.json()) as { linked?: Record<string, string> }).linked ?? {};
+}
+
+export interface GitHubClone {
+  folder: string;
+  repo: string;
+  /** False when the repository was already on this computer. */
+  created: boolean;
+}
+
+/** Bring `owner/name` onto this computer (or find the clone made earlier). Can take minutes. */
+export function cloneGitHubRepo(repo: string): Promise<GitHubClone> {
+  return post<GitHubClone>("/github/clone", { repo });
+}
+
 /** The plan that changes nothing: run in the folder as it is. */
 export const KEEP_CHECKOUT: GitPlan = { mode: "current", branch: "", base: "" };
 
