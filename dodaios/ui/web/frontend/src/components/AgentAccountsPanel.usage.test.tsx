@@ -79,7 +79,7 @@ const USAGE = {
       source: "live",
       as_of: Date.now() / 1000,
       message: "",
-      plan: "Max 20x",
+      plan: "Ultra",
     },
   ],
   ttl_seconds: 60,
@@ -101,7 +101,7 @@ describe("AgentAccountsPanel — plan usage", () => {
     render(<AgentAccountsPanel />);
 
     await waitFor(() => expect(screen.getAllByRole("progressbar")).toHaveLength(2));
-    expect(screen.getByText("Max 20x")).toBeTruthy();
+    expect(screen.getByText("Ultra")).toBeTruthy();
 
     const refresh = screen.getByRole("button", { name: /refresh/i });
     fireEvent.click(refresh);

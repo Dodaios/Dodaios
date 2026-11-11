@@ -82,7 +82,7 @@ const USAGE = {
       source: "live",
       as_of: null,
       message: "",
-      plan: "Max 20x",
+      plan: "Ultra",
     },
     {
       account_id: "x1",
@@ -120,7 +120,7 @@ describe("SubscriptionsTab", () => {
     expect(claudeRows.map((row) => row.dataset.account)).toEqual(["c1", "c2"]);
     expect(claudeRows[1].dataset.active).toBe("true");
     expect(within(groups[0]).getByText("c1@example.com")).toBeTruthy();
-    expect(within(groups[0]).getByText("Seat c1 · Max 20x")).toBeTruthy();
+    expect(within(groups[0]).getByText("Seat c1 · Ultra")).toBeTruthy();
   });
 
   it("names every seat on a subscription row shared by two seats", async () => {
@@ -137,7 +137,7 @@ describe("SubscriptionsTab", () => {
     const [group] = await screen.findAllByTestId("subscription-group");
     const rows = within(group).getAllByTestId("subscription-row");
     expect(rows.map((row) => row.dataset.account)).toEqual(["c2"]);
-    expect(within(group).getByText("Seat c1, Seat c2 · Max 20x")).toBeTruthy();
+    expect(within(group).getByText("Seat c1, Seat c2 · Ultra")).toBeTruthy();
   });
 
   it("shows plan usage only after a row is expanded", async () => {
