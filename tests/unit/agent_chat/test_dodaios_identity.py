@@ -26,7 +26,7 @@ class _Brain:
         self.fail = fail
         self.asked_with: list[str] = []
 
-    async def render_surface_prompt(self, *, user_text: str) -> tuple[str, str]:
+    async def render_surface_prompt(self, *, user_text: str, lead: bool = False) -> tuple[str, str]:
         self.asked_with.append(user_text)
         if self.fail:
             raise RuntimeError("layers unavailable")
