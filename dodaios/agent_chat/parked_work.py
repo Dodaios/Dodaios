@@ -442,6 +442,8 @@ def job_id_for_key(key: str) -> str | None:
         return jobs.job_id_for("team_thread", rest)
     if kind == "coding":
         return jobs.job_id_for("ide_submission", key)
+    if kind == "async" and rest:
+        return rest
     return None
 
 
@@ -454,7 +456,11 @@ def _ledger_work(key: str, name: str) -> DelegatedWork | None:
         return None
     # The writers register their rehydrators when imported; a boot that never
     # imported them must not read their jobs as dead.
-    for module in ("dodaios.society.delegation_wait", "dodaios.orchestrator.mission_jobs"):
+    for module in (
+        "dodaios.society.delegation_wait",
+        "dodaios.orchestrator.mission_jobs",
+        "dodaios.orchestrator.async_tools",
+    ):
         try:
             importlib.import_module(module)
         except Exception:  # noqa: BLE001 - that kind then reports "interrupted"
@@ -468,6 +474,10 @@ def _ledger_work(key: str, name: str) -> DelegatedWork | None:
         if not job.settled:
             return {"status": "running", "progress": job.detail or job.state}
         report = job.summary or job.error or f"{name} ended as {job.state}."
+        if job.kind == "async_tool":
+            from dodaios.orchestrator import async_tools
+
+            report = async_tools.report_for(job) or report
         row: dict[str, Any] = {"status": job.state, "report": report}
         if job.result_ref:
             row["result_ref"] = job.result_ref

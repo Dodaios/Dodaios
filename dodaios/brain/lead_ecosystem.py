@@ -106,7 +106,7 @@ AREAS: Final[tuple[Area, ...]] = (
         "Jobs",
         "everything you start gets a job id; read what became of it",
         reads=("work_board", "job_status", "await_jobs"),
-        acts=("verify_delegate", "spawn_worker"),
+        acts=("verify_delegate", "spawn_worker", "job_stop"),
     ),
     Area(
         "Artifacts",
