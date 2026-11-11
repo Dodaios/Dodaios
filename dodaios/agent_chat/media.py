@@ -88,9 +88,40 @@ _INSPECTION_WORDS = {
 }
 
 
+# Tools that capture what is on a screen or a page (a browser's screenshot, a
+# computer-use step, a live preview). The picture such a tool returns is what
+# the agent just saw, so a thread shows it; reading a file never counts.
+_CAPTURE_WORDS = {
+    "screenshot",
+    "capture",
+    "computer",
+    "browser",
+    "chrome",
+    "preview",
+    "snapshot",
+    "playwright",
+    "puppeteer",
+    "screen",
+    "desktop",
+    "simulator",
+    "emulator",
+    "navigate",
+    "click",
+}
+
+
+def _tool_words(name: str) -> list[str]:
+    return re.findall(r"[a-z]+", re.sub(r"([a-z])([A-Z])", r"\1 \2", name).lower())
+
+
+def is_capture_tool(name: str) -> bool:
+    """True for ``mcp__claude-in-chrome__computer`` and ``browser_take_screenshot``."""
+    return any(word in _CAPTURE_WORDS for word in _tool_words(name))
+
+
 def is_inspection_tool(name: str) -> bool:
     """True for ``Read``, ``WebFetch``, ``read_file``, ``mcp__docs__search_pages``."""
-    words = re.findall(r"[a-z]+", re.sub(r"([a-z])([A-Z])", r"\1 \2", name).lower())
+    words = _tool_words(name)
     return any(word in _INSPECTION_WORDS or word.rstrip("s") in _INSPECTION_WORDS for word in words)
 
 
@@ -168,10 +199,21 @@ def content_markdown(blocks: list[Any], receipts: dict[str, str]) -> str:
 
 
 class MediaNormalizer:
-    def __init__(self, cwd: Path, outputs_root: Path, scope: str, *, prose: bool = True) -> None:
+    def __init__(
+        self,
+        cwd: Path,
+        outputs_root: Path,
+        scope: str,
+        *,
+        prose: bool = True,
+        binary_only: bool = False,
+    ) -> None:
         # ``prose`` scans free text for mentioned files. Only the agent's own
         # words get that; tool output is full of paths and URLs it merely saw.
         self.prose = prose
+        # ``binary_only`` keeps only pictures the tool returned inline (a
+        # capture tool's screenshot), never a path or URL it mentions.
+        self.binary_only = binary_only
         self.cwd = cwd.expanduser().resolve()
         self.outputs_root = outputs_root.resolve()
         self.scope = scope
@@ -377,6 +419,10 @@ class MediaNormalizer:
                     result.pop("b64_json", None)
                     result["url"] = uri
             for key, child in list(result.items()):
+                if self.binary_only and (
+                    key in {"image_url", "video_url", "audio_url"} or key.lower() in _REF_KEYS
+                ):
+                    continue
                 if (
                     key in {"image_url", "video_url", "audio_url"}
                     and isinstance(child, dict)
@@ -423,6 +469,8 @@ class MediaNormalizer:
                         )
             return result
         if isinstance(value, str):
+            if self.binary_only:
+                return value
             if inherited_hint:
                 return self.reference(value, inherited_hint)
             if scan_text and not self.prose:
@@ -447,9 +495,15 @@ def normalize_media_event(
     if kind not in {"assistant_text", "tool_result", "user_message"} or payload.get("is_error"):
         return [event]
     tool_name = tool_name or str(payload.get("name") or "")
-    if kind == "tool_result" and is_inspection_tool(tool_name):
+    # A tool that only looked at something shows nothing, except the picture a
+    # capture tool returned itself: the screenshot the agent just took.
+    looked = kind == "tool_result" and is_inspection_tool(tool_name)
+    capture = looked and is_capture_tool(tool_name)
+    if looked and not capture:
         return [event]
-    normalizer = MediaNormalizer(cwd, outputs_root, scope, prose=kind != "tool_result")
+    normalizer = MediaNormalizer(
+        cwd, outputs_root, scope, prose=kind != "tool_result", binary_only=capture
+    )
     if kind == "user_message":
         from dodaios.agentic_ide.drops import dereference
 
