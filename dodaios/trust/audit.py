@@ -80,7 +80,12 @@ _COLUMNS: Final[tuple[str, ...]] = (
     "args_preview",
     "receipt_state",
     "receipt",
+    "prediction",
 )
+
+#: Columns added after the first release. They join the row hash only when they
+#: hold something, so rows written before the column existed still verify.
+_OPTIONAL_HASHED: Final[tuple[str, ...]] = ("prediction",)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS audit (
@@ -104,6 +109,7 @@ CREATE TABLE IF NOT EXISTS audit (
     args_preview TEXT NOT NULL DEFAULT '',
     receipt_state TEXT NOT NULL DEFAULT '',
     receipt TEXT NOT NULL DEFAULT '',
+    prediction TEXT NOT NULL DEFAULT '',
     prev_hash TEXT NOT NULL,
     row_hash TEXT NOT NULL
 );
@@ -187,6 +193,7 @@ def approval_of(
 
 
 def _row_hash(prev: str, fields: dict[str, Any]) -> str:
+    fields = {k: v for k, v in fields.items() if k not in _OPTIONAL_HASHED or v}
     body = json.dumps(
         fields, sort_keys=True, ensure_ascii=False, default=str, separators=(",", ":")
     )
@@ -208,6 +215,10 @@ class AuditLog:
             conn = sqlite3.connect(str(self._path), check_same_thread=False)
             conn.row_factory = sqlite3.Row
             conn.executescript(_SCHEMA)
+            have = {r[1] for r in conn.execute("PRAGMA table_info(audit)")}
+            if "prediction" not in have:  # a log written before predictions existed
+                conn.execute("ALTER TABLE audit ADD COLUMN prediction TEXT NOT NULL DEFAULT ''")
+                conn.commit()
             row = conn.execute("SELECT row_hash FROM audit ORDER BY seq DESC LIMIT 1").fetchone()
             self._last_hash = row["row_hash"] if row else _GENESIS
             self._conn = conn
@@ -242,6 +253,9 @@ class AuditLog:
             "receipt": json.dumps(entry.get("receipt") or {}, ensure_ascii=False, default=str)
             if entry.get("receipt")
             else "",
+            "prediction": json.dumps(entry.get("prediction"), ensure_ascii=False, default=str)
+            if entry.get("prediction")
+            else "",
         }
         try:
             with self._lock:
@@ -261,12 +275,13 @@ class AuditLog:
 
     @staticmethod
     def _public(fields: dict[str, Any]) -> dict[str, Any]:
-        row = {k: v for k, v in fields.items() if k != "receipt"}
-        raw = fields.get("receipt") or ""
-        try:
-            row["receipt"] = json.loads(raw) if raw else None
-        except ValueError:  # a damaged receipt column reads as "no receipt"; the row still lists
-            row["receipt"] = None
+        row = {k: v for k, v in fields.items() if k not in ("receipt", "prediction")}
+        for column in ("receipt", "prediction"):
+            raw = fields.get(column) or ""
+            try:
+                row[column] = json.loads(raw) if raw else None
+            except ValueError:  # a damaged column reads as "none"; the row still lists
+                row[column] = None
         return row
 
     def query(
@@ -343,7 +358,12 @@ class AuditLog:
             rows = [self._public(dict(r)) for r in cursor]
         if fmt == "csv":
             buf = io.StringIO()
-            columns = [c for c in _COLUMNS if c != "receipt"] + ["receipt_summary", "receipt_links"]
+            columns = [c for c in _COLUMNS if c not in ("receipt", "prediction")] + [
+                "receipt_summary",
+                "receipt_links",
+                "prediction_verdict",
+                "prediction_confidence",
+            ]
             writer = csv.DictWriter(buf, fieldnames=columns, extrasaction="ignore")
             writer.writeheader()
             for row in rows:
@@ -353,10 +373,36 @@ class AuditLog:
                         **row,
                         "receipt_summary": receipt.get("summary", ""),
                         "receipt_links": " ".join(receipt.get("links") or []),
+                        "prediction_verdict": (row.get("prediction") or {}).get("verdict", ""),
+                        "prediction_confidence": (row.get("prediction") or {}).get(
+                            "confidence", ""
+                        ),
                     }
                 )
             return "text/csv; charset=utf-8", buf.getvalue()
         return "application/json", json.dumps(rows, ensure_ascii=False, indent=1)
+
+    def predictions(self, since_ms: int = 0, limit: int = 100_000) -> list[dict[str, Any]]:
+        """Rows that carry a prediction (oldest first): ``ts_ms``, ``tool``, and the prediction."""
+        with self._lock:
+            rows = (
+                self._db()
+                .execute(
+                    "SELECT ts_ms, tool, prediction FROM audit "
+                    "WHERE prediction != '' AND ts_ms >= ? ORDER BY seq LIMIT ?",
+                    (int(since_ms), int(limit)),
+                )
+                .fetchall()
+            )
+        found: list[dict[str, Any]] = []
+        for row in rows:
+            try:
+                data = json.loads(row["prediction"])
+            except ValueError:
+                continue
+            if isinstance(data, dict):
+                found.append({**data, "ts_ms": row["ts_ms"], "tool": row["tool"]})
+        return found
 
     def verify(self) -> dict[str, Any]:
         """Walk the chain. ``ok`` is false at the first row that does not match."""

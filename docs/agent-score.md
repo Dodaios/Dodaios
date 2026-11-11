@@ -92,6 +92,29 @@ the lifetime mean.
 A check with nothing to look at (no routing eval results) shows `no_data` and
 does not block the week; the report says so.
 
+## Calibration component
+
+Side-effect tools accept an optional `expect` argument, `{outcome, confidence}`,
+that the lead fills in before acting ("mail to ana@example.com is sent", 0.9).
+The executor strips it before the tool runs and, after the call, compares it
+with the result and the receipt by fixed rules: success against error, and the
+facts named in the outcome (recipient, date, time, path, URL, exit code). The
+verdict (`hit`, `miss`, `unknown`) is stored with the audit row. A missing
+`expect` changes nothing.
+
+The report adds a `calibration` component: the Brier score (mean of
+`(confidence - outcome)^2`, 0 is perfect, 0.25 is what a constant 50% earns), a
+reliability table (stated confidence against hit rate), and the same split per
+tool class, per seat and per week. `unknown` verdicts and predictions without a
+confidence are counted but not scored. It does not change Y_user. The same
+numbers are served at `GET /api/trust/calibration` (query: `weeks`).
+
+A stated confidence below 0.5 on an irreversible action (a send, a delete, a
+spend) in an attended turn makes the executor check first: a dry run when the
+tool offers one (`dry_run_args(args)` on the tool, or a boolean `dry_run`
+argument), otherwise one ask through the approval card. Reversible actions and
+unattended runs are never interrupted by it.
+
 ## What it does not measure
 
 - It is **not** an intelligence quotient and is not comparable between people:
