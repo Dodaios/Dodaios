@@ -19,6 +19,7 @@ import {
   type PhoneKind,
 } from "@/lib/remindersApi";
 import { cn } from "@/lib/utils";
+import { UrgentCallCard } from "@/views/UrgentCallCard";
 
 const PHONE_LABEL: Record<PhoneKind, string> = {
   decisions: "notify.phone_decisions",
@@ -220,6 +221,9 @@ export function NotificationsView() {
                 </ul>
               </Row>
             </div>
+          ) : null}
+          {settings?.urgent_call ? (
+            <UrgentCallCard value={settings.urgent_call} saving={saving} onSave={save} />
           ) : null}
         </div>
       </div>

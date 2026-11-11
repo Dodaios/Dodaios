@@ -23,6 +23,7 @@ log = logging.getLogger(__name__)
 
 _scheduler: ReminderScheduler | None = None
 _telegram_bridge: Any | None = None
+_urgent_caller: Any | None = None
 
 
 def _vault_getter(cfg: Any) -> Callable[[], Any | None]:
@@ -116,6 +117,45 @@ def attach_chat_service(service: Any, *, app_state: Any, cfg: Any) -> None:
 
     _telegram_bridge = TelegramApprovalBridge(service, channel=_channel, config=lambda: cfg)
     _telegram_bridge.install()
+    _attach_urgent_calls(service, cfg)
+
+
+def _phone_allowed(cfg: Any) -> bool:
+    """Whether the owner's voice seat may speak in an unattended call.
+
+    With a subscription connected, background work must not bill a per-token
+    key (``background_policy``); a phone call nobody started is background
+    work, so it only goes ahead when its speech providers are ones that policy
+    allows. Otherwise the text escalation stands alone.
+    """
+    from dodaios.brain.background_policy import background_providers
+
+    names = [
+        str(getattr(getattr(cfg, section, None), "provider", "") or "").strip().lower()
+        for section in ("stt", "tts")
+    ]
+    names = [name for name in names if name]
+    allowed = background_providers(names)
+    return not allowed.subscription_mode or all(allowed.permits(name) for name in names)
+
+
+def _attach_urgent_calls(service: Any, cfg: Any) -> None:
+    """Subscribe the opt-in "call me for urgent decisions" caller (a no-op while it is off)."""
+    global _urgent_caller
+    from dodaios.notify.notifier import current_notifier
+    from dodaios.notify.settings import settings_path
+    from dodaios.notify.urgent_call import CallLedger, UrgentCaller
+    from dodaios.notify.urgent_ring import desktop_ringer, is_open_fn, phone_ringer
+
+    notifier = current_notifier()
+    _urgent_caller = UrgentCaller(
+        ring_desktop=desktop_ringer(service, notifier),
+        ring_phone=phone_ringer(service),
+        is_open=is_open_fn(service),
+        phone_allowed=lambda: _phone_allowed(cfg),
+        ledger=CallLedger(settings_path().with_name("urgent_calls.json")),
+    )
+    service.add_event_listener(_urgent_caller.on_chat_event)
 
 
 async def shutdown() -> None:

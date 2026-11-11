@@ -35,6 +35,12 @@ PHONE_DEFAULTS: dict[str, bool] = {
 }
 PHONE_KINDS: tuple[str, ...] = tuple(PHONE_DEFAULTS)
 
+#: What may make the assistant ring the owner (opt-in, see ``UrgentCallSettings``).
+URGENT_EVENTS: tuple[str, ...] = ("approval", "question", "watchdog")
+URGENT_ROUTES: tuple[str, ...] = ("desktop", "phone")
+_E164_RE = re.compile(r"^\+[1-9]\d{6,14}$")
+_MAX_KEYWORDS = 20
+
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
@@ -58,6 +64,78 @@ class QuietHours:
         return moment >= start or moment < end
 
 
+def _clamp(value: Any, low: int, high: int, fallback: int) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):  # an unreadable number means the default
+        return fallback
+    return max(low, min(high, number))
+
+
+@dataclass(frozen=True)
+class UrgentCallSettings:
+    """"Call me for urgent decisions". Off until the owner turns it on.
+
+    Only an approval or a question the owner can call urgent (an explicit
+    mark, one of their keywords, or a deadline close by) and a critical
+    watchdog finding may ring, and only the kinds switched on in ``events``.
+    Quiet hours and the daily cap always apply. The phone text channels get
+    the decision first; the call is the escalation after ``escalate_after_min``.
+    """
+
+    enabled: bool = False
+    events: dict[str, bool] = field(default_factory=lambda: dict.fromkeys(URGENT_EVENTS, True))
+    #: Words in an approval or question that make it urgent (case-insensitive).
+    keywords: tuple[str, ...] = ()
+    #: A decision that expires within this many minutes counts as urgent; 0 = off.
+    deadline_min: int = 15
+    max_per_day: int = 3
+    #: Minutes the text channels get before the call; 0 = ring at once.
+    escalate_after_min: int = 5
+    #: ``desktop`` rings the call window; ``phone`` places a call via telephony.
+    route: str = "desktop"
+    #: The number the phone route dials (E.164); empty = no phone call.
+    phone_number: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "enabled": self.enabled,
+            "events": {e: bool(self.events.get(e, True)) for e in URGENT_EVENTS},
+            "keywords": list(self.keywords),
+            "deadline_min": self.deadline_min,
+            "max_per_day": self.max_per_day,
+            "escalate_after_min": self.escalate_after_min,
+            "route": self.route,
+            "phone_number": self.phone_number,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Any) -> UrgentCallSettings:
+        raw = data if isinstance(data, dict) else {}
+        raw_events = raw.get("events") if isinstance(raw.get("events"), dict) else {}
+        raw_words = raw.get("keywords") if isinstance(raw.get("keywords"), list) else []
+        words: list[str] = []
+        for word in raw_words:
+            text = " ".join(str(word or "").split())[:60].lower()
+            if text and text not in words:
+                words.append(text)
+        number = str(raw.get("phone_number") or "").strip().replace(" ", "")
+        route = str(raw.get("route") or "desktop")
+        return cls(
+            enabled=raw.get("enabled") is True,
+            events={e: bool(raw_events.get(e, True)) for e in URGENT_EVENTS},
+            keywords=tuple(words[:_MAX_KEYWORDS]),
+            deadline_min=_clamp(raw.get("deadline_min", 15), 0, 24 * 60, 15),
+            max_per_day=_clamp(raw.get("max_per_day", 3), 1, 20, 3),
+            escalate_after_min=_clamp(raw.get("escalate_after_min", 5), 0, 120, 5),
+            route=route if route in URGENT_ROUTES else "desktop",
+            phone_number=number if _E164_RE.match(number) else "",
+        )
+
+    def allows_event(self, kind: str) -> bool:
+        return self.enabled and bool(self.events.get(kind, False))
+
+
 @dataclass(frozen=True)
 class NotifySettings:
     #: The one switch. Off: nothing reaches the operating system.
@@ -68,6 +146,8 @@ class NotifySettings:
     telegram_approvals: bool = True
     #: Which kinds of lead updates reach the phone chat (see ``PHONE_DEFAULTS``).
     phone: dict[str, bool] = field(default_factory=lambda: dict(PHONE_DEFAULTS))
+    #: The opt-in "call me for urgent decisions" feature (off by default).
+    urgent_call: UrgentCallSettings = field(default_factory=UrgentCallSettings)
 
     def phone_allows(self, kind: str) -> bool:
         """Whether a lead update of ``kind`` may be sent to the phone chat."""
@@ -80,6 +160,7 @@ class NotifySettings:
         data = asdict(self)
         data["kinds"] = {kind: bool(self.kinds.get(kind, True)) for kind in KINDS}
         data["phone"] = {k: bool(self.phone.get(k, d)) for k, d in PHONE_DEFAULTS.items()}
+        data["urgent_call"] = self.urgent_call.to_dict()
         return data
 
     @classmethod
@@ -101,6 +182,7 @@ class NotifySettings:
             quiet_hours=quiet,
             telegram_approvals=bool(data.get("telegram_approvals", True)),
             phone=phone,
+            urgent_call=UrgentCallSettings.from_dict(data.get("urgent_call")),
         )
 
     def patched(self, patch: dict[str, Any]) -> NotifySettings:
@@ -113,6 +195,11 @@ class NotifySettings:
             merged["kinds"] = {**merged["kinds"], **patch["kinds"]}
         if isinstance(patch.get("phone"), dict):
             merged["phone"] = {**merged["phone"], **patch["phone"]}
+        if isinstance(patch.get("urgent_call"), dict):
+            urgent = {**merged["urgent_call"], **patch["urgent_call"]}
+            if isinstance(patch["urgent_call"].get("events"), dict):
+                urgent["events"] = {**merged["urgent_call"]["events"], **patch["urgent_call"]["events"]}
+            merged["urgent_call"] = urgent
         if isinstance(patch.get("quiet_hours"), dict):
             merged["quiet_hours"] = {**merged["quiet_hours"], **patch["quiet_hours"]}
         return NotifySettings.from_dict(merged)
@@ -194,8 +281,11 @@ __all__ = [
     "KINDS",
     "PHONE_DEFAULTS",
     "PHONE_KINDS",
+    "URGENT_EVENTS",
+    "URGENT_ROUTES",
     "NotifySettings",
     "QuietHours",
+    "UrgentCallSettings",
     "forget_cached",
     "load_settings",
     "save_settings",
