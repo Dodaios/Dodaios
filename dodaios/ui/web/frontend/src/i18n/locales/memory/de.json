@@ -348,6 +348,7 @@
     "how_learn_3": "Das Gedächtnis bleibt aktuell",
     "how_learn_3_body": "Neues kommt dazu, Geändertes ersetzt die alte Fassung, und gelöscht wird nur, wenn du es sagst.",
     "how_footer": "Jede Änderung steht hier, und du kannst alles rückgängig machen oder vergessen.",
+    "how_learning": "Gemerkte Lektionen: {lessons} · Anleitungen: {how_to} · Korrekturen, die du wiederholen musstest: {repeats}",
     "mode_how_short": "So funktioniert's",
     "pause": "Lernen pausieren",
     "pause_resume": "Lernen pausiert · fortsetzen",

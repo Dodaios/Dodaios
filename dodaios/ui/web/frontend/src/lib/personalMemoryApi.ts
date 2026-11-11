@@ -55,6 +55,14 @@ export interface VaultOverview {
   budget_chars: number;
   used_chars: number;
   imported: boolean;
+  /** Learning from corrections: lessons kept, how-to notes, repeated corrections. */
+  learning?: {
+    lessons: number;
+    how_to: number;
+    repeat_errors: number;
+    needs_stronger: number;
+    last_tidy: { at?: string; merged?: number; resolved?: number; retired?: number; reworded?: number };
+  };
 }
 
 export interface VaultFile {
