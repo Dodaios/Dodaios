@@ -566,8 +566,12 @@ class _Turn:
 
     def __init__(self) -> None:
         self.notices: list[str] = []
+        self.steps: list[dict[str, Any]] = []
 
     async def emit(self, event: dict[str, Any]) -> None:
+        if event["kind"] == "setup_step":
+            self.steps.append(dict(event["payload"]))
+            return
         assert event["kind"] == "notice"
         self.notices.append(str(event["payload"]["text"]))
 
@@ -763,3 +767,52 @@ async def test_a_next_turn_with_nothing_new_leaves_the_servers_checkout_alone(
 
     assert (there / "app.py").read_text(encoding="utf-8") == "print('edited here')\n"
     assert not _refs(there, "refs/jarvis/backup"), "the server held nothing of its own"
+
+
+async def test_a_thread_turn_names_each_setup_step_as_it_begins(
+    project: Path, thread_sync: Any
+) -> None:
+    """The thread shows these instead of a bare "Getting ready" for minutes."""
+    turn = _Turn()
+
+    await thread_sync.send_folder(turn, "vps-1", project)
+
+    assert [step["step"] for step in turn.steps] == ["connect", "send", "unpack"]
+    assert turn.steps[0] == {"turn_id": "turn-1", "step": "connect", "where": "My VPS"}
+
+
+async def test_a_first_copy_from_an_upstream_names_the_host_it_fetches_from(
+    project: Path, tmp_path: Path, copies: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _published(project, tmp_path)
+    monkeypatch.setattr(remote, "public_fetch_url", lambda url: url)
+    server = tmp_path / "server-home"
+    server.mkdir()
+    told: list[tuple[str, dict[str, str]]] = []
+
+    async def progress(step: str, details: dict[str, str]) -> None:
+        told.append((step, details))
+
+    await remote.push_code(LocalPool(server), project, progress=progress)
+
+    assert [step for step, _ in told] == ["fetch", "send", "unpack"]
+    assert told[0][1] == {"host": remote._url_host((tmp_path / "origin.git").as_uri())}
+
+
+def test_the_fetch_step_names_only_the_host() -> None:
+    assert remote._url_host("https://github.com/Owner/Repo.git") == "github.com"
+    assert remote._url_host("https://gitlab.example.org:8443/a/b") == "gitlab.example.org:8443"
+
+
+async def test_a_failing_progress_listener_never_fails_the_copy(
+    project: Path, tmp_path: Path, copies: None
+) -> None:
+    server = tmp_path / "server-home"
+    server.mkdir()
+
+    async def broken(_step: str, _details: dict[str, str]) -> None:
+        raise RuntimeError("the socket closed")
+
+    placement = await remote.push_code(LocalPool(server), project, progress=broken)
+
+    assert (Path(placement.remote_folder) / "app.py").is_file()

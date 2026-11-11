@@ -7985,6 +7985,13 @@
     "technical_details": "Technical details",
     "ran": "Ran",
     "getting_ready": "Getting ready",
+    "setup_on": "Setting up on {where}",
+    "setup_generic": "Setting up",
+    "setup_step_connect": "Connecting",
+    "setup_step_fetch": "Fetching the code from {host}",
+    "setup_step_send": "Sending your changes",
+    "setup_step_unpack": "Putting the files in place",
+    "setup_step_start": "Starting {cli}",
     "tokens_hint": "Input {input} tokens new to the model ({cached} more reused from the cache) · output {output} tokens",
     "open_beside": "Show in the side panel",
     "open_file_beside": "Show {file} in the side panel"
