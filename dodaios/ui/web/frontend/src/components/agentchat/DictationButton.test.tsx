@@ -34,6 +34,15 @@ describe("DictationButton", () => {
     expect(onToggle).toHaveBeenCalledTimes(1);
   });
 
+  test("an idle-only size reaches the microphone but never the recording pill", () => {
+    const props = { onToggle: vi.fn(), startLabel: "Dictate", stopLabel: "Stop dictation", idleClassName: "w-9" };
+    const { rerender } = render(<DictationButton dictating={false} {...props} />);
+    expect(screen.getByTestId("dictation-button").className).toContain("w-9");
+    rerender(<DictationButton dictating {...props} />);
+    // A fixed 36px width squeezed dot, wave, timer and stop over the Send button.
+    expect(screen.getByTestId("dictation-status").className).not.toContain("w-9");
+  });
+
   test("live, it announces itself, shows the waveform and counts up", () => {
     renderButton(true);
     const pill = screen.getByTestId("dictation-status");
