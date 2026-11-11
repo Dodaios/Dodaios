@@ -1,4 +1,4 @@
-import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, memo, startTransition, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, Bot, Check, ChevronDown, ChevronRight, Copy, Diff, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
@@ -1043,6 +1043,11 @@ function ItemView({ item, tone }: { item: TimelineItem } & Pick<ThreadTurnProps,
   </div>;
 }
 
+/** How many of a just-opened thread's newest items paint before the rest. */
+const OPENING_TAIL = 6;
+/** No thread painted yet: the column just mounted. */
+const OPENING = Symbol("opening");
+
 /**
  * The scrolling column. It follows the newest line while the reader is at
  * the bottom and stays put once they scroll up to read; a button brings them
@@ -1062,6 +1067,21 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
   const pinned = useRef(true);
   const [away, setAway] = useState(false);
 
+  // A thread opened from another one (or from a new thread's page) paints its
+  // newest messages first and the older ones a moment later, out of the way
+  // of the click: drawing a long conversation at once held the window still
+  // for a good part of a second.
+  const [settled, setSettled] = useState<string | null | typeof OPENING>(OPENING);
+  const fresh = settled !== sessionId;
+  const hasItems = items.length > 0;
+  const shown = fresh && items.length > OPENING_TAIL ? items.slice(-OPENING_TAIL) : items;
+  useEffect(() => {
+    // An empty column is the thread still loading: the rest waits for its messages.
+    if (!fresh || !hasItems) return;
+    const frame = requestAnimationFrame(() => startTransition(() => setSettled(sessionId)));
+    return () => cancelAnimationFrame(frame);
+  }, [fresh, sessionId, hasItems]);
+
   // A newly opened thread starts at its newest message.
   useLayoutEffect(() => {
     pinned.current = true;
@@ -1069,6 +1089,20 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
     const box = scroller.current;
     if (box) box.scrollTop = box.scrollHeight;
   }, [sessionId]);
+
+  // Its messages come in with a short fade instead of a hard cut.
+  const revealed = useRef<string | null | typeof OPENING>(OPENING);
+  useLayoutEffect(() => {
+    if (!hasItems || revealed.current === sessionId) return;
+    revealed.current = sessionId;
+    const content = scroller.current?.firstElementChild;
+    if (!content || typeof content.animate !== "function") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    content.animate(
+      [{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }],
+      { duration: 180, easing: "cubic-bezier(0.2, 0, 0, 1)" },
+    );
+  }, [sessionId, hasItems]);
 
   useLayoutEffect(() => {
     const box = scroller.current;
@@ -1098,7 +1132,7 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
       className="relative h-full overflow-y-auto scrollbar-jarvis">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 pt-6" style={{ paddingBottom: bottomInset + 24 }}>
         {lead}
-        {items.map((item) => <ItemView key={item.id} item={item} tone={tone} />)}
+        {shown.map((item) => <ItemView key={item.id} item={item} tone={tone} />)}
       </div>
     </div>
     {away && <button type="button" aria-label={t("ide_threads.scroll_newest")}

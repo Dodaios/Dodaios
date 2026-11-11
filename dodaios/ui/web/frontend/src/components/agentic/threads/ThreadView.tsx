@@ -3,6 +3,7 @@ import { ArrowLeft, Check, ChevronDown, FolderPlus } from "lucide-react";
 import { prepareGit } from "@/lib/gitApi";
 import { useTeamThreads } from "@/lib/teamThreadsApi";
 import type { AgentChatSession } from "@/lib/agentChatApi";
+import type { TimelineItem } from "@/components/agentchat/reduce";
 import { useEventStore } from "@/store/events";
 import { fill, translate, useT } from "@/i18n";
 import { useIdeProjectsStore } from "@/store/ideProjects";
@@ -20,6 +21,8 @@ import { useRecalledMessages, withoutRecalled } from "./recalledMessages";
 import { fetchDiscoveredAgents, listSubagents, mergeDiscovered, subagentPath, subagentTurn, type DiscoveredAgent } from "./subagents";
 import { projectIdFor, rememberedSeat, useThreadChat, useThreadChatStore } from "./threadModel";
 import { TeamThreadView } from "./team/TeamThreadView";
+
+const NO_ITEMS: TimelineItem[] = [];
 
 /**
  * The IDE's thread layout: one conversation with a coding agent at a time.
@@ -225,12 +228,14 @@ export function ThreadView({ onScreen, column }: {
       if (timer !== undefined) window.clearInterval(timer);
     };
   }, [codexThread, selection.sessionId, running, onScreen]);
+  // The store still holds the thread left behind until it opens the picked one: never show that.
+  const timelineItems = selection.sessionId && activeSessionId !== selection.sessionId ? NO_ITEMS : timeline.items;
   const items = useMemo(() => {
-    const shown = withoutRecalled(timeline.items, recalled);
+    const shown = withoutRecalled(timelineItems, recalled);
     return discovered && discovered.sessionId === selection.sessionId
       ? mergeDiscovered(shown, discovered.agents, session?.vendor_session ?? "")
       : shown;
-  }, [timeline.items, recalled, discovered, selection.sessionId, session?.vendor_session]);
+  }, [timelineItems, recalled, discovered, selection.sessionId, session?.vendor_session]);
   const agents = useMemo(() => listSubagents(items), [items]);
   const agentPath = useMemo(() => (openAgent ? subagentPath(agents, openAgent) : []), [agents, openAgent]);
   const agent = agentPath.length ? agentPath[agentPath.length - 1] : null;

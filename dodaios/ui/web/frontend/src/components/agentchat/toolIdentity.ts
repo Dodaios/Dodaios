@@ -147,8 +147,29 @@ const aliases = [...new Set([...Object.keys(BRANDS), ...bundledKeys])]
     [key, ...(BRANDS[key]?.aliases ?? [])].map((alias) => ({ key, alias: alias.replace(/[_. ]/g, "-") })),
   )
   .sort((a, b) => b.alias.length - a.alias.length);
+/** Each normalized alias to its brand: the longest alias wins, as the sorted list's first match did. */
+const exactAliases = new Map<string, string>();
+for (const entry of aliases) {
+  const key = normalize(entry.alias);
+  if (!exactAliases.has(key)) exactAliases.set(key, entry.key);
+}
+
+/**
+ * Every tool call in a thread asks for its brand, so a long thread asks
+ * thousands of times on open. The answer only depends on the name: it is kept.
+ */
+const brandCache = new Map<string, string | undefined>();
+const BRAND_CACHE_LIMIT = 4000;
 
 function brandFor(value: string): string | undefined {
+  if (brandCache.has(value)) return brandCache.get(value);
+  const found = findBrand(value);
+  if (brandCache.size >= BRAND_CACHE_LIMIT) brandCache.clear();
+  brandCache.set(value, found);
+  return found;
+}
+
+function findBrand(value: string): string | undefined {
   // Identity segments only: "my-github-helper" is not GitHub and
   // "drive-jarvis" is not Drive. Descriptions never establish brand identity.
   for (const segment of value.replace(/__/g, ":").split(/[/:]/)) {
@@ -157,8 +178,8 @@ function brandFor(value: string): string | undefined {
       .replace(/^(?:cli|mcp)[_-]/, "")
       .replace(/[-_](?:mcp|server|cli)$/, "")
       .replace(/[_. ]/g, "-");
-    const exact = aliases.find((entry) => normalize(entry.alias) === normalize(clean));
-    if (exact) return exact.key;
+    const exact = exactAliases.get(normalize(clean));
+    if (exact) return exact;
     const action = aliases.find((entry) => clean.startsWith(entry.alias + "-"));
     if (action) return action.key;
   }
