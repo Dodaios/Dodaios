@@ -169,7 +169,7 @@ async def test_lost_response_never_retries_and_does_not_leak_error(account, rpc)
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "provider,status",
-    [("claude", "browser"), ("grok-build", "unsupported"), ("future", "unsupported")],
+    [("grok-build", "unsupported"), ("future", "unsupported")],
 )
 async def test_unsupported_providers_do_not_invent_inventory(account, rpc, provider, status):
     other = AgentAccount(provider, provider, "Test", account.config_dir)
@@ -212,10 +212,7 @@ def test_frontend_reset_contract_matches_serialized_inventory_and_request(accoun
     from dodaios.ui.web.agent_accounts_routes import ResetConsumeRequest
 
     source = (
-        (
-            Path(__file__).resolve().parents[2]
-            / "dodaios/ui/web/frontend/src/lib/agentResetsApi.ts"
-        )
+        (Path(__file__).resolve().parents[2] / "dodaios/ui/web/frontend/src/lib/agentResetsApi.ts")
         .resolve()
         .read_text(encoding="utf-8")
     )
@@ -232,3 +229,79 @@ def test_frontend_reset_contract_matches_serialized_inventory_and_request(accoun
         "key",
     )
     assert fields("ResetCredit") == set(snapshot["credits"][0])
+
+
+def _claude_seat(tmp_path: Path) -> AgentAccount:
+    return AgentAccount("claude:test", "claude", "Claude seat", tmp_path)
+
+
+def _fake_claude(monkeypatch, resets):
+    from dodaios import agent_usage
+    from dodaios.agent_usage import AccountUsage
+
+    monkeypatch.setattr(
+        agent_usage,
+        "read_usage",
+        lambda account: AccountUsage(account.id, account.platform, "unavailable"),
+    )
+    monkeypatch.setattr(agent_usage, "claude_resets", lambda _account_id: resets)
+
+
+@pytest.mark.asyncio
+async def test_claude_banked_resets_are_listed_and_never_spent_here(tmp_path, monkeypatch):
+    _fake_claude(
+        monkeypatch,
+        {
+            "eligible": True,
+            "as_of": 1700000000.0,
+            "grants": [
+                {
+                    "id": "grant-1",
+                    "label": "Welcome reset",
+                    "resets_left": 2,
+                    "resets_total": 3,
+                    "ends_at": "2026-12-01T00:00:00+00:00",
+                    "clears": ["session"],
+                    "usable_now": False,
+                    "use_requires_limit": True,
+                }
+            ],
+            "weekly": {"available": True, "resets_per_week": 1, "next_available_at": None},
+        },
+    )
+    seat = _claude_seat(tmp_path)
+
+    result = await agent_resets.read_resets(seat)
+
+    assert result["status"] == "ok"
+    assert result["available_count"] == 3
+    assert result["can_redeem"] is False
+    assert result["account_key"] is None
+    assert result["as_of"] == 1700000000.0
+    first, weekly = result["credits"]
+    assert (first["title"], first["resets_left"], first["redeemable"]) == (
+        "Welcome reset",
+        2,
+        False,
+    )
+    assert first["expires_at"] == "2026-12-01T00:00:00+00:00"
+    assert (weekly["kind"], weekly["resets_left"], weekly["usable_now"]) == ("weekly", 1, True)
+    with pytest.raises(agent_resets.ResetError):
+        await agent_resets.consume_reset(seat, attempt="uuid", credit_id=None, account_key="k")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("resets", "status", "count"),
+    [
+        (None, "browser", None),  # never read: the provider page is the honest answer
+        ({"eligible": False, "ineligible_reason": "surface", "grants": []}, "browser", None),
+        ({"eligible": False, "ineligible_reason": "plan", "grants": []}, "ok", 0),
+    ],
+)
+async def test_claude_without_readable_resets_does_not_invent_any(
+    tmp_path, monkeypatch, resets, status, count
+):
+    _fake_claude(monkeypatch, resets)
+    result = await agent_resets.read_resets(_claude_seat(tmp_path))
+    assert (result["status"], result["available_count"]) == (status, count)
