@@ -8495,7 +8495,8 @@
       "search": "Suche",
       "subscriptions": "Abos",
       "office": "Dodaios Verse",
-      "chat": "Chat"
+      "chat": "Chat",
+      "resources": "Ressourcen"
     },
     "subscriptions": {
       "bank": {
@@ -9318,6 +9319,90 @@
         "exited": "Beendet",
         "done": "Fertig",
         "idle": "Im Leerlauf"
+      }
+    },
+    "resources": {
+      "loading": "Dieser Computer wird gemessen…",
+      "error": "Die Messung ist fehlgeschlagen: {message}",
+      "stale": "Die letzte Messung ist fehlgeschlagen, die Werte stehen deshalb still: {message}",
+      "metric": {
+        "cpu": "Prozessor",
+        "memory": "Arbeitsspeicher",
+        "gpu": "Grafikkarte"
+      },
+      "hint": {
+        "cpu": "{cores} Kerne",
+        "of": "{used} von {total}"
+      },
+      "chart_title": {
+        "cpu": "Wer den Prozessor nutzt",
+        "memory": "Wer den Arbeitsspeicher nutzt",
+        "gpu": "Auslastung der Grafikkarte"
+      },
+      "chart_window": "Letzte {minutes} Minuten",
+      "axis_now": "jetzt",
+      "axis_ago": "-{minutes} min",
+      "group": {
+        "agents": "Coding-Agenten",
+        "linked": "Verbundene Apps",
+        "app": "Diese App",
+        "other": "Alles andere"
+      },
+      "total": "Gesamt",
+      "cores": "Kerne",
+      "cores_aria": "Auslastung jedes der {count} Kerne",
+      "core": "Kern {n}: {percent}",
+      "gpu_none": "Hier kein Messwert",
+      "gpu_whole": "Für die Karte als Ganzes gemessen, nicht je Programm",
+      "agents_title": "Coding-Agenten",
+      "agents_empty": "Es läuft kein Coding-Agent.",
+      "col": {
+        "cpu": "CPU",
+        "memory": "Speicher",
+        "gpu": "GPU",
+        "vram": "VRAM"
+      },
+      "kind": {
+        "pane": "Terminal",
+        "thread": "Thread",
+        "background": "Von dieser App gestartet",
+        "external": "Außerhalb dieser App"
+      },
+      "thread_untitled": "Thread",
+      "processes": "{count} Prozesse",
+      "process_one": "1 Prozess",
+      "details_of": "Details zu {target}",
+      "runtime": "Der Agent selbst",
+      "category": {
+        "mcp": "MCP-Server",
+        "test": "Tests",
+        "build": "Build",
+        "vcs": "Versionsverwaltung",
+        "browser": "Browser",
+        "runtime": "Skript",
+        "shell": "Shell",
+        "command": "Befehl",
+        "subagent": "Agent",
+        "more": "Weitere Werkzeuge"
+      },
+      "instances": "×{count}",
+      "linked_note": "Apps, die mit seinen Werkzeugen verbunden sind. Ihre Last steht hier und wird dem Agenten nicht zugerechnet.",
+      "linked_via": "über {tool} auf Port {port}",
+      "linked_port": "auf Port {port}",
+      "linked_shared": "auch von {count} weiteren genutzt",
+      "end": "Beenden",
+      "end_named": "{target} beenden",
+      "end_confirm": "{target} beenden?",
+      "end_yes": "Beenden",
+      "end_cancel": "Abbrechen",
+      "end_failed": "Das Beenden ist fehlgeschlagen: {message}",
+      "app_note": "Fenster, Kern und Hilfsprozesse",
+      "other_note": "Das System und jedes andere Programm",
+      "role": {
+        "core": "Kern",
+        "window": "Fenster",
+        "terminal_host": "Terminal-Host",
+        "thread_host": "Thread-Host"
       }
     }
   },

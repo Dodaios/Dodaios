@@ -8495,7 +8495,8 @@
       "search": "搜索",
       "subscriptions": "订阅",
       "office": "Dodaios Verse",
-      "chat": "聊天"
+      "chat": "聊天",
+      "resources": "资源"
     },
     "subscriptions": {
       "bank": {
@@ -9318,6 +9319,90 @@
         "exited": "已退出",
         "done": "已完成",
         "idle": "空闲"
+      }
+    },
+    "resources": {
+      "loading": "正在测量这台电脑…",
+      "error": "读取失败：{message}",
+      "stale": "上一次读取失败，因此这些数值没有更新：{message}",
+      "metric": {
+        "cpu": "处理器",
+        "memory": "内存",
+        "gpu": "显卡"
+      },
+      "hint": {
+        "cpu": "{cores} 个核心",
+        "of": "{used} / {total}"
+      },
+      "chart_title": {
+        "cpu": "谁在使用处理器",
+        "memory": "谁在使用内存",
+        "gpu": "显卡负载"
+      },
+      "chart_window": "最近 {minutes} 分钟",
+      "axis_now": "现在",
+      "axis_ago": "-{minutes} 分",
+      "group": {
+        "agents": "编程智能体",
+        "linked": "已连接的应用",
+        "app": "本应用",
+        "other": "其他全部"
+      },
+      "total": "合计",
+      "cores": "核心",
+      "cores_aria": "{count} 个核心各自的负载",
+      "core": "核心 {n}：{percent}",
+      "gpu_none": "此处无读数",
+      "gpu_whole": "按整张显卡测量，不按程序区分",
+      "agents_title": "编程智能体",
+      "agents_empty": "没有正在运行的编程智能体。",
+      "col": {
+        "cpu": "CPU",
+        "memory": "内存",
+        "gpu": "GPU",
+        "vram": "显存"
+      },
+      "kind": {
+        "pane": "面板",
+        "thread": "会话",
+        "background": "由本应用启动",
+        "external": "本应用之外"
+      },
+      "thread_untitled": "会话",
+      "processes": "{count} 个进程",
+      "process_one": "1 个进程",
+      "details_of": "{target} 的详情",
+      "runtime": "智能体本身",
+      "category": {
+        "mcp": "MCP 服务器",
+        "test": "测试",
+        "build": "构建",
+        "vcs": "版本控制",
+        "browser": "浏览器",
+        "runtime": "脚本",
+        "shell": "Shell",
+        "command": "命令",
+        "subagent": "智能体",
+        "more": "更多工具"
+      },
+      "instances": "×{count}",
+      "linked_note": "与其工具相连的应用。它们的负载显示在这里，不计入智能体。",
+      "linked_via": "通过 {tool}，端口 {port}",
+      "linked_port": "端口 {port}",
+      "linked_shared": "另有 {count} 个也在使用",
+      "end": "结束",
+      "end_named": "结束 {target}",
+      "end_confirm": "结束 {target}？",
+      "end_yes": "结束",
+      "end_cancel": "取消",
+      "end_failed": "无法结束：{message}",
+      "app_note": "窗口、核心和辅助进程",
+      "other_note": "系统和其他所有程序",
+      "role": {
+        "core": "核心",
+        "window": "窗口",
+        "terminal_host": "终端宿主",
+        "thread_host": "会话宿主"
       }
     }
   },

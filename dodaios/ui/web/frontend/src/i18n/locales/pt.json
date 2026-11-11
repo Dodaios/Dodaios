@@ -8495,7 +8495,8 @@
       "search": "Pesquisa",
       "subscriptions": "Subscrições",
       "office": "Dodaios Verse",
-      "chat": "Chat"
+      "chat": "Chat",
+      "resources": "Recursos"
     },
     "subscriptions": {
       "bank": {
@@ -9318,6 +9319,90 @@
         "exited": "Terminou",
         "done": "Concluído",
         "idle": "Inativo"
+      }
+    },
+    "resources": {
+      "loading": "A medir este computador…",
+      "error": "A leitura falhou: {message}",
+      "stale": "A última leitura falhou, por isso estes valores estão parados: {message}",
+      "metric": {
+        "cpu": "Processador",
+        "memory": "Memória",
+        "gpu": "Placa gráfica"
+      },
+      "hint": {
+        "cpu": "{cores} núcleos",
+        "of": "{used} de {total}"
+      },
+      "chart_title": {
+        "cpu": "Quem está a usar o processador",
+        "memory": "Quem está a usar a memória",
+        "gpu": "Carga da placa gráfica"
+      },
+      "chart_window": "Últimos {minutes} minutos",
+      "axis_now": "agora",
+      "axis_ago": "-{minutes} min",
+      "group": {
+        "agents": "Agentes de código",
+        "linked": "Apps ligadas",
+        "app": "Esta app",
+        "other": "Tudo o resto"
+      },
+      "total": "Total",
+      "cores": "Núcleos",
+      "cores_aria": "Carga de cada um dos {count} núcleos",
+      "core": "Núcleo {n}: {percent}",
+      "gpu_none": "Sem leitura aqui",
+      "gpu_whole": "Medido para a placa inteira, não por programa",
+      "agents_title": "Agentes de código",
+      "agents_empty": "Não há nenhum agente de código em execução.",
+      "col": {
+        "cpu": "CPU",
+        "memory": "Memória",
+        "gpu": "GPU",
+        "vram": "VRAM"
+      },
+      "kind": {
+        "pane": "Painel",
+        "thread": "Conversa",
+        "background": "Iniciado por esta app",
+        "external": "Fora desta app"
+      },
+      "thread_untitled": "Conversa",
+      "processes": "{count} processos",
+      "process_one": "1 processo",
+      "details_of": "Detalhes de {target}",
+      "runtime": "O próprio agente",
+      "category": {
+        "mcp": "Servidor MCP",
+        "test": "Testes",
+        "build": "Compilação",
+        "vcs": "Controlo de versões",
+        "browser": "Navegador",
+        "runtime": "Script",
+        "shell": "Shell",
+        "command": "Comando",
+        "subagent": "Agente",
+        "more": "Mais ferramentas"
+      },
+      "instances": "×{count}",
+      "linked_note": "Apps ligadas às ferramentas dele. A carga delas aparece aqui e não é somada ao agente.",
+      "linked_via": "através de {tool} na porta {port}",
+      "linked_port": "na porta {port}",
+      "linked_shared": "também usada por mais {count}",
+      "end": "Terminar",
+      "end_named": "Terminar {target}",
+      "end_confirm": "Terminar {target}?",
+      "end_yes": "Terminar",
+      "end_cancel": "Cancelar",
+      "end_failed": "Não foi possível terminar: {message}",
+      "app_note": "Janela, núcleo e processos auxiliares",
+      "other_note": "O sistema e todos os outros programas",
+      "role": {
+        "core": "Núcleo",
+        "window": "Janela",
+        "terminal_host": "Anfitrião de terminais",
+        "thread_host": "Anfitrião de conversas"
       }
     }
   },

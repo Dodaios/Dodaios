@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { Bot, CreditCard, FileDiff, Files, FolderTree, GitBranch, Globe, MessageSquare, Search, type LucideIcon } from "lucide-react";
+import { lazy, Suspense, type ReactNode } from "react";
+import { Activity, Bot, CreditCard, FileDiff, Files, FolderTree, GitBranch, Globe, MessageSquare, Search, type LucideIcon } from "lucide-react";
 import type { SidePanelTabId } from "@/store/ideSidePanel";
 import { AgentsOverview } from "./AgentsOverview";
 import { BrowserTab } from "./browser/BrowserTab";
@@ -9,6 +9,15 @@ import { GitOverviewTab } from "./git/GitOverviewTab";
 import { SearchPanel } from "./search/SearchPanel";
 import { SkillsTab } from "./skills/SkillsTab";
 import { SubscriptionsTab } from "./subscriptions/SubscriptionsTab";
+
+/**
+ * The resource view draws charts, and the charting library is large. Loaded
+ * with the tab, it stays out of the side panel's own chunk for everyone who
+ * never opens it.
+ */
+const ResourcesTab = lazy(() =>
+  import("./resources/ResourcesTab").then((module) => ({ default: module.ResourcesTab })),
+);
 
 /** One function the side panel can show. */
 export interface SidePanelTabDef {
@@ -102,6 +111,17 @@ export const SIDE_PANEL_TABS: readonly SidePanelTabDef[] = [
     shortcut: "U",
     icon: CreditCard,
     render: () => <SubscriptionsTab />,
+  },
+  {
+    id: "resources",
+    labelKey: "ide_side_panel.tabs.resources",
+    shortcut: "R",
+    icon: Activity,
+    render: () => (
+      <Suspense fallback={null}>
+        <ResourcesTab />
+      </Suspense>
+    ),
   },
 ];
 

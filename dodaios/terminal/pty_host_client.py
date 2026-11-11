@@ -320,6 +320,11 @@ class RemotePtyManager:
     def has(self, terminal_id: str) -> bool:
         return terminal_id in self._sessions and not self._closed
 
+    def pid_of(self, terminal_id: str) -> int:
+        """Process id of the terminal's first process; 0 when the host does not hold it."""
+        session = self._sessions.get(terminal_id)
+        return session.pid if session is not None and not self._closed else 0
+
     def detach(self) -> None:
         if self._closed:
             return
