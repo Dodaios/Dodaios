@@ -1,4 +1,5 @@
 #include "Components/CapsuleComponent.h"
+#include "Components/InputComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Core/VerseUiStrings.h"
 #include "EnhancedActionKeyMapping.h"
@@ -104,6 +105,67 @@ bool FVerseUiInputRemapTest::RunTest(const FString&)
 	KeyMap.Rebind(TEXT("fire"), EKeys::K);
 	KeyMap.Rebind(TEXT("fire"), EKeys::LeftMouseButton);
 	TestEqual(TEXT("fire can be bound back to the left mouse button"), KeyMap.GetKey(TEXT("fire")), EKeys::LeftMouseButton);
+	return true;
+}
+
+// The duel person's keys are legacy key bindings (VersePersonInput::BindDefaults, the combat
+// keys of AVerseDefaultCharacter): a rebind in the options moves them too, pressed and released,
+// and the gamepad and second keys stay.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseUiInputRemapKeyBindingsTest, "Verse.UI.Settings.InputRemapKeyBindings", Flags)
+bool FVerseUiInputRemapKeyBindingsTest::RunTest(const FString&)
+{
+	UInputComponent* Input = NewObject<UInputComponent>(GetTransientPackage(), TEXT("VerseUiRemapKeyBindingsTest"));
+	auto Bind = [Input](const FKey& Key, EInputEvent Event)
+	{
+		FInputKeyBinding Binding(FInputChord(Key, false, false, false, false), Event);
+		Input->KeyBindings.Emplace(MoveTemp(Binding));
+	};
+	Bind(EKeys::R, IE_Pressed);                       // 0 reload
+	Bind(EKeys::R, IE_Released);                      // 1
+	Bind(EKeys::Gamepad_FaceButton_Left, IE_Pressed); // 2 gamepad reload
+	Bind(EKeys::LeftMouseButton, IE_Pressed);         // 3 fire
+	Bind(EKeys::LeftMouseButton, IE_Released);        // 4
+	Bind(EKeys::W, IE_Pressed);                       // 5 move forward
+	Bind(EKeys::W, IE_Released);                      // 6
+	Bind(EKeys::C, IE_Pressed);                       // 7 the second crouch key
+	Bind(EKeys::Tab, IE_Pressed);                     // 8 the UI's bar key, never a gameplay binding
+
+	FVerseKeyMap KeyMap;
+	FString Error;
+	if (!TestTrue(TEXT("keys.json loads"), KeyMap.LoadFile(FVerseKeyMap::DefaultPath(), &Error)))
+	{
+		AddError(Error);
+		return false;
+	}
+	FVerseUiInputRemap Remap;
+	TestFalse(TEXT("default keys change nothing"), Remap.ApplyToInputComponent(Input, KeyMap));
+	TestEqual(TEXT("bound: reload x2, fire x2, forward x2"), Remap.NumBound(Input), 6);
+
+	KeyMap.Rebind(TEXT("reload"), EKeys::K);
+	KeyMap.Rebind(TEXT("fire"), EKeys::J);
+	KeyMap.Rebind(TEXT("move_forward"), EKeys::Up);
+	TestTrue(TEXT("rebinds apply"), Remap.ApplyToInputComponent(Input, KeyMap));
+	TestEqual(TEXT("reload pressed now on K"), Input->KeyBindings[0].Chord.Key, EKeys::K);
+	TestEqual(TEXT("reload released now on K"), Input->KeyBindings[1].Chord.Key, EKeys::K);
+	TestEqual(TEXT("the gamepad reload stays"), Input->KeyBindings[2].Chord.Key, EKeys::Gamepad_FaceButton_Left);
+	TestEqual(TEXT("fire now on J"), Input->KeyBindings[3].Chord.Key, EKeys::J);
+	TestEqual(TEXT("fire released now on J"), Input->KeyBindings[4].Chord.Key, EKeys::J);
+	TestEqual(TEXT("forward now on Up"), Input->KeyBindings[5].Chord.Key, EKeys::Up);
+	TestEqual(TEXT("the second crouch key stays"), Input->KeyBindings[7].Chord.Key, EKeys::C);
+	TestEqual(TEXT("the bar key stays"), Input->KeyBindings[8].Chord.Key, EKeys::Tab);
+	TestFalse(TEXT("a second apply changes nothing"), Remap.ApplyToInputComponent(Input, KeyMap));
+
+	// A new life is a new input component with the default keys: it gets the chosen keys at once.
+	UInputComponent* NextLife = NewObject<UInputComponent>(GetTransientPackage(), TEXT("VerseUiRemapKeyBindingsTestNext"));
+	FInputKeyBinding Reload(FInputChord(EKeys::R, false, false, false, false), IE_Pressed);
+	NextLife->KeyBindings.Emplace(MoveTemp(Reload));
+	TestTrue(TEXT("the next life's component is remapped"), Remap.ApplyToInputComponent(NextLife, KeyMap));
+	TestEqual(TEXT("the next life reloads on K"), NextLife->KeyBindings[0].Chord.Key, EKeys::K);
+
+	// Back to the default key.
+	KeyMap.Rebind(TEXT("reload"), EKeys::R);
+	TestTrue(TEXT("rebinding back applies"), Remap.ApplyToInputComponent(Input, KeyMap));
+	TestEqual(TEXT("reload back on R"), Input->KeyBindings[0].Chord.Key, EKeys::R);
 	return true;
 }
 

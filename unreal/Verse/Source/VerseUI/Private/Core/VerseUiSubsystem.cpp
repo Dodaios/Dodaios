@@ -4,6 +4,7 @@
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "CanvasItem.h"
+#include "Components/InputComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Core/VerseUiDefaultPorts.h"
 #include "Core/VerseUiTheme.h"
@@ -469,6 +470,8 @@ void UVerseUiSubsystem::Tick(float DeltaTime)
 	if (bDuel != bLastDuelRunning)
 	{
 		bLastDuelRunning = bDuel;
+		// A bar opened on the deck or in the last duel must not hold the cursor out in the next one.
+		bBarOpen = false;
 		RebuildScreen();
 	}
 }
@@ -777,7 +780,9 @@ void UVerseUiSubsystem::ApplyInputMode()
 	{
 		return;
 	}
-	if (Screen != EVerseUiScreen::None)
+	// In the duel the bar (Tab) is clickable only with the cursor out; on a deck it always shows.
+	const bool bBarWantsCursor = bBarOpen && GamePort->IsDuelRunning();
+	if (Screen != EVerseUiScreen::None || bBarWantsCursor)
 	{
 		FInputModeGameAndUI Mode;
 		Mode.SetWidgetToFocus(SlateRoot);
@@ -1503,7 +1508,11 @@ int32 UVerseUiSubsystem::ApplyKeyBindingsToInput()
 	APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
 	ULocalPlayer* Player = PC ? PC->GetLocalPlayer() : nullptr;
 	UEnhancedInputLocalPlayerSubsystem* Input = Player ? Player->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>() : nullptr;
-	return InputRemap.ApplyToPlayer(Input, KeyMap);
+	int32 Changed = InputRemap.ApplyToPlayer(Input, KeyMap);
+	// The duel person reads its keys from legacy key bindings on its own input component.
+	APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+	Changed += InputRemap.ApplyToInputComponent(Pawn ? Pawn->InputComponent.Get() : nullptr, KeyMap) ? 1 : 0;
+	return Changed;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1514,6 +1523,7 @@ void UVerseUiSubsystem::StartDuelFromArmoury()
 	// The chosen tier is settings.game gameplay.bot_tier (the app keeps it, the ini caches it).
 	const FName Tier = Armoury.GetSelectedTier();
 	SetGameSetting(TierId, MakeShared<FJsonValueString>(Tier.ToString()));
+	bBarOpen = false;
 	Session.Reset();
 	GamePort->StartDuel(Tier);
 	ShowScreen(EVerseUiScreen::None);
@@ -1521,6 +1531,7 @@ void UVerseUiSubsystem::StartDuelFromArmoury()
 
 void UVerseUiSubsystem::QuickStartDuel()
 {
+	bBarOpen = false;
 	Session.Reset();
 	GamePort->StartDuel(FName(*AppSettings.Game.GetString(TierId)));
 	ShowScreen(EVerseUiScreen::None);
@@ -1531,6 +1542,7 @@ void UVerseUiSubsystem::LeaveDuel()
 	// Endless sets: leaving anywhere but the end-of-set screen leaves a set open (parity D-10;
 	// the duel owner reports it as unfinished, W-08). The summary shows the session and "again".
 	Session.bLeftMidSet = GamePort->IsDuelRunning() && Screen != EVerseUiScreen::EndOfSet;
+	bBarOpen = false;
 	if (bPausedByUi)
 	{
 		GamePort->SetPaused(false);
@@ -1543,6 +1555,12 @@ void UVerseUiSubsystem::LeaveDuel()
 
 void UVerseUiSubsystem::ReturnToApp(const FString& Reason)
 {
+	if (bBarOpen)
+	{
+		bBarOpen = false;
+		RebuildScreen();
+		ApplyInputMode();
+	}
 	BridgePort->SendReturnToApp(Reason);
 }
 
@@ -1570,6 +1588,7 @@ void UVerseUiSubsystem::ToggleBar()
 {
 	bBarOpen = !bBarOpen;
 	RebuildScreen();
+	ApplyInputMode();
 }
 
 bool UVerseUiSubsystem::IsListeningForKey() const

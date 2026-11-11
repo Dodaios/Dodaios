@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Settings/VerseUiSettings.h"
 
+class UInputComponent;
 class UInputMappingContext;
 class UEnhancedInputLocalPlayerSubsystem;
 
@@ -22,12 +23,30 @@ public:
 	/** Applies to every context applied to Subsystem's player; rebuilds its mappings on a change. */
 	int32 ApplyToPlayer(UEnhancedInputLocalPlayerSubsystem* Subsystem, const FVerseKeyMap& KeyMap);
 
+	/**
+	 * Sets the legacy key bindings of Input (the duel person's keys: VerseMovement's
+	 * VersePersonInput::BindDefaults and the combat keys of AVerseDefaultCharacter) to KeyMap's
+	 * current keys. Every binding on an action's default key moves (pressed and released);
+	 * bindings on other keys (gamepad, the second crouch key) stay. True when a key changed.
+	 */
+	bool ApplyToInputComponent(UInputComponent* Input, const FVerseKeyMap& KeyMap);
+
 	/** Mapping indices this remap owns in Context (tests). */
 	int32 NumBound(const UInputMappingContext* Context) const;
 
-	void Reset() { Slots.Reset(); }
+	/** Key binding indices this remap owns in Input (tests). */
+	int32 NumBound(const UInputComponent* Input) const;
+
+	void Reset()
+	{
+		Slots.Reset();
+		KeySlots.Reset();
+	}
 
 private:
 	/** context -> (mapping index -> keys.json action), found once from the default keys. */
 	TMap<TWeakObjectPtr<UInputMappingContext>, TMap<int32, FName>> Slots;
+
+	/** input component -> (key binding index -> keys.json action), found once from the default keys. */
+	TMap<TWeakObjectPtr<UInputComponent>, TMap<int32, FName>> KeySlots;
 };
