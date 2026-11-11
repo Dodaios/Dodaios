@@ -111,6 +111,15 @@ export function HowItWorks({
             {overview.prompt_block.trim() || fill(t("vault.lead_knows_empty"), { name })}
           </pre>
         </section>
+        {overview.learning && (
+          <p data-testid="vault-learning" className="mt-6 text-center text-[12px] tabular-nums text-muted-foreground">
+            {fill(t("vault.how_learning"), {
+              lessons: overview.learning.lessons,
+              how_to: overview.learning.how_to,
+              repeats: overview.learning.repeat_errors,
+            })}
+          </p>
+        )}
         <p className="mt-6 flex items-center justify-center gap-2 text-center text-[12px] text-muted-foreground">
           <RefreshCcw className="h-3.5 w-3.5" /> {t("vault.how_footer")}
         </p>

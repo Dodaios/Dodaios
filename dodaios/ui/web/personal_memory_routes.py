@@ -163,6 +163,7 @@ def _kind(kind: str, text: str) -> str:
 
 @router.get("")
 def overview() -> dict[str, Any]:
+    from dodaios.memory.vault import lessons
     from dodaios.memory.vault.runtime import budget_chars, prompt_block
 
     vault = _vault()
@@ -178,6 +179,7 @@ def overview() -> dict[str, Any]:
         "budget_chars": budget,
         "used_chars": len(vault.profile_block(max_chars=budget)),
         "imported": vault.get_meta("legacy_import") is not None,
+        "learning": lessons.metrics(vault),
     }
 
 

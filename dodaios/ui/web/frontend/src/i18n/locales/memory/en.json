@@ -348,6 +348,7 @@
     "how_learn_3": "Memory stays current",
     "how_learn_3_body": "New facts are added, changed ones replace the old version, and nothing is erased unless you say so.",
     "how_footer": "Every change is listed here, and you can undo or forget any of it.",
+    "how_learning": "Lessons kept: {lessons} · how-to notes: {how_to} · corrections you had to repeat: {repeats}",
     "mode_how_short": "How it works",
     "pause": "Pause learning",
     "pause_resume": "Learning paused · resume",

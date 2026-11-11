@@ -49,6 +49,11 @@ _CORRECTIONS: Final[tuple[re.Pattern[str], ...]] = tuple(
         r"|you forgot|no,? i meant|actually,? i)\b",
         r"\b(?:das (?:ist|war) falsch|nein,? ich meinte|hab ich (?:dir )?doch gesagt"  # i18n-allow
         r"|du hast vergessen|stimmt nicht)\b",  # i18n-allow
+        # Undo and "never again": the owner reverses something the assistant did.
+        r"\b(?:undo (?:that|this|it)|revert (?:that|this|it)|roll (?:that|it) back"
+        r"|(?:don't|do not|never) do (?:that|this) again|stop doing (?:that|this)"
+        r"|that's not what i (?:wanted|asked for))\b",
+        r"\b(?:mach das rückgängig|tu das nie wieder|das wollte ich nicht)\b",  # i18n-allow
         r"\b(?:eso está mal|no es lo que dije|te dije|te olvidaste)\b",  # i18n-allow
         r"\b(?:isso est[áa] errado|n[ãa]o foi isso que (?:eu )?disse|eu disse-te"  # i18n-allow
         r"|j[áa] te disse|esqueceste-te)\b",  # i18n-allow

@@ -45,7 +45,7 @@ from typing import Any, Final
 
 from dodaios.memory.learning.notebook import JarvisNotebook
 from dodaios.memory.learning.review import Proposal, Turn, build_prompt, excerpt, validate
-from dodaios.memory.learning.signals import has_signal
+from dodaios.memory.learning.signals import has_signal, is_correction
 
 log = logging.getLogger(__name__)
 
@@ -70,6 +70,45 @@ _UPKEEP_FIRST_DELAY_S: Final[float] = 120.0
 _UPKEEP_INTERVAL_S: Final[float] = 3_600.0
 #: How often queued conversation episodes are picked up.
 _UPKEEP_TICK_S: Final[float] = 600.0
+
+
+_TRACE_NOTE_CHARS: Final[int] = 100
+_TRACE_MAX_CHARS: Final[int] = 400
+
+
+def tool_trace(events: list[dict[str, Any]]) -> str:
+    """A factual line about a turn that is worth a lesson, else ``""``.
+
+    Two cases, found without a model: a tool failed and a later tool call
+    succeeded (the assistant worked around the failure), and the owner denied
+    an approval. The review judges whether any of it is reusable.
+    """
+    names: dict[str, str] = {}
+    results: list[tuple[str, bool, str]] = []
+    denied: list[str] = []
+    asked: dict[str, str] = {}
+    for event in events:
+        payload = event.get("payload") or {}
+        kind = event.get("kind")
+        call_id = str(payload.get("call_id") or "")
+        if kind == "tool_call" and call_id:
+            names[call_id] = str(payload.get("name") or "tool")
+        elif kind == "tool_result":
+            note = " ".join(str(payload.get("output") or "").split())[:_TRACE_NOTE_CHARS]
+            results.append((names.get(call_id, "tool"), bool(payload.get("is_error")), note))
+        elif kind == "approval_required":
+            asked[str(payload.get("approval_id") or "")] = str(payload.get("name") or "tool")
+        elif kind == "approval_resolved" and payload.get("decision") == "deny":
+            denied.append(asked.get(str(payload.get("approval_id") or ""), "an action"))
+    parts: list[str] = []
+    first_failure = next((i for i, (_, failed, _) in enumerate(results) if failed), None)
+    if first_failure is not None and results and not results[-1][1]:
+        failed = [f"{name} ({note})" for name, bad, note in results if bad]
+        worked = [name for name, bad, _ in results[first_failure:] if not bad]
+        parts.append(f"failed: {'; '.join(failed[:3])}; then worked: {', '.join(worked[:3])}")
+    if denied:
+        parts.append(f"the owner denied approval for: {', '.join(denied[:3])}")
+    return " | ".join(parts)[:_TRACE_MAX_CHARS]
 
 
 def _seat_of(reviewer: Any) -> dict[str, str]:
@@ -174,7 +213,9 @@ class JarvisLearningLoop:
             if vault is not None and time.monotonic() - last_hourly >= _UPKEEP_INTERVAL_S:
                 last_hourly = time.monotonic()
                 if self._upkeep_reviewer is not None:
-                    await consolidate.run_if_due(vault, self._upkeep_reviewer)
+                    from dodaios.agent_chat.lead import post_memory_tidy
+
+                    await consolidate.run_if_due(vault, self._upkeep_reviewer, post_memory_tidy)
                 if not vault_runtime.learning_paused():
                     await calendar_sync.sync(vault)
             await asyncio.sleep(_UPKEEP_TICK_S)
@@ -284,6 +325,7 @@ class JarvisLearningLoop:
             if e.get("kind") == "tool_call"
         )
         session_id = str(getattr(session, "session_id", "") or "")
+        trace = tool_trace(events)
         self.record(
             "chat:" + (session_id or "unknown"),
             Turn(
@@ -294,6 +336,7 @@ class JarvisLearningLoop:
                 session_id=session_id,
                 turn_id=str(getattr(turn, "turn_id", "") or ""),
                 seq=seq,
+                trace=trace,
             ),
         )
 
@@ -314,7 +357,9 @@ class JarvisLearningLoop:
             request = None
         # A self-contained request is saved right here; only a bare "remember
         # that" still needs the model to see what "that" was.
-        signal = request == "" or (request is None and has_signal(turn.user))
+        signal = request == "" or (request is None and (has_signal(turn.user) or bool(turn.trace)))
+        if is_correction(turn.user):
+            self._spawn(self._count_repeat(turn.user), name="jarvis-learning-repeat")
         conversation.turns.append(turn)
         conversation.signals.append(signal)
         del conversation.turns[:-_KEEP_TURNS]
@@ -334,6 +379,18 @@ class JarvisLearningLoop:
             self._schedule(key, reason=f"{conversation.unreviewed} turns")
         else:
             self._arm_idle(key, conversation)
+
+    async def _count_repeat(self, correction: str) -> None:
+        """Count a correction that says a stored lesson again (free, no model)."""
+        from dodaios.memory.vault import lessons
+        from dodaios.memory.vault import runtime as vault_runtime
+
+        vault = vault_runtime.active()
+        if vault is None or vault_runtime.learning_paused():
+            return
+        repeated = await asyncio.to_thread(lessons.note_repeat, vault, correction)
+        if repeated is not None:
+            vault_runtime.changed()
 
     def _make_room(self) -> None:
         """Past the cap, review and forget the least recently active conversation."""
@@ -815,6 +872,7 @@ def start_learning(config: Any, bus: Any) -> JarvisLearningLoop | None:
             parser=consolidate.parse,
             max_tokens=consolidate.REVIEW_MAX_TOKENS,
             caller="memory-vault-upkeep",
+            allow_metered=False,
         ),
         episode_reviewer=ModelReviewer(
             config,
