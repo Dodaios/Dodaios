@@ -1,0 +1,26 @@
+{
+  "name": "MI_Character_Crew_M_Mark",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_Mark",
+  "scalars": {
+    "Metallic": 0.8,
+    "Roughness": 0.4
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {
+    "BaseColorMap": "/Game/Verse/Characters/Crew/Textures/T_Crew_M_BC.T_Crew_M_BC",
+    "NormalMap": "/Game/Verse/Characters/Crew/Textures/T_Crew_M_N.T_Crew_M_N",
+    "ORMMap": "/Game/Verse/Characters/Crew/Textures/T_Crew_M_ORM.T_Crew_M_ORM"
+  },
+  "two_sided": true,
+  "vectors": {
+    "BaseTint": [
+      0.19462,
+      0.11444,
+      0.02732,
+      1.0
+    ]
+  }
+}

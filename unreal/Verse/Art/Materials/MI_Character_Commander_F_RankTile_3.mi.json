@@ -1,0 +1,22 @@
+{
+  "name": "MI_Character_Commander_F_RankTile_3",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_RankTile_3",
+  "scalars": {
+    "Metallic": 0.0,
+    "Roughness": 0.35
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "two_sided": true,
+  "vectors": {
+    "BaseTint": [
+      0.023,
+      0.026,
+      0.03,
+      1.0
+    ]
+  }
+}

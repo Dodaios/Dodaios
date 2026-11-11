@@ -1,0 +1,26 @@
+{
+  "name": "MI_Character_Crew_F_ChestBox",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_ChestBox",
+  "scalars": {
+    "Metallic": 0.7,
+    "Roughness": 0.38
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {
+    "BaseColorMap": "/Game/Verse/Characters/Crew/Textures/T_Crew_F_BC.T_Crew_F_BC",
+    "NormalMap": "/Game/Verse/Characters/Crew/Textures/T_Crew_F_N.T_Crew_F_N",
+    "ORMMap": "/Game/Verse/Characters/Crew/Textures/T_Crew_F_ORM.T_Crew_F_ORM"
+  },
+  "two_sided": true,
+  "vectors": {
+    "BaseTint": [
+      0.05,
+      0.052,
+      0.056,
+      1.0
+    ]
+  }
+}

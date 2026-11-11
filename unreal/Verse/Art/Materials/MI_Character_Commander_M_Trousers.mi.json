@@ -1,0 +1,27 @@
+{
+  "name": "MI_Character_Commander_M_Trousers",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_Trousers",
+  "scalars": {
+    "Metallic": 0.0,
+    "Roughness": 0.8,
+    "Sheen": 0.08
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {
+    "BaseColorMap": "/Game/Verse/Characters/Commander/Textures/T_Commander_M_BC.T_Commander_M_BC",
+    "NormalMap": "/Game/Verse/Characters/Commander/Textures/T_Commander_M_N.T_Commander_M_N",
+    "ORMMap": "/Game/Verse/Characters/Commander/Textures/T_Commander_M_ORM.T_Commander_M_ORM"
+  },
+  "two_sided": true,
+  "vectors": {
+    "BaseTint": [
+      0.01096,
+      0.01161,
+      0.01444,
+      1.0
+    ]
+  }
+}

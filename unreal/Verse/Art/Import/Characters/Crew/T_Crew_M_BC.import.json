@@ -1,0 +1,34 @@
+{
+  "asset_path": "/Game/Verse/Characters/Crew/Textures/T_Crew_M_BC.T_Crew_M_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/characters/meshes/textures/T_SK_Crew_M_BaseColor.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "bbd06f19b4a0db3d3cee0fb838883bb543f2f6e4df65473ca26918eccd4261df"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Crew_M_BC",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "mesh": "SK_Crew_M"
+    },
+    "builder": "art/verse/characters/rig_fps.py",
+    "function": "build_mesh"
+  },
+  "texture": {
+    "channels": {},
+    "compression": "Default",
+    "flip_green": false,
+    "group": "Character",
+    "max_size": 2048,
+    "never_stream": true,
+    "srgb": true
+  }
+}

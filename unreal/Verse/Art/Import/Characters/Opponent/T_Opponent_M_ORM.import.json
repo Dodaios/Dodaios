@@ -1,0 +1,34 @@
+{
+  "asset_path": "/Game/Verse/Characters/Opponent/Textures/T_Opponent_M_ORM.T_Opponent_M_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/characters/meshes/textures/T_SK_Opponent_M_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "756702dc89c5d240d2ea4f6cf742d10f7db1dc47b9be5db6e709f50c53dfe5ca"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Opponent_M_ORM",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "mesh": "SK_Opponent_M"
+    },
+    "builder": "art/verse/characters/rig_fps.py",
+    "function": "build_mesh"
+  },
+  "texture": {
+    "channels": {},
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "Character",
+    "max_size": 2048,
+    "never_stream": true,
+    "srgb": false
+  }
+}
