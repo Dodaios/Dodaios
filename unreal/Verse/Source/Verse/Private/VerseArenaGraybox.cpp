@@ -52,7 +52,7 @@ namespace VerseArenaGrayboxPrivate
 	/** Capsule half height above a spawn's floor point, cm. */
 	constexpr double SpawnLiftCm = 100.0;
 	/** Work lights warm, practicals and the fill cool (art-pipeline 8.2 range 4300-6500 K). */
-	constexpr float WorkLightKelvin = 4300.f;
+	constexpr float WorkLightKelvin = 3700.f;
 	constexpr float PracticalKelvin = 6200.f;
 	constexpr float FillKelvin = 6500.f;
 	constexpr float FillLux = 18.f;
@@ -838,11 +838,11 @@ void AVerseArenaGraybox::ApplyLook(UWorld& World)
 		S.bOverride_ColorContrast = true;
 		S.ColorContrast = FVector4(1.16, 1.16, 1.16, 1.0);
 		S.bOverride_ColorSaturation = true;
-		S.ColorSaturation = FVector4(0.92, 0.92, 0.92, 1.0);
+		S.ColorSaturation = FVector4(1.0, 1.0, 1.0, 1.0);
 		S.bOverride_ColorGainShadows = true;
-		S.ColorGainShadows = FVector4(0.94, 0.98, 1.08, 1.0);
+		S.ColorGainShadows = FVector4(0.9, 0.97, 1.12, 1.0);
 		S.bOverride_ColorGainHighlights = true;
-		S.ColorGainHighlights = FVector4(1.06, 1.0, 0.92, 1.0);
+		S.ColorGainHighlights = FVector4(1.1, 1.0, 0.86, 1.0);
 		S.bOverride_LocalExposureHighlightContrastScale = true;
 		S.LocalExposureHighlightContrastScale = 0.75f;
 		S.bOverride_LocalExposureShadowContrastScale = true;
@@ -1096,7 +1096,8 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath, EVerseGrayboxPart InPart
 				continue;
 			}
 			Component->SetIntensityUnits(ELightUnits::Lumens);
-			Component->SetIntensity(float(Light->GetNumberField(TEXT("lumens"))));
+			// The work lights a third above the layout's figures: pools that read against the haze.
+			Component->SetIntensity(float(Light->GetNumberField(TEXT("lumens"))) * (bSpot ? 1.35f : 1.f));
 			Component->SetUseTemperature(true);
 			// Warm truss and aisle spots, cool practicals (booth, cabin, catwalk ceiling, armoury).
 			Component->SetTemperature(bSpot ? WorkLightKelvin : PracticalKelvin);
