@@ -629,6 +629,7 @@ claude-cli = "dodaios.plugins.brain.claude_cli:ClaudeCliBrain"
 # person set up in OpenCode itself, so Dodaios stores no key for it.
 opencode = "dodaios.plugins.brain.opencode:OpenCodeBrain"
 grok = "dodaios.plugins.brain.grok:GrokBrain"
+deepseek = "dodaios.plugins.brain.deepseek:DeepSeekBrain"
 # Keyless LOCAL providers (2026-07-25, local-first mandate): both talk to
 # self-hosted servers and are deliberately absent from
 # PROVIDER_SECRET_CANDIDATES. local-openai covers HuggingFace transformers

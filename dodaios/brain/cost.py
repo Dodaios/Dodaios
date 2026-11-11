@@ -186,6 +186,9 @@ PRICING_USD_PER_MTOK: dict[str, tuple[float, float]] = {
     "glm-4.5": (0.60, 2.20),
     "glm-4.5-air": (0.20, 1.10),
     # ── DeepSeek ────────────────────────────────────────────────────
+    # Native API peak rates, excluding the prompt cache discount below.
+    "deepseek-flash": (0.30, 1.20),
+    "deepseek-v4-pro": (1.32, 3.96),
     "deepseek-chat": (0.27, 1.10),
     "deepseek-reasoner": (0.55, 2.19),
     # ── OpenRouter (proxied models; rates from the OpenRouter pricing
@@ -228,6 +231,8 @@ CACHE_READ_FRACTION_BY_PREFIX: tuple[tuple[str, float], ...] = (
     # Measured from xAI's own costUsdTicks (2026-08-25): a quarter, not a tenth.
     ("grok", 0.25),
     ("x-ai/", 0.25),
+    ("deepseek-flash", 0.02),
+    ("deepseek-v4-pro", 0.044 / 1.32),
 )
 
 
