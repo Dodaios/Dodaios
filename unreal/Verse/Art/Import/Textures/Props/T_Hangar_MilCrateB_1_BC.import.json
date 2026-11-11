@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_MilCrateB_1_BC.T_Hangar_MilCrateB_1_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_MilCrateB_1_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "accfe5e57438200ad04757e23377a269a536c78b3b5c84974aa7f6932a8e01dd"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "9e74a72787364fee09a450e442db97a687d237051e98f8ed709af516434e895d"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_MilCrateB_1_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "old_military_crate",
+      "map": "diff"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": true
+  }
+}

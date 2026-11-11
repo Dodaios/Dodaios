@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_MetalRack_1_ORM.T_Hangar_MetalRack_1_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_MetalRack_1_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "115d9891d240efa089949f3a648e15aca8e6083bbdcc2d5e0ab54763d3acc9bd"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "b3523f947b3ebd960d508361bb323cec5a959d0b7043a8a7118ffab781925a65"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_MetalRack_1_ORM",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "worn_metal_rack",
+      "map": "arm"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 512,
+    "srgb": false
+  }
+}

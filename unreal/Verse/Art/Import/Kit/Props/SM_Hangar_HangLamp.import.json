@@ -1,0 +1,72 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_HangLamp.SM_Hangar_HangLamp",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_HangLamp.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "0ea24fcb7d43948d966504d84f9393fce076df4357716e3cd3d13e98126e642f"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "12e8293535e816f1e8bebc94e95da092599909d3c1b9b6cc7384d90307db06ca",
+      "22cafeccd4421495c860f8c522bb9e45eaa19fda6ec3a2365dcb5b1db66aad96",
+      "5393af7d78e85689cba7c7b198fafddcee540d3125ebd133799d56f19945d8bf",
+      "888d78437900b43874af5195694c7b867568c9a96ef528846ad7d001f9e096ae",
+      "97e31aac7c350bc40294e78f39f66d5aa998ac2703be1d09b5dab9ae7027876f",
+      "ebf7fed3b0c1d6104d91b77195c7eb0e3da6927562ec4a612700b8afd7574099",
+      "ef524876a1a4c5b6d7fb4c652d21e55474ee85b50b8896537fd60e82b288b5f0"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        27.48,
+        27.48,
+        135.535
+      ],
+      "min": [
+        -27.48,
+        -27.48,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_HangLamp_1.MI_Hangar_HangLamp_1",
+        "slot": "M_Hangar_HangLamp_1"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Arena_LampWarm.MI_Arena_LampWarm",
+        "slot": "M_Hangar_HangLamp_2"
+      }
+    ],
+    "triangles": 9530,
+    "uv_sets": 1,
+    "vertices": 8971
+  },
+  "name": "SM_Hangar_HangLamp",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "hanging_industrial_lamp"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

@@ -169,7 +169,7 @@ FString AVerseArenaGraybox::LookFor(const TSharedPtr<FJsonObject>& Box)
 	{
 		if (StartsWith(Id, TEXT("console_")))
 		{
-			return TEXT("Console_Body");
+			return TEXT("Hidden");  // drawn by the art pass as the kit console (VerseArenaArt.cpp)
 		}
 		if (StartsWith(Id, TEXT("cover_crate")))
 		{
@@ -257,6 +257,11 @@ void AVerseArenaGraybox::AddDressing(const TCHAR* MeshName, const FTransform& Tr
 	UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *KitMesh(MeshName), nullptr, LOAD_NoWarn | LOAD_Quiet);
 	if (!Mesh)
 	{
+		// Kit props outside the hangar and engineering families (consoles, lockers) live under Props too.
+		Mesh = LoadObject<UStaticMesh>(nullptr, *FString::Printf(TEXT("%sProps/%s.%s"), Kit, MeshName, MeshName), nullptr, LOAD_NoWarn | LOAD_Quiet);
+	}
+	if (!Mesh)
+	{
 		return;
 	}
 	if (UInstancedStaticMeshComponent* Component = DressingFor(Mesh, Override ? MaterialFor(Override) : nullptr, bShadow))
@@ -289,6 +294,7 @@ void AVerseArenaGraybox::DressBox(const TSharedPtr<FJsonObject>& Box)
 	const double Length = bAlongX ? S.X : S.Y;
 	const FVector Along = bAlongX ? FVector(1.0, 0.0, 0.0) : FVector(0.0, 1.0, 0.0);
 	const FVector Start = bAlongX ? FVector(Min.X, C.Y, 0.0) : FVector(C.X, Min.Y, 0.0);
+	DressArtBox(Box);
 
 	// Fences: posts, rails and a faint mesh screen above the barriers (sight passes, as in play).
 	if (StartsWith(Id, TEXT("fence_")))
@@ -299,11 +305,11 @@ void AVerseArenaGraybox::DressBox(const TSharedPtr<FJsonObject>& Box)
 			const FVector At = Start + Along * (Length * I / Posts);
 			AddTrim(TEXT("Struct_Gunmetal"), FVector(At.X, At.Y, C.Z), FVector(12.0, 12.0, S.Z));
 		}
-		for (const double Z : {Min.Z + 10.0, Min.Z + S.Z * 0.5, Max.Z - 4.0})
+		// Open rails only: a glazed screen here veiled the whole hall beyond the fence in grey.
+		for (const double Z : {Min.Z + 10.0, Min.Z + S.Z * 0.25, Min.Z + S.Z * 0.5, Min.Z + S.Z * 0.75, Max.Z - 4.0})
 		{
 			AddTrim(TEXT("Struct_Gunmetal"), FVector(C.X, C.Y, Z), bAlongX ? FVector(Length, 8.0, 8.0) : FVector(8.0, Length, 8.0));
 		}
-		AddTrim(TEXT("Glass_Viewport"), C, bAlongX ? FVector(Length, 2.0, S.Z - 20.0) : FVector(2.0, Length, S.Z - 20.0), FRotator::ZeroRotator, false);
 		return;
 	}
 	// Railings along the hidden rail boxes.
@@ -481,17 +487,16 @@ void AVerseArenaGraybox::DressHall()
 			{
 				AddDressing(TEXT("SM_Wall_480_H1200"), FTransform(Facing, Module));
 			}
-			AddDressing(Index % 3 == 1 ? TEXT("SM_WallLight_480_H540") : TEXT("SM_Wall_480_H540"), FTransform(Facing, Module + FVector(0.0, 0.0, 1200.0)));
+			AddDressing(Index % 6 == 3 ? TEXT("SM_WallLight_480_H540") : TEXT("SM_Wall_480_H540"), FTransform(Facing, Module + FVector(0.0, 0.0, 1200.0)));
 			// Services on the walls: cable trays along every module, a power riser at every third.
 			AddDressing(TEXT("SM_Eng_CableTray_Wall"), FTransform(Facing, Face + In * 2.0 + FVector(0.0, 0.0, 380.0), FVector(2.0, 1.0, 1.0)));
 			if (Index % 3 == 0)
 			{
 				AddDressing(TEXT("SM_Eng_PowerConduit"), FTransform(Facing, Face + In * 64.0 + (Run.bAlongX ? FVector(-170.0, 0.0, 0.0) : FVector(0.0, -170.0, 0.0))));
 			}
-			// A white strip between modules, as on the reference deck.
-			const FVector Seam = Face + In * 4.0 + (Run.bAlongX ? FVector(240.0, 0.0, 0.0) : FVector(0.0, 240.0, 0.0));
-			AddTrim(TEXT("Arena_LedStrip"), Seam + FVector(0.0, 0.0, 1050.0), Run.bAlongX ? FVector(14.0, 4.0, 700.0) : FVector(4.0, 14.0, 700.0),
-				FRotator::ZeroRotator, false);
+			// A dark steel pilaster between modules (the white strips here read as a light show).
+			const FVector Seam = Face + In * 8.0 + (Run.bAlongX ? FVector(240.0, 0.0, 0.0) : FVector(0.0, 240.0, 0.0));
+			AddTrim(TEXT("Struct_Gunmetal"), Seam + FVector(0.0, 0.0, 860.0), Run.bAlongX ? FVector(22.0, 16.0, 1720.0) : FVector(16.0, 22.0, 1720.0));
 		}
 	}
 
@@ -707,5 +712,6 @@ void AVerseArenaGraybox::Dress(UWorld& World, const TSharedPtr<FJsonObject>& Roo
 	}
 	DressHall();
 	DressDecals();
+	DressArt();
 	UE_LOG(LogVerse, Log, TEXT("[VerseArena] dressing: %d instances on %d components"), DressingInstances, Dressing.Num());
 }

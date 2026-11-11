@@ -1,0 +1,71 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Fluorescent_B.SM_Hangar_Fluorescent_B",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_Fluorescent_B.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "fdd019eaaa5089c71578f3ad653a225f1e73438e551852d3b91fe4ccdcd6f6d6"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "185aaca71b4c9d908be69440b807769ce9b2a6472d3a8396755394029196ea59",
+      "3a4504ed0f70061994b37c9ef512e7a2a7e0b7680a977add1643226ae56ea60d",
+      "587851c1b4e09e4cf3438f3d8bb084d4591f6be3a7bb1b4324b84af97b3c5f03",
+      "6bb051b47c5e684f7d981595e7a88c3f41989621dc4b8c9460dba989e6421438",
+      "7a56f167fe7074f4e4d4f314f72c5aa8b01c191394ee5ecb0b3461a240441b4a",
+      "8e56f625c04198792d8e9e5551137cbbd399072c26fe27827b37734afd584ea1"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        45.609,
+        2.022,
+        3.535
+      ],
+      "min": [
+        -45.609,
+        -2.022,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_Fluorescent_1.MI_Hangar_Fluorescent_1",
+        "slot": "M_Hangar_Fluorescent_1"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_Fluorescent_2.MI_Hangar_Fluorescent_2",
+        "slot": "M_Hangar_Fluorescent_2"
+      }
+    ],
+    "triangles": 2920,
+    "uv_sets": 1,
+    "vertices": 2356
+  },
+  "name": "SM_Hangar_Fluorescent_B",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "mounted_fluorescent_lights"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

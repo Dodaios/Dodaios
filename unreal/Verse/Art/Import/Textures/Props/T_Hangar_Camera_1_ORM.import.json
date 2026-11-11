@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_Camera_1_ORM.T_Hangar_Camera_1_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_Camera_1_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "8a26a009e4d233e26679cbd0ef8542e0bf7ba2bd6628701c1cc2298bc00d8f90"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "68bb728aff5af6bd4141201cd221c7e17ef537f49978c321b0e183677f8877ba"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_Camera_1_ORM",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "security_camera_01",
+      "map": "arm"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 256,
+    "srgb": false
+  }
+}

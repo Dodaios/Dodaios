@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_Bin_1_BC.T_Hangar_Bin_1_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_Bin_1_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "6d119ea4aa7c69bb60e5e7c4c1c4be7b018653c0531416f3722daf2b65132378"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "920c895a31b1cd2c000123c0592c70c33d46562752987da98070e7e0eebb662f"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_Bin_1_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "metal_trash_can",
+      "map": "diff"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": true
+  }
+}

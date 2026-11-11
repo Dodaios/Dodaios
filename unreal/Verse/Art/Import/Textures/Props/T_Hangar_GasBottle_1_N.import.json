@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_GasBottle_1_N.T_Hangar_GasBottle_1_N",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_GasBottle_1_N.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "021325ff5631521790ec6cd541265b7066c7f32338e75f730e398e9cbe40b518"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "e17827f800150fb069dbe36ff4464eaf9f8c4d2d4608f1cc87a48dea0fe3d8f0"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_GasBottle_1_N",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "propane_tank",
+      "map": "nor_gl"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Normalmap",
+    "flip_green": true,
+    "group": "WorldNormalMap",
+    "max_size": 512,
+    "srgb": false
+  }
+}

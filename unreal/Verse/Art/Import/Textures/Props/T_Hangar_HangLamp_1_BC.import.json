@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_HangLamp_1_BC.T_Hangar_HangLamp_1_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_HangLamp_1_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "a424b0ac36d31e796c0f42c1b613f165b287b0deffa872e638d95049999402fd"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "22cafeccd4421495c860f8c522bb9e45eaa19fda6ec3a2365dcb5b1db66aad96"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_HangLamp_1_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "hanging_industrial_lamp",
+      "map": "diff"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 512,
+    "srgb": true
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_FireAlarm_1_N.T_Hangar_FireAlarm_1_N",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_FireAlarm_1_N.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "b1853257db86aeedcbcfc5f86309e998aec9ef5733a8b361f5dfe0a1aad81cf4"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "45aa3e47120decf5a28e81a2586e3a4c8d6cdb10ba5ceed66d905de74fe1dbb7"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_FireAlarm_1_N",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "fire_alarm",
+      "map": "nor_gl"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Normalmap",
+    "flip_green": true,
+    "group": "WorldNormalMap",
+    "max_size": 512,
+    "srgb": false
+  }
+}

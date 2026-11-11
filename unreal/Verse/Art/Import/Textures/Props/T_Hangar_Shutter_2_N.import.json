@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_Shutter_2_N.T_Hangar_Shutter_2_N",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_Shutter_2_N.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "4709997af02961d2c621627b34a79793bcba643cd984db8e2fb56e1c410efa72"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "3eaad465ac23e4b3d5fbf2e315b738f8d3039cd244a69ab8adcc7a0e786cdffb"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_Shutter_2_N",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "rollershutter_door",
+      "map": "nor_gl"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Normalmap",
+    "flip_green": true,
+    "group": "WorldNormalMap",
+    "max_size": 1024,
+    "srgb": false
+  }
+}

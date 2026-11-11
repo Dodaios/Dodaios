@@ -1,0 +1,71 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_Generator.SM_Hangar_Generator",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_Generator.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "c357d5b91bb700a1331741d3bd9929dd8a8d41d08634b112eb58e7298a56aabd"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "10236e967baddd90ec7d4ab68969b06fb419f98782a2796db94edc0249b0dad2",
+      "32acc300105a2df2290d872889b24e1b29ff1ca2c56c0a0cf8fbba0c5966a063",
+      "8a868edab1a2f5ffa50b2b1680c2c342491b3eeeac443734178c445c7286c25d",
+      "acf30e81c367898eb846f353d77e404f6831ac23bf071e0e718fddb8881b86cb",
+      "d5afe27834f824dfe753391713c45be03479e8100831f320796030531f61b848",
+      "fb7dcfedec1331ad541569e4ca8d4157284b2164084b7fe5a97928d4abc0ea2d"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        40.917,
+        28.2,
+        57.692
+      ],
+      "min": [
+        -40.917,
+        -28.2,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_Generator_1.MI_Hangar_Generator_1",
+        "slot": "M_Hangar_Generator_1"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_Generator_2.MI_Hangar_Generator_2",
+        "slot": "M_Hangar_Generator_2"
+      }
+    ],
+    "triangles": 26419,
+    "uv_sets": 1,
+    "vertices": 24408
+  },
+  "name": "SM_Hangar_Generator",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "portable_generator"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_Crane_1_BC.T_Hangar_Crane_1_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_Crane_1_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "3c9d9a91ae24026585ead69d2a55443cceb0dcfea6ee5050750bdfa45f5edfa2"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "280fe3810a52fd69468f8729012c343fedf9e0129fd5dffc865a0e35713a0e8c"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_Crane_1_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "overhead_crane",
+      "map": "diff"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": true
+  }
+}

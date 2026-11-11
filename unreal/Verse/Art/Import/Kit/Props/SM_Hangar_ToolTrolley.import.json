@@ -1,0 +1,66 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_ToolTrolley.SM_Hangar_ToolTrolley",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_ToolTrolley.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "2095ff96dae3bc8c4bd6b3ca858402c27b856dab3a5b0ef5a402f17aaaac4439"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "2b928779ab242468c90e6074ab72567bc58ecf3e0240fd709e4507b59764aef7",
+      "3962637a4faec733b10d9970bfeea6696a48b6fd361fda085cc3d122138f6aaa",
+      "3a3e18efa54d18f2d01ad51cb40f8edd9af76e054a6a9c21324bc14fe49be965",
+      "ba4290f62b37dc08d4f99da2b3c78d8cb584bd229e8805ce586ed3f3b5303759",
+      "fa995e77eacad81c78f650e28a6d4c1c7b9d6c74a3f314d5f5ebdddf6de510fc"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        63.671,
+        37.682,
+        96.464
+      ],
+      "min": [
+        -63.671,
+        -37.682,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_ToolTrolley_1.MI_Hangar_ToolTrolley_1",
+        "slot": "M_Hangar_ToolTrolley_1"
+      }
+    ],
+    "triangles": 29394,
+    "uv_sets": 1,
+    "vertices": 22478
+  },
+  "name": "SM_Hangar_ToolTrolley",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "tool_cart"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

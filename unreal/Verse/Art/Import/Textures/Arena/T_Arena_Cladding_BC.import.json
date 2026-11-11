@@ -1,0 +1,37 @@
+{
+  "asset_path": "/Game/Verse/Textures/Arena/T_Arena_Cladding_BC.T_Arena_Cladding_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/arena/T_Arena_Cladding_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "1b2361fa39f13eaa64aa192000b6e5d3eb092f380221cd0bd83012d94d698147"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "243178a7f3fecb28de5d491716bbea0b8caa6ec032c46e99abf3d3043792f0ee"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Arena_Cladding_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "factory_wall",
+      "map": "Diffuse",
+      "set": "Cladding"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/textures.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 2048,
+    "srgb": true
+  }
+}

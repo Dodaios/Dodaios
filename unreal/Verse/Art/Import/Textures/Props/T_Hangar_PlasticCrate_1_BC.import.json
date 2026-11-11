@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_PlasticCrate_1_BC.T_Hangar_PlasticCrate_1_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_PlasticCrate_1_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "063a045c546c52e52cece3e6c29bc1408abdcd865c8029c51e70cfd39a1784d0"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "fb7f0b70da651e260aec7ee3506ecdc8aad62e65d2bf9341609e2a18749591bd"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_PlasticCrate_1_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "plastic_crate_03",
+      "map": "diff"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 512,
+    "srgb": true
+  }
+}

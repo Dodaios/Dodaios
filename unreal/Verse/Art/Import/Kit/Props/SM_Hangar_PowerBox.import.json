@@ -1,0 +1,66 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Hangar_PowerBox.SM_Hangar_PowerBox",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_NoCollision",
+    "source": "none"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/props/SM_Hangar_PowerBox.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "a1638f1fd550ecb2afecf76f3651eaee88979deb5c232b5bb8632a34af44a312"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "199b6fe93776aa0934f7bc36d8c82f1b4db9be9243e82e0cb3727bbcf25d85f1",
+      "4601e901e2f7c1584ab5ecf65e0e192a99a4be86da505527f1622658e1b1e527",
+      "845c425ebc0ded263a7d49909e2c26710dd6160da11c0ca44aebd723f4f6f168",
+      "b46efdf668ec2d4e04ff51604b5f1486caf20df632f442aab62601718058db05",
+      "edb54e68fb1229e9f59906459d782c2ddc576f6bd1141cf09ad864f48d7cb93b"
+    ]
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        23.13,
+        19.801,
+        50.314
+      ],
+      "min": [
+        -23.002,
+        -20.098,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Hangar_PowerBox_1.MI_Hangar_PowerBox_1",
+        "slot": "M_Hangar_PowerBox_1"
+      }
+    ],
+    "triangles": 21272,
+    "uv_sets": 1,
+    "vertices": 20452
+  },
+  "name": "SM_Hangar_PowerBox",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "power_box_01"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  }
+}

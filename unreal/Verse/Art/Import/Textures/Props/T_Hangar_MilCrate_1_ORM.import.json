@@ -1,0 +1,36 @@
+{
+  "asset_path": "/Game/Verse/Textures/Props/T_Hangar_MilCrate_1_ORM.T_Hangar_MilCrate_1_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/props/T_Hangar_MilCrate_1_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "d0a9e9c4c6c54ca90eb5613aef05d6c124eebaeae5b1cd8c30cbacb06b275069"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "fe27fa628a9134f81958413c1a11deea8074fe40424c1a8a48ec459f2dde7955"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Hangar_MilCrate_1_ORM",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "wooden_military_crate",
+      "map": "arm"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/props.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 512,
+    "srgb": false
+  }
+}
