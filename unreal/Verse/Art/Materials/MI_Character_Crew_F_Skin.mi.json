@@ -1,0 +1,26 @@
+{
+  "name": "MI_Character_Crew_F_Skin",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_Skin",
+  "scalars": {
+    "Metallic": 0.0,
+    "Roughness": 0.52
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {
+    "BaseColorMap": "/Game/Verse/Characters/Crew/Textures/T_Crew_F_BC.T_Crew_F_BC",
+    "NormalMap": "/Game/Verse/Characters/Crew/Textures/T_Crew_F_N.T_Crew_F_N",
+    "ORMMap": "/Game/Verse/Characters/Crew/Textures/T_Crew_F_ORM.T_Crew_F_ORM"
+  },
+  "two_sided": true,
+  "vectors": {
+    "BaseTint": [
+      0.62,
+      0.38,
+      0.27,
+      1.0
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "MI_Character_Opponent_M_Accent",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_Accent",
+  "scalars": {
+    "Metallic": 0.0,
+    "Roughness": 0.55
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {
+    "BaseColorMap": "/Game/Verse/Characters/Opponent/Textures/T_Opponent_M_BC.T_Opponent_M_BC",
+    "NormalMap": "/Game/Verse/Characters/Opponent/Textures/T_Opponent_M_N.T_Opponent_M_N",
+    "ORMMap": "/Game/Verse/Characters/Opponent/Textures/T_Opponent_M_ORM.T_Opponent_M_ORM"
+  },
+  "two_sided": true,
+  "vectors": {
+    "BaseTint": [
+      0.14413,
+      0.0075,
+      0.00605,
+      1.0
+    ]
+  }
+}

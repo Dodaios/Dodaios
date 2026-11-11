@@ -1,0 +1,34 @@
+{
+  "asset_path": "/Game/Verse/Characters/Opponent/Textures/T_Opponent_F_BC.T_Opponent_F_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/characters/meshes/textures/T_SK_Opponent_F_BaseColor.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "0b54505f82d63ed6a7de9ed3b678068737767a2cd57615c1b5a545da244356b2"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Opponent_F_BC",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "mesh": "SK_Opponent_F"
+    },
+    "builder": "art/verse/characters/rig_fps.py",
+    "function": "build_mesh"
+  },
+  "texture": {
+    "channels": {},
+    "compression": "Default",
+    "flip_green": false,
+    "group": "Character",
+    "max_size": 2048,
+    "never_stream": true,
+    "srgb": true
+  }
+}

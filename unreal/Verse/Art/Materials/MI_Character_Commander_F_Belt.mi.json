@@ -1,0 +1,26 @@
+{
+  "name": "MI_Character_Commander_F_Belt",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_Belt",
+  "scalars": {
+    "Metallic": 0.0,
+    "Roughness": 0.38
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {
+    "BaseColorMap": "/Game/Verse/Characters/Commander/Textures/T_Commander_F_BC.T_Commander_F_BC",
+    "NormalMap": "/Game/Verse/Characters/Commander/Textures/T_Commander_F_N.T_Commander_F_N",
+    "ORMMap": "/Game/Verse/Characters/Commander/Textures/T_Commander_F_ORM.T_Commander_F_ORM"
+  },
+  "two_sided": true,
+  "vectors": {
+    "BaseTint": [
+      0.014,
+      0.014,
+      0.015,
+      1.0
+    ]
+  }
+}

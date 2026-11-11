@@ -30,6 +30,7 @@ from characters import build as CB
 from characters import common as C
 from characters import crew
 from characters import looks as LK
+from characters import looks_gear as LG
 from characters import looks_sovereign as LS
 from characters import outfits as O
 from characters import paint as PT
@@ -95,8 +96,14 @@ QA_CLIPS = {
     "A_Stand_Lean_L": (0.0,),
 }
 #: Uniforms whose meshes carry their painted atlas (base colour, normal, ORM) into Unreal,
-#: exactly as the three.js build paints them (`build.py`, `paint.texture`).
-PAINTERS = {"Sovereign": LS.sovereign}
+#: exactly as the three.js build paints them (`build.py` `PAINTERS`, `paint.texture`): the
+#: officer uniform as SK_Officer, the coverall as SK_Technician, the opponent as SK_Trooper.
+PAINTERS = {
+    "Commander": LK.officer,
+    "Crew": LG.technician,
+    "Opponent": LG.trooper,
+    "Sovereign": LS.sovereign,
+}
 #: Garment objects the crew build hides (nobody wears the cap, `build.TIERS`).
 HIDDEN = {"Cap"}
 
@@ -105,7 +112,9 @@ def _srgb_hex(h: str) -> list[float]:
     return [round(x, 5) for x in CB._srgb_to_linear(h)] + [1.0]
 
 
-def _material_values(mat, uniform: str, textures: dict | None = None) -> dict:
+def _material_values(
+    mat, uniform: str, textures: dict | None = None, variant: str | None = None
+) -> dict:
     base = C_strip(mat.name)
     bsdf = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
     colour = list(bsdf.inputs["Base Color"].default_value) if bsdf else [0.2, 0.2, 0.2, 1.0]
@@ -119,7 +128,7 @@ def _material_values(mat, uniform: str, textures: dict | None = None) -> dict:
         colour = _srgb_hex(override)
     out = {
         "slot": base,
-        "mi": mi_path(uniform, base),
+        "mi": mi_path(uniform, base, variant),
         "base_color": [round(float(c), 5) for c in colour[:3]] + [1.0],
         "roughness": round(rough, 4),
         "metallic": round(metal, 4),
@@ -146,12 +155,15 @@ def C_strip(name: str) -> str:  # noqa: N802 - keeps the "M_" prefix visible at 
     return name.split("@")[0].split(".")[0]
 
 
-def mi_name(uniform: str, slot: str) -> str:
-    return f"MI_Character_{uniform}_{slot[2:] if slot.startswith('M_') else slot}"
+def mi_name(uniform: str, slot: str, variant: str | None = None) -> str:
+    """`MI_Character_<Uniform>[_<Variant>]_<Slot>`: a painted uniform's body variants have
+    their own atlas, so each variant gets its own instances."""
+    owner = f"{uniform}_{variant}" if variant else uniform
+    return f"MI_Character_{owner}_{slot[2:] if slot.startswith('M_') else slot}"
 
 
-def mi_path(uniform: str, slot: str) -> str:
-    mi = mi_name(uniform, slot)
+def mi_path(uniform: str, slot: str, variant: str | None = None) -> str:
+    mi = mi_name(uniform, slot, variant)
     return f"/Game/Verse/Materials/Instances/Characters/{mi}.{mi}"
 
 
@@ -269,7 +281,8 @@ def build_mesh(var: Variant, spec: K.MeshSpec, out: Path) -> dict:
         if base in seen:
             continue
         seen.add(base)
-        slots.append(_material_values(m, spec.uniform, textures))
+        own = spec.variant if textures and spec.uniform not in K.SINGLE_VARIANT else None
+        slots.append(_material_values(m, spec.uniform, textures, own))
     # the atlas-wired copies ('M_X@<mesh>') export under the slot names the records use
     with PT.export_names(spec.name):
         entry = EX.export_mesh(spec.name, arm, joined, out, slots)
