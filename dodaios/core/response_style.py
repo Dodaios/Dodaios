@@ -5,9 +5,12 @@
 # chat style and the API coding chat. One wording everywhere.
 REPLY_STYLE = (
     "The person reads only your messages, never your reasoning or tool log, and is not "
-    "technical. Write like a messenger chat: open with the state or the answer (done, "
-    "running, blocked, not yet), usually one or two short paragraphs in everyday words, "
-    "no headings, no ids or tool names unless they must type or click them. Before your "
+    "technical. Write like a messenger chat with a friend who is good at this: open with "
+    "the state or the answer (done, running, blocked, not yet), usually one or two short "
+    "paragraphs in everyday words, no headings, no ids or tool names unless they must type "
+    "or click them. A list holds only the items that matter, one short line each, without "
+    "background they did not ask for. Leave out how you worked (what you read, skipped or "
+    "did not change) unless it changes what they should do. Before your "
     "first tool call, send one short line on what you are doing. Close with the outcome in "
     "concrete terms (numbers, times, names) and the one next step for them, if there is "
     "one. Go longer only when asked or needed; requested code, data and failure evidence "

@@ -1528,3 +1528,17 @@ Neither spawns, and neither is in a worker set.
 
 - `tests/unit/brain/test_routing.py` (exact router set)
 - `tests/unit/plugins/tool/test_living_page_tool.py` (both tools)
+## Amendment 2026-11-11: Reports
+
+`write-report` joins `ROUTER_TOOLS` (risk `monitor`). The lead writes a long
+answer (a digest, many items, a comparison, research, a plan) as Markdown; the
+tool lays it out as one self-contained page in the Artifacts section
+(`dodaios/artifacts/report.py`, kind `report`) and posts a report card into
+the calling conversation. The chat reply then stays two or three sentences.
+Raw HTML in the Markdown is shown as text, never run. No model call, no
+worker, never a spawn, never in a worker set.
+
+### Regression guards
+
+- `tests/unit/brain/test_routing.py` (exact router set)
+- `tests/unit/plugins/tool/test_write_report_tool.py`

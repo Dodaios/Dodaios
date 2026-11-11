@@ -94,6 +94,8 @@ ROUTER_TOOLS = frozenset({
     # Direct monitor/safe actions, never a spawn (AP-5/AP-14).
     "living-page",
     "show-result-card",
+    # Reports (2026-11-11): a long answer as a page plus a card in the chat.
+    "write-report",
     # Jobs ledger (2026-11-10): read-only handle on the work the lead started.
     "job-status",
     "await-jobs",

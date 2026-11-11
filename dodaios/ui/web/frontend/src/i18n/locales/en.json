@@ -11646,6 +11646,11 @@
     "state_failed": "Failed",
     "open": "Open"
   },
+  "reports": {
+    "label": "Report",
+    "open": "Open",
+    "sections": "{0} sections"
+  },
   "voice_call": {
     "voice_title": "Voice",
     "voice_loading": "Loading voices…",

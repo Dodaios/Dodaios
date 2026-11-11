@@ -11646,6 +11646,11 @@
     "state_failed": "Fehlgeschlagen",
     "open": "Öffnen"
   },
+  "reports": {
+    "label": "Report",
+    "open": "Öffnen",
+    "sections": "{0} Abschnitte"
+  },
   "voice_call": {
     "voice_title": "Stimme",
     "voice_loading": "Stimmen werden geladen…",
