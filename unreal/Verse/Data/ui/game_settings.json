@@ -34,7 +34,7 @@
       "graphics.post_processing": "high",
       "graphics.foliage": "high",
       "graphics.shading": "high",
-      "graphics.resolution_scale": 67
+      "graphics.resolution_scale": 60
     },
     "low": {
       "graphics.view_distance": "low",
@@ -206,7 +206,7 @@
       "tab": "graphics",
       "section": "rendering",
       "kind": "range",
-      "default": 67,
+      "default": 60,
       "min": 50,
       "max": 100,
       "step": 1,

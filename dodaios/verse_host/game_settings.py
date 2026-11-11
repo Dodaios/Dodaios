@@ -140,7 +140,7 @@ QUALITY_GROUPS: Final[tuple[tuple[str, str, str], ...]] = (
     ("graphics.shading", "high", "medium"),
 )
 # Competitive renders at this share of the output resolution; TSR upscales the rest.
-COMPETITIVE_SCALE: Final = 67
+COMPETITIVE_SCALE: Final = 60
 
 
 # Bindable actions and default keys; mirrors unreal/Verse/Data/ui/keys.json

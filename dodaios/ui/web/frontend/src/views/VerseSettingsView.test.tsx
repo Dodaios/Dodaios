@@ -74,15 +74,15 @@ describe("VerseSettingsView", () => {
       settings: [
         { ...CATALOGUE.settings[0], options: ["auto", "competitive", "low", "medium", "high", "epic", "cinematic", "custom"] },
         ...CATALOGUE.settings.slice(1),
-        { id: "graphics.resolution_scale", tab: "graphics", section: "rendering", kind: "range", default: 67, min: 50, max: 100, step: 1, unit: "%" },
+        { id: "graphics.resolution_scale", tab: "graphics", section: "rendering", kind: "range", default: 60, min: 50, max: 100, step: 1, unit: "%" },
       ],
-      presets: { competitive: { "graphics.shadows": "high", "graphics.textures": "epic", "graphics.resolution_scale": 67 } },
+      presets: { competitive: { "graphics.shadows": "high", "graphics.textures": "epic", "graphics.resolution_scale": 60 } },
     };
     render(<VerseSettingsView />);
     await screen.findByRole("group", { name: "Quality preset" });
     fireEvent.keyDown(row("graphics.preset"), { key: "ArrowRight" }); // auto -> competitive
     await waitFor(() => expect(patches).toHaveLength(1));
-    expect(patches[0]).toEqual({ game: { "graphics.preset": "competitive", "graphics.shadows": "high", "graphics.textures": "epic", "graphics.resolution_scale": 67 } });
+    expect(patches[0]).toEqual({ game: { "graphics.preset": "competitive", "graphics.shadows": "high", "graphics.textures": "epic", "graphics.resolution_scale": 60 } });
     expect(within(row("graphics.preset")).getByText("Competitive")).toBeTruthy();
   });
 

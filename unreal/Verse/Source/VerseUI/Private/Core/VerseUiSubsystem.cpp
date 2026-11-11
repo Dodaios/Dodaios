@@ -135,6 +135,19 @@ namespace
 		return Out;
 	}
 
+	/**
+	 * Scalability only when a level changes: every change restarts the PSO precache of all
+	 * loaded materials, and a restart during a map load can trip the engine's precache check
+	 * (PSOPrecacheMaterial.cpp, "CheckCompilingPSOs should not be active") in non-shipping builds.
+	 */
+	void SetQualityLevelsIfChanged(const Scalability::FQualityLevels& Levels)
+	{
+		if (Scalability::GetQualityLevels() != Levels)
+		{
+			Scalability::SetQualityLevels(Levels, true);
+		}
+	}
+
 	const TCHAR* PresetId = TEXT("graphics.preset");
 	const TCHAR* TierId = TEXT("gameplay.bot_tier");
 }
@@ -1011,7 +1024,7 @@ void UVerseUiSubsystem::ApplyScalabilityLevel(int32 Level)
 		// Auto: the engine's default levels.
 		Levels.SetDefaults();
 	}
-	Scalability::SetQualityLevels(Levels);
+	SetQualityLevelsIfChanged(Levels);
 }
 
 void UVerseUiSubsystem::SetScalability(int32 Level)
@@ -1447,12 +1460,12 @@ void UVerseUiSubsystem::ApplyGraphics(const FVerseGraphicsPlan& Plan)
 		}
 		else if (User && !GIsEditor)
 		{
-			Scalability::SetQualityLevels(BenchmarkLevels, true);
+			SetQualityLevelsIfChanged(BenchmarkLevels);
 		}
 	}
 	else
 	{
-		Scalability::SetQualityLevels(Plan.Quality, true);
+		SetQualityLevelsIfChanged(Plan.Quality);
 	}
 
 	if (User && !GIsEditor)
