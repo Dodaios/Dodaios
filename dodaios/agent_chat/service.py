@@ -291,6 +291,46 @@ def session_runner(session: Any) -> str:
     )
 
 
+#: Seats whose CLI takes a message with files into its running turn: Claude
+#: Code and GLM read a picture as an image block of a stream-json message.
+_STEER_FILE_RUNNERS: Final[frozenset[str]] = frozenset({"claude-cli", "glm-cli"})
+
+
+def _seen_directly(cwd: str, attached: list[Any], images: tuple[str, ...]) -> list[Any]:
+    """``attached`` with every picture in ``images`` marked as sent to the CLI itself.
+
+    The CLI looks at such a picture directly, so its vision description is
+    dropped; the file path stays in the text for the CLI's tools.
+    """
+    from dodaios.agentic_ide import drops
+
+    sent = set(images)
+    return [
+        replace(
+            a, detail="", described_by="none",
+            note="Attached to this message as an image; look at it directly.",
+        )
+        if getattr(a, "kind", "") == "image"
+        and str(Path(cwd) / drops.dereference(str(a.reference))) in sent
+        else a
+        for a in attached
+    ]
+
+
+def _attachment_receipts(attached: list[Any]) -> list[dict[str, Any]]:
+    """What a ``user_message`` event keeps of the files that came with it."""
+    return [
+        {
+            "name": item.name,
+            "reference": item.reference,
+            "kind": item.kind,
+            "described_by": item.described_by,
+            "note": item.note,
+        }
+        for item in attached
+    ]
+
+
 #: ``AgentChatStore.data_version`` after the front page's chat gave up its
 #: CLI seats (2026-08-26) and its sessions moved to the API row of the same
 #: brand. Bump — and add a branch in ``_retire_cli_seats``' caller — only for
@@ -562,7 +602,7 @@ class AgentChatService:
         # started yet, but a competing send and Stop must both see this owner.
         self._preparing: dict[str, _Running] = {}
         #: Running turns whose CLI takes a message mid-turn: session -> (turn, writer).
-        self._steerers: dict[str, tuple[str, Callable[[str], Awaitable[bool]]]] = {}
+        self._steerers: dict[str, tuple[str, Callable[..., Awaitable[bool]]]] = {}
         self._subscribers: dict[str, set[Subscriber]] = {}
         # Synchronous observers of every stored event (add_event_listener).
         self._event_listeners: list[Callable[[str, dict[str, Any]], None]] = []
@@ -1140,7 +1180,7 @@ class AgentChatService:
         )
 
     def _set_steerer(
-        self, session_id: str, turn_id: str, writer: Callable[[str], Awaitable[bool]] | None
+        self, session_id: str, turn_id: str, writer: Callable[..., Awaitable[bool]] | None
     ) -> None:
         if writer is not None:
             self._steerers[session_id] = (turn_id, writer)
@@ -1150,22 +1190,60 @@ class AgentChatService:
     def can_steer(self, session_id: str) -> bool:
         return session_id in self._steerers and self.is_running(session_id)
 
-    async def steer(self, session_id: str, text: str) -> bool:
+    async def steer(
+        self,
+        session_id: str,
+        text: str,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> bool:
         """Hand a message to the CLI of the running turn; False when it cannot take one.
 
         On success the message is a ``user_message`` of that turn (``steered``),
-        so the transcript shows it where the agent received it.
+        so the transcript shows it where the agent received it. Files go along
+        the way they do on a new turn: each by its path in the text, pictures
+        also as image blocks. Only Claude Code and GLM read those mid-turn; on
+        any other seat a message with files is not taken here and starts the
+        next turn instead.
         """
         entry = self._steerers.get(session_id)
         body = text.strip()
-        if entry is None or not body or not self.is_running(session_id):
+        attached = chat_attachments.to_analysis(attachments)
+        if entry is None or not (body or attached) or not self.is_running(session_id):
             return False
         turn_id, writer = entry
-        if not await writer(body):
+        if not attached:
+            if not await writer(body):
+                return False
+            await self._emit(
+                session_id,
+                make_event("user_message", {"text": body, "turn_id": turn_id, "steered": True}),
+            )
+            return True
+        from dodaios.agent_chat import plain_chat
+
+        session = self.store.get_session(session_id)
+        if session is None or session_runner(session) not in _STEER_FILE_RUNNERS:
+            return False
+        found = await asyncio.to_thread(
+            plain_chat.image_paths, session.cwd, attached, limit=None
+        )
+        images = tuple(str(path) for path in found)
+        attached = _seen_directly(session.cwd, attached, images)
+        prompt = chat_attachments.compose(body, attached)
+        if self._steerers.get(session_id) is not entry or not await writer(prompt, images):
             return False
         await self._emit(
             session_id,
-            make_event("user_message", {"text": body, "turn_id": turn_id, "steered": True}),
+            make_event(
+                "user_message",
+                {
+                    "text": prompt,
+                    "typed": body,
+                    "attachments": _attachment_receipts(attached),
+                    "turn_id": turn_id,
+                    "steered": True,
+                },
+            ),
         )
         return True
 
@@ -1743,19 +1821,7 @@ class AgentChatService:
                     images = tuple(str(path) for path in found)
                     native_pictures = bool(images)
             if native_pictures:
-                from dodaios.agentic_ide import drops as _drops
-
-                sent = set(images)
-                attached = [
-                    replace(
-                        a, detail="", described_by="none",
-                        note="Attached to this message as an image; look at it directly.",
-                    )
-                    if getattr(a, "kind", "") == "image"
-                    and str(Path(session.cwd) / _drops.dereference(str(a.reference))) in sent
-                    else a
-                    for a in attached
-                ]
+                attached = _seen_directly(session.cwd, attached, images)
                 prompt = chat_attachments.compose(text, attached)
             if attached and kit.plain:
                 from dodaios.agent_chat import plain_chat
@@ -1933,18 +1999,7 @@ class AgentChatService:
                                 else {}
                             ),
                             **(
-                                {
-                                    "attachments": [
-                                        {
-                                            "name": item.name,
-                                            "reference": item.reference,
-                                            "kind": item.kind,
-                                            "described_by": item.described_by,
-                                            "note": item.note,
-                                        }
-                                        for item in attached
-                                    ]
-                                }
+                                {"attachments": _attachment_receipts(attached)}
                                 if attached
                                 else {}
                             ),

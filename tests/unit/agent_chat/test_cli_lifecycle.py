@@ -641,3 +641,213 @@ def test_only_a_notice_answer_without_a_model_turn_is_skipped():
     # An error after a notice still ends the turn.
     runner_cli.translate_claude_line({**empty, "is_error": True}, st)
     assert st.saw_result and st.status == "error"
+
+
+_TASK_STARTED = json.dumps(
+    {"type": "system", "subtype": "task_started", "task_id": "b1", "description": "watch CI"}
+)
+_TASK_ENDED = json.dumps(
+    {"type": "system", "subtype": "task_notification", "task_id": "b1", "status": "completed"}
+)
+
+
+def _says(message_id: str, text: str) -> str:
+    start = {
+        "type": "stream_event",
+        "event": {"type": "message_start", "message": {"id": message_id}},
+    }
+    body = {
+        "type": "assistant",
+        "message": {"id": message_id, "content": [{"type": "text", "text": text}]},
+    }
+    return f"print({json.dumps(start)!r}, flush=True)\nprint({json.dumps(body)!r}, flush=True)\n"
+
+
+async def _drive_steerable_claude(tmp_path: Path, source: str, on_wait):
+    """Drive a fake Claude Code whose stdin stays open; ``on_wait(steer)`` runs
+    once the turn says it waits for a background task."""
+    store = AgentChatStore(":memory:")
+    session = store.create_session(
+        provider="claude-api", model="fake", effort="", cwd=str(tmp_path)
+    )
+    events: list = []
+    steerer: list = [None]
+    waited = asyncio.Event()
+
+    async def emit(event):
+        events.append(event)
+        if event["kind"] == "background_wait" and event["payload"]["tasks"]:
+            waited.set()
+
+    async def approve(*_args):
+        pytest.fail("No approval should be requested")
+
+    handle = TurnHandle(session, "turn", emit, approve, asyncio.Event())
+    handle.on_steer = lambda writer: steerer.__setitem__(0, writer)
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-u",
+        "-c",
+        source,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        creationflags=NO_WINDOW_CREATIONFLAGS,
+    )
+
+    async def react() -> None:
+        await waited.wait()
+        await on_wait(steerer[0])
+
+    reaction = asyncio.create_task(react())
+    try:
+        outcome = await asyncio.wait_for(
+            runner_cli._drive_cli(
+                handle,
+                proc,
+                runner_cli.CliPlan(
+                    argv=[],
+                    env={},
+                    stdin_text="prompt\n",
+                    shape="claude",
+                    vendor_session=None,
+                    keep_stdin=True,
+                ),
+                "claude-cli",
+                cwd=tmp_path,
+                started_at=time.time(),
+                placement=None,
+                tree=None,
+                bridge=None,
+            ),
+            timeout=30.0,
+        )
+        await asyncio.wait_for(reaction, 5)
+    finally:
+        reaction.cancel()
+        if proc.returncode is None:
+            proc.kill()
+        await asyncio.wait_for(proc.wait(), 3)
+        store.close()
+    return outcome, proc, events, steerer
+
+
+async def test_a_message_reaches_an_agent_that_waits_for_a_background_task(tmp_path: Path):
+    """Claude Code answered and waits for a background task: its stdin is still
+    open, so what the person writes now is answered at once, inside the turn,
+    and the task's own outcome still follows."""
+    source = (
+        "import sys\n"
+        "sys.stdin.readline()\n"  # the prompt
+        f"print({_TASK_STARTED!r}, flush=True)\n"
+        + _says("m1", "Watching CI.")
+        + f"print({_RESULT_LINE!r}, flush=True)\n"
+        "steered = sys.stdin.readline()\n"  # blocks until the person writes
+        "assert 'run the linter' in steered, steered\n"
+        + _says("m2", "Linter is clean.")
+        + f"print({_RESULT_LINE!r}, flush=True)\n"
+        f"print({_TASK_ENDED!r}, flush=True)\n"
+        + _says("m3", "CI is green.")
+        + f"print({_RESULT_LINE!r}, flush=True)\n"
+        "sys.stdin.read()\n"  # Claude Code exits once its stdin closes
+    )
+    accepted: list[bool] = []
+
+    async def on_wait(steer) -> None:
+        accepted.append(await steer("also run the linter"))
+
+    outcome, proc, events, steerer = await _drive_steerable_claude(tmp_path, source, on_wait)
+    assert accepted == [True]
+    assert outcome.status == "done", outcome.error
+    texts = [e["payload"]["text"] for e in events if e["kind"] == "assistant_text"]
+    assert texts == ["Watching CI.", "Linter is clean.", "CI is green."]
+    assert proc.returncode == 0  # it ended by itself once stdin closed, never killed
+    assert steerer[0] is None  # the turn is over: nothing takes a message any more
+
+
+async def test_a_steered_answer_does_not_end_a_turn_that_still_waits(tmp_path: Path, monkeypatch):
+    """The agent answered the message; its background task still runs, so the
+    turn stays open and says again what it waits for."""
+    monkeypatch.setattr(runner_cli, "_RESULT_EXIT_GRACE_S", 0.1)
+    source = (
+        "import sys, time\n"
+        "sys.stdin.readline()\n"
+        f"print({_TASK_STARTED!r}, flush=True)\n"
+        f"print({_RESULT_LINE!r}, flush=True)\n"
+        "sys.stdin.readline()\n"
+        + _says("m2", "Noted.")
+        + f"print({_RESULT_LINE!r}, flush=True)\n"
+        "time.sleep(1.0)\n"
+        f"print({_TASK_ENDED!r}, flush=True)\n"
+        + _says("m3", "Done.")
+        + f"print({_RESULT_LINE!r}, flush=True)\n"
+        "sys.stdin.read()\n"
+    )
+
+    async def on_wait(steer) -> None:
+        assert await steer("keep going")
+
+    t0 = time.monotonic()
+    outcome, _proc, events, _ = await _drive_steerable_claude(tmp_path, source, on_wait)
+    assert outcome.status == "done", outcome.error
+    assert time.monotonic() - t0 >= 0.9
+    waits = [e["payload"]["tasks"] for e in events if e["kind"] == "background_wait"]
+    assert waits == [["watch CI"], [], ["watch CI"], []]
+    assert [e["payload"]["text"] for e in events if e["kind"] == "assistant_text"][-1] == "Done."
+
+
+async def test_a_wake_that_never_comes_does_not_hold_the_cli_open(tmp_path: Path, monkeypatch):
+    """Every task ended and the CLI says nothing more: stdin is closed after a
+    while, so a CLI with nothing left to do ends by itself."""
+    monkeypatch.setattr(runner_cli, "_WAKE_GRACE_S", 0.4)
+    source = (
+        "import sys\n"
+        "sys.stdin.readline()\n"
+        f"print({_TASK_STARTED!r}, flush=True)\n"
+        f"print({_RESULT_LINE!r}, flush=True)\n"
+        f"print({_TASK_ENDED!r}, flush=True)\n"
+        "sys.stdin.read()\n"
+    )
+
+    async def on_wait(_steer) -> None:
+        return None
+
+    outcome, proc, _events, _ = await _drive_steerable_claude(tmp_path, source, on_wait)
+    assert outcome.status == "done", outcome.error
+    assert proc.returncode == 0
+
+
+async def test_a_picture_sent_to_a_waiting_agent_goes_as_an_image_block(tmp_path: Path):
+    import base64
+
+    picture = tmp_path / "shot.png"
+    picture.write_bytes(
+        base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        )
+    )
+    source = (
+        "import json, sys\n"
+        "sys.stdin.readline()\n"
+        f"print({_TASK_STARTED!r}, flush=True)\n"
+        f"print({_RESULT_LINE!r}, flush=True)\n"
+        "content = json.loads(sys.stdin.readline())['message']['content']\n"
+        "assert [block['type'] for block in content] == ['image', 'text'], content\n"
+        "assert content[0]['source']['media_type'] == 'image/png'\n"
+        "assert content[1]['text'] == 'what is this?'\n"
+        + _says("m2", "A screenshot.")
+        + f"print({_RESULT_LINE!r}, flush=True)\n"
+        f"print({_TASK_ENDED!r}, flush=True)\n"
+        + _says("m3", "Done.")
+        + f"print({_RESULT_LINE!r}, flush=True)\n"
+        "sys.stdin.read()\n"
+    )
+
+    async def on_wait(steer) -> None:
+        assert await steer("what is this?", (str(picture),))
+
+    outcome, proc, events, _ = await _drive_steerable_claude(tmp_path, source, on_wait)
+    assert outcome.status == "done", outcome.error
+    assert proc.returncode == 0
+    texts = [e["payload"]["text"] for e in events if e["kind"] == "assistant_text"]
+    assert texts == ["A screenshot.", "Done."]

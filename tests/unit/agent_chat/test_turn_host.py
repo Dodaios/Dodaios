@@ -33,9 +33,11 @@ _CHILD = (
 
 
 async def _start_host(
-    tmp_path: Path, *, idle_exit_s: float = 60.0
+    tmp_path: Path, *, idle_exit_s: float = 60.0, unwatched_stdin_s: float = 120.0
 ) -> tuple[turn_host.TurnHost, asyncio.Task[None], int]:
-    host = turn_host.TurnHost(TOKEN, tmp_path / "spool", idle_exit_s=idle_exit_s)
+    host = turn_host.TurnHost(
+        TOKEN, tmp_path / "spool", idle_exit_s=idle_exit_s, unwatched_stdin_s=unwatched_stdin_s
+    )
     state = tmp_path / "state.json"
     task = asyncio.create_task(host.serve(state))
     for _ in range(200):
@@ -626,9 +628,10 @@ _RESULT_THEN_WAIT = (
 
 
 async def test_the_host_closes_stdin_after_the_result_when_no_app_is_attached(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    host, task, port = await _start_host(tmp_path)
+    monkeypatch.setattr(turn_host, "_IDLE_POLL_S", 0.05)
+    host, task, port = await _start_host(tmp_path, unwatched_stdin_s=0.2)
     try:
         client = await _client(port)
         cli = await client.spawn(
@@ -682,6 +685,10 @@ async def test_lines_past_the_replay_cap_still_stream_and_end_the_turn(
         lines = []
         while line := await asyncio.wait_for(cli.stdout.readline(), timeout=10):
             lines.append(line.decode().strip())
+            if len(lines) == 6:
+                # The app read the answer: it ends the turn by closing stdin.
+                assert cli.stdin is not None
+                cli.stdin.close()
         assert len(lines) == 6
         assert json.loads(lines[-1])["type"] == "result"
         assert await asyncio.wait_for(cli.wait(), timeout=10) == 0
@@ -693,6 +700,151 @@ async def test_lines_past_the_replay_cap_still_stream_and_end_the_turn(
         client.detach()
     finally:
         await _stop(host, task)
+
+
+# Answers, then echoes every further stdin line until stdin closes.
+_RESULT_THEN_ECHO = (
+    "import json, sys\n"
+    "sys.stdin.readline()\n"
+    "print(json.dumps({'type': 'result', 'subtype': 'success'}), flush=True)\n"
+    "for line in sys.stdin:\n"
+    "    print('heard ' + line.strip(), flush=True)\n"
+)
+
+
+async def test_stdin_stays_open_after_the_result_while_an_app_reads_the_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Claude Code can wait for background tasks after its answer; a message
+    written then must still reach it, also after an app restart."""
+    monkeypatch.setattr(turn_host, "_IDLE_POLL_S", 0.05)
+    host, task, port = await _start_host(tmp_path, unwatched_stdin_s=30.0)
+    try:
+        first = await _client(port)
+        cli = await first.spawn(
+            [sys.executable, "-c", _RESULT_THEN_ECHO],
+            cwd=str(tmp_path),
+            env=None,
+            stdin="prompt\n",
+            keep_stdin=True,
+            meta={"turn_id": "t10", "keep_stdin": True},
+            close_stdin_on="result",
+        )
+        assert cli.stdin_after_result
+        assert json.loads(await cli.stdout.readline())["type"] == "result"
+        await asyncio.sleep(0.3)  # several polls: a turn being read keeps its stdin
+        assert cli.stdin is not None
+        cli.stdin.write(b"one\n")
+        assert await asyncio.wait_for(cli.stdout.readline(), timeout=10) == b"heard one\n"
+
+        first.detach()  # an app restart, well inside the grace
+        second = await _client(port)
+        again = await second.attach(cli.host_id)
+        assert again is not None and again.stdin is not None
+        assert again.stdin_after_result and not again.stdin.is_closing()
+        again.stdin.write(b"two\n")
+        lines = [await asyncio.wait_for(again.stdout.readline(), timeout=10) for _ in range(3)]
+        assert lines[-1] == b"heard two\n"
+        again.stdin.close()  # the app decides the turn is over
+        assert await asyncio.wait_for(again.wait(), timeout=10) == 0
+        again.release()
+        second.detach()
+    finally:
+        await _stop(host, task)
+
+
+async def test_an_app_attaching_after_the_host_closed_stdin_is_told_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(turn_host, "_IDLE_POLL_S", 0.05)
+    host, task, port = await _start_host(tmp_path, unwatched_stdin_s=0.2)
+    try:
+        first = await _client(port)
+        cli = await first.spawn(
+            # Still busy after its stdin closed, as with a background task open.
+            [sys.executable, "-c", _RESULT_THEN_WAIT + "import time\ntime.sleep(30)\n"],
+            cwd=str(tmp_path),
+            env=None,
+            stdin="prompt\n",
+            keep_stdin=True,
+            meta={"turn_id": "t11", "keep_stdin": True},
+            close_stdin_on="result",
+        )
+        first.detach()
+        for _ in range(200):
+            turn = host._turns.get(cli.host_id)
+            if turn is not None and not turn_host._stdin_open(turn):
+                break
+            await asyncio.sleep(0.05)
+        assert host._turns[cli.host_id].alive
+        second = await _client(port)
+        again = await second.attach(cli.host_id)
+        assert again is not None and again.stdin is not None
+        assert not again.stdin_after_result and again.stdin.is_closing()
+        assert again.returncode is None
+        again.kill()
+        await asyncio.wait_for(again.wait(), timeout=10)
+        second.detach()
+    finally:
+        await _stop(host, task)
+
+
+async def test_a_host_of_another_build_is_replaced_only_while_it_holds_no_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The host outlives app updates. One running older code is swapped for a
+    new one at the next thread start, but never while it holds a turn."""
+    host, task, port = await _start_host(tmp_path)
+    try:
+        found = await _handshake(
+            port, TOKEN, 3.0, proto=turn_host.PROTOCOL_VERSION, limit=turn_host.MAX_FRAME_BYTES
+        )
+        assert found is not None
+        reader, writer, reply = found
+        assert reply["build"] == turn_host.BUILD
+        old = turn_host_client._client_from(reader, writer, {**reply, "build": "older"})
+        assert old.outdated and old.holds_nothing()
+        busy = await old.spawn(
+            [sys.executable, "-c", _WAIT_FOREVER],
+            cwd=str(tmp_path),
+            env=None,
+            stdin=None,
+            keep_stdin=False,
+            meta={"turn_id": "t12"},
+        )
+        assert not old.holds_nothing()
+
+        opened: list[bool] = []
+        fresh = object()
+
+        async def reopen(*, start: bool) -> Any:
+            opened.append(start)
+            return fresh
+
+        monkeypatch.setattr(turn_host_client, "_open", reopen)
+        monkeypatch.setattr(turn_host_client, "_client", old)
+        assert await turn_host_client._renew_outdated(old) is old  # a turn runs: it stays
+        assert opened == []
+
+        busy.kill()
+        await asyncio.wait_for(busy.wait(), timeout=10)
+        busy.release()
+        assert old.holds_nothing()
+        assert await turn_host_client._renew_outdated(old) is fresh
+        assert opened == [True] and not old.connected
+    finally:
+        await _stop(host, task)
+
+
+def test_retiring_a_host_never_touches_a_process_that_is_not_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import os
+
+    monkeypatch.setattr(turn_host_client, "_host_alive", lambda state: False)
+    # This test's own pid: were it terminated, the run would end here.
+    assert turn_host_client._retire_host({"pid": os.getpid()}) is True
+    assert turn_host_client._retire_host(None) is True
 
 
 def test_concurrent_first_requests_build_only_one_chat_service() -> None:
@@ -1062,11 +1214,11 @@ def test_the_host_keeps_stdin_open_past_the_empty_answer_to_a_task_notice() -> N
     notice = {"type": "system", "subtype": "task_notification", "task_id": "a", "status": "stopped"}
     empty = {"type": "result", "subtype": "success", "is_error": False, "num_turns": 0}
     real = {"type": "result", "subtype": "success", "is_error": False, "num_turns": 3}
-    assert not turn_host._ends_input(turn, json.dumps(notice))
-    assert not turn_host._ends_input(turn, json.dumps(empty))
-    assert turn_host._ends_input(turn, json.dumps(real))
+    assert not turn_host._is_answer(turn, json.dumps(notice))
+    assert not turn_host._is_answer(turn, json.dumps(empty))
+    assert turn_host._is_answer(turn, json.dumps(real))
     # Without a notice before it, even an empty result is the end.
     fresh = turn_host.HostedTurn(
         turn_id="u", proc=None, meta={}, started_at=0.0, close_stdin_on="result"  # type: ignore[arg-type]
     )
-    assert turn_host._ends_input(fresh, json.dumps(empty))
+    assert turn_host._is_answer(fresh, json.dumps(empty))

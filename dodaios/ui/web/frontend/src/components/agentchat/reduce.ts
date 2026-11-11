@@ -34,6 +34,8 @@ export interface TextBlock {
   text: string;
   /** The text as the agent wrote it, kept only when a question block was hidden from it. */
   raw?: string;
+  /** The files of a message the person sent into the running turn (a `steer-` block). */
+  attachments?: UserAttachment[];
 }
 
 export interface ReasoningBlock {
@@ -993,7 +995,10 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         return updateTurn(base, turnId, (turn) => ({
           ...closeLiveReasoning(turn, ev.ts_ms),
           blocks: [...closeLiveReasoning(turn, ev.ts_ms).blocks, {
-            kind: "text", id: `${STEER_PREFIX}${seq || ev.ts_ms}`, text: str(p.text),
+            // With files, `typed` is the person's own sentence and `text` the composed prompt.
+            kind: "text", id: `${STEER_PREFIX}${seq || ev.ts_ms}`,
+            text: typeof p.typed === "string" ? p.typed : str(p.text),
+            ...(userAttachments(p.attachments).length > 0 ? { attachments: userAttachments(p.attachments) } : {}),
           }],
         }));
       }
