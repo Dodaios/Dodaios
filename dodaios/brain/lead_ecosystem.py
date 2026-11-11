@@ -33,7 +33,6 @@ SECTION_READS: Final[dict[str, tuple[str, ...]]] = {
     "board": ("GET /api/board/personal/summary",),
     "costs": ("costs_summary",),
     "computers": ("GET /api/computers",),
-    "games": ("GET /api/verse/settings",),
     "memory": ("memory-search",),
     "profile": ("GET /api/profile",),
     "settings": ("describe-app-settings",),
@@ -133,12 +132,6 @@ AREAS: Final[tuple[Area, ...]] = (
     ),
     Area("Spend", "cost and tokens per agent, seat and model", sections=("costs",),
          acts=("costs_summary",)),
-    Area(
-        "Verse",
-        "the built-in game and its settings",
-        sections=("games",),
-        reads=("GET /api/verse/status",),
-    ),
     Area(
         "Memory and profile",
         "the personal memory vault, the profile, standing instructions, trust rules",

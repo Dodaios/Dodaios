@@ -1185,7 +1185,7 @@ def app_launch_env(base: dict[str, str] | None = None) -> dict[str, str]:
     """Environment for the launched app: the installer's own, minus its git-only knobs.
 
     The shell stage sets ``GIT_LFS_SKIP_SMUDGE`` for its clone so an install
-    never pulls the Verse's LFS binaries. The app (coding-agent panes, git in
+    never pulls Git LFS binaries. The app (coding-agent panes, git in
     the user's own repos) must not inherit it, or LFS files there would come
     out as pointer files.
     """

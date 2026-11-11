@@ -94,15 +94,14 @@ https://github.com/user-attachments/assets/4c29df69-2114-4ed1-a220-703f6ff8386a
 
 <table>
   <tr>
-    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/verse.jpg" alt="Verse" width="100%" /><br /><b>Verse</b><br />你的智能体住在一艘可以四处走动的飞船上，谁在值班、谁需要你，一目了然。 <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/verse/README.md">Verse</a></td>
     <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/memory.png" alt="记忆" width="100%" /><br /><b>记忆</b><br />一个本地 wiki，智能体可以读取、写入并引用，还有一张展示全部知识的地图。 <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/knowledge-and-sharing/wiki-and-memory.md">记忆</a></td>
-  </tr>
-  <tr>
     <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/plugins.png" alt="插件、MCP 和技能" width="100%" /><br /><b>插件、MCP 和技能</b><br />40 多个一键集成、任意 MCP 服务器、命令行工具和可复用的技能。 <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md">插件</a></td>
-    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/artifacts.png" alt="Artifacts" width="100%" /><br /><b>Artifacts</b><br />智能体做出的每个页面、报告和仪表盘，都集中在一面墙上。 <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md">智能体指南</a></td>
   </tr>
   <tr>
+    <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/artifacts.png" alt="Artifacts" width="100%" /><br /><b>Artifacts</b><br />智能体做出的每个页面、报告和仪表盘，都集中在一面墙上。 <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md">智能体指南</a></td>
     <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/built-for-you.png" alt="为你而建" width="100%" /><br /><b>为你而建</b><br />Dodaios 会注意到你反复在做的事，并替你做好：一个技能、一个例行任务或一个智能体。你可以查看并撤销这一切。 <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/self-build.md">工作原理</a></td>
+  </tr>
+  <tr>
     <td width="50%" valign="top"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/marketplace.png" alt="市场" width="100%" /><br /><b>市场</b><br />来自社区的智能体、技能和插件，一键安装。 <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/marketplace/community-registry.md">市场</a></td>
   </tr>
 </table>

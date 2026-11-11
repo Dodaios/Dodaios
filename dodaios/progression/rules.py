@@ -178,7 +178,7 @@ RETIRED_SOURCES: Final[frozenset[str]] = frozenset(
 
 # ------------------------------------------------------------------ duel rules
 
-#: The duel sources, in rulebook order (``docs/verse/unreal/contracts/bridge-protocol.md`` 10).
+#: The duel sources, in rulebook order.
 DUEL_SOURCES: Final[tuple[str, ...]] = ("duel_won", "duel_lost", "duel_finisher")
 
 #: ``duel.result`` outcomes, from the person's side: a finished set is won or

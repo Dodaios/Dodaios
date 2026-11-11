@@ -8,8 +8,5 @@ assets/demo/readme/dodaios-demo.gif
 # editor workers are large by nature.
 dodaios/ui/web/dist/*
 
-# Verse ship decks: realtime scenes the 3D view loads.
-dodaios/ui/web/frontend/public/verse/decks/*/realtime/scene.glb
-
 # Mars outpost model the society map loads (OutpostReference.tsx).
 art/studies/mars-outpost-reference/exports/communications-outpost.glb

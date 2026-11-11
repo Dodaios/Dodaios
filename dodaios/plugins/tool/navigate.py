@@ -73,8 +73,6 @@ KNOWN: frozenset[str] = frozenset(
         "marketplace",
         # My Pets: the desktop pet, its look, and the pets the user created.
         "pets",
-        # Game settings: per-game sensitivity, keybinds, audio and video.
-        "games",
         # Notifications: desktop notifications, quiet hours and approvals in
         # Telegram. A Settings-hub page.
         "notifications",
@@ -300,14 +298,6 @@ _ALIASES: dict[str, str] = {
     "vertrauen": "trust",  # i18n-allow: input vocab
     "datenschutz": "trust",  # i18n-allow: input vocab
     "privacidad": "trust",  # i18n-allow: input vocab
-    "game settings": "games",
-    "gaming settings": "games",
-    "games": "games",
-    "sensitivity converter": "games",
-    "spiele": "games",  # i18n-allow: input vocab
-    "spieleinstellungen": "games",  # i18n-allow: input vocab
-    "spiel einstellungen": "games",  # i18n-allow: input vocab
-    "ajustes de juegos": "games",  # i18n-allow: input vocab
     "my pet": "pets",
     "desktop pet": "pets",
     "desktop pets": "pets",

@@ -35,7 +35,7 @@
 #      its ~1.5 s even though CI also runs it.
 #
 #   3. GIT LFS upload — `git lfs pre-push`, only when git-lfs is installed, so
-#      Unreal assets reach the remote with the branch (architecture 8.4).
+#      LFS objects reach the remote with the branch.
 #
 # Together: under two seconds. A push is a push again.
 #
@@ -102,7 +102,7 @@ fi
 # --- 3) GIT LFS upload (FAIL-CLOSED when git-lfs is installed) ---------------
 # core.hooksPath points here, so `git lfs install` cannot add its own pre-push
 # hook; without this line a push carries LFS pointers but not the objects
-# (Unreal .uasset/.umap, docs/verse/unreal/architecture.md 8.4). Machines
+# (any path `.gitattributes` routes through LFS). Machines
 # without git-lfs skip it; CI's LFS pointer check is the backstop.
 lfs_hit=0
 if command -v git-lfs >/dev/null 2>&1; then

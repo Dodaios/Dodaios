@@ -42,23 +42,9 @@ them needs you. Everything runs on your own computer.
   click. Each one keeps one endless conversation, learns from its own work and
   runs routines on a schedule.
   [Agents →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md)
-- **Vibe coding that plays like a game.** Your agents live on a ship. You are
-  the commanding officer, they are your crew, and they earn ranks as they work.
-  [Verse →](https://github.com/Dodaios/Dodaios/blob/main/docs/verse/README.md)
 - **You approve, it acts.** Each action gets a risk level: safe, monitor, ask
   or block. Anything that can change your system waits for your yes.
   [Safety →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/safety-and-approvals.md)
-
-## Vibe coding, but it feels like a game
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/verse.jpg" alt="The Dodaios Verse: agents at work on the decks of a ship" width="100%" />
-</p>
-
-Walk through the ship and see who is on duty and who needs you. Your coding
-panes are the engineers, your agents are the officers, and your pet is your
-companion drone. Work earns experience points for the crew and for you, and
-everyone rises in rank.
 
 ## "So what are you selling?"
 

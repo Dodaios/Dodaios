@@ -1,7 +1,6 @@
 """Duel statistics: one row per ``duel.result`` and the running totals.
 
-The hangar duel reports one result per set (``docs/verse/unreal/contracts/
-bridge-protocol.md`` 10): ``won`` or ``lost`` for a finished set, ``unfinished``
+A duel reports one result per set: ``won`` or ``lost`` for a finished set, ``unfinished``
 for a set left mid-way. Every result lands here, whether it paid XP or not,
 so the service record can show sets, wins, K/D, headshots, finishers and the
 best streak, per opponent tier and per weapon.

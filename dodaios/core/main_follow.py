@@ -126,8 +126,8 @@ def _run(
     env.update(extra_env or {})
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GCM_INTERACTIVE"] = "never"
-    # Following main never downloads the Unreal Verse's LFS binaries (``unreal/**``,
-    # docs/verse/unreal/architecture.md 8.4); the Verse arrives as its own package.
+    # Following main never downloads Git LFS objects: older commits carry LFS
+    # pointers for large binaries, and moving across them must not pull those.
     env["GIT_LFS_SKIP_SMUDGE"] = "1"
     if read_only:
         # A read never takes the index lock (``git status`` would refresh the index
