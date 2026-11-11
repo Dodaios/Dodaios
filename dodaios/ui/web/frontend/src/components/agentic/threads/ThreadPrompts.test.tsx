@@ -91,7 +91,7 @@ beforeEach(() => {
   api.resolveAgentChatPlan.mockReset().mockResolvedValue(undefined);
   api.resolveAgentChatApproval.mockReset().mockResolvedValue(undefined);
   useIdeProjectsStore.setState({ projects: [project], activeWorkspaceId: null });
-  useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, order: {}, focusNonce: 0 });
+  useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, focusNonce: 0 });
   useThreadChatStore.getState().newChat();
 });
 
