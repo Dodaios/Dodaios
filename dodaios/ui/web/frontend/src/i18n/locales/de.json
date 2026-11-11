@@ -7978,7 +7978,9 @@
     "technical_details": "Technische Details",
     "ran": "Ausgeführt:",
     "getting_ready": "Wird vorbereitet",
-    "tokens_hint": "Eingabe {input} neue Tokens ({cached} weitere aus dem Cache wiederverwendet) · Ausgabe {output} Tokens"
+    "tokens_hint": "Eingabe {input} neue Tokens ({cached} weitere aus dem Cache wiederverwendet) · Ausgabe {output} Tokens",
+    "open_beside": "In der Seitenleiste anzeigen",
+    "open_file_beside": "{file} in der Seitenleiste anzeigen"
   },
   "work_trace": {
     "tool_failed": "Eine Tool-Aktion ist fehlgeschlagen",
@@ -8498,7 +8500,8 @@
       "subscriptions": "Abos",
       "office": "Dodaios Verse",
       "chat": "Chat",
-      "resources": "Ressourcen"
+      "resources": "Ressourcen",
+      "file": "Datei"
     },
     "subscriptions": {
       "bank": {
@@ -9406,6 +9409,19 @@
         "terminal_host": "Terminal-Host",
         "thread_host": "Thread-Host"
       }
+    },
+    "file": {
+      "empty": "Klicke im Verlauf eines Threads auf eine Datei, um sie hier zu lesen.",
+      "views": "Ansichten der Datei",
+      "view_file": "Datei",
+      "view_change": "Änderung",
+      "reload": "Datei neu lesen",
+      "loading": "Datei wird gelesen",
+      "binary": "Diese Datei ist kein Text und kann hier nicht angezeigt werden.",
+      "too_large": "Diese Datei ist zu groß, um sie hier anzuzeigen.",
+      "unavailable": "Diese Datei lässt sich nicht lesen. Vielleicht wurde sie verschoben oder gelöscht.",
+      "no_workspace": "Öffne ein Projekt, um hier Dateien zu lesen.",
+      "show_change": "Änderung anzeigen"
     }
   },
   "appshots": {
