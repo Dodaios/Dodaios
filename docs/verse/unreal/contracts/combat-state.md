@@ -77,8 +77,8 @@ All properties use the push model (`architecture.md` 3.2).
 | GadgetA | Bulwark (deployable energy barricade) | GAS ability, section 2.3 |
 | GadgetB | Breach charge | GAS ability, section 2.3 |
 
-Later firearms on the same schema: Skitter (SMG), Longsight (DMR). All names
-are fictional and model no real firearm; all weapons are fully black
+Later firearms on the same schema: Skitter (SMG), Longsight (DMR). Names
+are original by default and may follow real ones; all weapons are fully black
 (README). Both players get the same loadout in deathmatch; the armoury may
 offer a choice later through `UVerseRuleset::GetLoadout`. Gadget damage
 reaches health through the same `FVerseHitEvent` with `Source = Gadget`.
@@ -135,7 +135,7 @@ weapon (`DA_Weapon_<Name>`). Text-diffable via the asset's JSON export in
 | Field | Type / unit | Meaning |
 |---|---|---|
 | `WeaponId` | `FName` | Stable id, used in events and stats |
-| `DisplayName` | `FText` | Fictional name only |
+| `DisplayName` | `FText` | Display name, any text |
 | `Slot` | `EVerseLoadoutSlot` | Primary or Secondary |
 | `FireMode` | `EVerseFireMode` | Semi, Burst, Auto |
 | `BurstCount` | int | Rounds per burst (Burst only) |
@@ -959,7 +959,7 @@ maps field for field onto `duel.result` (`contracts/bridge-protocol.md` §10);
 | `Verse.Gore.NoGameplayEffect` (D6) | `unreal-gauntlet` |
 | `Verse.Combat.Prediction.FireReconcile`: lagged client, predicted bolts reconcile, rejected shots removed | netcode test |
 | `Verse.Combat.Gadget.*` (GD1 to GD4, section 2.3) | `unreal-build` |
-| Forbidden-name scan over weapon assets and JSON exports | `unreal-static` |
+| Weapon assets and JSON exports validate against their schemas | `unreal-static` |
 
 ## Frozen interface
 

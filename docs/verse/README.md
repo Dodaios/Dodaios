@@ -128,8 +128,10 @@ company (patrols, utility drones) is decoration and never stands for anything.
 
 ## Legal
 
-The Verse is an original design, the Dodaios fleet style. No film, series,
-game or other franchise is named, referenced or used as a source, and no
-third-party logo, crest, insignia, typeface, alien script, costume, vehicle
-silhouette or character is copied. Third-party content is CC0 only, recorded in
-`art/verse/LICENSES.md`.
+The Verse is the Dodaios fleet style. For the Unreal Verse the asset and
+naming restrictions are lifted (decision 2026-11-10, `docs/verse/unreal/README.md`
+Assets and Legal). Third-party content may use any licence, obeyed per asset,
+and is recorded in `art/verse/LICENSES.md`; assets that may not be redistributed
+publicly are never committed. The legacy browser Verse keeps its own-design
+rule: no third-party logo, crest, insignia, typeface, alien script, costume,
+vehicle silhouette or character is copied.

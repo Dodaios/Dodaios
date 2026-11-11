@@ -9,9 +9,10 @@ gunmetal, cold light from the structure itself, and brand gold as the one warm s
 original design language for this project. Every rule below is written as numbers, so an artist can
 build the look from this document alone.
 
-**Legal rule.** This file and every file in the repository describe only our own design.
+**Legal rule.** This file describes the legacy browser Verse, which is our own design. For the Unreal
+Verse the naming and asset restrictions are lifted (decision 2026-11-10, `docs/verse/unreal/README.md`).
 
-- They never name or point to a film, series, game or other franchise as a source or reference.
+- The legacy browser Verse never names or points to a film, series, game or other franchise.
 - They never reproduce third-party insignia, rank-tile grids, helmet faces, costumes or vehicle silhouettes.
 - Mood boards stay on the art lead's machine and are never committed.
 

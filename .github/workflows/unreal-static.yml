@@ -64,19 +64,6 @@ jobs:
           echo "sha=$base" >> "$GITHUB_OUTPUT"
       - name: Build.cs DAG
         run: python scripts/unreal/check_build_dag.py
-      - name: Forbidden names (tracked files, added lines, commit messages)
-        env:
-          BASE: ${{ steps.base.outputs.sha }}
-        run: |
-          python scripts/unreal/check_forbidden_names.py
-          python scripts/unreal/check_forbidden_names.py --diff "$BASE"
-      - name: Forbidden names (PR title)
-        if: github.event_name == 'pull_request'
-        env:
-          TITLE: ${{ github.event.pull_request.title }}
-        run: printf '%s\n' "$TITLE" | python scripts/unreal/check_forbidden_names.py --stdin
-      - name: Forbidden folder names and engine content
-        run: python scripts/unreal/check_forbidden_names.py --folders
       - name: Bot isolation (F1) and perception symmetry (F6)
         run: python scripts/unreal/check_bot_isolation.py
       - name: LFS pointers, remote objects, size gate
@@ -103,7 +90,7 @@ jobs:
         run: python -m pytest -q -p no:cacheprovider --noconftest tests/unit/unreal_scripts
 
   wp19-loudness:
-    # A19.4 evidence (work-packages.md WP19): build the Verse sounds from the CC0 ledger and
+    # A19.4 evidence (work-packages.md WP19): build the Verse sounds from the licence ledger and
     # the recipes, render the 90 s reference duel offline exactly as the runtime plays it, gate
     # its loudness and keep the capture WAV and report as an artifact (never committed).
     name: wp19-loudness

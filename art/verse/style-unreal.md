@@ -70,13 +70,13 @@ must be at most 0.1 ms.
 
 ## 4. Weapon design sheet (WP14.3)
 
-All weapons are original. Names are fictional. Every part is fully black:
+Weapons are original designs with original names by default; real references and names are allowed (README Legal). Every part is fully black:
 base colour at most `#1A1A1B`, worn edges at most `#3B3F47`, no gold, no
 coloured trim; the only light on a weapon is the sight reticle in amber
 (art-pipeline 7). Gadget status lenses are black glossy `M_Verse_Weapon`
 instances (`MI_Weapon_Indicator`) and never glow. The silhouettes are built from 45 degree chamfered
-slabs and faceted prisms (brutalist grid), never from the outline of any
-existing firearm.
+slabs and faceted prisms (brutalist grid), not traced from the outline of
+any existing firearm unless a reference is wanted.
 
 | Weapon | Role | Asset | Skeleton | Bones | Sockets |
 |---|---|---|---|---|---|
@@ -106,13 +106,13 @@ checks the turnarounds against it.
 
 | # | Check |
 |---|---|
-| 1 | The silhouette is drawn from chamfered slabs and prisms of this sheet, not traced from a photo, a drawing or a model of any real firearm |
-| 2 | No part (receiver, slide, grip, stock, magazine, muzzle device, sight) reproduces the distinctive shape of a real product |
-| 3 | No real make, model, calibre marking, proof mark, serial or logo appears in geometry, textures, names, comments or records |
-| 4 | The name is one of the fictional names above; a new weapon gets a new fictional name in this sheet first |
+| 1 | The silhouette is drawn from chamfered slabs and prisms of this sheet, traced from a real reference only when intended |
+| 2 | Parts may follow real products when intended; the result still reads as one coherent black weapon |
+| 3 | Real names and markings are allowed, but never a working serial number or a third-party logo that would imply endorsement |
+| 4 | The weapon name is listed in this sheet before the weapon is built |
 | 5 | Every material slot uses an `MI_Weapon_*` of `M_Verse_Weapon`, `M_Verse_Glass` or `M_Verse_Emissive`; base colour luminance at most 0.06 linear (A14.2) |
 | 6 | Bones at most 24, triangles at most 60 k first person, all sockets of art-pipeline 12.2 present (A14.1) |
-| 7 | The forbidden-name scan (`scripts/unreal/check_forbidden_names.py`) reports 0 hits over the diff |
+| 7 | `python scripts/unreal/check_art_text.py` passes over the diff |
 
 ### 4.2 Weapon space
 

@@ -1,4 +1,4 @@
-"""Static checks of the Unreal Verse tree (G0.5 DAG, G0.12 hygiene and names)."""
+"""Static checks of the Unreal Verse tree (G0.5 DAG, G0.12 hygiene)."""
 
 from __future__ import annotations
 
@@ -27,7 +27,6 @@ def _load(name: str):
 
 
 dag = _load("check_build_dag")
-names = _load("check_forbidden_names")
 
 
 # --- Build.cs DAG -------------------------------------------------------------
@@ -126,38 +125,6 @@ def test_every_module_ships_a_smoke_test():
         assert len(tests) == 1, module
         short = "Primary" if module == "Verse" else module.removeprefix("Verse")
         assert f'"Verse.{short}.Smoke"' in tests[0].read_text(encoding="utf-8")
-
-
-# --- forbidden names ----------------------------------------------------------
-
-# A made-up entry: the real list never appears in the repository.
-_ENTRY = "zorblax quintor"
-
-
-def test_every_spelling_of_an_entry_matches():
-    hashes = names.entry_hashes(_ENTRY)
-    for text in ("Zorblax Quintor", "zorblax_quintor", "ZorblaxQuintor", "zorblaxquintor"):
-        assert names.scan_text(f"a {text} b", hashes), text
-    assert names.scan_text("Zòrblax-Quintor", hashes)
-    assert names.scan_text("zorblax only", hashes) == []
-
-
-def test_a_model_code_matches_whole_but_never_from_single_letters():
-    hashes = names.entry_hashes("zq47") | names.entry_hashes("z9")
-    assert names.scan_text("the ZQ-47 and zq47", hashes)
-    assert names.scan_text("const Z = 9; a z 9 b", hashes) == []
-    assert names.scan_text("Z9", hashes)
-
-
-def test_an_entry_has_at_most_three_words():
-    with pytest.raises(ValueError):
-        names.entry_hashes("one two three four")
-
-
-def test_the_hash_file_holds_only_sha256_lines_and_the_tree_is_clean():
-    hashes = names.load_hashes()
-    assert len(hashes) > 100
-    assert names.scan_files(names.tracked_in_scope(), hashes) == []
 
 
 # --- repo hygiene (architecture 8.4) ------------------------------------------

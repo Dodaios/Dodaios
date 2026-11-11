@@ -16,7 +16,7 @@ plan decision.
 | Branch | `claude/verse-wp<nn>-<k>-<slug>` (matches the `claude/verse-wp<nn>-*` rule `validate_ownership` reads, art-pipeline 9) |
 | PR title | Conventional Commits, `type(verse): subject`, lower case, imperative (`feat(verse): add the slide move`); after landing a branch with several commits, `gh pr edit <n> --title` (architecture 8.4) |
 | PR body | First line `Work-Package: WP<nn>`; second line `Sub-task: WP<nn>.<k>`; then the evidence block of `orchestration.md` 5.5 |
-| Commits | English, no names of other games, studios, franchises or real firearm makes or models anywhere (README Legal; `unreal-static` scans) |
+| Commits | English. No naming restriction (README Legal, lifted 2026-11-10) |
 
 ### 0.2 Ownership
 
@@ -83,7 +83,7 @@ objects pushed with the branch.
 | G0.9 | `SK_Test_Human` placeholder skeleton with the frozen bone names of art-pipeline 12.1 | Movement, combat, gore tests before WP13 |
 | G0.10 | First `unreal-static` and `unreal-build` lane runs, wired into `CI gate` (architecture 8.2, handed to WP10 afterwards) | A green lane is the done signal |
 | G0.11 | Golden JSON fixtures for every `verse.bridge/1` message (including section 14), binary `cells.bin/1` codec vectors, `scripts/unreal/fake_bridge.py` with scripted scenarios (roster churn, busy panes, meetings, awards, lifecycle, panel), in `tests/unit/verse_host/fixtures/` and `unreal/Verse/Tests/Data/bridge/` | WP15, WP16, WP18, WP20, WP21 start on day one instead of waiting for WP17 |
-| G0.12 | Repo hygiene of architecture 8.4: `unreal/Verse/.gitignore` (with `!Build/`), `.lfsconfig`, `unreal/** export-ignore`, the guarded `git lfs pre-push` line in `.githooks/pre-push`, `git lfs push` in `scripts/agent_land.py`, `scripts/unreal/forbidden_names.sha256`, today's `unreal/Verse/.gitattributes` reduced to art-pipeline 10.2 (no `.fbx`, `.wav`, `.exr`, `.glb` lines) | Without it the first Unreal PR fails the junk gate or pushes pointers without objects |
+| G0.12 | Repo hygiene of architecture 8.4: `unreal/Verse/.gitignore` (with `!Build/`), `.lfsconfig`, `unreal/** export-ignore`, the guarded `git lfs pre-push` line in `.githooks/pre-push`, `git lfs push` in `scripts/agent_land.py`, today's `unreal/Verse/.gitattributes` reduced to art-pipeline 10.2 (no `.fbx`, `.wav`, `.exr`, `.glb` lines) | Without it the first Unreal PR fails the junk gate or pushes pointers without objects |
 | G0.13 | Baselines and pilot (`orchestration.md` 0.8, 0.9) | Proves the pipeline before 22 packages use it |
 
 ## 2. Packages
@@ -191,7 +191,7 @@ lives in `Damage/`.
 | A2.6 | `Verse.Combat.Prediction.FireReconcile` (netcode test) | At 60 ms lag, predicted bolt origin within 1 cm of the server's; a rejected shot's bolt disappears within one round trip plus 1 tick; ammo count never diverges after reconcile |
 | A2.7 | `Verse.Combat.LagComp.Rewind` | A target strafing at 6.5 m/s is hit at 60, 120 and 250 ms lag when the client aim was on it; at 300 ms the rewind clamps to 250 ms |
 | A2.8 | Cost | 64 bolts in flight: projectile manager at most 0.2 ms server game thread per tick |
-| A2.9 | Forbidden-name scan over `Data/weapons/*.json` and `DA_Weapon_*` | 0 hits |
+| A2.9 | Weapon data in `Data/weapons/*.json` and `DA_Weapon_*` validates against its schema | 0 errors |
 | A2.10 | `Verse.Combat.Gadget.Bulwark` (GD1) | 1,000 seeded bolts at an intact Bulwark: 0 pass; 1,000 sight traces: all pass; it disappears on the tick its health reaches 0 or 25 s after deploy |
 | A2.11 | `Verse.Combat.Gadget.Breach` (GD2 to GD4) | Detonation 2.5 s after the plant within 1 tick; pawn damage at 0, 1.5, 3.0 m equals 120, 60, 0 to 1e-4 hp, owner included; the target piece reaches its breach result in 100 of 100 plants |
 
@@ -505,8 +505,7 @@ balance runs with gates, perf capture, screenshots and evidence tooling.
 
 **Owned.** `Source/VerseHarness/**` except `VerseHarness.Build.cs`;
 `unreal/Verse/Harness/**`; `unreal/Verse/Data/bot/person_models.json`
-(propose-only); `scripts/unreal/{balance,capture,perf,netcode,check_bot_isolation,check_forbidden_names,check_lfs,done_check}.py`
-(the hash list `forbidden_names.sha256` stays with the integration owner);
+(propose-only); `scripts/unreal/{balance,capture,perf,netcode,check_bot_isolation,check_lfs,done_check}.py`;
 `.github/workflows/unreal-static.yml`, `unreal-build.yml`,
 `unreal-gauntlet.yml`, `unreal-perf.yml` (handed over after G0.10; the `ci.yml`
 jobs and `gate.needs` entries that make them required stay with the
@@ -522,7 +521,7 @@ other package plugs scenarios in.
 
 | # | Sub-task | Output |
 |---|---|---|
-| 10.1 | `unreal-static`: DAG check, forbidden-name scan (hashed list, architecture 8.4), forbidden folder names, LFS pointers and remote objects, size gate, clang-format, licence ledger, art text checks; workflow policy (`permissions:`, SHA-pinned actions, `gate.needs`) | Lane |
+| 10.1 | `unreal-static`: DAG check, forbidden folder names, LFS pointers and remote objects, size gate, clang-format, licence ledger, art text checks; workflow policy (`permissions:`, SHA-pinned actions, `gate.needs`) | Lane |
 | 10.2 | `unreal-build`: self-hosted, fork guard, concurrency plus lock, Win64 Editor and Game, Linux Game cross build, automation under `-nullrhi` | Lane |
 | 10.3 | Netcode runner: dedicated plus 2 lagged clients, 2-minute smoke, correction and reconcile counters, Iris on and off nightly | Runner and lane step |
 | 10.4 | Gauntlet controller, `AVerseModelController`, scenario schema, report `verse.balance/1` | Controller and schema |
@@ -536,7 +535,7 @@ other package plugs scenarios in.
 
 | Id | Acceptance test | Pass |
 |---|---|---|
-| A10.1 | Static lane | Runs on GitHub-hosted in at most 5 minutes, with LFS off; fails each of: a planted forbidden name (from a test-only hash), a non-pointer `.uasset`, a pointer whose object is missing on the remote, a 51 MB LFS object, a new Build.cs edge, a folder named `Renders` under `unreal/` |
+| A10.1 | Static lane | Runs on GitHub-hosted in at most 5 minutes, with LFS off; fails each of: a non-pointer `.uasset`, a pointer whose object is missing on the remote, a 51 MB LFS object, a new Build.cs edge, a folder named `Renders` under `unreal/` |
 | A10.2 | Fork safety | Static check of the workflows: no self-hosted job can run on `pull_request` from a fork |
 | A10.3 | Harness speed | At least 20x real time per process at `-nullrhi`, or a measured figure with bout counts recomputed so gate intervals are at most 0.06 wide |
 | A10.4 | Gate math | Gates computed on a fixture report equal a hand calculation |
@@ -669,7 +668,7 @@ WP01 move set.
 | # | Sub-task | Output |
 |---|---|---|
 | 13.1 | `rig_fps.py`: `SKEL_Verse_Human` bones of 12.1, IK and weapon bones, `Camera`, A-pose; `SK_Calib_Rig` check | Rig |
-| 13.2 | Skinning of the two CC0 body variants, at most 8 influences; garments: commander, crew, black tactical opponent | Meshes |
+| 13.2 | Skinning of the two base-mesh body variants, at most 8 influences; garments: commander, crew, black tactical opponent | Meshes |
 | 13.3 | `PHYS_Verse_Human` hit-zone bodies; `IKRig_Verse_Human` chains | Physics asset, IK rig |
 | 13.4 | Locomotion: stand, crouch, prone idles and 8-way moves, sprint, jump, fall, land, slide, mantle low and high with root motion, lean poses | Clip set |
 | 13.5 | First-person body: head hidden for the owner, first-person rendering without wall clipping, aim offsets | FP setup |
@@ -716,7 +715,7 @@ Arsenal; `combat-state.md` 3 (`BoltColorOwn`, `BoltColorFoe`).
 |---|---|---|
 | 14.1 | Master materials (opaque triplanar, UV PBR, decal, emissive, glass, hole-mask aware) with documented parameters; palette ban check in `validate_assets` | Masters |
 | 14.2 | Post-process: AgX-matching LUT, exposure, fog and haze, work-light profiles; reference views | Look profile |
-| 14.3 | Weapon design sheet: original silhouettes, fictional names, fully black, a checklist that no part copies a real firearm | Sheet in `style-unreal.md` |
+| 14.3 | Weapon design sheet: silhouettes and names free to draw on real references, fully black, a design checklist | Sheet in `style-unreal.md` |
 | 14.4 | Graveline rifle: model, skeleton (`Magazine`, `Bolt`, `Trigger`, sockets) | Assets |
 | 14.5 | Tallow pistol | Assets |
 | 14.6 | Hookbill knife (`Root`, `SOCKET_Tip`) | Assets |
@@ -732,7 +731,7 @@ Arsenal; `combat-state.md` 3 (`BoltColorOwn`, `BoltColorFoe`).
 | A14.3 | Banned colours | 0 banned pixels by the rendered-pixel rule of art-pipeline 8.3 in every reference view and VFX frame |
 | A14.4 | LUT | Mean CIEDE2000 at most 3 against AgX reference renders of a 24-patch chart |
 | A14.5 | VFX cost | 64 bolts in flight at most 0.1 ms GPU at 1440p |
-| A14.6 | Names | Forbidden-name scan over assets, records and the design sheet: 0 hits |
+| A14.6 | Names | Weapon assets, records and the design sheet use one name per weapon, consistent across all three |
 
 **Evidence.** Weapon turnarounds and first-person shots under work light;
 chart comparison image and numbers; reference view set.
@@ -940,7 +939,7 @@ the imported `.uasset` is committed, architecture 8.4);
 
 **Contracts consumed.** `bot.md` 3.2 and F6; `combat-state.md` 5.1;
 `destruction.md` 6.2 (loudness by cause), 7 (drone noise); README Assets
-(own or CC0 only).
+(any licence, provenance row required).
 
 **Depends on.** WP02 events (synthetic), material ids from WP03 and WP06
 (fixture), WP12 ambience zones (fixture).

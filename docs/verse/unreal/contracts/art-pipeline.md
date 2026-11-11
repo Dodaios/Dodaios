@@ -20,7 +20,7 @@ VerseDestruction, VerseGore, VerseUI).
 | ~50 procedural Cycles materials, no UVs (object/world coordinates, `kit/README.md` "lib/materials.py") | Rebuilt as instances of a few master materials, triplanar where a piece has no UVs (section 7) |
 | Baked lighting: rgbm2 lightmaps, probes, plates, `nav.png`, `realtime/scene.glb` | **Never imported.** Lumen, Recast and Unreal collision replace them |
 | Character skeleton: 25 bones, one bone for four fingers, no IK or weapon bones (`characters/README.md`, "Skeleton") | Replaced by a new original FPS rig (section 12) |
-| CC0-only ledger `art/verse/LICENSES.md`, append-only | Stays the one ledger; Unreal imports cite its rows (section 11) |
+| Provenance ledger `art/verse/LICENSES.md`, append-only | Stays the one ledger (any licence, one row per third-party file); Unreal imports cite its rows (section 11) |
 
 ## 2. Flow
 
@@ -550,18 +550,22 @@ exceeded according to the record.
 | Texture size | Section 6.4 |
 | Resident texture memory per deck at 1440p High | 1.2 GB, measured by `unreal-perf` inside the 6 GB VRAM Visible cap |
 
-## 11. Licences: CC0-only ledger
+## 11. Licences: provenance ledger
+
+Decision 2026-11-10: the Verse must reach AAA game quality, so the earlier asset
+and naming restrictions are lifted. What stays is what the law requires: each
+asset's own licence terms are obeyed.
 
 | Rule | Detail |
 |---|---|
-| Ledger | `art/verse/LICENSES.md` stays the single ledger: CC0 only (plus the public-domain rows already in it), append-only, one row per file with source URL and SHA-256 (as today) |
-| Fonts | Fonts are not art assets. A font under the SIL Open Font License 1.1 is allowed when it ships unmodified (no renamed or subset font files in the repo) next to its licence text, with one row per file in the "Fonts" section at the end of `art/verse/LICENSES.md` (licence `OFL-1.1`, source URL, SHA-256). Source files live in `unreal/Verse/Art/Fonts/<Family>/` (LFS); the imported font assets belong to the package that draws them. Today: JetBrains Mono 2.304, the IDE's terminal font, for desk monitors and chat tails (WP16, #1158) |
-| Own work | Everything a builder makes from code is `license.kind: "own"`; no ledger row |
+| Ledger | `art/verse/LICENSES.md` stays the single provenance ledger, append-only, one row per third-party file with licence name, source URL and SHA-256. Any licence may appear (CC0, CC-BY, MIT, a marketplace licence, and so on). The only requirement is that the row exists |
+| Fonts | A font under the SIL Open Font License 1.1 ships unmodified (no renamed or subset font files in the repo) next to its licence text, with one row per file in the "Fonts" section at the end of `art/verse/LICENSES.md` (licence `OFL-1.1`, source URL, SHA-256). Source files live in `unreal/Verse/Art/Fonts/<Family>/` (LFS); the imported font assets belong to the package that draws them. Today: JetBrains Mono 2.304, the IDE's terminal font, for desk monitors and chat tails (WP16, #1158) |
+| Own work | Everything a builder makes from code is `license.kind: "own"`, no ledger row |
 | Third-party | `license.kind: "ledger"`, with the SHA-256 of every ledger row used. `check_art_text.py` fails on a missing or unknown hash |
-| Forbidden | Fab content of any kind (marketplace or scan libraries), engine Starter Content, engine sample and template content (including the mannequin, section 12), anything under a licence other than CC0 or public domain (fonts: row above), assets from model sites unless the exact file is CC0 and ledgered, AI-generated meshes or textures (provenance unclear) |
-| Scan | `unreal-static` rejects paths and names from engine content packs (`/Game/StarterContent`, `/Game/Characters/Mannequins`, `SKM_Manny*`, `SKM_Quinn*`, `SK_Mannequin*`) and any `.uasset` whose import record is missing |
+| Allowed | Fab and Megascans content, engine Starter Content and sample content (including the mannequin, section 12), any open-source or permissive licence, AI-generated meshes and textures, and model-site assets, each under its own licence terms |
+| No public redistribution | Assets whose licence forbids public redistribution of the source files (Fab, Megascans, paid packs) are never committed to this public repo. They live in the git-ignored folders `unreal/Verse/Content/Verse/External/`, `unreal/Verse/Art/External/` and `art/verse/External/` and ship only inside packaged builds. `check_art_text.py` fails when any file under them is tracked, and content under `Content/Verse/External/` needs no import record. Their ledger rows are still written (source URL and licence name; the SHA-256 column may name the purchased pack version) |
+| Names | No naming restriction. Real names of games, studios, franchises and firearm makes and models are allowed in code, assets, docs, commits and PRs. No CI scan checks names |
 | Checks owed | Elevation data terms for the Earth view are checked separately before it moves and recorded in the ledger. Fonts: row above |
-| Names | No asset, folder, tag or record names another game, studio, franchise or real firearm make or model (README Legal); `unreal-static` runs `scripts/unreal/check_forbidden_names.py` over `unreal/**`, `art/verse/**` and `docs/verse/unreal/**`, including names inside `.uasset` import records. The list is kept only as SHA-256 hashes (`architecture.md` 8.4), so the repo never spells the names it forbids |
 
 ## 12. FPS character skeleton
 
@@ -608,19 +612,16 @@ Knife: `Root`, `SOCKET_Tip`. Bulwark and breach charge: static meshes or
 two-bone skeletons, owned by VerseCombat. Weapon clips sample at 60 fps
 (recoil and reload detail); body clips at 30 fps as today.
 
-### 12.3 Why not the engine mannequin
+### 12.3 The engine mannequin
 
-The engine's mannequin meshes, skeleton and animations are engine vendor
-content under the Unreal Engine EULA. As we read it, that content may be shipped
-inside a packaged product but not redistributed in source form to people
-who are not engine licensees, and a public repository is open to everyone;
-the repository's own open-source licence cannot relicense it; and it is not
-CC0, so it can never enter the ledger (section 11). Using it only on a
-developer's machine to compare proportions is fine; committing it, or
-anything exported from it, is not. The exact EULA reading is an open legal
-question for the user; this contract takes the safe side until then. The
-original rig also removes a dependency on engine sample content between
-engine upgrades.
+Decision 2026-11-10: the engine's mannequin meshes, skeleton and animations may
+be used. They are engine vendor content under the Unreal Engine EULA, which as
+we read it allows shipping them inside a packaged product but not
+redistributing them in source form to people who are not engine licensees.
+A public repository is open to everyone, so mannequin-derived files (and
+anything exported from them) live only in the git-ignored `External/`
+folders of section 11 and ship inside packaged builds. The original FPS rig of
+this section stays the default for the first-person arms.
 
 ## 13. Destructible art
 
@@ -637,7 +638,7 @@ engine upgrades.
 | Gate | Lane | Fails on |
 |---|---|---|
 | Placement and record schemas | `unreal-static` | Schema errors, ids out of zone bounds, unknown asset paths |
-| Names, folders, ownership text | `unreal-static` | Section 3, section 9 table, forbidden names, engine-content paths |
+| Names, folders, ownership text | `unreal-static` | Section 3, section 9 table, banned folder names, tracked `External/` files |
 | LFS pointers and size | `unreal-static` | Non-pointer binaries, budgets in 10.4 |
 | Licence | `unreal-static` | Section 11 |
 | Space calibration | `unreal-build` | `SM_Calib_Axes` / `SK_Calib_Rig` mismatch with `space_vectors.json` |

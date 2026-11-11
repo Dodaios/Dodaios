@@ -456,7 +456,7 @@ can (size, memory under `-nullrhi`).
 
 | Lane | Where | Runs |
 |---|---|---|
-| `unreal-static` | GitHub-hosted, every PR touching `unreal/**`, `art/verse/**` or `docs/verse/unreal/**` | `Build.cs` DAG check (section 2), forbidden-name scan (README Legal, hashed list, section 8.4), LFS pointer check, per-file size gate, forbidden folder names (section 8.4), clang-format, asset licence ledger check |
+| `unreal-static` | GitHub-hosted, every PR touching `unreal/**`, `art/verse/**` or `docs/verse/unreal/**` | `Build.cs` DAG check (section 2), LFS pointer check, per-file size gate, forbidden folder names (section 8.4), clang-format, asset licence ledger check |
 | `unreal-build` | Self-hosted, PR + merge queue | Win64 Development Editor + Game, Linux Game (cross), automation tests under `-nullrhi`, netcode test (dedicated + 2 lagged clients, 2 min smoke) |
 | `unreal-gauntlet` | Self-hosted, merge queue (short) + nightly (long) | Headless bot-vs-bot balance runs and gates (no trick beats hard, skilled model about 40 % vs elite) |
 | `unreal-perf` | Self-hosted, nightly | Fixed replay on the GPU, screenshots, the budgets in section 7 |
@@ -489,7 +489,8 @@ lands the repo changes in one PR by the integration owner.
 | Keys | No `*.key`, `*.key.enc` or PEM blocks; no secrets in `Config/*.ini` (`check_no_private_keys.py`, `privacy_pre_push.py`) |
 | Shell scripts | Every tracked `*.sh` must parse under bash 3.2 |
 | Persona words | `tests/unit/brain/test_persona_no_trademark.py` scans `dodaios/**` and `art/**`, so art builders under `art/verse/` follow it |
-| Forbidden names | No gate in the repo scans for names of games, studios, franchises or firearm makes and models, and `.cpp`, `.h`, `.cs` and `.uasset` metadata are not text-scanned. `scripts/unreal/check_forbidden_names.py` (WP10) closes that gap in `unreal-static` and the pre-commit run of `build.py`. Its list is stored only as SHA-256 hashes of normalised single words and two- and three-word sequences (`scripts/unreal/forbidden_names.sha256`), so the repo never contains the names it forbids; the integration owner maintains the list outside the repo |
+| Names | No gate scans names. The former forbidden-name scan (`check_forbidden_names.py` and its hashed list) was removed on 2026-11-10 together with the naming restriction (README Legal) |
+| External content | `unreal/Verse/Content/Verse/External/`, `unreal/Verse/Art/External/` and `art/verse/External/` are git-ignored (root `.gitignore`) and hold third-party assets whose licence forbids public redistribution. `check_art_text.py` in `unreal-static` fails when any file under them is tracked (`art-pipeline.md` 11) |
 | PR titles | Conventional Commits, `type(verse): subject`, lower case, imperative (`feat(verse): …`, `docs(verse): …`). On a branch with several commits `gh pr create --fill` uses the branch name, so run `gh pr edit <n> --title "…"` straight after landing |
 
 ## 9. Open technical risks

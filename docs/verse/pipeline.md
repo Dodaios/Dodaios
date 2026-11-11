@@ -348,7 +348,7 @@ python scripts/verse/mcp_bridge.py --port 9877 stop
 
 ## Third-party content
 
-CC0 only. `from lib import textures; textures.ensure(asset, maps, res)` (or
+Any licence, recorded in the ledger (this fetcher serves CC0 Poly Haven maps). `from lib import textures; textures.ensure(asset, maps, res)` (or
 `python scripts/verse/textures.py <asset> --maps Diffuse nor_gl Rough`) fetches
 from the Poly Haven API with this pipeline's own User-Agent, verifies the MD5,
 caches under `art/verse/.cache/textures/<asset>/` and appends the file, URL
