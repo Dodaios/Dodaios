@@ -19,8 +19,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .event import TriggerEvent, normalize, source_of_hook
-from .service import DELIVERED, TriggerService
+from .event import AGENT_SCOPE_PREFIX, TriggerEvent, normalize, source_of_hook
+from .producers import ProducerRunner
+from .producers.runner import TICK_S
+from .service import AGENT_MAIL_POLICY_ID, DELIVERED, TriggerService
 from .settings import Policy
 from .subscriptions import Subscription, SubscriptionStore
 
@@ -31,7 +33,11 @@ NOTICE_KIND = "event_trigger"
 _SEAT_TIMEOUT_S = 120.0
 
 _service: TriggerService | None = None
+_runner: ProducerRunner | None = None
+_poll_task: asyncio.Task[None] | None = None
 _bound: set[int] = set()
+#: Answers "does a stop hold cover triggers right now?"; the hold feature plugs in here.
+_hold_check: Any = lambda: False  # noqa: E731
 
 
 def _runtime() -> Any | None:
@@ -79,6 +85,16 @@ def job_prompt(event: TriggerEvent, policy: Policy, reason: str) -> str:
                                                            "thread_key", "raw_ref")},
         ensure_ascii=False,
     )
+    if policy.id == AGENT_MAIL_POLICY_ID:
+        return (
+            "A sender the owner allow-listed wrote to your own mail address. That mail is their "
+            "request to you: read it with your mail tools (the reference is in the data) and do "
+            "what it asks, quietly in the background, then finish with a short written result. "
+            "Anything that sends, changes, books or deletes outside still needs the usual "
+            "approval. Mail the owner delegates goes out from your own address, never from "
+            "the owner's personal account.\n"
+            f"EVENT_DATA: {data}"
+        )
     return (
         "A standing instruction of the user matched an event. Do this work quietly in the "
         "background and finish with a short written result.\n"
@@ -219,12 +235,71 @@ def get_service() -> TriggerService | None:
     return _service
 
 
-async def submit_payload(source: str, payload: Mapping[str, Any]) -> str:
-    """Normalize and admit one event; the stage-1 verdict, or ``unavailable``."""
+async def submit_event(event: TriggerEvent) -> str:
+    """Admit one event; mail to the lead's own address takes the request route."""
     service = get_service()
     if service is None:
         return "unavailable"
-    return await service.submit(normalize(source, payload))
+    if event.scope.startswith(AGENT_SCOPE_PREFIX):
+        return await service.submit_agent_mail(event)
+    return await service.submit(event)
+
+
+async def submit_payload(source: str, payload: Mapping[str, Any]) -> str:
+    """Normalize and admit one event; the stage-1 verdict, or ``unavailable``."""
+    return await submit_event(normalize(source, payload))
+
+
+def set_hold_check(check: Any) -> None:
+    """Let a stop hold pause the pollers: ``check()`` is true while triggers are held."""
+    global _hold_check
+    _hold_check = check
+
+
+def _held() -> bool:
+    try:
+        return bool(_hold_check())
+    except Exception:  # noqa: BLE001 - an unreadable hold must not keep the pollers asking
+        return True
+
+
+def _agent_address() -> str:
+    """The lead's own address from the last saved settings (cached by the service)."""
+    service = _service
+    return getattr(service, "agent_address", "") if service is not None else ""
+
+
+def get_runner() -> ProducerRunner | None:
+    """The process's pollers on the society store; ``None`` while no society runs."""
+    global _runner
+    service = get_service()
+    if service is None:
+        return None
+    if _runner is None or getattr(_runner, "_store", None) is not service._store:
+        from .producers.agentmail import AgentMailProducer
+        from .producers.base import Api
+        from .producers.calendar import CalendarProducer
+        from .producers.github import GithubProducer
+        from .producers.gmail import GmailProducer
+
+        _runner = ProducerRunner(
+            service._store,
+            [
+                GmailProducer(Api("gmail"), _agent_address),
+                CalendarProducer(Api("google_calendar")),
+                GithubProducer(Api("github")),
+                AgentMailProducer(Api("agentmail"), _agent_address),
+            ],
+            settings=service.settings,
+            submit=submit_event,
+            paused=_held,
+        )
+    return _runner
+
+
+async def producers_view() -> list[dict[str, Any]]:
+    runner = get_runner()
+    return await runner.view() if runner is not None else []
 
 
 async def on_bus_event(event: Any) -> None:
@@ -277,9 +352,57 @@ async def brief_notes() -> str:
     )
 
 
+async def agent_mail_identity() -> str:
+    """One line naming the lead's own mail address; empty while the owner set none.
+
+    Mail the owner delegates goes out from this address through the connected
+    inbox tools, so the recipient never reads it as written by the owner.
+    """
+    service = get_service()
+    if service is None:
+        return ""
+    address = (await service.settings()).agent_address
+    if not address:
+        return ""
+    return (
+        f"Your own mail address is {address}. Mail the user asks you to send for them goes out "
+        "from it (through the connected inbox), not from the user's personal account, unless "
+        "they say otherwise."
+    )
+
+
 def install(bus: Any) -> None:
     """Subscribe the producers that live on the app bus (idempotent per bus)."""
     if id(bus) in _bound:
         return
     _bound.add(id(bus))
     bus.subscribe_all(on_bus_event)
+    _start_pollers()
+
+
+def _start_pollers() -> None:
+    """Poll in the background of this loop, on the instance that owns ambient duties only."""
+    global _poll_task
+    try:
+        from dodaios.core.instance import current_instance
+
+        if not current_instance().owns_ambient_duties:
+            return
+        loop = asyncio.get_running_loop()
+    except Exception:  # noqa: BLE001 - no loop or no instance: the app runs without pollers
+        return
+    if _poll_task is not None and not _poll_task.done():
+        return
+
+    async def run() -> None:
+        await asyncio.sleep(30.0)  # the app finishes booting first
+        while True:
+            runner = get_runner()
+            if runner is not None:
+                try:
+                    await runner.tick()
+                except Exception:  # noqa: BLE001 - the loop outlives any single failure
+                    log.warning("lead triggers: poll tick failed", exc_info=True)
+            await asyncio.sleep(TICK_S)
+
+    _poll_task = loop.create_task(run(), name="lead-trigger-pollers")

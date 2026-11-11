@@ -1326,9 +1326,17 @@ def _trigger_service() -> Any:
     return service
 
 
+async def _trigger_view() -> dict[str, Any]:
+    from dodaios.lead_triggers.wiring import producers_view
+
+    view = await _trigger_service().view()
+    view["producers"] = await producers_view()
+    return view
+
+
 @router.get("/lead/triggers", summary="Event trigger rules, drop counts and the decision log")
 async def get_lead_triggers() -> dict[str, Any]:
-    return await _trigger_service().view()
+    return await _trigger_view()
 
 
 @router.put("/lead/triggers", summary="Set the accept mode, source rules and policies")
@@ -1337,7 +1345,7 @@ async def put_lead_triggers(body: dict[str, Any]) -> dict[str, Any]:
 
     service = _trigger_service()
     await service.save_settings(TriggerSettings.from_dict(body))
-    return await service.view()
+    return await _trigger_view()
 
 
 @router.post("/lead/triggers/policies/{policy_id}/promote", summary="Let one policy act")
