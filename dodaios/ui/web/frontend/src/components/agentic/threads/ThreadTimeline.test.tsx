@@ -237,6 +237,17 @@ describe("working line", () => {
   });
 });
 
+describe("scroll column", () => {
+  it("keeps the hidden working status inside its own scroll box", () => {
+    render(<ThreadTimeline items={[turn([], "running")]} sessionId="s1" bottomInset={0} />);
+    const box = screen.getByTestId("thread-timeline");
+    // The status line's screen-reader copy is positioned absolutely; an
+    // unpositioned scroll box lets it stretch the page below the thread.
+    expect(box.className.split(" ")).toContain("relative");
+    expect(box.querySelector(".sr-only")).toBeTruthy();
+  });
+});
+
 describe("runtime titles", () => {
   it("names a line by the runtime's own title for its calls, failures still counted", () => {
     const item = turn([

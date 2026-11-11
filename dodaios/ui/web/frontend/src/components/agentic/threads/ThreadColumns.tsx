@@ -52,7 +52,10 @@ export function ThreadColumns({ onScreen }: { onScreen: boolean }) {
 
   const isThreadDrag = (event: DragEvent<HTMLDivElement>) => event.dataTransfer.types.includes(THREAD_DRAG_MIME);
 
-  return <div ref={box} className="flex h-full min-h-0 overflow-x-auto" data-testid="thread-columns"
+  return <div ref={box} className="flex h-full min-h-0 overflow-x-auto overflow-y-hidden" data-testid="thread-columns"
+    // Sideways only: each column scrolls its own conversation. Left at
+    // overflow-y "visible", the browser turns it into "auto" and the whole
+    // column scrolls down into empty space.
     // Capture phase: the composer below takes dropped files, and must not see a thread.
     onDragOverCapture={(event) => {
       if (!isThreadDrag(event)) return;
