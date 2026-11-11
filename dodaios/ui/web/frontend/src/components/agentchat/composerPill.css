@@ -1,0 +1,78 @@
+/* The front page's composer: a pill at one line, a rounded card once tall.
+   At rest "+" and the stance glyph sit left of the box, the brain, the
+   microphone and the round action right of it, all on one row. Tall, the box
+   spans the full width on top and the two button groups drop to a row under
+   it. The card keeps its 28px corners in both shapes; at one line (about
+   56px high) that already reads as a full pill. */
+
+.composer-pill-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "lead main trail";
+  align-items: center;
+  column-gap: 2px;
+}
+
+.composer-pill-grid[data-tall="true"] {
+  grid-template-areas:
+    "main main main"
+    "lead . trail";
+  row-gap: 4px;
+}
+
+.composer-pill-lead {
+  grid-area: lead;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.composer-pill-main {
+  grid-area: main;
+  min-width: 0;
+}
+
+.composer-pill-grid[data-tall="true"] .composer-pill-main {
+  padding: 4px 4px 0;
+}
+
+.composer-pill-trail {
+  grid-area: trail;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+/* The box grows with the words up to a third of the window, then scrolls. */
+.composer-pill-field {
+  max-height: min(40vh, 360px);
+  overflow-y: auto;
+}
+
+/* The round controls in the pill are 36px, like the round action. */
+.composer-pill [data-testid="composer-add"] {
+  height: 2.25rem;
+  width: 2.25rem;
+}
+
+/* A call is on: a small live light inside the "Hang up" pill. */
+.composer-call-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: hsl(var(--success));
+  animation: composer-call-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes composer-call-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-call-dot {
+    animation: none;
+  }
+}
