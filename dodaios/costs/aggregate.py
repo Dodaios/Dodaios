@@ -91,6 +91,9 @@ class Bucket:
     #: model's row can say what it consumed when it has no tokens to show.
     chars: int = 0
     audio_ms: int = 0
+    #: Re-read context versus new work, in tokens (``agent_chat.token_efficiency``).
+    reread_tokens: int = 0
+    fresh_tokens: int = 0
     #: Every price source seen in the bucket, so a $0.00 row can say whether
     #: it is a local engine (free) or a vendor with no published rate (unknown).
     price_sources: set[str] = field(default_factory=set)
@@ -104,6 +107,8 @@ class Bucket:
         self.tokens_cached += entry.tokens_cached
         self.chars += entry.chars
         self.audio_ms += entry.audio_ms
+        self.reread_tokens += entry.reread_tokens
+        self.fresh_tokens += entry.fresh_tokens
         self.entries += 1
         if entry.is_gap:
             self.gap_tokens += entry.tokens_total
@@ -117,7 +122,11 @@ class Bucket:
     def to_dict(self, total_cost: float, total_tokens: int) -> dict[str, Any]:
         tokens = self.tokens_in + self.tokens_out + self.tokens_cached
         ranked = sorted(self.members.items(), key=lambda kv: -kv[1])
+        measured = self.reread_tokens + self.fresh_tokens
         return {
+            "reread_tokens": self.reread_tokens,
+            "fresh_tokens": self.fresh_tokens,
+            "reread_share": round(self.reread_tokens / measured, 4) if measured > 0 else 0.0,
             "key": self.key,
             "cost_usd": round(self.cost_usd, 6),
             "tokens_in": self.tokens_in,

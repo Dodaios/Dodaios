@@ -34,7 +34,13 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat import attachments as chat_attachments
-from dodaios.agent_chat import seat_outcomes, turn_errors, turn_prompts
+from dodaios.agent_chat import (
+    lead_compaction,
+    seat_outcomes,
+    token_efficiency,
+    turn_errors,
+    turn_prompts,
+)
 from dodaios.agent_chat.approval_bridge import ChatApprovalBridge
 from dodaios.agent_chat.approval_memory import PersistedBags
 from dodaios.agent_chat.catalog import PROVIDER_ROWS, api_seat, offers, provider_row
@@ -1372,6 +1378,7 @@ class AgentChatService:
         if event.get("kind") == "turn_finished":
             # The raw error, before it is made readable: seat health reads its words.
             seat_outcomes.observe_turn_finished(self, session_id, event)
+            event = token_efficiency.annotate_turn_finished(self.store, session_id, event)
         if event.get("kind") in {"turn_finished", "error"}:
             event = self._readable_error(session_id, event)
         stored = self.store.append_event(session_id, event)
@@ -1838,7 +1845,12 @@ class AgentChatService:
             set_chat_read_only(session_id, session.permission_mode in ("plan", "read-only"))
 
             history_start = kit.history_start(session) if kit.history_start is not None else 0
-            history = self.store.list_events(session_id, after_seq=history_start)
+            history = await asyncio.to_thread(
+                self.store.list_events, session_id, after_seq=history_start
+            )
+            await asyncio.to_thread(
+                token_efficiency.note_turn_start, turn_id, history, start_seq=history_start
+            )
             if incoming is not None:
                 await self.message_status(
                     session_id, incoming.message_id, "delivered", turn_id=turn_id
@@ -2116,7 +2128,9 @@ class AgentChatService:
                             run_handle.session,
                             vendor_session=stored.vendor_session if stored else None,
                         ),
-                        history=self.store.list_events(session_id),
+                        history=await asyncio.to_thread(
+                            self.store.list_events, session_id, after_seq=history_start
+                        ),
                         continuation=True,
                         # The pictures went with the message they came with.
                         images=(),
@@ -2197,12 +2211,18 @@ class AgentChatService:
                         first_seq = max(
                             (int(e.get("seq") or 0) for e in history), default=history_start
                         )
-                        events = self.store.list_events(session_id, after_seq=first_seq)
+                        events = await asyncio.to_thread(
+                            self.store.list_events, session_id, after_seq=first_seq
+                        )
                         await kit.turn_completed(
                             session, ChatCompletion(origin, json.dumps(events))
                         )
                     except Exception:
                         log.exception("chat completion hook failed for %s", turn_id)
+                if session.surface == "jarvis" and not run.detached:
+                    # The summary of a long conversation is written now, in the
+                    # background, so the next turn does not wait for it.
+                    lead_compaction.schedule_after_turn(self, session)
                 for aid in self.pending_approvals(session_id):
                     fut = self._approvals.pop(aid, None)
                     self._approval_session.pop(aid, None)
