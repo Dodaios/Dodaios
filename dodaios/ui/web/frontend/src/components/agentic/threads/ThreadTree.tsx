@@ -171,6 +171,18 @@ export function ThreadTree() {
     return next;
   });
 
+  // A new thread moved to another folder (the composer's folder menu) shows
+  // under it, also when that project was folded shut before.
+  const draftProject = selection.sessionId === null && !selection.team ? selection.projectId : "";
+  useEffect(() => {
+    if (draftProject) setExpansion((previous) => {
+      if (previous[draftProject] !== false) return previous;
+      const next = { ...previous, [draftProject]: true };
+      saveExpansion(next);
+      return next;
+    });
+  }, [draftProject]);
+
   const rename = async (session: AgentChatSession, title: string) => {
     const clean = title.trim();
     setRenaming(null);
