@@ -242,6 +242,26 @@ function callWords(call: Call, t: (key: string) => string): string {
 const THOUGHT_PROSE = cn(PROSE, "text-foreground-secondary dark:text-foreground-secondary prose-p:text-foreground-secondary prose-li:text-foreground-secondary");
 
 /**
+ * A thought the agent put into words, read as ONE short white sentence
+ * between its grey lines: what it is doing next. The sentence opens to the
+ * whole thought, a step quieter, so the thread shows the path without a wall
+ * of reasoning.
+ */
+function ThoughtSentence({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const gist = thoughtGist(text);
+  const more = flattenMarks(text).length > gist.length + 3;
+  const sentence = "text-[15px] leading-[21px] text-foreground/95 [overflow-wrap:anywhere]";
+  return <div className="min-w-0" data-testid="thread-thought-sentence">
+    {more
+      ? <button type="button" aria-expanded={open} onClick={() => setOpen(!open)}
+        className={cn(sentence, "block w-full rounded-sm text-left transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}>{gist}</button>
+      : <p className={cn(sentence, "m-0")}>{gist}</p>}
+    {open && <div className={cn(THOUGHT_PROSE, "mt-2 select-text text-sm leading-[21px] prose-p:leading-[21px]")}><ChatMarkdown text={text} /></div>}
+  </div>;
+}
+
+/**
  * A picture in the agent's words — an image it viewed or made — reads as a
  * small preview in the thread; a click opens it full size.
  */
@@ -832,12 +852,13 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   const closing = turn.status === "cancelled" ? timed("stopped")
     : turn.status === "error" ? timed("failed")
       : answer ? workedFor : timed("no_answer");
-  const renderRows = (list: readonly ThreadRow[]) => joinStretches(joinAgentRuns(list), { t, lang, running, titles: turn.toolTitles }).map((row) =>
+  const renderRows = (list: readonly ThreadRow[]) => joinStretches(joinAgentRuns(list), { t, lang, running, titles: turn.toolTitles, thoughtsApart: true }).map((row) =>
     row.kind === "stretch" ? <StretchView key={row.id} stretch={row} running={running} />
       : row.kind === "agents" ? <SubagentRun key={row.id} blocks={row.blocks} turn={turn} /> : renderRow(row));
   const renderRow = (row: ThreadRow) => {
-    // Work and thoughts are drawn as stretches (renderRows), never as rows of their own.
-    if (row.kind === "work" || row.kind === "thought") return null;
+    // Work is drawn as stretches (renderRows); a thought reads as one sentence between them.
+    if (row.kind === "work") return null;
+    if (row.kind === "thought") return <ThoughtSentence key={row.id} text={row.text} />;
     if (isSteerRow(row)) return <div key={row.id} className="flex justify-end" data-testid="thread-steer-message">
       <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl bg-secondary px-4 py-2.5 text-base leading-6 text-foreground [overflow-wrap:anywhere]">{(row as { text: string }).text}</div>
     </div>;
