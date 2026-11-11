@@ -59,7 +59,7 @@ test("IDE rail keeps workspace options and Dodaios Live reachable", () => {
   cleanup();
 });
 
-test("each side of the switch brings its own list", async () => {
+test("the IDE lists its folders; beside the conversation the column stays empty", async () => {
   act(() => {
     useIdeThreadsStore.setState({ layout: "grid" });
     useEventStore.setState({ activeSection: "agentic-ide" });
@@ -70,14 +70,13 @@ test("each side of the switch brings its own list", async () => {
     expect(await screen.findByTestId("ide-project-tree", undefined, { timeout: 10_000 })).toBeDefined();
     expect(screen.getByTestId("sidebar-mode-ide").getAttribute("aria-checked")).toBe("true");
     expect(screen.getByTestId("sidebar-mode-dodaios").getAttribute("aria-checked")).toBe("false");
-    // The assistant's list belongs to the conversation, not to the IDE.
-    expect(screen.queryByTestId("sidebar-assistant")).toBeNull();
     act(() => useEventStore.setState({ activeSection: "chats" }));
-    // Beside the conversation nothing of the IDE is listed.
-    expect(await screen.findByTestId("sidebar-assistant", undefined, { timeout: 10_000 })).toBeDefined();
+    // Beside the conversation nothing is listed: the assistant's own panel
+    // stands to the right of the conversation (views/HomeView).
     expect(screen.queryByTestId("ide-project-tree")).toBeNull();
+    expect(screen.queryByTestId("assistant-panel")).toBeNull();
+    expect(screen.queryByTestId("earlier-chats")).toBeNull();
     expect(screen.getByTestId("sidebar-mode-dodaios").getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByTestId("earlier-chats")).toBeTruthy();
   } finally {
     // A failure here must not leave the IDE section and its sidebar behind for the next test.
     cleanup();
@@ -678,14 +677,14 @@ describe("the sidebar holds the two places and nothing else", () => {
   });
   afterEach(() => cleanup());
 
-  test("lists no sections of its own", async () => {
+  test("lists no sections of its own", () => {
     renderSidebar();
     for (const id of ["agents", "dictation", "visualization", "agentic-ide", "plugins", "memory", "self-build", "verse"]) {
       expect(screen.queryByTestId(`nav-row-${id}`)).toBeNull();
     }
     expect(screen.queryByTestId("sidebar-more-toggle")).toBeNull();
     expect(screen.queryByTestId("sidebar-due")).toBeNull();
-    expect(await screen.findByTestId("earlier-chats", undefined, { timeout: 10_000 })).toBeTruthy();
+    expect(screen.queryByTestId("earlier-chats")).toBeNull();
   });
 
   test("keeps the marketplace beside the profile button", () => {

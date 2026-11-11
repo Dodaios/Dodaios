@@ -17,6 +17,11 @@ vi.mock("@/components/home/LeadActivityPanel", () => ({
   ),
 }));
 
+vi.mock("@/components/home/AssistantPanel", () => ({
+  default: () => <aside data-testid="assistant-panel" />,
+}));
+vi.mock("@/lib/newChat", () => ({ startNewTextChat: vi.fn() }));
+
 import { HomeView } from "@/views/HomeView";
 
 const running = { type: "turn", id: "t", status: "running", blocks: [] };
@@ -26,6 +31,23 @@ beforeEach(() => {
   chat.items = [];
 });
 afterEach(cleanup);
+
+describe("HomeView assistant panel", () => {
+  it("stands to the right of the conversation on a quiet page", async () => {
+    render(<HomeView />);
+    expect(await screen.findByTestId("assistant-panel")).toBeTruthy();
+    expect(screen.getByTestId("assistant-chat")).toBeTruthy();
+  });
+
+  it("gives its place to the activity panel while that is open", async () => {
+    chat.items = [running];
+    render(<HomeView />);
+    expect(await screen.findByTestId("lead-activity")).toBeTruthy();
+    expect(screen.queryByTestId("assistant-panel")).toBeNull();
+    fireEvent.click(screen.getByText("close"));
+    expect(await screen.findByTestId("assistant-panel")).toBeTruthy();
+  });
+});
 
 describe("HomeView activity panel", () => {
   it("is closed on a quiet page with nothing to show", () => {

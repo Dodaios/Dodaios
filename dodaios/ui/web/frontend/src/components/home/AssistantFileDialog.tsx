@@ -10,7 +10,7 @@ import { FilePage } from "@/views/assistant/FilePage";
  * what it knows about the person. The file's own page does the reading and
  * the editing; this only gives it a place to stand.
  */
-export default function SidebarFileDialog({ fileId, onClose }: { fileId: SoulFileId; onClose: () => void }) {
+export default function AssistantFileDialog({ fileId, onClose }: { fileId: SoulFileId; onClose: () => void }) {
   const t = useT();
   const profile = useSoulProfile();
   const file = profile.data ? fileOf(profile.data, fileId) : undefined;
@@ -20,7 +20,7 @@ export default function SidebarFileDialog({ fileId, onClose }: { fileId: SoulFil
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[80] bg-[#090909]/70 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none" />
         <Dialog.Content
-          data-testid="sidebar-file-dialog"
+          data-testid="assistant-file-dialog"
           aria-describedby={undefined}
           className={cn(
             "fixed left-1/2 top-1/2 z-[90] flex max-h-[min(88dvh,52rem)] w-[min(760px,calc(100vw-2rem))]",

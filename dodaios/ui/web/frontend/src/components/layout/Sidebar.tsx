@@ -24,10 +24,6 @@ import { startNewTextChat } from "@/lib/newChat";
 import { useUserName } from "@/hooks/useUserName";
 import { apiKeysHealthError } from "@/lib/apiKeysTab";
 
-// The assistant's side of the column: its routines and the chats from before.
-// It reads the routine and chat lists, so it loads on its own chunk.
-const SidebarAssistant = lazy(() => import("@/components/layout/SidebarAssistant"));
-
 // The update button renders nothing on most launches; loaded on its own so
 // the title-strip module it lives in stays out of the sidebar's chunk.
 const UpdateButton = lazy(() =>
@@ -317,11 +313,9 @@ export function Sidebar({
             </button>
           </div>
         </nav>) : <>
-          {/* Each side of the switch brings its own list: the IDE its folders,
-              the conversation the assistant's routines and earlier chats. */}
-          {onIdeSection
-            ? <LazyIdeProjectTree />
-            : <Suspense fallback={null}><SidebarAssistant onConversation={() => pickMode("dodaios")} /></Suspense>}
+          {/* The IDE lists its folders here. Beside the conversation the column
+              stays empty: the assistant's own panel stands to the right of it. */}
+          {onIdeSection && <LazyIdeProjectTree />}
         </>}
       </div>
 

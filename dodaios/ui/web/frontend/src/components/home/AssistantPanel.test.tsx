@@ -13,15 +13,15 @@ vi.mock("@/components/home/chatRows", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/components/home/chatRows")>()),
   useChatRows: () => ({ rows: chats.rows, isActive: (row: { id: string }) => row.id === chats.active, open: chats.open, remove: vi.fn() }),
 }));
-vi.mock("@/components/layout/SidebarRoutineDialog", () => ({
+vi.mock("@/components/home/AssistantRoutineDialog", () => ({
   default: ({ routineId, onClose }: { routineId: string; onClose: () => void }) => (
     <div data-testid="routine-dialog">{routineId}<button onClick={onClose}>Close routine</button></div>
   ),
 }));
-vi.mock("@/components/layout/SidebarFileDialog", () => ({
+vi.mock("@/components/home/AssistantFileDialog", () => ({
   default: ({ fileId }: { fileId: string }) => <div data-testid="file-dialog">{fileId}</div>,
 }));
-vi.mock("@/components/pets/PetMark", () => ({ PetMark: () => <span data-testid="pet-mark" /> }));
+vi.mock("@/components/MascotGigi", () => ({ MascotGigi: () => <span data-testid="mascot" /> }));
 vi.mock("@/hooks/useVoiceEngineDisplay", () => ({
   useVoiceEngineDisplay: () => ({ tier: "realtime", providerId: "test", providerLabel: "Test Voice", model: "m1" }),
 }));
@@ -39,7 +39,7 @@ vi.mock("@/hooks/useSkills", () => ({
 const tasks = vi.hoisted(() => ({ setTaskEnabled: vi.fn(async () => undefined) }));
 vi.mock("@/lib/tasksApi", () => ({ setTaskEnabled: tasks.setTaskEnabled }));
 
-import SidebarAssistant from "./SidebarAssistant";
+import AssistantPanel from "./AssistantPanel";
 
 function chat(id: string, title: string, updatedMs: number) {
   return { kind: "agent" as const, id, title, preview: "", updatedMs, messageCount: 2, provider: "", raw: null };
@@ -51,7 +51,7 @@ function mount(routines: unknown[]) {
   )));
   const onConversation = vi.fn();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(<QueryClientProvider client={client}><SidebarAssistant onConversation={onConversation} /></QueryClientProvider>);
+  render(<QueryClientProvider client={client}><AssistantPanel onConversation={onConversation} /></QueryClientProvider>);
   return onConversation;
 }
 
@@ -70,12 +70,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("SidebarAssistant", () => {
-  it("shows the assistant's face and name, and they lead back to the conversation", () => {
+describe("AssistantPanel", () => {
+  it("shows the product's mascot and the name, and they lead back to the conversation", () => {
     const onConversation = mount([]);
-    const face = screen.getByTestId("sidebar-assistant-conversation");
+    const face = screen.getByTestId("assistant-panel-conversation");
     expect(face.textContent).toContain("Dodaios");
-    expect(face.querySelector('[data-testid="pet-mark"]')).toBeTruthy();
+    expect(face.querySelector('[data-testid="mascot"]')).toBeTruthy();
     fireEvent.click(face);
     expect(onConversation).toHaveBeenCalledTimes(1);
   });
@@ -85,12 +85,12 @@ describe("SidebarAssistant", () => {
       { id: "r1", title: "[agent:Dodaios] Morning mail", state: "scheduled" },
       { id: "r2", title: "Weekly review", state: "paused" },
     ]);
-    const first = await screen.findByTestId("sidebar-automation-r1");
+    const first = await screen.findByTestId("assistant-automation-r1");
     expect(first.textContent).toContain("Morning mail");
     expect(first.textContent).not.toContain("[agent:");
     expect(vi.mocked(fetch)).toHaveBeenCalledWith("/api/society/agents/jarvis/routines");
-    expect(screen.getByTestId("sidebar-automation-switch-r1").getAttribute("aria-checked")).toBe("true");
-    const paused = screen.getByTestId("sidebar-automation-switch-r2");
+    expect(screen.getByTestId("assistant-automation-switch-r1").getAttribute("aria-checked")).toBe("true");
+    const paused = screen.getByTestId("assistant-automation-switch-r2");
     expect(paused.getAttribute("aria-checked")).toBe("false");
     fireEvent.click(paused);
     await waitFor(() => expect(tasks.setTaskEnabled).toHaveBeenCalledWith("r2", true));
@@ -98,7 +98,7 @@ describe("SidebarAssistant", () => {
 
   it("opens a routine's own page from its row", async () => {
     mount([{ id: "r1", title: "Morning mail", state: "scheduled" }]);
-    fireEvent.click(await screen.findByTestId("sidebar-automation-r1"));
+    fireEvent.click(await screen.findByTestId("assistant-automation-r1"));
     expect((await screen.findByTestId("routine-dialog")).textContent).toContain("r1");
     fireEvent.click(screen.getByText("Close routine"));
     expect(screen.queryByTestId("routine-dialog")).toBeNull();
@@ -106,13 +106,13 @@ describe("SidebarAssistant", () => {
 
   it("says so when there is no routine yet", async () => {
     mount([]);
-    await waitFor(() => expect(screen.getByTestId("sidebar-automations-empty").textContent).toMatch(/None yet/));
+    await waitFor(() => expect(screen.getByTestId("assistant-automations-empty").textContent).toMatch(/None yet/));
   });
 
   it("names the voice model and the wake word, and each leads to its settings", () => {
     mount([]);
-    expect(screen.getByTestId("sidebar-voice-model").textContent).toContain("Test Voice");
-    const wake = screen.getByTestId("sidebar-voice-wake");
+    expect(screen.getByTestId("assistant-voice-model").textContent).toContain("Test Voice");
+    const wake = screen.getByTestId("assistant-voice-wake");
     expect(wake.textContent).toContain("Hey Nova");
     fireEvent.click(wake);
     expect(useSettingsJump.getState().take()).toBe("wake-word");
@@ -122,9 +122,9 @@ describe("SidebarAssistant", () => {
   it("lists the newest earlier chats without the conversation itself", async () => {
     chats.rows = [chat("lead", "The one conversation", 9), ...Array.from({ length: 6 }, (_, index) => chat(`c${index}`, `Chat ${index}`, 8 - index))];
     mount([]);
-    await waitFor(() => expect(screen.queryByTestId("sidebar-recent-lead")).toBeNull());
-    expect(screen.getAllByTestId(/^sidebar-recent-c\d$/)).toHaveLength(4);
-    fireEvent.click(screen.getByTestId("sidebar-recent-c2"));
+    await waitFor(() => expect(screen.queryByTestId("assistant-recent-lead")).toBeNull());
+    expect(screen.getAllByTestId(/^assistant-recent-c\d$/)).toHaveLength(4);
+    fireEvent.click(screen.getByTestId("assistant-recent-c2"));
     expect(chats.open).toHaveBeenCalledWith(chats.rows[3]);
     expect(screen.getByTestId("earlier-chats")).toBeTruthy();
   });
@@ -132,19 +132,19 @@ describe("SidebarAssistant", () => {
   it("keeps the files and the skills in the library, and remembers the tab", async () => {
     skills.list = [{ name: "zeta", state: "disabled" }, { name: "alpha", state: "active" }, { name: "draft-one", state: "draft" }];
     mount([]);
-    expect(screen.queryByTestId("sidebar-file-user")).toBeNull();
-    fireEvent.click(screen.getByTestId("sidebar-assistant-tab-library"));
+    expect(screen.queryByTestId("assistant-file-user")).toBeNull();
+    fireEvent.click(screen.getByTestId("assistant-panel-tab-library"));
     expect(localStorage.getItem("jarvis.sidebar.assistantTab.v1")).toBe("library");
-    expect(["soul", "instructions", "memory", "user"].map((id) => screen.getByTestId(`sidebar-file-${id}`).textContent))
+    expect(["soul", "instructions", "memory", "user"].map((id) => screen.getByTestId(`assistant-file-${id}`).textContent))
       .toEqual(["SOUL.md", "Nova.md", "MEMORY.md", "USER.md"]);
-    fireEvent.click(screen.getByTestId("sidebar-file-user"));
+    fireEvent.click(screen.getByTestId("assistant-file-user"));
     expect((await screen.findByTestId("file-dialog")).textContent).toBe("user");
     // Active skills lead; a draft has no switch to flip.
-    const switches = screen.getAllByTestId(/^sidebar-skill-switch-/).map((node) => node.getAttribute("data-testid"));
-    expect(switches).toEqual(["sidebar-skill-switch-alpha", "sidebar-skill-switch-zeta"]);
-    fireEvent.click(screen.getByTestId("sidebar-skill-switch-zeta"));
+    const switches = screen.getAllByTestId(/^assistant-skill-switch-/).map((node) => node.getAttribute("data-testid"));
+    expect(switches).toEqual(["assistant-skill-switch-alpha", "assistant-skill-switch-zeta"]);
+    fireEvent.click(screen.getByTestId("assistant-skill-switch-zeta"));
     expect(skills.set).toHaveBeenCalledWith({ name: "zeta", enabled: true });
-    fireEvent.click(screen.getByTestId("sidebar-skills-all"));
+    fireEvent.click(screen.getByTestId("assistant-skills-all"));
     expect(useEventStore.getState().activeSection).toBe("skills");
   });
 });

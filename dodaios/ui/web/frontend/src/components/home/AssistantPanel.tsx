@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Clock, FileText, Sparkles } from "lucide-react";
 import { EarlierChatsLink } from "@/components/home/EarlierChatsLink";
 import { chatRowLabel, useChatRows } from "@/components/home/chatRows";
-import { PetMark } from "@/components/pets/PetMark";
+import { MascotGigi } from "@/components/MascotGigi";
 import { useRunLocale } from "@/components/runs/format";
 import { humanSchedule } from "@/components/society/card/routines/humanSchedule";
 import { Switch } from "@/components/ui/switch";
@@ -18,8 +18,8 @@ import { useSettingsJump } from "@/store/settingsJump";
 import { useSoulProfile, type SoulFileId } from "@/views/assistant/api";
 
 // A routine's or a file's own page is only fetched when one is opened.
-const SidebarRoutineDialog = lazy(() => import("@/components/layout/SidebarRoutineDialog"));
-const SidebarFileDialog = lazy(() => import("@/components/layout/SidebarFileDialog"));
+const AssistantRoutineDialog = lazy(() => import("@/components/home/AssistantRoutineDialog"));
+const AssistantFileDialog = lazy(() => import("@/components/home/AssistantFileDialog"));
 
 /** The assistant's own id in the roster; its routines are the automations listed here. */
 const ASSISTANT_ID = "jarvis";
@@ -80,7 +80,7 @@ function useConversationId(): string | null {
 /** A titled group: a quiet label and one card holding its rows. */
 function Group({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section aria-label={title} data-testid={`sidebar-assistant-${id}`} className="mt-4 first:mt-1">
+    <section aria-label={title} data-testid={`assistant-panel-${id}`} className="mt-4 first:mt-1">
       <h2 className="px-1 pb-1.5 text-sm text-muted-foreground">{title}</h2>
       <div className="overflow-hidden rounded-lg border border-border bg-card">{children}</div>
     </section>
@@ -91,15 +91,17 @@ const ROW = "flex min-h-10 w-full min-w-0 items-center gap-2.5 px-3 py-1.5 text-
 const ROW_BUTTON = cn(ROW, "transition-colors hover:bg-secondary", FOCUS);
 
 /**
- * The assistant's side of the sidebar: who it is and what belongs to it.
+ * The assistant's panel, to the right of its conversation: who it is and what
+ * belongs to it.
  *
- * Its face and name lead back to the conversation. "Activity" holds what it
+ * Its face is the product's own mascot; face and name lead back to the
+ * conversation. "Activity" holds what it
  * does on its own (its routines, each with a switch), how it is spoken to,
  * and the chats from before. "Library" holds what it keeps: its own files
  * (character, standing instructions, memory, what it knows about the person)
  * and its skills. Nothing of the Agentic IDE is listed here.
  */
-export default function SidebarAssistant({ onConversation }: { onConversation: () => void }) {
+export default function AssistantPanel({ onConversation }: { onConversation: () => void }) {
   const t = useT();
   useLocaleChunk("society");
   const locale = useRunLocale();
@@ -149,16 +151,17 @@ export default function SidebarAssistant({ onConversation }: { onConversation: (
   const name = t("sidebar.conversation");
 
   return (
-    <nav aria-label={name} data-testid="sidebar-assistant" className="flex min-h-0 flex-1 flex-col px-2 pb-3">
-      <button type="button" data-testid="sidebar-assistant-conversation" onClick={onConversation} title={name}
+    <aside aria-label={name} data-testid="assistant-panel"
+      className="flex h-full w-[320px] shrink-0 flex-col overflow-y-auto border-l border-border px-3 pb-4 pt-8 scrollbar-jarvis">
+      <button type="button" data-testid="assistant-panel-conversation" onClick={onConversation} title={name}
         className={cn("mx-auto mt-3 flex flex-col items-center gap-2 rounded-lg px-4 py-2", FOCUS)}>
-        <span className="relative block h-16 w-16"><PetMark size={64} reactive /></span>
+        <MascotGigi size={72} enableComments={false} />
         <span className="text-lg font-semibold text-foreground-strong">{name}</span>
       </button>
 
       <div role="tablist" aria-label={name} className="mx-auto mt-1 flex items-center gap-1">
         {(["activity", "library"] as const).map((id) => (
-          <button key={id} type="button" role="tab" aria-selected={tab === id} data-testid={`sidebar-assistant-tab-${id}`}
+          <button key={id} type="button" role="tab" aria-selected={tab === id} data-testid={`assistant-panel-tab-${id}`}
             onClick={() => pickTab(id)}
             className={cn("rounded-md px-2.5 py-1 text-sm transition-colors", FOCUS,
               tab === id ? "bg-secondary text-foreground-strong" : "text-muted-foreground hover:text-foreground")}>
@@ -175,7 +178,7 @@ export default function SidebarAssistant({ onConversation }: { onConversation: (
               const sentence = humanSchedule(routine.trigger, { t, locale });
               return (
                 <div key={routine.id} className={cn(ROW, "border-b border-border last:border-b-0")}>
-                  <button type="button" data-testid={`sidebar-automation-${routine.id}`} onClick={() => setRoutineId(routine.id)} title={routine.title}
+                  <button type="button" data-testid={`assistant-automation-${routine.id}`} onClick={() => setRoutineId(routine.id)} title={routine.title}
                     className={cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-md text-left", FOCUS)}>
                     <Clock aria-hidden strokeWidth={1.75} className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <span className="min-w-0 flex-1">
@@ -183,27 +186,27 @@ export default function SidebarAssistant({ onConversation }: { onConversation: (
                       {sentence && <span className="block truncate text-sm text-muted-foreground">{sentence}</span>}
                     </span>
                   </button>
-                  <Switch aria-label={routine.title} data-testid={`sidebar-automation-switch-${routine.id}`}
+                  <Switch aria-label={routine.title} data-testid={`assistant-automation-switch-${routine.id}`}
                     checked={active} disabled={pending === routine.id}
                     onCheckedChange={(enabled) => void toggleRoutine(routine, enabled)} />
                 </div>
               );
             })}
             {routines.length === 0 && (
-              <p data-testid="sidebar-automations-empty" className={cn(ROW, "text-sm text-muted-foreground")}>
+              <p data-testid="assistant-automations-empty" className={cn(ROW, "text-sm text-muted-foreground")}>
                 {automations.isLoading ? t("common.loading") : t("sidebar.automations_empty")}
               </p>
             )}
           </Group>
 
           <Group id="voice" title={t("sidebar.voice")}>
-            <button type="button" data-testid="sidebar-voice-model" onClick={() => openSettings("voice")}
+            <button type="button" data-testid="assistant-voice-model" onClick={() => openSettings("voice")}
               className={cn(ROW_BUTTON, "border-b border-border")}>
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{t("sidebar.voice_model")}</span>
               <span className="min-w-0 truncate text-sm text-muted-foreground">{voice.providerLabel}</span>
               <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             </button>
-            <button type="button" data-testid="sidebar-voice-wake" onClick={() => openSettings("wake-word")} className={ROW_BUTTON}>
+            <button type="button" data-testid="assistant-voice-wake" onClick={() => openSettings("wake-word")} className={ROW_BUTTON}>
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{t("sidebar.wake_word")}</span>
               <span className="min-w-0 truncate text-sm text-muted-foreground">{profile.data?.wake_phrase ?? ""}</span>
               <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -215,7 +218,7 @@ export default function SidebarAssistant({ onConversation }: { onConversation: (
               const label = chatRowLabel(row, t);
               const onStage = isActive(row);
               return (
-                <button key={`${row.kind}:${row.id}`} type="button" data-testid={`sidebar-recent-${row.id}`}
+                <button key={`${row.kind}:${row.id}`} type="button" data-testid={`assistant-recent-${row.id}`}
                   onClick={() => openRow(row)} title={label.text} aria-current={onStage ? "page" : undefined}
                   className={cn(ROW_BUTTON, "border-b border-border", onStage && "bg-secondary")}>
                   <span className={cn("min-w-0 flex-1 truncate text-sm", label.untitled ? "text-muted-foreground" : "text-foreground")}>{label.text}</span>
@@ -229,7 +232,7 @@ export default function SidebarAssistant({ onConversation }: { onConversation: (
         <div role="tabpanel" className="mt-3">
           <Group id="files" title={t("assistant_view.files_title")}>
             {files.map((file) => (
-              <button key={file.id} type="button" data-testid={`sidebar-file-${file.id}`} onClick={() => setFileId(file.id)}
+              <button key={file.id} type="button" data-testid={`assistant-file-${file.id}`} onClick={() => setFileId(file.id)}
                 className={cn(ROW_BUTTON, "border-b border-border last:border-b-0")}>
                 <FileText aria-hidden strokeWidth={1.75} className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1 truncate text-sm text-foreground">{file.filename}</span>
@@ -246,12 +249,12 @@ export default function SidebarAssistant({ onConversation }: { onConversation: (
               <div key={skill.name} className={cn(ROW, "border-b border-border")}>
                 <Sparkles aria-hidden strokeWidth={1.75} className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <span title={skill.name} className={cn("min-w-0 flex-1 truncate text-sm", skill.state === "active" ? "text-foreground" : "text-muted-foreground")}>{skill.name}</span>
-                <Switch aria-label={skill.name} data-testid={`sidebar-skill-switch-${skill.name}`}
+                <Switch aria-label={skill.name} data-testid={`assistant-skill-switch-${skill.name}`}
                   checked={skill.state === "active"} disabled={setSkillEnabled.isPending}
                   onCheckedChange={(enabled) => setSkillEnabled.mutate({ name: skill.name, enabled })} />
               </div>
             ))}
-            <button type="button" data-testid="sidebar-skills-all" onClick={() => setActive("skills")} className={ROW_BUTTON}>
+            <button type="button" data-testid="assistant-skills-all" onClick={() => setActive("skills")} className={ROW_BUTTON}>
               <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
                 {skills.isLoading ? t("common.loading") : t("sidebar.skills_all")}
               </span>
@@ -262,9 +265,9 @@ export default function SidebarAssistant({ onConversation }: { onConversation: (
       )}
 
       <Suspense fallback={null}>
-        {routineId && <SidebarRoutineDialog agentId={ASSISTANT_ID} routineId={routineId} onClose={() => setRoutineId(null)} />}
-        {fileId && <SidebarFileDialog fileId={fileId} onClose={() => setFileId(null)} />}
+        {routineId && <AssistantRoutineDialog agentId={ASSISTANT_ID} routineId={routineId} onClose={() => setRoutineId(null)} />}
+        {fileId && <AssistantFileDialog fileId={fileId} onClose={() => setFileId(null)} />}
       </Suspense>
-    </nav>
+    </aside>
   );
 }

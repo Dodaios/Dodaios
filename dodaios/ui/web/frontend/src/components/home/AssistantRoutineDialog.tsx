@@ -9,7 +9,7 @@ import { useAgentRoutines } from "@/components/society/cardData";
  * runs and the pause / run-now controls, in a dialog over the conversation.
  * The routine's own page does the work; this only gives it a place to stand.
  */
-export default function SidebarRoutineDialog({ agentId, routineId, onClose }: {
+export default function AssistantRoutineDialog({ agentId, routineId, onClose }: {
   agentId: string; routineId: string; onClose: () => void;
 }) {
   const t = useT();
@@ -22,7 +22,7 @@ export default function SidebarRoutineDialog({ agentId, routineId, onClose }: {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[80] bg-[#090909]/70 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none" />
         <Dialog.Content
-          data-testid="sidebar-routine-dialog"
+          data-testid="assistant-routine-dialog"
           aria-describedby={undefined}
           className={cn(
             "fixed left-1/2 top-1/2 z-[90] flex max-h-[min(84dvh,44rem)] w-[min(560px,calc(100vw-2rem))]",
