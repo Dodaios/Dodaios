@@ -33,6 +33,7 @@ class SettingsPatch(BaseModel):
     kinds: dict[str, bool] | None = None
     quiet_hours: dict[str, Any] | None = None
     telegram_approvals: bool | None = None
+    phone: dict[str, bool] | None = None
 
 
 class NewReminder(BaseModel):
