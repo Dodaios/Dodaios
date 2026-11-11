@@ -133,6 +133,7 @@ async def _drive_fake_claude(
     reap: bool = True,
     runner: str = "claude-cli",
     events: list | None = None,
+    keep_stdin: bool = False,
 ) -> tuple[object, object]:
     store = AgentChatStore(":memory:")
     session = store.create_session(
@@ -168,7 +169,7 @@ async def _drive_fake_claude(
                     stdin_text="prompt\n",
                     shape="claude",
                     vendor_session=None,
-                    keep_stdin=False,
+                    keep_stdin=keep_stdin,
                 ),
                 runner,
                 cwd=tmp_path,
@@ -577,3 +578,66 @@ async def test_an_idle_grok_turn_says_it_waits_on_background_work(
     assert outcome.status == "done", outcome.error
     waits = [e["payload"]["tasks"] for e in events if e["kind"] == "background_wait"]
     assert waits == [[runner_cli.GROK_BACKGROUND_WORK], []]
+
+
+async def test_the_empty_result_for_a_resumed_task_notice_does_not_end_the_turn(
+    tmp_path: Path,
+):
+    """Resumed after a background agent was stopped, Claude Code first answers
+    that task's notice with an empty result (no model turn), then runs the
+    prompt. That first result closed stdin and ended the turn: the thread read
+    "Finished without an answer" and the agent's question card failed with
+    "Stream closed". The prompt's own answer must stay in the turn."""
+    notice = json.dumps(
+        {"type": "system", "subtype": "task_notification", "task_id": "a1", "status": "stopped"}
+    )
+    phantom = json.dumps(
+        {
+            "type": "result",
+            "subtype": "success",
+            "is_error": False,
+            "num_turns": 0,
+            "duration_api_ms": 0,
+            "stop_reason": None,
+            "result": "",
+            "usage": {"output_tokens": 0},
+        }
+    )
+    answer = json.dumps(
+        {
+            "type": "assistant",
+            "message": {"id": "m1", "content": [{"type": "text", "text": "The questions."}]},
+        }
+    )
+    source = (
+        "import sys, time\n"
+        "sys.stdin.readline()\n"
+        f"print({notice!r}, flush=True)\n"
+        f"print({phantom!r}, flush=True)\n"
+        "time.sleep(1.5)\n"
+        f"print({answer!r}, flush=True)\n"
+        f"print({_RESULT_LINE!r}, flush=True)\n"
+        # Waits for stdin to close: only the real result may close it.
+        "sys.stdin.read()\n"
+    )
+    events: list = []
+    outcome, proc = await _drive_fake_claude(tmp_path, source, events=events, keep_stdin=True)
+    assert outcome.status == "done", outcome.error
+    texts = [e["payload"]["text"] for e in events if e["kind"] == "assistant_text"]
+    assert texts == ["The questions."]
+    assert outcome.usage["output_tokens"] == 1
+
+
+def test_only_a_notice_answer_without_a_model_turn_is_skipped():
+    st = runner_cli._ClaudeState(turn_id="t")
+    empty = {"type": "result", "is_error": False, "num_turns": 0, "result": ""}
+    # No notice before it: a result with no model turn (a local command) ends the turn.
+    runner_cli.translate_claude_line(empty, st)
+    assert st.saw_result
+    st = runner_cli._ClaudeState(turn_id="t")
+    runner_cli.translate_claude_line(
+        {"type": "system", "subtype": "task_notification", "task_id": "a", "status": "stopped"}, st
+    )
+    # An error after a notice still ends the turn.
+    runner_cli.translate_claude_line({**empty, "is_error": True}, st)
+    assert st.saw_result and st.status == "error"

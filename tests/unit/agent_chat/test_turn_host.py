@@ -1053,3 +1053,20 @@ async def test_a_shutdown_while_reattaching_leaves_the_turns_for_the_next_proces
     ]
     assert [t[1] for t in store.open_turns()] == [turn_id]
     store.close()
+
+
+def test_the_host_keeps_stdin_open_past_the_empty_answer_to_a_task_notice() -> None:
+    turn = turn_host.HostedTurn(
+        turn_id="t", proc=None, meta={}, started_at=0.0, close_stdin_on="result"  # type: ignore[arg-type]
+    )
+    notice = {"type": "system", "subtype": "task_notification", "task_id": "a", "status": "stopped"}
+    empty = {"type": "result", "subtype": "success", "is_error": False, "num_turns": 0}
+    real = {"type": "result", "subtype": "success", "is_error": False, "num_turns": 3}
+    assert not turn_host._ends_input(turn, json.dumps(notice))
+    assert not turn_host._ends_input(turn, json.dumps(empty))
+    assert turn_host._ends_input(turn, json.dumps(real))
+    # Without a notice before it, even an empty result is the end.
+    fresh = turn_host.HostedTurn(
+        turn_id="u", proc=None, meta={}, started_at=0.0, close_stdin_on="result"  # type: ignore[arg-type]
+    )
+    assert turn_host._ends_input(fresh, json.dumps(empty))
