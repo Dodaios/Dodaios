@@ -95,17 +95,20 @@ export interface OutputSummary {
   waiting_capacity?: boolean;
 }
 
+/** Every run, newest first: the one read behind the `["outputs"]` query key. */
+export async function fetchOutputsList(): Promise<OutputSummary[]> {
+  const r = await fetch("/api/outputs");
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const data = (await r.json()) as
+    | OutputSummary[]
+    | { sessions?: OutputSummary[] };
+  return Array.isArray(data) ? data : data.sessions ?? [];
+}
+
 export function useOutputsList() {
   return useQuery<OutputSummary[]>({
     queryKey: ["outputs"],
-    queryFn: async () => {
-      const r = await fetch("/api/outputs");
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = (await r.json()) as
-        | OutputSummary[]
-        | { sessions?: OutputSummary[] };
-      return Array.isArray(data) ? data : data.sessions ?? [];
-    },
+    queryFn: fetchOutputsList,
     staleTime: 5_000,
     refetchInterval: 3_000,
   });

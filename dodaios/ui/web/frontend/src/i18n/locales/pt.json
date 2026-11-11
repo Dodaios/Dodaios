@@ -838,6 +838,8 @@
     "jarvis_tools": "Ferramentas Dodaios",
     "more": "Mais",
     "instance_dev_hint": "Instância de desenvolvimento — uma segunda cópia da aplicação, que pode ser reiniciada à vontade, com dados, portas e ícone próprios. A aplicação normal continua a correr ao lado.",
+    "rail_more_events": "mais {count}",
+    "rail_artifacts": "Artefatos favoritos e recentes",
     "surface_voice": "Voz",
     "surface_chat": "Chat",
     "surface_hint": "Alternar a página inicial entre voz e chat escrito",

@@ -29,6 +29,11 @@ const KIND_ICON: Record<string, LucideIcon> = {
   job: Cog,
 };
 
+/** The mark for a kind of status row; a question mark for a kind not known here. */
+export function statusKindIcon(kind: string): LucideIcon {
+  return KIND_ICON[kind] ?? CircleHelp;
+}
+
 /**
  * Go to the place a status row stands for.
  *
@@ -57,7 +62,7 @@ export function goToStatusRow(row: StatusRow): void {
 /** How a row is tinted: waiting on the person, working quietly, or in trouble. */
 export type StatusTone = "needs" | "running" | "trouble";
 
-const TILE_TONE: Record<StatusTone, string> = {
+export const TILE_TONE: Record<StatusTone, string> = {
   needs: "bg-primary/10 text-primary ring-primary/20",
   running: "bg-secondary text-muted-foreground ring-border",
   trouble: "bg-warning/10 text-warning ring-warning/25",
@@ -112,7 +117,7 @@ export function StatusRowButton({ row, running = false, onGo }: {
 }) {
   const t = useT();
   return (
-    <StatusItem Icon={running ? Loader2 : KIND_ICON[row.kind] ?? CircleHelp} tone={running ? "running" : "needs"} spin={running}
+    <StatusItem Icon={running ? Loader2 : statusKindIcon(row.kind)} tone={running ? "running" : "needs"} spin={running}
       title={row.title} subtitle={t(`status_light.kind_${row.kind}`)} onGo={() => onGo(row)} testId="status-light-row" kind={row.kind} />
   );
 }
@@ -168,16 +173,49 @@ function providerLines(name: string, problem: string): { title: string; subtitle
   return match ? { title: match[1], subtitle: `${problem} · ${match[2]}` } : { title: name, subtitle: problem };
 }
 
-function openKeys(onDone?: () => void): void {
+/** Open the API keys page, where a provider in trouble is set right. */
+export function openKeys(onDone?: () => void): void {
   useEventStore.getState().setActiveSection("apikeys");
   onDone?.();
 }
 
+/** One line of "Needs a look", ready to draw as a row or as a tile. */
+export interface TroubleItem {
+  key: string;
+  kind: string;
+  testId: "status-light-seat" | "status-light-finding";
+  title: string;
+  subtitle: string;
+  /** A provider is set right on the API keys page; any other finding leads nowhere. */
+  opensKeys: boolean;
+}
+
+/**
+ * Providers in trouble and the watchdog's open findings as plain lines. A
+ * provider line names the provider and what is wrong ("model not available");
+ * any other finding is told as it is.
+ */
+export function troubleItems(trouble: StatusTrouble[], findings: StatusFinding[], t: (key: string) => string): TroubleItem[] {
+  const seats = trouble.map((seat): TroubleItem => ({
+    key: `${seat.provider}/${seat.account}`, kind: seat.class, testId: "status-light-seat",
+    title: seat.account ? `${seat.provider} · ${seat.account}` : seat.provider,
+    subtitle: troubleLabel(t, seat.class), opensKeys: true,
+  }));
+  const found = findings.map((finding): TroubleItem => finding.provider
+    ? {
+      key: finding.id, kind: finding.kind, testId: "status-light-finding", opensKeys: true,
+      ...providerLines(finding.provider, troubleLabel(t, STATUS_CLASS[finding.status ?? ""] ?? "other")),
+    }
+    : {
+      key: finding.id, kind: finding.kind, testId: "status-light-finding", opensKeys: false,
+      title: finding.title, subtitle: t("status_light.finding_label"),
+    });
+  return [...seats, ...found];
+}
+
 /**
  * "Needs a look": providers in trouble and the watchdog's open findings, each
- * with a warning mark. A provider row names the provider and what is wrong
- * ("model not available") and opens the API keys page; any other finding is
- * told as it is.
+ * with a warning mark. A provider row opens the API keys page.
  */
 export function StatusTroubleGroup({ trouble, findings, testId, onNavigate }: {
   trouble: StatusTrouble[]; findings: StatusFinding[]; testId: string;
@@ -185,30 +223,18 @@ export function StatusTroubleGroup({ trouble, findings, testId, onNavigate }: {
   onNavigate?: () => void;
 }) {
   const t = useT();
-  const count = trouble.length + findings.length;
-  if (count === 0) return null;
+  const items = troubleItems(trouble, findings, t);
+  if (items.length === 0) return null;
   const hint = t("status_light.open_keys");
   return (
     <section data-testid={testId} className="pt-4 first:pt-0">
-      <GroupHeading title={t("status_light.trouble_heading")} count={count} tone="trouble" />
+      <GroupHeading title={t("status_light.trouble_heading")} count={items.length} tone="trouble" />
       <ul className="m-0 flex list-none flex-col gap-px p-0">
-        {trouble.map((seat) => (
-          <li key={`${seat.provider}/${seat.account}`}>
-            <StatusItem Icon={TriangleAlert} tone="trouble" testId="status-light-seat" kind={seat.class}
-              title={seat.account ? `${seat.provider} · ${seat.account}` : seat.provider}
-              subtitle={troubleLabel(t, seat.class)} hint={hint} onGo={() => openKeys(onNavigate)} />
-          </li>
-        ))}
-        {findings.map((finding) => (
-          <li key={finding.id}>
-            {finding.provider ? (
-              <StatusItem Icon={TriangleAlert} tone="trouble" testId="status-light-finding" kind={finding.kind}
-                {...providerLines(finding.provider, troubleLabel(t, STATUS_CLASS[finding.status ?? ""] ?? "other"))}
-                hint={hint} onGo={() => openKeys(onNavigate)} />
-            ) : (
-              <StatusItem Icon={TriangleAlert} tone="trouble" testId="status-light-finding" kind={finding.kind}
-                title={finding.title} subtitle={t("status_light.finding_label")} />
-            )}
+        {items.map((item) => (
+          <li key={item.key}>
+            <StatusItem Icon={TriangleAlert} tone="trouble" testId={item.testId} kind={item.kind}
+              title={item.title} subtitle={item.subtitle}
+              {...(item.opensKeys ? { hint, onGo: () => openKeys(onNavigate) } : {})} />
           </li>
         ))}
       </ul>

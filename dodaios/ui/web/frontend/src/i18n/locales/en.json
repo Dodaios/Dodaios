@@ -838,6 +838,8 @@
     "jarvis_tools": "Dodaios Tools",
     "more": "More",
     "instance_dev_hint": "Dev instance — a second, freely restartable copy of the app with its own data, ports and icon. The regular app keeps running beside it.",
+    "rail_more_events": "{count} more",
+    "rail_artifacts": "Starred and latest artifacts",
     "surface_voice": "Voice",
     "surface_chat": "Chat",
     "surface_hint": "Switch the front page between voice and typed chat",

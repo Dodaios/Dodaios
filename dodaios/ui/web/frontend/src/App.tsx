@@ -17,6 +17,7 @@ import {
   SIDEBAR_WIDTH_STORAGE_KEY,
 } from "@/components/layout/Sidebar";
 import { PaneResizer } from "@/components/layout/PaneResizer";
+import { IDE_SECTIONS } from "@/lib/ideSections";
 import { useResizablePane } from "@/hooks/useResizablePane";
 import { TopBar } from "@/components/layout/TopBar";
 import { InputIsolationBanner } from "@/components/layout/InputIsolationBanner";
@@ -323,15 +324,19 @@ export default function App() {
             collapsed={navCollapsed}
           />
 
-          <PaneResizer
-            showLine={false}
-            orientation="vertical"
-            onPointerDown={startSidebarResize}
-            onDoubleClick={sidebar.reset}
-            onNudge={sidebar.nudge}
-            active={sidebar.isResizing}
-            title={t("sidebar.resize_hint")}
-          />
+          {/* Only the IDE's column has a width to drag: beside the conversation
+              the sidebar is a rail of icons at one fixed width. */}
+          {IDE_SECTIONS.includes(activeSection) && (
+            <PaneResizer
+              showLine={false}
+              orientation="vertical"
+              onPointerDown={startSidebarResize}
+              onDoubleClick={sidebar.reset}
+              onNudge={sidebar.nudge}
+              active={sidebar.isResizing}
+              title={t("sidebar.resize_hint")}
+            />
+          )}
         </>
       )}
 
