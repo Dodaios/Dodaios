@@ -168,7 +168,11 @@ def _stop_jobs(ledger: Any, reason: str) -> int:
     if ledger is None:
         return 0
     count = 0
+    from dodaios.orchestrator import async_tools
+
     for job in ledger.recent(open_only=True, limit=1000):
+        if job.kind == "async_tool":
+            async_tools.cancel_running(job.id)  # the command itself must stop, not only its row
         ledger.update(
             job.id,
             state="cancelled",

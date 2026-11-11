@@ -43,6 +43,7 @@ KINDS: Final[tuple[str, ...]] = (
     "ide_submission",
     "team_thread",
     "routine",
+    "async_tool",
 )
 STATES: Final[tuple[str, ...]] = (
     "queued",
@@ -254,6 +255,11 @@ class JobLedger:
                 "CREATE INDEX IF NOT EXISTS idx_jobs_root ON jobs(root_span_id)"
             )
             self._conn.commit()
+
+    @property
+    def path(self) -> str:
+        """Where the ledger lives (``:memory:`` for a throwaway one)."""
+        return self._path
 
     def close(self) -> None:
         with self._lock:

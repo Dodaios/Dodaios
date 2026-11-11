@@ -839,6 +839,8 @@ await-jobs = "dodaios.plugins.tool.job_tools:AwaitJobsTool"
 # trace_explain (C12): where the time and cost of a job or turn went, read from the causal
 # trace tree. Read-only (safe); no model call.
 trace-explain = "dodaios.plugins.tool.job_tools:TraceExplainTool"
+# job-stop cancels a slow tool call that went on as a background job (2026-11-11); monitor.
+job-stop = "dodaios.plugins.tool.job_tools:JobStopTool"
 # Independent check of delegated work (coding diff, artifact file, society evidence refs).
 # Read-only (safe); never spawns (AP-5/AP-14).
 verify-delegate = "dodaios.plugins.tool.verify_delegate:VerifyDelegateTool"

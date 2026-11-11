@@ -1000,7 +1000,10 @@ class ToolExecutor:
             approved_by=approved_by,
         )
         try:
-            result = await tool.execute(args, ctx)
+            # A slow tool of a chat turn may return "started" and finish as a job.
+            from dodaios.orchestrator.async_tools import run_tool
+
+            result = await run_tool(tool, args, ctx)
         except Exception as exc:  # noqa: BLE001
             duration_ms = int((time.perf_counter() - t_start) * 1000)
             await self._bus.publish(ActionExecuted(
