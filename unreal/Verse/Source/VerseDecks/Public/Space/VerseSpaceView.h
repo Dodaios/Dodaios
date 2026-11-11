@@ -6,6 +6,7 @@
 #include "VerseSpaceView.generated.h"
 
 class UStaticMeshComponent;
+class UMaterialInterface;
 
 /**
  * How space looks outside the windows (WP12.9), the same knobs as today's `SPACE_LOOK`
@@ -45,16 +46,28 @@ struct VERSEDECKS_API FVerseSpaceLook
 	static TConstArrayView<const TCHAR*> FieldNames();
 };
 
+/** The per-frame values of the space shader (`SpaceView.update` in spaceView.ts), three.js axes. */
+struct VERSEDECKS_API FVerseSpaceFrame
+{
+	/** Earth centre from the camera, Earth radii. */
+	FVector EarthCentre = FVector::ZeroVector;
+	/** Rows of `worldToEarth` (world direction -> the texture frame of the Earth's maps). */
+	FVector Rows[3] = { FVector::XAxisVector, FVector::YAxisVector, FVector::ZAxisVector };
+	FVector SunDir = FVector::YAxisVector;
+	double Spin = 0.0;
+	double CloudSpin = 0.0;
+
+	/** `SpaceView.update` for windows looking along `OutwardThree` (three.js axes, level). */
+	static FVerseSpaceFrame Compute(const FVerseSpaceLook& Look, const FVector& OutwardThree, double ElapsedS);
+};
+
 /**
- * The space view: a backdrop at infinity that turns with the orbit. It follows the camera, so
- * walking past a window shows no parallax (parity Z-11). On BeginPlay it loads its own-work
- * meshes (`SM_Space_Earth`, `SM_Space_StarDome`, kit pieces of `art/verse/kit/props/space`) and
- * their instances (`MI_Space_Earth`, `MI_Space_Stars`); a missing asset is logged once and that
- * part keeps the engine default, so the actor still keeps time and answers `Verse.QA.Space.*`.
- *
- * Scale: the star dome has a radius of `DomeRadiusCm`; the Earth sphere has `EarthRadiusCm` and
- * sits `CentreDownDeg` below the bow at the distance that gives today's angular size for
- * `AltitudeKm` (radius x (Earth + altitude) / Earth).
+ * The space view (WP12.9, parity with `engine/realtime/spaceView.ts`): the Earth in low orbit, its
+ * atmosphere, the sun and the stars, drawn per pixel by `M_Verse_Space` from the view direction
+ * alone, so the view sits at infinity and walking past a window shows no parallax (parity Z-11).
+ * Two surfaces draw it: the decks' star cards behind the viewports (`MI_Starfield`,
+ * `MI_Ops_Starfield`), and a dome around the camera (`SM_Space_StarDome` with `MI_Space_Earth`)
+ * for glass with nothing behind it. Each tick writes the frame to `MPC_Verse_Space`.
  */
 UCLASS()
 class VERSEDECKS_API AVerseSpaceView : public AActor
@@ -67,20 +80,23 @@ public:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 
-	/** Asset paths of the backdrop (kit pieces and their instances). */
-	static const TCHAR* EarthMeshPath;
+	/** Asset paths of the backdrop. */
 	static const TCHAR* StarDomeMeshPath;
 	static const TCHAR* EarthMaterialPath;
 	static const TCHAR* StarsMaterialPath;
+	static const TCHAR* CollectionPath;
 
-	static constexpr double EarthRadiusCm = 100000.0;
 	static constexpr double DomeRadiusCm = 300000.0;
 
-	/** Loads and assigns the meshes and instances; returns how many of the four were found. */
+	/** Loads the dome, both instances and the parameter collection; returns how many of the four were found. */
 	int32 LoadBackdrop();
 
-	/** Where the Earth's centre sits relative to the camera, cm (bow = +X). */
-	FVector EarthOffsetCm() const;
+	/** Which way the deck's viewports look out (Unreal axes, level). */
+	void SetOutward(const FVector& Direction);
+	FVector GetOutward() const { return Outward; }
+
+	/** The frame of the current tick (what the shader gets). */
+	FVerseSpaceFrame Frame() const;
 
 	FVerseSpaceLook Look;
 	double ElapsedS = 0.0;
@@ -91,11 +107,22 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Verse|Space")
 	TObjectPtr<USceneComponent> Root;
 
-	/** The Earth sphere (rotates about its axis with the orbit). */
-	UPROPERTY(VisibleAnywhere, Category = "Verse|Space")
-	TObjectPtr<UStaticMeshComponent> Earth;
-
-	/** The star dome (fixed in space). */
+	/** The dome around the camera that draws space where glass has nothing behind it. */
 	UPROPERTY(VisibleAnywhere, Category = "Verse|Space")
 	TObjectPtr<UStaticMeshComponent> Stars;
+
+	/** Tests: a material the dome wears instead of the view (the tonemap calibration ramp). */
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> DomeOverride;
+
+private:
+	void PushFrame();
+
+	FVector Outward = FVector(1.0, 0.0, 0.0);
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialParameterCollection> Collection;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> EarthMaterial;
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> StarsMaterial;
 };

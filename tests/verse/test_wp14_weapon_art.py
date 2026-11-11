@@ -202,6 +202,7 @@ def test_masters_are_the_contract_set():
         "M_Verse_Character",
         "M_Verse_Weapon",
         "M_Verse_Decal",
+        "M_Verse_Space",
     ]
     surface = {p.name for p in masters.MASTERS[0].params}
     assert {"UseTriplanar", "BaseTint", "RoughnessMin", "RoughnessMax", "Metallic"} <= surface

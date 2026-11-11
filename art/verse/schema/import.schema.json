@@ -127,7 +127,7 @@
       "required": ["group", "max_size", "srgb", "compression", "flip_green"],
       "properties": {
         "group": { "enum": ["World", "WorldNormalMap", "Character", "CharacterNormalMap", "Weapon", "UI"] },
-        "max_size": { "enum": [32, 64, 128, 256, 512, 1024, 2048, 4096] },
+        "max_size": { "enum": [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192] },
         "srgb": { "type": "boolean" },
         "compression": { "enum": ["Default", "Normalmap", "Masks", "BC7", "Grayscale", "HDR"] },
         "flip_green": { "type": "boolean" },

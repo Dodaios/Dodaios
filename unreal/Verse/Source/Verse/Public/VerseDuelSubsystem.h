@@ -117,6 +117,9 @@ private:
 	void BuildHallIfOnHangar();
 	/** Puts the Sovereign skin on the deck commander. */
 	void DressCommander();
+	/** Crew pawns wear the officer or technician body with their rank (UVerseCrewBody). */
+	void DressCrew(float DeltaTime);
+	float CrewDressS = 0.f;
 	void ReadCommandLine();
 	void UpdatePerson();
 	void Spectate();

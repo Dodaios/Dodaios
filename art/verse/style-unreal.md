@@ -270,6 +270,7 @@ Skin, cloth, gear (subsurface profile); UV0 stable for wound masks.
 | `Metallic` | scalar | Metallic without a map (multiplies ORM blue) |
 | `Sheen` | scalar | Cloth sheen at grazing angles |
 | `SubsurfaceAmount` | scalar | Skin subsurface opacity |
+| `EmissiveColor` | vector | Self-light in nits (lit rank-plate tiles, VerseRanks::ApplyLook) |
 
 ### `M_Verse_Weapon`
 
@@ -301,6 +302,29 @@ DBuffer decal: markings, stencils, grime, scorch.
 | `DecalMask` | texture | Shape mask, R |
 | `UseRadialMask` | switch | Procedural round mask with ragged rim (scorch) |
 | `NoiseScale` | scalar | Rim noise frequency |
+
+### `M_Verse_Space`
+
+Space outside the windows: Earth, atmosphere, sun and stars per pixel (spaceShader.ts). Unlit,
+translucent, no fog. A port of `engine/realtime/spaceShader.ts` that reads only the view direction,
+so any surface behind the glass draws the same sky (the decks' star cards `MI_Starfield` and
+`MI_Ops_Starfield`, and the dome of `AVerseSpaceView`). The per-frame values (Earth centre and
+frame, sun, spin, gains) come from `MPC_Verse_Space`, written by `AVerseSpaceView` each tick. The
+shader computes what three.js shows (AgX at exposure 0, with the bloom halo round the sun) and asks
+the game's tonemapper for exactly that through a measured inverse
+(`kit/props/space/tonemap_inverse.json`, `space_calibrate.py`).
+
+| Parameter | Kind | Meaning |
+|---|---|---|
+| `DayMap` | texture | Earth by day, equirectangular (sRGB) |
+| `NightMap` | texture | City lights (sRGB) |
+| `CloudMap` | texture | Cloud cover in R (linear) |
+| `ReliefMap` | texture | R,G terrain slope (0.5 flat), B open water |
+| `StarMap` | texture | Star sky in three.js axes, brightness / StarScale |
+| `StarScale` | scalar | Brightness the star sky was stored below |
+| `Planet` | scalar | 0 draws the stars alone |
+| `SpaceGain` | scalar | Brightness after the exposure is taken out |
+| `Calibrate` | scalar | 1 draws a ramp of known values (calibration) |
 
 ### `M_Verse_PostTonemap`
 

@@ -1,0 +1,40 @@
+{
+  "asset_path": "/Game/Verse/Kit/Space/T_Space_Stars_E.T_Space_Stars_E",
+  "budget_override": {
+    "approved_by": "integration",
+    "field": "max_size",
+    "reason": "the sky behind every window: the same resolution as the three.js view",
+    "value": 8192
+  },
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/kit/space/T_Space_Stars_E.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "e664006651b61b7b409fa0b7bac75450411b42cdaf5948dfd2a89542d3e0643f"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Space_Stars_E",
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "count": 9000,
+      "seed": 7
+    },
+    "builder": "art/verse/kit/props/space/space_textures.py",
+    "function": "stars"
+  },
+  "texture": {
+    "compression": "BC7",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 8192,
+    "never_stream": true,
+    "srgb": true
+  }
+}
