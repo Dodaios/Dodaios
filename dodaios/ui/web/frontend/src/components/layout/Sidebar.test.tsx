@@ -522,11 +522,16 @@ describe("Sidebar icon rail", () => {
  * while it holds, and the drag stays as the finer way in.
  */
 describe("Sidebar collapse state", () => {
+  // The IDE's column is the one with two faces; beside the conversation it is always the rail.
   beforeEach(() => {
-    useEventStore.setState({ activeSection: "chats", connected: true });
+    useEventStore.setState({ activeSection: "agentic-ide", connected: true });
+    useIdeThreadsStore.setState({ layout: "grid" });
   });
 
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    act(() => useEventStore.setState({ activeSection: "chats" }));
+  });
 
   function renderCollapsed(collapsed: boolean) {
     const client = new QueryClient({
@@ -571,6 +576,18 @@ describe("Sidebar collapse state", () => {
     expect(screen.getByTestId("sidebar").dataset.railed).toBe("false");
   });
 
+  test("beside the conversation the column is the rail at any width", () => {
+    act(() => useEventStore.setState({ activeSection: "chats" }));
+    renderCollapsed(false);
+
+    const aside = screen.getByTestId("sidebar");
+    expect(aside.dataset.railed).toBe("true");
+    expect(aside.style.width).toBe(`${SIDEBAR_RAIL_WIDTH}px`);
+    expect(screen.getByTestId("nav-rail")).toBeTruthy();
+    // No line of text: the person's name is the button's hover bubble.
+    expect(screen.queryByTestId("sidebar-profile-name")).toBeNull();
+  });
+
   test("carries no toggle of its own — the caption owns it", () => {
     // The header button moved to the caption's leading navigation
     // (SectionNavButtons): a sidebar that flipped its own state would drift
@@ -599,31 +616,43 @@ describe("the sidebar holds the two places and nothing else", () => {
     expect(screen.queryByTestId("earlier-chats")).toBeNull();
   });
 
-  test("offers search and the four pages reached most, in the maintainer's order", () => {
+  test("offers the conversation, search and the four pages reached most, in the maintainer's order", () => {
     renderSidebar();
-    const rows = ["sidebar-search-row", "sidebar-shortcut-plugins", "sidebar-shortcut-dictation", "sidebar-shortcut-visualization", "sidebar-shortcut-appshots"]
+    const rows = ["sidebar-shortcut-chats", "sidebar-search-row", "sidebar-shortcut-plugins", "sidebar-shortcut-dictation", "sidebar-shortcut-visualization", "sidebar-shortcut-appshots"]
       .map((id) => screen.getByTestId(id));
     for (let i = 1; i < rows.length; i++) {
       expect(rows[i - 1].compareDocumentPosition(rows[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     }
+    // Icons only: each says its name to a screen reader, none prints it.
+    for (const row of rows) {
+      expect(row.getAttribute("aria-label")).toBeTruthy();
+      expect(row.textContent).toBe("");
+    }
+    expect(rows[0].getAttribute("aria-current")).toBe("page");
     expect(screen.queryByTestId("sidebar-search")).toBeNull();
     fireEvent.click(screen.getByTestId("sidebar-search-row"));
     expect(useQuickSwitcher.getState().open).toBe(true);
     act(() => useQuickSwitcher.getState().hide());
     fireEvent.click(screen.getByTestId("sidebar-shortcut-appshots"));
     expect(useEventStore.getState().activeSection).toBe("appshots");
+    fireEvent.click(screen.getByTestId("sidebar-shortcut-chats"));
+    expect(useEventStore.getState().activeSection).toBe("chats");
   });
 
-  test("lists what waits on the person, and stays quiet when nothing does", () => {
+  test("shows what waits on the person as a tile, with no list and no heading", () => {
     renderSidebar();
-    expect(screen.queryByTestId("sidebar-status")).toBeNull();
+    expect(screen.queryByTestId("rail-events")).toBeNull();
     act(() => useStatusLightStore.setState({ light: {
       counts: { running: 0, needs_you: 1 }, running: [], trouble: [], findings: [], tone: "calm",
       needs_you: [{ kind: "approval", id: "a1", title: "Write the July manifest", state: "waiting", link: { section: "board" } }],
     } }));
-    const needs = screen.getByTestId("sidebar-status-needs");
-    expect(needs.textContent).toContain("Write the July manifest");
-    fireEvent.click(screen.getByTestId("status-light-row"));
+    const tile = screen.getByTestId("rail-event");
+    expect(tile.dataset.tone).toBe("needs");
+    expect(tile.getAttribute("aria-label")).toContain("Write the July manifest");
+    // The old list and its "Needs you" heading are gone from the column.
+    expect(screen.queryByTestId("sidebar-status")).toBeNull();
+    expect(screen.getByTestId("sidebar").textContent).not.toContain("Needs you");
+    fireEvent.click(tile);
     expect(useEventStore.getState().activeSection).toBe("board");
     act(() => useStatusLightStore.setState({ light: null }));
   });
@@ -638,11 +667,12 @@ describe("the sidebar holds the two places and nothing else", () => {
         provider: "OpenAI GPT-Live (ChatGPT subscription)", modality: "realtime", status: "model_unavailable",
       }],
     } }));
-    const row = screen.getByTestId("status-light-finding");
-    expect(row.textContent).toContain("OpenAI GPT-Live");
-    expect(row.textContent).toContain("model not available · ChatGPT subscription");
-    expect(row.textContent).toContain("model not available");
-    expect(row.textContent).not.toContain("model_unavailable");
+    const row = screen.getByTestId("rail-event");
+    expect(row.dataset.tone).toBe("trouble");
+    const name = row.getAttribute("aria-label") ?? "";
+    expect(name).toContain("OpenAI GPT-Live");
+    expect(name).toContain("model not available · ChatGPT subscription");
+    expect(name).not.toContain("model_unavailable");
     fireEvent.click(row);
     expect(useEventStore.getState().activeSection).toBe("apikeys");
     act(() => useStatusLightStore.setState({ light: null }));

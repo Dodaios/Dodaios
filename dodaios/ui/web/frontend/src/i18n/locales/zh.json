@@ -838,6 +838,8 @@
     "jarvis_tools": "Dodaios 工具",
     "more": "更多",
     "instance_dev_hint": "开发实例——应用的第二个副本，可随意重启，拥有独立的数据、端口和图标。常规应用会在旁边继续运行。",
+    "rail_more_events": "还有 {count} 项",
+    "rail_artifacts": "已收藏和最新的工件",
     "surface_voice": "语音",
     "surface_chat": "对话",
     "surface_hint": "在语音和文字对话之间切换首页",

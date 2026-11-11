@@ -1,6 +1,6 @@
-import { Mic, MoreHorizontal, Search } from "lucide-react";
+import { Mic, MoreHorizontal } from "lucide-react";
 import { SETTINGS_HUB_IDS } from "@/components/layout/navGroups";
-import { useEventStore, type SectionId } from "@/store/events";
+import { useEventStore } from "@/store/events";
 import { useSectionPrefetch } from "@/hooks/useSectionPrefetch";
 import { useVoiceIndicator } from "@/hooks/useVoiceIndicator";
 import { useSectionHealth } from "@/hooks/useProviders";
@@ -17,9 +17,9 @@ import { IdeLayoutSwitch } from "@/components/agentic/threads/IdeLayoutSwitch";
 import { useQuickSwitchSettings } from "@/store/quickSwitchSettings";
 import { useAppInstance } from "@/hooks/useAppInstance";
 import { usePublishIdentity } from "@/hooks/usePublishIdentity";
-import { ArtifactsIcon, CaptureIcon, ExtensionsIcon, MarketplaceIcon, SpeechIcon } from "@/components/icons/sectionIcons";
-import { SidebarStatus } from "@/components/layout/SidebarStatus";
-import { useQuickSwitcher } from "@/store/quickSwitcher";
+import { MarketplaceIcon } from "@/components/icons/sectionIcons";
+import { NavRail, RAIL_BUTTON, RAIL_BUTTON_ON, RAIL_GLYPH } from "@/components/layout/NavRail";
+import { QuickTooltip } from "@/components/ui/tooltip";
 import { useUserName } from "@/hooks/useUserName";
 import { apiKeysHealthError } from "@/lib/apiKeysTab";
 
@@ -28,14 +28,6 @@ import { apiKeysHealthError } from "@/lib/apiKeysTab";
 const UpdateButton = lazy(() =>
   import("@/components/layout/TopBar").then((m) => ({ default: m.UpdateButton })),
 );
-
-/** The pages reached most from beside the conversation, in the maintainer's order. */
-const SHORTCUTS: readonly { id: SectionId; labelKey: string; Icon: typeof Search; also: readonly SectionId[] }[] = [
-  { id: "plugins", labelKey: "nav.plugins", Icon: ExtensionsIcon, also: ["skills", "mcps"] },
-  { id: "dictation", labelKey: "nav.dictation", Icon: SpeechIcon, also: ["dictionary", "voice-shortcuts", "voice-language", "voice-api-keys"] },
-  { id: "visualization", labelKey: "nav.visualization", Icon: ArtifactsIcon, also: [] },
-  { id: "appshots", labelKey: "nav.appshots", Icon: CaptureIcon, also: [] },
-];
 
 export interface SidebarProps {
   /**
@@ -90,12 +82,13 @@ export const SIDEBAR_WIDTH_STORAGE_KEY = "jarvis.sidebar.width.v4";
  * label — so in the Agentic IDE, where a workspace of a dozen terminals wants
  * every pixel, a fifth of the window stayed spent on a list nobody was reading.
  * The rail keeps navigation one click away (the icons are still there, each
- * with its label on hover) while giving that space back to the panes. The
- * rail IS the deck's dock (`DockRail`) — same icons, same magnification, same
- * signals — so leaving the deck never drops the navigation back to a plainer
- * list.
+ * with its label on hover) while giving that space back to the panes.
+ *
+ * Beside the conversation the rail is the only face the column has
+ * (2026-11-11, `NavRail`): round 48 px icons, so the width leaves 14 px of
+ * air on either side of them.
  */
-export const SIDEBAR_RAIL_WIDTH = 64;
+export const SIDEBAR_RAIL_WIDTH = 76;
 
 /**
  * Below this dragged width the sidebar SNAPS to the rail rather than clipping.
@@ -133,7 +126,7 @@ export function Sidebar({
   // The IDE's thread list carries search as one of its own start rows
   // (ThreadTree), so there the field atop the column steps aside.
   const threadLayout = useIdeThreadsStore((s) => s.layout) === "threads" && onIdeSection;
-  // Beside the conversation, search is the first of the shortcut rows instead.
+  // Beside the conversation, search is one of the rail's icons instead.
   const headerSearch = searchBarOn && onIdeSection && !threadLayout;
   const identity = usePublishIdentity();
   const userName = useUserName();
@@ -180,10 +173,12 @@ export function Sidebar({
   // that only makes sense with a label beside it steps aside; the
   // navigation itself never does, because losing it would make the rail a dead
   // end rather than a narrow sidebar.
-  // Two independent ways into the rail: the explicit toggle, and dragging the
-  // seam past the snap point. Either one alone is enough — a user who dragged
-  // the column narrow gets icons without having to also find the button.
-  const railed = collapsed || width < SIDEBAR_RAIL_AT_WIDTH;
+  // Two independent ways into the rail in the IDE: the explicit toggle, and
+  // dragging the seam past the snap point. Either one alone is enough — a user
+  // who dragged the column narrow gets icons without having to also find the
+  // button. Beside the conversation the column is always the rail: it lists
+  // nothing that needs a line of text, so the width belongs to the conversation.
+  const railed = !onIdeSection || collapsed || width < SIDEBAR_RAIL_AT_WIDTH;
 
   // Lit while any hub section is on screen — the profile button IS the hub's
   // entry point now, so it carries the "you are here" state for all of them.
@@ -211,8 +206,15 @@ export function Sidebar({
           caption. On the IDE the column opens with how it reads: chat or
           grid. Everything else is a Settings page, behind the profile button
           at the foot. */}
-      <div className={cn("flex flex-col gap-1.5", railed ? "items-center px-3 py-2.5" : "px-2 pb-1 pt-1")}>
+      <div className={cn("flex flex-col gap-1.5", !railed ? "px-2 pb-1 pt-1" : onIdeSection ? "items-center px-3 py-2.5" : "items-center px-2 pt-1")}>
         {onIdeSection && <IdeLayoutSwitch railed={railed} />}
+        {/* On the rail the dev instance still says so: two windows that look alike are the trap. */}
+        {railed && devTag && (
+          <span data-testid="sidebar-instance-tag" title={t("sidebar.instance_dev_hint")}
+            className="max-w-full truncate rounded-sm bg-primary px-1 py-0.5 text-xs font-medium leading-none text-primary-foreground">
+            {devTag}
+          </span>
+        )}
         {/* The state is spelled out only when it is news: starting, offline,
             listening. At rest the dot says "fine" on its own. */}
         {!railed && (voice.news || devTag) && (
@@ -231,7 +233,13 @@ export function Sidebar({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-jarvis">
-        {railed ? (onIdeSection && <nav aria-label={t("sidebar.ide_navigation")} className="px-2 pt-2">
+        {/* The IDE lists its folders here, or keeps two controls on its rail.
+            Beside the conversation the column is a rail of round icons: the
+            conversation, search, the pages reached most, and under them what
+            is live and what the person starred (`NavRail`). The assistant's
+            own panel stands to the right of the conversation. */}
+        {!onIdeSection ? <NavRail searchOn={searchBarOn} pluginsWarn={pluginsNeedReconnect ? pluginWarnTitle : null} />
+          : railed ? <nav aria-label={t("sidebar.ide_navigation")} className="px-2 pt-2">
           <div className="flex flex-col items-center gap-1">
             <button type="button" aria-label={t("sidebar.workspace_options")} title={t("sidebar.workspace_options")}
               disabled={!activeIdeWorkspaceId}
@@ -244,39 +252,7 @@ export function Sidebar({
               <Mic aria-hidden className="h-4 w-4" />
             </button>
           </div>
-        </nav>) : <>
-          {/* The IDE lists its folders here. Beside the conversation the column
-              holds a few ways out (search and the pages reached most) and,
-              under them, what waits on the person and what runs. The
-              assistant's own panel stands to the right of the conversation. */}
-          {onIdeSection ? <LazyIdeProjectTree /> : <>
-            <nav aria-label={t("sidebar.sections")} data-testid="sidebar-shortcuts" className="px-2 pt-1">
-              <ul className="space-y-px">
-                {searchBarOn && <li>
-                  <button type="button" data-testid="sidebar-search-row" onClick={() => useQuickSwitcher.getState().show()} className={rowClass}>
-                    <Search aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" />
-                    <span className="truncate">{t("quick_switch.sidebar_search")}</span>
-                  </button>
-                </li>}
-                {SHORTCUTS.map((item) => {
-                  const { id, labelKey, Icon, also } = item;
-                  const here = active === id || also.includes(active);
-                  return <li key={id}>
-                    <button type="button" data-testid={`sidebar-shortcut-${id}`} data-tour={`nav-${item.id}`} onClick={() => setActive(id)}
-                      aria-current={here ? "page" : undefined}
-                      title={id === "plugins" && pluginsNeedReconnect ? pluginWarnTitle : undefined}
-                      className={cn(rowClass, here && "bg-secondary text-foreground-strong")}>
-                      <Icon aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" />
-                      <span className="min-w-0 flex-1 truncate text-left">{t(labelKey)}</span>
-                      {id === "plugins" && pluginsNeedReconnect && <span data-testid="sidebar-shortcut-warn" role="status" aria-label={pluginWarnTitle} className="h-2 w-2 shrink-0 rounded-full bg-warning" />}
-                    </button>
-                  </li>;
-                })}
-              </ul>
-            </nav>
-            <SidebarStatus />
-          </>}
-        </>}
+        </nav> : <LazyIdeProjectTree />}
       </div>
 
       {/* The footer is one button now, not a popup: it opens the Settings hub
@@ -285,15 +261,21 @@ export function Sidebar({
           models, Settings, Feedback) in its own left navigation.
           The attention dot stays — a failing provider, or a local setup that
           needs care, must be visible without opening anything. */}
-      <div className="shrink-0 border-t border-border px-2 py-1.5">
-        <div className={cn("flex items-center gap-0.5", railed && "flex-col")}>
-          <button type="button" {...profilePrefetch} onClick={() => setActive("profile")} title={t("nav.profile")}
+      <div className={cn("shrink-0", railed ? "px-2 pb-3 pt-1.5" : "border-t border-border px-2 py-1.5")}>
+        {/* On the rail the foot reads bottom-up: the person, the marketplace, a waiting update. */}
+        <div className={cn("flex items-center", railed ? "flex-col-reverse gap-1.5" : "gap-0.5")}>
+          <QuickTooltip content={railed ? footerName : ""} side="right" className={railed ? "flex" : "flex min-w-0 flex-1"}>
+          <button type="button" {...profilePrefetch} onClick={() => setActive("profile")} aria-label={t("nav.profile")}
+            title={railed ? undefined : t("nav.profile")}
             data-testid="sidebar-profile-toggle"
             data-tour="settings"
-            className={cn(rowClass, "min-w-0 flex-1", hubActive && "jarvis-nav-active bg-secondary text-foreground")}>
+            className={railed
+              ? cn(RAIL_BUTTON, hubActive && cn("jarvis-nav-active", RAIL_BUTTON_ON))
+              : cn(rowClass, "min-w-0 flex-1", hubActive && "jarvis-nav-active bg-secondary text-foreground")}>
             <span className="relative shrink-0">
               <span aria-hidden data-testid="sidebar-profile-initial"
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary text-xs font-medium uppercase text-muted-foreground">
+                className={cn("flex items-center justify-center rounded-full bg-secondary font-medium uppercase text-muted-foreground",
+                  railed ? "h-9 w-9 text-sm ring-1 ring-inset ring-border" : "h-6 w-6 text-xs")}>
                 {footerName.trim().charAt(0) || "?"}
               </span>
               {(apikeysHasError || localModelsNeedAttention || pluginsNeedReconnect) && <span data-testid="sidebar-profile-attention"
@@ -303,14 +285,21 @@ export function Sidebar({
             </span>
             {!railed && <span data-testid="sidebar-profile-name" className="min-w-0 flex-1 truncate text-left">{footerName}</span>}
           </button>
+          </QuickTooltip>
           {/* The update lives here now, where Claude keeps its download icon:
               in sight on every screen, not among the window buttons. */}
           <Suspense fallback={null}><UpdateButton placement="sidebar" /></Suspense>
-          <button type="button" {...marketplacePrefetch} onClick={() => setActive("marketplace")} title={t("nav.marketplace")}
+          <QuickTooltip content={railed ? t("nav.marketplace") : ""} side="right" className="flex">
+          <button type="button" {...marketplacePrefetch} onClick={() => setActive("marketplace")}
+            title={railed ? undefined : t("nav.marketplace")}
             aria-label={t("nav.marketplace")} data-testid="nav-row-marketplace"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <MarketplaceIcon aria-hidden strokeWidth={1.75} className="h-4 w-4" />
+            aria-current={active === "marketplace" ? "page" : undefined}
+            className={railed
+              ? cn(RAIL_BUTTON, active === "marketplace" && RAIL_BUTTON_ON)
+              : "flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"}>
+            <MarketplaceIcon aria-hidden strokeWidth={railed ? 1.6 : 1.75} className={railed ? RAIL_GLYPH : "h-4 w-4"} />
           </button>
+          </QuickTooltip>
         </div>
       </div>
     </aside>
