@@ -3,6 +3,7 @@
 #include "Components/DecalComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/RectLightComponent.h"
+#include "Decks/VerseDeckLook.h"
 #include "Dom/JsonObject.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -199,6 +200,50 @@ void AVerseArenaGraybox::DressArtRoof()
 		for (double Y = 800.0; Y < 5900.0; Y += 900.0)
 		{
 			AddProp(TEXT("SM_Hangar_HangLamp"), FVector(X, Y, CeilingZ - 140.0 - 216.0), 0.0, FVector(1.6), false);
+		}
+	}
+	// The deck view's arrival spot (FVerseDeckLook): a warm key from behind the camera's shoulder
+	// and a cool rim from ahead, so the commander's back and trim read against the deck.
+	const FVerseDeckLook HangarLook = FVerseDeckLook::For(FName(TEXT("hangar")));
+	if (Part == EVerseGrayboxPart::Hall && HangarLook.ArrivalLocationCm.IsSet() && HangarLook.ArrivalYawDeg.IsSet() && GetWorld()
+		&& GetWorld()->GetNetMode() != NM_DedicatedServer)
+	{
+		const FVector Spot = HangarLook.ArrivalLocationCm.GetValue();
+		const FVector Ahead = FRotator(0.0, HangarLook.ArrivalYawDeg.GetValue(), 0.0).Vector();
+		const FVector Right = FVector::CrossProduct(FVector::UpVector, Ahead);
+		const FVector Chest = Spot + FVector(0.0, 0.0, 150.0);
+		struct FArrivalLight
+		{
+			FVector At;
+			float Lumens;
+			float Kelvin;
+		};
+		const FArrivalLight ArrivalLights[] = {
+			{Spot - Ahead * 260.0 + Right * 140.0 + FVector(0.0, 0.0, 340.0), 14000.f, 4200.f},
+			// Grazing rims from ahead and to either side: the hood, shoulders and trim catch a
+			// bright edge against the darker deck behind.
+			{Spot + Ahead * 260.0 + Right * 110.0 + FVector(0.0, 0.0, 300.0), 40000.f, 4600.f},
+			{Spot + Ahead * 260.0 - Right * 110.0 + FVector(0.0, 0.0, 300.0), 40000.f, 6500.f},
+		};
+		FActorSpawnParameters KeyParams;
+		KeyParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		for (const FArrivalLight& Light : ArrivalLights)
+		{
+			if (ASpotLight* Key = GetWorld()->SpawnActor<ASpotLight>(Light.At, (Chest - Light.At).Rotation(), KeyParams))
+			{
+				USpotLightComponent* C = Key->SpotLightComponent;
+				C->SetMobility(EComponentMobility::Movable);
+				C->SetIntensityUnits(ELightUnits::Lumens);
+				C->SetIntensity(Light.Lumens);
+				C->SetOuterConeAngle(22.f);
+				C->SetInnerConeAngle(8.f);
+				C->SetAttenuationRadius(900.f);
+				C->SetUseTemperature(true);
+				C->SetTemperature(Light.Kelvin);
+				C->SetCastShadows(false);
+				C->SetVolumetricScatteringIntensity(0.f);
+				Spawned.Add(Key);
+			}
 		}
 	}
 	// The deck view stands in the hall without the arena's work lights: every second lamp of

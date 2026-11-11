@@ -42,8 +42,11 @@ FVerseDeckLook FVerseDeckLook::For(FName Deck)
 		// The lift and the commander spawn stand in the lift lobby, under its ceiling and facing
 		// its back wall. The commander arrives on the apron just outside instead, facing the arena
 		// centre (x 5000, y 2400): the cranes, the skylight shafts and the hall in frame.
-		Look.ArrivalLocationCm = FVector(6150.0, 4850.0, 0.0);
-		Look.ArrivalYawDeg = -111.8;
+		// North of the station rooms (arrivals and lift lobby both have ceilings from y 4600 on),
+		// so the third-person camera behind the commander stays under the open hall roof; between
+		// the cover columns at x 5300 and x 6500.
+		Look.ArrivalLocationCm = FVector(6000.0, 4250.0, 0.0);
+		Look.ArrivalYawDeg = -118.4;
 		Look.ArrivalPitchDeg = 14.0;
 	}
 	return Look;

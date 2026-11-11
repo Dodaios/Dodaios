@@ -300,7 +300,7 @@ def test_find_is_scoped_and_does_not_execute_old_commands() -> None:
         assert len(result.data["hits"]) == 1
         assert result.data["hits"][0]["session_id"] == sid
         assert not svc.sent and controls.state(sid).goal is None
-        assert len(COMMANDS) == 16
+        assert len(COMMANDS) == 17
 
     asyncio.run(scenario())
 

@@ -46,7 +46,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 it("offers all sixteen commands and supports keyboard selection", async () => {
   type("/");
-  await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(16));
+  await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(17));
   type("/go");
   expect(screen.getAllByRole("option")).toHaveLength(1);
   fireEvent.keyDown(screen.getByRole("textbox"), { key: "Tab" });

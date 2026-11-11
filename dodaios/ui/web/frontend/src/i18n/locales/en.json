@@ -8198,7 +8198,8 @@
       "remember": "Save a memory",
       "message": "Send an internal message",
       "review": "Review the latest result",
-      "routines": "Manage this agent's routines"
+      "routines": "Manage this agent's routines",
+      "project": "Track a multi-day goal as a project"
     },
     "help": "Chat commands",
     "plan_active": "Plan mode · reads only",

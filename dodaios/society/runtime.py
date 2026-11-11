@@ -275,6 +275,7 @@ class SocietyRuntime:
         # (finite background work that callers may wait for).
         self._runtime_updates_task: asyncio.Task[None] | None = None
         self._skill_routines_task: asyncio.Task[None] | None = None
+        self._project_review_task: asyncio.Task[None] | None = None
         self._delivery_unsubscribe: Callable[[], None] | None = None
         self._lead_incoming_unsubscribe: Callable[[], None] | None = None
         self._started = False
@@ -382,6 +383,10 @@ class SocietyRuntime:
         from dodaios.orchestrator.watchdog.live import start_for_runtime
 
         start_for_runtime(self, self.config)
+        # Long-horizon projects: a daily evidence review that writes at most one short line.
+        from dodaios.projects.reviewer import run_loop as run_project_reviews
+
+        self._project_review_task = asyncio.create_task(run_project_reviews(self))
         self._runtime_updates_task = asyncio.create_task(self._keep_agent_runtimes_current())
         log.info("society runtime started (%s)", self.store.path)
         return self
@@ -626,6 +631,7 @@ class SocietyRuntime:
                 self._delivery_task,
                 self._runtime_updates_task,
                 self._skill_routines_task,
+                self._project_review_task,
             ):
                 if task is not None:
                     tasks.add(task)
@@ -646,6 +652,8 @@ class SocietyRuntime:
                     self._delivery_task = None
                 if self._runtime_updates_task is not None and self._runtime_updates_task.done():
                     self._runtime_updates_task = None
+                if self._project_review_task is not None and self._project_review_task.done():
+                    self._project_review_task = None
                 if self._skill_routines_task is not None and self._skill_routines_task.done():
                     self._skill_routines_task = None
                 self._watchers.difference_update(task for task in tasks if task.done())
