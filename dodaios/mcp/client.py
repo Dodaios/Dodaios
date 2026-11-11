@@ -166,6 +166,7 @@ class MCPClient:
         """Own every task-bound MCP context from entry through final exit."""
 
         stack = AsyncExitStack()
+        startup_failure: BaseException | None = None
         try:
             # Lazy imports — MCP lib is optional-but-expected (requirements.txt).
             from mcp import ClientSession
@@ -244,11 +245,13 @@ class MCPClient:
             await stop_requested.wait()
         except BaseException as exc:
             if not ready.done():
-                ready.set_exception(exc)
+                startup_failure = exc
             elif not isinstance(exc, asyncio.CancelledError):
                 log.warning("MCPClient[%s] lifecycle error: %s", self.spec.name, exc)
         finally:
-            await self._close_exit_stack(stack)
+            close_error = await self._close_exit_stack(stack)
+            if startup_failure is not None and not ready.done():
+                ready.set_exception(self._startup_error(startup_failure, close_error))
             if self._exit_stack is stack:
                 self._exit_stack = None
                 self._session = None
@@ -277,7 +280,22 @@ class MCPClient:
         if self._owner_task is owner:
             self._clear_lifecycle_state()
 
-    async def _close_exit_stack(self, stack: Any) -> None:
+    def _startup_error(
+        self, failure: BaseException, close_error: Exception | None
+    ) -> BaseException:
+        """Report why the connect failed as an exception callers can contain.
+
+        When the HTTP transport task fails (e.g. a 401), AnyIO cancels the connect
+        and the real error only surfaces as the stack closes. Passing that internal
+        cancellation on would escape every ``except Exception`` and end the caller's
+        task, so only a genuine cancellation of this owner stays a cancellation.
+        """
+        task = asyncio.current_task()
+        if not isinstance(failure, asyncio.CancelledError) or (task and task.cancelling()):
+            return failure
+        return close_error or ConnectionError(f"{self.spec.name}: transport closed during connect")
+
+    async def _close_exit_stack(self, stack: Any) -> Exception | None:
         """Close one transport stack on its owner task with a hard ceiling."""
         try:
             async with asyncio.timeout(_STOP_TIMEOUT_S):
@@ -291,6 +309,8 @@ class MCPClient:
             )
         except Exception as e:  # noqa: BLE001
             log.warning("MCPClient[%s] stop error: %s", self.spec.name, e)
+            return e
+        return None
 
     def _clear_lifecycle_state(self) -> None:
         self._exit_stack = None
