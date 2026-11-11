@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
+from dodaios.agent_chat import ask_gate
 from dodaios.agent_chat.questions import (
     CANCELLED,
     DECLINED,
@@ -125,7 +126,14 @@ class AskUserTool:
         "Never ask for a token, key or password here: use society_request_credential. "
         f"A turn can show at most {MAX_ASKS_PER_TURN} question cards. While the user has "
         "not answered yet, the call returns status 'waiting' with a question_id: then call "
-        "this tool again with only wait_for set to that id, and do nothing else meanwhile."
+        "this tool again with only wait_for set to that id, and do nothing else meanwhile. "
+        "A gate runs before any card: it answers from memory when memory already holds the "
+        "answer, applies your recommendation when the pending action is reversible and you "
+        "are confident, and asks ONE question at a time otherwise. Say what you are doing "
+        "with pending_action (tool, action), confidence (0-1, your confidence in your "
+        "recommendation) and missing_required (true when the action cannot run without the "
+        "answer). A result with status not_asked means no card was shown: act on it, state "
+        "the assumption in your reply and verify cheaply."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -136,6 +144,28 @@ class AskUserTool:
                 "maxItems": MAX_QUESTIONS,
                 "items": _QUESTION_SCHEMA,
                 "description": "The questions, most important first. Usually just one.",
+            },
+            "pending_action": {
+                "type": "object",
+                "description": "The action this answer unblocks: tool and action name.",
+                "properties": {
+                    "tool": {"type": "string"},
+                    "action": {"type": "string"},
+                    "reversibility": {
+                        "type": "string",
+                        "enum": ["reversible", "recoverable", "irreversible"],
+                    },
+                },
+            },
+            "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Your confidence (0-1) that your recommended answer is right.",
+            },
+            "missing_required": {
+                "type": "boolean",
+                "description": "True when a required parameter of the action is missing.",
             },
             "wait_for": {
                 "type": "string",
@@ -151,6 +181,8 @@ class AskUserTool:
         self._runtime = runtime
         self._agent_id = agent_id
         self._session_id = session_id
+        #: Per open card: the specs of the call, the gate's decisions and the log rows.
+        self._gated: dict[str, _Gated] = {}
 
     async def execute(self, args: dict[str, Any], ctx: Any) -> ToolResult:
         wait_for = str(args.get("wait_for") or "").strip()
@@ -179,11 +211,15 @@ class AskUserTool:
                 "Routines run unattended and cannot ask the user. Your recommendations were "
                 "applied; continue with them and mention the assumptions in your result.",
             )
+        gate = self._gate(args, specs)
+        if not gate.result.needs_card:
+            return gate.finish(None)
         service = self._runtime.chat_service()
         if service is None or not callable(getattr(service, "open_questions", None)):
             return _unattended(specs, _NOBODY)
+        asked = tuple(specs[i] for i in gate.result.ask_indices)
         try:
-            question_id = await service.open_questions(self._session_id, specs, asker=self._asker())
+            question_id = await service.open_questions(self._session_id, asked, asker=self._asker())
         except TooManyQuestions:
             # The turn limit is reported to the agent in the returned result.
             return _unattended(
@@ -197,7 +233,58 @@ class AskUserTool:
             # can answer, so the recommendations stand rather than a stall.
             log.info("society ask: %s cannot ask here (%s)", self._agent_id, exc)
             return _unattended(specs, _NOBODY)
-        return await self._wait(service, question_id, specs)
+        self._gated[question_id] = gate
+        return await self._wait(service, question_id, asked)
+
+    def _gate(self, args: dict[str, Any], specs: tuple[QuestionSpec, ...]) -> _Gated:
+        """Run the ask-gate and log what it decided (never raises)."""
+        pending = args.get("pending_action")
+        pending = pending if isinstance(pending, dict) else {}
+        confidence = args.get("confidence")
+        confidence = (
+            min(1.0, max(0.0, float(confidence)))
+            if isinstance(confidence, (int, float)) and not isinstance(confidence, bool)
+            else None
+        )
+        ctx = ask_gate.AskContext(
+            confidence=confidence,
+            reversibility=ask_gate.pending_reversibility(
+                str(pending.get("tool") or "").strip(),
+                str(pending.get("action") or "").strip(),
+                str(pending.get("reversibility") or "").strip(),
+            ),
+            missing_required=args.get("missing_required") is True,
+            clarify_enabled=self._clarify_enabled(),
+        )
+        result = ask_gate.decide(specs, ctx, _safe_search())
+        row_ids: list[str] = []
+        try:
+            from dodaios.trust.ask_log import ask_log
+
+            for spec, decision in zip(specs, result.decisions, strict=True):
+                row_ids.append(
+                    ask_log().record(
+                        question=spec.question,
+                        decision=decision.decision,
+                        reason=decision.reason,
+                        session_id=self._session_id,
+                        agent_id=self._agent_id,
+                        reversibility=ctx.reversibility,
+                        confidence=ctx.confidence,
+                        clarify_on=ctx.clarify_enabled,
+                        answer=decision.answer.answer if decision.answer else "",
+                        answer_source=decision.answer.source if decision.answer else "",
+                    )
+                )
+        except Exception:  # noqa: BLE001 - measuring never blocks a question
+            log.warning("ask gate: could not log the decisions", exc_info=True)
+            row_ids = [""] * len(specs)
+        return _Gated(specs, result, row_ids)
+
+    def _clarify_enabled(self) -> bool:
+        """The owner's ``voice.clarify_incomplete_enabled`` (default OFF)."""
+        voice = getattr(getattr(self._runtime, "config", None), "voice", None)
+        return getattr(voice, "clarify_incomplete_enabled", False) is True
 
     async def _keep_waiting(self, question_id: str) -> ToolResult:
         service = self._runtime.chat_service()
@@ -205,6 +292,7 @@ class AskUserTool:
             specs = service.question_specs(self._session_id, question_id)
         except (AttributeError, KeyError):
             # Unknown question id is reported to the agent in the result.
+            self._gated.pop(question_id, None)
             return ToolResult(
                 success=False,
                 output=None,
@@ -234,13 +322,82 @@ class AskUserTool:
                     ),
                 },
             )
-        return _result(specs, answers)
+        gate = self._gated.pop(question_id, None)
+        return gate.finish(answers) if gate else _result(specs, answers)
 
     def _asker(self) -> str:
         cached = getattr(self._runtime, "cached_agent", None)
         agent = cached(self._agent_id) if callable(cached) else None
         return str(getattr(agent, "name", "") or "")
 
+
+class _Gated:
+    """One call after the gate: the specs, the decisions and the log rows."""
+
+    def __init__(
+        self, specs: tuple[QuestionSpec, ...], result: ask_gate.GateResult, row_ids: list[str]
+    ) -> None:
+        self.specs = specs
+        self.result = result
+        self.row_ids = row_ids
+
+    def finish(self, asked: list[QuestionAnswer] | None) -> ToolResult:
+        """Merge the owner's answer to the asked question into the gate's own answers."""
+        answers: list[QuestionAnswer] = []
+        pick = iter(asked or [])
+        for i, decision in enumerate(self.result.decisions):
+            if i in self.result.ask_indices:
+                answer = next(pick, None) or recommended_answer(self.specs[i], UNATTENDED)
+                self._learn(i, answer)
+                answers.append(answer)
+            elif decision.answer is not None:
+                answers.append(decision.answer)
+        out = _result(self.specs, answers)
+        if not isinstance(out.output, dict):
+            return out
+        if not self.result.needs_card:
+            out.output["status"] = "not_asked"
+        notes = [
+            f"{d.decision}: {d.reason}"
+            + (f" (memory: {d.evidence})" if d.decision == ask_gate.FROM_MEMORY else "")
+            for d in self.result.decisions
+            if d.decision != ask_gate.ASK
+        ]
+        if notes:
+            out.output["gate"] = notes
+            out.output["note"] = f"{out.output.get('note') or ''} {_GATE_NOTE}".strip()
+        return out
+
+    def _learn(self, index: int, answer: QuestionAnswer) -> None:
+        """Label a card as needless when memory held the answer or the owner says so."""
+        from dodaios.trust.ask_log import ask_log, is_needless_signal
+
+        if not (0 <= index < len(self.row_ids)) or not self.row_ids[index]:
+            return
+        needless = ""
+        if answer.by_person and is_needless_signal(answer.answer):
+            needless = "owner_said_so"
+        elif answer.by_person:
+            memory = ask_gate.recall_answer(self.specs[index], _safe_search())
+            if memory and memory.answer and memory.answer.answer == answer.answer:
+                needless = "in_memory"
+        ask_log().mark_answer(
+            self.row_ids[index], source=answer.source, answer=answer.answer, needless=needless
+        )
+
+
+def _safe_search() -> ask_gate.MemorySearch | None:
+    try:
+        return ask_gate.vault_search()
+    except Exception:  # noqa: BLE001 - no vault means no memory answer, never a failed ask
+        log.debug("ask gate: no memory search", exc_info=True)
+        return None
+
+
+_GATE_NOTE: Final[str] = (
+    "Not asked (answered from memory, or your recommendation applied): state each assumption "
+    "in your reply and verify it cheaply. One question at a time."
+)
 
 _NOBODY: Final[str] = (
     "Nobody can answer in this run. Your recommendations were applied; continue with "

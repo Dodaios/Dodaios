@@ -28,6 +28,7 @@ def build_report(
     until_ms: int | None = None,
     audit: Any | None = None,
     preparation: dict[str, Any] | None = None,
+    asks: Any | None = None,
 ) -> dict[str, Any]:
     """Read the lead's turns and the routing results, return the JSON-ready report.
 
@@ -35,14 +36,16 @@ def build_report(
     component: how well the lead's stated confidence matched what happened.
     ``preparation`` (``PreparedStore.stats()``) adds the acting-in-advance component:
     how many drafts and fixes were prepared, used, discarded or expired, and the use rate.
+    ``asks`` (an :class:`~dodaios.trust.ask_log.AskLog`) adds the asking component:
+    needless questions and questions that should have been asked.
     """
     cfg = cfg or ScoreConfig()
-    report = compute_score(
-        read_lead_turns(chat_db, since_ms, until_ms), cfg, load_runs(results_dir)
-    )
+    turns = read_lead_turns(chat_db, since_ms, until_ms)
+    report = compute_score(turns, cfg, load_runs(results_dir))
     report["generated_ms"] = int(time.time() * 1000)
     report["calibration"] = _calibration(audit, since_ms)
     report["preparation"] = preparation
+    report["asking"] = _asking(asks, turns, cfg, since_ms, until_ms)
     return report
 
 
@@ -54,6 +57,19 @@ def _calibration(audit: Any | None, since_ms: int) -> dict[str, Any] | None:
     try:
         return audit_report(audit, since_ms)
     except Exception:  # noqa: BLE001 - an unreadable audit log leaves the component out
+        return None
+
+
+def _asking(
+    asks: Any | None, turns: list[Any], cfg: ScoreConfig, since_ms: int, until_ms: int | None
+) -> dict[str, Any] | None:
+    if asks is None:
+        return None
+    from .asking import ask_report
+
+    try:
+        return ask_report(asks.rows(since_ms, until_ms), turns, cfg)
+    except Exception:  # noqa: BLE001 - an unreadable ask log leaves the component out
         return None
 
 
@@ -102,6 +118,11 @@ def format_table(report: dict[str, Any]) -> str:
             f"discarded {prep['discarded']}   expired {prep['expired']}   "
             f"silent {prep['silent']}   use rate {_pct(prep['use_rate'])}"
         )
+    asking = report.get("asking")
+    if asking is not None:
+        from .asking import format_lines as asking_lines
+
+        lines += ["", *asking_lines(asking)]
     if report["windows"]:
         lines += ["", "Weekly curve:"]
         for w in report["windows"]:
