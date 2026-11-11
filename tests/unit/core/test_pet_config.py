@@ -42,6 +42,7 @@ def test_defaults() -> None:
     assert ui.pet_scale == 1.0
     assert ui.pet_bubble is True
     assert ui.pet_strip_always is False
+    assert ui.pet_chat is True
 
 
 @pytest.mark.parametrize(
@@ -82,8 +83,10 @@ def test_pet_id_shape_matches_the_manifest_rules() -> None:
     [
         (1.0, 1.0),
         ("1.5", 1.5),
+        (2.0, 2.0),
+        (4.0, 4.0),
         (0.1, 0.5),
-        (9, 2.0),
+        (9, 4.0),
         ("big", 1.0),
         (float("nan"), 1.0),
         (float("inf"), 1.0),
@@ -109,13 +112,13 @@ def test_writers_persist_the_three_ui_keys(tmp_path: Path) -> None:
     toml.write_text('[ui]\norb_style = "pet"  # kept\n', encoding="utf-8")
 
     config_writer.set_pet_id("Miso", path=toml)
-    config_writer.set_pet_scale(3.0, path=toml)
+    config_writer.set_pet_scale(9.0, path=toml)
     config_writer.set_pet_bubble(False, path=toml)
     config_writer.set_pet_strip_always(True, path=toml)
 
     ui = _ui_table(toml)
     assert ui["pet_id"] == "miso"
-    assert ui["pet_scale"] == 2.0  # clamped before it reaches the disk
+    assert ui["pet_scale"] == 4.0  # clamped before it reaches the disk
     assert ui["pet_bubble"] is False
     assert ui["pet_strip_always"] is True
     assert ui["orb_style"] == "pet"

@@ -9673,6 +9673,7 @@
     "use_pet": "Usar pet no ambiente de trabalho",
     "style_saved": "O pet está agora no teu ambiente de trabalho.",
     "enabled_label": "Pet no ambiente de trabalho",
+    "chat_label": "Pet no chat",
     "style_off_saved": "O pet está desligado. A Dodaios Bar voltou ao teu ambiente de trabalho.",
     "restart_hint": "Guardado. Reinicia {name} para levar o pet para o ambiente de trabalho.",
     "load_error": "Não foi possível carregar os teus pets: {0}",

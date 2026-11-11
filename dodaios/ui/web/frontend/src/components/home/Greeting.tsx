@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import { useUserName } from "@/hooks/useUserName";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { ChatPet } from "@/components/pets/ChatPet";
 import { PetMark } from "@/components/pets/PetMark";
 
 // The chips under the greeting fetch and read the roster; they are not
@@ -44,10 +45,10 @@ export function Greeting({
       )}
       data-testid="home-greeting"
     >
-      {/* The user's pet above, the line under it in regular weight — the
-          a quiet opening, softer than a bold headline beside a logo.
-          The pet follows the voice: it listens, thinks and talks along. */}
-      <PetMark size={48} reactive className="mb-3" />
+      {/* The user's pet above the line. The words stay when chat pets are off. */}
+      <ChatPet>
+        <PetMark size={48} reactive className="mb-3" />
+      </ChatPet>
       <h1 className="text-2xl font-normal tracking-tight text-foreground [text-wrap:balance]">
         {text}
       </h1>

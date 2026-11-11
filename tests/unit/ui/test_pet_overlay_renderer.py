@@ -9,6 +9,7 @@ pack, a real :class:`PetStateMachine` and a clock the test moves by hand.
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 
 import pytest
@@ -166,6 +167,30 @@ def test_every_frame_is_scaled_once_at_load_and_never_while_painting() -> None:
     # The fake frames fill their whole cell: no crop, 48 px at 4x.
     assert renderer.size == (192, 192)
     assert renderer.render().size == (192, 192)
+
+
+def test_the_control_strip_does_not_follow_the_pet_size() -> None:
+    renderer, _ = _renderer(_Clock())
+    at_one = renderer.strip_scale
+    figure = renderer.size
+    assert renderer.set_look(pet_scale=4.0) is True
+    assert renderer.size[0] > figure[0]
+    assert renderer.strip_scale == at_one
+    assert orb_controls.pet_strip_size(renderer.strip_scale) == orb_controls.pet_strip_size(at_one)
+    assert renderer.set_look(dpi_ratio=2.0) is True  # the figure grows
+    assert renderer.strip_scale == pr.strip_layout_scale(2.0, points=sys.platform == "darwin")
+
+
+def test_a_retina_strip_is_drawn_at_device_pixels_and_shown_at_one_x() -> None:
+    """A 2x display must not double the window. The extra pixels stay in the bitmap."""
+    logical = orb_controls.pet_strip_size(pr.strip_layout_scale(2.0, points=True))
+    bitmap = orb_controls.render_pet_strip(
+        orb_controls.PetStripState(), pr.strip_bitmap_scale(2.0)
+    )
+    assert logical == orb_controls.pet_strip_size(1.0)
+    assert bitmap.size == orb_controls.pet_strip_size(2.0)
+    assert bitmap.size[0] > logical[0]
+    assert bitmap.size[1] > logical[1]
 
 
 def test_a_new_size_rescales_and_reports_the_change() -> None:

@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import { useT } from "@/i18n";
 import { openExternalUrl } from "@/lib/openExternal";
 import { PetStageContext } from "@/components/pets/petStage";
+import { ChatPet } from "@/components/pets/ChatPet";
 import { PetMark } from "@/components/pets/PetMark";
 import type { PetState } from "@/lib/petStates";
 import { cn } from "@/lib/utils";
@@ -737,11 +738,17 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
     const statusLine = <div role="status" aria-live="polite" data-trace-status={outcome}
       className={cn("flex min-w-0 flex-wrap items-start gap-x-3 text-xs leading-6 text-muted-foreground",
         resting ? "trace-meta" : statusOnRail ? "py-1" : "pb-2 pt-1", pending && "text-foreground")}>
-      {petState
-        ? <span aria-hidden className="trace-node trace-node-pet" data-trace-pet={petState}>{face
-          ? <PetStageContext.Provider value={petState}>{face}</PetStageContext.Provider>
-          : <PetMark size={32} state={petState} />}</span>
-        : null}
+      {petState && face
+        ? <span aria-hidden className="trace-node trace-node-pet" data-trace-pet={petState}>
+            <PetStageContext.Provider value={petState}>{face}</PetStageContext.Provider>
+          </span>
+        : petState
+          ? <ChatPet>
+              <span aria-hidden className="trace-node trace-node-pet" data-trace-pet={petState}>
+                <PetMark size={32} state={petState} />
+              </span>
+            </ChatPet>
+          : null}
       <span className="inline-flex min-w-0 flex-1 flex-wrap items-center gap-x-2">
         {/* The note above already carries the mark when it says why. */}
         {failed && !visibleError ? <span aria-hidden className="trace-flag" /> : null}

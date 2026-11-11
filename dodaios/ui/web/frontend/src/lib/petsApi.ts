@@ -25,6 +25,8 @@ export interface PetsState {
   bubble: boolean;
   /** The control strip stays up even at rest (`[ui] pet_strip_always`). */
   strip_always: boolean;
+  /** The pet in the main chat (`[ui] pet_chat`). Absent on an old answer means on. */
+  chat?: boolean;
   visible: boolean;
   pets: Pet[];
 }
@@ -33,6 +35,7 @@ export interface PetSettingsPatch {
   scale?: number;
   bubble?: boolean;
   strip_always?: boolean;
+  chat?: boolean;
 }
 
 export interface CreatePetInput {

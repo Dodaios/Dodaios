@@ -11,6 +11,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ScrollToEndButton } from "@/components/ui/scroll-to-end-button";
 import { ChatInput } from "@/components/ChatInput";
+import { ChatPet } from "@/components/pets/ChatPet";
 import { PetMark } from "@/components/pets/PetMark";
 import { ThinkingTrace, ThoughtTraceDisclosure } from "@/components/ThinkingTrace";
 import { cn } from "@/lib/utils";
@@ -498,9 +499,11 @@ function EmptyState() {
 
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 py-10 text-center">
-      <div className="profile-rise mb-6 h-24 w-24" style={{ animationDelay: "0ms" }}>
-        <PetMark size={96} reactive />
-      </div>
+      <ChatPet>
+        <div className="profile-rise mb-6 h-24 w-24" style={{ animationDelay: "0ms" }}>
+          <PetMark size={96} reactive />
+        </div>
+      </ChatPet>
       <h3
         className="profile-rise font-display text-display text-foreground-strong"
         style={{ animationDelay: "80ms" }}

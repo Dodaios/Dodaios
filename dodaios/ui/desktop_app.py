@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, Any
 
 from filelock import FileLock, Timeout
 
-from dodaios.core.config import DATA_DIR, JarvisConfig, load_config
+from dodaios.core.config import DATA_DIR, JarvisConfig, clamp_pet_scale, load_config
 from dodaios.core.instance import current_instance
 from dodaios.core.process_utils import drop_inherited_electron_node_mode, ensure_standard_streams
 from dodaios.i18n import catalog as i18n_catalog
@@ -140,19 +140,6 @@ _BACKEND_MIN_UPTIME_FOR_RECOVERY_S = 120.0
 # The force-exit backstop must outwait the server's bounded profile cleanup.
 # The asynchronous backend drain below continues to own orderly loop shutdown.
 _SHUTDOWN_FORCE_EXIT_MIN_S = 45.0
-
-
-def _clamp_pet_scale(value: object) -> float:
-    """``[ui] pet_scale`` as a usable multiplier: 0.5–2.0, 1.0 when unusable."""
-    import math
-
-    try:
-        scale = float(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):  # Invalid saved pet scales keep the normal-sized overlay.
-        return 1.0
-    if not math.isfinite(scale):
-        return 1.0
-    return max(0.5, min(2.0, scale))
 
 
 def _pet_toggle_hotkey(cfg: Any) -> str:
@@ -3850,7 +3837,7 @@ class DesktopApp:
         ui = self.cfg.ui
         return {
             "pet_id": str(getattr(ui, "pet_id", DEFAULT_PET_ID) or DEFAULT_PET_ID),
-            "pet_scale": _clamp_pet_scale(getattr(ui, "pet_scale", 1.0)),
+            "pet_scale": clamp_pet_scale(getattr(ui, "pet_scale", 1.0)),
             "pet_bubble": bool(getattr(ui, "pet_bubble", True)),
             "pet_strip_always": bool(getattr(ui, "pet_strip_always", False)),
         }
@@ -3911,7 +3898,7 @@ class DesktopApp:
         """Apply the pet's size, bubble and strip switch live (``PUT /api/pets/settings``)."""
         from loguru import logger
 
-        clamped = None if scale is None else _clamp_pet_scale(scale)
+        clamped = None if scale is None else clamp_pet_scale(scale)
         flag = None if bubble is None else bool(bubble)
         strip = None if strip_always is None else bool(strip_always)
         try:

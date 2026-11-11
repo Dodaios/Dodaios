@@ -50,10 +50,11 @@ if (typeof globalThis.ResizeObserver === "undefined") {
 }
 
 /** The greeting reads the profile name (a query), so the stage mounts like the app. */
-function render() {
+function render(pets?: { chat?: boolean }) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
+  if (pets) client.setQueryData(["pets"], { active: "gigi", pets: [], ...pets });
   return rtlRender(
     <QueryClientProvider client={client}>
       <VoiceStage />
@@ -167,6 +168,30 @@ describe("VoiceStage transcript", () => {
 
     expect(screen.getByTestId("transcript-live").textContent).toContain("still talking");
     act(() => useEventStore.setState({ transcription: "", transcriptionFinal: true }));
+  });
+});
+
+describe("VoiceStage chat pet setting", () => {
+  it("keeps the empty-chat pet when pet_chat was never set", () => {
+    render({});
+    expect(screen.getByTestId("home-greeting")).toBeTruthy();
+    expect(screen.getByTestId("pet-mark")).toBeTruthy();
+  });
+
+  it("hides the empty-chat pet when pet_chat is off and keeps the greeting", () => {
+    render({ chat: false });
+    expect(screen.getByTestId("home-greeting").querySelector("h1")).toBeTruthy();
+    expect(screen.queryByTestId("pet-mark")).toBeNull();
+  });
+
+  it("draws no turn pet when pet_chat is off", () => {
+    call.active = true;
+    act(() => useHomeStore.getState().seedTranscript([said("user", "hello", 1)]));
+    act(() => useEventStore.setState({ voiceState: "thinking" }));
+    render({ chat: false });
+
+    expect(screen.queryByTestId("voice-turn-indicator")).toBeNull();
+    expect(screen.queryByTestId("pet-mark")).toBeNull();
   });
 });
 
