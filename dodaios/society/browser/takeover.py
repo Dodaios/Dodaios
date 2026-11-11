@@ -102,8 +102,10 @@ class TakeoverState:
         self._waiters.clear()
         return note
 
-    async def wait_handback(  # noqa: ASYNC109 — caller-chosen wait
-        self, timeout: float, request_id: str = ""
+    async def wait_handback(
+        self,
+        timeout: float,  # noqa: ASYNC109 — caller-chosen wait
+        request_id: str = "",
     ) -> dict[str, Any] | None:
         """Wait until the owner hands back; ``None`` when ``timeout`` runs out.
 

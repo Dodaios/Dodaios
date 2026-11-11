@@ -93,7 +93,8 @@ async def test_takeover_and_handback_publish_note_without_typed_content(tmp_path
     assert note["url"] == "https://bank.test/home"
     assert "hunter2" not in str(note)
     published = [e for kind, e in session.commands if kind == "event"]
-    assert [e["kind"] for e in published][-3:] == ["takeover_request_cleared", "handback", "control"]
+    kinds = [e["kind"] for e in published][-3:]
+    assert kinds == ["takeover_request_cleared", "handback", "control"]
     assert "hunter2" not in str(published)
 
 
