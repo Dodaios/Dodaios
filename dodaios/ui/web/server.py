@@ -502,7 +502,6 @@ class WebServer:
 
         from .agent_accounts_routes import router as agent_accounts_router
         from .agent_chat_routes import router as agent_chat_router
-        from .attention_routes import router as attention_router
         from .agent_mcp_routes import router as agent_mcp_router
         from .agent_runtime_routes import router as agent_runtime_router
         from .agentic_ide_git_routes import router as agentic_ide_git_router
@@ -511,6 +510,7 @@ class WebServer:
         from .antigravity_routes import router as antigravity_router
         from .app_actions_routes import router as app_actions_router
         from .appshot_routes import router as appshot_router
+        from .attention_routes import router as attention_router
         from .board_routes import (
             board_router as board_meta_router,
         )
@@ -547,17 +547,17 @@ class WebServer:
         from .ide_browser_routes import router as ide_browser_router
         from .ide_skills_routes import router as ide_skills_router
         from .live_routes import router as live_router
+        from .living_pages_routes import router as living_pages_router
         from .local_models_assistant_routes import (
             router as local_models_assistant_router,
         )
         from .local_models_routes import router as local_models_router
         from .local_voice_routes import router as local_voice_router
+        from .looks_routes import frame_router as looks_frame_router
+        from .looks_routes import router as looks_router
         from .marketplace_publish_routes import router as marketplace_publish_router
         from .marketplace_routes import router as marketplace_router
-        from .living_pages_routes import router as living_pages_router
         from .mcp_routes import router as mcp_router
-        from .personal_memory_routes import router as personal_memory_router
-        from .notify_routes import router as notify_router
         from .mission_billing_routes import router as mission_billing_router
         from .missions_auth import router as missions_auth_router
         from .missions_pty_routes import router as missions_pty_router
@@ -569,11 +569,11 @@ class WebServer:
             router as missions_ws_router,
         )
         from .mobile_routes import router as mobile_router
+        from .notify_routes import router as notify_router
         from .onboarding_routes import router as onboarding_router
         from .outputs_routes import router as outputs_router
         from .permissions_routes import router as permissions_router
-        from .looks_routes import frame_router as looks_frame_router
-        from .looks_routes import router as looks_router
+        from .personal_memory_routes import router as personal_memory_router
         from .pets_routes import router as pets_router
         from .preview_routes import router as preview_router
         from .profile_routes import router as profile_router
@@ -3148,6 +3148,13 @@ class WebServer:
             )
         except Exception as exc:  # noqa: BLE001 — the app runs without notifications
             logger.opt(exception=exc).warning("notify: not started")
+
+        try:
+            from dodaios.lead_triggers import wiring as trigger_wiring
+
+            trigger_wiring.install(self.bus)
+        except Exception as exc:  # noqa: BLE001 — the app runs without event triggers
+            logger.opt(exception=exc).warning("lead triggers: not started")
 
         # Run the deferred registry disk scans (skill + doc reload_sync) off the
         # boot critical path. Each is a blocking glob + FTS index build (~hundreds

@@ -144,6 +144,21 @@ class DelegateToAgentTool:
         self._resolve = runtime_resolver
 
     async def execute(self, args: dict[str, Any], ctx: ExecutionContext) -> ToolResult:
+        # A repeat inside one turn, or a CLI seat's retry of a slow call, gets
+        # the first receipt instead of a second assignment.
+        runtime = await self._runtime()
+        store = getattr(runtime, "store", None)
+        if store is None or not str(args.get("task") or "").strip():
+            return await self._assign(args, ctx)
+        from dodaios.society.idempotency import idempotency_key, run_once
+
+        return await run_once(
+            store,
+            idempotency_key(ctx, self.name, args),
+            lambda: self._assign(args, ctx),
+        )
+
+    async def _assign(self, args: dict[str, Any], ctx: ExecutionContext) -> ToolResult:
         lang = _lang(args, ctx)
         target_key = str(args.get("agent") or "").strip()
         task = str(args.get("task") or "").strip()

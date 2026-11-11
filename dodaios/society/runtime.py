@@ -374,6 +374,10 @@ class SocietyRuntime:
         from dodaios.skills.cron_routines import keep_in_sync
 
         self._skill_routines_task = asyncio.create_task(keep_in_sync(self))
+        # The watchdog: its own threads and store; it only reads and, rarely, nudges.
+        from dodaios.orchestrator.watchdog.live import start_for_runtime
+
+        start_for_runtime(self, self.config)
         self._runtime_updates_task = asyncio.create_task(self._keep_agent_runtimes_current())
         log.info("society runtime started (%s)", self.store.path)
         return self
@@ -603,6 +607,9 @@ class SocietyRuntime:
                     setattr(self, attribute, None)
             cleanup.push_async_callback(self.coding_threads.close)
             cleanup.push_async_callback(self.chat_runs.close)
+            from dodaios.orchestrator.watchdog.live import stop_current as stop_watchdog
+
+            cleanup.callback(stop_watchdog)
             # Hermes / OpenClaw agents: their Gateways must not outlive the app.
             from dodaios.agent_runtimes import stop_all as stop_agent_runtimes
 

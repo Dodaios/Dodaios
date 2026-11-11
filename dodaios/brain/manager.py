@@ -54,9 +54,12 @@ from dodaios.brain.local_context import LOCAL_CONTEXT_MARKER
 from dodaios.brain.provider_test import BILLING_LIMIT_MARKERS
 from dodaios.brain.spawn_gate import effort_warrants_delegation
 from dodaios.brain.tool_shortlist import (
+    CORE_PRIORITY,
+    DEFAULT_DIRECT,
     FIND_TOOLS_NAME,
     ROLE_BASE,
     FindToolsTool,
+    order_direct,
     plan_surface,
     tool_tokens,
 )
@@ -6456,7 +6459,14 @@ class BrainManager:
         stays callable; the deferred ones are not put in front of the model
         and are reached through ``find_tools``
         (``dodaios/brain/tool_shortlist.py``). With nothing deferred the dict comes back
-        untouched, which is every turn of a hosted model with room to spare.
+        untouched.
+
+        A brain-seat turn defers BY DEFAULT (``[brain] defer_tools``, on): only the
+        frozen core (``DEFAULT_DIRECT``) is shown and every connected-server,
+        plugin and rarer tool waits behind ``find_tools``, whatever the window.
+        That is for selection quality and a stable prompt prefix; nothing becomes
+        unreachable. A small-window model and a role-limited caller keep the
+        rules below.
 
         Three reasons to defer, each on its own evidence:
 
@@ -6493,7 +6503,19 @@ class BrainManager:
         except (TypeError, ValueError):
             # A malformed tool limit means 'unknown'; no trimming then.
             max_tools = 0
-        if window <= 0 and max_tools <= 0 and direct_tools is None:
+        # Default deferral: on a brain seat with room to spare, show a small
+        # frozen core and put every connected-server, plugin and rarer tool
+        # behind ``find_tools``. Not about the window: with hundreds of tools
+        # the choice gets worse and the prompt cache churns whenever the list
+        # does. A small-window model keeps its own narrower rules below.
+        small_window = 0 < window <= _SMALL_WINDOW_TOKENS
+        defer_by_default = (
+            direct_tools is None
+            and not small_window
+            and getattr(getattr(getattr(self, "_config", None), "brain", None), "defer_tools", True)
+            is not False
+        )
+        if window <= 0 and max_tools <= 0 and direct_tools is None and not defer_by_default:
             return tools, nothing
         keep: set[str] = {name for name in own_tools if name in tools}
         mandated = getattr(self, "_evidence_required_tool", None)
@@ -6513,8 +6535,17 @@ class BrainManager:
             limits.append(_SMALL_MODEL_DIRECT_TOOLS + len(keep))
         max_direct = min(limits) if limits else 0
         only = None if direct_tools is None else {*direct_tools, *ROLE_BASE}
+        priority: Iterable[str] = CORE_PRIORITY
+        if defer_by_default:
+            only = set(DEFAULT_DIRECT)
+            priority = DEFAULT_DIRECT
         plan = plan_surface(
-            tools, keep=keep, budget_tokens=budget, max_direct=max_direct, only=only
+            tools,
+            keep=keep,
+            priority=priority,
+            budget_tokens=budget,
+            max_direct=max_direct,
+            only=only,
         )
         if not plan.deferred:
             return tools, nothing
@@ -6531,13 +6562,16 @@ class BrainManager:
                 plan = plan_surface(
                     tools,
                     keep=keep,
+                    priority=priority,
                     budget_tokens=max(budget - reveal_tokens - _FINDER_TOKENS, 0),
                     max_direct=max_direct,
                     only=only,
                 )
             else:
                 reveal_tokens = headroom - _FINDER_TOKENS
-        surface: dict[str, Tool] = dict(plan.direct)
+        surface: dict[str, Tool] = (
+            order_direct(plan.direct) if defer_by_default else dict(plan.direct)
+        )
         surface[FIND_TOOLS_NAME] = cast(
             Tool, FindToolsTool(plan.deferred, reveal_tokens=reveal_tokens)
         )

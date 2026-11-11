@@ -16,6 +16,8 @@ one-provider chain was exhausted, and the user read "I can't reach my provider
 """
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -149,6 +151,8 @@ class TestFitToolsToContextWindow:
 class TestFitOnTheManager:
     def _mgr(self) -> BrainManager:
         m = BrainManager.__new__(BrainManager)  # bypass heavy __init__
+        # These cases pin the window rules; default deferral has its own tests.
+        m._config = SimpleNamespace(brain=SimpleNamespace(defer_tools=False))  # type: ignore[assignment]
         m._tools = {}
         m._evidence_required_tool = None
         m._skill_turn_match = None

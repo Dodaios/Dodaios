@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
@@ -324,8 +325,10 @@ async def test_without_deferred_tools_the_loop_is_unchanged() -> None:
 # ── The manager's decision ───────────────────────────────────────────────
 
 
-def _mgr() -> BrainManager:
+def _mgr(*, defer: bool = False) -> BrainManager:
+    """The old rules (window, small model, caps) unless ``defer`` asks for the default."""
     m = BrainManager.__new__(BrainManager)  # bypass heavy __init__
+    m._config = SimpleNamespace(brain=SimpleNamespace(defer_tools=defer))  # type: ignore[assignment]
     m._tools = {}
     m._evidence_required_tool = None
     m._skill_turn_match = None
@@ -453,3 +456,81 @@ def test_a_count_cap_of_one_still_caps() -> None:
         tools, _One(1_048_576), system_prompt="", history=None
     )
     assert len(deferred) == 4
+
+
+# ── Default deferral on the brain seat ───────────────────────────────────
+
+
+def _big_surface() -> dict[str, Any]:
+    tools = {
+        f"srv{i % 6}/tool{i}": _tool(f"srv{i % 6}/tool{i}", size=8, mcp=True) for i in range(250)
+    }
+    tools["native_extra"] = _tool("native_extra")
+    for name in ("job_status", "await_jobs", "work_board", "memory-search", "delegate_to_agent",
+                 "message_agent", "search_web", "remember"):
+        tools[name] = _tool(name)
+    return tools
+
+
+def test_default_deferral_shows_a_frozen_core_and_hides_every_connected_tool() -> None:
+    tools = _big_surface()
+    surface, deferred = _mgr(defer=True)._shortlist_tools(
+        tools, _Brain(1_048_576), system_prompt="", history=None
+    )
+    shown = _shown(surface, deferred)
+    assert FIND_TOOLS_NAME in shown
+    assert {"job_status", "await_jobs", "work_board", "memory-search", "delegate_to_agent",
+            "message_agent"} <= set(shown)
+    assert not any("/" in name for name in shown)
+    assert "native_extra" in deferred
+    # Nothing is unreachable: every tool is still in the dict the loop runs from.
+    assert set(tools) <= set(surface)
+
+
+def test_default_deferral_order_does_not_follow_the_registry_or_the_turn() -> None:
+    tools = _big_surface()
+    reversed_tools = dict(reversed(list(tools.items())))
+    a, da = _mgr(defer=True)._shortlist_tools(
+        tools, _Brain(1_048_576), system_prompt="", history=None
+    )
+    b, db = _mgr(defer=True)._shortlist_tools(
+        reversed_tools, _Brain(1_048_576), system_prompt="x" * 5_000, history=None
+    )
+    assert _shown(a, da) == _shown(b, db)
+    # A tool a gate mandated lands after the frozen core, not before it.
+    m = _mgr(defer=True)
+    m._evidence_required_tool = "native_extra"
+    c, dc = m._shortlist_tools(tools, _Brain(1_048_576), system_prompt="", history=None)
+    shown = _shown(c, dc)
+    core = [n for n in _shown(a, da) if n != FIND_TOOLS_NAME]
+    assert shown[: len(core)] == core
+    assert "native_extra" in shown
+
+
+def test_default_deferral_can_be_switched_off_and_small_windows_keep_their_rules() -> None:
+    tools = _big_surface()
+    surface, deferred = _mgr(defer=False)._shortlist_tools(
+        tools, _Brain(1_048_576), system_prompt="", history=None
+    )
+    assert surface is tools and not deferred
+    small, small_deferred = _mgr(defer=True)._shortlist_tools(
+        tools, _Brain(32_768), system_prompt="", history=None
+    )
+    assert len(_shown(small, small_deferred)) == _SMALL_MODEL_DIRECT_TOOLS + 1
+
+
+@pytest.mark.asyncio
+async def test_a_deferred_tool_is_found_and_runs_in_the_same_turn() -> None:
+    tools = _big_surface()
+    tools["srv1/save_issue"] = _Tool(
+        name="srv1/save_issue", description="Create or update an issue (ticket).", is_mcp_tool=True
+    )
+    surface, deferred = _mgr(defer=True)._shortlist_tools(
+        tools, _Brain(1_048_576), system_prompt="", history=None
+    )
+    finder = surface[FIND_TOOLS_NAME]
+    out = await finder.execute({"query": "ticket"}, _ctx())
+    assert out.output["tools"][0]["name"] == "srv1/save_issue"
+    assert "srv1/save_issue" in deferred
+    ran = await surface["srv1/save_issue"].execute({"x": 1}, _ctx())
+    assert ran.success

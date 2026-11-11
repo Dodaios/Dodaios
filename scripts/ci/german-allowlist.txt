@@ -484,3 +484,8 @@ tests/unit/sessions/test_chat_titles.py
 
 # --- Lead routing golden set: simulated bilingual user requests are the data under test ---
 tests/fixtures/lead_routing/*
+
+# --- find_tools ranking (2026-11-11): German/English synonym and stop-word matching data, and the
+#     German requests the ranking is pinned against ---
+dodaios/brain/tool_search.py
+tests/unit/brain/test_tool_search_ranking.py
