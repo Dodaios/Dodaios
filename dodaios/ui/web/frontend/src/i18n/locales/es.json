@@ -10758,7 +10758,17 @@
     "open_side_by_side": "Abrir al lado",
     "drop_side_by_side": "Suelta para abrirlo al lado",
     "drop_replace": "Suelta para reemplazar este hilo",
-    "close_column": "Cerrar {target}"
+    "close_column": "Cerrar {target}",
+    "plan_usage": {
+      "heading": "Uso del plan",
+      "session": "Sesión",
+      "weekly": "Semana",
+      "weekly_scoped": "Semana · {scope}",
+      "monthly": "Mes",
+      "other": "Límite",
+      "chip": "{limit} {percent} %",
+      "title": "{plan}: límite {limit} usado al {percent} %. Haz clic para ver todos los límites y cuándo se restablecen."
+    }
   },
   "ide_view": {
     "split_right": "Derecha",

@@ -17,7 +17,7 @@ import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useIdeThreadsStore } from "@/store/ideThreads";
 import { SearchThreadsIcon, TeamThreadIcon } from "./ThreadStartIcons";
-import { projectIdFor, shortAge, threadTitle, useThreadChatStore } from "./threadModel";
+import { projectIdFor, shortAge, threadOrderMs, threadTitle, useThreadChatStore } from "./threadModel";
 
 /** Rows the empty search shows: the newest threads. */
 const RECENT = 12;
@@ -117,7 +117,7 @@ export function ThreadSearch({ open, onClose, projects, onOpened }: {
     };
     const threads = sessions.filter((session) => !session.team_id);
     if (!fold) {
-      for (const session of [...threads].sort((a, b) => b.updated_ms - a.updated_ms)) {
+      for (const session of [...threads].sort((a, b) => threadOrderMs(b) - threadOrderMs(a))) {
         const row = threadRow(session.session_id, session.cwd, { title: session.title, updated: session.updated_ms, provider: session.provider });
         if (row) add(row);
         if (out.size >= RECENT) break;
