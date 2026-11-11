@@ -24,7 +24,9 @@ function chat(id: string, title: string, updatedMs: number) {
 }
 
 function mount(routines: unknown[]) {
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ routines }), { status: 200 })));
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(
+    JSON.stringify(String(url) === "/api/agent-chat/lead" ? { session_id: "lead" } : { routines }), { status: 200 },
+  )));
   const onConversation = vi.fn();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={client}><SidebarAssistant onConversation={onConversation} /></QueryClientProvider>);
@@ -91,6 +93,15 @@ describe("SidebarAssistant", () => {
     fireEvent.click(screen.getByTestId("sidebar-recent-c3"));
     expect(chats.open).toHaveBeenCalledWith(chats.rows[3]);
     expect(screen.getByTestId("earlier-chats")).toBeTruthy();
+  });
+
+  it("leaves the conversation itself out of the earlier chats", async () => {
+    chats.rows = [chat("lead", "The one conversation", 9), chat("c0", "Chat 0", 1)];
+    chats.active = "lead";
+    mount([]);
+    await waitFor(() => expect(screen.queryByTestId("sidebar-recent-lead")).toBeNull());
+    expect(screen.getByTestId("sidebar-recent-c0")).toBeTruthy();
+    expect(screen.getByTestId("sidebar-assistant-conversation").getAttribute("aria-current")).toBe("page");
   });
 
   it("folds a section and remembers it", () => {

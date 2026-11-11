@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, MessageCircle } from "lucide-react";
 import { EarlierChatsLink } from "@/components/home/EarlierChatsLink";
 import { chatRowLabel, useChatRows } from "@/components/home/chatRows";
 import { useRunLocale } from "@/components/runs/format";
+import { fetchLeadSession } from "@/lib/agentChatApi";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -67,6 +68,17 @@ function useAutomations() {
   });
 }
 
+/** The id of the one endless conversation, so the list of earlier chats can leave it out. */
+function useConversationId(): string | null {
+  const lead = useQuery({
+    queryKey: ["sidebar", "conversation-id"],
+    staleTime: 5 * 60_000,
+    retry: false,
+    queryFn: async () => (await fetchLeadSession()).session_id ?? null,
+  });
+  return lead.data ?? null;
+}
+
 function Section({ id, title, open, onToggle, children }: {
   id: string; title: string; open: boolean; onToggle: () => void; children: ReactNode;
 }) {
@@ -104,7 +116,9 @@ export default function SidebarAssistant({ onConversation }: { onConversation: (
     return next;
   });
 
-  const recents = rows.slice(0, RECENTS_SHOWN);
+  // The conversation itself is the row above, not one of the chats from before.
+  const conversationId = useConversationId();
+  const recents = rows.filter((row) => row.id !== conversationId).slice(0, RECENTS_SHOWN);
   const earlierOnStage = recents.some((row) => isActive(row));
   const list = automations.data ?? [];
   const now = new Date();
