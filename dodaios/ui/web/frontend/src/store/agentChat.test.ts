@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AgentChatEvent, AgentChatSession } from "@/lib/agentChatApi";
+import type { AgentChatEvent, AgentChatProvider, AgentChatSession } from "@/lib/agentChatApi";
 import { providerKind } from "@/components/agentchat/AgentComposer";
 import { EMPTY_TIMELINE, type Timeline, type UserItem } from "@/components/agentchat/reduce";
-import { FRAME_IDLE_MS, TURN_START_GRACE_MS, createAgentChatStore, draftKey, runningForTimeline } from "@/store/agentChat";
+import { FRAME_IDLE_MS, TURN_START_GRACE_MS, createAgentChatStore, draftKey, joinProviderOptions, runningForTimeline } from "@/store/agentChat";
 import { invalidateAgentChatSessions } from "@/lib/agentChatApi";
 import { captureComposerDraftTarget, readComposerDraft, writeComposerDraft } from "@/components/agentchat/composerDrafts";
 
@@ -232,6 +232,28 @@ describe("agent-chat store surfaces", () => {
     expect(seat("brain", { key_set: true, api_key_set: true })).toBe(true);
     // A backend too old to report the finer field still answers as before.
     expect(seat("brain", { key_set: true })).toBe(true);
+  });
+
+  it("connects a chat-only API seat when its catalog reports an API key", () => {
+    const provider: AgentChatProvider & { api_key_set: boolean } = {
+      id: "deepseek",
+      label: "DeepSeek",
+      family: "deepseek",
+      runner: "api",
+      models_source: "live",
+      curated_models: [],
+      default_model: "deepseek-flash",
+      keyless: false,
+      native_resume: false,
+      effort_levels: [""],
+      default_effort: "",
+      permission_modes: [],
+      default_permission_mode: "ask",
+      cli_installed: null,
+      api_key_set: true,
+    };
+    expect(joinProviderOptions([provider], [])[0].connected).toBe(true);
+    expect(joinProviderOptions([{ ...provider, api_key_set: false }], [])[0].connected).toBe(false);
   });
 
   it("counts a coding CLI the Agents tab has no card for as connected once installed", () => {

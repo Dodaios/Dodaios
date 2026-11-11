@@ -720,6 +720,8 @@ class TestListModels:
             "openrouter",
             "grok",
             "nvidia",
+            # Native DeepSeek API (api.deepseek.com/models).
+            "deepseek",
             # User-hosted proxy: live catalog is the proxy's own model list.
             "litellm",
             # Keyless local providers (2026-07-25): live catalog = the models

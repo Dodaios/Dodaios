@@ -32,6 +32,7 @@ const PROVIDER_FAMILY_LOGOS: Record<string, FamilyLogo> = {
   cartesia: { file: "cartesia.svg", render: "own" },
   digitalocean: { file: "digitalocean.svg", render: "mono" },
   claude: { file: "claude.svg", render: "colour" },
+  deepseek: { file: "deepseek.svg", render: "colour" },
   contabo: { file: "contabo.svg", render: "mono" },
   elevenlabs: { file: "elevenlabs.svg", render: "mono" },
   hermes: { file: "hermes.svg", render: "mono" },
@@ -89,6 +90,7 @@ export function providerFamily(providerId: string): string | null {
   if (id.includes("codex") || id.startsWith("openai")) return "openai";
   if (id.includes("claude")) return "claude";
   if (id.includes("grok")) return "xai";
+  if (id.includes("deepseek")) return "deepseek";
   if (id.includes("openrouter")) return "openrouter";
   if (id.includes("litellm")) return "litellm";
   if (id.includes("groq")) return "groq";
