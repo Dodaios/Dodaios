@@ -95,6 +95,8 @@ class CuratedModel:
     efforts: tuple[str, ...] | None = None
     #: A short note the picker shows as the hint ("retires 2026-08-31").
     note: str = ""
+    #: Claude Code's fast mode works on this model (``dodaios.agent_chat.speed``).
+    fast: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {"id": self.id, "label": self.label}
@@ -102,6 +104,10 @@ class CuratedModel:
             d["efforts"] = list(self.efforts)
         if self.note:
             d["note"] = self.note
+        if self.fast:
+            from dodaios.agent_chat.speed import claude_speeds
+
+            d["speeds"] = claude_speeds()
         return d
 
 
@@ -163,19 +169,21 @@ def _agy_fallback_models() -> tuple[tuple[str, str, tuple[str, ...]], ...]:
 #: What Claude Code's ``--model`` takes (claude 2.1.241): the current
 #: families by full id, the two legacy families that still answer, and the
 #: aliases people type. Per-model effort caps follow the docs (no xhigh on
-#: 4.6; no effort at all on Haiku 4.5 and the 4.5 generation).
+#: 4.6; no effort at all on Haiku 4.5 and the 4.5 generation). ``fast`` marks
+#: the models whose ``initialize`` answer says ``supportsFastMode`` (claude
+#: 2.1.319).
 CLAUDE_CODE_MODELS: Final[tuple[CuratedModel, ...]] = (
     CuratedModel("claude-fable-5-2", "Claude Fable 5.2"),
-    CuratedModel("claude-opus-5-5", "Claude Opus 5.5"),
+    CuratedModel("claude-opus-5-5", "Claude Opus 5.5", fast=True),
     CuratedModel("claude-fable-5-1", "Claude Fable 5.1"),
     CuratedModel("claude-fable-5", "Claude Fable 5"),
-    CuratedModel("claude-opus-5", "Claude Opus 5"),
-    CuratedModel("claude-opus-5[1m]", "Claude Opus 5", note="1M context"),
+    CuratedModel("claude-opus-5", "Claude Opus 5", fast=True),
+    CuratedModel("claude-opus-5[1m]", "Claude Opus 5", note="1M context", fast=True),
     CuratedModel("claude-sonnet-5", "Claude Sonnet 5"),
     CuratedModel("claude-haiku-4-5-20251001", "Claude Haiku 4.5", efforts=()),
     CuratedModel("opusplan", "Opus plans, Sonnet builds", note="alias"),
     CuratedModel("best", "Best available", note="alias"),
-    CuratedModel("claude-opus-4-8", "Claude Opus 4.8"),
+    CuratedModel("claude-opus-4-8", "Claude Opus 4.8", fast=True),
     CuratedModel("claude-opus-4-7", "Claude Opus 4.7"),
     CuratedModel("claude-opus-4-6", "Claude Opus 4.6", efforts=("low", "medium", "high", "max")),
     CuratedModel(

@@ -1,20 +1,22 @@
 import { useMemo } from "react";
+import { Zap } from "lucide-react";
 import { brainValue, splitBrainValue } from "@/components/agentchat/AgentComposer";
 import { ComposerBrainPicker, type BrainSection } from "@/components/agentchat/ComposerBrainPicker";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { Combobox, type ComboboxGroup, type ComboboxOption } from "@/components/ui/combobox";
 import { useT } from "@/i18n";
-import { isApiRunner, type CuratedModel } from "@/lib/agentChatApi";
+import { isApiRunner, type CuratedModel, type ModelSpeed } from "@/lib/agentChatApi";
 import { offeredModels, useSavedHiddenModels } from "@/lib/agentProviderPrefs";
 import { effortLadder } from "@/lib/effortLadder";
 import { rankModels } from "@/lib/modelRanking";
 import type { ComposerDraft, ProviderOption } from "@/store/agentChat";
 
 /**
- * The three picks under a thread's composer: which coding agent and model
- * answer, how hard it thinks, and how much it may do without asking. Quiet
- * text buttons until opened; each opens the app's own searchable list.
+ * The picks under a thread's composer: which coding agent and model answer,
+ * how hard it thinks and how fast it runs (one menu), and how much it may do
+ * without asking. Quiet text buttons until opened; each
+ * opens the app's own searchable list.
  */
 
 /** One quiet control in the composer's toolbar: 28 px, medium weight, a lift on hover. */
@@ -129,24 +131,80 @@ export function AgentModelPicker({
     triggerPrefix={pickedIcon ? <ProviderMark provider={pickedIcon} /> : undefined} />;
 }
 
-export function EffortPicker({ provider, draft, liveModels, onPick, separated = false }: {
+/** The speed tiers the picked model offers ([] = no fast mode for it). */
+export function speedsOf(provider: ProviderOption, liveModels: Record<string, CuratedModel[]>, model: string): ModelSpeed[] {
+  const row = modelsOf(provider, liveModels).find((entry) => entry.id === model);
+  return row?.speeds ?? [];
+}
+
+/** Speed rows share the effort menu; this prefix keeps their values apart. */
+const SPEED = "speed:";
+
+/** One bolt per step above the standard speed: Fast is one, Ultrafast two. */
+function Bolts({ count, testId }: { count: number; testId?: string }) {
+  return <span aria-hidden data-testid={testId} data-bolts={count} className="inline-flex shrink-0 items-center -space-x-1 text-accent">
+    {Array.from({ length: count }, (_, index) => <Zap key={index} className="h-3.5 w-3.5 fill-current" />)}
+  </span>;
+}
+
+/**
+ * How hard the agent thinks and, where the model has one, its fast mode:
+ * one menu with two picks. Claude Code's fast mode reads On / Off; Codex
+ * lists the tiers the account has (Fast, Ultrafast). The trigger carries a
+ * bolt per step above the standard speed.
+ */
+export function EffortPicker({ provider, draft, liveModels, onPick, onPickSpeed, separated = false }: {
   separated?: boolean;
   provider: ProviderOption | null;
   draft: ComposerDraft;
   liveModels: Record<string, CuratedModel[]>;
   onPick: (effort: string) => void;
+  /** Absent = no fast-mode section (a surface that does not store a speed). */
+  onPickSpeed?: (speed: string) => void;
 }) {
   const t = useT();
   const levels = useMemo(
     () => (provider ? effortLadder(provider, modelsOf(provider, liveModels), draft.model) : []),
     [provider, liveModels, draft.model],
   );
-  if (levels.length === 0 || (levels.length === 1 && levels[0] === "")) return null;
+  const speeds = useMemo(
+    () => (provider && onPickSpeed ? speedsOf(provider, liveModels, draft.model) : []),
+    [provider, liveModels, draft.model, onPickSpeed],
+  );
+  const hasEffort = !(levels.length === 0 || (levels.length === 1 && levels[0] === ""));
+  if (!hasEffort && speeds.length === 0) return null;
+  // A stored tier this model does not offer runs at the standard speed.
+  const speedIndex = speeds.findIndex((tier) => tier.id === draft.speed);
+  const speed = speedIndex >= 0 ? speeds[speedIndex].id : "";
+  const bolts = speedIndex >= 0 ? Math.min(speedIndex + 1, 2) : 0;
+  const groups: ComboboxGroup[] = [];
+  if (hasEffort) {
+    groups.push({ id: "effort", options: levels.map((level) => ({ value: level, label: effortLabel(level, t) })) });
+  }
+  if (speeds.length) {
+    // One tier reads as a switch (On / Off); several keep their names (Fast, Ultrafast).
+    const single = speeds.length === 1;
+    groups.push({
+      id: "speed",
+      label: t("agent_chat.speed_group"),
+      options: [
+        { value: SPEED, label: t("agent_chat.speed_off") },
+        ...speeds.map((tier, index) => ({
+          value: SPEED + tier.id,
+          label: single ? t("agent_chat.speed_on") : tier.label,
+          trailing: <Bolts count={Math.min(index + 1, 2)} />,
+        })),
+      ],
+    });
+  }
   return <>
     {separated && <Separator />}
-    <Combobox ariaLabel={t("agent_chat.pick_effort")} testId="thread-effort-picker" value={draft.effort}
-      groups={[{ id: "effort", options: levels.map((level) => ({ value: level, label: effortLabel(level, t) })) }]}
-      onChange={onPick} fallbackLabel={effortLabel(draft.effort, t)} triggerHint={false} className={TRIGGER} />
+    <Combobox ariaLabel={t("agent_chat.pick_effort")} testId="thread-effort-picker" value={hasEffort ? draft.effort : SPEED + speed}
+      groups={groups}
+      isChecked={(value) => (value.startsWith(SPEED) ? value === SPEED + speed : value === draft.effort)}
+      onChange={(value) => (value.startsWith(SPEED) ? onPickSpeed?.(value.slice(SPEED.length)) : onPick(value))}
+      fallbackLabel={hasEffort ? effortLabel(draft.effort, t) : t("agent_chat.speed_group")} triggerHint={false}
+      triggerPrefix={bolts ? <Bolts count={bolts} testId="thread-speed-bolts" /> : undefined} className={TRIGGER} />
   </>;
 }
 

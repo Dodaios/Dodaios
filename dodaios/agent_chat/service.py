@@ -82,6 +82,7 @@ from dodaios.agent_chat.questions import (
 from dodaios.agent_chat.runner_api import TurnHandle, run_api_turn, supports_api_runner
 from dodaios.agent_chat.runner_brain import brain_history_from_events, run_brain_turn
 from dodaios.agent_chat.runner_cli import run_cli_turn, supports_cli_runner
+from dodaios.agent_chat.speed import normalize_speed
 from dodaios.agent_chat.store import (
     DEFAULT_SURFACE,
     SURFACES,
@@ -1148,6 +1149,7 @@ class AgentChatService:
         surface: str = DEFAULT_SURFACE,
         account_id: str = "",
         computer_id: str = "",
+        speed: str = "",
     ) -> AgentChatSession:
         row = provider_row(provider)
         if row is None and not supports_api_runner(provider):
@@ -1177,6 +1179,7 @@ class AgentChatService:
             surface=surface,
             account_id=account_id,
             computer_id=computer_id,
+            speed=normalize_speed(speed),
         )
 
     def _set_steerer(

@@ -571,7 +571,7 @@ export function ThreadComposer({
   };
 
   // A pick the person made is the seat every new thread starts on.
-  const pick = async (patch: Partial<Pick<ComposerDraft, "provider" | "model" | "effort" | "permissionMode">>) => {
+  const pick = async (patch: Partial<Pick<ComposerDraft, "provider" | "model" | "effort" | "speed" | "permissionMode">>) => {
     const store = chat.getState();
     await store.setDraft(patch);
     rememberSeat(chat.getState().draft);
@@ -636,7 +636,7 @@ export function ThreadComposer({
           lockedProvider={started && activeSessionId ? draft.provider : null}
           onPick={(nextProvider, model) => void pick(nextProvider !== draft.provider ? { provider: nextProvider, model } : { model })} />
         <EffortPicker provider={provider} draft={draft} liveModels={liveModels} separated
-          onPick={(effort) => void pick({ effort })} />
+          onPick={(effort) => void pick({ effort })} onPickSpeed={(speed) => void pick({ speed })} />
         <AccessPicker provider={provider} draft={draft} separated
           onPick={(permissionMode) => void pick({ permissionMode })} />
         </div>

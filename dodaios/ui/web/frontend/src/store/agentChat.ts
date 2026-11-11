@@ -119,6 +119,8 @@ export interface ComposerDraft {
   accountId?: string;
   model: string;
   effort: string;
+  /** The coding CLI's speed tier (fast mode); empty or absent = standard. */
+  speed?: string;
   permissionMode: string;
   /** The permission mode to go back to when Plan is switched off. */
   buildMode: string;
@@ -372,6 +374,7 @@ function draftFromSession(session: AgentChatSession, prev: ComposerDraft): Compo
     accountId: session.account_id ?? "",
     model: session.model,
     effort: session.effort,
+    speed: session.speed ?? "",
     permissionMode: session.permission_mode,
     buildMode: plan ? prev.buildMode || prev.permissionMode : session.permission_mode,
     cwd: session.cwd,
@@ -985,6 +988,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
               model: patch.model ?? p.default_model,
               accountId: patch.accountId ?? "",
               effort: patch.effort ?? p.default_effort,
+              speed: patch.speed ?? "",
               permissionMode: patch.permissionMode ?? p.default_permission_mode,
               buildMode: patch.permissionMode ?? p.default_permission_mode,
             };
@@ -1011,6 +1015,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
           if (patch.provider !== undefined) body.provider = draft.provider;
           if (patch.provider !== undefined || patch.model !== undefined) body.model = draft.model;
           if (patch.provider !== undefined || patch.effort !== undefined) body.effort = draft.effort;
+          if (patch.provider !== undefined || patch.speed !== undefined) body.speed = draft.speed ?? "";
           if (patch.provider !== undefined || patch.permissionMode !== undefined) {
             body.permission_mode = draft.permissionMode;
           }
@@ -1164,6 +1169,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
               ...(d.accountId ? { account_id: d.accountId } : {}),
               model: d.model,
               effort: d.effort,
+              ...(d.speed ? { speed: d.speed } : {}),
               cwd: d.cwd || null,
               permission_mode: d.permissionMode,
               ...(d.computerId ? { computer_id: d.computerId } : {}),

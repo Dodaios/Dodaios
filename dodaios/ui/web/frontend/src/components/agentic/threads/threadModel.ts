@@ -239,6 +239,8 @@ export interface ThreadSeat {
   provider: string;
   model: string;
   effort: string;
+  /** The coding CLI's speed tier (fast mode); empty or absent = standard. */
+  speed?: string;
   permissionMode: string;
 }
 
@@ -249,7 +251,7 @@ export function rememberSeat(seat: ThreadSeat): void {
   if (!seat.provider) return;
   try {
     localStorage.setItem(SEAT_KEY, JSON.stringify({
-      provider: seat.provider, model: seat.model, effort: seat.effort, permissionMode: seat.permissionMode,
+      provider: seat.provider, model: seat.model, effort: seat.effort, speed: seat.speed ?? "", permissionMode: seat.permissionMode,
     }));
   } catch { /* storage blocked: new threads start on the provider's defaults */ }
 }
@@ -261,7 +263,7 @@ export function rememberedSeat(): ThreadSeat | null {
     const row = raw as Record<string, unknown>;
     if (typeof row.provider !== "string" || !row.provider) return null;
     const text = (value: unknown) => (typeof value === "string" ? value : "");
-    return { provider: row.provider, model: text(row.model), effort: text(row.effort), permissionMode: text(row.permissionMode) };
+    return { provider: row.provider, model: text(row.model), effort: text(row.effort), speed: text(row.speed), permissionMode: text(row.permissionMode) };
   } catch {
     return null;
   }

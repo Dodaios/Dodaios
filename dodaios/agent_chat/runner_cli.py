@@ -97,6 +97,7 @@ from dodaios.agent_chat.questions import (
     recommended_answer,
 )
 from dodaios.agent_chat.runner_api import TurnHandle
+from dodaios.agent_chat.speed import apply_speed
 from dodaios.agent_chat.tool_context import register_turn, unregister_turn
 from dodaios.agent_chat.turn_host import claude_result_without_model_turn
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
@@ -4428,6 +4429,9 @@ async def _run_cli_once(
                     resume=resume,
                     identity=identity,
                 )
+                # The speed pick (Claude Code's fast mode, a Codex service
+                # tier) is one flag on top of any plan; see ``speed.py``.
+                apply_speed(plan.argv, runner, getattr(session, "speed", ""))
                 await asyncio.to_thread(_carry_thread_conversation, runner, resume, plan.env)
             apply_child_env_drops(session.session_id, plan.env)
             if getattr(handle, "tools_disabled", False):

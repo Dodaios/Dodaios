@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from dodaios.agent_chat.speed import codex_speeds
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 log = logging.getLogger(__name__)
@@ -184,14 +185,18 @@ def parse_codex_models(models: list[Any]) -> Rows:
             for entry in levels
             if isinstance(entry, dict) and isinstance(entry.get("reasoningEffort"), str)
         ]
-        rows.append(
-            {
-                "id": slug,
-                "label": model.get("displayName") or slug,
-                "efforts": efforts,
-                "note": note,
-            }
-        )
+        row: dict[str, Any] = {
+            "id": slug,
+            "label": model.get("displayName") or slug,
+            "efforts": efforts,
+            "note": note,
+        }
+        # The speed tiers THIS account has on this model (Fast, Ultrafast);
+        # a plan without them gets none and the composer shows no speed pick.
+        speeds = codex_speeds(model)
+        if speeds:
+            row["speeds"] = speeds
+        rows.append(row)
     return rows
 
 

@@ -87,6 +87,7 @@ from dodaios.agent_chat.service import (
     SessionBusy,
     resolve_runner,
 )
+from dodaios.agent_chat.speed import normalize_speed
 from dodaios.agent_chat.surface_kits import kit_for
 from dodaios.agent_chat.tools import shell_label
 from dodaios.society.credentials import CredentialError
@@ -255,6 +256,8 @@ class CreateSessionBody(BaseModel):
     account_id: str = ""
     model: str = ""
     effort: str | None = None
+    #: The coding CLI's speed tier ("" = standard; dodaios/agent_chat/speed.py).
+    speed: str = Field(default="", max_length=32)
     cwd: str | None = None
     #: "" = the runner's default mode (dodaios/agent_chat/permissions.py).
     permission_mode: str = ""
@@ -290,6 +293,7 @@ class PatchSessionBody(BaseModel):
     provider: str | None = None
     model: str | None = None
     effort: str | None = None
+    speed: str | None = Field(default=None, max_length=32)
     cwd: str | None = None
     permission_mode: str | None = None
     computer_id: str | None = None
@@ -1221,6 +1225,7 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
             provider=body.provider,
             model=body.model,
             effort=body.effort,
+            speed=body.speed,
             cwd=cwd,
             permission_mode=normalize_permission(ladder, body.permission_mode),
             title=body.title,
@@ -1668,6 +1673,8 @@ async def patch_session(
     if body.effort is not None:
         provider = fields.get("provider") or svc.store.get_session(session_id).provider  # type: ignore[union-attr]
         fields["effort"] = normalize_effort(provider, body.effort)
+    if body.speed is not None:
+        fields["speed"] = normalize_speed(body.speed)
     current = svc.store.get_session(session_id)
     assert current is not None
     if body.cwd is not None and not kit_for(current.surface).plain:
