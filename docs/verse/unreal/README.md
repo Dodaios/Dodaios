@@ -14,6 +14,7 @@ Unreal Verse reads this file first, then its work package in
 | `README.md` | Decisions (this file) |
 | `architecture.md` | Modules, process model, networking, bridge |
 | `contracts/` | Frozen interfaces every package codes against |
+| `deck-look.md` | Runtime look of the decks: lighting rig, read-outs, wall displays, guides, clutter, material sets |
 | `work-packages.md` | The 22 fan-out packages: scope, owned paths, acceptance |
 | `orchestration.md` | Phases, gates, rules for parallel agents |
 | `parity.md` | Checklist the Unreal Verse must pass before three.js is deleted |
