@@ -11,6 +11,10 @@ import { useWorkspacePanesStore } from "@/store/workspacePanes";
 vi.mock("@/hooks/useUpdate", () => ({
   useUpdate: () => ({ status: { managed: false, update_available: false } }),
 }));
+// The caption's Dodaios switch draws the voice dot; useVoiceMode would fetch.
+vi.mock("@/hooks/useVoiceMode", () => ({
+  useVoiceMode: () => ({ mode: "pipeline", connecting: false }),
+}));
 vi.mock("@/components/MascotGigi", () => ({
   MascotGigi: () => <div data-testid="mascot-gigi" />,
 }));
@@ -164,5 +168,25 @@ describe("TopBar caption on every section", () => {
     expect(minimize.compareDocumentPosition(screen.getByTestId("window-close")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     delete (window as unknown as { pywebview?: unknown }).pywebview;
+  });
+});
+
+describe("TopBar place switch", () => {
+  afterEach(() => cleanup());
+
+  it("centres Dodaios / IDE in the caption on every section", () => {
+    for (const section of ["chats", "agentic-ide", "dictation"] as const) {
+      useEventStore.setState({ activeSection: section });
+      render(<TopBar />);
+      expect(screen.getByTestId("surface-switch")).toBeTruthy();
+      expect(screen.queryByTestId("ide-layout-switch")).toBeNull();
+      cleanup();
+    }
+  });
+
+  it("is not offered in a tool window, which shows one view only", () => {
+    useEventStore.setState({ activeSection: "chats", solo: true });
+    render(<TopBar />);
+    expect(screen.queryByTestId("surface-switch")).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, expect, it, vi } from "vitest";
 import { LazyIdeProjectTree } from "./LazyIdeProjectTree";
 import { useEventStore } from "@/store/events";
+import { useIdeThreadsStore } from "@/store/ideThreads";
 
 const load = vi.hoisted(() => {
   let release!: () => void;
@@ -20,6 +21,8 @@ vi.mock("./IdeProjectTree", async () => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 it("defers project code, keeps its instance through updates and contains a failed tree", async () => {
+  // The project tree is the grid's list; the IDE itself opens in chat.
+  useIdeThreadsStore.setState({ layout: "grid" });
   expect(load.modules).toBe(0);
   const view = render(<LazyIdeProjectTree />);
   expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");

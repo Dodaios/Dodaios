@@ -1,28 +1,25 @@
-import { Loader2, Mic, MoreHorizontal, Search } from "lucide-react";
+import { Mic, MoreHorizontal, Search } from "lucide-react";
 import { SETTINGS_HUB_IDS } from "@/components/layout/navGroups";
 import { useEventStore, type SectionId } from "@/store/events";
 import { useSectionPrefetch } from "@/hooks/useSectionPrefetch";
-import { useVoiceReadiness } from "@/hooks/useVoiceReadiness";
-import { useVoiceMode } from "@/hooks/useVoiceMode";
+import { useVoiceIndicator } from "@/hooks/useVoiceIndicator";
 import { useSectionHealth } from "@/hooks/useProviders";
 import { usePluginAttention } from "@/hooks/usePluginAttention";
 import { cn } from "@/lib/utils";
 import { lazy, Suspense, useMemo } from "react";
 import { useT } from "@/i18n";
-import { useHomeStore } from "@/store/home";
 import { LazyIdeProjectTree } from "@/components/agentic/LazyIdeProjectTree";
 import { IDE_SECTIONS } from "@/lib/ideSections";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeThreadsStore } from "@/store/ideThreads";
 import { SidebarSearchBar } from "@/components/layout/SidebarSearchBar";
-import { SidebarModeSwitch, type SidebarMode } from "@/components/layout/SidebarModeSwitch";
+import { IdeLayoutSwitch } from "@/components/agentic/threads/IdeLayoutSwitch";
 import { useQuickSwitchSettings } from "@/store/quickSwitchSettings";
 import { useAppInstance } from "@/hooks/useAppInstance";
 import { usePublishIdentity } from "@/hooks/usePublishIdentity";
 import { ArtifactsIcon, CaptureIcon, ExtensionsIcon, MarketplaceIcon, SpeechIcon } from "@/components/icons/sectionIcons";
 import { SidebarStatus } from "@/components/layout/SidebarStatus";
 import { useQuickSwitcher } from "@/store/quickSwitcher";
-import { startNewTextChat } from "@/lib/newChat";
 import { useUserName } from "@/hooks/useUserName";
 import { apiKeysHealthError } from "@/lib/apiKeysTab";
 
@@ -31,32 +28,6 @@ import { apiKeysHealthError } from "@/lib/apiKeysTab";
 const UpdateButton = lazy(() =>
   import("@/components/layout/TopBar").then((m) => ({ default: m.UpdateButton })),
 );
-
-/**
- * The voice status dot, in the three colours a status is allowed to have.
- *
- * It used to run on four shades of grey — `bg-muted-foreground/50`,
- * `bg-muted-foreground`, `bg-foreground/70`, `bg-foreground` — which is a ramp
- * nobody can read: "listening" and "idle" differed by an opacity, and the
- * loudest value on the ramp was "paused". Colour carries exactly three
- * meanings in this product, so the dot carries them too: green while the voice
- * path is actually doing something, red when it broke, amber while it is only
- * half up, and neutral ink when it is simply at rest.
- */
-const VOICE_STATE_STYLE: Record<string, { dot: string; pulse: boolean }> = {
-  // "Ready" IS a life state: the stack is up and waiting for the wake word.
-  // A grey dot beside the word "Ready" told the reader "off".
-  idle: { dot: "bg-success", pulse: false },
-  listening: { dot: "bg-success", pulse: true },
-  thinking: { dot: "bg-success", pulse: true },
-  speaking: { dot: "bg-success", pulse: true },
-  // The user muted or suspended the pipeline: neither working nor broken.
-  paused: { dot: "bg-muted-foreground", pulse: false },
-  error: { dot: "bg-destructive", pulse: false },
-  // Not a supervisor state — the surface's own "a realtime transport is
-  // negotiating" phase, which no backend state covers. Half up, so amber.
-  connecting: { dot: "bg-warning", pulse: true },
-};
 
 /** The pages reached most from beside the conversation, in the maintainer's order. */
 const SHORTCUTS: readonly { id: SectionId; labelKey: string; Icon: typeof Search; also: readonly SectionId[] }[] = [
@@ -147,7 +118,6 @@ export function Sidebar({
   const activeIdeWorkspaceId = useIdeProjectsStore((s) => s.activeWorkspaceId);
   const openIdeWorkspaceOptions = useIdeProjectsStore((s) => s.openWorkspaceOptions);
   const toggleIdeVoice = useIdeProjectsStore((s) => s.toggleVoice);
-  const voiceState = useEventStore((s) => s.voiceState);
   const assistantName = useEventStore((s) => s.assistantName);
   // The search bar takes the identity row's place while the quick
   // switcher is on; switched off, the row comes back as it was.
@@ -157,10 +127,9 @@ export function Sidebar({
   // confused; the default app shows nothing here.
   const appInstance = useAppInstance();
   const devTag = appInstance?.isDev ? appInstance.name.toUpperCase() : null;
-  // Which of the app's two places is on screen: the conversation with the
-  // assistant, or the Agentic IDE. Neither while a Settings page is open.
+  // The IDE leads its column with its own chat / grid switch; which of the
+  // app's two places is on screen is picked in the window caption above.
   const onIdeSection = IDE_SECTIONS.includes(active);
-  const mode: SidebarMode | null = onIdeSection ? "ide" : active === "chats" ? "dodaios" : null;
   // The IDE's thread list carries search as one of its own start rows
   // (ThreadTree), so there the field atop the column steps aside.
   const threadLayout = useIdeThreadsStore((s) => s.layout) === "threads" && onIdeSection;
@@ -174,8 +143,6 @@ export function Sidebar({
     userName?.split(/\s+/)[0] ||
     (identity.data?.signed_in && identity.data.login) ||
     t("nav.profile");
-  // Shared readiness derivation (same source the banner + chat empty-state use).
-  const { connected, voiceWarming, bootWarming, warming } = useVoiceReadiness();
 
   // Per-section provider health (same source as the API-Keys tab dots). The
   // sidebar surfaces only a hard "error" — a provider that is set up but failing
@@ -205,36 +172,9 @@ export function Sidebar({
   const pluginWarnTitle = pluginAttention.names.length
     ? `${t("sidebar.plugins_reconnect_alert")}: ${pluginAttention.names.join(", ")}`
     : t("sidebar.plugins_reconnect_alert");
-  // Read for the status line's connecting phase. Same resolver as the
-  // mission-deck header and orb (`useVoiceMode`): a negotiating realtime
-  // transport outranks the pipeline's own state.
-  const voiceMode = useVoiceMode();
-
-  // The window connects in ~1s but the voice feature warms up ~20s in the
-  // background. During that gap show a "Voice starting…" spinner instead of the
-  // normal idle "Ready" dot (which would falsely imply the mic already works).
-  // Disconnected outranks warmup — "Offline" is the honest state with no socket.
-  // voiceWarming / bootWarming / warming come from the shared useVoiceReadiness
-  // hook so the sidebar dot, the banner and the chat empty-state never disagree.
-  const showSpinner = warming || voiceMode.connecting;
-  const vs = voiceMode.connecting
-    ? VOICE_STATE_STYLE.connecting
-    : VOICE_STATE_STYLE[voiceState] ?? VOICE_STATE_STYLE.idle;
-  // A negotiating realtime transport outranks the pipeline's own state: the
-  // subscription route needs 15-45 s before it can hear anything, and showing
-  // the stale pre-call state there is what made a live handshake look frozen.
-  const voiceLabel = !connected
-    ? bootWarming
-      ? t("voice_state.booting")
-      : t("voice_state.offline")
-    : voiceWarming
-      ? t("voice_state.starting")
-      : voiceMode.connecting
-        ? t("voice_state.connecting")
-        : t(`voice_state.${voiceState}`);
-  // The header spells the state out only when it is news — anything but a
-  // connected, warmed-up pipeline at rest. See the header row below.
-  const voiceHasNews = !connected || showSpinner || voiceState !== "idle";
+  // The voice path's state: the caption's Dodaios switch draws its dot, and
+  // the header here spells it out only when it is news.
+  const voice = useVoiceIndicator();
 
   // Dragged past the snap point the sidebar becomes a rail of icons. Everything
   // that only makes sense with a label beside it steps aside; the
@@ -249,21 +189,6 @@ export function Sidebar({
   // entry point now, so it carries the "you are here" state for all of them.
   const hubActive = (SETTINGS_HUB_IDS as readonly string[]).includes(active);
   const rowClass = "flex min-h-8 w-full items-center gap-3 rounded-lg px-3 text-base text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-
-  const pickMode = (next: SidebarMode) => {
-    if (next === "ide") { setActive("agentic-ide"); return; }
-    useHomeStore.getState().setSurface("chat");
-    startNewTextChat();
-    setActive("chats");
-  };
-
-  // The voice path's state, at the end of the assistant's half of the switch.
-  const voiceMark = showSpinner ? (
-    <Loader2 className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" data-testid="voice-starting-spinner" aria-hidden />
-  ) : (
-    <span data-testid="sidebar-voice-dot" role="img" aria-label={voiceLabel} title={voiceLabel}
-      className={cn("h-1.5 w-1.5 shrink-0 rounded-full", vs.dot, vs.pulse && "animate-jarvis-pulse")} />
-  );
 
   return (
     // No right border: the draggable seam beside it draws that line now, and
@@ -282,19 +207,15 @@ export function Sidebar({
       data-railed={railed ? "true" : "false"}
       className="jarvis-nav-surface relative isolate z-20 flex h-full shrink-0 flex-col pt-8"
     >
-      {/* The two places of the app lead the column: the conversation with the
-          assistant and the Agentic IDE. Everything else is a Settings page,
-          behind the profile button at the foot. */}
+      {/* The app's two places (Dodaios, IDE) are picked in the window
+          caption. On the IDE the column opens with how it reads: chat or
+          grid. Everything else is a Settings page, behind the profile button
+          at the foot. */}
       <div className={cn("flex flex-col gap-1.5", railed ? "items-center px-3 py-2.5" : "px-2 pb-1 pt-1")}>
-        <SidebarModeSwitch
-          mode={mode}
-          railed={railed}
-          onPick={pickMode}
-          status={voiceMark}
-        />
+        {onIdeSection && <IdeLayoutSwitch railed={railed} />}
         {/* The state is spelled out only when it is news: starting, offline,
             listening. At rest the dot says "fine" on its own. */}
-        {!railed && (voiceHasNews || devTag) && (
+        {!railed && (voice.news || devTag) && (
           <div className="flex min-w-0 items-center gap-2 px-1">
             {/* The dev instance says so on a line of its own; in the switch it squeezed the name out. */}
             {devTag && (
@@ -303,7 +224,7 @@ export function Sidebar({
                 {devTag}
               </span>
             )}
-            {voiceHasNews && <p data-testid="sidebar-voice-label" className="truncate text-xs text-muted-foreground">{voiceLabel}</p>}
+            {voice.news && <p data-testid="sidebar-voice-label" className="truncate text-xs text-muted-foreground">{voice.label}</p>}
           </div>
         )}
         {!railed && headerSearch && <SidebarSearchBar assistantName={assistantName} />}

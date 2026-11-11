@@ -60,13 +60,13 @@ export interface WalkStop {
  * The walk's stops. It only navigates — it never presses a control that could
  * start work or cost money (the voice bar opens a paid call, so the walk
  * points at it and leaves the click to the user). The Agentic IDE is shown at
- * its half of the sidebar switch (opening it starts its terminals), plugins at
+ * its half of the caption switch (opening it starts its terminals), plugins at
  * their row beside the conversation.
  */
 export const WALK_STOPS: readonly WalkStop[] = [
   { id: "chat", anchor: "chat-composer", section: "chats", surface: "chat", placement: "above", pet: "talking" },
   { id: "voice", anchor: "voice-bar", section: "chats", surface: "voice", placement: "below", pet: "listening" },
-  { id: "ide", anchor: "nav-agentic-ide", section: "chats", placement: "right", pet: "thinking" },
+  { id: "ide", anchor: "nav-agentic-ide", section: "chats", placement: "below", pet: "thinking" },
   { id: "plugins", anchor: "nav-plugins", section: "chats", placement: "right", pet: "thinking" },
   { id: "wake", anchor: "settings-wake-word", section: "settings", scrollTo: true, placement: "left", pet: "listening" },
   // There is no permissions stop: macOS asks at the moment a feature needs

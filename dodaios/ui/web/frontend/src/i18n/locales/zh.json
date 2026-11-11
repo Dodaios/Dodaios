@@ -10608,6 +10608,8 @@
     "layout_grid": "终端网格",
     "layout_threads": "线程",
     "layout_aria": "IDE 布局",
+    "layout_chat_short": "聊天",
+    "layout_grid_short": "网格",
     "terminal_needs_folder": "终端需要一个项目文件夹",
     "hide_terminal": "隐藏终端",
     "show_terminal": "显示终端",

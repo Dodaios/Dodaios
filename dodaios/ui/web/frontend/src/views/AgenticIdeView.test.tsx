@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgenticIdeView } from "./AgenticIdeView";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeChatStore } from "@/store/ideChat";
+import { useIdeThreadsStore } from "@/store/ideThreads";
 import { balancedLayout } from "@/components/agentic/workspaceDocking";
 
 const api = vi.hoisted(() => ({
@@ -48,6 +49,8 @@ const agent = { name: "codex", display_name: "Codex", installed: true, version: 
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // These tests drive the terminal grid; the IDE itself opens in chat.
+  useIdeThreadsStore.setState({ layout: "grid" });
   api.fetchIdeState.mockResolvedValue(emptyState);
   api.fetchIdeProjects.mockResolvedValue({ projects: [], active_project_id: null, active_workspace_id: null, max_terminals: 8 });
   api.fetchIdeAgents.mockResolvedValue({ terminal_available: true, max_terminals: 8, suggested_names: [], agents: [agent] });

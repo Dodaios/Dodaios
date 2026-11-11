@@ -10608,6 +10608,8 @@
     "layout_grid": "Terminal-Raster",
     "layout_threads": "Threads",
     "layout_aria": "IDE-Layout",
+    "layout_chat_short": "Chat",
+    "layout_grid_short": "Grid",
     "terminal_needs_folder": "Das Terminal braucht einen Projektordner",
     "hide_terminal": "Terminal ausblenden",
     "show_terminal": "Terminal anzeigen",

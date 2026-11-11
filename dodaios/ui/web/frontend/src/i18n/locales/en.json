@@ -10608,6 +10608,8 @@
     "layout_grid": "Terminal grid",
     "layout_threads": "Threads",
     "layout_aria": "IDE layout",
+    "layout_chat_short": "Chat",
+    "layout_grid_short": "Grid",
     "terminal_needs_folder": "Terminal needs a project folder",
     "hide_terminal": "Hide terminal",
     "show_terminal": "Show terminal",
