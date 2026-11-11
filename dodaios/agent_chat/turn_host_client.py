@@ -816,6 +816,27 @@ def live_turn_ids() -> set[str]:
     return {str(cli.meta.get("turn_id") or "") for cli in client.live()} - {""}
 
 
+def live_processes() -> tuple[int, list[tuple[int, dict[str, Any]]]]:
+    """The host's process id and every CLI it runs, each as ``(pid, meta)``.
+
+    For the resource view, which names a thread's process tree by the session
+    in its meta. Covers the turns this app reads and the ones the host still
+    holds from before the app started.
+    """
+    client = _client
+    if client is None or not client.connected:
+        return 0, []
+    found: dict[int, dict[str, Any]] = {}
+    for cli in list(client._procs.values()):
+        if cli.returncode is None and cli.pid:
+            found[cli.pid] = dict(cli.meta)
+    for turn in list(client.turns.values()):
+        pid = int(turn.get("pid") or 0)
+        if pid and turn.get("alive") and pid not in found:
+            found[pid] = dict(turn.get("meta") or {})
+    return client.host_pid, list(found.items())
+
+
 def detach_all() -> None:
     """App shutdown: let go of every hosted CLI and the connection. Nothing ends."""
     global _client

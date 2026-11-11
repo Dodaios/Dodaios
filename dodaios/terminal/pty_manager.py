@@ -537,6 +537,11 @@ class PtyManager:
     def has(self, terminal_id: str) -> bool:
         return self._get(terminal_id) is not None
 
+    def pid_of(self, terminal_id: str) -> int:
+        """Process id of the terminal's first process; 0 when it is not running here."""
+        session = self._get(terminal_id)
+        return session.pid if session is not None else 0
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
