@@ -5,10 +5,10 @@ import { cn } from "@/lib/utils";
 
 import antigravityLogo from "@/assets/providers/antigravity.svg?url";
 import claudeLogo from "@/assets/providers/claude.svg?url";
+import deepseekLogo from "@/assets/providers/deepseek.svg?url";
 import openaiLogo from "@/assets/providers/openai.svg?url";
 import xaiLogo from "@/assets/providers/xai.svg?url";
 import cursorLogo from "@/assets/agents/cursor.svg?url";
-import deepseekLogo from "@/assets/agents/deepseek.svg?url";
 import kimiLogo from "@/assets/agents/kimi.svg?url";
 import opencodeLogo from "@/assets/agents/opencode.svg?url";
 import zaiLogo from "@/assets/agents/zai.svg?url";
@@ -29,7 +29,8 @@ import zaiLogo from "@/assets/agents/zai.svg?url";
  *   constant dark canvas: the ground it was drawn on. No shipped mark needs
  *   it today; it stays for that shape of logo.
  * * `any` — a full-colour mark on a transparent ground (Claude's spark,
- *   Antigravity's arch) that reads on either theme in its own colours.
+ *   Antigravity's arch, DeepSeek's whale) that reads on either theme in its
+ *   own colours.
  */
 type LogoGround = "ink" | "dark" | "any";
 
@@ -43,7 +44,7 @@ const AGENT_LOGOS: Record<string, LogoAsset> = {
   claude: { url: claudeLogo, ground: "any" },
   codex: { url: openaiLogo, ground: "ink" },
   cursor: { url: cursorLogo, ground: "ink" },
-  "deepseek-harness": { url: deepseekLogo, ground: "ink" },
+  "deepseek-harness": { url: deepseekLogo, ground: "any" },
   glm: { url: zaiLogo, ground: "ink" },
   "grok-build": { url: xaiLogo, ground: "ink" },
   kimi: { url: kimiLogo, ground: "ink" },

@@ -3,12 +3,12 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { AgentMark } from "./AgentMark";
 import cursorLogo from "@/assets/agents/cursor.svg?url";
-import deepseekLogo from "@/assets/agents/deepseek.svg?url";
 import kimiLogo from "@/assets/agents/kimi.svg?url";
 import opencodeLogo from "@/assets/agents/opencode.svg?url";
 import zaiLogo from "@/assets/agents/zai.svg?url";
 import antigravityLogo from "@/assets/providers/antigravity.svg?url";
 import claudeLogo from "@/assets/providers/claude.svg?url";
+import deepseekLogo from "@/assets/providers/deepseek.svg?url";
 import openaiLogo from "@/assets/providers/openai.svg?url";
 import xaiLogo from "@/assets/providers/xai.svg?url";
 
@@ -37,7 +37,6 @@ describe("AgentMark", () => {
     ["codex", openaiLogo],
     ["grok-build", xaiLogo],
     ["cursor", cursorLogo],
-    ["deepseek-harness", deepseekLogo],
     ["kimi", kimiLogo],
     ["opencode", opencodeLogo],
     ["glm", zaiLogo],
@@ -54,6 +53,7 @@ describe("AgentMark", () => {
   it.each([
     ["claude", claudeLogo],
     ["antigravity", antigravityLogo],
+    ["deepseek-harness", deepseekLogo],
   ])("draws the %s mark in its own colours, untouched", (agent, file) => {
     // A full-colour mark on a transparent ground reads on both themes; it is
     // shown exactly as the vendor drew it rather than flattened to a silhouette.
