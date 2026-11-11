@@ -32,5 +32,8 @@ the merge.
 ## The agent's part
 
 When a pull request changes something the person can see, load it into the
-Dev app and tell them the pull request is waiting there, before it merges.
-The person decides "merge" or "not like this" after trying it.
+Dev app and check it there yourself. Then land it as usual: do not hold it
+for the person's verdict, and do not add `no-auto-merge` for a preview. If
+the Dev app is busy with another agent's preview, check the change another
+way (a dev server and a visible browser) instead of waiting. Hold a pull
+request only when the person asked to see it before it merges.
