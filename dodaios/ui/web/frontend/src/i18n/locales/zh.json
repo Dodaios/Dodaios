@@ -7976,7 +7976,8 @@
     },
     "technical_details": "技术详情",
     "ran": "运行了",
-    "getting_ready": "正在准备"
+    "getting_ready": "正在准备",
+    "tokens_hint": "输入 {input} 个新词元（另有 {cached} 个来自缓存）· 输出 {output} 个词元"
   },
   "work_trace": {
     "tool_failed": "一个工具操作失败",

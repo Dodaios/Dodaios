@@ -13,6 +13,7 @@ import { robustCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import { ChatThought } from "./ChatThought";
 import { PetMark } from "@/components/pets/PetMark";
+import { formatTokens, inputTokens, outputTokens } from "@/components/agentchat/toolView";
 import { buildThreadRows, isFailed, joinStretches, thoughtGist, type Stretch, type StretchItem, type ThreadRow } from "./threadWork";
 import { flattenMarks } from "@/lib/plainMarks";
 import { SubagentRun } from "./ThreadSubagents";
@@ -760,14 +761,26 @@ function WorkingFor({ since }: { since: number }) {
  * still connecting) the pet says it gets ready instead of claiming work.
  * Screen readers hear "Working for 12s".
  */
-function WorkingLine({ since, starting, agents }: { since: number; starting: boolean; agents: number }) {
+function WorkingLine({ since, starting, agents, usage }: {
+  since: number; starting: boolean; agents: number;
+  /** Tokens so far (`usage_delta`): new input up, output down, as a coding CLI shows them. */
+  usage?: Record<string, number> | null;
+}) {
   const t = useT();
   const lang = t("trace_report.locale");
+  const sent = inputTokens(usage);
+  const made = outputTokens(usage);
+  const tokens = sent || made != null ? fill(t("thread_turn.tokens_hint"), {
+    input: formatTokens(sent?.fresh ?? 0), cached: formatTokens(sent?.cached ?? 0), output: formatTokens(made ?? 0),
+  }) : "";
   return <div className="-mt-1 flex h-7 min-w-0 items-center gap-2.5 text-sm text-muted-foreground" data-testid="thread-working">
     <span className="sr-only"><WorkingFor since={since} /></span>
     <PetMark size={24} state="working" />
     {starting && <span aria-hidden className="live-tool-shine truncate text-[15px] leading-[21px]">{t("thread_turn.getting_ready")}</span>}
     <span aria-hidden className="shrink-0 text-xs tabular-nums text-muted-foreground/80"><Elapsed since={since} /></span>
+    {tokens && <span className="shrink-0 text-xs tabular-nums text-muted-foreground/80" title={tokens} aria-label={tokens} data-testid="thread-working-tokens">
+      {sent && <>· ↑ {formatTokens(sent.fresh)} </>}{made != null && <>· ↓ {formatTokens(made)}</>}
+    </span>}
     {agents > 0 && <span className="truncate text-xs text-muted-foreground/80">· {fill(t(`thread_turn.subagents_working_${plural(lang, agents)}`), { count: agents })}</span>}
   </div>;
 }
@@ -937,7 +950,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     {running
       ? waitingOn.length > 0
         ? <BackgroundWait tasks={waitingOn} since={turn.startedMs} />
-        : <WorkingLine since={turn.startedMs} starting={turn.blocks.length === 0} agents={agentsWorking} />
+        : <WorkingLine since={turn.startedMs} starting={turn.blocks.length === 0} agents={agentsWorking} usage={turn.liveUsage} />
       : <>
         {turn.status === "error" && turn.error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{turnErrorText(turn.error, t)}</p>}
         <ChangedFiles turn={turn} />
