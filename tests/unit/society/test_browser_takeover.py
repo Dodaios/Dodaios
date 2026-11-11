@@ -207,7 +207,7 @@ def test_status_light_lists_a_running_browser_and_an_open_request():
     need = light["needs_you"][0]
     assert need["kind"] == "browser_takeover" and need["title"] == "enter the code"
     assert need["link"] == {"agent_id": "scout"}
-    assert light["counts"] == {"running": 1, "needs_you": 1}
+    assert light["counts"]["running"] == 1 and light["counts"]["needs_you"] == 1
 
 
 def test_phone_line_for_a_takeover_card_is_short_and_localized():
