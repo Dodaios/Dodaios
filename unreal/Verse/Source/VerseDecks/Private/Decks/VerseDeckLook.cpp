@@ -48,6 +48,8 @@ FVerseDeckLook FVerseDeckLook::For(FName Deck)
 		Look.ArrivalLocationCm = FVector(6000.0, 4250.0, 0.0);
 		Look.ArrivalYawDeg = -118.4;
 		Look.ArrivalPitchDeg = 14.0;
+		// A slight three-quarter stance: the gold-trimmed cape edge reads along the shoulder.
+		Look.ArrivalBodyTurnDeg = 25.0;
 	}
 	return Look;
 }
