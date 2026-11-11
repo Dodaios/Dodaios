@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useEventStore } from "@/store/events";
+import { useSettingsJump } from "@/store/settingsJump";
 
 const chats = vi.hoisted(() => ({
   rows: [] as { kind: "voice" | "agent"; id: string; title: string; preview: string; updatedMs: number; messageCount: number; provider: string; raw: null }[],
@@ -16,8 +18,28 @@ vi.mock("@/components/layout/SidebarRoutineDialog", () => ({
     <div data-testid="routine-dialog">{routineId}<button onClick={onClose}>Close routine</button></div>
   ),
 }));
+vi.mock("@/components/layout/SidebarFileDialog", () => ({
+  default: ({ fileId }: { fileId: string }) => <div data-testid="file-dialog">{fileId}</div>,
+}));
+vi.mock("@/components/pets/PetMark", () => ({ PetMark: () => <span data-testid="pet-mark" /> }));
+vi.mock("@/hooks/useVoiceEngineDisplay", () => ({
+  useVoiceEngineDisplay: () => ({ tier: "realtime", providerId: "test", providerLabel: "Test Voice", model: "m1" }),
+}));
+vi.mock("@/views/assistant/api", () => ({
+  useSoulProfile: () => ({ isLoading: false, data: { name: "Nova", wake_phrase: "Hey Nova", learning: true, files: [
+    { id: "soul", filename: "SOUL.md" }, { id: "instructions", filename: "Nova.md" },
+    { id: "memory", filename: "MEMORY.md" }, { id: "user", filename: "USER.md" },
+  ] } }),
+}));
+const skills = vi.hoisted(() => ({ list: [] as { name: string; state: string }[], set: vi.fn() }));
+vi.mock("@/hooks/useSkills", () => ({
+  useSkillsList: () => ({ isLoading: false, data: { skills: skills.list } }),
+  useSetSkillEnabled: () => ({ isPending: false, mutate: skills.set }),
+}));
+const tasks = vi.hoisted(() => ({ setTaskEnabled: vi.fn(async () => undefined) }));
+vi.mock("@/lib/tasksApi", () => ({ setTaskEnabled: tasks.setTaskEnabled }));
 
-import SidebarAssistant, { nextRunLabel } from "./SidebarAssistant";
+import SidebarAssistant from "./SidebarAssistant";
 
 function chat(id: string, title: string, updatedMs: number) {
   return { kind: "agent" as const, id, title, preview: "", updatedMs, messageCount: 2, provider: "", raw: null };
@@ -38,41 +60,45 @@ beforeEach(() => {
   chats.rows = [];
   chats.active = "";
   chats.open.mockReset();
+  skills.list = [];
+  skills.set.mockReset();
+  tasks.setTaskEnabled.mockClear();
+  useEventStore.setState({ activeSection: "chats" });
 });
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
 
-describe("nextRunLabel", () => {
-  it("gives the time for today and adds the weekday for another day", () => {
-    const now = new Date(2026, 10, 11, 9, 0);
-    const today = nextRunLabel(new Date(2026, 10, 11, 15, 40).getTime(), now, "en-GB");
-    const later = nextRunLabel(new Date(2026, 10, 13, 8, 0).getTime(), now, "en-GB");
-    expect(today).toBe("15:40");
-    expect(later).toBe("Fri 08:00");
-  });
-});
-
 describe("SidebarAssistant", () => {
-  it("leads back to the conversation and marks it while no earlier chat is open", () => {
+  it("shows the assistant's face and name, and they lead back to the conversation", () => {
     const onConversation = mount([]);
-    const row = screen.getByTestId("sidebar-assistant-conversation");
-    expect(row.getAttribute("aria-current")).toBe("page");
-    fireEvent.click(row);
+    const face = screen.getByTestId("sidebar-assistant-conversation");
+    expect(face.textContent).toContain("Dodaios");
+    expect(face.querySelector('[data-testid="pet-mark"]')).toBeTruthy();
+    fireEvent.click(face);
     expect(onConversation).toHaveBeenCalledTimes(1);
   });
 
-  it("lists the assistant's routines without the scheduler's name tag and opens one", async () => {
+  it("lists the routines with a switch each, without the scheduler's name tag", async () => {
     mount([
-      { id: "r1", title: "[agent:Dodaios] Morning mail", state: "scheduled", due_at_ns: 0 },
-      { id: "r2", title: "Weekly review", state: "paused", due_at_ns: 0 },
+      { id: "r1", title: "[agent:Dodaios] Morning mail", state: "scheduled" },
+      { id: "r2", title: "Weekly review", state: "paused" },
     ]);
     const first = await screen.findByTestId("sidebar-automation-r1");
-    expect(first.textContent).toBe("Morning mail");
-    expect(screen.getByTestId("sidebar-automation-r2").textContent).toContain("Paused");
+    expect(first.textContent).toContain("Morning mail");
+    expect(first.textContent).not.toContain("[agent:");
     expect(vi.mocked(fetch)).toHaveBeenCalledWith("/api/society/agents/jarvis/routines");
-    fireEvent.click(first);
+    expect(screen.getByTestId("sidebar-automation-switch-r1").getAttribute("aria-checked")).toBe("true");
+    const paused = screen.getByTestId("sidebar-automation-switch-r2");
+    expect(paused.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(paused);
+    await waitFor(() => expect(tasks.setTaskEnabled).toHaveBeenCalledWith("r2", true));
+  });
+
+  it("opens a routine's own page from its row", async () => {
+    mount([{ id: "r1", title: "Morning mail", state: "scheduled" }]);
+    fireEvent.click(await screen.findByTestId("sidebar-automation-r1"));
     expect((await screen.findByTestId("routine-dialog")).textContent).toContain("r1");
     fireEvent.click(screen.getByText("Close routine"));
     expect(screen.queryByTestId("routine-dialog")).toBeNull();
@@ -83,32 +109,42 @@ describe("SidebarAssistant", () => {
     await waitFor(() => expect(screen.getByTestId("sidebar-automations-empty").textContent).toMatch(/None yet/));
   });
 
-  it("lists the newest chats, opens one, and hands the mark to it", () => {
-    chats.rows = Array.from({ length: 8 }, (_, index) => chat(`c${index}`, `Chat ${index}`, 100 - index));
-    chats.active = "c1";
+  it("names the voice model and the wake word, and each leads to its settings", () => {
     mount([]);
-    expect(screen.getAllByTestId(/^sidebar-recent-c\d$/)).toHaveLength(6);
-    expect(screen.getByTestId("sidebar-recent-c1").getAttribute("aria-current")).toBe("page");
-    expect(screen.getByTestId("sidebar-assistant-conversation").getAttribute("aria-current")).toBeNull();
-    fireEvent.click(screen.getByTestId("sidebar-recent-c3"));
+    expect(screen.getByTestId("sidebar-voice-model").textContent).toContain("Test Voice");
+    const wake = screen.getByTestId("sidebar-voice-wake");
+    expect(wake.textContent).toContain("Hey Nova");
+    fireEvent.click(wake);
+    expect(useSettingsJump.getState().take()).toBe("wake-word");
+    expect(useEventStore.getState().activeSection).toBe("settings");
+  });
+
+  it("lists the newest earlier chats without the conversation itself", async () => {
+    chats.rows = [chat("lead", "The one conversation", 9), ...Array.from({ length: 6 }, (_, index) => chat(`c${index}`, `Chat ${index}`, 8 - index))];
+    mount([]);
+    await waitFor(() => expect(screen.queryByTestId("sidebar-recent-lead")).toBeNull());
+    expect(screen.getAllByTestId(/^sidebar-recent-c\d$/)).toHaveLength(4);
+    fireEvent.click(screen.getByTestId("sidebar-recent-c2"));
     expect(chats.open).toHaveBeenCalledWith(chats.rows[3]);
     expect(screen.getByTestId("earlier-chats")).toBeTruthy();
   });
 
-  it("leaves the conversation itself out of the earlier chats", async () => {
-    chats.rows = [chat("lead", "The one conversation", 9), chat("c0", "Chat 0", 1)];
-    chats.active = "lead";
+  it("keeps the files and the skills in the library, and remembers the tab", async () => {
+    skills.list = [{ name: "zeta", state: "disabled" }, { name: "alpha", state: "active" }, { name: "draft-one", state: "draft" }];
     mount([]);
-    await waitFor(() => expect(screen.queryByTestId("sidebar-recent-lead")).toBeNull());
-    expect(screen.getByTestId("sidebar-recent-c0")).toBeTruthy();
-    expect(screen.getByTestId("sidebar-assistant-conversation").getAttribute("aria-current")).toBe("page");
-  });
-
-  it("folds a section and remembers it", () => {
-    chats.rows = [chat("c0", "Chat 0", 1)];
-    mount([]);
-    fireEvent.click(screen.getByTestId("sidebar-assistant-recents-toggle"));
-    expect(screen.queryByTestId("sidebar-recent-c0")).toBeNull();
-    expect(JSON.parse(localStorage.getItem("jarvis.sidebar.assistantSections.v1") ?? "{}")).toEqual({ recents: false });
+    expect(screen.queryByTestId("sidebar-file-user")).toBeNull();
+    fireEvent.click(screen.getByTestId("sidebar-assistant-tab-library"));
+    expect(localStorage.getItem("jarvis.sidebar.assistantTab.v1")).toBe("library");
+    expect(["soul", "instructions", "memory", "user"].map((id) => screen.getByTestId(`sidebar-file-${id}`).textContent))
+      .toEqual(["SOUL.md", "Nova.md", "MEMORY.md", "USER.md"]);
+    fireEvent.click(screen.getByTestId("sidebar-file-user"));
+    expect((await screen.findByTestId("file-dialog")).textContent).toBe("user");
+    // Active skills lead; a draft has no switch to flip.
+    const switches = screen.getAllByTestId(/^sidebar-skill-switch-/).map((node) => node.getAttribute("data-testid"));
+    expect(switches).toEqual(["sidebar-skill-switch-alpha", "sidebar-skill-switch-zeta"]);
+    fireEvent.click(screen.getByTestId("sidebar-skill-switch-zeta"));
+    expect(skills.set).toHaveBeenCalledWith({ name: "zeta", enabled: true });
+    fireEvent.click(screen.getByTestId("sidebar-skills-all"));
+    expect(useEventStore.getState().activeSection).toBe("skills");
   });
 });
