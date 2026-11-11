@@ -33,6 +33,7 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "UnrealClient.h"
+#include "VerseAudioBridge.h"
 #include "VerseBridgeSubsystem.h"
 #include "VerseDefaultCharacter.h"
 #include "VerseDuelSubsystem.h"
@@ -399,6 +400,8 @@ bool FVerseVisualPlaytestTest::RunTest(const FString&)
 			{
 				const int32 Left = MagazineOf(EVerseLoadoutSlot::Secondary);
 				TestTrue(FString::Printf(TEXT("pistol: a click fires one round (%d -> %d)"), S->Count, Left), Left == S->Count - 1);
+				const UVerseAudioBridge* Sounds = World->GetSubsystem<UVerseAudioBridge>();
+				TestTrue(TEXT("audio: switching to the pistol plays the equip sound"), Sounds && Sounds->GetEquips() > 0);
 				Feed(World, EKeys::Three, IE_Pressed);
 				Feed(World, EKeys::Three, IE_Released);
 				Next();
@@ -564,6 +567,9 @@ bool FVerseVisualPlaytestTest::RunTest(const FString&)
 				S->FirstOutcome = End.Outcome;
 				AddInfo(FString::Printf(TEXT("set 1: %d - %d after %.0f s"), End.PersonKills, End.OpponentKills, Waited));
 				TestEqual(TEXT("standing still loses the set to the bot"), End.Outcome, EVerseSetOutcome::Lost);
+				const UVerseAudioBridge* Sounds = World->GetSubsystem<UVerseAudioBridge>();
+				AddInfo(FString::Printf(TEXT("audio: %d footsteps in set 1"), Sounds ? Sounds->GetFootsteps() : -1));
+				TestTrue(TEXT("audio: the bot's footsteps play"), Sounds && Sounds->GetFootsteps() > 0);
 				TestTrue(TEXT("the end of set pauses"), World->IsPaused());
 				ExpectMenuInput(TEXT("end of set"));
 				Next();
