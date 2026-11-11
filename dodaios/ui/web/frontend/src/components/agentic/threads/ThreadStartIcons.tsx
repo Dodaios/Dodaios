@@ -23,8 +23,8 @@ export function NewThreadIcon(props: IconProps) {
 
 export function SearchThreadsIcon(props: IconProps) {
   return <Frame {...props}>
-    <circle cx="8.75" cy="8.75" r="5" />
-    <path d="M12.5 12.5 16.5 16.5" />
+    <circle cx="8.75" cy="8.75" r="5.5" />
+    <path d="M12.75 12.75 16.75 16.75" />
   </Frame>;
 }
 
