@@ -39,11 +39,49 @@ default.
 
 ## Producers
 
-- `POST /api/agent-chat/lead/triggers/events` with `{source, payload}` for
-  mail, calendar and code-host connectors.
-- Integration events published on the app bus (`mail.*`, `calendar.*`,
-  `github.*`, anything else becomes `automation`) and finished missions.
-- Chat messages that do not belong to the owner's private chat.
+Code-only pollers (`dodaios/lead_triggers/producers/`) read the owner's own
+connected accounts through the plugin token store, with the same refresh the
+tools use. They never call a model and never use an API key.
+
+| Poller | Reads | Incremental by |
+| --- | --- | --- |
+| Gmail | new inbox mail: id, thread, sender, subject, snippet, labels | history id (a 404 starts again from now) |
+| Google Calendar | new invites, changes, cancellations, "starting in 15 minutes" | `updatedMin` plus a remembered set of starts |
+| GitHub | notifications: review requests, mentions, CI results | ETag, `X-Poll-Interval`, remembered update times |
+| Own inbox | mail that reached the assistant's own address (see below) | timestamp plus remembered ids |
+
+- The first poll of a source only marks the present; old mail is never replayed.
+- Interval 180 s by default (60 s to 1 h, `poll_interval_s`). Errors back off
+  exponentially up to 30 min, a rate limit waits what the provider says, a dead
+  token is retried every 15 min and shown as "reconnect".
+- A poller asks its provider nothing while its toggle is off, the accept mode
+  is `off`, its source is not set to `candidate`, or a stop hold covers triggers
+  (`wiring.set_hold_check`). It keeps its cursor and resumes.
+- Only the instance that owns ambient duties polls. Cursors and per-poller
+  state (connected, state, last event, last error) live in the society store and
+  are shown with a toggle in the triggers settings.
+- Other producers: `POST /api/agent-chat/lead/triggers/events`, integration
+  events on the app bus, finished missions and chat messages that are not
+  requests.
+
+## The assistant's own mail address
+
+The owner can give the assistant an address (`agent_address`, for example an
+inbox of the connected AgentMail plugin) and the senders who may send it work
+(`agent_senders`, default the owner's own addresses).
+
+- Mail the owner delegates is sent from that address through the connected
+  inbox tools, not from the owner's personal account. The brief and the
+  AgentMail usage card say so.
+- Mail that reaches the address (read by the own-inbox poller, or by the Gmail
+  poller when the address is an alias) takes a separate route. From an
+  allow-listed sender it is a request: observing records "would have done",
+  `auto` starts one lead routine (billing hold and approvals apply). From anyone
+  else it is only a candidate for the owner's rules, whatever the mail source
+  mode says; `ignore` still drops it.
+- No mail server is built. Without a connected inbox plugin the setting is
+  inert; the Gmail poller can still route mail to an alias of the owner's
+  account.
 
 Settings and the decision log live in the society store; the app shows them in
 the activity panel next to the proactivity settings.

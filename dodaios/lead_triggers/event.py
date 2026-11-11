@@ -16,6 +16,8 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Final
 
 SOURCES: Final[tuple[str, ...]] = ("mail", "calendar", "github", "automation", "channel")
+#: Mail that arrived at the lead's own address carries ``agent:<address>`` as its scope.
+AGENT_SCOPE_PREFIX: Final[str] = "agent:"
 _MAX_SUMMARY: Final[int] = 300
 _MAX_FIELD: Final[int] = 200
 _MAX_IDS: Final[int] = 8
@@ -42,6 +44,8 @@ class TriggerEvent:
     raw_ref: str = ""
     #: A machine author (bot, no-reply, automation), not a person.
     is_bot: bool = False
+    #: Provider labels or categories (for example ``INBOX``); data, like the rest.
+    labels: tuple[str, ...] = ()
 
     @property
     def event_id(self) -> str:
@@ -56,6 +60,7 @@ class TriggerEvent:
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["ids"] = list(self.ids)
+        data["labels"] = list(self.labels)
         data["event_id"] = self.event_id
         return data
 
@@ -79,6 +84,8 @@ def normalize(source: str, payload: Mapping[str, Any]) -> TriggerEvent:
                 return _clip(payload[key], _MAX_FIELD)
         return ""
 
+    raw_labels = payload.get("labels")
+    labels = raw_labels if isinstance(raw_labels, list | tuple) else ()
     raw_ids = payload.get("ids")
     ids = [str(i) for i in raw_ids] if isinstance(raw_ids, list | tuple) else []
     single = pick("id", "message_id", "event_id", "delivery_id")
@@ -98,6 +105,7 @@ def normalize(source: str, payload: Mapping[str, Any]) -> TriggerEvent:
         received_at=float(received) if isinstance(received, int | float) else time.time(),
         raw_ref=pick("raw_ref", "url", "html_url"),
         is_bot=bool(payload.get("is_bot") or payload.get("bot")),
+        labels=tuple(_clip(label, 60) for label in labels[: _MAX_IDS * 2]),
     )
 
 
