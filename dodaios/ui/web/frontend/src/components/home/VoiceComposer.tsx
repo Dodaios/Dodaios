@@ -119,7 +119,7 @@ export function VoiceComposer({ hint, onExit }: { hint: string; onExit?: () => v
   return (
     <div className="flex flex-col gap-1.5" data-testid="voice-composer" data-active={active || undefined}>
       <div data-tour="voice-bar"
-        className={cn("rounded-[22px] border border-border bg-card px-2.5 py-2.5 shadow-rim",
+        className={cn("rounded-[4px] border border-border bg-card px-2.5 py-2.5 shadow-rim",
           files.dragging && "border-primary")}>
         <div className="flex items-center gap-1">
           {onExit && (
@@ -165,13 +165,13 @@ export function VoiceComposer({ hint, onExit }: { hint: string; onExit?: () => v
           {live ? (
             <button type="button" onClick={onCall} disabled={busy || connecting}
               aria-label={t("home.bar_stop")} title={t("home.bar_stop")} data-testid="voice-call-stop"
-              className="ml-0.5 inline-flex h-8 shrink-0 items-center gap-2 rounded-full bg-accent-soft px-3 text-sm font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              className="ml-0.5 inline-flex h-8 shrink-0 items-center gap-2 rounded-md bg-accent-soft px-3 text-sm font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <BreathingDots />{t("assistant_chat.voice_stop")}
             </button>
           ) : (
             <button type="button" onClick={onCall} disabled={busy || !connected}
               aria-label={t("home.bar_start")} title={t("home.bar_start")} data-testid="voice-call-start"
-              className="ml-0.5 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-foreground px-3 text-sm font-medium text-background transition-colors hover:bg-foreground/85 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              className="ml-0.5 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-foreground px-3 text-sm font-medium text-background transition-colors hover:bg-foreground/85 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Mic className="h-4 w-4" aria-hidden />}
               {t("assistant_chat.voice_start")}
             </button>
@@ -197,7 +197,7 @@ export function VoiceComposer({ hint, onExit }: { hint: string; onExit?: () => v
           onClick={() => setActiveSection("apikeys")}
           title={t("home.model_hint")}
           data-testid="voice-engine"
-          className="inline-flex max-w-[320px] items-center gap-1.5 rounded-full px-2 text-xs font-normal text-muted-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex max-w-[320px] items-center gap-1.5 rounded-md px-2 text-xs font-normal text-muted-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="truncate">{engine.providerLabel}</span>
           {engine.model && <span className="truncate">{engine.model}</span>}

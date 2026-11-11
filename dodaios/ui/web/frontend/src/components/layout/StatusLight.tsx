@@ -118,7 +118,7 @@ export function StatusLight({ className }: { className?: string }) {
         data-tone={warn ? "warn" : "calm"}
         // `clsx`, not `cn`: tailwind-merge would read `text-body` as a colour.
         className={clsx(
-          "pointer-events-auto mx-1 inline-flex h-6 shrink-0 items-center gap-1.5 self-center rounded-full px-2.5",
+          "pointer-events-auto mx-1 inline-flex h-6 shrink-0 items-center gap-1.5 self-center rounded-md px-2.5",
           "text-body transition-colors duration-150 hover:bg-secondary/70 hover:text-foreground",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           needs > 0 || open ? "text-foreground" : "text-muted-foreground",
@@ -146,7 +146,7 @@ export function StatusLight({ className }: { className?: string }) {
           data-testid="status-light-panel"
           style={{ left, width: `min(${PANEL_W}px, calc(100vw - ${EDGE * 2}px))` }}
           className={cn(
-            "fixed top-10 z-[150] overflow-hidden rounded-[24px] bg-popover text-popover-foreground shadow-float outline-none ring-1 ring-inset ring-border/50",
+            "fixed top-10 z-[150] overflow-hidden rounded-[4px] bg-popover text-popover-foreground shadow-float outline-none ring-1 ring-inset ring-border/50",
             "origin-top motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:duration-150",
           )}
         >
@@ -195,7 +195,7 @@ function StatusPanel({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full px-2.5 py-1 text-[13px] text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-md px-2.5 py-1 text-[13px] text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {t("status_light.close")}
         </button>

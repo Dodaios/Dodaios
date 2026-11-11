@@ -691,7 +691,7 @@ function AreaSwitch({
             data-testid={`costs-area-${group.id}`}
             onClick={() => onChange(group.id)}
             className={cn(
-              "flex flex-1 items-center justify-center gap-1.5 rounded-[10px] px-3 py-1.5 text-xs font-medium transition-colors sm:flex-none",
+              "flex flex-1 items-center justify-center gap-1.5 rounded-[4px] px-3 py-1.5 text-xs font-medium transition-colors sm:flex-none",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               active
                 ? "bg-card text-foreground"

@@ -124,7 +124,7 @@ const YouNode = memo(function YouNode({ data }: NodeProps<Node<YouData>>) {
     <Handle type="target" position={Position.Top} className={hidden} isConnectable={false} />
     <button type="button" onClick={() => data.onOpen(YOU)} data-testid="team-node-you" aria-pressed={data.selected}
     className={cn(
-      "nodrag nopan flex h-full w-full items-center justify-center gap-2 rounded-full border bg-card px-3 text-sm",
+      "nodrag nopan flex h-full w-full items-center justify-center gap-2 rounded-md border bg-card px-3 text-sm",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       data.needed ? "border-warning/70 text-foreground" : "border-border text-foreground hover:border-border-strong",
       data.selected && "border-accent",

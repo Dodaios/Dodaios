@@ -95,7 +95,7 @@ function ChoiceDialog({ choice, onDone }: { choice: Choice; onDone: (id: string 
         aria-modal="true"
         aria-labelledby="scm-choice-title"
         data-testid="scm-choice"
-        className="flex w-full max-w-[460px] flex-col rounded-[6px] px-[20px] pb-[18px] pt-[20px]"
+        className="flex w-full max-w-[460px] flex-col rounded-[4px] px-[20px] pb-[18px] pt-[20px]"
         style={{ background: "var(--scm-menu-bg)", color: "var(--scm-menu-fg)", border: "1px solid var(--scm-menu-border)", boxShadow: "0 0 8px 2px rgba(0, 0, 0, 0.36)" }}
       >
         <div className="flex gap-[12px]">

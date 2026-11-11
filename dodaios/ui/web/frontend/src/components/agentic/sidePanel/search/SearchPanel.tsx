@@ -313,7 +313,7 @@ export function SearchPanel() {
                 <FileTypeIcon path={file.path} />
                 <span className="shrink-0 text-foreground">{baseName(file.path)}</span>
                 <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">{folderOf(file.path)}</span>
-                <span className="shrink-0 rounded-full bg-secondary px-1.5 text-[10px] tabular-nums text-muted-foreground">{file.matches.length}</span>
+                <span className="shrink-0 rounded-md bg-secondary px-1.5 text-[10px] tabular-nums text-muted-foreground">{file.matches.length}</span>
               </button>
               {!closed && (
                 <ul>

@@ -277,7 +277,7 @@ function JobCard({ job }: { job: JobSummary }) {
               {job.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full border border-border bg-background/60 px-2 py-0.5 text-micro text-muted-foreground"
+                  className="rounded-md border border-border bg-background/60 px-2 py-0.5 text-micro text-muted-foreground"
                 >
                   #{tag}
                 </span>

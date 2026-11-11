@@ -718,7 +718,7 @@ export function VoiceBubble({
         className={cn(
           quiet
             ? "sr-only"
-            : cn(BUBBLE_SURFACE, "flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1"),
+            : cn(BUBBLE_SURFACE, "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1"),
         )}
       >
         <span

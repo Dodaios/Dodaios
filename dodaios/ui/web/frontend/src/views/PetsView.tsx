@@ -411,7 +411,7 @@ function ActivePetCard({
         {pet && (
           <span
             data-testid="pets-state-label"
-            className="rounded-full border border-border bg-background px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+            className="rounded-md border border-border bg-background px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
           >
             {stateLabel}
           </span>

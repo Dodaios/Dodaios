@@ -107,7 +107,7 @@ export const ConnectCard = memo(function ConnectCard({ credential }: { credentia
               <button
                 type="button"
                 onClick={() => void report("declined")}
-                className="rounded-full px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted"
+                className="rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted"
               >
                 {t("connect_card.not_now")}
               </button>

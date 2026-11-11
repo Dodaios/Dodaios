@@ -260,7 +260,7 @@ function KeyTester({ config }: { config: KeybindsConfig | null }) {
         <p
           data-testid="shortcut-tester-meaning"
           className={cn(
-            "inline-flex min-h-8 items-center rounded-full px-4 text-sm font-medium",
+            "inline-flex min-h-8 items-center rounded-md px-4 text-sm font-medium",
             !pressed || pressed.meaningKey === null
               ? "text-muted-foreground"
               : pressed.meaningKey

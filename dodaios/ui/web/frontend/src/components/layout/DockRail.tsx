@@ -293,7 +293,7 @@ export function DockRail({ className }: { className?: string }) {
             >
               {resolveNavLabel(t, hoveredItem)}
               {hoveredItem.beta && (
-                <span className="rounded-full bg-secondary px-1.5 text-micro text-muted-foreground">
+                <span className="rounded-md bg-secondary px-1.5 text-micro text-muted-foreground">
                   {t("nav.agentic_ide_beta")}
                 </span>
               )}

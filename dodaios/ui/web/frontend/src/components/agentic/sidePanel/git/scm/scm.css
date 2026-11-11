@@ -160,7 +160,7 @@
   height: 22px;
   align-items: center;
   justify-content: center;
-  border-radius: 5px;
+  border-radius: 4px;
   color: var(--scm-icon);
   background: transparent;
   flex-shrink: 0;
@@ -212,7 +212,7 @@
   min-width: 18px;
   height: 18px;
   padding: 3px 6px;
-  border-radius: 11px;
+  border-radius: 4px;
   font-size: 11px;
   line-height: 12px;
   font-weight: 400;

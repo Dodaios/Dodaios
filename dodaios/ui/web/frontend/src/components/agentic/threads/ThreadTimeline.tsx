@@ -615,7 +615,7 @@ export function ChangedFiles({ turn }: { turn: TurnItem }) {
   return <section aria-label={t("thread_turn.changed_files")} data-testid="thread-changed-files" className="overflow-hidden rounded-xl border border-border bg-card">
     <div className="flex items-center gap-3 border-b border-border px-3 py-3">
       <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground-secondary">
-        <span className="flex h-5 w-5 items-center justify-center rounded-[5px] border-[1.5px] border-current"><Diff className="h-3 w-3" strokeWidth={2.25} /></span>
+        <span className="flex h-5 w-5 items-center justify-center rounded-[4px] border-[1.5px] border-current"><Diff className="h-3 w-3" strokeWidth={2.25} /></span>
       </span>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold text-foreground-strong">{title}</div>

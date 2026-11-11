@@ -506,7 +506,7 @@ export function BrainModelSelector({
                       aria-label={t(`apikeys_model.filter_${f}`)}
                       title={t(`apikeys_model.filter_hint_${f}`)}
                       className={cn(
-                        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-micro transition-colors",
+                        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-micro transition-colors",
                         isActive
                           ? "bg-secondary text-foreground-strong"
                           : "border-border bg-muted text-muted-foreground hover:text-foreground",
@@ -564,7 +564,7 @@ export function BrainModelSelector({
                         )}
                         {m.label}
                         {recommendedModel && m.id === recommendedModel && (
-                          <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-micro font-medium text-primary-foreground">
+                          <span className="shrink-0 rounded-md bg-primary px-1.5 py-0.5 text-micro font-medium text-primary-foreground">
                             {t("apikeys_model.recommended_tag")}
                           </span>
                         )}
@@ -652,7 +652,7 @@ function ProbeChip({ probe }: { probe: BrainModelProbe }) {
     <span
       data-testid="brain-model-probe"
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-micro",
+        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-micro",
         tone,
       )}
       title={[probe.detail, probe.latency_ms ? `${Math.round(probe.latency_ms)} ms` : ""]

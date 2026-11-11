@@ -178,7 +178,7 @@ function LanguageSwitch({ className }: { className?: string }) {
           onClick={() => setUiLanguage(code)}
           data-testid={`onboarding-lang-${code}`}
           className={cn(
-            "rounded-full px-2.5 py-0.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "rounded-md px-2.5 py-0.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             lang === code ? "bg-secondary font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
           )}
         >

@@ -100,11 +100,11 @@ export default function CallVoicePicker({ onClose }: { onClose: () => void }) {
       </div>
       <footer className="flex items-center justify-between gap-3 pt-2">
         <button type="button" onClick={() => setActiveSection("voice-api-keys")} data-testid="call-voice-all-settings"
-          className="inline-flex h-8 items-center gap-2 rounded-full px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          className="inline-flex h-8 items-center gap-2 rounded-md px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Settings2 className="h-3.5 w-3.5" aria-hidden />{t("voice_call.all_settings")}
         </button>
         <button type="button" onClick={onClose} data-testid="call-voice-done"
-          className="inline-flex h-8 items-center rounded-full bg-secondary px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          className="inline-flex h-8 items-center rounded-md bg-secondary px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {t("common.close")}
         </button>
       </footer>

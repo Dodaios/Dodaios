@@ -449,7 +449,7 @@ export function PaneRecap({
 
             {!editing && (
               <div className="mt-0.5 flex flex-wrap items-center gap-2 border-t border-border pt-2.5">
-                <span className="mr-auto flex min-w-0 items-center gap-1.5 rounded-full border border-border bg-muted px-2 py-1 text-micro text-muted-foreground">
+                <span className="mr-auto flex min-w-0 items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 text-micro text-muted-foreground">
                   {attribution.icon}
                   <span className="truncate">{attribution.label}</span>
                   {generatedAt > 0 && (

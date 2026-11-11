@@ -211,7 +211,7 @@ export function MissionsView() {
                   <ShieldAlert className="h-3.5 w-3.5" />
                   {t("mission_tool_approvals.tab_label")}
                   {pendingApprovalCount > 0 ? (
-                    <span className="absolute -right-1 -top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 font-mono text-micro leading-none text-destructive-foreground">
+                    <span className="absolute -right-1 -top-1 flex min-h-4 min-w-4 items-center justify-center rounded-md bg-destructive px-1 font-mono text-micro leading-none text-destructive-foreground">
                       {pendingApprovalCount}
                     </span>
                   ) : null}

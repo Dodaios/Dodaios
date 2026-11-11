@@ -193,7 +193,7 @@ export function AccountUsageMeters({
           {t("agent_accounts.usage.title")}
         </span>
         {usage.plan && (
-          <span className="shrink-0 rounded-full border border-border bg-secondary/60 px-1.5 py-px text-micro font-medium text-muted-foreground">
+          <span className="shrink-0 rounded-md border border-border bg-secondary/60 px-1.5 py-px text-micro font-medium text-muted-foreground">
             {usage.plan}
           </span>
         )}

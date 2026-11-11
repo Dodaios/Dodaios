@@ -10,7 +10,7 @@
 
 .action-card {
   position: relative;
-  border-radius: 20px;
+  border-radius: 4px;
   background: hsl(var(--card));
   color: hsl(var(--card-foreground));
   padding: 14px 16px 14px;
@@ -104,7 +104,7 @@
 .action-card-code {
   position: relative;
   margin-top: 6px;
-  border-radius: 14px;
+  border-radius: 4px;
   background: hsl(var(--secondary) / 0.7);
   color: hsl(var(--foreground));
 }
@@ -126,7 +126,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  border-radius: 14px;
+  border-radius: 4px;
   background: hsl(var(--secondary) / 0.7);
   padding: 8px 12px;
 }
@@ -189,7 +189,7 @@
 }
 
 .action-card-settled {
-  border-radius: 16px;
+  border-radius: 4px;
   background: hsl(var(--secondary) / 0.5);
   padding: 8px 12px;
 }
@@ -233,7 +233,7 @@
 
 /* The rule chooser inside an open card. */
 .action-card-rule {
-  border-radius: 16px;
+  border-radius: 4px;
   background: hsl(var(--secondary));
   padding: 10px 12px;
 }
@@ -313,7 +313,7 @@
 /* The exact action: fields as they will run, new recipients, a diff, inline edits. */
 .approval-preview { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .approval-preview-flag { margin: 0; font-size: 12px; font-weight: 500; color: hsl(var(--warning)); }
-.approval-preview-fields { margin: 0; border-radius: 12px; background: hsl(var(--secondary) / 0.6); padding: 4px 12px; }
+.approval-preview-fields { margin: 0; border-radius: 4px; background: hsl(var(--secondary) / 0.6); padding: 4px 12px; }
 .approval-preview-row { display: grid; grid-template-columns: minmax(64px, 96px) minmax(0, 1fr); gap: 2px 12px; padding: 6px 0; font-size: 13px; line-height: 20px; }
 .approval-preview-row + .approval-preview-row { border-top: 1px solid hsl(var(--border) / 0.5); }
 .approval-preview-row dt { color: hsl(var(--muted-foreground)); }
@@ -330,9 +330,9 @@
 .approval-preview-icon svg { width: 13px; height: 13px; }
 .approval-preview-icon:hover { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
 .approval-preview-icon:focus-visible, .approval-preview-input:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
-.approval-preview-input { width: 100%; border-radius: 8px; border: 1px solid hsl(var(--border)); background: hsl(var(--background)); padding: 4px 8px; font: inherit; color: inherit; resize: vertical; }
+.approval-preview-input { width: 100%; border-radius: 4px; border: 1px solid hsl(var(--border)); background: hsl(var(--background)); padding: 4px 8px; font: inherit; color: inherit; resize: vertical; }
 .approval-preview-edited { font-size: 11px; color: hsl(var(--success)); }
-.approval-preview-diff { border-radius: 12px; background: hsl(var(--secondary) / 0.6); padding: 6px 12px; min-width: 0; }
+.approval-preview-diff { border-radius: 4px; background: hsl(var(--secondary) / 0.6); padding: 6px 12px; min-width: 0; }
 .approval-preview-diff-head { display: flex; gap: 8px; margin: 0 0 4px; font-size: 12px; color: hsl(var(--muted-foreground)); }
 .approval-preview-diff-add { color: hsl(var(--success)); }
 .approval-preview-diff-del { color: hsl(var(--destructive)); }

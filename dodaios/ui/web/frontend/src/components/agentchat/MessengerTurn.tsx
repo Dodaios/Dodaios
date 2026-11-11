@@ -143,7 +143,7 @@ export function AwaitingTurn({ since, seed, avatar, color }: { since: number; se
 /** One message of the agent's: a grey bubble on the left. */
 export function MessageBubble({ text }: { text: string }) {
   return <div className="flex min-w-0" data-testid="agent-message-bubble">
-    <div className="jarvis-chat-in min-w-0 max-w-[min(85%,42rem)] rounded-[20px] px-4 py-2.5">
+    <div className="jarvis-chat-in min-w-0 max-w-[min(85%,42rem)] rounded-[4px] px-4 py-2.5">
       <div className={cn(PROSE, THREAD_MEDIA, "py-0")}><ChatMarkdown text={text} /></div>
     </div>
   </div>;

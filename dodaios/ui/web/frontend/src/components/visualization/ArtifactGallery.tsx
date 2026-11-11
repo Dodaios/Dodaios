@@ -268,7 +268,7 @@ function Segmented<T extends string>({
           onClick={() => onChange(option.id)}
           data-testid={`${testId}-${option.id}`}
           className={cn(
-            "h-7 flex-1 whitespace-nowrap rounded-full px-3 text-sm font-medium transition-colors",
+            "h-7 flex-1 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             value === option.id
               ? "bg-background text-foreground-strong shadow-sm"
@@ -476,7 +476,7 @@ export function LibraryTabs({
             onClick={() => onChange(id)}
             data-testid={`visualization-filter-${id}`}
             className={cn(
-              "inline-flex h-9 items-center gap-2 rounded-full px-4 text-base font-medium transition-colors",
+              "inline-flex h-9 items-center gap-2 rounded-md px-4 text-base font-medium transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               active
                 ? "bg-secondary text-foreground-strong"
@@ -964,7 +964,7 @@ function WallTile({
       </button>
 
       {status !== "success" && status !== "unknown" && row.kind === "visual" && (
-        <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-sm text-white backdrop-blur-md">
+        <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-md bg-black/60 px-2.5 py-1 text-sm text-white backdrop-blur-md">
           <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT[status])} aria-hidden />
           {t(`visualization.status_word_${status}`)}
         </span>

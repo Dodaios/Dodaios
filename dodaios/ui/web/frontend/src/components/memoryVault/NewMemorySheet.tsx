@@ -129,7 +129,7 @@ function Chip({
       aria-checked={active}
       onClick={onClick}
       className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&>svg]:h-3 [&>svg]:w-3",
+        "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&>svg]:h-3 [&>svg]:w-3",
         active ? "border-transparent" : "border-border text-muted-foreground hover:text-foreground",
       )}
       style={active ? { backgroundColor: `hsl(${hue} / 0.16)`, color: `hsl(${hue})` } : undefined}

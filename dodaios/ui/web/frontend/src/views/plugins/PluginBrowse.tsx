@@ -128,7 +128,7 @@ function OriginMark({ plugin }: { plugin: Plugin }) {
   if (plugin.selfUploaded) {
     return (
       <span
-        className="shrink-0 rounded-full bg-surface-raised px-1.5 text-micro font-medium text-foreground"
+        className="shrink-0 rounded-md bg-surface-raised px-1.5 text-micro font-medium text-foreground"
         title={translate("plugin_upload.unreviewed")}
       >
         {translate("plugin_upload.self_badge")}
@@ -479,7 +479,7 @@ export function PluginBrowse({
         {/* A basis instead of a bare flex-1: on a narrow pane the controls
             wrap under the title rather than squeezing the search shut. */}
         <div className="flex min-w-0 flex-[1_1_22rem] items-center justify-end gap-1.5">
-          <label className="flex h-10 min-w-0 max-w-72 flex-1 items-center gap-2.5 rounded-full border border-border bg-background px-3 text-muted-foreground focus-within:border-border-strong">
+          <label className="flex h-10 min-w-0 max-w-72 flex-1 items-center gap-2.5 rounded-md border border-border bg-background px-3 text-muted-foreground focus-within:border-border-strong">
             <Search className="h-4 w-4 shrink-0" aria-hidden />
             <input
               type="search"
@@ -529,7 +529,7 @@ export function PluginBrowse({
               aria-selected={scope === id}
               onClick={() => onScope(id)}
               className={cn(
-                "rounded-full px-4 py-2 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "rounded-md px-4 py-2 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 scope === id
                   ? "bg-secondary text-foreground-strong"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground",

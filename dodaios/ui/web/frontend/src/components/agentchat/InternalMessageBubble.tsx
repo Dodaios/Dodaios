@@ -149,7 +149,7 @@ export function InternalMessageBubble({
         <span className="ml-auto flex shrink-0 items-center gap-1.5">
           <span
             className={cn(
-              "hidden rounded-full border border-border px-1.5 py-px text-xs sm:inline",
+              "hidden rounded-md border border-border px-1.5 py-px text-xs sm:inline",
               "text-muted-foreground",
             )}
           >

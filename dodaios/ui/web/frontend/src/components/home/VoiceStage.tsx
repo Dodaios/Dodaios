@@ -215,7 +215,7 @@ export function TranscriptLine({
       <div
         className={cn(
           "min-w-0 max-w-[80%] whitespace-pre-wrap text-reading",
-          user ? "jarvis-user-bubble rounded-[20px] px-4 py-2.5 italic" : "text-foreground",
+          user ? "jarvis-user-bubble rounded-[4px] px-4 py-2.5 italic" : "text-foreground",
           live && !reading && (user ? "opacity-70" : "text-muted-foreground"),
         )}
       >

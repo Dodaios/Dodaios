@@ -646,7 +646,7 @@ export function UpdateButton({ placement = "titlebar" }: { placement?: "titlebar
             <span
               aria-hidden
               data-testid="update-dot"
-              className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent"
+              className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-md bg-accent"
             />
           </>
         )}
@@ -675,11 +675,11 @@ export function UpdateButton({ placement = "titlebar" }: { placement?: "titlebar
           </div>
           {busy ? (
             <>
-              <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-secondary">
+              <div className="mt-2.5 h-1 overflow-hidden rounded-md bg-secondary">
                 <div
                   aria-hidden
                   data-testid="update-progress-fill"
-                  className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out"
+                  className="h-full rounded-md bg-accent transition-[width] duration-300 ease-out"
                   style={{ width: `${percent}%` }}
                 />
               </div>

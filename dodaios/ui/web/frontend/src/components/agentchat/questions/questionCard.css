@@ -14,7 +14,7 @@
   position: relative;
   width: 100%;
   max-width: 40rem;
-  border-radius: 20px;
+  border-radius: 4px;
   background: hsl(var(--card));
   color: hsl(var(--foreground));
   box-shadow:
@@ -56,7 +56,7 @@
   place-items: center;
   width: 22px;
   height: 22px;
-  border-radius: 7px;
+  border-radius: 4px;
   background: hsl(var(--secondary));
   color: hsl(var(--muted-foreground));
 }
@@ -89,7 +89,7 @@
   place-items: center;
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: 4px;
   color: hsl(var(--muted-foreground));
   transition: background-color 140ms, color 140ms;
 }
@@ -187,7 +187,7 @@
   gap: 10px;
   width: 100%;
   padding: 8px;
-  border-radius: 12px;
+  border-radius: 4px;
   text-align: left;
   color: hsl(var(--foreground));
   transition: background-color 140ms;
@@ -295,7 +295,7 @@
   align-items: flex-start;
   gap: 10px;
   padding: 8px;
-  border-radius: 12px;
+  border-radius: 4px;
   cursor: text;
   transition: background-color 140ms;
 }
@@ -339,7 +339,7 @@
   align-items: center;
   gap: 5px;
   margin: -2px 0 4px 16px;
-  border-radius: 6px;
+  border-radius: 4px;
   font-size: 12px;
   line-height: 18px;
   color: hsl(var(--muted-foreground));
@@ -352,7 +352,7 @@
 .qc-reason {
   margin: 0 16px 6px;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: 4px;
   background: hsl(var(--secondary));
   font-size: 12px;
   line-height: 18px;
@@ -375,7 +375,7 @@
   gap: 10px;
   width: 100%;
   padding: 8px;
-  border-radius: 12px;
+  border-radius: 4px;
   text-align: left;
   transition: background-color 140ms;
 }
@@ -487,7 +487,7 @@
   gap: 6px;
   height: 32px;
   padding: 0 12px;
-  border-radius: 10px;
+  border-radius: 4px;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
@@ -536,7 +536,7 @@
   z-index: 20;
   width: min(17rem, calc(100% - 20px));
   padding: 4px;
-  border-radius: 12px;
+  border-radius: 4px;
   background: hsl(var(--popover));
   color: hsl(var(--popover-foreground));
   box-shadow:
@@ -559,7 +559,7 @@
   gap: 10px;
   width: 100%;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 4px;
   text-align: left;
 }
 
@@ -594,7 +594,7 @@
 .qc[data-settled] {
   background: hsl(var(--background));
   box-shadow: 0 0 0 1px hsl(var(--border));
-  border-radius: 16px;
+  border-radius: 4px;
 }
 
 .qc-sum {
@@ -604,7 +604,7 @@
   width: 100%;
   min-height: 40px;
   padding: 8px 8px 8px 12px;
-  border-radius: 16px;
+  border-radius: 4px;
   text-align: left;
 }
 
@@ -638,7 +638,7 @@
   gap: 6px;
   max-width: 16rem;
   padding: 2px 8px 2px 3px;
-  border-radius: 8px;
+  border-radius: 4px;
   background: hsl(var(--secondary));
   font-size: 12.5px;
   line-height: 18px;
@@ -732,7 +732,7 @@
 .qc-reply-bubble {
   max-width: min(85%, 36rem);
   padding: 8px 14px;
-  border-radius: 18px;
+  border-radius: 4px;
   background: hsl(var(--user-bubble));
   color: hsl(var(--user-bubble-foreground));
   font-size: 14px;

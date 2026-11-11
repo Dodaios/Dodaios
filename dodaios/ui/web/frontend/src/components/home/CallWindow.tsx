@@ -25,7 +25,7 @@ const STATUS_KEY: Record<VoiceState, string> = {
   error: "agentic_grid.voice_bubble.error",
 };
 
-const WINDOW = "call-window pointer-events-auto absolute bottom-full z-20 mb-3 flex flex-col overflow-hidden rounded-[20px] bg-background shadow-float";
+const WINDOW = "call-window pointer-events-auto absolute bottom-full z-20 mb-3 flex flex-col overflow-hidden rounded-[4px] bg-background shadow-float";
 
 /** How long the window stays after a call ends, for a reason that arrives a moment later. */
 const END_LINGER_MS = 900;
@@ -179,21 +179,21 @@ export function CallWindow() {
           {ringing.kind === "approval" && (
             <>
               <button type="button" onClick={() => answer("allow")} data-testid="call-ring-allow"
-                className="inline-flex h-9 items-center rounded-full bg-foreground px-4 text-sm font-medium text-background transition-colors hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                className="inline-flex h-9 items-center rounded-md bg-foreground px-4 text-sm font-medium text-background transition-colors hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 {t("notify.urgent_ring_allow")}
               </button>
               <button type="button" onClick={() => answer("deny")} data-testid="call-ring-deny"
-                className="inline-flex h-9 items-center rounded-full bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                className="inline-flex h-9 items-center rounded-md bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 {t("notify.urgent_ring_deny")}
               </button>
             </>
           )}
           <button type="button" onClick={() => { setRinging(null); setActiveSection("chats"); }} data-testid="call-ring-open"
-            className="inline-flex h-9 items-center rounded-full bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            className="inline-flex h-9 items-center rounded-md bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             {t("notify.urgent_ring_open")}
           </button>
           <button type="button" onClick={() => setRinging(null)} data-testid="call-ring-later"
-            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            className="inline-flex h-9 items-center rounded-md px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             {t("notify.urgent_ring_later")}
           </button>
         </footer>
@@ -218,11 +218,11 @@ export function CallWindow() {
         </div>
         <footer className="relative flex items-center justify-center gap-3 pb-5 pt-2">
           <button type="button" onClick={openSettings} data-testid="call-settings"
-            className="inline-flex h-9 items-center gap-2 rounded-full bg-foreground px-4 text-sm font-medium text-background transition-colors hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            className="inline-flex h-9 items-center gap-2 rounded-md bg-foreground px-4 text-sm font-medium text-background transition-colors hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Settings2 className="h-4 w-4" aria-hidden />{t("home.call.settings")}
           </button>
           <button type="button" onClick={() => setCallProblem(null)} data-testid="call-close"
-            className="inline-flex h-9 items-center rounded-full bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            className="inline-flex h-9 items-center rounded-md bg-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             {t("common.close")}
           </button>
         </footer>

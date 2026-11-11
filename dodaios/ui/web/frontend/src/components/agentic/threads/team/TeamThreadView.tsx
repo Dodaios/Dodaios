@@ -245,7 +245,7 @@ function OpenTeamThread({ teamId, project, onScreen }: { teamId: string; project
           {fill(t(`team_threads.reason.${thread.reason || "error"}`), { note: thread.note, rounds: 0 })}
         </p>}
         {!over && <form onSubmit={(event) => { event.preventDefault(); void send(); }}
-          className="flex items-end gap-1 rounded-[20px] border border-border bg-secondary px-2 py-1 focus-within:border-border-strong">
+          className="flex items-end gap-1 rounded-[4px] border border-border bg-secondary px-2 py-1 focus-within:border-border-strong">
           <textarea value={text} rows={1} onChange={(event) => setText(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {

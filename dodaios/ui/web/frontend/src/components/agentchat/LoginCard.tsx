@@ -183,14 +183,14 @@ function LoginForm({
             type="button"
             onClick={() => void run((sid) => declineAgentChatCredential(sid, credential.requestId), "declined")}
             disabled={busy}
-            className="rounded-full px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted disabled:opacity-60"
+            className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted disabled:opacity-60"
           >
             {t("login_card.decline")}
           </button>
           <button
             type="submit"
             disabled={busy || !username.trim() || !password}
-            className="rounded-full bg-foreground px-4 py-1.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="rounded-md bg-foreground px-4 py-1.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {busy ? t("credential_card.saving") : t("login_card.save")}
           </button>

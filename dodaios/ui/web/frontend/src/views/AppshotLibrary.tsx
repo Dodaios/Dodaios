@@ -178,7 +178,7 @@ function Tile({
         </span>
       )}
       {edited && (
-        <span className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground shadow-sm">
+        <span className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground shadow-sm">
           <PenLine className="h-3 w-3" aria-hidden />
           {t("appshot_editor.library_edited_badge")}
         </span>

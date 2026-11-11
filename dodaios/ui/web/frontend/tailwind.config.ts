@@ -276,30 +276,29 @@ const config: Config = {
        * anything else. The two hand-added steps (`control`, `surface`) were a
        * patch over that, and `surface` had drifted to exactly `md`.
        *
-       * These are the Design.md's six values. Aliases are pointed AT them
-       * rather than deleted -- `xl` resolves to the same 12px as `lg`, `3xl`
-       * to the same 16px as `2xl` -- so the scale collapses without touching
-       * ~1,350 class usages, and a stray `rounded-3xl` can no longer invent a
-       * seventh shape.
+       * The scale is sharp on purpose (2026-11-11): the app reads as a tool,
+       * not as a set of soft cards. Three shapes remain, and the old names
+       * are pointed AT them rather than deleted, so the scale collapses
+       * without touching the ~2,400 class usages and a stray `rounded-3xl`
+       * cannot invent a fourth shape.
        *
-       *   4px   inline tags, chips          (sm)
-       *   6px   compact rows, dense controls (control)
-       *   8px   buttons, inputs             (md, surface)
-       *   12px  cards, panes                (lg, xl)
-       *   16px  large feature cards, rare   (2xl, 3xl)
-       *   pill  badges, avatars             (full)
+       *   2px   inline tags, chips               (sm)
+       *   4px   rows, controls, buttons, inputs,
+       *         cards and panes                  (control, md, surface, lg, xl)
+       *   6px   dialogs and large feature cards  (2xl, 3xl)
+       *   pill  avatars, status dots, switches   (full)
        */
       borderRadius: {
         none: "0px",
-        sm: "4px",
-        control: "6px",
-        DEFAULT: "6px",
-        md: "8px",
-        surface: "8px",
-        lg: "12px",
-        xl: "12px",
-        "2xl": "16px",
-        "3xl": "16px",
+        sm: "2px",
+        control: "4px",
+        DEFAULT: "4px",
+        md: "4px",
+        surface: "4px",
+        lg: "4px",
+        xl: "4px",
+        "2xl": "6px",
+        "3xl": "6px",
         full: "9999px",
       },
       /*

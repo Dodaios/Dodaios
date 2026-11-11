@@ -107,7 +107,7 @@ function Chip({
       onClick={onClick}
       data-testid={testId}
       className={cn(
-        "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors",
+        "inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         pressed
           ? "border-accent bg-accent/10 text-foreground"

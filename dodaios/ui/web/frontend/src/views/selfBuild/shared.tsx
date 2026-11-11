@@ -104,7 +104,7 @@ export function LifecycleRail({
         {!onPath && endLabel && (
           <span
             className={cn(
-              "-mt-1 shrink-0 rounded-full border border-border px-2 py-0.5 text-xs",
+              "-mt-1 shrink-0 rounded-md border border-border px-2 py-0.5 text-xs",
               END_TONE[state] ?? "text-muted-foreground",
             )}
             data-testid="build-rail-end"

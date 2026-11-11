@@ -110,7 +110,7 @@ export function ZoomIndicator() {
       <button
         type="button"
         className={cn(
-          "ml-3 h-9 rounded-full border border-border-strong px-4 text-sm font-medium text-accent transition-colors",
+          "ml-3 h-9 rounded-md border border-border-strong px-4 text-sm font-medium text-accent transition-colors",
           "hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           "disabled:pointer-events-none disabled:opacity-40",
         )}

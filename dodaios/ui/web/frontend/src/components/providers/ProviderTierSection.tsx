@@ -2234,18 +2234,18 @@ function ManagedServerPanel({
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="text-xs font-medium">{choice.label}</span>
                           {choice.frontier && (
-                            <span className="rounded-full bg-secondary px-1.5 py-px text-xs font-semibold text-foreground-strong">
+                            <span className="rounded-md bg-secondary px-1.5 py-px text-xs font-semibold text-foreground-strong">
                               {t("apikeys_view.managed_voice_frontier")}
                             </span>
                           )}
                           {choice.streaming && (
-                            <span className="rounded-full border border-border px-1.5 py-px text-xs text-muted-foreground">
+                            <span className="rounded-md border border-border px-1.5 py-px text-xs text-muted-foreground">
                               {t("apikeys_view.managed_voice_streaming")}
                             </span>
                           )}
                           <span
                             className={cn(
-                              "rounded-full border px-1.5 py-px text-xs",
+                              "rounded-md border px-1.5 py-px text-xs",
                               choice.selectable
                                 ? "border-muted-foreground/30 bg-muted-foreground/10 text-muted-foreground"
                                 : "bg-secondary text-foreground",
@@ -3067,7 +3067,7 @@ export function LocalModelDownloadPanel({
                   )}
                 </span>
                 {row.recommended && (
-                  <span className="ml-1.5 whitespace-nowrap rounded-full bg-secondary px-1.5 py-px text-xs font-semibold text-foreground-strong">
+                  <span className="ml-1.5 whitespace-nowrap rounded-md bg-secondary px-1.5 py-px text-xs font-semibold text-foreground-strong">
                     {t("apikeys_model_pull.best_for_machine")}
                   </span>
                 )}

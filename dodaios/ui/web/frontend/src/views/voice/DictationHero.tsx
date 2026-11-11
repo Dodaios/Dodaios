@@ -82,7 +82,7 @@ export function DictationHero({
 
       <div className="relative flex min-h-[232px] flex-col justify-center gap-5 px-6 py-7 sm:px-9">
         <span
-          className="inline-flex w-fit items-center gap-2 rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-white/85 ring-1 ring-white/10 backdrop-blur-sm"
+          className="inline-flex w-fit items-center gap-2 rounded-md bg-white/10 px-2.5 py-1 text-xs font-medium text-white/85 ring-1 ring-white/10 backdrop-blur-sm"
           data-testid="dictation-state"
         >
           <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dotFill)} />

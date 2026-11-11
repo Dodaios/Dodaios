@@ -73,7 +73,7 @@ export function OptionCard({
         <span className="flex flex-wrap items-center gap-2 text-base font-medium text-foreground-strong">
           {title}
           {badge && (
-            <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-foreground-secondary">
+            <span className="rounded-md border border-border px-2 py-0.5 text-xs font-medium text-foreground-secondary">
               {badge}
             </span>
           )}

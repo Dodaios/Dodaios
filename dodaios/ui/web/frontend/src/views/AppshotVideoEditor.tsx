@@ -384,7 +384,7 @@ export function AppshotVideoEditor({ recordingId, onClose }: { recordingId: stri
           <div className="pointer-events-none absolute inset-y-0 right-0 bg-black/55" style={{ width: `calc(100% - ${pct(trim.end)})` }} />
           {/* The trimmed part with its two handles. */}
           <div
-            className="pointer-events-none absolute inset-y-0 rounded-[10px] border-2 border-accent"
+            className="pointer-events-none absolute inset-y-0 rounded-[4px] border-2 border-accent"
             style={{ left: pct(trim.start), width: `calc(${pct(trim.end)} - ${pct(trim.start)})` }}
           />
           {(["start", "end"] as const).map((edge) => (
@@ -398,7 +398,7 @@ export function AppshotVideoEditor({ recordingId, onClose }: { recordingId: stri
                 onPointerCancel={onTrackUp}
                 className={cn(
                   "absolute inset-y-0 z-10 flex w-3.5 cursor-ew-resize items-center justify-center bg-accent transition-[filter] hover:brightness-110",
-                  edge === "start" ? "rounded-l-[10px]" : "-translate-x-full rounded-r-[10px]",
+                  edge === "start" ? "rounded-l-[4px]" : "-translate-x-full rounded-r-[4px]",
                 )}
                 style={{ left: pct(edge === "start" ? trim.start : trim.end) }}
                 data-testid={`appshot-video-trim-${edge}`}

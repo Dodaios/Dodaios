@@ -172,7 +172,7 @@ export function TeamThreadDraft({ project }: { project: IdeProject }) {
         {TEAM_THREAD_MODES.map((option) => <button key={option} type="button" role="radio" aria-checked={mode === option}
           data-testid={`team-draft-mode-${option}`} onClick={() => setMode(option)}
           className={cn(
-            "rounded-full px-3.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "rounded-md px-3.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             mode === option ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
           )}>
           {t(`team_threads.mode.${option}`)}
@@ -253,7 +253,7 @@ export function TeamThreadDraft({ project }: { project: IdeProject }) {
       </section>
 
       <form onSubmit={(event) => { event.preventDefault(); void start(); }}
-        className="flex items-end gap-1 rounded-[24px] border border-border bg-secondary px-2 py-1.5 focus-within:border-border-strong">
+        className="flex items-end gap-1 rounded-[4px] border border-border bg-secondary px-2 py-1.5 focus-within:border-border-strong">
         <textarea key={focusNonce} autoFocus value={task} rows={3} onChange={(event) => setTask(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {

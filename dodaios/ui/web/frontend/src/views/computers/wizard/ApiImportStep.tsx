@@ -250,7 +250,7 @@ function ServerRow({ server, selected, onSelect }: { server: CloudServer; select
           </span>
         </span>
         {server.added_as && (
-          <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs text-foreground-secondary">
+          <span className="shrink-0 rounded-md bg-secondary px-2 py-0.5 text-xs text-foreground-secondary">
             {t("computers.already_added")}
           </span>
         )}

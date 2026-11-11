@@ -657,7 +657,7 @@ export function KeybindRow({
                 type="button"
                 data-testid={`suggestion-${action}-${s}`}
                 onClick={() => assign(s)}
-                className="rounded-full border border-border bg-background px-2 py-0.5 font-mono text-micro text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                className="rounded-md border border-border bg-background px-2 py-0.5 font-mono text-micro text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
               >
                 {formatCombo(s)}
               </button>

@@ -443,7 +443,7 @@ function Row({
         <span className={subject ? "text-foreground-secondary" : undefined}>{body}</span>
       </p>
       {scopeOf(memory) !== "global" && (
-        <span data-testid="vault-row-scope" className="shrink-0 rounded-full border border-border px-1.5 text-[10px] text-muted-foreground">
+        <span data-testid="vault-row-scope" className="shrink-0 rounded-md border border-border px-1.5 text-[10px] text-muted-foreground">
           {t(`memory_trust.scope_${scopeOf(memory)}`)}
         </span>
       )}
@@ -502,14 +502,14 @@ function Inspector({
     <div data-testid="vault-inspector" className="flex h-full min-h-0 flex-col overflow-y-auto px-6 py-6">
       <div className="flex items-center gap-2">
         <span
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium"
+          className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium"
           style={{ backgroundColor: kindColor(memory.kind, 0.14), color: kindColor(memory.kind) }}
         >
           <Icon className="h-3 w-3" />
           {t(`vault.kind_${memory.kind}`)}
         </span>
         {memory.sensitivity === "sensitive" && (
-          <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+          <span className="rounded-md border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
             {t("vault.sensitive")}
           </span>
         )}
@@ -621,7 +621,7 @@ function Inspector({
         <Section title={t("vault.entities_title")}>
           <div className="flex flex-wrap gap-1.5">
             {memory.entities.map((entity) => (
-              <span key={entity} className="rounded-full bg-sheen/[0.06] px-2.5 py-1 text-[12px] text-foreground">
+              <span key={entity} className="rounded-md bg-sheen/[0.06] px-2.5 py-1 text-[12px] text-foreground">
                 {entity}
               </span>
             ))}

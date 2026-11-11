@@ -462,7 +462,7 @@ interface StageNavigation {
 }
 
 const BAR_BUTTON =
-  "inline-flex h-9 min-w-9 shrink-0 items-center justify-center gap-1.5 rounded-full px-2.5 text-base text-muted-foreground " +
+  "inline-flex h-9 min-w-9 shrink-0 items-center justify-center gap-1.5 rounded-md px-2.5 text-base text-muted-foreground " +
   "transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 " +
   "focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 [&_svg]:h-[18px] [&_svg]:w-[18px] [&_svg]:shrink-0";
 
@@ -738,7 +738,7 @@ function ArtifactToolbar({
               onClick={() => onMode(id)}
               data-testid={`visualization-tab-${id}`}
               className={cn(
-                "inline-flex h-8 items-center gap-1.5 rounded-full px-3.5 text-base font-medium transition-colors",
+                "inline-flex h-8 items-center gap-1.5 rounded-md px-3.5 text-base font-medium transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 mode === id
                   ? "bg-background text-foreground-strong shadow-sm"

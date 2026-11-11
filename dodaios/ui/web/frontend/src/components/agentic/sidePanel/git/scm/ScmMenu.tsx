@@ -95,7 +95,7 @@ function MenuPanel({
         role="menu"
         tabIndex={-1}
         data-testid={testId}
-        className="scm-portal fixed z-[120] max-w-[320px] rounded-[5px] py-[4px] outline-none"
+        className="scm-portal fixed z-[120] max-w-[320px] rounded-[4px] py-[4px] outline-none"
         style={{ left: position.left, top: position.top, minWidth: MENU_WIDTH, background: "var(--scm-menu-bg)", color: "var(--scm-menu-fg)", border: "1px solid var(--scm-menu-border)", boxShadow: "0 2px 8px rgba(0, 0, 0, 0.36)" }}
         onContextMenu={(event) => event.preventDefault()}
         onKeyDown={(event) => {

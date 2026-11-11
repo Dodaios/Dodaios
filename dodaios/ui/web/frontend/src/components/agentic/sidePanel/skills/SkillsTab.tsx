@@ -366,7 +366,7 @@ export function SkillsTab() {
           <div className="space-y-2" aria-busy="true" aria-label={t("ide_side_panel.skills.loading")}>
             {[0, 1, 2].map((index) => (
               <div key={index} className="flex gap-3 rounded-xl border border-border bg-card/40 p-3">
-                <div className="h-9 w-9 animate-pulse rounded-[10px] bg-secondary" />
+                <div className="h-9 w-9 animate-pulse rounded-[4px] bg-secondary" />
                 <div className="flex-1 space-y-2 pt-1">
                   <div className="h-3 w-1/2 animate-pulse rounded bg-secondary" />
                   <div className="h-2.5 w-4/5 animate-pulse rounded bg-secondary" />

@@ -239,7 +239,7 @@ export function DodaiosDock() {
         }}
         onDrop={handleDrop}
         className={cn(
-          "fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full border px-3 py-2 backdrop-blur transition-all duration-300 ease-out",
+          "fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-md border px-3 py-2 backdrop-blur transition-all duration-300 ease-out",
           visible ? "opacity-100" : "pointer-events-none opacity-0",
           stateClass,
         )}

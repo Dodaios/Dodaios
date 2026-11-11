@@ -487,7 +487,7 @@ export function SkillsView() {
                     value={categoryFilter ?? ""}
                     onValueChange={(value) => setCategoryFilter(value || null)}
                     ariaLabel={t("skills_view.all_categories")}
-                    className="w-auto rounded-full px-2 py-0.5 text-micro"
+                    className="w-auto rounded-md px-2 py-0.5 text-micro"
                     options={[
                       { value: "", label: t("skills_view.all_categories") },
                       ...categoryOptions.map((category) => ({
@@ -1608,7 +1608,7 @@ function FilterChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-full border px-2 py-0.5 text-micro transition-colors",
+        "rounded-md border px-2 py-0.5 text-micro transition-colors",
         active
           ? "bg-secondary text-foreground-strong"
           : "border-border bg-background hover:bg-muted",

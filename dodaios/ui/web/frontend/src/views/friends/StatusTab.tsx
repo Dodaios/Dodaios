@@ -191,7 +191,7 @@ function ProfileCard({
           {name}
         </span>
         {isDefault && (
-          <span className="rounded-full border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-micro uppercase tracking-wider text-primary">
+          <span className="rounded-md border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-micro uppercase tracking-wider text-primary">
             {t("status_tab.default_badge")}
           </span>
         )}

@@ -29,45 +29,37 @@
   gap: 0.375rem;
 }
 
-/* Messages of one reply stack close together. The side the pet stands on
-   keeps tight corners, so the stack reads as one voice. */
+/* The assistant's reply is plain text on the page: no fill, no frame. Only
+   the person's own message carries a quiet surface, so the two voices are
+   told apart by that alone. Paragraphs keep a paragraph's distance. */
 .lead-bubbles {
   display: flex;
   min-width: 0;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: 10px;
 }
 .lead-bubble {
   min-width: 0;
-  max-width: min(100%, 34rem);
-  border-radius: 20px;
-  border-bottom-left-radius: 6px;
-  padding: 8px 16px;
+  max-width: min(100%, 44rem);
+  padding: 4px 0;
 }
-.lead-bubbles > .lead-bubble:not(:first-child) {
-  border-top-left-radius: 6px;
-}
-/* A document-like reply: one piece, the full lane, a little more air. */
+/* A document-like reply: one piece, the full lane. */
 .lead-bubble[data-note] {
   max-width: 100%;
-  border-radius: 16px;
-  border-bottom-left-radius: 6px;
-  padding: 14px 18px;
 }
 .lead-bubbles[data-live] > .lead-bubble {
   transform-origin: left bottom;
   animation: lead-bubble-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 @keyframes lead-bubble-in {
-  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
 
-/* The person's own message mirrors the stack: its tight corner faces them. */
+/* The person's own message: the one surface in the conversation. */
 .lead-bubble-own {
-  border-radius: 20px;
-  border-bottom-right-radius: 6px;
+  border-radius: 4px;
 }
 
 /* How long a finished turn took and what it used: there for whoever looks,

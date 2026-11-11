@@ -101,7 +101,7 @@ export function CommandActivityLayer() {
       className="pointer-events-none fixed bottom-16 right-4 z-50 flex w-[360px] flex-col items-end gap-2"
     >
       {overflow > 0 && (
-        <span className="rounded-full border border-border bg-card/95 px-2 py-0.5 text-micro font-medium tabular-nums text-muted-foreground backdrop-blur">
+        <span className="rounded-md border border-border bg-card/95 px-2 py-0.5 text-micro font-medium tabular-nums text-muted-foreground backdrop-blur">
           +{overflow}
         </span>
       )}

@@ -179,7 +179,7 @@ export function OutputPreview({
             )}
             <span aria-hidden>·</span>
             <span className="inline-flex items-center gap-1.5" data-testid="output-preview-status">
-              <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT[status])} aria-hidden />
+              <span className={cn("h-1.5 w-1.5 rounded-md", STATUS_DOT[status])} aria-hidden />
               {needsReview ? t("outputs_view.needs_review") : t(`visualization.status_word_${status}`)}
             </span>
           </p>

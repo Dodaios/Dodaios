@@ -202,7 +202,7 @@
   max-width: 34rem;
   align-items: baseline;
   gap: 0.625rem;
-  border-radius: 12px;
+  border-radius: 4px;
   border: 1px solid hsl(var(--border));
   background: hsl(var(--card));
   padding: 10px 14px;

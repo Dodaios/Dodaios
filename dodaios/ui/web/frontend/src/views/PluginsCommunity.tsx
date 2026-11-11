@@ -813,7 +813,7 @@ function CommunitySkillRow({
           </span>
           {skill.flavor === "portable" && (
             <span
-              className="shrink-0 rounded-full border border-border px-1.5 text-micro font-medium text-muted-foreground"
+              className="shrink-0 rounded-md border border-border px-1.5 text-micro font-medium text-muted-foreground"
               title={portableNote(skill) ?? undefined}
             >
               {t("plugins_community.portable")}

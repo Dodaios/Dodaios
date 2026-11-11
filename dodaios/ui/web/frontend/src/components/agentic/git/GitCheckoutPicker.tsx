@@ -164,7 +164,7 @@ export function GitCheckoutPicker({ folder, value, onChange, disabled, context, 
           <option.Icon className={cn("mt-0.5 h-4 w-4 shrink-0", checked ? "text-primary" : "text-muted-foreground")} aria-hidden />
           <span className="min-w-0">
             <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">{option.title}
-              {option.recommended && <span className="rounded-full bg-muted px-1.5 py-px text-[10px] font-medium text-muted-foreground">{t("ide_git.recommended")}</span>}</span>
+              {option.recommended && <span className="rounded-md bg-muted px-1.5 py-px text-[10px] font-medium text-muted-foreground">{t("ide_git.recommended")}</span>}</span>
             <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{option.hint}</span>
           </span>
         </button>;

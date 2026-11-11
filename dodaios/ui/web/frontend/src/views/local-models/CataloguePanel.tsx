@@ -412,7 +412,7 @@ function RecommendedList({
                       />
                     )}
                     {m.recommended_for.length > 0 && (
-                      <span className="rounded-full bg-secondary px-1.5 py-0.5 text-micro font-medium text-foreground-strong">
+                      <span className="rounded-md bg-secondary px-1.5 py-0.5 text-micro font-medium text-foreground-strong">
                         {fill(t("local_models.catalogue.recommended_badge"), {
                           roles: m.recommended_for
                             .map((r) => t(`local_models.catalogue.group_${r}`))

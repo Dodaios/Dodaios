@@ -414,7 +414,7 @@ export function AssistantPanel({
 
           {items.length === 0 && !blocked && !backendMissing && (
             <div className="flex flex-1 flex-col items-center justify-center gap-5 py-12 text-center">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/12 text-primary">
+              <span className="flex h-11 w-11 items-center justify-center rounded-md bg-primary/12 text-primary">
                 <Sparkles className="h-5 w-5" />
               </span>
               <p className="max-w-[38ch] text-lg leading-relaxed text-muted-foreground">
@@ -430,7 +430,7 @@ export function AssistantPanel({
                       disabled={!activeSessionId || busyNow}
                       onClick={() => void send(text)}
                       className={cn(
-                        "rounded-full border border-border bg-card px-3.5 py-2 text-meta text-muted-foreground",
+                        "rounded-md border border-border bg-card px-3.5 py-2 text-meta text-muted-foreground",
                         "transition-colors hover:border-border-strong hover:text-foreground",
                         "disabled:cursor-not-allowed disabled:opacity-50",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -449,7 +449,7 @@ export function AssistantPanel({
               type="button"
               onClick={() => setShowEarlier((v) => !v)}
               className={cn(
-                "mx-auto inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1",
+                "mx-auto inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1",
                 "text-xs text-muted-foreground hover:text-foreground",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               )}
@@ -627,7 +627,7 @@ function ChipButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium",
         "transition-colors disabled:cursor-not-allowed disabled:opacity-45",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         primary

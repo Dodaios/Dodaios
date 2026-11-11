@@ -271,7 +271,7 @@ function FilterTabs({
           aria-selected={active === id}
           onClick={() => onChange(id)}
           className={cn(
-            "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-base font-medium transition-colors",
+            "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-base font-medium transition-colors",
             active === id
               ? "bg-secondary text-foreground-strong"
               : "text-muted-foreground hover:text-foreground",

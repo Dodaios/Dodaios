@@ -76,7 +76,7 @@ export function FieldGroup({
                 key={ref.field}
                 type="button"
                 onClick={() => setAdding(ref.field)}
-                className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-sm text-foreground transition-colors hover:border-border-strong hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-sm text-foreground transition-colors hover:border-border-strong hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Plus aria-hidden className="h-3 w-3 text-muted-foreground" />
                 {t(`profile_view.fields.${ref.field}`)}

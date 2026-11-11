@@ -4,11 +4,11 @@ import { ChatMarkdown } from "./ChatMarkdown";
 import "./leadConversation.css";
 
 /**
- * The assistant's reply in its one conversation, written the way a person
- * writes in a messenger: a short answer arrives as a few short messages, one
- * per paragraph, instead of one block of text. An answer that is really a
- * document (it has headings or a table, or it runs long) stays in one piece
- * as a note, because cutting a document into bubbles makes it harder to read.
+ * The assistant's reply in its one conversation: plain text on the page,
+ * without a bubble around it. A short answer still arrives paragraph by
+ * paragraph while it is written; an answer that is really a document (it
+ * has headings or a table, or it runs long) stays in one piece and takes
+ * the full lane.
  */
 
 /** Reading type shared by every reply on the front page. */
@@ -103,9 +103,9 @@ export function splitReply(markdown: string): ReplyPart[] {
 }
 
 /**
- * The reply as message bubbles. `live` marks a reply that is being written
- * right now: only then does a new bubble ease in, so a finished conversation
- * loads still.
+ * The reply, paragraph by paragraph. `live` marks a reply that is being
+ * written right now: only then does a new paragraph ease in, so a finished
+ * conversation loads still.
  */
 export function LeadReply({ text, live = false }: { text: string; live?: boolean }) {
   const parts = useMemo(() => splitReply(text), [text]);
@@ -117,7 +117,7 @@ export function LeadReply({ text, live = false }: { text: string; live?: boolean
           key={index}
           data-testid="lead-bubble"
           data-note={part.note ? "" : undefined}
-          className="lead-bubble border border-border bg-card shadow-rim"
+          className="lead-bubble"
         >
           <div className={REPLY_PROSE}>
             <ChatMarkdown text={part.text} />

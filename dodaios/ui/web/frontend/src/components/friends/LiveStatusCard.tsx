@@ -44,7 +44,7 @@ export function LiveStatusCard({ update }: { update: StatusUpdateView }) {
         </div>
         <div className="flex items-center gap-2">
           <span
-            className={`rounded-full border px-1.5 py-0.5 text-micro uppercase tracking-wider ${PROFILE_BADGE_CLASS[update.profile_used]}`}
+            className={`rounded-md border px-1.5 py-0.5 text-micro uppercase tracking-wider ${PROFILE_BADGE_CLASS[update.profile_used]}`}
           >
             {update.profile_used}
           </span>

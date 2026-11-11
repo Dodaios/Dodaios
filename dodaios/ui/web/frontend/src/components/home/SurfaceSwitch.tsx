@@ -73,7 +73,7 @@ function SurfaceTab({
       data-testid={testId}
       onClick={onClick}
       className={cn(
-        "flex items-center justify-center gap-1.5 rounded-[6px] px-2 text-base font-medium transition-colors",
+        "flex items-center justify-center gap-1.5 rounded-[4px] px-2 text-base font-medium transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
           ? "bg-secondary text-foreground"

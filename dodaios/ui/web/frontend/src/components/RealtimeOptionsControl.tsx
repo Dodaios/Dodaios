@@ -564,7 +564,7 @@ function RealtimeVoiceRow({
                   onClick={() => setPreviewLang(lng)}
                   aria-pressed={previewLang === lng}
                   className={cn(
-                    "rounded-full border px-1.5 py-0.5 text-xs uppercase tracking-wide transition-colors",
+                    "rounded-md border px-1.5 py-0.5 text-xs uppercase tracking-wide transition-colors",
                     previewLang === lng
                       ? "border-primary/40 bg-primary/20 text-primary"
                       : "border-border bg-muted text-muted-foreground hover:text-foreground",

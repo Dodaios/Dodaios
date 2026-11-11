@@ -3945,7 +3945,7 @@ function PaneHeader({
             // wore the placeholder ink, which is reserved for text that is NOT
             // information — which seat a pane bills plainly is. Meta ink, on
             // the lift chip, with no rim: the fill already separates it.
-            className="min-w-0 max-w-[8rem] truncate rounded-full px-2 py-px font-display text-micro font-medium tracking-wide"
+            className="min-w-0 max-w-[8rem] truncate rounded-md px-2 py-px font-display text-micro font-medium tracking-wide"
             style={{ color: brand.inkMuted, backgroundColor: brand.chip }}
             title={fill(t("agentic_grid.pane.running_on_account"), { account: accountLabel })}
             data-testid={`pane-account-${name}`}

@@ -49,7 +49,7 @@ export function DiffDialog({ source, onClose }: { source: DiffSource; onClose: (
         aria-modal="true"
         aria-label={source.title}
         data-testid="scm-diff-dialog"
-        className="flex h-full max-h-[86vh] w-full max-w-6xl flex-col overflow-hidden rounded-[6px]"
+        className="flex h-full max-h-[86vh] w-full max-w-6xl flex-col overflow-hidden rounded-[4px]"
         style={{ background: "var(--scm-bg)", color: "var(--scm-fg)", border: "1px solid var(--scm-menu-border)", boxShadow: "0 0 8px 2px rgba(0, 0, 0, 0.36)" }}
       >
         <header className="flex h-[35px] shrink-0 items-center gap-[6px] px-[10px]" style={{ borderBottom: "1px solid var(--scm-border)" }}>

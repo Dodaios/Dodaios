@@ -92,7 +92,7 @@ function RefChip({ badge, compact }: { badge: RefBadge; compact: boolean }) {
         aria-label={badge.name}
         style={{ background: REF_COLOR[badge.kind], color: "var(--scm-ref-fg)" }}
         className={cn(
-          "ml-[4px] inline-flex h-[18px] max-w-[120px] items-center gap-[2px] rounded-[9px] text-[11px] leading-[18px]",
+          "ml-[4px] inline-flex h-[18px] max-w-[120px] items-center gap-[2px] rounded-[4px] text-[11px] leading-[18px]",
           compact ? "w-[18px] justify-center" : "px-[5px]",
         )}
       >

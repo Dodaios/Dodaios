@@ -26,7 +26,7 @@ export function PlanPanel({ thread, names }: { thread: TeamThread; names: Map<st
       <span className="shrink-0 text-sm font-medium text-foreground">
         {plan.version > 0 ? fill(t("team_threads.plan.title"), { version: plan.version }) : t("team_threads.phase.planning")}
       </span>
-      {plan.version > 0 && !plan.agreed && <span className="shrink-0 rounded-full border border-warning/40 px-1.5 py-px text-[11px] text-warning" data-testid="team-plan-proposed">
+      {plan.version > 0 && !plan.agreed && <span className="shrink-0 rounded-md border border-warning/40 px-1.5 py-px text-[11px] text-warning" data-testid="team-plan-proposed">
         {t("team_threads.plan.proposed")}
       </span>}
       {total > 0 && <span className="ml-auto flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
@@ -70,7 +70,7 @@ function StepRow({ step, names, live }: { step: TeamPlanStep; names: Map<string,
       </p>
     </div>
     <div className="flex shrink-0 flex-col items-end gap-0.5 pt-px">
-      <span className={cn("rounded-full border px-1.5 py-px text-[11px]", step.open_findings ? TONE.changes : TONE[step.status])}
+      <span className={cn("rounded-md border px-1.5 py-px text-[11px]", step.open_findings ? TONE.changes : TONE[step.status])}
         title={step.open_findings ? t("team_threads.plan.open_findings") : undefined}>
         {t(`team_threads.step_status.${step.status}`)}
       </span>

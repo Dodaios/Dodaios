@@ -184,7 +184,7 @@ export function WorkspaceFileViewer({
           <div className="truncate text-xs font-medium text-foreground">{name}</div>
           <div className="truncate text-micro text-muted-foreground">{path}</div>
         </div>
-        <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-micro text-muted-foreground">
+        <span className="rounded-md border border-border bg-secondary px-2 py-0.5 text-micro text-muted-foreground">
           {kind}
         </span>
         <button

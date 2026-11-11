@@ -165,7 +165,7 @@ export function SelfChanges() {
                       )}
                     </div>
                     <span
-                      className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs text-foreground-secondary"
+                      className="shrink-0 rounded-md border border-border px-2 py-0.5 text-xs text-foreground-secondary"
                       data-testid="self-change-state"
                     >
                       {t(`trust.page.state_${row.state}`)}

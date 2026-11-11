@@ -118,7 +118,7 @@ export function Spotlight({
       {hole && settled && (
         <div
           aria-hidden
-          className="absolute left-0 top-0 rounded-[14px]"
+          className="absolute left-0 top-0 rounded-[4px]"
           data-testid="tour-ring"
           style={{
             width: hole.w,

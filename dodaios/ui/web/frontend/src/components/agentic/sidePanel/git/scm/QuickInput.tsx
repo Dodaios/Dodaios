@@ -77,7 +77,7 @@ function Widget({ request, onDone }: { request: Request; onDone: (value: unknown
       role="dialog"
       aria-modal="true"
       data-testid="scm-quick-input"
-      className="scm-portal absolute inset-x-[8px] top-[4px] z-[60] overflow-hidden rounded-[6px]"
+      className="scm-portal absolute inset-x-[8px] top-[4px] z-[60] overflow-hidden rounded-[4px]"
       style={{ background: "var(--scm-menu-bg)", color: "var(--scm-menu-fg)", border: "1px solid var(--scm-menu-border)", boxShadow: "0 0 8px 2px rgba(0, 0, 0, 0.36)" }}
       onKeyDown={(event) => {
         if (event.key === "Escape") onDone(undefined);

@@ -466,7 +466,7 @@ function ChipsField({
         {values.map((value) => (
           <span
             key={value}
-            className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-meta text-foreground"
+            className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-0.5 text-meta text-foreground"
           >
             {value}
             <button

@@ -50,7 +50,7 @@ export default function HomeAgentChat({ agentId }: { agentId: string }) {
           type="button"
           onClick={() => startNewTextChat()}
           data-testid="home-agent-chat-back"
-          className="ml-auto flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="ml-auto flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
           {fill(t("home.back_to_assistant"), { name: assistantName })}

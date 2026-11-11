@@ -85,7 +85,7 @@ function Badge({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-micro font-medium",
+        "inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-micro font-medium",
         tone === "primary"
           ? "bg-secondary text-foreground-strong"
           : "bg-secondary text-muted-foreground",

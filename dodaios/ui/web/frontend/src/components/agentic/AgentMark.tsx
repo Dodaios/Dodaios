@@ -136,7 +136,7 @@ export function AgentMark({
       ? "h-4 w-4"
       : "h-5 w-5"
     : size === "sm"
-      ? "h-7 w-7 rounded-[5px]"
+      ? "h-7 w-7 rounded-[4px]"
       : size === "lg"
         ? "h-11 w-11 rounded-control"
         : "h-9 w-9 rounded-control";

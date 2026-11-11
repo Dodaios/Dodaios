@@ -594,20 +594,20 @@ function StatusBadge({ ok, configured }: { ok: boolean; configured: boolean }) {
   const t = useT();
   if (!configured) {
     return (
-      <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-micro uppercase tracking-wider text-muted-foreground">
+      <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-micro uppercase tracking-wider text-muted-foreground">
         {t("telephony_view.status.badge_setup")}
       </span>
     );
   }
   if (ok) {
     return (
-      <span className="shrink-0 rounded-full bg-muted-foreground/10 px-2 py-0.5 text-micro uppercase tracking-wider text-muted-foreground">
+      <span className="shrink-0 rounded-md bg-muted-foreground/10 px-2 py-0.5 text-micro uppercase tracking-wider text-muted-foreground">
         {t("telephony_view.status.badge_live")}
       </span>
     );
   }
   return (
-    <span className="shrink-0 rounded-full bg-destructive/10 px-2 py-0.5 text-micro uppercase tracking-wider text-destructive">
+    <span className="shrink-0 rounded-md bg-destructive/10 px-2 py-0.5 text-micro uppercase tracking-wider text-destructive">
       {t("telephony_view.status.badge_error")}
     </span>
   );
@@ -1081,7 +1081,7 @@ function CallStatusBadge({ status }: { status: string }) {
   return (
     <span
       className={cn(
-        "inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-micro uppercase tracking-wider",
+        "inline-block whitespace-nowrap rounded-md px-2 py-0.5 text-micro uppercase tracking-wider",
         style,
       )}
     >

@@ -1497,7 +1497,7 @@ function PluginDetail({
             {plugin.fromMarketplace && <MarketplaceBadge publisher={plugin.publisher} />}
             {plugin.selfUploaded && (
               <span
-                className="rounded-full bg-secondary px-1.5 text-micro font-medium text-foreground"
+                className="rounded-md bg-secondary px-1.5 text-micro font-medium text-foreground"
                 title={translate("plugin_upload.unreviewed")}
               >
                 {translate("plugin_upload.self_badge")}
@@ -1740,7 +1740,7 @@ export function PreviewBadge({ plugin }: { plugin: Plugin }) {
     <span
       title={title}
       aria-label={title}
-      className="shrink-0 rounded-full border border-border px-1.5 text-micro font-medium text-muted-foreground"
+      className="shrink-0 rounded-md border border-border px-1.5 text-micro font-medium text-muted-foreground"
     >
       {translate("plugins_view.preview_badge")}
     </span>
@@ -2030,7 +2030,7 @@ function OAuthRedirectDialog({
               <button
                 type="button"
                 onClick={() => void openExternalUrl(openUrl)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90"
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90"
               >
                 {fill(translate("plugins_view.open_plugin_again"), { plugin: pluginName })}
                 <ExternalLink className="h-3 w-3" />
@@ -2219,7 +2219,7 @@ function DeviceCodeDialog({
                     e.preventDefault();
                     void openExternalUrl(verificationUriComplete ?? verificationUri);
                   }}
-                  className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90"
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90"
                 >
                   {fill(translate("plugins_view.open_plugin"), { plugin: pluginName })}
                   <ExternalLink className="h-3 w-3" />
@@ -2405,7 +2405,7 @@ export function PkceConnectDialog({
                 <button
                   type="button"
                   onClick={() => void openExternalUrl(OAUTH_CLIENT_CONSOLE[fam.family])}
-                  className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-micro font-semibold text-primary-foreground transition-all hover:bg-primary/90"
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1 text-micro font-semibold text-primary-foreground transition-all hover:bg-primary/90"
                 >
                   {fill(translate("plugins_view.pkce_step1"), { family: fam.label })}
                   <ExternalLink className="h-3 w-3" />
@@ -2977,7 +2977,7 @@ export function PatConnectDialog({
                 e.preventDefault();
                 void openExternalUrl(auth.token_creation_url);
               }}
-              className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90"
+              className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90"
             >
               {fill(translate("plugins_view.pat_open_tokens"), { plugin: plugin.name })}
               <ExternalLink className="h-3 w-3" />

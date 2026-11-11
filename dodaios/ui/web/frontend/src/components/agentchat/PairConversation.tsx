@@ -126,7 +126,7 @@ export function PairConversation({ pair, onClose }: { pair: Pair; onClose: () =>
       <footer className="flex shrink-0 flex-wrap items-center justify-center gap-2 border-t border-border px-4 py-3 text-xs text-muted-foreground">
         <Lock className="h-3.5 w-3.5" aria-hidden />
         <span>{t("agent_chat.pair_read_only")}</span>
-        <button type="button" onClick={onClose} className="rounded-full border border-border px-3 py-1 text-foreground hover:bg-secondary">{t("agent_chat.pair_close")}</button>
+        <button type="button" onClick={onClose} className="rounded-md border border-border px-3 py-1 text-foreground hover:bg-secondary">{t("agent_chat.pair_close")}</button>
       </footer>
     </section>
   );

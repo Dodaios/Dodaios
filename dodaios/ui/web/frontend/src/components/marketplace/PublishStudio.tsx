@@ -1192,7 +1192,7 @@ function DraftForm({
                   {draft.skills.map((s) => (
                     <li
                       key={s.name}
-                      className="flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1"
+                      className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1"
                     >
                       <FileText className="h-3 w-3 text-muted-foreground" />
                       <span className="font-mono text-micro text-foreground">{s.name}</span>
@@ -1351,7 +1351,7 @@ function CardPreview({ draft, t }: { draft: Draft; t: Translate }) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="truncate text-sm font-semibold text-foreground">{preview.title}</span>
-              <span className="shrink-0 rounded-full border border-border px-1.5 py-px text-micro font-semibold text-muted-foreground">
+              <span className="shrink-0 rounded-md border border-border px-1.5 py-px text-micro font-semibold text-muted-foreground">
                 {draft.kind === "skill" ? t("marketplace.kind_skill") : t("marketplace.kind_plugin")}
               </span>
             </div>

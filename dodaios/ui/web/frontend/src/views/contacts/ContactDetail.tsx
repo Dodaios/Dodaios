@@ -304,7 +304,7 @@ export function ContactDetail({
               {contact.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-secondary px-2 py-0.5 text-meta text-muted-foreground"
+                  className="rounded-md bg-secondary px-2 py-0.5 text-meta text-muted-foreground"
                 >
                   #{tag}
                 </span>

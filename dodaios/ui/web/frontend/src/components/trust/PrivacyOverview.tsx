@@ -147,7 +147,7 @@ export function PrivacyOverview() {
         ) : (
           <ul className="flex flex-wrap gap-2">
             {data.channels.map((name) => (
-              <li key={name} className="rounded-full border border-border px-3 py-1 text-sm capitalize text-foreground">{name}</li>
+              <li key={name} className="rounded-md border border-border px-3 py-1 text-sm capitalize text-foreground">{name}</li>
             ))}
           </ul>
         )}

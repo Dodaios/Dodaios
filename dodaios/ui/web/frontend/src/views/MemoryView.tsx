@@ -398,7 +398,7 @@ export function MemoryView(): JSX.Element {
       {toast && (
         <div
           role="status"
-          className="fixed bottom-8 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-3 rounded-full border border-border bg-popover/95 px-4 py-2 text-[13px] text-popover-foreground shadow-float backdrop-blur"
+          className="fixed bottom-8 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-3 rounded-md border border-border bg-popover/95 px-4 py-2 text-[13px] text-popover-foreground shadow-float backdrop-blur"
         >
           {toast.message}
           {toast.undo && (
