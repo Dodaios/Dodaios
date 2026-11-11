@@ -337,6 +337,10 @@ def society_tools(cfg: Any, brain: Any, session: Any) -> dict[str, Tool]:
             ),
         }
     )
+    # An event handed to the agent that is outside its task goes back to the lead.
+    from dodaios.plugins.tool.thread_tools import HandbackEventTool
+
+    tools[HandbackEventTool.name] = cast(Tool, HandbackEventTool())
     # A team's lead plans, assigns and reports with three more tools.
     tools.update(cast(dict[str, Tool], team_lead_tools(rt, agent_id)))
     session_id = str(getattr(session, "session_id", "") or "")

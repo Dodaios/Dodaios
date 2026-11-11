@@ -38,8 +38,14 @@ class Stage1:
         self._seen_ids: dict[str, None] = {}
         self._threads: dict[tuple[str, str], float] = {}
 
-    def verdict(self, event: TriggerEvent, settings: TriggerSettings) -> str:
-        """``candidate`` or the reason the event is dropped."""
+    def verdict(
+        self, event: TriggerEvent, settings: TriggerSettings, *, thread_owned: bool = False
+    ) -> str:
+        """``candidate`` or the reason the event is dropped.
+
+        ``thread_owned``: a job subscribes to the event's thread, so quick follow-ups on it
+        are not collapsed by the thread dedupe; every other check still applies.
+        """
         rule = settings.rule(event.source)
         if rule.mode == "ignore":
             return "ignored_source"
@@ -60,7 +66,7 @@ class Stage1:
         now = self._clock()
         if event.thread_key:
             last = self._threads.get((event.source, event.thread_key))
-            if last is not None and now - last < settings.dedupe_window_s:
+            if not thread_owned and last is not None and now - last < settings.dedupe_window_s:
                 return "duplicate_thread"
         window = self._rates.setdefault(event.source, deque())
         while window and now - window[0] > 60:

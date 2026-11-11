@@ -16,11 +16,13 @@ import json
 import logging
 from collections.abc import Mapping
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from .event import TriggerEvent, normalize, source_of_hook
-from .service import TriggerService
+from .service import DELIVERED, TriggerService
 from .settings import Policy
+from .subscriptions import Subscription, SubscriptionStore
 
 log = logging.getLogger(__name__)
 
@@ -137,6 +139,70 @@ def _quiet() -> bool:
         return True
 
 
+async def deliver_to_job(sub: Subscription, event: TriggerEvent, text: str) -> str:
+    """Hand an event to the job that owns its thread through that kind's own message path.
+
+    The text is the event as quoted data (see ``subscriptions.delivery_text``); it is sent as an
+    ordinary message and carries no authority. Outcomes: ``delivered``, ``gone`` (the job's
+    agent or pane no longer exists), ``busy`` (a pane in a turn is never interrupted),
+    ``unsupported`` (no direct path for that kind: the lead sees the event instead).
+    """
+    if sub.kind == "society_assignment":
+        from dodaios.society.events import MsgType
+        from dodaios.society.roster import AgentState
+
+        runtime = _runtime()
+        if runtime is None:
+            return "failed"
+        agent = await runtime.roster.get(sub.target)
+        if agent is None or agent.state is AgentState.ARCHIVED:
+            return "gone"
+        if agent.state is not AgentState.ACTIVE:
+            return "busy"
+        await runtime.say(
+            from_agent=runtime.lead_id, to_agent=sub.target, text=text,
+            msg_type=MsgType.SAY, payload={"reply_policy": "none"},
+        )
+        return DELIVERED
+    if sub.kind == "ide_submission":
+        from dodaios.agentic_ide.session import AgentBusyError, SessionError, get_registry
+
+        try:
+            await get_registry().send_prompt(sub.target, text, require_idle=True)
+        except AgentBusyError:
+            return "busy"
+        except SessionError:
+            return "gone"
+        return DELIVERED
+    return "unsupported"
+
+
+_ledger_bound = False
+
+
+def _on_job_ended(job: Any) -> None:
+    if _service is not None:
+        _service.job_ended(job.id)
+
+
+def _bind_job_end() -> None:
+    """A finished job stops receiving: its subscriptions end with it."""
+    global _ledger_bound
+    from dodaios.orchestrator import jobs
+
+    if not _ledger_bound:
+        jobs.register_end_listener(_on_job_ended)
+        _ledger_bound = True
+
+
+def _subscription_store() -> SubscriptionStore:
+    from dodaios.core.config import DATA_DIR
+
+    store = SubscriptionStore(Path(DATA_DIR) / "thread_subscriptions.db")
+    _bind_job_end()
+    return store
+
+
 def get_service() -> TriggerService | None:
     """The process's service, built on first use; ``None`` while no society runs."""
     global _service
@@ -145,7 +211,8 @@ def get_service() -> TriggerService | None:
         return None
     if _service is None or getattr(_service, "_store", None) is not runtime.store:
         _service = TriggerService(
-            runtime.store, seat=_seat, starter=_start_job, notifier=_notify, quiet=_quiet
+            runtime.store, seat=_seat, starter=_start_job, notifier=_notify, quiet=_quiet,
+            subscriptions=_subscription_store(), deliverer=deliver_to_job,
         )
     return _service
 
