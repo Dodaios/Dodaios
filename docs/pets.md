@@ -23,11 +23,20 @@ one click.
 ## What the user sees
 
 - **The figure.** It reacts to Dodaios in real time (see *States*). It can be
-  dragged anywhere, and its position is remembered per monitor
-  (`[overlay.mascot] position_*`, shared with the mascot).
+  dragged anywhere, and after a restart it stands where it was dropped, on a
+  second monitor too (`[overlay.mascot] position_*`, shared with the mascot).
+  If that monitor is not connected, the pet waits at the same offset on the
+  primary screen. The saved spot is kept, so the pet goes back when the
+  monitor returns, at the next start or within a second or two while the app
+  runs. Dragging the pet while it waits gives it a new spot. **Reset
+  position** forgets the spot.
 - **The control strip** under the figure. At rest only the figure shows; the
   strip appears while Dodaios listens, thinks or talks, while notification cards
-  are up, and while the pointer is on the pet. With the pet "None", or with
+  are up, and while the pointer is on the pet. When none of that holds any
+  more it stays for a short grace, then fades out. It stays up for as long as
+  the pet is held or dragged, and goes only once the pointer has left the pet
+  after the drop. The size slider changes the figure only: the strip keeps
+  its size. With the pet "None", or with
   **Always show the buttons** on (My Pets → Customize, `[ui] pet_strip_always`),
   it always shows. From left to right:
   - bell: done cards on or off for this run (see *Cards*). Off
@@ -364,7 +373,7 @@ Control-strip actions: `bell` (handled in the surface, reported through
 |---|---|---|
 | `[ui] orb_style` | `jarvis_bar` | `pet` selects the pet |
 | `[ui] pet_id` | `gigi` | Active pet (built-in id, `u…` id or `none`) |
-| `[ui] pet_scale` | `1.0` | Size multiplier, 0.5–2.0 |
+| `[ui] pet_scale` | `1.0` | Size multiplier of the figure, 0.5–2.0 |
 | `[ui] pet_bubble` | `true` | Show the thought bubble |
 | `[ui] pet_strip_always` | `false` | Keep the control strip up even at rest |
 | `[trigger] hotkey_pet_toggle` | `alt+win+p` | Hide / show the pet; empty disables it |
@@ -389,10 +398,13 @@ The pet must cost next to nothing while idle:
 - every frame is scaled once (nearest-neighbour, an integer factor chosen
   from the figure's visible size so it reads about 180 logical px tall,
   times the monitor DPI and `pet_scale`) and cached as a Tk image; the strip
-  (about 0.3 × the figure) and the card scale with it;
+  and the cards follow the monitor DPI only;
 - the window repaints only when the frame key changes (frame index, plus the
   level bucket while talking), and the timer sleeps until the next frame
   boundary: 6 fps idle, 3 fps asleep, 8–10 fps active, nothing while hidden;
-- the control strip's indicator animates only while connecting, listening, talking or thinking.
+- the control strip's indicator animates only while connecting, listening, talking or thinking;
+- the strip's fade is the opacity of its window, a dozen attribute changes
+  with no frame drawn, and nothing polls the pointer: a hover that outlived
+  the pointer is caught by the position check that already runs every 1.5 s.
 
 Target: an idle pet adds less than 1 % of one CPU core to the app process.

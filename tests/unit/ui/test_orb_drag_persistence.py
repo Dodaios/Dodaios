@@ -14,7 +14,9 @@ from ui.orb.drag_persistence import (
     _ScreenSnapshot,
     clamp_to_work_area,
     clear_position_in_toml,
+    load_pinned_position,
     load_position_from_toml,
+    resolve_pet_home,
     resolve_placement,
     save_position_to_toml,
 )
@@ -233,6 +235,72 @@ def test_clear_removes_three_keys_keeps_rest(tmp_path: Path):
 
 def test_clear_is_noop_when_file_missing(tmp_path: Path):
     clear_position_in_toml(tmp_path / "absent.toml")  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# The pet's home: a pin, as opposed to the defaults of an untouched file
+# ---------------------------------------------------------------------------
+
+
+def test_a_file_that_was_never_dragged_holds_no_pin(tmp_path: Path):
+    path = tmp_path / "jarvis.toml"
+    path.write_text("[overlay.mascot]\nallow_secondary_monitor_pin = true\n", encoding="utf-8")
+    assert load_position_from_toml(path) is not None  # the defaults
+    assert load_pinned_position(path) is None
+    assert load_pinned_position(tmp_path / "absent.toml") is None
+
+
+def test_a_saved_spot_is_a_pin_even_without_a_monitor_name(tmp_path: Path):
+    """Only Windows names its monitors; a drag elsewhere saves an empty name."""
+    path = tmp_path / "jarvis.toml"
+    spot = MascotPosition(monitor="", x_relative=640, y_relative=360)
+    save_position_to_toml(path, spot)
+    assert load_pinned_position(path) == spot
+    clear_position_in_toml(path)
+    assert load_pinned_position(path) is None
+
+
+def test_a_pin_with_broken_numbers_is_no_pin(tmp_path: Path):
+    path = tmp_path / "jarvis.toml"
+    path.write_text(
+        '[overlay.mascot]\nposition_x_relative = "left"\nposition_y_relative = 4\n',
+        encoding="utf-8",
+    )
+    assert load_pinned_position(path) is None
+
+
+def test_the_pet_opens_on_the_monitor_it_was_pinned_to():
+    screens = [_screen("MAIN", primary=True), _screen("SIDE", x=1920)]
+    home = resolve_pet_home(
+        MascotPosition(monitor="SIDE", x_relative=300, y_relative=200),
+        screens,
+        fallback_area=(0, 0, 800, 600),
+    )
+    assert (home.abs_x, home.abs_y) == (2220, 200)
+    assert home.area == (1920, 0, 1920, 1080)
+    assert home.displaced is False
+
+
+def test_the_pet_waits_on_the_primary_screen_while_its_monitor_is_gone():
+    home = resolve_pet_home(
+        MascotPosition(monitor="SIDE", x_relative=300, y_relative=200),
+        [_screen("OTHER", x=-1920), _screen("MAIN", primary=True)],
+        fallback_area=(0, 0, 800, 600),
+    )
+    assert (home.abs_x, home.abs_y) == (300, 200)
+    assert home.area == (0, 0, 1920, 1080)
+    assert home.displaced is True
+
+
+def test_without_a_monitor_list_the_pin_counts_from_the_screen_origin():
+    home = resolve_pet_home(
+        MascotPosition(monitor="", x_relative=300, y_relative=200),
+        [],
+        fallback_area=(0, 0, 1440, 900),
+    )
+    assert (home.abs_x, home.abs_y) == (300, 200)
+    assert home.area == (0, 0, 1440, 900)
+    assert home.displaced is False
 
 
 # ---------------------------------------------------------------------------

@@ -87,6 +87,10 @@ class UserVisibleFeedback(Event):
   always *sees* the orb on boot regardless of pin location. Skipped
   in single-monitor / primary-pin / default-anchor boots — no visual
   noise in the 99% case.
+  Amendment 2026-11-11: the desktop pet is exempt. It stays on screen
+  while idle, so it opens on the monitor it was dragged to without the
+  opt-in and without the flash, and waits on the primary screen while
+  that monitor is unplugged (`docs/pets.md`). The orb is unchanged.
 - **L2 — Discovery-independent recovery.** Voice phrases "Orb zurück", "wo bist du", "reset orb" are matched by <!-- i18n-allow -->
   `dodaios.brain.local_action_gate` and dispatched to the new
   `reset_orb_position` tool, which publishes `OrbResetRequested`.
