@@ -25,6 +25,41 @@ The Dodaios root chat uses the lead agent's same browser profile and its selecte
 chat model. Its Add picker includes the browser tool. Stopping the browser task
 also stops the owning chat, whether it is the root chat or a specialist session.
 
+## Watch and take over
+
+The owner can watch an agent's browser live and take over for what an agent
+must not or cannot do itself (CAPTCHA, single sign-on, a second factor, a
+tricky form), then hand back. The browser is the local, real one, so the
+session and profile never leave the machine and sites see the owner's own
+network.
+
+- **Watch.** The agent card's browser panel streams the actual rendered tab and
+  is read-only until the owner takes control. The status light lists a running
+  browser task as a running row and opens that agent's panel.
+- **Take over / hand back.** "Take control" pauses the agent's browser actions
+  between steps (the task waits, nothing more reaches the page from the agent)
+  and forwards the owner's clicks and keys to the page. "Return control"
+  resumes the agent.
+- **Agent request.** The lead's `request_browser_takeover(reason)` tool posts
+  ONE written card in the lead conversation (never spoken), adds a desktop
+  notification and a status-light "needs you" row, shows the reason in the
+  panel with a Take control button, and waits. When the owner's phone chat
+  started the turn, the same line goes there if the "decisions" routing is on.
+  The wait ends at hand-back, when the browser goes away, or after an hour.
+- **Hand-back note.** The agent gets: the page the owner left it on (scheme,
+  host and path only; query strings and fragments can carry tokens), whether
+  the page changed, how many inputs there were, and whether anything was typed.
+  What was typed, and where the owner clicked, is never recorded, logged or
+  shown to the model: input is counted, not kept (`society/browser/takeover.py`).
+
+Known gaps of this first version: a takeover that begins while a task is
+running pauses it but cannot hand the note into that running task (it sees the
+live page again when it resumes; the note reaches the lead through the request
+tool); the page the model screenshots after hand-back can show text the owner
+typed into a visible (non-password) field; a request can only be raised by the
+lead, not from inside a browser task; the stream uses the existing frame
+transport, not a separate CDP screencast.
+
 ## Runtime and data
 
 Browser-Use 0.13.10 and Playwright 1.62.0 are pinned independently of the app's

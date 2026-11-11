@@ -382,6 +382,24 @@ _CARD_QUESTION: dict[str, str] = {
     "es": "Una pregunta para ti: {summary}{options}\nResponde aquí.",  # i18n-allow
     "pt": "Uma pergunta para ti: {summary}{options}\nResponde aqui.",  # i18n-allow
 }
+_CARD_TAKEOVER: dict[str, str] = {
+    "en": (
+        "My browser needs you at the computer: {summary}\n"
+        "Open Dodaios, take over, then hand back."
+    ),
+    "de": (  # i18n-allow
+        "Mein Browser braucht dich am Computer: {summary}\n"
+        "Öffne Dodaios, übernimm den Browser und gib ihn zurück."  # i18n-allow
+    ),
+    "es": (  # i18n-allow
+        "Mi navegador te necesita en el ordenador: {summary}\n"
+        "Abre Dodaios, toma el control del navegador y devuélvemelo."
+    ),
+    "pt": (  # i18n-allow
+        "O meu navegador precisa de ti no computador: {summary}\n"
+        "Abre o Dodaios, assume o navegador e devolve-o."
+    ),
+}
 _OPTIONS: dict[str, str] = {"en": "Options", "de": "Optionen", "es": "Opciones", "pt": "Opções"}
 
 
@@ -412,6 +430,8 @@ def _card_line(card: Any, language: str) -> str:
 
             summary = compact_line(preview, language) or summary
         return _CARD_APPROVAL.get(language, _CARD_APPROVAL["en"]).format(summary=summary)
+    if card.kind == "takeover":
+        return _CARD_TAKEOVER.get(language, _CARD_TAKEOVER["en"]).format(summary=summary)
     options = ""
     if card.options:
         options = f"\n{_OPTIONS.get(language, 'Options')}: " + ", ".join(card.options)

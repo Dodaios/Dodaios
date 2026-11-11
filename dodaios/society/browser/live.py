@@ -19,6 +19,7 @@ from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 from . import install
 from .profiles import BrowserProfiles, ProfileBinding
+from .takeover import TakeoverState
 
 log = logging.getLogger(__name__)
 RPC = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
@@ -110,6 +111,7 @@ class LiveSession:
     profile_binding: ProfileBinding | None = None
     profile_lease: Any = None
     login_guard: bool = False
+    takeover: TakeoverState = field(default_factory=TakeoverState)
 
     async def send(self, value: dict[str, Any]) -> None:
         data = (json.dumps(value, ensure_ascii=True) + "\n").encode()
@@ -133,9 +135,9 @@ class LiveSession:
 
     def publish(self, event: dict) -> None:
         kind = event.get("kind")
-        if kind in {"approval", "dialog"}:
+        if kind in {"approval", "dialog", "takeover_request"}:
             self.attention[kind] = event
-        elif kind in {"approval_cleared", "dialog_cleared"}:
+        elif kind in {"approval_cleared", "dialog_cleared", "takeover_request_cleared"}:
             self.attention.pop(kind.removesuffix("_cleared"), None)
         for queue in self.subscribers:
             queue.put_nowait(event)
@@ -283,6 +285,18 @@ class LiveSession:
                 if self.profile_lease is not None:
                     self.profile_lease.release()
                     self.profile_lease = None
+
+
+def finish_takeover(session: LiveSession) -> None:
+    """Close an open takeover: the viewers see the hand-back, a waiting agent wakes."""
+    state = session.takeover
+    if not state.active:
+        return
+    had_request = state.request is not None
+    note = state.end(str(session.state.get("url") or ""))
+    if had_request:
+        session.publish({"kind": "takeover_request_cleared"})
+    session.publish({"kind": "handback", **note})
 
 
 async def claim_browser(session: LiveSession, chat_session_id: str) -> None:
@@ -791,6 +805,7 @@ class LiveSessions:
                     binding is None or binding.kind != "chrome"
                 ):
                     await session.command("takeover", {"enabled": False})
+                    finish_takeover(session)
                 session.control_owner = None
                 if session.window_upgrade_pending:
                     session.publish({"kind": "disconnected"})
@@ -865,9 +880,12 @@ class LiveSessions:
                 if isinstance(generation, str) and generation:
                     session.generation = generation
                 if session.state.get("manual") or session.state.get("login_mode"):
+                    if not session.takeover.active:
+                        session.takeover.begin(str(session.state.get("url") or ""))
                     if not getattr(session, "manual_epoch", ""):
                         session.manual_epoch = uuid4().hex
                 else:
+                    finish_takeover(session)
                     # A viewer reclaim stays in the same cycle. Successful
                     # handback revokes API completion rights for that cycle.
                     session.manual_epoch = ""
@@ -883,6 +901,7 @@ class LiveSessions:
             "generation"
         ):
             raise ValueError("The browser changed; wait for its new image")
+        session.takeover.record(op)  # a count only; the input itself is never kept
         result = await session.command(op, args)
         if op == "dialog":
             session.publish({"kind": "dialog_cleared"})

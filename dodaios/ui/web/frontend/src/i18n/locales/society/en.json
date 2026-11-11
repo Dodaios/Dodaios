@@ -127,6 +127,12 @@
       "record_spent": "{0} spent",
       "record_last_active": "last active {0}"
     },
+    "browser_takeover": {
+      "requested": "The agent asks you to take over its browser",
+      "private_hint": "You are in control. What you type goes only to the page: it is not logged and the agent never sees it.",
+      "handed_back": "Handed back. The agent knows which page you left it on.",
+      "handed_back_typed": "Handed back. The agent knows which page you left it on, not what you typed."
+    },
     "browser_profiles": {
       "profile_unavailable": "Profile disconnected — choose a profile",
       "chrome_offline": "Chrome disconnected",
