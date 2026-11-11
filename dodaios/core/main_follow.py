@@ -75,7 +75,9 @@ FRONTEND = f"{PACKAGE}/ui/web/frontend"
 #: Python outside these folders is never loaded by the running app.
 _NOT_APP_CODE = ("tests/", "scripts/", "docs/", "tools/")
 _NPM_INPUTS = {f"{FRONTEND}/package.json", f"{FRONTEND}/package-lock.json"}
-_PIP_INPUTS = {"pyproject.toml", "requirements.txt"}
+#: The package file: its entry points are the app's plugin catalogue.
+_PACKAGE_FILE = "pyproject.toml"
+_PIP_INPUTS = {_PACKAGE_FILE, "requirements.txt"}
 #: A git lock this old belongs to no running command: one that was killed left it.
 STALE_LOCK_S = 10 * 60.0
 #: ``npm run`` script that bundles without the type check, and the variable that
@@ -521,7 +523,9 @@ class MainFollower:
             (path.endswith(".py") and not path.startswith(_NOT_APP_CODE)) or path in _PIP_INPUTS
             for path in changed
         )
-        if any(path in _PIP_INPUTS for path in changed) and not self._install_python():
+        if any(path in _PIP_INPUTS for path in changed) and not self._install_python(
+            register=_PACKAGE_FILE in changed
+        ):
             return False
         if frontend and not self._build(npm_install=any(path in _NPM_INPUTS for path in changed)):
             return False
@@ -681,7 +685,14 @@ class MainFollower:
         dirty = _git(["status", "--porcelain", "--untracked-files=all", "--", FRONTEND], self.root)
         return dirty.returncode == 0 and not dirty.stdout.strip()
 
-    def _install_python(self) -> bool:
+    def _install_python(self, *, register: bool = False) -> bool:
+        """Install the requirements; with ``register``, also re-register the package.
+
+        The app reads its tools and other plugins from the installed package's
+        entry points, not from ``pyproject.toml``. A new entry point is only seen
+        after the checkout is installed again, so a changed package file also
+        runs ``pip install --no-deps -e .`` (no dependency is touched by it).
+        """
         self.status.busy = "install"
         installed = _run(
             [self._python, "-m", "pip", "install", "--quiet", "-r", "requirements.txt"],
@@ -691,6 +702,15 @@ class MainFollower:
         if installed.returncode != 0:
             self._note(f"Installing the Python packages failed: {_last_line(installed)}")
             return False
+        if register:
+            registered = _run(
+                [self._python, "-m", "pip", "install", "--quiet", "--no-deps", "-e", "."],
+                self.root,
+                timeout=_INSTALL_TIMEOUT_S,
+            )
+            if registered.returncode != 0:
+                self._note(f"Registering the app's plugins failed: {_last_line(registered)}")
+                return False
         return True
 
     def _try_restart(self) -> None:
