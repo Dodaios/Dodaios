@@ -399,6 +399,7 @@ class AuditLog:
             try:
                 data = json.loads(row["prediction"])
             except ValueError:
+                log.warning("audit: unreadable prediction on a %s row skipped", row["tool"])
                 continue
             if isinstance(data, dict):
                 found.append({**data, "ts_ms": row["ts_ms"], "tool": row["tool"]})

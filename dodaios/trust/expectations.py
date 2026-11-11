@@ -53,7 +53,7 @@ _OUTCOME_MAX = 300
 
 EXPECT_DESCRIPTION: Final = (
     "Optional. Before acting, state what you expect to be true afterwards and how sure you "
-    "are, e.g. {\"outcome\": \"mail to ana@example.com is sent\", \"confidence\": 0.9}. "
+    'are, e.g. {"outcome": "mail to ana@example.com is sent", "confidence": 0.9}. '
     "Name concrete facts (recipient, time, file path) so the result can be checked. "
     "Low confidence on an irreversible action makes the app check first."
 )
@@ -143,6 +143,7 @@ def parse_expect(raw: Any) -> Expectation | None:
             try:
                 raw = json.loads(text)
             except ValueError:
+                log.debug("expect: not JSON, read as plain text")
                 raw = {"outcome": text}
         else:
             raw = {"outcome": text}
@@ -156,9 +157,16 @@ def parse_expect(raw: Any) -> Expectation | None:
         confidence = min(1.0, max(0.0, float(value)))
     elif isinstance(value, str):
         try:
-            confidence = min(1.0, max(0.0, float(value.strip().rstrip("%")) / (
-                100.0 if value.strip().endswith("%") else 1.0)))
+            confidence = min(
+                1.0,
+                max(
+                    0.0,
+                    float(value.strip().rstrip("%"))
+                    / (100.0 if value.strip().endswith("%") else 1.0),
+                ),
+            )
         except ValueError:
+            log.debug("expect: unreadable confidence %r", value)
             confidence = None
     if not outcome and confidence is None:
         return None
@@ -261,6 +269,7 @@ def _flatten(value: Any, limit: int = 20_000) -> str:
     try:
         return json.dumps(value, ensure_ascii=False, default=str)[:limit]
     except (TypeError, ValueError):
+        log.debug("expect: result not JSON-serializable, using its string form")
         return str(value)[:limit]
 
 
@@ -362,6 +371,7 @@ def _exit_code(receipt: dict[str, Any] | None) -> int | None:
     try:
         return int(value) if value is not None else None
     except (TypeError, ValueError):
+        log.debug("expect: unreadable exit code %r", value)
         return None
 
 
