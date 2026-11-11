@@ -157,11 +157,12 @@ def _retry_after(response: Any) -> float:
     try:
         return max(1.0, float(raw))
     except (TypeError, ValueError):
-        pass
+        log.debug("lead triggers: no usable Retry-After header")
     reset = response.headers.get("x-ratelimit-reset")
     try:
         return max(1.0, float(reset) - time.time())
     except (TypeError, ValueError):
+        log.debug("lead triggers: no usable rate-limit reset header")
         return 60.0
 
 

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Final
 
 from ..event import TriggerEvent
 from .base import Api, Poll, ProviderError
+
+log = logging.getLogger(__name__)
 
 _URL: Final[str] = "https://api.github.com/notifications"
 MAX_PAGES: Final[int] = 5
@@ -73,6 +76,7 @@ def _poll_interval(response: Any) -> float:
     try:
         return float(response.headers.get("x-poll-interval") or 0)
     except ValueError:
+        log.debug("github: unreadable poll interval")
         return 0.0
 
 

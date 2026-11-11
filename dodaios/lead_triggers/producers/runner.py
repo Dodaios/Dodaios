@@ -50,6 +50,7 @@ class ProducerRunner:
             try:
                 raw = json.loads(await self._store.get_meta(META_PRODUCERS, ""))
             except ValueError:  # nothing saved yet
+                log.debug("lead triggers: no saved poller state")
                 raw = {}
             raw = raw if isinstance(raw, dict) else {}
             self._state = {k: dict(v) for k, v in raw.items() if isinstance(v, dict)}
@@ -111,10 +112,13 @@ class ProducerRunner:
                 next_at=now + max(interval, poll.min_interval_s),
             )
         except NotConnected:
+            log.debug("lead triggers: %s is not connected", producer.id)
             entry["state"], entry["next_at"] = "not_connected", now + interval
         except AuthError:
+            log.info("lead triggers: %s needs a reconnect", producer.id)
             entry.update(state="error", last_error="reconnect", next_at=now + AUTH_RETRY_S)
         except RateLimited as exc:
+            log.info("lead triggers: %s rate limited for %.0fs", producer.id, exc.retry_after_s)
             entry.update(
                 state="backoff", last_error="rate_limited",
                 next_at=now + max(exc.retry_after_s, interval),
@@ -138,6 +142,7 @@ class ProducerRunner:
             try:
                 connected = await producer.connected()
             except Exception:  # noqa: BLE001 - an unreadable store counts as not connected
+                log.debug("lead triggers: connection check failed", exc_info=True)
                 connected = False
             out.append({
                 "id": producer.id, "source": producer.source, "connected": connected,

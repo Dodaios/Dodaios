@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, Final
@@ -9,6 +10,8 @@ from urllib.parse import quote
 
 from ..event import AGENT_SCOPE_PREFIX, TriggerEvent
 from .base import Api, NotConnected, Poll, ProviderError, address_of
+
+log = logging.getLogger(__name__)
 
 _BASE: Final[str] = "https://api.agentmail.to/v0"
 _SEEN_REMEMBERED: Final[int] = 200
@@ -18,6 +21,7 @@ def _moment(raw: Any) -> float:
     try:
         parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
     except ValueError:
+        log.debug("agentmail: unreadable timestamp %r", raw)
         return 0.0
     return (parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)).timestamp()
 
