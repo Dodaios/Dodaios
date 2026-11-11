@@ -65,7 +65,7 @@ class FileHandler:
         path = self.resolve(target)
         try:
             return path.read_bytes().decode("utf-8")
-        except FileNotFoundError:
+        except FileNotFoundError:  # a missing file is the "does not exist yet" state
             return None
 
     def write(self, target: str, text: str | None) -> None:

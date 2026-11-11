@@ -141,7 +141,7 @@ def skill_valid(draft: Draft, gate: Gate) -> CheckResult:
     try:
         from dodaios.skills.authoring.draft_writer import safe_lint_skill_body
         from dodaios.skills.creator_service import validate_skill_md
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 — an unloadable validator cannot vouch for the skill
         return CheckResult("skill", UNAVAILABLE, "the skill validator could not be loaded")
     validation, frontmatter = validate_skill_md(draft.after)
     if not validation.get("ok") or frontmatter is None:
@@ -208,7 +208,7 @@ def code_tests(draft: Draft, gate: Gate) -> CheckResult:
         return CheckResult("tests", UNAVAILABLE, "no tests were named for this code change")
     try:
         done = gate.run_tests(draft.workdir, draft.tests)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — tests that cannot run cannot vouch for the change
         return CheckResult("tests", UNAVAILABLE, f"the tests could not run ({exc})"[:200])
     if done.returncode != 0:
         tail = (done.stdout or done.stderr or "").strip().splitlines()[-1:] or ["failed"]
