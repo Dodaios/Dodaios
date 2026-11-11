@@ -3,12 +3,13 @@ import { Brain, Check, ChevronRight, CircleAlert, CircleDashed, FilePenLine, Fil
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useT } from "@/i18n";
+import { openExternalUrl } from "@/lib/openExternal";
 import { PetStageContext } from "@/components/pets/petStage";
 import { PetMark } from "@/components/pets/PetMark";
 import type { PetState } from "@/lib/petStates";
 import { cn } from "@/lib/utils";
 import type { ApprovalDecision } from "@/lib/agentChatApi";
-import { billedPerToken, hasPersonCard, isCredentialTool, isQuestionTool, waitsOnCard, type ReasoningBlock, type TextBlock, type ToolBlock, type TurnBlock, type TurnItem, type TurnStatus } from "./reduce";
+import { billedPerToken, hasPersonCard, isCredentialTool, isQuestionTool, waitsOnCard, type ReasoningBlock, type TextBlock, type ToolBlock, type ToolReceipt, type TurnBlock, type TurnItem, type TurnStatus } from "./reduce";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { CredentialCard } from "./CredentialCard";
 import { QuestionCard } from "./QuestionCard";
@@ -350,7 +351,22 @@ function ToolDetails({ block }: { block: ToolBlock }) {
       className="rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >{t("society.chat.memory_open_file")}: {memoryFile.path}</button> : null}
     {block.output !== null ? <Detail label={t(block.isError ? "work_trace.error" : "work_trace.output")} text={block.output || t("work_trace.empty_output")} /> : null}
+    {block.receipt && !block.isError ? <ReceiptLine receipt={block.receipt} /> : null}
     {memoryOpen && memoryFile ? <MemoryFileDialog path={memoryFile.path} before={memoryFile.before} after={memoryFile.after} onClose={() => setMemoryOpen(false)} /> : null}
+  </div>;
+}
+
+/** The proof of a side effect: what the environment showed, or that nothing external could. */
+function ReceiptLine({ receipt }: { receipt: ToolReceipt }) {
+  const t = useT();
+  const link = /^https?:\/\//.test(receipt.link) ? receipt.link : "";
+  return <div data-testid="tool-receipt">
+    <p className="mb-1 font-medium text-foreground">{t("work_trace.receipt")}</p>
+    <p className="[overflow-wrap:anywhere]">
+      {receipt.state === "none" ? t("work_trace.receipt_none") : receipt.summary}
+      {link ? <>{" "}<a href={link} className="text-primary underline"
+        onClick={(event) => { event.preventDefault(); void openExternalUrl(link); }}>{link}</a></> : null}
+    </p>
   </div>;
 }
 

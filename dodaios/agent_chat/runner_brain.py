@@ -334,6 +334,19 @@ def _default_model(brain: Any, provider: str) -> str | None:
 # ------------------------------------------------------------- step mirror
 
 
+def _receipt_of(event: Any) -> dict[str, str] | None:
+    """The action receipt an executed call carries (``trust/receipts``), or ``None``."""
+    receipt_id = str(getattr(event, "receipt_id", "") or "")
+    if not receipt_id:
+        return None
+    return {
+        "id": receipt_id,
+        "state": str(getattr(event, "receipt_state", "") or ""),
+        "summary": str(getattr(event, "receipt_summary", "") or ""),
+        "link": str(getattr(event, "receipt_link", "") or ""),
+    }
+
+
 class _StepMirror:
     """Turns THIS turn's bus events into the timeline's step rows.
 
@@ -406,7 +419,15 @@ class _StepMirror:
             {"turn_id": self._turn_id, "call_id": call_id, "name": tool_name, "input": payload_in},
         )
 
-    async def _close_call(self, tool_name: str, *, ok: bool, output: str, duration_ms: Any) -> None:
+    async def _close_call(
+        self,
+        tool_name: str,
+        *,
+        ok: bool,
+        output: str,
+        duration_ms: Any,
+        receipt: dict[str, str] | None = None,
+    ) -> None:
         index = next((i for i, (name, _) in enumerate(self._open) if name == tool_name), None)
         if index is None:
             # A result with no row of its own (another path's, or a report
@@ -421,6 +442,7 @@ class _StepMirror:
                 "output": str(output)[:2000],
                 "is_error": not ok,
                 "duration_ms": int(duration_ms or 0),
+                **({"receipt": receipt} if receipt else {}),
             },
         )
 
@@ -440,6 +462,7 @@ class _StepMirror:
                 ok=bool(getattr(event, "success", False)),
                 output=getattr(event, "error", None) or getattr(event, "output_preview", "") or "",
                 duration_ms=getattr(event, "duration_ms", 0),
+                receipt=_receipt_of(event),
             )
         elif name == "ActionDenied" and self._mine(event):
             await self._close_call(

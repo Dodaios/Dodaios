@@ -229,6 +229,10 @@ class ToolResult:
     output: Any
     error: str | None = None
     artifacts: tuple[str, ...] = field(default_factory=tuple)
+    #: Set by the ``ToolExecutor`` after a successful call, never by a tool: the
+    #: call's receipt (``dodaios.trust.receipts``) with ``id``, ``state``
+    #: (``backed`` / ``none`` / ``read``), ``kind``, ``summary``, ``evidence``, ``links``.
+    receipt: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)

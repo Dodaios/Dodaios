@@ -281,6 +281,25 @@ describe("agent-chat reduce", () => {
     expect(turn.blocks[1]).toMatchObject({ kind: "reasoning", text: "other message" });
   });
 
+  it("files the action receipt of a side-effect call on its tool block", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "r1" }),
+      ev("tool_call", { turn_id: "r1", call_id: "c1", name: "gmail", input: { action: "send_message" } }),
+      ev("tool_result", {
+        turn_id: "r1", call_id: "c1", output: "sent", is_error: false,
+        receipt: { id: "abc", state: "backed", summary: "Mail sent (message m1)", link: "https://mail.google.com/mail/u/0/#all/t1" },
+      }),
+      ev("tool_call", { turn_id: "r1", call_id: "c2", name: "remember", input: {} }),
+      ev("tool_result", { turn_id: "r1", call_id: "c2", output: "ok", receipt: { id: "def", state: "none", summary: "no external evidence", link: "" } }),
+      ev("tool_call", { turn_id: "r1", call_id: "c3", name: "Read", input: {} }),
+      ev("tool_result", { turn_id: "r1", call_id: "c3", output: "text" }),
+    ]);
+    const blocks = (tl.items[0] as TurnItem).blocks;
+    expect(blocks[0]).toMatchObject({ receipt: { id: "abc", state: "backed", summary: "Mail sent (message m1)" } });
+    expect(blocks[1]).toMatchObject({ receipt: { state: "none" } });
+    expect((blocks[2] as { receipt?: unknown }).receipt).toBeUndefined();
+  });
+
   it("ends a live thought when text or a tool call follows, and times tool calls from the log", () => {
     let tl = reduceEvents(EMPTY_TIMELINE, [
       ev("turn_started", { turn_id: "t6" }),

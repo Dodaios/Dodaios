@@ -122,3 +122,64 @@ export const setLearning = (on: boolean) =>
 /** The screen-context master switch (screen_context_routes.py). */
 export const setScreenContext = (enabled: boolean) =>
   request<{ enabled: boolean }>("/api/screen-context/settings", json({ enabled }));
+
+export interface ActionReceipt {
+  id: string;
+  state: "backed" | "none" | "read";
+  kind: string;
+  summary: string;
+  evidence: Record<string, unknown>;
+  links: string[];
+}
+
+export interface AuditEntry {
+  seq: number;
+  id: string;
+  ts_ms: number;
+  day: string;
+  tool: string;
+  action: string;
+  origin: "owner" | "routine" | "trigger" | "agent";
+  origin_detail: string;
+  approval: string;
+  approval_by: string;
+  tier: string;
+  effect: string;
+  outcome: string;
+  error: string;
+  duration_ms: number;
+  args_preview: string;
+  receipt: ActionReceipt | null;
+}
+
+export interface AuditPage {
+  entries: AuditEntry[];
+  next_before: number | null;
+  days: string[];
+  tools: string[];
+  chain: { ok: boolean; rows: number; broken_at: number | null };
+}
+
+export interface AuditFilter {
+  day?: string;
+  tool?: string;
+  origin?: string;
+  before?: number;
+}
+
+export function auditQuery(filter: AuditFilter): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filter)) {
+    if (value) params.set(key, String(value));
+  }
+  const text = params.toString();
+  return text ? `?${text}` : "";
+}
+
+/** Read-only: the audit log has no write route. */
+export const fetchAudit = (filter: AuditFilter) => request<AuditPage>(`/api/trust/audit${auditQuery(filter)}`);
+
+export const auditExportUrl = (format: "csv" | "json", filter: AuditFilter) => {
+  const query = auditQuery({ ...filter, before: undefined });
+  return `/api/trust/audit/export${query ? `${query}&` : "?"}format=${format}`;
+};
