@@ -28,6 +28,81 @@ void FVerseInputFrameBuilder::ToggleButton(EVerseInputButton Button)
 	}
 }
 
+EVerseKeyMode FVerseInputOptions::ParseMode(const FString& Text)
+{
+	if (Text.Equals(TEXT("toggle"), ESearchCase::IgnoreCase))
+	{
+		return EVerseKeyMode::Toggle;
+	}
+	if (Text.Equals(TEXT("auto"), ESearchCase::IgnoreCase))
+	{
+		return EVerseKeyMode::Auto;
+	}
+	return EVerseKeyMode::Hold;
+}
+
+void FVerseInputFrameBuilder::AddMouseLook(const FVector2f& PitchYawDeg)
+{
+	const float Scale = Options.MouseScale * (IsHeld(EVerseInputButton::Ads) ? Options.AdsScale : 1.f);
+	LookAccum += FVector2f(PitchYawDeg.X * Scale * (Options.bInvertMouseY ? -1.f : 1.f), PitchYawDeg.Y * Scale);
+}
+
+void FVerseInputFrameBuilder::SetOptions(const FVerseInputOptions& InOptions)
+{
+	const EVerseKeyMode OldAim = Options.Aim;
+	const EVerseKeyMode OldLean = Options.Lean;
+	Options = InOptions;
+	Options.MouseScale = FMath::Clamp(Options.MouseScale, 0.05f, 10.f);
+	Options.AdsScale = FMath::Clamp(Options.AdsScale, 0.05f, 5.f);
+	// A button toggled on stays on only while its mode is toggle.
+	if (OldAim == EVerseKeyMode::Toggle && Options.Aim != EVerseKeyMode::Toggle)
+	{
+		SetButton(EVerseInputButton::Ads, false);
+	}
+	if (OldLean == EVerseKeyMode::Toggle && Options.Lean != EVerseKeyMode::Toggle)
+	{
+		SetButton(EVerseInputButton::LeanLeft, false);
+		SetButton(EVerseInputButton::LeanRight, false);
+	}
+}
+
+void FVerseInputFrameBuilder::KeyButton(EVerseInputButton Button, bool bDown)
+{
+	EVerseKeyMode Mode = EVerseKeyMode::Hold;
+	switch (Button)
+	{
+	case EVerseInputButton::Ads: Mode = Options.Aim; break;
+	case EVerseInputButton::Crouch: Mode = Options.Crouch; break;
+	case EVerseInputButton::Sprint: Mode = Options.Sprint; break;
+	case EVerseInputButton::LeanLeft:
+	case EVerseInputButton::LeanRight: Mode = Options.Lean; break;
+	default: break;
+	}
+	if (Mode == EVerseKeyMode::Toggle)
+	{
+		if (!bDown)
+		{
+			return;
+		}
+		ToggleButton(Button);
+		// One lean at a time.
+		if (IsHeld(Button) && Button == EVerseInputButton::LeanLeft)
+		{
+			SetButton(EVerseInputButton::LeanRight, false);
+		}
+		else if (IsHeld(Button) && Button == EVerseInputButton::LeanRight)
+		{
+			SetButton(EVerseInputButton::LeanLeft, false);
+		}
+		return;
+	}
+	SetButton(Button, bDown);
+	if (bDown && Button == EVerseInputButton::Crouch)
+	{
+		SetButton(EVerseInputButton::Prone, false);
+	}
+}
+
 void FVerseInputFrameBuilder::SetMoveKey(EVerseMoveKey Key, bool bHeld)
 {
 	const uint8 Bit = uint8(1u << uint8(Key));
@@ -62,6 +137,11 @@ FVerseInputFrame FVerseInputFrameBuilder::Consume(uint32 ServerTimeMs)
 	Frame.Move = Move * (bWalk ? WalkScale : 1.f);
 	Frame.LookDeltaDeg = LookAccum;
 	Frame.Buttons = Buttons;
+	if (Options.Sprint == EVerseKeyMode::Auto && Move.X > 0.5f && !bWalk)
+	{
+		// Auto sprint: moving forward sprints (the movement still refuses it while crouched or aiming).
+		Frame.Buttons |= uint32(EVerseInputButton::Sprint);
+	}
 	Frame.Pressed = Buttons & ~PrevButtons;
 	Frame.ServerTimeMs = ServerTimeMs;
 	PrevButtons = Buttons;
@@ -71,10 +151,9 @@ FVerseInputFrame FVerseInputFrameBuilder::Consume(uint32 ServerTimeMs)
 
 void FVerseInputFrameBuilder::Reset()
 {
-	const float Scale = MouseScale;
-	const bool bInvert = bInvertMouseY;
+	const FVerseInputOptions Kept = Options;
 	*this = FVerseInputFrameBuilder();
-	SetMouseLook(Scale, bInvert);
+	Options = Kept;
 }
 
 namespace
@@ -130,12 +209,17 @@ void VersePersonInput::BindDefaults(UInputComponent& Input, FVerseInputFrameBuil
 
 	Hold(VerseKey(TEXT("SpaceBar")), EVerseInputButton::Jump);
 	Hold(VerseKey(TEXT("Gamepad_FaceButton_Bottom")), EVerseInputButton::Jump);
-	Hold(VerseKey(TEXT("LeftShift")), EVerseInputButton::Sprint);
+	auto Moded = [&Input, B](const FKey& Key, EVerseInputButton Button)
+	{
+		BindKeyEvent(Input, Key, IE_Pressed, [B, Button] { B->KeyButton(Button, true); });
+		BindKeyEvent(Input, Key, IE_Released, [B, Button] { B->KeyButton(Button, false); });
+	};
+	Moded(VerseKey(TEXT("LeftShift")), EVerseInputButton::Sprint);
 	Hold(VerseKey(TEXT("Gamepad_LeftThumbstick")), EVerseInputButton::Sprint);
-	Hold(VerseKey(TEXT("Q")), EVerseInputButton::LeanLeft);
-	Hold(VerseKey(TEXT("E")), EVerseInputButton::LeanRight);
-	Toggle(VerseKey(TEXT("LeftControl")), EVerseInputButton::Crouch);
-	Toggle(VerseKey(TEXT("C")), EVerseInputButton::Crouch);
+	Moded(VerseKey(TEXT("Q")), EVerseInputButton::LeanLeft);
+	Moded(VerseKey(TEXT("E")), EVerseInputButton::LeanRight);
+	Moded(VerseKey(TEXT("LeftControl")), EVerseInputButton::Crouch);
+	Moded(VerseKey(TEXT("C")), EVerseInputButton::Crouch);
 	Toggle(VerseKey(TEXT("Gamepad_FaceButton_Right")), EVerseInputButton::Crouch);
 	Toggle(VerseKey(TEXT("Z")), EVerseInputButton::Prone);
 	BindKeyEvent(Input, VerseKey(TEXT("LeftAlt")), IE_Pressed, [B] { B->SetWalkModifier(true); });

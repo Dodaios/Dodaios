@@ -21,6 +21,34 @@ enum class EVerseMoveKey : uint8
 	Left
 };
 
+/** How a key drives its button (the options' aim, crouch, sprint and lean modes). */
+enum class EVerseKeyMode : uint8
+{
+	/** Held while the key is down. */
+	Hold,
+	/** Each press flips the button. */
+	Toggle,
+	/** Sprint only: on while moving forward; the key holds it as well. */
+	Auto
+};
+
+/** The person's input options from the in-game settings (they survive Reset). */
+struct VERSEMOVEMENT_API FVerseInputOptions
+{
+	/** Mouse look multiplier (controls.sensitivity). */
+	float MouseScale = 1.f;
+	/** Extra mouse multiplier while aiming down the sights (controls.ads_multiplier). */
+	float AdsScale = 1.f;
+	bool bInvertMouseY = false;
+	EVerseKeyMode Aim = EVerseKeyMode::Hold;
+	EVerseKeyMode Crouch = EVerseKeyMode::Toggle;
+	EVerseKeyMode Sprint = EVerseKeyMode::Hold;
+	EVerseKeyMode Lean = EVerseKeyMode::Hold;
+
+	/** "hold", "toggle", "auto" as the settings catalogue spells them; anything else is Hold. */
+	static EVerseKeyMode ParseMode(const FString& Text);
+};
+
 /**
  * Collects the person's input between ticks and emits one FVerseInputFrame per tick, the same
  * struct a bot produces (bot.md B1). Buttons are "held" bits; Pressed is derived from the
@@ -37,19 +65,18 @@ struct VERSEMOVEMENT_API FVerseInputFrameBuilder
 	void SetStickAxis(int32 Axis, float Value);
 	/** Look added this tick, degrees (pitch, yaw). Accumulates until the frame is taken. */
 	void AddLook(const FVector2f& PitchYawDeg) { LookAccum += PitchYawDeg; }
-	/** Mouse look added this tick, degrees (pitch, yaw): the person's sensitivity and invert-Y apply. */
-	void AddMouseLook(const FVector2f& PitchYawDeg)
-	{
-		LookAccum += FVector2f(PitchYawDeg.X * MouseScale * (bInvertMouseY ? -1.f : 1.f), PitchYawDeg.Y * MouseScale);
-	}
+	/** Mouse look added this tick, degrees (pitch, yaw): the person's sensitivity, ADS multiplier and invert-Y apply. */
+	void AddMouseLook(const FVector2f& PitchYawDeg);
 	/** The options' look sensitivity (multiplier) and inverted mouse pitch. */
 	void SetMouseLook(float Scale, bool bInvertY)
 	{
-		MouseScale = FMath::Clamp(Scale, 0.05f, 10.f);
-		bInvertMouseY = bInvertY;
+		Options.MouseScale = FMath::Clamp(Scale, 0.05f, 10.f);
+		Options.bInvertMouseY = bInvertY;
 	}
-	float GetMouseScale() const { return MouseScale; }
-	bool IsMouseYInverted() const { return bInvertMouseY; }
+	void SetOptions(const FVerseInputOptions& InOptions);
+	const FVerseInputOptions& GetOptions() const { return Options; }
+	/** A key for Button went down or up; its mode (hold, toggle, auto) decides what that does. */
+	void KeyButton(EVerseInputButton Button, bool bDown);
 	void SetButton(EVerseInputButton Button, bool bHeld);
 	void ToggleButton(EVerseInputButton Button);
 	/** Walk modifier: scales the move stick for quiet footsteps. */
@@ -74,8 +101,7 @@ private:
 	uint32 Buttons = 0;
 	uint32 PrevButtons = 0;
 	bool bWalk = false;
-	float MouseScale = 1.f;
-	bool bInvertMouseY = false;
+	FVerseInputOptions Options;
 };
 
 /**

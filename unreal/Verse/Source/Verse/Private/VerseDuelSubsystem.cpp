@@ -641,7 +641,23 @@ void UVerseDuelSubsystem::ApplyViewSettings()
 	APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
 	if (AVerseCharacter* Person = PC ? Cast<AVerseCharacter>(PC->GetPawn()) : nullptr)
 	{
-		Person->GetPersonInput().SetMouseLook(Settings->LookSensitivity, Settings->bInvertLookY);
+		// The modes and the ADS multiplier come as VerseUI's published game settings.
+		auto Game = [](const TCHAR* Id) -> FString
+		{
+			const IConsoleVariable* Var = IConsoleManager::Get().FindConsoleVariable(*(FString(TEXT("Verse.Settings.Game.")) + Id));
+			return Var ? Var->GetString() : FString();
+		};
+		FVerseInputOptions Options = Person->GetPersonInput().GetOptions();
+		Options.MouseScale = Settings->LookSensitivity;
+		Options.bInvertMouseY = Settings->bInvertLookY;
+		const FString Ads = Game(TEXT("controls.ads_multiplier"));
+		Options.AdsScale = Ads.IsEmpty() ? 1.f : FCString::Atof(*Ads);
+		const FString Crouch = Game(TEXT("controls.crouch_mode"));
+		Options.Aim = FVerseInputOptions::ParseMode(Game(TEXT("controls.aim_mode")));
+		Options.Crouch = Crouch.IsEmpty() ? EVerseKeyMode::Toggle : FVerseInputOptions::ParseMode(Crouch);
+		Options.Sprint = FVerseInputOptions::ParseMode(Game(TEXT("controls.sprint_mode")));
+		Options.Lean = FVerseInputOptions::ParseMode(Game(TEXT("controls.lean_mode")));
+		Person->GetPersonInput().SetOptions(Options);
 		UCameraComponent* Camera = Person->GetFirstPersonCamera();
 		const float Fov = FMath::Clamp(Settings->DuelFovDeg, 80.f, 110.f);
 		if (Camera && !FMath::IsNearlyEqual(Camera->FieldOfView, Fov, 0.01f))

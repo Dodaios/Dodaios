@@ -75,7 +75,7 @@ void AVerseDefaultCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 			FInputKeyBinding Binding(FInputChord(Key, false, false, false, false), Event);
 			Binding.bConsumeInput = false;
 			const bool bDown = Event == IE_Pressed;
-			Binding.KeyDelegate.GetDelegateForManualSet().BindLambda([Builder, Button, bDown]() { Builder->SetButton(Button, bDown); });
+			Binding.KeyDelegate.GetDelegateForManualSet().BindLambda([Builder, Button, bDown]() { Builder->KeyButton(Button, bDown); });
 			PlayerInputComponent->KeyBindings.Emplace(MoveTemp(Binding));
 		}
 	};

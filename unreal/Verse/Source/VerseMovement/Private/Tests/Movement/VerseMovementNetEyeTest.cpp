@@ -175,6 +175,47 @@ bool FVerseMovementPersonKeysTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("sensitivity 2 doubles the mouse yaw"), Frame.LookDeltaDeg.Y, 4.f * VersePersonInput::MouseDegPerValue);
 		TestEqual(TEXT("inverted, sensitivity 2: the mouse pitch flips and doubles"), Frame.LookDeltaDeg.X, 2.f * VersePersonInput::MouseDegPerValue);
 		B.SetMouseLook(1.f, false);
+		// The options' key modes: toggle sprint and lean, hold crouch, auto sprint; the ADS
+		// multiplier scales the mouse only while aiming.
+		{
+			FVerseInputOptions Modes = B.GetOptions();
+			Modes.Sprint = EVerseKeyMode::Toggle;
+			Modes.Lean = EVerseKeyMode::Toggle;
+			Modes.Crouch = EVerseKeyMode::Hold;
+			Modes.AdsScale = 0.5f;
+			B.SetOptions(Modes);
+			B.Reset();
+			FireKey(*Input, VerseKey(TEXT("LeftShift")), IE_Pressed);
+			FireKey(*Input, VerseKey(TEXT("LeftShift")), IE_Released);
+			TestTrue(TEXT("toggle sprint: stays on after the key is up"), B.Consume(0).IsHeld(EB::Sprint));
+			FireKey(*Input, VerseKey(TEXT("LeftShift")), IE_Pressed);
+			FireKey(*Input, VerseKey(TEXT("LeftShift")), IE_Released);
+			TestFalse(TEXT("toggle sprint: a second press ends it"), B.Consume(0).IsHeld(EB::Sprint));
+			FireKey(*Input, VerseKey(TEXT("Q")), IE_Pressed);
+			FireKey(*Input, VerseKey(TEXT("Q")), IE_Released);
+			FireKey(*Input, VerseKey(TEXT("E")), IE_Pressed);
+			Frame = B.Consume(0);
+			TestTrue(TEXT("toggle lean: E switches from left to right"), Frame.IsHeld(EB::LeanRight) && !Frame.IsHeld(EB::LeanLeft));
+			FireKey(*Input, VerseKey(TEXT("E")), IE_Released);
+			FireKey(*Input, VerseKey(TEXT("E")), IE_Pressed);
+			FireKey(*Input, VerseKey(TEXT("C")), IE_Pressed);
+			Frame = B.Consume(0);
+			TestTrue(TEXT("hold crouch: down while held"), Frame.IsHeld(EB::Crouch) && !Frame.IsHeld(EB::LeanRight));
+			FireKey(*Input, VerseKey(TEXT("C")), IE_Released);
+			TestFalse(TEXT("hold crouch: up when released"), B.Consume(0).IsHeld(EB::Crouch));
+			B.SetButton(EB::Ads, true);
+			FireAxis(*Input, VerseKey(TEXT("MouseX")), 2.f);
+			TestEqual(TEXT("ADS multiplier 0.5 while aiming"), B.Consume(0).LookDeltaDeg.Y, 1.f * VersePersonInput::MouseDegPerValue);
+			B.SetButton(EB::Ads, false);
+			Modes.Sprint = EVerseKeyMode::Auto;
+			B.SetOptions(Modes);
+			FireKey(*Input, VerseKey(TEXT("W")), IE_Pressed);
+			TestTrue(TEXT("auto sprint: moving forward sprints"), B.Consume(0).IsHeld(EB::Sprint));
+			FireKey(*Input, VerseKey(TEXT("W")), IE_Released);
+			TestFalse(TEXT("auto sprint: standing does not"), B.Consume(0).IsHeld(EB::Sprint));
+			B.SetOptions(FVerseInputOptions());
+			B.Reset();
+		}
 		FireAxis(*Input, VerseKey(TEXT("Gamepad_LeftY")), 0.6f);
 		FireAxis(*Input, VerseKey(TEXT("Gamepad_LeftX")), -0.3f);
 		TestTrue(TEXT("gamepad stick moves"), B.Consume(0).Move.Equals(FVector2f(0.6f, -0.3f), 1e-4f));
