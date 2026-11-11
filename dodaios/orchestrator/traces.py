@@ -256,7 +256,7 @@ def root_for(parent_span_id: str) -> str:
         if job is not None:
             return job.root_span_id or job.span_id
     except Exception:  # noqa: BLE001 - tracing is optional
-        log.debug("traces: could not resolve the root of %s", parent_span_id, exc_info=True)
+        log.warning("traces: could not resolve the root of %s", parent_span_id, exc_info=True)
     return parent_span_id
 
 
@@ -278,7 +278,7 @@ def resolve_root(any_id: str) -> str:
         if get_store().count_in_root(any_id) or ledger.in_root(any_id, limit=1):
             return any_id
     except Exception:  # noqa: BLE001
-        log.debug("traces: could not resolve %s", any_id, exc_info=True)
+        log.warning("traces: could not resolve %s", any_id, exc_info=True)
     return ""
 
 
