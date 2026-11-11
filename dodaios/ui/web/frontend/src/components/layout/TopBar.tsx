@@ -11,7 +11,6 @@ import { clsx } from "clsx";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { CodingModeBadge } from "@/components/layout/CodingModeBadge";
-import { StatusLight } from "@/components/layout/StatusLight";
 import { SectionNavButtons } from "@/components/layout/SectionNavButtons";
 import { LayoutMenuButton } from "@/components/layout/tiling/LayoutMenuButton";
 import { AppSurfaceSwitch } from "@/components/layout/AppSurfaceSwitch";
@@ -108,7 +107,6 @@ export function TopBar() {
       {/* Tool windows show one view only, so there is no place to switch. */}
       {!solo && <SurfaceCaptionSwitch />}
       <div className="flex shrink-0 items-center">
-        <StatusLight />
         <CodingModeBadge />
         <IdeCaptionPanelToggle />
         {controls === "trailing" && (

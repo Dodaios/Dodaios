@@ -28,7 +28,7 @@ describe("status light i18n parity", () => {
   }
 
   it("German uses real umlauts", () => {
-    expect(block(de as Locale).close).toBe("Schließen");
+    expect(block(de as Locale).needs_heading).toBe("Braucht dich");
     expect(block(de as Locale).trouble_heading).toBe("Bitte ansehen");
     expect(block(de as Locale).running_heading).toBe("Läuft");
   });
