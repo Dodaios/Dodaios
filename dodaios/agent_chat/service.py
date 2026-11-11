@@ -462,6 +462,13 @@ async def _redact_credentials(session_id: str, event: dict[str, Any]) -> dict[st
     log and the live stream instead of the value (dodaios/society/credentials.py).
     """
     try:
+        # Logins a running browser task holds for the credential broker (a
+        # password-manager value the vault never stored) are masked first.
+        from dodaios.credential_broker import redact_active
+
+        masked = redact_active(event.get("payload"))
+        if masked is not event.get("payload"):
+            event = {**event, "payload": masked}
         from dodaios.society.credentials import current_vault
         from dodaios.society.surface import agent_id_of
 

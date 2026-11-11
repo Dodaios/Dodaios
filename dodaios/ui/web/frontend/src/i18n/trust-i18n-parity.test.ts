@@ -42,6 +42,7 @@ const FILES = [
   join(SRC, "components", "trust", "TrustRules.tsx"),
   join(SRC, "components", "trust", "PrivacyOverview.tsx"),
   join(SRC, "components", "trust", "SelfChanges.tsx"),
+  join(SRC, "components", "trust", "CredentialsPanel.tsx"),
   join(SRC, "lib", "undoToast.ts"),
   join(SRC, "components", "agentchat", "actionCard", "ApprovalActionCard.tsx"),
 ];
@@ -53,6 +54,8 @@ const TEMPLATES: Record<string, string[]> = {
   "trust.page.state_": ["proposed", "trial", "live", "reverted", "blocked"],
   "trust.page.surface_": ["skill", "prompt", "instructions", "tool", "code", "config", "routine", "agent"],
   "trust.page.changes_since_": ["hour", "day", "week"],
+  "trust.page.cred_backend_": ["local", "bitwarden", "1password"],
+  "trust.page.cred_state_": ["ready", "locked", "not_installed", "unavailable"],
   "privacy.status_": ["connected", "needs_reauth"],
   "privacy.role_": ["brain", "realtime", "tts", "stt", "learning"],
 };

@@ -98,6 +98,37 @@ async def stored_logins(agent_id: str) -> dict[str, dict[str, str]]:
         return {}
 
 
+async def prepare_broker_logins(
+    runtime: Any, caller: Any, live: Any, task: str, *, trace_id: str, session_id: str,
+) -> Any:
+    """Resolve the ``cred:`` handles a browser task names (credential_broker/broker.py).
+
+    The first login on a site asks the owner through an approval card; the
+    values reach the browser runner only, never the model or this task text.
+    """
+    from dodaios.credential_broker import broker_for, find_handles
+
+    if not find_handles(task):
+        return None
+
+    async def authorize(handle: Any) -> bool:
+        approval = await runtime.approvals.enqueue(
+            agent_id=caller.agent_id,
+            trace_id=trace_id,
+            capability="core:credentials",
+            action={"handle": str(handle), "resume_in_place": True},
+            summary=f"Sign in to {handle.domain} with the stored login {handle}"[:300],
+        )
+        session = live.sessions.get(caller.agent_id)
+        if session:
+            session.publish({"kind": "approval", "id": approval.id, "action": "credential_login"})
+        return await wait_for_browser_approval(runtime, approval.id, session)
+
+    return await broker_for(runtime.data_dir).prepare_browser(
+        caller.agent_id, task, authorize, session_id=session_id, trace_id=trace_id,
+    )
+
+
 async def execute_live(
     runtime: Any, caller: Any, jobs: Any, args: dict, ctx: Any, *, read_only: bool = False
 ) -> ToolResult:
@@ -317,6 +348,13 @@ async def execute_live(
     if args.get("url"):
         task = f"Start at {args['url']}. " + task
     logins = await stored_logins(caller.agent_id)
+    broker_logins = await prepare_broker_logins(
+        runtime, caller, live, task, trace_id=turn_trace, session_id=chat_session_id,
+    )
+    if broker_logins is not None:
+        task = broker_logins.task
+        for pattern, scoped in broker_logins.sensitive_data.items():
+            logins.setdefault(pattern, {}).update(scoped)
     try:
         result = await live.run(
             caller,
@@ -330,13 +368,24 @@ async def execute_live(
             chat_session_id=chat_session_id,
             sensitive_data=logins,
         )
+    except asyncio.CancelledError:
+        if broker_logins is not None:
+            broker_logins.release()
+        raise
     except Exception as exc:
         # The tool result reports the failure to both the chat and the planner.
+        message = str(exc)
+        if broker_logins is not None:
+            message = broker_logins.redact(message)
+            broker_logins.release()
         return ToolResult(
             False,
             None,
-            stopped_message if (caller.agent_id, turn_trace) in live.stopped_turns else str(exc),
+            stopped_message if (caller.agent_id, turn_trace) in live.stopped_turns else message,
         )
+    if broker_logins is not None:
+        result = broker_logins.redact(result)
+        broker_logins.release()
     if logins:
         from ..credentials import current_vault
 
