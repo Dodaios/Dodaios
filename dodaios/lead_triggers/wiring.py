@@ -42,11 +42,10 @@ _bound: set[int] = set()
 
 
 def _triggers_held() -> bool:
-    """True while the owner's stop holds everything or any trigger scope."""
+    """True while the owner's stop holds everything or all triggers (``trigger:*``)."""
     from dodaios.safety.stop_hold import stop_holds
 
-    holds = stop_holds()
-    return holds.blocking() is not None or any(h.kind == "trigger" for h in holds.items())
+    return stop_holds().blocking(trigger="*") is not None
 
 
 #: Answers "does a stop hold cover triggers right now?"; tests may swap it.
@@ -459,7 +458,8 @@ def _delivery_held(sub: Any) -> bool:
     from dodaios.safety.stop_hold import stop_holds
 
     policy = str((sub.mandate or {}).get("policy_id") or "")
-    return stop_holds().blocking(
+    holds = stop_holds()
+    return holds.blocking(trigger="*") is not None or holds.blocking(
         job=sub.job_id, trigger=policy, agent=str(sub.target or "")
     ) is not None
 

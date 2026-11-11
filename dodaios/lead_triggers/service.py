@@ -346,7 +346,8 @@ class TriggerService:
             # the decision is recorded, no job starts.
             from dodaios.safety.stop_hold import stop_holds
 
-            if stop_holds().blocking(trigger=policy.id) is not None:
+            holds = stop_holds()
+            if holds.blocking(trigger="*") is not None or holds.blocking(trigger=policy.id) is not None:
                 record["outcome"] = "held_by_owner"
                 return
             try:

@@ -24,7 +24,7 @@ async def test_without_a_hold_the_policy_acts() -> None:
     assert record["outcome"] == "started" and len(h.started) == 1
 
 
-@pytest.mark.parametrize(("kind", "ref"), [("trigger", "inv"), ("everything", "")])
+@pytest.mark.parametrize(("kind", "ref"), [("trigger", "inv"), ("trigger", "*"), ("everything", "")])
 async def test_a_hold_keeps_the_trigger_from_starting_a_job(kind: str, ref: str) -> None:
     h = Harness()
     await h.configure("auto")
@@ -58,6 +58,7 @@ def _owned_sub():
     [
         ("everything", "", True),
         ("trigger", "inv", True),
+        ("trigger", "*", True),
         ("job", "job-1", True),
         ("agent", "agent-1", True),
         ("job", "job-2", False),
@@ -83,7 +84,8 @@ def test_delivery_hold_follows_the_stop_scopes(kind: str, ref: str, blocked: boo
     ("kind", "ref", "paused"),
     [
         ("everything", "", True),
-        ("trigger", "inv", True),
+        ("trigger", "*", True),
+        ("trigger", "inv", False),
         ("job", "job-1", False),
         ("agent", "agent-1", False),
         ("routine", "r1", False),
