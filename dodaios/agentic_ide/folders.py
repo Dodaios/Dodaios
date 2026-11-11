@@ -227,7 +227,7 @@ def _hidden_state(item: os.DirEntry[str]) -> tuple[bool, bool]:
         return False, False
     try:
         info = item.stat(follow_symlinks=False)
-    except OSError:
+    except OSError:  # gone or unreadable: treated as an ordinary entry
         return False, False
     attributes = getattr(info, "st_file_attributes", 0)
     if attributes:
@@ -342,7 +342,7 @@ def resolve_folder_path(raw: str | Path, base: str | Path | None = None) -> Path
     if not candidate.is_absolute():
         try:
             anchor = Path(base).expanduser() if base else Path.home()
-        except RuntimeError:
+        except RuntimeError:  # a "~" base with no home folder: home is the fallback
             anchor = Path.home()
         candidate = anchor / candidate
     resolved = Path(os.path.normpath(candidate))
@@ -350,7 +350,7 @@ def resolve_folder_path(raw: str | Path, base: str | Path | None = None) -> Path
         return resolved
     try:
         on_disk = os.path.realpath(resolved)
-    except OSError:
+    except OSError:  # the spelling is a nicety: the typed form is still right
         return resolved
     # Only the spelling may change. A path that leads through a link keeps the
     # form the person used, so a mapped or redirected folder stays recognisable.
@@ -415,7 +415,7 @@ def list_dir(
     for name, child in children:
         try:
             is_repo = (child / ".git").exists()
-        except OSError:
+        except OSError:  # unreadable folder: listed, just not marked
             is_repo = False
         entries.append(FolderEntry(name=name, path=str(child), is_project=is_repo, is_repo=is_repo))
     return entries, None

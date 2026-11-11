@@ -183,6 +183,7 @@ interface Section {
 }
 
 const EMPTY_LISTING: Listing = { path: null, entries: [], error: null, truncated: false };
+const NO_ROWS: Row[] = [];
 
 export function FolderPicker({
   selected,
@@ -484,7 +485,7 @@ export function FolderPicker({
   const listingIsHere = samePath(listing.path, here);
   const machine = deviceName || t("ide_folder_picker.this_machine");
 
-  const { sections, rows, context } = useMemo(() => {
+  const { sections, listed, context } = useMemo(() => {
     const out: Section[] = [];
     const seen = new Set<string>();
     const add = (label: string | null, candidates: Row[]) => {
@@ -519,10 +520,13 @@ export function FolderPicker({
     let contextDir: { path: string | null; entries: FolderItem[] } | null = null;
 
     if (!typed) {
-      if (here === null) {
+      // Laid out by what the LISTING is, not by where the address bar already
+      // points: while a folder is on its way, the one before it stays on
+      // screen (dimmed, see `stale`) instead of the list going blank.
+      if (listing.path === null) {
         add(t("ide_folder_picker.recent_folders"), recentRows(recents));
         add(t("ide_folder_picker.places"), folderRows(listing.entries, true));
-      } else if (listingIsHere) {
+      } else {
         add(null, folderRows(listing.entries));
       }
     } else if (pathMode) {
@@ -534,7 +538,7 @@ export function FolderPicker({
         );
       }
     } else {
-      if (here === null) {
+      if (here === null && listingIsHere) {
         // By NAME only. Matching the path as well put every recent folder that
         // lives on the Desktop above the Desktop itself, and "cd Desktop"
         // followed by Enter opened one of them.
@@ -544,7 +548,7 @@ export function FolderPicker({
           contextDir = { path: livePreview.path, entries: livePreview.entries };
           add(t("ide_folder_picker.in_home"), folderRows(matchByName(livePreview.entries, word)));
         }
-      } else if (listingIsHere) {
+      } else if (here !== null && listingIsHere) {
         contextDir = { path: here, entries: listing.entries };
         add(
           fill(t("ide_folder_picker.folders_in"), { folder: leafName(here) }),
@@ -587,8 +591,15 @@ export function FolderPicker({
       });
     }
 
-    return { sections: out, rows: out.flatMap((section) => section.rows), context: contextDir };
+    return { sections: out, listed: out.flatMap((section) => section.rows), context: contextDir };
   }, [typed, here, recents, listing, listingIsHere, pathMode, livePreview, parts, word, hits, machine, t]);
+
+  // The list still shows the folder before this one: the address bar moved on
+  // the click, the listing has not arrived. Those rows are dimmed and cannot
+  // be opened, by pointer or by key, because they are not in the folder the
+  // bar names.
+  const stale = !typed && !listingIsHere;
+  const rows = stale ? NO_ROWS : listed;
 
   // The first match is highlighted while a name is being typed, so Enter opens
   // it. With no name there is nothing to prefer, and Enter means the typed
@@ -799,11 +810,10 @@ export function FolderPicker({
   // ------------------------------------------------------------------ render
   const crumbs = here ? foldCrumbs(pathCrumbs(here)) : [];
   const busy = loading || searching || (previewKey !== "" && !livePreview);
-  const stale = !typed && !listingIsHere;
   const newFolderHome = here ?? t("ide_folder_picker.your_home_folder");
 
   let empty: string | null = null;
-  if (rows.length === 0 && !busy) {
+  if (listed.length === 0 && !busy) {
     if (typed) {
       empty = livePreview?.error ?? fill(t("ide_folder_picker.no_match"), { query: typed });
     } else if (listing.error && listingIsHere) {
@@ -1125,7 +1135,7 @@ export function FolderPicker({
         {empty && (
           <p className="px-6 py-10 text-center text-sm text-muted-foreground">{empty}</p>
         )}
-        {rows.length === 0 && busy && (
+        {listed.length === 0 && busy && (
           <p className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {t("ide_folder_picker.loading")}

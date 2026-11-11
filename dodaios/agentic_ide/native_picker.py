@@ -446,7 +446,7 @@ def _helper_python() -> str | None:
             try:
                 if candidate.is_file():
                     return str(candidate)
-            except OSError:
+            except OSError:  # an unreadable place is simply not where it is
                 continue
     return None
 

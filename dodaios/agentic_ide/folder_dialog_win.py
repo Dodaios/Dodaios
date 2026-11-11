@@ -214,7 +214,7 @@ def choose(owner: int, start: str) -> str | None:
 def main(argv: list[str]) -> int:
     try:
         owner = int(argv[1]) if len(argv) > 1 else 0
-    except ValueError:
+    except ValueError:  # no usable owner: the window opens unowned
         owner = 0
     start = argv[2] if len(argv) > 2 else ""
     try:

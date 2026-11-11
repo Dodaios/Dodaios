@@ -301,6 +301,35 @@ describe("clicking through folders", () => {
     expect(screen.getByText("notes")).toBeTruthy();
   });
 
+  it("keeps the folder before on screen, but closed, while the next one is on its way", async () => {
+    const onSelect = await open();
+    let release: () => void = () => {};
+    vi.mocked(api.fetchFolders).mockImplementation(async (target, hidden, base) => {
+      if (target === "/home/ruben/webshop") {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      }
+      return fakeFolders(target, hidden, base);
+    });
+
+    fireEvent.click(screen.getByText("webshop"));
+
+    // The list does not go blank between two folders...
+    expect(screen.getByText("notes")).toBeTruthy();
+    // ...but its rows belong to the folder before: a key cannot open one.
+    onSelect.mockClear();
+    fireEvent.keyDown(field(), { key: "ArrowDown" });
+    fireEvent.keyDown(field(), { key: "Enter" });
+    expect(onSelect).not.toHaveBeenCalled();
+
+    await act(async () => {
+      release();
+    });
+    expect(await screen.findByText("src")).toBeTruthy();
+    expect(screen.queryByText("notes")).toBeNull();
+  });
+
   it("opens a crumb and chooses it, the same as opening a folder", async () => {
     const onSelect = await open();
     fireEvent.click(screen.getByText("notes"));

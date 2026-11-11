@@ -171,7 +171,8 @@ def remember(path: str, *, terminals: int, agents: dict[str, int]) -> None:
         # open a different place after every restart. Pin it to where it is now.
         try:
             expanded = expanded.resolve()
-        except OSError:
+        except OSError as exc:
+            logger.debug("Agentic IDE: not remembering unresolvable folder {}: {}", path, exc)
             return
     resolved = str(expanded)
     entry = RecentWorkspace(
