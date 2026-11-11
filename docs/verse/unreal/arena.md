@@ -263,6 +263,10 @@ deck view and the duel show it alike:
   decks and roofs that never break; the booth's consoles draw the kit console (their boxes only
   collide). The hull wall modules' backlit slots are dark in the hangar, and the fence is open
   rails (a glazed screen veiled the hall).
+- **Mood**: work lights at 3700 K and a third brighter than the layout's figures, skylights at
+  7200 K, cool shadows and warm highlights in the grade; catwalks, stairs and ramps in tread plate
+  (`MI_Arena_Grating`, Poly Haven `metal_grate_rusty`); the deck number painted on every
+  perimeter segment.
 - **Wear**: puddles that mirror the lamps, tug tracks, grime at the foot of every wall and cover
   box, rust streaks down walls, barriers and containers (`DressArtBox`). Masks: `grime.py`.
 
