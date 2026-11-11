@@ -1,0 +1,26 @@
+{
+  "name": "MI_Character_Crew_F_Eye",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_Eye",
+  "scalars": {
+    "Metallic": 0.0,
+    "Roughness": 0.2
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {
+    "BaseColorMap": "/Game/Verse/Characters/Crew/Textures/T_Crew_F_BC.T_Crew_F_BC",
+    "NormalMap": "/Game/Verse/Characters/Crew/Textures/T_Crew_F_N.T_Crew_F_N",
+    "ORMMap": "/Game/Verse/Characters/Crew/Textures/T_Crew_F_ORM.T_Crew_F_ORM"
+  },
+  "two_sided": true,
+  "vectors": {
+    "BaseTint": [
+      0.86,
+      0.85,
+      0.83,
+      1.0
+    ]
+  }
+}

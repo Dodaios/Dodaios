@@ -188,6 +188,9 @@ AVerseSpaceView::AVerseSpaceView()
 	// Behind every other translucent surface: the viewport glass draws over it.
 	Stars->TranslucencySortPriority = -1000;
 	Stars->SetRelativeScale3D(FVector(DomeRadiusCm / 100.0));
+	// Brighter stars than three.js (starGain 1): the bridge's side windows look across the orbit,
+	// away from the Earth, and with the game's grade the sparse field read as black panes.
+	Look.StarGain = 2.0;
 }
 
 void AVerseSpaceView::SetOutward(const FVector& Direction)

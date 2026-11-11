@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/characters/meshes/SK_Opponent_F.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "0b0009a1fce47de8df38bb4eb49e4091c823ebedaceee09da763dc4867be1ae2"
+    "sha256": "f3235abce1d7dfc1cc25b1e454a73677c5e74882a6e279ccc5d9d0b9e07233e7"
   },
   "kind": "skeletal_mesh",
   "license": {
@@ -117,27 +117,27 @@
     },
     "material_slots": [
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_Gloves.MI_Character_Opponent_Gloves",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_F_Gloves.MI_Character_Opponent_F_Gloves",
         "slot": "M_Gloves"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_Undersuit.MI_Character_Opponent_Undersuit",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_F_Undersuit.MI_Character_Opponent_F_Undersuit",
         "slot": "M_Undersuit"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_Armor.MI_Character_Opponent_Armor",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_F_Armor.MI_Character_Opponent_F_Armor",
         "slot": "M_Armor"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_Accent.MI_Character_Opponent_Accent",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_F_Accent.MI_Character_Opponent_F_Accent",
         "slot": "M_Accent"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_Belt.MI_Character_Opponent_Belt",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_F_Belt.MI_Character_Opponent_F_Belt",
         "slot": "M_Belt"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_Visor.MI_Character_Opponent_Visor",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Opponent_F_Visor.MI_Character_Opponent_F_Visor",
         "slot": "M_Visor"
       }
     ],

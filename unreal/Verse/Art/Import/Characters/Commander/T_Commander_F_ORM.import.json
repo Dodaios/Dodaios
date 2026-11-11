@@ -1,0 +1,34 @@
+{
+  "asset_path": "/Game/Verse/Characters/Commander/Textures/T_Commander_F_ORM.T_Commander_F_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/characters/meshes/textures/T_SK_Commander_F_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "701c745ac48fd1bd70baff0fff6de75d8e2b1e910a58b89a7c8110b4b3229f80"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Commander_F_ORM",
+  "owner": "WP13",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "mesh": "SK_Commander_F"
+    },
+    "builder": "art/verse/characters/rig_fps.py",
+    "function": "build_mesh"
+  },
+  "texture": {
+    "channels": {},
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "Character",
+    "max_size": 2048,
+    "never_stream": true,
+    "srgb": false
+  }
+}

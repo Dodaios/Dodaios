@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/characters/meshes/SK_Commander_M.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "e41049badf4d239f9d4ea1f6f226e0afff0f97d675538c0d0f2f98bfbd2df86c"
+    "sha256": "228822700a2a50ec84c20dbd366136cb347e2d57bb9bb7f9677e5aa67e7ad235"
   },
   "kind": "skeletal_mesh",
   "license": {
@@ -117,67 +117,67 @@
     },
     "material_slots": [
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_Hair.MI_Character_Commander_Hair",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_Hair.MI_Character_Commander_M_Hair",
         "slot": "M_Hair"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_Skin.MI_Character_Commander_Skin",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_Skin.MI_Character_Commander_M_Skin",
         "slot": "M_Skin"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_Trim.MI_Character_Commander_Trim",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_Trim.MI_Character_Commander_M_Trim",
         "slot": "M_Trim"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_Trousers.MI_Character_Commander_Trousers",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_Trousers.MI_Character_Commander_M_Trousers",
         "slot": "M_Trousers"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_Uniform.MI_Character_Commander_Uniform",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_Uniform.MI_Character_Commander_M_Uniform",
         "slot": "M_Uniform"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_Boots.MI_Character_Commander_Boots",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_Boots.MI_Character_Commander_M_Boots",
         "slot": "M_Boots"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_Belt.MI_Character_Commander_Belt",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_Belt.MI_Character_Commander_M_Belt",
         "slot": "M_Belt"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_RankPlate.MI_Character_Commander_RankPlate",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_RankPlate.MI_Character_Commander_M_RankPlate",
         "slot": "M_RankPlate"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_Accent.MI_Character_Commander_Accent",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_Accent.MI_Character_Commander_M_Accent",
         "slot": "M_Accent"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_Eye.MI_Character_Commander_Eye",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_Eye.MI_Character_Commander_M_Eye",
         "slot": "M_Eye"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_RankTile_1.MI_Character_Commander_RankTile_1",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_RankTile_1.MI_Character_Commander_M_RankTile_1",
         "slot": "M_RankTile_1"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_RankTile_2.MI_Character_Commander_RankTile_2",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_RankTile_2.MI_Character_Commander_M_RankTile_2",
         "slot": "M_RankTile_2"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_RankTile_3.MI_Character_Commander_RankTile_3",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_RankTile_3.MI_Character_Commander_M_RankTile_3",
         "slot": "M_RankTile_3"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_RankTile_4.MI_Character_Commander_RankTile_4",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_RankTile_4.MI_Character_Commander_M_RankTile_4",
         "slot": "M_RankTile_4"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_RankTile_5.MI_Character_Commander_RankTile_5",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_RankTile_5.MI_Character_Commander_M_RankTile_5",
         "slot": "M_RankTile_5"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_RankTile_6.MI_Character_Commander_RankTile_6",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Commander_M_RankTile_6.MI_Character_Commander_M_RankTile_6",
         "slot": "M_RankTile_6"
       }
     ],

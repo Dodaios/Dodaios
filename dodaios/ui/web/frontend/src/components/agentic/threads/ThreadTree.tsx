@@ -16,11 +16,11 @@ import { openSubagentOf, useThreadSubagentsStore } from "@/store/threadSubagents
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "./ThreadPopover";
 import { SubagentFoldToggle, ThreadTreeSubagents } from "./ThreadTreeSubagents";
 import { ThreadPullRequests } from "./ThreadPullRequests";
-import { THREAD_DRAG_MIME, THREAD_PROJECT_DRAG_MIME, arrangeThreads, moveThreadId, projectIdFor, setDraggedThread, shortAge, threadStatus, threadTitle, threadWorktree, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
+import { THREAD_DRAG_MIME, THREAD_PROJECT_DRAG_MIME, projectIdFor, setDraggedThread, shortAge, threadStatus, threadTitle, threadWorktree, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
 
 const EXPANSION_KEY = "jarvis.ide.threadExpansion.v1";
-/** Threads a project shows before "Show more". */
-const FOLDED_COUNT = 6;
+/** Threads a project shows before "Show more": enough to fill a tall sidebar. */
+const FOLDED_COUNT = 20;
 /** How often the list asks for fresh session rows while it is on screen. */
 const POLL_MS = 4000;
 const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -84,11 +84,11 @@ function SectionLabel({ label, children }: { label: string; children?: ReactNode
 
 /**
  * The sidebar while the IDE shows threads: every project with its threads,
- * each named by the title its coding CLI gave the conversation and marked
- * with that CLI's logo. A project row opens and folds; its "+" starts a new
- * thread in it. Threads are dragged (or moved with Alt+arrow keys) into the
- * person's own order, and archived from the row menu into a folded
- * "Archived" list under their project, from where they come back.
+ * newest activity first, each named by the title its coding CLI gave the
+ * conversation and marked with that CLI's logo. A project row opens and
+ * folds; its "+" starts a new thread in it. A thread dragged onto the thread
+ * view opens side by side; from the row menu it is archived into a folded
+ * "Archived" list under its project, from where it comes back.
  */
 export function ThreadTree() {
   const t = useT();
@@ -112,10 +112,8 @@ export function ThreadTree() {
   const teams = useTeamThreads().data;
   const forgetThread = useIdeThreadsStore((state) => state.forgetThread);
   const archived = useIdeThreadsStore((state) => state.archived);
-  const order = useIdeThreadsStore((state) => state.order);
   const archiveThread = useIdeThreadsStore((state) => state.archiveThread);
   const restoreThread = useIdeThreadsStore((state) => state.restoreThread);
-  const setThreadOrder = useIdeThreadsStore((state) => state.setThreadOrder);
   const split = useIdeThreadsStore((state) => state.split);
   const placeColumn = useIdeThreadsStore((state) => state.placeColumn);
   const [expansion, setExpansion] = useState(readExpansion);
@@ -123,8 +121,7 @@ export function ThreadTree() {
   const [renaming, setRenaming] = useState<{ sessionId: string; title: string } | null>(null);
   const [menu, setMenu] = useState<{ sessionId: string; projectId: string } | null>(null);
   const [archiveOpen, setArchiveOpen] = useState<Record<string, boolean>>({});
-  const [dragged, setDragged] = useState<{ sessionId: string; projectId: string } | null>(null);
-  const [dropTarget, setDropTarget] = useState<{ sessionId: string; before: boolean } | null>(null);
+  const [dragged, setDragged] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   // Threads whose sub-agent rows the person folded away; open by default.
@@ -198,12 +195,7 @@ export function ThreadTree() {
     }
   };
 
-  const move = (projectId: string, ids: readonly string[], sourceId: string, targetId: string, before: boolean) => {
-    const next = moveThreadId(ids, sourceId, targetId, before);
-    if (next.some((id, index) => id !== ids[index])) setThreadOrder(projectId, next);
-  };
-
-  const clearDrag = () => { setDragged(null); setDropTarget(null); setDraggedThread(null); };
+  const clearDrag = () => { setDragged(null); setDraggedThread(null); };
 
   const remove = async (sessionId: string) => {
     setConfirmDelete(null);
@@ -227,10 +219,10 @@ export function ThreadTree() {
 
   const projectRow = (project: IdeProject) => {
     const all = grouped.get(project.id) ?? [];
-    const threads = arrangeThreads(all.filter((thread) => !(thread.session_id in archived)), order[project.id]);
+    // Newest activity first, as threadsByProject sorts them.
+    const threads = all.filter((thread) => !(thread.session_id in archived));
     const stored = all.filter((thread) => thread.session_id in archived)
       .sort((a, b) => (archived[b.session_id] ?? 0) - (archived[a.session_id] ?? 0));
-    const ids = threads.map((thread) => thread.session_id);
     const archiveShown = archiveOpen[project.id] ?? false;
     const teamRows = teamsOf.get(project.id) ?? [];
     const draftHere = selection.sessionId === null && !selection.team && selection.projectId === project.id;
@@ -311,7 +303,6 @@ export function ThreadTree() {
                 className="rounded p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
             </form>;
           }
-          const dropHere = dropTarget?.sessionId === session.session_id ? dropTarget : null;
           // The open thread lists the sub-agents its coding agent spawned under it.
           const subRows = selected && subagentsOwner === session.session_id ? subagentRows : [];
           const subOpen = subRows.length > 0 && !subagentsFolded[session.session_id];
@@ -319,44 +310,18 @@ export function ThreadTree() {
           return <Fragment key={session.session_id}><div data-testid={`thread-row-${session.session_id}`}
             draggable
             onDragStart={(event) => {
-              // Within the list it reorders; dropped on the thread view it opens side by side.
+              // The list keeps its date order; dropped on the thread view it opens side by side.
               event.dataTransfer.setData(THREAD_DRAG_MIME, session.session_id);
               event.dataTransfer.setData(THREAD_PROJECT_DRAG_MIME, project.id);
               event.dataTransfer.effectAllowed = "move";
               setDraggedThread(session.session_id);
-              setDragged({ sessionId: session.session_id, projectId: project.id });
+              setDragged(session.session_id);
             }}
             onDragEnd={clearDrag}
-            onDragOver={(event) => {
-              // A thread moves within its own project; a drop elsewhere is no drop.
-              if (!dragged || dragged.projectId !== project.id || dragged.sessionId === session.session_id) return;
-              if (!event.dataTransfer.types.includes(THREAD_DRAG_MIME)) return;
-              event.preventDefault();
-              event.dataTransfer.dropEffect = "move";
-              const rect = event.currentTarget.getBoundingClientRect();
-              const before = event.clientY - rect.top < rect.height / 2;
-              setDropTarget((current) => current?.sessionId === session.session_id && current.before === before ? current : { sessionId: session.session_id, before });
-            }}
-            onDragLeave={(event) => {
-              const next = event.relatedTarget as Node | null;
-              if (next && event.currentTarget.contains(next)) return;
-              setDropTarget((current) => current?.sessionId === session.session_id ? null : current);
-            }}
-            onDrop={(event) => {
-              if (!dragged || dragged.projectId !== project.id) return;
-              event.preventDefault();
-              const rect = event.currentTarget.getBoundingClientRect();
-              const before = event.clientY - rect.top < rect.height / 2;
-              const sourceId = dragged.sessionId;
-              clearDrag();
-              move(project.id, ids, sourceId, session.session_id, before);
-            }}
             className={cn(
               "group/thread relative flex min-h-8 items-center rounded-md transition-colors hover:bg-muted",
               ((selected && !onSubagent) || menuOpen) && "bg-muted",
-              dragged?.sessionId === session.session_id && "opacity-40",
-              dropHere?.before && "before:absolute before:-top-0.5 before:left-2 before:right-2 before:h-0.5 before:rounded-full before:bg-primary",
-              dropHere && !dropHere.before && "after:absolute after:-bottom-0.5 after:left-2 after:right-2 after:h-0.5 after:rounded-full after:bg-primary",
+              dragged === session.session_id && "opacity-40",
             )}
             onContextMenu={(event) => {
               event.preventDefault();
@@ -374,14 +339,7 @@ export function ThreadTree() {
                 openThread(session.session_id, project.id);
               }}
               onDoubleClick={() => setRenaming({ sessionId: session.session_id, title: threadTitle(session) })}
-              onKeyDown={(event) => {
-                if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
-                event.preventDefault();
-                const index = ids.indexOf(session.session_id);
-                const neighbour = ids[event.key === "ArrowUp" ? index - 1 : index + 1];
-                if (neighbour) move(project.id, ids, session.session_id, neighbour, event.key === "ArrowUp");
-              }}
-              title={fill(t("ide_projects.drag_hint"), { target: threadTitle(session) })}
+              title={threadTitle(session)}
               className={cn(
                 ROW, "flex-1 py-1", FOCUS_RING,
                 selected ? "text-foreground-strong" : "text-foreground-secondary group-hover/thread:text-foreground",

@@ -10,7 +10,7 @@
     "file": "art/verse/.cache/unreal/characters/meshes/SK_Crew_F.fbx",
     "format": "fbx",
     "settings_id": "fbx-ue/1",
-    "sha256": "2c55d79dca7d271f583b2d6886f1c7b54d505e13429fdf9d2efd3d93ac0213fa"
+    "sha256": "375d0ab4637e74cce432f7530aa5ec43a9a36b6d1090b3d1acd4bfcc5d5e0a3e"
   },
   "kind": "skeletal_mesh",
   "license": {
@@ -117,51 +117,51 @@
     },
     "material_slots": [
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_Gloves.MI_Character_Crew_Gloves",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_F_Gloves.MI_Character_Crew_F_Gloves",
         "slot": "M_Gloves"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_Skin.MI_Character_Crew_Skin",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_F_Skin.MI_Character_Crew_F_Skin",
         "slot": "M_Skin"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_Uniform.MI_Character_Crew_Uniform",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_F_Uniform.MI_Character_Crew_F_Uniform",
         "slot": "M_Uniform"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_Boots.MI_Character_Crew_Boots",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_F_Boots.MI_Character_Crew_F_Boots",
         "slot": "M_Boots"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_Belt.MI_Character_Crew_Belt",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_F_Belt.MI_Character_Crew_F_Belt",
         "slot": "M_Belt"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_ChestBox.MI_Character_Crew_ChestBox",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_F_ChestBox.MI_Character_Crew_F_ChestBox",
         "slot": "M_ChestBox"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_Trim.MI_Character_Crew_Trim",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_F_Trim.MI_Character_Crew_F_Trim",
         "slot": "M_Trim"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_Eye.MI_Character_Crew_Eye",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_F_Eye.MI_Character_Crew_F_Eye",
         "slot": "M_Eye"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_Glow.MI_Character_Crew_Glow",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_F_Glow.MI_Character_Crew_F_Glow",
         "slot": "M_Glow"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_Helmet.MI_Character_Crew_Helmet",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_F_Helmet.MI_Character_Crew_F_Helmet",
         "slot": "M_Helmet"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_Visor.MI_Character_Crew_Visor",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_F_Visor.MI_Character_Crew_F_Visor",
         "slot": "M_Visor"
       },
       {
-        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_Mark.MI_Character_Crew_Mark",
+        "mi": "/Game/Verse/Materials/Instances/Characters/MI_Character_Crew_F_Mark.MI_Character_Crew_F_Mark",
         "slot": "M_Mark"
       }
     ],

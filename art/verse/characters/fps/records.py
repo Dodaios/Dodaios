@@ -136,9 +136,10 @@ ATLAS_SUFFIX = {"BaseColor": "BC", "Normal": "N", "ORM": "ORM"}
 
 
 def texture_name(mesh: str, key: str) -> str:
-    """`T_<Uniform>_<BC|N|ORM>`: the atlas map of a painted character mesh."""
+    """`T_<Uniform>[_<Variant>]_<BC|N|ORM>`: the atlas map of a painted character mesh."""
     spec = next(m for m in K.MESHES if m.name == mesh)
-    return f"T_{spec.uniform}_{ATLAS_SUFFIX[key]}"
+    owner = spec.uniform if spec.uniform in K.SINGLE_VARIANT else f"{spec.uniform}_{spec.variant}"
+    return f"T_{owner}_{ATLAS_SUFFIX[key]}"
 
 
 def texture_path(mesh: str, key: str) -> str:

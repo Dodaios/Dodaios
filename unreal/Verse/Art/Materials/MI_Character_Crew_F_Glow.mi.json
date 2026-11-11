@@ -1,0 +1,21 @@
+{
+  "name": "MI_Character_Crew_F_Glow",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Emissive.M_Verse_Emissive",
+  "replaces": "M_Glow",
+  "scalars": {
+    "EmissiveNits": 36.0
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "two_sided": true,
+  "vectors": {
+    "EmissiveColor": [
+      0.9,
+      0.55,
+      0.12,
+      1.0
+    ]
+  }
+}

@@ -126,7 +126,7 @@ beforeEach(() => {
   api.cancelAgentChatTurn.mockReset().mockResolvedValue(undefined);
   api.attachChatFilesIn.mockReset().mockResolvedValue({ attachments: [SHOT], cwd: "" });
   useIdeProjectsStore.setState({ projects: [project], activeWorkspaceId: null });
-  useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, order: {}, focusNonce: 0 });
+  useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, focusNonce: 0 });
   useThreadChatStore.getState().newChat();
 });
 
