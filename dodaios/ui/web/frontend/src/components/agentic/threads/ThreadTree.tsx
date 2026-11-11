@@ -44,6 +44,17 @@ const ACTION_ROW = cn(
   FOCUS_RING,
 );
 const ACTION_ICON = "h-[18px] w-[18px] shrink-0";
+/**
+ * A thread row's age and actions sit in the row, folded to no width until the
+ * row is hovered or focused; they never cover the row's pull request mark.
+ */
+const ROW_HOVER_SHOWN = cn(
+  "w-0 opacity-0 group-hover/thread:w-auto group-hover/thread:pr-1 group-hover/thread:opacity-100",
+  "group-focus-within/thread:w-auto group-focus-within/thread:pr-1 group-focus-within/thread:opacity-100",
+  "[@media(hover:none)]:w-auto [@media(hover:none)]:pr-1 [@media(hover:none)]:opacity-100",
+);
+/** The worktree and status marks give their place to the age and actions. */
+const ROW_HOVER_HIDDEN = "group-hover/thread:hidden group-focus-within/thread:hidden [@media(hover:none)]:hidden";
 
 function readExpansion(): Record<string, boolean> {
   try {
@@ -353,20 +364,23 @@ export function ThreadTree() {
               <span className="min-w-0 flex-1 truncate">{threadTitle(session)}</span>
               {/* Marks on the right, one column each: its pull requests, where it works, what it is doing. */}
               <ThreadPullRequests sessionId={session.session_id} />
+              {/* The age and the actions take the place of these two marks; the
+                  pull request mark stays in reach, so its card opens on hover. */}
               {worktree && <span role="img" aria-label={fill(t("ide_threads.in_worktree"), { name: worktree })}
                 title={fill(t("ide_threads.in_worktree"), { name: worktree })}
-                data-testid={`thread-worktree-${session.session_id}`} className="flex shrink-0 items-center">
+                data-testid={`thread-worktree-${session.session_id}`}
+                className={cn("flex shrink-0 items-center", menuOpen ? "hidden" : ROW_HOVER_HIDDEN)}>
                 <GitBranch aria-hidden className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
               </span>}
-              <span className="flex w-3.5 shrink-0 items-center justify-center">
+              <span className={cn("flex w-3.5 shrink-0 items-center justify-center", menuOpen ? "hidden" : ROW_HOVER_HIDDEN)}>
                 {busy === session.session_id
                   ? <Loader2 aria-hidden className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
                   : <StatusMark status={status} />}
               </span>
             </button>
-            <div className={cn(
-              "absolute inset-y-0 right-0 flex items-center gap-1 rounded-r-md bg-gradient-to-l from-muted from-60% to-transparent pl-5 pr-1 transition-opacity",
-              menuOpen ? "opacity-100" : "pointer-events-none opacity-0 group-hover/thread:pointer-events-auto group-hover/thread:opacity-100 group-focus-within/thread:pointer-events-auto group-focus-within/thread:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
+            <div data-testid={`thread-actions-${session.session_id}`} className={cn(
+              "flex shrink-0 items-center gap-1 overflow-hidden",
+              menuOpen ? "w-auto pr-1" : ROW_HOVER_SHOWN,
             )}>
               <span className="text-micro tabular-nums text-muted-foreground" title={new Date(session.updated_ms).toLocaleString(locale)}>{shortAge(session.updated_ms)}</span>
               <button type="button" aria-label={fill(t("ide_threads.thread_actions_for"), { target: threadTitle(session) })} aria-haspopup="menu" aria-expanded={menuOpen}
