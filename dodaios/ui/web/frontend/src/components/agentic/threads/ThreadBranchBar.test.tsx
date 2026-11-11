@@ -25,9 +25,15 @@ vi.mock("@/lib/teamThreadsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/teamThreadsApi")>()),
   useTeamThreads: () => ({ data: [] }),
 }));
+vi.mock("../useSessionGitHub", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../useSessionGitHub")>()),
+  useThreadGitHub: () => ({ status: null, pending: false }),
+}));
 
+import type { AgentChatSession } from "@/lib/agentChatApi";
 import { ThreadBranchBar } from "./ThreadBranchBar";
 import { ThreadTree } from "./ThreadTree";
+import { useThreadChatStore } from "./threadModel";
 
 function projectRow(id: string, name: string, path: string): IdeProject {
   return { id, path, name, color: null, pinned: false, archived: false, scratch: false,
@@ -172,5 +178,19 @@ describe("ThreadTree", () => {
     act(() => useIdeThreadsStore.getState().newThread("p2"));
     await waitFor(() => expect(JSON.parse(localStorage.getItem("jarvis.ide.threadExpansion.v1") ?? "{}")).toEqual({ p2: true }));
     expect(screen.getAllByText("New thread").filter((node) => node.closest("[aria-current=page]"))).toHaveLength(1);
+  });
+
+  it("keeps a thread row free of its age: the hover actions are the menu button alone", () => {
+    const session = { session_id: "s1", title: "Fix login", provider: "claude", model: "", effort: "", cwd: app.path,
+      permission_mode: "", vendor_session: null, created_ms: 0, updated_ms: Date.now() - 5 * 60_000,
+      message_count: 1, preview: "" } as AgentChatSession;
+    useIdeProjectsStore.setState({ projects: [app], activeWorkspaceId: null });
+    useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, focusNonce: 0 });
+    useThreadChatStore.setState({ sessions: [session], loadSessions: vi.fn().mockResolvedValue(undefined), loadCatalog: vi.fn().mockResolvedValue(undefined) });
+    render(<ThreadTree />);
+    const actions = screen.getByTestId("thread-actions-s1");
+    expect(actions.textContent).toBe("");
+    expect(actions.querySelectorAll("button")).toHaveLength(1);
+    expect(screen.getByTestId("thread-row-s1").textContent).toBe("Fix login");
   });
 });

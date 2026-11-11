@@ -5,7 +5,6 @@ import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi
 import type { IdeProject } from "@/lib/agenticIdeApi";
 import { cn } from "@/lib/utils";
 import { fill, useT } from "@/i18n";
-import { useRunLocale } from "@/components/runs/format";
 import { useEventStore } from "@/store/events";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useQuickSwitcher } from "@/store/quickSwitcher";
@@ -45,15 +44,15 @@ const ACTION_ROW = cn(
 );
 const ACTION_ICON = "h-[18px] w-[18px] shrink-0";
 /**
- * A thread row's age and actions sit in the row, folded to no width until the
- * row is hovered or focused; they never cover the row's pull request mark.
+ * A thread row's actions sit in the row, folded to no width until the row is
+ * hovered or focused; they never cover the row's pull request mark.
  */
 const ROW_HOVER_SHOWN = cn(
   "w-0 opacity-0 group-hover/thread:w-auto group-hover/thread:pr-1 group-hover/thread:opacity-100",
   "group-focus-within/thread:w-auto group-focus-within/thread:pr-1 group-focus-within/thread:opacity-100",
   "[@media(hover:none)]:w-auto [@media(hover:none)]:pr-1 [@media(hover:none)]:opacity-100",
 );
-/** The worktree and status marks give their place to the age and actions. */
+/** The status mark gives its place to the actions. */
 const ROW_HOVER_HIDDEN = "group-hover/thread:hidden group-focus-within/thread:hidden [@media(hover:none)]:hidden";
 
 function readExpansion(): Record<string, boolean> {
@@ -103,7 +102,6 @@ function SectionLabel({ label, children }: { label: string; children?: ReactNode
  */
 export function ThreadTree() {
   const t = useT();
-  const locale = useRunLocale();
   const projects = useIdeProjectsStore((state) => state.projects);
   const connectProject = useIdeProjectsStore((state) => state.connectProject);
   const toggleVoice = useIdeProjectsStore((state) => state.toggleVoice);
@@ -364,12 +362,12 @@ export function ThreadTree() {
               <span className="min-w-0 flex-1 truncate">{threadTitle(session)}</span>
               {/* Marks on the right, one column each: its pull requests, where it works, what it is doing. */}
               <ThreadPullRequests sessionId={session.session_id} />
-              {/* The age and the actions take the place of these two marks; the
-                  pull request mark stays in reach, so its card opens on hover. */}
+              {/* The pull request and worktree marks stay in sight on hover; only
+                  the status mark gives its place to the actions. */}
               {worktree && <span role="img" aria-label={fill(t("ide_threads.in_worktree"), { name: worktree })}
                 title={fill(t("ide_threads.in_worktree"), { name: worktree })}
                 data-testid={`thread-worktree-${session.session_id}`}
-                className={cn("flex shrink-0 items-center", menuOpen ? "hidden" : ROW_HOVER_HIDDEN)}>
+                className="flex shrink-0 items-center">
                 <GitBranch aria-hidden className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
               </span>}
               <span className={cn("flex w-3.5 shrink-0 items-center justify-center", menuOpen ? "hidden" : ROW_HOVER_HIDDEN)}>
@@ -379,10 +377,9 @@ export function ThreadTree() {
               </span>
             </button>
             <div data-testid={`thread-actions-${session.session_id}`} className={cn(
-              "flex shrink-0 items-center gap-1 overflow-hidden",
+              "flex shrink-0 items-center overflow-hidden",
               menuOpen ? "w-auto pr-1" : ROW_HOVER_SHOWN,
             )}>
-              <span className="text-micro tabular-nums text-muted-foreground" title={new Date(session.updated_ms).toLocaleString(locale)}>{shortAge(session.updated_ms)}</span>
               <button type="button" aria-label={fill(t("ide_threads.thread_actions_for"), { target: threadTitle(session) })} aria-haspopup="menu" aria-expanded={menuOpen}
                 onClick={(event) => {
                   menuAnchor.current = event.currentTarget;
