@@ -34,8 +34,15 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat import attachments as chat_attachments
-from dodaios.agent_chat import seat_outcomes, turn_errors, turn_prompts
+from dodaios.agent_chat import (
+    lead_compaction,
+    seat_outcomes,
+    token_efficiency,
+    turn_errors,
+    turn_prompts,
+)
 from dodaios.agent_chat.approval_bridge import ChatApprovalBridge
+from dodaios.agent_chat.approval_memory import PersistedBags
 from dodaios.agent_chat.catalog import PROVIDER_ROWS, api_seat, offers, provider_row
 from dodaios.agent_chat.credential_requests import (
     CREDENTIAL_TIMEOUT_S,
@@ -570,7 +577,9 @@ class AgentChatService:
         # again for this tool" rather than a mode flip — the unified ladder has
         # no word for "auto" and flipping to bypass would silence every later
         # card, a mail send included.
-        self._always_allowed: dict[str, set[str]] = {}
+        # Every "always" bag below saves itself (approval_memory.py): the
+        # person's choices stick across restarts, with the scope they had.
+        self._always_allowed: dict[str, set[str]] = PersistedBags(self.store, "always", "set")
         # Where an "Always allow" from the card is to live, by approval id:
         # ``(scope, breadth, narrow)`` as the card's rule editor sent it.
         self._approval_choice: dict[str, tuple[str, str, str]] = {}
@@ -580,14 +589,19 @@ class AgentChatService:
         self._deny_feedback: dict[tuple[str, str], str] = {}
         # Claude Code "Always allow" rules, per session: the rules the CLI
         # offered, kept across turns like its own session rules in a terminal.
-        self._cli_rules: dict[str, list[dict[str, Any]]] = {}
+        self._cli_rules: dict[str, list[dict[str, Any]]] = PersistedBags(
+            self.store, "cli", "list"
+        )
         # Tools a coding session's person waved through ("Always allow") on a
         # runner that has no rule language of its own; the mode stays as it is.
-        self._tool_always: dict[str, set[str]] = {}
+        self._tool_always: dict[str, set[str]] = PersistedBags(self.store, "tool", "set")
         # Narrow chat rules from the card ("only this folder", "only this
         # command"), per session: a matching call runs without a card. They
-        # live as long as the app runs, like the chat's other "always".
-        self._narrow_rules: dict[str, list[dict[str, str]]] = {}
+        # are saved like the chat's other "always" and revocable on the Trust page.
+        self._narrow_rules: dict[str, list[dict[str, str]]] = PersistedBags(
+            self.store, "narrow", "list"
+        )
+        self._load_approval_memory()
         # A reversible action the executor ran for one of these chats leaves
         # its inverse in the undo ledger; the chat posts the undo notice.
         from dodaios.trust.undo import undo_ledger
@@ -601,6 +615,8 @@ class AgentChatService:
         # import_voice_turn): the bus may deliver a turn twice across
         # reconnects, and a second copy in the chat would read as if the
         # person said everything twice. Bounded below in import_voice_turn.
+        # The store keeps the ids (a unique row each); this set is only the
+        # fallback of a store without that table.
         self._mirrored_voice_turns: set[str] = set()
         # The Jarvis chat a voice call continues (bind_voice_chat): the chat
         # the front page shows. ``_voice_chat_fresh`` = a blank page is open,
@@ -619,6 +635,66 @@ class AgentChatService:
         self._reattach_task: Any = None
         self._retire_cli_seats()
         self._seal_orphaned_turns()
+        self._restart_recovery_task: Any = None
+
+    def _load_approval_memory(self) -> None:
+        """Read the saved "always" choices and narrow rules into their bags."""
+        try:
+            rows = self.store.approval_memory()
+        except Exception:  # noqa: BLE001 - the person is asked again; nothing breaks
+            log.warning("agent chat: saved approval choices could not be read", exc_info=True)
+            return
+        bags = {
+            "always": self._always_allowed,
+            "tool": self._tool_always,
+            "cli": self._cli_rules,
+            "narrow": self._narrow_rules,
+        }
+        for name, bag in bags.items():
+            bag.load([(sid, entry) for sid, b, entry in rows if b == name])  # type: ignore[attr-defined]
+
+    def start_restart_recovery(self) -> None:
+        """Queue the previous process's messages and waits again, on the app loop.
+
+        Called once by the app when it builds the service; tests and tools call
+        :meth:`recover_after_restart` themselves.
+        """
+        loop, on_loop = _app_loop()
+        if loop is None or self._restart_recovery_task is not None:
+            return
+        if on_loop:
+            self._restart_recovery_task = loop.create_task(
+                self.recover_after_restart(), name="agent-chat-restart-recovery"
+            )
+        else:
+            self._restart_recovery_task = asyncio.run_coroutine_threadsafe(
+                self.recover_after_restart(), loop
+            )
+
+    async def recover_after_restart(self) -> None:
+        """Take up the work a restart interrupted (durable queue, parked waits).
+
+        Each part is best effort and independent: a failure is logged and never
+        stops the other, nor the app.
+        """
+        from dodaios.agent_chat.send_queue import recover_waiting
+
+        try:
+            restored = await recover_waiting(self)
+            if restored:
+                log.info("agent chat: %d waiting message(s) queued again after a restart", restored)
+        except Exception:  # noqa: BLE001 - the chats recover one by one when opened
+            log.warning("agent chat: queue recovery failed", exc_info=True)
+        try:
+            await self.parked_work.rehydrate()
+        except Exception:  # noqa: BLE001 - the delegates' own reports still arrive
+            log.warning("agent chat: parked wait recovery failed", exc_info=True)
+        try:
+            from dodaios.society.boot_sweep import sweep_open_jobs
+
+            await sweep_open_jobs()
+        except Exception:  # noqa: BLE001 - job_status settles a job when it is read
+            log.warning("agent chat: open jobs not swept", exc_info=True)
 
     def _seal_orphaned_turns(self) -> None:
         """Close every turn a previous process left open.
@@ -1302,6 +1378,7 @@ class AgentChatService:
         if event.get("kind") == "turn_finished":
             # The raw error, before it is made readable: seat health reads its words.
             seat_outcomes.observe_turn_finished(self, session_id, event)
+            event = token_efficiency.annotate_turn_finished(self.store, session_id, event)
         if event.get("kind") in {"turn_finished", "error"}:
             event = self._readable_error(session_id, event)
         stored = self.store.append_event(session_id, event)
@@ -1768,7 +1845,12 @@ class AgentChatService:
             set_chat_read_only(session_id, session.permission_mode in ("plan", "read-only"))
 
             history_start = kit.history_start(session) if kit.history_start is not None else 0
-            history = self.store.list_events(session_id, after_seq=history_start)
+            history = await asyncio.to_thread(
+                self.store.list_events, session_id, after_seq=history_start
+            )
+            await asyncio.to_thread(
+                token_efficiency.note_turn_start, turn_id, history, start_seq=history_start
+            )
             if incoming is not None:
                 await self.message_status(
                     session_id, incoming.message_id, "delivered", turn_id=turn_id
@@ -2046,7 +2128,9 @@ class AgentChatService:
                             run_handle.session,
                             vendor_session=stored.vendor_session if stored else None,
                         ),
-                        history=self.store.list_events(session_id),
+                        history=await asyncio.to_thread(
+                            self.store.list_events, session_id, after_seq=history_start
+                        ),
                         continuation=True,
                         # The pictures went with the message they came with.
                         images=(),
@@ -2127,12 +2211,18 @@ class AgentChatService:
                         first_seq = max(
                             (int(e.get("seq") or 0) for e in history), default=history_start
                         )
-                        events = self.store.list_events(session_id, after_seq=first_seq)
+                        events = await asyncio.to_thread(
+                            self.store.list_events, session_id, after_seq=first_seq
+                        )
                         await kit.turn_completed(
                             session, ChatCompletion(origin, json.dumps(events))
                         )
                     except Exception:
                         log.exception("chat completion hook failed for %s", turn_id)
+                if session.surface == "jarvis" and not run.detached:
+                    # The summary of a long conversation is written now, in the
+                    # background, so the next turn does not wait for it.
+                    lead_compaction.schedule_after_turn(self, session)
                 for aid in self.pending_approvals(session_id):
                     fut = self._approvals.pop(aid, None)
                     self._approval_session.pop(aid, None)
@@ -2278,6 +2368,21 @@ class AgentChatService:
             self._voice_call_chats.clear()
         self._voice_call_chats[call_id] = session_id
 
+    def _claim_voice_turn(self, voice_turn_id: str, session_id: str) -> bool:
+        """True the first time this voice turn is filed, also across restarts."""
+        claim = getattr(self.store, "claim_voice_turn", None)
+        if claim is not None:
+            try:
+                return bool(claim(voice_turn_id, session_id))
+            except sqlite3.Error:
+                log.warning("agent chat: voice turn id not stored", exc_info=True)
+        if voice_turn_id in self._mirrored_voice_turns:
+            return False
+        self._mirrored_voice_turns.add(voice_turn_id)
+        if len(self._mirrored_voice_turns) > 2000:
+            self._mirrored_voice_turns.clear()
+        return True
+
     async def import_voice_turn(
         self,
         session_id: str,
@@ -2322,11 +2427,8 @@ class AgentChatService:
         if session is None:
             raise NoSuchSession(session_id)
         if voice_turn_id:
-            if voice_turn_id in self._mirrored_voice_turns:
+            if not self._claim_voice_turn(voice_turn_id, session_id):
                 return None
-            self._mirrored_voice_turns.add(voice_turn_id)
-            if len(self._mirrored_voice_turns) > 2000:
-                self._mirrored_voice_turns.clear()
         if user:
             await self._emit(session_id, make_event("user_message", {"text": user}))
             if session.surface == "jarvis":

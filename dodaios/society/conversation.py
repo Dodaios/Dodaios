@@ -12,6 +12,7 @@ import logging
 import re
 import sqlite3
 import threading
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,8 @@ class ConversationArchive:
         self._connection: sqlite3.Connection | None = None
         self._closed = False
         self.fts_available = False
+        #: Newest seq archived per session by an incremental ingest.
+        self._ingested: dict[str, int] = {}
         if not defer_open:
             self.open()
 
@@ -123,12 +126,31 @@ class ConversationArchive:
                 self._connection.close()
                 self._connection = None
 
-    def ingest(self, session: str, events: list[dict[str, Any]]) -> None:
+    def ingest(
+        self, session: str, events: list[dict[str, Any]], *, incremental: bool = False
+    ) -> None:
+        """Mirror events into the archive (idempotent).
+
+        ``incremental`` skips events at or below the newest seq already
+        archived for the session, so a per-turn caller that hands over the
+        same growing tail pays only for the new events. Only pass it for
+        callers that always supply a contiguous tail of the session.
+        """
         with self._lock, self._db:
+            floor = 0
+            if incremental:
+                floor = self._ingested.get(session, -1)
+                if floor < 0:
+                    row = self._db.execute(
+                        "SELECT MAX(seq) FROM messages WHERE session=?", (session,)
+                    ).fetchone()
+                    floor = int(row[0] or 0)
+            top = floor
             for event in events:
                 seq = int(event.get("seq") or 0)
-                if seq <= 0:
+                if seq <= 0 or seq <= floor:
                     continue
+                top = max(top, seq)
                 text = event_text(event)
                 cursor = self._db.execute(
                     "INSERT OR IGNORE INTO messages(session,seq,kind,text,event) VALUES(?,?,?,?,?)",
@@ -138,6 +160,8 @@ class ConversationArchive:
                     self._db.execute(
                         "INSERT INTO messages_fts(rowid,text) VALUES(?,?)", (cursor.lastrowid, text)
                     )
+            if incremental:
+                self._ingested[session] = top
 
     def search(
         self, session: str, query: str, *, limit: int = 5, include_owned: bool = False
@@ -335,11 +359,21 @@ async def prepare_history(
     *,
     prompt_chars: int = 0,
     recall_hint: str = "use society_conversation_recall for full sources",
+    window: int | None = None,
+    compact_at: float = 1.0,
+    compact_only: bool = False,
 ) -> list[Any]:
     """Compact only when the selected provider's window requires it; persist before replacing.
 
     ``recall_hint`` names how the agent can read the full archive; the lead's
     conversation, which has no society recall tool, passes its own words.
+
+    ``window`` overrides the provider's context window (a background compaction
+    summarizes on a different seat than the one that will read the history).
+    ``compact_at`` is the share of the history budget at which compaction
+    starts: the turn path uses 1.0 (the budget itself), the background pass a
+    lower share so the turn rarely meets a full history. ``compact_only`` saves
+    the checkpoint and returns without building a history.
     """
     from dodaios.agent_chat.runner_brain import brain_history_from_events
     from dodaios.brain.streaming import aggregate
@@ -347,14 +381,14 @@ async def prepare_history(
 
     archive = runtime.conversations
     sid = session.session_id
-    await asyncio.to_thread(archive.ingest, sid, events)
-    window = max(1024, int(getattr(provider, "context_window", 0) or 32768))
+    await asyncio.to_thread(partial(archive.ingest, sid, events, incremental=True))
+    window = max(1024, int(window or getattr(provider, "context_window", 0) or 32768))
     # Reserve room for the system/tool surface, current request and generated output.
     budget = max(1024, window * 3 - prompt_chars - len(query))
     through, summary = await asyncio.to_thread(archive.checkpoint, sid)
     remaining = [e for e in events if int(e.get("seq") or 0) > through]
     size = sum(len(event_text(e)) + 32 for e in remaining)
-    if size + len(summary) > budget or len(summary) > budget // 3:
+    if size + len(summary) > budget * compact_at or len(summary) > budget // 3:
         tail: list[dict[str, Any]] = []
         tail_size = 0
         for event in reversed(remaining):
@@ -437,6 +471,8 @@ async def prepare_history(
             # Keep the last human request verbatim even if its unusually long
             # answer had to be summarized. The original ordering stays on disk.
             remaining.insert(0, retained_request)
+    if compact_only:
+        return []
     history = brain_history_from_events(remaining, max_messages=None)
     if summary:
         recalled = await asyncio.to_thread(archive.search, sid, query, limit=4)

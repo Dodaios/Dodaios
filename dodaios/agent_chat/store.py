@@ -29,6 +29,7 @@ resolution can tie two fast appends.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 import uuid
@@ -37,6 +38,8 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat.events import is_transient, now_ms
+
+log = logging.getLogger(__name__)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS agent_chat_sessions (
@@ -86,6 +89,45 @@ CREATE TABLE IF NOT EXISTS jarvis_chat_selection (
     effort      TEXT NOT NULL DEFAULT '',
     account_id  TEXT NOT NULL DEFAULT ''
 );
+-- Restart durability: what the person decided or is waiting for must outlive
+-- the process. "Always allow" choices and narrow rules, per chat and per kind
+-- (``bag``); the entry is the tool name or a JSON rule.
+CREATE TABLE IF NOT EXISTS agent_chat_approval_memory (
+    session_id  TEXT NOT NULL,
+    bag         TEXT NOT NULL,
+    entry       TEXT NOT NULL,
+    PRIMARY KEY (session_id, bag, entry)
+);
+-- Messages waiting behind a running turn (send_queue.py): the full payload, so a
+-- restart re-enqueues them. The ``message_queued`` notice stays the visible
+-- receipt; this row is removed when its ``message_dequeued`` notice is posted.
+CREATE TABLE IF NOT EXISTS agent_chat_queued_messages (
+    queue_id    TEXT PRIMARY KEY,
+    session_id  TEXT NOT NULL,
+    payload     TEXT NOT NULL,
+    queued_ms   INTEGER NOT NULL
+);
+-- Voice turns already filed into a chat: the unique id is the dedup, so a
+-- turn delivered twice across a restart or reconnect is never shown twice.
+CREATE TABLE IF NOT EXISTS agent_chat_voice_turns (
+    voice_turn_id  TEXT PRIMARY KEY,
+    session_id     TEXT NOT NULL,
+    ts_ms          INTEGER NOT NULL
+);
+-- Requests whose delegates still work (parked_work.py): rebuilt on boot so
+-- "I will tell you when the agents are done" survives a restart.
+CREATE TABLE IF NOT EXISTS agent_chat_parked_work (
+    session_id  TEXT NOT NULL,
+    turn_id     TEXT NOT NULL,
+    request     TEXT NOT NULL DEFAULT '',
+    original    TEXT NOT NULL DEFAULT '',
+    work        TEXT NOT NULL DEFAULT '[]',
+    delivered   TEXT NOT NULL DEFAULT '[]',
+    results     TEXT NOT NULL DEFAULT '[]',
+    reported    INTEGER NOT NULL DEFAULT 0,
+    created_ms  INTEGER NOT NULL,
+    PRIMARY KEY (session_id, turn_id)
+);
 -- The lead's one endless conversation: the chat session that every
 -- typed turn, voice call, agent report and notice of the lead lands in.
 CREATE TABLE IF NOT EXISTS jarvis_lead_session (
@@ -94,6 +136,7 @@ CREATE TABLE IF NOT EXISTS jarvis_lead_session (
 );
 """
 
+_VOICE_DEDUP_KEEP_MS: Final[int] = 30 * 24 * 3600 * 1000
 _TITLE_MAX_CHARS = 80
 _PREVIEW_MAX_CHARS = 120
 # The permission ladders live in dodaios/agent_chat/permissions.py (per
@@ -185,6 +228,11 @@ class AgentChatStore:
                 self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.executescript(_SCHEMA)
             self._migrate()
+            # A voice turn id only has to outlive a redelivery, not the chat.
+            self._conn.execute(
+                "DELETE FROM agent_chat_voice_turns WHERE ts_ms < ?",
+                (now_ms() - _VOICE_DEDUP_KEEP_MS,),
+            )
             self._conn.commit()
 
     def _migrate(self) -> None:
@@ -516,6 +564,15 @@ class AgentChatStore:
             self._conn.execute(
                 "DELETE FROM agent_chat_thread_owners WHERE session_id = ?", (session_id,)
             )
+            for table in (
+                "agent_chat_approval_memory",
+                "agent_chat_parked_work",
+                "agent_chat_queued_messages",
+            ):
+                self._conn.execute(
+                    f"DELETE FROM {table} WHERE session_id = ?",  # noqa: S608 - fixed names
+                    (session_id,),
+                )
             self._conn.commit()
         return cur.rowcount > 0
 
@@ -729,6 +786,160 @@ class AgentChatStore:
             ).fetchone()
         return row is not None
 
+    # ------------------------------------------------- restart durability
+
+    def sessions_with_waiting_messages(self) -> list[str]:
+        """Chats with a ``message_queued`` notice that no ``message_dequeued`` answers."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT DISTINCT q.session_id FROM agent_chat_events q "
+                "WHERE q.kind = 'notice' AND json_extract(q.payload, '$.kind') = 'message_queued' "
+                "AND NOT EXISTS (SELECT 1 FROM agent_chat_events d "
+                "  WHERE d.session_id = q.session_id AND d.seq > q.seq AND d.kind = 'notice' "
+                "  AND json_extract(d.payload, '$.kind') = 'message_dequeued' "
+                "  AND json_extract(d.payload, '$.queue_id') "
+                "      = json_extract(q.payload, '$.queue_id'))"
+            ).fetchall()
+        return [str(r["session_id"]) for r in rows]
+
+    def save_queued_message(
+        self, queue_id: str, session_id: str, payload: dict[str, Any]
+    ) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO agent_chat_queued_messages "
+                "(queue_id, session_id, payload, queued_ms) VALUES (?, ?, ?, ?)",
+                (queue_id, session_id, json.dumps(payload, ensure_ascii=False), now_ms()),
+            )
+            self._conn.commit()
+
+    def queued_message(self, queue_id: str) -> dict[str, Any] | None:
+        """The saved payload of a waiting message, with ``queued_ms``; ``None`` if unknown."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT payload, queued_ms FROM agent_chat_queued_messages WHERE queue_id = ?",
+                (queue_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        try:
+            payload = json.loads(row["payload"])
+        except ValueError:
+            log.warning("agent chat: saved message %s is damaged", queue_id)
+            return None
+        if not isinstance(payload, dict):
+            return None
+        return {**payload, "queued_ms": int(row["queued_ms"])}
+
+    def delete_queued_message(self, queue_id: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "DELETE FROM agent_chat_queued_messages WHERE queue_id = ?", (queue_id,)
+            )
+            self._conn.commit()
+
+    def approval_memory(self) -> list[tuple[str, str, str]]:
+        """Every saved ``(session_id, bag, entry)`` of "Always allow" and narrow rules."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT session_id, bag, entry FROM agent_chat_approval_memory"
+            ).fetchall()
+        return [(str(r["session_id"]), str(r["bag"]), str(r["entry"])) for r in rows]
+
+    def replace_approval_memory(self, session_id: str, bag: str, entries: list[str]) -> None:
+        with self._lock:
+            self._conn.execute(
+                "DELETE FROM agent_chat_approval_memory WHERE session_id = ? AND bag = ?",
+                (session_id, bag),
+            )
+            self._conn.executemany(
+                "INSERT OR IGNORE INTO agent_chat_approval_memory (session_id, bag, entry) "
+                "VALUES (?, ?, ?)",
+                [(session_id, bag, entry) for entry in entries],
+            )
+            self._conn.commit()
+
+    def claim_voice_turn(self, voice_turn_id: str, session_id: str) -> bool:
+        """True the first time a voice turn id is filed, False for every repeat."""
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT OR IGNORE INTO agent_chat_voice_turns (voice_turn_id, session_id, ts_ms) "
+                "VALUES (?, ?, ?)",
+                (voice_turn_id, session_id, now_ms()),
+            )
+            self._conn.commit()
+        return cur.rowcount > 0
+
+    def release_voice_turn(self, voice_turn_id: str) -> None:
+        """Forget a claim whose turn could not be filed, so a retry can succeed."""
+        with self._lock:
+            self._conn.execute(
+                "DELETE FROM agent_chat_voice_turns WHERE voice_turn_id = ?", (voice_turn_id,)
+            )
+            self._conn.commit()
+
+    def save_parked_work(self, session_id: str, turn_id: str, record: dict[str, Any]) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO agent_chat_parked_work (session_id, turn_id, request, original, "
+                "work, delivered, results, reported, created_ms) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(session_id, turn_id) DO UPDATE SET request = excluded.request, "
+                "original = excluded.original, work = excluded.work, "
+                "delivered = excluded.delivered, results = excluded.results, "
+                "reported = excluded.reported",
+                (
+                    session_id,
+                    turn_id,
+                    str(record.get("request") or ""),
+                    str(record.get("original") or ""),
+                    json.dumps(record.get("work") or [], ensure_ascii=False),
+                    json.dumps(record.get("delivered") or [], ensure_ascii=False),
+                    json.dumps(record.get("results") or [], ensure_ascii=False, default=str),
+                    1 if record.get("reported") else 0,
+                    int(record.get("created_ms") or now_ms()),
+                ),
+            )
+            self._conn.commit()
+
+    def delete_parked_work(self, session_id: str, turn_id: str | None = None) -> None:
+        with self._lock:
+            if turn_id is None:
+                self._conn.execute(
+                    "DELETE FROM agent_chat_parked_work WHERE session_id = ?", (session_id,)
+                )
+            else:
+                self._conn.execute(
+                    "DELETE FROM agent_chat_parked_work WHERE session_id = ? AND turn_id = ?",
+                    (session_id, turn_id),
+                )
+            self._conn.commit()
+
+    def parked_work(self) -> list[dict[str, Any]]:
+        """Every parked request a previous process left, oldest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM agent_chat_parked_work ORDER BY created_ms, rowid"
+            ).fetchall()
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            try:
+                out.append({
+                    "session_id": str(r["session_id"]),
+                    "turn_id": str(r["turn_id"]),
+                    "request": str(r["request"]),
+                    "original": str(r["original"]),
+                    "work": json.loads(r["work"]),
+                    "delivered": json.loads(r["delivered"]),
+                    "results": json.loads(r["results"]),
+                    "reported": bool(r["reported"]),
+                    "created_ms": int(r["created_ms"]),
+                })
+            except (ValueError, TypeError):
+                log.warning("agent chat: parked wait row damaged, dropped")
+                continue  # a damaged row is dropped rather than blocking boot
+        return out
+
     def queue_notice_events(self, session_id: str) -> list[dict[str, Any]]:
         """Queue receipts only, including waits hidden behind long tool streams."""
         with self._lock:
@@ -763,6 +974,16 @@ class AgentChatStore:
                 (session_id, session_id),
             ).fetchall()
         return [{"kind": row["kind"], "payload": json.loads(row["payload"])} for row in rows]
+
+    def finished_turn_count(self, since_ms: int, *, exclude_session: str = "") -> int:
+        """Turns of any session that finished after ``since_ms`` (one chat left out)."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM agent_chat_events WHERE kind = 'turn_finished' "
+                "AND ts_ms > ? AND session_id != ?",
+                (int(since_ms), exclude_session),
+            ).fetchone()
+        return int(row[0] or 0)
 
     def list_events(
         self, session_id: str, *, after_seq: int = 0, tail: int | None = None

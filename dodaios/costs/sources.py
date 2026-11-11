@@ -18,8 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .ledger import DB_NAME as LEDGER_DB_NAME
 from .ledger import AGENT_LABEL_PREFIX, first_call_ms, read_usage
+from .ledger import DB_NAME as LEDGER_DB_NAME
 from .model import (
     LEAD_AGENT,
     MISSION_SUBSCRIPTION_CLIS,
@@ -43,6 +43,7 @@ from .model import (
     SURFACE_VOICE,
     CostEntry,
     price_entry,
+    share_in_tokens,
     society_agent_of,
 )
 
@@ -428,7 +429,10 @@ def _agent_chat_entries(
                 subscription=start.get("runner", "") in SUBSCRIPTION_RUNNERS,
                 tokens_cached=tokens_cached,
             )
+            reread, fresh = share_in_tokens(payload.get("context"))
             yield CostEntry(
+                reread_tokens=reread,
+                fresh_tokens=fresh,
                 ts_ms=_int(row["ts_ms"]),
                 surface=SURFACE_AGENT_CHAT,
                 role=ROLE_AGENT,

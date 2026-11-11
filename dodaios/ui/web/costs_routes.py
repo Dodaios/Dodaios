@@ -91,6 +91,10 @@ class AgentBucket(Bucket):
     """The roster name; empty when the agent is no longer in the roster."""
     lead: bool = False
     archived: bool = False
+    reread_tokens: int = 0
+    fresh_tokens: int = 0
+    reread_share: float = 0.0
+    """Share of the agent's measured input that was re-read context (0 when unmeasured)."""
 
 
 class Totals(BaseModel):
@@ -780,3 +784,29 @@ def get_pricing(
             )
         )
     return PricingResponse(rates=rows, currency=_currency())
+
+
+@router.get("/agent-score", summary="User-weighted lifetime score of the lead")
+async def get_agent_score(
+    request: Request,
+    weeks: Annotated[int, Query(ge=1, le=520)] = 26,
+) -> dict[str, Any]:
+    """The compact report behind the score card (``dodaios.evals.agent_score``).
+
+    Read-only over the chat store and ``eval-results/``; calls no model.
+    ``windows`` is trimmed to the latest ``weeks`` weeks.
+    """
+    import asyncio
+
+    from dodaios.core.paths import repo_root, user_data_dir
+    from dodaios.evals.agent_score import build_report, load_config
+
+    sources = _sources(request)
+    if sources.agent_chat_db is None:
+        return {"turns": 0, "windows": [], "lifetime": None, "latest_window": None}
+    cfg = load_config(user_data_dir() / "agent_score.json")
+    since = int((time.time() - weeks * 7 * 86400) * 1000)
+    report = await asyncio.to_thread(
+        build_report, sources.agent_chat_db, repo_root() / "eval-results", cfg, since_ms=since
+    )
+    return report

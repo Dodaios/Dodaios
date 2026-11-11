@@ -356,6 +356,9 @@ _KITS: Final[dict[str, SurfaceKit]] = {
         session_tool_filter=_jarvis_filter,
         # Typed turns teach Jarvis the same way spoken ones do.
         turn_completed=_jarvis_completed,
+        # The lead's checkpoint: events up to it live in the summary, so a turn
+        # on the brain path does not load or re-read them.
+        history_start=_society_history_start,
         # Not the home directory: this surface hands out the folder tools, and
         # the read-only four are tier ``safe`` — they run without a card. The
         # composer hides the chip here (a person talks to Jarvis, they do not
