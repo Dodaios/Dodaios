@@ -29,6 +29,7 @@ def build_report(
     audit: Any | None = None,
     preparation: dict[str, Any] | None = None,
     asks: Any | None = None,
+    projects_db: Path | None = None,
 ) -> dict[str, Any]:
     """Read the lead's turns and the routing results, return the JSON-ready report.
 
@@ -46,6 +47,7 @@ def build_report(
     report["calibration"] = _calibration(audit, since_ms)
     report["preparation"] = preparation
     report["asking"] = _asking(asks, turns, cfg, since_ms, until_ms)
+    report["projects"] = _project_component(projects_db or chat_db.with_name("projects.db"))
     return report
 
 
@@ -71,6 +73,20 @@ def _asking(
         return ask_report(asks.rows(since_ms, until_ms), turns, cfg)
     except Exception:  # noqa: BLE001 - an unreadable ask log leaves the component out
         return None
+
+
+def _project_component(path: Path) -> dict[str, Any] | None:
+    """Long-horizon component (criterion 4): multi-session project completion; None without data."""
+    if not path.is_file():
+        return None
+    from dodaios.projects.metrics import project_metrics
+    from dodaios.projects.store import ProjectStore
+
+    store = ProjectStore(path)
+    try:
+        return project_metrics(store)
+    finally:
+        store.close()
 
 
 def _pct(value: float | None) -> str:
@@ -123,6 +139,17 @@ def format_table(report: dict[str, Any]) -> str:
         from .asking import format_lines as asking_lines
 
         lines += ["", *asking_lines(asking)]
+    projects = report.get("projects")
+    if projects and projects["multi_session_projects"]:
+        median = projects["median_days_to_complete"]
+        lines += [
+            "",
+            "Long-horizon projects (multi-session):",
+            f"  completion rate: {_pct(projects['completion_rate'])}   "
+            f"completed {projects['completed']}, abandoned {projects['abandoned']}, "
+            f"stalled {projects['stalled']}, open {projects['open']}",
+            "  median days to complete: " + ("-" if median is None else f"{median:.1f}"),
+        ]
     if report["windows"]:
         lines += ["", "Weekly curve:"]
         for w in report["windows"]:

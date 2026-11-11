@@ -8198,7 +8198,8 @@
       "remember": "Eine Erinnerung speichern",
       "message": "Eine interne Nachricht senden",
       "review": "Letztes Ergebnis prüfen",
-      "routines": "Routinen dieses Agenten verwalten"
+      "routines": "Routinen dieses Agenten verwalten",
+      "project": "Ein mehrtägiges Ziel als Projekt verfolgen"
     },
     "help": "Chat-Commands",
     "plan_active": "Planmodus · nur lesen",

@@ -596,6 +596,7 @@ class WebServer:
         from .society_figure_routes import router as society_figure_router
         from .society_routes import router as society_router
         from .soul_routes import router as soul_router
+        from .project_routes import router as project_router
         from .starter_plan_routes import router as starter_plan_router
         from .sub_agents_routes import router as sub_agents_router
         from .tasks_routes import router as tasks_router
@@ -738,6 +739,7 @@ class WebServer:
         app.include_router(agentic_ide_git_router)
         app.state.team_threads = None
         app.include_router(team_thread_router)
+        app.include_router(project_router)
         # "Built for you": the self-building ledger (/api/self-build/*).
         app.state.self_build = None
         app.include_router(self_build_router)

@@ -147,6 +147,7 @@ class BrainSupervisorToolGateway:
         """
         from dodaios.brain.artifacts_tool import ArtifactsTool
         from dodaios.brain.costs_summary_tool import CostsSummaryTool
+        from dodaios.brain.project_tool import ProjectTool
         from dodaios.brain.team_thread_tool import TeamThreadTool
         from dodaios.brain.work_board_tool import WorkBoardTool
         from dodaios.plugins.tool.product_help import ProductHelpTool
@@ -154,7 +155,7 @@ class BrainSupervisorToolGateway:
         extra: dict[str, Any] = {ProductHelpTool.name: ProductHelpTool()}
         # Thin reads and starts over the app's own routes (the ecosystem the lead
         # must reach: team threads, spend, what the agents made).
-        for tool in (TeamThreadTool(), CostsSummaryTool(), ArtifactsTool()):
+        for tool in (TeamThreadTool(), CostsSummaryTool(), ArtifactsTool(), ProjectTool()):
             extra[tool.name] = tool
         if "message_agent" in self._live_tools():
             from dodaios.plugins.tool.ask_agent import AskAgentTool

@@ -1,6 +1,6 @@
 export const CHAT_COMMAND_NAMES = [
   "help", "clear", "history", "plan", "build", "goal", "status", "stop", "continue",
-  "recap", "find", "model", "remember", "message", "review", "routines",
+  "recap", "find", "model", "remember", "message", "review", "routines", "project",
 ] as const;
 export type ChatCommandName = typeof CHAT_COMMAND_NAMES[number];
 export type GoalStatus = "active" | "paused" | "blocked" | "complete" | "cleared";

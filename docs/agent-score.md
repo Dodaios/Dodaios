@@ -156,6 +156,21 @@ without a card. It does not change Y_user. The same numbers are served at
   their own panes.
 - No held-out external suites are blended in yet.
 
+## Long-horizon projects
+
+The report also carries a `projects` component, read from `projects.db` beside the chat
+store (`--db` picks the folder). A project is multi-session when evidence moved on two
+or more calendar days or two or more chats touched it. Over those:
+
+- **completion rate** = completed / (completed + abandoned + stalled). A stalled
+  project is open with no progress for its stall window (3 days by default), so work
+  nobody finished and nobody closed counts against the rate.
+- **median days to complete**, over completed projects.
+
+A project completes only when every sub-goal is done on job evidence and the `/goal`
+evaluator (another model family when one is connected) judges the success criteria met.
+The component is shown beside the weekly score and is not blended into it.
+
 ## How to read it
 
 Look at the trend first, the level second. A slowly rising curve with no

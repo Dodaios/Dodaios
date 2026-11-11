@@ -68,6 +68,7 @@ LEAD_ONLY_TOOLS: Final[Mapping[str, str]] = {
     "costs_summary": "a typed lead answers spend questions; a call opens the Costs section",
     "artifacts": "a typed lead lists and reads what the agents made; a call shows it on screen",
     "delegate": "the typed lead's front door for hand-offs; a call keeps its specialised tools",
+    "project": "a typed lead plans and tracks multi-day work; a call hands that to the chat",
 }
 
 #: The folder tools: a brain seat's file hands. A CLI seat uses the vendor's own

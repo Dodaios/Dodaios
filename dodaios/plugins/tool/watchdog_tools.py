@@ -30,7 +30,8 @@ _OPEN_MAX: Final[int] = 10
 _LOG_MAX: Final[int] = 15
 _ACTIONS: Final[tuple[str, ...]] = (
     checks.ACT_NUDGE, checks.ACT_STOP_TURN, checks.ACT_CLOSE_TURN, checks.ACT_REQUEUE,
-    checks.ACT_MARK_INTERRUPTED, checks.ACT_DISMISS, "set_judge", "set_checks",
+    checks.ACT_MARK_INTERRUPTED, checks.ACT_RESUME_PROJECT, checks.ACT_RESCOPE_PROJECT,
+    checks.ACT_CLOSE_PROJECT, checks.ACT_DISMISS, "set_judge", "set_checks",
 )
 
 
@@ -127,7 +128,8 @@ class WatchdogActTool:
         "notice or watchdog_status; 'action' must be one of the actions listed on that "
         "finding: nudge (ask a silent turn for a status), stop_turn, close_turn (a turn "
         "nothing runs any more), requeue (run interrupted work again, once), "
-        "mark_interrupted (give up on stuck work), dismiss. Also "
+        "mark_interrupted (give up on stuck work), resume_project / rescope_project / "
+        "close_project (a project with no progress for days), dismiss. Also "
         "set_judge / set_checks with 'enabled' to switch the optional progress judge "
         "(subscription or local models only, off by default) or the checks themselves."
     )
@@ -179,6 +181,13 @@ async def _perform(watchdog: supervisor.Watchdog, action: str, row: dict[str, An
         return watchdog.store.dismiss(row["key"])
     actions = watchdog.actions
     job_id = str((row.get("evidence") or {}).get("job_id") or "")
+    project_id = str((row.get("evidence") or {}).get("project_id") or "")
+    if action == checks.ACT_RESUME_PROJECT:
+        return bool(await actions.resume_project(project_id))
+    if action == checks.ACT_RESCOPE_PROJECT:
+        return bool(await actions.rescope_project(project_id))
+    if action == checks.ACT_CLOSE_PROJECT:
+        return bool(await actions.close_project(project_id))
     if action == checks.ACT_NUDGE:
         return bool(await actions.nudge(row["open_ref"]))
     if action == checks.ACT_STOP_TURN:

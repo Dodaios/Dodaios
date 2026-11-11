@@ -25,6 +25,9 @@ ACT_CLOSE_TURN: Final[str] = "close_turn"
 ACT_REQUEUE: Final[str] = "requeue"
 ACT_MARK_INTERRUPTED: Final[str] = "mark_interrupted"
 ACT_DISMISS: Final[str] = "dismiss"
+ACT_RESUME_PROJECT: Final[str] = "resume_project"
+ACT_RESCOPE_PROJECT: Final[str] = "rescope_project"
+ACT_CLOSE_PROJECT: Final[str] = "close_project"
 
 KIND_STUCK_TURN: Final[str] = "stuck_turn"
 KIND_LOST_TURN: Final[str] = "lost_turn"
@@ -36,6 +39,7 @@ KIND_ROUTINE: Final[str] = "missed_routine"
 KIND_SEAT: Final[str] = "seat_failure"
 KIND_LOOP_WEDGED: Final[str] = "app_unresponsive"
 KIND_DOWNTIME: Final[str] = "app_was_down"
+KIND_PROJECT: Final[str] = "stalled_project"
 
 #: Findings that may ask for the owner's attention beyond a written notice (the opt-in
 #: "call me for urgent decisions"): a runaway tool loop and an app that stopped answering.
@@ -108,6 +112,19 @@ class JobView:
 
 
 @dataclass(frozen=True, slots=True)
+class ProjectView:
+    """An open long-horizon project and when its evidence last moved."""
+
+    id: str
+    title: str
+    status: str
+    progress_ms: int
+    #: Days without progress before it counts as stalled (the project's own setting).
+    stall_days: int
+    open_subgoals: int = 0
+
+
+@dataclass(frozen=True, slots=True)
 class ClaimView:
     trace_id: str
     agent: str
@@ -136,6 +153,7 @@ class Snapshot:
     jobs: list[JobView] = field(default_factory=list)
     claims: list[ClaimView] = field(default_factory=list)
     routines: list[RoutineView] = field(default_factory=list)
+    projects: list[ProjectView] = field(default_factory=list)
     seats: list[SeatView] = field(default_factory=list)
     #: ``False`` when the app's event loop did not answer a ping in time.
     loop_ok: bool = True
@@ -301,6 +319,24 @@ def check_routines(snap: Snapshot, limits: Limits) -> Iterable[Finding]:
             )
 
 
+def check_projects(snap: Snapshot, limits: Limits) -> Iterable[Finding]:
+    """An open project with no new evidence for its stall window: resume, rescope or close."""
+    for project in snap.projects:
+        if project.status not in ("active", "blocked"):
+            continue  # a paused project is the owner's own choice
+        idle = _age_s(snap.now_ms, project.progress_ms)
+        if idle < project.stall_days * 86400:
+            continue
+        yield Finding(
+            key=f"{KIND_PROJECT}:{project.id}:{project.progress_ms}",
+            kind=KIND_PROJECT,
+            title=f"No progress on project: {project.title}",
+            evidence={"project_id": project.id, "idle_days": idle // 86400,
+                      "open_subgoals": project.open_subgoals, "status": project.status},
+            actions=(ACT_RESUME_PROJECT, ACT_RESCOPE_PROJECT, ACT_CLOSE_PROJECT, ACT_DISMISS),
+        )
+
+
 def check_seats(snap: Snapshot, limits: Limits) -> Iterable[Finding]:
     for seat in snap.seats:
         if seat.status in _SEAT_FAILURES and _age_s(snap.now_ms, seat.at_ms) <= limits.seat_fresh_s:
@@ -327,13 +363,15 @@ def run_checks(snap: Snapshot, limits: Limits | None = None) -> list[Finding]:
     """Every finding of one scan, in a stable order."""
     limits = limits or Limits()
     out: list[Finding] = []
-    for check in (check_loop, check_turns, check_jobs, check_claims, check_routines, check_seats):
+    for check in (check_loop, check_turns, check_jobs, check_claims, check_routines, check_projects,
+                  check_seats):
         out.extend(check(snap, limits))
     return out
 
 
 __all__ = [
-    "ACT_CLOSE_TURN", "ACT_DISMISS", "ACT_MARK_INTERRUPTED", "ACT_NUDGE", "ACT_REQUEUE",
+    "ACT_CLOSE_PROJECT", "ACT_CLOSE_TURN", "ACT_DISMISS", "ACT_RESCOPE_PROJECT",
+    "ACT_RESUME_PROJECT", "ACT_MARK_INTERRUPTED", "ACT_NUDGE", "ACT_REQUEUE",
     "ACT_STOP_TURN", "ClaimView", "Finding", "JobView", "Limits", "RoutineView", "SeatView",
-    "Snapshot", "TurnView", "run_checks",
+    "ProjectView", "Snapshot", "TurnView", "run_checks",
 ]

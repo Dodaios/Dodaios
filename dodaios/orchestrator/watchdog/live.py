@@ -27,6 +27,7 @@ from dodaios.orchestrator.watchdog.checks import (
     ClaimView,
     Finding,
     JobView,
+    ProjectView,
     RoutineView,
     SeatView,
     Snapshot,
@@ -120,6 +121,7 @@ class LiveSources:
             snap.jobs = self._guarded(self._jobs, store, now, default=[])
             snap.claims = self._guarded(self._claims, snap.jobs, now, default=[])
             snap.routines = self._guarded(self._routines, now, default=[])
+        snap.projects = self._guarded(self._projects, default=[])
         snap.seats = self._seats()
         return snap
 
@@ -304,6 +306,22 @@ class LiveSources:
                 title = str(row.get("title") or "routine")
                 out.append(RoutineView(str(row.get("id")), title, due_ms))
         return out
+
+    # ------------------------------------------------------------ projects
+
+    @staticmethod
+    def _projects() -> list[ProjectView]:
+        """Open projects with the time their evidence last moved (a plain store read)."""
+        from dodaios.projects.models import outstanding
+        from dodaios.projects.store import get_store
+
+        return [
+            ProjectView(
+                id=p.id, title=p.title, status=p.status, progress_ms=p.last_progress_ms,
+                stall_days=p.stall_days, open_subgoals=len(outstanding(p)),
+            )
+            for p in get_store().list(open_only=True)
+        ]
 
     # --------------------------------------------------------------- seats
 
@@ -509,6 +527,40 @@ class LiveActions:
             job.id, detail="requeued", summary=f"The watchdog re-queued this as {new_id}."
         )
         return f"re-queued interrupted work ({job.title[:80]}) as {new_id}"
+
+    async def resume_project(self, project_id: str) -> bool:
+        """Back to active with a fresh stall window; the next review looks at it at once."""
+        return await self._project_status(project_id, "active", "", "")
+
+    async def rescope_project(self, project_id: str) -> bool:
+        """Hold the project for a decision: the lead and the owner revise the plan or criteria."""
+        return await self._project_status(
+            project_id, "blocked",
+            "No progress for days: revise the plan or the success criteria (project: plan), "
+            "or close it.", "rescope",
+        )
+
+    async def close_project(self, project_id: str) -> bool:
+        """The owner's call to give the project up (never a completion)."""
+        from dodaios.projects.engine import ProjectError, get_engine
+
+        try:
+            result = await get_engine().close(
+                project_id, "abandon", reason="Closed from the watchdog notice."
+            )
+        except ProjectError:
+            return False
+        return result.closed
+
+    @staticmethod
+    async def _project_status(project_id: str, status: str, decision: str, kind: str) -> bool:
+        from dodaios.projects.engine import ProjectError, get_engine
+
+        try:
+            await get_engine().set_status(project_id, status, decision=decision, kind=kind)
+        except ProjectError:
+            return False
+        return True
 
     async def mark_interrupted(self, job_id: str) -> bool:
         job = jobs.get_ledger().get(job_id)

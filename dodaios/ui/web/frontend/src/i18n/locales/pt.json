@@ -8198,7 +8198,8 @@
       "remember": "Guardar uma memória",
       "message": "Enviar uma mensagem interna",
       "review": "Rever o último resultado",
-      "routines": "Gerir as rotinas deste agente"
+      "routines": "Gerir as rotinas deste agente",
+      "project": "Acompanhar uma meta de vários dias como projeto"
     },
     "help": "Comandos do chat",
     "plan_active": "Modo de plano · só leitura",
