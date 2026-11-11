@@ -821,6 +821,8 @@
       "tomorrow": "Morgen"
     },
     "mode_ide": "IDE",
+    "automations": "Automationen",
+    "automations_empty": "Noch keine. Bitte Dodaios, eine einzurichten.",
     "mode_aria": "Unterhaltung oder Agentic IDE",
     "pinned": "Angeheftet",
     "recent": "Letzte",
@@ -10481,6 +10483,7 @@
     },
     "layout_grid": "Terminal-Raster",
     "layout_threads": "Threads",
+    "layout_aria": "IDE-Layout",
     "terminal_needs_folder": "Das Terminal braucht einen Projektordner",
     "hide_terminal": "Terminal ausblenden",
     "show_terminal": "Terminal anzeigen",

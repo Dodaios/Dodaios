@@ -7,9 +7,8 @@ import { useVoiceMode } from "@/hooks/useVoiceMode";
 import { useSectionHealth } from "@/hooks/useProviders";
 import { usePluginAttention } from "@/hooks/usePluginAttention";
 import { cn } from "@/lib/utils";
-import { lazy, Suspense, useEffect, useMemo } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { useT } from "@/i18n";
-import { EarlierChatsLink } from "@/components/home/EarlierChatsLink";
 import { useHomeStore } from "@/store/home";
 import { LazyIdeProjectTree } from "@/components/agentic/LazyIdeProjectTree";
 import { IDE_SECTIONS } from "@/lib/ideSections";
@@ -24,6 +23,10 @@ import { MarketplaceIcon } from "@/components/icons/sectionIcons";
 import { startNewTextChat } from "@/lib/newChat";
 import { useUserName } from "@/hooks/useUserName";
 import { apiKeysHealthError } from "@/lib/apiKeysTab";
+
+// The assistant's side of the column: its routines and the chats from before.
+// It reads the routine and chat lists, so it loads on its own chunk.
+const SidebarAssistant = lazy(() => import("@/components/layout/SidebarAssistant"));
 
 // The update button renders nothing on most launches; loaded on its own so
 // the title-strip module it lives in stays out of the sidebar's chunk.
@@ -152,9 +155,9 @@ export function Sidebar({
   // assistant, or the Agentic IDE. Neither while a Settings page is open.
   const onIdeSection = IDE_SECTIONS.includes(active);
   const mode: SidebarMode | null = onIdeSection ? "ide" : active === "chats" ? "dodaios" : null;
-  // The thread list carries search as one of its own start rows (ThreadTree),
-  // so the field atop the column shows only beside the grid's workspace list.
-  const threadLayout = useIdeThreadsStore((s) => s.layout) === "threads";
+  // The IDE's thread list carries search as one of its own start rows
+  // (ThreadTree), so there the field atop the column steps aside.
+  const threadLayout = useIdeThreadsStore((s) => s.layout) === "threads" && onIdeSection;
   const headerSearch = searchBarOn && !threadLayout;
   const identity = usePublishIdentity();
   const userName = useUserName();
@@ -240,20 +243,6 @@ export function Sidebar({
   const hubActive = (SETTINGS_HUB_IDS as readonly string[]).includes(active);
   const rowClass = "flex min-h-8 w-full items-center gap-3 rounded-lg px-3 text-base text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-  // The folders and their threads stay listed beside the conversation too.
-  // Opening one of them from there leads into the IDE, where it is shown.
-  useEffect(() => {
-    if (onIdeSection) return;
-    const enterIde = () => useEventStore.getState().setActiveSection("agentic-ide");
-    const offThreads = useIdeThreadsStore.subscribe((next, previous) => {
-      if (next.selection !== previous.selection) enterIde();
-    });
-    const offProjects = useIdeProjectsStore.subscribe((next, previous) => {
-      if (next.action !== previous.action) enterIde();
-    });
-    return () => { offThreads(); offProjects(); };
-  }, [onIdeSection]);
-
   const pickMode = (next: SidebarMode) => {
     if (next === "ide") { setActive("agentic-ide"); return; }
     useHomeStore.getState().setSurface("chat");
@@ -328,9 +317,11 @@ export function Sidebar({
             </button>
           </div>
         </nav>) : <>
-          {/* The folders with their threads and grids, in both places. */}
-          <LazyIdeProjectTree />
-          {!onIdeSection && <section className="px-2 pb-3" aria-label={t("sidebar.earlier_chats")}><EarlierChatsLink /></section>}
+          {/* Each side of the switch brings its own list: the IDE its folders,
+              the conversation the assistant's routines and earlier chats. */}
+          {onIdeSection
+            ? <LazyIdeProjectTree />
+            : <Suspense fallback={null}><SidebarAssistant onConversation={() => pickMode("dodaios")} /></Suspense>}
         </>}
       </div>
 

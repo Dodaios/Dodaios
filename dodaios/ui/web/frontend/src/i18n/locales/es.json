@@ -821,6 +821,8 @@
       "tomorrow": "Mañana"
     },
     "mode_ide": "IDE",
+    "automations": "Automatizaciones",
+    "automations_empty": "Aún ninguna. Pide a Dodaios que configure una.",
     "mode_aria": "Conversación o Agentic IDE",
     "pinned": "Fijados",
     "recent": "Recientes",
@@ -10481,6 +10483,7 @@
     },
     "layout_grid": "Cuadrícula de terminales",
     "layout_threads": "Hilos",
+    "layout_aria": "Diseño del IDE",
     "terminal_needs_folder": "El terminal necesita una carpeta de proyecto",
     "hide_terminal": "Ocultar terminal",
     "show_terminal": "Mostrar terminal",

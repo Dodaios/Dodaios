@@ -821,6 +821,8 @@
       "tomorrow": "Tomorrow"
     },
     "mode_ide": "IDE",
+    "automations": "Automations",
+    "automations_empty": "None yet. Ask Dodaios to set one up.",
     "mode_aria": "Conversation or Agentic IDE",
     "pinned": "Pinned",
     "recent": "Recent",
@@ -10481,6 +10483,7 @@
     },
     "layout_grid": "Terminal grid",
     "layout_threads": "Threads",
+    "layout_aria": "IDE layout",
     "terminal_needs_folder": "Terminal needs a project folder",
     "hide_terminal": "Hide terminal",
     "show_terminal": "Show terminal",

@@ -59,7 +59,7 @@ test("IDE rail keeps workspace options and Dodaios Live reachable", () => {
   cleanup();
 });
 
-test("the folder list stays in both places, under the switch", async () => {
+test("each side of the switch brings its own list", async () => {
   act(() => {
     useIdeThreadsStore.setState({ layout: "grid" });
     useEventStore.setState({ activeSection: "agentic-ide" });
@@ -70,10 +70,12 @@ test("the folder list stays in both places, under the switch", async () => {
     expect(await screen.findByTestId("ide-project-tree", undefined, { timeout: 10_000 })).toBeDefined();
     expect(screen.getByTestId("sidebar-mode-ide").getAttribute("aria-checked")).toBe("true");
     expect(screen.getByTestId("sidebar-mode-dodaios").getAttribute("aria-checked")).toBe("false");
-    // The earlier chats belong to the conversation, not to the IDE.
-    expect(screen.queryByTestId("earlier-chats")).toBeNull();
+    // The assistant's list belongs to the conversation, not to the IDE.
+    expect(screen.queryByTestId("sidebar-assistant")).toBeNull();
     act(() => useEventStore.setState({ activeSection: "chats" }));
-    expect(screen.getByTestId("ide-project-tree")).toBeDefined();
+    // Beside the conversation nothing of the IDE is listed.
+    expect(await screen.findByTestId("sidebar-assistant", undefined, { timeout: 10_000 })).toBeDefined();
+    expect(screen.queryByTestId("ide-project-tree")).toBeNull();
     expect(screen.getByTestId("sidebar-mode-dodaios").getAttribute("aria-checked")).toBe("true");
     expect(screen.getByTestId("earlier-chats")).toBeTruthy();
   } finally {
@@ -81,7 +83,7 @@ test("the folder list stays in both places, under the switch", async () => {
     cleanup();
     act(() => useEventStore.setState({ activeSection: "chats" }));
   }
-}, 20_000);
+}, 30_000);
 
 // The sidebar header avatar must mirror the chosen on-screen display style:
 // the ghost mascot ONLY when the user explicitly picked "mascot"; the slim bar
@@ -257,13 +259,6 @@ describe("Sidebar mode switch", () => {
   test("the other half opens the Agentic IDE", () => {
     renderSidebar();
     act(() => { screen.getByTestId("sidebar-mode-ide").click(); });
-    expect(useEventStore.getState().activeSection).toBe("agentic-ide");
-  });
-
-  test("opening a thread from the list beside the conversation leads into the IDE", () => {
-    useEventStore.setState({ activeSection: "chats" });
-    renderSidebar();
-    act(() => useIdeThreadsStore.getState().openThread("session-1", "project-1"));
     expect(useEventStore.getState().activeSection).toBe("agentic-ide");
   });
 });
@@ -683,14 +678,14 @@ describe("the sidebar holds the two places and nothing else", () => {
   });
   afterEach(() => cleanup());
 
-  test("lists no sections of its own", () => {
+  test("lists no sections of its own", async () => {
     renderSidebar();
     for (const id of ["agents", "dictation", "visualization", "agentic-ide", "plugins", "memory", "self-build", "verse"]) {
       expect(screen.queryByTestId(`nav-row-${id}`)).toBeNull();
     }
     expect(screen.queryByTestId("sidebar-more-toggle")).toBeNull();
     expect(screen.queryByTestId("sidebar-due")).toBeNull();
-    expect(screen.getByTestId("earlier-chats")).toBeTruthy();
+    expect(await screen.findByTestId("earlier-chats", undefined, { timeout: 10_000 })).toBeTruthy();
   });
 
   test("keeps the marketplace beside the profile button", () => {
