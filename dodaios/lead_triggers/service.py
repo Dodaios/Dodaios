@@ -344,10 +344,7 @@ class TriggerService:
         elif verdict.action == "act":
             # The owner's stop on this trigger policy (or on everything) holds:
             # the decision is recorded, no job starts.
-            from dodaios.safety.stop_hold import stop_holds
-
-            holds = stop_holds()
-            if holds.blocking(trigger="*") is not None or holds.blocking(trigger=policy.id) is not None:
+            if self._policy_held(policy.id):
                 record["outcome"] = "held_by_owner"
                 return
             try:
@@ -374,13 +371,19 @@ class TriggerService:
             else:
                 await self._notify(state, key, record)
 
+    @staticmethod
+    def _policy_held(policy_id: str) -> bool:
+        """The owner's stop covers this policy, all triggers (``trigger:*``) or everything."""
+        from dodaios.safety.stop_hold import stop_holds
+
+        holds = stop_holds()
+        return holds.blocking(trigger="*") is not None or holds.blocking(trigger=policy_id) is not None
+
     async def _start_prepare(
         self, verdict: Verdict, policy: Policy, record: dict[str, Any]
     ) -> None:
         """Work in advance: runs in the background, result kept for the owner, nothing pushed."""
-        from dodaios.safety.stop_hold import stop_holds
-
-        if stop_holds().blocking(trigger=policy.id) is not None:
+        if self._policy_held(policy.id):
             record["outcome"] = "held_by_owner"
             return
         if self._preparer is None:
