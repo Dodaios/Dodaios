@@ -14,6 +14,7 @@ subscription and re-checked before every delivery; delivered text stays data.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 import time
@@ -24,6 +25,8 @@ from typing import Any, Final
 
 from .event import TriggerEvent
 from .settings import TriggerSettings
+
+log = logging.getLogger(__name__)
 
 MAX_DELIVERIES: Final[int] = 500
 
@@ -165,6 +168,7 @@ class SubscriptionStore:
             try:
                 mandate = json.loads(raw)
             except ValueError:
+                log.warning("thread subscriptions: unreadable mandate for %s", job)
                 mandate = {}
             out.append(Subscription(source, key, job, kind, target,
                                     mandate if isinstance(mandate, dict) else {}))
@@ -207,6 +211,7 @@ class SubscriptionStore:
         try:
             return row[0], TriggerEvent.from_dict(json.loads(row[1]))
         except ValueError:
+            log.warning("thread subscriptions: unreadable delivery %s", event_id)
             return None
 
 

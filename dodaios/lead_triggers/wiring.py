@@ -170,8 +170,10 @@ async def deliver_to_job(sub: Subscription, event: TriggerEvent, text: str) -> s
         try:
             await get_registry().send_prompt(sub.target, text, require_idle=True)
         except AgentBusyError:
+            log.info("lead triggers: pane %s is in a turn; the lead sees the event", sub.target)
             return "busy"
         except SessionError:
+            log.info("lead triggers: pane %s is gone; its subscription ends", sub.target)
             return "gone"
         return DELIVERED
     return "unsupported"
