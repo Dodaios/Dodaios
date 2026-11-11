@@ -98,6 +98,7 @@ from dodaios.agent_chat.questions import (
 )
 from dodaios.agent_chat.runner_api import TurnHandle
 from dodaios.agent_chat.tool_context import register_turn, unregister_turn
+from dodaios.agent_chat.turn_host import claude_result_without_model_turn
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 from dodaios.core.response_style import KEEP_GOING_ON_TOOL_FAILURE
 
@@ -1920,6 +1921,12 @@ class _ClaudeState:
     background_calls: set[str] = field(default_factory=set)
     #: The model a sub-agent's messages last reported (sub-agent states only).
     reported_model: str = ""
+    #: A task notice arrived before the turn's first ``result``. On resume
+    #: Claude Code delivers the notice of a task the previous process left
+    #: unfinished as an input of its own and answers it with an empty
+    #: ``result`` (no model turn) before the person's prompt runs. That line
+    #: must not end the turn (``claude_result_without_model_turn``).
+    notice_pending: bool = False
 
 
 #: Streamed characters per estimated output token (English and code average).
@@ -2338,6 +2345,8 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
         # life (started, working, finished) is, and so is a wait on open tasks.
         out = _claude_task_events(obj, st)
         _claude_track_task(obj, st)
+        if obj.get("subtype") == "task_notification" and not st.saw_result:
+            st.notice_pending = True
         return out + _claude_wait_events(st)
 
     if kind == "stream_event":
@@ -2557,6 +2566,11 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
         return out
 
     if kind == "result":
+        notice, st.notice_pending = st.notice_pending, False
+        if notice and claude_result_without_model_turn(obj):
+            # The CLI's own empty answer to a task notice it found on resume:
+            # the person's prompt runs after it, so this is not the turn's end.
+            return out
         st.saw_result = True
         st.answered = True
         st.idle = True
