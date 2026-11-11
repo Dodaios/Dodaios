@@ -1640,7 +1640,7 @@ class TeamLeads:
         if env.msg_type is MsgType.RESULT:
             if env.from_agent != task.agent_id:
                 return
-            blocked = str(env.payload.get("status") or "done") == "blocked"
+            blocked = str(env.payload.get("status") or "done") in ("blocked", "interrupted")
             result = str(env.payload.get("done") or env.text or "").strip()
             await self._close_task(
                 task, TeamTaskState.BLOCKED if blocked else TeamTaskState.DONE, result

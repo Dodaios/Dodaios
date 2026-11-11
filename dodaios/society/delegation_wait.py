@@ -67,12 +67,8 @@ def ledger_job_id(request: SocietyEnvelope) -> str | None:
     return None
 
 
-async def track_request(runtime: Any, request: SocietyEnvelope) -> None:
-    job_id = ledger_job_id(request)
-    if job_id is None:
-        return
-    target = await runtime.roster.get(request.to_agent)
-    name = display_name(target) if target else str(request.to_agent)
+def board_probe(runtime: Any, request: SocietyEnvelope):
+    """A read-only probe of one request: its reply on the board, else the agent's progress."""
 
     async def probe() -> dict[str, Any] | None:
         result = await result_for(runtime.store, request)
@@ -97,6 +93,42 @@ async def track_request(runtime: Any, request: SocietyEnvelope) -> None:
             if row.get("payload", {}).get("turn_id") in turn_ids
         ]
         return {"status": "running", "progress": str(progress[-1]["seq"])} if progress else None
+
+    return probe
+
+
+def _rehydrate(job: jobs.Job):
+    """After a restart the board still holds the evidence: read it again.
+
+    A task that died with the process has its RESULT (``interrupted``) from the
+    boot sweep (``boot_sweep.py``), so the job ends instead of waiting for ever.
+    """
+    event_id = str(job.meta.get("event_id") or "")
+    if not event_id:
+        return None
+
+    async def probe() -> dict[str, Any] | None:
+        from dodaios.mcp.agents.context import society
+
+        runtime = await society()
+        request = await runtime.store.get_event(event_id)
+        if request is None:
+            return {"status": "failed", "report": "The assignment record is gone."}
+        return await board_probe(runtime, request)()
+
+    return jobs.ledgered(job.id, probe)
+
+
+jobs.register_rehydrator("society_assignment", _rehydrate)
+
+
+async def track_request(runtime: Any, request: SocietyEnvelope) -> None:
+    job_id = ledger_job_id(request)
+    if job_id is None:
+        return
+    target = await runtime.roster.get(request.to_agent)
+    name = display_name(target) if target else str(request.to_agent)
+    probe = board_probe(runtime, request)
 
     session = str(
         request.payload.get("reply_session_id") or request.payload.get("from_session") or ""

@@ -4005,6 +4005,8 @@ class WebServer:
         self.bus.unsubscribe(DelegationResultReady, self._forward_delegation_to_chat)
         self.bus.subscribe(DelegationResultReady, self._forward_delegation_to_chat)
         service = AgentChatService(store, assistant_name=_name, bus=lambda: self.bus)
+        # Messages and delegation waits a restart interrupted go on from here.
+        service.start_restart_recovery()
         # "Needs you" list and notifier: one event listener, nothing on boot.
         from dodaios.agent_chat.attention import install as install_attention
 
