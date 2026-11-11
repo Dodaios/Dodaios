@@ -48,7 +48,7 @@ def test_counts_and_links() -> None:
     light = build_status_light(board=BOARD, attention=[card], jobs=[_job("j1")])
     kinds = [row["kind"] for row in light["running"]]
     assert kinds == ["pane", "team", "mission", "task", "job"]
-    assert light["counts"] == {"running": 5, "needs_you": 3}
+    assert light["counts"] == {"running": 5, "needs_you": 3, "prepared": 0}
     first = light["needs_you"][0]
     assert first["link"] == {"agent_id": "jarvis", "session_id": "s", "ref_id": "q1"}
     assert {row["kind"] for row in light["needs_you"]} == {"question", "pane", "mission"}
@@ -69,7 +69,7 @@ def test_trouble_sets_a_warning_tone() -> None:
 
 
 def test_empty_sources_are_quiet_and_rows_are_bounded() -> None:
-    assert build_status_light()["counts"] == {"running": 0, "needs_you": 0}
+    assert build_status_light()["counts"] == {"running": 0, "needs_you": 0, "prepared": 0}
     many = build_status_light(jobs=[_job(str(n)) for n in range(MAX_ROWS + 10)])
     assert many["counts"]["running"] == MAX_ROWS + 10
     assert len(many["running"]) == MAX_ROWS
@@ -92,3 +92,11 @@ def test_watchdog_findings_set_a_warning_tone() -> None:
     )
     assert light["tone"] == "warn"
     assert light["findings"] == [{"id": "f1", "kind": "silent_turn", "title": "Turn is silent"}]
+
+
+def test_prepared_items_are_counted_apart_and_never_warn() -> None:
+    light = build_status_light(
+        prepared=[{"id": "pr1", "kind": "mail_reply", "title": "Reply to Bob", "thread_key": "t1"}]
+    )
+    assert light["counts"] == {"running": 0, "needs_you": 0, "prepared": 1}
+    assert light["prepared"][0]["title"] == "Reply to Bob" and light["tone"] == "calm"

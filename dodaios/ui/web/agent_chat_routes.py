@@ -1356,6 +1356,45 @@ async def promote_lead_trigger_policy(policy_id: str) -> dict[str, Any]:
     return await service.view()
 
 
+@router.get("/lead/prepared", summary="Drafts and fixes prepared in advance, waiting for the owner")
+async def get_lead_prepared(thread_key: str = "") -> dict[str, Any]:
+    preparer = _trigger_service().preparer
+    if preparer is None:
+        return {"items": [], "stats": None, "settings": None}
+    items = await preparer.waiting(thread_key)
+    return {
+        "items": [i.to_dict() for i in items],
+        "stats": preparer.items.stats(),
+        "settings": (await preparer.settings()).to_dict(),
+    }
+
+
+@router.put("/lead/prepared/settings", summary="Switch the kinds of preparation on or off")
+async def put_lead_prepared_settings(body: dict[str, Any]) -> dict[str, Any]:
+    from dodaios.lead_triggers.prepare import PrepareSettings
+
+    preparer = _trigger_service().preparer
+    if preparer is None:
+        raise HTTPException(status_code=503, detail="Preparation is not available")
+    return (await preparer.save_settings(PrepareSettings.from_dict(body))).to_dict()
+
+
+@router.post("/lead/prepared/{item_id}/{outcome}", summary="Mark a prepared item used or not")
+async def resolve_lead_prepared(item_id: str, outcome: str) -> dict[str, Any]:
+    if outcome not in ("used", "discard"):
+        raise HTTPException(status_code=404, detail="Unknown outcome")
+    preparer = _trigger_service().preparer
+    if preparer is None:
+        raise HTTPException(status_code=503, detail="Preparation is not available")
+    done = (
+        preparer.items.mark_used(item_id) if outcome == "used"
+        else preparer.items.mark_discarded(item_id)
+    )
+    if not done:
+        raise HTTPException(status_code=404, detail="No such waiting item")
+    return {"ok": True}
+
+
 @router.post(
     "/lead/triggers/events",
     status_code=202,

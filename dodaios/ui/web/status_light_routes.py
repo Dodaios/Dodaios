@@ -70,12 +70,28 @@ def _findings() -> list[dict[str, Any]]:
         return []
 
 
+async def _prepared() -> list[dict[str, Any]]:
+    """Drafts and fixes made in advance that wait for the person (a count, never a push)."""
+    from dodaios.lead_triggers import wiring
+
+    service = wiring.get_service()
+    if service is None or service.preparer is None:
+        return []
+    try:
+        return [i.to_dict() for i in await service.preparer.waiting()]
+    except Exception:  # noqa: BLE001 - the light stands on its other sources
+        log.warning("status light: prepared items unavailable", exc_info=True)
+        return []
+
+
 async def compute(request: Request) -> dict[str, Any]:
     from dodaios.brain.seat_health import get_seat_health
     from dodaios.core.status_light import build_status_light
     from dodaios.orchestrator import jobs
 
-    board, cards = await asyncio.gather(_board(), _attention_cards(request))
+    board, cards, prepared = await asyncio.gather(
+        _board(), _attention_cards(request), _prepared()
+    )
     try:
         open_jobs = jobs.get_ledger().recent(limit=50, open_only=True)
     except Exception:  # noqa: BLE001
@@ -87,7 +103,8 @@ async def compute(request: Request) -> dict[str, Any]:
         log.warning("status light: seat health unavailable", exc_info=True)
         seats = []
     return build_status_light(
-        board=board, jobs=open_jobs, attention=cards, seats=seats, findings=_findings()
+        board=board, jobs=open_jobs, attention=cards, seats=seats, findings=_findings(),
+        prepared=prepared,
     )
 
 

@@ -327,3 +327,19 @@ def test_regression_helper_ignores_other_seats() -> None:
 
 def test_compute_score_without_turns() -> None:
     assert compute_score([], ScoreConfig())["windows"] == []
+
+
+def test_preparation_component_is_reported_and_printed(chat: Chat) -> None:
+    from dodaios.lead_triggers.prepared import PreparedStore
+
+    items = PreparedStore()
+    first = items.add(kind="mail_reply", event_id="mail:1", source="mail")
+    items.add(kind="mail_reply", event_id="mail:2", source="mail")
+    items.add(kind="ci_failure", event_id="github:3", source="github", state="silent")
+    items.mark_used(first.id)
+    path = chat.done()
+    report = build_report(path, None, ScoreConfig(), preparation=items.stats())
+    prep = report["preparation"]
+    assert (prep["prepared_total"], prep["used"], prep["silent"]) == (2, 1, 1)
+    assert "Prepared in advance:" in format_table(report)
+    assert build_report(path, None, ScoreConfig())["preparation"] is None

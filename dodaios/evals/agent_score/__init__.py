@@ -27,11 +27,14 @@ def build_report(
     since_ms: int = 0,
     until_ms: int | None = None,
     audit: Any | None = None,
+    preparation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Read the lead's turns and the routing results, return the JSON-ready report.
 
     ``audit`` (an :class:`~dodaios.trust.audit.AuditLog`) adds the calibration
     component: how well the lead's stated confidence matched what happened.
+    ``preparation`` (``PreparedStore.stats()``) adds the acting-in-advance component:
+    how many drafts and fixes were prepared, used, discarded or expired, and the use rate.
     """
     cfg = cfg or ScoreConfig()
     report = compute_score(
@@ -39,6 +42,7 @@ def build_report(
     )
     report["generated_ms"] = int(time.time() * 1000)
     report["calibration"] = _calibration(audit, since_ms)
+    report["preparation"] = preparation
     return report
 
 
@@ -90,6 +94,14 @@ def format_table(report: dict[str, Any]) -> str:
         from dodaios.trust.calibration import format_lines
 
         lines += ["", *format_lines(calibration)]
+    prep = report.get("preparation")
+    if prep is not None:
+        lines += ["", "Prepared in advance:"]
+        lines.append(
+            f"  prepared {prep['prepared_total']}   used {prep['used']}   "
+            f"discarded {prep['discarded']}   expired {prep['expired']}   "
+            f"silent {prep['silent']}   use rate {_pct(prep['use_rate'])}"
+        )
     if report["windows"]:
         lines += ["", "Weekly curve:"]
         for w in report["windows"]:
