@@ -4,17 +4,24 @@
   "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
   "replaces": "M_Struct_Gunmetal",
   "scalars": {
-    "EdgeWear": 0.4,
-    "GrimeAmount": 0.3,
+    "EdgeWear": 0.2,
+    "GrimeAmount": 0.12,
     "Metallic": 0.85,
     "RoughnessMax": 0.65,
-    "RoughnessMin": 0.35
+    "RoughnessMin": 0.35,
+    "TriplanarScale": 0.7,
+    "TriplanarWorld": 1.0
   },
   "schema": "verse.mi/1",
   "switches": {
-    "UseTriplanar": false
+    "UseTextureSet": true,
+    "UseTriplanar": true
   },
-  "textures": {},
+  "textures": {
+    "Set1_BC": "/Game/Verse/Textures/Arena/T_Arena_Paint_BC.T_Arena_Paint_BC",
+    "Set1_N": "/Game/Verse/Textures/Arena/T_Arena_Paint_N.T_Arena_Paint_N",
+    "Set1_ORM": "/Game/Verse/Textures/Arena/T_Arena_Paint_ORM.T_Arena_Paint_ORM"
+  },
   "vectors": {
     "BaseTint": [
       0.16,

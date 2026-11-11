@@ -4,17 +4,24 @@
   "parent": "/Game/Verse/Materials/Master/M_Verse_Surface.M_Verse_Surface",
   "replaces": "M_Wall_Charcoal",
   "scalars": {
-    "EdgeWear": 0.4,
-    "GrimeAmount": 0.3,
+    "EdgeWear": 0.2,
+    "GrimeAmount": 0.12,
     "Metallic": 0.0,
     "RoughnessMax": 0.75,
-    "RoughnessMin": 0.45
+    "RoughnessMin": 0.45,
+    "TriplanarScale": 0.45,
+    "TriplanarWorld": 1.0
   },
   "schema": "verse.mi/1",
   "switches": {
-    "UseTriplanar": false
+    "UseTextureSet": true,
+    "UseTriplanar": true
   },
-  "textures": {},
+  "textures": {
+    "Set1_BC": "/Game/Verse/Textures/Arena/T_Arena_Panel_BC.T_Arena_Panel_BC",
+    "Set1_N": "/Game/Verse/Textures/Arena/T_Arena_Panel_N.T_Arena_Panel_N",
+    "Set1_ORM": "/Game/Verse/Textures/Arena/T_Arena_Panel_ORM.T_Arena_Panel_ORM"
+  },
   "vectors": {
     "BaseTint": [
       0.035,
