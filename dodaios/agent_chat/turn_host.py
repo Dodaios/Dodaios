@@ -125,6 +125,12 @@ class HostedTurn:
     #: the CLI exits, even with no app attached to do it (Claude Code's
     #: ``result``; it otherwise waits on its open stdin for ever).
     close_stdin_on: str = ""
+    #: A Claude Code task notice came before the first ``result``: the empty
+    #: ``result`` that answers it is not the turn's end
+    #: (``claude_result_without_model_turn``).
+    notice_pending: bool = False
+    #: The line that closed stdin was read; later lines change nothing.
+    stdin_done: bool = False
     #: Lines read from either pipe so far: the drain after exit counts them.
     reads: int = 0
     #: Lines a pump read and is still storing or sending.
@@ -495,7 +501,8 @@ class TurnHost:
             else:
                 turn.lines.append(text)
                 turn.kept_bytes += len(raw)
-            if turn.close_stdin_on and _line_type(text) == turn.close_stdin_on:
+            if turn.close_stdin_on and not turn.stdin_done and _ends_input(turn, text):
+                turn.stdin_done = True
                 _close_stdin(turn)
             client = self._client
             if turn.streaming and client is not None and not client.closed:
@@ -582,15 +589,46 @@ async def _write_stdin(turn: HostedTurn, text: str) -> None:
         logger.debug("Turn host: stdin write for {} failed: {}", turn.turn_id, exc)
 
 
-def _line_type(text: str) -> str:
-    """The ``type`` of a JSON stdout line, or "" for anything else."""
+def _line_object(text: str) -> dict[str, Any]:
+    """A JSON stdout line as an object, or {} for anything else."""
     if '"type"' not in text:
-        return ""
+        return {}
     try:
         obj = json.loads(text)
     except ValueError:  # a non-JSON line simply has no type
-        return ""
-    return str(obj.get("type") or "") if isinstance(obj, dict) else ""
+        return {}
+    return obj if isinstance(obj, dict) else {}
+
+
+def claude_result_without_model_turn(obj: dict[str, Any]) -> bool:
+    """A Claude Code ``result`` line that answered no prompt of the person.
+
+    Resumed with the notice of a task the previous process left unfinished
+    (a background agent it stopped on exit), Claude Code runs that notice as
+    an input of its own first. It answers it with an empty ``result`` — no
+    model turn, no API time — and only then runs the prompt it was given.
+    Taken as the turn's end, that line closed stdin under the running prompt
+    (its question card failed with "Stream closed") and the thread read
+    "Finished without an answer" while the agent was still working.
+    """
+    return (
+        obj.get("type") == "result"
+        and not obj.get("is_error")
+        and obj.get("num_turns") == 0
+    )
+
+
+def _ends_input(turn: HostedTurn, text: str) -> bool:
+    """Whether this stdout line is the one after which the CLI needs no stdin."""
+    obj = _line_object(text)
+    kind = str(obj.get("type") or "")
+    if kind == "system" and obj.get("subtype") == "task_notification":
+        turn.notice_pending = True
+        return False
+    if kind != turn.close_stdin_on:
+        return False
+    notice, turn.notice_pending = turn.notice_pending, False
+    return not (notice and claude_result_without_model_turn(obj))
 
 
 def _close_stdin(turn: HostedTurn) -> None:
