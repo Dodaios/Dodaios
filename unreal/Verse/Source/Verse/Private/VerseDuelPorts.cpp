@@ -1,5 +1,6 @@
 #include "VerseDuelPorts.h"
 
+#include "Bridge/VerseBridgeClient.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Combat/VerseGadgetDefinition.h"
 #include "Combat/VerseWeaponDefinition.h"
@@ -15,13 +16,50 @@
 #include "Inventory/VerseInventoryComponent.h"
 #include "Inventory/VerseWeaponSlot.h"
 #include "Kismet/GameplayStatics.h"
+#include "Lifecycle/VerseLifecycle.h"
 #include "Movement/VerseMovementQuery.h"
+#include "VerseBridgeSubsystem.h"
 #include "VerseDefaultCharacter.h"
 #include "VerseDuelSubsystem.h"
+#include "VerseLog.h"
 #include "VerseViewmodelComponent.h"
 #include "Weapons/VerseCombatEvents.h"
 #include "Weapons/VerseSpread.h"
 #include "Weapons/VerseWeaponComponent.h"
+
+// ---------------------------------------------------------------------------------------------
+// Bridge port
+
+FVerseDuelBridgePort::FVerseDuelBridgePort(UVerseBridgeSubsystem* InBridge)
+	: Bridge(InBridge)
+{
+}
+
+void FVerseDuelBridgePort::SendSettingsSet(const TSharedRef<FJsonObject>& Data)
+{
+	UVerseBridgeSubsystem* Link = Bridge.Get();
+	if (Link == nullptr || !Link->Client().IsLinked())
+	{
+		// Standalone runs keep the change in the user settings cache only.
+		UE_LOG(LogVerse, Log, TEXT("[VerseUI] no app link; settings.set kept locally"));
+		return;
+	}
+	Link->Client().SendCommand(TEXT("settings.set"), Data, [](bool bOk, const TSharedPtr<FJsonObject>&, const FString& ErrorCode)
+	{
+		if (!bOk)
+		{
+			UE_LOG(LogVerse, Warning, TEXT("[VerseUI] the app refused settings.set (%s)"), *ErrorCode);
+		}
+	});
+}
+
+void FVerseDuelBridgePort::SendReturnToApp(const FString& Reason)
+{
+	if (UVerseBridgeSubsystem* Link = Bridge.Get())
+	{
+		Link->Lifecycle().ReturnToApp(Reason);
+	}
+}
 
 // ---------------------------------------------------------------------------------------------
 // Game port

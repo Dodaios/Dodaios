@@ -71,7 +71,10 @@ FVerseInputFrame FVerseInputFrameBuilder::Consume(uint32 ServerTimeMs)
 
 void FVerseInputFrameBuilder::Reset()
 {
+	const float Scale = MouseScale;
+	const bool bInvert = bInvertMouseY;
 	*this = FVerseInputFrameBuilder();
+	SetMouseLook(Scale, bInvert);
 }
 
 namespace
@@ -120,8 +123,8 @@ void VersePersonInput::BindDefaults(UInputComponent& Input, FVerseInputFrameBuil
 	BindAxis(Input, VerseKey(TEXT("Gamepad_LeftY")), [B](float Value) { B->SetStickAxis(0, Value); });
 	BindAxis(Input, VerseKey(TEXT("Gamepad_LeftX")), [B](float Value) { B->SetStickAxis(1, Value); });
 
-	BindAxis(Input, VerseKey(TEXT("MouseX")), [B](float Value) { B->AddLook(FVector2f(0.f, Value * MouseDegPerValue)); });
-	BindAxis(Input, VerseKey(TEXT("MouseY")), [B](float Value) { B->AddLook(FVector2f(Value * MouseDegPerValue, 0.f)); });
+	BindAxis(Input, VerseKey(TEXT("MouseX")), [B](float Value) { B->AddMouseLook(FVector2f(0.f, Value * MouseDegPerValue)); });
+	BindAxis(Input, VerseKey(TEXT("MouseY")), [B](float Value) { B->AddMouseLook(FVector2f(Value * MouseDegPerValue, 0.f)); });
 	BindAxis(Input, VerseKey(TEXT("Gamepad_RightX")), [B, DeltaSeconds](float Value) { B->AddLook(FVector2f(0.f, Value * StickDegPerSecond * DeltaSeconds())); });
 	BindAxis(Input, VerseKey(TEXT("Gamepad_RightY")), [B, DeltaSeconds](float Value) { B->AddLook(FVector2f(Value * StickDegPerSecond * DeltaSeconds(), 0.f)); });
 

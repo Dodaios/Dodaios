@@ -37,6 +37,19 @@ struct VERSEMOVEMENT_API FVerseInputFrameBuilder
 	void SetStickAxis(int32 Axis, float Value);
 	/** Look added this tick, degrees (pitch, yaw). Accumulates until the frame is taken. */
 	void AddLook(const FVector2f& PitchYawDeg) { LookAccum += PitchYawDeg; }
+	/** Mouse look added this tick, degrees (pitch, yaw): the person's sensitivity and invert-Y apply. */
+	void AddMouseLook(const FVector2f& PitchYawDeg)
+	{
+		LookAccum += FVector2f(PitchYawDeg.X * MouseScale * (bInvertMouseY ? -1.f : 1.f), PitchYawDeg.Y * MouseScale);
+	}
+	/** The options' look sensitivity (multiplier) and inverted mouse pitch. */
+	void SetMouseLook(float Scale, bool bInvertY)
+	{
+		MouseScale = FMath::Clamp(Scale, 0.05f, 10.f);
+		bInvertMouseY = bInvertY;
+	}
+	float GetMouseScale() const { return MouseScale; }
+	bool IsMouseYInverted() const { return bInvertMouseY; }
 	void SetButton(EVerseInputButton Button, bool bHeld);
 	void ToggleButton(EVerseInputButton Button);
 	/** Walk modifier: scales the move stick for quiet footsteps. */
@@ -61,6 +74,8 @@ private:
 	uint32 Buttons = 0;
 	uint32 PrevButtons = 0;
 	bool bWalk = false;
+	float MouseScale = 1.f;
+	bool bInvertMouseY = false;
 };
 
 /**

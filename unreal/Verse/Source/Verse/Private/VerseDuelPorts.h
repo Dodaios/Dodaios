@@ -5,7 +5,24 @@
 
 class APlayerController;
 class APlayerState;
+class UVerseBridgeSubsystem;
 class UWorld;
+
+/**
+ * The UI's frames to the app (IVerseUiBridgePort) through the bridge: settings.set as a command
+ * on the link, focus.return_to_app through the lifecycle (which also hides the window).
+ */
+class FVerseDuelBridgePort : public IVerseUiBridgePort
+{
+public:
+	explicit FVerseDuelBridgePort(UVerseBridgeSubsystem* InBridge);
+
+	virtual void SendSettingsSet(const TSharedRef<FJsonObject>& Data) override;
+	virtual void SendReturnToApp(const FString& Reason) override;
+
+private:
+	TWeakObjectPtr<UVerseBridgeSubsystem> Bridge;
+};
 
 /** The UI's duel and deck control (IVerseUiGamePort) on top of UVerseDuelSubsystem and the deck subsystem. */
 class FVerseDuelGamePort : public IVerseUiGamePort

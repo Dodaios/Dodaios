@@ -2,6 +2,8 @@
 #include "VerseFramePacing.h"
 
 #include "Bot/VerseBotTier.h"
+#include "Bridge/VerseBridgeClient.h"
+#include "Bridge/VerseBridgeCodec.h"
 #include "Combat/VerseGadgetDefinition.h"
 #include "Combat/VerseWeaponDefinition.h"
 #include "Controller/VerseBotController.h"
@@ -21,11 +23,14 @@
 #include "HAL/FileManager.h"
 #include "HAL/IConsoleManager.h"
 #include "Abilities/VerseSovereignBody.h"
+#include "Camera/CameraComponent.h"
+#include "Camera/VerseDeckCamera.h"
 #include "Commander/VerseDeckCommander.h"
 #include "Decks/VerseDeckSubsystem.h"
 #include "HangarSwitch/VerseHangarSwitchSubsystem.h"
 #include "Inventory/VerseInventoryComponent.h"
 #include "Inventory/VerseWeaponSlot.h"
+#include "Lifecycle/VerseLifecycle.h"
 #include "Crew/VerseCrewPawn.h"
 #include "Misc/App.h"
 #include "VerseCrewBody.h"
@@ -42,10 +47,13 @@
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 #include "VerseArenaGraybox.h"
+#include "VerseBridgeSubsystem.h"
 #include "VerseDefaultCharacter.h"
 #include "VerseDuelAutopilot.h"
 #include "VerseDuelPorts.h"
+#include "VerseGameInstance.h"
 #include "VerseLog.h"
+#include "VerseSettings.h"
 #include "Weapons/VerseCombatEvents.h"
 #include "Weapons/VerseWeaponComponent.h"
 
@@ -187,6 +195,7 @@ void UVerseDuelSubsystem::Deinitialize()
 	{
 		Decks->OnDeckArrived.Remove(DeckArrivedHandle);
 	}
+	UnlinkUiFromBridge();
 	if (--GErrorCounterUsers == 0 && GErrorCounter)
 	{
 		if (GLog)
@@ -299,6 +308,73 @@ void UVerseDuelSubsystem::InstallUiPorts()
 	}
 	Ui->SetGamePort(MakeShared<FVerseDuelGamePort>(World));
 	Ui->SetHudSource(MakeShared<FVerseDuelHudSource>(World));
+	LinkUiToBridge(*Ui);
+}
+
+void UVerseDuelSubsystem::LinkUiToBridge(UVerseUiSubsystem& Ui)
+{
+	UWorld* World = GetWorld();
+	UGameInstance* Instance = World ? World->GetGameInstance() : nullptr;
+	UVerseBridgeSubsystem* Bridge = Instance ? Instance->GetSubsystem<UVerseBridgeSubsystem>() : nullptr;
+	if (!Bridge)
+	{
+		return;
+	}
+	Ui.SetBridgePort(MakeShared<FVerseDuelBridgePort>(Bridge));
+	// Each deck is its own world with a fresh UI: it takes the app's welcome and every settings
+	// change since (the settings feed keeps the merged state), then follows live changes.
+	FVerseBridgeClient& Client = Bridge->Client();
+	if (const TSharedPtr<FJsonObject> Welcome = Client.GetWelcome(); Welcome.IsValid())
+	{
+		Ui.ApplyWelcome(Welcome);
+		TSharedRef<FJsonObject> Since = MakeShared<FJsonObject>();
+		if (const TSharedPtr<FJsonObject> Settings = Client.Settings.GetSettings(); Settings.IsValid())
+		{
+			Since->Values = Settings->Values;
+		}
+		Since->SetStringField(TEXT("lang"), Client.Settings.GetLang());
+		Ui.ApplySettingsChanged(Since);
+	}
+	TWeakObjectPtr<UVerseUiSubsystem> WeakUi(&Ui);
+	BridgeFrameHandle = Client.OnFrame.AddLambda([WeakUi](const FVerseBridgeFrame& Frame)
+	{
+		UVerseUiSubsystem* Target = WeakUi.Get();
+		if (!Target)
+		{
+			return;
+		}
+		if (Frame.Type == TEXT("welcome"))
+		{
+			Target->ApplyWelcome(Frame.Data);
+		}
+		else if (Frame.Type == TEXT("settings.changed"))
+		{
+			Target->ApplySettingsChanged(Frame.Data);
+		}
+	});
+	// The app's own Quick duel button shows the window with reason quick_start_duel.
+	QuickStartHandle = Bridge->Lifecycle().OnQuickStartDuel.AddLambda([WeakUi]()
+	{
+		UVerseUiSubsystem* Target = WeakUi.Get();
+		if (Target && !Target->GetGamePort().IsDuelRunning())
+		{
+			Target->QuickStartDuel();
+		}
+	});
+}
+
+void UVerseDuelSubsystem::UnlinkUiFromBridge()
+{
+	UWorld* World = GetWorld();
+	UGameInstance* Instance = World ? World->GetGameInstance() : nullptr;
+	UVerseBridgeSubsystem* Bridge = Instance ? Instance->GetSubsystem<UVerseBridgeSubsystem>() : nullptr;
+	if (Bridge)
+	{
+		Bridge->Client().OnFrame.Remove(BridgeFrameHandle);
+		Bridge->Lifecycle().OnQuickStartDuel.Remove(QuickStartHandle);
+	}
+	BridgeFrameHandle.Reset();
+	QuickStartHandle.Reset();
 }
 
 void UVerseDuelSubsystem::ReadCommandLine()
@@ -403,6 +479,10 @@ bool UVerseDuelSubsystem::StartDuel(FName InTier)
 	{
 		Tier = InTier;
 	}
+	if (DeferDuelToHangar(Tier))
+	{
+		return true;
+	}
 	DestroyBots();
 	const int32 NumBots = bBotVsBot ? 2 : 1;
 	for (int32 Index = 0; Index < NumBots; ++Index)
@@ -454,6 +534,80 @@ bool UVerseDuelSubsystem::StartDuel(FName InTier)
 	}
 	UE_LOG(LogVerse, Log, TEXT("[VerseDuel] duel started: tier=%s bot count=%d autoplay=%d"), *Tier.ToString(), NumBots, bAutoplay ? 1 : 0);
 	return true;
+}
+
+bool UVerseDuelSubsystem::DeferDuelToHangar(FName DuelTier)
+{
+	UWorld* World = GetWorld();
+	UVerseDeckSubsystem* Decks = UVerseDeckSubsystem::Get(World);
+	UVerseGameInstance* Instance = World ? Cast<UVerseGameInstance>(World->GetGameInstance()) : nullptr;
+	const FName Hangar = UVerseHangarSwitchSubsystem::HangarDeck;
+	// The arena is the hangar's: on the bridge, ops or engineering the duel would stand in that
+	// deck's level. Ride the lift down first; the hangar's duel subsystem starts it on arrival.
+	if (!Decks || !Instance || Decks->GetCurrentDeck().IsNone() || Decks->GetCurrentDeck() == Hangar)
+	{
+		return false;
+	}
+	if (!Decks->RequestDeck(Hangar))
+	{
+		UE_LOG(LogVerse, Warning, TEXT("[VerseDuel] cannot ride to the hangar from %s now; no duel"), *Decks->GetCurrentDeck().ToString());
+		return true;
+	}
+	Instance->PendingDuelTier = DuelTier;
+	UE_LOG(LogVerse, Log, TEXT("[VerseDuel] duel asked for on %s: riding to the hangar first (tier %s)"), *Decks->GetCurrentDeck().ToString(),
+		*DuelTier.ToString());
+	return true;
+}
+
+void UVerseDuelSubsystem::TakePendingDuel()
+{
+	UWorld* World = GetWorld();
+	UVerseGameInstance* Instance = World ? Cast<UVerseGameInstance>(World->GetGameInstance()) : nullptr;
+	const UVerseDeckSubsystem* Decks = UVerseDeckSubsystem::Get(World);
+	if (!Instance || Instance->PendingDuelTier.IsNone() || bDuelRunning || bStartRequested || !Decks
+		|| Decks->GetCurrentDeck() != UVerseHangarSwitchSubsystem::HangarDeck || !World->GetOutermost()->GetName().Contains(TEXT("LV_Hangar")))
+	{
+		return;
+	}
+	Tier = Instance->PendingDuelTier;
+	Instance->PendingDuelTier = NAME_None;
+	// The same short settle as a command-line duel: the deck view comes up, then the arena.
+	bStartRequested = true;
+	StartAtWorldS = -1.0;
+}
+
+void UVerseDuelSubsystem::ApplyViewSettings()
+{
+	// VerseUI writes the options into UVerseSettings' class default object (combat-state.md 8);
+	// the camera and input owners cannot include VerseUI, so the integration hands them over.
+	const UVerseSettings* Settings = GetDefault<UVerseSettings>();
+	UWorld* World = GetWorld();
+	APlayerController* PC = World ? World->GetFirstPlayerController() : nullptr;
+	if (AVerseCharacter* Person = PC ? Cast<AVerseCharacter>(PC->GetPawn()) : nullptr)
+	{
+		Person->GetPersonInput().SetMouseLook(Settings->LookSensitivity, Settings->bInvertLookY);
+		UCameraComponent* Camera = Person->GetFirstPersonCamera();
+		const float Fov = FMath::Clamp(Settings->DuelFovDeg, 80.f, 110.f);
+		if (Camera && !FMath::IsNearlyEqual(Camera->FieldOfView, Fov, 0.01f))
+		{
+			Camera->SetFieldOfView(Fov);
+		}
+	}
+	if (!DeckCamera.IsValid())
+	{
+		for (TActorIterator<AVerseDeckCamera> It(World); It; ++It)
+		{
+			DeckCamera = *It;
+			break;
+		}
+	}
+	if (AVerseDeckCamera* Deck = DeckCamera.Get())
+	{
+		Deck->Rig.Sensitivity = Settings->LookSensitivity;
+		Deck->Rig.bInvertY = Settings->bInvertLookY;
+		Deck->Rig.FovThirdDeg = Settings->DeckFovThirdDeg;
+		Deck->Rig.FovFirstDeg = Settings->DeckFovFirstDeg;
+	}
 }
 
 void UVerseDuelSubsystem::LeaveDuel()
@@ -800,6 +954,8 @@ void UVerseDuelSubsystem::Tick(float DeltaTime)
 	{
 		RegisterObservers();
 	}
+	TakePendingDuel();
+	ApplyViewSettings();
 	DressCrew(DeltaTime);
 	if (!bDuelRunning)
 	{

@@ -7,6 +7,8 @@
 
 #include "VerseDuelSubsystem.generated.h"
 
+class UVerseUiSubsystem;
+
 class AController;
 class APawn;
 class AVerseBotController;
@@ -112,6 +114,14 @@ private:
 	void HandleFire(const FVerseFireEvent& Event);
 	void HandleHit(const FVerseHitEvent& Event);
 	void InstallUiPorts();
+	/** The UI's link to the app: welcome, settings.changed, settings.set, return to app, quick duel. */
+	void LinkUiToBridge(UVerseUiSubsystem& Ui);
+	void UnlinkUiFromBridge();
+	/** On another deck the duel starts after the lift brings the person to the hangar. */
+	bool DeferDuelToHangar(FName DuelTier);
+	void TakePendingDuel();
+	/** The options' view settings (UVerseSettings) on the duel camera, the person's mouse and the deck camera. */
+	void ApplyViewSettings();
 	/** The hangar deck stands in the dressed hall from its first frame (the duel adds the arena). */
 	void HandleDeckArrived(FName Deck, bool bByLift);
 	void BuildHallIfOnHangar();
@@ -156,4 +166,7 @@ private:
 	FDelegateHandle HitHandle;
 	FDelegateHandle PerceptHandle;
 	FDelegateHandle DeckArrivedHandle;
+	TWeakObjectPtr<class AVerseDeckCamera> DeckCamera;
+	FDelegateHandle BridgeFrameHandle;
+	FDelegateHandle QuickStartHandle;
 };

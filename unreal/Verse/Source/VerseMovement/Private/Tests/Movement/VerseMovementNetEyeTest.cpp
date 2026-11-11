@@ -165,6 +165,16 @@ bool FVerseMovementPersonKeysTest::RunTest(const FString& Parameters)
 		Frame = B.Consume(0);
 		TestEqual(TEXT("mouse look in degrees (yaw)"), Frame.LookDeltaDeg.Y, 2.f * VersePersonInput::MouseDegPerValue);
 		TestEqual(TEXT("mouse look in degrees (pitch)"), Frame.LookDeltaDeg.X, -1.f * VersePersonInput::MouseDegPerValue);
+		// The options' sensitivity scales the mouse and invert-Y flips its pitch; a respawn's
+		// Reset keeps both; the gamepad stick is not scaled.
+		B.SetMouseLook(2.f, true);
+		B.Reset();
+		FireAxis(*Input, VerseKey(TEXT("MouseX")), 2.f);
+		FireAxis(*Input, VerseKey(TEXT("MouseY")), -1.f);
+		Frame = B.Consume(0);
+		TestEqual(TEXT("sensitivity 2 doubles the mouse yaw"), Frame.LookDeltaDeg.Y, 4.f * VersePersonInput::MouseDegPerValue);
+		TestEqual(TEXT("inverted, sensitivity 2: the mouse pitch flips and doubles"), Frame.LookDeltaDeg.X, 2.f * VersePersonInput::MouseDegPerValue);
+		B.SetMouseLook(1.f, false);
 		FireAxis(*Input, VerseKey(TEXT("Gamepad_LeftY")), 0.6f);
 		FireAxis(*Input, VerseKey(TEXT("Gamepad_LeftX")), -0.3f);
 		TestTrue(TEXT("gamepad stick moves"), B.Consume(0).Move.Equals(FVector2f(0.6f, -0.3f), 1e-4f));
