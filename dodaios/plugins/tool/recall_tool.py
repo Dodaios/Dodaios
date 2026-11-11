@@ -61,6 +61,7 @@ class RecallTool:
         try:
             more = max(0, int((args or {}).get("more") or 0))
         except (TypeError, ValueError):
+            log.debug("recall: unreadable more offset %r", args.get("more"))
             more = 0
         sources = self._sources
         if sources is None:
