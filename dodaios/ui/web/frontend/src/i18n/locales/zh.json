@@ -9341,7 +9341,6 @@
         "memory": "谁在使用内存",
         "gpu": "显卡负载"
       },
-      "chart_window": "最近 {minutes} 分钟",
       "axis_now": "现在",
       "axis_ago": "-{minutes} 分",
       "group": {
@@ -9413,7 +9412,11 @@
       "system_title": "系统",
       "system_note": "操作系统及其服务",
       "peak": "峰值 {value}",
-      "row_window": "最近 {minutes} 分钟"
+      "row_window": "最近 {minutes} 分钟",
+      "window_seconds": "最近 {seconds} 秒",
+      "axis_ago_seconds": "-{seconds} 秒",
+      "else_title": "其他全部主要是",
+      "else_more": "另有 {count} 个"
     }
   },
   "appshots": {

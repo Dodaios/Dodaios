@@ -10,7 +10,8 @@ a row of its own, whether or not an agent has anything to do with it.
 | Part | Meaning |
 |------|---------|
 | Three meters | Processor, memory and graphics card for the whole machine. Choosing one turns the chart, the bars and the order of the list to that metric. |
-| Chart | The last five minutes, stacked by owner. The scale is always the whole machine, so the space above the stack is the headroom. |
+| Chart | Up to the last five minutes, stacked by owner. The time axis covers what has been measured, so the chart is full from the first seconds and reaches back further as it runs; the view samples twice as often while it is short. The scale is always the whole machine, so the space above the stack is the headroom. |
+| Under the chart | What "everything else" is mostly made of right now: its largest apps and the system, by name. A name opens that row. Hovering the chart names the largest of them at that moment. |
 | Coding agents | One row per pane, per thread, and per coding CLI found running anywhere else on the machine. |
 | Inside an agent | The CLI itself, then every tool it started: an MCP server, a test run, a build, a browser, a shell. The same tool started several times is one line. |
 | Connected apps | A program outside the agent's own processes that holds a local connection to one of its tools: a 3D editor behind its MCP server, a browser showing its dev server. Its load is shown beside the agent and is not added to the agent's total. |

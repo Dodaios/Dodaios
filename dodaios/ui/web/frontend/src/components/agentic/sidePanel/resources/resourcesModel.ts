@@ -22,8 +22,63 @@ export const GROUPS: readonly { key: ResourceGroupKey; color: string }[] = [
   { key: "other", color: "var(--rs-other)" },
 ];
 
-/** How far back the charts reach, in seconds. */
-export const WINDOW_S = 300;
+/** The least a chart's time axis covers, so two early samples are not a cliff. */
+const MIN_SPAN_S = 10;
+
+/** A row by its history id and the name it is shown under. */
+export interface NamedRow {
+  id: string;
+  label: string;
+}
+
+/** One contributor to a group at one moment, as percent of the machine. */
+export interface SharePart extends NamedRow {
+  value: number;
+}
+
+/**
+ * How many seconds the history covers right now. The charts span exactly
+ * this, so they are full from the first samples on and reach back further
+ * as more are measured.
+ */
+export function historySpan(t: readonly number[]): number {
+  if (t.length < 2) return MIN_SPAN_S;
+  return Math.max(MIN_SPAN_S, t[t.length - 1] - t[0]);
+}
+
+/** Axis ticks for a span ending at `end`: a handful, on round steps back from now. */
+export function axisTicks(end: number, span: number): number[] {
+  const step = [10, 15, 30, 60].find((candidate) => span / candidate <= 5) ?? 60;
+  const ticks: number[] = [];
+  for (let ago = 0; ago <= span + 0.5; ago += step) ticks.unshift(end - ago);
+  return ticks;
+}
+
+/**
+ * What "everything else" was made of at one sample: its largest rows, as
+ * percent of the machine. A row's line is shorter than the series and ends
+ * with it, so the sample is counted back from the end.
+ */
+export function elseAt(
+  history: ResourceHistory,
+  rows: readonly NamedRow[],
+  index: number,
+  metric: Metric,
+  memoryTotalMb: number,
+  limit = 3,
+): SharePart[] {
+  if (index < 0) return [];
+  const fromEnd = history.t.length - 1 - index;
+  const parts: SharePart[] = [];
+  for (const row of rows) {
+    const line = history.rows[row.id]?.[metric];
+    const raw = line ? line[line.length - 1 - fromEnd] : undefined;
+    if (raw === null || raw === undefined) continue;
+    const value = metric === "memory" ? (memoryTotalMb > 0 ? (raw / memoryTotalMb) * 100 : 0) : raw;
+    if (value >= 0.1) parts.push({ ...row, value });
+  }
+  return parts.sort((a, b) => b.value - a.value).slice(0, limit);
+}
 
 /** Row ids the server uses for this app and for the operating system. */
 export const SELF_ROW = "self";

@@ -11,24 +11,34 @@ import {
 import { cn } from "@/lib/utils";
 import { isSectionOnScreen } from "@/store/tiling";
 import { ResourceChart } from "./ResourceChart";
-import { AgentRow, Figures, LoadRow, processesText, roleLabel } from "./ResourceRows";
+import { AgentRow, Figures, LoadRow, processesText, roleLabel, windowText } from "./ResourceRows";
 import {
   GROUPS,
   METRICS,
   SELF_ROW,
   SYSTEM_ROW,
-  WINDOW_S,
   agentTitle,
   formatMemory,
   formatPercent,
+  historySpan,
   largest,
+  metricValue,
   rankRows,
+  sortByMetric,
   sparkPath,
   type Metric,
 } from "./resourcesModel";
 
 /** One sample every two seconds while the view is on screen. */
 const POLL_MS = 2000;
+/**
+ * Twice as often while the charts are still short: opened a moment ago, the
+ * view should have a curve to show within seconds, not minutes.
+ */
+const FAST_POLL_MS = 1000;
+const FAST_SAMPLES = 30;
+/** Apps named under the chart as what "everything else" is mostly made of. */
+const ELSE_SHOWN = 4;
 const METRIC_KEY = "jarvis.agenticIde.resources.metric";
 /** Apps listed before the reader asks for all of them. */
 const APPS_SHOWN = 10;
@@ -65,12 +75,14 @@ function useResources() {
   useEffect(() => {
     let alive = true;
     let timer: number | undefined;
+    let filling = true;
     const controller = new AbortController();
     const tick = async () => {
       if (!document.hidden && isSectionOnScreen("agentic-ide")) {
         try {
           const next = await fetchResources(controller.signal);
           if (alive) {
+            filling = next.history.t.length < FAST_SAMPLES;
             setSnapshot(next);
             setError("");
           }
@@ -78,7 +90,7 @@ function useResources() {
           if (alive && !controller.signal.aborted) setError((err as Error).message);
         }
       }
-      if (alive) timer = window.setTimeout(tick, POLL_MS);
+      if (alive) timer = window.setTimeout(tick, filling ? FAST_POLL_MS : POLL_MS);
     };
     void tick();
     return () => {
@@ -99,13 +111,12 @@ interface TileProps {
   value: string;
   hint: string;
   series: readonly number[];
-  slots: number;
   onSelect: () => void;
 }
 
 /** One of the three headline meters; choosing it turns the whole view to that metric. */
-function Tile({ metric, selected, disabled, label, value, hint, series, slots, onSelect }: TileProps) {
-  const path = sparkPath(series, 100, 22, { ceiling: 100, slots });
+function Tile({ metric, selected, disabled, label, value, hint, series, onSelect }: TileProps) {
+  const path = sparkPath(series, 100, 22, { ceiling: 100 });
   return (
     <button
       type="button"
@@ -188,6 +199,7 @@ export function ResourcesTab() {
   const [allApps, setAllApps] = useState(false);
   const [actionError, setActionError] = useState("");
   const firstRows = useRef(false);
+  const root = useRef<HTMLElement>(null);
 
   const setMetric = useCallback((next: Metric) => {
     setMetricState(next);
@@ -255,8 +267,34 @@ export function ResourcesTab() {
   const { system, groups, history } = snapshot;
   const gpu = system.gpu;
   const shown: Metric = metric === "gpu" && !gpu ? "cpu" : metric;
-  const slots = Math.max(2, Math.round(WINDOW_S / Math.max(1, POLL_MS / 1000)));
-  const rowMinutes = Math.max(1, Math.round((history.row_points * POLL_MS) / 60_000));
+  // "Everything else" in the chart is the apps no agent is connected to, and
+  // the system. Named here so the grey band is not anonymous.
+  const elseRows = [
+    ...apps.filter((app) => app.used_by.length === 0).map((app) => ({ id: app.id, label: app.label, load: app })),
+    { id: SYSTEM_ROW, label: t("ide_side_panel.resources.system_title"), load: snapshot.os },
+  ];
+  const elseTop = sortByMetric(
+    elseRows.map((row) => ({ ...row.load, id: row.id, label: row.label })),
+    shown,
+  ).filter((row) => metricValue(row, shown) > 0);
+  const elseChips = elseTop.slice(0, ELSE_SHOWN);
+  const elseTotal = snapshot.app_count - apps.filter((app) => app.used_by.length > 0).length + 1;
+  const elseMore = Math.max(0, elseTotal - elseChips.length);
+  const showRow = (id: string) => {
+    if (id.startsWith("app:") && !apps.slice(0, APPS_SHOWN).some((app) => app.id === id)) setAllApps(true);
+    setOpen((current) => new Set(current).add(id));
+    // After the row has been drawn (it may have been behind "show all").
+    window.setTimeout(() => {
+      const rows = Array.from(root.current?.querySelectorAll<HTMLElement>("[data-row-id]") ?? []);
+      rows.find((row) => row.dataset.rowId === id)?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    }, 0);
+  };
+  const showApps = () => {
+    setAllApps(true);
+    window.setTimeout(() => {
+      root.current?.querySelector('[data-testid="resources-self"]')?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    }, 0);
+  };
   const agentMax = largest(agents, shown);
   const appMax = Math.max(largest(apps, shown), largest([snapshot.app], shown));
   const visibleApps = allApps ? apps : apps.slice(0, APPS_SHOWN);
@@ -272,7 +310,7 @@ export function ResourcesTab() {
   ];
 
   return (
-    <section data-testid="resources-tab" data-metric={shown} className={cn("flex h-full min-h-0 flex-col", PALETTE)}>
+    <section ref={root} data-testid="resources-tab" data-metric={shown} className={cn("flex h-full min-h-0 flex-col", PALETTE)}>
       {/* Rows change places as load shifts; the browser must not scroll to follow one. */}
       <div className="scrollbar-jarvis min-h-0 flex-1 space-y-3 overflow-y-auto px-3 pb-4 pt-3 [overflow-anchor:none]">
         <div className="flex gap-2">
@@ -283,7 +321,6 @@ export function ResourcesTab() {
             value={formatPercent(system.cpu_percent, locale)}
             hint={fill(t("ide_side_panel.resources.hint.cpu"), { cores: system.cores_logical })}
             series={history.series.cpu ?? []}
-            slots={slots}
             onSelect={() => setMetric("cpu")}
           />
           <Tile
@@ -296,7 +333,6 @@ export function ResourcesTab() {
               total: formatMemory(system.memory_total_mb, locale),
             })}
             series={history.series.memory ?? []}
-            slots={slots}
             onSelect={() => setMetric("memory")}
           />
           <Tile
@@ -316,7 +352,6 @@ export function ResourcesTab() {
                   : formatMemory(gpu.memory_used_mb, locale)
             }
             series={gpu ? (history.series.gpu ?? []) : []}
-            slots={slots}
             onSelect={() => setMetric("gpu")}
           />
         </div>
@@ -327,10 +362,10 @@ export function ResourcesTab() {
               {t(`ide_side_panel.resources.chart_title.${shown}`)}
             </h3>
             <span className="shrink-0 text-[11px] text-muted-foreground">
-              {fill(t("ide_side_panel.resources.chart_window"), { minutes: WINDOW_S / 60 })}
+              {windowText(t, historySpan(history.t))}
             </span>
           </div>
-          <ResourceChart history={history} metric={shown} locale={locale} />
+          <ResourceChart history={history} metric={shown} locale={locale} elseRows={elseRows} memoryTotalMb={system.memory_total_mb} />
           {shown === "gpu" ? (
             <p className="truncate text-[11px] text-muted-foreground">
               {[gpu?.name, gpu && !gpu.per_process ? t("ide_side_panel.resources.gpu_whole") : ""].filter(Boolean).join(" · ")}
@@ -346,6 +381,35 @@ export function ResourcesTab() {
               ))}
             </ul>
           )}
+          {shown !== "gpu" && elseTop.length > 0 ? (
+            <div data-testid="resources-else" className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px]">
+              <span className="text-muted-foreground">{t("ide_side_panel.resources.else_title")}</span>
+              {elseChips.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => showRow(row.id)}
+                  data-row={row.id}
+                  className="rounded-full border border-border px-2 py-0.5 text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {row.label}{" "}
+                  <span className="tabular-nums text-muted-foreground">
+                    {shown === "cpu" ? formatPercent(row.cpu_percent, locale) : formatMemory(row.memory_mb, locale)}
+                  </span>
+                </button>
+              ))}
+              {elseMore > 0 ? (
+                <button
+                  type="button"
+                  onClick={showApps}
+                  data-testid="resources-else-all"
+                  className="rounded-full px-1.5 py-0.5 text-accent hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {fill(t("ide_side_panel.resources.else_more"), { count: elseMore })}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           {shown === "cpu" && system.per_core.length > 1 ? <Cores cores={system.per_core} locale={locale} /> : null}
         </div>
 
@@ -380,7 +444,6 @@ export function ResourcesTab() {
                   metric={shown}
                   locale={locale}
                   max={agentMax}
-                  minutes={rowMinutes}
                   open={open.has(agent.id)}
                   onToggle={() => toggle(agent.id)}
                   onEnd={endTool}
@@ -411,7 +474,6 @@ export function ResourcesTab() {
               metric={shown}
               locale={locale}
               max={appMax}
-              minutes={rowMinutes}
               open={open.has(SELF_ROW)}
               onToggle={() => toggle(SELF_ROW)}
             />
@@ -446,7 +508,6 @@ export function ResourcesTab() {
                   metric={shown}
                   locale={locale}
                   max={appMax}
-                  minutes={rowMinutes}
                   open={open.has(app.id)}
                   onToggle={() => toggle(app.id)}
                 />
@@ -487,7 +548,6 @@ export function ResourcesTab() {
               history={history}
               metric={shown}
               locale={locale}
-              minutes={rowMinutes}
               open={open.has(SYSTEM_ROW)}
               onToggle={() => toggle(SYSTEM_ROW)}
             />

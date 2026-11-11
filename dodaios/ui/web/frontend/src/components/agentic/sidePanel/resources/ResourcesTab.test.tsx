@@ -118,6 +118,13 @@ function snapshot(overrides: Partial<ResourceSnapshot> = {}): ResourceSnapshot {
   };
 }
 
+/** A reading taken after the view has been open for a minute: the charts have filled. */
+function settled(): ResourceSnapshot {
+  const base = snapshot();
+  const t = Array.from({ length: 31 }, (_, index) => 940 + index * 2);
+  return { ...base, history: { ...base.history, t, series: { cpu: t.map(() => 30), memory: t.map(() => 50), gpu: t.map(() => 5) } } };
+}
+
 const fetchMock = vi.mocked(fetchResources);
 const endMock = vi.mocked(endResourceTools);
 
@@ -205,7 +212,8 @@ describe("ResourcesTab", () => {
     const pane = screen.getAllByTestId("resources-agent")[0];
     const chart = within(pane).getByTestId("resources-row-chart");
     expect(chart.textContent).toContain("Peak 25 %");
-    expect(chart.textContent).toContain("Last 3 min");
+    // The curve reaches back as far as the row has been measured: two samples.
+    expect(chart.textContent).toContain("Last 2 s");
     fireEvent.click(screen.getByTestId("resources-tile-memory"));
     expect(within(screen.getAllByTestId("resources-agent")[1]).getByTestId("resources-row-chart").textContent).toContain("Peak 1.3 GB");
   });
@@ -223,6 +231,45 @@ describe("ResourcesTab", () => {
     expect(chrome.textContent).toContain("Chrome×2");
     expect(chrome.textContent).toContain("24 processes");
     expect(chrome.textContent).not.toContain("used by");
+  });
+
+  it("names what everything else is mostly made of, under the chart", async () => {
+    await shown();
+    const chips = within(screen.getByTestId("resources-else")).getAllByRole("button");
+    // The apps no agent is connected to, and the system; Blender is a connected app.
+    expect(chips.map((chip) => chip.textContent)).toEqual(["System 4.5 %", "Code 3.0 %", "Chrome 1.0 %"]);
+    expect(screen.queryByTestId("resources-else-all")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("resources-tile-memory"));
+    expect(within(screen.getByTestId("resources-else")).getAllByRole("button").map((chip) => chip.textContent)).toEqual([
+      "System 5.9 GB",
+      "Chrome 2.9 GB",
+      "Code 1,000 MB",
+    ]);
+  });
+
+  it("opens the app a name under the chart stands for", async () => {
+    await shown();
+    const code = screen.getAllByTestId("resources-app")[1];
+    expect(code.getAttribute("data-row-id")).toBe("app:Code");
+    expect(within(code).queryByTestId("resources-part")).toBeNull();
+    fireEvent.click(within(screen.getByTestId("resources-else")).getByText("Code"));
+    expect(within(code).getAllByTestId("resources-part")).toHaveLength(1);
+    fireEvent.click(within(screen.getByTestId("resources-else")).getByText("System"));
+    expect(screen.getByTestId("resources-system").textContent).toContain("Svchost");
+  });
+
+  it("leads to the full list when everything else holds more than it names", async () => {
+    const many = Array.from({ length: 14 }, (_, index) => app(`Tool${index}`, 14 - index, 100));
+    fetchMock.mockResolvedValue(snapshot({ agents: [], apps: many, app_count: 31 }));
+    await shown();
+    const chips = within(screen.getByTestId("resources-else")).getAllByRole("button");
+    expect(chips.slice(0, 4).map((chip) => chip.textContent)).toEqual(["Tool0 14 %", "Tool1 13 %", "Tool2 12 %", "Tool3 11 %"]);
+    // 31 apps and the system, four of them named.
+    expect(screen.getByTestId("resources-else-all").textContent).toBe("+28 more");
+    expect(screen.getAllByTestId("resources-app")).toHaveLength(10);
+    fireEvent.click(screen.getByTestId("resources-else-all"));
+    expect(screen.getAllByTestId("resources-app")).toHaveLength(14);
   });
 
   it("opens an app into its curve and its parts", async () => {
@@ -380,13 +427,34 @@ describe("ResourcesTab", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("The reading failed: HTTP 500");
   });
 
-  it("polls every two seconds and keeps the last reading when a poll fails", async () => {
+  it("polls every second while the charts are short, so they fill at once", async () => {
     vi.useFakeTimers();
     render(<ResourcesTab />);
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
 
-    const next = snapshot();
+  it("says how far back the chart reaches, growing with what was measured", async () => {
+    await shown();
+    expect(screen.getByTestId("resources-tab").textContent).toContain("Last 10 s"); // 4 s measured, 10 s is the least
+    cleanup();
+    fetchMock.mockResolvedValue(settled());
+    await shown();
+    expect(screen.getByTestId("resources-tab").textContent).toContain("Last 1 min");
+  });
+
+  it("polls every two seconds and keeps the last reading when a poll fails", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockResolvedValue(settled());
+    render(<ResourcesTab />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const next = settled();
     next.system.cpu_percent = 81;
     fetchMock.mockResolvedValueOnce(next);
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
@@ -410,7 +478,7 @@ describe("ResourcesTab", () => {
       await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
       expect(fetchMock).not.toHaveBeenCalled();
       hidden.mockReturnValue(false);
-      await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
       expect(fetchMock).toHaveBeenCalledTimes(1);
     } finally {
       hidden.mockRestore();

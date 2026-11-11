@@ -5,9 +5,12 @@ import { SIDE_PANEL_TABS } from "../sidePanelTabs";
 import {
   agentTitle,
   areaPath,
+  axisTicks,
   chartPoints,
+  elseAt,
   formatMemory,
   formatPercent,
+  historySpan,
   largest,
   metricValue,
   rankRows,
@@ -209,5 +212,64 @@ describe("a row's own curve", () => {
     expect(line).toBe("M20.0 6.0 L30.0 1.0");
     expect(area).toBe("M20.0 6.0 L30.0 1.0 L30.0 12 L20.0 12 Z");
     expect(areaPath([], 30, 12)).toEqual({ line: "", area: "" });
+  });
+});
+
+describe("a chart that is full from the start", () => {
+  it("spans what has been measured, and at least a few seconds", () => {
+    expect(historySpan([])).toBe(10);
+    expect(historySpan([100])).toBe(10);
+    expect(historySpan([100, 101, 102])).toBe(10);
+    expect(historySpan([100, 130, 160])).toBe(60);
+    expect(historySpan([0, 299])).toBe(299);
+  });
+
+  it("puts a handful of ticks on round steps back from now", () => {
+    expect(axisTicks(1000, 10)).toEqual([990, 1000]);
+    expect(axisTicks(1000, 45)).toEqual([960, 970, 980, 990, 1000]);
+    expect(axisTicks(1000, 70)).toEqual([940, 955, 970, 985, 1000]);
+    expect(axisTicks(1000, 140)).toEqual([880, 910, 940, 970, 1000]);
+    expect(axisTicks(1000, 299)).toEqual([760, 820, 880, 940, 1000]);
+  });
+});
+
+describe("what everything else was made of", () => {
+  const history: ResourceHistory = {
+    t: [100, 102, 104, 106],
+    series: {},
+    row_points: 3,
+    rows: {
+      // A row's line is shorter than the series and ends with it.
+      "app:Chrome": { cpu: [5, 20, 2], memory: [1000, 1000, 2000] },
+      "app:Code": { cpu: [null, 4, 9], memory: [null, 500, 500] },
+      system: { cpu: [10, 10, 0.05], memory: [4000, 4000, 4000] },
+    },
+  };
+  const rows = [
+    { id: "app:Chrome", label: "Chrome" },
+    { id: "app:Code", label: "Code" },
+    { id: "system", label: "System" },
+    { id: "app:Gone", label: "Gone" },
+  ];
+
+  it("names the largest rows at the hovered sample", () => {
+    expect(elseAt(history, rows, 3, "cpu", 8000)).toEqual([
+      { id: "app:Code", label: "Code", value: 9 },
+      { id: "app:Chrome", label: "Chrome", value: 2 },
+    ]);
+    expect(elseAt(history, rows, 2, "cpu", 8000).map((part) => part.label)).toEqual(["Chrome", "System", "Code"]);
+  });
+
+  it("leaves out a row that did not exist yet, and has nothing before the lines begin", () => {
+    expect(elseAt(history, rows, 1, "cpu", 8000).map((part) => part.label)).toEqual(["System", "Chrome"]);
+    expect(elseAt(history, rows, 0, "cpu", 8000)).toEqual([]);
+    expect(elseAt(history, rows, -1, "cpu", 8000)).toEqual([]);
+  });
+
+  it("gives memory as a share of the machine, like the band it explains", () => {
+    expect(elseAt(history, rows, 3, "memory", 8000, 2)).toEqual([
+      { id: "system", label: "System", value: 50 },
+      { id: "app:Chrome", label: "Chrome", value: 25 },
+    ]);
   });
 });

@@ -44,8 +44,10 @@ _MB = 1024 * 1024
 _APP_PACKAGE = __name__.split(".")[0]
 #: A request this soon after the last one gets the same answer.
 MIN_INTERVAL_S = 1.0
-#: After this long without a request the old reading is no base for a rate.
-STALE_S = 20.0
+#: After this long without a request the old reading is no base for a rate and
+#: the history starts over. Long enough that looking at another tab for a
+#: minute does not empty the charts.
+STALE_S = 90.0
 #: How long the first request waits between its two readings.
 PRIME_S = 0.4
 #: Points kept for the charts: five minutes at one sample every two seconds.

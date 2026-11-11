@@ -9341,7 +9341,6 @@
         "memory": "Wer den Arbeitsspeicher nutzt",
         "gpu": "Auslastung der Grafikkarte"
       },
-      "chart_window": "Letzte {minutes} Minuten",
       "axis_now": "jetzt",
       "axis_ago": "-{minutes} min",
       "group": {
@@ -9413,7 +9412,11 @@
       "system_title": "System",
       "system_note": "Das Betriebssystem und seine Dienste",
       "peak": "Spitze {value}",
-      "row_window": "Letzte {minutes} min"
+      "row_window": "Letzte {minutes} min",
+      "window_seconds": "Letzte {seconds} s",
+      "axis_ago_seconds": "-{seconds} s",
+      "else_title": "Alles andere ist vor allem",
+      "else_more": "+{count} weitere"
     }
   },
   "appshots": {

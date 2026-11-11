@@ -9341,7 +9341,6 @@
         "memory": "Who is using the memory",
         "gpu": "Load on the graphics card"
       },
-      "chart_window": "Last {minutes} minutes",
       "axis_now": "now",
       "axis_ago": "-{minutes} min",
       "group": {
@@ -9413,7 +9412,11 @@
       "system_title": "System",
       "system_note": "The operating system and its services",
       "peak": "Peak {value}",
-      "row_window": "Last {minutes} min"
+      "row_window": "Last {minutes} min",
+      "window_seconds": "Last {seconds} s",
+      "axis_ago_seconds": "-{seconds} s",
+      "else_title": "Everything else is mostly",
+      "else_more": "+{count} more"
     }
   },
   "appshots": {

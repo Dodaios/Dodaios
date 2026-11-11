@@ -9341,7 +9341,6 @@
         "memory": "Quién usa la memoria",
         "gpu": "Carga de la tarjeta gráfica"
       },
-      "chart_window": "Últimos {minutes} minutos",
       "axis_now": "ahora",
       "axis_ago": "-{minutes} min",
       "group": {
@@ -9413,7 +9412,11 @@
       "system_title": "Sistema",
       "system_note": "El sistema operativo y sus servicios",
       "peak": "Pico {value}",
-      "row_window": "Últimos {minutes} min"
+      "row_window": "Últimos {minutes} min",
+      "window_seconds": "Últimos {seconds} s",
+      "axis_ago_seconds": "-{seconds} s",
+      "else_title": "Todo lo demás es sobre todo",
+      "else_more": "+{count} más"
     }
   },
   "appshots": {
