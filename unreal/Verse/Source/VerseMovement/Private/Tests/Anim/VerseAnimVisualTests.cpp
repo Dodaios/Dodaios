@@ -1,3 +1,4 @@
+#include "Misc/App.h"
 #include "Anim/VerseFirstPerson.h"
 #include "Anim/VerseHumanSkeleton.h"
 #include "Animation/AnimSequence.h"
@@ -272,6 +273,12 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerseVisualCharactersTest, "Verse.Visual.Chara
 bool FVerseVisualCharactersTest::RunTest(const FString& Parameters)
 {
 	using namespace VerseVisual;
+	if (!FApp::CanEverRender())
+	{
+		// The -nullrhi lane (test.py, CI) has no game world to shoot; screenshot.py runs it.
+		AddWarning(TEXT("Verse.Visual.Characters needs a game viewport (run it through scripts/unreal/screenshot.py)"));
+		return true;
+	}
 	IFileManager::Get().MakeDirectory(*ProofDir(), true);
 	TArray<FShot> Shots;
 	// Turnarounds: every body and uniform, four sides, the stand idle's first frame.

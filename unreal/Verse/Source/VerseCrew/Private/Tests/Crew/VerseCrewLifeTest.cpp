@@ -29,6 +29,24 @@ namespace VerseCrewLifeTest
 		}
 		return N;
 	}
+
+	/**
+	 * Ticks until the member's pawn exists. Spawns come out of the time-budgeted work queue
+	 * (0.45 ms a tick), so a fresh actor can land a few frames after the roster frame, more so on
+	 * a loaded machine; the pawn stands at its spawn point on the frame it appears.
+	 */
+	AVerseCrewPawn* TickUntilPawn(UVerseCrewSubsystem* Crew, const FString& MemberId, int32 MaxFrames = 60)
+	{
+		for (int32 Frame = 0; Frame < MaxFrames; ++Frame)
+		{
+			if (AVerseCrewPawn* Pawn = Crew->FindPawn(MemberId))
+			{
+				return Pawn;
+			}
+			Crew->Tick(0.02f);
+		}
+		return Crew->FindPawn(MemberId);
+	}
 }
 
 using namespace VerseCrewLifeTest;
@@ -217,10 +235,9 @@ bool FVerseCrewEntryLeaveTest::RunTest(const FString&)
 		return false;
 	}
 	W.Bridge.Send(W.Crew, TEXT("roster.snapshot"), A::Snapshot({ A::Agent(TEXT("ag_a"), TEXT("Ada"), TEXT("working")) }, {}));
-	W.Crew->Tick(0.02f);
+	const AVerseCrewPawn* Ada = TickUntilPawn(W.Crew, TEXT("ag_a"));
 	const FVerseCrewDeck* Deck = W.Crew->FindDeck(DeckBridge);
 	const FVerseCrewDeckPlan* Plan = W.Crew->FindPlan(DeckBridge);
-	const AVerseCrewPawn* Ada = W.Crew->FindPawn(TEXT("ag_a"));
 	if (!TestNotNull(TEXT("Ada spawned"), Ada) || !TestNotNull(TEXT("plan"), Plan))
 	{
 		return false;
@@ -231,11 +248,7 @@ bool FVerseCrewEntryLeaveTest::RunTest(const FString&)
 
 	W.Bridge.Send(W.Crew, TEXT("roster.delta"), A::Delta({ A::Agent(TEXT("ag_b"), TEXT("Bo"), TEXT("working")) }));
 	// The spawn comes out of the work queue within a few frames.
-	for (int32 Frame = 0; Frame < 60 && !W.Crew->FindPawn(TEXT("ag_b")); ++Frame)
-	{
-		W.Crew->Tick(0.02f);
-	}
-	const AVerseCrewPawn* Bo = W.Crew->FindPawn(TEXT("ag_b"));
+	const AVerseCrewPawn* Bo = TickUntilPawn(W.Crew, TEXT("ag_b"));
 	if (!TestNotNull(TEXT("Bo spawned"), Bo))
 	{
 		return false;
@@ -269,13 +282,11 @@ bool FVerseCrewArrivalTest::RunTest(const FString&)
 		return false;
 	}
 	W.Bridge.Send(W.Crew, TEXT("roster.snapshot"), A::Snapshot({ A::Agent(TEXT("ag_a"), TEXT("Ada"), TEXT("working")) }, {}));
-	W.Crew->Tick(0.02f);
-	TestNull(TEXT("agents in the first snapshot do not arrive"), W.Crew->FindPawn(TEXT("ag_a")));
+	TestNull(TEXT("agents in the first snapshot do not arrive"), TickUntilPawn(W.Crew, TEXT("ag_a"), 30));
 	// The agent.create golden reply's agent then shows up in a roster delta.
 	W.Bridge.Send(W.Crew, TEXT("roster.delta"), A::Delta({ A::Agent(TEXT("ag_new"), TEXT("Nova"), TEXT("idle")) }));
-	W.Crew->Tick(0.02f);
+	const AVerseCrewPawn* Nova = TickUntilPawn(W.Crew, TEXT("ag_new"));
 	const FVerseCrewDeck* Deck = W.Crew->FindDeck(DeckHangar);
-	const AVerseCrewPawn* Nova = W.Crew->FindPawn(TEXT("ag_new"));
 	if (!TestNotNull(TEXT("the newcomer spawned on the hangar"), Nova))
 	{
 		return false;

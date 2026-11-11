@@ -1,3 +1,4 @@
+#include "Misc/App.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Components/PointLightComponent.h"
@@ -87,6 +88,12 @@ bool FVerseCrewVisualTest::RunTest(const FString&)
 {
 	using namespace VerseCrewVisual;
 	using A = FVerseCrewTestWorld;
+	if (!FApp::CanEverRender())
+	{
+		// The -nullrhi lane (test.py, CI) has no game world to shoot; screenshot.py runs it.
+		AddWarning(TEXT("Verse.Visual.Crew needs a game viewport (run it through scripts/unreal/screenshot.py)"));
+		return true;
+	}
 	UWorld* World = GameWorld();
 	UVerseCrewSubsystem* Crew = World ? World->GetSubsystem<UVerseCrewSubsystem>() : nullptr;
 	if (!TestNotNull(TEXT("a game world with the crew subsystem (run with -game)"), Crew))
