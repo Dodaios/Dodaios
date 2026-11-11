@@ -28,6 +28,7 @@ from dodaios.core.agent_brief import AGENT_BRIEF_RULE
 from dodaios.core.delegation import origin_metadata
 from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.i18n import catalog as i18n_catalog
+from dodaios.orchestrator.traces import trace_prefix
 from dodaios.society.agent_names import AgentLookup, coding_pane_hint, lookup_agent
 from dodaios.society.communication import REPLY_POLICY_SCHEMA, select_reply_policy
 from dodaios.society.display_name import display_name
@@ -200,7 +201,8 @@ class DelegateToAgentTool:
             from_agent=runtime.lead_id,
             to_agent=target.agent_id,
             text=brief,
-            trace_id=f"voice:{ctx.trace_id.hex[:12]}",
+            # The real origin (voice, chat, routine, agent...), never a fixed "voice".
+            trace_id=f"{trace_prefix()}:{ctx.trace_id.hex[:12]}",
             msg_type=MsgType.ASSIGN,
             payload={
                 "text": brief, "refs": refs, "reply_policy": policy,

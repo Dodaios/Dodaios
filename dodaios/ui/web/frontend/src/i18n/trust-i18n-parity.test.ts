@@ -41,6 +41,7 @@ const FILES = [
   join(SRC, "views", "TrustView.tsx"),
   join(SRC, "components", "trust", "TrustRules.tsx"),
   join(SRC, "components", "trust", "PrivacyOverview.tsx"),
+  join(SRC, "components", "trust", "SelfChanges.tsx"),
   join(SRC, "lib", "undoToast.ts"),
   join(SRC, "components", "agentchat", "actionCard", "ApprovalActionCard.tsx"),
 ];
@@ -49,6 +50,9 @@ const TEMPLATES: Record<string, string[]> = {
   "trust.card.check.": ["secret", "unknown_recipient", "mistyped_domain", "tone"],
   "trust.page.kind_": ["tool", "action", "folder", "command"],
   "trust.page.limit_": ["money", "credentials", "permanent_delete", "new_recipient"],
+  "trust.page.state_": ["proposed", "trial", "live", "reverted", "blocked"],
+  "trust.page.surface_": ["skill", "prompt", "instructions", "tool", "code", "config", "routine", "agent"],
+  "trust.page.changes_since_": ["hour", "day", "week"],
   "privacy.status_": ["connected", "needs_reauth"],
   "privacy.role_": ["brain", "realtime", "tts", "stt", "learning"],
 };

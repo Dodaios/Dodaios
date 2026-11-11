@@ -584,6 +584,7 @@ class WebServer:
         from .runtime_gateway_routes import router as runtime_gateway_router
         from .screen_context_routes import router as screen_context_router
         from .self_build_routes import router as self_build_router
+        from .self_change_routes import router as self_change_router
         from .self_mod_routes import router as self_mod_router
         from .server_pairing_routes import router as server_pairing_router
         from .sessions_routes import router as sessions_router
@@ -602,6 +603,7 @@ class WebServer:
         from .telephony_routes import router as telephony_router
         from .tool_model_routes import router as tool_model_router
         from .tools_routes import router as tools_router
+        from .traces_routes import router as traces_router
         from .trust_routes import router as trust_router
         from .update_routes import router as update_router
         from .voice_call_routes import router as voice_call_router
@@ -688,6 +690,8 @@ class WebServer:
         app.include_router(cli_router)
         # Spend & Tokens — a read model over sessions/missions/agent-chat.
         app.include_router(costs_router)
+        # Causal trace tree: lead turn -> assignment -> agent turn -> job.
+        app.include_router(traces_router)
         # Command Registry — the one machine-readable catalog of app commands
         # (consumed by the app-command brain tool, the UI, CLI, and docs gen).
         app.include_router(commands_router)
@@ -737,6 +741,9 @@ class WebServer:
         # "Built for you": the self-building ledger (/api/self-build/*).
         app.state.self_build = None
         app.include_router(self_build_router)
+        # The self-change registry (/api/self-change/*): gated, versioned, reversible.
+        app.state.self_change = None
+        app.include_router(self_change_router)
         # The Skills tab's library of saved Markdown prompts (/api/agentic-ide/skills/*).
         app.include_router(ide_skills_router)
         app.include_router(agentic_ide_router)
@@ -3009,6 +3016,23 @@ class WebServer:
             )
         _boot_mark("flight_recorder")
 
+        # The self-change registry (versioned, gated, reversible self-changes).
+        _self_change = None
+        try:
+            import asyncio as _asyncio
+
+            from dodaios.self_change import wiring as _sc_wiring
+
+            _boot_loop = _asyncio.get_running_loop()
+            _self_change = _sc_wiring.install(
+                Path(self.cfg.memory.data_dir), self.cfg, lambda: _boot_loop
+            )
+            self.app.state.self_change = _self_change
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "self-change registry init failed — self-changes are not gated this run"
+            )
+
         # The self-building loop's ledger: opens self_build.db, nothing else at
         # boot. Observers and builders register themselves later.
         try:
@@ -3025,6 +3049,20 @@ class WebServer:
             from dodaios.self_build.code import install as install_code_builder
 
             install_code_builder(_self_build, self.app.state)
+            if _self_change is not None:
+                _sc_registry, _prev_hook = _self_change, _self_build._changed
+
+                def _mirror_hook(record: Any) -> None:
+                    _prev_hook(record)
+                    try:
+                        _sc_wiring.mirror_build(_sc_registry, record)
+                    except Exception:  # noqa: BLE001 - a mirror never costs the build
+                        logger.debug("self-change mirror failed", exc_info=True)
+
+                _self_build.ledger.set_change_hook(_mirror_hook)
+                _self_change.register_external_reverter(
+                    lambda change: _sc_wiring.revert_build(_self_build, change)
+                )
         except Exception as exc:  # noqa: BLE001
             logger.opt(exception=exc).warning(
                 "self-build ledger init failed — nothing will be self-built this run"
@@ -3779,7 +3817,10 @@ class WebServer:
                 return None
 
         bridge = ChannelChatBridge(
-            bus=self.bus, manager=manager, get_chat_service=_lead_chat_service
+            bus=self.bus,
+            manager=manager,
+            get_chat_service=_lead_chat_service,
+            get_scheduler=lambda: getattr(app_state, "task_scheduler", None),
         )
         bridge.start()
         self._channel_chat_bridge = bridge

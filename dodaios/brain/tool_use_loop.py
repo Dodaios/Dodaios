@@ -46,6 +46,7 @@ from dodaios.core.tool_read_only import allows_read
 from dodaios.core.turn_language import TURN_LANGUAGE, resolve_output_language
 from dodaios.i18n import catalog as i18n_catalog
 from dodaios.safety.tool_executor import VOICE_CONFIRM_SENTINEL, ToolExecutor
+from dodaios.trust.expectations import schema_for
 
 from .iteration_budget import IterationBudget
 from .loop_control import (
@@ -895,7 +896,7 @@ class ToolUseLoop:
             {
                 "name": tool.name,
                 "description": getattr(tool, "description", ""),
-                "input_schema": tool.schema,
+                "input_schema": schema_for(tool),
             }
             for name, tool in self._tools.items()
             if name not in self._hidden

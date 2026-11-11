@@ -239,6 +239,8 @@ def build_override(
             "approval_ref": ref,
             "approval_timeout_s": APPROVAL_TIMEOUT_S,
             "tool_origin": kit.tool_origin,
+            # The seat the calibration of its predictions is kept for.
+            "brain_seat": provider,
             **({"chat_read_only": True} if stance == PLAN_STANCE else {}),
             "cwd": str(cwd),
         },

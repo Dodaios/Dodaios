@@ -800,6 +800,7 @@ async def get_agent_score(
 
     from dodaios.core.paths import repo_root, user_data_dir
     from dodaios.evals.agent_score import build_report, load_config
+    from dodaios.trust.audit import audit_log
 
     sources = _sources(request)
     if sources.agent_chat_db is None:
@@ -807,6 +808,11 @@ async def get_agent_score(
     cfg = load_config(user_data_dir() / "agent_score.json")
     since = int((time.time() - weeks * 7 * 86400) * 1000)
     report = await asyncio.to_thread(
-        build_report, sources.agent_chat_db, repo_root() / "eval-results", cfg, since_ms=since
+        build_report,
+        sources.agent_chat_db,
+        repo_root() / "eval-results",
+        cfg,
+        since_ms=since,
+        audit=audit_log(),
     )
     return report

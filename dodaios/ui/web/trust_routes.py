@@ -11,10 +11,18 @@
                                               (``day``, ``tool``, ``origin``, ``outcome``,
                                               ``limit``, ``before``); read-only by design.
 * ``GET    /api/trust/audit/export``          ``?format=csv|json`` plus the same filters.
+* ``GET    /api/trust/calibration``           how well the lead's stated confidence matched
+                                              what happened (``weeks``): Brier score and a
+                                              reliability table, overall, per tool class,
+                                              per seat and per week.
 * ``GET    /api/trust/receipts/{id}``         the receipt of one action.
 * ``GET    /api/trust/privacy``               what the assistant knows and where it goes.
 * ``GET    /api/trust/recipients``            who has been written to from here.
 * ``DELETE /api/trust/recipients``            ``?recipient=`` forget one.
+* ``GET    /api/trust/stop-holds``            the owner's stops in force.
+* ``POST   /api/trust/stop-everything``       halt all work and hold it halted.
+* ``POST   /api/trust/resume-everything``     lift the stop on everything.
+* ``DELETE /api/trust/stop-holds``            ``?kind=&ref=`` lift one stop.
 
 Sync handlers are plain ``def`` so FastAPI runs them off the event loop; the
 two that reach the roster or the tool executor await.
@@ -23,6 +31,7 @@ two that reach the roster or the tool executor await.
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from typing import Any
 
@@ -209,6 +218,14 @@ def export_audit(
     )
 
 
+@router.get("/calibration")
+def calibration(weeks: int = Query(default=26, ge=1, le=520)) -> dict[str, Any]:
+    from dodaios.trust.calibration import audit_report
+
+    since = int((time.time() - weeks * 7 * 86400) * 1000)
+    return audit_report(audit_log(), since)
+
+
 @router.get("/receipts/{receipt_id}")
 def get_receipt(receipt_id: str) -> dict[str, Any]:
     row = audit_log().get(receipt_id)
@@ -238,6 +255,74 @@ def forget_recipient(recipient: str = Query(min_length=1, max_length=320)) -> di
     if not known_recipients().forget(recipient):
         raise HTTPException(status_code=404, detail="not a known recipient")
     return {"ok": True}
+
+
+# ------------------------------------------------------------ stop holds
+
+
+@router.get("/stop-holds")
+def list_stop_holds() -> dict[str, Any]:
+    from dodaios.safety.stop_hold import stop_holds
+
+    holds = stop_holds().items()
+    return {
+        "holds": [h.to_dict() for h in holds],
+        "everything": any(h.kind == "everything" for h in holds),
+    }
+
+
+@router.post("/stop-everything")
+async def stop_all(request: Request, reason: str = Query("", max_length=300)) -> dict[str, Any]:
+    from dodaios.orchestrator.jobs import get_ledger
+    from dodaios.safety.stop_everything import stop_everything
+
+    state = request.app.state
+    report = await stop_everything(
+        chat_service=_lead_service_from(state),
+        scheduler=getattr(state, "task_scheduler", None),
+        ledger=get_ledger(),
+        bus=getattr(state, "bus", None),
+        reason=reason or "Stopped from the desk",
+        source="desk",
+    )
+    return {"ok": not report.errors, "report": report.to_dict(), "message": report.message()}
+
+
+@router.post("/resume-everything")
+async def resume_all(request: Request) -> dict[str, Any]:
+    from dodaios.safety.stop_everything import resume_everything
+
+    report = await resume_everything(
+        scheduler=getattr(request.app.state, "task_scheduler", None), source="desk"
+    )
+    return {"ok": not report.errors, "was_held": report.was_held, "message": report.message()}
+
+
+@router.delete("/stop-holds")
+def lift_stop_hold(
+    kind: str = Query(min_length=1, max_length=20),
+    ref: str = Query("", max_length=200),
+) -> dict[str, Any]:
+    """The owner lifts one hold (the routine itself stays paused until resumed)."""
+    from dodaios.safety.stop_hold import stop_holds
+
+    try:
+        lifted = stop_holds().release(kind, ref)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if lifted is None:
+        raise HTTPException(status_code=404, detail="no such stop")
+    return {"ok": True, "hold": lifted.to_dict()}
+
+
+def _lead_service_from(state: Any) -> Any:
+    try:
+        from .agent_chat_routes import _service_from_state
+
+        return _service_from_state(state)
+    except Exception:  # noqa: BLE001 — no chat service: routines and jobs are still stopped
+        log.warning("stop everything: chat service unavailable", exc_info=True)
+        return None
 
 
 __all__ = ["router"]

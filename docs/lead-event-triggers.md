@@ -47,3 +47,29 @@ default.
 
 Settings and the decision log live in the society store; the app shows them in
 the activity panel next to the proactivity settings.
+
+## Thread subscriptions and direct delivery
+
+A job that starts from an event on a thread (a mail conversation, a PR, a chat
+topic, a calendar invite) subscribes to that thread key: an `act` decision does
+it itself, and the lead does it with `follow_thread` right after a hand-off.
+The table is many-to-many (`thread_subscriptions.db`).
+
+- Later events on the thread pass stage 1 and are then handed to the owning job
+  by code, with no model decision, through the kind's own message path (an
+  agent's chat for a society assignment, the pane prompt for a coding pane).
+  The lead's model only sees events nobody owns, or that the job could not take
+  (`busy`, `gone`, no direct path for the kind): those fall back to the lead as
+  ordinary candidates.
+- A worker can return an event outside its task with `handback_event(event_id,
+  reason)`, optionally unsubscribing. The lead gets it as a normal candidate; it
+  never bounces back to the same owner.
+- Authority is separate from information. The mandate the job started under
+  (origin, policy, source, scope) is stored once and re-checked before every
+  delivery; a delivered event is quoted data and grants nothing. A removed
+  policy or another scope sends the event to the lead instead.
+- An owner stop hold blocks direct delivery (`hold` hook of the service).
+- Subscriptions end with their job (the jobs ledger's end listener).
+- Measured in the trigger view (`delivery.direct`, `delivery.lead_decisions`,
+  `delivery.handed_back`), the decision log (`deliver` entries) and
+  `watchdog_status` (`event_routing`).

@@ -1241,6 +1241,8 @@ class SocietyRuntime:
                         "open": [] if status == "done" else [error[:500] or "turn failed"],
                         "next_owner": None,
                         "text": summary[:500],
+                        "parent_span_id": env.event_id,
+                        "span_id": str(run_id)[5:] if str(run_id).startswith("turn:") else "",
                     },
                 )
             )
@@ -1445,6 +1447,15 @@ class SocietyRuntime:
         turn = current_chat_turn.get()
         if turn is not None and turn.direct_user:
             body["reply_session_id"] = turn.session_id
+        # Causal trace: the node that sent this (trusted turn, never an argument).
+        # The envelope's own event id is its span id; readers need nothing else.
+        from dodaios.orchestrator import traces
+
+        parent_span = traces.current_span()
+        if parent_span:
+            body["parent_span_id"] = parent_span
+            body["root_span_id"] = traces.root_for(parent_span)
+        body["origin"] = traces.trace_prefix(turn)
         outgoing = SocietyEnvelope(
             msg_type=msg_type,
             from_agent=from_agent,

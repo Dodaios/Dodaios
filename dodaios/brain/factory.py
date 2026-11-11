@@ -97,11 +97,15 @@ ROUTER_TOOLS = frozenset({
     # Jobs ledger (2026-11-10): read-only handle on the work the lead started.
     "job-status",
     "await-jobs",
+    "trace-explain",
     # Independent, read-only check of delegated work (2026-11-10).
     "verify-delegate",
     # Watchdog (2026-11-11): what is stuck / repaired, and the notice's actions.
     "watchdog-status",
     "watchdog-act",
+    # Thread subscriptions (2026-11-11): follow-ups of a thread go to the owning job.
+    "follow-thread",
+    "handback-event",
     # Command Registry executor (2026-07-09): run ONE curated app command
     # (dodaios/commands/registry.py) through the SAME REST endpoint the UI
     # uses, in-process via ASGI transport. Enum-constrained command_id +

@@ -836,6 +836,9 @@ show-result-card = "dodaios.plugins.tool.result_card:ResultCardTool"
 # the model picks. Both are read-only (safe) and never spawn (AP-5/AP-14).
 job-status = "dodaios.plugins.tool.job_tools:JobStatusTool"
 await-jobs = "dodaios.plugins.tool.job_tools:AwaitJobsTool"
+# trace_explain (C12): where the time and cost of a job or turn went, read from the causal
+# trace tree. Read-only (safe); no model call.
+trace-explain = "dodaios.plugins.tool.job_tools:TraceExplainTool"
 # Independent check of delegated work (coding diff, artifact file, society evidence refs).
 # Read-only (safe); never spawns (AP-5/AP-14).
 verify-delegate = "dodaios.plugins.tool.verify_delegate:VerifyDelegateTool"
@@ -843,6 +846,10 @@ verify-delegate = "dodaios.plugins.tool.verify_delegate:VerifyDelegateTool"
 # one-click actions a watchdog notice offers (monitor). Never a spawn (AP-5/AP-14).
 watchdog-status = "dodaios.plugins.tool.watchdog_tools:WatchdogStatusTool"
 watchdog-act = "dodaios.plugins.tool.watchdog_tools:WatchdogActTool"
+# Thread subscriptions (2026-11-11): a job owns the follow-ups of a thread (monitor); a worker
+# hands an out-of-scope event back to the lead (safe). Never a spawn (AP-5/AP-14).
+follow-thread = "dodaios.plugins.tool.thread_tools:FollowThreadTool"
+handback-event = "dodaios.plugins.tool.thread_tools:HandbackEventTool"
 # Command Registry executor (2026-07-09) — run ONE curated app command
 # (provider switch, wake word, language, volume, missions/tasks, restart)
 # through the SAME REST endpoint the UI uses, in-process via ASGI. Enum-

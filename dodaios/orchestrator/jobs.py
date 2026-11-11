@@ -112,11 +112,17 @@ CREATE TABLE IF NOT EXISTS jobs (
     meta          TEXT NOT NULL DEFAULT '{}',
     boot_id       TEXT NOT NULL DEFAULT '',
     created_ms    INTEGER NOT NULL,
-    updated_ms    INTEGER NOT NULL
+    updated_ms    INTEGER NOT NULL,
+    span_id       TEXT NOT NULL DEFAULT '',
+    parent_span_id TEXT NOT NULL DEFAULT '',
+    root_span_id  TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_owner ON jobs(owner_session, updated_ms DESC);
 CREATE INDEX IF NOT EXISTS idx_jobs_open ON jobs(state, updated_ms DESC);
 """
+
+#: Columns added after the first release; an older ``jobs.db`` gains them on open.
+_SPAN_COLUMNS: Final[tuple[str, ...]] = ("span_id", "parent_span_id", "root_span_id")
 
 
 def _now_ms() -> int:
@@ -147,6 +153,10 @@ class Job:
     boot_id: str
     created_ms: int
     updated_ms: int
+    #: The node of this job in the causal trace tree (see ``orchestrator/traces.py``).
+    span_id: str = ""
+    parent_span_id: str = ""
+    root_span_id: str = ""
 
     @property
     def settled(self) -> bool:
@@ -178,23 +188,28 @@ class Job:
                 owner_turn=self.owner_turn,
                 created_ms=self.created_ms,
                 updated_ms=self.updated_ms,
+                span_id=self.span_id or self.id,
+                parent_span_id=self.parent_span_id,
+                root_span_id=self.root_span_id,
             )
         return row
 
 
 _COLUMNS = (
     "id, kind, owner_session, owner_turn, target, title, state, detail, ref, result_ref, "
-    "summary, error, cost_usd, meta, boot_id, created_ms, updated_ms"
+    "summary, error, cost_usd, meta, boot_id, created_ms, updated_ms, "
+    "span_id, parent_span_id, root_span_id"
 )
 _SELECT_ONE = (
     "SELECT id, kind, owner_session, owner_turn, target, title, state, detail, ref, "
-    "result_ref, summary, error, cost_usd, meta, boot_id, created_ms, updated_ms "
-    "FROM jobs WHERE id = ?"
+    "result_ref, summary, error, cost_usd, meta, boot_id, created_ms, updated_ms, "
+    "span_id, parent_span_id, root_span_id FROM jobs WHERE id = ?"
 )
 _INSERT = (
     "INSERT OR IGNORE INTO jobs (id, kind, owner_session, owner_turn, target, title, state, "
-    "detail, ref, result_ref, summary, error, cost_usd, meta, boot_id, created_ms, updated_ms) "
-    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    "detail, ref, result_ref, summary, error, cost_usd, meta, boot_id, created_ms, updated_ms, "
+    "span_id, parent_span_id, root_span_id) "
+    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 )
 
 
@@ -209,6 +224,7 @@ def _job(row: tuple[Any, ...]) -> Job:
         summary=row[10], error=row[11], cost_usd=row[12],
         meta=meta if isinstance(meta, dict) else {}, boot_id=row[14],
         created_ms=row[15], updated_ms=row[16],
+        span_id=row[17], parent_span_id=row[18], root_span_id=row[19],
     )
 
 
@@ -225,6 +241,18 @@ class JobLedger:
             if self._path != ":memory:":
                 self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.executescript(_SCHEMA)
+            have = {r[1] for r in self._conn.execute("PRAGMA table_info(jobs)")}
+            for column in _SPAN_COLUMNS:
+                if column not in have:
+                    self._conn.execute(
+                        f"ALTER TABLE jobs ADD COLUMN {column} TEXT NOT NULL DEFAULT ''"  # noqa: S608
+                    )
+            self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_span ON jobs(span_id)"
+            )
+            self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_root ON jobs(root_span_id)"
+            )
             self._conn.commit()
 
     def close(self) -> None:
@@ -243,6 +271,9 @@ class JobLedger:
         state: str = "running",
         ref: str = "",
         meta: dict[str, Any] | None = None,
+        span_id: str = "",
+        parent_span_id: str = "",
+        root_span_id: str = "",
     ) -> Job:
         """Insert the row; an id that exists already keeps its row (idempotent)."""
         if kind not in KINDS:
@@ -257,6 +288,7 @@ class JobLedger:
                     job_id, kind, owner_session, owner_turn, _clip(target, 300),
                     _clip(title, 160), state, "", ref, "", "", "", None,
                     json.dumps(meta or {}, ensure_ascii=False), BOOT_ID, now, now,
+                    span_id or job_id, parent_span_id, root_span_id or span_id or job_id,
                 ),
             )
             self._conn.commit()
@@ -319,7 +351,10 @@ class JobLedger:
             row = self._conn.execute(
                 _SELECT_ONE, (job_id,)
             ).fetchone()
-        return _job(row)
+        updated = _job(row)
+        if updated.state in FINAL_STATES:
+            _notify_ended(updated)
+        return updated
 
     def get(self, job_id: str) -> Job | None:
         with self._lock:
@@ -327,6 +362,35 @@ class JobLedger:
                 _SELECT_ONE, (job_id,)
             ).fetchone()
         return _job(row) if row else None
+
+    def by_span(self, span_id: str) -> Job | None:
+        """The job whose trace node is ``span_id`` (a job id also names its own node)."""
+        with self._lock:
+            row = self._conn.execute(
+                f"SELECT {_COLUMNS} FROM jobs WHERE span_id = ? LIMIT 1",  # noqa: S608
+                (span_id,),
+            ).fetchone()
+        return _job(row) if row else None
+
+    def in_root(self, root_span_id: str, *, limit: int = 500) -> list[Job]:
+        """Every job of one trace tree, oldest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT {_COLUMNS} FROM jobs WHERE root_span_id = ? "  # noqa: S608
+                "ORDER BY created_ms ASC LIMIT ?",
+                (root_span_id, max(1, int(limit))),
+            ).fetchall()
+        return [_job(row) for row in rows]
+
+    def roots_for_session(self, session: str, *, limit: int = 50) -> list[Job]:
+        """Parentless jobs a session started (a routine's run has no turn above it)."""
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT {_COLUMNS} FROM jobs WHERE owner_session = ? "  # noqa: S608
+                "AND parent_span_id = '' ORDER BY created_ms DESC LIMIT ?",
+                (session, max(1, int(limit))),
+            ).fetchall()
+        return [_job(row) for row in rows]
 
     def recent(
         self, *, owner_session: str = "", limit: int = 20, open_only: bool = False
@@ -358,6 +422,23 @@ _probes: dict[str, Probe] = {}
 #: kind -> rebuilds a probe for a job from an earlier boot, when its evidence is
 #: durable (a mission's own store). Kinds without one become ``interrupted``.
 _rehydrators: dict[str, Callable[[Job], Probe | None]] = {}
+
+
+#: Called once a job reaches a final state (thread subscriptions end with their job).
+_end_listeners: list[Callable[[Job], None]] = []
+
+
+def register_end_listener(listener: Callable[[Job], None]) -> None:
+    if listener not in _end_listeners:
+        _end_listeners.append(listener)
+
+
+def _notify_ended(job: Job) -> None:
+    for listener in list(_end_listeners):
+        try:
+            listener(job)
+        except Exception:  # noqa: BLE001 - a listener never fails the work it observes
+            log.warning("jobs: end listener failed for %s", job.id, exc_info=True)
 
 
 def register_rehydrator(kind: str, build: Callable[[Job], Probe | None]) -> None:
@@ -503,6 +584,8 @@ def start(
     state: str = "running",
     ref: str = "",
     meta: dict[str, Any] | None = None,
+    span_id: str = "",
+    parent_span_id: str | None = None,
 ) -> str | None:
     """Write the row for work that just started; ``None`` if the ledger is down.
 
@@ -512,9 +595,14 @@ def start(
     session, turn = owner if owner is not None else owner_of(ctx)
     jid = job_id or new_job_id()
     try:
+        from dodaios.orchestrator import traces
+
+        # The parent is the trusted turn (or MCP header) in flight, never an argument.
+        parent = traces.current_span() if parent_span_id is None else parent_span_id
         get_ledger().create(
             kind, job_id=jid, owner_session=session, owner_turn=turn, target=target,
-            title=title, state=state, ref=ref, meta=meta,
+            title=title, state=state, ref=ref, meta=meta, span_id=span_id or jid,
+            parent_span_id=parent, root_span_id=traces.root_for(parent) or span_id or jid,
         )
     except Exception:  # noqa: BLE001 - never fail the work for its record
         log.warning("jobs: could not record a %s job", kind, exc_info=True)
@@ -595,6 +683,7 @@ __all__ = [
     "owner_of",
     "probe_for",
     "refresh",
+    "register_end_listener",
     "register_rehydrator",
     "set_ledger",
     "start",

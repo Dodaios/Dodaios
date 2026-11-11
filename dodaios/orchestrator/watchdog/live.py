@@ -33,6 +33,8 @@ from dodaios.orchestrator.watchdog.checks import (
     TurnView,
 )
 from dodaios.orchestrator.watchdog.store import WatchdogStore
+from dodaios.safety.reversibility import autonomy_origin
+from dodaios.safety.stop_hold import blocking_for_job, stop_holds
 
 log = logging.getLogger(__name__)
 
@@ -347,6 +349,21 @@ def _view(job: jobs.Job, progress_ms: int) -> JobView:
 # ---------------------------------------------------------------- actions
 
 
+def _held_finding(finding: Finding) -> bool:
+    """True when an owner stop covers the work a finding is about."""
+    try:
+        evidence = finding.evidence or {}
+        return (
+            stop_holds().blocking(
+                job=str(evidence.get("job_id") or ""),
+                session=str(finding.open_ref or ""),
+            )
+            is not None
+        )
+    except Exception:  # noqa: BLE001 - an unreadable record never decides a repair
+        return False
+
+
 class LiveActions:
     def __init__(
         self, runtime: Any, hop: LoopHop, config: Callable[[], Any] | None = None
@@ -359,6 +376,10 @@ class LiveActions:
         return self._runtime.chat_service()
 
     def can_repair(self, finding: Finding) -> bool:
+        # The owner's stop holds against automatic repair: nothing is nudged or
+        # re-queued while a stop covers it.
+        if _held_finding(finding):
+            return False
         if finding.repair == checks.ACT_REQUEUE:
             return str(finding.evidence.get("kind") or "") in _requeuers
         return finding.repair == checks.ACT_NUDGE
@@ -437,7 +458,10 @@ class LiveActions:
         service = self._service()
         if service is None or not session_id:
             return False
-        return bool(await service.steer(session_id, supervisor.NUDGE_TEXT))
+        if stop_holds().blocking(session=session_id) is not None:
+            return False
+        with autonomy_origin("watchdog", session_id=session_id):
+            return bool(await service.steer(session_id, supervisor.NUDGE_TEXT))
 
     async def stop_turn(self, session_id: str) -> bool:
         service = self._service()
@@ -453,7 +477,10 @@ class LiveActions:
         build = _requeuers.get(job.kind) if job is not None else None
         if job is None or build is None or job.state != "interrupted":
             return None
-        new_id = await build(job)
+        if blocking_for_job(job) is not None:
+            return None  # the owner stopped this work: a repair never brings it back
+        with autonomy_origin("watchdog", job_id=job.id, session_id=job.owner_session):
+            new_id = await build(job)
         if not new_id:
             return None
         jobs.get_ledger().update(

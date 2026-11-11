@@ -26,6 +26,7 @@ from dodaios.core.protocols import (
     Tool,
 )
 from dodaios.safety.tool_executor import ToolExecutor
+from dodaios.trust.expectations import schema_for
 
 from .iteration_budget import IterationBudget
 from .loop_control import LoopControl
@@ -249,7 +250,7 @@ class BrainDispatcher:
             {
                 "name": t.name,
                 "description": getattr(t, "description", ""),
-                "input_schema": t.schema,
+                "input_schema": schema_for(t),
             }
             for name, t in self._tools.items()
             if name not in self._deferred_tools

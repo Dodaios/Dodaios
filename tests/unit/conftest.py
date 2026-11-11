@@ -56,9 +56,13 @@ def _fresh_trust_stores(tmp_path_factory: pytest.TempPathFactory):
     audit = AuditLog(root / "audit.db")
     set_audit_log(audit)
     undo_ledger()._reset_for_tests()
+    from dodaios.safety.stop_hold import StopHolds, set_stop_holds
+
+    set_stop_holds(StopHolds(root / "stop_holds.json"))
     yield
     audit.close()
     set_audit_log(None)
+    set_stop_holds(None)
     set_trust_rules(None)
     set_known_recipients(None)
     undo_ledger()._reset_for_tests()
