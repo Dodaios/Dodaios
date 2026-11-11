@@ -1,7 +1,7 @@
 /**
  * The look of an icon switch that sits in the middle of the window caption —
- * the Agentic IDE's grid / threads / Verse switch and the Agents page's
- * Verse / agents switch share it, so both read as the same control.
+ * the Agentic IDE's grid / threads switch and the round caption buttons
+ * beside it share it, so they read as one family of controls.
  *
  * A rounded track, one thumb that slides under the segment that is on, and
  * icon-only segments of a fixed width (the thumb moves by exactly that much).

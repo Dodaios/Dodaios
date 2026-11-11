@@ -330,7 +330,6 @@
     "jarvisx": "Dodaios X",
     "marketplace": "市场",
     "agentic_ide": "智能体 IDE",
-    "verse": "Verse",
     "agentic_ide_beta": "Beta",
     "voice": "{name} 语音",
     "voice_shortcuts": "快捷键",
@@ -339,7 +338,6 @@
     "shortcuts": "键盘快捷键",
     "pets": "我的宠物",
     "self_build": "为你构建",
-    "games": "游戏设置",
     "notifications": "通知",
     "phone": "手机"
   },
@@ -10487,7 +10485,6 @@
     "layout_aria": "IDE 布局",
     "layout_grid": "终端网格",
     "layout_threads": "线程",
-    "layout_verse": "Dodaios Verse",
     "terminal_needs_folder": "终端需要一个项目文件夹",
     "hide_terminal": "隐藏终端",
     "show_terminal": "显示终端",

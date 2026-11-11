@@ -24,7 +24,6 @@ vi.mock("@/views/settings/AudioDevicesGroup", () => ({ AudioDevicesGroup: stub("
 vi.mock("@/views/settings/SystemPromptGroup", () => ({ SystemPromptGroup: stub("system-prompt") }));
 vi.mock("@/views/settings/SelfBuildGroup", () => ({ SelfBuildGroup: stub("self-build") }));
 vi.mock("@/views/settings/ApprovalModesGroup", () => ({ ApprovalModesGroup: stub("approvals") }));
-vi.mock("@/components/verseHost/VerseSettingsGroup", () => ({ VerseSettingsGroup: stub("verse") }));
 
 import { SettingsView } from "@/views/SettingsView";
 
@@ -59,11 +58,10 @@ describe("SettingsView slices and folds", () => {
     expect(screen.queryByTestId("settings-more-options")).toBeNull();
   });
 
-  it("folds music, overlay and game options on the whole page", () => {
+  it("folds music and overlay options on the whole page", () => {
     render(wrap(<SettingsView />));
     expect(sectionIds()).not.toContain("music");
     expect(sectionIds()).not.toContain("overlay-taskbar");
-    expect(sectionIds()).not.toContain("verse");
     // The first-run guide's anchor stays on the page, unfolded.
     expect(sectionIds()).toContain("wake-word");
 
@@ -71,7 +69,7 @@ describe("SettingsView slices and folds", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    expect(sectionIds()).toEqual(expect.arrayContaining(["music", "overlay-taskbar", "verse"]));
+    expect(sectionIds()).toEqual(expect.arrayContaining(["music", "overlay-taskbar"]));
   });
 
   it("opens the fold for a search hit inside it and scrolls there", async () => {

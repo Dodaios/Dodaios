@@ -1,12 +1,11 @@
 import type { ReactNode } from "react";
-import { Bot, Building2, CreditCard, FileDiff, Files, FolderTree, GitBranch, Globe, MessageSquare, Search, type LucideIcon } from "lucide-react";
+import { Bot, CreditCard, FileDiff, Files, FolderTree, GitBranch, Globe, MessageSquare, Search, type LucideIcon } from "lucide-react";
 import type { SidePanelTabId } from "@/store/ideSidePanel";
 import { AgentsOverview } from "./AgentsOverview";
 import { BrowserTab } from "./browser/BrowserTab";
 import { SideChatTab } from "./chat/SideChatTab";
 import { ExplorerPanel } from "./explorer/ExplorerPanel";
 import { GitOverviewTab } from "./git/GitOverviewTab";
-import { OfficeTab } from "./OfficeTab";
 import { SearchPanel } from "./search/SearchPanel";
 import { SkillsTab } from "./skills/SkillsTab";
 import { SubscriptionsTab } from "./subscriptions/SubscriptionsTab";
@@ -103,13 +102,6 @@ export const SIDE_PANEL_TABS: readonly SidePanelTabDef[] = [
     shortcut: "U",
     icon: CreditCard,
     render: () => <SubscriptionsTab />,
-  },
-  {
-    id: "office",
-    labelKey: "ide_side_panel.tabs.office",
-    shortcut: "V",
-    icon: Building2,
-    render: () => <OfficeTab />,
   },
 ];
 

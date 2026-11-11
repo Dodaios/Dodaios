@@ -126,7 +126,6 @@ export type LocaleChunk =
   | "memory"
   | "ship"
   | "self_build"
-  | "verse_settings"
   | "trust";
 
 const SHIP_LOCALES = import.meta.glob("./locales/ship/*.json");
@@ -240,14 +239,6 @@ const CHUNK_LOADERS: Record<LocaleChunk, Record<UiLanguage, () => Promise<unknow
     es: () => import("./locales/self_build/es.json"),
     zh: () => import("./locales/self_build/zh.json"),
     pt: () => import("./locales/self_build/pt.json"),
-  },
-  // Settings → Game settings: the Verse's in-game settings menu.
-  verse_settings: {
-    en: () => import("./locales/verse_settings/en.json"),
-    de: () => import("./locales/verse_settings/de.json"),
-    es: () => import("./locales/verse_settings/es.json"),
-    zh: () => import("./locales/verse_settings/zh.json"),
-    pt: () => import("./locales/verse_settings/pt.json"),
   },
   // Settings → Trust and privacy: the rules page and the "what it knows" overview.
   // The nav label and the undo toast ride in the startup bundle (`trust.*` in

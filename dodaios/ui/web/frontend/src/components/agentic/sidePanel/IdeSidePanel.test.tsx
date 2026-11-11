@@ -15,15 +15,6 @@ vi.mock("@/components/workspace/WorkspaceTerminal", () => ({
   ),
 }));
 
-// The real stage is a WebGL scene; the tab only owes it the right props and a place to live.
-vi.mock("@/components/society/verse/VerseStage", () => ({
-  VerseStage: ({ onOpenLedger, initialDeck, compact }: { onOpenLedger: () => void; initialDeck?: string; compact?: boolean }) => (
-    <div data-testid="office-stage" data-floor={initialDeck} data-compact={String(Boolean(compact))}>
-      <button type="button" onClick={onOpenLedger}>ledger</button>
-    </div>
-  ),
-}));
-
 function Harness() {
   return (
     <>
@@ -272,31 +263,6 @@ describe("IdeSidePanel", () => {
     expect(screen.queryByTestId("ide-side-panel-waiting")).toBeNull();
   });
 
-  it("adds the Dodaios Verse tab from + and shows the engineering deck in a compact stage", async () => {
-    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["agents"], active: "agents" }));
-    render(<Harness />);
-    fireEvent.click(screen.getByTestId("ide-side-panel-add"));
-    const item = screen.getByTestId("ide-side-panel-add-office");
-    expect(item.textContent).toContain("Dodaios Verse");
-    expect(item.getAttribute("aria-checked")).toBe("false");
-    fireEvent.click(item);
-    expect(useIdeSidePanelStore.getState()).toMatchObject({ active: "office", tabs: ["agents", "office"] });
-    expect(screen.getByTestId("ide-side-panel-tab-office").getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByTestId("ide-office-tab").className).toContain("h-full");
-    const stage = await screen.findByTestId("office-stage");
-    expect(stage.getAttribute("data-floor")).toBe("engineering");
-    expect(stage.getAttribute("data-compact")).toBe("true");
-  });
-
-  it("widens a narrow panel for the office and sends the ledger action to Agents", async () => {
-    localStorage.setItem("jarvis.agenticIde.sidePanelWidth.v1", "300");
-    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["office"], active: "office" }));
-    render(<Harness />);
-    expect(screen.getByTestId("ide-side-panel-host").style.width).toBe("520px");
-    fireEvent.click(await screen.findByText("ledger"));
-    expect(useIdeSidePanelStore.getState()).toMatchObject({ active: "agents", tabs: ["office", "agents"] });
-  });
-
   it("keeps a stored width wider than the old 720px cap", () => {
     localStorage.setItem("jarvis.agenticIde.sidePanelWidth.v1", "1100");
     act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["agents"], active: "agents" }));
@@ -304,11 +270,11 @@ describe("IdeSidePanel", () => {
     expect(screen.getByTestId("ide-side-panel-host").style.width).toBe("1100px");
   });
 
-  it("maximizes the office over the whole view without remounting it or resizing the grid", async () => {
+  it("maximizes over the whole view without remounting the tab or resizing the grid", async () => {
     localStorage.setItem("jarvis.agenticIde.sidePanelWidth.v1", "600");
-    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["office"], active: "office" }));
+    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["agents"], active: "agents" }));
     render(<Harness />);
-    const stage = await screen.findByTestId("office-stage");
+    const stage = await screen.findByTestId("ide-side-panel-column-agents");
     const host = screen.getByTestId("ide-side-panel-host");
 
     fireEvent.click(screen.getByTestId("ide-side-panel-maximize"));
@@ -319,12 +285,12 @@ describe("IdeSidePanel", () => {
     expect(host.className).not.toContain("relative");
     expect(host.style.width).toBe("600px");
     expect(screen.queryByTestId("ide-side-panel-resizer")).toBeNull();
-    expect(screen.getByTestId("office-stage")).toBe(stage);
+    expect(screen.getByTestId("ide-side-panel-column-agents")).toBe(stage);
 
     fireEvent.click(screen.getByTestId("ide-side-panel-maximize"));
     expect(screen.getByTestId("ide-side-panel-body").className).toBe("relative h-full");
     expect(screen.getByTestId("ide-side-panel-grid").className).not.toContain("invisible");
-    expect(screen.getByTestId("office-stage")).toBe(stage);
+    expect(screen.getByTestId("ide-side-panel-column-agents")).toBe(stage);
   });
 
   it("closes when its grip is pushed against the right edge", async () => {

@@ -41,7 +41,6 @@ import { focusChatComposer, startNewTextChat } from "@/lib/newChat";
 import { SPEAKER_MUTE_EVENT } from "@/lib/speakerMute";
 import { onAgentAttention, seedAgentAttention } from "@/components/society/attention/attentionBus";
 import { onNotificationOpened } from "@/lib/notifyOpen";
-import { handleVerseOpen, VERSE_STATUS_EVENT, type VerseOpenPayload } from "@/components/verseHost/openRequest";
 
 let singleton: WSClient | null = null;
 
@@ -621,17 +620,6 @@ export function useWebSocket(): void {
             window.dispatchEvent(
               new CustomEvent("jarvis:agentic-ide-prompt", { detail: p }),
             );
-          }
-        }
-
-        if (env.event_name === "VerseOpenRequested" || env.event_name === "VerseStatusChanged") {
-          // The Unreal Verse (verse.bridge/1): a station asked the app to open
-          // a view, or the Verse host changed state. Opening runs the same
-          // code the web Verse runs; the launcher card re-reads its status.
-          if (env.event_name === "VerseOpenRequested") {
-            handleVerseOpen(env.payload as VerseOpenPayload);
-          } else {
-            window.dispatchEvent(new CustomEvent(VERSE_STATUS_EVENT, { detail: env.payload }));
           }
         }
 

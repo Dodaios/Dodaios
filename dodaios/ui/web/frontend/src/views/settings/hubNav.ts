@@ -31,7 +31,6 @@ export type HubTabId =
   | "shortcuts"
   | "appshots"
   | "pets"
-  | "games"
   | "notifications"
   | "trust"
   | "phone"
@@ -53,7 +52,7 @@ export type HubPageKey = "language" | "voice" | "behavior";
 /**
  * The General page's groups (SettingsView `SECTIONS` ids) behind each page
  * entry. A group may appear in exactly one page; groups no page names stay
- * under "All settings" only (music, overlay & taskbar, game options).
+ * under "All settings" only (music, overlay & taskbar).
  */
 export const HUB_PAGES: Record<HubPageKey, readonly string[]> = {
   language: ["languages", "app"],
@@ -117,7 +116,6 @@ export const HUB_GROUPS: readonly { id: string; labelKey: string; entries: reado
       { kind: "tab", id: "costs" },
       { kind: "tab", id: "appshots" },
       { kind: "tab", id: "pets" },
-      { kind: "tab", id: "games" },
       { kind: "tab", id: "socials" },
       { kind: "tab", id: "feedback" },
     ],
@@ -163,7 +161,6 @@ export function resolveHubTab(
     case "appshots":
     case "shortcuts":
     case "pets":
-    case "games":
     case "notifications":
     case "trust":
     case "phone":

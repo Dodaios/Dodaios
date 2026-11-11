@@ -24,8 +24,6 @@ import providersEn from "./locales/providers/en.json";
 import providersZh from "./locales/providers/zh.json";
 import selfBuildEn from "./locales/self_build/en.json";
 import selfBuildZh from "./locales/self_build/zh.json";
-import verseSettingsEn from "./locales/verse_settings/en.json";
-import verseSettingsZh from "./locales/verse_settings/zh.json";
 import societyEn from "./locales/society/en.json";
 import societyZh from "./locales/society/zh.json";
 
@@ -42,7 +40,6 @@ const PAIRS: [string, Tree, Tree][] = [
   ["providers", providersEn, providersZh],
   ["society", societyEn, societyZh],
   ["self_build", selfBuildEn, selfBuildZh],
-  ["verse_settings", verseSettingsEn, verseSettingsZh],
 ];
 
 function leaves(tree: Tree, prefix = ""): Map<string, unknown> {

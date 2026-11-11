@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useResizablePane } from "@/hooks/useResizablePane";
 import { PaneResizer } from "@/components/layout/PaneResizer";
 import { MAX_TERMINAL_TABS, useIdeSidePanelStore, type SidePanelTabId } from "@/store/ideSidePanel";
-import { MAX_PANES, columnCount, leaves, placeLayout, type LayoutRect } from "@/store/sidePanelLayout";
+import { MAX_PANES, columnCount, placeLayout, type LayoutRect } from "@/store/sidePanelLayout";
 import { useIdeChatStore } from "@/store/ideChat";
 import { WorkspaceTerminal } from "@/components/workspace/WorkspaceTerminal";
 import type { TerminalAppearance } from "../terminalThemes";
@@ -26,8 +26,6 @@ const MIN_PX = 260;
  * clip a wider stored width.
  */
 const UNMEASURED_MAX_PX = 4096;
-/** The office map needs room to walk around in: its tab opens the panel at least this wide. */
-const OFFICE_MIN_PX = 520;
 /** Panes side by side need room: each column of a split asks for this much, once. */
 const SPLIT_COLUMN_PX = 360;
 /** Strip of terminal grid kept beside the panel, so its grip always stays reachable. */
@@ -63,7 +61,6 @@ export function IdeSidePanelFrame({ children, markInUse = false, appearance, onS
   const inUse = useIdeSidePanelStore((state) => state.inUse);
   const setInUse = useIdeSidePanelStore((state) => state.setInUse);
   const setOpen = useIdeSidePanelStore((state) => state.setOpen);
-  const active = useIdeSidePanelStore((state) => state.active);
   const layout = useIdeSidePanelStore((state) => state.layout);
   const maximized = useIdeSidePanelStore((state) => state.maximized);
   const hasTerminals = useIdeSidePanelStore((state) => state.terminals.length > 0);
@@ -101,15 +98,10 @@ export function IdeSidePanelFrame({ children, markInUse = false, appearance, onS
   // Keep a wider stored preference intact while the window is narrow.
   const width = Math.min(pane.size, max);
 
-  // Bringing the office forward widens a narrow panel once; the user can drag
-  // it back and it stays where they left it until the office is picked again.
-  const officeInFront = open && (active === "office" || leaves(layout).some((pane) => pane.tab === "office"));
   const paneRef = useRef(pane);
   paneRef.current = pane;
-  useEffect(() => {
-    if (officeInFront && paneRef.current.size < OFFICE_MIN_PX) paneRef.current.resize(OFFICE_MIN_PX);
-  }, [officeInFront]);
-  // Same for a split: panes side by side in a 340px panel would all be cramped.
+  // A split widens a narrow panel once: panes side by side in a 340px panel
+  // would all be cramped. The user can drag it back.
   const columns = open ? columnCount(layout) : 1;
   const maxRef = useRef(max);
   maxRef.current = max;
@@ -165,9 +157,9 @@ export function IdeSidePanelFrame({ children, markInUse = false, appearance, onS
                 />
               </div>
             )}
-            {/* Same element either way, so the live office scene is never remounted.
-                A press anywhere in it (capture phase: the office canvas and the
-                terminals in it stop their own events) makes it the area in use. */}
+            {/* Same element either way, so a maximized panel is never remounted.
+                A press anywhere in it (capture phase: the terminals in it stop
+                their own events) makes it the area in use. */}
             <div hidden={!open} data-testid="ide-side-panel-body" data-closing={closing ? "true" : undefined}
               className={cn(maximized ? "absolute inset-0 z-30" : "relative h-full", closing && "opacity-40")}
               onPointerDownCapture={() => setInUse(true)}>
