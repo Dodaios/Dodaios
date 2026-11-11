@@ -1,0 +1,65 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Clutter_Mug.SM_Clutter_Mug",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_PropSmall",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Clutter_Mug.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "5988b3cd687ba6ee3c47fb384cf81f582c5e18d28698dbe482390e9a96037a0a"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        5.892,
+        4.18,
+        9.5
+      ],
+      "min": [
+        -5.965,
+        -4.18,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_MedWhite.MI_Plastic_MedWhite",
+        "slot": "M_Plastic_MedWhite"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Metal_RankGold.MI_Metal_RankGold",
+        "slot": "M_Metal_RankGold"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Lacquer_BlackGloss.MI_Lacquer_BlackGloss",
+        "slot": "M_Lacquer_BlackGloss"
+      }
+    ],
+    "triangles": 3584,
+    "uv_sets": 1,
+    "vertices": 1892
+  },
+  "name": "SM_Clutter_Mug",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/clutter.py",
+    "function": "mug"
+  }
+}

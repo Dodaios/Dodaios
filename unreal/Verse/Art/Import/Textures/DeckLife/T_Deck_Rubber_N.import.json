@@ -1,0 +1,32 @@
+{
+  "asset_path": "/Game/Verse/Textures/DeckLife/T_Deck_Rubber_N.T_Deck_Rubber_N",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/decklife/T_Deck_Rubber_N.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "c854d4779b31a95188421137c786ad4878aa28a5ada03196a81b969ee4d33b15"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Deck_Rubber_N",
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "set": "Rubber"
+    },
+    "builder": "art/verse/decks/life/textures.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Normalmap",
+    "flip_green": true,
+    "group": "WorldNormalMap",
+    "max_size": 1024,
+    "srgb": false
+  }
+}

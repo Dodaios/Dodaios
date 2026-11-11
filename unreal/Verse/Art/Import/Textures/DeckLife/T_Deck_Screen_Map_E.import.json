@@ -1,0 +1,32 @@
+{
+  "asset_path": "/Game/Verse/Textures/DeckLife/T_Deck_Screen_Map_E.T_Deck_Screen_Map_E",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/decklife/T_Deck_Screen_Map_E.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "e06c50f23c7bece868e06b8f043c942a180028db8c34b5853a775a153f5d2dea"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Deck_Screen_Map_E",
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "layout": "Map"
+    },
+    "builder": "art/verse/decks/life/screens.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": true
+  }
+}

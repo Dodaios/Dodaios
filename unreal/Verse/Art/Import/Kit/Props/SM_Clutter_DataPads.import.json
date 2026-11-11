@@ -1,0 +1,65 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Clutter_DataPads.SM_Clutter_DataPads",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_PropSmall",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Clutter_DataPads.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "71084a483bd1c520dd0dc43874ab5039f808064b631397eb58c78a4a7223146a"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        12.872,
+        9.115,
+        2.9
+      ],
+      "min": [
+        -12.837,
+        -9.115,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Screens/MI_Screen.MI_Screen",
+        "slot": "M_Screen"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_BlackSatin.MI_Plastic_BlackSatin",
+        "slot": "M_Plastic_BlackSatin"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Body.MI_Console_Body",
+        "slot": "M_Console_Body"
+      }
+    ],
+    "triangles": 254,
+    "uv_sets": 1,
+    "vertices": 172
+  },
+  "name": "SM_Clutter_DataPads",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/clutter.py",
+    "function": "data_pads"
+  }
+}

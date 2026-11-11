@@ -1,0 +1,32 @@
+{
+  "asset_path": "/Game/Verse/Textures/DeckLife/T_Deck_Screen_Reactor_E.T_Deck_Screen_Reactor_E",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/decklife/T_Deck_Screen_Reactor_E.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "8e5b13fda0c848d2939fffa5a7bdd0dde67c15f84b216d7babdd44a8538f3ff7"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Deck_Screen_Reactor_E",
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "layout": "Reactor"
+    },
+    "builder": "art/verse/decks/life/screens.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": true
+  }
+}

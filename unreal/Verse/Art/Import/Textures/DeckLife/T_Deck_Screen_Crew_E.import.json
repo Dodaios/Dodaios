@@ -1,0 +1,32 @@
+{
+  "asset_path": "/Game/Verse/Textures/DeckLife/T_Deck_Screen_Crew_E.T_Deck_Screen_Crew_E",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/decklife/T_Deck_Screen_Crew_E.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "8a685847fa7b74cc38645f22a6425a51b8a561ebef3d799273b682dda943091d"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Deck_Screen_Crew_E",
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "layout": "Crew"
+    },
+    "builder": "art/verse/decks/life/screens.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": true
+  }
+}

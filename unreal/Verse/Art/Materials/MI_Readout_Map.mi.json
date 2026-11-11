@@ -1,0 +1,23 @@
+{
+  "name": "MI_Readout_Map",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Screen.M_Verse_Screen",
+  "replaces": "M_Readout_Map",
+  "scalars": {
+    "EmissiveNits": 80.0,
+    "Roughness": 0.08
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {
+    "ScreenTexture": "/Game/Verse/Textures/DeckLife/T_Deck_Screen_Map_E.T_Deck_Screen_Map_E"
+  },
+  "vectors": {
+    "ScreenTint": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ]
+  }
+}

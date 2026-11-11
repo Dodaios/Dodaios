@@ -8,6 +8,7 @@ dimensions, anchors and sockets.
 from __future__ import annotations
 
 from . import (  # noqa: F401 - importing registers the pieces
+    clutter,
     consoles,
     crew,
     engineering,

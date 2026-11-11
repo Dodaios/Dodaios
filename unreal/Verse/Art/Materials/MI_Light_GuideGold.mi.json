@@ -1,0 +1,20 @@
+{
+  "name": "MI_Light_GuideGold",
+  "owner": "WP12",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Emissive.M_Verse_Emissive",
+  "replaces": "M_Light_GuideGold",
+  "scalars": {
+    "EmissiveNits": 45.0
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {},
+  "vectors": {
+    "EmissiveColor": [
+      1.0,
+      0.62,
+      0.18,
+      1.0
+    ]
+  }
+}

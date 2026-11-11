@@ -1,0 +1,69 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Clutter_Toolkit.SM_Clutter_Toolkit",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Clutter_Toolkit.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "85891d975afabdaa641b2178d2c92189610e7d84641658e65830264285cf4850"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        23.2,
+        11.3,
+        21.2
+      ],
+      "min": [
+        -23.2,
+        -11.3,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Consoles/MI_Console_Body.MI_Console_Body",
+        "slot": "M_Console_Body"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
+        "slot": "M_Rubber_Black"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Metal_RankGold.MI_Metal_RankGold",
+        "slot": "M_Metal_RankGold"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      }
+    ],
+    "triangles": 636,
+    "uv_sets": 1,
+    "vertices": 332
+  },
+  "name": "SM_Clutter_Toolkit",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/clutter.py",
+    "function": "toolkit"
+  }
+}

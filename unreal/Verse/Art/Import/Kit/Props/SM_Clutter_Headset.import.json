@@ -1,0 +1,65 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Clutter_Headset.SM_Clutter_Headset",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_PropSmall",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Clutter_Headset.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "956a1352a30e568ca5c0793f8fee8e6f437f97cace46ddd4e11aef1ba48a3525"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        11.5,
+        6.869,
+        12.012
+      ],
+      "min": [
+        -11.5,
+        -6.936,
+        -5.012
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_BlackSatin.MI_Plastic_BlackSatin",
+        "slot": "M_Plastic_BlackSatin"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
+        "slot": "M_Rubber_Black"
+      }
+    ],
+    "triangles": 2504,
+    "uv_sets": 1,
+    "vertices": 1456
+  },
+  "name": "SM_Clutter_Headset",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/clutter.py",
+    "function": "headset"
+  }
+}

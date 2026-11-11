@@ -780,6 +780,18 @@ def _light_floor_inlay(g: _Graph) -> None:
     _emitter(g, 10.0, kelvin=6500.0, falloff=0.05)
 
 
+@material("M_Light_GuideGold", viewport=(1.0, 0.62, 0.18))
+def _light_guide_gold(g: _Graph) -> None:
+    """Gold floor guide light along walkways (brand accent, Unreal deck look)."""
+    _emitter(g, 6.0, kelvin=None, color=(1.0, 0.6, 0.16), sampling="AUTO")
+
+
+@material("M_Emit_HoloAmber", viewport=(1.0, 0.5, 0.14))
+def _emit_holo_amber(g: _Graph) -> None:
+    """Thin amber light lines of a hologram (holograms stay warm: no cyan, art-pipeline 8.3)."""
+    _emitter(g, 5.0, kelvin=None, color=(1.0, 0.5, 0.14), sampling="AUTO")
+
+
 @material("M_Light_Maint_Red", viewport=(0.8, 0.05, 0.03))
 def _light_maint_red(g: _Graph) -> None:
     """Dim red service lamp in hull structure."""

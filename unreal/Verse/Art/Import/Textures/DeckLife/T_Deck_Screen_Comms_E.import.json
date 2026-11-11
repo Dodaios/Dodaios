@@ -1,0 +1,32 @@
+{
+  "asset_path": "/Game/Verse/Textures/DeckLife/T_Deck_Screen_Comms_E.T_Deck_Screen_Comms_E",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/decklife/T_Deck_Screen_Comms_E.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "90e4fe1dba0282470db09e0b3a546969b4d18a0a23ab5da0b0a01b1a6f5ce54a"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Deck_Screen_Comms_E",
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "layout": "Comms"
+    },
+    "builder": "art/verse/decks/life/screens.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": true
+  }
+}

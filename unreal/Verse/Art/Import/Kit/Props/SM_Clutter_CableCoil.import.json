@@ -1,0 +1,57 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Clutter_CableCoil.SM_Clutter_CableCoil",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Clutter_CableCoil.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "645847654eeac3873479379f0e59490432dd7ec9911218abf8fed9f264ff8733"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        49.016,
+        29.483,
+        4.186
+      ],
+      "min": [
+        -49.059,
+        -29.483,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Rubber_Black.MI_Rubber_Black",
+        "slot": "M_Rubber_Black"
+      }
+    ],
+    "triangles": 7620,
+    "uv_sets": 1,
+    "vertices": 3816
+  },
+  "name": "SM_Clutter_CableCoil",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/clutter.py",
+    "function": "cable_coil"
+  }
+}

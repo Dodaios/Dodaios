@@ -1,0 +1,37 @@
+{
+  "asset_path": "/Game/Verse/Textures/DeckLife/T_Deck_Leather_N.T_Deck_Leather_N",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/decklife/T_Deck_Leather_N.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "36be2cb2d8782cb2469560f59c1be11cab12369482883e1cb92a7057919bd804"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "506a0b7650c2dea285e247f26ed2d0d6ec38fc10dd584359f0d203e9c082236d"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Deck_Leather_N",
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "brown_leather",
+      "map": "nor_gl",
+      "set": "Leather"
+    },
+    "builder": "art/verse/decks/life/textures.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Normalmap",
+    "flip_green": true,
+    "group": "WorldNormalMap",
+    "max_size": 1024,
+    "srgb": false
+  }
+}

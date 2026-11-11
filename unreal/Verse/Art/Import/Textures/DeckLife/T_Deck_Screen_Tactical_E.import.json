@@ -1,0 +1,32 @@
+{
+  "asset_path": "/Game/Verse/Textures/DeckLife/T_Deck_Screen_Tactical_E.T_Deck_Screen_Tactical_E",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/decklife/T_Deck_Screen_Tactical_E.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "14d5aea9b99da5bf14cf6a7abadf69d56de324111fd46262cefe662e8f18ca76"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Deck_Screen_Tactical_E",
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "layout": "Tactical"
+    },
+    "builder": "art/verse/decks/life/screens.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": true
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Clutter_GuideStrip.SM_Clutter_GuideStrip",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Clutter_GuideStrip.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "7d503b1780a5105b511212cb7a710ca07797165a83475cc32b3f56f3c43ca27b"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        50.0,
+        2.0,
+        0.9
+      ],
+      "min": [
+        -50.0,
+        -2.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Metal/MI_Trim_BrushedSteel.MI_Trim_BrushedSteel",
+        "slot": "M_Trim_BrushedSteel"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Light_GuideGold.MI_Light_GuideGold",
+        "slot": "M_Light_GuideGold"
+      }
+    ],
+    "triangles": 128,
+    "uv_sets": 1,
+    "vertices": 80
+  },
+  "name": "SM_Clutter_GuideStrip",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/clutter.py",
+    "function": "guide_strip"
+  }
+}

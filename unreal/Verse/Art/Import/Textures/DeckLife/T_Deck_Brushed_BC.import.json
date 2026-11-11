@@ -1,0 +1,32 @@
+{
+  "asset_path": "/Game/Verse/Textures/DeckLife/T_Deck_Brushed_BC.T_Deck_Brushed_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/decklife/T_Deck_Brushed_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "2c4332c7544b8eab79f1dece2efea86061baf94c6083afc720e61f994cd2164d"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "name": "T_Deck_Brushed_BC",
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "set": "Brushed"
+    },
+    "builder": "art/verse/decks/life/textures.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": true
+  }
+}

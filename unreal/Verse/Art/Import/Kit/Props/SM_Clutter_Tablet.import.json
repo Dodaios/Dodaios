@@ -1,0 +1,65 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Clutter_Tablet.SM_Clutter_Tablet",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_PropSmall",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Clutter_Tablet.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "07871302a601081dc449b22aa07ef53474af804a57ac7df2fada324815a251fc"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        13.0,
+        9.0,
+        1.4
+      ],
+      "min": [
+        -13.0,
+        -9.0,
+        0.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Screens/MI_Screen.MI_Screen",
+        "slot": "M_Screen"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_BlackSatin.MI_Plastic_BlackSatin",
+        "slot": "M_Plastic_BlackSatin"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Lacquer_BlackGloss.MI_Lacquer_BlackGloss",
+        "slot": "M_Lacquer_BlackGloss"
+      }
+    ],
+    "triangles": 194,
+    "uv_sets": 1,
+    "vertices": 116
+  },
+  "name": "SM_Clutter_Tablet",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/clutter.py",
+    "function": "tablet"
+  }
+}

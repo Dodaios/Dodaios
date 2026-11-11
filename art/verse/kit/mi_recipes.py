@@ -107,7 +107,22 @@ _DECL = re.compile(r'@material\("(?P<name>M_[A-Za-z0-9_]+)"(?:,\s*viewport=\((?P
 #: Accent remaps of the Noir palette (linear RGB of the sRGB hex in the docstring).
 AMBER = (0.887923, 0.366253, 0.042311)
 WORK_WHITE = (0.693872, 0.723055, 0.745404)
-REMAP = {"M_Indicator_Green": AMBER, "M_Indicator_Blue": WORK_WHITE}
+#: Unreal deck look (charcoal + gold): the walkway inlays glow gold, the console trim is gold, the
+#: crew seats are dark oxblood leather instead of black vinyl (the leather scan carries the grain).
+GUIDE_GOLD = (1.0, 0.6, 0.16)
+#: The console-top trim turns from red to the brand gold of the rank plates.
+RANK_GOLD = (0.8, 0.56, 0.22)
+LEATHER = (0.34, 0.15, 0.085)
+REMAP = {
+    "M_Indicator_Green": AMBER,
+    "M_Indicator_Blue": WORK_WHITE,
+    "M_Light_FloorInlay": GUIDE_GOLD,
+    "M_Seat_Upholstery": LEATHER,
+    "M_Paint_TrimRed": RANK_GOLD,
+}
+#: Accent emitters a camera sees up close: dim enough to keep their colour (1200 nits burns gold to
+#: white at the decks' exposure).
+ACCENT_NITS = {"M_Light_GuideGold": 45.0, "M_Light_FloorInlay": 45.0, "M_Emit_HoloAmber": 70.0}
 
 #: Area prefixes of builder-local material names, dropped before the family is chosen.
 AREA_PREFIXES = ("Ops_", "Hangar_", "Eng_", "Bridge_", "PropsInd_", "Reactor_")
@@ -174,6 +189,23 @@ SPACE = {
     "MI_Ops_Starfield": {**SPACE_VIEW, "replaces": "M_Ops_Starfield"},
 }
 
+#: The deck read-outs (`art/verse/decks/life/screens.py`): the deck look puts one on every
+#: `M_Screen` slot of a deck until WP16's live monitors bind their own render targets.
+READOUT_LAYOUTS = ("Tactical", "Systems", "Nav", "Comms", "Crew", "Reactor", "Map")
+READOUT_TEXTURE = "/Game/Verse/Textures/DeckLife/T_Deck_Screen_{0}_E.T_Deck_Screen_{0}_E"
+#: A console read-out is a practical light, dimmer than a ceiling panel.
+READOUT_NITS = 80.0
+READOUTS = {
+    f"MI_Readout_{layout}": {
+        "parent": "M_Verse_Screen",
+        "replaces": f"M_Readout_{layout}",
+        "scalars": {"EmissiveNits": READOUT_NITS, "Roughness": 0.08},
+        "vectors": {"ScreenTint": [1.0, 1.0, 1.0, 1.0]},
+        "textures": {"ScreenTexture": READOUT_TEXTURE.format(layout)},
+    }
+    for layout in READOUT_LAYOUTS
+}
+
 
 def declared_materials(source: Path = MATERIALS_PY) -> dict[str, tuple[float, float, float]]:
     """Blender material name -> viewport colour (linear), read from the library's decorators."""
@@ -234,6 +266,12 @@ def _short(blender_name: str) -> str:
 #: art/verse/decks/hangar/unreal_arena/textures.py), world-aligned triplanar, the tint multiplying
 #: its luminance: (name prefix, set, repeats per metre). Flat tints read as plastic in Unreal.
 TEXTURE_FAMILIES: tuple[tuple[str, str, float], ...] = (
+    ("Seat_", "Leather", 2.5),
+    ("Fabric_", "Fabric", 3.0),
+    ("Rubber_", "Rubber", 2.0),
+    ("Trim_BrushedSteel", "Brushed", 1.5),
+    ("Console_Deck", "Brushed", 1.0),
+    ("Console_Body", "Paint", 1.2),
     ("Wall_", "Panel", 0.45),
     ("Section_", "Panel", 0.6),
     ("Recess_", "Panel", 0.8),
@@ -242,6 +280,9 @@ TEXTURE_FAMILIES: tuple[tuple[str, str, float], ...] = (
     ("Struct_", "Paint", 0.7),
 )
 TEXTURE_SET_PATH = "/Game/Verse/Textures/Arena/T_Arena_{set}_{map}.T_Arena_{set}_{map}"
+#: Sets of the deck look pass (`art/verse/decks/life/textures.py`), in their own folder.
+DECK_SETS = {"Leather", "Fabric", "Rubber", "Brushed"}
+DECK_SET_PATH = "/Game/Verse/Textures/DeckLife/T_Deck_{set}_{map}.T_Deck_{set}_{map}"
 #: Wear and grime of the deck surfaces: the scanned set carries most of it, so the procedural
 #: layers stay light (strong grime drew dark blotches over whole walls).
 SURFACE_EDGE_WEAR = 0.2
@@ -297,7 +338,8 @@ def recipe(blender_name: str, rgb, tint: Mapping | None = None) -> dict:
         prefix = next((p for p in EMISSIVE_NITS if short.startswith(p)), None)
         colour = emission if strength > EMISSIVE_STRENGTH and blender_name not in REMAP else rgb
         doc["vectors"]["EmissiveColor"] = _rgba(colour)
-        doc["scalars"]["EmissiveNits"] = EMISSIVE_NITS.get(prefix, DEFAULT_EMISSIVE_NITS)
+        nits = EMISSIVE_NITS.get(prefix, DEFAULT_EMISSIVE_NITS)
+        doc["scalars"]["EmissiveNits"] = ACCENT_NITS.get(blender_name, nits)
     elif short.startswith(GLASS_PREFIXES) or glassy:
         doc = _doc(name, blender_name, "M_Verse_Glass")
         doc["vectors"]["BaseTint"] = _rgba(rgb)
@@ -327,9 +369,9 @@ def recipe(blender_name: str, rgb, tint: Mapping | None = None) -> dict:
             set_name, scale = textured
             doc["switches"].update(UseTriplanar=True, UseTextureSet=True)
             doc["scalars"].update(TriplanarScale=scale, TriplanarWorld=1.0)
+            path = DECK_SET_PATH if set_name in DECK_SETS else TEXTURE_SET_PATH
             doc["textures"] = {
-                f"Set1_{key}": TEXTURE_SET_PATH.format(set=set_name, map=key)
-                for key in ("BC", "N", "ORM")
+                f"Set1_{key}": path.format(set=set_name, map=key) for key in ("BC", "N", "ORM")
             }
             # The set's luminance averages about a half, so the surfaces read a step darker than
             # their flat tint: the charcoal of the reference decks.
@@ -382,8 +424,9 @@ def noir(param: str, rgba: list[float], *, gold_allowed: bool = False) -> list[f
 
 
 def space_recipes() -> list[dict]:
+    """The space view's instances and the deck read-outs: fixed recipes, no Blender slot."""
     out = []
-    for name, spec in sorted(SPACE.items()):
+    for name, spec in sorted({**SPACE, **READOUTS}.items()):
         doc = _doc(name, spec["replaces"], spec["parent"])
         for key in ("scalars", "vectors", "textures"):
             doc[key] = dict(spec.get(key, {}))

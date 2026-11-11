@@ -3,6 +3,7 @@
 #include "Camera/VerseDeckCamera.h"
 #include "Commander/VerseDeckCommander.h"
 #include "Life/VerseDeckDrone.h"
+#include "Decks/VerseDeckLife.h"
 #include "Decks/VerseDeckLook.h"
 #include "Dom/JsonObject.h"
 #include "Engine/Engine.h"
@@ -319,6 +320,10 @@ void UVerseDeckSubsystem::SpawnDeckActors(UWorld* World, FName Deck, bool bByLif
 	{
 		Lights->Build(*Manifest);
 		Lighting = Lights;
+	}
+	if (AVerseDeckLife* Life = World->SpawnActor<AVerseDeckLife>(Params))
+	{
+		Life->Build(*Manifest);
 	}
 	SpaceView = World->SpawnActor<AVerseSpaceView>(Params);
 	if (SpaceView.IsValid())

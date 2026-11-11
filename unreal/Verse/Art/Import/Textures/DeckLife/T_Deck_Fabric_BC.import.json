@@ -1,0 +1,37 @@
+{
+  "asset_path": "/Game/Verse/Textures/DeckLife/T_Deck_Fabric_BC.T_Deck_Fabric_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/decklife/T_Deck_Fabric_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "72878fcdc6af50d43d0d8b27d6c530fc1705022bca89817b10821daa80b5fdcf"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "fc2527c166196684e588ef858daf977285b6701a3c4a68ef71da0c8f01f00263"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Deck_Fabric_BC",
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "denim_fabric_04",
+      "map": "Diffuse",
+      "set": "Fabric"
+    },
+    "builder": "art/verse/decks/life/textures.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": true
+  }
+}

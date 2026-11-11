@@ -1,0 +1,37 @@
+{
+  "asset_path": "/Game/Verse/Textures/DeckLife/T_Deck_Fabric_ORM.T_Deck_Fabric_ORM",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/decklife/T_Deck_Fabric_ORM.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "eafe91c716381bf07da7bb358c1ad46a31caf78e55dc1d632625376556a70dfd"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "fc7ebe19687f90d2e306389615eed1df592e36a5a6d84e5221abcc414ee2063f"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Deck_Fabric_ORM",
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "denim_fabric_04",
+      "map": "arm",
+      "set": "Fabric"
+    },
+    "builder": "art/verse/decks/life/textures.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Masks",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 1024,
+    "srgb": false
+  }
+}

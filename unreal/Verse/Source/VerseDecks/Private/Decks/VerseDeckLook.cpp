@@ -23,9 +23,9 @@ FVerseDeckLook FVerseDeckLook::For(FName Deck)
 	else if (Id == TEXT("ops"))
 	{
 		Look.FogDensity = 0.02;
-		// The crew's living deck: warmer and a step brighter than the bridge.
+		// The crew's living deck: a little warmer and a step brighter than the bridge.
 		Look.ExposureEV100 = 3.0;
-		Look.WorkLightKelvin = 4500.0;
+		Look.WorkLightKelvin = 5200.0;
 		Look.SpaceOutward = FVector(-0.377894, -0.925849, 0.0);
 	}
 	else if (Id == TEXT("engineering"))
@@ -34,7 +34,8 @@ FVerseDeckLook FVerseDeckLook::For(FName Deck)
 		Look.FogHeightFalloff = 0.12;
 		Look.VolumetricExtinction = 1.6;
 		Look.ExposureEV100 = 3.5;
-		Look.WorkLightKelvin = 4800.0;
+		// Neutral work light: the warmth comes from the read-outs and the gold guides, not a sepia wash.
+		Look.WorkLightKelvin = 5400.0;
 		Look.SpaceOutward = FVector(-0.990347, 0.138613, 0.0);
 	}
 	else if (Id == TEXT("hangar"))
@@ -218,7 +219,7 @@ namespace VerseDeckLookPrivate
 	/** Fixture height above the floor of an unlit room when no deck light hangs high enough. */
 	constexpr double DefaultCeilingCm = 380.0;
 	/** Lumens of the glow in front of each screen socket. */
-	constexpr double ScreenGlowLumen = 450.0;
+	constexpr double ScreenGlowLumen = 900.0;
 }
 
 TArray<FVector> AVerseDeckLighting::FixtureGrid(const FVerseDeckRoom& Room, int32 Count, double ZCm)
@@ -319,7 +320,9 @@ int32 AVerseDeckLighting::Build(const FVerseDeckManifest& Manifest)
 	P.bOverride_ColorGainShadows = true;
 	P.ColorGainShadows = FVector4(0.92, 0.97, 1.1, 1.0);
 	P.bOverride_ColorGainHighlights = true;
-	P.ColorGainHighlights = FVector4(1.06, 1.0, 0.9, 1.0);
+	// A trace of warmth in the highlights only: the colour comes from the read-outs and the gold
+	// accents, so the grade stays near neutral (a stronger gain washed every deck in sepia).
+	P.ColorGainHighlights = FVector4(1.03, 1.0, 0.97, 1.0);
 	P.bOverride_AmbientOcclusionIntensity = true;
 	P.AmbientOcclusionIntensity = 0.6f;
 
@@ -425,11 +428,11 @@ int32 AVerseDeckLighting::Build(const FVerseDeckManifest& Manifest)
 		Glow->SetRelativeLocation(Socket.Transform.GetLocation() + Normal * 35.0);
 		Glow->SetIntensityUnits(ELightUnits::Lumens);
 		Glow->SetIntensity(static_cast<float>(ScreenGlowLumen));
-		Glow->SetAttenuationRadius(260.f);
+		Glow->SetAttenuationRadius(340.f);
 		Glow->SetSourceRadius(25.f);
 		Glow->SetCastShadows(false);
-		Glow->SetUseTemperature(true);
-		Glow->SetTemperature(7000.f);
+		// Read-outs are amber (`MI_Readout_*`): their glow warms the console and the operator.
+		Glow->SetLightColor(FLinearColor(1.0f, 0.62f, 0.3f));
 		Glow->SetVolumetricScatteringIntensity(0.f);
 		Glow->RegisterComponent();
 		Lights.Add(Glow);

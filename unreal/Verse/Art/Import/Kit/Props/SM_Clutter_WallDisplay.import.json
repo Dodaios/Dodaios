@@ -1,0 +1,65 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Clutter_WallDisplay.SM_Clutter_WallDisplay",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Clutter_WallDisplay.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "2ca9d12245c4e9a15cc638d8ef8f470cdcf2ca5c5620d1cdda6a096d7faf2b1a"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "single"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        84.0,
+        6.4,
+        49.0
+      ],
+      "min": [
+        -84.0,
+        0.0,
+        -51.0
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Screens/MI_Screen.MI_Screen",
+        "slot": "M_Screen"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Plastic_BlackSatin.MI_Plastic_BlackSatin",
+        "slot": "M_Plastic_BlackSatin"
+      },
+      {
+        "mi": "/Game/Verse/Materials/Instances/Props/MI_Metal_RankGold.MI_Metal_RankGold",
+        "slot": "M_Metal_RankGold"
+      }
+    ],
+    "triangles": 218,
+    "uv_sets": 1,
+    "vertices": 116
+  },
+  "name": "SM_Clutter_WallDisplay",
+  "nanite": {
+    "enabled": false
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/clutter.py",
+    "function": "wall_display"
+  }
+}

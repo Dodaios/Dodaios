@@ -1,0 +1,57 @@
+{
+  "asset_path": "/Game/Verse/Kit/Props/SM_Clutter_HoloGlobe.SM_Clutter_HoloGlobe",
+  "collision": {
+    "primitives": 0,
+    "profile": "Verse_Prop",
+    "source": "auto_box"
+  },
+  "export": {
+    "blender": "5.0.1",
+    "file": "art/verse/.cache/unreal/kit/SM_Clutter_HoloGlobe.fbx",
+    "format": "fbx",
+    "settings_id": "fbx-ue/1",
+    "sha256": "f75ffa965a376b5fa2b174cba1a25ff39c7cbbaa1450eac72e320efa14ebfc6a"
+  },
+  "kind": "static_mesh",
+  "license": {
+    "kind": "own"
+  },
+  "lightmap": "none",
+  "lod": {
+    "mode": "nanite"
+  },
+  "mesh": {
+    "bounds_cm": {
+      "max": [
+        64.26,
+        64.26,
+        100.86
+      ],
+      "min": [
+        -64.26,
+        -64.26,
+        -0.86
+      ]
+    },
+    "material_slots": [
+      {
+        "mi": "/Game/Verse/Materials/Instances/Lights/MI_Emit_HoloAmber.MI_Emit_HoloAmber",
+        "slot": "M_Emit_HoloAmber"
+      }
+    ],
+    "triangles": 18432,
+    "uv_sets": 1,
+    "vertices": 9216
+  },
+  "name": "SM_Clutter_HoloGlobe",
+  "nanite": {
+    "enabled": true
+  },
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {},
+    "builder": "art/verse/kit/props/command/clutter.py",
+    "function": "holo_globe"
+  }
+}

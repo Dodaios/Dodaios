@@ -117,6 +117,19 @@
   ],
   "source": "viewport"
  },
+ "M_Emit_HoloAmber": {
+  "base": [
+   1.0,
+   0.5,
+   0.14
+  ],
+  "emission": [
+   1.0,
+   0.5,
+   0.14
+  ],
+  "source": "viewport"
+ },
  "M_Fabric_BlanketSlate": {
   "alpha": 1.0,
   "base": [
@@ -479,6 +492,19 @@
    0.95,
    0.95,
    1.0
+  ],
+  "source": "viewport"
+ },
+ "M_Light_GuideGold": {
+  "base": [
+   1.0,
+   0.62,
+   0.18
+  ],
+  "emission": [
+   1.0,
+   0.6,
+   0.16
   ],
   "source": "viewport"
  },

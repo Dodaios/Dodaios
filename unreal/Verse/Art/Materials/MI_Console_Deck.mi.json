@@ -8,13 +8,20 @@
     "GrimeAmount": 0.12,
     "Metallic": 0.2,
     "RoughnessMax": 0.6,
-    "RoughnessMin": 0.35
+    "RoughnessMin": 0.35,
+    "TriplanarScale": 1.0,
+    "TriplanarWorld": 1.0
   },
   "schema": "verse.mi/1",
   "switches": {
-    "UseTriplanar": false
+    "UseTextureSet": true,
+    "UseTriplanar": true
   },
-  "textures": {},
+  "textures": {
+    "Set1_BC": "/Game/Verse/Textures/DeckLife/T_Deck_Brushed_BC.T_Deck_Brushed_BC",
+    "Set1_N": "/Game/Verse/Textures/DeckLife/T_Deck_Brushed_N.T_Deck_Brushed_N",
+    "Set1_ORM": "/Game/Verse/Textures/DeckLife/T_Deck_Brushed_ORM.T_Deck_Brushed_ORM"
+  },
   "vectors": {
     "BaseTint": [
       0.16,
