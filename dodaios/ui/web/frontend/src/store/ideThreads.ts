@@ -13,6 +13,10 @@ import { create } from "zustand";
  * Both survive a reload through localStorage, which may be blocked — every
  * read and write degrades to the defaults instead of throwing. So do the
  * threads the person archived out of the list.
+ *
+ * The layout does not: the IDE always opens in `threads` (chat), and a switch
+ * to the grid holds until the app restarts (maintainer, 2026-11-11: "chat mode
+ * is always the default").
  */
 
 export type IdeLayout = "grid" | "threads";
@@ -62,7 +66,6 @@ function fromColumns(columns: readonly ThreadColumn[]): { split: SplitThread[]; 
   return { split: columns.filter((column): column is SplitThread => column !== null), mainAt };
 }
 
-const LAYOUT_KEY = "jarvis.agenticIde.layout.v1";
 const SELECTION_KEY = "jarvis.agenticIde.threadSelection.v1";
 const PROJECT_OF_KEY = "jarvis.agenticIde.threadProjects.v1";
 const SEEN_KEY = "jarvis.agenticIde.threadSeen.v1";
@@ -93,9 +96,6 @@ function write(key: string, value: unknown): void {
     /* a convenience only: the choice just does not survive this session */
   }
 }
-
-const parseLayout = (raw: unknown): IdeLayout | null =>
-  typeof raw === "string" && (IDE_LAYOUTS as readonly string[]).includes(raw) ? (raw as IdeLayout) : null;
 
 const parseSelection = (raw: unknown): ThreadSelection | null => {
   if (!raw || typeof raw !== "object") return null;
@@ -207,7 +207,7 @@ function withoutSplit(state: Pick<IdeThreadsState, "split" | "mainAt">, sessionI
 }
 
 export const useIdeThreadsStore = create<IdeThreadsState>((set, get) => ({
-  layout: read(LAYOUT_KEY, parseLayout, "grid"),
+  layout: "threads",
   selection: read(SELECTION_KEY, parseSelection, { projectId: "", sessionId: null }),
   projectOf: read(PROJECT_OF_KEY, parseStringMap, {}),
   seen: read(SEEN_KEY, parseNumberMap, {}),
@@ -218,7 +218,6 @@ export const useIdeThreadsStore = create<IdeThreadsState>((set, get) => ({
 
   setLayout: (layout) => {
     if (get().layout === layout) return;
-    write(LAYOUT_KEY, layout);
     set({ layout });
   },
   openThread: (sessionId, projectId) => {

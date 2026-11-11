@@ -13,7 +13,6 @@ import { HUB_GROUPS } from "@/views/settings/hubNav";
 import { isSectionId, useEventStore } from "@/store/events";
 import { useQuickSwitcher } from "@/store/quickSwitcher";
 import { useQuickSwitchSettings } from "@/store/quickSwitchSettings";
-import { useHomeStore } from "@/store/home";
 import { useIdeChatStore } from "@/store/ideChat";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeThreadsStore } from "@/store/ideThreads";
@@ -69,15 +68,16 @@ test("the IDE lists its folders; beside the conversation the column stays empty"
     renderSidebar();
     // The project tree is a lazy chunk: a cold CI runner can take longer than the default second to load it.
     expect(await screen.findByTestId("ide-project-tree", undefined, { timeout: 10_000 })).toBeDefined();
-    expect(screen.getByTestId("sidebar-mode-ide").getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByTestId("sidebar-mode-dodaios").getAttribute("aria-checked")).toBe("false");
+    // The IDE's column opens with how it reads; the place itself is picked in the caption.
+    expect(screen.getByTestId("ide-layout-switch")).toBeTruthy();
+    expect(screen.queryByTestId("surface-switch")).toBeNull();
     act(() => useEventStore.setState({ activeSection: "chats" }));
     // Beside the conversation nothing is listed: the assistant's own panel
     // stands to the right of the conversation (views/HomeView).
     expect(screen.queryByTestId("ide-project-tree")).toBeNull();
     expect(screen.queryByTestId("assistant-panel")).toBeNull();
     expect(screen.queryByTestId("earlier-chats")).toBeNull();
-    expect(screen.getByTestId("sidebar-mode-dodaios").getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByTestId("ide-layout-switch")).toBeNull();
   } finally {
     // A failure here must not leave the IDE section and its sidebar behind for the next test.
     cleanup();
@@ -192,104 +192,12 @@ describe("Sidebar voice header", () => {
     expect(screen.queryByText("auflegen")).toBeNull();
   });
 
-  test("starts with the switch, without duplicate voice controls", () => {
+  test("carries no place switch and no duplicate voice controls", () => {
+    // Dodaios or IDE is picked in the window caption (AppSurfaceSwitch).
     renderSidebar();
     expect(screen.queryByTestId("home-surface-switch")).toBeNull();
-    expect(screen.getByTestId("sidebar-mode-switch")).toBeTruthy();
-  });
-});
-
-// The two places of the app: the conversation with the assistant and the IDE.
-describe("Sidebar mode switch", () => {
-  beforeEach(() => {
-    vi.stubGlobal(
-      "fetch",
-      // GET /api/chats answers with a list, the agent-chat sessions probe with
-      // an empty roster; every other call the mounted sidebar fires gets a
-      // harmless object. An undefined list here crashes the recent-chats block.
-      vi.fn(async (url: string) =>
-        String(url).startsWith("/api/chats")
-          ? new Response(JSON.stringify([]), { status: 200 })
-          : new Response(JSON.stringify({ sessions: [] }), { status: 200 }),
-      ),
-    );
-    useEventStore.setState({
-      connected: true,
-      activeSection: "board",
-      conversations: [],
-      messages: [],
-      activeThreadId: "old-voice-thread",
-    });
-  });
-
-  afterEach(() => {
-    cleanup();
-    vi.unstubAllGlobals();
-    // The event store is module-global: leaving a fetched-in list behind
-    // would break whichever test file runs next.
-    useEventStore.setState({ conversations: [], messages: [], activeThreadId: null });
-  });
-
-  test("lights neither half while another page is on screen", () => {
-    renderSidebar();
-    expect(screen.getByTestId("sidebar-mode-dodaios").getAttribute("aria-checked")).toBe("false");
-    expect(screen.getByTestId("sidebar-mode-ide").getAttribute("aria-checked")).toBe("false");
-  });
-
-  test("opens the one conversation in one click, even from voice mode", async () => {
-    useHomeStore.setState({ surface: "voice", transcript: [] });
-    renderSidebar();
-    const button = screen.getByTestId("sidebar-mode-dodaios");
-    expect(button.textContent).toContain("Dodaios");
-    await act(async () => { button.click(); await Promise.resolve(); });
-    expect(useHomeStore.getState().surface).toBe("chat");
-    expect(useEventStore.getState().activeSection).toBe("chats");
-    expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
-  test("never starts a voice run — voice is a mode inside the chat now", async () => {
-    useHomeStore.setState({ surface: "chat", transcript: [] });
-    renderSidebar();
-    await act(async () => { screen.getByTestId("sidebar-mode-dodaios").click(); await Promise.resolve(); });
-    expect(useHomeStore.getState().surface).toBe("chat");
-    const calls = (globalThis.fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls;
-    expect(calls.some((c) => String(c[0]) === "/api/chats/voice/new")).toBe(false);
-  });
-
-  test("the other half opens the Agentic IDE", () => {
-    renderSidebar();
-    act(() => { screen.getByTestId("sidebar-mode-ide").click(); });
-    expect(useEventStore.getState().activeSection).toBe("agentic-ide");
-  });
-});
-
-describe("Sidebar header avatar", () => {
-  beforeEach(() => {
-    useEventStore.setState({
-      voiceState: "idle",
-      transcription: "",
-      transcriptionFinal: true,
-      connected: true,
-      voiceReady: true,
-      assistantName: "Ruben",
-    });
-  });
-
-  afterEach(() => {
-    cleanup();
-    overlayMock.style = "jarvis_bar";
-  });
-
-  // The mark is the user's pet (Gigi by default), drawn by PetMark from the
-  // pets answer — never the old static Gigi image.
-  test("renders the pet mark, not the old Gigi image", () => {
-    // The pet is the assistant's face: it heads the assistant's half of the switch.
-    const { container } = renderSidebar();
-    const avatar = container.querySelector('[data-testid="sidebar-style-avatar"]');
-    expect(avatar).not.toBeNull();
-    expect(screen.getByTestId("sidebar-mode-dodaios").contains(avatar)).toBe(true);
-    expect(avatar?.querySelector('[data-testid="pet-mark"]')).toBeTruthy();
-    expect(avatar?.querySelector("img")).toBeNull();
+    expect(screen.queryByTestId("surface-switch")).toBeNull();
+    expect(screen.queryByTestId("sidebar-mode-switch")).toBeNull();
   });
 });
 
@@ -402,11 +310,10 @@ describe("Sidebar assistant name header", () => {
     expect(useQuickSwitcher.getState().open).toBe(false);
   });
 
-  test("switching the quick switcher off takes the field away, the switch stays", () => {
+  test("switching the quick switcher off takes the field away", () => {
     useQuickSwitchSettings.setState({ enabled: false });
     renderSidebar();
     expect(screen.queryByTestId("sidebar-search")).toBeNull();
-    expect(screen.getByTestId("sidebar-mode-switch")).toBeTruthy();
     useQuickSwitchSettings.setState({ enabled: true });
   });
 });
@@ -464,10 +371,10 @@ describe("Sidebar voice-boot indicator", () => {
     // normal idle "Ready" state (which would imply the mic already works).
     useEventStore.setState({ connected: true, voiceReady: false });
 
-    const { container } = renderSidebar();
+    renderSidebar();
 
+    // The spinner itself is drawn in the caption's Dodaios switch (AppSurfaceSwitch.test).
     expect(screen.getByText("Voice starting…")).toBeTruthy();
-    expect(container.querySelector('[data-testid="voice-starting-spinner"]')).not.toBeNull();
     // The normal idle voice label must NOT be shown during warmup.
     expect(screen.queryByText("Ready")).toBeNull();
   });
@@ -475,14 +382,12 @@ describe("Sidebar voice-boot indicator", () => {
   test("reverts to the normal voice state once voice is ready", () => {
     useEventStore.setState({ connected: true, voiceReady: true, voiceState: "idle" });
 
-    const { container } = renderSidebar();
+    renderSidebar();
 
-    // At rest the dot alone says "fine"; the word lives in its accessible
-    // name and hover, not as a second line of visible text.
-    expect(screen.getByRole("img", { name: "Ready" })).toBeTruthy();
+    // At rest the caption's dot alone says "fine"; no line of text here.
     expect(screen.queryByText("Ready")).toBeNull();
     expect(screen.queryByText("Voice starting…")).toBeNull();
-    expect(container.querySelector('[data-testid="voice-starting-spinner"]')).toBeNull();
+    expect(screen.queryByTestId("sidebar-voice-label")).toBeNull();
   });
 
   test("shows 'Offline' (not the spinner) when disconnected and NOT warming", () => {
@@ -490,11 +395,10 @@ describe("Sidebar voice-boot indicator", () => {
     // loop (no 1013) — the honest state is Offline.
     useEventStore.setState({ connected: false, voiceReady: false, wsWarming: false });
 
-    const { container } = renderSidebar();
+    renderSidebar();
 
     expect(screen.getByText("Offline")).toBeTruthy();
     expect(screen.queryByText("Voice starting…")).toBeNull();
-    expect(container.querySelector('[data-testid="voice-starting-spinner"]')).toBeNull();
   });
 
   test("shows the booting label + spinner (not Offline) while warming", () => {
@@ -503,11 +407,10 @@ describe("Sidebar voice-boot indicator", () => {
     // the alarming "Offline".
     useEventStore.setState({ connected: false, voiceReady: false, wsWarming: true });
 
-    const { container } = renderSidebar();
+    renderSidebar();
 
     expect(screen.getByText("Starting…")).toBeTruthy();
     expect(screen.queryByText("Offline")).toBeNull();
-    expect(container.querySelector('[data-testid="voice-starting-spinner"]')).not.toBeNull();
   });
 });
 
@@ -532,18 +435,22 @@ describe("Sidebar icon rail", () => {
       transcription: "",
       transcriptionFinal: true,
       connected: true,
-      activeSection: "chats",
+      activeSection: "agentic-ide",
     });
+    useIdeThreadsStore.setState({ layout: "threads" });
   });
 
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    act(() => useEventStore.setState({ activeSection: "chats" }));
+  });
 
   test("shows its labels at the designed width", () => {
     renderSidebar(SIDEBAR_DEFAULT_WIDTH);
 
     expect(screen.getByTestId("sidebar").dataset.railed).toBe("false");
-    expect(screen.getByTestId("sidebar-mode-ide").textContent).toContain("IDE");
-    expect(screen.getByTestId("sidebar-mode-dodaios").textContent).toContain("Dodaios");
+    expect(screen.getByTestId("ide-layout-threads").textContent).toContain("Chat");
+    expect(screen.getByTestId("ide-layout-grid").textContent).toContain("Grid");
   });
 
   test("drops to icons once dragged past the snap point", () => {
@@ -555,27 +462,27 @@ describe("Sidebar icon rail", () => {
     // shows half a word per row and reads as a rendering fault, so it is
     // skipped rather than rendered at the dragged width.
     expect(aside.style.width).toBe(`${SIDEBAR_RAIL_WIDTH}px`);
-    expect(screen.getByTestId("sidebar-mode-ide").textContent).toBe("");
+    expect(screen.getByTestId("ide-layout-grid").textContent).toBe("");
   });
 
-  test("keeps both places named once their labels are off the screen", () => {
+  test("keeps both faces named once their labels are off the screen", () => {
     renderSidebar(SIDEBAR_RAIL_WIDTH);
 
-    for (const id of ["sidebar-mode-dodaios", "sidebar-mode-ide"]) {
+    for (const id of ["ide-layout-threads", "ide-layout-grid"]) {
       const half = screen.getByTestId(id);
       expect(half.getAttribute("aria-label")).toBeTruthy();
       expect(half.getAttribute("title")).toBe(half.getAttribute("aria-label"));
     }
   });
 
-  test("still switches place on a click", () => {
+  test("still switches face on a click", () => {
     renderSidebar(SIDEBAR_RAIL_WIDTH);
 
     act(() => {
-      screen.getByTestId("sidebar-mode-ide").click();
+      screen.getByTestId("ide-layout-grid").click();
     });
 
-    expect(useEventStore.getState().activeSection).toBe("agentic-ide");
+    expect(useIdeThreadsStore.getState().layout).toBe("grid");
   });
 
   test("keeps the rail canvas transparent and lists no folders", () => {
@@ -583,7 +490,7 @@ describe("Sidebar icon rail", () => {
 
     const sidebar = screen.getByTestId("sidebar");
     expect(sidebar.querySelector(".jarvis-shell-surface")).toBeNull();
-    expect(screen.getByTestId("sidebar-mode-switch")).toBeTruthy();
+    expect(screen.getByTestId("ide-layout-switch")).toBeTruthy();
     expect(screen.queryByTestId("earlier-chats")).toBeNull();
   });
 
@@ -601,7 +508,7 @@ describe("Sidebar icon rail", () => {
     expect(screen.queryByText("auflegen")).toBeNull();
     expect(screen.queryByTestId("sidebar-voice-label")).toBeNull();
     // …and the switch, which is the reason the rail exists, is still there.
-    expect(screen.getByTestId("sidebar-mode-switch")).toBeTruthy();
+    expect(screen.getByTestId("ide-layout-switch")).toBeTruthy();
   });
 });
 
@@ -765,8 +672,8 @@ describe("the sidebar holds the two places and nothing else", () => {
     for (const item of [...LISTED_NAV_GROUPS.flat(), ...NAV_FOOTER_ITEMS]) {
       // Hub tabs are one profile-button click away; the hub selects them itself.
       if ((SETTINGS_HUB_IDS as readonly string[]).includes(item.id)) continue;
-      if (item.id === "chats") expect(screen.getByTestId("sidebar-mode-dodaios")).toBeTruthy();
-      else if (item.id === "agentic-ide") expect(screen.getByTestId("sidebar-mode-ide")).toBeTruthy();
+      // The two places are the caption's switch (AppSurfaceSwitch.test).
+      if (item.id === "chats" || item.id === "agentic-ide") continue;
       // Every other page is a link inside the Settings hub.
       else expect(hubLinks.has(item.id), item.id).toBe(true);
     }

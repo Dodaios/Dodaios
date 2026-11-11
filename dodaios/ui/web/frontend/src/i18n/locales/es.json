@@ -10608,6 +10608,8 @@
     "layout_grid": "Cuadrícula de terminales",
     "layout_threads": "Hilos",
     "layout_aria": "Diseño del IDE",
+    "layout_chat_short": "Chat",
+    "layout_grid_short": "Cuadrícula",
     "terminal_needs_folder": "El terminal necesita una carpeta de proyecto",
     "hide_terminal": "Ocultar terminal",
     "show_terminal": "Mostrar terminal",
