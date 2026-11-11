@@ -119,7 +119,7 @@ def _run_cli(argv: Sequence[str], env: dict[str, str]) -> tuple[int, str]:
             list(argv), capture_output=True, text=True, timeout=_CLI_TIMEOUT_S,
             env={**os.environ, **env}, stdin=subprocess.DEVNULL, check=False,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, subprocess.TimeoutExpired):  # a safe BackendError; stderr may hold a value
         raise BackendError("the password manager did not answer") from None
     # stderr is dropped on purpose: a manager may echo a value in an error.
     return done.returncode, done.stdout
@@ -131,7 +131,7 @@ def _site_of(uri: str) -> str:
 
     try:
         return login_site(uri)[1]
-    except CredentialError:
+    except CredentialError:  # not a public site: the item is skipped
         return ""
 
 
@@ -236,7 +236,7 @@ class BitwardenBackend:
         try:
             code, out = self._run(["bw", "status", "--nointeraction"], self._env())
             state = json.loads(out).get("status") if code == 0 else None
-        except (BackendError, ValueError, AttributeError):
+        except (BackendError, ValueError, AttributeError):  # a safe BackendError, never the raw answer
             return BackendStatus(self.name, True, False, "unavailable")
         if state == "unlocked":
             return BackendStatus(self.name, True, True, "ready")
@@ -255,7 +255,7 @@ class BitwardenBackend:
             raise BackendError("Bitwarden is locked or did not answer")
         try:
             items = json.loads(out)
-        except ValueError:
+        except ValueError:  # a safe BackendError, never the raw answer
             raise BackendError("Bitwarden returned an unreadable answer") from None
         rows: list[tuple[str, str, dict[str, Any]]] = []
         for item in items if isinstance(items, list) else []:
@@ -312,7 +312,7 @@ class OnePasswordBackend:
             return BackendStatus(self.name, False, False, "not_installed")
         try:
             code, _ = self._run(["op", "whoami"], {})
-        except BackendError:
+        except BackendError:  # a safe BackendError, never the raw answer
             return BackendStatus(self.name, True, False, "unavailable")
         return BackendStatus(self.name, True, code == 0, "ready" if code == 0 else "locked")
 
@@ -324,7 +324,7 @@ class OnePasswordBackend:
             raise BackendError("1Password is locked or did not answer")
         try:
             items = json.loads(out)
-        except ValueError:
+        except ValueError:  # a safe BackendError, never the raw answer
             raise BackendError("1Password returned an unreadable answer") from None
         rows: list[tuple[str, str, dict[str, Any]]] = []
         for item in items if isinstance(items, list) else []:
@@ -361,7 +361,7 @@ class OnePasswordBackend:
             raise BackendError("1Password is locked or did not answer")
         try:
             fields = json.loads(out).get("fields") or []
-        except (ValueError, AttributeError):
+        except (ValueError, AttributeError):  # a safe BackendError, never the raw answer
             raise BackendError("1Password returned an unreadable answer") from None
         username = password = ""
         totp: str | None = None

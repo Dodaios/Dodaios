@@ -340,7 +340,7 @@ class CredentialBroker:
             approval = "owner_click"
         try:
             secrets = await asyncio.to_thread(self.backend().resolve, agent_id, handle)
-        except BackendError as exc:
+        except BackendError as exc:  # the reason is shown to the owner and audited
             return refuse(str(exc), "failed", approval)
         except Exception:  # noqa: BLE001 — a backend fault costs this login, not the task
             log.warning("credential broker: lookup failed for %s", handle, exc_info=True)

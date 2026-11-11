@@ -374,7 +374,7 @@ async def credentials_overview() -> dict[str, Any]:
         else:
             for info in await broker.handles(""):
                 handles.append({**info.to_dict(), "agent_id": "", "agent": ""})
-    except BackendError as exc:
+    except BackendError as exc:  # the panel shows the backend's own safe reason
         error = str(exc)
     rules = [{**r, "agent": agents.get(r["agent_id"], r["agent_id"])} for r in broker.rules.items()]
     return {
