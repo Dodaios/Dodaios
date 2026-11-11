@@ -37,6 +37,15 @@ KIND_SEAT: Final[str] = "seat_failure"
 KIND_LOOP_WEDGED: Final[str] = "app_unresponsive"
 KIND_DOWNTIME: Final[str] = "app_was_down"
 
+#: Findings that may ask for the owner's attention beyond a written notice (the opt-in
+#: "call me for urgent decisions"): a runaway tool loop and an app that stopped answering.
+CRITICAL_KINDS: Final[frozenset[str]] = frozenset({KIND_LOOP, KIND_LOOP_WEDGED})
+
+
+def severity_of(kind: str) -> str:
+    return "critical" if kind in CRITICAL_KINDS else "warning"
+
+
 #: Open jobs that count as "still working" evidence for the turn that owns them.
 _OPEN_JOB_STATES: Final[frozenset[str]] = frozenset({"queued", "running"})
 #: Provider statuses (``brain.provider_test``) that are a seat failure. Transient
