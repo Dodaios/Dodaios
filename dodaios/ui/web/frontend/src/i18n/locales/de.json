@@ -10479,7 +10479,6 @@
       "restore": "Seitenleiste einblenden",
       "close": "Thread schließen (kommt ins Archiv)"
     },
-    "layout_aria": "IDE-Layout",
     "layout_grid": "Terminal-Raster",
     "layout_threads": "Threads",
     "terminal_needs_folder": "Das Terminal braucht einen Projektordner",

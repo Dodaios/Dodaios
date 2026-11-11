@@ -10479,7 +10479,6 @@
       "restore": "显示侧边栏",
       "close": "关闭线程（移入归档）"
     },
-    "layout_aria": "IDE 布局",
     "layout_grid": "终端网格",
     "layout_threads": "线程",
     "terminal_needs_folder": "终端需要一个项目文件夹",

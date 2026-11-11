@@ -10479,7 +10479,6 @@
       "restore": "Mostrar la barra lateral",
       "close": "Cerrar hilo (pasa al archivo)"
     },
-    "layout_aria": "Diseño del IDE",
     "layout_grid": "Cuadrícula de terminales",
     "layout_threads": "Hilos",
     "terminal_needs_folder": "El terminal necesita una carpeta de proyecto",

@@ -10479,7 +10479,6 @@
       "restore": "Mostrar a barra lateral",
       "close": "Fechar thread (vai para o arquivo)"
     },
-    "layout_aria": "Disposição do IDE",
     "layout_grid": "Grelha de terminais",
     "layout_threads": "Threads",
     "terminal_needs_folder": "O terminal precisa de uma pasta de projeto",

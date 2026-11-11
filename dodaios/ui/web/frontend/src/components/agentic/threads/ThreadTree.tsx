@@ -110,6 +110,7 @@ export function ThreadTree() {
   const connectProject = useIdeProjectsStore((state) => state.connectProject);
   const toggleVoice = useIdeProjectsStore((state) => state.toggleVoice);
   const activateWorkspace = useIdeProjectsStore((state) => state.activateWorkspace);
+  const newWorkspace = useIdeProjectsStore((state) => state.newWorkspace);
   const openWorkspaceOptions = useIdeProjectsStore((state) => state.openWorkspaceOptions);
   const activeWorkspaceId = useIdeProjectsStore((state) => state.activeWorkspaceId);
   const gridOnScreen = useIdeThreadsStore((state) => state.layout) === "grid";
@@ -432,6 +433,11 @@ export function ThreadTree() {
             {workspace.terminals > 0 && <span className="shrink-0 pr-1 text-xs tabular-nums text-foreground-faint">{workspace.terminals}</span>}
           </button>;
         })}
+        {project.workspaces.length === 0 && <button type="button" data-testid={`thread-grid-new-${project.id}`}
+          onClick={() => { useIdeThreadsStore.getState().setLayout("grid"); newWorkspace(project.id); }}
+          className={cn("flex min-h-7 items-center gap-2 rounded-md text-left text-sm text-muted-foreground hover:text-foreground", TITLE_INSET, FOCUS_RING)}>
+          <LayoutGrid aria-hidden className="h-3.5 w-3.5" />{t("ide_projects.new_workspace")}
+        </button>}
         {stored.length > 0 && <button type="button" aria-expanded={archiveShown}
           data-testid={`thread-archived-${project.id}`}
           onClick={() => setArchiveOpen((current) => ({ ...current, [project.id]: !archiveShown }))}

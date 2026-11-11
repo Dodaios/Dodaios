@@ -1,4 +1,5 @@
 import { useIdeProjectsSeed } from "@/components/agentic/useIdeProjectsSeed";
+import { ProjectThreadRows, useThreadSessionsPoll } from "@/components/agentic/threads/ProjectThreadRows";
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUpRight, Check, Copy, CopyPlus, Folder, FolderGit2, GitBranch, FolderOpen, FolderPlus, Globe, Loader2, Mic, MoreHorizontal, OctagonPause, Pencil, Pin, PinOff, Plus, Server, SquareCode, Trash2, X, type LucideIcon } from "lucide-react";
@@ -125,6 +126,7 @@ function saveExpansion(value: Record<string, boolean>): void {
 /** Compact, accessible navigation over real projects and their workspace IDs. */
 export function IdeProjectTree() {
   useIdeProjectsSeed();
+  useThreadSessionsPoll();
   const t = useT();
   const projects = useIdeProjectsStore((state) => state.projects);
   const activeWorkspaceId = useIdeProjectsStore((state) => state.activeWorkspaceId);
@@ -714,6 +716,8 @@ export function IdeProjectTree() {
         })}
         {project.workspaces.length === 0 && <button type="button" onClick={() => newWorkspace(project.id)} className="px-2 py-1.5 text-left text-[13px] text-muted-foreground hover:text-foreground">{t("ide_projects.create_workspace")}</button>}
       </div>}
+      {/* The folder's threads, under its grids: one list for both faces of the IDE. */}
+      {(open || solo) && <ProjectThreadRows project={project} projects={visible} />}
     </div>;
   };
 

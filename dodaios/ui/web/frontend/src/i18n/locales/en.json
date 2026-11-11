@@ -10479,7 +10479,6 @@
       "restore": "Show the sidebar",
       "close": "Close thread (moves it to the archive)"
     },
-    "layout_aria": "IDE layout",
     "layout_grid": "Terminal grid",
     "layout_threads": "Threads",
     "terminal_needs_folder": "Terminal needs a project folder",
