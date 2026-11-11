@@ -17,6 +17,11 @@ MAX_POLICY_CHARS: Final[int] = 600
 MAX_LIST: Final[int] = 200
 DEFAULT_RATE_PER_MINUTE: Final[int] = 30
 DEFAULT_DEDUPE_WINDOW_S: Final[int] = 600
+#: The pollers that feed the intake, by the plugin whose connection they read with.
+PRODUCERS: Final[tuple[str, ...]] = ("gmail", "google_calendar", "github", "agentmail")
+DEFAULT_POLL_INTERVAL_S: Final[int] = 180
+MIN_POLL_INTERVAL_S: Final[int] = 60
+MAX_POLL_INTERVAL_S: Final[int] = 3600
 
 
 def _strings(value: Any) -> tuple[str, ...]:
@@ -103,6 +108,17 @@ class TriggerSettings:
     self_senders: tuple[str, ...] = ()
     rate_per_minute: int = DEFAULT_RATE_PER_MINUTE
     dedupe_window_s: int = DEFAULT_DEDUPE_WINDOW_S
+    #: Per poller on/off. A poller still needs its source to be a ``candidate``
+    #: source and the accept mode not ``off`` before it asks the provider anything.
+    producers: dict[str, bool] = field(default_factory=dict)
+    poll_interval_s: int = DEFAULT_POLL_INTERVAL_S
+    #: The lead's own mail address (an inbox the owner created for it) and who may
+    #: send it requests; empty senders fall back to ``self_senders``.
+    agent_address: str = ""
+    agent_senders: tuple[str, ...] = ()
+
+    def producer_enabled(self, producer: str) -> bool:
+        return self.producers.get(producer, True)
 
     def rule(self, source: str) -> SourceRule:
         return self.sources.get(source, SourceRule())
@@ -118,6 +134,10 @@ class TriggerSettings:
             "self_senders": list(self.self_senders),
             "rate_per_minute": self.rate_per_minute,
             "dedupe_window_s": self.dedupe_window_s,
+            "producers": {p: self.producer_enabled(p) for p in PRODUCERS},
+            "poll_interval_s": self.poll_interval_s,
+            "agent_address": self.agent_address,
+            "agent_senders": list(self.agent_senders),
         }
 
     @classmethod
@@ -126,6 +146,7 @@ class TriggerSettings:
             return cls()
         accept = str(data.get("accept") or "").strip().lower()
         raw_sources = data.get("sources") if isinstance(data.get("sources"), dict) else {}
+        raw_producers = data.get("producers") if isinstance(data.get("producers"), dict) else {}
         policies: list[Policy] = []
         for raw in data.get("policies") or []:
             policy = Policy.from_dict(raw)
@@ -138,6 +159,14 @@ class TriggerSettings:
             self_senders=_strings(data.get("self_senders")),
             rate_per_minute=_positive(data.get("rate_per_minute"), DEFAULT_RATE_PER_MINUTE),
             dedupe_window_s=_positive(data.get("dedupe_window_s"), DEFAULT_DEDUPE_WINDOW_S),
+            producers={p: raw_producers.get(p) is not False for p in PRODUCERS},
+            poll_interval_s=min(
+                MAX_POLL_INTERVAL_S,
+                max(MIN_POLL_INTERVAL_S,
+                    _positive(data.get("poll_interval_s"), DEFAULT_POLL_INTERVAL_S)),
+            ),
+            agent_address=_address(data.get("agent_address")),
+            agent_senders=_strings(data.get("agent_senders")),
         )
 
 
@@ -147,3 +176,16 @@ def _positive(value: Any, fallback: int) -> int:
     except (TypeError, ValueError):  # a non-number keeps the default
         return fallback
     return number if number > 0 else fallback
+
+
+def _address(value: Any) -> str:
+    """One plain mail address, or empty when the text is not one."""
+    text = str(value or "").strip().lower()
+    if not text or len(text) > 200 or any(c.isspace() or c in "<>,;" for c in text):
+        return ""
+    local, at, domain = text.partition("@")
+    # One "@", a non-empty local part and a dotted domain with no empty label.
+    if not at or not local or "@" in domain:
+        return ""
+    labels = domain.split(".")
+    return text if len(labels) >= 2 and all(labels) else ""

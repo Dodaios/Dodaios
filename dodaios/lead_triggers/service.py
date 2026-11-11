@@ -13,14 +13,15 @@ background (a subscription or a local model, never a metered key).
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 import logging
 import time
 from collections.abc import Awaitable, Callable
 from typing import Any, Final, Protocol
 
-from .event import TriggerEvent
-from .filter import CANDIDATE, Stage1
+from .event import AGENT_SCOPE_PREFIX, TriggerEvent
+from .filter import CANDIDATE, Stage1, _listed
 from .policy import Verdict, build_prompt, parse
 from .settings import Policy, TriggerSettings
 from .subscriptions import (
@@ -36,6 +37,10 @@ log = logging.getLogger(__name__)
 META_SETTINGS: Final[str] = "lead.triggers.settings"
 META_STATE: Final[str] = "lead.triggers.state"
 DELIVERED: Final[str] = "delivered"
+AGENT_MAIL_POLICY_ID: Final[str] = "agent-mail"
+AGENT_MAIL_POLICY_TEXT: Final[str] = (
+    "Mail an allow-listed sender wrote to your own address is a request to you: do what it asks."
+)
 BATCH: Final[int] = 25
 MAX_PENDING: Final[int] = 200
 MAX_LOG: Final[int] = 200
@@ -91,6 +96,8 @@ class TriggerService:
         hold: HoldCheck = lambda _sub: False,
     ) -> None:
         self._store = store
+        #: The lead's own mail address as of the last settings read (for sync callers).
+        self.agent_address = ""
         self._seat, self._starter, self._notifier = seat, starter, notifier
         self._quiet, self._clock = quiet, clock
         self._batch_window_s, self._retry_s = batch_window_s, retry_s
@@ -105,13 +112,16 @@ class TriggerService:
     async def settings(self) -> TriggerSettings:
         try:
             raw = await self._store.get_meta(META_SETTINGS, "")
-            return TriggerSettings.from_dict(json.loads(raw))
+            settings = TriggerSettings.from_dict(json.loads(raw))
         except ValueError:  # nothing saved yet, or unreadable: the defaults
-            return TriggerSettings()
+            settings = TriggerSettings()
+        self.agent_address = settings.agent_address
+        return settings
 
     async def save_settings(self, settings: TriggerSettings) -> TriggerSettings:
         encoded = json.dumps(settings.to_dict(), ensure_ascii=False)
         await self._store.set_meta(META_SETTINGS, encoded)
+        self.agent_address = settings.agent_address
         return settings
 
     async def _load(self) -> dict[str, Any]:
@@ -128,6 +138,7 @@ class TriggerService:
                 "notes": list(raw.get("notes") or []),
                 "held": list(raw.get("held") or []),
                 "notified": dict(raw.get("notified") or {}),
+                "agent_seen": list(raw.get("agent_seen") or []),
             }
         return self._state
 
@@ -140,9 +151,9 @@ class TriggerService:
 
     # ----------------------------------------------------------------- intake
 
-    async def submit(self, event: TriggerEvent) -> str:
+    async def submit(self, event: TriggerEvent, settings: TriggerSettings | None = None) -> str:
         """Stage 1 for one event; returns ``candidate`` or the reason it was dropped."""
-        settings = await self.settings()
+        settings = settings or await self.settings()
         async with self._lock:
             state = await self._load()
             if settings.accept == "off":
@@ -165,6 +176,60 @@ class TriggerService:
             await self._save()
         self._arm(self._batch_window_s)
         return CANDIDATE
+
+    async def submit_agent_mail(self, event: TriggerEvent) -> str:
+        """Mail that reached the lead's own address.
+
+        From an allow-listed sender it is a request: observing records "would
+        have done", ``auto`` starts one lead routine (billing hold and approvals
+        apply). From anyone else it is an ordinary candidate, whatever the mail
+        source mode says (only ``ignore`` still drops it), so the owner's rules
+        decide.
+        """
+        settings = await self.settings()
+        if settings.accept == "off":
+            return "off"
+        scope = f"{AGENT_SCOPE_PREFIX}{settings.agent_address}"
+        if not settings.agent_address or event.scope != scope:
+            return "not_agent_mail"
+        allowed = settings.agent_senders or settings.self_senders
+        if not (event.sender and _listed(event.sender, allowed)):
+            rule = settings.rule(event.source)
+            if rule.mode == "ignore":
+                return await self.submit(event)
+            forced = dataclasses.replace(rule, mode="candidate", senders=(), scopes=())
+            sources = {**settings.sources, event.source: forced}
+            return await self.submit(event, dataclasses.replace(settings, sources=sources))
+        async with self._lock:
+            state = await self._load()
+            self._count(state, "received")
+            seen = state.setdefault("agent_seen", [])
+            if event.event_id in seen:
+                self._count(state, "dropped_duplicate")
+                await self._save()
+                return "duplicate"
+            seen.append(event.event_id)
+            del seen[:-500]
+            policy = Policy(AGENT_MAIL_POLICY_ID, AGENT_MAIL_POLICY_TEXT, ("mail",), True)
+            record: dict[str, Any] = {
+                "id": f"d{int(self._clock() * 1000)}{len(state['log'])}",
+                "at": self._clock(),
+                "action": "act",
+                "policy_id": policy.id,
+                "policy_text": policy.text,
+                "reason": "an allow-listed sender wrote to the assistant's own address",
+                "event": _summary(event),
+                "mode": "auto" if settings.accept == "auto" else "observe",
+                "outcome": "would_have",
+            }
+            if settings.accept == "auto":
+                await self._carry_out(state, Verdict(event, "act", policy.id, record["reason"]),
+                                      policy, record)
+            self._count(state, "decided_act")
+            state["log"].append(record)
+            del state["log"][:-MAX_LOG]
+            await self._save()
+        return "request"
 
     def _arm(self, delay: float) -> None:
         if self._timer is not None and not self._timer.done():
@@ -446,9 +511,7 @@ class TriggerService:
             return None
         policies = tuple(Policy(p.id, p.text, p.sources, True) if p.id == policy_id else p
                          for p in settings.policies)
-        return await self.save_settings(TriggerSettings(
-            settings.accept, settings.sources, policies, settings.self_senders,
-            settings.rate_per_minute, settings.dedupe_window_s))
+        return await self.save_settings(dataclasses.replace(settings, policies=policies))
 
     async def take_notes(self) -> list[dict[str, Any]]:
         """The notes for the next brief; they are handed out once."""

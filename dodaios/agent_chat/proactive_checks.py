@@ -206,9 +206,11 @@ async def run_context(task_store: Any, task_id: str, tags: tuple[str, ...]) -> s
             )
             mark_asked([loop.id for loop in loops])
         try:
-            from dodaios.lead_triggers.wiring import brief_notes
+            from dodaios.lead_triggers.wiring import agent_mail_identity, brief_notes
 
             flagged = await brief_notes()
+            if flagged:
+                flagged = "\n".join(x for x in (await agent_mail_identity(), flagged) if x)
         except Exception:  # noqa: BLE001 — the check goes on without the flagged events
             log.debug("lead checks: trigger notes unreadable", exc_info=True)
             flagged = ""

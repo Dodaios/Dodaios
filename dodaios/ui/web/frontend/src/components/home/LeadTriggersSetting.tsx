@@ -5,6 +5,7 @@ import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { BrandedSelect } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 
 const ACCEPT = ["off", "observe", "auto"] as const;
 const SOURCES = ["mail", "calendar", "github", "automation", "channel"] as const;
@@ -16,15 +17,24 @@ type Decision = {
   id: string; action: string; policy_id: string; policy_text: string; outcome: string;
   event: { summary: string; source: string };
 };
+export type Producer = {
+  id: string; source: string; connected: boolean; state: string;
+  last_poll: number; last_event_at: number; last_error: string; events: number;
+};
 /** `GET /api/agent-chat/lead/triggers`: rules, drop counts and the decision log. */
 export type Triggers = {
-  settings: { accept: string; sources: Record<string, Source>; policies: Policy[] } & Record<string, unknown>;
+  settings: {
+    accept: string; sources: Record<string, Source>; policies: Policy[];
+    producers?: Record<string, boolean>; agent_address?: string; agent_senders?: string[];
+  } & Record<string, unknown>;
+  producers?: Producer[];
   counts: Record<string, number>;
   waiting: number;
   log: Decision[];
 };
 
 const URL = "/api/agent-chat/lead/triggers";
+const PRODUCER_STATES = ["polling", "off", "paused", "held", "idle", "not_connected", "backoff", "error", "waiting", "no_address"] as const;
 
 export function droppedCount(counts: Record<string, number>): number {
   return Object.entries(counts).reduce((sum, [key, n]) => (key.startsWith("dropped_") ? sum + n : sum), 0);
@@ -40,6 +50,8 @@ export function LeadTriggersSetting() {
   const [state, setState] = useState<Triggers | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
+  const [address, setAddress] = useState<string | null>(null);
+  const [senders, setSenders] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     void fetch(URL).then((r) => (r.ok ? r.json() : null)).then((s: Triggers | null) => { if (live) setState(s); }, () => undefined);
@@ -60,6 +72,11 @@ export function LeadTriggersSetting() {
     send(URL, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) }, next);
   };
   const on = settings.accept !== "off";
+  const producerState = (p: Producer) => ((PRODUCER_STATES as readonly string[]).includes(p.state) ? p.state : "waiting");
+  const producerNote = (p: Producer) => {
+    if (p.last_error) return t(`home.triggers.error_${p.last_error === "reconnect" || p.last_error === "rate_limited" ? p.last_error : "other"}`);
+    return p.last_event_at ? t("home.triggers.last_event").replace("{time}", new Date(p.last_event_at * 1000).toLocaleString()) : t("home.triggers.no_event");
+  };
   return (
     <section className="space-y-1.5" data-testid="lead-triggers">
       <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
@@ -83,6 +100,39 @@ export function LeadTriggersSetting() {
                   options={MODES.map((mode) => ({ value: mode, label: t(`home.triggers.mode_${mode}`) }))} />
               </div>
             ))}
+            {state.producers && state.producers.length > 0 ? (
+              <>
+                <h4 className="pt-1 text-xs text-muted-foreground">{t("home.triggers.accounts")}</h4>
+                <ul className="space-y-1.5" data-testid="lead-triggers-producers">
+                  {state.producers.map((p) => (
+                    <li key={p.id} className="flex items-center justify-between gap-2" data-testid={`lead-triggers-producer-${p.id}`}>
+                      <span className="min-w-0 text-sm text-foreground">
+                        {t(`home.triggers.producer_${p.id}`)}
+                        <span className="block truncate text-xs text-foreground-faint">
+                          {p.connected ? t(`home.triggers.state_${producerState(p)}`) : t("home.triggers.state_not_connected")}
+                          {" · "}{producerNote(p)}
+                        </span>
+                      </span>
+                      <Switch checked={settings.producers?.[p.id] !== false} aria-label={t(`home.triggers.producer_${p.id}`)}
+                        data-testid={`lead-triggers-producer-toggle-${p.id}`}
+                        onCheckedChange={(checked) => save({ producers: { ...settings.producers, [p.id]: checked } })} />
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            <h4 className="pt-1 text-xs text-muted-foreground">{t("home.triggers.agent_title")}</h4>
+            <div className="space-y-1">
+              <Input value={address ?? settings.agent_address ?? ""} onChange={(e) => setAddress(e.target.value)}
+                onBlur={() => { if (address !== null) { save({ agent_address: address.trim() }); setAddress(null); } }}
+                placeholder={t("home.triggers.agent_address_placeholder")} aria-label={t("home.triggers.agent_address")}
+                data-testid="lead-triggers-agent-address" className="h-7 text-xs" />
+              <Input value={senders ?? (settings.agent_senders ?? []).join(", ")} onChange={(e) => setSenders(e.target.value)}
+                onBlur={() => { if (senders !== null) { save({ agent_senders: senders.split(/[,\s]+/).filter(Boolean) }); setSenders(null); } }}
+                placeholder={t("home.triggers.agent_senders_placeholder")} aria-label={t("home.triggers.agent_senders")}
+                data-testid="lead-triggers-agent-senders" className="h-7 text-xs" />
+              <p className="text-xs text-foreground-faint">{t("home.triggers.agent_hint")}</p>
+            </div>
             <h4 className="pt-1 text-xs text-muted-foreground">{t("home.triggers.policies")}</h4>
             <ul className="space-y-1" data-testid="lead-triggers-policies">
               {settings.policies.map((policy) => (
