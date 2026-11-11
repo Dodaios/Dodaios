@@ -162,16 +162,31 @@ def declared_materials(source: Path = MATERIALS_PY) -> dict[str, tuple[float, fl
     return out
 
 
+def foreign_recipes(root: Path = RECIPES_ROOT) -> set[str]:
+    """Names of committed MI recipes another package owns (for example the hangar's WP11 props)."""
+    names: set[str] = set()
+    for path in root.rglob("MI_*.mi.json") if root.is_dir() else []:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        if doc.get("owner") != OWNER:
+            names.add(doc["name"])
+    return names
+
+
 def referenced_materials(root: Path = IMPORT_ROOT) -> dict[str, str]:
-    """MI object path -> Blender slot name, for every slot of every WP12 import record."""
+    """MI object path -> Blender slot name, for every slot of every WP12 import record.
+
+    Slots whose MI is another package's committed recipe are left to that package.
+    """
     out: dict[str, str] = {}
+    foreign = foreign_recipes()
     for folder in RECORD_FOLDERS:
         for path in sorted((root / folder).rglob("*.import.json")):
             record = json.loads(path.read_text(encoding="utf-8"))
             if record.get("owner") != OWNER:
                 continue
             for slot in record.get("mesh", {}).get("material_slots", []):
-                out.setdefault(slot["mi"], slot["slot"])
+                if mi_name(slot["mi"]) not in foreign:
+                    out.setdefault(slot["mi"], slot["slot"])
     return out
 
 
