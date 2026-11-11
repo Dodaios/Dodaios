@@ -1949,6 +1949,10 @@ class _ClaudeState:
     #: Last tool_result that came back as an error — used when the CLI then
     #: aborts the turn instead of thinking again (Grok print-mode cancel).
     last_tool_error: str | None = None
+    #: The turn's ``CLAUDE_CONFIG_DIR`` ("" = the built-in seat) when this is a
+    #: Claude Code turn: its ``rate_limit_event`` lines feed the plan meter
+    #: (:func:`dodaios.agent_usage.note_claude_rate_limit`). None elsewhere.
+    usage_home: str | None = None
     #: A sub-agent's own translator state, by the call that spawned it — its
     #: messages carry ``parent_tool_use_id`` and must never read as the main
     #: agent's words.
@@ -2391,6 +2395,15 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
             return []
         payload = {"turn_id": st.turn_id, "summary": summary[:200], "call_ids": ids}
         return [make_event("tool_summary", payload)]
+
+    if kind == "rate_limit_event":
+        # How much of the seat's plan is spent, from the provider's own
+        # response headers: the thread's plan meter reads it.
+        if st.usage_home is not None:
+            from dodaios import agent_usage
+
+            agent_usage.note_claude_rate_limit(st.usage_home, obj.get("rate_limit_info"))
+        return []
 
     if kind == "system":
         # init / hooks / status are nothing the timeline shows; a sub-agent's
@@ -4670,6 +4683,8 @@ async def _drive_cli(
         state = make_state(handle.turn_id, vendor_session)
         if runner == "grok-cli" and isinstance(state, _ClaudeState):
             state.grok = True
+        elif runner == "claude-cli" and isinstance(state, _ClaudeState):
+            state.usage_home = plan.env.get("CLAUDE_CONFIG_DIR", "")
     # Lines that are not the CLI's JSON — a banner, a warning, the whole
     # answer of a plain-text CLI — shown as they come, and kept as the answer
     # of last resort when the stream said nothing else.
