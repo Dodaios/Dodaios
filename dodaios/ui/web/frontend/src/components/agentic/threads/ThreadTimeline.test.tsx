@@ -193,14 +193,15 @@ describe("line indicators", () => {
     expect(pictureUrls(["![image](<https://github.com/o/r/actions/workflows/ci.yml/badge.svg>)", "![logo](/brand/logo.svg)"])).toEqual([]);
   });
 
-  it("shows the pictures a line's calls brought back at its end, the newest three and a count", () => {
+  it("shows the newest picture large under the line and the others small at its end", () => {
     const blocks: TurnBlock[] = [];
     for (let i = 1; i <= 5; i++) blocks.push(tool(`c${i}`, `shot ${i}`), media(`m${i}`, `/api/media/${i}.png`));
     show(turn([...blocks, { kind: "text", id: "n1", text: "Looks right." }], "running"));
+    expect(screen.getByTestId("thread-line-picture").querySelector("img")?.getAttribute("src")).toBe("/api/media/5.png");
     const pictures = screen.getByTestId("thread-line-pictures");
     expect(pictures.querySelectorAll("img")).toHaveLength(3);
-    expect(pictures.textContent).toBe("+2");
-    expect(pictures.querySelectorAll("img")[2].getAttribute("src")).toBe("/api/media/5.png");
+    expect(pictures.textContent).toBe("+1");
+    expect(pictures.querySelectorAll("img")[2].getAttribute("src")).toBe("/api/media/4.png");
   });
 
   it("sets a line's failures apart and says how long it took", () => {

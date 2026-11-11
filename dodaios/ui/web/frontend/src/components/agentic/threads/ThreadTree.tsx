@@ -1,12 +1,10 @@
-import { useIdeProjectsSeed } from "@/components/agentic/useIdeProjectsSeed";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, LayoutGrid, Loader2, Mic, MoreHorizontal, Pencil, Plus, Search, SquarePen, SquarePlus, Trash2, Users, X } from "lucide-react";
+import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, Loader2, Mic, MoreHorizontal, Pencil, Plus, Search, SquarePen, SquarePlus, Trash2, Users, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
 import { cn } from "@/lib/utils";
 import { fill, useT } from "@/i18n";
-import { useRunLocale } from "@/components/runs/format";
 import { useEventStore } from "@/store/events";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useQuickSwitcher } from "@/store/quickSwitcher";
@@ -46,15 +44,15 @@ const ACTION_ROW = cn(
 );
 const ACTION_ICON = "h-[18px] w-[18px] shrink-0";
 /**
- * A thread row's age and actions sit in the row, folded to no width until the
- * row is hovered or focused; they never cover the row's pull request mark.
+ * A thread row's actions sit in the row, folded to no width until the row is
+ * hovered or focused; they never cover the row's pull request mark.
  */
 const ROW_HOVER_SHOWN = cn(
   "w-0 opacity-0 group-hover/thread:w-auto group-hover/thread:pr-1 group-hover/thread:opacity-100",
   "group-focus-within/thread:w-auto group-focus-within/thread:pr-1 group-focus-within/thread:opacity-100",
   "[@media(hover:none)]:w-auto [@media(hover:none)]:pr-1 [@media(hover:none)]:opacity-100",
 );
-/** The worktree and status marks give their place to the age and actions. */
+/** The status mark gives its place to the actions. */
 const ROW_HOVER_HIDDEN = "group-hover/thread:hidden group-focus-within/thread:hidden [@media(hover:none)]:hidden";
 
 function readExpansion(): Record<string, boolean> {
@@ -104,16 +102,9 @@ function SectionLabel({ label, children }: { label: string; children?: ReactNode
  */
 export function ThreadTree() {
   const t = useT();
-  useIdeProjectsSeed();
-  const locale = useRunLocale();
   const projects = useIdeProjectsStore((state) => state.projects);
   const connectProject = useIdeProjectsStore((state) => state.connectProject);
   const toggleVoice = useIdeProjectsStore((state) => state.toggleVoice);
-  const activateWorkspace = useIdeProjectsStore((state) => state.activateWorkspace);
-  const newWorkspace = useIdeProjectsStore((state) => state.newWorkspace);
-  const openWorkspaceOptions = useIdeProjectsStore((state) => state.openWorkspaceOptions);
-  const activeWorkspaceId = useIdeProjectsStore((state) => state.activeWorkspaceId);
-  const gridOnScreen = useIdeThreadsStore((state) => state.layout) === "grid";
   // In this layout search is a row of the list, not the field atop the sidebar.
   const searchOn = useQuickSwitchSettings((state) => state.enabled);
   const pushToast = useEventStore((state) => state.pushToast);
@@ -233,12 +224,6 @@ export function ThreadTree() {
     if (!target) { connectProject(); return; }
     setProjectOpen(target.id, true);
     start(target.id);
-  };
-
-  /** A folder's terminal grid: the IDE turns to its grid face and brings that workspace forward. */
-  const openGrid = (workspaceId: string) => {
-    useIdeThreadsStore.getState().setLayout("grid");
-    activateWorkspace(workspaceId);
   };
 
   const projectRow = (project: IdeProject) => {
@@ -377,12 +362,12 @@ export function ThreadTree() {
               <span className="min-w-0 flex-1 truncate">{threadTitle(session)}</span>
               {/* Marks on the right, one column each: its pull requests, where it works, what it is doing. */}
               <ThreadPullRequests sessionId={session.session_id} />
-              {/* The age and the actions take the place of these two marks; the
-                  pull request mark stays in reach, so its card opens on hover. */}
+              {/* The pull request and worktree marks stay in sight on hover; only
+                  the status mark gives its place to the actions. */}
               {worktree && <span role="img" aria-label={fill(t("ide_threads.in_worktree"), { name: worktree })}
                 title={fill(t("ide_threads.in_worktree"), { name: worktree })}
                 data-testid={`thread-worktree-${session.session_id}`}
-                className={cn("flex shrink-0 items-center", menuOpen ? "hidden" : ROW_HOVER_HIDDEN)}>
+                className="flex shrink-0 items-center">
                 <GitBranch aria-hidden className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
               </span>}
               <span className={cn("flex w-3.5 shrink-0 items-center justify-center", menuOpen ? "hidden" : ROW_HOVER_HIDDEN)}>
@@ -392,10 +377,9 @@ export function ThreadTree() {
               </span>
             </button>
             <div data-testid={`thread-actions-${session.session_id}`} className={cn(
-              "flex shrink-0 items-center gap-1 overflow-hidden",
+              "flex shrink-0 items-center overflow-hidden",
               menuOpen ? "w-auto pr-1" : ROW_HOVER_SHOWN,
             )}>
-              <span className="text-micro tabular-nums text-muted-foreground" title={new Date(session.updated_ms).toLocaleString(locale)}>{shortAge(session.updated_ms)}</span>
               <button type="button" aria-label={fill(t("ide_threads.thread_actions_for"), { target: threadTitle(session) })} aria-haspopup="menu" aria-expanded={menuOpen}
                 onClick={(event) => {
                   menuAnchor.current = event.currentTarget;
@@ -418,25 +402,6 @@ export function ThreadTree() {
         {threads.length === 0 && !draftHere && !teamDraftHere && <button type="button" onClick={() => newThread(project.id)}
           className={cn("flex min-h-7 items-center gap-2 rounded-md text-left text-sm text-muted-foreground hover:text-foreground", TITLE_INSET, FOCUS_RING)}>
           <Plus aria-hidden className="h-3.5 w-3.5" />{t("ide_threads.start_thread")}
-        </button>}
-        {/* The folder's terminal grids, under its threads: one list for both. */}
-        {project.workspaces.map((workspace) => {
-          const label = `${t("ide_threads.layout_grid")}: ${workspace.name}`;
-          const current = gridOnScreen && workspace.id === activeWorkspaceId;
-          return <button key={workspace.id} type="button" data-testid={`thread-grid-${workspace.id}`}
-            aria-label={label} title={label} aria-current={current ? "true" : undefined}
-            onClick={() => openGrid(workspace.id)}
-            onContextMenu={(event) => { event.preventDefault(); openWorkspaceOptions(workspace.id); }}
-            className={cn(ROW, "w-full transition-colors hover:bg-muted hover:text-foreground", current ? "bg-secondary text-foreground-strong" : "text-foreground-secondary", FOCUS_RING)}>
-            <LayoutGrid aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
-            <span className="min-w-0 flex-1 truncate">{workspace.name}</span>
-            {workspace.terminals > 0 && <span className="shrink-0 pr-1 text-xs tabular-nums text-foreground-faint">{workspace.terminals}</span>}
-          </button>;
-        })}
-        {project.workspaces.length === 0 && <button type="button" data-testid={`thread-grid-new-${project.id}`}
-          onClick={() => { useIdeThreadsStore.getState().setLayout("grid"); newWorkspace(project.id); }}
-          className={cn("flex min-h-7 items-center gap-2 rounded-md text-left text-sm text-muted-foreground hover:text-foreground", TITLE_INSET, FOCUS_RING)}>
-          <LayoutGrid aria-hidden className="h-3.5 w-3.5" />{t("ide_projects.new_workspace")}
         </button>}
         {stored.length > 0 && <button type="button" aria-expanded={archiveShown}
           data-testid={`thread-archived-${project.id}`}

@@ -25,9 +25,15 @@ vi.mock("@/lib/teamThreadsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/teamThreadsApi")>()),
   useTeamThreads: () => ({ data: [] }),
 }));
+vi.mock("../useSessionGitHub", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../useSessionGitHub")>()),
+  useThreadGitHub: () => ({ status: null, pending: false }),
+}));
 
+import type { AgentChatSession } from "@/lib/agentChatApi";
 import { ThreadBranchBar } from "./ThreadBranchBar";
 import { ThreadTree } from "./ThreadTree";
+import { useThreadChatStore } from "./threadModel";
 
 function projectRow(id: string, name: string, path: string): IdeProject {
   return { id, path, name, color: null, pinned: false, archived: false, scratch: false,
@@ -174,21 +180,17 @@ describe("ThreadTree", () => {
     expect(screen.getAllByText("New thread").filter((node) => node.closest("[aria-current=page]"))).toHaveLength(1);
   });
 
-  it("lists a folder's terminal grids under its threads and opens one on the grid face", () => {
-    const grid = { id: "w1", name: "Release", folder: app.path, branch: null, terminals: 3, live_terminals: 0,
-      focus_mode: false, created_at: 0, last_active_at: 0, active: false, status: "open", restorable: false };
-    const withGrid = { ...app, workspaces: [grid] } as IdeProject;
-    localStorage.setItem("jarvis.ide.threadExpansion.v1", JSON.stringify({ p1: true }));
-    useIdeProjectsStore.setState({ projects: [withGrid, notes], activeWorkspaceId: null, action: null });
+  it("keeps a thread row free of its age: the hover actions are the menu button alone", () => {
+    const session = { session_id: "s1", title: "Fix login", provider: "claude", model: "", effort: "", cwd: app.path,
+      permission_mode: "", vendor_session: null, created_ms: 0, updated_ms: Date.now() - 5 * 60_000,
+      message_count: 1, preview: "" } as AgentChatSession;
+    useIdeProjectsStore.setState({ projects: [app], activeWorkspaceId: null });
     useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, focusNonce: 0 });
+    useThreadChatStore.setState({ sessions: [session], loadSessions: vi.fn().mockResolvedValue(undefined), loadCatalog: vi.fn().mockResolvedValue(undefined) });
     render(<ThreadTree />);
-    const row = screen.getByTestId("thread-grid-w1");
-    expect(row.textContent).toContain("Release");
-    expect(row.textContent).toContain("3");
-    fireEvent.click(row);
-    expect(useIdeThreadsStore.getState().layout).toBe("grid");
-    expect(useIdeProjectsStore.getState().action).toMatchObject({ kind: "activate-workspace", workspaceId: "w1" });
-    fireEvent.contextMenu(row);
-    expect(useIdeProjectsStore.getState().action).toMatchObject({ kind: "workspace-options", workspaceId: "w1" });
+    const actions = screen.getByTestId("thread-actions-s1");
+    expect(actions.textContent).toBe("");
+    expect(actions.querySelectorAll("button")).toHaveLength(1);
+    expect(screen.getByTestId("thread-row-s1").textContent).toBe("Fix login");
   });
 });
