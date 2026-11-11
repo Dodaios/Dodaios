@@ -57,7 +57,7 @@ log = logging.getLogger(__name__)
 # Registered names of every tool that dispatches a background worker mission.
 # Kept tiny and explicit — mirrors ``_SPAWN_TOOL_NAMES`` in
 # ``dodaios.brain.manager`` (parity-tested in tests/unit/brain/test_spawn_gate.py).
-SPAWN_VEHICLE_TOOL_NAMES: frozenset[str] = frozenset({"spawn_worker"})
+SPAWN_VEHICLE_TOOL_NAMES: frozenset[str] = frozenset({"spawn_worker", "multi_spawn"})
 
 
 def is_spawn_vehicle_call(tool_name: str, args: object) -> bool:

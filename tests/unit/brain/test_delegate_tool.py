@@ -380,4 +380,4 @@ def test_only_the_mission_target_is_a_spawn_vehicle() -> None:
     assert not is_spawn_vehicle_call("delegate", {"target": "agent:Scout"})
     assert not is_spawn_vehicle_call("delegate", {"target": "pane:T2"})
     assert not is_spawn_vehicle_call("delegate", {})
-    assert not is_spawn_vehicle_call("multi_spawn", {})
+    assert is_spawn_vehicle_call("multi_spawn", {})

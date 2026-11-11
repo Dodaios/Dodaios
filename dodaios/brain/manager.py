@@ -990,7 +990,7 @@ def _is_instructional_question(user_text: str) -> bool:
 # Spawn-tool names hidden from a plain knowledge question's tool surface — the
 # vehicles that delegate to a background worker. A read/search/desktop tool is
 # NEVER in here (the question must stay answerable inline).
-_SPAWN_TOOL_NAMES: frozenset[str] = frozenset({"spawn_worker"})
+_SPAWN_TOOL_NAMES: frozenset[str] = frozenset({"spawn_worker", "multi_spawn"})
 
 # Agentic-IDE pane tools that only make sense RELATIVE TO AN OPEN WORKSPACE.
 # With none open, every one of them can only fail — while their schemas cost

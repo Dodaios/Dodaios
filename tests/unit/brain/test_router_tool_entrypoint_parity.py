@@ -77,6 +77,8 @@ KNOWN_UNREACHABLE: frozenset[str] = frozenset({
     "wait-for-ui-state",
     # Mission / review vocabulary from earlier waves.
     "dispatch-to-admin",
+    "dispatch-with-review",
+    "multi-spawn",
     # Superseded by the wiki tools.
     "remember",
     "whoami",

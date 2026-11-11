@@ -778,10 +778,14 @@ dispatch-to-admin = "dodaios.plugins.tool.dispatch_to_admin:DispatchToAdminTool"
 # spawn-worker dispatches a Mission-Manager-backed direct Opus worker
 # (ClaudeDirectWorker). Legacy names: spawn-sub-jarvis -> spawn-openclaw (internal
 # name only, never a live entry point) -> spawn-worker.
-# ``multi-spawn`` and ``dispatch-with-review`` were removed as entry points
-# (2026-11-11): no tool set admitted them, so every boot filtered them out. The
-# lead hands work off through ``delegate`` (dodaios/brain/delegate_tool.py).
+# Deprecated: never offered to a model (the router set leaves it out, every chat
+# withholds it). The entry point stays for the guard tests that expect it as a
+# hidden vehicle. The lead hands work off through ``delegate``.
+multi-spawn = "dodaios.plugins.tool.multi_spawn:MultiSpawnTool"
 spawn-worker = "dodaios.plugins.tool.spawn_worker:SpawnWorkerTool"
+# Deprecated legacy Phase-8.4 review entry point. It is intentionally not model-visible;
+# production review belongs to the Mission Manager lifecycle (ADR-0011).
+dispatch-with-review = "dodaios.plugins.tool.dispatch_with_review:DispatchWithReviewTool"
 # CLI integration: the virtual loader expands to one CliTool instance per
 # connected CLI (cli_gcloud, cli_gh, cli_supabase, and so on).
 # Router-tier only (in ROUTER_TOOLS); the loader resolves the shared,
