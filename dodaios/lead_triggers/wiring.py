@@ -39,8 +39,18 @@ _service: TriggerService | None = None
 _runner: ProducerRunner | None = None
 _poll_task: asyncio.Task[None] | None = None
 _bound: set[int] = set()
-#: Answers "does a stop hold cover triggers right now?"; the hold feature plugs in here.
-_hold_check: Any = lambda: False  # noqa: E731
+
+
+def _triggers_held() -> bool:
+    """True while the owner's stop holds everything or any trigger scope."""
+    from dodaios.safety.stop_hold import stop_holds
+
+    holds = stop_holds()
+    return holds.blocking() is not None or any(h.kind == "trigger" for h in holds.items())
+
+
+#: Answers "does a stop hold cover triggers right now?"; tests may swap it.
+_hold_check: Any = _triggers_held
 
 
 def _runtime() -> Any | None:

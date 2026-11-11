@@ -74,3 +74,28 @@ def test_delivery_hold_follows_the_stop_scopes(kind: str, ref: str, blocked: boo
     assert _delivery_held(sub) is blocked
     stop_holds().release(kind, ref)
     assert _delivery_held(sub) is False
+
+
+# --- pollers -----------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("kind", "ref", "paused"),
+    [
+        ("everything", "", True),
+        ("trigger", "inv", True),
+        ("job", "job-1", False),
+        ("agent", "agent-1", False),
+        ("routine", "r1", False),
+    ],
+)
+def test_pollers_pause_on_everything_or_trigger_and_resume_when_lifted(
+    kind: str, ref: str, paused: bool
+) -> None:
+    from dodaios.lead_triggers import wiring
+
+    assert wiring._held() is False
+    stop_holds().hold(kind, ref, reason="owner stopped it")
+    assert wiring._held() is paused
+    stop_holds().release(kind, ref)
+    assert wiring._held() is False
