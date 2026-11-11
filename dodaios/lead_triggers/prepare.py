@@ -382,6 +382,7 @@ class Preparer:
         try:
             result = await asyncio.wait_for(self._deps.repro(event, budget), budget + 30.0)
         except TimeoutError:
+            log.info("prepare: CI reproduction for %s ran out of budget", event.event_id)
             return self._silent(event, "ci_failure", policy_id, "budget_exhausted")
         if result is None:
             return self._silent(event, "ci_failure", policy_id, "could_not_run")
