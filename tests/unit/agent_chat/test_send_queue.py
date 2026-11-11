@@ -492,6 +492,46 @@ async def test_a_waiting_message_can_go_into_the_running_turn_now():
     assert chat.sent[0] == ("t1", "first")
 
 
+async def test_send_now_stops_a_turn_that_cannot_take_it_and_starts_the_message_next():
+    chat = BusyChat(surface="agent")
+    chat.busy.add("t1")
+    cancelled: list[str] = []
+
+    async def cancel(session_id: str) -> bool:
+        cancelled.append(session_id)
+        chat.busy.discard(session_id)
+        return True
+
+    chat.cancel = cancel  # no ``steer``: this agent cannot take a message mid-turn
+    _, first = await send_or_queue(chat, "t1", "first")
+    _, second = await send_or_queue(chat, "t1", "second")
+    send_queue.pause(chat, "t1")  # Stop pressed earlier: send-now releases the queue
+    assert await send_queue.send_waiting_now(chat, "t1", "gone") == ""
+    assert await send_queue.send_waiting_now(chat, "t1", second) == "next"
+    assert cancelled == ["t1"]
+    await _until(lambda: chat.sent)
+    assert chat.sent[0] == ("t1", "second")  # ahead of the message that waited longer
+    await _until(lambda: len(chat.sent) == 2)
+    assert chat.sent[1] == ("t1", "first")
+    assert not send_queue.queue_state(chat, "t1")["paused"]
+
+
+async def test_send_now_steers_when_the_cli_takes_it():
+    chat = BusyChat(surface="agent")
+    chat.busy.add("t1")
+
+    async def steer(session_id: str, text: str, attachments: list | None = None) -> bool:
+        return True
+
+    async def cancel(session_id: str) -> bool:
+        raise AssertionError("a steerable turn is never stopped")
+
+    chat.steer, chat.cancel = steer, cancel
+    _, waiting = await send_or_queue(chat, "t1", "go left")
+    assert await send_queue.send_waiting_now(chat, "t1", waiting) == "steered"
+    assert send_queue.queue_state(chat, "t1")["items"] == []
+
+
 async def test_service_steer_writes_to_the_cli_and_records_the_message():
     from dodaios.agent_chat.service import AgentChatService, _Running
 

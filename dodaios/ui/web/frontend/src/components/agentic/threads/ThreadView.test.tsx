@@ -16,6 +16,8 @@ const api = vi.hoisted(() => ({
   sendAgentChatMessage: vi.fn(),
   patchAgentChatSession: vi.fn(),
   searchAgentChatSessions: vi.fn(),
+  sendQueuedNow: vi.fn(),
+  fetchAgentChatQueue: vi.fn(),
 }));
 vi.mock("@/lib/agentChatApi", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/agentChatApi")>()), ...api }));
 const teams = vi.hoisted(() => ({ rows: [] as unknown[] }));
@@ -250,6 +252,26 @@ describe("ThreadView", () => {
     await act(async () => { fireEvent.keyDown(screen.getByTestId("thread-composer-input"), { key: "Enter" }); });
     await waitFor(() => expect(api.sendAgentChatMessage).toHaveBeenCalledTimes(2));
     expect(api.sendAgentChatMessage.mock.calls[1]?.[4]).toBe("now");
+  });
+
+  it("sends a waiting message right away from its row", async () => {
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
+    api.fetchAgentChatQueue.mockResolvedValue({ paused: false, items: [] });
+    api.sendQueuedNow.mockResolvedValue("steered");
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    const store = useThreadChatStore.getState();
+    act(() => {
+      store.ingest({ seq: 1, ts_ms: 1000, kind: "user_message", payload: { text: "refactor the parser" } });
+      store.ingest({ seq: 2, ts_ms: 1000, kind: "turn_started", payload: { turn_id: "t1", provider: "claude-api", model: "", effort: "high", runner: "claude-cli" } });
+      store.ingest({ seq: 3, ts_ms: 1000, kind: "notice", payload: { kind: "message_queued", queue_id: "q1", text: "then update the docs" } });
+    });
+    const button = await screen.findByTestId("thread-queue-send-now");
+    expect(button.textContent).toBe("Send now");
+    expect(button.getAttribute("title")).toBe("Send it into the running turn now");
+    fireEvent.click(button);
+    await waitFor(() => expect(api.sendQueuedNow).toHaveBeenCalledWith("s1", "q1"));
   });
 });
 
