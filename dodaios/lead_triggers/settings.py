@@ -181,4 +181,11 @@ def _positive(value: Any, fallback: int) -> int:
 def _address(value: Any) -> str:
     """One plain mail address, or empty when the text is not one."""
     text = str(value or "").strip().lower()
-    return text[:200] if re.fullmatch(r"[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+", text) else ""
+    if not text or len(text) > 200 or any(c.isspace() or c in "<>,;" for c in text):
+        return ""
+    local, at, domain = text.partition("@")
+    # One "@", a non-empty local part and a dotted domain with no empty label.
+    if not at or not local or "@" in domain:
+        return ""
+    labels = domain.split(".")
+    return text if len(labels) >= 2 and all(labels) else ""

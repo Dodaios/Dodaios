@@ -511,3 +511,12 @@ async def test_agent_mail_of_another_address_or_with_triggers_off_is_not_admitte
 
 def test_source_rule_import_is_still_public() -> None:
     assert SourceRule().mode == "explicit_only"
+
+
+def test_address_check_is_linear_and_strict() -> None:
+    ok_ = TriggerSettings.from_dict({"agent_address": "a.b@mail.example.com"})
+    assert ok_.agent_address == "a.b@mail.example.com"
+    for bad in ("a@b", "a@@b.c", "@b.c", "a@b..c", "a@b.c.", "a b@c.d", "x" * 300 + "@a.b"):
+        assert TriggerSettings.from_dict({"agent_address": bad}).agent_address == ""
+    evil = "!" * 50_000 + "@" + "!" * 50_000
+    assert TriggerSettings.from_dict({"agent_address": evil}).agent_address == ""
