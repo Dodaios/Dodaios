@@ -142,7 +142,9 @@ class TelegramApprovalBridge:
             log.warning("telegram approvals: request not sent", exc_info=True)
 
     def _text(self, payload: dict[str, Any]) -> str:
-        summary = " ".join(str(payload.get("summary") or "").split())[:300]
+        preview = payload.get("preview") if isinstance(payload.get("preview"), dict) else {}
+        said = str(preview.get("compact") or payload.get("summary") or "")
+        summary = " ".join(said.split())[:400]
         tool = str(payload.get("name") or payload.get("tool") or "").strip() or "a tool"
         agent = str(payload.get("agent_name") or "").strip() or self._assistant_name()
         lang = notification_language(summary or tool)

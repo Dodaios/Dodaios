@@ -10,10 +10,13 @@ import type { ToolChoice } from "../toolChoices";
 import { ActionCard, type ActionSpec, type SettledSpec } from "./ActionCard";
 import { approvalSummary, approvalTitle, cardInfoOf, detailRows, disclosureText, narrowSentence, outcomeLabel, outcomeTone, ruleSentence, sameWords, savedRuleSentence, sourceLabel, withReadableNames } from "./approvalCopy";
 import { NO_RULE_LIMITS, type ApprovalCardInfo, type ApprovalRuleOffer, type RuleBreadth, type RuleNarrow, type RuleScope } from "./approvalInfo";
+import { ApprovalPreviewView, changedEdits, EditedSummary } from "./ApprovalPreviewView";
 import { claimKeyboardTarget, TARGET_PRIORITY } from "./keyboardTarget";
 
 /** How a surface answers an approval: by its id, the decision, and where an "always" lives. */
-export type ApprovalDecide = (approvalId: string, decision: ApprovalDecision, rule?: ApprovalRuleChoice) => void | Promise<void>;
+export type ApprovalDecide = (
+  approvalId: string, decision: ApprovalDecision, rule?: ApprovalRuleChoice, feedback?: string, edits?: Record<string, string>,
+) => void | Promise<void>;
 
 type T = (key: string) => string;
 
@@ -117,6 +120,7 @@ function OpenApproval({ block, approval, info, onDecide }: {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [choosing, setChoosing] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const rootRef = useRef<HTMLDivElement>(null);
   const mounted = useRef(true);
   useEffect(() => () => { mounted.current = false; }, []);
@@ -125,15 +129,22 @@ function OpenApproval({ block, approval, info, onDecide }: {
   // Money, credentials and deleting for good take no standing rule: the card
   // offers "Allow once" and "Deny" only (trust hard limits).
   const noRule = Boolean(info.hardLimit && NO_RULE_LIMITS.has(info.hardLimit));
-  const offer = isPlan || noRule ? null : info.rule;
+  // A card set aside while the chat moved on only offers a plain answer: it runs once, as shown.
+  const offer = isPlan || noRule || approval.deferred ? null : info.rule;
   const title = approvalTitle(info, t);
+  const preview = info.preview;
+  const edits = preview ? changedEdits(preview, drafts) : {};
+  const hasEdits = Object.keys(edits).length > 0;
 
   const decide = async (decision: ApprovalDecision, rule?: ApprovalRuleChoice) => {
     if (!onDecide || pending) return;
     setPending(decision);
     setError(null);
     try {
-      if (rule) await onDecide(approval.approvalId, decision, rule);
+      const sent = decision === "deny" || !hasEdits ? undefined : edits;
+      if (rule && sent) await onDecide(approval.approvalId, decision, rule, undefined, sent);
+      else if (rule) await onDecide(approval.approvalId, decision, rule);
+      else if (sent) await onDecide(approval.approvalId, decision, undefined, undefined, sent);
       else await onDecide(approval.approvalId, decision);
     } catch (err) {
       if (mounted.current) setError(errorText(err, t));
@@ -159,7 +170,7 @@ function OpenApproval({ block, approval, info, onDecide }: {
       { id: "deny", label: t("action_card.plan_keep"), tone: "tertiary", onSelect: () => void decide("deny"), disabled: !onDecide, reason: elsewhere, hint: t("action_card.deny_esc"), keyShortcut: "Escape", testId: "action-card-deny" },
     ]
     : [
-      { id: "allow", label: t("action_card.allow_once"), tone: "primary", onSelect: () => void decide("allow"), disabled: !onDecide, reason: elsewhere, testId: "action-card-allow" },
+      { id: "allow", label: t(hasEdits ? "action_card.preview.allow_edited" : "action_card.allow_once"), tone: "primary", onSelect: () => void decide("allow"), disabled: !onDecide, reason: elsewhere, testId: "action-card-allow" },
       ...(offer ? [{
         id: "allow_always", label: t("action_card.always_allow_more"), tone: "secondary" as const,
         onSelect: () => setChoosing(true),
@@ -177,7 +188,8 @@ function OpenApproval({ block, approval, info, onDecide }: {
     title={title}
     ariaLabel={`${t("action_card.needs_approval")}: ${title}`}
     lines={subtitleLines(info, approval, block, title, t)}
-    disclosure={disclosure ? {
+    note={approval.deferred ? t("action_card.preview.deferred") : undefined}
+    disclosure={disclosure && !preview ? {
       text: disclosure,
       rows: detailRows(info.detail),
       rawLabel: t("action_card.raw"),
@@ -190,6 +202,13 @@ function OpenApproval({ block, approval, info, onDecide }: {
     pending={pending}
     caution={info.caution ? t(`action_card.caution.${info.caution}`) : null}
   >
+    {preview ? <ApprovalPreviewView preview={preview} drafts={drafts} disabled={Boolean(pending)}
+      onDraft={(key, value) => setDrafts((was) => {
+        const next = { ...was };
+        if (value === null) delete next[key];
+        else next[key] = value;
+        return next;
+      })} /> : null}
     {plan ? <div className="max-h-72 overflow-auto rounded-lg bg-secondary px-3 py-2 text-sm scrollbar-jarvis"><ChatMarkdown text={plan} /></div> : null}
     {choosing && offer ? <RuleChooser offer={offer} pending={pending === "allow_always"}
       onSave={(choice) => void decide("allow_always", choice)} onBack={() => setChoosing(false)} /> : null}
@@ -344,6 +363,7 @@ function SettledApproval({ block, approval, info }: { block: ToolBlock; approval
       <Check aria-hidden />{t("action_card.rule.saved_short")}
     </span> : error ? <span role="alert" className="text-[13px] text-destructive">{error}</span> : null,
     body: <>
+      {approval.edited ? <EditedSummary edited={approval.edited} /> : null}
       {note ? <p className="m-0 text-[13px] leading-5 text-muted-foreground">{note}</p> : null}
       {savedText ? <p className="m-0 text-[13px] leading-5 text-foreground-secondary">{savedText}</p> : null}
       {saved?.stillAsks ? <p className="m-0 text-[13px] leading-5 text-warning">{t("action_card.rule.still_asks")}</p> : null}
@@ -357,7 +377,7 @@ function SettledApproval({ block, approval, info }: { block: ToolBlock; approval
     title={title}
     ariaLabel={`${settled.label}: ${title}`}
     lines={subtitleLines(info, approval, block, title, t)}
-    disclosure={disclosureText(info, t) ? {
+    disclosure={disclosureText(info, t) && !info.preview ? {
       text: disclosureText(info, t),
       rows: detailRows(info.detail),
       rawLabel: t("action_card.raw"),
@@ -366,6 +386,7 @@ function SettledApproval({ block, approval, info }: { block: ToolBlock; approval
     } : undefined}
     settled={settled}
   >
+    {info.preview ? <ApprovalPreviewView preview={info.preview} /> : null}
     {info.source.kind === "plan" && planText(block) ? <div className="max-h-56 overflow-auto rounded-lg bg-secondary px-3 py-2 text-sm scrollbar-jarvis"><ChatMarkdown text={planText(block)} /></div> : null}
   </ActionCard>;
 }

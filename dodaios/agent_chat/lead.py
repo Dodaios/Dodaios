@@ -297,12 +297,17 @@ class LeadCard:
     kind: str
     summary: str
     options: list[str]
+    #: The approval's exact-action preview (``approval_preview``), when it has one.
+    preview: dict[str, Any] | None = None
 
 
 def _card_of(kind: str, payload: dict[str, Any]) -> LeadCard | None:
     if kind == "approval_required":
-        summary = str(payload.get("summary") or payload.get("name") or "").strip()
-        return LeadCard("approval", summary[:300], [])
+        preview = payload.get("preview") if isinstance(payload.get("preview"), dict) else None
+        summary = str(
+            (preview or {}).get("compact") or payload.get("summary") or payload.get("name") or ""
+        ).strip()
+        return LeadCard("approval", summary[:400], [], preview)
     if kind == "question_required":
         questions = payload.get("questions")
         first = questions[0] if isinstance(questions, list) and questions else {}

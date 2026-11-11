@@ -42,6 +42,7 @@ from dodaios.agent_chat import (
     turn_prompts,
 )
 from dodaios.agent_chat.approval_bridge import ChatApprovalBridge
+from dodaios.agent_chat.approval_defer import DEFER_NOTICE, Deferred, DeferredApprovals
 from dodaios.agent_chat.approval_memory import PersistedBags
 from dodaios.agent_chat.catalog import PROVIDER_ROWS, api_seat, offers, provider_row
 from dodaios.agent_chat.credential_requests import (
@@ -587,6 +588,10 @@ class AgentChatService:
         # the agent as the deny message (see :meth:`take_deny_feedback`).
         self._approval_feedback: dict[str, str] = {}
         self._deny_feedback: dict[tuple[str, str], str] = {}
+        # The call each open card asks about (tool, arguments), and the inline
+        # edits the person sent with their answer (approval_preview.py).
+        self._approval_call: dict[str, tuple[str, dict[str, Any]]] = {}
+        self._approval_edits: dict[str, dict[str, Any]] = {}
         # Claude Code "Always allow" rules, per session: the rules the CLI
         # offered, kept across turns like its own session rules in a terminal.
         self._cli_rules: dict[str, list[dict[str, Any]]] = PersistedBags(
@@ -1070,6 +1075,7 @@ class AgentChatService:
         if self._bridge is None:
             self._bridge = ChatApprovalBridge(bus)
             self._bridge.chat_keeps_always = self._chat_keeps_always
+            self._bridge.deny_reason = self.take_deny_feedback
         return self._bridge
 
     def _chat_keeps_always(self, session_id: str, tool_name: str) -> bool:
@@ -1200,7 +1206,28 @@ class AgentChatService:
         self.parked_work.carry(handle, gate, original, rows)
 
     async def release_waiting_turn(self, session_id: str) -> bool:
-        """Free the chat for a new message when its running turn only waits."""
+        """Free the chat for a new message when its running turn only waits.
+
+        A turn that waits on an approval card sets the card aside instead
+        (approval_defer.py): the card stays open, the call is refused with the
+        reason, and the chat answers the new message at once.
+        """
+        session = self.store.get_session(session_id)
+        if (
+            session is not None
+            and ParkedWorkBoard.parks(session)
+            and self.is_running(session_id)
+            and self.defer_open_approvals(session_id)
+        ):
+            run = self._running.get(session_id)
+            task = getattr(run, "task", None)
+            deadline = asyncio.get_running_loop().time() + 10.0
+            while self.is_running(session_id) and task is not None:
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    return False
+                await asyncio.wait({task}, timeout=min(0.05, remaining))
+            return not self.is_running(session_id)
         return await self.parked_work.release(session_id)
 
     def running_session_ids(self) -> list[str]:
@@ -1261,8 +1288,17 @@ class AgentChatService:
             await stop_chat_browser(session_id)
         return True
 
+    @property
+    def deferred_approvals(self) -> DeferredApprovals:
+        """Cards set aside because the person moved on (approval_defer.py)."""
+        board = getattr(self, "_deferred", None)
+        if board is None:
+            board = self._deferred = DeferredApprovals(self)
+        return board
+
     def pending_approvals(self, session_id: str) -> list[str]:
-        return [aid for aid, sid in self._approval_session.items() if sid == session_id]
+        waiting = [aid for aid, sid in self._approval_session.items() if sid == session_id]
+        return [*waiting, *self.deferred_approvals.pending(session_id)]
 
     # ----------------------------------------------------------- subscribe
 
@@ -2644,6 +2680,10 @@ class AgentChatService:
         # always asks: no rule of the person's, however it was saved, covers it.
         from dodaios.trust.hooks import before_execute
 
+        if self.deferred_approvals.take_grant(session_id, name, args):
+            # The person approved exactly this call on a card they had set aside
+            # (approval_defer.py): their click, given earlier, answers it.
+            return "allow"
         limited = before_execute(name, args).needs_person
         if not limited:
             # The same tool call asked again after a restart answers on the card
@@ -2661,6 +2701,7 @@ class AgentChatService:
         fut: asyncio.Future[str] = loop.create_future()
         self._approvals[approval_id] = fut
         self._approval_session[approval_id] = session_id
+        self._approval_call[approval_id] = (name, args)
         await self._emit(
             session_id,
             make_event(
@@ -2696,10 +2737,44 @@ class AgentChatService:
         finally:
             self._approvals.pop(approval_id, None)
             self._approval_session.pop(approval_id, None)
+            self._approval_call.pop(approval_id, None)
+            edits = self._approval_edits.pop(approval_id, None)
             choice = self._approval_choice.pop(approval_id, None)
             feedback = self._approval_feedback.pop(approval_id, "")
             if feedback and call_id:
                 self._deny_feedback[(session_id, call_id)] = feedback
+        if decision == "defer":
+            # The person moved on: the call is refused with the reason, the card
+            # stays open, and its later answer continues the work.
+            await self.deferred_approvals.set_aside(
+                Deferred(session_id, turn_id, approval_id, call_id, name, dict(args), summary)
+            )
+            self._deny_feedback[(session_id, call_id)] = DEFER_NOTICE
+            return "deny"
+        changed: dict[str, dict[str, str]] = {}
+        if edits and decision in ("allow", "allow_always"):
+            from dodaios.trust.hooks import before_execute as _gate
+
+            from .approval_preview import EditRejected, apply_edits
+
+            try:
+                new_args, changed = apply_edits(name, args, edits)
+                gate = _gate(name, new_args)
+            except EditRejected as exc:
+                log.info("agent chat: inline edit of %s rejected: %s", name, exc)
+                decision, changed = "deny", {}
+                self._deny_feedback[(session_id, call_id)] = f"The edit was rejected: {exc}."
+            else:
+                if gate.blocked:
+                    decision, changed = "deny", {}
+                    self._deny_feedback[(session_id, call_id)] = (
+                        f"The edited version was blocked: {gate.block_reason()}."
+                    )
+                elif changed:
+                    # The runner that asked sends these very arguments on: the
+                    # edit is what runs (and the executor checks it again).
+                    args.clear()
+                    args.update(new_args)
         if decision == "allow_always":
             from dodaios.trust.hard_limits import NO_RULE_LIMITS, hard_limit_for
 
@@ -2716,6 +2791,7 @@ class AgentChatService:
                     "approval_id": approval_id,
                     "decision": decision,
                     **({"scope": choice[0]} if decision == "allow_always" and choice else {}),
+                    **({"edited": changed} if changed else {}),
                 },
             ),
         )
@@ -2798,10 +2874,16 @@ class AgentChatService:
         breadth: str = "",
         narrow: str = "",
         feedback: str = "",
+        edits: dict[str, Any] | None = None,
     ) -> bool:
         """Answer an open card. ``scope``/``breadth`` say where an "Always allow"
         lives (the card's rule editor), ``narrow`` how far a chat rule reaches;
-        without them it does what it always did."""
+        without them it does what it always did.
+
+        ``edits`` maps an editable preview field to the person's new text (a
+        mail's subject or body, an event's title or time). An edit that the
+        action does not allow raises ``ValueError`` and the card stays open;
+        an accepted one is what runs (``_ask`` amends the call's arguments)."""
         if decision not in DECISIONS:
             raise ValueError(f"decision must be one of {DECISIONS}")
         if scope and scope not in RULE_SCOPES:
@@ -2812,17 +2894,60 @@ class AgentChatService:
             raise ValueError(f"narrow must be one of {RULE_NARROWS}")
         if narrow and scope != "chat":
             raise ValueError("a narrow rule lives in this chat")
+        if self.deferred_approvals.session_of(approval_id) == session_id:
+            return self._answer_deferred(approval_id, decision, edits)
         if self._approval_session.get(approval_id) != session_id:
             return False
         fut = self._approvals.get(approval_id)
         if fut is None or fut.done():
             return False
+        if edits and decision in ("allow", "allow_always"):
+            from .approval_preview import EditRejected, apply_edits
+
+            call = self._approval_call.get(approval_id)
+            try:
+                if call is not None:
+                    apply_edits(call[0], call[1], edits)
+            except EditRejected as exc:
+                raise ValueError(str(exc)) from exc
+            self._approval_edits[approval_id] = dict(edits)
         if decision == "allow_always" and scope:
             self._approval_choice[approval_id] = (scope, breadth or "action", narrow)
         if decision == "deny" and feedback.strip():
             self._approval_feedback[approval_id] = feedback.strip()[:2000]
         fut.set_result(decision)
         return True
+
+    def _answer_deferred(
+        self, approval_id: str, decision: str, edits: dict[str, Any] | None
+    ) -> bool:
+        """The person answers a card that was set aside while they wrote on."""
+        from .approval_preview import EditRejected, apply_edits
+
+        item = self.deferred_approvals.get(approval_id)
+        new_args: dict[str, Any] = dict(item.args)
+        changed: dict[str, dict[str, str]] = {}
+        if edits and decision != "deny":
+            try:
+                new_args, changed = apply_edits(item.name, item.args, edits)
+            except EditRejected as exc:
+                raise ValueError(str(exc)) from exc
+            from dodaios.trust.hooks import before_execute
+
+            gate = before_execute(item.name, new_args)
+            if gate.blocked:
+                raise ValueError(f"The edited version was blocked: {gate.block_reason()}.")
+        return self.deferred_approvals.answer(approval_id, decision, changed, new_args)
+
+    def defer_open_approvals(self, session_id: str) -> int:
+        """Set aside every card this chat's running turn waits on (the person moved on)."""
+        count = 0
+        for approval_id, sid in list(self._approval_session.items()):
+            fut = self._approvals.get(approval_id)
+            if sid == session_id and fut is not None and not fut.done():
+                fut.set_result("defer")
+                count += 1
+        return count
 
     def _approval_card(
         self, session_id: str, name: str, args: dict[str, Any], summary: str
