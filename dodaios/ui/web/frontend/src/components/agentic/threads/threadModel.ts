@@ -182,6 +182,42 @@ export function shortAge(ms: number, now = Date.now()): string {
   return fill(translate("ide_threads.age_weeks"), { count: Math.floor(days / 7) });
 }
 
+/** Midnight, local time, of the day a moment falls on. */
+function dayStart(ms: number): number {
+  const day = new Date(ms);
+  day.setHours(0, 0, 0, 0);
+  return day.getTime();
+}
+
+/** Whole calendar days between two moments; rounding absorbs a daylight-saving hour. */
+function daysApart(laterMs: number, earlierMs: number): number {
+  return Math.round((dayStart(laterMs) - dayStart(earlierMs)) / 86_400_000);
+}
+
+/**
+ * The day a thread row opens in a list sorted by last activity: "Yesterday",
+ * then "Mon, 9 Nov". Null while the row shares its day with the row above, and
+ * for today's rows at the top of the list, which need no heading.
+ *
+ * The day is the one of the thread's last activity, the same moment the list
+ * is sorted by: a thread started on Monday that still works on Wednesday
+ * stands under Wednesday.
+ */
+export function threadDayBreak(activityMs: number, aboveMs: number | null, locale: string, now = Date.now()): string | null {
+  const age = daysApart(now, activityMs);
+  if (aboveMs === null ? age <= 0 : daysApart(aboveMs, activityMs) === 0) return null;
+  let label: string;
+  if (age <= 1) {
+    label = new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-Math.max(age, 0), "day");
+  } else {
+    const sameYear = new Date(activityMs).getFullYear() === new Date(now).getFullYear();
+    label = new Date(activityMs).toLocaleDateString(locale, {
+      weekday: "short", day: "numeric", month: "short", ...(sameYear ? {} : { year: "numeric" }),
+    });
+  }
+  return label.charAt(0).toLocaleUpperCase(locale) + label.slice(1);
+}
+
 /** The last folder name of a path — what a branch-less checkout is called. */
 export function folderLabel(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
 import { createAgentChatStore } from "@/store/agentChat";
-import { comparablePath, compactTitle, isInside, projectIdFor, shortAge, threadStatus, threadTitle, threadWorktree, threadsByProject, useThreadChatStore } from "./threadModel";
+import { comparablePath, compactTitle, isInside, projectIdFor, shortAge, threadDayBreak, threadStatus, threadTitle, threadWorktree, threadsByProject, useThreadChatStore } from "./threadModel";
 
 function project(id: string, path: string): IdeProject {
   return {
@@ -86,6 +86,37 @@ describe("shortAge", () => {
     expect(shortAge(now - 3 * 3_600_000, now)).toBe("3h");
     expect(shortAge(now - 2 * 86_400_000, now)).toBe("2d");
     expect(shortAge(now - 15 * 86_400_000, now)).toBe("2w");
+  });
+});
+
+describe("threadDayBreak", () => {
+  const at = (day: number, hour: number) => new Date(2026, 10, day, hour).getTime();
+  const now = at(12, 9);
+
+  it("leaves today's rows at the top of the list without a heading", () => {
+    expect(threadDayBreak(at(12, 8), null, "en-US", now)).toBeNull();
+    expect(threadDayBreak(at(12, 0), at(12, 8), "en-US", now)).toBeNull();
+  });
+
+  it("names the day where the list crosses into an earlier one", () => {
+    expect(threadDayBreak(at(11, 23), at(12, 0), "en-US", now)).toBe("Yesterday");
+    expect(threadDayBreak(at(11, 1), at(11, 23), "en-US", now)).toBeNull();
+    expect(threadDayBreak(at(10, 22), at(11, 1), "en-US", now)).toBe("Tue, Nov 10");
+    expect(threadDayBreak(at(10, 22), at(11, 1), "de-DE", now)).toMatch(/^Di\.?, 10\. Nov\.?$/);
+    expect(threadDayBreak(at(11, 23), at(12, 0), "de-DE", now)).toBe("Gestern");
+  });
+
+  it("names the first row's day when nothing happened today", () => {
+    expect(threadDayBreak(at(11, 23), null, "en-US", now)).toBe("Yesterday");
+  });
+
+  it("files a thread under the day of its last activity, not the day it started", () => {
+    // Started on the 10th, still working on the 12th: it stands with today's rows.
+    expect(threadDayBreak(at(12, 3), null, "en-US", now)).toBeNull();
+  });
+
+  it("adds the year to a day from another year", () => {
+    expect(threadDayBreak(new Date(2025, 11, 30, 12).getTime(), at(1, 12), "en-US", now)).toBe("Tue, Dec 30, 2025");
   });
 });
 
