@@ -1,6 +1,6 @@
 import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, Bot, Check, ChevronDown, ChevronRight, Copy, Diff, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, MessageCircleQuestion, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
-import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
+import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
 import { STEER_PREFIX, waitsOnCard, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserItem } from "@/components/agentchat/reduce";
@@ -444,6 +444,8 @@ function StretchView({ stretch, running }: { stretch: Stretch; running: boolean 
   // What the agent is thinking right now; it folds into the card once it speaks.
   const now = stretch.live && !open ? said[said.length - 1] : undefined;
   const pictures = pictureUrls(calls.flatMap((call) => media.get(call.block.callId) ?? []));
+  // The newest picture reads large under the line; the others stay small at its end.
+  const shot = pictures[pictures.length - 1];
   const took = stretch.live ? null : stretchTook(stretch);
   return <div className="min-w-0">
     <WorkRow
@@ -460,7 +462,7 @@ function StretchView({ stretch, running }: { stretch: Stretch; running: boolean 
       </>}
       stamp={stretch.startedMs}
       took={took != null ? traceDuration(took) : undefined}
-      aside={<LinePictures urls={pictures} />}
+      aside={<LinePictures urls={pictures.slice(0, -1)} />}
       live={stretch.live}
       expanded={open}
       onToggle={() => setOpen(!open)}>
@@ -469,6 +471,10 @@ function StretchView({ stretch, running }: { stretch: Stretch; running: boolean 
         {stretch.items.map((item) => <StepView key={item.id} item={item} running={running} lone={stretch.items.length === 1} />)}
       </div>
     </WorkRow>
+    {/* What the agent just saw, large, while the line itself stays one line. */}
+    {shot && !open && <div className="mt-3.5" data-testid="thread-line-picture">
+      <MediaPreview src={shot} label={t("chat_media.image_fallback")} kind="image" bare />
+    </div>}
     {/* One short sentence of it, at reading size: the rest is in the opened list. */}
     {now && <p data-testid="thread-thought-live" title={flattenMarks(now.text)}
       className="m-0 mt-3 text-[15px] leading-[21px] text-foreground/95 [overflow-wrap:anywhere]">{thoughtGist(now.text)}</p>}
