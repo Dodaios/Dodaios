@@ -77,6 +77,37 @@ export function OnboardingGate({ activeSection }: { activeSection?: string } = {
     };
   }, [onb]);
 
+  // A window that loaded while setup was unfinished would keep the guide up
+  // after another window finished it. So while setup is pending here, look
+  // again whenever this window is looked at. Only "it is done" changes
+  // anything: a failed look leaves the guide where the user is working in it.
+  const setupPending = onb.state ? !onb.state.completed : false;
+  const refetch = onb.refetch;
+  useEffect(() => {
+    if (!setupPending) return;
+    let gone = false;
+    const lookAgain = () => {
+      if (document.visibilityState === "hidden") return;
+      void (async () => {
+        try {
+          const res = await fetch("/api/onboarding/state");
+          if (!res.ok) return;
+          const next = (await res.json()) as { completed?: boolean };
+          if (next.completed && !gone) void refetch();
+        } catch {
+          // The backend did not answer: nothing is known, so nothing changes.
+        }
+      })();
+    };
+    window.addEventListener("focus", lookAgain);
+    document.addEventListener("visibilitychange", lookAgain);
+    return () => {
+      gone = true;
+      window.removeEventListener("focus", lookAgain);
+      document.removeEventListener("visibilitychange", lookAgain);
+    };
+  }, [setupPending, refetch]);
+
   const inIde = IDE_SECTIONS.includes(activeSection ?? "");
 
   if (onb.loading || onb.error || !onb.state) return null;
