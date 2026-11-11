@@ -36,6 +36,8 @@ confident wrong percentage.
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
 import os
 import threading
@@ -121,6 +123,12 @@ class _Cache:
         key = (account.id, os.path.normcase(str(account.config_dir)))
         with self._lock:
             self._entries[key] = (time.time(), usage)
+
+    def drop(self, account_id: str) -> None:
+        """Forget one account's reading, so the next read sees news at once."""
+        with self._lock:
+            for key in [k for k in self._entries if k[0] == account_id]:
+                del self._entries[key]
 
     def clear(self) -> None:
         with self._lock:
@@ -212,9 +220,13 @@ _HTTP_POOL = SyncHttpClientPool(timeout_s=HTTP_TIMEOUT_S)
 
 
 def clear_cache() -> None:
-    """Drop every cached reading and any unreachable-host cooldown."""
+    """Drop every cached reading, host cooldown and remembered Claude reading."""
     _CACHE.clear()
     _UNREACHABLE_UNTIL.clear()
+    _RATE_LIMITED_UNTIL.clear()
+    with _REMEMBERED_LOCK:
+        _REMEMBERED.clear()
+        _REMEMBERED_LOADED[0] = False
 
 
 def _severity(percent: float) -> str:
@@ -296,6 +308,29 @@ _UNREACHABLE_COOLDOWN_S: float = 180.0
 #: request, and a lock here would serialise every seat's read.
 _UNREACHABLE_UNTIL: dict[str, float] = {}
 
+#: How long one login is left alone after the provider answered 429, when it
+#: names no longer wait itself. Anthropic's usage endpoint rate-limits per
+#: login, and asking again every minute keeps a seat limited for good — the
+#: meter then shows the remembered reading, labelled with its age.
+_RATE_LIMIT_BACKOFF_S: float = 300.0
+
+#: ``{(url, login fingerprint): epoch until which that login is not asked}``.
+#: The fingerprint is a short hash of the Authorization header, kept in memory
+#: only, so one rate-limited seat never silences its neighbours.
+_RATE_LIMITED_UNTIL: dict[tuple[str, str], float] = {}
+
+
+def _login_key(url: str, headers: dict[str, str]) -> tuple[str, str]:
+    auth = headers.get("Authorization", "")
+    return url, hashlib.sha256(auth.encode("utf-8")).hexdigest()[:16] if auth else ""
+
+
+def _retry_after_s(value: str | None) -> float:
+    try:
+        return max(0.0, float(value)) if value else 0.0
+    except ValueError:
+        return 0.0
+
 
 def _http_get_json(url: str, headers: dict[str, str]) -> Any | None:
     """One short GET, or ``None`` for every failure. Never raises, never logs a token.
@@ -307,6 +342,9 @@ def _http_get_json(url: str, headers: dict[str, str]) -> Any | None:
     blocked_until = _UNREACHABLE_UNTIL.get(url)
     if blocked_until is not None and time.time() < blocked_until:
         return None
+    login = _login_key(url, headers)
+    if time.time() < _RATE_LIMITED_UNTIL.get(login, 0.0):
+        return None
     try:
         response = _HTTP_POOL.client().get(url, headers=headers, timeout=HTTP_TIMEOUT_S)
     except Exception as exc:  # noqa: BLE001 - every transport failure is "no live answer"
@@ -314,6 +352,12 @@ def _http_get_json(url: str, headers: dict[str, str]) -> Any | None:
         logger.debug("Agent usage: {} could not be reached ({})", url, type(exc).__name__)
         return None
     _UNREACHABLE_UNTIL.pop(url, None)
+    if response.status_code == 429:
+        wait = max(_RATE_LIMIT_BACKOFF_S, _retry_after_s(response.headers.get("retry-after")))
+        _RATE_LIMITED_UNTIL[login] = time.time() + wait
+        logger.debug("Agent usage: {} rate-limited this login; next try in {:.0f} s", url, wait)
+        return None
+    _RATE_LIMITED_UNTIL.pop(login, None)
     if response.status_code != 200:
         logger.debug("Agent usage: {} answered {}", url, response.status_code)
         return None
@@ -479,6 +523,243 @@ def _claude_windows(utilization: Any) -> tuple[UsageWindow, ...]:
     return tuple(windows)
 
 
+# ------------------------------------------------------- claude, remembered
+#
+# Anthropic's usage endpoint rate-limits per login, and Claude Code no longer
+# writes its last reading to disk. Without a memory of its own the meter of
+# the seat the user is working on goes blank exactly when they look at it. So
+# every reading this module gets for a Claude seat is remembered: a live
+# answer of the endpoint, and what the CLI itself reports in its stream during
+# a turn (``rate_limit_event``, from the provider's response headers). When no
+# live answer comes, the remembered one is shown, marked ``cached`` with its
+# time, and a window whose reset time has passed is dropped rather than shown
+# at a percentage that is no longer true.
+
+#: Readings older than this are not worth showing: every Claude window has
+#: reset by then.
+_REMEMBER_MAX_AGE_S: float = 8 * 24 * 3600.0
+
+_REMEMBERED_LOCK = threading.Lock()
+#: ``{account id: {"as_of": epoch, "windows": [UsageWindow.to_dict(), ...]}}``
+_REMEMBERED: dict[str, dict[str, Any]] = {}
+#: Whether the file was read in this process; a list so it mutates in place.
+_REMEMBERED_LOADED: list[bool] = [False]
+
+#: The stream's names for Claude's windows: (kind, scope label).
+_CLAUDE_STREAM_WINDOWS: dict[str, tuple[str, str | None]] = {
+    "five_hour": ("session", None),
+    "seven_day": ("weekly", None),
+    "seven_day_opus": ("weekly_scoped", "Opus"),
+    "seven_day_sonnet": ("weekly_scoped", "Sonnet"),
+}
+
+
+def _remembered_path() -> Path:
+    from dodaios.core.paths import user_data_dir
+
+    return user_data_dir() / "agent_usage" / "claude_remembered.json"
+
+
+def _load_remembered() -> None:
+    """Fill the store from disk once per process. Caller holds the lock."""
+    if _REMEMBERED_LOADED[0]:
+        return
+    _REMEMBERED_LOADED[0] = True
+    raw = _read_json_file(_remembered_path())
+    if isinstance(raw, dict):
+        for account_id, entry in raw.items():
+            if isinstance(account_id, str) and isinstance(entry, dict):
+                _REMEMBERED.setdefault(account_id, entry)
+
+
+#: Serialises saves, so an older state never lands after a newer one.
+_SAVE_LOCK = threading.Lock()
+
+
+def _save_remembered() -> None:
+    """Write the store as it is NOW: the last save always carries the newest state."""
+    with _SAVE_LOCK:
+        with _REMEMBERED_LOCK:
+            snapshot = dict(_REMEMBERED)
+        _write_remembered(snapshot)
+
+
+def _write_remembered(snapshot: dict[str, dict[str, Any]]) -> None:
+    path = _remembered_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(snapshot), encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError as exc:
+        logger.debug("Agent usage: remembered readings not saved ({})", type(exc).__name__)
+
+
+def _window_key(window: UsageWindow) -> tuple[str, str]:
+    return window.kind, window.scope_label or window.raw_label or ""
+
+
+def _window_from_dict(raw: Any) -> UsageWindow | None:
+    if not isinstance(raw, dict):
+        return None
+    percent = _clamp_percent(raw.get("percent"))
+    kind = raw.get("kind")
+    if percent is None or not isinstance(kind, str):
+        return None
+    minutes = raw.get("window_minutes")
+    scope = raw.get("scope_label")
+    label = raw.get("raw_label")
+    return UsageWindow(
+        kind=kind,
+        percent=percent,
+        severity=str(raw.get("severity") or _severity(percent)),
+        resets_at=_iso_or_none(raw.get("resets_at")),
+        window_minutes=minutes if isinstance(minutes, int) else None,
+        scope_label=scope if isinstance(scope, str) else None,
+        raw_label=label if isinstance(label, str) else None,
+    )
+
+
+def _remember(account_id: str, windows: tuple[UsageWindow, ...], as_of: float) -> None:
+    """Keep *windows* for the seat, merged over what it already had.
+
+    A stream event names one or two windows; the others the seat had stay, so
+    a turn that reports the week never wipes the session window read earlier.
+    Saved at once from a worker thread, and off the event loop from the
+    stream pump.
+    """
+    if not windows:
+        return
+    with _REMEMBERED_LOCK:
+        _load_remembered()
+        entry = _REMEMBERED.get(account_id) or {}
+        known: dict[tuple[str, str], UsageWindow] = {}
+        for old in (_window_from_dict(d) for d in entry.get("windows") or []):
+            if old is not None:
+                known[_window_key(old)] = old
+        for window in windows:
+            known[_window_key(window)] = window
+        _REMEMBERED[account_id] = {
+            "as_of": max(float(entry.get("as_of") or 0.0), as_of),
+            "windows": [w.to_dict() for w in known.values()],
+        }
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        # A worker thread (the usage read): write right here.
+        _save_remembered()
+        return
+    # The stream pump, on the event loop: never block it on a file write.
+    threading.Thread(target=_save_remembered, name="agent-usage-save", daemon=True).start()
+
+
+def _epoch_of_iso(value: str | None) -> float | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def _remembered_usage(account: AgentAccount, plan: str | None) -> AccountUsage | None:
+    """The seat's remembered reading, minus windows that have reset since."""
+    with _REMEMBERED_LOCK:
+        _load_remembered()
+        entry = _REMEMBERED.get(account.id)
+    if not entry:
+        return None
+    as_of = float(entry.get("as_of") or 0.0)
+    now = time.time()
+    if now - as_of > _REMEMBER_MAX_AGE_S:
+        return None
+    windows: list[UsageWindow] = []
+    for window in (_window_from_dict(d) for d in entry.get("windows") or []):
+        if window is None:
+            continue
+        resets = _epoch_of_iso(window.resets_at)
+        if resets is not None and resets <= now:
+            continue
+        windows.append(window)
+    if not windows:
+        return None
+    return AccountUsage(
+        account_id=account.id,
+        platform=account.platform,
+        status="ok",
+        windows=tuple(windows),
+        source="cached",
+        as_of=as_of,
+        plan=plan,
+    )
+
+
+def _claude_stream_windows(info: Any) -> tuple[UsageWindow, ...]:
+    """The windows one ``rate_limit_event`` carries, as percentages.
+
+    The stream states utilisation as a fraction (0.16 = 16 %), per window under
+    ``unifiedWindows``, and sometimes once more at the top level for the window
+    the event is about. A window without a utilisation is skipped: a status of
+    "allowed" alone is no number.
+    """
+    if not isinstance(info, dict):
+        return ()
+    blocks: dict[str, dict[str, Any]] = {}
+    unified = info.get("unifiedWindows")
+    if isinstance(unified, dict):
+        for name, block in unified.items():
+            if isinstance(name, str) and isinstance(block, dict):
+                blocks[name] = block
+    top = info.get("rateLimitType")
+    if isinstance(top, str) and top not in blocks and info.get("utilization") is not None:
+        blocks[top] = {"utilization": info.get("utilization"), "resetsAt": info.get("resetsAt")}
+    windows: list[UsageWindow] = []
+    for name, block in blocks.items():
+        fraction = block.get("utilization")
+        if isinstance(fraction, bool) or not isinstance(fraction, (int, float)):
+            continue
+        percent = _clamp_percent(float(fraction) * 100.0)
+        if percent is None:
+            continue
+        kind, scope = _CLAUDE_STREAM_WINDOWS.get(name, ("other", None))
+        windows.append(
+            UsageWindow(
+                kind=kind,
+                percent=round(percent, 1),
+                severity=_severity(percent),
+                resets_at=_iso_from_epoch(block.get("resetsAt")),
+                window_minutes=_CLAUDE_WINDOW_MINUTES.get(kind),
+                scope_label=scope,
+                raw_label=name if kind == "other" else None,
+            )
+        )
+    return tuple(windows)
+
+
+def note_claude_rate_limit(config_dir: str, info: Any) -> None:
+    """Remember what a Claude turn's stream said about its seat's limits.
+
+    *config_dir* is the turn's ``CLAUDE_CONFIG_DIR`` ("" = the CLI's own
+    directory, the built-in seat). Never raises: this runs inside a turn.
+    """
+    try:
+        windows = _claude_stream_windows(info)
+        if not windows:
+            return
+        from dodaios import agent_accounts
+
+        native = agent_accounts.native_dir("claude")
+        wanted = Path(config_dir).expanduser() if config_dir else native
+        wanted_key = os.path.normcase(os.path.abspath(wanted))
+        for account in agent_accounts.list_accounts("claude"):
+            if os.path.normcase(os.path.abspath(account.config_dir)) == wanted_key:
+                _remember(account.id, windows, time.time())
+                _CACHE.drop(account.id)
+                return
+    except Exception as exc:  # noqa: BLE001 - a meter must never break a turn
+        logger.debug("Agent usage: stream limits not remembered ({})", type(exc).__name__)
+
+
 def _claude_usage(account: AgentAccount) -> AccountUsage:
     """Usage for ONE Claude seat: the live endpoint, else its own disk cache."""
     from dodaios.claude_credentials import claude_login_in
@@ -498,6 +779,7 @@ def _claude_usage(account: AgentAccount) -> AccountUsage:
         )
         windows = _claude_windows(payload)
         if windows:
+            _remember(account.id, windows, time.time())
             return AccountUsage(
                 account_id=account.id,
                 platform=account.platform,
@@ -512,7 +794,17 @@ def _claude_usage(account: AgentAccount) -> AccountUsage:
     # firewalled host or a changed endpoint still produces the numbers the CLI
     # itself last saw — labelled with the provider's own timestamp so nobody
     # mistakes a four-day-old weekly figure for a live one.
+    # The newer of what this module remembers and what the CLI last wrote.
+    remembered = _remembered_usage(account, plan)
     cached = claude_json.get("cachedUsageUtilization") if isinstance(claude_json, dict) else None
+    disk_ms = cached.get("fetchedAtMs") if isinstance(cached, dict) else None
+    disk_at = (
+        float(disk_ms) / 1000.0
+        if isinstance(disk_ms, (int, float)) and not isinstance(disk_ms, bool)
+        else 0.0
+    )
+    if remembered is not None and (remembered.as_of or 0.0) >= disk_at:
+        return remembered
     if isinstance(cached, dict):
         windows = _claude_windows(cached.get("utilization"))
         fetched_ms = cached.get("fetchedAtMs")
@@ -936,6 +1228,7 @@ __all__ = [
     "UsageWindow",
     "clear_cache",
     "collect",
+    "note_claude_rate_limit",
     "read_usage",
     "supports_usage",
 ]
