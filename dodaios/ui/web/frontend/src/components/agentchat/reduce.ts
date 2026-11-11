@@ -1583,6 +1583,16 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         // lib/undoToast.ts), never a row: it is gone again in seconds.
         return base;
       }
+      if (kind === "message_queued" && p.edited) {
+        // The person rewrote a waiting message: its line takes the new words in place.
+        const queueId = str(p.queue_id);
+        const index = base.items.findIndex(
+          (item) => item.type === "notice" && item.kind === "message_queued" && str(item.data.queue_id) === queueId,
+        );
+        if (index < 0) return base;
+        const line = base.items[index] as NoticeItem;
+        return { ...base, items: replaceAt(base.items, index, { ...line, text, data: { ...line.data, text } }) };
+      }
       if (kind === "message_dequeued") {
         // A waiting message started (or could not): its waiting line goes.
         const queueId = str(p.queue_id);

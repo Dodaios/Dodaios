@@ -2007,6 +2007,21 @@ async def discard_queued(session_id: str, queue_id: str, request: Request) -> di
     return {"removed": await send_queue.discard(svc, session_id, queue_id)}
 
 
+class QueuedEditBody(BaseModel):
+    text: str = Field(max_length=200_000)
+
+
+@router.patch("/sessions/{session_id}/queue/{queue_id}")
+async def edit_queued(
+    session_id: str, queue_id: str, body: QueuedEditBody, request: Request
+) -> dict[str, Any]:
+    """Change the words of one waiting message before it starts."""
+    svc = await _async_service(request)
+    if svc.store.get_session(session_id) is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    return {"edited": await send_queue.edit_waiting(svc, session_id, queue_id, body.text)}
+
+
 @router.post(
     "/sessions/{session_id}/queue/{queue_id}/send-now",
     summary="Send one waiting message now instead of after the running turn",

@@ -46,6 +46,7 @@ __all__ = [
     "STALE_AFTER_S",
     "close_orphans",
     "discard",
+    "edit_waiting",
     "has_waiting",
     "pause",
     "queue_state",
@@ -314,6 +315,31 @@ async def discard(svc: Any, session_id: str, queue_id: str) -> bool:
             )
             return True
     return False
+
+
+async def edit_waiting(svc: Any, session_id: str, queue_id: str, text: str) -> bool:
+    """Rewrite one waiting message before it starts; False when it started or is gone.
+
+    The person read the queued follow-up again and changed it. Its files and
+    tool picks stay; only the words change. A message left with neither words
+    nor files would send nothing, so that edit is refused.
+    """
+    pending = getattr(svc, "_society_send_queues", {}).get(session_id)
+    if pending is None:
+        return False
+    item = next((entry for entry in pending.items if entry.queue_id == queue_id), None)
+    if item is None or not (text.strip() or item.attachments):
+        return False
+    item.text = text
+    _save(svc, session_id, item)
+    # The same queue_id again: the waiting line in the chat takes the new words.
+    await _notice(
+        svc,
+        session_id,
+        {"kind": "message_queued", "queue_id": queue_id,
+         "text": _display_text(text, item.attachments), "edited": True},
+    )
+    return True
 
 
 async def send_or_queue(

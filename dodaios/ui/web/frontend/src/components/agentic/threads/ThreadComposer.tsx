@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowUp, Hammer, ListChecks, Loader2, MessageCircleQuestion, ShieldAlert, Square, X } from "lucide-react";
+import { ArrowUp, Hammer, ListChecks, Loader2, MessageCircleQuestion, ShieldAlert, Square } from "lucide-react";
 import { ChatAttachmentStrip } from "@/components/agentchat/ChatAttachmentStrip";
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
 import { ComposerTypeahead } from "@/components/agentchat/ComposerTypeahead";
@@ -9,13 +9,14 @@ import { releaseHeldFiles, useChatAttachments, type HeldFiles } from "@/componen
 import { useComposerDictation } from "@/components/agentchat/useComposerDictation";
 import { useComposerTypeahead } from "@/components/agentchat/useComposerTypeahead";
 import { fill, useT } from "@/i18n";
-import { discardQueuedMessage, fetchAgentChatQueue, resumeAgentChatQueue, sendQueuedNow, type AgentChatSession, type ApprovalDecision, type ChatAttachment, type PlanDecision, type SendDelivery } from "@/lib/agentChatApi";
+import { fetchAgentChatQueue, type AgentChatSession, type ApprovalDecision, type ChatAttachment, type PlanDecision, type SendDelivery } from "@/lib/agentChatApi";
 import { joinProviderOptions, type ComposerDraft, type ProviderOption } from "@/store/agentChat";
 import { cn } from "@/lib/utils";
 import { effortLadder, snapEffort } from "@/lib/effortLadder";
 import { AccessPicker, AgentModelPicker, EffortPicker, modelsOf } from "./ThreadPickers";
 import { useRecalledMessages } from "./recalledMessages";
 import { MagicWordText } from "./MagicWordText";
+import { QueuedMessages } from "./QueuedMessages";
 import { MAGIC_WORD_RUNNERS, hasMagicWord } from "@/lib/magicWords";
 import { rememberSeat, rememberedSeat, threadAgents, useThreadChat } from "./threadModel";
 
@@ -25,22 +26,6 @@ import { rememberSeat, rememberedSeat, threadAgents, useThreadChat } from "./thr
  * runner, never a provider id: the Claude row is "claude-api" run by "claude-cli".
  */
 const STEERABLE_RUNNERS = new Set(["claude-cli", "glm-cli"]);
-
-/**
- * What a message typed while such an agent works does: `steer` goes into the
- * running turn at once, `queue` waits until the agent has answered and then
- * starts as the next turn. The person's pick holds for every thread.
- */
-export type FollowUp = "steer" | "queue";
-const FOLLOW_UP_KEY = "dodaios.threads.followUp";
-
-function rememberedFollowUp(): FollowUp {
-  try {
-    return localStorage.getItem(FOLLOW_UP_KEY) === "queue" ? "queue" : "steer";
-  } catch {
-    return "steer";
-  }
-}
 
 /** Draft text per thread, so switching threads never loses a half-written message. */
 const drafts = new Map<string, string>();
@@ -371,15 +356,9 @@ export function ThreadComposer({
   const provider = providers.find((option) => option.id === draft.provider) ?? null;
   const running = runningTurn(timeline) !== null || Boolean(activeSession?.running);
   const started = timeline.items.length > 0;
-  // Claude Code and GLM take a message while they work; every other agent queues it.
+  // Claude Code and GLM take a waiting message into the running turn on Send
+  // now; every other agent has that turn stopped for it.
   const steers = STEERABLE_RUNNERS.has(provider?.runner ?? "");
-  const [followUp, setFollowUpState] = useState<FollowUp>(rememberedFollowUp);
-  const setFollowUp = useCallback((next: FollowUp) => {
-    setFollowUpState(next);
-    try { localStorage.setItem(FOLLOW_UP_KEY, next); } catch { /* the pick still holds for this window */ }
-  }, []);
-  // Every other agent can only queue, whatever the pick says.
-  const steerNow = steers && followUp === "steer";
   // "ultrathink" / "ultracode" change how Claude Code runs the turn: the
   // words show in its rainbow, drawn by a backdrop under a see-through text.
   const magic = MAGIC_WORD_RUNNERS.has(provider?.runner ?? "") && hasMagicWord(value);
@@ -509,6 +488,9 @@ export function ThreadComposer({
     if (key === keyRef.current) setValueState(restored);
   }, []);
 
+  /** An edit of a waiting message that could not land comes back into this box. */
+  const giveBackHere = useCallback((text: string) => giveBack(threadKey, text), [giveBack, threadKey]);
+
   const submit = async () => {
     // Send during a dictation ends it first; the message goes once the words land.
     if (dictation.dictating) {
@@ -528,11 +510,10 @@ export function ThreadComposer({
     setValue("");
     setProblem("");
     if (running || busy) {
-      // The person's pick: into the running turn now, or wait for its answer
-      // and run as the next turn. An agent that cannot take a message mid-turn
-      // always waits in the server's queue.
+      // A message typed while the agent works waits for its answer and runs as
+      // the next turn; its row above the box sends it at once on request.
       releaseHeldFiles(held);
-      const sent = await dispatch(text, attachments, undefined, steers ? (steerNow ? "now" : "after") : undefined);
+      const sent = await dispatch(text, attachments, undefined, steers ? "after" : undefined);
       if (!sent) giveBack(key, text);
       return;
     }
@@ -605,40 +586,10 @@ export function ThreadComposer({
   const error = problem || lastError || "";
 
   return <div className="mx-auto w-full max-w-3xl">
-    {queue.length > 0 && <div className="mb-2 flex flex-col gap-1 px-2" data-testid="thread-queue">
-      {paused && !running && <div className="flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
-        <span>{t("ide_threads.queue_paused")}</span>
-        <button type="button" onClick={() => { setPaused(false); if (activeSessionId) void resumeAgentChatQueue(activeSessionId).catch(() => setPaused(true)); }} className="rounded px-1.5 py-0.5 text-foreground hover:bg-secondary">{t("ide_threads.send_next")}</button>
-      </div>}
-      {queue.map((entry) => <div key={entry.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm">
-        <span className="shrink-0 text-xs text-muted-foreground">{t("ide_threads.queued")}</span>
-        <span className="min-w-0 flex-1 truncate text-foreground">{entry.text}</span>
-        <button type="button" data-testid="thread-queue-send-now"
-          title={t(steers && running ? "ide_threads.send_now_steer_title" : running ? "ide_threads.send_now_stop_title" : "ide_threads.send_now_title")}
-          onClick={() => {
-            if (!activeSessionId) return;
-            setPaused(false);
-            void sendQueuedNow(activeSessionId, entry.id).catch((error) => setProblem(error instanceof Error ? error.message : String(error)));
-          }}
-          className="flex shrink-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <ArrowUp className="h-3 w-3" />{t("ide_threads.send_now")}</button>
-        <button type="button" aria-label={t("ide_threads.remove_queued")} onClick={() => { if (activeSessionId) void discardQueuedMessage(activeSessionId, entry.id).catch((error) => setProblem(error instanceof Error ? error.message : String(error))); }}
-          className="rounded p-0.5 text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
-      </div>)}
-    </div>}
     {error && <p role="alert" className="mb-2 px-4 text-xs text-destructive">{error}</p>}
-    {running && (steers || canSend) && <div className="mb-1.5 flex min-w-0 items-center gap-2 px-4 text-xs text-muted-foreground" data-testid="thread-send-mode" data-mode={steerNow ? "steer" : "queue"}>
-      {steers && <div role="radiogroup" aria-label={t("ide_threads.follow_up_label")} className="flex shrink-0 items-center rounded-full border border-border bg-card p-0.5">
-        {(["queue", "steer"] as const).map((mode) => <button key={mode} type="button" role="radio" aria-checked={followUp === mode}
-          data-testid={`thread-follow-up-${mode}`} onClick={() => { setFollowUp(mode); textareaRef.current?.focus(); }}
-          className={cn("rounded-full px-2.5 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            followUp === mode ? "bg-secondary text-foreground" : "hover:text-foreground")}>
-          {t(mode === "queue" ? "ide_threads.follow_up_queue" : "ide_threads.follow_up_steer")}
-        </button>)}
-      </div>}
-      <span className="min-w-0 truncate">{t(steerNow ? "ide_threads.steer_hint" : "ide_threads.queue_hint")}</span>
-    </div>}
     {tray}
+    <QueuedMessages sessionId={activeSessionId} entries={queue} paused={paused} running={running} steers={steers}
+      onPausedChange={setPaused} onProblem={setProblem} onGiveBack={giveBackHere} />
     <div ref={cardRef} {...files.dragHandlers}
       className={cn(
         "relative z-10 overflow-hidden rounded-3xl border border-border bg-card shadow-[0_8px_24px_-12px_rgb(var(--scrim-rgb)/0.5)] transition-colors focus-within:border-border-strong",
@@ -659,7 +610,7 @@ export function ThreadComposer({
       </div>}
       <textarea ref={textareaRef} value={value} rows={2} data-testid="thread-composer-input"
         aria-label={t("ide_threads.message_agent")}
-        placeholder={running ? t(steerNow ? "ide_threads.steer_placeholder" : "ide_threads.queue_placeholder") : placeholder ?? t("ide_threads.composer_placeholder")}
+        placeholder={running ? t("ide_threads.queue_placeholder") : placeholder ?? t("ide_threads.composer_placeholder")}
         onChange={(event) => { setValue(event.target.value); typeahead.refresh(); }}
         onKeyDown={onKeyDown}
         onFocus={() => { dictationOwner = threadKey; }}
@@ -691,7 +642,7 @@ export function ThreadComposer({
               className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <Square className="h-3 w-3 fill-current" />
             </button>
-            : <button type="button" aria-label={running ? t(steerNow ? "ide_threads.steer_title" : "ide_threads.queue_message") : t("ide_threads.send_message")} title={running ? t(steerNow ? "ide_threads.steer_title" : "ide_threads.queue_title") : t("agent_chat.send")}
+            : <button type="button" aria-label={running ? t("ide_threads.queue_message") : t("ide_threads.send_message")} title={running ? t("ide_threads.queue_title") : t("agent_chat.send")}
               data-testid="thread-send" disabled={!canSend} onClick={() => void submit()}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_1px_2px_rgb(var(--accent-rgb)/0.3)] transition-[opacity,transform] duration-150 hover:scale-105 hover:opacity-95 disabled:opacity-40 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {starting || busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}

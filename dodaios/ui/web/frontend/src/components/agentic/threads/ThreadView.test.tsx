@@ -17,6 +17,7 @@ const api = vi.hoisted(() => ({
   patchAgentChatSession: vi.fn(),
   searchAgentChatSessions: vi.fn(),
   sendQueuedNow: vi.fn(),
+  editQueuedMessage: vi.fn(),
   fetchAgentChatQueue: vi.fn(),
 }));
 vi.mock("@/lib/agentChatApi", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/agentChatApi")>()), ...api }));
@@ -202,9 +203,8 @@ describe("ThreadView", () => {
       store.ingest({ seq: 4, ts_ms: 1600, kind: "background_wait", payload: { turn_id: "t1", tasks: ["Watch the build"] } });
     });
     const box = screen.getByTestId("thread-composer-input");
-    await waitFor(() => expect(box.getAttribute("placeholder")).toBe("Steer the agent while it works"));
+    await waitFor(() => expect(box.getAttribute("placeholder")).toBe("Queue a follow-up for when the agent is done"));
     fireEvent.change(box, { target: { value: "also run the linter" } });
-    expect(screen.getByTestId("thread-send-mode").getAttribute("data-mode")).toBe("steer");
     await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
     await waitFor(() => expect(api.sendAgentChatMessage.mock.calls[0]?.[1]).toBe("also run the linter"));
 
@@ -220,38 +220,77 @@ describe("ThreadView", () => {
     expect(within(steered).getByAltText("shot.png").getAttribute("src")).toBe("/files/shot.png");
   });
 
-  it("lets the person hold a message until the agent is done, and remembers that pick", async () => {
+  it("queues a message typed while the agent works, with no pick to make", async () => {
     useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
     api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
     api.sendAgentChatMessage.mockResolvedValue({ turn_id: "", queued: true, queue_id: "q1" });
-    const view = render(<ThreadView onScreen />);
+    render(<ThreadView onScreen />);
     await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
     const store = useThreadChatStore.getState();
     act(() => {
       store.ingest({ seq: 1, ts_ms: 1000, kind: "user_message", payload: { text: "refactor the parser" } });
       store.ingest({ seq: 2, ts_ms: 1000, kind: "turn_started", payload: { turn_id: "t1", provider: "claude-api", model: "", effort: "high", runner: "claude-cli" } });
     });
-    // The pick shows as soon as the agent works, before anything is typed.
-    await waitFor(() => expect(screen.getByTestId("thread-send-mode").getAttribute("data-mode")).toBe("steer"));
-    fireEvent.click(screen.getByTestId("thread-follow-up-queue"));
-    expect(screen.getByTestId("thread-send-mode").getAttribute("data-mode")).toBe("queue");
     const box = screen.getByTestId("thread-composer-input");
-    expect(box.getAttribute("placeholder")).toBe("Queue a follow-up for when the agent is done");
+    await waitFor(() => expect(box.getAttribute("placeholder")).toBe("Queue a follow-up for when the agent is done"));
+    expect(screen.queryByRole("radiogroup")).toBeNull();
     fireEvent.change(box, { target: { value: "then update the docs" } });
     await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
     await waitFor(() => expect(api.sendAgentChatMessage).toHaveBeenCalled());
     expect(api.sendAgentChatMessage.mock.calls[0]?.[1]).toBe("then update the docs");
     expect(api.sendAgentChatMessage.mock.calls[0]?.[4]).toBe("after");
+  });
 
-    // Another thread view later starts with the same pick.
-    view.unmount();
+  it("opens a waiting message to read and rewrite it before it starts", async () => {
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
+    api.fetchAgentChatQueue.mockResolvedValue({ paused: false, items: [] });
+    api.editQueuedMessage.mockResolvedValue(true);
     render(<ThreadView onScreen />);
-    await waitFor(() => expect(screen.getByTestId("thread-follow-up-queue").getAttribute("aria-checked")).toBe("true"));
-    fireEvent.click(screen.getByTestId("thread-follow-up-steer"));
-    fireEvent.change(screen.getByTestId("thread-composer-input"), { target: { value: "stop, use the old parser" } });
-    await act(async () => { fireEvent.keyDown(screen.getByTestId("thread-composer-input"), { key: "Enter" }); });
-    await waitFor(() => expect(api.sendAgentChatMessage).toHaveBeenCalledTimes(2));
-    expect(api.sendAgentChatMessage.mock.calls[1]?.[4]).toBe("now");
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    const store = useThreadChatStore.getState();
+    act(() => {
+      store.ingest({ seq: 1, ts_ms: 1000, kind: "user_message", payload: { text: "refactor the parser" } });
+      store.ingest({ seq: 2, ts_ms: 1000, kind: "turn_started", payload: { turn_id: "t1", provider: "claude-api", model: "", effort: "high", runner: "claude-cli" } });
+      store.ingest({ seq: 3, ts_ms: 1000, kind: "notice", payload: { kind: "message_queued", queue_id: "q1", text: "then update the docs" } });
+    });
+    expect((await screen.findByTestId("thread-queue")).textContent).toContain("1 queued");
+    fireEvent.click(screen.getByTestId("thread-queue-open"));
+    const editor = screen.getByTestId("thread-queue-edit") as HTMLTextAreaElement;
+    expect(editor.value).toBe("then update the docs");
+    fireEvent.change(editor, { target: { value: "then update the docs and the changelog" } });
+    await act(async () => { fireEvent.click(screen.getByTestId("thread-queue-save")); });
+    expect(api.editQueuedMessage).toHaveBeenCalledWith("s1", "q1", "then update the docs and the changelog");
+    expect(screen.queryByTestId("thread-queue-edit")).toBeNull();
+
+    // The server's edited notice rewrites the waiting line in place.
+    act(() => {
+      store.ingest({ seq: 4, ts_ms: 1100, kind: "notice", payload: { kind: "message_queued", queue_id: "q1", text: "then update the docs and the changelog", edited: true } });
+    });
+    const rows = screen.getAllByTestId("thread-queue-item");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.textContent).toContain("then update the docs and the changelog");
+  });
+
+  it("puts an edit back into the box when its message started meanwhile", async () => {
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
+    api.fetchAgentChatQueue.mockResolvedValue({ paused: false, items: [] });
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    const store = useThreadChatStore.getState();
+    act(() => {
+      store.ingest({ seq: 1, ts_ms: 1000, kind: "user_message", payload: { text: "refactor the parser" } });
+      store.ingest({ seq: 2, ts_ms: 1000, kind: "turn_started", payload: { turn_id: "t1", provider: "claude-api", model: "", effort: "high", runner: "claude-cli" } });
+      store.ingest({ seq: 3, ts_ms: 1000, kind: "notice", payload: { kind: "message_queued", queue_id: "q1", text: "draft" } });
+    });
+    fireEvent.click(await screen.findByTestId("thread-queue-open"));
+    fireEvent.change(screen.getByTestId("thread-queue-edit"), { target: { value: "better draft" } });
+    act(() => {
+      store.ingest({ seq: 4, ts_ms: 1100, kind: "notice", payload: { kind: "message_dequeued", queue_id: "q1", status: "sent" } });
+    });
+    await waitFor(() => expect((screen.getByTestId("thread-composer-input") as HTMLTextAreaElement).value).toBe("better draft"));
+    expect(screen.queryByTestId("thread-queue")).toBeNull();
   });
 
   it("sends a waiting message right away from its row", async () => {
