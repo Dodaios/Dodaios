@@ -5,6 +5,12 @@
    it. The card keeps its 28px corners in both shapes; at one line (about
    56px high) that already reads as a full pill. */
 
+/* The pill measures its own width: in a narrow chat column there is no room
+   for the box between the two button groups, so it is tall from the start. */
+.composer-pill {
+  container-type: inline-size;
+}
+
 .composer-pill-grid {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -13,11 +19,28 @@
   column-gap: 2px;
 }
 
+/* Tall: the box on top, the two groups under it. The right group may
+   shrink (the model name truncates) so the row never overflows. */
 .composer-pill-grid[data-tall="true"] {
+  grid-template-columns: auto minmax(0, 1fr);
   grid-template-areas:
-    "main main main"
-    "lead . trail";
+    "main main"
+    "lead trail";
   row-gap: 4px;
+}
+
+@container (max-width: 560px) {
+  .composer-pill-grid {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "main main"
+      "lead trail";
+    row-gap: 4px;
+  }
+
+  .composer-pill-main {
+    padding: 4px 4px 0;
+  }
 }
 
 .composer-pill-lead {
@@ -43,6 +66,23 @@
   align-items: center;
   justify-content: flex-end;
   gap: 2px;
+}
+
+/* The model's name gives way first when the row is short: it truncates,
+   and in a very narrow column only the provider's mark stays. */
+.composer-pill-trail [data-testid="composer-model"] {
+  min-width: 0;
+}
+
+@container (max-width: 400px) {
+  .composer-pill-trail [data-testid="composer-model"] > span.truncate {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
 }
 
 /* The box grows with the words up to a third of the window, then scrolls. */
