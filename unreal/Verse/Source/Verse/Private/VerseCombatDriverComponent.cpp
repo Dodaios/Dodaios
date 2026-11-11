@@ -4,6 +4,7 @@
 #include "Damage/VerseCombatStateComponent.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
+#include "HAL/IConsoleManager.h"
 #include "Gadgets/VerseGadgetComponent.h"
 #include "Inventory/VerseInventoryComponent.h"
 #include "Inventory/VerseWeaponSlot.h"
@@ -21,6 +22,20 @@ namespace VerseCombatDriverPrivate
 	bool Bit(uint32 Bits, EVerseInputButton Button)
 	{
 		return (Bits & uint32(Button)) != 0;
+	}
+
+	/**
+	 * settings.game gameplay.auto_reload, which VerseUI publishes as a console variable ("1"/"0"):
+	 * off, a dry trigger only clicks for the person. Bots always reload.
+	 */
+	bool AutoReloadFor(const APawn* Pawn)
+	{
+		if (Pawn == nullptr || !Pawn->IsPlayerControlled())
+		{
+			return true;
+		}
+		const IConsoleVariable* Var = IConsoleManager::Get().FindConsoleVariable(TEXT("Verse.Settings.Game.gameplay.auto_reload"));
+		return Var == nullptr || Var->GetString() != TEXT("0");
 	}
 }
 
@@ -229,7 +244,8 @@ void UVerseCombatDriverComponent::Drive(const FVerseInputFrame& Frame, float Del
 	const bool bTrigger = bFirearm && !bUsingGadget && Frame.IsHeld(EVerseInputButton::Fire);
 	// Empty magazine with the trigger held: reload once (combat-state.md 2.2, the dry trigger reloads).
 	if (bTrigger && Active->Definition && FVerseMagazine::RoundsReady(*Active, *Active->Definition) == 0
-		&& !FVerseMagazine::IsReloading(*Active) && Active->Reserve > 0 && Now - LastAutoReloadAt > AutoReloadRetryS)
+		&& !FVerseMagazine::IsReloading(*Active) && Active->Reserve > 0 && Now - LastAutoReloadAt > AutoReloadRetryS
+		&& AutoReloadFor(Cast<APawn>(GetOwner())))
 	{
 		LastAutoReloadAt = Now;
 		Inventory->ServerReload(0);

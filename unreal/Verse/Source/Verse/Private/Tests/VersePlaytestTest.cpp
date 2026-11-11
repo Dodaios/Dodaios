@@ -36,6 +36,7 @@
 #include "VerseAudioBridge.h"
 #include "VerseBridgeSubsystem.h"
 #include "VerseDefaultCharacter.h"
+#include "Weapons/VerseCombatEvents.h"
 #include "VerseDuelSubsystem.h"
 #include "Weapons/VerseWeaponComponent.h"
 
@@ -557,6 +558,28 @@ bool FVerseVisualPlaytestTest::RunTest(const FString&)
 				TestTrue(FString::Printf(TEXT("options: the duel FOV follows the setting (%.1f, want %.1f)"), Camera ? Camera->FieldOfView : -1.f, Want),
 					Camera && FMath::IsNearlyEqual(Camera->FieldOfView, Want, 0.5f));
 				Ui->SetGameSetting(TEXT("controls.fov_duel"), MakeShared<FJsonValueNumber>(S->Fov));
+				// Options: auto reload off, then an empty rifle and the trigger held.
+				Ui->SetGameSetting(TEXT("gameplay.auto_reload"), MakeShared<FJsonValueBoolean>(false));
+				for (int32 Round = 0; Round < 200 && Inventory->ServerConsumeRound(VerseCombatEvents::ServerTime(World)); ++Round)
+				{
+				}
+				Feed(World, EKeys::LeftMouseButton, IE_Pressed);
+			}
+			else if (S->Frames == 130)
+			{
+				TestEqual(TEXT("options: the rifle is empty"), MagazineOf(EVerseLoadoutSlot::Primary), 0);
+				TestFalse(TEXT("options: auto reload off, a dry trigger does not reload"), Inventory->bReloading);
+				Feed(World, EKeys::LeftMouseButton, IE_Released);
+				Ui->SetGameSetting(TEXT("gameplay.auto_reload"), MakeShared<FJsonValueBoolean>(true));
+			}
+			else if (S->Frames == 134)
+			{
+				Feed(World, EKeys::LeftMouseButton, IE_Pressed);
+			}
+			else if (S->Frames == 150)
+			{
+				TestTrue(TEXT("options: auto reload on, a dry trigger reloads"), Inventory->bReloading || MagazineOf(EVerseLoadoutSlot::Primary) > 0);
+				Feed(World, EKeys::LeftMouseButton, IE_Released);
 				Next();
 			}
 			return false;
