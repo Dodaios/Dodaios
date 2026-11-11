@@ -397,6 +397,35 @@ export function fetchAgentChatSessions(
   });
 }
 
+/** One chat the thread search found: why it came up, and enough to open it. */
+export interface ChatSearchHit {
+  session_id: string;
+  /** The latest matching message, cut around the match; "" for a title-only hit. */
+  snippet: string;
+  /** That message's place in the conversation (0 for a title-only hit). */
+  seq: number;
+  kind: string;
+  ts_ms: number;
+  /** How many messages matched. */
+  matches: number;
+  title_match: boolean;
+  title: string;
+  cwd: string;
+  updated_ms: number;
+}
+
+/** The chats of `surface` whose title or messages contain `query`, newest first. */
+export async function searchAgentChatSessions(
+  query: string,
+  { surface = "agent", limit = 50, signal }: { surface?: AgentChatSurface; limit?: number; signal?: AbortSignal } = {},
+): Promise<ChatSearchHit[]> {
+  const params = new URLSearchParams({ q: query, surface, limit: String(limit) });
+  const data = await json<{ hits: ChatSearchHit[] }>(
+    await fetch(`/api/agent-chat/sessions/search?${params}`, { signal }), "search-failed",
+  );
+  return data.hits;
+}
+
 /** The lead's one endless conversation; the server creates it on first use. */
 export async function fetchLeadSession(): Promise<AgentChatSession> {
   return json<AgentChatSession>(await fetch("/api/agent-chat/lead"), "lead-failed");
