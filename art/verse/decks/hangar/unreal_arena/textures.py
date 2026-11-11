@@ -34,6 +34,7 @@ SETS: dict[str, str] = {
     "Tread": "metal_plate",
     "Slab": "concrete_slab_wall_02",
     "Cladding": "factory_wall",
+    "Grate": "metal_grate_rusty",
 }
 #: Map key -> (suffix, sRGB, compression, flip green).
 MAPS: dict[str, tuple[str, bool, str, bool]] = {
@@ -45,7 +46,7 @@ OUT = VERSE / ".cache" / "unreal" / "textures" / "arena"
 RECORDS = REPO / "unreal" / "Verse" / "Art" / "Import" / "Textures" / "Arena"
 MAX_SIZE = 2048
 #: Sets whose colour map is stored as luminance, so the arena MI's tint picks the paint colour.
-LUMINANCE = {"Panel", "Paint", "Tread", "Cladding"}
+LUMINANCE = {"Panel", "Paint", "Tread", "Cladding", "Grate"}
 
 
 def _sha256(path: Path) -> str:

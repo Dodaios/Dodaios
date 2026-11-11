@@ -1,0 +1,37 @@
+{
+  "asset_path": "/Game/Verse/Textures/Arena/T_Arena_Grate_BC.T_Arena_Grate_BC",
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/textures/arena/T_Arena_Grate_BC.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "43c8e8866f4a938015516c9340f470b13d09f54e995ee51a6b869ef67b3894dd"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "7ba7b58b5e743d9bd5892551cf087c60239d0aefdf06156f08e0da15010aec60"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Arena_Grate_BC",
+  "owner": "WP11",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "asset": "metal_grate_rusty",
+      "map": "Diffuse",
+      "set": "Grate"
+    },
+    "builder": "art/verse/decks/hangar/unreal_arena/textures.py",
+    "function": "main"
+  },
+  "texture": {
+    "compression": "Default",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 2048,
+    "srgb": true
+  }
+}

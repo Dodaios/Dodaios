@@ -1000,7 +1000,7 @@ bool AVerseArenaGraybox::Build(const FString& JsonPath, EVerseGrayboxPart InPart
 		const FQuat Rotation = Basis.ToQuat();
 		const FVector Up = Rotation.GetUpVector();
 		const FVector Center = (Start + End) * 0.5 - Up * (Thick * 0.5);
-		AddSlab(SurfaceFor(TEXT("Floor_Grating"), true, false), FTransform(Rotation, Center, FVector(Along.Size(), Width, Thick) / 100.0));
+		AddSlab(SurfaceFor(TEXT("Arena_Grating"), true, false), FTransform(Rotation, Center, FVector(Along.Size(), Width, Thick) / 100.0));
 	}
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
