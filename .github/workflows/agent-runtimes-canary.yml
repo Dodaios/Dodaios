@@ -66,8 +66,7 @@ jobs:
   # missing OS keeps its pin (bump_from). The repository does not let the
   # workflow token open pull requests ("GitHub Actions is not permitted to
   # create or approve pull requests", run 40503244162), so the merge bot app
-  # pushes the branch and opens it, like contributors.yml and
-  # frontend-bundle.yml; its token also starts the pull request's CI, which
+  # pushes the branch and opens it, like frontend-bundle.yml; its token also starts the pull request's CI, which
   # is the pin's admission. A maintainer merges it. The app's private key is
   # an environment secret of `merge-train` (see merge-train.yml), so the job
   # runs in that environment; outside it the key reads empty (run 41453098427).
