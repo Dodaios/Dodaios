@@ -1,0 +1,25 @@
+{
+  "name": "MI_Character_DroneUtility_Trim",
+  "owner": "WP13",
+  "parent": "/Game/Verse/Materials/Master/M_Verse_Character.M_Verse_Character",
+  "replaces": "M_Trim",
+  "scalars": {
+    "Metallic": 0.3,
+    "Roughness": 1.0
+  },
+  "schema": "verse.mi/1",
+  "switches": {},
+  "textures": {
+    "BaseColorMap": "/Game/Verse/Characters/Drones/Textures/T_Drone_Utility_BC.T_Drone_Utility_BC",
+    "NormalMap": "/Game/Verse/Characters/Drones/Textures/T_Drone_Utility_N.T_Drone_Utility_N",
+    "ORMMap": "/Game/Verse/Characters/Drones/Textures/T_Drone_Utility_ORM.T_Drone_Utility_ORM"
+  },
+  "vectors": {
+    "BaseTint": [
+      0.018,
+      0.019,
+      0.021,
+      1.0
+    ]
+  }
+}
