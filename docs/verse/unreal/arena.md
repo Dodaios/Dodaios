@@ -270,10 +270,12 @@ deck view and the duel show it alike:
 - **Deck view**: the hall part has no arena work lights, so every second lamp of every second
   row casts a real spot light there (`HallLampLumens`, 3900 K, one in four shadowed).
   The hangar's arrival sockets (lift, commander spawn) stand in the lift lobby, under its
-  ceiling and facing its back wall. `FVerseDeckLook` therefore places the hangar arrival on the
-  apron just outside (`ArrivalLocationCm` x 6150, y 4850), facing the arena centre
-  (`ArrivalYawDeg` -111.8) with the camera raised (`ArrivalPitchDeg` 14): the first frame shows the
-  hall, its skylights, lamps and crane with the commander in front. Unreal only; the sockets keep
+  ceiling and facing its back wall. `FVerseDeckLook` therefore places the hangar arrival in the
+  open hall north of the station rooms (`ArrivalLocationCm` x 6000, y 4250; the arrivals room and
+  the lobby both have ceilings from y 4600, which filled the frame), facing the arena centre
+  (`ArrivalYawDeg` -118.4) with the camera raised (`ArrivalPitchDeg` 14): the first frame shows the
+  hall, its skylights, lamps and crane with the commander in front. In hall mode a warm key from
+  behind the camera and two narrow back rims light the arrival spot. Unreal only; the sockets keep
   the shared positions and headings of coordinates.md 3.2, and the lift still runs from them.
 - **Wall cladding**: the perimeter (above its hazard band), the cover walls and the booth's solid
   walls carry the WP12 kit wall modules (`SM_Wall_480/240/120`, `SM_Wall_240_H540`), front 2 cm
