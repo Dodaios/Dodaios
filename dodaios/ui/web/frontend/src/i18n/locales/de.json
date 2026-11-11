@@ -7988,6 +7988,13 @@
     "technical_details": "Technische Details",
     "ran": "Ausgeführt:",
     "getting_ready": "Wird vorbereitet",
+    "setup_on": "Wird auf {where} eingerichtet",
+    "setup_generic": "Wird eingerichtet",
+    "setup_step_connect": "Verbinden",
+    "setup_step_fetch": "Code von {host} holen",
+    "setup_step_send": "Deine Änderungen senden",
+    "setup_step_unpack": "Dateien einrichten",
+    "setup_step_start": "{cli} starten",
     "tokens_hint": "Eingabe {input} neue Tokens ({cached} weitere aus dem Cache wiederverwendet) · Ausgabe {output} Tokens",
     "open_beside": "In der Seitenleiste anzeigen",
     "open_file_beside": "{file} in der Seitenleiste anzeigen"

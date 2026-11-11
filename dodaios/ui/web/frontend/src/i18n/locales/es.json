@@ -7988,6 +7988,13 @@
     "technical_details": "Detalles técnicos",
     "ran": "Ejecutó",
     "getting_ready": "Preparando",
+    "setup_on": "Preparando en {where}",
+    "setup_generic": "Preparando",
+    "setup_step_connect": "Conectando",
+    "setup_step_fetch": "Descargando el código de {host}",
+    "setup_step_send": "Enviando tus cambios",
+    "setup_step_unpack": "Colocando los archivos",
+    "setup_step_start": "Iniciando {cli}",
     "tokens_hint": "Entrada {input} tokens nuevos ({cached} más reutilizados de la caché) · salida {output} tokens",
     "open_beside": "Mostrar en el panel lateral",
     "open_file_beside": "Mostrar {file} en el panel lateral"

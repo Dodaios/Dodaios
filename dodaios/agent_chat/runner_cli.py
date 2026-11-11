@@ -4496,6 +4496,7 @@ async def _run_cli_once(
             except ide_remote.MoveError as exc:
                 return _Outcome("error", str(exc), {}, None, None)
             thread_folder = moved.remote_folder
+            await remote_thread_sync.emit_step(handle, "start", cli=CLI_BINARIES[runner][0])
         if identity is not None and identity.path is not None:
             try:
                 prompt_files[str(identity.path)] = await asyncio.to_thread(

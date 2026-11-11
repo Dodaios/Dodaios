@@ -7988,6 +7988,13 @@
     "technical_details": "技术详情",
     "ran": "运行了",
     "getting_ready": "正在准备",
+    "setup_on": "正在 {where} 上准备",
+    "setup_generic": "正在准备",
+    "setup_step_connect": "正在连接",
+    "setup_step_fetch": "正在从 {host} 获取代码",
+    "setup_step_send": "正在发送你的更改",
+    "setup_step_unpack": "正在放置文件",
+    "setup_step_start": "正在启动 {cli}",
     "tokens_hint": "输入 {input} 个新词元（另有 {cached} 个来自缓存）· 输出 {output} 个词元",
     "open_beside": "在侧边栏中显示",
     "open_file_beside": "在侧边栏中显示 {file}"
