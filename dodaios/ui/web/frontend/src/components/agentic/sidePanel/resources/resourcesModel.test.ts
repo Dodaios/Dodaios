@@ -217,15 +217,18 @@ describe("a row's own curve", () => {
 
 describe("a chart that is full from the start", () => {
   it("spans what has been measured, and at least a few seconds", () => {
-    expect(historySpan([])).toBe(10);
-    expect(historySpan([100])).toBe(10);
-    expect(historySpan([100, 101, 102])).toBe(10);
+    expect(historySpan([])).toBe(2);
+    expect(historySpan([100])).toBe(2);
+    expect(historySpan([100, 101])).toBe(2);
+    expect(historySpan([100, 101, 104])).toBe(4);
     expect(historySpan([100, 130, 160])).toBe(60);
     expect(historySpan([0, 299])).toBe(299);
   });
 
   it("puts a handful of ticks on round steps back from now", () => {
-    expect(axisTicks(1000, 10)).toEqual([990, 1000]);
+    expect(axisTicks(1000, 2)).toEqual([998, 999, 1000]);
+    expect(axisTicks(1000, 10)).toEqual([990, 992, 994, 996, 998, 1000]);
+    expect(axisTicks(1000, 24)).toEqual([980, 985, 990, 995, 1000]);
     expect(axisTicks(1000, 45)).toEqual([960, 970, 980, 990, 1000]);
     expect(axisTicks(1000, 70)).toEqual([940, 955, 970, 985, 1000]);
     expect(axisTicks(1000, 140)).toEqual([880, 910, 940, 970, 1000]);

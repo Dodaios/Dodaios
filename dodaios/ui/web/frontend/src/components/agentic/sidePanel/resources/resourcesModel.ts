@@ -22,8 +22,8 @@ export const GROUPS: readonly { key: ResourceGroupKey; color: string }[] = [
   { key: "other", color: "var(--rs-other)" },
 ];
 
-/** The least a chart's time axis covers, so two early samples are not a cliff. */
-const MIN_SPAN_S = 10;
+/** The least a chart's time axis covers: about the first two samples. */
+const MIN_SPAN_S = 2;
 
 /** A row by its history id and the name it is shown under. */
 export interface NamedRow {
@@ -48,7 +48,7 @@ export function historySpan(t: readonly number[]): number {
 
 /** Axis ticks for a span ending at `end`: a handful, on round steps back from now. */
 export function axisTicks(end: number, span: number): number[] {
-  const step = [10, 15, 30, 60].find((candidate) => span / candidate <= 5) ?? 60;
+  const step = [1, 2, 5, 10, 15, 30, 60].find((candidate) => span / candidate <= 5) ?? 60;
   const ticks: number[] = [];
   for (let ago = 0; ago <= span + 0.5; ago += step) ticks.unshift(end - ago);
   return ticks;

@@ -440,7 +440,7 @@ describe("ResourcesTab", () => {
 
   it("says how far back the chart reaches, growing with what was measured", async () => {
     await shown();
-    expect(screen.getByTestId("resources-tab").textContent).toContain("Last 10 s"); // 4 s measured, 10 s is the least
+    expect(screen.getByTestId("resources-tab").textContent).toContain("Last 4 s"); // three samples, two seconds apart
     cleanup();
     fetchMock.mockResolvedValue(settled());
     await shown();
