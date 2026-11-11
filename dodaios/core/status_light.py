@@ -109,6 +109,7 @@ def build_status_light(
     seats: Iterable[Any] = (),
     findings: Iterable[Mapping[str, Any]] = (),
     prepared: Iterable[Mapping[str, Any]] = (),
+    browsers: Iterable[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """Fold the sources into ``{running, needs_you, trouble, counts, tone}``.
 
@@ -118,6 +119,9 @@ def build_status_light(
     ``findings`` are the watchdog's open findings (``key``, ``kind``, ``title``).
     ``prepared`` are drafts and fixes made in advance that wait for the person; they are
     counted and listed apart from "needs you" and never raise the tone.
+    ``browsers`` are the agents' live browsers (``agent_id``, ``running``,
+    ``request_id``, ``reason``): a task running in one is a running row, an open
+    takeover request is a needs-you row; both open that agent's browser view.
     """
     running, board_needs, mission_ids = _from_board(board or {})
     for job in jobs:
@@ -147,6 +151,28 @@ def build_status_light(
         }
         for card in attention
     ] + board_needs
+    for browser in browsers:
+        link = {"agent_id": str(browser.get("agent_id") or "")}
+        if browser.get("request_id"):
+            needs_you.append(
+                {
+                    "kind": "browser_takeover",
+                    "id": str(browser["request_id"]),
+                    "title": _text(browser.get("reason")),
+                    "state": "waiting",
+                    "link": link,
+                }
+            )
+        elif browser.get("running"):
+            running.append(
+                {
+                    "kind": "browser",
+                    "id": link["agent_id"],
+                    "title": _text(browser.get("title")),
+                    "state": "working",
+                    "link": link,
+                }
+            )
     trouble = [
         {
             "provider": seat.provider,

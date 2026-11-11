@@ -24,6 +24,10 @@ export interface BrowserViewState {
   pointer?: BrowserPointerState;
   approval?: { id: string; action: string };
   dialog?: { type: string; message: string };
+  /** The agent asked the person to take over (CAPTCHA, sign-in, a second factor). */
+  takeoverRequest?: { id: string; reason: string };
+  /** What the agent was told when the person last handed the browser back: no typed content. */
+  handback?: { text: string; inputs: number; typed: boolean };
   /** Another agent holds this shared browser profile; the view retries until it is free. */
   busy?: { holderId: string; holderName: string; running: boolean };
   /** The shared profile was opened for another agent; this view stops reconnecting. */
@@ -260,6 +264,13 @@ export function useBrowserView(agentId: string, enabled = true) {
               setState((s) => ({ ...s, approval: undefined }));
             } else if (event.kind === "dialog_cleared") {
               setState((s) => ({ ...s, dialog: undefined }));
+            } else if (event.kind === "takeover_request") {
+              setState((s) => ({ ...s, takeoverRequest: { id: String(event.id ?? ""), reason: String(event.reason ?? "") }, handback: undefined }));
+            } else if (event.kind === "takeover_request_cleared") {
+              setState((s) => ({ ...s, takeoverRequest: undefined }));
+            } else if (event.kind === "handback") {
+              setState((s) => ({ ...s, takeoverRequest: undefined,
+                handback: { text: String(event.text ?? ""), inputs: Number(event.inputs ?? 0), typed: event.typed === true } }));
             } else if (event.kind === "warning") {
               setState((s) => ({ ...s, error: event.error }));
             }

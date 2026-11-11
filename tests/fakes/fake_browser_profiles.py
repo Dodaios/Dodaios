@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
+from dodaios.society.browser.takeover import TakeoverState
+
 
 class ProfileRoster:
     def __init__(self):
@@ -111,6 +113,7 @@ class ProfileSession:
         self.window_upgrade_pending = False
         self.state = {"full_window": True}
         self.commands = []
+        self.takeover = TakeoverState()
 
     async def close(self):
         self.closed = True

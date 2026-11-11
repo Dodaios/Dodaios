@@ -1562,6 +1562,16 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         };
         return { ...base, items: [...items, failed] };
       }
+      if (kind === "browser_takeover_done") {
+        // The owner handed the browser back (or the ask lapsed): the card says so, no row of its own.
+        const requestId = str(p.request_id);
+        const index = base.items.findIndex(
+          (item) => item.type === "notice" && item.kind === "browser_takeover" && str(item.data.request_id) === requestId,
+        );
+        if (index < 0) return base;
+        const card = base.items[index] as NoticeItem;
+        return { ...base, items: replaceAt(base.items, index, { ...card, resolved: str(p.status) || "handed_back", status: str(p.status) }) };
+      }
       if (kind === "proposal_resolved") {
         // The outcome of a proposal patches the card it answers, never a second row.
         const proposalId = str(p.proposal_id);

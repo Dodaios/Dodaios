@@ -292,7 +292,7 @@ class LeadReport:
 
 @dataclass(slots=True)
 class LeadCard:
-    """A card the lead's turn opened and waits on: ``kind`` is approval or question."""
+    """A card the lead's turn opened and waits on: ``kind`` is approval, question or takeover."""
 
     kind: str
     summary: str
@@ -411,6 +411,15 @@ async def answer_in_lead(
                     early.clear()
                 elif payload.get("turn_id"):
                     early.append((kind, payload))
+                continue
+            if kind == "notice" and payload.get("kind") == "browser_takeover":
+                # The agent's browser needs the owner while this turn waits on it.
+                if on_card is not None:
+                    try:
+                        reason = str(payload.get("text") or "")[:300]
+                        await on_card(LeadCard("takeover", reason, []))
+                    except Exception:  # noqa: BLE001 — a card line that cannot be sent costs only itself
+                        log.warning("lead thread: takeover line not sent", exc_info=True)
                 continue
             if str(payload.get("turn_id") or "") != turn_id:
                 continue

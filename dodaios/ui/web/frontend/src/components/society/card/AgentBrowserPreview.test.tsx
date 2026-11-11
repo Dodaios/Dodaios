@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { AgentBrowserPreview } from "./AgentBrowserPreview";
 import type { SocietyAgent } from "../data";
@@ -23,6 +23,10 @@ vi.mock("@/i18n", () => ({
     "society.browser_profiles.sign_in_chrome": "Sign in directly in Chrome",
     "society.browser_profiles.preview_paused": "Sign in directly in Chrome. The preview is paused.",
     "society.browser_live.return_control": "Return control",
+    "society.browser_takeover.requested": "The agent asks you to take over",
+    "society.browser_takeover.private_hint": "What you type goes only to the page.",
+    "society.browser_takeover.handed_back": "Handed back.",
+    "society.browser_takeover.handed_back_typed": "Handed back, typed text not shared.",
     "society.browser_live.repair": "Repair browser",
     "society.browser_profiles.google_signin_rejected": "Google declined this sign-in",
     "society.browser_profiles.google_signin_recovery": "Sign in yourself in regular Chrome, then connect its profile.",
@@ -41,7 +45,9 @@ const { control, state, view, browser } = vi.hoisted(() => ({
   browser: { open: true, mode: "own", connected: true, profileName: "" },
   state: { connected: true, ready: true, fullWindow: false, extendedInput: false, previewPaused: false, loginMode: false, loginReady: false, loginAvailable: false, manual: false, running: false,
     url: "https://example.com", target: "one", tabs: [{ id: "one", url: "https://example.com" }], error: "",
-    busy: undefined as undefined | { holderId: string; holderName: string; running: boolean }, movedTo: "" },
+    busy: undefined as undefined | { holderId: string; holderName: string; running: boolean }, movedTo: "",
+    takeoverRequest: undefined as undefined | { id: string; reason: string },
+    handback: undefined as undefined | { text: string; inputs: number; typed: boolean } },
 }));
 vi.mock("./useBrowserView", () => ({
   useBrowserView: (agentId: string, enabled: boolean) => {
@@ -70,9 +76,29 @@ afterEach(() => {
   state.url = "https://example.com";
   state.loginMode = false; state.loginReady = false; state.loginAvailable = false;
   state.busy = undefined; state.movedTo = "";
+  state.takeoverRequest = undefined; state.handback = undefined;
   vi.unstubAllGlobals();
 });
 describe("live agent browser", () => {
+  test("an agent's takeover request shows its reason and the owner takes over from it", () => {
+    state.takeoverRequest = { id: "r1", reason: "Solve the CAPTCHA" };
+    mount();
+    expect(screen.getByTestId("browser-takeover-request").textContent).toContain("Solve the CAPTCHA");
+    fireEvent.click(within(screen.getByTestId("browser-takeover-request")).getByRole("button", { name: "Take control" }));
+    expect(control).toHaveBeenCalledWith("takeover", { enabled: true });
+  });
+  test("while the owner controls it, the privacy hint shows and the request is gone", () => {
+    state.takeoverRequest = { id: "r1", reason: "Solve the CAPTCHA" };
+    state.manual = true;
+    mount();
+    expect(screen.queryByTestId("browser-takeover-request")).toBeNull();
+    expect(screen.getByTestId("browser-takeover-hint").textContent).toContain("only to the page");
+  });
+  test("after a hand-back it says what the agent was told, never the typed text", () => {
+    state.handback = { text: "The owner worked in the browser", inputs: 3, typed: true };
+    mount();
+    expect(screen.getByTestId("browser-handback").textContent).toBe("Handed back, typed text not shared.");
+  });
   test("reload and restart remain visible in the compact full-window login view", () => {
     state.manual = true; state.fullWindow = true;
     state.loginMode = true; state.loginReady = true; state.loginAvailable = true;

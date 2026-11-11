@@ -127,6 +127,12 @@
       "record_spent": "{0} ausgegeben",
       "record_last_active": "zuletzt aktiv {0}"
     },
+    "browser_takeover": {
+      "requested": "Der Agent bittet dich, seinen Browser zu übernehmen",
+      "private_hint": "Du hast die Kontrolle. Was du tippst, geht nur an die Seite: Es wird nicht protokolliert und der Agent sieht es nie.",
+      "handed_back": "Zurückgegeben. Der Agent weiß, auf welcher Seite du ihn gelassen hast.",
+      "handed_back_typed": "Zurückgegeben. Der Agent weiß, auf welcher Seite du ihn gelassen hast, aber nicht, was du getippt hast."
+    },
     "browser_profiles": {
       "profile_unavailable": "Profil getrennt — bitte ein Profil auswählen",
       "chrome_offline": "Chrome nicht verbunden",
