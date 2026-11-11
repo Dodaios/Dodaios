@@ -1,7 +1,7 @@
 """Reasoning-effort levels per agent-chat provider.
 
 Every provider exposes its own ladder: Claude Code takes ``--effort low |
-medium | high | xhigh | max``, the Codex CLI ``low .. ultra`` (per model), the
+medium | high | xhigh | max`` (and ``ultracode``), the Codex CLI ``low .. ultra`` (per model), the
 OpenAI API ``none .. max`` (per model), Gemini 3 has three ``thinking_level``
 steps, Antigravity's ``agy`` takes ``low | medium | high`` (per model, none
 on its Claude models). The picker in the
@@ -28,6 +28,7 @@ ORDER: Final[tuple[str, ...]] = (
     "xhigh",
     "max",
     "ultra",
+    "ultracode",
 )
 
 # Provider id -> (offered levels in ascending order, default level).
@@ -42,7 +43,11 @@ _LADDERS: Final[dict[str, tuple[tuple[str, ...], str]]] = {
     # model does not offer down to its nearest one). So the pick means the
     # same thing on the front page's chat, where the API always answers, as
     # it does on a Claude Code seat in the IDE's.
-    "claude-api": (("low", "medium", "high", "xhigh", "max"), "high"),
+    # ``ultracode`` is Claude Code's own top step: ``--effort max`` plus the
+    # session-scoped ``ultracode`` setting (standing multi-agent workflow
+    # orchestration). The catalog offers it only where Claude Code answers;
+    # the API runner treats it as ``max``.
+    "claude-api": (("low", "medium", "high", "xhigh", "max", "ultracode"), "high"),
     # OpenAI reasoning.effort for the GPT-5 family (``max`` since GPT-5.6;
     # ``minimal`` only on the older 5.x — the plugin retries without a level
     # the model rejects).

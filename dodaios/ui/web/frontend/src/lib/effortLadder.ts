@@ -5,7 +5,7 @@
 import type { CuratedModel } from "@/lib/agentChatApi";
 
 /** The universal ordering (effort.py `ORDER`); every ladder is a sub-sequence. */
-export const EFFORT_ORDER: readonly string[] = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"];
+export const EFFORT_ORDER: readonly string[] = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra", "ultracode"];
 
 /**
  * The levels on offer for `modelId`: the model's own when the catalog lists

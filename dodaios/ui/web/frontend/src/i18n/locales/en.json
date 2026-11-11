@@ -1191,6 +1191,7 @@
     "effort_xhigh": "Extra high",
     "effort_max": "Max",
     "effort_ultra": "Ultra (delegates tasks)",
+    "effort_ultracode": "Ultracode (multi-agent)",
     "mode_build": "Build",
     "mode_plan": "Plan",
     "build_hint": "Build mode — the agent may change files. Click for Plan mode.",
@@ -7984,7 +7985,9 @@
     "technical_details": "Technical details",
     "ran": "Ran",
     "getting_ready": "Getting ready",
-    "tokens_hint": "Input {input} tokens new to the model ({cached} more reused from the cache) · output {output} tokens"
+    "tokens_hint": "Input {input} tokens new to the model ({cached} more reused from the cache) · output {output} tokens",
+    "open_beside": "Show in the side panel",
+    "open_file_beside": "Show {file} in the side panel"
   },
   "work_trace": {
     "tool_failed": "A tool action failed",
@@ -8504,7 +8507,8 @@
       "subscriptions": "Subscriptions",
       "office": "Dodaios Verse",
       "chat": "Chat",
-      "resources": "Resources"
+      "resources": "Resources",
+      "file": "File"
     },
     "subscriptions": {
       "bank": {
@@ -9412,6 +9416,19 @@
         "terminal_host": "Terminal host",
         "thread_host": "Thread host"
       }
+    },
+    "file": {
+      "empty": "Click a file in a thread's work to read it here.",
+      "views": "File views",
+      "view_file": "File",
+      "view_change": "Change",
+      "reload": "Read the file again",
+      "loading": "Reading the file",
+      "binary": "This file is not text, so it cannot be shown here.",
+      "too_large": "This file is too large to show here.",
+      "unavailable": "This file cannot be read. It may have been moved or deleted.",
+      "no_workspace": "Open a project to read files here.",
+      "show_change": "Show the change"
     }
   },
   "appshots": {
@@ -10748,7 +10765,17 @@
     "open_side_by_side": "Open side by side",
     "drop_side_by_side": "Drop to open side by side",
     "drop_replace": "Drop to replace this thread",
-    "close_column": "Close {target}"
+    "close_column": "Close {target}",
+    "plan_usage": {
+      "heading": "Plan usage",
+      "session": "Session",
+      "weekly": "Week",
+      "weekly_scoped": "Week · {scope}",
+      "monthly": "Month",
+      "other": "Limit",
+      "chip": "{limit} {percent}%",
+      "title": "{plan}: {limit} limit {percent}% used. Click for every limit and when it resets."
+    }
   },
   "ide_view": {
     "split_right": "Right",

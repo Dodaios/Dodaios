@@ -1338,6 +1338,8 @@ export function effortLabel(level: string, t: (key: string) => string): string {
       return t("agent_chat.effort_max");
     case "ultra":
       return t("agent_chat.effort_ultra");
+    case "ultracode":
+      return t("agent_chat.effort_ultracode");
     default:
       return level;
   }

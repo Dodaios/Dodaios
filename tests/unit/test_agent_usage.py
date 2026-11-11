@@ -547,3 +547,137 @@ def test_grok_missing_usage_does_not_invent_zero(tmp_path, monkeypatch):
     monkeypatch.setattr(agent_usage, "_http_get_json", lambda *args: {"config": {}})
     usage = agent_usage.read_usage(_account("grok-build", tmp_path))
     assert usage.status == "unavailable" and usage.windows == ()
+
+
+# ------------------------------------------------- claude, remembered readings
+
+
+@pytest.fixture(autouse=True)
+def _remembered_in_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remembered readings go to the test's own folder, never the user's data dir."""
+    monkeypatch.setattr(agent_usage, "_remembered_path", lambda: tmp_path / "remembered.json")
+    agent_usage.clear_cache()
+
+
+def _signed_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    from dodaios import claude_credentials
+
+    monkeypatch.setattr(
+        claude_credentials,
+        "claude_login_in",
+        lambda _dir: SimpleNamespace(status="valid", access_token="token"),  # noqa: S106
+    )
+
+
+def _future(hours: float) -> int:
+    import time
+
+    return int(time.time() + hours * 3600)
+
+
+def test_the_stream_reports_fractions_and_the_meter_shows_percent() -> None:
+    """``rate_limit_event`` says 0.16; the meter must say 16 %, per window."""
+    info = {
+        "status": "allowed",
+        "rateLimitType": "five_hour",
+        "utilization": 0.42,
+        "resetsAt": _future(2),
+        "unifiedWindows": {
+            "seven_day": {"utilization": 0.16, "resetsAt": _future(48), "status": "allowed"},
+            "seven_day_opus": {"utilization": 0.9, "resetsAt": _future(48)},
+            "five_hour_without_number": {"status": "allowed"},
+        },
+    }
+    windows = {(w.kind, w.scope_label): w for w in agent_usage._claude_stream_windows(info)}
+    assert windows[("weekly", None)].percent == 16
+    assert windows[("session", None)].percent == 42
+    assert windows[("session", None)].window_minutes == 300
+    assert windows[("weekly_scoped", "Opus")].severity == "warning"
+    assert len(windows) == 3, "a window without a number is not drawn"
+
+
+def test_a_rate_limited_endpoint_shows_what_the_stream_reported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The endpoint answers 429; the turn's own stream still fills the meter, marked as reported."""
+    from dodaios import agent_accounts
+
+    seat = _account("claude", tmp_path)
+    monkeypatch.setattr(agent_accounts, "list_accounts", lambda _platform: [seat])
+    agent_usage.note_claude_rate_limit(
+        str(tmp_path),
+        {"unifiedWindows": {"seven_day": {"utilization": 0.16, "resetsAt": _future(48)}}},
+    )
+    usage = agent_usage.read_usage(seat)
+    assert usage.status == "ok"
+    assert usage.source == "cached"
+    assert usage.as_of is not None
+    assert [(w.kind, w.percent) for w in usage.windows] == [("weekly", 16)]
+
+
+def test_a_stream_reading_for_another_seat_is_not_painted_on_this_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dodaios import agent_accounts
+
+    seat = _account("claude", tmp_path / "one")
+    monkeypatch.setattr(agent_accounts, "list_accounts", lambda _platform: [seat])
+    agent_usage.note_claude_rate_limit(
+        str(tmp_path / "two"), {"unifiedWindows": {"seven_day": {"utilization": 0.5}}}
+    )
+    assert agent_usage.read_usage(seat).status != "ok"
+
+
+def test_a_live_reading_is_remembered_and_a_reset_window_is_dropped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The endpoint fails after a good read: its numbers stay, minus windows that reset."""
+    from datetime import UTC, datetime
+
+    _signed_in(monkeypatch)
+    seat = _account("claude", tmp_path)
+    past = datetime.fromtimestamp(_future(-1), UTC).isoformat()
+    later = datetime.fromtimestamp(_future(30), UTC).isoformat()
+    payload = {
+        "five_hour": {"utilization": 60.0, "resets_at": past},
+        "seven_day": {"utilization": 20.0, "resets_at": later},
+    }
+    monkeypatch.setattr(agent_usage, "_http_get_json", lambda url, headers: payload)
+    live = agent_usage.read_usage(seat)
+    assert live.source == "live"
+    assert len(live.windows) == 2
+
+    monkeypatch.setattr(agent_usage, "_http_get_json", lambda url, headers: None)
+    remembered = agent_usage.read_usage(seat)
+    assert remembered.source == "cached"
+    assert [(w.kind, w.percent) for w in remembered.windows] == [("weekly", 20)]
+
+    # A new process reads the same numbers back from disk.
+    agent_usage.clear_cache()
+    assert [w.kind for w in agent_usage.read_usage(seat).windows] == ["weekly"]
+
+
+def test_a_rate_limited_login_is_not_asked_again_at_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Asking every minute keeps a 429 alive; the next try waits, and only for that login."""
+    monkeypatch.setattr(agent_usage, "_http_get_json", _REAL_HTTP_GET_JSON)
+    attempts: list[str] = []
+
+    class _Limited:
+        def get(self, url: str, **kw: object) -> object:
+            attempts.append(str((kw.get("headers") or {}).get("Authorization")))
+
+            class _Response:
+                status_code = 429
+                headers = {"retry-after": "0"}
+
+            return _Response()
+
+    monkeypatch.setattr(agent_usage._HTTP_POOL, "client", lambda: _Limited())
+    one = {"Authorization": "Bearer one"}
+    two = {"Authorization": "Bearer two"}
+    assert agent_usage._http_get_json("https://example.invalid/usage", one) is None
+    assert agent_usage._http_get_json("https://example.invalid/usage", one) is None
+    assert agent_usage._http_get_json("https://example.invalid/usage", two) is None
+    assert attempts == ["Bearer one", "Bearer two"]

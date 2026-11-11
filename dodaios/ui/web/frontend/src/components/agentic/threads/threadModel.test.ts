@@ -55,6 +55,16 @@ describe("projectIdFor", () => {
     expect(grouped.get("inner")?.map((row) => row.session_id)).toEqual(["new", "old"]);
     expect([...grouped.keys()]).toEqual(["inner"]);
   });
+
+  it("orders by the last message, so a working thread's tool calls never move it", () => {
+    const projects = [project("app", "/code/app")];
+    const grouped = threadsByProject([
+      session("asked-first-still-working", "/code/app", { last_message_ms: 10, updated_ms: 99 }),
+      session("asked-last", "/code/app", { last_message_ms: 20, updated_ms: 21 }),
+      session("old-backend", "/code/app", { updated_ms: 15 }),
+    ], projects, {});
+    expect(grouped.get("app")?.map((row) => row.session_id)).toEqual(["asked-last", "old-backend", "asked-first-still-working"]);
+  });
 });
 
 describe("threadStatus", () => {
