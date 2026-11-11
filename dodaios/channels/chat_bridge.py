@@ -50,7 +50,9 @@ class ChannelChatBridge:
         manager: ChannelManager,
         get_chat_service: Callable[[], Any | None] | None = None,
         phone_allows: Callable[[str], bool] | None = None,
+        get_scheduler: Callable[[], Any | None] | None = None,
     ) -> None:
+        self._get_scheduler = get_scheduler
         self._bus = bus
         self._manager = manager
         self._get_chat_service = get_chat_service
@@ -126,6 +128,8 @@ class ChannelChatBridge:
             return
         svc = self._lead_service(name, msg)
         if svc is not None:
+            if await self._owner_stop_or_resume(svc, name, msg, text):
+                return
             if await self._answers_open_card(svc, text):
                 return  # the waiting turn goes on and answers this chat itself
             # The owner's own private chat continues the assistant's one
@@ -155,6 +159,55 @@ class ChannelChatBridge:
                 source_layer=f"channel.{name}",
             )
         )
+
+    async def _owner_stop_or_resume(
+        self, svc: Any, name: str, msg: ChannelMessage, text: str
+    ) -> bool:
+        """The owner's "stop" halts everything; "resume" lifts a stop that is in force.
+
+        Only the owner's private chat gets here (``_lead_service``), and only a
+        message that is nothing but the stop word counts. The answer is the
+        one written confirmation the owner asked for, so it is sent whatever
+        the routing choices for progress chatter say. "Resume" is an ordinary
+        message when no stop is in force.
+        """
+        from dodaios.safety.stop_everything import (
+            is_resume_everything,
+            is_stop_everything,
+            resume_everything,
+            stop_everything,
+        )
+        from dodaios.safety.stop_hold import stop_holds
+
+        stopping = is_stop_everything(text)
+        if not stopping and not (
+            is_resume_everything(text) and stop_holds().get("everything") is not None
+        ):
+            return False
+        language = _language_of(text)
+        scheduler = self._get_scheduler() if self._get_scheduler is not None else None
+        try:
+            if stopping:
+                from dodaios.orchestrator.jobs import get_ledger
+
+                report = await stop_everything(
+                    chat_service=svc,
+                    scheduler=scheduler,
+                    ledger=get_ledger(),
+                    bus=self._bus,
+                    reason=f"Stopped from {name}",
+                    source=name,
+                )
+                line = report.message(language)
+            else:
+                line = (
+                    await resume_everything(scheduler=scheduler, source=name)
+                ).message(language)
+        except Exception as exc:  # noqa: BLE001 — say so honestly; the hold is already written
+            log.warning("ChannelChatBridge: owner %s from '%s' failed: %s", text, name, exc)
+            line = _failure_line("error", language)
+        await self._reply(name, msg, line)
+        return True
 
     def _lead_service(self, name: str, msg: ChannelMessage) -> Any | None:
         """The chat service when this message belongs in the lead conversation.

@@ -40,6 +40,7 @@ from dodaios.core.events import (
 )
 from dodaios.core.misfire import is_missed, late_by_s
 from dodaios.core.protocols import RoutineDeferred, current_trigger_path
+from dodaios.safety.stop_hold import StopHold, stop_holds
 from dodaios.tasks.event_catalog import EXCLUDED_EVENT_NAMES
 from dodaios.tasks.hook_events import RoutineEventReceived
 from dodaios.tasks.schema import PAUSABLE_TRIGGER_TYPES, TERMINAL_STATES, TaskSpec
@@ -146,6 +147,8 @@ class TaskScheduler:
         # Per-run cancel tokens (H-03): cancel_task() fires the token of a
         # RUNNING task so its harness action stops; cleared in _safe_run.
         self._running_tokens: dict[str, Any] = {}
+        #: Running tasks the owner stopped: parked as ``paused`` when they end.
+        self._park_after_run: set[str] = set()
         # Retained after cancel/pause so an already queued firing is revalidated.
         self._autonomous_ids: set[str] = set()
         #: Optional owner check (see :meth:`attach_owner_gate`).
@@ -517,9 +520,12 @@ class TaskScheduler:
         except Exception:  # noqa: BLE001
             log.exception("run_now: could not restore state=%s for task=%s", restore_state, task_id)
 
-    async def pause(self, task_id: str) -> None:
+    async def pause(self, task_id: str, *, owner_reason: str = "") -> None:
         """Switch a recurring/``on_event`` task off: it leaves the heap and
         the event index and its state becomes ``paused``. Idempotent.
+
+        ``owner_reason`` marks the pause as the owner: it is written to the
+        stop-hold record so no automatic path resumes the routine.
 
         Raises :class:`TaskNotFound` / :class:`TaskStateConflict` (one-shot
         trigger, running, or terminal).
@@ -534,16 +540,70 @@ class TaskScheduler:
                 f"only recurring tasks can be paused (trigger={task['trigger_type']})"
             )
         state = task["state"]
-        if state == "paused":
-            return
         if state == "running":
             raise TaskStateConflict("task is running — wait for it to finish")
         if state in TERMINAL_STATES:
             raise TaskStateConflict(f"task is already final (state={state})")
+        if owner_reason:
+            stop_holds().hold("routine", task_id, reason=owner_reason, source="owner")
+        if state == "paused":
+            return
         self._remove_from_memory(task_id)
         await self._store.update_state(task_id, "paused")
         await self._store.append_step(task_id, "log", {"event": "paused"})
         self._wakeup.set()
+
+    async def _park_for_hold(self, task_id: str, held: StopHold) -> None:
+        """Leave a held routine as ``paused`` (resumable), out of the heap."""
+        self._remove_from_memory(task_id)
+        row = await self._store.get(task_id)
+        if row is None or row["state"] not in ("pending", "scheduled"):
+            return
+        await self._store.update_state(task_id, "paused")
+        await self._store.append_step(
+            task_id, "log", {"event": "paused", "reason": f"stop-hold:{held.kind}"}
+        )
+
+    async def hold_all(self, reason: str) -> dict[str, list[str]]:
+        """Stop every routine for the owner stop on everything.
+
+        Armed routines (recurring and one-shot) leave the heap and become
+        ``paused``; a run in flight gets its cancel token fired and is parked
+        as ``paused`` once it has settled, so the routine can be resumed
+        instead of ending as cancelled. Returns ``{"paused": [...],
+        "interrupted": [...]}`` (task ids). The stop-hold record that makes it
+        stick must already exist: :meth:`_safe_run` refuses held routines.
+        """
+        paused: list[str] = []
+        interrupted: list[str] = []
+        for row in await self._store.list(["pending", "scheduled"], limit=10_000):
+            task_id = str(row["id"])
+            self._remove_from_memory(task_id)
+            await self._store.update_state(task_id, "paused")
+            await self._store.append_step(
+                task_id, "log", {"event": "paused", "reason": reason[:120]}
+            )
+            paused.append(task_id)
+        for task_id, token in list(self._running_tokens.items()):
+            token.cancel("owner_stop")
+            self._park_after_run.add(task_id)
+            interrupted.append(task_id)
+        self._wakeup.set()
+        return {"paused": paused, "interrupted": interrupted}
+
+    async def _settle_parked(self, task_id: str) -> None:
+        """After a run the owner stopped has ended: paused, not cancelled."""
+        self._park_after_run.discard(task_id)
+        try:
+            row = await self._store.get(task_id)
+            if row is not None and row["state"] in ("cancelled", "scheduled", "running"):
+                self._remove_from_memory(task_id)
+                await self._store.update_state(task_id, "paused")
+                await self._store.append_step(
+                    task_id, "log", {"event": "paused", "reason": "stopped by the owner"}
+                )
+        except Exception:  # noqa: BLE001 — the stop itself already took effect
+            log.warning("could not park stopped task %s", task_id, exc_info=True)
 
     async def update_task(self, task_id: str, spec: TaskSpec) -> None:
         """Replace a recurring schedule while keeping its identity and pause state."""
@@ -563,10 +623,21 @@ class TaskScheduler:
         await self._store.append_step(task_id, "log", {"event": "updated"})
 
     async def resume(
-        self, task_id: str, *, now_ns: int | None = None, notify_activation: bool = True
+        self,
+        task_id: str,
+        *,
+        now_ns: int | None = None,
+        notify_activation: bool = True,
+        owner: bool = False,
     ) -> int | None:
         """Switch a paused task back on and re-register it for its NEXT
         occurrence. Returns the new ``due_at_ns`` (``None`` for ``on_event``).
+
+        A routine the owner stopped stays stopped: an automatic caller (a
+        parking sweep, a self-build wake-up) gets :class:`TaskStateConflict`.
+        Only the owner's own action passes ``owner=True``, which lifts the
+        routine hold. A hold on everything is lifted by
+        ``dodaios.safety.stop_everything.resume_everything``, never here.
 
         An ``every`` task anchored with ``start_at`` keeps its wall-clock
         anchor: the next due time is ``start_at + k * interval``, the first
@@ -578,6 +649,13 @@ class TaskScheduler:
             raise TaskNotFound(task_id)
         if task["state"] != "paused":
             raise TaskStateConflict(f"task is not paused (state={task['state']})")
+        held = stop_holds().blocking(routine=task_id)
+        if held is not None:
+            if not owner or held.kind != "routine":
+                raise TaskStateConflict(
+                    f"task is held by the owner stop ({held.kind}); only the owner resumes it"
+                )
+            stop_holds().release("routine", task_id)
         spec = await self._store.get_spec(task_id)
         if spec is None:
             raise TaskNotFound(task_id)
@@ -1027,6 +1105,13 @@ class TaskScheduler:
 
         if task_id in self._running_tokens:
             return  # A queued/manual firing cannot overlap an already admitted run.
+        # The owner stop holds across restarts and follow-ups: a held routine
+        # never starts, however it was triggered (timer, event, hook, manual
+        # run from a repair path). It is parked as paused so it shows as such.
+        held = stop_holds().blocking(routine=task_id)
+        if held is not None:
+            await self._park_for_hold(task_id, held)
+            return
         token = CancelToken()
         self._running_tokens[task_id] = token
         path = tuple((trigger_event or {}).get("__trigger_path") or current_trigger_path.get())
@@ -1051,6 +1136,8 @@ class TaskScheduler:
         finally:
             self._running_tokens.pop(task_id, None)
             current_trigger_path.reset(context_token)
+            if task_id in self._park_after_run:
+                await self._settle_parked(task_id)
 
     async def shutdown(self) -> None:
         """Waits for runner tasks to finish (with a timeout).

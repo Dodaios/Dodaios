@@ -801,6 +801,9 @@ class TaskRunner:
             tool,
             dict(action.args),
             user_utterance=f"<task:{task_id}>",
+            # A scheduled run has no owner in it: reversibility decides what
+            # may run unasked, and the owner's stop holds for this routine.
+            config_snapshot={"autonomy_origin": "routine", "task_id": task_id},
         )
         success = bool(getattr(result, "success", False))
         seq = await self._store.append_step(
