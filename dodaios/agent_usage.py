@@ -550,6 +550,11 @@ _REMEMBERED: dict[str, dict[str, Any]] = {}
 #: Whether the file was read in this process; a list so it mutates in place.
 _REMEMBERED_LOADED: list[bool] = [False]
 
+#: Stream windows that are no limit of the plan: the week counted together
+#: with extra usage (Claude Code's own status line calls it "7d_oi") and the
+#: extra-usage credit. The plan's real week arrives as ``seven_day``.
+_CLAUDE_STREAM_SKIPPED: frozenset[str] = frozenset({"seven_day_overage_included", "overage"})
+
 #: The stream's names for Claude's windows: (kind, scope label).
 _CLAUDE_STREAM_WINDOWS: dict[str, tuple[str, str | None]] = {
     "five_hour": ("session", None),
@@ -601,7 +606,15 @@ def _write_remembered(snapshot: dict[str, dict[str, Any]]) -> None:
 
 
 def _window_key(window: UsageWindow) -> tuple[str, str]:
-    return window.kind, window.scope_label or window.raw_label or ""
+    """One key per limit, whichever source named it.
+
+    The endpoint calls the overall week ``weekly_all`` and the stream calls it
+    ``seven_day``; both are the same limit, so the provider's raw name only
+    tells two windows apart when nothing else does (an unrecognised one).
+    """
+    if window.kind == "other":
+        return window.kind, window.raw_label or ""
+    return window.kind, window.scope_label or ""
 
 
 def _window_from_dict(raw: Any) -> UsageWindow | None:
@@ -625,11 +638,15 @@ def _window_from_dict(raw: Any) -> UsageWindow | None:
     )
 
 
-def _remember(account_id: str, windows: tuple[UsageWindow, ...], as_of: float) -> None:
+def _remember(
+    account_id: str, windows: tuple[UsageWindow, ...], as_of: float, *, complete: bool = False
+) -> None:
     """Keep *windows* for the seat, merged over what it already had.
 
     A stream event names one or two windows; the others the seat had stay, so
     a turn that reports the week never wipes the session window read earlier.
+    A *complete* reading (the usage endpoint lists every limit the plan has)
+    replaces them instead: a limit the plan no longer has must not linger.
     Saved at once from a worker thread, and off the event loop from the
     stream pump.
     """
@@ -640,7 +657,7 @@ def _remember(account_id: str, windows: tuple[UsageWindow, ...], as_of: float) -
         entry = _REMEMBERED.get(account_id) or {}
         known: dict[tuple[str, str], UsageWindow] = {}
         for old in (_window_from_dict(d) for d in entry.get("windows") or []):
-            if old is not None:
+            if old is not None and not complete and not _skipped(old):
                 known[_window_key(old)] = old
         for window in windows:
             known[_window_key(window)] = window
@@ -779,6 +796,11 @@ def claude_resets(account_id: str) -> dict[str, Any] | None:
     return dict(resets)
 
 
+def _skipped(window: UsageWindow) -> bool:
+    """A remembered stream window that is no limit of the plan (see ``_CLAUDE_STREAM_SKIPPED``)."""
+    return window.kind == "other" and (window.raw_label or "") in _CLAUDE_STREAM_SKIPPED
+
+
 def _epoch_of_iso(value: str | None) -> float | None:
     if not value:
         return None
@@ -799,14 +821,16 @@ def _remembered_usage(account: AgentAccount, plan: str | None) -> AccountUsage |
     now = time.time()
     if now - as_of > _REMEMBER_MAX_AGE_S:
         return None
-    windows: list[UsageWindow] = []
+    # Keyed, so a file written before the key was fixed shows each limit once.
+    by_key: dict[tuple[str, str], UsageWindow] = {}
     for window in (_window_from_dict(d) for d in entry.get("windows") or []):
-        if window is None:
+        if window is None or _skipped(window):
             continue
         resets = _epoch_of_iso(window.resets_at)
         if resets is not None and resets <= now:
             continue
-        windows.append(window)
+        by_key[_window_key(window)] = window
+    windows = list(by_key.values())
     if not windows:
         return None
     return AccountUsage(
@@ -841,6 +865,8 @@ def _claude_stream_windows(info: Any) -> tuple[UsageWindow, ...]:
         blocks[top] = {"utilization": info.get("utilization"), "resetsAt": info.get("resetsAt")}
     windows: list[UsageWindow] = []
     for name, block in blocks.items():
+        if name in _CLAUDE_STREAM_SKIPPED:
+            continue
         fraction = block.get("utilization")
         if isinstance(fraction, bool) or not isinstance(fraction, (int, float)):
             continue
@@ -910,7 +936,7 @@ def _claude_usage(account: AgentAccount) -> AccountUsage:
             # reset flag can never cost the meter.
             windows = _claude_windows(_http_get_json(_CLAUDE_PLAIN_USAGE_URL, headers))
         if windows:
-            _remember(account.id, windows, time.time())
+            _remember(account.id, windows, time.time(), complete=True)
             return AccountUsage(
                 account_id=account.id,
                 platform=account.platform,
