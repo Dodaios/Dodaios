@@ -55,7 +55,7 @@ public:
 	bool ReturnFocus();
 
 	/** A new deck frames the commander where they come aboard (parity V-22). */
-	void FrameArrival(const FTransform& Arrival);
+	void FrameArrival(const FTransform& Arrival, TOptional<double> PitchDeg = {});
 
 	/** `{view, person, distance, hfov, yaw, pitch, commander_hidden, locked}` (parity Q-05). */
 	FString StateJson() const;

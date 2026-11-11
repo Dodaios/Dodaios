@@ -102,10 +102,18 @@ bool AVerseDeckCamera::ReturnFocus()
 	return View == EVerseDeckView::Overview && Overview.Return();
 }
 
-void AVerseDeckCamera::FrameArrival(const FTransform& Arrival)
+void AVerseDeckCamera::FrameArrival(const FTransform& Arrival, TOptional<double> PitchDeg)
 {
 	Overview.CentreCm = Arrival.GetLocation();
 	Rig.SnapBehind(Arrival.Rotator().Yaw);
+	if (PitchDeg.IsSet())
+	{
+		// A deck can open on a raised view of its hall; the player's mouse takes over from there.
+		double Min = 0.0;
+		double Max = 0.0;
+		Rig.PitchLimits(Min, Max);
+		Rig.PitchDeg = FMath::Clamp(PitchDeg.GetValue(), Min, Max);
+	}
 }
 
 bool AVerseDeckCamera::CommanderPose(FVerseRigBody& Out) const

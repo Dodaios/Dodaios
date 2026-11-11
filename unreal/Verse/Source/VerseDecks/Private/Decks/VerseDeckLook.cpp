@@ -39,9 +39,12 @@ FVerseDeckLook FVerseDeckLook::For(FName Deck)
 		Look.VolumetricExtinction = 1.4;
 		Look.ExposureEV100 = 7.0;
 		Look.WorkLightKelvin = 5400.0;
-		// The lift and the commander spawn face the lobby's back wall; west looks across the
-		// arrivals apron into the hall.
-		Look.ArrivalYawDeg = 180.0;
+		// The lift and the commander spawn stand in the lift lobby, under its ceiling and facing
+		// its back wall. The commander arrives on the apron just outside instead, facing the arena
+		// centre (x 5000, y 2400): the cranes, the skylight shafts and the hall in frame.
+		Look.ArrivalLocationCm = FVector(6150.0, 4850.0, 0.0);
+		Look.ArrivalYawDeg = -111.8;
+		Look.ArrivalPitchDeg = 14.0;
 	}
 	return Look;
 }
