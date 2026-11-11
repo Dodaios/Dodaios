@@ -231,6 +231,7 @@ export function createNewPaneChatStore(options: NewPaneChatOptions) {
 
       newChat: () => set({ draft: seedDraft(first, options.folder) }),
       openSession: () => undefined,
+      preloadSession: () => undefined,
       removeSession: async () => undefined,
 
       send: async (text: string, attachments: ChatAttachment[] = []) => {

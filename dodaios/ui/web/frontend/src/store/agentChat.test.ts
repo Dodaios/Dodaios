@@ -812,3 +812,91 @@ describe("thread running state stays in step with the turn", () => {
     expect(store.getState().sessions[0]?.session_id).toBe("b-retry");
   });
 });
+
+describe("a thread read ahead opens painted", () => {
+  const stores: Array<ReturnType<typeof createAgentChatStore>> = [];
+  const make = (namespace: string) => {
+    const store = createAgentChatStore("agent", namespace);
+    stores.push(store);
+    return store;
+  };
+  const at = (seq: number, kind: string, payload: Record<string, unknown>): AgentChatEvent => ({ seq, ts_ms: 1, kind, payload });
+  const transcript = [at(1, "user_message", { text: "one" }), at(2, "turn_started", { turn_id: "t1" }), at(3, "turn_finished", { turn_id: "t1", status: "done" })];
+
+  /** A fetch whose session read waits for `release`, and counts how often it was asked. */
+  function heldRead(row: AgentChatSession, events: AgentChatEvent[]) {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const reads: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string) => {
+      const url = String(input);
+      if (url === `/api/agent-chat/sessions/${row.session_id}`) {
+        reads.push(url);
+        await gate;
+        return new Response(JSON.stringify({ session: row, events }), { status: 200 });
+      }
+      if (url.startsWith("/api/agent-chat/catalog")) return new Response(JSON.stringify({ providers: [], default_cwd: "C:\\work", shell: "pwsh" }), { status: 200 });
+      return new Response(null, { status: 404 });
+    }));
+    return { reads, release };
+  }
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    ScriptedSocket.all = [];
+    vi.stubGlobal("WebSocket", ScriptedSocket);
+  });
+  afterEach(() => {
+    for (const store of stores.splice(0)) store.getState().disconnect();
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps a thread read ahead, so opening it shows the transcript at once and streams only what came after", async () => {
+    const row = session("p-ahead", "agent");
+    const { reads, release } = heldRead(row, transcript);
+    const store = make("p-ahead");
+    store.setState({ sessions: [row] });
+    store.getState().preloadSession(row.session_id);
+    store.getState().preloadSession(row.session_id);
+    expect(reads).toHaveLength(1);
+    release();
+    // Let the read land in the store's cache.
+    for (let i = 0; i < 5; i += 1) await new Promise((resolve) => setTimeout(resolve, 0));
+    store.getState().openSession(row.session_id);
+    expect(store.getState().timeline.lastSeq).toBe(3);
+    expect(store.getState().timeline.items.length).toBeGreaterThan(0);
+    expect(afterOf(ScriptedSocket.last())).toBe(3);
+  });
+
+  it("shows a read still on its way when it lands before the socket's snapshot, then streams from its end", async () => {
+    const row = session("p-race", "agent");
+    const { release } = heldRead(row, transcript);
+    const store = make("p-race");
+    store.setState({ sessions: [row] });
+    store.getState().preloadSession(row.session_id);
+    store.getState().openSession(row.session_id);
+    const first = ScriptedSocket.last();
+    expect(afterOf(first)).toBe(0);
+    release();
+    await vi.waitFor(() => expect(store.getState().timeline.lastSeq).toBe(3));
+    expect(first.closed).toBe(true);
+    expect(afterOf(ScriptedSocket.last())).toBe(3);
+  });
+
+  it("drops a read that lands after the socket's snapshot", async () => {
+    const row = session("p-late", "agent");
+    const { release } = heldRead(row, transcript.slice(0, 1));
+    const store = make("p-late");
+    store.setState({ sessions: [row] });
+    store.getState().preloadSession(row.session_id);
+    store.getState().openSession(row.session_id);
+    const ws = ScriptedSocket.last();
+    ws.open();
+    ws.frame({ type: "snapshot", session: row, events: transcript });
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(store.getState().timeline.lastSeq).toBe(3);
+    expect(ScriptedSocket.all).toHaveLength(1);
+    expect(ws.closed).toBe(false);
+  });
+});

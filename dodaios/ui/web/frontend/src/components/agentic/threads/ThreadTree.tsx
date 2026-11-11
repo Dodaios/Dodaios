@@ -58,6 +58,32 @@ const ROW_HOVER_SHOWN = cn(
 /** The status mark gives its place to the actions. */
 const ROW_HOVER_HIDDEN = "group-hover/thread:hidden group-focus-within/thread:hidden [@media(hover:none)]:hidden";
 
+/** How long the pointer rests on a thread before it is read ahead. */
+const READ_AHEAD_MS = 120;
+
+/**
+ * A thread the pointer rests on is read before the click, so it opens
+ * painted rather than blank; passing over rows on the way elsewhere reads nothing.
+ */
+function useReadAhead() {
+  const timer = useRef<number | null>(null);
+  const stop = () => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = null;
+  };
+  useEffect(() => stop, []);
+  return {
+    start: (sessionId: string) => {
+      stop();
+      timer.current = window.setTimeout(() => {
+        timer.current = null;
+        useThreadChatStore.getState().preloadSession(sessionId);
+      }, READ_AHEAD_MS);
+    },
+    stop,
+  };
+}
+
 function readExpansion(): Record<string, boolean> {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(EXPANSION_KEY) ?? "{}");
@@ -127,6 +153,7 @@ export function ThreadTree() {
   const [searchOpen, setSearchOpen] = useState(false);
   const pushToast = useEventStore((state) => state.pushToast);
   const sessions = useThreadChatStore((state) => state.sessions);
+  const readAhead = useReadAhead();
   const catalog = useThreadChatStore((state) => state.catalog);
   const activeSessionId = useThreadChatStore((state) => state.activeSessionId);
   const selection = useIdeThreadsStore((state) => state.selection);
@@ -348,6 +375,8 @@ export function ThreadTree() {
               setDragged(session.session_id);
             }}
             onDragEnd={clearDrag}
+            onPointerEnter={() => readAhead.start(session.session_id)}
+            onPointerLeave={readAhead.stop}
             className={cn(
               "group/thread relative flex min-h-8 items-center rounded-md transition-colors hover:bg-muted",
               ((selected && !onSubagent) || menuOpen) && "bg-muted",

@@ -305,3 +305,36 @@ describe("working line tokens", () => {
   });
 });
 
+
+describe("switching threads", () => {
+  const user = (id: string, text: string) => ({ type: "user" as const, id, text, attachments: [], tsMs: 1 });
+
+  it("paints a newly opened thread's newest messages first and the older ones right after", async () => {
+    const first = [user("a1", "first thread")];
+    const second = Array.from({ length: 20 }, (_, index) => user(`b${index}`, `message ${index}`));
+    const { rerender } = render(<ThreadTimeline items={first} sessionId="a" bottomInset={0} />);
+    rerender(<ThreadTimeline items={second} sessionId="b" bottomInset={0} />);
+    // The newest show at once; the oldest wait a frame.
+    expect(screen.getByText("message 19")).toBeTruthy();
+    expect(screen.queryByText("message 0")).toBeNull();
+    expect(await screen.findByText("message 0")).toBeTruthy();
+    expect(screen.getByText("message 19")).toBeTruthy();
+  });
+
+  it("paints a thread opened from a new thread's page the same way", async () => {
+    render(<ThreadTimeline items={Array.from({ length: 20 }, (_, index) => user(`c${index}`, `line ${index}`))} sessionId="c" bottomInset={0} />);
+    expect(screen.getByText("line 19")).toBeTruthy();
+    expect(screen.queryByText("line 0")).toBeNull();
+    expect(await screen.findByText("line 0")).toBeTruthy();
+  });
+
+  it("paints a thread whose messages arrive after it opened the same way", async () => {
+    const { rerender } = render(<ThreadTimeline items={[user("a1", "first thread")]} sessionId="a" bottomInset={0} />);
+    rerender(<ThreadTimeline items={[]} sessionId="b" bottomInset={0} />);
+    const loaded = Array.from({ length: 20 }, (_, index) => user(`b${index}`, `message ${index}`));
+    rerender(<ThreadTimeline items={loaded} sessionId="b" bottomInset={0} />);
+    expect(screen.getByText("message 19")).toBeTruthy();
+    expect(screen.queryByText("message 0")).toBeNull();
+    expect(await screen.findByText("message 0")).toBeTruthy();
+  });
+});

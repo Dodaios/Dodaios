@@ -9,6 +9,7 @@ import {
   createAgentChatSession,
   deleteAgentChatSession,
   fetchAgentChatCatalog,
+  fetchAgentChatSession,
   fetchAgentChatSessions,
   fetchAgentConnections,
   fetchLeadSession,
@@ -208,6 +209,12 @@ export interface AgentChatStore {
    */
   newChat: (opts?: { voiceSessionId?: string }) => void;
   openSession: (sessionId: string) => void;
+  /**
+   * Read a thread the person is about to open (the pointer rests on it) over
+   * plain HTTP, so opening it paints at once instead of waiting for the
+   * socket's first frame. Fire and forget.
+   */
+  preloadSession: (sessionId: string) => void;
   removeSession: (sessionId: string) => Promise<void>;
   /** Send the sentence, with whatever files the composer is holding for it. */
   send: (text: string, attachments?: ChatAttachment[], toolChoices?: string[], onSessionCreated?: (session: AgentChatSession) => void) => Promise<void | "sent" | "failed" | "stale">;
@@ -396,6 +403,8 @@ function onLadder(value: string, ladder: readonly string[], fallback: string): s
 
 /** How many left-behind transcripts the store keeps for an instant switch-back. */
 const TIMELINE_CACHE_LIMIT = 24;
+/** Threads read ahead at once (`preloadSession`). */
+const PRELOAD_LIMIT = 2;
 
 /**
  * What `running` should say for the session this timeline belongs to.
@@ -542,6 +551,8 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
    * paints immediately while the socket refreshes.
    */
   const timelineCache = new Map<string, Timeline>();
+  /** Transcripts being read ahead of an open (`preloadSession`); null when the read failed. */
+  const preloads = new Map<string, Promise<Timeline | null>>();
   /** When this window last sent into a session whose next turn has not started yet. */
   const sentAt = new Map<string, number>();
   /** Drops a socket that stopped delivering frames without closing. */
@@ -1107,8 +1118,9 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
         // The transcript this window already holds for the session: the one
         // left behind on a switch, or the one still on screen when the same
         // session opens again after its socket was dropped.
-        const timeline = timelineCache.get(sessionId)
-          ?? (prev.activeSessionId === sessionId ? prev.timeline : EMPTY_TIMELINE);
+        const known = timelineCache.get(sessionId)
+          ?? (prev.activeSessionId === sessionId ? prev.timeline : null);
+        const timeline = known ?? EMPTY_TIMELINE;
         const row = prev.sessions.find((s) => s.session_id === sessionId)
           ?? (prev.activeSession?.session_id === sessionId ? prev.activeSession : null);
         set({
@@ -1124,6 +1136,34 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
         // Only what happened since the cached transcript; the snapshot folds
         // it on, and reads everything when the cache cannot be resumed.
         connect(sessionId, timeline.lastSeq);
+        const loading = known ? undefined : preloads.get(sessionId);
+        if (!loading) return;
+        // The thread is already being read over HTTP, which answers well
+        // before the socket's full first frame for a long one. Whichever
+        // lands first shows: a read that wins streams again from its end.
+        const socketAtOpen = socket;
+        void loading.then((read) => {
+          const st = get();
+          if (!read || st.activeSessionId !== sessionId || socket !== socketAtOpen) return;
+          if (st.timeline.lastSeq > 0 || st.timeline.items.length > 0) return; // the snapshot was first
+          set({ timeline: read, activeSession: st.activeSession ? aligned(st.activeSession, read) : null });
+          connect(sessionId, read.lastSeq);
+        });
+      },
+
+      preloadSession: (sessionId) => {
+        if (get().activeSessionId === sessionId || timelineCache.has(sessionId) || preloads.has(sessionId)) return;
+        // A sweep down the list reads one or two threads, not every one it crosses.
+        if (preloads.size >= PRELOAD_LIMIT) return;
+        const loading = fetchAgentChatSession(sessionId)
+          .then(({ events }) => reduceEvents(EMPTY_TIMELINE, events))
+          .catch(() => null);
+        preloads.set(sessionId, loading);
+        void loading.then((read) => {
+          preloads.delete(sessionId);
+          // Opened meanwhile: the open takes it from here.
+          if (read && get().activeSessionId !== sessionId) rememberTimeline(sessionId, read);
+        });
       },
 
       removeSession: async (sessionId) => {

@@ -624,6 +624,7 @@ export function createPaneChatStore(options: PaneChatStoreOptions) {
       },
       newChat: () => undefined,
       openSession: () => undefined,
+      preloadSession: () => undefined,
       removeSession: async () => undefined,
 
       send: async (text: string, attachments: ChatAttachment[] = []) => {
