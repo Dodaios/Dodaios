@@ -9,7 +9,7 @@ import { useAttentionStore } from "@/components/society/attention/attentionStore
  * refreshed when the attention list changes (that list already rides the
  * socket's `AgentAttentionChanged` push), when the window gets focus, and on a
  * slow interval only while the window is visible. It never notifies: this
- * store only feeds a glanceable chip.
+ * store only feeds the status list beside the conversation (`SidebarStatus`).
  */
 
 export interface StatusLink {

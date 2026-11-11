@@ -1,6 +1,8 @@
+import { useEffect } from "react";
+
 import { useT } from "@/i18n";
 
-import { useStatusLightStore } from "./statusLightStore";
+import { useStatusLightStore, watchStatusLight } from "./statusLightStore";
 import { StatusGroup, StatusTroubleGroup, goToStatusRow } from "./statusRows";
 
 /** How many rows of a kind the column lists before it only counts the rest. */
@@ -9,13 +11,13 @@ const RUNNING_SHOWN = 3;
 
 /**
  * What waits on the person and what runs, listed in the sidebar beside the
- * conversation. The same data as the status chip in the window caption
- * (`statusLightStore`, kept fresh by the chip's own watcher); here it stands
- * in the open instead of behind a click. Nothing shows while all is quiet.
+ * conversation (`statusLightStore`, kept fresh by the watcher this list
+ * starts). Nothing shows while all is quiet.
  */
 export function SidebarStatus() {
   const t = useT();
   const light = useStatusLightStore((s) => s.light);
+  useEffect(() => watchStatusLight(), []);
   const needs = light?.needs_you ?? [];
   const running = light?.running ?? [];
   const trouble = light?.trouble ?? [];
