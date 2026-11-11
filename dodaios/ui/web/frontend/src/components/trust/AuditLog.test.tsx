@@ -35,7 +35,8 @@ describe("Trust: activity log", () => {
     expect(first).toContain("Mail sent (message m1)");
     expect(screen.getAllByTestId("audit-row")[1].textContent).toContain("No external evidence");
     expect(screen.getByTestId("audit-chain").textContent).toContain("2 entries");
-    fireEvent.change(screen.getByLabelText("Started by"), { target: { value: "routine" } });
+    fireEvent.click(screen.getByTestId("audit-filter-origin"));
+    fireEvent.click(await screen.findByRole("option", { name: "Routine" }));
     await waitFor(() => expect(calls.some((c) => c.includes("origin=routine"))).toBe(true));
     // Read-only: nothing but GETs ever leaves this view.
     expect(calls.every((c) => c.startsWith("GET "))).toBe(true);

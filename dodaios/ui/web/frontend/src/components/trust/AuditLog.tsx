@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BrandedSelect } from "@/components/ui/select";
 import { fill, useT } from "@/i18n";
 import { openExternalUrl } from "@/lib/openExternal";
 import { auditExportUrl, fetchAudit, type AuditEntry, type AuditFilter, type AuditPage } from "@/lib/trustApi";
@@ -34,23 +35,23 @@ function ReceiptCell({ entry }: { entry: AuditEntry }) {
   );
 }
 
-function Select({ label, value, options, onChange }: {
-  label: string; value: string; options: { value: string; label: string }[]; onChange: (next: string) => void;
+const ALL = "__all";
+
+function FilterSelect({ label, testId, value, options, onChange }: {
+  label: string; testId: string; value: string; options: { value: string; label: string }[]; onChange: (next: string) => void;
 }) {
   const t = useT();
   return (
     <label className="flex flex-col gap-1 text-xs text-muted-foreground">
       {label}
-      <select
-        className="h-8 rounded-md border border-border bg-background px-2 text-sm text-foreground"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        <option value="">{t("trust.page.audit_filter_all")}</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </select>
+      <BrandedSelect
+        testId={testId}
+        ariaLabel={label}
+        value={value || ALL}
+        onValueChange={(next) => onChange(next === ALL ? "" : next)}
+        options={[{ value: ALL, label: t("trust.page.audit_filter_all") }, ...options]}
+        className="w-auto min-w-32 rounded-md border border-border bg-sheen/[0.04] px-2 py-1 text-sm"
+      />
     </label>
   );
 }
@@ -93,19 +94,22 @@ export function AuditLog() {
           : fill(t("trust.page.audit_chain_broken"), { seq: String(page.chain.broken_at ?? "") })}
       </p>
       <div className="mt-4 flex flex-wrap items-end gap-3">
-        <Select
+        <FilterSelect
+          testId="audit-filter-day"
           label={t("trust.page.audit_filter_day")}
           value={filter.day ?? ""}
           options={page.days.map((d) => ({ value: d, label: d }))}
           onChange={(day) => set({ day })}
         />
-        <Select
+        <FilterSelect
+          testId="audit-filter-tool"
           label={t("trust.page.audit_filter_tool")}
           value={filter.tool ?? ""}
           options={page.tools.map((d) => ({ value: d, label: d }))}
           onChange={(tool) => set({ tool })}
         />
-        <Select
+        <FilterSelect
+          testId="audit-filter-origin"
           label={t("trust.page.audit_filter_origin")}
           value={filter.origin ?? ""}
           options={ORIGINS.map((o) => ({ value: o, label: t(`trust.page.audit_origin_${o}`) }))}
