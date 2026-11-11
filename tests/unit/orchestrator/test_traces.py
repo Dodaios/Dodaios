@@ -265,7 +265,7 @@ def test_the_tree_is_bounded(store) -> None:
 def test_listing_roots_per_session(store) -> None:
     _seed(store)
     roots = traces.list_roots("s")
-    assert [r["root"] for r in roots] == ["root"] and roots[0]["nodes"] == 3
+    assert [r["root"] for r in roots] == ["root"] and roots[0]["nodes"] == 4
 
 
 def test_a_running_span_from_an_earlier_boot_reads_as_interrupted(store) -> None:

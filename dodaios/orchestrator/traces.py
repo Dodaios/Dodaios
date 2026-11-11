@@ -558,7 +558,7 @@ def list_roots(session: str, *, limit: int = 50) -> list[dict[str, Any]]:
                 "ended_ms": job.updated_ms if job.settled else None, "nodes": 1,
             }
         )
-    rows.sort(key=lambda r: r["started_ms"], reverse=True)
+    rows.sort(key=lambda r: (r["started_ms"], r["root"]), reverse=True)
     return rows[:limit]
 
 
