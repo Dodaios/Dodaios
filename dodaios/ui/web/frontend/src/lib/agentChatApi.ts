@@ -42,6 +42,8 @@ export interface AgentChatProvider {
   /** "" = the runner's own default. */
   default_model: string;
   keyless: boolean;
+  /** Credential presence for an API seat without an Agents status row. */
+  api_key_set?: boolean;
   native_resume: boolean;
   /** Ascending ladder; "" means "provider default". */
   effort_levels: string[];

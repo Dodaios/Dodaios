@@ -694,12 +694,15 @@ def test_codex_binary_path_persists_to_config(
 # ----------------------------------------------------------------------
 
 
-def test_set_secret_persists_value(server_with_brain: WebServer, secret_store: _InMemorySecretStore) -> None:
+@pytest.mark.parametrize("key", ["openai_api_key", "deepseek_api_key"])
+def test_set_secret_persists_value(
+    server_with_brain: WebServer, secret_store: _InMemorySecretStore, key: str
+) -> None:
     with TestClient(server_with_brain.app) as client:
-        resp = client.post("/api/secrets/openai_api_key", json={"value": "sk-abc"})
+        resp = client.post(f"/api/secrets/{key}", json={"value": "sk-abc"})
         assert resp.status_code == 200
         assert resp.json()["ok"] is True
-    assert secret_store.data["openai_api_key"] == "sk-abc"
+    assert secret_store.data[key] == "sk-abc"
 
 
 def test_set_secret_rejects_unknown_key(server_with_brain: WebServer, secret_store: _InMemorySecretStore) -> None:

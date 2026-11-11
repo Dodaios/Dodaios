@@ -141,6 +141,8 @@ the card you save it under, never the key's shape.
 A card may say it is covered by a shared family key. That is a working setup,
 and a dedicated key is optional.
 
+DeepSeek accepts `DEEPSEEK_API_KEY` and supports text and tools in non-thinking mode.
+
 ### One key per provider
 
 You enter a provider's key once, on whichever card you happen to be on. The

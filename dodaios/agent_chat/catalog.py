@@ -374,6 +374,14 @@ PROVIDER_ROWS: Final[tuple[ProviderRow, ...]] = (
         id="nvidia", label="NVIDIA NIM", family="nvidia", runner="api", models_source="live"
     ),
     ProviderRow(
+        id="deepseek",
+        label="DeepSeek",
+        family="deepseek",
+        runner="api",
+        models_source="live",
+        default_model="deepseek-flash",
+    ),
+    ProviderRow(
         id="vertex",
         label="Google Vertex AI",
         family="google-cloud",

@@ -573,10 +573,10 @@ async def get_catalog(
 
     Static shape from ``dodaios.agent_chat.catalog`` plus two live facts per
     row: which runner answers on this machine (for ``surface``) and whether
-    that runner's binary is installed. Credential state is NOT repeated here
-    — the picker reads it from ``/api/jarvis-agent/status`` like the Agents
-    tab, so the two never disagree. On the Jarvis surface every row shows the
-    one Jarvis ladder (``permissions.JARVIS_LADDER``).
+    that runner's binary is installed. The picker reads credential state from
+    ``/api/jarvis-agent/status`` for worker providers. Chat-only API seats
+    report shared key presence here. On the Jarvis surface every row shows
+    the one Jarvis ladder (``permissions.JARVIS_LADDER``).
 
     Which rows a surface gets is ``catalog.rows_for``: the front page's chat
     has no CLI seats, so it is offered only the providers whose own API a
@@ -627,6 +627,8 @@ def _catalog_rows(
 ) -> list[dict[str, Any]]:
     """The provider rows for ``surface`` with this machine's runner facts."""
     from dodaios.agent_chat import agent_provider_prefs
+    from dodaios.core.config import get_provider_secret
+    from dodaios.missions.worker_runtime.provider_map import JARVIS_TO_WORKER_SLUG
 
     # Every surface's rows carry the models hidden on the API Keys page, and
     # every model picker leaves them out. The on/off switch is the agents'
@@ -640,6 +642,8 @@ def _catalog_rows(
         runner = resolve_runner(row.id, surface=surface)
         d["runner"] = runner
         d["cli_installed"] = _cli_installed(runner) if runner not in ("api", "brain") else None
+        if runner in ("api", "brain") and not row.keyless and row.id not in JARVIS_TO_WORKER_SLUG:
+            d["api_key_set"] = bool(get_provider_secret(row.id))
         # A CLI that publishes its own model list (agy, Codex) overrides the
         # curated fallback with what THIS account can actually pick.
         if d["cli_installed"] and runner in live_models:

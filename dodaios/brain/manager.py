@@ -249,6 +249,7 @@ PROVIDER_ALIASES = {
     "pro": "gemini",
     "openrouter": "openrouter",
     "litellm": "litellm",
+    "deepseek": "deepseek",
     "grok": "grok",
     "nvidia": "nvidia",
     "nim": "nvidia",
@@ -286,6 +287,7 @@ _PROVIDER_DISPLAY_NAMES: dict[str, str] = {
     "openai-codex": "OpenAI Codex (GPT-5.5)",
     "openrouter": "OpenRouter",
     "litellm": "LiteLLM",
+    "deepseek": "DeepSeek",
     "grok": "xAI Grok",
     "nvidia": "NVIDIA NIM",
     "gemini": "Google Gemini",
@@ -333,6 +335,7 @@ _SECRET_KEY_TO_BRAIN: dict[str, str] = {
     "anthropic_api_key": "claude-api",
     "openai_api_key": "openai",
     "openrouter_api_key": "openrouter",
+    "deepseek_api_key": "deepseek",
     "litellm_api_key": "litellm",
     "litellm_master_key": "litellm",
     "grok_api_key": "grok",
@@ -389,7 +392,7 @@ TIER_DEFAULTS_BY_PROVIDER: dict[str, dict[str, str]] = {
         "claude-api": "claude-haiku-4-5-20251001",
         "gemini": "gemini-3-flash-preview",
         "openai": "gpt-5.5",
-        "deepseek": "deepseek-chat",
+        "deepseek": "deepseek-flash",
         # Gateway: a model-less OpenRouter user must NEVER default to a paid
         # Anthropic id (that billed Opus/Haiku on a free key — §3/AP-22). A free
         # general-purpose model degrades with a clean 404 if ever retired, instead
@@ -423,7 +426,7 @@ TIER_DEFAULTS_BY_PROVIDER: dict[str, dict[str, str]] = {
         "claude-api": "claude-opus-4-8",
         "gemini": "gemini-3.1-pro-preview",
         "openai": "gpt-5.5-pro",
-        "deepseek": "deepseek-reasoner",
+        "deepseek": "deepseek-v4-pro",
         # Gateway: never a paid Anthropic default for a model-less OpenRouter
         # user (§3/AP-22) — see the router-tier note above.
         "openrouter": "nvidia/nemotron-3-ultra-550b-a55b:free",
@@ -13722,6 +13725,7 @@ _PROVIDER_SETUP_HINTS: dict[str, str] = {
     "openai": "OPENAI_API_KEY setzen",
     "openrouter": "OPENROUTER_API_KEY setzen",
     "litellm": "Set LITELLM_API_KEY and the proxy server URL",
+    "deepseek": "Set DEEPSEEK_API_KEY (key from platform.deepseek.com)",
     "grok": "Set XAI_API_KEY (key from console.x.ai)",
     "nvidia": "Set NVIDIA_API_KEY (nvapi- key from build.nvidia.com)",
     "ollama-local": "Ollama-Server starten (localhost:11434)",

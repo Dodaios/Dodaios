@@ -643,6 +643,19 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
             "background tasks, sluggish as your main or voice brain."
         ),
     ),
+    ProviderSpec(
+        id="deepseek",
+        label="DeepSeek",
+        tier="brain",
+        auth_mode="api_key",
+        secret_keys=("deepseek_api_key",),
+        dashboard_url="https://platform.deepseek.com/api_keys",
+        signup_url="https://platform.deepseek.com",
+        credential_help=(
+            "DeepSeek API key from the DeepSeek platform. Supports text chat and tool calls "
+            "with thinking disabled. Usage is billed to your DeepSeek account."
+        ),
+    ),
     # Ollama re-added 2026-07-25 as a keyless LOCAL provider (auth_mode
     # "none" → billing "local"); the 2026-04-21 removal predates the
     # local-first mandate.

@@ -143,6 +143,15 @@ SECRETS: list[SecretSpec] = [
         section="brain",
     ),
     SecretSpec(
+        key="deepseek_api_key",
+        env_fallback="DEEPSEEK_API_KEY",
+        label="DeepSeek API Key",
+        help_url="https://platform.deepseek.com/api_keys",
+        required_for="Brain (DeepSeek)",
+        prompt=False,
+        section="brain",
+    ),
+    SecretSpec(
         key="nvidia_api_key",
         env_fallback="NVIDIA_API_KEY",
         label="NVIDIA API Key (NIM — build.nvidia.com, nvapi-)",

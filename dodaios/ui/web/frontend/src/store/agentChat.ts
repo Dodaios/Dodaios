@@ -337,7 +337,8 @@ export function joinProviderOptions(
     // tab counts a subscription login as connected — right for a row a
     // CLI runs — but the brain runner calls the provider's endpoint,
     // where a Claude Code login buys nothing. `key_set` stands in when
-    // an older backend does not report the finer field.
+    // an older backend does not report the finer field. A chat-only API
+    // provider without an Agents status row reports key presence in its catalog.
     // A coding CLI the Agents tab has no card for — OpenCode, Kimi,
     // GLM Coding Plan, the DeepSeek harness — keeps its own login where
     // this app has no verified reader; installed is all it can know,
@@ -345,7 +346,7 @@ export function joinProviderOptions(
     const credentialed = p.keyless
       ? true
       : isApiRunner(p.runner)
-        ? Boolean(row?.api_key_set ?? row?.key_set)
+        ? Boolean(row?.api_key_set ?? row?.key_set ?? p.api_key_set)
         : row
           ? Boolean(row.key_set)
           : true;
