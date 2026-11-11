@@ -42,11 +42,9 @@ describe("ProjectThreadRows", () => {
     expect(useIdeThreadsStore.getState().layout).toBe("threads");
   });
 
-  it("starts a new thread in the folder", () => {
+  it("adds nothing under a folder without threads", () => {
     useThreadChatStore.setState({ sessions: [] });
-    render(<ProjectThreadRows project={project} projects={[project]} />);
-    fireEvent.click(screen.getByTestId("ide-project-thread-new-p1"));
-    expect(useIdeThreadsStore.getState().layout).toBe("threads");
-    expect(useIdeThreadsStore.getState().selection).toMatchObject({ projectId: "p1", sessionId: null });
+    const { container } = render(<ProjectThreadRows project={project} projects={[project]} />);
+    expect(container.innerHTML).toBe("");
   });
 });

@@ -1,8 +1,9 @@
 import { useIdeProjectsSeed } from "@/components/agentic/useIdeProjectsSeed";
+import { useIdeThreadsStore } from "@/store/ideThreads";
 import { ProjectThreadRows, useThreadSessionsPoll } from "@/components/agentic/threads/ProjectThreadRows";
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUpRight, Check, Copy, CopyPlus, Folder, FolderGit2, GitBranch, FolderOpen, FolderPlus, Globe, Loader2, Mic, MoreHorizontal, OctagonPause, Pencil, Pin, PinOff, Plus, Server, SquareCode, Trash2, X, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Check, Copy, CopyPlus, Folder, FolderGit2, GitBranch, FolderOpen, FolderPlus, Globe, Loader2, Mic, MoreHorizontal, OctagonPause, Pencil, Pin, PinOff, Plus, Server, SquareCode, SquarePen, Trash2, X, type LucideIcon } from "lucide-react";
 import { ChatLibraryError, deleteProject, openProject, patchProject, reorderProjects, revealProject, fetchProjectLaunchers, openProjectIn, type ProjectLaunchers } from "@/lib/chatLibraryApi";
 import { robustCopy } from "@/lib/clipboard";
 import { useComputerChoices } from "@/hooks/useComputers";
@@ -838,6 +839,16 @@ export function IdeProjectTree() {
     <div className="flex h-8 items-center justify-between pl-2 pr-1 text-[15px] font-semibold text-foreground">
       <span>{t("ide_projects.workspaces")}</span>
       <div className="flex items-center gap-0.5">
+        {/* The way to the thread face from here: a new thread in the folder in view. */}
+        <button type="button" data-testid="ide-tree-new-thread" aria-label={t("ide_threads.new_thread")} title={t("ide_threads.new_thread")}
+          onClick={() => {
+            const target = activeProject ?? visible.find((project) => project.pinned) ?? visible[0];
+            if (!target) { connectProject(); return; }
+            const threads = useIdeThreadsStore.getState();
+            threads.setLayout("threads");
+            threads.newThread(target.id);
+          }}
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><SquarePen className="h-3.5 w-3.5" /></button>
         <button type="button" aria-label="Dodaios Live" title="Dodaios Live" onClick={toggleVoice}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Mic className="h-3.5 w-3.5" /></button>
         <button type="button" aria-label={t("ide_projects.connect_title")} title={t("ide_projects.connect_folder_title")} onClick={connectProject}

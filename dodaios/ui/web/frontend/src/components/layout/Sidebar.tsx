@@ -294,22 +294,21 @@ export function Sidebar({
           mode={mode}
           railed={railed}
           onPick={pickMode}
-          status={
-            <>
-              {devTag && (
-                <span data-testid="sidebar-instance-tag" title={t("sidebar.instance_dev_hint")}
-                  className="shrink-0 rounded-sm bg-primary px-1 text-xs font-medium leading-none text-primary-foreground">
-                  {devTag}
-                </span>
-              )}
-              {voiceMark}
-            </>
-          }
+          status={voiceMark}
         />
         {/* The state is spelled out only when it is news: starting, offline,
             listening. At rest the dot says "fine" on its own. */}
-        {!railed && voiceHasNews && (
-          <p data-testid="sidebar-voice-label" className="truncate px-1 text-xs text-muted-foreground">{voiceLabel}</p>
+        {!railed && (voiceHasNews || devTag) && (
+          <div className="flex min-w-0 items-center gap-2 px-1">
+            {/* The dev instance says so on a line of its own; in the switch it squeezed the name out. */}
+            {devTag && (
+              <span data-testid="sidebar-instance-tag" title={t("sidebar.instance_dev_hint")}
+                className="shrink-0 rounded-sm bg-primary px-1 py-0.5 text-xs font-medium leading-none text-primary-foreground">
+                {devTag}
+              </span>
+            )}
+            {voiceHasNews && <p data-testid="sidebar-voice-label" className="truncate text-xs text-muted-foreground">{voiceLabel}</p>}
+          </div>
         )}
         {!railed && headerSearch && <SidebarSearchBar assistantName={assistantName} />}
       </div>

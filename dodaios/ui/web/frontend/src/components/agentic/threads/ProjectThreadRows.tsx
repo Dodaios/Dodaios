@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { Loader2, MessageSquare, SquarePen } from "lucide-react";
+import { Loader2, MessageSquare } from "lucide-react";
 import type { IdeProject } from "@/lib/agenticIdeApi";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -29,7 +29,7 @@ export function useThreadSessionsPoll(): void {
  * what the other one holds, so there is one list to move through and no
  * separate switch between the two faces. A thread row turns the IDE to its
  * thread face and opens that thread. Renaming, archiving and ordering stay
- * with the thread list itself.
+ * with the thread list itself. A folder without threads adds no row.
  */
 export function ProjectThreadRows({ project, projects }: { project: IdeProject; projects: readonly IdeProject[] }) {
   const t = useT();
@@ -42,12 +42,14 @@ export function ProjectThreadRows({ project, projects }: { project: IdeProject; 
     [sessions, projects, projectOf, archived, project.id],
   );
 
-  const show = (sessionId: string | null | undefined) => {
+  /** Turn to the thread face; with a thread, open it there. */
+  const show = (sessionId?: string) => {
     const store = useIdeThreadsStore.getState();
     store.setLayout("threads");
     if (sessionId) store.openThread(sessionId, project.id);
-    else if (sessionId === null) store.newThread(project.id);
   };
+
+  if (threads.length === 0) return null;
 
   return (
     <div className="mb-1 flex flex-col gap-px" data-testid={`ide-project-threads-${project.id}`}>
@@ -61,15 +63,10 @@ export function ProjectThreadRows({ project, projects }: { project: IdeProject; 
       ))}
       {threads.length > SHOWN && (
         <button type="button" data-testid={`ide-project-threads-more-${project.id}`}
-          onClick={() => show(undefined)} className={cn(ROW, "text-muted-foreground")}>
+          onClick={() => show()} className={cn(ROW, "text-muted-foreground")}>
           {fill(t("ide_threads.show_more"), { count: threads.length - SHOWN })}
         </button>
       )}
-      <button type="button" data-testid={`ide-project-thread-new-${project.id}`}
-        onClick={() => show(null)} className={cn(ROW, "text-muted-foreground")}>
-        <SquarePen aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-        <span className="truncate">{t("ide_threads.new_thread")}</span>
-      </button>
     </div>
   );
 }
