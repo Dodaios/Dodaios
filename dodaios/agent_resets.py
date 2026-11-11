@@ -202,10 +202,81 @@ async def _codex(
         return _snapshot(account, payload, key)
 
 
+def _claude(account: AgentAccount) -> dict[str, Any]:
+    """A Claude seat's banked resets, from its usage reading. Display only.
+
+    The usage request already carries them (``agent_usage._CLAUDE_USAGE_URL``),
+    so this reads the seat's usage through the shared cache and shows what
+    the provider last said. They are spent in Claude Code itself, which offers
+    them when a limit is reached: ``can_redeem`` stays false here.
+    """
+    from dodaios import agent_usage
+
+    usage = agent_usage.read_usage(account)
+    result = _empty(account, "browser")
+    result["usage"] = usage.to_dict() if usage.status == "ok" else None
+    resets = agent_usage.claude_resets(account.id)
+    if resets is None:
+        return result
+    if not resets.get("eligible") and resets.get("ineligible_reason") == "surface":
+        # The provider shows these resets only inside its own clients.
+        return result
+    rows: list[dict[str, Any]] = []
+    for grant in resets.get("grants") or []:
+        rows.append(
+            {
+                "id": grant["id"],
+                "title": grant.get("label"),
+                "description": None,
+                "expires_at": grant.get("ends_at"),
+                "redeemable": False,
+                "resets_left": grant.get("resets_left"),
+                "resets_total": grant.get("resets_total"),
+                "usable_now": grant.get("usable_now"),
+                "use_requires_limit": grant.get("use_requires_limit"),
+                "clears": grant.get("clears") or [],
+                "paused": grant.get("paused"),
+            }
+        )
+    weekly = resets.get("weekly")
+    if isinstance(weekly, dict):
+        rows.append(
+            {
+                "id": "weekly",
+                "title": None,
+                "description": None,
+                "expires_at": None,
+                "redeemable": False,
+                "kind": "weekly",
+                "resets_left": 1 if weekly.get("available") else 0,
+                "resets_total": weekly.get("resets_per_week"),
+                "usable_now": bool(weekly.get("available")),
+                "use_requires_limit": True,
+                "next_available_at": weekly.get("next_available_at"),
+                "clears": ["weekly"],
+                "paused": False,
+            }
+        )
+    result.update(
+        status="ok",
+        available_count=sum(int(row.get("resets_left") or 0) for row in rows),
+        credits=rows,
+        can_redeem=False,
+        as_of=float(resets.get("as_of") or result["as_of"]),
+    )
+    return result
+
+
 async def read_resets(account: AgentAccount) -> dict[str, Any]:
     """Read only this login; missing support is distinct from zero credits."""
+    if account.platform == "claude":
+        try:
+            return await asyncio.to_thread(_claude, account)
+        except (OSError, ValueError, RuntimeError) as exc:
+            log.info("Claude reset inventory unavailable (%s)", type(exc).__name__)
+            return _empty(account, "unavailable")
     if account.platform != "codex":
-        return _empty(account, "browser" if account.platform == "claude" else "unsupported")
+        return _empty(account, "unsupported")
     try:
         return await _codex(account)
     except (OSError, ValueError, RuntimeError, ConnectionError, TimeoutError) as exc:

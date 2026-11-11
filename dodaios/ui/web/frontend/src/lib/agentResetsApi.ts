@@ -6,6 +6,15 @@ export interface ResetCredit {
   description: string | null;
   expires_at: string | null;
   redeemable: boolean;
+  /** Claude grants hold several resets; Codex credits are one each. */
+  resets_left?: number;
+  resets_total?: number;
+  usable_now?: boolean;
+  use_requires_limit?: boolean;
+  paused?: boolean;
+  /** "weekly": the plan's weekly reset offer rather than a kept grant. */
+  kind?: string;
+  next_available_at?: string | null;
 }
 
 export interface AccountResets {

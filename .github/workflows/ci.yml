@@ -480,7 +480,7 @@ jobs:
         run: python scripts/ci/check_import_clean.py
       - name: Test-only system deps
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq libportaudio2
+          bash scripts/ci/apt_install.sh libportaudio2
           python scripts/ci/install_locked.py --extra telephony
       # Blocking and outside the ratchet on purpose: these pin contracts that
       # are cheap to break and expensive to notice (ADR-0011 router, AP-11
@@ -527,7 +527,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: System libraries
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq libportaudio2 libegl1 libopengl0
+        run: bash scripts/ci/apt_install.sh libportaudio2 libegl1 libopengl0
       - name: Install
         uses: ./.github/actions/install-locked
         with:
@@ -1161,8 +1161,7 @@ jobs:
         run: |
           pip install "tkinterdnd2==0.4.2"
           if [ "$RUNNER_OS" = "Linux" ]; then
-            sudo apt-get update -qq
-            sudo apt-get install -y --no-install-recommends python3-tk xvfb libxcursor1 libxrender1 libxext6 libxft2 libxinerama1 libxi6 libxrandr2
+            bash scripts/ci/apt_install.sh --no-install-recommends python3-tk xvfb libxcursor1 libxrender1 libxext6 libxft2 libxinerama1 libxi6 libxrandr2
           fi
       - name: Drag-drop executes
         shell: bash
