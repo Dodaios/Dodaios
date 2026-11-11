@@ -66,15 +66,16 @@ def test_recipes_only_set_parameters_their_wp14_master_has():
         assert mi_recipes.unknown_parameters(doc) == [], doc["name"]
 
 
-def test_space_view_instances_use_own_textures():
+def test_space_view_instances_use_the_space_textures():
     textures = _load(
         "verse_space_textures", ROOT / "art/verse/kit/props/space/space_textures.py"
     ).TEXTURES
     by_name = {doc["name"]: doc for doc in mi_recipes.recipes()}
-    for name in ("MI_Space_Earth", "MI_Space_Stars"):
-        texture = by_name[name]["textures"]["ScreenTexture"]
-        assert texture.split(".")[-1] in textures, name
-        assert texture.startswith("/Game/Verse/Kit/Space/"), name
+    for name in ("MI_Space_Earth", "MI_Space_Stars", "MI_Starfield", "MI_Ops_Starfield"):
+        assert by_name[name]["parent"].endswith("M_Verse_Space"), name
+        for texture in by_name[name]["textures"].values():
+            assert texture.split(".")[-1] in textures, name
+            assert texture.startswith("/Game/Verse/Kit/Space/"), name
 
 
 def test_recipes_pass_the_schema_and_the_colour_bans():

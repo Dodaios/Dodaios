@@ -9,6 +9,8 @@
 #include "Serialization/JsonWriter.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInterface.h"
+#include "Materials/MaterialParameterCollection.h"
+#include "Materials/MaterialParameterCollectionInstance.h"
 #include "UObject/UObjectGlobals.h"
 #include "VerseLog.h"
 
@@ -88,10 +90,10 @@ FString FVerseSpaceLook::ToJson(double ElapsedS) const
 	return Out;
 }
 
-const TCHAR* AVerseSpaceView::EarthMeshPath = TEXT("/Game/Verse/Kit/Props/SM_Space_Earth.SM_Space_Earth");
 const TCHAR* AVerseSpaceView::StarDomeMeshPath = TEXT("/Game/Verse/Kit/Props/SM_Space_StarDome.SM_Space_StarDome");
 const TCHAR* AVerseSpaceView::EarthMaterialPath = TEXT("/Game/Verse/Materials/Instances/Props/MI_Space_Earth.MI_Space_Earth");
 const TCHAR* AVerseSpaceView::StarsMaterialPath = TEXT("/Game/Verse/Materials/Instances/Props/MI_Space_Stars.MI_Space_Stars");
+const TCHAR* AVerseSpaceView::CollectionPath = TEXT("/Game/Verse/Materials/Master/MPC_Verse_Space.MPC_Verse_Space");
 
 namespace
 {
@@ -100,6 +102,72 @@ namespace
 	{
 		return LoadObject<T>(nullptr, Path, nullptr, LOAD_NoWarn | LOAD_Quiet);
 	}
+
+	/** Unreal axes <-> three.js axes: swap Y and Z (coordinates.md section 1; its own inverse). */
+	FVector Swap(const FVector& V)
+	{
+		return FVector(V.X, V.Z, V.Y);
+	}
+
+	/** three.js `Vector3.applyAxisAngle`: right-handed rotation about a unit axis. */
+	FVector Rotate(const FVector& V, const FVector& Axis, double Angle)
+	{
+		const double C = FMath::Cos(Angle);
+		const double S = FMath::Sin(Angle);
+		return V * C + FVector::CrossProduct(Axis, V) * S + Axis * FVector::DotProduct(Axis, V) * (1.0 - C);
+	}
+
+	FLinearColor Vec4(const FVector& V)
+	{
+		return FLinearColor(float(V.X), float(V.Y), float(V.Z), 0.f);
+	}
+}
+
+FVerseSpaceFrame FVerseSpaceFrame::Compute(const FVerseSpaceLook& Look, const FVector& OutwardThree, double ElapsedS)
+{
+	// SpaceView.update in spaceView.ts, line by line; lengths in Earth radii, three.js axes.
+	FVerseSpaceFrame F;
+	const double Rad = UE_DOUBLE_PI / 180.0;
+	FVector Out = FVector(OutwardThree.X, 0.0, OutwardThree.Z).GetSafeNormal();
+	if (Out.IsNearlyZero())
+	{
+		Out = FVector(0.0, 0.0, 1.0);
+	}
+	FVector Up(0.0, 1.0, 0.0);
+	FVector Side = FVector::CrossProduct(Out, Up).GetSafeNormal();
+	// Horizon tilt: the whole frame turns about the outward axis.
+	Up = Rotate(Up, Out, Look.RollDeg * Rad);
+	Side = Rotate(Side, Out, Look.RollDeg * Rad);
+
+	const double Distance = 1.0 + Look.AltitudeKm / FVerseSpaceLook::EarthKm;
+	const double Down = Look.CentreDownDeg * Rad;
+	const FVector Centre = (Out * FMath::Cos(Down) - Up * FMath::Sin(Down)) * Distance;
+	// The ground point facing the windows: where the outward ray meets the sphere, else the limb.
+	const double B = FVector::DotProduct(Centre, Out);
+	const double H = B * B - (Centre.SizeSquared() - 1.0);
+	const FVector NW = (Out * (H > 0.0 ? B - FMath::Sqrt(H) : B) - Centre).GetSafeNormal();
+	const FVector EW = (Side - NW * FVector::DotProduct(Side, NW)).GetSafeNormal();
+	const FVector North = FVector::CrossProduct(NW, EW);
+	// The chosen place in the maps' frame: y north, longitude 0 at +x, east towards -z.
+	const double Lat = Look.LatDeg * Rad;
+	const double Lon = Look.LonDeg * Rad;
+	const FVector PL(FMath::Cos(Lat) * FMath::Cos(Lon), FMath::Sin(Lat), -FMath::Cos(Lat) * FMath::Sin(Lon));
+	const FVector EL(-FMath::Sin(Lon), 0.0, -FMath::Cos(Lon));
+	const FVector NL = FVector::CrossProduct(PL, EL);
+	// worldToEarth = L * W^T (L has the columns eL, nL, pL; W the columns eW, north, nW): row I.
+	for (int32 I = 0; I < 3; ++I)
+	{
+		F.Rows[I] = EW * EL[I] + North * NL[I] + NW * PL[I];
+	}
+	F.EarthCentre = Centre;
+	// Ground moving under the ship towards the right of the windows.
+	const double Turn = ElapsedS * Look.OrbitRadPerS();
+	F.Spin = -Turn;
+	F.CloudSpin = -Turn * 1.04 + 0.35;
+	const double Az = Look.SunAzimuthDeg * Rad;
+	const double El = Look.SunElevationDeg * Rad;
+	F.SunDir = (Out * (FMath::Cos(El) * FMath::Cos(Az)) + Side * (FMath::Cos(El) * FMath::Sin(Az)) + Up * FMath::Sin(El)).GetSafeNormal();
+	return F;
 }
 
 AVerseSpaceView::AVerseSpaceView()
@@ -108,60 +176,75 @@ AVerseSpaceView::AVerseSpaceView()
 	PrimaryActorTick.TickGroup = TG_PostUpdateWork;
 	Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	RootComponent = Root;
-	Earth = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Earth"));
-	Earth->SetupAttachment(Root);
-	Earth->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	Earth->CastShadow = false;
 	Stars = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Stars"));
 	Stars->SetupAttachment(Root);
 	Stars->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Stars->CastShadow = false;
-	for (UStaticMeshComponent* Part : { Earth.Get(), Stars.Get() })
-	{
-		Part->bAffectDistanceFieldLighting = false;
-		Part->bReceivesDecals = false;
-		Part->SetCanEverAffectNavigation(false);
-		Part->bNeverDistanceCull = true;
-	}
+	Stars->bAffectDistanceFieldLighting = false;
+	Stars->bAffectDynamicIndirectLighting = false;
+	Stars->bReceivesDecals = false;
+	Stars->SetCanEverAffectNavigation(false);
+	Stars->bNeverDistanceCull = true;
+	// Behind every other translucent surface: the viewport glass draws over it.
+	Stars->TranslucencySortPriority = -1000;
 	Stars->SetRelativeScale3D(FVector(DomeRadiusCm / 100.0));
-	Earth->SetRelativeScale3D(FVector(EarthRadiusCm / 100.0));
 }
 
-FVector AVerseSpaceView::EarthOffsetCm() const
+void AVerseSpaceView::SetOutward(const FVector& Direction)
 {
-	const double Distance = EarthRadiusCm * (FVerseSpaceLook::EarthKm + Look.AltitudeKm) / FVerseSpaceLook::EarthKm;
-	const double Down = FMath::DegreesToRadians(Look.CentreDownDeg);
-	return FVector(FMath::Cos(Down) * Distance, 0.0, -FMath::Sin(Down) * Distance);
+	const FVector Level(Direction.X, Direction.Y, 0.0);
+	Outward = Level.IsNearlyZero() ? FVector(1.0, 0.0, 0.0) : Level.GetSafeNormal();
+}
+
+FVerseSpaceFrame AVerseSpaceView::Frame() const
+{
+	return FVerseSpaceFrame::Compute(Look, Swap(Outward), ElapsedS);
 }
 
 int32 AVerseSpaceView::LoadBackdrop()
 {
 	int32 Found = 0;
-	auto Assign = [&Found](UStaticMeshComponent* Part, const TCHAR* MeshPath, const TCHAR* MaterialPath)
+	if (UStaticMesh* Mesh = LoadQuiet<UStaticMesh>(StarDomeMeshPath))
 	{
-		if (UStaticMesh* Mesh = LoadQuiet<UStaticMesh>(MeshPath))
-		{
-			Part->SetStaticMesh(Mesh);
-			++Found;
-		}
-		else
-		{
-			UE_LOG(LogVerseDecks, Warning, TEXT("space view: no mesh %s"), MeshPath);
-		}
-		if (UMaterialInterface* Material = LoadQuiet<UMaterialInterface>(MaterialPath))
-		{
-			Part->SetMaterial(0, Material);
-			++Found;
-		}
-		else
-		{
-			UE_LOG(LogVerseDecks, Log, TEXT("space view: no instance %s yet (WP14 masters), default material"), MaterialPath);
-		}
-	};
-	Assign(Earth, EarthMeshPath, EarthMaterialPath);
-	Assign(Stars, StarDomeMeshPath, StarsMaterialPath);
-	Earth->SetRelativeLocation(EarthOffsetCm());
+		Stars->SetStaticMesh(Mesh);
+		++Found;
+	}
+	else
+	{
+		UE_LOG(LogVerseDecks, Warning, TEXT("space view: no mesh %s"), StarDomeMeshPath);
+	}
+	EarthMaterial = LoadQuiet<UMaterialInterface>(EarthMaterialPath);
+	StarsMaterial = LoadQuiet<UMaterialInterface>(StarsMaterialPath);
+	Collection = LoadQuiet<UMaterialParameterCollection>(CollectionPath);
+	Found += EarthMaterial ? 1 : 0;
+	Found += StarsMaterial ? 1 : 0;
+	Found += Collection ? 1 : 0;
+	if (!EarthMaterial || !StarsMaterial || !Collection)
+	{
+		UE_LOG(LogVerseDecks, Warning, TEXT("space view: missing %s %s %s"), EarthMaterial ? TEXT("") : EarthMaterialPath,
+			StarsMaterial ? TEXT("") : StarsMaterialPath, Collection ? TEXT("") : CollectionPath);
+	}
+	Stars->SetMaterial(0, EarthMaterial);
+	PushFrame();
 	return Found;
+}
+
+void AVerseSpaceView::PushFrame()
+{
+	UWorld* World = GetWorld();
+	UMaterialParameterCollectionInstance* Instance = (World && Collection) ? World->GetParameterCollectionInstance(Collection) : nullptr;
+	if (Instance == nullptr)
+	{
+		return;
+	}
+	const FVerseSpaceFrame F = Frame();
+	Instance->SetVectorParameterValue(TEXT("EarthCentre"), Vec4(F.EarthCentre));
+	Instance->SetVectorParameterValue(TEXT("EarthRow0"), Vec4(F.Rows[0]));
+	Instance->SetVectorParameterValue(TEXT("EarthRow1"), Vec4(F.Rows[1]));
+	Instance->SetVectorParameterValue(TEXT("EarthRow2"), Vec4(F.Rows[2]));
+	Instance->SetVectorParameterValue(TEXT("SunDir"), Vec4(F.SunDir));
+	Instance->SetVectorParameterValue(TEXT("Spin"), FLinearColor(float(F.Spin), float(F.CloudSpin), float(Look.SunRadiance), float(Look.NightGain)));
+	Instance->SetVectorParameterValue(TEXT("Gains"), FLinearColor(float(Look.HazeGain), float(Look.StarGain), Look.Planet > 0.5 ? 1.f : 0.f, 1.f));
 }
 
 void AVerseSpaceView::BeginPlay()
@@ -174,7 +257,7 @@ void AVerseSpaceView::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	ElapsedS += DeltaSeconds;
-	// At infinity: the backdrop rides with the camera, so windows show no parallax.
+	// At infinity: the dome rides with the camera, so windows show no parallax.
 	if (const UWorld* World = GetWorld())
 	{
 		if (const APlayerController* Controller = World->GetFirstPlayerController())
@@ -185,7 +268,6 @@ void AVerseSpaceView::Tick(float DeltaSeconds)
 			}
 		}
 	}
-	Earth->SetVisibility(Look.Planet > 0.5);
-	Earth->SetRelativeLocation(EarthOffsetCm());
-	Earth->SetRelativeRotation(FRotator(0.0, FMath::RadiansToDegrees(EarthTurnRad()), Look.RollDeg));
+	Stars->SetMaterial(0, DomeOverride ? DomeOverride.Get() : Look.Planet > 0.5 ? EarthMaterial.Get() : StarsMaterial.Get());
+	PushFrame();
 }

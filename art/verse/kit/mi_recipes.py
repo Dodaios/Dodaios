@@ -86,6 +86,12 @@ MASTER_PARAMS = {
         "switches": set(),
         "textures": {"ScreenTexture"},
     },
+    "M_Verse_Space": {
+        "scalars": {"StarScale", "Planet", "SpaceGain"},
+        "vectors": set(),
+        "switches": set(),
+        "textures": {"DayMap", "NightMap", "CloudMap", "ReliefMap", "StarMap"},
+    },
 }
 
 _DECL = re.compile(r'@material\("(?P<name>M_[A-Za-z0-9_]+)"(?:,\s*viewport=\((?P<rgb>[^)]*)\))?\)')
@@ -131,24 +137,33 @@ EMISSIVE_STRENGTH = 0.5
 GLASS_PREFIXES = ("Glass_", "Glass", "Haze", "Field")
 GLASS_OPACITY = 0.18
 
-#: The space view's instances (WP12.9): parent, parameters. Textures are own work
-#: (`kit/space/space_textures.py`); the meshes are kit pieces (`kit/space/__init__.py`).
+#: The space view's instances (WP12.9): the view of `engine/realtime/spaceView.ts`, drawn per
+#: pixel by `M_Verse_Space` from the same images (`kit/props/space/space_textures.py`).
+#: `MI_Space_Earth` is the whole view; `MI_Space_Stars` the stars alone (`planet` 0).
 SPACE_TEXTURES = "/Game/Verse/Kit/Space/{0}.{0}"
+SPACE_MAPS = {
+    "DayMap": SPACE_TEXTURES.format("T_Space_EarthDay_BC"),
+    "NightMap": SPACE_TEXTURES.format("T_Space_EarthNight_E"),
+    "CloudMap": SPACE_TEXTURES.format("T_Space_EarthClouds_M"),
+    "ReliefMap": SPACE_TEXTURES.format("T_Space_EarthRelief_M"),
+    "StarMap": SPACE_TEXTURES.format("T_Space_Stars_E"),
+}
+SPACE_VIEW = {
+    "parent": "M_Verse_Space",
+    "scalars": {"StarScale": 4.0, "Planet": 1.0, "SpaceGain": 1.0},
+    "textures": SPACE_MAPS,
+}
 SPACE = {
-    "MI_Space_Earth": {
-        "parent": "M_Verse_Screen",
-        "replaces": "M_Space_Earth",
-        "scalars": {"EmissiveNits": 2.0, "Roughness": 0.9},
-        "vectors": {"ScreenTint": [1.0, 1.0, 1.0, 1.0]},
-        "textures": {"ScreenTexture": SPACE_TEXTURES.format("T_Space_Earth_E")},
-    },
+    "MI_Space_Earth": {**SPACE_VIEW, "replaces": "M_Space_Earth"},
     "MI_Space_Stars": {
-        "parent": "M_Verse_Screen",
+        **SPACE_VIEW,
         "replaces": "M_Space_Stars",
-        "scalars": {"EmissiveNits": 1.0, "Roughness": 1.0},
-        "vectors": {"ScreenTint": [1.0, 1.0, 1.0, 1.0]},
-        "textures": {"ScreenTexture": SPACE_TEXTURES.format("T_Space_Stars_E")},
+        "scalars": {**SPACE_VIEW["scalars"], "Planet": 0.0},
     },
+    # The decks' star cards behind the viewports: three.js hides them and draws space there
+    # (`realtimeScene.ts`, "Starfield"); here they draw it themselves.
+    "MI_Starfield": {**SPACE_VIEW, "replaces": "M_Starfield"},
+    "MI_Ops_Starfield": {**SPACE_VIEW, "replaces": "M_Ops_Starfield"},
 }
 
 
@@ -339,8 +354,9 @@ def recipes(
     tints = tint_file.load() if tints is None else tints
     wanted: dict[str, str] = {}
     for blender_name in declared:
-        if unreal_materials.group_for(blender_name) not in FOREIGN_GROUPS:
-            wanted[unreal_materials.instance_name(blender_name)] = blender_name
+        name = unreal_materials.instance_name(blender_name)
+        if unreal_materials.group_for(blender_name) not in FOREIGN_GROUPS and name not in SPACE:
+            wanted[name] = blender_name
     for path, slot in referenced.items():
         if group_of(path) in FOREIGN_GROUPS or mi_name(path) in SPACE:
             continue

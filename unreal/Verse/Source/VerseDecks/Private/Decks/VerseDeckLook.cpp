@@ -17,12 +17,14 @@ FVerseDeckLook FVerseDeckLook::For(FName Deck)
 		Look.FogDensity = 0.015;
 		Look.ExposureEV100 = 6.5;
 		Look.WorkLightKelvin = 6200.0;
+		Look.SpaceOutward = FVector(0.013350, -0.999911, 0.0);
 	}
 	else if (Id == TEXT("ops"))
 	{
 		Look.FogDensity = 0.02;
 		Look.ExposureEV100 = 6.0;
 		Look.WorkLightKelvin = 5600.0;
+		Look.SpaceOutward = FVector(-0.377894, -0.925849, 0.0);
 	}
 	else if (Id == TEXT("engineering"))
 	{
@@ -31,6 +33,7 @@ FVerseDeckLook FVerseDeckLook::For(FName Deck)
 		Look.VolumetricExtinction = 1.6;
 		Look.ExposureEV100 = 5.5;
 		Look.WorkLightKelvin = 4800.0;
+		Look.SpaceOutward = FVector(-0.990347, 0.138613, 0.0);
 	}
 	else if (Id == TEXT("hangar"))
 	{
@@ -50,6 +53,7 @@ FVerseDeckLook FVerseDeckLook::For(FName Deck)
 		Look.ArrivalPitchDeg = 14.0;
 		// A slight three-quarter stance: the gold-trimmed cape edge reads along the shoulder.
 		Look.ArrivalBodyTurnDeg = 25.0;
+		Look.SpaceOutward = FVector(-0.991941, 0.126699, 0.0);
 	}
 	return Look;
 }

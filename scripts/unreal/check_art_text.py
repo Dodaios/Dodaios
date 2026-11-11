@@ -46,7 +46,7 @@ OBJECT_PATH_MAX = 180
 #: Section 3 prefixes of assets under /Game/Verse.
 ASSET_PREFIXES = (
     "SM_", "GC_", "SK_", "SKEL_", "PHYS_", "IKRig_", "RTG_", "A_", "AM_", "BS_", "ABP_",
-    "M_", "MF_", "MI_", "T_", "SW_", "MS_", "NS_", "DA_", "PM_", "LV_", "DL_", "BP_",
+    "M_", "MF_", "MI_", "MPC_", "T_", "SW_", "MS_", "NS_", "DA_", "PM_", "LV_", "DL_", "BP_",
 )  # fmt: skip
 TEXTURE_SUFFIXES = ("_BC", "_N", "_ORM", "_E", "_M")
 NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*_[A-Za-z0-9][A-Za-z0-9_]*$")

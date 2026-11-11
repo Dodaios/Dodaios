@@ -1,24 +1,23 @@
-"""Own-work textures of the space view (WP12.9): a Noir Earth and a star field.
+"""Textures of the space view outside the windows, the same images today's three.js view uses.
 
-Pure Python (numpy, Pillow), no bpy, deterministic. Writes two equirectangular PNGs
-(longitude -180 deg at the left edge, north at the top) into the export cache and their
-`verse.import/1` texture records:
+Pure Python (numpy, Pillow), no bpy, deterministic. Writes equirectangular images (longitude
+-180 deg at the left edge, north at the top) into the export cache and, with ``--records``,
+their `verse.import/1` texture records:
 
-* ``T_Space_Earth_E`` (2048 x 1024, sRGB): continents, ice and clouds from 3D value
-  noise on the sphere (no seam at the date line), in the near-grey tones of
-  Military-Industrial Noir: art-pipeline 8.3 bans blue and cyan pixels in a rendered
-  view, so the oceans are slate, not blue;
-* ``T_Space_Stars_E`` (2048 x 1024, sRGB): a black sky with white and warm stars and a
-  faint band.
+* ``T_Space_EarthDay_BC`` (8192 x 4096, sRGB): `earth_day.webp`, NASA Blue Marble;
+* ``T_Space_EarthNight_E`` (4096 x 2048, sRGB): `earth_night.webp`, NASA Black Marble;
+* ``T_Space_EarthClouds_M`` (8192 x 4096, linear R): `earth_clouds.webp`;
+* ``T_Space_EarthRelief_M`` (4096 x 2048, linear): `earth_relief.webp`, R,G terrain slope,
+  B open water;
+* ``T_Space_Stars_E`` (8192 x 4096, sRGB): the 9000 stars of `starField` in
+  `engine/realtime/spaceView.ts` (same generator, same seed), drawn into the sky at
+  ``STAR_SCALE`` below their brightness (the material scales them back).
 
-Today's three.js Earth uses NASA imagery, which is public domain but not CC0; the ledger
-(`art/verse/LICENSES.md`, art-pipeline 11) takes CC0 only, so the Unreal view uses these.
+The four Earth images come from `scripts/verse/earth.py` (NASA Visible Earth, public domain;
+`art/verse/LICENSES.md`). `M_Verse_Space` (`weapons/editor/masters.py`) draws them the way
+`engine/realtime/spaceShader.ts` does.
 
-The texture import (`verse_pipeline.import_textures`) lands with WP14, and the art text
-gate fails a record whose asset is not imported, so the records are written only with
-`--records`, in the PR that imports them:
-
-    python art/verse/kit/props/space/space_textures.py             # write the PNGs
+    python art/verse/kit/props/space/space_textures.py             # write the images
     python art/verse/kit/props/space/space_textures.py --records   # and their import records
 """
 
@@ -27,131 +26,165 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import sys
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
+Image.MAX_IMAGE_PIXELS = None
+
 HERE = Path(__file__).resolve()
 REPO_ROOT = HERE.parents[5]
 CACHE = REPO_ROOT / "art" / "verse" / ".cache" / "unreal" / "kit" / "space"
 RECORDS = REPO_ROOT / "unreal" / "Verse" / "Art" / "Import" / "Kit" / "Space"
+WEB = REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "public" / "verse" / "space"
 FOLDER = "/Game/Verse/Kit/Space"
-WIDTH, HEIGHT = 2048, 1024
-SEED = 1207
-#: Share of the sphere that is land, and where the ice caps start (|latitude|, degrees).
-LAND_SHARE = 0.31
-ICE_LAT_DEG = 66.0
 
-#: Noir Earth colours, sRGB 0-255 (saturation below 0.25 or hues outside the banned band).
-OCEAN_DEEP = (19, 21, 23)
-OCEAN_SHELF = (34, 37, 39)
-LAND_LOW = (58, 55, 48)
-LAND_HIGH = (96, 90, 80)
-ICE = (198, 199, 198)
-CLOUD = (214, 214, 212)
+#: `starField` in spaceView.ts.
+STAR_COUNT = 9000
+STAR_SEED = 7
+STAR_WIDTH, STAR_HEIGHT = 8192, 4096
+#: Stars are stored at brightness / STAR_SCALE (the brightest is about 3.6).
+STAR_SCALE = 4.0
+#: Screen pixels per texel of the star sky, for the point sizes of the three.js points.
+STAR_PX_PER_TEXEL = 1.0
+
+APPROVAL = "integration"
 
 
-def _lattice(seed: int, size: int = 256) -> np.ndarray:
-    return np.random.default_rng(seed).random((size, size, size), dtype=np.float32)
+def _u32(x: int) -> int:
+    return x & 0xFFFFFFFF
 
 
-def value_noise(points: np.ndarray, frequency: float, lattice: np.ndarray) -> np.ndarray:
-    """Trilinear value noise at 3D points (N, 3) in [-1, 1], smoothstep weights."""
-    size = lattice.shape[0]
-    p = (points + 1.0) * 0.5 * frequency
-    i0 = np.floor(p).astype(np.int64)
-    f = p - i0
-    w = f * f * (3.0 - 2.0 * f)
-    out = np.zeros(points.shape[0], dtype=np.float32)
-    for dx in (0, 1):
-        for dy in (0, 1):
-            for dz in (0, 1):
-                ix = (i0[:, 0] + dx) % size
-                iy = (i0[:, 1] + dy) % size
-                iz = (i0[:, 2] + dz) % size
-                weight = (
-                    (w[:, 0] if dx else 1 - w[:, 0])
-                    * (w[:, 1] if dy else 1 - w[:, 1])
-                    * (w[:, 2] if dz else 1 - w[:, 2])
-                )
-                out += weight * lattice[ix, iy, iz]
-    return out
+def _imul(a: int, b: int) -> int:
+    return _u32(_u32(a) * _u32(b))
 
 
-def fbm(points: np.ndarray, base: float, octaves: int, seed: int) -> np.ndarray:
-    total = np.zeros(points.shape[0], dtype=np.float32)
-    amplitude, norm = 1.0, 0.0
-    for octave in range(octaves):
-        lattice = _lattice(seed + octave)
-        total += amplitude * value_noise(points, base * 2.0**octave, lattice)
-        norm += amplitude
-        amplitude *= 0.5
-    return total / norm
+def random(seed: int):
+    """`random` of spaceView.ts (mulberry32), bit for bit."""
+    state = [_u32(seed)]
+
+    def next_value() -> float:
+        state[0] = _u32(state[0] + 0x6D2B79F5)
+        t = state[0]
+        t = _imul(t ^ (t >> 15), t | 1)
+        t = _u32(t ^ _u32(t + _imul(t ^ (t >> 7), t | 61)))
+        return _u32(t ^ (t >> 14)) / 4294967296
+
+    return next_value
 
 
-def sphere_points(width: int, height: int) -> tuple[np.ndarray, np.ndarray]:
-    """Unit vectors of every pixel centre and the latitude (radians) per pixel."""
-    lon = (np.arange(width) + 0.5) / width * 2.0 * np.pi - np.pi
-    lat = np.pi / 2.0 - (np.arange(height) + 0.5) / height * np.pi
-    lon, lat = np.meshgrid(lon, lat)
-    xyz = np.stack(
-        [np.cos(lat) * np.cos(lon), np.cos(lat) * np.sin(lon), np.sin(lat)], axis=-1
-    ).reshape(-1, 3)
-    return xyz.astype(np.float32), lat
+def star_field(count: int = STAR_COUNT, seed: int = STAR_SEED):
+    """`starField` of spaceView.ts: directions (three.js axes), colours, point sizes."""
+    rand = random(seed)
+    pole = np.array([0.35, 0.82, -0.45])
+    pole /= np.linalg.norm(pole)
+    temps = [
+        (0.62, 0.72, 1.0),
+        (0.8, 0.86, 1.0),
+        (1.0, 1.0, 1.0),
+        (1.0, 0.95, 0.82),
+        (1.0, 0.82, 0.6),
+        (1.0, 0.7, 0.5),
+    ]
+    dirs = np.zeros((count, 3))
+    colours = np.zeros((count, 3))
+    sizes = np.zeros(count)
+    for i in range(count):
+        while True:
+            z = rand() * 2 - 1
+            a = rand() * math.pi * 2
+            r = math.sqrt(1 - z * z)
+            v = (r * math.cos(a), z, r * math.sin(a))
+            band = abs(v[0] * pole[0] + v[1] * pole[1] + v[2] * pole[2])
+            if i % 2 == 0 or rand() > band * 1.6:
+                break
+        dirs[i] = v
+        m = rand() ** 5.5
+        brightness = 0.06 + m * 3.5
+        t = temps[min(len(temps) - 1, math.floor(rand() ** 0.8 * len(temps)))]
+        colours[i] = [c * brightness for c in t]
+        sizes[i] = 1.0 + m * 2.2
+    return dirs, colours, sizes
 
 
-def _mix(a, b, t):
-    t = np.clip(t, 0.0, 1.0)[..., None]
-    return np.asarray(a, np.float32) * (1.0 - t) + np.asarray(b, np.float32) * t
+def stars(width: int = STAR_WIDTH, height: int = STAR_HEIGHT) -> Image.Image:
+    """The star sky, equirectangular in three.js axes (+Y up; longitude atan2(-z, x), as the
+    Earth's maps), each star drawn as its point sprite: (1 - r^2)^2 over its size."""
+    sky = np.zeros((height, width, 3), dtype=np.float64)
+    dirs, colours, sizes = star_field()
+    for d, colour, size in zip(dirs, colours, sizes, strict=True):
+        lon = math.atan2(-d[2], d[0])
+        lat = math.asin(max(-1.0, min(1.0, d[1])))
+        x = (lon / (2.0 * math.pi) + 0.5) * width - 0.5
+        y = (0.5 - lat / math.pi) * height - 0.5
+        radius = max(0.5, 0.5 * size / STAR_PX_PER_TEXEL)
+        stretch = 1.0 / max(math.cos(lat), 0.05)
+        rx, ry = radius * stretch, radius
+        cx, cy = round(x), round(y)
+        for py in range(cy - math.ceil(ry), cy + math.ceil(ry) + 1):
+            if not 0 <= py < height:
+                continue
+            for px in range(cx - math.ceil(rx), cx + math.ceil(rx) + 1):
+                u = (px - x) / rx
+                w = (py - y) / ry
+                f = max(1.0 - (u * u + w * w), 0.0)
+                if px == cx and py == cy:
+                    f = max(f, 1.0)
+                if f > 0.0:
+                    sky[py, px % width] += colour * f * f
+    linear = np.clip(sky / STAR_SCALE, 0.0, 1.0)
+    srgb = np.where(linear <= 0.0031308, linear * 12.92, 1.055 * linear ** (1 / 2.4) - 0.055)
+    return Image.fromarray(np.round(srgb * 255).astype(np.uint8), "RGB")
 
 
-def earth(width: int = WIDTH, height: int = HEIGHT) -> Image.Image:
-    xyz, lat = sphere_points(width, height)
-    shape = (height, width)
-    warp = fbm(xyz * 1.0, 3.0, 3, SEED + 50).reshape(-1, 1) - 0.5
-    land_noise = fbm(xyz + warp * 0.6, 2.2, 6, SEED).reshape(shape)
-    level = np.quantile(land_noise, 1.0 - LAND_SHARE)
-    height_above = (land_noise - level) / max(1e-6, float(land_noise.max() - level))
-    detail = fbm(xyz, 24.0, 3, SEED + 20).reshape(shape)
-    ocean = _mix(OCEAN_DEEP, OCEAN_SHELF, (land_noise - (level - 0.06)) / 0.06)
-    land = _mix(LAND_LOW, LAND_HIGH, height_above * 1.4 + (detail - 0.5) * 0.5)
-    image = np.where((land_noise > level)[..., None], land, ocean)
-    abs_lat = np.degrees(np.abs(lat))
-    ice = np.clip((abs_lat - ICE_LAT_DEG + (detail - 0.5) * 8.0) / 4.0, 0.0, 1.0)
-    image = _mix(image, ICE, ice)
-    clouds = fbm(xyz * 1.0 + warp, 5.0, 6, SEED + 90).reshape(shape)
-    cover = np.clip((clouds - 0.52) / 0.18, 0.0, 1.0) ** 1.4
-    image = _mix(image, CLOUD, cover * 0.85)
-    return Image.fromarray(np.clip(np.round(image), 0, 255).astype(np.uint8), "RGB")
+def _web(name: str, mode: str):
+    def make() -> Image.Image:
+        return Image.open(WEB / name).convert(mode)
+
+    return make
 
 
-def stars(width: int = WIDTH, height: int = HEIGHT) -> Image.Image:
-    rng = np.random.default_rng(SEED + 7)
-    sky = np.zeros((height, width, 3), dtype=np.float32)
-    xyz, lat = sphere_points(width, height)
-    band = np.exp(-((xyz[:, 2] * 0.9 + xyz[:, 0] * 0.44) ** 2) / 0.02).reshape(height, width)
-    haze = fbm(xyz, 6.0, 4, SEED + 30).reshape(height, width)
-    sky += (band * haze * 18.0)[..., None]
-    count = 9000
-    # Uniform on the sphere: latitude from arcsin of a uniform z.
-    rows = ((np.pi / 2 - np.arcsin(rng.uniform(-1, 1, count))) / np.pi * height).astype(int)
-    cols = rng.integers(0, width, count)
-    rows = np.clip(rows, 0, height - 1)
-    brightness = 255.0 * rng.power(0.12, count) ** 2.2 + 30.0
-    warm = rng.random(count) < 0.35
-    colour = np.where(warm[:, None], [[1.0, 0.92, 0.8]], [[1.0, 1.0, 0.98]])
-    sky[rows, cols] = np.maximum(sky[rows, cols], colour * brightness[:, None])
-    return Image.fromarray(np.clip(np.round(sky), 0, 255).astype(np.uint8), "RGB")
+#: name -> (builder function, maker, record texture block, web source or None)
+TEXTURES = {
+    "T_Space_EarthDay_BC": (
+        "earth_day",
+        _web("earth_day.webp", "RGB"),
+        {"max_size": 8192, "srgb": True, "compression": "Default"},
+        "earth_day.webp",
+    ),
+    "T_Space_EarthNight_E": (
+        "earth_night",
+        _web("earth_night.webp", "RGB"),
+        {"max_size": 4096, "srgb": True, "compression": "Default"},
+        "earth_night.webp",
+    ),
+    "T_Space_EarthClouds_M": (
+        "earth_clouds",
+        _web("earth_clouds.webp", "L"),
+        {"max_size": 8192, "srgb": False, "compression": "Grayscale"},
+        "earth_clouds.webp",
+    ),
+    "T_Space_EarthRelief_M": (
+        "earth_relief",
+        _web("earth_relief.webp", "RGB"),
+        {"max_size": 4096, "srgb": False, "compression": "BC7"},
+        "earth_relief.webp",
+    ),
+    "T_Space_Stars_E": (
+        "stars",
+        stars,
+        {"max_size": 8192, "srgb": True, "compression": "BC7"},
+        None,
+    ),
+}
 
 
-TEXTURES = {"T_Space_Earth_E": ("earth", earth), "T_Space_Stars_E": ("stars", stars)}
-
-
-def record(name: str, function: str, png: Path) -> dict:
+def record(name: str, function: str, png: Path, spec: dict, web: str | None) -> dict:
     digest = hashlib.sha256(png.read_bytes()).hexdigest()
-    return {
+    doc = {
         "schema": "verse.import/1",
         "name": name,
         "asset_path": f"{FOLDER}/{name}.{name}",
@@ -159,43 +192,60 @@ def record(name: str, function: str, png: Path) -> dict:
         "source": {
             "builder": HERE.relative_to(REPO_ROOT).as_posix(),
             "function": function,
-            "args": {"width": WIDTH, "height": HEIGHT, "seed": SEED},
+            "args": {"count": STAR_COUNT, "seed": STAR_SEED} if web is None else {"file": web},
         },
         "export": {
             "format": "png",
             "settings_id": "png-ue/1",
             "file": png.relative_to(REPO_ROOT).as_posix(),
             "sha256": digest,
-            "blender": "5.0.1",
+            "blender": "0.0.0",
         },
         "texture": {
             "group": "World",
-            "max_size": 2048,
-            "srgb": True,
-            "compression": "Default",
+            "max_size": spec["max_size"],
+            "srgb": spec["srgb"],
+            "compression": spec["compression"],
             "flip_green": False,
+            "never_stream": True,
         },
         "lightmap": "none",
         "license": {"kind": "own"},
         "owner": "WP12",
     }
+    if web is not None:
+        source = hashlib.sha256((WEB / web).read_bytes()).hexdigest()
+        doc["license"] = {"kind": "ledger", "ledger_sha256": [source]}
+    if spec["max_size"] > 2048:
+        doc["budget_override"] = {
+            "field": "max_size",
+            "value": spec["max_size"],
+            "reason": "the sky behind every window: the same resolution as the three.js view",
+            "approved_by": APPROVAL,
+        }
+    return doc
 
 
 def dumps(doc: dict) -> str:
     return json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=True) + "\n"
 
 
-def write_all(*, check: bool = False, records: bool = False) -> list[str]:
+def write_all(
+    *, check: bool = False, records: bool = False, only: set[str] | None = None
+) -> list[str]:
     stale = []
     CACHE.mkdir(parents=True, exist_ok=True)
-    for name, (function, make) in TEXTURES.items():
+    for name, (function, make, spec, web) in TEXTURES.items():
+        if only and name not in only:
+            continue
         png = CACHE / f"{name}.png"
-        make().save(png, optimize=False, compress_level=6)
-        print(f"[verse] wrote {png.relative_to(REPO_ROOT).as_posix()}")
+        if not (check and png.is_file()):
+            make().save(png, optimize=False, compress_level=6)
+            print(f"[verse] wrote {png.relative_to(REPO_ROOT).as_posix()}", flush=True)
         if not records:
             continue
         path = RECORDS / f"{name}.import.json"
-        text = dumps(record(name, function, png))
+        text = dumps(record(name, function, png, spec, web))
         if path.is_file() and path.read_text(encoding="utf-8") == text:
             continue
         stale.append(path.relative_to(REPO_ROOT).as_posix())
@@ -211,8 +261,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--records", action="store_true", help="also write the import records")
+    parser.add_argument("--only", action="append", help="one texture name (repeatable)")
     options = parser.parse_args(argv)
-    stale = write_all(check=options.check, records=options.records or options.check)
+    stale = write_all(
+        check=options.check,
+        records=options.records or options.check,
+        only=set(options.only or ()),
+    )
     for path in stale:
         print(f"[verse] {'stale' if options.check else 'wrote'} {path}")
     return 1 if options.check and stale else 0

@@ -1,0 +1,42 @@
+{
+  "asset_path": "/Game/Verse/Kit/Space/T_Space_EarthRelief_M.T_Space_EarthRelief_M",
+  "budget_override": {
+    "approved_by": "integration",
+    "field": "max_size",
+    "reason": "the sky behind every window: the same resolution as the three.js view",
+    "value": 4096
+  },
+  "export": {
+    "blender": "0.0.0",
+    "file": "art/verse/.cache/unreal/kit/space/T_Space_EarthRelief_M.png",
+    "format": "png",
+    "settings_id": "png-ue/1",
+    "sha256": "ca7ff38f4b21a2847fe142b192099967c9cd246dacf62121437f7010c24046fb"
+  },
+  "kind": "texture",
+  "license": {
+    "kind": "ledger",
+    "ledger_sha256": [
+      "fd915325622eea5db29915fed186bd0161b2061488eb1b7e920864c4ee163c8c"
+    ]
+  },
+  "lightmap": "none",
+  "name": "T_Space_EarthRelief_M",
+  "owner": "WP12",
+  "schema": "verse.import/1",
+  "source": {
+    "args": {
+      "file": "earth_relief.webp"
+    },
+    "builder": "art/verse/kit/props/space/space_textures.py",
+    "function": "earth_relief"
+  },
+  "texture": {
+    "compression": "BC7",
+    "flip_green": false,
+    "group": "World",
+    "max_size": 4096,
+    "never_stream": true,
+    "srgb": false
+  }
+}

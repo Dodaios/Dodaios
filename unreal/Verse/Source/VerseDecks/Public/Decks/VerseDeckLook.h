@@ -48,6 +48,10 @@ struct VERSEDECKS_API FVerseDeckLook
 	 * stance shows the costume's front trim instead of a plain back. 0 = facing away.
 	 */
 	double ArrivalBodyTurnDeg = 0.0;
+	/** Which way the deck's viewports look out, level (Unreal axes). The three.js view takes it
+	 *  from the windows (`realtimeScene.ts` `outwardOf`: deck centre to each star card, weighted
+	 *  by area); these are its values for each deck's `realtime/scene.glb`. */
+	FVector SpaceOutward = FVector(1.0, 0.0, 0.0);
 
 	static FVerseDeckLook For(FName Deck);
 };

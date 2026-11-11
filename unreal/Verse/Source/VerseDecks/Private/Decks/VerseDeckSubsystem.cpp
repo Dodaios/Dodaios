@@ -321,6 +321,10 @@ void UVerseDeckSubsystem::SpawnDeckActors(UWorld* World, FName Deck, bool bByLif
 		Lighting = Lights;
 	}
 	SpaceView = World->SpawnActor<AVerseSpaceView>(Params);
+	if (SpaceView.IsValid())
+	{
+		SpaceView->SetOutward(FVerseDeckLook::For(Deck).SpaceOutward);
+	}
 
 	AVerseDeckCamera* DeckCamera = World->SpawnActor<AVerseDeckCamera>(Params);
 	if (DeckCamera)
