@@ -217,7 +217,7 @@ it("ends the window on the voice step and walks the app, then finishes", async (
       fireEvent.click(screen.getByTestId("walk-next"));
     });
   }
-  expect(seen).toEqual(["chat", "voice", "agents", "ide", "plugins", "wake", "done"]);
+  expect(seen).toEqual(["chat", "voice", "ide", "plugins", "wake", "done"]);
   expect(onFinished).toHaveBeenCalledTimes(1);
   expect(useEventStore.getState().activeSection).toBe("chats");
 });

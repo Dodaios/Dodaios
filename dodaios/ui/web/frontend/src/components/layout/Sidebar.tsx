@@ -1,77 +1,36 @@
-import {
-  Loader2,
-  Mic,
-  ChevronDown,
-  MoreHorizontal,
-  MessageCircle,
-} from "lucide-react";
-import {
-  NAV_GROUPS,
-  SETTINGS_HUB_IDS,
-  presentNavItem,
-  resolveNavLabel,
-  type NavItem,
-} from "@/components/layout/navGroups";
-import { useEventStore } from "@/store/events";
-import { useTilingStore } from "@/store/tiling";
-import { useSelfBuildWaiting } from "@/hooks/useSelfBuild";
+import { Loader2, Mic, MoreHorizontal, Search } from "lucide-react";
+import { SETTINGS_HUB_IDS } from "@/components/layout/navGroups";
+import { useEventStore, type SectionId } from "@/store/events";
 import { useSectionPrefetch } from "@/hooks/useSectionPrefetch";
 import { useVoiceReadiness } from "@/hooks/useVoiceReadiness";
 import { useVoiceMode } from "@/hooks/useVoiceMode";
 import { useSectionHealth } from "@/hooks/useProviders";
 import { usePluginAttention } from "@/hooks/usePluginAttention";
-import { clsx } from "clsx";
 import { cn } from "@/lib/utils";
-import { lazy, Suspense, useMemo, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { useT } from "@/i18n";
-import { EarlierChatsLink } from "@/components/home/EarlierChatsLink";
 import { useHomeStore } from "@/store/home";
 import { LazyIdeProjectTree } from "@/components/agentic/LazyIdeProjectTree";
 import { IDE_SECTIONS } from "@/lib/ideSections";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeThreadsStore } from "@/store/ideThreads";
 import { SidebarSearchBar } from "@/components/layout/SidebarSearchBar";
-import { SidebarMoreFlyout } from "@/components/layout/SidebarMoreFlyout";
+import { SidebarModeSwitch, type SidebarMode } from "@/components/layout/SidebarModeSwitch";
 import { useQuickSwitchSettings } from "@/store/quickSwitchSettings";
 import { useAppInstance } from "@/hooks/useAppInstance";
 import { usePublishIdentity } from "@/hooks/usePublishIdentity";
-import { PetMark } from "@/components/pets/PetMark";
-import { MarketplaceIcon } from "@/components/icons/sectionIcons";
+import { ArtifactsIcon, CaptureIcon, ExtensionsIcon, MarketplaceIcon, SpeechIcon } from "@/components/icons/sectionIcons";
+import { SidebarStatus } from "@/components/layout/SidebarStatus";
+import { useQuickSwitcher } from "@/store/quickSwitcher";
 import { startNewTextChat } from "@/lib/newChat";
 import { useUserName } from "@/hooks/useUserName";
-import { useAgentChatStore } from "@/store/agentChat";
 import { apiKeysHealthError } from "@/lib/apiKeysTab";
-
-// The person's most-used agents. The roster query and the agent faces live in
-// the society code, so they load on their own chunk, not in the sidebar's.
-const SidebarAgents = lazy(() => import("@/components/layout/SidebarAgents"));
-// What falls due soon, from the personal memory; absent on an empty week.
-const SidebarDue = lazy(() => import("@/components/layout/SidebarDue"));
 
 // The update button renders nothing on most launches; loaded on its own so
 // the title-strip module it lives in stays out of the sidebar's chunk.
 const UpdateButton = lazy(() =>
   import("@/components/layout/TopBar").then((m) => ({ default: m.UpdateButton })),
 );
-
-/*
- * Why `clsx` and not `cn` on the rows below.
- *
- * `cn` runs tailwind-merge, which decides that anything matching `text-*` that
- * is not one of ITS known size names is a text COLOUR. The design system's
- * scale — `text-body`, `text-meta`, `text-title`, `text-micro` — is not in that
- * list, so a class list holding both a size and a colour ends up with only the
- * colour: `cn("text-body", "text-muted-foreground")` returns
- * `"text-muted-foreground"` and the row silently falls back to the inherited
- * 16 px. Font size and colour are different CSS properties and never conflict
- * in the stylesheet, so plain concatenation is the correct behaviour here.
- *
- * The real fix is one line in `lib/utils.ts` — teach tailwind-merge the scale
- * via `extendTailwindMerge({ extend: { classGroups: { "font-size": [{ text:
- * ["display","page","title","reading","body","meta","micro"] }] } } })`. That
- * file is outside this change; once it lands these can go back to `cn`.
- */
-
 
 /**
  * The voice status dot, in the three colours a status is allowed to have.
@@ -98,6 +57,14 @@ const VOICE_STATE_STYLE: Record<string, { dot: string; pulse: boolean }> = {
   // negotiating" phase, which no backend state covers. Half up, so amber.
   connecting: { dot: "bg-warning", pulse: true },
 };
+
+/** The pages reached most from beside the conversation, in the maintainer's order. */
+const SHORTCUTS: readonly { id: SectionId; labelKey: string; Icon: typeof Search; also: readonly SectionId[] }[] = [
+  { id: "plugins", labelKey: "nav.plugins", Icon: ExtensionsIcon, also: ["skills", "mcps"] },
+  { id: "dictation", labelKey: "nav.dictation", Icon: SpeechIcon, also: ["dictionary", "voice-shortcuts", "voice-language", "voice-api-keys"] },
+  { id: "visualization", labelKey: "nav.visualization", Icon: ArtifactsIcon, also: [] },
+  { id: "appshots", labelKey: "nav.appshots", Icon: CaptureIcon, also: [] },
+];
 
 export interface SidebarProps {
   /**
@@ -176,8 +143,6 @@ export function Sidebar({
   const profilePrefetch = useSectionPrefetch("profile");
   const marketplacePrefetch = useSectionPrefetch("marketplace");
   const active = useEventStore((s) => s.activeSection);
-  const openVoiceThread = useEventStore((s) => s.activeKind === "voice" && Boolean(s.activeThreadId));
-  const agentChatOpen = useHomeStore((s) => s.agentChatId !== null);
   const setActive = useEventStore((s) => s.setActiveSection);
   const activeIdeWorkspaceId = useIdeProjectsStore((s) => s.activeWorkspaceId);
   const openIdeWorkspaceOptions = useIdeProjectsStore((s) => s.openWorkspaceOptions);
@@ -192,51 +157,15 @@ export function Sidebar({
   // confused; the default app shows nothing here.
   const appInstance = useAppInstance();
   const devTag = appInstance?.isDev ? appInstance.name.toUpperCase() : null;
-  // The front page's nav row names the face the switch picked (Voice / Chat),
-  // see `presentNavItem`.
-  const surface = useHomeStore((s) => s.surface);
-  /*
-   * The Agentic IDE in chat mode puts ITS chats at the top of this column.
-   *
-   * Chat mode is a surface, not a layout — the conversations you are having in
-   * the workspace you opened, grouped by folder — and a chat surface with its
-   * history two clicks away is a chat surface nobody uses. So while it is on,
-   * `WorkspaceChats` leads the column and the sections follow underneath.
-   *
-   * It used to TAKE the column instead, with a "Sections" button swapping the
-   * two faces. That made the two halves of the navigation mutually exclusive:
-   * asking for a section threw the sessions away, and there was no state that
-   * showed both (maintainer report 2026-08-27). Stacked, nothing is ever a
-   * click away from being lost — the sessions stay put while a section is
-   * picked, and the sections stay reachable while the sessions are read.
-   * Only while the IDE is the section on screen: every other section gets the
-   * plain navigation, with no workspace list bolted on top of it.
-   */
-  /*
-   * Is there anything for this column to list?
-   *
-   * Measured on the OPEN WORKSPACES, not on the active one. The two differ in
-   * exactly one state and it is a state the user reaches on purpose: opening
-   * one more workspace deactivates the front tab while the launcher asks for
-   * a folder. Gated on the active workspace, the whole chat navigation
-   * vanished at that moment and came back when the new workspace started —
-   * so asking for a second project threw away the list of the first, which
-   * reads as the sidebar breaking rather than a wizard opening.
-   *
-   * The old reading ("no workspace open means the wizard, not a chat") was
-   * written when this column was headed "This workspace". It lists every open
-   * workspace as its own band now, so it has something true to say for as
-   * long as any of them is running.
-   */
+  // Which of the app's two places is on screen: the conversation with the
+  // assistant, or the Agentic IDE. Neither while a Settings page is open.
   const onIdeSection = IDE_SECTIONS.includes(active);
-  // The IDE's thread layout lists search as a row under its other start
-  // rows (ThreadTree), so its header keeps the name instead of the field.
+  const mode: SidebarMode | null = onIdeSection ? "ide" : active === "chats" ? "dodaios" : null;
+  // The IDE's thread list carries search as one of its own start rows
+  // (ThreadTree), so there the field atop the column steps aside.
   const threadLayout = useIdeThreadsStore((s) => s.layout) === "threads" && onIdeSection;
-  const headerSearch = searchBarOn && !threadLayout;
-  // An empty chat on the front page: nothing open, nothing being read.
-  const onEmptyChat = useAgentChatStore(
-    (st) => active === "chats" && !st.activeSessionId && st.timeline.items.length === 0,
-  ) && !openVoiceThread && !agentChatOpen;
+  // Beside the conversation, search is the first of the shortcut rows instead.
+  const headerSearch = searchBarOn && onIdeSection && !threadLayout;
   const identity = usePublishIdentity();
   const userName = useUserName();
   // The person by first name once the Profile knows it, else their
@@ -276,13 +205,6 @@ export function Sidebar({
   const pluginWarnTitle = pluginAttention.names.length
     ? `${t("sidebar.plugins_reconnect_alert")}: ${pluginAttention.names.join(", ")}`
     : t("sidebar.plugins_reconnect_alert");
-  const agentsCount = useEventStore((s) =>
-    s.events.filter((e) => e.name === "AgentStateChange").length > 0 ? undefined : 0,
-  );
-  // Proposals that wait for the person's yes or no — a quiet number, never a
-  // toast or a sound (the self-building loop does not interrupt).
-  const selfBuildWaiting = useSelfBuildWaiting();
-
   // Read for the status line's connecting phase. Same resolver as the
   // mission-deck header and orb (`useVoiceMode`): a negotiating realtime
   // transport outranks the pipeline's own state.
@@ -323,45 +245,25 @@ export function Sidebar({
   // the column narrow gets icons without having to also find the button.
   const railed = collapsed || width < SIDEBAR_RAIL_AT_WIDTH;
 
-  const allItems = NAV_GROUPS.flat();
-  const findItem = (id: string) => allItems.find((item) => item.id === id)!;
-  const toolIds = ["memory", "board", "docs", "sessions", "clis"];
-  const toolItems = toolIds.map(findItem);
-  // Artifacts ("visualization") sits directly in the main list where the
-  // retired "Jarvis Tools" folder used to be — it was the only entry hiding
-  // behind "Show more" that users reached for daily, while the tools folder
-  // duplicated exactly what "Show more" already lists.
-  // "Built for you" moved behind "More" (2026-11-02): the main list is the
-  // agents, the IDE, the voice, the extensions and the artifacts.
-  const primaryIds = ["chats", "agents", "dictation", "visualization", "agentic-ide", "plugins", "marketplace"];
-  // The Settings hub owns its entries — they live in the hub's left
-  // navigation now, so "Show more" must not list them a second time. The set
-  // itself is named once in `navGroups` (`SETTINGS_HUB_IDS`).
-  const assignedIds = new Set([...primaryIds, ...toolIds, ...SETTINGS_HUB_IDS]);
-  const moreItems = [...toolItems, ...allItems.filter((item) => !assignedIds.has(item.id))];
   // Lit while any hub section is on screen — the profile button IS the hub's
   // entry point now, so it carries the "you are here" state for all of them.
   const hubActive = (SETTINGS_HUB_IDS as readonly string[]).includes(active);
-  // Rows read quietly: regular weight, light ink at
-  // rest (muted grey made every entry look disabled), the icon in the same
-  // ink, a lift on hover. Section labels and tail rows stay muted.
   const rowClass = "flex min-h-8 w-full items-center gap-3 rounded-lg px-3 text-base text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-  const renderRow = (raw: NavItem, compact = railed) => {
-    const item = presentNavItem(raw, surface);
-    const isActive = item.matchIds ? item.matchIds.includes(active) : item.id === active;
-    return <NavRow key={item.id} item={item} label={resolveNavLabel(t, item)} compact={compact}
-      active={isActive}
-      badge={item.id === "agents" ? agentsCount : item.id === "self-build" ? selfBuildWaiting : undefined}
-      betaLabel={item.beta ? t("nav.agentic_ide_beta") : undefined}
-      alert={item.id === "apikeys" && apikeysHasError} alertTitle={t("sidebar.apikeys_alert")}
-      warn={item.id === "plugins" && pluginsNeedReconnect}
-      warnTitle={pluginWarnTitle}
-      // Shift+click opens the section in a tile beside the focused one.
-      onClick={(event?: ReactMouseEvent) => {
-        if (event?.shiftKey) useTilingStore.getState().openBeside(item.id);
-        else setActive(item.id);
-      }} />;
+
+  const pickMode = (next: SidebarMode) => {
+    if (next === "ide") { setActive("agentic-ide"); return; }
+    useHomeStore.getState().setSurface("chat");
+    startNewTextChat();
+    setActive("chats");
   };
+
+  // The voice path's state, at the end of the assistant's half of the switch.
+  const voiceMark = showSpinner ? (
+    <Loader2 className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" data-testid="voice-starting-spinner" aria-hidden />
+  ) : (
+    <span data-testid="sidebar-voice-dot" role="img" aria-label={voiceLabel} title={voiceLabel}
+      className={cn("h-1.5 w-1.5 shrink-0 rounded-full", vs.dot, vs.pulse && "animate-jarvis-pulse")} />
+  );
 
   return (
     // No right border: the draggable seam beside it draws that line now, and
@@ -380,148 +282,35 @@ export function Sidebar({
       data-railed={railed ? "true" : "false"}
       className="jarvis-nav-surface relative isolate z-20 flex h-full shrink-0 flex-col pt-8"
     >
-      {/* One 8px gutter down the whole column — header, navigation and footer
-          share it, so the rows, the "+ New" button and the brain card all line
-          up on the same left edge. */}
-      <div className={cn(railed ? "px-3 py-2.5" : "flex h-10 items-center px-4")}>
-        <div
-          className={cn(
-            "flex items-center",
-            railed ? "flex-col justify-center gap-1.5" : "w-full gap-2",
-          )}
-        >
-          {(railed || !headerSearch) && <span
-            data-testid="sidebar-style-avatar"
-            data-variant="logo"
-            title={railed ? `${assistantName} — ${voiceLabel}` : undefined}
-            className={cn("relative shrink-0", railed ? "h-9 w-9" : "h-5 w-5")}
-          >
-            {railed && devTag && (
-              <span
-                data-testid="sidebar-instance-tag"
-                title={t("sidebar.instance_dev_hint")}
-                className="absolute -bottom-1 -right-1 z-10 rounded-sm bg-primary px-1 text-xs font-medium leading-none text-primary-foreground"
-              >
+      {/* The two places of the app lead the column: the conversation with the
+          assistant and the Agentic IDE. Everything else is a Settings page,
+          behind the profile button at the foot. */}
+      <div className={cn("flex flex-col gap-1.5", railed ? "items-center px-3 py-2.5" : "px-2 pb-1 pt-1")}>
+        <SidebarModeSwitch
+          mode={mode}
+          railed={railed}
+          onPick={pickMode}
+          status={voiceMark}
+        />
+        {/* The state is spelled out only when it is news: starting, offline,
+            listening. At rest the dot says "fine" on its own. */}
+        {!railed && (voiceHasNews || devTag) && (
+          <div className="flex min-w-0 items-center gap-2 px-1">
+            {/* The dev instance says so on a line of its own; in the switch it squeezed the name out. */}
+            {devTag && (
+              <span data-testid="sidebar-instance-tag" title={t("sidebar.instance_dev_hint")}
+                className="shrink-0 rounded-sm bg-primary px-1 py-0.5 text-xs font-medium leading-none text-primary-foreground">
                 {devTag}
               </span>
             )}
-            <PetMark size={railed ? 36 : 20} reactive />
-          </span>}
-          {/* One quiet row, like the workspace switcher in Linear or Cursor:
-              mark, name, status dot. It used to be a two-line identity card
-              whose second line said "Ready" for as long as nothing was wrong,
-              which is almost always — the one word that carries no news took
-              the loudest spot in the column. The dot says "fine" on its own
-              (its hover and accessible name still carry the word); the word
-              only appears when there IS news: starting, offline, error. */}
-          {!railed && headerSearch && (
-            <SidebarSearchBar
-              assistantName={assistantName}
-              status={
-                <>
-                  {voiceHasNews && (
-                    <span className="max-w-[7rem] shrink-0 truncate text-xs text-muted-foreground">
-                      {voiceLabel}
-                    </span>
-                  )}
-                  {devTag && (
-                    <span
-                      data-testid="sidebar-instance-tag"
-                      title={t("sidebar.instance_dev_hint")}
-                      className="shrink-0 rounded-sm bg-primary px-1.5 text-xs font-medium leading-none text-primary-foreground"
-                    >
-                      {devTag}
-                    </span>
-                  )}
-                  {showSpinner ? (
-                    <Loader2
-                      className="h-3 w-3 shrink-0 animate-spin text-muted-foreground"
-                      data-testid="voice-starting-spinner"
-                      aria-hidden
-                    />
-                  ) : (
-                    <span
-                      data-testid="sidebar-voice-dot"
-                      role="img"
-                      aria-label={voiceLabel}
-                      title={voiceLabel}
-                      className={cn(
-                        "h-1.5 w-1.5 shrink-0 rounded-full",
-                        vs.dot,
-                        vs.pulse && "animate-jarvis-pulse",
-                      )}
-                    />
-                  )}
-                </>
-              }
-            />
-          )}
-          {!railed && !headerSearch && (
-            <div
-              className="flex min-w-0 flex-1 items-center gap-2 text-sm"
-              title={voiceLabel}
-            >
-              <span className="truncate font-medium text-foreground-strong">{assistantName}</span>
-              {devTag && (
-                // A mark, not a status: the fill is the neutral accent, so it
-                // never competes with the green/amber/red the voice dot
-                // beside it uses to mean something.
-                <span
-                  data-testid="sidebar-instance-tag"
-                  title={t("sidebar.instance_dev_hint")}
-                  className="shrink-0 rounded-sm bg-primary px-1.5 text-xs font-medium leading-none text-primary-foreground"
-                >
-                  {devTag}
-                </span>
-              )}
-              {showSpinner ? (
-                <Loader2
-                  className="h-3 w-3 shrink-0 animate-spin text-muted-foreground"
-                  data-testid="voice-starting-spinner"
-                  aria-hidden
-                />
-              ) : (
-                <span
-                  data-testid="sidebar-voice-dot"
-                  role="img"
-                  aria-label={voiceLabel}
-                  className={cn(
-                    "h-1.5 w-1.5 shrink-0 rounded-full",
-                    vs.dot,
-                    vs.pulse && "animate-jarvis-pulse",
-                  )}
-                />
-              )}
-              {voiceHasNews && (
-                <span className="truncate text-xs text-muted-foreground">{voiceLabel}</span>
-              )}
-            </div>
-          )}
-          {railed &&
-            (showSpinner ? (
-              <Loader2
-                className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground"
-                data-testid="voice-starting-spinner"
-                aria-hidden
-              />
-            ) : (
-              <span
-                className={cn(
-                  "h-2 w-2 rounded-full",
-                  vs.dot,
-                  vs.pulse && "animate-jarvis-pulse",
-                )}
-                aria-hidden
-              />
-            ))}
-        </div>
-
+            {voiceHasNews && <p data-testid="sidebar-voice-label" className="truncate text-xs text-muted-foreground">{voiceLabel}</p>}
+          </div>
+        )}
+        {!railed && headerSearch && <SidebarSearchBar assistantName={assistantName} />}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-jarvis">
-        {/* The IDE has no "back" row: the caption's back arrow leaves it, so
-            the workspace tree starts right under the sidebar header. */}
-        {onIdeSection ? (railed && <nav aria-label={t("sidebar.ide_navigation")} className="px-2 pt-2">
+        {railed ? (onIdeSection && <nav aria-label={t("sidebar.ide_navigation")} className="px-2 pt-2">
           <div className="flex flex-col items-center gap-1">
             <button type="button" aria-label={t("sidebar.workspace_options")} title={t("sidebar.workspace_options")}
               disabled={!activeIdeWorkspaceId}
@@ -534,39 +323,39 @@ export function Sidebar({
               <Mic aria-hidden className="h-4 w-4" />
             </button>
           </div>
-        </nav>) : <nav aria-label={t("sidebar.sections")} className="space-y-px px-2 py-2">
-          <ul className="space-y-px">
-            {/* One door: the one endless conversation (2026-11-09). Voice is
-                a mode INSIDE it (its top bar's button). */}
-            <li><button type="button" data-testid="sidebar-new-chat" data-tour="new-chat"
-              aria-label={t("sidebar.conversation")} title={t("sidebar.conversation")}
-              className={cn(rowClass, onEmptyChat && "bg-secondary text-foreground-strong")}
-              onClick={() => { useHomeStore.getState().setSurface("chat"); startNewTextChat(); }}>
-              <MessageCircle aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" />
-              {!railed && <span>{t("sidebar.conversation")}</span>}
-            </button></li>
-            {/* The order the maintainer chose (2026-11-02): the agents, where
-                they code, the voice, then the extensions and the artifacts.
-                Everything else sits behind "More". */}
-            {renderRow(findItem("agents"))}
-            {renderRow(findItem("agentic-ide"))}
-            {renderRow(findItem("dictation"))}
-          </ul>
-          <ul className="space-y-px">
-            {renderRow({ ...findItem("plugins"), labelKey: "sidebar.extensions_label" })}
-            {renderRow(findItem("visualization"))}
-          </ul>
-          <SidebarMoreFlyout
-            items={moreItems}
-            railed={railed}
-            rowClass={rowClass}
-            label={t("sidebar.more")}
-            renderRow={(item) => renderRow(item, false)}
-          />
-        </nav>}
-        {!railed && (onIdeSection
-          ? <LazyIdeProjectTree />
-          : <><Suspense fallback={null}><SidebarAgents /><SidebarDue /></Suspense><section className="mt-5 px-2 pb-3" aria-label={t("sidebar.earlier_chats")}><EarlierChatsLink /></section></>)}
+        </nav>) : <>
+          {/* The IDE lists its folders here. Beside the conversation the column
+              holds a few ways out (search and the pages reached most) and,
+              under them, what waits on the person and what runs. The
+              assistant's own panel stands to the right of the conversation. */}
+          {onIdeSection ? <LazyIdeProjectTree /> : <>
+            <nav aria-label={t("sidebar.sections")} data-testid="sidebar-shortcuts" className="px-2 pt-1">
+              <ul className="space-y-px">
+                {searchBarOn && <li>
+                  <button type="button" data-testid="sidebar-search-row" onClick={() => useQuickSwitcher.getState().show()} className={rowClass}>
+                    <Search aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" />
+                    <span className="truncate">{t("quick_switch.sidebar_search")}</span>
+                  </button>
+                </li>}
+                {SHORTCUTS.map((item) => {
+                  const { id, labelKey, Icon, also } = item;
+                  const here = active === id || also.includes(active);
+                  return <li key={id}>
+                    <button type="button" data-testid={`sidebar-shortcut-${id}`} data-tour={`nav-${item.id}`} onClick={() => setActive(id)}
+                      aria-current={here ? "page" : undefined}
+                      title={id === "plugins" && pluginsNeedReconnect ? pluginWarnTitle : undefined}
+                      className={cn(rowClass, here && "bg-secondary text-foreground-strong")}>
+                      <Icon aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" />
+                      <span className="min-w-0 flex-1 truncate text-left">{t(labelKey)}</span>
+                      {id === "plugins" && pluginsNeedReconnect && <span data-testid="sidebar-shortcut-warn" role="status" aria-label={pluginWarnTitle} className="h-2 w-2 shrink-0 rounded-full bg-warning" />}
+                    </button>
+                  </li>;
+                })}
+              </ul>
+            </nav>
+            <SidebarStatus />
+          </>}
+        </>}
       </div>
 
       {/* The footer is one button now, not a popup: it opens the Settings hub
@@ -586,8 +375,9 @@ export function Sidebar({
                 className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary text-xs font-medium uppercase text-muted-foreground">
                 {footerName.trim().charAt(0) || "?"}
               </span>
-              {(apikeysHasError || localModelsNeedAttention) && <span data-testid="sidebar-profile-attention"
-                role="status" aria-label={t("sidebar.apikeys_alert")}
+              {(apikeysHasError || localModelsNeedAttention || pluginsNeedReconnect) && <span data-testid="sidebar-profile-attention"
+                role="status" title={pluginsNeedReconnect ? pluginWarnTitle : undefined}
+                aria-label={apikeysHasError || localModelsNeedAttention ? t("sidebar.apikeys_alert") : pluginWarnTitle}
                 className={cn("absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-2 ring-sidebar", apikeysHasError ? "bg-destructive" : "bg-warning")} />}
             </span>
             {!railed && <span data-testid="sidebar-profile-name" className="min-w-0 flex-1 truncate text-left">{footerName}</span>}
@@ -603,167 +393,5 @@ export function Sidebar({
         </div>
       </div>
     </aside>
-  );
-}
-
-function NavRow({
-  compact = false,
-  item,
-  label,
-  active,
-  badge,
-  betaLabel,
-  alert = false,
-  alertTitle,
-  warn = false,
-  warnTitle,
-  expand,
-  onClick,
-  children,
-}: {
-  compact?: boolean;
-  item: NavItem;
-  label: string;
-  active: boolean;
-  badge?: number;
-  /** A chevron at the row's end that folds `children` out under the row.
-   *  It is a second button beside the row, not a part of it: the row keeps
-   *  opening its section, the chevron only opens the list. */
-  expand?: { open: boolean; onToggle: () => void; label: string };
-  /** What hangs under the row while `expand.open` — the Chat row's history. */
-  children?: ReactNode;
-  /** Small pill rendered right after the label (e.g. "Beta") — set from
-   *  `item.beta`, translated by the caller so this component stays i18n-free. */
-  betaLabel?: string;
-  /** Draw a red status dot on the row — a section this row fronts has a provider
-   *  that is set up but failing, so the problem is visible app-wide. */
-  alert?: boolean;
-  /** Plain-language hover text for the alert dot. */
-  alertTitle?: string;
-  /** Draw an amber status dot — a softer "needs attention" than `alert` (e.g. a
-   *  connected plugin whose token was revoked and needs a one-click reconnect). */
-  warn?: boolean;
-  /** Plain-language hover text for the warn dot. */
-  warnTitle?: string;
-  onClick: () => void;
-}) {
-  const prefetch = useSectionPrefetch(item.id);
-  const id = item.id;
-  const Icon = item.icon;
-  const hint = alert ? alertTitle : warn ? warnTitle : undefined;
-  /*
-   * Selection is drawn on the WHOLE ROW.
-   *
-   * It used to be a `bg-foreground/10` fill on the 24×24 icon box while the
-   * ~200×40 row it belongs to stayed at the rail's own ground — a correct lift
-   * spent on 3.5 % of the thing it was meant to mark, which is why "you are
-   * here" was the hardest question to answer in this app. The row takes the
-   * fill now (one step up the ladder, inset from the column edge by the nav's
-   * own padding) plus the strong ink, and the icon box is gone entirely: it
-   * existed only to hold that fill.
-   *
-   * Hover stops one rung BELOW selection — `bg-card`, not `bg-secondary` — so
-   * a hovered row and the selected row never look alike. That difference is
-   * the whole point of a fill-based selection; matching them would give the
-   * fill with one hand and take the meaning away with the other.
-   */
-  return (
-    <li>
-      {/* The chevron is positioned against THIS box, not the <li>. If the
-          open list lived in the same relative parent, `top-1/2` walked to
-          the middle of the chats and the rows painted over the only control
-          that folds them away (maintainer, 2026-09-02). */}
-      <div className={expand ? "relative" : undefined}>
-        <button
-          type="button"
-          data-testid={`nav-row-${id}`}
-          {...prefetch}
-          data-tour={`nav-${item.id}`}
-          onClick={onClick}
-          title={compact ? `${label}${hint ? ` — ${hint}` : ""}` : hint}
-          aria-label={compact ? label : undefined}
-          className={clsx(
-            "group relative flex h-8 w-full items-center gap-3 rounded-lg px-3 text-base transition-colors",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            // Leave the chevron its own column so the two buttons never overlap.
-            expand && "pr-9",
-            // Rest is muted ink; hover AND active are the same lift with body
-            // ink, and only the active row carries the 2 px accent bar at the
-            // left edge (`.jarvis-nav-active`).
-            active
-              ? "jarvis-nav-active bg-secondary text-foreground-strong"
-              : "text-foreground hover:bg-secondary",
-          )}
-        >
-          <Icon
-            aria-hidden
-            strokeWidth={1.75}
-            className={cn(
-              "h-[18px] w-[18px] shrink-0 transition-colors",
-              active ? "text-foreground-strong" : "text-foreground",
-            )}
-          />
-          <span className={cn("flex min-w-0 flex-1 items-center gap-2 text-left", compact && "hidden")}>
-            {/* The row is a fixed 40px now, so a long label has to be cut rather
-                than allowed to wrap out of it. */}
-            <span className="truncate">{label}</span>
-            {betaLabel && (
-              <span
-                data-testid={`nav-beta-${item.id}`}
-                className="shrink-0 rounded-sm border border-border bg-secondary px-1 text-xs font-medium text-muted-foreground"
-              >
-                {betaLabel}
-              </span>
-            )}
-          </span>
-          {/* No ring around these: they sit in clear space at the row's end, and
-              a rim on something that already has a fill is one device too many. */}
-          {alert && (
-            <span
-              data-testid={`nav-alert-${item.id}`}
-              role="status"
-              aria-label={alertTitle}
-              className="h-2 w-2 shrink-0 rounded-full bg-destructive"
-            />
-          )}
-          {!alert && warn && (
-            <span
-              data-testid={`nav-warn-${item.id}`}
-              role="status"
-              aria-label={warnTitle}
-              className="h-2 w-2 shrink-0 rounded-full bg-warning"
-            />
-          )}
-          {badge !== undefined && badge > 0 && (
-            <span className="shrink-0 rounded-sm bg-secondary px-1 text-xs tabular-nums text-muted-foreground">
-              {badge}
-            </span>
-          )}
-        </button>
-        {expand && (
-          <button
-            type="button"
-            onClick={expand.onToggle}
-            aria-expanded={expand.open}
-            aria-label={expand.label}
-            title={expand.label}
-            data-testid={`nav-expand-${item.id}`}
-            className={cn(
-              "absolute right-2 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors",
-              // `hover:bg-background/60` painted the PAGE over the rail here,
-              // i.e. it went darker under the pointer. Up the ladder instead.
-              "text-muted-foreground hover:bg-surface-raised hover:text-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            )}
-          >
-            <ChevronDown
-              aria-hidden
-              className={cn("h-3.5 w-3.5 transition-transform", expand.open && "rotate-180")}
-            />
-          </button>
-        )}
-      </div>
-      {expand?.open && children}
-    </li>
   );
 }

@@ -16,6 +16,14 @@ afterEach(() => {
 });
 
 describe("ToastLayer", () => {
+  it("stands beside the conversation's right-hand panel instead of over it", () => {
+    useEventStore.setState({ activeSection: "chats" });
+    render(<ToastLayer />);
+    expect(screen.getByTestId("toast-layer").className).toContain("lg:right-[336px]");
+    act(() => useEventStore.setState({ activeSection: "agentic-ide" }));
+    expect(screen.getByTestId("toast-layer").className).not.toContain("lg:right-[336px]");
+  });
+
   it("shows a plain toast without a button", () => {
     render(<ToastLayer />);
     act(() => useEventStore.getState().pushToast("info", "Saved"));

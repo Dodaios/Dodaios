@@ -45,13 +45,13 @@ describe("the walk", () => {
 
   it("explains every section the user meets", () => {
     const ids = WALK_STOPS.map((s) => s.id);
-    for (const id of ["chat", "voice", "agents", "ide", "plugins", "wake"]) expect(ids).toContain(id);
+    for (const id of ["chat", "voice", "ide", "plugins", "wake"]) expect(ids).toContain(id);
   });
 
-  it("has seven stops on every OS and no permissions stop (permissions are asked just in time)", () => {
+  it("has six stops on every OS and no permissions stop (permissions are asked just in time)", () => {
     for (const platform of ["win32", "linux", "darwin", null]) {
       const ids = walkStopsFor(platform).map((s) => s.id);
-      expect(ids.length).toBe(7);
+      expect(ids.length).toBe(6);
       expect(ids).not.toContain("permissions");
     }
   });

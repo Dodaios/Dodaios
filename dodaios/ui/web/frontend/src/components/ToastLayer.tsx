@@ -42,6 +42,10 @@ export function ToastLayer({ children }: { children?: ReactNode } = {}) {
   const t = useT();
   const toasts = useEventStore((s) => s.toasts);
   const dismiss = useEventStore((s) => s.dismissToast);
+  // On wide windows the conversation has a panel on its right (the assistant's
+  // own or the activity panel, 320 px). The stack stands beside it rather than
+  // over its head.
+  const besidePanel = useEventStore((s) => s.activeSection === "chats");
 
   return createPortal(
     // z-[115]: above the first-run setup spotlight (z-110), whose scrim takes
@@ -53,7 +57,8 @@ export function ToastLayer({ children }: { children?: ReactNode } = {}) {
     // shell root (an isolated stacking context) no z-index could outrank it.
     // top-12: below the caption strip — at the top edge a toast covered the
     // restart and window buttons whose outcome it reports.
-    <div className="pointer-events-none fixed right-4 top-12 z-[115] flex flex-col items-end gap-2">
+    <div data-testid="toast-layer"
+      className={cn("pointer-events-none fixed right-4 top-12 z-[115] flex flex-col items-end gap-2", besidePanel && "lg:right-[336px]")}>
       {toasts.map((toast) => {
         const Icon = ICON_FOR_KIND[toast.kind];
         // A saved-file toast in the desktop shell is a native drag handle: press

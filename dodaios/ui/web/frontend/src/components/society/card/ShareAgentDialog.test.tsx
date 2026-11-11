@@ -129,7 +129,8 @@ describe("ShareAgentDialog", () => {
     expect(code.textContent).toContain('"kind": "agent"');
     expect(code.textContent).toContain("[email]");
     const privacy = screen.getByTestId("share-privacy");
-    expect(privacy.textContent).toMatch(/1 private details removed/);
+    // The dialog loads its locale chunk itself; the words arrive a tick after the template.
+    await waitFor(() => expect(privacy.textContent).toMatch(/1 private details removed/));
     expect(privacy.textContent).toContain("me…ev");
     expect(privacy.textContent).toMatch(/Never shared/);
   });

@@ -34,7 +34,7 @@ import { MemorySection } from "@/views/profile/MemorySection";
 import { PortraitSection } from "@/views/profile/PortraitSection";
 import { ProfileDrawer } from "@/views/profile/ProfileDrawer";
 import { ProfileHero } from "@/views/profile/ProfileHero";
-import { FavoriteAgents, InsightList } from "@/views/profile/ProfileInsights";
+import { InsightList } from "@/views/profile/ProfileInsights";
 import { ProfileStats } from "@/views/profile/ProfileStats";
 import { SourceCard, useSourceDocument } from "@/views/profile/SourceCard";
 import { fetchJson, statusOf, type ProfileResponse } from "@/views/profile/api";
@@ -101,7 +101,6 @@ export function ProfileView() {
               <ProfileHero data={data} meta={meta} />
               <ProfileStats />
               <ActivityChart />
-              <FavoriteAgents />
               <InsightList />
             </>
           )}

@@ -3,7 +3,7 @@
  * without looking lands right — and it must not drift from the sidebar.
  */
 import { describe, expect, it } from "vitest";
-import { NAV_FOOTER_ITEMS, NAV_GROUPS, SETTINGS_HUB_ONLY_ITEMS } from "@/components/layout/navGroups";
+import { LISTED_NAV_GROUPS, NAV_FOOTER_ITEMS, SETTINGS_HUB_ONLY_ITEMS } from "@/components/layout/navGroups";
 import { SECTION_IDS } from "@/store/events";
 import en from "@/i18n/locales/en.json";
 import de from "@/i18n/locales/de.json";
@@ -29,9 +29,9 @@ function englishLabel(item: { labelKey: string; fallbackLabel: string }): string
 const top = (query: string) => rankQuickSwitch(query, englishLabel)[0]?.entry.key;
 
 describe("destinations", () => {
-  it("covers every row the sidebar and the Settings hub show", () => {
+  it("covers every listed section and every Settings hub row", () => {
     const sections = new Set(QUICK_SWITCH_ENTRIES.map((e) => e.section));
-    for (const item of [...NAV_GROUPS.flat(), ...SETTINGS_HUB_ONLY_ITEMS, ...NAV_FOOTER_ITEMS]) {
+    for (const item of [...LISTED_NAV_GROUPS.flat(), ...SETTINGS_HUB_ONLY_ITEMS, ...NAV_FOOTER_ITEMS]) {
       expect(sections.has(item.id)).toBe(true);
     }
   });

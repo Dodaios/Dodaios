@@ -11,7 +11,7 @@ import {
 import { useEventStore, type SectionId } from "@/store/events";
 import {
   NAV_FOOTER_ITEMS,
-  NAV_GROUPS,
+  LISTED_NAV_GROUPS,
   presentNavItem,
   resolveNavLabel,
   type NavItem,
@@ -82,7 +82,7 @@ export function DockRail({ className }: { className?: string }) {
   const surface = useHomeStore((s) => s.surface);
   const items = useMemo(
     () =>
-      [...NAV_GROUPS.flat(), ...NAV_FOOTER_ITEMS].map((item) => presentNavItem(item, surface)),
+      [...LISTED_NAV_GROUPS.flat(), ...NAV_FOOTER_ITEMS].map((item) => presentNavItem(item, surface)),
     [surface],
   );
   const groupBreaks = useMemo(() => {
@@ -90,9 +90,9 @@ export function DockRail({ className }: { className?: string }) {
     // drawn above these so the rail keeps the sidebar's grouping.
     const breaks = new Set<number>();
     let n = 0;
-    for (let g = 0; g < NAV_GROUPS.length; g++) {
+    for (let g = 0; g < LISTED_NAV_GROUPS.length; g++) {
       if (g > 0) breaks.add(n);
-      n += NAV_GROUPS[g].length;
+      n += LISTED_NAV_GROUPS[g].length;
     }
     // The footer items (Feedback) sit behind one more hairline.
     breaks.add(n);
