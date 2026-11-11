@@ -52,6 +52,7 @@ __all__ = [
     "recover_waiting",
     "resume",
     "send_or_queue",
+    "steer_waiting",
     "try_steer",
 ]
 
@@ -170,6 +171,7 @@ async def try_steer(
     attachments: list[dict[str, Any]] | None = None,
     *,
     tool_choices: list[str] | None = None,
+    overtake: bool = False,
 ) -> bool:
     """Hand a message to the running turn's CLI; False when it must queue or start instead.
 
@@ -177,14 +179,15 @@ async def try_steer(
     while the agent works, and while it waits for its background tasks after
     an answer. Tool picks travel with a new turn; files go along when the CLI
     reads them mid-turn (the service decides). Messages already waiting keep
-    their place, so a steer never overtakes them.
+    their place, so an automatic steer never overtakes them; ``overtake`` is
+    the person's explicit "send it now", which goes in ahead of them.
     """
     session = svc.store.get_session(session_id)
     if session is None or getattr(session, "surface", "") != "agent":
         return False
     if tool_choices or not (text.strip() or attachments):
         return False
-    if has_waiting(svc, session_id) or not svc.is_running(session_id):
+    if (has_waiting(svc, session_id) and not overtake) or not svc.is_running(session_id):
         return False
     steer = getattr(svc, "steer", None)
     if steer is None:
@@ -192,6 +195,47 @@ async def try_steer(
     if attachments:
         return bool(await steer(session_id, text, attachments))
     return bool(await steer(session_id, text))
+
+
+async def steer_waiting(svc: Any, session_id: str, queue_id: str) -> bool:
+    """Send one waiting message into the running turn now; False leaves it waiting.
+
+    The person changed their mind about a queued follow-up: it goes in like a
+    steer, with its files, ahead of the other waiting messages. It stays in its
+    place when the turn ended meanwhile, the CLI refuses it, or it carries tool
+    picks (those only travel with a new turn).
+    """
+    pending = getattr(svc, "_society_send_queues", {}).get(session_id)
+    steer = getattr(svc, "steer", None)
+    if pending is None or steer is None or not svc.is_running(session_id):
+        return False
+    index = next((i for i, item in enumerate(pending.items) if item.queue_id == queue_id), -1)
+    if index < 0:
+        return False
+    item = pending.items[index]
+    if item.tool_choices:
+        return False
+    # Out of the queue while the CLI takes it, so a turn ending meanwhile
+    # cannot also start it as the next turn.
+    del pending.items[index]
+    try:
+        if item.attachments:
+            steered = bool(await steer(session_id, item.text, item.attachments))
+        else:
+            steered = bool(await steer(session_id, item.text))
+    except Exception:  # noqa: BLE001 - a refused steer keeps the message waiting
+        log.warning("agent chat: waiting message %s not steered", queue_id, exc_info=True)
+        steered = False
+    if not steered:
+        pending.items.insert(min(index, len(pending.items)), item)
+        return False
+    _forget(svc, queue_id)
+    await _notice(
+        svc,
+        session_id,
+        {"kind": "message_dequeued", "queue_id": queue_id, "status": "steered"},
+    )
+    return True
 
 
 def pause(svc: Any, session_id: str) -> None:

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowUp, Hammer, ListChecks, Loader2, MessageCircleQuestion, ShieldAlert, Square, X } from "lucide-react";
+import { ArrowUp, CornerDownRight, Hammer, ListChecks, Loader2, MessageCircleQuestion, ShieldAlert, Square, X } from "lucide-react";
 import { ChatAttachmentStrip } from "@/components/agentchat/ChatAttachmentStrip";
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
 import { ComposerTypeahead } from "@/components/agentchat/ComposerTypeahead";
@@ -9,7 +9,7 @@ import { releaseHeldFiles, useChatAttachments, type HeldFiles } from "@/componen
 import { useComposerDictation } from "@/components/agentchat/useComposerDictation";
 import { useComposerTypeahead } from "@/components/agentchat/useComposerTypeahead";
 import { fill, useT } from "@/i18n";
-import { discardQueuedMessage, fetchAgentChatQueue, resumeAgentChatQueue, type AgentChatSession, type ApprovalDecision, type ChatAttachment, type PlanDecision } from "@/lib/agentChatApi";
+import { discardQueuedMessage, fetchAgentChatQueue, resumeAgentChatQueue, steerQueuedMessage, type AgentChatSession, type ApprovalDecision, type ChatAttachment, type PlanDecision, type SendDelivery } from "@/lib/agentChatApi";
 import { joinProviderOptions, type ComposerDraft, type ProviderOption } from "@/store/agentChat";
 import { cn } from "@/lib/utils";
 import { effortLadder, snapEffort } from "@/lib/effortLadder";
@@ -25,6 +25,22 @@ import { rememberSeat, rememberedSeat, threadAgents, useThreadChat } from "./thr
  * runner, never a provider id: the Claude row is "claude-api" run by "claude-cli".
  */
 const STEERABLE_RUNNERS = new Set(["claude-cli", "glm-cli"]);
+
+/**
+ * What a message typed while such an agent works does: `steer` goes into the
+ * running turn at once, `queue` waits until the agent has answered and then
+ * starts as the next turn. The person's pick holds for every thread.
+ */
+export type FollowUp = "steer" | "queue";
+const FOLLOW_UP_KEY = "dodaios.threads.followUp";
+
+function rememberedFollowUp(): FollowUp {
+  try {
+    return localStorage.getItem(FOLLOW_UP_KEY) === "queue" ? "queue" : "steer";
+  } catch {
+    return "steer";
+  }
+}
 
 /** Draft text per thread, so switching threads never loses a half-written message. */
 const drafts = new Map<string, string>();
@@ -357,6 +373,13 @@ export function ThreadComposer({
   const started = timeline.items.length > 0;
   // Claude Code and GLM take a message while they work; every other agent queues it.
   const steers = STEERABLE_RUNNERS.has(provider?.runner ?? "");
+  const [followUp, setFollowUpState] = useState<FollowUp>(rememberedFollowUp);
+  const setFollowUp = useCallback((next: FollowUp) => {
+    setFollowUpState(next);
+    try { localStorage.setItem(FOLLOW_UP_KEY, next); } catch { /* the pick still holds for this window */ }
+  }, []);
+  // Every other agent can only queue, whatever the pick says.
+  const steerNow = steers && followUp === "steer";
   // "ultrathink" / "ultracode" change how Claude Code runs the turn: the
   // words show in its rainbow, drawn by a backdrop under a see-through text.
   const magic = MAGIC_WORD_RUNNERS.has(provider?.runner ?? "") && hasMagicWord(value);
@@ -451,7 +474,7 @@ export function ThreadComposer({
   });
 
   /** Sends `text`; false when it did not reach the agent. `sent` learns the thread a first message creates. */
-  const dispatch = useCallback(async (text: string, attachments: ChatAttachment[], sent?: SentMessage) => {
+  const dispatch = useCallback(async (text: string, attachments: ChatAttachment[], sent?: SentMessage, delivery?: SendDelivery) => {
     const store = chat.getState();
     // A second message while the first one still creates the thread rides on
     // that creation (the store's send lane), never on a second worktree.
@@ -474,7 +497,7 @@ export function ThreadComposer({
     const outcome = await chat.getState().send(text, attachments, [], (session) => {
       if (sent && sent.sessionId === null) sent.sessionId = session.session_id;
       onSessionCreated?.(session);
-    });
+    }, delivery);
     return outcome !== "failed";
   }, [chat, prepareDraft, onSessionCreated]);
 
@@ -505,10 +528,11 @@ export function ThreadComposer({
     setValue("");
     setProblem("");
     if (running || busy) {
-      // The server decides: a CLI that takes input mid-turn is steered, any
-      // other follow-up waits in the server's queue and runs as the next turn.
+      // The person's pick: into the running turn now, or wait for its answer
+      // and run as the next turn. An agent that cannot take a message mid-turn
+      // always waits in the server's queue.
       releaseHeldFiles(held);
-      const sent = await dispatch(text, attachments);
+      const sent = await dispatch(text, attachments, undefined, steers ? (steerNow ? "now" : "after") : undefined);
       if (!sent) giveBack(key, text);
       return;
     }
@@ -589,13 +613,31 @@ export function ThreadComposer({
       {queue.map((entry) => <div key={entry.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm">
         <span className="shrink-0 text-xs text-muted-foreground">{t("ide_threads.queued")}</span>
         <span className="min-w-0 flex-1 truncate text-foreground">{entry.text}</span>
+        {steers && running && <button type="button" aria-label={t("ide_threads.steer_queued")} title={t("ide_threads.steer_queued")} data-testid="thread-queue-steer"
+          onClick={() => {
+            if (!activeSessionId) return;
+            void steerQueuedMessage(activeSessionId, entry.id).then(
+              (steered) => { if (!steered) setProblem(t("ide_threads.steer_queued_failed")); },
+              (error) => setProblem(error instanceof Error ? error.message : String(error)),
+            );
+          }}
+          className="rounded p-0.5 text-muted-foreground hover:text-foreground"><CornerDownRight className="h-3.5 w-3.5" /></button>}
         <button type="button" aria-label={t("ide_threads.remove_queued")} onClick={() => { if (activeSessionId) void discardQueuedMessage(activeSessionId, entry.id).catch((error) => setProblem(error instanceof Error ? error.message : String(error))); }}
           className="rounded p-0.5 text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
       </div>)}
     </div>}
     {error && <p role="alert" className="mb-2 px-4 text-xs text-destructive">{error}</p>}
-    {running && canSend && <p className="mb-1.5 px-4 text-xs text-muted-foreground" data-testid="thread-send-mode" data-mode={steers ? "steer" : "queue"}>
-      {t(steers ? "ide_threads.steer_hint" : "ide_threads.queue_hint")}</p>}
+    {running && (steers || canSend) && <div className="mb-1.5 flex min-w-0 items-center gap-2 px-4 text-xs text-muted-foreground" data-testid="thread-send-mode" data-mode={steerNow ? "steer" : "queue"}>
+      {steers && <div role="radiogroup" aria-label={t("ide_threads.follow_up_label")} className="flex shrink-0 items-center rounded-full border border-border bg-card p-0.5">
+        {(["queue", "steer"] as const).map((mode) => <button key={mode} type="button" role="radio" aria-checked={followUp === mode}
+          data-testid={`thread-follow-up-${mode}`} onClick={() => { setFollowUp(mode); textareaRef.current?.focus(); }}
+          className={cn("rounded-full px-2.5 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            followUp === mode ? "bg-secondary text-foreground" : "hover:text-foreground")}>
+          {t(mode === "queue" ? "ide_threads.follow_up_queue" : "ide_threads.follow_up_steer")}
+        </button>)}
+      </div>}
+      <span className="min-w-0 truncate">{t(steerNow ? "ide_threads.steer_hint" : "ide_threads.queue_hint")}</span>
+    </div>}
     {tray}
     <div ref={cardRef} {...files.dragHandlers}
       className={cn(
@@ -617,7 +659,7 @@ export function ThreadComposer({
       </div>}
       <textarea ref={textareaRef} value={value} rows={2} data-testid="thread-composer-input"
         aria-label={t("ide_threads.message_agent")}
-        placeholder={running ? t(steers ? "ide_threads.steer_placeholder" : "ide_threads.queue_placeholder") : placeholder ?? t("ide_threads.composer_placeholder")}
+        placeholder={running ? t(steerNow ? "ide_threads.steer_placeholder" : "ide_threads.queue_placeholder") : placeholder ?? t("ide_threads.composer_placeholder")}
         onChange={(event) => { setValue(event.target.value); typeahead.refresh(); }}
         onKeyDown={onKeyDown}
         onFocus={() => { dictationOwner = threadKey; }}
@@ -649,7 +691,7 @@ export function ThreadComposer({
               className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <Square className="h-3 w-3 fill-current" />
             </button>
-            : <button type="button" aria-label={running ? t(steers ? "ide_threads.steer_title" : "ide_threads.queue_message") : t("ide_threads.send_message")} title={running ? t(steers ? "ide_threads.steer_title" : "ide_threads.queue_title") : t("agent_chat.send")}
+            : <button type="button" aria-label={running ? t(steerNow ? "ide_threads.steer_title" : "ide_threads.queue_message") : t("ide_threads.send_message")} title={running ? t(steerNow ? "ide_threads.steer_title" : "ide_threads.queue_title") : t("agent_chat.send")}
               data-testid="thread-send" disabled={!canSend} onClick={() => void submit()}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_1px_2px_rgb(var(--accent-rgb)/0.3)] transition-[opacity,transform] duration-150 hover:scale-105 hover:opacity-95 disabled:opacity-40 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {starting || busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}

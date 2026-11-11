@@ -430,6 +430,68 @@ async def test_try_steer_goes_to_the_running_cli_with_text_and_files_but_no_tool
     assert not await send_queue.try_steer(chat, "t1", "go right")
 
 
+async def test_an_explicit_send_now_steers_ahead_of_waiting_messages():
+    chat = BusyChat(surface="agent")
+    chat.busy.add("t1")
+    steered: list[str] = []
+
+    async def steer(session_id: str, text: str, attachments: list | None = None) -> bool:
+        steered.append(text)
+        return True
+
+    chat.steer = steer
+    _, queue_id = await send_or_queue(chat, "t1", "after this job")
+    assert queue_id
+    # An automatic steer keeps the waiting message's place ...
+    assert not await send_queue.try_steer(chat, "t1", "auto")
+    # ... the person's "send it now" goes into the running turn anyway.
+    assert await send_queue.try_steer(chat, "t1", "now", overtake=True)
+    assert steered == ["now"]
+    assert send_queue.queue_state(chat, "t1")["items"][0]["queue_id"] == queue_id
+    chat.busy.clear()
+    assert not await send_queue.try_steer(chat, "t1", "idle", overtake=True)
+
+
+async def test_a_waiting_message_can_go_into_the_running_turn_now():
+    chat = BusyChat(surface="agent")
+    chat.busy.add("t1")
+    refuse = {"value": False}
+    steered: list[tuple[str, list | None]] = []
+
+    async def steer(session_id: str, text: str, attachments: list | None = None) -> bool:
+        if refuse["value"]:
+            return False
+        steered.append((text, attachments))
+        return True
+
+    chat.steer = steer
+    _, first = await send_or_queue(chat, "t1", "first")
+    _, second = await send_or_queue(chat, "t1", "second", [{"name": "a.png"}])
+    _, picked = await send_or_queue(chat, "t1", "with a tool", tool_choices=["x"])
+    refuse["value"] = True
+    assert not await send_queue.steer_waiting(chat, "t1", second)
+    assert [i["queue_id"] for i in send_queue.queue_state(chat, "t1")["items"]] == [
+        first,
+        second,
+        picked,
+    ]
+    refuse["value"] = False
+    assert not await send_queue.steer_waiting(chat, "t1", picked)  # tool picks need a new turn
+    assert not await send_queue.steer_waiting(chat, "t1", "gone")
+    assert await send_queue.steer_waiting(chat, "t1", second)
+    assert steered == [("second", [{"name": "a.png"}])]
+    assert chat.notices[-1][1] == {
+        "kind": "message_dequeued",
+        "queue_id": second,
+        "status": "steered",
+    }
+    assert [i["queue_id"] for i in send_queue.queue_state(chat, "t1")["items"]] == [first, picked]
+    chat.busy.clear()
+    assert not await send_queue.steer_waiting(chat, "t1", first)  # the turn ended: it runs next
+    await _until(lambda: chat.sent)
+    assert chat.sent[0] == ("t1", "first")
+
+
 async def test_service_steer_writes_to_the_cli_and_records_the_message():
     from dodaios.agent_chat.service import AgentChatService, _Running
 
