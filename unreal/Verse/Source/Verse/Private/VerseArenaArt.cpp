@@ -46,6 +46,8 @@ namespace VerseArenaArtPrivate
 	/** Lumens of one skylight's rect light and its haze scattering (the shafts). */
 	constexpr float SkylightLumens = 60000.f;
 	constexpr float SkylightScattering = 2.0f;
+	/** Lumens of one hall lamp's light on the deck view (hall part only). */
+	constexpr float HallLampLumens = 60000.f;
 
 	/** One wall of the hall: the face, the run along it and the way into the hall. */
 	struct FWall
@@ -152,6 +154,36 @@ void AVerseArenaGraybox::DressArtRoof()
 		for (double Y = 800.0; Y < 5900.0; Y += 900.0)
 		{
 			AddProp(TEXT("SM_Hangar_HangLamp"), FVector(X, Y, CeilingZ - 140.0 - 216.0), 0.0, FVector(1.6), false);
+		}
+	}
+	// The deck view stands in the hall without the arena's work lights: every second lamp of
+	// every second row casts a real light there, so the hall reads at the deck's exposure.
+	UWorld* LampWorld = GetWorld();
+	if (Part == EVerseGrayboxPart::Hall && LampWorld && LampWorld->GetNetMode() != NM_DedicatedServer)
+	{
+		FActorSpawnParameters LampParams;
+		LampParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		int32 Count = 0;
+		for (double X = GirderX0; X < 9500.0; X += GirderStep * 2.0)
+		{
+			for (double Y = 800.0; Y < 5900.0; Y += 1800.0)
+			{
+				if (ASpotLight* Spot = LampWorld->SpawnActor<ASpotLight>(FVector(X, Y, CeilingZ - 380.0), FRotator(-90.0, 0.0, 0.0), LampParams))
+				{
+					USpotLightComponent* C = Spot->SpotLightComponent;
+					C->SetMobility(EComponentMobility::Movable);
+					C->SetIntensityUnits(ELightUnits::Lumens);
+					C->SetIntensity(HallLampLumens);
+					C->SetOuterConeAngle(62.f);
+					C->SetInnerConeAngle(30.f);
+					C->SetAttenuationRadius(2600.f);
+					C->SetUseTemperature(true);
+					C->SetTemperature(3900.f);
+					C->SetCastShadows(Count++ % 4 == 0);
+					C->SetVolumetricScatteringIntensity(1.2f);
+					Spawned.Add(Spot);
+				}
+			}
 		}
 	}
 
