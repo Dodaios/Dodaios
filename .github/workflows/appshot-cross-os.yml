@@ -61,8 +61,7 @@ jobs:
           cache-dependency-path: pyproject.toml
       - name: Desktop packages
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends xvfb xauth xclip xsel xdotool x11-xkb-utils \
+          bash scripts/ci/apt_install.sh --no-install-recommends xvfb xauth xclip xsel xdotool x11-xkb-utils \
             wl-clipboard sway libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 \
             libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0 libxcb-randr0 \
             libxcb-render-util0 libxcb-image0 libportaudio2 ffmpeg

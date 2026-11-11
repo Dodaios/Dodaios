@@ -39,6 +39,8 @@ jobs:
       - name: Provision Linux browser system libraries
         if: runner.os == 'Linux'
         run: |
+          # `install-deps` calls apt itself, so the mirror must resolve first.
+          bash scripts/ci/apt_resolver.sh
           python -m pip install playwright==1.62.0
           python -m playwright install-deps chromium
       - name: Install and verify the isolated browser runtime
