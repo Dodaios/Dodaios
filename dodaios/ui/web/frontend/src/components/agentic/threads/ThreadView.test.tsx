@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
   createAgentChatSession: vi.fn(),
   sendAgentChatMessage: vi.fn(),
   patchAgentChatSession: vi.fn(),
+  searchAgentChatSessions: vi.fn(),
 }));
 vi.mock("@/lib/agentChatApi", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/agentChatApi")>()), ...api }));
 const teams = vi.hoisted(() => ({ rows: [] as unknown[] }));
@@ -70,6 +71,9 @@ function sessionRow(extra: Partial<AgentChatSession> = {}): AgentChatSession {
 beforeEach(() => {
   localStorage.clear();
   vi.stubGlobal("WebSocket", FakeSocket);
+  // The thread search's list (cmdk) measures itself; jsdom has no ResizeObserver.
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+  Element.prototype.scrollIntoView ??= () => {};
   FakeSocket.instances = [];
   api.fetchAgentChatCatalog.mockReset().mockResolvedValue(CATALOG);
   api.fetchAgentConnections.mockReset().mockResolvedValue([]);
@@ -78,6 +82,7 @@ beforeEach(() => {
   api.createAgentChatSession.mockReset().mockResolvedValue(sessionRow());
   api.sendAgentChatMessage.mockReset().mockResolvedValue({ turn_id: "t1" });
   api.patchAgentChatSession.mockReset().mockResolvedValue(sessionRow());
+  api.searchAgentChatSessions.mockReset().mockResolvedValue([]);
   useIdeProjectsStore.setState({ projects: [project], activeWorkspaceId: null });
   useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, focusNonce: 0 });
   useThreadChatStore.getState().newChat();
@@ -160,6 +165,37 @@ describe("ThreadView", () => {
     fireEvent.click(screen.getByTestId("thread-worked-for"));
     expect(screen.getByTestId("thread-worked-steps")).toBeTruthy();
   });
+
+  it("says a message reaches a Claude turn that only waits for its background tasks", async () => {
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    const store = useThreadChatStore.getState();
+    act(() => {
+      store.ingest({ seq: 1, ts_ms: 1000, kind: "user_message", payload: { text: "watch the build" } });
+      store.ingest({ seq: 2, ts_ms: 1000, kind: "turn_started", payload: { turn_id: "t1", provider: "claude-api", model: "", effort: "high", runner: "claude-cli" } });
+      store.ingest({ seq: 3, ts_ms: 1500, kind: "assistant_text", payload: { turn_id: "t1", message_id: "m1", text: "The build runs." } });
+      store.ingest({ seq: 4, ts_ms: 1600, kind: "background_wait", payload: { turn_id: "t1", tasks: ["Watch the build"] } });
+    });
+    const box = screen.getByTestId("thread-composer-input");
+    await waitFor(() => expect(box.getAttribute("placeholder")).toBe("Steer the agent while it works"));
+    fireEvent.change(box, { target: { value: "also run the linter" } });
+    expect(screen.getByTestId("thread-send-mode").getAttribute("data-mode")).toBe("steer");
+    await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
+    await waitFor(() => expect(api.sendAgentChatMessage.mock.calls[0]?.[1]).toBe("also run the linter"));
+
+    // The server took it into the running turn, picture included: it shows there as the person's own line.
+    act(() => {
+      store.ingest({ seq: 5, ts_ms: 1700, kind: "user_message", payload: {
+        turn_id: "t1", steered: true, typed: "also run the linter", text: "also run the linter\n\n[composed attachment text]",
+        attachments: [{ name: "shot.png", kind: "image", described_by: "none", url: "/files/shot.png" }],
+      } });
+    });
+    const steered = screen.getByTestId("thread-steer-message");
+    expect(steered.textContent).toBe("also run the linter");
+    expect(within(steered).getByAltText("shot.png").getAttribute("src")).toBe("/files/shot.png");
+  });
 });
 
 describe("ThreadTree", () => {
@@ -174,23 +210,37 @@ describe("ThreadTree", () => {
     expect(useIdeThreadsStore.getState().selection).toEqual({ projectId: "p1", sessionId: null });
   });
 
-  it("opens the search from its own start row and hides that row while search is off", async () => {
-    api.fetchAgentChatSessions.mockResolvedValue([]);
-    const settings = (await import("@/store/quickSwitchSettings")).useQuickSwitchSettings;
-    const switcher = (await import("@/store/quickSwitcher")).useQuickSwitcher;
-    const enabled = settings.getState().enabled;
-    try {
-      settings.setState({ enabled: true });
-      const view = render(<ThreadTree />);
-      fireEvent.click(screen.getByTestId("thread-tree-search"));
-      expect(switcher.getState().open).toBe(true);
-      switcher.getState().hide();
-      act(() => settings.setState({ enabled: false }));
-      view.rerender(<ThreadTree />);
-      expect(screen.queryByTestId("thread-tree-search")).toBeNull();
-    } finally {
-      settings.setState({ enabled });
-    }
+  it("searches the threads by title at once and by message from the server", async () => {
+    api.fetchAgentChatSessions.mockResolvedValue([
+      sessionRow({ cli_title: "Fix login test", updated_ms: 5 }),
+      sessionRow({ session_id: "s2", title: "Header polish", updated_ms: 9 }),
+      sessionRow({ session_id: "s3", cwd: "/elsewhere", title: "stray login" }),
+    ]);
+    api.searchAgentChatSessions.mockResolvedValue([
+      { session_id: "s2", snippet: "the login button moves left", seq: 4, kind: "user_message", ts_ms: 9, matches: 2,
+        title_match: false, title: "Header polish", cwd: "/repo", updated_ms: 9 },
+      { session_id: "s3", snippet: "login elsewhere", seq: 1, kind: "user_message", ts_ms: 1, matches: 1,
+        title_match: false, title: "stray login", cwd: "/elsewhere", updated_ms: 1 },
+    ]);
+    render(<ThreadTree />);
+    await waitFor(() => expect(screen.getByText("Fix login test")).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId("thread-tree-search"));
+    const dialog = await screen.findByTestId("thread-search");
+    // Empty, it lists the newest threads of the sidebar's projects.
+    expect(within(dialog).getByTestId("thread-search-row-s2")).toBeTruthy();
+    expect(within(dialog).queryByTestId("thread-search-row-s3")).toBeNull();
+
+    fireEvent.change(within(dialog).getByTestId("thread-search-input"), { target: { value: "login" } });
+    expect(within(dialog).getByTestId("thread-search-row-s1")).toBeTruthy();
+    await waitFor(() => expect(within(dialog).getByTestId("thread-search-row-s2").textContent).toContain("the login button moves left"));
+    expect(api.searchAgentChatSessions).toHaveBeenCalledWith("login", expect.anything());
+    // A hit outside every project is not listed, as in the sidebar.
+    expect(within(dialog).queryByTestId("thread-search-row-s3")).toBeNull();
+
+    fireEvent.click(within(dialog).getByTestId("thread-search-row-s2"));
+    expect(useIdeThreadsStore.getState().selection).toEqual({ projectId: "p1", sessionId: "s2" });
+    await waitFor(() => expect(screen.queryByTestId("thread-search")).toBeNull());
   });
 
   it("archives a thread from its menu and brings it back from the project's archive", async () => {
@@ -316,5 +366,24 @@ describe("ThreadTree", () => {
     await waitFor(() => expect(stamps()).toEqual(Array.from({ length: 20 }, (_, index) => 22 - index)));
     fireEvent.click(screen.getByRole("button", { name: "Show 3 more" }));
     expect(stamps()).toEqual(Array.from({ length: 23 }, (_, index) => 22 - index));
+  });
+
+  it("draws a day line where the threads cross into an earlier day, and none over today's", async () => {
+    const now = Date.now();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(12, 0, 0, 0);
+    api.fetchAgentChatSessions.mockResolvedValue([
+      sessionRow({ session_id: "s1", cli_title: "Today A", updated_ms: now }),
+      sessionRow({ session_id: "s2", cli_title: "Yesterday A", updated_ms: yesterday.getTime() }),
+      sessionRow({ session_id: "s3", cli_title: "Yesterday B", updated_ms: yesterday.getTime() - 1 }),
+    ]);
+    render(<ThreadTree />);
+    await waitFor(() => expect(screen.getByText("Yesterday A")).toBeTruthy());
+    const lines = screen.getAllByTestId("thread-day-line");
+    expect(lines.map((line) => line.getAttribute("aria-label"))).toEqual(["Yesterday"]);
+    const before = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(before(screen.getByTestId("thread-row-s1"), lines[0])).toBe(true);
+    expect(before(lines[0], screen.getByTestId("thread-row-s2"))).toBe(true);
   });
 });

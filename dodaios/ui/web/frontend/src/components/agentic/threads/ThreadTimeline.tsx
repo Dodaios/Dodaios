@@ -3,7 +3,7 @@ import { ArrowDown, Bot, Check, ChevronDown, ChevronRight, Copy, Diff, FilePlus2
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
-import { STEER_PREFIX, waitsOnCard, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserItem } from "@/components/agentchat/reduce";
+import { STEER_PREFIX, waitsOnCard, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserAttachment, type UserItem } from "@/components/agentchat/reduce";
 import { toolDiff, type DiffFile } from "@/components/agentchat/toolDiff";
 import { capitalize, plural, readableOutput, tr, traceDuration, type Call } from "@/components/agentchat/traceEntries";
 import { fill, useI18nStore, useT } from "@/i18n";
@@ -13,6 +13,7 @@ import { robustCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import { ChatThought } from "./ChatThought";
 import { PetMark } from "@/components/pets/PetMark";
+import { formatTokens, inputTokens, outputTokens } from "@/components/agentchat/toolView";
 import { buildThreadRows, isFailed, joinStretches, thoughtGist, type Stretch, type StretchItem, type ThreadRow } from "./threadWork";
 import { flattenMarks } from "@/lib/plainMarks";
 import { SubagentRun } from "./ThreadSubagents";
@@ -509,6 +510,18 @@ function clock(ms: number): string {
   return new Date(ms).toLocaleTimeString(localeForUiLanguage(useI18nStore.getState().ui), { hour: "2-digit", minute: "2-digit" });
 }
 
+/** The files of one message inside its bubble: pictures as thumbnails, anything else as a chip. */
+function SentFiles({ files }: { files: readonly UserAttachment[] }) {
+  if (files.length === 0) return null;
+  return <div className="mb-2 flex flex-wrap justify-end gap-2">
+    {files.map((file) => file.url && file.kind === "image"
+      ? <img key={file.name} src={file.url} alt={file.name} className="h-24 max-w-[200px] rounded-lg border border-border object-cover" />
+      : <span key={file.name} className="inline-flex max-w-[240px] items-center gap-1.5 rounded-md border border-border bg-background/60 px-2 py-1 text-xs text-muted-foreground">
+        <FileText aria-hidden className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{file.name}</span>
+      </span>)}
+  </div>;
+}
+
 function UserBubble({ item }: { item: UserItem }) {
   const t = useT();
   return <div className="group flex flex-col items-end gap-1" data-testid="thread-user-message">
@@ -517,13 +530,7 @@ function UserBubble({ item }: { item: UserItem }) {
       <span className="truncate">{t("society.chat.coding_thread_author").replace("{0}", item.author.name)}</span>
     </div>}
     <div className="max-w-[80%] rounded-2xl bg-secondary px-4 py-2.5 text-foreground">
-      {item.attachments.length > 0 && <div className="mb-2 flex flex-wrap justify-end gap-2">
-        {item.attachments.map((file) => file.url && file.kind === "image"
-          ? <img key={file.name} src={file.url} alt={file.name} className="h-24 max-w-[200px] rounded-lg border border-border object-cover" />
-          : <span key={file.name} className="inline-flex max-w-[240px] items-center gap-1.5 rounded-md border border-border bg-background/60 px-2 py-1 text-xs text-muted-foreground">
-            <FileText aria-hidden className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{file.name}</span>
-          </span>)}
-      </div>}
+      <SentFiles files={item.attachments} />
       {item.text && <div className="whitespace-pre-wrap text-base leading-6 [overflow-wrap:anywhere]">{item.text}</div>}
     </div>
     <div className="flex items-center gap-1 pr-1 text-xs text-muted-foreground opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
@@ -754,14 +761,26 @@ function WorkingFor({ since }: { since: number }) {
  * still connecting) the pet says it gets ready instead of claiming work.
  * Screen readers hear "Working for 12s".
  */
-function WorkingLine({ since, starting, agents }: { since: number; starting: boolean; agents: number }) {
+function WorkingLine({ since, starting, agents, usage }: {
+  since: number; starting: boolean; agents: number;
+  /** Tokens so far (`usage_delta`): new input up, output down, as a coding CLI shows them. */
+  usage?: Record<string, number> | null;
+}) {
   const t = useT();
   const lang = t("trace_report.locale");
+  const sent = inputTokens(usage);
+  const made = outputTokens(usage);
+  const tokens = sent || made != null ? fill(t("thread_turn.tokens_hint"), {
+    input: formatTokens(sent?.fresh ?? 0), cached: formatTokens(sent?.cached ?? 0), output: formatTokens(made ?? 0),
+  }) : "";
   return <div className="-mt-1 flex h-7 min-w-0 items-center gap-2.5 text-sm text-muted-foreground" data-testid="thread-working">
     <span className="sr-only"><WorkingFor since={since} /></span>
     <PetMark size={24} state="working" />
     {starting && <span aria-hidden className="live-tool-shine truncate text-[15px] leading-[21px]">{t("thread_turn.getting_ready")}</span>}
     <span aria-hidden className="shrink-0 text-xs tabular-nums text-muted-foreground/80"><Elapsed since={since} /></span>
+    {tokens && <span className="shrink-0 text-xs tabular-nums text-muted-foreground/80" title={tokens} aria-label={tokens} data-testid="thread-working-tokens">
+      {sent && <>· ↑ {formatTokens(sent.fresh)} </>}{made != null && <>· ↓ {formatTokens(made)}</>}
+    </span>}
     {agents > 0 && <span className="truncate text-xs text-muted-foreground/80">· {fill(t(`thread_turn.subagents_working_${plural(lang, agents)}`), { count: agents })}</span>}
   </div>;
 }
@@ -865,8 +884,11 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     // Work is drawn as stretches (renderRows); a thought reads as one sentence between them.
     if (row.kind === "work") return null;
     if (row.kind === "thought") return <ThoughtSentence key={row.id} text={row.text} />;
-    if (isSteerRow(row)) return <div key={row.id} className="flex justify-end" data-testid="thread-steer-message">
-      <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl bg-secondary px-4 py-2.5 text-base leading-6 text-foreground [overflow-wrap:anywhere]">{(row as { text: string }).text}</div>
+    if (row.kind === "text" && isSteerRow(row)) return <div key={row.id} className="flex justify-end" data-testid="thread-steer-message">
+      <div className="max-w-[80%] rounded-2xl bg-secondary px-4 py-2.5 text-foreground">
+        <SentFiles files={row.block.attachments ?? []} />
+        {row.text && <div className="whitespace-pre-wrap text-base leading-6 [overflow-wrap:anywhere]">{row.text}</div>}
+      </div>
     </div>;
     if (row.kind === "text") return <div key={row.id} className={cn(PROSE, THREAD_MEDIA)}><ChatMarkdown text={row.text} /></div>;
     if (row.kind === "agent") return <SubagentRun key={row.id} blocks={[row.block]} turn={turn} />;
@@ -928,7 +950,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     {running
       ? waitingOn.length > 0
         ? <BackgroundWait tasks={waitingOn} since={turn.startedMs} />
-        : <WorkingLine since={turn.startedMs} starting={turn.blocks.length === 0} agents={agentsWorking} />
+        : <WorkingLine since={turn.startedMs} starting={turn.blocks.length === 0} agents={agentsWorking} usage={turn.liveUsage} />
       : <>
         {turn.status === "error" && turn.error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{turnErrorText(turn.error, t)}</p>}
         <ChangedFiles turn={turn} />

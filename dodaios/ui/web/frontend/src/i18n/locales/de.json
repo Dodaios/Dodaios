@@ -7207,6 +7207,7 @@
       "browser_takeover_done": "Zurückgegeben",
       "browser_takeover_expired": "Nicht mehr nötig",
       "fresh_start_line": "Frisch angefangen: frühere Nachrichten bleiben oben und im Gedächtnis",
+      "seat_switched_line": "{0} hat sein Nutzungslimit erreicht. Das Gespräch läuft auf {1} weiter",
       "context_rollover": "Frischer Arbeitskontext – Gedächtnis und letzte Nachrichten übernommen",
       "stop_reason_max_tokens": "Die Antwort endete am Ausgabelimit des Modells und ist vielleicht unvollständig.",
       "stop_reason_max_turn_requests": "Der Agent hat sein Schrittlimit für einen Durchgang erreicht; die Arbeit ist vielleicht nicht fertig.",
@@ -7975,7 +7976,8 @@
     },
     "technical_details": "Technische Details",
     "ran": "Ausgeführt:",
-    "getting_ready": "Wird vorbereitet"
+    "getting_ready": "Wird vorbereitet",
+    "tokens_hint": "Eingabe {input} neue Tokens ({cached} weitere aus dem Cache wiederverwendet) · Ausgabe {output} Tokens"
   },
   "work_trace": {
     "tool_failed": "Eine Tool-Aktion ist fehlgeschlagen",
@@ -8494,7 +8496,8 @@
       "search": "Suche",
       "subscriptions": "Abos",
       "office": "Dodaios Verse",
-      "chat": "Chat"
+      "chat": "Chat",
+      "resources": "Ressourcen"
     },
     "subscriptions": {
       "bank": {
@@ -9317,6 +9320,90 @@
         "exited": "Beendet",
         "done": "Fertig",
         "idle": "Im Leerlauf"
+      }
+    },
+    "resources": {
+      "loading": "Dieser Computer wird gemessen…",
+      "error": "Die Messung ist fehlgeschlagen: {message}",
+      "stale": "Die letzte Messung ist fehlgeschlagen, die Werte stehen deshalb still: {message}",
+      "metric": {
+        "cpu": "Prozessor",
+        "memory": "Arbeitsspeicher",
+        "gpu": "Grafikkarte"
+      },
+      "hint": {
+        "cpu": "{cores} Kerne",
+        "of": "{used} von {total}"
+      },
+      "chart_title": {
+        "cpu": "Wer den Prozessor nutzt",
+        "memory": "Wer den Arbeitsspeicher nutzt",
+        "gpu": "Auslastung der Grafikkarte"
+      },
+      "chart_window": "Letzte {minutes} Minuten",
+      "axis_now": "jetzt",
+      "axis_ago": "-{minutes} min",
+      "group": {
+        "agents": "Coding-Agenten",
+        "linked": "Verbundene Apps",
+        "app": "Diese App",
+        "other": "Alles andere"
+      },
+      "total": "Gesamt",
+      "cores": "Kerne",
+      "cores_aria": "Auslastung jedes der {count} Kerne",
+      "core": "Kern {n}: {percent}",
+      "gpu_none": "Hier kein Messwert",
+      "gpu_whole": "Für die Karte als Ganzes gemessen, nicht je Programm",
+      "agents_title": "Coding-Agenten",
+      "agents_empty": "Es läuft kein Coding-Agent.",
+      "col": {
+        "cpu": "CPU",
+        "memory": "Speicher",
+        "gpu": "GPU",
+        "vram": "VRAM"
+      },
+      "kind": {
+        "pane": "Terminal",
+        "thread": "Thread",
+        "background": "Von dieser App gestartet",
+        "external": "Außerhalb dieser App"
+      },
+      "thread_untitled": "Thread",
+      "processes": "{count} Prozesse",
+      "process_one": "1 Prozess",
+      "details_of": "Details zu {target}",
+      "runtime": "Der Agent selbst",
+      "category": {
+        "mcp": "MCP-Server",
+        "test": "Tests",
+        "build": "Build",
+        "vcs": "Versionsverwaltung",
+        "browser": "Browser",
+        "runtime": "Skript",
+        "shell": "Shell",
+        "command": "Befehl",
+        "subagent": "Agent",
+        "more": "Weitere Werkzeuge"
+      },
+      "instances": "×{count}",
+      "linked_note": "Apps, die mit seinen Werkzeugen verbunden sind. Ihre Last steht hier und wird dem Agenten nicht zugerechnet.",
+      "linked_via": "über {tool} auf Port {port}",
+      "linked_port": "auf Port {port}",
+      "linked_shared": "auch von {count} weiteren genutzt",
+      "end": "Beenden",
+      "end_named": "{target} beenden",
+      "end_confirm": "{target} beenden?",
+      "end_yes": "Beenden",
+      "end_cancel": "Abbrechen",
+      "end_failed": "Das Beenden ist fehlgeschlagen: {message}",
+      "app_note": "Fenster, Kern und Hilfsprozesse",
+      "other_note": "Das System und jedes andere Programm",
+      "role": {
+        "core": "Kern",
+        "window": "Fenster",
+        "terminal_host": "Terminal-Host",
+        "thread_host": "Thread-Host"
       }
     }
   },
@@ -10547,6 +10634,14 @@
     "unstreamed_running": "Die CLI dieses Agents streamt die Schritte eines Sub-Agents nicht. Seine Antwort erscheint hier, sobald er fertig ist.",
     "unstreamed_done": "Die CLI dieses Agents hat nur die Aufgabe und die Antwort gemeldet, nicht die Schritte des Sub-Agents.",
     "new_thread": "Neuer Thread",
+    "search_threads": "Threads durchsuchen",
+    "search_placeholder": "Threads und ihre Nachrichten durchsuchen …",
+    "search_recent": "Zuletzt",
+    "search_results": "Threads",
+    "search_none": "Kein Thread passt.",
+    "search_empty": "Noch keine Threads.",
+    "search_searching": "Nachrichten werden durchsucht …",
+    "search_matches": "{count} Treffer",
     "age_now": "jetzt",
     "age_minutes": "{count} Min.",
     "age_hours": "{count} Std.",

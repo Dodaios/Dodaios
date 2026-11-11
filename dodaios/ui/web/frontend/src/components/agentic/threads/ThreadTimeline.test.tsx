@@ -254,3 +254,15 @@ describe("runtime titles", () => {
   });
 });
 
+describe("working line tokens", () => {
+  it("shows the new input and the output so far, cache reads only in the hint", () => {
+    const item = { ...turn([tool("c1", "ls", { output: null, durationMs: null })], "running"), liveUsage: {
+      input_tokens: 1_200, cache_creation_input_tokens: 3_000, cache_read_input_tokens: 250_000, output_tokens: 4_800,
+    } };
+    show(item);
+    const tokens = screen.getByTestId("thread-working-tokens");
+    expect(tokens.textContent).toBe("· ↑ 4.2k · ↓ 4.8k");
+    expect(tokens.getAttribute("title")).toContain("250k");
+  });
+});
+

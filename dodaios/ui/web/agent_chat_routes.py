@@ -1034,6 +1034,24 @@ def list_sessions(
     return {"sessions": out}
 
 
+@router.get(
+    "/sessions/search",
+    summary="Find chats whose title or messages contain a text",
+    openapi_extra={"x-jarvis-readonly": True},
+)
+def search_sessions(
+    request: Request,
+    q: str = Query("", max_length=200),
+    surface: SurfaceName = "agent",
+    limit: int = Query(50, ge=1, le=200),
+) -> dict[str, Any]:
+    """The thread search: the matching chats, newest first, each with the
+    latest matching message as a snippet."""
+    if surface in HIDDEN_SURFACES:
+        return {"hits": []}
+    return {"hits": _service(request).store.search_sessions(q, surface=surface, limit=limit)}
+
+
 def _team_sessions(request: Request) -> dict[str, str]:
     """Which sessions belong to a team thread (``session_id -> team_id``)."""
     from .team_thread_routes import team_sessions

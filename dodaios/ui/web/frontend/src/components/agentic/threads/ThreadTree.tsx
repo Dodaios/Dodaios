@@ -1,21 +1,22 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, Loader2, Mic, MoreHorizontal, Pencil, Plus, Search, SquarePen, SquarePlus, Trash2, Users, X } from "lucide-react";
+import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, Loader2, MoreHorizontal, Pencil, Plus, SquarePen, SquarePlus, Trash2, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
 import { cn } from "@/lib/utils";
 import { fill, useT } from "@/i18n";
+import { useRunLocale } from "@/components/runs/format";
 import { useEventStore } from "@/store/events";
 import { useIdeProjectsStore } from "@/store/ideProjects";
-import { useQuickSwitcher } from "@/store/quickSwitcher";
-import { useQuickSwitchSettings } from "@/store/quickSwitchSettings";
 import { MAX_THREAD_COLUMNS, TEAM_DRAFT, useIdeThreadsStore } from "@/store/ideThreads";
 import { useTeamThreads, type TeamThreadRow } from "@/lib/teamThreadsApi";
 import { openSubagentOf, useThreadSubagentsStore } from "@/store/threadSubagents";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "./ThreadPopover";
 import { SubagentFoldToggle, ThreadTreeSubagents } from "./ThreadTreeSubagents";
 import { ThreadPullRequests } from "./ThreadPullRequests";
-import { THREAD_DRAG_MIME, THREAD_PROJECT_DRAG_MIME, projectIdFor, setDraggedThread, shortAge, threadStatus, threadTitle, threadWorktree, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
+import { ThreadSearch } from "./ThreadSearch";
+import { LiveVoiceIcon, NewThreadIcon, SearchThreadsIcon, TeamThreadIcon } from "./ThreadStartIcons";
+import { THREAD_DRAG_MIME, THREAD_PROJECT_DRAG_MIME, projectIdFor, setDraggedThread, shortAge, threadDayBreak, threadStatus, threadTitle, threadWorktree, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
 
 const EXPANSION_KEY = "jarvis.ide.threadExpansion.v1";
 /** Threads a project shows before "Show more": enough to fill a tall sidebar. */
@@ -35,14 +36,16 @@ const HOVER_ACTION = cn(
 );
 /**
  * A start row at the top of the list, drawn like the app's main navigation:
- * a bright label after an 18px icon, no frame. Inset, icon and gap still add
- * up to TITLE_INSET, so the labels line up with the projects' names.
+ * a bright label after an 18px mark of its own (ThreadStartIcons), no frame.
+ * The mark sits a step quieter than the label and brightens with the row.
+ * Inset, icon and gap still add up to TITLE_INSET, so the labels line up
+ * with the projects' names.
  */
 const ACTION_ROW = cn(
-  "flex min-h-8 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-left text-base text-foreground transition-colors hover:bg-secondary",
+  "group/action flex min-h-8 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-left text-base text-foreground transition-colors hover:bg-secondary",
   FOCUS_RING,
 );
-const ACTION_ICON = "h-[18px] w-[18px] shrink-0";
+const ACTION_ICON = "h-[18px] w-[18px] shrink-0 text-foreground-secondary transition-colors group-hover/action:text-foreground";
 /**
  * A thread row's actions sit in the row, folded to no width until the row is
  * hovered or focused; they never cover the row's pull request mark.
@@ -93,6 +96,19 @@ function SectionLabel({ label, children }: { label: string; children?: ReactNode
 }
 
 /**
+ * Where a project's threads cross into an earlier day: the day's name at the
+ * titles' inset and a hairline to the row's end. Quieter than a section label,
+ * so the list still reads as one.
+ */
+function DayLine({ label }: { label: string }) {
+  return <div role="separator" aria-label={label} data-testid="thread-day-line"
+    className={cn("flex h-6 select-none items-center gap-2 pr-2 pt-1", TITLE_INSET)}>
+    <span className="shrink-0 text-micro text-muted-foreground/70">{label}</span>
+    <span aria-hidden className="h-px min-w-0 flex-1 bg-border/70" />
+  </div>;
+}
+
+/**
  * The sidebar while the IDE shows threads: every project with its threads,
  * newest activity first, each named by the title its coding CLI gave the
  * conversation and marked with that CLI's logo. A project row opens and
@@ -102,11 +118,13 @@ function SectionLabel({ label, children }: { label: string; children?: ReactNode
  */
 export function ThreadTree() {
   const t = useT();
+  // The day lines name their day in the UI language.
+  const locale = useRunLocale();
   const projects = useIdeProjectsStore((state) => state.projects);
   const connectProject = useIdeProjectsStore((state) => state.connectProject);
   const toggleVoice = useIdeProjectsStore((state) => state.toggleVoice);
-  // In this layout search is a row of the list, not the field atop the sidebar.
-  const searchOn = useQuickSwitchSettings((state) => state.enabled);
+  // In this layout search is a row of the list and searches the threads themselves.
+  const [searchOpen, setSearchOpen] = useState(false);
   const pushToast = useEventStore((state) => state.pushToast);
   const sessions = useThreadChatStore((state) => state.sessions);
   const catalog = useThreadChatStore((state) => state.catalog);
@@ -260,12 +278,12 @@ export function ThreadTree() {
           data-testid={`team-thread-new-${project.id}`}
           onClick={() => { setProjectOpen(project.id, true); newTeam(project.id); }}
           className={HOVER_ACTION}>
-          <Users className="h-3.5 w-3.5" strokeWidth={1.75} />
+          <TeamThreadIcon className="h-3.5 w-3.5" />
         </button>
       </div>
       {open && <div className="mb-2 flex flex-col gap-px">
         {teamDraftHere && <div aria-current="page" className={cn(ROW, "bg-muted text-muted-foreground")}>
-          <span className="flex h-4 w-4 shrink-0 items-center justify-center"><Users aria-hidden className="h-3.5 w-3.5" /></span>
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center"><TeamThreadIcon className="h-3.5 w-3.5" /></span>
           <span className="min-w-0 flex-1 truncate">{t("team_threads.new")}</span>
         </div>}
         {teamRows.map((team) => {
@@ -278,7 +296,7 @@ export function ThreadTree() {
               ROW, "py-1 transition-colors hover:bg-muted hover:text-foreground", FOCUS_RING,
               selected ? "bg-muted text-foreground-strong" : "text-foreground-secondary",
             )}>
-            <span className="flex h-4 w-4 shrink-0 items-center justify-center"><Users aria-hidden className="h-3.5 w-3.5 text-muted-foreground" /></span>
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center"><TeamThreadIcon className="h-3.5 w-3.5 text-muted-foreground" /></span>
             <span className="min-w-0 flex-1 truncate">{team.title}</span>
             {team.state === "running"
               ? <Loader2 aria-label={t("team_threads.state.running")} className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
@@ -293,14 +311,17 @@ export function ThreadTree() {
           <span className="flex h-4 w-4 shrink-0 items-center justify-center"><SquarePen aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /></span>
           <span className="min-w-0 flex-1 truncate">{t("ide_threads.new_thread")}</span>
         </div>}
-        {shown.map((session) => {
+        {shown.map((session, index) => {
           const selected = session.session_id === openSessionId && selection.sessionId !== null;
+          // A hairline with the day's name wherever the list crosses into an earlier day.
+          const day = threadDayBreak(session.updated_ms, index > 0 ? shown[index - 1].updated_ms : null, locale);
+          const dayLine = day && <DayLine label={day} />;
           const status = threadStatus(session, seen, openSessionId);
           const mark = agentOf.get(session.provider);
           const worktree = threadWorktree(session.cwd, project.path);
           const menuOpen = menu?.sessionId === session.session_id;
           if (renaming?.sessionId === session.session_id) {
-            return <form key={session.session_id} className="flex min-h-8 items-center gap-1 pl-[30px] pr-1"
+            return <Fragment key={session.session_id}>{dayLine}<form className="flex min-h-8 items-center gap-1 pl-[30px] pr-1"
               onSubmit={(event) => { event.preventDefault(); void rename(session, renaming.title); }}>
               <input autoFocus aria-label={fill(t("ide_projects.rename_named"), { target: threadTitle(session) })} value={renaming.title} maxLength={120}
                 onChange={(event) => setRenaming({ sessionId: session.session_id, title: event.target.value })}
@@ -310,13 +331,13 @@ export function ThreadTree() {
               <button type="submit" aria-label={t("ide_threads.save_name")} className="rounded p-1 text-muted-foreground hover:text-foreground"><Check className="h-4 w-4" /></button>
               <button type="button" aria-label={t("ide_threads.cancel_renaming")} onMouseDown={(event) => event.preventDefault()} onClick={() => setRenaming(null)}
                 className="rounded p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
-            </form>;
+            </form></Fragment>;
           }
           // The open thread lists the sub-agents its coding agent spawned under it.
           const subRows = selected && subagentsOwner === session.session_id ? subagentRows : [];
           const subOpen = subRows.length > 0 && !subagentsFolded[session.session_id];
           const onSubagent = selected && openSubagent !== null && subRows.some((row) => row.id === openSubagent);
-          return <Fragment key={session.session_id}><div data-testid={`thread-row-${session.session_id}`}
+          return <Fragment key={session.session_id}>{dayLine}<div data-testid={`thread-row-${session.session_id}`}
             draggable
             onDragStart={(event) => {
               // The list keeps its date order; dropped on the thread view it opens side by side.
@@ -458,22 +479,24 @@ export function ThreadTree() {
     {/* What one starts from here, as rows: a thread, a search, a team, a voice call. */}
     <div role="group" aria-label={t("ide_threads.layout_threads")} className="flex flex-col gap-px">
       <button type="button" data-testid="thread-tree-new-thread" onClick={() => startIn(newThread)} className={ACTION_ROW}>
-        <Plus aria-hidden className={ACTION_ICON} strokeWidth={1.75} />
+        <NewThreadIcon className={ACTION_ICON} />
         <span className="min-w-0 flex-1 truncate">{t("ide_threads.new_thread")}</span>
       </button>
-      {searchOn && <button type="button" data-testid="thread-tree-search" onClick={() => useQuickSwitcher.getState().show()} className={ACTION_ROW}>
-        <Search aria-hidden className={ACTION_ICON} strokeWidth={1.75} />
+      <button type="button" data-testid="thread-tree-search" aria-haspopup="dialog" onClick={() => setSearchOpen(true)} className={ACTION_ROW}>
+        <SearchThreadsIcon className={ACTION_ICON} />
         <span className="min-w-0 flex-1 truncate">{t("quick_switch.sidebar_search")}</span>
-      </button>}
+      </button>
       <button type="button" data-testid="thread-tree-new-team" onClick={() => startIn(newTeam)} className={ACTION_ROW}>
-        <Users aria-hidden className={ACTION_ICON} strokeWidth={1.75} />
+        <TeamThreadIcon className={ACTION_ICON} />
         <span className="min-w-0 flex-1 truncate">{t("team_threads.new")}</span>
       </button>
       <button type="button" data-testid="thread-tree-voice" onClick={toggleVoice} className={ACTION_ROW}>
-        <Mic aria-hidden className={ACTION_ICON} strokeWidth={1.75} />
+        <LiveVoiceIcon className={ACTION_ICON} />
         <span className="min-w-0 flex-1 truncate">Dodaios Live</span>
       </button>
     </div>
+    <ThreadSearch open={searchOpen} onClose={() => setSearchOpen(false)} projects={visible}
+      onOpened={(projectId) => setProjectOpen(projectId, true)} />
     {visible.some((project) => project.pinned) && <>
       <SectionLabel label={t("ide_projects.pinned")} />
       {visible.filter((project) => project.pinned).map(projectRow)}

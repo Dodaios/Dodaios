@@ -113,6 +113,10 @@ _TURN_TIMEOUT_S: Final[float | None] = None
 #: itself, then ends without it: the answer is in. A CLI that still has open
 #: background tasks is waited for as long as they run — no clock (#1112).
 _RESULT_EXIT_GRACE_S: Final[float] = 1.0
+#: Claude Code wakes its agent within a moment of a background task ending.
+#: When every task ended after an answer and nothing came for this long, its
+#: stdin is closed, so a CLI with nothing left to do ends by itself.
+_WAKE_GRACE_S: Final[float] = 30.0
 #: A CLI that answered may go on shutting down (SessionEnd/Stop hooks, a
 #: memory pass, flushing its session file) after its turn ended. Behind the
 #: finished turn it is read on, and killed only once it printed nothing for
@@ -341,6 +345,10 @@ _ACCOUNT_ENVS: ContextVar[dict[str, dict[str, str]] | None] = ContextVar(
 _PREPARED_MODELS: ContextVar[dict[str, list[dict[str, Any]] | None] | None] = ContextVar(
     "cli_catalog.models", default=None
 )
+#: platform -> the seat the CURRENT turn's CLI was started on. Set by
+#: :func:`run_cli_turn`, filled by :func:`_account_env`; a refused turn reads
+#: it to know which seat ran out (``_continue_on_next_seat``).
+_TURN_SEATS: ContextVar[dict[str, str] | None] = ContextVar("agent_chat.turn_seats", default=None)
 
 
 @contextmanager
@@ -437,6 +445,7 @@ def _account_env(platform: str) -> dict[str, str]:
         else:
             account = agent_accounts.active_account(platform)  # type: ignore[arg-type]
         account = _seat_with_budget(platform, account)
+        _note_turn_seat(platform, account.id)
         _share_user_setup(platform, account.id)
         env = agent_accounts.spawn_env(platform, account.id, base=os.environ)  # type: ignore[arg-type]
     except CliUnavailable:
@@ -504,6 +513,29 @@ def _seat_with_budget(platform: str, account: Any) -> Any:
     except Exception as exc:  # noqa: BLE001 - the pinned seat is still a valid answer
         log.debug("Seat failover unavailable for %s (%s)", platform, type(exc).__name__)
         return account
+
+
+def _note_turn_seat(platform: str, account_id: str) -> None:
+    """Remember the seat this turn runs on, and let the seat watch see it."""
+    seats = _TURN_SEATS.get()
+    if seats is None:  # model discovery, not a turn
+        return
+    seats[platform] = account_id
+    try:
+        from dodaios.agentic_ide import seat_switch
+
+        seat_switch.note_in_use(platform, account_id)
+    except Exception as exc:  # noqa: BLE001 - watching a seat is additive
+        log.debug("Seat watch unavailable for %s (%s)", platform, type(exc).__name__)
+
+
+def _is_usage_limit(error: str | None) -> bool:
+    """Whether a failed turn's error says the seat's plan is used up."""
+    if not error:
+        return False
+    from dodaios.brain import seat_health
+
+    return seat_health.classify_seat_failure(error) == seat_health.CLASS_QUOTA
 
 
 #: Runner -> (account platform, resume kind) for the CLIs whose conversations
@@ -3790,6 +3822,88 @@ def _merge_cli_outcome(first: _Outcome, second: _Outcome) -> _Outcome:
     )
 
 
+#: The thread notice that says a turn moved to the next subscription.
+SEAT_SWITCH_NOTICE_KIND: Final[str] = "seat_switched"
+
+
+def _ensure_seat_watch() -> None:
+    """Start the seat watch, so the seats threads run on are watched too."""
+    try:
+        from dodaios.agentic_ide import seat_switch
+
+        seat_switch.ensure_watch()
+    except Exception as exc:  # noqa: BLE001 - watching seats is additive
+        log.debug("Seat watch not started (%s)", type(exc).__name__)
+
+
+async def _continue_on_next_seat(
+    handle: TurnHandle,
+    outcome: _Outcome,
+    runner: str,
+    turn_seats: dict[str, str],
+    *,
+    started_work: bool,
+    run_again: Callable[[str, str | None], Awaitable[_Outcome]],
+    user_text: str,
+    resume: str | None,
+) -> _Outcome:
+    """Carry a turn its seat's usage limit cut off on to the next subscription.
+
+    Only for CLIs whose conversation can follow a seat
+    (``_SEAT_CONVERSATIONS``) and only with auto switch on
+    (:func:`dodaios.agentic_ide.seat_switch.fail_over` decides the seat). The
+    same conversation resumes on the new seat (``_carry_thread_conversation``
+    copies it there): a turn that already worked is told to continue, one
+    the provider refused before it started gets the person's message again.
+    Once per turn; with no other seat left the refusal stands.
+    """
+    pair = _SEAT_CONVERSATIONS.get(runner)
+    if pair is None or not _is_usage_limit(outcome.error):
+        return outcome
+    platform = pair[0]
+    spent = turn_seats.get(platform)
+    if not spent:
+        return outcome
+    try:
+        from dodaios.agentic_ide import seat_switch
+        from dodaios.society.remote import placement_for_session
+
+        if await placement_for_session(handle.session) is not None:
+            return outcome  # another computer's CLI runs on that computer's own login
+        target = await seat_switch.fail_over(platform, spent, error=outcome.error or "")
+        if not target or target == spent:
+            return outcome
+        from_label, to_label = await asyncio.to_thread(
+            lambda: (seat_switch._label(spent), seat_switch._label(target))
+        )
+    except Exception as exc:  # noqa: BLE001 - the refusal stays the honest answer
+        log.warning("agent chat %s: no seat failover (%s)", handle.turn_id, exc)
+        return outcome
+    log.info(
+        "agent chat %s: %s seat %s hit its usage limit; continuing on %s",
+        handle.turn_id,
+        platform,
+        spent,
+        target,
+    )
+    await handle.emit(
+        make_event(
+            "notice",
+            {
+                "kind": SEAT_SWITCH_NOTICE_KIND,
+                "text": f"{from_label} reached its usage limit; continuing on {to_label}.",
+                "platform": platform,
+                "from_label": from_label,
+                "to_label": to_label,
+            },
+        )
+    )
+    conversation = outcome.vendor_session or resume
+    prompt = seat_switch.CONTINUE_PROMPT if started_work and conversation else user_text
+    again = await run_again(prompt, conversation)
+    return _merge_cli_outcome(outcome, again)
+
+
 async def _surface_identity(session: Any) -> str | None:
     """A surface whose identity is per session (an agent-society member's
     briefing) hands that text over; ``None`` keeps Jarvis' own layers."""
@@ -3887,6 +4001,9 @@ async def run_cli_turn(
             (prompt_override or "") + "\nRespond in this language: " + handle.output_language
         )
     account_token = ACCOUNT_OVERRIDE.set(getattr(session, "account_id", "") or "")
+    turn_seats: dict[str, str] = {}
+    seats_token = _TURN_SEATS.set(turn_seats)
+    _ensure_seat_watch()
     if identity:
         ident = await dodaios_harness.build_identity(
             session_id=session.session_id,
@@ -4001,7 +4118,21 @@ async def run_cli_turn(
                 bridge=bridge,
             )
             outcome = _merge_cli_outcome(outcome, recovered)
+        if outcome.status == "error" and not handle.cancel.is_set():
+            outcome = await _continue_on_next_seat(
+                handle,
+                outcome,
+                runner,
+                turn_seats,
+                started_work=recovery.had_tool_calls,
+                run_again=lambda prompt, conversation: _run_cli_once(
+                    handle, prompt, runner, conversation, identity=ident, bridge=bridge
+                ),
+                user_text=user_text,
+                resume=resume,
+            )
     finally:
+        _TURN_SEATS.reset(seats_token)
         unregister_turn(session.session_id, tool_context)
         ACCOUNT_OVERRIDE.reset(account_token)
         if bridge is not None and identity:
@@ -4381,8 +4512,9 @@ async def _run_cli_once(
                 ),
                 keep_stdin=plan.keep_stdin,
                 meta=_hosted_meta(handle, runner, plan, cwd, started_at),
-                # Claude Code keeps reading stdin after its result line; the
-                # host closes it there so the CLI ends with no app attached.
+                # Claude Code keeps reading stdin after its result line. This
+                # process closes it once the turn is over; the host does when
+                # no app has read the turn for a while, so the CLI still ends.
                 close_stdin_on="result" if plan.keep_stdin and plan.shape == "claude" else "",
             )
         if hosted is not None:
@@ -4522,6 +4654,14 @@ async def _drive_cli(
     error_text: str | None = None
     vendor_session = plan.vendor_session
     hosted = bool(getattr(proc, "hosted", False))
+    #: Claude Code's stdin stays open past its result line: an agent that
+    #: only waits for its background tasks then still takes a message. A turn
+    #: host from an older build closes stdin at that line itself.
+    stdin_outlives_result = (
+        plan.keep_stdin
+        and plan.shape == "claude"
+        and bool(getattr(proc, "stdin_after_result", not hosted))
+    )
     if plan.acp is not None:
         state: Any = plan.acp
         translate: Any = None
@@ -4658,8 +4798,12 @@ async def _drive_cli(
                 _remember_cli_commands(obj)
             for ev in translate(obj, state):
                 await handle.emit(ev)
-            if plan.keep_stdin and getattr(state, "saw_result", False):
-                # The turn is over; closing stdin lets the CLI exit.
+            if (
+                plan.keep_stdin
+                and not stdin_outlives_result
+                and getattr(state, "saw_result", False)
+            ):
+                # An older turn host closed stdin at the result line already.
                 _close_stdin()
             _note_settled()
 
@@ -4668,6 +4812,11 @@ async def _drive_cli(
         # end without waiting for the process (``_RESULT_EXIT_GRACE_S``). A
         # task opened again (a woken agent starts one) takes that back.
         if _answer_settled(state):
+            if plan.keep_stdin and plan.acp is None:
+                # Nothing is left to say to it; closing stdin lets the CLI
+                # exit. Until here it stayed open: an agent that waits for
+                # its background tasks still takes a message (``_steer``).
+                _close_stdin()
             settled.set()
         else:
             settled.clear()
@@ -4698,14 +4847,17 @@ async def _drive_cli(
         except OSError as exc:
             log.debug("agent chat %s: stdin close failed: %s", handle.turn_id, exc)
 
-    async def _write_stdin(text: str) -> None:
+    async def _write_stdin(text: str) -> bool:
+        """Write to the CLI's stdin; False when it no longer takes input."""
         if proc.stdin is None or proc.stdin.is_closing():
-            return
+            return False
         try:
             proc.stdin.write(text.encode("utf-8"))
             await proc.stdin.drain()
         except (BrokenPipeError, ConnectionResetError, OSError) as exc:
             log.debug("agent chat %s: stdin write failed: %s", handle.turn_id, exc)
+            return False
+        return True
 
     async def _answer_control_request(obj: dict[str, Any]) -> None:
         """A Claude Code ``control_request`` — a permission prompt — answered
@@ -5031,6 +5183,28 @@ async def _drive_cli(
     grace_kill: asyncio.TimerHandle | None = None
     settled = asyncio.Event()
 
+    async def _watch_missing_wake() -> None:
+        """Close stdin when the wake after the last background task never comes.
+
+        Stdin stays open while an answered turn waits for its tasks, and
+        Claude Code never exits on an open stdin. Normally the agent wakes
+        when a task ends and the turn settles on its next answer. If every
+        task ended and the CLI then said nothing for ``_WAKE_GRACE_S``, stdin
+        is closed: the CLI finishes what it has and ends by itself.
+        """
+        if not stdin_outlives_result:
+            return
+        while proc.returncode is None:
+            await asyncio.sleep(min(1.0, _WAKE_GRACE_S / 4))
+            if (
+                getattr(state, "saw_result", False)
+                and getattr(state, "idle", False)
+                and not _claude_outstanding(state)
+                and time.monotonic() - activity[0] >= _WAKE_GRACE_S
+            ):
+                _close_stdin()
+                return
+
     async def _watch_grok_idle() -> None:
         """Say a Grok turn waits on background work its stream never named."""
         if not getattr(state, "grok", False):
@@ -5060,18 +5234,34 @@ async def _drive_cli(
 
     if plan.keep_stdin and plan.shape == "claude" and handle.on_steer is not None:
 
-        async def _steer(text: str) -> bool:
-            # Claude Code reads further stream-json user messages until its
-            # result line; after that (or a stop) there is nobody to read.
+        async def _steer(text: str, images: tuple[str, ...] = ()) -> bool:
+            # Claude Code reads further stream-json user messages for as long
+            # as its stdin is open: while it works, and after an answer while
+            # it waits for its background tasks. Once the turn is over (or
+            # was stopped) there is nobody to read. ``images`` are picture
+            # files of the message, sent as its image blocks.
+            line = claude_stream_input(text)
+            if images:
+                from dodaios.agent_chat import plain_chat
+
+                pairs = await asyncio.to_thread(
+                    lambda: [pair for pair in map(plain_chat.encoded, images) if pair is not None]
+                )
+                line = plain_chat.claude_message_with_images(line, pairs)
             if (
-                getattr(state, "saw_result", False)
+                _answer_settled(state)
                 or handle.cancel.is_set()
                 or proc.returncode is not None
                 or proc.stdin is None
                 or proc.stdin.is_closing()
             ):
                 return False
-            await _write_stdin(claude_stream_input(text))
+            if not await _write_stdin(line):
+                return False
+            # The agent answers this message within the turn: an answer
+            # already given is no longer its last word.
+            state.answered = False
+            _note_settled()
             return True
 
         handle.on_steer(_steer)
@@ -5083,6 +5273,7 @@ async def _drive_cli(
     provider_watcher = asyncio.create_task(_watch_provider_failure())
     stall_watcher = asyncio.create_task(_watch_stall())
     hint_watcher = asyncio.create_task(_watch_grok_idle())
+    wake_watcher = asyncio.create_task(_watch_missing_wake())
     natural: asyncio.Task[None] | None = None
     #: The turn ended on its answer, maybe before the process exited.
     ended_on_answer = False
@@ -5127,6 +5318,7 @@ async def _drive_cli(
         provider_watcher.cancel()
         stall_watcher.cancel()
         hint_watcher.cancel()
+        wake_watcher.cancel()
         # Nothing the process prints from here on reaches this turn: lines
         # after its answer can no longer change what was translated.
         for task in (natural, pump, drain, feeder):
@@ -5134,6 +5326,7 @@ async def _drive_cli(
                 task.cancel()
         await asyncio.gather(
             *(t for t in (natural, watcher, provider_watcher, stall_watcher, hint_watcher) if t),
+            wake_watcher,
             pump,
             drain,
             feeder,

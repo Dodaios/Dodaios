@@ -2232,6 +2232,35 @@ class Registry:
                 rows.append(row)
         return rows
 
+    def pane_processes(self) -> list[dict[str, Any]]:
+        """Every pane running on THIS computer, with the id of its first process.
+
+        For the resource view: the process id is where a pane's tree starts, and
+        the rest is what the view calls it. A pane on another computer has no
+        process here, and one that has not started yet has none anywhere.
+        """
+        rows: list[dict[str, Any]] = []
+        for session in list(self._sessions.values()):
+            for term in list(session.terminals):
+                if term.computer_id or not term.pty_id:
+                    continue
+                pid = int(getattr(self._pool(term), "pid_of", lambda _id: 0)(term.pty_id) or 0)
+                if pid <= 0:
+                    continue
+                rows.append(
+                    {
+                        "pid": pid,
+                        "history_id": term.history_id,
+                        "name": term.name,
+                        "agent": term.agent,
+                        "display_name": term.display_name,
+                        "title": recap_engine.known_headline(term) or term.last_prompt[:120],
+                        "workspace_id": session.id,
+                        "workspace_name": session.name,
+                    }
+                )
+        return rows
+
     def state(self) -> dict[str, Any]:
         session = self.session
         return {

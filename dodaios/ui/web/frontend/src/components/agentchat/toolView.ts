@@ -242,3 +242,28 @@ export function outputTokens(usage: Record<string, unknown> | null | undefined):
   const v = usage.output_tokens ?? usage.output ?? usage.completion_tokens;
   return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
+
+function count(usage: Record<string, unknown>, ...keys: string[]): number {
+  for (const key of keys) {
+    const v = usage[key];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+  }
+  return 0;
+}
+
+/**
+ * Input tokens the turn sent that were NEW to the model: fresh input plus
+ * what it wrote to the cache. Reads from the cache are left out — they are
+ * the whole conversation counted again on every step (BUG-173) — and are
+ * returned apart for a tooltip. A runtime whose `input_tokens` already
+ * include its cached part (`cached_input_tokens`) has that part taken out.
+ */
+export function inputTokens(usage: Record<string, unknown> | null | undefined): { fresh: number; cached: number } | null {
+  if (!usage) return null;
+  const input = count(usage, "input_tokens", "input", "prompt_tokens");
+  const written = count(usage, "cache_creation_input_tokens");
+  const read = count(usage, "cache_read_input_tokens");
+  const included = count(usage, "cached_input_tokens");
+  if (!input && !written && !read && !included) return null;
+  return { fresh: Math.max(0, input - included) + written, cached: read + included };
+}

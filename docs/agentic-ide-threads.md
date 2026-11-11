@@ -70,7 +70,12 @@ news since it was last opened.
   thread's). Files and images go in by drop, paste or paperclip; `/` `@` `$`
   open the typeahead where the CLI offers it. An approval or a question the
   agent waits on opens at the top of the composer. A message sent while the
-  agent works is queued; after Stop the queue waits.
+  turn is open goes into that turn on Claude Code and GLM, pictures included:
+  while the agent works, and while it waits for its background tasks after
+  an answer. It shows in the turn as the person's own line and the agent
+  answers it at once; the wait for the tasks goes on. Every other coding
+  agent, and a message with tool picks, queues it as the next turn; after
+  Stop the queue waits.
 - **Under the composer:** a strip that says where the agent works — the
   current checkout or a fresh git worktree for a new thread — and on which
   branch (the base of the worktree, or the branch to switch the checkout to).
@@ -153,6 +158,13 @@ every line the CLI prints and streams them to the app.
   even when a process the CLI started still holds its output open.
 - **Another app process takes over** (a second start of the same instance):
   the old process hands its turns over without ending them.
+- **Input after the answer:** Claude Code reads its input on while it waits
+  for background tasks. The host keeps that input open while an app reads
+  the turn, and the app closes it when the turn is over. A turn no app has
+  read for two minutes gets it closed by the host, so the CLI still ends.
+- **App updates:** the host outlives the app, so it can run older code. The
+  app replaces a host of another build at the next thread start at which
+  the host holds no turn; a host with turns is never touched.
 
 Right after the app starts, it attaches to the host on its own, before any
 window opens a chat, so a waiting approval shows up without delay.

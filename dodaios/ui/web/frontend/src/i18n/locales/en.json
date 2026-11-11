@@ -7207,6 +7207,7 @@
       "browser_takeover_done": "Handed back",
       "browser_takeover_expired": "No longer needed",
       "fresh_start_line": "Fresh start: earlier messages stay above and in memory",
+      "seat_switched_line": "{0} reached its usage limit. This conversation continues on {1}",
       "context_rollover": "Fresh working context — memory and recent messages carried over",
       "stop_reason_max_tokens": "The answer stopped at the model's output limit; it may be incomplete.",
       "stop_reason_max_turn_requests": "The agent reached its step limit for one turn; the work may be unfinished.",
@@ -7975,7 +7976,8 @@
     },
     "technical_details": "Technical details",
     "ran": "Ran",
-    "getting_ready": "Getting ready"
+    "getting_ready": "Getting ready",
+    "tokens_hint": "Input {input} tokens new to the model ({cached} more reused from the cache) · output {output} tokens"
   },
   "work_trace": {
     "tool_failed": "A tool action failed",
@@ -8494,7 +8496,8 @@
       "search": "Search",
       "subscriptions": "Subscriptions",
       "office": "Dodaios Verse",
-      "chat": "Chat"
+      "chat": "Chat",
+      "resources": "Resources"
     },
     "subscriptions": {
       "bank": {
@@ -9317,6 +9320,90 @@
         "exited": "Exited",
         "done": "Done",
         "idle": "Idle"
+      }
+    },
+    "resources": {
+      "loading": "Measuring this computer…",
+      "error": "The reading failed: {message}",
+      "stale": "The last reading failed, so these figures are standing still: {message}",
+      "metric": {
+        "cpu": "Processor",
+        "memory": "Memory",
+        "gpu": "Graphics card"
+      },
+      "hint": {
+        "cpu": "{cores} cores",
+        "of": "{used} of {total}"
+      },
+      "chart_title": {
+        "cpu": "Who is using the processor",
+        "memory": "Who is using the memory",
+        "gpu": "Load on the graphics card"
+      },
+      "chart_window": "Last {minutes} minutes",
+      "axis_now": "now",
+      "axis_ago": "-{minutes} min",
+      "group": {
+        "agents": "Coding agents",
+        "linked": "Connected apps",
+        "app": "This app",
+        "other": "Everything else"
+      },
+      "total": "Total",
+      "cores": "Cores",
+      "cores_aria": "Load of each of the {count} cores",
+      "core": "Core {n}: {percent}",
+      "gpu_none": "No reading here",
+      "gpu_whole": "Read for the card as a whole, not per program",
+      "agents_title": "Coding agents",
+      "agents_empty": "No coding agent is running.",
+      "col": {
+        "cpu": "CPU",
+        "memory": "Memory",
+        "gpu": "GPU",
+        "vram": "VRAM"
+      },
+      "kind": {
+        "pane": "Pane",
+        "thread": "Thread",
+        "background": "Started by this app",
+        "external": "Outside this app"
+      },
+      "thread_untitled": "Thread",
+      "processes": "{count} processes",
+      "process_one": "1 process",
+      "details_of": "Details of {target}",
+      "runtime": "The agent itself",
+      "category": {
+        "mcp": "MCP server",
+        "test": "Tests",
+        "build": "Build",
+        "vcs": "Version control",
+        "browser": "Browser",
+        "runtime": "Script",
+        "shell": "Shell",
+        "command": "Command",
+        "subagent": "Agent",
+        "more": "More tools"
+      },
+      "instances": "×{count}",
+      "linked_note": "Apps connected to its tools. Their load is shown here and not added to the agent.",
+      "linked_via": "through {tool} on port {port}",
+      "linked_port": "on port {port}",
+      "linked_shared": "also used by {count} more",
+      "end": "End",
+      "end_named": "End {target}",
+      "end_confirm": "End {target}?",
+      "end_yes": "End it",
+      "end_cancel": "Cancel",
+      "end_failed": "It could not be ended: {message}",
+      "app_note": "Window, core and helpers",
+      "other_note": "The system and every other program",
+      "role": {
+        "core": "Core",
+        "window": "Window",
+        "terminal_host": "Terminal host",
+        "thread_host": "Thread host"
       }
     }
   },
@@ -10547,6 +10634,14 @@
     "unstreamed_running": "This agent's CLI does not stream a sub-agent's steps. Its answer shows here when it finishes.",
     "unstreamed_done": "This agent's CLI reported only the task and the answer, not the sub-agent's steps.",
     "new_thread": "New thread",
+    "search_threads": "Search threads",
+    "search_placeholder": "Search threads and their messages …",
+    "search_recent": "Recent",
+    "search_results": "Threads",
+    "search_none": "No thread matches.",
+    "search_empty": "No threads yet.",
+    "search_searching": "Searching the messages …",
+    "search_matches": "{count} hits",
     "age_now": "now",
     "age_minutes": "{count}m",
     "age_hours": "{count}h",
