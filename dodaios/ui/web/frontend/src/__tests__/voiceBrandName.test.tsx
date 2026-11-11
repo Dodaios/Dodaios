@@ -1,8 +1,8 @@
 /**
  * The merged voice section is named after the user, not after the product.
  *
- * Its sidebar row resolves `nav.voice`, whose locale value carries the `{name}`
- * token, so the row reads "Nova Voice" on an install whose wake word is "Hey
+ * Its row on the deck's rail resolves `nav.voice`, whose locale value carries the
+ * `{name}` token, so the row reads "Nova Voice" on an install whose wake word is "Hey
  * Nova". Two ways that can silently break: the token stops being interpolated
  * (the row then literally says "{name} Voice"), or someone "fixes" the label by
  * hardcoding a name into it. Both are invisible to the type checker, and both
@@ -25,15 +25,14 @@ import deJson from "@/i18n/locales/de.json";
 import esJson from "@/i18n/locales/es.json";
 import ptJson from "@/i18n/locales/pt.json";
 
-// usePluginAttention polls /api/marketplace/plugins — mocked so the sidebar
+// usePluginAttention polls /api/marketplace/plugins — mocked so the rail
 // renders without a fetch.
 vi.mock("@/hooks/usePluginAttention", () => ({
   usePluginAttention: () => ({ count: 0, names: [] }),
 }));
 
 // useVoiceMode fetches /api/settings/voice-mode — same reason. The shape covers
-// both consumers in this file: the sidebar's footer card and the API-Keys tab's
-// engine switch.
+// both consumers in this file: the rail and the API-Keys tab's engine switch.
 vi.mock("@/hooks/useVoiceMode", () => ({
   useVoiceMode: () => ({
     mode: "pipeline",
@@ -78,7 +77,7 @@ vi.mock("@/hooks/useProviders", async (importOriginal) => {
   };
 });
 
-import { Sidebar } from "@/components/layout/Sidebar";
+import { DockRail } from "@/components/layout/DockRail";
 import { VoiceApiKeysTab } from "@/views/voice/VoiceApiKeysTab";
 import type { ProviderDescriptor } from "@/hooks/useProviders";
 import { useEventStore, type SectionId } from "@/store/events";
@@ -136,13 +135,13 @@ function expectBrandInterpolated(text: string, where: string): void {
   expect(text, `${where} must interpolate the {name} token`).not.toContain("{name}");
 }
 
-function renderSidebar() {
+function renderRail() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <Sidebar />
+      <DockRail />
     </QueryClientProvider>,
   );
 }
@@ -167,7 +166,7 @@ const VOICE_SECTIONS: readonly SectionId[] = [
   "voice-api-keys",
 ];
 
-describe("voice section sidebar brand", () => {
+describe("voice section row brand", () => {
   beforeEach(() => {
     useEventStore.setState({
       voiceState: "idle",
@@ -185,24 +184,25 @@ describe("voice section sidebar brand", () => {
   });
 
   it("names the row after the configured assistant", () => {
-    renderSidebar();
+    renderRail();
 
-    const label = screen.getByTestId("nav-row-dictation").textContent?.trim() ?? "";
+    // The rail shows icons; a row's name is its accessible name.
+    const label = screen.getByTestId("nav-row-dictation").getAttribute("aria-label") ?? "";
     expect(label).toBe(`${PINNED_BRAND} Voice`);
-    expectBrandInterpolated(label, "the voice sidebar row");
+    expectBrandInterpolated(label, "the voice row");
   });
 
   it("falls back to the neutral default when no name is configured", () => {
     useEventStore.setState({ assistantName: "Assistant" });
-    renderSidebar();
+    renderRail();
 
-    const label = screen.getByTestId("nav-row-dictation").textContent?.trim() ?? "";
+    const label = screen.getByTestId("nav-row-dictation").getAttribute("aria-label") ?? "";
     expect(label).toBe("Assistant Voice");
-    expectBrandInterpolated(label, "the neutral-default voice sidebar row");
+    expectBrandInterpolated(label, "the neutral-default voice row");
   });
 
   it("collapses the former Dictation and Dictionary rows into one", () => {
-    renderSidebar();
+    renderRail();
 
     expect(screen.queryByTestId("nav-row-dictionary")).toBeNull();
     expect(screen.getByTestId("nav-row-dictation")).toBeTruthy();
@@ -211,7 +211,7 @@ describe("voice section sidebar brand", () => {
   it("stays highlighted for every section it fronts", () => {
     for (const section of VOICE_SECTIONS) {
       useEventStore.setState({ activeSection: section });
-      renderSidebar();
+      renderRail();
       // The active row carries the inset primary bar; asserting on the class
       // keeps this independent of the (translated) label.
       expect(
