@@ -109,9 +109,9 @@ AREAS: Final[tuple[Area, ...]] = (
     ),
     Area(
         "Artifacts",
-        "what the agents made: mission outputs, files and living pages",
+        "what the agents made: mission outputs, files, reports and living pages",
         reads=("artifacts", "missions-list"),
-        acts=("living_page", "create_artifact"),
+        acts=("write_report", "living_page", "create_artifact"),
     ),
     Area(
         "Automations",

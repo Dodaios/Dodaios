@@ -11632,6 +11632,11 @@
     "state_failed": "Falhou",
     "open": "Abrir"
   },
+  "reports": {
+    "label": "Relatório",
+    "open": "Abrir",
+    "sections": "{0} seções"
+  },
   "voice_call": {
     "voice_title": "Voz",
     "voice_loading": "A carregar vozes…",

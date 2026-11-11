@@ -11632,6 +11632,11 @@
     "state_failed": "失败",
     "open": "打开"
   },
+  "reports": {
+    "label": "报告",
+    "open": "打开",
+    "sections": "{0} 个部分"
+  },
   "voice_call": {
     "voice_title": "声音",
     "voice_loading": "正在加载声音…",

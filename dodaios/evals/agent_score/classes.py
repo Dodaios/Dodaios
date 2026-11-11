@@ -70,6 +70,7 @@ TOOL_CLASS: Final[dict[str, str]] = {
     "tasks": "status_orchestration",
     "create_artifact": "artifacts",
     "living_page": "artifacts",
+    "write_report": "artifacts",
     "slack": "messaging",
     "reply": "messaging",
     "home_assistant": "other",
