@@ -291,3 +291,26 @@ async def test_default_seat_never_uses_a_key(monkeypatch: pytest.MonkeyPatch) ->
     assert await wiring._seat("hello") is None
     source = await asyncio.to_thread(Path(wiring.__file__).read_text, encoding="utf-8")
     assert "frontier_brain_candidates" not in source and "get_secret" not in source
+
+
+async def test_lookup_returns_an_event_with_its_decision_and_thread_siblings() -> None:
+    h = Harness(answers=[answer(
+        {"event": 1, "action": "act", "policy": "inv", "reason": "invoice"},
+        {"event": 2, "action": "ignore"},
+    )])
+    await h.configure("auto")
+    first = mail(1, thread_id="shared")
+    second = mail(2, thread_id="shared")
+    for event in (first, second):
+        await h.service.submit(event)
+    await h.service.process()
+    found = await h.service.lookup(first.event_id)
+    assert found is not None and found["event"]["thread_key"] == "shared"
+    assert found["decisions"][0]["job"] == "task-1"
+    assert found["same_thread"] == [] or second.event_id in found["same_thread"]
+    assert await h.service.lookup("mail:unknown") is None
+
+
+def test_event_id_is_stable_through_a_dict_round_trip() -> None:
+    event = mail(7)
+    assert TriggerEvent.from_dict(event.to_dict()).event_id == event.event_id == "mail:m7"

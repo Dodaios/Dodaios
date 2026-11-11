@@ -1957,6 +1957,7 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
             "await-jobs",
             "job-stop",
             "trace-explain",
+            "recall",
             # Independent, read-only check of delegated work (2026-11-10).
             "verify-delegate",
             "watchdog-status",

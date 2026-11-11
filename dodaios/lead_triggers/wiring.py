@@ -146,7 +146,8 @@ async def _notify(record: dict[str, Any]) -> None:
         "trigger_ask", lang, source=event["source"], summary=event["summary"],
         policy=record["policy_text"],
     )
-    await post_notice(*target, {"kind": NOTICE_KIND, "text": text, "decision_id": record["id"]})
+    await post_notice(*target, {"kind": NOTICE_KIND, "text": text, "decision_id": record["id"],
+                          "trigger_event_id": str(event.get("event_id") or "")})
 
 
 def _quiet() -> bool:

@@ -265,6 +265,8 @@ def search_conversation(query: str, *, limit: int = 6) -> list[dict[str, Any]]:
         ts = int(hit.get("ts_ms") or 0)
         rows.append(
             {
+                # Read the whole message (and what surrounds it) with recall(id).
+                "id": f"ev:{hit['seq']}" if hit.get("seq") else "",
                 "who": "user" if hit["kind"] == "user_message" else "you",
                 "date": _dt.datetime.fromtimestamp(ts / 1000).strftime("%Y-%m-%d") if ts else "",
                 "text": text[:600],

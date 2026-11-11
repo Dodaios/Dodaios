@@ -60,14 +60,31 @@ def _text_len(event: dict[str, Any]) -> int:
     return 0
 
 
-def note_turn_start(turn_id: str, history: list[dict[str, Any]], *, start_seq: int = 0) -> None:
+def history_chars(history: list[dict[str, Any]], *, spill: bool = False) -> int:
+    """Characters the history costs to re-read: messages plus the notices' cards.
+
+    ``spill``: the lead's history shows answered long reports as cards
+    (``agent_chat.recall``), so the notices are measured in that form.
+    """
+    from dodaios.agent_chat.recall import rendered_notice_chars
+
+    return sum(_text_len(e) for e in history) + rendered_notice_chars(history, spill=spill)
+
+
+def note_turn_start(
+    turn_id: str,
+    history: list[dict[str, Any]],
+    *,
+    start_seq: int = 0,
+    spill: bool = False,
+) -> None:
     """Remember the history a turn begins with (called once per turn)."""
     if not turn_id:
         return
     after = max((int(e.get("seq") or 0) for e in history), default=start_seq)
     while len(_open) >= _MAX_OPEN_TURNS:
         _open.pop(next(iter(_open)))
-    _open[turn_id] = TurnBasis(after, sum(_text_len(e) for e in history))
+    _open[turn_id] = TurnBasis(after, history_chars(history, spill=spill))
 
 
 def take_basis(turn_id: str) -> TurnBasis | None:

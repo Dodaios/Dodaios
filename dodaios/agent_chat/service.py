@@ -1889,7 +1889,11 @@ class AgentChatService:
                 self.store.list_events, session_id, after_seq=history_start
             )
             await asyncio.to_thread(
-                token_efficiency.note_turn_start, turn_id, history, start_seq=history_start
+                token_efficiency.note_turn_start,
+                turn_id,
+                history,
+                start_seq=history_start,
+                spill=session.surface == "jarvis",
             )
             if incoming is not None:
                 await self.message_status(

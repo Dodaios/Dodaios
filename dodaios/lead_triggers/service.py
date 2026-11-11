@@ -555,6 +555,47 @@ class TriggerService:
                 },
             }
 
+    async def lookup(self, event_id: str) -> dict[str, Any] | None:
+        """One event the service still remembers, with what was decided about it.
+
+        ``{"event", "waiting", "decisions", "same_thread"}`` or ``None`` when the
+        event is not in the waiting list or the decision log (dropped events are
+        only counted, never kept).
+        """
+        async with self._lock:
+            state = await self._load()
+            decisions = [
+                r for r in state["log"] if (r.get("event") or {}).get("event_id") == event_id
+            ]
+            waiting = [
+                p["event"]
+                for p in state["pending"]
+                if (p.get("event") or {}).get("event_id") == event_id
+            ]
+            event = decisions[-1]["event"] if decisions else (waiting[0] if waiting else None)
+            if event is None:
+                return None
+            key = str(event.get("thread_key") or "")
+            same: list[str] = []
+            if key:
+                for item in [r["event"] for r in state["log"]] + [
+                    p["event"] for p in state["pending"]
+                ]:
+                    other = str(item.get("event_id") or "")
+                    if (
+                        other
+                        and other != event_id
+                        and item.get("thread_key") == key
+                        and other not in same
+                    ):
+                        same.append(other)
+            return {
+                "event": dict(event),
+                "waiting": bool(waiting),
+                "decisions": [dict(r) for r in decisions],
+                "same_thread": same[:10],
+            }
+
     async def promote(self, policy_id: str) -> TriggerSettings | None:
         """Let one policy act while the install keeps observing; ``None`` for an unknown id."""
         settings = await self.settings()

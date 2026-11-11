@@ -398,6 +398,25 @@ class JobLedger:
             ).fetchall()
         return [_job(row) for row in rows]
 
+    def find(self, *, ref: str = "", target: str = "", limit: int = 10) -> list[Job]:
+        """Rows pointing at ``ref`` (its ref or result_ref) and/or aimed at ``target``."""
+        where, args = [], []
+        if ref:
+            where.append("(ref = ? OR result_ref = ?)")
+            args += [ref, ref]
+        if target:
+            where.append("target = ?")
+            args.append(target)
+        if not where:
+            return []
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT {_COLUMNS} FROM jobs WHERE {' AND '.join(where)} "  # noqa: S608 - fixed clauses
+                "ORDER BY updated_ms DESC LIMIT ?",
+                (*args, max(1, int(limit))),
+            ).fetchall()
+        return [_job(row) for row in rows]
+
     def recent(
         self, *, owner_session: str = "", limit: int = 20, open_only: bool = False
     ) -> list[Job]:
