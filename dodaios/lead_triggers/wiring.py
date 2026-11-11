@@ -444,6 +444,16 @@ def get_preparer(store: Any) -> Preparer:
     return _preparer
 
 
+def _delivery_held(sub: Any) -> bool:
+    """The owner's stop on everything, the trigger policy, the job or its agent blocks delivery."""
+    from dodaios.safety.stop_hold import stop_holds
+
+    policy = str((sub.mandate or {}).get("policy_id") or "")
+    return stop_holds().blocking(
+        job=sub.job_id, trigger=policy, agent=str(sub.target or "")
+    ) is not None
+
+
 def get_service() -> TriggerService | None:
     """The process's service, built on first use; ``None`` while no society runs."""
     global _service
@@ -455,6 +465,7 @@ def get_service() -> TriggerService | None:
             runtime.store, seat=_seat, starter=_start_job, notifier=_notify, quiet=_quiet,
             subscriptions=_subscription_store(), deliverer=deliver_to_job,
             preparer=get_preparer(runtime.store),
+            hold=_delivery_held,
         )
     return _service
 

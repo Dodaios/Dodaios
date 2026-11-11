@@ -478,6 +478,7 @@ class TriggerService:
         for sub in owners:
             if self._hold(sub):
                 self._count(state, "delivery_held")
+                self._count(state, "held_by_owner")
                 continue
             problem = mandate_problem(sub.mandate, event, settings)
             if problem:
