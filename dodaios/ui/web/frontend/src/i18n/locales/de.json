@@ -7976,7 +7976,8 @@
     },
     "technical_details": "Technische Details",
     "ran": "Ausgeführt:",
-    "getting_ready": "Wird vorbereitet"
+    "getting_ready": "Wird vorbereitet",
+    "tokens_hint": "Eingabe {input} neue Tokens ({cached} weitere aus dem Cache wiederverwendet) · Ausgabe {output} Tokens"
   },
   "work_trace": {
     "tool_failed": "Eine Tool-Aktion ist fehlgeschlagen",

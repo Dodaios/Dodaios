@@ -7976,7 +7976,8 @@
     },
     "technical_details": "Technical details",
     "ran": "Ran",
-    "getting_ready": "Getting ready"
+    "getting_ready": "Getting ready",
+    "tokens_hint": "Input {input} tokens new to the model ({cached} more reused from the cache) · output {output} tokens"
   },
   "work_trace": {
     "tool_failed": "A tool action failed",
