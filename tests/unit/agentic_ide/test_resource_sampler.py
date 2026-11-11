@@ -15,6 +15,7 @@ from dataclasses import replace
 
 from dodaios.agentic_ide.resource_sampler import (
     HISTORY_POINTS,
+    ROW_POINTS,
     ResourceSampler,
     SampleContext,
     SystemReading,
@@ -196,8 +197,11 @@ def test_history_grows_per_sample_and_restarts_after_a_pause() -> None:
     assert len(history["t"]) == 4
     assert history["series"]["cpu"] == [0.0, 10.0, 10.0, 10.0]
     assert history["series"]["cpu.agents"] == [0.0, 10.0, 10.0, 10.0]
-    assert history["agents"][agent_id]["cpu"] == [0.0, 10.0, 10.0, 10.0]
-    assert history["agents"][agent_id]["memory"] == [1200.0] * 4
+    assert history["rows"][agent_id]["cpu"] == [0.0, 10.0, 10.0, 10.0]
+    assert history["rows"][agent_id]["memory"] == [1200.0] * 4
+    assert "gpu" not in history["rows"][agent_id]  # it never used the card
+    assert history["rows"]["self"]["cpu"] == [0.0] * 4
+    assert history["rows"]["system"]["memory"][-1] > 0
     assert set(history["series"]) >= {"memory", "gpu", "memory.agents", "cpu.other", "cpu.app"}
 
     machine.advance(120.0)
@@ -220,12 +224,14 @@ def test_history_is_bounded_and_an_agent_that_appears_late_is_padded() -> None:
     history = payload["history"]
     assert len(history["t"]) == HISTORY_POINTS
     assert all(len(series) == HISTORY_POINTS for series in history["series"].values())
-    (line,) = history["agents"].values()
-    assert len(line["cpu"]) == HISTORY_POINTS
+    (agent_id,) = [row["id"] for row in payload["agents"]]
+    line = history["rows"][agent_id]
+    assert history["row_points"] == ROW_POINTS
+    assert len(line["cpu"]) == ROW_POINTS  # a row carries its recent past only
 
     del machine.rows[30], machine.rows[31]
     machine.advance(2.0)
-    assert sampler.sample(context)["history"]["agents"] == {}
+    assert set(sampler.sample(context)["history"]["rows"]) == {"self", "system"}
 
 
 def test_a_late_agent_has_no_points_before_it_existed() -> None:
@@ -239,7 +245,7 @@ def test_a_late_agent_has_no_points_before_it_existed() -> None:
     machine.advance(2.0)
     payload = sampler.sample(context)
 
-    (line,) = payload["history"]["agents"].values()
+    line = payload["history"]["rows"][payload["agents"][0]["id"]]
     assert line["cpu"] == [None, None, 0.0]
 
 
@@ -278,6 +284,7 @@ def test_graphics_memory_is_attributed_and_an_impossible_reading_dropped() -> No
     assert payload["agents"][0]["gpu_percent"] == 35.0
     assert payload["app"]["gpu_memory_mb"] == 0.0
     assert payload["history"]["series"]["gpu"] == [40.0]
+    assert payload["history"]["rows"][payload["agents"][0]["id"]]["gpu"] == [35.0]
 
 
 def test_a_machine_without_a_readable_card_says_so() -> None:
@@ -363,3 +370,48 @@ def test_a_reused_process_id_is_not_ended() -> None:
     finally:
         stranger.kill()
         stranger.wait(timeout=10)
+
+
+def test_an_app_is_a_row_with_its_own_line() -> None:
+    machine = Machine()
+    machine.add(700, 1, "explorer.exe", mb=90)
+    machine.add(710, 700, "blender.exe", mb=2000)
+    machine.add(711, 710, "blender.exe", ("blender.exe", "--worker"), mb=300)
+    sampler = machine.sampler()
+    context = SampleContext(signatures=SIGNATURES)
+
+    sampler.sample(context)
+    machine.advance(2.0, {710: 1.6, 711: 0.4})
+    payload = sampler.sample(context)
+
+    apps = {row["label"]: row for row in payload["apps"]}
+    assert apps["Blender"]["cpu_percent"] == 25.0
+    assert apps["Blender"]["memory_mb"] == 2300.0
+    assert apps["Blender"]["processes"] == 2
+    assert payload["history"]["rows"]["app:Blender"]["cpu"] == [0.0, 25.0]
+    assert payload["history"]["rows"]["app:Explorer"]["memory"] == [90.0, 90.0]
+
+
+def test_what_no_process_accounts_for_is_the_systems() -> None:
+    machine = Machine()
+    machine.add(4, 0, "System", mb=10)
+    machine.add(60, 1, "chrome.exe", mb=900)
+    sampler = machine.sampler()
+    context = SampleContext(signatures=SIGNATURES)
+    sampler.sample(context)
+
+    machine.advance(2.0, {60: 0.4})
+    machine.busy += 0.8  # the kernel: no process shows it
+    payload = sampler.sample(context)
+
+    assert payload["os"]["cpu_percent"] == 10.0
+    assert payload["system"]["cpu_percent"] == 15.0
+    # Memory in use that no process holds (cache, drivers) is the system's too,
+    # so the rows add up to the meter.
+    rows = (
+        sum(row["memory_mb"] for row in payload["apps"])
+        + payload["os"]["memory_mb"]
+        + payload["app"]["memory_mb"]
+    )
+    assert rows == payload["system"]["memory_used_mb"] == 10000.0
+    assert payload["history"]["rows"]["system"]["cpu"] == [0.0, 10.0]

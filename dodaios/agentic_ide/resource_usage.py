@@ -13,7 +13,9 @@ panes and threads:
   build, a browser.
 * a **linked app** is a program outside the tree that a tool talks to over a
   local connection, e.g. a 3D editor driven through its MCP server.
-* what belongs to no agent is either **this app** or **everything else**.
+* what belongs to no agent is **this app**, or one of the **apps** running on
+  the machine (every program gets a row, whether an agent uses it or not), or
+  the **system** itself.
 
 Pure: it takes plain rows and returns plain rows. Reading the machine is
 ``resource_sampler``'s job. No command line leaves this module, only a short
@@ -72,8 +74,36 @@ _INLINE_CODE = frozenset({"-c", "-e", "-p", "--eval", "--print", "-"})
 _VERSION_TAIL = re.compile(r"@[\w.^~*-]+$")
 _MCP_PART = re.compile(r"(^|[-_.])mcp([-_.]server)?($|[-_.])", re.IGNORECASE)
 _PROTOCOL_SCOPE = "modelcontextprotocol"
+#: What a label derived from a command line may look like.
+_LABEL = re.compile(r"[\w.+-]{1,40}")
 #: Rows of one kind kept per agent; the rest are folded into one line.
 MAX_ROWS = 14
+#: Apps sent as rows of their own; the long tail of small ones is one figure.
+APP_ROWS = 40
+#: Parts listed inside one app.
+APP_PARTS = 8
+#: Programs whose children are programs of their own: the desktop shell and the
+#: service managers. A browser started from the desktop is not "part of" it.
+HOSTS = frozenset(
+    {"explorer", "services", "wininit", "winlogon", "svchost", "sihost", "userinit", "smss"}
+    | {"system"}
+    | {"systemd", "init", "launchd", "gnome-shell", "plasmashell", "gnome-session-binary"}
+    | {"xfce4-session", "cinnamon", "kwin_wayland", "kwin_x11"}
+)
+#: What the operating system itself runs; together they are one row.
+SYSTEM_NAMES = frozenset(
+    {"system", "registry", "memory compression", "secure system", "smss", "csrss", "wininit"}
+    | {"winlogon", "services", "lsass", "lsaiso", "svchost", "fontdrvhost", "dwm", "sihost"}
+    | {"taskhostw", "runtimebroker", "dllhost", "conhost", "spoolsv", "wudfhost", "ctfmon"}
+    | {"userinit", "wmiprvse", "dashost", "audiodg", "searchhost", "startmenuexperiencehost"}
+    | {"kthreadd", "systemd", "init", "launchd", "kernel_task", "dbus-daemon", "dbus-broker"}
+    | {"windowserver", "loginwindow", "polkitd", "udisksd", "rtkit-daemon", "cron", "agetty"}
+)
+#: The row id of the operating system and of this app, beside agent and app ids.
+SYSTEM_ROW = "system"
+SELF_ROW = "self"
+#: Kinds of part worth naming after what they run rather than after their program.
+_NAMED_PARTS = frozenset({"mcp", "subagent", "test", "build", "runtime"})
 
 
 @dataclass(slots=True)
@@ -211,7 +241,9 @@ def _script_label(token: str) -> str:
         name = part.lstrip("@") if part.startswith("@") else _VERSION_TAIL.sub("", stem(part))
         if not name or name in _GENERIC or name.endswith(":") or re.fullmatch(r"[\d.]+", name):
             continue
-        return _NPM_WRAPPERS.get(name, name)
+        # A label is a file's or a package's name. Anything else an argument
+        # can hold (a setting, a URL, a sentence) is not shown.
+        return _NPM_WRAPPERS.get(name, name) if _LABEL.fullmatch(name) else ""
     return ""
 
 
@@ -221,6 +253,8 @@ def _mcp_name(words: Sequence[str]) -> str | None:
         lowered = word.lower()
         if _is_option(word) or ("mcp" not in lowered and _PROTOCOL_SCOPE not in lowered):
             continue
+        if "=" in word:
+            continue  # a setting that mentions MCP, not a server being started
         parts = _path_parts(word)
         for index in range(len(parts) - 1, -1, -1):
             part = parts[index]
@@ -228,17 +262,22 @@ def _mcp_name(words: Sequence[str]) -> str | None:
             bare = part if part.startswith("@") else _VERSION_TAIL.sub("", part)
             name = stem(bare).replace("_", "-")
             if owner == _PROTOCOL_SCOPE:
-                return name.removeprefix("server-") or "mcp"
+                return _server_name(name.removeprefix("server-"))
             if "mcp" not in name:
                 continue
             if name.lstrip("@") in {"mcp", "mcp-server", "server-mcp"}:
                 # "@playwright/mcp": the scope is the name.
-                return owner or "mcp"
+                return _server_name(owner)
             if not _MCP_PART.search(name):
                 continue
             short = _MCP_PART.sub(_join_around, name).strip("-.@")
-            return short.removeprefix("server-").removesuffix("-server") or "mcp"
+            return _server_name(short.removeprefix("server-").removesuffix("-server"))
     return None
+
+
+def _server_name(name: str) -> str:
+    """A server's short name, or just "mcp" when what is left is not a name."""
+    return name if _LABEL.fullmatch(name) else "mcp"
 
 
 def _join_around(match: re.Match[str]) -> str:
@@ -282,7 +321,8 @@ def _interpreter_target(arguments: Sequence[str]) -> tuple[str, Sequence[str]]:
         if word in _INLINE_CODE:
             return "", ()
         if word == "-m" and index + 1 < len(arguments):
-            return arguments[index + 1].split(".")[0].lower(), arguments[index + 2 :]
+            module = arguments[index + 1].split(".")[0].lower()
+            return (module if _LABEL.fullmatch(module) else ""), arguments[index + 2 :]
         if not _is_option(word):
             return _script_label(word), arguments[index + 1 :]
     return "", ()
@@ -683,12 +723,38 @@ def build_usage(
         app_parts.setdefault(role, Tally()).add(proc)
 
     other_total = Tally()
-    other_parts: dict[str, Tally] = {}
     for pid, proc in procs.items():
-        if pid in taken or pid in all_linked:
-            continue
-        other_total.add(proc)
-        other_parts.setdefault(pretty(proc.name) or "?", Tally()).add(proc)
+        if pid not in taken and pid not in all_linked:
+            other_total.add(proc)
+
+    apps, system = _apps(tree, taken)
+    app_of = {pid: label for label, entry in apps.items() for pid in entry.pids}
+    for agent_id, per_agent in linked_of.items():
+        for linked_root in per_agent:
+            label = app_of.get(linked_root)
+            if label is not None and agent_id not in apps[label].used_by:
+                apps[label].used_by.append(agent_id)
+    ranked = sorted(apps.items(), key=lambda item: _weight(item[1].tally), reverse=True)
+    more = Tally()
+    for _label, entry in ranked[APP_ROWS:]:
+        more.merge(entry.tally)
+
+    loads = {row["id"]: _load(row) for row in agent_rows}
+    loads[SELF_ROW] = _load(app_total.to_dict())
+    loads[SYSTEM_ROW] = _load(system.tally.to_dict())
+    app_rows: list[dict[str, Any]] = []
+    for label, entry in ranked:
+        row = {
+            "id": f"app:{label}",
+            "label": label,
+            "instances": entry.instances,
+            **entry.tally.to_dict(),
+            "parts": _top(entry.parts, "label", APP_PARTS),
+            "used_by": entry.used_by,
+        }
+        loads[row["id"]] = _load(row)
+        if len(app_rows) < APP_ROWS:
+            app_rows.append(row)
 
     return {
         "agents": agent_rows,
@@ -699,9 +765,61 @@ def build_usage(
             "other": other_total.to_dict(),
         },
         "app": {**app_total.to_dict(), "parts": _top(app_parts, "role", MAX_ROWS)},
-        "other": {**other_total.to_dict(), "top": _top(other_parts, "name", 12)},
+        "apps": app_rows,
+        "app_count": len(ranked),
+        "apps_more": more.to_dict(),
+        "os": {**system.tally.to_dict(), "parts": _top(system.parts, "label", APP_PARTS)},
         "owned_tools": owned,
+        "row_loads": loads,
     }
+
+
+@dataclass(slots=True)
+class _App:
+    """One program on the machine: every process of it, under one name."""
+
+    tally: Tally = field(default_factory=Tally)
+    parts: dict[str, Tally] = field(default_factory=dict)
+    pids: set[int] = field(default_factory=set)
+    instances: int = 0
+    used_by: list[str] = field(default_factory=list)
+
+
+def _apps(tree: ProcessTree, taken: set[int]) -> tuple[dict[str, _App], _App]:
+    """Every process that is no agent's and not this app's, as programs and the system.
+
+    A program starts where the desktop shell or a service manager started
+    something, and is everything below that point: a code editor with its
+    language servers, a terminal with what runs in it. Several windows of the
+    same program are one row.
+    """
+    procs = tree.procs
+    rest = {pid for pid in procs if pid not in taken}
+    starts: set[int] = set()
+    for pid in rest:
+        parent = tree.parent(pid)
+        if parent is None or parent not in rest or stem(procs[parent].name) in HOSTS:
+            starts.add(pid)
+    apps: dict[str, _App] = {}
+    system = _App()
+    for pid in sorted(starts, key=lambda item: procs[item].create_time):
+        name = stem(procs[pid].name)
+        is_system = name in SYSTEM_NAMES or name.startswith("systemd-")
+        entry = system if is_system else apps.setdefault(pretty(procs[pid].name) or "?", _App())
+        entry.instances += 1
+        for member in tree.below(pid, stop=starts):
+            proc = procs[member]
+            entry.pids.add(member)
+            entry.tally.add(proc)
+            category, label, _wrapper = describe(proc.name, proc.cmdline)
+            part = label if category in _NAMED_PARTS else pretty(proc.name) or "?"
+            entry.parts.setdefault(part, Tally()).add(proc)
+    return apps, system
+
+
+def _load(row: Mapping[str, Any]) -> tuple[float, float, float]:
+    """What a row's history keeps per sample: processor %, memory MB, graphics %."""
+    return (row["cpu_percent"], row["memory_mb"], row["gpu_percent"])
 
 
 def _top(parts: Mapping[str, Tally], key: str, limit: int) -> list[dict[str, Any]]:

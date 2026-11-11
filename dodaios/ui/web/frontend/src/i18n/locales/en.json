@@ -9359,7 +9359,6 @@
         "memory": "Who is using the memory",
         "gpu": "Load on the graphics card"
       },
-      "chart_window": "Last {minutes} minutes",
       "axis_now": "now",
       "axis_ago": "-{minutes} min",
       "group": {
@@ -9417,13 +9416,25 @@
       "end_cancel": "Cancel",
       "end_failed": "It could not be ended: {message}",
       "app_note": "Window, core and helpers",
-      "other_note": "The system and every other program",
       "role": {
         "core": "Core",
         "window": "Window",
         "terminal_host": "Terminal host",
         "thread_host": "Thread host"
-      }
+      },
+      "apps_title": "Apps",
+      "apps_show_all": "Show all {count}",
+      "apps_show_fewer": "Show fewer",
+      "apps_more": "{count} smaller apps",
+      "app_used_by": "used by {agents}",
+      "system_title": "System",
+      "system_note": "The operating system and its services",
+      "peak": "Peak {value}",
+      "row_window": "Last {minutes} min",
+      "window_seconds": "Last {seconds} s",
+      "axis_ago_seconds": "-{seconds} s",
+      "else_title": "Everything else is mostly",
+      "else_more": "+{count} more"
     },
     "file": {
       "empty": "Click a file in a thread's work to read it here.",

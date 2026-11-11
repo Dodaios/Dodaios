@@ -9359,7 +9359,6 @@
         "memory": "Quem está a usar a memória",
         "gpu": "Carga da placa gráfica"
       },
-      "chart_window": "Últimos {minutes} minutos",
       "axis_now": "agora",
       "axis_ago": "-{minutes} min",
       "group": {
@@ -9417,13 +9416,25 @@
       "end_cancel": "Cancelar",
       "end_failed": "Não foi possível terminar: {message}",
       "app_note": "Janela, núcleo e processos auxiliares",
-      "other_note": "O sistema e todos os outros programas",
       "role": {
         "core": "Núcleo",
         "window": "Janela",
         "terminal_host": "Anfitrião de terminais",
         "thread_host": "Anfitrião de conversas"
-      }
+      },
+      "apps_title": "Apps",
+      "apps_show_all": "Mostrar todas as {count}",
+      "apps_show_fewer": "Mostrar menos",
+      "apps_more": "{count} apps mais pequenas",
+      "app_used_by": "usada por {agents}",
+      "system_title": "Sistema",
+      "system_note": "O sistema operativo e os seus serviços",
+      "peak": "Pico {value}",
+      "row_window": "Últimos {minutes} min",
+      "window_seconds": "Últimos {seconds} s",
+      "axis_ago_seconds": "-{seconds} s",
+      "else_title": "Tudo o resto é sobretudo",
+      "else_more": "+{count} mais"
     },
     "file": {
       "empty": "Clique em um arquivo no trabalho de um thread para lê-lo aqui.",

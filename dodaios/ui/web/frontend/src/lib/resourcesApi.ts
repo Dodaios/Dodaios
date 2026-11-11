@@ -83,8 +83,29 @@ export interface ResourceHistory {
   t: number[];
   /** "cpu", "memory", "gpu" and "<cpu|memory>.<group>", all as percent of the machine. */
   series: Record<string, number[]>;
-  /** Per agent: processor percent and memory in MB; null before the agent existed. */
-  agents: Record<string, { cpu: (number | null)[]; memory: (number | null)[] }>;
+  /** How many samples a row's line holds at most. */
+  row_points: number;
+  /**
+   * Per row (an agent, an app, "self", "system"): processor percent, memory in
+   * MB and, where the row ever used the card, graphics percent. null before
+   * the row existed. Shorter than the series above: a row's recent past.
+   */
+  rows: Record<string, { cpu: (number | null)[]; memory: (number | null)[]; gpu?: (number | null)[] }>;
+}
+
+/** A named part of an app, of this app or of the system. */
+export type ResourcePart = ResourceLoad & { label: string };
+
+/** A program running on this computer: every process of it, under one name. */
+export interface ResourceApp extends ResourceLoad {
+  /** "app:<label>"; also the row's key in the history. */
+  id: string;
+  label: string;
+  /** How many times the program was started; they are one row. */
+  instances: number;
+  parts: ResourcePart[];
+  /** Ids of the agents with a tool connected to it. */
+  used_by: string[];
 }
 
 export interface ResourceSnapshot {
@@ -95,7 +116,14 @@ export interface ResourceSnapshot {
   groups: Record<ResourceGroupKey, ResourceLoad>;
   agents: ResourceAgent[];
   app: ResourceLoad & { parts: (ResourceLoad & { role: string })[] };
-  other: ResourceLoad & { top: (ResourceLoad & { name: string })[] };
+  /** The heaviest apps as rows; the rest are {@link ResourceSnapshot.apps_more}. */
+  apps: ResourceApp[];
+  /** How many apps run in all. */
+  app_count: number;
+  /** The apps too small for a row of their own, summed. */
+  apps_more: ResourceLoad;
+  /** The operating system itself, including what no process accounts for. */
+  os: ResourceLoad & { parts: ResourcePart[] };
   history: ResourceHistory;
 }
 
