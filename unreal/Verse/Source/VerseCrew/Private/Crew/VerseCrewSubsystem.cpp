@@ -1581,6 +1581,8 @@ void UVerseCrewSubsystem::StepCompanion(float DeltaSeconds)
 	const FVector Now = Drone->GetActorLocation();
 	const FVector To = Heel - Now;
 	const float Dist = To.Size();
+	// A_Follow while it still has ground to make up, A_Hover at heel (three.js `actor.ts` follow).
+	Drone->SetMoving(Dist > 20.f);
 	if (Dist < 1.f)
 	{
 		return;

@@ -67,6 +67,18 @@ public:
 
 	static const TCHAR* CompanionMeshPath;
 	static const TCHAR* UtilityMeshPath;
+	/** The companion's clips: at heel, and on the move. */
+	static const TCHAR* CompanionHoverClipPath;
+	static const TCHAR* CompanionFollowClipPath;
+	/** Height of the companion's body centre above its mesh root (`drones.py` COMP_HOVER). */
+	static constexpr double CompanionBodyCm = 85.0;
+	/**
+	 * Tag of an actor that already is the commander's companion (the crew's, `VerseCrew`): while
+	 * one is in the world, the deck spawns no companion of its own, so there is only ever one.
+	 */
+	static const FName CompanionTag;
+	/** True when an actor tagged `CompanionTag` that is not a deck drone is in the world. */
+	static bool HasOtherCompanion(const UWorld* World);
 
 	/** Sets the body and its clips; false when the mesh is not in the build. */
 	bool Init(EVerseDroneKind InKind, const FVector& FeetCm, double YawDeg);

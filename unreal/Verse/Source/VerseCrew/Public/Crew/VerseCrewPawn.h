@@ -7,6 +7,7 @@
 
 #include "VerseCrewPawn.generated.h"
 
+class UAnimSequence;
 class UCapsuleComponent;
 class UPointLightComponent;
 class USkeletalMesh;
@@ -84,7 +85,12 @@ private:
 	FVerseCrewDutyLook DutyLook;
 };
 
-/** The companion drone that follows the commander at heel (parity C-21, F-14). */
+/**
+ * The companion drone that follows the commander at heel (parity C-21, F-14). It wears the
+ * three.js companion (`SK_Drone_Companion`, A_Hover at heel and A_Follow on the move, the
+ * deck drones' assets) and carries `AVerseDeckDrone::CompanionTag`, so the deck spawns no
+ * second companion while this one flies.
+ */
 UCLASS(NotBlueprintable)
 class VERSECREW_API AVerseCompanionDrone : public AActor
 {
@@ -101,4 +107,22 @@ public:
 
 	UPROPERTY(VisibleAnywhere, Category = "Verse|Crew")
 	TObjectPtr<UPointLightComponent> Glow;
+
+	UPROPERTY(VisibleAnywhere, Category = "Verse|Crew")
+	TObjectPtr<USkeletalMeshComponent> Body;
+
+	/** Plays A_Follow while moving, A_Hover at heel. */
+	void SetMoving(bool bMoving);
+	bool IsMoving() const { return bMovingNow; }
+
+protected:
+	virtual void BeginPlay() override;
+
+private:
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequence> HoverClip;
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequence> FollowClip;
+	bool bMovingNow = false;
+	bool bPlaying = false;
 };

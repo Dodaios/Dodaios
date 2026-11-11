@@ -14,6 +14,9 @@
 
 const TCHAR* AVerseDeckDrone::CompanionMeshPath = TEXT("/Game/Verse/Characters/Drones/SK_Drone_Companion.SK_Drone_Companion");
 const TCHAR* AVerseDeckDrone::UtilityMeshPath = TEXT("/Game/Verse/Characters/Drones/SK_Drone_Utility.SK_Drone_Utility");
+const TCHAR* AVerseDeckDrone::CompanionHoverClipPath = TEXT("/Game/Verse/Animations/Drones/A_Drone_Companion_Hover.A_Drone_Companion_Hover");
+const TCHAR* AVerseDeckDrone::CompanionFollowClipPath = TEXT("/Game/Verse/Animations/Drones/A_Drone_Companion_Follow.A_Drone_Companion_Follow");
+const FName AVerseDeckDrone::CompanionTag(TEXT("Verse.Companion"));
 
 namespace
 {
@@ -27,9 +30,9 @@ namespace
 		const TCHAR* Path;
 	};
 	const FClipEntry CompanionClips[] = {
-		{ Hover, TEXT("/Game/Verse/Animations/Drones/A_Drone_Companion_Hover.A_Drone_Companion_Hover") },
+		{ Hover, AVerseDeckDrone::CompanionHoverClipPath },
 		// A drone without a drive clip walks with A_Follow (`actor.ts` play).
-		{ Walk, TEXT("/Game/Verse/Animations/Drones/A_Drone_Companion_Follow.A_Drone_Companion_Follow") },
+		{ Walk, AVerseDeckDrone::CompanionFollowClipPath },
 	};
 	const FClipEntry UtilityClips[] = {
 		// No A_Hover: hover falls back to the idle clip.
@@ -342,6 +345,22 @@ void AVerseDeckDrone::Tick(float DeltaSeconds)
 	}
 }
 
+bool AVerseDeckDrone::HasOtherCompanion(const UWorld* World)
+{
+	if (World == nullptr)
+	{
+		return false;
+	}
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		if (IsValid(*It) && !It->IsA<AVerseDeckDrone>() && It->Tags.Contains(CompanionTag))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 int32 AVerseDeckDrone::SpawnForDeck(UWorld* World, const FVerseDeckManifest& Manifest)
 {
 	if (World == nullptr)
@@ -356,7 +375,9 @@ int32 AVerseDeckDrone::SpawnForDeck(UWorld* World, const FVerseDeckManifest& Man
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	Params.ObjectFlags |= RF_Transient;
 	int32 Spawned = 0;
-	if (const AVerseDeckCommander* Commander = AVerseDeckCommander::Find(World))
+	// One companion only: the crew's, when its feed is live, else this deck's.
+	const AVerseDeckCommander* Commander = HasOtherCompanion(World) ? nullptr : AVerseDeckCommander::Find(World);
+	if (Commander)
 	{
 		const double Yaw = Commander->GetActorRotation().Yaw;
 		if (AVerseDeckDrone* Drone = World->SpawnActor<AVerseDeckDrone>(Params))

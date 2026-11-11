@@ -6,7 +6,11 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/SpotLightComponent.h"
 #include "Components/TextRenderComponent.h"
+#include "Animation/AnimSequence.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/World.h"
+#include "EngineUtils.h"
+#include "Life/VerseDeckDrone.h"
 
 namespace
 {
@@ -175,4 +179,50 @@ AVerseCompanionDrone::AVerseCompanionDrone()
 	Glow->SetIntensityUnits(ELightUnits::Lumens);
 	Glow->SetIntensity(180.f);
 	Glow->SetLightColor(FLinearColor::FromSRGBColor(FColor(200, 162, 74)));
+	Body = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Body"));
+	Body->SetupAttachment(Root);
+	Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Body->SetCanEverAffectNavigation(false);
+	// The body's centre on the actor; the mesh faces +Y in its own space, the actor +X.
+	Body->SetRelativeLocationAndRotation(FVector(0.0, 0.0, -AVerseDeckDrone::CompanionBodyCm), FRotator(0.0, -90.0, 0.0));
+	Body->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+	Tags.Add(AVerseDeckDrone::CompanionTag);
+}
+
+void AVerseCompanionDrone::BeginPlay()
+{
+	Super::BeginPlay();
+	if (USkeletalMesh* Mesh = LoadObject<USkeletalMesh>(nullptr, AVerseDeckDrone::CompanionMeshPath, nullptr, LOAD_NoWarn | LOAD_Quiet))
+	{
+		Body->SetSkeletalMeshAsset(Mesh);
+	}
+	HoverClip = LoadObject<UAnimSequence>(nullptr, AVerseDeckDrone::CompanionHoverClipPath, nullptr, LOAD_NoWarn | LOAD_Quiet);
+	FollowClip = LoadObject<UAnimSequence>(nullptr, AVerseDeckDrone::CompanionFollowClipPath, nullptr, LOAD_NoWarn | LOAD_Quiet);
+	// A companion the deck spawned before the crew's feed went live steps aside.
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AVerseDeckDrone> It(World); It; ++It)
+		{
+			if (It->GetKind() == EVerseDroneKind::Companion)
+			{
+				It->Destroy();
+			}
+		}
+	}
+	SetMoving(false);
+}
+
+void AVerseCompanionDrone::SetMoving(bool bMoving)
+{
+	if (bPlaying && bMoving == bMovingNow)
+	{
+		return;
+	}
+	UAnimSequence* Clip = bMoving ? FollowClip.Get() : HoverClip.Get();
+	bMovingNow = bMoving;
+	if (Clip && Body->GetSkeletalMeshAsset())
+	{
+		Body->PlayAnimation(Clip, true);
+		bPlaying = true;
+	}
 }
