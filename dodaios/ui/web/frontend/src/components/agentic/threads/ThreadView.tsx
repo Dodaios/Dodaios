@@ -341,7 +341,10 @@ export function ThreadView({ onScreen, column }: {
           ? <ThreadTimeline items={agentItems} sessionId={`agent:${agent.id}`} bottomInset={composerHeight} folder={folder}
             lead={<SubagentHeader entry={agent} path={agentPath} onOpen={setOpenAgent} />} />
           : <ThreadTimeline items={items} sessionId={selection.sessionId} bottomInset={composerHeight} folder={folder} />}
-        <div ref={composerBox} className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background from-70% to-transparent px-5 pb-4 pt-6">
+        {/* The conversation fades out over the top padding only: whatever stands
+            above the composer card (the follow-up pick, waiting messages, the
+            sub-agent dock) has a solid ground, and no line shows through it. */}
+        <div ref={composerBox} className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background from-[length:calc(100%-1.5rem)] to-transparent px-5 pb-4 pt-6">
           <div className="pointer-events-auto">
             <ThreadComposer threadKey={threadKey} prepareDraft={prepareDraft} onSessionCreated={rememberCreated} autoFocusNonce={focusNonce} strip={strip} onScreen={onScreen}
               tray={<SubagentDock entries={agents} openId={agent ? agent.id : null} onOpen={setOpenAgent} />} />

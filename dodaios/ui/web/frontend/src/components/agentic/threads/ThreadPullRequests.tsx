@@ -27,6 +27,31 @@ const PULL_URL = /^https:\/\/github\.com\/[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._
 /** How long the card stays while the pointer travels from the symbol to it. */
 const CLOSE_DELAY_MS = 150;
 const CARD_WIDTH = 360;
+/** Space between the symbol and the card, and between the card and the window's edge. */
+const CARD_GAP = 6;
+const EDGE = 8;
+/** What one pull request takes in the card, and the card's own padding and border. */
+const CARD_ROW_PX = 48;
+const CARD_FRAME_PX = 10;
+
+/** Where the card sits: hung under its symbol, or standing on it near the window's lower edge. */
+export type CardPosition = { left: number; top: number } | { left: number; bottom: number };
+
+/**
+ * The card hangs under the symbol with its right edge on the symbol's, so it
+ * lies over the list and not over the row's own actions, the pointer or the
+ * conversation beside the list. Where it would run out of the window below,
+ * it stands on the symbol instead.
+ */
+export function cardPosition(
+  mark: { left: number; right: number; top: number; bottom: number }, count: number, windowWidth: number, windowHeight: number,
+): CardPosition {
+  const left = Math.max(EDGE, Math.min(mark.right - CARD_WIDTH, windowWidth - CARD_WIDTH - EDGE));
+  const top = mark.bottom + CARD_GAP;
+  const height = count * CARD_ROW_PX + CARD_FRAME_PX;
+  if (top + height <= windowHeight - EDGE || mark.top - CARD_GAP - height < EDGE) return { left, top };
+  return { left, bottom: windowHeight - mark.top + CARD_GAP };
+}
 
 export interface ThreadPullRequest {
   number: number;
@@ -63,7 +88,6 @@ function PullRequestRow({ request, onOpen }: { request: ThreadPullRequest; onOpe
   const sized = request.additions > 0 || request.deletions > 0;
   return <button type="button" role="menuitem" disabled={!request.url}
     data-testid={`thread-pr-card-row-${request.number}`}
-    title={request.url || undefined}
     onClick={(event) => { event.stopPropagation(); if (request.url) onOpen(request.url); }}
     className="flex w-full min-w-0 flex-col gap-0.5 rounded-md px-2.5 py-1.5 text-left transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none disabled:cursor-default">
     <span className="w-full truncate text-sm text-foreground">{request.title || `#${request.number}`}</span>
@@ -92,7 +116,7 @@ export function ThreadPullRequests({ sessionId }: { sessionId: string }) {
   const requests = pullRequestsOf(status);
   const anchor = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const [position, setPosition] = useState<CardPosition | null>(null);
 
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
@@ -115,8 +139,7 @@ export function ThreadPullRequests({ sessionId }: { sessionId: string }) {
     clearTimeout(timer.current);
     const rect = anchor.current?.getBoundingClientRect();
     if (!rect) return;
-    const left = Math.max(8, Math.min(rect.right + 8, window.innerWidth - CARD_WIDTH - 8));
-    setPosition({ left, top: Math.max(8, rect.top - 8) });
+    setPosition(cardPosition(rect, requests.length, window.innerWidth, window.innerHeight));
   };
   const hide = () => {
     clearTimeout(timer.current);
@@ -140,7 +163,7 @@ export function ThreadPullRequests({ sessionId }: { sessionId: string }) {
       onMouseEnter={() => clearTimeout(timer.current)} onMouseLeave={hide}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
-      style={{ left: position.left, top: position.top, width: CARD_WIDTH }}
+      style={{ ...position, width: CARD_WIDTH }}
       className="fixed z-[90] max-w-[calc(100vw-16px)] rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg">
       {requests.map((request) => <PullRequestRow key={request.number} request={request} onOpen={open} />)}
     </div>, document.body)}

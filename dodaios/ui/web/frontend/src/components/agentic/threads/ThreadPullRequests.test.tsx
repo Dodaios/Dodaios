@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SessionGitHubStatus } from "../useSessionGitHub";
-import { ThreadPullRequests, pullRequestsOf } from "./ThreadPullRequests";
+import { ThreadPullRequests, cardPosition, pullRequestsOf } from "./ThreadPullRequests";
 
 const github = vi.hoisted(() => ({ status: null as SessionGitHubStatus | null }));
 vi.mock("../useSessionGitHub", () => ({ useThreadGitHub: () => ({ status: github.status, pending: false }) }));
@@ -40,6 +40,22 @@ describe("pullRequestsOf", () => {
   });
 });
 
+describe("cardPosition", () => {
+  const mark = { left: 450, right: 478, top: 692, bottom: 710 };
+
+  it("hangs the card under the symbol, right edges together, clear of the row's own end", () => {
+    expect(cardPosition(mark, 3, 2560, 1392)).toEqual({ left: 118, top: 716 });
+  });
+
+  it("stays inside the window beside a narrow list", () => {
+    expect(cardPosition({ ...mark, left: 180, right: 208 }, 3, 2560, 1392)).toEqual({ left: 8, top: 716 });
+  });
+
+  it("stands on the symbol where it would run out of the window below", () => {
+    expect(cardPosition({ ...mark, top: 1340, bottom: 1358 }, 3, 2560, 1392)).toEqual({ left: 118, bottom: 58 });
+  });
+});
+
 describe("the pull request card", () => {
   it("shows nothing for a thread without a pull request", () => {
     github.status = branch(null, "branch");
@@ -62,6 +78,8 @@ describe("the pull request card", () => {
     expect(card.textContent).toContain("acme/app #1248");
     expect(card.textContent).toContain("+731");
     expect(card.textContent).toContain("−30");
+    // No native tooltip comes up over the card.
+    expect(card.querySelector("[title]")).toBeNull();
 
     fireEvent.click(screen.getByTestId("thread-pr-card-row-1248"));
     expect(opened).toHaveBeenCalledExactlyOnceWith("https://github.com/acme/app/pull/1248");
