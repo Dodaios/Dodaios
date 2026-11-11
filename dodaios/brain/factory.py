@@ -99,6 +99,8 @@ ROUTER_TOOLS = frozenset({
     "await-jobs",
     "job-stop",
     "trace-explain",
+    # Recall (2026-11-11): read one object by its stable id; read-only.
+    "recall",
     # Independent, read-only check of delegated work (2026-11-10).
     "verify-delegate",
     # Watchdog (2026-11-11): what is stuck / repaired, and the notice's actions.

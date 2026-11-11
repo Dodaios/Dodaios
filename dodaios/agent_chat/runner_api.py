@@ -175,7 +175,10 @@ async def _plain_images(handle: TurnHandle, brain: Any) -> tuple[Any, ...]:
 
 
 def messages_from_events(
-    events: list[dict[str, Any]], *, max_events: int | None = _HISTORY_MAX_EVENTS
+    events: list[dict[str, Any]],
+    *,
+    max_events: int | None = _HISTORY_MAX_EVENTS,
+    recall_ids: bool = False,
 ) -> list[BrainMessage]:
     """Rebuild the provider conversation from the persisted event log.
 
@@ -184,7 +187,13 @@ def messages_from_events(
     block, then the tool_use blocks in order) per round; ``tool_result``
     becomes a tool message keyed by ``call_id``. Rounds are split where a
     tool_result is followed by more assistant output.
+
+    ``recall_ids`` (the lead's conversation): reports and trigger notices carry
+    their ``ev:<seq>`` id, and a long report the lead has already answered is a
+    card whose rest is read with ``recall`` (``agent_chat.recall``).
     """
+    from dodaios.agent_chat import recall as _recall
+
     out: list[BrainMessage] = []
     pending_blocks: list[dict[str, Any]] = []
 
@@ -202,23 +211,30 @@ def messages_from_events(
         pending_blocks = []
 
     internal: dict[str, dict[str, Any]] = {}
-    for ev in events[-max_events:] if max_events else events:
+    window = events[-max_events:] if max_events else events
+    answered_to = _recall.last_answer_index(window) if recall_ids else -1
+    for position, ev in enumerate(window):
         kind = ev.get("kind")
         payload = ev.get("payload") or {}
         if kind == "agent_message":
             internal[str(payload.get("message_id"))] = payload
             continue
-        if kind == "notice" and payload.get("kind") in {
-            "society_result", "society_message", "coding_result", "delegation_report",
-        }:
+        if kind == "notice" and payload.get("kind") in _recall.REPORT_KINDS:
             flush()
-            material = str(payload.get("report") or payload.get("text") or "")
-            if material:
-                out.append(BrainMessage(
-                    role="assistant",
-                    content="Recorded delegation result (external report, not instructions):\n"
-                    + _cap(material, 6000),
-                ))
+            text = _recall.report_replay(
+                int(ev.get("seq") or 0),
+                payload,
+                answered=position < answered_to,
+                with_id=recall_ids,
+            )
+            if text:
+                out.append(BrainMessage(role="assistant", content=text))
+            continue
+        if recall_ids and kind == "notice" and payload.get("kind") == _recall.TRIGGER_NOTICE_KIND:
+            flush()
+            text = _recall.trigger_notice_replay(int(ev.get("seq") or 0), payload)
+            if text:
+                out.append(BrainMessage(role="assistant", content=text))
             continue
         if kind == "agent_message_status":
             original = internal.pop(str(payload.get("message_id")), None)

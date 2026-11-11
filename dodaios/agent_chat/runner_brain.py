@@ -88,7 +88,10 @@ def brain_manager() -> Any | None:
 
 
 def brain_history_from_events(
-    events: list[dict[str, Any]], *, max_messages: int | None = _HISTORY_MAX
+    events: list[dict[str, Any]],
+    *,
+    max_messages: int | None = _HISTORY_MAX,
+    recall_ids: bool = False,
 ) -> list[BrainMessage]:
     """The chat's own log as the turn's history: what was said, in prose.
 
@@ -122,7 +125,9 @@ def brain_history_from_events(
         calls.clear()
         by_id.clear()
 
-    for message in messages_from_events(events, max_events=None if max_messages is None else 600):
+    for message in messages_from_events(
+        events, max_events=None if max_messages is None else 600, recall_ids=recall_ids
+    ):
         if message.role == "user":
             text = message.content if isinstance(message.content, str) else ""
             if text.strip():
@@ -754,7 +759,7 @@ async def _generate(
     from dodaios.core.config import get_jarvis_agent_secret, override_provider_secrets
 
     session = handle.session
-    history = brain_history_from_events(handle.history)
+    history = brain_history_from_events(handle.history, recall_ids=session.surface == "jarvis")
     output_language = getattr(handle, "output_language", "")
     if session.surface == "society" and not handle.continuation:
         from dodaios.society.reply_preference import resolve_agent_reply_language
