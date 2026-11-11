@@ -59,7 +59,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import mimetypes
-import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -115,8 +114,10 @@ from dodaios.agentic_ide.fleet_actions import (
 )
 from dodaios.agentic_ide.folders import (
     create_folder,
+    is_listing_cut,
     list_dir,
     list_workspace_dir,
+    resolve_folder_path,
     search_folders,
     start_points,
 )
@@ -923,6 +924,11 @@ class FoldersResponse(BaseModel):
     # label the start points with the device rather than the account folder
     # ("Administrator" tells the user nothing about which computer this is).
     device_name: str | None = None
+    # The home folder: what a relative path typed on the start view is read
+    # against, and what an example path in a hint is built from.
+    home: str | None = None
+    # The folder holds more sub-folders than one listing carries.
+    truncated: bool = False
 
 
 class WorkspaceFileItem(BaseModel):
@@ -1758,9 +1764,43 @@ def _quick_agent_catalog() -> AgentsResponse:
     )
 
 
+def _list_typed_folder(
+    path: str, base: str | None, include_hidden: bool
+) -> tuple[Path, list[Any], str | None]:
+    """Resolve a typed path and list it: ``(folder, entries, error)``.
+
+    The folder handed back, and chosen as the workspace, is the folder itself
+    and not the route someone took to it: ``~`` is the home folder, a typed
+    ``..`` folds away, a relative path is read against ``base`` (see
+    ``folders.resolve_folder_path``).
+
+    A path to a FILE answers with the folder that holds it. "Copy as path" on a
+    file inside the project is how many people get a path at all, and refusing
+    it with "there is no folder called README.md" helps nobody.
+    """
+    resolved = resolve_folder_path(path, base)
+    try:
+        if resolved.is_file():
+            resolved = resolved.parent
+    except OSError:
+        pass  # unreadable: the listing below reports it in plain words
+    found, error = list_dir(resolved, include_hidden=include_hidden)
+    return resolved, found, error
+
+
 @router.get("/folders", response_model=FoldersResponse, summary="Browse folders")
-async def get_folders(path: str | None = None, include_hidden: bool = False) -> FoldersResponse:
-    """Sub-folders of ``path``; without ``path``, this machine's start points."""
+async def get_folders(
+    path: str | None = None,
+    include_hidden: bool = False,
+    base: str | None = None,
+) -> FoldersResponse:
+    """Sub-folders of ``path``; without ``path``, this machine's start points.
+
+    ``base`` is the folder a relative ``path`` is read against, the folder on
+    screen when someone types ``cd Desktop``. Without it that is the home
+    folder.
+    """
+    home = str(Path.home())
     if not path:
         entries = await asyncio.to_thread(start_points)
         return FoldersResponse(
@@ -1768,13 +1808,12 @@ async def get_folders(path: str | None = None, include_hidden: bool = False) -> 
             parent=None,
             entries=[FolderItem(**asdict(e)) for e in entries],
             device_name=device_name(),
+            home=home,
         )
 
-    found, error = await asyncio.to_thread(list_dir, path, include_hidden=include_hidden)
-    # Lexical only (no filesystem call): `~` becomes the home folder and a typed
-    # `..` folds away, so the path handed back — and chosen as the workspace —
-    # is the folder itself, not the route someone took to it.
-    resolved = Path(os.path.normpath(Path(path).expanduser()))  # noqa: ASYNC240
+    resolved, found, error = await asyncio.to_thread(
+        _list_typed_folder, path, base, include_hidden
+    )
     parent = str(resolved.parent) if resolved.parent != resolved else None
     return FoldersResponse(
         path=str(resolved),
@@ -1782,6 +1821,8 @@ async def get_folders(path: str | None = None, include_hidden: bool = False) -> 
         entries=[FolderItem(**asdict(e)) for e in found],
         error=error,
         device_name=device_name(),
+        home=home,
+        truncated=is_listing_cut(found),
     )
 
 

@@ -94,6 +94,10 @@ export interface FoldersResponse {
   error?: string | null;
   /** Human-facing name of this machine ("Ruben's MacBook"). */
   device_name?: string | null;
+  /** The home folder: what a relative path is read against on the start view. */
+  home?: string | null;
+  /** The folder holds more sub-folders than this listing carries. */
+  truncated?: boolean;
 }
 
 export interface WorkspaceFileItem {
@@ -1005,13 +1009,21 @@ export function refreshTerminalRecap(
   return recapCall(recapUrl(name, workspaceId, "/refresh"), { method: "POST" });
 }
 
+/**
+ * The sub-folders of `path`, or this machine's start points without one.
+ *
+ * `base` is the folder a relative `path` is read against: the folder on screen
+ * when someone types `cd Desktop`. The backend falls back to the home folder.
+ */
 export function fetchFolders(
   path?: string | null,
   includeHidden = false,
+  base?: string | null,
 ): Promise<FoldersResponse> {
   const qs = new URLSearchParams();
   if (path) qs.set("path", path);
   if (includeHidden) qs.set("include_hidden", "true");
+  if (path && base) qs.set("base", base);
   const query = qs.toString();
   return getJson<FoldersResponse>(
     `/api/agentic-ide/folders${query ? `?${query}` : ""}`,

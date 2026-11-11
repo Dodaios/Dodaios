@@ -5,6 +5,7 @@ import { fetchFolders } from "@/lib/agenticIdeApi";
 import { cn } from "@/lib/utils";
 import { useT } from "@/i18n";
 import { FolderPicker } from "./FolderPicker";
+import { leafName } from "./folderPaths";
 
 interface Props {
   onClose: () => void;
@@ -79,9 +80,9 @@ export function ProjectConnectDialog({ onClose, onConnect }: Props) {
           else if (choosing) { event.preventDefault(); back(); }
         }}
         onInteractOutside={(event) => { if (inFlight.current) event.preventDefault(); }}
-        className={cn("fixed left-1/2 top-1/2 z-[90] flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl", choosing ? "h-[min(42rem,calc(100dvh-2rem))] max-w-3xl" : "max-w-xl")}
+        className={cn("fixed left-1/2 top-1/2 z-[90] flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl", choosing ? "h-[min(40rem,calc(100dvh-2rem))] max-w-2xl" : "max-w-xl")}
       >
-        <header className="flex shrink-0 items-center gap-3 px-6 pb-5 pt-6 sm:px-7">
+        <header className={cn("flex shrink-0 items-center gap-3 px-6 pt-6 sm:px-7", choosing ? "pb-3" : "pb-5")}>
           {choosing && <button type="button" aria-label={t("ide_projects.back_to_project")} disabled={busy} onClick={back} className={cn("-ml-2 rounded-lg p-2 text-muted-foreground hover:bg-muted", focusRing)}><ArrowLeft className="h-5 w-5" /></button>}
           <Dialog.Title className="flex-1 text-xl font-semibold tracking-tight">{choosing ? t("ide_projects.choose_folder_title") : t("ide_projects.connect_title")}</Dialog.Title>
           <Dialog.Close disabled={busy} aria-label={t("common.close")} className={cn("-mr-2 rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50", focusRing)}><X className="h-5 w-5" /></Dialog.Close>
@@ -89,19 +90,22 @@ export function ProjectConnectDialog({ onClose, onConnect }: Props) {
         </header>
 
         {choosing ? <>
-          <fieldset disabled={busy} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 disabled:opacity-60">
-            <div ref={pickerRegion} className="flex min-h-0 flex-1 flex-col">
-              <FolderPicker showSelection={false} selected={candidate} onSelect={(next) => { setCandidate(next); setError(null); }} />
+          {/* The picker scrolls its own list; the dialog around it must not
+              scroll as well, or the field at the top leaves the screen. */}
+          <fieldset disabled={busy} className="flex min-h-0 min-w-0 flex-1 flex-col px-3 disabled:opacity-60 sm:px-4">
+            <div ref={pickerRegion} className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <FolderPicker showSelection={false} selected={candidate} onSelect={(next) => { setCandidate(next); setError(null); }} onConfirm={confirmFolder} className="pb-0 pt-1" />
             </div>
           </fieldset>
           <footer className="shrink-0 border-t border-border px-6 py-4 sm:px-7">
             {error && <p role="alert" className="mb-3 text-sm text-destructive">{error}</p>}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={candidate ?? undefined}>{candidate || t("ide_projects.choose_folder_hint")}</p>
-              <div className="flex gap-2">
-                <button type="button" disabled={busy} onClick={back} className={secondaryButton}>{t("common.back")}</button>
-                <button type="button" disabled={busy || !candidate} onClick={confirmFolder} className={primaryButton}>{busy && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{t("ide_projects.use_folder")}</button>
-              </div>
+            <div className="flex items-center justify-between gap-4">
+              {candidate ? <p className="flex min-w-0 flex-1 items-center gap-2 text-sm" title={candidate}>
+                <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="max-w-[45%] shrink-0 truncate font-medium">{leafName(candidate)}</span>
+                <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{candidate}</span>
+              </p> : <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{t("ide_projects.choose_folder_hint")}</p>}
+              <button type="button" disabled={busy || !candidate} onClick={confirmFolder} className={cn(primaryButton, "shrink-0")}>{busy && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}{t("ide_projects.use_folder")}</button>
             </div>
           </footer>
         </> : <form className="min-h-0 overflow-y-auto" onSubmit={(event) => { event.preventDefault(); if (path) void perform(() => onConnect(path, name.trim() || undefined)); }}>

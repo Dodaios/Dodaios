@@ -404,6 +404,141 @@ def _let_the_dialog_take_the_foreground() -> None:
         logger.debug("Agentic IDE: could not pass the foreground right on: {}", exc)
 
 
+# --------------------------------------------------------------------------- #
+# Windows: the fast route                                                     #
+# --------------------------------------------------------------------------- #
+# The PowerShell script above compiles a C# declaration on every click; the
+# window appeared 2.4 to 3.3 seconds later (measured), which reads as "Browse
+# does nothing". `folder_dialog_win.py` shows the same window through `ctypes`
+# from a plain Python process and saves that second or more. It also gives the
+# window an owner: the app window the click came from. The window then sits in
+# front of the app and nothing else, where the PowerShell route has to hold it
+# above EVERY program with an always-on-top helper form.
+#
+# PowerShell stays as the fallback for every case this route declines: no
+# interpreter to run the helper with, no window to own the dialog, or a helper
+# that failed.
+_HELPER_CANCELLED = 1
+
+
+def _helper_python() -> str | None:
+    """A real interpreter to run the dialog helper with, or None.
+
+    In the desktop app ``sys.executable`` is the branded launcher: a copy of
+    ``pythonw.exe`` that finds its standard library through the registry and
+    therefore cannot start with ``-I``. The interpreter it was copied from is
+    looked up the way the dictation preview worker does it: beside the running
+    executable, in the active and the base environment, and beside the standard
+    library that is already on ``sys.path``.
+    """
+    if getattr(sys, "frozen", False):
+        return None
+    exe = Path(sys.executable)
+    if exe.stem.lower().startswith("python"):
+        return str(exe)
+    folders = [exe.parent]
+    for prefix in dict.fromkeys((sys.prefix, sys.base_prefix)):
+        folders += [Path(prefix) / "Scripts", Path(prefix)]
+    folders += [Path(entry).parent for entry in sys.path if Path(entry).name.lower() == "lib"]
+    for folder in folders:
+        for name in ("python.exe", "pythonw.exe"):
+            candidate = folder / name
+            try:
+                if candidate.is_file():
+                    return str(candidate)
+            except OSError:  # an unreadable place is simply not where it is
+                continue
+    return None
+
+
+def _foreground_window() -> int:
+    """The window the person is looking at: the one "Browse" was clicked in."""
+    try:
+        import ctypes
+
+        return int(ctypes.windll.user32.GetForegroundWindow() or 0)
+    except Exception as exc:  # noqa: BLE001 - no owner means the fallback route
+        logger.debug("Agentic IDE: no foreground window to own the dialog: {}", exc)
+        return 0
+
+
+def _release_owner(owner: int) -> None:
+    """Make sure the owner window takes input again.
+
+    A modal dialog disables its owner while it is open and enables it when it
+    closes. A helper that was killed (the timeout) never gets to the second
+    half, and the app window would stay dead to every click. Enabling a window
+    that is already enabled changes nothing, so this runs after every dialog.
+    """
+    try:
+        import ctypes
+
+        ctypes.windll.user32.EnableWindow(owner, True)
+    except Exception as exc:  # noqa: BLE001 - best effort, the normal close did it already
+        logger.debug("Agentic IDE: could not re-enable the dialog's owner: {}", exc)
+
+
+def _choose_with_windows_helper(start: str | None, timeout: float) -> PickResult | None:
+    """Show the folder window through the Python helper.
+
+    ``None`` means this route cannot be used here and the caller falls back to
+    PowerShell. Every answer the person gave (a folder, a cancelled window, a
+    window left open) is returned as a result.
+    """
+    python = _helper_python()
+    helper = Path(__file__).with_name("folder_dialog_win.py")
+    owner = _foreground_window()
+    if python is None or not owner or not helper.is_file():
+        return None
+
+    _let_the_dialog_take_the_foreground()
+    try:
+        completed = subprocess.run(  # noqa: S603 - fixed argv, no shell
+            # -I and -S: the helper needs the standard library only, and a
+            # user site or a stray PYTHONPATH must not get to change that.
+            [python, "-I", "-S", str(helper), str(owner), start or ""],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",  # the answer is a PATH, see `choose_folder`
+            errors="replace",
+            timeout=timeout,
+            creationflags=NO_WINDOW_CREATIONFLAGS,  # AP-1: no console flash
+        )
+    except subprocess.TimeoutExpired:
+        logger.info("Agentic IDE: the folder dialog was left open and timed out")
+        return PickResult(
+            error="The folder window was left open too long and was closed. Try again."
+        )
+    except OSError as exc:
+        logger.info("Agentic IDE: the folder dialog helper did not start: {}", exc)
+        return None
+    finally:
+        _release_owner(owner)
+
+    chosen = _extract(completed.stdout or "") if _BEGIN in (completed.stdout or "") else None
+    if chosen:
+        return _checked(chosen)
+    if completed.returncode in (0, _HELPER_CANCELLED):
+        return PickResult(cancelled=True)
+    logger.info(
+        "Agentic IDE: the folder dialog helper failed ({}), using PowerShell: {}",
+        completed.returncode,
+        (completed.stderr or "").strip(),
+    )
+    return None
+
+
+def _checked(chosen: str) -> PickResult:
+    """The picked path as a result, after one look that it still is a folder."""
+    try:
+        picked = Path(chosen).expanduser()
+        if not picked.is_dir():
+            return PickResult(error=f"That is not a folder any more: {picked}")
+    except OSError as exc:
+        return PickResult(error=f"Could not read that folder: {exc}")
+    return PickResult(path=str(picked))
+
+
 def choose_folder(*, start: str | None = None, timeout: float = DEFAULT_TIMEOUT_S) -> PickResult:
     """Show the system folder dialog and return what the user picked.
 
@@ -423,6 +558,11 @@ def choose_folder(*, start: str | None = None, timeout: float = DEFAULT_TIMEOUT_
                 resolved_start = str(candidate)
         except OSError:
             resolved_start = None
+
+    if sys.platform == "win32":
+        quick = _choose_with_windows_helper(resolved_start, timeout)
+        if quick is not None:
+            return quick
 
     built = _command(resolved_start, probe.backend)
     if built is None:
@@ -468,13 +608,7 @@ def choose_folder(*, start: str | None = None, timeout: float = DEFAULT_TIMEOUT_
             return PickResult(error="The folder window could not be opened.")
         return PickResult(cancelled=True)
 
-    try:
-        picked = Path(chosen).expanduser()
-        if not picked.is_dir():
-            return PickResult(error=f"That is not a folder any more: {picked}")
-    except OSError as exc:
-        return PickResult(error=f"Could not read that folder: {exc}")
-    return PickResult(path=str(picked))
+    return _checked(chosen)
 
 
 __all__ = [
