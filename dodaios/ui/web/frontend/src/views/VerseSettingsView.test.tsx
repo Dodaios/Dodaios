@@ -21,9 +21,11 @@ const CATALOGUE: Catalogue = {
 };
 
 let patches: unknown[] = [];
+let catalogue: Catalogue = CATALOGUE;
 
 beforeEach(async () => {
   patches = [];
+  catalogue = CATALOGUE;
   setUiLanguage("en");
   await loadLocaleChunk("verse_settings");
   let settings: Record<string, unknown> = { gore: "full", view: { volume: 0.7 }, game: { "graphics.preset": "auto", "graphics.shadows": "high", "graphics.textures": "epic", "graphics.motion_blur": false, "keybinds.jump": "SpaceBar", "keybinds.crouch": "LeftControl", "hud.crosshair_style": "cross_dot" } };
@@ -31,7 +33,7 @@ beforeEach(async () => {
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
-      if (url === "/api/verse/settings/catalogue") return json(CATALOGUE);
+      if (url === "/api/verse/settings/catalogue") return json(catalogue);
       if (url === "/api/verse/status") return json({ status: "stopped" });
       if (url === "/api/verse/settings" && init?.method === "PATCH") {
         const patch = JSON.parse(String(init.body)) as Record<string, Record<string, unknown>>;
@@ -64,6 +66,24 @@ describe("VerseSettingsView", () => {
     await waitFor(() => expect(patches).toHaveLength(1));
     expect(patches[0]).toEqual({ game: { "graphics.preset": "low", "graphics.shadows": "low", "graphics.textures": "low" } });
     expect(within(row("graphics.shadows")).getByText("Low")).toBeTruthy();
+  });
+
+  it("a preset with a table writes that table", async () => {
+    catalogue = {
+      ...CATALOGUE,
+      settings: [
+        { ...CATALOGUE.settings[0], options: ["auto", "competitive", "low", "medium", "high", "epic", "cinematic", "custom"] },
+        ...CATALOGUE.settings.slice(1),
+        { id: "graphics.resolution_scale", tab: "graphics", section: "rendering", kind: "range", default: 67, min: 50, max: 100, step: 1, unit: "%" },
+      ],
+      presets: { competitive: { "graphics.shadows": "high", "graphics.textures": "epic", "graphics.resolution_scale": 67 } },
+    };
+    render(<VerseSettingsView />);
+    await screen.findByRole("group", { name: "Quality preset" });
+    fireEvent.keyDown(row("graphics.preset"), { key: "ArrowRight" }); // auto -> competitive
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(patches[0]).toEqual({ game: { "graphics.preset": "competitive", "graphics.shadows": "high", "graphics.textures": "epic", "graphics.resolution_scale": 67 } });
+    expect(within(row("graphics.preset")).getByText("Competitive")).toBeTruthy();
   });
 
   it("turns the preset to Custom when one group changes", async () => {

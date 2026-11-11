@@ -39,7 +39,9 @@ RESOLUTIONS: Final = (
     "5120x1440",
     "5120x2160",
 )
+# "display" follows the refresh rate of the monitor the Verse window is on.
 FRAME_LIMITS: Final = (
+    "display",
     "30",
     "60",
     "90",
@@ -125,6 +127,22 @@ def _quality(sid: str, default: str = "high", **kw: Any) -> Setting:
     return _choice(sid, "graphics", "quality", QUALITY, default, tags=("preset",), **kw)
 
 
+# Quality groups: id, the Competitive level (also the default) and the menu's cost hint.
+QUALITY_GROUPS: Final[tuple[tuple[str, str, str], ...]] = (
+    ("graphics.view_distance", "epic", "medium"),
+    ("graphics.shadows", "high", "high"),
+    ("graphics.global_illumination", "high", "high"),
+    ("graphics.reflections", "high", "high"),
+    ("graphics.textures", "epic", "low"),
+    ("graphics.effects", "high", "medium"),
+    ("graphics.post_processing", "high", "medium"),
+    ("graphics.foliage", "high", "low"),
+    ("graphics.shading", "high", "medium"),
+)
+# Competitive renders at this share of the output resolution; TSR upscales the rest.
+COMPETITIVE_SCALE: Final = 67
+
+
 # Bindable actions and default keys; mirrors unreal/Verse/Data/ui/keys.json
 # (a unit test keeps the two in step). Section = keybind group.
 KEYBINDS: Final[tuple[tuple[str, str, str], ...]] = (
@@ -164,8 +182,9 @@ CATALOGUE: Final[tuple[Setting, ...]] = (
         "borderless",
     ),
     _choice("display.resolution", "graphics", "display", RESOLUTIONS, "native", impact="high"),
-    _choice("display.frame_limit", "graphics", "display", FRAME_LIMITS, "144", impact="high"),
+    _choice("display.frame_limit", "graphics", "display", FRAME_LIMITS, "display", impact="high"),
     _toggle("display.vsync", "graphics", "display", False, impact="low"),
+    _toggle("display.low_latency", "graphics", "display", True),
     _range("display.brightness", "graphics", "display", 0, 100, 1, 50),
     _toggle("display.hdr", "graphics", "display", False, restart=True),
     # ---------------------------------------------------------------- graphics: rendering
@@ -184,7 +203,7 @@ CATALOGUE: Final[tuple[Setting, ...]] = (
         50,
         100,
         1,
-        100,
+        COMPETITIVE_SCALE,
         unit="%",
         impact="high",
     ),
@@ -194,18 +213,10 @@ CATALOGUE: Final[tuple[Setting, ...]] = (
         "graphics.preset",
         "graphics",
         "quality",
-        ("auto", *QUALITY, "custom"),
-        "auto",
+        ("auto", "competitive", *QUALITY, "custom"),
+        "competitive",
     ),
-    _quality("graphics.view_distance", "epic", impact="medium"),
-    _quality("graphics.shadows", impact="high"),
-    _quality("graphics.global_illumination", impact="high"),
-    _quality("graphics.reflections", impact="high"),
-    _quality("graphics.textures", "epic", impact="low"),
-    _quality("graphics.effects", impact="medium"),
-    _quality("graphics.post_processing", impact="medium"),
-    _quality("graphics.foliage", impact="low"),
-    _quality("graphics.shading", impact="medium"),
+    *(_quality(sid, level, impact=impact) for sid, level, impact in QUALITY_GROUPS),
     # ---------------------------------------------------------------- graphics: camera effects
     _toggle("graphics.motion_blur", "graphics", "effects", False, impact="low"),
     _toggle("graphics.depth_of_field", "graphics", "effects", True, impact="low"),
@@ -338,8 +349,23 @@ TABS: Final = (
     "accessibility",
 )
 BY_ID: Final[dict[str, Setting]] = {s.id: s for s in CATALOGUE}
-# The quality groups a preset sets at once.
+# The quality groups: a preset sets them at once, changing one turns the preset to Custom.
 PRESET_GROUPS: Final = tuple(s.id for s in CATALOGUE if "preset" in s.tags)
+# What each named preset sets. Low .. Cinematic put every quality group on their level at full
+# resolution; Competitive is the measured mix that holds 240+ fps at 1440p (docs/verse/unreal/
+# game-settings.md, "Presets"); Auto leaves the groups to the hardware benchmark. Choosing a
+# preset writes its table.
+PRESETS: Final[dict[str, dict[str, Any]]] = {
+    "auto": {"graphics.resolution_scale": 100},
+    "competitive": {
+        **{sid: level for sid, level, _ in QUALITY_GROUPS},
+        "graphics.resolution_scale": COMPETITIVE_SCALE,
+    },
+    **{
+        level: {**{sid: level for sid, _, _ in QUALITY_GROUPS}, "graphics.resolution_scale": 100}
+        for level in QUALITY
+    },
+}
 
 
 class GameSettingsError(ValueError):
@@ -410,6 +436,7 @@ def catalogue_json() -> dict[str, Any]:
         "schema": "verse.settings.catalogue/1",
         "tabs": list(TABS),
         "preset_groups": list(PRESET_GROUPS),
+        "presets": PRESETS,
         "settings": [s.to_json() for s in CATALOGUE],
     }
 

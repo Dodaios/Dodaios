@@ -34,6 +34,8 @@ export interface Catalogue {
   schema: string;
   tabs: string[];
   preset_groups: string[];
+  /** What each named preset sets; a preset without a table sets every group to its level. */
+  presets?: Record<string, Record<string, SettingValue>>;
   settings: SettingDef[];
 }
 

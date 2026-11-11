@@ -130,7 +130,13 @@ export function VerseSettingsView() {
       if (!catalogue) return;
       const patch: SettingsPatch = {};
       addToPatch(patch, def, next);
-      if (def.id === "graphics.preset" && typeof next === "string" && next !== "auto" && next !== "custom") {
+      const table = def.id === "graphics.preset" && typeof next === "string" ? catalogue.presets?.[next] : undefined;
+      if (table) {
+        for (const [id, v] of Object.entries(table)) {
+          const target = byId.get(id);
+          if (target) addToPatch(patch, target, v);
+        }
+      } else if (def.id === "graphics.preset" && typeof next === "string" && next !== "auto" && next !== "custom") {
         for (const id of catalogue.preset_groups) {
           const group = byId.get(id);
           if (group?.options?.includes(next)) addToPatch(patch, group, next);
@@ -182,7 +188,7 @@ export function VerseSettingsView() {
   const optionLabel = useCallback(
     (def: SettingDef, option: string) => {
       if (def.id === "display.resolution" && option !== "native") return option.replace("x", " × ");
-      if (def.id === "display.frame_limit" && option !== "unlimited") return `${option} FPS`;
+      if (def.id === "display.frame_limit" && /^\d+$/.test(option)) return `${option} FPS`;
       return tr(`${P}.o.${option}`);
     },
     [tr],

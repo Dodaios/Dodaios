@@ -41,6 +41,7 @@
 #include "Settings/VerseGameSettings.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "UObject/UnrealType.h"
+#include "VerseFramePacing.h"
 #include "VerseLog.h"
 
 /** Routes key presses to the UI before the game sees them; passes every key the UI does not use. */
@@ -1187,11 +1188,19 @@ bool UVerseUiSubsystem::SetGameSetting(const FString& Id, const TSharedPtr<FJson
 	else
 	{
 		Next.Game.Set(Id, Checked);
-		// The page's preset rule: a level sets every quality group, one group turns it custom.
+		// The page's preset rule: a preset writes its table (a level without one sets every
+		// quality group), one group turns it custom.
 		if (Id == PresetId)
 		{
 			const FString Level = Checked->AsString();
-			if (FVerseGameSettings::QualityIndex(Level) >= 0)
+			if (const TSharedPtr<FJsonObject> Table = Catalogue.FindPreset(Level))
+			{
+				for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Table->Values)
+				{
+					Next.Game.Set(Pair.Key, Pair.Value);
+				}
+			}
+			else if (FVerseGameSettings::QualityIndex(Level) >= 0)
 			{
 				for (const FString& Group : Catalogue.GetPresetGroups())
 				{
@@ -1463,7 +1472,8 @@ void UVerseUiSubsystem::ApplyGraphics(const FVerseGraphicsPlan& Plan)
 		User->SetResolutionScaleValueEx(Plan.ScreenPercentage);
 		User->SetFullscreenMode(Plan.WindowMode);
 		User->SetScreenResolution(Plan.Resolution);
-		User->SetFrameRateLimit(Plan.FrameLimit);
+		// The frame limit itself is FVerseFramePacing's (below); the engine's copy only persists it.
+		User->SetFrameRateLimit(Plan.bMatchDisplay ? 0.f : Plan.FrameLimit);
 		User->SetVSyncEnabled(Plan.bVSync);
 		// HDR needs a restart (catalogue restart flag): only the value at start applies.
 		if (!bHdrApplied && User->SupportsHDRDisplayOutput())
@@ -1473,6 +1483,12 @@ void UVerseUiSubsystem::ApplyGraphics(const FVerseGraphicsPlan& Plan)
 		User->ApplySettings(false);
 	}
 	bHdrApplied = true;
+	// After ApplySettings: it writes the engine's own frame rate limit into t.MaxFPS.
+	FVerseFramePacing::FUserLimit Limit;
+	Limit.bMatchDisplay = Plan.bMatchDisplay;
+	Limit.Fps = Plan.FrameLimit;
+	FVerseFramePacing::SetUserLimit(Limit);
+	FVerseFramePacing::SetLowLatency(Plan.bLowLatency);
 
 	SetEngineCVar(TEXT("r.AntiAliasingMethod"), float(Plan.AntiAliasingMethod));
 	SetEngineCVar(TEXT("r.ScreenPercentage"), Plan.ScreenPercentage);

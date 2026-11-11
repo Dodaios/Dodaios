@@ -109,7 +109,9 @@
       "protanopia": "Protanopía",
       "deuteranopia": "Deuteranopía",
       "tritanopia": "Tritanopía",
-      "unbound": "Sin asignar"
+      "unbound": "Sin asignar",
+      "display": "Igual que el monitor",
+      "competitive": "Competitivo"
     },
     "s": {
       "display": {
@@ -123,11 +125,15 @@
         },
         "frame_limit": {
           "label": "Límite de fotogramas",
-          "desc": "Un límite unos fotogramas por debajo de la frecuencia de tu monitor mantiene estable la latencia con la sincronización adaptativa."
+          "desc": "Igual que el monitor sigue la frecuencia de tu monitor. Ilimitado renderiza tan rápido como pueda el PC, solo en primer plano."
         },
         "vsync": {
           "label": "V-Sync",
           "desc": "Elimina el tearing pero añade latencia de entrada. Desactívalo si tu monitor tiene sincronización adaptativa."
+        },
+        "low_latency": {
+          "label": "Baja latencia",
+          "desc": "Mantiene corto el tiempo entre tu clic y la imagen (NVIDIA Reflex si está disponible). No cuesta rendimiento."
         },
         "brightness": {
           "label": "Brillo",
@@ -153,7 +159,7 @@
         },
         "preset": {
           "label": "Preajuste de calidad",
-          "desc": "Configura todos los grupos de calidad a la vez. Automático mide tu PC en el próximo inicio y elige por ti."
+          "desc": "Configura todos los grupos de calidad a la vez. Competitivo mantiene altas tasas de fotogramas con escalado TSR; Automático mide tu PC en el próximo inicio."
         },
         "view_distance": {
           "label": "Distancia de visión",

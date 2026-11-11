@@ -101,6 +101,13 @@
 			"Enabled": true
 		},
 		{
+			"Name": "Reflex",
+			"Enabled": true,
+			"PlatformAllowList": [
+				"Win64"
+			]
+		},
+		{
 			"Name": "PixelStreaming2",
 			"Enabled": true
 		},

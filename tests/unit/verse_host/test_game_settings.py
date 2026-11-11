@@ -43,6 +43,27 @@ def test_catalogue_is_well_formed() -> None:
     json.dumps(data)  # serialisable for the route
 
 
+def test_presets_are_valid_and_competitive_is_the_default() -> None:
+    """Every preset table holds catalogue ids and values; the defaults are the Competitive table."""
+    preset = G.BY_ID["graphics.preset"]
+    assert preset.default == "competitive"
+    for name, table in G.PRESETS.items():
+        assert name in preset.options
+        for sid, value in table.items():
+            assert G.check_value(G.BY_ID[sid], value) == value, (name, sid)
+    for level in G.QUALITY:
+        assert G.PRESETS[level]["graphics.resolution_scale"] == 100
+    for sid, value in G.PRESETS["competitive"].items():
+        assert G.BY_ID[sid].default == value, sid
+    assert G.catalogue_json()["presets"] == G.PRESETS
+
+
+def test_frame_limit_follows_the_display_by_default() -> None:
+    limit = G.BY_ID["display.frame_limit"]
+    assert limit.default == "display"
+    assert {"display", "unlimited", "240", "480"} <= set(limit.options)
+
+
 def test_keybinds_match_the_unreal_key_file() -> None:
     keys = REPO / "unreal" / "Verse" / "Data" / "ui" / "keys.json"
     if not keys.is_file():
@@ -73,6 +94,7 @@ def test_locale_has_every_setting() -> None:
             if s.id in ("display.resolution", "display.frame_limit") and option not in (
                 "native",
                 "unlimited",
+                "display",
             ):
                 continue
             assert option in en["o"], (s.id, option)

@@ -5,11 +5,12 @@
 /**
  * The one owner of t.MaxFPS. The Verse runs beside the app and other work, so an uncapped frame
  * rate burns CPU cores for frames nobody needs. Several parts want a cap: the person's frame limit
- * (game settings), the bridge lifecycle (panel 30, dormant 2), the panel stream, and the pacing
- * rules below. Each part sets its own input here; a ticker applies the lowest cap.
+ * (game settings, display.frame_limit), the bridge lifecycle (panel 30, dormant 2) and the panel
+ * stream. Each part sets its own input here; a ticker applies the lowest cap.
  *
  * Pacing rules:
- * - outside a duel (decks, menus, loading) at most DeckFps;
+ * - while the Verse window is the foreground window (duel, deck view, menus) the person's limit
+ *   applies; its default follows the refresh rate of the display the window is on;
  * - while the Verse window is not the foreground window at most BackgroundFps.
  *
  * A t.MaxFPS set from the console or the command line (-ExecCmds, perf runs) wins: the pacer
@@ -17,29 +18,51 @@
  */
 struct VERSECORE_API FVerseFramePacing
 {
-	static constexpr float DeckFps = 60.f;
 	static constexpr float BackgroundFps = 30.f;
+	/** The display limit when the refresh rate cannot be read. */
+	static constexpr float FallbackDisplayFps = 240.f;
+
+	/** The person's frame limit. */
+	struct FUserLimit
+	{
+		/** Follow the refresh rate of the display the Verse window is on. */
+		bool bMatchDisplay = true;
+		/** Fixed limit when bMatchDisplay is off; 0 = unlimited. */
+		float Fps = 0.f;
+	};
 
 	struct FInputs
 	{
-		/** The person's frame limit; 0 = unlimited. */
-		float UserLimit = 0.f;
+		FUserLimit User;
+		/** Refresh rate of the display the window is on; 0 = unknown. */
+		float DisplayHz = 0.f;
 		/** Bridge lifecycle cap; 0 = none. */
 		float LifecycleCap = 0.f;
 		/** Panel stream cap; 0 = none. */
 		float StreamCap = 0.f;
-		bool bDuelRunning = false;
 		bool bForeground = true;
 	};
 
 	/** The cap for these inputs, the lowest of every active one; 0 = uncapped. */
 	static float Resolve(const FInputs& In);
 
+	/** The person's limit (VerseUI applies display.frame_limit). */
+	static void SetUserLimit(const FUserLimit& Limit);
+	static FUserLimit GetUserLimit();
 	static void SetLifecycleCap(float Fps);
 	static void SetStreamCap(float Fps);
-	static void SetDuelRunning(bool bRunning);
 
-	/** Reads the person's limit and the window focus, then writes t.MaxFPS when it differs. Game thread. */
+	/**
+	 * Low-latency frame pacing (display.low_latency): turns the engine's max-tick-rate handler and
+	 * latency markers on or off. On NVIDIA GPUs that is Reflex (the Reflex plugin, Win64); where no
+	 * handler exists it does nothing and the engine's own limiter applies.
+	 */
+	static void SetLowLatency(bool bEnabled);
+
+	/** Refresh rate of the display the foreground window is on (Windows), else the platform's; 0 = unknown. */
+	static float ReadDisplayHz();
+
+	/** Reads the window focus and the display, then writes t.MaxFPS when it differs. Game thread. */
 	static void Apply();
 
 	/** Starts the ticker (VerseCore startup); does nothing in the editor, commandlets and servers. */

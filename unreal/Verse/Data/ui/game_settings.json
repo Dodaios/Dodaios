@@ -20,6 +20,83 @@
     "graphics.foliage",
     "graphics.shading"
   ],
+  "presets": {
+    "auto": {
+      "graphics.resolution_scale": 100
+    },
+    "competitive": {
+      "graphics.view_distance": "epic",
+      "graphics.shadows": "high",
+      "graphics.global_illumination": "high",
+      "graphics.reflections": "high",
+      "graphics.textures": "epic",
+      "graphics.effects": "high",
+      "graphics.post_processing": "high",
+      "graphics.foliage": "high",
+      "graphics.shading": "high",
+      "graphics.resolution_scale": 67
+    },
+    "low": {
+      "graphics.view_distance": "low",
+      "graphics.shadows": "low",
+      "graphics.global_illumination": "low",
+      "graphics.reflections": "low",
+      "graphics.textures": "low",
+      "graphics.effects": "low",
+      "graphics.post_processing": "low",
+      "graphics.foliage": "low",
+      "graphics.shading": "low",
+      "graphics.resolution_scale": 100
+    },
+    "medium": {
+      "graphics.view_distance": "medium",
+      "graphics.shadows": "medium",
+      "graphics.global_illumination": "medium",
+      "graphics.reflections": "medium",
+      "graphics.textures": "medium",
+      "graphics.effects": "medium",
+      "graphics.post_processing": "medium",
+      "graphics.foliage": "medium",
+      "graphics.shading": "medium",
+      "graphics.resolution_scale": 100
+    },
+    "high": {
+      "graphics.view_distance": "high",
+      "graphics.shadows": "high",
+      "graphics.global_illumination": "high",
+      "graphics.reflections": "high",
+      "graphics.textures": "high",
+      "graphics.effects": "high",
+      "graphics.post_processing": "high",
+      "graphics.foliage": "high",
+      "graphics.shading": "high",
+      "graphics.resolution_scale": 100
+    },
+    "epic": {
+      "graphics.view_distance": "epic",
+      "graphics.shadows": "epic",
+      "graphics.global_illumination": "epic",
+      "graphics.reflections": "epic",
+      "graphics.textures": "epic",
+      "graphics.effects": "epic",
+      "graphics.post_processing": "epic",
+      "graphics.foliage": "epic",
+      "graphics.shading": "epic",
+      "graphics.resolution_scale": 100
+    },
+    "cinematic": {
+      "graphics.view_distance": "cinematic",
+      "graphics.shadows": "cinematic",
+      "graphics.global_illumination": "cinematic",
+      "graphics.reflections": "cinematic",
+      "graphics.textures": "cinematic",
+      "graphics.effects": "cinematic",
+      "graphics.post_processing": "cinematic",
+      "graphics.foliage": "cinematic",
+      "graphics.shading": "cinematic",
+      "graphics.resolution_scale": 100
+    }
+  },
   "settings": [
     {
       "id": "display.window_mode",
@@ -59,8 +136,9 @@
       "tab": "graphics",
       "section": "display",
       "kind": "choice",
-      "default": "144",
+      "default": "display",
       "options": [
+        "display",
         "30",
         "60",
         "90",
@@ -83,6 +161,13 @@
       "kind": "toggle",
       "default": false,
       "impact": "low"
+    },
+    {
+      "id": "display.low_latency",
+      "tab": "graphics",
+      "section": "display",
+      "kind": "toggle",
+      "default": true
     },
     {
       "id": "display.brightness",
@@ -121,7 +206,7 @@
       "tab": "graphics",
       "section": "rendering",
       "kind": "range",
-      "default": 100,
+      "default": 67,
       "min": 50,
       "max": 100,
       "step": 1,
@@ -145,9 +230,10 @@
       "tab": "graphics",
       "section": "quality",
       "kind": "choice",
-      "default": "auto",
+      "default": "competitive",
       "options": [
         "auto",
+        "competitive",
         "low",
         "medium",
         "high",

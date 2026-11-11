@@ -66,6 +66,8 @@ public:
 	const TArray<FVerseGameSettingDef>& GetSettings() const { return Settings; }
 	const TArray<FString>& GetTabs() const { return Tabs; }
 	const TArray<FString>& GetPresetGroups() const { return PresetGroups; }
+	/** What a named preset sets (graphics.preset value -> setting values); null for none. */
+	TSharedPtr<FJsonObject> FindPreset(const FString& Preset) const;
 	const FVerseGameSettingDef* Find(const FString& Id) const;
 
 private:
@@ -73,6 +75,7 @@ private:
 	TMap<FString, int32> Index;
 	TArray<FString> Tabs;
 	TArray<FString> PresetGroups;
+	TMap<FString, TSharedPtr<FJsonObject>> Presets;
 };
 
 /**
@@ -116,9 +119,13 @@ struct VERSEUI_API FVerseGraphicsPlan
 	EWindowMode::Type WindowMode = EWindowMode::WindowedFullscreen;
 	/** Pixels; the desktop resolution for "native". */
 	FIntPoint Resolution = FIntPoint::ZeroValue;
-	/** 0 = unlimited. */
+	/** Follow the refresh rate of the display the window is on (display.frame_limit "display"). */
+	bool bMatchDisplay = true;
+	/** Fixed limit when bMatchDisplay is off; 0 = unlimited. */
 	float FrameLimit = 0.f;
 	bool bVSync = false;
+	/** Low-latency frame pacing (Reflex on NVIDIA GPUs). */
+	bool bLowLatency = true;
 	/** Applied at the next start (restart flag in the catalogue). */
 	bool bHdr = false;
 	/** GEngine->DisplayGamma: 2.2 at brightness 50, 1.6 .. 2.8 over 0 .. 100. */

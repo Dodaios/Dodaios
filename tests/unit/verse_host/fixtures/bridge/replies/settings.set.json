@@ -102,6 +102,7 @@
               "display.resolution": "native",
               "display.frame_limit": "unlimited",
               "display.vsync": false,
+              "display.low_latency": true,
               "display.brightness": 50,
               "display.hdr": false,
               "graphics.anti_aliasing": "tsr",

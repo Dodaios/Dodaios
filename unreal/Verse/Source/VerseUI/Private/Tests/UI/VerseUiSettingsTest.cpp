@@ -510,8 +510,22 @@ bool FVerseUiGameSettingsWriteTest::RunTest(const FString&)
 	TestEqual(TEXT("one settings.set for the preset"), Backend->Count(TEXT("settings.set")), 1);
 	const TSharedPtr<FJsonObject> PresetFrame = Backend->Frames.Last().Data;
 	TestEqual(TEXT("the frame carries only game"), PresetFrame->Values.Num(), 1);
-	TestEqual(TEXT("preset plus nine groups"), PresetFrame->GetObjectField(TEXT("game"))->Values.Num(), 10);
+	// From the default (Competitive): the preset, nine groups and the resolution scale back to 100 %.
+	TestEqual(TEXT("preset, nine groups and the resolution scale"), PresetFrame->GetObjectField(TEXT("game"))->Values.Num(), 11);
 	TestEqual(TEXT("shadows follow the preset"), W.Ui->GetGameString(TEXT("graphics.shadows")), FString(TEXT("low")));
+	TestEqual(TEXT("a level preset renders at full resolution"), W.Ui->GetGameNumber(TEXT("graphics.resolution_scale")), 100.0);
+
+	// Competitive writes its own table (catalogue "presets").
+	TestTrue(TEXT("preset competitive accepted"), W.Ui->SetGameSetting(TEXT("graphics.preset"), MakeShared<FJsonValueString>(TEXT("competitive"))));
+	const TSharedPtr<FJsonObject> Competitive = FVerseGameSettingsCatalogue::Get().FindPreset(TEXT("competitive"));
+	if (TestNotNull(TEXT("competitive table in the catalogue"), Competitive.Get()))
+	{
+		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Competitive->Values)
+		{
+			TestTrue(FString::Printf(TEXT("competitive sets %s"), *Pair.Key), FVerseGameSettings::SameValue(W.Ui->GetGameSetting(Pair.Key), Pair.Value));
+		}
+	}
+	TestEqual(TEXT("competitive stays the preset"), W.Ui->GetGameString(TEXT("graphics.preset")), FString(TEXT("competitive")));
 
 	Backend->Frames.Reset();
 	W.Ui->SetGameSetting(TEXT("graphics.shadows"), MakeShared<FJsonValueString>(TEXT("epic")));

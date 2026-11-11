@@ -109,7 +109,9 @@
       "protanopia": "红色盲",
       "deuteranopia": "绿色盲",
       "tritanopia": "蓝色盲",
-      "unbound": "未绑定"
+      "unbound": "未绑定",
+      "display": "跟随显示器",
+      "competitive": "竞技"
     },
     "s": {
       "display": {
@@ -123,11 +125,15 @@
         },
         "frame_limit": {
           "label": "帧率上限",
-          "desc": "将上限设为略低于显示器刷新率几帧，可在开启自适应同步时保持延迟稳定。"
+          "desc": "跟随显示器会使用显示器的刷新率。无限制会让电脑尽可能快地渲染，仅在前台时生效。"
         },
         "vsync": {
           "label": "V-Sync",
           "desc": "消除画面撕裂，但会增加输入延迟。如果显示器支持自适应同步，请保持关闭。"
+        },
+        "low_latency": {
+          "label": "低延迟",
+          "desc": "缩短从点击到画面的时间（可用时使用 NVIDIA Reflex）。不影响性能。"
         },
         "brightness": {
           "label": "亮度",
@@ -153,7 +159,7 @@
         },
         "preset": {
           "label": "画质预设",
-          "desc": "一次性设置所有画质项。自动会在下次启动时检测你的电脑并为你选择。"
+          "desc": "一次性设置所有画质项。竞技使用 TSR 放大保持高帧率；自动会在下次启动时检测你的电脑。"
         },
         "view_distance": {
           "label": "视距",

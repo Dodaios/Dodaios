@@ -156,7 +156,8 @@ DAG rules, enforced by a CI script that parses every `*.Build.cs`:
    `bot.test.ts:32-46`).
 4. Plugins used: Chaos (Geometry Collection), GameplayAbilities, StateTree,
    GameplayStateTree, EnhancedInput, Niagara, PixelStreaming2, Iris,
-   WebSockets. Mover and NetworkPrediction stay disabled (section 3.3).
+   WebSockets, Reflex (Win64 only: low-latency frame pacing on NVIDIA GPUs,
+   driven by `FVerseFramePacing::SetLowLatency`). Mover and NetworkPrediction stay disabled (section 3.3).
 5. Engine modules are linked explicitly. Unreal links only a module's direct
    dependencies: `Engine` passes on the include paths of `Json`, `Slate` or
    `NetCore`, but not their import libraries, so a module that uses one lists

@@ -1,21 +1,32 @@
 #include "VerseFramePacing.h"
 
 #include "Containers/Ticker.h"
-#include "Engine/Engine.h"
-#include "GameFramework/GameUserSettings.h"
 #include "HAL/IConsoleManager.h"
+#include "HAL/PlatformMisc.h"
 #include "Misc/App.h"
 #include "Misc/CoreMisc.h"
+#include "Performance/LatencyMarkerModule.h"
+#include "Performance/MaxTickRateHandlerModule.h"
+
+#if PLATFORM_WINDOWS
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include <windows.h>
+#include "Windows/HideWindowsPlatformTypes.h"
+#endif
 
 namespace VerseFramePacingPrivate
 {
+	FVerseFramePacing::FUserLimit UserLimit;
 	float LifecycleCap = 0.f;
 	float StreamCap = 0.f;
-	bool bDuelRunning = false;
 	FTSTicker::FDelegateHandle TickHandle;
 
 	/** Applying a few times a second is enough: focus and state changes are rare. */
 	constexpr float TickInterval = 0.2f;
+	/** The display is read again at most this often (a window can move to another monitor). */
+	constexpr double DisplayReadInterval = 2.0;
+	double LastDisplayRead = -1.0e9;
+	float DisplayHz = 0.f;
 
 	void Lower(float& Cap, float Candidate)
 	{
@@ -29,18 +40,33 @@ namespace VerseFramePacingPrivate
 float FVerseFramePacing::Resolve(const FInputs& In)
 {
 	float Cap = 0.f;
-	VerseFramePacingPrivate::Lower(Cap, In.UserLimit);
+	if (In.User.bMatchDisplay)
+	{
+		VerseFramePacingPrivate::Lower(Cap, In.DisplayHz > 1.f ? In.DisplayHz : FallbackDisplayFps);
+	}
+	else
+	{
+		VerseFramePacingPrivate::Lower(Cap, In.User.Fps);
+	}
 	VerseFramePacingPrivate::Lower(Cap, In.LifecycleCap);
 	VerseFramePacingPrivate::Lower(Cap, In.StreamCap);
-	if (!In.bDuelRunning)
-	{
-		VerseFramePacingPrivate::Lower(Cap, DeckFps);
-	}
 	if (!In.bForeground)
 	{
 		VerseFramePacingPrivate::Lower(Cap, BackgroundFps);
 	}
 	return Cap;
+}
+
+void FVerseFramePacing::SetUserLimit(const FUserLimit& Limit)
+{
+	VerseFramePacingPrivate::UserLimit = Limit;
+	VerseFramePacingPrivate::UserLimit.Fps = FMath::Max(0.f, Limit.Fps);
+	Apply();
+}
+
+FVerseFramePacing::FUserLimit FVerseFramePacing::GetUserLimit()
+{
+	return VerseFramePacingPrivate::UserLimit;
 }
 
 void FVerseFramePacing::SetLifecycleCap(float Fps)
@@ -55,10 +81,50 @@ void FVerseFramePacing::SetStreamCap(float Fps)
 	Apply();
 }
 
-void FVerseFramePacing::SetDuelRunning(bool bRunning)
+void FVerseFramePacing::SetLowLatency(bool bEnabled)
 {
-	VerseFramePacingPrivate::bDuelRunning = bRunning;
-	Apply();
+	IModularFeatures& Features = IModularFeatures::Get();
+	for (IMaxTickRateHandlerModule* Handler :
+		Features.GetModularFeatureImplementations<IMaxTickRateHandlerModule>(IMaxTickRateHandlerModule::GetModularFeatureName()))
+	{
+		Handler->SetEnabled(bEnabled);
+		// Flag 1: low-latency mode (Reflex "Enabled"); boost stays off, it only raises clocks.
+		Handler->SetFlags(bEnabled ? 1u : 0u);
+	}
+	for (ILatencyMarkerModule* Markers :
+		Features.GetModularFeatureImplementations<ILatencyMarkerModule>(ILatencyMarkerModule::GetModularFeatureName()))
+	{
+		Markers->SetEnabled(bEnabled);
+	}
+}
+
+float FVerseFramePacing::ReadDisplayHz()
+{
+#if PLATFORM_WINDOWS
+	// The foreground window is the Verse window whenever its limit matters (in the background
+	// BackgroundFps is lower than any display).
+	if (HWND Window = ::GetForegroundWindow())
+	{
+		if (HMONITOR Monitor = ::MonitorFromWindow(Window, MONITOR_DEFAULTTOPRIMARY))
+		{
+			MONITORINFOEXW Info;
+			FMemory::Memzero(Info);
+			Info.cbSize = sizeof(Info);
+			if (::GetMonitorInfoW(Monitor, &Info))
+			{
+				DEVMODEW Mode;
+				FMemory::Memzero(Mode);
+				Mode.dmSize = sizeof(Mode);
+				// 0 and 1 mean "the hardware default": unknown.
+				if (::EnumDisplaySettingsW(Info.szDevice, ENUM_CURRENT_SETTINGS, &Mode) && Mode.dmDisplayFrequency > 1)
+				{
+					return float(Mode.dmDisplayFrequency);
+				}
+			}
+		}
+	}
+#endif
+	return float(FPlatformMisc::GetMaxRefreshRate());
 }
 
 void FVerseFramePacing::Apply()
@@ -78,17 +144,20 @@ void FVerseFramePacing::Apply()
 		return;
 	}
 	FInputs In;
-	if (GEngine)
-	{
-		if (const UGameUserSettings* User = GEngine->GetGameUserSettings())
-		{
-			In.UserLimit = User->GetFrameRateLimit();
-		}
-	}
+	In.User = VerseFramePacingPrivate::UserLimit;
 	In.LifecycleCap = VerseFramePacingPrivate::LifecycleCap;
 	In.StreamCap = VerseFramePacingPrivate::StreamCap;
-	In.bDuelRunning = VerseFramePacingPrivate::bDuelRunning;
 	In.bForeground = FApp::HasFocus();
+	if (In.User.bMatchDisplay && In.bForeground)
+	{
+		const double Now = FPlatformTime::Seconds();
+		if (Now - VerseFramePacingPrivate::LastDisplayRead >= VerseFramePacingPrivate::DisplayReadInterval)
+		{
+			VerseFramePacingPrivate::LastDisplayRead = Now;
+			VerseFramePacingPrivate::DisplayHz = ReadDisplayHz();
+		}
+	}
+	In.DisplayHz = VerseFramePacingPrivate::DisplayHz;
 	const float Want = Resolve(In);
 	if (!FMath::IsNearlyEqual(Var->GetFloat(), Want, 0.01f))
 	{

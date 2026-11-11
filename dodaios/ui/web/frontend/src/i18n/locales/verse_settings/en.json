@@ -109,7 +109,9 @@
       "protanopia": "Protanopia",
       "deuteranopia": "Deuteranopia",
       "tritanopia": "Tritanopia",
-      "unbound": "Not bound"
+      "unbound": "Not bound",
+      "display": "Match display",
+      "competitive": "Competitive"
     },
     "s": {
       "display": {
@@ -123,11 +125,15 @@
         },
         "frame_limit": {
           "label": "Frame rate limit",
-          "desc": "A cap a few frames below your monitor's refresh rate keeps latency steady with adaptive sync."
+          "desc": "Match display follows your monitor's refresh rate. Unlimited renders as fast as the PC can, in the foreground only."
         },
         "vsync": {
           "label": "V-Sync",
           "desc": "Removes tearing but adds input latency. Leave it off when your monitor has adaptive sync."
+        },
+        "low_latency": {
+          "label": "Low latency",
+          "desc": "Keeps the time from your click to the picture short (NVIDIA Reflex where available). Costs nothing."
         },
         "brightness": {
           "label": "Brightness",
@@ -153,7 +159,7 @@
         },
         "preset": {
           "label": "Quality preset",
-          "desc": "Sets every quality group at once. Auto measures your PC on the next start and picks for you."
+          "desc": "Sets every quality group at once. Competitive holds high frame rates with TSR upscaling; Auto measures your PC on the next start."
         },
         "view_distance": {
           "label": "View distance",

@@ -46,8 +46,31 @@ with `settings.set`.
 tabs across the top (Q / E switch them), rows with a "‹ value ›" stepper or a
 filled bar, keycaps you click and then press, and a detail column with the
 description, default, performance cost and a live crosshair preview. Picking
-a quality preset sets every quality group; changing one group turns the
-preset to Custom. Strings are the `verse_settings` locale chunk.
+a quality preset writes its table (see Presets); changing one quality group
+turns the preset to Custom. Strings are the `verse_settings` locale chunk.
+
+## Presets
+
+The catalogue's `presets` object says what each preset sets; the page and the
+in-game menu both write that table. Low to Cinematic put every quality group
+on their level at a 100 % resolution scale. Auto sets the resolution scale to
+100 % and leaves the groups to the engine's hardware benchmark. Competitive is
+the default: the mix measured to hold 240+ fps at 2560x1440 on an RTX 5070 Ti
+in the packaged build (`game_settings.QUALITY_GROUPS`, `COMPETITIVE_SCALE`),
+with Temporal Super Resolution upscaling from the lower resolution scale.
+Changing the resolution scale does not turn a preset to Custom.
+
+## Frame limit
+
+`FVerseFramePacing` (VerseCore) is the only writer of `t.MaxFPS`; VerseUI hands
+it the person's limit. While the Verse window is in the foreground (duel, deck
+view, menus) the limit is the person's: `display` (default) follows the
+refresh rate of the monitor the window is on, a number is a fixed cap and
+`unlimited` lifts it. In the background the cap is 30 fps; the bridge
+lifecycle (panel 30, dormant 2) and the panel stream (30) cap on top. A
+`t.MaxFPS` from the console or `-ExecCmds` wins. Low latency
+(`display.low_latency`, on by default) turns on the engine's max-tick-rate
+handler: NVIDIA Reflex through the engine's Reflex plugin on Win64.
 
 ## In Unreal
 
@@ -66,11 +89,12 @@ starts with the last values before `welcome` arrives; `welcome` wins.
 
 | Applies live | How |
 |---|---|
-| Window mode, resolution (`native` = desktop), frame limit (`unlimited` = 0), V-Sync | `UGameUserSettings`, applied and saved; not in the editor |
+| Window mode, resolution (`native` = desktop), V-Sync | `UGameUserSettings`, applied and saved; not in the editor |
+| Frame limit, low latency | `FVerseFramePacing` (see Frame limit) |
 | HDR | `UGameUserSettings::EnableHDRDisplayOutput` at start only (restart flag) |
 | Brightness | `GEngine->DisplayGamma`, 1.6 .. 2.8 around 2.2 |
 | Anti-aliasing, 3D resolution, sharpening | `r.AntiAliasingMethod`, `r.ScreenPercentage`, `r.Tonemapper.Sharpen` (set by code) |
-| Quality preset and groups | `auto` runs the engine's hardware benchmark once per start; otherwise each scalability group |
+| Quality preset and groups | `auto` runs the engine's hardware benchmark once per start; otherwise each scalability group (a preset writes its table first) |
 | Camera effects | An unbound post-process volume: a switch that is off overrides motion blur, depth of field, film grain, chromatic aberration, lens flares or bloom to zero; on keeps the level's own look |
 | Volumes, mix, mute in the background | `UVerseAudioSubsystem`: master = `view.volume`, effects on the weapon, impact, foley, destruction and gadget buses, ambience on its bus, menu sounds on the UI bus, night mode 6 dB off weapons and destruction |
 | Keybinds | `FVerseKeyMap` and the Enhanced Input remap; the return key stays `return_key` |

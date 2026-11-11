@@ -145,8 +145,21 @@ bool FVerseGameSettingsCatalogue::LoadJson(const FString& Json, FString* OutErro
 	Index.Reset();
 	Tabs.Reset();
 	PresetGroups.Reset();
+	Presets.Reset();
 	Root->TryGetStringArrayField(TEXT("tabs"), Tabs);
 	Root->TryGetStringArrayField(TEXT("preset_groups"), PresetGroups);
+	const TSharedPtr<FJsonObject>* PresetTables = nullptr;
+	if (Root->TryGetObjectField(TEXT("presets"), PresetTables))
+	{
+		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*PresetTables)->Values)
+		{
+			const TSharedPtr<FJsonObject>* Table = nullptr;
+			if (Pair.Value.IsValid() && Pair.Value->TryGetObject(Table))
+			{
+				Presets.Add(Pair.Key, *Table);
+			}
+		}
+	}
 	for (const TSharedPtr<FJsonValue>& Value : *List)
 	{
 		const TSharedPtr<FJsonObject>* Obj = nullptr;
@@ -187,6 +200,12 @@ bool FVerseGameSettingsCatalogue::LoadJson(const FString& Json, FString* OutErro
 		Settings.Add(MoveTemp(Def));
 	}
 	return Settings.Num() > 0;
+}
+
+TSharedPtr<FJsonObject> FVerseGameSettingsCatalogue::FindPreset(const FString& Preset) const
+{
+	const TSharedPtr<FJsonObject>* Table = Presets.Find(Preset);
+	return Table ? *Table : nullptr;
 }
 
 const FVerseGameSettingDef* FVerseGameSettingsCatalogue::Find(const FString& Id) const
@@ -341,8 +360,10 @@ FVerseGraphicsPlan FVerseGraphicsPlan::Build(const FVerseGameSettings& Game, con
 		Plan.Resolution = FIntPoint(FCString::Atoi(*W), FCString::Atoi(*H));
 	}
 	const FString Limit = Game.GetString(TEXT("display.frame_limit"));
+	Plan.bMatchDisplay = Limit == TEXT("display");
 	Plan.FrameLimit = Limit.IsNumeric() ? FCString::Atof(*Limit) : 0.f;
 	Plan.bVSync = Game.GetBool(TEXT("display.vsync"));
+	Plan.bLowLatency = Game.GetBool(TEXT("display.low_latency"));
 	Plan.bHdr = Game.GetBool(TEXT("display.hdr"));
 	Plan.DisplayGamma = 2.2f + float((Game.GetNumber(TEXT("display.brightness")) - 50.0) / 50.0) * 0.6f;
 

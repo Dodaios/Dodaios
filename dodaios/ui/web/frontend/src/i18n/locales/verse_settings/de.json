@@ -109,7 +109,9 @@
       "protanopia": "Protanopie",
       "deuteranopia": "Deuteranopie",
       "tritanopia": "Tritanopie",
-      "unbound": "Nicht belegt"
+      "unbound": "Nicht belegt",
+      "display": "Wie Monitor",
+      "competitive": "Kompetitiv"
     },
     "s": {
       "display": {
@@ -123,11 +125,15 @@
         },
         "frame_limit": {
           "label": "Bildratenbegrenzung",
-          "desc": "Eine Grenze knapp unter der Bildwiederholrate deines Monitors hält die Latenz mit adaptiver Synchronisierung stabil."
+          "desc": "„Wie Monitor“ folgt der Bildwiederholrate deines Monitors. Unbegrenzt rendert so schnell wie der PC kann, nur im Vordergrund."
         },
         "vsync": {
           "label": "V-Sync",
           "desc": "Verhindert Tearing, erhöht aber die Eingabeverzögerung. Lass es aus, wenn dein Monitor adaptive Synchronisierung hat."
+        },
+        "low_latency": {
+          "label": "Niedrige Latenz",
+          "desc": "Hält die Zeit vom Klick bis zum Bild kurz (NVIDIA Reflex, wo verfügbar). Kostet keine Leistung."
         },
         "brightness": {
           "label": "Helligkeit",
@@ -153,7 +159,7 @@
         },
         "preset": {
           "label": "Qualitätsvoreinstellung",
-          "desc": "Legt alle Qualitätsgruppen auf einmal fest. Auto misst deinen PC beim nächsten Start und wählt für dich."
+          "desc": "Legt alle Qualitätsgruppen auf einmal fest. Kompetitiv hält hohe Bildraten mit TSR-Hochskalierung; Auto misst deinen PC beim nächsten Start."
         },
         "view_distance": {
           "label": "Sichtweite",
