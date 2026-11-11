@@ -11,6 +11,10 @@
                                               (``day``, ``tool``, ``origin``, ``outcome``,
                                               ``limit``, ``before``); read-only by design.
 * ``GET    /api/trust/audit/export``          ``?format=csv|json`` plus the same filters.
+* ``GET    /api/trust/calibration``           how well the lead's stated confidence matched
+                                              what happened (``weeks``): Brier score and a
+                                              reliability table, overall, per tool class,
+                                              per seat and per week.
 * ``GET    /api/trust/receipts/{id}``         the receipt of one action.
 * ``GET    /api/trust/privacy``               what the assistant knows and where it goes.
 * ``GET    /api/trust/recipients``            who has been written to from here.
@@ -23,6 +27,7 @@ two that reach the roster or the tool executor await.
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from typing import Any
 
@@ -207,6 +212,14 @@ def export_audit(
         media_type=media,
         headers={"Content-Disposition": f'attachment; filename="dodaios-audit.{format}"'},
     )
+
+
+@router.get("/calibration")
+def calibration(weeks: int = Query(default=26, ge=1, le=520)) -> dict[str, Any]:
+    from dodaios.trust.calibration import audit_report
+
+    since = int((time.time() - weeks * 7 * 86400) * 1000)
+    return audit_report(audit_log(), since)
 
 
 @router.get("/receipts/{receipt_id}")

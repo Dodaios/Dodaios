@@ -26,14 +26,31 @@ def build_report(
     *,
     since_ms: int = 0,
     until_ms: int | None = None,
+    audit: Any | None = None,
 ) -> dict[str, Any]:
-    """Read the lead's turns and the routing results, return the JSON-ready report."""
+    """Read the lead's turns and the routing results, return the JSON-ready report.
+
+    ``audit`` (an :class:`~dodaios.trust.audit.AuditLog`) adds the calibration
+    component: how well the lead's stated confidence matched what happened.
+    """
     cfg = cfg or ScoreConfig()
     report = compute_score(
         read_lead_turns(chat_db, since_ms, until_ms), cfg, load_runs(results_dir)
     )
     report["generated_ms"] = int(time.time() * 1000)
+    report["calibration"] = _calibration(audit, since_ms)
     return report
+
+
+def _calibration(audit: Any | None, since_ms: int) -> dict[str, Any] | None:
+    if audit is None:
+        return None
+    from dodaios.trust.calibration import audit_report
+
+    try:
+        return audit_report(audit, since_ms)
+    except Exception:  # noqa: BLE001 - an unreadable audit log leaves the component out
+        return None
 
 
 def _pct(value: float | None) -> str:
@@ -68,6 +85,11 @@ def format_table(report: dict[str, Any]) -> str:
         lines.append("  gates:")
         for g in latest["gates"]:
             lines.append(f"    [{g['status']:<7}] {g['label']}: {g['detail']}")
+    calibration = report.get("calibration")
+    if calibration is not None:
+        from dodaios.trust.calibration import format_lines
+
+        lines += ["", *format_lines(calibration)]
     if report["windows"]:
         lines += ["", "Weekly curve:"]
         for w in report["windows"]:

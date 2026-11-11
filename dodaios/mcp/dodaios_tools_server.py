@@ -35,6 +35,8 @@ from contextvars import ContextVar
 from typing import Any, Final
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
+from dodaios.trust.expectations import inject_expect
+
 log = logging.getLogger(__name__)
 
 #: What ``SupervisorToolRequest.origin`` is stamped with. The risk evaluator and
@@ -322,6 +324,8 @@ def build_server() -> Any:
             schema = entry.input_schema
             if not isinstance(schema, dict) or not schema:
                 schema = {"type": "object", "properties": {}}
+            if not _read_only(entry):
+                schema = inject_expect(schema)
             tools.append(
                 types.Tool(
                     name=wire,

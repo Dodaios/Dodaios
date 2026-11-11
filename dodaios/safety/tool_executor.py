@@ -35,6 +35,14 @@ from dodaios.core.protocols import (
     Transcript,
 )
 from dodaios.core.redact import safe_preview
+from dodaios.trust.expectations import compare as compare_expectation
+from dodaios.trust.expectations import (
+    dry_run_args,
+    is_irreversible,
+    is_low_confidence,
+    prediction_record,
+    split_expect,
+)
 from dodaios.trust.hooks import after_execute, before_execute
 
 from . import approval_amendments
@@ -379,6 +387,44 @@ class ToolExecutor:
             "receipt_link": str(links[0]) if links else "",
         }
 
+    @staticmethod
+    def _prediction(
+        tool: Tool,
+        args: dict[str, Any],
+        result: ToolResult,
+        trail: dict[str, Any],
+        config_snapshot: dict[str, Any] | None,
+        outcome: str,
+    ) -> dict[str, Any] | None:
+        """The stated expectation compared with what happened (never raises).
+
+        Only a call that ran says something about the prediction: a refusal, a
+        timeout or a dry run is not its outcome.
+        """
+        expectation = trail.get("expectation")
+        if expectation is None or outcome not in ("executed", "failed"):
+            return None
+        if trail.get("verify_first") == "dry_run":
+            return None
+        try:
+            verdict = compare_expectation(
+                expectation,
+                tool_name=tool.name,
+                args=args,
+                succeeded=bool(result.success),
+                output=result.output,
+                receipt=trail.get("receipt"),
+            )
+            return prediction_record(
+                expectation,
+                verdict,
+                tool_name=tool.name,
+                seat=str((config_snapshot or {}).get("brain_seat") or ""),
+            )
+        except Exception as exc:  # noqa: BLE001 — a prediction must never cost the call
+            log.debug("prediction for %s skipped: %s", tool.name, exc)
+            return None
+
     def _audit(
         self,
         tool: Tool,
@@ -403,6 +449,7 @@ class ToolExecutor:
                 tier=str(trail.get("tier") or ""),
             )
             receipt = trail.get("receipt")
+            prediction = self._prediction(tool, args, result, trail, config_snapshot, outcome)
             audit_log().record(
                 {
                     "id": trail["id"],
@@ -421,6 +468,7 @@ class ToolExecutor:
                     "duration_ms": int((time.perf_counter() - t_start) * 1000),
                     "args_preview": safe_preview(args),
                     "receipt": receipt if receipt and receipt.get("state") != "read" else None,
+                    "prediction": prediction,
                 }
             )
         except Exception as exc:  # noqa: BLE001 — the audit never costs the call
@@ -441,6 +489,10 @@ class ToolExecutor:
         tid = trace_id or uuid4()
         t_start = time.perf_counter()
         trail: dict[str, Any] = {"id": uuid4().hex[:16]}
+        # The model's optional prediction (``expect``) is read here and never
+        # reaches the tool: every caller of the gateway gets the same treatment.
+        args, expectation = split_expect(tool, args)
+        trail["expectation"] = expectation
         result = await self._execute_gated(
             tool,
             args,
@@ -454,6 +506,41 @@ class ToolExecutor:
         )
         self._audit(tool, args, tid, config_snapshot, result, trail, t_start)
         return result
+
+    async def _dry_run(
+        self,
+        tool: Tool,
+        preview_args: dict[str, Any],
+        tid: UUID,
+        config_snapshot: dict[str, Any] | None,
+        memory_read: Any | None,
+    ) -> ToolResult:
+        """Run the tool's own side-effect-free preview instead of the action."""
+        ctx = ExecutionContext(
+            trace_id=tid,
+            user_utterance="",
+            config=config_snapshot or {},
+            memory_read=memory_read,
+            approved_by="auto",
+        )
+        try:
+            preview = await tool.execute(preview_args, ctx)
+        except Exception as exc:  # noqa: BLE001 — a failed preview is a failed call, not a crash
+            return ToolResult(success=False, output=None, error=str(exc))
+        if not preview.success:
+            return preview
+        return ToolResult(
+            success=True,
+            output={
+                "dry_run": True,
+                "executed": False,
+                "preview": preview.output,
+                "note": (
+                    "You stated low confidence for an action that cannot be undone, so only "
+                    "a preview ran. Check it, then repeat the call to act."
+                ),
+            },
+        )
 
     async def _execute_gated(
         self,
@@ -529,6 +616,21 @@ class ToolExecutor:
                 error=f"{APPROVAL_DENIED_PREFIX} ({reason})",
             )
 
+        # 2.7 Predict-before-act: a stated low confidence on an action that
+        # cannot be taken back means "check first": a preview where the tool
+        # has one, otherwise one ask through the usual approval card. Reversible
+        # work and unattended runs are never interrupted by it.
+        if (
+            is_low_confidence(trail.get("expectation"))
+            and is_irreversible(origin.effect)
+            and resolve_approval_surface(config_snapshot) != UNATTENDED
+        ):
+            preview_args = dry_run_args(tool, args)
+            if preview_args is not None:
+                trail["verify_first"] = "dry_run"
+                return await self._dry_run(tool, preview_args, tid, config_snapshot, memory_read)
+            trail["verify_first"] = "ask"
+
         # 3. Arm approval BEFORE publishing ActionProposed. Subscribers such as
         # TaskAutoApprover may answer synchronously from that event; registering
         # afterward loses the answer and turns a valid grant into a timeout.
@@ -541,7 +643,11 @@ class ToolExecutor:
         # that action by name (below) counts as that person deciding.
         fixed_human = requires_human_approval(tool, args, include_hard_limits=False)
         human_required = fixed_human or requires_human_approval(tool, args) or trust.needs_person
-        tier_confirm = human_required or self._evaluator.needs_user_confirmation(decision)
+        tier_confirm = (
+            human_required
+            or self._evaluator.needs_user_confirmation(decision)
+            or trail.get("verify_first") == "ask"
+        )
         plaus_confirm = plaus is not None and plaus.require_confirmation
         # Explicit intent (Claude-Code permission model, mandate 2026-08-08):
         # a consequential action the user's own utterance already asked for by
