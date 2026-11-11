@@ -99,7 +99,8 @@ class StopHolds:
     def _stamp(self) -> int:
         try:
             return self._path.stat().st_mtime_ns
-        except OSError:
+        except OSError as exc:
+            log.debug("stop holds: no record at %s: %s", self._path, exc)
             return -1
 
     def _refresh(self) -> None:
@@ -126,7 +127,8 @@ class StopHolds:
                 continue
             try:
                 kind, ref = _clean(item.get("kind", ""), item.get("ref", ""))
-            except ValueError:
+            except ValueError as exc:
+                log.warning("stop holds: skipped a malformed entry in %s: %s", self._path, exc)
                 continue
             meta = item.get("meta")
             hold = StopHold(

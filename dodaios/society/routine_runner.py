@@ -386,7 +386,8 @@ async def run_owned_routine(
     try:
         # Everything this turn does runs without the owner: its tool calls are
         # judged by reversibility and honour the owner's stop holds.
-        with autonomy_origin("routine", task_id=task_id, agent_id=agent.agent_id):
+        origin = "trigger" if "lead-trigger" in tags else "routine"
+        with autonomy_origin(origin, task_id=task_id, agent_id=agent.agent_id):
             turn_id = await service.send(
                 session.session_id, task, direct_user=False, routine_run=True
             )
