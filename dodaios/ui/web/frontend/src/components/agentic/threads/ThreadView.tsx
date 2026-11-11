@@ -9,7 +9,6 @@ import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeThreadsStore, type SplitThread, type ThreadSelection } from "@/store/ideThreads";
 import { useThreadTerminalsStore } from "@/store/threadTerminals";
 import { openSubagentOf, useThreadSubagentsStore, type SubagentRow } from "@/store/threadSubagents";
-import { ThreadRunsOn } from "./ThreadRunsOn";
 import { ThreadBranchBar, type ThreadCheckout } from "./ThreadBranchBar";
 import { ThreadComposer } from "./ThreadComposer";
 import { ThreadHeader } from "./ThreadHeader";
@@ -290,15 +289,12 @@ export function ThreadView({ onScreen, column }: {
   const [buildBefore, buildAfter = ""] = t("ide_threads.build_in").split("{project}");
   const empty = isDraft && timeline.items.length === 0;
 
-  const runsOn = <ThreadRunsOn computerId={session?.computer_id ?? draft.computerId ?? ""} locked={running}
-    onChange={(computerId) => void chatStore.getState().setDraft({ computerId })} />;
-  // The branch bar tucks under the composer card, so it must come right after
-  // it; the "Runs on" line sits below the bar.
-  const strip = <>
-    <ThreadBranchBar folder={folder} draft={isDraft} checkout={checkout} onCheckout={setCheckout}
-      base={base} onBase={setBase} locked={running} />
-    {runsOn}
-  </>;
+  // The bar tucks under the composer card, so it must come right after it.
+  const strip = <ThreadBranchBar folder={folder} project={project} projects={visible}
+    onProject={(id) => useIdeThreadsStore.getState().newThread(id)} onConnect={connectProject}
+    computerId={session?.computer_id ?? draft.computerId ?? ""}
+    onComputer={(computerId) => void chatStore.getState().setDraft({ computerId })}
+    draft={isDraft} checkout={checkout} onCheckout={setCheckout} base={base} onBase={setBase} locked={running} />;
 
   return <div className="relative flex h-full min-h-0 flex-col" data-testid="thread-view">
     {memberOf && <BackToTeam teamId={memberOf} projectId={project.id} />}
