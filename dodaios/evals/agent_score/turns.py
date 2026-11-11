@@ -50,6 +50,7 @@ def _loads(raw: Any) -> dict[str, Any]:
     try:
         value = json.loads(raw or "{}")
     except (TypeError, ValueError):
+        log.debug("agent score: skipped an unreadable event payload")
         return {}
     return value if isinstance(value, dict) else {}
 
@@ -134,6 +135,7 @@ def fold_events(session_id: str, events: list[dict[str, Any]]) -> list[Turn]:
             try:
                 cur.cost_usd = float(p.get("cost_usd") or 0.0)
             except (TypeError, ValueError):
+                log.debug("agent score: turn %s has no readable cost", cur.turn_id)
                 cur.cost_usd = 0.0
             cancelled = cur.status == "cancelled"
     return turns

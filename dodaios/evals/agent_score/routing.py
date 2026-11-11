@@ -58,7 +58,7 @@ def _stamp_ms(name: str, fallback: float) -> int:
             dt = datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S")
             return int(dt.replace(tzinfo=UTC).timestamp() * 1000)
         except ValueError:
-            pass
+            log.debug("agent score: %s has no usable timestamp; using mtime", name)
     return int(fallback * 1000)
 
 
