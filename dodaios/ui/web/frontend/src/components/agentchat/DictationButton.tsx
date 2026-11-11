@@ -105,6 +105,11 @@ export interface DictationButtonProps {
   /** Corner shape of the idle button, to match its neighbours. */
   shape?: "round" | "square";
   className?: string;
+  /**
+   * Classes for the idle button only — a size that fits the microphone
+   * glyph would crush the wider recording pill (dot, wave, timer, stop).
+   */
+  idleClassName?: string;
 }
 
 export function DictationButton({
@@ -115,6 +120,7 @@ export function DictationButton({
   stopLabel,
   shape = "square",
   className,
+  idleClassName,
 }: DictationButtonProps) {
   const t = useT();
   const startedRef = useRef(0);
@@ -150,6 +156,7 @@ export function DictationButton({
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong",
           shape === "round" ? "rounded-full" : "rounded-lg",
           className,
+          idleClassName,
         )}
       >
         <Mic className="h-4 w-4" aria-hidden />
