@@ -166,7 +166,7 @@ describe("ThreadTree", () => {
   it("opens a folded project when the new thread moves into it", async () => {
     localStorage.setItem("jarvis.ide.threadExpansion.v1", JSON.stringify({ p2: false }));
     useIdeProjectsStore.setState({ projects: [app, notes], activeWorkspaceId: null });
-    useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, order: {}, focusNonce: 0 });
+    useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, focusNonce: 0 });
     render(<ThreadTree />);
     expect(screen.getAllByText("New thread").filter((node) => node.closest("[aria-current=page]"))).toHaveLength(1);
     act(() => useIdeThreadsStore.getState().newThread("p2"));
