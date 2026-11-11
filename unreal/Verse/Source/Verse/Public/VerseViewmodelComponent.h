@@ -74,8 +74,9 @@ public:
 	static constexpr float HeroRimLumens = 200.f;
 	/** Eye to the Graveline's reflex dot while aiming, cm: far enough that the frame stays small. */
 	static constexpr double GravelineSightDistanceCm = 24.0;
-	/** Eye to the rear window of a hero holographic sight while aiming, cm. */
-	static constexpr double HeroSightDistanceCm = 15.0;
+	/** Eye to the glass of a hero sight while aiming, cm: the open reflex window spans about a
+	 *  seventh of the view, close to how a real red dot sits in front of the eye. */
+	static constexpr double HeroSightDistanceCm = 16.0;
 	/** True for `/Game/Verse/Weapons/<Name>Hero/SK_Weapon_<Name>Hero` (baked hero meshes). */
 	static bool IsHeroMeshPath(const FString& Path);
 	/** Lowest roughness of the held weapon's surfaces: satin, so the steel never mirrors the ceiling. */

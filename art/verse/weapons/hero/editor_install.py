@@ -80,7 +80,7 @@ def build_instances(textures: dict) -> None:
 
     glass = _instance("MI_Weapon_OpticHero", "M_Verse_Glass")
     mel.set_material_instance_vector_parameter_value(
-        glass, "BaseTint", u.LinearColor(0.06, 0.075, 0.08, 1)
+        glass, "BaseTint", u.LinearColor(0.05, 0.075, 0.1, 1)
     )
     mel.set_material_instance_scalar_parameter_value(glass, "Opacity", 0.1)
     mel.set_material_instance_scalar_parameter_value(glass, "Roughness", 0.02)

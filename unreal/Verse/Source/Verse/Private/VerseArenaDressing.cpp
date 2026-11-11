@@ -565,7 +565,12 @@ void AVerseArenaGraybox::DressHall()
 	};
 	for (const FProp& Prop : Props)
 	{
-		AddDressing(Prop.Mesh, FTransform(FRotator(0.0, Prop.Yaw, 0.0), Prop.At));
+		// On the deck the hall leaves the rooms with stations to the deck's own furniture: a
+		// container must not stand where the commander steps out of the lift.
+		if (!InKeptClearRoom(Prop.At))
+		{
+			AddDressing(Prop.Mesh, FTransform(FRotator(0.0, Prop.Yaw, 0.0), Prop.At));
+		}
 	}
 	// Gantry columns along the hull walls carry the roof trusses.
 	for (double Y = 800.0; Y < 6000.0; Y += 1600.0)

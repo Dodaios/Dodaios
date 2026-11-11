@@ -225,15 +225,28 @@ void UVerseDuelSubsystem::HandleDeckArrived(FName Deck, bool bByLift)
 void UVerseDuelSubsystem::BuildHallIfOnHangar()
 {
 	UWorld* World = GetWorld();
-	const UVerseDeckSubsystem* Decks = UVerseDeckSubsystem::Get(World);
+	UVerseDeckSubsystem* Decks = UVerseDeckSubsystem::Get(World);
 	if (!World || !World->IsGameWorld() || !Decks || Decks->GetCurrentDeck() != UVerseHangarSwitchSubsystem::HangarDeck)
 	{
 		return;
 	}
+	// The rooms that hold a deck station (arrivals, lift lobby) stay free of the hall's loose props.
+	TArray<FVerseDeckRoom> KeepClear;
+	if (const FVerseDeckManifest* Manifest = Decks->GetManifest(UVerseHangarSwitchSubsystem::HangarDeck))
+	{
+		for (const FVerseDeckRoom& Room : Manifest->Rooms)
+		{
+			const bool bStation = Manifest->Stations.ContainsByPredicate([&Room](const FVerseDeckStation& S) { return S.Room == Room.Id; });
+			if (bStation && !Room.bMain)
+			{
+				KeepClear.Add(Room);
+			}
+		}
+	}
 	// The deck view stands in the same dressed hall as the duel; the duel's full graybox replaces it.
 	if (!bDuelRunning)
 	{
-		AVerseArenaGraybox::BuildHall(*World);
+		AVerseArenaGraybox::BuildHall(*World, KeepClear);
 	}
 }
 

@@ -1,9 +1,9 @@
-"""Graveline hero rifle with a holographic box sight, for the first-person view (bpy).
+"""Graveline hero rifle with an open reflex (red dot) sight, for the first-person view (bpy).
 
 An original design (no real firearm copied): a slab-sided upper with a chamfered
 spine, a long octagonal handguard with slot rows, a three-port brake, a
-skeleton stock on a buffer tube and a box holographic sight with a hooded
-window. Burnt-bronze coating on the aluminium, black anodised optic, black
+skeleton stock on a buffer tube and an open reflex sight (`optics.open_reflex`).
+Burnt-bronze coating on the aluminium, black anodised optic, black
 polymer furniture, nitrided steel barrel.
 
 Bones and sockets follow `specs.GRAVELINE` so the viewmodel and the rig keep
@@ -13,7 +13,7 @@ working: `Root` (grip point), `Magazine`, `Bolt`, `Trigger`.
 from __future__ import annotations
 
 from .. import specs
-from . import kit
+from . import kit, optics
 
 #: Socket positions of this mesh (weapon space, metres), from `specs.GRAVELINE_HERO`.
 SOCKETS = {s.name: s.location for s in specs.GRAVELINE_HERO.sockets}
@@ -237,79 +237,11 @@ def build() -> dict:
     kit.box("StockBottom", (-0.285, -0.014, -0.045), (-0.17, 0.014, -0.025), P, bevel=0.004)
     kit.box("ButtPad", (-0.3, -0.019, -0.05), (-0.283, 0.019, 0.092), P, bevel=0.005, segments=3)
 
-    # ---- Holographic sight on the rail (x 0.02 .. 0.135).
-    kit.box("OpticMount", (0.025, -0.017, 0.0955), (0.11, 0.017, 0.104), A, bevel=0.0015)
-    kit.box("OpticClamp", (0.04, -0.025, 0.086), (0.07, -0.017, 0.104), A, bevel=0.0015)
-    kit.cylinder_axis("OpticKnob", (0.055, -0.03, 0.095), 0.0085, 0.009, "Y", A, sides=16)
-    body = kit.box("OpticBody", (0.02, -0.0215, 0.104), (0.135, 0.0215, 0.118), A, bevel=0.003)
-    del body
-    # Hood: a hollow box tube with the window through X.
-    hood = kit.box(
-        "OpticHood", (0.032, -0.0255, 0.112), (0.128, 0.0255, 0.162), A, bevel=0.0035, segments=3
-    )
-    win = kit.box("OpticWindowCut", (0.0, -0.019, 0.118), (0.2, 0.019, 0.155), None)
-    win.modifiers.clear()
-    kit.cut(hood, win)
-    slant = kit.box(
-        "OpticSlantCut",
-        (0.1, -0.05, 0.16),
-        (0.2, 0.05, 0.2),
-        None,
-        rot=(0, 28, 0),
-        pivot=(0.105, 0, 0.162),
-    )
-    slant.modifiers.clear()
-    kit.cut(hood, slant)
-    for side, y in (("L", 0.0262), ("R", -0.0262)):
-        for k, (sx, sz) in enumerate(((0.045, 0.12), (0.045, 0.154), (0.118, 0.12))):
-            kit.cylinder_axis(
-                f"OpticScrew{side}{k}", (sx, y, sz), 0.0019, 0.0012, "Y", m["steel"], sides=12
-            )
-    # Front and rear frame lips, the rear battery cap and the button panel.
-    kit.box("OpticLipRear", (0.03, -0.0262, 0.111), (0.036, 0.0262, 0.163), A, bevel=0.0015)
-    lip_win = kit.box("OpticLipWin", (0.0, -0.0175, 0.1195), (0.2, 0.0175, 0.1535), None)
-    lip_win.modifiers.clear()
-    kit.cut(bpy_obj("OpticLipRear"), lip_win)
-    kit.box("OpticButtonPanel", (0.008, -0.016, 0.104), (0.03, 0.016, 0.116), A, bevel=0.002)
-    for k, y in enumerate((-0.007, 0.007)):
-        kit.box(
-            f"OpticButton{k}",
-            (0.0035, y - 0.004, 0.106),
-            (0.009, y + 0.004, 0.114),
-            m["polymer"],
-            bevel=0.0012,
-        )
-    kit.cylinder_axis("OpticBattery", (0.09, 0.027, 0.111), 0.0075, 0.008, "Y", A, sides=24)
-    # Glass: the angled front pane and the rear pane.
-    kit.box(
-        "OpticGlassFront",
-        (0.121, -0.0192, 0.1182),
-        (0.1225, 0.0192, 0.1548),
-        m["glass"],
-        bevel=0.0,
-        rot=(0, -12, 0),
-    )
-    kit.box(
-        "OpticGlassRear", (0.0405, -0.0192, 0.1182), (0.0415, 0.0192, 0.1548), m["glass"], bevel=0.0
-    )
-    # Reticle: 65 MOA style ring and a centre dot, drawn on the front pane.
-    kit.torus("ReticleRing", (0.1195, 0.0, SIGHT_Z), 0.0062, 0.00024, m["reticle"])
-    kit.cylinder_axis(
-        "ReticleDot", (0.1195, 0.0, SIGHT_Z), 0.0004, 0.0003, "X", m["reticle"], sides=16, bevel=0.0
-    )
-    for k, (dy, dz) in enumerate(((0, 1), (0, -1), (1, 0), (-1, 0))):
-        c = (0.1195, dy * 0.0071, SIGHT_Z + dz * 0.0071)
-        lo = (
-            c[0] - 0.00015,
-            c[1] - (0.0005 if dy else 0.00022),
-            c[2] - (0.0005 if dz else 0.00022),
-        )
-        hi = (
-            c[0] + 0.00015,
-            c[1] + (0.0005 if dy else 0.00022),
-            c[2] + (0.0005 if dz else 0.00022),
-        )
-        kit.box(f"ReticleTick{k}", lo, hi, m["reticle"], bevel=0.0)
+    # ---- Open reflex (red dot) sight on the rail, at the rear of the upper.
+    sight = optics.open_reflex(m, 0.03, 0.0955)
+    want = SOCKETS["SOCKET_Sight"]
+    if max(abs(a - b) for a, b in zip(sight, want, strict=True)) > 0.0005:
+        raise ValueError(f"SOCKET_Sight {want} is not the dot {sight}: update specs.GRAVELINE_HERO")
     return {"materials": m, "sockets": SOCKETS}
 
 

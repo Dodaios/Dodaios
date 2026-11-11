@@ -353,7 +353,7 @@ void UVerseViewmodelComponent::ShowWeapon(FName WeaponId)
 	Mesh->SetLightingChannels(!bShowingHero, true, false);
 	if (bShowingHero)
 	{
-		// The hero holographic sight: a big hooded window, seen from close like a real eye relief.
+		// The hero sight: its glass sits close to the eye, as a real red dot does when aiming.
 		Pose.SightDistance = HeroSightDistanceCm;
 		Pose.HipOffset.Z -= 2.0;
 	}
