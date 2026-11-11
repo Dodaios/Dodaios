@@ -57,6 +57,7 @@ from dodaios.brain.tool_shortlist import (
     CORE_PRIORITY,
     DEFAULT_DIRECT,
     FIND_TOOLS_NAME,
+    LEAD_DIRECT,
     ROLE_BASE,
     FindToolsTool,
     order_direct,
@@ -6562,9 +6563,13 @@ class BrainManager:
         max_direct = min(limits) if limits else 0
         only = None if direct_tools is None else {*direct_tools, *ROLE_BASE}
         priority: Iterable[str] = CORE_PRIORITY
+        lead = False
         if defer_by_default:
-            only = set(DEFAULT_DIRECT)
-            priority = DEFAULT_DIRECT
+            # The lead sees ``delegate`` where the other turns see the overlapping
+            # hand-off tools (they wait behind ``find_tools``).
+            lead = self._is_lead_turn()
+            priority = LEAD_DIRECT if lead else DEFAULT_DIRECT
+            only = set(priority)
         plan = plan_surface(
             tools,
             keep=keep,
@@ -6596,7 +6601,9 @@ class BrainManager:
             else:
                 reveal_tokens = headroom - _FINDER_TOKENS
         surface: dict[str, Tool] = (
-            order_direct(plan.direct) if defer_by_default else dict(plan.direct)
+            order_direct(plan.direct, LEAD_DIRECT if lead else DEFAULT_DIRECT)
+            if defer_by_default
+            else dict(plan.direct)
         )
         surface[FIND_TOOLS_NAME] = cast(
             Tool, FindToolsTool(plan.deferred, reveal_tokens=reveal_tokens)

@@ -60,6 +60,23 @@ log = logging.getLogger(__name__)
 SPAWN_VEHICLE_TOOL_NAMES: frozenset[str] = frozenset({"spawn_worker", "multi_spawn"})
 
 
+def is_spawn_vehicle_call(tool_name: str, args: object) -> bool:
+    """Whether this call starts a background worker mission.
+
+    ``spawn_worker`` always does. The lead's ``delegate`` front door does only for
+    ``target=mission``: a hand-off to a named agent, a coding pane, a team thread,
+    a routine or a skill has its own gates and is never held to the explicit
+    delegation rule (a user who says "Mailbox, answer the invoice mail" named no
+    "agent" and still asked for exactly that hand-off).
+    """
+    name = (tool_name or "").strip().lower().replace("-", "_")
+    if name in SPAWN_VEHICLE_TOOL_NAMES:
+        return True
+    if name != "delegate" or not isinstance(args, dict):
+        return False
+    return str(args.get("target") or "").strip().lower() == "mission"
+
+
 # Explicit delegation vocabulary (DE/EN/ES). A bare "agent" is deliberately
 # included: the user-visible brand is "<wake-name> Agent" (dynamic, §4), so
 # "spawn einen Gustav Agent" must match for ANY wake word without resolving
@@ -743,6 +760,7 @@ __all__ = [
     "SPAWN_BLOCKED_ADDRESSED_PANE_FEEDBACK",
     "SPAWN_BLOCKED_MODEL_FEEDBACK",
     "SPAWN_VEHICLE_TOOL_NAMES",
+    "is_spawn_vehicle_call",
     "DelegationOfferWindow",
     "active_force_spawn_mode",
     "addressed_pane_blocks_spawn",

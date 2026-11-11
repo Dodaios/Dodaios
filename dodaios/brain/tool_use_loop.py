@@ -27,7 +27,7 @@ from dodaios.brain.cu_gate import (
     llm_computer_use_allowed,
 )
 from dodaios.brain.spawn_gate import (
-    SPAWN_VEHICLE_TOOL_NAMES,
+    is_spawn_vehicle_call,
     llm_spawn_allowed,
     names_spawn_vehicle,
     spawn_blocked_feedback,
@@ -765,7 +765,7 @@ class ToolUseLoop:
             or getattr(tool, "risk_tier", "safe") != "safe"
             or getattr(tool, "suppress_response", False)
             or name == "spawn_worker"
-            or name in SPAWN_VEHICLE_TOOL_NAMES
+            or is_spawn_vehicle_call(name, args)
             or name in CU_VEHICLE_TOOL_NAMES
             or not allows_read(tool, args)
             or _is_side_effect_tool(tool)
@@ -1493,7 +1493,7 @@ class ToolUseLoop:
                     }
                     unknown_tool_requested = True
                 elif (
-                    tool_name == "spawn_worker"
+                    is_spawn_vehicle_call(tool_name, tool_args)
                     and _is_meta_debug_intent(user_utterance)
                     # A turn that names the vehicle out loud ("spawn an agent
                     # that finds out why the fallback fired") is a delegation
@@ -1548,7 +1548,7 @@ class ToolUseLoop:
                         ),
                     }
                 elif (
-                    tool_name in SPAWN_VEHICLE_TOOL_NAMES
+                    is_spawn_vehicle_call(tool_name, tool_args)
                     and not llm_spawn_allowed(user_utterance)
                 ):
                     # Explicit-delegation gate (maintainer mandate 2026-07-18):

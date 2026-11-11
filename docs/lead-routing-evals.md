@@ -124,3 +124,21 @@ Rules:
 
 A change that adds a lead tool should add cases for it. A change that renames a
 tool must update the cases in the same change; the drift test says which.
+
+## The `delegate` front door
+
+The lead hands work off through ONE tool, `delegate`, with a typed `target`
+(`agent:<name>`, `pane:<id>`, `team_thread`, `mission`, `routine`, `skill:<slug>`).
+It validates the target, routes to the specialised tool and always answers
+`{job_id, target, state}`. On the lead's turns the direct tool set holds `delegate`
+instead of `spawn_worker` and `delegate_to_agent`; those stay callable behind
+`find_tools`. The golden cases for hand-offs therefore expect `delegate` with the
+right target (`tests/fixtures/lead_routing/05_delegate.yaml` and the updated cases in
+the other files). Team starts carry no `approval: true` flag because `delegate` asks
+per target (`risk_tier_for_args`), not per tool.
+
+`05_delegate.yaml` also holds the knowledge questions that must never start work
+("which companies have that much storage?", "can an agent do research for me?"). They
+cover what the regex gates around the spawn tools protect. A mission started through
+`delegate` is held to the same explicit-delegation gate as `spawn_worker`
+(`is_spawn_vehicle_call` in `dodaios/brain/spawn_gate.py`).

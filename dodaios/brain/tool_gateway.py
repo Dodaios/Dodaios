@@ -29,6 +29,14 @@ _VOICE_SUPERSEDED_TOOLS = VOICE_SUPERSEDED_TOOLS
 _LEAD_DROPPED_TOOLS = LEAD_DROPPED_TOOLS
 
 
+def _society_store() -> Any | None:
+    """The society store that keeps hand-off receipts, or ``None`` before it is built."""
+    from dodaios.society.runtime import current_runtime
+
+    runtime = current_runtime()
+    return getattr(runtime, "store", None) if runtime is not None else None
+
+
 class BrainSupervisorToolGateway:
     """Adapter that keeps Brain Manager implementation details private."""
 
@@ -165,6 +173,11 @@ class BrainSupervisorToolGateway:
             return {**self._live_tools(), **extra}
 
         extra[WorkBoardTool.name] = WorkBoardTool(board_sources)
+        # The one front door for handing work off; it routes to the specialised
+        # tools above and in the shared set, which stay callable on their own.
+        from dodaios.brain.delegate_tool import DelegateTool
+
+        extra[DelegateTool.name] = DelegateTool(board_sources, store_resolver=_society_store)
         return extra
 
     def lead_tools(self) -> dict[str, Any]:

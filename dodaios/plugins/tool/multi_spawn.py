@@ -1,5 +1,9 @@
 """MultiSpawnTool: N parallel harness calls with different prompts.
 
+DEPRECATED: no longer an entry point and never offered to a model (the router set
+leaves it out, every chat withholds it). Kept for its direct-call tests only; the
+lead hands work off through ``delegate`` (``dodaios/brain/delegate_tool.py``).
+
 Difference from `dispatch_to_harness`:
     - `dispatch_to_harness` = 1 harness, 1 prompt (or N harnesses × 1 prompt).
     - `multi_spawn`         = 1 harness, N different prompts in parallel.
