@@ -200,7 +200,7 @@ void AVerseArenaGraybox::DressArtRoof()
 			C->SetBarnDoorAngle(20.f);
 			C->SetBarnDoorLength(60.f);
 			C->SetUseTemperature(true);
-			C->SetTemperature(6500.f);
+			C->SetTemperature(7200.f);  // cold daylight against the warm work lights
 			C->SetCastShadows(Entry.Value);
 			C->SetVolumetricScatteringIntensity(Entry.Value ? SkylightScattering : SkylightScattering * 0.5f);
 			Spawned.Add(Rect);
@@ -643,6 +643,11 @@ void AVerseArenaGraybox::DressArtBox(const TSharedPtr<FJsonObject>& Box)
 		{
 			const FVector At = Centre + RunDir * T + Across * (In * (Face + 4.0));
 			AddDressing(TEXT("SM_Hangar_Cables_Double"), FTransform(Flat, FVector(At.X, At.Y, 380.0)), nullptr, false);
+		}
+		// Deck number painted big on every perimeter segment, as hangar bays are marked.
+		{
+			const FVector Paint = Centre + Across * (In * Face);
+			AddWear(TEXT("Arena_Sign_Deck"), FVector(Paint.X, Paint.Y, 230.0), Yaw - 90.0, 300.0, 300.0, true);
 		}
 		int32 Index = 0;
 		for (double T = -Run * 0.5 + 200.0; T < Run * 0.5 - 100.0; T += 400.0, ++Index)

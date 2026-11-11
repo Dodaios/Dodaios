@@ -78,7 +78,7 @@ FString AVerseArenaGraybox::LookFor(const TSharedPtr<FJsonObject>& Box)
 	}
 	if (Piece == TEXT("catwalk"))
 	{
-		return TEXT("Floor_Grating");
+		return TEXT("Arena_Grating");
 	}
 	if (Piece == TEXT("glass"))
 	{
@@ -189,7 +189,7 @@ FString AVerseArenaGraybox::LookFor(const TSharedPtr<FJsonObject>& Box)
 	{
 		if (Id == TEXT("gallery_deck"))
 		{
-			return TEXT("Floor_Grating");
+			return TEXT("Arena_Grating");
 		}
 		if (Id == TEXT("gallery_roof"))
 		{
