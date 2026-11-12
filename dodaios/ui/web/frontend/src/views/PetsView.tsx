@@ -663,7 +663,11 @@ function PetTile({
             </span>
           )}
         </div>
-        <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{description}</p>
+        {/* Two lines keep the tiles even; the title carries the rest, so a
+            long description can be read without selecting the pet. */}
+        <p title={description} className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
+          {description}
+        </p>
       </button>
       {onDelete && (
         <button

@@ -139,6 +139,16 @@ describe("PetsView", () => {
     expect(within(grid).getByText("Pixel from the API")).toBeTruthy();
   });
 
+  it("carries a tile's whole description as its tooltip, since the tile shows two lines", async () => {
+    stubServer();
+    renderView();
+
+    const grid = await screen.findByTestId("pets-grid");
+    const text = await within(grid).findByText("A cat: ears up while listening, curls up to sleep.");
+    expect(text.getAttribute("title")).toBe("A cat: ears up while listening, curls up to sleep.");
+    expect(within(grid).getByText("Pixel from the API").getAttribute("title")).toBe("Pixel from the API");
+  });
+
   it("names the shortcut in the explanation", async () => {
     stubServer();
     renderView();
