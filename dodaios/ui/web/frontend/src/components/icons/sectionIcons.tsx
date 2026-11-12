@@ -17,7 +17,7 @@
 import { forwardRef, type ReactNode } from "react";
 import type { LucideIcon, LucideProps } from "lucide-react";
 
-function defineIcon(name: string, glyph: ReactNode): LucideIcon {
+export function defineIcon(name: string, glyph: ReactNode): LucideIcon {
   const Icon = forwardRef<SVGSVGElement, LucideProps>(function SectionIcon(
     {
       size = 24,

@@ -600,6 +600,8 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
   // once picked, on the pill — the Combobox draws the selected option's icon
   // on its trigger, so the column's shield below only shows for a pick the
   // catalog no longer lists.
+  // The glyphs carry no colour of their own: each takes the ink of the label
+  // it sits beside, on the pill and in the row.
   const permissionGroups = useMemo<ComboboxGroup[]>(
     () => [
       {
@@ -610,7 +612,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
             value: m.id,
             label: m.label,
             searchText: m.description,
-            icon: <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />,
+            icon: <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />,
           };
         }),
       },
@@ -618,7 +620,9 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
     [permissionModes],
   );
   // The front page's permission menu: each stance with its glyph, its name
-  // and one quiet line on what it lets through.
+  // and one quiet line on what it lets through. The glyph is 18 px, the size
+  // of the "+" beside the pill; the 1 px it gives back on either side keeps
+  // it in the 16 px column the menu indents its second line by.
   const permissionMenuGroups = useMemo<ComboboxGroup[]>(
     () => [
       {
@@ -630,7 +634,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
             label: m.label,
             description: m.description || undefined,
             searchText: m.description,
-            icon: <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />,
+            icon: <Icon className="-mx-px h-[18px] w-[18px] shrink-0" aria-hidden />,
           };
         }),
       },
