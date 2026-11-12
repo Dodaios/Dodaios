@@ -560,12 +560,13 @@ class ChatThreads:
 
     def _row(self, session: Any, state: dict[str, Any]) -> dict[str, Any]:
         from dodaios.agent_chat.catalog import provider_row
+        from dodaios.agent_chat.events import shown_text
         from dodaios.society.coding_threads import _title_of
 
         provider = provider_row(session.provider)
         job = next(
             (
-                str((e.get("payload") or {}).get("typed") or (e.get("payload") or {}).get("text"))
+                shown_text(e.get("payload") or {})
                 for e in reversed(state["events"])
                 if e["kind"] == "user_message"
             ),

@@ -37,7 +37,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Final
 
-from dodaios.agent_chat.events import is_transient, now_ms
+from dodaios.agent_chat.events import is_transient, now_ms, shown_text
 
 log = logging.getLogger(__name__)
 
@@ -519,10 +519,13 @@ class AgentChatStore:
         if row is None:
             return True
         try:
-            text = str((json.loads(row["payload"]) or {}).get("text") or "")
+            payload = json.loads(row["payload"]) or {}
+            text = str(payload.get("text") or "")
+            shown = shown_text(payload)
         except (TypeError, ValueError, AttributeError):  # unreadable: keep auto-titling
             return True
-        return session.title == _title_from(text)
+        # A title given before 2026-11-12 came from the composed prompt.
+        return session.title in (_title_from(shown), _title_from(text))
 
     def list_sessions_matching(
         self, prefix: str, suffix: str = "", *, limit: int = 200
@@ -837,7 +840,9 @@ class AgentChatStore:
                 (session_id, seq, ts_ms, kind, json.dumps(payload, ensure_ascii=False)),
             )
             if kind in {"user_message", "agent_message"}:
-                text = str(payload.get("text") or "")
+                # The person's own words: the prompt of a message with files
+                # also holds the note and the file blocks written for the model.
+                text = shown_text(payload)
                 self._conn.execute(
                     "UPDATE agent_chat_sessions SET message_count = message_count + 1, "
                     "updated_ms = ?, last_message_ms = ?, preview = ?, "

@@ -22,6 +22,7 @@ from .control_types import (
     GoalState,
     GoalVerdict,
 )
+from .events import shown_text
 from .parked_work import BACKGROUND_ORIGIN
 
 log = logging.getLogger(__name__)
@@ -76,9 +77,7 @@ class ChatControls:
             messages = [e for e in events if e["kind"] == "user_message"]
             if messages:
                 latest = messages[-1]
-                state.last_request = str(
-                    latest["payload"].get("typed") or latest["payload"].get("text") or ""
-                )
+                state.last_request = shown_text(latest["payload"])
                 finished = [
                     e for e in events if e["kind"] == "turn_finished" and e["seq"] > latest["seq"]
                 ]
@@ -303,7 +302,7 @@ class ChatControls:
                     continue  # nothing the person typed
                 if event["kind"] not in ("user_message", "assistant_text", "agent_message"):
                     continue
-                text = str(payload.get("typed") or payload.get("text") or "")
+                text = shown_text(payload)
                 if arguments.casefold() in text.casefold():
                     hits.append(
                         {

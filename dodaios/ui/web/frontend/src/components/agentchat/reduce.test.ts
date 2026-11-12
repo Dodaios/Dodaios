@@ -392,6 +392,32 @@ describe("a user message with files", () => {
   // typed; the backend folds the person's own sentence and the file receipts
   // back in (dodaios/agentic_ide/prompt_receipts.py). The reducer shows the
   // sentence and carries the url an image can be drawn from.
+  // Files sent without a sentence: `typed` is empty and `text` is the prompt
+  // the model received, with the note and the file blocks written for it. The
+  // bubble shows the files and none of that prompt (maintainer, 2026-11-12).
+  it("shows no text for files sent without a sentence", () => {
+    const prompt = [
+      "Files the user attached to this message are below. Their contents are given in full.",
+      '<attachment name="shot.png" kind="image" reference="shot.png">',
+      "Attached to this message as an image; look at it directly.",
+      "</attachment>",
+    ].join("\n");
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", {
+        text: prompt,
+        typed: "",
+        attachments: [{ name: "shot.png", kind: "image", described_by: "none" }],
+      }),
+    ]);
+    expect(tl.items[0]).toMatchObject({ type: "user", text: "" });
+    expect((tl.items[0] as { attachments: unknown[] }).attachments).toHaveLength(1);
+  });
+
+  it("keeps the text of a message whose display text is empty and has no files", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [ev("user_message", { text: "the prompt", typed: "" })]);
+    expect(tl.items[0]).toMatchObject({ type: "user", text: "the prompt" });
+  });
+
   it("shows what the person said and keeps the picture's url", () => {
     const tl = reduceEvents(EMPTY_TIMELINE, [
       ev("user_message", {

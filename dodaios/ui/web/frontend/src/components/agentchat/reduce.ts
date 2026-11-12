@@ -1048,9 +1048,13 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
             ...(p.origin === "background" ? { origin: "background" as const } : {}),
             ...(messageAuthor(p.author) ? { author: messageAuthor(p.author) } : {}),
             ...(teamEventOf(str(p.text)) ? { teamEvent: teamEventOf(str(p.text)) } : {}),
-            // `typed` is present only when the message carried files, and it
-            // is the person's own sentence; `text` is the composed prompt.
-            text: str(p.typed) || str(p.text),
+            // `typed` is the person's own sentence; `text` is the composed
+            // prompt, which with files also holds the note and the file blocks
+            // written for the model. Files sent without a sentence leave
+            // `typed` empty: the bubble then shows the files and no text.
+            text: typeof p.typed === "string" && (p.typed || userAttachments(p.attachments).length > 0)
+              ? p.typed
+              : str(p.text),
             attachments: userAttachments(p.attachments),
             toolChoices: readToolChoices(p.tool_choices),
             tsMs: ev.ts_ms,
