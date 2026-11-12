@@ -1,0 +1,41 @@
+{
+  "voiceui": {
+    "language": {
+      "spoken": "Idioma hablado",
+      "auto": "Detectar automáticamente",
+      "wording": "Redacción",
+      "polish": "Pulir la redacción",
+      "precision": "Usar palabras más exactas",
+      "conversation": "Pulir también las conversaciones",
+      "prompt_mode": "Convertir el dictado en un prompt de programación",
+      "sends_text": "Tu texto se envía a {provider}.",
+      "translation": "Traducción",
+      "translate": "Escribir siempre en un idioma",
+      "translate_target": "Idioma de destino",
+      "translate_sends_text": "Tu texto se envía a {provider} para traducirlo.",
+      "same_language": "Hablas y escribes en el mismo idioma, así que no se traduce nada.",
+      "model": "Modelo",
+      "provider": "Proveedor",
+      "model_auto": "Automático",
+      "model_auto_resolved": "Automático ({provider})",
+      "model_local": "{provider} en este ordenador",
+      "no_model": "Todavía no hay ningún modelo configurado para esto.",
+      "key": "Clave de {provider}",
+      "sample": "Texto de ejemplo",
+      "test": "Probar",
+      "testing": "Probando",
+      "test_failed": "No se pudo hacer la prueba.",
+      "test_result": {
+        "unchanged": "No había nada que cambiar.",
+        "unavailable": "Ningún modelo respondió.",
+        "local_only": "El texto se quedó en este ordenador y no se cambió.",
+        "timeout": "El modelo tardó demasiado.",
+        "provider_error": "No se pudo conectar con el modelo.",
+        "rejected_drift": "El modelo cambió demasiado, así que se descartó su respuesta.",
+        "other": "El texto no se cambió."
+      },
+      "load_failed": "No se pudieron cargar tus ajustes de idioma.",
+      "save_failed": "No se pudo guardar ese cambio."
+    }
+  }
+}

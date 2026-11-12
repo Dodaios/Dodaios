@@ -1,0 +1,51 @@
+{
+  "voiceui": {
+    "keys": {
+      "speech": "Speech to text",
+      "wording": "Wording",
+      "state": {
+        "connected": "Connected",
+        "key_saved": "Key saved",
+        "set_up": "Set up",
+        "no_key": "No key",
+        "local": "On this computer",
+        "not_installed": "Not installed",
+        "installing": "Installing",
+        "checking": "Checking",
+        "not_working": "Not working"
+      },
+      "in_use": "In use",
+      "use": "Use",
+      "use_named": "Use {provider}",
+      "add_key": "Add key",
+      "add_key_named": "Add key for {provider}",
+      "change_key_named": "Change key for {provider}",
+      "key_named": "Key for {provider}",
+      "paste_key": "Paste key",
+      "new_key": "New key",
+      "remove_key": "Remove key",
+      "install": "Install",
+      "install_named": "Install {provider}",
+      "fault": {
+        "bad_key": "This key was rejected.",
+        "no_credits": "This account has no credit left.",
+        "rate_limited": "This provider is getting too many requests right now.",
+        "model_unavailable": "The model is not available with this key.",
+        "unreachable": "This provider could not be reached.",
+        "error": "This provider is not working."
+      },
+      "save_failed": "The key could not be saved.",
+      "remove_failed": "The key could not be removed.",
+      "switch_failed": "This provider could not be selected.",
+      "install_failed": "The installation did not finish.",
+      "wrong_kind": "This looks like another key: {kind}.",
+      "family_has_key": "{family} already has a different key.",
+      "replace_everywhere": "Replace everywhere",
+      "only_here": "Only here",
+      "shared": "This key is also used by {others}.",
+      "remove_anyway": "Remove anyway",
+      "load_failed": "The providers could not be loaded.",
+      "empty": "No providers are available."
+    }
+  }
+}

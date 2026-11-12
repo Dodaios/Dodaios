@@ -8,7 +8,7 @@ order: 6
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-07-30
+last_reviewed: 2026-11-12
 phase: "-"
 audience: end-user
 tags: [speech-recognition, dictionary, voice, pipeline]
@@ -39,7 +39,7 @@ one language can alter an ordinary word in another.
 |---|---|---|
 | Correct letters, wrong capitalization | Add the correct term | Exact matches use your saved capitalization |
 | One close spelling error | Add the correct single word | A conservative near match may be repaired |
-| The same wrong word or phrase | Turn on **Fix a misrecognition** | The saved wrong form is replaced predictably |
+| The same wrong word or phrase | Add the term and fill in **Heard as** | The saved wrong form is replaced predictably |
 | Missing, random, or changing text | Fix audio, provider, or language first | A text rule cannot recover words that never appear |
 
 Near-match repair needs a single word of at least four characters, the same
@@ -48,9 +48,9 @@ cases need an explicit variant.
 
 ## Add a Name or Term
 
-1. Select **Add word**.
-2. Leave **Fix a misrecognition** off.
-3. Enter the intended spelling, save, and wait about one second.
+1. Select **Add**.
+2. Enter the intended spelling under **Word** and leave **Heard as** empty.
+3. Save and wait about one second.
 4. Start a new utterance in the same path and inspect its transcript.
 
 Compatible providers may also receive the term as a recognition hint. Local
@@ -58,8 +58,8 @@ capitalization and near-match repair are the cross-provider behavior.
 
 ## Fix a Repeated Misrecognition
 
-1. Select **Add word** and enable **Fix a misrecognition**.
-2. Enter the wrong form on the left and intended form on the right.
+1. Select **Add** and enter the intended form under **Word**.
+2. Enter the wrong form under **Heard as**.
 3. Separate known alternatives with commas, save, wait one second, and retest.
 
 Rules ignore capitalization, tolerate different spaces, and replace only whole
@@ -82,8 +82,8 @@ speech continues with raw text.
 
 ## Find, Edit, or Delete Rules
 
-- **Search dictionary...** matches terms and variants.
-- **Edit** changes them; turning correction mode off keeps plain vocabulary.
+- **Search** matches terms and variants.
+- **Edit** changes them; emptying **Heard as** keeps plain vocabulary.
 - **Delete** removes an entry immediately, without confirmation or undo.
 
 Correct terms are unique regardless of capitalization. Edit the existing entry
@@ -128,7 +128,7 @@ Realtime behavior.
 ## Check That It Works
 
 1. Say one harmless phrase and note a repeatable wrong term.
-2. Add that exact form under **Fix a misrecognition** and save the intended form.
+2. Add the intended form with that exact form under **Heard as**, then save.
 3. Wait one second, then repeat the phrase in the same path.
 4. Confirm the Pipeline/Realtime transcript or Dictation draft shows the saved
    form. No app restart should be needed for local correction.
@@ -138,7 +138,7 @@ Realtime behavior.
 | What you see | Likely cause | What to do |
 |---|---|---|
 | The next transcript is unchanged | The provider produced a different form, or reload has not happened | Wait one second and add the exact new variant |
-| A plain word does not repair the error | The difference is too large, multi-word, or ambiguous | Use **Fix a misrecognition** with the exact source |
+| A plain word does not repair the error | The difference is too large, multi-word, or ambiguous | Fill in **Heard as** with the exact source |
 | Realtime transcript is fixed but its reply is not | The provider interpreted audio before local correction | Retry in Pipeline when corrected text must drive the answer |
 | An unrelated phrase changes | A variant is too broad or shared across entries | Make it more specific, remove the duplicate mapping, or delete it |
 | Recognition varies every time | Audio, language, or provider behavior is unstable | Check microphone and input language before adding more rules |

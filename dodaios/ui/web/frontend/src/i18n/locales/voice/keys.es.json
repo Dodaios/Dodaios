@@ -1,0 +1,51 @@
+{
+  "voiceui": {
+    "keys": {
+      "speech": "Voz a texto",
+      "wording": "Redacción",
+      "state": {
+        "connected": "Conectado",
+        "key_saved": "Clave guardada",
+        "set_up": "Configurado",
+        "no_key": "Sin clave",
+        "local": "En este ordenador",
+        "not_installed": "No instalado",
+        "installing": "Instalando",
+        "checking": "Comprobando",
+        "not_working": "No funciona"
+      },
+      "in_use": "En uso",
+      "use": "Usar",
+      "use_named": "Usar {provider}",
+      "add_key": "Añadir clave",
+      "add_key_named": "Añadir clave de {provider}",
+      "change_key_named": "Cambiar la clave de {provider}",
+      "key_named": "Clave de {provider}",
+      "paste_key": "Pegar clave",
+      "new_key": "Clave nueva",
+      "remove_key": "Quitar clave",
+      "install": "Instalar",
+      "install_named": "Instalar {provider}",
+      "fault": {
+        "bad_key": "Esta clave fue rechazada.",
+        "no_credits": "Esta cuenta no tiene saldo.",
+        "rate_limited": "Este proveedor recibe demasiadas solicitudes en este momento.",
+        "model_unavailable": "El modelo no está disponible con esta clave.",
+        "unreachable": "No se pudo conectar con este proveedor.",
+        "error": "Este proveedor no funciona."
+      },
+      "save_failed": "No se pudo guardar la clave.",
+      "remove_failed": "No se pudo quitar la clave.",
+      "switch_failed": "No se pudo seleccionar este proveedor.",
+      "install_failed": "La instalación no terminó.",
+      "wrong_kind": "Esto parece otra clave: {kind}.",
+      "family_has_key": "{family} ya tiene una clave distinta.",
+      "replace_everywhere": "Reemplazar en todas partes",
+      "only_here": "Solo aquí",
+      "shared": "Esta clave también la usan {others}.",
+      "remove_anyway": "Quitar de todos modos",
+      "load_failed": "No se pudieron cargar los proveedores.",
+      "empty": "No hay proveedores disponibles."
+    }
+  }
+}

@@ -34,7 +34,7 @@ from dodaios.dictation.outcomes import (
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _FRONTEND = _REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "src"
 _DICTATION_TS = _FRONTEND / "hooks" / "useDictation.ts"
-_HISTORY_GROUP_TSX = _FRONTEND / "views" / "voice" / "DictationHistoryGroup.tsx"
+_HISTORY_ENTRY_TSX = _FRONTEND / "views" / "voice" / "dictation" / "HistoryEntry.tsx"
 _LOCALES = _FRONTEND / "i18n" / "locales"
 
 SUPPORTED_LOCALES = ("de", "en", "es", "pt")
@@ -95,20 +95,20 @@ def test_no_locale_carries_an_outcome_key_the_backend_never_emits() -> None:
 def test_the_renderer_derives_its_known_set_from_the_shared_array() -> None:
     """The UI must not keep a second, hand-written copy of the vocabulary.
 
-    ``DictationHistoryGroup`` decides whether to translate an outcome or to
+    ``HistoryEntry`` decides whether to translate an outcome or to
     print it verbatim. If that decision ran off a locally declared list, a new
     outcome would render as a raw identifier even after the shared array was
     updated — a second SSOT is exactly what this whole file exists to prevent.
     """
-    assert _HISTORY_GROUP_TSX.exists(), f"missing: {_HISTORY_GROUP_TSX}"
-    source = _HISTORY_GROUP_TSX.read_text(encoding="utf-8")
-    assert "DICTATION_OUTCOMES" in source, _HISTORY_GROUP_TSX.name
+    assert _HISTORY_ENTRY_TSX.exists(), f"missing: {_HISTORY_ENTRY_TSX}"
+    source = _HISTORY_ENTRY_TSX.read_text(encoding="utf-8")
+    assert "DICTATION_OUTCOMES" in source, _HISTORY_ENTRY_TSX.name
     assert "new Set(DICTATION_OUTCOMES)" in source, (
-        f"{_HISTORY_GROUP_TSX.name} no longer derives its known-outcome set "
+        f"{_HISTORY_ENTRY_TSX.name} no longer derives its known-outcome set "
         "from the shared array"
     )
     # No second literal array of outcomes anywhere in the renderer.
-    assert not re.search(r"\[\s*\"inserted\"", source), _HISTORY_GROUP_TSX.name
+    assert not re.search(r"\[\s*\"inserted\"", source), _HISTORY_ENTRY_TSX.name
 
 
 def test_partial_reached_every_layer() -> None:

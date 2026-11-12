@@ -1,0 +1,25 @@
+{
+  "voiceui": {
+    "shortcuts": {
+      "push_to_talk": "Pulsar para hablar",
+      "hands_free": "Manos libres",
+      "paste_again": "Pegar de nuevo",
+      "none": "Ninguno",
+      "press_keys": "Pulsa las teclas",
+      "remove": "Quitar atajo",
+      "taken": "Esta combinación ya se usa para «{action}».",
+      "taken_other": "Esta combinación ya está en uso.",
+      "save_failed": "No se pudo guardar este atajo.",
+      "load_failed": "No se pudieron cargar tus atajos.",
+      "hold_off": "«Pulsar para hablar» ahora empieza con una pulsación y se detiene con la siguiente.",
+      "use_hold": "Cambiar a mantener",
+      "hold_failed": "No se pudo activar el modo de mantener.",
+      "paste_blocked": "«Pegar de nuevo» copia el texto al portapapeles porque no se puede escribir en otras apps.",
+      "actions": {
+        "call": "Llamar",
+        "hangup": "Colgar",
+        "pet_toggle": "Mostrar u ocultar la mascota"
+      }
+    }
+  }
+}

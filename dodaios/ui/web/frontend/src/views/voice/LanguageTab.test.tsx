@@ -1,136 +1,36 @@
-/**
- * Component tests for the voice section's Language tab.
- *
- * Two things are worth pinning about the language control: the four choices
- * must be rendered as human language names (not the bare codes the backend
- * speaks), and the "automatic detection is right for almost everyone"
- * reasoning must be on screen — it is the difference between a neutral-looking
- * dropdown and one that tells the user pinning a language can make recognition
- * worse.
- *
- * The wording pass lives on the same tab and is pinned for a third reason: it
- * lets a model rewrite what the user actually said. The switch must persist,
- * the description must state the trade honestly, and the Test button must show
- * the sample before AND after — because a pass that is invisible when it works
- * and silently falls back when it fails has no other way of being seen.
- *
- * No jest-dom in this repo — assertions use toBeTruthy()/toBeNull().
- */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-vi.mock("@/views/ChatsView", () => ({
-  ViewHeader: ({ title }: { title: string }) => <header>{title}</header>,
-}));
-
+import type {
+  DictationPolishTest,
+  DictationSettings,
+  DictationWordingProvider,
+} from "@/hooks/useDictation";
+import type { ProviderDescriptor } from "@/hooks/useProviders";
+import { loadLocaleChunk, useI18nStore } from "@/i18n";
 import { LanguageTab } from "@/views/voice/LanguageTab";
-import { setUiLanguage } from "@/i18n";
-import { DICTATION_SETTINGS_EVENT } from "@/hooks/usePromptMode";
-
-interface RouteResult {
-  status?: number;
-  body: unknown;
-}
-interface Call {
-  url: string;
-  method: string;
-  body: string | null;
-}
-
-function installFetchMock(routes: Record<string, () => RouteResult>) {
-  const calls: Call[] = [];
-  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    const method = (init?.method ?? "GET").toUpperCase();
-    calls.push({ url, method, body: (init?.body as string | undefined) ?? null });
-    const keys = Object.keys(routes).sort((a, b) => b.length - a.length);
-    for (const key of keys) {
-      const [routeMethod, prefix] = key.split(" ");
-      if (method === routeMethod && url.startsWith(prefix)) {
-        const { status = 200, body: resBody } = routes[key]();
-        return {
-          ok: status >= 200 && status < 300,
-          status,
-          statusText: status >= 200 && status < 300 ? "OK" : "ERR",
-          json: async () => resBody,
-          text: async () => JSON.stringify(resBody),
-        } as Response;
-      }
-    }
-    throw new Error(`unexpected fetch ${method} ${url}`);
-  });
-  (globalThis as unknown as { fetch: typeof fetch }).fetch =
-    fetchMock as unknown as typeof fetch;
-  return calls;
-}
 
 const SETTINGS = {
-  mode: "hold",
-  target: "auto",
-  insert_method: "clipboard",
-  paste_chord: "auto",
-  paste_delay_ms: 40,
-  paste_delay_after_ms: 40,
-  restore_clipboard: true,
-  remove_fillers: true,
-  filler_max_removed_fraction: 0.3,
-  max_seconds: 300,
-  partial_interval_s: 1.0,
-  segment_seconds: 8.0,
-  history_enabled: true,
-  history_max_entries: 200,
-  history_retention_days: 30,
   language: "auto",
-  keep_failed_audio: true,
-  audio_retention_days: 7,
-  audio_max_files: 20,
   polish: true,
   polish_provider: "auto",
   polish_model: "",
-  polish_timeout_ms: 1200,
-  polish_max_input_chars: 4000,
-  polish_min_words: 4,
-  polish_max_output_tokens: 1200,
-  polish_temperature: 0.0,
-  polish_drift_max_shrink: 0.55,
-  polish_drift_max_growth: 1.2,
-  polish_style: "neutral",
+  polish_precision: false,
+  polish_conversation: false,
+  prompt_mode: false,
   translate: false,
   translate_target: "en",
-  translate_drift_max_shrink: 0.4,
-  translate_drift_max_growth: 2.5,
-  prompt_mode: false,
-  prompt_mode_timeout_ms: 20000,
-};
+} as unknown as DictationSettings;
 
 const CHOICES = {
-  mode: ["hold", "toggle"],
-  target: ["auto", "insert", "chat"],
-  insert_method: ["clipboard", "type"],
-  paste_chord: ["auto", "ctrl_v", "ctrl_shift_v", "shift_insert"],
   language: ["auto", "de", "en", "es"],
-  polish_provider: ["auto", "groq", "gemini", "openrouter"],
-  polish_style: ["neutral", "messaging", "email"],
-  // No "auto": there is nothing to detect on the output side.
+  polish_provider: ["auto", "groq", "gemini", "ollama"],
+  // No automatic entry: there is nothing to detect in the written language.
   translate_target: ["de", "en", "es"],
 };
 
-// What POST /api/dictation/polish/test answers on a host that has a key: the
-// backend's own fixed sample, plus the polished version of it.
-const POLISH_TEST = {
-  status: "applied",
-  provider: "groq",
-  model: "llama-3.1-8b-instant",
-  latency_ms: 240,
-  reason: "",
-  sample_in: "so um i think we should ship the report on tuesday ... actually wednesday",
-  sample_out: "I think we should ship the report on Wednesday.",
-};
-
-// What GET /api/dictation/settings adds for the translate card: the family the
-// backend's own chain resolved. Served rather than derived — see
-// `DictationWordingProvider`.
-const WORDING_READY = {
+/** The automatic choice lands on a company's model that has its key. */
+const GROQ_READY: DictationWordingProvider = {
   family: "groq",
   label: "Groq",
   spec_id: "groq-polish",
@@ -139,858 +39,558 @@ const WORDING_READY = {
   ready: true,
 };
 
-const WORDING_UNSET = { ...WORDING_READY, ready: false };
+/** No model can answer; this is the key that would fix it. */
+const GROQ_NO_KEY: DictationWordingProvider = { ...GROQ_READY, ready: false };
 
-/** One dictation provider card, as GET /api/providers serves it. */
-const PROVIDERS = {
-  providers: [
-    {
-      id: "groq-polish",
-      label: "Groq: dictation polish",
-      tier: "dictation",
-      auth_mode: "api_key",
-      secret_keys: ["groq_api_key"],
-      secrets_set: { groq_api_key: false },
-      dashboard_url: "https://console.groq.com/keys",
-      login_cli: null,
-      install_hint: null,
-      credential_path_hint: null,
-      configured: false,
-      active: true,
-      credential_help: "The Groq key that tidies up your dictation.",
-    },
-  ],
+/** The model runs on this computer and takes no key. */
+const OLLAMA_READY: DictationWordingProvider = {
+  family: "ollama",
+  label: "Ollama (local)",
+  spec_id: "ollama-polish",
+  secret_key: "",
+  needs_key: false,
+  ready: true,
 };
 
-const STATUS = {
-  available: true,
-  active: false,
+const SAMPLE: DictationPolishTest = {
+  status: "applied",
+  provider: "groq",
+  model: "llama",
+  latency_ms: 240,
   reason: "",
-  hotkey: "",
-  hotkey_toggle: "",
-  mode: "hold",
-  target: "auto",
-  insertion: { can_insert: true, reason: "", detail: "" },
+  sample_in: "so um i think we should ship on tuesday actually wednesday",
+  sample_out: "I think we should ship on Wednesday.",
 };
 
-function routes(extra: Record<string, () => RouteResult> = {}) {
+function entry(overrides: Partial<ProviderDescriptor>): ProviderDescriptor {
   return {
-    "GET /api/dictation/status": () => ({ body: STATUS }),
-    "GET /api/dictation/settings": () => ({
-      body: {
-        settings: SETTINGS,
-        choices: CHOICES,
-        wording_provider: WORDING_READY,
-      },
-    }),
-    "GET /api/providers": () => ({ body: PROVIDERS }),
-    "GET /api/dictation/history": () => ({ body: { entries: [], count: 0 } }),
-    "GET /api/dictation/stats": () => ({ status: 404, body: { detail: "none" } }),
-    "PUT /api/settings/ui-language": () => ({ body: { ok: true } }),
-    ...extra,
+    id: "groq-polish",
+    label: "Groq: dictation polish",
+    tier: "dictation",
+    auth_mode: "api_key",
+    secret_keys: ["groq_api_key"],
+    secrets_set: { groq_api_key: false },
+    dashboard_url: null,
+    login_cli: null,
+    install_hint: null,
+    credential_path_hint: null,
+    configured: false,
+    active: false,
+    cli_installed: null,
+    credential_help: null,
+    signup_url: null,
+    billing: "api",
+    alt_credential: null,
+    polish_family: "groq",
+    ...overrides,
   };
 }
 
+const PROVIDERS: ProviderDescriptor[] = [
+  entry({}),
+  entry({
+    id: "ollama-polish",
+    label: "Ollama (local): dictation polish",
+    auth_mode: "none",
+    secret_keys: [],
+    secrets_set: {},
+    configured: true,
+    billing: "local",
+    polish_family: "ollama",
+  }),
+];
+
+const dictation = vi.hoisted(() => ({
+  state: {
+    settings: null as unknown,
+    choices: null as unknown,
+    wordingProvider: null as unknown,
+    loading: false,
+    error: null as string | null,
+    saveSettings: vi.fn(),
+    refetch: vi.fn(),
+  },
+  test: vi.fn(),
+}));
+
+const catalog = vi.hoisted(() => ({
+  state: { providers: [] as unknown[], refetch: vi.fn() },
+}));
+
+// The two data hooks and the sample request are replaced. The key helpers of
+// the provider hook stay real and talk to the fake `fetch` below.
+vi.mock("@/hooks/useDictation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/hooks/useDictation")>()),
+  useDictation: () => dictation.state,
+  testDictationPolish: () => dictation.test(),
+}));
+
+vi.mock("@/hooks/useProviders", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/hooks/useProviders")>()),
+  useProviders: () => ({
+    providers: catalog.state.providers,
+    loading: false,
+    error: null,
+    refetch: catalog.state.refetch,
+    setActiveOptimistic: vi.fn(),
+  }),
+}));
+
+const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => ({
+  ok: true,
+  status: 200,
+  json: async () => ({ ok: true, key: "groq_api_key" }),
+}));
+
+function show(
+  settings: Partial<DictationSettings> = {},
+  wordingProvider: DictationWordingProvider | null = GROQ_READY,
+) {
+  dictation.state.settings = { ...SETTINGS, ...settings };
+  dictation.state.choices = CHOICES;
+  dictation.state.wordingProvider = wordingProvider;
+  return render(<LanguageTab />);
+}
+
+function toggle(name: string): HTMLButtonElement {
+  return screen.getByTestId(`voice-language-${name}`) as HTMLButtonElement;
+}
+
+/** Opens a select and returns its options in list order. */
+function options(testId: string): HTMLElement[] {
+  fireEvent.click(screen.getByTestId(testId));
+  const panel = screen.getByTestId(`${testId}-panel`);
+  return [...panel.querySelectorAll<HTMLElement>('[role="option"]')];
+}
+
+function option(testId: string, text: string): HTMLElement {
+  const found = options(testId).find((item) => item.textContent?.includes(text));
+  if (!found) throw new Error(`no option "${text}" in ${testId}`);
+  return found;
+}
+
+/** A promise the test settles by hand, for a request that is still on its way. */
+function pending<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+beforeAll(async () => {
+  useI18nStore.setState({ ui: "en" });
+  await loadLocaleChunk("voice");
+});
+
 beforeEach(() => {
-  setUiLanguage("en");
+  dictation.state.loading = false;
+  dictation.state.error = null;
+  dictation.state.saveSettings.mockReset().mockResolvedValue(undefined);
+  dictation.state.refetch.mockReset().mockResolvedValue(undefined);
+  dictation.test.mockReset().mockResolvedValue(SAMPLE);
+  catalog.state.providers = PROVIDERS;
+  catalog.state.refetch.mockReset().mockResolvedValue(undefined);
+  fetchMock.mockClear();
+  vi.stubGlobal("fetch", fetchMock);
 });
 
 afterEach(() => {
   cleanup();
-  vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
-/** Open the themed picker and return its rendered options in list order. */
-async function openPicker(testId: string) {
-  const trigger = await waitFor(() => screen.getByTestId(testId));
-  fireEvent.click(trigger);
-  const panel = await waitFor(() => screen.getByTestId(`${testId}-panel`));
-  return {
-    trigger,
-    panel,
-    options: [...panel.querySelectorAll('[role="option"]')] as HTMLElement[],
-  };
-}
+describe("LanguageTab states", () => {
+  it("shows the shape of the page while the settings load", () => {
+    dictation.state.settings = null;
+    dictation.state.loading = true;
+    render(<LanguageTab />);
 
-describe("LanguageTab", () => {
-  it("offers automatic detection plus the three supported languages, by name", async () => {
-    installFetchMock(routes());
-    render(<LanguageTab hideHeader />);
-
-    const { trigger, options } = await openPicker("dictation-language");
-    // "Automatic" first, then alphabetically by the name shown in the user's
-    // own UI language — not the order the backend happens to list the codes in.
-    // With an English UI that puts English ahead of German; the recognizer
-    // accepts ~100 languages, and an ISO-code ordering would be unreadable.
-    expect(options.map((o) => o.getAttribute("data-value"))).toEqual([
-      "auto",
-      "en",
-      "de",
-      "es",
-    ]);
-    // The row's first span is the name in the user's UI language …
-    expect(options.map((o) => o.querySelector("span > span")?.textContent)).toEqual([
-      "Detect automatically",
-      "English",
-      "German",
-      "Spanish",
-    ]);
-    // … and the second is what the language calls itself, which is how someone
-    // who does not read the interface language finds their own row at all. It
-    // is dropped where it would only repeat the name (English in an English UI).
-    expect(options.map((o) => o.textContent)).toEqual([
-      "Detect automatically",
-      "English",
-      "GermanDeutsch",
-      "Spanishespañol",
-    ]);
-    expect(trigger.getAttribute("data-value")).toBe("auto");
-    // The closed control still names the pick — a chevron alone would not.
-    expect(trigger.textContent).toContain("Detect automatically");
+    expect(screen.getByTestId("voice-language-loading")).toBeTruthy();
+    expect(screen.queryByTestId("voice-language-polish")).toBeNull();
+    expect(screen.queryByTestId("voice-language-error")).toBeNull();
   });
 
-  it("puts the caret in the search field the moment the list opens", async () => {
-    // The panel is not mounted on the render that opens it — it waits for its
-    // first measurement — so focusing it from an effect keyed on "open" runs
-    // against a ref that is still null, and everything the user types goes to
-    // whatever had focus before. That shipped once; this pins it.
-    installFetchMock(routes());
-    render(<LanguageTab hideHeader />);
+  it("says that the settings could not be loaded and loads them again on request", async () => {
+    dictation.state.settings = null;
+    dictation.state.error = "HTTP 500";
+    render(<LanguageTab />);
 
-    await openPicker("dictation-language");
-    expect(document.activeElement).toBe(
-      screen.getByTestId("dictation-language-search"),
-    );
+    const notice = screen.getByTestId("voice-language-error");
+    expect(notice.textContent).toContain("Your language settings could not be loaded.");
+    // The server's own error text is not put on the screen.
+    expect(notice.textContent).not.toContain("HTTP 500");
+    expect(screen.queryByTestId("voice-language-polish")).toBeNull();
+
+    fireEvent.click(screen.getByText("Try again"));
+    await waitFor(() => expect(dictation.state.refetch).toHaveBeenCalledTimes(1));
   });
 
-  it("walks the list and picks with the keyboard", async () => {
-    const calls = installFetchMock(
-      routes({
-        "PUT /api/dictation/settings": () => ({
-          body: { settings: { ...SETTINGS, language: "en" }, persisted: true },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
+  it("says when a change could not be saved, and stops saying it after the next one that was", async () => {
+    dictation.state.saveSettings.mockRejectedValueOnce(new Error("HTTP 500"));
+    show();
 
-    const { panel } = await openPicker("dictation-language");
-    const search = screen.getByTestId("dictation-language-search");
-    // Opens highlighting the stored value ("auto"); one step down is English.
-    fireEvent.keyDown(panel, { key: "ArrowDown" });
-    fireEvent.keyDown(panel, { key: "Enter" });
+    fireEvent.click(toggle("polish"));
+    await waitFor(() => expect(screen.getByTestId("voice-language-save-failed")).toBeTruthy());
 
-    await waitFor(() => {
-      const put = calls.find(
-        (c) => c.method === "PUT" && c.url === "/api/dictation/settings",
-      );
-      expect(JSON.parse(put?.body ?? "{}")).toMatchObject({ language: "en" });
-    });
-    expect(search.isConnected).toBe(false);
+    fireEvent.click(toggle("prompt-mode"));
+    await waitFor(() => expect(screen.queryByTestId("voice-language-save-failed")).toBeNull());
   });
 
-  it("closes on Escape without changing the setting", async () => {
-    const calls = installFetchMock(routes());
-    render(<LanguageTab hideHeader />);
+  it("holds every control while a change is being saved, and saves nothing twice", async () => {
+    const write = pending<void>();
+    dictation.state.saveSettings.mockReturnValueOnce(write.promise);
+    show();
 
-    const { panel, trigger } = await openPicker("dictation-language");
-    fireEvent.keyDown(panel, { key: "Escape" });
+    fireEvent.click(toggle("polish"));
+    await waitFor(() => expect(toggle("precision").disabled).toBe(true));
+    expect(toggle("translate").disabled).toBe(true);
+    expect((screen.getByTestId("voice-language-test") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(toggle("precision"));
+    expect(dictation.state.saveSettings).toHaveBeenCalledTimes(1);
 
-    await waitFor(() =>
-      expect(screen.queryByTestId("dictation-language-panel")).toBeNull(),
-    );
-    // Focus comes back to the control that was operated, not to the page body.
-    expect(document.activeElement).toBe(trigger);
-    expect(
-      calls.some((c) => c.method === "PUT" && c.url === "/api/dictation/settings"),
-    ).toBe(false);
-  });
-
-  it("filters the list by name, own name, or code", async () => {
-    installFetchMock(routes());
-    render(<LanguageTab hideHeader />);
-
-    const { panel } = await openPicker("dictation-language");
-    const search = screen.getByTestId("dictation-language-search");
-
-    // The English name, which is what an English UI shows.
-    fireEvent.change(search, { target: { value: "germ" } });
-    await waitFor(() =>
-      expect(
-        [...panel.querySelectorAll('[role="option"]')].map((o) =>
-          o.getAttribute("data-value"),
-        ),
-      ).toEqual(["de"]),
-    );
-
-    // The language's OWN name — the entry point for someone who cannot read
-    // the interface language they were handed.
-    fireEvent.change(search, { target: { value: "Deutsch" } });
-    await waitFor(() =>
-      expect(
-        [...panel.querySelectorAll('[role="option"]')].map((o) =>
-          o.getAttribute("data-value"),
-        ),
-      ).toEqual(["de"]),
-    );
-
-    // And the bare code, for anyone who already knows it.
-    fireEvent.change(search, { target: { value: "es" } });
-    await waitFor(() =>
-      expect(
-        [...panel.querySelectorAll('[role="option"]')].map((o) =>
-          o.getAttribute("data-value"),
-        ),
-      ).toContain("es"),
-    );
-
-    fireEvent.change(search, { target: { value: "zzzz" } });
-    await waitFor(() =>
-      expect(screen.queryByTestId("dictation-language-empty")).toBeTruthy(),
-    );
-  });
-
-  it("says why automatic is the right choice for almost everyone", async () => {
-    installFetchMock(routes());
-    render(<LanguageTab hideHeader />);
-
-    await waitFor(() =>
-      expect(screen.queryByTestId("dictation-language-hint")).toBeTruthy(),
-    );
-    const hint = screen.getByTestId("dictation-language-hint").textContent ?? "";
-    expect(hint.toLowerCase()).toContain("almost everyone");
-    expect(hint.toLowerCase()).toContain("worse");
-  });
-
-  it("saves the pick through the dictation settings endpoint", async () => {
-    const calls = installFetchMock(
-      routes({
-        "PUT /api/dictation/settings": () => ({
-          body: { settings: { ...SETTINGS, language: "es" }, persisted: true },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    const { options } = await openPicker("dictation-language");
-    fireEvent.click(options.find((o) => o.getAttribute("data-value") === "es")!);
-
-    await waitFor(() => {
-      const put = calls.find(
-        (c) => c.method === "PUT" && c.url === "/api/dictation/settings",
-      );
-      expect(put).toBeTruthy();
-      expect(JSON.parse(put?.body ?? "{}")).toMatchObject({
-        language: "es",
-        persist: true,
-      });
-    });
-    // Picking closes the panel and the trigger carries the new value.
-    expect(screen.queryByTestId("dictation-language-panel")).toBeNull();
-    await waitFor(() =>
-      expect(
-        screen.getByTestId("dictation-language").getAttribute("data-value"),
-      ).toBe("es"),
-    );
-  });
-
-  it("renders its own header when used standalone", async () => {
-    installFetchMock(routes());
-    const { container } = render(<LanguageTab />);
-
-    await waitFor(() =>
-      expect(screen.queryByTestId("dictation-language")).toBeTruthy(),
-    );
-    expect(container.querySelector("header")).toBeTruthy();
+    write.resolve();
+    await waitFor(() => expect(toggle("precision").disabled).toBe(false));
+    expect(dictation.test).not.toHaveBeenCalled();
   });
 });
 
-describe("LanguageTab — the wording pass", () => {
-  it("names the trade: structure is rewritten, meaning and the raw text are kept", async () => {
-    installFetchMock(routes());
-    render(<LanguageTab hideHeader />);
+describe("LanguageTab spoken language", () => {
+  it("offers automatic detection and the served languages by name", () => {
+    show();
 
-    const description = await waitFor(() =>
-      screen.getByTestId("dictation-polish-description"),
-    );
-    const text = (description.textContent ?? "").toLowerCase();
-    expect(text).toContain("punctuation");
-    expect(text).toContain("meaning");
-    expect(text).toContain("history");
+    expect(screen.getByTestId("voice-language-spoken").textContent).toContain("Detect automatically");
+    const labels = options("voice-language-spoken").map((item) => item.textContent ?? "");
+    expect(labels.some((label) => label.includes("Detect automatically"))).toBe(true);
+    expect(labels.some((label) => label.includes("German"))).toBe(true);
+    expect(labels.some((label) => label.includes("Spanish"))).toBe(true);
   });
 
-  it("says the finished transcript is sent to the selected model, and stays visible while the pass is off", async () => {
-    // The description above it explains what the pass CHANGES. This line is
-    // the other half — that the words leave the machine to be changed, and
-    // that the raw text is kept regardless. It is asserted on the switched-OFF
-    // state on purpose: the person deciding whether to turn it on is exactly
-    // the one who has to read it first.
-    installFetchMock(
-      routes({
-        "GET /api/dictation/settings": () => ({
-          body: { settings: { ...SETTINGS, polish: false }, choices: CHOICES },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
+  it("saves the language that is picked", async () => {
+    show();
 
-    const note = await waitFor(() =>
-      screen.getByTestId("dictation-polish-sends-text"),
-    );
-    const text = (note.textContent ?? "").toLowerCase();
-    expect(text).toContain("sent to the selected text model");
-    expect(text).toContain("local speech recognition");
-    expect(text).toContain("explicitly choose a cloud provider");
-    // No scare language and no banner styling: this is a normal cloud feature
-    // the user chose, described plainly.
-    expect(text).not.toContain("warning");
-    expect(note.className).not.toContain("destructive");
-  });
-
-  it("persists the switch through the dictation settings endpoint", async () => {
-    const calls = installFetchMock(
-      routes({
-        "PUT /api/dictation/settings": () => ({
-          body: { settings: { ...SETTINGS, polish: false }, persisted: true },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    const toggle = await waitFor(() =>
-      screen.getByTestId("dictation-polish-toggle"),
-    );
-    expect(toggle.getAttribute("aria-checked")).toBe("true");
-    fireEvent.click(toggle);
-
-    await waitFor(() => {
-      const put = calls.find(
-        (c) => c.method === "PUT" && c.url === "/api/dictation/settings",
-      );
-      expect(put).toBeTruthy();
-      expect(JSON.parse(put?.body ?? "{}")).toMatchObject({
-        polish: false,
-        persist: true,
-      });
-    });
-  });
-
-  it("pins a provider family from the backend's own list", async () => {
-    const calls = installFetchMock(
-      routes({
-        "PUT /api/dictation/settings": () => ({
-          body: {
-            settings: { ...SETTINGS, polish_provider: "gemini" },
-            persisted: true,
-          },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    const { options } = await openPicker("dictation-polish-provider");
-    // The list comes over the wire — a hand-mirrored copy here would be the
-    // AP-4 drift trap this hook deliberately avoids.
-    expect(options.map((o) => o.getAttribute("data-value"))).toEqual([
-      "auto",
-      "groq",
-      "gemini",
-      "openrouter",
-    ]);
-    fireEvent.click(
-      options.find((o) => o.getAttribute("data-value") === "gemini")!,
-    );
-
-    await waitFor(() => {
-      const put = calls.find(
-        (c) => c.method === "PUT" && c.url === "/api/dictation/settings",
-      );
-      expect(JSON.parse(put?.body ?? "{}")).toMatchObject({
-        polish_provider: "gemini",
-        persist: true,
-      });
-    });
-  });
-
-  it("shows the sample before and after when the test runs", async () => {
-    installFetchMock(
-      routes({ "POST /api/dictation/polish/test": () => ({ body: POLISH_TEST }) }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    fireEvent.click(
-      await waitFor(() => screen.getByTestId("dictation-polish-test")),
-    );
-
+    fireEvent.click(option("voice-language-spoken", "German"));
     await waitFor(() =>
-      expect(screen.queryByTestId("dictation-polish-test-result")).toBeTruthy(),
-    );
-    expect(screen.getByTestId("dictation-polish-sample-in").textContent).toBe(
-      POLISH_TEST.sample_in,
-    );
-    expect(screen.getByTestId("dictation-polish-sample-out").textContent).toBe(
-      POLISH_TEST.sample_out,
-    );
-    // The status is translated, never the raw backend token.
-    const result = screen.getByTestId("dictation-polish-test-result");
-    expect(result.textContent).toContain("Cleaned up");
-    expect(result.textContent).not.toContain("applied");
-  });
-
-  it("hides the provider and the test while the pass is switched off", async () => {
-    installFetchMock(
-      routes({
-        "GET /api/dictation/settings": () => ({
-          body: { settings: { ...SETTINGS, polish: false }, choices: CHOICES },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    await waitFor(() =>
-      expect(screen.queryByTestId("dictation-polish-toggle")).toBeTruthy(),
-    );
-    expect(screen.queryByTestId("dictation-polish-provider")).toBeNull();
-    expect(screen.queryByTestId("dictation-polish-test")).toBeNull();
-  });
-
-  // ------------------------------------------------------------------
-  // Precision mode — the word-choice switch that relaxes a guard
-  // ------------------------------------------------------------------
-
-  it("keeps precision off until it is asked for", async () => {
-    installFetchMock(routes());
-    render(<LanguageTab hideHeader />);
-
-    const toggle = await waitFor(() =>
-      screen.getByTestId("dictation-precision-toggle"),
-    );
-    // Off by default, unlike the wording switch above it: this one relaxes the
-    // check that rejects an answer in which an uncommon word vanished, and a
-    // trade like that is never inherited from a default.
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-    // And the card says so, rather than leaving the user to discover it.
-    expect(screen.getByTestId("dictation-precision-tradeoff").textContent).toBeTruthy();
-  });
-
-  it("saves the precision switch", async () => {
-    const calls = installFetchMock(
-      routes({
-        "PUT /api/dictation/settings": () => ({
-          body: { settings: { ...SETTINGS, polish_precision: true }, persisted: true },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    fireEvent.click(
-      await waitFor(() => screen.getByTestId("dictation-precision-toggle")),
-    );
-
-    await waitFor(() => {
-      const put = calls.find(
-        (c) => c.method === "PUT" && c.url === "/api/dictation/settings",
-      );
-      expect(JSON.parse(put?.body ?? "{}")).toMatchObject({
-        polish_precision: true,
-        persist: true,
-      });
-    });
-  });
-
-  it("still shows the precision switch when the formatter is off", async () => {
-    // It governs a TRANSLATED dictation too, and a translation runs with the
-    // formatter switched off. Hiding it there would leave a switch silently in
-    // force with no way to see or reach it (AP-31).
-    installFetchMock(
-      routes({
-        "GET /api/dictation/settings": () => ({
-          body: { settings: { ...SETTINGS, polish: false }, choices: CHOICES },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    await waitFor(() =>
-      expect(screen.queryByTestId("dictation-precision-toggle")).toBeTruthy(),
+      expect(dictation.state.saveSettings).toHaveBeenCalledWith({ language: "de" }),
     );
   });
-
-  // ------------------------------------------------------------------
-  // Prompt Mode — the dictation becomes a brief for a coding agent
-  // ------------------------------------------------------------------
-
-  it("keeps Prompt Mode off until it is asked for, and says where the words go", async () => {
-    installFetchMock(routes());
-    render(<LanguageTab hideHeader />);
-
-    const toggle = await waitFor(() =>
-      screen.getByTestId("dictation-prompt-mode-toggle"),
-    );
-    // Off by default: it rewrites WHAT the dictation says, on purpose, and
-    // sends the words to the Agentic IDE's writer — a cloud model on most
-    // installs. Neither is inherited from a default.
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-    expect(
-      screen.getByTestId("dictation-prompt-mode-sends-text").textContent,
-    ).toBeTruthy();
-    // The "outranks the other passes" note describes nothing while off.
-    expect(screen.queryByTestId("dictation-prompt-mode-outranks")).toBeNull();
-  });
-
-  it("saves the Prompt Mode switch and then explains what steps back", async () => {
-    const calls = installFetchMock(
-      routes({
-        "PUT /api/dictation/settings": () => ({
-          body: { settings: { ...SETTINGS, prompt_mode: true }, persisted: true },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    fireEvent.click(
-      await waitFor(() => screen.getByTestId("dictation-prompt-mode-toggle")),
-    );
-
-    await waitFor(() => {
-      const put = calls.find(
-        (c) => c.method === "PUT" && c.url === "/api/dictation/settings",
-      );
-      expect(JSON.parse(put?.body ?? "{}")).toMatchObject({
-        prompt_mode: true,
-        persist: true,
-      });
-    });
-    await waitFor(() =>
-      expect(screen.queryByTestId("dictation-prompt-mode-outranks")).toBeTruthy(),
-    );
-    expect(
-      screen.getByTestId("dictation-prompt-mode-writer-hint").textContent,
-    ).toBeTruthy();
-  });
-
-  // ------------------------------------------------------------------
-  // Conversation transcripts — the same pass, a second source
-  // ------------------------------------------------------------------
-
-  it("keeps conversation polish off until it is asked for", async () => {
-    installFetchMock(routes());
-    render(<LanguageTab hideHeader />);
-
-    const toggle = await waitFor(() =>
-      screen.getByTestId("dictation-conversation-toggle"),
-    );
-    // Off by default on COST, not safety: a conversation produces a turn every
-    // few seconds and each one would spend a model call.
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-    // And the latency question is answered before anyone has to ask it.
-    expect(
-      screen.getByTestId("dictation-conversation-latency").textContent,
-    ).toBeTruthy();
-  });
-
-  it("saves the conversation switch", async () => {
-    const calls = installFetchMock(
-      routes({
-        "PUT /api/dictation/settings": () => ({
-          body: {
-            settings: { ...SETTINGS, polish_conversation: true },
-            persisted: true,
-          },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    fireEvent.click(
-      await waitFor(() => screen.getByTestId("dictation-conversation-toggle")),
-    );
-
-    await waitFor(() => {
-      const put = calls.find(
-        (c) => c.method === "PUT" && c.url === "/api/dictation/settings",
-      );
-      expect(JSON.parse(put?.body ?? "{}")).toMatchObject({
-        polish_conversation: true,
-        persist: true,
-      });
-    });
-  });
-
-  it("hides the conversation switch when the formatter is off", async () => {
-    // Unlike precision, this one genuinely needs the formatter — it switches
-    // the same pass on for a second source. A visible switch that saves, reads
-    // as on and does nothing is the AP-31 shape.
-    installFetchMock(
-      routes({
-        "GET /api/dictation/settings": () => ({
-          body: { settings: { ...SETTINGS, polish: false }, choices: CHOICES },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    await waitFor(() =>
-      expect(screen.queryByTestId("dictation-polish-toggle")).toBeTruthy(),
-    );
-    expect(screen.queryByTestId("dictation-conversation-toggle")).toBeNull();
-  });
-
-  // ------------------------------------------------------------------
-  // Translation — same tab, and the switch that changes which words come out
-  // ------------------------------------------------------------------
-
-  it("keeps translation off until it is asked for, and hides its target", async () => {
-    installFetchMock(routes());
-    render(<LanguageTab hideHeader />);
-
-    const toggle = await waitFor(() =>
-      screen.getByTestId("dictation-translate-toggle"),
-    );
-    // The one switch on this screen that ships off. It changes WHICH WORDS are
-    // delivered, so an install that never asked for it must not acquire it.
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-    expect(screen.queryByTestId("dictation-translate-target")).toBeNull();
-  });
-
-  it("saves the switch and then offers the target language", async () => {
-    const calls = installFetchMock(
-      routes({ "PUT /api/dictation/settings": () => ({ body: { ok: true } }) }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    fireEvent.click(
-      await waitFor(() => screen.getByTestId("dictation-translate-toggle")),
-    );
-
-    await waitFor(() =>
-      expect(
-        calls.some(
-          (c) =>
-            c.method === "PUT" &&
-            c.url.includes("/api/dictation/settings") &&
-            JSON.parse(c.body ?? "{}").translate === true,
-        ),
-      ).toBe(true),
-    );
-  });
-
-  it("offers target languages by name and never an automatic entry", async () => {
-    installFetchMock(
-      routes({
-        "GET /api/dictation/settings": () => ({
-          body: { settings: { ...SETTINGS, translate: true }, choices: CHOICES },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    const { options } = await openPicker("dictation-translate-target");
-    const labels = options.map((o) => o.textContent ?? "");
-    // Named, not coded — the same reasoning as the recognition picker above.
-    expect(labels.some((l) => l.includes("English"))).toBe(true);
-    expect(labels.some((l) => l.includes("German"))).toBe(true);
-    // "Detect automatically" is a coherent answer to what am I speaking and no
-    // answer at all to what should come out. Offering it would be a dropdown
-    // entry that resolves to translating nothing.
-    expect(labels.some((l) => l.includes("Automatic"))).toBe(false);
-    expect(labels.some((l) => l.includes("Detect"))).toBe(false);
-  });
-
-  it("says so when the pinned dictation language equals the target", async () => {
-    installFetchMock(
-      routes({
-        "GET /api/dictation/settings": () => ({
-          body: {
-            // Speaking English and writing English: both settings are legal, and
-            // together they mean nothing is ever translated. Said out loud
-            // rather than silently ignored.
-            settings: { ...SETTINGS, translate: true, language: "en" },
-            choices: CHOICES,
-          },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    await waitFor(() =>
-      expect(screen.queryByTestId("dictation-translate-same-language")).toBeTruthy(),
-    );
-  });
-
-  it("stays quiet about the language clash while detection is automatic", async () => {
-    installFetchMock(
-      routes({
-        "GET /api/dictation/settings": () => ({
-          body: { settings: { ...SETTINGS, translate: true }, choices: CHOICES },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    await waitFor(() =>
-      expect(screen.queryByTestId("dictation-translate-target")).toBeTruthy(),
-    );
-    expect(screen.queryByTestId("dictation-translate-same-language")).toBeNull();
-  });
-
-  // ------------------------------------------------------------------
-  // The translate card's own provider + credential block
-  // ------------------------------------------------------------------
-  // Translation runs even with the formatter switched OFF, but the only
-  // provider picker used to live inside the formatter's block. So a user could
-  // turn translation on, see a switch that read as enabled, and have no way at
-  // all to choose a provider or supply the key it needs — the switch that saves
-  // and does nothing (AP-31).
-
-  it("names the provider that will actually answer a translation", async () => {
-    installFetchMock(
-      routes({
-        "GET /api/dictation/settings": () => ({
-          body: {
-            settings: { ...SETTINGS, translate: true },
-            choices: CHOICES,
-            wording_provider: WORDING_READY,
-          },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    const name = await waitFor(() =>
-      screen.getByTestId("dictation-translate-provider-name"),
-    );
-    expect(name.textContent).toContain("Groq");
-    // Nothing to fix, so nothing is asked for.
-    expect(screen.queryByTestId("dictation-wording-key")).toBeNull();
-  });
-
-  it("asks for the key right here when nothing can answer", async () => {
-    installFetchMock(
-      routes({
-        "GET /api/dictation/settings": () => ({
-          body: {
-            settings: { ...SETTINGS, translate: true, polish: false },
-            choices: CHOICES,
-            wording_provider: WORDING_UNSET,
-          },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    // The honest sentence first: the switch is on and nothing is translated.
-    const notice = await waitFor(() =>
-      screen.getByTestId("dictation-translate-no-provider"),
-    );
-    expect(notice.textContent).toBeTruthy();
-    // And the field that fixes it, on the same card.
-    expect(screen.getByTestId("dictation-wording-key")).toBeTruthy();
-  });
-
-  it("offers the shared provider picker when only translation is on", async () => {
-    installFetchMock(
-      routes({
-        "GET /api/dictation/settings": () => ({
-          body: {
-            settings: { ...SETTINGS, translate: true, polish: false },
-            choices: CHOICES,
-            wording_provider: WORDING_UNSET,
-          },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    expect(
-      await waitFor(() =>
-        screen.getByTestId("dictation-polish-provider"),
-      ),
-    ).toBeTruthy();
-  });
-
-  it("does not show a second picker when the formatter already has one", async () => {
-    installFetchMock(
-      routes({
-        "GET /api/dictation/settings": () => ({
-          body: {
-            settings: { ...SETTINGS, translate: true, polish: true },
-            choices: CHOICES,
-            wording_provider: WORDING_READY,
-          },
-        }),
-      }),
-    );
-    render(<LanguageTab hideHeader />);
-
-    // The formatter's own picker is on screen...
-    expect(
-      await waitFor(() => screen.getByTestId("dictation-polish-provider")),
-    ).toBeTruthy();
-    // ...so the translate card does not repeat it as a second setting.
-    expect(
-      screen.queryByTestId("dictation-translate-polish-provider"),
-    ).toBeNull();
-  });
-
 });
 
+describe("LanguageTab wording", () => {
+  it.each([
+    ["polish", { polish: false }, {}],
+    ["precision", { polish_precision: true }, {}],
+    ["conversation", { polish_conversation: true }, {}],
+    ["prompt-mode", { prompt_mode: true }, {}],
+    ["translate", { translate: true }, {}],
+    ["translate", { translate: false }, { translate: true }],
+  ] as const)("saves the %s switch as %o", async (name, patch, start) => {
+    show(start);
 
-describe("LanguageTab feature combinations", () => {
-  it("ignores a late test result after settings change on another surface", async () => {
-    installFetchMock(routes());
-    const original = globalThis.fetch;
-    let finish!: () => void;
-    globalThis.fetch = async (input, init) => {
-      if (String(input) === "/api/dictation/polish/test") {
-        await new Promise<void>((resolve) => { finish = resolve; });
-        return { ok: true, json: async () => POLISH_TEST } as Response;
-      }
-      return original(input, init);
-    };
-    render(<LanguageTab hideHeader />);
-    const button = await waitFor(() => screen.getByTestId("dictation-polish-test"));
-    fireEvent.click(button);
-    fireEvent(window, new CustomEvent(DICTATION_SETTINGS_EVENT, {
-      detail: { settings: { polish_precision: true } },
-    }));
-    finish();
-    await waitFor(() => expect(button.hasAttribute("disabled")).toBe(false));
-    expect(screen.queryByTestId("dictation-polish-test-result")).toBeNull();
+    fireEvent.click(toggle(name));
+    await waitFor(() => expect(dictation.state.saveSettings).toHaveBeenCalledWith(patch));
+    expect(dictation.state.saveSettings).toHaveBeenCalledTimes(1);
   });
 
+  it("reads a missing switch as its default: clean-up on, everything else off", () => {
+    show({
+      polish: undefined,
+      polish_precision: undefined,
+      polish_conversation: undefined,
+      prompt_mode: undefined,
+      translate: undefined,
+    });
+
+    expect(toggle("polish").getAttribute("aria-checked")).toBe("true");
+    expect(toggle("precision").getAttribute("aria-checked")).toBe("false");
+    expect(toggle("conversation").getAttribute("aria-checked")).toBe("false");
+    expect(toggle("prompt-mode").getAttribute("aria-checked")).toBe("false");
+    expect(toggle("translate").getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("keeps the exact-words switch reachable while clean-up is off", () => {
+    show({ polish: false });
+
+    expect(toggle("precision")).toBeTruthy();
+  });
+
+  it("offers the conversation switch only while wording is on", () => {
+    show({ polish: false, polish_precision: false });
+    expect(screen.queryByTestId("voice-language-conversation")).toBeNull();
+    cleanup();
+
+    // Exact words alone keep the wording model at work.
+    show({ polish: false, polish_precision: true });
+    expect(toggle("conversation")).toBeTruthy();
+  });
+});
+
+describe("LanguageTab translation", () => {
+  it("shows the target language only while translation is on", () => {
+    show({ translate: false });
+    expect(screen.queryByTestId("voice-language-translate-target")).toBeNull();
+    cleanup();
+
+    show({ translate: true, translate_target: "es" });
+    expect(screen.getByTestId("voice-language-translate-target").textContent).toContain("Spanish");
+  });
+
+  it("offers the target languages by name and no automatic entry", () => {
+    show({ translate: true });
+
+    const labels = options("voice-language-translate-target").map((item) => item.textContent ?? "");
+    expect(labels.some((label) => label.includes("German"))).toBe(true);
+    expect(labels.some((label) => label.includes("Detect automatically"))).toBe(false);
+  });
+
+  it("saves the target language that is picked", async () => {
+    show({ translate: true });
+
+    fireEvent.click(option("voice-language-translate-target", "German"));
+    await waitFor(() =>
+      expect(dictation.state.saveSettings).toHaveBeenCalledWith({ translate_target: "de" }),
+    );
+  });
+
+  it("says when the spoken and the written language are the same", () => {
+    show({ translate: true, language: "en", translate_target: "en" });
+
+    expect(screen.getByTestId("voice-language-same-language").textContent).toContain(
+      "nothing is translated",
+    );
+  });
+
+  it.each([
+    ["detection is automatic", { translate: true, language: "auto", translate_target: "en" }],
+    ["the two languages differ", { translate: true, language: "de", translate_target: "en" }],
+    ["translation is off", { translate: false, language: "en", translate_target: "en" }],
+  ] as const)("says nothing about the same language while %s", (_case, settings) => {
+    show(settings);
+
+    expect(screen.queryByTestId("voice-language-same-language")).toBeNull();
+  });
+});
+
+describe("LanguageTab where the text goes", () => {
+  it("names the company in the wording group while clean-up is on", () => {
+    show({ polish: true });
+
+    const sentence = screen.getByTestId("voice-language-sends-text");
+    expect(sentence.textContent).toBe("Your text is sent to Groq.");
+    expect(screen.getByTestId("voice-language-wording").contains(sentence)).toBe(true);
+    expect(screen.queryByTestId("voice-language-translate-sends-text")).toBeNull();
+  });
+
+  it("names it for the coding prompt as well, once", () => {
+    show({ polish: false, prompt_mode: true });
+
+    expect(screen.getAllByTestId("voice-language-sends-text")).toHaveLength(1);
+  });
+
+  it("names it in the translation group while translation is on", () => {
+    show({ polish: false, translate: true });
+
+    const sentence = screen.getByTestId("voice-language-translate-sends-text");
+    expect(sentence.textContent).toBe("Your text is sent to Groq for translation.");
+    expect(screen.getByTestId("voice-language-translation").contains(sentence)).toBe(true);
+    // Wording and the coding prompt are off, so their group says nothing.
+    expect(screen.queryByTestId("voice-language-sends-text")).toBeNull();
+  });
+
+  it("says nothing while every option that uses the model is off", () => {
+    show({ polish: false });
+
+    expect(screen.queryByTestId("voice-language-sends-text")).toBeNull();
+    expect(screen.queryByTestId("voice-language-translate-sends-text")).toBeNull();
+  });
+
+  it("says nothing when the model runs on this computer", () => {
+    show({ polish: true, translate: true, polish_provider: "ollama" }, OLLAMA_READY);
+
+    expect(screen.queryByTestId("voice-language-sends-text")).toBeNull();
+    expect(screen.queryByTestId("voice-language-translate-sends-text")).toBeNull();
+    // The select says where it runs instead.
+    expect(screen.getByTestId("voice-language-model").textContent).toContain(
+      "Ollama on this computer",
+    );
+  });
+
+  it("says nothing when no model answers", () => {
+    show({ polish: true, translate: true }, GROQ_NO_KEY);
+
+    expect(screen.queryByTestId("voice-language-sends-text")).toBeNull();
+    expect(screen.queryByTestId("voice-language-translate-sends-text")).toBeNull();
+  });
+});
+
+describe("LanguageTab model", () => {
   it.each(Array.from({ length: 16 }, (_, mask) => mask))(
-    "offers one provider and test control for active combination %i", async (mask) => {
-      installFetchMock(routes({
-        "GET /api/dictation/settings": () => ({ body: {
-          settings: { ...SETTINGS, polish: Boolean(mask & 1), polish_precision: Boolean(mask & 2), prompt_mode: Boolean(mask & 4), translate: Boolean(mask & 8) },
-          choices: CHOICES, wording_provider: WORDING_READY,
-        } }),
-      }));
-      render(<LanguageTab hideHeader />);
-      await waitFor(() => expect(screen.getByTestId("dictation-polish-toggle").hasAttribute("disabled")).toBe(false));
-      expect(screen.queryAllByTestId("dictation-polish-provider")).toHaveLength(mask ? 1 : 0);
-      expect(screen.queryAllByTestId("dictation-polish-test")).toHaveLength(mask ? 1 : 0);
+    "shows one model select and one test exactly when an option uses the model (combination %i)",
+    (mask) => {
+      show({
+        polish: Boolean(mask & 1),
+        polish_precision: Boolean(mask & 2),
+        prompt_mode: Boolean(mask & 4),
+        translate: Boolean(mask & 8),
+      });
+
+      expect(screen.queryAllByTestId("voice-language-model")).toHaveLength(mask ? 1 : 0);
+      expect(screen.queryAllByTestId("voice-language-test")).toHaveLength(mask ? 1 : 0);
     },
   );
 
-  it("keeps controls stable while a settings write is pending", async () => {
-    const calls = installFetchMock(routes());
-    const original = globalThis.fetch;
-    let finish!: () => void;
-    globalThis.fetch = async (input, init) => {
-      if (String(input) === "/api/dictation/settings" && init?.method === "PUT") {
-        await new Promise<void>((resolve) => { finish = resolve; });
-        return { ok: true, json: async () => ({ settings: { ...SETTINGS, polish: false } }) } as Response;
-      }
-      return original(input, init);
-    };
-    render(<LanguageTab hideHeader />);
-    const toggle = await waitFor(() => screen.getByTestId("dictation-polish-toggle"));
-    fireEvent.click(toggle);
-    expect(screen.getByTestId("dictation-precision-toggle").hasAttribute("disabled")).toBe(true);
-    expect(screen.getByTestId("dictation-polish-test").hasAttribute("disabled")).toBe(true);
-    finish();
-    await waitFor(() => expect(toggle.hasAttribute("disabled")).toBe(false));
-    expect(calls.some(c => c.url === "/api/dictation/polish/test")).toBe(false);
+  it("lists the served models by name and marks the one on this computer", () => {
+    show();
+
+    const labels = options("voice-language-model").map((item) => item.textContent ?? "");
+    expect(labels).toHaveLength(4);
+    expect(labels[0]).toContain("Automatic");
+    expect(labels[1]).toContain("Groq");
+    expect(labels[2]).toContain("Google Gemini");
+    expect(labels[3]).toContain("Ollama on this computer");
+  });
+
+  it("names the model the automatic choice lands on", () => {
+    show({ polish_provider: "auto" }, GROQ_READY);
+
+    expect(screen.getByTestId("voice-language-model").textContent).toContain("Automatic (Groq)");
+  });
+
+  it("names no model for the automatic choice when none answers", () => {
+    show({ polish_provider: "auto" }, GROQ_NO_KEY);
+
+    const text = screen.getByTestId("voice-language-model").textContent ?? "";
+    expect(text).toContain("Automatic");
+    expect(text).not.toContain("Groq");
+  });
+
+  it("saves the picked model and clears the stored version of the old one", async () => {
+    show();
+
+    fireEvent.click(option("voice-language-model", "Google Gemini"));
+    await waitFor(() =>
+      expect(dictation.state.saveSettings).toHaveBeenCalledWith({
+        polish_provider: "gemini",
+        polish_model: "",
+      }),
+    );
+  });
+
+  it("shows a stored model the served list does not hold as itself", () => {
+    show({ polish_provider: "cerebras" });
+
+    expect(screen.getByTestId("voice-language-model").textContent).toContain("Cerebras");
+    expect(options("voice-language-model")).toHaveLength(5);
+  });
+
+  it("says that no model is set up and asks for the key that is missing", () => {
+    show({ polish: false, translate: true }, GROQ_NO_KEY);
+
+    expect(screen.getByTestId("voice-language-no-model").textContent).toContain(
+      "No model is set up for this yet.",
+    );
+    const row = screen.getByTestId("voice-language-key");
+    expect(row.textContent).toContain("Groq key");
+    expect(screen.getByTestId("voice-language-key-field-input")).toBeTruthy();
+  });
+
+  it("asks for no key while a model answers or while nothing uses the model", () => {
+    show({ polish: true }, GROQ_READY);
+    expect(screen.queryByTestId("voice-language-no-model")).toBeNull();
+    expect(screen.queryByTestId("voice-language-key")).toBeNull();
+    cleanup();
+
+    show({ polish: false }, GROQ_NO_KEY);
+    expect(screen.queryByTestId("voice-language-no-model")).toBeNull();
+    expect(screen.queryByTestId("voice-language-key")).toBeNull();
+  });
+
+  it("saves the missing key to its slot and reads both lists again", async () => {
+    const heard: string[] = [];
+    const listen = (event: Event) => heard.push((event as CustomEvent).detail.key);
+    window.addEventListener("jarvis:secret-configured", listen);
+    show({ polish: true }, GROQ_NO_KEY);
+
+    fireEvent.change(screen.getByTestId("voice-language-key-field-input"), {
+      target: { value: "gsk_example" },
+    });
+    fireEvent.click(screen.getByTestId("voice-language-key-field-save"));
+
+    await waitFor(() => expect(dictation.state.refetch).toHaveBeenCalled());
+    window.removeEventListener("jarvis:secret-configured", listen);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe("/api/secrets/groq_api_key");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({ value: "gsk_example" });
+    expect(catalog.state.refetch).toHaveBeenCalled();
+    expect(heard).toEqual(["groq_api_key"]);
+  });
+});
+
+describe("LanguageTab sample test", () => {
+  it("shows the sample before and after", async () => {
+    show();
+
+    fireEvent.click(screen.getByTestId("voice-language-test"));
+    await waitFor(() => expect(screen.getByTestId("voice-language-sample-result")).toBeTruthy());
+    expect(screen.getByTestId("voice-language-sample-before").textContent).toBe(SAMPLE.sample_in);
+    expect(screen.getByTestId("voice-language-sample-after").textContent).toBe(SAMPLE.sample_out);
+  });
+
+  it.each([
+    ["unavailable", "No model answered."],
+    ["timeout", "The model took too long."],
+    ["local_only", "The text stayed on this computer and was not changed."],
+    ["a_status_from_a_newer_server", "The text was not changed."],
+  ])("says in one sentence why the sample was not changed (%s)", async (status, sentence) => {
+    dictation.test.mockResolvedValue({ ...SAMPLE, status, sample_out: SAMPLE.sample_in });
+    show();
+
+    fireEvent.click(screen.getByTestId("voice-language-test"));
+    await waitFor(() =>
+      expect(screen.getByTestId("voice-language-sample-unchanged").textContent).toBe(sentence),
+    );
+    expect(screen.queryByTestId("voice-language-sample-result")).toBeNull();
+  });
+
+  it("says when the test could not run", async () => {
+    dictation.test.mockRejectedValue(new Error("HTTP 500"));
+    show();
+
+    fireEvent.click(screen.getByTestId("voice-language-test"));
+    await waitFor(() =>
+      expect(screen.getByTestId("voice-language-sample-fault").textContent).toContain(
+        "The test could not run.",
+      ),
+    );
+  });
+
+  it("drops a result that arrives after the settings changed on another screen", async () => {
+    const run = pending<DictationPolishTest>();
+    dictation.test.mockReturnValue(run.promise);
+    const view = show();
+    const button = screen.getByTestId("voice-language-test") as HTMLButtonElement;
+
+    fireEvent.click(button);
+    await waitFor(() => expect(button.disabled).toBe(true));
+    // The hook hands over a new settings object, as it does after a change
+    // made on the assistant's bar.
+    dictation.state.settings = { ...SETTINGS, polish_precision: true };
+    view.rerender(<LanguageTab />);
+    run.resolve(SAMPLE);
+
+    await waitFor(() => expect(button.disabled).toBe(false));
+    expect(screen.queryByTestId("voice-language-sample-result")).toBeNull();
+  });
+
+  it("removes the result when a setting is changed here", async () => {
+    show();
+    fireEvent.click(screen.getByTestId("voice-language-test"));
+    await waitFor(() => expect(screen.getByTestId("voice-language-sample-result")).toBeTruthy());
+
+    fireEvent.click(toggle("precision"));
+    await waitFor(() => expect(screen.queryByTestId("voice-language-sample-result")).toBeNull());
   });
 });

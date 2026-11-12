@@ -12,13 +12,14 @@
  * shortcuts, the language and the speech-to-text keys — so it must stay
  * highlighted for all of them.
  *
- * The label is only the entrance: the body copy behind it has to hold the same
- * rule, so this file also covers the section's "API Keys" tab and the locale
- * values it renders.
+ * The label is only the entrance: the screens behind it have to hold the same
+ * rule. The section's Language and API Keys tabs say nothing about the
+ * assistant, so for them the rule is the negative half: no name is written
+ * into what they render or into any string of the section's locale files.
  */
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import enJson from "@/i18n/locales/en.json";
 import deJson from "@/i18n/locales/de.json";
@@ -31,8 +32,7 @@ vi.mock("@/hooks/usePluginAttention", () => ({
   usePluginAttention: () => ({ count: 0, names: [] }),
 }));
 
-// useVoiceMode fetches /api/settings/voice-mode — same reason. The shape covers
-// both consumers in this file: the rail and the API-Keys tab's engine switch.
+// useVoiceMode fetches /api/settings/voice-mode — same reason.
 vi.mock("@/hooks/useVoiceMode", () => ({
   useVoiceMode: () => ({
     mode: "pipeline",
@@ -77,9 +77,48 @@ vi.mock("@/hooks/useProviders", async (importOriginal) => {
   };
 });
 
+// The Language tab reads the dictation settings. Every option is on and a
+// company's model answers, so each sentence the tab can show is on screen.
+vi.mock("@/hooks/useDictation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/useDictation")>();
+  const state = {
+    settings: {
+      language: "en",
+      polish: true,
+      polish_provider: "auto",
+      polish_model: "",
+      polish_precision: true,
+      polish_conversation: true,
+      prompt_mode: true,
+      translate: true,
+      translate_target: "en",
+    },
+    choices: {
+      language: ["auto", "de", "en"],
+      polish_provider: ["auto", "test-model"],
+      translate_target: ["de", "en"],
+    },
+    wordingProvider: {
+      family: "test-model",
+      label: "Test Model Service",
+      spec_id: "test-model-polish",
+      secret_key: "TEST_MODEL_API_KEY",
+      needs_key: true,
+      ready: true,
+    },
+    loading: false,
+    error: null,
+    saveSettings: vi.fn(),
+    refetch: vi.fn(),
+  };
+  return { ...actual, useDictation: () => state };
+});
+
 import { DockRail } from "@/components/layout/DockRail";
-import { VoiceApiKeysTab } from "@/views/voice/VoiceApiKeysTab";
+import { ApiKeysTab } from "@/views/voice/ApiKeysTab";
+import { LanguageTab } from "@/views/voice/LanguageTab";
 import type { ProviderDescriptor } from "@/hooks/useProviders";
+import { loadLocaleChunk } from "@/i18n";
 import { useEventStore, type SectionId } from "@/store/events";
 
 /**
@@ -146,15 +185,18 @@ function renderRail() {
   );
 }
 
-function renderVoiceApiKeysTab() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={client}>
-      <VoiceApiKeysTab />
-    </QueryClientProvider>,
-  );
+/** The product's own name is held to the same rule on the section's screens. */
+const FORBIDDEN_ON_VOICE_SCREENS = [...FORBIDDEN_NAMES, "dodaios"] as const;
+
+function expectNoNameOnVoiceScreen(text: string, where: string): void {
+  for (const forbidden of FORBIDDEN_ON_VOICE_SCREENS) {
+    expect(
+      text.toLowerCase().includes(forbidden),
+      `${where} must not hardcode "${forbidden}": ${text}`,
+    ).toBe(false);
+  }
+  // A `{name}` left in the output is a token nobody filled in.
+  expect(text, `${where} must not show a raw {name} token`).not.toContain("{name}");
 }
 
 /** Every section the one voice row fronts. */
@@ -223,7 +265,14 @@ describe("voice section row brand", () => {
   });
 });
 
-describe("voice API-Keys tab brand", () => {
+describe("voice tab brand", () => {
+  // The tabs are painted only once the section's strings are resident; without
+  // them the screens would show keys, and the checks below would pass on text
+  // nobody ever sees.
+  beforeAll(async () => {
+    await loadLocaleChunk("voice");
+  });
+
   beforeEach(() => {
     useEventStore.setState({ assistantName: PINNED_BRAND });
   });
@@ -233,45 +282,69 @@ describe("voice API-Keys tab brand", () => {
     useEventStore.setState({ assistantName: "Assistant" });
   });
 
-  it("keeps every rendered word free of a hardcoded assistant name", () => {
-    const { container } = renderVoiceApiKeysTab();
+  it("keeps every rendered word of the API Keys tab free of a hardcoded name", () => {
+    const { container } = render(<ApiKeysTab />);
 
-    expectBrandInterpolated(container.textContent ?? "", "the voice API-Keys tab body copy");
+    const text = container.textContent ?? "";
+    // Real strings are on screen, not keys.
+    expect(text).toContain("Speech to text");
+    expect(text).not.toContain("voiceui.");
+    expectNoNameOnVoiceScreen(text, "the voice API Keys tab");
   });
 
-  it("really substitutes the configured brand into its body copy", () => {
-    renderVoiceApiKeysTab();
+  it("keeps every rendered word of the Language tab free of a hardcoded name", () => {
+    const { container } = render(<LanguageTab />);
 
-    // Proves the copy still SPEAKS about the assistant — a description that
-    // dropped the reference entirely would pass the negative check above while
-    // silently losing the sentence's subject.
-    const body = screen.getByTestId("voice-api-keys-tab").textContent ?? "";
-    expect(body).toContain(PINNED_BRAND);
-  });
-
-  it("follows a rename without a remount", () => {
-    const { container } = renderVoiceApiKeysTab();
-    expect(container.textContent).toContain(PINNED_BRAND);
-
-    act(() => {
-      useEventStore.setState({ assistantName: "Atlas" });
-    });
-
-    expect(container.textContent).toContain("Atlas");
-    expectBrandInterpolated(container.textContent ?? "", "the renamed voice API-Keys tab");
+    const text = container.textContent ?? "";
+    // The sentences about where the text goes name the model's company and
+    // nothing else.
+    expect(text).toContain("Your text is sent to Test Model Service.");
+    expect(text).not.toContain("voiceui.");
+    expectNoNameOnVoiceScreen(text, "the voice Language tab");
   });
 });
 
 /**
- * The locale-level root cause. The rendered checks above only see the keys this
- * one tab happens to mount; these pin the values themselves, in every locale,
- * so a translation cannot reintroduce the literal name through a surface no
- * test renders.
+ * The same rule at its source: every string of the Voice section, in every
+ * language and for every tab, including the ones no test above renders.
+ */
+describe("voice section locale files", () => {
+  const files = import.meta.glob<{ default: unknown }>("@/i18n/locales/voice/*.json", {
+    eager: true,
+  });
+
+  function strings(value: unknown): string[] {
+    if (typeof value === "string") return [value];
+    if (!value || typeof value !== "object") return [];
+    return Object.values(value as Record<string, unknown>).flatMap(strings);
+  }
+
+  it("finds the section's files", () => {
+    expect(Object.keys(files).length).toBeGreaterThan(0);
+  });
+
+  it.each(Object.keys(files))("%s names neither the assistant nor the product", (path) => {
+    for (const value of strings(files[path].default)) {
+      for (const forbidden of FORBIDDEN_ON_VOICE_SCREENS) {
+        expect(
+          value.toLowerCase().includes(forbidden),
+          `${path} must not hardcode "${forbidden}": ${value}`,
+        ).toBe(false);
+      }
+    }
+  });
+});
+
+/**
+ * The app's main API Keys screen still describes its speech tiers with the
+ * assistant's name. These pin the values themselves, in every locale, so a
+ * translation cannot reintroduce the literal name through a surface no test
+ * renders.
  */
 describe("voice locale copy", () => {
   const LOCALES = { en: enJson, de: deJson, es: esJson, pt: ptJson } as const;
 
-  // The descriptions the merged voice section and the API-Keys view share.
+  // The descriptions of the voice tiers on the main API Keys screen.
   const NAME_BEARING_KEYS = [
     "voice_engine_desc",
     "cat_tts_desc",

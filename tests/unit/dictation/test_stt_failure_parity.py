@@ -34,7 +34,7 @@ from dodaios.speech.stt_failure import (
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _FRONTEND = _REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "src"
 _DICTATION_TS = _FRONTEND / "hooks" / "useDictation.ts"
-_HISTORY_GROUP_TSX = _FRONTEND / "views" / "voice" / "DictationHistoryGroup.tsx"
+_HISTORY_ENTRY_TSX = _FRONTEND / "views" / "voice" / "dictation" / "HistoryEntry.tsx"
 _LOCALES = _FRONTEND / "i18n" / "locales"
 
 SUPPORTED_LOCALES = ("de", "en", "es", "pt")
@@ -122,10 +122,10 @@ def test_no_locale_sentence_names_a_provider() -> None:
 
 def test_the_renderer_derives_its_known_set_from_the_shared_array() -> None:
     """The UI must not keep a second, hand-written copy of the vocabulary."""
-    assert _HISTORY_GROUP_TSX.exists(), f"missing: {_HISTORY_GROUP_TSX}"
-    source = _HISTORY_GROUP_TSX.read_text(encoding="utf-8")
+    assert _HISTORY_ENTRY_TSX.exists(), f"missing: {_HISTORY_ENTRY_TSX}"
+    source = _HISTORY_ENTRY_TSX.read_text(encoding="utf-8")
     assert "new Set(STT_FAILURE_REASONS)" in source, (
-        f"{_HISTORY_GROUP_TSX.name} no longer derives its known-failure set "
+        f"{_HISTORY_ENTRY_TSX.name} no longer derives its known-failure set "
         "from the shared array"
     )
 
@@ -137,11 +137,11 @@ def test_the_renderer_never_prints_a_raw_error_string() -> None:
     ``{entry.error}`` in the JSX, which is how a Python exception class and a
     vendor URL ended up rendered under a user's dictated text.
     """
-    source = _HISTORY_GROUP_TSX.read_text(encoding="utf-8")
+    source = _HISTORY_ENTRY_TSX.read_text(encoding="utf-8")
     assert "{entry.error}" not in source, (
-        f"{_HISTORY_GROUP_TSX.name} renders the raw error string again"
+        f"{_HISTORY_ENTRY_TSX.name} renders the raw error string again"
     )
-    assert "failureLabel(t, entry.error)" in source, _HISTORY_GROUP_TSX.name
+    assert "failureLabel(t, entry.error)" in source, _HISTORY_ENTRY_TSX.name
 
 
 def test_the_live_rate_limit_classifies_as_rate_limited() -> None:

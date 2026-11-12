@@ -1,0 +1,29 @@
+{
+  "voiceui": {
+    "dictation": {
+      "hold": "Zum Diktieren {keys} halten",
+      "press": "Zum Diktieren {keys} drücken",
+      "click": "Zum Diktieren auf das Mikrofon klicken",
+      "listening": "Hört zu",
+      "start": "Diktat starten",
+      "stop": "Diktat beenden",
+      "unavailable": "Diktieren ist auf diesem Computer nicht eingerichtet.",
+      "cannot_type": "Text kann gerade nicht in andere Apps geschrieben werden.",
+      "load_failed": "Das Diktat konnte nicht geladen werden.",
+      "start_failed": "Das Diktat konnte nicht gestartet werden.",
+      "stop_failed": "Das Diktat konnte nicht beendet werden.",
+      "action_failed": "Das hat nicht geklappt.",
+      "today": "Heute",
+      "yesterday": "Gestern",
+      "delete_all": "Alle löschen",
+      "empty": "Deine Diktate erscheinen hier.",
+      "copied": "Kopiert",
+      "copy_failed": "Kopieren nicht möglich.",
+      "heard": "Was gehört wurde",
+      "restore": "Wiederherstellen",
+      "transcribe_again": "Erneut transkribieren",
+      "delete_forever": "Endgültig löschen",
+      "not_transcribed": "Die Aufnahme konnte nicht erneut transkribiert werden."
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "voiceui": {
+    "language": {
+      "spoken": "Gesprochene Sprache",
+      "auto": "Automatisch erkennen",
+      "wording": "Formulierung",
+      "polish": "Formulierung glätten",
+      "precision": "Genauere Wörter wählen",
+      "conversation": "Auch Gespräche glätten",
+      "prompt_mode": "Diktat in einen Coding-Prompt umwandeln",
+      "sends_text": "Dein Text wird an {provider} gesendet.",
+      "translation": "Übersetzung",
+      "translate": "Immer in einer Sprache schreiben",
+      "translate_target": "Zielsprache",
+      "translate_sends_text": "Dein Text wird zum Übersetzen an {provider} gesendet.",
+      "same_language": "Du sprichst und schreibst in derselben Sprache, deshalb wird nichts übersetzt.",
+      "model": "Modell",
+      "provider": "Anbieter",
+      "model_auto": "Automatisch",
+      "model_auto_resolved": "Automatisch ({provider})",
+      "model_local": "{provider} auf diesem Computer",
+      "no_model": "Dafür ist noch kein Modell eingerichtet.",
+      "key": "Schlüssel für {provider}",
+      "sample": "Beispieltext",
+      "test": "Testen",
+      "testing": "Test läuft",
+      "test_failed": "Der Test konnte nicht ausgeführt werden.",
+      "test_result": {
+        "unchanged": "Es gab nichts zu ändern.",
+        "unavailable": "Kein Modell hat geantwortet.",
+        "local_only": "Der Text ist auf diesem Computer geblieben und wurde nicht geändert.",
+        "timeout": "Das Modell hat zu lange gebraucht.",
+        "provider_error": "Das Modell war nicht erreichbar.",
+        "rejected_drift": "Das Modell hat zu viel geändert, deshalb wurde seine Antwort verworfen.",
+        "other": "Der Text wurde nicht geändert."
+      },
+      "load_failed": "Deine Spracheinstellungen konnten nicht geladen werden.",
+      "save_failed": "Die Änderung konnte nicht gespeichert werden."
+    }
+  }
+}

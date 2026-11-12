@@ -1,0 +1,25 @@
+{
+  "voiceui": {
+    "shortcuts": {
+      "push_to_talk": "Zum Sprechen halten",
+      "hands_free": "Freihändig",
+      "paste_again": "Erneut einfügen",
+      "none": "Keine",
+      "press_keys": "Tasten drücken",
+      "remove": "Tastenkürzel entfernen",
+      "taken": "Diese Kombination ist schon für „{action}“ vergeben.",
+      "taken_other": "Diese Kombination ist schon vergeben.",
+      "save_failed": "Dieses Tastenkürzel konnte nicht gesichert werden.",
+      "load_failed": "Deine Tastenkürzel konnten nicht geladen werden.",
+      "hold_off": "„Zum Sprechen halten“ startet gerade mit einem Tastendruck und stoppt mit dem nächsten.",
+      "use_hold": "Auf Halten umstellen",
+      "hold_failed": "Halten konnte nicht eingeschaltet werden.",
+      "paste_blocked": "„Erneut einfügen“ kopiert den Text in die Zwischenablage, weil das Schreiben in andere Apps blockiert ist.",
+      "actions": {
+        "call": "Anruf",
+        "hangup": "Auflegen",
+        "pet_toggle": "Pet ein- oder ausblenden"
+      }
+    }
+  }
+}

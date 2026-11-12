@@ -56,7 +56,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _FRONTEND = _REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "src"
 _DICTATION_TS = _FRONTEND / "hooks" / "useDictation.ts"
 _PROVIDERS_TS = _FRONTEND / "hooks" / "useProviders.ts"
-_HISTORY_GROUP_TSX = _FRONTEND / "views" / "voice" / "DictationHistoryGroup.tsx"
+_HISTORY_ENTRY_TSX = _FRONTEND / "views" / "voice" / "dictation" / "HistoryEntry.tsx"
+_LANGUAGE_TAB_TSX = _FRONTEND / "views" / "voice" / "LanguageTab.tsx"
 _TIER_SECTION_TSX = _FRONTEND / "components" / "providers" / "ProviderTierSection.tsx"
 _LOCALES = _FRONTEND / "i18n" / "locales"
 
@@ -175,10 +176,10 @@ def test_the_status_renderer_derives_its_known_set_from_the_shared_array() -> No
         f"{_DICTATION_TS.name} no longer derives its known-status set from the "
         "shared array"
     )
-    row = _read(_HISTORY_GROUP_TSX)
-    assert "polishStatusLabel" in row, _HISTORY_GROUP_TSX.name
+    row = _read(_HISTORY_ENTRY_TSX)
+    assert "polishStatusLabel" in row, _HISTORY_ENTRY_TSX.name
     assert "dictation.polish_status." not in row, (
-        f"{_HISTORY_GROUP_TSX.name} builds the i18n key itself instead of going "
+        f"{_HISTORY_ENTRY_TSX.name} builds the i18n key itself instead of going "
         "through polishStatusLabel"
     )
 
@@ -265,81 +266,58 @@ def test_no_translation_target_is_the_auto_placeholder() -> None:
     assert "auto" not in TRANSLATION_TARGETS
 
 
-def test_the_translate_card_says_what_happens_when_no_model_answers() -> None:
-    """The copy half, in all three languages.
+def _voice_language_strings(name: str) -> dict:
+    """The Language tab's strings: ``locales/voice/language.<lang>.json``."""
+    path = _LOCALES / "voice" / f"language.{name}.json"
+    assert path.exists(), f"locale file missing: {path}"
+    table = json.loads(path.read_text(encoding="utf-8")).get("voiceui", {}).get("language", {})
+    assert isinstance(table, dict) and table, f"{path.name}: voiceui.language"
+    return table
 
-    A polish pass that falls back is invisible; a TRANSLATION that falls back
-    delivers the wrong language into a live document. That difference is the one
-    thing the description cannot leave out, and no code change can supply it.
-    """
-    for name in SUPPORTED_LOCALES:
-        translate = _locale(name).get("voice", {}).get("translate", {})
-        assert isinstance(translate, dict) and translate, (
-            f"dodaios/ui/web/frontend/src/i18n/locales/{name}.json: add "
-            "voice.translate"
-        )
-        for key in (
-            "title",
-            "description",
-            "sends_text",
-            "target_label",
-            "target_hint",
-            "same_language_notice",
-        ):
-            value = translate.get(key)
-            assert isinstance(value, str) and value.strip(), (
-                f"{name}.json: voice.translate.{key}"
-            )
-        # Long enough to be the real sentence rather than a placeholder.
-        assert 80 < len(str(translate["sends_text"])) < 420, (
-            f"{name}.json: voice.translate.sends_text length"
-        )
 
-    tab = _read(_FRONTEND / "views" / "voice" / "LanguageTab.tsx")
-    for key in ("voice.translate.title", "voice.translate.sends_text"):
-        assert key in tab, f"LanguageTab.tsx does not render {key}"
+#: The Voice section's strings exist in every language the app ships.
+VOICE_LOCALES = ("de", "en", "es", "pt", "zh")
+
+#: The two sentences that say a transcript leaves this computer, and for what.
+_SENDS_TEXT_KEYS = ("sends_text", "translate_sends_text")
 
 
 def test_the_language_tab_says_the_transcript_leaves_the_machine() -> None:
-    """The copy half of the privacy fix, pinned in all three languages.
+    """Where the text goes is said in one sentence, in every language.
 
-    The description already said what the pass CHANGES. It never said the
-    finished transcript is sent to the selected provider, which is the fact a
-    person needs before switching it on, and the fact no code change can supply.
-    Both halves are asserted — the destination and the retained raw text — in
-    every locale, because a sentence that exists in English only is invisible to
-    the users it was written for.
+    The Voice section carries no explanations, but this is not one: that the
+    finished transcript is sent to a provider is the fact a person needs before
+    switching the wording pass, Prompt Mode or translation on, and no code
+    change can supply it. The sentence names the provider through a
+    placeholder, so it is true for every chain, and it is short enough to stay
+    one line.
     """
-    for name in SUPPORTED_LOCALES:
-        polish = _locale(name).get("voice", {}).get("polish", {})
-        assert isinstance(polish, dict) and polish, f"{name}.json: voice.polish"
-        sends = polish.get("sends_text")
-        assert isinstance(sends, str) and sends.strip(), (
-            f"dodaios/ui/web/frontend/src/i18n/locales/{name}.json: add "
-            "voice.polish.sends_text"
-        )
-        # Long enough to be a real sentence rather than a placeholder, short
-        # enough to stay the calm one-or-two-liner it was written as.
-        assert 80 < len(sends) < 420, f"{name}.json: voice.polish.sends_text length"
+    for name in VOICE_LOCALES:
+        table = _voice_language_strings(name)
+        for key in _SENDS_TEXT_KEYS:
+            value = table.get(key)
+            assert isinstance(value, str) and value.strip(), (
+                f"language.{name}.json: voiceui.language.{key}"
+            )
+            assert "{provider}" in value, f"language.{name}.json: {key} names no provider"
+            assert len(value) < 120, f"language.{name}.json: {key} is more than one line"
 
-    tab = _read(_FRONTEND / "views" / "voice" / "LanguageTab.tsx")
-    assert 'voice.polish.sends_text' in tab, (
-        "LanguageTab.tsx does not render voice.polish.sends_text"
-    )
+    tab = _read(_LANGUAGE_TAB_TSX)
+    for key in _SENDS_TEXT_KEYS:
+        assert f"voiceui.language.{key}" in tab, (
+            f"{_LANGUAGE_TAB_TSX.name} does not render voiceui.language.{key}"
+        )
 
 
 def test_the_privacy_sentence_hardcodes_no_product_name() -> None:
-    """a visible product name is derived from the wake word.
-
-    The sentence talks about "your speech recognition" and "the model you pick"
-    on purpose — naming the app would be a hardcoded brand, and naming a
-    provider would be wrong for everyone whose chain resolved differently.
-    """
-    banned = ("jarvis", "personal jarvis", "assistant-agent")
-    for name in SUPPORTED_LOCALES:
-        sends = str(_locale(name)["voice"]["polish"]["sends_text"]).lower()
-        for word in banned:
-            assert word not in sends, f"{name}.json: voice.polish.sends_text -> {word}"
+    """A visible product name is derived from the wake word, never written out."""
+    banned = ("jarvis", "personal jarvis", "assistant-agent", "dodaios")
+    for name in VOICE_LOCALES:
+        table = _voice_language_strings(name)
+        for key in _SENDS_TEXT_KEYS:
+            sends = str(table[key]).lower()
+            for word in banned:
+                assert word not in sends, f"language.{name}.json: {key} -> {word}"
 
 
 # ─────────────────────────────────────────────────────────────────────────────

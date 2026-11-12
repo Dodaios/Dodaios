@@ -1,0 +1,13 @@
+{
+  "voiceui": {
+    "dictionary": {
+      "empty": "Noch keine Wörter.",
+      "word": "Wort",
+      "heard_as": "Verstanden als",
+      "load_failed": "Deine Wörter konnten nicht geladen werden.",
+      "save_failed": "Dieses Wort konnte nicht gesichert werden.",
+      "delete_failed": "Dieses Wort konnte nicht gelöscht werden.",
+      "duplicate": "Dieses Wort steht schon in deiner Liste."
+    }
+  }
+}
