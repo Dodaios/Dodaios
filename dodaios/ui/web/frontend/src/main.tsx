@@ -12,6 +12,7 @@ import { useEventStore } from "./store/events";
 import { browserSafeReloadDeps, reloadWhenServable } from "./lib/safeReload";
 import { loadUiLocale, useI18nStore } from "./i18n";
 import { installDomMutationGuard } from "./lib/domMutationGuard";
+import { installSelectAllScope } from "./lib/selectAllScope";
 import "./index.css";
 
 // Before React touches the page: a translator or extension that rewrites
@@ -141,6 +142,9 @@ const queryClient = new QueryClient({
 const AppshotEditorWindow = React.lazy(() =>
   import("./views/AppshotEditorWindow").then((m) => ({ default: m.AppshotEditorWindow })),
 );
+// "Select all" outside a text field selects the conversation, not the window.
+installSelectAllScope();
+
 const isEditorWindow = new URLSearchParams(window.location.search).get("view") === "appshot-editor";
 
 function renderApp(): void {

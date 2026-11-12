@@ -302,8 +302,10 @@ function ChatStageContent() {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center" data-testid="chat-stage" data-empty="false">
       <ScrollArea ref={setRoot} className="min-h-0 w-full flex-1">
+        {/* "Select all" outside a text field selects this conversation (lib/selectAllScope). */}
         <div
           ref={columnRef}
+          data-select-all
           className="relative mx-auto flex w-full max-w-[720px] flex-col gap-6 px-6 pb-6 pt-8"
         >
           <AgentTimeline

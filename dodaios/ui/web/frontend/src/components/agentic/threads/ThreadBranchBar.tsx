@@ -113,7 +113,7 @@ export function ThreadBranchBar({
 
   // Hangs under the composer card: tucked 16 px beneath it, narrower by the
   // card's corner radius on each side, its own corners rounded at the bottom.
-  return <div className="relative mx-auto -mt-4 flex w-[calc(100%-2.75rem)] items-center gap-2 rounded-b-2xl border border-t-0 border-border bg-sidebar pb-1 pe-2 ps-1 pt-5" data-testid="thread-branch-bar">
+  return <div className="relative mx-auto -mt-4 flex w-[calc(100%-2.75rem)] select-none items-center gap-2 rounded-b-2xl border border-t-0 border-border bg-sidebar pb-1 pe-2 ps-1 pt-5" data-testid="thread-branch-bar">
     <div className="flex min-w-0 flex-1 items-center gap-0.5">
       <ThreadMachineChip computerId={computerId} onChange={onComputer} draft={draft} locked={locked} className={BUTTON} />
       <ThreadFolderChip folder={folder} project={project} projects={projects} info={info} draft={draft}
