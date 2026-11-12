@@ -1033,6 +1033,12 @@ def _plan_claude_code(
             argv += ["--append-system-prompt", dodaios_harness.CODING_PREAMBLE]
     from dodaios.agent_chat.thread_sessions import split_fork
 
+    if identity is not None and resume and not identity.session_id.startswith("society:"):
+        # The lead's resumed conversation: what landed in the chat outside this
+        # CLI session (spoken turns, reports, side threads) goes in front of
+        # the message, as on every other seat (``_with_identity``). The
+        # identity itself travels in the system-prompt file.
+        prompt = identity.catchup + prompt if identity.catchup else prompt
     resume_id, fork_source = split_fork(resume)
     if fork_source:
         # A forked thread's first turn: Claude copies the source conversation

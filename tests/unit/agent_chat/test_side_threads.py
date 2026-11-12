@@ -263,6 +263,32 @@ def test_a_cli_seat_is_told_of_side_threads_that_ended_during_its_turn():
     assert "Here are the desks." not in block  # its own turn is in its own session
 
 
+def test_claude_code_reads_the_catch_up_in_front_of_a_resumed_turn(monkeypatch, tmp_path):
+    """Claude Code takes its identity as a file, so the block rides on the message."""
+    from dodaios.agent_chat import runner_cli
+    from dodaios.agent_chat.dodaios_harness import Identity
+
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: None)
+
+    def planned(identity, resume):
+        plan = runner_cli.plan_claude(
+            prompt="And now?", cwd=tmp_path, model="", effort="", permission_mode="ask",
+            resume=resume, identity=identity,
+        )
+        return plan.stdin_text or ""
+
+    block = "<since_your_last_turn>\nThe person also asked: Canberra?\n</since_your_last_turn>\n\n"
+    lead = Identity(session_id="lead-1", text="id", compact="id", catchup=block)
+    assert "The person also asked: Canberra?" in planned(lead, "11111111-1111-4111-8111-111111111111")
+    # A fresh conversation carries the transcript in its identity, never the block.
+    assert "also asked" not in planned(lead, None)
+    # A created agent's seat has its own refresh; a coding thread has no identity.
+    agent = Identity(session_id="society:scout", text="id", compact="id", catchup=block)
+    assert "also asked" not in planned(agent, "11111111-1111-4111-8111-111111111111")
+    assert "also asked" not in planned(None, "11111111-1111-4111-8111-111111111111")
+
+
 def test_the_composer_route_answers_beside_a_working_turn(tmp_path, monkeypatch):
     monkeypatch.setattr(service_mod, "resolve_runner", lambda *a, **kw: "brain")
 
