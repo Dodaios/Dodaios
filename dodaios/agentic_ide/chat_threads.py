@@ -395,8 +395,9 @@ class ChatThreads:
         from dodaios.core.delegated_work import DelegatedWork, register_delegated_work
         from dodaios.orchestrator import jobs
 
-        key = f"coding-thread:{session_id}:{uuid4().hex}"
-        job_id = jobs.job_id_for("ide_submission", key)
+        # A new id per turn: one thread takes many turns, and each is its own job.
+        job_id = jobs.new_job_id()
+        key = f"coding-thread:{job_id}"
 
         async def probe() -> dict[str, Any] | None:
             return await asyncio.to_thread(self._evidence, session_id, started_ms)
