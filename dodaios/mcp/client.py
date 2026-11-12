@@ -32,6 +32,20 @@ log = logging.getLogger(__name__)
 _CB_THRESHOLD = 3
 _CB_COOLDOWN_NS = 60_000_000_000  # 60 seconds
 
+# What the MCP SDK's streamable-HTTP transport reports when the server answers
+# 404 to our session id: the server ended the session (idle timeout, restart).
+_SESSION_TERMINATED_CODE = 32600
+_SESSION_TERMINATED_MESSAGE = "Session terminated"
+
+
+def _is_session_terminated(exc: BaseException) -> bool:
+    """True when the server no longer knows our streamable-HTTP session."""
+    error = getattr(exc, "error", None)
+    return (
+        getattr(error, "code", None) == _SESSION_TERMINATED_CODE
+        and getattr(error, "message", None) == _SESSION_TERMINATED_MESSAGE
+    )
+
 # Launcher binaries covered by a concrete "install Node.js" hint — the vast
 # majority of stdio MCP servers are npm packages launched via ``npx``/``node``.
 _NODE_LAUNCHERS = frozenset({"node", "npx", "npm"})
@@ -117,6 +131,11 @@ class MCPClient:
         self._circuit_breaker_failures = 0
         self._disabled_until_ns: int = 0
         self._http_auth: Any | None = None
+        # Serialises session renewal so concurrent calls open one new session.
+        self._renew_lock = asyncio.Lock()
+        # Set when a renewal could not open the new session; the next call
+        # tries again instead of failing with "not started" until a restart.
+        self._renew_pending = False
 
     def set_http_auth(self, auth: Any) -> None:
         """Install caller-owned request authentication before opening transport."""
@@ -266,6 +285,7 @@ class MCPClient:
         signals that owner and joins it, so registry/bootstrap task boundaries
         cannot break transport shutdown.
         """
+        self._renew_pending = False
         owner = self._owner_task
         if owner is None:
             stack = self._exit_stack
@@ -326,46 +346,38 @@ class MCPClient:
         return list(self._tools_cache)
 
     async def call_tool(self, name: str, args: dict[str, Any]) -> Any:
-        """Invoke a tool on the server. Respects the circuit breaker."""
+        """Invoke a tool on the server. Respects the circuit breaker.
+
+        A streamable-HTTP server forgets a session when it idles out or
+        restarts and then answers 404 to the old session id. The MCP spec says
+        the client must start a new session, so this opens one and repeats the
+        call once. The repeat is safe: the server refused the request before
+        running the tool.
+        """
         now = time.time_ns()
         if self._disabled_until_ns > now:
             raise RuntimeError(
                 f"{self.spec.name} circuit-breaker open "
                 f"(cooldown {(self._disabled_until_ns - now) // 1_000_000_000}s)"
             )
-        if self._session is None:
+        if self._session is None and not self._renew_pending:
             raise RuntimeError(f"{self.spec.name}: MCPClient not started")
 
         try:
-            # Per-call timeout: the MCP SDK has no built-in ceiling, so a server
-            # that hangs on a tool call would block the whole turn forever. We
-            # bound it here and RAISE on expiry; the raise falls into the
-            # ``except Exception`` below, which counts the failure — so a
-            # repeatedly-hung server trips the circuit breaker and drops from the
-            # surface instead of hanging every future turn. We re-read the module
-            # global each call so the ENV override / a test monkeypatch applies.
-            timeout_s = _CALL_TIMEOUT_S
+            if self._session is None:
+                await self._renew_session(None)
+            session = self._session
             try:
-                result = await asyncio.wait_for(
-                    self._session.call_tool(name, args),
-                    timeout=timeout_s,
+                result = await self._call_once(session, name, args)
+            except Exception as exc:
+                if self.spec.transport != "http" or not _is_session_terminated(exc):
+                    raise
+                log.info(
+                    "MCPClient[%s] server ended the session; opening a new one",
+                    self.spec.name,
                 )
-            except TimeoutError as exc:
-                # Clean, honest message so the brain's tool loop surfaces it and
-                # the voice layer can speak its timeout phrase — not a bare crash.
-                raise RuntimeError(
-                    f"{self.spec.name} tool {name!r} timed out after "
-                    f"{timeout_s:.0f}s (server not responding)"
-                ) from exc
-            # MCP-SDK quirk: server-side tool exceptions do NOT propagate as
-            # Python exceptions; instead they arrive as a CallToolResult with
-            # isError=True. Raise into the one shared failure counter below;
-            # counting here as well would make one server error count twice.
-            if getattr(result, "isError", False):
-                raise RuntimeError(
-                    _extract_error_text(result)
-                    or f"MCP tool {name} returned isError=True"
-                )
+                await self._renew_session(session)
+                result = await self._call_once(self._session, name, args)
             self._circuit_breaker_failures = 0
             return result
         except Exception:
@@ -378,6 +390,54 @@ class MCPClient:
                     self._circuit_breaker_failures,
                 )
             raise
+
+    async def _call_once(self, session: Any, name: str, args: dict[str, Any]) -> Any:
+        """One tool call on ``session`` with the per-call timeout."""
+        if session is None:
+            raise RuntimeError(f"{self.spec.name}: MCPClient not started")
+        # Per-call timeout: the MCP SDK has no built-in ceiling, so a server
+        # that hangs on a tool call would block the whole turn forever. We
+        # bound it here and RAISE on expiry; call_tool counts the failure — so a
+        # repeatedly-hung server trips the circuit breaker and drops from the
+        # surface instead of hanging every future turn. We re-read the module
+        # global each call so the ENV override / a test monkeypatch applies.
+        timeout_s = _CALL_TIMEOUT_S
+        try:
+            result = await asyncio.wait_for(
+                session.call_tool(name, args),
+                timeout=timeout_s,
+            )
+        except TimeoutError as exc:
+            # Clean, honest message so the brain's tool loop surfaces it and
+            # the voice layer can speak its timeout phrase — not a bare crash.
+            raise RuntimeError(
+                f"{self.spec.name} tool {name!r} timed out after "
+                f"{timeout_s:.0f}s (server not responding)"
+            ) from exc
+        # MCP-SDK quirk: server-side tool exceptions do NOT propagate as
+        # Python exceptions; instead they arrive as a CallToolResult with
+        # isError=True. Raise into call_tool's one shared failure counter;
+        # counting here as well would make one server error count twice.
+        if getattr(result, "isError", False):
+            raise RuntimeError(
+                _extract_error_text(result)
+                or f"MCP tool {name} returned isError=True"
+            )
+        return result
+
+    async def _renew_session(self, stale: Any) -> None:
+        """Replace the session the server forgot with a freshly initialised one.
+
+        Calls that failed on the same stale session wait here and reuse the
+        session the first of them opened.
+        """
+        async with self._renew_lock:
+            if self._session is not None and self._session is not stale:
+                return
+            await self.stop()
+            self._renew_pending = True
+            await self.start()
+            self._renew_pending = False
 
     # ---- Health -------------------------------------------------------
 
