@@ -505,6 +505,26 @@ export async function fetchLeadThreads(limit = 12): Promise<LeadThread[]> {
   return data.threads ?? [];
 }
 
+/** A file the assistant linked in its conversation (`GET /lead/files`). */
+export interface LeadFile {
+  /** The file's full path on this computer. */
+  path: string;
+  name: string;
+  size: number;
+  /** Last change, in seconds. */
+  mtime: number;
+  /** When the newest message that links it was written. */
+  linked_ms: number;
+}
+
+/** The files the assistant handed over in its conversation, the newest file first. */
+export async function fetchLeadFiles(limit = 30): Promise<LeadFile[]> {
+  const data = await json<{ files?: LeadFile[] }>(
+    await fetch(`/api/agent-chat/lead/files?limit=${limit}`), "lead-files-failed",
+  );
+  return data.files ?? [];
+}
+
 /**
  * A place outside the app where the person meets the assistant (`GET
  * /lead/channels`). `chat` is a conversation with it (Telegram); `tool` is a

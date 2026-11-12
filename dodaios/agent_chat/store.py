@@ -504,6 +504,16 @@ class AgentChatStore:
             ).fetchall()
         return [(self._row_to_session(r), int(r["briefed_ms"])) for r in rows]
 
+    def assistant_texts(self, session_id: str, *, limit: int = 300) -> list[tuple[int, str]]:
+        """The newest ``limit`` messages the assistant wrote in a session, newest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT ts_ms, json_extract(payload, '$.text') AS text FROM agent_chat_events "
+                "WHERE session_id = ? AND kind = 'assistant_text' ORDER BY seq DESC LIMIT ?",
+                (session_id, int(limit)),
+            ).fetchall()
+        return [(int(r["ts_ms"]), str(r["text"] or "")) for r in rows]
+
     def title_is_automatic(self, session: AgentChatSession) -> bool:
         """Whether ``session``'s title is still the one its first message gave it.
 
