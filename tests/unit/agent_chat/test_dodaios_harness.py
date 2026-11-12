@@ -215,6 +215,30 @@ def test_the_lead_chains_apps_drafts_outgoing_parts_and_ends_with_one_card():
     assert acting not in dodaios_harness.SOCIETY_PREAMBLE
 
 
+def test_the_assistants_own_chat_writes_short_messages_and_no_interim_reports():
+    """Every text is a chat bubble, so the chat's rules ask for few, short messages.
+
+    The complaint this guards (maintainer, 2026-11-12): one simple task filled the
+    chat with interim reports, each a few paragraphs with bold labels, and the same
+    question three times.
+    """
+    rules = dodaios_harness.CHAT_MESSAGES
+    assert rules in dodaios_harness.SYSTEM_PREAMBLE
+    for phrase in (
+        "also the text between two tool calls",
+        "one to three short sentences",
+        "no bold labels",
+        "No interim summary",
+        "never the same point twice in one turn",
+        "not a description of what is in it",
+        "At most one question, last",
+    ):
+        assert phrase in rules, phrase
+    # A coding thread and a society seat keep their own way of reporting.
+    assert rules not in dodaios_harness.CODING_PREAMBLE
+    assert rules not in dodaios_harness.SOCIETY_PREAMBLE
+
+
 def test_every_cli_shape_mounts_the_server_under_the_one_name(monkeypatch):
     """Claude's JSON, Codex' overrides and the Grok block must agree on the name."""
     monkeypatch.setattr(dodaios_harness, "control_key", lambda: "k")

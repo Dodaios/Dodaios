@@ -86,8 +86,10 @@ async def test_failing_layers_never_cost_the_turn(monkeypatch):
 
 def test_the_compact_cut_keeps_the_addendum_whole():
     long_text = ("a line of soul\n" * 3000) + "\n\n" + dodaios_harness.SYSTEM_PREAMBLE
-    compact = dodaios_harness.compact_identity(long_text, max_chars=4000)
-    assert len(compact) <= 4100
+    # A budget above the addendum's own length (about 4,200 characters), far
+    # below the body's: the body is what gets trimmed.
+    compact = dodaios_harness.compact_identity(long_text, max_chars=6000)
+    assert len(compact) <= 6100
     assert compact.endswith(dodaios_harness.SYSTEM_PREAMBLE)
     assert "…" in compact
 
