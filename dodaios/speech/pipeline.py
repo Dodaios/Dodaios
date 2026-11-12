@@ -1921,12 +1921,12 @@ def _smalltalk_fallback_for_non_substantive(prompt: str, lang: str) -> str | Non
         return None
     phrase_lang = _phrase_lang(lang)
     if phrase_lang == "de":
-        return "Mir geht's gut, Ruben. Was machen wir als Naechstes?"
+        return "Mir geht's gut. Was machen wir als Naechstes?"
     if phrase_lang == "es":
         return "Estoy bien. ¿Qué hacemos ahora?"  # i18n-allow: Spanish TTS
     if phrase_lang == "pt":
         return "Estou bem. O que fazemos a seguir?"  # i18n-allow: PT TTS
-    return "I'm good, Ruben. What's next?"
+    return "I'm good. What's next?"
 
 
 _INCOMPLETE_TAIL_RE = re.compile(
@@ -16013,7 +16013,7 @@ class SpeechPipeline:
                 await self._set_turn_state(TurnTakingState.JARVIS_SPEAKING)
                 try:
                     await self._speak(
-                        "Ja, Ruben.",  # i18n-allow: bilingual TTS voice ack
+                        "Ja.",  # i18n-allow: bilingual TTS voice ack
                         language=lang,
                         kind=SPOKEN_KIND_PRIVACY,
                     )

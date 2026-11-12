@@ -168,7 +168,7 @@
     "fallback": "Es trat ein Fehler auf."
   },
   "speech": {
-    "brain_unavailable": "Entschuldige, Ruben — ich erreiche gerade keines meiner Sprachmodelle. Bitte prüf kurz, ob bei den Anbietern noch Guthaben ist.",
+    "brain_unavailable": "Entschuldige — ich erreiche gerade keines meiner Sprachmodelle. Bitte prüf kurz, ob bei den Anbietern noch Guthaben ist.",
     "stt_unavailable": "Entschuldige, ich habe dich akustisch gerade nicht verstanden. Sag es bitte noch einmal.",
     "realtime_unavailable": "Die Realtime-Verbindung ist gerade nicht verfügbar. Ich wechsle für diese Sitzung zur klassischen Sprachverarbeitung.",
     "timeout_tool_stall": "Ich habe rechtzeitig keine Antwort bekommen. Ein Tool, auf das ich gewartet habe, hat nicht reagiert.",

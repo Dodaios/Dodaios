@@ -214,7 +214,7 @@ async def test_wellbeing_prompt_gets_voice_fallback_when_brain_returns_filler() 
     keep_session = await pipe._handle_utterance(b"\x01\x00" * 1024)
 
     assert keep_session is False
-    assert pipe._spoken == [("Mir geht's gut, Ruben. Was machen wir als Naechstes?", "de")]
+    assert pipe._spoken == [("Mir geht's gut. Was machen wir als Naechstes?", "de")]
     assert pipe._turn_state == TurnTakingState.IDLE
     assert pipe._session_end_reason == "turn_complete"
 

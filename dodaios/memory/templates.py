@@ -41,8 +41,8 @@ identity:
   preferred_address: null      # how the assistant addresses them (first name, nickname)
   pronouns: null
   languages: []                # e.g. [de, en]
-  primary_language: de
-  timezone: Europe/Berlin
+  primary_language: null       # set once the person says it, never assumed
+  timezone: null               # IANA zone, e.g. Europe/Lisbon; never assumed
   work_hours: null             # "09:00-19:00" or open
   devices: []                  # "headset during the day", "speaker in the evening"
   about: null                  # a short self-description in the user's own words

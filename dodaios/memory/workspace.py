@@ -23,6 +23,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from .template_defaults import clear_assumed
 from .templates import (
     render_bootstrap_md,
     render_soul_md,
@@ -79,6 +80,10 @@ class Workspace:
         if not user.exists():
             user.write_text(render_user_md(), encoding="utf-8")
             log.info("USER.md created: %s", user)
+        else:
+            # A profile from before 2026-11 may still state the old template's
+            # language and time zone as if the person had said them.
+            clear_assumed(user)
 
         soul = p / SOUL_MD
         if not soul.exists():

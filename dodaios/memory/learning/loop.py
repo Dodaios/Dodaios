@@ -922,6 +922,11 @@ def _import_legacy_once(config: Any, vault: Any) -> None:
             vault_runtime.changed()
     except Exception:  # noqa: BLE001 — a failed import is retried on the next boot
         log.warning("memory vault: importing the old memory failed", exc_info=True)
+    try:
+        if legacy_import.retire_template_defaults(vault, data_dir=DATA_DIR):
+            vault_runtime.changed()
+    except Exception:  # noqa: BLE001 — retried on the next boot
+        log.warning("memory vault: closing the old template defaults failed", exc_info=True)
 
 
 def _connect_write_feedback(bus: Any) -> None:
