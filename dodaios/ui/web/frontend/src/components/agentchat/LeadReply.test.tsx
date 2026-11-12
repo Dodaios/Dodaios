@@ -126,6 +126,38 @@ describe("the front page's conversation look", () => {
     expect(screen.getByRole("group", { name: "Approval required" })).toBeTruthy();
   });
 
+  it("shows no dots while the turn only waits for an agent it sent out, and types again once the agent is back", () => {
+    // The complaint this guards (maintainer, 2026-11-12): the assistant had
+    // said the agent was running, and the three dots stood under that message
+    // for the minutes the agent worked, as if another message were being written.
+    const sentOut = [
+      ev("user_message", { text: "fix the notebooks" }),
+      ev("turn_started", { turn_id: "t1", provider: "openai", model: "", effort: "", runner: "api" }),
+      ev("assistant_text", { turn_id: "t1", message_id: "m1", text: "The agent is running. I'll come back once it reports." }),
+      ev("reasoning", { turn_id: "t1", text: "Waiting for agents (1): Notebooks stay empty.\n" }),
+    ];
+    // Until the turn says that it waits, a thought after a message is typing.
+    const { unmount } = draw(sentOut);
+    expect(screen.getByTestId("typing-indicator")).toBeTruthy();
+    unmount();
+    const waits = [...sentOut, ev("background_wait", { turn_id: "t1", tasks: ["Notebooks stay empty"] })];
+    const waiting = draw(waits);
+    expect(screen.getByTestId("agent-turn").getAttribute("data-status")).toBe("running");
+    expect(screen.queryByTestId("typing-indicator")).toBeNull();
+    expect(screen.getByTestId("lead-bubble").textContent).toContain("The agent is running.");
+    // The pet rests beside the last message instead of playing its working row.
+    expect(screen.getByTestId("lead-face").getAttribute("data-pet")).toBe("idle");
+    waiting.unmount();
+    // The agent reported: the assistant works on its answer again.
+    draw([
+      ...waits,
+      ev("background_wait", { turn_id: "t1", tasks: [] }),
+      ev("reasoning", { turn_id: "t1", text: "Agent replies received: Notebooks stay empty (completed)" }),
+    ]);
+    expect(screen.getByTestId("typing-indicator")).toBeTruthy();
+    expect(screen.getByTestId("lead-face").getAttribute("data-pet")).toBe("working");
+  });
+
   it("colours the two sides like a messenger: grey for the assistant, the signal hue for the person", () => {
     render(<AgentTimeline items={reduceEvents(EMPTY_TIMELINE, [
       ...answered("t1", "One.\n\nTwo."),

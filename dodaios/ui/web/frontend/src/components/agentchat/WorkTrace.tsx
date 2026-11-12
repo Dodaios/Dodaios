@@ -9,7 +9,7 @@ import { PetMark } from "@/components/pets/PetMark";
 import type { PetState } from "@/lib/petStates";
 import { cn } from "@/lib/utils";
 import type { ApprovalDecision } from "@/lib/agentChatApi";
-import { billedPerToken, hasPersonCard, isCredentialTool, isQuestionTool, waitsOnCard, type ReasoningBlock, type TextBlock, type ToolBlock, type ToolReceipt, type TurnBlock, type TurnItem, type TurnStatus } from "./reduce";
+import { billedPerToken, hasPersonCard, isCredentialTool, isQuestionTool, waitsInBackground, waitsOnCard, type ReasoningBlock, type TextBlock, type ToolBlock, type ToolReceipt, type TurnBlock, type TurnItem, type TurnStatus } from "./reduce";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { CredentialCard } from "./CredentialCard";
 import { QuestionCard } from "./QuestionCard";
@@ -693,9 +693,15 @@ type WorkTraceProps = {
    */
   messenger?: boolean;
   renderAnswer?: RenderAnswer;
+  /**
+   * The running turn only waits for work it started elsewhere (an agent it
+   * sent out, a background task): in a messenger conversation it shows no
+   * dots, because nobody is writing (maintainer, 2026-11-12).
+   */
+  waiting?: boolean;
 };
 
-function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error, onDecide, renderText, className, receipt, completionLabel, conversation = false, companion = false, face, extras, messenger = false, renderAnswer }: WorkTraceProps) {
+function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error, onDecide, renderText, className, receipt, completionLabel, conversation = false, companion = false, face, extras, messenger = false, renderAnswer, waiting = false }: WorkTraceProps) {
   const t = useT();
   const rail = useRail();
   // A messenger turn's steps, opened from the line under it.
@@ -768,8 +774,9 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
     // line stays for assistive technology and for a look.
     const resting = messenger && (working || (outcome === "done" && answered));
     // Read from the turn's own blocks: a thought is not drawn here, but the
-    // model thinking after a message is the assistant typing again.
-    const typing = messenger && working && livePetState(rawBlocks) === "working";
+    // model thinking after a message is the assistant typing again. A turn
+    // that only waits for an agent it sent out is not typing.
+    const typing = messenger && working && !waiting && livePetState(rawBlocks) === "working";
     const typingItem: RailItem = { key: "trace:typing", rail: false, node: <div className="lead-typing-row"><TypingBubble /></div> };
     const statusLine = <div role="status" aria-live="polite" data-trace-status={outcome}
       className={cn("flex min-w-0 flex-wrap items-start gap-x-3 text-xs leading-6 text-muted-foreground",
@@ -930,7 +937,7 @@ export function TurnTrace({ turn, ...props }: { turn: TurnItem; onDecide?: Decid
   const answered = turn.blocks.some(block => block.kind === "text" && block.text.trim());
   // Only a per-token key shows a price; a subscription's turn costs nothing extra.
   const cost = turn.costUsd !== null && turn.costUsd > 0 && billedPerToken(turn) ? turn.costUsd : null;
-  return <WorkTrace {...props} blocks={turn.blocks} status={turn.status} startedMs={turn.startedMs} durationMs={turn.durationMs} error={turnErrorText(turn.error, t)}
+  return <WorkTrace {...props} waiting={waitsInBackground(turn)} blocks={turn.blocks} status={turn.status} startedMs={turn.startedMs} durationMs={turn.durationMs} error={turnErrorText(turn.error, t)}
     completionLabel={!answered ? t("agent_chat.turn_no_answer") : undefined}
     receipt={tokens !== null && tokens > 0 || cost !== null ? <>
       {tokens !== null && tokens > 0 ? <span aria-live="off" className="tabular-nums">{formatTokens(tokens)} {t("agent_chat.tokens")}</span> : null}

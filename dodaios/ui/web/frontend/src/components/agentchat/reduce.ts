@@ -360,8 +360,9 @@ export interface TurnItem {
    */
   background?: string[];
   /**
-   * The background tasks a running turn waits on (`background_wait`): the
-   * agent ended its message, the CLI wakes it again once they finish.
+   * What a running turn waits on (`background_wait`): the agent ended its
+   * message and the CLI wakes it again once its background tasks finish, or
+   * the turn is held open until the agents it sent out report back.
    */
   waitingOn?: string[];
   /**
@@ -498,6 +499,15 @@ function updateTurn(tl: Timeline, turnId: string, fn: (turn: TurnItem) => TurnIt
   const next = fn(turn);
   if (next === turn) return tl;
   return { ...tl, items: replaceAt(tl.items, idx, next) };
+}
+
+/**
+ * The turn is open but nobody is writing: it has said what it had to say and
+ * only waits for work it started elsewhere (background tasks, agents it sent
+ * out). Such a turn is not the assistant typing.
+ */
+export function waitsInBackground(turn: Pick<TurnItem, "status" | "waitingOn">): boolean {
+  return turn.status === "running" && (turn.waitingOn?.length ?? 0) > 0;
 }
 
 /** A live reasoning block that text or a tool call is about to follow is over. */
