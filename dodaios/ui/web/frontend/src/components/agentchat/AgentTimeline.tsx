@@ -25,9 +25,9 @@ import type { PetState } from "@/lib/petStates";
 import { SIDE_THREAD_STARTED, type TimelineItem, type TurnItem, type TextBlock } from "./reduce";
 import { TraceMessageLine } from "./TraceTimeline";
 import { attachTurnMessages, type TraceMessage } from "./turnMessages";
-import { useI18nStore, useT } from "@/i18n";
+import { MessageReceipt, messageReceipts, stampLabel } from "./messageReceipt";
+import { useT } from "@/i18n";
 import { societyResultHeadline, societyResultText } from "@/lib/skipReasons";
-import { localeForUiLanguage } from "@/components/runs/format";
 import { cn } from "@/lib/utils";
 
 /** Shared transcript shell; the work trace owns all execution presentation. */
@@ -63,7 +63,8 @@ export function AgentTimeline({
    * on the right; the assistant's answer as its own grey messages on the
    * left, one per paragraph, with its pet standing at the foot of the newest
    * one; three dots in a bubble while it works on the next one; a quiet
-   * centred time stamp wherever the conversation paused. The work behind an
+   * centred time stamp wherever the conversation paused; under each of your
+   * messages, when it was sent and then when it was read. The work behind an
    * answer folds into one line above it. The Agentic IDE keeps the labelled
    * document look (the default).
    */
@@ -94,6 +95,8 @@ export function AgentTimeline({
     return traceLook === "rail" ? attachTurnMessages(folded) : { items: folded, messagesByTurn: NO_MESSAGES };
   }, [items, traceLook]);
   const stamps = bubbles && !nested ? timeStamps(shown) : null;
+  // The conversation look says under each of the person's messages when it was read.
+  const receipts = useMemo(() => (bubbles ? messageReceipts(shown) : null), [bubbles, shown]);
   // A side thread's own conversation wears this timeline's look, without the
   // pet: the assistant's face stands beside the main thread only.
   const renderSide: RenderSideTimeline = (sideItems, decide) => (
@@ -192,8 +195,9 @@ export function AgentTimeline({
         );
       }
       return (
+        // The message's row, and under it the line that says when it was read.
+        <div key={item.id} className="flex min-w-0 flex-col gap-1">
         <div
-          key={item.id}
           className="flex justify-end"
           data-testid="agent-message-user"
           data-message-id={item.id}
@@ -258,6 +262,8 @@ export function AgentTimeline({
             )}
           </div>
         </div>
+          <MessageReceipt receipt={receipts?.get(item.id)} />
+        </div>
       );
     }
     if (item.type === "error") {
@@ -296,7 +302,7 @@ export function AgentTimeline({
           </p>
         );
       }
-      if (item.kind === SIDE_THREAD_STARTED) return <SideThread key={item.id} item={item} renderTimeline={renderSide} />;
+      if (item.kind === SIDE_THREAD_STARTED) return <SideThread key={item.id} item={item} renderTimeline={renderSide} receipt={bubbles} />;
       if (item.kind === "chain_result") return <ChainResultCard key={item.id} item={item} />;
       if (item.kind === "report") return <ReportCard key={item.id} item={item} />;
       if (item.kind === "seat_trouble") return <SeatTroubleNotice key={item.id} item={item} />;
@@ -399,18 +405,6 @@ export function timeStamps(items: TimelineItem[], now: Date = new Date()): Map<s
     last = ts;
   }
   return out;
-}
-
-function stampLabel(at: Date, now: Date): string {
-  const locale = localeForUiLanguage(useI18nStore.getState().ui);
-  const time = at.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
-  if (at.toDateString() === now.toDateString()) return time;
-  const date = at.toLocaleDateString(locale, {
-    month: "short",
-    day: "numeric",
-    ...(at.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
-  });
-  return `${date}, ${time}`;
 }
 
 const NO_MESSAGES = new Map<string, TraceMessage[]>();

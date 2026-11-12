@@ -7,6 +7,7 @@ import { createAgentChatStore, type AgentChatStoreHook } from "@/store/agentChat
 import { AgentChatStoreProvider, useAgentChat } from "./AgentChatStoreContext";
 import { cn } from "@/lib/utils";
 import { LeadReply, OWN_BUBBLE } from "./LeadReply";
+import { MessageReceipt } from "./messageReceipt";
 import type { Decide } from "./WorkTrace";
 import type { NoticeItem, TimelineItem } from "./reduce";
 
@@ -29,7 +30,12 @@ const ENDED: Record<string, string> = {
  * streaming answer come from that session; afterwards the answer stands on
  * the notice itself, so a reopened chat needs no second connection.
  */
-export function SideThread({ item, renderTimeline }: { item: NoticeItem; renderTimeline: RenderSideTimeline }) {
+export function SideThread({ item, renderTimeline, receipt = false }: {
+  item: NoticeItem;
+  renderTimeline: RenderSideTimeline;
+  /** The conversation look: the bubble says when the message was read. */
+  receipt?: boolean;
+}) {
   const t = useT();
   const parentId = useAgentChat((s) => s.activeSessionId);
   const sideId = String(item.data.side_id ?? "");
@@ -60,10 +66,14 @@ export function SideThread({ item, renderTimeline }: { item: NoticeItem; renderT
   return (
     <div className="flex min-w-0 flex-col gap-2" data-testid="side-thread" data-message-id={item.id}
       data-status={running ? "running" : item.resolved}>
-      <div className="flex justify-end" data-testid="agent-message-user">
-        <div className={cn("text-[15px] leading-[23px] [overflow-wrap:anywhere]", OWN_BUBBLE)}>
-          {item.text}
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex justify-end" data-testid="agent-message-user">
+          <div className={cn("text-[15px] leading-[23px] [overflow-wrap:anywhere]", OWN_BUBBLE)}>
+            {item.text}
+          </div>
         </div>
+        {/* A side thread starts the moment the message arrives: it was read then. */}
+        {receipt && <MessageReceipt receipt={{ read: true, atMs: item.tsMs }} />}
       </div>
       {/* An answered one needs no label: the message and its answer say it.
           The line is for what the person can act on (it still runs) or has

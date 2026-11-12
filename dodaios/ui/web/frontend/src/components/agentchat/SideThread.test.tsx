@@ -69,6 +69,8 @@ describe("a message sent while the conversation still works", () => {
     expect(thread.getAttribute("data-status")).toBe("done");
     // Their own bubble, like every message of theirs, then the reply.
     expect(within(thread).getByTestId("agent-message-user").textContent).toBe(QUESTION);
+    // Answered beside the running task, it was read the moment it arrived.
+    expect(within(thread).getByTestId("agent-message-receipt").getAttribute("data-read")).toBe("true");
     expect(within(thread).getByTestId("side-thread-answer").textContent).toContain("Canberra.");
     // Answered: nothing but the exchange itself, no label under the message.
     expect(within(thread).queryByTestId("side-thread-state")).toBeNull();

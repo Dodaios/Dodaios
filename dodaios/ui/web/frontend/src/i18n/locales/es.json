@@ -7177,6 +7177,8 @@
       "coding_thread_open": "Abrir hilo",
       "coding_thread_author": "Escrito por {0}",
       "message_not_sent": "No enviado: {0}",
+      "message_sent": "Enviado {0}",
+      "message_read": "Leído {0}",
       "background_running": "Sigue en segundo plano: {0}. El resultado llegará aquí.",
       "background_result": "Resultado de tu petición anterior",
       "background_result_lost": "No se pudo recuperar el resultado de esta petición: {0}",

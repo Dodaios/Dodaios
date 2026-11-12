@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { AgentTimeline, timeStamps } from "./AgentTimeline";
+import { messageReceipts } from "./messageReceipt";
 import { EMPTY_TIMELINE, reduceEvents, type TimelineItem } from "./reduce";
 import type { PictureDisplay } from "./MediaPreview";
 import type { AgentChatEvent } from "@/lib/agentChatApi";
@@ -85,6 +86,56 @@ describe("timeStamps", () => {
   it("leads with the date when the message is not from today", () => {
     const t0 = new Date(2026, 8, 24, 8, 13).getTime();
     expect(timeStamps([user("a", t0)], new Date(2026, 9, 1)).get("a")).toContain(",");
+  });
+});
+
+describe("the receipt under the person's message", () => {
+  const user = (id: string, tsMs: number, origin?: "control" | "background") =>
+    ({ type: "user", id, text: id, attachments: [], tsMs, ...(origin ? { origin } : {}) }) as TimelineItem;
+  const turn = (id: string, startedMs: number) => ({ type: "turn", id, startedMs, blocks: [] }) as unknown as TimelineItem;
+
+  it("is sent until the answering turn starts, and read from then on", () => {
+    const receipts = messageReceipts([user("a", 1000), turn("t1", 3000), user("b", 9000)]);
+    expect(receipts.get("a")).toEqual({ read: true, atMs: 3000 });
+    expect(receipts.get("b")).toEqual({ read: false, atMs: 9000 });
+  });
+
+  it("gives the turn to the newest message, and none to a command or an earlier request's result", () => {
+    const receipts = messageReceipts([user("a", 1000), user("b", 2000), turn("t1", 3000), user("c", 4000, "background"), turn("t2", 5000)]);
+    expect(receipts.get("a")).toEqual({ read: false, atMs: 1000 });
+    expect(receipts.get("b")).toEqual({ read: true, atMs: 3000 });
+    expect(receipts.has("c")).toBe(false);
+  });
+
+  it("stamps a turn without a recorded start with the message's own time", () => {
+    expect(messageReceipts([user("a", 1000), turn("t1", 0)]).get("a")).toEqual({ read: true, atMs: 1000 });
+  });
+
+  const at = new Date(2026, 10, 12, 21, 56).getTime();
+  const conversation = (...more: AgentChatEvent[]) =>
+    reduceEvents(EMPTY_TIMELINE, [ev("user_message", { text: "hello" }, at), ...more]).items;
+  const show = (items: TimelineItem[], bubbles: boolean) =>
+    render(<AgentTimeline items={items} assistantName="Dodaios" providerLabel={(id) => id} onDecide={() => undefined} bubbles={bubbles} />);
+
+  it("says when the message was sent, under its bubble, in the conversation look", () => {
+    show(conversation(), true);
+    const receipt = screen.getByTestId("agent-message-receipt");
+    expect(receipt.getAttribute("data-read")).toBe("false");
+    expect(receipt.textContent).toMatch(/^Sent .*56/);
+    // The message itself stays the bubble's words alone.
+    expect(screen.getByTestId("agent-message-user").textContent).toBe("hello");
+  });
+
+  it("says when it was read once the assistant took it up", () => {
+    show(conversation(ev("turn_started", { turn_id: "t1" }, at + 2 * 60_000)), true);
+    const receipt = screen.getByTestId("agent-message-receipt");
+    expect(receipt.getAttribute("data-read")).toBe("true");
+    expect(receipt.textContent).toMatch(/^Read .*58/);
+  });
+
+  it("stays out of the document look", () => {
+    show(conversation(ev("turn_started", { turn_id: "t1" }, at + 1000)), false);
+    expect(screen.queryByTestId("agent-message-receipt")).toBeNull();
   });
 });
 
