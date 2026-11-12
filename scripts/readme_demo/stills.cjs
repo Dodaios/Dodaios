@@ -3,8 +3,9 @@
 //   node scripts/readme_demo/stills.cjs <output folder> [memory plugins pets ide connect]
 //
 // Run it after record.cjs, against the same instance: the project is connected
-// and a pet is chosen then. "connect" is the setup step and needs a first-run
-// instance, so take it separately after a reset.
+// then. The take no longer picks a pet, so "pets" shows the active one (pick
+// Ember first to match assets/readme/pets.png). "connect" is the setup step and
+// needs a first-run instance, so take it separately after a reset.
 // The window is 1280 x 853 at a device scale of 1.5: 1920 x 1280 pictures.
 const { chromium } = require('playwright');
 const OUT = process.argv[2];

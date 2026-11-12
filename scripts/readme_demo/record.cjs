@@ -3,23 +3,39 @@
 //
 //   node scripts/readme_demo/record.cjs <output folder>
 //
-// It expects a first-run Dodaios instance (nothing set up yet) at DEMO_URL and
-// the sample project from sample-project.sh in that instance's home folder.
+// It expects a first-run Dodaios instance (nothing set up yet) at DEMO_URL,
+// started by demo-instance.sh with its sample project, on a computer where
+// Claude Code is installed and signed in. The model answers for real:
 // assets/demo/readme/README.md has the whole procedure.
+//
+// The take: the first-run setup and two stops of the guided walk; a routine
+// asked of Dodaios in its chat; the sample project connected in the Agentic
+// IDE, a coding agent prompted in a thread and its changes reviewed; then
+// Dodaios hands a fix to a coding agent itself, the thread it started is
+// opened, and Dodaios reports back when the agent is done.
 //
 // The window is 1280 x 720 at a device scale of 1.5, so the frames are
 // 1920 x 1080 and the interface stays readable when the video is shown small.
 // The pointer is drawn into the page because a headless browser has none.
 // The folder gets the frames and list.txt, an ffmpeg concat list that keeps
-// every frame on screen for as long as it was during the take.
+// every frame on screen for as long as it was during the take, played SPEED
+// times faster; while the take only waits for a model, FAST times faster.
+// timeline.json lists those stretches.
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
 const OUT = process.argv[2];
 const URL = process.env.DEMO_URL || 'http://127.0.0.1:47990/';
+// The model every turn uses. Claude Code must be signed in to a plan that has it.
+const MODEL = process.env.DEMO_MODEL || 'Claude Opus 5.5';
+const SPEED = Number(process.env.DEMO_SPEED || 1.4);
+const FAST = Number(process.env.DEMO_FAST || 7);
 if (!OUT) { console.error('usage: node record.cjs <output folder>'); process.exit(2); }
 const W = 1280, H = 720;
+const MODEL_WAIT = 5 * 60 * 1000;
+// Dodaios runs on Claude Code too: ask for a thread, or it may do the work itself.
+const HANDOFF = 'Open a Claude Code thread in trailhead on Opus 5.5 to fix the bug where a time just under a whole hour reads 1 h 60 min. Tell me when it is done.';
 
 const CURSOR = `(() => {
   const install = () => {
@@ -85,6 +101,14 @@ const CURSOR = `(() => {
     await el.waitFor({ state: 'visible' });
     const b = await reveal(el);
     await moveTo(b.x + b.width / 2 + dx, b.y + b.height / 2 + dy, ms);
+    // A dialog that was still settling moves its buttons: follow them.
+    for (let i = 0; i < 3; i++) {
+      const a = await el.boundingBox();
+      if (!a) break;
+      const x = a.x + a.width / 2 + dx, y = a.y + a.height / 2 + dy;
+      if (Math.hypot(x - cx, y - cy) < 4) break;
+      await moveTo(x, y, 180);
+    }
     return el;
   }
   async function click(loc, opts = {}) {
@@ -99,6 +123,8 @@ const CURSOR = `(() => {
   // ---- screencast ------------------------------------------------------
   const client = await ctx.newCDPSession(page);
   const frames = []; let idx = 0; let recording = false;
+  // Stretches of the take, by frame index, and how fast each one plays.
+  const stretches = [{ from: 0, speed: SPEED, what: 'start' }];
   client.on('Page.screencastFrame', (f) => {
     client.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => {});
     if (!recording) return;
@@ -106,16 +132,29 @@ const CURSOR = `(() => {
     fs.writeFileSync(path.join(OUT, name), Buffer.from(f.data, 'base64'));
     frames.push({ name, ts: f.metadata.timestamp });
   });
+  // From the next frame on, the take only waits for the model (or no longer).
+  const waiting = (what) => stretches.push({ from: idx, speed: FAST, what: 'wait: ' + what });
+  const acting = (what) => stretches.push({ from: idx, speed: SPEED, what });
   const finish = async () => {
     recording = false;
     await client.send('Page.stopScreencast').catch(() => {});
+    const speedAt = (i) => { let s = SPEED; for (const st of stretches) if (st.from <= i) s = st.speed; return s; };
     const lines = ['ffconcat version 1.0'];
+    let played = 0;
     frames.forEach((frame, i) => {
       const next = frames[i + 1];
-      lines.push(`file '${frame.name}'`, `duration ${(next ? Math.max(next.ts - frame.ts, 0.001) : 1.2).toFixed(4)}`);
+      const real = next ? Math.max(next.ts - frame.ts, 0.001) : 1.2;
+      const shown = real / speedAt(i);
+      played += shown;
+      lines.push(`file '${frame.name}'`, `duration ${shown.toFixed(4)}`);
     });
     if (frames.length) lines.push(`file '${frames[frames.length - 1].name}'`);
     fs.writeFileSync(path.join(OUT, 'list.txt'), lines.join('\n') + '\n');
+    const t0 = frames.length ? frames[0].ts : 0;
+    fs.writeFileSync(path.join(OUT, 'timeline.json'), JSON.stringify(stretches.map((st) => ({
+      ...st, at: frames[Math.min(st.from, frames.length - 1)] ? +(frames[Math.min(st.from, frames.length - 1)].ts - t0).toFixed(2) : null,
+    })), null, 1));
+    return played;
   };
 
   await page.goto(URL, { waitUntil: 'domcontentloaded' });
@@ -128,6 +167,30 @@ const CURSOR = `(() => {
   const t0 = Date.now();
   const mark = (name) => log(`[${((Date.now() - t0) / 1000).toFixed(1)}s]`, name);
 
+  // The Dodaios chat's composer: a stop button while a turn runs.
+  const chatStop = page.locator('[data-testid="composer-stop"]:visible');
+  // The Agentic IDE stays mounted behind the chat, so only a visible field counts.
+  const chatInput = () => page.locator('[data-testid="composer-row"] [contenteditable=true]:visible, [data-testid="composer-row"] textarea:visible').first();
+  async function chatTurnEnds(what, startsWithin = 30000) {
+    await chatStop.first().waitFor({ state: 'visible', timeout: startsWithin }).catch(() => {});
+    await chatStop.first().waitFor({ state: 'hidden', timeout: MODEL_WAIT });
+    log('turn ended:', what);
+  }
+  // A thread's turn ends with "Worked for <time>".
+  const workedCount = () => page.getByText(/^Worked for /).count();
+  async function threadTurnEnds(nBefore, what) {
+    const until = Date.now() + MODEL_WAIT;
+    while ((await workedCount()) <= nBefore) {
+      if (Date.now() > until) throw new Error(`the coding agent did not finish (${what})`);
+      await sleep(400);
+    }
+    log('thread turn ended:', what);
+  }
+  const thoughts = () => page.getByText(/^Thought for /).count();
+  // The caption's switch between Dodaios (a new chat) and the Agentic IDE.
+  const toIde = () => click('[data-testid="surface-ide"]', { post: 900 });
+  const toNewChat = () => click('[data-testid="surface-dodaios"]', { post: 900 });
+
   try {
     // ---- 1. first run: name, connect, voice -----------------------------
     mark('onboarding');
@@ -139,11 +202,11 @@ const CURSOR = `(() => {
     await click(btn(/Continue/), { post: 600 });
     await page.getByText('Connect your AI').waitFor();
     mark('connect');
-    await point(page.getByText('Claude Pro').first(), { dx: -60, ms: 550 });
-    await sleep(350);
+    await point(page.getByText('Signed in', { exact: true }).first(), { dx: -40, ms: 550 });
+    await sleep(700);
     await point(page.getByText('Use a free local model').first(), { ms: 850 });
     await sleep(600);
-    await click(btn(/Skip for now/), { post: 600 });
+    await click(btn(/^Continue/), { post: 600 });
     await page.getByText(/How you'll talk to/).waitFor();
     mark('voice');
     await point(page.getByText(/Wake word: Hey/).first(), { ms: 550 });
@@ -169,17 +232,29 @@ const CURSOR = `(() => {
     }
     await click(btn(/^Skip$/), { post: 500 });
 
-    // ---- 3. plugins -------------------------------------------------------
-    mark('plugins');
-    await click('[aria-label="Plugins"]', { post: 900 });
-    await page.getByText('Connect your tools so your agents can work across them').waitFor();
-    await moveTo(700, 400, 450);
-    for (let i = 0; i < 15; i++) { await page.mouse.wheel(0, 40); await sleep(34); }
-    await sleep(950);
+    // ---- 3. Dodaios: pick the model, let it run something on the computer ---
+    mark('dodaios');
+    const skipIntro = page.getByText('Skip introduction').first();
+    if (await skipIntro.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)) {
+      await click(skipIntro, { post: 500 });
+    }
+    await click('[aria-label="Model"]:visible', { post: 600 });
+    await click(page.getByText(MODEL, { exact: true }).last(), { post: 500 });
+    await click(chatInput(), { post: 200 });
+    await type('What does ~/projects/trailhead do? Run it for a 14.5 km hike with 820 m of climb and answer in two sentences.', 30);
+    await sleep(350);
+    await page.keyboard.press('Enter');
+    await moveTo(W * 0.5, H * 0.42, 600);
+    waiting('first answer');
+    await chatTurnEnds('first answer');
+    acting('answered');
+    await sleep(900);
+    await point(page.getByText(/about \d+ h \d+ min/).last(), { ms: 650 });
+    await sleep(2200);
 
-    // ---- 4. agentic IDE: connect a project, run its tests -----------------
+    // ---- 4. Agentic IDE: connect the project, prompt a coding agent --------
     mark('ide');
-    await click('[aria-label="Agentic IDE"]', { post: 900 });
+    await toIde();
     await click(btn(/Connect folder/).first(), { post: 500 });
     await click(btn(/Choose folder/), { post: 650 });
     const picker = page.locator('[role=dialog]').last();
@@ -187,67 +262,92 @@ const CURSOR = `(() => {
     await click(picker.getByText('projects', { exact: true }).first(), { post: 450 });
     await click(picker.getByText('trailhead', { exact: true }).first(), { post: 450 });
     await click(btn(/Use this folder/), { post: 450 });
-    await click(btn(/^Connect project$/), { post: 1300 });
-    mark('terminal');
-    await click('[aria-label="Show terminal"]', { post: 1400 });
-    await click('[aria-label="Terminal input"]', { post: 250 });
-    await type('python -m pytest -q', 55);
-    await sleep(250);
-    await page.keyboard.press('Enter');
-    await sleep(1700);
-
-    // ---- 5. memory --------------------------------------------------------
-    mark('memory');
-    await click('[aria-label="Profile"]', { post: 900 });
-    await click(page.getByRole('button', { name: /^Memory/ }).first(), { post: 1200 });
-    await click(btn(/^New$/).first(), { post: 600 });
-    await type('I prefer short answers.', 45);
-    await sleep(300);
-    await click(page.getByText('Preferences', { exact: true }).first(), { post: 300 });
-    await click(page.getByText('Remember', { exact: true }).first(), { post: 200 });
-    await page.getByText('New memory').waitFor({ state: 'hidden' });
-    await page.getByText('I prefer short answers.').first().waitFor({ state: 'visible', timeout: 30000 });
-    mark('memory saved');
-    await moveTo(cx - 150, cy + 40, 500);
-    await sleep(1400);
-
-    // ---- 6. pets ----------------------------------------------------------
-    mark('pets');
-    await click('[aria-label="Go back"]', { post: 900 });
-    await click(page.getByPlaceholder(/Search settings/), { post: 200 });
-    await type('pets', 75);
-    await sleep(450);
-    await click(page.getByRole('button', { name: /My Pets/ }).first(), { post: 1200 });
-    await click(page.getByText('Ember', { exact: true }).first(), { dy: -60, post: 700 });
-    for (let i = 0; i < 30; i++) { await page.mouse.wheel(0, -52); await sleep(30); }
-    await sleep(1500);
-
-    // ---- 7. sections side by side -----------------------------------------
-    mark('layout');
-    await click('[aria-label="Agentic IDE"]', { post: 1200 });
-    const menuOpen = () => page.getByText('Arrange sections').isVisible().catch(() => false);
-    await point('[aria-label="Layout"]');
+    await click(btn(/^Connect project$/), { post: 1100 });
+    mark('thread');
+    await click('[aria-label="Coding agent and model"]', { post: 600 });
+    await click(page.getByText(MODEL, { exact: true }).last(), { post: 450 });
+    await click('[aria-label="Message the coding agent"]', { post: 200 });
+    const worked0 = await workedCount();
+    await type('Add a --pace option (relaxed, steady, fast) that scales the walking speed, with a test for each pace. Run the tests and keep the summary short.', 28);
     await sleep(350);
-    if (!(await menuOpen())) await press();
-    await page.getByText('Arrange sections').waitFor();
-    await sleep(450);
-    await click('[aria-label="Two side by side"]', { post: 1000 });
-    await point('[aria-label="Layout"]');
-    await sleep(200);
-    if (await menuOpen()) await press();
-    await sleep(500);
-    // the right tile: pick the CLIs section from the tile's own section menu
-    const title = page.locator('[data-testid="tile-section-button"]').nth(1);
-    const sectionMenu = page.locator('[data-testid="section-picker"]');
-    await click(title, { post: 500 });
-    if (!(await sectionMenu.isVisible().catch(() => false))) { await press(); await sleep(500); }
-    await click('[data-testid="section-pick-clis"]', { post: 1200 });
-    await moveTo(W * 0.73, H * 0.62, 700);
+    await page.keyboard.press('Enter');
+    await moveTo(W * 0.62, H * 0.3, 700);
+    waiting('coding agent');
+    await threadTurnEnds(worked0, 'pace');
+    acting('pace done');
+    await sleep(2200);
+    mark('review');
+    await click('[aria-label="Review changes"]', { post: 1500 });
+    const review = page.locator('[role=dialog]').last();
+    await moveTo(W * 0.6, H * 0.6, 500);
+    for (let i = 0; i < 14; i++) { await page.mouse.wheel(0, 45); await sleep(40); }
+    await sleep(1600);
+    const closeReview = review.getByRole('button', { name: /Close/ }).first();
+    if (await closeReview.isVisible().catch(() => false)) await click(closeReview, { post: 500 });
+    else { await page.keyboard.press('Escape'); await sleep(500); }
+
+    // ---- 5. Dodaios hands a fix to a coding agent ---------------------------
+    mark('handoff');
+    await toNewChat();
+    await click(chatInput(), { post: 200 });
+    await type(HANDOFF, 28);
+    await sleep(350);
+    await page.keyboard.press('Enter');
+    await moveTo(W * 0.5, H * 0.4, 600);
+    waiting('handoff');
+    const openThread = page.getByText('Open thread', { exact: true });
+    await openThread.first().waitFor({ state: 'visible', timeout: MODEL_WAIT });
+    await chatTurnEnds('handoff');
+    const thoughtsAfterHandoff = await thoughts();
+    acting('thread started');
+    await sleep(900);
+    await click(openThread.first(), { post: 1200 });
+    mark('delegated thread');
+    await point(page.getByText('Written by Dodaios').first(), { ms: 600 });
+    await sleep(1600);
+    await moveTo(W * 0.62, H * 0.3, 600);
+    waiting('delegated coding agent');
+    await threadTurnEnds(0, 'fix');
+    acting('fix done');
+    await sleep(1000);
+    // The turn ends with a card of the files it changed: open its diff.
+    const showChanges = btn(/^Show changes$/).last();
+    if (await showChanges.waitFor({ state: 'visible', timeout: 6000 }).then(() => true, () => false)) {
+      await click(showChanges, { post: 900 });
+      await sleep(1900);
+    }
+    mark('report');
+    // Back to the chat that started the thread (the switch would open a new one).
+    await click('[aria-label="Go back"]', { post: 700 });
+    await page.getByText(HANDOFF).first().waitFor({ state: 'visible' });
+    waiting('report');
+    await page.getByText(/finished in/).first().waitFor({ state: 'visible', timeout: MODEL_WAIT });
+    // A finished answer folds its reasoning into "Thought for <time>": the
+    // report is the answer after the hand-off's.
+    const until = Date.now() + MODEL_WAIT;
+    while (!((await thoughts()) >= thoughtsAfterHandoff + 1 && !(await chatStop.first().isVisible().catch(() => false)))) {
+      if (Date.now() > until) throw new Error('Dodaios did not report back');
+      await sleep(400);
+    }
+    log('report written');
+    acting('report');
+    await sleep(600);
+    // Wheel back to where the report begins, under the "finished" line.
+    await moveTo(W * 0.42, H * 0.5, 500);
+    const finished = page.getByText(/finished in/).last();
+    for (let i = 0; i < 40; i++) {
+      const b = await finished.boundingBox();
+      if (!b || b.y >= 40) break;
+      await page.mouse.wheel(0, -40);
+      await sleep(45);
+    }
+    await sleep(1800);
+    await moveTo(W * 0.73, H * 0.62, 900);
 
     mark('end');
-    await sleep(1900);
-    await finish();
-    log('frames', frames.length, 'seconds', (frames[frames.length - 1].ts - frames[0].ts).toFixed(1));
+    await sleep(3000);
+    const played = await finish();
+    log('frames', frames.length, 'take seconds', (frames[frames.length - 1].ts - frames[0].ts).toFixed(1), 'video seconds', played.toFixed(1));
   } catch (e) {
     await finish().catch(() => {});
     await page.screenshot({ path: path.join(OUT, 'failure.png') }).catch(() => {});

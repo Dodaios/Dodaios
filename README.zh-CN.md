@@ -36,12 +36,12 @@
 
 <p align="center">
   <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.gif">
-    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="一段 59 秒的 Dodaios 录屏：首次启动设置、应用自带的导览、插件目录、在 Agentic IDE 中连接项目并在终端里运行测试、新增一条记忆、桌面宠物，以及两个区域并排显示" width="100%" />
+    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="一段 80 秒的 Dodaios 录屏：首次启动设置和应用自带的导览；Dodaios 在对话中运行一个项目的命令行工具；编码智能体在 Agentic IDE 的线程里为项目添加一个选项和测试，随后审阅它的改动；最后 Dodaios 开启一个 Claude Code 线程修复缺陷，并在智能体完成后汇报结果" width="100%" />
   </a>
 </p>
 
 <p align="center">
-  <sub>真实应用（5.0.0 版）的一次连续录制，以 1.4 倍速播放。录制时没有连接任何模型，所以你看到的是应用本身，没有智能体的回答。</sub>
+  <sub>真实应用（5.0.0 版）的一次连续录制，模型是通过已登录的 Claude Code 使用的 Claude Opus 5.5。所有回答和改动都是真实的。点击和输入以 1.4 倍速播放，等待模型的部分以 7 倍速播放。</sub>
 </p>
 
 ## 它是什么

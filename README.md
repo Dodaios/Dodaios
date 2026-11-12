@@ -36,12 +36,12 @@
 
 <p align="center">
   <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.gif">
-    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="A 59-second recording of Dodaios: the first-run setup, the built-in tour, the plugin catalog, a project in the Agentic IDE with its tests running in the terminal, a new memory, the desktop pets, and two sections side by side" width="100%" />
+    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="An 80-second recording of Dodaios: the first-run setup and the built-in tour; Dodaios running a project's command-line tool from its chat; a coding agent in an Agentic IDE thread adding an option with tests, and its changes in review; then Dodaios opening a Claude Code thread to fix a bug and reporting back when the agent is done" width="100%" />
   </a>
 </p>
 
 <p align="center">
-  <sub>One take of the real app (version 5.0.0), played at 1.4× speed. No model is connected in this recording, so it shows the app itself and no agent's answers.</sub>
+  <sub>One take of the real app (version 5.0.0) with Claude Opus 5.5 through a signed-in Claude Code. Every answer and every change is real. Clicks and typing play at 1.4× speed, the waits for the model at 7×.</sub>
 </p>
 
 ## What it is
