@@ -1111,6 +1111,7 @@ def _title_chats(request: Request, svc: Any, rows: list[dict[str, Any]]) -> None
     their first message, the way the CLI names a terminal pane. A title the
     user typed is recognised by the titler and kept.
     """
+    from dodaios.agent_chat.events import shown_text
     from dodaios.agent_chat.store import _title_from
     from dodaios.sessions import chat_titles
 
@@ -1121,18 +1122,36 @@ def _title_chats(request: Request, svc: Any, rows: list[dict[str, Any]]) -> None
         if not (surface == "jarvis" or (surface == "agent" and not row.get("cli_title"))):
             continue
         sid = str(row["session_id"])
+        seed = str(row.get("title") or "")
+        # What the person sent -> the title a build before 2026-11-12 stored for
+        # it, which it took from the composed prompt. Filled by ``load``.
+        from_prompt: dict[str, str] = {}
 
-        def load(sid: str = sid) -> list[tuple[str, str]]:
+        def load(
+            sid: str = sid, from_prompt: dict[str, str] = from_prompt
+        ) -> list[tuple[str, str]]:
             texts: list[tuple[str, str]] = []
             for event in svc.store.list_events(sid):
-                text = str((event.get("payload") or {}).get("text") or "")
+                payload = event.get("payload") or {}
+                text = str(payload.get("text") or "")
                 if event["kind"] == "user_message":
-                    texts.append(("user", text))
+                    # The person's own words, as the store titles the chat: the
+                    # prompt of a message with files also holds the note and the
+                    # file blocks written for the model.
+                    said = shown_text(payload)
+                    from_prompt.setdefault(said, _title_from(text))
+                    texts.append(("user", said))
                 elif event["kind"] == "agent_message":
                     texts.append(("agent", text))
                 elif event["kind"] == "assistant_text":
                     texts.append(("assistant", text))
             return texts
+
+        def auto_title(
+            text: str, seed: str = seed, from_prompt: dict[str, str] = from_prompt
+        ) -> str:
+            """The title this first message gave the chat; any other title was typed."""
+            return seed if seed and from_prompt.get(text) == seed else _title_from(text)
 
         updated = int(row.get("updated_ms") or 0)
         requests.append(chat_titles.TitleRequest(
@@ -1143,9 +1162,9 @@ def _title_chats(request: Request, svc: Any, rows: list[dict[str, Any]]) -> None
             updated_ms=updated,
             settled=not row.get("running")
             and now - updated >= chat_titles.TYPED_SETTLE_S * 1000,
-            seed=str(row.get("title") or ""),
+            seed=seed,
             loader=load,
-            auto_title=_title_from,
+            auto_title=auto_title,
             # A thread is named a moment after its first message, as its CLI
             # names a terminal pane — not only once the agent has gone quiet.
             name_early=surface == "agent",
