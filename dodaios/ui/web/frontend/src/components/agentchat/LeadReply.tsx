@@ -4,11 +4,12 @@ import { ChatMarkdown } from "./ChatMarkdown";
 import "./leadConversation.css";
 
 /**
- * The assistant's reply in its one conversation, written the way a person
- * writes in a messenger: a short answer arrives as a few short messages, one
- * per paragraph, instead of one block of text. An answer that is really a
- * document (it has headings or a table, or it runs long) stays in one piece
- * as a note, because cutting a document into bubbles makes it harder to read.
+ * The assistant's reply in its one conversation, drawn the way a messenger
+ * draws a message: one message is one bubble, however many paragraphs it
+ * has. Until 2026-11-12 every paragraph was a bubble of its own, so a turn
+ * of four messages filled the chat with a dozen (maintainer: "a thousand
+ * messages for a simple question"). An answer that is really a document (it
+ * has headings or a table, or it runs long) is a note: wider, with an edge.
  */
 
 /** Reading type shared by every reply on the front page. */
@@ -80,29 +81,23 @@ export function replyBlocks(markdown: string): ReplyBlock[] {
   return blocks;
 }
 
-/** More paragraphs than this read as a text, not as messages. */
+/** More paragraphs than this read as a text, not as a message. */
 const MAX_MESSAGES = 5;
 /** A reply longer than this is a text too, however it is laid out. */
 const MAX_MESSAGE_CHARS = 1400;
 
 /**
- * A reply as the messages it is sent in. Each paragraph is a message; a
- * list, quote or code block belongs to the paragraph that introduces it.
+ * A reply as the one message it is. `note` says it reads as a document:
+ * headings, a table or reference links, many paragraphs, or a long text.
  */
 export function splitReply(markdown: string): ReplyPart[] {
   const text = markdown.trim();
   if (!text) return [];
   const blocks = replyBlocks(text);
-  const whole = [{ text, note: true }];
-  // Headings and tables make a document; reference links only resolve inside one piece.
-  if (text.length > MAX_MESSAGE_CHARS || blocks.some((block) => block.kind === "heading" || block.kind === "table" || block.kind === "reference")) return whole;
-  const parts: ReplyPart[] = [];
-  for (const block of blocks) {
-    const last = parts[parts.length - 1];
-    if (last && block.kind !== "para") last.text += `\n\n${block.text}`;
-    else parts.push({ text: block.text, note: false });
-  }
-  return parts.length > MAX_MESSAGES ? whole : parts;
+  const paragraphs = blocks.filter((block) => block.kind === "para").length;
+  const note = text.length > MAX_MESSAGE_CHARS || paragraphs > MAX_MESSAGES
+    || blocks.some((block) => block.kind === "heading" || block.kind === "table" || block.kind === "reference");
+  return [{ text, note }];
 }
 
 /**
