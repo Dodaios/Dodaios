@@ -27,6 +27,15 @@ describe("activityOf", () => {
     expect(done[0].messageId).toBe("n1");
   });
 
+  it("leaves a routine run that failed out of the finished rows: the conversation does not show it", () => {
+    const result = (id: string, status: string): TimelineItem => ({
+      type: "notice", id, kind: "society_result", text: `Run ${id}`, agentName: "Jarvis", agentId: "jarvis",
+      status, tsMs: 2, data: { source: "routine" }, resolved: "",
+    });
+    const { done } = activityOf([result("n1", "failed"), result("n2", "done"), result("n3", "skipped")], t);
+    expect(done.map((r) => r.messageId)).toEqual(["n2"]);
+  });
+
   it("lists a message that is being answered beside the running request", () => {
     const side = (id: string, resolved: string): TimelineItem => ({
       type: "notice", id, kind: "side_thread_started", text: "Capital of Australia?\nmore", agentName: "", agentId: "",

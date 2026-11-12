@@ -7087,11 +7087,6 @@
       "side_thread_stop": "Parar esta resposta",
       "side_thread_to_main": "Faz parte da tarefa em curso",
       "side_thread_to_main_title": "Era para a tarefa que já está em curso? Isto para a resposta separada. A sua mensagem é tratada no fio principal logo a seguir a essa tarefa, com todo o seu contexto.",
-      "memory_learned_added": "Memorizado",
-      "memory_learned_updated": "Memória atualizada",
-      "memory_learned_ended": "Já não é verdade",
-      "memory_learned_undo": "Desfazer",
-      "memory_learned_undone": "Esquecido",
       "browser_takeover_title": "O teu navegador precisa de ti",
       "browser_takeover_open": "Abrir o navegador",
       "browser_takeover_done": "Devolvido",
@@ -11311,8 +11306,6 @@
     "raw": "Dados em bruto"
   },
   "memory_trust": {
-    "source_link": "De onde?",
-    "source_title": "Mostrar a mensagem de onde isto veio",
     "source_open": "Mostrar onde aprendi isto",
     "source_not_loaded": "Essa mensagem está mais atrás do que a conversa mostra agora.",
     "scope_title": "Pertence a",

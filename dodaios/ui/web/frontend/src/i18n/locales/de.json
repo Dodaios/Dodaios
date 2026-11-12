@@ -7087,11 +7087,6 @@
       "side_thread_stop": "Diese Antwort stoppen",
       "side_thread_to_main": "Gehört zur laufenden Aufgabe",
       "side_thread_to_main_title": "Für die Aufgabe gedacht, die schon läuft? Das stoppt die eigene Antwort. Deine Nachricht wird im Hauptthread direkt nach dieser Aufgabe bearbeitet, mit ihrem ganzen Kontext.",
-      "memory_learned_added": "Gemerkt",
-      "memory_learned_updated": "Erinnerung aktualisiert",
-      "memory_learned_ended": "Nicht mehr aktuell",
-      "memory_learned_undo": "Rückgängig",
-      "memory_learned_undone": "Vergessen",
       "browser_takeover_title": "Dein Browser braucht dich",
       "browser_takeover_open": "Browser öffnen",
       "browser_takeover_done": "Zurückgegeben",
@@ -11311,8 +11306,6 @@
     "raw": "Rohdaten"
   },
   "memory_trust": {
-    "source_link": "Woher?",
-    "source_title": "Die Nachricht zeigen, aus der das stammt",
     "source_open": "Zeigen, woher ich das weiß",
     "source_not_loaded": "Diese Nachricht liegt weiter zurück, als das Gespräch gerade zeigt.",
     "scope_title": "Gehört zu",

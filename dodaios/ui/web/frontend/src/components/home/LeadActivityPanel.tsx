@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { LeadTriggersSetting } from "./LeadTriggersSetting";
 import { LifeAdminSetting } from "./LifeAdminSetting";
 import { sideThreadOf, type NoticeItem, type TimelineItem, type TurnItem } from "@/components/agentchat/reduce";
+import { isBackgroundNotice } from "@/components/agentchat/backgroundNotices";
 
 type Brief = { available: boolean; enabled: boolean; time: string; timezone: string };
 
@@ -62,7 +63,8 @@ export function activityOf(items: TimelineItem[], t: (key: string) => string) {
     } else if (sideThreadOf(item)?.running) {
       // A message being answered beside the running request, named by its words.
       running.push({ id: `s-${item.id}`, text: (item as NoticeItem).text.split("\n")[0], messageId: item.id });
-    } else if (item.type === "notice" && item.kind === "society_result") {
+    } else if (item.type === "notice" && item.kind === "society_result" && !isBackgroundNotice(item)) {
+      // A routine run that failed is not in the conversation, so no row could open it.
       const notice = item as NoticeItem;
       const text = (notice.agentName ? `${notice.agentName}: ` : "") + notice.text.split("\n")[0];
       done.push({ id: `d-${item.id}`, text, messageId: item.id });

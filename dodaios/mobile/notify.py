@@ -9,7 +9,9 @@ Two sources, one sender:
   agent, throttled); this only carries it to the phone.
 * ``notice`` events in the lead conversation whose kind is a reminder or a
   result the person asked for (a routine's report, the morning brief, a due
-  memory), or that carry ``push: true`` explicitly.
+  memory), or that carry ``push: true`` explicitly. A notice the chat does not
+  draw (``agent_chat.events.is_background_notice``: a routine run that failed
+  or was skipped, a watchdog finding, a learned memory) is never pushed.
 
 Every push is a short, encrypted JSON note the phone's service worker shows;
 the data stays on this machine until the phone opens the conversation. A
@@ -24,6 +26,8 @@ import logging
 import time
 from collections.abc import Callable
 from typing import Any
+
+from dodaios.agent_chat.events import is_background_notice
 
 from .devices import MobileDevices, get_devices
 from .webpush import WebPushSender
@@ -127,6 +131,9 @@ class MobilePushNotifier:
             return
         notice_kind = str(payload.get("kind") or "")
         if payload.get("push") is not True and notice_kind not in REMINDER_NOTICE_KINDS:
+            return
+        if is_background_notice(payload):
+            # A failed or skipped routine run is in its run history; no chat shows it.
             return
         if session_id != (self._lead_session_id() or session_id):
             return

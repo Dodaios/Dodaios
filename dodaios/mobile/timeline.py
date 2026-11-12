@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from dodaios.agent_chat.events import is_background_notice
+
 #: Notice kinds that are plumbing, not news.
 _SILENT_NOTICES = frozenset(
     {"chat_control", "approval_rule", "message_dequeued", "message_queued", "turn_host"}
@@ -99,7 +101,7 @@ def fold_events(events: list[dict[str, Any]], *, running: bool = False) -> dict[
         elif kind == "notice":
             notice_kind = str(payload.get("kind") or "")
             text = _text(payload.get("text") or payload.get("report"), 1200)
-            if notice_kind in _SILENT_NOTICES or not text:
+            if notice_kind in _SILENT_NOTICES or not text or is_background_notice(payload):
                 continue
             rows.append(
                 {

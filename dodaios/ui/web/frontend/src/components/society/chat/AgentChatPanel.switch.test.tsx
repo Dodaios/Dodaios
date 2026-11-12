@@ -295,6 +295,31 @@ it.each(["specialist", "lead"] as const)("/clear empties only the %s view and ke
   expect(screen.queryByText("PREVIOUS_CONTEXT_TO_KEEP")).toBeNull();
 });
 
+it("draws no background record in the lead's chat; an agent's own chat keeps its failed routine run", () => {
+  const records = (): Timeline => reduceEvents(EMPTY_TIMELINE, [
+    ev("user_message", { text: "VISIBLE_MESSAGE" }),
+    ev("notice", { kind: "watchdog", status: "done", text: "WATCHDOG_FINDING" }),
+    ev("notice", { kind: "memory_learned", status: "done", text: "LEARNED_MEMORY" }),
+    ev("notice", { kind: "society_result", source: "routine", status: "failed", agent_name: "A", text: "ROUTINE_FAILED" }),
+    ev("notice", { kind: "society_result", source: "routine", status: "done", agent_name: "A", text: "ROUTINE_RESULT" }),
+  ]);
+  const jarvis = agent({ agentId: "jarvis", name: "Jarvis", tier: "lead" });
+  useAgentChatStore.getState().openSession(jarvis.chatSessionId!);
+  useAgentChatStore.setState({ activeSessionId: jarvis.chatSessionId, timeline: records(), busy: false });
+  setJarvisCardMode("chat");
+  const lead = render(<AgentChatPanel agent={jarvis} roster={[jarvis]} />);
+  expect(screen.getByText("VISIBLE_MESSAGE")).toBeTruthy();
+  // A result is a folded line under its headline; the finished one stays.
+  expect(screen.getByText("society.chat.result_done")).toBeTruthy();
+  for (const hidden of ["WATCHDOG_FINDING", "LEARNED_MEMORY", "society.chat.result_blocked"]) expect(screen.queryByText(hidden)).toBeNull();
+  lead.unmount();
+
+  useSocietyChatStore.getState().openSession(gmail.chatSessionId!);
+  useSocietyChatStore.setState({ activeSessionId: gmail.chatSessionId, timeline: records(), busy: false });
+  render(<AgentChatPanel agent={gmail} roster={[gmail]} />);
+  expect(screen.getByText("society.chat.result_blocked")).toBeTruthy();
+});
+
 it.each(["specialist", "lead"] as const)("keeps follow-up sending available while the %s is reasoning", async (tier) => {
   const current = tier === "lead" ? agent({ agentId: "jarvis", name: "Jarvis", tier }) : gmail;
   const store = tier === "lead" ? useAgentChatStore : useSocietyChatStore;

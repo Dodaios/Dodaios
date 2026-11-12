@@ -7087,11 +7087,6 @@
       "side_thread_stop": "Stop this answer",
       "side_thread_to_main": "Belongs to the running task",
       "side_thread_to_main_title": "Meant for the task that is already running? This stops the separate answer. Your message is handled in the main thread right after that task, with its full context.",
-      "memory_learned_added": "Remembered",
-      "memory_learned_updated": "Updated memory",
-      "memory_learned_ended": "No longer true",
-      "memory_learned_undo": "Undo",
-      "memory_learned_undone": "Forgotten",
       "browser_takeover_title": "Your browser needs you",
       "browser_takeover_open": "Open the browser",
       "browser_takeover_done": "Handed back",
@@ -11311,8 +11306,6 @@
     "raw": "Raw"
   },
   "memory_trust": {
-    "source_link": "Where from?",
-    "source_title": "Show the message this was learned from",
     "source_open": "Show where I learned this",
     "source_not_loaded": "That message is further back than the conversation shows right now.",
     "scope_title": "Belongs to",

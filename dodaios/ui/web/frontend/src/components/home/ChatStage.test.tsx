@@ -690,6 +690,37 @@ describe("ChatStage (agent chat)", () => {
     expect(within(turn).getByTestId("agent-text").querySelector("strong")?.textContent).toBe("a.py");
   });
 
+  it("draws no background record: a learned memory, a watchdog finding, a routine run that failed", () => {
+    const timeline = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "good morning" }),
+      ev("notice", { kind: "memory_learned", status: "done", text: "Wants results as files.",
+        items: [{ op: "added", id: "m1", text: "Wants results as files." }] }),
+      ev("notice", { kind: "watchdog", status: "done", text: "Something needs a look.\n- The app was not running for about 16 minutes" }),
+      ev("notice", { kind: "society_result", source: "routine", status: "failed", agent_name: "Jarvis",
+        text: 'The routine "Probe status file" failed: RuntimeError: no model seat' }),
+      ev("notice", { kind: "society_result", source: "routine", status: "done", agent_name: "Jarvis", text: "Three new orders today." }),
+    ]);
+    useAgentChatStore.setState({ ...seedState(), activeSessionId: "s1", timeline });
+    render(<ChatStage />);
+    const stage = screen.getByTestId("chat-stage");
+    expect(stage.textContent).toContain("good morning");
+    // The routine's finished result is an answer and stays.
+    expect(stage.textContent).toContain("Three new orders today.");
+    expect(stage.textContent).not.toContain("Wants results as files.");
+    expect(stage.textContent).not.toContain("Something needs a look.");
+    expect(stage.textContent).not.toContain("Probe status file");
+  });
+
+  it("stays on the greeting when the log holds background records only", () => {
+    const timeline = reduceEvents(EMPTY_TIMELINE, [
+      ev("notice", { kind: "watchdog", status: "done", text: "Something needs a look." }),
+      ev("notice", { kind: "memory_learned", status: "done", text: "Wants results as files." }),
+    ]);
+    useAgentChatStore.setState({ ...seedState(), activeSessionId: "s1", timeline });
+    render(<ChatStage />);
+    expect(screen.getByTestId("chat-stage").getAttribute("data-empty")).toBe("true");
+  });
+
   it("goes on at the bottom when the person sends: the conversation above stays in view", () => {
     // The complaint this guards (maintainer, 2026-11-12): a sent message was
     // brought to the top of the scroll area over a spacer, so every send hid

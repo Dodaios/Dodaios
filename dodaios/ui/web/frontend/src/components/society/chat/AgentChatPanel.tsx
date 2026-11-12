@@ -93,6 +93,7 @@ import { AgentModelPicker } from "./AgentModelPicker";
 import { mentionChoice, messageChoices } from "./mentionChoices";
 import { ChatCommandPanel, useChatCommands } from "@/components/agentchat/ChatCommands";
 import { useTranscriptView } from "./useTranscriptView";
+import { withoutBackgroundNotices } from "@/components/agentchat/backgroundNotices";
 import { useHeaderModelSlot } from "../card/headerModelSlot";
 import { societyResultHeadline, societyResultText } from "@/lib/skipReasons";
 import {
@@ -384,6 +385,8 @@ function JarvisChat({ agent, roster }: AgentChatPanelProps) {
   const cancel = useAgentChat((s) => s.cancel);
   const decide = useAgentChat((s) => s.decide);
   const view = useTranscriptView(activeSessionId, items);
+  // The same rule as the front page's chat: background records are not drawn.
+  const shownItems = useMemo(() => withoutBackgroundNotices(view.items), [view.items]);
 
   useEffect(() => {
     void loadCatalog();
@@ -476,7 +479,7 @@ function JarvisChat({ agent, roster }: AgentChatPanelProps) {
           <AgentConversationsBar agentId={agent.agentId} agentName={displayName(agent.agentId, agent.name)} displayName={displayName} />
         </div>
       </ChatTopChrome>
-      <Transcript key={`${activeSessionId ?? ""}:${view.boundaryId}`} items={view.items} agent={agent} roster={roster} onDecide={decide}
+      <Transcript key={`${activeSessionId ?? ""}:${view.boundaryId}`} items={shownItems} agent={agent} roster={roster} onDecide={decide}
         onRetry={busy ? undefined : (text) => void send(text)} />
       {activeSessionId && socketState !== "open" && socketState !== "idle" ? (
         <p role="status" className="px-4 pb-1 text-xs text-muted-foreground">
