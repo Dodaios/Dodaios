@@ -196,16 +196,41 @@ def build_frontend(wt: Path) -> str:
 
 
 def app_interpreter(repo: Path) -> str:
-    """The interpreter of the running default app, else this one."""
+    """The interpreter of the running default app, else this one.
+
+    The default app may run from an app bundle (macOS): its executable is the
+    bundle's launcher, which takes neither ``-c`` nor ``-m``. Then this
+    interpreter starts the Dev app.
+    """
     pid = _read_meta(repo / "data").get("pid")
     if pid:
         try:
             import psutil
 
-            return psutil.Process(int(pid)).exe()
+            exe = psutil.Process(int(pid)).exe()
         except Exception as exc:
             print(f"default app interpreter unknown ({exc}); using {sys.executable}")
+        else:
+            if is_python(exe):
+                return exe
+            print(f"the default app runs from {exe}, not a Python; using {sys.executable}")
     return sys.executable
+
+
+def is_python(exe: str) -> bool:
+    """Whether ``exe`` runs Python code given on its command line.
+
+    An interpreter under another name counts (the Windows app's
+    ``DodaiosApp.exe`` is one), so the executable is asked, not its name.
+    """
+    try:
+        probe = subprocess.run(
+            [exe, "-c", "import sys"], capture_output=True, timeout=30, check=False,
+            stdin=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return probe.returncode == 0
 
 
 def launch(repo: Path, wt: Path, exe: str) -> int:
