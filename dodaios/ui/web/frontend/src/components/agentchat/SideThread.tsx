@@ -54,7 +54,8 @@ export function SideThread({ item, renderTimeline }: { item: NoticeItem; renderT
   };
 
   const answer = String(item.data.answer ?? "");
-  const ended = ENDED[item.resolved];
+  // How one that was not answered ended; undefined while it runs and when it was.
+  const ended: string | undefined = ENDED[item.resolved];
   return (
     <div className="flex min-w-0 flex-col gap-2" data-testid="side-thread" data-message-id={item.id}
       data-status={running ? "running" : item.resolved}>
@@ -66,7 +67,7 @@ export function SideThread({ item, renderTimeline }: { item: NoticeItem; renderT
       <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <span className="flex items-center gap-1" data-testid="side-thread-state">
           <Split aria-hidden className="h-3 w-3 shrink-0" />
-          {t(running ? "society.chat.side_thread_running" : "society.chat.side_thread_done")}
+          {t(running ? "society.chat.side_thread_running" : ended ?? "society.chat.side_thread_done")}
         </span>
         {running && (
           <>
@@ -92,9 +93,6 @@ export function SideThread({ item, renderTimeline }: { item: NoticeItem; renderT
       ) : answer ? (
         <StaticReply text={answer} />
       ) : null}
-      {ended && (
-        <p data-testid="side-thread-ended" className="ps-[2.625rem] text-xs text-muted-foreground">{t(ended)}</p>
-      )}
     </div>
   );
 }

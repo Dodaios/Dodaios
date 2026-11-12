@@ -298,6 +298,66 @@ def test_claude_code_reads_the_catch_up_in_front_of_a_resumed_turn(monkeypatch, 
     assert "also asked" not in planned(None, vendor)
 
 
+@pytest.mark.parametrize(
+    ("surface", "briefing", "expected"),
+    [
+        # The lead has no briefing of its own: its identity stays Dodaios' own
+        # prompt layers, and a resumed turn gets its catch-up block.
+        ("jarvis", None, None),
+        # A created agent's briefing is its identity and carries the line.
+        ("society", "You are Scout.", "You are Scout.\nRespond in this language: de"),
+    ],
+)
+async def test_a_reply_language_never_stands_in_for_the_leads_identity(
+    monkeypatch, surface, briefing, expected
+):
+    from types import SimpleNamespace
+
+    from dodaios.agent_chat import dodaios_harness, runner_cli
+    from dodaios.agent_chat.runner_api import TurnHandle
+
+    seen: dict[str, object] = {}
+
+    async def surface_identity(_session):
+        return briefing
+
+    async def build_identity(**kwargs):
+        seen.update(kwargs)
+        return dodaios_harness.Identity(kwargs["session_id"], "id", "id")
+
+    async def once(handle, prompt, runner, resume, **kwargs):
+        seen["prompt"] = prompt
+        return runner_cli._Outcome("done", None, {}, None, resume)  # noqa: SLF001
+
+    async def language(*_args):
+        return "de"
+
+    async def emit(_event):
+        return None
+
+    async def deny(*_args):
+        return "deny"
+
+    monkeypatch.setattr(runner_cli, "_surface_identity", surface_identity)
+    monkeypatch.setattr(dodaios_harness, "build_identity", build_identity)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
+    monkeypatch.setattr("dodaios.society.reply_preference.resolve_agent_reply_language", language)
+    session_id = "society:scout" if surface == "society" else "lead-1"
+    handle = TurnHandle(
+        session=SimpleNamespace(
+            surface=surface, session_id=session_id, vendor_session="vendor-1", account_id="",
+        ),
+        turn_id="t1", emit=emit, request_approval=deny, cancel=asyncio.Event(),
+        surface=surface, stance="ask", output_language="de",
+    )
+    await runner_cli.run_cli_turn(handle, "Was steht heute an?", "claude-cli", identity=True)
+
+    assert seen["prompt_override"] == expected
+    assert seen["resume"] == "vendor-1"
+    # The line itself reaches every seat on the message.
+    assert str(seen["prompt"]).endswith("Respond in this language: de")
+
+
 def test_the_composer_route_answers_beside_a_working_turn(tmp_path, monkeypatch):
     monkeypatch.setattr(service_mod, "resolve_runner", lambda *a, **kw: "brain")
 

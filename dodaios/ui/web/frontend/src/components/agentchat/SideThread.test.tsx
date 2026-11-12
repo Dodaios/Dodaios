@@ -78,7 +78,9 @@ describe("a message sent while the conversation still works", () => {
 
   it("says how an unanswered one ended", () => {
     draw(conversation(ev("notice", { kind: "side_thread_finished", side_id: "side-1", status: "interrupted", text: QUESTION })));
-    expect(screen.getByTestId("side-thread-ended").textContent).toContain("restart");
+    const state = screen.getByTestId("side-thread-state").textContent ?? "";
+    expect(state).toContain("restart");
+    expect(state).not.toContain("Answered in parallel"); // it was not
     expect(screen.queryByTestId("side-thread-answer")).toBeNull();
   });
 

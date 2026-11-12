@@ -4024,10 +4024,12 @@ async def run_cli_turn(
     # A society agent's seat: its own briefing is the identity (not Jarvis'
     # layers), and its pinned subscription account is the seat's login.
     prompt_override = await _surface_identity(session) if identity else None
-    if identity and getattr(handle, "output_language", ""):
-        prompt_override = (
-            (prompt_override or "") + "\nRespond in this language: " + handle.output_language
-        )
+    if prompt_override and getattr(handle, "output_language", ""):
+        # Only a seat with a briefing of its own takes the line there. The lead
+        # has none: an override made of this line alone would stand in for its
+        # whole identity (no prompt layers, no catch-up). Its message carries
+        # the line already.
+        prompt_override += "\nRespond in this language: " + handle.output_language
     account_token = ACCOUNT_OVERRIDE.set(getattr(session, "account_id", "") or "")
     turn_seats: dict[str, str] = {}
     seats_token = _TURN_SEATS.set(turn_seats)
