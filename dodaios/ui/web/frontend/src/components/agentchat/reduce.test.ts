@@ -549,3 +549,16 @@ describe("mid-turn steering", () => {
     expect(steered.kind === "text" && steered.id.startsWith("steer-")).toBe(true);
   });
 });
+
+describe("work handed to a coding thread", () => {
+  it("adds no row for the thread's start, and keeps the notices the person must act on", () => {
+    const started = reduceEvents(EMPTY_TIMELINE, [
+      ev("notice", { kind: "coding_thread", thread_id: "t1", agent: "Claude Code", title: "Review the pull requests", text: "Started a Claude Code thread: Review the pull requests" }),
+    ]);
+    expect(started.items).toEqual([]);
+    const paused = reduceEvents(EMPTY_TIMELINE, [
+      ev("notice", { kind: "coding_thread_paused", thread_id: "t1", title: "Review", text: "Stopped following “Review” after 5 automatic updates." }),
+    ]);
+    expect(paused.items).toHaveLength(1);
+  });
+});

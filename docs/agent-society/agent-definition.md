@@ -143,8 +143,10 @@ get it.
 
 The thread records who started it (`agent_chat_thread_owners`) and every
 message the agent writes carries an `author`, so the thread shows the agent's
-name above its messages. The agent's chat shows a "Started a … thread" line
-that opens the thread. When a turn the agent started finishes, asks a
+name above its messages. The start is stored in the agent's chat as a
+`coding_thread` notice, which the chat does not draw (maintainer decision
+2026-11-12: the person asked for the thread and finds it in the Agentic IDE).
+When a turn the agent started finishes, asks a
 question, presents a plan or waits for an approval, the coordinator
 (`dodaios/society/coding_threads.py`) wakes the agent's chat with the result
 as an internal message: the agent checks it against the task, answers,
