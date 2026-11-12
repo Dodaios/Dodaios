@@ -29,6 +29,14 @@ sent back to work with one imperative next step.
 The gate fails open: if it cannot check (no `gh`, no network, a bug), the
 session may stop and a note says nothing was verified.
 
+The hooks start the gate with the first `python` or `python3` on `PATH`.
+Where that is older than the repository supports (macOS ships 3.9 as
+`/usr/bin/python3`), the gate hands the run to a supported one: the
+checkout's `.venv`, for a worktree the `.venv` of the checkout it belongs to,
+then `python3.14` down to `python3.11` on `PATH`. Until 2026-11-12 it crashed
+at import there and the hook swallowed the crash, so on such a machine no
+agent was checked at all.
+
 ## Which branches
 
 The branch checked out in the hook's `cwd`, plus every branch the session

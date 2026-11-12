@@ -49,15 +49,89 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+# The oldest Python this repository supports (pyproject `requires-python`).
+MIN_PYTHON = (3, 11)
+# Not `datetime.UTC` (3.11): everything down to the hand-over below must run on
+# an older interpreter too.
+UTC = timezone.utc  # noqa: UP017
+
+
+def _python_candidates() -> list[str]:
+    """Interpreters to try, best first: this checkout's, the main checkout's, then PATH."""
+    roots = [REPO_ROOT]
+    try:
+        common = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(REPO_ROOT),
+                "rev-parse",
+                "--path-format=absolute",
+                "--git-common-dir",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        common = ""
+    # A worktree has no virtual environment of its own; the checkout it belongs to has.
+    if common and Path(common).parent not in roots:
+        roots.append(Path(common).parent)
+    found = [
+        str(root / ".venv" / sub)
+        for root in roots
+        for sub in ("bin/python", "Scripts/python.exe")
+        if (root / ".venv" / sub).is_file()
+    ]
+    names = ("python3.14", "python3.13", "python3.12", "python3.11", "python", "python3")
+    found += [path for path in map(shutil.which, names) if path]
+    return found
+
+
+def _is_supported(python: str) -> bool:
+    probe = f"import sys; raise SystemExit(sys.version_info < {MIN_PYTHON!r})"
+    try:
+        return subprocess.run([python, "-c", probe], timeout=20, check=False).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _rerun_on_supported_python(argv: list[str]) -> int:
+    """Hand this run to a supported interpreter.
+
+    The Stop hook starts the gate with whatever `python` or `python3` is first
+    on PATH. On macOS that is the system's 3.9, on which the gate crashed at
+    import, and the hook swallowed the crash: no agent on that machine was
+    ever checked. The gate now finds a supported interpreter itself.
+    """
+    for python in _python_candidates():
+        if os.path.realpath(python) != os.path.realpath(sys.executable) and _is_supported(python):
+            return subprocess.call([python, str(Path(__file__).resolve()), *argv])
+    need = ".".join(map(str, MIN_PYTHON))
+    print(
+        f"Agent done gate: needs Python {need} or newer and found none; nothing was verified.",
+        file=sys.stderr,
+    )
+    # May stop: a gate that cannot run must never trap a session.
+    return 0
+
+
+if __name__ == "__main__" and sys.version_info < MIN_PYTHON:
+    sys.exit(_rerun_on_supported_python(sys.argv[1:]))
+
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
