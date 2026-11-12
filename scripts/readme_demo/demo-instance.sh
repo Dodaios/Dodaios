@@ -7,10 +7,16 @@
 # own home folder, data folder and config file, on its own port. It never
 # touches the app you use. Each start wipes that state, so the app comes up
 # with nothing set up, and puts a small sample project into the home folder.
+# DEMO_HOME moves that home folder elsewhere (a path that reads well in the
+# picture, such as /home/demo); it is wiped at each start too.
 #
 # Needs a Python environment with Dodaios, ptyprocess (the terminal) and pytest
-# (the command the recording runs), and a built frontend bundle (npm run build
-# in dodaios/ui/web/frontend). Choose the interpreter with PYTHON.
+# (the sample project's tests), and a built frontend bundle (npm run build in
+# dodaios/ui/web/frontend). Choose the interpreter with PYTHON.
+# The recording talks to a real model through Claude Code, which must be
+# installed and signed in. The instance runs with HOME=DEMO_HOME, so on Linux
+# pass the login as CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`); the
+# environment reaches Claude Code unchanged. macOS keeps it in the Keychain.
 # Run it as a normal user: as root the app shows an administrator notice.
 set -eu
 
@@ -27,8 +33,14 @@ if [ "$(id -u)" = "0" ]; then
   echo "warning: running as root, the app will show an administrator notice" >&2
 fi
 
-DEMO_HOME="$DEMO_ROOT/home"
+DEMO_HOME="${DEMO_HOME:-$DEMO_ROOT/home}"
 DEMO_STATE="$DEMO_ROOT/state"
+case "$DEMO_HOME" in
+  ""|"/"|"${HOME:-/nonexistent}")
+    echo "DEMO_HOME must name a folder of its own, not your home folder" >&2
+    exit 2
+    ;;
+esac
 PROJECT="$DEMO_HOME/projects/trailhead"
 
 rm -rf "$DEMO_HOME" "$DEMO_STATE"
@@ -114,6 +126,7 @@ EOF
 
 : > "$PROJECT/src/__init__.py"
 : > "$PROJECT/tests/__init__.py"
+printf '__pycache__/\n.pytest_cache/\n' > "$PROJECT/.gitignore"
 
 (
   cd "$PROJECT"
