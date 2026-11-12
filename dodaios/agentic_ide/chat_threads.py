@@ -313,7 +313,7 @@ class ChatThreads:
             )
             try:
                 image_brief, _attachments, receipts = await prepare(place, place, images)
-            except ImageReferenceError as exc:
+            except ImageReferenceError as exc:  # the receipt carries the reason back
                 return {
                     "status": "not_accepted",
                     "reason": str(exc),
