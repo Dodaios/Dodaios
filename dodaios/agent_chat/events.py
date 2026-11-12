@@ -98,5 +98,28 @@ def make_event(kind: str, payload: dict[str, Any] | None = None, *, seq: int = 0
     return {"seq": seq, "ts_ms": now_ms(), "kind": kind, "payload": dict(payload or {})}
 
 
+def shown_text(payload: dict[str, Any]) -> str:
+    """What the person sent, as a chat shows it: never the composed prompt.
+
+    ``text`` is the prompt the turn received; with files it also carries the
+    note and the ``<attachment>`` blocks written for the model. ``typed`` is
+    the person's own sentence. A message of files alone has an empty sentence,
+    and its files' names stand for it. A message without ``typed`` (no files,
+    no separate display text) is its ``text``.
+    """
+    typed = payload.get("typed")
+    if not isinstance(typed, str):
+        return str(payload.get("text") or "")
+    if typed.strip():
+        return typed
+    rows = payload.get("attachments")
+    names = ", ".join(
+        str(row["name"])
+        for row in (rows if isinstance(rows, list) else [])
+        if isinstance(row, dict) and row.get("name")
+    )
+    return names or str(payload.get("text") or "")
+
+
 def is_transient(event: dict[str, Any]) -> bool:
     return event.get("kind") in TRANSIENT_KINDS

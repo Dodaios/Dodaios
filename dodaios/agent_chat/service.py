@@ -51,7 +51,7 @@ from dodaios.agent_chat.credential_requests import (
     CredentialSpec,
 )
 from dodaios.agent_chat.effort import normalize_effort
-from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.events import make_event, shown_text
 from dodaios.agent_chat.parked_work import BACKGROUND_ORIGIN, ParkedWorkBoard
 from dodaios.agent_chat.permissions import (
     default_permission,
@@ -1587,7 +1587,7 @@ class AgentChatService:
                 replies.append(str(data.get("text") or ""))
             elif kind == "user_message":
                 # What the person wrote, not the composed prompt around it.
-                user_text = str(data.get("typed") or data.get("text") or "")
+                user_text = shown_text(data)
                 break
         try:
             loop = asyncio.get_running_loop()

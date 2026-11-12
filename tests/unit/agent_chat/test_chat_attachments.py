@@ -20,6 +20,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from dodaios.agent_chat import attachments as chat_attachments
+from dodaios.agent_chat.events import make_event, shown_text
 from dodaios.agent_chat.service import AgentChatService
 from dodaios.agent_chat.store import AgentChatStore
 from dodaios.agentic_ide import drop_analysis
@@ -296,6 +297,11 @@ def test_a_message_with_files_shows_the_sentence_and_sends_the_contents(
     assert payload["attachments"] == [
         {"name": "shot.png", "kind": "image", "described_by": "vision", "note": ""}
     ]
+    # The thread's name and preview are the person's words, not the file note.
+    stored = svc.store.get_session(session.session_id)
+    assert stored is not None
+    assert stored.title == "what is wrong here"
+    assert stored.preview == "what is wrong here"
 
 
 def test_files_alone_are_a_complete_message(tmp_path: Path) -> None:
@@ -320,6 +326,52 @@ def test_files_alone_are_a_complete_message(tmp_path: Path) -> None:
         e for e in svc.store.list_events(session.session_id) if e["kind"] == "user_message"
     )
     assert "A chart." in user["payload"]["text"]
+    # Nothing was typed, so no chat may show the prompt as the person's words:
+    # the sentence is empty and the file's name stands for the message.
+    assert user["payload"]["typed"] == ""
+    assert shown_text(user["payload"]) == "shot.png"
+    stored = svc.store.get_session(session.session_id)
+    assert stored is not None
+    assert stored.title == "shot.png"
+    assert stored.preview == "shot.png"
+    assert svc.store.title_is_automatic(stored)
+
+
+def test_shown_text_is_the_sentence_and_never_the_file_note() -> None:
+    prompt = chat_attachments.compose(
+        "look", chat_attachments.to_analysis([{"name": "a.png", "kind": "image"}])
+    )
+    assert "Files the user attached" in prompt
+    files = [{"name": "a.png", "kind": "image"}, {"name": "b.pdf", "kind": "document"}]
+    assert shown_text({"text": prompt, "typed": "look", "attachments": files}) == "look"
+    assert shown_text({"text": prompt, "typed": "", "attachments": files}) == "a.png, b.pdf"
+    # No files and no separate display text: the message is its text.
+    assert shown_text({"text": "plain"}) == "plain"
+    assert shown_text({"text": "the prompt", "typed": ""}) == "the prompt"
+    assert shown_text({}) == ""
+
+
+def test_a_title_from_before_the_fix_still_counts_as_automatic(tmp_path: Path) -> None:
+    """A thread named after the composed prompt may still be renamed for the person."""
+    store = AgentChatStore(tmp_path / "db.sqlite")
+    prompt = chat_attachments.compose(
+        "", chat_attachments.to_analysis([{"name": "a.png", "kind": "image"}])
+    )
+    old_title = " ".join(prompt.split())[:79].rstrip() + "…"
+    session = store.create_session(
+        provider="fakeprov", model="", effort="", cwd=str(tmp_path), title=old_title
+    )
+    store.append_event(
+        session.session_id,
+        make_event(
+            "user_message",
+            {"text": prompt, "typed": "", "attachments": [{"name": "a.png", "kind": "image"}]},
+        ),
+    )
+    stored = store.get_session(session.session_id)
+    assert stored is not None
+    assert stored.title == old_title
+    assert store.title_is_automatic(stored)
 
 
 def test_an_empty_message_with_nothing_attached_is_still_refused(tmp_path: Path) -> None:

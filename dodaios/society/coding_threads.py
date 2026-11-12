@@ -685,6 +685,8 @@ def _option_index(spec: dict[str, Any], text: str) -> int | None:
 
 def transcript(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The thread as short entries for a model to read."""
+    from dodaios.agent_chat.events import shown_text
+
     out: list[dict[str, Any]] = []
     for event in events:
         kind = event["kind"]
@@ -693,7 +695,7 @@ def transcript(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if kind == "user_message":
             author = payload.get("author") or {}
             who = f"{author.get('name')} (you)" if author else "the person"
-            text = str(payload.get("typed") or payload.get("text") or "")
+            text = shown_text(payload)
             out.append({"seq": seq, "from": who, "text": _clip(text, _ENTRY_LIMIT)})
         elif kind == "assistant_text":
             out.append({"seq": seq, "from": "coding agent", "text": _clip(
