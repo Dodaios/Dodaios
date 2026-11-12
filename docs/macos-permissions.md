@@ -468,6 +468,16 @@ line of `WebServer.start()` in `dodaios/ui/web/server.py`; the call only stores 
 pin it: `tests/unit/speech/test_voice_permission_jit.py` (boot with all `not_determined`, boot of
 an upgrader, boot on a non-macOS host) and `tests/unit/ui/test_desktop_macos_permission_gate.py`.
 
+The rule covers the workspaces a launch restores. Their file index and the Quick Open listing walk
+the workspace folder, and a walk that reaches `~/Library/Containers` or `~/Library/Group Containers`
+raises macOS's "would like to access data from other apps" dialog, which macOS showed again at the
+next launch after "Allow" (seen on macOS 15.8.1 on 2026-11-12 with a workspace folder of
+`~/Library`: three launches, three dialogs). `consent_guarded_dirs` in
+`dodaios/agentic_ide/folders.py` keeps both walks out: a walk rooted at or above `~/Library` skips
+that tree, and one rooted inside it skips the two container folders. Pinned by
+`tests/unit/agentic_ide/test_walks_skip_app_data.py`. Not covered: a tool the person runs in a
+workspace terminal reads what it reads, under Dodaios's name (R5).
+
 ### 4.8 Threading, episodes, watcher
 
 - The service lock guards dictionary mutation only; a native call, a poll, a publish, a listener
