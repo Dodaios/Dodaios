@@ -743,11 +743,14 @@ describe("ChatStage (agent chat)", () => {
     expect(scrollTo).not.toHaveBeenCalled();
     expect(screen.queryByTestId("chat-bottom-spacer")).toBeNull();
 
-    // Sent: the column is taller by the new message, and the view goes to its end.
+    // Sent: the column is taller by the new message, and the view is at its
+    // end at once. No glide: the turn's next update would cut one short, and
+    // the desktop app's engine then leaves the view standing where it was
+    // (maintainer, 2026-11-12: "the chat does not move down by itself").
     measure(viewport, 900, 1080, 100);
     act(() => useAgentChatStore.setState({ timeline: reduceEvents(before, [ev("user_message", { text: "and the linter?" })]) }));
-    expect(scrollTo).toHaveBeenCalledTimes(1);
-    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 1080 }));
+    expect(viewport.scrollTop).toBe(1080);
+    expect(scrollTo).not.toHaveBeenCalled();
     // Both messages of the person are in the column, the earlier one first.
     expect(screen.getAllByTestId("agent-message-user").map((node) => node.textContent)).toEqual(["run the tests", "and the linter?"]);
     expect(screen.queryByTestId("chat-bottom-spacer")).toBeNull();
@@ -768,8 +771,19 @@ describe("ChatStage (agent chat)", () => {
 
     measure(viewport, 100, 1080, 50);
     act(() => useAgentChatStore.setState({ timeline: reduceEvents(before, [ev("user_message", { text: "stop after the first failure" })]) }));
-    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 1080 }));
+    expect(viewport.scrollTop).toBe(1080);
+    expect(scrollTo).not.toHaveBeenCalled();
     expect(screen.queryByTestId("chat-scroll-end")).toBeNull();
+
+    // The answer's first words arrive: the view is still at the end and follows.
+    measure(viewport, 1080, 1200, 50);
+    act(() => useAgentChatStore.setState({
+      timeline: reduceEvents(before, [
+        ev("user_message", { text: "stop after the first failure" }),
+        ev("turn_started", { turn_id: "t9", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
+      ]),
+    }));
+    expect(viewport.scrollTop).toBe(1200);
   });
 
   it("lands an opened conversation at its end without a glide, even when the person wrote last", () => {

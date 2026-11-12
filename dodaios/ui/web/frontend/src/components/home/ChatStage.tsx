@@ -88,7 +88,11 @@ function CallSlot({ composerControls = false }: { composerControls?: boolean }) 
  * reading; the answer grows below. Until 2026-11-12 a sent message was
  * brought to the TOP of the scroll area instead, over a spacer, which hid
  * the whole conversation behind every send (maintainer: "to see the chat I
- * have to scroll up"). While an answer grows, the rule every conversation
+ * have to scroll up"). The view goes to the end at once, without a glide:
+ * a glide started here was cut short by the very next update of the turn,
+ * and in the desktop app's engine that could leave the view where it stood
+ * (maintainer, the same evening: "the chat does not move down by itself, I
+ * have to scroll"). While an answer grows, the rule every conversation
  * surface here shares applies (hooks/useStickToBottom): new output pulls
  * the view along ONLY while the view is already at the end. Scrolled up to
  * read something, you keep your place while the answer goes on below, and a
@@ -150,7 +154,7 @@ function ChatStageContent() {
   // Whether the view is at the end — and so whether growth pulls it along —
   // is the hook's to answer; it listens on the same viewport this stage
   // scrolls.
-  const { rootRef: stickRootRef, atEnd, jumpToEnd, follow } = useStickToBottom();
+  const { rootRef: stickRootRef, atEnd, jumpToEnd, snapToEnd, follow } = useStickToBottom();
   const setRoot = useCallback(
     (node: HTMLDivElement | null) => {
       rootRef.current = node;
@@ -182,9 +186,9 @@ function ChatStageContent() {
     if (!scrollViewportOf(rootRef.current) || !lastItemId) return;
     // The person sent a message into a conversation that is on screen: it
     // lands under the last one and the view goes there, also for a reader
-    // who had scrolled up. Sending is being back at the end.
+    // who had scrolled up. Sending is being back at the end, at once.
     if (previousId !== null && previousId !== lastItemId && lastItemIsUser) {
-      jumpToEnd();
+      snapToEnd();
       return;
     }
     // Everything else — the answer's next words, a tool call, an opened
@@ -193,7 +197,7 @@ function ChatStageContent() {
     // for ResizeObserver and lose the reader for that frame. A reader who
     // scrolled up is left where they are (`follow` no-ops).
     follow();
-  }, [lastItemId, lastItemIsUser, activeSessionId, items, follow, jumpToEnd]);
+  }, [lastItemId, lastItemIsUser, activeSessionId, items, follow, snapToEnd]);
 
   // The live blocks grow without a new item — a streamed answer, the dots
   // of a turn at work — so no render-driven effect fires for it; the
