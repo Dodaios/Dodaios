@@ -569,6 +569,38 @@ async def test_cooldown_suppresses_immediate_refire(fake_vosk) -> None:
     assert p.stats()["suppressed_cooldown"] >= 1
 
 
+async def test_a_new_session_never_verifies_audio_of_the_last_one(fake_vosk) -> None:
+    """The pipeline runs one ``detect()`` per idle phase on the same provider
+    and feeds it nothing while a voice session is open. The ring must start
+    each session empty: it used to keep the 3 s before the last fire, the wake
+    call itself, so the next session's first candidate was verified on a
+    window that began with that call and fired again on unrelated speech
+    (replayed 2026-11-12 with the real models: 27 of 36 clips without the
+    phrase fired 0.4 s after a wake, none on a detector that had not fired).
+    """
+    p = VoskKwsProvider("Hey Nova", model_path="fake", keyword="nova")
+    first = await _run_detect(p, [_chunk(value=6000) for _ in range(12)])
+    assert first == ["nova"]
+    assert p._ring_len > 0  # the call is still in the ring when the session ends
+
+    windows: list[np.ndarray] = []
+    original = p._ring_window
+
+    def _recording_window() -> np.ndarray:
+        window = original()
+        windows.append(window)
+        return window
+
+    p._ring_window = _recording_window  # type: ignore[method-assign]
+    await _run_detect(p, [_chunk(value=-3000) for _ in range(12)])
+
+    assert windows, "the second session never reached a verify"
+    old_level = 6000 / 32768.0
+    for window in windows:
+        assert len(window) <= 12 * 1600
+        assert not np.any(np.isclose(window, old_level, atol=1e-4))
+
+
 async def test_rejected_candidate_storm_is_backpressured(
     fake_vosk, monkeypatch
 ) -> None:

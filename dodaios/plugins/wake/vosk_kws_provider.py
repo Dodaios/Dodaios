@@ -2129,6 +2129,17 @@ class VoskKwsProvider:
         self._stage1_paths = list(self._model_paths)
         self._stage1_rt.clear()
         recs = self._fresh_recs()
+        # A session starts with an EMPTY ring. The pipeline runs one detect()
+        # per idle phase on the same provider and feeds it nothing while a
+        # voice session is open, so the ring still held the 3 s before the
+        # last fire: the wake call itself. The first candidate of the next
+        # session was then verified on a window that began with that call,
+        # and the verify re-heard the phrase in it. Replayed 2026-11-12 with
+        # the real models: 0.4 s after a wake (the lock after a hotkey
+        # hang-up), 27 of 36 clips WITHOUT the phrase fired again; on a
+        # detector that had not fired, none of them did.
+        self._ring.clear()
+        self._ring_len = 0
         last_fire_t = 0.0
         verify_not_before = 0.0
         # Pending candidate: a PARTIAL hit waits for ``confirm_tail_s`` more
