@@ -1033,3 +1033,153 @@ def test_a_competition_without_set_grammar_says_so_once(monkeypatch, caplog) -> 
         p._verify_window(_loud_window(3.0), fail_open=True)
     hits = [r for r in caplog.records if "no SetGrammar" in r.getMessage()]
     assert len(hits) == 1
+
+
+# ---------------------------------------------------------------------------
+# A vosk build whose SetGrammar exists but cannot run (macOS wheel 0.3.44).
+# LIVE 2026-11-12: the Python wrapper offers ``SetGrammar``, the bundled
+# libvosk.dyld does not export ``vosk_recognizer_set_grm``, so the call raised
+# on every candidate and the competition's fail-open handler accepted it. 96
+# fires in the log, each right after "shape competition errored ... accepting",
+# on room speech such as "terminal aufmachen".  # i18n-allow: recognition content
+# ---------------------------------------------------------------------------
+
+
+class _NoNativeSetGrammarRec(_StubRec):
+    """The wrapper method is there; the native symbol behind it is not."""
+
+    def SetGrammar(self, grammar: str) -> None:  # noqa: N802 - vosk API
+        raise AttributeError(
+            "symbol 'vosk_recognizer_set_grm' not found in library 'libvosk.dyld'"
+        )
+
+
+def _provider_without_native_set_grammar(monkeypatch, free: dict, verdicts: dict):
+    """A "Hey George" provider on a build that cannot swap a grammar.
+
+    ``verdicts`` maps a free-ear hypothesis to what a recognizer BUILT with
+    the per-candidate grammar decodes; the prewarmed stock recognizer would
+    only ever echo the phrase (its static grammar has no real alternative).
+    """
+    p = VoskKwsProvider("Hey George", model_path="fake", keyword="george")
+    built: list[list[str]] = []
+    taken: list[str] = []
+
+    def _take(model_path, kind):  # noqa: ANN001
+        taken.append(kind)
+        if kind == "competition":
+            return _NoNativeSetGrammarRec(_GEORGE_GRAMMAR)
+        return _StubRec(_GEORGE_GRAMMAR if kind == "grammar" else free)
+
+    def _build(model_path, grammar):  # noqa: ANN001
+        alternatives = json.loads(grammar)
+        built.append(alternatives)
+        heard = next((v for k, v in verdicts.items() if k in alternatives), None)
+        return _StubRec(heard if heard is not None else _GEORGE_GRAMMAR)
+
+    monkeypatch.setattr(p, "_take_verify_rec", _take)
+    monkeypatch.setattr(p, "_build_competition_rec", _build)
+    return p, built, taken
+
+
+def test_room_speech_loses_when_the_build_cannot_swap_a_grammar(monkeypatch) -> None:
+    """The live false fire: ordinary speech at the span must not win the wake
+    just because ``SetGrammar`` raised. The competition runs on a recognizer
+    built with the same alternatives, and the decoder keeps what it heard."""
+    free = {
+        "text": "und dann machen wir aufbürdet",  # i18n-allow: recognition content under test
+        "result": [*_GEORGE_LEAD_IN, _w("aufbürdet", 1.45, 2.20, conf=1.0)],  # i18n-allow
+    }
+    p, built, _ = _provider_without_native_set_grammar(
+        monkeypatch,
+        free,
+        {"aufbürdet": {"text": "aufbürdet", "result": []}},  # i18n-allow
+    )
+
+    assert p._verify_window(_loud_window(3.0), fail_open=True) is False
+    assert p.stats()["suppressed_shape_competition"] == 1
+    assert built == [["hey george", "hey [unk]", "aufbürdet", "[unk]"]]  # i18n-allow
+
+
+def test_a_real_call_still_fires_when_the_build_cannot_swap_a_grammar(
+    monkeypatch,
+) -> None:
+    """Recall is untouched: a call the free ear could not spell still wins
+    the competition on the rebuilt recognizer."""
+    free = {"text": "gorsch", "result": [_w("gorsch", 1.50, 2.15, conf=0.6)]}
+    p, built, _ = _provider_without_native_set_grammar(monkeypatch, free, {})
+
+    assert p._verify_window(_loud_window(3.0), fail_open=True) is True
+    assert built == [["hey george", "hey [unk]", "gorsch", "[unk]"]]
+
+
+def test_the_failed_swap_is_tried_and_reported_once(monkeypatch, caplog) -> None:
+    """After the first failed swap the provider knows the build: it stops
+    taking prewarmed competition recognizers it cannot use, and it says so in
+    the log once instead of once per candidate."""
+    import logging
+
+    free = {"text": "pedro", "result": [_w("pedro", 1.60, 2.10, conf=1.0)]}
+    p, built, taken = _provider_without_native_set_grammar(
+        monkeypatch, free, {"pedro": {"text": "pedro", "result": []}}
+    )
+
+    with caplog.at_level(logging.WARNING, logger="jarvis.wake.vosk"):
+        for _ in range(3):
+            assert p._verify_window(_loud_window(3.0), fail_open=True) is False
+
+    assert taken.count("competition") == 1
+    assert len(built) == 3
+    hits = [r for r in caplog.records if "cannot swap" in r.getMessage()]
+    assert len(hits) == 1
+    assert not [r for r in caplog.records if "errored" in r.getMessage()]
+
+
+def test_a_broken_competition_does_not_confirm_the_early_check(monkeypatch) -> None:
+    """The early check is fail-CLOSED: it may confirm a wake, never invent
+    one. A competition that errors must answer it with a rejection and leave
+    the decision to the authoritative confirm (which still fails open)."""
+    p = VoskKwsProvider("Hey Atlas", model_path="fake", keyword="atlas")
+
+    class _Boom:
+        def AcceptWaveform(self, pcm: bytes) -> bool:  # noqa: N802 - vosk API
+            raise RuntimeError("competition recognizer broke")
+
+    def _take(model_path, kind):  # noqa: ANN001
+        if kind == "competition":
+            return _Boom()
+        return _StubRec(_ATLAS_GRAMMAR if kind == "grammar" else _ATLAS_FREE)
+
+    monkeypatch.setattr(p, "_take_verify_rec", _take)
+    assert p._early_check(_loud_window()) is False
+    assert p._verify_window(_loud_window(), fail_open=True) is True
+
+
+def test_a_grammar_keeps_words_with_umlauts_and_accents(monkeypatch) -> None:
+    """libvosk does not decode JSON ``\\uXXXX`` escapes; an escaped word is
+    looked up as written, missed, and dropped from the grammar. The free
+    ear's hypothesis must reach the competition spelled as the model spells
+    it, or the phrase competes against a hypothesis with holes in it."""
+    p = VoskKwsProvider("Hey George", model_path="fake", keyword="george")
+    free = {
+        "text": "die mängel",  # i18n-allow: recognition content under test
+        "result": [
+            _w("die", 1.50, 1.70, conf=1.0),
+            _w("mängel", 1.70, 2.15, conf=1.0),  # i18n-allow
+        ],
+    }
+    seen: dict = {}
+
+    class _RecordingRec(_StubRec):
+        def SetGrammar(self, grammar: str) -> None:  # noqa: N802 - vosk API
+            seen["grammar"] = grammar
+
+    def _take(model_path, kind):  # noqa: ANN001
+        if kind == "competition":
+            return _RecordingRec({"text": "die mängel", "result": []})  # i18n-allow
+        return _StubRec(_GEORGE_GRAMMAR if kind == "grammar" else free)
+
+    monkeypatch.setattr(p, "_take_verify_rec", _take)
+    assert p._verify_window(_loud_window(3.0), fail_open=True) is False
+    assert "mängel" in seen["grammar"]  # i18n-allow: recognition content under test
+    assert "\\u" not in seen["grammar"]
