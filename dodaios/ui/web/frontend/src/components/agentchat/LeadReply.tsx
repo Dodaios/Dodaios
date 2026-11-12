@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { isChartFenceLine } from "@/lib/chartSpec";
 import { cn } from "@/lib/utils";
 import { ChatMarkdown } from "./ChatMarkdown";
 import "./leadConversation.css";
@@ -9,6 +10,7 @@ import "./leadConversation.css";
  * per paragraph, instead of one block of text. An answer that is really a
  * document (it has headings or a table, or it runs long) stays in one piece
  * as a note, because cutting a document into bubbles makes it harder to read.
+ * A chart is a message of its own: a card, not a grey bubble around a card.
  */
 
 /** Reading type shared by every reply on the front page. */
@@ -32,12 +34,14 @@ export const REPLY_PROSE = cn(
 /** The person's own message in the conversation look, wherever it is drawn. */
 export const OWN_BUBBLE = "jarvis-chat-out jarvis-chat-tinted lead-bubble-own max-w-[80%] px-4 py-2";
 
-export type ReplyBlockKind = "para" | "list" | "code" | "quote" | "heading" | "table" | "rule" | "reference";
+export type ReplyBlockKind = "para" | "list" | "code" | "chart" | "quote" | "heading" | "table" | "rule" | "reference";
 export interface ReplyBlock { kind: ReplyBlockKind; text: string }
 export interface ReplyPart {
   text: string;
   /** A document-like reply kept whole, drawn wider than a message. */
   note: boolean;
+  /** A chart block on its own: drawn as its card, without a bubble around it. */
+  chart?: true;
 }
 
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
@@ -45,6 +49,7 @@ const TABLE_RULE = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
 
 function kindOf(lines: string[]): ReplyBlockKind {
   const first = lines[0];
+  if (isChartFenceLine(first)) return "chart";
   if (lines.some((line) => FENCE.test(line))) return "code";
   if (/^ {0,3}#{1,6}\s/.test(first)) return "heading";
   if (lines.length > 1 && lines[0].includes("|") && TABLE_RULE.test(lines[1])) return "table";
@@ -94,15 +99,18 @@ export function splitReply(markdown: string): ReplyPart[] {
   if (!text) return [];
   const blocks = replyBlocks(text);
   const whole = [{ text, note: true }];
+  // A chart's numbers are not reading text: they make an answer neither long nor a document.
+  const written = blocks.reduce((sum, block) => sum + (block.kind === "chart" ? 0 : block.text.length + 2), 0);
   // Headings and tables make a document; reference links only resolve inside one piece.
-  if (text.length > MAX_MESSAGE_CHARS || blocks.some((block) => block.kind === "heading" || block.kind === "table" || block.kind === "reference")) return whole;
+  if (written > MAX_MESSAGE_CHARS || blocks.some((block) => block.kind === "heading" || block.kind === "table" || block.kind === "reference")) return whole;
   const parts: ReplyPart[] = [];
   for (const block of blocks) {
     const last = parts[parts.length - 1];
-    if (last && block.kind !== "para") last.text += `\n\n${block.text}`;
+    if (block.kind === "chart") parts.push({ text: block.text, note: false, chart: true });
+    else if (last && !last.chart && block.kind !== "para") last.text += `\n\n${block.text}`;
     else parts.push({ text: block.text, note: false });
   }
-  return parts.length > MAX_MESSAGES ? whole : parts;
+  return parts.filter((part) => !part.chart).length > MAX_MESSAGES ? whole : parts;
 }
 
 /**
@@ -120,8 +128,9 @@ export function LeadReply({ text, live = false }: { text: string; live?: boolean
           key={index}
           data-testid="lead-bubble"
           data-note={part.note ? "" : undefined}
-          // A message is a grey bubble; a document stays a card with an edge.
-          className={cn("lead-bubble", part.note ? "border border-border bg-card shadow-rim" : "jarvis-chat-in")}
+          data-chart={part.chart ? "" : undefined}
+          // A message is a grey bubble; a document stays a card with an edge; a chart brings its own card.
+          className={cn("lead-bubble", part.chart ? "" : part.note ? "border border-border bg-card shadow-rim" : "jarvis-chat-in")}
         >
           <div className={REPLY_PROSE}>
             <ChatMarkdown text={part.text} />

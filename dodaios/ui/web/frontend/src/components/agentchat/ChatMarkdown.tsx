@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { openExternalUrl } from "@/lib/openExternal";
 import { openLocalPath } from "@/lib/openLocalPath";
 import { readFence, visualFenceLanguage } from "@/lib/visualFence";
+import { CHART_FENCE, endsInOpenFence, parseChartSpec } from "@/lib/chartSpec";
 import { chatLinkAction, chatUrlTransform, localPathFromChatHref, threadRefFromChatHref } from "./chatLinks";
 import { CodingAgentLink } from "@/components/agentic/threads/CodingAgentLink";
 import { parseToolResult, ToolResultCard } from "./ToolResultCard";
@@ -16,6 +17,9 @@ export { MediaPreview, mediaKind, safeMediaUrl } from "./MediaPreview";
 export type { MediaKind } from "./MediaPreview";
 
 const RenderedFence = lazy(() => import("@/components/outputs/RenderedFence").then(module => ({ default: module.RenderedFence })));
+// The chart library is large and most answers carry no chart, so it loads with the first one.
+const ChartFence = lazy(() => import("@/components/outputs/ChartFence").then(module => ({ default: module.ChartFence })));
+const ChartFencePending = lazy(() => import("@/components/outputs/ChartFence").then(module => ({ default: module.ChartFencePending })));
 
 function assetKey(raw: string): string {
   try {
@@ -64,6 +68,22 @@ export function normalizeMediaMarkup(text: string): string {
 }
 
 const ImageKeysContext = createContext<ReadonlySet<string>>(new Set());
+/** Whether the text ends inside a fence, i.e. its last block is still being written. */
+const OpenFenceContext = createContext(false);
+
+/**
+ * A fenced `chart` block as the chart it describes. While the block is still
+ * arriving its place is held by a chart-shaped wait, so the reader never
+ * watches JSON scroll by; a finished block that is not a drawable chart stays
+ * the code it is.
+ */
+function ChartBlock({ code }: { code: string }) {
+  const writing = useContext(OpenFenceContext);
+  const spec = useMemo(() => parseChartSpec(code), [code]);
+  if (spec) return <Suspense fallback={null}><ChartFence spec={spec} /></Suspense>;
+  if (writing) return <Suspense fallback={null}><ChartFencePending /></Suspense>;
+  return <CodeBlock language="json" code={code} dense />;
+}
 
 // A file or folder address must not be loaded in this window: an empty href
 // reloads the page, and a relative name is served back as the app itself.
@@ -97,6 +117,7 @@ const MARKDOWN_COMPONENTS: Components = {
   pre: ({ children, node: _node, ...props }) => {
     const fence = readFence(children);
     if (fence) {
+      if (fence.language === CHART_FENCE) return <ChartBlock code={fence.code} />;
       if (fence.language === "json" || fence.language === "") {
         const result = parseToolResult(fence.code);
         if (result) return <ToolResultCard result={result} code={fence.code} />;
@@ -113,9 +134,12 @@ const MARKDOWN_COMPONENTS: Components = {
 export function ChatMarkdown({ text, className }: { text: string; className?: string }) {
   const body = useMemo(() => normalizeMediaMarkup(text), [text]);
   const imageKeys = useMemo(() => new Set(Array.from(body.matchAll(/!\[[^\]]*\]\(<?([^)>]+)>?\)/g), match => assetKey(match[1]))), [body]);
+  const writing = useMemo(() => body.includes(CHART_FENCE) && endsInOpenFence(body), [body]);
   return <div className={cn("min-w-0 [overflow-wrap:anywhere]", className)}>
     <ImageKeysContext.Provider value={imageKeys}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={url => url.startsWith("data:") ? safeMediaUrl(url) ?? "" : chatUrlTransform(url)} components={MARKDOWN_COMPONENTS}>{body}</ReactMarkdown>
+      <OpenFenceContext.Provider value={writing}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={url => url.startsWith("data:") ? safeMediaUrl(url) ?? "" : chatUrlTransform(url)} components={MARKDOWN_COMPONENTS}>{body}</ReactMarkdown>
+      </OpenFenceContext.Provider>
     </ImageKeysContext.Provider>
   </div>;
 }
