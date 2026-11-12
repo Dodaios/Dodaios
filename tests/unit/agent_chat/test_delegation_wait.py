@@ -94,13 +94,21 @@ async def test_six_delegates_finish_one_original_turn_after_all_reports(
         for e in store.list_events(session.session_id)
     )  # A reconnected UI can reconstruct the actual wait from persisted events.
     # The turn itself says that it only waits, so a chat does not draw it as typing.
-    waits = [
-        e["payload"]["tasks"]
-        for e in store.list_events(session.session_id)
-        if e["kind"] == "background_wait"
-    ]
-    assert waits[0] == [f"Agent {i}" for i in range(6)]
-    assert waits[-1] == ["Agent 5"]
+
+    def waits() -> list[list[str]]:
+        return [
+            e["payload"]["tasks"]
+            for e in store.list_events(session.session_id)
+            if e["kind"] == "background_wait"
+        ]
+
+    # The next poll is a timer away (coarse on Windows): wait for it, not for a fixed time.
+    for _ in range(400):
+        if waits()[-1:] == [["Agent 5"]]:
+            break
+        await asyncio.sleep(0.005)
+    assert waits()[0] == [f"Agent {i}" for i in range(6)]
+    assert waits()[-1] == ["Agent 5"]
     assert not any(e["kind"] == "turn_finished" for e in store.list_events(session.session_id))
     assert not any(lock.locked() for lock in svc._brain_locks.values())
     ready[5] = True
