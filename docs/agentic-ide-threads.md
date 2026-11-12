@@ -43,7 +43,8 @@ news since it was last opened.
   tab, more actions (rename, new thread, archive), fold the app sidebar to
   its rail for more room, a new thread in the project, and close — which
   moves the thread to the archive (not while it works or waits for an
-  approval).
+  approval). After the title stands the thread's code (`#3f9a2c`); a click
+  copies it for Dodaios (see "Pointing Dodaios at a coding agent").
 - **Conversation:** the person's messages on the right, the agent's answer as
   reading text, the work in between as folded rows ("Ran 3 commands, read 2
   files") that open to each call, its diff or its output. A running turn ends
@@ -168,6 +169,40 @@ The code is `dodaios/agentic_ide/chat_threads.py`. The tool is
 `coding_agent`. The app's own routes that open a grid workspace or grid
 terminals are not offered as app actions, so a model cannot open a grid for a
 new agent by another way.
+
+## Pointing Dodaios at a coding agent
+
+When you say "agent" to Dodaios, it takes that as a coding agent: a thread or
+a pane of the Agentic IDE. It means something else only when the conversation
+says so (a named Dodaios agent such as a Scout, for example).
+
+Dodaios reaches every thread, not only the ones that work right now:
+
+- **By its code.** Every thread has a code, six characters such as `#3f9a2c`.
+  It stands after the title in the thread's title bar; a click copies it. The
+  thread's menu and its row menu in the sidebar have "Copy code for Dodaios"
+  too. Give Dodaios the code ("look at #3f9a2c") and it knows which agent you
+  mean. The code is the start of the thread's id, so it never changes and
+  every thread that exists has one.
+- **By words.** "The agent that fixed the Safari cookie" is enough: Dodaios
+  searches the titles and the messages of all threads, old ones included, and
+  asks when several fit.
+- **Reading in.** Dodaios then reads the thread: its newest messages first,
+  and the whole conversation in pages when it needs the history.
+
+In its answer Dodaios names a coding agent as a link: the thread's title with
+the coding agent's logo behind it. A click opens the thread in the Agentic
+IDE. The link always shows the thread's current title, also after a rename; a
+thread that was deleted leaves plain words.
+
+For the model this is `workspace-orchestrate` `find` (`code`, or `query`, or
+neither for the newest threads; `project`, `workspace` or `folder` narrow it).
+A code also works as `terminal_id` for `observe`, `context`, `send`,
+`interrupt` and `watch`. `context` pages through a thread with the `cursor`
+it returns. Every thread row carries `link`, the markdown
+`[title](thread:<session id>)` the chat draws as the link above
+(`dodaios/agentic_ide/thread_finder.py`, `GET /api/agent-chat/thread-links/{ref}`,
+`CodingAgentLink.tsx`).
 
 ## Team threads
 

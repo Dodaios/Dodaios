@@ -83,7 +83,7 @@ class Area:
 
 AREAS: Final[tuple[Area, ...]] = (
     Area(
-        "Agents",
+        "Dodaios agents",
         "the agent society: roster, island, routines, approvals; each agent has its own hands",
         sections=("agents",),
         reads=("society-list-routines",),
@@ -91,8 +91,10 @@ AREAS: Final[tuple[Area, ...]] = (
     ),
     Area(
         "Coding agents",
-        "the Agentic IDE: coding agents as chat threads (how a new one opens) and as terminal "
-        "panes in grid workspaces, addressed by stable id",
+        "what the owner means by 'agent': the Agentic IDE's coding agents as chat threads "
+        "(how a new one opens) and as terminal panes in grid workspaces, addressed by stable "
+        "id. workspace-orchestrate find reaches any thread, old ones too, by its code "
+        "(#3f9a2c) or by words, and returns the link that shows it in your answer",
         sections=("agentic-ide", "agentic-ide-classic", "chat-workspace"),
         acts=("delegate", "workspace-orchestrate", "workspace-git"),
     ),

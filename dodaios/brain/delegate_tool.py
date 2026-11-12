@@ -206,7 +206,7 @@ class DelegateTool:
         "lets the lead pick the best fit), 'coding_agent' (a NEW coding agent such as Claude "
         "Code or Codex; it opens as a chat thread in the Agentic IDE, and this is the only "
         "way to start one: never open a workspace or terminals for it), "
-        "'pane:<terminal id or call-sign>' (a coding agent "
+        "'pane:<terminal id, call-sign or thread code such as #3f9a2c>' (a coding agent "
         "already open in the Agentic IDE), 'team_thread' (several coding agents on different "
         "models plan, build and review one task; asks the person first), 'mission' (one "
         "background worker in its own checkout, for a real work product), 'routine' (work on a "

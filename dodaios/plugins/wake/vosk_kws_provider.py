@@ -336,6 +336,21 @@ SHAPE_SPEECH = "speech"        # too much sound, or no name-sized body: never a 
 # offers no prefix anchor to build the alternative from.
 _COMPETITION_KIND = "competition"
 
+
+def _grammar_json(alternatives: list[str]) -> str:
+    """The JSON list libvosk takes as a grammar, with non-ASCII kept literal.
+
+    libvosk's JSON reader does not decode ``\\uXXXX`` escapes: it keeps the
+    six characters as they are, looks that string up in the vocabulary, finds
+    nothing and drops the word ("Ignoring word missing in vocabulary").
+    ``json.dumps`` escapes by default, so every word with an umlaut or an
+    accent silently left the grammar. Measured 2026-11-12 on the small German
+    model, where a three-word hypothesis of the free ear lost its middle word:
+    "die mängel aufmachen" competed as "[unk] aufmachen".  # i18n-allow
+    """
+    return json.dumps(alternatives, ensure_ascii=False)
+
+
 # Ring buffer length for the confirm pass — long enough to hold the full
 # spoken phrase plus lead-in at the moment the partial trigger fires.
 _RING_SECONDS = 3.0
@@ -821,12 +836,16 @@ class VoskKwsProvider:
         raw_tokens = [t for t in self._phrase.lower().split() if t]
         self._competition_grammar: str | None = None
         if has_prefix and raw_tokens:
-            self._competition_grammar = json.dumps(
+            self._competition_grammar = _grammar_json(
                 [self._phrase.lower(), f"{raw_tokens[0]} [unk]", "[unk]"]
             )
         # One-shot flag for the "competition degraded to its static grammar"
         # warning in ``_shape_competition_ok`` (BUG-163).
         self._warned_static_competition = False
+        # Set once a recognizer's ``SetGrammar`` raised: this libvosk build
+        # cannot swap a grammar, so the competition builds its recognizer with
+        # the per-candidate grammar instead (see ``_competition_rec``).
+        self._grammar_swap_broken = False
         self._match_min_rms = float(match_min_rms)
         self._cooldown_s = float(cooldown_s)
         self._rejected_candidate_backoff_s = max(
@@ -946,7 +965,7 @@ class VoskKwsProvider:
         return model
 
     def _new_grammar_rec(self, path: str | None = None) -> Any:
-        grammar = json.dumps([self._phrase.lower(), "[unk]"])
+        grammar = _grammar_json([self._phrase.lower(), "[unk]"])
         return build_recognizer(
             self._ensure_model(path), self._sample_rate, grammar
         )
@@ -1748,7 +1767,10 @@ class VoskKwsProvider:
         )
         if not ok and shape in (SHAPE_WAKE, SHAPE_UNDECIDED):
             ok = self._shape_competition_ok(
-                pcm_span, model_path, free_hypothesis=free_local
+                pcm_span,
+                model_path,
+                free_hypothesis=free_local,
+                fail_open=fail_open,
             )
             if not ok:
                 self._stat_suppressed_shape_competition += 1
@@ -1787,10 +1809,82 @@ class VoskKwsProvider:
             )
         return ok
 
+    def _competition_rec(self, model_path: str | None, grammar: str) -> Any:
+        """A one-shot recognizer that judges exactly *grammar* (JSON list).
+
+        Three vosk builds exist, and each must end with the per-candidate
+        alternatives installed wherever the build allows it:
+
+        * ``SetGrammar`` works: the prewarmed stock recognizer swaps its
+          static competitor grammar for the alternatives (the fast path).
+        * ``SetGrammar`` is absent (a build older than 0.3.32): the static
+          grammar runs, a weaker but valid competition, announced once.
+        * ``SetGrammar`` exists and RAISES: the Python wrapper offers the
+          method but the bundled native library does not export
+          ``vosk_recognizer_set_grm``. The macOS wheel of vosk 0.3.44 is such
+          a build (live 2026-11-12: 96 fires in the log, every one right
+          after "shape competition errored ... accepting", on room speech
+          like "terminal aufmachen"). The error used to reach the fail-open
+          handler of ``_shape_competition_ok``, so on that platform the
+          competition confirmed every candidate it was asked about. The
+          constructor takes a grammar on every build, so the recognizer is
+          built with the alternatives instead: the same competition, minus
+          the prewarm.
+        """
+        if not self._grammar_swap_broken:
+            rec = self._take_verify_rec(model_path, _COMPETITION_KIND)
+            set_grammar = getattr(rec, "SetGrammar", None)
+            if not callable(set_grammar):
+                if not getattr(self, "_warned_static_competition", False):
+                    # Say so ONCE, at WARNING. The static grammar is a
+                    # measurably weaker judge (bench 2026-08-22: 13 false
+                    # fires on 40 negatives vs 0 with the per-candidate
+                    # alternatives), and the degrade used to be invisible:
+                    # BUG-163 ran for two days behind a proxy that hid
+                    # ``SetGrammar`` without a single log line telling it
+                    # apart from the real competition.
+                    self._warned_static_competition = True
+                    log.warning(
+                        "vosk-kws: this recognizer offers no SetGrammar — the "
+                        "acoustic competition runs on its static grammar only "
+                        "(weaker precision; vosk >= 0.3.32 restores it)."
+                    )
+                return rec
+            try:
+                set_grammar(grammar)
+            except Exception as exc:  # noqa: BLE001 — any failed swap rebuilds
+                self._grammar_swap_broken = True
+                log.warning(
+                    "vosk-kws: this vosk build cannot swap a recognizer's "
+                    "grammar (%s) — the acoustic competition builds its "
+                    "recognizer per candidate instead.",
+                    exc,
+                )
+            else:
+                return rec
+        return self._build_competition_rec(model_path, grammar)
+
+    def _build_competition_rec(self, model_path: str | None, grammar: str) -> Any:
+        """A cold recognizer constructed WITH the per-candidate grammar."""
+        return build_recognizer(
+            self._ensure_model(model_path), self._sample_rate, grammar
+        )
+
     def _shape_competition_ok(
-        self, pcm: bytes, model_path: str | None, free_hypothesis: str = ""
+        self,
+        pcm: bytes,
+        model_path: str | None,
+        free_hypothesis: str = "",
+        *,
+        fail_open: bool = True,
     ) -> bool:
-        """Must the shape-only acceptance stand? Purely acoustic, fail-OPEN.
+        """Must the shape-only acceptance stand? Purely acoustic.
+
+        An infrastructure error answers with the caller's ``fail_open``: the
+        authoritative confirm accepts, the early check rejects and leaves the
+        decision to that later confirm, as every other step of the verify
+        does. (Until 2026-11-12 an error accepted for both, so the fail-closed
+        early check fired on a broken competition as well.)
 
         Re-scores the candidate with a grammar that offers, next to the
         configured phrase, an explicit "<prefix> [unk]" competitor, a plain
@@ -1816,15 +1910,19 @@ class VoskKwsProvider:
           the phrase when the audio genuinely supports it — 'peter' audio
           picks 'peter', a garbled genuine call still picks the phrase.
 
-        Infrastructure errors accept (a broken extra check must never make the
-        detector deaf; the spelling path never consults this at all).
+        In the authoritative confirm an infrastructure error accepts (a broken
+        extra check must never make the detector deaf; the spelling path never
+        consults this at all).
 
         Since 2026-08-04 this also DECIDES a contested shape (``SHAPE_UNDECIDED``)
-        rather than only confirming a clean one. The fail-open polarity is kept
-        deliberately: it matches the authoritative confirm this runs inside, and
-        a candidate only gets here after the grammar re-score (conf >= 0.9), the
-        energy gate and the hard shape bounds — so a broken competitor
-        recognizer degrades to those gates, not to no gate at all.
+        rather than only confirming a clean one. That fail-open polarity is kept
+        deliberately: a candidate only gets here after the grammar re-score
+        (conf >= 0.9), the energy gate and the hard shape bounds — so a broken
+        competitor recognizer degrades to those gates, not to no gate at all.
+        Those gates alone are weak, though: on the macOS build whose
+        ``SetGrammar`` always raised, one candidate in four fired on room
+        speech. ``_competition_rec`` therefore keeps the competition running
+        on every build instead of leaning on this fallback.
         """
         alternatives = [self._phrase.lower()]
         raw_tokens = [t for t in self._phrase.lower().split() if t]
@@ -1835,27 +1933,7 @@ class VoskKwsProvider:
             alternatives.append(hypothesis)
         alternatives.append("[unk]")
         try:
-            rec = self._take_verify_rec(model_path, _COMPETITION_KIND)
-            # The prewarmed stock recognizer carries the STATIC competitor
-            # grammar; swap in the per-candidate alternatives when the vosk
-            # build supports it (0.3.32+). Without SetGrammar the static
-            # grammar still runs — a weaker but valid competition.
-            set_grammar = getattr(rec, "SetGrammar", None)
-            if callable(set_grammar):
-                set_grammar(json.dumps(alternatives))
-            elif not getattr(self, "_warned_static_competition", False):
-                # Say so ONCE, at WARNING. The static grammar is a measurably
-                # weaker judge (bench 2026-08-22: 13 false fires on 40
-                # negatives vs 0 with the per-candidate alternatives), and
-                # the degrade used to be invisible — BUG-163 ran for two days
-                # behind a proxy that hid ``SetGrammar`` without a single
-                # log line telling it apart from the real competition.
-                self._warned_static_competition = True
-                log.warning(
-                    "vosk-kws: this recognizer offers no SetGrammar — the "
-                    "acoustic competition runs on its static grammar only "
-                    "(weaker precision; vosk >= 0.3.32 restores it)."
-                )
+            rec = self._competition_rec(model_path, _grammar_json(alternatives))
             rec.AcceptWaveform(pcm)
             res = json.loads(rec.FinalResult())
             if self._phrase.lower() not in res.get("text", ""):
@@ -1880,11 +1958,13 @@ class VoskKwsProvider:
                 )
                 return False
             return True
-        except Exception as exc:  # noqa: BLE001 — extra check fails open
+        except Exception as exc:  # noqa: BLE001 — polarity via fail_open
             log.warning(
-                "vosk-kws: shape competition errored (%s) — accepting.", exc
+                "vosk-kws: shape competition errored (%s) — %s.",
+                exc,
+                "accepting" if fail_open else "rejecting (visual-only)",
             )
-            return True
+            return fail_open
 
     # -- detection loop --------------------------------------------------------
 
@@ -2351,7 +2431,7 @@ def vosk_model_supports_phrase(model_path: str, phrase: str) -> bool:
             KaldiRecognizer,
             Model(model_path),
             16_000,
-            json.dumps([phrase.lower(), "[unk]"]),
+            _grammar_json([phrase.lower(), "[unk]"]),
         )
     except Exception:  # noqa: BLE001 — probe failure must not reject a real word
         return True

@@ -10746,6 +10746,16 @@
       "restore": "Seitenleiste einblenden",
       "close": "Thread schließen (kommt ins Archiv)"
     },
+    "agent_link": {
+      "open": "{thread} ({agent}) in der Agentic IDE öffnen",
+      "agent": "Coding-Agent"
+    },
+    "code": {
+      "copy": "Code für Dodaios kopieren",
+      "copied": "Code {code} kopiert. Gib ihn Dodaios, dann weiß es, welcher Agent gemeint ist.",
+      "hint": "Der Code dieses Agenten: {code}. Klicken zum Kopieren, dann Dodaios geben.",
+      "copy_failed": "Der Code ließ sich nicht kopieren: {code}"
+    },
     "layout_grid": "Terminal-Raster",
     "layout_threads": "Threads",
     "layout_aria": "IDE-Layout",

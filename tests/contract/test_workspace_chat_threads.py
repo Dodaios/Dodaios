@@ -552,3 +552,142 @@ async def test_without_a_chat_service_new_agents_still_open_as_panes(rig: Rig):
 
     assert result["status"] == "created" and result["mode"] == "grid", result
     assert len(rig.workspace.terminals) == panes + 1
+
+
+# ---------------------------------------------------------- finding a thread
+
+
+async def _old_thread(rig: Rig, prompt: str, answer: str) -> str:
+    """A finished thread nobody touched for a month: off the status board."""
+    rig.service.hold = asyncio.Event()
+    result = await create(rig, prompt=prompt)
+    sid = result["agents"][0]["terminal_id"].removeprefix("thread:")
+    rig.service.steps[sid] = [answer]
+    rig.service.hold.set()
+    await rig.settle()
+    month_ago = int((time.time() - 30 * 86400) * 1000)
+    rig.service.store._conn.execute(
+        "UPDATE agent_chat_sessions SET updated_ms = ? WHERE session_id = ?", (month_ago, sid)
+    )
+    return sid
+
+
+def test_the_tool_offers_find_as_a_read_and_says_what_agent_means():
+    tool = WorkspaceOrchestrationTool
+    assert "find" in tool.schema["properties"]["action"]["enum"]
+    assert {"query", "code"} <= set(tool.schema["properties"])
+    assert tool(None).risk_tier_for_args({"action": "find"}) == "safe"
+    assert tool(None).read_only_for_args({"action": "find"})
+    assert "When the user says 'agent'" in tool.description
+    assert "#3f9a2c" in tool.description and "link" in tool.description
+
+
+async def test_find_reaches_a_thread_the_status_board_no_longer_lists(rig: Rig):
+    sid = await _old_thread(
+        rig, "Fix the session cookie on Safari", "Done: the cookie now lasts a week."
+    )
+    await _old_thread(rig, "Write the release notes", "Done.")
+
+    board = await rig.orchestrator.run({"action": "status"})
+    assert "threads" not in board
+
+    found = await rig.orchestrator.run({"action": "find", "query": "cookie safari"})
+
+    assert found["status"] == "found" and found["by"] == "words"
+    [row] = found["threads"]
+    assert row["terminal_id"] == f"thread:{sid}"
+    assert row["code"] == f"#{sid[:6]}" and row["cli"] == "codex"
+    assert row["link"].endswith(f"(thread:{sid})") and row["link"].startswith("[")
+    assert "days ago" in row["last_active"] and row["state"] == "idle"
+    assert "cookie" in row["snippet"].lower()
+    assert "link" in found["note"]
+
+
+async def test_find_without_words_lists_the_newest_and_says_when_nothing_fits(rig: Rig):
+    await _old_thread(rig, "Fix the session cookie on Safari", "Done.")
+    await _old_thread(rig, "Write the release notes", "Done.")
+
+    newest = await rig.orchestrator.run({"action": "find", "limit": 1})
+    assert newest["by"] == "recent" and len(newest["threads"]) == 1
+    assert newest["more_not_shown"] == 1
+
+    nothing = await rig.orchestrator.run({"action": "find", "query": "kubernetes"})
+    assert nothing["status"] == "not_found" and nothing["threads"] == []
+    assert "fewer or other words" in nothing["reason"]
+    # Another project holds none of them.
+    elsewhere = await rig.orchestrator.run(
+        {"action": "find", "query": "cookie", "project": "Website"}
+    )
+    assert elsewhere["status"] == "not_found"
+
+
+async def test_a_code_names_the_thread_for_find_and_for_every_thread_action(rig: Rig):
+    sid = await _old_thread(rig, "Fix the session cookie on Safari", "Done: it lasts a week.")
+    code = f"#{sid[:6]}"
+
+    found = await rig.orchestrator.run({"action": "find", "code": code})
+    assert found["by"] == "code" and found["threads"][0]["terminal_id"] == f"thread:{sid}"
+
+    # The code is an address: as terminal_id, as code, and as the agent named.
+    for args in ({"terminal_id": code}, {"code": sid[:6]}, {"agent": code},
+                 {"terminal_id": f"thread:{sid[:6]}"}):
+        seen = await rig.orchestrator.run({"action": "observe", **args})
+        assert seen["status"] == "observed" and seen["terminal_id"] == f"thread:{sid}", args
+
+    sent = await rig.orchestrator.run(
+        {"action": "send", "terminal_id": code, "prompt": "Also cover Firefox"}
+    )
+    assert sent["status"] == "accepted" and sent["target"]["terminal_id"] == f"thread:{sid}"
+    await rig.settle()
+    assert rig.service.prompts[-1] == (sid, "Also cover Firefox")
+
+    unknown = await rig.orchestrator.run({"action": "observe", "terminal_id": "#000000"})
+    assert unknown["status"] == "stale_target" and "find" in unknown["reason"]
+    assert (await rig.orchestrator.run({"action": "find", "code": "#000000"}))["status"] == (
+        "not_found"
+    )
+
+
+async def test_context_reads_a_long_thread_in_pages_newest_first(rig: Rig):
+    rig.service.hold = asyncio.Event()
+    result = await create(rig, prompt="Step 0")
+    target = result["agents"][0]["terminal_id"]
+    sid = target.removeprefix("thread:")
+    rig.service.steps[sid] = [f"Answer {n}" for n in range(6)]
+    rig.service.hold.set()
+    await rig.settle()
+    for n in range(1, 6):
+        await rig.orchestrator.run(
+            {"action": "send", "terminal_id": target, "prompt": f"Step {n}"}
+        )
+        await rig.settle()
+
+    def said(page: dict) -> list[str]:
+        return [e["text"] for e in page["events"] if e["from"] == "coding agent"]
+
+    first = await rig.orchestrator.run({"action": "context", "terminal_id": target, "limit": 6})
+    assert first["status"] == "observed" and first["has_more"] is True
+    assert said(first) == ["Answer 4", "Answer 5"]
+
+    pages, page = [first], first
+    while page.get("has_more"):
+        page = await rig.orchestrator.run(
+            {"action": "context", "terminal_id": target, "limit": 6, "cursor": page["cursor"]}
+        )
+        pages.append(page)
+    everything = [text for page in reversed(pages) for text in said(page)]
+    assert everything == [f"Answer {n}" for n in range(6)]
+    assert "cursor" not in pages[-1] and pages[-1]["earlier_events_omitted"] == 0
+    # observe stays what it was: the newest messages, no paging keys.
+    seen = await rig.orchestrator.run({"action": "observe", "terminal_id": target, "limit": 6})
+    assert "has_more" not in seen and seen["earlier_events_omitted"] > 0
+    assert "context" in seen["earlier"]
+
+
+async def test_a_new_thread_comes_back_with_its_code_and_link(rig: Rig):
+    result = await create(rig)
+    [agent] = result["agents"]
+    sid = agent["terminal_id"].removeprefix("thread:")
+    assert agent["code"] == f"#{sid[:6]}"
+    assert agent["link"].endswith(f"(thread:{sid})")
+    await rig.settle()

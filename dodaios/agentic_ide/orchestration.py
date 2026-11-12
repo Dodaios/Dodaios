@@ -16,6 +16,7 @@ import re
 import threading
 import time
 from collections.abc import Awaitable, Callable, Iterable
+from functools import partial
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -576,6 +577,63 @@ class WorkspaceOrchestrator:
             "or failed sessions are not automatically available."
         )
         return graph
+
+    async def find(self, args: dict[str, Any]) -> dict[str, Any]:
+        """The coding threads a code or a few words name, old ones included.
+
+        ``status`` lists what works, waits or moved in the last day. This is
+        the way to a thread the person started long ago: by the code its menu
+        shows, or by words of its title and its messages.
+        """
+        folders: list[str] | None = None
+        if any(args.get(k) for k in ("workspace", "workspace_id", "project", "project_id")):
+            graph = await asyncio.to_thread(self._scoped, args)
+            if "projects" not in graph:
+                return graph
+            folders = self._scope_folders(args, graph)
+        folder = str(args.get("folder") or "").strip()
+        if folder:
+            folders = [*(folders or []), folder]
+        return await asyncio.to_thread(
+            partial(
+                self.threads.find,
+                query=str(args.get("query") or args.get("prompt") or ""),
+                code=str(args.get("code") or ""),
+                folders=folders,
+                limit=int(args.get("limit") or 0),
+            )
+        )
+
+    async def _coded_thread(self, args: dict[str, Any]) -> str | dict[str, Any]:
+        """The ``terminal_id`` of the thread a request names by its code.
+
+        ``""`` when the request names none that way; the refusal when the code
+        fits no thread, or more than one.
+        """
+        from . import thread_finder
+
+        named = str(args.get("terminal_id") or "").strip()
+        if is_thread(named) and not thread_finder.is_short_ref(named):
+            return ""
+        code = str(args.get("code") or "").strip()
+        ref = next(
+            (
+                value
+                for value in (named, f"#{code.lstrip('#')}" if code else "",
+                              str(args.get("agent") or "").strip())
+                if thread_finder.is_short_ref(value)
+            ),
+            "",
+        )
+        if not ref:
+            return ""
+        full, refusal = await asyncio.to_thread(self.threads.resolve_ref, ref)
+        if refusal is None:
+            return full
+        if is_thread(ref) and refusal["status"] == "stale_target":
+            # An id that names no thread is answered where every thread id is.
+            return ""
+        return {**refusal, "input_written": False, "target": {"terminal_id": ref}}
 
     async def _threads_in(self, args: dict[str, Any], graph: dict[str, Any]) -> list[dict]:
         """The chat threads in the scope a request names, for the board and the graph."""
@@ -1230,7 +1288,15 @@ class WorkspaceOrchestrator:
                           "plan and approval cards and archives it in the Agentic IDE.",
             }
         if action in {"observe", "context", "resolve"}:
-            seen = await self.threads.observe(session_id, limit=args.get("limit", 30))
+            skip = None
+            if action == "context":
+                # Pages of the whole conversation, newest first: the cursor says
+                # how many entries the pages before this one already held.
+                cursor = args.get("cursor") if isinstance(args.get("cursor"), dict) else {}
+                skip = int(cursor.get("offset") or 0)
+            seen = await self.threads.observe(
+                session_id, limit=args.get("limit", 30), skip=skip
+            )
             if action != "resolve" or seen["status"] != "observed":
                 return {**seen, "target": target}
             return {
@@ -1946,7 +2012,7 @@ class WorkspaceOrchestrator:
         to_created = action == "send" and str(args.get("terminal_id") or "") in created
         if (args.get("_requires_new") or creation) and not to_created and action not in {
             "inspect", "create", "open_workspace", "context", "observe", "status", "watch",
-            "git",
+            "git", "find",
         }:
             # A NEW request cannot borrow an idle pane for its new task, but it
             # may also carry independent work for an agent the user NAMED
@@ -1975,6 +2041,15 @@ class WorkspaceOrchestrator:
             raise ValueError("Image references require a specific task prompt.")
         if action in {"create", "open_workspace"}:
             get_store().resolve(image_scope, refs)
+        if action == "find":
+            return await self.find(args)
+        if action not in {"create", "open_workspace"}:
+            # The person gives a thread's code (#3f9a2c); the actions want its id.
+            coded = await self._coded_thread(args)
+            if isinstance(coded, dict):
+                return coded
+            if coded:
+                args = {**args, "terminal_id": coded}
         if is_thread(args.get("terminal_id")) and action not in {"create", "open_workspace"}:
             return await self._thread_action(args, trace_id=trace_id)
         if action in {"inspect", "resolve"}:
