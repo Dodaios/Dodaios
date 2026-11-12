@@ -649,3 +649,109 @@ def test_a_half_written_transcript_line_is_read_on_the_next_check(
     with transcript.open("a", encoding="utf-8") as handle:
         handle.write('o"}}\n')
     assert gate.session_branches(ctx, transcript, state) == ["claude/one", "claude/two"]
+
+
+# --- started by an interpreter the repository does not support ---------------
+
+
+GATE_SCRIPT = Path(gate.__file__).resolve()
+
+
+def test_an_old_interpreter_hands_the_run_to_a_supported_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The Stop hook takes the first `python3` on PATH: macOS ships 3.9 there.
+    monkeypatch.setattr(gate.sys, "executable", "/usr/bin/python3")
+    monkeypatch.setattr(
+        gate,
+        "_python_candidates",
+        lambda: ["/usr/bin/python3", "/old/python3.10", "/repo/.venv/bin/python"],
+    )
+    probed: list[str] = []
+
+    def supported(python: str) -> bool:
+        probed.append(python)
+        return python == "/repo/.venv/bin/python"
+
+    monkeypatch.setattr(gate, "_is_supported", supported)
+    calls: list[list[str]] = []
+
+    def call(cmd: list[str]) -> int:
+        calls.append(cmd)
+        return gate.EXIT_CONTINUE
+
+    monkeypatch.setattr(gate.subprocess, "call", call)
+
+    assert gate._rerun_on_supported_python(["--hook", "claude"]) == gate.EXIT_CONTINUE
+    assert calls == [["/repo/.venv/bin/python", str(GATE_SCRIPT), "--hook", "claude"]]
+    # The interpreter that is already running is not asked again.
+    assert probed == ["/old/python3.10", "/repo/.venv/bin/python"]
+
+
+def test_without_a_supported_interpreter_the_session_may_stop_and_is_told(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(gate, "_python_candidates", lambda: ["/old/python3.9"])
+    monkeypatch.setattr(gate, "_is_supported", lambda python: False)
+
+    assert gate._rerun_on_supported_python([]) == gate.EXIT_STOP
+    assert "nothing was verified" in capsys.readouterr().err
+
+
+def test_a_worktree_finds_the_virtual_environment_of_its_checkout(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    main_checkout = tmp_path / "main"
+    worktree = main_checkout / ".claude" / "worktrees" / "x"
+    (main_checkout / ".git").mkdir(parents=True)
+    (main_checkout / ".venv" / "bin").mkdir(parents=True)
+    (main_checkout / ".venv" / "bin" / "python").write_text("")
+    worktree.mkdir(parents=True)
+    monkeypatch.setattr(gate, "REPO_ROOT", worktree)
+    monkeypatch.setattr(
+        gate.subprocess,
+        "run",
+        lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, f"{main_checkout / '.git'}\n", ""),
+    )
+    monkeypatch.setattr(gate.shutil, "which", lambda name: None)
+
+    assert gate._python_candidates() == [str(main_checkout / ".venv" / "bin" / "python")]
+
+
+def test_the_gate_file_is_readable_by_the_oldest_system_python() -> None:
+    # Python compiles the whole file before it runs a line of it: one newer
+    # construct anywhere and the hand-over above never happens.
+    import ast
+
+    source = GATE_SCRIPT.read_text(encoding="utf-8")
+    ast.parse(source, feature_version=(3, 9))
+    # Nothing that needs a newer Python may be imported before the hand-over.
+    before = source[: source.index('if __name__ == "__main__" and sys.version_info < MIN_PYTHON')]
+    assert "from scripts" not in before
+    assert "import UTC" not in before
+
+
+def test_the_gate_runs_when_started_by_an_old_interpreter_on_this_machine() -> None:
+    import shutil
+
+    old = next(
+        (
+            path
+            for path in ("/usr/bin/python3", shutil.which("python3.9"), shutil.which("python3.10"))
+            if path
+            and Path(path).is_file()
+            and subprocess.run(
+                [path, "-c", "import sys; raise SystemExit(sys.version_info >= (3, 11))"],
+                check=False,
+            ).returncode
+            == 0
+        ),
+        None,
+    )
+    if old is None:
+        pytest.skip("no interpreter older than 3.11 on this machine")
+    done = subprocess.run(
+        [old, str(GATE_SCRIPT), "--help"], capture_output=True, text=True, check=False
+    )
+    assert done.returncode == 0
+    assert "Traceback" not in done.stderr
