@@ -92,6 +92,8 @@ import { AgentModelPicker } from "./AgentModelPicker";
 import { mentionChoice, messageChoices } from "./mentionChoices";
 import { ChatCommandPanel, useChatCommands } from "@/components/agentchat/ChatCommands";
 import { useTranscriptView } from "./useTranscriptView";
+import { AgentResultLine } from "@/components/agentchat/AgentResultLine";
+import { AGENT_RESULT_KIND, withoutAnsweredResults } from "@/components/agentchat/agentResults";
 import { withoutBackgroundNotices } from "@/components/agentchat/backgroundNotices";
 import { useHeaderModelSlot } from "../card/headerModelSlot";
 import { societyResultHeadline, societyResultText } from "@/lib/skipReasons";
@@ -383,8 +385,11 @@ function JarvisChat({ agent, roster }: AgentChatPanelProps) {
   const send = useAgentChat((s) => s.send);
   const cancel = useAgentChat((s) => s.cancel);
   const decide = useAgentChat((s) => s.decide);
-  const view = useTranscriptView(activeSessionId, items);
-  // The same rule as the front page's chat: background records are not drawn.
+  // The same rules as the front page's chat: an agent's result the assistant
+  // answers itself is not drawn (decided before a cleared view cuts the
+  // answering turn off), and neither are background records.
+  const unanswered = useMemo(() => withoutAnsweredResults(items), [items]);
+  const view = useTranscriptView(activeSessionId, unanswered);
   const shownItems = useMemo(() => withoutBackgroundNotices(view.items), [view.items]);
 
   useEffect(() => {
@@ -992,6 +997,7 @@ export function NoticeLine({ item }: { item: NoticeItem }) {
       }) : undefined} />;
   }
   if (item.kind === "native_goal_verdict") return <p className="py-1 text-xs text-muted-foreground">{t("slash.verifying")}</p>;
+  if (item.kind === AGENT_RESULT_KIND) return <AgentResultLine item={item} />;
   const headline =
     item.kind === "society_result"
       ? societyResultHeadline(t, item)

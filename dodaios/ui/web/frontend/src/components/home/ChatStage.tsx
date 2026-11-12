@@ -10,6 +10,7 @@ import { ScrollToEndButton } from "@/components/ui/scroll-to-end-button";
 import { scrollViewportOf, useStickToBottom } from "@/hooks/useStickToBottom";
 import { AgentComposer } from "@/components/agentchat/AgentComposer";
 import { AgentTimeline } from "@/components/agentchat/AgentTimeline";
+import { withoutAnsweredResults } from "@/components/agentchat/agentResults";
 import { withoutBackgroundNotices } from "@/components/agentchat/backgroundNotices";
 import { rosterFaces } from "@/components/agentchat/InternalMessageRun";
 import { useCachedRosterAgents } from "@/components/society/data";
@@ -115,7 +116,11 @@ function ChatStageContent() {
   const allItems = useAgentChat((s) => s.timeline.items);
   const cwd = useAgentChat((s) => s.draft.cwd);
   const activeSessionId = useAgentChat((s) => s.activeSessionId);
-  const view = useTranscriptView(surface === "jarvis" ? activeSessionId : null, allItems);
+  // A delegated agent's result is the assistant's to answer: its notice is
+  // drawn only when no answer took it up, and then as one line. Decided on
+  // the whole conversation, before a cleared view cuts the answering turn off.
+  const unanswered = useMemo(() => withoutAnsweredResults(allItems), [allItems]);
+  const view = useTranscriptView(surface === "jarvis" ? activeSessionId : null, unanswered);
   // Background records (a learned memory, a watchdog finding, a routine run
   // that failed) stay in the log; the conversation shows what was said.
   const items = useMemo(() => withoutBackgroundNotices(view.items), [view.items]);

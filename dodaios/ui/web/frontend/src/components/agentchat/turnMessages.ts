@@ -23,7 +23,7 @@ const ECHO_KINDS = new Set(["society_message", "delegation_report"]);
 /** How close a society_message notice and its agent_message arrive. */
 const ECHO_WINDOW_MS = 5_000;
 /** Grace after a turn's last moment in which a reply still belongs to it. */
-const TURN_GRACE_MS = 2_000;
+export const TURN_GRACE_MS = 2_000;
 
 function messageOf(item: InternalMessageItem): TraceMessage {
   return {
