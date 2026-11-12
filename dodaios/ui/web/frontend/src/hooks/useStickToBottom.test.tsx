@@ -1,10 +1,39 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { useLayoutEffect, useState } from "react";
 
 import { NEAR_END_PX, isNearEnd, scrollViewportOf, useStickToBottom } from "@/hooks/useStickToBottom";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+
+/** Frames under the test's control: `step()` runs the callbacks asked for so far. */
+function manualFrames() {
+  let queue: Array<{ id: number; run: FrameRequestCallback }> = [];
+  let next = 1;
+  vi.stubGlobal("requestAnimationFrame", (run: FrameRequestCallback) => {
+    queue.push({ id: next, run });
+    return next++;
+  });
+  vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+    queue = queue.filter((entry) => entry.id !== id);
+  });
+  return {
+    step(count = 1) {
+      for (let i = 0; i < count; i += 1) {
+        const due = queue;
+        queue = [];
+        act(() => {
+          for (const entry of due) entry.run(performance.now());
+        });
+      }
+    },
+    pending: () => queue.length,
+  };
+}
 
 /** jsdom lays nothing out, so the scroller is told how tall it "is". */
 function measure(el: HTMLElement, scrollTop: number, scrollHeight: number, clientHeight: number) {
@@ -16,7 +45,7 @@ function measure(el: HTMLElement, scrollTop: number, scrollHeight: number, clien
 /** A minimal surface that grows, like a chat thread does. */
 function Thread({ initial = 3 }: { initial?: number }) {
   const [count, setCount] = useState(initial);
-  const { rootRef, contentRef, atEnd, jumpToEnd, follow } = useStickToBottom();
+  const { rootRef, contentRef, atEnd, jumpToEnd, snapToEnd, follow } = useStickToBottom();
   useLayoutEffect(follow, [follow, count]);
   return (
     <div>
@@ -29,6 +58,9 @@ function Thread({ initial = 3 }: { initial?: number }) {
       </div>
       <button type="button" onClick={() => setCount((n) => n + 1)}>
         add
+      </button>
+      <button type="button" onClick={snapToEnd}>
+        send
       </button>
       {!atEnd && (
         <button type="button" data-testid="back" onClick={jumpToEnd}>
@@ -153,5 +185,134 @@ describe("useStickToBottom", () => {
     });
     expect(scroller.scrollTop).toBe(100);
     expect(screen.getByTestId("back")).toBeTruthy();
+  });
+
+  it("puts a reader who sends at the end at once, also from far up, and without a glide", () => {
+    const scrollTo = vi.fn();
+    render(<Thread />);
+    const scroller = screen.getByTestId("scroller");
+    scroller.scrollTo = scrollTo;
+    measure(scroller, 100, 1000, 50);
+    act(() => {
+      fireEvent.scroll(scroller);
+    });
+    expect(screen.getByTestId("back")).toBeTruthy();
+
+    measure(scroller, 100, 1080, 50);
+    act(() => {
+      fireEvent.click(screen.getByText("send"));
+    });
+    expect(scroller.scrollTop).toBe(1080);
+    expect(scrollTo).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("back")).toBeNull();
+  });
+
+  it("pins again on the next frame when the engine did not take a pin", () => {
+    // WebKit drops a `scrollTop` write made while a smooth scroll runs: the
+    // write returns, the view stays. The frames after a pin notice and repeat it.
+    const frames = manualFrames();
+    render(<Thread />);
+    const scroller = screen.getByTestId("scroller");
+    measure(scroller, 950, 1000, 50);
+    act(() => {
+      fireEvent.scroll(scroller);
+    });
+
+    measure(scroller, 950, 1200, 50);
+    act(() => {
+      fireEvent.click(screen.getByText("add"));
+    });
+    expect(scroller.scrollTop).toBe(1200);
+    // The engine "lost" it: the view is back where it stood.
+    scroller.scrollTop = 950;
+    frames.step();
+    expect(scroller.scrollTop).toBe(1200);
+
+    // The checking stops by itself once the view has stayed at the end.
+    frames.step(6);
+    expect(frames.pending()).toBe(0);
+  });
+
+  it("leaves the view to a reader who moves it by hand right after a pin", () => {
+    const frames = manualFrames();
+    render(<Thread />);
+    const scroller = screen.getByTestId("scroller");
+    measure(scroller, 950, 1000, 50);
+    act(() => {
+      fireEvent.scroll(scroller);
+    });
+    measure(scroller, 950, 1200, 50);
+    act(() => {
+      fireEvent.click(screen.getByText("add"));
+    });
+    expect(scroller.scrollTop).toBe(1200);
+
+    // A wheel turn takes the view a little way up, still inside the near-end slack.
+    act(() => {
+      fireEvent.wheel(scroller);
+    });
+    scroller.scrollTop = 1120;
+    act(() => {
+      fireEvent.scroll(scroller);
+    });
+    frames.step(3);
+    expect(scroller.scrollTop).toBe(1120);
+  });
+
+  it("lets the way back glide undisturbed: nothing writes the position until the glide is over", () => {
+    const frames = manualFrames();
+    const scrollTo = vi.fn();
+    render(<Thread />);
+    const scroller = screen.getByTestId("scroller");
+    scroller.scrollTo = scrollTo;
+    measure(scroller, 100, 2000, 50);
+    act(() => {
+      fireEvent.scroll(scroller);
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByTestId("back"));
+    });
+    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 2000, behavior: "smooth" }));
+    expect(screen.queryByTestId("back")).toBeNull();
+
+    // The glide is under way; an answer grows meanwhile. A write now would
+    // stop the glide short in WebKit, so the position is left alone.
+    scroller.scrollTop = 600;
+    frames.step();
+    measure(scroller, 900, 2300, 50);
+    act(() => {
+      fireEvent.click(screen.getByText("add"));
+    });
+    expect(scroller.scrollTop).toBe(900);
+    act(() => {
+      fireEvent.scroll(scroller);
+    });
+    expect(screen.queryByTestId("back")).toBeNull();
+
+    // The glide arrives near its end: the rest of the way is a pin, inside a frame.
+    scroller.scrollTop = 2200;
+    frames.step();
+    expect(scroller.scrollTop).toBe(2300);
+    expect(screen.queryByTestId("back")).toBeNull();
+  });
+
+  it("ends a glide that stopped short and takes the view the rest of the way", () => {
+    const frames = manualFrames();
+    render(<Thread />);
+    const scroller = screen.getByTestId("scroller");
+    scroller.scrollTo = vi.fn();
+    measure(scroller, 100, 2000, 50);
+    act(() => {
+      fireEvent.scroll(scroller);
+    });
+    act(() => {
+      fireEvent.click(screen.getByTestId("back"));
+    });
+
+    // It moved once, then stands still far from the end.
+    scroller.scrollTop = 700;
+    frames.step(12);
+    expect(scroller.scrollTop).toBe(2000);
   });
 });

@@ -21,6 +21,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *   <ScrollArea ref={rootRef}><div ref={contentRef}>…</div></ScrollArea>
  *   {!atEnd && <button onClick={jumpToEnd}>…</button>}
  *
+ * Two ways lead back to the end. `snapToEnd` is for the person's own act (a
+ * message sent): the view is at the end at once, with no glide. `jumpToEnd` is
+ * the button's: it glides there. The glide is the delicate one. WebKit, the
+ * engine of the macOS desktop app, DROPS a plain `scrollTop` write made from a
+ * task while a smooth scroll runs, and stops the glide where it stands (seen
+ * 2026-11-12: a view that stayed put under a sent message). So nothing writes
+ * `scrollTop` from a task during a glide; the end of the glide is found frame
+ * by frame, and every write that repairs something is made inside a frame,
+ * where WebKit takes it. After each pin the next frames also check that the
+ * view really arrived, and pin again if it did not.
+ *
  * `rootRef` goes on the scrolling element or on a Radix ScrollArea root —
  * either is resolved. `contentRef` goes on the growing child, which is what
  * makes an answer that grows without a new item still pull the view along;
@@ -47,9 +58,16 @@ export function useStickToBottom() {
   const lastTopRef = useRef(0);
   // Smooth "jump to end" emits many `scroll` events that are not near the
   // end yet. Those must not clear the stick, or the next reasoning token
-  // leaves the reader stranded mid-animation.
-  const jumpingRef = useRef(false);
-  const jumpTimerRef = useRef(0);
+  // leaves the reader stranded mid-animation. While a glide runs this holds
+  // where it was last seen and for how many frames it has stood still.
+  const glideRef = useRef<{ startedAt: number; lastTop: number; still: number } | null>(null);
+  const glideTimerRef = useRef(0);
+  // The frames after a pin in which the view is checked (see `settle`).
+  const settleFrameRef = useRef(0);
+  const settleLeftRef = useRef(0);
+  // When the reader last moved the view by hand. A view that is away from
+  // the end right after a wheel turn is the reader's choice, not a lost pin.
+  const handAtRef = useRef(Number.NEGATIVE_INFINITY);
 
   const rootRef = useCallback((node: HTMLElement | null) => {
     rootElRef.current = node;
@@ -66,12 +84,76 @@ export function useStickToBottom() {
     lastTopRef.current = viewport.scrollTop;
   };
 
+  const endGlide = () => {
+    glideRef.current = null;
+    window.clearTimeout(glideTimerRef.current);
+  };
+
+  /**
+   * Check on the next frames that the view is where the hook put it.
+   *
+   * A pin is a plain `scrollTop` write, and the engine may not take it (see
+   * the note on WebKit above). Inside a frame it does, so for a few frames
+   * after every pin the view is compared with its end and pinned again when
+   * it fell short. The same frames watch a glide: it is over once the view
+   * is near the end, stands still, or has taken too long, and the rest of
+   * the way is then a pin.
+   */
+  const settle = useCallback(() => {
+    settleLeftRef.current = SETTLE_FRAMES;
+    if (settleFrameRef.current || typeof requestAnimationFrame !== "function") return;
+    const tick = () => {
+      settleFrameRef.current = 0;
+      const viewport = scrollViewportOf(rootElRef.current);
+      if (!viewport || !stickRef.current) return;
+      const glide = glideRef.current;
+      if (glide) {
+        const top = viewport.scrollTop;
+        glide.still = Math.abs(top - glide.lastTop) < 1 ? glide.still + 1 : 0;
+        glide.lastTop = top;
+        const over = isNearEnd(top, viewport.scrollHeight, viewport.clientHeight)
+          || glide.still >= GLIDE_STILL_FRAMES
+          || nowMs() - glide.startedAt > GLIDE_MAX_MS;
+        if (!over) {
+          settleFrameRef.current = requestAnimationFrame(tick);
+          return;
+        }
+        endGlide();
+        pinToEnd(viewport);
+        setAtEnd(true);
+        settleLeftRef.current = SETTLE_FRAMES;
+      } else if (nowMs() - handAtRef.current < HAND_MS) {
+        // The reader is moving the view: where it stands is theirs.
+        return;
+      } else if (!isAtEnd(viewport)) {
+        pinToEnd(viewport);
+        setAtEnd(true);
+      }
+      settleLeftRef.current -= 1;
+      if (settleLeftRef.current > 0) settleFrameRef.current = requestAnimationFrame(tick);
+    };
+    settleFrameRef.current = requestAnimationFrame(tick);
+  }, []);
+
   /** Pull the view to the end — but only if it was already there. */
   const follow = useCallback(() => {
     const viewport = scrollViewportOf(rootElRef.current);
     if (!viewport || !stickRef.current) return;
+    // A glide is on its way to the end; a write now would stop it short.
+    if (!glideRef.current) pinToEnd(viewport);
+    settle();
+  }, [settle]);
+
+  /** The person acted (sent a message): the view is at the end, now, and follows from there. */
+  const snapToEnd = useCallback(() => {
+    const viewport = scrollViewportOf(rootElRef.current);
+    if (!viewport) return;
+    endGlide();
+    stickRef.current = true;
+    setAtEnd(true);
     pinToEnd(viewport);
-  }, []);
+    settle();
+  }, [settle]);
 
   /** Take the reader back to the end, and follow again from there. */
   const jumpToEnd = useCallback(() => {
@@ -80,19 +162,24 @@ export function useStickToBottom() {
     stickRef.current = true;
     setAtEnd(true);
     if (!prefersReducedMotion() && typeof viewport.scrollTo === "function") {
-      jumpingRef.current = true;
+      glideRef.current = { startedAt: nowMs(), lastTop: viewport.scrollTop, still: 0 };
       viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
-      window.clearTimeout(jumpTimerRef.current);
-      jumpTimerRef.current = window.setTimeout(() => {
-        if (!jumpingRef.current) return;
-        jumpingRef.current = false;
+      // Frames do not run in a window nobody sees, and neither does the
+      // glide: the timer ends it there.
+      window.clearTimeout(glideTimerRef.current);
+      glideTimerRef.current = window.setTimeout(() => {
+        if (!glideRef.current) return;
+        endGlide();
         pinToEnd(viewport);
         setAtEnd(true);
-      }, 400);
+        settle();
+      }, GLIDE_MAX_MS + 200);
+      settle();
     } else {
       pinToEnd(viewport);
+      settle();
     }
-  }, []);
+  }, [settle]);
 
   // One listener answers both questions: does new output pull the view along,
   // and does the surface need to offer a way back.
@@ -102,12 +189,13 @@ export function useStickToBottom() {
     const previousAnchor = viewport.style.overflowAnchor;
     viewport.style.overflowAnchor = "none";
     const read = () => {
-      if (jumpingRef.current) {
+      if (glideRef.current) {
         stickRef.current = true;
         if (isNearEnd(viewport.scrollTop, viewport.scrollHeight, viewport.clientHeight)) {
-          jumpingRef.current = false;
+          endGlide();
           pinToEnd(viewport);
           setAtEnd(true);
+          settle();
         }
         return;
       }
@@ -135,19 +223,32 @@ export function useStickToBottom() {
     read();
     viewport.addEventListener("scroll", read, { passive: true });
     const onScrollEnd = () => {
-      if (!jumpingRef.current) return;
-      jumpingRef.current = false;
+      if (!glideRef.current) return;
+      endGlide();
       if (stickRef.current) pinToEnd(viewport);
       setAtEnd(true);
+      settle();
     };
     viewport.addEventListener("scrollend", onScrollEnd);
+    // The reader's own hand on the view: a glide gives way to it, and the
+    // frames after a pin leave the view where the reader puts it.
+    const byHand = () => {
+      handAtRef.current = nowMs();
+      if (glideRef.current) endGlide();
+    };
+    const handEvents = ["wheel", "touchmove", "pointerdown", "keydown"] as const;
+    const handRoot = rootEl ?? viewport;
+    for (const name of handEvents) handRoot.addEventListener(name, byHand, { passive: true });
     return () => {
       viewport.removeEventListener("scroll", read);
       viewport.removeEventListener("scrollend", onScrollEnd);
+      for (const name of handEvents) handRoot.removeEventListener(name, byHand);
       viewport.style.overflowAnchor = previousAnchor;
-      window.clearTimeout(jumpTimerRef.current);
+      endGlide();
+      if (settleFrameRef.current && typeof cancelAnimationFrame === "function") cancelAnimationFrame(settleFrameRef.current);
+      settleFrameRef.current = 0;
     };
-  }, [rootEl]);
+  }, [rootEl, settle]);
 
   // An answer grows WITHOUT a new item arriving, so no render-driven effect
   // fires for it; the content's own size is the honest signal.
@@ -156,12 +257,12 @@ export function useStickToBottom() {
     if (!viewport || !contentEl || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(() => {
       if (!stickRef.current) return;
-      pinToEnd(viewport);
+      follow();
       setAtEnd(true);
     });
     ro.observe(contentEl);
     return () => ro.disconnect();
-  }, [rootEl, contentEl]);
+  }, [rootEl, contentEl, follow]);
 
   /**
    * The reader picked a place themselves (opened something to read in the
@@ -169,11 +270,30 @@ export function useStickToBottom() {
    * it BEFORE the content grows, or the growth still counts as new output.
    */
   const release = useCallback(() => {
+    endGlide();
     stickRef.current = false;
     setAtEnd(false);
   }, []);
 
-  return { rootRef, contentRef, atEnd, jumpToEnd, follow, release };
+  return { rootRef, contentRef, atEnd, jumpToEnd, snapToEnd, follow, release };
+}
+
+/** Frames after a pin in which the view is checked against its end. */
+const SETTLE_FRAMES = 4;
+/** A glide that has not moved for this many frames is over (it starts a few frames late). */
+const GLIDE_STILL_FRAMES = 8;
+/** No glide is given longer than this. */
+const GLIDE_MAX_MS = 1500;
+/** For this long after a wheel turn, a touch or a key, the view is the reader's. */
+const HAND_MS = 300;
+
+function nowMs(): number {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+/** At the end to the pixel, which a view that follows has to be. */
+function isAtEnd(viewport: HTMLElement): boolean {
+  return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 1;
 }
 
 /**
