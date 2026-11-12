@@ -1240,8 +1240,9 @@ class WorkspaceOrchestrator:
     async def _show_threads(self, session_ids: list[str], origin: dict[str, str] | None) -> None:
         """Bring the new threads in front of the person.
 
-        A typed conversation gets a card that opens each thread; a spoken one
-        has no card to click, so the IDE comes forward in Chat on the first.
+        A typed conversation only records each thread as a notice (the chat
+        does not draw it: the person asked for the thread and finds it in the
+        IDE); in a spoken one the IDE comes forward in Chat on the first.
         """
         surface = str((origin or {}).get("reply_surface") or "")
         reply_session = str((origin or {}).get("reply_session_id") or "")

@@ -250,7 +250,7 @@ class ChatThreads:
         }
 
     async def announce(self, reply_session_id: str, session_id: str) -> None:
-        """A card in the typed conversation that opens the new thread."""
+        """Record the new thread in the typed conversation (a notice the chat does not draw)."""
         from dodaios.society.coding_threads import _label_of, _title_of
 
         try:

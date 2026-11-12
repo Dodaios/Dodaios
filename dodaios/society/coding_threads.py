@@ -889,7 +889,7 @@ class CodingThreads:
         self._set_state(thread_id, origin="agent")
 
     async def announce(self, owner_session: str, card: dict[str, Any]) -> None:
-        """A card in the owner's chat that links to the new thread."""
+        """Record the new thread in the owner's chat: a stored notice the chat does not draw."""
         service = self._attach()
         if service is None:
             return
