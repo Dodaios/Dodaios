@@ -11,7 +11,11 @@ overrode the model silently. ``delegate`` makes the decision explicit and typed:
 * ``agent:<id or name>``: a named agent of the user's team (name resolution and
   the clarification question are the ones ``delegate_to_agent`` already has;
   ``agent`` alone lets the lead pick the agent whose hands fit);
-* ``pane:<stable id>``: a coding pane of the Agentic IDE, by terminal id or call-sign;
+* ``coding_agent`` (or ``coding_agent:<cli>``): a NEW coding agent (Claude Code,
+  Codex, ...). It opens as a chat thread in the Agentic IDE; a terminal pane only
+  when the person asked for one (``options.mode: grid``);
+* ``pane:<stable id>``: a coding agent already open in the Agentic IDE, by terminal
+  id or call-sign;
 * ``team_thread``: several coding agents on different models plan, build and
   review one task together;
 * ``mission``: one background frontier worker in its own checkout;
@@ -72,6 +76,7 @@ DELEGATE_OVERLAPS: Final[tuple[str, ...]] = (
 
 TARGET_KINDS: Final[tuple[str, ...]] = (
     "agent",
+    "coding_agent",
     "pane",
     "team_thread",
     "mission",
@@ -91,9 +96,16 @@ _MAX_WAIT_S: Final[float] = 540.0
 _SLUG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 _JOB_TEXT_RE = re.compile(r"job_id:\s*(job_[0-9a-f]+)")
 
+#: What ``options`` of a ``coding_agent`` hand-off may carry (``create``'s own arguments).
+_CODING_AGENT_OPTIONS: Final[tuple[str, ...]] = (
+    "cli", "model", "effort", "count", "agents", "folder", "project", "project_id",
+    "workspace", "workspace_id", "mode", "name", "image_refs",
+)
+
 #: The tool that implements each kind (hyphen/underscore spellings both tried).
 _IMPLEMENTATION: Final[Mapping[str, tuple[str, ...]]] = {
     "agent": ("delegate_to_agent", "delegate-to-agent"),
+    "coding_agent": ("workspace-orchestrate", "workspace_orchestrate"),
     "pane": ("workspace-orchestrate", "workspace_orchestrate"),
     "team_thread": ("team_thread", "team-thread"),
     "mission": ("spawn_worker", "spawn-worker"),
@@ -103,6 +115,7 @@ _IMPLEMENTATION: Final[Mapping[str, tuple[str, ...]]] = {
 #: The jobs-ledger kind a hand-off gets when its implementation wrote no row.
 _LEDGER_KIND: Final[Mapping[str, str]] = {
     "agent": "society_assignment",
+    "coding_agent": "ide_submission",
     "pane": "ide_submission",
     "team_thread": "team_thread",
     "mission": "mission",
@@ -119,12 +132,15 @@ def parse_target(raw: Any) -> tuple[str, str] | str:
     text = str(raw or "").strip()
     if not text:
         return (
-            "target is required: agent:<name>, pane:<id>, team_thread, mission, routine "
-            "or skill:<slug>."
+            "target is required: agent:<name>, coding_agent, pane:<id>, team_thread, "
+            "mission, routine or skill:<slug>."
         )
     head, sep, tail = text.partition(":")
     kind = head.strip().lower().replace(" ", "_")
     ref = tail.strip()
+    if kind.replace("-", "_") == "coding_agent":
+        # What follows the colon, if anything, names the coding CLI.
+        return "coding_agent", ref
     if kind in ("agent", "pane", "skill"):
         if kind in ("pane", "skill") and not ref:
             what = "id" if kind == "pane" else "slug"
@@ -138,8 +154,8 @@ def parse_target(raw: Any) -> tuple[str, str] | str:
     if bare and ref:
         return f"target '{bare}' takes nothing after the colon; got '{ref}'."
     return (
-        f"unknown target '{text}'. Use agent:<name>, pane:<id>, team_thread, mission, "
-        "routine or skill:<slug>."
+        f"unknown target '{text}'. Use agent:<name>, coding_agent, pane:<id>, team_thread, "
+        "mission, routine or skill:<slug>."
     )
 
 
@@ -187,7 +203,10 @@ class DelegateTool:
     description: str = (
         "THE way to hand work to someone else. Pick the target, give the task, get a job_id "
         "back. target: 'agent:<name>' (one of the user's named team agents; 'agent' alone "
-        "lets the lead pick the best fit), 'pane:<terminal id or call-sign>' (a coding agent "
+        "lets the lead pick the best fit), 'coding_agent' (a NEW coding agent such as Claude "
+        "Code or Codex; it opens as a chat thread in the Agentic IDE, and this is the only "
+        "way to start one: never open a workspace or terminals for it), "
+        "'pane:<terminal id or call-sign>' (a coding agent "
         "already open in the Agentic IDE), 'team_thread' (several coding agents on different "
         "models plan, build and review one task; asks the person first), 'mission' (one "
         "background worker in its own checkout, for a real work product), 'routine' (work on a "
@@ -201,7 +220,9 @@ class DelegateTool:
         "you can give yourself, knowledge questions, or status reads (work_board, "
         "society_status). Turn the user's intent into a brief: objective, known target, "
         "context, constraints and completion evidence. Target-specific extras go in options "
-        "(pane: workspace_id, request_id, while_busy; team_thread: cwd, seats, mode, title; "
+        "(coding_agent: cli, model, effort, count, folder or project or workspace, and mode "
+        "grid ONLY when the user asked for a terminal, a pane or the grid; "
+        "pane: workspace_id, request_id, while_busy; team_thread: cwd, seats, mode, title; "
         "mission: action; routine: agent, title, schedule, announce_on_success; "
         "agent: refs)."
     )
@@ -211,8 +232,8 @@ class DelegateTool:
             "target": {
                 "type": "string",
                 "description": (
-                    "agent:<id or name> | pane:<stable id or call-sign> | team_thread | "
-                    "mission | routine | skill:<slug>"
+                    "agent:<id or name> | coding_agent | pane:<stable id or call-sign> | "
+                    "team_thread | mission | routine | skill:<slug>"
                 ),
             },
             "task": {
@@ -386,6 +407,13 @@ class DelegateTool:
                 **({"reply_policy": args["reply"]} if args.get("reply") else {}),
                 **({"refs": options["refs"]} if options.get("refs") else {}),
             }
+        elif kind == "coding_agent":
+            under = {
+                "action": "create",
+                "prompt": _brief(task, context, criteria),
+                **({"cli": ref} if ref else {}),
+                **{k: options[k] for k in _CODING_AGENT_OPTIONS if options.get(k)},
+            }
         elif kind == "pane":
             return await self._route_pane(ref, tool, task, criteria, context, options, ctx)
         elif kind == "team_thread":
@@ -513,7 +541,10 @@ class DelegateTool:
         kind: str, target: str, task: str, ctx: ExecutionContext, under: dict[str, Any]
     ) -> str | None:
         """A job row for a hand-off whose implementation wrote none."""
-        state = "running" if kind in ("mission", "team_thread", "agent") else "blocked"
+        state = (
+            "running" if kind in ("mission", "team_thread", "agent", "coding_agent")
+            else "blocked"
+        )
         job_id = jobs.start(
             _LEDGER_KIND[kind], target=target, title=task[:120], ctx=ctx, state=state,
         )

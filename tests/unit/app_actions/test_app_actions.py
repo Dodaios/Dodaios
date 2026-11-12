@@ -111,6 +111,13 @@ def test_coding_panes_are_reached_only_through_the_addressed_workspace_tool() ->
     by_route = {(e.method, e.path) for e in build_catalog(application.openapi()).values()}
     assert ("POST", "/api/agentic-ide/terminals/{name}/prompt") not in by_route
     assert ("POST", "/api/agentic-ide/fanout") not in by_route
+    # Nor the routes that open a grid workspace or grid terminals: a new coding
+    # agent is workspace-orchestrate create, which opens a chat thread unless
+    # the person asked for the grid (live 2026-11-12: the lead opened a grid
+    # workspace through "Open an Agentic-IDE workspace" instead).
+    assert ("POST", "/api/agentic-ide/session") not in by_route
+    assert ("POST", "/api/agentic-ide/terminals") not in by_route
+    assert ("POST", "/api/agentic-ide/terminals/batch") not in by_route
     # Other pane actions stay offered under the person's policy.
     assert ("POST", "/api/agentic-ide/terminals/{name}/interrupt") in by_route
 

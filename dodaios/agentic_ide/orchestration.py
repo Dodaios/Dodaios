@@ -23,7 +23,14 @@ from dodaios.core.protocols import CodingSessionGateway
 from dodaios.live.state import LiveLedger
 
 from .awareness import snapshot
-from .chat_threads import ChatThreads, chat_provider, is_thread, session_of, spawn_mode
+from .chat_threads import (
+    ChatThreads,
+    chat_provider,
+    is_thread,
+    provider_for_model,
+    session_of,
+    spawn_mode,
+)
 from .session import (
     MAX_PANES_PER_REQUEST,
     AgentBusyError,
@@ -245,6 +252,31 @@ def _never_delivered(receipt: dict) -> bool:
 def _assignment(args: dict) -> str:
     """The brief AND its chosen images identify a retry."""
     return json.dumps([str(args.get("prompt") or "").strip(), args.get("image_refs", [])])
+
+
+def _pane_picks(cli: str | None, entry: dict[str, Any], args: dict[str, Any]) -> dict[str, str]:
+    """The model and effort a new pane starts on, as this CLI spells them.
+
+    Read from the group's own entry, else from the request. Words the person
+    used ("Fable 5.2", "max") are folded onto what the CLI takes; a pick it
+    cannot take is left out, so the pane still opens, on its default.
+    """
+    model = str(entry.get("model") or args.get("model") or "").strip()
+    effort = str(entry.get("effort") or args.get("effort") or "").strip()
+    if not cli or not (model or effort):
+        return {}
+    from dodaios.workspace import launch_picks
+
+    row = chat_provider(cli)
+    if model and row is not None:
+        from dodaios.society.coding_threads import match_model
+
+        model = match_model(row, model)
+    picks = {
+        "model": launch_picks.normalize_model(cli, model),
+        "effort": launch_picks.normalize_effort(cli, effort),
+    }
+    return {key: value for key, value in picks.items() if value}
 
 
 def _git_brief(folder: str) -> dict[str, Any] | None:
@@ -784,22 +816,35 @@ class WorkspaceOrchestrator:
             groups = self._groups(args)
             if isinstance(groups, dict):
                 return groups
-            count = sum(n for _, n in groups)
+            count = sum(n for _, n, _ in groups)
+        # A model or effort the person named: the pane starts on it.
+        picks = (
+            _pane_picks(cli or _default_cli(), args, args)
+            if args.get("model") or args.get("effort") else {}
+        )
         try:
             if isinstance(mixed, list) and mixed:
                 created, capped = [], False
-                for group_cli, group_count in groups:
+                for group_cli, group_count, group_picks in groups:
+                    if group_picks:
+                        for _ in range(group_count):
+                            created.append(await self.registry.add_terminal(
+                                workspace_id=workspace["id"], agent=group_cli, **group_picks
+                            ))
+                        continue
                     made, cut = await self.registry.add_terminals(
                         group_count, agent=group_cli, workspace_id=workspace["id"]
                     )
                     created.extend(made)
                     capped = capped or cut
-            elif count == 1 and name:
-                created = [
-                    await self.registry.add_terminal(
-                        workspace_id=workspace["id"], agent=cli, name=name
-                    )
-                ]
+            elif picks or (count == 1 and name):
+                for _ in range(count):
+                    created.append(await self.registry.add_terminal(
+                        workspace_id=workspace["id"],
+                        agent=cli or (_default_cli() if picks else None),
+                        **({"name": name} if name and count == 1 else {}),
+                        **picks,
+                    ))
                 capped = False
             else:
                 created, capped = await self.registry.add_terminals(
@@ -909,7 +954,7 @@ class WorkspaceOrchestrator:
         from dodaios.society.coding_threads import _ensure_project, _installed_clis, _label_of
 
         installed = await _installed_clis()
-        missing = [_label_of(row.id) for row, _ in groups if not installed.get(row.agent, True)]
+        missing = [_label_of(row.id) for row, *_ in groups if not installed.get(row.agent, True)]
         if missing:
             return {
                 "status": "not_accepted",
@@ -917,8 +962,11 @@ class WorkspaceOrchestrator:
                           "computer. Nothing was created.",
                 **{k: place[k] for k in ("project_id", "workspace_id")},
             }
-        requested = sum(count for _, count in groups)
-        rows = [row for row, count in groups for _ in range(count)][:MAX_THREADS_PER_REQUEST]
+        requested = sum(count for _, count, _ in groups)
+        wanted = [
+            (row, picks) for row, count, picks in groups for _ in range(count)
+        ][:MAX_THREADS_PER_REQUEST]
+        rows = [row for row, _ in wanted]
         name = str(args.get("name") or "").strip()
         prompt = str(args.get("prompt") or "").strip()
         # The thread list is grouped by project: the folder must be one.
@@ -927,7 +975,7 @@ class WorkspaceOrchestrator:
         creation_error = ""
         seen: dict[str, int] = {}
         try:
-            for row in rows:
+            for row, picks in wanted:
                 # The CLI's own name as the IDE shows it ("Claude Code"),
                 # numbered when the request opens several of one kind.
                 shown = _label_of(row.id)
@@ -939,6 +987,7 @@ class WorkspaceOrchestrator:
                 created.append(self.threads.create(
                     folder=folder, row=row, name=label,
                     title=name if name and len(rows) == 1 else "",
+                    **picks,
                 ))
         except Exception as exc:  # noqa: BLE001 - earlier threads exist; keep their IDs
             from loguru import logger
@@ -1012,19 +1061,23 @@ class WorkspaceOrchestrator:
 
     def _thread_groups(
         self, args: dict[str, Any], service: Any,
-    ) -> list[tuple[Any, int]] | dict[str, Any] | str:
-        """``(chat provider, count)`` per requested CLI.
+    ) -> list[tuple[Any, int, dict[str, str]]] | dict[str, Any] | str:
+        """``(chat provider, count, model and effort)`` per requested CLI.
 
         A reply when a CLI name is not one, and a sentence when a CLI can only
         run as a terminal pane (one the person added has no chat mode).
         """
         raw = args.get("agents")
         entries = raw if isinstance(raw, list) and raw else [args]
-        groups: list[tuple[Any, int]] = []
+        groups: list[tuple[Any, int, dict[str, str]]] = []
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
             spoken = str(entry.get("cli") or "").strip()
+            picks = {
+                key: str(entry.get(key) or args.get(key) or "").strip()
+                for key in ("model", "effort")
+            }
             cli = _coding_cli(spoken) if spoken else None
             if spoken and cli is None:
                 from dodaios.workspace import agents as workspace_agents
@@ -1039,7 +1092,9 @@ class WorkspaceOrchestrator:
                 }
             row = (
                 chat_provider(cli) if cli
-                else self.threads.default_provider(service, _default_cli())
+                # "A Fable 5.2 agent": the model says which CLI is meant.
+                else (picks["model"] and provider_for_model(picks["model"]))
+                or self.threads.default_provider(service, _default_cli())
             )
             if row is None:
                 return (
@@ -1050,7 +1105,10 @@ class WorkspaceOrchestrator:
                 count = int(entry.get("count") or 1)
             except (TypeError, ValueError):  # a malformed count falls back to one thread
                 count = 1
-            groups.append((row, max(1, min(count, MAX_THREADS_PER_REQUEST))))
+            groups.append((
+                row, max(1, min(count, MAX_THREADS_PER_REQUEST)),
+                {key: value for key, value in picks.items() if value},
+            ))
         return groups or "No coding CLI was named; opened in the grid."
 
     def _thread_place(self, args: dict[str, Any], graph: dict[str, Any]) -> dict[str, Any]:
@@ -1071,7 +1129,8 @@ class WorkspaceOrchestrator:
                     "status": "needs_clarification",
                     "kind": "folder",
                     "reason": f"The folder {given} does not exist. Give an absolute path or a "
-                              "known project.",
+                              "known project; create a new folder first (find-app-action "
+                              "'create folder').",
                     "candidates": [
                         {"project": p["name"], "folder": p["path"]} for p in graph["projects"]
                     ],
@@ -1513,13 +1572,28 @@ class WorkspaceOrchestrator:
     async def _open_workspace(
         self, args: dict[str, Any], graph: dict[str, Any], *, trace_id: str, creation_id: str,
     ) -> dict[str, Any]:
-        """Open a folder by path, or a known project by name or ID, as a NEW workspace."""
+        """Open a folder by path, or a known project by name or ID, for new agents.
+
+        In Chat (the default) the folder becomes a project and the agents open
+        as threads in it; no grid workspace is started. ``mode="grid"`` opens
+        a NEW workspace of terminal panes, as does a CLI the chat cannot drive.
+        """
         from .session import workspace_changed_event
 
         folder = str(args.get("folder") or "").strip()
         # An explicit project_id with a folder is checked by registry.start.
         project_id: str | None = str(args.get("project_id") or "").strip() or None
         project_ref = str(args.get("project_id") or args.get("project") or "").strip()
+        fallback = ""
+        if (folder or project_ref) and spawn_mode(args.get("mode")) == VIEW_CHAT:
+            # The tab name of a workspace is not a thread's title.
+            opened = await self._create_threads(
+                {**args, "name": "", "workspace": "", "workspace_id": ""},
+                trace_id=trace_id, creation_id=creation_id,
+            )
+            if isinstance(opened, dict):
+                return opened
+            fallback = opened
         if not folder and project_ref:
             owners = _best(
                 project_ref, graph["projects"], lambda p: ((p["id"], p["path"]), (p["name"],))
@@ -1541,7 +1615,9 @@ class WorkspaceOrchestrator:
         groups = self._groups(args)
         if isinstance(groups, dict):
             return groups
-        requested = [{"agent": cli} for cli, count in groups for _ in range(count)]
+        requested = [
+            {"agent": cli, **picks} for cli, count, picks in groups for _ in range(count)
+        ]
         if len(requested) > MAX_PANES_PER_REQUEST:
             return {
                 "status": "not_accepted",
@@ -1572,6 +1648,8 @@ class WorkspaceOrchestrator:
         delivery_ids = [self._issue(target) for target in targets]
         result: dict[str, Any] = {
             "status": "opened",
+            "mode": VIEW_GRID,
+            **({"mode_note": fallback} if fallback else {}),
             "project_id": session.project_id,
             "workspace_id": session.id,
             "workspace": session.name,
@@ -1607,15 +1685,18 @@ class WorkspaceOrchestrator:
         return result
 
     @staticmethod
-    def _groups(args: dict[str, Any]) -> list[tuple[str | None, int]] | dict[str, Any]:
-        """``agents: [{cli, count}]`` (or one ``cli``/``count``) as (CLI, count) pairs.
+    def _groups(
+        args: dict[str, Any],
+    ) -> list[tuple[str | None, int, dict[str, str]]] | dict[str, Any]:
+        """``agents: [{cli, count}]`` (or one ``cli``/``count``) as (CLI, count, picks).
 
         "Five Claude Code and three Codex" is one request; each group keeps the
-        CLI as spoken until ``_coding_cli`` names the pane's real CLI.
+        CLI as spoken until ``_coding_cli`` names the pane's real CLI. The
+        picks are the model and effort the group's panes start on, when named.
         """
         raw = args.get("agents")
         entries = raw if isinstance(raw, list) and raw else [args]
-        groups: list[tuple[str | None, int]] = []
+        groups: list[tuple[str | None, int, dict[str, str]]] = []
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
@@ -1636,8 +1717,10 @@ class WorkspaceOrchestrator:
                 count = int(entry.get("count") or 1)
             except (TypeError, ValueError):  # a malformed count falls back to one terminal
                 count = 1
-            groups.append((cli, max(1, min(count, MAX_PANES_PER_REQUEST))))
-        return groups or [(_default_cli(), 1)]
+            groups.append((
+                cli, max(1, min(count, MAX_PANES_PER_REQUEST)), _pane_picks(cli, entry, args),
+            ))
+        return groups or [(_default_cli(), 1, {})]
 
     async def _brief(
         self, targets: list[dict[str, str]], prompt: str, trace_id: str,

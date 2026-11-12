@@ -141,12 +141,16 @@ so the new agent is where you look. Dodaios opens a terminal pane in the grid
 only when you ask for one: a terminal, a pane, or the grid.
 
 - **Where:** the folder of the workspace you named or see, else the project
-  you named, else the folder you gave. No workspace has to be open.
-- **Which agent:** the coding agent you named, else the one your newest
-  thread runs on, else the first one installed.
-- **Access:** the default access mode, the same as a pane and as a thread you
-  start by hand. It is not full access. An approval or a question the agent
-  shows waits for you in the thread.
+  you named, else the folder you gave. No workspace has to be open. For a new
+  project Dodaios makes the folder first; the thread connects it as a project.
+- **Which agent:** the coding agent you named, else the one that has the
+  model you named ("a Fable 5.2 agent"), else the one your newest thread runs
+  on, else the first one installed.
+- **Model and effort:** the ones you named ("Fable 5.2 on max"), else the
+  coding agent's own defaults.
+- **Access:** the app's default access mode, the one a grid pane opens in
+  too. For Claude Code and Codex that is the mode that never asks (bypass
+  permissions, full access). You can lower it in the thread's composer.
 - **What you see:** after a spoken request the IDE comes forward in Chat on
   the new thread. In Dodaios's chat you get a line that opens it.
 - **The result:** when the turn Dodaios started finishes, fails, asks a
@@ -158,8 +162,12 @@ only when you ask for one: a terminal, a pane, or the grid.
 - **Fallback:** a coding CLI you added yourself has no chat mode. Dodaios
   opens it as a pane and says so.
 
-The code is `dodaios/agentic_ide/chat_threads.py`; the tool is
-`workspace-orchestrate` (`create`, with `mode` `chat` or `grid`).
+The code is `dodaios/agentic_ide/chat_threads.py`. The tool is
+`workspace-orchestrate`: `create` and `open_workspace`, with `mode` `chat` or
+`grid`, `model` and `effort`. The lead reaches it as `delegate` with the target
+`coding_agent`. The app's own routes that open a grid workspace or grid
+terminals are not offered as app actions, so a model cannot open a grid for a
+new agent by another way.
 
 ## Team threads
 

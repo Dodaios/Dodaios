@@ -199,6 +199,18 @@
     "action": "create"
    }
   },
+  "coding-agent-new-with-model-en": {
+   "tool": "delegate",
+   "input": {
+    "target": "coding_agent"
+   }
+  },
+  "coding-agent-new-project-de": {
+   "tool": "delegate",
+   "input": {
+    "target": "coding_agent"
+   }
+  },
   "pane-git-state-en": {
    "tool": "workspace-git"
   },

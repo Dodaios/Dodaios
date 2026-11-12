@@ -63,6 +63,19 @@
   utterance: "Öffne ein neues Claude-Code-Terminal und lass es die README aktualisieren."
   requires: [workspace-orchestrate]
   expect: {tool: workspace-orchestrate, args: {action: create}}
+- id: coding-agent-new-with-model-en
+  category: coding_pane
+  lang: en
+  utterance: "Start a new Claude Code agent on Fable 5.2 with max effort in the website project and let it fix the failing tests."
+  requires: [workspace-orchestrate]
+  expect: {tool: delegate, args: {target: coding_agent}, also_accept: [workspace-orchestrate]}
+  note: "Live 2026-11-12: with no target for a new coding agent the lead opened a grid workspace through run-app-action."
+- id: coding-agent-new-project-de
+  category: coding_pane
+  lang: de
+  utterance: "Lass im Projekt Web Chip einen neuen Fable-5.2-Agent auf Stufe max einen Chip entwerfen."
+  requires: [workspace-orchestrate]
+  expect: {tool: delegate, args: {target: coding_agent}, also_accept: [workspace-orchestrate]}
 - id: pane-git-state-en
   category: coding_pane
   lang: en
