@@ -4,8 +4,10 @@
 // One pass. Buffer A (mouse camera), Buffer B (2048 curl-advected
 // positions), Buffer C (300 camera-facing discs) and the Image blue-noise
 // dither are not available here. A 32x5 loop draws two wisps per step (320),
-// each a small additive spark plus a faint halo. The cosine palette, ACES
-// curve and gamma match the original. Trails stay off, as in Buffer C.
+// each a small additive spark plus a faint halo in that spark's colour. The
+// wide mist is a soft back glow in the same colour, not a filled disc. The
+// cosine palette, ACES curve and gamma match the original. Trails stay off,
+// as in Buffer C.
 //
 // States:
 // 0 idle: the wedding at rest, many tiny sparks in a slow curl.
@@ -36,6 +38,25 @@ vec3 wispColour(float t) {
     vec3 d = vec3(0.15, 0.5, 0.75);
     return a + b * cos(6.283185 * (c * t + d));
 }
+
+vec3 stateTone(float hue, float st) {
+    vec3 tone = wispColour(hue);
+    if (st > 3.5 && st < 4.5) {
+        tone = mix(tone, vec3(1.0, 0.75, 0.3), 0.82);
+    } else if (st > 4.5 && st < 5.5) {
+        tone = mix(tone, vec3(1.0, 0.08, 0.04), 0.9);
+    } else if (st > 5.5 && st < 6.5) {
+        tone = mix(tone, vec3(0.3, 0.42, 0.9), 0.7);
+    } else if (st > 6.5 && st < 7.5) {
+        tone = mix(tone, vec3(1.0, 0.8, 0.45), 0.4);
+    }
+    return tone;
+}
+
+vec3 gVeil = vec3(0.0);
+float gVeilW = 0.0;
+vec3 gHalo = vec3(0.0);
+float gHaloW = 0.0;
 
 vec3 placeWisp(float n, float tt, float warpAmp, float st) {
     vec3 h = hash31(n * 1.17 + 2.0);
@@ -121,33 +142,43 @@ vec3 shadeWisp(float n, vec2 uv, vec3 ro, vec3 ww, vec3 uu, vec3 vv, float tt, f
     if (st > 4.5 && st < 5.5) {
         mistAmp = 0.0016;
     }
-    float mist = mistAmp * exp(-d2 / 0.0015);
-    float glow = (core * (0.4 + 0.6 * flick) + halo * (0.65 + 0.35 * flick) + mist);
-    glow *= mix(0.45, 1.45, near);
+    float amp = mix(0.45, 1.45, near);
+    float body = core * (0.4 + 0.6 * flick) * amp;
+    float fringe = halo * (0.65 + 0.35 * flick) * amp;
+    float veil = exp(-d2 / 0.0015) * (mistAmp / 0.0075) * amp;
     if (st > 7.5 && st < 8.5) {
         float beamX = 0.5 + 0.34 * sin(uTime * 0.85);
         float onBeam = 1.0 - smoothstep(0.0, 0.06, abs(screen.x - beamX));
-        glow *= 0.4 + 1.55 * onBeam;
+        float lit = 0.4 + 1.55 * onBeam;
+        body *= lit;
+        fringe *= lit;
+        veil *= lit;
     }
     float hue = n / 1088.0 + 0.15 * uTime;
     if (st > 1.5 && st < 2.5) {
         hue += 0.38;
     }
-    vec3 tone = wispColour(hue);
-    if (st > 3.5 && st < 4.5) {
-        tone = mix(tone, vec3(1.0, 0.75, 0.3), 0.82);
-    } else if (st > 4.5 && st < 5.5) {
-        tone = mix(tone, vec3(1.0, 0.08, 0.04), 0.9);
-    } else if (st > 5.5 && st < 6.5) {
-        tone = mix(tone, vec3(0.3, 0.42, 0.9), 0.7);
-        glow *= 0.35;
-    } else if (st > 6.5 && st < 7.5) {
-        tone = mix(tone, vec3(1.0, 0.8, 0.45), 0.4);
+    vec3 tone = stateTone(hue, st);
+    if (st > 5.5 && st < 6.5) {
+        body *= 0.35;
+        fringe *= 0.35;
+        veil *= 0.35;
     }
-    return tone * glow * gain * alive;
+    float live = gain * alive;
+    gVeil += tone * veil * live;
+    gVeilW += veil * live;
+    // Kept out of `col`. Tone mapping crushed this fringe, and the cover
+    // alpha then stored it as black RGB.
+    gHalo += tone * fringe * live;
+    gHaloW += fringe * live;
+    return tone * body * live;
 }
 
 void main() {
+    gVeil = vec3(0.0);
+    gVeilW = 0.0;
+    gHalo = vec3(0.0);
+    gHaloW = 0.0;
     float st = floor(uState + 0.5);
     vec2 face = vLocal.xy;
     if (st > 8.5) {
@@ -228,7 +259,24 @@ void main() {
     col = acesFilm(max(col, 0.0));
     col = pow(col, vec3(0.454545));
     // The desktop FBO is read back as premultiplied, then stored straight.
+    // The hot core is the tone-mapped spark. `cover` (`peak * 8`) is already
+    // opaque while that core's shoulder is still dark, which drew a black
+    // ring inside the coloured halo. The shoulder takes this spark's colour
+    // (the same tint as the halo). The wide mist stays below a fill.
     float peak = max(col.r, max(col.g, col.b));
     float cover = clamp(peak * 8.0, 0.0, 1.0);
-    gl_FragColor = vec4(clamp(col, 0.0, 1.0) * cover, cover);
+    vec3 tint = gVeil / max(gVeilW, 0.0001);
+    tint = pow(clamp(tint, 0.0, 1.0), vec3(0.454545));
+    float glowA = 0.72 * gVeilW / (gVeilW + 36.0);
+    vec3 glow = tint * glowA;
+    vec3 haloTint = gHalo / max(gHaloW, 0.0001);
+    haloTint = pow(clamp(haloTint, 0.0, 1.0), vec3(0.454545));
+    // One spark's fringe weight peaks near 0.07. This stays under 0.62.
+    float haloA = 0.62 * gHaloW / (gHaloW + 0.04);
+    vec3 haloGlow = haloTint * haloA;
+    vec3 spark = max(clamp(col, 0.0, 1.0), haloTint) * cover;
+    float rest = 1.0 - cover;
+    vec3 behind = haloGlow + glow * (1.0 - haloA);
+    float behindA = haloA + glowA * (1.0 - haloA);
+    gl_FragColor = vec4(spark + behind * rest, cover + behindA * rest);
 }
