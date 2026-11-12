@@ -9755,6 +9755,9 @@
       "wisp-swarm": {
         "description": "Uma nuvem de verão de fogos-fátuos que se inclina para ouvir, agita-se quando pensa e brilha a ouro quando algo corre bem."
       },
+      "mandelbulb": {
+        "description": "Um mandelbulb de vidro que se inclina para ouvir, gira frio ao pensar e brilha a ouro quando algo corre bem."
+      },
       "cube-cat": {
         "description": "Um gato de cubos que corre no lugar."
       }

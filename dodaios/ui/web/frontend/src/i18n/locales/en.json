@@ -9755,6 +9755,9 @@
       "wisp-swarm": {
         "description": "A midsummer cloud of wisps that leans in to listen, churns while it thinks, and flares gold when something goes right."
       },
+      "mandelbulb": {
+        "description": "A glassy mandelbulb that leans in to listen, spins cold while it thinks, and flares gold when something goes right."
+      },
       "cube-cat": {
         "description": "A blocky cat that runs in place."
       }

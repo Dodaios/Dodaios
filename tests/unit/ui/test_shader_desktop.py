@@ -185,6 +185,8 @@ def test_shader_source_for_id_reads_the_fragment(tmp_path: Path, monkeypatch) ->
     assert shader_source_for_id("gigi") is None
     source = shader_source_for_id("wisp-swarm")
     assert source is not None and "uLevel" in source and "void main" in source
+    bulb = shader_source_for_id("mandelbulb")
+    assert bulb is not None and "uState" in bulb and "void main" in bulb
 
 
 def test_voice_level_is_the_live_voice_only_while_talking_or_listening() -> None:

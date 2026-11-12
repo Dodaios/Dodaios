@@ -9755,6 +9755,9 @@
       "wisp-swarm": {
         "description": "Eine Mittsommerwolke aus Irrlichtern, die sich zum Zuhören neigt, beim Nachdenken wirbelt und gold aufleuchtet, wenn etwas gelingt."
       },
+      "mandelbulb": {
+        "description": "Eine gläserne Mandelbulb, die sich zum Zuhören neigt, beim Nachdenken kühl dreht und gold aufleuchtet, wenn etwas gelingt."
+      },
       "cube-cat": {
         "description": "Eine kantige Katze, die auf der Stelle läuft."
       }

@@ -58,8 +58,9 @@ def test_loop_counter_nesting_and_hidden_words() -> None:
     check_shader_source(nested)
     sequential = "void main() { for (int i = 0; i < 32; i++) { } for (int k = 0; k < 32; k++) { } }"
     check_shader_source(sequential)
-    wave = Path(__file__).resolve().parents[4] / "dodaios/ui/pets/builtin/wisp-swarm/shader.frag"
-    check_shader_source(wave.read_text(encoding="utf-8"))
+    root = Path(__file__).resolve().parents[4] / "dodaios/ui/pets/builtin"
+    check_shader_source((root / "wisp-swarm/shader.frag").read_text(encoding="utf-8"))
+    check_shader_source((root / "mandelbulb/shader.frag").read_text(encoding="utf-8"))
     with pytest.raises(PetManifestError, match="for loop"):
         check_shader_source("void main() { for (int i = 0; j < 8; i++) { } }")
     with pytest.raises(PetManifestError, match="counter"):
