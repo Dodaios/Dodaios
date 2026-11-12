@@ -69,6 +69,16 @@
   to { opacity: 1; transform: none; }
 }
 
+/* Messages the assistant sent one after the other in a turn keep the
+   stack's rhythm, a little looser than the paragraphs of one message. */
+.lead-turn-body [data-trace-reply] + [data-trace-reply] {
+  margin-top: 6px;
+}
+/* The fold of a turn's steps sits between what was said and the answer. */
+.lead-turn-body [data-trace-reply] + [data-testid="conversation-work-fold"] {
+  margin-top: 4px;
+}
+
 /* The assistant is typing: three dots in a bubble as tall as a one-line
    message (TypingBubble.tsx). Each dot lifts in turn. */
 .lead-typing {

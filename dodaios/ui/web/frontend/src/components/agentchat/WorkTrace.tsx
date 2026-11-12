@@ -654,6 +654,7 @@ function withoutReasoning(blocks: TurnBlock[]): TurnBlock[] {
 }
 
 const NO_BLOCKS: TurnBlock[] = [];
+const NO_TEXT: TextBlock[] = [];
 
 export function WorkTrace({ look = "rail", ...props }: WorkTraceProps & { look?: TraceLook }) {
   return <TraceLookContext.Provider value={look}><WorkTraceBody {...props} /></TraceLookContext.Provider>;
@@ -685,8 +686,9 @@ type WorkTraceProps = {
    * The trace sits in a messenger conversation (the front page): the reply
    * is drawn by `renderAnswer`, the model's reasoning is not drawn at all
    * (`withoutReasoning`), a turn at work shows three dots in a bubble
-   * instead of a state line (`TypingBubble`), and a finished, answered turn
-   * shows no state line at rest. How long it took and what it used wait
+   * instead of a state line (`TypingBubble`), every message the assistant
+   * sent stays a message and only its steps fold, and a finished, answered
+   * turn shows no state line at rest. How long it took and what it used wait
    * under the turn for whoever looks (`.trace-meta`).
    */
   messenger?: boolean;
@@ -721,12 +723,19 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
   }, [split, rail]);
   const groups = useMemo(() => conversation ? groupConversationTrace(fold ? fold.workAll : blocks) : groupActivityTrace(blocks), [blocks, conversation, fold]);
   const restGroups = useMemo(() => fold ? groupConversationTrace(fold.answer) : null, [fold]);
+  // A messenger conversation keeps what the assistant said: a message it
+  // sent before or between its steps ("I'll check tonight's weather") stays
+  // a message once the turn is done, above the fold that holds the steps
+  // (maintainer, 2026-11-12). A message that was sent does not go away.
+  const said = useMemo(() => messenger && split ? split.work.filter((block): block is TextBlock => block.kind === "text" && Boolean(block.text.trim())) : NO_TEXT, [messenger, split]);
+  const steps = useMemo(() => messenger && split ? split.work.filter((block) => block.kind !== "text") : split?.work, [messenger, split]);
   // While a turn runs, its replies and streaming pieces stay live rows; once
   // it is done, text before the answer reads as the timeline's narration and
   // anything after the answer sits above it too: the answer is always last.
-  const timeline = useTimeline(rail ? (split ? split.work : blocks) : NO_BLOCKS, status, live);
+  const timeline = useTimeline(rail ? (steps ?? blocks) : NO_BLOCKS, status, live);
   const afterAnswer = useTimeline(rail && split ? split.after : NO_BLOCKS, status, live);
   const answerGroups = useMemo(() => rail && split ? groupConversationTrace(split.answer) : null, [rail, split]);
+  const saidGroups = useMemo(() => said.length ? groupConversationTrace(said) : null, [said]);
   const asking = blocks.some(isOpenQuestion);
   const pending = asking || blocks.some(block => block.kind === "tool" && block.approval?.decision === null);
   const toolFailed = blocks.some(block => block.kind === "tool" && block.isError);
@@ -805,6 +814,7 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
       ...timelineItems(afterAnswer, renderers),
     ];
     const answerItems = answerGroups ? traceGroupItems({ groups: answerGroups, ...groupProps }) : [];
+    const saidItems = saidGroups ? traceGroupItems({ groups: saidGroups, ...groupProps }) : [];
     // A finished, answered turn folds its work; a pending approval or open
     // question stays outside the fold, because it waits for the person. A
     // step that failed folds with the rest: the turn answered anyway, the
@@ -818,6 +828,7 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
       if (visibleError) items.push(errorItem(visibleError, "trace:error"));
       items.push(statusItem);
       return <div className={cn("min-w-0", conversation && "w-full max-w-[44rem] self-start", className)} data-testid="work-trace" data-look="rail" data-state={status} {...(conversation ? { "data-conversation": "" } : {})}>
+        {saidItems.length ? <Rail items={saidItems} /> : null}
         <ConversationWorkFold durationMs={durationMs} expandInner={false} thoughts={!messenger}
           failureCount={folded.filter((block) => block.kind === "tool" && block.isError).length} attention={waiting.length ? <Rail items={waiting.map((block) => ({
           key: block.callId, rail: !hasPersonCard(block), node: <TraceTool block={block} status={status} onDecide={onDecide} />,
@@ -827,7 +838,7 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
         <Rail items={items} />
       </div>;
     }
-    const items: RailItem[] = [...workItems, ...answerItems];
+    const items: RailItem[] = [...saidItems, ...workItems, ...answerItems];
     // With no answer the work stands open, and a failed step reads on its
     // own line there: no second line repeats it.
     if (visibleError) items.push(errorItem(visibleError, "trace:error"));
