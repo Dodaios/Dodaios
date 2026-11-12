@@ -1,5 +1,6 @@
 import { Fragment, memo, useMemo, type ReactNode } from "react";
 import { ChatMarkdown, MediaPreview, mediaKind } from "@/components/agentchat/ChatMarkdown";
+import { PictureDisplayContext, type PictureDisplay } from "@/components/agentchat/MediaPreview";
 import { FileText, ImageIcon } from "lucide-react";
 import { InternalMessageRun, groupInternalRuns, type InternalRunItem, type RunFace } from "./InternalMessageRun";
 import { CodingThreadActivity } from "@/components/agentic/threads/CodingThreadLink";
@@ -44,6 +45,7 @@ export function AgentTimeline({
   traceFace,
   awaiting = false,
   nested = false,
+  pictures = "shown",
 }: {
   items: TimelineItem[];
   assistantName: string;
@@ -80,6 +82,8 @@ export function AgentTimeline({
   awaiting?: boolean;
   /** A side thread's answer inside the conversation: no time stamps of its own. */
   nested?: boolean;
+  /** Whether pictures in the transcript are drawn, or listed as files (a name and a download link). */
+  pictures?: PictureDisplay;
 }) {
   const t = useT();
   // On the rail look an agent's answer to a working turn is a quiet line in
@@ -103,6 +107,7 @@ export function AgentTimeline({
       bubbles={bubbles}
       traceLook={traceLook}
       nested
+      pictures={pictures}
     />
   );
   // The assistant's pet stands beside its newest turn only.
@@ -118,7 +123,7 @@ export function AgentTimeline({
     [shown],
   );
   return (
-    <>
+    <PictureDisplayContext.Provider value={pictures}>
       {rows.map((item) => {
         const stamp = stamps?.get(item.id);
         const node = renderItem(item);
@@ -148,7 +153,7 @@ export function AgentTimeline({
           </div>
         </div>
       ) : null}
-    </>
+    </PictureDisplayContext.Provider>
   );
 
   function renderItem(item: TimelineItem | InternalRunItem) {
@@ -213,7 +218,9 @@ export function AgentTimeline({
                   // wants to SEE in their turn, not a file name with an
                   // icon (maintainer, 2026-08-27). A file with no url —
                   // a document, or the front page's chat, whose drops
-                  // are read and not stored — keeps the chip.
+                  // are read and not stored — keeps the chip. Where the
+                  // transcript lists its pictures as files, the preview is
+                  // the download link alone.
                   file.url && (mediaKind(file.url) === "video" || mediaKind(file.url) === "audio") ? (
                     <MediaPreview key={file.name} src={file.url} label={file.name} kind={mediaKind(file.url)!} />
                   ) : (file.kind === "image" || (file.url && mediaKind(file.url) === "image")) && file.url ? (
