@@ -123,7 +123,7 @@ class StandingStore:
         with self._lock:
             rows = self._conn.execute(
                 f"SELECT {_TASK_COLUMNS} FROM standing_tasks {clause}"  # noqa: S608
-                "ORDER BY created_ms ASC, id ASC"
+                "ORDER BY created_ms ASC, rowid ASC"
             ).fetchall()
         return [_task(row) for row in rows]
 

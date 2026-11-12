@@ -326,7 +326,14 @@ async def _check_row(task_store: Any) -> dict[str, Any] | None:
 async def _seat_for_checks(runtime: Any, lead: Any) -> dict[str, str]:
     """The seat the checks are pinned to: the front page's subscription seat
     when there is one, else the lead's own (the runner's billing hold still
-    applies to that one)."""
+    applies to that one).
+
+    An install without a global model pick has no such seat to read, and a
+    lead record that names no provider has none of its own: the run would end
+    with "no model seat" although the person talks to the assistant every
+    day. Then the seat is the one their conversation runs on, when that is a
+    subscription or a local model.
+    """
     from dodaios.society.routine_runner import _subscription_seat
 
     try:
@@ -335,9 +342,40 @@ async def _seat_for_checks(runtime: Any, lead: Any) -> dict[str, str]:
         log.debug("lead checks: subscription seat unreadable", exc_info=True)
         subscription = None
     if subscription is None:
-        return {}
+        if str(getattr(lead, "provider", "") or ""):
+            return {}
+        return await _conversation_seat(runtime)
     provider, model, effort = subscription
     return {"provider": provider, "model": model, "effort": effort}
+
+
+async def _conversation_seat(runtime: Any) -> dict[str, str]:
+    """The seat of the lead's own conversation, when it bills no API key; else ``{}``."""
+    try:
+        from dodaios.agent_chat.lead import lead_session
+        from dodaios.core.task_agent import subscription_seat_off_loop
+        from dodaios.society.routine_runner import _billed_via_api
+
+        service = runtime.chat_service()
+        session = lead_session(service, create=False) if service is not None else None
+        provider = str(getattr(session, "provider", "") or "")
+        if not provider:
+            return {}
+        account_id = str(getattr(session, "account_id", "") or "")
+        mapped = await subscription_seat_off_loop(provider)
+        if mapped is None and _billed_via_api(provider, account_id):
+            return {}
+        seat = {
+            "provider": mapped[0] if mapped is not None else provider,
+            "model": str(getattr(session, "model", "") or ""),
+            "effort": str(getattr(session, "effort", "") or ""),
+        }
+        if account_id:
+            seat["account_id"] = account_id
+        return seat
+    except Exception:  # noqa: BLE001 — no readable conversation: the lead's own seat
+        log.debug("lead checks: conversation seat unreadable", exc_info=True)
+        return {}
 
 
 def _billed(provider: str, account_id: str) -> bool:

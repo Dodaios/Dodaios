@@ -242,6 +242,7 @@ async def _create_routine(task: StandingTask, services: tuple[Any, Any, Any, Any
         provider=seat.get("provider"),
         model=seat.get("model"),
         effort=seat.get("effort"),
+        account_id=seat.get("account_id"),
     )
     spec = spec.model_copy(update={"tags": (*spec.tags, TAG_PREFIX + task.id, QUIET_TAG)})
     return str(await create_routine(task_store, scheduler, spec))
