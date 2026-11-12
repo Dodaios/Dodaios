@@ -7,12 +7,20 @@ import { createAgentChatSession, freshStartLead, type ChatAttachment } from "@/l
 import { CHAT_COMMAND_NAMES, fetchChatCommands, isStopWord, parseChatCommand, runChatCommand,
   type ChatCommand, type ChatCommandName, type ChatCommandResult, type ChatControlState, type ChatSearchHit } from "@/lib/chatControlApi";
 import { useAgentChat, useAgentChatApi } from "./AgentChatStoreContext";
-import { runningTurn } from "./reduce";
+import { runningTurn, sideThreadOf, type Timeline } from "./reduce";
 import { restoreTranscriptView, useTranscriptView } from "../society/chat/useTranscriptView";
 import { AgentRoutinesList } from "../society/card/AgentRoutinesList";
 
 interface Options { value: string; setValue: (value: string) => void; onModel: () => void; onClear?: () => void; agentId?: string; attachments?: ChatAttachment[]; attachmentsBusy?: boolean; onAttachmentsSent?: () => void }
 const LOCAL = new Set<ChatCommandName>(["help", "clear", "history", "model", "routines"]);
+
+/**
+ * The assistant is working: a turn runs, or an answer is still being written
+ * beside the main thread (a side thread). The word "stop" ends both.
+ */
+function atWork(timeline: Timeline): boolean {
+  return runningTurn(timeline) !== null || timeline.items.some((item) => sideThreadOf(item)?.running);
+}
 
 export function useChatCommands({ value, setValue, onModel, onClear, agentId = "jarvis", attachments = [], attachmentsBusy = false, onAttachmentsSent }: Options) {
   const t = useT();
@@ -24,7 +32,7 @@ export function useChatCommands({ value, setValue, onModel, onClear, agentId = "
   const items = useAgentChat((s) => s.timeline.items);
   const liveControl = useAgentChat((s) => s.timeline.control);
   const enabled = surface === "jarvis" || surface === "society";
-  const working = useAgentChat((s) => s.busy || runningTurn(s.timeline) !== null);
+  const working = useAgentChat((s) => s.busy || atWork(s.timeline));
   const view = useTranscriptView(sid, items);
   const [catalog, setCatalog] = useState<ChatCommand[]>([]);
   const [state, setState] = useState<ChatControlState | null>(null);
@@ -110,7 +118,7 @@ export function useChatCommands({ value, setValue, onModel, onClear, agentId = "
     // word, sent while the assistant works, ends the turn the way the button
     // did. With nothing running, or with a file attached, it is a message.
     const chat = store.getState();
-    if (stopsTurn(text, chat.busy || runningTurn(chat.timeline) !== null)) {
+    if (stopsTurn(text, chat.busy || atWork(chat.timeline))) {
       setError(""); setValue("");
       void chat.cancel("typed-stop");
       return true;

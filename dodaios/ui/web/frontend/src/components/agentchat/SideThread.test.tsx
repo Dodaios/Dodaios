@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentChatEvent } from "@/lib/agentChatApi";
@@ -60,22 +60,30 @@ afterEach(() => {
   seq = 0;
 });
 
+const SNAPSHOT = (...events: Record<string, unknown>[]) => ({
+  type: "snapshot",
+  session: { session_id: "side-1", provider: "openai", model: "m", effort: "", surface: "jarvis", running: true },
+  events: [
+    { seq: 1, ts_ms: 1, kind: "user_message", payload: { text: QUESTION } },
+    { seq: 2, ts_ms: 2, kind: "turn_started", payload: { turn_id: "s-t1", provider: "openai", model: "m" } },
+    ...events,
+  ],
+});
+const FINISHED = ev("notice", { kind: "side_thread_finished", side_id: "side-1", status: "done", text: QUESTION, answer: "Canberra." });
+
 describe("a message sent while the conversation still works", () => {
   it("reads as the person's message with its answer once it is answered", () => {
-    draw(conversation(ev("notice", {
-      kind: "side_thread_finished", side_id: "side-1", status: "done", text: QUESTION, answer: "Canberra.",
-    })));
-    const thread = screen.getByTestId("side-thread");
-    expect(thread.getAttribute("data-status")).toBe("done");
+    draw(conversation(FINISHED));
     // Their own bubble, like every message of theirs, then the reply.
-    expect(within(thread).getByTestId("agent-message-user").textContent).toBe(QUESTION);
-    // Answered beside the running task, it was read the moment it arrived.
-    expect(within(thread).getByTestId("agent-message-receipt").getAttribute("data-read")).toBe("true");
-    expect(within(thread).getByTestId("side-thread-answer").textContent).toContain("Canberra.");
-    // Answered: nothing but the exchange itself, no label under the message.
-    expect(within(thread).queryByTestId("side-thread-state")).toBeNull();
-    // Finished: nothing to stop or move, and no second connection for a reopened chat.
-    expect(within(thread).queryByTestId("side-thread-stop")).toBeNull();
+    const mine = screen.getAllByTestId("agent-message-user").find((node) => node.getAttribute("data-side-thread") === "message")!;
+    expect(mine.textContent).toBe(QUESTION);
+    const reply = screen.getByTestId("side-thread-reply");
+    expect(reply.getAttribute("data-status")).toBe("done");
+    expect(within(reply).getByTestId("side-thread-answer").textContent).toContain("Canberra.");
+    // Nothing but the exchange itself: no label, no control, and no second
+    // connection for a reopened chat.
+    expect(screen.queryByTestId("side-thread-state")).toBeNull();
+    expect(within(reply).queryAllByRole("button")).toHaveLength(0);
     expect(Socket.open).toHaveLength(0);
   });
 
@@ -110,29 +118,24 @@ describe("a message sent while the conversation still works", () => {
 
   it("says how an unanswered one ended", () => {
     draw(conversation(ev("notice", { kind: "side_thread_finished", side_id: "side-1", status: "interrupted", text: QUESTION })));
-    const state = screen.getByTestId("side-thread-state").textContent ?? "";
-    expect(state).toContain("restart");
+    expect(screen.getByTestId("side-thread-state").textContent).toContain("restart");
     expect(screen.queryByTestId("side-thread-answer")).toBeNull();
   });
 
   it("shows the answer being written, from the side thread's own session", async () => {
     draw(conversation());
-    const thread = screen.getByTestId("side-thread");
-    expect(thread.getAttribute("data-status")).toBe("running");
-    expect(within(thread).getByTestId("side-thread-state").textContent).toContain("beside the running task");
+    const reply = screen.getByTestId("side-thread-reply");
+    expect(reply.getAttribute("data-status")).toBe("running");
+    // How it is answered is not the person's concern: no label, no control.
+    expect(screen.queryByTestId("side-thread-state")).toBeNull();
+    expect(within(reply).queryAllByRole("button")).toHaveLength(0);
     await waitFor(() => expect(Socket.open).toHaveLength(1));
     expect(decodeURIComponent(Socket.open[0].url)).toContain("/sessions/side-1/ws");
 
-    act(() => Socket.open[0].push({
-      type: "snapshot",
-      session: { session_id: "side-1", provider: "openai", model: "m", effort: "", surface: "jarvis", running: true },
-      events: [
-        { seq: 1, ts_ms: 1, kind: "user_message", payload: { text: QUESTION } },
-        { seq: 2, ts_ms: 2, kind: "turn_started", payload: { turn_id: "s-t1", provider: "openai", model: "m" } },
-        { seq: 3, ts_ms: 3, kind: "assistant_text", payload: { turn_id: "s-t1", message_id: "m1", text: "Canberra." } },
-      ],
-    }));
-    const live = await within(thread).findByTestId("side-thread-live");
+    act(() => Socket.open[0].push(SNAPSHOT(
+      { seq: 3, ts_ms: 3, kind: "assistant_text", payload: { turn_id: "s-t1", message_id: "m1", text: "Canberra." } },
+    )));
+    const live = await within(reply).findByTestId("side-thread-live");
     expect(live.textContent).toContain("Canberra.");
     // The person's message is the bubble above, not repeated inside the answer.
     expect(within(live).queryByTestId("agent-message-user")).toBeNull();
@@ -156,21 +159,61 @@ describe("a message sent while the conversation still works", () => {
         { seq: 4, ts_ms: 4, kind: "assistant_text", payload: { turn_id: "s-t1", message_id: "m1", text: "The review is done." } },
       ],
     }));
-    const live = await within(screen.getByTestId("side-thread")).findByTestId("side-thread-live");
+    const live = await within(screen.getByTestId("side-thread-reply")).findByTestId("side-thread-live");
     expect(live.textContent).toContain("The review is done.");
     expect(live.textContent).not.toContain("has finished");
     expect(within(live).queryByTestId("coding-thread-activity")).toBeNull();
   });
 
-  it("stops only this answer, or moves the message to the running task", async () => {
-    draw(conversation());
-    fireEvent.click(screen.getByTestId("side-thread-stop"));
-    await waitFor(() => expect(fetcher.mock.calls.some(
-      ([url, init]) => url === "/api/agent-chat/sessions/lead-1/side-threads/side-1/stop" && init?.method === "POST",
-    )).toBe(true));
-    fireEvent.click(screen.getByTestId("side-thread-to-main"));
-    await waitFor(() => expect(fetcher.mock.calls.some(
-      ([url, init]) => url === "/api/agent-chat/sessions/lead-1/side-threads/side-1/to-main" && init?.method === "POST",
-    )).toBe(true));
+  it("shows the assistant typing in one place only, at the bottom", async () => {
+    // The complaint (maintainer, 2026-11-12): the turn above and the message
+    // sent meanwhile each showed three dots.
+    const view = draw(conversation());
+    const dots = () => screen.getAllByTestId("typing-indicator");
+    const reply = () => screen.getByTestId("side-thread-reply");
+    const below = (node: Element, other: Element) => Boolean(other.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING);
+    // The working turn has them, and stands below the message sent meanwhile.
+    expect(dots()).toHaveLength(1);
+    expect(screen.getByTestId("agent-turn").contains(dots()[0])).toBe(true);
+    expect(below(dots()[0], reply())).toBe(true);
+
+    // The side thread's own turn starts: still one set, still at the bottom.
+    await waitFor(() => expect(Socket.open).toHaveLength(1));
+    act(() => Socket.open[0].push(SNAPSHOT()));
+    await screen.findByTestId("side-thread-live");
+    expect(dots()).toHaveLength(1);
+    expect(reply().contains(dots()[0])).toBe(false);
+
+    // The turn above is done while the side thread still writes: it types now.
+    const done = ev("turn_finished", { turn_id: "t1", status: "done" });
+    view.rerender(<AgentTimeline items={conversation(done)} assistantName="Dodaios" providerLabel={(id) => id} onDecide={() => undefined} bubbles />);
+    expect(dots()).toHaveLength(1);
+    expect(reply().contains(dots()[0])).toBe(true);
+
+    // Everything answered: nobody types.
+    view.rerender(<AgentTimeline items={conversation(done, FINISHED)} assistantName="Dodaios" providerLabel={(id) => id} onDecide={() => undefined} bubbles />);
+    expect(screen.queryAllByTestId("typing-indicator")).toHaveLength(0);
+  });
+
+  it("draws what the turn says after the message below that message", () => {
+    // The complaint (maintainer, 2026-11-12): the newest words were above the
+    // message sent meanwhile, and one had to scroll up to read them.
+    const { container } = draw(reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "Compare three standing desks" }),
+      ev("turn_started", { turn_id: "t1" }),
+      ev("assistant_text", { turn_id: "t1", message_id: "m1", text: "Looking at desks now." }),
+      ev("notice", { kind: "side_thread_started", side_id: "side-1", text: QUESTION }),
+      FINISHED,
+      ev("assistant_text", { turn_id: "t1", message_id: "m2", text: "Here are the three desks." }),
+      ev("turn_finished", { turn_id: "t1", status: "done" }),
+    ]).items);
+    const text = container.textContent ?? "";
+    const order = ["Compare three standing desks", "Looking at desks now.", QUESTION, "Canberra.", "Here are the three desks."];
+    expect(order.map((part) => text.indexOf(part))).toEqual([...order.map((part) => text.indexOf(part))].sort((a, b) => a - b));
+    expect(order.every((part) => text.includes(part))).toBe(true);
+    // The turn's earlier words are a part of it; the turn itself closes below.
+    expect(screen.getByTestId("agent-turn-part").textContent).toContain("Looking at desks now.");
+    expect(screen.getByTestId("agent-turn").textContent).toContain("Here are the three desks.");
+    expect(screen.getByTestId("agent-turn").textContent).not.toContain("Looking at desks now.");
   });
 });

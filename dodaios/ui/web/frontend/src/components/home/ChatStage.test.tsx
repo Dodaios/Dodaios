@@ -1070,6 +1070,27 @@ describe("ChatStage (agent chat)", () => {
     expect(screen.getByRole("textbox").getAttribute("data-placeholder")).toBe("Ask anything…");
   });
 
+  it("ends an answer being written beside the main thread when stop is written", async () => {
+    // The main turn is done; a message sent meanwhile is still being answered.
+    // It has no control of its own: the word stops it, and the box says so.
+    const cancel = vi.fn(async () => {});
+    const send = vi.fn(async () => "sent" as const);
+    const timeline = reduceEvents(EMPTY_TIMELINE, [
+      { seq: 1, ts_ms: 1, kind: "turn_started", payload: { turn_id: "t1" } },
+      { seq: 2, ts_ms: 2, kind: "notice", payload: { kind: "side_thread_started", side_id: "s1", text: "and this?" } },
+      { seq: 3, ts_ms: 3, kind: "turn_finished", payload: { turn_id: "t1", status: "done" } },
+    ] as AgentChatEvent[]);
+    useAgentChatStore.setState({ activeSessionId: "s1", busy: false, timeline, cancel, send });
+    render(<ChatStage />);
+    const box = screen.getByRole("textbox");
+    expect(box.getAttribute("data-placeholder")).toBe('Write “stop” to stop…');
+    box.textContent = "stop";
+    fireEvent.input(box);
+    fireEvent.click(screen.getByTestId("composer-send"));
+    await waitFor(() => expect(cancel).toHaveBeenCalledWith("typed-stop"));
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("shows the assistant typing from the send until its answer is written", () => {
     // The look this guards (maintainer, 2026-11-12): the chat reads like a
     // messenger. While the assistant thinks or works, three dots stand in a

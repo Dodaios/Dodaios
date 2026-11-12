@@ -46,26 +46,38 @@ assumption holds in both sessions.
    (the person's message) and `side_thread_finished` (status `done`, `stopped`,
    `failed`, `interrupted` or `moved`, with the answer). The reducer keeps one
    line per side thread and patches it in place, so the exchange stands where
-   it was asked. While it runs, the front page reads the side session itself
-   for the work trace, the cards and the streaming answer; afterwards the
-   answer is on the notice, so a reopened chat opens no second connection.
-   The notice also lists every message the side thread wrote (`messages`),
-   each on its own: a confirmation and, minutes later, the result stay two
-   bubbles after it ended, as they were while it ran. `answer` (what was said
-   after the last tool call) is what the lead's later turns read.
-   The activity panel lists a running side thread under "Running".
+   it was asked. It reads like any other exchange and says nothing about how
+   it is answered: no label, no control. While it runs, the front page reads
+   the side session itself for its messages, its cards and the streaming
+   answer; afterwards its messages are on the notice, so a reopened chat opens
+   no second connection. The notice lists every message the side thread wrote
+   (`messages`), each on its own: a confirmation and, minutes later, the
+   result stay two bubbles after it ended, as they were while it ran. `answer`
+   (what was said after the last tool call) is what the lead's later turns
+   read. Only a side thread that was not answered says how it ended. The
+   activity panel lists a running side thread under "Running".
+
+   The front page draws the conversation strictly in time
+   (`components/agentchat/chronology.ts`): the timeline still keeps one item
+   per turn, but a message a turn writes after the person's next message is
+   drawn below that message, a side thread's answer stands where it arrived,
+   and a working turn's closing part (the dots, a card that waits for the
+   person) is the last thing in the chat. Nothing new ever appears above a
+   later message. The assistant shows as typing in one place: the lowest
+   answer still being written.
 5. **What the lead knows afterwards.** `side_thread_finished` is replayed into
    the lead's history as one labelled record (`replay`), on the brain seat
    through `messages_from_events` and on a CLI seat through the catch-up block,
    which also covers a side thread that ended inside the CLI's own turn. A
    main-thread turn that starts while side threads run is told so
    (`running_note`).
-6. **A message that belongs to the running request.** Its line has "Belongs to
-   the running task": the side thread stops without an answer and the message
-   starts as the next turn of the main thread, right after the running request
-   and with its whole context (`move_to_main`). Each side thread has its own
-   stop; the composer's stop still stops the main turn only, and the moved
-   message then starts at once.
+6. **Stopping and moving.** The composer's Stop is the one control: it stops
+   the main turn and every side thread of the conversation
+   (`side_threads.stop_all`), and shows while either runs. The chat has no
+   control for a single side thread. `move_to_main` and the two routes under
+   `/side-threads/{id}` stay for other clients: `stop` ends one side thread,
+   `to-main` stops it and starts its message as the next turn of the main
+   thread, with the running request's context.
 7. **Restart.** A `jarvis` turn is the app's child, so a side thread dies with
    the process. Boot closes every one left `running` as `interrupted`
    (`recover`), written in the chat, never silently.

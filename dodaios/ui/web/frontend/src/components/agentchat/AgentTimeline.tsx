@@ -6,7 +6,8 @@ import { InternalMessageRun, groupInternalRuns, type InternalRunItem, type RunFa
 import { CodingThreadActivity } from "@/components/agentic/threads/CodingThreadLink";
 import { codingThreadOf, foldRepeatedThreadStatus } from "@/components/agentic/threads/openCodingThread";
 import { MessageWithChips } from "./ToolChoiceChips";
-import { SideThread, type RenderSideTimeline } from "./SideThread";
+import { SideThread, SideThreadAnswer, SideThreadMessage, type RenderSideTimeline } from "./SideThread";
+import { chronological, typingRow, type ChatRow, type TurnPart } from "./chronology";
 import { ChainResultCard } from "./ChainResultCard";
 import { ReportCard } from "./ReportCard";
 import { AgentResultLine } from "./AgentResultLine";
@@ -47,6 +48,7 @@ export function AgentTimeline({
   traceFace,
   awaiting = false,
   nested = false,
+  quietTyping = false,
   pictures = "shown",
 }: {
   items: TimelineItem[];
@@ -85,6 +87,8 @@ export function AgentTimeline({
   awaiting?: boolean;
   /** A side thread's answer inside the conversation: no time stamps of its own. */
   nested?: boolean;
+  /** No turn here shows the three dots: another place in the conversation does. */
+  quietTyping?: boolean;
   /** Whether pictures in the transcript are drawn, or listed as files (a name and a download link). */
   pictures?: PictureDisplay;
 }) {
@@ -96,12 +100,14 @@ export function AgentTimeline({
     const folded = foldRepeatedThreadStatus(items);
     return traceLook === "rail" ? attachTurnMessages(folded) : { items: folded, messagesByTurn: NO_MESSAGES };
   }, [items, traceLook]);
-  const stamps = bubbles && !nested ? timeStamps(shown) : null;
   // The conversation look says under each of the person's messages when it was read.
   const receipts = useMemo(() => (bubbles ? messageReceipts(shown) : null), [bubbles, shown]);
+  // The conversation look reads strictly top to bottom in time: a message
+  // written after the person's next message stands below that message.
+  const chat = bubbles && !nested;
   // A side thread's own conversation wears this timeline's look, without the
   // pet: the assistant's face stands beside the main thread only.
-  const renderSide: RenderSideTimeline = (sideItems, decide) => (
+  const renderSide: RenderSideTimeline = (sideItems, decide, typing) => (
     <AgentTimeline
       items={sideItems}
       assistantName={assistantName}
@@ -112,8 +118,20 @@ export function AgentTimeline({
       bubbles={bubbles}
       traceLook={traceLook}
       nested
+      quietTyping={!typing}
       pictures={pictures}
     />
+  );
+  const ordered = useMemo<ChatRow[]>(
+    () => chat ? chronological(shown) : shown.map((item) => ({ kind: "item", id: item.id, time: itemTime(item), item })),
+    [chat, shown],
+  );
+  // The assistant shows as typing in ONE place: the lowest answer still
+  // being written.
+  const typingId = useMemo(() => chat ? typingRow(ordered) : null, [chat, ordered]);
+  const stamps = useMemo(
+    () => chat ? stampsOf(ordered.map((row) => ({ id: row.id, ts: row.time }))) : null,
+    [chat, ordered],
   );
   // The assistant's pet stands beside its newest turn only.
   const latestTurnId = useMemo(() => {
@@ -123,17 +141,28 @@ export function AgentTimeline({
     return null;
   }, [bubbles, awaiting, shown]);
   // Back-to-back agent-to-agent messages read as one centred line each.
-  const rows = useMemo(
-    () => groupInternalRuns(shown, (item) => !codingThreadOf(item.message.sender_id)),
-    [shown],
-  );
+  const rows = useMemo(() => {
+    const out: DrawnRow[] = [];
+    let run: TimelineItem[] = [];
+    const flush = () => {
+      for (const item of groupInternalRuns(run, (entry) => !codingThreadOf(entry.message.sender_id))) out.push({ id: item.id, item });
+      run = [];
+    };
+    for (const row of ordered) {
+      if (row.kind === "item") { run.push(row.item); continue; }
+      flush();
+      out.push({ id: row.id, row });
+    }
+    flush();
+    return out;
+  }, [ordered]);
   return (
     <PictureDisplayContext.Provider value={pictures}>
-      {rows.map((item) => {
-        const stamp = stamps?.get(item.id);
-        const node = renderItem(item);
+      {rows.map((drawn) => {
+        const stamp = stamps?.get(drawn.id);
+        const node = drawn.item ? renderItem(drawn.item) : renderRow(drawn.row);
         return stamp ? (
-          <Fragment key={item.id}>
+          <Fragment key={drawn.id}>
             <div className="flex justify-center pt-2" data-testid="agent-time-stamp" aria-hidden>
               <span className="text-xs font-medium text-muted-foreground">{stamp}</span>
             </div>
@@ -160,6 +189,14 @@ export function AgentTimeline({
       ) : null}
     </PictureDisplayContext.Provider>
   );
+
+  /** A row the conversation look placed by its time: a turn's earlier messages, a side thread's halves. */
+  function renderRow(row: Exclude<ChatRow, { kind: "item" }>) {
+    if (row.kind === "turn_part") return <TurnPartMessages key={row.id} part={row.part} />;
+    if (row.kind === "side_message") return <SideThreadMessage key={row.id} item={row.item} receipt />;
+    return <SideThreadAnswer key={row.id} item={row.item} renderTimeline={renderSide}
+      typing={!quietTyping && row.id === typingId} />;
+  }
 
   function renderItem(item: TimelineItem | InternalRunItem) {
     if (item.type === "internal_run") {
@@ -304,7 +341,10 @@ export function AgentTimeline({
           </p>
         );
       }
-      if (item.kind === SIDE_THREAD_STARTED) return <SideThread key={item.id} item={item} renderTimeline={renderSide} receipt={bubbles} />;
+      // Outside the conversation look a side thread is one block: its message, then its answer.
+      if (item.kind === SIDE_THREAD_STARTED) {
+        return <SideThread key={item.id} item={item} renderTimeline={renderSide} typing={!quietTyping} receipt={bubbles} />;
+      }
       if (item.kind === "chain_result") return <ChainResultCard key={item.id} item={item} />;
       if (item.kind === "report") return <ReportCard key={item.id} item={item} />;
       if (item.kind === AGENT_RESULT_KIND) return <AgentResultLine key={item.id} item={item} />;
@@ -375,6 +415,7 @@ export function AgentTimeline({
         traceCompanion={traceCompanion}
         traceFace={traceFace}
         latest={item.id === latestTurnId}
+        quietTyping={quietTyping || (chat && item.id !== typingId)}
         messages={messagesByTurn.get(item.id)}
       />
     );
@@ -394,23 +435,48 @@ function itemTime(item: TimelineItem): number {
  * only; any other day leads with the date, the way a messenger does.
  */
 export function timeStamps(items: TimelineItem[], now: Date = new Date()): Map<string, string> {
+  return stampsOf(items.map((item) => ({ id: item.id, ts: itemTime(item) })), now);
+}
+
+/** {@link timeStamps} for rows that carry their own time (0 = none yet). */
+function stampsOf(entries: { id: string; ts: number }[], now: Date = new Date()): Map<string, string> {
   const out = new Map<string, string>();
   let last = 0;
-  for (const item of items) {
-    const ts = itemTime(item);
+  for (const { id, ts } of entries) {
     if (!ts || !Number.isFinite(ts)) continue;
-    if (!last || ts - last >= STAMP_GAP_MS) out.set(item.id, stampLabel(new Date(ts), now));
-    last = ts;
+    if (!last || ts - last >= STAMP_GAP_MS) out.set(id, stampLabel(new Date(ts), now));
+    last = Math.max(last, ts);
   }
   return out;
 }
 
+/** A row as it is drawn: a timeline item (or a run of internal messages), or a placed row. */
+type DrawnRow =
+  | { id: string; item: TimelineItem | InternalRunItem; row?: undefined }
+  | { id: string; row: Exclude<ChatRow, { kind: "item" }>; item?: undefined };
+
+/** A turn's earlier messages, standing where they were written; the turn's closing part is further down. */
+function TurnPartMessages({ part }: { part: TurnPart }) {
+  return (
+    <div className="lead-turn" data-testid="agent-turn-part" data-look="lead" data-message-id={part.id}>
+      <div className="lead-face-lane" aria-hidden />
+      <div className="lead-turn-body">
+        {part.blocks.map((block) => (
+          <div key={block.id} className="min-w-0" data-trace-reply><LeadReply text={block.text} live={false} /></div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const NO_MESSAGES = new Map<string, TraceMessage[]>();
 
-const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName, onDecide, bubbles = false, traceLook, traceCompanion = false, traceFace, latest = false, messages }: {
+const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName, onDecide, bubbles = false, traceLook, traceCompanion = false, traceFace, latest = false, quietTyping = false, messages }: {
   turn: TurnItem; assistantName: string; providerLabel: string; modelName?: string; onDecide: Decide; bubbles?: boolean; traceLook: TraceLook; traceCompanion?: boolean; traceFace?: ReactNode;
   /** The newest turn of the conversation: the assistant's face stands beside it. */
   latest?: boolean;
+  /** Another place in the conversation shows the assistant typing. */
+  quietTyping?: boolean;
   /** Agent messages that arrived while this turn worked. */
   messages?: TraceMessage[];
 }) {
@@ -439,7 +505,7 @@ const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName,
         {latest && face ? <span className="lead-face" data-testid="lead-face" data-pet={pet}>{face}</span> : null}
       </div>
       <div className="lead-turn-body">
-        <TurnTrace turn={turn} look={traceLook} messenger extras={extras} onDecide={onDecide}
+        <TurnTrace turn={turn} look={traceLook} messenger quietTyping={quietTyping} extras={extras} onDecide={onDecide}
           renderText={(text, id) => <Prose block={{ kind: "text", text, id }} />}
           renderAnswer={(text, _id, live) => <LeadReply text={text} live={live} />} />
         {background}

@@ -1,19 +1,21 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { CornerDownRight, Split, Square } from "lucide-react";
 
 import { useT } from "@/i18n";
-import { moveSideThreadToMain, stopSideThread } from "@/lib/agentChatApi";
 import { createAgentChatStore, type AgentChatStoreHook } from "@/store/agentChat";
-import { AgentChatStoreProvider, useAgentChat } from "./AgentChatStoreContext";
+import { AgentChatStoreProvider } from "./AgentChatStoreContext";
 import { withoutAnsweredResults } from "./agentResults";
 import { cn } from "@/lib/utils";
 import { LeadReply, OWN_BUBBLE } from "./LeadReply";
 import { MessageReceipt } from "./messageReceipt";
+import { TypingBubble } from "./TypingBubble";
 import type { Decide } from "./WorkTrace";
 import type { NoticeItem, TimelineItem } from "./reduce";
 
-/** How a side thread's own conversation is drawn: the timeline it stands in draws it. */
-export type RenderSideTimeline = (items: TimelineItem[], onDecide: Decide) => ReactNode;
+/**
+ * How a side thread's own conversation is drawn: the timeline it stands in
+ * draws it. `typing` false keeps its turn from showing the three dots.
+ */
+export type RenderSideTimeline = (items: TimelineItem[], onDecide: Decide, typing: boolean) => ReactNode;
 
 const ENDED: Record<string, string> = {
   stopped: "society.chat.side_thread_stopped",
@@ -25,89 +27,95 @@ const ENDED: Record<string, string> = {
  * A message the person sent while the conversation was still working on an
  * earlier one, and its answer.
  *
- * It reads like any other exchange of the chat: their bubble, then the reply.
- * The reply is written beside the running request, in a side thread (a chat
- * session of its own), so nothing waited. While it runs, its work and its
- * streaming answer come from that session; afterwards its messages stand on
- * the notice itself, so a reopened chat needs no second connection.
+ * It reads like any other exchange of the chat and says nothing about how it
+ * is answered: their bubble, then the reply. The reply is written beside the
+ * running request, in a side thread (a chat session of its own), so nothing
+ * waited; that happens in the background and has no label or control here
+ * (the composer's Stop ends it with everything else). While it runs, its
+ * messages come from that session; afterwards its messages stand on the
+ * notice itself, so a reopened chat needs no second connection. Only one that was
+ * not answered says so.
+ *
+ * `typing`: this is where the conversation shows the assistant typing. The
+ * timeline gives that to one place at a time, so two answers being written
+ * never show two sets of dots.
+ *
+ * This is the two halves as one block, for a timeline without the
+ * conversation look; that look places each half by its own time.
  */
-export function SideThread({ item, renderTimeline, receipt = false }: {
-  item: NoticeItem;
-  renderTimeline: RenderSideTimeline;
+export function SideThread({ item, renderTimeline, typing = true, receipt = false }: {
+  item: NoticeItem; renderTimeline: RenderSideTimeline; typing?: boolean;
   /** The conversation look: the bubble says when the message was read. */
   receipt?: boolean;
 }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-2" data-testid="side-thread">
+      <SideThreadMessage item={item} receipt={receipt} />
+      <SideThreadAnswer item={item} renderTimeline={renderTimeline} typing={typing} />
+    </div>
+  );
+}
+
+/** The person's message, in their own bubble like every message of theirs. */
+export function SideThreadMessage({ item, receipt = false }: { item: NoticeItem; receipt?: boolean }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex justify-end" data-testid="agent-message-user" data-message-id={item.id} data-side-thread="message">
+        <div className={cn("text-[15px] leading-[23px] [overflow-wrap:anywhere]", OWN_BUBBLE)}>
+          {item.text}
+        </div>
+      </div>
+      {/* A side thread starts the moment the message arrives: it was read then. */}
+      {receipt && <MessageReceipt receipt={{ read: true, atMs: item.tsMs }} />}
+    </div>
+  );
+}
+
+/**
+ * What answered it. The conversation look places this half by its own time
+ * (`chronology.ts`): at the bottom while it is being written, and where the
+ * answer arrived afterwards, so it can stand below messages that came in
+ * between.
+ */
+export function SideThreadAnswer({ item, renderTimeline, typing = true }: {
+  item: NoticeItem; renderTimeline: RenderSideTimeline; typing?: boolean;
+}) {
   const t = useT();
-  const parentId = useAgentChat((s) => s.activeSessionId);
   const sideId = String(item.data.side_id ?? "");
   const running = item.resolved === "";
-  // A side thread seen while it ran keeps its work on screen after it ends:
-  // the answer does not jump from a live turn to a plain reply.
+  // A side thread seen while it ran keeps its messages on screen after it
+  // ends: the answer does not jump from a live turn to a plain reply.
   const [watched] = useState(running && sideId !== "");
-  const [busy, setBusy] = useState<"" | "stop" | "move">("");
-  const [problem, setProblem] = useState("");
-
-  const act = async (what: "stop" | "move") => {
-    if (!parentId || !sideId || busy) return;
-    setBusy(what);
-    setProblem("");
-    try {
-      if (what === "stop") await stopSideThread(parentId, sideId);
-      else await moveSideThreadToMain(parentId, sideId);
-    } catch (error) {
-      setProblem(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy("");
-    }
-  };
-
   const messages = useMemo(() => sideThreadMessages(item.data), [item.data]);
   // How one that was not answered ended; undefined while it runs and when it was.
   const ended: string | undefined = ENDED[item.resolved];
+  // Sent and not yet answering: the dots stand in until its first message.
+  const waiting = running && typing ? <Typing /> : null;
+  const body = watched ? (
+    <SideThreadLive sideId={sideId} running={running} typing={typing} renderTimeline={renderTimeline}
+      fallback={messages.length ? <StaticReply messages={messages} /> : waiting} />
+  ) : messages.length ? <StaticReply messages={messages} /> : waiting;
   return (
-    <div className="flex min-w-0 flex-col gap-2" data-testid="side-thread" data-message-id={item.id}
-      data-status={running ? "running" : item.resolved}>
-      <div className="flex min-w-0 flex-col gap-1">
-        <div className="flex justify-end" data-testid="agent-message-user">
-          <div className={cn("text-[15px] leading-[23px] [overflow-wrap:anywhere]", OWN_BUBBLE)}>
-            {item.text}
-          </div>
-        </div>
-        {/* A side thread starts the moment the message arrives: it was read then. */}
-        {receipt && <MessageReceipt receipt={{ read: true, atMs: item.tsMs }} />}
+    <div className="flex min-w-0 flex-col gap-2 empty:hidden" data-testid="side-thread-reply"
+      data-message-id={`${item.id}~answer`} data-status={running ? "running" : item.resolved}>
+      {body}
+      {ended && (
+        <p data-testid="side-thread-state" className="ps-[2.625rem] text-xs text-muted-foreground">{t(ended)}</p>
+      )}
+    </div>
+  );
+}
+
+/** The assistant typing, in the lane every reply of the conversation is written in. */
+function Typing() {
+  const t = useT();
+  return (
+    <div className="lead-turn" data-testid="side-thread-typing" data-look="lead">
+      <div className="lead-face-lane" aria-hidden />
+      <div className="lead-turn-body">
+        <TypingBubble />
+        <span role="status" className="sr-only">{t("work_trace.working")}</span>
       </div>
-      {/* An answered one needs no label: the message and its answer say it.
-          The line is for what the person can act on (it still runs) or has
-          to know (it was not answered). */}
-      {(running || ended) && <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1" data-testid="side-thread-state">
-          <Split aria-hidden className="h-3 w-3 shrink-0" />
-          {t(running ? "society.chat.side_thread_running" : ended!)}
-        </span>
-        {running && (
-          <>
-            <button type="button" data-testid="side-thread-to-main" disabled={busy !== ""}
-              title={t("society.chat.side_thread_to_main_title")} onClick={() => void act("move")}
-              className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
-              <CornerDownRight aria-hidden className="h-3 w-3" />
-              {t("society.chat.side_thread_to_main")}
-            </button>
-            <button type="button" data-testid="side-thread-stop" disabled={busy !== ""}
-              aria-label={t("society.chat.side_thread_stop")} title={t("society.chat.side_thread_stop")}
-              onClick={() => void act("stop")}
-              className="rounded-full p-1 transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
-              <Square aria-hidden className="h-3 w-3" />
-            </button>
-          </>
-        )}
-      </div>}
-      {problem && <p role="alert" className="text-end text-xs text-destructive">{problem}</p>}
-      {watched ? (
-        <SideThreadLive sideId={sideId} running={running} renderTimeline={renderTimeline}
-          fallback={messages.length ? <StaticReply messages={messages} /> : null} />
-      ) : messages.length ? (
-        <StaticReply messages={messages} />
-      ) : null}
     </div>
   );
 }
@@ -148,12 +156,12 @@ function StaticReply({ messages }: { messages: string[] }) {
 }
 
 /**
- * The side thread's own session, read live: its work trace, its cards
+ * The side thread's own session, read live: its messages, its cards
  * (an approval, a question) and its answer as it is written. The cards answer
  * to this session, so the store is the side thread's own.
  */
-function SideThreadLive({ sideId, running, renderTimeline, fallback }: {
-  sideId: string; running: boolean; renderTimeline: RenderSideTimeline; fallback: ReactNode;
+function SideThreadLive({ sideId, running, typing, renderTimeline, fallback }: {
+  sideId: string; running: boolean; typing: boolean; renderTimeline: RenderSideTimeline; fallback: ReactNode;
 }) {
   const store = useMemo<AgentChatStoreHook>(
     // Never the chat on stage: a voice call must not continue in a side thread.
@@ -183,7 +191,7 @@ function SideThreadLive({ sideId, running, renderTimeline, fallback }: {
   return (
     <AgentChatStoreProvider store={store}>
       <div className="flex min-w-0 flex-col gap-3" data-testid="side-thread-live">
-        {renderTimeline(answering, (id, decision) => decide(id, decision))}
+        {renderTimeline(answering, (id, decision) => decide(id, decision), typing)}
       </div>
     </AgentChatStoreProvider>
   );

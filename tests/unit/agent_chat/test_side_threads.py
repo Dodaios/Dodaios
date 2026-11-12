@@ -195,6 +195,20 @@ async def test_stop_ends_one_side_thread_and_leaves_the_main_thread(chat):
     assert len(chat.notices(side_threads.FINISHED)) == 1  # closed exactly once
 
 
+async def test_one_stop_ends_every_answer_written_beside_the_main_thread(chat):
+    release = await chat.working()
+    for prompt in ("Question A", "Question B"):
+        chat.hold(prompt)
+        await side_threads.start(chat.svc, chat.sid, prompt)
+    await _until(lambda: len(chat.prompts) == 3)
+
+    assert await side_threads.stop_all(chat.svc, chat.sid) == 2
+    assert [row["status"] for row in chat.notices(side_threads.FINISHED)] == ["stopped", "stopped"]
+    assert await side_threads.stop_all(chat.svc, chat.sid) == 0  # nothing left to stop
+    release.set()
+    await chat.idle()
+
+
 async def test_a_message_that_belongs_to_the_running_request_moves_to_the_main_thread(chat):
     release = await chat.working()
     chat.hold(_SECOND)
@@ -448,6 +462,10 @@ def test_the_composer_route_answers_beside_a_working_turn(tmp_path, monkeypatch)
             listed = client.get("/api/agent-chat/sessions?surface=jarvis").json()["sessions"]
             assert [row["session_id"] for row in listed] == [sid]
             assert client.delete(f"{url}/queue/{third.json()['queue_id']}").json()["removed"]
-            assert client.post(f"{url}/cancel").status_code == 200
+            # The chat's one Stop also ends an answer being written beside it.
+            beside = client.post(f"{url}/messages", json={"text": _FIRST}).json()["side_thread"]
+            assert client.post(f"{url}/cancel").json()["cancelled"] is True
+            assert store.side_thread(beside)["status"] == "stopped"
+            assert store.side_threads(sid, running=True) == []
     finally:
         store.close()
