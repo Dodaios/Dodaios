@@ -1,58 +1,85 @@
-<p align="center">
+<div align="center">
+
+<a href="https://dodaios.ai">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/brand/dodaios-logo-on-dark.svg" />
-    <img alt="Dodaios" src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/brand/dodaios-logo-on-light.svg" width="96" />
+    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/brand/dodaios-logo-on-light.svg" alt="Dodaios" width="112" />
   </picture>
+</a>
+
+<h1>Dodaios</h1>
+
+<p><b>Turn your computer into an AI agent.</b></p>
+
+<p>
+  Talk to it or type. It answers, works your desktop and your apps,<br />
+  and hands long jobs to agents that run in the background.<br />
+  You bring the model, and it asks before anything risky.
 </p>
 
-<h1 align="center">Dodaios</h1>
+<p>
+  <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=F7F7F4" alt="Latest release" /></a>
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-F7F7F4?labelColor=0A0A0A" alt="License: Apache 2.0" /></a>
+  <a href="https://github.com/Dodaios/Dodaios/stargazers"><img src="https://img.shields.io/github/stars/Dodaios/Dodaios?labelColor=0A0A0A&amp;color=F7F7F4&amp;logo=github" alt="GitHub stars" /></a>
+  <a href="https://discord.gg/x7USduHxbc"><img src="https://img.shields.io/badge/discord-join-F7F7F4?labelColor=0A0A0A&amp;logo=discord&amp;logoColor=white" alt="Discord" /></a>
+</p>
 
-<!-- canonical tagline: keep in sync with GitHub description, dodaios.ai and X bio (docs/rename/repo-metadata-proposal.md) -->
-<p align="center"><strong>The open-source superagent for your desktop. One agent that runs all your other agents.</strong></p>
+<p>
+  <a href="https://dodaios.ai">Website</a> ·
+  <a href="#install">Install</a> ·
+  <a href="#documentation">Documentation</a> ·
+  <a href="https://discord.gg/x7USduHxbc">Discord</a> ·
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/README.zh-CN.md">简体中文</a>
+</p>
+
+</div>
 
 <p align="center">
-  <a href="#install">install</a> ·
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/welcome-to-dodaios.md">docs</a> ·
-  <a href="https://dodaios.ai">dodaios.ai</a> ·
-  <a href="https://discord.gg/x7USduHxbc">discord</a> ·
-  English · <a href="https://github.com/Dodaios/Dodaios/blob/main/README.zh-CN.md">简体中文</a>
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.gif">
+    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="A 59-second recording of Dodaios: the first-run setup, the built-in tour, the plugin catalog, a project in the Agentic IDE with its tests running in the terminal, a new memory, the desktop pets, and two sections side by side" width="100%" />
+  </a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/Dodaios/Dodaios/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/Dodaios/Dodaios?labelColor=0A0A0A&amp;color=F7F7F4&amp;logo=github" /></a>
-  <a href="https://github.com/Dodaios/Dodaios/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Dodaios/Dodaios?label=release&amp;labelColor=0A0A0A&amp;color=F7F7F4" /></a>
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/license-Apache_2.0-F7F7F4?labelColor=0A0A0A" /></a>
-  <a href="https://discord.gg/x7USduHxbc"><img alt="Discord" src="https://img.shields.io/badge/discord-join-F7F7F4?labelColor=0A0A0A&amp;logo=discord&amp;logoColor=white" /></a>
+  <sub>One take of the real app (version 5.0.0), played at 1.4× speed. No model is connected in this recording, so it shows the app itself and no agent's answers.</sub>
 </p>
 
-https://github.com/user-attachments/assets/1daa832e-a566-4f22-add6-8b21eb8aaaad
+## What it is
 
-You talk to one agent. Dodaios hands the work to Claude Code, Codex, OpenCode
-and the specialists you made, watches them work, and tells you when one of
-them needs you. Everything runs on your own computer.
+Dodaios is a desktop app for Windows, macOS and Linux. On a server without a
+screen, the same app runs in a browser. You give it a task in chat or by voice:
 
-- **One boss, many agents.** Say what you want, by voice or chat. Dodaios
-  writes a full brief and gives it to the right agent. The work continues after
-  you hang up.
-- **Every coding agent at once.** Split a project into panes and run a
-  different coding agent in each one, on the plans you already pay for. Each
-  pane has a call sign: "T1, run the tests. T2, fix what T1 finds."
-  [Agentic IDE →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md)
-- **Your own crew.** Make a researcher, a release manager or a writer with one
-  click. Each one keeps one endless conversation, learns from its own work and
-  runs routines on a schedule.
-  [Agents →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md)
-- **You approve, it acts.** Each action gets a risk level: safe, monitor, ask
-  or block. Anything that can change your system waits for your yes.
-  [Safety →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/safety-and-approvals.md)
+- A short question is answered at once.
+- A task that needs your computer goes through tools: the desktop, the browser,
+  a terminal, the services you connected.
+- A long job goes to an agent that works in the background and reports back.
 
-## "So what are you selling?"
+Three things hold everywhere:
 
-Nothing. Dodaios has no account, no paid tier and no cloud of its own. Bring
-an API key, your Claude or ChatGPT plan, or a local model through Ollama. The
-code is Apache 2.0.
+- **You bring the model.** Sign in with a subscription you already pay for,
+  paste an API key, or run a local model. Chat, speech, computer use and agents
+  can each use a different provider.
+- **It asks first.** Every tool call a model wants to make gets a risk level.
+  Anything that can change your system or one of your accounts waits for your yes.
+- **Your data stays with you.** Chats, memory, settings and results are files on
+  the computer that runs Dodaios. There is no Dodaios account and no paid tier.
+  A model or a connected service receives what it needs for its part of a request.
 
 ## Install
+
+**Desktop app.** Download the installer for your system from the latest release:
+
+| Windows | macOS | Linux |
+| --- | --- | --- |
+| [Dodaios-Setup-x64.exe](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-Setup-x64.exe) | [Apple Silicon](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-macOS-arm64.dmg) · [Intel](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-macOS-x64.dmg) | [AppImage, x86_64](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-Linux-x86_64.AppImage) |
+
+Each release lists the checksums in `installers-SHA256SUMS.txt`. The Windows
+installer is not code-signed yet; the
+[code signing policy](https://github.com/Dodaios/Dodaios/blob/main/docs/code-signing-policy.md)
+says where that stands.
+
+**From a terminal.** The installer sets up its own Python environment, adds a
+launcher and opens the app.
 
 ```powershell
 # Windows (PowerShell)
@@ -62,106 +89,195 @@ irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 |
 ```bash
 # macOS and Linux
 curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash
+
+# A Linux server without a screen
+curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash -s -- --headless
 ```
 
-You do not need Python, Git or a GPU. The installer opens the app, and you pick
-your language, wake phrase and model there. To update, run it again. To start
-Dodaios later, use the desktop launcher or a terminal:
+**With pipx.** The smaller server package, without a desktop launcher:
 
 ```bash
-dodaios         # full desktop
+pipx install dodaios
 ```
 
-> [!TIP]
-> To code with Dodaios, install and log in to at least one coding agent first,
-> for example `claude`, `codex` or `opencode`.
-
-<details>
-<summary>Desktop installers and servers</summary>
-
-- [Windows (x64)](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-Setup-x64.exe)
-- [macOS (Apple Silicon)](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-macOS-arm64.dmg)
-- [macOS (Intel)](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-macOS-x64.dmg)
-- [Linux (AppImage, x86_64)](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-Linux-x86_64.AppImage)
-
-The macOS disk image is not notarized yet. On first launch, open **System
-Settings > Privacy & Security** and click **Open Anyway**. Windows installers
-are signed under our [code signing policy](https://github.com/Dodaios/Dodaios/blob/main/docs/code-signing-policy.md)
-once the SignPath Foundation program approves the project. Free code signing
-provided by SignPath.io, certificate by SignPath Foundation.
-
-On a server without a screen:
+**Then start it:**
 
 ```bash
-pip install dodaios
-dodaios serve
+dodaios            # the desktop app: window, voice and the on-screen overlay
+dodaios serve      # browser interface only, for a server without a screen
+dodaios update     # install the newest published release
 ```
 
-Then open `http://localhost:47821`. See the
-[headless deployment guide](https://github.com/Dodaios/Dodaios/blob/main/docs/headless-vps-deployment.md)
-and the [native package index](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/install-dodaios.md#install-the-isolated-pypi-package)
-for Intel Macs and Windows ARM64.
+The first start asks for three things: a name (it is also the wake word), one
+model connection, and how you want to talk to it. Installing needs no provider.
+Answers do.
 
-</details>
+It runs on 64-bit Windows, macOS and glibc-based Linux, on x86-64 and Arm64.
+The terminal installer needs Python 3.11 to 3.14 and Git and fetches whichever
+is missing. A graphics card is optional.
+[Install guide](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/install-dodaios.md) ·
+[Platform support](https://github.com/Dodaios/Dodaios/blob/main/docs/product/reference/platform-support.md) ·
+[Running it on a server](https://github.com/Dodaios/Dodaios/blob/main/docs/headless-vps-deployment.md)
 
-## How it fits together
+## What you get
 
-```text
-                you  (voice or chat)
-                 │
-             ┌───▼────┐
-             │Dodaios │  the superagent: plans, delegates, approves
-             └───┬────┘
-     ┌───────────┼──────────────┬───────────────┐
- coding panes  your agents   browser + apps   memory
- T1 T2 T3 …    researcher,   computer use,    a local wiki
- Claude Code,  writer, …     40+ plugins,     your agents
- Codex, …                    MCP              read and cite
-```
+### Any model, yours
 
-Dodaios works with Claude Code, Codex, OpenCode, Kimi Code, GLM, Grok Build,
-Antigravity, Cursor CLI and DeepSeek Harness. Models can come from OpenAI,
-Claude, Gemini, OpenRouter, NVIDIA, Ollama or any OpenAI-compatible server.
-Agents can also run on Hermes and OpenClaw. It runs on Windows, macOS, Linux
-and servers without a screen.
+<img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/connect.png" alt="The setup step Connect your AI: Claude, OpenAI, Google Gemini and xAI Grok with a subscription sign-in or an API key, and a free local model" width="100%" />
 
-Also inside:
+Claude, OpenAI, Google Gemini and xAI Grok connect with the subscription you
+already have or with an API key. OpenRouter, LiteLLM, Google Vertex AI and
+NVIDIA NIM are there as well. A local model runs through Ollama or any
+OpenAI-compatible server, with no account and no key. Keys go into your
+system's keychain.
+[Providers and API keys](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/providers-and-api-keys.md) ·
+[Local AI providers](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/local-ai-providers.md)
 
-- **Voice.** Your own wake phrase, live calls and dictation that can run offline.
-- **Artifacts.** One wall for every page and report your agents make.
-- **Marketplace.** Agents, skills and plugins from the community.
+### Chat and voice
 
-## Docs
+Type, or say the wake word, or press your Call shortcut and talk. Voice runs
+in one of two ways. The pipeline chains speech recognition, the model and a
+voice, each of them local or hosted. Realtime uses one live model that listens
+and speaks. Dictation is separate: it types what you say into the app you are
+working in.
+[Voice conversations](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md) ·
+[Dictation](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/dictation.md)
 
-[First run](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/first-run-setup.md) ·
-[App tour](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/desktop-app-tour.md) ·
-[Agentic IDE](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md) ·
+### Coding agents on your projects
+
+<img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/agentic-ide.png" alt="The Agentic IDE with a connected project: a thread for the coding agent, model and permission pickers, the branch, and a terminal in which the project's tests pass" width="100%" />
+
+The Agentic IDE runs coding agents in your own project folders: Claude Code,
+Codex, OpenCode, Kimi Code, GLM Coding Plan, Grok Build, Antigravity and
+DeepSeek Harness, each with the models, effort levels and permission modes it
+really has. A thread can get its own worktree on its own branch. Terminals,
+changes, Git, files and a browser preview sit beside the conversation.
+[Agentic IDE](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md)
+
+### Agents that work without you
+
+Give an agent a name, a job line and standing instructions. It keeps one
+conversation, its own model and its own set of tools, and it can run routines
+on a schedule, on an event or on a webhook. Put several agents in a team and
+name a lead: you tell the lead the goal, it splits the work, checks what comes
+back and reports when it is done. Long one-off jobs run as background missions
+in an isolated Git worktree, and the result is reviewed before it is reported
+as finished.
 [Agents](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md) ·
-[Voice](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md) ·
-[Providers](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/providers-and-api-keys.md) ·
-[MCP](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/mcp-connections.md) ·
-[CLI](https://github.com/Dodaios/Dodaios/blob/main/docs/dodaios-cli.md) ·
-[Architecture](https://github.com/Dodaios/Dodaios/blob/main/docs/architecture-overview.md) ·
-[Troubleshooting](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/troubleshooting.md) ·
-[Privacy](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/privacy-and-local-data.md)
+[Routines](https://github.com/Dodaios/Dodaios/blob/main/docs/routines.md) ·
+[Team leads](https://github.com/Dodaios/Dodaios/blob/main/docs/agent-society/team-leads.md)
 
-Dodaios was called Personal Jarvis before
-([why the new name](https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/)).
+### Tools it can use
 
-## Contribute
+<img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/plugins.png" alt="The plugin catalog: GitHub, Vercel, Notion, Slack, Linear, Google Calendar, Gmail, Outlook, Dropbox, Google Drive and more" width="100%" />
 
-Start with a [good first issue](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-or an issue labeled [`help wanted`](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22).
-[Your first contribution in 10 minutes](https://github.com/Dodaios/Dodaios/blob/main/CONTRIBUTING.md#your-first-contribution-in-10-minutes)
-shows you how. Security reports follow
-[SECURITY.md](https://github.com/Dodaios/Dodaios/blob/main/SECURITY.md).
-Sponsors are in [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md).
+- **Plugins.** 47 services ship in the catalog, among them GitHub, Slack,
+  Notion, Linear, Gmail, Google Calendar, Home Assistant and Spotify.
+- **MCP servers and skills.** Add any Model Context Protocol server. A skill is
+  a written procedure the assistant follows; you can write one or ask for one.
+- **Computer use.** It can read the screen and use the mouse and keyboard, in
+  desktop apps and in the browser.
+- **The command line.** `dodaios` drives a running instance from a terminal, so
+  a script or another coding agent can do everything the window can.
 
-If Dodaios is useful to you, a star helps other people find it.
+[Plugins](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md) ·
+[MCP connections](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/mcp-connections.md) ·
+[Skills](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/skills.md) ·
+[Computer use](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/computer-use.md) ·
+[CLI](https://github.com/Dodaios/Dodaios/blob/main/docs/dodaios-cli.md)
 
-### Contributors
+### A memory you can read
 
-Thanks to everyone who has shipped something here.
+<img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/memory.png" alt="The Memory section: six memories sorted by kind, and one opened with where it came from and the actions pin, edit, no longer true and forget" width="100%" />
+
+Dodaios remembers short sentences about you and your work: how you like
+answers, the people you mention, the projects you are on. All of it is one
+file on your computer. You can read, correct, pin, export or forget every
+entry. A changed fact closes the old one with a date instead of overwriting
+it. Passwords and keys are never stored.
+[Memory](https://github.com/Dodaios/Dodaios/blob/main/docs/product/knowledge-and-sharing/wiki-and-memory.md)
+
+### The small things
+
+<table>
+  <tr>
+    <td width="50%"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/pets.png" alt="My Pets: the active pet Ember, a baby dragon, and a grid of pixel-art pets" width="100%" /></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/side-by-side.png" alt="Two sections side by side: the Agentic IDE with its terminal on the left, a chat on the right" width="100%" /></td>
+  </tr>
+  <tr>
+    <td valign="top"><b>Pets.</b> A pixel companion on your desktop that reacts while Dodaios listens, thinks and talks. Twenty are built in, and you can make your own. <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/pets.md">Pets</a></td>
+    <td valign="top"><b>Side by side.</b> Put up to four sections next to each other, for example a project and a chat. The interface comes in English, German, Spanish, Chinese and Portuguese.</td>
+  </tr>
+</table>
+
+Also in the app: a phone companion that continues the same conversation, tasks
+and reminders, a record of every run with its steps and tool calls, and a page
+that shows what your usage cost.
+[Tour of the app](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/desktop-app-tour.md)
+
+## How a request runs
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/brand/how-a-request-runs-dark.svg" />
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/brand/how-a-request-runs-light.svg" alt="You ask by voice or chat. Dodaios picks one of three routes: answer, act, or delegate to an agent. The action passes a risk check with the levels safe, monitor, ask you and block. Then it is done and every step is saved in the history." width="100%" />
+</picture>
+
+Every tool call a model proposes goes through one gate before it can touch
+your computer or an account:
+
+| Level | What happens |
+| --- | --- |
+| **Safe** | Runs without asking. |
+| **Monitor** | Runs without asking and is marked for review. |
+| **Ask** | Waits for your yes. No answer counts as no. |
+| **Block** | Is refused. An approval cannot override it. |
+
+One approval covers one call, not the rest of the job. The gate is not a
+sandbox and not an undo: it covers the tool calls Dodaios makes, and your
+operating system's permissions still apply.
+[Safety and approvals](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/safety-and-approvals.md) ·
+[Privacy and local data](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/privacy-and-local-data.md) ·
+[Security policy](https://github.com/Dodaios/Dodaios/blob/main/SECURITY.md)
+
+## What runs where
+
+| | Windows | macOS | Linux desktop | Linux server |
+| --- | --- | --- | --- | --- |
+| Chat, agents, tasks, memory, settings | Yes | Yes | Yes | In the browser |
+| Desktop app | Yes | Yes | Yes | No |
+| Voice with the computer's microphone | Yes | Needs permission | Needs PortAudio | Through the browser |
+| Global shortcuts | Yes | Needs permission | X11 | No |
+| Computer use | Yes | Needs permission | X11 | No |
+
+Windows 11 is the system with recorded live checks. The macOS and Linux
+desktop paths are built and covered by tests, and their live sign-off is still
+open. A feature that cannot run on your system says so and leaves the rest
+working.
+[Platform support](https://github.com/Dodaios/Dodaios/blob/main/docs/product/reference/platform-support.md)
+
+## Documentation
+
+- [Welcome to Dodaios](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/welcome-to-dodaios.md): what it does and what it does not do
+- [First-run setup](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/first-run-setup.md) and [your first chat](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/start-your-first-chat.md)
+- [Troubleshooting](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/troubleshooting.md)
+- [Configuration reference](https://github.com/Dodaios/Dodaios/blob/main/docs/product/reference/configuration-reference.md) and [CLI reference](https://github.com/Dodaios/Dodaios/blob/main/docs/dodaios-cli-reference.md)
+- [Architecture overview](https://github.com/Dodaios/Dodaios/blob/main/docs/architecture-overview.md), for people who want to change the code
+
+The same guides are inside the app under **Docs**, with search.
+
+## Contributing
+
+Fixes, tests, accessibility work, platform reports and documentation are
+welcome. The
+[contributing guide](https://github.com/Dodaios/Dodaios/blob/main/CONTRIBUTING.md#your-first-contribution-in-10-minutes)
+gets you from a fork to a passing check in about ten minutes. Good places to
+start are the issues labelled
+[good first issue](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+and
+[help wanted](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22).
+Questions and ideas go to [Discord](https://discord.gg/x7USduHxbc).
+
+Thanks to everyone who has shipped something here:
 
 <!-- contributors:start -->
 
@@ -174,4 +290,16 @@ Thanks to everyone who has shipped something here.
 
 ## License
 
-[Apache 2.0](https://github.com/Dodaios/Dodaios/blob/main/LICENSE). Releases up to and including 1.6.0 keep their original MIT license. See [NOTICE](https://github.com/Dodaios/Dodaios/blob/main/NOTICE) and the [trademark guidance](https://github.com/Dodaios/Dodaios/blob/main/TRADEMARK.md).
+Dodaios is licensed under the
+[Apache License 2.0](https://github.com/Dodaios/Dodaios/blob/main/LICENSE),
+with the attribution in
+[NOTICE](https://github.com/Dodaios/Dodaios/blob/main/NOTICE). The name and
+the logo are covered by the
+[trademark policy](https://github.com/Dodaios/Dodaios/blob/main/TRADEMARK.md),
+not by the license.
+
+Dodaios was called Personal Jarvis until October 2026. It is the same project
+under the same license
+([why the name changed](https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/)).
+
+Sponsors are in [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md).
