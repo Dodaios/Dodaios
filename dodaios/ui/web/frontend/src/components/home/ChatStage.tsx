@@ -11,6 +11,7 @@ import { scrollViewportOf, useStickToBottom } from "@/hooks/useStickToBottom";
 import { AgentComposer } from "@/components/agentchat/AgentComposer";
 import { AgentTimeline } from "@/components/agentchat/AgentTimeline";
 import { withoutBackgroundNotices } from "@/components/agentchat/backgroundNotices";
+import { STEER_PREFIX, type TimelineItem } from "@/components/agentchat/reduce";
 import { rosterFaces } from "@/components/agentchat/InternalMessageRun";
 import { useCachedRosterAgents } from "@/components/society/data";
 import { societyDisplayName } from "@/lib/societyDisplayName";
@@ -57,6 +58,24 @@ function CallSlot({ composerControls = false }: { composerControls?: boolean }) 
     if (callLive || waiting) setShown(true);
   }, [callLive, waiting]);
   return shown || callLive || waiting ? <Suspense fallback={null}><CallWindow composerControls={composerControls} /></Suspense> : null;
+}
+
+/**
+ * The newest message the person sent, and where it sits: a message of its own,
+ * or one sent into the running turn (a `steer-` block of that turn). A result
+ * that comes back by itself later (`background`) is not something they sent.
+ */
+function newestSent(items: TimelineItem[]): { id: string; index: number } | null {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (item.type === "user" && item.origin !== "background") return { id: item.id, index };
+    if (item.type !== "turn") continue;
+    for (let at = item.blocks.length - 1; at >= 0; at -= 1) {
+      const block = item.blocks[at];
+      if (block.kind === "text" && block.id.startsWith(STEER_PREFIX)) return { id: `${item.id}:${block.id}`, index };
+    }
+  }
+  return null;
 }
 
 /**
@@ -163,11 +182,12 @@ function ChatStageContent() {
     [stickRootRef],
   );
   const lastItemIdRef = useRef<string | null>(null);
+  const sentIdRef = useRef<string | null>(null);
   const sessionRef = useRef<string | null>(activeSessionId);
 
   const lastItem = items[items.length - 1];
   const lastItemId = lastItem?.id ?? null;
-  const lastItemIsUser = lastItem?.type === "user";
+  const sent = useMemo(() => newestSent(items), [items]);
   // The person's own message is the last thing in the chat and its turn is
   // on the way (the send is in flight, or the session already works on it):
   // the assistant shows as typing until the turn itself takes over. A turn
@@ -180,14 +200,25 @@ function ChatStageContent() {
     if (sessionRef.current !== activeSessionId) {
       sessionRef.current = activeSessionId;
       lastItemIdRef.current = null;
+      sentIdRef.current = null;
     }
     const previousId = lastItemIdRef.current;
+    const previousSentId = sentIdRef.current;
     lastItemIdRef.current = lastItemId;
+    sentIdRef.current = sent?.id ?? null;
     if (!scrollViewportOf(rootRef.current) || !lastItemId) return;
     // The person sent a message into a conversation that is on screen: it
     // lands under the last one and the view goes there, also for a reader
     // who had scrolled up. Sending is being back at the end, at once.
-    if (previousId !== null && previousId !== lastItemId && lastItemIsUser) {
+    //
+    // Asked of the newest sent message, not of the last item: the message
+    // and the start of its turn arrive a millisecond apart and can reach
+    // one render together, and the last item is then the turn. A reader who
+    // had scrolled up stayed where they were (seen 2026-11-12). The message
+    // has to be new at the end of what was on screen, so a conversation that
+    // opens, or one read again after a reconnect, moves nobody.
+    const previousAt = previousId === null ? -1 : items.findIndex((item) => item.id === previousId);
+    if (sent && sent.id !== previousSentId && previousAt >= 0 && sent.index >= previousAt) {
       snapToEnd();
       return;
     }
@@ -197,7 +228,7 @@ function ChatStageContent() {
     // for ResizeObserver and lose the reader for that frame. A reader who
     // scrolled up is left where they are (`follow` no-ops).
     follow();
-  }, [lastItemId, lastItemIsUser, activeSessionId, items, follow, snapToEnd]);
+  }, [lastItemId, sent, activeSessionId, items, follow, snapToEnd]);
 
   // The live blocks grow without a new item — a streamed answer, the dots
   // of a turn at work — so no render-driven effect fires for it; the

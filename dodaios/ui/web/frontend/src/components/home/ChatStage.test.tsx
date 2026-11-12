@@ -786,6 +786,82 @@ describe("ChatStage (agent chat)", () => {
     expect(viewport.scrollTop).toBe(1200);
   });
 
+  it("takes a reader who had scrolled up to the end when the message and its turn arrive in one render", () => {
+    // The two events are a millisecond apart on the wire. When both reach
+    // one render, the last item is the turn, not the message: the stage
+    // still has to see that the person sent something.
+    withResizeObserver();
+    const before = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "run the tests" }),
+      ev("turn_started", { turn_id: "t1", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
+      ev("assistant_text", { turn_id: "t1", message_id: "m1", text: "All green." }),
+      ev("turn_finished", { turn_id: "t1", status: "done", duration_ms: 900, usage: {} }),
+    ]);
+    useAgentChatStore.setState({ activeSessionId: "s1", timeline: before });
+    render(<ChatStage />);
+    const viewport = stageViewport();
+    measure(viewport, 100, 1000, 50);
+    act(() => {
+      fireEvent.scroll(viewport);
+    });
+    expect(screen.getByTestId("chat-scroll-end")).toBeTruthy();
+
+    measure(viewport, 100, 1130, 50);
+    act(() => useAgentChatStore.setState({
+      timeline: reduceEvents(before, [
+        ev("user_message", { text: "and the linter?" }),
+        ev("turn_started", { turn_id: "t2", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
+      ]),
+    }));
+    expect(viewport.scrollTop).toBe(1130);
+    expect(screen.queryByTestId("chat-scroll-end")).toBeNull();
+  });
+
+  it("takes a reader who had scrolled up to the end when they send into the running turn", () => {
+    withResizeObserver();
+    const before = runningTurn();
+    useAgentChatStore.setState({ activeSessionId: "s1", timeline: before });
+    render(<ChatStage />);
+    const viewport = stageViewport();
+    measure(viewport, 100, 1000, 50);
+    act(() => {
+      fireEvent.scroll(viewport);
+    });
+    expect(screen.getByTestId("chat-scroll-end")).toBeTruthy();
+
+    measure(viewport, 100, 1070, 50);
+    act(() => useAgentChatStore.setState({
+      timeline: reduceEvents(before, [ev("user_message", { text: "only the unit tests", turn_id: "t1", steered: true })]),
+    }));
+    expect(viewport.scrollTop).toBe(1070);
+    expect(screen.queryByTestId("chat-scroll-end")).toBeNull();
+  });
+
+  it("leaves a reader who scrolled up alone when an earlier request's result comes back by itself", () => {
+    withResizeObserver();
+    const before = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "run the tests" }),
+      ev("turn_started", { turn_id: "t1", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
+      ev("assistant_text", { turn_id: "t1", message_id: "m1", text: "All green." }),
+      ev("turn_finished", { turn_id: "t1", status: "done", duration_ms: 900, usage: {} }),
+    ]);
+    useAgentChatStore.setState({ activeSessionId: "s1", timeline: before });
+    render(<ChatStage />);
+    const viewport = stageViewport();
+    measure(viewport, 100, 1000, 50);
+    act(() => {
+      fireEvent.scroll(viewport);
+    });
+
+    // Nobody sent this now: the view stays, and the way back is offered.
+    measure(viewport, 100, 1040, 50);
+    act(() => useAgentChatStore.setState({
+      timeline: reduceEvents(before, [ev("user_message", { text: "the nightly report", origin: "background" })]),
+    }));
+    expect(viewport.scrollTop).toBe(100);
+    expect(screen.getByTestId("chat-scroll-end")).toBeTruthy();
+  });
+
   it("lands an opened conversation at its end without a glide, even when the person wrote last", () => {
     withResizeObserver();
     useAgentChatStore.setState({
