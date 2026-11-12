@@ -154,18 +154,15 @@ really has. A thread can get its own worktree on its own branch. Terminals,
 changes, Git, files and a browser preview sit beside the conversation.
 [Agentic IDE](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md)
 
-### Agents that work without you
+### Work that runs without you
 
-Give an agent a name, a job line and standing instructions. It keeps one
-conversation, its own model and its own set of tools, and it can run routines
-on a schedule, on an event or on a webhook. Put several agents in a team and
-name a lead: you tell the lead the goal, it splits the work, checks what comes
-back and reports when it is done. Long one-off jobs run as background missions
-in an isolated Git worktree, and the result is reviewed before it is reported
-as finished.
-[Agents](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md) ·
-[Routines](https://github.com/Dodaios/Dodaios/blob/main/docs/routines.md) ·
-[Team leads](https://github.com/Dodaios/Dodaios/blob/main/docs/agent-society/team-leads.md)
+Ask for something bigger and Dodaios hands it to a background agent. It works
+in an isolated Git worktree, the result is reviewed before it is reported as
+finished, and the files it made are kept for you. Ask for something regular
+and it becomes an automation that runs on a schedule, on an event or on a
+webhook.
+[Background agents](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md) ·
+[Routines](https://github.com/Dodaios/Dodaios/blob/main/docs/routines.md)
 
 ### Tools it can use
 
@@ -202,11 +199,11 @@ it. Passwords and keys are never stored.
 <table>
   <tr>
     <td width="50%"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/pets.png" alt="My Pets: the active pet Ember, a baby dragon, and a grid of pixel-art pets" width="100%" /></td>
-    <td width="50%"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/side-by-side.png" alt="Two sections side by side: the Agentic IDE with its terminal on the left, a chat on the right" width="100%" /></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/side-by-side.png" alt="Two sections side by side: the Agentic IDE with its terminal on the left, the list of command-line tools on the right" width="100%" /></td>
   </tr>
   <tr>
     <td valign="top"><b>Pets.</b> A pixel companion on your desktop that reacts while Dodaios listens, thinks and talks. Twenty are built in, and you can make your own. <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/pets.md">Pets</a></td>
-    <td valign="top"><b>Side by side.</b> Put up to four sections next to each other, for example a project and a chat. The interface comes in English, German, Spanish, Chinese and Portuguese.</td>
+    <td valign="top"><b>Side by side.</b> Put up to four sections next to each other, for example a project and your command-line tools. The interface comes in English, German, Spanish, Chinese and Portuguese.</td>
   </tr>
 </table>
 
@@ -243,7 +240,7 @@ operating system's permissions still apply.
 
 | | Windows | macOS | Linux desktop | Linux server |
 | --- | --- | --- | --- | --- |
-| Chat, agents, tasks, memory, settings | Yes | Yes | Yes | In the browser |
+| Chat, coding agents, tasks, memory, settings | Yes | Yes | Yes | In the browser |
 | Desktop app | Yes | Yes | Yes | No |
 | Voice with the computer's microphone | Yes | Needs permission | Needs PortAudio | Through the browser |
 | Global shortcuts | Yes | Needs permission | X11 | No |

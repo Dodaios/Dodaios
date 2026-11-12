@@ -236,12 +236,12 @@ const CURSOR = `(() => {
     await sleep(200);
     if (await menuOpen()) await press();
     await sleep(500);
-    // highlight the right tile
+    // the right tile: pick the CLIs section from the tile's own section menu
     const title = page.locator('[data-testid="tile-section-button"]').nth(1);
-    const tb = await title.boundingBox();
-    await moveTo(tb.x + tb.width + 170, tb.y + tb.height / 2, 600);
-    await press();
-    await sleep(600);
+    const sectionMenu = page.locator('[data-testid="section-picker"]');
+    await click(title, { post: 500 });
+    if (!(await sectionMenu.isVisible().catch(() => false))) { await press(); await sleep(500); }
+    await click('[data-testid="section-pick-clis"]', { post: 1200 });
     await moveTo(W * 0.73, H * 0.62, 700);
 
     mark('end');

@@ -57,8 +57,12 @@ if (!OUT) { console.error('usage: node stills.cjs <output folder> [names]'); pro
     await page.locator('[aria-label="Layout"]').first().click(); await sleep(900);
     await page.locator('[aria-label="Two side by side"]').first().click(); await sleep(1500);
     await page.locator('[aria-label="Layout"]').first().click(); await sleep(900);
-    const tb = await page.locator('[data-testid="tile-section-button"]').nth(1).boundingBox();
-    await page.mouse.click(tb.x + tb.width + 170, tb.y + tb.height / 2); await sleep(1200);
+    // The right tile: pick the CLIs section from the tile's own section menu.
+    const title = page.locator('[data-testid="tile-section-button"]').nth(1);
+    const picker = page.locator('[data-testid="section-picker"]');
+    await title.click(); await sleep(500);
+    if (!(await picker.isVisible().catch(() => false))) { await title.click(); await sleep(500); }
+    await page.locator('[data-testid="section-pick-clis"]').click(); await sleep(2500);
     await shot('side-by-side');
   }
   if (want('connect')) {   // needs a first-run instance
