@@ -16,9 +16,10 @@ chat: their message, then its answer, while the earlier answer goes on above.
   the instruction to answer only this message.
 * The conversation's timeline shows it through two notices:
   ``side_thread_started`` (the person's message) and ``side_thread_finished``
-  (how it ended, with the answer). The second one is also what the lead's
-  later turns read (:func:`replay`), so the lead knows what was asked and
-  answered beside it, on every seat.
+  (how it ended, with the answer and every message it wrote, each on its
+  own). The second one is also what the lead's later turns read
+  (:func:`replay`), so the lead knows what was asked and answered beside it,
+  on every seat.
 * Turns that start in the main thread while side threads still run are told
   so (:func:`running_note`).
 * A message that belongs to the running request can be moved into the main
@@ -65,6 +66,7 @@ FINISHED: Final[str] = "side_thread_finished"
 #: Side threads one conversation runs at once; a further message queues as before.
 MAX_RUNNING: Final[int] = 4
 #: How much of an answer the closing notice carries (the side thread keeps all of it).
+#: The same bound holds for its messages together.
 ANSWER_CHARS: Final[int] = 16_000
 #: Bounds of the brief a side thread starts on.
 _SUMMARY_CHARS: Final[int] = 4_000
@@ -243,11 +245,14 @@ async def _watch(svc: Any, side_id: str, turn_id: str) -> None:
         log.warning("side thread %s: closing notice failed", side_id, exc_info=True)
 
 
-def _outcome(events: list[dict[str, Any]]) -> tuple[str, str, str]:
-    """``(status, answer, error)`` of a side thread, read from its own log.
+def _outcome(events: list[dict[str, Any]]) -> tuple[str, str, str, list[str]]:
+    """``(status, answer, error, messages)`` of a side thread, read from its own log.
 
     The answer is what the turn said after its last tool call; a turn that
-    only spoke between calls gives everything it said.
+    only spoke between calls gives everything it said. ``messages`` is every
+    message the turn wrote, in order and each on its own: "I'll hand that to
+    an agent" and, minutes later, the result are two messages, and the chat
+    shows them as two.
     """
     status, error = "interrupted", ""
     closing: list[str] = []
@@ -269,7 +274,24 @@ def _outcome(events: list[dict[str, Any]]) -> tuple[str, str, str]:
             status = {"done": "done", "cancelled": "stopped"}.get(raw, "failed")
             error = str(payload.get("error") or "")
     answer = "\n\n".join(closing or said)
-    return status, answer, error
+    return status, answer, error, said
+
+
+def _bounded(messages: list[str], limit: int = ANSWER_CHARS) -> tuple[list[str], bool]:
+    """The messages a notice carries, and whether some of their text was left out.
+
+    The newest ones are kept whole first: the result stands at the end. The
+    message the bound falls in keeps its beginning, older ones are left out.
+    """
+    kept: list[str] = []
+    room = limit
+    for text in reversed(messages):
+        if room <= 0:
+            break
+        kept.append(text[:room])
+        room -= len(text)
+    kept.reverse()
+    return kept, sum(map(len, kept)) < sum(map(len, messages))
 
 
 async def _close(svc: Any, side_id: str, status: str = "") -> bool:
@@ -278,7 +300,7 @@ async def _close(svc: Any, side_id: str, status: str = "") -> bool:
     if row is None or row["status"] != "running":
         return False
     events = await asyncio.to_thread(svc.store.list_events, side_id)
-    read_status, answer, error = _outcome(events)
+    read_status, answer, error, said = _outcome(events)
     final = status or read_status
     if not svc.store.close_side_thread(side_id, final):
         return False
@@ -292,8 +314,10 @@ async def _close(svc: Any, side_id: str, status: str = "") -> bool:
     }
     if final != "moved":
         if answer:
+            messages, cut = _bounded(said)
             payload["answer"] = answer[:ANSWER_CHARS]
-            payload["truncated"] = len(answer) > ANSWER_CHARS
+            payload["messages"] = messages
+            payload["truncated"] = cut or len(answer) > ANSWER_CHARS
         if error and final == "failed":
             payload["error"] = error[:600]
     if entry is not None:

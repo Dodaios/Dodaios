@@ -26,7 +26,7 @@ const ENDED: Record<string, string> = {
  * It reads like any other exchange of the chat: their bubble, then the reply.
  * The reply is written beside the running request, in a side thread (a chat
  * session of its own), so nothing waited. While it runs, its work and its
- * streaming answer come from that session; afterwards the answer stands on
+ * streaming answer come from that session; afterwards its messages stand on
  * the notice itself, so a reopened chat needs no second connection.
  */
 export function SideThread({ item, renderTimeline }: { item: NoticeItem; renderTimeline: RenderSideTimeline }) {
@@ -54,7 +54,7 @@ export function SideThread({ item, renderTimeline }: { item: NoticeItem; renderT
     }
   };
 
-  const answer = String(item.data.answer ?? "");
+  const messages = useMemo(() => sideThreadMessages(item.data), [item.data]);
   // How one that was not answered ended; undefined while it runs and when it was.
   const ended: string | undefined = ENDED[item.resolved];
   return (
@@ -93,20 +93,45 @@ export function SideThread({ item, renderTimeline }: { item: NoticeItem; renderT
       {problem && <p role="alert" className="text-end text-xs text-destructive">{problem}</p>}
       {watched ? (
         <SideThreadLive sideId={sideId} running={running} renderTimeline={renderTimeline}
-          fallback={answer ? <StaticReply text={answer} /> : null} />
-      ) : answer ? (
-        <StaticReply text={answer} />
+          fallback={messages.length ? <StaticReply messages={messages} /> : null} />
+      ) : messages.length ? (
+        <StaticReply messages={messages} />
       ) : null}
     </div>
   );
 }
 
-/** The finished answer, in the lane every reply of the conversation is written in. */
-function StaticReply({ text }: { text: string }) {
+/**
+ * What a finished side thread said, one entry per message it wrote. "I'll
+ * hand that to an agent" and, minutes later, the result are two messages; the
+ * notice keeps them apart (`messages`), so they stay two after the side
+ * thread has ended. A notice without them carries the answer as one text.
+ */
+export function sideThreadMessages(data: Record<string, unknown>): string[] {
+  const listed = Array.isArray(data.messages)
+    ? data.messages.filter((text): text is string => typeof text === "string" && text.trim() !== "")
+    : [];
+  if (listed.length) return listed;
+  const answer = String(data.answer ?? "");
+  return answer.trim() ? [answer] : [];
+}
+
+/**
+ * The finished side thread's messages, in the lane every reply of the
+ * conversation is written in: one bubble per message, as they stood while
+ * it ran.
+ */
+function StaticReply({ messages }: { messages: string[] }) {
   return (
     <div className="lead-turn" data-testid="side-thread-answer" data-look="lead">
       <div className="lead-face-lane" aria-hidden />
-      <div className="lead-turn-body"><LeadReply text={text} live={false} /></div>
+      <div className="lead-turn-body">
+        <div className="min-w-0">
+          {messages.map((text, index) => (
+            <div key={index} className="min-w-0" data-trace-reply><LeadReply text={text} live={false} /></div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

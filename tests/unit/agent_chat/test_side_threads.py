@@ -252,6 +252,48 @@ async def test_a_restart_closes_the_side_threads_it_interrupted(chat, tmp_path):
     assert "restarted" in side_threads.replay(finished[0])
 
 
+async def test_each_message_of_a_side_thread_stays_a_message_of_its_own(chat, tmp_path):
+    """A confirmation and, minutes later, the result are two messages, not one text."""
+    side = chat.store.create_session(
+        provider="openai", model="", effort="", surface="jarvis", cwd=str(tmp_path)
+    ).session_id
+    chat.store.save_side_thread(side, chat.sid, _SECOND)
+    looking = "I'll look at your screenshot and then send an agent."
+    sent = "An agent is on it. I'll tell you what it changed."
+    result = "Done: the line is gone from the chat."
+    for kind, payload in (
+        ("user_message", {"text": _SECOND}),
+        ("turn_started", {"turn_id": "t1"}),
+        ("assistant_text", {"turn_id": "t1", "message_id": "m1", "text": looking}),
+        ("tool_call", {"turn_id": "t1", "call_id": "c1", "name": "delegate", "input": {}}),
+        ("tool_result", {"turn_id": "t1", "call_id": "c1", "output": "running"}),
+        ("assistant_text", {"turn_id": "t1", "message_id": "m2", "text": sent}),
+        # A helper's own words are not the lead's messages.
+        ("assistant_text", {"turn_id": "t1", "agent_id": "a1", "text": "helper talk"}),
+        ("assistant_text", {"turn_id": "t1", "message_id": "m3", "text": result}),
+        ("turn_finished", {"turn_id": "t1", "status": "done"}),
+    ):
+        chat.store.append_event(side, make_event(kind, payload))
+
+    assert await side_threads.recover(chat.svc) == 1
+
+    finished = chat.notices(side_threads.FINISHED)[0]
+    assert finished["status"] == "done"
+    # Every message it wrote, in order and apart: the chat draws one bubble each.
+    assert finished["messages"] == [looking, sent, result]
+    assert finished["truncated"] is False
+    # What the lead reads later is still what was said after the last tool call.
+    assert finished["answer"] == f"{sent}\n\n{result}"
+    assert looking not in side_threads.replay(finished)
+
+
+def test_the_messages_of_a_notice_are_bounded_from_the_newest():
+    messages, cut = side_threads._bounded(["a" * 30, "b" * 30, "c" * 30], limit=50)
+    # The result at the end is whole; the one the bound falls in keeps its start.
+    assert messages == ["b" * 20, "c" * 30] and cut
+    assert side_threads._bounded(["a", "b"], limit=50) == (["a", "b"], False)
+
+
 def test_a_cli_seat_is_told_of_side_threads_that_ended_during_its_turn():
     """The closing notice lies inside the CLI's own turn, which its session never saw."""
     finished = {

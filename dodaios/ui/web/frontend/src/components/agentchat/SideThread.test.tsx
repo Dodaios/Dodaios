@@ -77,6 +77,35 @@ describe("a message sent while the conversation still works", () => {
     expect(Socket.open).toHaveLength(0);
   });
 
+  it("keeps each message of a finished one a bubble of its own", () => {
+    // Said at once, said when the agent was sent, and the result minutes later.
+    const messages = [
+      "I'll look at your screenshot and then send an agent.",
+      "An agent is on it. I'll tell you what it changed.\n\nIt works on a branch of its own.",
+      "Done: the line is gone from the chat.",
+    ];
+    draw(conversation(ev("notice", {
+      kind: "side_thread_finished", side_id: "side-1", status: "done", text: QUESTION,
+      answer: messages.slice(1).join("\n\n"), messages,
+    })));
+    const bubbles = within(screen.getByTestId("side-thread-answer")).getAllByTestId("lead-bubble");
+    // One bubble per message, however many paragraphs it has, in the order they were written.
+    expect(bubbles).toHaveLength(3);
+    expect(bubbles[0].textContent).toBe(messages[0]);
+    expect(bubbles[1].textContent).toContain("An agent is on it.");
+    expect(bubbles[1].textContent).toContain("It works on a branch of its own.");
+    expect(bubbles[2].textContent).toBe(messages[2]);
+    expect(Socket.open).toHaveLength(0);
+  });
+
+  it("draws a notice that only carries the answer as the one message it has", () => {
+    draw(conversation(ev("notice", {
+      kind: "side_thread_finished", side_id: "side-1", status: "done", text: QUESTION,
+      answer: "Canberra.\n\nIt is in the south-east.", messages: [],
+    })));
+    expect(within(screen.getByTestId("side-thread-answer")).getAllByTestId("lead-bubble")).toHaveLength(1);
+  });
+
   it("says how an unanswered one ended", () => {
     draw(conversation(ev("notice", { kind: "side_thread_finished", side_id: "side-1", status: "interrupted", text: QUESTION })));
     const state = screen.getByTestId("side-thread-state").textContent ?? "";
