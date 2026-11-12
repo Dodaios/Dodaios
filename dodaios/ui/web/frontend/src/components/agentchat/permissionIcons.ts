@@ -1,14 +1,15 @@
+import type { LucideIcon } from "lucide-react";
+
 import {
-  Eye,
-  FilePenLine,
-  Hand,
-  NotebookPen,
-  Shield,
-  ShieldAlert,
-  ShieldBan,
-  WandSparkles,
-  type LucideIcon,
-} from "lucide-react";
+  StanceAskIcon,
+  StanceAutoIcon,
+  StanceBypassIcon,
+  StanceDenyIcon,
+  StanceEditsIcon,
+  StancePlanIcon,
+  StanceReadOnlyIcon,
+  StanceUnknownIcon,
+} from "@/components/icons/stanceIcons";
 
 /**
  * One glyph per permission STANCE, not per vendor spelling.
@@ -18,32 +19,35 @@ import {
  * (`ask` / `accept-edits` / `plan` / `bypass`) and, for an IDE session, a
  * runner's own ids (`default`, `acceptEdits`, `bypassPermissions`, `auto`,
  * `read-only`, `full-access`, …). Several of those mean the same thing, so
- * they wear the same glyph — a person who learned "the pen means edits go
+ * they wear the same glyph — a person who learned "the pencil means edits go
  * through" recognises it on every provider. Anything unknown falls back to
  * a plain shield so a new ladder entry is never blank.
+ *
+ * The glyphs are this app's own drawings (icons/stanceIcons.tsx), one family
+ * at one weight, not picks from a stock catalogue.
  */
 const GLYPHS: Record<string, LucideIcon> = {
   // Stops and asks before acting.
-  ask: Hand,
-  default: Hand,
-  "approve-for-me": Hand,
+  ask: StanceAskIcon,
+  default: StanceAskIcon,
+  "approve-for-me": StanceAskIcon,
   // Edits go through, everything else asks.
-  "accept-edits": FilePenLine,
-  acceptEdits: FilePenLine,
+  "accept-edits": StanceEditsIcon,
+  acceptEdits: StanceEditsIcon,
   // Nothing asks — the one stance that deserves a warning sign.
-  bypass: ShieldAlert,
-  bypassPermissions: ShieldAlert,
-  "full-access": ShieldAlert,
-  "skip-permissions": ShieldAlert,
+  bypass: StanceBypassIcon,
+  bypassPermissions: StanceBypassIcon,
+  "full-access": StanceBypassIcon,
+  "skip-permissions": StanceBypassIcon,
   // Reads and plans, changes nothing.
-  plan: NotebookPen,
-  "read-only": Eye,
+  plan: StancePlanIcon,
+  "read-only": StanceReadOnlyIcon,
   // The runner decides on its own.
-  auto: WandSparkles,
+  auto: StanceAutoIcon,
   // Never asks — and refuses what it would have asked about.
-  dontAsk: ShieldBan,
+  dontAsk: StanceDenyIcon,
 };
 
 export function permissionModeIcon(id: string): LucideIcon {
-  return GLYPHS[id] ?? Shield;
+  return GLYPHS[id] ?? StanceUnknownIcon;
 }

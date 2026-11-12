@@ -548,11 +548,11 @@ describe("ChatStage (agent chat)", () => {
     const panel = await screen.findByTestId("composer-permission-panel");
     const glyphs = within(panel)
       .getAllByRole("option")
-      .map((el) => el.querySelector("svg")?.getAttribute("class") ?? "");
-    // default → hand, acceptEdits → pen, bypass → warning shield; plan lives on the switch.
-    expect(glyphs.some((c) => c.includes("lucide-hand"))).toBe(true);
-    expect(glyphs.some((c) => c.includes("lucide-file-pen"))).toBe(true);
-    expect(glyphs.some((c) => c.includes("lucide-shield-alert"))).toBe(true);
+      .map((el) => el.querySelector("svg")?.getAttribute("data-icon") ?? "");
+    // default → hand, acceptEdits → pencil, bypass → warning shield; plan lives on the switch.
+    expect(glyphs).toContain("StanceAskIcon");
+    expect(glyphs).toContain("StanceEditsIcon");
+    expect(glyphs).toContain("StanceBypassIcon");
     expect(new Set(glyphs).size).toBe(glyphs.length);
   });
 
@@ -608,11 +608,8 @@ describe("ChatStage (agent chat)", () => {
     const rows = within(panel).getAllByRole("option");
     // Plan is the switch next door, so the list holds the other three.
     expect(rows.map((el) => el.getAttribute("data-value"))).toEqual(["ask", "accept-edits", "bypass"]);
-    const glyphs = rows.map((el) => el.querySelector("svg")?.getAttribute("class") ?? "");
-    expect(glyphs[0]).toContain("lucide-hand");
-    expect(glyphs[1]).toContain("lucide-file-pen");
-    expect(glyphs[2]).toContain("lucide-shield-alert");
-    expect(new Set(glyphs).size).toBe(glyphs.length);
+    const glyphs = rows.map((el) => el.querySelector("svg")?.getAttribute("data-icon") ?? "");
+    expect(glyphs).toEqual(["StanceAskIcon", "StanceEditsIcon", "StanceBypassIcon"]);
   });
 
   it("draws Bypass in the row's plain grey, like every other stance", () => {
