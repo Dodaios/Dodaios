@@ -1129,8 +1129,9 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
       }}
       // Positioned, so every absolute piece inside (a screen-reader-only
       // status line) is clipped here instead of stretching the column below.
-      className="relative h-full overflow-y-auto scrollbar-jarvis">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 pt-6" style={{ paddingBottom: bottomInset + 24 }}>
+      className="selection-text-only relative h-full overflow-y-auto scrollbar-jarvis">
+      {/* "Select all" outside a text field selects this conversation (lib/selectAllScope). */}
+      <div data-select-all className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 pt-6" style={{ paddingBottom: bottomInset + 24 }}>
         {lead}
         {shown.map((item) => <ItemView key={item.id} item={item} tone={tone} />)}
       </div>

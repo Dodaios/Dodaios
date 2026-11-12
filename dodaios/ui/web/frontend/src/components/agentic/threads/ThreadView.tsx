@@ -332,7 +332,7 @@ export function ThreadView({ onScreen, column }: {
             <ThreadMenuItem icon={<FolderPlus className="h-3.5 w-3.5" />} label={t("ide_threads.connect_another")} onSelect={() => { setProjectMenu(false); connectProject(); }} />
           </div>
         </ThreadPopover>
-        <div className="mt-7 w-full">
+        <div className="selection-text-only mt-7 w-full">
           <ThreadComposer threadKey={threadKey} prepareDraft={prepareDraft} onSessionCreated={rememberCreated} autoFocusNonce={focusNonce + (onScreen ? 1 : 0)} strip={strip} onScreen={onScreen} />
         </div>
       </div>
@@ -344,8 +344,8 @@ export function ThreadView({ onScreen, column }: {
         {/* The conversation fades out over the top padding only: whatever stands
             above the composer card (the follow-up pick, waiting messages, the
             sub-agent dock) has a solid ground, and no line shows through it. */}
-        <div ref={composerBox} className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background from-[length:calc(100%-1.5rem)] to-transparent px-5 pb-4 pt-6">
-          <div className="pointer-events-auto">
+        <div ref={composerBox} className="selection-text-only pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background from-[length:calc(100%-1.5rem)] to-transparent px-5 pb-4 pt-6">
+          <div className="selection-text-only pointer-events-auto">
             <ThreadComposer threadKey={threadKey} prepareDraft={prepareDraft} onSessionCreated={rememberCreated} autoFocusNonce={focusNonce} strip={strip} onScreen={onScreen}
               tray={<SubagentDock entries={agents} openId={agent ? agent.id : null} onOpen={setOpenAgent} />} />
           </div>

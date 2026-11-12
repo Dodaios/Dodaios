@@ -506,7 +506,7 @@ export function ThreadTree() {
   const menuInSide = menuSession !== null && split.some((thread) => thread.sessionId === menuSession.session_id);
   const columnsFull = split.length + 1 >= MAX_THREAD_COLUMNS;
 
-  return <div data-testid="ide-thread-tree" className="flex-1 px-2 pb-3 pt-2">
+  return <div data-testid="ide-thread-tree" className="flex-1 select-none px-2 pb-3 pt-2">
     {/* What one starts from here, as rows: a thread, a search, a team, a voice call. */}
     <div role="group" aria-label={t("ide_threads.layout_threads")} className="flex flex-col gap-px">
       <button type="button" data-testid="thread-tree-new-thread" onClick={() => startIn(newThread)} className={ACTION_ROW}>

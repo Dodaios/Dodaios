@@ -585,14 +585,14 @@ export function ThreadComposer({
   const canSend = (value.trim().length > 0 || files.attachments.length > 0 || dictation.dictating) && files.analyzing === 0 && !starting;
   const error = problem || lastError || "";
 
-  return <div className="mx-auto w-full max-w-3xl">
+  return <div className="selection-text-only mx-auto w-full max-w-3xl">
     {error && <p role="alert" className="mb-2 px-4 text-xs text-destructive">{error}</p>}
     {tray}
     <QueuedMessages sessionId={activeSessionId} entries={queue} paused={paused} running={running} steers={steers}
       onPausedChange={setPaused} onProblem={setProblem} onGiveBack={giveBackHere} />
     <div ref={cardRef} {...files.dragHandlers}
       className={cn(
-        "relative z-10 overflow-hidden rounded-3xl border border-border bg-card shadow-[0_8px_24px_-12px_rgb(var(--scrim-rgb)/0.5)] transition-colors focus-within:border-border-strong",
+        "selection-text-only relative z-10 overflow-hidden rounded-3xl border border-border bg-card shadow-[0_8px_24px_-12px_rgb(var(--scrim-rgb)/0.5)] transition-colors focus-within:border-border-strong",
         files.dragging && "border-accent ring-2 ring-accent/40",
       )}>
       <ApprovalPanel timeline={timeline} />

@@ -1109,6 +1109,35 @@ body {
   color: hsl(var(--foreground-strong));
 }
 
+/* The selection tints text, never the ground around it.
+
+   WebKit, the desktop app's engine, also fills the EMPTY space beside and
+   between selected blocks with the selection colour ("selection gaps"), in
+   the colour of the block that holds the space. A selection that runs
+   through a layout box (select all, or a drag from a message down into the
+   composer) therefore painted grey slabs: left and right of a centred
+   column, a band across the composer. Chromium never does this, so it only
+   shows in the desktop app.
+
+   A box that only lays out other boxes takes this class and paints no gaps;
+   the text inside it still tints, each piece by its own element. Not for a
+   box with text of its own directly in it: that text would stop tinting. */
+.selection-text-only::selection {
+  background: transparent;
+}
+
+/* A text field tints only while the caret is in it. Caught in a selection
+   that runs across the page, WebKit filled the whole field with the
+   selection colour and lit its placeholder up as if it were typed text. */
+input:not(:focus)::selection,
+textarea:not(:focus)::selection {
+  background: transparent;
+}
+::placeholder {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 @layer components {
   /*
    * The named app surfaces.
