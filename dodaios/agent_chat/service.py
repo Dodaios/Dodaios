@@ -1331,6 +1331,23 @@ class AgentChatService:
             *list(self._preparing),
         ]
 
+    def turns_a_restart_would_end(self) -> list[str]:
+        """Sessions whose running turn dies with this process.
+
+        A thread turn's CLI runs in the turn host, and the next process
+        carries it on. Every other chat (the front page's, a created agent's)
+        runs its turn in this process: a restart closes it as failed, and the
+        person has to send the message again.
+        """
+        from dodaios.agent_chat import turn_host_client
+
+        hosted = turn_host_client.host_available()
+        return [
+            sid
+            for sid in dict.fromkeys(self.running_session_ids())
+            if not (hosted and self._may_be_hosted(sid))
+        ]
+
     async def seal_stopped_turn(self, session_id: str) -> bool:
         """Close a turn the stop button can still see after its runner is gone.
 
