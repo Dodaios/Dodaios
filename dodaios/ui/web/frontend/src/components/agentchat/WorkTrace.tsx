@@ -20,7 +20,7 @@ import { activityParts, traceToolIdentity, traceToolName } from "./traceActivity
 import { ToolChoiceIcon } from "./ToolChoiceChips";
 import { toolIdentityStyle } from "./toolIdentity";
 import { timelineItems, useTimeline, type TimelineRenderers } from "./TraceTimeline";
-import { failureReason, traceDuration } from "./traceEntries";
+import { failureReason, plural, traceDuration } from "./traceEntries";
 import "./WorkTrace.css";
 import { turnErrorText } from "./turnError";
 import { flattenMarks } from "@/lib/plainMarks";
@@ -530,11 +530,9 @@ function ActivityIcon({ blocks, live }: { blocks: TurnBlock[]; live: boolean }) 
 }
 
 /** Small chevron that hides finished work so the reply can stand alone. */
-function ConversationWorkFold({ durationMs, attention, children, expandInner = true, failureCount = 0, thoughts = true }: {
+function ConversationWorkFold({ durationMs, attention, children, expandInner = true, failureCount = 0 }: {
   durationMs: number | null; attention?: ReactNode; children: ReactNode;
   failureCount?: number;
-  /** The fold holds no thoughts (a messenger conversation): it says "Worked for …". */
-  thoughts?: boolean;
   /** Classic rows open every inner disclosure with the fold; the rail keeps its one-line stretches. */
   expandInner?: boolean;
 }) {
@@ -544,8 +542,8 @@ function ConversationWorkFold({ durationMs, attention, children, expandInner = t
   // Counts openings so inner disclosures expand all at once, every time.
   const [seq, setSeq] = useState(0);
   const label = durationMs !== null && durationMs > 0
-    ? t(thoughts ? "work_trace.thought_for" : "thread_turn.worked_for").replace("{duration}", traceDuration(durationMs))
-    : t(thoughts ? "work_trace.thought" : "thread_turn.worked");
+    ? t("work_trace.thought_for").replace("{duration}", traceDuration(durationMs))
+    : t("work_trace.thought");
   const toggle = () => {
     if (!open) setSeq((s) => s + 1);
     setOpen(!open);
@@ -687,9 +685,11 @@ type WorkTraceProps = {
    * is drawn by `renderAnswer`, the model's reasoning is not drawn at all
    * (`withoutReasoning`), a turn at work shows three dots in a bubble
    * instead of a state line (`TypingBubble`), every message the assistant
-   * sent stays a message and only its steps fold, and a finished, answered
-   * turn shows no state line at rest. How long it took and what it used wait
-   * under the turn for whoever looks (`.trace-meta`).
+   * sent stays a message, and its steps are not drawn in the conversation
+   * at all: not while it works, not as a fold once it is done. How long a
+   * turn took, what it used and its steps wait under the turn for whoever
+   * looks (`.trace-meta`); only a card that waits for the person, and the
+   * work of a turn that ended without a word, stand in the conversation.
    */
   messenger?: boolean;
   renderAnswer?: RenderAnswer;
@@ -698,6 +698,9 @@ type WorkTraceProps = {
 function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error, onDecide, renderText, className, receipt, completionLabel, conversation = false, companion = false, face, extras, messenger = false, renderAnswer }: WorkTraceProps) {
   const t = useT();
   const rail = useRail();
+  // A messenger turn's steps, opened from the line under it.
+  const [stepsOpen, setStepsOpen] = useState(false);
+  const stepsId = useId();
   const blocks = useMemo(() => {
     const kept = withoutQuestionPolls(rawBlocks);
     return messenger ? withoutReasoning(kept) : kept;
@@ -725,8 +728,8 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
   const restGroups = useMemo(() => fold ? groupConversationTrace(fold.answer) : null, [fold]);
   // A messenger conversation keeps what the assistant said: a message it
   // sent before or between its steps ("I'll check tonight's weather") stays
-  // a message once the turn is done, above the fold that holds the steps
-  // (maintainer, 2026-11-12). A message that was sent does not go away.
+  // a message once the turn is done (maintainer, 2026-11-12). A message
+  // that was sent does not go away.
   const said = useMemo(() => messenger && split ? split.work.filter((block): block is TextBlock => block.kind === "text" && Boolean(block.text.trim())) : NO_TEXT, [messenger, split]);
   const steps = useMemo(() => messenger && split ? split.work.filter((block) => block.kind !== "text") : split?.work, [messenger, split]);
   // While a turn runs, its replies and streaming pieces stay live rows; once
@@ -798,7 +801,10 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
         : <div className="prose prose-sm max-w-none text-foreground dark:prose-invert [overflow-wrap:anywhere]"><ChatMarkdown text={text} /></div>,
       renderDetails: (block) => <ToolDetails block={block} />,
     };
-    const work = timelineItems(timeline, renderers);
+    // A messenger conversation at work shows its messages, a card that
+    // waits for the person, and the dots; the steps themselves stay out.
+    const quiet = messenger && live;
+    const work = timelineItems(quiet ? { ...timeline, entries: timeline.entries.filter((entry) => entry.kind !== "activity") } : timeline, renderers);
     // A live turn's streaming reply is the timeline's tail; extra steps go
     // above it, as they go above the finished answer.
     let extraAt = work.length;
@@ -820,6 +826,50 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
     // step that failed folds with the rest: the turn answered anyway, the
     // fold says how many steps did not work, and one tap shows each of them
     // with its reason. Nothing red stands between the question and the answer.
+    if (messenger && split && answerItems.length > 0) {
+      // The conversation is the messages. A step that still waits for the
+      // person keeps its card; every other step opens from the line under
+      // the turn, for whoever asks to see it.
+      const folded = [...split.work, ...split.after];
+      const waiting = folded.filter(isPendingApproval);
+      const failures = folded.filter((block) => block.kind === "tool" && block.isError).length;
+      const stepCount = timeline.callCount + afterAnswer.callCount;
+      const stepsLabel = stepCount > 0
+        ? t(`run_view.work.steps_${plural(t("trace_report.locale"), stepCount)}`).replace("{count}", String(stepCount))
+        : t("run_view.work.open");
+      const items: RailItem[] = [...saidItems];
+      for (const block of waiting) items.push({ key: block.callId, rail: !hasPersonCard(block), node: <TraceTool block={block} status={status} onDecide={onDecide} /> });
+      // Opened, the steps stand where they happened: after what was said,
+      // above the answer, which stays the last thing the turn shows.
+      if (stepsOpen && workItems.length) items.push({ key: "trace:steps", rail: false, node: <div id={stepsId} className="py-1" data-testid="trace-steps"><Rail items={workItems} /></div> });
+      items.push(...answerItems);
+      if (visibleError) items.push(errorItem(visibleError, "trace:error"));
+      items.push({ key: "trace:status", rail: statusOnRail, node: <div role="status" aria-live="polite" data-trace-status={outcome} data-open={stepsOpen ? "" : undefined}
+        className={cn("flex min-w-0 flex-wrap items-center gap-x-2 text-xs leading-6 text-muted-foreground", resting ? "trace-meta" : "py-1")}>
+        {failed && !visibleError ? <span aria-hidden className="trace-flag" /> : null}
+        <span className={resting ? "sr-only" : undefined}>{outcomeLabel}</span>
+        {toolFailed && !failed ? <span className="sr-only">{t("work_trace.tool_failed")}</span> : null}
+        {durationMs !== null ? <span aria-live="off" className="tabular-nums">{traceDuration(durationMs)}</span> : null}
+        {receiptNode ? <span aria-hidden className="text-muted-foreground/50">·</span> : null}
+        {receiptNode}
+        {workItems.length ? <>
+          <span aria-hidden className="text-muted-foreground/50">·</span>
+          <button type="button" aria-expanded={stepsOpen} aria-controls={stepsId} title={t("run_view.work.open")} data-testid="trace-steps-toggle"
+            className="group/steps inline-flex items-center gap-0.5 rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => setStepsOpen(!stepsOpen)}>
+            {stepsLabel}
+            <ChevronRight aria-hidden className={cn("h-3 w-3 shrink-0 opacity-70 transition-transform", stepsOpen && "rotate-90")} />
+          </button>
+        </> : null}
+        {failures > 0 ? <span className="inline-flex shrink-0 items-center gap-1.5" data-testid="trace-failed-count">
+          <span aria-hidden className="trace-flag" />
+          {t(`trace_report.failed_count_${failures === 1 ? "one" : "other"}`).replace("{count}", String(failures))}
+        </span> : null}
+      </div> });
+      return <div className={cn("min-w-0", className)} data-testid="work-trace" data-look="rail" data-state={status}>
+        <Rail items={items} />
+      </div>;
+    }
     const railFold = split && answerItems.length > 0 && workItems.length > 0;
     if (railFold) {
       const folded = [...split.work, ...split.after];
@@ -829,7 +879,7 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
       items.push(statusItem);
       return <div className={cn("min-w-0", conversation && "w-full max-w-[44rem] self-start", className)} data-testid="work-trace" data-look="rail" data-state={status} {...(conversation ? { "data-conversation": "" } : {})}>
         {saidItems.length ? <Rail items={saidItems} /> : null}
-        <ConversationWorkFold durationMs={durationMs} expandInner={false} thoughts={!messenger}
+        <ConversationWorkFold durationMs={durationMs} expandInner={false}
           failureCount={folded.filter((block) => block.kind === "tool" && block.isError).length} attention={waiting.length ? <Rail items={waiting.map((block) => ({
           key: block.callId, rail: !hasPersonCard(block), node: <TraceTool block={block} status={status} onDecide={onDecide} />,
         }))} /> : undefined}>

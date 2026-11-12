@@ -4,9 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ChatStage } from "@/components/home/ChatStage";
 
-/** A finished, answered turn folds its work behind "Worked for …"; open every fold. */
+/** A finished, answered turn keeps its work behind a fold or, on the front page, behind the steps toggle; open every one. */
 const openWork = () => {
-  for (const toggle of Array.from(document.querySelectorAll<HTMLElement>("[data-testid='conversation-work-fold'][data-open='false'] > button"))) fireEvent.click(toggle);
+  for (const toggle of Array.from(document.querySelectorAll<HTMLElement>("[data-testid='conversation-work-fold'][data-open='false'] > button, [data-testid='trace-steps-toggle'][aria-expanded='false']"))) fireEvent.click(toggle);
 };
 import { EMPTY_TIMELINE, reduceEvents } from "@/components/agentchat/reduce";
 import type { AgentChatCatalog, AgentChatEvent } from "@/lib/agentChatApi";
@@ -917,13 +917,16 @@ describe("ChatStage (agent chat)", () => {
     const trace = screen.getByTestId("work-trace");
     const bubbles = within(trace).getAllByTestId("lead-bubble");
     expect(bubbles.map((node) => node.textContent)).toEqual(["I'll check the weather for this evening.", "Hot and humid today, around 32°C."]);
-    const fold = within(trace).getByTestId("conversation-work-fold");
-    expect(fold.getAttribute("data-open")).toBe("false");
-    expect(bubbles[0].compareDocumentPosition(fold) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(fold.compareDocumentPosition(bubbles[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The conversation is the two messages: no fold and no step between them.
+    expect(within(trace).queryByTestId("conversation-work-fold")).toBeNull();
+    expect(trace.textContent).not.toContain("Get-Weather");
+    // The step is one click away, under the turn.
     openWork();
-    expect(fold.textContent).toContain("Get-Weather");
-    expect(fold.textContent).not.toContain("I'll check the weather");
+    const steps = within(trace).getByTestId("trace-steps");
+    expect(steps.textContent).toContain("Get-Weather");
+    expect(steps.textContent).not.toContain("I'll check the weather");
+    expect(bubbles[0].compareDocumentPosition(steps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(steps.compareDocumentPosition(bubbles[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("shows nobody typing under an old message that never got an answer", () => {
@@ -972,12 +975,13 @@ describe("ChatStage (agent chat)", () => {
     }
   });
 
-  it("draws none of the model's reasoning, and keeps the steps behind the fold", () => {
+  it("draws none of the model's reasoning and none of its steps: the chat is messages", () => {
     // The complaint this guards (maintainer, 2026-11-12): the model's
-    // private thoughts stood in the conversation between its messages. The
-    // front-page chat shows what the assistant says and what it did, never
-    // what it thought (the 2026-08-25 scratchpad lives on in the IDE and
-    // the agent chats, agentchat/AgentTimeline.test.tsx).
+    // private thoughts and a line per tool call stood in the conversation
+    // between its messages. The front-page chat shows what the assistant
+    // says, never what it thought, and its steps only to whoever opens them
+    // (the 2026-08-25 scratchpad lives on in the IDE and the agent chats,
+    // agentchat/AgentTimeline.test.tsx).
     const timeline = reduceEvents(EMPTY_TIMELINE, [
       ev("user_message", { text: "look into it" }),
       ev("turn_started", { turn_id: "t4", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
@@ -992,10 +996,15 @@ describe("ChatStage (agent chat)", () => {
     render(<ChatStage />);
 
     const trace = screen.getByTestId("work-trace");
-    // The fold names the work, not a thought nobody can read.
-    const fold = within(trace).getByTestId("conversation-work-fold");
-    expect(fold.textContent).toContain("Worked for 6");
-    expect(fold.textContent).not.toContain("Thought");
+    expect(within(trace).queryByTestId("conversation-work-fold")).toBeNull();
+    expect(trace.querySelector("[data-trace-entry]")).toBeNull();
+    expect(trace.textContent).not.toContain("Get-NetTCPConnection");
+    expect(within(trace).getAllByTestId("lead-bubble").map((node) => node.textContent)).toEqual(["Running."]);
+    // Under the turn: how long it took, and the step for whoever asks.
+    const status = within(trace).getByRole("status");
+    expect(status.className).toContain("trace-meta");
+    expect(status.textContent).toContain("6");
+    expect(status.textContent).not.toContain("Thought");
     openWork();
     const text = trace.textContent!;
     expect(text).toContain("Get-NetTCPConnection");
@@ -1005,13 +1014,15 @@ describe("ChatStage (agent chat)", () => {
     expect(text.indexOf("Get-NetTCPConnection")).toBeLessThan(text.indexOf("Running."));
   });
 
-  it("keeps a thought out of a running turn too: the state line says it is working", () => {
+  it("keeps thoughts and steps out of a running turn too: only the dots say it is working", () => {
     const timeline = reduceEvents(EMPTY_TIMELINE, [
       ev("user_message", { text: "look into it" }),
       ev("turn_started", { turn_id: "t6", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
       ev("reasoning", { turn_id: "t6", text: "The user wants the port.", duration_ms: 1000 }),
+      ev("assistant_text", { turn_id: "t6", message_id: "m1", text: "I'll look at the port." }),
       ev("tool_call", { turn_id: "t6", call_id: "c1", name: "PowerShell", input: { command: "Get-NetTCPConnection" } }),
       ev("tool_result", { turn_id: "t6", call_id: "c1", output: "ok", is_error: false }),
+      ev("tool_call", { turn_id: "t6", call_id: "c2", name: "PowerShell", input: { command: "Get-NetFirewallRule" } }),
       ev("reasoning_started", { turn_id: "t6", message_id: "m2" }),
       ev("reasoning_delta", { turn_id: "t6", message_id: "m2", text: "Now the firewall." }),
     ]);
@@ -1023,8 +1034,13 @@ describe("ChatStage (agent chat)", () => {
     expect(trace.textContent).not.toContain("Now the firewall.");
     expect(screen.queryByTestId("reasoning-body")).toBeNull();
     expect(trace.textContent).not.toMatch(/Thinking|Thought/);
-    // The step it took is there, and the turn still says it is alive.
-    expect(trace.textContent).toContain("Get-NetTCPConnection");
+    // Neither the finished step nor the running one draws a line.
+    expect(trace.textContent).not.toContain("Get-NetTCPConnection");
+    expect(trace.textContent).not.toContain("Get-NetFirewallRule");
+    expect(trace.querySelector("[data-trace-entry]")).toBeNull();
+    // What it said is there, the dots under it, and the state is read out.
+    expect(within(trace).getAllByTestId("lead-bubble").map((node) => node.textContent)).toEqual(["I'll look at the port."]);
+    expect(within(trace).getByTestId("typing-indicator")).toBeTruthy();
     expect(within(trace).getByRole("status").textContent).toContain("Working");
   });
 
