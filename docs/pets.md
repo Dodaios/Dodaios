@@ -308,12 +308,15 @@ committed PNGs match the script). User-created pets live in
 ## Shader format `jarvis-shader-pet/1`
 
 A shader pet is a folder with a fragment file instead of a sprite sheet.
-Wisp Swarm ships as one: `dodaios/ui/pets/builtin/wisp-swarm/`. Replace
-`shader.frag` there to change that pet.
+Wisp Swarm and Mirror Fold ship as two:
+`dodaios/ui/pets/builtin/wisp-swarm/` and
+`dodaios/ui/pets/builtin/mirror-fold/`. Replace `shader.frag` in a
+folder to change that pet.
 
 | Id | Name | Idea |
 |---|---|---|
 | `wisp-swarm` | Wisp Swarm | A midsummer cloud of wisps that leans in to listen, churns while it thinks, and flares gold when something goes right |
+| `mirror-fold` | Mirror Fold | A mirrored platonic solid that leans in to listen, spins cold while it thinks, and flares gold when something goes right |
 
 An uploaded shader is the same
 two files under the user's pet folder.
@@ -475,7 +478,7 @@ Control-strip actions: `bell` (handled in the surface, reported through
 
 | Method and path | Body / result |
 |---|---|
-| `GET /api/pets` | `{active, scale, bubble, visible, pets: [{id, name, description, builtin, kind, frame_size, animations, sheet_url, shader_url, model_url, clips, options}]}`. `kind` is `sprite`, `shader`, `model` or `scene`. `wisp-swarm` (Wisp Swarm) is the built-in shader pack (`builtin/wisp-swarm`). `cube-cat` is the built-in model pack (`builtin/cube-cat`). `jarvis-orb` is built in and has no folder. Selecting any of them is saved the same way. The desktop figure draws a shader pet, a model pet from its GLB, and the Jarvis orb as that scene. The cube cat and the Jarvis orb also play on this page and in the Verse |
+| `GET /api/pets` | `{active, scale, bubble, visible, pets: [{id, name, description, builtin, kind, frame_size, animations, sheet_url, shader_url, model_url, clips, options}]}`. `kind` is `sprite`, `shader`, `model` or `scene`. `wisp-swarm` (Wisp Swarm) and `mirror-fold` (Mirror Fold) are the built-in shader packs (`builtin/wisp-swarm`, `builtin/mirror-fold`). `cube-cat` is the built-in model pack (`builtin/cube-cat`). `jarvis-orb` is built in and has no folder. Selecting any of them is saved the same way. The desktop figure draws a shader pet, a model pet from its GLB, and the Jarvis orb as that scene. The cube cat and the Jarvis orb also play on this page and in the Verse |
 | `GET /api/pets/{id}/sheet.png` | The sprite sheet. A shader pet answers 404 |
 | `GET /api/pets/{id}/shader.frag` | A shader pet's fragment source (`text/plain`). A sprite answers 404 |
 | `GET /api/pets/template.png` | The empty sprite-sheet template (48 px cells, rows in state order) |

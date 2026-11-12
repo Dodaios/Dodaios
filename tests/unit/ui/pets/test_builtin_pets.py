@@ -39,7 +39,7 @@ EXPECTED_PETS = (
     "flick",
     "aurelia",
 )
-NEW_SHADER_PETS = ("wisp-swarm",)
+NEW_SHADER_PETS = ("wisp-swarm", "mirror-fold")
 
 
 def _builder() -> ModuleType:

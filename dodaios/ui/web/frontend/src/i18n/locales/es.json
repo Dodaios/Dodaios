@@ -9755,6 +9755,9 @@
       "wisp-swarm": {
         "description": "Una nube de fuegos fatuos de pleno verano que se inclina para escuchar, se agita al pensar y brilla en oro cuando algo sale bien."
       },
+      "mirror-fold": {
+        "description": "Un sólido platónico con espejos que se inclina para escuchar, gira en frío al pensar y brilla en oro cuando algo sale bien."
+      },
       "cube-cat": {
         "description": "Un gato de cubos que corre en el sitio."
       }

@@ -1,0 +1,7 @@
+{
+  "format": "jarvis-shader-pet/1",
+  "id": "mirror-fold",
+  "name": "Mirror Fold",
+  "description": "A mirrored platonic solid that leans in to listen, spins cold while it thinks, and flares gold when something goes right.",
+  "shader": "shader.frag"
+}

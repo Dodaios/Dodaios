@@ -110,6 +110,7 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     _write_builtin(builtin, "miso")
     shipped = Path(__file__).resolve().parents[3] / "dodaios/ui/pets/builtin"
     shutil.copytree(shipped / "wisp-swarm", builtin / "wisp-swarm")
+    shutil.copytree(shipped / "mirror-fold", builtin / "mirror-fold")
     shutil.copytree(shipped / "cube-cat", builtin / "cube-cat")
     monkeypatch.setattr(loader, "builtin_root", lambda: builtin)
     data = tmp_path / "data"
@@ -174,6 +175,12 @@ def test_list_returns_state_and_every_pet(env) -> None:
     assert shader["builtin"] is True
     assert shader["sheet_url"] == ""
     assert shader["shader_url"] == "/api/pets/wisp-swarm/shader.frag"
+    solid = body["pets"][ids.index("mirror-fold")]
+    assert solid["kind"] == "shader"
+    assert solid["builtin"] is True
+    assert solid["name"] == "Mirror Fold"
+    assert solid["sheet_url"] == ""
+    assert solid["shader_url"] == "/api/pets/mirror-fold/shader.frag"
     cat = body["pets"][ids.index("cube-cat")]
     assert cat["kind"] == "model"
     assert cat["builtin"] is True
@@ -247,7 +254,7 @@ def test_put_active_saves_applies_and_announces(env) -> None:
 
 
 def test_put_active_accepts_the_orb_and_the_cube_cat(env) -> None:
-    for pet_id in ("wisp-swarm", "cube-cat", "jarvis-orb"):
+    for pet_id in ("wisp-swarm", "mirror-fold", "cube-cat", "jarvis-orb"):
         r = env.client.put("/api/pets/active", json={"pet_id": pet_id})
         assert r.status_code == 200, r.text
         assert r.json()["active"] == pet_id
