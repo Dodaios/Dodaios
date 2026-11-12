@@ -23,9 +23,9 @@ This module is that server, and deliberately nothing more:
 * it spawns PTYs through the ordinary :class:`~dodaios.terminal.pty_manager.PtyManager`
   (so the output pump, the kill-on-close process tree and the exit-code
   normalisation are the exact code the app already runs),
-* it keeps each terminal's raw output tail in a
+* it keeps each terminal's raw output tail and its scrolled-off rows in a
   :class:`~dodaios.agentic_ide.transcript.ReplayBuffer`, so a client that
-  attaches later can rebuild the screen,
+  attaches later can rebuild the screen and the history above it,
 * it answers the terminal's emulator queries itself
   (:class:`~dodaios.agentic_ide.terminal_input.TerminalQueryResponder`) —
   those replies are worthless once late, and a round trip through the app
@@ -329,6 +329,9 @@ class PtyHost:
         if isinstance(appearance, str) and appearance:
             queries.appearance = appearance
         replay = ReplayBuffer()
+        # Its mirror keeps the rows that scroll off, and needs the grid's size
+        # to know when one does.
+        replay.resize(cols, rows)
         # The id is not known until spawn returns, and output can arrive before
         # that — so the callbacks look the terminal up by the id they are given.
         pending: list[tuple[str, str]] = []
@@ -398,6 +401,11 @@ class PtyHost:
             term = self._terminals.get(terminal_id)
             if term is not None:
                 term.cols, term.rows = cols, rows
+                # The app's one-row repaint nudge arrives here like any other
+                # size, so this copy follows it there and back. That is what a
+                # terminal which was really resized twice would hold; the app's
+                # own copy, which knows a nudge from a resize, sits still.
+                term.replay.resize(cols, rows)
 
     def _close(self, terminal_id: str) -> None:
         # The pump reports the exit afterwards through ``_on_exit``.

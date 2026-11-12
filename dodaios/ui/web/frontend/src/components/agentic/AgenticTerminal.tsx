@@ -1076,6 +1076,9 @@ export function AgenticTerminal({
       // On a wall of panes that box sat in every idle prompt and read as a
       // stray glyph; the agent's own prompt already marks where input goes.
       cursorInactiveStyle: "none",
+      // How far back a pane can be scrolled. The server keeps the same number
+      // of rows for a pane that is joined again (`HISTORY_LIMIT_ROWS` in
+      // dodaios/agentic_ide/scrollback.py; a backend test holds the two equal).
       scrollback: 10000,
       // Required by the Unicode 11 width provider below.
       allowProposedApi: true,
@@ -1681,9 +1684,14 @@ export function AgenticTerminal({
       }
       synchronizedOutput.reset();
       term.reset();
-      // A normal-buffer CLI's replay is its whole scrollback — up to the
-      // server's 128 KB (see `ReplayBuffer`) — and xterm parses it in time
-      // slices. Written onto a VISIBLE surface, the history prints top to
+      // A normal-buffer CLI's replay is its whole scrollback — the rows the
+      // server kept as they scrolled off, up to this terminal's own 10,000
+      // (`ScrollbackMirror` in dodaios/agentic_ide/scrollback.py), then the
+      // screen — and xterm parses it in time slices. `reset()` above has just
+      // emptied this terminal's own history, so the replay is the only copy:
+      // whatever it leaves out cannot be scrolled back to (reported
+      // 2026-11-12, when it was 128 KB of raw output and nothing at all after
+      // a resize). Written onto a VISIBLE surface, the history prints top to
       // bottom with the viewport chasing it for the length of the parse
       // (reported 2026-08-08: every switch onto a fresh Codex pane opened on
       // the top of its history and visibly raced down). Alt-screen replays

@@ -269,7 +269,8 @@ const isCoding = (section: string) => (CODING_SECTION_IDS as readonly string[]).
  * panes are live terminals, and unmounting them is destructive in a way no
  * other section's state is. Leaving the section tore down a dozen xterm
  * instances and their sockets, and coming back rebuilt every one of them —
- * each re-attach replays up to `REPLAY_LIMIT_CHARS` of raw output per pane, so
+ * each re-attach replays the pane's screen and the history above it (up to
+ * `REPLAY_LIMIT_CHARS` of raw output, or `HISTORY_LIMIT_CHARS` of kept rows), so
  * a workspace of eleven terminals pushed well over a megabyte through the main
  * thread just to show what was already on screen three seconds earlier. Worse,
  * the remounted view starts out knowing of no workspace at all, so the first

@@ -203,6 +203,62 @@ every line the CLI prints and streams them to the app.
   app replaces a host of another build at the next thread start at which
   the host holds no turn; a host with turns is never touched.
 
+## Scrolling back in a grid pane
+
+A grid pane is xterm.js, and its scrollback lives in that xterm instance. The
+instance is built again each time the pane is joined: after a switch of
+workspace, a reload, an app restart, and whenever the grid was unmounted. It is
+built from the replay that `ReplayBuffer` (`dodaios/agentic_ide/transcript.py`)
+hands to the viewer, so the pane can be scrolled back exactly as far as that
+replay reaches.
+
+The replay has two parts:
+
+- **The screen.** The last 128 KB of the agent's raw output
+  (`REPLAY_LIMIT_CHARS`). A resize drops it, because cursor moves made for one
+  grid do not fit another, and the agent is asked to paint again.
+- **The history.** Every row that scrolled off the top of the screen, kept as
+  text and colour by `ScrollbackMirror` (`dodaios/agentic_ide/scrollback.py`).
+  It holds 10,000 rows (`HISTORY_LIMIT_ROWS`, the same number as the pane's
+  own `scrollback` option) and at most 1 MB (`HISTORY_LIMIT_CHARS`). Text fits
+  any grid, so a resize keeps it.
+
+`ScrollbackMirror` replays the output onto a grid the way xterm does, and that
+is how it knows which rows scrolled off. It must know the pane's size for this:
+every place that resizes a PTY also calls `ReplayBuffer.resize`. The app and
+the PTY host each keep one buffer per pane; after an app restart the host's
+replay fills the app's.
+
+A pane on the alternate screen (Claude Code with its fullscreen renderer, an
+editor) gets the screen part only. There the CLI scrolls its own conversation
+and the wheel is sent to it.
+
+What the person sees:
+
+| What happens | Are the earlier rows still there? |
+|---|---|
+| A switch between Chat and Grid, or to another workspace and back | Yes |
+| The pane is resized, maximized or moved | Yes. The agent draws its current screen again for the new size; the rows above it stay |
+| The window is reloaded, or the app is closed and opened while the agent keeps running | Yes. The PTY host keeps them with the agent |
+| The pane is restarted or closed, or the computer restarts | No. The rows belong to the process that printed them. A resumed CLI prints what it shows of its own conversation |
+
+The book button in the pane header opens the conversation the CLI recorded.
+That record does not have the 10,000-row limit.
+
+Known limits. A CLI that answers a resize by painting only part of its screen
+(Codex) leaves the rows that were on screen at that moment out of the next
+viewer's replay; the rows above them are there. And xterm does two things on a
+resize that the mirror does not repeat (see the module docstring of
+`scrollback.py`), so a few rows next to the screen can appear twice.
+
+Two tests hold the mirror to xterm. `tests/unit/agentic_ide/test_scrollback.py`
+writes `tests/fakes/terminal_scrollback_cases.json`: for each case, the output
+steps and the replay the mirror makes of them. The frontend test
+`terminalScrollbackReplay.test.ts` plays each case through the real xterm
+twice, once as a pane that stayed and once as a pane built from that replay,
+and compares the rows. Run the backend test with `UPDATE_SCROLLBACK_CASES=1`
+after a deliberate change to the mirror's output, then run the frontend test.
+
 Right after the app starts, it attaches to the host on its own, before any
 window opens a chat, so a waiting approval shows up without delay.
 
