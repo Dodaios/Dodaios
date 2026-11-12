@@ -12,7 +12,8 @@ Public surface:
   - load_position_from_toml(path) -> MascotPosition | None
   - save_position_to_toml(path, pos) -> None
   - clear_position_in_toml(path) -> None
-  - screens_from_tk(root) -> list[_ScreenSnapshot]   (Win32 EnumDisplayMonitors)
+  - pin_at_drop(x, y, screens, *, width, height, pointer=None) -> (x, y, pos)
+  - screens_from_tk(root) -> list[_ScreenSnapshot]   (Win32, or Quartz on macOS)
   - DEFAULT_MARGIN_PX, DEFAULT_X_RELATIVE, DEFAULT_Y_RELATIVE
 """
 from __future__ import annotations
@@ -253,6 +254,95 @@ def restore_pet_origin(
     return clamp_window_origin(raw_x, raw_y, area, width=width, height=height)
 
 
+def _screen_at(
+    screens: Sequence[_ScreenSnapshot], x: int, y: int
+) -> _ScreenSnapshot | None:
+    """The screen whose geometry contains ``(x, y)``, if any."""
+    for screen in screens:
+        sx, sy, sw, sh = screen.geometry
+        if sx <= x < sx + sw and sy <= y < sy + sh:
+            return screen
+    return None
+
+
+def _drop_screen(
+    pointer_hit: _ScreenSnapshot | None,
+    center_hit: _ScreenSnapshot | None,
+    screens: Sequence[_ScreenSnapshot],
+) -> _ScreenSnapshot | None:
+    """Which screen a mouse-up belongs on.
+
+    The pointer wins. A pointer that still reads as the primary while the
+    pet's center is already on another display does not — that reading is
+    what pulled a second-monitor drop back onto the main screen. A point on
+    no connected display falls through to a screen that exists.
+    """
+    if pointer_hit is not None and center_hit is not None:
+        if pointer_hit.is_primary and not center_hit.is_primary:
+            return center_hit
+        return pointer_hit
+    if pointer_hit is not None:
+        return pointer_hit
+    if center_hit is not None:
+        return center_hit
+    if not screens:
+        return None
+    return next((screen for screen in screens if screen.is_primary), screens[0])
+
+
+def pin_at_drop(
+    x: int,
+    y: int,
+    screens: Sequence[_ScreenSnapshot],
+    *,
+    width: int,
+    height: int,
+    pointer: tuple[int, int] | None = None,
+) -> tuple[int, int, MascotPosition]:
+    """Where a drag should stay when the button comes up.
+
+    Returns the clamped window origin and the relative pin to save. The
+    display is the one under ``pointer`` (or under the window center when
+    the pointer is missing). A window whose origin is still on the primary,
+    from drag start, is moved so its center sits on the pointer's display.
+    A point on no connected display is clamped onto a screen that exists.
+    With no screens at all the origin is kept and the monitor name is empty.
+    """
+    wide = max(1, int(width))
+    tall = max(1, int(height))
+    origin_x, origin_y = int(x), int(y)
+    center = (origin_x + wide // 2, origin_y + tall // 2)
+    pointer_hit = (
+        _screen_at(screens, int(pointer[0]), int(pointer[1]))
+        if pointer is not None
+        else None
+    )
+    center_hit = _screen_at(screens, center[0], center[1])
+    screen = _drop_screen(pointer_hit, center_hit, screens)
+    if screen is None:
+        return (
+            origin_x,
+            origin_y,
+            MascotPosition(monitor="", x_relative=origin_x, y_relative=origin_y),
+        )
+    if pointer is not None and pointer_hit is screen and center_hit is not screen:
+        origin_x = int(pointer[0]) - wide // 2
+        origin_y = int(pointer[1]) - tall // 2
+    clamped_x, clamped_y = clamp_window_origin(
+        origin_x, origin_y, screen.geometry, width=wide, height=tall
+    )
+    sx, sy, _sw, _sh = screen.geometry
+    return (
+        clamped_x,
+        clamped_y,
+        MascotPosition(
+            monitor=screen.name,
+            x_relative=clamped_x - sx,
+            y_relative=clamped_y - sy,
+        ),
+    )
+
+
 # ---------------------------------------------------------------------------
 # TOML load / save / clear — atomic, comment-preserving.
 # ---------------------------------------------------------------------------
@@ -449,18 +539,68 @@ def _replace_or_append_field(
 
 
 # ---------------------------------------------------------------------------
-# screens_from_tk — Win32 EnumDisplayMonitors.
+# screens_from_tk — Win32 EnumDisplayMonitors, Quartz on macOS.
 # ---------------------------------------------------------------------------
 
 
-def screens_from_tk(root) -> list[_ScreenSnapshot]:
-    """Win32 EnumDisplayMonitors → list of _ScreenSnapshot.
+def _darwin_display_list() -> list[tuple[str, tuple[int, int, int, int], bool]]:
+    """Active macOS displays as ``(name, geometry, is_primary)``.
 
-    The ``root`` parameter is accepted for API symmetry with the Qt
-    sibling but is unused — we read directly from Win32. On non-Windows
-    platforms we return an empty list and the caller falls back.
+    Names are Quartz display ids, so a pin can find the same screen next
+    launch. Geometry is global points with the origin at the top-left of the
+    main display — the same space as the Tk pointer. Empty when Quartz is
+    missing or the machine has no display.
+    """
+    try:
+        from Quartz import (  # noqa: PLC0415
+            CGDisplayBounds,
+            CGGetActiveDisplayList,
+            CGMainDisplayID,
+        )
+    except Exception:  # noqa: BLE001 — pyobjc not installed
+        return []
+    try:
+        err, display_ids, count = CGGetActiveDisplayList(16, None, None)
+        main_id = int(CGMainDisplayID())
+    except Exception:  # noqa: BLE001 — headless, or the display server is gone
+        return []
+    if err or not display_ids or not count:
+        return []
+    found: list[tuple[str, tuple[int, int, int, int], bool]] = []
+    for display in list(display_ids)[:count]:
+        left = top = width = height = 0
+        try:
+            rect = CGDisplayBounds(display)
+            left, top = int(rect.origin.x), int(rect.origin.y)
+            width, height = int(rect.size.width), int(rect.size.height)
+        except Exception:  # noqa: BLE001 — one bad display must not hide the rest
+            logger.debug("display bounds unavailable", exc_info=True)
+        if width <= 0 or height <= 0:
+            continue
+        found.append((str(int(display)), (left, top, width, height), int(display) == main_id))
+    if found and not any(primary for _name, _geo, primary in found):
+        name, geometry, _primary = found[0]
+        found[0] = (name, geometry, True)
+    return found
+
+
+def screens_from_tk(root) -> list[_ScreenSnapshot]:
+    """Monitors the pet can be pinned to.
+
+    Windows uses EnumDisplayMonitors device names. macOS uses Quartz display
+    ids: Tk has no monitor list there, and an empty list made mouse-up clamp
+    every drop onto the primary screen. Other platforms return an empty list
+    and the caller keeps the point.
+
+    The ``root`` parameter is accepted for API symmetry with the Qt sibling
+    but is unused — both platforms are read from the OS, not from Tk.
     """
     _ = root
+    if sys.platform == "darwin":
+        return [
+            _ScreenSnapshot(name=name, geometry=geometry, is_primary=primary)
+            for name, geometry, primary in _darwin_display_list()
+        ]
     if sys.platform != "win32":
         return []
     try:
@@ -523,6 +663,7 @@ __all__ = [
     "load_allow_secondary_monitor_pin",
     "load_position_from_toml",
     "load_saved_position",
+    "pin_at_drop",
     "resolve_placement",
     "restore_pet_origin",
     "save_position_to_toml",

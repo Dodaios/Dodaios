@@ -310,6 +310,62 @@ def test_a_pin_on_a_connected_second_monitor_is_kept():
     assert home == (1920 + 100, 200)
 
 
+def test_a_drop_on_a_second_display_saves_that_display(monkeypatch):
+    """Mouse-up must record the display under the drop, not the primary.
+
+    The window origin can still be the spot from drag start, on the main
+    display, while the pointer is on a second display. Clamping that point
+    back onto the primary is the snap on release.
+    """
+    import ui.orb.drag_persistence as mod
+    from ui.orb.drag_persistence import pin_at_drop, screens_from_tk
+
+    monkeypatch.setattr(mod.sys, "platform", "darwin")
+    monkeypatch.setattr(
+        mod,
+        "_darwin_display_list",
+        lambda: [
+            ("PRIMARY", (0, 0, 1920, 1080), True),
+            ("SECOND", (1920, 0, 1680, 1050), False),
+        ],
+    )
+    screens = screens_from_tk(None)
+    # Origin still on the primary. The pointer is on the second display.
+    x, y, pos = pin_at_drop(
+        400, 300, screens, width=120, height=140, pointer=(2500, 480)
+    )
+    assert pos.monitor == "SECOND"
+    assert (x, y) == (2500 - 120 // 2, 480 - 140 // 2)
+    assert pos.x_relative == x - 1920
+    assert pos.y_relative == y
+    # A pet that already followed the pointer stays on that spot.
+    kept_x, kept_y, kept = pin_at_drop(
+        2500, 420, screens, width=100, height=120, pointer=(2600, 500)
+    )
+    assert kept.monitor == "SECOND"
+    assert (kept_x, kept_y) == (2500, 420)
+    assert (kept.x_relative, kept.y_relative) == (2500 - 1920, 420)
+    # A pointer sample that still reads as the primary must not pull it back.
+    stay_x, stay_y, stay = pin_at_drop(
+        2500, 420, screens, width=100, height=120, pointer=(100, 100)
+    )
+    assert stay.monitor == "SECOND"
+    assert (stay_x, stay_y) == (2500, 420)
+
+
+def test_a_drop_off_every_display_clamps_onto_one_that_exists():
+    """A point on no connected display is pulled onto a screen that remains."""
+    from ui.orb.drag_persistence import pin_at_drop
+
+    primary = _screen("PRIMARY", primary=True, x=0, y=0, w=1920, h=1080)
+    x, y, pos = pin_at_drop(
+        9000, -40, [primary], width=100, height=120, pointer=(9000, -40)
+    )
+    assert pos.monitor == "PRIMARY"
+    assert (x, y) == (1920 - 100 - DEFAULT_MARGIN_PX, DEFAULT_MARGIN_PX)
+    assert (pos.x_relative, pos.y_relative) == (x, y)
+
+
 # ---------------------------------------------------------------------------
 # screens_from_tk (Win32 EnumDisplayMonitors)
 # ---------------------------------------------------------------------------

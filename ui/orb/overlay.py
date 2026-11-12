@@ -82,12 +82,11 @@ from ui.orb.animations import (
     make_animation,
 )
 from ui.orb.drag_persistence import (
-    MascotPosition,
-    clamp_to_work_area,
     clear_position_in_toml,
     load_allow_secondary_monitor_pin,
     load_position_from_toml,
     load_saved_position,
+    pin_at_drop,
     resolve_placement,
     restore_pet_origin,
     save_position_to_toml,
@@ -2923,17 +2922,25 @@ class OrbOverlay:
             )
             self._sync_notice_anchor()
 
-    def _clamp_position(
-        self, x: int, y: int, monitor_geo: tuple[int, int, int, int]
-    ) -> tuple[int, int]:
-        """Keep the window (for the pet: the figure plus its strip) on screen."""
-        if self._style != "pet":
-            return clamp_to_work_area(x, y, monitor_geo, mascot_size_px=self._win_w)
-        clamped_x, _ = clamp_to_work_area(x, y, monitor_geo, mascot_size_px=self._win_w)
-        _, clamped_y = clamp_to_work_area(
-            x, y, monitor_geo, mascot_size_px=self._win_h + self._pet_below_height()
-        )
-        return clamped_x, clamped_y
+    def _pin_size(self) -> tuple[int, int]:
+        """Width and height mouse-up keeps on the display.
+
+        The voice orb stays a square of its window edge. The pet includes the
+        strip under the figure, so a drop near the bottom of a screen does not
+        leave the strip hanging off it.
+        """
+        if self._style == "pet":
+            return self._win_w, self._win_h + self._pet_below_height()
+        return self._win_w, self._win_w
+
+    def _drop_pointer(self, event: tk.Event | None) -> tuple[int, int] | None:
+        """The pointer at mouse-up. ``None`` when this release has no event."""
+        if event is None:
+            return None
+        try:
+            return int(event.x_root), int(event.y_root)
+        except (AttributeError, TypeError, ValueError):
+            return None
 
     def _move_attached(self, x: int, y: int, screen_w: int) -> None:
         """Bring the bubble and the control row along after the window moved."""
@@ -2968,10 +2975,13 @@ class OrbOverlay:
             screen_w = self._root.winfo_screenwidth()
             screen_h = self._root.winfo_screenheight()
             if self._manual_pinned:
-                screens = screens_from_tk(self._root)
-                monitor_geo, monitor_name = self._monitor_at_orb_center(screens)
-                clamped_x, clamped_y = self._clamp_position(
-                    self._mascot_x, self._mascot_y, monitor_geo
+                width, height = self._pin_size()
+                clamped_x, clamped_y, position = pin_at_drop(
+                    self._mascot_x,
+                    self._mascot_y,
+                    screens_from_tk(self._root),
+                    width=width,
+                    height=height,
                 )
                 if (clamped_x, clamped_y) != (self._mascot_x, self._mascot_y):
                     self._mascot_x = clamped_x
@@ -2979,14 +2989,7 @@ class OrbOverlay:
                     self._root.geometry(f"{self._win_w}x{self._win_h}+{clamped_x}+{clamped_y}")
                     self._move_attached(clamped_x, clamped_y, screen_w)
                     try:
-                        save_position_to_toml(
-                            JARVIS_TOML_PATH,
-                            MascotPosition(
-                                monitor=monitor_name,
-                                x_relative=clamped_x - monitor_geo[0],
-                                y_relative=clamped_y - monitor_geo[1],
-                            ),
-                        )
+                        save_position_to_toml(JARVIS_TOML_PATH, position)
                     except OSError:
                         pass
             else:
@@ -3097,7 +3100,7 @@ class OrbOverlay:
             return
         self._move_attached(new_x, new_y, self._root.winfo_screenwidth())
 
-    def _on_drag_release(self, _event: tk.Event) -> None:
+    def _on_drag_release(self, event: tk.Event | None) -> None:
         if self._root is not None:
             try:
                 self._root.configure(cursor="")
@@ -3110,9 +3113,18 @@ class OrbOverlay:
         if self._style == "pet":
             self._apply_pet_feed("on_held", False)
 
-        screens = screens_from_tk(self._root)
-        monitor_geo, monitor_name = self._monitor_at_orb_center(screens)
-        clamped_x, clamped_y = self._clamp_position(self._mascot_x, self._mascot_y, monitor_geo)
+        # Pin the display under the pointer (or the pet's center). The old
+        # path invented a primary-screen rectangle whenever Tk had no monitor
+        # list, so a drop on a second display snapped back to the main one.
+        width, height = self._pin_size()
+        clamped_x, clamped_y, position = pin_at_drop(
+            self._mascot_x,
+            self._mascot_y,
+            screens_from_tk(self._root),
+            width=width,
+            height=height,
+            pointer=self._drop_pointer(event),
+        )
         if (clamped_x, clamped_y) != (self._mascot_x, self._mascot_y):
             self._mascot_x = clamped_x
             self._mascot_y = clamped_y
@@ -3134,14 +3146,7 @@ class OrbOverlay:
 
         self._manual_pinned = True
         try:
-            save_position_to_toml(
-                JARVIS_TOML_PATH,
-                MascotPosition(
-                    monitor=monitor_name,
-                    x_relative=self._mascot_x - monitor_geo[0],
-                    y_relative=self._mascot_y - monitor_geo[1],
-                ),
-            )
+            save_position_to_toml(JARVIS_TOML_PATH, position)
         except OSError as exc:
             # Persistence failure is non-fatal — orb stays at new position
             # for this session; next restart falls back to default.
@@ -3803,27 +3808,6 @@ class OrbOverlay:
             self._comment_bubble.update_anchor(anchor.x, anchor.y, screen_w)
         if self._controls is not None:
             self._controls.update_anchor(anchor.x, anchor.y)
-
-    def _monitor_at_orb_center(self, screens: list) -> tuple[tuple[int, int, int, int], str]:
-        """Return (geometry, device_name) of the monitor containing the orb center."""
-        cx = self._mascot_x + self._win_w // 2
-        cy = self._mascot_y + self._win_h // 2
-        for s in screens:
-            sx, sy, sw, sh = s.geometry
-            if sx <= cx < sx + sw and sy <= cy < sy + sh:
-                return s.geometry, s.name
-        # Fallback: primary monitor.
-        primary = next((s for s in screens if s.is_primary), None)
-        if primary is not None:
-            return primary.geometry, primary.name
-        if screens:
-            return screens[0].geometry, screens[0].name
-        # Last resort: single-screen guess.
-        if self._root is not None:
-            sw = self._root.winfo_screenwidth()
-            sh = self._root.winfo_screenheight()
-            return (0, 0, sw, sh), ""
-        return (0, 0, 1920, 1080), ""
 
     #: Min on-screen duration after a show() call. Even if hide() is invoked
     #: immediately afterwards, the mascot stays visible for at least this long.
