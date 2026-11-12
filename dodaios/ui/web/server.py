@@ -2572,6 +2572,14 @@ class WebServer:
             running = getattr(kontrollierer, "running_mission_ids", None)
             if callable(running) and running():
                 return False
+            # A chat that answers in this process (the front page's, a created
+            # agent's) loses its running turn to a restart; a thread's CLI
+            # lives in the turn host and is carried on. A chat service that
+            # was never built runs nothing.
+            chat = getattr(app.state, "agent_chat", None)
+            interrupted = getattr(chat, "turns_a_restart_would_end", None)
+            if callable(interrupted) and interrupted():
+                return False
             from dodaios.live.runtime import active
 
             if any(getattr(session, "is_active", False) for session in active()):
