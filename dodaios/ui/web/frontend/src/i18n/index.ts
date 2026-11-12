@@ -126,9 +126,11 @@ export type LocaleChunk =
   | "memory"
   | "ship"
   | "self_build"
-  | "trust";
+  | "trust"
+  | "voice";
 
 const SHIP_LOCALES = import.meta.glob("./locales/ship/*.json");
+const VOICE_LOCALES = import.meta.glob("./locales/voice/*.json");
 
 /** Keys that would reach an object's prototype instead of the object. */
 const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -144,13 +146,21 @@ function mergeDeep(target: Record<string, unknown>, source: Record<string, unkno
   return target;
 }
 
-/** Every ship locale file of one language, merged. */
-function shipLocale(lang: UiLanguage): () => Promise<unknown> {
+/** Every file of one language in a chunk that is split by area (`<area>.<lang>.json`), merged. */
+function areaLocale(files: Record<string, () => Promise<unknown>>, lang: UiLanguage): () => Promise<unknown> {
   return () => Promise.all(
-    Object.entries(SHIP_LOCALES)
+    Object.entries(files)
       .filter(([path]) => path.endsWith(`/${lang}.json`) || path.endsWith(`.${lang}.json`))
       .map(([, load]) => load()),
   ).then((mods) => mods.reduce<Record<string, unknown>>((all, mod) => mergeDeep(all, unwrapModule(mod)), {}));
+}
+
+function shipLocale(lang: UiLanguage): () => Promise<unknown> {
+  return areaLocale(SHIP_LOCALES, lang);
+}
+
+function voiceLocale(lang: UiLanguage): () => Promise<unknown> {
+  return areaLocale(VOICE_LOCALES, lang);
 }
 
 const CHUNK_LOADERS: Record<LocaleChunk, Record<UiLanguage, () => Promise<unknown>>> = {
@@ -250,6 +260,9 @@ const CHUNK_LOADERS: Record<LocaleChunk, Record<UiLanguage, () => Promise<unknow
     zh: () => import("./locales/trust/zh.json"),
     pt: () => import("./locales/trust/pt.json"),
   },
+  // The Voice section. One file per tab and language (`voice/<tab>.<lang>.json`),
+  // every key under the `voiceui` root.
+  voice: { en: voiceLocale("en"), de: voiceLocale("de"), es: voiceLocale("es"), zh: voiceLocale("zh"), pt: voiceLocale("pt") },
 };
 
 const EXTRA: Record<UiLanguage, Record<string, unknown>[]> = { en: [], de: [], es: [], zh: [], pt: [] };

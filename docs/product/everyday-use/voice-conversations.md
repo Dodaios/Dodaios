@@ -195,7 +195,7 @@ views. If a provider supplies no transcript for part of a Realtime exchange,
 Dodaios cannot reconstruct those missing words later.
 
 **Run Inspector** adds captured routing, tool, timing, approval, and error
-details. Dictation uses separate **Recent dictations** history and can retain
+details. Dictation uses the separate history on its own tab and can retain
 recovery audio only for incomplete results when that option is enabled.
 
 ## How It Fits Together

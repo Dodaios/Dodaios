@@ -1,12 +1,12 @@
 /**
- * Locale parity for the merged voice section.
+ * Locale parity for the voice strings that ride in the startup bundle.
  *
- * The whole section's copy — the tab labels, the shortcuts/language/API-keys
- * tabs, and every dictation string added alongside them — is seeded into en, de
- * and es in one pass. A key that exists in only one locale silently renders as
- * the raw key ("dictation.stats.streak") for everyone else, which no type check
- * catches. This locks the three files to the same key set and to non-empty
- * values.
+ * The Voice section's own copy lives in the `voice` locale chunk
+ * (`voice-locale-parity.test.ts`). What is left in the main files are the
+ * vocabularies the backend shares with the interface (dictation outcomes,
+ * failure reasons, wording statuses), the voice errors other screens show, and
+ * the shortcut recorder's strings. A key that exists in only one locale
+ * renders as the raw key for everyone else, which no type check catches.
  */
 import { describe, expect, it } from "vitest";
 import { CODEX_STATUS_KEY_BY_REASON } from "@/components/providers/ProviderTierSection";
@@ -40,7 +40,7 @@ function namespaceAt(loc: Loc, path: string): Loc {
 
 /** Namespaces the voice section owns or extends, and their minimum key count. */
 const NAMESPACES: readonly (readonly [string, number])[] = [
-  ["voice", 12],
+  ["voice", 4],
   ["dictation", 30],
   ["settings_view.keybinds", 20],
 ];

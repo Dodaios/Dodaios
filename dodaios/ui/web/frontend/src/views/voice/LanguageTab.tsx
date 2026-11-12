@@ -1,772 +1,355 @@
-import { useEffect, useRef, useState } from "react";
-// Five decorative glyphs left this file — one per card heading, plus two on
-// the sub-rows. Every one of them was --primary, which is a FILL: they
-// rendered brighter than the headings they were decorating and inverted the
-// ink ramp on a screen that is otherwise all reading. Nothing was lost with
-// them, because each sat beside a heading that already said the same word.
-import { Info, Languages, Loader2, PlugZap } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { ViewHeader } from "@/views/ChatsView";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { LanguageSelect } from "@/components/ui/language-select";
+import { BrandedSelect, type BrandedSelectOption } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
-  polishStatusLabel,
   testDictationPolish,
   useDictation,
-  type DictationPolishTest,
   type DictationSettings,
 } from "@/hooks/useDictation";
-import { Combobox } from "@/components/ui/combobox";
-import { LanguageSelect } from "@/components/ui/language-select";
-import { SkeletonBar } from "@/components/layout/PanelSkeleton";
-import { ApiKeyForm } from "@/components/ApiKeyForm";
 import { useProviders } from "@/hooks/useProviders";
-import { useEventStore } from "@/store/events";
-import { useT } from "@/i18n";
+import { fill, useT } from "@/i18n";
+import { KeyField } from "@/views/voice/keys/KeyField";
+import { modelEntry, modelIsLocal, modelName } from "@/views/voice/language/models";
+import { SampleResult, type SampleOutcome } from "@/views/voice/language/SampleResult";
+import { Group, LoadingGroup, Notice, Row, VoicePage } from "@/views/voice/kit";
 
-/**
- * Display names for the polish families.
- *
- * Presentation only, and an unknown id falls through to the id itself — so a
- * family added on the backend shows up in the dropdown immediately (the LIST
- * comes over the wire, never from here) and merely reads as "cerebras" instead
- * of "Cerebras" until someone adds a line. Brand names are not translated, so
- * this does not belong in the locale files.
- */
-const POLISH_PROVIDER_LABELS: Record<string, string> = {
-  groq: "Groq",
-  cerebras: "Cerebras",
-  gemini: "Google Gemini",
-  openai: "OpenAI",
-  openrouter: "OpenRouter",
-};
+/** The width of a select at the end of a row. */
+const SELECT_WIDTH = "w-60 text-title";
 
-/** A polish provider's display label; Ollama names its local runtime in the UI language. */
-function polishProviderLabelOrNull(id: string, t: (key: string) => string): string | null {
-  if (id === "ollama") return t("voice.polish.ollama_local");
-  return POLISH_PROVIDER_LABELS[id] ?? null;
-}
-
-function polishProviderLabel(id: string, t: (key: string) => string): string {
-  return polishProviderLabelOrNull(id, t) ?? id;
-}
-
-export interface LanguageTabProps {
-  /**
-   * Suppress this view's own `ViewHeader`.
-   *
-   * Set by the merged voice section, which renders one "{name} Voice" header
-   * above the tab bar — a second bordered band right below it reads as a
-   * rendering fault. Standalone rendering keeps its own header.
-   */
-  hideHeader?: boolean;
+/** The last row of a group: one sentence about where the text goes. */
+function GroupSentence({ children, testId }: { children: ReactNode; testId: string }) {
+  return (
+    <p className="px-block py-4 text-body text-foreground" data-testid={testId}>
+      {children}
+    </p>
+  );
 }
 
 /**
- * "Language" tab of the merged voice section — which language dictation is
- * transcribed in.
+ * The Language tab: which language is spoken, how the words are written down,
+ * and in which language.
  *
- * One control, and a deliberate recommendation attached to it: leave it on
- * automatic. Pinning a language is not a quality setting — it forces the
- * recognition model to decode every utterance as that language, which makes
- * results *worse* on a model that was never trained for it, and turns a
- * second-language sentence into nonsense instead of a best guess. The hint
- * says that in plain words rather than presenting four equal-looking options.
- *
- * This governs `[dictation].language` only. The wake word and the assistant's
- * reply language are separate settings on purpose — dictating in English while
- * being answered in German is a normal thing to want.
- *
- * The tab also owns the wording pass (`[dictation].polish`) and the translation
- * (`[dictation].translate`), because those are the other two thirds of the same
- * question: the language decides what is recognized, the wording pass decides
- * how what was recognized is written down, and the translation decides which
- * language it is written down in. All three are text quality, and none belongs
- * on a screen about keys or shortcuts.
+ * Every option is a row with a switch or a select, saved the moment it
+ * changes. A row that only matters while another is on appears with it. Three
+ * options hand the text to a model (clean up wording, the coding prompt, the
+ * translation); they share one model, chosen in the last group, and a group
+ * says in one sentence when that model is a company's and the text goes there.
  */
-export function LanguageTab({ hideHeader = false }: LanguageTabProps = {}) {
+export function LanguageTab() {
   const t = useT();
-  const { settings, choices, wordingProvider, loading, error, saveSettings: persistSettings, refetch } =
-    useDictation();
-  // Only for the credential half of the translate card: the dashboard link and
-  // the "which key is this" line live on the provider catalog, and copying
-  // them into this view would be a second source of truth for both.
+  const {
+    settings,
+    choices,
+    wordingProvider,
+    loading,
+    saveSettings: persistSettings,
+    refetch,
+  } = useDictation();
+  // For the key row only: which other places read the same key.
   const { providers, refetch: refetchProviders } = useProviders();
-  const pushToast = useEventStore((s) => s.pushToast);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<DictationPolishTest | null>(null);
-  const [saving, setSaving] = useState(false);
-  const writing = useRef(false);
-  const testVersion = useRef(0);
-  const controlsBusy = loading || saving || testing;
 
+  const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [sample, setSample] = useState<SampleOutcome>(null);
+  // The hook clears its error when it starts to load again; without this the
+  // screen would be blank for the length of the request.
+  const [retrying, setRetrying] = useState(false);
+  const writing = useRef(false);
+  const sampleVersion = useRef(0);
+  const busy = loading || saving || testing;
+
+  // A sample result describes the settings it ran with. When they change, here
+  // or on another screen, the result goes, and one still on its way is dropped.
   useEffect(() => {
-    testVersion.current += 1;
-    setTestResult(null);
+    sampleVersion.current += 1;
+    setSample(null);
   }, [settings]);
 
-  async function saveSettings(patch: Partial<DictationSettings>) {
+  async function save(patch: Partial<DictationSettings>) {
     if (writing.current) return;
     writing.current = true;
-    testVersion.current += 1;
-    setTestResult(null);
+    sampleVersion.current += 1;
+    setSample(null);
     setSaving(true);
     try {
       await persistSettings(patch);
+      setSaveFailed(false);
+    } catch {
+      setSaveFailed(true);
     } finally {
       writing.current = false;
       setSaving(false);
     }
   }
 
-  async function onPick(language: string) {
-    try {
-      await saveSettings({ language });
-      pushToast("success", t("dictation.saved"));
-    } catch (e) {
-      pushToast("error", (e as Error).message);
-    }
-  }
-
-  async function onTogglePolish(next: boolean) {
-    // The previous run described a configuration that no longer applies, so it
-    // goes rather than sitting there as a stale claim.
-    setTestResult(null);
-    try {
-      await saveSettings({ polish: next });
-      pushToast("success", t("dictation.saved"));
-    } catch (e) {
-      pushToast("error", (e as Error).message);
-    }
-  }
-
-  async function onPickPolishProvider(provider: string) {
-    setTestResult(null);
-    try {
-      await saveSettings({ polish_provider: provider, polish_model: "" });
-      pushToast("success", t("dictation.saved"));
-    } catch (e) {
-      pushToast("error", (e as Error).message);
-    }
-  }
-
-  async function onToggleConversation(next: boolean) {
-    try {
-      await saveSettings({ polish_conversation: next });
-      pushToast("success", t("dictation.saved"));
-    } catch (e) {
-      pushToast("error", (e as Error).message);
-    }
-  }
-
-  async function onTogglePrecision(next: boolean) {
-    // Clearing matters more here than on the other switches: the dry run uses a
-    // DIFFERENT sample in precision mode, so a stale result would sit next to
-    // the switch showing a sentence the new setting would never produce.
-    setTestResult(null);
-    try {
-      await saveSettings({ polish_precision: next });
-      pushToast("success", t("dictation.saved"));
-    } catch (e) {
-      pushToast("error", (e as Error).message);
-    }
-  }
-
-  async function onTogglePromptMode(next: boolean) {
-    // The dry run switches to Prompt Mode's own sample while this is on, so a
-    // result from the other mode would show a sentence this one never writes.
-    setTestResult(null);
-    try {
-      await saveSettings({ prompt_mode: next });
-      pushToast("success", t("dictation.saved"));
-    } catch (e) {
-      pushToast("error", (e as Error).message);
-    }
-  }
-
-  async function onToggleTranslate(next: boolean) {
-    setTestResult(null);
-    try {
-      await saveSettings({ translate: next });
-      pushToast("success", t("dictation.saved"));
-    } catch (e) {
-      pushToast("error", (e as Error).message);
-    }
-  }
-
-  async function onPickTranslateTarget(translate_target: string) {
-    setTestResult(null);
-    try {
-      await saveSettings({ translate_target });
-      pushToast("success", t("dictation.saved"));
-    } catch (e) {
-      pushToast("error", (e as Error).message);
-    }
-  }
-
-  async function runPolishTest() {
-    if (controlsBusy) return;
-    const version = ++testVersion.current;
+  async function runSample() {
+    if (busy) return;
+    const version = ++sampleVersion.current;
     setTesting(true);
-    setTestResult(null);
+    setSample(null);
     try {
       const result = await testDictationPolish();
-      if (version === testVersion.current) setTestResult(result);
-    } catch (e) {
-      pushToast("error", (e as Error).message);
+      if (version === sampleVersion.current) setSample({ kind: "result", result });
+    } catch {
+      if (version === sampleVersion.current) setSample({ kind: "failed" });
     } finally {
       setTesting(false);
     }
   }
 
-  const languageCodes = choices?.language ?? [];
-  const value = settings?.language ?? "auto";
+  async function retry() {
+    setRetrying(true);
+    try {
+      await refetch();
+    } finally {
+      setRetrying(false);
+    }
+  }
 
-  // Default ON, which is safe on an install with no text-model key at all: the
-  // chain comes back empty, the pass reports "unavailable" and the raw
-  // transcript is delivered — byte-identical to a build without the feature.
-  const polishOn = settings?.polish ?? true;
-  // Default OFF, unlike the switch above, and the card says why: this one
-  // relaxes a guard rather than only costing a formatting pass.
-  const precisionOn = settings?.polish_precision ?? false;
-  const conversationOn = settings?.polish_conversation ?? false;
-  const polishProvider = settings?.polish_provider ?? "auto";
-  const served = choices?.polish_provider ?? ["auto"];
-  // A pin the served list does not contain would otherwise render as the first
-  // option, and the dropdown would quietly claim a provider the config does not
-  // say. Showing the stored value is the honest fallback.
-  const polishProviders = served.includes(polishProvider)
-    ? served
-    : [...served, polishProvider];
+  if (!settings) {
+    return (
+      <VoicePage testId="voice-language">
+        {loading || retrying ? (
+          <>
+            <LoadingGroup rows={1} testId="voice-language-loading" />
+            <LoadingGroup rows={4} />
+            <LoadingGroup rows={1} />
+          </>
+        ) : (
+          <Notice
+            tone="fault"
+            testId="voice-language-error"
+            action={
+              <Button variant="outline" onClick={() => void retry()}>
+                {t("voiceui.common.retry")}
+              </Button>
+            }
+          >
+            {t("voiceui.language.load_failed")}
+          </Notice>
+        )}
+      </VoicePage>
+    );
+  }
 
-  // Ships OFF, unlike the wording pass: this changes WHICH WORDS come out, not
-  // just how they are written, so it is never on until someone asks for it.
-  const translateOn = settings?.translate ?? false;
-  // Ships OFF too, and for a stronger reason than translation: it rewrites the
-  // dictation into a brief for a coding agent, so WHAT the text says changes
-  // by design. Chosen, never inherited.
-  const promptModeOn = settings?.prompt_mode ?? false;
+  const spoken = settings.language ?? "auto";
+  const polishOn = settings.polish ?? true;
+  const precisionOn = settings.polish_precision ?? false;
+  const conversationOn = settings.polish_conversation ?? false;
+  const promptOn = settings.prompt_mode ?? false;
+  const translateOn = settings.translate ?? false;
+  const translateTarget = settings.translate_target ?? "en";
+  // More exact words keep the wording model at work while clean-up is off, so
+  // the two together decide whether wording is on.
   const wordingOn = polishOn || precisionOn;
-  const processingOn = wordingOn || promptModeOn || translateOn;
-  const translateTarget = settings?.translate_target ?? "en";
-  // No "auto" in this list, and none is added here — there is nothing to detect
-  // on the output side, so an auto entry would be a choice that does nothing.
-  const translateTargets = choices?.translate_target ?? [];
-  // Pinning the dictation language to the same language the output is pinned to
-  // means nothing will ever be translated. Neither setting is wrong on its own,
-  // so this is said rather than prevented: silently ignoring one of two switches
-  // the user set is the failure mode worth avoiding.
-  const targetEqualsSource = value !== "auto" && value === translateTarget;
+  // Anything that hands the text to the model.
+  const modelInUse = wordingOn || promptOn || translateOn;
 
-  // The credential half of the translate card.
-  //
-  // Which family answers is the BACKEND's answer (`wordingProvider`), never a
-  // re-derivation from the list above: the `auto` order depends on the keys
-  // this host holds and on the privacy rule that pins an on-device recognizer
-  // to on-device models, and a second implementation of it here would let the
-  // card name one provider while the dictation used another (AP-4).
-  //
-  // What the card still needs from the provider catalog is the human half —
-  // the dashboard link and the "which key is this" sentence — so those are
-  // looked up by the spec id the backend handed over rather than copied.
-  const wordingCard = wordingProvider?.spec_id
-    ? (providers.find((entry) => entry.id === wordingProvider.spec_id) ?? null)
-    : null;
-  // Asked whenever the resolved provider still needs a key. Deliberately NOT
-  // gated on `polish`: a translation runs with the formatter switched off, so
-  // hiding the only place to fix it there would leave the switch reading as on
-  // with the feature dead and nothing on screen explaining it (AP-31).
-  const wordingNeedsKey = Boolean(
-    wordingProvider && !wordingProvider.ready && wordingProvider.secret_key,
-  );
-  // The formatter block already renders this dropdown when it is open. A second
-  // identical one a few rows below would read as two settings, so this one
-  // appears only where there is otherwise nowhere to choose.
+  // Which model really answers is the server's answer. The order of the
+  // automatic choice depends on the keys on this computer, so it is never
+  // worked out a second time here.
+  const answering = wordingProvider && wordingProvider.family ? wordingProvider : null;
+  const ready = Boolean(answering?.ready);
+  const answeringLocal = answering ? modelIsLocal(answering.family, providers, answering) : false;
+  const answeringName = answering ? modelName(answering.family, providers, answering.label) : "";
+  // The company the text goes to, or nothing when it stays on this computer
+  // or no model answers.
+  const sentTo = ready && !answeringLocal ? answeringName : null;
+  // Nothing answers: the options above are on and do nothing.
+  const noModel = modelInUse && wordingProvider !== null && !ready;
+  // The key that would fix it.
+  const missingKey = noModel && answering?.secret_key ? answering.secret_key : null;
+  const keyEntry = answering ? modelEntry(answering.family, providers) : null;
+
+  // The language spoken and the language written are the same one, so the
+  // translation has nothing to do.
+  const sameLanguage = translateOn && spoken !== "auto" && spoken === translateTarget;
+
+  const storedModel = settings.polish_provider ?? "auto";
+  const served = choices?.polish_provider ?? ["auto"];
+  // A stored model the served list does not hold is still shown as itself;
+  // the select must not name a model the settings do not say.
+  const modelIds = served.includes(storedModel) ? served : [...served, storedModel];
+  const localName = (id: string) =>
+    fill(t("voiceui.language.model_local"), { provider: modelName(id, providers) });
+  const modelOptions: BrandedSelectOption[] = modelIds.map((id) => {
+    if (id !== "auto") {
+      return {
+        value: id,
+        label: modelIsLocal(id, providers, answering) ? localName(id) : modelName(id, providers),
+      };
+    }
+    // The closed select names the model the automatic choice lands on.
+    const lands = ready && answering ? (answeringLocal ? localName(answering.family) : answeringName) : null;
+    return {
+      value: id,
+      label: t("voiceui.language.model_auto"),
+      triggerLabel: lands
+        ? fill(t("voiceui.language.model_auto_resolved"), { provider: lands })
+        : undefined,
+    };
+  });
 
   return (
-    <div className="flex h-full flex-col">
-      {!hideHeader && (
-        <ViewHeader
-          icon={<Languages className="h-4 w-4 text-foreground" />}
-          title={t("voice.language.title")}
-          subtitle={t("voice.language.description")}
-        />
+    <VoicePage testId="voice-language">
+      {saveFailed && (
+        <Notice tone="fault" testId="voice-language-save-failed">
+          {t("voiceui.language.save_failed")}
+        </Notice>
       )}
-      <div
-        className="flex-1 overflow-y-auto scrollbar-jarvis p-6"
-        data-testid="voice-language-tab"
-      >
-        {/* Four settings groups at the form measure, 32px apart. They used to
-            run together at 16px inside cards painted with an opacity, which is
-            what made this tab read as one long undifferentiated mesh. */}
-        <div className="mx-auto flex max-w-form flex-col gap-group">
-          {error && <p className="text-meta text-destructive">{error}</p>}
 
-          <Card className="p-5">
-            <h4 className="text-title font-semibold text-foreground-strong">
-              {t("voice.language.title")}
-            </h4>
-            <p className="mt-1 text-meta text-muted-foreground">
-              {t("voice.language.description")}
-            </p>
+      <Group>
+        <Row label={t("voiceui.language.spoken")}>
+          <LanguageSelect
+            value={spoken}
+            codes={choices?.language ?? []}
+            onChange={(language) => void save({ language })}
+            autoLabel={t("voiceui.language.auto")}
+            ariaLabel={t("voiceui.language.spoken")}
+            disabled={busy}
+            className={SELECT_WIDTH}
+            testId="voice-language-spoken"
+          />
+        </Row>
+      </Group>
 
-            {loading ? (
-              <div className="mt-block max-w-xs">
-                <SkeletonBar className="h-9 w-full" />
-              </div>
-            ) : (
-              <div className="mt-block max-w-xs">
-                <LanguageSelect
-                  value={value}
-                  codes={languageCodes}
-                  onChange={(code) => void onPick(code)}
-                  autoLabel={t("voice.language.auto")}
-                  ariaLabel={t("voice.language.title")}
-                  testId="dictation-language"
+      <Group title={t("voiceui.language.wording")} testId="voice-language-wording">
+        <Row label={t("voiceui.language.polish")}>
+          <Switch
+            checked={polishOn}
+            disabled={busy}
+            onCheckedChange={(polish) => void save({ polish })}
+            aria-label={t("voiceui.language.polish")}
+            data-testid="voice-language-polish"
+          />
+        </Row>
+        {/* Not under the switch above: more exact words also apply to a
+            translated dictation, which runs while clean-up is off. */}
+        <Row label={t("voiceui.language.precision")}>
+          <Switch
+            checked={precisionOn}
+            disabled={busy}
+            onCheckedChange={(polish_precision) => void save({ polish_precision })}
+            aria-label={t("voiceui.language.precision")}
+            data-testid="voice-language-precision"
+          />
+        </Row>
+        {wordingOn && (
+          <Row label={t("voiceui.language.conversation")}>
+            <Switch
+              checked={conversationOn}
+              disabled={busy}
+              onCheckedChange={(polish_conversation) => void save({ polish_conversation })}
+              aria-label={t("voiceui.language.conversation")}
+              data-testid="voice-language-conversation"
+            />
+          </Row>
+        )}
+        <Row label={t("voiceui.language.prompt_mode")}>
+          <Switch
+            checked={promptOn}
+            disabled={busy}
+            onCheckedChange={(prompt_mode) => void save({ prompt_mode })}
+            aria-label={t("voiceui.language.prompt_mode")}
+            data-testid="voice-language-prompt-mode"
+          />
+        </Row>
+        {(wordingOn || promptOn) && sentTo && (
+          <GroupSentence testId="voice-language-sends-text">
+            {fill(t("voiceui.language.sends_text"), { provider: sentTo })}
+          </GroupSentence>
+        )}
+      </Group>
+
+      <Group title={t("voiceui.language.translation")} testId="voice-language-translation">
+        <Row label={t("voiceui.language.translate")}>
+          <Switch
+            checked={translateOn}
+            disabled={busy}
+            onCheckedChange={(translate) => void save({ translate })}
+            aria-label={t("voiceui.language.translate")}
+            data-testid="voice-language-translate"
+          />
+        </Row>
+        {translateOn && (
+          <Row label={t("voiceui.language.translate_target")}>
+            {/* The served list has no automatic entry: there is nothing to
+                detect in the language that is written. */}
+            <LanguageSelect
+              value={translateTarget}
+              codes={choices?.translate_target ?? []}
+              onChange={(translate_target) => void save({ translate_target })}
+              autoLabel={t("voiceui.language.auto")}
+              ariaLabel={t("voiceui.language.translate_target")}
+              disabled={busy}
+              className={SELECT_WIDTH}
+              testId="voice-language-translate-target"
+            />
+          </Row>
+        )}
+        {translateOn && sentTo && (
+          <GroupSentence testId="voice-language-translate-sends-text">
+            {fill(t("voiceui.language.translate_sends_text"), { provider: sentTo })}
+          </GroupSentence>
+        )}
+      </Group>
+
+      {sameLanguage && (
+        <Notice testId="voice-language-same-language">{t("voiceui.language.same_language")}</Notice>
+      )}
+
+      {noModel && <Notice testId="voice-language-no-model">{t("voiceui.language.no_model")}</Notice>}
+
+      {modelInUse && (
+        <Group title={t("voiceui.language.model")} testId="voice-language-model-group">
+          <Row label={t("voiceui.language.provider")}>
+            <BrandedSelect
+              value={storedModel}
+              options={modelOptions}
+              // Another model has another default version, so a stored version
+              // does not carry over.
+              onValueChange={(polish_provider) => void save({ polish_provider, polish_model: "" })}
+              ariaLabel={t("voiceui.language.provider")}
+              disabled={busy}
+              className={SELECT_WIDTH}
+              testId="voice-language-model"
+            />
+          </Row>
+          {missingKey && (
+            <Row
+              label={fill(t("voiceui.language.key"), { provider: answeringName })}
+              testId="voice-language-key"
+              below={
+                <KeyField
+                  slot={missingKey}
+                  provider={answeringName}
+                  stored={Boolean(keyEntry?.secrets_set?.[missingKey])}
+                  sharedWith={keyEntry?.secret_shared_with?.[missingKey] ?? []}
+                  onChanged={() => {
+                    void refetchProviders();
+                    void refetch();
+                  }}
+                  testId="voice-language-key-field"
                 />
-              </div>
-            )}
-
-            {/* A well inside a card steps UP to --secondary. It used to be
-                --background at 40 %, which rendered the note darker than the
-                card holding it. */}
-            <div className="mt-block flex items-start gap-2 rounded-md bg-secondary p-3">
-              <Info
-                aria-hidden="true"
-                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground"
-              />
-              <p
-                className="text-meta text-muted-foreground"
-                data-testid="dictation-language-hint"
-              >
-                {t("voice.language.auto_hint")}
-              </p>
-            </div>
-          </Card>
-
-          <Card className="p-5" data-testid="dictation-polish-card">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h4 className="text-title font-semibold text-foreground-strong">
-                  {t("voice.polish.title")}
-                </h4>
-                {/* The honest trade, in one line: what it changes, what it does
-                    not, and where the untouched original stays. Anyone letting
-                    a model rewrite their own words deserves to read that before
-                    the switch, not after. */}
-                <p
-                  className="mt-1 text-meta text-muted-foreground"
-                  data-testid="dictation-polish-description"
-                >
-                  {t("voice.polish.description")}
-                </p>
-                {/* Where the text GOES, which the sentence above never said.
-                    The pass is a normal cloud feature and is worded as one —
-                    no banner, no warning colour — but "a model rewrites your
-                    words" and "your words are uploaded to do it" are two
-                    different facts, and only one of them was on screen. Shown
-                    whether the switch is on or off, because someone deciding
-                    to turn it ON is exactly who needs it. */}
-                <p
-                  className="mt-1 text-meta text-muted-foreground"
-                  data-testid="dictation-polish-sends-text"
-                >
-                  {t("voice.polish.sends_text")}
-                </p>
-              </div>
-              <Switch
-                checked={polishOn}
-                disabled={controlsBusy}
-                onCheckedChange={(next) => void onTogglePolish(next)}
-                aria-label={t("voice.polish.title")}
-                data-testid="dictation-polish-toggle"
-              />
-            </div>
-
-            {/* Deliberately OUTSIDE the `polishOn` block below. Precision also
-                governs a TRANSLATED dictation, which runs with the formatter
-                switched off — hiding the switch there would leave it silently
-                in force with no way to see or reach it (AP-31). */}
-            <div
-              className="mt-block flex items-start justify-between gap-4 border-t border-border pt-block"
-              data-testid="dictation-precision-row"
+              }
+            />
+          )}
+          <Row label={t("voiceui.language.sample")} below={sample ? <SampleResult outcome={sample} /> : undefined}>
+            <Button
+              variant="outline"
+              onClick={() => void runSample()}
+              disabled={busy}
+              data-testid="voice-language-test"
             >
-              <div className="min-w-0">
-                {/* A row title inside a card is ink, not ink-strong — the
-                    card's own heading keeps that step to itself. */}
-                <h5 className="text-title font-semibold text-foreground">
-                  {t("voice.polish.precision_title")}
-                </h5>
-                <p
-                  className="mt-1 text-meta text-muted-foreground"
-                  data-testid="dictation-precision-description"
-                >
-                  {t("voice.polish.precision_description")}
-                </p>
-                {/* The trade, said out loud. This switch is not a matter of
-                    taste like the register is — it relaxes the check that
-                    rejects an answer in which an uncommon word vanished, which
-                    is the difference between "off by default" and "on by
-                    default" for everything else on this card. */}
-                <p
-                  className="mt-1 text-meta text-muted-foreground"
-                  data-testid="dictation-precision-tradeoff"
-                >
-                  {t("voice.polish.precision_tradeoff")}
-                </p>
-              </div>
-              <Switch
-                checked={precisionOn}
-                disabled={controlsBusy}
-                onCheckedChange={(next) => void onTogglePrecision(next)}
-                aria-label={t("voice.polish.precision_title")}
-                data-testid="dictation-precision-toggle"
-              />
-            </div>
-
-            {processingOn && (
-              <>
-                {/* INSIDE the block, unlike the precision row above: this one
-                    genuinely needs the formatter, because it switches the same
-                    pass on for a second source rather than being a pass of its
-                    own. Showing it while the formatter is off would be a switch
-                    that saves, reads as on, and does nothing (AP-31). */}
-                {wordingOn && <div
-                  className="mt-block flex items-start justify-between gap-4 border-t border-border pt-block"
-                  data-testid="dictation-conversation-row"
-                >
-                  <div className="min-w-0">
-                    <h5 className="text-title font-semibold text-foreground">
-                      {t("voice.polish.conversation_title")}
-                    </h5>
-                    <p
-                      className="mt-1 text-meta text-muted-foreground"
-                      data-testid="dictation-conversation-description"
-                    >
-                      {t("voice.polish.conversation_description")}
-                    </p>
-                    {/* The question anyone asks about a model call on the voice
-                        path, answered before it is asked. It runs beside the
-                        reply, never in front of it. */}
-                    <p
-                      className="mt-1 text-meta text-muted-foreground"
-                      data-testid="dictation-conversation-latency"
-                    >
-                      {t("voice.polish.conversation_latency")}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={conversationOn}
-                    disabled={controlsBusy}
-                    onCheckedChange={(next) => void onToggleConversation(next)}
-                    aria-label={t("voice.polish.conversation_title")}
-                    data-testid="dictation-conversation-toggle"
-                  />
-                </div>}
-
-                {/* The same themed control as the language picker above it —
-                    a native <select> sitting right beside one would put the
-                    operating system's own grey list back on the card. No
-                    search field: this list is six entries, not a hundred. */}
-                {/* Sentence case, 13px. The 10px uppercase label it replaced
-                    was below the type floor twice over — under 11px, and the
-                    one construction that makes a screen read as an admin
-                    panel. */}
-                <div className="mt-block flex max-w-xs flex-col gap-2">
-                  <span className="text-meta text-muted-foreground">
-                    {t("voice.polish.provider_label")}
-                  </span>
-                  <Combobox
-                    value={polishProvider}
-                    ariaLabel={t("voice.polish.provider_label")}
-                    onChange={(id) => void onPickPolishProvider(id)}
-                    testId="dictation-polish-provider"
-                    disabled={controlsBusy}
-                    groups={[
-                      {
-                        id: "providers",
-                        options: polishProviders.map((id) => ({
-                          value: id,
-                          label:
-                            id === "auto"
-                              ? t("voice.polish.provider_auto")
-                              : polishProviderLabel(id, t),
-                        })),
-                      },
-                    ]}
-                  />
-                </div>
-                <p className="mt-2 text-meta text-muted-foreground">
-                  {t("voice.polish.provider_hint")}
-                </p>
-
-                  {wordingNeedsKey && wordingProvider && (
-                    <div className="mt-block" data-testid="dictation-wording-key">
-                      <ApiKeyForm
-                        secretKey={wordingProvider.secret_key}
-                        dashboardUrl={wordingCard?.dashboard_url ?? null}
-                        configured={Boolean(
-                          wordingCard?.secrets_set?.[wordingProvider.secret_key],
-                        )}
-                        credentialHelp={wordingCard?.credential_help ?? null}
-                        sharedWith={
-                          wordingCard?.secret_shared_with?.[
-                            wordingProvider.secret_key
-                          ]
-                        }
-                        onChanged={() => { void refetchProviders(); void refetch(); }}
-                      />
-                      <p className="mt-2 text-meta text-muted-foreground">
-                        {t("voice.translate.key_saved_hint")}
-                      </p>
-                    </div>
-                  )}
-                <div className="mt-block flex flex-wrap items-center gap-2 border-t border-border pt-block">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void runPolishTest()}
-                    disabled={controlsBusy}
-                    data-testid="dictation-polish-test"
-                    className="gap-2"
-                  >
-                    {testing ? (
-                      <Loader2
-                        aria-hidden="true"
-                        className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none"
-                      />
-                    ) : (
-                      <PlugZap aria-hidden="true" className="h-3.5 w-3.5" />
-                    )}
-                    {testing ? t("voice.polish.testing") : t("voice.polish.test")}
-                  </Button>
-                  <span className="text-meta text-muted-foreground">
-                    {t("voice.polish.test_hint")}
-                  </span>
-                </div>
-
-                {/* The dry run's own result: what answered, and the same
-                    sentence before and after it. A lift panel inside the card,
-                    with the two samples set as prose rather than as two more
-                    12px interface labels — reading them side by side IS the
-                    point of the button. */}
-                {testResult && (
-                  <div
-                    className="mt-block space-y-stack rounded-md bg-secondary p-3"
-                    data-testid="dictation-polish-test-result"
-                  >
-                    <p className="text-meta text-muted-foreground">
-                      <span className="text-foreground">
-                        {polishStatusLabel(t, testResult.status)}
-                      </span>
-                      {testResult.provider ? ` · ${testResult.provider}` : ""}
-                      {testResult.model ? ` · ${testResult.model}` : ""}
-                      {testResult.latency_ms
-                        ? ` · ${Math.round(testResult.latency_ms)} ms`
-                        : ""}
-                      {testResult.reason ? ` · ${testResult.reason}` : ""}
-                    </p>
-                    <div>
-                      <p className="text-meta text-muted-foreground">
-                        {t("voice.polish.sample_before")}
-                      </p>
-                      <p
-                        className="mt-1 break-words text-reading text-muted-foreground"
-                        data-testid="dictation-polish-sample-in"
-                      >
-                        {testResult.sample_in}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-meta text-muted-foreground">
-                        {t("voice.polish.sample_after")}
-                      </p>
-                      <p
-                        className="mt-1 break-words text-reading text-foreground"
-                        data-testid="dictation-polish-sample-out"
-                      >
-                        {testResult.sample_out}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </Card>
-
-          {/* Prompt Mode sits between the wording pass and the translation
-              because it outranks both: while it is on, the dictation is
-              rewritten in the spoken language by the selected provider, and neither pass has anything left to
-              do. The card says so, and says where the words go. */}
-          <Card className="p-5" data-testid="dictation-prompt-mode-card">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h4 className="text-title font-semibold text-foreground-strong">
-                  {t("voice.prompt_mode.title")}
-                </h4>
-                <p
-                  className="mt-1 text-meta text-muted-foreground"
-                  data-testid="dictation-prompt-mode-description"
-                >
-                  {t("voice.prompt_mode.description")}
-                </p>
-                <p
-                  className="mt-1 text-meta text-muted-foreground"
-                  data-testid="dictation-prompt-mode-sends-text"
-                >
-                  {t("voice.prompt_mode.sends_text")}
-                </p>
-              </div>
-              <Switch
-                checked={promptModeOn}
-                disabled={controlsBusy}
-                onCheckedChange={(next) => void onTogglePromptMode(next)}
-                aria-label={t("voice.prompt_mode.title")}
-                data-testid="dictation-prompt-mode-toggle"
-              />
-            </div>
-
-            {promptModeOn && (
-              <>
-                {/* The two facts someone who just switched this on needs: the
-                    other two passes step back, and where the writer is chosen.
-                    Shown only while on — while off they describe nothing. */}
-                <div
-                  className="mt-block flex items-start gap-2 rounded-md bg-secondary p-3"
-                  data-testid="dictation-prompt-mode-outranks"
-                >
-                  <Info
-                    aria-hidden="true"
-                    className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                  />
-                  <p className="text-meta text-muted-foreground">
-                    {t("voice.prompt_mode.outranks")}
-                  </p>
-                </div>
-                <p
-                  className="mt-2 text-meta text-muted-foreground"
-                  data-testid="dictation-prompt-mode-writer-hint"
-                >
-                  {t("voice.prompt_mode.writer_hint")}
-                </p>
-              </>
-            )}
-          </Card>
-
-          {/* Translation sits below the wording pass because it IS the wording
-              pass, pointed at a different language: one model call does both,
-              and the provider chosen above is the one that answers. Putting it
-              on its own screen would hide that the two share a budget, a
-              provider and a failure mode. */}
-          <Card className="p-5" data-testid="dictation-translate-card">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h4 className="text-title font-semibold text-foreground-strong">
-                  {t("voice.translate.title")}
-                </h4>
-                <p
-                  className="mt-1 text-meta text-muted-foreground"
-                  data-testid="dictation-translate-description"
-                >
-                  {t("voice.translate.description")}
-                </p>
-                {/* The same honesty the wording pass owes: where the text goes,
-                    and what happens when nothing answers. A translation that
-                    quietly falls back is VISIBLE — the words arrive in the
-                    wrong language — so saying it up front is the difference
-                    between a known limit and a bug report. */}
-                <p
-                  className="mt-1 text-meta text-muted-foreground"
-                  data-testid="dictation-translate-sends-text"
-                >
-                  {t("voice.translate.sends_text")}
-                </p>
-              </div>
-              <Switch
-                checked={translateOn}
-                disabled={controlsBusy}
-                onCheckedChange={(next) => void onToggleTranslate(next)}
-                aria-label={t("voice.translate.title")}
-                data-testid="dictation-translate-toggle"
-              />
-            </div>
-
-            {translateOn && (
-              <>
-                {/* Which provider will really answer, and — when none can —
-                    the one field that fixes it, right here. Before this, a
-                    user who turned translation on with the formatter switched
-                    off had nowhere to choose a provider or add a key at all:
-                    the only picker lived inside the formatter's own block. */}
-                <div
-                  className="mt-block rounded-md bg-secondary p-3"
-                  data-testid="dictation-translate-provider"
-                >
-                  <span className="text-meta text-muted-foreground">
-                    {t("voice.translate.answers_label")}
-                  </span>
-                  {wordingProvider?.ready ? (
-                    <p
-                      className="mt-1 text-title font-semibold text-foreground"
-                      data-testid="dictation-translate-provider-name"
-                    >
-                      {polishProviderLabelOrNull(wordingProvider.family, t) ??
-                        wordingProvider.label ??
-                        wordingProvider.family}
-                    </p>
-                  ) : (
-                    /* Nothing can answer, so the translation silently does
-                       nothing — degraded, and named as such. */
-                    <p
-                      className="mt-1 text-meta text-warning"
-                      data-testid="dictation-translate-no-provider"
-                    >
-                      {t("voice.translate.no_provider")}
-                    </p>
-                  )}
-
-
-                </div>
-
-                <div className="mt-block flex max-w-xs flex-col gap-2">
-                  <span className="text-meta text-muted-foreground">
-                    {t("voice.translate.target_label")}
-                  </span>
-                  <LanguageSelect
-                    value={translateTarget}
-                    codes={translateTargets}
-                    onChange={(code) => void onPickTranslateTarget(code)}
-                    autoLabel={t("voice.language.auto")}
-                    ariaLabel={t("voice.translate.target_label")}
-                    disabled={controlsBusy}
-                    testId="dictation-translate-target"
-                  />
-                </div>
-                <p className="mt-2 text-meta text-muted-foreground">
-                  {t("voice.translate.target_hint")}
-                </p>
-
-                {targetEqualsSource && (
-                  <div
-                    className="mt-block flex items-start gap-2 rounded-md bg-secondary p-3"
-                    data-testid="dictation-translate-same-language"
-                  >
-                    <Info
-                      aria-hidden="true"
-                      className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                    />
-                    <p className="text-meta text-muted-foreground">
-                      {t("voice.translate.same_language_notice")}
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-          </Card>
-        </div>
-      </div>
-    </div>
+              {t(testing ? "voiceui.language.testing" : "voiceui.language.test")}
+            </Button>
+          </Row>
+        </Group>
+      )}
+    </VoicePage>
   );
 }
-

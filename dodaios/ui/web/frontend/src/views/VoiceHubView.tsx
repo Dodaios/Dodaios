@@ -1,37 +1,26 @@
-import { useStageSection } from "@/components/layout/tiling/tileSection";
 import { Mic } from "lucide-react";
 
 import { SectionTabBar, type SectionTab } from "@/components/layout/SectionTabBar";
+import { useStageSection } from "@/components/layout/tiling/tileSection";
+import { useLocaleChunk, useT } from "@/i18n";
 import { ViewHeader } from "@/views/ChatsView";
-import { useT } from "@/i18n";
-import { DictationView } from "@/views/DictationView";
-import { DictionaryView } from "@/views/DictionaryView";
-import { ShortcutsTab } from "@/views/voice/ShortcutsTab";
+import { ApiKeysTab } from "@/views/voice/ApiKeysTab";
+import { DictationTab } from "@/views/voice/DictationTab";
+import { DictionaryTab } from "@/views/voice/DictionaryTab";
 import { LanguageTab } from "@/views/voice/LanguageTab";
-import { VoiceApiKeysTab } from "@/views/voice/VoiceApiKeysTab";
+import { ShortcutsTab } from "@/views/voice/ShortcutsTab";
 
 /**
- * Combined voice section — everything that turns speech into text, behind one
- * sidebar entry:
+ * The Voice section: a title, five tabs, one tab's content.
  *
- *   [ Dictation ] [ Dictionary ] [ Shortcuts ] [ Language ] [ API Keys ]
+ * The active sidebar section id is the tab state, so a deep link such as
+ * "open the dictionary" lands on its tab without extra routing. The title is
+ * the `nav.voice` string, which carries the assistant's name; it is the only
+ * heading the section has, and it has no subtitle.
  *
- * Same merged-section pattern as ExtensionsView / ClisHubView: the active
- * sidebar section id IS the tab state, so voice deep-links ("open the
- * dictionary") and the NavigateSidebar event keep landing on the right tab with
- * no extra routing.
- *
- * One difference from those two precedents, and it is deliberate: the section
- * title is rendered ONCE here, above the tab bar, instead of each child drawing
- * its own header below it. Two stacked bordered bands read as a rendering fault,
- * and the merged brand ("{name} Voice") belongs above the tabs it fronts — so
- * every child is asked to stand its header down via `hideHeader`.
- *
- * The title comes from the `nav.voice` locale value, which carries the `{name}`
- * token; `useT()` substitutes the live wake-word brand. Never hardcode a name
- * here.
+ * The section's strings are the `voice` locale chunk. A tab is not painted
+ * before the chunk is resident, so no tab ever shows a raw key.
  */
-
 const TABS = [
   { id: "dictation", labelKey: "nav.dictation" },
   { id: "dictionary", labelKey: "nav.dictionary" },
@@ -44,30 +33,24 @@ export function VoiceHubView() {
   const t = useT();
   // The tile's own section: in a tiled layout another tile may hold focus.
   const active = useStageSection();
+  const ready = useLocaleChunk("voice");
 
-  // The router only mounts us for the five ids above; any other value is
-  // unexpected — fall back to the Dictation tab defensively.
+  // The router mounts this view for the five ids above only; anything else
+  // falls back to the first tab.
   const current = TABS.some((tab) => tab.id === active) ? active : "dictation";
 
   return (
     <div className="flex h-full flex-col">
-      {/* --primary is a fill — buttons, marks, focus rings. A header glyph
-          painted with it renders brighter than the title beside it, which is
-          why every icon in this section is body ink. */}
-      <ViewHeader
-        icon={<Mic className="h-4 w-4 text-foreground" />}
-        title={t("nav.voice")}
-        subtitle={t("voice.hub.subtitle")}
-      />
+      <ViewHeader icon={<Mic className="h-4 w-4 text-foreground" />} title={t("nav.voice")} />
       <SectionTabBar tabs={TABS} align="center" />
-      {/* min-h-0 is load-bearing: without it a flex child with its own
-          scroll container grows past the viewport instead of scrolling. */}
-      <div className="min-h-0 flex-1 overflow-hidden">
-        {current === "dictation" && <DictationView hideHeader />}
-        {current === "dictionary" && <DictionaryView hideHeader />}
-        {current === "voice-shortcuts" && <ShortcutsTab hideHeader />}
-        {current === "voice-language" && <LanguageTab hideHeader />}
-        {current === "voice-api-keys" && <VoiceApiKeysTab hideHeader />}
+      {/* min-h-0 lets the tab's own scroll container scroll instead of growing
+          past the window. */}
+      <div className="min-h-0 flex-1 overflow-hidden" data-testid="voice-tab-content">
+        {ready && current === "dictation" && <DictationTab />}
+        {ready && current === "dictionary" && <DictionaryTab />}
+        {ready && current === "voice-shortcuts" && <ShortcutsTab />}
+        {ready && current === "voice-language" && <LanguageTab />}
+        {ready && current === "voice-api-keys" && <ApiKeysTab />}
       </div>
     </div>
   );

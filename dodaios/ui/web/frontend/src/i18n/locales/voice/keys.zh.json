@@ -1,0 +1,51 @@
+{
+  "voiceui": {
+    "keys": {
+      "speech": "语音转文字",
+      "wording": "措辞",
+      "state": {
+        "connected": "已连接",
+        "key_saved": "密钥已保存",
+        "set_up": "已设置",
+        "no_key": "没有密钥",
+        "local": "在此电脑上",
+        "not_installed": "未安装",
+        "installing": "正在安装",
+        "checking": "正在检查",
+        "not_working": "无法使用"
+      },
+      "in_use": "使用中",
+      "use": "使用",
+      "use_named": "使用 {provider}",
+      "add_key": "添加密钥",
+      "add_key_named": "为 {provider} 添加密钥",
+      "change_key_named": "更改 {provider} 的密钥",
+      "key_named": "{provider} 的密钥",
+      "paste_key": "粘贴密钥",
+      "new_key": "新密钥",
+      "remove_key": "移除密钥",
+      "install": "安装",
+      "install_named": "安装 {provider}",
+      "fault": {
+        "bad_key": "这个密钥被拒绝了。",
+        "no_credits": "这个账户没有余额了。",
+        "rate_limited": "这个服务商目前收到的请求太多。",
+        "model_unavailable": "这个密钥无法使用该模型。",
+        "unreachable": "无法连接到这个服务商。",
+        "error": "这个服务商无法使用。"
+      },
+      "save_failed": "无法保存密钥。",
+      "remove_failed": "无法移除密钥。",
+      "switch_failed": "无法选择这个服务商。",
+      "install_failed": "安装没有完成。",
+      "wrong_kind": "这看起来是另一种密钥：{kind}。",
+      "family_has_key": "{family} 已经有另一个密钥。",
+      "replace_everywhere": "全部替换",
+      "only_here": "仅在这里",
+      "shared": "{others} 也在使用这个密钥。",
+      "remove_anyway": "仍然移除",
+      "load_failed": "无法加载服务商。",
+      "empty": "没有可用的服务商。"
+    }
+  }
+}

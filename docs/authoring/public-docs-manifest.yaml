@@ -256,7 +256,7 @@ pages:
     diataxis: howto
     summary: Teach speech recognition names and specialist words it often mishears, then test the improvement.
     authoritative_sources:
-      - dodaios/ui/web/frontend/src/views/DictionaryView.tsx
+      - dodaios/ui/web/frontend/src/views/voice/DictionaryTab.tsx
       - dodaios/ui/web/dictionary_routes.py
       - dodaios/speech/stt_dictionary.py
     related:
@@ -296,7 +296,7 @@ pages:
     diataxis: howto
     summary: Turn speech into text in the focused field, recover missed words, and choose what stays local or uses a provider.
     authoritative_sources:
-      - dodaios/ui/web/frontend/src/views/DictationView.tsx
+      - dodaios/ui/web/frontend/src/views/voice/DictationTab.tsx
       - dodaios/ui/web/frontend/src/views/voice/ShortcutsTab.tsx
       - dodaios/ui/web/frontend/src/views/voice/LanguageTab.tsx
       - dodaios/ui/web/dictation_routes.py
