@@ -26,6 +26,7 @@ import logging
 import time
 from collections.abc import Sequence
 from dataclasses import replace
+from pathlib import Path
 from typing import Any, Final
 
 from . import work_order
@@ -941,23 +942,80 @@ def _can_ask(provider: str, account_id: str) -> bool:
     return society_mode_supported(runner, "ask")
 
 
-def refuse_open_cards(service: Any, session_id: str) -> int:
-    """Refuse every approval card open in a standing task run's chat; returns how many.
+#: A vendor CLI's own tools that only look. Its permission prompt asks about some of
+#: them (a file outside the chat's folder, a web page); nobody is there to answer.
+_LOOKING_TOOLS: Final[frozenset[str]] = frozenset(
+    {
+        "Read", "Glob", "Grep", "LS", "Ls", "NotebookRead", "WebFetch", "WebSearch",
+        "ToolSearch", "TodoWrite", "ListMcpResourcesTool", "ReadMcpResourceTool",
+        "ReadMcpResourceDirTool",
+    }
+)
+#: The same CLI's tools that write a file; a run above ``watch`` may keep what it
+#: prepares in its own folder.
+_FILE_WRITING_TOOLS: Final[frozenset[str]] = frozenset({"Write", "Edit", "MultiEdit"})
+
+
+def _inside(path: str, folder: str) -> bool:
+    if not path or not folder:
+        return False
+    try:
+        target = Path(path).expanduser()
+        if not target.is_absolute():
+            target = Path(folder) / target
+        return target.resolve().is_relative_to(Path(folder).resolve())
+    except (OSError, ValueError, RuntimeError):
+        return False
+
+
+def run_may(name: str, args: dict[str, Any], *, autonomy: str, folder: str) -> bool:
+    """Whether a call that asked for an approval may run in a run nobody watches.
+
+    Looking is what every level is for. A level above ``watch`` may also write
+    files inside the run's own folder (a draft, a table: "inside Dodaios").
+    Everything else stays refused, whatever the level: a call reaches a card
+    only when the chat's mode, a hard limit or the person's own rule wanted a
+    person to decide.
+    """
+    bare = str(name or "").strip()
+    if bare in _LOOKING_TOOLS:
+        return True
+    if autonomy != "watch" and bare in _FILE_WRITING_TOOLS:
+        return _inside(str((args or {}).get("file_path") or (args or {}).get("path") or ""), folder)
+    return False
+
+
+def refuse_open_cards(service: Any, session_id: str, tags: Sequence[str] = ()) -> int:
+    """Answer every approval card open in a standing task run's chat; returns how many
+    were refused.
 
     Nobody watches that chat. A card left open would hold the run (and every
-    later run of the task) until someone found it; refused with the reason,
-    the call does not run and the run goes on to prepare the step and ask.
+    later run of the task) until someone found it. A call that only looks
+    (:func:`run_may`) is let through; anything else is refused with the reason,
+    so the call does not run and the run goes on to prepare the step and ask.
     """
     refused = 0
     try:
-        for approval_id in list(service.pending_approvals(session_id)):
+        pending = list(service.pending_approvals(session_id))
+        if not pending:
+            return 0
+        task = get_store().get(standing_id_of(tags)) if tags else None
+        autonomy = task.autonomy if task is not None else "watch"
+        session = service.store.get_session(session_id) if tags else None
+        folder = str(getattr(session, "cwd", "") or "")
+        calls = getattr(service, "_approval_call", {})
+        for approval_id in pending:
+            name, args = calls.get(approval_id) or ("", {})
+            if tags and run_may(name, args, autonomy=autonomy, folder=folder):
+                service.resolve_approval(session_id, approval_id, "allow")
+                continue
             refused += bool(
                 service.resolve_approval(
                     session_id, approval_id, "deny", feedback=UNATTENDED_DENIAL
                 )
             )
-    except Exception:  # noqa: BLE001 — a card that stays open is refused on the next pass
-        log.warning("standing tasks: open card in %s not refused", session_id, exc_info=True)
+    except Exception:  # noqa: BLE001 — a card that stays open is answered on the next pass
+        log.warning("standing tasks: open card in %s not answered", session_id, exc_info=True)
     return refused
 
 
@@ -1132,6 +1190,7 @@ __all__ = [
     "resume",
     "routine_prompt",
     "run_context",
+    "run_may",
     "run_not_started",
     "run_now",
     "runs_of",

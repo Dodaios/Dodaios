@@ -70,8 +70,17 @@ the owner has one, gets a section on what the standing tasks did since the last 
   permission mode. An `act` run gets at most the mode of the chat the task was accepted in,
   and less when that chat has been narrowed since. A task the owner writes by hand in the
   panel gets what an ordinary lead routine gets.
-- Nobody watches a run's chat, so an approval card raised there is refused with the reason
-  instead of being left open. The run then prepares the step and asks the owner in its report.
+- Nobody watches a run's chat, so an approval card raised there is answered at once instead
+  of being left open. A call that only looks is let through: reading a file, searching,
+  fetching a page, and every read of Dodaios' own tools and connected accounts. A level above
+  `watch` may also write files inside the run's own folder (a draft, a table). Everything else
+  is refused with the reason; the run then prepares the step and asks the owner in its report.
+- A tool the app cannot tell to be read-only (a shell command, a tool of an MCP server the
+  owner added to their coding CLI) is refused in a `watch` or `prepare` run. The owner's
+  standing rules on the Trust page still apply, so a call they allow there runs; otherwise
+  such a task needs the level `act`.
+- The run's own report (`standing_task` with `action: "report"`) never needs a card, on a
+  brain seat or a CLI seat.
 - Risk tiers, approvals, the reversibility rule for unattended work and the owner's stop holds
   apply to every call of a run, as for any routine.
 - A run whose model cannot ask for an approval in a background chat does not start when its

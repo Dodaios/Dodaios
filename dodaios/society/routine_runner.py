@@ -408,7 +408,7 @@ async def run_owned_routine(
                 raise asyncio.CancelledError
             if standing_mode:
                 # Nobody watches this chat: a card is refused with the reason, never left open.
-                standing.refuse_open_cards(service, session.session_id)
+                standing.refuse_open_cards(service, session.session_id, tags)
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=0.25)
             except TimeoutError:

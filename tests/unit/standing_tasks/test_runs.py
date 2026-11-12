@@ -442,6 +442,60 @@ async def test_a_run_that_must_ask_does_not_start_on_a_seat_that_cannot_ask(
     assert await service.permission_mode(_tags(acting), provider="gemini") == "bypass"
 
 
+class _RunChat:
+    """A chat with open cards; records how each one was answered."""
+
+    def __init__(self, calls: dict[str, tuple[str, dict]], folder: str) -> None:
+        self._approval_call = calls
+        self.answered: dict[str, str] = {}
+        self.store = SimpleNamespace(get_session=lambda _sid: SimpleNamespace(cwd=folder))
+
+    def pending_approvals(self, session_id: str) -> list[str]:
+        return [aid for aid in self._approval_call if aid not in self.answered]
+
+    def resolve_approval(self, session_id, approval_id, decision, *, feedback="") -> bool:
+        self.answered[approval_id] = decision
+        return True
+
+
+async def test_a_run_may_look_without_a_card_and_nothing_else(society, tmp_path) -> None:
+    folder = tmp_path / "workspace"
+    folder.mkdir()
+    watching = await service.take_on(title="Shop server", goal="g", autonomy="watch")
+    preparing = await service.take_on(title="Supplier inbox", goal="g")
+    calls = {
+        "read-outside": ("Read", {"file_path": "/etc/hosts"}),
+        "page": ("WebFetch", {"url": "https://example.com"}),
+        "draft": ("Write", {"file_path": str(folder / "draft.md"), "content": "x"}),
+        "write-outside": ("Write", {"file_path": str(tmp_path / "elsewhere.md")}),
+        "escape": ("Edit", {"file_path": str(folder / ".." / "elsewhere.md")}),
+        "shell": ("Bash", {"command": "rm -rf x"}),
+        "connector": ("mcp__mail__send_message", {"to": "a@example.com"}),
+    }
+    chat = _RunChat(dict(calls), str(folder))
+    assert service.refuse_open_cards(chat, "run-chat", _tags(watching)) == 5
+    assert {k for k, v in chat.answered.items() if v == "allow"} == {"read-outside", "page"}
+    # A level above watch keeps what it prepares in its own folder, and nowhere else.
+    chat = _RunChat(dict(calls), str(folder))
+    assert service.refuse_open_cards(chat, "run-chat", _tags(preparing)) == 4
+    assert {k for k, v in chat.answered.items() if v == "allow"} == {
+        "read-outside", "page", "draft",
+    }
+
+
+def test_what_a_run_may_do_unasked_is_decided_per_call(tmp_path) -> None:
+    folder = str(tmp_path)
+    may = service.run_may
+    assert may("Grep", {"pattern": "x"}, autonomy="watch", folder=folder)
+    assert not may("Write", {"file_path": f"{folder}/a.md"}, autonomy="watch", folder=folder)
+    assert may("Write", {"file_path": "notes/a.md"}, autonomy="prepare", folder=folder)
+    assert may("Edit", {"file_path": f"{folder}/a.md"}, autonomy="act", folder=folder)
+    assert not may("Write", {"file_path": ""}, autonomy="act", folder=folder)
+    assert not may("Write", {"file_path": f"{folder}/a.md"}, autonomy="act", folder="")
+    assert not may("", {}, autonomy="act", folder=folder)
+    assert not may("mcp__ads__pause_ad", {}, autonomy="act", folder=folder)
+
+
 def test_an_open_card_in_a_run_nobody_watches_is_refused_with_the_reason() -> None:
     answered: list[tuple[str, str, str, str]] = []
 
