@@ -29,7 +29,10 @@ import re
 from collections import deque
 from dataclasses import dataclass, field
 
+from loguru import logger
+
 from .screen import ScreenBuffer
+from .scrollback import ScrollbackMirror
 
 # Kept for callers that want plain text out of a coloured string (the prompt
 # sanitizer uses it). Screen replay does NOT go through this.
@@ -171,6 +174,10 @@ Enough to cover several full repaints of a coding agent's TUI, so a pane that
 is looked at again shows what it was showing rather than a black rectangle —
 and small enough that a dozen panes across a handful of workspaces stay a
 rounding error in memory (12 panes x 6 workspaces x 128 KB is under 10 MB).
+
+This bounds the bytes that redraw the SCREEN, not how far back a pane can be
+scrolled: the rows above the screen are kept separately, as text, up to
+``scrollback.HISTORY_LIMIT_ROWS`` (see :class:`ReplayBuffer`, "The history").
 """
 REPLAY_LIMIT_CHARS = 128 * 1024
 
@@ -225,6 +232,35 @@ class ReplayBuffer:
     truncated replay is prefixed with the ones still in force. Cheap — a regex
     over each chunk, a dict of at most a dozen entries — and it puts the viewer
     in the state the agent thinks it is in, which is the whole job of a replay.
+
+    **The history is kept even when the bytes that drew it are gone.** The tail
+    above redraws a screen; it never held a conversation. A CLI that prints into
+    the normal buffer (Claude Code by default, Codex, a shell) leaves its past
+    in the viewer's scrollback, and a viewer is rebuilt from this buffer every
+    time the pane is looked at again. Handed 128 KB of raw output — or, after a
+    resize, none of it — the rebuilt pane could be scrolled back a few screens
+    and no further, however long its agent had been working (reported
+    2026-11-12: "I could scroll a little, but not all the way to the top").
+
+    So the stream is also replayed onto a grid here
+    (:class:`~dodaios.agentic_ide.scrollback.ScrollbackMirror`), and every row
+    that scrolls off the top is kept as text and colour, up to
+    ``HISTORY_LIMIT_ROWS``. A replay for a normal-buffer pane then has one of
+    three shapes, and :meth:`text` picks:
+
+    * nothing was dropped: the raw stream, verbatim, exactly as before;
+    * a resize started a new epoch (:meth:`rebase_for_resize`): the rows that
+      had scrolled off by then, pushed out of the viewport, then the stream
+      since — which opens with the agent's repaint for the new size;
+    * the tail lost its front: the whole history, then the mirrored screen,
+      then the modes and the cursor. ``truncated`` stays set, so the agent is
+      still asked to repaint the screen it owns.
+
+    A pane on the alternate screen is unaffected: there the agent scrolls its
+    own conversation and the terminal has no history to keep.
+
+    The mirror has to know the pane's size, or it scrolls rows off at the wrong
+    moment — :meth:`resize` is called wherever the PTY is given one.
     """
 
     limit: int = REPLAY_LIMIT_CHARS
@@ -259,10 +295,25 @@ class ReplayBuffer:
     #: screen? Per process, unlike ``clears``: a pane's next agent may repaint
     #: differently.
     _paints_frames: bool = field(default=False, init=False)
+    #: The stream replayed onto a grid, with the rows that scrolled off it.
+    _mirror: ScrollbackMirror = field(default_factory=ScrollbackMirror, init=False)
+    #: How many rows had scrolled off when the kept chunks began — the history
+    #: those chunks do not redraw. Zero until a rebase starts a new epoch.
+    _history_mark: int = field(default=0, init=False)
+    #: The mirror raised on this process's output and is no longer fed. The
+    #: replay then falls back to the raw tail alone, as it was before the
+    #: history existed: a pane that scrolls back less far, not a pane whose
+    #: output stopped arriving.
+    _mirror_failed: bool = field(default=False, init=False)
 
     def feed(self, chunk: str) -> None:
         if not chunk:
             return
+        if not self._mirror_failed:
+            try:
+                self._mirror.feed(chunk)
+            except Exception as exc:  # noqa: BLE001 - see ``_mirror_failed``
+                self._give_up_on_history("output", exc)
         self._note_modes(chunk)
         previous = len(self._clear_scan_tail)
         scanned = self._clear_scan_tail + chunk
@@ -342,8 +393,26 @@ class ReplayBuffer:
         docstring): they are set once at startup and are the first thing a long
         tail loses, and a viewer that never heard them is a terminal the agent
         cannot reach with the mouse.
+
+        A pane on the normal buffer also gets its history back (see the class
+        docstring, "The history"): in front of the kept stream when that stream
+        is whole, and together with the mirrored screen when it is not — a cut
+        tail of relative cursor moves draws on rows it cannot rebuild, and the
+        mirror holds exactly those rows.
         """
         text = "".join(self._chunks)
+        if not self.holds_screen and not self._mirror_failed:
+            if self.truncated:
+                return self._rebuilt()
+            history = self._mirror.history_text(upto=self._history_mark)
+            if not history:
+                return text
+            # One line feed per row of the screen pushes every history row out
+            # of the viewport, whether they filled it or not. The stream that
+            # follows starts at the top left, as it always has after a rebase,
+            # and so draws on an empty screen instead of over the newest rows
+            # of the history.
+            return "\x1b[0m" + history + "\r\n" * self._mirror.rows + "\x1b[H" + text
         if not self.truncated or not text:
             return text
         if self._open_escape:
@@ -351,6 +420,50 @@ class ReplayBuffer:
             if remnant is not None:
                 text = text[remnant.end() :]
         return self._mode_prologue() + "\x1b[0m" + text
+
+    def _rebuilt(self) -> str:
+        """History, screen, modes and cursor, written from the mirror.
+
+        In that order: the rows are laid out under the modes a new terminal
+        starts with (wraparound on), and leaving the alternate screen — which
+        the prologue re-states for an agent that once used it — moves the
+        cursor, so the cursor is placed last.
+        """
+        mirror = self._mirror
+        return "\x1b[0m" + mirror.rows_text() + self._mode_prologue() + mirror.cursor_text()
+
+    def resize(self, cols: int, rows: int) -> None:
+        """Tell the mirror the size the pane's PTY now has.
+
+        Not the one-row repaint nudge: the viewer's terminal does not change
+        size for it, and neither should the grid that stands in for it.
+        """
+        if self._mirror_failed:
+            return
+        try:
+            self._mirror.resize(cols, rows)
+        except Exception as exc:  # noqa: BLE001 - see ``_mirror_failed``
+            self._give_up_on_history("a resize", exc)
+
+    def _give_up_on_history(self, during: str, exc: Exception) -> None:
+        """Stop feeding the mirror for this process, and say so once.
+
+        This buffer sits in the path every byte of a pane's output takes to its
+        viewers. The history is an addition to that path and must never be able
+        to break it, whatever a terminal stream turns out to contain.
+        """
+        self._mirror_failed = True
+        logger.warning(
+            "Agentic IDE: a pane's scrollback history could not follow {} and is no "
+            "longer kept for this agent; its screen is unaffected: {!r}",
+            during,
+            exc,
+        )
+
+    @property
+    def history_rows(self) -> int:
+        """How many scrolled-off rows are kept for the next viewer."""
+        return 0 if self._mirror_failed else self._mirror.history_rows
 
     def rebase_for_resize(self) -> str:
         """Start a new replay epoch for a new terminal size; return the replay.
@@ -379,11 +492,19 @@ class ReplayBuffer:
         screen and mouse tracking only once, at process startup.  Dropping
         those together with the stale drawing would repair the text while
         silently breaking the pane's mouse and scrollbar.
+
+        **The history survives too.** For a pane on the normal buffer the
+        drawing dropped here used to be the only copy of everything it had
+        printed, so one resize — a maximize, a dragged seam, the switch between
+        Chat and Grid — emptied the scrollback of the next viewer. The rows
+        that have scrolled off are kept in the mirror and go in front of the
+        new epoch.
         """
         if self.holds_screen and self._paints_frames:
             self.awaiting_frame = True
             return self.text()
-        return self._rebase("")
+        prologue = self._rebase("")
+        return prologue if self.holds_screen or self._mirror_failed else self.text()
 
     def _rebase(self, frame: str) -> str:
         """Start a fresh replay epoch: the negotiated modes, then ``frame``."""
@@ -392,6 +513,7 @@ class ReplayBuffer:
         self.truncated = False
         self._open_escape = False
         self.awaiting_frame = False
+        self._history_mark = self._mirror.scrolled
         self._chunks.append(prologue)
         self._size = len(prologue)
         if frame:
@@ -423,6 +545,11 @@ class ReplayBuffer:
         self._clear_scan_tail = ""
         self.awaiting_frame = False
         self._paints_frames = False
+        # The dead process's history goes with its screen; the size stays, it
+        # is the pane's.
+        self._mirror.clear()
+        self._history_mark = 0
+        self._mirror_failed = False
 
 
 __all__ = [

@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from dodaios.agentic_ide.screen import ScreenBuffer
+from dodaios.agentic_ide.scrollback import ScrollbackMirror
 from dodaios.agentic_ide.transcript import ReplayBuffer, Transcript, is_noise, strip_ansi
 
 REPAINT_CASES = json.loads(
@@ -228,7 +229,21 @@ def test_clearing_a_replay_forgets_that_it_was_truncated() -> None:
     assert buffer.text() == ""
 
 
-def test_a_truncated_replay_alone_cannot_rebuild_the_screen() -> None:
+_INK_OPENING = (
+    "Running 2 shell commands\r\n"
+    "\r\n"
+    "- Scurrying... (0m 01s)\r\n"
+    "\r\n"
+    "------------------------\r\n"
+    "> \r\n"
+    "------------------------\r\n"
+    "  auto mode on\r\n"
+)
+# Every later frame: up six rows, erase that row, rewrite it, come back.
+_INK_FRAMES = [f"\x1b[6A\r\x1b[K- Scurrying... (0m {n:02d}s)\x1b[6B\r" for n in range(2, 60)]
+
+
+def test_a_truncated_replay_alone_cannot_rebuild_a_full_screen_agent() -> None:
     """The reason the flag exists, spelled out as the failure it prevents.
 
     An Ink-based TUI paints its interface once and afterwards rewrites only the
@@ -236,22 +251,10 @@ def test_a_truncated_replay_alone_cannot_rebuild_the_screen() -> None:
     lost its front therefore reproduces the spinner row and NOTHING it was
     drawn on top of — which is what put empty rectangles in two live panes.
     """
-    opening = (
-        "Running 2 shell commands\r\n"
-        "\r\n"
-        "- Scurrying... (0m 01s)\r\n"
-        "\r\n"
-        "------------------------\r\n"
-        "> \r\n"
-        "------------------------\r\n"
-        "  auto mode on\r\n"
-    )
-    # Every later frame: up six rows, erase that row, rewrite it, come back.
-    frames = [f"\x1b[6A\r\x1b[K- Scurrying... (0m {n:02d}s)\x1b[6B\r" for n in range(2, 60)]
-
-    buffer = ReplayBuffer(limit=len(opening) // 2)
-    buffer.feed(opening)
-    for frame in frames:
+    buffer = ReplayBuffer(limit=len(_INK_OPENING) // 2)
+    buffer.feed("\x1b[?1049h")
+    buffer.feed(_INK_OPENING)
+    for frame in _INK_FRAMES:
         buffer.feed(frame)
 
     screen = ScreenBuffer(40, 12)
@@ -263,6 +266,35 @@ def test_a_truncated_replay_alone_cannot_rebuild_the_screen() -> None:
         "the prompt box is gone — which is why a truncated replay must be "
         "followed by a repaint rather than trusted on its own"
     )
+    assert buffer.truncated is True
+
+
+def test_a_truncated_replay_of_a_normal_buffer_agent_rebuilds_its_screen() -> None:
+    """On the normal buffer the rows a cut tail draws on are still known.
+
+    The same stream as above, without the alternate screen: the buffer has been
+    replaying it onto a grid all along, so what goes out is that grid rather
+    than a tail of cursor moves with nothing under them. ``truncated`` stays
+    set — the agent is still asked to repaint the screen it owns.
+    """
+    buffer = ReplayBuffer(limit=len(_INK_OPENING) // 2)
+    buffer.resize(40, 12)
+    buffer.feed(_INK_OPENING)
+    for frame in _INK_FRAMES:
+        buffer.feed(frame)
+
+    screen = ScreenBuffer(40, 12)
+    screen.feed(buffer.text())
+    rows = [row.rstrip() for row in screen.display() if row.strip()]
+
+    assert rows == [
+        "Running 2 shell commands",
+        "- Scurrying... (0m 59s)",
+        "------------------------",
+        ">",
+        "------------------------",
+        "  auto mode on",
+    ]
     assert buffer.truncated is True
 
 
@@ -289,6 +321,151 @@ def test_a_truncated_replay_still_says_who_owns_the_screen() -> None:
         assert f"\x1b[{mode}" in replay, f"{mode} must survive the truncation"
     # And before the content, or the screen switch would wipe what it restored.
     assert replay.index("\x1b[?1049h") < replay.index("x" * 20)
+
+
+# The report these pin down (maintainer, 2026-11-12): in a Grid pane running
+# Claude Code "I could scroll a little, but not all the way to the top". The
+# viewer's scrollback is rebuilt from this buffer whenever the pane is looked at
+# again, and the buffer held 128 KB of drawing commands — or, after a resize,
+# nothing. See ``scrollback.ScrollbackMirror`` and the class docstring.
+
+
+def _chatty_agent(buffer: ReplayBuffer, turns: range) -> None:
+    """Print one row per turn into the normal buffer, with a spinner in between."""
+    for turn in turns:
+        buffer.feed(f"\x1b[32manswer\x1b[39m {turn}\r\n- working 0s")
+        for second in range(1, 40):
+            buffer.feed(f"\r\x1b[2K- working {second}s")
+        buffer.feed("\r\x1b[2K")
+
+
+def _viewer_rows(replay: str, cols: int, rows: int) -> list[str]:
+    """Every row a terminal of that size holds after being written ``replay``."""
+    viewer = ScrollbackMirror(cols, rows)
+    viewer.feed(replay)
+    history = strip_ansi(viewer.history_text()).split("\r\n") if viewer.history_rows else []
+    return history + viewer.display()
+
+
+def test_a_long_session_can_be_scrolled_back_to_its_first_row() -> None:
+    buffer = ReplayBuffer(limit=4096)
+    buffer.resize(60, 10)
+    _chatty_agent(buffer, range(500))
+
+    replay = buffer.text()
+    rows = _viewer_rows(replay, 60, 10)
+
+    assert buffer.truncated is True, "the raw tail lost its front long ago"
+    answers = [row for row in rows if row.startswith("answer ")]
+    assert answers == [f"answer {turn}" for turn in range(500)], (
+        "every row the agent printed is there, once, in order"
+    )
+    assert not any("working" in row for row in rows), "the spinner was never a row"
+    assert len(replay) < 30_000, "as text: a fraction of the ~400 KB that drew it"
+    assert "\x1b[0;32manswer" in replay, "with its colours"
+
+
+def test_the_history_is_handed_over_once_not_once_per_replay_shape() -> None:
+    """While nothing has been dropped the raw stream IS the history."""
+    buffer = ReplayBuffer()
+    buffer.resize(60, 10)
+    _chatty_agent(buffer, range(30))
+
+    assert buffer.truncated is False
+    assert buffer.history_rows == 21
+    rows = _viewer_rows(buffer.text(), 60, 10)
+    assert [row for row in rows if row.startswith("answer ")] == [
+        f"answer {turn}" for turn in range(30)
+    ]
+
+
+def test_a_resize_no_longer_empties_the_history() -> None:
+    """One maximize, one dragged seam, one switch between Chat and Grid.
+
+    The old drawing still goes — its cursor moves belong to the old size — but
+    the rows that had scrolled off are text, and text fits any size.
+    """
+    buffer = ReplayBuffer()
+    buffer.resize(60, 10)
+    _chatty_agent(buffer, range(40))
+    on_screen = [f"answer {turn}" for turn in range(31, 40)]
+
+    buffer.resize(50, 14)
+    replay = buffer.rebase_for_resize()
+
+    viewer = ScrollbackMirror(50, 14)
+    viewer.feed(replay)
+    assert strip_ansi(viewer.history_text()).split("\r\n") == [
+        f"answer {turn}" for turn in range(31)
+    ]
+    assert viewer.display() == [""] * 14, "the screen is empty for the agent's repaint"
+    assert not any(row in replay for row in on_screen), "the old drawing is not replayed"
+    assert buffer.truncated is False
+
+    # The agent repaints its screen for the new size and goes on; the next
+    # viewer gets the history, then that stream.
+    buffer.feed("\x1b[H" + "".join(f"answer {turn}\x1b[K\r\n" for turn in range(31, 40)))
+    _chatty_agent(buffer, range(40, 60))
+    rows = _viewer_rows(buffer.text(), 50, 14)
+    assert [row for row in rows if row.startswith("answer ")] == [
+        f"answer {turn}" for turn in range(60)
+    ]
+
+
+def test_a_full_screen_agent_gets_no_history_in_front_of_its_frame() -> None:
+    """It scrolls its own conversation; the terminal has nothing to add."""
+    buffer = ReplayBuffer(limit=2048)
+    buffer.resize(60, 10)
+    _chatty_agent(buffer, range(40))
+    buffer.feed("\x1b[?1049h\x1b[2J\x1b[Hfull screen frame")
+    for second in range(200):
+        buffer.feed(f"\x1b[5;1H\x1b[2Kspinner {second}")
+
+    replay = buffer.text()
+
+    assert "answer" not in replay
+    assert replay.index("\x1b[?1049h") < replay.index("spinner 199")
+
+
+def test_a_new_process_does_not_inherit_the_history() -> None:
+    buffer = ReplayBuffer(limit=2048)
+    buffer.resize(60, 10)
+    _chatty_agent(buffer, range(100))
+    assert buffer.history_rows > 0
+
+    buffer.clear()
+    buffer.feed("fresh agent")
+
+    assert buffer.history_rows == 0
+    assert buffer.text() == "fresh agent"
+
+
+def test_a_history_that_cannot_be_kept_never_costs_the_pane_its_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The buffer is in the path of every byte a pane shows; the history is extra."""
+
+    def _broken(self: ScrollbackMirror, chunk: str) -> None:
+        raise RuntimeError("a sequence nobody foresaw")
+
+    buffer = ReplayBuffer(limit=64)
+    buffer.feed("\x1b[?25l")
+    monkeypatch.setattr(ScrollbackMirror, "feed", _broken)
+
+    buffer.feed("first rows\r\n")  # must not raise
+    buffer.feed("x" * 200)
+
+    assert buffer.truncated is True
+    replay = buffer.text()
+    assert replay.startswith("\x1b[?25l\x1b[0m"), "the raw tail, repaired as it always was"
+    assert replay.endswith("x" * 200)
+    assert buffer.history_rows == 0
+    assert buffer.rebase_for_resize() == "\x1b[?25l\x1b[0m"
+
+    monkeypatch.undo()
+    buffer.clear()
+    buffer.feed("a new agent\r\n")
+    assert buffer.text() == "a new agent\r\n", "and the next process gets a working one"
 
 
 def test_private_modes_survive_every_pty_chunk_boundary() -> None:

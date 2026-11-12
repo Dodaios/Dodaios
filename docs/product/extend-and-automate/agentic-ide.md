@@ -115,6 +115,8 @@ closes when the whole line is done. The dialog says so while you type.
   must be unique across open workspaces.
 - Close one pane, a selection, or all panes of one coding-agent type only after
   reviewing the confirmation. Closing stops those processes.
+- Scroll back in a pane: it keeps its last 10,000 rows across view switches,
+  resizes and app restarts.
 
 ### Keyboard: the Key Menu
 

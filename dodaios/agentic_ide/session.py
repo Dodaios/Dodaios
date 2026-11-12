@@ -2818,6 +2818,9 @@ class Registry:
         term.transcript.resize(cols, rows)
         term.transcript.feed(result.replay)
         term.replay.clear()
+        # The host's copy carries the pane's scrolled-off rows in front of its
+        # screen; replayed at the pane's size they scroll off again here.
+        term.replay.resize(cols, rows)
         term.replay.feed(result.replay)
         # The agent has been running all along; a question in its replay was
         # answered back then.
@@ -4357,6 +4360,9 @@ class Registry:
                 if geometry_changed:
                     term.pty_cols, term.pty_rows = cols, rows
                     term.transcript.resize(cols, rows)
+                    # Before the replay below is taken: the rows this resize
+                    # pushes off the screen belong to the history it hands over.
+                    term.replay.resize(cols, rows)
                     # The TUI is about to redraw itself for the new geometry;
                     # that redraw must not read as the agent working.
                     term.last_resize_at = time.time()
@@ -4545,6 +4551,7 @@ class Registry:
         # in the replay buffer belongs to a terminal that no longer exists, and
         # replaying it to the next viewer would show output from a dead agent.
         term.replay.clear()
+        term.replay.resize(cols, rows)
         term.terminal_queries.reset()
         _watch(term, on_output, on_exit, cols, rows, on_geometry=on_geometry)
         term.reattached = False
@@ -5470,6 +5477,7 @@ class Registry:
             # transcript keeps wrapping at the old width.
             if (term.transcript.cols, term.transcript.rows) != (cols, rows):
                 term.transcript.resize(cols, rows)
+            term.replay.resize(cols, rows)
             return True
         clears_before = term.replay.clears
         if not self._pool(term).resize(term.pty_id, cols, rows):
@@ -5489,12 +5497,16 @@ class Registry:
         # Every OTHER screen on this pane is now showing a grid the agent is
         # no longer drawing for; tell them, so they can follow the owner.
         _announce_geometry(term, cols, rows, except_viewer=viewer)
+        # The replay's own grid follows the pane, or it would scroll rows into
+        # the history at the old height and wrap them at the old width.
+        term.replay.resize(cols, rows)
         if is_coding_agent(term.agent):
             # Future viewers must not replay cursor moves produced for the old
             # grid into the new one. The live viewer already has its screen;
             # this only starts a clean replay epoch for the next reconnect —
             # one that still shows the old frame, and asks for a new one, when
-            # the agent lets this resize pass unanswered.
+            # the agent lets this resize pass unanswered. The rows that have
+            # scrolled off are not part of that drawing and stay.
             term.replay.rebase_for_resize()
         term.transcript.resize(cols, rows)
         return True
