@@ -25,7 +25,6 @@ import { VoiceWarmingBanner } from "@/components/layout/VoiceWarmingBanner";
 import { MainView } from "@/components/layout/MainView";
 import { ToastLayer } from "@/components/ToastLayer";
 import { PluginReconnectHost } from "@/components/PluginReconnectHost";
-import { CommandActivityLayer } from "@/components/CommandActivityLayer";
 import { AppshotEditorHost } from "@/components/appshot/AppshotEditorHost";
 import { EditContextMenu } from "@/components/EditContextMenu";
 import { useMacWindowCloseFallback } from "@/lib/macWindowClose";
@@ -297,7 +296,6 @@ export default function App() {
           </div>
         </main>
         <ToastLayer />
-        <CommandActivityLayer />
         {/* Only this window's own "Edit" opens it here; the card's request
             goes to the main window (handleAppshotEditRequest). */}
         <AppshotEditorHost />
@@ -377,7 +375,6 @@ export default function App() {
       <ToastLayer>
         <PluginReconnectHost />
       </ToastLayer>
-      <CommandActivityLayer />
       {/* The appshot editor, over whatever is open (a click on the appshot
           card in the screen corner opens it). */}
       <AppshotEditorHost />

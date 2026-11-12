@@ -1,12 +1,11 @@
 /**
  * Live command activity model — the pure event→entry mapping behind the
- * shell-visibility layer (CommandActivityLayer.tsx).
+ * shell lines on the deck's Terminals card (DeckActivityCards.tsx).
  *
- * Until now a running shell command was invisible: no window opens (all
- * subprocesses spawn with CREATE_NO_WINDOW), output goes to the brain, and
- * the only trace sat in data/sessions.db. This module turns the ToolExecutor
- * events the backend already broadcasts over the WS wildcard forwarder into
- * a small live list the activity cards render.
+ * A running shell command opens no window (all subprocesses spawn with
+ * CREATE_NO_WINDOW) and its output goes to the brain. This module turns the
+ * ToolExecutor events the backend already broadcasts over the WS wildcard
+ * forwarder into a small live list. Nothing pops up over the app for it.
  *
  * The impact classification (read / modify / destructive) arrives ON the
  * ActionProposed payload — computed server-side by
@@ -24,10 +23,10 @@ export type CommandActivityStatus = "running" | "done" | "failed" | "blocked";
 export interface CommandActivityEntry {
   /** trace_id of the ToolExecutor run — pairs Proposed with Executed/Denied. */
   id: string;
-  /** The full command string (render-clipped, full text in the tooltip). */
+  /** The full command string. */
   command: string;
   level: CommandImpactLevel;
-  /** Classified leading words ("rm", "ls, grep") for the badge tooltip. */
+  /** Classified leading words ("rm", "ls, grep"). */
   words: string;
   status: CommandActivityStatus;
   startedTs: number;
@@ -41,7 +40,7 @@ export interface CommandActivityEntry {
 /** Hard cap — a runaway turn must not grow the array unbounded. */
 export const MAX_COMMAND_ENTRIES = 24;
 
-/** How long a settled card lingers before the layer prunes it. */
+/** How long a settled entry lingers before the store prunes it. */
 export const SETTLED_TTL_MS = 6_000;
 /** Failures and blocks stay longer — they are the ones worth reading. */
 export const FAILED_TTL_MS = 12_000;
@@ -87,7 +86,7 @@ function push(
 ): CommandActivityEntry[] {
   const next = [...entries, entry];
   if (next.length > MAX_COMMAND_ENTRIES) {
-    // Drop the oldest *settled* entry first so running cards survive the cap.
+    // Drop the oldest *settled* entry first so running entries survive the cap.
     const idx = next.findIndex((e) => e.status !== "running");
     next.splice(idx === -1 ? 0 : idx, 1);
   }
