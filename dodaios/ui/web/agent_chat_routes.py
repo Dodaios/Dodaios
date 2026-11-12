@@ -1184,7 +1184,22 @@ def _title_chats(request: Request, svc: Any, rows: list[dict[str, Any]]) -> None
             row["title"] = titles[key]
 
 
-@router.post("/sessions", status_code=201)
+@router.post(
+    "/sessions",
+    status_code=201,
+    summary="Create a chat session",
+    # Still an app action, but the search says what a model should use for a
+    # coding agent: the raw route knows neither the task nor who asked, and
+    # took four failed calls to fill by hand (live 2026-11-12).
+    openapi_extra={
+        "x-jarvis-instead": (
+            "For a new coding agent (a thread in the Agentic IDE, surface agent) call the "
+            "workspace-orchestrate tool with action create instead: it takes cli, model, "
+            "effort and folder as the person said them, hands over the task and returns "
+            "the result to this conversation."
+        )
+    },
+)
 def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
     svc = _service(request)
     if body.account_id:

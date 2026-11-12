@@ -61,6 +61,7 @@ class _Runtime:
 def app(monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     application = _app()
     monkeypatch.setattr(catalog_mod, "_cache", {})
+    monkeypatch.setattr(catalog_mod, "_pointer_cache", {})
     monkeypatch.setattr("dodaios.core.runtime_refs.get_web_app", lambda: application, raising=False)
     return application
 
@@ -120,6 +121,48 @@ def test_coding_panes_are_reached_only_through_the_addressed_workspace_tool() ->
     assert ("POST", "/api/agentic-ide/terminals/batch") not in by_route
     # Other pane actions stay offered under the person's policy.
     assert ("POST", "/api/agentic-ide/terminals/{name}/interrupt") in by_route
+
+
+async def test_a_search_for_opening_a_coding_agent_answers_with_the_tool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Live 2026-11-12: asked for a new Claude Code agent with a model and an
+    effort, the lead searched "add terminal to workspace with model effort".
+    The routes are not app actions, so it found nothing and built the agent
+    from other raw routes. The search now names the tool that does the job."""
+    from dodaios.ui.web.agent_chat_routes import router as chat_router
+    from dodaios.ui.web.agentic_ide_routes import router as ide_router
+
+    application = FastAPI()
+    application.include_router(ide_router)
+    application.include_router(chat_router)
+    monkeypatch.setattr(catalog_mod, "_cache", {})
+    monkeypatch.setattr(catalog_mod, "_pointer_cache", {})
+    monkeypatch.setattr(
+        "dodaios.core.runtime_refs.get_web_app", lambda: application, raising=False
+    )
+
+    found = await FindAppActionTool().execute(
+        {"query": "add terminal to workspace with model effort", "area": "agentic-ide"}, None
+    )
+
+    assert found.success
+    [pointer] = found.output["use_instead"]
+    assert "workspace-orchestrate" in pointer["use"] and "create" in pointer["use"]
+    assert "chat thread" in pointer["use"]
+    assert "Open one more terminal" in pointer["not_an_app_action"]
+    # The pointer is not something to run.
+    ids = {action["action_id"] for action in found.output["actions"]}
+    assert not ids & set(catalog_mod.live_pointers())
+    refused = await RunAppActionTool(_Runtime(application)).execute(
+        {"action_id": next(iter(catalog_mod.live_pointers()))}, None
+    )
+    assert not refused.success
+
+    # The raw thread route stays an action, and says what to use for a coding agent.
+    found = await FindAppActionTool().execute({"query": "create chat session"}, None)
+    session = next(a for a in found.output["actions"] if a["title"] == "Create a chat session")
+    assert "workspace-orchestrate" in session["instead"]
 
 
 def test_default_tiers_read_safe_change_monitor_delete_ask(app: FastAPI) -> None:
