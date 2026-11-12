@@ -162,7 +162,8 @@ finished, and the files it made are kept for you. Ask for something regular
 and it becomes an automation that runs on a schedule, on an event or on a
 webhook.
 [Background agents](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md) ·
-[Routines](https://github.com/Dodaios/Dodaios/blob/main/docs/routines.md)
+[Routines](https://github.com/Dodaios/Dodaios/blob/main/docs/routines.md) ·
+[Standing tasks](https://github.com/Dodaios/Dodaios/blob/main/docs/standing-tasks.md)
 
 ### Tools it can use
 

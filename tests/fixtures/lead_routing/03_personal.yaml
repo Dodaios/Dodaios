@@ -198,6 +198,30 @@
   lang: pt
   utterance: "Que lembretes tenho para esta semana?"
   expect: {tool: reminders, args: {action: list}, effect: read}
+
+# ---- standing tasks: something to look after with no end date, not a schedule ----
+- id: standing-take-on-campaign-en
+  category: routines
+  lang: en
+  utterance: "Please look after my Meta ads campaign from now on and tell me when something is off."
+  expect: {tool: standing_task, args: {action: take_on}}
+  note: "Ongoing, needs judgement and memory of the last state: a standing task, not a routine."
+- id: standing-take-on-campaign-de
+  category: routines
+  lang: de
+  utterance: "Kümmere dich ab jetzt bitte um meine Meta-Kampagne und sag mir, wenn etwas aus dem Ruder läuft."
+  expect: {tool: standing_task, args: {action: take_on}}
+- id: standing-take-on-with-pace-en
+  category: routines
+  lang: en
+  utterance: "Can you keep an eye on my support inbox every day and prepare replies for the urgent ones?"
+  expect: {tool: standing_task, args: {action: take_on}}
+  note: "A pace in the sentence does not make it a routine; a time of day would."
+- id: standing-list-en
+  category: routines
+  lang: en
+  utterance: "What are you looking after for me at the moment?"
+  expect: {tool: standing_task, args: {action: list}, also_accept: [work_board], effect: read}
 - id: skill-create-en
   category: routines
   lang: en

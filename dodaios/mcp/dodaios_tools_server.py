@@ -171,9 +171,12 @@ def _read_only(entry: Any, args: dict[str, Any] | None = None) -> bool:
     """Whether a catalog entry only reads: the ``readOnlyHint`` it is listed with.
 
     With ``args`` a tool whose tier depends on its arguments is judged for
-    those arguments too.
+    those arguments: the tier of this call decides, as it does when the call
+    runs. A tool with several actions is listed by its strictest one, so its
+    harmless actions (a status read, a run's own report) would otherwise put
+    a card in front of the person on a CLI seat and none on a brain seat.
     """
-    if str(getattr(entry, "risk_tier", "")) != "safe" or getattr(entry, "is_action_tool", True):
+    if getattr(entry, "is_action_tool", True):
         return False
     hook = getattr(entry, "risk_tier_for_args", None)
     if args is not None and callable(hook):
@@ -181,9 +184,9 @@ def _read_only(entry: Any, args: dict[str, Any] | None = None) -> bool:
             tier = hook(dict(args))
         except Exception:  # noqa: BLE001 - unsure means not read-only
             return False
-        if tier is not None and str(tier) != "safe":
-            return False
-    return True
+        if tier is not None:
+            return str(tier) == "safe"
+    return str(getattr(entry, "risk_tier", "")) == "safe"
 
 
 async def wire_read_only(session_id: str, wire: str, args: dict[str, Any] | None = None) -> bool:

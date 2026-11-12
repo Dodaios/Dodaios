@@ -272,19 +272,30 @@ async def run_owned_routine(
         log.info("society: routine %s needs no model call (%s)", task_id, skipped)
         return NOTHING
     cfg = runtime.config()
-    provider, model, effort, account_id = await _seat_for_run(runtime, agent, task_id)
-    autonomous = "autonomous" in tags
-    if autonomous and _billed_via_api(provider, account_id):
-        raise RoutineDeferred(
-            "Background work is waiting for a subscription or local model on its owner's seat"
+    from dodaios.standing_tasks import service as standing
+
+    try:
+        provider, model, effort, account_id = await _seat_for_run(runtime, agent, task_id)
+        autonomous = "autonomous" in tags
+        if autonomous and _billed_via_api(provider, account_id):
+            raise RoutineDeferred(
+                "Background work is waiting for a subscription or local model on its owner's seat"
+            )
+        await _hold_unattended_run_off_keys(provider, account_id, tags)
+        await _gate_on_seat_health(provider, model, account_id, autonomous=autonomous)
+        # A standing task's level decides its chat's mode ("" for any other routine).
+        standing_mode = await standing.permission_mode(
+            tags, provider=provider, account_id=account_id
         )
-    await _hold_unattended_run_off_keys(provider, account_id, tags)
-    await _gate_on_seat_health(provider, model, account_id, autonomous=autonomous)
+    except Exception as exc:
+        # A standing task's run log says why a run never started (held back or broken).
+        await standing.run_not_started(tags, exc)
+        raise
     # Results nobody opens for days: pause instead of producing another one.
     from .routine_parking import maybe_park
 
     await maybe_park(runtime, agent, task_id)
-    permission_mode = "bypass"
+    permission_mode = standing_mode or "bypass"
     if autonomous:
         from .autonomous_routines import ORIGIN_PERMISSION_TAG, ORIGIN_SESSION_TAG
 
@@ -383,6 +394,7 @@ async def run_owned_routine(
     queue = service.subscribe(session.session_id)
     answer = ""
     read_failures = 0
+    failure = ""
     try:
         # Everything this turn does runs without the owner: its tool calls are
         # judged by reversibility and honour the owner's stop holds.
@@ -394,6 +406,9 @@ async def run_owned_routine(
         while True:
             if cancel_token is not None and cancel_token.is_cancelled():
                 raise asyncio.CancelledError
+            if standing_mode:
+                # Nobody watches this chat: a card is refused with the reason, never left open.
+                standing.refuse_open_cards(service, session.session_id, tags)
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=0.25)
             except TimeoutError:
@@ -440,13 +455,19 @@ async def run_owned_routine(
                     await _report_autonomous_result(runtime, agent, tags, task_id, answer)
                 return answer
     except asyncio.CancelledError:
+        failure = standing.CANCELLED
         await service.cancel(session.session_id)
         raise
     except Exception as exc:
+        failure = str(exc) or type(exc).__name__
         # A started execution must not silently move to another agent/context.
         raise RuntimeError(f"The routine chat failed: {exc}") from exc
     finally:
         service.unsubscribe(session.session_id, queue)
+        # A standing task keeps its own run log, pace and notes; a no-op for other routines.
+        await standing.after_run(
+            tags, answer=answer, session_id=session.session_id, error=failure
+        )
 
 
 async def _record_run_summary(

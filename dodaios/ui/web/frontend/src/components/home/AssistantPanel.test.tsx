@@ -298,6 +298,37 @@ describe("AssistantPanel", () => {
     expect(external.open).toHaveBeenCalledWith("https://app.slack.com/client/T024BE7LD");
   });
 
+  it("leads its work with what it looks after over time", async () => {
+    mount([], {
+      "/api/agent-chat/lead/standing": {
+        available: true,
+        tasks: [
+          { id: "s1", title: "Meta ads campaign", goal: "", how: "", autonomy: "prepare", limits: "", state: "active", interval_min: 180,
+            origin: "owner", reason: "", notes: "", task_id: "t1", created_ms: 1, updated_ms: 2, last_run_ms: 3, next_run_ms: null,
+            last_outcome: "reported", last_summary: "CPA rose to 18.40 EUR.", runs: 1 },
+        ],
+        limits: { min_interval_min: 15, max_interval_min: 10080, default_interval_min: 180, max_open: 12 },
+        autonomy: ["watch", "prepare", "act"],
+      },
+    });
+    const block = await screen.findByTestId("assistant-panel-standing");
+    expect(block.textContent).toContain("Looks after");
+    expect(screen.getByTestId("assistant-standing-task-s1").textContent).toBe("Meta ads campaignTold you: CPA rose to 18.40 EUR.");
+    // It comes before the computers, the chats and the files.
+    const computers = screen.getByTestId("assistant-panel-computers");
+    expect(block.compareDocumentPosition(computers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The library is about what belongs to the assistant, not about its work.
+    library();
+    expect(screen.queryByTestId("assistant-panel-standing")).toBeNull();
+  });
+
+  it("keeps quiet about standing tasks on a backend that does not offer them", async () => {
+    mount([]);
+    await screen.findByTestId("assistant-computer-this");
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledWith("/api/agent-chat/lead/standing", undefined));
+    expect(screen.queryByTestId("assistant-panel-standing")).toBeNull();
+  });
+
   it("lists this computer first with the green dot while the conversation runs on it, and folds the rest", async () => {
     mount([], { "/api/computers": { computers: [computer("c1", "Build box"), computer("c2", "Mac mini", "offline"),
       { ...computer("c3", "Switched off"), enabled: false }] } });

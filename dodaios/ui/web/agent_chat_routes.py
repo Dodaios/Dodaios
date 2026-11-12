@@ -1512,6 +1512,165 @@ async def finish_lead_life_admin_item(item_id: str) -> dict[str, Any]:
     return {"id": item_id, "status": "done"}
 
 
+class LeadStandingBody(BaseModel):
+    """A standing task the owner writes by hand; the service checks lengths and bounds."""
+
+    title: str
+    goal: str
+    how: str = ""
+    #: ``watch`` | ``prepare`` | ``act``.
+    autonomy: str = "prepare"
+    #: What ``act`` may change without asking, in the owner's words.
+    limits: str = ""
+    #: Minutes between two runs to start with; each run adjusts it.
+    interval_min: int | None = None
+    #: IANA zone of the person, e.g. ``Europe/Berlin``.
+    timezone: str = ""
+
+
+class LeadStandingPatchBody(BaseModel):
+    """Only the fields that are sent change."""
+
+    title: str | None = None
+    goal: str | None = None
+    how: str | None = None
+    autonomy: str | None = None
+    limits: str | None = None
+    interval_min: int | None = None
+
+
+#: ``StandingError.code`` -> HTTP status. Anything unknown reads as a bad request.
+_STANDING_STATUS: Final[dict[str, int]] = {
+    "not_found": 404,
+    "invalid": 422,
+    "state": 409,
+    "limit": 409,
+    "unavailable": 503,
+}
+#: The owner's clicks on one standing task, and the service call each one is.
+_STANDING_ACTIONS: Final[dict[str, str]] = {
+    "accept": "accept",
+    "decline": "decline",
+    "pause": "pause",
+    "resume": "resume",
+    "end": "end",
+    "run": "run_now",
+}
+
+
+def _standing_refused(exc: Any) -> HTTPException:
+    return HTTPException(
+        status_code=_STANDING_STATUS.get(str(exc.code), 400), detail=str(exc.message)
+    )
+
+
+async def _lead_session_id(request: Request) -> str:
+    """The lead conversation's id, or ``""`` before there is one: where a click came from."""
+    from dodaios.agent_chat.lead import lead_session
+
+    svc = getattr(request.app.state, "agent_chat", None)
+    if svc is None:
+        return ""
+    try:
+        session = await asyncio.to_thread(lead_session, svc, create=False)
+    except Exception:  # noqa: BLE001 - the click still counts without its conversation
+        log.debug("standing tasks: lead conversation not resolved", exc_info=True)
+        return ""
+    return str(session.session_id) if session is not None else ""
+
+
+@router.get("/lead/standing", summary="Standing tasks: what the assistant looks after, and limits")
+async def get_lead_standing(ended: bool = False) -> dict[str, Any]:
+    from dodaios.standing_tasks import service
+    from dodaios.standing_tasks.models import StandingError
+
+    try:
+        view = dict(await service.overview())
+        if ended:
+            tasks = await service.list_tasks(include_ended=True)
+            view["tasks"] = [task.to_dict() for task in tasks]
+    except StandingError as exc:
+        raise _standing_refused(exc) from exc
+    return view
+
+
+@router.post("/lead/standing", status_code=201, summary="The owner hands over a standing task")
+async def post_lead_standing(body: LeadStandingBody) -> dict[str, Any]:
+    from dodaios.standing_tasks import service
+    from dodaios.standing_tasks.models import StandingError
+
+    # Written in the panel, not said in a chat: no ``origin_session``, so the service
+    # gives it what a task set up outside a chat gets.
+    try:
+        task = await service.take_on(**body.model_dump(exclude_none=True), origin="owner")
+    except StandingError as exc:
+        raise _standing_refused(exc) from exc
+    return {"task": task.to_dict()}
+
+
+@router.get("/lead/standing/{standing_id}", summary="One standing task and its last runs")
+async def get_lead_standing_task(
+    standing_id: str, runs: int = Query(20, ge=1, le=100)
+) -> dict[str, Any]:
+    from dodaios.standing_tasks import service
+    from dodaios.standing_tasks.models import StandingError
+
+    try:
+        task = await service.get_task(standing_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="No such standing task")
+        log_rows = await service.runs_of(standing_id, limit=runs)
+    except StandingError as exc:
+        raise _standing_refused(exc) from exc
+    return {"task": task.to_dict(), "runs": [run.to_dict() for run in log_rows]}
+
+
+@router.patch("/lead/standing/{standing_id}", summary="Change a standing task's wording or pace")
+async def patch_lead_standing(standing_id: str, body: LeadStandingPatchBody) -> dict[str, Any]:
+    from dodaios.standing_tasks import service
+    from dodaios.standing_tasks.models import StandingError
+
+    changes = body.model_dump(exclude_unset=True, exclude_none=True)
+    if not changes:
+        raise HTTPException(status_code=422, detail="Nothing to change")
+    try:
+        task = await service.update(standing_id, **changes)
+    except StandingError as exc:
+        raise _standing_refused(exc) from exc
+    return {"task": task.to_dict()}
+
+
+@router.post(
+    "/lead/standing/{standing_id}/{action}",
+    summary="Accept, decline, pause, resume, end or run a standing task now",
+)
+async def act_on_lead_standing(standing_id: str, action: str, request: Request) -> dict[str, Any]:
+    from dodaios.core.protocols import started_by_user
+    from dodaios.standing_tasks import service
+    from dodaios.standing_tasks.models import StandingError
+
+    name = _STANDING_ACTIONS.get(action)
+    if name is None:
+        raise HTTPException(status_code=404, detail="Unknown action")
+    try:
+        if action == "accept":
+            # The proposal is a card in the lead conversation: a click on it is a yes
+            # said there, so an ``act`` task never gets more than that chat allows.
+            task = await service.accept(
+                standing_id, origin_session=await _lead_session_id(request)
+            )
+        elif action == "run":
+            # The owner's own click: it runs on the task's seat as chosen, the way
+            # "Run now" on a routine does. A run the assistant starts does not.
+            with started_by_user():
+                task = await service.run_now(standing_id)
+        else:
+            task = await getattr(service, name)(standing_id)
+    except StandingError as exc:
+        raise _standing_refused(exc) from exc
+    return {"task": task.to_dict()}
+
+
 class LeadTriggerEventBody(BaseModel):
     #: ``mail`` | ``calendar`` | ``github`` | ``automation`` | ``channel``.
     source: str

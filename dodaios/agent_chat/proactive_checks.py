@@ -16,7 +16,9 @@ the routine is pinned to the subscription seat the front page runs on when
 there is one, and the runner's billing hold applies either way.
 
 Open loops (``open_loops.py``) and the previous result (:data:`ADAPTIVE_TAG`)
-join the prompt at run time through :func:`run_context`.
+join the prompt at run time through :func:`run_context`. So does a standing
+task's work order (``dodaios/standing_tasks``), and the brief's section about
+what the standing tasks did.
 """
 
 from __future__ import annotations
@@ -140,10 +142,17 @@ def skip_reason(
 
 
 async def precheck_skip(runtime: Any, service: Any, tags: tuple[str, ...]) -> str:
-    """:func:`skip_reason` for a live "needs you" run and the life-admin digest;
-    ``""`` for any other routine."""
+    """:func:`skip_reason` for a live "needs you" run, the life-admin digest and
+    a standing task's run; ``""`` for any other routine."""
     from dodaios.life_admin.service import DIGEST_TAG
+    from dodaios.standing_tasks import service as standing
 
+    if standing.standing_id_of(tags):
+        try:
+            return await standing.precheck_skip(tags)
+        except Exception:  # noqa: BLE001 - without its task the run has no work order
+            log.warning("standing tasks: pre-check unreadable, run skipped", exc_info=True)
+            return "the standing task could not be read"
     if DIGEST_TAG in tags:
         from dodaios.life_admin.service import digest_skip_reason
 
@@ -233,7 +242,25 @@ async def run_context(task_store: Any, task_id: str, tags: tuple[str, ...]) -> s
         if flagged:
             parts.append(flagged)
     parts.extend(await _life_admin_parts(tags))
+    parts.extend(await _standing_parts(tags))
     return "\n\n".join(parts)
+
+
+async def _standing_parts(tags: tuple[str, ...]) -> list[str]:
+    """The standing-task text for this routine: a task's own work order, and for
+    the morning brief what the tasks did since the last one."""
+    from dodaios.agent_chat.proactive import BRIEF_TAG
+    from dodaios.standing_tasks import service as standing
+
+    parts: list[str] = []
+    try:
+        if standing.standing_id_of(tags):
+            parts.append(await standing.run_context(tags))
+        if BRIEF_TAG in tags:
+            parts.append(await standing.brief_context())
+    except Exception:  # noqa: BLE001 - the run goes on without the standing-task text
+        log.warning("standing tasks: context unreadable", exc_info=True)
+    return [part for part in parts if part]
 
 
 async def _life_admin_parts(tags: tuple[str, ...]) -> list[str]:
@@ -299,7 +326,14 @@ async def _check_row(task_store: Any) -> dict[str, Any] | None:
 async def _seat_for_checks(runtime: Any, lead: Any) -> dict[str, str]:
     """The seat the checks are pinned to: the front page's subscription seat
     when there is one, else the lead's own (the runner's billing hold still
-    applies to that one)."""
+    applies to that one).
+
+    An install without a global model pick has no such seat to read, and a
+    lead record that names no provider has none of its own: the run would end
+    with "no model seat" although the person talks to the assistant every
+    day. Then the seat is the one their conversation runs on, when that is a
+    subscription or a local model.
+    """
     from dodaios.society.routine_runner import _subscription_seat
 
     try:
@@ -308,9 +342,40 @@ async def _seat_for_checks(runtime: Any, lead: Any) -> dict[str, str]:
         log.debug("lead checks: subscription seat unreadable", exc_info=True)
         subscription = None
     if subscription is None:
-        return {}
+        if str(getattr(lead, "provider", "") or ""):
+            return {}
+        return await _conversation_seat(runtime)
     provider, model, effort = subscription
     return {"provider": provider, "model": model, "effort": effort}
+
+
+async def _conversation_seat(runtime: Any) -> dict[str, str]:
+    """The seat of the lead's own conversation, when it bills no API key; else ``{}``."""
+    try:
+        from dodaios.agent_chat.lead import lead_session
+        from dodaios.core.task_agent import subscription_seat_off_loop
+        from dodaios.society.routine_runner import _billed_via_api
+
+        service = runtime.chat_service()
+        session = lead_session(service, create=False) if service is not None else None
+        provider = str(getattr(session, "provider", "") or "")
+        if not provider:
+            return {}
+        account_id = str(getattr(session, "account_id", "") or "")
+        mapped = await subscription_seat_off_loop(provider)
+        if mapped is None and _billed_via_api(provider, account_id):
+            return {}
+        seat = {
+            "provider": mapped[0] if mapped is not None else provider,
+            "model": str(getattr(session, "model", "") or ""),
+            "effort": str(getattr(session, "effort", "") or ""),
+        }
+        if account_id:
+            seat["account_id"] = account_id
+        return seat
+    except Exception:  # noqa: BLE001 — no readable conversation: the lead's own seat
+        log.debug("lead checks: conversation seat unreadable", exc_info=True)
+        return {}
 
 
 def _billed(provider: str, account_id: str) -> bool:

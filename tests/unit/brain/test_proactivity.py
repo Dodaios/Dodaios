@@ -137,6 +137,27 @@ def test_off_adds_nothing_unrequested() -> None:
         text = proactivity.directive("off", compact=compact)
         assert "suggestions" in text and "off" in text
         assert "At most one" not in text
+        assert "standing task" not in text
+
+
+def test_ongoing_work_is_offered_once_or_proposed_as_a_standing_task() -> None:
+    """The assistant becomes active by itself: it notices what it could look after."""
+    ongoing = (
+        "When they keep coming back to the same ongoing thing, or hand you something with "
+        "no end date (a campaign, an inbox, a launch, numbers they check by hand), "
+    )
+    balanced = proactivity.directive("balanced")
+    high = proactivity.directive("high")
+    assert ongoing + "offer once to look after it as a standing task. " in balanced
+    assert "propose it" not in balanced  # balanced only offers; nothing is stored yet
+    assert ongoing + "propose it as a standing task right away" in high
+    # High stores a proposal, which starts nothing, and tells the person in one sentence.
+    assert "a proposal starts nothing until they accept" in high
+    assert "say so in one sentence" in high
+    # Voice has no such tool: the rule names it only "where you have that tool".
+    assert "standing_task with action propose, where you have that tool" in high
+    # One sentence each: the rule stays the short block it was.
+    assert len(balanced) < 2_800 and len(high) < 2_800
 
 
 def test_the_rule_follows_the_live_level_by_default() -> None:

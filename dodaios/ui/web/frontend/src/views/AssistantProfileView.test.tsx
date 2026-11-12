@@ -11,6 +11,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+import { STANDING_LIMITS, standingTask } from "@/lib/standingTasksApi.testkit";
+import { useEventStore } from "@/store/events";
+import { openStandingTasks, useStandingFocus } from "@/store/standingFocus";
 import { AssistantProfileView } from "@/views/AssistantProfileView";
 import type { SoulProfile } from "@/views/assistant/api";
 
@@ -312,5 +315,70 @@ describe("AssistantProfileView", () => {
     await waitFor(() =>
       expect(calls.some((c) => c.url === "/api/settings/agent-instructions" && c.init?.method === "PUT")).toBe(true),
     );
+  });
+
+  describe("standing tasks", () => {
+    const STANDING = "/api/agent-chat/lead/standing";
+    const meta = standingTask("s-meta", { title: "Meta ads campaign", goal: "Keep cost per purchase under 20 EUR." });
+    const standingRoutes = {
+      [`GET ${STANDING}`]: () => ({
+        body: { available: true, tasks: [meta], limits: STANDING_LIMITS, autonomy: ["watch", "prepare", "act"] },
+      }),
+      [`GET ${STANDING}/s-meta`]: () => ({ body: { task: meta, runs: [] } }),
+    };
+    const initiative = { level: "balanced" as const, levels: ["off" as const, "balanced" as const, "high" as const], upcoming: [] };
+
+    it("sit right after Initiative and open in place, with a way back", async () => {
+      installFetch({ "GET /api/soul": () => ({ body: profile({ initiative }) }), ...standingRoutes });
+      renderWithClient(<AssistantProfileView />);
+
+      const section = await screen.findByTestId("assistant-standing");
+      expect(within(section).getByRole("heading", { level: 2 }).textContent).toBe("Standing tasks");
+      const order = screen.getAllByRole("region").map((region) => region.getAttribute("data-testid"));
+      expect(order.indexOf("assistant-standing")).toBe(order.indexOf("assistant-initiative") + 1);
+      expect(order.indexOf("assistant-memory")).toBe(order.indexOf("assistant-standing") + 1);
+
+      fireEvent.click(await within(section).findByTestId("assistant-standing-open-s-meta"));
+      expect(await screen.findByTestId("assistant-standing-page")).toBeTruthy();
+      expect(screen.getByRole("heading", { level: 2, name: "Meta ads campaign" })).toBeTruthy();
+      // The page itself steps aside, like it does for a file.
+      expect(screen.queryByTestId("assistant-intro")).toBeNull();
+
+      fireEvent.click(screen.getByTestId("assistant-standing-back"));
+      expect(await screen.findByTestId("assistant-intro")).toBeTruthy();
+      expect(screen.getByTestId("assistant-standing")).toBeTruthy();
+    });
+
+    it("land on the task someone asked for from outside the page", async () => {
+      installFetch({ "GET /api/soul": () => ({ body: profile() }), ...standingRoutes });
+      openStandingTasks("s-meta");
+      expect(useEventStore.getState().activeSection).toBe("agent-instructions");
+      renderWithClient(<AssistantProfileView />);
+
+      expect(await screen.findByTestId("assistant-standing-page")).toBeTruthy();
+      expect(await screen.findByRole("heading", { level: 2, name: "Meta ads campaign" })).toBeTruthy();
+      // The request is taken once: going back shows the page, not the task again.
+      expect(useStandingFocus.getState().target).toBeNull();
+      fireEvent.click(screen.getByTestId("assistant-standing-back"));
+      expect(await screen.findByTestId("assistant-standing")).toBeTruthy();
+      expect(screen.queryByTestId("assistant-standing-page")).toBeNull();
+    });
+
+    it("bring the list into view when it was asked for from outside", async () => {
+      installFetch({ "GET /api/soul": () => ({ body: profile() }), ...standingRoutes });
+      const scrolled = vi.fn();
+      const original = Element.prototype.scrollIntoView;
+      Element.prototype.scrollIntoView = scrolled;
+      try {
+        openStandingTasks();
+        renderWithClient(<AssistantProfileView />);
+        await screen.findByTestId("assistant-standing");
+        await waitFor(() => expect(scrolled).toHaveBeenCalledTimes(1));
+        expect(screen.queryByTestId("assistant-standing-page")).toBeNull();
+        expect(useStandingFocus.getState().target).toBeNull();
+      } finally {
+        Element.prototype.scrollIntoView = original;
+      }
+    });
   });
 });

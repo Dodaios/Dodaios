@@ -85,3 +85,15 @@ only when something changed. It needs no model for progress; the criteria check 
 runs on a seat background work may use. A project with no progress for its stall window
 becomes a watchdog finding (resume, rescope, close). `/project` lists projects or asks the
 lead to start one; `GET /api/projects` reads them. There is no Projects view in the UI yet.
+
+## Standing tasks
+
+`standing_task` (`dodaios/brain/standing_task_tool.py`, service in `dodaios/standing_tasks/`)
+is the lead's tool for what it looks after with no end date: see
+[standing-tasks.md](standing-tasks.md). It is lead-only like `project`, and the one lead tool
+that also reaches the lead's unattended routine runs: a standing-task run is a lead routine
+whose chat is on the society surface, so `society.surface.society_tools` adds the tool for the
+lead there (`tests/unit/society/test_standing_task_reach.py`). What a call may start is read
+from the turn the app set, never from an argument: taking one on, accepting one, raising its
+autonomy or changing its limits needs the owner's own message and a quote from it; a report is
+accepted only from the run of that task's own routine.

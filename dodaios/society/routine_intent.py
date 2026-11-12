@@ -99,6 +99,35 @@ def requests_recurring_work(text: str) -> bool:
     return bool(_REQUEST_CUE.search(text)) and not _PAST_REPORT.search(text)
 
 
+# The person hands something over to be looked after ("look after my campaign",
+# "keep an eye on the inbox") instead of ordering a result on a clock.
+_LOOK_AFTER = re.compile(
+    r"\b(?:look(?:s|ing)?\s+after|tak(?:es?|ing)\s+care\s+of|keep(?:s|ing)?\s+an\s+eye\s+on|"
+    r"watch(?:es|ing)?\s+over|"
+    r"k[üu]e?mmer\w*\s+dich\s+(?:\w+\s+){0,5}um|"  # i18n-allow: input vocabulary
+    r"im\s+(?:auge|blick)|betreu\w*|"  # i18n-allow: input vocabulary
+    r"oc[úu]pate\s+de|enc[áa]rgate\s+de|"  # i18n-allow: input vocabulary
+    r"toma\s+conta\s+d[eoa]s?|fica\s+de\s+olho)\b",  # i18n-allow: input vocabulary
+    re.IGNORECASE,
+)
+# A time of day makes it a schedule again ("look after my inbox every day at 8").
+_CLOCK_TIME = re.compile(
+    r"\b(?:at|um|a\s+las|[àa]s)\s+\d{1,2}\b|"  # i18n-allow: input vocabulary
+    r"\b\d{1,2}(?::\d{2})?\s*(?:am|pm|uhr|h)\b",  # i18n-allow: input vocabulary
+    re.IGNORECASE,
+)
+
+
+def hands_over_ongoing_work(text: str) -> bool:
+    """An open-ended responsibility, not a schedule: "look after my Meta ads campaign".
+
+    Such a request may name a pace ("check it daily") and is still a standing task
+    (``standing_task``): the work needs judgement and memory of the last state. A time
+    of day, or the word "routine", keeps it a routine.
+    """
+    return bool(_LOOK_AFTER.search(text)) and not _CLOCK_TIME.search(text)
+
+
 _SKILL_WORD = re.compile(r"\bskills?\b", re.IGNORECASE)
 
 
@@ -107,15 +136,17 @@ def wants_agent_routine(text: str) -> bool:
 
     "Routine" is also a spoken synonym for a skill; the user saying "skill"
     keeps that meaning. Everything else that asks for recurring work or
-    creates a routine belongs to ``society-create-routine``.
+    creates a routine belongs to ``society-create-routine``, except something
+    handed over to be looked after (:func:`hands_over_ongoing_work`), which
+    the assistant may take on as a standing task instead.
     """
     if _SKILL_WORD.search(text):
         return False
-    if requests_recurring_work(text):
-        return True
-    return bool(
+    if (
         _ROUTINE_NOUN.search(text)
         and _CREATE_VERB.search(text)
         and not _HOW_TO.search(text)
         and not _PAST_REPORT.search(text)
-    )
+    ):
+        return True
+    return requests_recurring_work(text) and not hands_over_ongoing_work(text)

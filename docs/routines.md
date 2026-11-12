@@ -5,6 +5,10 @@ belongs to an agent, appears in its Routines rail, and executes
 through that agent's canonical chat with its current instructions and permissions.
 Creating a routine never grants additional plugin permissions.
 
+A routine is a fixed prompt on a fixed schedule. Something the assistant looks after over
+time with no end date, with notes carried from run to run and a pace it sets itself, is a
+[standing task](standing-tasks.md); it runs on a routine of the lead.
+
 ## Model seat
 
 A routine is pinned to a model seat at creation: by default the seat its owner

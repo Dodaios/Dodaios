@@ -276,6 +276,7 @@ class SocietyRuntime:
         self._runtime_updates_task: asyncio.Task[None] | None = None
         self._skill_routines_task: asyncio.Task[None] | None = None
         self._project_review_task: asyncio.Task[None] | None = None
+        self._standing_heal_task: asyncio.Task[None] | None = None
         self._delivery_unsubscribe: Callable[[], None] | None = None
         self._lead_incoming_unsubscribe: Callable[[], None] | None = None
         self._started = False
@@ -387,6 +388,11 @@ class SocietyRuntime:
         from dodaios.projects.reviewer import run_loop as run_project_reviews
 
         self._project_review_task = asyncio.create_task(run_project_reviews(self))
+        # Standing tasks: an app exit in the middle of a run ends that routine; replace it.
+        from dodaios.standing_tasks.service import heal_after_start
+
+        # It waits for the scheduler, so it is not one of ``_watchers`` either.
+        self._standing_heal_task = asyncio.create_task(heal_after_start())
         self._runtime_updates_task = asyncio.create_task(self._keep_agent_runtimes_current())
         log.info("society runtime started (%s)", self.store.path)
         return self
@@ -632,6 +638,7 @@ class SocietyRuntime:
                 self._runtime_updates_task,
                 self._skill_routines_task,
                 self._project_review_task,
+                self._standing_heal_task,
             ):
                 if task is not None:
                     tasks.add(task)
@@ -656,6 +663,8 @@ class SocietyRuntime:
                     self._project_review_task = None
                 if self._skill_routines_task is not None and self._skill_routines_task.done():
                     self._skill_routines_task = None
+                if self._standing_heal_task is not None and self._standing_heal_task.done():
+                    self._standing_heal_task = None
                 self._watchers.difference_update(task for task in tasks if task.done())
 
     def skills_for(self, agent_id: str) -> AgentSkills:

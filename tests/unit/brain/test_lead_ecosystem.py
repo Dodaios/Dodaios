@@ -86,9 +86,16 @@ def test_every_read_path_is_a_real_lead_tool_or_a_mounted_get_route(
 
 def test_the_new_lead_tools_are_in_the_map(lead_tool_names: frozenset[str]) -> None:
     text = render_ecosystem_map()
-    for tool in ("team_thread", "costs_summary", "artifacts"):
+    for tool in ("team_thread", "costs_summary", "artifacts", "standing_task"):
         assert tool in lead_tool_names
         assert tool in text
+
+
+def test_standing_tasks_sit_with_the_automations_as_a_read_and_an_act() -> None:
+    area = next(area for area in AREAS if area.name == "Automations")
+    assert "standing_task" in area.reads and "standing_task" in area.acts
+    line = next(line for line in render_ecosystem_map().splitlines() if "Automations" in line)
+    assert "a standing task is something you look after over time with no end date" in line
 
 
 def test_the_map_is_generated_stable_and_bounded() -> None:

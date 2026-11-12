@@ -22,13 +22,16 @@
  *   ────────────────────────────────────────────────────────────
  *   Initiative   ○ Off  ● Balanced  ○ Proactive (+ dated plans)
  *   ────────────────────────────────────────────────────────────
+ *   Standing tasks   what it looks after over time            Add
+ *   ────────────────────────────────────────────────────────────
  *   Memory   [Remembered · About you · About itself]
  *   ────────────────────────────────────────────────────────────
  *   Recently learned  — the ledger, with the person's words
  *
- * A file opens in place with a way back, like USER.md on the Profile page.
+ * A file opens in place with a way back, like USER.md on the Profile page,
+ * and so does a standing task.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -44,6 +47,9 @@ import { Intro } from "@/views/assistant/Intro";
 import { MemorySection } from "@/views/assistant/MemorySection";
 import { RecentSection } from "@/views/assistant/RecentSection";
 import { TextAction } from "@/views/assistant/Section";
+import { StandingSection } from "@/views/assistant/StandingSection";
+import { StandingTaskPage } from "@/views/assistant/StandingTaskPage";
+import { useStandingFocus } from "@/store/standingFocus";
 
 /** The full Settings hub column — the same measure as the Profile page. */
 const COLUMN = "w-full";
@@ -60,14 +66,34 @@ export function AssistantProfileView() {
   const t = useT();
   const { data, isLoading, error, refetch, isRefetching } = useSoulProfile();
   const [open, setOpen] = useState<SoulFileId | null>(null);
+  const [taskId, setTaskId] = useState<string | null>(null);
+  // Someone came for the standing tasks: the page lands on that section.
+  const [toStanding, setToStanding] = useState(false);
 
-  // Switching between the page and a file starts at the top.
+  // A standing task (or their list) asked for from outside the page — the
+  // panel on the front page, a card in the conversation; see store/standingFocus.
+  const pendingFocus = useStandingFocus((s) => s.target);
+  useEffect(() => {
+    if (pendingFocus === null) return;
+    const target = useStandingFocus.getState().take();
+    if (!target) return;
+    setOpen(null);
+    setTaskId(target.taskId || null);
+    setToStanding(!target.taskId);
+  }, [pendingFocus]);
+
+  // Switching between the page and a file or a task starts at the top,
+  // unless the page is on its way to the standing tasks.
   const scrollRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
+    if (toStanding) return;
     scrollRef.current?.scrollTo?.({ top: 0 });
-  }, [open]);
+    // Only a switch scrolls; `toStanding` is read, never a reason to run.
+  }, [open, taskId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const landedOnStanding = useCallback(() => setToStanding(false), []);
 
   const openFile = open && data ? data.files.find((f) => f.id === open) : undefined;
+  const openTask = !openFile ? taskId : null;
 
   return (
     <div ref={scrollRef} className="flex h-full flex-col overflow-y-auto bg-background px-8 pb-12 scrollbar-jarvis">
@@ -107,12 +133,25 @@ export function AssistantProfileView() {
           <FilePage file={openFile} name={data.name} canForget={data.learning} onBack={() => setOpen(null)} />
         )}
 
-        {data && !openFile && (
+        {data && openTask && (
+          <StandingTaskPage
+            key={openTask}
+            id={openTask}
+            name={data.name}
+            onBack={() => {
+              setTaskId(null);
+              setToStanding(true);
+            }}
+          />
+        )}
+
+        {data && !openFile && !openTask && (
           <div className="flex flex-col gap-10">
             <Intro profile={data} />
             <FilesSection files={data.files} onOpen={setOpen} />
             <CharacterSection soul={fileOf(data, "soul")} onEdit={() => setOpen("soul")} />
             {data.initiative && <InitiativeSection initiative={data.initiative} />}
+            <StandingSection onOpen={setTaskId} focus={toStanding} onFocused={landedOnStanding} />
             <MemorySection profile={data} />
             <RecentSection activity={data.activity} lastReview={data.last_review} />
           </div>

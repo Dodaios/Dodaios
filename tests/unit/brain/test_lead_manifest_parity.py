@@ -120,7 +120,11 @@ async def test_the_lead_is_the_same_on_the_brain_seat_the_cli_seat_and_voice(mon
         "workspace-git",
         "society_request_connect",
         "request_browser_takeover",
+        # Multi-day work and what the lead looks after with no end date.
+        "project",
+        "standing_task",
     } <= cli
+    assert "standing_task" not in voice  # a call hands that to the chat
 
 async def test_the_older_spawn_vehicles_are_not_offered_to_the_lead_over_mcp():
     gateway = _gateway((*_LIVE, "multi-spawn", "dispatch-to-harness", "dispatch-with-review"))

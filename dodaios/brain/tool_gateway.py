@@ -140,7 +140,8 @@ class BrainSupervisorToolGateway:
         stable id (voice has had them all along); ``work_board`` is the one
         read of what runs and who needs the person; ``team_thread``, ``costs_summary``
         and ``artifacts`` reach team threads, spend and the agents' output;
-        ``ask_agent`` relays a
+        ``project`` tracks multi-day work and ``standing_task`` what the lead looks
+        after with no end date; ``ask_agent`` relays a
         conversation with a team agent and ``product_help`` answers how-to
         questions from the built-in guide. The exceptions between seats are
         listed in ``lead_manifest``.
@@ -148,6 +149,7 @@ class BrainSupervisorToolGateway:
         from dodaios.brain.artifacts_tool import ArtifactsTool
         from dodaios.brain.costs_summary_tool import CostsSummaryTool
         from dodaios.brain.project_tool import ProjectTool
+        from dodaios.brain.standing_task_tool import StandingTaskTool
         from dodaios.brain.team_thread_tool import TeamThreadTool
         from dodaios.brain.work_board_tool import WorkBoardTool
         from dodaios.plugins.tool.product_help import ProductHelpTool
@@ -157,6 +159,9 @@ class BrainSupervisorToolGateway:
         # must reach: team threads, spend, what the agents made).
         for tool in (TeamThreadTool(), CostsSummaryTool(), ArtifactsTool(), ProjectTool()):
             extra[tool.name] = tool
+        # Whose turn a call belongs to decides what it may start: the tool asks this
+        # gateway which chats are the lead's.
+        extra[StandingTaskTool.name] = StandingTaskTool(lead_session=self.is_lead_session)
         if "message_agent" in self._live_tools():
             from dodaios.plugins.tool.ask_agent import AskAgentTool
             from dodaios.society.runtime import current_runtime

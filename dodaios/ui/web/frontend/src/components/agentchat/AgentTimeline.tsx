@@ -10,6 +10,7 @@ import { ChainResultCard } from "./ChainResultCard";
 import { ReportCard } from "./ReportCard";
 import { BrowserTakeoverNotice } from "./BrowserTakeoverNotice";
 import { SeatTroubleNotice } from "./SeatTroubleNotice";
+import { StandingPausedNotice, StandingProposalCard } from "./StandingProposalCard";
 import { ReminderDueNotice } from "./reminders/ReminderDueNotice";
 import { TasksCapturedCard } from "./reminders/TasksCapturedCard";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
@@ -295,6 +296,8 @@ export function AgentTimeline({
       if (item.kind === "browser_takeover") return <BrowserTakeoverNotice key={item.id} item={item} />;
       if (item.kind === "reminder_due") return <ReminderDueNotice key={item.id} item={item} />;
       if (item.kind === "tasks_captured") return <TasksCapturedCard key={item.id} item={item} />;
+      if (item.kind === "standing_proposal") return <StandingProposalCard key={item.id} item={item} />;
+      if (item.kind === "standing_paused") return <StandingPausedNotice key={item.id} item={item} />;
       if (item.kind === "context_reset") {
         return (
           <div key={item.id} data-message-id={item.id} data-testid="context-reset"
