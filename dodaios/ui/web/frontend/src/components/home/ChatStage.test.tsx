@@ -683,30 +683,71 @@ describe("ChatStage (agent chat)", () => {
     expect(within(turn).getByTestId("agent-text").querySelector("strong")?.textContent).toBe("a.py");
   });
 
-  it("pins the person's message to the top when it is the newest thing, and keeps it there while the answer fits", () => {
+  it("goes on at the bottom when the person sends: the conversation above stays in view", () => {
+    // The complaint this guards (maintainer, 2026-11-12): a sent message was
+    // brought to the top of the scroll area over a spacer, so every send hid
+    // the conversation and the person had to scroll up to see it.
+    withResizeObserver();
+    const before = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "run the tests" }),
+      ev("turn_started", { turn_id: "t1", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
+      ev("assistant_text", { turn_id: "t1", message_id: "m1", text: "All green." }),
+      ev("turn_finished", { turn_id: "t1", status: "done", duration_ms: 900, usage: {} }),
+    ]);
+    useAgentChatStore.setState({ activeSessionId: "s1", timeline: before });
+    render(<ChatStage />);
+    const viewport = stageViewport();
+    measure(viewport, 900, 1000, 100);
+    act(() => {
+      fireEvent.scroll(viewport);
+    });
+    // Opening a conversation animates nothing and adds no room under it.
+    expect(scrollTo).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("chat-bottom-spacer")).toBeNull();
+
+    // Sent: the column is taller by the new message, and the view goes to its end.
+    measure(viewport, 900, 1080, 100);
+    act(() => useAgentChatStore.setState({ timeline: reduceEvents(before, [ev("user_message", { text: "and the linter?" })]) }));
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 1080 }));
+    // Both messages of the person are in the column, the earlier one first.
+    expect(screen.getAllByTestId("agent-message-user").map((node) => node.textContent)).toEqual(["run the tests", "and the linter?"]);
+    expect(screen.queryByTestId("chat-bottom-spacer")).toBeNull();
+    expect(screen.queryByTestId("chat-scroll-end")).toBeNull();
+  });
+
+  it("takes a reader who had scrolled up back to the end when they send", () => {
+    withResizeObserver();
+    const before = runningTurn();
+    useAgentChatStore.setState({ activeSessionId: "s1", timeline: before });
+    render(<ChatStage />);
+    const viewport = stageViewport();
+    measure(viewport, 100, 1000, 50);
+    act(() => {
+      fireEvent.scroll(viewport);
+    });
+    expect(screen.getByTestId("chat-scroll-end")).toBeTruthy();
+
+    measure(viewport, 100, 1080, 50);
+    act(() => useAgentChatStore.setState({ timeline: reduceEvents(before, [ev("user_message", { text: "stop after the first failure" })]) }));
+    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 1080 }));
+    expect(screen.queryByTestId("chat-scroll-end")).toBeNull();
+  });
+
+  it("lands an opened conversation at its end without a glide, even when the person wrote last", () => {
     withResizeObserver();
     useAgentChatStore.setState({
       activeSessionId: "s1",
       timeline: reduceEvents(EMPTY_TIMELINE, [ev("user_message", { text: "run the tests" })]),
     });
     render(<ChatStage />);
-    // Sent: the message is brought to the top of the scroll area.
-    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
-
+    expect(scrollTo).not.toHaveBeenCalled();
     const viewport = stageViewport();
-    measure(viewport, 950, 1000, 100);
-    act(() => {
-      fireEvent.scroll(viewport);
-    });
-    // The answer starts under it but still fits the window: the spacer gives
-    // way (100 px window − 24 px breath = 76 px left) and the view does not
-    // move — the message stays on its line.
+    measure(viewport, 0, 1000, 100);
     act(() => {
       FakeResizeObserver.fire();
     });
-    expect(screen.getByTestId("chat-bottom-spacer").style.minHeight).toBe("76px");
-    expect(viewport.scrollTop).toBe(950);
-    expect(screen.queryByTestId("chat-scroll-end")).toBeNull();
+    expect(viewport.scrollTop).toBe(1000);
   });
 
   it("follows an answer that grows past the window while the view is at the end", () => {
