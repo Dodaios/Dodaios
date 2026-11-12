@@ -215,17 +215,22 @@ describe("ChatStage (agent chat)", () => {
     expect(within(composer).getByTestId("composer-add")).toBeTruthy();
   });
 
-  it("turns the empty composer's round button into a call, and into Send once there is text", () => {
+  it("always shows Send, with the call beside it while the box is empty", () => {
     useHomeStore.setState({ surface: "chat" });
     render(<ChatStage />);
-    expect(screen.queryByTestId("composer-send")).toBeNull();
+    // Nothing to send yet: the arrow is there, dimmed, last in the row.
+    const send = () => screen.getByTestId("composer-send") as HTMLButtonElement;
+    expect(send().disabled).toBe(true);
+    expect(screen.getByTestId("composer-voice-mode").nextElementSibling).toBe(send());
     const box = screen.getByRole("textbox");
     box.textContent = "hello";
     fireEvent.input(box);
-    expect(screen.getByTestId("composer-send")).toBeTruthy();
+    expect(send().disabled).toBe(false);
+    // The call makes room while there is something to send.
     expect(screen.queryByTestId("composer-voice-mode")).toBeNull();
     box.textContent = "";
     fireEvent.input(box);
+    expect(send().disabled).toBe(true);
     fireEvent.click(screen.getByTestId("composer-voice-mode"));
     // A call stays in the conversation: the page does not switch away.
     expect(useHomeStore.getState().surface).toBe("chat");
@@ -258,6 +263,8 @@ describe("ChatStage (agent chat)", () => {
       render(<ChatStage />);
       expect(screen.queryByTestId("composer-voice-mode")).toBeNull();
       expect(screen.getByTestId("composer-hang-up").textContent).toContain("Hang up");
+      // Send stays in its place beside it, dimmed until there are words.
+      expect((screen.getByTestId("composer-send") as HTMLButtonElement).disabled).toBe(true);
       // The microphone button is the call's mute switch, not dictation.
       expect(screen.queryByTestId("dictation-button")).toBeNull();
       expect(screen.getByTestId("composer-call-mute").getAttribute("aria-pressed")).toBe("false");
@@ -804,7 +811,15 @@ describe("ChatStage (agent chat)", () => {
     useAgentChatStore.setState({ activeSessionId: "s1", busy: true, timeline: EMPTY_TIMELINE });
     render(<ChatStage />);
     expect(screen.getByTestId("composer-stop")).toBeTruthy();
-    expect(screen.queryByTestId("composer-send")).toBeNull();
+    // Send keeps its place while the assistant works: the next message can
+    // be written and sent at any time.
+    const send = screen.getByTestId("composer-send") as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+    const box = screen.getByRole("textbox");
+    box.textContent = "and one more thing";
+    fireEvent.input(box);
+    expect((screen.getByTestId("composer-send") as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByTestId("composer-stop")).toBeTruthy();
   });
 
   it("shows the assistant typing from the send until its answer is written", () => {
