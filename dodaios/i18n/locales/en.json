@@ -168,7 +168,7 @@
     "fallback": "An error occurred."
   },
   "speech": {
-    "brain_unavailable": "Sorry, Ruben — I can't reach any of my language models right now. Please check whether your providers still have credit.",
+    "brain_unavailable": "Sorry — I can't reach any of my language models right now. Please check whether your providers still have credit.",
     "stt_unavailable": "Sorry, I didn't catch that just now. Could you say it again?",
     "realtime_unavailable": "The realtime connection is unavailable right now. I am switching this session to the classic voice pipeline.",
     "timeout_tool_stall": "I couldn't get an answer in time. A tool I was waiting on didn't respond.",

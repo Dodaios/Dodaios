@@ -219,7 +219,7 @@ class UserProfile:
             parts.append(f"- **Pronouns:** {ident['pronouns']}")
         langs = ident.get("languages") or []
         if langs:
-            primary = ident.get("primary_language", "de")
+            primary = ident.get("primary_language") or langs[0]
             parts.append(f"- **Languages:** {', '.join(langs)} (Primary: {primary})")
         if ident.get("timezone"):
             parts.append(f"- **Timezone:** {ident['timezone']}")

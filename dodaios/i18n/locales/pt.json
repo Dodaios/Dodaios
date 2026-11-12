@@ -168,7 +168,7 @@
     "fallback": "Ocorreu um erro."
   },
   "speech": {
-    "brain_unavailable": "Desculpa, Ruben — neste momento não consigo aceder a nenhum dos meus modelos de linguagem. Verifica se os teus fornecedores ainda têm crédito.",
+    "brain_unavailable": "Desculpa — neste momento não consigo aceder a nenhum dos meus modelos de linguagem. Verifica se os teus fornecedores ainda têm crédito.",
     "stt_unavailable": "Desculpa, não percebi bem o que disseste. Podes repetir, por favor?",
     "realtime_unavailable": "A ligação em tempo real não está disponível neste momento. Vou mudar esta sessão para o sistema de voz clássico.",
     "timeout_tool_stall": "Não consegui obter uma resposta a tempo. Uma ferramenta de que estava à espera não respondeu.",

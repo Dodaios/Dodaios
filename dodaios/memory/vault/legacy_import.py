@@ -24,12 +24,14 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from dodaios.memory.template_defaults import LEGACY_DEFAULTS, assumed_fields
 from dodaios.memory.vault.runtime import guess_kind
 from dodaios.memory.vault.store import MemoryVault
 
 log = logging.getLogger(__name__)
 
 META_KEY = "legacy_import"
+TEMPLATE_DEFAULTS_KEY = "template_defaults_retired"
 CONFIDENCE = 0.7
 MAX_CHARS = 600
 DORMANT_DAYS = 45
@@ -249,10 +251,13 @@ def _import_user_profile(writer: _Writer, data_dir: Path) -> None:
 
     path = data_dir / "workspace" / "USER.md"
     try:
-        meta, _body = parse_frontmatter(path.read_text(encoding="utf-8"))
+        meta, body = parse_frontmatter(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError):  # no profile file: nothing to import
         return
     identity = meta.get("identity") if isinstance(meta.get("identity"), dict) else {}
+    # What the old template filled in is not something the person said.
+    assumed = assumed_fields(meta, body)
+    identity = {k: v for k, v in identity.items() if k not in assumed}
     lines = []
     if identity.get("name"):
         lines.append(f"The user's name is {identity['name']}.")
@@ -267,6 +272,44 @@ def _import_user_profile(writer: _Writer, data_dir: Path) -> None:
         lines.append(f"The user's time zone is {identity['timezone']}.")
     for text in lines:
         writer.add(text, "profile", source="user-profile", file="workspace/USER.md")
+
+
+def retire_template_defaults(vault: MemoryVault, *, data_dir: Path) -> int:
+    """Close imported memories that only repeat the old profile template; once per vault.
+
+    A vault that imported before 2026-11 holds "The user's time zone is
+    Europe/Berlin." and "The user's main language: de." for everybody. One stays
+    when the profile still states that value and it is the person's own
+    (:func:`dodaios.memory.template_defaults.assumed_fields`).
+    """
+    if vault.get_meta(TEMPLATE_DEFAULTS_KEY) is not None:
+        return 0
+    from dodaios.memory.frontmatter import parse_frontmatter
+
+    try:
+        text = (data_dir / "workspace" / "USER.md").read_text(encoding="utf-8")
+        meta, body = parse_frontmatter(text)
+    except (OSError, UnicodeDecodeError):  # no profile file: nothing confirms the values
+        meta, body = {}, ""
+    identity = meta.get("identity") if isinstance(meta.get("identity"), dict) else {}
+    assumed = assumed_fields(meta, body)
+    sentences = {
+        f"The user's main language: {LEGACY_DEFAULTS['primary_language']}.": "primary_language",
+        f"The user's time zone is {LEGACY_DEFAULTS['timezone']}.": "timezone",
+    }
+    closed = 0
+    for memory in vault.list(kind="profile"):
+        field_name = sentences.get(memory.text)
+        if field_name is None or memory.source.get("from") != "user-profile":
+            continue
+        if identity.get(field_name) == LEGACY_DEFAULTS[field_name] and field_name not in assumed:
+            continue
+        if vault.invalidate(memory.id, reason="a template default the person never stated"):
+            closed += 1
+    vault.set_meta(TEMPLATE_DEFAULTS_KEY, json.dumps({"at": vault.now(), "closed": closed}))
+    if closed:
+        log.info("memory vault: closed %d memories that repeated the old profile template", closed)
+    return closed
 
 
 def legacy_wiki_root(config: Any) -> Path:
