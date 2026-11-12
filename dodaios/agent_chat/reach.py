@@ -8,8 +8,9 @@ The two are not the same kind of thing, and ``kind`` says so:
 
 * ``chat``: Telegram. The owner's private chat with the bot is the lead
   conversation itself (``channels/chat_bridge.py``), so the address is the
-  bot's own chat. Connected means the live channel runs, not just that a
-  token is stored.
+  bot's own chat. Connected means Telegram has named the bot to the live
+  channel: a stored token alone is not enough, and neither is a channel that
+  is switched off (it still counts as started for the manager).
 * ``tool``: Slack. The assistant works in the person's workspace with their
   own grant (``plugins/tool/slack_rest.py``); nobody can write to it there.
   The address is the workspace.
@@ -45,10 +46,13 @@ def telegram_row(channel_manager: Any) -> dict[str, Any]:
     except Exception:  # noqa: BLE001 - a manager mid-start counts as not connected
         log.debug("telegram channel state could not be read", exc_info=True)
         return row
+    # A channel with ``enabled = false`` starts too, without ever asking
+    # Telegram who it is. Only a bot Telegram has named can be written to.
+    if not _TELEGRAM_NAME.fullmatch(name):
+        return row
     row["connected"] = True
-    if _TELEGRAM_NAME.fullmatch(name):
-        row["handle"] = f"@{name}"
-        row["url"] = f"https://t.me/{name}"
+    row["handle"] = f"@{name}"
+    row["url"] = f"https://t.me/{name}"
     return row
 
 
