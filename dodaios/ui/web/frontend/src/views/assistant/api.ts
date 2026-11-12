@@ -22,6 +22,16 @@ export interface SoulEntry {
   origin: string;
   /** The person asked for it ("remember …"), as opposed to a review's inference. */
   explicit: boolean;
+  /**
+   * Where the line lives: the memory vault, an old notebook file, or the
+   * person's own profile. A profile line is read-only here (the Profile page
+   * edits it). Absent from a backend older than the vault-backed pages.
+   */
+  store?: "vault" | "notebook" | "profile";
+  /** The profile field a `store: "profile"` line states ("name", "about", …). */
+  field?: string;
+  /** When a vault memory was recorded. */
+  at_ms?: number | null;
 }
 
 export interface SoulRow {
@@ -54,6 +64,8 @@ export interface InstructionsFile extends FileBase {
 export interface NotebookFile extends FileBase {
   id: "memory" | "user";
   entries: SoulEntry[];
+  /** "vault" while the memory vault fills the page, else the notebook file. */
+  store?: "vault" | "notebook";
 }
 
 export type SoulFile = CharacterFile | InstructionsFile | NotebookFile;

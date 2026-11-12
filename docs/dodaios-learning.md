@@ -97,6 +97,43 @@ Dodaios itself, tuned for a voice assistant.
    the lead avatar's knowledge view or in Obsidian applies on the next turn,
    and the prompt stays byte-stable for the provider cache otherwise.
 
+## Where a review writes while the memory vault runs
+
+The memory vault (`data/memory/vault.db`, ADR-0044) is on by default, and
+while it runs it is the store, for every write of this loop:
+
+- a review does not read or write the notebooks of steps 4 to 6. One
+  reconcile call (`dodaios/memory/vault/reconcile.py`) sees the marked turns
+  and the nearest stored memories, and its operations (add, update,
+  invalidate) are applied to the vault under the same evidence rule;
+- an explicit "remember X" goes into the vault as well (step 3);
+- the prompt carries the vault's profile block first, then whatever the
+  notebooks still hold (`notebook.snapshot_block`);
+- the ledger still gets one `review` line per call, with the seat of the
+  reviewer that was asked (the vault's).
+
+So on such an install `society/jarvis/USER.md` and `MEMORY.md` stay as they
+were when the vault took over: empty on a new install, imported once into the
+vault on an older one. The notebooks are written only when no vault runs
+(`[memory.vault] enabled = false`).
+
+The assistant's profile page (`GET /api/soul`, `dodaios/ui/web/soul_routes.py`)
+therefore fills its MEMORY.md and USER.md pages from the vault
+(`dodaios/memory/vault/pages.py`):
+
+| Page | Shows |
+| --- | --- |
+| USER.md ("About you") | the set fields of the person's profile (`data/workspace/USER.md`, read-only here, edited on the Profile page), then the vault's memories of kind `profile`, `preference`, `relationship` and `project` |
+| MEMORY.md ("Remembered") | what the person asked to remember (`origin: user`, any kind), then the kinds `procedural`, `reference`, `episode` and `ephemeral` |
+
+A notebook note the vault does not hold is listed after them, and a memory the
+one-time import copied from the profile is shown once, as the profile's line.
+"Recently learned" merges the vault's audit log with the ledger, and Forget
+erases a vault memory with every version of it. Regression this fixes
+(2026-11-12): the page read the notebook files alone and showed "0 notes" and
+"0 things remembered" while the vault held what the reviews of that day had
+learned.
+
 ## Which seat a review runs on and how it bills
 
 The loop is the one kind of background work that is not held off per-token

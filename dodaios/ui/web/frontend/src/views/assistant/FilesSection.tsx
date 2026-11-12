@@ -12,7 +12,7 @@ import { useT, useUiLanguage } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { SoulFile, SoulFileId } from "@/views/assistant/api";
 import { plural, relativeDay } from "@/views/assistant/format";
-import { splitDated } from "@/views/assistant/MemorySection";
+import { noteLine } from "@/views/assistant/MemorySection";
 import { Section } from "@/views/assistant/Section";
 
 /** "1 note · today", or why there is nothing to show. */
@@ -61,9 +61,9 @@ function clean(line: string): string {
  * file's paragraphs and list items with headings and comments left out
  * (a wrapped paragraph becomes one item, not three fragments).
  */
-export function previewLines(file: SoulFile, max = 4): string[] {
+export function previewLines(file: SoulFile, max = 4, t: (key: string) => string = (key) => key): string[] {
   if ("entries" in file) {
-    return file.entries.slice(0, max).map((e) => splitDated(e.text).body.replace(/\s+/g, " ").trim());
+    return file.entries.slice(0, max).map((e) => noteLine(t, e).body.replace(/\s+/g, " ").trim());
   }
   const out: string[] = [];
   let paragraph: string[] = [];
@@ -92,7 +92,7 @@ export function previewLines(file: SoulFile, max = 4): string[] {
 function FilePreview({ file, onOpen }: { file: SoulFile; onOpen: (id: SoulFileId) => void }) {
   const t = useT();
   const meta = useFileMeta();
-  const lines = file.exists ? previewLines(file, 3) : [];
+  const lines = file.exists ? previewLines(file, 3, t) : [];
 
   return (
     <button

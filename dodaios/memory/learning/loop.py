@@ -14,6 +14,11 @@ What it costs:
   or after ``review_every_turns`` turns in a very long conversation. A bare
   "remember that" (pointing at something said before) is reviewed at once.
 
+Where a review writes: into the memory vault (``data/memory/vault.db``,
+ADR-0044) while one runs, which is the default; the lead's notebooks
+(``society/jarvis/USER.md`` and ``MEMORY.md``) are written only on an install
+without a vault. The assistant's profile page shows both (``soul_routes``).
+
 Voice turns arrive as ``VoiceTurnCompleted`` (every voice engine publishes it).
 Typed turns on Jarvis' own chat arrive through the chat surface's completion
 hook (:meth:`JarvisLearningLoop.chat_turn_completed`). Society agents have
@@ -169,6 +174,9 @@ class JarvisLearningLoop:
         self._stopped = False
         #: Why the latest unanswered review failed (read by ``review``).
         self._last_failure: Any = None
+        #: The reviewer the latest review asked: the vault's while a vault
+        #: runs, else the notebooks'. Its seat goes into the ledger.
+        self._asked: Any = reviewer
         #: The configuration fault already written up in the conversation
         #: (cause, provider, model); ``None`` after a recovery.
         self._health_key: tuple[str, str, str] | None = None
@@ -523,11 +531,11 @@ class JarvisLearningLoop:
                 source=f"review: {reason}",
                 outcome=outcome,
                 changes=written,
-                seat=_seat_of(self._reviewer),
+                seat=_seat_of(self._asked),
             )
             await self._note_health(answered, self._last_failure)
             if written:
-                log.info("learning: %d notebook change(s) from %s", written, key)
+                log.info("learning: %d memory change(s) from %s", written, key)
                 await self._compact_locked()
                 await asyncio.to_thread(self.notebook.warm)
             return written
@@ -571,7 +579,9 @@ class JarvisLearningLoop:
 
         vault = vault_runtime.active()
         if vault is not None and self._vault_reviewer is not None:
+            self._asked = self._vault_reviewer
             return await self._review_into_vault(vault, said, reason, anchors)
+        self._asked = self._reviewer
         entries = await asyncio.to_thread(self.notebook.entries)
         prompt = build_prompt(said, entries=entries, usage=self.notebook.usage(entries))
         log.info("learning: reviewing %d picked turn(s) (%s)", len(said), reason)
@@ -615,6 +625,7 @@ class JarvisLearningLoop:
         if vault_runtime.learning_paused():
             # The user paused learning: these turns are dropped, never queued for later.
             log.info("learning: paused by the user; %d turn(s) not reviewed", len(said))
+            self._asked = None  # No model was asked, so the ledger names no seat.
             return 0, True
         shown = await asyncio.to_thread(reconcile.nearest, vault, said)
         prompt = reconcile.build_prompt(said, shown)

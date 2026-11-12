@@ -126,11 +126,22 @@ def parse(text: str) -> list[dict[str, Any]]:
 def nearest(
     vault: MemoryVault, said: list[dict[str, str]], *, limit: int = NEAREST
 ) -> list[Memory]:
-    """Current memories most related to what the user said."""
+    """Current memories most related to what the user said and to what the tools did.
+
+    A how-to comes from a turn's ``tool_trace``, and the user rarely names
+    the tools in it. Searching by their words alone does not show the stored
+    how-to, and the review then adds it a second time (seen 2026-11-12: two
+    notes about the same tool timeout, two hours apart). The hits of the two
+    searches take turns, so neither crowds the other out of ``limit``.
+    """
     found: dict[str, Memory] = {}
     for row in said:
-        for hit in vault.search(row.get("user", ""), limit=limit):
-            found.setdefault(hit.memory.id, hit.memory)
+        by_words = vault.search(row.get("user", ""), limit=limit)
+        by_trace = vault.search(row.get("tool_trace", ""), limit=limit)
+        for index in range(max(len(by_words), len(by_trace))):
+            for hits in (by_words, by_trace):
+                if index < len(hits):
+                    found.setdefault(hits[index].memory.id, hits[index].memory)
     return list(found.values())[:limit]
 
 
