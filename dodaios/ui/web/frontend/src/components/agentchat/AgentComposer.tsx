@@ -654,6 +654,8 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
     (!running || commands.canSteer || canQueue) &&
     (!busy || commands.canSteer || canQueue) &&
     Boolean(provider?.connected);
+  // Something is in the box (or on its way in): the call button makes room.
+  const hasDraft = Boolean(value.trim()) || files.attachments.length > 0 || dictating || commands.isCommand;
   // Send while the mic is open ends the dictation and sends once the words
   // land, so it is live even before the box holds any text.
   const canFinishDictation = dictating && connected && (!live || canQueue) && Boolean(provider?.connected);
@@ -908,9 +910,10 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
                 idleClassName="h-9 w-9 [&>svg]:h-[18px] [&>svg]:w-[18px]"
               />
             )}
-            {/* One round action: a call while the box is empty, Send once
-                there is something to send, Stop while a turn runs, and
-                "Hang up" while a call is on. */}
+            {/* Send is always there, last in the row, so the box reads as one
+                you can write into at any time: dimmed while there is nothing
+                to send. Beside it: Stop while a turn runs, and while the box
+                is empty the call ("Hang up" while one is on). */}
             {live && canQueue && (
               <button type="button" onClick={() => void cancel()} aria-label={t("agent_chat.stop")}
                 title={t("agent_chat.stop")} data-testid="composer-stop"
@@ -929,24 +932,9 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
               >
                 <Square className="h-3 w-3 fill-current" />
               </button>
-            ) : value.trim() || files.attachments.length > 0 || dictating || commands.isCommand ? (
-              <button
-                type="button"
-                onClick={() => (dictating ? stopDictationAndSend() : void onSend())}
-                disabled={!canSend && !canFinishDictation}
-                aria-label={t("agent_chat.send")}
-                title={t("agent_chat.send")}
-                data-testid="composer-send"
-                className={cn(
-                  ROUND_ACTION_CLASS,
-                  canSend || canFinishDictation
-                    ? "bg-foreground text-background hover:bg-foreground/85"
-                    : "bg-secondary text-faint-foreground",
-                )}
-              >
-                <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2.5} />
-              </button>
-            ) : voiceMode.live ? (
+            ) : (
+              <>
+              {hasDraft ? null : voiceMode.live ? (
               <button
                 type="button"
                 onClick={voiceMode.exit}
@@ -975,6 +963,24 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
               >
                 <AudioLines className="h-[18px] w-[18px]" />
               </button>
+              )}
+              <button
+                type="button"
+                onClick={() => (dictating ? stopDictationAndSend() : void onSend())}
+                disabled={!canSend && !canFinishDictation}
+                aria-label={t("agent_chat.send")}
+                title={t("agent_chat.send")}
+                data-testid="composer-send"
+                className={cn(
+                  ROUND_ACTION_CLASS,
+                  canSend || canFinishDictation
+                    ? "bg-foreground text-background hover:bg-foreground/85"
+                    : "bg-secondary text-faint-foreground",
+                )}
+              >
+                <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2.5} />
+              </button>
+              </>
             )}
           </div>
         </div>

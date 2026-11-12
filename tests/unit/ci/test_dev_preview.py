@@ -48,3 +48,27 @@ def test_dev_processes_are_recognised(cmdline: list[str]) -> None:
 )
 def test_default_app_processes_are_never_matched(cmdline: list[str]) -> None:
     assert not dp.is_dev_process(cmdline)
+
+
+def test_an_app_bundle_launcher_is_not_taken_for_the_interpreter(tmp_path, monkeypatch) -> None:
+    """The macOS app runs from a bundle launcher that takes neither ``-c`` nor ``-m``."""
+    import sys
+    import types
+
+    launcher = tmp_path / "DodaiosApp"
+    launcher.write_text("#!/bin/sh\nexit 2\n", encoding="utf-8")
+    launcher.chmod(0o755)
+    running = {"exe": str(launcher)}
+    fake_psutil = types.SimpleNamespace(
+        Process=lambda _pid: types.SimpleNamespace(exe=lambda: running["exe"])
+    )
+    monkeypatch.setitem(sys.modules, "psutil", fake_psutil)
+    monkeypatch.setattr(dp, "_read_meta", lambda _data: {"pid": 4242})
+
+    if sys.platform != "win32":
+        assert dp.app_interpreter(tmp_path) == sys.executable
+    # An interpreter under any name is the app's own and is used.
+    running["exe"] = sys.executable
+    assert dp.app_interpreter(tmp_path) == sys.executable
+    assert dp.is_python(sys.executable) is True
+    assert dp.is_python(str(tmp_path / "missing")) is False
