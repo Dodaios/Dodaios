@@ -127,12 +127,11 @@ Claude、OpenAI、Google Gemini 和 xAI Grok 可以用你已有的订阅连接�
 Agentic IDE 在你自己的项目文件夹里运行编程智能体：Claude Code、Codex、OpenCode、Kimi Code、GLM Coding Plan、Grok Build、Antigravity 和 DeepSeek Harness，每一个都带着它真正支持的模型、推理强度和权限模式。一个线程可以拥有自己的工作树和自己的分支。终端、改动、Git、文件和浏览器预览就在对话旁边。
 [Agentic IDE](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md)
 
-### 不用你盯着也能干活的智能体
+### 不用你盯着也能完成的工作
 
-给一个智能体起个名字，写一句职责和一份长期指令。它有自己的一条对话、自己的模型和自己的一组工具，还能按计划、按事件或通过 webhook 运行例行任务。把几个智能体编成团队并指定一位负责人：你把目标告诉负责人，它来拆分工作、检查交回的结果，完成后向你汇报。耗时的一次性工作作为后台任务在隔离的 Git 工作树里运行，结果经过审查后才会报告为完成。
-[智能体](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md) ·
-[例行任务](https://github.com/Dodaios/Dodaios/blob/main/docs/routines.md) ·
-[团队负责人](https://github.com/Dodaios/Dodaios/blob/main/docs/agent-society/team-leads.md)
+交给它一件更大的事，Dodaios 会把它转给一个后台智能体。它在隔离的 Git 工作树里工作，结果经过审查后才会报告为完成，产出的文件会为你保留。交给它一件需要定期做的事，它就成为一项自动化任务，按计划、按事件或通过 webhook 运行。
+[后台智能体](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md) ·
+[例行任务](https://github.com/Dodaios/Dodaios/blob/main/docs/routines.md)
 
 ### 它能使用的工具
 
@@ -161,11 +160,11 @@ Dodaios 会记住关于你和你工作的简短句子：你喜欢怎样的回答
 <table>
   <tr>
     <td width="50%"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/pets.png" alt="我的宠物：当前宠物 Ember（一条小龙）和一排像素风宠物" width="100%" /></td>
-    <td width="50%"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/side-by-side.png" alt="两个区域并排显示：左边是带终端的 Agentic IDE，右边是聊天" width="100%" /></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/readme/side-by-side.png" alt="两个区域并排显示：左边是带终端的 Agentic IDE，右边是命令行工具列表" width="100%" /></td>
   </tr>
   <tr>
     <td valign="top"><b>宠物。</b>桌面上的一个像素小伙伴，会随着 Dodaios 聆听、思考和说话做出反应。内置二十个，你也可以自己做。<a href="https://github.com/Dodaios/Dodaios/blob/main/docs/pets.md">宠物</a></td>
-    <td valign="top"><b>并排显示。</b>最多可以把四个区域放在一起，比如一个项目和一个聊天。界面提供英语、德语、西班牙语、中文和葡萄牙语。</td>
+    <td valign="top"><b>并排显示。</b>最多可以把四个区域放在一起，比如一个项目和你的命令行工具。界面提供英语、德语、西班牙语、中文和葡萄牙语。</td>
   </tr>
 </table>
 
@@ -197,7 +196,7 @@ Dodaios 会记住关于你和你工作的简短句子：你喜欢怎样的回答
 
 | | Windows | macOS | Linux 桌面 | Linux 服务器 |
 | --- | --- | --- | --- | --- |
-| 聊天、智能体、任务、记忆、设置 | 支持 | 支持 | 支持 | 在浏览器中 |
+| 聊天、编程智能体、任务、记忆、设置 | 支持 | 支持 | 支持 | 在浏览器中 |
 | 桌面应用 | 支持 | 支持 | 支持 | 不支持 |
 | 使用电脑麦克风的语音 | 支持 | 需要授权 | 需要 PortAudio | 通过浏览器 |
 | 全局快捷键 | 支持 | 需要授权 | X11 | 不支持 |
