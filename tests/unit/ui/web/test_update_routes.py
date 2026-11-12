@@ -198,7 +198,7 @@ def test_apply_happy_path_pulls_and_signals_restart(
         },
     )
 
-    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None):
+    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None, stall_timeout_s=None):
         calls.append(args)
         return 0, "", ""
 
@@ -255,7 +255,7 @@ def test_apply_rewrites_legacy_origin_before_fetch(
     _patch_latest(monkeypatch, {"version": "1.0.2", "tag": "v1.0.2"})
     calls: list[list[str]] = []
 
-    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None):
+    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None, stall_timeout_s=None):
         calls.append(args)
         return 0, "", ""
 
@@ -289,7 +289,7 @@ def test_apply_leaves_current_origin_untouched(
     _patch_latest(monkeypatch, {"version": "1.0.2", "tag": "v1.0.2"})
     calls: list[list[str]] = []
 
-    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None):
+    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None, stall_timeout_s=None):
         calls.append(args)
         return 0, "", ""
 
@@ -318,7 +318,7 @@ def test_apply_fails_when_legacy_origin_cannot_be_rewritten(
     monkeypatch.setattr(u, "_running_version", lambda: "1.0.1")
     _patch_latest(monkeypatch, {"version": "1.0.2", "tag": "v1.0.2"})
 
-    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None):
+    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None, stall_timeout_s=None):
         if args[:2] == ["remote", "set-url"]:
             return 1, "", "denied"
         return 0, "", ""
@@ -344,7 +344,7 @@ def test_apply_git_fetch_failure_is_502(
     monkeypatch.setattr(u, "_running_version", lambda: "1.0.1")
     _patch_latest(monkeypatch, {"version": "1.0.2", "tag": "v1.0.2"})
 
-    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None):
+    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None, stall_timeout_s=None):
         return 1, "", "network down"
 
     async def _fake_git_output(args, *, cwd, timeout_s=15.0):
@@ -365,7 +365,7 @@ def test_apply_preserves_headless_profile_for_deferred_installer(
     monkeypatch.setattr(u, "_running_version", lambda: "1.0.1")
     _patch_latest(monkeypatch, {"version": "1.0.2", "tag": "v1.0.2"})
 
-    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None):
+    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None, stall_timeout_s=None):
         return 0, "", ""
 
     async def _fake_git_output(args, *, cwd, timeout_s=15.0):
@@ -438,7 +438,7 @@ def test_apply_falls_back_to_cached_release_when_refetch_fails(
     _patch_latest(monkeypatch, None)
     u._last_good_release = {"version": "1.0.2", "tag": "v1.0.2"}
 
-    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None):
+    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None, stall_timeout_s=None):
         return 0, "", ""
 
     async def _fake_git_output(args, *, cwd, timeout_s=15.0):
@@ -585,7 +585,7 @@ def test_apply_invalidates_status_cache(
     client.get("/api/update/status")
     assert u._status_cache is not None
 
-    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None):
+    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None, stall_timeout_s=None):
         return 0, "", ""
 
     async def _fake_git_output(args, *, cwd, timeout_s=15.0):
@@ -743,7 +743,7 @@ def _patch_git_show(
             return files.get(args[1])
         return None
 
-    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None):
+    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None, stall_timeout_s=None):
         asked.append(args)
         return 0, "", ""
 

@@ -70,7 +70,7 @@ def test_update_route_git_calls_skip_lfs_smudge(monkeypatch, tmp_path: Path) -> 
 
     seen: list[dict | None] = []
 
-    async def fake_run(cmd, *, cwd, timeout_s, on_stderr_line=None, env=None):
+    async def fake_run(cmd, *, cwd, timeout_s, on_stderr_line=None, env=None, stall_timeout_s=None):
         seen.append(env)
         return 0, "", ""
 

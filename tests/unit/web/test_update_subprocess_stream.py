@@ -149,3 +149,29 @@ def test_large_single_stream_output_survives(stream: str) -> None:
     )
     assert rc == 0
     assert len(out if stream == "stdout" else err) == 500_000
+
+
+# --------------------------------------------------------------------------- #
+# Stall watchdog: slow-but-alive keeps going, silent is stopped
+# --------------------------------------------------------------------------- #
+def _stalled_call(code: str, *, stall_s: float, timeout_s: float = 30.0):
+    return asyncio.run(
+        _run(_python(code), cwd=Path.cwd(), timeout_s=timeout_s, stall_timeout_s=stall_s)
+    )
+
+
+def test_a_silent_child_is_stopped_by_the_stall_timeout() -> None:
+    rc, _out, err = _stalled_call("import time; time.sleep(30)", stall_s=0.5)
+    assert rc == -1
+    assert "stalled" in err
+
+
+def test_a_child_that_keeps_reporting_outlives_the_stall_timeout() -> None:
+    """A slow download prints progress more often than the stall limit."""
+    code = (
+        "import sys, time\n"
+        "for i in range(6):\n"
+        "    sys.stderr.write(f'Receiving objects: {i}%\\r'); sys.stderr.flush(); time.sleep(0.2)\n"
+    )
+    rc, _out, _err = _stalled_call(code, stall_s=0.6)
+    assert rc == 0

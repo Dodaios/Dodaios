@@ -784,24 +784,104 @@ def _managed_python(root: Path) -> str:
     return str(candidate if candidate.is_file() else Path(sys.executable))
 
 
-def _run_update_command(cmd: list[str], *, root: Path, timeout: float) -> int:
-    """Run a windowless update child and collapse every launch failure to -1."""
+#: The transcript of the last update's finalize step: every command it ran and
+#: everything that command printed. The app is closed while this runs, so the
+#: file is the only record of WHY an update rolled back. The one before it is
+#: kept beside it with a ``.1`` suffix.
+UPDATE_LOG_FILE_NAME = "update-install.log"
 
+#: Where ``_run_update_command`` appends, or ``None`` to discard the output.
+#: Set by ``finalize_pending_update`` for the duration of one finalize.
+_update_log_path: Path | None = None
+
+
+def update_log_path() -> Path | None:
+    """``<data dir>/update-install.log``, or ``None`` when it cannot be resolved."""
+
+    try:
+        from dodaios.ui.desktop_log import desktop_log_path
+
+        return desktop_log_path().parent / UPDATE_LOG_FILE_NAME
+    except Exception:  # noqa: BLE001 - diagnostics only: an unresolvable log path must never block the update
+        return None
+
+
+def _start_update_log(path: Path | None) -> Path | None:
+    """Rotate the previous transcript away and open a fresh one at ``path``."""
+
+    if path is None:
+        return None
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            os.replace(path, path.with_name(path.name + ".1"))
+        path.write_text(
+            f"# update finalize started {time.strftime('%Y-%m-%d %H:%M:%S')}\n",
+            encoding="utf-8",
+        )
+    except OSError:  # diagnostics only: an unwritable log must never block the update
+        return None
+    return path
+
+
+def _note_update_log(line: str) -> None:
+    """Append one line of our own to the transcript, never failing."""
+
+    logging.getLogger(__name__).info("update finalize: %s", line)
+    if _update_log_path is None:
+        return
+    try:
+        with _update_log_path.open("a", encoding="utf-8") as handle:
+            handle.write(f"[{time.strftime('%H:%M:%S')}] {line}\n")
+    except OSError:  # the same line already went to the desktop log above
+        pass
+
+
+def _run_update_command(cmd: list[str], *, root: Path, timeout: float) -> int:
+    """Run a windowless update child and collapse every launch failure to -1.
+
+    Its output goes to the update transcript (``update-install.log``) when one
+    is open, and is discarded otherwise.
+    """
+
+    log_path = _update_log_path
+    handle = None
+    if log_path is not None:
+        try:
+            handle = log_path.open("ab")
+            handle.write(f"\n[{time.strftime('%H:%M:%S')}] $ {' '.join(cmd)}\n".encode())
+            handle.flush()
+        except OSError:  # diagnostics only: the command still runs, its output is discarded
+            handle = None
+    sink: object = handle if handle is not None else subprocess.DEVNULL
     kwargs: dict[str, object] = {
         "cwd": str(root),
         "env": {key: value for key, value in os.environ.items() if key != "JARVIS_INSTALL_NO_PIP"},
         "stdin": subprocess.DEVNULL,
-        "stdout": subprocess.DEVNULL,
-        "stderr": subprocess.DEVNULL,
+        "stdout": sink,
+        "stderr": subprocess.STDOUT if handle is not None else subprocess.DEVNULL,
         "timeout": timeout,
         "check": False,
     }
     if sys.platform == "win32":
         kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+    code = -1
     try:
-        return subprocess.run(cmd, **kwargs).returncode
-    except (OSError, subprocess.SubprocessError):
-        return -1
+        code = subprocess.run(cmd, **kwargs).returncode
+    except subprocess.TimeoutExpired:  # reported as -1 and written to the transcript
+        if handle is not None:
+            handle.write(f"[timed out after {timeout:.0f}s]\n".encode())
+    except (OSError, subprocess.SubprocessError) as exc:  # reported as -1 and in the transcript
+        if handle is not None:
+            handle.write(f"[could not run: {exc}]\n".encode())
+    finally:
+        if handle is not None:
+            try:
+                handle.write(f"[exit {code}]\n".encode())
+                handle.close()
+            except OSError:  # diagnostics only: the exit code is already returned
+                pass
+    return code
 
 
 def _installer_command(root: Path, profile: str) -> list[str]:
@@ -990,15 +1070,32 @@ def finalize_pending_update(cwd: str | Path) -> bool:
     Any failure resets the checkout to the exact previous revision and runs its
     installer once more before launch, so an incomplete update is never treated
     as installed.
+
+    Every step and everything the installer prints lands in
+    ``update-install.log`` beside the desktop log: the app is closed while this
+    runs, so without that file a rollback would leave no reason anywhere.
     """
 
+    global _update_log_path
     root = Path(cwd).resolve()
-    pending_path = root / PENDING_UPDATE_FILENAME
     payload = _read_pending_update(root)
     if payload is None:
         return True
+    # Resolved before the reset below, so the path belongs to the running tree.
+    _update_log_path = _start_update_log(update_log_path())
+    try:
+        return _finalize_pending_update(root, payload)
+    finally:
+        _update_log_path = None
+
+
+def _finalize_pending_update(root: Path, payload: dict[str, object]) -> bool:
+    """``finalize_pending_update`` once a transaction is known to be staged."""
+
+    pending_path = root / PENDING_UPDATE_FILENAME
     managed = any((root / name).is_file() for name in MANAGED_MARKERS)
     if not managed or not (root / ".git").exists():
+        _note_update_log("not a managed checkout — dropping the staged update")
         pending_path.unlink(missing_ok=True)
         return False
 
@@ -1007,6 +1104,7 @@ def finalize_pending_update(cwd: str | Path) -> bool:
     previous = str(payload["previous_revision"])
     target = str(payload["target_revision"])
     profile = str(payload["profile"])
+    _note_update_log(f"installing {target} over {previous} (profile {profile})")
 
     target_reset_ok = (
         _run_update_command(["git", "reset", "--hard", target], root=root, timeout=120.0) == 0
@@ -1017,9 +1115,18 @@ def finalize_pending_update(cwd: str | Path) -> bool:
         # Read before the installer runs: a failed install may leave the file
         # in any state, and the hook is needed exactly then.
         rollback_hook = read_update_contract(root).rollback_hook
-        target_install_ok = _run_update_command(
-            _installer_command(root, profile), root=root, timeout=3600.0
-        ) == 0 and _ui_bundle_ready(root)
+        installer_ok = (
+            _run_update_command(_installer_command(root, profile), root=root, timeout=3600.0)
+            == 0
+        )
+        bundle_ok = installer_ok and _ui_bundle_ready(root)
+        if not installer_ok:
+            _note_update_log("the new release's installer failed")
+        elif not bundle_ok:
+            _note_update_log("the new release has no complete UI bundle")
+        target_install_ok = bundle_ok
+    else:
+        _note_update_log("could not check out the new release")
     if target_install_ok:
         pending_path.unlink(missing_ok=True)
         _write_update_result(
@@ -1029,8 +1136,10 @@ def finalize_pending_update(cwd: str | Path) -> bool:
             previous_revision=previous,
             target_revision=target,
         )
+        _note_update_log("update installed")
         return True
 
+    _note_update_log(f"rolling back to {previous}")
     if rollback_hook is not None:
         _run_rollback_hook(root, rollback_hook, previous=previous, target=target)
     rollback_reset_ok = (
@@ -1050,6 +1159,7 @@ def finalize_pending_update(cwd: str | Path) -> bool:
         previous_revision=previous,
         target_revision=target,
     )
+    _note_update_log("rolled back" if rolled_back else "ROLLBACK INCOMPLETE")
     return False
 
 

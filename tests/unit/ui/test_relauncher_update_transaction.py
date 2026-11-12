@@ -261,3 +261,52 @@ def test_finalize_pending_update_snapshots_before_touching_git(
     assert order[0] == "snapshot", (
         "the user-state snapshot must run before the first git command"
     )
+
+
+def test_finalize_writes_a_transcript_of_every_command(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The app is closed during finalize: the transcript is the only record."""
+    root = tmp_path / "checkout"
+    root.mkdir()
+    previous, target = _managed_root(root)
+    log_path = tmp_path / "logs" / relauncher.UPDATE_LOG_FILE_NAME
+    log_path.parent.mkdir()
+    log_path.write_text("older run\n", encoding="utf-8")
+    monkeypatch.setattr(relauncher, "update_log_path", lambda: log_path)
+    monkeypatch.setattr(relauncher, "_ui_bundle_ready", lambda _root: True)
+    monkeypatch.setattr(relauncher, "snapshot_user_state", lambda _root: None)
+    script = "import sys; print('installer says hi'); sys.exit(3)"
+    monkeypatch.setattr(
+        relauncher,
+        "_installer_command",
+        lambda _root, _profile: [relauncher.sys.executable, "-c", script],
+    )
+    real_run = relauncher._run_update_command
+
+    def _run(cmd, *, root, timeout):
+        if cmd[0] == "git":
+            return real_run([relauncher.sys.executable, "-c", "pass"], root=root, timeout=timeout)
+        return real_run(cmd, root=root, timeout=timeout)
+
+    monkeypatch.setattr(relauncher, "_run_update_command", _run)
+
+    assert relauncher.finalize_pending_update(root) is False
+
+    text = log_path.read_text(encoding="utf-8")
+    assert f"installing {target} over {previous}" in text
+    assert "installer says hi" in text
+    assert "[exit 3]" in text
+    assert "the new release's installer failed" in text
+    assert f"rolling back to {previous}" in text
+    # The previous transcript is kept, and nothing leaks past the finalize.
+    assert (log_path.parent / (log_path.name + ".1")).read_text(encoding="utf-8") == "older run\n"
+    assert relauncher._update_log_path is None
+
+
+def test_run_update_command_without_transcript_discards_output(tmp_path: Path) -> None:
+    assert relauncher._update_log_path is None
+    code = relauncher._run_update_command(
+        [relauncher.sys.executable, "-c", "print('x')"], root=tmp_path, timeout=30.0
+    )
+    assert code == 0
