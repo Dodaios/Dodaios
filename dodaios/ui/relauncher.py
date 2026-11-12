@@ -802,7 +802,7 @@ def update_log_path() -> Path | None:
         from dodaios.ui.desktop_log import desktop_log_path
 
         return desktop_log_path().parent / UPDATE_LOG_FILE_NAME
-    except Exception:  # noqa: BLE001 - a missing log must never block an update
+    except Exception:  # noqa: BLE001 - diagnostics only: an unresolvable log path must never block the update
         return None
 
 
@@ -819,7 +819,7 @@ def _start_update_log(path: Path | None) -> Path | None:
             f"# update finalize started {time.strftime('%Y-%m-%d %H:%M:%S')}\n",
             encoding="utf-8",
         )
-    except OSError:
+    except OSError:  # diagnostics only: an unwritable log must never block the update
         return None
     return path
 
@@ -833,7 +833,7 @@ def _note_update_log(line: str) -> None:
     try:
         with _update_log_path.open("a", encoding="utf-8") as handle:
             handle.write(f"[{time.strftime('%H:%M:%S')}] {line}\n")
-    except OSError:
+    except OSError:  # the same line already went to the desktop log above
         pass
 
 
@@ -851,7 +851,7 @@ def _run_update_command(cmd: list[str], *, root: Path, timeout: float) -> int:
             handle = log_path.open("ab")
             handle.write(f"\n[{time.strftime('%H:%M:%S')}] $ {' '.join(cmd)}\n".encode())
             handle.flush()
-        except OSError:
+        except OSError:  # diagnostics only: the command still runs, its output is discarded
             handle = None
     sink: object = handle if handle is not None else subprocess.DEVNULL
     kwargs: dict[str, object] = {
@@ -868,10 +868,10 @@ def _run_update_command(cmd: list[str], *, root: Path, timeout: float) -> int:
     code = -1
     try:
         code = subprocess.run(cmd, **kwargs).returncode
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired:  # reported as -1 and written to the transcript
         if handle is not None:
             handle.write(f"[timed out after {timeout:.0f}s]\n".encode())
-    except (OSError, subprocess.SubprocessError) as exc:
+    except (OSError, subprocess.SubprocessError) as exc:  # reported as -1 and in the transcript
         if handle is not None:
             handle.write(f"[could not run: {exc}]\n".encode())
     finally:
@@ -879,7 +879,7 @@ def _run_update_command(cmd: list[str], *, root: Path, timeout: float) -> int:
             try:
                 handle.write(f"[exit {code}]\n".encode())
                 handle.close()
-            except OSError:
+            except OSError:  # diagnostics only: the exit code is already returned
                 pass
     return code
 

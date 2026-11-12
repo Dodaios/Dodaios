@@ -399,6 +399,8 @@ async def _run(
         finally:
             if not task.done():
                 task.cancel()
+                # The child is being stopped for a timeout or stall that the caller
+                # reports; the reader task's own end carries nothing more.
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
 
@@ -410,7 +412,7 @@ async def _run(
             # child is reaped first so no zombie survives the request.
             await _terminate(proc)
             return -1, "", f"{cmd[0]} timed out after {timeout_s:.0f}s"
-        except _Stalled:
+        except _Stalled:  # reported to the caller through stderr, like the timeout
             await _terminate(proc)
             return -1, "", f"{cmd[0]} stalled: no progress for {stall_timeout_s:.0f}s"
         except asyncio.CancelledError:
