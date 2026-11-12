@@ -184,6 +184,65 @@ def test_a_thread_the_cli_did_not_name_gets_a_topic_title(tmp_path, monkeypatch)
         assert row["title"] == "Thread mode titles"
 
 
+def test_the_titler_reads_the_person_s_words_of_a_message_with_files(
+    tmp_path, monkeypatch
+) -> None:
+    """A first message with a file still gives an automatic title, never a typed one.
+
+    The store titles the chat from the person's sentence (or the file's name);
+    the titler must compare with the same words. Fed the composed prompt, it
+    took every such title for one the person typed and never named the thread.
+    """
+    from dodaios.agent_chat import attachments as chat_attachments
+    from dodaios.sessions import chat_titles
+
+    seen: dict[str, chat_titles.TitleRequest] = {}
+
+    class _Titler:
+        def titles_for(self, requests):
+            seen.update({r.seed: r for r in requests})
+            return {}
+
+    monkeypatch.setattr(chat_titles, "titler_for_state", lambda state: _Titler())
+    monkeypatch.setattr(cli_title, "session_title", lambda *args, **kwargs: "")
+    app, service = _chat_app(tmp_path)
+    files = [{"name": "shot.png", "kind": "image"}]
+
+    def thread(typed: str, title: str = "", *, before_the_fix: bool = False) -> str:
+        prompt = chat_attachments.compose(typed, chat_attachments.to_analysis(files))
+        # A thread from before the fix was named after the prompt written for the model.
+        from_prompt = " ".join(prompt.split())[:79].rstrip() + "…"
+        session = service.store.create_session(
+            provider="claude-api", model="", effort="", cwd=str(tmp_path),
+            permission_mode="default", surface="agent",
+            title=from_prompt if before_the_fix else title,
+        )
+        service.store.append_event(
+            session.session_id,
+            make_event("user_message", {"text": prompt, "typed": typed, "attachments": files}),
+        )
+        return from_prompt
+
+    thread("look at this")
+    thread("")
+    old_title = thread("", before_the_fix=True)
+    thread("look at this", title="My own name")
+
+    with TestClient(app) as client:
+        client.get("/api/agent-chat/sessions?surface=agent")
+
+    def automatic(seed: str) -> bool:
+        request = seen[seed]
+        openers = [text for role, text in request.loader() if role == "user"]
+        assert all("Files the user attached" not in text for text in openers)
+        return seed in {request.auto_title(text) for text in openers}
+
+    assert automatic("look at this")
+    assert automatic("shot.png")
+    assert automatic(old_title)
+    assert not automatic("My own name")
+
+
 def test_the_front_page_list_is_left_alone(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(cli_title, "session_title", lambda *args, **kwargs: "never")
     app, service = _chat_app(tmp_path)
