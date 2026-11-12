@@ -193,6 +193,11 @@ export interface AgentChatSession {
    * the stored title is still the first message's; absent otherwise.
    */
   cli_title?: string;
+  /**
+   * The thread's code: what the person gives Dodaios to name this coding
+   * agent ("look at #3f9a2c"). Set on the IDE's own sessions.
+   */
+  code?: string;
   /** The team thread this session is a member of ("" or absent: an ordinary thread). */
   team_id?: string;
 }
@@ -466,6 +471,30 @@ export interface LeadThread {
   running: boolean;
   /** An approval in the thread waits for the person. */
   waiting: boolean;
+}
+
+/** The coding thread a chat link names (`GET /thread-links/{ref}`). */
+export interface ThreadLinkInfo {
+  /** False when no thread answers to the reference (any more). */
+  found: boolean;
+  session_id?: string;
+  code?: string;
+  /** The thread's name as the IDE's sidebar shows it. */
+  title?: string;
+  /** The coding CLI's registry id (`claude`, `codex`, …); "" when it has none. */
+  agent?: string;
+  /** The coding agent's own name ("Claude Code"). */
+  agent_label?: string;
+  /** The thread's provider id: names the logo of a thread that runs on an API model. */
+  provider?: string;
+  running?: boolean;
+}
+
+/** Title and coding agent of the thread a session id or a thread code names. */
+export async function fetchThreadLink(ref: string): Promise<ThreadLinkInfo> {
+  return json<ThreadLinkInfo>(
+    await fetch(`/api/agent-chat/thread-links/${encodeURIComponent(ref)}`), "thread-link-failed",
+  );
 }
 
 /** The IDE threads the assistant sent a task to, the newest task first. */

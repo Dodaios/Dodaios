@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, Loader2, MoreHorizontal, Pencil, Plus, SquarePen, SquarePlus, Trash2, X } from "lucide-react";
+import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, Hash, Loader2, MoreHorizontal, Pencil, Plus, SquarePen, SquarePlus, Trash2, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
@@ -15,6 +15,7 @@ import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "./ThreadPopo
 import { SubagentFoldToggle, ThreadTreeSubagents } from "./ThreadTreeSubagents";
 import { ThreadPullRequests } from "./ThreadPullRequests";
 import { ThreadSearch } from "./ThreadSearch";
+import { copyThreadCode, shownThreadCode } from "./threadCode";
 import { LiveVoiceIcon, NewThreadIcon, SearchThreadsIcon, TeamThreadIcon } from "./ThreadStartIcons";
 import { THREAD_DRAG_MIME, THREAD_PROJECT_DRAG_MIME, projectIdFor, setDraggedThread, shortAge, threadDayBreak, threadOrderMs, threadStatus, threadTitle, threadWorktree, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
 
@@ -541,7 +542,7 @@ export function ThreadTree() {
     {visible.length === 0 && <p className="px-2 py-2 text-sm text-muted-foreground">{t("ide_projects.empty")}</p>}
 
     <ThreadPopover anchor={menuAnchor} open={menu !== null && menuSession !== null} onClose={() => { setMenu(null); setConfirmDelete(null); }}
-      label={t("ide_threads.thread_actions")} width={220}>
+      label={t("ide_threads.thread_actions")} width={250}>
       {menu && menuSession && (confirmDelete === menu.sessionId
         ? <div className="p-2">
           <p className="text-sm text-foreground">{t("ide_threads.delete_confirm")}</p>
@@ -560,6 +561,9 @@ export function ThreadTree() {
             onSelect={() => { placeColumn({ sessionId: menuSession.session_id, projectId: menu.projectId }, split.length + 1); setMenu(null); }} />
           <ThreadMenuItem icon={<SquarePlus className="h-3.5 w-3.5" />} label={t("ide_threads.new_thread_here")}
             onSelect={() => { newThread(menu.projectId); setMenu(null); }} />
+          {shownThreadCode(menuSession) && <ThreadMenuItem icon={<Hash className="h-3.5 w-3.5" />} label={t("ide_threads.code.copy")}
+            hint={<span className="font-mono">{shownThreadCode(menuSession)}</span>}
+            onSelect={() => { void copyThreadCode(shownThreadCode(menuSession)); setMenu(null); }} />}
           {menuArchived
             ? <ThreadMenuItem icon={<ArchiveRestore className="h-3.5 w-3.5" />} label={t("ide_threads.restore")}
               onSelect={() => { restoreThread(menuSession.session_id); setMenu(null); }} />

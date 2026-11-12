@@ -257,6 +257,8 @@ class NativeLiveVoiceSession(LiveVoiceSession):
                     "prompt) in the named or visible workspace or project; never spawn_worker. "
                     "It opens as a chat thread; pass mode grid only when the user asked for a "
                     "terminal, a pane or the grid. "
+                    "'Agent' alone means a coding agent unless the user clearly means a team "
+                    "agent. An older coding chat, or one named by its code, is action find. "
                     "Explicit references override the visible workspace; ask on ambiguity. "
                     "Do not switch the UI to address another workspace. Reuse request_id on "
                     "retries and never replay uncertain delivery. "

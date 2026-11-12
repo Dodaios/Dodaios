@@ -10650,6 +10650,16 @@
       "restore": "Mostrar la barra lateral",
       "close": "Cerrar hilo (pasa al archivo)"
     },
+    "agent_link": {
+      "open": "Abrir {thread} ({agent}) en el Agentic IDE",
+      "agent": "agente de código"
+    },
+    "code": {
+      "copy": "Copiar el código para Dodaios",
+      "copied": "Código {code} copiado. Dáselo a Dodaios y sabrá a qué agente te refieres.",
+      "hint": "El código de este agente: {code}. Haz clic para copiarlo y dáselo a Dodaios.",
+      "copy_failed": "No se pudo copiar el código: {code}"
+    },
     "layout_grid": "Cuadrícula de terminales",
     "layout_threads": "Hilos",
     "layout_aria": "Diseño del IDE",

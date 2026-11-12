@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentChatSession } from "@/lib/agentChatApi";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
@@ -86,6 +86,28 @@ describe("ThreadHeader", () => {
     useThreadChatStore.setState({ sessions: [{ ...SESSION, cli_title: "Thread header polish" } as AgentChatSession] });
     render(<ThreadHeader session={{ ...SESSION, title: "Hello, I would like you to ..." } as AgentChatSession} projectId="p1" folder="/repo" workspaceId="w1" />);
     expect(screen.getByTestId("thread-header-title").textContent).toBe("Thread header polish");
+  });
+
+  it("shows the thread's code and copies it for Dodaios", async () => {
+    const writeText = vi.fn(async () => undefined);
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    useThreadChatStore.setState({ sessions: [{ ...SESSION, code: "3f9a2c" } as AgentChatSession] });
+    render(<ThreadHeader session={SESSION} projectId="p1" folder="/repo" workspaceId="w1" />);
+    const code = screen.getByTestId("thread-header-code");
+    expect(code.textContent).toBe("#3f9a2c");
+    fireEvent.click(code);
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("#3f9a2c"));
+
+    // The same in the menu, for a hand that looks there first.
+    fireEvent.click(screen.getByTestId("thread-header-more"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /#3f9a2c/ }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+    vi.unstubAllGlobals();
+  });
+
+  it("shows no code for a row that carries none", () => {
+    render(<ThreadHeader session={SESSION} projectId="p1" folder="/repo" workspaceId="w1" />);
+    expect(screen.queryByTestId("thread-header-code")).toBeNull();
   });
 
   it("shows the branch's GitHub state and the done gate's verdict like a pane", () => {

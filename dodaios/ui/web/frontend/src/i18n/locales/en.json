@@ -10650,6 +10650,16 @@
       "restore": "Show the sidebar",
       "close": "Close thread (moves it to the archive)"
     },
+    "agent_link": {
+      "open": "Open {thread} ({agent}) in the Agentic IDE",
+      "agent": "coding agent"
+    },
+    "code": {
+      "copy": "Copy code for Dodaios",
+      "copied": "Code {code} copied. Give it to Dodaios and it knows which agent you mean.",
+      "hint": "This agent's code: {code}. Click to copy it, then give it to Dodaios.",
+      "copy_failed": "The code could not be copied: {code}"
+    },
     "layout_grid": "Terminal grid",
     "layout_threads": "Threads",
     "layout_aria": "IDE layout",

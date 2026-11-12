@@ -1,6 +1,7 @@
 import { defaultUrlTransform } from "react-markdown";
 
 const LOCAL_PREFIX = "#jarvis-local=";
+const THREAD_PREFIX = "#jarvis-thread=";
 
 export type ChatLinkAction =
   | { type: "local"; path: string }
@@ -86,11 +87,31 @@ export function openableLinkTarget(raw: string): string | null {
   return nativePathFromMarkdownUrl(raw) || (looksLikeLocalFile(raw) ? stripAngles(raw) : null);
 }
 
+/**
+ * The coding thread a chat link names: `thread:<session id>`, or `thread:` and
+ * the thread's code. This is how an answer points at a coding agent; the chat
+ * draws it as the thread's title with the agent's logo. Null for every other
+ * address.
+ */
+export function threadRefFromMarkdownUrl(raw: string): string | null {
+  const match = /^thread:#?([0-9a-z]{4,64})$/i.exec(stripAngles(raw));
+  return match ? match[1].toLowerCase() : null;
+}
+
 /** Keep a local path on a hash so the desktop window cannot navigate to it. */
 export function chatUrlTransform(url: string): string {
+  // Before the default transform, which drops every scheme it does not know.
+  const thread = threadRefFromMarkdownUrl(url);
+  if (thread) return THREAD_PREFIX + thread;
   const local = openableLinkTarget(url);
   if (local) return LOCAL_PREFIX + encodeURIComponent(local);
   return defaultUrlTransform(url);
+}
+
+/** The thread reference a transformed chat link carries, or null. */
+export function threadRefFromChatHref(href: string): string | null {
+  if (!href.startsWith(THREAD_PREFIX)) return null;
+  return href.slice(THREAD_PREFIX.length) || null;
 }
 
 export function localPathFromChatHref(href: string): string | null {

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { Archive, Check, FileDiff, FolderGit2, GitBranch, GitFork, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, SquarePlus, X } from "lucide-react";
+import { Archive, Check, FileDiff, FolderGit2, GitBranch, GitFork, Hash, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, SquarePlus, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ import { THREAD_ENTRY, useThreadGitHub } from "../useSessionGitHub";
 import { PaneChangesDialog } from "../PaneChangesDialog";
 import { prefetchPaneChanges } from "../paneChangesApi";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "./ThreadPopover";
+import { copyThreadCode, shownThreadCode } from "./threadCode";
 import { threadTitle, useThreadChatStore } from "./threadModel";
 
 const ACTION = cn(
@@ -69,6 +70,8 @@ export function ThreadHeader({ session, projectId, folder, workspaceId }: {
   const [changesOpen, setChangesOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement | null>(null);
   const title = threadTitle(listed ?? session);
+  // What the person gives Dodaios to name this agent ("look at #3f9a2c").
+  const code = shownThreadCode(listed ?? session);
   const mark = useMemo(() => {
     const provider = catalog?.providers.find((row) => row.id === session.provider);
     return provider?.agent ? { agent: provider.agent, label: provider.label } : null;
@@ -115,6 +118,12 @@ export function ThreadHeader({ session, projectId, folder, workspaceId }: {
         ? <div className="flex min-w-0 flex-1 items-center gap-2" onDoubleClick={() => setRenaming(title)}>
           {mark && <AgentMark agent={mark.agent} label={mark.label} variant="plain" size="sm" />}
           <span data-testid="thread-header-title" className="truncate text-sm font-medium text-foreground" title={title}>{title}</span>
+          {code && <button type="button" data-testid="thread-header-code" onClick={() => void copyThreadCode(code)}
+            onDoubleClick={(event) => event.stopPropagation()}
+            title={fill(t("ide_threads.code.hint"), { code })} aria-label={fill(t("ide_threads.code.hint"), { code })}
+            className="shrink-0 rounded px-1 py-0.5 font-mono text-[11px] leading-none text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {code}
+          </button>}
         </div>
         : <form className="flex min-w-0 flex-1 items-center gap-1" onSubmit={(event) => { event.preventDefault(); void rename(renaming); }}>
           <input autoFocus aria-label={fill(t("ide_projects.rename_named"), { target: title })} value={renaming} maxLength={120}
@@ -161,6 +170,8 @@ export function ThreadHeader({ session, projectId, folder, workspaceId }: {
           onSelect={() => { setMenuOpen(false); void fork(false); }} />
         <ThreadMenuItem icon={<GitBranch className="h-3.5 w-3.5" />} label={t("ide_threads.fork_worktree")} disabled={busy || !folder}
           onSelect={() => { setMenuOpen(false); void fork(true); }} />
+        {code && <ThreadMenuItem icon={<Hash className="h-3.5 w-3.5" />} label={t("ide_threads.code.copy")} hint={<span className="font-mono">{code}</span>}
+          onSelect={() => { setMenuOpen(false); void copyThreadCode(code); }} />}
         <ThreadMenuSeparator />
         <ThreadMenuItem icon={<FileDiff className="h-3.5 w-3.5" />} label={t("ide_threads.header.review_changes")} disabled={!folder}
           onSelect={() => { setMenuOpen(false); reviewChanges(); }} />

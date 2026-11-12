@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
 import { openExternalUrl } from "@/lib/openExternal";
 import { openLocalPath } from "@/lib/openLocalPath";
 import { readFence, visualFenceLanguage } from "@/lib/visualFence";
-import { chatLinkAction, chatUrlTransform, localPathFromChatHref } from "./chatLinks";
+import { chatLinkAction, chatUrlTransform, localPathFromChatHref, threadRefFromChatHref } from "./chatLinks";
+import { CodingAgentLink } from "@/components/agentic/threads/CodingAgentLink";
 import { parseToolResult, ToolResultCard } from "./ToolResultCard";
 import { CodeBlock } from "@/components/docs/CodeBlock";
 import { MediaPreview, mediaKind, safeMediaUrl } from "./MediaPreview";
@@ -87,6 +88,9 @@ const MARKDOWN_COMPONENTS: Components = {
     const kind = mediaKind(href);
     const label = Children.toArray(children).filter(child => typeof child === "string").join("") || kind || "media";
     if (kind && !imageKeys.has(assetKey(href))) return <MediaPreview src={href} label={label} kind={kind} />;
+    // A coding agent the answer points at: its title and logo, opening its thread.
+    const thread = threadRefFromChatHref(href);
+    if (thread) return <CodingAgentLink threadRef={thread} label={Children.toArray(children).filter(child => typeof child === "string").join("")} />;
     const local = localPathFromChatHref(href);
     return <a href={href} title={local || undefined} onClick={event => onChatLinkClick(event, href, label)}>{children}</a>;
   },
