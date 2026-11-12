@@ -495,7 +495,12 @@ function tellPeers(from: StorePeer, act: (peer: StorePeer) => void): void {
   }
 }
 
-export function createAgentChatStore(surface: AgentChatSurface, draftNamespace = ""): UseBoundStore<StoreApi<AgentChatStore>> {
+export function createAgentChatStore(
+  surface: AgentChatSurface,
+  draftNamespace = "",
+  /** `voice: false`: a view of a session that is not the chat on stage (a side thread). */
+  options: { voice?: boolean } = {},
+): UseBoundStore<StoreApi<AgentChatStore>> {
   const DRAFT_KEY = draftKey(surface) + (draftNamespace ? `:${draftNamespace}` : "");
 
   /**
@@ -505,7 +510,7 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
    * page's chat has a voice; the other surfaces never bind.
    */
   const bindVoice = (sessionId: string | null, voiceSessionId: string | null = null) => {
-    if (surface !== "jarvis") return;
+    if (surface !== "jarvis" || options.voice === false) return;
     void bindVoiceChat(sessionId, voiceSessionId).catch((err: unknown) => {
       // Not fatal: the composer's voice button binds again before a call.
       console.info("Voice chat binding failed.", err);

@@ -509,10 +509,10 @@ async def identity_prompt(
     render = getattr(brain, "render_surface_prompt", None) if brain is not None else None
     if callable(render):
         try:
-            from dodaios.agent_chat.runner_brain import _is_lead
+            from dodaios.agent_chat.runner_brain import _speaks_as_lead
 
             system_prompt, turn_context = await render(
-                user_text=user_text, lead=_is_lead(session_id)
+                user_text=user_text, lead=_speaks_as_lead(session_id)
             )
             if system_prompt.strip():
                 parts.append(system_prompt.strip())
@@ -591,6 +591,29 @@ def _own_turn_end(history: list[dict[str, Any]]) -> int | None:
     return end
 
 
+def _side_threads_during(history: list[dict[str, Any]], end: int) -> list[str]:
+    """Side threads that ended while the CLI's last own turn was still running.
+
+    Their closing notice lies inside that turn in the log, so "everything after
+    the turn" does not hold it; the CLI's session never saw it either.
+    """
+    from dodaios.agent_chat import side_threads
+
+    turn_id = str((history[end].get("payload") or {}).get("turn_id") or "")
+    lines: list[str] = []
+    for event in reversed(history[:end]):
+        payload = event.get("payload") or {}
+        kind = event.get("kind")
+        if kind == "turn_started" and str(payload.get("turn_id") or "") == turn_id:
+            break
+        if kind == "notice" and payload.get("kind") == side_threads.FINISHED:
+            text = side_threads.replay(payload)
+            if text:
+                lines.append(text)
+    lines.reverse()
+    return lines
+
+
 def since_last_turn_block(
     history: list[dict[str, Any]],
     *,
@@ -613,7 +636,9 @@ def since_last_turn_block(
     end = _own_turn_end(history)
     if end is None:
         return ""
-    lines = _transcript_lines(history[end + 1 :], recall_ids=recall_ids)
+    lines = _side_threads_during(history, end) + _transcript_lines(
+        history[end + 1 :], recall_ids=recall_ids
+    )
     if not lines:
         return ""
     kept: list[str] = []

@@ -195,6 +195,7 @@ def messages_from_events(
     card whose rest is read with ``recall`` (``agent_chat.recall``).
     """
     from dodaios.agent_chat import recall as _recall
+    from dodaios.agent_chat import side_threads as _side_threads
 
     out: list[BrainMessage] = []
     pending_blocks: list[dict[str, Any]] = []
@@ -230,6 +231,13 @@ def messages_from_events(
                 with_id=recall_ids,
             )
             if text:
+                out.append(BrainMessage(role="assistant", content=text))
+            continue
+        if kind == "notice" and payload.get("kind") == _side_threads.FINISHED:
+            # What the person asked, and was answered, beside a running request.
+            text = _side_threads.replay(payload)
+            if text:
+                flush()
                 out.append(BrainMessage(role="assistant", content=text))
             continue
         if recall_ids and kind == "notice" and payload.get("kind") == _recall.TRIGGER_NOTICE_KIND:

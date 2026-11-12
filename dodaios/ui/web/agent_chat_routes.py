@@ -1819,6 +1819,21 @@ async def post_message(session_id: str, body: MessageBody, request: Request) -> 
             overtake=body.delivery == "now",
         ):
             return {"turn_id": "", "session_id": session_id, "steered": True}
+        from dodaios.agent_chat import side_threads
+
+        # The lead's conversation answers a message beside a turn that is
+        # still working, in a side thread. A turn that only waits hands its
+        # seat over instead, and the message is answered in the main thread.
+        if (
+            body.delivery != "after"
+            and side_threads.takes(svc, session_id)
+            and not await svc.release_waiting_turn(session_id)
+            and svc.is_running(session_id)
+        ):
+            side_id = await side_threads.start(
+                svc, session_id, body.text, body.attachments, tool_choices=body.tool_choices
+            )
+            return {"turn_id": "", "session_id": session_id, "side_thread": side_id}
         # A created agent's chat queues a message behind its running turn
         # instead of refusing it; every other chat answers 409 as before.
         turn_id, queue_id = await send_or_queue(
@@ -2036,6 +2051,45 @@ async def send_queued_now(session_id: str, queue_id: str, request: Request) -> d
         raise HTTPException(status_code=404, detail="session not found")
     outcome = await send_queue.send_waiting_now(svc, session_id, queue_id)
     return {"steered": outcome == "steered", "next": outcome == "next"}
+
+
+@router.post(
+    "/sessions/{session_id}/side-threads/{side_id}/stop",
+    summary="Stop one side thread of this conversation; everything else goes on",
+)
+async def stop_side_thread(session_id: str, side_id: str, request: Request) -> dict[str, Any]:
+    """Stop the answer to a message that was sent while another request was running."""
+    from dodaios.agent_chat import side_threads
+
+    svc = await _async_service(request)
+    if side_threads.parent_of(svc, side_id) != session_id:
+        raise HTTPException(status_code=404, detail="side thread not found")
+    return {"stopped": await side_threads.stop(svc, session_id, side_id)}
+
+
+@router.post(
+    "/sessions/{session_id}/side-threads/{side_id}/to-main",
+    summary="Give a side thread's message to the request running in the main thread",
+)
+async def side_thread_to_main(session_id: str, side_id: str, request: Request) -> dict[str, Any]:
+    """The message was meant for the running request, not as a task of its own.
+
+    Its side thread stops without an answer. The message goes into the running
+    turn where the seat takes one (``steered``), else it starts as the next
+    turn (``queued``, or ``sent`` when the main thread is free by now).
+    """
+    from dodaios.agent_chat import side_threads
+
+    svc = await _async_service(request)
+    if side_threads.parent_of(svc, side_id) != session_id:
+        raise HTTPException(status_code=404, detail="side thread not found")
+    try:
+        outcome = await side_threads.move_to_main(svc, session_id, side_id)
+    except send_queue.QueueFull as exc:
+        raise HTTPException(status_code=409, detail="too many messages are waiting") from exc
+    if not outcome:
+        raise HTTPException(status_code=409, detail="the side thread has already ended")
+    return {"outcome": outcome}
 
 
 @router.post("/sessions/{session_id}/approvals/{approval_id}")

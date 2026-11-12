@@ -34,10 +34,12 @@ export function writePanelChoice(choice: Exclude<PanelChoice, null>): void {
 
 /**
  * Something waits on the person (an approval or a question still open) or
- * work runs (a turn answering, a hand-off in the background).
+ * work runs (a turn answering, a hand-off in the background, a side thread).
  */
 export function hasActivityDemand(items: readonly TimelineItem[]): boolean {
   for (const item of items) {
+    // A side thread still answering is work that runs.
+    if (item.type === "notice" && item.kind === "side_thread_started" && item.resolved === "") return true;
     if (item.type !== "turn") continue;
     if (item.status === "running") return true;
     if ((item.background ?? []).length > 0) return true;
