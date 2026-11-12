@@ -102,6 +102,7 @@ async def test_coding_result_survives_chat_event_storage_and_enters_followup_con
     )
     await WebServer._forward_delegation_to_chat(server, event)
     assert notices[0][0] == original.session_id
+    assert "thread_id" not in notices[0][1]  # a terminal pane has no thread to open
     messages = messages_from_events([{"kind": "notice", "payload": notices[0][1]}])
     assert "deployment pending" in messages[0].content
     assert "Fix login" in messages[0].content
@@ -125,11 +126,13 @@ async def test_chat_factory_installs_one_lazy_result_bridge(tmp_path):
         await server.bus.publish(DelegationResultReady(
             session_id=session.session_id, request_id="job", agent_name="T1",
             status="completed", text="Reported outcome", report="Task and evidence",
+            thread_id="thread-1",
         ))
         assert queue.qsize() == 1
         notice = queue.get_nowait()
         assert notice["kind"] == "notice"
         assert notice["payload"]["report"] == "Task and evidence"
+        assert notice["payload"]["thread_id"] == "thread-1"
     finally:
         service.unsubscribe(session.session_id, queue)
         service.store.close()

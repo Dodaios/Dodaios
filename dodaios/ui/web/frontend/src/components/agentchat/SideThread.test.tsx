@@ -140,6 +140,28 @@ describe("a message sent while the conversation still works", () => {
     expect(fetcher.mock.calls.some(([url]) => String(url).includes("voice"))).toBe(false);
   });
 
+  it("does not draw an agent's result that its own answer takes up", async () => {
+    draw(conversation());
+    await waitFor(() => expect(Socket.open).toHaveLength(1));
+    act(() => Socket.open[0].push({
+      type: "snapshot",
+      session: { session_id: "side-1", provider: "openai", model: "m", effort: "", surface: "jarvis", running: true },
+      events: [
+        { seq: 1, ts_ms: 1, kind: "user_message", payload: { text: QUESTION } },
+        { seq: 2, ts_ms: 2, kind: "turn_started", payload: { turn_id: "s-t1", provider: "openai", model: "m" } },
+        { seq: 3, ts_ms: 3, kind: "notice", payload: {
+          kind: "coding_result", agent_name: "Claude Code", status: "completed", thread_id: "th1",
+          text: "Claude Code has finished: # Review of the pull requests",
+        } },
+        { seq: 4, ts_ms: 4, kind: "assistant_text", payload: { turn_id: "s-t1", message_id: "m1", text: "The review is done." } },
+      ],
+    }));
+    const live = await within(screen.getByTestId("side-thread")).findByTestId("side-thread-live");
+    expect(live.textContent).toContain("The review is done.");
+    expect(live.textContent).not.toContain("has finished");
+    expect(within(live).queryByTestId("coding-thread-activity")).toBeNull();
+  });
+
   it("stops only this answer, or moves the message to the running task", async () => {
     draw(conversation());
     fireEvent.click(screen.getByTestId("side-thread-stop"));

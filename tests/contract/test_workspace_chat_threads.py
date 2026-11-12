@@ -390,6 +390,8 @@ async def test_a_typed_conversation_gets_a_card_and_the_result_in_its_chat(rig: 
     [report] = rig.results()
     assert isinstance(report, DelegationResultReady)
     assert report.session_id == lead.session_id and report.status == "completed"
+    # The chat's one-line notice opens the thread the result came from.
+    assert report.thread_id == sid
     # Nothing moves on screen while the person types in their chat.
     assert not [e for e in rig.published if isinstance(e, NavigateSidebar)]
 

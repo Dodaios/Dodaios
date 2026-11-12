@@ -918,7 +918,7 @@ class ChatThreads:
                     trace_id=event.trace_id, source_layer="agentic_ide.chat_threads",
                     session_id=tracked.reply_session_id, request_id=tracked.request_id,
                     agent_name=tracked.name, status=kind, text=event.text,
-                    report=event.report or "",
+                    report=event.report or "", thread_id=session_id,
                 )
             if kind != "needs_input" and self._tracked.get(session_id) is tracked:
                 del self._tracked[session_id]

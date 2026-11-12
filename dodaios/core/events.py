@@ -1200,6 +1200,8 @@ class DelegationResultReady(Event):
     status: str = ""
     text: str = ""
     report: str = ""
+    # The chat thread the result came from; empty for a terminal pane.
+    thread_id: str = ""
 
 
 # Mission completion — bridged from the per-mission MissionBus to drive When-Then rules

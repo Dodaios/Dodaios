@@ -153,10 +153,17 @@ only when you ask for one: a terminal, a pane, or the grid.
   too. For Claude Code and Codex that is the mode that never asks (bypass
   permissions, full access). You can lower it in the thread's composer.
 - **What you see:** after a spoken request the IDE comes forward in Chat on
-  the new thread. In Dodaios's chat you get a line that opens it.
+  the new thread. Dodaios's chat adds no line for the start: you asked for it,
+  and the thread is in the IDE.
 - **The result:** when the turn Dodaios started finishes, fails, asks a
   question or waits for an approval, Dodaios tells you in the conversation
-  that asked. A turn you type into the thread yourself is yours.
+  that asked, in its own words, followed by its report card when it wrote
+  one. The thread's own result is Dodaios's material and is not drawn in the
+  chat. Only when no answer of Dodaios takes it up (you stopped the waiting
+  turn, or the wait was lost in a restart) does the chat keep one line,
+  "Claude Code is finished", that opens the thread
+  (`components/agentchat/agentResults.ts`). A turn you type into the thread
+  yourself is yours.
 - **Later:** Dodaios can send a follow-up to the thread, read it, stop its
   turn and list it in its status ("how far are they"). Answering the thread's
   cards and archiving it stay with you.

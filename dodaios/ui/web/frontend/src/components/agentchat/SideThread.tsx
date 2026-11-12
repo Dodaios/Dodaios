@@ -5,6 +5,7 @@ import { useT } from "@/i18n";
 import { moveSideThreadToMain, stopSideThread } from "@/lib/agentChatApi";
 import { createAgentChatStore, type AgentChatStoreHook } from "@/store/agentChat";
 import { AgentChatStoreProvider, useAgentChat } from "./AgentChatStoreContext";
+import { withoutAnsweredResults } from "./agentResults";
 import { cn } from "@/lib/utils";
 import { LeadReply, OWN_BUBBLE } from "./LeadReply";
 import { MessageReceipt } from "./messageReceipt";
@@ -172,7 +173,12 @@ function SideThreadLive({ sideId, running, renderTimeline, fallback }: {
   const items = store((s) => s.timeline.items);
   const decide = store((s) => s.decide);
   // The person's message is the bubble above; here is only what answered it.
-  const answering = useMemo(() => items.filter((entry) => entry.type !== "user"), [items]);
+  // An agent's result this answer takes up itself is not drawn, as in the
+  // conversation the side thread stands in.
+  const answering = useMemo(
+    () => withoutAnsweredResults(items).filter((entry) => entry.type !== "user"),
+    [items],
+  );
   if (answering.length === 0) return <>{fallback}</>;
   return (
     <AgentChatStoreProvider store={store}>
