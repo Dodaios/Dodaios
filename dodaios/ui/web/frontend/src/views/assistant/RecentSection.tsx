@@ -29,9 +29,10 @@ function LastReview({ review }: { review: SoulReview }) {
   const outcome = OUTCOMES.has(review.outcome) ? review.outcome : "answered";
   const seat = review.seat_label || review.seat || "";
   const billing = BILLING_KEYS[review.billing ?? ""];
+  // A review that answered ran on a model, even when an older ledger line does not name it.
   const line = seat
     ? t(`assistant_view.review_${outcome}`).replace("{0}", seat)
-    : t("assistant_view.review_no_seat");
+    : t(outcome === "answered" ? "assistant_view.review_answered_plain" : "assistant_view.review_no_seat");
   return (
     <div data-testid="assistant-last-review" className="border-b border-border">
       <SpecRow

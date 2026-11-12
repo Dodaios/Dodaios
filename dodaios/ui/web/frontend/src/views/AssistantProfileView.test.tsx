@@ -276,6 +276,93 @@ describe("AssistantProfileView", () => {
     expect(screen.getByTestId("assistant-learning").textContent).toBe("Not learning right now");
   });
 
+  /**
+   * The pages as a backend with a running memory vault returns them: what a
+   * review learned sits in the vault, and USER.md starts with the profile.
+   * Regression (2026-11-12): the pages read the old notebook files alone and
+   * said "0 notes" while the vault held what the assistant had learned.
+   */
+  function withVault(): SoulProfile {
+    const base = profile();
+    const now = Date.now();
+    return {
+      ...base,
+      files: base.files.map((f) =>
+        f.id === "user"
+          ? {
+              ...f,
+              exists: true,
+              store: "vault" as const,
+              updated_ms: now,
+              entries: [
+                { id: "profile:identity.name", text: "Ruben", importance: 0, origin: "profile", explicit: false, store: "profile" as const, field: "name", at_ms: null },
+                { id: "profile:work_style.focus_mode", text: "deep-work", importance: 0, origin: "profile", explicit: false, store: "profile" as const, field: "focus_mode", at_ms: null },
+                { id: "profile:communication.emoji_ok", text: "false", importance: 0, origin: "profile", explicit: false, store: "profile" as const, field: "emoji_ok", at_ms: null },
+                { id: "mem_1", text: "The user builds Dodaios.", importance: 5, origin: "inferred", explicit: false, store: "vault" as const, at_ms: now },
+              ],
+            }
+          : f,
+      ),
+    };
+  }
+
+  it("shows what the memory vault holds and counts it, with the profile's lines first", async () => {
+    installFetch({ "GET /api/soul": () => ({ body: withVault() }) });
+    renderWithClient(<AssistantProfileView />);
+
+    // One note in MEMORY.md and one learned about the person; the profile's lines are the person's own.
+    expect(await screen.findByText("2 things remembered")).toBeTruthy();
+    const user = screen.getByTestId("assistant-file-user");
+    expect(within(user).getByText(/^4 notes · today/)).toBeTruthy();
+    expect(within(user).getByText("Name: Ruben")).toBeTruthy();
+    expect(within(user).getByText("Focus: Deep work")).toBeTruthy();
+    expect(within(user).getByText("Emojis: No")).toBeTruthy();
+
+    const memory = screen.getByTestId("assistant-memory");
+    fireEvent.click(within(memory).getByRole("button", { name: /About you/ }));
+    expect(within(memory).getByText("The user builds Dodaios.")).toBeTruthy();
+    // A vault memory says when it was learned.
+    expect(within(memory).getByText("today")).toBeTruthy();
+  });
+
+  it("keeps a profile line read-only and forgets a vault memory by its id", async () => {
+    const calls = installFetch({
+      "GET /api/soul": () => ({ body: withVault() }),
+      "DELETE /api/soul/entries/user/mem_1": () => ({ body: withVault() }),
+    });
+    renderWithClient(<AssistantProfileView />);
+
+    fireEvent.click(await screen.findByTestId("assistant-file-user"));
+    const page = await screen.findByTestId("assistant-page-user");
+    const lines = within(page).getAllByTestId("assistant-note-profile");
+    expect(lines).toHaveLength(3);
+    expect(within(lines[0]).getByText("From your profile")).toBeTruthy();
+    expect(within(page).getAllByRole("button", { name: /^Forget:/ })).toHaveLength(1);
+    const note = within(page).getByTestId("assistant-notebook-note").textContent ?? "";
+    expect(note).toContain("keeps them in its memory");
+    expect(note).toContain("You change them under Profile.");
+
+    fireEvent.click(within(page).getByRole("button", { name: /Forget: The user builds/ }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === "/api/soul/entries/user/mem_1" && c.init?.method === "DELETE")).toBe(true),
+    );
+  });
+
+  it("does not claim a missing model for a review that answered without naming its seat", async () => {
+    installFetch({
+      "GET /api/soul": () => ({
+        body: profile({
+          last_review: { ts: "2026-11-12T21:59:24+0100", source: "review: quiet conversation", outcome: "answered", changes: 1 },
+        }),
+      }),
+    });
+    renderWithClient(<AssistantProfileView />);
+
+    const last = await screen.findByTestId("assistant-last-review");
+    expect(within(last).getByText("Last review ran")).toBeTruthy();
+    expect(within(last).queryByText(/found no model/)).toBeNull();
+  });
+
   it("edits SOUL.md in place and saves it to /api/soul/file", async () => {
     const calls = installFetch({
       "GET /api/soul": () => ({ body: profile() }),

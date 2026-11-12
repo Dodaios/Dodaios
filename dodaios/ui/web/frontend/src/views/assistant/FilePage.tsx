@@ -5,7 +5,8 @@
  * in an editor that scrolls inside itself, and under it one line — what
  * saving does on the left, Revert and Save on the right. MEMORY.md and
  * USER.md are written by the assistant itself: they open as their notes,
- * each of which can be forgotten.
+ * each of which can be forgotten. A line of the person's profile on USER.md
+ * is the exception: the Profile page edits it.
  */
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -22,7 +23,7 @@ import {
   type SoulFile,
 } from "@/views/assistant/api";
 import { useFileMeta } from "@/views/assistant/FilesSection";
-import { NoteList } from "@/views/assistant/MemorySection";
+import { isProfileLine, NoteList } from "@/views/assistant/MemorySection";
 import { TextAction } from "@/views/assistant/Section";
 
 function Editor({ file }: { file: CharacterFile | InstructionsFile }) {
@@ -127,7 +128,10 @@ export function FilePage({
           canForget={canForget}
           emptyText={t(`assistant_view.empty_${file.id}`)}
         />
-        <p className="mt-4 text-sm text-muted-foreground">{t("assistant_view.notebook_note")}</p>
+        <p data-testid="assistant-notebook-note" className="mt-4 text-sm text-muted-foreground">
+          {t(file.store === "vault" ? "assistant_view.memory_note" : "assistant_view.notebook_note")}
+          {file.entries.some(isProfileLine) && ` ${t("assistant_view.profile_note")}`}
+        </p>
       </>
     );
   } else if (file.exists || file.id === "instructions") {

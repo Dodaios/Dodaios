@@ -7,9 +7,15 @@ The section shows every file that shapes who the assistant is, in one place:
 * the standing instructions the person writes for it
   (``data/agent_instructions/<Name>.md``, edited through
   ``/api/settings/agent-instructions``);
-* ``MEMORY.md`` and ``USER.md`` in the vault (``society/jarvis/``) — what it
-  was asked to remember, its working notes, and what it noticed about the
-  person (``dodaios.memory.learning.notebook``).
+* ``MEMORY.md`` and ``USER.md`` — what it was asked to remember, its working
+  notes, and what it knows about the person. While the memory vault runs
+  (ADR-0044) both pages are views of the vault, because that is where a
+  reviewed conversation is written (``dodaios.memory.vault.pages``); notes
+  still left in the old notebooks (``society/jarvis/``,
+  ``dodaios.memory.learning.notebook``) are listed after them. The USER.md
+  page starts with what the person's own profile states
+  (``data/workspace/USER.md``), so one page answers "what does it know
+  about me".
 
 Endpoints:
     GET    /api/soul                              → the whole profile
@@ -25,6 +31,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any, Literal
 
@@ -73,6 +80,8 @@ def _entry(entry: Any) -> dict[str, Any]:
         "importance": entry.importance,
         "origin": entry.origin,
         "explicit": entry.origin == EXPLICIT_ORIGIN,
+        "store": "notebook",
+        "at_ms": None,
     }
 
 
@@ -172,6 +181,7 @@ def _book_file(folder: Path | None, target: str) -> dict[str, Any]:
         "updated_ms": _mtime_ms(path) if path else None,
         "entries": [],
         "chars": 0,
+        "store": "notebook",
     }
     if not base["exists"] or path is None:
         return base
@@ -185,6 +195,201 @@ def _book_file(folder: Path | None, target: str) -> dict[str, Any]:
     base["entries"] = [_entry(e) for e in ordered]
     base["chars"] = sum(len(e.text) for e in entries)
     return base
+
+
+def _same_note(text: str) -> str:
+    """One spelling of a note, to tell a notebook entry from its copy in the vault."""
+    from dodaios.memory.vault.legacy_import import clean
+    from dodaios.memory.vault.models import normalize_text
+
+    return normalize_text(clean(text))
+
+
+def _show_vault(books: dict[str, dict[str, Any]], vault: Any) -> None:
+    """Fill both pages from the memory vault; notebook notes it does not hold follow.
+
+    The vault is where a review writes while it runs, so without this the
+    pages stay empty however much the assistant has learned. A notebook note
+    the one-time import copied into the vault is shown once, as the vault's.
+    """
+    from dodaios.memory.vault import pages
+
+    try:
+        found = pages.entries(vault)
+        known: set[str] = set()
+        if any(book["entries"] for book in books.values()):
+            known = {_same_note(m.text) for m in vault.list(include_closed=True)}
+    except Exception:  # noqa: BLE001 — a vault fault leaves the notebooks on the page
+        log.warning("soul: the memory vault could not be read for the page", exc_info=True)
+        return
+    for target, rows in found.items():
+        book = books[target]
+        kept = [e for e in book["entries"] if _same_note(e["text"]) not in known]
+        times = [row["at_ms"] for row in rows if row["at_ms"]]
+        if kept and book["updated_ms"]:
+            times.append(book["updated_ms"])
+        book.update(
+            entries=rows + kept,
+            exists=True,
+            store="vault",
+            updated_ms=max(times) if times else None,
+            chars=sum(len(e["text"]) for e in rows + kept),
+        )
+
+
+#: Profile fields the USER.md page lists, in reading order: ``(cluster, field)``.
+_PROFILE_FIELDS: tuple[tuple[str, str], ...] = (
+    ("identity", "name"),
+    ("identity", "preferred_address"),
+    ("identity", "about"),
+    ("identity", "pronouns"),
+    ("identity", "primary_language"),
+    ("identity", "languages"),
+    ("identity", "timezone"),
+    ("identity", "devices"),
+    ("communication", "directness"),
+    ("communication", "formality"),
+    ("communication", "verbosity"),
+    ("communication", "humor_types"),
+    ("communication", "emoji_ok"),
+    ("work_style", "focus_mode"),
+    ("work_style", "planning_horizon"),
+    ("values", "top_values"),
+    ("values", "pet_peeves"),
+    ("values", "motivations"),
+    ("relationship", "feedback_pref"),
+)
+#: Fields rated on a scale of one to five.
+_SCALE_FIELDS = frozenset({"directness", "formality"})
+
+
+def _profile_path() -> Path:
+    """The person's profile (``<DATA_DIR>/workspace/USER.md``), next to SOUL.md."""
+    from dodaios.brain.identity import soul_path
+    from dodaios.memory.workspace import USER_MD
+
+    return soul_path().parent / USER_MD
+
+
+def _profile_entries(path: Path) -> list[dict[str, Any]]:
+    """What the person's profile states, one line per value; ``[]`` without a profile.
+
+    The profile is in every prompt ("About the User"), so it belongs to what
+    the assistant knows about the person. Its lines are read-only here: the
+    Profile page edits them. A value the old template filled in for everybody
+    is left out (``dodaios.memory.template_defaults``).
+    """
+    from dodaios.memory.frontmatter import parse_frontmatter
+    from dodaios.memory.template_defaults import assumed_fields
+
+    try:
+        meta, body = parse_frontmatter(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):  # no readable profile: nothing to list
+        return []
+    assumed = assumed_fields(meta, body)
+    out: list[dict[str, Any]] = []
+    for cluster, name in _PROFILE_FIELDS:
+        section = meta.get(cluster)
+        value = section.get(name) if isinstance(section, dict) else None
+        if value is None or (cluster == "identity" and name in assumed):
+            continue
+        values = value if isinstance(value, list) else [value]
+        for index, item in enumerate(values):
+            if isinstance(item, bool):
+                text = "true" if item else "false"
+            elif name in _SCALE_FIELDS and isinstance(item, int):
+                text = f"{item}/5"
+            else:
+                text = " ".join(str(item).split()) if isinstance(item, str | int | float) else ""
+            if not text:
+                continue
+            suffix = f":{index}" if isinstance(value, list) else ""
+            out.append(
+                {
+                    "id": f"profile:{cluster}.{name}{suffix}",
+                    "text": text,
+                    "importance": 0,
+                    "origin": "profile",
+                    "explicit": False,
+                    "store": "profile",
+                    "field": name,
+                    "at_ms": None,
+                }
+            )
+    return out
+
+
+def _show_profile(book: dict[str, Any], path: Path) -> None:
+    """Put the profile's lines at the top of the USER.md page.
+
+    A memory the one-time import copied from the profile only repeats a line
+    that is shown above it, so it is left out.
+    """
+    lines = _profile_entries(path)
+    if not lines:
+        return
+    # The import wrote identity fields only; a value counts as a whole word,
+    # so the language "en" does not hide a sentence that merely contains it.
+    stated = [
+        re.compile(rf"(?<!\w){re.escape(line['text'].casefold())}(?!\w)")
+        for line in lines
+        if line["id"].startswith("profile:identity.")
+    ]
+
+    def repeats_profile(entry: dict[str, Any]) -> bool:
+        source = entry.get("source") or {}
+        if source.get("from") != "user-profile":
+            return False
+        text = str(entry["text"]).casefold()
+        return any(value.search(text) for value in stated)
+
+    rest = [e for e in book["entries"] if not repeats_profile(e)]
+    times = [t for t in (book["updated_ms"], _mtime_ms(path)) if t]
+    book.update(
+        entries=lines + rest,
+        exists=True,
+        updated_ms=max(times) if times else None,
+        chars=sum(len(e["text"]) for e in lines + rest),
+    )
+
+
+def _books(folder: Path | None) -> list[dict[str, Any]]:
+    """The MEMORY.md and USER.md pages: the vault, the notebooks and the profile."""
+    from dodaios.memory.vault import runtime as vault_runtime
+
+    books = {target: _book_file(folder, target) for target in ("memory", "user")}
+    vault = vault_runtime.active()
+    if vault is not None:
+        _show_vault(books, vault)
+    _show_profile(books["user"], _profile_path())
+    for book in books.values():
+        for entry in book["entries"]:
+            entry.pop("source", None)  # where a memory came from stays off the page
+    return list(books.values())
+
+
+def _stamp_ms(stamp: str) -> int:
+    """A ledger or vault time as milliseconds, for sorting; 0 when unreadable."""
+    from dodaios.memory.vault.pages import time_ms
+
+    return time_ms(stamp) or 0
+
+
+def _with_vault_activity(listed: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The ledger's changes and the vault's, newest first, as one list."""
+    from dodaios.memory.vault import pages
+    from dodaios.memory.vault import runtime as vault_runtime
+
+    vault = vault_runtime.active()
+    if vault is None:
+        return listed
+    try:
+        learned = pages.activity(vault, limit=_ACTIVITY_LIMIT)
+    except Exception:  # noqa: BLE001 — the ledger's own lines still answer
+        log.warning("soul: the memory vault's activity could not be read", exc_info=True)
+        return listed
+    merged = sorted(listed + learned, key=lambda item: _stamp_ms(item["ts"]), reverse=True)
+    return merged[:_ACTIVITY_LIMIT]
 
 
 #: Ledger fields that name the model call behind a line (``review.SeatChoice``).
@@ -293,10 +498,9 @@ def _payload(request: Request) -> dict[str, Any]:
         "files": [
             _soul_file(soul_path()),
             _instructions_file(config),
-            _book_file(folder, "memory"),
-            _book_file(folder, "user"),
+            *_books(folder),
         ],
-        "activity": _activity(records),
+        "activity": _with_vault_activity(_activity(records)),
         "last_review": _last_review(records),
         "initiative": _initiative(config),
     }
@@ -366,14 +570,47 @@ def put_initiative(body: InitiativeBody, request: Request) -> dict[str, Any]:
     return {"ok": True, **_payload(request)}
 
 
+def _forget_notebook_copy(notebook: Any, text: str) -> None:
+    """Remove the notebook note a forgotten memory was imported from, if one is left.
+
+    Otherwise the note would come back on the page, and stay in the prompt,
+    the moment its copy in the vault is gone.
+    """
+    same = _same_note(text)
+    try:
+        for target in ("memory", "user"):  # the import filed by kind, not by notebook
+            for entry in notebook.entries().get(target, []):
+                if _same_note(entry.text) == same:
+                    notebook.apply(
+                        target=target,
+                        operation="remove",
+                        entry_id=entry.id,
+                        source="soul page: forgotten by the user",
+                    )
+    except (ValueError, OSError):  # the memory itself is forgotten; the copy stays listed
+        log.warning("soul: a forgotten memory's notebook copy could not be removed", exc_info=True)
+
+
 @router.delete("/entries/{target}/{entry_id}", summary="Forget one learned note")
 def forget_entry(
     target: Literal["soul", "memory", "user"], entry_id: str, request: Request
 ) -> dict[str, Any]:
-    """Remove one note; the learning ledger keeps its old text, so it is recoverable."""
-    from dodaios.memory.learning import notebook as notebook_module
+    """Remove one note.
 
+    A memory of the vault is forgotten with every version of it. A notebook
+    note is removed from its file; the learning ledger keeps its old text.
+    """
+    from dodaios.memory.learning import notebook as notebook_module
+    from dodaios.memory.vault import pages
+    from dodaios.memory.vault import runtime as vault_runtime
+
+    vault = vault_runtime.active()
     notebook = notebook_module.active()
+    memory = vault.get(entry_id) if vault is not None and target != "soul" else None
+    if vault is not None and memory is not None and pages.forget(vault, entry_id):
+        if notebook is not None:
+            _forget_notebook_copy(notebook, memory.text)
+        return {"ok": True, **_payload(request)}
     if notebook is None:
         raise HTTPException(
             status_code=503, detail="The learning loop is not running in this session."

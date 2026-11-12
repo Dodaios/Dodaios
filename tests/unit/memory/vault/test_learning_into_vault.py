@@ -102,6 +102,34 @@ async def test_add_then_update_keeps_history(tmp_path, vault):
     assert "The user lives in Berlin." in snapshot_block()
 
 
+def test_a_stored_how_to_is_shown_to_the_review_of_a_turn_with_the_same_tool_trace(vault):
+    """Regression (2026-11-12): the same how-to was added twice, two hours apart.
+
+    The user never names the tool; only the turn's trace does. A review that
+    looks up stored memories by the user's words alone is not shown the how-to
+    it already has, so it cannot answer with an update.
+    """
+    how_to = vault.remember(
+        "When await_jobs times out, poll job_status instead.",
+        "procedural",
+        origin="inferred",
+        source={"via": "review", "note": "how_to"},
+    ).memory
+    other = vault.remember("The user builds a house in Hamburg.", "project").memory
+    said = [
+        {
+            "user": "can you get an agent to look at the house plans",
+            "tool_trace": "failed: await_jobs (timed out); then worked: job_status",
+        }
+    ]
+    shown = [m.id for m in reconcile.nearest(vault, said)]
+    assert how_to.id in shown and other.id in shown
+    # Without the trace the how-to is not found, which is what went wrong.
+    assert how_to.id not in [m.id for m in reconcile.nearest(vault, [{"user": said[0]["user"]}])]
+    # Neither search crowds the other out of a short list.
+    assert {m.id for m in reconcile.nearest(vault, said, limit=2)} == {how_to.id, other.id}
+
+
 def test_validate_rejects_ungrounded_and_unknown_ids(vault):
     shown = [vault.remember("The user lives in Hamburg.", "profile").memory]
     ops, rejected = reconcile.validate(

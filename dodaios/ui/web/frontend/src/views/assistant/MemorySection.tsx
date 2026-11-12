@@ -1,7 +1,9 @@
 /**
- * Memory — what the assistant keeps by itself, in its three notebooks:
- * about itself (SOUL.md's learned notes), what it remembers (MEMORY.md) and
- * about the person (USER.md), one underline tab each.
+ * Memory — what the assistant keeps by itself: about itself (SOUL.md's
+ * learned notes), what it remembers (MEMORY.md) and about the person
+ * (USER.md), one underline tab each. The last two are filled from the memory
+ * vault while it runs, and "about the person" starts with the lines of the
+ * person's own profile, which are read-only here.
  *
  * Every note is a line of text with its date and, when the person asked for
  * it, "You asked" in quiet ink beside it. "Forget" appears on hover and on
@@ -27,6 +29,39 @@ export function splitDated(text: string): { body: string; dateMs: number | null 
   if (!m) return { body: text, dateMs: null };
   const [y, mo, d] = m[1].split("-").map(Number);
   return { body: m[2], dateMs: new Date(y, mo - 1, d).getTime() };
+}
+
+/** A line of the person's own profile: shown with its field, never forgotten here. */
+export function isProfileLine(entry: SoulEntry): boolean {
+  return entry.store === "profile";
+}
+
+/**
+ * What a note reads as, and when it was written. A profile line is its
+ * field and value ("Name: Ruben"), with a choice or a yes/no in the page's
+ * language where the Profile page has a word for it.
+ */
+export function noteLine(t: (key: string) => string, entry: SoulEntry): { body: string; dateMs: number | null } {
+  if (!isProfileLine(entry)) {
+    const { body, dateMs } = splitDated(entry.text);
+    return { body, dateMs: dateMs ?? entry.at_ms ?? null };
+  }
+  const field = entry.field ?? "";
+  const known = (key: string): string | null => {
+    const label = t(key);
+    return label === key ? null : label;
+  };
+  const value =
+    entry.text === "true" || entry.text === "false"
+      ? t(entry.text === "true" ? "profile_view.value_yes" : "profile_view.value_no")
+      : (known(`profile_view.choices.${field}.${entry.text}`) ?? entry.text);
+  const label = known(`profile_view.fields.${field}`);
+  return { body: label ? `${label}: ${value}` : value, dateMs: null };
+}
+
+/** How many notes the assistant keeps itself: every line that is not the profile's. */
+export function learnedCount(entries: readonly SoulEntry[]): number {
+  return entries.filter((entry) => !isProfileLine(entry)).length;
 }
 
 export function NoteList({
@@ -56,9 +91,20 @@ export function NoteList({
   return (
     <ul data-testid={`assistant-notes-${target}`} className="divide-y divide-border">
       {entries.map((entry) => {
-        const { body, dateMs } = splitDated(entry.text);
+        const { body, dateMs } = noteLine(t, entry);
         const date = relativeDay(dateMs, lang);
         const busy = forget.isPending && forget.variables?.id === entry.id;
+        if (isProfileLine(entry)) {
+          // The person's own profile: shown so the page is complete, edited on the Profile page.
+          return (
+            <li key={entry.id} data-testid="assistant-note-profile" className="flex items-start gap-8 py-4">
+              <p className="min-w-0 flex-1 whitespace-pre-line text-base leading-7 text-foreground">{body}</p>
+              <span className="shrink-0 pt-0.5 text-right text-sm text-foreground-faint">
+                {t("assistant_view.from_profile")}
+              </span>
+            </li>
+          );
+        }
         return (
           <li key={entry.id} className="group flex items-start gap-8 py-4">
             <p className="min-w-0 flex-1 whitespace-pre-line text-base leading-7 text-foreground">{body}</p>

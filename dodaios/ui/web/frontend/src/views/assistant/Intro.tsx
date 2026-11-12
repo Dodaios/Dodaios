@@ -9,6 +9,7 @@ import { useT, useUiLanguage } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { fileOf, type SoulProfile } from "@/views/assistant/api";
 import { newest, plural, relativeDay } from "@/views/assistant/format";
+import { learnedCount } from "@/views/assistant/MemorySection";
 
 /** "**Vibe:** Helpful but…" from the character rows, without its label. */
 export function vibeOf(profile: SoulProfile): string | null {
@@ -25,7 +26,9 @@ export function Intro({ profile }: { profile: SoulProfile }) {
   const t = useT();
   const lang = useUiLanguage();
   const vibe = vibeOf(profile);
-  const remembered = fileOf(profile, "memory")?.entries.length ?? 0;
+  // Everything it keeps itself, on both pages; the profile's own lines are the person's.
+  const remembered =
+    learnedCount(fileOf(profile, "memory")?.entries ?? []) + learnedCount(fileOf(profile, "user")?.entries ?? []);
   const changed = relativeDay(newest(profile.files.map((f) => f.updated_ms)), lang);
 
   const facts = [
