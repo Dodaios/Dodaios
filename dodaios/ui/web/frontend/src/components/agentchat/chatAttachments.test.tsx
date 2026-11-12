@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AgentComposer } from "@/components/agentchat/AgentComposer";
@@ -375,6 +375,76 @@ describe("the thumbnail strip", () => {
     const card = screen.getByTestId("chat-attachment-shot.png");
     expect(card.querySelector("img")?.getAttribute("src")).toBe("blob:shot");
     expect(card.textContent).not.toContain("not described");
+  });
+
+  const held = (name: string, kind: string) =>
+    ({ name, kind, described_by: "none", detail: "", note: "" }) as unknown as ChatAttachment;
+
+  it.each(["thumbnail", "card"] as const)("opens the picture at full size when it is pressed (%s)", (look) => {
+    render(
+      <ChatAttachmentStrip
+        look={look}
+        attachments={[held("shot.png", "image")]}
+        analyzing={0}
+        onRemove={() => {}}
+        previews={{ "shot.png": "blob:shot" }}
+      />,
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Enlarge shot.png" }));
+
+    const viewer = screen.getByRole("dialog", { name: "shot.png" });
+    expect(viewer.querySelector("img")?.getAttribute("src")).toBe("blob:shot");
+
+    fireEvent.click(within(viewer).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // Looking at the file did not take it off the message.
+    expect(screen.getByTestId("chat-attachment-shot.png")).toBeTruthy();
+  });
+
+  it("plays a video in the viewer", () => {
+    render(
+      <ChatAttachmentStrip
+        look="thumbnail"
+        attachments={[held("clip.mp4", "file")]}
+        analyzing={0}
+        onRemove={() => {}}
+        previews={{ "clip.mp4": "blob:clip" }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Enlarge clip.mp4" }));
+    const player = screen.getByRole("dialog", { name: "clip.mp4" }).querySelector("video");
+    expect(player?.getAttribute("src")).toBe("blob:clip");
+    expect(player?.hasAttribute("controls")).toBe(true);
+  });
+
+  it("removes a file without opening it", () => {
+    const onRemove = vi.fn();
+    render(
+      <ChatAttachmentStrip
+        look="thumbnail"
+        attachments={[held("shot.png", "image")]}
+        analyzing={0}
+        onRemove={onRemove}
+        previews={{ "shot.png": "blob:shot" }}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("chat-attachment-remove-shot.png"));
+    expect(onRemove).toHaveBeenCalledWith("shot.png");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("offers nothing to open for a file with no picture", () => {
+    render(
+      <ChatAttachmentStrip
+        look="thumbnail"
+        attachments={[held("notes.pdf", "document")]}
+        analyzing={0}
+        onRemove={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Enlarge notes.pdf" })).toBeNull();
   });
 });
 

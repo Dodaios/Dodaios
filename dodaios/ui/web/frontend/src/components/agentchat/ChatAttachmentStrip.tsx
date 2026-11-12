@@ -1,11 +1,12 @@
 import { useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
 import { FileText, Film, ImageIcon, Loader2, Play, X } from "lucide-react";
 
 import { attachmentMedia } from "@/components/agentchat/useChatAttachments";
 import type { ChatAttachment } from "@/lib/agentChatApi";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { MediaPreview } from "./MediaPreview";
+import { MediaPreview, MediaViewerContent } from "./MediaPreview";
 import type { UserAttachment } from "./userAttachment";
 
 /** Stored display receipts use the same media viewer as ordinary chat messages. */
@@ -20,6 +21,59 @@ export function MessageAttachments({ files }: { files: UserAttachment[] }) {
         </span>}
     </div>)}
   </div>;
+}
+
+/**
+ * A waiting file's picture. Pressing it opens the picture at full size, or
+ * plays the video: the strip draws a 64-pixel cut of the file, too small to
+ * check that it is the right screenshot before it is sent.
+ */
+function AttachmentPicture({
+  src,
+  name,
+  media,
+  onBroken,
+  mediaClassName,
+  fillWidth = false,
+}: {
+  src: string;
+  name: string;
+  media: "image" | "video";
+  onBroken: () => void;
+  mediaClassName: string;
+  /** The card look gives the picture a fixed square; the thumbnail look lets it keep its width. */
+  fillWidth?: boolean;
+}) {
+  const t = useT();
+  return (
+    <Dialog.Root>
+      <Dialog.Trigger asChild>
+        <button
+          type="button"
+          aria-label={fill(t("chat_media.expand"), { file: name })}
+          data-testid={`chat-attachment-open-${name}`}
+          className={cn(
+            "relative block h-full shrink-0 cursor-zoom-in focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+            fillWidth && "w-full",
+          )}
+        >
+          {media === "video" ? (
+            <>
+              <video src={src} muted playsInline preload="metadata" onError={onBroken} className={mediaClassName} />
+              <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white">
+                  <Play className="ml-0.5 h-3 w-3 fill-current" />
+                </span>
+              </span>
+            </>
+          ) : (
+            <img src={src} alt="" onError={onBroken} className={mediaClassName} />
+          )}
+        </button>
+      </Dialog.Trigger>
+      <MediaViewerContent src={src} label={name} kind={media} />
+    </Dialog.Root>
+  );
 }
 
 /**
@@ -85,17 +139,14 @@ export function ChatAttachmentStrip({
                 preview ? "max-w-[10rem]" : "max-w-[14rem] gap-2 px-3 text-muted-foreground",
               )}
             >
-              {preview && media === "video" ? (
-                <>
-                  <video src={preview} muted playsInline preload="metadata" onError={markBroken} className="h-full w-auto max-w-[10rem] object-cover" />
-                  <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white">
-                      <Play className="ml-0.5 h-3 w-3 fill-current" />
-                    </span>
-                  </span>
-                </>
-              ) : preview ? (
-                <img src={preview} alt={item.name} onError={markBroken} className="h-full w-auto min-w-[4rem] max-w-[10rem] object-cover" />
+              {preview && media ? (
+                <AttachmentPicture
+                  src={preview}
+                  name={item.name}
+                  media={media}
+                  onBroken={markBroken}
+                  mediaClassName={cn("h-full w-auto max-w-[10rem] object-cover", media === "image" && "min-w-[4rem]")}
+                />
               ) : (
                 <>
                   <Icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -159,24 +210,15 @@ export function ChatAttachmentStrip({
                 preview ? "h-14 w-14" : "h-10 w-10",
               )}
             >
-              {preview && media === "video" ? (
-                <>
-                  <video
-                    src={preview}
-                    muted
-                    playsInline
-                    preload="metadata"
-                    onError={markBroken}
-                    className="h-full w-full object-cover"
-                  />
-                  <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white">
-                      <Play className="ml-0.5 h-3 w-3 fill-current" />
-                    </span>
-                  </span>
-                </>
-              ) : preview ? (
-                <img src={preview} alt="" onError={markBroken} className="h-full w-full object-cover" />
+              {preview && media ? (
+                <AttachmentPicture
+                  src={preview}
+                  name={item.name}
+                  media={media}
+                  onBroken={markBroken}
+                  mediaClassName="h-full w-full object-cover"
+                  fillWidth
+                />
               ) : (
                 <Icon className="h-4 w-4" aria-hidden />
               )}
