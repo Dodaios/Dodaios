@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChatMarkdown, mediaKind, normalizeMediaMarkup, safeMediaUrl } from "./ChatMarkdown";
+import { PictureDisplayContext } from "./MediaPreview";
 
 afterEach(cleanup);
 
@@ -88,6 +89,18 @@ describe("shared chat media", () => {
     render(<ChatMarkdown text="![Photo](https://example.test/photo.png)" />);
     fireEvent.click(screen.getByRole("button", {name:"Enlarge Photo"}));
     expect(within(screen.getByRole("dialog")).getByRole("img").getAttribute("src")).toBe("https://example.test/photo.png");
+  });
+
+  it("lists a picture as its download link where the transcript lists files, and still plays a video", () => {
+    const base = "/api/outputs/run/files/tasks/chat/artifacts/files/photo.png/download";
+    const { container } = render(
+      <PictureDisplayContext.Provider value="files">
+        <ChatMarkdown text={`![Photo](${base})\n\n[Clip](https://example.test/video.mp4)`} />
+      </PictureDisplayContext.Provider>,
+    );
+    expect(container.querySelector("img")).toBeNull();
+    expect(screen.getByRole("link", { name: /Photo/ }).getAttribute("href")).toBe(base);
+    expect(container.querySelector("video")).not.toBeNull();
   });
 
   it("shows an explicit error and retains access to a failed video", () => {

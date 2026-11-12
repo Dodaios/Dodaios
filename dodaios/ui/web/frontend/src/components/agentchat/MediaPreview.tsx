@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { AlertCircle, Download, Maximize2, X } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 
@@ -7,6 +7,15 @@ import { openExternalUrl } from "@/lib/openExternal";
 import { cn } from "@/lib/utils";
 
 export type MediaKind = "image" | "video" | "audio";
+
+/**
+ * How a transcript draws its pictures: the picture itself, or only its name
+ * and a download link. The Dodaios chat lists its pictures as files.
+ */
+export type PictureDisplay = "shown" | "files";
+
+/** The picture display of the transcript a message sits in; pictures are shown unless a transcript lists them. */
+export const PictureDisplayContext = createContext<PictureDisplay>("shown");
 
 const EXTENSIONS: Record<string, MediaKind> = {
   png: "image", jpg: "image", jpeg: "image", gif: "image", webp: "image", avif: "image", svg: "image", bmp: "image",
@@ -61,10 +70,12 @@ export function MediaViewerContent({ src, label, kind = "image" }: { src: string
 /**
  * Image, video, or audio that a chat message can show without the markdown parser.
  * `bare` draws only the picture itself (no margin, no download line): a
- * thread's screenshot under its line.
+ * thread's screenshot under its line. In a transcript that lists its pictures
+ * as files, an image is its download link alone.
  */
 export function MediaPreview({ src, label, kind, bare = false }: { src: string; label: string; kind: MediaKind; bare?: boolean }) {
   const t = useT();
+  const display = useContext(PictureDisplayContext);
   const [failedSource, setFailedSource] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -83,6 +94,9 @@ export function MediaPreview({ src, label, kind, bare = false }: { src: string; 
       }
     };
   }, [safe, kind, failed, revision]);
+  if (kind === "image" && display === "files" && safe) return <span className="block min-w-0 max-w-full" data-testid="chat-media" data-kind="image" data-display="files">
+    <MediaDownloadLink href={safe} label={label} />
+  </span>;
   return <Dialog.Root open={expanded} onOpenChange={setExpanded}><span className={cn("block min-w-0 max-w-full", !bare && "my-3")} data-testid="chat-media" data-kind={kind}>
     {failed ? <span role="status" className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
       <AlertCircle aria-hidden className="h-4 w-4 shrink-0" />{unavailable}
@@ -96,15 +110,21 @@ export function MediaPreview({ src, label, kind, bare = false }: { src: string; 
     </button></Dialog.Trigger> : kind === "video" ? <video ref={node => { playerRef.current = node; }} key={`${revision}:${safe}`} src={safe!} aria-label={label} controls playsInline preload="metadata"
       onError={() => { setFailedSource(src); setExpanded(false); }} className="max-h-[520px] w-full rounded-lg bg-muted" />
       : <audio ref={node => { playerRef.current = node; }} key={`${revision}:${safe}`} src={safe!} aria-label={label} controls preload="metadata" onError={() => { setFailedSource(src); setExpanded(false); }} className="w-full" />}
-    {bare ? null : safe ? <a href={safe} download={safe.startsWith("/api/outputs/") ? true : undefined}
-      onClick={event => {
-        if (!safe.startsWith("/api/outputs/")) {
-          event.preventDefault();
-          void openExternalUrl(new URL(safe, window.location.href).href);
-        }
-      }} className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground underline underline-offset-2">
-      <Download aria-hidden className="h-3 w-3" />{t(safe.startsWith("/api/outputs/") ? "chat_media.download" : "chat_media.open_file")} · {label}
-    </a> : <span className="text-xs text-muted-foreground">{label}</span>}
+    {bare ? null : safe ? <MediaDownloadLink href={safe} label={label} /> : <span className="text-xs text-muted-foreground">{label}</span>}
     {kind === "image" && safe ? <MediaViewerContent src={safe} label={label} /> : null}
   </span></Dialog.Root>;
+}
+
+/** A picture's or file's link under it: a file the chat stored downloads, any other address opens outside the app. */
+function MediaDownloadLink({ href, label }: { href: string; label: string }) {
+  const t = useT();
+  return <a href={href} download={href.startsWith("/api/outputs/") ? true : undefined}
+    onClick={event => {
+      if (!href.startsWith("/api/outputs/")) {
+        event.preventDefault();
+        void openExternalUrl(new URL(href, window.location.href).href);
+      }
+    }} className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground underline underline-offset-2">
+    <Download aria-hidden className="h-3 w-3" />{t(href.startsWith("/api/outputs/") ? "chat_media.download" : "chat_media.open_file")} · {label}
+  </a>;
 }

@@ -2,13 +2,14 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, describe, expect, it } from "vitest";
 import { AgentTimeline, timeStamps } from "./AgentTimeline";
 import { EMPTY_TIMELINE, reduceEvents, type TimelineItem } from "./reduce";
+import type { PictureDisplay } from "./MediaPreview";
 import type { AgentChatEvent } from "@/lib/agentChatApi";
 let seq = 0;
 function ev(kind: string, payload: Record<string, unknown>, tsMs = 1000): AgentChatEvent {
  return { seq: ++seq, ts_ms: tsMs, kind, payload } as AgentChatEvent;
 }
-function draw(events: AgentChatEvent[]) {
- return render(<AgentTimeline items={reduceEvents(EMPTY_TIMELINE, events).items} assistantName="Jarvis" providerLabel={id => id} onDecide={() => undefined} />);
+function draw(events: AgentChatEvent[], pictures?: PictureDisplay) {
+ return render(<AgentTimeline items={reduceEvents(EMPTY_TIMELINE, events).items} assistantName="Jarvis" providerLabel={id => id} onDecide={() => undefined} pictures={pictures} />);
 }
 afterEach(() => { cleanup(); seq = 0; });
 it("replays persisted events through the new shared trace", () => {
@@ -40,6 +41,15 @@ describe("the person's turn with files", () => {
     fireEvent.click(within(preview).getByRole("button"));
     expect(within(screen.getByRole("dialog")).getByRole("img", { name: "shot.png" }).getAttribute("src"))
       .toBe(SHOT.url);
+  });
+
+  it("lists the picture as a download link in the Dodaios chat, without drawing it", () => {
+    draw([ev("user_message", { text: "## Task\nlook", typed: "look at this", attachments: [SHOT] })], "files");
+    const turn = screen.getByTestId("agent-message-user");
+    expect(turn.textContent).toContain("look at this");
+    expect(turn.querySelector("img")).toBeNull();
+    expect(within(turn).getByTestId("chat-media").getAttribute("data-display")).toBe("files");
+    expect(within(turn).getByRole("link", { name: /shot\.png/ }).getAttribute("href")).toBe(SHOT.url);
   });
 
   it("keeps the chip for a file with nothing to draw", () => {
