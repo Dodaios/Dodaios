@@ -11,6 +11,7 @@ import { scrollViewportOf, useStickToBottom } from "@/hooks/useStickToBottom";
 import { AgentComposer } from "@/components/agentchat/AgentComposer";
 import { AgentTimeline } from "@/components/agentchat/AgentTimeline";
 import { withoutBackgroundNotices } from "@/components/agentchat/backgroundNotices";
+import { STEER_PREFIX, type TimelineItem } from "@/components/agentchat/reduce";
 import { rosterFaces } from "@/components/agentchat/InternalMessageRun";
 import { useCachedRosterAgents } from "@/components/society/data";
 import { societyDisplayName } from "@/lib/societyDisplayName";
@@ -60,6 +61,24 @@ function CallSlot({ composerControls = false }: { composerControls?: boolean }) 
 }
 
 /**
+ * The newest message the person sent, and where it sits: a message of its own,
+ * or one sent into the running turn (a `steer-` block of that turn). A result
+ * that comes back by itself later (`background`) is not something they sent.
+ */
+function newestSent(items: TimelineItem[]): { id: string; index: number } | null {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (item.type === "user" && item.origin !== "background") return { id: item.id, index };
+    if (item.type !== "turn") continue;
+    for (let at = item.blocks.length - 1; at >= 0; at -= 1) {
+      const block = item.blocks[at];
+      if (block.kind === "text" && block.id.startsWith(STEER_PREFIX)) return { id: `${item.id}:${block.id}`, index };
+    }
+  }
+  return null;
+}
+
+/**
  * The chat stage — the typed half of the front page: Jarvis with a keyboard.
  *
  * What is typed here goes to the same assistant the microphone reaches —
@@ -88,7 +107,11 @@ function CallSlot({ composerControls = false }: { composerControls?: boolean }) 
  * reading; the answer grows below. Until 2026-11-12 a sent message was
  * brought to the TOP of the scroll area instead, over a spacer, which hid
  * the whole conversation behind every send (maintainer: "to see the chat I
- * have to scroll up"). While an answer grows, the rule every conversation
+ * have to scroll up"). The view goes to the end at once, without a glide:
+ * a glide started here was cut short by the very next update of the turn,
+ * and in the desktop app's engine that could leave the view where it stood
+ * (maintainer, the same evening: "the chat does not move down by itself, I
+ * have to scroll"). While an answer grows, the rule every conversation
  * surface here shares applies (hooks/useStickToBottom): new output pulls
  * the view along ONLY while the view is already at the end. Scrolled up to
  * read something, you keep your place while the answer goes on below, and a
@@ -150,7 +173,7 @@ function ChatStageContent() {
   // Whether the view is at the end — and so whether growth pulls it along —
   // is the hook's to answer; it listens on the same viewport this stage
   // scrolls.
-  const { rootRef: stickRootRef, atEnd, jumpToEnd, follow } = useStickToBottom();
+  const { rootRef: stickRootRef, atEnd, jumpToEnd, snapToEnd, follow } = useStickToBottom();
   const setRoot = useCallback(
     (node: HTMLDivElement | null) => {
       rootRef.current = node;
@@ -159,11 +182,12 @@ function ChatStageContent() {
     [stickRootRef],
   );
   const lastItemIdRef = useRef<string | null>(null);
+  const sentIdRef = useRef<string | null>(null);
   const sessionRef = useRef<string | null>(activeSessionId);
 
   const lastItem = items[items.length - 1];
   const lastItemId = lastItem?.id ?? null;
-  const lastItemIsUser = lastItem?.type === "user";
+  const sent = useMemo(() => newestSent(items), [items]);
   // The person's own message is the last thing in the chat and its turn is
   // on the way (the send is in flight, or the session already works on it):
   // the assistant shows as typing until the turn itself takes over. A turn
@@ -176,15 +200,26 @@ function ChatStageContent() {
     if (sessionRef.current !== activeSessionId) {
       sessionRef.current = activeSessionId;
       lastItemIdRef.current = null;
+      sentIdRef.current = null;
     }
     const previousId = lastItemIdRef.current;
+    const previousSentId = sentIdRef.current;
     lastItemIdRef.current = lastItemId;
+    sentIdRef.current = sent?.id ?? null;
     if (!scrollViewportOf(rootRef.current) || !lastItemId) return;
     // The person sent a message into a conversation that is on screen: it
     // lands under the last one and the view goes there, also for a reader
-    // who had scrolled up. Sending is being back at the end.
-    if (previousId !== null && previousId !== lastItemId && lastItemIsUser) {
-      jumpToEnd();
+    // who had scrolled up. Sending is being back at the end, at once.
+    //
+    // Asked of the newest sent message, not of the last item: the message
+    // and the start of its turn arrive a millisecond apart and can reach
+    // one render together, and the last item is then the turn. A reader who
+    // had scrolled up stayed where they were (seen 2026-11-12). The message
+    // has to be new at the end of what was on screen, so a conversation that
+    // opens, or one read again after a reconnect, moves nobody.
+    const previousAt = previousId === null ? -1 : items.findIndex((item) => item.id === previousId);
+    if (sent && sent.id !== previousSentId && previousAt >= 0 && sent.index >= previousAt) {
+      snapToEnd();
       return;
     }
     // Everything else — the answer's next words, a tool call, an opened
@@ -193,7 +228,7 @@ function ChatStageContent() {
     // for ResizeObserver and lose the reader for that frame. A reader who
     // scrolled up is left where they are (`follow` no-ops).
     follow();
-  }, [lastItemId, lastItemIsUser, activeSessionId, items, follow, jumpToEnd]);
+  }, [lastItemId, sent, activeSessionId, items, follow, snapToEnd]);
 
   // The live blocks grow without a new item — a streamed answer, the dots
   // of a turn at work — so no render-driven effect fires for it; the
