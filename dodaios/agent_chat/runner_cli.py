@@ -4747,6 +4747,20 @@ async def _drive_cli(
             )
         )
 
+    #: The conversation id the session row already holds.
+    kept_conversation = [getattr(session, "vendor_session", None)]
+
+    def _keep_conversation() -> None:
+        # The CLI names its conversation in its first lines. The session takes
+        # it at once: a first turn cut off before its end (a reboot, a crash)
+        # left the thread without it, and the next message then started a new
+        # conversation that knew nothing of the work so far (2026-11-12).
+        named = getattr(state, "vendor_session", None)
+        if not named or named == kept_conversation[0] or handle.on_conversation is None:
+            return
+        kept_conversation[0] = named
+        handle.on_conversation(str(named))
+
     async def _pump_stdout() -> None:
         nonlocal grace_kill, status, error_text
         assert proc.stdout is not None
@@ -4797,6 +4811,7 @@ async def _drive_cli(
             if replay:
                 if obj.get("type") not in ("control_request", "control_response"):
                     translate(obj, state)
+                    _keep_conversation()
                     _note_settled()
                 continue
             if plan.acp is not None:
@@ -4805,6 +4820,7 @@ async def _drive_cli(
                     # assistant answer, or process tools after the failure.
                     continue
                 await plan.acp.on_message(obj, acp_io)
+                _keep_conversation()
                 if plan.acp.saw_result:
                     if tracker is not None:
                         # Last look at its children while the runtime still
@@ -4834,6 +4850,7 @@ async def _drive_cli(
                 _remember_cli_commands(obj)
             for ev in translate(obj, state):
                 await handle.emit(ev)
+            _keep_conversation()
             if (
                 plan.keep_stdin
                 and not stdin_outlives_result

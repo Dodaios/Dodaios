@@ -947,6 +947,7 @@ class AgentChatService:
             surface=session.surface,
             stance=session.permission_mode if kit.uses_stance else "",
             control_service=self,
+            on_conversation=lambda vendor: self._keep_conversation(session_id, vendor),
         )
         superseded = self._hold_unanswered_approvals(session_id, turn_id, handle.history)
 
@@ -1187,6 +1188,20 @@ class AgentChatService:
             computer_id=computer_id,
             speed=normalize_speed(speed),
         )
+
+    def _keep_conversation(self, session_id: str, vendor: str) -> None:
+        """Write a CLI's conversation id to its session while the turn still runs.
+
+        The turn's return value carries the id too, but only a turn that
+        reaches its end returns. One cut off by a reboot or a crash left a new
+        thread without its conversation, so the next message started a CLI
+        that knew nothing of the work so far.
+        """
+        try:
+            self.store.update_session(session_id, vendor_session=vendor)
+        except sqlite3.Error:
+            # The turn's end writes it again; the turn itself must go on.
+            log.warning("agent chat %s: conversation id not saved yet", session_id, exc_info=True)
 
     def _set_steerer(
         self, session_id: str, turn_id: str, writer: Callable[..., Awaitable[bool]] | None
@@ -2099,6 +2114,9 @@ class AgentChatService:
                 control_service=self,
                 on_steer=lambda writer, _sid=session_id, _tid=turn_id: self._set_steerer(
                     _sid, _tid, writer
+                ),
+                on_conversation=lambda vendor, _sid=session_id: self._keep_conversation(
+                    _sid, vendor
                 ),
             )
         except BaseException as exc:
