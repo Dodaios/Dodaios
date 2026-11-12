@@ -26,6 +26,11 @@ export function wearsMachineGlyph(provider: string): boolean {
 
 const LAPTOP_NAME = /book|laptop|notebook|thinkpad|xps|surface/i;
 
+/** Whether a machine's own name says it is a laptop ("Adas-MacBook-Pro"). */
+export function isLaptopName(name: string): boolean {
+  return LAPTOP_NAME.test(name);
+}
+
 export function machineKind(computer: Computer): MachineKind {
   if (computer.kind === "local_vm") return "linux";
   if (computer.provider === "raspberry_pi") return "mini";

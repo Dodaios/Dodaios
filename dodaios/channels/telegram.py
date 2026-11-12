@@ -283,6 +283,11 @@ class TelegramChannel:
         )
         return tokens.access
 
+    @property
+    def bot_username(self) -> str:
+        """The bot's own username without the ``@``; empty until Telegram has said it."""
+        return "" if self._bot_username == "<unknown>" else self._bot_username
+
     async def _validate_token(self, token: str) -> None:
         from telegram import Bot  # noqa: WPS433
         from telegram.error import InvalidToken  # noqa: WPS433

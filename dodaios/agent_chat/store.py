@@ -457,6 +457,31 @@ class AgentChatStore:
                 ).fetchall()
         return [self._row_to_session(r) for r in rows]
 
+    def sessions_briefed_by(
+        self, agent_id: str, *, surface: str = "agent", limit: int = 30, scan: int = 120
+    ) -> list[tuple[AgentChatSession, int]]:
+        """Sessions of ``surface`` that ``agent_id`` wrote a task into.
+
+        A message an agent writes on the person's behalf carries its
+        ``author``; that mark is the record, whichever tool opened the
+        session. Each hit comes with the time of the agent's newest message,
+        newest first. Only the ``scan`` most recently active sessions are
+        read, so the cost does not grow with the history.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT s.*, t.briefed_ms FROM agent_chat_sessions s JOIN ("
+                "SELECT e.session_id, MAX(e.ts_ms) AS briefed_ms FROM agent_chat_events e "
+                "WHERE e.session_id IN (SELECT session_id FROM agent_chat_sessions "
+                "WHERE surface = ? ORDER BY updated_ms DESC LIMIT ?) "
+                "AND e.kind = 'user_message' "
+                "AND json_extract(e.payload, '$.author.agent_id') = ? "
+                "GROUP BY e.session_id) t ON t.session_id = s.session_id "
+                "ORDER BY t.briefed_ms DESC LIMIT ?",
+                (surface, int(scan), agent_id, int(limit)),
+            ).fetchall()
+        return [(self._row_to_session(r), int(r["briefed_ms"])) for r in rows]
+
     def title_is_automatic(self, session: AgentChatSession) -> bool:
         """Whether ``session``'s title is still the one its first message gave it.
 

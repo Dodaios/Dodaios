@@ -40,12 +40,19 @@ describe("HomeView assistant panel", () => {
   });
 
   it("gives its place to the activity panel while that is open", async () => {
-    chat.items = [running];
     render(<HomeView />);
+    fireEvent.click(screen.getByTestId("lead-activity-open"));
     expect(await screen.findByTestId("lead-activity")).toBeTruthy();
     expect(screen.queryByTestId("assistant-panel")).toBeNull();
     fireEvent.click(screen.getByText("close"));
     expect(await screen.findByTestId("assistant-panel")).toBeTruthy();
+  });
+
+  it("stays in place while work runs, so it can say what the assistant is doing", async () => {
+    chat.items = [running];
+    render(<HomeView />);
+    expect(await screen.findByTestId("assistant-panel")).toBeTruthy();
+    expect(screen.queryByTestId("lead-activity")).toBeNull();
   });
 });
 
@@ -57,14 +64,15 @@ describe("HomeView activity panel", () => {
     expect(screen.queryByTestId("lead-activity-live")).toBeNull();
   });
 
-  it("opens by itself while work runs", async () => {
+  it("stays closed while work runs, with a live dot on its open button", () => {
     chat.items = [running];
     render(<HomeView />);
-    expect(await screen.findByTestId("lead-activity")).toBeTruthy();
-    expect(screen.queryByTestId("lead-activity-open")).toBeNull();
+    expect(screen.queryByTestId("lead-activity")).toBeNull();
+    expect(screen.getByTestId("lead-activity-live")).toBeTruthy();
   });
 
-  it("stays closed when the person closed it, with a live dot instead", async () => {
+  it("closes when the person closes it, and remembers that", async () => {
+    localStorage.setItem("dodaios.home.activity.v1", "open");
     chat.items = [running];
     render(<HomeView />);
     fireEvent.click(await screen.findByText("close"));

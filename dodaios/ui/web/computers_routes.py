@@ -1,6 +1,7 @@
 """REST API for the Computers section (Settings -> Computers).
 
     GET    /api/computers                         list + Jarvis's public key
+    GET    /api/computers/this                    this PC's own name and OS
     POST   /api/computers                         add an SSH server
     POST   /api/computers/check-all               check every computer
     GET    /api/computers/identity                Jarvis's public key + fingerprint
@@ -47,6 +48,7 @@ handshake — they are never logged or echoed back.
 from __future__ import annotations
 
 import logging
+import platform
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
@@ -198,9 +200,23 @@ class LocalVmBody(BaseModel):
 # -- collection ----------------------------------------------------------------
 
 
+def _this_computer() -> dict[str, str]:
+    """This PC as the app's own window names it: its network name and its OS."""
+    system = platform.system()
+    return {
+        "name": platform.node().strip()[:120],
+        "os_id": {"Darwin": "macos", "Windows": "windows"}.get(system, system.lower()),
+    }
+
+
 @router.get("")
 def list_computers() -> dict[str, Any]:
     return {"computers": [_row(c) for c in get_service().all()]}
+
+
+@router.get("/this")
+def this_computer() -> dict[str, str]:
+    return _this_computer()
 
 
 @router.post("", status_code=201)

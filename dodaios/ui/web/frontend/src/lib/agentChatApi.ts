@@ -452,6 +452,52 @@ export async function fetchLeadSession(): Promise<AgentChatSession> {
   return json<AgentChatSession>(await fetch("/api/agent-chat/lead"), "lead-failed");
 }
 
+/** One Agentic IDE thread the assistant wrote a task into (`GET /lead/threads`). */
+export interface LeadThread {
+  session_id: string;
+  title: string;
+  /** The name the coding CLI gave the conversation itself, or "". */
+  cli_title: string;
+  provider: string;
+  cwd: string;
+  /** When the assistant last wrote into it. */
+  briefed_ms: number;
+  updated_ms: number;
+  running: boolean;
+  /** An approval in the thread waits for the person. */
+  waiting: boolean;
+}
+
+/** The IDE threads the assistant sent a task to, the newest task first. */
+export async function fetchLeadThreads(limit = 12): Promise<LeadThread[]> {
+  const data = await json<{ threads?: LeadThread[] }>(
+    await fetch(`/api/agent-chat/lead/threads?limit=${limit}`), "lead-threads-failed",
+  );
+  return data.threads ?? [];
+}
+
+/**
+ * A place outside the app where the person meets the assistant (`GET
+ * /lead/channels`). `chat` is a conversation with it (Telegram); `tool` is a
+ * workspace it works in for the person (Slack), where nobody can write to it.
+ */
+export interface LeadChannel {
+  id: "slack" | "telegram";
+  kind: "chat" | "tool";
+  connected: boolean;
+  /** The bot's `@name` or the workspace's name; "" when unknown. */
+  handle: string;
+  /** The https address a click opens; "" when there is none. */
+  url: string;
+}
+
+export async function fetchLeadChannels(): Promise<LeadChannel[]> {
+  const data = await json<{ channels?: LeadChannel[] }>(
+    await fetch("/api/agent-chat/lead/channels"), "lead-channels-failed",
+  );
+  return data.channels ?? [];
+}
+
 /** Start the lead's model fresh; the conversation and memory stay. */
 export async function freshStartLead(): Promise<void> {
   await json<unknown>(await fetch("/api/agent-chat/lead/fresh-start", { method: "POST" }), "fresh-start-failed");

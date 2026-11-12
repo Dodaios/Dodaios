@@ -73,6 +73,10 @@ def client(computer_service: ComputerService, monkeypatch: pytest.MonkeyPatch) -
 
 def test_routes_list_identity_and_providers(client: TestClient) -> None:
     assert client.get("/api/computers").json() == {"computers": []}
+    # This PC names itself, so a panel can list it beside the connected ones.
+    this = client.get("/api/computers/this").json()
+    assert set(this) == {"name", "os_id"}
+    assert this["os_id"] in {"macos", "windows", "linux"}
 
     ident = client.get("/api/computers/identity").json()
     assert ident["public_key"].startswith("ssh-ed25519 ")

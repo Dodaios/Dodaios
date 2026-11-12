@@ -27,8 +27,16 @@ Use **Chats** for questions, follow-ups, and conversations you may revisit.
 > - "What did we say about X?" searches the whole conversation.
 > - **Remembered: …** lines show what the assistant just learned; **Undo**
 >   forgets a new memory again.
-> - The **Activity** panel on the right shows what waits on you, what runs
->   and what finished, and turns the daily **morning brief** on or off.
+> - The panel on the right is the assistant itself: one line for what it is
+>   doing right now, **Call**, **Slack** and **Telegram**, the computers it
+>   can work on (a green dot marks the one it runs on), the Agentic IDE chats
+>   it sent a task to, and the files it made. A chat or a file opens with a
+>   click. **Library** holds its routines, voice, files, skills and earlier
+>   chats.
+> - The **Activity** panel shows what waits on you, what runs and what
+>   finished, and turns the daily **morning brief** on or off. Open it with
+>   the button at the top right of the conversation; the button shows a dot
+>   while something waits or runs.
 > - Your own private Telegram chat and Discord direct messages with the
 >   assistant are part of the same conversation; friends, groups and server
 >   channels are not.

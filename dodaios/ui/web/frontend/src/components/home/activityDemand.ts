@@ -1,7 +1,8 @@
 import type { TimelineItem } from "@/components/agentchat/reduce";
 
 /**
- * When the front page's activity panel shows itself.
+ * When the front page's activity panel shows itself, and when its open
+ * button wears a live dot.
  *
  * Small and pure on purpose: HomeView is on the first paint, the panel is
  * not, so the question "is there anything to show?" must not pull the panel
@@ -11,7 +12,7 @@ import type { TimelineItem } from "@/components/agentchat/reduce";
 /** Where the person's own open/close choice is kept. */
 export const PANEL_KEY = "dodaios.home.activity.v1";
 
-/** "open" / "closed" when the person chose; null while it follows the work. */
+/** "open" / "closed" when the person chose; null (closed) while they never did. */
 export type PanelChoice = "open" | "closed" | null;
 
 export function readPanelChoice(): PanelChoice {
@@ -50,12 +51,10 @@ export function hasActivityDemand(items: readonly TimelineItem[]): boolean {
 }
 
 /**
- * Closed by default; open while there is something to show. The person's
- * explicit choice wins over both: "open" keeps it open on a quiet page,
- * "closed" keeps it shut while work runs.
+ * Open only while the person keeps it open. Work that runs does not open it:
+ * the assistant's own panel stays in place and says what the assistant is
+ * doing, and the open button wears a live dot while something waits or runs.
  */
-export function panelOpen(choice: PanelChoice, demand: boolean): boolean {
-  if (choice === "open") return true;
-  if (choice === "closed") return false;
-  return demand;
+export function panelOpen(choice: PanelChoice): boolean {
+  return choice === "open";
 }

@@ -1273,6 +1273,41 @@ class LeadBriefBody(BaseModel):
     timezone: str = ""
 
 
+@router.get(
+    "/lead/threads",
+    summary="The Agentic IDE threads the assistant wrote a task into, newest first",
+)
+def list_lead_threads(request: Request, limit: int = Query(12, ge=1, le=50)) -> dict[str, Any]:
+    from dodaios.society.roster import LEAD_AGENT_ID
+
+    svc = _service(request)
+    out = []
+    for session, briefed_ms in svc.store.sessions_briefed_by(LEAD_AGENT_ID, limit=limit):
+        out.append(
+            {
+                "session_id": session.session_id,
+                "title": session.title,
+                "cli_title": _cli_title(svc, session),
+                "provider": session.provider,
+                "cwd": session.cwd,
+                "briefed_ms": briefed_ms,
+                "updated_ms": session.updated_ms,
+                "running": _reported_running(svc, session.session_id),
+                "waiting": bool(svc.pending_approvals(session.session_id)),
+            }
+        )
+    return {"threads": out}
+
+
+@router.get("/lead/channels", summary="Where the person reaches the assistant outside the app")
+async def get_lead_channels(request: Request) -> dict[str, Any]:
+    from dodaios.agent_chat.reach import channels_view
+
+    manager = getattr(request.app.state, "channel_manager", None)
+    # The Slack grant is read from the keyring, which can block.
+    return await asyncio.to_thread(channels_view, manager)
+
+
 @router.get("/lead/brief", summary="The morning brief's state (off until turned on)")
 async def get_lead_brief() -> dict[str, Any]:
     from dodaios.agent_chat.proactive import brief_state
