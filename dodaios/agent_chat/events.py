@@ -60,7 +60,8 @@ Kinds (``payload`` keys in brackets):
 ``background_wait``    [turn_id, tasks] — the agent ended its message but the CLI
                         still runs background tasks (shells, agents) and will wake
                         it when they finish; ``tasks`` names them, [] = no longer
-                        waiting
+                        waiting. A turn held open for its delegates says the same
+                        (delegation_wait.py): ``tasks`` names the agents it waits for
 ``setup_step``         [turn_id, step, where?, host?, cli?] — a thread placed on another
                         computer: which setup step began (connect | fetch | send | unpack |
                         start), shown until the agent's first output

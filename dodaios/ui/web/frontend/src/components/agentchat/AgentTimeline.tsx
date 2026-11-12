@@ -22,7 +22,7 @@ import { TypingBubble } from "./TypingBubble";
 import { PetMark } from "@/components/pets/PetMark";
 import { PetStageContext } from "@/components/pets/petStage";
 import type { PetState } from "@/lib/petStates";
-import { SIDE_THREAD_STARTED, type TimelineItem, type TurnItem, type TextBlock } from "./reduce";
+import { SIDE_THREAD_STARTED, waitsInBackground, type TimelineItem, type TurnItem, type TextBlock } from "./reduce";
 import { TraceMessageLine } from "./TraceTimeline";
 import { attachTurnMessages, type TraceMessage } from "./turnMessages";
 import { MessageReceipt, messageReceipts, stampLabel } from "./messageReceipt";
@@ -424,8 +424,9 @@ const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName,
   if (bubbles) {
     // The pet plays what the assistant is doing while the turn runs and
     // rests beside its last message afterwards. A turn that waits for the
-    // person is not working, so the pet waits too.
-    const waiting = turn.blocks.some((block) => block.kind === "tool" && block.approval?.decision === null);
+    // person, or for an agent it sent out, is not working, so the pet waits too.
+    const waiting = waitsInBackground(turn)
+      || turn.blocks.some((block) => block.kind === "tool" && block.approval?.decision === null);
     const pet: PetState = turn.status === "running" && !waiting ? livePetState(turn.blocks) : "idle";
     const face = traceFace
       ? <PetStageContext.Provider value={pet}>{traceFace}</PetStageContext.Provider>

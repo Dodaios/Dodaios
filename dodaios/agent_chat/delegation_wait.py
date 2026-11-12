@@ -182,7 +182,8 @@ class DelegationWait:
             if attached:
                 if self.yield_seat.is_set():
                     raise SeatYielded(rows)
-                names = ", ".join(work.name for work in pending.values())
+                waited = [work.name for work in pending.values()]
+                names = ", ".join(waited)
                 await self.handle.emit(
                     make_event(
                         "reasoning",
@@ -191,6 +192,11 @@ class DelegationWait:
                             "text": f"Waiting for agents ({len(pending)}): {names}.\n",
                         },
                     )
+                )
+                # The turn's state, not only its trace: a chat that draws the
+                # assistant as typing while a turn runs shows it at rest here.
+                await self.handle.emit(
+                    make_event("background_wait", {"turn_id": tid, "tasks": waited})
                 )
             while pending:
                 # A gather future is cancellable even when a probe is slow.
@@ -261,6 +267,8 @@ class DelegationWait:
                 if attached and self.yield_seat.is_set():
                     raise SeatYielded(rows)
         if attached:
+            # The turn works again: the model continues with the reports.
+            await self.handle.emit(make_event("background_wait", {"turn_id": tid, "tasks": []}))
             await self.handle.emit(
                 make_event(
                     "reasoning",

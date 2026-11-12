@@ -93,6 +93,22 @@ async def test_six_delegates_finish_one_original_turn_after_all_reports(
         e["kind"] == "reasoning" and "Waiting for agents" in e["payload"].get("text", "")
         for e in store.list_events(session.session_id)
     )  # A reconnected UI can reconstruct the actual wait from persisted events.
+    # The turn itself says that it only waits, so a chat does not draw it as typing.
+
+    def waits() -> list[list[str]]:
+        return [
+            e["payload"]["tasks"]
+            for e in store.list_events(session.session_id)
+            if e["kind"] == "background_wait"
+        ]
+
+    # The next poll is a timer away (coarse on Windows): wait for it, not for a fixed time.
+    for _ in range(400):
+        if waits()[-1:] == [["Agent 5"]]:
+            break
+        await asyncio.sleep(0.005)
+    assert waits()[0] == [f"Agent {i}" for i in range(6)]
+    assert waits()[-1] == ["Agent 5"]
     assert not any(e["kind"] == "turn_finished" for e in store.list_events(session.session_id))
     assert not any(lock.locked() for lock in svc._brain_locks.values())
     ready[5] = True
@@ -103,6 +119,8 @@ async def test_six_delegates_finish_one_original_turn_after_all_reports(
     assert finishes[0]["payload"]["usage"] == {"output_tokens": 8}
     assert finishes[0]["payload"]["cost_usd"] == 0.02
     assert len([e for e in events if e["kind"] == "notice"]) == 6
+    # With every report in, the turn no longer waits: it works on its answer.
+    assert [e["payload"]["tasks"] for e in events if e["kind"] == "background_wait"][-1] == []
     assert "Finding 5" in str(messages_from_events(events))
     assert not svc.is_running(session.session_id)
     store.close()
