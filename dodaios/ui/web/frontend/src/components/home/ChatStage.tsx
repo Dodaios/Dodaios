@@ -81,18 +81,18 @@ function CallSlot({ composerControls = false }: { composerControls?: boolean }) 
  * kind clears the other (components/home/chatRows), so the two can never both
  * claim the stage and leave a click looking like it did nothing.
  *
- * Scrolling follows the Claude app: when the person sends, their message
- * is brought to the TOP of the scroll area and the answer grows below it —
- * the eye stays where the new turn begins instead of chasing the bottom.
- * A spacer under the last turn makes that possible even when the turn is
- * short; it shrinks as the answer fills the viewport. While the answer fits,
- * nothing moves. Once it grows PAST the bottom edge — a long reasoning
- * trace, a coding agent's run of tool calls — the view follows it down,
- * through the rule every conversation surface here shares
- * (hooks/useStickToBottom): new output pulls the view along ONLY while the
- * view is already at the end. Scrolled up to read something, you keep your
- * place while the answer goes on below, and a button over the composer takes
- * you back. Nothing yanks the page out from under someone mid-sentence.
+ * Scrolling is a chat's: the conversation goes on at the bottom and what
+ * was said before stays in view above it. A sent message lands under the
+ * last one and the view goes to the end with it, wherever the person was
+ * reading; the answer grows below. Until 2026-11-12 a sent message was
+ * brought to the TOP of the scroll area instead, over a spacer, which hid
+ * the whole conversation behind every send (maintainer: "to see the chat I
+ * have to scroll up"). While an answer grows, the rule every conversation
+ * surface here shares applies (hooks/useStickToBottom): new output pulls
+ * the view along ONLY while the view is already at the end. Scrolled up to
+ * read something, you keep your place while the answer goes on below, and a
+ * button over the composer takes you back. Nothing yanks the page out from
+ * under someone mid-sentence.
  */
 export function ChatStage() {
   const assistantName = useEventStore((s) => s.assistantName);
@@ -144,12 +144,9 @@ function ChatStageContent() {
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const columnRef = useRef<HTMLDivElement | null>(null);
-  const spacerRef = useRef<HTMLDivElement | null>(null);
   // Whether the view is at the end — and so whether growth pulls it along —
   // is the hook's to answer; it listens on the same viewport this stage
-  // scrolls. The column is NOT handed over as its content: the spacer must
-  // be sized before any follow, so the resize observer below does both, in
-  // that order, instead of two observers racing for the same frame.
+  // scrolls.
   const { rootRef: stickRootRef, atEnd, jumpToEnd, follow } = useStickToBottom();
   const setRoot = useCallback(
     (node: HTMLDivElement | null) => {
@@ -158,36 +155,8 @@ function ChatStageContent() {
     },
     [stickRootRef],
   );
-  // The user message pinned to the top of the scroll area for the current
-  // turn. Null until the person sends in this mounted column — opening an
-  // old conversation lands at its end like before, with no spacer.
-  const anchorIdRef = useRef<string | null>(null);
   const lastItemIdRef = useRef<string | null>(null);
   const sessionRef = useRef<string | null>(activeSessionId);
-
-  // Refs, not state, on purpose: the spacer must be sized BEFORE the scroll
-  // that relies on it, in the same layout pass — a state round-trip would
-  // scroll first and grow the page afterwards, clamping the scroll short.
-  //
-  // Answers whether the pinned turn still has room under it. While it has,
-  // the answer grows into the spacer and the page does not get any taller —
-  // there is nothing to follow, and following anyway would nudge the pinned
-  // message off its line. Once the room is gone the answer is growing past
-  // the bottom edge, and that is what the view follows.
-  const applySpacer = (): boolean => {
-    const viewport = scrollViewportOf(rootRef.current);
-    const spacer = spacerRef.current;
-    if (!viewport || !spacer) return false;
-    const anchor = anchorIdRef.current ? messageElement(viewport, anchorIdRef.current) : null;
-    if (!anchor) {
-      spacer.style.minHeight = "0px";
-      return false;
-    }
-    const turnHeight = spacer.getBoundingClientRect().top - anchor.getBoundingClientRect().top;
-    const room = viewport.clientHeight - turnHeight - TURN_BOTTOM_PAD_PX;
-    spacer.style.minHeight = `${Math.max(0, Math.round(room))}px`;
-    return room > 0;
-  };
 
   const lastItem = items[items.length - 1];
   const lastItemId = lastItem?.id ?? null;
@@ -203,47 +172,38 @@ function ChatStageContent() {
   useLayoutEffect(() => {
     if (sessionRef.current !== activeSessionId) {
       sessionRef.current = activeSessionId;
-      anchorIdRef.current = null;
       lastItemIdRef.current = null;
     }
-    const viewport = scrollViewportOf(rootRef.current);
-    const isNew = lastItemId !== lastItemIdRef.current;
+    const previousId = lastItemIdRef.current;
     lastItemIdRef.current = lastItemId;
-    if (!viewport || !lastItemId) return;
-    if (isNew && lastItemIsUser) {
-      anchorIdRef.current = lastItemId;
-      applySpacer();
-      scrollMessageToTop(viewport, lastItemId);
+    if (!scrollViewportOf(rootRef.current) || !lastItemId) return;
+    // The person sent a message into a conversation that is on screen: it
+    // lands under the last one and the view goes there, also for a reader
+    // who had scrolled up. Sending is being back at the end.
+    if (previousId !== null && previousId !== lastItemId && lastItemIsUser) {
+      jumpToEnd();
       return;
     }
-    // A turn that has outgrown its window — a live reasoning trace, a
-    // coding agent's next tool call, an opened conversation landing at
-    // its end: follow if the view was already there. Growth in place
-    // (same item, more words) used to wait for ResizeObserver and lose
-    // the reader for that frame. A reader who scrolled up is left where
-    // they are (`follow` no-ops).
-    const roomLeft = applySpacer();
-    if (!roomLeft) follow();
-    // `applySpacer` reads refs only and is recreated per render by design.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastItemId, lastItemIsUser, activeSessionId, items, follow]);
+    // Everything else — the answer's next words, a tool call, an opened
+    // conversation landing at its end — follows only if the view was
+    // already there. Growth in place (same item, more words) used to wait
+    // for ResizeObserver and lose the reader for that frame. A reader who
+    // scrolled up is left where they are (`follow` no-ops).
+    follow();
+  }, [lastItemId, lastItemIsUser, activeSessionId, items, follow, jumpToEnd]);
 
-  // The live blocks grow without a new item — a reasoning trace, a streamed
-  // answer — so no render-driven effect fires for it; the column's own size
-  // is the honest signal. Spacer first, then the follow that depends on it.
-  // The viewport is watched too: a window that shrinks under a view at the
-  // end keeps it at the end.
+  // The live blocks grow without a new item — a streamed answer, the dots
+  // of a turn at work — so no render-driven effect fires for it; the
+  // column's own size is the honest signal. The viewport is watched too: a
+  // window that shrinks under a view at the end keeps it at the end.
   useEffect(() => {
     const column = columnRef.current;
     const viewport = scrollViewportOf(rootRef.current);
     if (!column || !viewport || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => {
-      if (!applySpacer()) follow();
-    });
+    const ro = new ResizeObserver(() => follow());
     ro.observe(column);
     ro.observe(viewport);
     return () => ro.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasContent, follow]);
 
   // The two surfaces open with different words because they are different
@@ -322,7 +282,6 @@ function ChatStageContent() {
             agentsById={faces}
           />
           {isJarvis && <Suspense fallback={null}><FirstConversation /></Suspense>}
-          <div ref={spacerRef} aria-hidden data-testid="chat-bottom-spacer" className="shrink-0" />
         </div>
       </ScrollArea>
       <div className="relative w-full max-w-[720px] px-6 pb-5 pt-2">
@@ -353,37 +312,4 @@ function FolderHeadline({ folder, subtitle }: { folder: string; subtitle: string
       <p className="mt-2 max-w-md text-base text-muted-foreground">{subtitle}</p>
     </div>
   );
-}
-
-/** Room kept under the turn so the composer's shadow never kisses the text. */
-const TURN_BOTTOM_PAD_PX = 24;
-
-function messageElement(viewport: HTMLElement, id: string): HTMLElement | null {
-  // Attribute compare instead of a selector: ids carry characters a CSS
-  // selector would need escaping for.
-  for (const el of Array.from(viewport.querySelectorAll<HTMLElement>("[data-message-id]"))) {
-    if (el.dataset.messageId === id) return el;
-  }
-  return null;
-}
-
-function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && typeof window.matchMedia === "function"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
-}
-
-function scrollViewport(viewport: HTMLElement, top: number) {
-  const behavior: ScrollBehavior = prefersReducedMotion() ? "auto" : "smooth";
-  if (typeof viewport.scrollTo === "function") viewport.scrollTo({ top, behavior });
-  else viewport.scrollTop = top;
-}
-
-/** Bring the message with `id` to the top edge of the viewport (plus a breath of padding). */
-function scrollMessageToTop(viewport: HTMLElement, id: string) {
-  const el = messageElement(viewport, id);
-  if (!el) return;
-  const top =
-    el.getBoundingClientRect().top - viewport.getBoundingClientRect().top + viewport.scrollTop - 12;
-  scrollViewport(viewport, Math.max(0, top));
 }
