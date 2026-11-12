@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dodaios.agentic_ide.workspace_view import VIEW_CHAT, VIEW_GRID
 from dodaios.core.agent_brief import AGENT_BRIEF_RULE
 from dodaios.core.protocols import ExecutionContext, ToolResult, WorkspaceOrchestrationGateway
 
@@ -58,13 +59,21 @@ class WorkspaceOrchestrationTool:
         "Gmail agent) are NOT panes: reach them with delegate_to_agent or message_agent. "
         "A resolve result carrying jarvis_agent means the name is such an agent. "
         "When the user asks for a NEW agent, terminal or session (for example 'spawn two "
-        "Claude Code agents in the VMs workspace'), call create: it opens count new panes of "
-        "the named cli in the named or visible workspace and, with prompt, hands each the "
-        "task. Never reuse an existing agent and never use spawn_worker for that. "
+        "Claude Code agents in the VMs workspace'), call create: it opens count new agents of "
+        "the named cli and, with prompt, hands each the task. New agents open as chat threads "
+        "in the Agentic IDE's Chat mode (mode chat, the default), in the folder of the named "
+        "or visible workspace, of a named project, or the given folder. Pass mode grid ONLY "
+        "when the user explicitly asked for a terminal, a pane or the grid: then they open as "
+        "terminal panes in the named or visible workspace. A chat thread's terminal_id starts "
+        "with 'thread:'; send, observe, interrupt, watch and status take it directly, with no "
+        "resolve, and the person answers its question and approval cards in the IDE. respond, "
+        "keys, restart, close and fork are for panes. "
+        "Never reuse an existing agent and never use spawn_worker for that. "
         "Mixed CLIs in one request ('five Claude Code and three Codex') go in agents: "
-        "[{cli, count}, ...]. open_workspace opens a NEW workspace (with NEW panes) for "
-        "folder (absolute path) or a known project (name or project_id), with agents and "
-        "an optional prompt; restore reopens a "
+        "[{cli, count}, ...]. open_workspace opens a NEW grid workspace (with NEW terminal "
+        "panes) for folder (absolute path) or a known project (name or project_id), with "
+        "agents and an optional prompt; use it only when the user asked for a workspace or "
+        "terminals, else create. restore reopens a "
         "closed workspace; show brings one on screen. For one pane (by agent call-sign or "
         "terminal_id): observe reads its screen, question and newest events; respond types "
         "the answer to the question or permission prompt it shows (prompt = the answer); keys "
@@ -239,7 +248,20 @@ class WorkspaceOrchestrationTool:
             },
             "folder": {
                 "type": "string",
-                "description": "open_workspace: absolute path of the folder to open.",
+                "description": (
+                    "open_workspace: absolute path of the folder to open. create in chat "
+                    "mode: the folder the new threads work in, when no workspace or project "
+                    "names it."
+                ),
+            },
+            "mode": {
+                "type": "string",
+                "enum": [VIEW_CHAT, VIEW_GRID],
+                "description": (
+                    "create: how the new agents open. chat (default): chat threads in the "
+                    "Agentic IDE's Chat mode. grid: terminal panes; ONLY when the user "
+                    "explicitly asked for a terminal, a pane or the grid."
+                ),
             },
             "worktree": {
                 "type": "boolean",

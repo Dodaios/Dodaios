@@ -15,8 +15,10 @@ fails when the seats drift.
   `dodaios/mcp/dodaios_tools_server.py`). The older vehicles (`multi-spawn`,
   `dispatch-with-review`, `dispatch-to-harness`, `dispatch-to-admin`,
   `spawn-subagents`) stay withheld from every chat, as on the brain seat.
-- Addressed-pane coding (`workspace-orchestrate`, `workspace-git`), the board
+- Addressed coding (`workspace-orchestrate`, `workspace-git`), the board
   (`work_board`), the team relay (`ask_agent`), `product_help` and the Connect card.
+  A new coding agent opens as a chat thread; a terminal pane only when the person
+  asks for one (`docs/agentic-ide-threads.md`).
 - The CLI preamble says: delegate through the Dodaios tools, do not use the vendor's
   own sub-agent tool.
 

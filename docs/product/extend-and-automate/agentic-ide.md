@@ -159,6 +159,11 @@ For several panes, say whether they should receive the same work or divide it:
 - “Tell T1 and T2 to run the same checks” sends one shared instruction.
 - “Have T1 and T2 split the accessibility audit” creates separate assignments.
 
+When you ask Dodaios for a new coding agent ("start a Claude Code agent in this
+project and let it fix the tests"), the agent opens as a chat in Chat mode, in
+that project's folder. Say that you want a terminal, a pane, or the grid to get
+a pane instead. Dodaios tells you when the agent finishes or needs you.
+
 Voice and API fan-out can open and brief new panes. Existing panes are untouched
 unless named. Read **delivered** and **undelivered**; opening a pane does not
 prove it received the work.

@@ -132,6 +132,35 @@ person types into the thread is theirs and wakes no agent. After 25 automatic
 updates for one thread the agent stops following it until the person writes
 in the agent's chat again.
 
+## Coding agents Dodaios starts for you
+
+When you ask Dodaios for a new coding agent, by voice or in its chat ("start
+two Claude Code agents in the website project and let them fix the tests"),
+each agent opens as a thread, not as a terminal pane. The IDE opens in Chat,
+so the new agent is where you look. Dodaios opens a terminal pane in the grid
+only when you ask for one: a terminal, a pane, or the grid.
+
+- **Where:** the folder of the workspace you named or see, else the project
+  you named, else the folder you gave. No workspace has to be open.
+- **Which agent:** the coding agent you named, else the one your newest
+  thread runs on, else the first one installed.
+- **Access:** the default access mode, the same as a pane and as a thread you
+  start by hand. It is not full access. An approval or a question the agent
+  shows waits for you in the thread.
+- **What you see:** after a spoken request the IDE comes forward in Chat on
+  the new thread. In Dodaios's chat you get a line that opens it.
+- **The result:** when the turn Dodaios started finishes, fails, asks a
+  question or waits for an approval, Dodaios tells you in the conversation
+  that asked. A turn you type into the thread yourself is yours.
+- **Later:** Dodaios can send a follow-up to the thread, read it, stop its
+  turn and list it in its status ("how far are they"). Answering the thread's
+  cards and archiving it stay with you.
+- **Fallback:** a coding CLI you added yourself has no chat mode. Dodaios
+  opens it as a pane and says so.
+
+The code is `dodaios/agentic_ide/chat_threads.py`; the tool is
+`workspace-orchestrate` (`create`, with `mode` `chat` or `grid`).
+
 ## Team threads
 
 The people icon on a project row gives one task to several coding agents on

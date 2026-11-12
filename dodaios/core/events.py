@@ -897,7 +897,8 @@ class NavigateSidebar(Event):
 
     ``target`` narrows the destination inside the section: ``"agent"`` opens
     the chat of the agent ``target_id``, ``"chat"`` the conversation
-    ``target_id``. Empty for a plain section switch.
+    ``target_id``, ``"thread"`` the coding thread ``target_id`` in the Agentic
+    IDE's Chat mode. Empty for a plain section switch.
     """
     section: str = ""
     target: str = ""

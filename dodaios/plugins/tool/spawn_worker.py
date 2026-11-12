@@ -342,7 +342,8 @@ class SpawnWorkerTool:
         "inline yourself and at most OFFER to start a background agent. "
         "It runs in its own checkout and NEVER appears in the user's "
         "workspaces: a new coding agent (Claude Code, Codex, ...) in a "
-        "workspace is workspace-orchestrate create, not this tool. Pass "
+        "workspace or project is workspace-orchestrate create (a chat thread "
+        "in the Agentic IDE), not this tool. Pass "
         "the user utterance verbatim plus optional 3-5 short brainstorm "
         "notes as ``context_hints``."
     )
