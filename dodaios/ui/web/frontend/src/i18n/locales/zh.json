@@ -1258,17 +1258,6 @@
     "group_earlier": "更早",
     "resize_hint": "拖动调整大小 · 双击恢复默认"
   },
-  "command_activity": {
-    "level_read": "仅读取",
-    "level_modify": "会修改内容",
-    "level_destructive": "会删除内容",
-    "level_unknown": "Shell 命令",
-    "running": "运行中…",
-    "done": "完成",
-    "failed": "失败",
-    "blocked": "已阻止",
-    "dismiss": "关闭"
-  },
   "thinking": {
     "label": "思考",
     "thought_for": "思考了",

@@ -192,7 +192,7 @@ export function useWebSocket(): void {
           );
 
         // Live shell-command activity: the ToolExecutor's run_shell events
-        // become visible cards (CommandActivityLayer). Pre-filtered on the
+        // become lines on the deck's Terminals card. Pre-filtered on the
         // three action event names; the store ignores every other tool.
         if (COMMAND_ACTIVITY_EVENTS.has(env.event_name)) {
           useCommandActivityStore
