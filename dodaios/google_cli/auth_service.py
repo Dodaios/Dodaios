@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -86,9 +87,16 @@ def _oauth_login_present(home: Path) -> bool:
 # agy 1.4 keeps its login in the OS keyring instead of the token file above
 # (verified live 2026-10-27 with agy 1.4.7 on Windows; cli.log: "ChainedAuth:
 # authenticated via keyring"). On Windows that is a generic Credential Manager
-# entry with this target. Presence only — the blob is freed unread (Google ToS,
-# same rule as the files). Other platforms keep the file-only check.
+# entry with this target. On macOS it is a generic Keychain item with the same
+# service and account (verified live 2026-11-12 with agy 1.5.7: service
+# ``gemini``, account ``antigravity``, no token file). Presence only — the blob
+# is freed unread on Windows and never requested on macOS (Google ToS, same rule
+# as the files). Linux keeps the file-only check.
 _AGY_KEYRING_TARGET = "gemini:antigravity"
+_AGY_KEYCHAIN_SERVICE, _AGY_KEYCHAIN_ACCOUNT = _AGY_KEYRING_TARGET.split(":", 1)
+_SECURITY_TOOL = "/usr/bin/security"
+#: ``security`` exit status when the Keychain item does not exist.
+_KEYCHAIN_ITEM_NOT_FOUND = 44
 _CRED_TYPE_GENERIC = 1
 _ERROR_NOT_FOUND = 1168
 
@@ -99,8 +107,36 @@ def _advapi32() -> Any:
     return ctypes.WinDLL("advapi32", use_last_error=True)
 
 
+def _keychain_command(action: str) -> list[str]:
+    """``security`` argv for agy's Keychain item; never asks for the secret (no -w/-g)."""
+    return [
+        _SECURITY_TOOL,
+        action,
+        "-s",
+        _AGY_KEYCHAIN_SERVICE,
+        "-a",
+        _AGY_KEYCHAIN_ACCOUNT,
+    ]
+
+
+def _agy_keychain_login_present() -> bool:
+    """True when agy's macOS Keychain login item exists."""
+    try:
+        done = subprocess.run(
+            _keychain_command("find-generic-password"),
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):  # a probe failure means "not detected"
+        return False
+    return done.returncode == 0
+
+
 def _agy_keyring_login_present() -> bool:
-    """True when agy's Windows Credential Manager login entry exists."""
+    """True when agy's login entry exists in the Windows Credential Manager or macOS Keychain."""
+    if sys.platform == "darwin":
+        return _agy_keychain_login_present()
     if sys.platform != "win32":
         return False
     try:
@@ -119,7 +155,19 @@ def _agy_keyring_login_present() -> bool:
 
 
 def _delete_agy_keyring_login() -> None:
-    """Remove agy's Credential Manager login entry; absent is not an error."""
+    """Remove agy's Credential Manager or Keychain login entry; absent is not an error."""
+    if sys.platform == "darwin":
+        done = subprocess.run(
+            _keychain_command("delete-generic-password"),
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+        if done.returncode not in (0, _KEYCHAIN_ITEM_NOT_FOUND):
+            raise OSError(
+                done.returncode, f"could not remove the {_AGY_KEYRING_TARGET} Keychain item"
+            )
+        return
     if sys.platform != "win32":
         return
     import ctypes
