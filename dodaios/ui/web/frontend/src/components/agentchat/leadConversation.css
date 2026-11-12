@@ -74,11 +74,6 @@
 .lead-turn-body [data-trace-reply] + [data-trace-reply] {
   margin-top: 6px;
 }
-/* The fold of a turn's steps sits between what was said and the answer. */
-.lead-turn-body [data-trace-reply] + [data-testid="conversation-work-fold"] {
-  margin-top: 4px;
-}
-
 /* The assistant is typing: three dots in a bubble as tall as a one-line
    message (TypingBubble.tsx). Each dot lifts in turn. */
 .lead-typing {
@@ -135,7 +130,8 @@
   transition: opacity 120ms ease-out;
 }
 .lead-turn:hover .trace-meta,
-.lead-turn:focus-within .trace-meta {
+.lead-turn:focus-within .trace-meta,
+.lead-turn-body .trace-meta[data-open] {
   opacity: 1;
 }
 @media (hover: none) {

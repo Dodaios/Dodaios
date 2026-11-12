@@ -4,9 +4,9 @@ import type { AgentChatEvent } from "@/lib/agentChatApi";
 import { AgentTimeline } from "./AgentTimeline";
 import { EMPTY_TIMELINE, reduceEvents } from "./reduce";
 
-/** A finished, answered turn folds its work behind "Thought for …"; open every fold. */
+/** A finished, answered turn keeps its work behind a fold or, on the front page, behind the steps toggle; open every one. */
 const openWork = () => {
-  for (const toggle of Array.from(document.querySelectorAll<HTMLElement>("[data-testid='conversation-work-fold'][data-open='false'] > button"))) fireEvent.click(toggle);
+  for (const toggle of Array.from(document.querySelectorAll<HTMLElement>("[data-testid='conversation-work-fold'][data-open='false'] > button, [data-testid='trace-steps-toggle'][aria-expanded='false']"))) fireEvent.click(toggle);
 };
 import { attachTurnMessages } from "./turnMessages";
 

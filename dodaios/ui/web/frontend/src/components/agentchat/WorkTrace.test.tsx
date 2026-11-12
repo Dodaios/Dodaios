@@ -16,9 +16,9 @@ const props = { startedMs: 1000, durationMs: 12000, status: "done" as TurnStatus
 const rows = { ...props, look: "classic" as const };
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-/** A finished, answered turn folds its work behind "Thought for …"; open every fold. */
+/** A finished, answered turn keeps its work behind a fold or, on the front page, behind the steps toggle; open every one. */
 const openWork = () => {
-  for (const toggle of Array.from(document.querySelectorAll<HTMLElement>("[data-testid='conversation-work-fold'][data-open='false'] > button"))) fireEvent.click(toggle);
+  for (const toggle of Array.from(document.querySelectorAll<HTMLElement>("[data-testid='conversation-work-fold'][data-open='false'] > button, [data-testid='trace-steps-toggle'][aria-expanded='false']"))) fireEvent.click(toggle);
 };
 
 describe("work trace", () => {
@@ -329,32 +329,66 @@ describe("work trace", () => {
     expect(screen.getByRole("status").className).not.toContain("trace-meta");
   });
 
-  it("draws no reasoning in a messenger conversation, live or finished", () => {
+  it("draws no reasoning and no steps in a messenger conversation, live or finished", () => {
     const answer = (text: string) => <p data-testid="own-reply">{text}</p>;
     const thinking: TurnBlock = { kind: "reasoning", id: "now", text: "Weigh the options.", live: true, durationMs: null, startedMs: 1000 };
-    // Running: no scratchpad, no finished thought; the state line carries the wait.
-    const { rerender } = render(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[thought, tool("a"), thinking]} />);
+    // Running: no scratchpad, no finished thought, no line for a step; the dots carry the wait.
+    const { rerender } = render(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[thought, tool("a"), tool("b", { output: null }), thinking]} />);
     const trace = screen.getByTestId("work-trace");
     expect(screen.queryByTestId("reasoning-body")).toBeNull();
-    expect(trace.textContent).not.toMatch(/Check|Weigh the options|Thinking|Thought/);
+    expect(trace.querySelector("[data-trace-entry]")).toBeNull();
+    expect(trace.querySelector("[data-trace-tool]")).toBeNull();
+    expect(trace.textContent).not.toMatch(/Check|Weigh the options|Thinking|Thought|Read/);
+    expect(screen.getByTestId("typing-indicator")).toBeTruthy();
     expect(screen.getByRole("status").textContent).toContain("Working");
-    // Finished: the fold holds the steps and says "Worked for", not "Thought for".
+    // Finished: the answer alone. No fold stands in the conversation.
     rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[thought, tool("a"), reply("done", "All set.")]} />);
-    const fold = screen.getByTestId("conversation-work-fold");
-    expect(within(fold).getByRole("button", { name: "Worked for 12s" })).toBeTruthy();
-    openWork();
-    expect(trace.querySelectorAll("[data-trace-entry='reasoning']")).toHaveLength(0);
-    expect(trace.textContent).not.toMatch(/Check|Thought/);
-    expect(trace.querySelector("[data-trace-entry='call']")).toBeTruthy();
-    // Only thoughts stood before the answer: nothing is left to fold.
-    rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[thought, reply("done", "All set.")]} />);
     expect(screen.queryByTestId("conversation-work-fold")).toBeNull();
+    expect(trace.querySelector("[data-trace-entry]")).toBeNull();
+    // The steps wait in the line under the turn, with the time it took.
+    const status = screen.getByRole("status");
+    expect(status.className).toContain("trace-meta");
+    const toggle = within(status).getByRole("button", { name: "1 step" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(status.hasAttribute("data-open")).toBe(true);
+    const steps = screen.getByTestId("trace-steps");
+    expect(steps.querySelector("[data-trace-entry='call']")).toBeTruthy();
+    expect(steps.querySelectorAll("[data-trace-entry='reasoning']")).toHaveLength(0);
+    expect(trace.textContent).not.toMatch(/Check|Thought/);
+    // Opened, they stand above the answer, which stays last.
+    expect(steps.compareDocumentPosition(screen.getByTestId("own-reply")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(screen.queryByTestId("trace-steps")).toBeNull();
+    // Only thoughts stood before the answer: there is nothing to open.
+    rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[thought, reply("done", "All set.")]} />);
+    expect(screen.queryByTestId("trace-steps-toggle")).toBeNull();
     expect(screen.getByTestId("own-reply").textContent).toBe("All set.");
-    // Every other trace keeps its thoughts.
+    // Every other trace keeps its thoughts and its fold.
     rerender(<WorkTrace {...props} blocks={[thought, tool("a"), reply("done", "All set.")]} />);
     expect(within(screen.getByTestId("conversation-work-fold")).getByRole("button", { name: "Thought for 12s" })).toBeTruthy();
     openWork();
     expect(screen.getByTestId("work-trace").textContent).toContain("Check");
+  });
+
+  it("keeps a card that waits for the person, and says under the turn how many steps did not work", () => {
+    const answer = (text: string) => <p data-testid="own-reply">{text}</p>;
+    // Running and asking: the approval is in the conversation, the finished step is not.
+    const ask = tool("ask", { output: null, approval: { approvalId: "ap", summary: "Confirm the send", decision: null } });
+    const { rerender } = render(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[tool("a"), ask]} onDecide={() => undefined} />);
+    expect(screen.getByRole("group", { name: "Approval required" })).toBeTruthy();
+    expect(document.querySelectorAll("[data-trace-tool]")).toHaveLength(1);
+    // Finished with a failed step: nothing red between the messages, the count waits below.
+    rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[tool("a", { isError: true, output: "HTTP 401" }), tool("b"), reply("done", "Done, with one hiccup.")]} />);
+    const status = screen.getByRole("status");
+    expect(within(status).getByTestId("trace-failed-count").textContent).toContain("1 step did not work");
+    expect(within(status).getByRole("button", { name: "2 steps" })).toBeTruthy();
+    expect(screen.queryByTestId("trace-steps")).toBeNull();
+    // A turn that ended without a word has nothing but its work to show: it stands open.
+    rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[tool("a", { isError: true, output: "HTTP 401" })]} />);
+    expect(document.querySelector("[data-trace-entry='call']")).toBeTruthy();
+    expect(screen.getByRole("status").className).not.toContain("trace-meta");
   });
 
   it("keeps what the assistant said before its steps as messages in a messenger conversation", () => {
@@ -362,24 +396,23 @@ describe("work trace", () => {
     const blocks = [reply("first", "I'll check the weather."), tool("a"), reply("mid", "Still on it."), tool("b"), reply("done", "Hot and humid.")];
     const { rerender } = render(<WorkTrace {...props} messenger renderAnswer={answer} blocks={blocks} />);
     const trace = screen.getByTestId("work-trace");
-    // Fold closed: all three messages read, in the order they were sent.
-    const fold = screen.getByTestId("conversation-work-fold");
-    expect(fold.getAttribute("data-open")).toBe("false");
+    // All three messages read, in the order they were sent, and nothing else.
     expect(screen.getAllByTestId("own-reply").map((node) => node.textContent)).toEqual(["I'll check the weather.", "Still on it.", "Hot and humid."]);
-    // The steps fold between what was said and the answer.
-    const [first, mid, last] = screen.getAllByTestId("own-reply");
-    expect(first.compareDocumentPosition(fold) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(mid.compareDocumentPosition(fold) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(fold.compareDocumentPosition(last) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // Opened, the fold holds the steps and does not say the messages again.
+    expect(trace.querySelector("[data-trace-entry]")).toBeNull();
+    // Opened, the steps stand between what was said and the answer, and do not say the messages again.
     openWork();
-    expect(fold.querySelector("[data-trace-entry='activity']")).toBeTruthy();
-    expect(fold.querySelector("[data-trace-entry='narration']")).toBeNull();
+    const steps = screen.getByTestId("trace-steps");
+    const [, mid, last] = screen.getAllByTestId("own-reply");
+    expect(mid.compareDocumentPosition(steps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(steps.compareDocumentPosition(last) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(steps.querySelector("[data-trace-entry='activity']")).toBeTruthy();
+    expect(steps.querySelector("[data-trace-entry='narration']")).toBeNull();
     expect(trace.textContent!.split("I'll check the weather.")).toHaveLength(2);
-    // Only a thought stood between two messages: both stay, nothing folds.
-    rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[reply("first", "One moment."), thought, reply("done", "Here it is.")]} />);
-    expect(screen.queryByTestId("conversation-work-fold")).toBeNull();
-    expect(screen.getAllByTestId("own-reply").map((node) => node.textContent)).toEqual(["One moment.", "Here it is."]);
+    // Running, the same turn is its messages and the dots.
+    rerender(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={blocks.slice(0, 4)} />);
+    expect(screen.getAllByTestId("own-reply").map((node) => node.textContent)).toEqual(["I'll check the weather.", "Still on it."]);
+    expect(screen.getByTestId("work-trace").querySelector("[data-trace-entry]")).toBeNull();
+    expect(screen.getByTestId("typing-indicator")).toBeTruthy();
     // Every other trace still folds its narration with the work.
     rerender(<WorkTrace {...props} blocks={blocks} />);
     expect(screen.getByTestId("work-trace").textContent).not.toContain("I'll check the weather.");
