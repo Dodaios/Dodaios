@@ -246,13 +246,31 @@ describe("PetsView", () => {
     expect(screen.queryByTestId("pets-style-notice")).toBeNull();
   });
 
-  it("switches the status bubble off from the customize panel", async () => {
+  it("shows the pet's settings beside the active pet without a click", async () => {
+    stubServer();
+    renderView();
+
+    const panel = await screen.findByTestId("pets-settings-panel");
+    expect(screen.getByTestId("pets-active-card").contains(panel)).toBe(true);
+    expect(within(panel).getByTestId("pets-size")).toBeTruthy();
+    expect(within(panel).getByTestId("pets-bubble")).toBeTruthy();
+    expect(within(panel).getByTestId("pets-strip-always")).toBeTruthy();
+    expect(within(panel).getByTestId("combo-field-pet_toggle")).toBeTruthy();
+    expect(screen.queryByTestId("pets-customize")).toBeNull();
+
+    // The shortcut is one more line of the list: label and hint on the left,
+    // no frame of its own inside the panel's frame.
+    const hint = within(panel).getByText("Hides the pet, or brings it back to the front.");
+    const row = within(panel).getByTestId("record-keybind-pet_toggle").closest("div")!.parentElement!
+      .parentElement!;
+    expect(row.contains(hint)).toBe(true);
+    expect(row.className).not.toContain("border");
+  });
+
+  it("switches the status bubble off from the active pet's settings", async () => {
     const { calls } = stubServer();
     renderView();
 
-    const customize = await screen.findByTestId("pets-customize");
-    await waitFor(() => expect((customize as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.click(customize);
     fireEvent.click(await screen.findByTestId("pets-bubble"));
 
     await waitFor(() =>
@@ -260,13 +278,10 @@ describe("PetsView", () => {
     );
   });
 
-  it("switches the always-on buttons on from the customize panel", async () => {
+  it("switches the always-on buttons on from the active pet's settings", async () => {
     const { calls } = stubServer();
     renderView();
 
-    const customize = await screen.findByTestId("pets-customize");
-    await waitFor(() => expect((customize as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.click(customize);
     fireEvent.click(await screen.findByTestId("pets-strip-always"));
 
     await waitFor(() =>
@@ -278,9 +293,6 @@ describe("PetsView", () => {
     const { calls } = stubServer();
     renderView();
 
-    const customize = await screen.findByTestId("pets-customize");
-    await waitFor(() => expect((customize as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.click(customize);
     const slider = await screen.findByTestId("pets-size");
     fireEvent.pointerDown(slider);
     fireEvent.change(slider, { target: { value: "1.37" } });

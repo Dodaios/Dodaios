@@ -8,7 +8,6 @@ import {
   Loader2,
   PawPrint,
   Plus,
-  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 
@@ -40,8 +39,8 @@ import { KeybindRow, formatCombo } from "@/views/settings/KeybindRow";
  *
  * Top to bottom: what a pet is and the shortcut that hides it; a notice when
  * the desktop shows another display style, with the one click that switches
- * it; the active pet playing through all seven states over the strip it
- * carries, with its size, bubble and shortcut behind "Customize"; then every
+ * it; the active pet playing through all its states over the strip it
+ * carries, with its size, bubble, buttons and shortcut beside it; then every
  * pet as a tile — "None" first — plus "Create pet".
  *
  * Everything reads from one query (`usePets`), which the `PetChanged` event
@@ -85,7 +84,6 @@ export function PetsView() {
   const remove = useDeletePet();
   const restartApp = useRestartApp();
 
-  const [customizeOpen, setCustomizeOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Pet | null>(null);
   const [switchingStyle, setSwitchingStyle] = useState(false);
@@ -264,15 +262,18 @@ export function PetsView() {
               pet={activePet}
               loading={!data}
               description={activePet ? describe(activePet) : t("pets.none_description")}
-              customizeOpen={customizeOpen}
-              onToggleCustomize={() => setCustomizeOpen((open) => !open)}
             >
-              {customizeOpen && data && (
-                <CustomizePanel
+              {data ? (
+                <PetSettingsPanel
                   scale={data.scale}
                   bubble={data.bubble}
                   stripAlways={data.strip_always}
                   keybinds={keybinds}
+                />
+              ) : (
+                <div
+                  aria-hidden
+                  className="mt-4 h-[222px] animate-pulse rounded-lg border border-border bg-foreground/5"
                 />
               )}
             </ActivePetCard>
@@ -370,15 +371,12 @@ function ActivePetCard({
   pet,
   loading,
   description,
-  customizeOpen,
-  onToggleCustomize,
   children,
 }: {
   pet: Pet | null;
   loading: boolean;
   description: string;
-  customizeOpen: boolean;
-  onToggleCustomize: () => void;
+  /** The pet's settings, shown under its name. */
   children?: React.ReactNode;
 }) {
   const t = useT();
@@ -391,9 +389,9 @@ function ActivePetCard({
     <section
       data-testid="pets-active-card"
       aria-label={t("pets.preview_title")}
-      className="grid gap-5 rounded-xl border border-border bg-card p-5 md:grid-cols-[minmax(0,300px)_minmax(0,1fr)]"
+      className="grid gap-5 rounded-xl border border-border bg-card p-5 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)]"
     >
-      <div className="flex flex-col items-center gap-3 rounded-lg bg-secondary/60 px-4 py-5">
+      <div className="flex flex-col items-center justify-center gap-3 rounded-lg bg-secondary/60 px-4 py-5">
         <div className="grid h-[180px] w-full place-items-center">
           {loading ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
@@ -420,34 +418,22 @@ function ActivePetCard({
       </div>
 
       <div className="flex min-w-0 flex-col">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">{t("pets.preview_title")}</p>
-            <p className="mt-0.5 truncate text-lg font-semibold text-foreground-strong">
-              {loading ? " " : pet ? pet.name : t("pets.none_name")}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">{loading ? "" : description}</p>
-          </div>
-          <Button
-            type="button"
-            variant={customizeOpen ? "secondary" : "outline"}
-            size="sm"
-            data-testid="pets-customize"
-            aria-expanded={customizeOpen}
-            disabled={loading}
-            onClick={onToggleCustomize}
-          >
-            <SlidersHorizontal aria-hidden />
-            {t("pets.customize")}
-          </Button>
-        </div>
+        <p className="text-sm text-muted-foreground">{t("pets.preview_title")}</p>
+        <p className="mt-0.5 truncate text-lg font-semibold text-foreground-strong">
+          {loading ? " " : pet ? pet.name : t("pets.none_name")}
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{loading ? "" : description}</p>
         {children}
       </div>
     </section>
   );
 }
 
-function CustomizePanel({
+/**
+ * The pet's settings, always in view beside the preview: every row saves on
+ * its own, so there is nothing to open and nothing to confirm.
+ */
+function PetSettingsPanel({
   scale,
   bubble,
   stripAlways,
@@ -538,88 +524,89 @@ function CustomizePanel({
     );
   }
 
+  function saveSetting(change: { bubble: boolean } | { strip_always: boolean }) {
+    save.mutate(change, {
+      onError: (error) =>
+        pushToast("error", t("pets.save_error").replace("{0}", (error as Error).message)),
+    });
+  }
+
   return (
+    // Hairlines are the panel's own colour showing through 1px gaps, so they
+    // stay right whether the two switches sit side by side or wrap.
     <div
-      data-testid="pets-customize-panel"
-      className="mt-4 divide-y divide-border rounded-lg border border-border bg-background"
+      data-testid="pets-settings-panel"
+      className="mt-4 flex flex-col gap-px overflow-hidden rounded-lg border border-border bg-border"
     >
-      <div className="px-4 py-3">
-        <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 bg-background px-4 py-3">
+        <div className="min-w-0 flex-1 basis-[200px]">
           <label htmlFor="pets-size" className="text-sm font-medium text-foreground">
             {t("pets.size_label")}
           </label>
-          <span className="font-mono text-sm text-foreground-strong">{`${Math.round(size * 100)}%`}</span>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t("pets.size_hint")}</p>
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">{t("pets.size_hint")}</p>
-        <input
-          id="pets-size"
-          ref={slider}
-          type="range"
-          data-testid="pets-size"
-          min={SCALE_MIN}
-          max={SCALE_MAX}
-          step={SCALE_STEP}
-          value={size}
-          onChange={(event) => changeSize(Number(event.target.value))}
-          onPointerDown={startDrag}
-          onKeyUp={(event) => void commitSize(Number(event.currentTarget.value))}
-          onBlur={(event) => {
-            if (dragging.current) void commitSize(Number(event.currentTarget.value));
-          }}
-          className="mt-3 w-full accent-primary disabled:opacity-50"
-        />
-      </div>
-      <div className="flex items-center justify-between gap-4 px-4 py-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">{t("pets.bubble_label")}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">{t("pets.bubble_hint")}</p>
+        <div className="flex min-w-0 flex-1 basis-[240px] items-center gap-3">
+          <input
+            id="pets-size"
+            ref={slider}
+            type="range"
+            data-testid="pets-size"
+            min={SCALE_MIN}
+            max={SCALE_MAX}
+            step={SCALE_STEP}
+            value={size}
+            onChange={(event) => changeSize(Number(event.target.value))}
+            onPointerDown={startDrag}
+            onKeyUp={(event) => void commitSize(Number(event.currentTarget.value))}
+            onBlur={(event) => {
+              if (dragging.current) void commitSize(Number(event.currentTarget.value));
+            }}
+            className="min-w-0 flex-1 accent-primary disabled:opacity-50"
+          />
+          <span className="w-11 shrink-0 text-right font-mono text-sm text-foreground-strong">
+            {`${Math.round(size * 100)}%`}
+          </span>
         </div>
-        <Switch
-          checked={bubble}
-          disabled={save.isPending}
-          aria-label={t("pets.bubble_label")}
-          data-testid="pets-bubble"
-          onCheckedChange={(next) =>
-            save.mutate(
-              { bubble: next },
-              {
-                onError: (error) =>
-                  pushToast("error", t("pets.save_error").replace("{0}", (error as Error).message)),
-              },
-            )
-          }
-        />
       </div>
-      <div className="flex items-center justify-between gap-4 px-4 py-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">{t("pets.strip_label")}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">{t("pets.strip_hint")}</p>
+      <div className="grid gap-px [grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))]">
+        <div className="flex items-center justify-between gap-4 bg-background px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">{t("pets.bubble_label")}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t("pets.bubble_hint")}</p>
+          </div>
+          <Switch
+            checked={bubble}
+            disabled={save.isPending}
+            aria-label={t("pets.bubble_label")}
+            data-testid="pets-bubble"
+            onCheckedChange={(next) => saveSetting({ bubble: next })}
+          />
         </div>
-        <Switch
-          checked={stripAlways}
-          disabled={save.isPending}
-          aria-label={t("pets.strip_label")}
-          data-testid="pets-strip-always"
-          onCheckedChange={(next) =>
-            save.mutate(
-              { strip_always: next },
-              {
-                onError: (error) =>
-                  pushToast("error", t("pets.save_error").replace("{0}", (error as Error).message)),
-              },
-            )
-          }
-        />
+        <div className="flex items-center justify-between gap-4 bg-background px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">{t("pets.strip_label")}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t("pets.strip_hint")}</p>
+          </div>
+          <Switch
+            checked={stripAlways}
+            disabled={save.isPending}
+            aria-label={t("pets.strip_label")}
+            data-testid="pets-strip-always"
+            onCheckedChange={(next) => saveSetting({ strip_always: next })}
+          />
+        </div>
       </div>
-      <div className="px-4 py-3">
+      <div className="bg-background px-4 py-3">
         <KeybindRow
           action="pet_toggle"
+          variant="voice"
+          frameless
           label={t("settings_view.keybinds.pet_toggle_label")}
+          hint={t("pets.shortcut_hint")}
           config={keybinds.config}
           loading={keybinds.loading}
           onSave={keybinds.saveKeybind}
         />
-        <p className="mt-1.5 text-xs text-muted-foreground">{t("pets.shortcut_hint")}</p>
       </div>
     </div>
   );

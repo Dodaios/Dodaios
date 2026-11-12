@@ -9737,7 +9737,7 @@
   "pets": {
     "title": "Os meus Pets",
     "subtitle": "Um pequeno companheiro pixelizado que flutua no teu ambiente de trabalho e reage enquanto {name} ouve, pensa e fala. Prime {0} para o ocultar ou mostrar.",
-    "subtitle_no_shortcut": "Um pequeno companheiro pixelizado que flutua no teu ambiente de trabalho e reage enquanto {name} ouve, pensa e fala. Define um atalho em Personalizar para o ocultar ou mostrar.",
+    "subtitle_no_shortcut": "Um pequeno companheiro pixelizado que flutua no teu ambiente de trabalho e reage enquanto {name} ouve, pensa e fala. Define um atalho mais abaixo para o ocultar ou mostrar.",
     "hide": "Ocultar pet",
     "show": "Mostrar pet",
     "open_settings": "Escolher o teu pet",
@@ -9751,7 +9751,6 @@
     "load_error": "Não foi possível carregar os teus pets: {0}",
     "save_error": "Não foi guardado: {0}",
     "preview_title": "Pet ativo",
-    "customize": "Personalizar",
     "size_label": "Tamanho",
     "size_hint": "O tamanho do pet no ambiente de trabalho.",
     "bubble_label": "Balão de estado",

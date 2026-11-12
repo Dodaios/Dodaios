@@ -9737,7 +9737,7 @@
   "pets": {
     "title": "Meine Pets",
     "subtitle": "Ein kleiner Pixel-Begleiter, der auf deinem Desktop schwebt und reagiert, während {name} zuhört, nachdenkt und spricht. Mit {0} blendest du ihn aus oder wieder ein.",
-    "subtitle_no_shortcut": "Ein kleiner Pixel-Begleiter, der auf deinem Desktop schwebt und reagiert, während {name} zuhört, nachdenkt und spricht. Unter „Anpassen“ legst du ein Tastenkürzel zum Aus- und Einblenden fest.",
+    "subtitle_no_shortcut": "Ein kleiner Pixel-Begleiter, der auf deinem Desktop schwebt und reagiert, während {name} zuhört, nachdenkt und spricht. Unten legst du ein Tastenkürzel zum Aus- und Einblenden fest.",
     "hide": "Pet ausblenden",
     "show": "Pet einblenden",
     "open_settings": "Pet auswählen",
@@ -9751,7 +9751,6 @@
     "load_error": "Deine Pets konnten nicht geladen werden: {0}",
     "save_error": "Das wurde nicht gespeichert: {0}",
     "preview_title": "Aktives Pet",
-    "customize": "Anpassen",
     "size_label": "Größe",
     "size_hint": "Wie groß das Pet auf deinem Desktop ist.",
     "bubble_label": "Status-Blase",

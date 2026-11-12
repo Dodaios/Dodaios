@@ -37,7 +37,7 @@ one click.
   the pet is held or dragged, and goes only once the pointer has left the pet
   after the drop. The size slider changes the figure only: the strip keeps
   its size. With the pet "None", or with
-  **Always show the buttons** on (My Pets → Customize, `[ui] pet_strip_always`),
+  **Always show the buttons** on (My Pets, `[ui] pet_strip_always`),
   it always shows. From left to right:
   - bell: done cards on or off for this run (see *Cards*). Off
     shows a red, struck-through bell and sends the cards on screen away; on
@@ -95,7 +95,7 @@ The menu shows the current restore shortcut beside that action. The global short
 (`[trigger] hotkey_pet_toggle`, default `alt+win+p`) hides it or brings it
 back and to the front; voice updates do not undo dismissal. The pet returns
 when shown again or on the next app start. The shortcut is
-changed on the My Pets page (Customize); an empty value switches it off. On
+changed on the My Pets page, beside the active pet; an empty value switches it off. On
 Wayland, global shortcuts are a no-op, as for every other shortcut.
 
 ## Cards

@@ -9737,7 +9737,7 @@
   "pets": {
     "title": "我的宠物",
     "subtitle": "一个漂浮在桌面上的像素小伙伴，会随着 {name} 倾听、思考和说话做出反应。按 {0} 可隐藏或显示它。",
-    "subtitle_no_shortcut": "一个漂浮在桌面上的像素小伙伴，会随着 {name} 倾听、思考和说话做出反应。在“自定义”中设置快捷键即可隐藏或显示它。",
+    "subtitle_no_shortcut": "一个漂浮在桌面上的像素小伙伴，会随着 {name} 倾听、思考和说话做出反应。在下方设置快捷键即可隐藏或显示它。",
     "hide": "隐藏宠物",
     "show": "显示宠物",
     "open_settings": "选择你的宠物",
@@ -9751,7 +9751,6 @@
     "load_error": "无法加载你的宠物：{0}",
     "save_error": "保存失败：{0}",
     "preview_title": "当前宠物",
-    "customize": "自定义",
     "size_label": "大小",
     "size_hint": "宠物在桌面上的大小。",
     "bubble_label": "状态气泡",

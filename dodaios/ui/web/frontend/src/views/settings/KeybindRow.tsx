@@ -203,6 +203,12 @@ export interface KeybindRowProps {
    * right.
    */
   variant?: "settings" | "voice";
+  /**
+   * Voice variant only: leave out the row's own border, background and
+   * padding, and set the label in the weight of a settings list. For an owner
+   * that already draws the frame (the row is one line of its list).
+   */
+  frameless?: boolean;
   /** Curated combos offered as one-click chips (voice variant only). */
   suggestions?: string[];
   /**
@@ -233,6 +239,7 @@ export function KeybindRow({
   onSave,
   hint,
   variant = "settings",
+  frameless = false,
   suggestions,
   onSaved,
   actionLabel,
@@ -589,10 +596,14 @@ export function KeybindRow({
 
   if (variant === "voice") {
     return (
-      <div className="rounded-lg border border-border bg-card p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className={frameless ? undefined : "rounded-lg border border-border bg-card p-4"}>
+        <div
+          className={`flex flex-wrap justify-between gap-3 ${frameless ? "items-center" : "items-start"}`}
+        >
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-foreground">{label}</p>
+            <p className={`text-sm text-foreground ${frameless ? "font-medium" : "font-semibold"}`}>
+              {label}
+            </p>
             {hint && (
               <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
             )}

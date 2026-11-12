@@ -9737,7 +9737,7 @@
   "pets": {
     "title": "Mis mascotas",
     "subtitle": "Un pequeño compañero de píxeles que flota en tu escritorio y reacciona mientras {name} escucha, piensa y habla. Pulsa {0} para ocultarlo o mostrarlo.",
-    "subtitle_no_shortcut": "Un pequeño compañero de píxeles que flota en tu escritorio y reacciona mientras {name} escucha, piensa y habla. Asigna un atajo en Personalizar para ocultarlo o mostrarlo.",
+    "subtitle_no_shortcut": "Un pequeño compañero de píxeles que flota en tu escritorio y reacciona mientras {name} escucha, piensa y habla. Asigna un atajo más abajo para ocultarlo o mostrarlo.",
     "hide": "Ocultar mascota",
     "show": "Mostrar mascota",
     "open_settings": "Elegir mascota",
@@ -9751,7 +9751,6 @@
     "load_error": "No se pudieron cargar tus mascotas: {0}",
     "save_error": "No se pudo guardar: {0}",
     "preview_title": "Mascota activa",
-    "customize": "Personalizar",
     "size_label": "Tamaño",
     "size_hint": "Qué tan grande se ve la mascota en tu escritorio.",
     "bubble_label": "Burbuja de estado",
