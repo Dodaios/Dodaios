@@ -7087,11 +7087,6 @@
       "side_thread_stop": "Detener esta respuesta",
       "side_thread_to_main": "Es parte de la tarea en curso",
       "side_thread_to_main_title": "¿Era para la tarea que ya está en curso? Esto detiene la respuesta aparte. Tu mensaje se atiende en el hilo principal justo después de esa tarea, con todo su contexto.",
-      "memory_learned_added": "Recordado",
-      "memory_learned_updated": "Recuerdo actualizado",
-      "memory_learned_ended": "Ya no es cierto",
-      "memory_learned_undo": "Deshacer",
-      "memory_learned_undone": "Olvidado",
       "browser_takeover_title": "Tu navegador te necesita",
       "browser_takeover_open": "Abrir el navegador",
       "browser_takeover_done": "Devuelto",
@@ -11311,8 +11306,6 @@
     "raw": "Datos sin formato"
   },
   "memory_trust": {
-    "source_link": "¿De dónde?",
-    "source_title": "Mostrar el mensaje del que se aprendió",
     "source_open": "Mostrar dónde lo aprendí",
     "source_not_loaded": "Ese mensaje está más atrás de lo que muestra ahora la conversación.",
     "scope_title": "Pertenece a",

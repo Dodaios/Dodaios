@@ -25,8 +25,12 @@ Use **Chats** for questions, follow-ups, and conversations you may revisit.
 >
 > - `/clear` starts the assistant fresh; the conversation and memory stay.
 > - "What did we say about X?" searches the whole conversation.
-> - **Remembered: …** lines show what the assistant just learned; **Undo**
->   forgets a new memory again.
+> - The conversation shows what you and the assistant said. What goes on in
+>   the background has a place of its own: what the assistant learned is on
+>   the **Memory** page (where you can forget it again), a problem the
+>   watchdog found is in the status light, and a routine run that failed or
+>   was skipped is in that routine's run history. A routine's finished
+>   result still arrives in the conversation.
 > - The panel on the right is the assistant itself: one line for what it is
 >   doing right now, **Call**, **Slack** and **Telegram**, the computers it
 >   can work on (a green dot marks the one it runs on), the Agentic IDE chats

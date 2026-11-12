@@ -114,6 +114,27 @@ async def test_lead_notices_push_only_reminder_kinds(paired: MobileDevices) -> N
 
 
 @pytest.mark.asyncio
+async def test_background_notices_are_not_pushed(paired: MobileDevices) -> None:
+    sender = _Sender()
+    notifier = MobilePushNotifier(
+        devices=paired, sender=sender, lead_session_id=lambda: "lead-1",
+        assistant_name=lambda: "Nova",
+    )
+    notifier.listener("lead-1", {"seq": 1, "kind": "notice", "payload": {
+        "kind": "society_result", "source": "routine", "status": "failed",
+        "text": 'The routine "Probe" failed: RuntimeError: no model seat'}})
+    notifier.listener("lead-1", {"seq": 2, "kind": "notice", "payload": {
+        "kind": "society_result", "source": "routine", "status": "skipped", "text": "Skipped."}})
+    notifier.listener("lead-1", {"seq": 3, "kind": "notice", "payload": {
+        "kind": "watchdog", "push": True, "text": "Something needs a look."}})
+    notifier.listener("lead-1", {"seq": 4, "kind": "notice", "payload": {
+        "kind": "society_result", "source": "routine", "status": "done",
+        "text": "Three new orders today."}})
+    await asyncio.sleep(0.05)
+    assert {p["tag"] for _, p in sender.sent} == {"notice-4"}
+
+
+@pytest.mark.asyncio
 async def test_no_phones_means_nothing_is_sent(tmp_path) -> None:
     sender = _Sender()
     notifier = MobilePushNotifier(devices=MobileDevices(tmp_path / "d.json"), sender=sender)

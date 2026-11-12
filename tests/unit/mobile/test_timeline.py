@@ -68,3 +68,23 @@ def test_empty_and_malformed_events_are_tolerated() -> None:
     }
     folded = fold_events([{"kind": "user_message", "payload": "not a dict"}, {"kind": None}])
     assert folded["rows"] == []
+
+
+def test_background_notices_are_not_rows() -> None:
+    folded = fold_events(
+        [
+            _ev(1, "notice", kind="memory_learned", text="Prefers files over chat text.",
+                status="done"),
+            _ev(2, "notice", kind="watchdog", text="Something needs a look.", status="done"),
+            _ev(3, "notice", kind="society_result", source="routine", status="failed",
+                text='The routine "Probe" failed: RuntimeError: no model seat'),
+            _ev(4, "notice", kind="society_result", source="routine", status="skipped",
+                text="Skipped: no capacity"),
+            _ev(5, "notice", kind="society_result", source="routine", status="done",
+                text="Three new orders today."),
+            _ev(6, "notice", kind="society_result", status="blocked", text="Scout needs a login."),
+        ]
+    )
+    shown = [r["text"] for r in folded["rows"]]
+    assert shown == ["Three new orders today.", "Scout needs a login."]
+    assert folded["last_seq"] == 6

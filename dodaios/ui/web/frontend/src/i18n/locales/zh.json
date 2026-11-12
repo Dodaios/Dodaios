@@ -7087,11 +7087,6 @@
       "side_thread_stop": "停止这次回答",
       "side_thread_to_main": "属于进行中的任务",
       "side_thread_to_main_title": "这条消息是给正在进行的任务的吗？这会停止单独的回答。你的消息会在主线程中紧接着那个任务处理，并带有它的全部上下文。",
-      "memory_learned_added": "已记住",
-      "memory_learned_updated": "已更新记忆",
-      "memory_learned_ended": "不再成立",
-      "memory_learned_undo": "撤销",
-      "memory_learned_undone": "已忘记",
       "browser_takeover_title": "你的浏览器需要你",
       "browser_takeover_open": "打开浏览器",
       "browser_takeover_done": "已交还",
@@ -11311,8 +11306,6 @@
     "raw": "原始数据"
   },
   "memory_trust": {
-    "source_link": "来源？",
-    "source_title": "显示学到这条内容的那条消息",
     "source_open": "显示我从哪里得知",
     "source_not_loaded": "那条消息比对话当前显示的内容更早。",
     "scope_title": "归属",

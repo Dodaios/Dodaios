@@ -36,6 +36,13 @@ was excluded on purpose.
    voice.
 6. **Visible learning.** Background memory writes post a written
    `memory_learned` notice ("Remembered: …") with an undo for new memories.
+   *Amended 2026-11-12:* the notice stays in the conversation's log, but no
+   chat draws it any more. The maintainer wants the conversation to hold what
+   was said; background work (a learned memory, a watchdog finding, a routine
+   run that failed or was skipped) is read where it belongs: the Memory page,
+   the status light, the routine's run history. One rule decides it
+   (`agent_chat/events.py::is_background_notice`, mirrored in
+   `components/agentchat/backgroundNotices.ts`).
 7. **Proactive, quietly.** The morning brief is one tagged lead routine,
    off by default, never billed to a provider key, written only.
 8. **Front page.** No chat list in the sidebar ("Earlier chats" opens the

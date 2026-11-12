@@ -17,8 +17,10 @@ Two threads:
 
 A scan is code first (``checks.run_checks``), then at most one reversible repair
 per finding, then, for suspected stuck work only and only if the person turned it
-on, the judge. Whatever is left becomes ONE written notice in the lead's
-conversation, deduplicated by finding key. The watchdog never speaks.
+on, the judge. Whatever is left becomes ONE written notice in the log of the
+lead's conversation, deduplicated by finding key. The notice is a background
+record (``agent_chat.events.is_background_notice``): the chat does not draw it,
+the status light lists the open findings. The watchdog never speaks.
 """
 
 from __future__ import annotations

@@ -480,11 +480,13 @@ def fresh_start(svc: Any) -> int | None:
 
 
 async def post_learned(receipts: list[dict[str, Any]]) -> None:
-    """Show in the conversation what the assistant just learned.
+    """Record in the conversation's log what the assistant just learned.
 
-    A written notice (``memory_learned``) with one row per change; the page
-    renders it as "Remembered: ..." with an undo. Never spoken. A missing
-    conversation or service is not an error: the memory is already saved.
+    A written notice (``memory_learned``) with one row per change and the
+    message it was learned from. A background record
+    (``events.is_background_notice``): no chat draws it, the Memory page lists
+    what was learned. Never spoken. A missing conversation or service is not
+    an error: the memory is already saved.
     """
     try:
         from dodaios.society.runtime import current_runtime

@@ -5,7 +5,6 @@ import { InternalMessageRun, groupInternalRuns, type InternalRunItem, type RunFa
 import { CodingThreadActivity } from "@/components/agentic/threads/CodingThreadLink";
 import { codingThreadOf, foldRepeatedThreadStatus } from "@/components/agentic/threads/openCodingThread";
 import { MessageWithChips } from "./ToolChoiceChips";
-import { MemoryLearnedNotice } from "./MemoryLearnedNotice";
 import { SideThread, type RenderSideTimeline } from "./SideThread";
 import { ChainResultCard } from "./ChainResultCard";
 import { ReportCard } from "./ReportCard";
@@ -290,7 +289,6 @@ export function AgentTimeline({
         );
       }
       if (item.kind === SIDE_THREAD_STARTED) return <SideThread key={item.id} item={item} renderTimeline={renderSide} />;
-      if (item.kind === "memory_learned") return <MemoryLearnedNotice key={item.id} item={item} />;
       if (item.kind === "chain_result") return <ChainResultCard key={item.id} item={item} />;
       if (item.kind === "report") return <ReportCard key={item.id} item={item} />;
       if (item.kind === "seat_trouble") return <SeatTroubleNotice key={item.id} item={item} />;
