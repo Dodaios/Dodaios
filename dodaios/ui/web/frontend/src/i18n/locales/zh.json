@@ -1114,6 +1114,7 @@
     "delivery_delivered": "已送达",
     "delivery_failed": "失败",
     "placeholder": "随便问点什么…",
+    "placeholder_working": "输入“stop”停止…",
     "empty_subtitle": "用键盘与 {name} 交流——它和麦克风那头是同一个助手。你选择的模型就是 {name} 在本次对话中使用的模型。",
     "empty_subtitle_agent": "编程智能体只处理此文件夹中的文件——不会访问你的记忆、知识库或日历。选择一个模型，然后提问。",
     "empty_title_agent": "{folder} 中的编程智能体",

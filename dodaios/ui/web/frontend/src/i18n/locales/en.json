@@ -1114,6 +1114,7 @@
     "delivery_delivered": "Delivered",
     "delivery_failed": "Failed",
     "placeholder": "Ask anything…",
+    "placeholder_working": "Write “stop” to stop…",
     "empty_subtitle": "{name} with a keyboard — the same assistant the microphone reaches. The model you pick is what {name} runs on for this chat.",
     "empty_subtitle_agent": "A coding agent works on the files in this folder — not on your memory, your wiki or your calendar. Pick a model. Then ask.",
     "empty_title_agent": "Coding agent in {folder}",

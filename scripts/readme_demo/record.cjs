@@ -167,13 +167,15 @@ const CURSOR = `(() => {
   const t0 = Date.now();
   const mark = (name) => log(`[${((Date.now() - t0) / 1000).toFixed(1)}s]`, name);
 
-  // The Dodaios chat's composer: a stop button while a turn runs.
-  const chatStop = page.locator('[data-testid="composer-stop"]:visible');
+  // The Dodaios chat has no stop button (a turn is stopped by writing "stop"),
+  // so a running turn is read from the transcript: the typing dots before the
+  // turn starts, then the turn itself while it runs.
+  const chatWorking = page.locator('[data-testid="agent-turn-awaiting"]:visible, [data-testid="agent-turn"][data-status="running"]:visible');
   // The Agentic IDE stays mounted behind the chat, so only a visible field counts.
   const chatInput = () => page.locator('[data-testid="composer-row"] [contenteditable=true]:visible, [data-testid="composer-row"] textarea:visible').first();
   async function chatTurnEnds(what, startsWithin = 30000) {
-    await chatStop.first().waitFor({ state: 'visible', timeout: startsWithin }).catch(() => {});
-    await chatStop.first().waitFor({ state: 'hidden', timeout: MODEL_WAIT });
+    await chatWorking.first().waitFor({ state: 'visible', timeout: startsWithin }).catch(() => {});
+    await chatWorking.first().waitFor({ state: 'hidden', timeout: MODEL_WAIT });
     log('turn ended:', what);
   }
   // A thread's turn ends with "Worked for <time>".
@@ -325,7 +327,7 @@ const CURSOR = `(() => {
     // A finished answer folds its reasoning into "Thought for <time>": the
     // report is the answer after the hand-off's.
     const until = Date.now() + MODEL_WAIT;
-    while (!((await thoughts()) >= thoughtsAfterHandoff + 1 && !(await chatStop.first().isVisible().catch(() => false)))) {
+    while (!((await thoughts()) >= thoughtsAfterHandoff + 1 && !(await chatWorking.first().isVisible().catch(() => false)))) {
       if (Date.now() > until) throw new Error('Dodaios did not report back');
       await sleep(400);
     }

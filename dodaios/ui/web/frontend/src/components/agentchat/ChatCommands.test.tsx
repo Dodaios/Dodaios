@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useRef, useState } from "react";
-import { CHAT_COMMAND_NAMES, parseChatCommand, type ChatControlState } from "@/lib/chatControlApi";
+import { CHAT_COMMAND_NAMES, isStopWord, parseChatCommand, type ChatControlState } from "@/lib/chatControlApi";
 import { createAgentChatStore } from "@/store/agentChat";
 import { EMPTY_TIMELINE, reduceEvent } from "./reduce";
 import { AgentChatStoreProvider } from "./AgentChatStoreContext";
@@ -122,4 +122,23 @@ it("updates a running goal from the stream and accepts stop while the chat is bu
 it("never interprets quoted commands, attachments, paths or embedded text as actions", () => {
   for (const text of ["Please use /goal later", "```\n/stop\n```", "/clearance", "/tmp/file.txt", "//stop"]) expect(parseChatCommand(text)).toBeNull();
   expect(parseChatCommand(" /message @Agent Hello ")).toEqual({ name: "message", args: "@Agent Hello" });
+});
+
+it("takes a message that is only a stop word as a stop, in every language of the app", () => {
+  for (const text of ["stop", "Stop!", " STOP. ", "stopp", "Stopp!!", "halt", "abbrechen", "bitte abbrechen", "hör auf", "please stop", // i18n-allow: input vocabulary
+    "stop now", "stop stop stop", "cancel", "para", "pare", "停止"]) expect(isStopWord(text), text).toBe(true); // i18n-allow: input vocabulary
+  // "/stop" stays the slash command's own path.
+  for (const text of ["", "stop using tables", "don't stop", "stopwatch", "the bus stop", "/stop", "stop the music and start again",
+    "halt die Liste kurz", "stop halt"]) expect(isStopWord(text), text).toBe(false); // i18n-allow: input vocabulary
+});
+
+it("leaves the stop word to the agent's chat, which keeps its Stop button", async () => {
+  // Only the Dodaios chat (surface "jarvis") stops by word; ChatStage.test
+  // and AgentChatPanel.switch.test cover that side.
+  const cancel = vi.fn(async () => {});
+  store.setState({ busy: true, cancel });
+  send("stop");
+  await act(async () => {});
+  expect(cancel).not.toHaveBeenCalled();
+  expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("stop");
 });

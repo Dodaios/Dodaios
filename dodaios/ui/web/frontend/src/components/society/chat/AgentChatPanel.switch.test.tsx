@@ -328,11 +328,20 @@ it.each(["specialist", "lead"] as const)("keeps follow-up sending available whil
   store.setState({ activeSessionId: current.chatSessionId, timeline: reasoningTurn(), busy: false });
   setJarvisCardMode("chat");
   render(<AgentChatPanel agent={current} roster={[current]} />);
-  expect(screen.getByRole("button", { name: "society.chat.stop" })).toBeTruthy();
   // The lead's empty box offers the call button where Send sits.
   const sendSlot = tier === "lead" ? "composer-call" : "composer-send";
   expect(screen.getByTestId(sendSlot)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "society.chat.stop" }));
+  if (tier === "lead") {
+    // The Dodaios chat has no Stop button: the word "stop" ends the turn.
+    expect(screen.queryByRole("button", { name: "society.chat.stop" })).toBeNull();
+    const box = screen.getByRole("textbox");
+    expect(box.getAttribute("data-placeholder")).toBe("agent_chat.placeholder_working");
+    box.textContent = "stop";
+    fireEvent.input(box);
+    fireEvent.keyDown(box, { key: "Enter" });
+  } else {
+    fireEvent.click(screen.getByRole("button", { name: "society.chat.stop" }));
+  }
   await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([url, options]) =>
     String(url).includes("/cancel") && options?.method === "POST",
   )).toBe(true));

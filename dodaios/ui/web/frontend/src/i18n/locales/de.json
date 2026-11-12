@@ -1114,6 +1114,7 @@
     "delivery_delivered": "Zugestellt",
     "delivery_failed": "Fehlgeschlagen",
     "placeholder": "Frag mich alles …",
+    "placeholder_working": "„stop“ zum Anhalten …",
     "empty_subtitle": "{name} mit Tastatur — derselbe Assistent, den das Mikrofon erreicht. Das gewählte Modell ist das, worauf {name} in diesem Chat läuft.",
     "empty_subtitle_agent": "Ein Coding-Agent arbeitet an den Dateien in diesem Ordner — nicht an deinem Gedächtnis, deinem Wiki oder deinem Kalender. Modell wählen. Dann fragen.",
     "empty_title_agent": "Coding-Agent in {folder}",

@@ -849,8 +849,9 @@ describe("ChatStage (agent chat)", () => {
       fireEvent.click(within(card).getByRole("button", { name: "Approve" }));
     });
     expect(decide).toHaveBeenCalledWith("a1", "allow");
-    // The composer offers Stop while the turn runs.
-    expect(screen.getByTestId("composer-stop")).toBeTruthy();
+    // No Stop button in the Dodaios chat: the box names the word instead.
+    expect(screen.queryByTestId("composer-stop")).toBeNull();
+    expect(screen.getByRole("textbox").getAttribute("data-placeholder")).toBe('Write “stop” to stop…');
   });
 
   it("opens the call window above the composer for a call, a call asked for and a call that failed", async () => {
@@ -879,10 +880,12 @@ describe("ChatStage (agent chat)", () => {
     expect(screen.getByTestId("agent-message-user").textContent).toContain("hello");
   });
 
-  it("shows stop while a send is in flight, before the turn stream starts", () => {
+  it("keeps Send and shows no Stop button while a send is in flight", () => {
+    // The maintainer's call (2026-11-12): the Dodaios chat has no Stop
+    // button. A turn is stopped by writing "stop".
     useAgentChatStore.setState({ activeSessionId: "s1", busy: true, timeline: EMPTY_TIMELINE });
     render(<ChatStage />);
-    expect(screen.getByTestId("composer-stop")).toBeTruthy();
+    expect(screen.queryByTestId("composer-stop")).toBeNull();
     // Send keeps its place while the assistant works: the next message can
     // be written and sent at any time.
     const send = screen.getByTestId("composer-send") as HTMLButtonElement;
@@ -891,7 +894,90 @@ describe("ChatStage (agent chat)", () => {
     box.textContent = "and one more thing";
     fireEvent.input(box);
     expect((screen.getByTestId("composer-send") as HTMLButtonElement).disabled).toBe(false);
-    expect(screen.getByTestId("composer-stop")).toBeTruthy();
+    expect(screen.queryByTestId("composer-stop")).toBeNull();
+  });
+
+  it.each(["stop", "Stopp!", "please stop", "abbrechen"])("ends the running turn when %s is written, and sends nothing", async (word) => { // i18n-allow: input vocabulary
+    const cancel = vi.fn(async () => {});
+    const send = vi.fn(async () => "sent" as const);
+    const timeline = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "write the report" }),
+      ev("turn_started", { turn_id: "t7", provider: "openai", model: "", effort: "", runner: "api" }),
+    ]);
+    useAgentChatStore.setState({ activeSessionId: "s7", timeline, cancel, send });
+    render(<ChatStage />);
+    const box = screen.getByRole("textbox");
+    box.textContent = word;
+    fireEvent.input(box);
+    fireEvent.click(screen.getByTestId("composer-send"));
+    await waitFor(() => expect(cancel).toHaveBeenCalledWith("typed-stop"));
+    expect(send).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox").textContent).toBe("");
+  });
+
+  it("lets the stop word out when nothing else can be sent", async () => {
+    // The button it replaces worked with the connection down or the model
+    // seat gone; the word must too, by the Send button as well as by Enter.
+    const cancel = vi.fn(async () => {});
+    const timeline = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "write the report" }),
+      ev("turn_started", { turn_id: "t6", provider: "openai", model: "", effort: "", runner: "api" }),
+    ]);
+    useAgentChatStore.setState({ activeSessionId: "s6", timeline, cancel, connections: [] });
+    useEventStore.setState({ connected: false });
+    render(<ChatStage />);
+    const box = screen.getByRole("textbox");
+    box.textContent = "one more thing";
+    fireEvent.input(box);
+    expect((screen.getByTestId("composer-send") as HTMLButtonElement).disabled).toBe(true);
+    box.textContent = "stop";
+    fireEvent.input(box);
+    const send = screen.getByTestId("composer-send") as HTMLButtonElement;
+    expect(send.disabled).toBe(false);
+    fireEvent.click(send);
+    await waitFor(() => expect(cancel).toHaveBeenCalledWith("typed-stop"));
+  });
+
+  it("sends a sentence that only contains the word, and the bare word when nothing runs", async () => {
+    const cancel = vi.fn(async () => {});
+    const send = vi.fn(async (_text: string) => "sent" as const);
+    const running = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "write the report" }),
+      ev("turn_started", { turn_id: "t8", provider: "openai", model: "", effort: "", runner: "api" }),
+    ]);
+    useAgentChatStore.setState({ activeSessionId: "s8", timeline: running, cancel, send });
+    render(<ChatStage />);
+    const write = (text: string) => {
+      const box = screen.getByRole("textbox");
+      box.textContent = text;
+      fireEvent.input(box);
+      fireEvent.click(screen.getByTestId("composer-send"));
+    };
+    write("stop using tables in the report");
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(send.mock.calls[0][0]).toBe("stop using tables in the report");
+    // The turn is over: "stop" is a message like any other now.
+    act(() => useAgentChatStore.setState({
+      timeline: reduceEvents(running, [ev("turn_finished", { turn_id: "t8", status: "done" })]),
+    }));
+    expect(screen.getByRole("textbox").getAttribute("data-placeholder")).toBe("Ask anything…");
+    write("stop");
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    expect(send.mock.calls[1][0]).toBe("stop");
+    expect(cancel).not.toHaveBeenCalled();
+  });
+
+  it("keeps the Stop button in the Agentic IDE, where the word is a message", async () => {
+    const cancel = vi.fn(async () => {});
+    const timeline = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "fix the test" }),
+      ev("turn_started", { turn_id: "t9", provider: "openai", model: "", effort: "", runner: "api" }),
+    ]);
+    useAgentSessionStore.setState({ ...seedState(), activeSessionId: "ide-9", timeline, cancel });
+    render(<AgentChatStoreProvider store={useAgentSessionStore}><ChatStage /></AgentChatStoreProvider>);
+    fireEvent.click(screen.getByTestId("composer-stop"));
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("textbox").getAttribute("data-placeholder")).toBe("Ask anything…");
   });
 
   it("shows the assistant typing from the send until its answer is written", () => {

@@ -48,4 +48,31 @@ export function parseChatCommand(text: string): { name: ChatCommandName; args: s
   if (!match || !CHAT_COMMAND_NAMES.includes(match[1] as ChatCommandName)) return null;
   return { name: match[1] as ChatCommandName, args: (match[2] ?? "").trim() };
 }
+
+// A closed list, like the slash commands: only a message that is nothing but
+// one of these counts, never a sentence that contains one.
+const STOP_WORDS = new Set([
+  "stop", "stop it", "stop that", "stop this", "halt", "cancel", "cancel it", "abort",
+  "stopp", "stoppen", "stoppe", "anhalten", "abbrechen", "abbruch", "aufhören", "aufhoeren", "hör auf", "hoer auf", // i18n-allow: input vocabulary
+  "para", "parar", "pare", "detente", "detener", "alto", "cancelar", "cancela", // i18n-allow: input vocabulary
+  "停", "停止", "停下", "取消", // i18n-allow: input vocabulary
+]);
+const POLITE_LEAD = /^(?:bitte|please|por favor|ok|okay) /;
+const POLITE_TAIL = / (?:bitte|please|por favor|jetzt|now|ahora|agora)$/;
+
+/**
+ * True when the whole message is a word for "stop" ("stop", "Stop!",
+ * "please stop"). The Dodaios chat has no Stop button: this word, sent
+ * while the assistant works, ends the turn.
+ */
+export function isStopWord(text: string): boolean {
+  if (text.trimStart().startsWith("/")) return false; // a slash command is its own path
+  const plain = text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+  if (!plain || plain.length > 40) return false;
+  const core = plain.replace(POLITE_LEAD, "").replace(POLITE_TAIL, "");
+  if (STOP_WORDS.has(core)) return true;
+  // "stop stop stop" is still only the word.
+  const words = core.split(" ");
+  return STOP_WORDS.has(words[0]) && words.every((word) => word === words[0]);
+}
 import type { ChatAttachment } from "./agentChatApi";

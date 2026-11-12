@@ -1114,6 +1114,7 @@
     "delivery_delivered": "Entregado",
     "delivery_failed": "Error",
     "placeholder": "Pregunta lo que quieras…",
+    "placeholder_working": "«stop» para detener…",
     "empty_subtitle": "{name} con teclado: el mismo asistente que atiende el micrófono. El modelo que elijas es sobre lo que corre {name} en este chat.",
     "empty_subtitle_agent": "Un agente de código trabaja en los archivos de esta carpeta, no en tu memoria, tu wiki ni tu calendario. Elige un modelo. Luego pregunta.",
     "empty_title_agent": "Agente de código en {folder}",
