@@ -49,6 +49,8 @@ vi.mock("@/components/home/assistantStatus", () => ({
 vi.mock("@/lib/voiceApi", () => ({ warmVoiceCall: vi.fn() }));
 const external = vi.hoisted(() => ({ open: vi.fn(async () => true) }));
 vi.mock("@/lib/openExternal", () => ({ openExternalUrl: external.open }));
+const local = vi.hoisted(() => ({ open: vi.fn(async () => true) }));
+vi.mock("@/lib/openLocalPath", () => ({ openLocalPath: local.open }));
 
 import AssistantPanel from "./AssistantPanel";
 
@@ -67,6 +69,7 @@ function mount(routines: unknown[], backend: Backend = {}) {
     "/api/computers/this": { name: "Adas-MacBook-Pro.local", os_id: "macos" },
     "/api/agent-chat/lead/threads": { threads: [] },
     "/api/agent-chat/lead/channels": { channels: [] },
+    "/api/agent-chat/lead/files": { files: [] },
     "/api/outputs": [],
     ...backend,
   };
@@ -119,6 +122,7 @@ beforeEach(() => {
   call.busy = false;
   call.toggle.mockReset();
   external.open.mockClear();
+  local.open.mockClear();
   takePluginFocus();
   useEventStore.setState({ activeSection: "chats", connected: true, visualStage: null, assistantName: "Nova" });
   useAgentChatStore.setState({ activeSessionId: null, timeline: EMPTY_TIMELINE, sessions: [] });
@@ -376,5 +380,38 @@ describe("AssistantPanel", () => {
     fireEvent.click(rows[3]);
     expect(useEventStore.getState().visualStage?.target).toBe("run-a::tasks/t1/artifacts/files/index.html");
     expect(useEventStore.getState().activeSection).toBe("visualization");
+  });
+
+  it("lists the files handed over in the conversation among the runs' files, and opens one on this computer", async () => {
+    const file = (path: string, mtime: number) =>
+      ({ path: `tasks/t1/artifacts/files/${path}`, size: 10, mtime, is_text: false, preview: null, title: null });
+    mount([], {
+      "/api/outputs": [{ slug: "run-a", status: "success" }],
+      "/api/outputs/run-a/artifacts": { files: [file("cover.png", 30)] },
+      "/api/agent-chat/lead/files": { files: [
+        { path: "/Users/ada/work/Nvidia.xlsx", name: "Nvidia.xlsx", size: 7871, mtime: 40, linked_ms: 1 },
+        { path: "/Users/ada/Desktop/notes.md", name: "notes.md", size: 12, mtime: 20, linked_ms: 2 },
+      ] },
+    });
+    await waitFor(() => expect(screen.getAllByTestId("assistant-output")).toHaveLength(3));
+    const rows = screen.getAllByTestId("assistant-output");
+    expect(rows.map((row) => row.textContent)).toEqual(["Nvidia.xlsx", "cover.png", "notes.md"]);
+    expect(rows.map((row) => row.getAttribute("data-source"))).toEqual(["chat", "run", "chat"]);
+    expect(rows[0].getAttribute("data-kind")).toBe("document");
+    expect(rows[0].getAttribute("title")).toBe("/Users/ada/work/Nvidia.xlsx");
+
+    fireEvent.click(rows[0]);
+    expect(local.open).toHaveBeenCalledWith("/Users/ada/work/Nvidia.xlsx");
+    // It opens with the system's program; the page stays where it is.
+    expect(useEventStore.getState().visualStage).toBeNull();
+    expect(useEventStore.getState().activeSection).toBe("chats");
+  });
+
+  it("shows a conversation's file even when no run has made anything", async () => {
+    mount([], { "/api/agent-chat/lead/files": { files: [
+      { path: "/Users/ada/work/Nvidia.xlsx", name: "Nvidia.xlsx", size: 7871, mtime: 40, linked_ms: 1 },
+    ] } });
+    await waitFor(() => expect(screen.getAllByTestId("assistant-output").map((row) => row.textContent)).toEqual(["Nvidia.xlsx"]));
+    expect(screen.queryByTestId("assistant-outputs-empty")).toBeNull();
   });
 });

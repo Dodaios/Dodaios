@@ -6,6 +6,8 @@ import { PANEL_ICON, PANEL_ROW_BUTTON, PanelEmpty, PanelSection, ShowMore } from
 import { fetchOutputsList, type ArtifactSummary, type ArtifactsResponse, type OutputSummary } from "@/hooks/useOutputs";
 import { classifyVisual, toVisuals } from "@/hooks/useVisualArtifacts";
 import { fill, useT } from "@/i18n";
+import { fetchLeadFiles, type LeadFile } from "@/lib/agentChatApi";
+import { openLocalPath } from "@/lib/openLocalPath";
 import { useEventStore } from "@/store/events";
 
 /** How many files show before the rest folds away, and how many unfold. */
@@ -45,12 +47,19 @@ const ICONS: Record<OutputKind, LucideIcon> = {
 };
 
 export interface OutputRow {
+  /** The run a file came out of; "" for a file handed over in the conversation. */
   slug: string;
+  /** Inside its run for a run's file, the full path on this computer otherwise. */
   path: string;
   /** A page's own title, else the file's name. */
   label: string;
   kind: OutputKind;
   mtime: number;
+}
+
+/** The files the assistant linked in its conversation, as rows. */
+export function chatFileRows(files: LeadFile[]): OutputRow[] {
+  return files.map((file) => ({ slug: "", path: file.path, label: file.name, kind: outputKind(file.name), mtime: file.mtime }));
 }
 
 /** A run's files as rows; a page is called by its title, like in the library. */
@@ -66,14 +75,16 @@ export function outputRows(run: OutputSummary, files: ArtifactSummary[]): Output
 }
 
 /**
- * What the assistant made: the files of its newest finished runs, the
- * newest file first — pages, pictures, videos, documents, code. A row opens
- * the file on the Artifacts page (a file that page cannot draw opens its
- * run there).
+ * What the assistant made, the newest file first — pages, pictures, videos,
+ * documents, spreadsheets, code. Two sources feed it:
  *
- * Reads under the keys the navigation rail and the Artifacts page read
- * under, so the three share one answer and the panel adds no listing of
- * its own while they are fresh.
+ * - the files of its newest finished runs. A row opens the file on the
+ *   Artifacts page (a file that page cannot draw opens its run there). Read
+ *   under the keys the navigation rail and the Artifacts page read under, so
+ *   the three share one answer.
+ * - the files it handed over in the conversation itself ("The file is ready:
+ *   …"), which belong to no run. A row opens the file with the system's own
+ *   program, the way its link in the chat does.
  */
 export function PanelOutputs({ name }: { name: string }) {
   const t = useT();
@@ -108,7 +119,22 @@ export function PanelOutputs({ name }: { name: string }) {
         .sort((a, b) => b.mtime - a.mtime),
     }),
   });
-  const shown = rows.files.slice(0, open ? OUTPUTS_UNFOLDED : OUTPUTS_SHOWN);
+  const handed = useQuery({
+    queryKey: ["sidebar", "lead-files"],
+    queryFn: () => fetchLeadFiles(OUTPUTS_UNFOLDED),
+    staleTime: 10_000,
+    refetchInterval: import.meta.env.MODE === "test" ? false : 30_000,
+    retry: false,
+  });
+  const files = useMemo(
+    () => [...rows.files, ...chatFileRows(handed.data ?? [])].sort((a, b) => b.mtime - a.mtime),
+    [rows.files, handed.data],
+  );
+  const shown = files.slice(0, open ? OUTPUTS_UNFOLDED : OUTPUTS_SHOWN);
+  const openRow = (row: OutputRow) => {
+    if (row.slug) requestVisual(`${row.slug}::${row.path}`);
+    else void openLocalPath(row.path);
+  };
 
   return (
     <PanelSection id="outputs" title={t("sidebar.outputs")}>
@@ -116,19 +142,19 @@ export function PanelOutputs({ name }: { name: string }) {
         const Icon = ICONS[row.kind];
         return (
           <button key={`${row.slug}::${row.path}`} type="button" data-testid="assistant-output" data-kind={row.kind}
-            onClick={() => requestVisual(`${row.slug}::${row.path}`)} title={row.path.split("/").pop()}
+            data-source={row.slug ? "run" : "chat"} onClick={() => openRow(row)} title={row.slug ? row.path.split("/").pop() : row.path}
             className={PANEL_ROW_BUTTON}>
             <Icon aria-hidden strokeWidth={1.75} className={PANEL_ICON} />
             <span className="min-w-0 flex-1 truncate text-sm text-foreground">{row.label}</span>
           </button>
         );
       })}
-      {rows.files.length === 0 && (
+      {files.length === 0 && (
         <PanelEmpty testId="assistant-outputs-empty">
-          {runs.isLoading || rows.loading ? t("common.loading") : fill(t("sidebar.outputs_empty"), { assistant: name })}
+          {runs.isLoading || rows.loading || handed.isLoading ? t("common.loading") : fill(t("sidebar.outputs_empty"), { assistant: name })}
         </PanelEmpty>
       )}
-      {rows.files.length > OUTPUTS_SHOWN && (
+      {files.length > OUTPUTS_SHOWN && (
         <ShowMore testId="assistant-outputs-more" open={open} onToggle={() => setOpen((value) => !value)} />
       )}
     </PanelSection>

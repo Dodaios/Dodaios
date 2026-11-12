@@ -1338,6 +1338,19 @@ def get_thread_link(ref: str, request: Request) -> dict[str, Any]:
     }
 
 
+@router.get("/lead/files", summary="The files the assistant handed over in its conversation")
+def list_lead_files(request: Request, limit: int = Query(30, ge=1, le=100)) -> dict[str, Any]:
+    from dodaios.agent_chat.lead import lead_session_id
+    from dodaios.agent_chat.lead_files import SCAN_MESSAGES, handed_over
+
+    svc = _service(request)
+    session_id = lead_session_id(svc)
+    if not session_id:
+        return {"files": []}
+    messages = svc.store.assistant_texts(session_id, limit=SCAN_MESSAGES)
+    return {"files": handed_over(messages, limit=limit)}
+
+
 @router.get("/lead/channels", summary="Where the person reaches the assistant outside the app")
 async def get_lead_channels(request: Request) -> dict[str, Any]:
     from dodaios.agent_chat.reach import channels_view
