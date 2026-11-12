@@ -20,12 +20,12 @@ export function EarlierChatsLink() {
         onClick={() => setOpen(true)}
         data-testid="earlier-chats"
         className={cn(
-          "flex h-8 w-full items-center gap-3 rounded-lg px-3 text-left transition-colors",
+          "flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left transition-colors",
           "text-muted-foreground hover:bg-secondary hover:text-foreground",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         )}
       >
-        <Archive aria-hidden className="h-3.5 w-3.5 shrink-0" />
+        <Archive aria-hidden strokeWidth={1.75} className="h-4 w-4 shrink-0" />
         <span className="min-w-0 flex-1 truncate text-sm">{t("sidebar.earlier_chats")}</span>
       </button>
       <AllChatsDialog open={open} onOpenChange={setOpen} />

@@ -38,14 +38,10 @@ describe("hasActivityDemand", () => {
 });
 
 describe("panelOpen", () => {
-  it("is closed by default and opens with demand", () => {
-    expect(panelOpen(null, false)).toBe(false);
-    expect(panelOpen(null, true)).toBe(true);
-  });
-
-  it("lets the person's choice win", () => {
-    expect(panelOpen("open", false)).toBe(true);
-    expect(panelOpen("closed", true)).toBe(false);
+  it("is open only while the person keeps it open", () => {
+    expect(panelOpen(null)).toBe(false);
+    expect(panelOpen("closed")).toBe(false);
+    expect(panelOpen("open")).toBe(true);
   });
 });
 

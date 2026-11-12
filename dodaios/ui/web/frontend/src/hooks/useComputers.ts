@@ -40,6 +40,16 @@ export function useComputers() {
   });
 }
 
+/** This PC's own name and OS; it does not change while the app runs. */
+export function useThisComputer() {
+  return useQuery({
+    queryKey: ["computers", "this"] as const,
+    queryFn: computersApi.thisComputer,
+    staleTime: Infinity,
+    retry: false,
+  });
+}
+
 export function useIdentity() {
   return useQuery({
     queryKey: computerKeys.identity(),

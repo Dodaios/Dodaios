@@ -53,17 +53,19 @@ function usePresence(open: boolean): { mounted: boolean; shown: boolean } {
  *
  * ONE endless conversation with the assistant, with a voice mode inside it
  * (components/home/AssistantChat), and on wide windows one panel on the
- * right. At rest it is the assistant's own panel: its face, its routines,
- * its files and skills (components/home/AssistantPanel). The activity panel
- * takes that place while it is open: what waits on the person, what runs,
- * what finished, and the morning brief. A running call shows as a card over
- * the conversation.
+ * right. It is the assistant's own panel: its face, what it is doing right
+ * now, the ways to reach it, its computers, the chats it handed a task to
+ * and the files it made (components/home/AssistantPanel). The activity
+ * panel takes that place while it is open: what waits on the person, what
+ * runs, what finished, and the morning brief. A running call shows as a
+ * card over the conversation.
  *
- * The panel is closed on a quiet page and opens by itself once something
- * waits on the person or work runs (components/home/activityDemand). A
- * person who opened or closed it by hand keeps that choice — remembered
- * under `dodaios.home.activity.v1` — and a closed panel with something
- * waiting shows a small live dot on its open button instead.
+ * The activity panel opens only when the person opens it, and stays until
+ * they close it; the choice is remembered under `dodaios.home.activity.v1`.
+ * Work that runs does not open it: the assistant's panel stays and says
+ * what it is doing, and the open button wears a small live dot while
+ * something waits on the person or work runs
+ * (components/home/activityDemand).
  */
 export function HomeView() {
   const t = useT();
@@ -75,7 +77,7 @@ export function HomeView() {
     writePanelChoice(next);
   };
   const showPanel = !agentChatId;
-  const open = showPanel && panelOpen(choice, demand);
+  const open = showPanel && panelOpen(choice);
   const { mounted, shown } = usePresence(open);
   /** From an earlier chat on the stage back to the one conversation. */
   const backToConversation = () => {

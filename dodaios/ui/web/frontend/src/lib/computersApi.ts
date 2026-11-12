@@ -345,8 +345,15 @@ export const pairedServersApi = {
   revoke: (id: string) => request<{ removed: boolean }>(`/pairing/clients/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };
 
+/** This PC itself: its network name and OS (`GET /this`). It is no record in the list. */
+export interface ThisComputer {
+  name: string;
+  os_id: string;
+}
+
 export const computersApi = {
   list: () => request<{ computers: Computer[] }>("").then((r) => r.computers),
+  thisComputer: () => request<ThisComputer>("/this"),
   providers: () => request<{ providers: ProviderInfo[] }>("/providers").then((r) => r.providers),
   test: (input: AddServerInput) => request<ConnectionTest>("/test", post(input)),
   setCredentials: (id: string, input: CredentialsInput) =>
