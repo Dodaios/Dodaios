@@ -286,11 +286,46 @@ describe("work trace", () => {
     expect(status.textContent).toContain("12s");
     expect(status.textContent).toContain("219 tokens");
     expect(within(status).getByText("Done").className).toBe("sr-only");
-    // A running turn and a turn without an answer keep their line in view.
+    // A reply being written says the turn is alive by growing.
     rerender(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[reply("mid", "Looking.")]} />);
-    expect(screen.getByRole("status").className).not.toContain("trace-meta");
     expect(screen.getByTestId("own-reply").getAttribute("data-live")).toBe("true");
+    // A turn without an answer keeps its line in view.
     rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[tool("a")]} />);
+    expect(screen.getByRole("status").className).not.toContain("trace-meta");
+  });
+
+  it("shows a working messenger turn as three dots in a bubble, not as a state line", () => {
+    const answer = (text: string) => <p data-testid="own-reply">{text}</p>;
+    const thinking: TurnBlock = { kind: "reasoning", id: "now", text: "", live: true, durationMs: null, startedMs: 1000 };
+    // Nothing has arrived yet: the dots stand alone, the words are only read out.
+    const { rerender } = render(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[]} receipt={<span>4.8k tokens</span>} />);
+    const dots = screen.getByTestId("typing-indicator");
+    expect(dots.querySelectorAll("span")).toHaveLength(3);
+    expect(dots.getAttribute("aria-hidden")).toBe("true");
+    const status = screen.getByRole("status");
+    expect(status.className).toContain("trace-meta");
+    expect(within(status).getByText(/^Working/).closest(".sr-only")).toBeTruthy();
+    expect(status.textContent).toContain("4.8k tokens");
+    // A running step keeps the dots under it.
+    rerender(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[tool("a", { output: null })]} />);
+    expect(screen.getByTestId("typing-indicator")).toBeTruthy();
+    // While the reply is written the growing bubble is the sign; the dots are gone.
+    rerender(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[tool("a"), reply("mid", "Looking.")]} />);
+    expect(screen.queryByTestId("typing-indicator")).toBeNull();
+    // It thinks again after that message: it types again, below the message.
+    rerender(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[tool("a"), reply("mid", "Looking."), thinking]} />);
+    const again = screen.getByTestId("typing-indicator");
+    expect(screen.getByTestId("own-reply").compareDocumentPosition(again) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // A turn that waits for the person is not typing: its line says what it waits for.
+    rerender(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[tool("ask", { output: null, approval: { approvalId: "ap", summary: "Confirm", decision: null } })]} />);
+    expect(screen.queryByTestId("typing-indicator")).toBeNull();
+    expect(screen.getByRole("status").className).not.toContain("trace-meta");
+    // Finished: no dots.
+    rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[tool("a"), reply("done", "All set.")]} />);
+    expect(screen.queryByTestId("typing-indicator")).toBeNull();
+    // Every other trace keeps its state line and draws no dots.
+    rerender(<WorkTrace {...props} status="running" durationMs={null} blocks={[tool("a", { output: null })]} />);
+    expect(screen.queryByTestId("typing-indicator")).toBeNull();
     expect(screen.getByRole("status").className).not.toContain("trace-meta");
   });
 

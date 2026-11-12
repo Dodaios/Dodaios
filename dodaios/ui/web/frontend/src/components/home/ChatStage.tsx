@@ -118,6 +118,8 @@ function ChatStageContent() {
   const items = view.items;
   const catalog = useAgentChat((s) => s.catalog);
   const catalogStale = useAgentChat((s) => s.catalogStale);
+  const sending = useAgentChat((s) => s.busy);
+  const sessionRunning = useAgentChat((s) => s.activeSession?.running === true);
   const decide = useAgentChat((s) => s.decide);
   const loadCatalog = useAgentChat((s) => s.loadCatalog);
   const loadSessions = useAgentChat((s) => s.loadSessions);
@@ -190,6 +192,13 @@ function ChatStageContent() {
   const lastItem = items[items.length - 1];
   const lastItemId = lastItem?.id ?? null;
   const lastItemIsUser = lastItem?.type === "user";
+  // The person's own message is the last thing in the chat and its turn is
+  // on the way (the send is in flight, or the session already works on it):
+  // the assistant shows as typing until the turn itself takes over. A turn
+  // still running above a message sent into it shows its own dots.
+  const awaitingTurn = surface === "jarvis" && lastItem?.type === "user" && lastItem.origin !== "control"
+    && lastItem.origin !== "background" && (sending || sessionRunning)
+    && !items.some((item) => item.type === "turn" && item.status === "running");
 
   useLayoutEffect(() => {
     if (sessionRef.current !== activeSessionId) {
@@ -309,6 +318,7 @@ function ChatStageContent() {
             // the maintainer kept; every other surface draws the rail.
             traceLook={isJarvis ? "rail" : "classic"}
             traceCompanion={isJarvis}
+            awaiting={awaitingTurn}
             agentsById={faces}
           />
           {isJarvis && <Suspense fallback={null}><FirstConversation /></Suspense>}

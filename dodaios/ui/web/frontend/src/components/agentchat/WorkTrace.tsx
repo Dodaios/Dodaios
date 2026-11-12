@@ -13,6 +13,7 @@ import { billedPerToken, hasPersonCard, isCredentialTool, isQuestionTool, waitsO
 import { ChatMarkdown } from "./ChatMarkdown";
 import { CredentialCard } from "./CredentialCard";
 import { QuestionCard } from "./QuestionCard";
+import { TypingBubble } from "./TypingBubble";
 import { toolDiff } from "./toolDiff";
 import { formatTokens, outputTokens } from "./toolView";
 import { activityParts, traceToolIdentity, traceToolName } from "./traceActivity";
@@ -683,9 +684,10 @@ type WorkTraceProps = {
   /**
    * The trace sits in a messenger conversation (the front page): the reply
    * is drawn by `renderAnswer`, the model's reasoning is not drawn at all
-   * (`withoutReasoning`), and a finished, answered turn shows no state line
-   * at rest. How long it took and what it used wait under the turn for
-   * whoever looks (`.trace-meta`).
+   * (`withoutReasoning`), a turn at work shows three dots in a bubble
+   * instead of a state line (`TypingBubble`), and a finished, answered turn
+   * shows no state line at rest. How long it took and what it used wait
+   * under the turn for whoever looks (`.trace-meta`).
    */
   messenger?: boolean;
   renderAnswer?: RenderAnswer;
@@ -749,8 +751,14 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
     const statusOnRail = !fold && (!conversation || live);
     const petState = (companion || face) && working ? livePetState(blocks) : null;
     // In a messenger conversation a turn that answered needs no "Done": the
-    // answer says so. The line stays for assistive technology and for a look.
-    const resting = messenger && outcome === "done" && answered;
+    // answer says so. A turn at work needs no "Working" either: three dots
+    // in a bubble say it, and a reply being written says it by growing. The
+    // line stays for assistive technology and for a look.
+    const resting = messenger && (working || (outcome === "done" && answered));
+    // Read from the turn's own blocks: a thought is not drawn here, but the
+    // model thinking after a message is the assistant typing again.
+    const typing = messenger && working && livePetState(rawBlocks) === "working";
+    const typingItem: RailItem = { key: "trace:typing", rail: false, node: <div className="lead-typing-row"><TypingBubble /></div> };
     const statusLine = <div role="status" aria-live="polite" data-trace-status={outcome}
       className={cn("flex min-w-0 flex-wrap items-start gap-x-3 text-xs leading-6 text-muted-foreground",
         resting ? "trace-meta" : statusOnRail ? "py-1" : "pb-2 pt-1", pending && "text-foreground")}>
@@ -823,6 +831,7 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
     // With no answer the work stands open, and a failed step reads on its
     // own line there: no second line repeats it.
     if (visibleError) items.push(errorItem(visibleError, "trace:error"));
+    if (typing) items.push(typingItem);
     items.push(statusItem);
     return <div className={cn("min-w-0", conversation && "w-full max-w-[44rem] self-start", className)} data-testid="work-trace" data-look="rail" data-state={status} {...(conversation ? { "data-conversation": "" } : {})}>
       <Rail items={items} />

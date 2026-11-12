@@ -807,6 +807,48 @@ describe("ChatStage (agent chat)", () => {
     expect(screen.queryByTestId("composer-send")).toBeNull();
   });
 
+  it("shows the assistant typing from the send until its answer is written", () => {
+    // The look this guards (maintainer, 2026-11-12): the chat reads like a
+    // messenger. While the assistant thinks or works, three dots stand in a
+    // bubble where its next message will be.
+    const sent = reduceEvents(EMPTY_TIMELINE, [ev("user_message", { text: "hello" })]);
+    useAgentChatStore.setState({ activeSessionId: "s1", busy: true, timeline: sent });
+    render(<ChatStage />);
+    // The message is in and no turn has started: it types already.
+    const waiting = screen.getByTestId("agent-turn-awaiting");
+    expect(within(waiting).getByTestId("typing-indicator")).toBeTruthy();
+    expect(within(waiting).getByRole("status").textContent).toContain("Working");
+    expect(within(waiting).getByTestId("lead-face").getAttribute("data-pet")).toBe("working");
+
+    // The turn takes over: still one set of dots, now the turn's own.
+    const started = reduceEvents(sent, [
+      ev("turn_started", { turn_id: "t1", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
+      ev("reasoning_started", { turn_id: "t1", message_id: "m1" }),
+    ]);
+    act(() => useAgentChatStore.setState({ busy: false, timeline: started }));
+    expect(screen.queryByTestId("agent-turn-awaiting")).toBeNull();
+    expect(screen.getAllByTestId("typing-indicator")).toHaveLength(1);
+    expect(within(screen.getByTestId("work-trace")).getByTestId("typing-indicator")).toBeTruthy();
+    expect(screen.getAllByTestId("lead-face")).toHaveLength(1);
+
+    // The answer is there: nobody is typing.
+    const done = reduceEvents(started, [
+      ev("assistant_text", { turn_id: "t1", message_id: "m2", text: "Hello!" }),
+      ev("turn_finished", { turn_id: "t1", status: "done", duration_ms: 3000, usage: {} }),
+    ]);
+    act(() => useAgentChatStore.setState({ timeline: done }));
+    expect(screen.queryByTestId("typing-indicator")).toBeNull();
+    expect(screen.getByTestId("work-trace").textContent).toContain("Hello!");
+  });
+
+  it("shows nobody typing under an old message that never got an answer", () => {
+    const sent = reduceEvents(EMPTY_TIMELINE, [ev("user_message", { text: "hello" })]);
+    useAgentChatStore.setState({ activeSessionId: "s1", busy: false, timeline: sent });
+    render(<ChatStage />);
+    expect(screen.getByTestId("agent-message-user").textContent).toContain("hello");
+    expect(screen.queryByTestId("typing-indicator")).toBeNull();
+  });
+
   it("always shows that the turn is alive: the core, a word, the clock and the tokens", () => {
     vi.useFakeTimers();
     try {
