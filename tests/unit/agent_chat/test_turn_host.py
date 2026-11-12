@@ -1260,6 +1260,27 @@ async def test_the_servers_factory_hands_the_app_loop_to_a_builder_in_any_thread
     svc.store.close()
 
 
+async def test_the_server_records_its_loop_before_its_init_chain() -> None:
+    """Requests are answered while the init chain runs; the loop must be known by then."""
+    from types import SimpleNamespace
+
+    from dodaios.core.bus import EventBus
+    from dodaios.ui.web.server import WebServer
+
+    class InitChainReached(Exception):
+        pass
+
+    async def prepare() -> None:
+        raise InitChainReached()
+
+    probe = SimpleNamespace(
+        bus=EventBus(), app=SimpleNamespace(state=SimpleNamespace()), prepare_app=prepare
+    )
+    with pytest.raises(InitChainReached):
+        await WebServer.start(probe, start_serving=False)  # type: ignore[arg-type]
+    assert probe.app.state.app_loop is asyncio.get_running_loop()
+
+
 async def test_a_shutdown_while_reattaching_leaves_the_turns_for_the_next_process(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, app_host_mode: Any
 ) -> None:
