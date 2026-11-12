@@ -56,10 +56,12 @@ def test_telegram_is_connected_only_while_its_channel_runs() -> None:
     }
 
 
-def test_telegram_without_a_usable_name_is_connected_but_has_no_address() -> None:
+def test_telegram_counts_as_connected_only_once_the_bot_has_a_name() -> None:
+    # A channel that is switched off is "started" for the manager and never
+    # learns its bot's name; a name that is no Telegram name is not trusted.
     for name in ("", "a b", "https://evil.example/x"):
         row = reach.telegram_row(_Manager(["telegram"], name))
-        assert (row["connected"], row["handle"], row["url"]) == (True, "", "")
+        assert (row["connected"], row["handle"], row["url"]) == (False, "", "")
 
 
 def test_a_manager_that_raises_reads_as_not_connected() -> None:
