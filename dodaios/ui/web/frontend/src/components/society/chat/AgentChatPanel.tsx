@@ -1647,7 +1647,9 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
               ? t("chats_view.dictation_listening")
               : openAsk
                 ? t("question_card.composer_placeholder").replace("{agent}", openAsk.question.asker || agent.name)
-                : t("society.chat.placeholder").replace("{0}", agent.name)
+                : surface === "jarvis" && (busy || live)
+                  ? t("agent_chat.placeholder_working")
+                  : t("society.chat.placeholder").replace("{0}", agent.name)
           }
           disabled={false}
           onSubmit={() => (dictation.dictating ? dictation.stopAndSend() : void submit())}
@@ -1697,7 +1699,9 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
           stopLabel={t("society.chat.stop_recording")}
           shape="round"
         />
-        {(busy || live) && <button type="button" onClick={() => void onCancel()}
+        {/* The Dodaios chat stops by word ("stop", see ChatCommands); every
+            other agent's chat keeps its Stop button. */}
+        {(busy || live) && surface !== "jarvis" && <button type="button" onClick={() => void onCancel()}
           aria-label={t("society.chat.stop")} data-testid="composer-cancel"
           className="as-round-button" data-tone="ink">
           <Square className="h-3.5 w-3.5" aria-hidden />

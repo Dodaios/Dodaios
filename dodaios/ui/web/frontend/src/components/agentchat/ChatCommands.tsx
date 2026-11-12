@@ -4,9 +4,10 @@ import { Loader2, Pause, Play, X } from "lucide-react";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { createAgentChatSession, freshStartLead, type ChatAttachment } from "@/lib/agentChatApi";
-import { CHAT_COMMAND_NAMES, fetchChatCommands, parseChatCommand, runChatCommand,
+import { CHAT_COMMAND_NAMES, fetchChatCommands, isStopWord, parseChatCommand, runChatCommand,
   type ChatCommand, type ChatCommandName, type ChatCommandResult, type ChatControlState, type ChatSearchHit } from "@/lib/chatControlApi";
 import { useAgentChat, useAgentChatApi } from "./AgentChatStoreContext";
+import { runningTurn } from "./reduce";
 import { restoreTranscriptView, useTranscriptView } from "../society/chat/useTranscriptView";
 import { AgentRoutinesList } from "../society/card/AgentRoutinesList";
 
@@ -23,6 +24,7 @@ export function useChatCommands({ value, setValue, onModel, onClear, agentId = "
   const items = useAgentChat((s) => s.timeline.items);
   const liveControl = useAgentChat((s) => s.timeline.control);
   const enabled = surface === "jarvis" || surface === "society";
+  const working = useAgentChat((s) => s.busy || runningTurn(s.timeline) !== null);
   const view = useTranscriptView(sid, items);
   const [catalog, setCatalog] = useState<ChatCommand[]>([]);
   const [state, setState] = useState<ChatControlState | null>(null);
@@ -99,7 +101,20 @@ export function useChatCommands({ value, setValue, onModel, onClear, agentId = "
     return response;
   }
 
+  /** Only the Dodaios chat stops by word, and only while it works. */
+  const stopsTurn = (text: string, live: boolean) =>
+    surface === "jarvis" && live && attachments.length === 0 && isStopWord(text);
+
   async function execute(text: string): Promise<boolean> {
+    // The Dodaios chat has no Stop button (maintainer, 2026-11-12): the bare
+    // word, sent while the assistant works, ends the turn the way the button
+    // did. With nothing running, or with a file attached, it is a message.
+    const chat = store.getState();
+    if (stopsTurn(text, chat.busy || runningTurn(chat.timeline) !== null)) {
+      setError(""); setValue("");
+      void chat.cancel("typed-stop");
+      return true;
+    }
     const command = enabled ? parseChatCommand(text) : null;
     if (!command) return false;
     if (attachmentsBusy && ["plan", "review", "recap", "goal"].includes(command.name) && command.args !== "clear") {
@@ -156,7 +171,9 @@ export function useChatCommands({ value, setValue, onModel, onClear, agentId = "
     requestAnimationFrame(() => document.querySelector(`[data-chat-item="${CSS.escape(hit.item_id)}"], [data-message-id="${CSS.escape(hit.item_id)}"], [data-turn-id="${CSS.escape(hit.item_id)}"]`)?.scrollIntoView({ block: "center" }));
   }
   return { enabled, open, matches, activeIndex, setActiveIndex, select, execute, onKeyDown,
-    isCommand: enabled && parseChatCommand(value) !== null, canSteer: state?.goal?.status === "active",
+    // The stop word counts as a command, so it can be sent whatever state
+    // the model seat or the connection is in, like the button it replaces.
+    isCommand: enabled && (parseChatCommand(value) !== null || stopsTurn(value, working)), canSteer: state?.goal?.status === "active",
     state, error, busy, panel, setPanel, hits, reveal, result, agentId };
 }
 
