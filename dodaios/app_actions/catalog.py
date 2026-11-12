@@ -69,6 +69,9 @@ class ActionEntry:
     query_params: tuple[str, ...] = ()
     has_body: bool = False
     parameters: dict[str, Any] = field(default_factory=dict)
+    #: The tool that does this job better for a model (``x-jarvis-instead``);
+    #: the action still runs, the search result says so.
+    instead: str = ""
 
     @property
     def mutating(self) -> bool:
@@ -85,6 +88,24 @@ class ActionEntry:
             "dangerous": self.dangerous,
             "default_tier": default_tier(self),
         }
+
+
+@dataclass(frozen=True, slots=True)
+class Pointer:
+    """An operation that is not an app action, and the tool to use for its job.
+
+    A route can be kept out of the catalog (``x-jarvis-exclude``) because a
+    dedicated tool does the same thing with rules the raw route does not have.
+    A model that searches for the route by what it does must then find the
+    tool, not nothing: with ``x-jarvis-instead`` the search answers with this.
+    """
+
+    id: str
+    area: str
+    title: str
+    description: str
+    path: str
+    instead: str
 
 
 def default_tier(entry: ActionEntry) -> str:
@@ -232,6 +253,7 @@ def _entry(
         query_params=tuple(query_params),
         has_body=bool(body),
         parameters=parameters,
+        instead=" ".join(str(operation.get("x-jarvis-instead") or "").split()),
     )
 
 
@@ -249,7 +271,32 @@ def build_catalog(spec: dict[str, Any]) -> dict[str, ActionEntry]:
     return out
 
 
+def build_pointers(spec: dict[str, Any]) -> dict[str, Pointer]:
+    """Every excluded operation that names the tool to use instead, by operation id."""
+    out: dict[str, Pointer] = {}
+    for path, item in (spec.get("paths") or {}).items():
+        for method in _METHODS:
+            operation = (item or {}).get(method)
+            if not isinstance(operation, dict):
+                continue
+            op_id = str(operation.get("operationId") or "")
+            instead = " ".join(str(operation.get("x-jarvis-instead") or "").split())
+            if not (op_id and instead and operation.get("x-jarvis-exclude")):
+                continue
+            description = str(operation.get("description") or "").strip().split("\n\n", 1)[0]
+            out[op_id] = Pointer(
+                id=op_id,
+                area=str((operation.get("tags") or ["app"])[0]),
+                title=str(operation.get("summary") or op_id),
+                description=" ".join(description.split())[:300],
+                path=path,
+                instead=instead,
+            )
+    return out
+
+
 _cache: dict[int, dict[str, ActionEntry]] = {}
+_pointer_cache: dict[int, dict[str, Pointer]] = {}
 
 
 def live_catalog() -> dict[str, ActionEntry]:
@@ -265,3 +312,18 @@ def live_catalog() -> dict[str, ActionEntry]:
         _cache.clear()
         _cache[key] = build_catalog(spec)
     return _cache[key]
+
+
+def live_pointers() -> dict[str, Pointer]:
+    """The running app's pointers from excluded routes to the tools that replace them."""
+    from dodaios.core import runtime_refs
+
+    app = runtime_refs.get_web_app()
+    if app is None:
+        return {}
+    spec = app.openapi()
+    key = id(spec)
+    if key not in _pointer_cache:
+        _pointer_cache.clear()
+        _pointer_cache[key] = build_pointers(spec)
+    return _pointer_cache[key]

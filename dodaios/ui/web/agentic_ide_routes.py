@@ -3183,10 +3183,21 @@ async def rename_workspace(
 # chat threads unless the person asked for the grid. Offered as an app action,
 # this route let it open a grid workspace for "a new Fable 5.2 agent" instead
 # (live 2026-11-12). The same holds for the two terminal routes further down.
+# A search for what these routes do answers with the tool (``x-jarvis-instead``):
+# with nothing to find, the model built the agent from other raw routes.
+_NEW_CODING_AGENT_INSTEAD = (
+    "To start a new coding agent (Claude Code, Codex, ...) call the workspace-orchestrate "
+    "tool with action create: cli, model, effort, count, folder or project or workspace, "
+    "and the task as prompt. Or delegate with target coding_agent. It opens as a chat "
+    "thread; pass mode grid ONLY when the person asked for a terminal, a pane or the grid."
+)
+_NOT_AN_APP_ACTION = {"x-jarvis-exclude": True, "x-jarvis-instead": _NEW_CODING_AGENT_INSTEAD}
+
+
 @router.post(
     "/session",
     summary="Open an Agentic-IDE workspace",
-    openapi_extra={"x-jarvis-exclude": True},
+    openapi_extra=_NOT_AN_APP_ACTION,
 )
 async def start_session(request: Request, req: StartSessionRequest) -> dict:
     """Open ``folder`` as another workspace, with one terminal per request entry.
@@ -3796,7 +3807,7 @@ async def set_auto_switch(req: AutoSwitchRequest) -> dict:
 @router.post(
     "/terminals",
     summary="Open one more terminal",
-    openapi_extra={"x-jarvis-exclude": True},  # see /session
+    openapi_extra=_NOT_AN_APP_ACTION,  # see /session
 )
 async def add_terminal(req: AddTerminalRequest) -> dict:
     """Add a terminal to the running workspace, beside or below another one.
@@ -3949,7 +3960,7 @@ async def fork_terminal(name: str, req: ForkTerminalRequest) -> dict:
 @router.post(
     "/terminals/batch",
     summary="Open several terminals at once",
-    openapi_extra={"x-jarvis-exclude": True},  # see /session
+    openapi_extra=_NOT_AN_APP_ACTION,  # see /session
 )
 async def add_terminals(request: Request, req: AddTerminalsRequest) -> dict:
     """Open ``count`` more terminals in the running workspace.

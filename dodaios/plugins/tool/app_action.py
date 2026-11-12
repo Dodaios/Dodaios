@@ -33,6 +33,12 @@ def _catalog() -> dict[str, Any]:
     return live_catalog()
 
 
+def _pointers() -> dict[str, Any]:
+    from dodaios.app_actions.catalog import live_pointers
+
+    return live_pointers()
+
+
 def _area_words(text: str) -> set[str]:
     return {w for w in re.split(r"[\W_]+", text.casefold()) if w and w not in {"and", "the"}}
 
@@ -64,7 +70,9 @@ class FindAppActionTool:
         "dictation, chats, agents, automations …) when no other tool does what the "
         "user asked. Pass English keywords; returns action ids, what each does, its "
         "parameters and whether it runs freely, asks first or is blocked. Then call "
-        "run-app-action."
+        "run-app-action. A result under use_instead names the tool that does that job: "
+        "use it, no app action does. Starting a new coding agent is never an app action "
+        "(delegate target coding_agent, or workspace-orchestrate create)."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -85,20 +93,31 @@ class FindAppActionTool:
             return ToolResult(
                 success=False, output=None, error="The app's actions are not available here."
             )
-        entries = _in_area(list(catalog.values()), str(args.get("area") or ""))
+        pointers = _pointers()
+        entries = _in_area(
+            [*catalog.values(), *pointers.values()], str(args.get("area") or "")
+        )
         policy = load_policy()
         descriptors = [
             SupervisorToolDescriptor(
                 name=e.id,
                 description=f"{e.title}. {e.description} {e.area} {e.path}",
-                input_schema=e.parameters,
-                risk_tier=effective_tier(e, policy),  # type: ignore[arg-type]
+                input_schema=getattr(e, "parameters", {}),
+                risk_tier=(  # type: ignore[arg-type]
+                    "safe" if e.id in pointers else effective_tier(e, policy)
+                ),
             )
             for e in entries
         ]
         found = discover(descriptors, str(args.get("query") or ""))
         actions = []
+        # What the search hit that is not an app action: the tool that does it.
+        use_instead: dict[str, list[str]] = {}
         for item in found["tools"][:_MAX_RESULTS]:
+            pointer = pointers.get(item["name"])
+            if pointer is not None:
+                use_instead.setdefault(pointer.instead, []).append(pointer.title)
+                continue
             entry = catalog[item["name"]]
             tier = effective_tier(entry, policy)
             actions.append(
@@ -111,11 +130,22 @@ class FindAppActionTool:
                         tier, "blocked by the user"
                     ),
                     "parameters": entry.parameters,
+                    **({"instead": entry.instead} if entry.instead else {}),
                 }
             )
         return ToolResult(
             success=True,
-            output={"actions": actions, "total_matches": found["total"]},
+            output={
+                **(
+                    {"use_instead": [
+                        {"not_an_app_action": titles, "use": use}
+                        for use, titles in use_instead.items()
+                    ]}
+                    if use_instead else {}
+                ),
+                "actions": actions,
+                "total_matches": found["total"],
+            },
         )
 
 
