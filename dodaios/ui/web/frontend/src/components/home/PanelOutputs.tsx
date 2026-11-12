@@ -5,7 +5,7 @@ import { CodeXml, File, FileCode, FileText, Film, Image, Music, type LucideIcon 
 import { PANEL_ICON, PANEL_ROW_BUTTON, PanelEmpty, PanelSection, ShowMore } from "@/components/home/panelParts";
 import { fetchOutputsList, type ArtifactSummary, type ArtifactsResponse, type OutputSummary } from "@/hooks/useOutputs";
 import { classifyVisual, toVisuals } from "@/hooks/useVisualArtifacts";
-import { useT } from "@/i18n";
+import { fill, useT } from "@/i18n";
 import { useEventStore } from "@/store/events";
 
 /** How many files show before the rest folds away, and how many unfold. */
@@ -75,7 +75,7 @@ export function outputRows(run: OutputSummary, files: ArtifactSummary[]): Output
  * under, so the three share one answer and the panel adds no listing of
  * its own while they are fresh.
  */
-export function PanelOutputs() {
+export function PanelOutputs({ name }: { name: string }) {
   const t = useT();
   const requestVisual = useEventStore((s) => s.requestVisual);
   const [open, setOpen] = useState(false);
@@ -125,7 +125,7 @@ export function PanelOutputs() {
       })}
       {rows.files.length === 0 && (
         <PanelEmpty testId="assistant-outputs-empty">
-          {runs.isLoading || rows.loading ? t("common.loading") : t("sidebar.outputs_empty")}
+          {runs.isLoading || rows.loading ? t("common.loading") : fill(t("sidebar.outputs_empty"), { assistant: name })}
         </PanelEmpty>
       )}
       {rows.files.length > OUTPUTS_SHOWN && (

@@ -3,7 +3,7 @@ import { Laptop, Monitor } from "lucide-react";
 
 import { PANEL_ICON, PANEL_ROW_BUTTON, PanelSection, ShowMore } from "@/components/home/panelParts";
 import { useComputers, useThisComputer } from "@/hooks/useComputers";
-import { useLocaleChunk, useT } from "@/i18n";
+import { fill, useLocaleChunk, useT } from "@/i18n";
 import { useEventStore } from "@/store/events";
 import { isLaptopName, MachineIcon } from "@/views/computers/machineKind";
 
@@ -27,9 +27,10 @@ interface Row {
  * Every row opens the Computers page.
  *
  * `leadComputerId` is the conversation's own placement: empty for this
- * computer, else a connected computer's id.
+ * computer, else a connected computer's id. `name` is the assistant as the
+ * panel's head calls it.
  */
-export function PanelComputers({ leadComputerId }: { leadComputerId: string }) {
+export function PanelComputers({ leadComputerId, name }: { leadComputerId: string; name: string }) {
   const t = useT();
   const statusReady = useLocaleChunk("computers");
   const computers = useComputers();
@@ -59,7 +60,7 @@ export function PanelComputers({ leadComputerId }: { leadComputerId: string }) {
     })),
   ].sort((a, b) => Number(b.home) - Number(a.home));
   const shown = open ? rows : rows.slice(0, COMPUTERS_SHOWN);
-  const homeHint = t("sidebar.computer_home");
+  const homeHint = fill(t("sidebar.computer_home"), { assistant: name });
 
   return (
     <PanelSection id="computers" title={t("sidebar.computers")}>

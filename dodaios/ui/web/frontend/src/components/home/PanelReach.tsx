@@ -15,7 +15,7 @@ import { useEventStore } from "@/store/events";
 const CHANNELS = ["slack", "telegram"] as const;
 
 const BUTTON = cn(
-  "inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-secondary px-2.5 text-sm font-medium text-foreground",
+  "inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-secondary px-2 text-sm font-medium text-foreground",
   "transition-colors hover:bg-surface-raised disabled:opacity-60",
   FOCUS,
 );
@@ -27,10 +27,10 @@ interface CallSwitch {
 }
 
 /** What a click on a channel does, said as the button's tooltip. */
-function channelHint(channel: LeadChannel | undefined, label: string, t: (key: string) => string): string {
+function channelHint(channel: LeadChannel | undefined, label: string, name: string, t: (key: string) => string): string {
   if (!channel?.connected) return fill(t("sidebar.channel_connect"), { channel: label });
   if (!channel.url) return fill(t("sidebar.channel_connected"), { channel: label });
-  if (channel.kind === "chat") return fill(t("sidebar.channel_open_chat"), { channel: label });
+  if (channel.kind === "chat") return fill(t("sidebar.channel_open_chat"), { assistant: name, channel: label });
   if (!channel.handle) return fill(t("sidebar.channel_open"), { channel: label });
   return fill(t("sidebar.channel_open_workspace"), { workspace: channel.handle, channel: label });
 }
@@ -41,11 +41,13 @@ function channelHint(channel: LeadChannel | undefined, label: string, t: (key: s
  * workspace) and opens there; one that is not connected yet leads to the
  * place where it gets connected.
  *
+ * `name` is the assistant as the panel's head calls it.
+ *
  * Telegram is a conversation with the assistant. Slack is a workspace it
  * works in for the person: the button opens that workspace, because nobody
  * can write to the assistant there.
  */
-export function PanelReach({ call }: { call: CallSwitch }) {
+export function PanelReach({ call, name }: { call: CallSwitch; name: string }) {
   const t = useT();
   const setActive = useEventStore((s) => s.setActiveSection);
   const channels = useQuery({
@@ -71,18 +73,18 @@ export function PanelReach({ call }: { call: CallSwitch }) {
       <button type="button" data-testid="assistant-panel-call" data-live={call.live} disabled={call.busy}
         onClick={call.toggle} onPointerEnter={() => warmVoiceCall()} onFocus={() => warmVoiceCall()}
         title={call.live ? t("agentic_grid.voice_bubble.hang_up_title") : t("assistant_chat.voice_enter_hint")}
-        className={cn(BUTTON, "flex-1")}>
+        className={cn(BUTTON, "shrink-0")}>
         <CallIcon aria-hidden strokeWidth={1.75} className={cn("h-4 w-4 shrink-0", call.live && "text-destructive")} />
         <span className="truncate">{call.live ? t("agentic_grid.voice_bubble.hang_up") : t("sidebar.call")}</span>
       </button>
       {CHANNELS.map((id) => {
         const channel = channels.data?.find((row) => row.id === id);
         const label = t(`sidebar.channel_${id}`);
-        const hint = channelHint(channel, label, t);
+        const hint = channelHint(channel, label, name, t);
         const logo = bundledPluginLogo(id);
         return (
           <button key={id} type="button" data-testid={`assistant-panel-channel-${id}`} data-connected={channel?.connected === true}
-            onClick={() => openChannel(id, channel)} title={hint} aria-label={hint} className={BUTTON}>
+            onClick={() => openChannel(id, channel)} title={hint} aria-label={hint} className={cn(BUTTON, "flex-1")}>
             {logo && <img src={logo} alt="" draggable={false} className={cn("h-4 w-4 shrink-0 object-contain", !channel?.connected && "grayscale")} />}
             <span className={cn("truncate", !channel?.connected && "text-muted-foreground")}>{(channel?.connected && channel.handle) || label}</span>
           </button>

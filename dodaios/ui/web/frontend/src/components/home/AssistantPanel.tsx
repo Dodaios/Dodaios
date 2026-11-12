@@ -156,7 +156,7 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
 
   return (
     <aside aria-label={name} data-testid="assistant-panel"
-      className="flex h-full w-[320px] shrink-0 flex-col overflow-y-auto p-3 scrollbar-jarvis">
+      className="flex h-full w-[336px] shrink-0 flex-col overflow-y-auto p-3 scrollbar-jarvis">
       <div className="rounded-xl border border-border bg-card p-3">
         <button type="button" data-testid="assistant-panel-conversation" onClick={onConversation} title={name}
           className={cn("flex w-full min-w-0 items-center gap-3 rounded-lg p-1 text-left", FOCUS)}>
@@ -167,7 +167,7 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
           </span>
         </button>
 
-        <PanelReach call={call} />
+        <PanelReach call={call} name={name} />
 
         <div role="tablist" aria-label={name} className="mt-3 flex items-center gap-1">
           {(["activity", "library"] as const).map((id) => (
@@ -182,9 +182,9 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
 
         {tab === "activity" ? (
           <div role="tabpanel" className="mt-3">
-            <PanelComputers leadComputerId={conversation.computerId} />
-            <PanelActivity />
-            <PanelOutputs />
+            <PanelComputers leadComputerId={conversation.computerId} name={name} />
+            <PanelActivity name={name} />
+            <PanelOutputs name={name} />
           </div>
         ) : (
           <div role="tabpanel" className="mt-3">

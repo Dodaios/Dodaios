@@ -4,7 +4,7 @@ import { Hand, LoaderCircle, MessageCircle } from "lucide-react";
 
 import { openCodingThread } from "@/components/agentic/threads/openCodingThread";
 import { PANEL_ICON, PANEL_ROW_BUTTON, PanelEmpty, PanelSection, ShowMore } from "@/components/home/panelParts";
-import { useT } from "@/i18n";
+import { fill, useT } from "@/i18n";
 import { fetchLeadThreads, type LeadThread } from "@/lib/agentChatApi";
 import { cn } from "@/lib/utils";
 import { useIdeThreadsStore } from "@/store/ideThreads";
@@ -36,7 +36,7 @@ function title(thread: LeadThread, fallback: string): string {
  * approval, or has brought something the person has not seen, and opens
  * that chat in the IDE.
  */
-export function PanelActivity() {
+export function PanelActivity({ name }: { name: string }) {
   const t = useT();
   const seen = useIdeThreadsStore((s) => s.seen);
   const [open, setOpen] = useState(false);
@@ -75,7 +75,7 @@ export function PanelActivity() {
       })}
       {rows.length === 0 && (
         <PanelEmpty testId="assistant-activity-empty">
-          {threads.isLoading ? t("common.loading") : t("sidebar.recent_activity_empty")}
+          {threads.isLoading ? t("common.loading") : fill(t("sidebar.recent_activity_empty"), { assistant: name })}
         </PanelEmpty>
       )}
       {rows.length > ACTIVITY_SHOWN && (

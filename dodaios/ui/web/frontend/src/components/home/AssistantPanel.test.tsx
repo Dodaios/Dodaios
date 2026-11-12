@@ -269,7 +269,7 @@ describe("AssistantPanel", () => {
     const telegram = screen.getByTestId("assistant-panel-channel-telegram");
     await waitFor(() => expect(telegram.getAttribute("data-connected")).toBe("true"));
     expect(telegram.textContent).toBe("@nova_bot");
-    expect(telegram.getAttribute("title")).toBe("Open the chat with Nova in Telegram");
+    expect(telegram.getAttribute("title")).toBe("Open the chat with Dodaios in Telegram");
     fireEvent.click(telegram);
     expect(external.open).toHaveBeenCalledWith("https://t.me/nova_bot");
     expect(useEventStore.getState().activeSection).toBe("chats");
@@ -305,7 +305,7 @@ describe("AssistantPanel", () => {
     expect(own.textContent).toContain("Your computer");
     expect(own.getAttribute("data-home")).toBe("true");
     expect(screen.getAllByTestId("assistant-computer-home")).toHaveLength(1);
-    expect(screen.getByTestId("assistant-computer-home").getAttribute("aria-label")).toBe("Nova runs here");
+    expect(screen.getByTestId("assistant-computer-home").getAttribute("aria-label")).toBe("Dodaios runs here");
 
     // A computer that is switched off is not offered; the third one unfolds.
     fireEvent.click(screen.getByTestId("assistant-computers-more"));
@@ -352,8 +352,10 @@ describe("AssistantPanel", () => {
 
   it("says so while no chat was handed a task and nothing was made yet", async () => {
     mount([]);
-    await waitFor(() => expect(screen.getByTestId("assistant-activity-empty").textContent).toMatch(/Nothing yet/));
-    await waitFor(() => expect(screen.getByTestId("assistant-outputs-empty").textContent).toMatch(/Nothing yet/));
+    await waitFor(() => expect(screen.getByTestId("assistant-activity-empty").textContent)
+      .toBe("Nothing yet. Chats in the Agentic IDE that Dodaios hands a task to show up here."));
+    await waitFor(() => expect(screen.getByTestId("assistant-outputs-empty").textContent)
+      .toBe("Nothing yet. Files Dodaios makes show up here."));
   });
 
   it("lists what the newest finished runs made, newest file first, and opens one on the Artifacts page", async () => {
