@@ -16,7 +16,7 @@ import { TasksCapturedCard } from "./reminders/TasksCapturedCard";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { effortLabel } from "./AgentComposer";
 import { livePetState, TurnTrace, type Decide, type TraceLook } from "./WorkTrace";
-import { LeadReply, REPLY_PROSE } from "./LeadReply";
+import { LeadReply, OWN_BUBBLE, REPLY_PROSE } from "./LeadReply";
 import { TypingBubble } from "./TypingBubble";
 import { PetMark } from "@/components/pets/PetMark";
 import { PetStageContext } from "@/components/pets/petStage";
@@ -197,7 +197,7 @@ export function AgentTimeline({
             className={cn(
               "text-[15px] leading-[23px]",
               bubbles
-                ? "jarvis-chat-out jarvis-chat-tinted lead-bubble-own max-w-[80%] px-4 py-2"
+                ? OWN_BUBBLE
                 : "jarvis-user-bubble max-w-[85%] rounded-lg px-4 py-3",
             )}
           >

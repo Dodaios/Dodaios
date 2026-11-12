@@ -5,7 +5,8 @@ import { useT } from "@/i18n";
 import { moveSideThreadToMain, stopSideThread } from "@/lib/agentChatApi";
 import { createAgentChatStore, type AgentChatStoreHook } from "@/store/agentChat";
 import { AgentChatStoreProvider, useAgentChat } from "./AgentChatStoreContext";
-import { LeadReply } from "./LeadReply";
+import { cn } from "@/lib/utils";
+import { LeadReply, OWN_BUBBLE } from "./LeadReply";
 import type { Decide } from "./WorkTrace";
 import type { NoticeItem, TimelineItem } from "./reduce";
 
@@ -60,7 +61,7 @@ export function SideThread({ item, renderTimeline }: { item: NoticeItem; renderT
     <div className="flex min-w-0 flex-col gap-2" data-testid="side-thread" data-message-id={item.id}
       data-status={running ? "running" : item.resolved}>
       <div className="flex justify-end" data-testid="agent-message-user">
-        <div className="jarvis-user-bubble lead-bubble-own max-w-[80%] px-4 py-2 text-[15px] leading-[23px] [overflow-wrap:anywhere]">
+        <div className={cn("text-[15px] leading-[23px] [overflow-wrap:anywhere]", OWN_BUBBLE)}>
           {item.text}
         </div>
       </div>
