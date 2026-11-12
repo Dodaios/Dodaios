@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ChatStage } from "@/components/home/ChatStage";
 
-/** A finished, answered turn folds its work behind "Thought for …"; open every fold. */
+/** A finished, answered turn folds its work behind "Worked for …"; open every fold. */
 const openWork = () => {
   for (const toggle of Array.from(document.querySelectorAll<HTMLElement>("[data-testid='conversation-work-fold'][data-open='false'] > button"))) fireEvent.click(toggle);
 };
@@ -848,12 +848,12 @@ describe("ChatStage (agent chat)", () => {
     }
   });
 
-  it("reads each stretch of thinking where it happened, with its words in view", () => {
-    // The complaint this guards (maintainer, 2026-08-25): the model's
-    // intermediate steps had stopped showing — every thought was merged
-    // into one folded row on top of the turn. Each stretch now sits before
-    // the step it explains; the scratchpad itself is covered in
-    // agentchat/AgentTimeline.test.tsx.
+  it("draws none of the model's reasoning, and keeps the steps behind the fold", () => {
+    // The complaint this guards (maintainer, 2026-11-12): the model's
+    // private thoughts stood in the conversation between its messages. The
+    // front-page chat shows what the assistant says and what it did, never
+    // what it thought (the 2026-08-25 scratchpad lives on in the IDE and
+    // the agent chats, agentchat/AgentTimeline.test.tsx).
     const timeline = reduceEvents(EMPTY_TIMELINE, [
       ev("user_message", { text: "look into it" }),
       ev("turn_started", { turn_id: "t4", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
@@ -868,11 +868,57 @@ describe("ChatStage (agent chat)", () => {
     render(<ChatStage />);
 
     const trace = screen.getByTestId("work-trace");
-    // The finished turn folds its work; one tap brings it back in order.
+    // The fold names the work, not a thought nobody can read.
+    const fold = within(trace).getByTestId("conversation-work-fold");
+    expect(fold.textContent).toContain("Worked for 6");
+    expect(fold.textContent).not.toContain("Thought");
     openWork();
     const text = trace.textContent!;
-    expect(text.indexOf("First the port.")).toBeLessThan(text.indexOf("Get-NetTCPConnection"));
-    expect(text.indexOf("Get-NetTCPConnection")).toBeLessThan(text.indexOf("It is listening."));
+    expect(text).toContain("Get-NetTCPConnection");
+    expect(text).not.toContain("First the port.");
+    expect(text).not.toContain("It is listening.");
+    expect(document.querySelectorAll("[data-trace-entry='reasoning']")).toHaveLength(0);
+    expect(text.indexOf("Get-NetTCPConnection")).toBeLessThan(text.indexOf("Running."));
+  });
+
+  it("keeps a thought out of a running turn too: the state line says it is working", () => {
+    const timeline = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "look into it" }),
+      ev("turn_started", { turn_id: "t6", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
+      ev("reasoning", { turn_id: "t6", text: "The user wants the port.", duration_ms: 1000 }),
+      ev("tool_call", { turn_id: "t6", call_id: "c1", name: "PowerShell", input: { command: "Get-NetTCPConnection" } }),
+      ev("tool_result", { turn_id: "t6", call_id: "c1", output: "ok", is_error: false }),
+      ev("reasoning_started", { turn_id: "t6", message_id: "m2" }),
+      ev("reasoning_delta", { turn_id: "t6", message_id: "m2", text: "Now the firewall." }),
+    ]);
+    useAgentChatStore.setState({ activeSessionId: "s6", timeline });
+    render(<ChatStage />);
+
+    const trace = screen.getByTestId("work-trace");
+    expect(trace.textContent).not.toContain("The user wants the port.");
+    expect(trace.textContent).not.toContain("Now the firewall.");
+    expect(screen.queryByTestId("reasoning-body")).toBeNull();
+    expect(trace.textContent).not.toMatch(/Thinking|Thought/);
+    // The step it took is there, and the turn still says it is alive.
+    expect(trace.textContent).toContain("Get-NetTCPConnection");
+    expect(within(trace).getByRole("status").textContent).toContain("Working");
+  });
+
+  it("shows no fold for a turn that only thought before it answered", () => {
+    const timeline = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "hello" }),
+      ev("turn_started", { turn_id: "t7", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
+      ev("reasoning", { turn_id: "t7", text: "A greeting. Greet back.", duration_ms: 3000 }),
+      ev("assistant_text", { turn_id: "t7", message_id: "m1", text: "Hello!" }),
+      ev("turn_finished", { turn_id: "t7", status: "done", duration_ms: 4000, usage: {} }),
+    ]);
+    useAgentChatStore.setState({ activeSessionId: "s7", timeline });
+    render(<ChatStage />);
+
+    const trace = screen.getByTestId("work-trace");
+    expect(within(trace).queryByTestId("conversation-work-fold")).toBeNull();
+    expect(trace.textContent).toContain("Hello!");
+    expect(trace.textContent).not.toContain("A greeting.");
   });
 
   it("says how a turn ended — including one that answered nothing at all", () => {

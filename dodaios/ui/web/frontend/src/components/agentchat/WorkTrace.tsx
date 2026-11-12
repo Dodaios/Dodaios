@@ -529,9 +529,11 @@ function ActivityIcon({ blocks, live }: { blocks: TurnBlock[]; live: boolean }) 
 }
 
 /** Small chevron that hides finished work so the reply can stand alone. */
-function ConversationWorkFold({ durationMs, attention, children, expandInner = true, failureCount = 0 }: {
+function ConversationWorkFold({ durationMs, attention, children, expandInner = true, failureCount = 0, thoughts = true }: {
   durationMs: number | null; attention?: ReactNode; children: ReactNode;
   failureCount?: number;
+  /** The fold holds no thoughts (a messenger conversation): it says "Worked for …". */
+  thoughts?: boolean;
   /** Classic rows open every inner disclosure with the fold; the rail keeps its one-line stretches. */
   expandInner?: boolean;
 }) {
@@ -541,8 +543,8 @@ function ConversationWorkFold({ durationMs, attention, children, expandInner = t
   // Counts openings so inner disclosures expand all at once, every time.
   const [seq, setSeq] = useState(0);
   const label = durationMs !== null && durationMs > 0
-    ? t("work_trace.thought_for").replace("{duration}", traceDuration(durationMs))
-    : t("work_trace.thought");
+    ? t(thoughts ? "work_trace.thought_for" : "thread_turn.worked_for").replace("{duration}", traceDuration(durationMs))
+    : t(thoughts ? "work_trace.thought" : "thread_turn.worked");
   const toggle = () => {
     if (!open) setSeq((s) => s + 1);
     setOpen(!open);
@@ -639,6 +641,17 @@ function withoutQuestionPolls(blocks: TurnBlock[]): TurnBlock[] {
   return kept.length === blocks.length ? blocks : kept;
 }
 
+/**
+ * A messenger conversation draws none of the model's reasoning: not the
+ * live scratchpad, not the thoughts between the steps of a finished turn
+ * (maintainer, 2026-11-12). The state line still says the turn is working
+ * while the model thinks, and the steps it took stay behind the fold.
+ */
+function withoutReasoning(blocks: TurnBlock[]): TurnBlock[] {
+  const kept = blocks.filter((block) => block.kind !== "reasoning");
+  return kept.length === blocks.length ? blocks : kept;
+}
+
 const NO_BLOCKS: TurnBlock[] = [];
 
 export function WorkTrace({ look = "rail", ...props }: WorkTraceProps & { look?: TraceLook }) {
@@ -669,9 +682,10 @@ type WorkTraceProps = {
   extras?: { key: string; node: ReactNode }[];
   /**
    * The trace sits in a messenger conversation (the front page): the reply
-   * is drawn by `renderAnswer`, and a finished, answered turn shows no
-   * state line at rest. How long it took and what it used wait under the
-   * turn for whoever looks (`.trace-meta`).
+   * is drawn by `renderAnswer`, the model's reasoning is not drawn at all
+   * (`withoutReasoning`), and a finished, answered turn shows no state line
+   * at rest. How long it took and what it used wait under the turn for
+   * whoever looks (`.trace-meta`).
    */
   messenger?: boolean;
   renderAnswer?: RenderAnswer;
@@ -680,7 +694,10 @@ type WorkTraceProps = {
 function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error, onDecide, renderText, className, receipt, completionLabel, conversation = false, companion = false, face, extras, messenger = false, renderAnswer }: WorkTraceProps) {
   const t = useT();
   const rail = useRail();
-  const blocks = useMemo(() => withoutQuestionPolls(rawBlocks), [rawBlocks]);
+  const blocks = useMemo(() => {
+    const kept = withoutQuestionPolls(rawBlocks);
+    return messenger ? withoutReasoning(kept) : kept;
+  }, [rawBlocks, messenger]);
   const live = status === "running";
   const elapsed = useClock(startedMs, live);
   // A finished turn is split into its work and its answer. Both looks fold
@@ -793,7 +810,7 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
       if (visibleError) items.push(errorItem(visibleError, "trace:error"));
       items.push(statusItem);
       return <div className={cn("min-w-0", conversation && "w-full max-w-[44rem] self-start", className)} data-testid="work-trace" data-look="rail" data-state={status} {...(conversation ? { "data-conversation": "" } : {})}>
-        <ConversationWorkFold durationMs={durationMs} expandInner={false}
+        <ConversationWorkFold durationMs={durationMs} expandInner={false} thoughts={!messenger}
           failureCount={folded.filter((block) => block.kind === "tool" && block.isError).length} attention={waiting.length ? <Rail items={waiting.map((block) => ({
           key: block.callId, rail: !hasPersonCard(block), node: <TraceTool block={block} status={status} onDecide={onDecide} />,
         }))} /> : undefined}>
