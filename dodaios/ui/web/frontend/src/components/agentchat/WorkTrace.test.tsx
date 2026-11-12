@@ -294,6 +294,34 @@ describe("work trace", () => {
     expect(screen.getByRole("status").className).not.toContain("trace-meta");
   });
 
+  it("draws no reasoning in a messenger conversation, live or finished", () => {
+    const answer = (text: string) => <p data-testid="own-reply">{text}</p>;
+    const thinking: TurnBlock = { kind: "reasoning", id: "now", text: "Weigh the options.", live: true, durationMs: null, startedMs: 1000 };
+    // Running: no scratchpad, no finished thought; the state line carries the wait.
+    const { rerender } = render(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[thought, tool("a"), thinking]} />);
+    const trace = screen.getByTestId("work-trace");
+    expect(screen.queryByTestId("reasoning-body")).toBeNull();
+    expect(trace.textContent).not.toMatch(/Check|Weigh the options|Thinking|Thought/);
+    expect(screen.getByRole("status").textContent).toContain("Working");
+    // Finished: the fold holds the steps and says "Worked for", not "Thought for".
+    rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[thought, tool("a"), reply("done", "All set.")]} />);
+    const fold = screen.getByTestId("conversation-work-fold");
+    expect(within(fold).getByRole("button", { name: "Worked for 12s" })).toBeTruthy();
+    openWork();
+    expect(trace.querySelectorAll("[data-trace-entry='reasoning']")).toHaveLength(0);
+    expect(trace.textContent).not.toMatch(/Check|Thought/);
+    expect(trace.querySelector("[data-trace-entry='call']")).toBeTruthy();
+    // Only thoughts stood before the answer: nothing is left to fold.
+    rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[thought, reply("done", "All set.")]} />);
+    expect(screen.queryByTestId("conversation-work-fold")).toBeNull();
+    expect(screen.getByTestId("own-reply").textContent).toBe("All set.");
+    // Every other trace keeps its thoughts.
+    rerender(<WorkTrace {...props} blocks={[thought, tool("a"), reply("done", "All set.")]} />);
+    expect(within(screen.getByTestId("conversation-work-fold")).getByRole("button", { name: "Thought for 12s" })).toBeTruthy();
+    openWork();
+    expect(screen.getByTestId("work-trace").textContent).toContain("Check");
+  });
+
   it("treats a tool-only turn as work", () => {
     expect(splitConversationTurn([tool("a")])).toEqual({ work: [tool("a")], answer: [], after: [] });
   });
