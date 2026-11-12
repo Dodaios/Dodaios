@@ -30,6 +30,8 @@ import { useDeckStore } from "@/store/deck";
 import { MEMORY_WRITE_EVENT, useMemoryWrites } from "@/store/memoryWrites";
 import { useHomeStore } from "@/store/home";
 import { useAgentChatStore } from "@/store/agentChat";
+import { invalidateAgentChatSessions } from "@/lib/agentChatApi";
+import { openCodingThread } from "@/components/agentic/threads/openCodingThread";
 import { PANE_ACTIVITY_EVENT } from "@/store/workspacePanes";
 import { WSAudioLevel, WSEventEnvelope, WSWelcome } from "@/schema/ws";
 import { useI18nStore, hydrateUiLanguage, hydrateReplyLanguage, isUiLanguage, translate, fill } from "@/i18n";
@@ -510,6 +512,13 @@ export function useWebSocket(): void {
                   useAgentChatStore.getState().openSession(p.target_id);
                   useHomeStore.getState().setJarvisCardMode("chat");
                 }
+              }
+              // A coding agent Dodaios opened on a spoken request: the IDE
+              // comes forward in Chat on that thread, whichever layout it
+              // was left in.
+              if (section === "agentic-ide" && p.target === "thread" && p.target_id) {
+                invalidateAgentChatSessions();
+                openCodingThread(p.target_id);
               }
             }
             // The Settings "Autopilot Toasts" switch owns this note.

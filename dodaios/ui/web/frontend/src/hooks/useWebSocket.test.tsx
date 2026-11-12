@@ -18,6 +18,7 @@ import {
 import { useEventStore } from "@/store/events";
 import { useHomeStore } from "@/store/home";
 import { useAgentChatStore } from "@/store/agentChat";
+import { useIdeThreadsStore } from "@/store/ideThreads";
 import { SPEAKER_MUTE_EVENT } from "@/lib/speakerMute";
 
 /** Minimal mock for WebSocket (mirrors __tests__/ws.test.ts). */
@@ -421,6 +422,21 @@ describe("useWebSocket VoiceBootStatus handling", () => {
     expect(useHomeStore.getState().jarvisCardMode).toBe("chat");
     expect(useEventStore.getState().activeSection).toBe("chats");
     useAgentChatStore.setState({ openSession: original });
+  });
+
+  it("opens a coding thread Dodaios started in the IDE's Chat layout", async () => {
+    useEventStore.setState({ solo: false, activeSection: "chats", toasts: [] });
+    useIdeThreadsStore.setState({ layout: "grid", selection: { projectId: "", sessionId: null } });
+    render(<Harness />);
+    await Promise.resolve();
+
+    MockWebSocket.last!.deliver(
+      envelope("NavigateSidebar", { section: "agentic-ide", target: "thread", target_id: "t-9" }),
+    );
+
+    expect(useEventStore.getState().activeSection).toBe("agentic-ide");
+    expect(useIdeThreadsStore.getState().layout).toBe("threads");
+    expect(useIdeThreadsStore.getState().selection.sessionId).toBe("t-9");
   });
 
   it("a detached window keeps its view when a target is opened elsewhere", async () => {

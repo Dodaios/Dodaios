@@ -23,6 +23,7 @@ from dodaios.core.protocols import CodingSessionGateway
 from dodaios.live.state import LiveLedger
 
 from .awareness import snapshot
+from .chat_threads import ChatThreads, chat_provider, is_thread, session_of, spawn_mode
 from .session import (
     MAX_PANES_PER_REQUEST,
     AgentBusyError,
@@ -33,6 +34,7 @@ from .session import (
     terminals_added_event,
 )
 from .workspace_catalog import project_graph
+from .workspace_view import VIEW_CHAT, VIEW_GRID
 
 
 def _matches(reference: str, *values: str) -> bool:
@@ -64,6 +66,10 @@ _PANE_ACTIONS = frozenset(
 # types nothing; restart brings the same pane back on its own conversation.
 _STOPPED = frozenset({"exited", "error"})
 _WORKSPACE_ACTIONS = frozenset({"open_workspace", "restore", "show"})
+# Chat threads one request may open. Each is a coding CLI working at once.
+MAX_THREADS_PER_REQUEST = 16
+# What a chat thread takes besides a task; the rest belongs to terminal panes.
+_THREAD_ACTIONS = frozenset({"resolve", "send", "observe", "context", "interrupt", "watch"})
 # How much of an agent's last prompt the status board repeats.
 _STATUS_JOB_CHARS = 200
 # How many times one request may be re-attempted after receipts proving that
@@ -263,10 +269,13 @@ class WorkspaceOrchestrator:
         registry: Registry,
         sessions: CodingSessionGateway,
         ledger: LiveLedger,
+        threads: ChatThreads | None = None,
     ) -> None:
         self.registry = registry
         self.sessions = sessions
         self.ledger = ledger
+        # New coding agents open as chat threads unless the grid is asked for.
+        self.threads = threads or ChatThreads()
         # A source update can leave the boot-loaded ledger older than this
         # lazily imported controller. Check the contract before allocating a
         # pane, recording a claim, or sending anything to an agent.
@@ -418,19 +427,40 @@ class WorkspaceOrchestrator:
             row.pop("folder")
             if git is not None:
                 row["git"] = git
+        threads = await self._threads_in(args, graph)
+        for thread in threads:
+            counts[thread["state"]] = counts.get(thread["state"], 0) + 1
+            if thread["state"] == "needs_input":
+                needs_you.append(f"{thread['name']} (chat thread)")
         return {
             "status": "ok",
             "counts": counts,
             "needs_you": needs_you,
             "workspaces": rows,
+            **({"threads": threads} if threads else {}),
             **({"closed_workspaces": closed} if closed else {}),
             "note": (
                 "busy = in a turn; needs_input = showing a question; idle = its conversation "
                 "is waiting; empty = unused; needs_attention = stopped, failed or exited. "
                 "A finished turn says nothing about whether the work is correct. observe one "
-                "agent for what it wrote; git counts uncommitted files per workspace folder."
+                "agent for what it wrote; git counts uncommitted files per workspace folder. "
+                "threads are the coding agents in Chat mode; send, observe, interrupt and "
+                "watch take a thread's terminal_id directly."
             ),
         }
+
+    @staticmethod
+    def _scope_folders(args: dict[str, Any], graph: dict[str, Any]) -> list[str] | None:
+        """The folders a request's workspace or project covers; None = every folder."""
+        if not any(args.get(k) for k in ("workspace", "workspace_id", "project", "project_id")):
+            return None
+        by_workspace = bool(args.get("workspace") or args.get("workspace_id"))
+        folders: list[str] = []
+        for project in graph["projects"]:
+            if not by_workspace and project.get("path"):
+                folders.append(str(project["path"]))
+            folders.extend(str(w["folder"]) for w in project["workspaces"] if w.get("folder"))
+        return list(dict.fromkeys(folders))
 
     async def watch(self, args: dict[str, Any]) -> dict[str, Any]:
         """Report back when the named agent ends the job it is working on now.
@@ -514,6 +544,10 @@ class WorkspaceOrchestrator:
             "or failed sessions are not automatically available."
         )
         return graph
+
+    async def _threads_in(self, args: dict[str, Any], graph: dict[str, Any]) -> list[dict]:
+        """The chat threads in the scope a request names, for the board and the graph."""
+        return await asyncio.to_thread(self.threads.rows, self._scope_folders(args, graph))
 
     def _workspace(
         self, args: dict[str, Any], graph: dict[str, Any], agent_ref: str
@@ -695,7 +729,17 @@ class WorkspaceOrchestrator:
         visible workspace, the open view is told so they appear at once, and a
         given prompt reaches each new pane through the ordinary receipted send,
         which starts the agent even when its workspace is not on screen.
+
+        That is the grid. Unless the request asks for it (``mode="grid"``), the
+        new agents open as chat threads instead (:meth:`_create_threads`), and
+        the grid is only the fallback for a CLI the chat cannot drive.
         """
+        fallback = ""
+        if spawn_mode(args.get("mode")) == VIEW_CHAT:
+            opened = await self._create_threads(args, trace_id=trace_id, creation_id=creation_id)
+            if isinstance(opened, dict):
+                return opened
+            fallback = opened
         graph = await asyncio.to_thread(self.graph)
         refs = {
             "project": str(args.get("project_id") or args.get("project") or ""),
@@ -783,6 +827,8 @@ class WorkspaceOrchestrator:
         delivery_ids = [self._issue(target) for target in targets]
         result: dict[str, Any] = {
             "status": "created",
+            "mode": VIEW_GRID,
+            **({"mode_note": fallback} if fallback else {}),
             "project": project["name"],
             "workspace": workspace["name"],
             "project_id": project["id"],
@@ -834,6 +880,352 @@ class WorkspaceOrchestrator:
             result["success"] = not creation_error and all(
                 d.get("status") == "accepted" for d in result["deliveries"]
             )
+        return result
+
+    async def _create_threads(
+        self, args: dict[str, Any], *, trace_id: str, creation_id: str,
+    ) -> dict[str, Any] | str:
+        """Open the new coding agents as chat threads, the IDE's Chat mode.
+
+        Returns the creation receipt, or the sentence saying why these agents
+        can only be terminal panes; the caller then opens them in the grid.
+        One creation is allowed per request, so that fallback happens here and
+        is never left to a second call.
+        """
+        from dodaios.core.delegation import current_delegation_origin
+        from dodaios.core.image_references import get_store
+
+        service = self.threads.service()
+        if service is None:
+            return "Chat threads are not available in this build; opened as terminal panes."
+        groups = self._thread_groups(args, service)
+        if not isinstance(groups, list):
+            return groups
+        graph = await asyncio.to_thread(self.graph)
+        place = self._thread_place(args, graph)
+        if "folder" not in place:
+            return place
+        folder = place["folder"]
+        from dodaios.society.coding_threads import _ensure_project, _installed_clis, _label_of
+
+        installed = await _installed_clis()
+        missing = [_label_of(row.id) for row, _ in groups if not installed.get(row.agent, True)]
+        if missing:
+            return {
+                "status": "not_accepted",
+                "reason": f"{', '.join(dict.fromkeys(missing))} is not installed on this "
+                          "computer. Nothing was created.",
+                **{k: place[k] for k in ("project_id", "workspace_id")},
+            }
+        requested = sum(count for _, count in groups)
+        rows = [row for row, count in groups for _ in range(count)][:MAX_THREADS_PER_REQUEST]
+        name = str(args.get("name") or "").strip()
+        prompt = str(args.get("prompt") or "").strip()
+        # The thread list is grouped by project: the folder must be one.
+        await asyncio.to_thread(_ensure_project, folder)
+        created: list[dict[str, Any]] = []
+        creation_error = ""
+        seen: dict[str, int] = {}
+        try:
+            for row in rows:
+                # The CLI's own name as the IDE shows it ("Claude Code"),
+                # numbered when the request opens several of one kind.
+                shown = _label_of(row.id)
+                seen[shown] = seen.get(shown, 0) + 1
+                several = sum(1 for other in rows if other.id == row.id) > 1
+                label = name if name and len(rows) == 1 else (
+                    f"{shown} {seen[shown]}" if several else shown
+                )
+                created.append(self.threads.create(
+                    folder=folder, row=row, name=label,
+                    title=name if name and len(rows) == 1 else "",
+                ))
+        except Exception as exc:  # noqa: BLE001 - earlier threads exist; keep their IDs
+            from loguru import logger
+
+            logger.warning("Chat thread creation failed: {}", type(exc).__name__)
+            if not created:
+                return {
+                    "status": "not_accepted",
+                    "reason": str(exc) or "The chat thread could not be opened.",
+                    **{k: place[k] for k in ("project_id", "workspace_id")},
+                }
+            creation_error = str(exc) or type(exc).__name__
+        targets = [
+            {
+                "project_id": place["project_id"],
+                "workspace_id": place["workspace_id"],
+                "terminal_id": thread["terminal_id"],
+            }
+            for thread in created
+        ]
+        delivery_ids = [self._issue(target) for target in targets]
+        result: dict[str, Any] = {
+            "status": "created",
+            "mode": VIEW_CHAT,
+            "where": "Chat threads in the Agentic IDE's Chat mode, not terminal panes.",
+            **{k: place[k] for k in ("project", "workspace", "project_id", "workspace_id")},
+            "folder": folder,
+            "agents": [
+                {**thread, "request_id": request_id}
+                for thread, request_id in zip(created, delivery_ids, strict=True)
+            ],
+            "requested": requested,
+            "capped": requested > len(rows),
+            **({"creation_error": creation_error, "success": False} if creation_error else {}),
+        }
+        # Persist identity before the first turn starts, as the grid does: a
+        # cancelled or late result must never become permission to open more.
+        await asyncio.to_thread(
+            self.ledger.finish, "workspace-create", creation_id,
+            {**result, "status": "uncertain", "success": False, "request_id": creation_id,
+             "reason": "New chat threads exist; delivery is pending. Observe only these IDs. "
+                       "Do not recreate, reassign or send correction prompts."},
+        )
+        origin = current_delegation_origin.get()
+        if prompt:
+            images = get_store().resolve(
+                str(args.get("_image_scope") or ""), args.get("image_refs", [])
+            )
+            deliveries = await asyncio.gather(
+                *(
+                    self.threads.send(
+                        session_of(thread["terminal_id"]), prompt, name=thread["name"],
+                        origin=origin, images=images,
+                    )
+                    for thread in created
+                )
+            )
+            result["deliveries"] = [
+                {**delivery, "target": target, "request_id": request_id, "trace_id": trace_id}
+                for delivery, target, request_id in zip(
+                    deliveries, targets, delivery_ids, strict=True
+                )
+            ]
+            for request_id in delivery_ids:
+                self._mark_sent(request_id, _assignment(args))
+            result["success"] = not creation_error and all(
+                d.get("status") == "accepted" for d in result["deliveries"]
+            )
+        await self._show_threads([session_of(t["terminal_id"]) for t in created], origin)
+        return result
+
+    def _thread_groups(
+        self, args: dict[str, Any], service: Any,
+    ) -> list[tuple[Any, int]] | dict[str, Any] | str:
+        """``(chat provider, count)`` per requested CLI.
+
+        A reply when a CLI name is not one, and a sentence when a CLI can only
+        run as a terminal pane (one the person added has no chat mode).
+        """
+        raw = args.get("agents")
+        entries = raw if isinstance(raw, list) and raw else [args]
+        groups: list[tuple[Any, int]] = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            spoken = str(entry.get("cli") or "").strip()
+            cli = _coding_cli(spoken) if spoken else None
+            if spoken and cli is None:
+                from dodaios.workspace import agents as workspace_agents
+
+                return {
+                    "status": "needs_clarification",
+                    "kind": "cli",
+                    "reason": f"'{spoken}' is not a coding CLI this app can open.",
+                    "candidates": [
+                        a.name for a in workspace_agents.coding_agents() if accepts_prompts(a.name)
+                    ],
+                }
+            row = (
+                chat_provider(cli) if cli
+                else self.threads.default_provider(service, _default_cli())
+            )
+            if row is None:
+                return (
+                    f"{spoken or 'The coding CLI'} runs only as a terminal pane; opened in "
+                    "the grid instead of Chat."
+                )
+            try:
+                count = int(entry.get("count") or 1)
+            except (TypeError, ValueError):  # a malformed count falls back to one thread
+                count = 1
+            groups.append((row, max(1, min(count, MAX_THREADS_PER_REQUEST))))
+        return groups or "No coding CLI was named; opened in the grid."
+
+    def _thread_place(self, args: dict[str, Any], graph: dict[str, Any]) -> dict[str, Any]:
+        """The folder a new chat thread works in, or the reply saying why none.
+
+        A thread needs a folder, not an open workspace: a named or visible
+        workspace gives its folder, else the named project its own, else the
+        absolute ``folder`` the request carries.
+        """
+        from pathlib import Path
+
+        place = {"project": "", "workspace": "", "project_id": "", "workspace_id": ""}
+        given = str(args.get("folder") or "").strip()
+        if given:
+            path = Path(given).expanduser()
+            if not path.is_absolute() or not path.is_dir():
+                return {
+                    "status": "needs_clarification",
+                    "kind": "folder",
+                    "reason": f"The folder {given} does not exist. Give an absolute path or a "
+                              "known project.",
+                    "candidates": [
+                        {"project": p["name"], "folder": p["path"]} for p in graph["projects"]
+                    ],
+                }
+            return {**place, "folder": str(path.resolve())}
+        project_ref = str(args.get("project_id") or args.get("project") or "")
+        workspace_ref = str(args.get("workspace_id") or args.get("workspace") or "")
+        if workspace_ref or not project_ref:
+            # A closed workspace still names its folder; a thread does not need it open.
+            workspaces = {
+                w["id"]: (p, w) for p in graph["projects"] for w in p["workspaces"]
+            }
+            picked = self._workspace(args, graph, "")
+            if isinstance(picked, dict) and picked.get("workspace_id") in workspaces:
+                picked = workspaces[picked["workspace_id"]]
+            if isinstance(picked, tuple):
+                project, workspace = picked
+                return {
+                    "project": project["name"], "project_id": project["id"],
+                    "workspace": workspace["name"], "workspace_id": workspace["id"],
+                    "folder": str(workspace["folder"]),
+                }
+            if workspace_ref:
+                return picked
+        projects = graph["projects"]
+        matched = projects
+        if project_ref:
+            matched = (
+                [p for p in projects if p["id"] == project_ref] if args.get("project_id")
+                else _best(project_ref, projects, lambda p: ((p["id"], p["path"]), (p["name"],)))
+            )
+        if len(matched) == 1 and Path(str(matched[0]["path"])).is_dir():
+            return {
+                **place, "project": matched[0]["name"], "project_id": matched[0]["id"],
+                "folder": str(matched[0]["path"]),
+            }
+        return {
+            "status": "needs_clarification",
+            "kind": "project",
+            "reason": (
+                f"No one project matches '{project_ref}'. " if project_ref else ""
+            ) + "Name the project the new coding agent works in, or give its folder.",
+            "candidates": [
+                {"project_id": p["id"], "project": p["name"], "folder": p["path"]}
+                for p in (matched or projects)
+            ],
+        }
+
+    async def _show_threads(self, session_ids: list[str], origin: dict[str, str] | None) -> None:
+        """Bring the new threads in front of the person.
+
+        A typed conversation gets a card that opens each thread; a spoken one
+        has no card to click, so the IDE comes forward in Chat on the first.
+        """
+        surface = str((origin or {}).get("reply_surface") or "")
+        reply_session = str((origin or {}).get("reply_session_id") or "")
+        if surface == "chat" and reply_session:
+            for session_id in session_ids:
+                await self.threads.announce(reply_session, session_id)
+        if surface != "voice" or not session_ids:
+            # A scheduled or internal turn moves nothing on the person's screen.
+            return
+
+        def navigation() -> Any:
+            from dodaios.core.events import NavigateSidebar
+
+            return NavigateSidebar(
+                section="agentic-ide", target="thread", target_id=session_ids[0],
+                source_layer="agentic_ide.orchestration",
+            )
+
+        await self._announce(navigation)
+
+    async def _thread_action(self, args: dict[str, Any], *, trace_id: str) -> dict[str, Any]:
+        """One action on a chat thread, addressed by ``terminal_id`` ``thread:<id>``."""
+        from dodaios.core.delegation import current_delegation_origin
+        from dodaios.core.image_references import get_store
+
+        action = str(args.get("action"))
+        terminal_id = str(args["terminal_id"]).strip()
+        session_id = session_of(terminal_id)
+        target = {
+            "project_id": str(args.get("project_id") or ""),
+            "workspace_id": str(args.get("workspace_id") or ""),
+            "terminal_id": terminal_id,
+        }
+        if self.threads.service() is None:
+            return {
+                "status": "unavailable", "target": target,
+                "reason": "Chat threads are not available in this build.",
+            }
+        if action not in _THREAD_ACTIONS:
+            return {
+                "status": "not_accepted", "target": target,
+                "reason": f"{action} belongs to terminal panes. A chat thread takes send, "
+                          "observe, interrupt and watch; the person answers its question, "
+                          "plan and approval cards and archives it in the Agentic IDE.",
+            }
+        if action in {"observe", "context", "resolve"}:
+            seen = await self.threads.observe(session_id, limit=args.get("limit", 30))
+            if action != "resolve" or seen["status"] != "observed":
+                return {**seen, "target": target}
+            return {
+                "status": "resolved",
+                "request_id": self._issue(target, named=True),
+                "target": {**target, "agent": seen["name"]},
+                "selection": "explicit_agent",
+                "session": {k: seen[k] for k in ("name", "title", "cli", "mode", "state")},
+            }
+        if action == "interrupt":
+            return {**await self.threads.interrupt(session_id), "target": target}
+        if action == "watch":
+            return {
+                **self.threads.watch(session_id, current_delegation_origin.get()),
+                "target": target,
+            }
+        prompt = str(args.get("prompt") or "").strip()
+        if not prompt:
+            raise ValueError("Sending requires a prompt.")
+        while_busy = str(args.get("while_busy") or "refuse").strip().casefold()
+        if while_busy not in _WHILE_BUSY:
+            raise ValueError(f"while_busy must be one of {', '.join(_WHILE_BUSY)}.")
+        refs = args.get("image_refs", [])
+        image_scope = str(args.get("_image_scope") or "")
+        _, request_id = self._reconcile(args, action)
+        if not _is_request_id(request_id):
+            seed = f"{terminal_id}\n{prompt}\n{refs}\n{int(time.time() // _RETRY_WINDOW_S)}"
+            request_id = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
+        self._mark_sent(request_id, _assignment(args))
+        claimed = {**target, "prompt": prompt, "image_refs": refs,
+                   **({"image_scope": image_scope} if refs else {})}
+        receipt_id, previous = request_id, None
+        for attempt in range(_REFUSED_ATTEMPTS):
+            # A receipt proving nothing was written does not spend the request.
+            receipt_id = request_id if not attempt else f"{request_id}~{attempt}"
+            previous = await asyncio.to_thread(
+                self.ledger.claim, "workspace-orchestration", receipt_id, "send",
+                claimed, 0, deduplicate_unconfirmed=True,
+            )
+            if previous is None or not _never_delivered(previous):
+                break
+        if previous is not None:
+            return {"target": target, "request_id": request_id, **previous}
+        result = {
+            **await self.threads.send(
+                session_id, prompt, origin=current_delegation_origin.get(),
+                images=get_store().resolve(image_scope, refs),
+                when_busy="refuse" if while_busy == "queue" else while_busy,
+            ),
+            "target": target, "request_id": request_id, "trace_id": trace_id,
+        }
+        await asyncio.to_thread(
+            self.ledger.finish, "workspace-orchestration", receipt_id, result
+        )
         return result
 
     async def _announce(self, event_factory: Callable[[], Any]) -> None:
@@ -1452,6 +1844,11 @@ class WorkspaceOrchestrator:
         action = args.get("action")
         from dodaios.core.image_references import get_store
 
+        # A thread's result reaches the conversation over the same bus as a pane's.
+        self.threads.publish = self.publish
+        # Built here, on the loop, when this is its first use: the reads below
+        # that leave the loop must only ever find it, never build it.
+        self.threads.service()
         refs = args.get("image_refs", [])
         image_scope = str(args.get("_image_scope") or "")
         dispatch_scope = str(args.get("_dispatch_scope") or "")
@@ -1495,14 +1892,36 @@ class WorkspaceOrchestrator:
             raise ValueError("Image references require a specific task prompt.")
         if action in {"create", "open_workspace"}:
             get_store().resolve(image_scope, refs)
+        if is_thread(args.get("terminal_id")) and action not in {"create", "open_workspace"}:
+            return await self._thread_action(args, trace_id=trace_id)
         if action in {"inspect", "resolve"}:
             from . import task_state
 
             await task_state.refresh(self.registry)
             graph = await asyncio.to_thread(self.inspect, args)
-            if action == "inspect" or "projects" not in graph:
+            if "projects" not in graph:
                 return graph
-            return self.resolve(args, graph)
+            if action == "inspect":
+                threads = await self._threads_in(args, graph)
+                if threads:
+                    graph["threads"] = threads
+                    graph["note"] += (
+                        " threads are the coding agents in Chat mode: address one by its "
+                        "terminal_id (send, observe, interrupt, watch), no resolve needed."
+                    )
+                return graph
+            resolved = self.resolve(args, graph)
+            if resolved.get("status") != "resolved":
+                # The agent the user means may be one working in Chat mode. Read
+                # only now: a resolve that found its pane stays as fast as it was.
+                threads = await self._threads_in(args, graph)
+                if threads:
+                    resolved["threads"] = threads
+                    resolved["threads_note"] = (
+                        "These coding agents work as chat threads. When the user means one "
+                        "of them, send to its terminal_id directly."
+                    )
+            return resolved
         if action == "create":
             return await self.create(args, trace_id=trace_id)
         if action == "git":
