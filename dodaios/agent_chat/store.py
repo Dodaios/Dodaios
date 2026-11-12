@@ -136,9 +136,26 @@ CREATE TABLE IF NOT EXISTS jarvis_lead_session (
     id          INTEGER PRIMARY KEY CHECK (id = 1),
     session_id  TEXT NOT NULL
 );
+-- Side threads (side_threads.py): a message sent while the conversation's turn
+-- was still working is answered in a session of its own. The row names the
+-- conversation it belongs to and keeps it out of every chat list; ``status``
+-- is ``running`` until its ``side_thread_finished`` notice is posted.
+CREATE TABLE IF NOT EXISTS agent_chat_side_threads (
+    session_id      TEXT PRIMARY KEY,
+    parent_session  TEXT NOT NULL,
+    request         TEXT NOT NULL DEFAULT '',
+    status          TEXT NOT NULL DEFAULT 'running',
+    created_ms      INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_agent_chat_side_threads_parent
+    ON agent_chat_side_threads(parent_session, status);
 """
 
 _VOICE_DEDUP_KEEP_MS: Final[int] = 30 * 24 * 3600 * 1000
+#: SQL: a session that is a chat of its own, not a side thread of another one.
+_NOT_A_SIDE_THREAD: Final[str] = (
+    "session_id NOT IN (SELECT session_id FROM agent_chat_side_threads)"
+)
 _TITLE_MAX_CHARS = 80
 _PREVIEW_MAX_CHARS = 120
 #: How much of a matching message the thread search shows.
@@ -442,17 +459,22 @@ class AgentChatStore:
     def list_sessions(
         self, limit: int = 200, *, surface: str | None = None
     ) -> list[AgentChatSession]:
-        """Newest first; ``surface`` narrows the list to one chat's sessions."""
+        """Newest first; ``surface`` narrows the list to one chat's sessions.
+
+        A side thread is part of the conversation it was started from and is
+        drawn there, so it is never a chat of its own in a list.
+        """
         with self._lock:
             if surface is None:
                 rows = self._conn.execute(
-                    "SELECT * FROM agent_chat_sessions ORDER BY updated_ms DESC LIMIT ?",
+                    f"SELECT * FROM agent_chat_sessions WHERE {_NOT_A_SIDE_THREAD} "  # noqa: S608
+                    "ORDER BY updated_ms DESC LIMIT ?",
                     (int(limit),),
                 ).fetchall()
             else:
                 rows = self._conn.execute(
-                    "SELECT * FROM agent_chat_sessions WHERE surface = ? "
-                    "ORDER BY updated_ms DESC LIMIT ?",
+                    f"SELECT * FROM agent_chat_sessions WHERE surface = ? "  # noqa: S608
+                    f"AND {_NOT_A_SIDE_THREAD} ORDER BY updated_ms DESC LIMIT ?",
                     (surface, int(limit)),
                 ).fetchall()
         return [self._row_to_session(r) for r in rows]
@@ -507,15 +529,17 @@ class AgentChatStore:
             return []
         with self._lock:
             sessions = self._conn.execute(
-                "SELECT session_id, title, cwd, updated_ms FROM agent_chat_sessions WHERE surface = ?",
+                "SELECT session_id, title, cwd, updated_ms FROM agent_chat_sessions "  # noqa: S608
+                f"WHERE surface = ? AND {_NOT_A_SIDE_THREAD}",
                 (surface,),
             ).fetchall()
             rows = self._conn.execute(
-                "SELECT e.session_id, e.seq, e.ts_ms, e.kind, "
+                "SELECT e.session_id, e.seq, e.ts_ms, e.kind, "  # noqa: S608
                 "json_extract(e.payload, '$.text') AS text "
                 "FROM agent_chat_events e JOIN agent_chat_sessions s "
                 "ON s.session_id = e.session_id "
                 "WHERE s.surface = ? AND e.kind IN ('user_message', 'agent_message', 'assistant_text') "
+                f"AND s.{_NOT_A_SIDE_THREAD} "
                 "AND instr(dodaios_fold(json_extract(e.payload, '$.text')), ?) > 0 "
                 "ORDER BY e.seq DESC",
                 (surface, needle),
@@ -679,6 +703,7 @@ class AgentChatStore:
                 "agent_chat_approval_memory",
                 "agent_chat_parked_work",
                 "agent_chat_queued_messages",
+                "agent_chat_side_threads",
             ):
                 self._conn.execute(
                     f"DELETE FROM {table} WHERE session_id = ?",  # noqa: S608 - fixed names
@@ -1050,6 +1075,71 @@ class AgentChatStore:
                 log.warning("agent chat: parked wait row damaged, dropped")
                 continue  # a damaged row is dropped rather than blocking boot
         return out
+
+    # ---------------------------------------------------------- side threads
+
+    def save_side_thread(self, session_id: str, parent_session: str, request: str) -> None:
+        """Mark ``session_id`` as a running side thread of ``parent_session``."""
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO agent_chat_side_threads "
+                "(session_id, parent_session, request, status, created_ms) "
+                "VALUES (?, ?, ?, 'running', ?)",
+                (session_id, parent_session, request, now_ms()),
+            )
+            self._conn.commit()
+
+    def close_side_thread(self, session_id: str, status: str) -> bool:
+        """Record how a side thread ended; False when it had already ended.
+
+        The one place a side thread stops being ``running``, so its closing
+        notice is posted exactly once however many paths notice the end.
+        """
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE agent_chat_side_threads SET status = ? "
+                "WHERE session_id = ? AND status = 'running'",
+                (status, session_id),
+            )
+            self._conn.commit()
+        return cur.rowcount > 0
+
+    def side_thread(self, session_id: str) -> dict[str, Any] | None:
+        """The side-thread row of ``session_id``; ``None`` for a chat of its own."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM agent_chat_side_threads WHERE session_id = ?", (session_id,)
+            ).fetchone()
+        return self._side_row(row) if row else None
+
+    def side_threads(
+        self, parent_session: str | None = None, *, running: bool = False
+    ) -> list[dict[str, Any]]:
+        """Side threads, oldest first: of one conversation, or of every one."""
+        clauses: list[str] = []
+        args: list[Any] = []
+        if parent_session is not None:
+            clauses.append("parent_session = ?")
+            args.append(parent_session)
+        if running:
+            clauses.append("status = 'running'")
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT * FROM agent_chat_side_threads{where} ORDER BY created_ms, rowid",  # noqa: S608
+                args,
+            ).fetchall()
+        return [self._side_row(r) for r in rows]
+
+    @staticmethod
+    def _side_row(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "session_id": str(row["session_id"]),
+            "parent_session": str(row["parent_session"]),
+            "request": str(row["request"]),
+            "status": str(row["status"]),
+            "created_ms": int(row["created_ms"]),
+        }
 
     def queue_notice_events(self, session_id: str) -> list[dict[str, Any]]:
         """Queue receipts only, including waits hidden behind long tool streams."""

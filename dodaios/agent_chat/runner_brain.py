@@ -581,6 +581,18 @@ async def run_brain_turn(
     background = board.context_note(session.session_id) if board is not None else ""
     if background:
         system_extra += "\n\n" + background
+    chat_service = getattr(handle, "control_service", None)
+    if chat_service is not None and session.surface == "jarvis":
+        # A side thread starts on a brief of its conversation; a main-thread
+        # turn is told which messages are being answered beside it.
+        from dodaios.agent_chat import side_threads
+
+        for note in (
+            side_threads.context_note(chat_service, session.session_id),
+            side_threads.running_note(chat_service, session.session_id),
+        ):
+            if note:
+                system_extra += "\n\n" + note
     if tool_choices:
         from dodaios.agent_chat.tool_catalog import (
             live_catalog,
@@ -610,8 +622,9 @@ async def run_brain_turn(
         kit_tools=kit_tools,
         system_extra=system_extra,
     )
-    if session.surface == "jarvis" and _is_lead(session.session_id):
-        # The lead conversation gets the lead doctrine and the ecosystem map.
+    if session.surface == "jarvis" and _speaks_as_lead(session.session_id):
+        # The lead conversation, and a side thread of it, get the lead doctrine
+        # and the ecosystem map.
         override = replace(override, lead=True)
     if person_request:
         # Tools that check a call against what the person asked for (a task
@@ -901,6 +914,22 @@ def _is_lead(session_id: str) -> bool:
     except Exception:  # noqa: BLE001 — no service: keep the plain window
         return False
     return svc is not None and is_lead(svc, session_id)
+
+
+def _speaks_as_lead(session_id: str) -> bool:
+    """The lead's conversation or a side thread of it: the lead answering its person."""
+    if _is_lead(session_id):
+        return True
+    try:
+        from dodaios.agent_chat.side_threads import parent_of
+        from dodaios.society.runtime import current_runtime
+
+        runtime = current_runtime()
+        svc = runtime.chat_service() if runtime is not None else None
+        parent = parent_of(svc, session_id) if svc is not None else ""
+    except Exception:  # noqa: BLE001 — no service: a plain chat
+        return False
+    return bool(parent) and _is_lead(parent)
 
 
 def _agent_secret(resolver: Callable[[str], str | None], provider: str) -> str | None:

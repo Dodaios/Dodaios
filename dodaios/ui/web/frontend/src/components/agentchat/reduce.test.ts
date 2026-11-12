@@ -7,6 +7,7 @@ import {
   reduceEvents,
   runningTurn,
   settleApproval,
+  sideThreadOf,
   stopTurnLocally,
   type ToolBlock,
   type TurnItem,
@@ -18,6 +19,47 @@ function ev(kind: string, payload: Record<string, unknown>, persisted = true): A
   if (persisted) seq += 1;
   return { seq: persisted ? seq : 0, ts_ms: 1_000 + seq, kind, payload };
 }
+
+describe("side threads", () => {
+  const started = () => ev("notice", { kind: "side_thread_started", side_id: "s1", text: "What is the capital of Australia?" });
+
+  it("keeps one line per side thread and writes its outcome onto it", () => {
+    const open = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "Compare three desks" }),
+      ev("turn_started", { turn_id: "t1" }),
+      started(),
+    ]);
+    const line = open.items[2];
+    expect(sideThreadOf(line)).toMatchObject({ id: "s1", running: true });
+    // The main turn is still the running one: a side thread is not a turn of this chat.
+    expect(runningTurn(open)?.id).toBe("t1");
+
+    const closed = reduceEvent(open, ev("notice", {
+      kind: "side_thread_finished", side_id: "s1", status: "done",
+      text: "What is the capital of Australia?", answer: "Canberra.",
+    }));
+    expect(closed.items).toHaveLength(3);
+    const done = closed.items[2];
+    expect(done.id).toBe(line.id); // the same line, in the place where it was asked
+    expect(sideThreadOf(done)).toMatchObject({ id: "s1", running: false });
+    expect(done).toMatchObject({ kind: "side_thread_started", resolved: "done", data: { answer: "Canberra." } });
+  });
+
+  it("drops the line of a message that moved into the main thread", () => {
+    const open = reduceEvents(EMPTY_TIMELINE, [started()]);
+    const moved = reduceEvent(open, ev("notice", { kind: "side_thread_finished", side_id: "s1", status: "moved", text: "x" }));
+    expect(moved.items).toEqual([]);
+  });
+
+  it("shows an outcome whose opening line was not loaded", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("notice", { kind: "side_thread_finished", side_id: "s9", status: "stopped", text: "And the weather?" }),
+    ]);
+    expect(tl.items).toHaveLength(1);
+    expect(sideThreadOf(tl.items[0])).toMatchObject({ id: "s9", running: false });
+    expect(tl.items[0]).toMatchObject({ text: "And the weather?", resolved: "stopped" });
+  });
+});
 
 describe("agent-chat reduce", () => {
   it("shows a turn's work when its turn_started is missing from the log", () => {

@@ -609,6 +609,33 @@ export async function sendQueuedNow(sessionId: string, queueId: string): Promise
   return result.steered ? "steered" : result.next ? "next" : "gone";
 }
 
+/** Stop one side thread of a conversation; the main thread and the others go on. */
+export async function stopSideThread(sessionId: string, sideId: string): Promise<void> {
+  await json<{ stopped: boolean }>(
+    await fetch(
+      `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/side-threads/${encodeURIComponent(sideId)}/stop`,
+      { method: "POST" },
+    ),
+    "side-thread-failed",
+  );
+}
+
+/**
+ * The message belongs to the request running in the main thread: its side
+ * thread stops and the message starts there as the next turn, with that
+ * request's context. `queued` behind it, `sent` when the main thread is free.
+ */
+export async function moveSideThreadToMain(sessionId: string, sideId: string): Promise<"queued" | "sent"> {
+  const result = await json<{ outcome: "queued" | "sent" }>(
+    await fetch(
+      `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/side-threads/${encodeURIComponent(sideId)}/to-main`,
+      { method: "POST" },
+    ),
+    "side-thread-failed",
+  );
+  return result.outcome;
+}
+
 /** New words for a waiting message; false when it already started or is gone. */
 export async function editQueuedMessage(sessionId: string, queueId: string, text: string): Promise<boolean> {
   const result = await json<{ edited: boolean }>(

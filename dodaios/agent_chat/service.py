@@ -743,6 +743,12 @@ class AgentChatService:
         except Exception:  # noqa: BLE001 - the delegates' own reports still arrive
             log.warning("agent chat: parked wait recovery failed", exc_info=True)
         try:
+            from dodaios.agent_chat import side_threads
+
+            await side_threads.recover(self)
+        except Exception:  # noqa: BLE001 - a side thread's own log stays readable
+            log.warning("agent chat: side thread recovery failed", exc_info=True)
+        try:
             from dodaios.society.boot_sweep import sweep_open_jobs
 
             await sweep_open_jobs()
@@ -2036,7 +2042,7 @@ class AgentChatService:
             # (lead_turn_contract): the reply language comes from the one
             # resolver, a CLI seat also gets the skill and recall blocks, and
             # the answer is checked after the turn (TurnCompletion, lead mode).
-            from dodaios.agent_chat.lead import is_lead
+            from dodaios.agent_chat.side_threads import speaks_as_lead
 
             lead_contract = (
                 session.surface == "jarvis"
@@ -2046,7 +2052,8 @@ class AgentChatService:
                 and not native_goal
                 and not kit.plain
                 and bool(text)
-                and is_lead(self, session_id)
+                # A side thread of the conversation is the lead answering too.
+                and speaks_as_lead(self, session_id)
             )
             lead_pre = None
             if lead_contract:
@@ -2239,6 +2246,20 @@ class AgentChatService:
                     # Requests still running behind this turn; the brain
                     # runner carries the same note in its briefing.
                     background = self.parked_work.context_note(session_id)
+                    if session.surface == "jarvis":
+                        from dodaios.agent_chat import side_threads
+
+                        # A side thread's brief, or the side threads running
+                        # beside this main-thread turn.
+                        background = "\n\n".join(
+                            note
+                            for note in (
+                                background,
+                                side_threads.context_note(self, session_id),
+                                side_threads.running_note(self, session_id),
+                            )
+                            if note
+                        )
                     if lead_pre is not None and not active_handle.continuation:
                         run_prompt = lead_pre.apply(run_prompt)
                     vendor = await run_cli_turn(

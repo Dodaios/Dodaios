@@ -417,6 +417,23 @@ export interface InternalMessageItem {
 
 export type TimelineItem = UserItem | TurnItem | ErrorItem | NoticeItem | InternalMessageItem;
 
+/**
+ * A message the person sent while the conversation was still working on an
+ * earlier one is answered beside it, in a side thread (a chat session of its
+ * own, `data.side_id`). Its notice is one line of the conversation: opened by
+ * `side_thread_started`, patched in place by `side_thread_finished` with how
+ * it ended (`resolved`: done | stopped | failed | interrupted) and the answer.
+ * The kinds are `STARTED` / `FINISHED` in `dodaios/agent_chat/side_threads.py`.
+ */
+export const SIDE_THREAD_STARTED = "side_thread_started";
+export const SIDE_THREAD_FINISHED = "side_thread_finished";
+
+/** A side thread's line; null for every other item. */
+export function sideThreadOf(item: TimelineItem): { id: string; running: boolean; item: NoticeItem } | null {
+  if (item.type !== "notice" || item.kind !== SIDE_THREAD_STARTED) return null;
+  return { id: str(item.data.side_id), running: item.resolved === "", item };
+}
+
 export interface PendingApproval {
   approvalId: string;
   turnId: string;
@@ -1606,6 +1623,32 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
           data: p as Record<string, unknown>, resolved: "",
         };
         return { ...base, items: [...items, failed] };
+      }
+      if (kind === SIDE_THREAD_FINISHED) {
+        // A side thread ended: its line takes the outcome and the answer in
+        // place. One moved into the main thread leaves; its message shows there.
+        const sideId = str(p.side_id);
+        const index = base.items.findIndex(
+          (item) => item.type === "notice" && item.kind === SIDE_THREAD_STARTED && str(item.data.side_id) === sideId,
+        );
+        const status = str(p.status) || "done";
+        if (status === "moved") {
+          return index < 0 ? base : { ...base, items: base.items.filter((_, i) => i !== index) };
+        }
+        const { kind: _kind, ...outcome } = p as Record<string, unknown>;
+        if (index < 0) {
+          // Its opening line is outside what was loaded: the outcome stands alone.
+          const alone: NoticeItem = {
+            type: "notice", id: `n-${seq || ev.ts_ms}`, kind: SIDE_THREAD_STARTED, text, agentName: "",
+            agentId: "", status, tsMs: ev.ts_ms, data: outcome, resolved: status,
+          };
+          return { ...base, items: [...base.items, alone] };
+        }
+        const line = base.items[index] as NoticeItem;
+        return {
+          ...base,
+          items: replaceAt(base.items, index, { ...line, status, resolved: status, data: { ...line.data, ...outcome } }),
+        };
       }
       if (kind === "browser_takeover_done") {
         // The owner handed the browser back (or the ask lapsed): the card says so, no row of its own.

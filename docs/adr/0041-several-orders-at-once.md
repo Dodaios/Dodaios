@@ -134,7 +134,8 @@ requests that still wait for their agents; the agents' own work is untouched.
 
 A turn that is still answering or running a tool keeps its seat, and the new
 message queues behind it as before; when that turn then starts waiting, the
-queued message starts. A wait nobody interrupts keeps its turn, exactly as
+queued message starts. (Since [ADR-0046](0046-side-threads-in-the-lead-conversation.md)
+the lead's conversation answers such a message at once, in a side thread.) A wait nobody interrupts keeps its turn, exactly as
 before. An agent's own chat (`society`) keeps holding its turn.
 
 ### 5. A second typed order is not a duplicate spawn

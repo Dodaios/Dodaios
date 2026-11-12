@@ -26,6 +26,16 @@ describe("activityOf", () => {
     expect(done.map((r) => r.text)).toEqual(["Scout: Flights found"]);
     expect(done[0].messageId).toBe("n1");
   });
+
+  it("lists a message that is being answered beside the running request", () => {
+    const side = (id: string, resolved: string): TimelineItem => ({
+      type: "notice", id, kind: "side_thread_started", text: "Capital of Australia?\nmore", agentName: "", agentId: "",
+      status: resolved, tsMs: 2, data: { side_id: id }, resolved,
+    });
+    const { running } = activityOf([turn("t1", { status: "running" }), side("n1", ""), side("n2", "done")], t);
+    expect(running.map((r) => r.text)).toEqual(["home.activity.answering", "Capital of Australia?"]);
+    expect(running[1].messageId).toBe("n1");
+  });
 });
 
 const proactive = (over: Partial<Proactive["settings"]> = {}, checks: Partial<Proactive["checks"]> = {}): Proactive => ({

@@ -6,6 +6,7 @@ import { CodingThreadActivity } from "@/components/agentic/threads/CodingThreadL
 import { codingThreadOf, foldRepeatedThreadStatus } from "@/components/agentic/threads/openCodingThread";
 import { MessageWithChips } from "./ToolChoiceChips";
 import { MemoryLearnedNotice } from "./MemoryLearnedNotice";
+import { SideThread, type RenderSideTimeline } from "./SideThread";
 import { ChainResultCard } from "./ChainResultCard";
 import { ReportCard } from "./ReportCard";
 import { BrowserTakeoverNotice } from "./BrowserTakeoverNotice";
@@ -15,12 +16,12 @@ import { TasksCapturedCard } from "./reminders/TasksCapturedCard";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { effortLabel } from "./AgentComposer";
 import { livePetState, TurnTrace, type Decide, type TraceLook } from "./WorkTrace";
-import { LeadReply, REPLY_PROSE } from "./LeadReply";
+import { LeadReply, OWN_BUBBLE, REPLY_PROSE } from "./LeadReply";
 import { TypingBubble } from "./TypingBubble";
 import { PetMark } from "@/components/pets/PetMark";
 import { PetStageContext } from "@/components/pets/petStage";
 import type { PetState } from "@/lib/petStates";
-import type { TimelineItem, TurnItem, TextBlock } from "./reduce";
+import { SIDE_THREAD_STARTED, type TimelineItem, type TurnItem, type TextBlock } from "./reduce";
 import { TraceMessageLine } from "./TraceTimeline";
 import { attachTurnMessages, type TraceMessage } from "./turnMessages";
 import { useI18nStore, useT } from "@/i18n";
@@ -42,6 +43,7 @@ export function AgentTimeline({
   traceCompanion = false,
   traceFace,
   awaiting = false,
+  nested = false,
 }: {
   items: TimelineItem[];
   assistantName: string;
@@ -76,6 +78,8 @@ export function AgentTimeline({
    * the chat never sits silent after a send.
    */
   awaiting?: boolean;
+  /** A side thread's answer inside the conversation: no time stamps of its own. */
+  nested?: boolean;
 }) {
   const t = useT();
   // On the rail look an agent's answer to a working turn is a quiet line in
@@ -85,7 +89,22 @@ export function AgentTimeline({
     const folded = foldRepeatedThreadStatus(items);
     return traceLook === "rail" ? attachTurnMessages(folded) : { items: folded, messagesByTurn: NO_MESSAGES };
   }, [items, traceLook]);
-  const stamps = bubbles ? timeStamps(shown) : null;
+  const stamps = bubbles && !nested ? timeStamps(shown) : null;
+  // A side thread's own conversation wears this timeline's look, without the
+  // pet: the assistant's face stands beside the main thread only.
+  const renderSide: RenderSideTimeline = (sideItems, decide) => (
+    <AgentTimeline
+      items={sideItems}
+      assistantName={assistantName}
+      providerLabel={providerLabel}
+      modelLabel={modelLabel}
+      onDecide={decide}
+      agentsById={agentsById}
+      bubbles={bubbles}
+      traceLook={traceLook}
+      nested
+    />
+  );
   // The assistant's pet stands beside its newest turn only.
   const latestTurnId = useMemo(() => {
     // While it types its next turn, it stands beside the dots instead.
@@ -178,7 +197,7 @@ export function AgentTimeline({
             className={cn(
               "text-[15px] leading-[23px]",
               bubbles
-                ? "jarvis-chat-out jarvis-chat-tinted lead-bubble-own max-w-[80%] px-4 py-2"
+                ? OWN_BUBBLE
                 : "jarvis-user-bubble max-w-[85%] rounded-lg px-4 py-3",
             )}
           >
@@ -270,6 +289,7 @@ export function AgentTimeline({
           </p>
         );
       }
+      if (item.kind === SIDE_THREAD_STARTED) return <SideThread key={item.id} item={item} renderTimeline={renderSide} />;
       if (item.kind === "memory_learned") return <MemoryLearnedNotice key={item.id} item={item} />;
       if (item.kind === "chain_result") return <ChainResultCard key={item.id} item={item} />;
       if (item.kind === "report") return <ReportCard key={item.id} item={item} />;

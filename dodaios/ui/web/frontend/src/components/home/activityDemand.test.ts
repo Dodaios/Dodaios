@@ -20,6 +20,13 @@ describe("hasActivityDemand", () => {
     expect(hasActivityDemand([turn({ background: ["Researcher"] })])).toBe(true);
   });
 
+  it("sees a side thread while it answers, not after", () => {
+    const side = (resolved: string) =>
+      ({ type: "notice", id: "n", kind: "side_thread_started", resolved }) as unknown as TimelineItem;
+    expect(hasActivityDemand([side("")])).toBe(true);
+    expect(hasActivityDemand([side("done")])).toBe(false);
+  });
+
   it("sees an open approval or question, not a decided one", () => {
     const approval = (decision?: string) => turn({ blocks: [{ kind: "tool", name: "x", approval: { summary: "s", decision } }] });
     expect(hasActivityDemand([approval()])).toBe(true);

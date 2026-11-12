@@ -1033,6 +1033,12 @@ def _plan_claude_code(
             argv += ["--append-system-prompt", dodaios_harness.CODING_PREAMBLE]
     from dodaios.agent_chat.thread_sessions import split_fork
 
+    if identity is not None and resume and not identity.session_id.startswith("society:"):
+        # The lead's resumed conversation: what landed in the chat outside this
+        # CLI session (spoken turns, reports, side threads) goes in front of
+        # the message, as on every other seat (``_with_identity``). The
+        # identity itself travels in the system-prompt file.
+        prompt = identity.catchup + prompt if identity.catchup else prompt
     resume_id, fork_source = split_fork(resume)
     if fork_source:
         # A forked thread's first turn: Claude copies the source conversation
@@ -4018,10 +4024,12 @@ async def run_cli_turn(
     # A society agent's seat: its own briefing is the identity (not Jarvis'
     # layers), and its pinned subscription account is the seat's login.
     prompt_override = await _surface_identity(session) if identity else None
-    if identity and getattr(handle, "output_language", ""):
-        prompt_override = (
-            (prompt_override or "") + "\nRespond in this language: " + handle.output_language
-        )
+    if prompt_override and getattr(handle, "output_language", ""):
+        # Only a seat with a briefing of its own takes the line there. The lead
+        # has none: an override made of this line alone would stand in for its
+        # whole identity (no prompt layers, no catch-up). Its message carries
+        # the line already.
+        prompt_override += "\nRespond in this language: " + handle.output_language
     account_token = ACCOUNT_OVERRIDE.set(getattr(session, "account_id", "") or "")
     turn_seats: dict[str, str] = {}
     seats_token = _TURN_SEATS.set(turn_seats)

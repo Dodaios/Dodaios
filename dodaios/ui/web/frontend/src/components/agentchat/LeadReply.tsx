@@ -29,6 +29,9 @@ export const REPLY_PROSE = cn(
   "prose-thead:text-foreground-strong prose-th:text-foreground-strong prose-td:text-foreground",
 );
 
+/** The person's own message in the conversation look, wherever it is drawn. */
+export const OWN_BUBBLE = "jarvis-chat-out jarvis-chat-tinted lead-bubble-own max-w-[80%] px-4 py-2";
+
 export type ReplyBlockKind = "para" | "list" | "code" | "quote" | "heading" | "table" | "rule" | "reference";
 export interface ReplyBlock { kind: ReplyBlockKind; text: string }
 export interface ReplyPart {

@@ -8,7 +8,7 @@ import { BrandedSelect } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { LeadTriggersSetting } from "./LeadTriggersSetting";
 import { LifeAdminSetting } from "./LifeAdminSetting";
-import type { NoticeItem, TimelineItem, TurnItem } from "@/components/agentchat/reduce";
+import { sideThreadOf, type NoticeItem, type TimelineItem, type TurnItem } from "@/components/agentchat/reduce";
 
 type Brief = { available: boolean; enabled: boolean; time: string; timezone: string };
 
@@ -59,6 +59,9 @@ export function activityOf(items: TimelineItem[], t: (key: string) => string) {
       if (open) waiting.push({ id: `w-${item.id}`, text: turnLabel(item, t("home.activity.needs_answer")), messageId: item.id });
       else if (item.status === "running") running.push({ id: `r-${item.id}`, text: t("home.activity.answering"), messageId: item.id });
       for (const who of item.background ?? []) running.push({ id: `b-${item.id}-${who}`, text: who, messageId: item.id });
+    } else if (sideThreadOf(item)?.running) {
+      // A message being answered beside the running request, named by its words.
+      running.push({ id: `s-${item.id}`, text: (item as NoticeItem).text.split("\n")[0], messageId: item.id });
     } else if (item.type === "notice" && item.kind === "society_result") {
       const notice = item as NoticeItem;
       const text = (notice.agentName ? `${notice.agentName}: ` : "") + notice.text.split("\n")[0];
