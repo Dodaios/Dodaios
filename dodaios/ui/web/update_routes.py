@@ -62,6 +62,7 @@ works and the caller's restart step degrades honestly (``restart-app`` returns
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -291,11 +292,17 @@ async def _terminate(proc: asyncio.subprocess.Process) -> None:
 _PROGRESS_SEGMENT_RE = re.compile(rb"[\r\n]")
 
 
-async def _pump(stream: asyncio.StreamReader, on_line: Callable[[str], None] | None) -> bytes:
+async def _pump(
+    stream: asyncio.StreamReader,
+    on_line: Callable[[str], None] | None,
+    on_activity: Callable[[], None] | None = None,
+) -> bytes:
     """Read ``stream`` to EOF, handing each finished segment to ``on_line``.
 
     Returns everything that was read, so the caller still gets the complete
-    output it would have gotten from ``communicate()``.
+    output it would have gotten from ``communicate()``. ``on_activity`` is
+    called for every chunk, which is what the stall watchdog in :func:`_run`
+    measures.
     """
     chunks: list[bytes] = []
     pending = b""
@@ -303,6 +310,8 @@ async def _pump(stream: asyncio.StreamReader, on_line: Callable[[str], None] | N
         chunk = await stream.read(4096)
         if not chunk:
             break
+        if on_activity is not None:
+            on_activity()
         chunks.append(chunk)
         if on_line is None:
             continue
@@ -315,6 +324,10 @@ async def _pump(stream: asyncio.StreamReader, on_line: Callable[[str], None] | N
     return b"".join(chunks)
 
 
+class _Stalled(Exception):
+    """The child printed nothing for longer than its stall timeout."""
+
+
 async def _run(
     cmd: list[str],
     *,
@@ -322,8 +335,14 @@ async def _run(
     timeout_s: float,
     on_stderr_line: Callable[[str], None] | None = None,
     env: dict[str, str] | None = None,
+    stall_timeout_s: float | None = None,
 ) -> tuple[int, str, str]:
     """Run ``cmd`` in ``cwd``. Returns ``(returncode, stdout, stderr)``.
+
+    ``timeout_s`` bounds the whole run. ``stall_timeout_s`` additionally ends
+    it once the child has printed nothing for that long — the right limit for
+    a download that reports progress: a slow line keeps going as long as bytes
+    arrive, a dead one is noticed long before the overall cap.
 
     ``returncode == -1`` signals the process could not run at all (missing
     binary) or timed out — ``stderr`` then carries a human reason. Cleans up the
@@ -354,19 +373,46 @@ async def _run(
         # ``git fetch --progress`` would do.
         assert proc.stdout is not None and proc.stderr is not None
         raw_out, raw_err = await asyncio.gather(
-            _pump(proc.stdout, None), _pump(proc.stderr, on_stderr_line)
+            _pump(proc.stdout, None, touch), _pump(proc.stderr, on_stderr_line, touch)
         )
         await proc.wait()
         return raw_out, raw_err
 
+    loop = asyncio.get_running_loop()
+    last_activity = loop.time()
+
+    def touch() -> None:
+        nonlocal last_activity
+        last_activity = loop.time()
+
+    async def watched() -> tuple[bytes, bytes]:
+        task = asyncio.ensure_future(collect())
+        try:
+            while True:
+                quiet_for = loop.time() - last_activity
+                if stall_timeout_s is not None and quiet_for >= stall_timeout_s:
+                    raise _Stalled
+                budget = None if stall_timeout_s is None else stall_timeout_s - quiet_for
+                done, _ = await asyncio.wait({task}, timeout=budget)
+                if done:
+                    return task.result()
+        finally:
+            if not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await task
+
     try:
         try:
-            raw_out, raw_err = await asyncio.wait_for(collect(), timeout=timeout_s)
+            raw_out, raw_err = await asyncio.wait_for(watched(), timeout=timeout_s)
         except TimeoutError:
             # Same contract: the timeout is reported through stderr, and the
             # child is reaped first so no zombie survives the request.
             await _terminate(proc)
             return -1, "", f"{cmd[0]} timed out after {timeout_s:.0f}s"
+        except _Stalled:
+            await _terminate(proc)
+            return -1, "", f"{cmd[0]} stalled: no progress for {stall_timeout_s:.0f}s"
         except asyncio.CancelledError:
             await _terminate(proc)
             raise
@@ -385,12 +431,18 @@ async def _git(
     cwd: Path,
     timeout_s: float = 60.0,
     on_stderr_line: Callable[[str], None] | None = None,
+    stall_timeout_s: float | None = None,
 ) -> tuple[int, str, str]:
     # An update never downloads Git LFS objects: older releases carry LFS
     # pointers for large binaries, and moving across them must not pull those.
     env = {**os.environ, "GIT_LFS_SKIP_SMUDGE": "1"}
     return await _run(
-        ["git", *args], cwd=cwd, timeout_s=timeout_s, on_stderr_line=on_stderr_line, env=env
+        ["git", *args],
+        cwd=cwd,
+        timeout_s=timeout_s,
+        on_stderr_line=on_stderr_line,
+        env=env,
+        stall_timeout_s=stall_timeout_s,
     )
 
 
@@ -934,17 +986,29 @@ _apply_lock = asyncio.Lock()
 # Receiving is where the bytes are, so it owns most of the fetch window and
 # delta resolution finishes it off.
 _GIT_PROGRESS_RE = re.compile(r"(Receiving objects|Resolving deltas):\s+(\d+)%")
+# The managed fetch: an hour overall, but no more than 90 s without a single
+# progress line (git prints several per second while it receives).
+_GIT_FETCH_TIMEOUT_S = 3600.0
+_GIT_FETCH_STALL_S = 90.0
 _GIT_PROGRESS_WEIGHTS = {"Receiving objects": (0.0, 0.85), "Resolving deltas": (0.85, 1.0)}
+# The transfer figures git appends while receiving: "..., 12.34 MiB | 3.20 MiB/s".
+# They become the sub-status under the bar, the managed twin of the frozen
+# install's "64.0 MB / 128.0 MB".
+_GIT_TRANSFER_RE = re.compile(
+    r",\s*(\d+(?:\.\d+)?\s*[KMG]?i?B)\s*\|\s*(\d+(?:\.\d+)?\s*[KMG]?i?B/s)"
+)
 
 
 def _on_git_progress(line: str) -> None:
-    """Translate one git stderr line into a fetch-window fraction."""
+    """Translate one git stderr line into a fetch-window fraction (and detail)."""
     match = _GIT_PROGRESS_RE.search(line)
     if match is None:
         return
     low, high = _GIT_PROGRESS_WEIGHTS[match.group(1)]
     share = int(match.group(2)) / 100.0
-    _progress.advance(PHASE_DOWNLOADING, low + (high - low) * share)
+    transfer = _GIT_TRANSFER_RE.search(line)
+    detail = f"{transfer.group(1)} · {transfer.group(2)}" if transfer else None
+    _progress.advance(PHASE_DOWNLOADING, low + (high - low) * share, detail=detail)
 
 
 def _frozen_asset_names() -> tuple[str, ...]:
@@ -1564,11 +1628,18 @@ async def _apply_managed() -> dict[str, object]:
     # ``--progress`` forces git to emit its object counters even though stderr
     # is a pipe rather than a terminal; without it the download phase would
     # have no measurable inside at all.
-    _progress.enter(PHASE_DOWNLOADING, detail=release_tag)
+    # No detail of its own: the panel already shows the target version, and
+    # repeating the tag under the bar read as "v5.0.0 … v5.0.0". git's own
+    # transfer figures fill it in as soon as the first counter arrives.
+    _progress.enter(PHASE_DOWNLOADING)
     rc, _out, err = await _git(
         ["fetch", "--progress", "--depth", "1", "origin", f"refs/tags/{release_tag}"],
         cwd=root,
-        timeout_s=120.0,
+        # A flat 120 s cap failed every update on a slow line even while bytes
+        # were still arriving. The fetch now runs as long as git keeps
+        # reporting progress, and stops once it has gone quiet.
+        timeout_s=_GIT_FETCH_TIMEOUT_S,
+        stall_timeout_s=_GIT_FETCH_STALL_S,
         on_stderr_line=_on_git_progress,
     )
     if rc != 0:

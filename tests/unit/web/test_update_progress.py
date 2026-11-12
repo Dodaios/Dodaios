@@ -227,3 +227,15 @@ def test_human_bytes(count: int, expected: str) -> None:
 def test_human_bytes_stays_short() -> None:
     """It renders inside a top-bar pill, so it must never grow unbounded."""
     assert len(_human_bytes(1_500_000_000)) <= 10
+
+
+def test_git_transfer_figures_become_the_detail() -> None:
+    """The managed twin of the frozen "64.0 MB / 128.0 MB" sub-status."""
+    _progress.begin(INSTALL_KIND_MANAGED)
+    _progress.enter(PHASE_DOWNLOADING)
+    assert _progress.detail is None
+    _on_git_progress("Receiving objects:  43% (430/1000), 12.34 MiB | 3.20 MiB/s")
+    assert _progress.detail == "12.34 MiB · 3.20 MiB/s"
+    # Delta resolution carries no transfer figures; the last ones stay put.
+    _on_git_progress("Resolving deltas:  50% (6/12)")
+    assert _progress.detail == "12.34 MiB · 3.20 MiB/s"
