@@ -2235,7 +2235,14 @@ async def cancel_turn(session_id: str, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="session not found")
     session = svc.store.get_session(session_id)
     cancelled = svc.is_running(session_id)
-    if not cancelled and svc.parked_work.stop(session_id):
+    sides = 0
+    if session.surface == "jarvis":
+        from dodaios.agent_chat import side_threads
+
+        # One Stop for the conversation: the answers being written beside the
+        # main thread stop with it (the chat shows no control of their own).
+        sides = await side_threads.stop_all(svc, session_id)
+    if not cancelled and not sides and svc.parked_work.stop(session_id):
         # Nothing is answering, so the stop means the requests still waiting
         # for their agents: their results no longer continue here. The agents'
         # own work is not touched. During a turn, stop ends that turn only.
@@ -2259,7 +2266,7 @@ async def cancel_turn(session_id: str, request: Request) -> dict[str, Any]:
     # Closing that turn is what makes the stop button leave the chat.
     if not svc.is_running(session_id):
         cancelled = await svc.seal_stopped_turn(session_id) or cancelled
-    return {"cancelled": cancelled, "session_id": session_id}
+    return {"cancelled": cancelled or bool(sides), "session_id": session_id}
 
 
 @router.get("/sessions/{session_id}/queue")

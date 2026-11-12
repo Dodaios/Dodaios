@@ -692,6 +692,11 @@ type WorkTraceProps = {
    * work of a turn that ended without a word, stand in the conversation.
    */
   messenger?: boolean;
+  /**
+   * A messenger turn at work shows no dots: another, newer place in the
+   * conversation shows the assistant typing, and there is only ever one.
+   */
+  quietTyping?: boolean;
   renderAnswer?: RenderAnswer;
   /**
    * The running turn only waits for work it started elsewhere (an agent it
@@ -701,7 +706,7 @@ type WorkTraceProps = {
   waiting?: boolean;
 };
 
-function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error, onDecide, renderText, className, receipt, completionLabel, conversation = false, companion = false, face, extras, messenger = false, renderAnswer, waiting = false }: WorkTraceProps) {
+function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error, onDecide, renderText, className, receipt, completionLabel, conversation = false, companion = false, face, extras, messenger = false, quietTyping = false, renderAnswer, waiting = false }: WorkTraceProps) {
   const t = useT();
   const rail = useRail();
   // A messenger turn's steps, opened from the line under it.
@@ -775,8 +780,9 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
     const resting = messenger && (working || (outcome === "done" && answered));
     // Read from the turn's own blocks: a thought is not drawn here, but the
     // model thinking after a message is the assistant typing again. A turn
-    // that only waits for an agent it sent out is not typing.
-    const typing = messenger && working && !waiting && livePetState(rawBlocks) === "working";
+    // that only waits for an agent it sent out is not typing, and neither is
+    // one while another place in the conversation shows the dots.
+    const typing = messenger && working && !waiting && !quietTyping && livePetState(rawBlocks) === "working";
     const typingItem: RailItem = { key: "trace:typing", rail: false, node: <div className="lead-typing-row"><TypingBubble /></div> };
     const statusLine = <div role="status" aria-live="polite" data-trace-status={outcome}
       className={cn("flex min-w-0 flex-wrap items-start gap-x-3 text-xs leading-6 text-muted-foreground",
@@ -931,7 +937,7 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
   </div>;
 }
 
-export function TurnTrace({ turn, ...props }: { turn: TurnItem; onDecide?: Decide; renderText?: (text: string, id: string) => ReactNode; conversation?: boolean; look?: TraceLook; companion?: boolean; face?: ReactNode; extras?: WorkTraceProps["extras"]; messenger?: boolean; renderAnswer?: RenderAnswer }) {
+export function TurnTrace({ turn, ...props }: { turn: TurnItem; onDecide?: Decide; renderText?: (text: string, id: string) => ReactNode; conversation?: boolean; look?: TraceLook; companion?: boolean; face?: ReactNode; extras?: WorkTraceProps["extras"]; messenger?: boolean; quietTyping?: boolean; renderAnswer?: RenderAnswer }) {
   const t = useT();
   const tokens = outputTokens(turn.usage ?? turn.liveUsage);
   const answered = turn.blocks.some(block => block.kind === "text" && block.text.trim());

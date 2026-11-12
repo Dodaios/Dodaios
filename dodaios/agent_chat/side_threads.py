@@ -22,9 +22,11 @@ chat: their message, then its answer, while the earlier answer goes on above.
   on every seat.
 * Turns that start in the main thread while side threads still run are told
   so (:func:`running_note`).
-* A message that belongs to the running request can be moved into the main
-  thread (:func:`move_to_main`): the side thread stops and the message starts
-  as the next turn there, with that request's context.
+* The chat shows no label and no control for a side thread. Its one Stop ends
+  the main turn and every side thread (:func:`stop_all`). Other clients can
+  stop one (:func:`stop`) or move its message into the main thread
+  (:func:`move_to_main`), where it starts as the next turn with that
+  request's context.
 
 A side thread dies with the process (a ``jarvis`` turn is the app's child):
 :func:`recover` closes the ones a previous run left open as ``interrupted``.
@@ -56,6 +58,7 @@ __all__ = [
     "speaks_as_lead",
     "start",
     "stop",
+    "stop_all",
     "takes",
 ]
 
@@ -339,6 +342,24 @@ async def stop(svc: Any, parent_id: str, side_id: str) -> bool:
     return await _close(svc, side_id, "stopped") or True
 
 
+async def stop_all(svc: Any, parent_id: str) -> int:
+    """Stop every running side thread of a conversation; returns how many there were.
+
+    The chat's one Stop means "stop what you are doing": the answer in the
+    main thread and the ones being written beside it.
+    """
+    running = [row["session_id"] for row in _running_rows(svc, parent_id)]
+    if not running:
+        return 0
+    results = await asyncio.gather(
+        *(stop(svc, parent_id, side_id) for side_id in running), return_exceptions=True
+    )
+    for side_id, result in zip(running, results, strict=True):
+        if isinstance(result, BaseException):
+            log.warning("side thread %s: stop failed: %r", side_id, result)
+    return len(running)
+
+
 async def move_to_main(svc: Any, parent_id: str, side_id: str) -> str:
     """The message belongs to the running request: ``queued``, ``sent`` or ``""``.
 
@@ -436,9 +457,9 @@ def context_note(svc: Any, session_id: str) -> str:
         "so it is answered here, in parallel; they read your answer in the same chat. "
         "Answer this message on its own and completely. Do not continue, repeat or wait "
         "for the earlier request, and do not report it as finished. If this message only "
-        "makes sense as a change to that earlier request, say in one sentence that it can "
-        "be moved to the running task with the button on this message, and change "
-        "nothing yourself."
+        "makes sense as a change to that earlier request, say in one sentence that the "
+        "earlier request is still being worked on and that they can send the change "
+        "again once it has answered, and change nothing yourself."
         + (f"\n\n{entry.brief}" if entry.brief else "")
         + "]"
     )

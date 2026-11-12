@@ -36,6 +36,12 @@ export interface TextBlock {
   raw?: string;
   /** The files of a message the person sent into the running turn (a `steer-` block). */
   attachments?: UserAttachment[];
+  /**
+   * When the message began to arrive. The conversation look places a message
+   * by it: one written after the person's next message stands below that
+   * message (`chronology.ts`). Absent on a block from before the field existed.
+   */
+  tsMs?: number;
 }
 
 export interface ReasoningBlock {
@@ -585,9 +591,10 @@ function updateQuestion(
 
 /** Attach a question to its tool row: the open ask call, else a row of its own. */
 /** A text block whose question block, if any, is hidden behind its card. */
-function textBlock(id: string, raw: string): TextBlock {
+function textBlock(id: string, raw: string, tsMs?: number): TextBlock {
   const text = hideMeetingPass(hideAskBlocks(raw));
-  return text === raw ? { kind: "text", id, text } : { kind: "text", id, text, raw };
+  const at = tsMs ? { tsMs } : {};
+  return text === raw ? { kind: "text", id, text, ...at } : { kind: "text", id, text, raw, ...at };
 }
 
 /**
@@ -1045,6 +1052,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
             kind: "text", id: `${STEER_PREFIX}${seq || ev.ts_ms}`,
             text: typeof p.typed === "string" ? p.typed : str(p.text),
             ...(userAttachments(p.attachments).length > 0 ? { attachments: userAttachments(p.attachments) } : {}),
+            ...(ev.ts_ms ? { tsMs: ev.ts_ms } : {}),
           }],
         }));
       }
@@ -1105,7 +1113,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         upsertBlock<TextBlock>(
           closeLiveReasoning(turn, ev.ts_ms),
           (b) => b.kind === "text" && b.id === id,
-          (ex) => textBlock(id, (ex?.raw ?? ex?.text ?? "") + delta),
+          (ex) => textBlock(id, (ex?.raw ?? ex?.text ?? "") + delta, ex?.tsMs ?? ev.ts_ms),
         ),
       );
     }
@@ -1117,7 +1125,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         upsertBlock<TextBlock>(
           closeLiveReasoning(turn, ev.ts_ms),
           (b) => b.kind === "text" && b.id === id,
-          (ex) => (ex && (ex.raw ?? ex.text) === text ? ex : textBlock(id, text)),
+          (ex) => (ex && (ex.raw ?? ex.text) === text ? ex : textBlock(id, text, ex?.tsMs ?? ev.ts_ms)),
         ),
       );
     }
@@ -1660,14 +1668,15 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
           // Its opening line is outside what was loaded: the outcome stands alone.
           const alone: NoticeItem = {
             type: "notice", id: `n-${seq || ev.ts_ms}`, kind: SIDE_THREAD_STARTED, text, agentName: "",
-            agentId: "", status, tsMs: ev.ts_ms, data: outcome, resolved: status,
+            agentId: "", status, tsMs: ev.ts_ms, data: { ...outcome, finished_ms: ev.ts_ms }, resolved: status,
           };
           return { ...base, items: [...base.items, alone] };
         }
         const line = base.items[index] as NoticeItem;
         return {
           ...base,
-          items: replaceAt(base.items, index, { ...line, status, resolved: status, data: { ...line.data, ...outcome } }),
+          // When it ended: its answer stands in the conversation at that moment.
+          items: replaceAt(base.items, index, { ...line, status, resolved: status, data: { ...line.data, ...outcome, finished_ms: ev.ts_ms } }),
         };
       }
       if (kind === "browser_takeover_done") {

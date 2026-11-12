@@ -28,7 +28,7 @@ import { effortLadder, snapEffort } from "@/lib/effortLadder";
 import { rankModels } from "@/lib/modelRanking";
 import { isApiRunner, pickAgentChatFolder, preloadLocalModel, type CuratedModel } from "@/lib/agentChatApi";
 import { offeredModels, useSavedHiddenModels } from "@/lib/agentProviderPrefs";
-import { runningTurn } from "@/components/agentchat/reduce";
+import { runningTurn, sideThreadOf } from "@/components/agentchat/reduce";
 import { permissionModeIcon } from "@/components/agentchat/permissionIcons";
 import { useComposerDictation } from "@/components/agentchat/useComposerDictation";
 import { releaseHeldFiles, restoreHeldFiles, useChatAttachments } from "@/components/agentchat/useChatAttachments";
@@ -274,7 +274,10 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
   }, fieldRef);
 
   const running = runningTurn(timeline) !== null;
-  const live = running || busy;
+  // An answer being written beside the main thread is work too: Stop is the
+  // one control for all of it.
+  const sideRunning = useMemo(() => timeline.items.some((item) => sideThreadOf(item)?.running), [timeline.items]);
+  const live = running || busy || sideRunning;
   const canQueue = surface === "jarvis" || surface === "society";
 
   async function onSend() {
