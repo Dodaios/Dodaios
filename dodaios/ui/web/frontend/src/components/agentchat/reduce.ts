@@ -422,7 +422,8 @@ export type TimelineItem = UserItem | TurnItem | ErrorItem | NoticeItem | Intern
  * earlier one is answered beside it, in a side thread (a chat session of its
  * own, `data.side_id`). Its notice is one line of the conversation: opened by
  * `side_thread_started`, patched in place by `side_thread_finished` with how
- * it ended (`resolved`: done | stopped | failed | interrupted) and the answer.
+ * it ended (`resolved`: done | stopped | failed | interrupted), the answer and
+ * the messages it wrote, each on its own (`data.messages`).
  * The kinds are `STARTED` / `FINISHED` in `dodaios/agent_chat/side_threads.py`.
  */
 export const SIDE_THREAD_STARTED = "side_thread_started";

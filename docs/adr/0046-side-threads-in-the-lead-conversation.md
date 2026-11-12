@@ -49,6 +49,10 @@ assumption holds in both sessions.
    it was asked. While it runs, the front page reads the side session itself
    for the work trace, the cards and the streaming answer; afterwards the
    answer is on the notice, so a reopened chat opens no second connection.
+   The notice also lists every message the side thread wrote (`messages`),
+   each on its own: a confirmation and, minutes later, the result stay two
+   bubbles after it ended, as they were while it ran. `answer` (what was said
+   after the last tool call) is what the lead's later turns read.
    The activity panel lists a running side thread under "Running".
 5. **What the lead knows afterwards.** `side_thread_finished` is replayed into
    the lead's history as one labelled record (`replay`), on the brain seat
