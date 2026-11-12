@@ -21,9 +21,9 @@ chat: their message, then its answer, while the earlier answer goes on above.
   answered beside it, on every seat.
 * Turns that start in the main thread while side threads still run are told
   so (:func:`running_note`).
-* A message meant for the running request can be moved there
-  (:func:`move_to_main`): the side thread stops and the message is steered
-  into the running turn, or starts as the next turn.
+* A message that belongs to the running request can be moved into the main
+  thread (:func:`move_to_main`): the side thread stops and the message starts
+  as the next turn there, with that request's context.
 
 A side thread dies with the process (a ``jarvis`` turn is the app's child):
 :func:`recover` closes the ones a previous run left open as ``interrupted``.
@@ -316,12 +316,15 @@ async def stop(svc: Any, parent_id: str, side_id: str) -> bool:
 
 
 async def move_to_main(svc: Any, parent_id: str, side_id: str) -> str:
-    """The message was meant for the running request: ``steered``, ``queued``, ``sent`` or ``""``.
+    """The message belongs to the running request: ``queued``, ``sent`` or ``""``.
 
     The side thread stops without an answer and its message goes into the
-    main thread: into the running turn where the seat takes one, else as the
-    next turn. ``""`` when the side thread already ended or is not this
-    conversation's.
+    main thread, where it starts as the next turn: right after the running
+    request, with that request's whole context (``sent`` when the main thread
+    is free by now). It is not written into the running turn: a seat that is
+    in the middle of an answer reads such a message only after that answer,
+    as a turn of its own that the chat would not show. ``""`` when the side
+    thread already ended or is not this conversation's.
     """
     from dodaios.agent_chat.send_queue import send_or_queue
 
@@ -341,18 +344,6 @@ async def move_to_main(svc: Any, parent_id: str, side_id: str) -> str:
         {"kind": FINISHED, "side_id": side_id, "status": "moved",
          "text": str(row.get("request") or _short(_display(entry.text, entry.attachments)))},
     )
-    steer = getattr(svc, "steer", None)
-    if steer is not None and not entry.tool_choices and svc.is_running(parent_id):
-        try:
-            if entry.attachments:
-                steered = bool(await steer(parent_id, entry.text, entry.attachments))
-            else:
-                steered = bool(await steer(parent_id, entry.text))
-        except Exception:  # noqa: BLE001 - a refused steer starts it as the next turn
-            log.warning("side thread %s: message not steered", side_id, exc_info=True)
-            steered = False
-        if steered:
-            return "steered"
     turn_id, _queue_id = await send_or_queue(
         svc, parent_id, entry.text, entry.attachments, tool_choices=entry.tool_choices
     )
@@ -422,7 +413,7 @@ def context_note(svc: Any, session_id: str) -> str:
         "Answer this message on its own and completely. Do not continue, repeat or wait "
         "for the earlier request, and do not report it as finished. If this message only "
         "makes sense as a change to that earlier request, say in one sentence that it can "
-        "be moved to the running request with the button on this message, and change "
+        "be moved to the running task with the button on this message, and change "
         "nothing yourself."
         + (f"\n\n{entry.brief}" if entry.brief else "")
         + "]"

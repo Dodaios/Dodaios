@@ -56,11 +56,12 @@ assumption holds in both sessions.
    which also covers a side thread that ended inside the CLI's own turn. A
    main-thread turn that starts while side threads run is told so
    (`running_note`).
-6. **Correcting the running request.** A message meant for the running request
-   has "Add to the running task" on its line: the side thread stops without an
-   answer and the message is steered into the running turn, or starts as the
-   next turn where the seat takes none (`move_to_main`). Each side thread has
-   its own stop; the composer's stop still stops the main turn only.
+6. **A message that belongs to the running request.** Its line has "Belongs to
+   the running task": the side thread stops without an answer and the message
+   starts as the next turn of the main thread, right after the running request
+   and with its whole context (`move_to_main`). Each side thread has its own
+   stop; the composer's stop still stops the main turn only, and the moved
+   message then starts at once.
 7. **Restart.** A `jarvis` turn is the app's child, so a side thread dies with
    the process. Boot closes every one left `running` as `interrupted`
    (`recover`), written in the chat, never silently.
@@ -78,12 +79,21 @@ assumption holds in both sessions.
 - Side-thread sessions stay in the chat database (their full trace is the
   detail behind the answer) and are removed with their rows when deleted.
 
+## Not covered
+
+- A moved message is not written into the running turn. Tried on the Claude
+  Code seat (2026-11-12): a message written into a turn that is in the middle
+  of an answer, with no tool call left, is queued by the CLI, answered after
+  that answer as a turn of its own, and the chat never shows that second
+  answer, because the turn closes at the first result line. The same holds
+  for a message steered into a coding thread at that moment
+  (`runner_cli._steer`); that is open.
+
 ## Alternatives considered
 
-- **Always steer the message into the running turn.** Right for a correction,
-  wrong for an unrelated request: it derails the running work and is answered
-  only when the model gets to it. Kept as the explicit "Add to the running
-  task".
+- **Always steer the message into the running turn.** Wrong for an unrelated
+  request: it derails the running work and is answered only when the model
+  gets to it. For a correction it is also not dependable (see "Not covered").
 - **A model call that classifies each message (correction or new task).**
   An extra paid call on every message and a wrong guess either way; the
   person's own button is cheaper and predictable.

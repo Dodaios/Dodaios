@@ -621,12 +621,12 @@ export async function stopSideThread(sessionId: string, sideId: string): Promise
 }
 
 /**
- * The message was meant for the request running in the main thread: its side
- * thread stops and the message goes there. `steered` into the running turn,
- * `queued` as the next turn, `sent` when the main thread is free by now.
+ * The message belongs to the request running in the main thread: its side
+ * thread stops and the message starts there as the next turn, with that
+ * request's context. `queued` behind it, `sent` when the main thread is free.
  */
-export async function moveSideThreadToMain(sessionId: string, sideId: string): Promise<"steered" | "queued" | "sent"> {
-  const result = await json<{ outcome: "steered" | "queued" | "sent" }>(
+export async function moveSideThreadToMain(sessionId: string, sideId: string): Promise<"queued" | "sent"> {
+  const result = await json<{ outcome: "queued" | "sent" }>(
     await fetch(
       `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/side-threads/${encodeURIComponent(sideId)}/to-main`,
       { method: "POST" },

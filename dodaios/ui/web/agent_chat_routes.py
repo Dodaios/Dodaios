@@ -2069,14 +2069,14 @@ async def stop_side_thread(session_id: str, side_id: str, request: Request) -> d
 
 @router.post(
     "/sessions/{session_id}/side-threads/{side_id}/to-main",
-    summary="Give a side thread's message to the request running in the main thread",
+    summary="Move a side thread's message into the main thread, behind the running request",
 )
 async def side_thread_to_main(session_id: str, side_id: str, request: Request) -> dict[str, Any]:
-    """The message was meant for the running request, not as a task of its own.
+    """The message belongs to the running request, not to a task of its own.
 
-    Its side thread stops without an answer. The message goes into the running
-    turn where the seat takes one (``steered``), else it starts as the next
-    turn (``queued``, or ``sent`` when the main thread is free by now).
+    Its side thread stops without an answer. The message starts as the next
+    turn of the main thread, with the running request's context (``queued``,
+    or ``sent`` when the main thread is free by now).
     """
     from dodaios.agent_chat import side_threads
 

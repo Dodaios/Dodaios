@@ -195,14 +195,22 @@ async def test_stop_ends_one_side_thread_and_leaves_the_main_thread(chat):
     assert len(chat.notices(side_threads.FINISHED)) == 1  # closed exactly once
 
 
-async def test_a_message_meant_for_the_running_request_moves_to_the_main_thread(chat):
+async def test_a_message_that_belongs_to_the_running_request_moves_to_the_main_thread(chat):
     release = await chat.working()
     chat.hold(_SECOND)
     side_id = await side_threads.start(chat.svc, chat.sid, _SECOND)
     await _until(lambda: len(chat.prompts) == 2)
+    steered: list[str] = []
 
-    # The scripted seat takes no message mid-turn, so it becomes the next turn.
+    async def steer(session_id: str, text: str, *_files) -> bool:
+        steered.append(text)
+        return True
+
+    # Even a seat that takes a message mid-turn is not written into: it would
+    # read it only after its answer, as a turn the chat does not show.
+    chat.svc.steer = steer
     assert await side_threads.move_to_main(chat.svc, chat.sid, side_id) == "queued"
+    assert steered == []
     await _until(lambda: not chat.svc.is_running(side_id))
 
     finished = chat.notices(side_threads.FINISHED)
@@ -278,15 +286,16 @@ def test_claude_code_reads_the_catch_up_in_front_of_a_resumed_turn(monkeypatch, 
         )
         return plan.stdin_text or ""
 
+    vendor = "11111111-1111-4111-8111-111111111111"
     block = "<since_your_last_turn>\nThe person also asked: Canberra?\n</since_your_last_turn>\n\n"
     lead = Identity(session_id="lead-1", text="id", compact="id", catchup=block)
-    assert "The person also asked: Canberra?" in planned(lead, "11111111-1111-4111-8111-111111111111")
+    assert "The person also asked: Canberra?" in planned(lead, vendor)
     # A fresh conversation carries the transcript in its identity, never the block.
     assert "also asked" not in planned(lead, None)
     # A created agent's seat has its own refresh; a coding thread has no identity.
     agent = Identity(session_id="society:scout", text="id", compact="id", catchup=block)
-    assert "also asked" not in planned(agent, "11111111-1111-4111-8111-111111111111")
-    assert "also asked" not in planned(None, "11111111-1111-4111-8111-111111111111")
+    assert "also asked" not in planned(agent, vendor)
+    assert "also asked" not in planned(None, vendor)
 
 
 def test_the_composer_route_answers_beside_a_working_turn(tmp_path, monkeypatch):

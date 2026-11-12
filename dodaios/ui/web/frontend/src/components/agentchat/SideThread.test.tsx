@@ -46,7 +46,7 @@ beforeEach(() => {
   Socket.open = [];
   vi.stubGlobal("WebSocket", Socket);
   fetcher = vi.fn(async (url: string) => new Response(
-    JSON.stringify(String(url).includes("/to-main") ? { outcome: "steered" } : { stopped: true }),
+    JSON.stringify(String(url).includes("/to-main") ? { outcome: "queued" } : { stopped: true }),
     { status: 200, headers: { "Content-Type": "application/json" } },
   ));
   vi.stubGlobal("fetch", fetcher);
@@ -107,7 +107,7 @@ describe("a message sent while the conversation still works", () => {
     expect(fetcher.mock.calls.some(([url]) => String(url).includes("voice"))).toBe(false);
   });
 
-  it("stops only this answer, or hands the message to the running task", async () => {
+  it("stops only this answer, or moves the message to the running task", async () => {
     draw(conversation());
     fireEvent.click(screen.getByTestId("side-thread-stop"));
     await waitFor(() => expect(fetcher.mock.calls.some(
