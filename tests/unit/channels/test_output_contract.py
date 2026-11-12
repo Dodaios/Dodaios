@@ -49,6 +49,15 @@ def test_links_and_code_stay_intact() -> None:
     assert code in out.text or "print" not in out.text  # whole block or none, never half
 
 
+def test_a_chart_block_stays_in_the_app() -> None:
+    spec = '{"type": "line", "x": ["Mon", "Tue"], "series": [{"name": "s", "data": [1, 2]}]}'
+    block = f"```chart\n{spec}\n```"
+    out = enforce(f"The share closed at 142 USD.\n\n{block}\n\nIt rose 2 % this week.")
+    assert out.text == "The share closed at 142 USD.\n\nIt rose 2 % this week."
+    assert "chart" not in out.text and "{" not in out.text
+    assert "no charts" in STYLE_BLOCK
+
+
 def test_an_overlong_single_sentence_is_cut_at_a_clause_or_word() -> None:
     sentence = ", ".join(f"clause {i} of a very long run-on sentence" for i in range(40)) + "."
     out = enforce(sentence)

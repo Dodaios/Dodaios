@@ -16,7 +16,7 @@
  * archive. The typography is the caller's — the reader passes its own
  * classes, the output page the artifact standard's.
  */
-import { useMemo } from "react";
+import { useMemo, lazy, Suspense } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -28,7 +28,11 @@ import { RenderedFence } from "@/components/outputs/RenderedFence";
 import { AsciiTableFence } from "@/components/outputs/AsciiTableFence";
 import { fenceLooseAsciiTables, parseAsciiTable } from "@/lib/asciiTable";
 import { readFence, visualFenceLanguage } from "@/lib/visualFence";
+import { CHART_FENCE, parseChartSpec } from "@/lib/chartSpec";
 export { readFence } from "@/lib/visualFence";
+
+// The chart library loads with the first page that carries a chart.
+const ChartFence = lazy(() => import("@/components/outputs/ChartFence").then(module => ({ default: module.ChartFence })));
 
 /**
  * Split a leading YAML front matter block (`---` … `---`) off a document.
@@ -116,6 +120,11 @@ export function MarkdownProse({
         const fence = readFence(children);
         if (fence === null) return <pre>{children}</pre>;
         const { language, code } = fence;
+        if (language === CHART_FENCE) {
+          // A page is read finished, so a block that is no chart is shown as written.
+          const spec = parseChartSpec(code);
+          if (spec) return <Suspense fallback={null}><ChartFence spec={spec} /></Suspense>;
+        }
         const visualLanguage = visualFenceLanguage(language, code);
         if (visualLanguage) {
           return <RenderedFence language={visualLanguage} code={code} />;

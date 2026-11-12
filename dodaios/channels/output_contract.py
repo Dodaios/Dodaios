@@ -23,6 +23,8 @@ import re
 from dataclasses import dataclass
 from typing import Final
 
+from dodaios.core.response_style import without_charts
+
 #: Words a phone message may have. A hard cap, not a target.
 WORD_CAP: Final[int] = 100
 
@@ -33,7 +35,7 @@ IM_CHANNELS: Final[frozenset[str]] = frozenset({"telegram", "discord", "whatsapp
 STYLE_BLOCK: Final[str] = (
     "[Channel style: this message came from the owner's phone chat. Write the "
     f"reply for a small screen: at most {WORD_CAP} words, the conclusion first, "
-    "plain sentences, no headings, no tables, no tool or step traces and no "
+    "plain sentences, no headings, no tables, no charts, no tool or step traces and no "
     "reasoning. Ask at most one question, and only when you cannot go on "
     "without the answer. For detail, say it is in the app instead of pasting it. "
     "Do not send progress chatter: work silently and answer once the result is "
@@ -156,10 +158,15 @@ def _cut(unit: str, held: list[str], budget: int) -> str:
 
 
 def enforce(answer: str, *, language: str = "en", cap: int = WORD_CAP) -> ChannelText:
-    """The phone copy of ``answer``: one question, at most ``cap`` words."""
-    text = one_question((answer or "").strip())
+    """The phone copy of ``answer``: one question, at most ``cap`` words, no chart.
+
+    A messenger cannot draw a chart block, so it is left out; the chart stays
+    with the full answer in the app.
+    """
+    full = (answer or "").strip()
+    text = one_question(without_charts(full))
     if words(text) <= cap:
-        return ChannelText(text, shortened=text != (answer or "").strip())
+        return ChannelText(text, shortened=text != full)
     pointer = _POINTERS.get(language) or _POINTERS["en"]
     return ChannelText(shorten(text, cap=cap, pointer=pointer), shortened=True)
 

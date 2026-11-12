@@ -1,5 +1,7 @@
 """Default conversational reporting for human-facing chat replies."""
 
+import re
+
 # Shared by the society briefing, Grok print-mode ``--rules``, the CLI resume
 # that continues a turn after a cancelled or denied tool, the brain's written
 # chat style and the API coding chat. One wording everywhere.
@@ -22,6 +24,52 @@ REPLY_STYLE = (
 # BrainManager._build_system_prompt all reference these.
 CONVERSATIONAL_TURN_REMINDER = REPLY_STYLE
 CONVERSATIONAL_RESPONSE_STYLE = REPLY_STYLE
+
+#: The fence language of a chart block in a written reply. The chat draws the
+#: block instead of showing it (``CHART_FENCE`` in
+#: ``dodaios/ui/web/frontend/src/lib/chartSpec.ts``, which also reads the
+#: fields named below); a parity test keeps both names equal.
+CHART_FENCE = "chart"
+
+#: When and how the assistant adds a small chart to a written answer. Part of
+#: the assistant's own chat prompt on both seats (the CLI seat's preamble and
+#: the brain's written style). A surface that cannot draw gets the reply
+#: through :func:`without_charts`.
+CHART_GUIDANCE = (
+    f"Charts: the chat draws a fenced code block with the language `{CHART_FENCE}` as a "
+    "small chart. Add one, after the sentence that states the result, when a written "
+    "answer rests on a series of numbers: a price or rate over time (for a share, a "
+    "currency or a coin, its recent course when a tool gives it to you), a forecast, "
+    "amounts compared across several things. The block holds one JSON object, for example "
+    '{"type": "line", "title": "ACME share price", "unit": "USD", "note": "daily close, '
+    '1 to 3 June", "value": "142.30 USD", "delta": "+2.1 % in 3 days", "x": ["1 Jun", '
+    '"2 Jun", "3 Jun"], "series": [{"name": "ACME", "data": [139.4, 140.1, 142.3]}]}. '
+    "type is line or area for a trend over time, column for amounts per period, bar for "
+    "comparing named things. x and every data list have the same length, null marks a "
+    "missing value; at most 6 series, all in one unit; note, value and delta are optional. "
+    "Every number comes from a tool result or from the person, never from memory or an "
+    "estimate. No chart for a single number or fewer than three points, and none in a "
+    "reply that is spoken or goes to a phone chat. The text must make sense without the "
+    "chart."
+)
+
+_CHART_BLOCK_RE = re.compile(
+    r"[ \t]*```[ \t]*" + re.escape(CHART_FENCE) + r"[ \t]*\r?\n.*?(?:```[ \t]*|\Z)",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def without_charts(text: str) -> str:
+    """``text`` for a surface that cannot draw: its chart blocks removed.
+
+    A chart block is JSON; on a phone chat or in a notification it would be a
+    wall of brackets. The reply is written to stand without the chart, so the
+    block is dropped, also one that was cut off before its closing fence.
+    """
+    if CHART_FENCE not in (text or ""):
+        return text or ""
+    return re.sub(r"\n{3,}", "\n\n", _CHART_BLOCK_RE.sub("", text)).strip()
+
 
 TASK_EXECUTION_GUIDANCE = (
     "A clear request authorizes the work within your current permissions: do all of it "
