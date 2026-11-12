@@ -341,11 +341,6 @@ export function AgentTimeline({
           </p>
         );
       }
-      if (item.kind === "coding_thread") {
-        const started = t("society.chat.coding_thread_started").replace("{0}", String(item.data.agent ?? ""));
-        return <CodingThreadActivity key={item.id} label={`${started} · ${String(item.data.title ?? "")}`}
-          threadId={String(item.data.thread_id ?? "")} />;
-      }
       // The society reporting back on a task Jarvis handed out: the
       // agent's name as the headline, its summary underneath. Muted and
       // centred like a stamp — it is not Jarvis speaking.

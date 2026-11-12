@@ -1605,6 +1605,11 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         // lib/undoToast.ts), never a row: it is gone again in seconds.
         return base;
       }
+      if (kind === "coding_thread") {
+        // The agent handed work to a coding thread. The person asked for
+        // that, and the thread is in the Agentic IDE: no row in the chat.
+        return base;
+      }
       if (kind === "message_queued" && p.edited) {
         // The person rewrote a waiting message: its line takes the new words in place.
         const queueId = str(p.queue_id);

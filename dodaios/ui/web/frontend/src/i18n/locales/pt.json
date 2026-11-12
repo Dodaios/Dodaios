@@ -7174,7 +7174,6 @@
       "identity_undone": "De volta a {0}",
       "assignment_from": "Tarefa de {0}",
       "message_waiting": "Aguarda até a tarefa atual terminar",
-      "coding_thread_started": "Iniciou um thread de {0}",
       "coding_thread_open": "Abrir thread",
       "coding_thread_author": "Escrito por {0}",
       "message_not_sent": "Não enviada: {0}",
