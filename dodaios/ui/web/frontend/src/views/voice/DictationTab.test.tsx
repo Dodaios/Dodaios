@@ -81,7 +81,7 @@ describe("the Dictation tab", () => {
     dictation({ status: null, loading: true });
     render(<DictationTab />);
 
-    expect(screen.getByTestId("dictation-hero-loading")).toBeTruthy();
+    expect(screen.getByTestId("dictation-row-loading")).toBeTruthy();
     expect(screen.getByTestId("dictation-history-loading")).toBeTruthy();
     expect(toggle()).toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
@@ -184,7 +184,7 @@ describe("the Dictation tab", () => {
     expect(notice.querySelector("p")?.textContent).toBe(
       "Dictation is not set up on this computer.",
     );
-    expect(toggle()?.disabled).toBe(true);
+    expect(toggle()).toBeNull();
     expect(headline()).toBeNull();
     expect(screen.queryByText(/No microphone/)).toBeNull();
 

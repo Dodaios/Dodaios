@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useDictation } from "@/hooks/useDictation";
 import { useT } from "@/i18n";
 import { useEventStore } from "@/store/events";
-import { DictateHero } from "@/views/voice/dictation/DictateHero";
+import { DictateRow } from "@/views/voice/dictation/DictateRow";
 import { History } from "@/views/voice/dictation/History";
 import { Notice, VoicePage } from "@/views/voice/kit";
 
@@ -14,9 +14,9 @@ const ACTIVE_POLL_MS = 2000;
 /**
  * The Dictation tab: how to dictate, then what was dictated.
  *
- * Top to bottom: the microphone button with the one instruction, a notice for
- * each thing that stands in the way (at most one sentence each), and the
- * history.
+ * Top to bottom: one row that says how to dictate and carries the microphone
+ * button, a notice for each thing that stands in the way (at most one sentence
+ * each), and the history.
  */
 export function DictationTab() {
   const t = useT();
@@ -85,7 +85,7 @@ export function DictationTab() {
   return (
     <VoicePage wide testId="dictation-tab">
       {(loading || status !== null) && (
-        <DictateHero
+        <DictateRow
           status={status}
           loading={loading}
           busy={toggling}
