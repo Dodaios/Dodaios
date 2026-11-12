@@ -16,6 +16,7 @@ import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { effortLabel } from "./AgentComposer";
 import { livePetState, TurnTrace, type Decide, type TraceLook } from "./WorkTrace";
 import { LeadReply, REPLY_PROSE } from "./LeadReply";
+import { TypingBubble } from "./TypingBubble";
 import { PetMark } from "@/components/pets/PetMark";
 import { PetStageContext } from "@/components/pets/petStage";
 import type { PetState } from "@/lib/petStates";
@@ -40,6 +41,7 @@ export function AgentTimeline({
   traceLook = "rail",
   traceCompanion = false,
   traceFace,
+  awaiting = false,
 }: {
   items: TimelineItem[];
   assistantName: string;
@@ -52,12 +54,14 @@ export function AgentTimeline({
   /** Sender faces by agent id, where the caller has a roster. */
   agentsById?: Record<string, RunFace>;
   /**
-   * The front page's conversation look: two people writing to each other.
-   * Your words in a soft bubble on the right; the assistant's answer as its
-   * own messages on the left, one per paragraph, with its pet standing at
-   * the foot of the newest one; a quiet centred time stamp wherever the
-   * conversation paused. The work behind an answer folds into one line above
-   * it. The Agentic IDE keeps the labelled document look (the default).
+   * The front page's conversation look: two people writing to each other,
+   * the way a messenger shows it. Your words in a bubble of the signal hue
+   * on the right; the assistant's answer as its own grey messages on the
+   * left, one per paragraph, with its pet standing at the foot of the newest
+   * one; three dots in a bubble while it works on the next one; a quiet
+   * centred time stamp wherever the conversation paused. The work behind an
+   * answer folds into one line above it. The Agentic IDE keeps the labelled
+   * document look (the default).
    */
   bubbles?: boolean;
   /** How turns draw their work; the Agentic IDE keeps the classic rows. */
@@ -66,6 +70,12 @@ export function AgentTimeline({
   traceCompanion?: boolean;
   /** An agent's own chat: live traces show that agent's face (or the pet it wears) at work. */
   traceFace?: ReactNode;
+  /**
+   * The person's message is in and the answering turn has not started yet.
+   * The conversation look shows the assistant typing from that moment on, so
+   * the chat never sits silent after a send.
+   */
+  awaiting?: boolean;
 }) {
   const t = useT();
   // On the rail look an agent's answer to a working turn is a quiet line in
@@ -78,10 +88,11 @@ export function AgentTimeline({
   const stamps = bubbles ? timeStamps(shown) : null;
   // The assistant's pet stands beside its newest turn only.
   const latestTurnId = useMemo(() => {
-    if (!bubbles) return null;
+    // While it types its next turn, it stands beside the dots instead.
+    if (!bubbles || awaiting) return null;
     for (let i = shown.length - 1; i >= 0; i--) if (shown[i].type === "turn") return shown[i].id;
     return null;
-  }, [bubbles, shown]);
+  }, [bubbles, awaiting, shown]);
   // Back-to-back agent-to-agent messages read as one centred line each.
   const rows = useMemo(
     () => groupInternalRuns(shown, (item) => !codingThreadOf(item.message.sender_id)),
@@ -101,6 +112,23 @@ export function AgentTimeline({
           </Fragment>
         ) : node;
       })}
+      {bubbles && awaiting ? (
+        <div className="lead-turn" data-testid="agent-turn-awaiting" data-look="lead">
+          <div className="lead-face-lane" aria-hidden>
+            {traceFace || traceCompanion ? (
+              <span className="lead-face" data-testid="lead-face" data-pet="working">
+                {traceFace
+                  ? <PetStageContext.Provider value="working">{traceFace}</PetStageContext.Provider>
+                  : <PetMark size={32} state="working" />}
+              </span>
+            ) : null}
+          </div>
+          <div className="lead-turn-body">
+            <TypingBubble />
+            <span role="status" className="sr-only">{t("work_trace.working")}</span>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 
@@ -150,7 +178,7 @@ export function AgentTimeline({
             className={cn(
               "text-[15px] leading-[23px]",
               bubbles
-                ? "jarvis-user-bubble lead-bubble-own max-w-[80%] px-4 py-2"
+                ? "jarvis-chat-out jarvis-chat-tinted lead-bubble-own max-w-[80%] px-4 py-2"
                 : "jarvis-user-bubble max-w-[85%] rounded-lg px-4 py-3",
             )}
           >

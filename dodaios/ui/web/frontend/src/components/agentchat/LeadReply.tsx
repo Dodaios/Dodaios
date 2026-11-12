@@ -117,7 +117,8 @@ export function LeadReply({ text, live = false }: { text: string; live?: boolean
           key={index}
           data-testid="lead-bubble"
           data-note={part.note ? "" : undefined}
-          className="lead-bubble border border-border bg-card shadow-rim"
+          // A message is a grey bubble; a document stays a card with an edge.
+          className={cn("lead-bubble", part.note ? "border border-border bg-card shadow-rim" : "jarvis-chat-in")}
         >
           <div className={REPLY_PROSE}>
             <ChatMarkdown text={part.text} />

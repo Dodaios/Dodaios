@@ -128,6 +128,41 @@ describe("the front page's conversation look", () => {
     expect(screen.getByRole("group", { name: "Approval required" })).toBeTruthy();
   });
 
+  it("colours the two sides like a messenger: grey for the assistant, the signal hue for the person", () => {
+    render(<AgentTimeline items={reduceEvents(EMPTY_TIMELINE, [
+      ...answered("t1", "One.\n\nTwo."),
+      ...answered("t2", "## Plan\n\nA document."),
+    ]).items} assistantName="Dodaios" providerLabel={(id) => id} onDecide={() => undefined} bubbles />);
+    const own = screen.getAllByTestId("agent-message-user")[0].firstElementChild!;
+    expect(own.className).toContain("jarvis-chat-out");
+    expect(own.className).not.toContain("jarvis-user-bubble");
+    const [first, second, note] = screen.getAllByTestId("lead-bubble");
+    expect(first.className).toContain("jarvis-chat-in");
+    expect(second.className).toContain("jarvis-chat-in");
+    expect(first.className).not.toContain("border");
+    // A document-like reply stays a card with an edge.
+    expect(note.hasAttribute("data-note")).toBe(true);
+    expect(note.className).toContain("bg-card");
+    expect(note.className).not.toContain("jarvis-chat-in");
+  });
+
+  it("shows the assistant typing under the person's message while its turn is on the way", () => {
+    const sent = reduceEvents(EMPTY_TIMELINE, answered("t1", "One.")).items;
+    const { rerender } = render(<AgentTimeline items={sent} assistantName="Dodaios" providerLabel={(id) => id}
+      onDecide={() => undefined} bubbles traceCompanion awaiting />);
+    const waiting = screen.getByTestId("agent-turn-awaiting");
+    expect(within(waiting).getByTestId("typing-indicator").className).toContain("jarvis-chat-in");
+    // The pet stands beside the dots, not beside the turn before them.
+    expect(screen.getAllByTestId("lead-face")).toHaveLength(1);
+    expect(within(waiting).getByTestId("lead-face")).toBeTruthy();
+    rerender(<AgentTimeline items={sent} assistantName="Dodaios" providerLabel={(id) => id}
+      onDecide={() => undefined} bubbles traceCompanion />);
+    expect(screen.queryByTestId("agent-turn-awaiting")).toBeNull();
+    // The labelled document look never shows it.
+    rerender(<AgentTimeline items={sent} assistantName="Dodaios" providerLabel={(id) => id} onDecide={() => undefined} awaiting />);
+    expect(screen.queryByTestId("typing-indicator")).toBeNull();
+  });
+
   it("keeps the labelled document look where the conversation look is not asked for", () => {
     render(<AgentTimeline items={reduceEvents(EMPTY_TIMELINE, answered("t1", "One.\n\nTwo.")).items} assistantName="Dodaios"
       providerLabel={(id) => id} onDecide={() => undefined} />);
