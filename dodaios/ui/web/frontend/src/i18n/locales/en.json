@@ -9737,7 +9737,7 @@
   "pets": {
     "title": "My Pets",
     "subtitle": "A small pixel companion that floats on your desktop and reacts as {name} listens, thinks and talks. Press {0} to hide or show it.",
-    "subtitle_no_shortcut": "A small pixel companion that floats on your desktop and reacts as {name} listens, thinks and talks. Set a shortcut under Customize to hide or show it.",
+    "subtitle_no_shortcut": "A small pixel companion that floats on your desktop and reacts as {name} listens, thinks and talks. Set a shortcut below to hide or show it.",
     "hide": "Hide pet",
     "show": "Show pet",
     "open_settings": "Choose your pet",
@@ -9751,7 +9751,6 @@
     "load_error": "Your pets could not be loaded: {0}",
     "save_error": "That did not save: {0}",
     "preview_title": "Active pet",
-    "customize": "Customize",
     "size_label": "Size",
     "size_hint": "How big the pet is on your desktop.",
     "bubble_label": "Status bubble",
