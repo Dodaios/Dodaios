@@ -160,6 +160,10 @@ class TurnHandle:
     #: picture files, ``async (text, images) -> accepted``) and clears it with
     #: ``None`` when the turn ends. The service's ``steer`` calls it.
     on_steer: Callable[[Callable[..., Awaitable[bool]] | None], None] | None = None
+    #: Called with the CLI's conversation id the moment the CLI names it, so
+    #: the session keeps it even when the turn never reaches its end (a
+    #: reboot, a crash). ``None``: only the turn's return value carries it.
+    on_conversation: Callable[[str], None] | None = None
 
 
 async def _plain_images(handle: TurnHandle, brain: Any) -> tuple[Any, ...]:
