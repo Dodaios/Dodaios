@@ -298,7 +298,12 @@ class WebServer:
             self._publish_app()
 
     async def _forward_delegation_to_chat(self, event: Any) -> None:
-        """Persist a result in its originating chat without starting another model turn."""
+        """Persist a result in its originating chat without starting another model turn.
+
+        The notice is the assistant's material: its next turn reads it, and the
+        chat draws it only when no turn took it up, as one line that opens
+        ``thread_id`` (``src/components/agentchat/agentResults.ts``).
+        """
         service = getattr(self.app.state, "agent_chat", None)
         if service is None:
             return
@@ -309,6 +314,7 @@ class WebServer:
             "kind": "coding_result", "agent_name": event.agent_name,
             "assignment_id": event.request_id, "status": event.status,
             "text": event.text, "report": event.report,
+            **({"thread_id": event.thread_id} if event.thread_id else {}),
         })
 
     async def _forward_preamble_to_chat(self, event: AnnouncementRequested) -> None:

@@ -50,3 +50,11 @@ it("says quietly that a usage limit moved the turn to the next subscription", ()
   render(<NoticeLine item={notice("seat_switched", { from_label: "Ultra A", to_label: "Ultra B" })} />);
   expect(screen.getByTestId("seat-switched").textContent).toBe("Ultra A -> Ultra B");
 });
+
+it("draws a delegated agent's unanswered result as one line, never its report", () => {
+  const item = notice("coding_result", { assignment_id: "a1" }, "Claude Code has finished: # Review of the pull requests");
+  render(<NoticeLine item={{ ...item, agentName: "Claude Code", status: "completed" }} />);
+  const line = screen.getByTestId("agent-result-line");
+  expect(line.textContent).toBe("society.chat.agent_result_completed");
+  expect(document.body.textContent).not.toContain("has finished");
+});

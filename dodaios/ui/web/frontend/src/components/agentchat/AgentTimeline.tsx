@@ -9,6 +9,8 @@ import { MessageWithChips } from "./ToolChoiceChips";
 import { SideThread, type RenderSideTimeline } from "./SideThread";
 import { ChainResultCard } from "./ChainResultCard";
 import { ReportCard } from "./ReportCard";
+import { AgentResultLine } from "./AgentResultLine";
+import { AGENT_RESULT_KIND } from "./agentResults";
 import { BrowserTakeoverNotice } from "./BrowserTakeoverNotice";
 import { SeatTroubleNotice } from "./SeatTroubleNotice";
 import { StandingPausedNotice, StandingProposalCard } from "./StandingProposalCard";
@@ -305,6 +307,7 @@ export function AgentTimeline({
       if (item.kind === SIDE_THREAD_STARTED) return <SideThread key={item.id} item={item} renderTimeline={renderSide} receipt={bubbles} />;
       if (item.kind === "chain_result") return <ChainResultCard key={item.id} item={item} />;
       if (item.kind === "report") return <ReportCard key={item.id} item={item} />;
+      if (item.kind === AGENT_RESULT_KIND) return <AgentResultLine key={item.id} item={item} />;
       if (item.kind === "seat_trouble") return <SeatTroubleNotice key={item.id} item={item} />;
       if (item.kind === "browser_takeover") return <BrowserTakeoverNotice key={item.id} item={item} />;
       if (item.kind === "reminder_due") return <ReminderDueNotice key={item.id} item={item} />;

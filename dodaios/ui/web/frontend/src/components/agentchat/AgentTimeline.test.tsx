@@ -189,3 +189,28 @@ describe("the turn header's seat", () => {
     expect(turn.textContent).not.toContain("claude-sonnet-5-5");
   });
 });
+
+describe("a delegated agent's result nobody answered", () => {
+  const RESULT = {
+    kind: "coding_result", agent_name: "Claude Code", assignment_id: "a1", status: "completed",
+    text: "Claude Code has finished: # Review of the five pull requests. None of them can be merged as",
+    report: "{\"request\":\"Review the pull requests\",\"report\":\"# Review of the five pull requests\"}",
+  };
+
+  it("is one line that opens the agent's thread, without the agent's report", () => {
+    draw([ev("notice", { ...RESULT, thread_id: "t1" })]);
+    const line = screen.getByTestId("coding-thread-activity");
+    expect(line.textContent).toContain("Claude Code is finished");
+    expect(line.textContent).toContain("Open thread");
+    expect(document.body.textContent).not.toContain("has finished:");
+    expect(document.body.textContent).not.toContain("Review of the five pull requests");
+  });
+
+  it("is a plain line for a notice that names no thread, a failed one in the warning colour", () => {
+    draw([ev("notice", { ...RESULT, status: "failed" })]);
+    const line = screen.getByTestId("agent-result-line");
+    expect(line.textContent).toBe("Claude Code failed");
+    expect(line.className).toContain("text-destructive");
+    expect(document.body.textContent).not.toContain("has finished:");
+  });
+});
