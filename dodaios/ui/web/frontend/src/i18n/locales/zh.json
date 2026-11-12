@@ -10649,6 +10649,16 @@
       "restore": "显示侧边栏",
       "close": "关闭线程（移入归档）"
     },
+    "agent_link": {
+      "open": "在 Agentic IDE 中打开 {thread}（{agent}）",
+      "agent": "编程智能体"
+    },
+    "code": {
+      "copy": "复制给 Dodaios 的代码",
+      "copied": "已复制代码 {code}。把它交给 Dodaios，它就知道你指的是哪个智能体。",
+      "hint": "此智能体的代码：{code}。点击复制，然后交给 Dodaios。",
+      "copy_failed": "无法复制代码：{code}"
+    },
     "layout_grid": "终端网格",
     "layout_threads": "线程",
     "layout_aria": "IDE 布局",

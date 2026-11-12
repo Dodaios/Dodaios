@@ -90,6 +90,7 @@ from dodaios.agent_chat.service import (
 from dodaios.agent_chat.speed import normalize_speed
 from dodaios.agent_chat.surface_kits import kit_for
 from dodaios.agent_chat.tools import shell_label
+from dodaios.agentic_ide import thread_finder
 from dodaios.society.credentials import CredentialError
 
 log = logging.getLogger(__name__)
@@ -1041,6 +1042,8 @@ def list_sessions(
         if s.surface == "agent":
             d["pending_approvals"] = svc.pending_approvals(s.session_id)
             d["cli_title"] = _cli_title(svc, s)
+            # What the person gives Dodaios to name this thread (``thread_finder``).
+            d["code"] = thread_finder.thread_code(s.session_id)
             # A member of a team thread is listed under its team, not as a thread.
             d["team_id"] = teams.get(s.session_id, "")
         out.append(d)
@@ -1078,27 +1081,8 @@ def _team_sessions(request: Request) -> dict[str, str]:
 
 
 def _cli_title(svc: Any, session: Any) -> str:
-    """The name the coding CLI gave a thread's conversation itself, or "".
-
-    Claude Code, Codex, Grok Build and Antigravity title their own sessions
-    on their own subscription;
-    a thread shows that name the way a terminal pane does. A title the person
-    typed wins, so the CLI's is only offered while the stored one is still
-    the first message's.
-    """
-    if not session.vendor_session:
-        return ""
-    from dodaios.agent_chat.catalog import provider_row
-    from dodaios.agentic_ide import cli_title
-
-    row = provider_row(session.provider)
-    agent = row.agent if row is not None else ""
-    if agent not in cli_title.THREAD_AGENTS:
-        return ""
-    title = cli_title.session_title(agent, session.vendor_session, session.account_id)
-    if not title or not svc.store.title_is_automatic(session):
-        return ""
-    return title
+    """The name the coding CLI gave a thread's conversation itself, or ""."""
+    return thread_finder.cli_title_of(svc.store, session)
 
 
 def _title_chats(request: Request, svc: Any, rows: list[dict[str, Any]]) -> None:
@@ -1316,6 +1300,42 @@ def list_lead_threads(request: Request, limit: int = Query(12, ge=1, le=50)) -> 
             }
         )
     return {"threads": out}
+
+
+@router.get(
+    "/thread-links/{ref}",
+    summary="The coding thread a chat link or a thread code names: its title and coding agent",
+    openapi_extra={"x-jarvis-readonly": True},
+)
+def get_thread_link(ref: str, request: Request) -> dict[str, Any]:
+    """What a ``thread:<id>`` link in a chat answer draws: title, coding agent, code.
+
+    ``ref`` is a thread's session id or its code. ``found`` is false when no
+    thread (or more than one) answers to it; the chat then draws plain text.
+    """
+    from dodaios.agent_chat.catalog import provider_row
+    from dodaios.society.coding_threads import _label_of
+
+    svc = _service(request)
+    key = thread_finder.code_key(ref)
+    session = svc.store.get_session(key) if key else None
+    if session is None:
+        matches = thread_finder.sessions_for_code(svc.store, ref)
+        session = matches[0] if len(matches) == 1 else None
+    if session is None or session.surface != thread_finder.THREAD_SURFACE:
+        return {"found": False, "ref": ref}
+    row = provider_row(session.provider)
+    return {
+        "found": True,
+        "session_id": session.session_id,
+        "code": thread_finder.thread_code(session.session_id),
+        "title": thread_finder.shown_title(svc.store, session),
+        "agent": row.agent if row is not None and row.agent else "",
+        "agent_label": _label_of(session.provider),
+        "provider": session.provider,
+        "cwd": session.cwd,
+        "running": _reported_running(svc, session.session_id),
+    }
 
 
 @router.get("/lead/channels", summary="Where the person reaches the assistant outside the app")

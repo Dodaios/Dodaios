@@ -43,7 +43,7 @@ def _point_at_jarvis_agent(args: dict, result: dict) -> dict:
 
 
 # Actions that only look. ``watch`` is not one: it arranges a later report.
-_READS = frozenset({"status", "inspect", "resolve", "context", "observe"})
+_READS = frozenset({"status", "inspect", "resolve", "context", "observe", "find"})
 
 
 class WorkspaceOrchestrationTool:
@@ -54,10 +54,23 @@ class WorkspaceOrchestrationTool:
     risk_tier = "monitor"
     is_action_tool = True
     description = (
-        "Route coding tasks to Projects > Workspaces > coding agents (the coding panes of "
-        "the Agentic IDE). The user's named Dodaios agents (their team, e.g. a Scout or a "
-        "Gmail agent) are NOT panes: reach them with delegate_to_agent or message_agent. "
+        "Route coding tasks to Projects > Workspaces > coding agents (the chat threads and "
+        "coding panes of the Agentic IDE). When the user says 'agent' and nothing in the "
+        "conversation says otherwise, they mean one of these coding agents. The user's named "
+        "Dodaios agents (their team, e.g. a Scout or a Gmail agent) are NOT panes: reach them "
+        "with delegate_to_agent or message_agent. "
         "A resolve result carrying jarvis_agent means the name is such an agent. "
+        "find is the way to a coding agent's chat the user means but did not address: it "
+        "reads EVERY chat thread of the Agentic IDE, also ones from weeks ago that status no "
+        "longer lists. Pass code when the user gives a thread's code (six characters such as "
+        "#3f9a2c, shown in the thread's menu), query with a few words of its title or of what "
+        "was said in it (a feature, a file, an error), or neither for the newest threads; "
+        "project, workspace or folder narrow it. Then read the thread with observe (newest "
+        "messages) and context (the whole conversation in pages) before you answer about it. "
+        "A code also works directly as terminal_id ('#3f9a2c'). Every thread row carries "
+        "link: to point the user at a coding agent, write that link into your answer "
+        "unchanged; the chat shows it as the agent's title with its logo, and it opens the "
+        "thread in the Agentic IDE. "
         "When the user asks for a NEW agent, terminal or session (for example 'spawn two "
         "Claude Code agents in the VMs workspace'), call create: it opens count new agents of "
         "the named cli and, with prompt, hands each the task; model and effort set what they "
@@ -143,6 +156,7 @@ class WorkspaceOrchestrationTool:
                 "type": "string",
                 "enum": [
                     "status",
+                    "find",
                     "watch",
                     "inspect",
                     "resolve",
@@ -203,6 +217,20 @@ class WorkspaceOrchestrationTool:
                     "send: what happens when the agent is in a turn. refuse (default) sends "
                     "nothing. steer/interrupt/queue only for the user's explicit correction "
                     "of that running work."
+                ),
+            },
+            "query": {
+                "type": "string",
+                "description": (
+                    "find: a few words of the thread's title or of what was said in it. "
+                    "Threads holding every word come first."
+                ),
+            },
+            "code": {
+                "type": "string",
+                "description": (
+                    "find, observe, context, send, interrupt, watch: the code of a chat "
+                    "thread as the user gave it, e.g. '#3f9a2c'."
                 ),
             },
             "limit": {"type": "integer", "minimum": 1, "maximum": 100},
@@ -315,7 +343,7 @@ class WorkspaceOrchestrationTool:
             "level": "read" if self.risk_tier_for_args(args) == "safe" else "modify",
             "project": str(args.get("project_id") or args.get("project") or ""),
             "workspace": str(args.get("workspace_id") or args.get("workspace") or ""),
-            "agent": str(args.get("terminal_id") or args.get("agent") or "")
+            "agent": str(args.get("terminal_id") or args.get("agent") or args.get("code") or "")
             or (
                 f"{args.get('count') or 1} new {args.get('cli') or 'agent'}"
                 if args.get("action") == "create"
