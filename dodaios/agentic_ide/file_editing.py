@@ -41,7 +41,7 @@ from loguru import logger
 from dodaios.core.path_safety import UnsafePathError, contained_path
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
-from .folders import _SKIP_DIRS
+from .folders import _SKIP_DIRS, consent_guarded_dirs
 from .system_trash import move_to_trash
 
 log = logging.getLogger(__name__)
@@ -552,8 +552,15 @@ def _git_listed_files(base: Path) -> list[str] | None:
 
 def _walked_files(base: Path) -> tuple[list[str], bool]:
     found: list[str] = []
+    guarded = consent_guarded_dirs(base)
+    if str(base) in guarded:
+        return found, False
     for current, dirs, files in os.walk(base):
-        dirs[:] = sorted(name for name in dirs if name not in _SKIP_DIRS)
+        dirs[:] = sorted(
+            name
+            for name in dirs
+            if name not in _SKIP_DIRS and os.path.join(current, name) not in guarded
+        )
         rel_dir = Path(current).relative_to(base).as_posix()
         for name in sorted(files):
             found.append(name if rel_dir == "." else f"{rel_dir}/{name}")

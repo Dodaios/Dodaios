@@ -56,6 +56,58 @@ _SKIP_DIRS = frozenset(
 #: "what a folder walk skips" is decided once.
 SKIP_DIRS = _SKIP_DIRS
 
+# macOS answers a read of another app's data with a consent dialog ("... would
+# like to access data from other apps") that it does not remember across
+# launches. Every app keeps that data under the account's ``Library``, in
+# ``Containers`` and ``Group Containers``, so a recursive walk rooted at or
+# above them raised the dialog each time a restored workspace was indexed
+# (field report 2026-11-12: workspace folder ``~/Library``, one dialog per
+# launch, three launches in a row). ``Library`` holds application data, never
+# a project: a walk that starts at or above it leaves the tree out. A walk
+# that starts inside it (an iCloud Drive folder under ``Library/Mobile
+# Documents``) is the person's own choice and runs, short of the two container
+# parents. Spelled relative to the home folder.
+_MACOS_GUARDED_DIRS: tuple[tuple[str, ...], ...] = (
+    ("Library",),
+    ("Library", "Containers"),
+    ("Library", "Group Containers"),
+)
+
+
+def consent_guarded_dirs(
+    root: str | os.PathLike[str],
+    *,
+    home: str | os.PathLike[str] | None = None,
+    platform: str | None = None,
+) -> frozenset[str]:
+    """Directories at or below ``root`` that a recursive walk must not enter.
+
+    Each path is spelled the way a walk from ``root`` spells it
+    (``os.path.join`` from ``root``), so a walker compares an entry's path
+    directly. ``root`` itself is in the set when it is one of them, and the
+    walk then lists nothing. Empty on every system but macOS.
+
+    ``home`` and ``platform`` default to this machine's; they are parameters so
+    the rule is checked on all three operating systems.
+    """
+    if (platform or sys.platform) != "darwin":
+        return frozenset()
+    base = Path(root)
+    try:
+        resolved = Path(os.path.realpath(base))
+        account = Path(os.path.realpath(home if home is not None else Path.home()))
+    except (OSError, RuntimeError):  # no home folder to reason about
+        return frozenset()
+    guarded: set[str] = set()
+    for parts in _MACOS_GUARDED_DIRS:
+        try:
+            below = account.joinpath(*parts).relative_to(resolved)
+        except ValueError:  # not under this root: the walk never reaches it
+            continue
+        guarded.add(str(base / below))
+    return frozenset(guarded)
+
+
 # marker file/dir -> stack label. Order is irrelevant; all matches are reported.
 _STACK_MARKERS: tuple[tuple[str, str], ...] = (
     ("pyproject.toml", "Python"),

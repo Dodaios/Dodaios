@@ -42,7 +42,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from .folders import _SKIP_DIRS
+from .folders import _SKIP_DIRS, consent_guarded_dirs
 
 # Hard bounds. 30k files covers a large monorepo; past that the tail is noise
 # for this purpose (nobody dictates the name of the 30001st file).
@@ -681,6 +681,12 @@ def build_index(root: str | Path) -> FileIndex:
     except OSError:
         return index
 
+    # Before git as well: ``git ls-files --others`` walks the tree itself.
+    guarded = consent_guarded_dirs(base)
+    if str(base) in guarded:
+        logger.debug("Agentic IDE file index: {} is application data, not indexed", base)
+        return index
+
     listed = _git_paths(base)
     if listed is not None:
         return _index_from_git(base, listed)
@@ -706,6 +712,8 @@ def build_index(root: str | Path) -> FileIndex:
                             # instruction trees, which are exactly what a coding
                             # request refers to ("the wake skill", ".claude").
                             if name.startswith(".") and name not in _KEEP_HIDDEN:
+                                continue
+                            if item.path in guarded:
                                 continue
                             if depth < _MAX_DEPTH:
                                 stack.append((Path(item.path), depth + 1))
