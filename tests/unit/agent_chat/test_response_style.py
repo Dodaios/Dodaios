@@ -92,3 +92,66 @@ def test_society_api_turn_carries_the_reply_policy_exactly_once(briefed: bool) -
         _TURN_OVERRIDE.reset(token)
     assert prompt.count(CONVERSATIONAL_RESPONSE_STYLE) == 1
     assert "WRITTEN CHAT STYLE" in prompt
+
+
+# ---- charts in a written answer ------------------------------------------------
+
+
+def test_the_assistant_learns_the_chart_block_on_both_seats() -> None:
+    from dodaios.core.response_style import CHART_FENCE, CHART_GUIDANCE
+
+    assert f"`{CHART_FENCE}`" in CHART_GUIDANCE
+    # The CLI seat's preamble and the brain's written style: the assistant's own chat.
+    assert CHART_GUIDANCE in dodaios_harness.SYSTEM_PREAMBLE
+    assert CHART_GUIDANCE in _WRITTEN_CHAT_STYLE
+    # A coding thread acts as in a terminal, and a voice never reads a chart aloud.
+    assert CHART_GUIDANCE not in dodaios_harness.CODING_PREAMBLE
+    for prompt in (load_persona_prompt(), load_compact_persona_prompt()):
+        assert CHART_GUIDANCE not in prompt
+    for phrase in (
+        "never from memory or an estimate",
+        "No chart for a single number",
+        "The text must make sense without the chart",
+    ):
+        assert phrase in CHART_GUIDANCE, phrase
+
+
+def test_the_chart_example_in_the_prompt_is_a_chart_the_chat_can_draw() -> None:
+    import json
+
+    from dodaios.core.response_style import CHART_GUIDANCE
+
+    start = CHART_GUIDANCE.index("{")
+    example, _end = json.JSONDecoder().raw_decode(CHART_GUIDANCE[start:])
+    assert example["type"] in {"line", "area", "column", "bar"}
+    assert len(example["x"]) >= 3
+    assert all(len(series["data"]) == len(example["x"]) for series in example["series"])
+    assert {"title", "unit", "note", "value", "delta"} <= set(example)
+
+
+def test_the_chart_fence_name_is_the_one_the_chat_draws() -> None:
+    import re
+
+    from dodaios.core.response_style import CHART_FENCE
+
+    root = Path(__file__).resolve().parents[3]
+    source = (root / "dodaios/ui/web/frontend/src/lib/chartSpec.ts").read_text(encoding="utf-8")
+    match = re.search(r'export const CHART_FENCE = "([^"]+)"', source)
+    assert match is not None and match.group(1) == CHART_FENCE
+
+
+def test_a_surface_that_cannot_draw_gets_the_reply_without_its_charts() -> None:
+    from dodaios.core.response_style import without_charts
+
+    spec = '{"type": "line", "x": ["a", "b"], "series": [{"name": "s", "data": [1, 2]}]}'
+    block = f"```chart\n{spec}\n```"
+    assert without_charts(f"It rose to 142.\n\n{block}\n\nShall I watch it?") == (
+        "It rose to 142.\n\nShall I watch it?"
+    )
+    # A block cut off before its closing fence goes too; other code stays.
+    assert without_charts('It rose.\n\n```chart\n{"type": "li') == "It rose."
+    code = "Run this:\n\n```bash\nls\n```"
+    assert without_charts(code) == code
+    plain = "A chart of the course would help."
+    assert without_charts(plain) == plain
+    assert without_charts("") == ""

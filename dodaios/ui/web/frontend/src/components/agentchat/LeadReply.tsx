@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { isChartFenceLine } from "@/lib/chartSpec";
 import { cn } from "@/lib/utils";
 import { ChatMarkdown } from "./ChatMarkdown";
 import "./leadConversation.css";
@@ -10,6 +11,8 @@ import "./leadConversation.css";
  * of four messages filled the chat with a dozen (maintainer: "a thousand
  * messages for a simple question"). An answer that is really a document (it
  * has headings or a table, or it runs long) is a note: wider, with an edge.
+ * A chart is the one thing that leaves the bubble: it is a card of its own
+ * between the bubbles, the way a messenger shows a picture.
  */
 
 /** Reading type shared by every reply on the front page. */
@@ -33,12 +36,14 @@ export const REPLY_PROSE = cn(
 /** The person's own message in the conversation look, wherever it is drawn. */
 export const OWN_BUBBLE = "jarvis-chat-out jarvis-chat-tinted lead-bubble-own max-w-[80%] px-4 py-2";
 
-export type ReplyBlockKind = "para" | "list" | "code" | "quote" | "heading" | "table" | "rule" | "reference";
+export type ReplyBlockKind = "para" | "list" | "code" | "chart" | "quote" | "heading" | "table" | "rule" | "reference";
 export interface ReplyBlock { kind: ReplyBlockKind; text: string }
 export interface ReplyPart {
   text: string;
   /** A document-like reply kept whole, drawn wider than a message. */
   note: boolean;
+  /** A chart block on its own: drawn as its card, without a bubble around it. */
+  chart?: true;
 }
 
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
@@ -46,6 +51,7 @@ const TABLE_RULE = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
 
 function kindOf(lines: string[]): ReplyBlockKind {
   const first = lines[0];
+  if (isChartFenceLine(first)) return "chart";
   if (lines.some((line) => FENCE.test(line))) return "code";
   if (/^ {0,3}#{1,6}\s/.test(first)) return "heading";
   if (lines.length > 1 && lines[0].includes("|") && TABLE_RULE.test(lines[1])) return "table";
@@ -89,15 +95,33 @@ const MAX_MESSAGE_CHARS = 1400;
 /**
  * A reply as the one message it is. `note` says it reads as a document:
  * headings, a table or reference links, many paragraphs, or a long text.
+ * Only a chart divides a message: the words before it, the chart, the words after.
  */
 export function splitReply(markdown: string): ReplyPart[] {
   const text = markdown.trim();
   if (!text) return [];
   const blocks = replyBlocks(text);
+  const charts = blocks.some((block) => block.kind === "chart");
+  // A chart's numbers are not reading text: they make an answer neither long nor a document.
+  const written = charts ? blocks.reduce((sum, block) => sum + (block.kind === "chart" ? 0 : block.text.length + 2), 0) : text.length;
   const paragraphs = blocks.filter((block) => block.kind === "para").length;
-  const note = text.length > MAX_MESSAGE_CHARS || paragraphs > MAX_MESSAGES
+  const note = written > MAX_MESSAGE_CHARS || paragraphs > MAX_MESSAGES
     || blocks.some((block) => block.kind === "heading" || block.kind === "table" || block.kind === "reference");
-  return [{ text, note }];
+  // A document stays whole, its chart inside it. In a message the chart stands between the bubbles.
+  if (note || !charts) return [{ text, note }];
+  const parts: ReplyPart[] = [];
+  let run: string[] = [];
+  const flush = () => {
+    if (run.length) parts.push({ text: run.join("\n\n"), note: false });
+    run = [];
+  };
+  for (const block of blocks) {
+    if (block.kind !== "chart") { run.push(block.text); continue; }
+    flush();
+    parts.push({ text: block.text, note: false, chart: true });
+  }
+  flush();
+  return parts;
 }
 
 /**
@@ -115,8 +139,9 @@ export function LeadReply({ text, live = false }: { text: string; live?: boolean
           key={index}
           data-testid="lead-bubble"
           data-note={part.note ? "" : undefined}
-          // A message is a grey bubble; a document stays a card with an edge.
-          className={cn("lead-bubble", part.note ? "border border-border bg-card shadow-rim" : "jarvis-chat-in")}
+          data-chart={part.chart ? "" : undefined}
+          // A message is a grey bubble; a document stays a card with an edge; a chart brings its own card.
+          className={cn("lead-bubble", part.chart ? "" : part.note ? "border border-border bg-card shadow-rim" : "jarvis-chat-in")}
         >
           <div className={REPLY_PROSE}>
             <ChatMarkdown text={part.text} />

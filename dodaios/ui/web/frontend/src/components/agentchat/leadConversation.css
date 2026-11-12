@@ -60,6 +60,13 @@
   border-bottom-left-radius: 6px;
   padding: 14px 18px;
 }
+/* A chart is its own card: no bubble around it, and a width of its own,
+   because a chart has no words to take its width from. */
+.lead-bubble[data-chart] {
+  width: min(100%, 34rem);
+  padding: 0;
+  margin: 2px 0;
+}
 .lead-bubbles[data-live] > .lead-bubble {
   transform-origin: left bottom;
   animation: lead-bubble-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
