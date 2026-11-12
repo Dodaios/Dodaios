@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * The Voice section has no small print. Its screens use four type sizes
- * (display, title, reading, body) and nothing below body; a row does not carry
+ * The Voice section has no small print. Its screens use three type sizes
+ * (title, reading, body) and nothing below body; a row does not carry
  * a caption. This reads the section's own source so the rule holds for every
  * tab, including ones added later.
  */
@@ -22,6 +22,7 @@ const FILES = ROOTS.flatMap(sources).filter(
 const BANNED: readonly [RegExp, string][] = [
   [/\btext-(meta|micro|xs|sm)\b/, "a type size below body"],
   [/\btext-\[\d+px\]/, "a literal type size"],
+  [/\btext-(display|page|2xl|xl)\b/, "a headline; the section has rows, not heroes"],
   [/\buppercase\b/, "an uppercase label"],
   [/size=["']sm["']/, "a small control"],
   [/from "@\/components\/ui\/badge"/, "a badge"],

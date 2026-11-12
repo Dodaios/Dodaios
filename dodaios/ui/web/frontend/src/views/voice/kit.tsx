@@ -11,9 +11,8 @@ import { cn } from "@/lib/utils";
  * control. Nothing explains itself in a second, smaller line: when a row needs
  * a sentence to be understood, the label is wrong.
  *
- * Type on these screens has four sizes and no more:
+ * Type on these screens has three sizes and no more:
  *
- *   display  the one headline of the Dictation tab
  *   title    row labels, values, list text, buttons that carry a row
  *   reading  transcripts
  *   body     the smallest text there is: group titles, times, notices
@@ -140,14 +139,9 @@ export function RowValue({ children, testId }: { children: ReactNode; testId?: s
 }
 
 /** A key on a keyboard, at the size of the text beside it. */
-export function Keycap({ children, large = false }: { children: ReactNode; large?: boolean }) {
+export function Keycap({ children }: { children: ReactNode }) {
   return (
-    <kbd
-      className={cn(
-        "inline-flex items-center justify-center rounded-md border border-border-strong bg-secondary font-sans font-medium text-foreground-strong",
-        large ? "h-10 min-w-10 px-3 text-xl" : "h-8 min-w-8 px-2 text-body",
-      )}
-    >
+    <kbd className="inline-flex h-8 min-w-8 items-center justify-center rounded-md border border-border-strong bg-secondary px-2 font-sans text-body font-medium text-foreground-strong">
       {children}
     </kbd>
   );
