@@ -841,6 +841,35 @@ describe("ChatStage (agent chat)", () => {
     expect(screen.getByTestId("work-trace").textContent).toContain("Hello!");
   });
 
+  it("keeps the line the assistant sent before it looked, and then gives the answer", () => {
+    // The look this guards (maintainer, 2026-11-12): the assistant says what
+    // it is about to do, the way a person would, and comes back with the
+    // answer. Its first message used to vanish into the fold once the turn
+    // was done.
+    const timeline = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: "Hows the weather btw" }),
+      ev("turn_started", { turn_id: "t8", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
+      ev("assistant_text", { turn_id: "t8", message_id: "m1", text: "I'll check the weather for this evening." }),
+      ev("tool_call", { turn_id: "t8", call_id: "c1", name: "PowerShell", input: { command: "Get-Weather" } }),
+      ev("tool_result", { turn_id: "t8", call_id: "c1", output: "32", is_error: false }),
+      ev("assistant_text", { turn_id: "t8", message_id: "m2", text: "Hot and humid today, around 32°C." }),
+      ev("turn_finished", { turn_id: "t8", status: "done", duration_ms: 8000, usage: {} }),
+    ]);
+    useAgentChatStore.setState({ activeSessionId: "s8", timeline });
+    render(<ChatStage />);
+
+    const trace = screen.getByTestId("work-trace");
+    const bubbles = within(trace).getAllByTestId("lead-bubble");
+    expect(bubbles.map((node) => node.textContent)).toEqual(["I'll check the weather for this evening.", "Hot and humid today, around 32°C."]);
+    const fold = within(trace).getByTestId("conversation-work-fold");
+    expect(fold.getAttribute("data-open")).toBe("false");
+    expect(bubbles[0].compareDocumentPosition(fold) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(fold.compareDocumentPosition(bubbles[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    openWork();
+    expect(fold.textContent).toContain("Get-Weather");
+    expect(fold.textContent).not.toContain("I'll check the weather");
+  });
+
   it("shows nobody typing under an old message that never got an answer", () => {
     const sent = reduceEvents(EMPTY_TIMELINE, [ev("user_message", { text: "hello" })]);
     useAgentChatStore.setState({ activeSessionId: "s1", busy: false, timeline: sent });

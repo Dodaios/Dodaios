@@ -357,6 +357,36 @@ describe("work trace", () => {
     expect(screen.getByTestId("work-trace").textContent).toContain("Check");
   });
 
+  it("keeps what the assistant said before its steps as messages in a messenger conversation", () => {
+    const answer = (text: string) => <p data-testid="own-reply">{text}</p>;
+    const blocks = [reply("first", "I'll check the weather."), tool("a"), reply("mid", "Still on it."), tool("b"), reply("done", "Hot and humid.")];
+    const { rerender } = render(<WorkTrace {...props} messenger renderAnswer={answer} blocks={blocks} />);
+    const trace = screen.getByTestId("work-trace");
+    // Fold closed: all three messages read, in the order they were sent.
+    const fold = screen.getByTestId("conversation-work-fold");
+    expect(fold.getAttribute("data-open")).toBe("false");
+    expect(screen.getAllByTestId("own-reply").map((node) => node.textContent)).toEqual(["I'll check the weather.", "Still on it.", "Hot and humid."]);
+    // The steps fold between what was said and the answer.
+    const [first, mid, last] = screen.getAllByTestId("own-reply");
+    expect(first.compareDocumentPosition(fold) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(mid.compareDocumentPosition(fold) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(fold.compareDocumentPosition(last) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Opened, the fold holds the steps and does not say the messages again.
+    openWork();
+    expect(fold.querySelector("[data-trace-entry='activity']")).toBeTruthy();
+    expect(fold.querySelector("[data-trace-entry='narration']")).toBeNull();
+    expect(trace.textContent!.split("I'll check the weather.")).toHaveLength(2);
+    // Only a thought stood between two messages: both stay, nothing folds.
+    rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[reply("first", "One moment."), thought, reply("done", "Here it is.")]} />);
+    expect(screen.queryByTestId("conversation-work-fold")).toBeNull();
+    expect(screen.getAllByTestId("own-reply").map((node) => node.textContent)).toEqual(["One moment.", "Here it is."]);
+    // Every other trace still folds its narration with the work.
+    rerender(<WorkTrace {...props} blocks={blocks} />);
+    expect(screen.getByTestId("work-trace").textContent).not.toContain("I'll check the weather.");
+    openWork();
+    expect(screen.getByTestId("work-trace").textContent).toContain("I'll check the weather.");
+  });
+
   it("treats a tool-only turn as work", () => {
     expect(splitConversationTurn([tool("a")])).toEqual({ work: [tool("a")], answer: [], after: [] });
   });
