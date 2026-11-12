@@ -2875,6 +2875,12 @@ class WebServer:
         from dodaios.platform.permission_service import attach_bus as _attach_permission_bus
 
         _attach_permission_bus(self.bus, asyncio.get_running_loop())
+        # The chat service is built on first use, by whichever thread asks
+        # first; ``_build_agent_chat_service`` hands it this loop. Recorded
+        # before the init chain below, during which requests are already
+        # answered: a builder that found no loop closed every thread turn the
+        # turn host still ran as "The app restarted" (2026-11-12).
+        self.app.state.app_loop = asyncio.get_running_loop()
 
         # Which data directory holds the agents, chats and settings this run
         # shows: a switched JARVIS_DATA_DIR otherwise looks like lost data.
@@ -4019,10 +4025,16 @@ class WebServer:
 
     def _build_agent_chat_service(self) -> Any:
         """Build the agent-chat service on first use (see agent_chat_routes)."""
-        from dodaios.agent_chat.service import AgentChatService
+        from dodaios.agent_chat.service import AgentChatService, remember_app_loop
         from dodaios.agent_chat.store import AgentChatStore
         from dodaios.brain.assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
 
+        # Every builder comes through here (routes, the voice mirror, the
+        # channel bridge, the agents' MCP tools), from any kind of thread.
+        # Handing the loop over asks nothing, so it is safe under their lock.
+        app_loop = getattr(self.app.state, "app_loop", None)
+        if app_loop is not None:
+            remember_app_loop(app_loop)
         data_dir = Path(getattr(getattr(self.cfg, "memory", None), "data_dir", None) or "data")
         store = AgentChatStore(data_dir / "agent_chat.db")
 

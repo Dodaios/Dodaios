@@ -474,6 +474,13 @@ async def _async_service(request: Request) -> AgentChatService:
     service = getattr(request.app.state, "agent_chat", None)
     if service is not None:
         return service
+    # The build runs in a plain worker thread, which cannot find this loop by
+    # asking. Unrecorded, the first request of a window that was open across
+    # an app restart closed every thread turn the turn host still ran as
+    # "The app restarted" (2026-11-12).
+    from dodaios.agent_chat.service import remember_app_loop
+
+    remember_app_loop(asyncio.get_running_loop())
     # Sync routes can already own the construction lock. Waiting on that lock
     # here freezes HTTP, voice, and callbacks needed by the builder itself.
     return await asyncio.to_thread(_service, request)

@@ -1170,6 +1170,96 @@ async def test_the_boot_reattach_carries_on_turns_before_any_window_asked_for_th
     store.close()
 
 
+def _a_turn_the_host_kept(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, str]:
+    """A thread whose turn was open when the app went away, its CLI's lines in the spool."""
+    from dodaios.agent_chat import service as service_mod
+
+    monkeypatch.setattr(service_mod, "_KNOWN_LOOP", None)
+    monkeypatch.setattr(turn_host_client, "spool_dir", lambda: tmp_path / "spool")
+    monkeypatch.setattr(turn_host_client, "_host_alive", lambda state: False)
+
+    async def no_live_host(*, start: bool = True) -> None:
+        return None
+
+    monkeypatch.setattr(turn_host_client, "get_client", no_live_host)
+    db = tmp_path / "agent_chat.db"
+    store = AgentChatStore(db)
+    kept = store.create_session(
+        provider="claude-api", model="m", effort="medium", cwd=str(tmp_path), surface="agent"
+    )
+    turn_id = f"t-{kept.session_id}"
+    store.append_event(
+        kept.session_id, {"kind": "turn_started", "ts_ms": 1_000, "payload": {"turn_id": turn_id}}
+    )
+    _spool_record(tmp_path, session_id=kept.session_id, turn_id=turn_id, acked=0)
+    store.close()
+    return db, kept.session_id
+
+
+async def _carried_on(svc: AgentChatService, session_id: str) -> dict[str, Any]:
+    await svc.wait_reattached()
+    run = svc._running.get(session_id)
+    if run is not None and run.task is not None:
+        await asyncio.wait_for(run.task, timeout=10)
+    return svc.store.list_events(session_id)[-1]
+
+
+async def test_the_first_request_after_a_restart_carries_on_the_turns_the_host_kept(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, app_host_mode: Any
+) -> None:
+    """A window that stayed open across an app restart asks before the boot reattach ran.
+
+    Its async route builds the chat in a plain worker thread. That thread found
+    no loop, so the turn the host still ran was closed as "The app restarted"
+    and the thread's next message started a second CLI (2026-11-12).
+    """
+    from types import SimpleNamespace
+
+    from dodaios.ui.web import agent_chat_routes
+
+    db, session_id = _a_turn_the_host_kept(tmp_path, monkeypatch)
+    state = SimpleNamespace(
+        agent_chat=None, agent_chat_factory=lambda: AgentChatService(AgentChatStore(db))
+    )
+    request = SimpleNamespace(app=SimpleNamespace(state=state))
+
+    svc = await agent_chat_routes._async_service(request)  # type: ignore[arg-type]
+
+    finished = await _carried_on(svc, session_id)
+    assert finished["kind"] == "turn_finished"
+    assert finished["payload"]["status"] == "done"
+    svc.store.close()
+
+
+async def test_the_servers_factory_hands_the_app_loop_to_a_builder_in_any_thread(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, app_host_mode: Any
+) -> None:
+    """The voice mirror, the channel bridge and the agents' MCP tools build the chat too.
+
+    They run in threads that cannot ask for the loop, while the server's init
+    chain is still under way. The server recorded its loop before that chain.
+    """
+    from types import SimpleNamespace
+
+    from dodaios.core.bus import EventBus
+    from dodaios.ui.web.server import WebServer
+
+    db, session_id = _a_turn_the_host_kept(tmp_path, monkeypatch)
+    server = WebServer.__new__(WebServer)
+    server.cfg = SimpleNamespace(memory=SimpleNamespace(data_dir=str(tmp_path)))
+    server.bus = EventBus()
+    server.app = SimpleNamespace(
+        state=SimpleNamespace(agent_chat=None, app_loop=asyncio.get_running_loop())
+    )
+
+    svc = await asyncio.to_thread(server._build_agent_chat_service)
+
+    finished = await _carried_on(svc, session_id)
+    assert finished["kind"] == "turn_finished"
+    assert finished["payload"]["status"] == "done"
+    svc.store.close()
+
+
 async def test_a_shutdown_while_reattaching_leaves_the_turns_for_the_next_process(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, app_host_mode: Any
 ) -> None:
