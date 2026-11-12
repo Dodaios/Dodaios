@@ -65,10 +65,13 @@ export function SideThread({ item, renderTimeline }: { item: NoticeItem; renderT
           {item.text}
         </div>
       </div>
-      <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-xs text-muted-foreground">
+      {/* An answered one needs no label: the message and its answer say it.
+          The line is for what the person can act on (it still runs) or has
+          to know (it was not answered). */}
+      {(running || ended) && <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <span className="flex items-center gap-1" data-testid="side-thread-state">
           <Split aria-hidden className="h-3 w-3 shrink-0" />
-          {t(running ? "society.chat.side_thread_running" : ended ?? "society.chat.side_thread_done")}
+          {t(running ? "society.chat.side_thread_running" : ended!)}
         </span>
         {running && (
           <>
@@ -86,7 +89,7 @@ export function SideThread({ item, renderTimeline }: { item: NoticeItem; renderT
             </button>
           </>
         )}
-      </div>
+      </div>}
       {problem && <p role="alert" className="text-end text-xs text-destructive">{problem}</p>}
       {watched ? (
         <SideThreadLive sideId={sideId} running={running} renderTimeline={renderTimeline}

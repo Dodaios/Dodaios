@@ -70,7 +70,8 @@ describe("a message sent while the conversation still works", () => {
     // Their own bubble, like every message of theirs, then the reply.
     expect(within(thread).getByTestId("agent-message-user").textContent).toBe(QUESTION);
     expect(within(thread).getByTestId("side-thread-answer").textContent).toContain("Canberra.");
-    expect(within(thread).getByTestId("side-thread-state").textContent).toContain("Answered in parallel");
+    // Answered: nothing but the exchange itself, no label under the message.
+    expect(within(thread).queryByTestId("side-thread-state")).toBeNull();
     // Finished: nothing to stop or move, and no second connection for a reopened chat.
     expect(within(thread).queryByTestId("side-thread-stop")).toBeNull();
     expect(Socket.open).toHaveLength(0);
@@ -80,7 +81,6 @@ describe("a message sent while the conversation still works", () => {
     draw(conversation(ev("notice", { kind: "side_thread_finished", side_id: "side-1", status: "interrupted", text: QUESTION })));
     const state = screen.getByTestId("side-thread-state").textContent ?? "";
     expect(state).toContain("restart");
-    expect(state).not.toContain("Answered in parallel"); // it was not
     expect(screen.queryByTestId("side-thread-answer")).toBeNull();
   });
 

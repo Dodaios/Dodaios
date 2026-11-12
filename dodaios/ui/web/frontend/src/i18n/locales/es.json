@@ -7240,7 +7240,6 @@
       "background_result": "Resultado de tu petición anterior",
       "background_result_lost": "No se pudo recuperar el resultado de esta petición: {0}",
       "side_thread_running": "Respondiendo esto junto a la tarea en curso",
-      "side_thread_done": "Respondido en paralelo",
       "side_thread_stopped": "Se detuvo antes de responderse.",
       "side_thread_failed": "No se pudo responder. Envíalo de nuevo.",
       "side_thread_interrupted": "Un reinicio interrumpió esta respuesta. Envíalo de nuevo.",
