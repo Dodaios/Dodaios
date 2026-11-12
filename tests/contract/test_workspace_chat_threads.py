@@ -177,6 +177,8 @@ def test_the_tool_offers_the_mode_and_names_chat_the_default():
     assert mode["enum"] == ["chat", "grid"]
     assert "default" in mode["description"]
     assert "chat threads" in WorkspaceOrchestrationTool.description
+    # What the person names about the agent goes through the same call.
+    assert {"model", "effort"} <= set(WorkspaceOrchestrationTool.schema["properties"])
 
 
 async def test_a_new_agent_opens_as_a_chat_thread_not_a_pane(rig: Rig):
@@ -208,6 +210,76 @@ async def test_a_thread_opens_in_the_pane_stance_not_with_full_access(rig: Rig):
     [thread] = rig.threads()
     runner = resolve_runner(thread.provider, surface="agent")
     assert thread.permission_mode == default_permission(runner)
+
+
+async def test_the_model_and_effort_asked_for_are_the_threads(rig: Rig):
+    result = await create(rig, cli="Claude Code", model="Opus 5.5", effort="high")
+
+    assert result["status"] == "created" and result["mode"] == "chat", result
+    [thread] = rig.threads()
+    assert thread.model == "claude-opus-5-5" and thread.effort == "high"
+    assert result["agents"][0]["model"] == "claude-opus-5-5"
+
+
+async def test_a_model_alone_names_the_coding_agent(rig: Rig):
+    # "A Fable 5.2 agent": no CLI was said, the model belongs to Claude Code.
+    result = await create(rig, cli=None, model="Opus 5.5")
+
+    assert result["agents"][0]["cli"] == "claude", result
+    assert rig.threads()[0].model == "claude-opus-5-5"
+
+
+async def test_open_workspace_starts_threads_in_the_folder_not_a_grid_workspace(
+    rig: Rig, tmp_path
+):
+    # Live 2026-11-12: "create the project web Chip and let a Fable 5.2 agent on
+    # max design a chip there" opened a grid workspace with a terminal.
+    fresh = tmp_path / "web Chip"
+    fresh.mkdir()
+    workspaces = len(rig.registry.sessions)
+
+    result = await rig.orchestrator.run({
+        "action": "open_workspace", "folder": str(fresh), "name": "web Chip",
+        "agents": [{"cli": "Claude Code", "model": "Opus 5.5", "effort": "max"}],
+        "prompt": "Design a chip",
+    })
+
+    assert result["status"] == "created" and result["mode"] == "chat", result
+    assert len(rig.registry.sessions) == workspaces
+    [thread] = rig.threads()
+    assert thread.cwd == str(fresh.resolve()) and thread.model == "claude-opus-5-5"
+    assert thread.effort == "max"
+    assert [d["status"] for d in result["deliveries"]] == ["accepted"]
+    assert any(p.path == str(fresh.resolve()) for p in library.list_projects())
+    await rig.settle()
+
+
+async def test_open_workspace_opens_the_grid_when_it_is_asked_for(rig: Rig, tmp_path):
+    fresh = tmp_path / "Terminals"
+    fresh.mkdir()
+    workspaces = len(rig.registry.sessions)
+
+    result = await rig.orchestrator.run({
+        "action": "open_workspace", "folder": str(fresh), "mode": "grid",
+        "agents": [{"cli": "Claude Code", "model": "Opus 5.5", "effort": "max"}],
+    })
+
+    assert result["status"] == "opened" and result["mode"] == "grid", result
+    assert len(rig.registry.sessions) == workspaces + 1
+    [pane] = rig.registry.get(result["workspace_id"]).terminals
+    assert pane.model == "claude-opus-5-5" and pane.effort == "max"
+    assert rig.threads() == []
+
+
+async def test_a_grid_pane_starts_on_the_model_asked_for(rig: Rig):
+    result = await rig.orchestrator.run({
+        "action": "create", "cli": "Claude Code", "mode": "grid",
+        "model": "Opus 5.5", "effort": "max",
+    })
+
+    assert result["status"] == "created" and result["mode"] == "grid", result
+    pane = rig.workspace.terminals[-1]
+    assert pane.agent == "claude" and pane.model == "claude-opus-5-5" and pane.effort == "max"
 
 
 async def test_the_grid_is_used_when_the_request_names_it(rig: Rig):

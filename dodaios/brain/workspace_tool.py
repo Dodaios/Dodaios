@@ -60,9 +60,13 @@ class WorkspaceOrchestrationTool:
         "A resolve result carrying jarvis_agent means the name is such an agent. "
         "When the user asks for a NEW agent, terminal or session (for example 'spawn two "
         "Claude Code agents in the VMs workspace'), call create: it opens count new agents of "
-        "the named cli and, with prompt, hands each the task. New agents open as chat threads "
+        "the named cli and, with prompt, hands each the task; model and effort set what they "
+        "run on when the user named it ('a Fable 5.2 agent on max'). create is the ONLY way "
+        "to start a new coding agent: never open a workspace, a session or terminals for one "
+        "through run-app-action. New agents open as chat threads "
         "in the Agentic IDE's Chat mode (mode chat, the default), in the folder of the named "
-        "or visible workspace, of a named project, or the given folder. Pass mode grid ONLY "
+        "or visible workspace, of a named project, or the given folder (a new project: create "
+        "its folder first, then pass folder). Pass mode grid ONLY "
         "when the user explicitly asked for a terminal, a pane or the grid: then they open as "
         "terminal panes in the named or visible workspace. A chat thread's terminal_id starts "
         "with 'thread:'; send, observe, interrupt, watch and status take it directly, with no "
@@ -70,10 +74,10 @@ class WorkspaceOrchestrationTool:
         "keys, restart, close and fork are for panes. "
         "Never reuse an existing agent and never use spawn_worker for that. "
         "Mixed CLIs in one request ('five Claude Code and three Codex') go in agents: "
-        "[{cli, count}, ...]. open_workspace opens a NEW grid workspace (with NEW terminal "
-        "panes) for folder (absolute path) or a known project (name or project_id), with "
-        "agents and an optional prompt; use it only when the user asked for a workspace or "
-        "terminals, else create. restore reopens a "
+        "[{cli, count, model, effort}, ...]. open_workspace starts agents in a folder "
+        "(absolute path) or a known project (name or project_id) that has no workspace yet, "
+        "with agents and an optional prompt: chat threads by default like create, a NEW grid "
+        "workspace of terminal panes only with mode grid. restore reopens a "
         "closed workspace; show brings one on screen. For one pane (by agent call-sign or "
         "terminal_id): observe reads its screen, question and newest events; respond types "
         "the answer to the question or permission prompt it shows (prompt = the answer); keys "
@@ -243,6 +247,8 @@ class WorkspaceOrchestrationTool:
                     "properties": {
                         "cli": {"type": "string"},
                         "count": {"type": "integer", "minimum": 1, "maximum": 16},
+                        "model": {"type": "string"},
+                        "effort": {"type": "string"},
                     },
                 },
             },
@@ -258,9 +264,24 @@ class WorkspaceOrchestrationTool:
                 "type": "string",
                 "enum": [VIEW_CHAT, VIEW_GRID],
                 "description": (
-                    "create: how the new agents open. chat (default): chat threads in the "
-                    "Agentic IDE's Chat mode. grid: terminal panes; ONLY when the user "
-                    "explicitly asked for a terminal, a pane or the grid."
+                    "create/open_workspace: how the new agents open. chat (default): chat "
+                    "threads in the Agentic IDE's Chat mode. grid: terminal panes; ONLY when "
+                    "the user explicitly asked for a terminal, a pane or the grid."
+                ),
+            },
+            "model": {
+                "type": "string",
+                "description": (
+                    "create/open_workspace: the model the new agents run on, as the user "
+                    "said it ('Fable 5.2', 'Opus 5.5'); omitted, the CLI's default. With no "
+                    "cli it also picks the coding agent that has this model."
+                ),
+            },
+            "effort": {
+                "type": "string",
+                "description": (
+                    "create/open_workspace: the reasoning effort as the user said it "
+                    "('max', 'high'); omitted, the CLI's default."
                 ),
             },
             "worktree": {

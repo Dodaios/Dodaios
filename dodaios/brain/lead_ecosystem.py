@@ -90,8 +90,9 @@ AREAS: Final[tuple[Area, ...]] = (
         acts=("delegate", "ask_agent", "society-create-agent", "society-create-routine"),
     ),
     Area(
-        "Coding panes",
-        "Agentic IDE workspaces with terminals that run coding agents, addressed by stable id",
+        "Coding agents",
+        "the Agentic IDE: coding agents as chat threads (how a new one opens) and as terminal "
+        "panes in grid workspaces, addressed by stable id",
         sections=("agentic-ide", "agentic-ide-classic", "chat-workspace"),
         acts=("delegate", "workspace-orchestrate", "workspace-git"),
     ),

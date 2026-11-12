@@ -97,6 +97,22 @@ def chat_provider(cli: str | None) -> Any | None:
     return next((row for row in rows_for(THREAD_SURFACE) if row.agent == cli), None)
 
 
+def provider_for_model(words: str) -> Any | None:
+    """The coding agent whose model list names ``words`` ("Fable 5.2"), or ``None``.
+
+    For a request that names a model but no CLI: the model says which CLI it
+    means. ``None`` when no list, or more than one, knows it.
+    """
+    from dodaios.agent_chat.catalog import rows_for
+    from dodaios.society.coding_threads import _models, match_model
+
+    found = []
+    for row in rows_for(THREAD_SURFACE):
+        if row.agent and match_model(row, words) in {m["id"] for m in _models(row)}:
+            found.append(row)
+    return found[0] if len(found) == 1 else None
+
+
 def _default_chat() -> Any:
     from dodaios.mcp.agents.context import chat_service
 
@@ -184,22 +200,35 @@ class ChatThreads:
 
     # -------------------------------------------------------------- create
 
-    def create(self, *, folder: str, row: Any, name: str, title: str = "") -> dict[str, Any]:
+    def create(
+        self,
+        *,
+        folder: str,
+        row: Any,
+        name: str,
+        title: str = "",
+        model: str = "",
+        effort: str = "",
+    ) -> dict[str, Any]:
         """Open one empty thread in ``folder``; its row for the creation receipt.
 
-        Nothing runs yet: the task follows as a :meth:`send`, so the caller can
-        record the new thread before a slow start can outlive the request.
+        ``model`` and ``effort`` are what the person asked for, in their words
+        ("Fable 5.2", "max"); empty means the CLI's own default. Nothing runs
+        yet: the task follows as a :meth:`send`, so the caller can record the
+        new thread before a slow start can outlive the request.
         """
         from dodaios.agent_chat.service import resolve_runner
-        from dodaios.society.coding_threads import access_mode
+        from dodaios.society.coding_threads import access_mode, match_model
 
         service = self._chat()
         runner = resolve_runner(row.id, surface=THREAD_SURFACE)
         session = service.create_session(
             provider=row.id,
+            model=match_model(row, model),
+            effort=effort.strip() or None,
             cwd=folder,
-            # The stance a pane opens in and a thread the person starts by
-            # hand: edits yes, the rest as the CLI's own default decides.
+            # The app's default access mode, the one a grid pane opens in too
+            # (for Claude Code and Codex that is the mode that never asks).
             permission_mode=access_mode(runner, "build"),
             title=_clip(title, 80),
             surface=THREAD_SURFACE,
@@ -209,6 +238,8 @@ class ChatThreads:
             "name": name,
             "cli": row.agent,
             "mode": VIEW_CHAT,
+            **({"model": session.model} if session.model else {}),
+            **({"effort": session.effort} if session.effort else {}),
         }
 
     async def announce(self, reply_session_id: str, session_id: str) -> None:
@@ -747,6 +778,7 @@ __all__ = [
     "ChatThreads",
     "chat_provider",
     "is_thread",
+    "provider_for_model",
     "session_of",
     "spawn_mode",
     "thread_ref",

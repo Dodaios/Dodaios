@@ -57,6 +57,8 @@ def _tool(*fakes: Fake, store: Any = None) -> DelegateTool:
         ("Agent: Scout ", ("agent", "Scout")),
         ("agent", ("agent", "")),
         ("pane:T2", ("pane", "T2")),
+        ("coding_agent", ("coding_agent", "")),
+        ("coding-agent: Claude Code", ("coding_agent", "Claude Code")),
         ("team_thread", ("team_thread", "")),
         ("team-thread", ("team_thread", "")),
         ("mission", ("mission", "")),
@@ -140,6 +142,41 @@ async def test_bare_agent_target_lets_the_lead_pick() -> None:
     result = await _tool(agent).execute({"target": "agent", "task": "research espresso"}, _ctx())
     assert result.output["job_id"] == "job_pick"
     assert agent.calls[0]["agent"] == ""
+
+
+async def test_coding_agent_target_creates_a_new_agent_with_the_model_asked_for() -> None:
+    # Live 2026-11-12: "a Fable 5.2 agent on max in the new folder" had no
+    # target here, so the lead opened a grid workspace through a raw app route.
+    workspace = Fake(
+        "workspace-orchestrate",
+        ToolResult(
+            True,
+            {
+                "status": "created",
+                "mode": "chat",
+                "agents": [{"terminal_id": "thread:abc", "name": "Claude Code"}],
+                "deliveries": [{"status": "accepted", "job_id": "job_thread1"}],
+            },
+        ),
+    )
+    result = await _tool(workspace).execute(
+        {
+            "target": "coding_agent:Claude Code",
+            "task": "design a chip",
+            "completion_criteria": "the testbench passes",
+            "options": {"model": "Fable 5.2", "effort": "max", "folder": "/tmp/web Chip"},
+        },
+        _ctx(),
+    )
+    assert result.success and result.output["job_id"] == "job_thread1"
+    assert result.output["target"] == "coding_agent:Claude Code"
+    [call] = workspace.calls
+    assert call["action"] == "create" and call["cli"] == "Claude Code"
+    assert call["model"] == "Fable 5.2" and call["effort"] == "max"
+    assert call["folder"] == "/tmp/web Chip"
+    assert "design a chip" in call["prompt"] and "the testbench passes" in call["prompt"]
+    # Chat is the default: the grid is asked for, never assumed.
+    assert "mode" not in call
 
 
 async def test_pane_target_resolves_then_sends_under_the_request_id() -> None:

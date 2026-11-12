@@ -3178,7 +3178,16 @@ async def rename_workspace(
     }
 
 
-@router.post("/session", summary="Open an Agentic-IDE workspace")
+# Not an app action (``x-jarvis-exclude``), like /fanout below: a model that
+# starts coding agents goes through workspace-orchestrate, which opens them as
+# chat threads unless the person asked for the grid. Offered as an app action,
+# this route let it open a grid workspace for "a new Fable 5.2 agent" instead
+# (live 2026-11-12). The same holds for the two terminal routes further down.
+@router.post(
+    "/session",
+    summary="Open an Agentic-IDE workspace",
+    openapi_extra={"x-jarvis-exclude": True},
+)
 async def start_session(request: Request, req: StartSessionRequest) -> dict:
     """Open ``folder`` as another workspace, with one terminal per request entry.
 
@@ -3784,7 +3793,11 @@ async def set_auto_switch(req: AutoSwitchRequest) -> dict:
     return {"ok": True, **await asyncio.to_thread(seat_switch.status)}
 
 
-@router.post("/terminals", summary="Open one more terminal")
+@router.post(
+    "/terminals",
+    summary="Open one more terminal",
+    openapi_extra={"x-jarvis-exclude": True},  # see /session
+)
 async def add_terminal(req: AddTerminalRequest) -> dict:
     """Add a terminal to the running workspace, beside or below another one.
 
@@ -3933,7 +3946,11 @@ async def fork_terminal(name: str, req: ForkTerminalRequest) -> dict:
     return {"ok": True, "terminal": term.to_dict(), "state": get_registry().state()}
 
 
-@router.post("/terminals/batch", summary="Open several terminals at once")
+@router.post(
+    "/terminals/batch",
+    summary="Open several terminals at once",
+    openapi_extra={"x-jarvis-exclude": True},  # see /session
+)
 async def add_terminals(request: Request, req: AddTerminalsRequest) -> dict:
     """Open ``count`` more terminals in the running workspace.
 
