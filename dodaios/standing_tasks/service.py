@@ -965,6 +965,7 @@ def _inside(path: str, folder: str) -> bool:
             target = Path(folder) / target
         return target.resolve().is_relative_to(Path(folder).resolve())
     except (OSError, ValueError, RuntimeError):
+        log.info("standing tasks: path %r not placed, so not written unasked", path)
         return False
 
 
