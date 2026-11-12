@@ -177,6 +177,29 @@ _CONFIRM_RATIO = 0.55
 _PREFIXED_CORE_RATIO = 2.0 / 3.0
 _UNPREFIXED_CORE_RATIO = 0.80
 
+# The ratio floors above say how SIMILAR the heard core is, not how much of it
+# was heard. On a four-letter core 2/3 is reached with two matching letters:
+# "na" and "no" each scored exactly 2/3 against "nova", so with a known prefix
+# in front the free ear's "okay na gut" or "hey no" counted as a SPELLING of
+# "Hey Nova" and fired without any acoustic judgement. Two matching letters
+# do not spell a name: a spelled core needs three of them, or all but one on
+# a core shorter than four letters. One letter of drift stays a spelling
+# ("ruben" heard as "oben", "nova" as "nowa"), as it does in
+# ``WakeMatcher._effective_ratio``. A transcript that fails this is not
+# rejected: it is no longer a spelling, so the shape gate and the acoustic
+# competition decide it, as for every call the free ear could not spell.
+_MIN_SPELLED_LETTERS = 3
+
+
+def _spells_core(target: str, heard: str, floor: float) -> bool:
+    """Is *heard* a spelling of the folded core *target* at *floor*?"""
+    matcher = SequenceMatcher(None, target, heard)
+    if matcher.ratio() < floor:
+        return False
+    matched = sum(block.size for block in matcher.get_matching_blocks())
+    return matched >= min(_MIN_SPELLED_LETTERS, len(target) - 1)
+
+
 # A free decoder often preserves the wake core while garbling the short
 # prefix completely (production examples for "Hey Jarvis": "age avis",
 # "a jarvis", "page avis", "pay jarvis").  Requiring the prefix to be one of
@@ -460,8 +483,7 @@ def sound_confirm(free_text: str, phrase: str, *, ratio: float = _CONFIRM_RATIO)
             if core_end > len(words):
                 continue
             heard_core = "".join(words[core_start:core_end])
-            core_score = SequenceMatcher(None, target_core, heard_core).ratio()
-            if core_score >= core_floor:
+            if _spells_core(target_core, heard_core, core_floor):
                 return True
 
     # Recall rescue for an ASR-garbled prefix.  Do not slide this over longer

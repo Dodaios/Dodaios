@@ -45,6 +45,31 @@ def test_sound_confirm_accepts_sound_close_mishearing() -> None:
 
 
 @pytest.mark.parametrize(
+    "heard",
+    (
+        "hey no",
+        "hey na klar",  # i18n-allow: recognition content under test
+        "okay na gut",  # i18n-allow: recognition content under test
+        "hallo na",
+        "hi na",
+    ),
+)
+def test_two_matching_letters_do_not_spell_a_short_name(heard: str) -> None:
+    """"na" and "no" each score exactly 2/3 against "nova". Behind a known
+    prefix they counted as a spelling of "Hey Nova", so everyday speech fired
+    the wake with no acoustic judgement at all (measured 2026-11-12 with the
+    real models on synthesized voices: 7 such clips fired). They are not a
+    spelling; the shape gate and the competition decide them instead."""
+    assert sound_confirm(heard, "Hey Nova") is False
+
+
+def test_one_letter_of_drift_still_spells_a_short_name() -> None:
+    assert sound_confirm("hey nora", "Hey Nova") is True
+    assert sound_confirm("hi nova", "Hey Nova") is True
+    assert sound_confirm("hey ma", "Hey Mia") is True
+
+
+@pytest.mark.parametrize(
     ("heard", "phrase"),
     (
         ("herum", "Hey Ruben"),
