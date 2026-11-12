@@ -40,6 +40,25 @@ export function mediaKind(raw: string): MediaKind | null {
 }
 
 /**
+ * The enlarged picture, or the playing video, of an open dialog. One viewer
+ * for a picture in a message and for a file still waiting in a composer.
+ * `src` is drawn as given: the caller vouches for it.
+ */
+export function MediaViewerContent({ src, label, kind = "image" }: { src: string; label: string; kind?: "image" | "video" }) {
+  const t = useT();
+  return <Dialog.Portal>
+    <Dialog.Overlay className="fixed inset-0 z-50 bg-background/90" />
+    <Dialog.Content aria-describedby={undefined} data-testid="chat-media-viewer" className="fixed left-1/2 top-1/2 z-50 grid max-h-[95vh] w-max max-w-[95vw] -translate-x-1/2 -translate-y-1/2 gap-3 overflow-auto rounded-lg border border-border bg-background p-4 text-foreground shadow-xl">
+      <Dialog.Title className="pr-8 text-sm">{label}</Dialog.Title>
+      <Dialog.Close aria-label={t("common.close")} className="absolute right-3 top-3 rounded p-1 focus-visible:ring-2 focus-visible:ring-ring"><X aria-hidden className="h-4 w-4" /></Dialog.Close>
+      {kind === "video"
+        ? <video src={src} aria-label={label} controls autoPlay playsInline className="mx-auto max-h-[80vh] max-w-full rounded bg-muted" />
+        : <img src={src} alt={label} className="mx-auto max-h-[80vh] max-w-full object-contain" />}
+    </Dialog.Content>
+  </Dialog.Portal>;
+}
+
+/**
  * Image, video, or audio that a chat message can show without the markdown parser.
  * `bare` draws only the picture itself (no margin, no download line): a
  * thread's screenshot under its line.
@@ -86,13 +105,6 @@ export function MediaPreview({ src, label, kind, bare = false }: { src: string; 
       }} className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground underline underline-offset-2">
       <Download aria-hidden className="h-3 w-3" />{t(safe.startsWith("/api/outputs/") ? "chat_media.download" : "chat_media.open_file")} · {label}
     </a> : <span className="text-xs text-muted-foreground">{label}</span>}
-    {kind === "image" && safe ? <Dialog.Portal>
-      <Dialog.Overlay className="fixed inset-0 z-50 bg-background/90" />
-      <Dialog.Content aria-describedby={undefined} className="fixed left-1/2 top-1/2 z-50 grid max-h-[95vh] w-max max-w-[95vw] -translate-x-1/2 -translate-y-1/2 gap-3 overflow-auto rounded-lg border border-border bg-background p-4 text-foreground shadow-xl">
-        <Dialog.Title className="pr-8 text-sm">{label}</Dialog.Title>
-        <Dialog.Close aria-label={t("common.close")} className="absolute right-3 top-3 rounded p-1 focus-visible:ring-2 focus-visible:ring-ring"><X aria-hidden className="h-4 w-4" /></Dialog.Close>
-        <img src={safe} alt={label} className="mx-auto max-h-[80vh] max-w-full object-contain" />
-      </Dialog.Content>
-    </Dialog.Portal> : null}
+    {kind === "image" && safe ? <MediaViewerContent src={safe} label={label} /> : null}
   </span></Dialog.Root>;
 }
