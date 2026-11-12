@@ -6508,6 +6508,7 @@ class DesktopApp:
                 private_mode=storage_dir is None,
                 storage_path=str(storage_dir) if storage_dir is not None else None,
                 icon=self._native_window_icon(),
+                menu=self._native_app_menu(),
             )
         except webview.WebViewException as exc:
             # Not swallowed: the exception is handed to the degrade path, which
@@ -6601,6 +6602,54 @@ class DesktopApp:
         except KeyboardInterrupt:
             _logger.info("Interrupted — shutting the browser-UI fallback down.")
         return self.shutdown() or 0
+
+    def _native_app_menu(self) -> list[Any]:
+        """Application-menu items for ``webview.start`` — "Restart Dodaios" on macOS.
+
+        See ``dodaios/ui/macos_app_menu.py``. Empty elsewhere and on pywebview
+        versions that cannot place items in the application menu.
+        """
+        from dodaios.ui.macos_app_menu import app_menu
+
+        try:
+            return app_menu(
+                restart=self.request_restart,
+                running_missions=self._running_mission_ids,
+                confirm=self._confirm_in_window,
+            )
+        except Exception as exc:  # noqa: BLE001 — a menu extra must never stop the window.
+            from loguru import logger as _logger
+
+            _logger.opt(exception=exc).warning("Application-menu Restart item skipped.")
+            return []
+
+    def _running_mission_ids(self) -> list[str]:
+        """Missions a restart would end — the guard the Settings restart uses."""
+        server = self._server
+        state = getattr(getattr(server, "app", None), "state", None)
+        list_running = getattr(getattr(state, "kontrollierer", None), "running_mission_ids", None)
+        if not callable(list_running):
+            return []
+        try:
+            return [str(mission_id) for mission_id in list_running()]
+        except Exception as exc:  # noqa: BLE001 — unknown counts as running, so ask.
+            from loguru import logger as _logger
+
+            _logger.opt(exception=exc).warning("Running missions unknown; asking before restart.")
+            return ["unknown"]
+
+    def _confirm_in_window(self, title: str, message: str) -> bool:
+        """Ask in the main window; no window or no answer means no."""
+        window = self._window
+        if window is None:
+            return False
+        try:
+            return bool(window.create_confirmation_dialog(title, message))
+        except Exception as exc:  # noqa: BLE001 — a failed dialog must not restart.
+            from loguru import logger as _logger
+
+            _logger.opt(exception=exc).warning("Restart confirmation dialog failed.")
+            return False
 
     @staticmethod
     def _native_window_icon() -> str | None:
