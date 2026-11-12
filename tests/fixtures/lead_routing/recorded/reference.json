@@ -592,6 +592,30 @@
     "action": "list"
    }
   },
+  "standing-take-on-campaign-en": {
+   "tool": "standing_task",
+   "input": {
+    "action": "take_on"
+   }
+  },
+  "standing-take-on-campaign-de": {
+   "tool": "standing_task",
+   "input": {
+    "action": "take_on"
+   }
+  },
+  "standing-take-on-with-pace-en": {
+   "tool": "standing_task",
+   "input": {
+    "action": "take_on"
+   }
+  },
+  "standing-list-en": {
+   "tool": "standing_task",
+   "input": {
+    "action": "list"
+   }
+  },
   "skill-create-en": {
    "tool": "create-skill"
   },

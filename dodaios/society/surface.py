@@ -60,6 +60,7 @@ from .learning import RunLearnedSkillTool
 from .login_tool import LOGIN_TOOL_NAME, RequestLoginTool
 from .memory import resolve_society_vault
 from .roster import (
+    LEAD_AGENT_ID,
     PAIR_SESSION_MARKER,
     AgentRecord,
     canonical_session_id,
@@ -89,6 +90,9 @@ SURFACE: Final[str] = "society"
 _PREFIX: Final[str] = "society:"
 #: Tools every society session keeps regardless of grants — its own hands.
 _OWN_PREFIX: Final[str] = "society_"
+#: The lead's own hand in its unattended runs (``society_tools``): kept regardless of
+#: grants like the ``society_`` tools, under the name it has in the lead's chat.
+_LEAD_OWN: Final[frozenset[str]] = frozenset({"standing_task"})
 #: Tools a society session never gets even in ``all`` mode: the agent writes
 #: notes only through its namespaced note tool and runs commands only
 #: through its own contained shell (never the free-cwd shell tools).
@@ -343,6 +347,12 @@ def society_tools(cfg: Any, brain: Any, session: Any) -> dict[str, Tool]:
     tools[SocietyHandbackEventTool.name] = cast(Tool, SocietyHandbackEventTool())
     # A team's lead plans, assigns and reports with three more tools.
     tools.update(cast(dict[str, Tool], team_lead_tools(rt, agent_id)))
+    if agent_id == LEAD_AGENT_ID:
+        # A standing-task run is a lead routine and reports through this tool; a check
+        # or a trigger may propose one. The lead's chat gets it from the tool gateway.
+        from dodaios.brain.standing_task_tool import StandingTaskTool
+
+        tools[StandingTaskTool.name] = cast(Tool, StandingTaskTool())
     session_id = str(getattr(session, "session_id", "") or "")
     # A routine runs unattended: it never gets a way to ask the user.
     if not is_routine_session(session_id):
@@ -755,7 +765,9 @@ def society_tool_filter(session: Any) -> Callable[[dict[str, Tool]], dict[str, T
         own = {
             n: t
             for n, t in tools.items()
-            if n.startswith(_OWN_PREFIX) or isinstance(t, _ContainedTool)
+            if n.startswith(_OWN_PREFIX)
+            or isinstance(t, _ContainedTool)
+            or (n in _LEAD_OWN and agent.agent_id == LEAD_AGENT_ID)
         }
         rest = {n: t for n, t in tools.items() if n not in own and n not in _SOCIETY_DENIED}
         picked = select_tools(

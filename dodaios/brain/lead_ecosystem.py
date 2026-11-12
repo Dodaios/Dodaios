@@ -116,10 +116,11 @@ AREAS: Final[tuple[Area, ...]] = (
     ),
     Area(
         "Automations",
-        "routines, reminders, when-then event triggers and workflows",
-        reads=("society-list-routines", "reminders", "GET /api/tasks/triggers/catalog",
-               "GET /api/workflows"),
-        acts=("society-create-routine", "reminders"),
+        "routines, reminders, when-then event triggers, workflows; a standing task is "
+        "something you look after over time with no end date, at your own pace",
+        reads=("society-list-routines", "reminders", "standing_task",
+               "GET /api/tasks/triggers/catalog", "GET /api/workflows"),
+        acts=("society-create-routine", "reminders", "standing_task"),
     ),
     Area(
         "Conversations",

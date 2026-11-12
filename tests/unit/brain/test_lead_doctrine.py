@@ -51,6 +51,9 @@ def test_the_doctrine_is_short_and_says_what_the_lead_must_do() -> None:
         "one question at a time",
         "evidence",
         "never speak uncalled",
+        # Finite multi-day work and open-ended work have one tool each.
+        "is a project",
+        "work with no end date: standing_task.",
     ):
         assert needle in text, needle
     assert "voice companion" not in text

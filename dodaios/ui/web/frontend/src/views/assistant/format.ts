@@ -33,14 +33,38 @@ export function relativeDay(ms: number | null, lang: UiLanguage, now: number = D
   return new Date(ms).toLocaleDateString(localeForUiLanguage(lang), { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** The time of day, "14:02". */
+export function clockTime(ms: number, lang: UiLanguage): string {
+  return new Date(ms).toLocaleTimeString(localeForUiLanguage(lang), { hour: "2-digit", minute: "2-digit" });
+}
+
 /** A time of day for an entry from today, else the relative day. */
 export function whenShort(ms: number | null, lang: UiLanguage, now: number = Date.now()): string | null {
   if (ms === null) return null;
   const sameDay = new Date(ms).toDateString() === new Date(now).toDateString();
-  if (sameDay) {
-    return new Date(ms).toLocaleTimeString(localeForUiLanguage(lang), { hour: "2-digit", minute: "2-digit" });
-  }
+  if (sameDay) return clockTime(ms, lang);
   return relativeDay(ms, lang, now);
+}
+
+/**
+ * A moment still to come: a time of day for later today, "tomorrow, 09:00"
+ * within a week, a plain date past that. `null` when it is due or unknown.
+ */
+export function whenAhead(ms: number | null, lang: UiLanguage, now: number = Date.now()): string | null {
+  if (ms === null || ms <= now) return null;
+  const startOf = (t: number) => {
+    const d = new Date(t);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+  const locale = localeForUiLanguage(lang);
+  const days = Math.round((startOf(ms) - startOf(now)) / DAY_MS);
+  if (days === 0) return clockTime(ms, lang);
+  if (days <= 7) {
+    const day = new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(days, "day");
+    return `${day}, ${clockTime(ms, lang)}`;
+  }
+  return new Date(ms).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
 }
 
 /** The newest of several file times; `null` when none is known. */

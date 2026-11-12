@@ -34,6 +34,12 @@ export function reviewWaitReason(t: T, code: unknown, provider: unknown, fallbac
 
 /** The headline of a `society_result` chat notice. */
 export function societyResultHeadline(t: T, item: { status: string; agentName: string; data?: Record<string, unknown> }): string {
+  // A look of a standing task is labelled with the task, not with who ran it.
+  const standing = typeof item.data?.standing_title === "string" ? item.data.standing_title.trim() : "";
+  if (standing) {
+    const outcome = item.status === "skipped" ? "skipped" : item.status === "done" ? "done" : "blocked";
+    return t(`standing.result_${outcome}`).replace("{title}", standing);
+  }
   const agent = item.agentName || t("society.chat.result_agent");
   if (item.status === "skipped") {
     const routine = typeof item.data?.routine === "string" ? item.data.routine : "";

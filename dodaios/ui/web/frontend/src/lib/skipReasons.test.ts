@@ -48,4 +48,14 @@ describe("skip and wait reasons", () => {
     expect(societyResultHeadline(t, { status: "done", agentName: "Scout" })).toBe("Scout is done");
     expect(societyResultText(t, { status: "failed", text: "Kept." })).toBe("Kept.");
   });
+
+  it("labels a standing task's look with the task, not with who ran it", () => {
+    const look = (status: string) => ({ status, agentName: "Scout", data: { source: "routine", standing_id: "s1", standing_title: "Meta ads campaign" } });
+    expect(societyResultHeadline(t, look("done"))).toBe("Standing task: Meta ads campaign");
+    expect(societyResultHeadline(t, look("blocked"))).toBe("Standing task did not work: Meta ads campaign");
+    expect(societyResultHeadline(t, look("skipped"))).toBe("Standing task skipped: Meta ads campaign");
+    expect(societyResultHeadline(translator(de), look("done"))).toBe("Daueraufgabe: Meta ads campaign"); // i18n-allow: German locale check
+    // An empty title is no label: the result reads like any other.
+    expect(societyResultHeadline(t, { status: "done", agentName: "Scout", data: { standing_title: " " } })).toBe("Scout is done");
+  });
 });

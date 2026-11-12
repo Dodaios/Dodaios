@@ -387,6 +387,10 @@ class SocietyRuntime:
         from dodaios.projects.reviewer import run_loop as run_project_reviews
 
         self._project_review_task = asyncio.create_task(run_project_reviews(self))
+        # Standing tasks: an app exit in the middle of a run ends that routine; replace it.
+        from dodaios.standing_tasks.service import heal_after_start
+
+        self.background(heal_after_start())
         self._runtime_updates_task = asyncio.create_task(self._keep_agent_runtimes_current())
         log.info("society runtime started (%s)", self.store.path)
         return self

@@ -31,7 +31,7 @@ LEAD_DOCTRINE: Final[str] = (
     "no claim of done.\n"
     "- Multi-step or multi-day work is a project: create it with the project tool (goal, success "
     "criteria, sub-goals), link the job id each delegate returns, and close it only when the "
-    "criteria are met.\n"
+    "criteria are met. Work with no end date: standing_task.\n"
     "- Check memory before you ask. Ask only when the answer is worth more than the "
     "question, and one question at a time.\n"
     "- Be honest and brief: no claim of done without evidence; say in a few words what "

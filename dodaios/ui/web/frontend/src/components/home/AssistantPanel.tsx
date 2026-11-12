@@ -7,6 +7,7 @@ import { PanelActivity } from "@/components/home/PanelActivity";
 import { PanelComputers } from "@/components/home/PanelComputers";
 import { PanelOutputs } from "@/components/home/PanelOutputs";
 import { PanelReach } from "@/components/home/PanelReach";
+import { PanelStanding } from "@/components/home/PanelStanding";
 import { useVoiceModeSwitch } from "@/components/home/assistantStatus";
 import { chatRowLabel, useChatRows } from "@/components/home/chatRows";
 import { FOCUS, PANEL_ICON, PANEL_ROW, PANEL_ROW_BUTTON, PanelEmpty, PanelSection } from "@/components/home/panelParts";
@@ -97,7 +98,8 @@ function useConversation(): { id: string | null; computerId: string } {
  * it is doing right now; face and name lead back to the conversation. Under
  * them the ways to reach it: a call, Slack and Telegram.
  *
- * "Activity" is its work: the computers it can work on (the one it runs on
+ * "Activity" is its work: what it looks after over time (its standing tasks,
+ * and the ones it suggests), the computers it can work on (the one it runs on
  * marked), the chats in the Agentic IDE it sent a task to, and the files it
  * made. "Library" is what belongs to it: its routines, each with a switch,
  * how it is spoken to, its own files (character, standing instructions,
@@ -182,6 +184,7 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
 
         {tab === "activity" ? (
           <div role="tabpanel" className="mt-3">
+            <PanelStanding />
             <PanelComputers leadComputerId={conversation.computerId} name={name} />
             <PanelActivity name={name} />
             <PanelOutputs name={name} />

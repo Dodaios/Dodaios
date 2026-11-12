@@ -16,7 +16,9 @@ the routine is pinned to the subscription seat the front page runs on when
 there is one, and the runner's billing hold applies either way.
 
 Open loops (``open_loops.py``) and the previous result (:data:`ADAPTIVE_TAG`)
-join the prompt at run time through :func:`run_context`.
+join the prompt at run time through :func:`run_context`. So does a standing
+task's work order (``dodaios/standing_tasks``), and the brief's section about
+what the standing tasks did.
 """
 
 from __future__ import annotations
@@ -140,10 +142,17 @@ def skip_reason(
 
 
 async def precheck_skip(runtime: Any, service: Any, tags: tuple[str, ...]) -> str:
-    """:func:`skip_reason` for a live "needs you" run and the life-admin digest;
-    ``""`` for any other routine."""
+    """:func:`skip_reason` for a live "needs you" run, the life-admin digest and
+    a standing task's run; ``""`` for any other routine."""
     from dodaios.life_admin.service import DIGEST_TAG
+    from dodaios.standing_tasks import service as standing
 
+    if standing.standing_id_of(tags):
+        try:
+            return await standing.precheck_skip(tags)
+        except Exception:  # noqa: BLE001 - without its task the run has no work order
+            log.warning("standing tasks: pre-check unreadable, run skipped", exc_info=True)
+            return "the standing task could not be read"
     if DIGEST_TAG in tags:
         from dodaios.life_admin.service import digest_skip_reason
 
@@ -233,7 +242,25 @@ async def run_context(task_store: Any, task_id: str, tags: tuple[str, ...]) -> s
         if flagged:
             parts.append(flagged)
     parts.extend(await _life_admin_parts(tags))
+    parts.extend(await _standing_parts(tags))
     return "\n\n".join(parts)
+
+
+async def _standing_parts(tags: tuple[str, ...]) -> list[str]:
+    """The standing-task text for this routine: a task's own work order, and for
+    the morning brief what the tasks did since the last one."""
+    from dodaios.agent_chat.proactive import BRIEF_TAG
+    from dodaios.standing_tasks import service as standing
+
+    parts: list[str] = []
+    try:
+        if standing.standing_id_of(tags):
+            parts.append(await standing.run_context(tags))
+        if BRIEF_TAG in tags:
+            parts.append(await standing.brief_context())
+    except Exception:  # noqa: BLE001 - the run goes on without the standing-task text
+        log.warning("standing tasks: context unreadable", exc_info=True)
+    return [part for part in parts if part]
 
 
 async def _life_admin_parts(tags: tuple[str, ...]) -> list[str]:
