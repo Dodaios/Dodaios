@@ -124,29 +124,6 @@
   border-bottom-right-radius: 6px;
 }
 
-/* How long a finished turn took and what it used: there for whoever looks,
-   out of the way otherwise. It hangs in the gap under the turn, so showing
-   it moves nothing. */
-.lead-turn-body .trace-meta {
-  position: absolute;
-  left: 0.25rem;
-  top: 100%;
-  padding: 2px 0 0;
-  white-space: nowrap;
-  opacity: 0;
-  transition: opacity 120ms ease-out;
-}
-.lead-turn:hover .trace-meta,
-.lead-turn:focus-within .trace-meta,
-.lead-turn-body .trace-meta[data-open] {
-  opacity: 1;
-}
-@media (hover: none) {
-  .lead-turn-body .trace-meta {
-    opacity: 1;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .lead-bubbles[data-live] > .lead-bubble {
     animation: none;
@@ -154,8 +131,5 @@
   .lead-typing > span {
     animation: none;
     opacity: 0.7;
-  }
-  .lead-turn-body .trace-meta {
-    transition: none;
   }
 }

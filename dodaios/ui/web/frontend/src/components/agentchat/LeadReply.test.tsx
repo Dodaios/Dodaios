@@ -90,12 +90,12 @@ describe("the front page's conversation look", () => {
     expect(container.querySelector(".text-destructive")).toBeNull();
     expect(turn.textContent).not.toContain("HTTP 401");
     expect(screen.queryByTestId("tool-failure-warning")).toBeNull();
-    expect(within(turn).getByTestId("trace-failed-count").textContent).toBe("1 step did not work");
-    // Time and usage are there for whoever looks, not as the turn's last line.
-    const status = within(turn).getByRole("status");
-    expect(status.className).toContain("trace-meta");
-    expect(status.textContent).toContain("1m 33s");
-    expect(status.textContent).toContain("5k");
+    // Nothing counts the turn under its answer (maintainer, 2026-11-13):
+    // no failed step, no number of steps, no time and no usage.
+    expect(within(turn).queryByTestId("trace-failed-count")).toBeNull();
+    expect(within(turn).getByRole("status").className).toBe("sr-only");
+    expect(within(turn).queryByRole("button")).toBeNull();
+    expect(turn.textContent).not.toMatch(/did not work|1m 33s|5k|\dsteps?/);
   });
 
   it("stands the assistant's pet beside the newest turn only, at work while the turn runs", () => {

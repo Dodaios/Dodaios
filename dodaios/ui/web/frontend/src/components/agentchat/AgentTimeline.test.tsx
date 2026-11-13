@@ -19,6 +19,21 @@ it("replays persisted events through the new shared trace", () => {
  // The work stays in view, one quiet line per call.
  expect(screen.getByRole("button", { name: /^Listed src/ })).toBeTruthy();
 });
+it("closes a coding thread's turn with its time, its usage and the price of a per-token key", () => {
+ // The Dodaios chat counts nothing under an answer (maintainer, 2026-11-13,
+ // home/ChatStage.test.tsx); every other chat still closes a turn this way.
+ const turn = (billedViaKey: boolean) => [ev("user_message", { text: "check the repo" }), ev("turn_started", { turn_id: "t1", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }), ev("assistant_text", { turn_id: "t1", message_id: "m1", text: "Done." }), ev("turn_finished", { turn_id: "t1", status: "done", duration_ms: 12_000, usage: { input_tokens: 2, output_tokens: 219 }, cost_usd: 0.8483, billed_via_key: billedViaKey })];
+ draw(turn(true));
+ const footer = within(screen.getByTestId("work-trace")).getAllByRole("status").at(-1)!;
+ expect(footer.textContent).toContain("12s");
+ // Output only: the input side of a CLI re-counts the whole conversation.
+ expect(footer.textContent).toContain("219");
+ expect(footer.textContent).toContain("$0.8483");
+ cleanup();
+ // A subscription seat's turn costs nothing extra, so it shows no price.
+ draw(turn(false));
+ expect(within(screen.getByTestId("work-trace")).getAllByRole("status").at(-1)!.textContent).not.toContain("$");
+});
 describe("the person's turn with files", () => {
   const SHOT = {
     name: "shot.png",

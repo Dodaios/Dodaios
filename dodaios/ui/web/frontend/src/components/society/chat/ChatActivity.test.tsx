@@ -8,9 +8,9 @@ import type { InternalMessageItem, ReasoningBlock, ToolBlock } from "@/component
 beforeAll(() => loadLocaleChunk("society"));
 afterEach(cleanup);
 
-/** A finished, answered turn keeps its work behind a fold or, on the front page, behind the steps toggle; open every one. */
+/** A finished, answered turn keeps its work behind a fold; open every one. The front page draws no fold. */
 const openWork = () => {
-  for (const toggle of Array.from(document.querySelectorAll<HTMLElement>("[data-testid='conversation-work-fold'][data-open='false'] > button, [data-testid='trace-steps-toggle'][aria-expanded='false']"))) fireEvent.click(toggle);
+  for (const toggle of Array.from(document.querySelectorAll<HTMLElement>("[data-testid='conversation-work-fold'][data-open='false'] > button"))) fireEvent.click(toggle);
 };
 
 const envelope = "Scheduled routine task-123. Follow your CURRENT standing instructions and permissions.\nUse your memory and conversation archive for prior results. For information watches, check sources and dates, remember last-seen items, and report only meaningful new findings.\n\n";

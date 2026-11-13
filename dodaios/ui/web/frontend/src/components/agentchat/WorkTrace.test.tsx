@@ -16,9 +16,9 @@ const props = { startedMs: 1000, durationMs: 12000, status: "done" as TurnStatus
 const rows = { ...props, look: "classic" as const };
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-/** A finished, answered turn keeps its work behind a fold or, on the front page, behind the steps toggle; open every one. */
+/** A finished, answered turn keeps its work behind a fold; open every one. The front page draws no fold. */
 const openWork = () => {
-  for (const toggle of Array.from(document.querySelectorAll<HTMLElement>("[data-testid='conversation-work-fold'][data-open='false'] > button, [data-testid='trace-steps-toggle'][aria-expanded='false']"))) fireEvent.click(toggle);
+  for (const toggle of Array.from(document.querySelectorAll<HTMLElement>("[data-testid='conversation-work-fold'][data-open='false'] > button"))) fireEvent.click(toggle);
 };
 
 describe("work trace", () => {
@@ -280,18 +280,26 @@ describe("work trace", () => {
     // The caller draws the reply itself.
     expect(screen.getByTestId("own-reply").textContent).toBe("All set.");
     expect(screen.getByTestId("own-reply").getAttribute("data-live")).toBe("false");
-    // Time and usage wait under the turn; "Done" is only there to be read out.
+    // Nothing stands under the answer (maintainer, 2026-11-13): "Done" is
+    // only there to be read out, and neither the time nor the usage is drawn.
     const status = screen.getByRole("status");
-    expect(status.className).toContain("trace-meta");
-    expect(status.textContent).toContain("12s");
-    expect(status.textContent).toContain("219 tokens");
-    expect(within(status).getByText("Done").className).toBe("sr-only");
+    expect(status.className).toBe("sr-only");
+    expect(status.textContent).toBe("Done");
+    expect(screen.getByTestId("work-trace").textContent).not.toMatch(/12s|219 tokens/);
     // A reply being written says the turn is alive by growing.
     rerender(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[reply("mid", "Looking.")]} />);
     expect(screen.getByTestId("own-reply").getAttribute("data-live")).toBe("true");
-    // A turn without an answer keeps its line in view.
-    rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[tool("a")]} />);
-    expect(screen.getByRole("status").className).not.toContain("trace-meta");
+    // A turn without an answer keeps its line in view, without the figures.
+    rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[tool("a")]} receipt={<span>219 tokens</span>} />);
+    expect(screen.getByRole("status").className).not.toContain("sr-only");
+    expect(screen.getByRole("status").textContent).toBe("Done");
+    // So does an answered turn that was stopped: one word, no figures.
+    rerender(<WorkTrace {...props} status="cancelled" messenger renderAnswer={answer} blocks={[tool("a"), reply("done", "Half way.")]} receipt={<span>219 tokens</span>} />);
+    expect(screen.getByRole("status").className).not.toContain("sr-only");
+    expect(screen.getByRole("status").textContent).toBe("Stopped");
+    // Every other trace still closes with the time and the usage.
+    rerender(<WorkTrace {...props} blocks={[tool("a"), reply("done", "All set.")]} receipt={<span>219 tokens</span>} />);
+    expect(screen.getAllByRole("status").at(-1)?.textContent).toMatch(/12s.*219 tokens/);
   });
 
   it("shows a working messenger turn as three dots in a bubble, not as a state line", () => {
@@ -303,9 +311,10 @@ describe("work trace", () => {
     expect(dots.querySelectorAll("span")).toHaveLength(3);
     expect(dots.getAttribute("aria-hidden")).toBe("true");
     const status = screen.getByRole("status");
-    expect(status.className).toContain("trace-meta");
-    expect(within(status).getByText(/^Working/).closest(".sr-only")).toBeTruthy();
-    expect(status.textContent).toContain("4.8k tokens");
+    expect(status.className).toBe("sr-only");
+    expect(status.textContent).toMatch(/^Working/);
+    // No clock and no usage run beside the dots.
+    expect(status.textContent).not.toMatch(/tokens|\ds/);
     // A running step keeps the dots under it.
     rerender(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[tool("a", { output: null })]} />);
     expect(screen.getByTestId("typing-indicator")).toBeTruthy();
@@ -319,14 +328,14 @@ describe("work trace", () => {
     // A turn that waits for the person is not typing: its line says what it waits for.
     rerender(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[tool("ask", { output: null, approval: { approvalId: "ap", summary: "Confirm", decision: null } })]} />);
     expect(screen.queryByTestId("typing-indicator")).toBeNull();
-    expect(screen.getByRole("status").className).not.toContain("trace-meta");
+    expect(screen.getByRole("status").className).not.toContain("sr-only");
     // Finished: no dots.
     rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[tool("a"), reply("done", "All set.")]} />);
     expect(screen.queryByTestId("typing-indicator")).toBeNull();
     // Every other trace keeps its state line and draws no dots.
     rerender(<WorkTrace {...props} status="running" durationMs={null} blocks={[tool("a", { output: null })]} />);
     expect(screen.queryByTestId("typing-indicator")).toBeNull();
-    expect(screen.getByRole("status").className).not.toContain("trace-meta");
+    expect(screen.getByRole("status").className).not.toContain("sr-only");
   });
 
   it("draws no reasoning and no steps in a messenger conversation, live or finished", () => {
@@ -345,25 +354,10 @@ describe("work trace", () => {
     rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[thought, tool("a"), reply("done", "All set.")]} />);
     expect(screen.queryByTestId("conversation-work-fold")).toBeNull();
     expect(trace.querySelector("[data-trace-entry]")).toBeNull();
-    // The steps wait in the line under the turn, with the time it took.
-    const status = screen.getByRole("status");
-    expect(status.className).toContain("trace-meta");
-    const toggle = within(status).getByRole("button", { name: "1 step" });
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    expect(status.hasAttribute("data-open")).toBe(true);
-    const steps = screen.getByTestId("trace-steps");
-    expect(steps.querySelector("[data-trace-entry='call']")).toBeTruthy();
-    expect(steps.querySelectorAll("[data-trace-entry='reasoning']")).toHaveLength(0);
-    expect(trace.textContent).not.toMatch(/Check|Thought/);
-    // Opened, they stand above the answer, which stays last.
-    expect(steps.compareDocumentPosition(screen.getByTestId("own-reply")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    fireEvent.click(toggle);
-    expect(screen.queryByTestId("trace-steps")).toBeNull();
-    // Only thoughts stood before the answer: there is nothing to open.
-    rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[thought, reply("done", "All set.")]} />);
-    expect(screen.queryByTestId("trace-steps-toggle")).toBeNull();
+    // No line under the turn counts its steps or the time, and nothing opens them.
+    expect(screen.getByRole("status").className).toBe("sr-only");
+    expect(within(trace).queryByRole("button")).toBeNull();
+    expect(trace.textContent).not.toMatch(/Check|Thought|step|12s/);
     expect(screen.getByTestId("own-reply").textContent).toBe("All set.");
     // Every other trace keeps its thoughts and its fold.
     rerender(<WorkTrace {...props} blocks={[thought, tool("a"), reply("done", "All set.")]} />);
@@ -372,23 +366,25 @@ describe("work trace", () => {
     expect(screen.getByTestId("work-trace").textContent).toContain("Check");
   });
 
-  it("keeps a card that waits for the person, and says under the turn how many steps did not work", () => {
+  it("keeps a card that waits for the person, and counts no failed step under an answer", () => {
     const answer = (text: string) => <p data-testid="own-reply">{text}</p>;
     // Running and asking: the approval is in the conversation, the finished step is not.
     const ask = tool("ask", { output: null, approval: { approvalId: "ap", summary: "Confirm the send", decision: null } });
     const { rerender } = render(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[tool("a"), ask]} onDecide={() => undefined} />);
     expect(screen.getByRole("group", { name: "Approval required" })).toBeTruthy();
     expect(document.querySelectorAll("[data-trace-tool]")).toHaveLength(1);
-    // Finished with a failed step: nothing red between the messages, the count waits below.
+    // Finished with a failed step: nothing red between the messages, and
+    // no count under them (maintainer, 2026-11-13). The answer says what
+    // the person needs to know.
     rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[tool("a", { isError: true, output: "HTTP 401" }), tool("b"), reply("done", "Done, with one hiccup.")]} />);
-    const status = screen.getByRole("status");
-    expect(within(status).getByTestId("trace-failed-count").textContent).toContain("1 step did not work");
-    expect(within(status).getByRole("button", { name: "2 steps" })).toBeTruthy();
-    expect(screen.queryByTestId("trace-steps")).toBeNull();
+    expect(screen.queryByTestId("trace-failed-count")).toBeNull();
+    expect(document.querySelector(".trace-flag")).toBeNull();
+    expect(screen.getByTestId("work-trace").textContent).not.toMatch(/did not work|steps|HTTP 401/);
+    expect(screen.getByRole("status").className).toBe("sr-only");
     // A turn that ended without a word has nothing but its work to show: it stands open.
     rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[tool("a", { isError: true, output: "HTTP 401" })]} />);
     expect(document.querySelector("[data-trace-entry='call']")).toBeTruthy();
-    expect(screen.getByRole("status").className).not.toContain("trace-meta");
+    expect(screen.getByRole("status").className).not.toContain("sr-only");
   });
 
   it("keeps what the assistant said before its steps as messages in a messenger conversation", () => {
@@ -399,14 +395,8 @@ describe("work trace", () => {
     // All three messages read, in the order they were sent, and nothing else.
     expect(screen.getAllByTestId("own-reply").map((node) => node.textContent)).toEqual(["I'll check the weather.", "Still on it.", "Hot and humid."]);
     expect(trace.querySelector("[data-trace-entry]")).toBeNull();
-    // Opened, the steps stand between what was said and the answer, and do not say the messages again.
-    openWork();
-    const steps = screen.getByTestId("trace-steps");
-    const [, mid, last] = screen.getAllByTestId("own-reply");
-    expect(mid.compareDocumentPosition(steps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(steps.compareDocumentPosition(last) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(steps.querySelector("[data-trace-entry='activity']")).toBeTruthy();
-    expect(steps.querySelector("[data-trace-entry='narration']")).toBeNull();
+    // Each message is said once, and nothing opens the steps between them.
+    expect(within(trace).queryByRole("button")).toBeNull();
     expect(trace.textContent!.split("I'll check the weather.")).toHaveLength(2);
     // Running, the same turn is its messages and the dots.
     rerender(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={blocks.slice(0, 4)} />);
