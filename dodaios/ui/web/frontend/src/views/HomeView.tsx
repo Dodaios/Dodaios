@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import { useHomeStore } from "@/store/home";
 import { AssistantChat } from "@/components/home/AssistantChat";
 import { startNewTextChat } from "@/lib/newChat";
+import { useAgentBrowserStaged } from "@/components/home/chatBrowser/slot";
 
 // Not needed for first paint.
 // Who the assistant is and what belongs to it; reads its routines, files and skills.
@@ -20,7 +21,9 @@ const AssistantPanel = lazy(() => import("@/components/home/AssistantPanel"));
  */
 export function HomeView() {
   const agentChatId = useHomeStore((s) => s.agentChatId);
-  const showPanel = !agentChatId;
+  // The assistant's browser stage, opened large, takes the panel's place.
+  const browserStaged = useAgentBrowserStaged();
+  const showPanel = !agentChatId && !browserStaged;
   /** From an earlier chat on the stage back to the one conversation. */
   const backToConversation = () => {
     useHomeStore.getState().setSurface("chat");

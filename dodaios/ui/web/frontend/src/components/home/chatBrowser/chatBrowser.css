@@ -1,0 +1,136 @@
+/*
+ * The chat's browser stage: a live tile over the chat, or a large stage
+ * beside it. While the agent drives, a slow light runs around the frame so
+ * it is clear at a glance who has the browser; while the person drives the
+ * frame is a calm solid line.
+ */
+@property --agent-browser-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.agent-browser-frame {
+  position: relative;
+  border-radius: 16px;
+  isolation: isolate;
+}
+
+.agent-browser-frame::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  border-radius: 18px;
+  background: hsl(var(--border));
+  transition: opacity 240ms ease;
+}
+
+.agent-browser-frame[data-driver="agent"]::before {
+  background: conic-gradient(
+    from var(--agent-browser-angle),
+    #7c5cff,
+    #3ea8ff,
+    #2fd4a7,
+    #ffc24b,
+    #ff6b8b,
+    #7c5cff
+  );
+  animation: agent-browser-spin 4.5s linear infinite;
+}
+
+.agent-browser-frame[data-driver="agent"]::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: -2;
+  border-radius: 18px;
+  background: conic-gradient(
+    from var(--agent-browser-angle),
+    #7c5cff,
+    #3ea8ff,
+    #2fd4a7,
+    #ffc24b,
+    #ff6b8b,
+    #7c5cff
+  );
+  filter: blur(14px);
+  opacity: 0.45;
+  animation: agent-browser-spin 4.5s linear infinite;
+}
+
+.agent-browser-frame[data-driver="person"]::before {
+  background: hsl(var(--foreground));
+}
+
+.agent-browser-frame[data-needs-you="true"]::before,
+.agent-browser-frame[data-needs-you="true"]::after {
+  background: #f5a524;
+  animation: none;
+}
+
+@keyframes agent-browser-spin {
+  to { --agent-browser-angle: 360deg; }
+}
+
+.agent-browser-tile {
+  animation: agent-browser-tile-in 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes agent-browser-tile-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.agent-browser-stage {
+  animation: agent-browser-stage-in 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes agent-browser-stage-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+.agent-browser-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2fd4a7;
+  box-shadow: 0 0 0 0 rgba(47, 212, 167, 0.6);
+  animation: agent-browser-pulse 1.6s ease-out infinite;
+}
+
+.agent-browser-live-dot[data-state="idle"] {
+  background: hsl(var(--muted-foreground));
+  animation: none;
+}
+
+.agent-browser-live-dot[data-state="needs-you"] {
+  background: #f5a524;
+}
+
+@keyframes agent-browser-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(47, 212, 167, 0.55); }
+  70% { box-shadow: 0 0 0 7px rgba(47, 212, 167, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(47, 212, 167, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-browser-frame[data-driver="agent"]::before,
+  .agent-browser-frame[data-driver="agent"]::after,
+  .agent-browser-live-dot,
+  .agent-browser-tile,
+  .agent-browser-stage {
+    animation: none;
+  }
+}
+
+/* In the small tile the page is drawn at a quarter of its size; so is the arrow. */
+.agent-browser-tile .agent-cursor-shift {
+  scale: 0.55;
+  transform-origin: 0 0;
+}
+
+.agent-browser-tile .agent-cursor-ring {
+  scale: 0.6;
+}

@@ -1,25 +1,38 @@
 import { describe, expect, test } from "vitest";
 import {
   aimCursor,
+  arcControl,
   beginCursor,
-  easeOutCubic,
+  easeInOutCubic,
   glideDurationMs,
   projectFramePoint,
   stepCursor,
 } from "./agentCursorMotion";
 
 describe("agent cursor motion", () => {
-  test("keeps a short hop visible and a long move quick", () => {
+  test("keeps a short hop easy to follow and a move across the page under two thirds of a second", () => {
     expect(glideDurationMs(0)).toBe(0);
-    expect(glideDurationMs(40)).toBe(130);
-    expect(glideDurationMs(250)).toBe(180);
-    expect(glideDurationMs(2000)).toBe(340);
+    expect(glideDurationMs(40)).toBe(280);
+    expect(glideDurationMs(500)).toBe(390);
+    expect(glideDurationMs(2000)).toBe(650);
   });
 
-  test("eases out so the arrow is still moving as it arrives", () => {
-    expect(easeOutCubic(0)).toBe(0);
-    expect(easeOutCubic(1)).toBe(1);
-    expect(easeOutCubic(0.5)).toBeCloseTo(0.875, 5);
+  test("starts gently and settles, passing the middle at half time", () => {
+    expect(easeInOutCubic(0)).toBe(0);
+    expect(easeInOutCubic(1)).toBe(1);
+    expect(easeInOutCubic(0.5)).toBeCloseTo(0.5, 5);
+    expect(easeInOutCubic(0.1)).toBeLessThan(0.1);
+    expect(easeInOutCubic(0.9)).toBeGreaterThan(0.9);
+  });
+
+  test("a sideways move bows upward a little, whichever way it goes", () => {
+    const right = arcControl(0, 100, 400, 100);
+    expect(right.x).toBeCloseTo(200, 5);
+    expect(right.y).toBeCloseTo(100 - 48, 5);
+    const left = arcControl(400, 100, 0, 100);
+    expect(left.y).toBeCloseTo(100 - 48, 5);
+    const short = arcControl(0, 0, 100, 0);
+    expect(short.y).toBeCloseTo(-12, 5);
   });
 
   test("places a page point inside the letterboxed picture", () => {
@@ -39,7 +52,9 @@ describe("agent cursor motion", () => {
     expect(aimed.motion.toX).toBe(400);
     expect(aimed.motion.duration).toBe(glideDurationMs(200));
     const halfway = stepCursor(aimed.motion, 1500 + aimed.motion.duration / 2);
-    expect(halfway.motion.x).toBeCloseTo(140 + (400 - 140) * 0.875, 4);
+    // Half time is the middle of the arc: halfway along, bowed above the line.
+    expect(halfway.motion.x).toBeCloseTo(270, 4);
+    expect(halfway.motion.y).toBeLessThan(90);
     expect(halfway.arrivedClick).toBeNull();
     expect(halfway.moving).toBe(true);
     const landed = stepCursor(halfway.motion, 1500 + aimed.motion.duration);

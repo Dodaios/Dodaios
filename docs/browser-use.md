@@ -61,6 +61,25 @@ network.
 - **Watch.** The agent card's browser panel streams the actual rendered tab and
   is read-only until the owner takes control. The status light lists a running
   browser task as a running row and opens that agent's panel.
+- **In the chat.** While the assistant's own chat runs a browser task, a live
+  tile shows it (`components/home/chatBrowser`): in the assistant's panel at
+  the top of its Computers, or in the chat's top corner when that panel is not
+  shown. A click on it opens the stage: the chat moves left, the browser takes
+  the rest of the page (the panel steps aside until the stage is made small). While
+  the assistant drives, a slow light runs around the frame and the arrow carries
+  its name; the control at the foot reads "Dodaios has control · Take over",
+  and after taking over "You have control · Hand back". Clicking the tile never
+  takes control. The view attaches only to a browser that is already open, and
+  only while a task runs, the person holds control or asked for the stage, and
+  for 12 seconds after a task ends. Hiding it keeps it away until the next task;
+  an agent's request for a hand brings the stage up by itself, and the
+  takeover card's button opens it there.
+- **The arrow.** Every agent click is shown as the arrow travelling to the
+  target on a slight arc that starts gently and settles, then pressing. The
+  worker announces the point first and dispatches the mouse event after the
+  same glide (`pointer.py`, `glide_seconds`, 0.28 to 0.65 s measured in page
+  pixels), so the page reacts as the arrow lands, in the tile and on the stage
+  alike. No wait while the person drives.
 - **Take over / hand back.** "Take control" pauses the agent's browser actions
   between steps (the task waits, nothing more reaches the page from the agent)
   and forwards the owner's clicks and keys to the page. "Return control"
@@ -71,6 +90,13 @@ network.
   panel with a Take control button, and waits. When the owner's phone chat
   started the turn, the same line goes there if the "decisions" routing is on.
   The wait ends at hand-back, when the browser goes away, or after an hour.
+- **On a VM or server.** When Dodaios runs on a remote machine
+  ([headless deployment](headless-vps-deployment.md)), the agent browser runs
+  there, headless, and the same frames and pointer events reach the person's
+  window over the app's authenticated WebSocket. Tile, stage, take over and hand
+  back work the same; the person's clicks and keys travel to the remote page.
+  Website logins live in the remote browser's own profile: sign in once through
+  Take over, and the login stays.
 - **Hand-back note.** The agent gets: the page the owner left it on (scheme,
   host and path only; query strings and fragments can carry tokens), whether
   the page changed, how many inputs there were, and whether anything was typed.

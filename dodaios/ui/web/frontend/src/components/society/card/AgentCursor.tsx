@@ -37,10 +37,11 @@ function px(value: number): string {
 }
 
 /**
- * Arrow drawn over the live browser. The agent reports the point it clicked;
- * the arrow eases there from wherever it already is, then presses.
+ * Arrow drawn over the live browser. The agent reports the point it is
+ * about to click; the arrow arcs there from wherever it already is, then
+ * presses. With a `label` the arrow carries a name tag (who is driving).
  */
-export function AgentCursor({ pointer }: { pointer?: BrowserPointerState }) {
+export function AgentCursor({ pointer, label }: { pointer?: BrowserPointerState; label?: string }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
   const motionRef = useRef<CursorMotion | null>(null);
@@ -133,12 +134,8 @@ export function AgentCursor({ pointer }: { pointer?: BrowserPointerState }) {
     viewRef.current.frameH = pointer.height;
     const now = performance.now();
     if (!motionRef.current) motionRef.current = beginCursor(pointer.x, pointer.y, now);
-    const view = viewRef.current;
-    const scale = projectFramePoint(0, 0, view.frameW, view.frameH, view.hostW, view.hostH).scale;
-    const distance = Math.hypot(
-      (pointer.x - motionRef.current.x) * scale,
-      (pointer.y - motionRef.current.y) * scale,
-    );
+    // In page pixels: the worker waits for the same glide before it presses.
+    const distance = Math.hypot(pointer.x - motionRef.current.x, pointer.y - motionRef.current.y);
     const aimed = aimCursor(motionRef.current, {
       x: pointer.x,
       y: pointer.y,
@@ -193,6 +190,7 @@ export function AgentCursor({ pointer }: { pointer?: BrowserPointerState }) {
                 />
               </svg>
             </div>
+            {label && <span className="agent-cursor-label" data-testid="browser-agent-pointer-label">{label}</span>}
           </div>
         </div>
       )}

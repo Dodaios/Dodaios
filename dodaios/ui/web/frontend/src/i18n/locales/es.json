@@ -11772,5 +11772,28 @@
       "resume_failed": "No se pudo reanudar.",
       "unavailable": "Las actualizaciones no están disponibles ahora. Inténtalo de nuevo en un momento."
     }
+  },
+  "agent_browser": {
+    "title": "Navegador de {assistant}",
+    "screen": "Navegador en directo de {assistant}",
+    "driving": "{assistant} tiene el control",
+    "you_drive": "Tienes el control",
+    "take_over": "Tomar el control",
+    "hand_back": "Devolver",
+    "expand": "Ver el navegador en grande",
+    "minimize": "Reducir el navegador",
+    "hide": "Ocultar el navegador",
+    "stop": "Detener",
+    "working": "Trabajando",
+    "ready": "Listo",
+    "connecting": "Conectando…",
+    "needs_you": "{assistant} te necesita aquí",
+    "private_hint": "Lo que escribas aquí no se guarda ni se muestra a {assistant}.",
+    "approval": "¿Permitir este paso del navegador?",
+    "allow": "Permitir",
+    "deny": "Rechazar",
+    "address": "Dirección web",
+    "back": "Atrás",
+    "forward": "Adelante"
   }
 }

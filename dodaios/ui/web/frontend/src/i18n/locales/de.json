@@ -11772,5 +11772,28 @@
       "resume_failed": "Das ließ sich nicht fortsetzen.",
       "unavailable": "Aktualisierungen sind gerade nicht verfügbar. Versuch es gleich noch einmal."
     }
+  },
+  "agent_browser": {
+    "title": "Browser von {assistant}",
+    "screen": "Live-Browser von {assistant}",
+    "driving": "{assistant} steuert",
+    "you_drive": "Du steuerst",
+    "take_over": "Übernehmen",
+    "hand_back": "Zurückgeben",
+    "expand": "Browser groß zeigen",
+    "minimize": "Browser verkleinern",
+    "hide": "Browser ausblenden",
+    "stop": "Stoppen",
+    "working": "Arbeitet",
+    "ready": "Bereit",
+    "connecting": "Verbinde…",
+    "needs_you": "{assistant} braucht dich hier",
+    "private_hint": "Was du hier tippst, wird nicht gespeichert und {assistant} nicht gezeigt.",
+    "approval": "Diesen Browser-Schritt erlauben?",
+    "allow": "Erlauben",
+    "deny": "Ablehnen",
+    "address": "Webadresse",
+    "back": "Zurück",
+    "forward": "Vorwärts"
   }
 }

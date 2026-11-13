@@ -11772,5 +11772,28 @@
       "resume_failed": "Não foi possível retomar.",
       "unavailable": "As atualizações não estão disponíveis de momento. Tenta de novo daqui a pouco."
     }
+  },
+  "agent_browser": {
+    "title": "Navegador de {assistant}",
+    "screen": "Navegador em direto de {assistant}",
+    "driving": "{assistant} tem o controlo",
+    "you_drive": "Tem o controlo",
+    "take_over": "Assumir",
+    "hand_back": "Devolver",
+    "expand": "Ver o navegador em grande",
+    "minimize": "Reduzir o navegador",
+    "hide": "Ocultar o navegador",
+    "stop": "Parar",
+    "working": "A trabalhar",
+    "ready": "Pronto",
+    "connecting": "A ligar…",
+    "needs_you": "{assistant} precisa de si aqui",
+    "private_hint": "O que escrever aqui não é guardado nem mostrado a {assistant}.",
+    "approval": "Permitir este passo do navegador?",
+    "allow": "Permitir",
+    "deny": "Recusar",
+    "address": "Endereço web",
+    "back": "Voltar",
+    "forward": "Avançar"
   }
 }

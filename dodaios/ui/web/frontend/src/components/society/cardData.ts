@@ -288,12 +288,12 @@ export function useAgentBrowserOpen(agentId: string) {
     retry: false,
     queryFn: async (): Promise<AgentBrowserOpenStatus> => {
       const body = await getJson<{
-        open?: boolean; mode?: string; profile_id?: string; profile_name?: string; connected?: boolean;
+        open?: boolean; running?: boolean; mode?: string; profile_id?: string; profile_name?: string; connected?: boolean;
       }>(
         "/api/society/agents/" + encodeURIComponent(agentId) + "/browser/open",
       );
       return {
-        open: Boolean(body?.open), mode: body?.mode ?? "own",
+        open: Boolean(body?.open), running: Boolean(body?.open && body?.running), mode: body?.mode ?? "own",
         profileId: body?.profile_id ?? null, profileName: body?.profile_name ?? "",
         connected: Boolean(body?.connected),
       };
@@ -303,6 +303,8 @@ export function useAgentBrowserOpen(agentId: string) {
 
 export interface AgentBrowserOpenStatus {
   open: boolean;
+  /** A browser task is running in it right now. */
+  running: boolean;
   mode: string;
   profileId: string | null;
   profileName: string;
