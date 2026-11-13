@@ -464,6 +464,10 @@ export interface LeadThread {
   /** The name the coding CLI gave the conversation itself, or "". */
   cli_title: string;
   provider: string;
+  /** The coding CLI's registry id (`claude`, `codex`, `kimi`, …); "" when it has none. */
+  agent?: string;
+  /** The coding agent's own name ("Claude Code"). */
+  agent_label?: string;
   cwd: string;
   /** When the assistant last wrote into it. */
   briefed_ms: number;

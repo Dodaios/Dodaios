@@ -15,9 +15,15 @@ from dodaios.ui.web.agent_chat_routes import router
 _LEAD = {"agent_id": "jarvis", "name": "Dodaios"}
 
 
-def _thread(store: AgentChatStore, tmp_path: Path, title: str, surface: str = "agent") -> str:
+def _thread(
+    store: AgentChatStore,
+    tmp_path: Path,
+    title: str,
+    surface: str = "agent",
+    provider: str = "claude",
+) -> str:
     return store.create_session(
-        provider="claude", model="m", effort="", cwd=str(tmp_path), title=title, surface=surface
+        provider=provider, model="m", effort="", cwd=str(tmp_path), title=title, surface=surface
     ).session_id
 
 
@@ -59,3 +65,21 @@ def test_only_threads_the_assistant_wrote_into_are_listed_newest_task_first(
     assert rows[0]["briefed_ms"] == 2_000
     assert (rows[0]["running"], rows[0]["waiting"]) == (False, False)
     assert rows[0]["cwd"] == str(tmp_path)
+
+
+def test_a_row_names_the_coding_agent_so_the_sidebar_can_draw_its_logo(tmp_path: Path) -> None:
+    store = AgentChatStore(":memory:")
+    codex = _thread(store, tmp_path, "Port the parser", provider="openai-codex")
+    kimi = _thread(store, tmp_path, "Write the tests", provider="kimi")
+    plain = _thread(store, tmp_path, "Answer a question", provider="openai")
+    for at, sid in enumerate((codex, kimi, plain), start=1):
+        _say(store, sid, "do it", at * 1_000, _LEAD)
+
+    app = FastAPI()
+    app.include_router(router)
+    app.state.agent_chat = AgentChatService(store)
+    with TestClient(app) as client:
+        rows = client.get("/api/agent-chat/lead/threads").json()["threads"]
+    agents = {row["session_id"]: (row["agent"], bool(row["agent_label"])) for row in rows}
+    # A provider without a coding CLI behind it has no agent, and no logo.
+    assert agents == {codex: ("codex", True), kimi: ("kimi", True), plain: ("", True)}

@@ -1303,17 +1303,23 @@ class LeadBriefBody(BaseModel):
     summary="The Agentic IDE threads the assistant wrote a task into, newest first",
 )
 def list_lead_threads(request: Request, limit: int = Query(12, ge=1, le=50)) -> dict[str, Any]:
+    from dodaios.agent_chat.catalog import provider_row
+    from dodaios.society.coding_threads import _label_of
     from dodaios.society.roster import LEAD_AGENT_ID
 
     svc = _service(request)
     out = []
     for session, briefed_ms in svc.store.sessions_briefed_by(LEAD_AGENT_ID, limit=limit):
+        row = provider_row(session.provider)
         out.append(
             {
                 "session_id": session.session_id,
                 "title": session.title,
                 "cli_title": _cli_title(svc, session),
                 "provider": session.provider,
+                # The coding CLI's registry id, so the sidebar draws its logo.
+                "agent": row.agent if row is not None and row.agent else "",
+                "agent_label": _label_of(session.provider),
                 "cwd": session.cwd,
                 "briefed_ms": briefed_ms,
                 "updated_ms": session.updated_ms,
