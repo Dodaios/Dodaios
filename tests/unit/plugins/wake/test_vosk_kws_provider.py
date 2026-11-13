@@ -607,6 +607,9 @@ async def test_a_new_session_never_verifies_audio_of_the_last_one(fake_vosk) -> 
     first = await _run_detect(p, [_chunk(value=6000) for _ in range(12)])
     assert first == ["nova"]
     assert p._ring_len > 0  # the call is still in the ring when the session ends
+    # detect() waits only a moment for its workers to retire, and a new
+    # detect() raises until they have: let the first session retire first.
+    await asyncio.wait_for(asyncio.shield(p._inference_cleanup), 5)
 
     windows: list[np.ndarray] = []
     original = p._ring_window

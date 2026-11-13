@@ -170,6 +170,9 @@ async def test_run_now_marks_the_run_as_started_by_the_person(tmp_path: Path) ->
         async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
             res = await client.post(f"/api/tasks/{task_id}/run")
         assert res.status_code == 200
+        # The route only starts the run. Wait for it here: shutdown gives an
+        # in-flight run two seconds, which a slow runner can need and more.
+        await asyncio.gather(*list(scheduler._runner_tasks))
         await scheduler.shutdown()
         assert brain.started_by_user == [True]
         assert current_started_by_user.get() is False  # the marker never leaks out

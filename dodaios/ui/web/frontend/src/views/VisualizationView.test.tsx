@@ -915,7 +915,9 @@ describe("VisualizationView", () => {
     nodeStates[NODE.slug] = nodeState({ version: 2, updated_at: 1_700_000_600 });
     await client.invalidateQueries({ queryKey: ["node-upkeep", NODE.slug] });
     await waitFor(() => expect(frameSrc()).toMatch(/&v=1700000600$/));
-    expect(note()).toBe("idle");
+    // The count is cleared by an effect of the new version, one render after
+    // the frame gets its new address: wait for that render too.
+    await waitFor(() => expect(note()).toBe("idle"));
   });
 
   it("saves what the reader types into the page, without drawing the page again", async () => {

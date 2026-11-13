@@ -1,12 +1,13 @@
 // Takes the README screenshots from the demo instance.
 //
-//   node scripts/readme_demo/stills.cjs <output folder> [memory plugins pets ide connect]
+//   node scripts/readme_demo/stills.cjs <output folder> [plugins pets ide connect]
 //
 // Run it after record.cjs, against the same instance: the project is connected
 // then. The take no longer picks a pet, so "pets" shows the active one (pick
 // Ember first to match assets/readme/pets.png). "connect" is the setup step and
 // needs a first-run instance, so take it separately after a reset.
 // The window is 1280 x 853 at a device scale of 1.5: 1920 x 1280 pictures.
+// The README shows the Nodes section as a clip, which nodes.cjs films.
 const { chromium } = require('playwright');
 const OUT = process.argv[2];
 const URL = process.env.DEMO_URL || 'http://127.0.0.1:47990/';
@@ -22,27 +23,6 @@ if (!OUT) { console.error('usage: node stills.cjs <output folder> [names]'); pro
   const only = process.argv.slice(3);
   const want = (n) => !only.length || only.includes(n);
 
-  if (want('memory')) {
-    await go('memory');
-    const memories = [
-      ['I work mostly in Python and TypeScript.', 'About you'],
-      ['trailhead is my hike-planning command-line tool; its tests run with pytest.', 'Projects'],
-      ['Always run the tests before you call something done.', 'Standing instructions'],
-      ['Sam reviews my pull requests.', 'People'],
-      ['The staging server restarts every night at 02:00.', 'Facts & things'],
-    ];
-    for (const [text, kind] of memories) {
-      if (await page.getByText(text).count()) continue;
-      await page.getByText('New', { exact: true }).first().click(); await sleep(600);
-      await page.keyboard.type(text, { delay: 5 });
-      await page.getByText(kind, { exact: true }).first().click(); await sleep(200);
-      await page.getByText('Remember', { exact: true }).first().click();
-      await page.getByText('New memory').waitFor({ state: 'hidden' }); await sleep(900);
-    }
-    await go('memory');
-    await page.getByText('Always run the tests before you call something done.').first().click(); await sleep(1200);
-    await shot('memory');
-  }
   if (want('plugins')) { await go('plugins'); await shot('plugins'); }
   if (want('pets')) {
     await go('pets');
