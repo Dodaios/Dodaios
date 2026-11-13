@@ -7171,7 +7171,6 @@
       "message_not_sent": "Nicht gesendet: {0}",
       "message_sent": "Gesendet {0}",
       "message_read": "Gelesen {0}",
-      "background_running": "Läuft im Hintergrund weiter: {0}. Das Ergebnis kommt hierher.",
       "background_result_lost": "Das Ergebnis zu diesem Auftrag konnte nicht zurückgeholt werden: {0}",
       "agent_result_completed": "{0} ist fertig",
       "agent_result_failed": "{0} ist fehlgeschlagen",

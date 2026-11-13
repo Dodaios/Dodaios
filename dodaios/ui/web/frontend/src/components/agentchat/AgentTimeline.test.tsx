@@ -178,13 +178,14 @@ describe("several orders in one chat", () => {
   });
 });
 
-it("says who still works on a request whose turn made room for the next message", () => {
+it("draws no small-print line for work a turn left running in the background", () => {
   draw([
     ev("turn_started", { turn_id: "t1" }),
     ev("assistant_text", { turn_id: "t1", text: "Sent to the agent in terminal two." }),
     ev("turn_finished", { turn_id: "t1", status: "done", background: ["Agent T2"] }),
   ]);
-  expect(screen.getByTestId("turn-background").textContent).toContain("Agent T2");
+  expect(screen.getByText("Sent to the agent in terminal two.")).toBeTruthy();
+  expect(screen.queryByText(/Agent T2/)).toBeNull();
 });
 
 describe("the turn header's seat", () => {

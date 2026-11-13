@@ -356,18 +356,10 @@ export function AgentTimeline({
           </div>
         );
       }
-      if (item.kind === "seat_switched") {
-        // The turn ran into its subscription's usage limit and carried on on
-        // the next one: a quiet line, the work itself was not interrupted.
-        return (
-          <p key={item.id} data-message-id={item.id} data-testid="seat-switched"
-            className="mx-auto max-w-[85%] py-1 text-center text-xs text-muted-foreground">
-            {t("society.chat.seat_switched_line")
-              .replace("{0}", String(item.data.from_label ?? ""))
-              .replace("{1}", String(item.data.to_label ?? ""))}
-          </p>
-        );
-      }
+      // A turn that carried on on the next subscription, or that left work
+      // running in the background, gets no small-print line in the chat: the
+      // answer speaks for itself (maintainer, 2026-11-13).
+      if (item.kind === "seat_switched") return null;
       if (item.kind === "background_result_lost") {
         return (
           <p key={item.id} data-message-id={item.id} role="alert"
@@ -477,11 +469,6 @@ const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName,
     () => messages?.map((message) => ({ key: message.id, node: <TraceMessageLine message={message} /> })),
     [messages],
   );
-  const background = turn.background && turn.background.length > 0 ? (
-    <p className="text-xs text-muted-foreground" data-testid="turn-background">
-      {t("society.chat.background_running").replace("{0}", turn.background.join(", "))}
-    </p>
-  ) : null;
   if (bubbles) {
     // The pet plays what the assistant is doing while the turn runs and
     // rests beside its last message afterwards. A turn that waits for the
@@ -500,7 +487,6 @@ const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName,
         <TurnTrace turn={turn} look={traceLook} messenger quietTyping={quietTyping} extras={extras} onDecide={onDecide}
           renderText={(text, id) => <Prose block={{ kind: "text", text, id }} />}
           renderAnswer={(text, _id, live) => <LeadReply text={text} live={live} />} />
-        {background}
       </div>
     </div>;
   }
@@ -514,7 +500,6 @@ const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName,
       </div>
     )}
     <TurnTrace turn={turn} look={traceLook} companion={traceCompanion} face={traceFace} extras={extras} onDecide={onDecide} renderText={(text, id) => <Prose block={{ kind: "text", text, id }} />} />
-    {background}
   </div>;
 });
 
