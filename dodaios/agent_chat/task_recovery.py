@@ -171,6 +171,6 @@ class ToolRecovery:
             "may already have taken effect: read back before repeating it. A user denial, "
             "policy block, missing login or exhausted subscription is not permission to "
             "bypass the restriction, change credentials, or switch to a paid API. "
-            "If a real blocker remains, explain the unfinished part and the specific "
-            "prerequisite. This is the only automatic continuation of this turn."
+            "If a real blocker remains, say in one sentence what is unfinished and what it "
+            "needs. This is the only automatic continuation of this turn."
         )
