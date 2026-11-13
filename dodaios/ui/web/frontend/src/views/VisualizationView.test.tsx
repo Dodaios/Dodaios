@@ -879,7 +879,8 @@ describe("VisualizationView", () => {
     await waitFor(() =>
       expect(posted).toHaveBeenLastCalledWith({ type: "dodaios-node-comment-state", n: 1, state: "sent" }, "*"),
     );
-    expect(note()).toBe("working");
+    // The count goes up in its own render after the send, so wait for it.
+    await waitFor(() => expect(note()).toBe("working"));
 
     // Escape leaves the comment mode first; the node stays open.
     fireEvent.keyDown(window, { key: "Escape" });
@@ -890,7 +891,9 @@ describe("VisualizationView", () => {
     nodeStates[NODE.slug] = nodeState({ version: 2, updated_at: 1_700_000_600 });
     await client.invalidateQueries({ queryKey: ["node-upkeep", NODE.slug] });
     await waitFor(() => expect(frameSrc()).toMatch(/&v=1700000600$/));
-    expect(note()).toBe("idle");
+    // The count is cleared by an effect of the new version, one render after
+    // the frame gets its new address: wait for that render too.
+    await waitFor(() => expect(note()).toBe("idle"));
   });
 
   it("offers no comments on a page the assistant cannot revise", async () => {
