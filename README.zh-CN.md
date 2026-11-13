@@ -35,13 +35,13 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.gif">
-    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="一段 80 秒的 Dodaios 录屏：首次启动设置和应用自带的导览；Dodaios 在对话中运行一个项目的命令行工具；编码智能体在 Agentic IDE 的线程里为项目添加一个选项和测试，随后审阅它的改动；最后 Dodaios 开启一个 Claude Code 线程修复缺陷，并在智能体完成后汇报结果" width="100%" />
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-intro.mp4">
+    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="一段 55 秒的 Dodaios 介绍短片，由真实应用的录屏剪辑而成。用户在对话中输入请求：一张发票多收了一分钱，另一个项目需要增加一个选项。Dodaios 查出原因，并启动两个编码智能体，一个使用 Claude Fable 5.2，一个使用 Claude Sonnet 5.5。在智能体工作时点击其中一个的名字，打开它在 Agentic IDE 中的线程；随后也打开另一个智能体的线程，并以 diff 形式审阅第一个智能体的改动。Dodaios 自己核对结果后汇报，随后把仪表盘生成为一个 Artifact。接着是插件、记忆、模型选择器和桌面宠物的几个镜头，短片以产品名称结束" width="100%" />
   </a>
 </p>
 
 <p align="center">
-  <sub>真实应用（5.0.0 版）的一次连续录制，模型是通过已登录的 Claude Code 使用的 Claude Opus 5.5。所有回答和改动都是真实的。点击和输入以 1.4 倍速播放，等待模型的部分以 7 倍速播放。</sub>
+  <sub><a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-intro.mp4"><b>带声音观看</b></a>（55 秒）。短片中的应用是真实的，它完成的工作也是真实的：Dodaios 和它启动的编码智能体通过已登录的 Claude Code 使用 Claude Fable 5.2 和 Sonnet 5.5。短片经过剪辑，等待模型的时间被缩短。音乐：Lee Rosevere 的 <a href="https://archive.org/details/leerosevere_musicforpodcasts_6">“Making It Look Easy”</a>，<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>。</sub>
 </p>
 
 ## 它是什么

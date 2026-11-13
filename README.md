@@ -35,13 +35,13 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.gif">
-    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="An 80-second recording of Dodaios: the first-run setup and the built-in tour; Dodaios running a project's command-line tool from its chat; a coding agent in an Agentic IDE thread adding an option with tests, and its changes in review; then Dodaios opening a Claude Code thread to fix a bug and reporting back when the agent is done" width="100%" />
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-intro.mp4">
+    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="A 55-second film that introduces Dodaios, cut from recordings of the real app. A request is typed into the chat: an invoice is one cent too high, and another project needs an option. Dodaios finds the cause and starts two coding agents, one on Claude Fable 5.2 and one on Claude Sonnet 5.5. A click on an agent's name opens its thread in the Agentic IDE while the agents work; the other agent's thread is opened too, and the changes of the first are reviewed as a diff. Dodaios checks the results itself and reports, then builds a dashboard as an artifact. Short looks at plugins, memory, the model picker and the desktop pet follow, and the film ends on the name" width="100%" />
   </a>
 </p>
 
 <p align="center">
-  <sub>One take of the real app (version 5.0.0) with Claude Opus 5.5 through a signed-in Claude Code. Every answer and every change is real. Clicks and typing play at 1.4× speed, the waits for the model at 7×.</sub>
+  <sub><a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-intro.mp4"><b>Watch it with sound</b></a> (55 s). The app in the film is real and so is its work: Dodaios and the coding agents it starts run on Claude Fable 5.2 and Sonnet 5.5 through a signed-in Claude Code. The film is cut, and the waits for the models are shortened. Music: <a href="https://archive.org/details/leerosevere_musicforpodcasts_6">“Making It Look Easy”</a> by Lee Rosevere, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</sub>
 </p>
 
 ## What it is
