@@ -23,7 +23,7 @@
  * - only files the WebView can draw are offered (`classifyVisual`).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { SectionStage } from "@/App";
@@ -54,6 +54,7 @@ vi.mock("@/hooks/useWebSocket", () => ({
 const chat = vi.hoisted(() => ({
   requestNewNode: vi.fn(async () => undefined),
   askDodaiosToChange: vi.fn(async (_card: unknown) => undefined),
+  sendNodeComment: vi.fn(async (_card: unknown, _comment: unknown) => undefined),
 }));
 vi.mock("@/components/nodes/askDodaios", () => chat);
 
@@ -834,6 +835,71 @@ describe("VisualizationView", () => {
     openMore();
     expect(screen.getByTestId("visualization-favorite")).toBeTruthy();
     expect(screen.queryByTestId("visualization-ask-change")).toBeNull();
+  });
+
+  it("takes a comment left on a typed node's page and hands it to the assistant", async () => {
+    const nodeStates = { [NODE.slug]: nodeState() };
+    installFetchMock(
+      [NODE_RUN, DASH_RUN],
+      { ...NODE_FILES, mission_dash: [DASH_FILE] },
+      { typed: [NODE], nodeStates },
+    );
+    chat.sendNodeComment.mockClear();
+    const { client } = renderView();
+
+    fireEvent.click(await findCard(NODE.key));
+    await waitFor(() => expect(frameSrc()).toMatch(/&v=1700000000$/));
+    const frame = screen.getByTestId("visualization-frame") as HTMLIFrameElement;
+    const posted = vi.spyOn(frame.contentWindow as Window, "postMessage");
+    const toggle = screen.getByTestId("visualization-comment");
+    const note = () => screen.getByTestId("visualization-page-note").getAttribute("data-state");
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    expect(note()).toBe("idle");
+
+    // The mode goes to the page, with the words it shows.
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(note()).toBe("commenting");
+    expect(posted).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "dodaios-node-mode", mode: "comment" }),
+      "*",
+    );
+
+    // The page reports what was written, on what, and where.
+    const comment = { n: 1, text: "Make the intro shorter", quote: "Welcome", where: "§ Intro" };
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: { type: "dodaios-node-comment", ...comment },
+          source: frame.contentWindow,
+        }),
+      );
+    });
+    await waitFor(() => expect(chat.sendNodeComment).toHaveBeenCalledWith(NODE, comment));
+    await waitFor(() =>
+      expect(posted).toHaveBeenLastCalledWith({ type: "dodaios-node-comment-state", n: 1, state: "sent" }, "*"),
+    );
+    expect(note()).toBe("working");
+
+    // Escape leaves the comment mode first; the node stays open.
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByTestId("visualization-comment").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByTestId("visualization-frame")).toBeTruthy();
+
+    // The assistant's revision answers the comment: the line goes quiet.
+    nodeStates[NODE.slug] = nodeState({ version: 2, updated_at: 1_700_000_600 });
+    await client.invalidateQueries({ queryKey: ["node-upkeep", NODE.slug] });
+    await waitFor(() => expect(frameSrc()).toMatch(/&v=1700000600$/));
+    expect(note()).toBe("idle");
+  });
+
+  it("offers no comments on a page the assistant cannot revise", async () => {
+    installFetchMock([DASH_RUN], { mission_dash: [DASH_FILE] });
+    renderView();
+
+    fireEvent.click(await findCard(DASH_KEY));
+    await screen.findByTestId("visualization-frame");
+    expect(screen.queryByTestId("visualization-comment")).toBeNull();
   });
 
   it("opens a node started empty on the stage before the library lists it", async () => {

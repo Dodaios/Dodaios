@@ -494,14 +494,14 @@ def test_no_text_field_reaches_the_page_unescaped(payload: str) -> None:
     assert '"><img' not in html
     assert "javascript:" not in html
     # The only scripts and pictures are the page's own.
-    assert html.count("<script>") == 2
+    assert html.count("<script>") == 3
     assert html.count("<img ") == 1
     # Read the page the way a browser does: no handler attribute anywhere, and
     # every link and picture is one the renderer made itself.
     tags = _tags(html)
     for name, attrs in tags:
         assert not [key for key in attrs if key.startswith("on")], (name, attrs)
-    assert [name for name, _ in tags].count("script") == 2
+    assert [name for name, _ in tags].count("script") == 3
     pictures = [attrs for name, attrs in tags if name == "img"]
     assert len(pictures) == 1 and pictures[0]["src"] == PIXEL
     for name, attrs in tags:

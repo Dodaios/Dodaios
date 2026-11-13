@@ -11782,6 +11782,18 @@
     },
     "types": {
       "heading": "Por tipo"
+    },
+    "comment": {
+      "toggle": "Comentar",
+      "hint": "Haz clic en un lugar y escribe qué debe cambiar {name} ahí.",
+      "working": "{name} está aplicando tu comentario…",
+      "working_many": "{name} está aplicando {0} comentarios…",
+      "placeholder": "Añade un comentario…",
+      "send": "Enviar",
+      "sent": "Enviado",
+      "failed": "No se envió. Inténtalo de nuevo.",
+      "request": "Cambia el node «{0}» (ID {1}) según este comentario{2}: {3}",
+      "at": " sobre «{0}»"
     }
   },
   "agent_browser": {

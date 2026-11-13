@@ -266,6 +266,30 @@ describe("talking to the assistant", () => {
     expect((calls[1].body as { text: string }).text).toBe("Create a new node of type Sheets for me: A budget");
   });
 
+  it("sends a comment with the place it was left on, as the reader's message", async () => {
+    const calls = installFetch();
+    const real = await vi.importActual<typeof import("./askDodaios")>("./askDodaios");
+    expect(real.nodeCommentText(BRIEF, { text: " shorter, $& plain ", quote: "Our goals", where: "§ Goals" })).toBe(
+      'Please change the node "Website brief" (id n-brief) as this comment says on "Our goals" (§ Goals): shorter, $& plain',
+    );
+    // A pin on a picture has no text under it; a pin on nothing has no place either.
+    expect(real.nodeCommentText(BRIEF, { text: "brighter", quote: "", where: "/slides/2" })).toBe(
+      'Please change the node "Website brief" (id n-brief) as this comment says (/slides/2): brighter',
+    );
+    expect(real.nodeCommentText(BRIEF, { text: "brighter", quote: "", where: "" })).toBe(
+      'Please change the node "Website brief" (id n-brief) as this comment says: brighter',
+    );
+
+    await real.sendNodeComment(BRIEF, { text: "shorter", quote: "Our goals", where: "" });
+    expect(calls.map((call) => `${call.method} ${call.url}`)).toEqual([
+      "GET /api/agent-chat/lead",
+      "POST /api/agent-chat/sessions/lead-1/messages",
+    ]);
+    expect((calls[1].body as { text: string }).text).toBe(
+      'Please change the node "Website brief" (id n-brief) as this comment says on "Our goals": shorter',
+    );
+  });
+
   it("rejects when the request could not be sent", async () => {
     installFetch((url) => url.endsWith("/messages"));
     const real = await vi.importActual<typeof import("./askDodaios")>("./askDodaios");

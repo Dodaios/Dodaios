@@ -11782,6 +11782,18 @@
     },
     "types": {
       "heading": "Browse by type"
+    },
+    "comment": {
+      "toggle": "Comment",
+      "hint": "Click a place and write what {name} should change there.",
+      "working": "{name} is working your comment in…",
+      "working_many": "{name} is working {0} comments in…",
+      "placeholder": "Add a comment…",
+      "send": "Send",
+      "sent": "Sent",
+      "failed": "Not sent. Try again.",
+      "request": "Please change the node \"{0}\" (id {1}) as this comment says{2}: {3}",
+      "at": " on \"{0}\""
     }
   },
   "agent_browser": {

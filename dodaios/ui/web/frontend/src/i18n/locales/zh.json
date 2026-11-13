@@ -11782,6 +11782,18 @@
     },
     "types": {
       "heading": "按类型浏览"
+    },
+    "comment": {
+      "toggle": "评论",
+      "hint": "点击一个位置，写下 {name} 应在那里修改什么。",
+      "working": "{name} 正在按你的评论修改…",
+      "working_many": "{name} 正在按 {0} 条评论修改…",
+      "placeholder": "添加评论…",
+      "send": "发送",
+      "sent": "已发送",
+      "failed": "未发送，请重试。",
+      "request": "请按这条评论修改 Node“{0}”（ID {1}）{2}：{3}",
+      "at": "，位置“{0}”"
     }
   },
   "agent_browser": {

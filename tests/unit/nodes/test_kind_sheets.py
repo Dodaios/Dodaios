@@ -567,7 +567,7 @@ def test_no_text_from_the_spec_reaches_the_page_unescaped() -> None:
         assert "<img" not in html and "alert(1)</script>" not in html
         assert 'href="javascript:' not in html
         # The page's own scripts are the only ones: the theme, the clock, the grid.
-        assert html.count("<script>") == 3 and html.count("</script>") == 3
+        assert html.count("<script>") == 4 and html.count("</script>") == 4
 
 
 def test_render_is_deterministic_and_does_not_touch_the_spec() -> None:

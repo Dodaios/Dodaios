@@ -105,6 +105,25 @@ scripts and blocks the network.
 The page file is always written again from the spec. Nothing edits it in
 place. A rename keeps the file name, so links to the page stay valid.
 
+## Comments on a node
+
+On the stage, "Comment" switches a typed node's page into comment mode. A
+click on the page then drops a numbered pin with a small field at that place.
+The reader writes what should change and sends it. The assistant gets the
+comment as the reader's message, with the text the pin was put on and the
+place in the node's own terms (`/slides/2`, `Price × Netflix`, `§ Costs`), and
+revises the node with the `node` tool. The stage draws the page again when the
+revision is written.
+
+The page runs in a sandbox, so the app cannot see where the reader clicks in
+it. The pin and its field are therefore drawn by the page itself
+(`dodaios/nodes/bridge.py`, part of every node page), and the page and the app
+talk in messages: the page says when it has loaded and sends a comment; the
+app says which mode it is in and whether the comment went out
+(`frontend/src/components/nodes/nodeBridge.ts`). While the mode is on, a click
+does not reach the page's own controls. Pages that are not typed nodes (a
+worker-built page, a report) take no comments.
+
 ## The `node` tool
 
 The assistant works on nodes through one tool

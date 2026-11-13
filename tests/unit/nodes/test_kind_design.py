@@ -289,8 +289,8 @@ def test_css_cannot_leave_its_style_element() -> None:
     assert "<" not in spec["css"]
     assert spec["html"] == "<p>x</p><style>.a{color:red}</style><style>p{color:blue}</style>"
     assert "<script>alert" not in page
-    # The theme stamp and the kit's page script, nothing from the spec.
-    assert [tag for tag, _ in _tags(page)].count("script") == 2
+    # The theme stamp, the comment bridge and the kit's page script, nothing from the spec.
+    assert [tag for tag, _ in _tags(page)].count("script") == 3
 
 
 def test_inline_styles_are_cleaned_like_a_stylesheet() -> None:
