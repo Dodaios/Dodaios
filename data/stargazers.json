@@ -4,7 +4,7 @@
   "forks": 130,
   "placed": 74,
   "stated": 90,
-  "generatedAt": "2026-11-13T00:01:57.498Z",
+  "generatedAt": "2026-11-13T01:58:11.245Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -39,6 +39,13 @@
       "lon": 80.278,
       "label": "Chennai",
       "country": "India",
+      "count": 2
+    },
+    {
+      "lat": 50.962,
+      "lon": 9.678,
+      "label": "Germany",
+      "country": "Germany",
       "count": 2
     },
     {
@@ -151,13 +158,6 @@
       "lon": 2.552,
       "label": "France",
       "country": "France",
-      "count": 1
-    },
-    {
-      "lat": 50.962,
-      "lon": 9.678,
-      "label": "Germany",
-      "country": "Germany",
       "count": 1
     },
     {
@@ -298,13 +298,6 @@
       "lon": 68.546,
       "label": "Pakistan",
       "country": "Pakistan",
-      "count": 1
-    },
-    {
-      "lat": 34.756,
-      "lon": 32.422,
-      "label": "Paphos",
-      "country": "Cyprus",
       "count": 1
     },
     {
