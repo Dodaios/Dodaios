@@ -549,6 +549,7 @@ def test_wrapper_is_accepted_by_keyring_set_keyring(
     sys.platform != "darwin" or not os.path.exists("/usr/bin/security"),
     reason="needs the real macOS security CLI",
 )
+@pytest.mark.usefixtures("real_keychain_tool")
 def test_security_cli_write_roundtrips_payload_longer_than_interactive_line_limit() -> None:
     """``security -i`` truncates input lines at ~4 KB, so a grown vault failed
     every CLI write, fell back to the per-app-ACL inner write and re-armed the

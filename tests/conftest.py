@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import atexit
 import os
+import shlex
 import shutil
 import sys
 import tempfile
@@ -36,6 +37,17 @@ _TRACKED_BEFORE = checkout_guard.snapshot(_REPO_ROOT, untracked=False)
 _TEST_DATA_DIR = Path(tempfile.mkdtemp(prefix="dodaios-test-data-"))
 os.environ["JARVIS_DATA_DIR"] = str(_TEST_DATA_DIR)
 atexit.register(shutil.rmtree, _TEST_DATA_DIR, ignore_errors=True)
+
+# Hermetic credential store. The ``keyring`` library otherwise hands every
+# test the OS store of whoever runs the suite (macOS Keychain, Windows
+# Credential Manager): a read returned the developer's real API keys, a save
+# or delete changed them. With no OS store the app keeps keys in its 0600 file
+# under the data dir, which is the temp dir above. CI's Linux runners are in
+# that state anyway. Set before the first dodaios import; subprocesses inherit
+# it. A test of a platform store installs its own fake (``keyring.set_keyring``).
+# The macOS ``security`` tool is a second way in: see
+# ``_real_keychain_out_of_reach`` below.
+os.environ["PYTHON_KEYRING_BACKEND"] = "keyring.backends.fail.Keyring"
 
 # ``memory.data_dir`` (the anchor for the session, chat, society and
 # self-build stores) defaults to the cwd-relative "./data", which is the
@@ -151,6 +163,94 @@ def _no_user_environment_writes():
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(config_writer, "_set_user_env_var_winreg", lambda name, value: None)
         yield
+
+
+_KEYCHAIN_TOOL = "security"
+# What ``security find-generic-password`` answers when the item does not exist.
+_KEYCHAIN_NOT_FOUND_EXIT = 44
+# Sub-commands that only look. Everything else can change the Keychain.
+_KEYCHAIN_LOOKUP_PREFIXES = ("find-", "show-", "dump-")
+# Not empty while a test holds the ``real_keychain_tool`` fixture.
+_REAL_KEYCHAIN_TOOL_ASKED_FOR: list[bool] = []
+
+
+def _keychain_tool_verb(args) -> str | None:  # noqa: ANN001
+    """The sub-command of a macOS ``security`` call; ``None`` for any other command.
+
+    ``""`` when the call names none (``security -i`` reads its commands from
+    stdin, so it can do anything).
+    """
+    try:
+        if isinstance(args, (str, bytes, os.PathLike)):
+            argv = shlex.split(os.fsdecode(args))
+        else:
+            argv = [os.fsdecode(part) for part in args]
+    except (TypeError, ValueError):
+        return None
+    if not argv or Path(argv[0]).name != _KEYCHAIN_TOOL:
+        return None
+    return next((part for part in argv[1:] if not part.startswith("-")), "")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _real_keychain_out_of_reach():
+    """No test reads or changes the real macOS Keychain of whoever runs the suite.
+
+    The app keeps every saved API key in ONE Keychain item and reaches it with
+    the ``security`` tool, which deletes without a prompt. An uninstaller test
+    that patched the keyring but not that tool ran
+    ``security delete-generic-password`` for real: each run of the suite on a
+    Mac removed the developer's item, and with it every key the app had. The
+    app then found no key at its next start and fell back to slower local
+    engines without a word.
+
+    So the tool is out of reach for the whole session, whichever module calls
+    it and by whichever path. A lookup is answered "no such item" without
+    running, which is what a machine that never saved a key answers. Any other
+    sub-command fails the test: its caller needs a fake. A test that patches
+    ``subprocess.run`` or ``subprocess.Popen`` itself never gets here, and a
+    test of the tool's own behaviour asks for ``real_keychain_tool``.
+    """
+    import subprocess
+
+    real_popen = subprocess.Popen
+
+    class _KeychainGuardedPopen(real_popen):
+        def __init__(self, args, *rest, **kwargs):  # noqa: ANN001, ANN002, ANN003
+            verb = None if _REAL_KEYCHAIN_TOOL_ASKED_FOR else _keychain_tool_verb(args)
+            if verb is not None:
+                if not verb.startswith(_KEYCHAIN_LOOKUP_PREFIXES):
+                    pytest.fail(
+                        f"This test ran the macOS Keychain tool for real (`security {verb}`). "
+                        "On a Mac that changes the Keychain of whoever runs the suite, where "
+                        "the app keeps every saved API key in one item. Give the caller a "
+                        "fake: patch the function that shells out, or `subprocess.run`. "
+                        "Only a test of the tool itself uses the `real_keychain_tool` fixture."
+                    )
+                args = [sys.executable, "-c", f"raise SystemExit({_KEYCHAIN_NOT_FOUND_EXIT})"]
+                kwargs.pop("shell", None)
+                kwargs.pop("executable", None)
+            super().__init__(args, *rest, **kwargs)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(subprocess, "Popen", _KeychainGuardedPopen)
+        yield
+
+
+@pytest.fixture
+def real_keychain_tool():
+    """Let this one test run the real ``security`` tool.
+
+    For a test of the tool's own behaviour (an argument length limit, an exit
+    code), which no fake can stand in for. Such a test works on a throwaway
+    item under a service name of its own, never ``dodaios`` or a legacy name,
+    and removes the item again.
+    """
+    _REAL_KEYCHAIN_TOOL_ASKED_FOR.append(True)
+    try:
+        yield
+    finally:
+        _REAL_KEYCHAIN_TOOL_ASKED_FOR.pop()
 
 
 @pytest.fixture(autouse=True)
