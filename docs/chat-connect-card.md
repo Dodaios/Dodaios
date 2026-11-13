@@ -29,9 +29,9 @@ The card watches the sign-in and reports it. The backend checks that the
 connection really exists before the card closes
 (`connect_save` in `dodaios/society/connect_tool.py`).
 
-Then the chat continues the request by itself, in a turn of its own that opens
-with "Result for your earlier request" and the request's words
-(`dodaios/agent_chat/connect_resume.py`). It starts once the chat's seat is
+Then the chat continues the request by itself, in a turn of its own
+(`dodaios/agent_chat/connect_resume.py`). The chat shows only that turn's
+answer: no bubble and no small-print line repeat the request. It starts once the chat's seat is
 free: after the turn that showed the card, and after anything the person
 started meanwhile. "Not now" closes the card and continues nothing.
 

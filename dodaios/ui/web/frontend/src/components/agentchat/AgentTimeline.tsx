@@ -221,20 +221,10 @@ export function AgentTimeline({
     }
     if (item.type === "user") {
       if (item.origin === "control") return <div key={item.id} data-message-id={item.id} className="text-xs text-muted-foreground">{t("slash.control_turn")}{item.attachments.map((file) => <span key={file.name} className="ml-2">{file.name}</span>)}</div>;
-      if (item.origin === "background") {
-        // An earlier request coming back after other messages: the line
-        // names it, so the answer below is read as that request's result.
-        return (
-          <div
-            key={item.id}
-            data-message-id={item.id}
-            data-testid="background-result"
-            className="mx-auto max-w-[85%] text-center text-xs text-muted-foreground"
-          >
-            {t("society.chat.background_result")} · {item.text}
-          </div>
-        );
-      }
+      // An earlier request continuing in a turn of its own: no line for it.
+      // The answer below speaks for itself, and a small-print copy of the
+      // request in the chat was noise (maintainer, 2026-11-13).
+      if (item.origin === "background") return null;
       return (
         // The message's row, and under it the line that says when it was read.
         <div key={item.id} className="flex min-w-0 flex-col gap-1">

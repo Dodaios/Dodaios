@@ -8,9 +8,9 @@ an approval that was set aside does (``approval_defer.py``). Nobody has to type
 "done".
 
 The turn starts once the chat's seat is free: after the card's own turn, and
-after anything the person started in the meantime. It opens with the line "the
-result of your earlier request" (``background_result``), not with a bubble of
-the person's.
+after anything the person started in the meantime. It is a
+``background_result`` turn: the chat shows its answer only, with no bubble and
+no line for the request.
 """
 
 from __future__ import annotations
