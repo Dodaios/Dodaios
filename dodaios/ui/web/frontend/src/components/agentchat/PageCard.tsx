@@ -96,7 +96,7 @@ export function PageLink({ pageRef, label, className }: { pageRef: string; label
       title={`${t("reports.open")}: ${name}`}
       className={cn(
         "inline-flex max-w-full items-baseline gap-1.5 rounded-sm text-left align-baseline text-foreground",
-        "underline decoration-border-strong decoration-1 underline-offset-4 hover:decoration-foreground",
+        "underline decoration-foreground/40 decoration-1 underline-offset-4 hover:decoration-foreground",
         className,
       )}
     >
