@@ -11770,5 +11770,28 @@
       "resume_failed": "That could not be resumed.",
       "unavailable": "Updates are not available right now. Try again in a moment."
     }
+  },
+  "agent_browser": {
+    "title": "{name}'s browser",
+    "screen": "Live browser of {name}",
+    "driving": "{name} has control",
+    "you_drive": "You have control",
+    "take_over": "Take over",
+    "hand_back": "Hand back",
+    "expand": "Show the browser large",
+    "minimize": "Make the browser small",
+    "hide": "Hide the browser",
+    "stop": "Stop",
+    "working": "Working",
+    "ready": "Ready",
+    "connecting": "Connecting…",
+    "needs_you": "{name} needs you here",
+    "private_hint": "What you type here is not recorded and is not shown to {name}.",
+    "approval": "Allow this browser step?",
+    "allow": "Allow",
+    "deny": "Deny",
+    "address": "Website address",
+    "back": "Back",
+    "forward": "Forward"
   }
 }

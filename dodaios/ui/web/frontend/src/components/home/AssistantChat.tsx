@@ -10,12 +10,17 @@ const ChatStage = lazy(() =>
 );
 // An agent's own chat, opened from the sidebar — society code, its own chunk.
 const HomeAgentChat = lazy(() => import("@/components/home/HomeAgentChat"));
+// The assistant's live browser beside the chat; its own chunk.
+const ChatWithBrowser = lazy(() =>
+  import("@/components/home/chatBrowser/ChatBrowserStage").then((module) => ({ default: module.ChatWithBrowser })),
+);
 
 /**
  * The front page: ONE chat with the assistant (2026-10-01), and since
  * 2026-11-09 one endless conversation: there is no blank "new chat" page.
  *
- * Nothing but the conversation — no header row, no side card. An empty chat
+ * Nothing but the conversation — no header row, no side card; only while the
+ * assistant uses its browser does that browser show beside it. An empty chat
  * is a short greeting over the composer in the middle of the page;
  * the composer itself carries every control,
  * including the round voice button. A call is not another page: the
@@ -53,10 +58,15 @@ export function AssistantChat() {
     );
   }
 
+  // The browser stage (components/home/chatBrowser) wraps the chat: a live
+  // tile in its corner while the assistant browses, the chat on the left and
+  // the browser on the right once the person opens it large.
   return (
     <div className="relative flex min-h-0 flex-1 flex-col" data-testid="assistant-chat">
       <Suspense fallback={loading}>
-        <ChatStage />
+        <ChatWithBrowser>
+          <ChatStage />
+        </ChatWithBrowser>
       </Suspense>
     </div>
   );
