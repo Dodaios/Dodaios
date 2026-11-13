@@ -8045,6 +8045,12 @@
       "context": "读取上下文"
     }
   },
+  "chat_links": {
+    "open": "在浏览器中打开 {site}",
+    "x_post": "@{user} 的帖子",
+    "video": "YouTube 视频",
+    "discussion": "Hacker News 讨论"
+  },
   "chat_media": {
     "unavailable": "无法加载或播放此媒体。你仍然可以打开文件。",
     "expand": "放大 {file}",

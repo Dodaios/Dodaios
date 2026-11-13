@@ -8045,6 +8045,12 @@
       "context": "Read its context"
     }
   },
+  "chat_links": {
+    "open": "Open {site} in the browser",
+    "x_post": "Post by @{user}",
+    "video": "YouTube video",
+    "discussion": "Hacker News discussion"
+  },
   "chat_media": {
     "unavailable": "This media cannot be loaded or played. You can still open the file.",
     "expand": "Enlarge {file}",

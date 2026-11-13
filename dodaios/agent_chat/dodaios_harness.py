@@ -43,7 +43,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.core.branding import MCP_TOOLS_SERVER_NAME
-from dodaios.core.response_style import CHART_GUIDANCE, CONVERSATIONAL_TURN_REMINDER
+from dodaios.core.response_style import CHART_GUIDANCE, CONVERSATIONAL_TURN_REMINDER, LINK_GUIDANCE
 
 log = logging.getLogger(__name__)
 
@@ -140,6 +140,8 @@ _SHARED_PREAMBLE: Final[str] = (
     + CHAT_MESSAGES
     + "\n\nNo emojis unless the person asks for one.\n\n"
     + CHART_GUIDANCE
+    + "\n\n"
+    + LINK_GUIDANCE
     + "\n\n"
     f"Dodaios tools come from the `{_SERVER_NAME}` MCP server: Claude Code names them "
     f"`mcp__{_SERVER_NAME}__<tool>`; Grok Build names them `{_SERVER_NAME}__<tool>`, called "

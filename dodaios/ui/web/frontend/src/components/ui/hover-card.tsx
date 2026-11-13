@@ -38,18 +38,27 @@ export interface HoverCardHandle {
 interface Place {
   left: number;
   top: number;
-  /** The card stands under the anchor (no room to its right), so the strip is on top. */
-  below: boolean;
+  /** Where the strip between anchor and card is: the card's left, top or bottom edge. */
+  strip: "left" | "top" | "bottom";
 }
 
-function place(anchor: DOMRect, layer: DOMRect): Place {
+/** Where the card stands: beside the anchor (a rail icon), or above it (a word in running text). */
+export type HoverCardSide = "beside" | "above";
+
+function place(anchor: DOMRect, layer: DOMRect, side: HoverCardSide): Place {
+  const clampLeft = (left: number) =>
+    Math.min(Math.max(left, VIEWPORT_MARGIN), Math.max(VIEWPORT_MARGIN, window.innerWidth - layer.width - VIEWPORT_MARGIN));
+  if (side === "above") {
+    // Above the anchor's first line; under it when the window has no room on top.
+    if (anchor.top - layer.height >= VIEWPORT_MARGIN) return { left: clampLeft(anchor.left), top: anchor.top - layer.height, strip: "bottom" };
+    return { left: clampLeft(anchor.left), top: anchor.bottom, strip: "top" };
+  }
   const clampTop = (top: number) =>
     Math.min(Math.max(top, VIEWPORT_MARGIN), Math.max(VIEWPORT_MARGIN, window.innerHeight - layer.height - VIEWPORT_MARGIN));
   if (anchor.right + layer.width <= window.innerWidth - VIEWPORT_MARGIN) {
-    return { left: anchor.right, top: clampTop(anchor.top + anchor.height / 2 - layer.height / 2), below: false };
+    return { left: anchor.right, top: clampTop(anchor.top + anchor.height / 2 - layer.height / 2), strip: "left" };
   }
-  const left = Math.min(Math.max(anchor.left, VIEWPORT_MARGIN), Math.max(VIEWPORT_MARGIN, window.innerWidth - layer.width - VIEWPORT_MARGIN));
-  return { left, top: anchor.bottom, below: true };
+  return { left: clampLeft(anchor.left), top: anchor.bottom, strip: "top" };
 }
 
 export const HoverCard = forwardRef<HoverCardHandle, {
@@ -59,8 +68,12 @@ export const HoverCard = forwardRef<HoverCardHandle, {
   label: string;
   /** Classes for the anchor span, so this can slot into an existing layout. */
   className?: string;
+  /** Beside the anchor (the default) or above it. */
+  side?: HoverCardSide;
+  /** Classes for the card itself, on top of its frame. */
+  cardClassName?: string;
   children: ReactNode;
-}>(function HoverCard({ content, label, className, children }, ref) {
+}>(function HoverCard({ content, label, className, side = "beside", cardClassName, children }, ref) {
   const anchorRef = useRef<HTMLSpanElement | null>(null);
   const layerRef = useRef<HTMLDivElement | null>(null);
   const timerRef = useRef<number | null>(null);
@@ -111,8 +124,8 @@ export const HoverCard = forwardRef<HoverCardHandle, {
     if (!open) return;
     const anchor = anchorRef.current?.getBoundingClientRect();
     const layer = layerRef.current?.getBoundingClientRect();
-    if (anchor && layer) setPosition(place(anchor, layer));
-  }, [open, content]);
+    if (anchor && layer) setPosition(place(anchor, layer, side));
+  }, [open, content, side]);
 
   const anchorTarget = () => anchorRef.current?.querySelector<HTMLElement>(FOCUSABLE) ?? null;
 
@@ -194,8 +207,9 @@ export const HoverCard = forwardRef<HoverCardHandle, {
             position: "fixed",
             left: position?.left ?? 0,
             top: position?.top ?? 0,
-            paddingLeft: position?.below ? 0 : GAP,
-            paddingTop: position?.below ? GAP : 0,
+            paddingLeft: position?.strip === "left" ? GAP : 0,
+            paddingTop: position?.strip === "top" ? GAP : 0,
+            paddingBottom: position?.strip === "bottom" ? GAP : 0,
             visibility: position ? "visible" : "hidden",
           }}
           className="z-[70]">
@@ -203,6 +217,7 @@ export const HoverCard = forwardRef<HoverCardHandle, {
             className={cn(
               "max-w-[320px] rounded-lg border border-border-strong bg-popover px-2.5 py-1.5 text-sm text-popover-foreground shadow-float",
               position && "animate-in fade-in-0 zoom-in-95 duration-100",
+              cardClassName,
             )}>
             {content}
           </div>

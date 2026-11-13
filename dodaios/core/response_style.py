@@ -61,6 +61,24 @@ CHART_GUIDANCE = (
     "chart."
 )
 
+#: How the assistant writes a web link in a written answer. The chat draws a
+#: Markdown link to a web page as the website's logo and the link's words, with
+#: the full address on a hover card (``WebLink.tsx`` in the chat frontend); a
+#: bare address is shortened there too, but the assistant's own words read
+#: better than any shortening. Part of the assistant's own chat prompt on both
+#: seats, next to :data:`CHART_GUIDANCE`.
+LINK_GUIDANCE = (
+    "Links: write every web link as a Markdown link whose text is a short name of one to "
+    "five words saying what it is, never the bare address and never the address as the "
+    "link text: [Post](https://x.com/someone/status/123), [Dodaios repo]"
+    "(https://github.com/Dodaios/Dodaios), [Local-first open source alternative]"
+    "(https://www.reddit.com/r/LocalLLaMA/comments/abc/...), [Show HN thread]"
+    "(https://news.ycombinator.com/item?id=123). The chat draws the website's logo in front "
+    "of the name and shows the full address when the person points at it, so do not add "
+    "the site's name, the domain or the address next to the link. Copy the address exactly "
+    "as a tool gave it to you; never invent or shorten one."
+)
+
 _CHART_BLOCK_RE = re.compile(
     r"[ \t]*```[ \t]*" + re.escape(CHART_FENCE) + r"[ \t]*\r?\n.*?(?:```[ \t]*|\Z)",
     re.DOTALL | re.IGNORECASE,

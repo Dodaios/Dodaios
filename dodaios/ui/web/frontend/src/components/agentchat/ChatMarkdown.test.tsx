@@ -202,9 +202,74 @@ describe("pages named in an answer", () => {
     render(<ChatMarkdown text={`I made [Business plan v1](artifact:${page}) and [a site](https://example.test/x).`} />);
     const link = screen.getByTestId("page-link");
     expect(link.textContent).toBe("Business plan v1");
-    // The other link stays an ordinary link.
-    expect(screen.getByText("a site").closest("a")?.getAttribute("href")).toBe("https://example.test/x");
+    // The other link stays a web link.
+    const web = screen.getByTestId("web-link");
+    expect(web.textContent).toBe("a site");
+    expect(web.getAttribute("href")).toBe("https://example.test/x");
     fireEvent.click(link);
     expect(useEventStore.getState().visualStage?.target).toBe(page);
+  });
+});
+
+describe("web links in an answer", () => {
+  it("draws a named link as the site's logo and its words", () => {
+    render(<ChatMarkdown text="See the [Dodaios repo](https://github.com/Dodaios/Dodaios)." />);
+    const link = screen.getByTestId("web-link");
+    expect(link.getAttribute("href")).toBe("https://github.com/Dodaios/Dodaios");
+    expect(link.textContent).toBe("Dodaios repo");
+    expect(within(link).getByTestId("web-link-icon").getAttribute("src")).toBe("/api/link-icon?host=github.com");
+  });
+
+  it("shortens a bare address to a few words", () => {
+    render(<ChatMarkdown text="Thread: https://www.reddit.com/r/LocalLLaMA/comments/1oxk2z/local_first_open_source_alternative/" />);
+    const link = screen.getByTestId("web-link");
+    expect(link.textContent).toBe("Local first open source alternative");
+    expect(link.getAttribute("data-host")).toBe("reddit.com");
+    expect(screen.queryByText(/reddit\.com\/r\//)).toBeNull();
+  });
+
+  it("names a post on X in the reader's language", () => {
+    render(<ChatMarkdown text="https://x.com/ai_hakase_/status/1988" />);
+    expect(screen.getByTestId("web-link").textContent).toMatch(/@ai_hakase_/);
+  });
+
+  it("shows the site and the full address when the pointer rests on a link, and opens it from there", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ opened: true }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    const url = "https://www.reddit.com/r/LocalLLaMA/comments/1oxk2z/local_first/";
+    render(<ChatMarkdown text={`[Local-first thread](${url})`} />);
+    fireEvent.mouseEnter(screen.getByTestId("web-link").parentElement!);
+    const card = await screen.findByTestId("web-link-card");
+    expect(card.textContent).toContain("Reddit");
+    expect(within(card).getByTestId("web-link-address").textContent).toBe("www.reddit.com/r/LocalLLaMA/comments/1oxk2z/local_first");
+    fireEvent.click(card);
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings/open-external", expect.objectContaining({
+      body: JSON.stringify({ url }),
+    }));
+    vi.unstubAllGlobals();
+  });
+
+  it("draws a globe when the site has no logo", async () => {
+    const { resetLinkIconsForTests } = await import("./WebLink");
+    resetLinkIconsForTests();
+    render(<ChatMarkdown text="[Somewhere](https://nologo.example/)" />);
+    fireEvent.error(screen.getByTestId("web-link-icon"));
+    expect(screen.getByTestId("web-link-globe")).toBeTruthy();
+  });
+
+  it("keeps bold words inside a link", () => {
+    render(<ChatMarkdown text="[**Release notes**](https://example.com/v5)" />);
+    expect(screen.getByTestId("web-link").textContent).toBe("Release notes");
+  });
+});
+
+describe("a web link's logo and first word", () => {
+  it("stay on one line together", () => {
+    render(<ChatMarkdown text="[Local-first open source alternative](https://www.reddit.com/r/LocalLLaMA/)" />);
+    const link = screen.getByTestId("web-link");
+    const kept = link.querySelector(".whitespace-nowrap");
+    expect(kept?.textContent).toBe("Local-first");
+    expect(within(kept as HTMLElement).getByTestId("web-link-icon")).toBeTruthy();
+    expect(link.textContent).toBe("Local-first open source alternative");
   });
 });

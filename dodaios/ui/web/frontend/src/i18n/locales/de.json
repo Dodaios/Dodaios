@@ -8045,6 +8045,12 @@
       "context": "Kontext lesen"
     }
   },
+  "chat_links": {
+    "open": "{site} im Browser öffnen",
+    "x_post": "Post von @{user}",
+    "video": "YouTube-Video",
+    "discussion": "Diskussion auf Hacker News"
+  },
   "chat_media": {
     "unavailable": "Dieses Medium kann nicht geladen oder abgespielt werden. Du kannst die Datei weiterhin öffnen.",
     "expand": "{file} vergrößern",
