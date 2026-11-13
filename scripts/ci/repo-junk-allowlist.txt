@@ -1,8 +1,11 @@
 # Paths check_repo_junk.py lets through. One glob per line; say why.
 # Add a path only when the running product (or its tests) loads it.
 
-# The one README demo recording (README = one real video).
+# The README's one video, in two forms: the GIF plays by itself and without
+# sound in the README (and on PyPI), the MP4 is the same recording with its
+# music, which the GIF links to. Replace both together; never add a second one.
 assets/demo/readme/dodaios-demo.gif
+assets/demo/readme/dodaios-demo.mp4
 
 # Built frontend bundle: rebuilt by the bot on main; the ONNX runtime and the
 # editor workers are large by nature.

@@ -35,13 +35,13 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.gif">
-    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="A 71-second recording of Dodaios as a superagent: the first-run setup and the built-in tour; one request in the Dodaios chat that starts two Claude Code agents at once in a project, while its panel shows what it is doing; a standing task asked while the agents work; the two agents' threads in the Agentic IDE and the changes they made; then Dodaios' own report, and the standing task it now looks after" width="100%" />
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4">
+    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="A 55-second recording of Dodaios at work, in a workspace that is already in use. Four requests are typed into its chat. Asked how much was invoiced in October, Dodaios finds the billing export on the computer and answers with a table and a chart. Asked for a page to send to finance, it writes one; the chat shows a card of the page, and the page is opened. Asked to look after a project's tests, it takes that on as a standing task. Told that one invoice is a cent too high, it checks and starts a coding agent on Claude Fable 5.2; the agent's thread is opened in the Agentic IDE while the agent works, and its changes are reviewed as a diff. Back in the chat, Dodaios has checked the result itself and reports" width="100%" />
   </a>
 </p>
 
 <p align="center">
-  <sub>One take of the real app (version 5.1.0) with Claude Opus 5.5 through a signed-in Claude Code. Every answer and every change is real. Clicks and typing play at 1.4× speed, the waits for the model at 7×.</sub>
+  <sub>A recording of the real app with Claude Fable 5.2 through a signed-in Claude Code: every answer and every change is real. The typing plays faster and the waits for the model are cut out. <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><b>Watch it with sound</b></a> (55 s). Music: <a href="https://archive.org/details/leerosevere_musicforpodcasts_6">“Making It Look Easy”</a> by Lee Rosevere, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</sub>
 </p>
 
 ## What it is

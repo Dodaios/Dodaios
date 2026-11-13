@@ -1,0 +1,118 @@
+<!doctype html>
+<!-- The README video's picture, drawn for one moment at a time.
+
+     render.cjs opens this page, hands it the take (window.TAKE: take.json of
+     record.cjs plus the folder of its frames), then calls seek(seconds) for
+     every frame of the video and takes a picture. Nothing here runs on a
+     clock: the same second always gives the same picture.
+
+     The picture is the footage and nothing else: the app's window fills the
+     frame. What is shown when, and how fast, is edit.js. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0A0A0A; }
+  #stage { position: absolute; inset: 0; overflow: hidden; background: #0A0A0A; }
+  .shot { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; }
+  .shot img { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  #black { position: absolute; inset: 0; background: #000; opacity: 0; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="black"></div>
+<script src="edit.js"></script>
+<script>
+(() => {
+  const TAKE = window.TAKE;
+  const stage = document.getElementById('stage');
+  const WIN = TAKE.window;
+
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const EASE = {
+    linear: (x) => x,
+    inOut: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
+  };
+  const lerp = (a, b, k) => a + (b - a) * k;
+  // Keyframes [{t, v, ease}] with v a number or a list of numbers; `ease`
+  // shapes the way from the keyframe before to this one.
+  function track(keys, t) {
+    if (t <= keys[0].t) return keys[0].v;
+    for (let i = 1; i < keys.length; i++) {
+      if (t <= keys[i].t) {
+        const a = keys[i - 1], b = keys[i];
+        const k = EASE[b.ease || 'linear'](clamp((t - a.t) / (b.t - a.t)));
+        return Array.isArray(a.v) ? a.v.map((x, n) => lerp(x, b.v[n], k)) : lerp(a.v, b.v, k);
+      }
+    }
+    return keys[keys.length - 1].v;
+  }
+
+  // ---- the footage -----------------------------------------------------------
+  const stretches = TAKE.stretches.map((st, i) => ({ ...st, end: i + 1 < TAKE.stretches.length ? TAKE.stretches[i + 1].at : Infinity }));
+  const byName = {};
+  for (const st of stretches) {
+    if (!st.name) continue;
+    st.frames = TAKE.frames.filter((f) => f.ts >= st.at && f.ts < st.end);
+    if (!byName[st.name]) byName[st.name] = st;
+  }
+  // The frame on screen `s` seconds into the stretch.
+  function frameAt(name, s) {
+    const st = byName[name];
+    if (!st || !st.frames.length) throw new Error('no footage called ' + name);
+    const ts = st.at + s;
+    let lo = 0, hi = st.frames.length - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (st.frames[mid].ts <= ts) lo = mid; else hi = mid - 1; }
+    return TAKE.dir + '/' + st.frames[lo].name;
+  }
+  const latest = (name) => TAKE.marks.filter((x) => x.name === name).pop();
+  const footage = {
+    WIN,
+    has: (name) => Boolean(byName[name] && byName[name].frames.length),
+    // How long a stretch is.
+    length: (name) => { const st = byName[name]; return st ? Math.min(st.end, st.frames.length ? st.frames[st.frames.length - 1].ts + 0.5 : st.at) - st.at : 0; },
+    // When a moment record.cjs wrote down was, in the stretch's own seconds.
+    at: (mark, stretch) => { const m = latest(mark), st = byName[stretch]; return m && st ? m.at - st.at : 0; },
+    // Where a part of the window was.
+    place: (mark) => { const m = latest(mark); return m ? m.box : null; },
+    // When each key of a request was pressed, in the seconds of its "ask-" stretch.
+    keys: (name) => { const st = byName['ask-' + name]; return ((TAKE.typed || {})[name] || []).map((ts) => ts - st.at); },
+  };
+  const film = window.EDIT(footage);
+  window.DURATION = film.duration;
+
+  const layers = film.shots.map((shot) => {
+    const el = document.createElement('div');
+    el.className = 'shot';
+    const img = document.createElement('img');
+    img.width = WIN.width; img.height = WIN.height;
+    el.appendChild(img);
+    el.style.display = 'none';
+    stage.appendChild(el);
+    return { shot, el, img, url: '' };
+  });
+
+  function draw(layer, t) {
+    const { shot, el, img } = layer;
+    if (t < shot.t0 || t >= shot.t1) { el.style.display = 'none'; return null; }
+    el.style.display = 'block';
+    const local = t - shot.t0;
+    // A shot that dissolves in lies over the one before it.
+    el.style.opacity = String(shot.fade ? clamp(local / shot.fade) : 1);
+    const [x, y, w] = track(shot.cam, local);
+    const k = 1920 / w;
+    img.style.transform = `translate(${-x * k}px, ${-y * k}px) scale(${k})`;
+    const url = frameAt(shot.stretch, track(shot.src, local));
+    if (url !== layer.url) { layer.url = url; img.src = 'file://' + url; return img.decode().catch(() => {}); }
+    return null;
+  }
+
+  window.seek = (t) => {
+    document.getElementById('black').style.opacity = String(track(film.black, t));
+    return Promise.all(layers.map((layer) => draw(layer, t)).filter(Boolean)).then(() => true);
+  };
+})();
+</script>
+</body>
+</html>
