@@ -11600,10 +11600,10 @@
       "docs": "Docs",
       "slides": "Slides",
       "sheets": "Sheets",
-      "design": "Design",
-      "data": "Data",
+      "design": "Visuals",
+      "data": "Analytics",
       "whiteboard": "Whiteboard",
-      "motion": "Motion",
+      "motion": "Clips",
       "output": "运行"
     },
     "tabs": {
@@ -11639,7 +11639,6 @@
       "failed": "失败"
     },
     "new": {
-      "heading": "新建内容",
       "request": "请为我创建一个类型为 {0} 的新 Node：{1}",
       "prompt_label": "它应该是关于什么的？",
       "examples_label": "示例",
@@ -11701,7 +11700,10 @@
           "b": "一句动画引言",
           "c": "一次发布的倒计时"
         }
-      }
+      },
+      "button": "新建",
+      "of_type": "在 {0} 中新建",
+      "type_label": "类型"
     },
     "menu": {
       "aria": "此 Node 的操作",
@@ -11749,7 +11751,7 @@
     },
     "states": {
       "loading": "正在加载你的 Nodes",
-      "empty": "这里还没有内容。在上方选择一种类型，{name} 会和你一起创建。",
+      "empty": "这里还没有内容。点击“新建”，{name} 会和你一起创建。",
       "empty_all": "这里还没有内容。",
       "empty_favorites": "还没有收藏。给 Node 加上星标，它就会留在这里。",
       "empty_kept": "还没有保持更新的内容。让 {name} 保持某个 Node 更新，它就会出现在这里。",
@@ -11771,6 +11773,9 @@
       "stop_failed": "无法暂停。",
       "resume_failed": "无法继续。",
       "unavailable": "目前无法更新。请稍后再试。"
+    },
+    "types": {
+      "heading": "按类型浏览"
     }
   },
   "agent_browser": {

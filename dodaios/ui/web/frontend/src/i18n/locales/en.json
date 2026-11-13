@@ -11600,10 +11600,10 @@
       "docs": "Docs",
       "slides": "Slides",
       "sheets": "Sheets",
-      "design": "Design",
-      "data": "Data",
+      "design": "Visuals",
+      "data": "Analytics",
       "whiteboard": "Whiteboard",
-      "motion": "Motion",
+      "motion": "Clips",
       "output": "Run"
     },
     "tabs": {
@@ -11639,7 +11639,6 @@
       "failed": "Failed"
     },
     "new": {
-      "heading": "Make something new",
       "request": "Create a new node of type {0} for me: {1}",
       "prompt_label": "What should it be about?",
       "examples_label": "Examples",
@@ -11701,7 +11700,10 @@
           "b": "An animated quote",
           "c": "A countdown for a launch"
         }
-      }
+      },
+      "button": "New",
+      "of_type": "New in {0}",
+      "type_label": "Type"
     },
     "menu": {
       "aria": "Actions for this node",
@@ -11749,7 +11751,7 @@
     },
     "states": {
       "loading": "Loading your nodes",
-      "empty": "Nothing here yet. Pick a type above and {name} makes it with you.",
+      "empty": "Nothing here yet. Start with New, and {name} makes it with you.",
       "empty_all": "Nothing here yet.",
       "empty_favorites": "No favorites yet. Star a node and it stays here.",
       "empty_kept": "Nothing is kept current yet. Ask {name} to keep a node up to date and it shows up here.",
@@ -11771,6 +11773,9 @@
       "stop_failed": "That could not be paused.",
       "resume_failed": "That could not be resumed.",
       "unavailable": "Updates are not available right now. Try again in a moment."
+    },
+    "types": {
+      "heading": "Browse by type"
     }
   },
   "agent_browser": {

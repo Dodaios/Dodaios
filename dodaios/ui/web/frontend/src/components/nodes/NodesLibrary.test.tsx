@@ -160,7 +160,7 @@ describe("NodesLibrary", () => {
 
     expect(screen.getByTestId("nodes-title").textContent).toBe("Nodes");
     expect(shownKeys()).toEqual(["brief", "deck", "sheet", "logo"]);
-    expect(screen.getByTestId("nodes-new-row")).toBeTruthy();
+    expect(screen.getByTestId("nodes-type-row")).toBeTruthy();
     expect(screen.getAllByTestId("node-cover")).toHaveLength(4);
 
     expect(tab("all").getAttribute("aria-pressed")).toBe("true");
@@ -187,14 +187,14 @@ describe("NodesLibrary", () => {
     expect(within(cards()[0]).queryByTestId("node-card-state")).toBeNull();
   });
 
-  it("shows the runs without a page under Runs, without the new-row, and remembers the tab", async () => {
+  it("shows the runs without a page under Runs, without the shelf of types, and remembers the tab", async () => {
     installFetch({ nodes: SAMPLE });
     renderLibrary();
     await screen.findByTestId("nodes-grid");
 
     fireEvent.click(tab("runs"));
     expect(shownKeys()).toEqual(["run:tidy"]);
-    expect(screen.queryByTestId("nodes-new-row")).toBeNull();
+    expect(screen.queryByTestId("nodes-type-row")).toBeNull();
     expect(window.localStorage.getItem("jarvis.nodes.tab")).toBe("runs");
 
     fireEvent.click(tab("kept"));
@@ -224,13 +224,12 @@ describe("NodesLibrary", () => {
 
     fireEvent.change(field, { target: { value: "budget" } });
     expect(shownKeys()).toEqual(["sheet"]);
-    // Looking for something that exists: the invitation to make something steps aside.
-    expect(screen.queryByTestId("nodes-new-row")).toBeNull();
+    // The shelf stays: a search can be narrowed to a type as well.
+    expect(screen.getByTestId("nodes-type-row")).toBeTruthy();
 
     fireEvent.keyDown(screen.getByTestId("nodes-search-field"), { key: "Escape" });
     expect(screen.queryByTestId("nodes-search-field")).toBeNull();
     expect(shownKeys()).toEqual(["brief", "deck", "sheet", "logo"]);
-    expect(screen.getByTestId("nodes-new-row")).toBeTruthy();
     expect(document.activeElement).toBe(screen.getByTestId("nodes-search"));
   });
 
@@ -261,17 +260,18 @@ describe("NodesLibrary", () => {
     fireEvent.click(screen.getByTestId("nodes-filter-type-sheets"));
     expect(screen.queryByTestId("nodes-filter-panel")).toBeNull();
     expect(shownKeys()).toEqual(["sheet"]);
-    expect(screen.queryByTestId("nodes-new-row")).toBeNull();
+    // The shelf shows the same choice: its tile is the picked one.
+    expect(screen.getByTestId("nodes-type-sheets").getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByTestId("nodes-filter").getAttribute("data-active")).toBe("true");
     expect(window.localStorage.getItem("jarvis.nodes.type")).toBe("sheets");
 
     // A type nothing was made of yet: one sentence, and "show all" lifts the filter.
     fireEvent.click(screen.getByTestId("nodes-filter"));
     fireEvent.click(screen.getByTestId("nodes-filter-type-motion"));
-    expect(screen.getByTestId("nodes-no-matches").textContent).toContain("Motion");
+    expect(screen.getByTestId("nodes-no-matches").textContent).toContain("Clips");
     fireEvent.click(screen.getByTestId("nodes-show-all"));
     expect(shownKeys()).toEqual(["brief", "deck", "sheet", "logo"]);
-    expect(screen.getByTestId("nodes-new-row")).toBeTruthy();
+    expect(screen.getByTestId("nodes-type-motion").getAttribute("aria-pressed")).toBe("false");
   });
 
   it("leaves the type filter out of the Runs tab", async () => {
@@ -459,8 +459,9 @@ describe("NodesLibrary", () => {
     const { onOpen, client } = renderLibrary();
     await screen.findByTestId("nodes-grid");
 
-    fireEvent.click(screen.getByTestId("nodes-new-sheets"));
+    fireEvent.click(screen.getByTestId("nodes-new"));
     const dialog = await screen.findByTestId("new-node-dialog");
+    fireEvent.click(within(dialog).getByTestId("new-node-type-sheets"));
     fireEvent.change(within(dialog).getByTestId("new-node-request"), {
       target: { value: "A budget for this year by month and by team" },
     });
@@ -502,8 +503,11 @@ describe("NodesLibrary", () => {
     installFetch({ nodes: [] });
     renderLibrary();
 
-    await screen.findByTestId("nodes-empty");
-    expect(screen.getByTestId("nodes-new-row")).toBeTruthy();
+    const empty = await screen.findByTestId("nodes-empty");
+    expect(screen.getByTestId("nodes-type-row")).toBeTruthy();
+    // The one action of an empty library: make the first node.
+    fireEvent.click(within(empty).getByTestId("nodes-new"));
+    expect(await screen.findByTestId("new-node-dialog")).toBeTruthy();
     // Nothing to pick from, nothing to search: the tabs and tools are left out.
     expect(screen.queryByTestId("nodes-tab-all")).toBeNull();
     expect(screen.queryByTestId("nodes-search")).toBeNull();
@@ -516,7 +520,7 @@ describe("NodesLibrary", () => {
 
     const error = await screen.findByTestId("nodes-error");
     expect(error.getAttribute("role")).toBe("alert");
-    expect(screen.queryByTestId("nodes-new-row")).toBeNull();
+    expect(screen.queryByTestId("nodes-type-row")).toBeNull();
 
     api.fail = false;
     fireEvent.click(within(error).getByRole("button"));
@@ -543,5 +547,44 @@ describe("NodesLibrary", () => {
 
     fireEvent.pointerLeave(card);
     expect(cover.getAttribute("data-peek")).toBeNull();
+  });
+
+  it("shows the nodes of a type when its tile is picked, and never makes one", async () => {
+    const fetchMock = installFetch({ nodes: SAMPLE });
+    renderLibrary();
+    await screen.findByTestId("nodes-grid");
+    // How many of each type the tab holds, beside the names.
+    expect(screen.getByTestId("nodes-type-count-sheets").textContent).toBe("1");
+
+    fireEvent.click(screen.getByTestId("nodes-type-sheets"));
+    expect(shownKeys()).toEqual(["sheet"]);
+    expect(screen.getByTestId("nodes-type-sheets").getAttribute("aria-pressed")).toBe("true");
+    expect(window.localStorage.getItem("jarvis.nodes.type")).toBe("sheets");
+    // A tile is a way in: no dialog, and nothing was sent anywhere.
+    expect(screen.queryByTestId("new-node-dialog")).toBeNull();
+    expect(fetchMock.mock.calls.every(([, init]) => (init?.method ?? "GET") === "GET")).toBe(true);
+
+    // The picked tile again: everything is back.
+    fireEvent.click(screen.getByTestId("nodes-type-sheets"));
+    expect(shownKeys()).toEqual(["brief", "deck", "sheet", "logo"]);
+    expect(window.localStorage.getItem("jarvis.nodes.type")).toBe("all");
+  });
+
+  it("starts a new node with the type the reader is looking at", async () => {
+    installFetch({ nodes: SAMPLE });
+    renderLibrary();
+    await screen.findByTestId("nodes-grid");
+
+    fireEvent.click(screen.getByTestId("nodes-new"));
+    let dialog = await screen.findByTestId("new-node-dialog");
+    expect(within(dialog).getByTestId("new-node-type-docs").getAttribute("aria-checked")).toBe("true");
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("new-node-dialog")).toBeNull());
+
+    // An empty shelf says so and offers the one next step.
+    fireEvent.click(screen.getByTestId("nodes-type-motion"));
+    fireEvent.click(within(screen.getByTestId("nodes-no-matches")).getByTestId("nodes-new-of-type"));
+    dialog = await screen.findByTestId("new-node-dialog");
+    expect(within(dialog).getByTestId("new-node-type-motion").getAttribute("aria-checked")).toBe("true");
   });
 });

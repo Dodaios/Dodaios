@@ -15,6 +15,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type DragEvent,
@@ -24,7 +25,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Ellipsis, LayoutGrid, List, ListFilter, Loader2, Search, Shapes, Star, X } from "lucide-react";
+import { Check, Ellipsis, LayoutGrid, List, ListFilter, Loader2, Plus, Search, Shapes, Star, X } from "lucide-react";
 
 import { useRunLocale } from "@/components/runs/format";
 import { Button } from "@/components/ui/button";
@@ -39,14 +40,16 @@ import {
   LIBRARY_TABS,
   cardWhen,
   isPendingCard,
-  showsNewRow,
+  countByType,
+  filterByTab,
+  showsTypeRow,
   typeFilterApplies,
   type LibrarySort,
   type LibraryTab,
   type TypeFilter,
 } from "./libraryModel";
 import { NewNodeDialog } from "./NewNodeDialog";
-import { NewNodeRow } from "./NewNodeRow";
+import { NodeTypeRow } from "./NodeTypeRow";
 import { NODE_MENU_WIDTH, cardIsWorking, useNodeCardActions, type NodeCardActions } from "./NodeCardMenu";
 import { NodeCover } from "./NodeCover";
 import { NODE_TYPES, type NodeCard, type NodeType } from "./nodeModel";
@@ -107,7 +110,15 @@ export function NodesLibrary({
   const shown = [...library.pending, ...library.cards];
   /** Nothing was ever made: no tabs to pick from, only the invitation. */
   const bare = !loading && !failed && library.allCards.length === 0 && library.pending.length === 0;
-  const newRow = !failed && (bare || showsNewRow(tab, search, typeFilter));
+  const typeRow = !failed && (bare || showsTypeRow(tab));
+  /** The type the shelf has picked (the "Runs" tab knows no types). */
+  const pickedType = typeRow && typeFilter !== "all" ? typeFilter : null;
+  const typeCounts = useMemo(
+    () => countByType(filterByTab(library.allCards, tab, library.favorites)),
+    [library.allCards, tab, library.favorites],
+  );
+  /** "New" starts with the type the reader is looking at, else a document. */
+  const startNew = useCallback(() => setNewType(pickedType ?? "docs"), [pickedType]);
   const skippedRuns = library.nodes.data?.skipped_runs ?? 0;
   const scannedRuns = library.nodes.data?.scanned_runs ?? 0;
 
@@ -131,6 +142,10 @@ export function NodesLibrary({
                 onChange={library.setTab}
               />
               <div className="ml-auto flex items-center gap-1">
+                <Button size="sm" onClick={startNew} data-testid="nodes-new" className="mr-1.5">
+                  <Plus aria-hidden />
+                  {t("nodes.new.button")}
+                </Button>
                 <SearchTool value={search} onChange={library.setSearch} />
                 <FilterTool
                   tab={tab}
@@ -144,16 +159,20 @@ export function NodesLibrary({
             </div>
           )}
 
-          {newRow && (
-            <section aria-labelledby="nodes-new-heading" className="mt-9">
-              <h2 id="nodes-new-heading" className="mb-3.5 text-base text-muted-foreground">
-                {t("nodes.new.heading")}
+          {typeRow && (
+            <section aria-labelledby="nodes-types-heading" className="mt-9">
+              <h2 id="nodes-types-heading" className="mb-3.5 text-base text-muted-foreground">
+                {t("nodes.types.heading")}
               </h2>
-              <NewNodeRow onPick={setNewType} />
+              <NodeTypeRow
+                selected={pickedType}
+                counts={typeCounts}
+                onSelect={(type) => library.setTypeFilter(type ?? "all")}
+              />
             </section>
           )}
 
-          <div className={newRow ? "mt-10" : "mt-8"}>
+          <div className={typeRow ? "mt-10" : "mt-8"}>
             {failed ? (
               <QuietState testId="nodes-error" tone="error" sentence={t("nodes.states.error")}>
                 <Button variant="outline" size="sm" onClick={() => void library.nodes.refetch()}>
@@ -163,13 +182,27 @@ export function NodesLibrary({
             ) : loading ? (
               <SkeletonGrid label={t("nodes.states.loading")} />
             ) : shown.length === 0 ? (
-              newRow ? (
-                <QuietState testId="nodes-empty" sentence={t("nodes.states.empty")} />
+              bare ? (
+                <QuietState testId="nodes-empty" sentence={t("nodes.states.empty")}>
+                  <Button size="sm" onClick={startNew} data-testid="nodes-new">
+                    <Plus aria-hidden />
+                    {t("nodes.new.button")}
+                  </Button>
+                </QuietState>
               ) : (
                 <QuietState testId="nodes-no-matches" sentence={emptySentence(library, t)}>
-                  <Button variant="outline" size="sm" onClick={library.showAll} data-testid="nodes-show-all">
-                    {t("nodes.states.show_all")}
-                  </Button>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {/* An empty shelf: the one place where making one is the next step. */}
+                    {pickedType !== null && search.trim() === "" && (
+                      <Button size="sm" onClick={startNew} data-testid="nodes-new-of-type">
+                        <Plus aria-hidden />
+                        {t("nodes.new.of_type").replace("{0}", () => t(NODE_TYPE_LABEL_KEY[pickedType]))}
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={library.showAll} data-testid="nodes-show-all">
+                      {t("nodes.states.show_all")}
+                    </Button>
+                  </div>
                 </QuietState>
               )
             ) : view === "list" ? (
@@ -190,6 +223,7 @@ export function NodesLibrary({
       {actions.layer}
       <NewNodeDialog
         type={newType}
+        onType={setNewType}
         onClose={() => setNewType(null)}
         onRequested={library.addPending}
         onCreated={onOpen}

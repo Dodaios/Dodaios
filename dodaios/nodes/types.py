@@ -22,6 +22,19 @@ NODE_TYPES: Final[tuple[str, ...]] = (
     "motion",
 )
 
+#: What the app calls each type on its shelf. Three differ from the type's own
+#: name: a person says "Analytics", "Visuals" and "Clips", and the model has to
+#: know which type that is.
+DISPLAY_NAMES: Final[dict[str, str]] = {
+    "docs": "Docs",
+    "slides": "Slides",
+    "sheets": "Sheets",
+    "design": "Visuals",
+    "data": "Analytics",
+    "whiteboard": "Whiteboard",
+    "motion": "Clips",
+}
+
 #: What a person may call a type; the tool and the routes accept these too.
 _ALIASES: Final[dict[str, str]] = {
     "doc": "docs",
@@ -37,13 +50,19 @@ _ALIASES: Final[dict[str, str]] = {
     "designs": "design",
     "page": "design",
     "poster": "design",
+    "visual": "design",
+    "visuals": "design",
     "dashboard": "data",
+    "analytics": "data",
+    "analysis": "data",
     "chart": "data",
     "charts": "data",
     "board": "whiteboard",
     "whiteboards": "whiteboard",
     "canvas": "whiteboard",
     "animation": "motion",
+    "clip": "motion",
+    "clips": "motion",
     "video": "motion",
 }
 
@@ -66,4 +85,11 @@ def node_type(value: object) -> str:
     return name
 
 
-__all__ = ["MAX_SPEC_BYTES", "MAX_TITLE_CHARS", "NODE_TYPES", "NodeError", "node_type"]
+__all__ = [
+    "DISPLAY_NAMES",
+    "MAX_SPEC_BYTES",
+    "MAX_TITLE_CHARS",
+    "NODE_TYPES",
+    "NodeError",
+    "node_type",
+]
