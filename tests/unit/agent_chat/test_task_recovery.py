@@ -307,3 +307,29 @@ async def test_persistent_failure_is_bounded_and_stopping_wins(
     monkeypatch.setattr(runner_cli, "_run_cli_once", once)
     await runner_cli.run_cli_turn(handle, origin.user_text, "claude-cli", identity=True)
     assert len(attempts) == (1 if cancelled or disabled else 2)
+
+
+def test_the_recovery_turn_does_not_repeat_what_the_person_already_read():
+    """Live 2026-11-13: the turn said Gmail was not connected, and the automatic
+    recovery run said the same thing again in a second message."""
+    tracker = ToolRecovery()
+    receipt(tracker, "mcp__dodaios__gmail", "Gmail is not connected.", error=True)
+    for error in (None, "Tool permission denied"):
+        prompt = runner_cli._keep_going_prompt("Check my mail", error, receipt_hint=tracker.hint())
+        assert "already reached the person. Do not repeat it" in prompt
+        assert "end now without writing anything more" in prompt
+        assert prompt.endswith("Original request:\nCheck my mail")
+    assert "in one sentence what is unfinished" in tracker.hint()
+
+
+def test_a_delegated_result_is_answered_as_a_chat_reply_not_a_retold_report():
+    from dodaios.agent_chat.delegation_wait import continuation_prompt, is_continuation_prompt
+
+    rows = [{"status": "done", "report": "Five PRs reviewed.", "agent": "Reviewer"}]
+    later = continuation_prompt(rows, "Review the PRs", later=True)
+    assert is_continuation_prompt(later)
+    assert "as a normal chat reply" in later
+    assert "Do not retell the report" in later
+    # A later result names its request in a few words, not in an opening paragraph.
+    assert "name it in a few words at the start" in later
+    assert "name it in a few words" not in continuation_prompt(rows, "Review the PRs")

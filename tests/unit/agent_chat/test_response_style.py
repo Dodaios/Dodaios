@@ -20,24 +20,28 @@ def test_api_and_main_chat_receive_the_same_reporting_policy(tmp_path: Path) -> 
     assert CONVERSATIONAL_RESPONSE_STYLE in _WRITTEN_CHAT_STYLE
 
 
-def test_fresh_and_resumed_defaults_allow_detail_and_preserve_essential_information() -> None:
+def test_fresh_and_resumed_defaults_are_short_and_keep_requested_content_whole() -> None:
     assert CONVERSATIONAL_TURN_REMINDER in CONVERSATIONAL_RESPONSE_STYLE
     for policy in (CONVERSATIONAL_RESPONSE_STYLE, CONVERSATIONAL_TURN_REMINDER):
-        assert "one or two short paragraphs" in policy
+        # One length, as a number the model can hold itself to.
+        assert "at most about 500 characters" in policy
         assert "is not technical" in policy
-        assert "Go longer only when asked or needed" in policy
-        assert "failure evidence" in policy
+        assert "Go longer only when they ask for detail" in policy
+        assert "(code, a text, data, a list they want); that stays complete" in policy
+        assert "anything you already told them" in policy
         assert "Follow explicit user preferences" in policy
+        # A failure is one sentence, not a complete evidence dump.
+        assert "failure evidence" not in policy
 
 
 def test_reply_style_keeps_the_person_oriented_without_a_persona() -> None:
     # State first, a line before the first tool call, concrete outcome, plain words.
     for phrase in (
         "reads only your messages",
-        "open with the state or the answer",
+        "Open with the answer or the state",
         "Before your first tool call",
-        "concrete terms (numbers, times, names)",
-        "no headings",
+        "concrete numbers, times and names",
+        "No headings",
     ):
         assert phrase in CONVERSATIONAL_RESPONSE_STYLE, phrase
     # A general style: no persona, name or flirt register leaks in.

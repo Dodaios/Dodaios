@@ -222,12 +222,17 @@ def test_the_assistants_own_chat_writes_short_messages_and_no_interim_reports():
     chat with interim reports, each a few paragraphs with bold labels, and the same
     question three times.
     """
+    from dodaios.core.response_style import REPLY_STYLE
+
     rules = dodaios_harness.CHAT_MESSAGES
     assert rules in dodaios_harness.SYSTEM_PREAMBLE
+    # How long a message is, is said once, by the reply style; a second length
+    # rule here contradicted it (and the line before the first tool call).
+    assert REPLY_STYLE in dodaios_harness.SYSTEM_PREAMBLE
+    assert "characters" not in rules and "sentences" not in rules
     for phrase in (
         "also the text between two tool calls",
-        "one to three short sentences",
-        "no bold labels",
+        "After the line before your first tool call, stay silent while you work",
         "No interim summary",
         "never the same point twice in one turn",
         "not a description of what is in it",

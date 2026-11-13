@@ -668,3 +668,26 @@ def test_claude_planner_asks_for_tool_summaries(monkeypatch, tmp_path: Path):
     )
     assert plan_claude(**args).env["CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES"] == "true"
     assert "CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES" not in runner_cli.plan_glm(**args).env
+
+
+def test_an_assistants_chat_turns_off_claude_codes_silent_turn_reminder(
+    monkeypatch, tmp_path: Path
+):
+    """Every text in an assistant's chat is a message the person receives.
+
+    Claude Code's own "the user hasn't heard from you, say what you're doing"
+    reminder made the assistant send status messages nobody asked for. A coding
+    thread (no identity) keeps the CLI's own behaviour.
+    """
+    from dodaios.agent_chat import dodaios_harness
+
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
+    monkeypatch.setattr(runner_cli, "_registry_env", lambda _name, env: env)
+    monkeypatch.delenv(runner_cli.SILENT_TURN_REMINDER_ENV, raising=False)
+    identity = dodaios_harness.Identity(session_id="s", text="x", compact="x", path=None)
+    args = dict(
+        prompt="hi", cwd=tmp_path, model="", effort="", permission_mode="default", resume=None
+    )
+    for plan in (plan_claude, runner_cli.plan_glm):
+        assert plan(**args, identity=identity).env[runner_cli.SILENT_TURN_REMINDER_ENV] == "0"
+        assert runner_cli.SILENT_TURN_REMINDER_ENV not in plan(**args).env

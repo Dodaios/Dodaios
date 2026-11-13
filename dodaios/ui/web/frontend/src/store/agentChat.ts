@@ -181,6 +181,15 @@ export interface AgentChatStore {
   activeSessionId: string | null;
   activeSession: AgentChatSession | null;
   timeline: Timeline;
+  /**
+   * The conversation that belongs on stage is still on its way: the lead's
+   * id is being asked for, or an opened session's transcript has not arrived
+   * yet. An empty timeline then means "not here yet", not "nothing said", so
+   * the front page shows no greeting meanwhile. The greeting used to flash
+   * for a second or two on every start before the conversation replaced it.
+   * Absent on stores that always have their conversation at hand (a pane's).
+   */
+  opening?: boolean;
   socketState: "idle" | "connecting" | "open" | "closed";
   draft: ComposerDraft;
   busy: boolean;
@@ -285,6 +294,30 @@ function writeDraft(key: string, draft: ComposerDraft): void {
     window.localStorage.setItem(key, JSON.stringify(draft));
   } catch {
     /* storage blocked — the draft just does not survive a reload */
+  }
+}
+
+/**
+ * Where the id of the lead's one conversation is kept between starts, so the
+ * front page opens it at once instead of waiting for `/api/agent-chat/lead`,
+ * which answers slowly while the backend is busy starting up (seen 1.1 s).
+ * The route still answers and corrects a stale id.
+ */
+const LEAD_SESSION_KEY = "jarvis.agentChat.leadSession.v1";
+
+function readLeadSessionId(): string | null {
+  try {
+    return window.localStorage.getItem(LEAD_SESSION_KEY) || null;
+  } catch {
+    return null; // storage blocked: wait for the route
+  }
+}
+
+function writeLeadSessionId(sessionId: string): void {
+  try {
+    window.localStorage.setItem(LEAD_SESSION_KEY, sessionId);
+  } catch {
+    /* storage blocked: the next start waits for the route */
   }
 }
 
@@ -521,15 +554,32 @@ export function createAgentChatStore(
   /** Open the lead's conversation; a blank page stays if the server has none yet. */
   const openLead = () => {
     const request = ++leadRequest;
-    bindVoice(null);
-    void chatStore.getState().loadCatalog();
+    // The id from the last start opens at once; the route confirms it.
+    const remembered = readLeadSessionId();
+    if (remembered) {
+      chatStore.getState().openSession(remembered);
+    } else {
+      bindVoice(null);
+      chatStore.setState({ opening: true });
+      void chatStore.getState().loadCatalog();
+    }
     // A failure keeps the blank page; the first send then reaches the lead.
     void fetchLeadSession()
       .then((session) => {
         const st = chatStore.getState();
-        if (request === leadRequest && st.activeSessionId === null && session?.session_id) st.openSession(session.session_id);
+        const sessionId = session?.session_id;
+        if (sessionId) writeLeadSessionId(sessionId);
+        // A later page (an archived voice chat, another open) replaced this one.
+        if (request !== leadRequest) return;
+        const untouched = st.activeSessionId === null || (remembered !== null && st.activeSessionId === remembered);
+        if (!untouched) return;
+        if (sessionId && sessionId !== st.activeSessionId) st.openSession(sessionId);
+        else if (!sessionId && st.activeSessionId === null) chatStore.setState({ opening: false });
       })
-      .catch(() => undefined);
+      .catch(() => {
+        const st = chatStore.getState();
+        if (request === leadRequest && st.activeSessionId === null) chatStore.setState({ opening: false });
+      });
   };
 
   let catalogRequest = 0;
@@ -697,6 +747,7 @@ export function createAgentChatStore(
             activeSession: session,
             sessions: sessions.some((row, index) => row !== prev.sessions[index]) ? sessions : prev.sessions,
             timeline: { ...tl, sessionPatch: null },
+            opening: false,
             draft: draftFromSession(session, prev.draft),
           });
           if (surface !== "jarvis") writeDraft(DRAFT_KEY, get().draft);
@@ -789,6 +840,9 @@ export function createAgentChatStore(
       activeSessionId: null,
       activeSession: null,
       timeline: EMPTY_TIMELINE,
+      // The front page's chat opens the lead's conversation on first paint
+      // (AssistantChat): no greeting before that has had its chance.
+      opening: surface === "jarvis" && options.voice !== false,
       socketState: "idle",
       draft: readDraft(DRAFT_KEY),
       busy: false,
@@ -1087,6 +1141,14 @@ export function createAgentChatStore(
       },
 
       newChat: (opts) => {
+        // A lead open still waiting on its route must not replace this page.
+        ++leadRequest;
+        // Keep the transcript on hand: on the front page "new chat" reopens
+        // this same conversation (the Dodaios tab does it on every visit),
+        // and it then paints at once instead of reading it all again. Other
+        // surfaces really leave for a blank page.
+        const left = get();
+        if (surface === "jarvis" && left.activeSessionId) rememberTimeline(left.activeSessionId, left.timeline);
         closeSocket();
         newChatLane = emptySendLane();
         resetBlankComposerDraftTarget(chatStore);
@@ -1098,6 +1160,7 @@ export function createAgentChatStore(
           activeSession: null,
           busy: false,
           timeline: EMPTY_TIMELINE,
+          opening: false,
           socketState: "idle",
           lastError: null,
           // The chat left behind keeps the picks painted while this one's
@@ -1134,6 +1197,7 @@ export function createAgentChatStore(
           // The list row may be from before the cached turn ended (or began).
           activeSession: row ? aligned(row, timeline) : null,
           timeline,
+          opening: known === null,
           busy: (sendLanes.get(sessionId)?.pending ?? 0) > 0,
           lastError: null,
         });
@@ -1152,7 +1216,7 @@ export function createAgentChatStore(
           const st = get();
           if (!read || st.activeSessionId !== sessionId || socket !== socketAtOpen) return;
           if (st.timeline.lastSeq > 0 || st.timeline.items.length > 0) return; // the snapshot was first
-          set({ timeline: read, activeSession: st.activeSession ? aligned(st.activeSession, read) : null });
+          set({ timeline: read, opening: false, activeSession: st.activeSession ? aligned(st.activeSession, read) : null });
           connect(sessionId, read.lastSeq);
         });
       },
@@ -1230,7 +1294,7 @@ export function createAgentChatStore(
             set({ sessions: [session, ...get().sessions.filter((s) => s.session_id !== session.session_id)] });
             onSessionCreated?.(session);
             if (visible) {
-              set({ activeSessionId: session.session_id, activeSession: session, timeline: EMPTY_TIMELINE });
+              set({ activeSessionId: session.session_id, activeSession: session, timeline: EMPTY_TIMELINE, opening: false });
               bindVoice(session.session_id);
               connect(session.session_id, 0);
             }
