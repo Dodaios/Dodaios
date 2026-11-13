@@ -8,6 +8,9 @@ in two forms:
 | `dodaios-demo.gif` | Plays by itself and without sound in the README. It is linked with an absolute `raw.githubusercontent.com` URL so it also plays on PyPI. 960 x 540, 10 frames a second |
 | `dodaios-demo.mp4` | The same recording with its music, 1920 x 1080, 30 frames a second. The GIF links to it, and GitHub plays it on the file's page |
 
+A short clip of the Nodes section, `dodaios-nodes.gif`, is the other
+recording in this folder ([The Nodes clip](#the-nodes-clip)).
+
 | | |
 |---|---|
 | Length | 55 s, cut from a take of 4 min 40 s |
@@ -152,10 +155,50 @@ The pictures in `assets/readme/` come from the same instance, right after the
 take (1920 x 1280):
 
 ```sh
-node scripts/readme_demo/stills.cjs /tmp/dodaios-stills memory plugins pets ide
+node scripts/readme_demo/stills.cjs /tmp/dodaios-stills plugins pets ide
 # "connect" is the setup step: start the demo instance again first.
 node scripts/readme_demo/stills.cjs /tmp/dodaios-stills connect
 ```
+
+## The Nodes clip
+
+`dodaios-nodes.gif` plays in the README's part about Nodes. It opens at the
+top of the Nodes section, passes over the seven type cards, lets the
+Analytics card narrow the list, opens the dashboard and scrolls it, and then
+takes the slide deck from its title slide to the next. 960 x 600, 12 frames a
+second, 31 s, from a 1440 x 900 window: at 1280 the type card "Whiteboard" is
+cut short.
+
+| | |
+|---|---|
+| Recorded from | `main` of 13 November 2026 (after 5.2.0), a throwaway instance that was deleted afterwards |
+| Content | One node of each type, each the example its type ships with (`EXAMPLE` in `dodaios/nodes/kinds/*.py`), put into the node store by `seed_nodes.py`. No model made them, and no model runs in the clip |
+
+The rules for the film hold here as well: the real app and nothing else, and
+nothing private on screen. No Claude Code login is needed.
+
+```sh
+# 1. A throwaway instance, the same as for the film.
+PYTHON=/path/to/venv/bin/python scripts/readme_demo/demo-instance.sh
+
+# 2. In a second terminal: the seven nodes, with the instance's paths.
+JARVIS_DATA_DIR=/tmp/dodaios-demo/state/data \
+JARVIS_CONFIG=/tmp/dodaios-demo/state/dodaios.toml \
+HOME=/tmp/dodaios-demo/home \
+  /path/to/venv/bin/python scripts/readme_demo/seed_nodes.py
+
+# 3. The take. It marks the first-run steps done, films the section and
+#    writes cut.json: the WebM and the seconds the clip starts and ends in it.
+node scripts/readme_demo/nodes.cjs /tmp/dodaios-nodes
+
+# 4. The GIF. FILE, FROM and TO are the three values in cut.json.
+ffmpeg -ss "$FROM" -to "$TO" -i "/tmp/dodaios-nodes/$FILE" \
+  -vf "fps=12,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" \
+  -loop 0 dodaios-nodes.gif
+```
+
+Copy the GIF over the one in this folder. Keep it under 5 MB: every version
+stays in the repository's history.
 
 ## A video with a player
 
