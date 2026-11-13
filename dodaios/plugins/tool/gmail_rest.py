@@ -14,6 +14,8 @@ from __future__ import annotations
 import base64
 import logging
 from collections.abc import Awaitable, Callable
+from email import policy
+from email.message import EmailMessage
 from typing import Any
 from urllib.parse import quote
 
@@ -48,6 +50,33 @@ def _decode_b64url(data: str) -> str:
         return base64.urlsafe_b64decode(data.encode("ascii")).decode("utf-8", "replace")
     except Exception:  # noqa: BLE001
         return ""
+
+
+# CRLF line ends and a 7-bit-safe wire form (quoted-printable or base64 for a
+# non-ASCII body); ``policy.SMTP`` alone would send the body as raw 8-bit.
+_MIME_POLICY = policy.SMTP.clone(cte_type="7bit")
+
+
+def _one_line(value: str) -> str:
+    """Fold any line break into a space: a header value may not contain one
+    (``EmailMessage`` refuses it, and it would allow header injection)."""
+    return " ".join(str(value or "").splitlines()).strip()
+
+
+def _build_raw_message(*, to: str, subject: str, body: str) -> str:
+    """Build the base64url ``raw`` field for ``messages/send``.
+
+    The message goes through ``EmailMessage`` so every header and the body are
+    properly encoded: a non-ASCII subject or display name becomes an RFC 2047
+    encoded-word, and the body gets ``Content-Type: text/plain; charset=utf-8``
+    with a 7-bit-safe transfer encoding. Hand-concatenated headers carried raw
+    UTF-8 bytes, which Gmail read as Latin-1 (mojibake such as ``Ã¤``).
+    """
+    msg = EmailMessage(policy=_MIME_POLICY)
+    msg["To"] = _one_line(to)
+    msg["Subject"] = _one_line(subject)
+    msg.set_content(str(body or ""), charset="utf-8")
+    return base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii")
 
 
 def _strip_html(html: str) -> str:
@@ -303,8 +332,7 @@ class GmailRestTool:
         )
 
     async def send_message(self, *, to: str, subject: str = "", body: str = "") -> dict[str, Any]:
-        mime = f"To: {to}\r\nSubject: {subject}\r\n\r\n{body}"
-        raw = base64.urlsafe_b64encode(mime.encode("utf-8")).decode("ascii")
+        raw = _build_raw_message(to=to, subject=subject, body=body)
         return await self._with_auth_retry(
             lambda headers: self._post("/messages/send", {"raw": raw}, headers)
         )
