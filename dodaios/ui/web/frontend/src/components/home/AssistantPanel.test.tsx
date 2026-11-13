@@ -238,6 +238,11 @@ describe("AssistantPanel", () => {
     // Work handed off still runs after its turn closed.
     onStage([turn("done", [], { background: ["Scout", "Atlas"] })]);
     await waitFor(() => expect(status().textContent).toBe("2 agents at work"));
+
+    // A turn that has answered and is held open only for the agent it sent out is not thinking.
+    onStage([turn("running", [{ kind: "text", text: "An agent is on it." }], { waitingOn: ["Gmail subject"] })]);
+    await waitFor(() => expect(status().getAttribute("data-state")).toBe("background"));
+    expect(status().textContent).toBe("1 agent at work");
   });
 
   it("follows the chat list while an earlier chat is on stage, and says when the app is not connected", async () => {
