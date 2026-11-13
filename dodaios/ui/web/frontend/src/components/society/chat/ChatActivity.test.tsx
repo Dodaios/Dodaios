@@ -107,8 +107,8 @@ it("keeps failures and pending approvals visible in the conversation style", () 
     { ...base, callId: "approval", isError: false, output: null, approval: { approvalId: "ap", summary: "Send this message?", decision: null } },
   ]} onDecide={() => undefined} />);
   expect(screen.getAllByText(/Delivery failed/).length).toBeGreaterThan(0);
-  expect(screen.getByText("Send this message?")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
+  expect(screen.getByTestId("thread-approval").textContent).toContain("Send this message?");
+  expect(screen.getByRole("button", { name: "Allow once" })).toBeTruthy();
   // With no other work to fold, both items stay in place and need no toggle.
   expect(screen.queryByTestId("conversation-work-fold")).toBeNull();
 });

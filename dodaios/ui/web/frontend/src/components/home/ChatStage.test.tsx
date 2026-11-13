@@ -947,10 +947,10 @@ describe("ChatStage (agent chat)", () => {
     ]);
     useAgentChatStore.setState({ activeSessionId: "s2", timeline, decide });
     render(<ChatStage />);
-    const card = screen.getByRole("group", { name: "Approval required" });
+    const card = screen.getByTestId("thread-approval");
     expect(card.textContent).toContain("rm x");
     act(() => {
-      fireEvent.click(within(card).getByRole("button", { name: "Approve" }));
+      fireEvent.click(within(card).getByRole("button", { name: "Allow once" }));
     });
     expect(decide).toHaveBeenCalledWith("a1", "allow");
     // No Stop button in the Dodaios chat: the box names the word instead.
