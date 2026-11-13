@@ -364,13 +364,20 @@ describe("AssistantPanel", () => {
   it("lists the IDE chats the assistant sent a task to, with their state, and opens one in the IDE", async () => {
     useIdeThreadsStore.setState({ seen: { seen: 500 } });
     mount([], { "/api/agent-chat/lead/threads": { threads: [
-      thread("busy", "Fix the login", { running: true }),
-      thread("asks", "Deploy the site", { waiting: true, running: true }),
-      thread("news", "Write the docs", { briefed_ms: 100, updated_ms: 300 }),
-      thread("seen", "Rename the module", { updated_ms: 500 }),
+      thread("busy", "Fix the login", { running: true, agent: "codex", agent_label: "Codex" }),
+      thread("asks", "Deploy the site", { waiting: true, running: true, agent: "kimi", agent_label: "Kimi Code" }),
+      thread("news", "Write the docs", { briefed_ms: 100, updated_ms: 300, agent: "claude", agent_label: "Claude Code" }),
+      thread("seen", "Rename the module", { updated_ms: 500, provider: "openai" }),
       thread("old", "", { cli_title: "Tidy the tests" }),
     ] } });
     await screen.findByTestId("assistant-activity-busy");
+    // Each row leads with the logo of the coding agent that got the task; a
+    // provider with no coding CLI behind it keeps the plain chat glyph.
+    const row = (id: string) => screen.getByTestId(`assistant-activity-${id}`);
+    expect(row("busy").querySelector("[data-testid='agent-mark-codex']")).toBeTruthy();
+    expect(row("asks").querySelector("[data-testid='agent-mark-kimi']")).toBeTruthy();
+    expect(row("news").querySelector("[data-testid='agent-mark-claude']")).toBeTruthy();
+    expect(row("seen").querySelector("[data-testid^='agent-mark-']")).toBeNull();
     const state = (id: string) => screen.getByTestId(`assistant-activity-${id}`).getAttribute("data-state");
     expect([state("busy"), state("asks"), state("news"), state("seen")]).toEqual(["running", "waiting", "unseen", "idle"]);
     expect(screen.getByTestId("assistant-activity-asks").textContent).toContain("Needs your approval");

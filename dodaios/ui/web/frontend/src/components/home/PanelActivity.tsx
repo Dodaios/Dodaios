@@ -2,11 +2,11 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Hand, LoaderCircle, MessageCircle } from "lucide-react";
 
+import { AgentMark } from "@/components/agentic/AgentMark";
 import { openCodingThread } from "@/components/agentic/threads/openCodingThread";
 import { PANEL_ICON, PANEL_ROW_BUTTON, PanelEmpty, PanelSection, ShowMore } from "@/components/home/panelParts";
 import { fill, useT } from "@/i18n";
 import { fetchLeadThreads, type LeadThread } from "@/lib/agentChatApi";
-import { cn } from "@/lib/utils";
 import { useIdeThreadsStore } from "@/store/ideThreads";
 
 /** How many chats show before the rest folds away. */
@@ -32,9 +32,9 @@ function title(thread: LeadThread, fallback: string): string {
 
 /**
  * The chats in the Agentic IDE the assistant sent a task to, the newest
- * task first. A row says whether its agent still works, waits for an
- * approval, or has brought something the person has not seen, and opens
- * that chat in the IDE.
+ * task first. A row leads with the logo of the coding agent that got the
+ * task, says whether that agent still works, waits for an approval, or has
+ * brought something the person has not seen, and opens that chat in the IDE.
  */
 export function PanelActivity({ name }: { name: string }) {
   const t = useT();
@@ -60,15 +60,18 @@ export function PanelActivity({ name }: { name: string }) {
           <button key={thread.session_id} type="button" data-testid={`assistant-activity-${thread.session_id}`} data-state={state}
             onClick={() => openCodingThread(thread.session_id)} title={note ? `${label} · ${note}` : label}
             className={PANEL_ROW_BUTTON}>
-            {state === "running" ? (
-              <LoaderCircle aria-hidden strokeWidth={1.75} className={cn(PANEL_ICON, "text-success motion-safe:animate-spin")} />
-            ) : state === "waiting" ? (
-              <Hand aria-hidden strokeWidth={1.75} className={cn(PANEL_ICON, "text-warning")} />
+            {thread.agent ? (
+              <AgentMark agent={thread.agent} label={thread.agent_label || thread.agent} variant="plain" size="sm"
+                className="opacity-100" />
             ) : (
               <MessageCircle aria-hidden strokeWidth={1.75} className={PANEL_ICON} />
             )}
             <span className="min-w-0 flex-1 truncate text-sm text-foreground">{label}</span>
             {note && <span className="sr-only">{note}</span>}
+            {state === "running" && (
+              <LoaderCircle aria-hidden strokeWidth={1.75} className="h-3.5 w-3.5 shrink-0 text-success motion-safe:animate-spin" />
+            )}
+            {state === "waiting" && <Hand aria-hidden strokeWidth={1.75} className="h-3.5 w-3.5 shrink-0 text-warning" />}
             {state === "unseen" && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-info" />}
           </button>
         );
