@@ -47,7 +47,9 @@ export function resetThreadLinksForTests(): void {
  *
  * `threadRef` is the thread's session id or its code. The words the answer
  * wrote are shown until the thread's own title is known, and stay as plain
- * text when the thread no longer exists.
+ * text when the thread no longer exists. A link whose words are only the code
+ * ("#bddece", see `linkBareThreadCodes`) stays plain text until the thread is
+ * found: such a code may name no thread at all.
  */
 export function CodingAgentLink({ threadRef, label }: { threadRef: string; label: string }) {
   const t = useT();
@@ -60,6 +62,7 @@ export function CodingAgentLink({ threadRef, label }: { threadRef: string; label
   }, [threadRef]);
 
   if (info && !info.found) return <span data-testid="coding-agent-link-gone">{label}</span>;
+  if (!info && label.trim().toLowerCase() === `#${threadRef}`) return <span data-testid="coding-agent-link-pending">{label}</span>;
   const title = info?.title || label || t("ide_threads.new_thread");
   const open = () => {
     if (info?.session_id) { openCodingThread(info.session_id); return; }

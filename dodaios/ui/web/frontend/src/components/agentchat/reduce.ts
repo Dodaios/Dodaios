@@ -381,6 +381,19 @@ export interface TurnItem {
    * (`stopTurnLocally`). The real `turn_finished` still settles it once more.
    */
   provisional?: boolean;
+  /**
+   * The coding agents this turn started (`coding_thread` notices). The
+   * answer shows each one as a link that opens its thread, whether or not
+   * the assistant wrote that link into its words.
+   */
+  codingThreads?: CodingThreadRef[];
+}
+
+/** A coding agent a turn started: its thread, and what the notice called it. */
+export interface CodingThreadRef {
+  threadId: string;
+  title: string;
+  agent: string;
 }
 
 export interface ErrorItem {
@@ -496,6 +509,30 @@ function replaceAt<T>(arr: T[], index: number, value: T): T[] {
   const next = arr.slice();
   next[index] = value;
   return next;
+}
+
+/** The coding agent a `coding_thread` notice names, or null without a thread. */
+export function codingThreadRef(data: Record<string, unknown>): CodingThreadRef | null {
+  const threadId = str(data.thread_id).trim();
+  if (!threadId) return null;
+  return { threadId, title: str(data.title).trim(), agent: str(data.agent).trim() };
+}
+
+/**
+ * A coding agent goes onto the turn that started it. The notice carries no
+ * turn id; it is posted while the tool call that started the agent runs, so
+ * that turn is the newest one.
+ */
+function withCodingThread(tl: Timeline, ref: CodingThreadRef | null): Timeline {
+  if (!ref) return tl;
+  for (let i = tl.items.length - 1; i >= 0; i -= 1) {
+    const item = tl.items[i];
+    if (item.type !== "turn") continue;
+    const known = item.codingThreads ?? [];
+    if (known.some((entry) => entry.threadId === ref.threadId)) return tl;
+    return { ...tl, items: replaceAt(tl.items, i, { ...item, codingThreads: [...known, ref] }) };
+  }
+  return tl;
 }
 
 function updateTurn(tl: Timeline, turnId: string, fn: (turn: TurnItem) => TurnItem): Timeline {
@@ -1624,9 +1661,9 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         return base;
       }
       if (kind === "coding_thread") {
-        // The agent handed work to a coding thread. The person asked for
-        // that, and the thread is in the Agentic IDE: no row in the chat.
-        return base;
+        // The agent handed work to a coding thread. No row of its own: the
+        // turn that started it shows the agent as a link in its answer.
+        return withCodingThread(base, codingThreadRef(p as Record<string, unknown>));
       }
       if (kind === "message_queued" && p.edited) {
         // The person rewrote a waiting message: its line takes the new words in place.

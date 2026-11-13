@@ -161,3 +161,61 @@ export function chatLinkAction(href: string, label = ""): ChatLinkAction {
   if (named) return { type: "local", path: named };
   return { type: "stay" };
 }
+
+/**
+ * The coding threads a text already links to, as the references it names
+ * them by (a session id or a thread's code, lower case).
+ */
+export function linkedThreadRefs(markdown: string): string[] {
+  return Array.from(markdown.matchAll(/\]\(\s*<?thread:#?([0-9a-z]{4,64})>?\s*\)/gi), (match) => match[1].toLowerCase());
+}
+
+/** Whether a text links to this thread, by its session id or by its code. */
+export function linksThread(refs: readonly string[], threadId: string): boolean {
+  const id = threadId.toLowerCase();
+  return refs.some((ref) => id === ref || id.startsWith(ref));
+}
+
+/** A thread's code in running text: `#` and six hex characters, at least one a letter. */
+const BARE_THREAD_CODE = /(^|[\s(„“"'«‚‘])#([0-9a-f]{6})(?![0-9a-z_-])/gi;
+/** What running text must not touch: inline code, a link, a web address. */
+const UNTOUCHED = /(`+)[\s\S]*?\1|!?\[[^\]\n]*\]\([^)\n]*\)|<[^>\s]+>|https?:\/\/\S+/g;
+const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})/;
+
+function linkCodesInProse(text: string): string {
+  return text.replace(BARE_THREAD_CODE, (whole, lead: string, code: string) =>
+    /[a-f]/i.test(code) ? `${lead}[#${code}](thread:${code.toLowerCase()})` : whole);
+}
+
+/**
+ * A coding agent's code written as plain text ("#bddece") becomes a link to
+ * its thread. The chat draws such a link as plain text until the thread is
+ * found (`CodingAgentLink`), so a colour or any other code stays as it was.
+ * Code blocks, inline code, links and web addresses are left alone.
+ */
+export function linkBareThreadCodes(markdown: string): string {
+  if (!markdown.includes("#")) return markdown;
+  const out: string[] = [];
+  let fence: string | null = null;
+  for (const line of markdown.split("\n")) {
+    const mark = FENCE_LINE.exec(line)?.[1];
+    if (fence) {
+      if (mark && mark[0] === fence[0] && mark.length >= fence.length && line.trim() === mark) fence = null;
+      out.push(line);
+      continue;
+    }
+    if (mark) {
+      fence = mark;
+      out.push(line);
+      continue;
+    }
+    let result = "";
+    let last = 0;
+    for (const match of line.matchAll(UNTOUCHED)) {
+      result += linkCodesInProse(line.slice(last, match.index)) + match[0];
+      last = (match.index ?? 0) + match[0].length;
+    }
+    out.push(result + linkCodesInProse(line.slice(last)));
+  }
+  return out.join("\n");
+}
