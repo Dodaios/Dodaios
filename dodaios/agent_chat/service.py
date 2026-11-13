@@ -3903,15 +3903,17 @@ class AgentChatService:
         *,
         asker: str = "",
         timeout_s: float = CREDENTIAL_TIMEOUT_S,
+        renew: bool = False,
     ) -> str:
         """Show a secure credential field in the running turn; returns its request id.
 
         ``save`` receives the pasted value and is its only destination. Raises
         ``RuntimeError`` without a running turn and ``TooManyCredentialRequests``
-        once the turn used its cards.
+        once the turn used its cards. ``renew`` shows a field an earlier turn
+        left open again in this one.
         """
         return await self._credentials.open(
-            session_id, spec, save, asker=asker, timeout_s=timeout_s
+            session_id, spec, save, asker=asker, timeout_s=timeout_s, renew=renew
         )
 
     async def wait_credential_request(

@@ -57,14 +57,25 @@ def _chat_session(config: Mapping[str, Any]) -> str:
     return "" if not session_id or is_routine_session(session_id) else session_id
 
 
-def _asker(runtime: Any, session_id: str) -> str:
-    """Whose card it is: the agent of a society chat, the lead everywhere else."""
+def _asker(runtime: Any, service: Any, session_id: str) -> str:
+    """Whose card it is: a society chat's agent, or the assistant in its own chat.
+
+    A coding thread has no name of its own here; its card says "your agent".
+    """
     from .surface import agent_id_of
 
-    agent_id = agent_id_of(session_id) or str(getattr(runtime, "lead_id", "") or "")
-    cached = getattr(runtime, "cached_agent", None)
-    agent = cached(agent_id) if callable(cached) and agent_id else None
-    return str(getattr(agent, "name", "") or "")
+    agent_id = agent_id_of(session_id)
+    if agent_id is not None:
+        cached = getattr(runtime, "cached_agent", None)
+        agent = cached(agent_id) if callable(cached) else None
+        return str(getattr(agent, "name", "") or "")
+    try:
+        session = service.store.get_session(session_id)
+        if getattr(session, "surface", "") == "jarvis":
+            return str(service._assistant_name() or "")  # noqa: SLF001 — the chat's own name
+    except Exception:  # noqa: BLE001 — a card without a name still connects
+        log.debug("society connect: no name for the card in %s", session_id, exc_info=True)
+    return ""
 
 
 async def offer_connect(
@@ -92,7 +103,12 @@ async def offer_connect(
     spec = CredentialSpec.build(target.id, target.label, kind=PLUGIN)
     try:
         request_id = await service.open_credential_request(
-            session_id, spec, connect_save(PLUGIN, target.id), asker=_asker(runtime, session_id)
+            session_id,
+            spec,
+            connect_save(PLUGIN, target.id),
+            asker=_asker(runtime, service, session_id),
+            # Asked again in a later turn, the card stands under that turn's message.
+            renew=True,
         )
     except (TooManyCredentialRequests, RuntimeError) as exc:
         # The turn used its cards, or it is over: the tool's own error stands.

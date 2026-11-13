@@ -41,6 +41,9 @@ _TERMINAL = (
     "usage limit",
     "rate limit",
     "rate-limited",
+    # The service's Connect card is in the chat (dodaios/society/connect_offer.py):
+    # the next step is the person's sign-in, not another route to the service.
+    "a connect card for",
 )
 _DISCOVERY = frozenset({"toolsearch", "list_tools", "tools-list", "search_tools"})
 # A call refused before it ran (its arguments did not parse or validate) had

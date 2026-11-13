@@ -26,6 +26,8 @@ SAVED: Final[str] = "saved"
 DECLINED: Final[str] = "declined"
 TIMEOUT: Final[str] = "timeout"  # Historical receipts only.
 CANCELLED: Final[str] = "cancelled"  # Historical receipts only.
+#: An earlier turn's card that a later turn showed again (``open(renew=True)``).
+SUPERSEDED: Final[str] = "superseded"
 
 Save = Callable[[str], Awaitable[None] | None]
 Emit = Callable[[str, dict[str, Any]], Awaitable[None]]
@@ -172,20 +174,27 @@ class CredentialRequests:
 
     async def open(
         self, session_id: str, spec: CredentialSpec, save: Save, *, asker: str = "",
-        timeout_s: float = CREDENTIAL_TIMEOUT_S,
+        timeout_s: float = CREDENTIAL_TIMEOUT_S, renew: bool = False,
     ) -> str:
-        """Show a field; legacy ``timeout_s`` deliberately has no closing effect."""
+        """Show a field; legacy ``timeout_s`` deliberately has no closing effect.
+
+        ``renew``: a field an earlier turn left open is closed and shown again
+        in the running turn, so the person finds it under the newest message
+        instead of further up in the conversation.
+        """
         await self.restore(session_id)
         turn_id = self._running_turn(session_id)
         if not turn_id:
             raise RuntimeError("this chat has no running turn to ask in")
         # Repeated asks for the same variable reuse the person's existing field.
-        for rid, card in self._open.items():
+        for rid, card in list(self._open.items()):
             if (
                 card.session_id == session_id and not card.done
                 and card.spec.env == spec.env and card.spec.kind == spec.kind
             ):
-                return rid
+                if not renew or card.turn_id == turn_id or card.saving is not None:
+                    return rid
+                await self._close(rid, SUPERSEDED)
         key = (session_id, turn_id)
         if self._asked.get(key, 0) >= MAX_REQUESTS_PER_TURN:
             raise TooManyCredentialRequests("this turn already asked for three credentials")

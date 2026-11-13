@@ -231,7 +231,9 @@ class RequestConnectTool:
             return _nobody(target.label)
         try:
             request_id = await service.open_credential_request(
-                self._session_id, spec, connect_save(kind, target.id), asker=self._asker()
+                self._session_id, spec, connect_save(kind, target.id), asker=self._asker(),
+                # Asked again in a later turn, the card stands under that turn's message.
+                renew=True,
             )
         except TooManyCredentialRequests as exc:  # The limit is the visible tool error.
             return ToolResult(

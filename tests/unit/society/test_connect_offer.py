@@ -57,7 +57,6 @@ async def chat(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(connect_tool, "resolve_target", resolve)
     runtime = SimpleNamespace(
         chat_service=lambda: svc,
-        lead_id="nova",
         cached_agent=lambda agent_id: SimpleNamespace(name=agent_id.title()),
     )
     monkeypatch.setattr(runtime_mod, "current_runtime", lambda: runtime)
@@ -106,7 +105,8 @@ async def test_a_plugin_tool_without_a_connection_shows_the_card_in_the_chat(cha
     assert len(cards) == 1
     card = cards[0]
     assert card["kind"] == PLUGIN and card["env"] == "gmail" and card["label"] == "Gmail"
-    assert card["turn_id"] == "turn-1" and card["asker"] == "Nova"
+    # In its own chat the card carries the assistant's name.
+    assert card["turn_id"] == "turn-1" and card["asker"] == "Testo"
     # The model is told what the person sees, and not to walk them anywhere.
     assert not result.success
     assert result.output == {
@@ -122,6 +122,35 @@ async def test_a_second_failed_call_keeps_the_one_card(chat) -> None:
     second = await offer_connect("gmail", _failed(), _chat())
     assert len(_cards(chat.svc)) == 1
     assert first.output["request_id"] == second.output["request_id"]
+
+
+async def test_asked_again_in_a_later_turn_the_card_stands_under_that_turn(chat) -> None:
+    """The person finds the card under the newest message, not further up."""
+    first = await offer_connect("gmail", _failed(), _chat())
+    chat.run.task.cancel()
+    await asyncio.sleep(0)
+    later = _Running("turn-2", asyncio.Event())
+    later.task = asyncio.create_task(asyncio.sleep(3600))
+    chat.svc._running[LEAD_CHAT] = later  # noqa: SLF001 — the next turn
+    try:
+        second = await offer_connect("gmail", _failed(), _chat())
+        cards = _cards(chat.svc)
+        assert [card["turn_id"] for card in cards] == ["turn-1", "turn-2"]
+        assert second.output["request_id"] == cards[1]["request_id"] != first.output["request_id"]
+        closed = [
+            event["payload"]
+            for event in chat.svc.store.list_events(LEAD_CHAT)
+            if event["kind"] == "credential_resolved"
+        ]
+        assert closed == [
+            {
+                "turn_id": "turn-1", "request_id": first.output["request_id"],
+                "env": "gmail", "status": "superseded",
+            }
+        ]
+        assert chat.svc.pending_credential_requests(LEAD_CHAT) == [second.output["request_id"]]
+    finally:
+        later.task.cancel()
 
 
 async def test_the_card_closes_once_gmail_is_really_connected(chat) -> None:
@@ -205,6 +234,41 @@ async def test_an_agents_chat_shows_the_card_under_the_agents_name(
         assert _cards(svc, "society:ada")[0]["asker"] == "Ada"
     finally:
         run.task.cancel()
+
+
+async def test_a_coding_thread_shows_the_card_without_a_name(chat, tmp_path: Path) -> None:
+    svc = chat.svc
+    svc.store.create_session(
+        provider="fakeprov", model="m", effort="high", cwd=str(tmp_path),
+        session_id="thread-7", surface="agent",
+    )
+    run = _Running("turn-3", asyncio.Event())
+    run.task = asyncio.create_task(asyncio.sleep(3600))
+    svc._running["thread-7"] = run  # noqa: SLF001 — a running turn without a runner
+    try:
+        shown = await offer_connect("gmail", _failed(), _chat("thread-7"))
+        assert shown.output["status"] == CARD_STATUS
+        assert _cards(svc, "thread-7")[0]["asker"] == ""
+    finally:
+        run.task.cancel()
+
+
+async def test_the_card_is_the_persons_step_not_a_failure_to_work_around(chat) -> None:
+    """With the card on screen the turn ends on one sentence: no automatic
+    continuation looks for another route to the service, and none sends the
+    agent back to "act now"."""
+    from dodaios.agent_chat.task_recovery import ToolRecovery, blocks_automatic_recovery
+
+    shown = await offer_connect("gmail", _failed(), _chat())
+    text = f"Tool failed: {shown.error}"
+    assert blocks_automatic_recovery(text)
+    assert not blocks_automatic_recovery(f"Tool failed: {GMAIL_ERROR}")
+    recovery = ToolRecovery()
+    recovery.observe({"kind": "tool_call", "payload": {"call_id": "c1", "name": "gmail"}})
+    recovery.observe(
+        {"kind": "tool_result", "payload": {"call_id": "c1", "output": text, "is_error": True}}
+    )
+    assert recovery.blocked and recovery.hint() is None
 
 
 async def test_the_tool_executor_offers_the_card_for_a_chats_call(chat) -> None:
