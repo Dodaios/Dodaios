@@ -17,6 +17,10 @@ What the rules do, in order:
 4. **Punctuation and capitals are repaired** where the steps above left a
    seam: doubled marks, a space before a full stop, a sentence or line whose
    first word lost its capital to a removed sound or a command.
+5. **A long dictation gets paragraphs** (``paragraphs``): where the speaker
+   stopped for a while between two sentences (found while the recording was
+   read, see :mod:`dodaios.dictation.take`), before a sentence that opens a
+   new topic, and at a sentence end once a paragraph has grown long.
 
 Every step keeps the words. When a rule would remove more than hesitation
 sounds can explain, the step is skipped and the text passes through.
@@ -128,6 +132,8 @@ class FormatResult:
     filler_reason: str = ""
     pause_marks: int = 0
     layout_commands: int = 0
+    #: Paragraph breaks the rules added (spoken commands not counted).
+    paragraphs_made: int = 0
 
 
 # --------------------------------------------------------------------------- #
@@ -378,15 +384,205 @@ def tidy_punctuation(text: str, *, capitalize_first: bool = True) -> str:
 # --------------------------------------------------------------------------- #
 
 
+# --------------------------------------------------------------------------- #
+# 5. Paragraphs
+# --------------------------------------------------------------------------- #
+
+#: A dictation shorter than this stays one paragraph: a chat message of a few
+#: sentences reads better without breaks.
+PARAGRAPH_MIN_WORDS = 50
+#: A paragraph starts at a new topic only once the one before holds this much.
+_TOPIC_BREAK_MIN_WORDS = 25
+_TOPIC_BREAK_MIN_SENTENCES = 2
+#: Without any cue a paragraph is closed at a sentence end once it holds this
+#: much, as long as enough text follows to fill the next one.
+_LENGTH_BREAK_WORDS = 70
+_LENGTH_BREAK_MIN_SENTENCES = 2
+_LENGTH_BREAK_MIN_REST_WORDS = 20
+
+#: Words that open a sentence on a new topic, per language, longest first
+#: where they share a start. Matched on the lower-case start of a sentence.
+_TOPIC_OPENERS: dict[str, tuple[str, ...]] = {
+    "de": (  # i18n-allow: input vocabulary
+        "außerdem", "ausserdem", "zudem", "darüber hinaus",  # i18n-allow
+        "zweitens", "drittens", "viertens", "fünftens",  # i18n-allow
+        "abschließend", "zum schluss", "zuletzt", "schließlich",  # i18n-allow
+        "übrigens", "ansonsten", "generell", "grundsätzlich",  # i18n-allow
+        "noch etwas", "noch was", "noch eine sache", "eine andere sache",  # i18n-allow
+        "ein anderes thema", "anderes thema", "ein weiterer punkt",  # i18n-allow
+        "ein weiteres", "eine weitere", "ein weiterer",  # i18n-allow
+        "als nächstes", "nächster punkt", "neuer punkt",  # i18n-allow
+        "kommen wir", "jetzt zu", "nun zu", "dann noch", "was noch",  # i18n-allow
+        "wichtig ist", "ganz wichtig",  # i18n-allow
+    ),
+    "en": (
+        "also", "additionally", "moreover", "furthermore", "besides",
+        "second", "secondly", "third", "thirdly", "next", "finally", "lastly",
+        "another", "anyway", "by the way", "in addition", "on another note",
+        "one more thing", "apart from that", "other than that",
+    ),
+    "es": (
+        "además", "por otro lado", "finalmente", "por último", "otra cosa",  # i18n-allow
+        "en segundo lugar", "en tercer lugar",  # i18n-allow
+    ),
+    "pt": (
+        "além disso", "por outro lado", "finalmente", "por fim", "outra coisa",  # i18n-allow
+        "em segundo lugar", "em terceiro lugar",  # i18n-allow
+    ),
+}
+#: Openers that mean something else in another served language ("Also" is
+#: "so" in German). Left out when the language is not known.
+_AMBIGUOUS_OPENERS = frozenset({"also"})
+
+#: Words that end in a full stop without ending a sentence.
+_ABBREVIATIONS = frozenset(
+    {
+        "dr", "prof", "hr", "fr", "nr", "st", "bzw", "ca", "usw", "vgl", "etc",
+        "inkl", "ggf", "evtl", "zb", "mr", "mrs", "ms", "vs", "eg", "ie", "no",
+        "abs", "str", "tel", "bspw", "sog", "u", "z", "b", "d", "h", "e", "i",
+    }
+)
+_SENTENCE_END_RE = re.compile(r"[.!?…]+[\"'”»)]*(?=\s|$)")
+_WORD_BEFORE_RE = re.compile(r"([^\W\d_]+)\.?$")
+
+
+def sentence_spans(text: str) -> list[tuple[int, int]]:
+    """Character spans of the sentences of ``text``, in order.
+
+    A sentence ends at ``.``, ``!`` or ``?`` followed by a space or the end,
+    except after a known abbreviation or a single letter ("z. B.", "Dr.").
+    """
+    spans: list[tuple[int, int]] = []
+    start = 0
+    for match in _SENTENCE_END_RE.finditer(text):
+        end = match.end()
+        if match.group(0).startswith("."):
+            before = _WORD_BEFORE_RE.search(text[start : match.start()])
+            word = before.group(1).casefold() if before else ""
+            if word in _ABBREVIATIONS or len(word) == 1:
+                continue
+        if text[start:end].strip():
+            spans.append((start, end))
+        start = end
+    if text[start:].strip():
+        spans.append((start, len(text)))
+    return spans
+
+
+def break_before_sentences(text: str, indices: set[int] | frozenset[int]) -> str:
+    """``text`` with a blank line before every sentence whose index is listed.
+
+    Index 0 (the first sentence) and indices past the end are ignored.
+    """
+    spans = sentence_spans(text)
+    wanted = sorted(i for i in indices if 0 < i < len(spans))
+    if not wanted:
+        return text
+    out: list[str] = []
+    cursor = 0
+    for index in wanted:
+        start = spans[index][0]
+        out.append(text[cursor:start].rstrip())
+        out.append("\n\n")
+        cursor = start
+        while cursor < len(text) and text[cursor] in " \t":
+            cursor += 1
+    out.append(text[cursor:])
+    return "".join(out)
+
+
+def _opens_topic(sentence: str, openers: tuple[str, ...]) -> bool:
+    low = " ".join(sentence.casefold().split())
+    return any(
+        low.startswith(opener)
+        and (len(low) == len(opener) or not low[len(opener)].isalnum())
+        for opener in openers
+    )
+
+
+def _openers_for(language: str | None) -> tuple[str, ...]:
+    code = normalize_language(language)
+    if code in _TOPIC_OPENERS:
+        return _TOPIC_OPENERS[code]
+    return tuple(
+        opener
+        for openers in _TOPIC_OPENERS.values()
+        for opener in openers
+        if opener not in _AMBIGUOUS_OPENERS
+    )
+
+
+def auto_paragraphs(text: str, *, language: str | None = None) -> tuple[str, int]:
+    """Break a long dictation into paragraphs; returns the text and how many.
+
+    Only at sentence ends, and only inside a paragraph that has no line
+    breaks of its own (a spoken list stays as it is). A paragraph begins:
+
+    * before a sentence that opens a new topic (see :data:`_TOPIC_OPENERS`),
+      once the paragraph before holds a few sentences;
+    * at the next sentence end once a paragraph has grown long, as long as
+      enough text follows to fill another one.
+
+    A dictation under :data:`PARAGRAPH_MIN_WORDS` words is left as it is.
+    """
+    if count_words(text) < PARAGRAPH_MIN_WORDS:
+        return text, 0
+    openers = _openers_for(language)
+    made = 0
+    paragraphs = text.split("\n\n")
+    out: list[str] = []
+    for paragraph in paragraphs:
+        if "\n" in paragraph or count_words(paragraph) < _TOPIC_BREAK_MIN_WORDS * 2:
+            out.append(paragraph)
+            continue
+        spans = sentence_spans(paragraph)
+        sentences = [paragraph[a:b] for a, b in spans]
+        words = [count_words(sentence) for sentence in sentences]
+        breaks: set[int] = set()
+        held_words = 0
+        held_sentences = 0
+        for index, sentence in enumerate(sentences):
+            if index > 0:
+                rest = sum(words[index:])
+                topic = (
+                    held_sentences >= _TOPIC_BREAK_MIN_SENTENCES
+                    and held_words >= _TOPIC_BREAK_MIN_WORDS
+                    and _opens_topic(sentence, openers)
+                )
+                long = (
+                    held_sentences >= _LENGTH_BREAK_MIN_SENTENCES
+                    and held_words >= _LENGTH_BREAK_WORDS
+                    and rest >= _LENGTH_BREAK_MIN_REST_WORDS
+                )
+                if topic or long:
+                    breaks.add(index)
+                    held_words = 0
+                    held_sentences = 0
+            held_words += words[index]
+            held_sentences += 1
+        made += len(breaks)
+        out.append(break_before_sentences(paragraph, breaks) if breaks else paragraph)
+    return "\n\n".join(out), made
+
+
+_BLANK_LINE_RE = re.compile(r"\n[ \t]*\n\s*")
+
+
 def format_dictation(
     text: str,
     *,
     language: str | None = None,
     fillers: bool = True,
     layout_commands: bool = True,
+    paragraphs: bool = True,
     max_removed_fraction: float = 0.25,
 ) -> FormatResult:
     """Format one recognized dictation. Never raises.
+
+    A blank line in ``text`` is a paragraph the reading of the recording
+    found (a long pause between two sentences); any other line break a
+    recognizer wrote carries no meaning. ``paragraphs`` off keeps the text
+    one paragraph except where a paragraph was spoken.
 
     On an unexpected failure of a rule the text recognized is delivered as it
     is: a broken rule must never cost the words.
@@ -395,10 +591,15 @@ def format_dictation(
     if not raw.strip():
         return FormatResult(text="", raw=raw, filler_reason="empty")
     try:
-        # Recognizers separate their segments with line breaks that carry no
-        # meaning; only a spoken command makes a line break.
-        out = " ".join(raw.split())
-        out, pauses = strip_pause_marks(out)
+        parts = _BLANK_LINE_RE.split(raw.strip()) if paragraphs else [raw]
+        pauses = 0
+        cleaned: list[str] = []
+        for part in parts:
+            body, marks = strip_pause_marks(" ".join(part.split()))
+            pauses += marks
+            if body.strip():
+                cleaned.append(body.strip())
+        out = "\n\n".join(cleaned)
         commands = 0
         if layout_commands:
             out, commands = apply_layout_commands(out)
@@ -409,6 +610,9 @@ def format_dictation(
                 out, language=language, max_removed_fraction=max_removed_fraction
             )
         out = tidy_punctuation(out, capitalize_first=raw.strip()[:1].isupper() or commands > 0)
+        made = 0
+        if paragraphs:
+            out, made = auto_paragraphs(out, language=language)
     except Exception:  # noqa: BLE001 - a broken rule never costs the dictation
         return FormatResult(text=raw.strip(), raw=raw, filler_reason="error")
     return FormatResult(
@@ -418,20 +622,25 @@ def format_dictation(
         filler_reason=reason,
         pause_marks=pauses,
         layout_commands=commands,
+        paragraphs_made=made + max(0, len(cleaned) - 1),
     )
 
 
 __all__ = [
     "FILLER_WORDS",
+    "PARAGRAPH_MIN_WORDS",
     "LINE_COMMANDS",
     "PARAGRAPH_COMMANDS",
     "SUPPORTED_LANGUAGES",
     "FormatResult",
     "apply_layout_commands",
+    "auto_paragraphs",
+    "break_before_sentences",
     "count_words",
     "format_dictation",
     "normalize_language",
     "remove_fillers",
+    "sentence_spans",
     "strip_pause_marks",
     "tidy_punctuation",
 ]

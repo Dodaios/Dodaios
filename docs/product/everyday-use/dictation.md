@@ -69,6 +69,18 @@ parágrafo", "nova linha") work the same way. The phrases work in every
 dictation language and need no wording model. A phrase you talk about stays
 as words: "add a new line to the file" is delivered as that sentence.
 
+A dictation of about 50 words or more also gets paragraphs by itself:
+
+- where you pause for two seconds or longer between two sentences;
+- before a sentence that opens a new topic, such as one starting with
+  "Another thing" or "Secondly" (German, Spanish and Portuguese have their
+  own lists);
+- once a paragraph has grown to about 70 words, at the next sentence end.
+
+A sentence is never split, and a list you dictated line by line keeps its
+lines. To keep every dictation one paragraph, set
+`[dictation] auto_paragraphs = false`; spoken commands still work then.
+
 A recognizer writes three dots where you pause. Dodaios removes them, so a
 pause in the middle of a sentence leaves no mark in the text.
 

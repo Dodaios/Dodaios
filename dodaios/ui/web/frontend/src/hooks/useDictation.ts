@@ -297,6 +297,8 @@ export interface DictationSettings {
   paste_delay_after_ms: number;
   restore_clipboard: boolean;
   remove_fillers: boolean;
+  /** Break a long dictation into paragraphs at long pauses and new topics. */
+  auto_paragraphs: boolean;
   filler_max_removed_fraction: number;
   max_seconds: number;
   /** Read the final pass on this machine (worker process) before any cloud provider. */

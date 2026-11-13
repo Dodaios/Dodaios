@@ -873,6 +873,7 @@ DICTATION_SETTING_KEYS = (
     "paste_delay_after_ms",
     "restore_clipboard",
     "remove_fillers",
+    "auto_paragraphs",
     "filler_max_removed_fraction",
     "max_seconds",
     "local_engine",
