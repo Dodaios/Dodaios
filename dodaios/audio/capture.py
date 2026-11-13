@@ -1131,7 +1131,7 @@ class MicrophoneCapture:
                 # The capture ended while the next microphone was opening.
                 late, self._stream = self._stream, None
                 await self._discard_stream_off_loop(late)
-        except MicrophoneAccessError as exc:
+        except MicrophoneAccessError as exc:  # the grant is gone: ends like a revoke
             self._end_revoked(exc)
         except Exception as exc:  # noqa: BLE001 — the stall watchdog reopens a lost stream
             _log.warning("Leaving the silent microphone failed: {}", exc)
