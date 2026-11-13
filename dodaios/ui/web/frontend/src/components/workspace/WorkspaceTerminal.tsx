@@ -4,7 +4,7 @@
  * Code / Codex) runs in a real PTY in the Jarvis project folder; keystrokes go
  * up as `{t:"i"}`, output comes down as `{t:"o"}`, resizes as `{t:"r"}`.
  *
- * Conventions copied from PtyTerminal: xterm instance in a ref (never state, or
+ * Conventions: xterm instance in a ref (never state, or
  * it rerenders per chunk), dispose() on unmount (WebGL context cap).
  */
 import { cn } from "@/lib/utils";
@@ -254,7 +254,7 @@ export function WorkspaceTerminal({
           setStatus("exited");
         } else if (!disposed) {
           // Closed during the handshake (e.g. 4401 auth) — surface it honestly
-          // instead of hanging on "connecting" forever (mirrors PtyTerminal).
+          // instead of hanging on "connecting" forever.
           setStatus("error");
           setError((e) =>
             e ??

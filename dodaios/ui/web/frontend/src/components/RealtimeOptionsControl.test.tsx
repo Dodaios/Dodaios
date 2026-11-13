@@ -1,8 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Identity translator so rendered text equals the i18n key — matches the
-// pattern used by CuModelSelector.test.tsx.
+// Identity translator so rendered text equals the i18n key.
 vi.mock("@/i18n", () => ({
   useT: () => (key: string) => key,
   useUiLanguage: () => "en",
