@@ -530,29 +530,47 @@ def other_tool(tool: str, last_drawing: str) -> str:
     return last_drawing if tool == AREA else AREA
 
 
-def toolbar_home(bar: tuple[float, float], screen: tuple[float, float], gap: float = 12.0) -> Point:
-    """The toolbar's place before any area is kept: centred at the top of the screen."""
+def toolbar_home(
+    bar: tuple[float, float],
+    screen: tuple[float, float],
+    gap: float = 12.0,
+    safe_top: float = 0.0,
+) -> Point:
+    """The toolbar's place before any area is kept: centred at the top of the screen.
+
+    ``safe_top`` is the screen's unsafe band at the top (a MacBook's camera
+    notch, 32 logical px): the toolbar sits under it, never behind it.
+    """
     bw, _bh = bar
     sw, _sh = screen
-    return (max(gap, (sw - bw) / 2.0), gap)
+    return (max(gap, (sw - bw) / 2.0), safe_top + gap)
 
 
 def toolbar_spot(
-    sel: Box | None, bar: tuple[float, float], screen: tuple[float, float], gap: float = 12.0
+    sel: Box | None,
+    bar: tuple[float, float],
+    screen: tuple[float, float],
+    gap: float = 12.0,
+    safe_top: float = 0.0,
 ) -> Point:
     """Top centre; docked to a kept area only when the area would sit under it."""
-    home = toolbar_home(bar, screen, gap)
+    home = toolbar_home(bar, screen, gap, safe_top)
     if sel is None or clip_to((home[0], home[1], bar[0], bar[1]), sel) is None:
         return home
-    return toolbar_origin(sel, bar, screen, gap=10.0)
+    return toolbar_origin(sel, bar, screen, gap=10.0, safe_top=safe_top)
 
 
 def toolbar_origin(
-    sel: Box, bar: tuple[float, float], screen: tuple[float, float], gap: float = 10.0
+    sel: Box,
+    bar: tuple[float, float],
+    screen: tuple[float, float],
+    gap: float = 10.0,
+    safe_top: float = 0.0,
 ) -> Point:
     """Where the toolbar goes: centred under the selection, else above, else inside.
 
-    Always kept fully on the screen.
+    Always kept fully on the screen, and below ``safe_top`` (see
+    :func:`toolbar_home`).
     """
     x, y, w, h = sel
     bw, bh = bar
@@ -560,12 +578,12 @@ def toolbar_origin(
     left = x + (w - bw) / 2.0
     if y + h + gap + bh <= sh:
         top = y + h + gap
-    elif y - gap - bh >= 0:
+    elif y - gap - bh >= safe_top:
         top = y - gap - bh
     else:
         top = y + h - gap - bh
     left = max(gap, min(sw - bw - gap, left))
-    top = max(gap, min(sh - bh - gap, top))
+    top = max(safe_top + gap, min(sh - bh - gap, top))
     return (left, top)
 
 
