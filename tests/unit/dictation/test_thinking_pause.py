@@ -79,10 +79,11 @@ class _NullCapture:
 
 
 class _LoudnessSTT:
-    """Reports WHICH part of the recording it was given, by loudness.
+    """Reports WHICH parts of the recording it was given, by loudness.
 
-    Returning a marker per loudness band is what lets the assertions say
-    "the quiet half is missing" instead of merely "the text is shorter".
+    One marker per stretch of a loudness band, in the order heard, is what
+    lets the assertions say "the quiet half is missing" instead of merely
+    "the text is shorter".
     """
 
     def __init__(self) -> None:
@@ -90,16 +91,18 @@ class _LoudnessSTT:
 
     async def transcribe_pcm(self, pcm: bytes, language: str | None = None) -> Transcript:
         samples = np.frombuffer(pcm, dtype=np.int16).astype(np.float32)
-        peak = float(np.max(np.abs(samples))) if samples.size else 0.0
-        if peak >= 8000:
-            word = "LOUD"
-        elif peak >= 800:
-            word = "QUIET"
-        else:
-            self.seen.append("silence")
-            return Transcript(text="", language="de", confidence=0.9)
-        self.seen.append(word)
-        return Transcript(text=word, language="de", confidence=0.9)
+        words: list[str] = []
+        window = RATE // 2
+        for offset in range(0, samples.size, window):
+            peak = float(np.max(np.abs(samples[offset : offset + window])))
+            band = "LOUD" if peak >= 8000 else "QUIET" if peak >= 800 else ""
+            if band and (not words or words[-1] != band):
+                words.append(band)
+            elif not band and words and words[-1] != "":
+                words.append("")
+        words = [word for word in words if word]
+        self.seen.extend(words or ["silence"])
+        return Transcript(text=" ".join(words), language="de", confidence=0.9)
 
 
 def _pipeline(stt: Any):
