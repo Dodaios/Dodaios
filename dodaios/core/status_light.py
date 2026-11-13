@@ -48,11 +48,25 @@ def _from_board(
                 state = str(agent.get("state") or "")
                 name = _text(agent.get("title") or agent.get("name") or agent.get("cli"), 80)
                 where = _text(workspace.get("workspace"), 60)
+                pane = _text(agent.get("name"), 80)
+                workspace_id = _text(workspace.get("workspace_id"), 120)
                 row = {
                     "kind": "pane",
                     "id": _text(agent.get("terminal_id"), 120),
                     "title": f"{name} ({where})" if where else name,
-                    "link": {"section": "agentic-ide"},
+                    # Who waits and where, apart: the app draws the CLI's mark
+                    # and words the line itself instead of showing "T2 (api)".
+                    "agent": _text(agent.get("cli"), 60),
+                    "name": name,
+                    "workspace": where,
+                    "link": {
+                        "section": "agentic-ide",
+                        **(
+                            {"workspace_id": workspace_id, "pane": pane}
+                            if workspace_id and pane
+                            else {}
+                        ),
+                    },
                 }
                 if state in _PANE_NEEDS_YOU:
                     needs.append({**row, "state": state})
@@ -105,8 +119,9 @@ def _finding(f: Mapping[str, Any]) -> dict[str, Any]:
     """One watchdog finding as a row; a failing provider also says which one and how.
 
     ``provider`` is the provider's readable name when the caller put one in the
-    evidence (``provider_label``), else its id; ``modality`` and ``status`` let the
-    list say "Realtime · model not available" instead of the raw sentence.
+    evidence (``provider_label``), else its id; ``provider_id`` is always the id
+    (the app picks the logo by it); ``modality`` and ``status`` let the list say
+    "Realtime · model not available" instead of the raw sentence.
     """
     row: dict[str, Any] = {
         "id": _text(f.get("key"), 120),
@@ -118,6 +133,7 @@ def _finding(f: Mapping[str, Any]) -> dict[str, Any]:
         provider = _text(evidence.get("provider_label") or evidence.get("provider"), 80)
         if provider:
             row["provider"] = provider
+            row["provider_id"] = _text(evidence.get("provider"), 80)
             row["modality"] = _text(evidence.get("modality"), 40)
             row["status"] = _text(evidence.get("status"), 40)
     return row
@@ -136,7 +152,8 @@ def build_status_light(
     """Fold the sources into ``{running, needs_you, trouble, counts, tone}``.
 
     ``jobs`` are open ledger jobs; one that a board mission already shows (same
-    ``ref``) is not listed twice. ``attention`` is the per-agent cards list.
+    ``ref``) is not listed twice. ``attention`` is the per-agent cards list; a
+    card may carry the ``agent_name`` the person knows its agent by.
     ``seats`` are :class:`~dodaios.brain.seat_health.SeatVerdict` values.
     ``findings`` are the watchdog's open findings (``key``, ``kind``, ``title``).
     ``prepared`` are drafts and fixes made in advance that wait for the person; they are
@@ -163,6 +180,7 @@ def build_status_light(
             "kind": str(card.get("kind") or ""),
             "id": str(card.get("ref_id") or ""),
             "title": _text(card.get("summary")),
+            "agent_name": _text(card.get("agent_name"), 80),
             "state": "waiting",
             "since_ms": int(card.get("since_ms") or 0),
             "link": {
@@ -181,6 +199,7 @@ def build_status_light(
                     "kind": "browser_takeover",
                     "id": str(browser["request_id"]),
                     "title": _text(browser.get("reason")),
+                    "agent_name": _text(browser.get("title"), 80),
                     "state": "waiting",
                     "link": link,
                 }
