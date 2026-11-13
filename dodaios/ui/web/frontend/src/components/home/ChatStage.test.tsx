@@ -92,6 +92,8 @@ function seedState() {
     activeSessionId: null,
     activeSession: null,
     timeline: EMPTY_TIMELINE,
+    // The conversation has arrived, and nothing is in it yet.
+    opening: false,
     draft: {
       provider: "claude-api",
       model: "",
@@ -209,6 +211,19 @@ describe("ChatStage (agent chat)", () => {
     expect(within(composer).queryByTestId("composer-surface")).toBeNull();
     expect(within(composer).queryByTestId("composer-attach")).toBeNull();
     expect(within(composer).getByTestId("composer-add")).toBeTruthy();
+  });
+
+  it("shows no greeting while the conversation is still on its way, only the composer", () => {
+    useAgentChatStore.setState({ activeSessionId: "lead-1", opening: true });
+    render(<ChatStage />);
+    const stage = screen.getByTestId("chat-stage");
+    expect(stage.getAttribute("data-opening")).toBe("true");
+    expect(screen.queryByTestId("home-greeting")).toBeNull();
+    expect(screen.getByTestId("agent-composer")).toBeTruthy();
+    // The transcript lands empty: then it is a chat with nothing in it yet.
+    act(() => useAgentChatStore.setState({ opening: false }));
+    expect(screen.getByTestId("chat-stage").getAttribute("data-opening")).toBeNull();
+    expect(screen.getByTestId("home-greeting")).toBeTruthy();
   });
 
   it("always shows Send, with the call beside it while the box is empty", () => {
