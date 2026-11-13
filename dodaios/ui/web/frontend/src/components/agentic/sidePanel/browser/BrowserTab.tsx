@@ -3,7 +3,7 @@ import { AppWindow, ExternalLink, Globe, Loader2, RotateCw } from "lucide-react"
 import { fill, useT } from "@/i18n";
 import { hasEmbeddedDesktopBridge } from "@/lib/embeddedDesktop";
 import { openExternalUrl } from "@/lib/openExternal";
-import { isLocalBrowserAddress, normalizeBrowserAddress } from "./browserAddress";
+import { isLocalBrowserAddress, readBrowserInput, wordFromBrokenAddress } from "./browserAddress";
 import { persistBuiltin, storedBuiltin, useIdeBrowserLinkStore } from "./ideBrowserLinks";
 import { NativeBrowserPanel } from "./NativeBrowserPanel";
 import { useFrameCheck, useNativeBrowserStatus } from "./nativeBrowserApi";
@@ -76,8 +76,18 @@ function DesktopBrowserTab() {
  */
 function FrameBrowser({ onUseNative }: { onUseNative?: () => void }) {
   const t = useT();
-  const [url, setUrl] = useState(storedUrl);
-  const [draft, setDraft] = useState(url);
+  // An address the old bar made from a search word ("https://github/") never
+  // answers: start empty and offer the word again instead.
+  const [initial] = useState(() => {
+    const stored = storedUrl();
+    const word = wordFromBrokenAddress(stored);
+    return word ? { url: "", draft: word } : { url: stored, draft: stored };
+  });
+  const [url, setUrl] = useState(initial.url);
+  const [draft, setDraft] = useState(initial.draft);
+  // The last search sent to the person's browser: a search engine refuses to
+  // show its results inside another app, so the view here cannot.
+  const [searched, setSearched] = useState<{ query: string; url: string } | null>(null);
   // Bumped by reload: a new key remounts the frame, which works cross-origin.
   const [generation, setGeneration] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -105,8 +115,16 @@ function FrameBrowser({ onUseNative }: { onUseNative?: () => void }) {
 
   const go = (event: FormEvent) => {
     event.preventDefault();
-    const next = normalizeBrowserAddress(draft);
-    if (!next) return;
+    const entry = readBrowserInput(draft);
+    if (!entry) return;
+    if (entry.kind === "search") {
+      setSearched({ query: entry.query, url: entry.url });
+      void openExternalUrl(entry.url);
+      input.current?.blur();
+      return;
+    }
+    setSearched(null);
+    const next = entry.url;
     setDraft(next);
     setUrl(next);
     persistUrl(next);
@@ -147,6 +165,16 @@ function FrameBrowser({ onUseNative }: { onUseNative?: () => void }) {
           <ExternalLink className="h-3.5 w-3.5" aria-hidden />
         </button>
       </form>
+      {searched && (
+        <div data-testid="ide-browser-searched"
+          className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-1.5 text-xs text-muted-foreground">
+          <span className="min-w-0 flex-1">{fill(t("ide_side_panel.browser.searched"), { query: searched.query })}</span>
+          <button type="button" onClick={() => void openExternalUrl(searched.url)} data-testid="ide-browser-search-again"
+            className="shrink-0 rounded-md border border-border px-2 py-1 text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {t("ide_side_panel.browser.search_again")}
+          </button>
+        </div>
+      )}
       {showFrame ? (
         // White in both themes on purpose: it is the page's own canvas, as in
         // any browser. A page without a background would otherwise draw its

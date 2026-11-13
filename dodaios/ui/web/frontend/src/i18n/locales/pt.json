@@ -8225,7 +8225,7 @@
     },
     "browser": {
       "reload": "Recarregar",
-      "placeholder": "Endereço, p. ex. localhost:5173",
+      "placeholder": "Endereço ou pesquisa, p. ex. localhost:5173",
       "address": "Endereço",
       "open_external": "Abrir no teu navegador",
       "empty_title": "Introduz um endereço acima",
@@ -8234,6 +8234,8 @@
       "refused_hint": "Este site não permite ser exibido dentro de outro aplicativo. Abra-o no seu navegador, onde você já está conectado.",
       "unreachable_title": "{host} não respondeu",
       "unreachable_hint": "Verifique o endereço ou se o servidor está em execução.",
+      "searched": "A pesquisa por “{query}” foi aberta no seu navegador.",
+      "search_again": "Abrir novamente",
       "native": {
         "opening": "Abrindo {browser}…",
         "opening_hint": "Seu próprio navegador abre aqui, conectado com o perfil escolhido.",
