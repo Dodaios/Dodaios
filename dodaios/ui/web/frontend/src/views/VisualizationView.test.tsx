@@ -52,14 +52,24 @@ function installFetchMock(
   artifactsBySlug: Record<string, ArtifactSummary[]>,
   plansBySlug: Record<string, PlanResponse> = {},
   rawBySlug: Record<string, string> = {},
+  capabilities: Record<string, unknown> = { native_file_actions: false, platform: "linux" },
 ) {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.includes("/capabilities")) {
+      return { ok: true, status: 200, json: async () => capabilities };
+    }
+    if (url.endsWith("/share") && init?.method === "POST") {
+      const body = JSON.parse(String(init.body)) as { format: string; title: string };
+      const name = `${body.title}.${body.format === "file" ? "html" : body.format}`;
       return {
         ok: true,
         status: 200,
-        json: async () => ({ native_file_actions: false, platform: "linux" }),
+        json: async () => ({
+          name,
+          url: `/api/outputs/shared/abc/${encodeURIComponent(name)}`,
+          path: `/tmp/dodaios-share/abc/${name}`,
+        }),
       };
     }
     const plan = /\/api\/outputs\/([^/]+)\/plan/.exec(url);
@@ -101,6 +111,11 @@ function installFetchMock(
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
+}
+
+/** Previous / next, the views and the file actions live behind "More". */
+function openMore() {
+  fireEvent.click(screen.getByTestId("visualization-more"));
 }
 
 function renderView() {
@@ -240,6 +255,7 @@ describe("VisualizationView", () => {
     expect((await screen.findByTestId("visualization-image")).getAttribute("src")).toContain(
       "diagram.svg",
     );
+    openMore();
     expect(screen.getByTestId("visualization-previous")).toHaveProperty("disabled", true);
     // Next moves to the older one …
     fireEvent.click(screen.getByTestId("visualization-next"));
@@ -280,15 +296,18 @@ describe("VisualizationView", () => {
     fireEvent.click(await screen.findByTestId("visualization-artifact-row"));
     await screen.findByTestId("visualization-frame");
 
+    openMore();
     fireEvent.click(screen.getByTestId("visualization-tab-code"));
     const source = await screen.findByTestId("visualization-source");
     expect(source.textContent).toContain("<title>Umsatz-Dashboard</title>");
     expect(screen.queryByTestId("visualization-frame")).toBeNull();
 
+    openMore();
     fireEvent.click(screen.getByTestId("visualization-tab-run"));
     await screen.findByTestId("graph-node-start");
     await screen.findByTestId("graph-node-step");
     // The no-JS mission map stays one click away from the graph.
+    openMore();
     expect(screen.getByTestId("visualization-open-map")).toBeTruthy();
 
     fireEvent.click(screen.getByTestId("visualization-tab-preview"));
@@ -315,7 +334,8 @@ describe("VisualizationView", () => {
     // The browser's PDF viewer is a plugin; a sandboxed frame would stay blank.
     expect(frame.hasAttribute("sandbox")).toBe(false);
     expect(frame.getAttribute("src")).toContain("deck.pdf");
-    // No Code tab for a PDF — there is no source to show.
+    // No Code view for a PDF — there is no source to show.
+    openMore();
     expect(screen.queryByTestId("visualization-tab-code")).toBeNull();
 
     fireEvent.click(screen.getByTestId("visualization-next"));
@@ -347,6 +367,135 @@ describe("VisualizationView", () => {
     fireEvent.click(screen.getByTestId("visualization-back"));
     fireEvent.click(await screen.findByTestId("visualization-artifact-row"));
     await screen.findByTestId("visualization-frame");
+  });
+
+  it("keeps the bar quiet: a title pill, Share, More and Close — no success badge", async () => {
+    installFetchMock([DASH_RUN], { mission_dash: [DASH_FILE] });
+
+    renderView();
+    fireEvent.click(await screen.findByTestId("visualization-artifact-row"));
+    await screen.findByTestId("visualization-frame");
+
+    const bar = screen.getByTestId("visualization-stage-bar");
+    expect(bar.textContent).not.toMatch(/success/i);
+    // The request is the title here; it is not printed a second time.
+    expect(bar.textContent?.match(/Umsatz-Dashboard/g)).toHaveLength(1);
+    expect(screen.getByTestId("visualization-share").textContent).toBe("Share");
+    expect(screen.getByTestId("visualization-back").getAttribute("aria-label")).toBe("Close");
+    // The rarely used actions are behind More, not in the bar.
+    expect(screen.queryByTestId("visualization-favorite")).toBeNull();
+    expect(screen.queryByTestId("visualization-tab-code")).toBeNull();
+    openMore();
+    expect(screen.getByTestId("visualization-favorite")).toBeTruthy();
+    expect(screen.getByTestId("visualization-download").getAttribute("href")).toContain(
+      "umsatz-dashboard.html/download",
+    );
+    expect(screen.getByTestId("visualization-tab-preview").getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("still names a run's state when it did not simply succeed", async () => {
+    installFetchMock([{ ...DASH_RUN, status: "error" }], { mission_dash: [DASH_FILE] });
+
+    renderView();
+    fireEvent.click(await screen.findByTestId("visualization-artifact-row"));
+    await screen.findByTestId("visualization-frame");
+
+    expect(screen.getByTestId("visualization-stage-bar").textContent).toMatch(/error|failed/i);
+  });
+
+  it("copies a link that opens exactly this artifact in the person's Dodaios", async () => {
+    installFetchMock([DASH_RUN], { mission_dash: [DASH_FILE] });
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    document.execCommand = vi.fn(() => false) as typeof document.execCommand;
+
+    renderView();
+    fireEvent.click(await screen.findByTestId("visualization-artifact-row"));
+    await screen.findByTestId("visualization-frame");
+    fireEvent.click(screen.getByTestId("visualization-share"));
+    fireEvent.click(screen.getByTestId("visualization-share-link"));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    const link = new URL(String((writeText.mock.calls[0] as unknown[])[0]));
+    expect(link.origin).toBe(window.location.origin);
+    expect(link.searchParams.get("view")).toBe("visualization");
+    expect(link.searchParams.get("run")).toBe("mission_dash");
+    expect(link.searchParams.get("artifact")).toBe("tasks/t1/artifacts/files/umsatz-dashboard.html");
+  });
+
+  it("hands a page to the macOS share sheet as PDF, named after its title", async () => {
+    const fetchMock = installFetchMock(
+      [DASH_RUN],
+      { mission_dash: [DASH_FILE] },
+      {},
+      {},
+      { native_file_actions: true, platform: "darwin", page_export: true },
+    );
+    const postMessage = vi.fn();
+    (window as unknown as { webkit?: unknown }).webkit = {
+      messageHandlers: { jarvisShare: { postMessage } },
+    };
+
+    try {
+      renderView();
+      fireEvent.click(await screen.findByTestId("visualization-artifact-row"));
+      await screen.findByTestId("visualization-frame");
+      fireEvent.click(screen.getByTestId("visualization-share"));
+      const pdf = await screen.findByTestId("visualization-share-pdf");
+      expect(pdf.textContent).toBe("Share as PDF…");
+      expect(screen.getByTestId("visualization-share-png")).toBeTruthy();
+      fireEvent.click(pdf);
+
+      await waitFor(() => expect(postMessage).toHaveBeenCalled());
+      const [tag, body] = postMessage.mock.calls[0][0] as [string, { files: string[] }];
+      expect(tag).toBe("jarvis-share");
+      expect(body.files).toEqual(["/tmp/dodaios-share/abc/Umsatz-Dashboard.pdf"]);
+      const shareCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/share"));
+      expect(JSON.parse(String(shareCall?.[1]?.body))).toMatchObject({
+        format: "pdf",
+        title: "Umsatz-Dashboard",
+      });
+    } finally {
+      delete (window as unknown as { webkit?: unknown }).webkit;
+    }
+  });
+
+  it("offers only the file itself when no page can be drawn, as a download in a browser", async () => {
+    installFetchMock([DASH_RUN], { mission_dash: [DASH_FILE] });
+
+    renderView();
+    fireEvent.click(await screen.findByTestId("visualization-artifact-row"));
+    await screen.findByTestId("visualization-frame");
+    fireEvent.click(screen.getByTestId("visualization-share"));
+
+    expect(screen.getByTestId("visualization-share-file").textContent).toBe("Download file");
+    expect(screen.queryByTestId("visualization-share-pdf")).toBeNull();
+    expect(screen.getByRole("menu", { name: "Share" }).textContent).toContain("Nothing is uploaded");
+  });
+
+  it("opens the artifact a copied link names with &artifact=", async () => {
+    installFetchMock(
+      [{ slug: "run-1", utterance: "Export", status: "success" }],
+      {
+        "run-1": [
+          file("tasks/t1/artifacts/files/new.png", { mtime: 1_700_000_900 }),
+          file("tasks/t1/artifacts/files/old.png", { mtime: 1_700_000_100 }),
+        ],
+      },
+    );
+    window.history.replaceState(
+      null,
+      "",
+      "/?view=visualization&run=run-1&artifact=tasks%2Ft1%2Fartifacts%2Ffiles%2Fold.png",
+    );
+
+    try {
+      renderView();
+      const image = await screen.findByTestId("visualization-image");
+      expect(image.getAttribute("src")).toContain("old.png");
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
   });
 
   it("pre-selects the run named by ?run= in the URL", async () => {

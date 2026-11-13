@@ -292,6 +292,8 @@ export function useArtifactFile(
 export interface OutputsCapabilities {
   native_file_actions: boolean;
   platform: "win32" | "darwin" | "linux";
+  /** A page can be shared as a PDF or a picture (a headless browser exists). */
+  page_export?: boolean;
 }
 
 export function useOutputsCapabilities() {
@@ -365,6 +367,37 @@ export async function revealArtifact(slug: string, path: string): Promise<void> 
     { method: "POST" },
   );
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
+}
+
+export type ShareFormat = "file" | "pdf" | "png";
+
+/**
+ * A file staged for sharing: its name, a download `url`, and — on the local
+ * desktop only — its `path` on disk for the native share sheet.
+ */
+export interface StagedShare {
+  name: string;
+  url: string;
+  path: string | null;
+}
+
+/**
+ * Stage an artifact for sharing — the file under its title, or a page drawn
+ * as a PDF or picture. Nothing is uploaded; the copy waits in a private temp
+ * folder until the person shares or downloads it.
+ */
+export async function shareArtifact(
+  slug: string,
+  path: string,
+  options: { format: ShareFormat; title: string; theme: "light" | "dark" },
+): Promise<StagedShare> {
+  const r = await fetch(`/api/outputs/${slug}/files/${encodeArtifactPath(path)}/share`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(options),
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return (await r.json()) as StagedShare;
 }
 
 /** Open a run's folder in the OS file manager (desktop only). */
