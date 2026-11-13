@@ -9,7 +9,7 @@ A link in an answer is drawn as a short name with the logo of its website
 backend reads the icons the home page names (``<link rel="icon">``), falls
 back to ``/favicon.ico`` and the ``apple-touch-icon``, decodes the first one
 that is a real picture with Pillow and keeps it as a PNG under
-``<data>/link_icons``. So each site is asked once, the window never loads a
+``<data>/link_icons`` (named by a hash of the host). So each site is asked once, the window never loads a
 third-party address itself, and nothing but a decoded PNG is served from the
 app's own origin (an SVG icon could carry script).
 
@@ -20,6 +20,7 @@ first request and on every redirect.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import logging
 import re
@@ -262,8 +263,10 @@ def _fresh(path: Path, keep_s: int) -> bool:
 async def icon_for(host: str) -> bytes | None:
     """The kept icon of ``host``, fetched once when it is missing or old."""
     folder = icon_dir()
-    found = folder / f"{host}.png"
-    missing = folder / f"{host}.none"
+    # Named by a hash, not by the host: no text from a request ends up in a path.
+    key = hashlib.sha256(host.encode("utf-8")).hexdigest()[:40]
+    found = folder / f"{key}.png"
+    missing = folder / f"{key}.none"
     if _fresh(found, KEEP_FOUND_S):
         return found.read_bytes()
     if _fresh(missing, KEEP_MISSING_S):

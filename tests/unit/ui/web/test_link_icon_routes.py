@@ -149,7 +149,8 @@ def test_the_route_serves_a_png_and_asks_the_site_once(icon_dir, monkeypatch) ->
     second = client.get("/api/link-icon", params={"host": "reddit.com"})
     assert second.content == first.content
     assert calls == ["reddit.com"]
-    assert (icon_dir / "reddit.com.png").exists()
+    kept = list(icon_dir.glob("*.png"))
+    assert len(kept) == 1 and "reddit" not in kept[0].name
 
 
 def test_a_site_without_icon_is_not_asked_again_for_a_day(icon_dir, monkeypatch) -> None:
@@ -165,7 +166,7 @@ def test_a_site_without_icon_is_not_asked_again_for_a_day(icon_dir, monkeypatch)
     assert client.get("/api/link-icon", params={"host": "nologo.example.org"}).status_code == 404
     # The sub-domain had none, so its parent was asked once too.
     assert calls == ["nologo.example.org", "example.org"]
-    marker = icon_dir / "nologo.example.org.none"
+    (marker,) = icon_dir.glob("*.none")
     old = time.time() - icons.KEEP_MISSING_S - 10
     os.utime(marker, (old, old))
     client.get("/api/link-icon", params={"host": "nologo.example.org"})
