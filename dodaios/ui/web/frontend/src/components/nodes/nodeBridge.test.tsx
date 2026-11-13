@@ -37,6 +37,7 @@ const LABELS = {
   sent: "Sent",
   failed: "Not sent.",
   remove: "Remove comment",
+  working: "Nova is working your comment in…",
   dictate: "Dictate",
   stopDictate: "Stop dictation",
   listening: "Listening… speak now",
