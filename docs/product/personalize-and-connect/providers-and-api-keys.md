@@ -8,7 +8,7 @@ order: 1
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-11-13
+last_reviewed: 2026-10-03
 phase: "-"
 audience: end-user
 tags: [providers, api-keys, models, capabilities, fallback, connections]
@@ -211,9 +211,6 @@ downloaded model, enough storage, and suitable hardware.
 - **Whisper** and **Nemotron** provide on-device Voice input. Whisper favors
   multilingual accuracy with a download of roughly 3 GB; Nemotron is the
   smaller, faster CPU-oriented choice at roughly 690 MB.
-- **Parakeet** is the fast on-device recognizer for dictation: roughly
-  490 MB, 25 European languages, no graphics card needed. Once downloaded,
-  dictation uses it without any further setting.
 - **Piper** provides on-device Voice output. Its roughly 200 MB installation
   includes voices for the supported languages.
 

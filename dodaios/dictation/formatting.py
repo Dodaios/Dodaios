@@ -72,9 +72,9 @@ LINE_COMMANDS: tuple[str, ...] = (
 _TALKED_ABOUT_BEFORE = (
     "a", "an", "the", "this", "that", "each", "every", "per", "one",
     # i18n-allow: input vocabulary
-    "ein", "eine", "einen", "einer", "einem", "der", "die", "den", "dem",
-    "diese", "dieser", "diesen", "jede", "jeder", "jeden", "pro", "kein",
-    "keine", "una", "la", "cada", "uma",
+    "ein", "eine", "einen", "einer", "einem", "der", "die", "den", "dem",  # i18n-allow
+    "diese", "dieser", "diesen", "jede", "jeder", "jeden", "pro", "kein",  # i18n-allow
+    "keine", "una", "la", "cada", "uma",  # i18n-allow: input vocabulary
 )
 
 _WORD_RE = re.compile(r"\w+", re.UNICODE)
@@ -99,14 +99,14 @@ _SENTENCE_OPENERS: frozenset[str] = frozenset(
         "let", "now", "also", "because", "maybe", "in", "on", "at", "for",
         "my", "our", "your", "his", "her", "its", "their", "not", "no", "yes",
         # German  # i18n-allow: input vocabulary
-        "der", "die", "das", "den", "dem", "ein", "eine", "es", "er", "sie",
-        "wir", "ihr", "ich", "du", "man", "dann", "und", "aber", "oder",
-        "wenn", "weil", "dass", "wie", "wo", "wer", "warum", "bitte",
-        "kannst", "kann", "könnte", "könntest", "soll", "sollte", "ist",
-        "sind", "war", "jetzt", "außerdem", "vielleicht", "im", "auf", "an",
-        "für", "mit", "mein", "meine", "unser", "unsere", "dein", "deine",
-        "nicht", "nein", "ja", "da", "hier", "dort", "noch", "zum", "zur",
-        "bei", "nach", "vor", "generell", "dazu", "danach", "deshalb",
+        "der", "die", "das", "den", "dem", "ein", "eine", "es", "er", "sie",  # i18n-allow
+        "wir", "ihr", "ich", "du", "man", "dann", "und", "aber", "oder",  # i18n-allow
+        "wenn", "weil", "dass", "wie", "wo", "wer", "warum", "bitte",  # i18n-allow
+        "kannst", "kann", "könnte", "könntest", "soll", "sollte", "ist",  # i18n-allow
+        "sind", "war", "jetzt", "außerdem", "vielleicht", "im", "auf", "an",  # i18n-allow
+        "für", "mit", "mein", "meine", "unser", "unsere", "dein", "deine",  # i18n-allow
+        "nicht", "nein", "ja", "da", "hier", "dort", "noch", "zum", "zur",  # i18n-allow
+        "bei", "nach", "vor", "generell", "dazu", "danach", "deshalb",  # i18n-allow
         "trotzdem",
     }
 )
