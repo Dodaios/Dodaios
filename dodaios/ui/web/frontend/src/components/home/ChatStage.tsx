@@ -151,6 +151,7 @@ function ChatStageContent() {
   const catalogStale = useAgentChat((s) => s.catalogStale);
   const sending = useAgentChat((s) => s.busy);
   const sessionRunning = useAgentChat((s) => s.activeSession?.running === true);
+  const opening = useAgentChat((s) => s.opening === true);
   const decide = useAgentChat((s) => s.decide);
   const loadCatalog = useAgentChat((s) => s.loadCatalog);
   const loadSessions = useAgentChat((s) => s.loadSessions);
@@ -274,13 +275,16 @@ function ChatStageContent() {
 
   // The front page opens with the greeting alone in
   // the middle of the page, the composer already where it will stay — at the
-  // bottom — so the first send moves nothing.
+  // bottom — so the first send moves nothing. While the conversation is
+  // still on its way the middle stays empty: the greeting is for a chat with
+  // nothing in it, and flashing it before the conversation replaced it read
+  // as a wrong page that loaded slowly (2026-11-13).
   if (!hasContent && isJarvis) {
     return (
-      <div className="relative flex min-h-0 flex-1 flex-col items-center" data-testid="chat-stage" data-empty="true">
-        <BinaryCursorField />
+      <div className="relative flex min-h-0 flex-1 flex-col items-center" data-testid="chat-stage" data-empty="true" data-opening={opening ? "true" : undefined}>
+        {!opening && <BinaryCursorField />}
         <div className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-8">
-          <Suspense fallback={<Greeting />}><FirstConversation fallback={<Greeting suggestions />} /></Suspense>
+          {!opening && <Suspense fallback={<Greeting />}><FirstConversation fallback={<Greeting suggestions />} /></Suspense>}
         </div>
         <div className="relative w-full max-w-[720px] px-6 pb-5 pt-2">
           <CallSlot composerControls />
