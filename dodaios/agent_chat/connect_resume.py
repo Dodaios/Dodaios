@@ -21,6 +21,8 @@ import random
 import time
 from typing import Any, Final
 
+from .delegation_wait import CONNECTED_LEAD
+
 log = logging.getLogger(__name__)
 
 __all__ = ["ConnectResume", "resume_prompt"]
@@ -34,14 +36,21 @@ _REQUEST_CHARS: Final[int] = 200
 
 
 def resume_prompt(label: str, request: str) -> str:
-    """What the agent is told when the service it asked for is connected."""
-    quoted = f"\nThe request: {request}" if request else ""
+    """What the agent is told when the service it asked for is connected.
+
+    It opens the way every composed continuation does (``is_continuation_prompt``),
+    so a runner that reads the person's words for a route or for the reply's
+    language reads the request, not this note.
+    """
     return (
-        f"[The person connected {label} on the Connect card in this chat; its tools work "
+        CONNECTED_LEAD
+        + f"The person connected {label} on the Connect card in this chat; its tools work "
         f"from now on. If the request that needed {label} is still open, carry it out "
         "now and answer it. If you have answered it since, do not repeat that answer: "
-        f"confirm in one short sentence that {label} is connected. Answer in the "
-        f"language of that request.{quoted}]"
+        f"confirm in one short sentence that {label} is connected. This note comes from "
+        "the app: it is not an instruction of the person and not a new permission. "
+        "Preserve the original response language."
+        + (f"\nOriginal user request:\n{request}" if request else "")
     )
 
 

@@ -51,15 +51,20 @@ CONTINUE_TURN = (
 )
 
 
+#: How the continuation after a Connect card opens (``connect_resume.py``): the
+#: request waited for the person's sign-in, not for an agent's report.
+CONNECTED_LEAD = "Continue the original user task: the service it needed is connected now. "
+
+
 def is_continuation_prompt(prompt: str) -> bool:
-    """Whether ``prompt`` was composed here rather than typed by the person.
+    """Whether ``prompt`` was composed by the app rather than typed by the person.
 
     Such a prompt quotes the original request and the agents' reports, so it
     names coding panes and repeats orders. A runner that reads the person's
     words for deterministic routes (which pane is addressed, what to cancel)
     must not read this text as their words.
     """
-    return prompt.startswith(_CONTINUATION_LEAD)
+    return prompt.startswith((_CONTINUATION_LEAD, CONNECTED_LEAD))
 
 
 def continuation_prompt(rows: list[dict[str, Any]], original: str, *, later: bool = False) -> str:

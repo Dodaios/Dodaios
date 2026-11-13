@@ -11,6 +11,7 @@ import pytest
 from dodaios.agent_chat import connect_resume
 from dodaios.agent_chat.connect_resume import _request_of, resume_prompt
 from dodaios.agent_chat.credential_requests import CLI, PLUGIN, CredentialSpec
+from dodaios.agent_chat.delegation_wait import is_continuation_prompt
 from dodaios.agent_chat.events import make_event
 from dodaios.agent_chat.service import AgentChatService, SessionBusy, _Running
 from dodaios.agent_chat.store import AgentChatStore
@@ -19,7 +20,7 @@ from dodaios.society.connect_tool import Target, connect_save
 from dodaios.society.credentials import CredentialError
 
 LEAD_CHAT = "chat-1"
-REQUEST = "Kannst du meine Gmails checken"
+REQUEST = "Kannst du meine Gmails checken"  # i18n-allow
 _GMAIL = CredentialSpec.build("gmail", "Gmail", kind=PLUGIN)
 
 
@@ -89,7 +90,9 @@ async def test_a_connected_card_continues_the_request_once_its_turn_has_ended(ch
     assert turn["background_result"] is True and turn["display_text"] == REQUEST
     assert turn["text"] == resume_prompt("Gmail", REQUEST)
     assert "connected Gmail on the Connect card" in turn["text"]
-    assert REQUEST in turn["text"]
+    assert turn["text"].endswith(f"Original user request:\n{REQUEST}")
+    # Composed by the app: no runner reads it as the person's words.
+    assert is_continuation_prompt(turn["text"])
 
 
 async def test_a_repeated_report_does_not_continue_twice(chat) -> None:
@@ -157,13 +160,13 @@ def test_the_leads_card_survives_a_restart() -> None:
 
 def test_the_request_is_what_the_person_typed_in_the_cards_turn() -> None:
     events = [
-        make_event("user_message", {"text": "Wie wird das Wetter?"}),
+        make_event("user_message", {"text": "What is the weather like?"}),
         make_event("turn_started", {"turn_id": "turn-0"}),
         make_event("user_message", {"text": "composed prompt with a file", "typed": REQUEST}),
         make_event("turn_started", {"turn_id": "turn-1"}),
-        make_event("user_message", {"text": "Und was steht im Kalender?"}),
+        make_event("user_message", {"text": "And what is in my calendar?"}),
         make_event("turn_started", {"turn_id": "turn-2"}),
     ]
     assert _request_of(events, "turn-1") == REQUEST
-    assert _request_of(events, "turn-0") == "Wie wird das Wetter?"
+    assert _request_of(events, "turn-0") == "What is the weather like?"
     assert len(_request_of([make_event("user_message", {"text": "x" * 900})], "t")) == 200

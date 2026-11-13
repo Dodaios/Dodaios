@@ -389,6 +389,44 @@ async def test_a_continuation_is_briefing_not_the_persons_words(
     assert kw["force_output_language"] == "en"  # the request's language, resolved once
 
 
+async def test_a_connected_service_continues_the_request_in_its_language(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_cli
+):
+    """The note that Gmail is connected now is the turn's briefing: the brain
+    reads the request for its routes and for the reply's language."""
+    from dodaios.agent_chat.connect_resume import resume_prompt
+    from dodaios.agent_chat.delegation_wait import CONTINUE_TURN
+
+    fake = FakeBrainManager()
+    monkeypatch.setattr(runner_brain, "brain_manager", lambda: fake)
+    svc = _service(None)
+    session = _jarvis_session(svc, tmp_path)
+    q = svc.subscribe(session.session_id)
+    original = "Kannst du bitte nachsehen, ob ich neue Mails in Gmail habe?"  # i18n-allow
+
+    await svc.send(
+        session.session_id,
+        resume_prompt("Gmail", original),
+        display_text=original,
+        background_result=True,
+    )
+    await _drain(q, "turn_finished")
+
+    text, kw = fake.calls[0]
+    assert text == CONTINUE_TURN
+    briefing = kw["turn_override"].system_extra
+    assert "connected Gmail on the Connect card" in briefing and original in briefing
+    assert kw["turn_override"].tool_context["person_request"] == original
+    assert kw["force_output_language"] == "de"
+    # The timeline names the request this answer belongs to; no bubble of the person's.
+    opened = [
+        event["payload"]
+        for event in svc.store.list_events(session.session_id)
+        if event["kind"] == "user_message"
+    ]
+    assert opened[-1]["origin"] == "background" and opened[-1]["typed"] == original
+
+
 async def test_a_continuation_keeps_a_turkish_conversation_turkish(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_cli
 ):
