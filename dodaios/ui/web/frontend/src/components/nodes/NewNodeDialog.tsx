@@ -18,8 +18,9 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useT, useUiLanguage } from "@/i18n";
+import { cn } from "@/lib/utils";
 import { requestNewNode } from "./askDodaios";
-import type { NodeCard, NodeType } from "./nodeModel";
+import { NODE_TYPES, type NodeCard, type NodeType } from "./nodeModel";
 import { NODE_TYPE_LABEL_KEY, nodeHueStyle } from "./nodeTheme";
 import { NodeTypeIcon } from "./NodeTypeIcon";
 import { useNodeActions } from "./useNodes";
@@ -30,8 +31,10 @@ const EXAMPLE_IDS = ["a", "b", "c"] as const;
 const MAX_TITLE_CHARS = 80;
 
 export interface NewNodeDialogProps {
-  /** The type a tile was picked for; null keeps the dialog closed. */
+  /** The type the new node starts as; null keeps the dialog closed. */
   type: NodeType | null;
+  /** The reader chose another type in the dialog. */
+  onType: (type: NodeType) => void;
   onClose: () => void;
   /** The request went out: the library registers a placeholder for it. */
   onRequested: (type: NodeType, request: string) => void;
@@ -39,7 +42,7 @@ export interface NewNodeDialogProps {
   onCreated: (card: NodeCard) => void;
 }
 
-export function NewNodeDialog({ type, onClose, onRequested, onCreated }: NewNodeDialogProps) {
+export function NewNodeDialog({ type, onType, onClose, onRequested, onCreated }: NewNodeDialogProps) {
   const [busy, setBusy] = useState(false);
   const content = useRef<HTMLDivElement>(null);
 
@@ -60,8 +63,8 @@ export function NewNodeDialog({ type, onClose, onRequested, onCreated }: NewNode
         >
           {type !== null && (
             <NewNodeForm
-              key={type}
               type={type}
+              onType={onType}
               busy={busy}
               onBusy={setBusy}
               onClose={onClose}
@@ -75,9 +78,13 @@ export function NewNodeDialog({ type, onClose, onRequested, onCreated }: NewNode
   );
 }
 
-/** Keyed by the type, so every tile opens on an empty field. */
+/**
+ * Mounted while the dialog is open, so it opens on an empty field every time
+ * and keeps what was typed when the reader switches the type.
+ */
 function NewNodeForm({
   type,
+  onType,
   busy,
   onBusy,
   onClose,
@@ -87,7 +94,7 @@ function NewNodeForm({
   type: NodeType;
   busy: boolean;
   onBusy: (busy: boolean) => void;
-} & Pick<NewNodeDialogProps, "onClose" | "onRequested" | "onCreated">) {
+} & Pick<NewNodeDialogProps, "onType" | "onClose" | "onRequested" | "onCreated">) {
   const t = useT();
   const language = useUiLanguage();
   const actions = useNodeActions();
@@ -173,7 +180,46 @@ function NewNodeForm({
         </div>
       </div>
 
-      <label htmlFor="new-node-request" className="mt-6 block text-base font-medium text-foreground">
+      <div
+        role="radiogroup"
+        aria-label={t("nodes.new.type_label")}
+        className="mt-5 flex flex-wrap gap-1.5"
+        data-testid="new-node-types"
+      >
+        {NODE_TYPES.map((option) => {
+          const chosen = option === type;
+          return (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={chosen}
+              disabled={busy}
+              onClick={() => {
+                onType(option);
+                setError(null);
+              }}
+              style={nodeHueStyle(option)}
+              data-testid={`new-node-type-${option}`}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-sm transition-colors duration-fast",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+                chosen
+                  ? "border-[hsl(var(--node-hue)/0.5)] bg-[hsl(var(--node-hue)/0.14)] text-foreground-strong"
+                  : "border-border text-muted-foreground hover:border-border-strong hover:text-foreground",
+              )}
+            >
+              <NodeTypeIcon
+                type={option}
+                className={cn("h-3.5 w-3.5", chosen && "text-[hsl(var(--node-hue))]")}
+              />
+              {t(NODE_TYPE_LABEL_KEY[option])}
+            </button>
+          );
+        })}
+      </div>
+
+      <label htmlFor="new-node-request" className="mt-5 block text-base font-medium text-foreground">
         {t("nodes.new.prompt_label")}
       </label>
       <Textarea

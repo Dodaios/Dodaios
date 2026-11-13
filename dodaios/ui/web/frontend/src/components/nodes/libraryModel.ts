@@ -117,12 +117,21 @@ export function visibleCards(cards: readonly NodeCard[], q: LibraryQuery): NodeC
 }
 
 /**
- * The "Make something new" row belongs to the untouched library: the "All"
- * tab with no search and no type filter. Anywhere else the reader is looking
- * for something that exists.
+ * The shelf of types narrows the library by type, so it is shown wherever a
+ * type means something: on every tab but "Runs" (a run has no node type).
  */
-export function showsNewRow(tab: LibraryTab, query: string, type: TypeFilter): boolean {
-  return tab === "all" && query.trim() === "" && type === "all";
+export function showsTypeRow(tab: LibraryTab): boolean {
+  return tab !== "runs";
+}
+
+/** How many cards of each node type a list holds (runs are not counted). */
+export function countByType(cards: readonly NodeCard[]): Partial<Record<NodeType, number>> {
+  const counts: Partial<Record<NodeType, number>> = {};
+  for (const card of cards) {
+    if (card.type === "output") continue;
+    counts[card.type] = (counts[card.type] ?? 0) + 1;
+  }
+  return counts;
 }
 
 /* --- a node the assistant was asked to make, before it exists ------------- */

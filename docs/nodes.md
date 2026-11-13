@@ -8,15 +8,23 @@ later, take a change back, and keep it current from the person's apps.
 
 ## The seven types
 
-| Type | What it holds |
-|------|---------------|
-| `docs` | A written document: a report, a plan, a brief, notes. |
-| `slides` | A deck of slides to present. |
-| `sheets` | Rows and columns: a list or a table to keep. |
-| `design` | A freely designed page: a poster, a one-pager, an invitation. |
-| `data` | A dashboard: current figures and charts. |
-| `whiteboard` | Notes, shapes and arrows: a diagram, a map of ideas. |
-| `motion` | A short animation. |
+| Type | Name in the app | What it holds |
+|------|-----------------|---------------|
+| `docs` | Docs | A written document: a report, a plan, a brief, notes. |
+| `slides` | Slides | A deck of slides to present. |
+| `sheets` | Sheets | Rows and columns: a list or a table to keep. |
+| `design` | Visuals | A freely designed page: a poster, a one-pager, an invitation. |
+| `data` | Analytics | A dashboard: current figures and charts. |
+| `whiteboard` | Whiteboard | Notes, shapes and arrows: a diagram, a map of ideas. |
+| `motion` | Clips | A short animation. |
+
+The names in the app are the same in every language (`DISPLAY_NAMES` in
+`dodaios/nodes/types.py`; a test keeps them equal to the app's strings). The
+tool accepts them as type names too.
+
+In the library a type's tile narrows the list to the nodes of that type; it
+does not make a node. A new node starts from the "New" button, which opens on
+the type the reader is looking at.
 
 The list is `NODE_TYPES` in `dodaios/nodes/types.py`. The same file holds the
 other names a person may use for a type (`deck`, `spreadsheet`, `dashboard`).

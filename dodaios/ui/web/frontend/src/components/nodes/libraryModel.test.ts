@@ -19,6 +19,7 @@ import {
   PENDING_TTL_MS,
   cardWhen,
   countByTab,
+  countByType,
   filterByTab,
   filterByType,
   isPendingCard,
@@ -28,7 +29,7 @@ import {
   pendingTitle,
   resolvePending,
   searchCards,
-  showsNewRow,
+  showsTypeRow,
   sortCards,
   typeFilterApplies,
   visibleCards,
@@ -176,14 +177,23 @@ describe("order", () => {
   });
 });
 
-describe("the new-row", () => {
-  it("shows on the untouched All tab only", () => {
-    expect(showsNewRow("all", "", "all")).toBe(true);
-    expect(showsNewRow("all", "  ", "all")).toBe(true);
-    expect(showsNewRow("all", "budget", "all")).toBe(false);
-    expect(showsNewRow("all", "", "sheets")).toBe(false);
-    expect(showsNewRow("favorites", "", "all")).toBe(false);
-    expect(showsNewRow("runs", "", "all")).toBe(false);
+describe("the shelf of types", () => {
+  it("shows wherever a type means something: everywhere but under Runs", () => {
+    expect(showsTypeRow("all")).toBe(true);
+    expect(showsTypeRow("favorites")).toBe(true);
+    expect(showsTypeRow("kept")).toBe(true);
+    expect(showsTypeRow("runs")).toBe(false);
+  });
+
+  it("counts the cards of each type and leaves the runs out", () => {
+    const cards = [
+      card("a", { type: "sheets" }),
+      card("b", { type: "sheets" }),
+      card("c", { type: "docs" }),
+      card("run:x", { type: "output", origin: "run" }),
+    ];
+    expect(countByType(cards)).toEqual({ sheets: 2, docs: 1 });
+    expect(countByType([])).toEqual({});
   });
 });
 

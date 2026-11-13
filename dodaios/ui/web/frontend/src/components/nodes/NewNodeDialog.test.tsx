@@ -83,6 +83,7 @@ function installFetch(failing: (url: string, method: string) => boolean = () => 
 
 function renderDialog(type: NodeType | null = "sheets") {
   const spies = {
+    onType: vi.fn<(type: NodeType) => void>(),
     onClose: vi.fn(),
     onRequested: vi.fn<(type: NodeType, request: string) => void>(),
     onCreated: vi.fn<(card: NodeCard) => void>(),
@@ -135,6 +136,20 @@ describe("NewNodeDialog", () => {
     // Nothing to send yet; an empty one can always be started.
     expect(create().disabled).toBe(true);
     expect(empty().disabled).toBe(false);
+  });
+
+  it("lets the reader choose the type inside, and keeps what was typed", () => {
+    const { onType } = renderDialog("sheets");
+    const types = within(screen.getByTestId("new-node-types")).getAllByRole("radio");
+    expect(types).toHaveLength(7);
+    expect(screen.getByTestId("new-node-type-sheets").getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByTestId("new-node-type-docs").getAttribute("aria-checked")).toBe("false");
+
+    fireEvent.change(field(), { target: { value: "Our subscriptions" } });
+    fireEvent.click(screen.getByTestId("new-node-type-data"));
+    expect(onType).toHaveBeenCalledWith("data");
+    // The owner switches the type; the form itself stays, with its text.
+    expect(field().value).toBe("Our subscriptions");
   });
 
   it("offers three examples per type, and a click puts one into the field", () => {

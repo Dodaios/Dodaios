@@ -11598,10 +11598,10 @@
       "docs": "Docs",
       "slides": "Slides",
       "sheets": "Sheets",
-      "design": "Design",
-      "data": "Data",
+      "design": "Visuals",
+      "data": "Analytics",
       "whiteboard": "Whiteboard",
-      "motion": "Motion",
+      "motion": "Clips",
       "output": "Durchlauf"
     },
     "tabs": {
@@ -11637,7 +11637,6 @@
       "failed": "Fehlgeschlagen"
     },
     "new": {
-      "heading": "Etwas Neues erstellen",
       "request": "Erstelle mir einen neuen Node vom Typ {0}: {1}",
       "prompt_label": "Worum soll es gehen?",
       "examples_label": "Beispiele",
@@ -11699,7 +11698,10 @@
           "b": "Ein animiertes Zitat",
           "c": "Ein Countdown für einen Start"
         }
-      }
+      },
+      "button": "Neu",
+      "of_type": "Neu in {0}",
+      "type_label": "Typ"
     },
     "menu": {
       "aria": "Aktionen für diesen Node",
@@ -11747,7 +11749,7 @@
     },
     "states": {
       "loading": "Deine Nodes werden geladen",
-      "empty": "Noch nichts da. Wähle oben einen Typ, und {name} erstellt ihn mit dir.",
+      "empty": "Noch nichts da. Beginne mit „Neu“, und {name} erstellt es mit dir.",
       "empty_all": "Noch nichts da.",
       "empty_favorites": "Noch keine Favoriten. Markiere einen Node mit dem Stern, dann bleibt er hier.",
       "empty_kept": "Noch wird nichts aktuell gehalten. Bitte {name}, einen Node aktuell zu halten, dann erscheint er hier.",
@@ -11769,6 +11771,9 @@
       "stop_failed": "Das ließ sich nicht pausieren.",
       "resume_failed": "Das ließ sich nicht fortsetzen.",
       "unavailable": "Aktualisierungen sind gerade nicht verfügbar. Versuch es gleich noch einmal."
+    },
+    "types": {
+      "heading": "Nach Typ"
     }
   }
 }

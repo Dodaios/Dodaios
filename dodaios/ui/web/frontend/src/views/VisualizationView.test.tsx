@@ -776,7 +776,7 @@ describe("VisualizationView", () => {
     renderView();
 
     await screen.findByTestId("nodes-empty");
-    expect(screen.getByTestId("nodes-new-row")).toBeTruthy();
+    expect(screen.getByTestId("nodes-type-row")).toBeTruthy();
     expect(screen.queryByTestId("visualization-frame")).toBeNull();
   });
 
@@ -843,7 +843,7 @@ describe("VisualizationView", () => {
     renderView();
 
     await findCard(DASH_KEY);
-    fireEvent.click(screen.getByTestId("nodes-new-docs"));
+    fireEvent.click(screen.getByTestId("nodes-new"));
     fireEvent.click(await screen.findByTestId("new-node-empty"));
 
     await screen.findByTestId("visualization-frame");

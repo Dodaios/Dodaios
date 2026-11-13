@@ -11598,10 +11598,10 @@
       "docs": "Docs",
       "slides": "Slides",
       "sheets": "Sheets",
-      "design": "Design",
-      "data": "Data",
+      "design": "Visuals",
+      "data": "Analytics",
       "whiteboard": "Whiteboard",
-      "motion": "Motion",
+      "motion": "Clips",
       "output": "Execução"
     },
     "tabs": {
@@ -11637,7 +11637,6 @@
       "failed": "Falhou"
     },
     "new": {
-      "heading": "Criar algo novo",
       "request": "Cria-me um novo node do tipo {0}: {1}",
       "prompt_label": "Sobre o que deve ser?",
       "examples_label": "Exemplos",
@@ -11699,7 +11698,10 @@
           "b": "Uma citação animada",
           "c": "Uma contagem decrescente para um lançamento"
         }
-      }
+      },
+      "button": "Novo",
+      "of_type": "Novo em {0}",
+      "type_label": "Tipo"
     },
     "menu": {
       "aria": "Ações deste node",
@@ -11747,7 +11749,7 @@
     },
     "states": {
       "loading": "A carregar os teus nodes",
-      "empty": "Ainda não há nada. Escolhe um tipo acima e {name} cria-o contigo.",
+      "empty": "Ainda não há nada. Começa com Novo e {name} cria-o contigo.",
       "empty_all": "Ainda não há nada.",
       "empty_favorites": "Ainda não há favoritos. Marca um node com a estrela e ele fica aqui.",
       "empty_kept": "Ainda nada é mantido em dia. Pede a {name} que mantenha um node em dia e ele aparece aqui.",
@@ -11769,6 +11771,9 @@
       "stop_failed": "Não foi possível pausar.",
       "resume_failed": "Não foi possível retomar.",
       "unavailable": "As atualizações não estão disponíveis de momento. Tenta de novo daqui a pouco."
+    },
+    "types": {
+      "heading": "Por tipo"
     }
   }
 }
