@@ -135,6 +135,22 @@ export async function revertNode(id: string): Promise<NodeCard> {
   return readJson<NodeCard>(await fetch(nodeUrl(id, "/revert"), { method: "POST" }));
 }
 
+/** One comment the reader left on a node's page, as the comments route takes it. */
+export interface NodeCommentInput {
+  text: string;
+  quote: string;
+  where: string;
+}
+
+/**
+ * Hand the reader's comments to the assistant as one request. It works them
+ * in in the background (no message in the conversation); the page is drawn
+ * again when the revision is written.
+ */
+export async function sendNodeComments(id: string, comments: NodeCommentInput[]): Promise<void> {
+  await readJson<{ task_id: string }>(await fetch(nodeUrl(id, "/comments"), postJson({ comments })));
+}
+
 /**
  * Delete what a card stands for: a typed node through the nodes API, an
  * adopted file as that one file, a run as the whole run.

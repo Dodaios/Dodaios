@@ -109,18 +109,29 @@ place. A rename keeps the file name, so links to the page stay valid.
 
 On the stage, "Comment" switches a typed node's page into comment mode. A
 click on the page then drops a numbered pin with a small field at that place.
-The reader writes what should change and sends it. The assistant gets the
-comment as the reader's message, with the text the pin was put on and the
-place in the node's own terms (`/slides/2`, `Price × Netflix`, `§ Costs`), and
-revises the node with the `node` tool. The stage draws the page again when the
-revision is written.
+The reader writes what should change and adds it with Enter or the tick. A
+comment does not go out on its own: the reader can leave as many as they like,
+and take one back with its cross. A "Send" button in the stage's toolbar
+counts them ("Send 3 comments") and hands them all to the assistant at once.
+
+The comments do not appear in the conversation. They go out as one request
+(`POST /api/nodes/{id}/comments`, `dodaios/nodes/comments.py`) that runs as a
+quiet one-shot lead routine, tagged `node-comments:<id>`: no start card, and
+no result when every comment is worked in. Each comment carries the text the
+pin was put on and the place in the node's own terms (`/slides/2`,
+`Price × Netflix`, `§ Costs`). The assistant revises the node with the `node`
+tool, and the stage draws the page again when the revision is written. Only a
+run that fails, or a comment the assistant could not carry out, says so in the
+conversation. The reader sent the comments with a click, so the run uses the
+assistant's seat as it is, also when that seat bills an API key.
 
 The page runs in a sandbox, so the app cannot see where the reader clicks in
 it. The pin and its field are therefore drawn by the page itself
 (`dodaios/nodes/bridge.py`, part of every node page), and the page and the app
-talk in messages: the page says when it has loaded and sends a comment; the
-app says which mode it is in and whether the comment went out
-(`frontend/src/components/nodes/nodeBridge.ts`). While the mode is on, a click
+talk in messages: the page says when it has loaded, adds a comment and takes
+one back; the app says which mode it is in and where each comment stands
+(waiting, sent, not sent) (`frontend/src/components/nodes/nodeBridge.ts`;
+the waiting comments are kept in `nodeCommentDraft.ts`). While the mode is on, a click
 does not reach the page's own controls. Pages that are not typed nodes (a
 worker-built page, a report) take no comments.
 

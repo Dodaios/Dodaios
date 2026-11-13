@@ -11785,15 +11785,17 @@
     },
     "comment": {
       "toggle": "评论",
-      "hint": "点击一个位置，写下 {name} 应在那里修改什么。",
+      "hint": "点击一个位置，写下 {name} 应在那里修改什么。然后一次发送所有评论。",
       "working": "{name} 正在按你的评论修改…",
       "working_many": "{name} 正在按 {0} 条评论修改…",
       "placeholder": "添加评论…",
-      "send": "发送",
+      "add": "添加评论",
+      "pending": "尚未发送",
+      "remove": "删除评论",
+      "send_one": "发送评论",
+      "send_many": "发送 {0} 条评论",
       "sent": "已发送",
-      "failed": "未发送，请重试。",
-      "request": "请按这条评论修改 Node“{0}”（ID {1}）{2}：{3}",
-      "at": "，位置“{0}”"
+      "failed": "未发送，请重试。"
     }
   },
   "agent_browser": {

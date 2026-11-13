@@ -11,8 +11,8 @@ from fastapi.testclient import TestClient
 
 from dodaios.artifacts.living import LivingPageStore
 from dodaios.artifacts.report import write_report
+from dodaios.nodes import comments, refresh, shell
 from dodaios.nodes import kinds as node_kinds
-from dodaios.nodes import refresh, shell
 from dodaios.nodes.kinds import NodeKind
 from dodaios.nodes.model import Node
 from dodaios.nodes.store import NodeStore
@@ -370,6 +370,52 @@ def test_upkeep_without_a_scheduler(client: TestClient, store: NodeStore) -> Non
     assert down.status_code == 503
     assert down.json() == {"detail": "The task scheduler is unavailable"}
     assert store.get(node.id).refreshing is False  # type: ignore[union-attr]
+
+
+# -------------------------------------------------------------------- comments
+
+
+def test_comments_go_out_together_in_the_background(
+    client: TestClient, store: NodeStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    node = store.create(type="docs", title="Brief", spec={})
+    seen: list[tuple[str, list[comments.NodeComment]]] = []
+
+    async def send(nodes: NodeStore, node_id: str, batch: list[comments.NodeComment]) -> str:
+        seen.append((node_id, batch))
+        return "task-9"
+
+    monkeypatch.setattr(comments, "send_comments", send)
+    body = {
+        "comments": [
+            {"text": "shorter", "quote": "Our goals", "where": "§ Goals"},
+            {"text": "brighter"},
+        ]
+    }
+    sent = client.post(f"/api/nodes/{node.id}/comments", json=body)
+    assert sent.status_code == 202
+    assert sent.json() == {"task_id": "task-9", "count": 2}
+    assert seen == [
+        (
+            node.id,
+            [
+                comments.NodeComment("shorter", "Our goals", "§ Goals"),
+                comments.NodeComment("brighter", "", ""),
+            ],
+        )
+    ]
+
+
+def test_comments_are_refused_for_an_unknown_node_none_at_all_or_no_scheduler(
+    client: TestClient, store: NodeStore
+) -> None:
+    node = store.create(type="docs", title="Brief", spec={})
+    one = {"comments": [{"text": "x"}]}
+    assert client.post(f"/api/nodes/{_UNKNOWN}/comments", json=one).status_code == 404
+    assert client.post(f"/api/nodes/{node.id}/comments", json={"comments": []}).status_code == 422
+    down = client.post(f"/api/nodes/{node.id}/comments", json=one)
+    assert down.status_code == 503
+    assert down.json() == {"detail": "The task scheduler is unavailable"}
 
 
 # ---------------------------------------------------------------------- delete

@@ -4,20 +4,22 @@
  * A node's page runs in a sandboxed frame. The app cannot see where the
  * reader clicks in it, so the page itself drops the pin and the field
  * (`dodaios/nodes/bridge.py`) and tells the app what was written and on what.
- * This module switches the page's mode, takes a comment in, hands it to
- * whoever sends it on, and tells the page how that went.
+ * This module switches the page's mode, takes a comment in (it waits, with
+ * the others, for the toolbar's "Send"), hears a comment taken back, and
+ * tells the page where each comment stands.
  *
  * Only messages from this very frame count, and a comment is taken as plain,
  * bounded text: the page's script runs in an opaque origin and gets nothing
  * else from the app.
  */
-import { useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 
 /** The message names (`dodaios/nodes/bridge.py`; a parity test keeps both sides equal). */
 export const NODE_READY_MESSAGE = "dodaios-node-ready";
 export const NODE_MODE_MESSAGE = "dodaios-node-mode";
 export const NODE_COMMENT_MESSAGE = "dodaios-node-comment";
 export const NODE_COMMENT_STATE_MESSAGE = "dodaios-node-comment-state";
+export const NODE_COMMENT_REMOVE_MESSAGE = "dodaios-node-comment-remove";
 
 const MAX_COMMENT_CHARS = 2000;
 const MAX_QUOTE_CHARS = 240;
@@ -37,10 +39,18 @@ export interface NodeComment {
 /** The few words the page shows, in the reader's language. */
 export interface NodeBridgeLabels {
   placeholder: string;
-  send: string;
+  /** The pin's button that adds the comment to the ones waiting. */
+  add: string;
+  /** Under a comment that waits for "Send". */
+  pending: string;
   sent: string;
   failed: string;
+  /** The button that takes a waiting comment back. */
+  remove: string;
 }
+
+/** Where a comment stands, as the page shows it. */
+export type NodeCommentState = "pending" | "sent" | "failed";
 
 function clipped(value: unknown, limit: number): string {
   return typeof value === "string" ? value.slice(0, limit) : "";
@@ -66,9 +76,14 @@ export interface NodeBridgeOptions {
   /** The page takes comments: a click drops a pin instead of doing what it does. */
   commenting: boolean;
   labels: NodeBridgeLabels;
-  /** Send the comment on. Resolves when it went out; rejects when it did not. */
+  /** Take the comment in. Resolves when it waits for "Send"; rejects when it was not taken. */
   onComment: (comment: NodeComment) => Promise<void>;
+  /** The reader took comment `n` back before it was sent. */
+  onRemove?: (n: number) => void;
 }
+
+/** What the app can tell the page later: where comments `ns` stand now. */
+export type TellCommentState = (ns: readonly number[], state: NodeCommentState) => void;
 
 /**
  * Keep the framed page in the mode the app is in, and take its comments.
@@ -77,7 +92,10 @@ export interface NodeBridgeOptions {
  * told the mode then, so a node the assistant just revised comes back still
  * taking comments.
  */
-export function useNodeBridge(frame: RefObject<HTMLIFrameElement | null>, options: NodeBridgeOptions): void {
+export function useNodeBridge(
+  frame: RefObject<HTMLIFrameElement | null>,
+  options: NodeBridgeOptions,
+): TellCommentState {
   const latest = useRef(options);
   latest.current = options;
 
@@ -102,10 +120,15 @@ export function useNodeBridge(frame: RefObject<HTMLIFrameElement | null>, option
         tellMode();
         return;
       }
+      if (data && typeof data === "object" && data.type === NODE_COMMENT_REMOVE_MESSAGE) {
+        const n = (data as { n?: unknown }).n;
+        if (typeof n === "number" && Number.isInteger(n) && n > 0) latest.current.onRemove?.(n);
+        return;
+      }
       const comment = parseNodeComment(event.data);
       if (comment === null) return;
       latest.current.onComment(comment).then(
-        () => tell({ type: NODE_COMMENT_STATE_MESSAGE, n: comment.n, state: "sent" }),
+        () => tell({ type: NODE_COMMENT_STATE_MESSAGE, n: comment.n, state: "pending" }),
         () => tell({ type: NODE_COMMENT_STATE_MESSAGE, n: comment.n, state: "failed" }),
       );
     };
@@ -114,4 +137,13 @@ export function useNodeBridge(frame: RefObject<HTMLIFrameElement | null>, option
     return () => window.removeEventListener("message", onMessage);
     // The mode is told again whenever it changes; the handlers read the rest live.
   }, [frame, options.commenting]);
+
+  return useCallback<TellCommentState>(
+    (ns, state) => {
+      for (const n of ns) {
+        frame.current?.contentWindow?.postMessage({ type: NODE_COMMENT_STATE_MESSAGE, n, state }, "*");
+      }
+    },
+    [frame],
+  );
 }

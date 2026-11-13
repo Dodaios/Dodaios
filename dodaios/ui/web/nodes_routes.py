@@ -10,6 +10,7 @@
 * ``POST   /api/nodes/{id}/revert``          put the previous version back.
 * ``POST   /api/nodes/{id}/upkeep/stop``     stop keeping it current; the content stays.
 * ``POST   /api/nodes/{id}/upkeep/resume``   keep it current again.
+* ``POST   /api/nodes/{id}/comments``        the reader's comments, worked in in the background.
 * ``DELETE /api/nodes/{id}``                 remove the node, its page and its history.
 
 The library is what the app's Nodes section shows: the typed nodes plus what
@@ -17,7 +18,8 @@ older runs left behind (:mod:`dodaios.nodes.library`). The routes that change
 something only reach typed nodes; an adopted file is still deleted through
 ``/api/outputs``. A node's content is written by the assistant through the
 ``node`` tool, not from here: the library renames, copies, reverts and removes.
-Nothing here calls a model.
+Nothing here calls a model; the comments route starts a background run of
+the assistant (:mod:`dodaios.nodes.comments`) and returns at once.
 
 A node's page runs in a sandbox with no network, so everything a person does
 TO a node (stop its upkeep, rename it) is a control of the app and a route here.
@@ -33,7 +35,7 @@ from typing import Any, Final
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from dodaios.nodes import library, refresh
+from dodaios.nodes import comments, library, refresh
 from dodaios.nodes.kinds import kind_of
 from dodaios.nodes.model import Node
 from dodaios.nodes.store import MAX_EVERY_MINUTES, MIN_EVERY_MINUTES, NodeStore
@@ -83,6 +85,16 @@ class RenameBody(BaseModel):
 
 class DuplicateBody(BaseModel):
     title: str | None = Field(default=None, max_length=400)
+
+
+class CommentBody(BaseModel):
+    text: str = Field(min_length=1, max_length=2_000)
+    quote: str = Field(default="", max_length=240)
+    where: str = Field(default="", max_length=300)
+
+
+class CommentsBody(BaseModel):
+    comments: list[CommentBody] = Field(min_length=1, max_length=comments.MAX_COMMENTS)
 
 
 class ResumeBody(BaseModel):
@@ -235,6 +247,25 @@ async def resume_node_upkeep(node_id: str, body: ResumeBody | None = None) -> di
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return await refresh.node_state(node)
+
+
+@router.post("/{node_id}/comments", status_code=202)
+async def send_node_comments(node_id: str, body: CommentsBody) -> dict[str, Any]:
+    """Hand the reader's comments to the assistant as one background request.
+
+    The run is quiet: the conversation shows nothing of it unless it fails or
+    a comment could not be carried out. The page is drawn again when the
+    assistant writes the revision.
+    """
+    await _require(node_id)
+    batch = [comments.NodeComment(c.text, c.quote, c.where) for c in body.comments]
+    try:
+        task_id = await comments.send_comments(get_store(), node_id, batch)
+    except NodeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"task_id": task_id, "count": len(batch)}
 
 
 @router.delete("/{node_id}")
