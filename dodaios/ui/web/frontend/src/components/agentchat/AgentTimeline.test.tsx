@@ -59,13 +59,26 @@ describe("the person's turn with files", () => {
       .toBe(SHOT.url);
   });
 
-  it("lists the picture as a download link in the Dodaios chat, without drawing it", () => {
+  it("draws the picture above the person's words, also in the Dodaios chat", () => {
+    // The person's request (2026-11-13): a picture they send is shown, not
+    // listed as a download, and it stands on top of the message. The
+    // Dodaios chat lists only the pictures in answers as files.
     draw([ev("user_message", { text: "## Task\nlook", typed: "look at this", attachments: [SHOT] })], "files");
     const turn = screen.getByTestId("agent-message-user");
-    expect(turn.textContent).toContain("look at this");
-    expect(turn.querySelector("img")).toBeNull();
-    expect(within(turn).getByTestId("chat-media").getAttribute("data-display")).toBe("files");
-    expect(within(turn).getByRole("link", { name: /shot\.png/ }).getAttribute("href")).toBe(SHOT.url);
+    const image = within(turn).getByRole("img", { name: "shot.png" });
+    expect(image.getAttribute("src")).toBe(SHOT.url);
+    expect(within(turn).queryByRole("link", { name: /shot\.png/ })).toBeNull();
+    const pictures = within(turn).getByTestId("agent-message-pictures");
+    const words = within(turn).getByText("look at this");
+    expect(pictures.compareDocumentPosition(words) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(pictures.contains(words)).toBe(false);
+  });
+
+  it("draws a picture sent without words and no empty bubble", () => {
+    draw([ev("user_message", { text: "", attachments: [SHOT] })], "files");
+    const turn = screen.getByTestId("agent-message-user");
+    expect(within(turn).getByRole("img", { name: "shot.png" })).toBeTruthy();
+    expect(turn.querySelector(".lead-bubble-own, .jarvis-user-bubble")).toBeNull();
   });
 
   it("keeps the chip for a file with nothing to draw", () => {

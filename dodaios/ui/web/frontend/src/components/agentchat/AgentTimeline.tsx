@@ -25,7 +25,7 @@ import { TypingBubble } from "./TypingBubble";
 import { PetMark } from "@/components/pets/PetMark";
 import { PetStageContext } from "@/components/pets/petStage";
 import type { PetState } from "@/lib/petStates";
-import { SIDE_THREAD_STARTED, waitsInBackground, type TimelineItem, type TurnItem, type TextBlock } from "./reduce";
+import { SIDE_THREAD_STARTED, waitsInBackground, type TimelineItem, type TurnItem, type TextBlock, type UserAttachment } from "./reduce";
 import { TraceMessageLine } from "./TraceTimeline";
 import { attachTurnMessages, type TraceMessage } from "./turnMessages";
 import { MessageReceipt, messageReceipts, stampLabel } from "./messageReceipt";
@@ -225,14 +225,32 @@ export function AgentTimeline({
       // The answer below speaks for itself, and a small-print copy of the
       // request in the chat was noise (maintainer, 2026-11-13).
       if (item.origin === "background") return null;
+      // The pictures the person sent stand ABOVE their words, drawn, not
+      // listed: they want to see what they sent, on top of the message
+      // (maintainer, 2026-11-13). This holds in the Dodaios chat too, which
+      // lists only the pictures in answers as files.
+      const pictures = item.attachments.filter(isDrawnPicture);
+      const others = item.attachments.filter((file) => !isDrawnPicture(file));
       return (
         // The message's row, and under it the line that says when it was read.
         <div key={item.id} className="flex min-w-0 flex-col gap-1">
         <div
-          className="flex justify-end"
+          className="flex min-w-0 flex-col items-end gap-1.5"
           data-testid="agent-message-user"
           data-message-id={item.id}
         >
+          {pictures.length > 0 && (
+            <PictureDisplayContext.Provider value="shown">
+              <div data-testid="agent-message-pictures" className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
+                {pictures.map((file) => (
+                  <span key={file.name} data-testid="agent-message-image" className="min-w-0 max-w-full">
+                    <MediaPreview src={file.url!} label={file.name} kind="image" bare thumb />
+                  </span>
+                ))}
+              </div>
+            </PictureDisplayContext.Provider>
+          )}
+          {(item.text || others.length > 0) && (
           <div
             className={cn(
               "text-[15px] leading-[23px]",
@@ -242,26 +260,17 @@ export function AgentTimeline({
             )}
           >
             <MessageWithChips text={item.text} choices={item.toolChoices ?? []} />
-            {item.attachments.length > 0 && (
+            {others.length > 0 && (
               <div
                 data-testid="agent-message-attachments"
                 className={cn("flex flex-wrap gap-row", item.text && "mt-2.5")}
               >
-                {item.attachments.map((file) =>
-                  // The picture itself, where there is one to fetch: a
-                  // screenshot dropped on a pane is a thing the person
-                  // wants to SEE in their turn, not a file name with an
-                  // icon (maintainer, 2026-08-27). A file with no url —
-                  // a document, or the front page's chat, whose drops
-                  // are read and not stored — keeps the chip. Where the
-                  // transcript lists its pictures as files, the preview is
-                  // the download link alone.
+                {others.map((file) =>
+                  // Video and audio play in the turn. A file with no url — a
+                  // document, or a drop that was read and not stored — keeps
+                  // the chip.
                   file.url && (mediaKind(file.url) === "video" || mediaKind(file.url) === "audio") ? (
                     <MediaPreview key={file.name} src={file.url} label={file.name} kind={mediaKind(file.url)!} />
-                  ) : (file.kind === "image" || (file.url && mediaKind(file.url) === "image")) && file.url ? (
-                    <span key={file.name} data-testid="agent-message-image" className="min-w-0 max-w-full">
-                      <MediaPreview src={file.url} label={file.name} kind="image" />
-                    </span>
                   ) : (
                   <span
                     key={file.name}
@@ -292,6 +301,7 @@ export function AgentTimeline({
               </div>
             )}
           </div>
+          )}
         </div>
           <MessageReceipt receipt={receipts?.get(item.id)} />
         </div>
@@ -462,6 +472,13 @@ function TurnPartMessages({ part }: { part: TurnPart }) {
 }
 
 const NO_MESSAGES = new Map<string, TraceMessage[]>();
+
+/** A picture the person sent that the turn draws: an image with a url to fetch it from. */
+function isDrawnPicture(file: UserAttachment): boolean {
+  if (!file.url) return false;
+  const kind = mediaKind(file.url);
+  return kind === "image" || (file.kind === "image" && kind !== "video" && kind !== "audio");
+}
 
 const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName, onDecide, bubbles = false, traceLook, traceCompanion = false, traceFace, latest = false, quietTyping = false, messages }: {
   turn: TurnItem; assistantName: string; providerLabel: string; modelName?: string; onDecide: Decide; bubbles?: boolean; traceLook: TraceLook; traceCompanion?: boolean; traceFace?: ReactNode;

@@ -10,7 +10,8 @@ export type MediaKind = "image" | "video" | "audio";
 
 /**
  * How a transcript draws its pictures: the picture itself, or only its name
- * and a download link. The Dodaios chat lists its pictures as files.
+ * and a download link. The Dodaios chat lists the pictures in answers as
+ * files; the pictures the person sent are drawn in every transcript.
  */
 export type PictureDisplay = "shown" | "files";
 
@@ -71,9 +72,10 @@ export function MediaViewerContent({ src, label, kind = "image" }: { src: string
  * Image, video, or audio that a chat message can show without the markdown parser.
  * `bare` draws only the picture itself (no margin, no download line): a
  * thread's screenshot under its line. In a transcript that lists its pictures
- * as files, an image is its download link alone.
+ * as files, an image is its download link alone. `thumb` draws the picture
+ * small, the way a sent picture stands above the person's message.
  */
-export function MediaPreview({ src, label, kind, bare = false }: { src: string; label: string; kind: MediaKind; bare?: boolean }) {
+export function MediaPreview({ src, label, kind, bare = false, thumb = false }: { src: string; label: string; kind: MediaKind; bare?: boolean; thumb?: boolean }) {
   const t = useT();
   const display = useContext(PictureDisplayContext);
   const [failedSource, setFailedSource] = useState<string | null>(null);
@@ -105,7 +107,7 @@ export function MediaPreview({ src, label, kind, bare = false }: { src: string; 
       aria-label={t("chat_media.expand").replace("{file}", label)}
       className="group relative block max-w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <img key={revision} src={safe!} alt={label} loading="lazy" decoding="async" onError={() => { setFailedSource(src); setExpanded(false); }}
-        className={cn("m-0 max-w-full rounded-lg object-contain", bare ? "max-h-[440px] border border-border/70" : "max-h-[520px]")} />
+        className={cn("m-0 max-w-full rounded-lg object-contain", thumb ? "max-h-[260px] max-w-[min(100%,360px)] border border-border/70" : bare ? "max-h-[440px] border border-border/70" : "max-h-[520px]")} />
       <Maximize2 aria-hidden className="absolute bottom-2 right-2 h-6 w-6 rounded bg-background/90 p-1 text-foreground opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
     </button></Dialog.Trigger> : kind === "video" ? <video ref={node => { playerRef.current = node; }} key={`${revision}:${safe}`} src={safe!} aria-label={label} controls playsInline preload="metadata"
       onError={() => { setFailedSource(src); setExpanded(false); }} className="max-h-[520px] w-full rounded-lg bg-muted" />
