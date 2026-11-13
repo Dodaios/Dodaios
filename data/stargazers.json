@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 368,
+  "count": 369,
   "forks": 132,
-  "placed": 75,
-  "stated": 91,
-  "generatedAt": "2026-11-13T15:50:46.823Z",
+  "placed": 76,
+  "stated": 92,
+  "generatedAt": "2026-11-13T17:47:41.511Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -291,6 +291,13 @@
       "lon": 63.628,
       "label": "Oostanay",
       "country": "Kazakhstan",
+      "count": 1
+    },
+    {
+      "lat": 28.512,
+      "lon": -81.382,
+      "label": "Orlando",
+      "country": "United States",
       "count": 1
     },
     {
