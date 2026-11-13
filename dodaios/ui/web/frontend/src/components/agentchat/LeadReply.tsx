@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { isChartFenceLine } from "@/lib/chartSpec";
 import { cn } from "@/lib/utils";
 import { ChatMarkdown } from "./ChatMarkdown";
+import { linkBareThreadCodes } from "./chatLinks";
 import "./leadConversation.css";
 
 /**
@@ -130,7 +131,8 @@ export function splitReply(markdown: string): ReplyPart[] {
  * loads still.
  */
 export function LeadReply({ text, live = false }: { text: string; live?: boolean }) {
-  const parts = useMemo(() => splitReply(text), [text]);
+  // A coding agent's code in the words ("#bddece") opens its thread.
+  const parts = useMemo(() => splitReply(linkBareThreadCodes(text)), [text]);
   if (!parts.length) return null;
   return (
     <div data-testid="agent-text" className="lead-bubbles" data-live={live ? "" : undefined}>

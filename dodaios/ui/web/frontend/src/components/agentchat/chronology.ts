@@ -1,3 +1,4 @@
+import { linkedThreadRefs, linksThread } from "./chatLinks";
 import { sideThreadMessages } from "./SideThread";
 import { sideThreadOf, waitsInBackground, type NoticeItem, type TextBlock, type TimelineItem, type TurnItem } from "./reduce";
 
@@ -83,6 +84,12 @@ function itemTime(item: TimelineItem): number {
 
 function said(block: TurnItem["blocks"][number]): block is TextBlock {
   return block.kind === "text" && block.text.trim() !== "";
+}
+
+function notLinkedIn(threads: TurnItem["codingThreads"], blocks: readonly TextBlock[]): TurnItem["codingThreads"] {
+  if (!threads?.length || !blocks.length) return threads;
+  const linked = blocks.flatMap((block) => linkedThreadRefs(block.text));
+  return threads.filter((thread) => !linksThread(linked, thread.threadId));
 }
 
 /** `items` in the order a messenger shows them. */
@@ -214,7 +221,12 @@ export function chronological(
         // The closing part keeps the turn's id, its steps and its cards, and
         // of its messages the ones that were not placed further up.
         const kept = new Set(texts.map((block) => block.id));
-        const item = whole ? turn : { ...turn, blocks: turn.blocks.filter((block) => !said(block) || kept.has(block.id)) };
+        const item = whole ? turn : {
+          ...turn,
+          blocks: turn.blocks.filter((block) => !said(block) || kept.has(block.id)),
+          // A coding agent a message further up already links to is not linked again here.
+          codingThreads: notLinkedIn(turn.codingThreads, turn.blocks.filter((block): block is TextBlock => said(block) && !kept.has(block.id))),
+        };
         rows.push({ kind: "item", id: turn.id, time, item });
       }
     }

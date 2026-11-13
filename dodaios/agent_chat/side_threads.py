@@ -16,8 +16,9 @@ chat: their message, then its answer, while the earlier answer goes on above.
   the instruction to answer only this message.
 * The conversation's timeline shows it through two notices:
   ``side_thread_started`` (the person's message) and ``side_thread_finished``
-  (how it ended, with the answer and every message it wrote, each on its
-  own). The second one is also what the lead's later turns read
+  (how it ended, with the answer, every message it wrote, each on its own,
+  and the cards it posted: a page or node it made, a coding agent it
+  started). The second one is also what the lead's later turns read
   (:func:`replay`), so the lead knows what was asked and answered beside it,
   on every seat.
 * Turns that start in the main thread while side threads still run are told
@@ -45,6 +46,7 @@ from typing import Any, Final
 log = logging.getLogger(__name__)
 
 __all__ = [
+    "CARD_KINDS",
     "FINISHED",
     "MAX_RUNNING",
     "STARTED",
@@ -71,6 +73,13 @@ MAX_RUNNING: Final[int] = 4
 #: How much of an answer the closing notice carries (the side thread keeps all of it).
 #: The same bound holds for its messages together.
 ANSWER_CHARS: Final[int] = 16_000
+#: Notices of a side thread that are part of its answer: the page or node it
+#: made (``report``) and the coding agent it started (``coding_thread``). The
+#: closing notice carries them, so the conversation shows them under the answer
+#: after the side thread has ended. Kinds as in ``components/agentchat/reduce.ts``.
+CARD_KINDS: Final[frozenset[str]] = frozenset({"report", "coding_thread"})
+#: How many cards the closing notice carries (the newest ones).
+MAX_CARDS: Final[int] = 12
 #: Bounds of the brief a side thread starts on.
 _SUMMARY_CHARS: Final[int] = 4_000
 _TRANSCRIPT_CHARS: Final[int] = 9_000
@@ -284,6 +293,19 @@ def _outcome(events: list[dict[str, Any]]) -> tuple[str, str, str, list[str], li
     return status, answer, error, said, times
 
 
+def _cards(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The cards a side thread posted (:data:`CARD_KINDS`), oldest first, with when each came."""
+    cards: list[dict[str, Any]] = []
+    for event in events:
+        payload = event.get("payload") or {}
+        if event.get("kind") != "notice" or payload.get("kind") not in CARD_KINDS:
+            continue
+        if payload.get("agent_id"):
+            continue  # a sub-agent's own conversation is not the answer
+        cards.append({**payload, "ts_ms": int(event.get("ts_ms") or 0)})
+    return cards[-MAX_CARDS:]
+
+
 def _bounded(messages: list[str], limit: int = ANSWER_CHARS) -> tuple[list[str], bool]:
     """The messages a notice carries, and whether some of their text was left out.
 
@@ -329,6 +351,9 @@ async def _close(svc: Any, side_id: str, status: str = "") -> bool:
             payload["truncated"] = cut or len(answer) > ANSWER_CHARS
         if error and final == "failed":
             payload["error"] = error[:600]
+        cards = _cards(events)
+        if cards:
+            payload["cards"] = cards
     if entry is not None:
         payload["duration_ms"] = int((time.monotonic() - entry.started) * 1000)
     await svc.post_notice(row["parent_session"], payload)

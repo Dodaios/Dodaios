@@ -22,6 +22,7 @@ import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { effortLabel } from "./AgentComposer";
 import { livePetState, TurnTrace, type Decide, type TraceLook } from "./WorkTrace";
 import { LeadReply, OWN_BUBBLE, REPLY_PROSE } from "./LeadReply";
+import { AnswerCodingAgents } from "./AnswerCodingAgents";
 import { TypingBubble } from "./TypingBubble";
 import { PetMark } from "@/components/pets/PetMark";
 import { PetStageContext } from "@/components/pets/petStage";
@@ -510,6 +511,7 @@ const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName,
         <TurnTrace turn={turn} look={traceLook} messenger quietTyping={quietTyping} extras={extras} onDecide={onDecide}
           renderText={(text, id) => <Prose block={{ kind: "text", text, id }} />}
           renderAnswer={(text, _id, live) => <LeadReply text={text} live={live} />} />
+        <AnswerCodingAgents threads={turn.codingThreads} texts={turnTexts(turn)} />
       </div>
     </div>;
   }
@@ -523,8 +525,14 @@ const Turn = memo(function Turn({ turn, assistantName, providerLabel, modelName,
       </div>
     )}
     <TurnTrace turn={turn} look={traceLook} companion={traceCompanion} face={traceFace} extras={extras} onDecide={onDecide} renderText={(text, id) => <Prose block={{ kind: "text", text, id }} />} />
+    <AnswerCodingAgents threads={turn.codingThreads} texts={turnTexts(turn)} />
   </div>;
 });
+
+/** What a turn wrote, for the links its words already carry. */
+function turnTexts(turn: TurnItem): string[] {
+  return turn.blocks.flatMap((block) => block.kind === "text" ? [block.text] : []);
+}
 
 function Prose({ block }: { block: TextBlock }) {
   if (!block.text.trim()) return null;

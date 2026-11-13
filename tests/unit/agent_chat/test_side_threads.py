@@ -325,6 +325,58 @@ async def test_each_message_of_a_side_thread_stays_a_message_of_its_own(chat, tm
     assert looking not in side_threads.replay(finished)
 
 
+async def test_what_a_side_thread_made_or_started_stands_on_its_closing_notice(chat, tmp_path):
+    """A node it made and a coding agent it started are shown under its answer in the chat."""
+    side = chat.store.create_session(
+        provider="openai", model="", effort="", surface="jarvis", cwd=str(tmp_path)
+    ).session_id
+    chat.store.save_side_thread(side, chat.sid, _SECOND)
+    page = {
+        "kind": "report", "text": "Trip Munich - Dubai", "summary": "",
+        "artifact": "run1::tasks/node/artifacts/files/trip.html", "sections": 0,
+    }
+    agent = {
+        "kind": "coding_thread", "thread_id": "a81a561c", "title": "Fix it", "agent": "Claude Code",
+    }
+    for second, (kind, payload) in enumerate((
+        ("user_message", {"text": _SECOND}),
+        ("turn_started", {"turn_id": "t1"}),
+        ("notice", page),
+        ("notice", agent),
+        # A notice that is not part of the answer, and a helper's own card, stay out.
+        ("notice", {"kind": "memory_learned", "text": "learned"}),
+        ("notice", {**page, "agent_id": "a1"}),
+        ("assistant_text", {"turn_id": "t1", "message_id": "m1", "text": "Your note is in Nodes."}),
+        ("turn_finished", {"turn_id": "t1", "status": "done"}),
+    )):
+        event = make_event(kind, payload)
+        event["ts_ms"] = 2_000_000 + second * 1000
+        chat.store.append_event(side, event)
+
+    assert await side_threads.recover(chat.svc) == 1
+
+    finished = chat.notices(side_threads.FINISHED)[0]
+    assert finished["cards"] == [
+        {**page, "ts_ms": 2_002_000},
+        {**agent, "ts_ms": 2_003_000},
+    ]
+
+
+def test_a_side_thread_that_made_nothing_carries_no_cards():
+    assert side_threads._cards([
+        {"kind": "assistant_text", "payload": {"text": "hi"}},
+        {"kind": "notice", "payload": {"kind": "side_thread_started"}},
+    ]) == []
+    many = [
+        {"kind": "notice", "ts_ms": n, "payload": {"kind": "report", "text": str(n)}}
+        for n in range(20)
+    ]
+    kept = side_threads._cards(many)
+    # The newest ones are kept.
+    newest = range(20 - side_threads.MAX_CARDS, 20)
+    assert [card["text"] for card in kept] == [str(n) for n in newest]
+
+
 def test_the_messages_of_a_notice_are_bounded_from_the_newest():
     messages, cut = side_threads._bounded(["a" * 30, "b" * 30, "c" * 30], limit=50)
     # The result at the end is whole; the one the bound falls in keeps its start.

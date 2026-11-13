@@ -9,7 +9,9 @@ import { LeadReply, OWN_BUBBLE } from "./LeadReply";
 import { MessageReceipt } from "./messageReceipt";
 import { TypingBubble } from "./TypingBubble";
 import type { Decide } from "./WorkTrace";
-import type { NoticeItem, TimelineItem } from "./reduce";
+import { codingThreadRef, type CodingThreadRef, type NoticeItem, type TimelineItem } from "./reduce";
+import { AnswerCodingAgents } from "./AnswerCodingAgents";
+import { PAGE_NOTICE_KIND, PageCard, pageCardData } from "./PageCard";
 import type { SidePart } from "./chronology";
 
 /**
@@ -117,8 +119,12 @@ function SideThreadAnswerPart({ item, part, store, renderTimeline, typing, rowId
     );
   } else {
     const messages = "live" in part ? part.texts.map((block) => block.text) : part.messages;
+    // What it made or started stands under its last message.
+    const cards = part.closing && !("live" in part) ? sideThreadCards(item) : NO_CARDS;
     // Sent and not yet answering: the dots stand in until its first message.
-    body = messages.length ? <StaticReply messages={messages} /> : part.closing && running && typing ? <Typing /> : null;
+    body = messages.length || hasCards(cards)
+      ? <StaticReply messages={messages} cards={cards} said={sideThreadMessages(item.data)} />
+      : part.closing && running && typing ? <Typing /> : null;
   }
   return (
     <div className="flex min-w-0 flex-col gap-2 empty:hidden" data-testid="side-thread-reply"
@@ -143,14 +149,16 @@ function WholeSideThreadAnswer({ item, renderTimeline, typing }: {
   // ends: the answer does not jump from a live turn to a plain reply.
   const [watched] = useState(running && sideId !== "");
   const messages = useMemo(() => sideThreadMessages(item.data), [item.data]);
+  const cards = useMemo(() => sideThreadCards(item), [item]);
   // How one that was not answered ended; undefined while it runs and when it was.
   const ended: string | undefined = ENDED[item.resolved];
   // Sent and not yet answering: the dots stand in until its first message.
   const waiting = running && typing ? <Typing /> : null;
+  const reply = messages.length || hasCards(cards) ? <StaticReply messages={messages} cards={cards} said={messages} /> : null;
   const body = watched ? (
     <SideThreadLive sideId={sideId} running={running} typing={typing} renderTimeline={renderTimeline}
-      fallback={messages.length ? <StaticReply messages={messages} /> : waiting} />
-  ) : messages.length ? <StaticReply messages={messages} /> : waiting;
+      fallback={reply ?? waiting} />
+  ) : reply ?? waiting;
   return (
     <div className="flex min-w-0 flex-col gap-2 empty:hidden" data-testid="side-thread-reply"
       data-message-id={`${item.id}~answer`} data-status={running ? "running" : item.resolved}>
@@ -191,12 +199,55 @@ export function sideThreadMessages(data: Record<string, unknown>): string[] {
   return answer.trim() ? [answer] : [];
 }
 
+/** What a side thread made or started, as its closing notice carries it (`cards`). */
+export interface SideThreadCards {
+  /** Pages and nodes it made, as the notices the chat draws as `PageCard`. */
+  pages: NoticeItem[];
+  /** Coding agents it started. */
+  threads: CodingThreadRef[];
+}
+
+const NO_CARDS: SideThreadCards = { pages: [], threads: [] };
+
+function hasCards(cards: SideThreadCards): boolean {
+  return cards.pages.length > 0 || cards.threads.length > 0;
+}
+
+/**
+ * The cards a finished side thread posted in its own session: a page or node
+ * it made, a coding agent it started. They are part of its answer, so the
+ * conversation shows them under it once the side thread has ended.
+ */
+export function sideThreadCards(item: NoticeItem): SideThreadCards {
+  const raw = Array.isArray(item.data.cards) ? item.data.cards : [];
+  const pages: NoticeItem[] = [];
+  const threads: CodingThreadRef[] = [];
+  raw.forEach((entry, index) => {
+    if (!entry || typeof entry !== "object") return;
+    const card = entry as Record<string, unknown>;
+    if (card.kind === "coding_thread") {
+      const ref = codingThreadRef(card);
+      if (ref && !threads.some((known) => known.threadId === ref.threadId)) threads.push(ref);
+      return;
+    }
+    if (card.kind !== PAGE_NOTICE_KIND) return;
+    const page: NoticeItem = {
+      type: "notice", id: `${item.id}~card${index}`, kind: PAGE_NOTICE_KIND, text: String(card.text ?? ""),
+      agentName: "", agentId: "", status: "", tsMs: Number(card.ts_ms) || item.tsMs, data: card, resolved: "",
+    };
+    if (pageCardData(page)) pages.push(page);
+  });
+  return pages.length || threads.length ? { pages, threads } : NO_CARDS;
+}
+
 /**
  * The finished side thread's messages, in the lane every reply of the
  * conversation is written in: one bubble per message, as they stood while
- * it ran.
+ * it ran, and under them what it made or started. `said` is everything the
+ * side thread wrote: a coding agent one of its messages links to is not
+ * linked twice.
  */
-function StaticReply({ messages }: { messages: string[] }) {
+function StaticReply({ messages, cards = NO_CARDS, said = messages }: { messages: string[]; cards?: SideThreadCards; said?: string[] }) {
   return (
     <div className="lead-turn" data-testid="side-thread-answer" data-look="lead">
       <div className="lead-face-lane" aria-hidden />
@@ -206,6 +257,12 @@ function StaticReply({ messages }: { messages: string[] }) {
             <div key={index} className="min-w-0" data-trace-reply><LeadReply text={text} live={false} /></div>
           ))}
         </div>
+        {cards.pages.length > 0 && (
+          <div className="my-2 flex min-w-0 flex-col gap-2" data-testid="side-thread-pages">
+            {cards.pages.map((page) => <PageCard key={page.id} item={page} mode={cards.pages.length > 1 ? "link" : "preview"} />)}
+          </div>
+        )}
+        <AnswerCodingAgents threads={cards.threads} texts={said} />
       </div>
     </div>
   );
