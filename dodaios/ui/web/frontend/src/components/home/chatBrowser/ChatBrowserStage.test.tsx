@@ -2,11 +2,13 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { ChatWithBrowser } from "./ChatBrowserStage";
 import { requestAgentBrowserStage } from "./openEvent";
+import { setAgentBrowserSlot, useAgentBrowserStaged } from "./slot";
 
 vi.mock("@/i18n", () => ({
   fill: (template: string, vars: Record<string, string>) =>
     template.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? ""),
   useT: () => (key: string) => ({
+    "sidebar.conversation": "Dodaios",
     "agent_browser.driving": "{name} has control",
     "agent_browser.you_drive": "You have control",
     "agent_browser.take_over": "Take over",
@@ -16,9 +18,6 @@ vi.mock("@/i18n", () => ({
     "agent_browser.connecting": "Connecting…",
     "agent_browser.private_hint": "Not recorded, not shown to {name}.",
   } as Record<string, string>)[key] ?? key,
-}));
-vi.mock("@/store/events", () => ({
-  useEventStore: (pick: (s: { assistantName: string }) => unknown) => pick({ assistantName: "Dodaios" }),
 }));
 const { control, view, browser, state } = vi.hoisted(() => ({
   control: vi.fn(),
@@ -48,6 +47,7 @@ function mount() {
 
 afterEach(() => {
   cleanup();
+  act(() => setAgentBrowserSlot(null));
   control.mockClear();
   view.mockClear();
   browser.open = true; browser.running = true; browser.mode = "own";
@@ -122,5 +122,29 @@ describe("the chat's browser stage", () => {
     expect(taken).toBe(true);
     expect(screen.getByTestId("chat-browser").dataset.layout).toBe("stage");
     expect(requestAgentBrowserStage("scout")).toBe(false);
+  });
+
+  test("with the assistant's panel open the tile stands among its computers, not over the chat", () => {
+    const slot = document.createElement("div");
+    document.body.appendChild(slot);
+    act(() => setAgentBrowserSlot(slot));
+    const { container } = mount();
+    const tile = screen.getByTestId("chat-browser");
+    expect(tile.dataset.docked).toBe("true");
+    expect(slot.contains(tile)).toBe(true);
+    expect(container.contains(tile)).toBe(false);
+    // Opened large, the stage comes back beside the chat and takes the panel's place.
+    let staged = false;
+    function Probe() { staged = useAgentBrowserStaged(); return null; }
+    render(<Probe />);
+    expect(staged).toBe(false);
+    fireEvent.click(screen.getByTestId("chat-browser-open-stage"));
+    const stage = screen.getByTestId("chat-browser");
+    expect(stage.dataset.layout).toBe("stage");
+    expect(container.contains(stage)).toBe(true);
+    expect(staged).toBe(true);
+    fireEvent.click(screen.getByTestId("chat-browser-resize"));
+    expect(staged).toBe(false);
+    slot.remove();
   });
 });

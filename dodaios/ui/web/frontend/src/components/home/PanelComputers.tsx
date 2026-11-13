@@ -6,6 +6,7 @@ import { useComputers, useThisComputer } from "@/hooks/useComputers";
 import { fill, useLocaleChunk, useT } from "@/i18n";
 import { useEventStore } from "@/store/events";
 import { isLaptopName, MachineIcon } from "@/views/computers/machineKind";
+import { setAgentBrowserSlot } from "@/components/home/chatBrowser/slot";
 
 /** How many computers show before the rest folds away. */
 export const COMPUTERS_SHOWN = 2;
@@ -21,8 +22,8 @@ interface Row {
 }
 
 /**
- * The computers the assistant can work on: this one, and every connected
- * one that is switched on. The computer its conversation runs on leads and
+ * The computers the assistant can work on: its live browser while it uses
+ * one, this computer, and every connected one that is switched on. The computer its conversation runs on leads and
  * wears a green dot; this computer follows. Two show, the rest unfolds.
  * Every row opens the Computers page.
  *
@@ -64,6 +65,8 @@ export function PanelComputers({ leadComputerId, name }: { leadComputerId: strin
 
   return (
     <PanelSection id="computers" title={t("sidebar.computers")}>
+      {/* The assistant's live browser lands here while it works (components/home/chatBrowser). */}
+      <div ref={setAgentBrowserSlot} data-testid="assistant-browser-slot" className="empty:hidden" />
       {shown.map((row) => (
         <button key={row.id} type="button" data-testid={`assistant-computer-${row.id || "this"}`} data-home={row.home}
           onClick={() => setActive("computers")} title={row.home ? `${row.name} · ${homeHint}` : row.name}

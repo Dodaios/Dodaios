@@ -62,8 +62,10 @@ network.
   is read-only until the owner takes control. The status light lists a running
   browser task as a running row and opens that agent's panel.
 - **In the chat.** While the assistant's own chat runs a browser task, a live
-  tile sits in the chat's top corner (`components/home/chatBrowser`). A click on
-  it opens the stage: the chat moves left, the browser fills the right. While
+  tile shows it (`components/home/chatBrowser`): in the assistant's panel at
+  the top of its Computers, or in the chat's top corner when that panel is not
+  shown. A click on it opens the stage: the chat moves left, the browser takes
+  the rest of the page (the panel steps aside until the stage is made small). While
   the assistant drives, a slow light runs around the frame and the arrow carries
   its name; the control at the foot reads "Dodaios has control · Take over",
   and after taking over "You have control · Hand back". Clicking the tile never

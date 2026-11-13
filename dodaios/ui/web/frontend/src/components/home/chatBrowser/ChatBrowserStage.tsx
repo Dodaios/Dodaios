@@ -2,8 +2,9 @@
  * The assistant's browser, beside the chat it works for.
  *
  * While the assistant runs a browser task (`society_browser`), a live tile
- * sits in the top corner of the chat: the real page, the assistant's arrow
- * gliding to what it clicks. A click on the tile turns it into the stage: the
+ * shows the real page and the assistant's arrow gliding to what it clicks:
+ * in the assistant's panel beside its computers when that panel is open
+ * (`slot.ts`), else in the top corner of the chat. A click on the tile turns it into the stage: the
  * chat moves to the left and the browser fills the right, framed by a moving
  * light while the assistant drives, with one control at its foot: take over,
  * then hand back. Tile and stage are one element and one live connection, so
@@ -15,14 +16,15 @@
  * page only after the person took control (`useBrowserView` claims it).
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, Globe, Maximize2, Minimize2, X } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { useEventStore } from "@/store/events";
 import { useAgentBrowserOpen } from "@/components/society/cardData";
 import { useBrowserView, type BrowserViewState } from "@/components/society/card/useBrowserView";
 import { BrowserCanvas } from "@/components/society/card/BrowserCanvas";
 import { OPEN_AGENT_BROWSER_EVENT } from "./openEvent";
+import { setAgentBrowserStaged, useAgentBrowserSlot } from "./slot";
 import "./chatBrowser.css";
 
 /** The lead agent: the assistant's own chat browses with its profile. */
@@ -95,6 +97,10 @@ export function ChatWithBrowser({ children, agentId = ASSISTANT_BROWSER_AGENT }:
     return () => window.removeEventListener(OPEN_AGENT_BROWSER_EVENT, onOpen);
   }, [agentId, open]);
   const staged = live && layout === "stage";
+  useEffect(() => {
+    setAgentBrowserStaged(staged);
+    return () => setAgentBrowserStaged(false);
+  }, [staged]);
   return (
     <div className="relative flex min-h-0 flex-1 flex-row" data-testid="chat-with-browser">
       <div className={cn("relative flex min-h-0 flex-col",
@@ -122,7 +128,9 @@ interface SurfaceProps {
 
 function BrowserSurface({ view, layout, onLayout, onHide }: SurfaceProps) {
   const t = useT();
-  const name = useEventStore((s) => s.assistantName) || "Dodaios";
+  // The assistant as its panel and the sidebar call it.
+  const name = t("sidebar.conversation");
+  const slot = useAgentBrowserSlot();
   const { canvas, state, control, approve } = view;
   const driver = driverOf(state);
   const needsYou = Boolean(state.takeoverRequest) && !state.manual;
@@ -156,15 +164,19 @@ function BrowserSurface({ view, layout, onLayout, onHide }: SurfaceProps) {
     control("navigate", { url });
   };
 
-  return (
+  const docked = !staged && slot !== null;
+  const surface = (
     <section
       data-testid="chat-browser"
       data-layout={layout}
+      data-docked={docked ? "true" : undefined}
       data-driver={driver}
       aria-label={fill(t("agent_browser.title"), { name })}
       className={cn(
         staged
           ? "agent-browser-stage relative flex min-h-0 min-w-0 flex-1 flex-col border-l border-border bg-[radial-gradient(120%_90%_at_50%_0%,hsl(var(--secondary))_0%,hsl(var(--background))_70%)] px-6 pb-6 pt-4"
+          : docked
+          ? "agent-browser-tile mb-2 w-full"
           : "agent-browser-tile absolute right-4 top-4 z-30 w-[300px] max-w-[45%]",
       )}
     >
@@ -292,4 +304,5 @@ function BrowserSurface({ view, layout, onLayout, onHide }: SurfaceProps) {
       </div>
     </section>
   );
+  return docked && slot ? createPortal(surface, slot) : surface;
 }
