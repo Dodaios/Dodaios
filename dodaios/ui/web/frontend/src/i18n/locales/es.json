@@ -8345,6 +8345,10 @@
       "open_external": "Abrir en tu navegador",
       "empty_title": "Escribe una dirección arriba",
       "empty_hint": "Pensado para vistas previas locales, como un servidor de desarrollo. Muchos sitios públicos no permiten mostrarse dentro de otra app; ábrelos en tu navegador.",
+      "refused_title": "{host} no se puede mostrar aquí",
+      "refused_hint": "Este sitio no permite mostrarse dentro de otra aplicación. Ábrelo en tu navegador, donde tienes la sesión iniciada.",
+      "unreachable_title": "{host} no responde",
+      "unreachable_hint": "Comprueba la dirección o si el servidor está en marcha.",
       "native": {
         "opening": "Abriendo {browser}…",
         "opening_hint": "Aquí se abre tu propio navegador, con la sesión del perfil que elegiste.",

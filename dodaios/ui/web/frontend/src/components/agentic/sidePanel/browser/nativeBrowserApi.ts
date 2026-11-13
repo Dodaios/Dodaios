@@ -7,6 +7,7 @@
  * panel's rectangle; see `dodaios/ui/browser_embed.py`.
  */
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
 import { windowIdentity } from "@/lib/sectionWindows";
 import { useEventStore } from "@/store/events";
@@ -104,6 +105,46 @@ export function openNativeBrowserTab(url: string) {
 
 export function releaseNativeBrowser(close: boolean) {
   return call("release", { close });
+}
+
+export interface FrameCheck {
+  ok: boolean;
+  frameable: boolean;
+  /** `refused`: the site forbids frames; `unreachable`: no answer came. */
+  reason: "" | "refused" | "unreachable" | "bad_url";
+}
+
+async function checkFrame(url: string): Promise<FrameCheck> {
+  try {
+    const response = await fetch("/api/ide-browser/frame-check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    if (!response.ok) return { ok: false, frameable: true, reason: "" };
+    return (await response.json()) as FrameCheck;
+  } catch {
+    return { ok: false, frameable: true, reason: "" };
+  }
+}
+
+/**
+ * May the built-in page view show `url`? `generation` asks again on reload.
+ * `pending` while the answer is out; never pending when disabled.
+ */
+export function useFrameCheck(url: string, generation: number, enabled: boolean) {
+  const key = `${url}#${generation}`;
+  const [answer, setAnswer] = useState<{ key: string; data: FrameCheck } | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    let live = true;
+    void checkFrame(url).then((data) => {
+      if (live) setAnswer({ key, data });
+    });
+    return () => { live = false; };
+  }, [enabled, key, url]);
+  const data = answer?.key === key ? answer.data : undefined;
+  return { data, isPending: enabled && data === undefined };
 }
 
 const CHOICE_KEY = "jarvis.agenticIde.browserProfile.v1";

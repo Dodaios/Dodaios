@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { AppWindow, ExternalLink, Globe, RotateCw } from "lucide-react";
-import { useT } from "@/i18n";
+import { AppWindow, ExternalLink, Globe, Loader2, RotateCw } from "lucide-react";
+import { fill, useT } from "@/i18n";
 import { hasEmbeddedDesktopBridge } from "@/lib/embeddedDesktop";
 import { openExternalUrl } from "@/lib/openExternal";
-import { normalizeBrowserAddress } from "./browserAddress";
+import { isLocalBrowserAddress, normalizeBrowserAddress } from "./browserAddress";
 import { persistBuiltin, storedBuiltin, useIdeBrowserLinkStore } from "./ideBrowserLinks";
 import { NativeBrowserPanel } from "./NativeBrowserPanel";
-import { useNativeBrowserStatus } from "./nativeBrowserApi";
+import { useFrameCheck, useNativeBrowserStatus } from "./nativeBrowserApi";
 
 const URL_KEY = "jarvis.agenticIde.browserUrl.v1";
 function storedUrl(): string {
@@ -66,9 +66,13 @@ function DesktopBrowserTab() {
  * The built-in page view: an address bar over an embedded page.
  *
  * Built for local previews (a dev server on localhost) and plain pages. Many
- * public sites forbid being shown inside another app; for those the "open in
- * your browser" button hands the address to the system browser. The frame may
- * not navigate the app itself (no `allow-top-navigation`).
+ * public sites forbid being shown inside another app, and the frame would
+ * then stay an empty white page. So a public address is checked first (the
+ * backend asks the site for its headers): one that refuses, or does not
+ * answer, gets a note and the "open in your browser" button instead. Local
+ * addresses load at once: dev servers allow it, and only this page's machine
+ * can reach them. The frame may not navigate the app itself (no
+ * `allow-top-navigation`).
  */
 function FrameBrowser({ onUseNative }: { onUseNative?: () => void }) {
   const t = useT();
@@ -86,6 +90,18 @@ function FrameBrowser({ onUseNative }: { onUseNative?: () => void }) {
     take(pending.id);
     void openExternalUrl(pending.url);
   }, [pending, take]);
+
+  const local = !!url && isLocalBrowserAddress(url);
+  const check = useFrameCheck(url, generation, !!url && !local);
+  // A failed check shows the frame, as before there was one.
+  const blocked = !local && check.data?.ok ? check.data : null;
+  const showFrame = !!url && (local || (!check.isPending && !(blocked && !blocked.frameable)));
+  let host = url;
+  try {
+    host = new URL(url).host;
+  } catch {
+    /* the raw address then */
+  }
 
   const go = (event: FormEvent) => {
     event.preventDefault();
@@ -131,7 +147,7 @@ function FrameBrowser({ onUseNative }: { onUseNative?: () => void }) {
           <ExternalLink className="h-3.5 w-3.5" aria-hidden />
         </button>
       </form>
-      {url ? (
+      {showFrame ? (
         // White in both themes on purpose: it is the page's own canvas, as in
         // any browser. A page without a background would otherwise draw its
         // default black text straight onto the dark theme.
@@ -144,6 +160,36 @@ function FrameBrowser({ onUseNative }: { onUseNative?: () => void }) {
           referrerPolicy="no-referrer"
           className="min-h-0 w-full flex-1 border-0 bg-white"
         />
+      ) : url && check.isPending ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center" data-testid="ide-browser-checking">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+        </div>
+      ) : url && blocked ? (
+        <div data-testid="ide-browser-blocked" data-reason={blocked.reason}
+          className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+          <Globe className="h-5 w-5 text-muted-foreground" aria-hidden />
+          <p className="text-sm text-foreground">
+            {fill(t(blocked.reason === "refused"
+              ? "ide_side_panel.browser.refused_title"
+              : "ide_side_panel.browser.unreachable_title"), { host })}
+          </p>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            {t(blocked.reason === "refused"
+              ? "ide_side_panel.browser.refused_hint"
+              : "ide_side_panel.browser.unreachable_hint")}
+          </p>
+          {blocked.reason === "refused" ? (
+            <button type="button" onClick={() => void openExternalUrl(url)} data-testid="ide-browser-blocked-open"
+              className="mt-1 rounded-md border border-border px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              {t("ide_side_panel.browser.open_external")}
+            </button>
+          ) : (
+            <button type="button" onClick={() => setGeneration((value) => value + 1)}
+              className="mt-1 rounded-md border border-border px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              {t("ide_side_panel.browser.reload")}
+            </button>
+          )}
+        </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
           <Globe className="h-5 w-5 text-muted-foreground" aria-hidden />

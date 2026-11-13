@@ -8345,6 +8345,10 @@
       "open_external": "Im Browser öffnen",
       "empty_title": "Gib oben eine Adresse ein",
       "empty_hint": "Gedacht für lokale Vorschauen wie einen Dev-Server. Viele öffentliche Seiten erlauben keine Anzeige in einer anderen App; öffne sie in deinem Browser.",
+      "refused_title": "{host} lässt sich hier nicht anzeigen",
+      "refused_hint": "Diese Seite erlaubt keine Anzeige in einer anderen App. Öffne sie in deinem Browser, dort bist du angemeldet.",
+      "unreachable_title": "{host} antwortet nicht",
+      "unreachable_hint": "Prüfe die Adresse oder ob der Server läuft.",
       "native": {
         "opening": "{browser} wird geöffnet…",
         "opening_hint": "Hier öffnet sich dein eigener Browser, angemeldet mit dem gewählten Profil.",

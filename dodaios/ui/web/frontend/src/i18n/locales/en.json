@@ -8345,6 +8345,10 @@
       "open_external": "Open in your browser",
       "empty_title": "Enter an address above",
       "empty_hint": "Made for local previews such as a dev server. Many public sites do not allow being shown inside another app; open those in your browser.",
+      "refused_title": "{host} cannot be shown here",
+      "refused_hint": "This site does not allow being shown inside another app. Open it in your browser, where you are signed in.",
+      "unreachable_title": "{host} did not answer",
+      "unreachable_hint": "Check the address, or whether the server is running.",
       "native": {
         "opening": "Opening {browser}…",
         "opening_hint": "Your own browser opens here, signed in with the profile you picked.",

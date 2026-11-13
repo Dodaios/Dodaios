@@ -202,6 +202,48 @@ describe("IdeSidePanel", () => {
     expect(localStorage.getItem("jarvis.agenticIde.browserUrl.v1")).toBe("http://localhost:8080/");
   });
 
+  it("says a public site refuses the frame instead of showing a white page", async () => {
+    const calls: { path: string; body: unknown }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {
+      calls.push({ path, body: init?.body ? JSON.parse(String(init.body)) : null });
+      const answer = path === "/api/ide-browser/frame-check"
+        ? { ok: true, frameable: false, reason: "refused" }
+        : { opened: true };
+      return new Response(JSON.stringify(answer), { status: 200 });
+    }));
+    localStorage.setItem("jarvis.agenticIde.browserUrl.v1", "https://github.com/");
+    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["browser"], active: "browser" }));
+    render(<Harness />);
+    expect(screen.queryByTestId("ide-browser-frame")).toBeNull();
+    const blocked = await screen.findByTestId("ide-browser-blocked");
+    expect(blocked.getAttribute("data-reason")).toBe("refused");
+    expect(blocked.textContent).toContain("github.com cannot be shown here");
+    fireEvent.click(screen.getByTestId("ide-browser-blocked-open"));
+    await act(async () => {});
+    expect(calls).toContainEqual({ path: "/api/settings/open-external", body: { url: "https://github.com/" } });
+  });
+
+  it("shows a public page that allows the frame", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true, frameable: true, reason: "" }), { status: 200 })));
+    localStorage.setItem("jarvis.agenticIde.browserUrl.v1", "https://example.com/");
+    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["browser"], active: "browser" }));
+    render(<Harness />);
+    expect(screen.getByTestId("ide-browser-checking")).toBeTruthy();
+    expect((await screen.findByTestId("ide-browser-frame")).getAttribute("src")).toBe("https://example.com/");
+  });
+
+  it("says an address without an answer does not answer", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true, frameable: false, reason: "unreachable" }), { status: 200 })));
+    localStorage.setItem("jarvis.agenticIde.browserUrl.v1", "https://github/");
+    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["browser"], active: "browser" }));
+    render(<Harness />);
+    const blocked = await screen.findByTestId("ide-browser-blocked");
+    expect(blocked.getAttribute("data-reason")).toBe("unreachable");
+    expect(blocked.textContent).toContain("github did not answer");
+  });
+
   it("keeps + usable with every tab listed, open ones ticked, and focuses an open one", () => {
     act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["agents", "changes", "files"], active: "agents" }));
     render(<Harness />);

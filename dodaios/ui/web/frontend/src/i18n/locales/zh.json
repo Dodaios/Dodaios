@@ -8345,6 +8345,10 @@
       "open_external": "在浏览器中打开",
       "empty_title": "在上方输入地址",
       "empty_hint": "适用于本地预览，例如开发服务器。许多公共网站不允许在其他应用中显示；请在浏览器中打开它们。",
+      "refused_title": "无法在此显示 {host}",
+      "refused_hint": "此网站不允许在其他应用中显示。请在你的浏览器中打开，你在那里已登录。",
+      "unreachable_title": "{host} 没有响应",
+      "unreachable_hint": "请检查地址，或确认服务器正在运行。",
       "native": {
         "opening": "正在打开 {browser}…",
         "opening_hint": "你自己的浏览器会在这里打开，并使用你选择的配置文件登录。",
