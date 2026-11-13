@@ -10598,6 +10598,8 @@
     "connect_another": "Ligar outra pasta",
     "new_activity": "Nova atividade",
     "in_worktree": "Trabalha no worktree {name}",
+    "started_by_lead": "Iniciado por {name}",
+    "started_by_agent": "Iniciado por um agente do Dodaios",
     "pr_state_open": "Aberto",
     "pr_state_draft": "Rascunho",
     "pr_state_queued": "Na fila de merge",

@@ -15,6 +15,7 @@ import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "./ThreadPopo
 import { SubagentFoldToggle, ThreadTreeSubagents } from "./ThreadTreeSubagents";
 import { ThreadPullRequests } from "./ThreadPullRequests";
 import { ThreadSearch } from "./ThreadSearch";
+import { StartedByBadge } from "./StartedByBadge";
 import { copyThreadCode, shownThreadCode } from "./threadCode";
 import { LiveVoiceIcon, NewThreadIcon, SearchThreadsIcon, TeamThreadIcon } from "./ThreadStartIcons";
 import { THREAD_DRAG_MIME, THREAD_PROJECT_DRAG_MIME, projectIdFor, setDraggedThread, shortAge, threadDayBreak, threadOrderMs, threadStatus, threadTitle, threadWorktree, threadsByProject, useThreadChatStore, type ThreadStatus } from "./threadModel";
@@ -403,11 +404,13 @@ export function ThreadTree() {
                 ROW, "flex-1 py-1", FOCUS_RING,
                 selected ? "text-foreground-strong" : "text-foreground-secondary group-hover/thread:text-foreground",
               )}>
-              {/* The coding agent's own logo leads the row, where a plain list keeps a bullet. */}
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+              {/* The coding agent's own logo leads the row, where a plain list keeps a bullet;
+                  a thread Dodaios opened carries its mark on the logo's lower right. */}
+              <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
                 {mark
                   ? <AgentMark agent={mark.agent} label={mark.label} variant="plain" size="sm" />
                   : <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />}
+                {session.started_by && <StartedByBadge startedBy={session.started_by} testId={`thread-started-by-${session.session_id}`} />}
               </span>
               {/* The full name shows over the name only: on the whole row it came
                   up over the pull request card as well. */}

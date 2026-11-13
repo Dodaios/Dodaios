@@ -10598,6 +10598,8 @@
     "connect_another": "Conectar otra carpeta",
     "new_activity": "Actividad nueva",
     "in_worktree": "Trabaja en el worktree {name}",
+    "started_by_lead": "Iniciado por {name}",
+    "started_by_agent": "Iniciado por un agente de Dodaios",
     "pr_state_open": "Abierto",
     "pr_state_draft": "Borrador",
     "pr_state_queued": "En la cola de fusión",

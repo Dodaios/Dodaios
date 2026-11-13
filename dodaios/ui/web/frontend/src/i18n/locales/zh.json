@@ -10598,6 +10598,8 @@
     "connect_another": "连接另一个文件夹",
     "new_activity": "新动态",
     "in_worktree": "在 worktree {name} 中工作",
+    "started_by_lead": "由 {name} 启动",
+    "started_by_agent": "由 Dodaios 智能体启动",
     "pr_state_open": "打开",
     "pr_state_draft": "草稿",
     "pr_state_queued": "在合并队列中",
