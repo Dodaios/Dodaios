@@ -329,8 +329,10 @@ function ChatStageContent() {
             traceCompanion={isJarvis}
             awaiting={awaitingTurn}
             agentsById={faces}
-            // The Dodaios chat lists its pictures as files, a name and a
-            // download link; it never draws them (the person's request, 2026-11-12).
+            // The Dodaios chat lists the pictures in answers as files, a name
+            // and a download link (the person's request, 2026-11-12). The
+            // pictures the person sends are drawn above their message
+            // all the same (2026-11-13).
             pictures={isJarvis ? "files" : "shown"}
           />
           {isJarvis && <Suspense fallback={null}><FirstConversation /></Suspense>}
