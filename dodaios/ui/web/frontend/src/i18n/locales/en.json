@@ -10683,6 +10683,27 @@
       "other": "Limit",
       "chip": "{limit} {percent}%",
       "title": "{plan}: {limit} limit {percent}% used. Click for every limit and when it resets."
+    },
+    "context": {
+      "heading": "Context window",
+      "used": "{percent} % used",
+      "of_tokens": "{used} of {window} tokens",
+      "aria": "Context window {percent} % used: {used} of {window} tokens. Point at it to see what fills it.",
+      "loading": "Reading what fills it…",
+      "unavailable": "Claude Code could not say what fills it right now.",
+      "after_turn": "What fills it is read once the agent stops.",
+      "compact_at": "At about {percent} % Claude Code summarizes the conversation so far by itself.",
+      "part": {
+        "system_prompt": "System prompt",
+        "system_tools": "Tools",
+        "mcp_tools": "MCP tools",
+        "agents": "Custom agents",
+        "memory": "Memory files",
+        "skills": "Skills",
+        "messages": "Conversation",
+        "autocompact": "Reserve for summarizing",
+        "free": "Free"
+      }
     }
   },
   "ide_view": {

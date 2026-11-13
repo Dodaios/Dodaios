@@ -1918,6 +1918,56 @@ async def list_subagents(session_id: str, request: Request) -> dict[str, Any]:
     return {"agents": [agent.to_dict() for agent in agents]}
 
 
+@router.get(
+    "/sessions/{session_id}/context",
+    summary="How full the thread's context window is, and what fills it",
+    openapi_extra={"x-jarvis-readonly": True},
+)
+async def get_context_window(
+    session_id: str,
+    request: Request,
+    detail: bool = Query(False, description="Also ask the CLI what fills the window."),
+) -> dict[str, Any]:
+    """A Claude Code thread's context window, for the ring under its composer.
+
+    ``reading`` is the last answer's count from the CLI's own session file
+    (the live count arrives with the thread's events); ``breakdown`` is
+    Claude Code's ``/context`` report, run on an unsaved fork of the session
+    when ``detail`` is set. Every other CLI answers ``supported: false``.
+    """
+    from dodaios.agent_chat import context_window
+    from dodaios.agent_chat.thread_sessions import split_fork
+
+    svc = await _async_service(request)
+    session = svc.store.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    runner = resolve_runner(session.provider, surface=session.surface, runtime=session.runtime)
+    if runner != "claude-cli" or session.computer_id:
+        return {"supported": False, "reading": None, "breakdown": None}
+    resume_id, fork_source = split_fork(session.vendor_session)
+    vendor = resume_id or fork_source or ""
+    found = await asyncio.to_thread(context_window.find_session_file, vendor, session.account_id)
+    recorded = await asyncio.to_thread(context_window.read_recorded, found[0]) if found else None
+    breakdown = None
+    if found and (detail or (recorded is not None and not recorded.get("window"))):
+        breakdown = await context_window.probe_breakdown(
+            vendor_session=session.vendor_session or "",
+            cwd=session.cwd,
+            model=(recorded or {}).get("model") or session.model,
+            account_id=session.account_id,
+        )
+        if recorded is not None and not recorded.get("window"):
+            recorded["window"] = context_window.known_window(recorded["model"]) or (
+                breakdown.window if breakdown else None
+            )
+    return {
+        "supported": True,
+        "reading": recorded,
+        "breakdown": breakdown.to_dict() if breakdown and detail else None,
+    }
+
+
 @router.patch("/sessions/{session_id}")
 async def patch_session(
     session_id: str, body: PatchSessionBody, request: Request

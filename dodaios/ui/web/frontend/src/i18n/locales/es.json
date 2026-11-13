@@ -10683,6 +10683,27 @@
       "other": "Límite",
       "chip": "{limit} {percent} %",
       "title": "{plan}: límite {limit} usado al {percent} %. Haz clic para ver todos los límites y cuándo se restablecen."
+    },
+    "context": {
+      "heading": "Ventana de contexto",
+      "used": "{percent} % usado",
+      "of_tokens": "{used} de {window} tokens",
+      "aria": "Ventana de contexto al {percent} %: {used} de {window} tokens. Señálala para ver qué la llena.",
+      "loading": "Leyendo qué la llena…",
+      "unavailable": "Claude Code no pudo decir ahora qué la llena.",
+      "after_turn": "Qué la llena se lee cuando el agente termine.",
+      "compact_at": "Hacia el {percent} % Claude Code resume por sí mismo la conversación hasta ahora.",
+      "part": {
+        "system_prompt": "Prompt del sistema",
+        "system_tools": "Herramientas",
+        "mcp_tools": "Herramientas MCP",
+        "agents": "Agentes propios",
+        "memory": "Archivos de memoria",
+        "skills": "Skills",
+        "messages": "Conversación",
+        "autocompact": "Reserva para resumir",
+        "free": "Libre"
+      }
     }
   },
   "ide_view": {

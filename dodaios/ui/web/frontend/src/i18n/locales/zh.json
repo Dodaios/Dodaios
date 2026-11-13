@@ -10683,6 +10683,27 @@
       "other": "限额",
       "chip": "{limit} {percent}%",
       "title": "{plan}：{limit} 限额已用 {percent}%。点击查看所有限额及重置时间。"
+    },
+    "context": {
+      "heading": "上下文窗口",
+      "used": "已用 {percent} %",
+      "of_tokens": "{used} / {window} tokens",
+      "aria": "上下文窗口已用 {percent} %：{used} / {window} tokens。指向它可查看占用内容。",
+      "loading": "正在读取占用内容…",
+      "unavailable": "Claude Code 暂时无法给出占用内容。",
+      "after_turn": "代理停止后再读取占用内容。",
+      "compact_at": "约到 {percent} % 时，Claude Code 会自动总结之前的对话。",
+      "part": {
+        "system_prompt": "系统提示",
+        "system_tools": "工具",
+        "mcp_tools": "MCP 工具",
+        "agents": "自定义代理",
+        "memory": "记忆文件",
+        "skills": "技能",
+        "messages": "对话",
+        "autocompact": "总结预留",
+        "free": "空闲"
+      }
     }
   },
   "ide_view": {

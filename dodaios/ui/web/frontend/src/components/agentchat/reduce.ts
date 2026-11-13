@@ -465,8 +465,19 @@ export interface PendingApproval {
   summary: string;
 }
 
+/** How full a coding agent's context window is (`context_usage`, or `usage_delta.context`). */
+export interface ContextReading {
+  /** Tokens the model read for the main agent's newest message, plus its answer. */
+  used: number;
+  /** The model's window; null when the CLI named no size yet. */
+  window: number | null;
+  model: string;
+}
+
 export interface Timeline {
   control?: ChatControlState;
+  /** The newest context-window reading of the thread's agent; absent until one arrives. */
+  context?: ContextReading;
   items: TimelineItem[];
   pendingApprovals: PendingApproval[];
   /** Highest persisted seq folded so far — the `?after=` for a reconnect. */
@@ -496,6 +507,26 @@ function str(v: unknown, fallback = ""): string {
 
 function num(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+/** A context reading from an event payload, keeping a known window when this one names none. */
+function contextReading(raw: unknown, previous: ContextReading | undefined): ContextReading | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const used = num(row.used);
+  if (used === null || used <= 0) return null;
+  const model = str(row.model);
+  const window = num(row.window);
+  const kept = previous && (!model || previous.model === model) ? previous.window : null;
+  return { used, window: window && window > 0 ? window : kept, model: model || previous?.model || "" };
+}
+
+function withContext(tl: Timeline, raw: unknown): Timeline {
+  const next = contextReading(raw, tl.context);
+  if (!next) return tl;
+  const now = tl.context;
+  if (now && now.used === next.used && now.window === next.window && now.model === next.model) return tl;
+  return { ...tl, context: next };
 }
 
 function findTurn(items: TimelineItem[], turnId: string): number {
@@ -1413,16 +1444,21 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       });
     }
 
+    case "context_usage":
+      return agentId ? base : withContext(base, p);
+
     case "usage_delta": {
+      // The main agent's newest message also says how full its window is.
+      const counted = !agentId && p.context ? withContext(base, p.context) : base;
       const usage = p.usage;
-      if (!usage || typeof usage !== "object") return base;
+      if (!usage || typeof usage !== "object") return counted;
       const counts: Record<string, number> = {};
       for (const [k, v] of Object.entries(usage as Record<string, unknown>)) {
         const n = num(v);
         if (n !== null) counts[k] = n;
       }
-      if (Object.keys(counts).length === 0) return base;
-      return updateTurn(base, turnId, (turn) => ({
+      if (Object.keys(counts).length === 0) return counted;
+      return updateTurn(counted, turnId, (turn) => ({
         ...turn,
         liveUsage: counts,
       }));

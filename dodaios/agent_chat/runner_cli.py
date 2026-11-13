@@ -75,6 +75,8 @@ from typing import Any, Final
 from dodaios.agent_chat import dodaios_harness
 from dodaios.agent_chat.approval_bridge import approval_ref
 from dodaios.agent_chat.cli_catalog import CatalogCache, catalog_key, discover_codex_models
+from dodaios.agent_chat.context_window import reading as context_reading
+from dodaios.agent_chat.context_window import tokens_in_context, window_from_result
 from dodaios.agent_chat.effort import (
     ORDER,
     effort_for_model,
@@ -2010,6 +2012,10 @@ class _ClaudeState:
     stream_chars: dict[str, int] = field(default_factory=dict)
     #: The usage totals last sent, so an unchanged count sends nothing.
     usage_sent: dict[str, int] = field(default_factory=dict)
+    #: The main agent's newest message: the tokens in its context window
+    #: (``context_window.tokens_in_context``) and the model it named.
+    context_used: int = 0
+    context_model: str = ""
     emitted_tool_ids: set[str] = field(default_factory=set)
     emitted_text: bool = False
     status: str = "done"
@@ -2086,6 +2092,9 @@ def _claude_merge_usage(st: _ClaudeState, mid: str, usage: dict[str, Any]) -> bo
     if not counted or counted == previous:
         return False
     st.usage_by_message[mid] = counted
+    # The newest message's context is the conversation as the next one sees
+    # it; a sub-agent's messages never reach here (their own state counts them).
+    st.context_used = tokens_in_context(counted) or st.context_used
     return True
 
 
@@ -2115,7 +2124,10 @@ def _claude_usage_event(st: _ClaudeState, *, min_output_step: int = 0) -> dict[s
     if min_output_step and only_output_moved and grown < min_output_step:
         return None
     st.usage_sent = totals
-    return make_event("usage_delta", {"turn_id": st.turn_id, "usage": totals})
+    payload: dict[str, Any] = {"turn_id": st.turn_id, "usage": totals}
+    if st.context_used:
+        payload["context"] = context_reading(st.context_used, st.context_model)
+    return make_event("usage_delta", payload)
 
 
 def _claude_request_summary(tool_name: str, tool_input: dict[str, Any]) -> str:
@@ -2573,6 +2585,9 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
         message = obj.get("message") or {}
         mid = str(message.get("id") or st.current_message_id or uuid.uuid4().hex)
         st.current_message_id = mid
+        named = message.get("model")
+        if isinstance(named, str) and named and not named.startswith("<"):
+            st.context_model = named
         usage_now = message.get("usage")
         if isinstance(usage_now, dict) and _claude_merge_usage(st, mid, usage_now):
             event = _claude_usage_event(st)
@@ -2747,6 +2762,15 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
         cost = obj.get("total_cost_usd", obj.get("cost_usd"))
         if isinstance(cost, int | float):
             st.cost_usd = float(cost)
+        if st.context_used:
+            # Once per answer, stored: a reopened thread shows its ring at once.
+            model, window = window_from_result(obj.get("modelUsage"), st.context_model)
+            out.append(
+                make_event(
+                    "context_usage",
+                    {"turn_id": st.turn_id, **context_reading(st.context_used, model, window)},
+                )
+            )
         return out
 
     return out

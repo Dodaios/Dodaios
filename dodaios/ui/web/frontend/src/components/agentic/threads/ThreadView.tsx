@@ -303,11 +303,14 @@ export function ThreadView({ onScreen, column }: {
   const computerId = session?.computer_id ?? draft.computerId ?? "";
   const providerId = session?.provider ?? draft.provider;
   const platform = computerId ? "" : catalog?.providers.find((row) => row.id === providerId)?.agent ?? "";
+  // The context ring: a Claude Code thread on this computer, whose CLI names its window.
+  const contextSessionId = session && !computerId && activeSessionId === session.session_id
+    && catalog?.providers.find((row) => row.id === session.provider)?.runner === "claude-cli" ? session.session_id : "";
 
   // The bar tucks under the composer card, so it must come right after it.
   const strip = <ThreadBranchBar folder={folder} project={project} projects={visible}
     onProject={(id) => useIdeThreadsStore.getState().newThread(id)} onConnect={connectProject}
-    computerId={computerId} platform={platform}
+    computerId={computerId} platform={platform} contextSessionId={contextSessionId} context={timeline.context}
     onComputer={(computerId) => void chatStore.getState().setDraft({ computerId })}
     draft={isDraft} checkout={checkout} onCheckout={setCheckout} base={base} onBase={setBase} locked={running} />;
 

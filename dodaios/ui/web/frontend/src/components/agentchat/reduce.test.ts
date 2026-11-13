@@ -562,3 +562,27 @@ describe("work handed to a coding thread", () => {
     expect(paused.items).toHaveLength(1);
   });
 });
+
+describe("context window", () => {
+  it("keeps the newest reading of the main agent, live and stored", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t1" }),
+      ev("usage_delta", { turn_id: "t1", usage: { input_tokens: 40_000 }, context: { used: 40_000, window: null, model: "claude-opus-5-5" } }, false),
+      ev("context_usage", { turn_id: "t1", used: 41_000, window: 1_000_000, model: "claude-opus-5-5" }),
+    ]);
+    expect(tl.context).toEqual({ used: 41_000, window: 1_000_000, model: "claude-opus-5-5" });
+    // The turn's live counter still moves as before.
+    expect((tl.items.find((item) => item.type === "turn") as TurnItem).liveUsage).toEqual({ input_tokens: 40_000 });
+  });
+
+  it("keeps a known window when a live reading names none, and ignores sub-agents", () => {
+    let tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t1" }),
+      ev("context_usage", { turn_id: "t1", used: 41_000, window: 1_000_000, model: "claude-opus-5-5" }),
+    ]);
+    tl = reduceEvent(tl, ev("usage_delta", { turn_id: "t1", usage: { input_tokens: 1 }, context: { used: 52_000, window: null, model: "claude-opus-5-5" } }, false));
+    expect(tl.context).toEqual({ used: 52_000, window: 1_000_000, model: "claude-opus-5-5" });
+    const same = reduceEvent(tl, ev("context_usage", { turn_id: "t1", agent_id: "call-1", used: 9, window: 200_000, model: "claude-haiku-5-5" }));
+    expect(same.context).toEqual(tl.context);
+  });
+});

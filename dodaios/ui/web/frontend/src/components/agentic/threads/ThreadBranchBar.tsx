@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, FolderGit2, GitBranch, Loader2 } from "lucide-react";
+import type { ContextReading } from "@/components/agentchat/reduce";
 import type { IdeProject } from "@/lib/agenticIdeApi";
 import { inspectGit, prepareGit, type GitRepoInfo } from "@/lib/gitApi";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 import { fill, useT } from "@/i18n";
+import { ThreadContextRing } from "./ThreadContextRing";
 import { ThreadFolderChip } from "./ThreadFolderChip";
 import { ThreadMachineChip } from "./ThreadMachineChip";
 import { ThreadPlanUsage } from "./ThreadPlanUsage";
@@ -40,7 +42,7 @@ export function useGitInfo(folder: string): { info: GitRepoInfo | null; loading:
  * whether it gets a worktree of its own (the branch is then the one the
  * worktree starts from). A running thread names its folder and leaves the
  * branch alone while the agent works. At the right end: how much of the plan
- * the thread's agent runs on is spent.
+ * the thread's agent runs on is spent, and how full its context window is.
  */
 export function ThreadBranchBar({
   folder,
@@ -57,6 +59,8 @@ export function ThreadBranchBar({
   onBase,
   locked,
   platform = "",
+  contextSessionId = "",
+  context,
 }: {
   /** The thread's folder — the project's for a new thread. */
   folder: string;
@@ -78,6 +82,10 @@ export function ThreadBranchBar({
   locked: boolean;
   /** The Agentic IDE key of the thread's CLI, whose plan usage the bar shows; "" = none. */
   platform?: string;
+  /** The thread whose context window the ring shows; "" = no ring (a draft, a CLI that names no window). */
+  contextSessionId?: string;
+  /** The newest context reading of the thread's events. */
+  context?: ContextReading;
 }) {
   const t = useT();
   const pushToast = useEventStore((state) => state.pushToast);
@@ -129,6 +137,7 @@ export function ThreadBranchBar({
       </button>}
     </div>
     <ThreadPlanUsage platform={platform} className={BUTTON} />
+    {contextSessionId && <ThreadContextRing sessionId={contextSessionId} live={context} running={locked} className={BUTTON} />}
     {draft && repo && <button type="button" aria-pressed={checkout === "worktree"} data-testid="thread-worktree-toggle"
       className={cn(BUTTON, "shrink-0", checkout === "worktree" && "bg-secondary text-foreground")}
       title={t("ide_threads.worktree_toggle_title")}
