@@ -21,31 +21,14 @@ import {
   TitlePill,
 } from "@/components/visualization/ArtifactStageBar";
 import {
-  ArtifactGallery,
-  GALLERY_VIEWS,
-  LibraryHeader,
-  LibraryTabs,
-  TILE_LABELS,
-  TILE_SIZES,
-  type GalleryView,
-  type TileLabels,
-  type TileSize,
-} from "@/components/visualization/ArtifactGallery";
-import {
-  RAIL_FILTERS,
-  buildRailRows,
-  countByFilter,
-  filterRailRows,
-  groupRailRows,
   parseArtifactUtterance,
   runTitle,
   runWhen,
-  searchRailRows,
-  sortRailRows,
-  type GallerySort,
-  type RailFilter,
-  type RailRow,
 } from "@/components/visualization/galleryModel";
+import { NodesLibrary } from "@/components/nodes/NodesLibrary";
+import { askDodaiosToChange } from "@/components/nodes/askDodaios";
+import { isNodeSlug, isTypedNode, type NodeCard } from "@/components/nodes/nodeModel";
+import { useNodesLibrary } from "@/components/nodes/useNodesLibrary";
 import { useT } from "@/i18n";
 import { useArtifactFavorites } from "@/hooks/useArtifactFavorites";
 import { useFramedPageLinks } from "@/hooks/useFramedPageLinks";
@@ -71,47 +54,38 @@ import {
   artifactPageUrl,
   missionMapUrl,
   toVisuals,
-  useVisualArtifacts,
   visualId,
+  visualUrl,
   type VisualArtifact,
 } from "@/hooks/useVisualArtifacts";
 
-export { buildRailRows, filterRailRows, parseArtifactUtterance };
-export type { RailFilter };
-
 // Only a living page needs its refresh strip; load it when one is open.
 const LivingPageBar = lazy(() => import("@/components/visualization/LivingPageBar"));
+// The same for a typed node: its strip also tells the stage when it changed.
+const NodeUpkeepBar = lazy(() => import("@/components/nodes/NodeUpkeepBar"));
 
 /**
- * The Artifacts section — everything a run produced, as a library first and
- * a stage second.
+ * The Nodes section: a library first and a stage second.
  *
- * An artifact is the thing the user asked to LOOK AT: the dashboard, the
- * report, the diagram a background agent wrote as one self-contained HTML
- * file (`create_artifact`), or any image/PDF a worker left behind. The
- * section opens on a WALL: every artifact as a tile with the artifact itself
- * drawn on it edge to edge (a live, scaled page that scrolls itself under a
- * resting pointer; the picture; a PDF's first sheet), narrowed by a row of
- * tabs — Suggested, Favorites, the four kinds, All — and by search, sorted
- * newest, oldest or by name, and drawn as a list instead when the reader
- * wants names rather than pictures. A click opens the STAGE: the page
- * full-size in its sandbox, the source one tab away, every file of the run
- * behind "Files", and the run graph behind "Run"; back, previous and next
- * walk the same list.
+ * A node is a thing the person keeps and looks at: a document, a deck, a
+ * sheet, a designed page, a dashboard, a whiteboard, a short film. The
+ * assistant builds the seven typed kinds from a spec (`node` tool,
+ * `dodaios/nodes`); everything older runs left behind (a worker-built page, a
+ * report, a living page, a picture, a PDF) sits in the same library under the
+ * type it is closest to. The section opens on the LIBRARY (`NodesLibrary`):
+ * tabs, a row that starts a new node of each type, and a card per node with a
+ * miniature of it on its cover. A click opens the STAGE: the page full-size
+ * in its sandbox, the source one view away, every file of the run behind
+ * "Files", and the run graph behind "Run"; back, previous and next walk the
+ * library as it is shown.
  *
- * Every other run lands here too (the Outputs section folded in on
- * 2026-08-23): a run that drew no page or picture is an "Output" card with
- * its own answer as the cover, and its stage composes a page from what it
- * left behind (`OutputPreview`).
+ * A run that drew no page or picture is listed too, under the library's
+ * "Runs" tab; its stage composes a page from what it left behind
+ * (`OutputPreview`).
  *
- * It owns no data: runs come from `/api/outputs`, files from the artifact
- * listing (`useVisualArtifacts`, `useArtifactsForOutput`), a page's source
- * from `/raw`. A run that is still building its artifact shows as a
- * "building…" card the gallery follows until the page lands — the listings
- * of running runs poll, nothing else does.
- *
- * Detachable (`DETACHABLE_VIEWS` in dodaios/ui/desktop_app.py): an artifact is
- * the thing people put on a second monitor.
+ * The library is one read of `/api/nodes`; the stage adds the run list
+ * (`/api/outputs`) and a run's file listing when one is open. A run that is
+ * still building its page shows as a "building" card until the page lands.
  */
 
 type StageMode = "preview" | "code" | "files" | "run";
@@ -130,32 +104,6 @@ interface StageTarget {
   /** The run is a `create_artifact` build still writing its page. */
   building: boolean;
 }
-
-const FILTER_KEY = "jarvis.artifacts.rail-filter";
-const SORT_KEY = "jarvis.artifacts.sort";
-const VIEW_KEY = "jarvis.artifacts.view";
-const SIZE_KEY = "jarvis.artifacts.tile-size";
-const LABELS_KEY = "jarvis.artifacts.tile-labels";
-
-function readStored<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
-  try {
-    const stored = window.localStorage.getItem(key);
-    if (stored !== null && (allowed as readonly string[]).includes(stored)) return stored as T;
-  } catch {
-    // Storage can be unavailable (private window, blocked site data) — the default then.
-  }
-  return fallback;
-}
-
-function store(key: string, value: string): void {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // A remembered category or order is a convenience, never a requirement.
-  }
-}
-
-const SORTS: readonly GallerySort[] = ["newest", "oldest", "name"];
 
 /** The stage's timestamp — what tells two same-named artifacts apart. */
 function formatWhen(seconds: number): string {
@@ -182,27 +130,31 @@ function stageKey(target: StageTarget): string | null {
   return null;
 }
 
-function selectionOf(row: RailRow): { slug: string; path: string | null } {
-  return row.kind === "visual"
-    ? { slug: row.visual.slug, path: row.visual.path }
-    : { slug: row.run.slug, path: null };
+/** The stage's address of a library card. */
+function selectionOf(card: NodeCard): { slug: string; path: string | null } {
+  return { slug: card.slug, path: card.path };
 }
 
-/** A choice the reader made once and expects to find again. */
-function useStoredChoice<T extends string>(
-  key: string,
-  allowed: readonly T[],
-  fallback: T,
-): [T, (next: T) => void] {
-  const [value, setValue] = useState<T>(() => readStored(key, allowed, fallback));
-  const choose = useCallback(
-    (next: T) => {
-      setValue(next);
-      store(key, next);
-    },
-    [key],
-  );
-  return [value, choose];
+/**
+ * A library card's file as the stage takes it, or null for a card without
+ * one (a run, a page still being built).
+ */
+function visualOf(card: NodeCard, run: OutputSummary | undefined): VisualArtifact | null {
+  if (card.path === null || card.visual_kind === null) return null;
+  return {
+    slug: card.slug,
+    // The run's own words when it recorded them: the toolbar reads the
+    // request from the brief, which the card's short form no longer holds.
+    utterance: run?.utterance ?? (card.request || undefined),
+    status: run?.status,
+    path: card.path,
+    name: card.path.split("/").pop() ?? card.path,
+    title: card.title,
+    kind: card.visual_kind,
+    size: card.size,
+    mtime: card.updated_at,
+    url: visualUrl(card.slug, card.path),
+  };
 }
 
 /** A key press that belongs to a text field, not to the gallery's navigation. */
@@ -217,11 +169,24 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 export function VisualizationView() {
-  const t = useT();
   const outputs = useOutputsList();
   const runs = useMemo(() => outputs.data ?? [], [outputs.data]);
-  const gallery = useVisualArtifacts();
-  const visuals = gallery.visuals;
+  /* The library's state lives here, not in the library: it stays alive while
+   * a node is on stage, so back returns to the same tab, search and place. */
+  const library = useNodesLibrary();
+  const { allCards } = library;
+  /* A card opened before the list knows it (a node just made from the
+   * new-row) still has to reach the stage. */
+  const [opened, setOpened] = useState<NodeCard | null>(null);
+
+  const visuals = useMemo(() => {
+    const runBySlug = new Map(runs.map((run) => [run.slug, run]));
+    const cards =
+      opened !== null && !allCards.some((card) => card.key === opened.key)
+        ? [opened, ...allCards]
+        : allCards;
+    return cards.flatMap((card) => visualOf(card, runBySlug.get(card.slug)) ?? []);
+  }, [allCards, opened, runs]);
 
   /* Runs still writing their artifact — recognised by the brief's lead line,
    * so an unrelated running mission does not pose as a page in the making. */
@@ -232,32 +197,6 @@ export function VisualizationView() {
       ),
     [runs],
   );
-
-  const allRows = useMemo(() => buildRailRows(runs, visuals, building), [runs, visuals, building]);
-  const { favorites, toggle: toggleFavorite } = useArtifactFavorites();
-  /* What the two pick tabs go by. The clock is read when the library or the
-   * stars change — "new this week" does not need to tick. */
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const picks = useMemo(() => ({ favorites, now: Date.now() }), [favorites, allRows]);
-  const counts = useMemo(() => countByFilter(allRows, picks), [allRows, picks]);
-
-  const [filter, setFilter] = useStoredChoice<RailFilter>(FILTER_KEY, RAIL_FILTERS, "suggested");
-  const [sort, setSort] = useStoredChoice<GallerySort>(SORT_KEY, SORTS, "newest");
-  const [view, setView] = useStoredChoice<GalleryView>(VIEW_KEY, GALLERY_VIEWS, "wall");
-  const [size, setSize] = useStoredChoice<TileSize>(SIZE_KEY, TILE_SIZES, "m");
-  const [labels, setLabels] = useStoredChoice<TileLabels>(LABELS_KEY, TILE_LABELS, "hover");
-  const [query, setQuery] = useState("");
-
-  /* The library as shown: tab, then search, then order. The stage's
-   * previous / next walk exactly this list. */
-  const rows = useMemo(
-    () => sortRailRows(searchRailRows(filterRailRows(allRows, filter, picks), query), sort),
-    [allRows, filter, picks, query, sort],
-  );
-  const groups = useMemo(() => groupRailRows(rows, sort, Date.now()), [rows, sort]);
-  /* The order the cards appear in on screen — groups pull work in progress
-   * to the top, so this is not always `rows`. */
-  const ordered = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
 
   /* A `?run=<slug>` in the URL opens that run's newest artifact (or the one
    * `&artifact=` names) — what makes a detached window or a pasted link open
@@ -292,8 +231,8 @@ export function VisualizationView() {
   }, [visualStage]);
 
   /*
-   * What the stage shows. The card the user opened — an artifact, or a run
-   * (its newest artifact once it has one, the run itself otherwise). For
+   * What the stage shows. The card the user opened — a node's page, or a run
+   * (its newest page once it has one, the run itself otherwise). For
    * "latest", whatever leads the whole library: the newest build in
    * progress, else the newest thing there is.
    */
@@ -301,36 +240,42 @@ export function VisualizationView() {
     if (selection === null) return null;
     const bySlug = (slug: string) => runs.find((r) => r.slug === slug) ?? null;
     if (selection === "latest") {
-      const first = allRows[0];
+      const first = allCards[0];
       if (!first) return { run: null, visual: null, building: false };
-      if (first.kind === "build") return { run: first.run, visual: null, building: true };
-      if (first.kind === "visual") return { run: first.run, visual: first.visual, building: false };
-      return { run: first.run, visual: null, building: false };
+      const run = bySlug(first.slug);
+      if (first.origin === "build") return { run, visual: null, building: run !== null };
+      const visual =
+        first.path === null
+          ? null
+          : (visuals.find((v) => v.slug === first.slug && v.path === first.path) ?? null);
+      return { run, visual, building: false };
     }
     if (selection.path !== null) {
       const visual = visuals.find((v) => v.slug === selection.slug && v.path === selection.path);
       if (visual) return { run: bySlug(visual.slug), visual, building: false };
+      // A link names one file: wait for the library rather than show the
+      // run's newest file first and switch a moment later.
+      if (library.loading) return { run: null, visual: null, building: false };
     }
     const run = bySlug(selection.slug);
     const visual = visuals.find((v) => v.slug === selection.slug) ?? null;
     if (run === null && visual === null) return { run: null, visual: null, building: false };
     const isBuilding = run !== null && building.includes(run) && visual === null;
     return { run, visual, building: isBuilding };
-  }, [selection, runs, visuals, building, allRows]);
+  }, [selection, runs, visuals, building, allCards, library.loading]);
 
-  const refetch = useCallback(() => {
-    void outputs.refetch();
-    gallery.refetch();
-  }, [outputs, gallery]);
-
-  const open = useCallback((row: RailRow) => setSelection(selectionOf(row)), []);
+  const open = useCallback((card: NodeCard) => {
+    setOpened(card);
+    setSelection(selectionOf(card));
+  }, []);
   const back = useCallback(() => setSelection(null), []);
 
   /* Previous / next: the stage's place in the library as currently shown.
    * Opened from elsewhere (a link, "latest") and not in the current view,
    * the stage simply has no neighbours. */
+  const ordered = library.cards;
   const activeKey = target ? stageKey(target) : null;
-  const position = activeKey ? ordered.findIndex((row) => row.key === activeKey) : -1;
+  const position = activeKey ? ordered.findIndex((card) => card.key === activeKey) : -1;
   const step = useCallback(
     (delta: number) => {
       if (position < 0) return;
@@ -339,6 +284,14 @@ export function VisualizationView() {
     },
     [ordered, position],
   );
+  /* The typed node on stage, when it is one: what "ask for a change" names. */
+  const stagedNode = useMemo(() => {
+    if (!activeKey) return null;
+    // A node just made from the new-row is on stage before the list has it.
+    const card =
+      allCards.find((c) => c.key === activeKey) ?? (opened?.key === activeKey ? opened : undefined);
+    return card && isTypedNode(card) ? card : null;
+  }, [activeKey, allCards, opened]);
 
   /* Escape goes back to the library, ←/→ walk it — unless a text field has
    * the keys. A framed page keeps its own keys (its events never reach us). */
@@ -358,8 +311,8 @@ export function VisualizationView() {
     return () => window.removeEventListener("keydown", onKey);
   }, [staged, back, step]);
 
-  const loading = outputs.isLoading || gallery.isLoading;
-  const error = outputs.isError || gallery.isError;
+  const loading = outputs.isLoading || library.loading;
+  const error = outputs.isError || library.failed;
 
   if (target !== null) {
     return (
@@ -381,6 +334,7 @@ export function VisualizationView() {
               key={target.run?.slug ?? target.visual?.slug}
               run={target.run}
               visual={target.visual}
+              node={stagedNode}
               onJumpToRun={(slug) => setSelection({ slug, path: null })}
               nav={{ onBack: back, position, total: ordered.length, onStep: step }}
             />
@@ -390,60 +344,9 @@ export function VisualizationView() {
     );
   }
 
-  const nothingAtAll = !loading && allRows.length === 0;
-  const searching = query.trim().length > 0;
-
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <LibraryHeader
-        query={query}
-        onQuery={setQuery}
-        sort={sort}
-        onSort={setSort}
-        view={view}
-        onView={setView}
-        size={size}
-        onSize={setSize}
-        labels={labels}
-        onLabels={setLabels}
-        loading={loading}
-        onRefresh={refetch}
-        bare={nothingAtAll}
-      />
-      {nothingAtAll ? (
-        <EmptyStage loading={false} error={error} />
-      ) : (
-        <>
-          <LibraryTabs
-            filter={filter}
-            counts={counts}
-            loading={loading && allRows.length === 0}
-            onChange={setFilter}
-          />
-          <ArtifactGallery
-            rows={ordered}
-            groups={groups}
-            view={view}
-            size={size}
-            labels={labels}
-            // The newest artifact leads the pick — not a search result, not
-            // an alphabetical list, where "first" means nothing.
-            feature={filter === "suggested" && !searching && sort === "newest"}
-            favorites={favorites}
-            onToggleFavorite={toggleFavorite}
-            loading={loading}
-            empty={searching ? "search" : filter === "favorites" ? "favorites" : "category"}
-            onOpen={open}
-            footer={
-              gallery.skippedRuns > 0 ? (
-                <p className="pt-8 text-sm text-foreground-faint">
-                  {t("visualization.older_not_scanned").replace("{0}", String(gallery.scannedRuns))}
-                </p>
-              ) : null
-            }
-          />
-        </>
-      )}
+      <NodesLibrary library={library} onOpen={open} />
     </div>
   );
 }
@@ -467,19 +370,23 @@ interface StageNavigation {
  * Code when it did not; every file under Files, the graph under Run. Keyed
  * by run in the caller, so a new run opens on Preview.
  *
- * A run outside the rail's scan window arrives without artifacts in hand; its
- * listing is read here (same cache entry the rail's scan fills) and the newest
+ * A run the library did not look through for files (it is outside the
+ * server's scan window, or was opened by a link before the library answered)
+ * arrives without a file in hand; its listing is read here and the newest
  * page or picture in it goes on stage — an older dashboard is one click away
  * instead of "not scanned".
  */
 function Stage({
   run,
   visual: pickedVisual,
+  node,
   onJumpToRun,
   nav,
 }: {
   run: OutputSummary | null;
   visual: VisualArtifact | null;
+  /** The typed node on stage, or null for anything adopted. */
+  node: NodeCard | null;
   onJumpToRun: (slug: string) => void;
   /** Back to the library and previous / next — the ends of the stage's bar. */
   nav: StageNavigation;
@@ -520,6 +427,7 @@ function Stage({
         run={run}
         visual={visual}
         primary={primary}
+        node={node}
         mode={mode}
         onMode={setMode}
         onJumpToRun={onJumpToRun}
@@ -559,6 +467,7 @@ function ArtifactToolbar({
   run,
   visual,
   primary,
+  node,
   mode,
   onMode,
   onJumpToRun,
@@ -568,6 +477,7 @@ function ArtifactToolbar({
   visual: VisualArtifact | null;
   /** The output's primary text file when the run drew no page. */
   primary: ArtifactSummary | null;
+  node: NodeCard | null;
   mode: StageMode;
   onMode: (mode: StageMode) => void;
   onJumpToRun: (slug: string) => void;
@@ -699,6 +609,17 @@ function ArtifactToolbar({
                     trailing={favorite ? <Star className="h-4 w-4 shrink-0 fill-current text-warning" aria-hidden /> : null}
                   >
                     {t(favorite ? "visualization.favorite_remove" : "visualization.favorite_add")}
+                  </MenuItem>
+                )}
+                {node !== null && (
+                  <MenuItem
+                    onSelect={() => {
+                      close();
+                      void askDodaiosToChange(node);
+                    }}
+                    testId="visualization-ask-change"
+                  >
+                    {t("nodes.menu.ask")}
                   </MenuItem>
                 )}
                 {mode === "run" && slug && (
@@ -847,6 +768,8 @@ function ArtifactStage({ visual }: { visual: VisualArtifact }) {
 
   if (visual.kind === "page") {
     const living = isLivingSlug(visual.slug);
+    const typed = isNodeSlug(visual.slug);
+    const rewritten = living || typed;
     return (
       <div className="flex h-full flex-col">
         {living && (
@@ -854,11 +777,17 @@ function ArtifactStage({ visual }: { visual: VisualArtifact }) {
             <LivingPageBar slug={visual.slug} onUpdated={setLivingVersion} />
           </Suspense>
         )}
+        {typed && (
+          <Suspense fallback={null}>
+            <NodeUpkeepBar slug={visual.slug} onUpdated={setLivingVersion} />
+          </Suspense>
+        )}
         <iframe
           ref={pageFrame}
-          // A living page reloads when its refresh rewrote it.
-          key={`${id}:${theme}:${living ? livingVersion : 0}`}
-          src={`${artifactPageUrl(visual.slug, visual.path)}?theme=${theme}${living ? `&v=${livingVersion}` : ""}`}
+          // A living page reloads when its refresh rewrote it, and a typed
+          // node when the assistant revised it.
+          key={`${id}:${theme}:${rewritten ? livingVersion : 0}`}
+          src={`${artifactPageUrl(visual.slug, visual.path)}?theme=${theme}${rewritten ? `&v=${livingVersion}` : ""}`}
           title={visual.title}
           data-testid="visualization-frame"
           onError={() => setFailed(true)}

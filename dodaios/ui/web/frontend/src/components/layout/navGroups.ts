@@ -12,7 +12,7 @@
 import { Bell, KeyRound, ShieldCheck, Smartphone, type LucideIcon } from "lucide-react";
 import {
   AgentsIcon,
-  ArtifactsIcon,
+  NodesIcon,
   BoardIcon,
   BuiltIcon,
   CaptureIcon,
@@ -152,14 +152,14 @@ export const NAV_GROUPS: NavItem[][] = [
       icon: MarketplaceIcon,
       fallbackLabel: "Marketplace",
     },
-    // Artifacts — everything a run produced. The id stays "visualization"
-    // because it crosses the navigate parity test, the detachable-view
-    // registry and deep links.
+    // Nodes — what the assistant made for the person, and everything a run
+    // produced. The id stays "visualization" because it crosses the navigate
+    // parity test, the detachable-view registry and deep links.
     {
       id: "visualization",
       labelKey: "nav.visualization",
-      icon: ArtifactsIcon,
-      fallbackLabel: "Artifacts",
+      icon: NodesIcon,
+      fallbackLabel: "Nodes",
     },
     { id: "board", labelKey: "nav.board", icon: BoardIcon },
     { id: "memory", labelKey: "nav.memory", icon: WikiIcon },

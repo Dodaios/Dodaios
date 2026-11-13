@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { Search, type LucideIcon } from "lucide-react";
 
-import { ArtifactsIcon, CaptureIcon, ChatIcon, ExtensionsIcon, SpeechIcon } from "@/components/icons/sectionIcons";
+import { NodesIcon, CaptureIcon, ChatIcon, ExtensionsIcon, SpeechIcon } from "@/components/icons/sectionIcons";
 import { QuickTooltip } from "@/components/ui/tooltip";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ const SHORTCUTS: readonly { id: SectionId; labelKey: string; Icon: LucideIcon; a
   { id: "chats", labelKey: "sidebar.surface_chat", Icon: ChatIcon, also: [] },
   { id: "plugins", labelKey: "nav.plugins", Icon: ExtensionsIcon, also: ["skills", "mcps"] },
   { id: "dictation", labelKey: "nav.dictation", Icon: SpeechIcon, also: ["dictionary", "voice-language", "voice-api-keys"] },
-  { id: "visualization", labelKey: "nav.visualization", Icon: ArtifactsIcon, also: [] },
+  { id: "visualization", labelKey: "nav.visualization", Icon: NodesIcon, also: [] },
   { id: "appshots", labelKey: "nav.appshots", Icon: CaptureIcon, also: [] },
 ];
 

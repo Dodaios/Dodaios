@@ -1,0 +1,244 @@
+/**
+ * The dialog a tile of the "Make something new" row opens.
+ *
+ * It asks one thing: what the new node should be about. With an answer, the
+ * primary action hands it to the assistant as the reader's own message in
+ * the lead conversation and closes; the library then shows a placeholder
+ * until the node arrives. Without one (or for someone who would rather start
+ * from a blank), the secondary action creates a starter node of the type and
+ * opens it.
+ *
+ * A request that could not be sent keeps the dialog open with what was
+ * typed and says so.
+ */
+import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { Loader2 } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useT, useUiLanguage } from "@/i18n";
+import { requestNewNode } from "./askDodaios";
+import type { NodeCard, NodeType } from "./nodeModel";
+import { NODE_TYPE_LABEL_KEY, nodeHueStyle } from "./nodeTheme";
+import { NodeTypeIcon } from "./NodeTypeIcon";
+import { useNodeActions } from "./useNodes";
+
+/** The three example requests each type offers (`nodes.new.examples.<type>.<id>`). */
+const EXAMPLE_IDS = ["a", "b", "c"] as const;
+/** A starter node takes what was typed as its name, up to a title's length. */
+const MAX_TITLE_CHARS = 80;
+
+export interface NewNodeDialogProps {
+  /** The type a tile was picked for; null keeps the dialog closed. */
+  type: NodeType | null;
+  onClose: () => void;
+  /** The request went out: the library registers a placeholder for it. */
+  onRequested: (type: NodeType, request: string) => void;
+  /** A starter node was created: the library opens it. */
+  onCreated: (card: NodeCard) => void;
+}
+
+export function NewNodeDialog({ type, onClose, onRequested, onCreated }: NewNodeDialogProps) {
+  const [busy, setBusy] = useState(false);
+  const content = useRef<HTMLDivElement>(null);
+
+  return (
+    <Dialog.Root open={type !== null} onOpenChange={(open) => !open && !busy && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[80] bg-scrim/50 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <Dialog.Content
+          ref={content}
+          data-testid="new-node-dialog"
+          onOpenAutoFocus={(event) => {
+            const field = content.current?.querySelector("textarea");
+            if (!field) return;
+            event.preventDefault();
+            field.focus();
+          }}
+          className="fixed left-1/2 top-[14%] z-[90] max-h-[calc(100vh-14%-1rem)] w-[min(540px,calc(100vw-2rem))] -translate-x-1/2 overflow-y-auto rounded-xl border border-border bg-popover p-6 text-popover-foreground shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+        >
+          {type !== null && (
+            <NewNodeForm
+              key={type}
+              type={type}
+              busy={busy}
+              onBusy={setBusy}
+              onClose={onClose}
+              onRequested={onRequested}
+              onCreated={onCreated}
+            />
+          )}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+/** Keyed by the type, so every tile opens on an empty field. */
+function NewNodeForm({
+  type,
+  busy,
+  onBusy,
+  onClose,
+  onRequested,
+  onCreated,
+}: {
+  type: NodeType;
+  busy: boolean;
+  onBusy: (busy: boolean) => void;
+} & Pick<NewNodeDialogProps, "onClose" | "onRequested" | "onCreated">) {
+  const t = useT();
+  const language = useUiLanguage();
+  const actions = useNodeActions();
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  /** Which of the two actions is under way, for its spinner. */
+  const [working, setWorking] = useState<"request" | "empty" | null>(null);
+  const field = useRef<HTMLTextAreaElement>(null);
+
+  const request = text.trim();
+  const typeName = t(NODE_TYPE_LABEL_KEY[type]);
+
+  const begin = (which: "request" | "empty") => {
+    setWorking(which);
+    setError(null);
+    onBusy(true);
+  };
+  const fail = (sentence: string) => {
+    setWorking(null);
+    onBusy(false);
+    setError(sentence);
+  };
+
+  const createWithAssistant = async () => {
+    if (busy || request === "") return;
+    begin("request");
+    try {
+      await requestNewNode(type, request);
+    } catch {
+      // Nothing reached the assistant: the dialog stays, with what was typed.
+      fail(t("nodes.new.send_failed"));
+      return;
+    }
+    setWorking(null);
+    onBusy(false);
+    onRequested(type, request);
+    onClose();
+  };
+
+  const startEmpty = async () => {
+    if (busy) return;
+    begin("empty");
+    let card: NodeCard;
+    try {
+      card = await actions.createNode({
+        type,
+        title: request === "" ? undefined : request.slice(0, MAX_TITLE_CHARS),
+        language,
+      });
+    } catch {
+      fail(t("nodes.new.create_failed"));
+      return;
+    }
+    setWorking(null);
+    onBusy(false);
+    onClose();
+    onCreated(card);
+  };
+
+  const onFieldKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter is a new line in a text area; with the platform's modifier it sends.
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      void createWithAssistant();
+    }
+  };
+
+  return (
+    <>
+      <div className="flex items-center gap-3.5">
+        <span
+          aria-hidden
+          style={nodeHueStyle(type)}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[hsl(var(--node-hue)/0.14)] text-[hsl(var(--node-hue))]"
+        >
+          <NodeTypeIcon type={type} className="h-6 w-6" />
+        </span>
+        <div className="min-w-0">
+          <Dialog.Title className="text-xl font-semibold text-foreground-strong">{typeName}</Dialog.Title>
+          <Dialog.Description className="text-base text-muted-foreground">
+            {t(`nodes.new.about.${type}`)}
+          </Dialog.Description>
+        </div>
+      </div>
+
+      <label htmlFor="new-node-request" className="mt-6 block text-base font-medium text-foreground">
+        {t("nodes.new.prompt_label")}
+      </label>
+      <Textarea
+        id="new-node-request"
+        ref={field}
+        rows={4}
+        value={text}
+        disabled={busy}
+        placeholder={t(`nodes.new.placeholder.${type}`)}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={onFieldKeyDown}
+        data-testid="new-node-request"
+        className="mt-2 min-h-[104px] resize-none"
+      />
+
+      <ul aria-label={t("nodes.new.examples_label")} className="mt-3 flex flex-wrap gap-2">
+        {EXAMPLE_IDS.map((id) => {
+          const example = t(`nodes.new.examples.${type}.${id}`);
+          return (
+            <li key={id} className="min-w-0 max-w-full">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setText(example);
+                  setError(null);
+                  field.current?.focus();
+                }}
+                data-testid="new-node-example"
+                className="max-w-full truncate rounded-full border border-border bg-transparent px-3 py-1 text-left text-sm text-muted-foreground transition-colors duration-fast hover:border-border-strong hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+              >
+                {example}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      {error && (
+        <p role="alert" className="mt-4 text-sm text-destructive" data-testid="new-node-error">
+          {error}
+        </p>
+      )}
+
+      <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={busy}
+          onClick={() => void startEmpty()}
+          data-testid="new-node-empty"
+        >
+          {working === "empty" && <Loader2 className="animate-spin" aria-hidden />}
+          {t("nodes.new.empty")}
+        </Button>
+        <Button
+          type="button"
+          disabled={busy || request === ""}
+          onClick={() => void createWithAssistant()}
+          data-testid="new-node-create"
+        >
+          {working === "request" && <Loader2 className="animate-spin" aria-hidden />}
+          {t("nodes.new.create")}
+        </Button>
+      </div>
+    </>
+  );
+}

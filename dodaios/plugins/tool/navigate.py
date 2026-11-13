@@ -215,9 +215,14 @@ _ALIASES: dict[str, str] = {
     "app shot": "appshots",
     "task bar": "taskbar",
     "taskleiste": "taskbar",
-    # The Artifacts section (section id kept as "visualization" — its 2026-08
-    # name — because the id crosses the navigate parity test, the detachable
-    # view registry and deep links). Spoken forms: the new name first.
+    # The Nodes section, called Artifacts until 2026-11-13 (section id kept as
+    # "visualization" — its 2026-08 name — because the id crosses the navigate
+    # parity test, the detachable view registry and deep links). Spoken forms:
+    # the new name first; it is "Nodes" in every language. The old names still land.
+    "nodes": "visualization",
+    "my nodes": "visualization",
+    "meine nodes": "visualization",  # i18n-allow: input vocab
+    "mis nodes": "visualization",  # i18n-allow: input vocab
     "artifacts": "visualization",
     "artifact": "visualization",
     "artefakte": "visualization",  # i18n-allow: input vocab

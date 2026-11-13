@@ -536,6 +536,15 @@ async def test_a_deferred_tool_is_found_and_runs_in_the_same_turn() -> None:
     assert ran.success
 
 
+def test_the_node_tool_is_direct_and_sits_after_the_frozen_prefix() -> None:
+    from dodaios.brain.tool_shortlist import DEFAULT_DIRECT, LEAD_DIRECT
+
+    # Appended at the very end: every schema before it keeps its cached place.
+    assert DEFAULT_DIRECT[-2:] == ("write_report", "node")
+    assert LEAD_DIRECT[-1] == "node"
+    assert len(set(DEFAULT_DIRECT)) == len(DEFAULT_DIRECT)
+
+
 def test_the_lead_sees_delegate_where_the_overlapping_hand_off_tools_were() -> None:
     from dodaios.brain.lead_doctrine import LEAD_TURN
     from dodaios.brain.tool_shortlist import DEFAULT_DIRECT, LEAD_DIRECT

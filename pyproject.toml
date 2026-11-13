@@ -842,6 +842,12 @@ show-result-card = "dodaios.plugins.tool.result_card:ResultCardTool"
 # with a report card in the chat, so the chat reply stays short. Router-tier,
 # monitor (one page + one card); no model call, never spawns (AP-5/AP-14).
 write-report = "dodaios.plugins.tool.write_report:WriteReportTool"
+# Nodes (2026-11-13): the typed things the lead makes for a person and keeps
+# current (docs, slides, sheets, design, data, whiteboard, motion), shown in the
+# Nodes section. The model sends content (a spec), the type's renderer writes the
+# page (dodaios/nodes/). Router-tier, monitor (one page + at most one own
+# routine); no model call, never spawns (AP-5/AP-14).
+node = "dodaios.plugins.tool.node:NodeTool"
 # Jobs ledger (2026-11-10): every async hand-off returns a job_id; these two read
 # it. job-status reports jobs now, await-jobs waits on evidence up to a timeout
 # the model picks. Both are read-only (safe) and never spawn (AP-5/AP-14).

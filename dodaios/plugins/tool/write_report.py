@@ -60,7 +60,7 @@ class WriteReportTool:
         "items start with a bold title for a real sequence of steps; `Term` then "
         "`: value` lines for the attributes of one thing; a last section with a "
         "list of plain links for the sources. The page opens "
-        "in the Artifacts section and a preview of it appears in the chat. Then reply "
+        "in the Nodes section and a preview of it appears in the chat. Then reply "
         "in two or three short sentences: the gist and what needs the person; do not "
         "repeat the report in the chat."
     )
@@ -111,7 +111,7 @@ class WriteReportTool:
         where = (
             "Its preview is in the chat"
             if shown
-            else "It is in the Artifacts section (no preview could be posted)"
+            else "It is in the Nodes section (no preview could be posted)"
         )
         return ToolResult(
             True,
