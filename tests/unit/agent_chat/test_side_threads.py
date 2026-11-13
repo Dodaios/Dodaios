@@ -42,6 +42,8 @@ class Chat:
         self.store.set_lead_session_id(self.sid)
         #: ``(session id, prompt)`` of every turn the model ran.
         self.prompts: list[tuple[str, str]] = []
+        #: The reply language each of those turns was given, in the same order.
+        self.languages: list[str] = []
         #: A turn whose prompt is a key here waits for its event (or for Stop).
         self.holds: dict[str, asyncio.Event] = {}
         monkeypatch.setattr(service_mod, "run_brain_turn", self._model)
@@ -49,6 +51,7 @@ class Chat:
 
     async def _model(self, handle, prompt, *args, **kwargs) -> None:
         self.prompts.append((handle.session.session_id, prompt))
+        self.languages.append(handle.output_language)
         hold = self.holds.get(prompt)
         if hold is not None:
             waits = {asyncio.create_task(hold.wait()), asyncio.create_task(handle.cancel.wait())}
@@ -122,6 +125,22 @@ async def test_a_message_sent_while_the_lead_works_is_answered_beside_it(chat):
     told = "\n".join(str(message.content) for message in history)
     assert _SECOND in told and f"Answer to: {_SECOND}" in told
     assert "Side thread of this chat" in told
+
+
+async def test_a_side_thread_answers_in_the_language_of_the_conversation(chat):
+    # A side thread starts as a chat of its own, with no history. A short
+    # question beside a German conversation had no language to follow.
+    request = "Bitte vergleiche für mich die drei besten Schreibtische."  # i18n-allow
+    release = chat.hold(request)
+    await chat.svc.send(chat.sid, request)
+    await _until(lambda: bool(chat.prompts))
+
+    await side_threads.start(chat.svc, chat.sid, "Ok")
+    await _until(lambda: bool(chat.notices(side_threads.FINISHED)))
+
+    assert chat.languages == ["de", "de"]
+    release.set()
+    await chat.idle()
 
 
 async def test_only_a_working_lead_conversation_branches(chat, tmp_path):
