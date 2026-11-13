@@ -3328,7 +3328,8 @@
       "keybinds": "Tastenkürzel",
       "more": "Weiteres",
       "overlay_taskbar": "Overlay & Taskleiste",
-      "self_build": "Selbstbau"
+      "self_build": "Selbstbau",
+      "approvals": "Berechtigungsmodi"
     },
     "languages_group_title": "Sprachen",
     "sections": {

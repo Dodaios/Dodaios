@@ -115,14 +115,6 @@ export const fetchKnownRecipients = async () =>
 export const forgetRecipient = (recipient: string) =>
   request<{ ok: boolean }>(`/api/trust/recipients?recipient=${encodeURIComponent(recipient)}`, { method: "DELETE" });
 
-/** The memory vault's learning switch (personal_memory_routes.py): off = paused for good. */
-export const setLearning = (on: boolean) =>
-  request<{ paused: boolean; until: string | null }>("/api/memory/vault/pause", json(on ? {} : { forever: true }));
-
-/** The screen-context master switch (screen_context_routes.py). */
-export const setScreenContext = (enabled: boolean) =>
-  request<{ enabled: boolean }>("/api/screen-context/settings", json({ enabled }));
-
 export interface ActionReceipt {
   id: string;
   state: "backed" | "none" | "read";

@@ -9,7 +9,13 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 
 import { _resetProvidersCacheForTests } from "@/hooks/useProviders";
 import { loadLocaleChunk } from "@/i18n";
-import { PipelinePane } from "@/views/apikeys/VoiceEngine";
+import { PipelinePane, VoiceEngineSwitch } from "@/views/apikeys/VoiceEngine";
+
+/** What `useVoiceMode` reports to the engine row; a test sets it before rendering. */
+const voice = vi.hoisted(() => ({ state: {} as Record<string, unknown> }));
+vi.mock("@/hooks/useVoiceMode", () => ({ useVoiceMode: () => voice.state }));
+
+const ENGINE = { view: "live" as const, configured: "live" as const, choose: () => {}, busy: false, error: null };
 
 const BASE = {
   dashboard_url: null, login_cli: null, install_hint: null, credential_path_hint: null,
@@ -73,5 +79,56 @@ describe("PipelinePane brain", () => {
     const warning = await screen.findByTestId("voice-pipeline-brain-missing");
     expect(warning.getAttribute("role")).toBe("alert");
     expect(warning.textContent).toContain("Claude (API-Key) is not set up yet");
+  });
+});
+
+describe("VoiceEngineSwitch call status", () => {
+  beforeEach(() => {
+    voice.state = { mode: "realtime", sessionActive: false, activeSessionMode: null };
+  });
+
+  it("draws no status line while no call runs and nothing went wrong", () => {
+    render(<VoiceEngineSwitch engine={ENGINE} />);
+    expect(screen.getByTestId("voice-engine-switch")).toBeTruthy();
+    expect(screen.queryByTestId("voice-engine-runtime")).toBeNull();
+    expect(screen.queryByTestId("realtime-last-start-error")).toBeNull();
+  });
+
+  it("says that the session is connecting before anything else", () => {
+    voice.state = { mode: "realtime", connecting: true, sessionActive: true, activeSessionMode: "pipeline" };
+    render(<VoiceEngineSwitch engine={ENGINE} />);
+    expect(screen.getByTestId("voice-engine-runtime").textContent).toContain("Connecting the Realtime session");
+  });
+
+  it("names the engine and model a running call really uses", () => {
+    voice.state = {
+      mode: "realtime", sessionActive: true, activeSessionMode: "realtime",
+      activeSessionProvider: "openai", activeSessionModel: "gpt-live",
+    };
+    render(<VoiceEngineSwitch engine={ENGINE} />);
+    expect(screen.getByTestId("voice-engine-runtime").textContent).toBe("Current session: Realtime · openai · gpt-live");
+  });
+
+  it("says when a GPT-Live call fell back to the pipeline", () => {
+    voice.state = { mode: "realtime", sessionActive: true, activeSessionMode: "pipeline" };
+    render(<VoiceEngineSwitch engine={ENGINE} />);
+    expect(screen.getByTestId("voice-engine-runtime").textContent).toContain("fell back to Pipeline");
+  });
+
+  it("shows why the last GPT-Live call did not start, and the transport's own reason", () => {
+    voice.state = {
+      mode: "realtime", sessionActive: false,
+      lastStartError: { provider: "openai", message: "401 unauthorized" },
+      requiresWebRtcOffer: true, transportOfferReady: false, transportOfferDetail: "app-server is not signed in",
+    };
+    render(<VoiceEngineSwitch engine={ENGINE} />);
+    expect(screen.getByTestId("realtime-last-start-error").textContent).toBe("Voice connect failed (openai): 401 unauthorized");
+    expect(screen.getByTestId("realtime-transport-offer-detail").textContent).toBe("app-server is not signed in");
+  });
+
+  it("keeps a GPT-Live start error to itself while the pipeline is the engine", () => {
+    voice.state = { mode: "pipeline", sessionActive: false, lastStartError: { provider: "openai", message: "x" } };
+    render(<VoiceEngineSwitch engine={{ ...ENGINE, view: "pipeline", configured: "pipeline" }} />);
+    expect(screen.queryByTestId("realtime-last-start-error")).toBeNull();
   });
 });

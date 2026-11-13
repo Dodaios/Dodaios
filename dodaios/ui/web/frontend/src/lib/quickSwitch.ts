@@ -31,7 +31,6 @@ import {
   PaneGridIcon,
   PhoneIcon,
   PluginIcon,
-  ShortcutsIcon,
   SkillIcon,
   TestFlaskIcon,
   VoiceIcon,
@@ -87,8 +86,7 @@ const ALIASES: Partial<Record<string, readonly string[]>> = {
   feedback: ["bug", "report", "issue"],
   appshots: ["screenshot", "capture"],
   dictation: ["voice", "speech", "microphone", "mic", "whisper"],
-  shortcuts: ["hotkeys", "keybinds", "keyboard", "quick switcher"],
-  "voice-shortcuts": ["dictation hotkeys", "dictation keys"],
+  shortcuts: ["hotkeys", "keybinds", "keyboard", "quick switcher", "dictation hotkeys", "dictation keys"],
   "voice-language": ["recognition language"],
   "voice-api-keys": ["speech to text", "stt"],
   dictionary: ["vocabulary", "words"],
@@ -179,7 +177,6 @@ function expand(item: NavItem): QuickSwitchEntry[] {
       return [
         entry(item),
         tab("dictionary", "nav.dictionary", DictionaryIcon, "nav.voice"),
-        tab("voice-shortcuts", "nav.voice_shortcuts", ShortcutsIcon, "nav.voice"),
         tab("voice-language", "nav.voice_language", LanguageIcon, "nav.voice"),
         tab("voice-api-keys", "nav.voice_api_keys", KeyRound, "nav.voice"),
       ];

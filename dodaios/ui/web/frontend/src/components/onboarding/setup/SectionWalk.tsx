@@ -16,12 +16,16 @@ import type { HomeSurface } from "@/lib/homeSurface";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 import { useHomeStore } from "@/store/home";
+import { useSettingsJump } from "@/store/settingsJump";
 import { PetSays, useGuidePet } from "../pet/GuidePet";
 import { Spotlight } from "../tour/Spotlight";
 import { QuietAction } from "../ui";
 import { walkStopsFor } from "./setupSteps";
 import { useAnchorRect } from "./useAnchorRect";
 import { usePlatform } from "./usePlatform";
+
+/** The prefix of a Settings group's anchor (`settings-<group>`). */
+const SETTINGS_ANCHOR = "settings-";
 
 const BUBBLE_W = 500;
 const STOP_KEY = "jarvis.setup.walkStop";
@@ -68,6 +72,11 @@ export function SectionWalk({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     if (!ready) return;
     const nav = useEventStore.getState();
+    // A Settings group sits in one slice of the hub; ask for the slice that
+    // holds the anchor, or the hub opens on its first one without it.
+    if (stop.section === "settings" && stop.anchor?.startsWith(SETTINGS_ANCHOR)) {
+      useSettingsJump.getState().request(stop.anchor.slice(SETTINGS_ANCHOR.length));
+    }
     if (stop.section && nav.activeSection !== stop.section) nav.setActiveSection(stop.section);
     if (stop.surface && useHomeStore.getState().surface !== stop.surface) {
       useHomeStore.getState().setSurface(stop.surface);

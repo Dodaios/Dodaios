@@ -237,6 +237,24 @@ class TestRenderForPrompt:
         # Header is still included
         assert "About the User" in out
 
+    def test_render_includes_the_main_language_without_a_languages_list(
+        self, profile: UserProfile
+    ) -> None:
+        """The profile page edits "Main language" on its own row."""
+        profile.set("identity", "primary_language", "de")
+        out = profile.render_for_prompt()
+        assert "- **Main language:** de" in out
+
+    def test_render_names_the_main_language_once_beside_the_list(
+        self, profile: UserProfile
+    ) -> None:
+        profile.set("identity", "primary_language", "de")
+        profile.append_list("identity", "languages", "de")
+        profile.append_list("identity", "languages", "en")
+        out = profile.render_for_prompt()
+        assert "- **Languages:** de, en (Primary: de)" in out
+        assert "Main language" not in out
+
     def test_render_includes_the_self_description(self, profile: UserProfile) -> None:
         profile.set("identity", "name", "Ruben")
         profile.set("identity", "about", "Builds in public. Short answers.")

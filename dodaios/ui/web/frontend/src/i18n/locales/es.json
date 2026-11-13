@@ -3328,7 +3328,8 @@
       "keybinds": "Atajos de teclado",
       "more": "Más",
       "overlay_taskbar": "Overlay y barra de tareas",
-      "self_build": "Autoconstrucción"
+      "self_build": "Autoconstrucción",
+      "approvals": "Modos de permiso"
     },
     "languages_group_title": "Idiomas",
     "sections": {

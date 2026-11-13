@@ -104,16 +104,17 @@ export function PetsView() {
   };
 
   /**
-   * The master switch: ON makes the pet the desktop overlay style, OFF hands
-   * the desktop back to the default Jarvis bar. The chosen pet is kept either
-   * way, so switching back on brings the same pet back.
+   * Makes the pet the desktop overlay style. What is on the desktop is chosen
+   * in one place, Settings → Bar & Overlay → Display style; this page only
+   * offers the step while another style is active, and that picker is where
+   * the pet is taken off the desktop again. The chosen pet is kept either way.
    */
-  async function setPetEnabled(enabled: boolean) {
+  async function usePetStyle() {
     setSwitchingStyle(true);
     try {
-      const result = await overlay.saveStyle(enabled ? "pet" : "jarvis_bar");
+      const result = await overlay.saveStyle("pet");
       if (result.applied_live) {
-        pushToast("success", t(enabled ? "pets.style_saved" : "pets.style_off_saved"));
+        pushToast("success", t("pets.style_saved"));
       } else {
         setNeedsRestart(true);
       }
@@ -180,16 +181,6 @@ export function PetsView() {
                   {data?.visible === false ? t("pets.show") : t("pets.hide")}
                 </Button>
               )}
-              <label className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-1.5">
-                <span className="text-sm font-medium text-foreground">{t("pets.enabled_label")}</span>
-                <Switch
-                  data-testid="pets-enabled"
-                  checked={styleIsPet}
-                  disabled={!overlay.config || switchingStyle}
-                  aria-label={t("pets.enabled_label")}
-                  onCheckedChange={(next) => void setPetEnabled(next)}
-                />
-              </label>
             </div>
           }
         />
@@ -215,7 +206,7 @@ export function PetsView() {
               type="button"
               data-testid="pets-use-pet"
               disabled={switchingStyle}
-              onClick={() => void setPetEnabled(true)}
+              onClick={() => void usePetStyle()}
             >
               {switchingStyle && <Loader2 className="animate-spin" aria-hidden />}
               {t("pets.use_pet")}

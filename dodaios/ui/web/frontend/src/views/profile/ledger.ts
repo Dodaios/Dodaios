@@ -77,8 +77,21 @@ export function fieldKind(field: string): FieldKind {
   return "scalar";
 }
 
+/**
+ * Stored fields the page does not offer: the assistant's prompt never reads
+ * them (`UserProfile.render_for_prompt`), so filling them in changed nothing
+ * it says or does. They stay in the storage vocabulary above, which mirrors
+ * the backend, and a value already in USER.md stays in the file.
+ */
+export const NOT_ON_PAGE: ReadonlySet<string> = new Set(["devices", "motivations"]);
+
+/** The fields of one cluster the page shows and counts. */
+function pageFields(cid: ClusterId): string[] {
+  return CLUSTER_FIELD_KEYS[cid].filter((field) => !NOT_ON_PAGE.has(field));
+}
+
 export const TOTAL_FIELDS: number = CLUSTER_ORDER.reduce(
-  (acc, cid) => acc + CLUSTER_FIELD_KEYS[cid].length,
+  (acc, cid) => acc + pageFields(cid).length,
   0,
 );
 
@@ -103,12 +116,12 @@ function clusterData(
   return raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
 }
 
-/** Number of vocabulary fields with a non-empty value. Stray keys never count. */
+/** Number of fields on the page with a non-empty value. Stray keys never count. */
 export function countFilled(meta: Record<string, unknown>): number {
   let filled = 0;
   for (const cid of CLUSTER_ORDER) {
     const data = clusterData(meta, cid);
-    for (const key of CLUSTER_FIELD_KEYS[cid]) {
+    for (const key of pageFields(cid)) {
       if (!isEmptyValue(data[key])) filled += 1;
     }
   }
@@ -200,7 +213,7 @@ export const PAGE_GROUPS: readonly { id: GroupId; fields: readonly FieldRef[] }[
     id: "about",
     // The self-description is edited under the name at the top of the page.
     fields: CLUSTER_FIELD_KEYS.identity
-      .filter((field) => field !== "about")
+      .filter((field) => field !== "about" && !NOT_ON_PAGE.has(field))
       .map((field) => ({ cid: "identity", field })),
   },
   {
@@ -214,7 +227,12 @@ export const PAGE_GROUPS: readonly { id: GroupId; fields: readonly FieldRef[] }[
       ...CLUSTER_FIELD_KEYS.relationship.map((field) => ({ cid: "relationship" as const, field })),
     ],
   },
-  { id: "values", fields: CLUSTER_FIELD_KEYS.values.map((field) => ({ cid: "values", field })) },
+  {
+    id: "values",
+    fields: CLUSTER_FIELD_KEYS.values
+      .filter((field) => !NOT_ON_PAGE.has(field))
+      .map((field) => ({ cid: "values", field })),
+  },
 ];
 
 /** Whole days between an ISO date and now; null when unparseable. */

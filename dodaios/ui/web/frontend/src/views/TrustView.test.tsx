@@ -69,7 +69,7 @@ describe("Settings → Trust and privacy", () => {
     await waitFor(() => expect(calls.some((c) => c.startsWith("DELETE /api/trust/agent-rules/ada?pattern=plugin%3Agmail%3Asend"))).toBe(true));
   });
 
-  it("shows what it knows and where it goes, with the learning and screen switches", async () => {
+  it("shows what it knows and where it goes, and where each permission is changed", async () => {
     const calls: string[] = [];
     stubApi(calls);
     await loadLocaleChunk("trust");
@@ -82,10 +82,16 @@ describe("Settings → Trust and privacy", () => {
     expect(screen.getByTestId("privacy-channels").textContent).toContain("telegram");
     expect(screen.getByTestId("privacy-overview").textContent).toContain("3 recipients written to from here");
 
-    fireEvent.click(screen.getByRole("switch", { name: "Learn from conversations" }));
-    await waitFor(() => expect(calls).toContain("PUT /api/memory/vault/pause"));
-    fireEvent.click(screen.getByRole("switch", { name: "May look at the screen when you ask" }));
-    await waitFor(() => expect(calls).toContain("PUT /api/screen-context/settings"));
+    // The overview reports the two permissions; it does not switch them.
+    // Learning is paused on Memory and the screen is allowed on Appshots.
+    expect(screen.queryAllByRole("switch")).toHaveLength(0);
+    expect(screen.getByTestId("privacy-learning-row").textContent).toContain("Learn from conversations");
+    expect(screen.getByTestId("privacy-learning-row-state").textContent).toBe("On");
+    expect(screen.getByTestId("privacy-screen-row-state").textContent).toBe("On");
+    expect(screen.getByRole("button", { name: "Pause or resume in Memory" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Change in Appshots" }));
+    expect(useEventStore.getState().activeSection).toBe("appshots");
+    expect(calls.some((call) => call.startsWith("PUT "))).toBe(false);
   });
 
   it("switches between the two tabs", async () => {

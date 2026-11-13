@@ -154,7 +154,7 @@
     "learned_off": "Das Gedächtnis läuft nicht.",
     "learning_switch": "Aus Gesprächen lernen",
     "learning_paused_until": "Pausiert bis {until}",
-    "open_memory": "Gedächtnis öffnen",
+    "open_memory": "Im Gedächtnis pausieren oder fortsetzen",
     "leaves_title": "Was diesen Rechner verlässt",
     "leaves_intro": "Jede Rolle läuft beim genannten Anbieter. Ein Cloud-Anbieter erhält, was seine Rolle braucht: deine Worte und den Text, den er antwortet.",
     "local": "Auf diesem Rechner",
@@ -173,6 +173,9 @@
     "screen_intro": "Eine Aufnahme des Bildschirms unter deinem Cursor, nur wenn du danach fragst, danach verworfen.",
     "screen_switch": "Darf auf den Bildschirm schauen, wenn du fragst",
     "recipients_line": "{count} Empfänger von hier angeschrieben",
-    "switch_failed": "Das konnte nicht geändert werden."
+    "state_on": "An",
+    "state_off": "Aus",
+    "state_paused": "Pausiert",
+    "manage_screen": "In Appshots ändern"
   }
 }

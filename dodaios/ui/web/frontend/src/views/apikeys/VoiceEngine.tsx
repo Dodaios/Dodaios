@@ -8,6 +8,7 @@ import {
 } from "@/components/providers/ProviderTierSection";
 import { useProviders } from "@/hooks/useProviders";
 import { useVoiceMode } from "@/hooks/useVoiceMode";
+import { realtimeTransportIssueKey } from "@/lib/realtimeTransportIssue";
 import { useT } from "@/i18n";
 import { Segmented, SettingsGroup, SettingsRow } from "@/views/apikeys/settingsUi";
 
@@ -15,9 +16,8 @@ import { Segmented, SettingsGroup, SettingsRow } from "@/views/apikeys/settingsU
 export type VoiceEngineView = "live" | "pipeline";
 
 /**
- * The engine choice at the top of the Live calls tab.
- *
- * It writes `[voice].mode` through the same route as the Settings switch.
+ * The engine choice at the top of the Live calls tab: the one control that
+ * writes `[voice].mode`.
  * Picking Pipeline always works. Picking GPT-Live works once a live provider
  * is ready; before that the tab only shows GPT-Live's settings, and saving
  * them makes GPT-Live the engine (the backend sets the mode on save).
@@ -93,8 +93,68 @@ export function VoiceEngineSwitch({ engine }: { engine: ReturnType<typeof useVoi
             ]}
           />
         }
-      />
+      >
+        <VoiceRuntimeLines />
+      </SettingsRow>
     </SettingsGroup>
+  );
+}
+
+/**
+ * What the running call is doing, under the engine choice: the engine a live
+ * session really uses, and the reason a GPT-Live call did not start.
+ *
+ * "Connecting" comes first. A subscription transport spends 15-45 s spawning
+ * its app-server, verifying the account and negotiating WebRTC; reporting that
+ * window as an idle engine is what made a working call look frozen. The
+ * backend's own one-liner for a blocked transport is rendered verbatim: it
+ * names the actual blocker, and paraphrasing it would drop the diagnosis.
+ * Nothing is drawn while no call runs and nothing went wrong.
+ */
+function VoiceRuntimeLines() {
+  const t = useT();
+  const voice = useVoiceMode();
+  const on = voice.mode === "realtime";
+  const detail = [voice.activeSessionProvider, voice.activeSessionModel].filter(Boolean).join(" · ");
+  const runtime = voice.connecting
+    ? t("apikeys_view.runtime_connecting")
+    : voice.transitioning
+      ? t("apikeys_view.runtime_switching")
+      : voice.sessionActive && voice.activeSessionMode === "realtime"
+        ? `${t("apikeys_view.runtime_realtime")}${detail ? ` · ${detail}` : ""}`
+        : voice.sessionActive && voice.activeSessionMode === "pipeline" && on
+          ? t("apikeys_view.runtime_fallback_pipeline")
+          : voice.sessionActive
+            ? t("apikeys_view.runtime_pipeline")
+            : "";
+  const offerBlocked = on && voice.requiresWebRtcOffer && voice.transportOfferReady === false;
+  const offer = !offerBlocked
+    ? ""
+    : voice.transportIssue
+      ? t(realtimeTransportIssueKey(voice.transportIssue))
+      : voice.transportOfferDetail;
+  const startError = on ? voice.lastStartError : null;
+  if (!runtime && !offer && !startError) return null;
+  return (
+    <div className="space-y-1 text-xs" aria-live="polite">
+      {runtime && (
+        <p data-testid="voice-engine-runtime" className="text-muted-foreground">
+          {runtime}
+        </p>
+      )}
+      {startError && (
+        <p data-testid="realtime-last-start-error" className="text-foreground">
+          {t("voice_state.connect_failed")
+            .replace("{0}", startError.provider || "?")
+            .replace("{1}", startError.message)}
+        </p>
+      )}
+      {offer && (
+        <p data-testid="realtime-transport-offer-detail" className="text-foreground">
+          {offer}
+        </p>
+      )}
+    </div>
   );
 }
 

@@ -65,9 +65,8 @@ permission and operating-system routing instead.
 | **Call shortcut** | A key combination opens the same voice conversation without spoken activation | Works when wake activation is off or unavailable; the shipped default is F3+F4 |
 | **Dictation** | A shortcut or button turns speech into text at the cursor | It does not ask the assistant to answer or act |
 
-Change Call under **Settings > Voice Keybinds**. Dictation shortcuts live under
-your assistant-named **Voice > Shortcuts** area; see [Dictate Into Any
-App](dictation).
+Change Call and the dictation shortcuts under **Settings > Keyboard
+shortcuts**; see [Dictate Into Any App](dictation).
 
 Dictation owns the microphone while it runs, so wake and Call activation pause.
 If a conversation is still open when you start Dictation, the deliberate

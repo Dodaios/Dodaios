@@ -10,6 +10,8 @@ import { describe, expect, it } from "vitest";
 import {
   BOOL_FIELD_KEYS,
   CLUSTER_FIELD_KEYS,
+  NOT_ON_PAGE,
+  PAGE_GROUPS,
   CLUSTER_ORDER,
   LIST_FIELD_KEYS,
   TOTAL_FIELDS,
@@ -53,13 +55,21 @@ function fullMeta(): Record<string, unknown> {
 // ----------------------------------------------------------------------
 
 describe("ledger field vocabulary", () => {
-  it("counts 19 fields across the five clusters", () => {
+  it("stores 19 fields across the five clusters and counts the 17 the page shows", () => {
     const sum = CLUSTER_ORDER.reduce(
       (acc, cid) => acc + CLUSTER_FIELD_KEYS[cid].length,
       0,
     );
     expect(sum).toBe(19);
-    expect(TOTAL_FIELDS).toBe(19);
+    expect(TOTAL_FIELDS).toBe(17);
+  });
+
+  it("offers no row for a field the assistant's prompt never reads", () => {
+    const shown = PAGE_GROUPS.flatMap((group) => group.fields.map((ref) => ref.field));
+    for (const field of NOT_ON_PAGE) expect(shown).not.toContain(field);
+    expect([...NOT_ON_PAGE].sort()).toEqual(["devices", "motivations"]);
+    // The self-description is edited under the name at the top of the page.
+    expect(shown).toHaveLength(TOTAL_FIELDS - 1);
   });
 
 });
@@ -129,7 +139,7 @@ describe("isEmptyValue", () => {
 });
 
 describe("countFilled", () => {
-  it("is 0 for an empty meta and 19 for a full meta", () => {
+  it("is 0 for an empty meta and every shown field for a full meta", () => {
     expect(countFilled(EMPTY_META)).toBe(0);
     expect(countFilled(fullMeta())).toBe(TOTAL_FIELDS);
   });

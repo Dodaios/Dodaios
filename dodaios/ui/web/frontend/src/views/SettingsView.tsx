@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { OverlayTaskbarGroup } from "@/views/settings/OverlayTaskbarGroup";
 import { LanguagesGroup } from "@/views/settings/LanguagesGroup";
 import { MusicGroup } from "@/views/settings/MusicGroup";
 import { AppSettingsGroup } from "@/views/settings/AppSettingsGroup";
-import { RealtimeVoiceGroup } from "@/views/settings/RealtimeVoiceGroup";
 import { VolumeGroup } from "@/views/settings/VolumeGroup";
 import { AudioDevicesGroup } from "@/views/settings/AudioDevicesGroup";
 import { SystemPromptGroup } from "@/views/settings/SystemPromptGroup";
@@ -73,73 +71,40 @@ interface WakeSelfTestResult {
  * over a grouped card. Every group is fault-isolated — one panel throwing
  * costs that one panel, never the whole page. Section and row anchors keep the
  * `settings-<id>` ids the hub search and the first-run guide scroll to.
+ *
+ * The hub always shows one slice of it (`sections`); each group belongs to
+ * exactly one slice, so nothing here is reachable in two places.
  */
 export function SettingsView({ searchTarget, onSearchTargetHandled, sections, title }: {
   searchTarget?: string | null;
   onSearchTargetHandled?: () => void;
-  /** Only these groups (a slice the hub nav picked); the whole page when absent. */
+  /** Only these groups (a slice the hub nav picked); every group when absent. */
   sections?: readonly string[];
   /** The slice's own title; "General" for the whole page. */
   title?: string;
 } = {}) {
   const t = useT();
-  const [moreOpen, setMoreOpen] = useState(() => isFoldedTarget(searchTarget));
 
   useEffect(() => {
     if (!searchTarget) return;
-    // A hit inside the folded groups opens the fold first; this effect runs
-    // again once the group is on the page.
-    if (!moreOpen && isFoldedTarget(searchTarget)) {
-      setMoreOpen(true);
-      return;
-    }
     const target = document.getElementById(`settings-${searchTarget}`);
     if (!target) return;
     target.scrollIntoView?.({ block: "start", behavior: "smooth" });
     onSearchTargetHandled?.();
-  }, [searchTarget, onSearchTargetHandled, moreOpen]);
+  }, [searchTarget, onSearchTargetHandled, sections]);
 
-  const shown = sections ? SECTIONS.filter((section) => sections.includes(section.id)) : SECTIONS;
-  // A slice shows exactly what it names; the whole page folds the rarely
-  // changed groups under "More options".
-  const main = sections ? shown : shown.filter((section) => !FOLDED_SECTIONS.has(section.id));
-  const folded = sections ? [] : shown.filter((section) => FOLDED_SECTIONS.has(section.id));
+  // A slice reads in the order its entry names its groups.
+  const shown = sections
+    ? sections.flatMap((id) => SECTIONS.filter((section) => section.id === id))
+    : SECTIONS;
 
   return (
     <div data-testid="settings-scroll" className="h-full min-h-0">
       <SettingsPage title={title ?? t("settings_hub.general")}>
-        {main.map(renderSection)}
-        {folded.length > 0 && (
-          <div data-testid="settings-more-options" className="space-y-10">
-            <button
-              type="button"
-              aria-expanded={moreOpen}
-              data-testid="settings-more-options-toggle"
-              onClick={() => setMoreOpen((open) => !open)}
-              className="group flex w-full items-center gap-2 rounded-md py-1 text-left text-base font-semibold text-foreground-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <ChevronRight
-                aria-hidden
-                className={cn("h-4 w-4 text-muted-foreground transition-transform duration-fast ease-out-soft", moreOpen && "rotate-90")}
-              />
-              <span className="flex-1">{t("design.settings.more_options")}</span>
-              {!moreOpen && (
-                <span className="text-sm font-normal text-muted-foreground">{t("design.settings.more_options_hint")}</span>
-              )}
-            </button>
-            {moreOpen && folded.map(renderSection)}
-          </div>
-        )}
+        {shown.map(renderSection)}
       </SettingsPage>
     </div>
   );
-}
-
-/** Groups the whole page folds under "More options": set once, rarely changed. */
-const FOLDED_SECTIONS: ReadonlySet<string> = new Set(["music", "overlay-taskbar"]);
-
-function isFoldedTarget(target: string | null | undefined): boolean {
-  return Boolean(target && FOLDED_SECTIONS.has(target));
 }
 
 function renderSection(section: (typeof SECTIONS)[number]) {
@@ -160,16 +125,15 @@ function renderSection(section: (typeof SECTIONS)[number]) {
 
 /**
  * The voice rows share one card. Each keeps its own boundary and its own
- * `settings-<id>` anchor, so search still lands on the exact row.
+ * `settings-<id>` anchor, so search still lands on the exact row. Which
+ * engine a call uses (GPT-Live or the pipeline) is chosen with its provider
+ * on API Keys → Live calls, the one place that also sets the engine up.
  */
 function VoiceSettingsGroup() {
   const t = useT();
   return (
     <SettingsSection title={t("settings_view.sections.voice")}>
       <SettingsCard>
-        <SettingsGroupBoundary group="realtime-voice" inline>
-          <RealtimeVoiceGroup />
-        </SettingsGroupBoundary>
         <SettingsGroupBoundary group="volume" inline>
           <VolumeGroup />
         </SettingsGroupBoundary>

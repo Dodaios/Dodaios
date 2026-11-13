@@ -94,11 +94,9 @@ import { SettingsHubDialog, SettingsHubView as HubView } from "@/views/SettingsH
 const SettingsHubView = () => <HubView />;
 
 const NAV_IDS = [
-  "settings",
   "pets",
   "profile",
   "agent-instructions",
-  "socials",
   "apikeys",
   "costs",
   "feedback",
@@ -164,6 +162,14 @@ describe("SettingsHubView header and navigation", () => {
     await screen.findByTestId("TAB_SETTINGS");
   });
 
+  it("lists neither the whole General page nor the socials links", async () => {
+    render(<SettingsHubView />);
+
+    await screen.findByTestId("TAB_SETTINGS");
+    expect(screen.queryByTestId("settings-hub-nav-settings")).toBeNull();
+    expect(screen.queryByTestId("settings-hub-nav-socials")).toBeNull();
+  });
+
   it("marks the active entry current", async () => {
     mockState.activeSection = "costs";
     render(<SettingsHubView />);
@@ -173,7 +179,7 @@ describe("SettingsHubView header and navigation", () => {
       screen.getByTestId("settings-hub-nav-costs").getAttribute("aria-current"),
     ).toBe("page");
     expect(
-      screen.getByTestId("settings-hub-nav-settings").getAttribute("aria-current"),
+      screen.getByTestId("settings-hub-nav-page-language").getAttribute("aria-current"),
     ).toBeNull();
   });
 
@@ -339,19 +345,18 @@ describe("SettingsHubView five groups", () => {
     expect(tab.getAttribute("data-sections")).toBe("voice,wake-word");
     expect(tab.getAttribute("data-title")).toBe("design.settings.voice_wake");
     expect(screen.getByTestId("settings-hub-nav-page-voice").getAttribute("aria-current")).toBe("page");
-    expect(screen.getByTestId("settings-hub-nav-settings").getAttribute("aria-current")).toBeNull();
+    expect(screen.getByTestId("settings-hub-nav-page-language").getAttribute("aria-current")).toBeNull();
   });
 
-  it("returns to the whole page from All settings", async () => {
+  it("never shows the whole General page: a bare settings link opens the first slice", async () => {
     render(<SettingsHubView />);
-    await screen.findByTestId("TAB_SETTINGS");
-    fireEvent.click(screen.getByTestId("settings-hub-nav-page-behavior"));
-    expect(screen.getByTestId("TAB_SETTINGS").getAttribute("data-sections")).toBe("system-prompt,approvals,self-build");
-    fireEvent.click(screen.getByTestId("settings-hub-nav-settings"));
-    expect(screen.getByTestId("TAB_SETTINGS").getAttribute("data-sections")).toBe("all");
+    const tab = await screen.findByTestId("TAB_SETTINGS");
+    expect(tab.getAttribute("data-sections")).toBe("languages,app,overlay-taskbar,music");
+    expect(tab.getAttribute("data-title")).toBe("design.settings.language_app");
+    expect(screen.getByTestId("settings-hub-nav-page-language").getAttribute("aria-current")).toBe("page");
   });
 
-  it("lands a search hit on the whole page even from a slice", async () => {
+  it("lands a search hit on the slice that holds it", async () => {
     render(<SettingsHubView />);
     await screen.findByTestId("TAB_SETTINGS");
     fireEvent.click(screen.getByTestId("settings-hub-nav-page-language"));
@@ -360,15 +365,31 @@ describe("SettingsHubView five groups", () => {
     });
     fireEvent.click(screen.getByTestId("settings-hub-option-audio-devices"));
     const tab = screen.getByTestId("TAB_SETTINGS");
-    expect(tab.getAttribute("data-sections")).toBe("all");
+    expect(tab.getAttribute("data-sections")).toBe("voice,wake-word");
     expect(tab.getAttribute("data-search-target")).toBe("audio-devices");
+    expect(screen.getByTestId("settings-hub-nav-page-voice").getAttribute("aria-current")).toBe("page");
+  });
+
+  it("finds no setting that no page shows any more", async () => {
+    render(<SettingsHubView />);
+    await screen.findByTestId("TAB_SETTINGS");
+    const search = screen.getByPlaceholderText("settings_hub.search_placeholder");
+    // Rows that left the General page long ago must not come back as hits.
+    for (const gone of ["Privacy Mode", "Project Scope", "Safety Whitelist", "shared key proxy"]) {
+      fireEvent.change(search, { target: { value: gone } });
+      expect(screen.queryByTestId("settings-hub-option-results")).toBeNull();
+    }
+    // The Control Key is set on the API Keys page, so the hit leads there.
+    fireEvent.change(search, { target: { value: "Control Key" } });
+    expect(screen.queryByTestId("settings-hub-option-app")).toBeNull();
+    expect(screen.getByTestId("settings-hub-page-apikeys")).toBeTruthy();
   });
 
   it("opens the language slice for the languages deep link", async () => {
     mockState.activeSection = "languages";
     render(<SettingsHubView />);
     const tab = await screen.findByTestId("TAB_SETTINGS");
-    expect(tab.getAttribute("data-sections")).toBe("languages,app");
+    expect(tab.getAttribute("data-sections")).toBe("languages,app,overlay-taskbar,music");
     expect(screen.getByTestId("settings-hub-nav-page-language").getAttribute("aria-current")).toBe("page");
   });
 

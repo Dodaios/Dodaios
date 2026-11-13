@@ -238,7 +238,8 @@ export function LanguageTab() {
             data-testid="voice-language-precision"
           />
         </Row>
-        {wordingOn && (
+        {/* The conversation pass extends clean-up and runs only while it is on. */}
+        {polishOn && (
           <Row label={t("voiceui.language.conversation")}>
             <Switch
               checked={conversationOn}

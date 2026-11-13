@@ -196,7 +196,9 @@ export const NAV_GROUPS: NavItem[][] = [
     // Spend & Tokens — every token the app spent, priced per provider, model
     // and role. It reports, it does not configure.
     { id: "costs", labelKey: "nav.costs", icon: SpendIcon, fallbackLabel: "Spend" },
-    { id: "socials", labelKey: "nav.socials", icon: SocialsIcon },
+    // The project's community links. No list offers the page any more
+    // (2026-11-13: it holds no setting); the id still answers old links.
+    { id: "socials", labelKey: "nav.socials", icon: SocialsIcon, retired: true },
   ],
   // 4) System. API Keys also fronts the former "Telephony" screen — the
   // telephony status/credentials/scripts/calls live as a section inside the
@@ -225,9 +227,10 @@ export const NAV_GROUPS: NavItem[][] = [
       icon: SettingsIcon,
       matchIds: ["settings", "taskbar", "languages"],
     },
-    // The voice section — dictation, the custom vocabulary, the keys that start
-    // it, the dictation language and the speech-to-text providers — behind one
-    // tab switch. "dictation" is the default landing.
+    // The voice section — dictation, the custom vocabulary, the dictation
+    // language and the speech-to-text providers — behind one tab switch.
+    // "dictation" is the default landing. The keys that start dictation are
+    // edited with every other key, on Settings → Keyboard shortcuts.
     {
       id: "dictation",
       labelKey: "nav.voice",
@@ -235,7 +238,6 @@ export const NAV_GROUPS: NavItem[][] = [
       matchIds: [
         "dictation",
         "dictionary",
-        "voice-shortcuts",
         "voice-language",
         "voice-api-keys",
       ],
@@ -271,6 +273,8 @@ export const SETTINGS_HUB_ONLY_ITEMS: NavItem[] = [
     labelKey: "nav.shortcuts",
     icon: ShortcutsIcon,
     fallbackLabel: "Keyboard shortcuts",
+    // The former Voice tab for the dictation keys opens this page.
+    matchIds: ["shortcuts", "voice-shortcuts"],
   },
   { id: "appshots", labelKey: "nav.appshots", icon: CaptureIcon, fallbackLabel: "Appshots" },
   { id: "pets", labelKey: "nav.pets", icon: PetsIcon, fallbackLabel: "My Pets" },
@@ -303,6 +307,7 @@ export const SETTINGS_HUB_IDS: readonly SectionId[] = [
   "computers",
   "appshots",
   "shortcuts",
+  "voice-shortcuts",
   "pets",
   "phone",
   "notifications",

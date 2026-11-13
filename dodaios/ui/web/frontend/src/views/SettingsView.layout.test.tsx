@@ -1,11 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * The General settings page as the hub's five groups use it: a slice shows
- * exactly the groups it names, and the whole page folds the rarely changed
- * groups under "More options" — which a search hit inside them opens.
+ * The General settings page as the hub uses it: a slice shows exactly the
+ * groups it names, in the order it names them, and nothing is folded away.
  */
 
 function stub(name: string) {
@@ -18,7 +17,6 @@ vi.mock("@/views/settings/MusicGroup", () => ({ MusicGroup: stub("music") }));
 vi.mock("@/views/settings/AppSettingsGroup", () => ({
   AppSettingsGroup: ({ children }: { children?: React.ReactNode }) => <div data-testid="group-app">{children}</div>,
 }));
-vi.mock("@/views/settings/RealtimeVoiceGroup", () => ({ RealtimeVoiceGroup: stub("realtime-voice") }));
 vi.mock("@/views/settings/VolumeGroup", () => ({ VolumeGroup: stub("volume") }));
 vi.mock("@/views/settings/AudioDevicesGroup", () => ({ AudioDevicesGroup: stub("audio-devices") }));
 vi.mock("@/views/settings/SystemPromptGroup", () => ({ SystemPromptGroup: stub("system-prompt") }));
@@ -50,7 +48,7 @@ afterEach(() => {
 const sectionIds = () =>
   [...document.querySelectorAll("[data-settings-section]")].map((node) => node.getAttribute("data-settings-section"));
 
-describe("SettingsView slices and folds", () => {
+describe("SettingsView slices", () => {
   it("shows only the groups a slice names, under the slice's title", () => {
     render(wrap(<SettingsView sections={["voice", "wake-word"]} title="Voice & wake word" />));
     expect(sectionIds()).toEqual(["voice", "wake-word"]);
@@ -58,26 +56,32 @@ describe("SettingsView slices and folds", () => {
     expect(screen.queryByTestId("settings-more-options")).toBeNull();
   });
 
-  it("folds music and overlay options on the whole page", () => {
-    render(wrap(<SettingsView />));
-    expect(sectionIds()).not.toContain("music");
-    expect(sectionIds()).not.toContain("overlay-taskbar");
-    // The first-run guide's anchor stays on the page, unfolded.
-    expect(sectionIds()).toContain("wake-word");
-
-    const toggle = screen.getByTestId("settings-more-options-toggle");
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    expect(sectionIds()).toEqual(expect.arrayContaining(["music", "overlay-taskbar"]));
+  it("reads a slice in the order its entry names the groups", () => {
+    render(wrap(<SettingsView sections={["languages", "app", "overlay-taskbar", "music"]} />));
+    // Music follows Bar & Overlay here although the page defines it first.
+    expect(sectionIds()).toEqual(["languages", "app", "overlay-taskbar", "music"]);
+    expect(screen.queryByTestId("settings-more-options-toggle")).toBeNull();
   });
 
-  it("opens the fold for a search hit inside it and scrolls there", async () => {
+  it("leaves the voice engine to the API Keys page", () => {
+    render(wrap(<SettingsView sections={["voice"]} />));
+    expect(screen.getByTestId("group-volume")).toBeTruthy();
+    expect(screen.getByTestId("group-audio-devices")).toBeTruthy();
+    expect(document.getElementById("settings-realtime-voice")).toBeNull();
+  });
+
+  it("scrolls to a search hit inside the slice", async () => {
     const scrollIntoView = vi.fn();
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scrollIntoView });
     const handled = vi.fn();
     try {
-      render(wrap(<SettingsView searchTarget="music" onSearchTargetHandled={handled} />));
+      render(wrap(
+        <SettingsView
+          sections={["languages", "app", "overlay-taskbar", "music"]}
+          searchTarget="music"
+          onSearchTargetHandled={handled}
+        />,
+      ));
       await waitFor(() => expect(handled).toHaveBeenCalledOnce());
       expect(sectionIds()).toContain("music");
       expect(scrollIntoView).toHaveBeenCalled();

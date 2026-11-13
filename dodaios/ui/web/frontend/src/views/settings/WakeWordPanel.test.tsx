@@ -53,12 +53,6 @@ vi.mock("@/views/settings/LanguagesGroup", () => ({
 vi.mock("@/views/settings/AppSettingsGroup", () => ({
   AppSettingsGroup: () => null,
 }));
-// RealtimeVoiceGroup uses react-query (useVoiceMode) and needs a
-// QueryClientProvider this test doesn't set up — silence it like the other
-// sibling groups above, unrelated to wake-word.
-vi.mock("@/views/settings/RealtimeVoiceGroup", () => ({
-  RealtimeVoiceGroup: () => null,
-}));
 
 // Silence the onboarding gate so it doesn't interfere with SettingsView tests.
 vi.mock("@/components/onboarding/OnboardingGate", () => ({
