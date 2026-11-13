@@ -68,6 +68,10 @@ async def test_canonical_id_publishes_navigate(tool: NavigateTool, bus: Recordin
         ("outputs", "visualization"),
         ("Ausgaben", "visualization"),
         ("ergebnisse", "visualization"),
+        # The section is called Nodes now (2026-11-13); its id did not change.
+        ("Nodes", "visualization"),
+        ("my nodes", "visualization"),
+        ("artifacts", "visualization"),
         # My Pets: the id itself and the phrases that name the app's own pet.
         ("pets", "pets"),
         ("My Pets", "pets"),

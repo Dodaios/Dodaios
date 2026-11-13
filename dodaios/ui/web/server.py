@@ -577,6 +577,7 @@ class WebServer:
             router as missions_ws_router,
         )
         from .mobile_routes import router as mobile_router
+        from .nodes_routes import router as nodes_router
         from .notify_routes import router as notify_router
         from .onboarding_routes import router as onboarding_router
         from .outputs_routes import router as outputs_router
@@ -890,6 +891,8 @@ class WebServer:
         app.include_router(personal_memory_router)
         # Living pages: pages the assistant keeps current (stop/resume refresh).
         app.include_router(living_pages_router)
+        # Nodes: the library of typed nodes and everything older runs left behind.
+        app.include_router(nodes_router)
         # Reminders and desktop notifications (dodaios/notify).
         app.include_router(notify_router)
         # Trust & privacy: standing rules, undo, the "what it knows" overview.

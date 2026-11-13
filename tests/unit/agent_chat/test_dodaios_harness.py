@@ -210,7 +210,10 @@ def test_the_lead_chains_apps_drafts_outgoing_parts_and_ends_with_one_card():
     assert acting in dodaios_harness.SYSTEM_PREAMBLE
     assert "draft and not sent" in acting
     assert "show_result_card once" in acting
-    assert "living_page" in acting
+    # What the person keeps and looks at is a node; kept current, a node too.
+    assert "make it with the node tool" in acting
+    assert "is a node with keep_current" in acting
+    assert "living_page" not in acting
     # Society seats keep their own closing block.
     assert acting not in dodaios_harness.SOCIETY_PREAMBLE
 

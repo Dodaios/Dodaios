@@ -427,6 +427,17 @@ label,
     }
   }
 
+  /* The Nodes library: the placeholder bars of a node still being built.
+     A slow highlight travels across each bar (components/nodes/covers). */
+  @keyframes node-shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -100% 0;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .magic-word-rainbow {
       animation: none;
@@ -776,6 +787,39 @@ label,
     --viz-result: 156 100% 22%;
     --viz-deliverable: 38 100% 32%;
 
+    /* --- Node types (the Nodes library) ----------------------------------
+       One hue per node type, so a reader finds "the sheets" at a glance on a
+       wall of cards. A deliberate exception to "a hue is never decorative":
+       the hue IS the type, and it only ever tints a card's cover and the tile
+       that starts a new node (components/nodes/nodeTheme.ts). The triplet is
+       the ink tone (the icon); the cover is that hue mixed into the room at
+       --node-cover-mix, one step deeper under the pointer. */
+    --node-docs: 214 84% 46%; /* blue */
+    --node-slides: 24 92% 47%; /* orange */
+    --node-sheets: 142 64% 32%; /* green */
+    --node-design: 262 68% 56%; /* violet */
+    --node-data: 352 76% 50%; /* rose */
+    --node-whiteboard: 322 70% 49%; /* pink */
+    --node-motion: 184 82% 30%; /* teal */
+    --node-output: 0 0% 42%; /* neutral: a run that left no page */
+    --node-cover-mix: 13%;
+    --node-cover-mix-hover: 18%;
+    /* The tile's sheen: a lighter diagonal band, barely there. */
+    --node-sheen: 0 0% 100%;
+    --node-sheen-strength: 0.26;
+    /* A dark slide or film frame keeps its own ground, whatever the app wears. */
+    --node-stage-dark: 222 16% 11%;
+    --node-stage-dark-ink: 0 0% 98%;
+    /* Sticky-note papers on a whiteboard miniature, and the ink on them. */
+    --node-note-yellow: 48 100% 82%;
+    --node-note-pink: 338 100% 90%;
+    --node-note-blue: 208 100% 89%;
+    --node-note-green: 140 62% 85%;
+    --node-note-violet: 262 100% 92%;
+    --node-note-orange: 28 100% 86%;
+    --node-note-gray: 0 0% 91%;
+    --node-note-ink: 0 0% 13%;
+
     /* --- The mascot's two marking roles ----------------------------------
        The ghost was drawn with one hardcoded white for everything, which is
        only correct for half of it. Its markings fall into two groups that
@@ -955,6 +999,31 @@ label,
     --viz-tool: 0 0% 63%; /* neutral — unrecognised tools */
     --viz-result: 143 43% 44%; /* green — the run's landing */
     --viz-deliverable: 36 76% 67%; /* amber — files left behind */
+
+    /* Node types — see :root. Brighter inks; the covers are deep tints of
+       the same hues over the black room. */
+    --node-docs: 214 92% 70%; /* blue */
+    --node-slides: 26 92% 66%; /* orange */
+    --node-sheets: 140 50% 57%; /* green */
+    --node-design: 262 90% 78%; /* violet */
+    --node-data: 352 88% 72%; /* rose */
+    --node-whiteboard: 322 78% 73%; /* pink */
+    --node-motion: 182 60% 54%; /* teal */
+    --node-output: 0 0% 62%; /* neutral */
+    --node-cover-mix: 21%;
+    --node-cover-mix-hover: 27%;
+    --node-sheen: 0 0% 100%;
+    --node-sheen-strength: 0.045;
+    --node-stage-dark: 0 0% 5%;
+    --node-stage-dark-ink: 0 0% 98%;
+    --node-note-yellow: 47 72% 68%;
+    --node-note-pink: 338 68% 76%;
+    --node-note-blue: 208 68% 73%;
+    --node-note-green: 140 40% 66%;
+    --node-note-violet: 262 70% 79%;
+    --node-note-orange: 28 76% 70%;
+    --node-note-gray: 0 0% 70%;
+    --node-note-ink: 0 0% 9%;
 
     /* Black-and-white Gigi: white eyes and a white outline on charcoal. */
     --gigi-on-body: 0 0% 100%;

@@ -88,7 +88,7 @@ def test_portuguese_capacity_wait_has_no_german_or_english() -> None:
         language="pt",
     )
     assert text.startswith("A capacidade de fornecedor de IA")  # i18n-allow
-    assert "Artefactos" in text
+    assert "Nodes" in text
     assert "KI-Anbieter" not in text and "AI provider" not in text
 
 

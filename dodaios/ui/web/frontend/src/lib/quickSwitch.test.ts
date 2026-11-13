@@ -62,7 +62,9 @@ describe("ranking", () => {
     const sorted = [...labels].sort((x, y) => x.localeCompare(y, undefined, { sensitivity: "base" }));
     expect(labels).toEqual(sorted);
     expect(labels).toContain("Agentic IDE");
-    expect(labels).toContain("Artifacts");
+    expect(labels).toContain("Appshots");
+    // The library of everything the assistant made is listed under its name.
+    expect(rankQuickSwitch("n", englishLabel).map((r) => r.label)).toContain("Nodes");
   });
 
   it("does not reach through synonyms on one or two letters", () => {

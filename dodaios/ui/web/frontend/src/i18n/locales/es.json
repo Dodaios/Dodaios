@@ -302,7 +302,7 @@
     "mcps": "MCPs",
     "sessions": "Transcripción",
     "costs": "Gastos",
-    "visualization": "Artefactos",
+    "visualization": "Nodes",
     "clis": "CLIs",
     "cli_test_hub": "CLI Test Hub",
     "clis_hub": "CLIs & CLI Test Hub",
@@ -6327,10 +6327,10 @@
     "hide_original": "Ocultar el original"
   },
   "visualization": {
-    "title": "Artefactos",
+    "title": "Nodes",
     "subtitle": "Todo lo que produjeron tus ejecuciones, mostrado tal como se ve — abre uno a tamaño completo, con código, archivos y ejecución a una pestaña",
     "refresh": "Actualizar",
-    "rail": "Artefactos y ejecuciones",
+    "rail": "Nodes y ejecuciones",
     "building": "Creando…",
     "building_title": "Creando «{0}»",
     "building_body": "Un agente en segundo plano está escribiendo la página. Aparecerá aquí en cuanto termine — normalmente en uno o dos minutos.",
@@ -6341,7 +6341,7 @@
     "tab_run": "Ejecución",
     "rail_filter": "Mostrar",
     "filter_all": "Todo",
-    "filter_artifacts": "Artefactos",
+    "filter_artifacts": "Nodes",
     "filter_outputs": "Resultados",
     "nav_library": "Biblioteca",
     "filter_pages": "Páginas",
@@ -6363,8 +6363,8 @@
     "favorite_add": "Añadir a favoritos",
     "favorite_remove": "Quitar de favoritos",
     "favorites_empty_title": "Aún no hay favoritos",
-    "favorites_empty_body": "Marca un artefacto con la estrella y se queda aquí, venga lo que venga después.",
-    "search_placeholder": "Buscar artefactos",
+    "favorites_empty_body": "Marca un node con la estrella y se queda aquí, venga lo que venga después.",
+    "search_placeholder": "Buscar nodes",
     "sort_label": "Ordenar",
     "sort_newest": "Más recientes",
     "sort_oldest": "Más antiguos",
@@ -6375,12 +6375,12 @@
     "group_week": "Esta semana",
     "group_month": "Este mes",
     "group_earlier": "Anteriores",
-    "group_all": "Todos los artefactos",
+    "group_all": "Todos los nodes",
     "kind_page": "Página",
     "kind_image": "Imagen",
     "kind_vector": "Gráfico vectorial",
     "kind_document": "PDF",
-    "back": "Todos los artefactos",
+    "back": "Todos los nodes",
     "previous": "Anterior",
     "next": "Siguiente",
     "position": "{0} de {1}",
@@ -6412,12 +6412,12 @@
     "status_word_running": "En curso",
     "status_word_cancelled": "Cancelada",
     "status_word_unknown": "Desconocido",
-    "stage_tabs": "Cómo ver este artefacto",
-    "open_external_hint": "Abre este artefacto en el navegador — ventana completa, se puede compartir e imprimir.",
+    "stage_tabs": "Cómo ver este node",
+    "open_external_hint": "Abre este node en el navegador — ventana completa, se puede compartir e imprimir.",
     "page_sandbox_note": "Se ejecuta en un entorno aislado: los scripts de la página funcionan, la red está desactivada.",
-    "source_failed": "No se pudo leer el código de este artefacto.",
+    "source_failed": "No se pudo leer el código de este node.",
     "empty_title": "Todavía no hay nada",
-    "empty_body": "Todo lo que tu asistente y sus agentes producen aparece aquí — pide un artefacto («visualízame esto», «haz un panel con ello») o envía cualquier tarea, y aparecerá en cuanto empiece la ejecución.",
+    "empty_body": "Todo lo que tu asistente y sus agentes producen aparece aquí — pide un node («visualízame esto», «haz un panel con ello») o envía cualquier tarea, y aparecerá en cuanto empiece la ejecución.",
     "error_title": "No se pudo leer el archivo de ejecuciones",
     "error_body": "La lista de ejecuciones no está disponible ahora mismo. Inténtalo de nuevo en un momento.",
     "legend": "Pista superior: la ejecución paso a paso — pensamientos, acciones, subagentes, resultado. Pista inferior: los archivos que dejó. Haz clic en un nodo para inspeccionarlo.",
@@ -6465,25 +6465,25 @@
     "download": "Guardar una copia",
     "reveal": "Mostrar en la carpeta",
     "reveal_failed": "No se pudo mostrar el archivo en la carpeta.",
-    "menu_aria": "Acciones del artefacto",
+    "menu_aria": "Acciones del node",
     "menu_open": "Abrir",
     "delete": "Eliminar",
     "delete_title": "¿Eliminar «{name}»?",
-    "delete_body_file": "Este artefacto se elimina de tu ordenador para siempre. No se puede deshacer.",
+    "delete_body_file": "Este node se elimina de tu ordenador para siempre. No se puede deshacer.",
     "delete_body_run": "Esta ejecución y todo lo que produjo se eliminan de tu ordenador para siempre. No se puede deshacer.",
     "delete_cancel": "Conservar",
     "delete_confirm": "Eliminar",
     "deleted": "Eliminado.",
     "delete_failed": "No se pudo eliminar.",
     "delete_running": "Esta ejecución sigue en marcha. Detenla primero y luego elimínala.",
-    "open_from_agent": "Artefactos",
+    "open_from_agent": "Nodes",
     "open_from_agent_hint": "Muestra las páginas e imágenes que produjeron las últimas ejecuciones.",
     "summary": "Resumen",
     "more": "Más",
     "share": "Compartir",
     "share_link": "Copiar enlace",
-    "share_link_hint": "Abre este artefacto en tu Dodaios",
-    "share_link_copied": "Enlace copiado. Abre el artefacto en tu Dodaios.",
+    "share_link_hint": "Abre este node en tu Dodaios",
+    "share_link_copied": "Enlace copiado. Abre el node en tu Dodaios.",
     "share_link_failed": "No se pudo copiar el enlace.",
     "share_file_sheet": "Compartir archivo…",
     "share_file_download": "Descargar archivo",
@@ -10501,7 +10501,7 @@
     "voice_shortcuts": "Atajos de voz",
     "voice_language": "Idioma de dictado",
     "voice_api_keys": "Claves de entrada de voz",
-    "visualization": "Visualización"
+    "visualization": "Nodes"
   },
   "shell_errors": {
     "open_terminal_path_failed": "No se pudo abrir esa ruta del terminal.",
@@ -11726,5 +11726,185 @@
     "provider_other": "no funciona en este momento",
     "provider_detail": "Revisa el acceso en Claves de API.",
     "provider_action": "Abrir claves de API"
+  },
+  "nodes": {
+    "title": "Nodes",
+    "cancel": "Cancelar",
+    "type": {
+      "docs": "Docs",
+      "slides": "Slides",
+      "sheets": "Sheets",
+      "design": "Design",
+      "data": "Data",
+      "whiteboard": "Whiteboard",
+      "motion": "Motion",
+      "output": "Ejecución"
+    },
+    "tabs": {
+      "label": "Mostrar",
+      "all": "Todo",
+      "favorites": "Favoritos",
+      "kept": "Al día",
+      "runs": "Ejecuciones"
+    },
+    "search": {
+      "open": "Buscar",
+      "placeholder": "Buscar nodes",
+      "close": "Cerrar la búsqueda"
+    },
+    "filter": {
+      "label": "Filtrar y ordenar",
+      "type_heading": "Tipo",
+      "all_types": "Todos los tipos",
+      "sort_heading": "Ordenar por",
+      "sort_changed": "Último cambio",
+      "sort_newest": "Más recientes",
+      "sort_name": "Nombre"
+    },
+    "view": {
+      "to_list": "Ver como lista",
+      "to_grid": "Ver como cuadrícula"
+    },
+    "card": {
+      "today": "Hoy, {0}",
+      "kept_current": "se mantiene al día",
+      "paused": "en pausa",
+      "building": "Creando…",
+      "failed": "Falló"
+    },
+    "new": {
+      "heading": "Crear algo nuevo",
+      "request": "Créame un nuevo node de tipo {0}: {1}",
+      "prompt_label": "¿De qué debe tratar?",
+      "examples_label": "Ejemplos",
+      "create": "Crear con {name}",
+      "empty": "Empezar con uno vacío",
+      "send_failed": "No le llegó a {name}. Inténtalo de nuevo en un momento.",
+      "create_failed": "No se pudo crear el node. Inténtalo de nuevo en un momento.",
+      "about": {
+        "docs": "Para textos que se quedan: notas, resúmenes, informes, planes.",
+        "slides": "Para contar algo página a página: una propuesta, una puesta al día, un repaso.",
+        "sheets": "Para filas y columnas: listas, presupuestos, comparativas, seguimientos.",
+        "design": "Para una página con diseño: un resumen de una página, un cartel, una invitación.",
+        "data": "Para ver las cifras de un vistazo: indicadores y gráficos en un solo panel.",
+        "whiteboard": "Para pensar con notas: ideas, grupos, un plan en la pared.",
+        "motion": "Para una película breve: una cabecera, una explicación animada."
+      },
+      "placeholder": {
+        "docs": "p. ej. Un resumen de una página para el rediseño de la web, con objetivos, alcance y preguntas abiertas",
+        "slides": "p. ej. Diez diapositivas sobre el último trimestre para la reunión del lunes",
+        "sheets": "p. ej. Nuestras suscripciones con coste mensual, fecha de renovación y responsable",
+        "design": "p. ej. Una invitación a la fiesta de verano del 12 de julio, cálida y sencilla",
+        "data": "p. ej. Ingresos, pedidos y devoluciones por mes de este año",
+        "whiteboard": "p. ej. Ideas para el lanzamiento del producto, agrupadas por canal",
+        "motion": "p. ej. Una cabecera de 20 segundos para el vídeo del producto con nuestros tres mensajes"
+      },
+      "examples": {
+        "docs": {
+          "a": "Notas de la reunión de hoy",
+          "b": "Un resumen de proyecto con objetivos y alcance",
+          "c": "Un informe semanal de estado"
+        },
+        "slides": {
+          "a": "Una presentación para una idea nueva",
+          "b": "Repaso del trimestre en diez diapositivas",
+          "c": "Una presentación de bienvenida para nuevos compañeros"
+        },
+        "sheets": {
+          "a": "Un presupuesto de este año por meses",
+          "b": "Una comparativa de tres proveedores",
+          "c": "Un seguimiento de tareas pendientes"
+        },
+        "design": {
+          "a": "Un resumen de una página sobre nuestro producto",
+          "b": "Un cartel para un evento",
+          "c": "Un menú para una cena"
+        },
+        "data": {
+          "a": "Ventas por mes en un panel",
+          "b": "Visitas a la web en los últimos 90 días",
+          "c": "Indicadores de mi proyecto"
+        },
+        "whiteboard": {
+          "a": "Lluvia de ideas de nombres para un producto",
+          "b": "Planificar una semana de contenidos",
+          "c": "Pros y contras de una decisión"
+        },
+        "motion": {
+          "a": "Una cabecera para una charla",
+          "b": "Una cita animada",
+          "c": "Una cuenta atrás para un lanzamiento"
+        }
+      }
+    },
+    "menu": {
+      "aria": "Acciones de este node",
+      "open": "Abrir",
+      "favorite_add": "Añadir a favoritos",
+      "favorite_remove": "Quitar de favoritos",
+      "rename": "Cambiar nombre…",
+      "duplicate": "Duplicar",
+      "ask": "Pedir a {name} que lo cambie…",
+      "revert": "Deshacer el último cambio",
+      "open_external": "Abrir en el navegador",
+      "download": "Guardar una copia",
+      "reveal": "Mostrar en la carpeta",
+      "reveal_failed": "No se pudo mostrar en la carpeta.",
+      "delete": "Eliminar…"
+    },
+    "rename": {
+      "title": "Cambiar el nombre del node",
+      "label": "Nombre",
+      "save": "Cambiar nombre",
+      "failed": "No se pudo cambiar el nombre. Inténtalo de nuevo en un momento."
+    },
+    "duplicate": {
+      "done": "Duplicado.",
+      "failed": "No se pudo duplicar."
+    },
+    "revert": {
+      "done": "Se deshizo el último cambio.",
+      "nothing": "No hay una versión anterior a la que volver.",
+      "failed": "No se pudo deshacer el último cambio."
+    },
+    "delete": {
+      "title": "¿Eliminar «{0}»?",
+      "body_node": "Este node y sus versiones anteriores se eliminan de tu ordenador para siempre. No se puede deshacer.",
+      "body_file": "Este archivo se elimina de tu ordenador para siempre. No se puede deshacer.",
+      "body_run": "Esta ejecución y todo lo que produjo se eliminan de tu ordenador para siempre. No se puede deshacer.",
+      "cancel": "Conservar",
+      "confirm": "Eliminar",
+      "done": "Eliminado.",
+      "failed": "No se pudo eliminar.",
+      "running": "Todavía se está trabajando en ello. Detén primero la ejecución y después elimínalo."
+    },
+    "ask": {
+      "change_draft": "Cambia el node «{0}» (id {1}): "
+    },
+    "states": {
+      "loading": "Cargando tus nodes",
+      "empty": "Aún no hay nada. Elige un tipo arriba y {name} lo crea contigo.",
+      "empty_all": "Aún no hay nada.",
+      "empty_favorites": "Aún no hay favoritos. Marca un node con la estrella y se queda aquí.",
+      "empty_kept": "Aún no se mantiene nada al día. Pide a {name} que mantenga un node al día y aparecerá aquí.",
+      "empty_runs": "Aún no hay ejecuciones sin página.",
+      "no_matches": "Nada coincide con «{0}».",
+      "no_type": "Aún no hay nada de tipo {0}.",
+      "show_all": "Mostrar todo",
+      "error": "No se pudo cargar la biblioteca.",
+      "retry": "Reintentar",
+      "older_not_scanned": "Solo se revisaron las {0} ejecuciones más recientes en busca de páginas e imágenes."
+    },
+    "upkeep": {
+      "label": "Se mantiene al día",
+      "paused": "En pausa",
+      "updated": "Actualizado {0}",
+      "every": "Comprueba cada {0}",
+      "stop": "Pausar",
+      "resume": "Reanudar",
+      "stop_failed": "No se pudo pausar.",
+      "resume_failed": "No se pudo reanudar.",
+      "unavailable": "Las actualizaciones no están disponibles ahora. Inténtalo de nuevo en un momento."
+    }
   }
 }

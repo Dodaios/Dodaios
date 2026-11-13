@@ -302,7 +302,7 @@
     "mcps": "MCP",
     "sessions": "转录",
     "costs": "支出",
-    "visualization": "作品",
+    "visualization": "Nodes",
     "clis": "CLI",
     "cli_test_hub": "CLI 测试中心",
     "clis_hub": "CLI 和 CLI 测试中心",
@@ -6327,10 +6327,10 @@
     "hide_original": "隐藏原文"
   },
   "visualization": {
-    "title": "成果",
+    "title": "Nodes",
     "subtitle": "你的运行产出的一切，按实际样子呈现——打开任意一项即可全尺寸查看，源码、文件和运行记录都只隔一个标签页",
     "refresh": "刷新",
-    "rail": "成果与运行",
+    "rail": "Nodes 与运行",
     "building": "正在生成…",
     "building_title": "正在生成“{0}”",
     "building_body": "一个后台智能体正在编写页面。完成后会立即出现在这里——通常只需一两分钟。",
@@ -6341,7 +6341,7 @@
     "tab_run": "运行",
     "rail_filter": "显示",
     "filter_all": "全部",
-    "filter_artifacts": "成果",
+    "filter_artifacts": "Nodes",
     "filter_outputs": "输出",
     "nav_library": "资料库",
     "filter_pages": "页面",
@@ -6363,8 +6363,8 @@
     "favorite_add": "加入收藏",
     "favorite_remove": "取消收藏",
     "favorites_empty_title": "还没有收藏",
-    "favorites_empty_body": "给作品加上星标，它就会一直留在这里。",
-    "search_placeholder": "搜索成果",
+    "favorites_empty_body": "给 Node 加上星标，它就会一直留在这里。",
+    "search_placeholder": "搜索 Nodes",
     "sort_label": "排序",
     "sort_newest": "最新优先",
     "sort_oldest": "最早优先",
@@ -6375,12 +6375,12 @@
     "group_week": "本周早些时候",
     "group_month": "本月早些时候",
     "group_earlier": "更早",
-    "group_all": "所有成果",
+    "group_all": "所有 Nodes",
     "kind_page": "页面",
     "kind_image": "图片",
     "kind_vector": "矢量图",
     "kind_document": "PDF",
-    "back": "所有成果",
+    "back": "所有 Nodes",
     "previous": "上一个",
     "next": "下一个",
     "position": "第 {0} 个，共 {1} 个",
@@ -6412,12 +6412,12 @@
     "status_word_running": "运行中",
     "status_word_cancelled": "已取消",
     "status_word_unknown": "未知",
-    "stage_tabs": "如何查看此成果",
-    "open_external_hint": "在浏览器中打开此成果——全窗口显示，可分享、可打印。",
+    "stage_tabs": "如何查看此 Node",
+    "open_external_hint": "在浏览器中打开此 Node——全窗口显示，可分享、可打印。",
     "page_sandbox_note": "在沙盒中运行：页面自身的脚本可用，网络已关闭。",
-    "source_failed": "无法读取此成果的源码。",
+    "source_failed": "无法读取此 Node 的源码。",
     "empty_title": "这里还什么都没有",
-    "empty_body": "你的助手及其智能体产出的一切都会出现在这里——让它生成一个成果（“把这个可视化”、“做成仪表盘”），或派发任意任务，运行一开始就会显示。",
+    "empty_body": "你的助手及其智能体产出的一切都会出现在这里——让它生成一个 Node（“把这个可视化”、“做成仪表盘”），或派发任意任务，运行一开始就会显示。",
     "error_title": "无法读取运行存档",
     "error_body": "运行列表暂时不可用。请稍后再试。",
     "legend": "上方轨道：逐步展示运行过程——思考、操作、子智能体、结果。下方轨道：它留下的文件。点击节点查看详情。",
@@ -6465,25 +6465,25 @@
     "download": "保存副本",
     "reveal": "在文件夹中显示",
     "reveal_failed": "无法在文件夹中显示该文件。",
-    "menu_aria": "成果操作",
+    "menu_aria": "Node 操作",
     "menu_open": "打开",
     "delete": "删除",
     "delete_title": "删除“{name}”？",
-    "delete_body_file": "此成果将从你的电脑上永久删除。无法撤销。",
+    "delete_body_file": "此 Node 将从你的电脑上永久删除。无法撤销。",
     "delete_body_run": "此运行及其产出的所有内容将从你的电脑上永久删除。无法撤销。",
     "delete_cancel": "保留",
     "delete_confirm": "删除",
     "deleted": "已删除。",
     "delete_failed": "无法删除。",
     "delete_running": "此运行仍在进行。请先停止，再删除。",
-    "open_from_agent": "成果",
+    "open_from_agent": "Nodes",
     "open_from_agent_hint": "显示最近的运行产出的页面和图片。",
     "summary": "摘要",
     "more": "更多",
     "share": "分享",
     "share_link": "复制链接",
-    "share_link_hint": "在你的 Dodaios 中打开此作品",
-    "share_link_copied": "链接已复制，可在你的 Dodaios 中打开此作品。",
+    "share_link_hint": "在你的 Dodaios 中打开此 Node",
+    "share_link_copied": "链接已复制，可在你的 Dodaios 中打开此 Node。",
     "share_link_failed": "无法复制链接。",
     "share_file_sheet": "分享文件…",
     "share_file_download": "下载文件",
@@ -10501,7 +10501,7 @@
     "voice_shortcuts": "语音快捷键",
     "voice_language": "听写语言",
     "voice_api_keys": "语音输入密钥",
-    "visualization": "可视化"
+    "visualization": "Nodes"
   },
   "shell_errors": {
     "open_terminal_path_failed": "无法打开该终端路径。",
@@ -11726,5 +11726,185 @@
     "provider_other": "目前无法使用",
     "provider_detail": "请在 API 密钥中检查访问权限。",
     "provider_action": "打开 API 密钥"
+  },
+  "nodes": {
+    "title": "Nodes",
+    "cancel": "取消",
+    "type": {
+      "docs": "Docs",
+      "slides": "Slides",
+      "sheets": "Sheets",
+      "design": "Design",
+      "data": "Data",
+      "whiteboard": "Whiteboard",
+      "motion": "Motion",
+      "output": "运行"
+    },
+    "tabs": {
+      "label": "显示",
+      "all": "全部",
+      "favorites": "收藏",
+      "kept": "保持更新",
+      "runs": "运行"
+    },
+    "search": {
+      "open": "搜索",
+      "placeholder": "搜索 Nodes",
+      "close": "关闭搜索"
+    },
+    "filter": {
+      "label": "筛选和排序",
+      "type_heading": "类型",
+      "all_types": "所有类型",
+      "sort_heading": "排序方式",
+      "sort_changed": "最近修改",
+      "sort_newest": "最新创建",
+      "sort_name": "名称"
+    },
+    "view": {
+      "to_list": "以列表显示",
+      "to_grid": "以网格显示"
+    },
+    "card": {
+      "today": "今天 {0}",
+      "kept_current": "保持更新",
+      "paused": "已暂停",
+      "building": "正在创建…",
+      "failed": "失败"
+    },
+    "new": {
+      "heading": "新建内容",
+      "request": "请为我创建一个类型为 {0} 的新 Node：{1}",
+      "prompt_label": "它应该是关于什么的？",
+      "examples_label": "示例",
+      "create": "让 {name} 创建",
+      "empty": "从空白开始",
+      "send_failed": "没有发送给 {name}。请稍后再试。",
+      "create_failed": "无法创建这个 Node。请稍后再试。",
+      "about": {
+        "docs": "适合需要留存的文字：笔记、简报、报告、计划。",
+        "slides": "适合一页一页地讲述：提案、汇报、回顾。",
+        "sheets": "适合行和列：清单、预算、对比、跟踪表。",
+        "design": "适合精心设计的页面：单页介绍、海报、邀请函。",
+        "data": "适合一眼看清数字：关键指标和图表集中在一块面板上。",
+        "whiteboard": "适合用便签思考：想法、分组、墙上的计划。",
+        "motion": "适合短片：片头、动画讲解。"
+      },
+      "placeholder": {
+        "docs": "例如：网站改版的一页简报，包含目标、范围和待解决的问题",
+        "slides": "例如：为周一的团队会议准备十页上季度回顾",
+        "sheets": "例如：我们的订阅，列出每月费用、续订日期和负责人",
+        "design": "例如：7 月 12 日夏日聚会的邀请函，温暖而简洁",
+        "data": "例如：今年每月的收入、订单和退货",
+        "whiteboard": "例如：产品发布的想法，按渠道分组",
+        "motion": "例如：产品视频的 20 秒片头，包含我们的三个卖点"
+      },
+      "examples": {
+        "docs": {
+          "a": "今天会议的纪要",
+          "b": "包含目标和范围的项目简报",
+          "c": "每周状态报告"
+        },
+        "slides": {
+          "a": "新想法的提案演示",
+          "b": "十页的季度回顾",
+          "c": "给新同事的入职介绍"
+        },
+        "sheets": {
+          "a": "今年按月的预算",
+          "b": "三家供应商的对比",
+          "c": "待办任务跟踪表"
+        },
+        "design": {
+          "a": "我们产品的单页介绍",
+          "b": "一场活动的海报",
+          "c": "一份晚宴菜单"
+        },
+        "data": {
+          "a": "每月销售额仪表盘",
+          "b": "过去 90 天的网站访问量",
+          "c": "我的项目的关键指标"
+        },
+        "whiteboard": {
+          "a": "为产品头脑风暴名字",
+          "b": "规划一周的内容",
+          "c": "一个决定的利与弊"
+        },
+        "motion": {
+          "a": "一场演讲的片头",
+          "b": "一句动画引言",
+          "c": "一次发布的倒计时"
+        }
+      }
+    },
+    "menu": {
+      "aria": "此 Node 的操作",
+      "open": "打开",
+      "favorite_add": "添加到收藏",
+      "favorite_remove": "从收藏中移除",
+      "rename": "重命名…",
+      "duplicate": "创建副本",
+      "ask": "让 {name} 修改…",
+      "revert": "撤销上次修改",
+      "open_external": "在浏览器中打开",
+      "download": "保存副本",
+      "reveal": "在文件夹中显示",
+      "reveal_failed": "无法在文件夹中显示。",
+      "delete": "删除…"
+    },
+    "rename": {
+      "title": "重命名 Node",
+      "label": "名称",
+      "save": "重命名",
+      "failed": "无法更改名称。请稍后再试。"
+    },
+    "duplicate": {
+      "done": "已创建副本。",
+      "failed": "无法创建副本。"
+    },
+    "revert": {
+      "done": "已撤销上次修改。",
+      "nothing": "没有可以恢复的更早版本。",
+      "failed": "无法撤销上次修改。"
+    },
+    "delete": {
+      "title": "删除“{0}”？",
+      "body_node": "此 Node 及其早期版本将从你的电脑上永久删除。无法撤销。",
+      "body_file": "此文件将从你的电脑上永久删除。无法撤销。",
+      "body_run": "此次运行及其产出的一切将从你的电脑上永久删除。无法撤销。",
+      "cancel": "保留",
+      "confirm": "删除",
+      "done": "已删除。",
+      "failed": "无法删除。",
+      "running": "它仍在处理中。请先停止运行，再删除。"
+    },
+    "ask": {
+      "change_draft": "修改 Node“{0}”（ID {1}）："
+    },
+    "states": {
+      "loading": "正在加载你的 Nodes",
+      "empty": "这里还没有内容。在上方选择一种类型，{name} 会和你一起创建。",
+      "empty_all": "这里还没有内容。",
+      "empty_favorites": "还没有收藏。给 Node 加上星标，它就会留在这里。",
+      "empty_kept": "还没有保持更新的内容。让 {name} 保持某个 Node 更新，它就会出现在这里。",
+      "empty_runs": "还没有不带页面的运行。",
+      "no_matches": "没有与“{0}”匹配的内容。",
+      "no_type": "还没有 {0} 类型的内容。",
+      "show_all": "显示全部",
+      "error": "无法加载资料库。",
+      "retry": "重试",
+      "older_not_scanned": "只在最近的 {0} 次运行中查找了页面和图片。"
+    },
+    "upkeep": {
+      "label": "保持更新",
+      "paused": "已暂停",
+      "updated": "更新于{0}",
+      "every": "每{0}检查一次",
+      "stop": "暂停",
+      "resume": "继续",
+      "stop_failed": "无法暂停。",
+      "resume_failed": "无法继续。",
+      "unavailable": "目前无法更新。请稍后再试。"
+    }
   }
 }

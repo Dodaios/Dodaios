@@ -302,7 +302,7 @@
     "mcps": "MCPs",
     "sessions": "Transcription",
     "costs": "Spend",
-    "visualization": "Artifacts",
+    "visualization": "Nodes",
     "clis": "CLIs",
     "cli_test_hub": "CLI Test Hub",
     "clis_hub": "CLIs & CLI Test Hub",
@@ -6327,10 +6327,10 @@
     "hide_original": "Hide the original"
   },
   "visualization": {
-    "title": "Artifacts",
+    "title": "Nodes",
     "subtitle": "Everything your runs produced, drawn as it looks — open one to see it full-size, with its source, files and run one tab away",
     "refresh": "Refresh",
-    "rail": "Artifacts & runs",
+    "rail": "Nodes & runs",
     "building": "Building…",
     "building_title": "Building “{0}”",
     "building_body": "A background agent is writing the page. It appears here the moment it is done — usually within a minute or two.",
@@ -6341,7 +6341,7 @@
     "tab_run": "Run",
     "rail_filter": "Show",
     "filter_all": "All",
-    "filter_artifacts": "Artifacts",
+    "filter_artifacts": "Nodes",
     "filter_outputs": "Outputs",
     "nav_library": "Library",
     "filter_pages": "Pages",
@@ -6363,8 +6363,8 @@
     "favorite_add": "Add to favorites",
     "favorite_remove": "Remove from favorites",
     "favorites_empty_title": "No favorites yet",
-    "favorites_empty_body": "Star an artifact and it stays here, whatever comes after it.",
-    "search_placeholder": "Search artifacts",
+    "favorites_empty_body": "Star a node and it stays here, whatever comes after it.",
+    "search_placeholder": "Search nodes",
     "sort_label": "Sort",
     "sort_newest": "Newest first",
     "sort_oldest": "Oldest first",
@@ -6375,12 +6375,12 @@
     "group_week": "Earlier this week",
     "group_month": "Earlier this month",
     "group_earlier": "Older",
-    "group_all": "All artifacts",
+    "group_all": "All nodes",
     "kind_page": "Page",
     "kind_image": "Image",
     "kind_vector": "Vector graphic",
     "kind_document": "PDF",
-    "back": "All artifacts",
+    "back": "All nodes",
     "previous": "Previous",
     "next": "Next",
     "position": "{0} of {1}",
@@ -6412,12 +6412,12 @@
     "status_word_running": "Running",
     "status_word_cancelled": "Cancelled",
     "status_word_unknown": "Unknown",
-    "stage_tabs": "How to view this artifact",
-    "open_external_hint": "Open this artifact in your browser — full window, shareable, printable.",
+    "stage_tabs": "How to view this node",
+    "open_external_hint": "Open this node in your browser — full window, shareable, printable.",
     "page_sandbox_note": "Runs in a sandbox: the page's own scripts work, the network is off.",
-    "source_failed": "The source of this artifact could not be read.",
+    "source_failed": "The source of this node could not be read.",
     "empty_title": "Nothing here yet",
-    "empty_body": "Everything your assistant and its agents produce lands here — ask for an artifact (“visualize this”, “make a dashboard of it”) or dispatch any task, and it appears as soon as the run starts.",
+    "empty_body": "Everything your assistant and its agents produce lands here — ask for a node (“visualize this”, “make a dashboard of it”) or dispatch any task, and it appears as soon as the run starts.",
     "error_title": "The run archive could not be read",
     "error_body": "The list of runs is unavailable right now. Try again in a moment.",
     "legend": "Top track: the run step by step — thoughts, actions, sub-agents, result. Bottom track: the files it left behind. Click a node to inspect it.",
@@ -6465,25 +6465,25 @@
     "download": "Save a copy",
     "reveal": "Show in folder",
     "reveal_failed": "That file could not be shown in the folder.",
-    "menu_aria": "Artifact actions",
+    "menu_aria": "Node actions",
     "menu_open": "Open",
     "delete": "Delete",
     "delete_title": "Delete “{name}”?",
-    "delete_body_file": "This artifact is removed from your computer for good. This cannot be undone.",
+    "delete_body_file": "This node is removed from your computer for good. This cannot be undone.",
     "delete_body_run": "This run and everything it produced are removed from your computer for good. This cannot be undone.",
     "delete_cancel": "Keep it",
     "delete_confirm": "Delete",
     "deleted": "Deleted.",
     "delete_failed": "That could not be deleted.",
     "delete_running": "This run is still working. Stop it first, then delete it.",
-    "open_from_agent": "Artifacts",
+    "open_from_agent": "Nodes",
     "open_from_agent_hint": "Show the pages and pictures the latest runs produced.",
     "summary": "Summary",
     "more": "More",
     "share": "Share",
     "share_link": "Copy link",
-    "share_link_hint": "Opens this artifact in your Dodaios",
-    "share_link_copied": "Link copied. It opens the artifact in your Dodaios.",
+    "share_link_hint": "Opens this node in your Dodaios",
+    "share_link_copied": "Link copied. It opens the node in your Dodaios.",
     "share_link_failed": "The link could not be copied.",
     "share_file_sheet": "Share file…",
     "share_file_download": "Download file",
@@ -10501,7 +10501,7 @@
     "voice_shortcuts": "Voice Shortcuts",
     "voice_language": "Dictation Language",
     "voice_api_keys": "Voice Input Keys",
-    "visualization": "Visualization"
+    "visualization": "Nodes"
   },
   "shell_errors": {
     "open_terminal_path_failed": "Could not open that terminal path.",
@@ -11726,5 +11726,185 @@
     "provider_other": "not working right now",
     "provider_detail": "Check the access under API keys.",
     "provider_action": "Open API keys"
+  },
+  "nodes": {
+    "title": "Nodes",
+    "cancel": "Cancel",
+    "type": {
+      "docs": "Docs",
+      "slides": "Slides",
+      "sheets": "Sheets",
+      "design": "Design",
+      "data": "Data",
+      "whiteboard": "Whiteboard",
+      "motion": "Motion",
+      "output": "Run"
+    },
+    "tabs": {
+      "label": "Show",
+      "all": "All",
+      "favorites": "Favorites",
+      "kept": "Kept current",
+      "runs": "Runs"
+    },
+    "search": {
+      "open": "Search",
+      "placeholder": "Search nodes",
+      "close": "Close search"
+    },
+    "filter": {
+      "label": "Filter and sort",
+      "type_heading": "Type",
+      "all_types": "All types",
+      "sort_heading": "Sort by",
+      "sort_changed": "Last changed",
+      "sort_newest": "Newest",
+      "sort_name": "Name"
+    },
+    "view": {
+      "to_list": "Show as list",
+      "to_grid": "Show as grid"
+    },
+    "card": {
+      "today": "Today, {0}",
+      "kept_current": "kept current",
+      "paused": "paused",
+      "building": "Building…",
+      "failed": "Failed"
+    },
+    "new": {
+      "heading": "Make something new",
+      "request": "Create a new node of type {0} for me: {1}",
+      "prompt_label": "What should it be about?",
+      "examples_label": "Examples",
+      "create": "Create with {name}",
+      "empty": "Start with an empty one",
+      "send_failed": "That did not reach {name}. Try again in a moment.",
+      "create_failed": "The node could not be created. Try again in a moment.",
+      "about": {
+        "docs": "For writing that stays: notes, briefs, reports, plans.",
+        "slides": "For a story told page by page: a pitch, a briefing, a review.",
+        "sheets": "For rows and columns: lists, budgets, comparisons, trackers.",
+        "design": "For a designed page: a one-pager, a poster, an invitation.",
+        "data": "For numbers at a glance: key figures and charts on one board.",
+        "whiteboard": "For thinking in notes: ideas, clusters, a plan on a wall.",
+        "motion": "For a short film: a title sequence, an animated explainer."
+      },
+      "placeholder": {
+        "docs": "e.g. A one-page brief for the website relaunch, with goals, scope and open questions",
+        "slides": "e.g. Ten slides on last quarter for Monday's team meeting",
+        "sheets": "e.g. Our subscriptions with monthly cost, renewal date and owner",
+        "design": "e.g. An invitation to the summer party on 12 July, warm and simple",
+        "data": "e.g. Revenue, orders and returns per month for this year",
+        "whiteboard": "e.g. Ideas for the product launch, grouped by channel",
+        "motion": "e.g. A 20-second opener for the product video with our three claims"
+      },
+      "examples": {
+        "docs": {
+          "a": "Meeting notes from today's call",
+          "b": "A project brief with goals and scope",
+          "c": "A weekly status report"
+        },
+        "slides": {
+          "a": "A pitch deck for a new idea",
+          "b": "Quarterly review in ten slides",
+          "c": "An onboarding deck for new colleagues"
+        },
+        "sheets": {
+          "a": "A budget for this year by month",
+          "b": "A comparison of three suppliers",
+          "c": "A tracker for open tasks"
+        },
+        "design": {
+          "a": "A one-pager about our product",
+          "b": "A poster for an event",
+          "c": "A menu for a dinner"
+        },
+        "data": {
+          "a": "Sales per month as a dashboard",
+          "b": "Website visitors over the last 90 days",
+          "c": "Key figures of my project"
+        },
+        "whiteboard": {
+          "a": "Brainstorm names for a product",
+          "b": "Plan a week of content",
+          "c": "Pros and cons of a decision"
+        },
+        "motion": {
+          "a": "A title sequence for a talk",
+          "b": "An animated quote",
+          "c": "A countdown for a launch"
+        }
+      }
+    },
+    "menu": {
+      "aria": "Actions for this node",
+      "open": "Open",
+      "favorite_add": "Add to favorites",
+      "favorite_remove": "Remove from favorites",
+      "rename": "Rename…",
+      "duplicate": "Duplicate",
+      "ask": "Ask {name} to change it…",
+      "revert": "Undo last change",
+      "open_external": "Open in browser",
+      "download": "Save a copy",
+      "reveal": "Show in folder",
+      "reveal_failed": "That could not be shown in the folder.",
+      "delete": "Delete…"
+    },
+    "rename": {
+      "title": "Rename node",
+      "label": "Name",
+      "save": "Rename",
+      "failed": "The name could not be changed. Try again in a moment."
+    },
+    "duplicate": {
+      "done": "Duplicated.",
+      "failed": "That could not be duplicated."
+    },
+    "revert": {
+      "done": "The last change was undone.",
+      "nothing": "There is no earlier version to go back to.",
+      "failed": "The last change could not be undone."
+    },
+    "delete": {
+      "title": "Delete “{0}”?",
+      "body_node": "This node and its earlier versions are removed from your computer for good. This cannot be undone.",
+      "body_file": "This file is removed from your computer for good. This cannot be undone.",
+      "body_run": "This run and everything it produced are removed from your computer for good. This cannot be undone.",
+      "cancel": "Keep it",
+      "confirm": "Delete",
+      "done": "Deleted.",
+      "failed": "That could not be deleted.",
+      "running": "This is still being worked on. Stop the run first, then delete it."
+    },
+    "ask": {
+      "change_draft": "Change the node \"{0}\" (id {1}): "
+    },
+    "states": {
+      "loading": "Loading your nodes",
+      "empty": "Nothing here yet. Pick a type above and {name} makes it with you.",
+      "empty_all": "Nothing here yet.",
+      "empty_favorites": "No favorites yet. Star a node and it stays here.",
+      "empty_kept": "Nothing is kept current yet. Ask {name} to keep a node up to date and it shows up here.",
+      "empty_runs": "No runs without a page yet.",
+      "no_matches": "Nothing matches “{0}”.",
+      "no_type": "No {0} here yet.",
+      "show_all": "Show all",
+      "error": "The library could not be loaded.",
+      "retry": "Try again",
+      "older_not_scanned": "Only the newest {0} runs were looked through for pages and pictures."
+    },
+    "upkeep": {
+      "label": "Kept current",
+      "paused": "Paused",
+      "updated": "Updated {0}",
+      "every": "Checks every {0}",
+      "stop": "Pause",
+      "resume": "Resume",
+      "stop_failed": "That could not be paused.",
+      "resume_failed": "That could not be resumed.",
+      "unavailable": "Updates are not available right now. Try again in a moment."
+    }
   }
 }

@@ -1,28 +1,14 @@
 /**
- * The artifacts a run left behind — the data behind the Artifacts section.
+ * Which of a run's files a person can look at, and where each is served from.
  *
- * No new REST surface: `/api/outputs` already lists the runs and
- * `/api/outputs/{slug}/artifacts` already lists their files, so this hook is a
- * read over what the run graph reads too. What it adds is the SELECTION —
- * which of those files are things a person can look at — and a flat, newest-
- * first list across runs, because "show me what came out of this" is a question
- * about pages and pictures, not about directories.
- *
- * The scan is BOUNDED (`DEFAULT_RUN_SCAN_LIMIT`). One artifact listing per run
- * is one filesystem walk on the backend, and a machine with three hundred
- * archived runs would pay for all of them on every visit to the section. The
- * limit is stated in the UI rather than hidden, so a missing older picture reads
- * as "not scanned" instead of "not there".
+ * No REST surface of its own: `/api/outputs/{slug}/artifacts` already lists a
+ * run's files. What this module adds is the SELECTION (`classifyVisual`,
+ * `toVisuals`): which of those files are pages and pictures. The stage of the
+ * Nodes section uses it for a run it opens directly, the home panel and the
+ * run graph for their own previews. The library does not scan runs from here:
+ * the server lists its cards in one read (`/api/nodes`).
  */
-import { useQueries } from "@tanstack/react-query";
-
-import {
-  useOutputsList,
-  type ArtifactSummary,
-  type ArtifactsResponse,
-  type OutputStatus,
-  type OutputSummary,
-} from "@/hooks/useOutputs";
+import type { ArtifactSummary, OutputStatus, OutputSummary } from "@/hooks/useOutputs";
 
 /** How a visual is put on screen — one branch of the stage per kind. */
 export type VisualKind = "image" | "vector" | "page" | "document";
@@ -81,15 +67,6 @@ export interface VisualArtifact {
   /** Ready-to-use `src` for an `<img>`/`<iframe>` (served inline, no scripts). */
   url: string;
 }
-
-/**
- * Newest runs scanned for visuals. See the module docstring for the why.
- * Sixty since the section opened on a gallery (2026-10-01): with twenty, a
- * machine with a couple dozen runs showed its one dashboard as a text card
- * because it sat just outside the window. One listing per run is cheap; an
- * older run still shows as a run card and is read when opened.
- */
-export const DEFAULT_RUN_SCAN_LIMIT = 60;
 
 /**
  * Encode an artifact path segment by segment.
@@ -187,75 +164,4 @@ export function toVisuals(run: OutputSummary, files: ArtifactSummary[]): VisualA
     });
   }
   return visuals;
-}
-
-export interface VisualArtifactsResult {
-  /** Every visual found, newest file first. */
-  visuals: VisualArtifact[];
-  /** How many runs were actually looked at (≤ `limit`). */
-  scannedRuns: number;
-  /** Runs that exist but were outside the scan window. */
-  skippedRuns: number;
-  /** True while the run list or any artifact listing is still in flight. */
-  isLoading: boolean;
-  /** The run list could not be read at all — the honest "backend is down" case. */
-  isError: boolean;
-  refetch: () => void;
-}
-
-/**
- * Every visual artifact of the newest `limit` runs, newest file first.
- *
- * A run whose artifact listing fails contributes nothing instead of taking the
- * section down with it: half a gallery is still a gallery, and the failure is
- * almost always a run directory that was cleaned up between the two requests.
- */
-export function useVisualArtifacts(
-  limit: number = DEFAULT_RUN_SCAN_LIMIT,
-): VisualArtifactsResult {
-  const outputs = useOutputsList();
-  const runs = outputs.data ?? [];
-  // `/api/outputs` is already sorted newest-first; sorting again here would be
-  // a second, weaker opinion about the same order.
-  const scanned = runs.slice(0, limit);
-
-  return useQueries({
-    queries: scanned.map((run) => ({
-      // Same key as `useArtifactsForOutput`, so the stage's Files tab and the
-      // run graph share one cache entry with this scan rather than each
-      // fetching their own.
-      queryKey: ["output-artifacts", run.slug],
-      queryFn: async (): Promise<ArtifactsResponse> => {
-        const response = await fetch(
-          `/api/outputs/${encodeURIComponent(run.slug)}/artifacts`,
-        );
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
-      },
-      // No poll for finished runs: a gallery that re-listed ten run
-      // directories every few seconds would keep a disk busy for pages that
-      // never change. A RUNNING run is the exception — its artifact is the
-      // thing the user is waiting for, so that one listing follows the build
-      // and the page appears the moment the worker archives it.
-      staleTime: run.status === "running" ? 0 : 30_000,
-      refetchInterval: run.status === "running" ? 4_000 : false,
-    })),
-    combine: (results) => {
-      const visuals = results.flatMap((result, index) =>
-        result.data ? toVisuals(scanned[index], result.data.files ?? []) : [],
-      );
-      visuals.sort((a, b) => b.mtime - a.mtime);
-      return {
-        visuals,
-        scannedRuns: scanned.length,
-        skippedRuns: Math.max(0, runs.length - scanned.length),
-        isLoading: outputs.isLoading || results.some((r) => r.isLoading),
-        isError: outputs.isError,
-        refetch: () => {
-          void outputs.refetch();
-          for (const result of results) void result.refetch();
-        },
-      };
-    },
-  });
 }
