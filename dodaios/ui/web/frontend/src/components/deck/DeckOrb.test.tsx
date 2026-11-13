@@ -19,11 +19,9 @@ import type { ThinkingStep } from "@/lib/thinkingSteps";
 /**
  * The orb is the click-shaped wake word (maintainer, 2026-08-18): pressing
  * the orb in the centre does what saying the phrase does. Display-only
- * callers get no button at all. The centre is the MASCOT — vectors, no
- * bitmap: the `/deck-orb.png` render that used to sit there was a picture of
- * a light whose baked-in white halo read as a grey box on the dark deck, and
- * the maintainer had asked repeatedly for it to go (2026-08-20). It carries
- * the live voice state so it can breathe with it.
+ * callers get no button at all. The centre is a vector neural hologram, not
+ * a bitmap, and it carries the live voice state so it responds as the
+ * assistant listens, thinks, and speaks.
  */
 describe("DeckOrb", () => {
   afterEach(() => cleanup());
@@ -44,8 +42,10 @@ describe("DeckOrb", () => {
     expect(container.querySelector(".deck-orb-rings")).toBeNull();
     expect(screen.queryByTestId("deck-orb-satellite")).toBeNull();
     expect(screen.queryByTestId("deck-orb-ping")).toBeNull();
-    // The 72 dial ticks and the compass crosshairs were the only <line>s here.
-    expect(container.querySelectorAll("line")).toHaveLength(0);
+    // The reticle has no dial ticks or crosshairs. The network diagram inside
+    // the orb intentionally uses SVG lines for its neural connections.
+    expect(screen.getByTestId("deck-orb").querySelectorAll(":scope > svg line")).toHaveLength(0);
+    expect(screen.getByTestId("jarvis-orb").querySelectorAll("line").length).toBeGreaterThan(0);
     // What stays is what reads a real value: the meter, the ripple host — at
     // rest at zero — and one arc per running step.
     expect(screen.getByTestId("deck-orb-vu")).toBeTruthy();
@@ -79,13 +79,12 @@ describe("DeckOrb", () => {
     }
   });
 
-  test("the centre is the user's pet — no bitmap image left", () => {
+  test("the centre is the neural hologram — no bitmap image", () => {
     render(<DeckOrb steps={[]} busy={false} />);
     const orb = screen.getByTestId("jarvis-orb");
     expect(orb.getAttribute("data-voice")).toBe("idle");
-    // The PNG is gone from the tree, so it cannot come back in through here.
     expect(orb.querySelectorAll("img")).toHaveLength(0);
-    expect(orb.querySelector('[data-testid="pet-mark"]')).toBeTruthy();
+    expect(orb.querySelector('[data-testid="neural-core-network"]')).toBeTruthy();
   });
 
   test("a press on the orb fires the handler and carries its label", () => {

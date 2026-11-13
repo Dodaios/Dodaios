@@ -559,6 +559,11 @@
       "description": "空闲时也保留 Dodaios Bar。关闭后，它只在语音活动或听写时出现，结束后再次隐藏。",
       "saved": "工具条可见性已更新。"
     },
+    "auto_minimize": {
+      "title": "切换应用时最小化 Dodaios",
+      "description": "在 Windows 上，当其他应用获得焦点时最小化主窗口，并保留 Dodaios Bar 作为工作悬浮面板。",
+      "saved": "应用切换行为已更新。"
+    },
     "follow_cursor": {
       "title": "跟随鼠标到当前显示器",
       "description": "工具条会跳到鼠标所在的显示器，并保持相同位置。关闭后：它会固定在一台显示器上。",
@@ -941,6 +946,19 @@
       "brief_hint": "在此对话中简要总结你的一天。仅使用订阅或本地模型运行。",
       "brief_failed": "无法保存简报",
       "scheduled_hint": "其他安排请直接在对话中提出。"
+    },
+    "computer_use": {
+      "title": "电脑控制",
+      "empty": "暂无电脑控制任务",
+      "stop": "停止此任务",
+      "load_failed": "无法加载电脑控制任务",
+      "stop_failed": "无法停止此任务",
+      "status_queued": "排队中",
+      "status_running": "进行中",
+      "status_finished": "已完成",
+      "status_error": "失败",
+      "status_cancelled": "已取消",
+      "status_timeout": "已超时"
     },
     "triggers": {
       "title": "事件",

@@ -3014,9 +3014,9 @@ async def open_local_path(body: OpenPathBody, request: Request) -> dict[str, obj
 
 
 # ---------------------------------------------------------------------------
-# Taskbar section toggles: "Show bar at all times" (bar_persistent, live) and
-# "Mute music while dictating" (ducking.enabled, live). Both persist to
-# jarvis.toml and live-apply via app.state.desktop_app.
+# Taskbar section toggles: "Show bar at all times" (bar_persistent, live),
+# minimize-on-app-switch, and "Mute music while dictating" (ducking.enabled,
+# live). These persist to jarvis.toml and live-apply via app.state.desktop_app.
 # ---------------------------------------------------------------------------
 
 
@@ -3066,6 +3066,57 @@ async def put_bar_persistent(body: BoolToggleBody, request: Request) -> dict[str
         "persisted": persisted,
         "applied_live": applied_live,
         "restart_required": not applied_live,
+    }
+
+
+@router.get("/auto-minimize-on-focus-loss")
+def get_auto_minimize_on_focus_loss(request: Request) -> dict[str, object]:
+    cfg = _config(request)
+    ui = getattr(cfg, "ui", None)
+    return {
+        "enabled": bool(getattr(ui, "auto_minimize_on_focus_loss", True)),
+        "supported": sys.platform == "win32",
+    }
+
+
+@router.put("/auto-minimize-on-focus-loss")
+async def put_auto_minimize_on_focus_loss(
+    body: BoolToggleBody, request: Request
+) -> dict[str, object]:
+    enabled = bool(body.enabled)
+    cfg = _config(request)
+    ui = getattr(cfg, "ui", None)
+    if ui is not None:
+        try:
+            ui.auto_minimize_on_focus_loss = enabled  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001
+            log.debug("in-memory auto_minimize_on_focus_loss update skipped: %s", exc)
+    persisted = False
+    try:
+        from dodaios.core import config_writer
+
+        config_writer.set_auto_minimize_on_focus_loss(enabled)
+        persisted = True
+    except Exception as exc:  # noqa: BLE001
+        log.warning("auto_minimize_on_focus_loss persist failed: %s", exc)
+    applied_live = False
+    desktop = getattr(request.app.state, "desktop_app", None)
+    fn = getattr(desktop, "set_auto_minimize_on_focus_loss", None)
+    if callable(fn):
+        try:
+            res = await asyncio.to_thread(fn, enabled)
+            applied_live = (
+                bool(res.get("applied_live")) if isinstance(res, dict) else bool(res)
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("auto_minimize_on_focus_loss live-apply failed: %s", exc)
+    return {
+        "ok": True,
+        "enabled": enabled,
+        "supported": sys.platform == "win32",
+        "persisted": persisted,
+        "applied_live": applied_live,
+        "restart_required": not applied_live and sys.platform == "win32",
     }
 
 

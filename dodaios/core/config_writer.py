@@ -1583,6 +1583,11 @@ def set_bar_persistent(enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE) -> No
     _patch_table(path, "ui", "bar_persistent", bool(enabled))
 
 
+def set_auto_minimize_on_focus_loss(enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
+    """Persist ``[ui] auto_minimize_on_focus_loss`` for the Windows desktop."""
+    _patch_table(path, "ui", "auto_minimize_on_focus_loss", bool(enabled))
+
+
 def set_bar_size_scale(scale: float, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     """Persist ``[ui] bar_size_scale`` (the 'Bar size' slider).
 

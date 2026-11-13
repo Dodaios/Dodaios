@@ -124,6 +124,9 @@ style for a later desktop start but cannot show it immediately.
 - **Show bar at all times** keeps the Bar visible while Dodaios is idle. Turn it
   off to show the Bar only after voice activation. This applies live when the
   Bar is running.
+- **Minimize Dodaios when I switch apps** is available on Windows. It minimizes
+  the main window after another app takes focus and keeps the Dodaios Bar
+  available while you work. Restore the main window from its taskbar button.
 - **Mute music while dictating** turns down or mutes supported media for the
   full voice session, then restores it when the session ends. Windows handles
   application audio sessions. macOS currently handles Apple Music and Spotify

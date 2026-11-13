@@ -2139,6 +2139,9 @@ class UIConfig(BaseModel):
     orb_mascot_path: str = ""
     # Jarvis bar: persistent (always-visible dots pill) vs only-when-active.
     bar_persistent: bool = True
+    # Minimize the main window after another Windows app has held focus briefly.
+    # The standalone Bar remains available for voice and app switching.
+    auto_minimize_on_focus_loss: bool = True
     # Hex accent the bar lights up with during activity (gold on-brand).
     bar_accent: str = "#e7c46e"
     # Jarvis bar size multiplier (Settings → "Bar size" slider). The whole bar
