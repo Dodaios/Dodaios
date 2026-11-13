@@ -634,7 +634,8 @@ export function ThreadComposer({
           onPick={(permissionMode) => void pick({ permissionMode })} />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <DictationButton dictating={dictation.dictating} onToggle={() => { dictationOwner = threadKey; dictation.toggle(); }} disabled={dictation.micHeld}
+          <DictationButton dictating={dictation.dictating} transcribing={dictation.finishing} sendQueued={dictation.sendQueued}
+            onToggle={() => { dictationOwner = threadKey; dictation.toggle(); }} disabled={dictation.micHeld}
             startLabel={t("chats_view.dictation_start")} stopLabel={t("chats_view.dictation_stop")} shape="round" />
           {running && !canSend
             ? <button type="button" aria-label={t("ide_threads.stop_agent")} title={t("ide_threads.stop")} data-testid="thread-stop"

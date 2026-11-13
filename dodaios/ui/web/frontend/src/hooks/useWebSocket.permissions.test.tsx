@@ -107,7 +107,8 @@ describe("useWebSocket permission wiring", () => {
     fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({}) }) as Response);
     vi.stubGlobal("fetch", fetchMock);
     useI18nStore.getState().setUi("en", { push: false });
-    useEventStore.setState({ dictating: false, toasts: [], solo: false });
+    useEventStore.setState({ toasts: [], solo: false });
+    useEventStore.getState().resetDictation();
     resetPermissionToastState();
     queryClient.clear();
   });
@@ -234,8 +235,9 @@ describe("useWebSocket permission wiring", () => {
     expect(useEventStore.getState().toasts).toEqual([]);
   });
 
-  it("DictationRefused ends a recording the composer started", async () => {
-    useEventStore.setState({ dictating: true });
+  it("DictationRefused ends a recording the composer started, as failed", async () => {
+    useEventStore.getState().beginDictation("composer-1");
+    const before = useEventStore.getState().dictationResult.seq;
     render(<Harness />);
     await Promise.resolve();
 
@@ -243,37 +245,52 @@ describe("useWebSocket permission wiring", () => {
       envelope("DictationRefused", { reason: "microphone_unavailable", detail: "Microphone access is off." }),
     );
 
-    expect(useEventStore.getState().dictating).toBe(false);
+    const after = useEventStore.getState();
+    expect(after.dictationPhase).toBe("idle");
+    expect(after.dictationOwner).toBeNull();
+    expect(after.dictationResult).toEqual({ seq: before + 1, owner: "composer-1", text: "", outcome: "failed" });
+  });
+
+  it("a refused start in a window with no dictation of its own publishes nothing", async () => {
+    const before = useEventStore.getState().dictationResult.seq;
+    render(<Harness />);
+    await Promise.resolve();
+
+    MockWebSocket.last!.deliver(envelope("DictationRefused", { reason: "microphone_unavailable", detail: "" }));
+
+    expect(useEventStore.getState().dictationResult.seq).toBe(before);
   });
 
   it.each(["already_running", "nothing_to_paste", "paste_unavailable", "history_disabled"])(
     "a %s refusal does not end a recording that is live in this window",
     async (reason) => {
-      useEventStore.setState({ dictating: true });
+      useEventStore.getState().beginDictation("composer-1");
       render(<Harness />);
       await Promise.resolve();
 
       MockWebSocket.last!.deliver(envelope("DictationRefused", { reason, detail: "" }));
 
-      expect(useEventStore.getState().dictating).toBe(true);
+      expect(useEventStore.getState().dictationPhase).toBe("recording");
+      expect(useEventStore.getState().dictationOwner).toBe("composer-1");
     },
   );
 
   it.each(["microphone_unavailable", "no_stt", "handover_failed", "pipeline_not_running", "voice_session_active"])(
     "a %s refusal means the start failed and resets the pill",
     async (reason) => {
-      useEventStore.setState({ dictating: true });
+      useEventStore.getState().beginDictation("composer-1");
       render(<Harness />);
       await Promise.resolve();
 
       MockWebSocket.last!.deliver(envelope("DictationRefused", { reason, detail: "" }));
 
-      expect(useEventStore.getState().dictating).toBe(false);
+      expect(useEventStore.getState().dictationPhase).toBe("idle");
+      expect(useEventStore.getState().dictationResult.outcome).toBe("failed");
     },
   );
 
   it("ErrorOccurred from ui.web.dictation also stops the recording pill", async () => {
-    useEventStore.setState({ dictating: true });
+    useEventStore.getState().beginDictation("composer-1");
     render(<Harness />);
     await Promise.resolve();
 
@@ -281,16 +298,31 @@ describe("useWebSocket permission wiring", () => {
       envelope("ErrorOccurred", { layer: "ui.web.dictation", error_type: "DictationBusy", message: "busy", recoverable: true }),
     );
 
-    expect(useEventStore.getState().dictating).toBe(false);
+    expect(useEventStore.getState().dictationPhase).toBe("idle");
+    expect(useEventStore.getState().dictationResult.outcome).toBe("failed");
+  });
+
+  it("ErrorOccurred from ui.web.dictation ends a transcription as failed too", async () => {
+    useEventStore.getState().beginDictation("composer-1");
+    useEventStore.getState().markDictationTranscribing();
+    render(<Harness />);
+    await Promise.resolve();
+
+    MockWebSocket.last!.deliver(
+      envelope("ErrorOccurred", { layer: "ui.web.dictation", error_type: "DictationFailed", message: "x", recoverable: true }),
+    );
+
+    expect(useEventStore.getState().dictationPhase).toBe("idle");
+    expect(useEventStore.getState().dictationResult).toMatchObject({ owner: "composer-1", outcome: "failed" });
   });
 
   it("an ErrorOccurred from another layer is not a dictation refusal", async () => {
-    useEventStore.setState({ dictating: true });
+    useEventStore.getState().beginDictation("composer-1");
     render(<Harness />);
     await Promise.resolve();
 
     MockWebSocket.last!.deliver(envelope("ErrorOccurred", { layer: "brain", message: "x", recoverable: true }));
 
-    expect(useEventStore.getState().dictating).toBe(true);
+    expect(useEventStore.getState().dictationPhase).toBe("recording");
   });
 });

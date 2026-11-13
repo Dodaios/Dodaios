@@ -113,11 +113,14 @@ class GroqWhisperAPI:
         timeout_s: float = 30.0,
         http_client: httpx.AsyncClient | None = None,
     ) -> None:
+        # Stripped: a key pasted with a space or a line break at its end is
+        # refused by the service exactly like a wrong key.
         self._api_key = (
             api_key
             or os.environ.get("GROQ_API_KEY", "")
             or _read_keyring_secret("groq_api_key")
-        )
+            or ""
+        ).strip()
         self._model = model
         self._last_used_model = ""
         self._endpoint = endpoint
@@ -418,6 +421,13 @@ def _payload_to_transcript(payload: dict[str, Any]) -> Transcript:
             "end": float(s.get("end", 0.0)),
             "text": str(s.get("text", "")),
             "avg_logprob": float(s.get("avg_logprob", 0.0)),
+            # The model's own doubt about a segment. The dictation lane leaves
+            # out a segment the model itself marks as silence or as a loop.
+            **{
+                name: float(s[name])
+                for name in ("no_speech_prob", "compression_ratio")
+                if isinstance(s.get(name), int | float)
+            },
         }
         for s in segments_raw
     )

@@ -568,6 +568,9 @@ faster-whisper = "dodaios.plugins.stt.fwhisper:FasterWhisperProvider"
 # Local streaming transcription (NVIDIA Nemotron 3.5 via sherpa-onnx / ONNX
 # Runtime). Multilingual and CPU-only; same readiness rule as above.
 nemotron-local = "dodaios.plugins.stt.nemotron_local:NemotronLocalSTT"
+# Local one-pass transcription (NVIDIA Parakeet TDT v3 via sherpa-onnx). The
+# fast on-device recognizer for dictation; 25 European languages, CPU-only.
+parakeet-local = "dodaios.plugins.stt.parakeet_local:ParakeetLocalSTT"
 groq-api = "dodaios.plugins.stt.groq_api:GroqWhisperAPI"
 # OpenRouter cloud transcription — reuses the shared openrouter_api_key.
 openrouter-stt = "dodaios.plugins.stt.openrouter_stt:OpenRouterSTT"

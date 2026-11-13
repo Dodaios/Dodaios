@@ -153,11 +153,13 @@ export function HistoryEntry({
   // Worth opening only when the delivered text is not simply what was heard.
   const heardDiffers =
     Boolean(entry.text) && Boolean(entry.raw_text) && entry.text !== entry.raw_text;
-  // Without any text, the kept recording can be run again. The backend does
-  // that under the same call that restores a discarded entry.
-  const canTranscribeAgain =
-    !hasText &&
-    (entry.audio_available || entry.outcome === "failed" || entry.outcome === "partial");
+  // Without any text, the kept recording can be run again. So can the
+  // recording of a partly transcribed entry: it was kept because words are
+  // missing. The backend does both under the same call that restores a
+  // discarded entry.
+  const canTranscribeAgain = hasText
+    ? entry.audio_available && entry.outcome === "partial"
+    : entry.audio_available || entry.outcome === "failed" || entry.outcome === "partial";
   const remark = remarkFor(t, entry, rewriteChosen);
   const time = timeOfDay(entry.created_at, locale);
 

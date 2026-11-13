@@ -554,6 +554,14 @@ SHERPA_ONNX_PACKAGE = "sherpa-onnx>=1.13.3,<2"
 NEMOTRON_MODEL_ID = "nemotron-3.5-asr-streaming-0.6b-560ms-int8"
 NEMOTRON_HF_REPO = "csukuangfj2/sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11"
 
+#: Parakeet TDT 0.6B v3, int8: the fast one-pass recognizer. One archive from
+#: the sherpa-onnx project's releases, 25 European languages, CPU only.
+PARAKEET_MODEL_ID = "parakeet-tdt-0.6b-v3-int8"
+_PARAKEET_ARCHIVE = (
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"
+    "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2"
+)
+
 #: Where the sherpa-onnx project publishes its converted TTS voices.
 _PIPER_RELEASE = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/"
 
@@ -595,6 +603,17 @@ SHERPA_BUNDLES: dict[str, SherpaBundle] = {
             "tokens.txt",
         ),
         hf_repo=NEMOTRON_HF_REPO,
+    ),
+    PARAKEET_MODEL_ID: SherpaBundle(
+        model_id=PARAKEET_MODEL_ID,
+        label="Parakeet v3",
+        required_files=(
+            "encoder.int8.onnx",
+            "decoder.int8.onnx",
+            "joiner.int8.onnx",
+            "tokens.txt",
+        ),
+        archive_url=_PARAKEET_ARCHIVE,
     ),
     "vits-piper-de_DE-thorsten-medium": _piper_bundle(
         "vits-piper-de_DE-thorsten-medium",
@@ -685,6 +704,16 @@ LOCAL_PROVIDERS: tuple[LocalProvider, ...] = (
         download_size="about 690 MB",
         pip_package=SHERPA_ONNX_PACKAGE,
         bundles=(NEMOTRON_MODEL_ID,),
+    ),
+    LocalProvider(
+        provider_id="parakeet-local",
+        tier="stt",
+        runtime="sherpa-onnx",
+        model_id=PARAKEET_MODEL_ID,
+        model_label="Parakeet v3",
+        download_size="about 490 MB",
+        pip_package=SHERPA_ONNX_PACKAGE,
+        bundles=(PARAKEET_MODEL_ID,),
     ),
     LocalProvider(
         provider_id="piper-local",

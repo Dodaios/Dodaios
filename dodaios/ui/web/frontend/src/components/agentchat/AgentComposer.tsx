@@ -214,8 +214,10 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
 
   const {
     dictating,
+    finishing: transcribingDictation,
     awaitingText: awaitingDictation,
     micHeld,
+    sendQueued: dictationSendQueued,
     stop: stopDictation,
     toggle: toggleDictation,
     stopAndSend: stopDictationAndSend,
@@ -662,10 +664,10 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
     (!busy || commands.canSteer || canQueue) &&
     Boolean(provider?.connected);
   // Something is in the box (or on its way in): the call button makes room.
-  const hasDraft = Boolean(value.trim()) || files.attachments.length > 0 || dictating || commands.isCommand;
+  const hasDraft = Boolean(value.trim()) || files.attachments.length > 0 || awaitingDictation || commands.isCommand;
   // Send while the mic is open ends the dictation and sends once the words
   // land, so it is live even before the box holds any text.
-  // The same right after Stop, while the last words are still being recognized.
+  // The same right after Stop, while the recording is being transcribed.
   const canFinishDictation = awaitingDictation && connected && (!live || canQueue) && Boolean(provider?.connected);
   const placeholder = dictating
     ? t("chats_view.dictation_listening")
@@ -911,6 +913,8 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
             ) : (
               <DictationButton
                 dictating={dictating}
+                transcribing={transcribingDictation}
+                sendQueued={dictationSendQueued}
                 onToggle={toggleDictation}
                 disabled={!connected || micHeld}
                 startLabel={t("chats_view.dictation_start")}
@@ -1159,6 +1163,8 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
         </button>
         <DictationButton
           dictating={dictating}
+          transcribing={transcribingDictation}
+          sendQueued={dictationSendQueued}
           onToggle={toggleDictation}
           disabled={!connected || micHeld}
           startLabel={t("chats_view.dictation_start")}

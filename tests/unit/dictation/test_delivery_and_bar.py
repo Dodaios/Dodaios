@@ -553,6 +553,11 @@ async def test_a_broken_cleanup_never_loses_the_text(
 # --------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _loud_is_speech(speech_by_loudness: None) -> None:
+    """The fake microphones below record a constant signal, not a voice."""
+
+
 class _FakeChunk:
     def __init__(self, pcm: bytes) -> None:
         self.pcm = pcm
@@ -582,7 +587,6 @@ def _session_pipeline(stt, cfg: DictationConfig):
     pipe._utterance_stt = stt
     pipe._dictation_cfg = cfg
     pipe._dictation_target = "chat"
-    pipe._ptt_partial_interval_s = 0.0
     pipe._dictation_max_s = 5.0
     pipe._input_device = None
     pipe._input_priority = None
@@ -595,29 +599,6 @@ def _session_pipeline(stt, cfg: DictationConfig):
 
     pipe._publish_event = _publish  # type: ignore[assignment]
     return pipe, events
-
-
-@pytest.mark.asyncio
-async def test_a_language_pin_does_not_lock_a_code_switching_dictation(
-    monkeypatch: pytest.MonkeyPatch, audio_spy
-) -> None:
-    import dodaios.speech.pipeline as pipeline_mod
-
-    seen: list[dict] = []
-
-    class _STT:
-        async def transcribe_pcm(self, pcm: bytes, **kw):
-            seen.append(kw)
-            return SimpleNamespace(text="hola mundo", language="es")
-
-    monkeypatch.setattr(
-        pipeline_mod, "MicrophoneCapture", lambda **_kw: _FakeMic(b"\x00\x01" * 16_000)
-    )
-    pipe, _events = _session_pipeline(
-        _STT(), DictationConfig(language="es", partial_interval_s=0.0)
-    )
-    await pipe._dictation_session()
-    assert seen == [{"language": "auto"}]
 
 
 @pytest.mark.asyncio
@@ -643,7 +624,7 @@ async def test_completion_and_history_carry_stt_quality_telemetry(
     monkeypatch.setattr(
         pipeline_mod, "MicrophoneCapture", lambda **_kw: _FakeMic(b"\x00\x01" * 16_000)
     )
-    pipe, events = _session_pipeline(_MeasuredSTT(), DictationConfig(partial_interval_s=0.0))
+    pipe, events = _session_pipeline(_MeasuredSTT(), DictationConfig())
 
     await pipe._dictation_session()
 
@@ -652,7 +633,8 @@ async def test_completion_and_history_carry_stt_quality_telemetry(
     assert completed.stt_models == ("gpt-4o-transcribe",)
     assert completed.detected_languages == ("en", "ja", "es")
     assert completed.stt_calls == 1
-    assert "final_pass:applied" in completed.stt_audit
+    assert "pieces:1" in completed.stt_audit
+    assert "speech_detector:energy" in completed.stt_audit
     assert "audio_preprocessing:raw_pcm" in completed.stt_audit
     assert "acoustic_echo_cancellation:unavailable" in completed.stt_audit
     assert completed.audio_sample_rate_hz == 16_000
@@ -672,7 +654,7 @@ async def test_completion_and_history_carry_stt_quality_telemetry(
 
 
 @pytest.mark.asyncio
-async def test_a_language_pin_reaches_the_provider_when_code_switching_is_off(
+async def test_a_chosen_language_is_what_the_provider_is_asked_for(
     monkeypatch: pytest.MonkeyPatch, audio_spy
 ) -> None:
     import dodaios.speech.pipeline as pipeline_mod
@@ -689,11 +671,7 @@ async def test_a_language_pin_reaches_the_provider_when_code_switching_is_off(
     )
     pipe, _events = _session_pipeline(
         _STT(),
-        DictationConfig(
-            language="es",
-            code_switching=False,
-            partial_interval_s=0.0,
-        ),
+        DictationConfig(language="es"),
     )
     await pipe._dictation_session()
     assert seen == [{"language": "es"}]
@@ -726,7 +704,7 @@ async def test_auto_asks_the_provider_to_detect_instead_of_staying_silent(
         pipeline_mod, "MicrophoneCapture", lambda **_kw: _FakeMic(b"\x00\x01" * 16_000)
     )
     pipe, _events = _session_pipeline(
-        _STT(), DictationConfig(language="auto", partial_interval_s=0.0)
+        _STT(), DictationConfig(language="auto")
     )
     await pipe._dictation_session()
     assert seen == [{"language": "auto"}]
@@ -760,7 +738,7 @@ async def test_a_provider_that_cleans_its_own_text_cannot_override_the_filler_sw
     )
     pipe, events = _session_pipeline(
         _CleaningSTT(),
-        DictationConfig(language="de", partial_interval_s=0.0, remove_fillers=False),
+        DictationConfig(language="de", remove_fillers=False),
     )
     await pipe._dictation_session()
 
@@ -787,7 +765,7 @@ async def test_a_provider_without_a_raw_text_field_is_unaffected(
     )
     pipe, events = _session_pipeline(
         _PlainSTT(),
-        DictationConfig(language="de", partial_interval_s=0.0, remove_fillers=True),
+        DictationConfig(language="de", remove_fillers=True),
     )
     await pipe._dictation_session()
 
@@ -815,7 +793,7 @@ async def test_a_provider_without_the_language_keyword_still_transcribes(
     monkeypatch.setattr(
         pipeline_mod, "MicrophoneCapture", lambda **_kw: _FakeMic(b"\x00\x01" * 16_000)
     )
-    pipe, events = _session_pipeline(stt, DictationConfig(language="de", partial_interval_s=0.0))
+    pipe, events = _session_pipeline(stt, DictationConfig(language="de"))
     await pipe._dictation_session()
     completed = next(e for e in events if isinstance(e, DictationCompleted))
     assert completed.outcome == "chat"
@@ -836,7 +814,7 @@ async def test_a_provider_error_ends_the_session_as_failed(
     monkeypatch.setattr(
         pipeline_mod, "MicrophoneCapture", lambda **_kw: _FakeMic(b"\x00\x01" * 16_000)
     )
-    pipe, events = _session_pipeline(_BrokenSTT(), DictationConfig(partial_interval_s=0.0))
+    pipe, events = _session_pipeline(_BrokenSTT(), DictationConfig())
     await pipe._dictation_session()
     completed = next(e for e in events if isinstance(e, DictationCompleted))
     assert completed.outcome == "failed"
@@ -893,7 +871,7 @@ async def test_a_crash_inside_delivery_does_not_double_publish(
     monkeypatch.setattr(
         pipeline_mod, "MicrophoneCapture", lambda **_kw: _FakeMic(b"\x00\x01" * 16_000)
     )
-    pipe, _events = _session_pipeline(_STT(), DictationConfig(partial_interval_s=0.0))
+    pipe, _events = _session_pipeline(_STT(), DictationConfig())
 
     async def _boom(**_kw):
         calls.append(1)

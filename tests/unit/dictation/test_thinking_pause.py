@@ -11,11 +11,11 @@ opening, both have to reach the final text.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
+import pytest
 
 from dodaios.core.config import DictationConfig
 from dodaios.core.protocols import Transcript
@@ -23,6 +23,11 @@ from dodaios.speech.pipeline import SpeechPipeline
 
 RATE = 16_000
 BYTES_PER_S = RATE * 2
+
+
+@pytest.fixture(autouse=True)
+def _loud_is_speech(speech_by_loudness: None) -> None:
+    """The recordings here are tones; loudness decides what counts as speech."""
 
 
 def _tone(seconds: float, amplitude: int) -> bytes:
@@ -54,8 +59,8 @@ class _ScriptedMic:
         self._pcm = pcm
 
     async def stream(self):  # noqa: ANN201 — async generator of chunks
-        # One second at a time, so the segment loop sees the buffer grow the way
-        # it does live rather than receiving the whole recording at once.
+        # One second at a time, so the take sees the recording grow the way it
+        # does live rather than receiving the whole of it at once.
         for i in range(0, len(self._pcm), BYTES_PER_S):
             yield _Chunk(self._pcm[i : i + BYTES_PER_S])
             await asyncio.sleep(0)
@@ -99,17 +104,12 @@ class _LoudnessSTT:
 
 def _pipeline(stt: Any):
     pipe = SpeechPipeline.__new__(SpeechPipeline)
-    pipe._dictation_cfg = DictationConfig(
-        history_enabled=False,
-        segment_seconds=8.0,
-        partial_interval_s=0.0,  # no live preview: this is about the TRANSCRIPT
-        polish=False,
-    )
+    pipe._dictation_cfg = DictationConfig(history_enabled=False, polish=False)
     pipe._dictation_target = "chat"
     pipe._dictation_completion_published = False
     pipe._dictation_max_s = 600.0
-    pipe._dictation_stt_instance = stt
-    pipe._stt_final_timeout_s = 8.0
+    # A pipeline without a configuration reads with its voice provider.
+    pipe._utterance_stt = stt
     pipe._hangup_event = asyncio.Event()
     pipe._dictation_stop_event = asyncio.Event()
     delivered: list[str] = []
@@ -129,14 +129,6 @@ def _pipeline(stt: Any):
     pipe._insert_dictation = lambda text: SimpleNamespace(  # type: ignore[assignment]
         status="inserted", detail="", method="clipboard+ctrl_v"
     )
-
-    async def _stop_live(task, **_kwargs):  # noqa: ANN001, ANN202
-        if task is not None:
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await task
-
-    pipe._stop_ptt_live_transcription = _stop_live  # type: ignore[assignment]
     return pipe, delivered
 
 

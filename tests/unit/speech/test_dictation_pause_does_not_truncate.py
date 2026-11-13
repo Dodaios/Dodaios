@@ -1,27 +1,18 @@
 """A pause in the middle of a dictation must not cost the words after it.
 
 The reported symptom: speak, stop to think for ten-odd seconds while still
-holding the key, speak again — and everything after the pause is missing, while
-the bar kept showing an active dictation the whole time. The live log of that
-session shows the mechanism in full:
+holding the key, speak again, and everything after the pause is missing. The
+chain behind it was: the pause was sent to the recognizer again and again, the
+service answered ``429 Too Many Requests``, the backlog grew, and the silence
+itself came back as an invented sentence ("Thank you for watching!" in the
+middle of a German dictation).
 
-* the live preview re-uploaded the whole open tail on every tick, so a pause was
-  billed as a request per tick while producing no text;
-* Groq answered ``429 Too Many Requests``, and a refused call correctly leaves
-  its segment OPEN — so the tail grew, and the next tick uploaded even more;
-* from there each round cost more than the last, the uploads stalled the event
-  loop the microphone was being drained on, and the capture queue's drop-oldest
-  policy deleted real speech to keep up (``Mic closed (drops=94)`` — 9.4 s);
-* and the silence itself came back as invented sentences, which is what put
-  "Thank you for watching!" in the middle of a German dictation.
+What is pinned here is the shape that breaks that chain: silence is never sent
+to a recognizer, a long recording goes out in bounded pieces, a refused call
+gets one more try, and one piece nobody could read does not cost the others.
 
-What is pinned here is the shape that breaks that chain: silence is never
-uploaded, a backlog is drained in one tick rather than one segment per tick, a
-failed call backs off instead of hammering, and the final pass goes out in
-pieces so one bad piece cannot cost the whole remainder.
-
-Every judgement about silence is made on ENERGY, never on the text that came
-back (AP-27) — a content rule cannot tell a hallucination from a real sentence.
+Every judgement about silence is made on the AUDIO, never on the text that
+came back (AP-27): a content rule cannot tell an invention from a sentence.
 """
 
 from __future__ import annotations
@@ -32,12 +23,13 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+import dodaios.dictation.take as take_mod
 import dodaios.speech.pipeline as pipeline_mod
 from dodaios.core.bus import EventBus
 from dodaios.core.config import DictationConfig
 from dodaios.speech.pipeline import PipelineState, SpeechPipeline
 
-pytestmark = pytest.mark.usefixtures("granted_microphone")
+pytestmark = pytest.mark.usefixtures("granted_microphone", "speech_by_loudness")
 
 BYTES_PER_SECOND = 16_000 * 2
 
@@ -94,6 +86,8 @@ class _ScriptedMic:
     """Yields a fixed script of chunks, then holds the stream open."""
 
     script: list[bytes] = []
+    #: Set once the whole script was handed to the session.
+    delivered: asyncio.Event | None = None
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         pass
@@ -107,10 +101,12 @@ class _ScriptedMic:
     async def stream(self):  # type: ignore[no-untyped-def]
         for chunk in type(self).script:
             yield SimpleNamespace(pcm=chunk)
-            # Let the probe run between chunks, so the test exercises the real
-            # interleaving of "audio arrives while a transcription is in flight"
-            # instead of handing the loop a finished buffer.
+            # Let a piece be read between chunks, so the test exercises the
+            # real interleaving of "audio arrives while a piece is being read"
+            # instead of handing the session a finished recording.
             await asyncio.sleep(0)
+        if type(self).delivered is not None:
+            type(self).delivered.set()
         await asyncio.Event().wait()
 
 
@@ -125,7 +121,6 @@ def _pipeline(bus: EventBus, stt: _MarkerSTT, cfg: DictationConfig) -> SpeechPip
     pipe._dictation_wake_block_until = 0.0
     pipe._dictation_completion_published = True
     pipe._ptt_mode = False
-    pipe._ptt_partial_interval_s = 0.0
     pipe._state = PipelineState.IDLE
     pipe._muted = False
     pipe._input_device = "default"
@@ -139,13 +134,15 @@ async def _run(
     *,
     script: list[bytes],
     stt: _MarkerSTT,
-    cfg: DictationConfig,
+    cfg: DictationConfig | None = None,
 ) -> dict[str, object]:
     """Record the whole script, release the key, return ``_finish``'s kwargs."""
     bus = EventBus()
-    pipe = _pipeline(bus, stt, cfg)
+    pipe = _pipeline(bus, stt, cfg or DictationConfig())
     _ScriptedMic.script = script
+    _ScriptedMic.delivered = asyncio.Event()
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", _ScriptedMic)
+    monkeypatch.setattr(take_mod, "_RETRY_DELAY_S", 0.0)
 
     captured: dict[str, object] = {}
 
@@ -157,39 +154,28 @@ async def _run(
     pipe._finish_dictation = _fake_finish  # type: ignore[method-assign]
 
     assert pipe.start_dictation(target="chat") is True
-    # Wait for the recording itself to be complete rather than for a fixed
-    # sleep: a timing-based assertion on a loaded box is a flake generator.
-    total = sum(len(c) for c in script)
-    deadline = asyncio.get_running_loop().time() + 10.0
-    while asyncio.get_running_loop().time() < deadline:
-        if pipe._dictation_task is None or pipe._dictation_task.done():
-            break
-        await asyncio.sleep(0.01)
-        # The drain has seen everything once the probe can no longer grow.
-        if total and stt.calls and asyncio.get_running_loop().time() > deadline - 9.0:
-            break
+    # The key is released once the microphone has delivered everything, not
+    # after a fixed sleep: a timing-based wait on a loaded machine is a flake.
+    await asyncio.wait_for(_ScriptedMic.delivered.wait(), timeout=10.0)
     pipe.stop_dictation()
     await asyncio.wait_for(pipe._dictation_task, timeout=10.0)
     return captured
 
 
+def _short_pieces(monkeypatch, seconds: float) -> None:
+    """Cut a recording every ``seconds``, so a short test recording has pieces."""
+    monkeypatch.setattr(take_mod, "PIECE_MIN_S", seconds)
+    monkeypatch.setattr(take_mod, "_CUT_LADDER", ((seconds, 0.9),))
+    monkeypatch.setattr(take_mod, "PIECE_MAX_S", seconds)
+
+
 @pytest.mark.asyncio
 async def test_words_after_a_long_pause_still_reach_the_transcript(monkeypatch) -> None:
-    """The reported bug, end to end.
-
-    Speech, a long think-pause, more speech. Before the fix the pause was
-    uploaded tick after tick, which is what spent the rate limit and then took
-    the words after it down with the rest.
-    """
+    """The reported bug, end to end: speech, a long think-pause, more speech."""
     script = [_word(0), _word(1), _silence(12.0), _word(2), _word(3)]
     stt = _MarkerSTT()
-    cfg = DictationConfig(
-        partial_interval_s=0.02,
-        segment_seconds=2.0,
-        final_quality_pass=False,
-    )
 
-    captured = await _run(monkeypatch, script=script, stt=stt, cfg=cfg)
+    captured = await _run(monkeypatch, script=script, stt=stt)
 
     text = str(captured.get("raw_text") or "")
     for marker in ("w0", "w1", "w2", "w3"):
@@ -201,71 +187,84 @@ async def test_a_pause_is_never_uploaded(monkeypatch) -> None:
     """Silence costs neither a request nor an invented sentence.
 
     Both halves matter: the requests are what ran into the rate limit, and the
-    invented sentence is what the user found in the middle of their own text.
+    invented sentence is what the person found in the middle of their own text.
     """
     script = [_word(0), _silence(12.0), _word(1)]
     stt = _MarkerSTT()
-    cfg = DictationConfig(partial_interval_s=0.02, segment_seconds=2.0)
 
-    captured = await _run(monkeypatch, script=script, stt=stt, cfg=cfg)
+    captured = await _run(monkeypatch, script=script, stt=stt)
 
-    assert stt.silent_calls == 0, "a silent stretch was sent to the provider"
+    assert stt.silent_calls == 0, "a silent stretch was sent to the recognizer"
     assert HALLUCINATION not in str(captured.get("raw_text") or "")
+    sent = sum(len(call) for call in stt.calls)
+    assert sent < 4.0 * BYTES_PER_SECOND, (
+        f"{sent / BYTES_PER_SECOND:.1f}s went to the recognizer for one second "
+        "of speech: the pause was sent along"
+    )
 
 
 @pytest.mark.asyncio
-async def test_the_open_tail_never_grows_past_one_segment(monkeypatch) -> None:
-    """No upload may keep getting bigger.
+async def test_a_recording_of_silence_asks_no_recognizer(monkeypatch) -> None:
+    """A muted or wrong microphone makes no request, so nothing is invented."""
+    stt = _MarkerSTT()
 
-    This is the spiral itself: an ever-growing tail means every tick uploads
-    more audio than the last, until the work of building those requests stalls
-    the loop the microphone is drained on. The cap holds even when the audio
-    arrives faster than the probe can close segments.
+    captured = await _run(monkeypatch, script=[_silence(3.0)], stt=stt)
+
+    assert stt.calls == []
+    assert captured.get("raw_text") == ""
+    assert captured.get("no_speech") is True
+    assert captured.get("stt_error") is None
+
+
+@pytest.mark.asyncio
+async def test_a_long_recording_goes_out_in_bounded_pieces(monkeypatch) -> None:
+    """No request may grow with the recording.
+
+    One upload of a whole long recording is the shape where one failure loses
+    all of it, and where the wait after the stop grows with every second
+    spoken. Each piece is read once, in order.
     """
+    _short_pieces(monkeypatch, 2.0)
     script = [_word(i, seconds=1.0) for i in range(12)]
     stt = _MarkerSTT()
-    cfg = DictationConfig(
-        partial_interval_s=0.02,
-        segment_seconds=2.0,
-        final_quality_pass=False,
-    )
 
-    await _run(monkeypatch, script=script, stt=stt, cfg=cfg)
+    captured = await _run(monkeypatch, script=script, stt=stt)
 
-    segment_bytes = int(2.0 * BYTES_PER_SECOND)
+    assert len(stt.calls) > 1, "the whole recording went out as one request"
     biggest = max(len(c) for c in stt.calls)
-    assert biggest <= segment_bytes, (
-        f"an upload reached {biggest / BYTES_PER_SECOND:.1f}s of audio — the "
-        f"tail is growing without bound again"
+    assert biggest <= int(2.5 * BYTES_PER_SECOND), (
+        f"a request reached {biggest / BYTES_PER_SECOND:.1f}s of audio"
     )
+    text = str(captured.get("raw_text") or "")
+    assert text.split() == [f"w{i}" for i in range(12)]
 
 
 @pytest.mark.asyncio
-async def test_refused_calls_do_not_cost_the_words(monkeypatch) -> None:
-    """A refused call leaves its audio open, so a later attempt still reads it.
+async def test_a_refused_call_does_not_cost_the_words(monkeypatch) -> None:
+    """A refusal that may pass gets one more try before the audio counts as lost.
 
-    The refusal under test is the real one: HTTP 429. The recording is untouched
-    by it — the words have to arrive in full once a call gets through.
+    The refusal under test is the real one: HTTP 429. The recording is
+    untouched by it, and the words arrive in full with the second call.
     """
     script = [_word(0), _word(1), _word(2)]
-    stt = _MarkerSTT(fail_first=2)
-    cfg = DictationConfig(partial_interval_s=0.02, segment_seconds=1.0)
+    stt = _MarkerSTT(fail_first=1)
 
-    captured = await _run(monkeypatch, script=script, stt=stt, cfg=cfg)
+    captured = await _run(monkeypatch, script=script, stt=stt)
 
     text = str(captured.get("raw_text") or "")
     for marker in ("w0", "w1", "w2"):
-        assert marker in text, f"{marker} was lost to the refused calls: {text!r}"
+        assert marker in text, f"{marker} was lost to the refused call: {text!r}"
+    assert captured.get("lost_audio_s") == 0
+    assert captured.get("stt_error") is None
 
 
 @pytest.mark.asyncio
 async def test_one_dead_piece_does_not_cost_the_others(monkeypatch) -> None:
-    """The point of finalizing in pieces.
+    """The point of reading in pieces.
 
-    A piece whose every attempt fails is a real loss — but a bounded one. As a
-    single upload of the whole remainder, that same failure took every second
-    still open with it, which is how a transient error at the end used to cost
-    a dictation the user had already finished speaking.
+    A piece whose every attempt fails is a real loss, but a bounded one, and
+    it is reported: the lost seconds and the reason reach the delivery step,
+    which keeps the recording so it can be read again.
     """
 
     class _OneBadPiece(_MarkerSTT):
@@ -276,15 +275,11 @@ async def test_one_dead_piece_does_not_cost_the_others(monkeypatch) -> None:
                 raise RuntimeError("429 Too Many Requests")
             return await super().transcribe_pcm(pcm, language)
 
+    _short_pieces(monkeypatch, 1.0)
     script = [_word(i, seconds=1.0) for i in range(4)]
     stt = _OneBadPiece()
-    cfg = DictationConfig(
-        partial_interval_s=0.0,
-        segment_seconds=1.0,
-        final_quality_pass=False,
-    )
 
-    captured = await _run(monkeypatch, script=script, stt=stt, cfg=cfg)
+    captured = await _run(monkeypatch, script=script, stt=stt)
 
     text = str(captured.get("raw_text") or "")
     assert "w0" not in text, "the failing piece was expected to be lost"
@@ -292,30 +287,9 @@ async def test_one_dead_piece_does_not_cost_the_others(monkeypatch) -> None:
         assert marker in text, (
             f"{marker} was taken down by an unrelated failing piece: {text!r}"
         )
-
-
-@pytest.mark.asyncio
-async def test_the_final_pass_goes_out_in_pieces(monkeypatch) -> None:
-    """One timeout must not cost every second still open.
-
-    With the preview off, everything lands on the final pass. It has to leave in
-    segment-sized pieces — a single upload of the whole remainder is the shape
-    where one failure loses all of it.
-    """
-    script = [_word(i, seconds=1.0) for i in range(6)]
-    stt = _MarkerSTT()
-    cfg = DictationConfig(
-        partial_interval_s=0.0,
-        segment_seconds=2.0,
-        final_quality_pass=False,
-    )
-
-    captured = await _run(monkeypatch, script=script, stt=stt, cfg=cfg)
-
-    assert len(stt.calls) > 1, "the whole remainder went out as one upload"
-    text = str(captured.get("raw_text") or "")
-    for marker in (f"w{i}" for i in range(6)):
-        assert marker in text, f"{marker} was lost by the chunked final pass: {text!r}"
+    assert float(captured.get("lost_audio_s") or 0.0) > 0.5
+    assert captured.get("stt_error") == "rate_limited"
+    assert captured.get("audio"), "the recording must be kept for another reading"
 
 
 @pytest.mark.asyncio
@@ -334,9 +308,8 @@ async def test_a_recording_that_ends_early_is_reported(monkeypatch) -> None:
             raise RuntimeError("Voice input exceeded the 30-second replay window")
 
     stt = _MarkerSTT()
-    cfg = DictationConfig(partial_interval_s=0.0, segment_seconds=2.0)
     bus = EventBus()
-    pipe = _pipeline(bus, stt, cfg)
+    pipe = _pipeline(bus, stt, DictationConfig())
     monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", _DyingMic)
 
     captured: dict[str, object] = {}

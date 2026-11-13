@@ -432,11 +432,10 @@ async def polish_transcript(
 ) -> PolishOutcome:
     """Format *raw* without changing what it says. Never raises, never loses text.
 
-    ``preceding_text`` is the already-delivered part of the SAME dictation when
-    the pass formats one stretch at a time (the incremental polish that keeps
-    the wait after key release flat). It reaches the model as a delimited
-    context block — style only, never repeated — and the guards still judge
-    *raw* against the answer alone. Ignored in translate mode.
+    ``preceding_text`` is text that stands before *raw* in the same document,
+    for a caller that formats a continuation. It reaches the model as a
+    delimited context block — style only, never repeated — and the guards
+    still judge *raw* against the answer alone. Ignored in translate mode.
 
     ``language`` is the ALREADY-RESOLVED transcript language (the pipeline
     resolves it before it gets here); it steers the guards and appears in the

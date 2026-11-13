@@ -931,6 +931,23 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
             "highest accuracy and have the hardware for it."
         ),
     ),
+    ProviderSpec(
+        id="parakeet-local",
+        label="Parakeet (on this machine)",
+        tier="stt",
+        auth_mode="none",
+        secret_keys=(),
+        dashboard_url=None,
+        signup_url=None,
+        credential_help=(
+            "The fastest on-device option: NVIDIA's Parakeet v3 reads a whole "
+            "recording in one pass, tens of times faster than real time on a "
+            "plain CPU, and writes punctuation itself. Fully local and "
+            "keyless, a download of about 490 MB. It covers 25 European "
+            "languages including German and English; for other languages "
+            "pick Whisper."
+        ),
+    ),
     # Deliberately last in the Voice Input picker and last among cloud runtime
     # fallbacks. It remains available for users who only have a Groq key; the
     # ordering alone de-emphasizes it (the maintainer retired the explicit

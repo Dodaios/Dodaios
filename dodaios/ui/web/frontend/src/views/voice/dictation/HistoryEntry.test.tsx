@@ -197,6 +197,25 @@ describe("a history entry", () => {
     expect(onRestore).toHaveBeenCalledWith(entry);
   });
 
+  it("offers to transcribe a partly transcribed recording again", async () => {
+    const entry = testEntry({
+      outcome: "partial",
+      text: "Only the first words",
+      raw_text: "Only the first words",
+      error: "engine_busy",
+      audio_available: true,
+    });
+    const { onRestore } = show(entry);
+
+    await press("Transcribe again");
+    expect(onRestore).toHaveBeenCalledWith(entry);
+  });
+
+  it("does not offer it for a partial entry whose recording is gone", () => {
+    show(testEntry({ outcome: "partial", audio_available: false }));
+    expect(action("Transcribe again")).toBeNull();
+  });
+
   it("does not offer to transcribe again when the words are already there", () => {
     show(testEntry({ audio_available: true }));
     expect(action("Transcribe again")).toBeNull();

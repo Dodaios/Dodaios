@@ -79,7 +79,7 @@ export function SideChatTab() {
   messageRef.current = message;
   const setDictated = useCallback((next: string | ((current: string) => string)) => {
     const text = typeof next === "function" ? next(messageRef.current) : next;
-    // At once, not at the next render: readings of a dictation arrive in between.
+    // At once, not at the next render, so an update before then builds on this one.
     messageRef.current = text;
     setMessage(text);
   }, [setMessage]);
@@ -257,7 +257,8 @@ export function SideChatTab() {
               aria-label={t("agent_chat.attach")} title={t("agent_chat.attach_hint")} className={cn(ICON_BTN, "h-8 w-8 rounded-full")}>
               <Paperclip className="h-4 w-4" aria-hidden />
             </button>
-            <DictationButton dictating={dictation.dictating} onToggle={dictation.toggle} disabled={dictation.micHeld}
+            <DictationButton dictating={dictation.dictating} transcribing={dictation.finishing} sendQueued={dictation.sendQueued}
+              onToggle={dictation.toggle} disabled={dictation.micHeld}
               startLabel={t("chats_view.dictation_start")} stopLabel={t("chats_view.dictation_stop")} shape="round" />
             {running
               ? <button type="button" aria-label={t("ide_side_panel.chat.stop")} title={t("ide_side_panel.chat.stop")} data-testid="side-chat-stop"

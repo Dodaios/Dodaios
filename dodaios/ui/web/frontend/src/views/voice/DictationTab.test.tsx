@@ -252,3 +252,59 @@ describe("the Dictation tab", () => {
     );
   });
 });
+
+describe("the recognizer notice", () => {
+  const engine = (reason: string) => ({
+    local: reason !== "other_provider",
+    provider: reason === "other_provider" ? "openai-api" : "faster-whisper",
+    model: "",
+    fallback: "",
+    detail: "",
+    reason,
+    configured: "groq-api",
+  });
+
+  it("says nothing while the configured provider recognizes", () => {
+    dictation({ status: status({ engine: engine("") }) });
+    render(<DictationTab />);
+
+    expect(screen.queryByTestId("dictation-engine-notice")).toBeNull();
+  });
+
+  it("says that speech is recognized on this computer when no key is saved", () => {
+    dictation({ status: status({ engine: engine("no_key") }) });
+    render(<DictationTab />);
+
+    expect(screen.getByTestId("dictation-engine-notice").textContent).toContain(
+      "No key is saved for groq-api, so speech is recognized on this computer.",
+    );
+  });
+
+  it("names the faster model when the slow one is in use, and leads to the keys", async () => {
+    dictation({ status: status({ engine: engine("no_key_slow") }) });
+    render(<DictationTab />);
+
+    const notice = screen.getByTestId("dictation-engine-notice");
+    expect(notice.textContent).toContain("Parakeet");
+    await act(async () => {
+      fireEvent.click(notice.querySelector("button") as HTMLButtonElement);
+    });
+    expect(useEventStore.getState().activeSection).toBe("voice-api-keys");
+  });
+
+  it("names the provider that recognizes instead", () => {
+    dictation({ status: status({ engine: engine("other_provider") }) });
+    render(<DictationTab />);
+
+    expect(screen.getByTestId("dictation-engine-notice").textContent).toContain(
+      "No key is saved for groq-api. openai-api recognizes your speech instead.",
+    );
+  });
+
+  it("leaves a reason it has no sentence for unsaid", () => {
+    dictation({ status: status({ engine: engine("something_new") }) });
+    render(<DictationTab />);
+
+    expect(screen.queryByTestId("dictation-engine-notice")).toBeNull();
+  });
+});

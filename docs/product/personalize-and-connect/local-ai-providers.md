@@ -8,7 +8,7 @@ order: 7
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-10-19
+last_reviewed: 2026-11-13
 phase: "-"
 audience: end-user
 tags: [providers, local-ai, ollama, speech-recognition, text-to-speech, privacy, self-hosting]
@@ -35,11 +35,15 @@ you control. Make one part local first, then add the others when ready.
 | **Local server (OpenAI-compatible)** | Brain through llama.cpp, vLLM, LM Studio, Hugging Face Transformers Serve, TGI, or a compatible server | Hardware use belongs to the computer running that server | Only if its administrator requires one |
 | **Whisper (on this machine)** | Multilingual speech recognition with large-v3 | About 3 GB; best local accuracy here, but slower without a suitable GPU | None |
 | **Nemotron (on this machine)** | Streaming recognition in 40 languages | About 690 MB; designed to run several times faster than real time on a CPU | None |
+| **Parakeet (on this machine)** | One-pass recognition in 25 European languages, with punctuation | About 490 MB; reads a recording many times faster than real time on a CPU | None |
 | **Piper (on this machine)** | Spoken Pipeline replies in English, German, or Spanish | About 200 MB; faster than real time on CPU, but fewer and less natural voices than hosted services | None |
 
 Sizes are estimates. Choose Nemotron for lower delay and Whisper for accuracy.
+Dictation uses Parakeet by itself once it is downloaded: as the stand-in
+behind a hosted provider, or as the recognizer when no key is saved.
 Windows, macOS, and Linux can use compatible local packages. A GPU can
-speed up Whisper or a Brain model, but is not required for Nemotron or Piper.
+speed up Whisper or a Brain model, but is not required for Nemotron, Parakeet
+or Piper.
 
 ## Connect a Local Brain
 
@@ -157,7 +161,7 @@ of deleting runtime folders behind the running app.
 
 | Feature | Relationship | Boundary to remember |
 |---|---|---|
-| **Dictation** | Whisper or Nemotron turns speech into text locally. | Polish and translation have a separate local or cloud choice. |
+| **Dictation** | Parakeet, Whisper or Nemotron turns speech into text locally. | Polish and translation have a separate local or cloud choice. |
 | **Voice conversations** | Pipeline combines Voice Input, the Brain, and Voice Output. | GPT-Live bypasses all three selections. |
 | **API Keys & Providers** | Shows installation, readiness, server address, test, and active state. | Making one category local does not change the others. |
 | **Privacy and local data** | Local inference reduces data sent to model vendors. | History, connected sources, tools, and LAN servers keep their own storage and network rules. |

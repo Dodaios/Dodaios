@@ -24,6 +24,7 @@ import {
   COMMAND_ACTIVITY_EVENTS,
 } from "@/store/commandActivity";
 import { isDictationStartFailure } from "@/lib/dictationRefusal";
+import { STT_FAILURE_REASONS } from "@/hooks/useDictation";
 import { usePermissionToast } from "@/hooks/usePermissionToast";
 import { handleAppshotEditRequest } from "@/store/appshotEditor";
 import { useDeckStore } from "@/store/deck";
@@ -93,6 +94,9 @@ export function useWebSocket(): void {
         // one falls through to the honest offline state.
         setWarming(code === 1013 || Boolean(info?.authRetryPending));
         setConnected(false);
+        // The events that end a dictation travel on this socket. Without it
+        // a composer would wait for a text that cannot arrive any more.
+        failOpenDictation();
         clearVoiceInputLevel("native");
         clearVoiceOutputLevel("native");
       },
@@ -103,6 +107,9 @@ export function useWebSocket(): void {
           // this — not the raw open — is the authoritative "connected" signal.
           setConnected(true);
           setWarming(false);
+          // A new connection does not replay what the last one missed, so a
+          // dictation still open here has lost its ending.
+          failOpenDictation();
           // Re-seed voiceReady on EVERY (re)connect. VoiceBootStatus is a
           // one-shot bus event, so a socket that (re)connects after readiness
           // already flipped — e.g. the fast-boot 1013 reconnect — or whose
@@ -212,18 +219,47 @@ export function useWebSocket(): void {
           onPermissionEvent(env.event_name, env.payload);
         }
 
-        // A dictation that could not start. The composer set `dictating`
-        // optimistically when the person pressed the mic, so without this the
-        // recording pill sticks with a waveform. Only a window that IS
-        // dictating reacts.
+        // A dictation that could not start, or one the backend gave up on.
+        // The composer shows its recording pill from the moment the person
+        // presses the mic, so without this the pill stays with a waveform.
+        // Only a window with a dictation of its own reacts.
         if (
           (env.event_name === "DictationRefused" &&
             isDictationStartFailure((env.payload as { reason?: unknown }).reason)) ||
           (env.event_name === "ErrorOccurred" &&
             (env.payload as { layer?: unknown }).layer === "ui.web.dictation")
         ) {
+          failOpenDictation();
+        }
+
+        // The microphone closed and the recording is being transcribed. The
+        // composer's own Stop already said so; this covers a recording that
+        // ended another way (the length limit, the keyboard shortcut).
+        if (env.event_name === "DictationTranscribing") {
+          useEventStore.getState().markDictationTranscribing();
+        }
+
+        if (env.event_name === "DictationTranscript") {
+          routeDictationTranscript(env.payload as DictationTranscriptPayload);
+        }
+
+        // Always the last event of a dictation. A composer still waiting at
+        // this point got no text, and the outcome says why.
+        if (env.event_name === "DictationCompleted") {
           const store = useEventStore.getState();
-          if (store.dictating || store.dictationSettling) store.setDictating(false);
+          if (store.dictationPhase !== "idle") {
+            const { outcome, error } = env.payload as { outcome?: unknown; error?: unknown };
+            const ended =
+              outcome === "empty" ? "empty" : outcome === "cancelled" ? "cancelled" : "failed";
+            store.finishDictation("", ended);
+            // The pill is gone and the box is unchanged; without a word the
+            // person cannot tell a muted microphone from a refused key.
+            if (ended === "empty") {
+              store.pushToast("info", translate("chats_view.dictation_nothing_heard"));
+            } else if (ended === "failed") {
+              store.pushToast("error", translate(dictationFailureKey(error)));
+            }
+          }
         }
 
         // Mission deck: cost, computer-use, capture, terminals, wiki, words.
@@ -422,73 +458,6 @@ export function useWebSocket(): void {
               done: Boolean(p.done),
               ts: Math.floor(env.timestamp_ns / 1_000_000),
             });
-          }
-        }
-
-        if (env.event_name === "DictationTranscript") {
-          // In-app dictation. Interim partials overwrite the live tail; the
-          // final one is delivered. Separate from TranscriptionUpdate so
-          // live-voice transcripts never leak into a text box. Uses getState()
-          // to stay out of the deps array.
-          const p = env.payload as {
-            text?: string;
-            is_final?: boolean;
-            target?: string;
-          };
-          const text = typeof p.text === "string" ? p.text : "";
-          // The server fans this event out to every connected UI. Background
-          // tabs/windows are observers; letting each one update its own target
-          // is how one utterance was pasted into several shared terminals.
-          //
-          // A composer of THIS window that started the dictation with its
-          // microphone button owns it, focused or not: the words were spoken
-          // into that box, and looking at another program while the last ones
-          // are recognized must not lose them.
-          const composerOwns = (() => {
-            const s = useEventStore.getState();
-            return s.dictationOwner !== null && (s.dictating || s.dictationSettling);
-          })();
-          if (!documentOwnsDictation() && !composerOwns) {
-            if (p.is_final) useEventStore.getState().setDictationInterim("");
-            return;
-          }
-          if (!p.is_final) {
-            useEventStore.getState().setDictationInterim(text);
-          } else {
-            const store = useEventStore.getState();
-            // Recording, or stopped and waiting for exactly this text: the
-            // composer replaces the words it showed with the final ones.
-            const forThisWindow = isForThisWindow(
-              p,
-              store.dictating || store.dictationSettling,
-            );
-            // Signalled after the text has landed (below), so a composer
-            // sending on it reads the finished box.
-            queueMicrotask(() => useEventStore.getState().noteDictationFinal());
-            const delivered = forThisWindow
-              ? deliverDictationText(text)
-              : "none";
-            if (delivered !== "none") {
-              // Inserted here, or deliberately left to the one foreground UI
-              // client that owns this broadcast. Either way, no sequence bump
-              // for this client's composer — just drop the live tail.
-              store.setDictationInterim("");
-            } else {
-              // The composer is the historical sink and still the right
-              // fallback. It only exists on the Chats section, though, and
-              // handing a transcript to a component that is not there is
-              // exactly how a dictation used to vanish without a word (see
-              // lib/dictationTarget.ts). So when the words were meant for this
-              // window and nothing at all could take them, say so rather than
-              // reporting a delivery that did not happen.
-              store.commitDictation(text);
-              if (
-                forThisWindow &&
-                !document.querySelector("[data-jarvis-chat-input]")
-              ) {
-                pushToast("info", translate("use_web_socket.dictation_nowhere"));
-              }
-            }
           }
         }
 
@@ -839,6 +808,67 @@ export function useWebSocket(): void {
     seedPermissionToast,
     queryClient,
   ]);
+}
+
+/** The payload of a `DictationTranscript` event. */
+interface DictationTranscriptPayload {
+  text?: string;
+  is_final?: boolean;
+  target?: string;
+}
+
+/**
+ * The text key for why a transcription failed. A reason this build does not
+ * know gets the general sentence, never the reported value itself.
+ */
+function dictationFailureKey(reason: unknown): string {
+  const known = (STT_FAILURE_REASONS as readonly string[]).includes(String(reason));
+  return `dictation.failure.${known ? String(reason) : "unknown"}`;
+}
+
+/** End a dictation of this window whose result can no longer be trusted to arrive. */
+function failOpenDictation(): void {
+  const store = useEventStore.getState();
+  if (store.dictationPhase !== "idle") store.finishDictation("", "failed");
+}
+
+/**
+ * Put the text of a finished dictation where it belongs.
+ *
+ * Kept apart from `TranscriptionUpdate` so a live-voice transcript never
+ * lands in a text box. Each dictation sends exactly one transcript, and it is
+ * final; anything else is ignored.
+ *
+ * The server fans the event out to every connected UI. Background tabs and
+ * windows are observers: letting each one write into its own target is how
+ * one utterance gets pasted into several places. Two kinds of window act:
+ *
+ *  - The window with the composer whose microphone button started the
+ *    dictation, focused or not: the words were spoken into that box, and
+ *    looking at another program while they are transcribed must not lose
+ *    them. Empty text is left for `DictationCompleted`, which knows whether
+ *    nothing was said or the transcription failed.
+ *  - Otherwise the visible, focused window, for a transcript the backend
+ *    routed into this app (`isForThisWindow`). The text goes into the focused
+ *    field. When no field takes it, it is handed to the chat composers, and
+ *    when none of those is on screen either the person is told, because a
+ *    delivery reported to a component that is not there is a dictation that
+ *    vanishes without a word (see lib/dictationTarget.ts).
+ */
+function routeDictationTranscript(payload: DictationTranscriptPayload): void {
+  if (payload.is_final !== true) return;
+  const text = typeof payload.text === "string" ? payload.text : "";
+  const store = useEventStore.getState();
+  if (store.dictationOwner !== null && store.dictationPhase !== "idle") {
+    if (text.trim()) store.finishDictation(text, "text");
+    return;
+  }
+  if (!documentOwnsDictation() || !isForThisWindow(payload, false)) return;
+  if (deliverDictationText(text) !== "none") return;
+  store.finishDictation(text, "text");
+  if (!document.querySelector("[data-jarvis-chat-input]")) {
+    store.pushToast("info", translate("use_web_socket.dictation_nowhere"));
+  }
 }
 
 function isVoiceState(v: unknown): v is VoiceState {

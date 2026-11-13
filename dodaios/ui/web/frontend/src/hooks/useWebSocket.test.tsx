@@ -69,6 +69,19 @@ function envelope(eventName: string, payload: Record<string, unknown>) {
   };
 }
 
+/**
+ * Make this document the visible, focused one (jsdom's is neither), the only
+ * kind that may act on a dictation no composer started. Returns the undo.
+ */
+function bringToForeground(): () => void {
+  const focus = vi.spyOn(document, "hasFocus").mockReturnValue(true);
+  const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+  return () => {
+    focus.mockRestore();
+    visibility.mockRestore();
+  };
+}
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false } },
 });
@@ -97,6 +110,7 @@ describe("useWebSocket VoiceBootStatus handling", () => {
       host: "localhost:5173",
     };
     useEventStore.setState({ voiceReady: false, toasts: [] });
+    useEventStore.getState().resetDictation();
     useEventStore.setState({ activeSection: "chats" });
     useHomeStore.setState({ surface: "chat", agentChatId: null });
     useI18nStore.getState().setUi("en", { push: false });
@@ -290,47 +304,214 @@ describe("useWebSocket VoiceBootStatus handling", () => {
     expect(voiceInputLevelRef.current).toBe(0);
   });
 
-  it("hands a composer's own dictation back to that composer, words while speaking included", async () => {
+  it("hands a composer's own dictation back to that composer", async () => {
     render(<Harness />);
     await Promise.resolve();
     // jsdom's document is not focused: without an owner this window only watches.
-    useEventStore.getState().setDictating(true, "composer-1");
-    const before = useEventStore.getState().dictationCommitSeq;
+    useEventStore.getState().beginDictation("composer-1");
+    const before = useEventStore.getState().dictationResult.seq;
 
-    MockWebSocket.last!.deliver(
-      envelope("DictationTranscript", { text: "ship it to", is_final: false }),
-    );
-    expect(useEventStore.getState().dictationText).toBe("ship it to");
+    MockWebSocket.last!.deliver(envelope("DictationStarted", { target: "chat" }));
+    expect(useEventStore.getState().dictationPhase).toBe("recording");
+    MockWebSocket.last!.deliver(envelope("DictationTranscribing", {}));
+    expect(useEventStore.getState().dictationPhase).toBe("transcribing");
+    expect(useEventStore.getState().dictationOwner).toBe("composer-1");
 
-    useEventStore.getState().settleDictation();
-    expect(useEventStore.getState().dictationSettling).toBe(true);
     MockWebSocket.last!.deliver(
       envelope("DictationTranscript", { text: "Ship it today.", is_final: true, target: "chat" }),
     );
 
     const after = useEventStore.getState();
-    expect(after.dictationCommitSeq).toBe(before + 1);
-    expect(after.dictationCommitText).toBe("Ship it today.");
-    expect(after.dictationCommitOwner).toBe("composer-1");
+    expect(after.dictationResult).toEqual({
+      seq: before + 1,
+      owner: "composer-1",
+      text: "Ship it today.",
+      outcome: "text",
+    });
+    expect(after.dictationPhase).toBe("idle");
     expect(after.dictationOwner).toBeNull();
-    expect(after.dictationSettling).toBe(false);
+
+    // The closing event has nothing left to end.
+    MockWebSocket.last!.deliver(
+      envelope("DictationCompleted", { outcome: "chat", detail: "", error: null, text: "Ship it today." }),
+    );
+    expect(useEventStore.getState().dictationResult.seq).toBe(before + 1);
+  });
+
+  it("ignores a transcript that is not final", async () => {
+    render(<Harness />);
+    await Promise.resolve();
+    useEventStore.getState().beginDictation("composer-1");
+    const before = useEventStore.getState().dictationResult.seq;
+
+    MockWebSocket.last!.deliver(
+      envelope("DictationTranscript", { text: "ship it to", is_final: false, target: "chat" }),
+    );
+    MockWebSocket.last!.deliver(envelope("DictationTranscript", { text: "ship it to", target: "chat" }));
+
+    expect(useEventStore.getState().dictationResult.seq).toBe(before);
+    expect(useEventStore.getState().dictationPhase).toBe("recording");
+    expect(useEventStore.getState().dictationOwner).toBe("composer-1");
+  });
+
+  it.each([
+    ["empty", "empty"],
+    ["cancelled", "cancelled"],
+    ["failed", "failed"],
+    ["unavailable", "failed"],
+    ["partial", "failed"],
+  ] as const)(
+    "leaves an empty transcript to DictationCompleted: %s ends the composer's dictation as %s",
+    async (outcome, expected) => {
+      render(<Harness />);
+      await Promise.resolve();
+      useEventStore.getState().beginDictation("composer-1");
+      useEventStore.getState().markDictationTranscribing();
+      const before = useEventStore.getState().dictationResult.seq;
+
+      MockWebSocket.last!.deliver(
+        envelope("DictationTranscript", { text: "", is_final: true, target: "chat" }),
+      );
+      // The reason there is no text is not known yet.
+      expect(useEventStore.getState().dictationResult.seq).toBe(before);
+      expect(useEventStore.getState().dictationPhase).toBe("transcribing");
+
+      MockWebSocket.last!.deliver(
+        envelope("DictationCompleted", { outcome, detail: "A sentence.", error: null, text: "" }),
+      );
+
+      const after = useEventStore.getState();
+      expect(after.dictationResult).toEqual({
+        seq: before + 1,
+        owner: "composer-1",
+        text: "",
+        outcome: expected,
+      });
+      expect(after.dictationPhase).toBe("idle");
+      expect(after.dictationOwner).toBeNull();
+    },
+  );
+
+  it.each([
+    ["empty", null, "info", "Nothing was heard"],
+    ["failed", "bad_key", "error", "key was rejected"],
+    ["failed", "a_reason_from_the_future", "error", "Speech recognition failed."],
+  ] as const)(
+    "says why no text arrived: %s (%s)",
+    async (outcome, error, kind, words) => {
+      render(<Harness />);
+      await Promise.resolve();
+      useEventStore.setState({ toasts: [] });
+      useEventStore.getState().beginDictation("composer-1");
+      useEventStore.getState().markDictationTranscribing();
+
+      MockWebSocket.last!.deliver(
+        envelope("DictationCompleted", { outcome, detail: "A sentence.", error, text: "" }),
+      );
+
+      const toasts = useEventStore.getState().toasts;
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0]!.kind).toBe(kind);
+      expect(toasts[0]!.message).toContain(words);
+    },
+  );
+
+  it("a cancelled dictation needs no explanation", async () => {
+    render(<Harness />);
+    await Promise.resolve();
+    useEventStore.setState({ toasts: [] });
+    useEventStore.getState().beginDictation("composer-1");
+
+    MockWebSocket.last!.deliver(
+      envelope("DictationCompleted", { outcome: "cancelled", detail: "", error: null, text: "" }),
+    );
+
+    expect(useEventStore.getState().toasts).toEqual([]);
+  });
+
+  it("a cancelled recording ends without ever being transcribed", async () => {
+    render(<Harness />);
+    await Promise.resolve();
+    useEventStore.getState().beginDictation("composer-1");
+
+    MockWebSocket.last!.deliver(
+      envelope("DictationTranscript", { text: "", is_final: true, target: "chat" }),
+    );
+    MockWebSocket.last!.deliver(
+      envelope("DictationCompleted", { outcome: "cancelled", detail: "", error: null, text: "" }),
+    );
+
+    expect(useEventStore.getState().dictationResult.outcome).toBe("cancelled");
+    expect(useEventStore.getState().dictationPhase).toBe("idle");
   });
 
   it("only watches a dictation no composer of this window started while it is in the background", async () => {
     render(<Harness />);
     await Promise.resolve();
-    useEventStore.setState({ dictating: false, dictationOwner: null, dictationSettling: false, dictationText: "" });
-    const before = useEventStore.getState().dictationCommitSeq;
+    const before = useEventStore.getState().dictationResult.seq;
 
-    MockWebSocket.last!.deliver(
-      envelope("DictationTranscript", { text: "for another window", is_final: false }),
-    );
+    MockWebSocket.last!.deliver(envelope("DictationTranscribing", {}));
     MockWebSocket.last!.deliver(
       envelope("DictationTranscript", { text: "For another window.", is_final: true, target: "chat" }),
     );
+    MockWebSocket.last!.deliver(
+      envelope("DictationCompleted", { outcome: "chat", detail: "", error: null, text: "For another window." }),
+    );
 
-    expect(useEventStore.getState().dictationText).toBe("");
-    expect(useEventStore.getState().dictationCommitSeq).toBe(before);
+    expect(useEventStore.getState().dictationPhase).toBe("idle");
+    expect(useEventStore.getState().dictationResult.seq).toBe(before);
+    expect(useEventStore.getState().toasts).toEqual([]);
+  });
+
+  it("hands a dictation of the focused window to the chat composers when no field takes it", async () => {
+    const background = bringToForeground();
+    const marker = document.createElement("textarea");
+    marker.setAttribute("data-jarvis-chat-input", "");
+    document.body.append(marker);
+    try {
+      render(<Harness />);
+      await Promise.resolve();
+      const before = useEventStore.getState().dictationResult.seq;
+
+      // The backend pastes this one into another application itself.
+      MockWebSocket.last!.deliver(
+        envelope("DictationTranscript", { text: "Not for this app.", is_final: true, target: "insert" }),
+      );
+      expect(useEventStore.getState().dictationResult.seq).toBe(before);
+
+      MockWebSocket.last!.deliver(
+        envelope("DictationTranscript", { text: "Ship it today.", is_final: true, target: "chat" }),
+      );
+      expect(useEventStore.getState().dictationResult).toEqual({
+        seq: before + 1,
+        owner: null,
+        text: "Ship it today.",
+        outcome: "text",
+      });
+      // A composer is on screen to take it: nothing to report.
+      expect(useEventStore.getState().toasts).toEqual([]);
+    } finally {
+      marker.remove();
+      background();
+    }
+  });
+
+  it("says so when a dictation of the focused window has nowhere to go", async () => {
+    const background = bringToForeground();
+    try {
+      render(<Harness />);
+      await Promise.resolve();
+
+      MockWebSocket.last!.deliver(
+        envelope("DictationTranscript", { text: "Ship it today.", is_final: true, target: "chat" }),
+      );
+
+      expect(useEventStore.getState().toasts.map((toast) => toast.message)).toEqual([
+        "No text field had focus, so the dictation was not inserted. It is in the dictation history.",
+      ]);
+    } finally {
+      background();
+    }
   });
 
   it("shows one appshot receipt per capture and no window title", async () => {
@@ -619,6 +800,48 @@ describe("useWebSocket connection state (welcome-gated + warming)", () => {
     expect(useEventStore.getState().connected).toBe(false);
     MockWebSocket.last!.fire("close", { code: 1006 });
     expect(useEventStore.getState().wsWarming).toBe(false);
+  });
+
+  it("ends a composer's dictation as failed when the connection closes", async () => {
+    render(<Harness />);
+    await Promise.resolve();
+    useEventStore.getState().resetDictation();
+    useEventStore.getState().beginDictation("composer-1");
+    useEventStore.getState().markDictationTranscribing();
+    const before = useEventStore.getState().dictationResult.seq;
+
+    MockWebSocket.last!.fire("close", { code: 1006 });
+
+    const after = useEventStore.getState();
+    expect(after.dictationResult).toEqual({ seq: before + 1, owner: "composer-1", text: "", outcome: "failed" });
+    expect(after.dictationPhase).toBe("idle");
+    expect(after.dictationOwner).toBeNull();
+  });
+
+  it("ends a dictation left open when a new connection is welcomed", async () => {
+    render(<Harness />);
+    await Promise.resolve();
+    useEventStore.getState().resetDictation();
+    useEventStore.getState().beginDictation("composer-1");
+    const before = useEventStore.getState().dictationResult.seq;
+
+    MockWebSocket.last!.deliver({ type: "welcome", session_id: "s", version: "0.1.0" });
+
+    const after = useEventStore.getState();
+    expect(after.dictationResult.seq).toBe(before + 1);
+    expect(after.dictationResult.outcome).toBe("failed");
+    expect(after.dictationPhase).toBe("idle");
+  });
+
+  it("a close with no dictation under way publishes no result", async () => {
+    render(<Harness />);
+    await Promise.resolve();
+    useEventStore.getState().resetDictation();
+    const before = useEventStore.getState().dictationResult.seq;
+
+    MockWebSocket.last!.fire("close", { code: 1006 });
+
+    expect(useEventStore.getState().dictationResult.seq).toBe(before);
   });
 
   // 4401 = credential rejected at the handshake. On WebKit engines this is

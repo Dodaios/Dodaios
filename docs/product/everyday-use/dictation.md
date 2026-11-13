@@ -8,7 +8,7 @@ order: 8
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-11-12
+last_reviewed: 2026-11-13
 phase: "-"
 audience: end-user
 tags: [dictation, speech-recognition, microphone, shortcuts, privacy, accessibility]
@@ -31,9 +31,11 @@ transcript stays on the clipboard and in the history on the **Dictation** tab.
 1. Open the app and field where you want the words to appear, then place the
    cursor at the insertion point.
 2. Hold **Push to talk** and speak. Release it when finished. The floating bar
-   shows the recording and transcription state.
-3. Wait while Dodaios applies dictionary corrections, safe cleanup, and any
-   wording or translation setting you enabled.
+   shows the recording and transcription state. Pause as long as you like: a
+   pause never ends the recording.
+3. The text appears once, complete, shortly after you stop. No words are shown
+   while you speak. A long dictation is read in the background while you are
+   still speaking, so the wait after the stop stays short.
 4. Check the result at the cursor. If a notice says the text was copied to the
    clipboard, paste it manually into the same field.
 5. Open **Voice > Dictation** to review the text and, when it did not simply
@@ -41,6 +43,34 @@ transcript stays on the clipboard and in the history on the **Dictation** tab.
 
 You can also select the microphone button on the **Dictation** tab. Keep a
 target field focused, or return to it before stopping.
+
+### Dictate Into a Chat Box
+
+Select the microphone in a chat box to dictate a message. The button shows a
+waveform and a timer while it records, and **Transcribing…** after you stop.
+The text is added to what the box already holds.
+
+You can select **Send** while the recording or the transcription still runs.
+The message then waits for the dictated text and goes out with it. If the
+transcription fails, nothing is sent, the box stays as it is, and a notice
+says why.
+
+### Paragraphs and Line Breaks
+
+Say the layout where you want it:
+
+| Say | Result |
+|---|---|
+| "new paragraph", "next paragraph", "neuer Absatz" | A blank line |
+| "new line", "next line", "neue Zeile", "Zeilenumbruch" | A line break |
+
+The Spanish and Portuguese phrases ("nuevo párrafo", "nueva línea", "novo
+parágrafo", "nova linha") work the same way. The phrases work in every
+dictation language and need no wording model. A phrase you talk about stays
+as words: "add a new line to the file" is delivered as that sentence.
+
+A recognizer writes three dots where you pause. Dodaios removes them, so a
+pause in the middle of a sentence leaves no mark in the text.
 
 ## Choose a Shortcut
 
@@ -82,8 +112,8 @@ example **Copied to clipboard** or **Partly transcribed**.
 
 - **Delete** crosses out an entry but keeps it recoverable.
 - **Restore** reactivates a crossed-out entry.
-- **Transcribe again** appears on an entry without text and runs its kept
-  recording with current settings.
+- **Transcribe again** appears on an entry without text and on a partly
+  transcribed one, and runs its kept recording with current settings.
 - **Delete forever** removes a crossed-out entry and its saved audio.
 - **Copy** copies the delivered version.
 
@@ -117,8 +147,9 @@ healthy — it only decides what happens when it is not.
 > provider receives the transcript. While such an option is on, the Language
 > tab says in one sentence which provider your text is sent to.
 
-Local Whisper or Nemotron keeps recognition audio on this computer; automatic
-fallback does not upload it. Automatic wording also stays local and uses the
+An on-device recognizer (Parakeet, Whisper or Nemotron) keeps recognition
+audio on this computer; the stand-in behind it is on-device too and never
+uploads it. Automatic wording also stays local and uses the
 unpolished text if no local model answers. Choosing a cloud wording model is an
 explicit exception.
 
@@ -142,14 +173,43 @@ counts kept with them.
 | Linux Wayland | Global shortcuts and cross-app synthetic typing are blocked by design | Use the button and paste from the clipboard |
 | Headless host | No desktop microphone or insertion target exists | Dictation reports that it is unavailable |
 
+## Choose What Recognizes Your Speech
+
+Dodaios reads a dictation with the recognizers that exist on your computer:
+
+- A hosted provider reads it while a key for that provider is saved under
+  **Voice > API Keys**. A key you save counts from the next dictation on; no
+  restart is needed.
+- **Parakeet (on this machine)** is the fast on-device recognizer. It reads a
+  recording many times faster than real time on an ordinary processor, needs
+  no key and no graphics card, and covers 25 European languages including
+  German and English. Download it once (about 490 MB) under
+  **Voice > API Keys**.
+- **Whisper (on this machine)** covers every language. Without a graphics
+  card it is slow: a ten-second dictation can take several seconds.
+
+With a hosted provider in front, an on-device recognizer stands in when the
+service does not answer in time. Without a saved key, recognition runs on
+this computer alone. The **Dictation** tab names the recognizer that answers
+the next dictation and says so when it is not the one you configured.
+
+A recording without speech (a muted or wrong microphone, a tap on the key) is
+never sent to a recognizer. You get a notice to check the microphone instead
+of invented text.
+
 ## How It Fits Together
 
 1. A shortcut or the Dictation button starts microphone capture.
-2. The selected speech-to-text provider turns the audio into a raw transcript.
-3. The Speech Dictionary and safe cleanup repair known terms and formatting.
-4. Optional wording or translation produces the delivered version.
-5. Dodaios inserts that version or preserves it on the clipboard.
-6. Local history records both versions, the outcome, and recovery audio only
+2. While you speak, Dodaios finds the speech and the pauses in the recording.
+   Silence is cut away and a long recording is cut at your own pauses.
+3. Each piece is recognized once. A piece no recognizer could read is counted
+   as missing, and the recording is kept so you can transcribe it again.
+4. Fixed rules remove pause marks and hesitation sounds, apply spoken
+   paragraph and line commands, and repair punctuation. The Speech Dictionary
+   corrects known terms.
+5. Optional wording or translation produces the delivered version.
+6. Dodaios inserts that version or preserves it on the clipboard.
+7. Local history records both versions, the outcome, and recovery audio only
    after an incomplete result.
 
 In a [Voice Conversation](voice-conversations), speech becomes a request and
@@ -169,7 +229,9 @@ clipboard fallback also confirms that recognition worked.
 | **Dictation is not set up on this computer.** | No microphone or ready recognition provider | Check microphone permission, then **Voice > API Keys** |
 | The global shortcut does nothing | The binding conflicts, lacks OS permission, or is unsupported on Wayland | Record another shortcut; use the microphone button meanwhile |
 | **Copied to clipboard** | The active field rejected synthetic input | Paste manually and check the operating-system table above |
-| **Partly transcribed** | Some audio exhausted recognition retries | Check the provider; an entry without text offers **Transcribe again** |
+| **Partly transcribed** | No recognizer could read part of the recording | Check the provider, then select **Transcribe again** on the entry |
+| Dictation is slow without a key | Whisper runs on the processor | Download **Parakeet** under **Voice > API Keys**, or save a provider key |
+| **Nothing was heard** | The recording held no speech | Check the selected microphone and that it is not muted |
 | Wording or translation is skipped | No selected model answered safely in time | Run **Voice > Language > Test** or choose another ready provider |
 
 For broader microphone, provider, and desktop checks, read

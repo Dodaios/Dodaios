@@ -85,7 +85,7 @@ export function MeetingChat({ group, roster }: { group: SocietyChatGroup; roster
     }
   };
   const dictation = useComposerDictation((next) => {
-    // The field, not `value`: readings of a dictation arrive between renders.
+    // The field, not `value`: the dictated text can arrive between renders.
     const text = typeof next === "function" ? next(fieldRef.current?.getDraft().text ?? value) : next;
     setValue(text);
     fieldRef.current?.setText(text);
@@ -151,6 +151,8 @@ export function MeetingChat({ group, roster }: { group: SocietyChatGroup; roster
         />
         <DictationButton
           dictating={dictation.dictating}
+          transcribing={dictation.finishing}
+          sendQueued={dictation.sendQueued}
           onToggle={dictation.toggle}
           disabled={dictation.micHeld}
           startLabel={t("society.chat.record")}

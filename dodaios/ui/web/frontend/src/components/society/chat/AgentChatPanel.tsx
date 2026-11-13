@@ -1378,7 +1378,7 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
     onModel: () => composerRef.current?.querySelector<HTMLButtonElement>("[data-chat-model-trigger]")?.click(),
   });
   const dictation = useComposerDictation((next) => {
-    // The field, not `value`: readings of a dictation arrive between renders.
+    // The field, not `value`: the dictated text can arrive between renders.
     const text = typeof next === "function" ? next(fieldRef.current?.getDraft().text ?? value) : next;
     setValue(text);
     fieldRef.current?.setText(text);
@@ -1696,6 +1696,8 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
         ) : null}
         <DictationButton
           dictating={dictation.dictating}
+          transcribing={dictation.finishing}
+          sendQueued={dictation.sendQueued}
           onToggle={dictation.toggle}
           disabled={dictation.micHeld}
           startLabel={t("society.chat.record")}
@@ -1724,7 +1726,7 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
         ) : (
           <button
             type="button"
-            // While recording, Send ends the dictation and sends once the
+            // While recording or transcribing, Send sends once the dictated
             // words land, so it is live before the box holds any text.
             onClick={() => (dictation.awaitingText ? dictation.stopAndSend() : void submit())}
             disabled={!sessionReady || modelSaving || attachments.analyzing > 0 || nothingToSend}

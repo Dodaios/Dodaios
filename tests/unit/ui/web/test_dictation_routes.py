@@ -608,6 +608,52 @@ def test_restore_retranscribes_from_the_kept_audio(
     assert stt.calls and stt.calls[0][0] > 0
 
 
+def _add_partial_with_audio(fragment: str) -> Any:
+    """A partly transcribed dictation: some words, and the recording kept."""
+    from dodaios.dictation.audio import save_dictation_audio
+
+    history = _history()
+    entry = _add(raw_text=fragment, text=fragment, outcome="partial", error="engine_busy")
+    path = save_dictation_audio(
+        entry.id, b"\x00\x01" * 8_000, directory=history.audio_dir
+    )
+    assert path is not None
+    updated = history.update(entry.id, audio_path=str(path))
+    assert updated is not None
+    return updated
+
+
+def test_restore_reads_a_partly_transcribed_recording_again(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A partial entry kept its recording because words are missing. Reading
+    it again replaces the fragment with the whole text."""
+    stt = _FakeSTT("call the studio and ask for the invoice")
+    _install_pipeline(monkeypatch, stt)
+    entry = _add_partial_with_audio("call the studio")
+
+    body = client.post(f"/api/dictation/history/{entry.id}/restore").json()
+
+    assert body["retranscribed"] is True
+    assert body["entry"]["text"] == "call the studio and ask for the invoice"
+    assert body["entry"]["word_count"] == 8
+    assert body["entry"]["error"] is None
+
+
+def test_restore_keeps_the_fragment_when_the_second_reading_has_fewer_words(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _install_pipeline(monkeypatch, _FakeSTT("call"))
+    entry = _add_partial_with_audio("call the studio")
+
+    body = client.post(f"/api/dictation/history/{entry.id}/restore").json()
+
+    assert body["retranscribed"] is False
+    assert body["entry"]["text"] == "call the studio"
+    assert body["entry"]["error"] == "engine_busy"
+    assert "did not recover more words" in body["detail"]
+
+
 def test_restore_passes_the_pinned_language_to_the_provider(
     app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:

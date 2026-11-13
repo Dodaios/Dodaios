@@ -136,7 +136,7 @@ Switch the active text-to-speech provider (live, no restart).
 Switch the speech-to-text provider. Takes effect on the next voice-pipeline start (restart required).
 
 - **Endpoint:** `POST /api/stt/switch`
-- **Arguments:** `provider` (one of: faster-whisper, gemini-api, groq-api, nemotron-local, openai-api, openrouter-stt, vertex-stt; required); `persist` (boolean; optional)
+- **Arguments:** `provider` (one of: faster-whisper, gemini-api, groq-api, nemotron-local, openai-api, openrouter-stt, parakeet-local, vertex-stt; required); `persist` (boolean; optional)
 - **Requires confirmation:** no
 - **Desktop UI section:** `apikeys`
 - **Voice example (EN):** "switch speech recognition to deepgram"
@@ -196,7 +196,7 @@ List all configured providers and which ones are active.
 Test connectivity and authentication for one provider.
 
 - **Endpoint:** `POST /api/providers/{provider_id}/test`
-- **Arguments:** `provider_id` (one of: antigravity, cartesia, claude-api, claude-cli, codex, deepseek, elevenlabs, faster-whisper, gemini, gemini-api, gemini-flash-tts, gemini-live, gemini-polish, grok, grok-build, grok-voice, groq-api, groq-polish, inworld, litellm, local-openai, local-realtime, local-voice, nemotron-local, nvidia, ollama, ollama-polish, openai, openai-api, openai-live, openai-live-subscription, openai-polish, opencode, openrouter, openrouter-polish, openrouter-stt, openrouter-tts, piper-local, vertex, vertex-live, vertex-stt, vertex-tts; required)
+- **Arguments:** `provider_id` (one of: antigravity, cartesia, claude-api, claude-cli, codex, deepseek, elevenlabs, faster-whisper, gemini, gemini-api, gemini-flash-tts, gemini-live, gemini-polish, grok, grok-build, grok-voice, groq-api, groq-polish, inworld, litellm, local-openai, local-realtime, local-voice, nemotron-local, nvidia, ollama, ollama-polish, openai, openai-api, openai-live, openai-live-subscription, openai-polish, opencode, openrouter, openrouter-polish, openrouter-stt, openrouter-tts, parakeet-local, piper-local, vertex, vertex-live, vertex-stt, vertex-tts; required)
 - **Requires confirmation:** no
 - **Desktop UI section:** `apikeys`
 - **Voice example (EN):** "test the openai provider"

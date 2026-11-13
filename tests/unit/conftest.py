@@ -74,3 +74,22 @@ def _polish_pass_holds_no_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     from dodaios.dictation import polish
 
     monkeypatch.setattr(polish, "resolve_polish_chain", lambda cfg: ())
+
+
+@pytest.fixture
+def speech_by_loudness(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let the dictation's speech map judge by loudness instead of its model.
+
+    The recordings unit tests build are tones and constant signals. The speech
+    model rightly hears no speech in those, and a recording without speech is
+    never sent to a recognizer. With the loudness detector a loud stretch
+    counts as speech and digital silence does not, which is what such a test
+    means to say.
+    """
+    from dodaios.dictation import speech_map
+
+    def _no_model(self: object) -> bool:
+        self._model_failed = True  # type: ignore[attr-defined]
+        return False
+
+    monkeypatch.setattr(speech_map.SpeechMapper, "_ensure_model", _no_model)

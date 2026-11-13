@@ -41,6 +41,7 @@ LOCAL_SPEECH_PROVIDERS: frozenset[str] = frozenset(
     {
         "faster-whisper",   # dodaios/plugins/stt/fwhisper.py
         "nemotron-local",   # dodaios/plugins/stt/nemotron_local.py
+        "parakeet-local",   # dodaios/plugins/stt/parakeet_local.py
         "piper-local",      # dodaios/plugins/tts/piper_local.py
         "sapi5",            # dodaios/plugins/tts/inworld_tts.py — Windows emergency voice
     }
