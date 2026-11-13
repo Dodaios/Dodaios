@@ -167,3 +167,49 @@ def test_the_owners_clarify_setting_is_read_from_the_runtimes_config_method() ->
 def test_the_doctrine_sends_a_question_to_the_card_and_the_manifest_names_the_tool() -> None:
     assert f"question card: call {ASK_USER_TOOL_NAME} with all of them in one call" in LEAD_DOCTRINE
     assert ASK_USER_TOOL_NAME in LEAD_ONLY_TOOLS
+
+
+def test_the_leads_questions_reach_the_chat_as_one_card_to_click_through(tmp_path) -> None:
+    """The real chat service: three questions in one call are one ``question_required``
+    card, answered together, and every answer goes back to the lead."""
+    from dodaios.agent_chat.service import AgentChatService, _Running
+    from dodaios.agent_chat.store import AgentChatStore
+
+    days = {"question": "How many days in Dubai?", "kind": "text", "recommendation_reason": "x"}
+    args = {"questions": [_DB, _HOST, days], "user_asked": True}
+
+    async def scenario() -> None:
+        svc = AgentChatService(AgentChatStore(":memory:"), assistant_name=lambda: "Dodaios")
+        session = svc.store.create_session(
+            provider="fakeprov", model="m", effort="high", cwd=str(tmp_path)
+        )
+        sid = session.session_id
+        run = _Running("turn-1", asyncio.Event())
+        run.task = asyncio.create_task(asyncio.sleep(3600))
+        svc._running[sid] = run
+        events = svc.subscribe(sid)
+        runtime = SimpleNamespace(
+            lead_id="lead", chat_service=lambda: svc, cached_agent=lambda _id: None,
+            config=lambda: None,
+        )
+        tool = AskUserTool(runtime, "lead", session_id=sid, asker="Dodaios")
+        asking = asyncio.create_task(tool.execute(args, None))
+        while True:
+            event = await asyncio.wait_for(events.get(), timeout=5)
+            if event["kind"] == "question_required":
+                card = event["payload"]
+                break
+        assert card["asker"] == "Dodaios"
+        assert [q["question"] for q in card["questions"]] == [
+            _DB["question"], _HOST["question"], days["question"],
+        ]
+        assert svc.submit_questions(
+            sid, card["question_id"], [{"option_index": 1}, {"skip": True}, {"text": "Four"}]
+        )
+        result = await asyncio.wait_for(asking, timeout=5)
+        assert [(r["answer"], r["source"]) for r in result.output["answers"]] == [
+            ("Postgres", "person"), ("", "declined"), ("Four", "person"),
+        ]
+        run.task.cancel()
+
+    asyncio.run(scenario())
