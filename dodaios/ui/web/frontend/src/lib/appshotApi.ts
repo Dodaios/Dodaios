@@ -31,6 +31,26 @@ export function openInputMonitoringSettings(): Promise<unknown> {
   });
 }
 
+/**
+ * Let macOS ask for Input Monitoring once more: drop this app's own denied
+ * record ("Ask again"), then ask. A denied record can exist while System
+ * Settings lists no Dodaios row at all, so a switch to flip is not always
+ * there; the new question puts the row back. Both routes accept this only as
+ * a click in the Dodaios window.
+ */
+export async function askInputMonitoringAgain(): Promise<void> {
+  try {
+    await request("/api/permissions/input_monitoring/reset?dry_run=false", { method: "POST" });
+  } catch {
+    // Nothing to reset (never decided, say): asking is still the next step.
+  }
+  await request("/api/permissions/input_monitoring/request?dry_run=false", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ feature: "global_shortcuts" }),
+  });
+}
+
 export type AppshotScope = "window" | "region";
 
 export interface AppshotSettings {

@@ -313,6 +313,54 @@ describe("AppshotsView shortcut recorder", () => {
     }
   });
 
+  it("asks macOS again: drops the denied record first, then asks for Input Monitoring", async () => {
+    const waiting = {
+      ...SETTINGS,
+      shortcut: {
+        hotkey: "a+z", armed: false, needs: "input_monitoring",
+        detail: "The shortcut is waiting for Input Monitoring access.",
+      },
+    };
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "/api/appshot/settings") return json(waiting);
+      if (url.startsWith("/api/permissions/input_monitoring/")) return json({ ok: true });
+      return json({ appshot: null });
+    });
+    render(<AppshotsView />);
+    fireEvent.click(await screen.findByTestId("appshots-input-monitoring-ask"));
+    const permissionCalls = () =>
+      fetchMock.mock.calls
+        .filter(([url]) => String(url).startsWith("/api/permissions/"))
+        .map(([url, init]) => [url, (init as RequestInit | undefined)?.method]);
+    await waitFor(() =>
+      expect(permissionCalls()).toEqual([
+        ["/api/permissions/input_monitoring/reset?dry_run=false", "POST"],
+        ["/api/permissions/input_monitoring/request?dry_run=false", "POST"],
+      ]),
+    );
+    const request = fetchMock.mock.calls.find(([url]) => String(url).includes("/request"));
+    expect(JSON.parse(String((request?.[1] as RequestInit).body))).toEqual({ feature: "global_shortcuts" });
+  });
+
+  it("still asks when there is nothing to reset", async () => {
+    const waiting = {
+      ...SETTINGS,
+      shortcut: { hotkey: "a+z", armed: false, needs: "input_monitoring", detail: "" },
+    };
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "/api/appshot/settings") return json(waiting);
+      if (url.includes("/reset")) return json({ ok: false, message: "nothing to reset" }, 409);
+      if (url.includes("/request")) return json({ ok: true });
+      return json({ appshot: null });
+    });
+    render(<AppshotsView />);
+    fireEvent.click(await screen.findByTestId("appshots-input-monitoring-ask"));
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/request"))).toBe(true),
+    );
+    expect(useEventStore.getState().toasts).toEqual([]);
+  });
+
   it("shows no Input Monitoring notice while the shortcuts are armed", async () => {
     render(<AppshotsView />);
     await screen.findByTestId("appshots-hotkey");

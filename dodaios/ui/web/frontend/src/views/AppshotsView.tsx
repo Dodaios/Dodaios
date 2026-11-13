@@ -13,6 +13,7 @@ import {
   forgetAppshots,
   formatAppshotHotkey,
   latestAppshotImageUrl,
+  askInputMonitoringAgain,
   openInputMonitoringSettings,
   saveAppshotSettings,
   shortcutsNeedInputMonitoring,
@@ -282,6 +283,14 @@ export function AppshotsView() {
     };
   }, [waitingForInputMonitoring]);
 
+  const askInputMonitoring = useCallback(async () => {
+    try {
+      await askInputMonitoringAgain();
+    } catch (error) {
+      pushToast("error", (error as Error).message);
+    }
+  }, [pushToast]);
+
   const openInputMonitoring = useCallback(async () => {
     try {
       await openInputMonitoringSettings();
@@ -528,14 +537,23 @@ export function AppshotsView() {
                     <p className="min-w-[min(100%,14rem)] flex-1 text-sm text-foreground">
                       {t("appshots.input_monitoring_body")}
                     </p>
-                    <Button
-                      size="sm"
-                      className="ml-auto shrink-0"
-                      data-testid="appshots-input-monitoring-open"
-                      onClick={() => void openInputMonitoring()}
-                    >
-                      {t("appshots.input_monitoring_open")}
-                    </Button>
+                    <div className="ml-auto flex shrink-0 flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        data-testid="appshots-input-monitoring-ask"
+                        onClick={() => void askInputMonitoring()}
+                      >
+                        {t("appshots.input_monitoring_ask")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        data-testid="appshots-input-monitoring-open"
+                        onClick={() => void openInputMonitoring()}
+                      >
+                        {t("appshots.input_monitoring_open")}
+                      </Button>
+                    </div>
                   </div>
                 )}
                 <Row
