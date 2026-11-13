@@ -35,13 +35,13 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-intro.mp4">
-    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="A 55-second film that introduces Dodaios, cut from recordings of the real app. A request is typed into the chat: an invoice is one cent too high, and another project needs an option. Dodaios finds the cause and starts two coding agents, one on Claude Fable 5.2 and one on Claude Sonnet 5.5. A click on an agent's name opens its thread in the Agentic IDE while the agents work; the other agent's thread is opened too, and the changes of the first are reviewed as a diff. Dodaios checks the results itself and reports, then builds a dashboard as an artifact. Short looks at plugins, memory, the model picker and the desktop pet follow, and the film ends on the name" width="100%" />
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4">
+    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="A 55-second recording of Dodaios at work, in a workspace that is already in use. Four requests are typed into its chat. Asked how much was invoiced in October, Dodaios finds the billing export on the computer and answers with a table and a chart. Asked for a page to send to finance, it writes one; the chat shows a card of the page, and the page is opened. Asked to look after a project's tests, it takes that on as a standing task. Told that one invoice is a cent too high, it checks and starts a coding agent on Claude Fable 5.2; the agent's thread is opened in the Agentic IDE while the agent works, and its changes are reviewed as a diff. Back in the chat, Dodaios has checked the result itself and reports" width="100%" />
   </a>
 </p>
 
 <p align="center">
-  <sub><a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-intro.mp4"><b>Watch it with sound</b></a> (55 s). The app in the film is real and so is its work: Dodaios and the coding agents it starts run on Claude Fable 5.2 and Sonnet 5.5 through a signed-in Claude Code. The film is cut, and the waits for the models are shortened. Music: <a href="https://archive.org/details/leerosevere_musicforpodcasts_6">“Making It Look Easy”</a> by Lee Rosevere, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</sub>
+  <sub>A recording of the real app with Claude Fable 5.2 through a signed-in Claude Code: every answer and every change is real. The typing plays faster and the waits for the model are cut out. <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><b>Watch it with sound</b></a> (55 s). Music: <a href="https://archive.org/details/leerosevere_musicforpodcasts_6">“Making It Look Easy”</a> by Lee Rosevere, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</sub>
 </p>
 
 ## What it is

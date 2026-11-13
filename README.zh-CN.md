@@ -35,13 +35,13 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-intro.mp4">
-    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="一段 55 秒的 Dodaios 介绍短片，由真实应用的录屏剪辑而成。用户在对话中输入请求：一张发票多收了一分钱，另一个项目需要增加一个选项。Dodaios 查出原因，并启动两个编码智能体，一个使用 Claude Fable 5.2，一个使用 Claude Sonnet 5.5。在智能体工作时点击其中一个的名字，打开它在 Agentic IDE 中的线程；随后也打开另一个智能体的线程，并以 diff 形式审阅第一个智能体的改动。Dodaios 自己核对结果后汇报，随后把仪表盘生成为一个 Artifact。接着是插件、记忆、模型选择器和桌面宠物的几个镜头，短片以产品名称结束" width="100%" />
+  <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4">
+    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="一段 55 秒的 Dodaios 工作录屏，工作区里已有之前的对话和线程。用户在对话中先后输入四个请求。问十月份开了多少发票时，Dodaios 在电脑上找到账单导出文件，用表格和图表作答。要求做成一页发给财务时，它写出页面；对话中出现该页面的卡片，随后打开页面。要求照看某个项目的测试时，它把这件事接为一项常设任务。得知一张发票多收了一分钱时，它先核对，再启动一个使用 Claude Fable 5.2 的编码智能体；在智能体工作时打开它在 Agentic IDE 中的线程，并以 diff 形式审阅它的改动。回到对话，Dodaios 已自己核对结果并汇报" width="100%" />
   </a>
 </p>
 
 <p align="center">
-  <sub><a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-intro.mp4"><b>带声音观看</b></a>（55 秒）。短片中的应用是真实的，它完成的工作也是真实的：Dodaios 和它启动的编码智能体通过已登录的 Claude Code 使用 Claude Fable 5.2 和 Sonnet 5.5。短片经过剪辑，等待模型的时间被缩短。音乐：Lee Rosevere 的 <a href="https://archive.org/details/leerosevere_musicforpodcasts_6">“Making It Look Easy”</a>，<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>。</sub>
+  <sub>真实应用的录屏，模型是通过已登录的 Claude Code 使用的 Claude Fable 5.2：所有回答和改动都是真实的。输入过程加快播放，等待模型的时间被剪掉。<a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><b>带声音观看</b></a>（55 秒）。音乐：Lee Rosevere 的 <a href="https://archive.org/details/leerosevere_musicforpodcasts_6">“Making It Look Easy”</a>，<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>。</sub>
 </p>
 
 ## 它是什么

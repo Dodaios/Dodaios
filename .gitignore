@@ -135,9 +135,9 @@ logs/
 *.7z
 *.bak
 *.backup
-# The README's film with its music, the one video that is tracked
+# The README's video with its music, the one video that is tracked
 # (assets/demo/readme/README.md).
-!assets/demo/readme/dodaios-intro.mp4
+!assets/demo/readme/dodaios-demo.mp4
 # OS screenshot dumps anywhere in the tree (Windows / macOS naming). Extension-free
 # so the .jpg and .mp4 variants of the same dialog are caught too.
 Screenshot *

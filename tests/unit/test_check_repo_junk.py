@@ -45,12 +45,12 @@ def test_product_files_and_allowlisted_assets_pass() -> None:
         "dodaios/appshot/video_encoder.py": 10,
         "dodaios/ui/web/dist/assets/ort-wasm.wasm": 14 * MB,
         "assets/demo/readme/dodaios-demo.gif": 3 * MB,
-        "assets/demo/readme/dodaios-intro.mp4": 9 * MB,
+        "assets/demo/readme/dodaios-demo.mp4": 9 * MB,
     }
     allow = [
         "dodaios/ui/web/dist/*",
         "assets/demo/readme/dodaios-demo.gif",
-        "assets/demo/readme/dodaios-intro.mp4",
+        "assets/demo/readme/dodaios-demo.mp4",
     ]
     assert gate.problems(paths, allow) == []
 

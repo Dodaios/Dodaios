@@ -2,48 +2,26 @@
 <!-- The README video's picture, drawn for one moment at a time.
 
      render.cjs opens this page, hands it the take (window.TAKE: take.json of
-     record.cjs plus the folder of its frames), the logo and the fonts, then
-     calls seek(seconds) for every frame of the film and takes a picture.
-     Nothing here runs on a clock: the same second always gives the same
-     picture. What is shown when is edit.js. -->
+     record.cjs plus the folder of its frames), then calls seek(seconds) for
+     every frame of the video and takes a picture. Nothing here runs on a
+     clock: the same second always gives the same picture.
+
+     The picture is the footage and nothing else: the app's window fills the
+     frame. What is shown when, and how fast, is edit.js. -->
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <style>
-  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #F4F3EE; }
-  #stage { position: absolute; inset: 0; overflow: hidden; background: #F4F3EE; }
-  /* Three soft lights that drift behind everything, so the stage is not flat. */
-  #aura { position: absolute; inset: 0; }
-  #aura i { position: absolute; left: 0; top: 0; width: 1500px; height: 1500px; margin: -750px 0 0 -750px; border-radius: 50%; }
-  #aura i:nth-child(1) { background: radial-gradient(circle, rgba(126, 164, 255, 0.50) 0%, rgba(126, 164, 255, 0) 62%); }
-  #aura i:nth-child(2) { background: radial-gradient(circle, rgba(196, 160, 255, 0.42) 0%, rgba(196, 160, 255, 0) 62%); }
-  #aura i:nth-child(3) { background: radial-gradient(circle, rgba(255, 196, 150, 0.40) 0%, rgba(255, 196, 150, 0) 62%); }
-  #light { position: absolute; inset: 0;
-    background: radial-gradient(ellipse 60% 50% at 50% 40%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 72%); }
-  #dark { position: absolute; inset: 0; background: #0A0A0A; opacity: 0; }
-  .card { position: absolute; left: 0; top: 0; overflow: hidden; background: #0A0A0A; border-radius: 20px;
-    box-shadow: 0 0 0 1px rgba(10, 10, 10, 0.9), 0 50px 110px -20px rgba(10, 10, 10, 0.42), 0 18px 40px -12px rgba(10, 10, 10, 0.30);
-    transform-origin: 50% 50%; }
-  .card img { position: absolute; left: 0; top: 0; transform-origin: 0 0; image-rendering: auto; }
-  .caption { position: absolute; left: 0; width: 1920px; text-align: center; white-space: nowrap;
-    font-family: "Film Sans", sans-serif; font-weight: 640; font-size: 66px; line-height: 1.08; letter-spacing: -0.038em;
-    font-variation-settings: "opsz" 32; color: #0A0A0A; }
-  .caption .w { display: inline-block; white-space: pre; }
-  .caption .dim { color: #8B8A84; }
-  .title { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
-  .title .mark { position: absolute; left: 50%; top: 50%; }
-  .title .mark svg { display: block; width: 100%; height: 100%; }
-  .title .name { position: absolute; left: 0; width: 1920px; text-align: center; white-space: nowrap;
-    font-family: "Film Sans", sans-serif; font-weight: 680; letter-spacing: -0.045em; font-variation-settings: "opsz" 32; }
-  .title .line { position: absolute; left: 0; width: 1920px; text-align: center; white-space: nowrap;
-    font-family: "Film Sans", sans-serif; font-weight: 520; letter-spacing: -0.025em; font-variation-settings: "opsz" 32; }
-  .title .mono { position: absolute; left: 0; width: 1920px; text-align: center; white-space: nowrap;
-    font-family: "Film Mono", monospace; font-weight: 500; letter-spacing: 0.02em; }
-  .w { display: inline-block; white-space: pre; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0A0A0A; }
+  #stage { position: absolute; inset: 0; overflow: hidden; background: #0A0A0A; }
+  .shot { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; }
+  .shot img { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  #black { position: absolute; inset: 0; background: #000; opacity: 0; }
 </style>
 </head>
 <body>
-<div id="stage"><div id="aura"><i></i><i></i><i></i></div><div id="light"></div><div id="dark"></div></div>
+<div id="stage"></div>
+<div id="black"></div>
 <script src="edit.js"></script>
 <script>
 (() => {
@@ -51,16 +29,10 @@
   const stage = document.getElementById('stage');
   const WIN = TAKE.window;
 
-  // ---- easing -------------------------------------------------------------
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
   const EASE = {
     linear: (x) => x,
     inOut: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
-    out: (x) => 1 - Math.pow(1 - x, 3),
-    outExpo: (x) => (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x)),
-    in: (x) => x * x * x,
-    // A little past the end and back: for things that land.
-    outBack: (x) => 1 + 2.2 * Math.pow(x - 1, 3) + 1.2 * Math.pow(x - 1, 2),
   };
   const lerp = (a, b, k) => a + (b - a) * k;
   // Keyframes [{t, v, ease}] with v a number or a list of numbers; `ease`
@@ -70,7 +42,7 @@
     for (let i = 1; i < keys.length; i++) {
       if (t <= keys[i].t) {
         const a = keys[i - 1], b = keys[i];
-        const k = EASE[b.ease || 'inOut'](clamp((t - a.t) / (b.t - a.t)));
+        const k = EASE[b.ease || 'linear'](clamp((t - a.t) / (b.t - a.t)));
         return Array.isArray(a.v) ? a.v.map((x, n) => lerp(x, b.v[n], k)) : lerp(a.v, b.v, k);
       }
     }
@@ -94,167 +66,51 @@
     while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (st.frames[mid].ts <= ts) lo = mid; else hi = mid - 1; }
     return TAKE.dir + '/' + st.frames[lo].name;
   }
-  const helpers = {
+  const latest = (name) => TAKE.marks.filter((x) => x.name === name).pop();
+  const footage = {
     WIN,
-    mark: (name) => { const m = TAKE.marks.filter((x) => x.name === name).pop(); return m ? m.box : null; },
-    length: (name) => { const st = byName[name]; return st ? Math.min(st.end, st.frames.length ? st.frames[st.frames.length - 1].ts + 0.5 : st.at) - st.at : 0; },
-    // When, in the stretch's own seconds, a mark was taken.
-    markAt: (name, stretch) => { const m = TAKE.marks.filter((x) => x.name === name).pop(); const st = byName[stretch]; return m && st ? m.at - st.at : 0; },
     has: (name) => Boolean(byName[name] && byName[name].frames.length),
+    // How long a stretch is.
+    length: (name) => { const st = byName[name]; return st ? Math.min(st.end, st.frames.length ? st.frames[st.frames.length - 1].ts + 0.5 : st.at) - st.at : 0; },
+    // When a moment record.cjs wrote down was, in the stretch's own seconds.
+    at: (mark, stretch) => { const m = latest(mark), st = byName[stretch]; return m && st ? m.at - st.at : 0; },
+    // Where a part of the window was.
+    place: (mark) => { const m = latest(mark); return m ? m.box : null; },
+    // When each key of a request was pressed, in the seconds of its "ask-" stretch.
+    keys: (name) => { const st = byName['ask-' + name]; return ((TAKE.typed || {})[name] || []).map((ts) => ts - st.at); },
   };
-  const film = window.EDIT(helpers);
+  const film = window.EDIT(footage);
   window.DURATION = film.duration;
 
-  // ---- layers ---------------------------------------------------------------
-  const layers = [];
-  for (const shot of film.shots) {
+  const layers = film.shots.map((shot) => {
     const el = document.createElement('div');
-    el.className = 'card';
+    el.className = 'shot';
     const img = document.createElement('img');
     img.width = WIN.width; img.height = WIN.height;
     el.appendChild(img);
     el.style.display = 'none';
     stage.appendChild(el);
-    layers.push({ kind: 'shot', shot, el, img, url: '' });
-  }
-  // A word is what stands between plain spaces; a no-break space keeps two together.
-  const words = (text) => text.split(/( +)/).filter(Boolean).map((part) => {
-    if (/^ +$/.test(part)) return document.createTextNode(part);
-    const span = document.createElement('span');
-    span.className = 'w';
-    const dim = part.startsWith('~');
-    span.textContent = dim ? part.slice(1) : part;
-    if (dim) span.classList.add('dim');
-    return span;
+    return { shot, el, img, url: '' };
   });
-  for (const cap of film.captions) {
-    const el = document.createElement('div');
-    el.className = 'caption';
-    for (const node of words(cap.text)) el.appendChild(node);
-    el.style.display = 'none';
-    if (cap.size) el.style.fontSize = cap.size + 'px';
-    if (cap.color) el.style.color = cap.color;
-    stage.appendChild(el);
-    layers.push({ kind: 'caption', cap, el, spans: [...el.querySelectorAll('.w')] });
-  }
-  for (const title of film.titles) {
-    const el = document.createElement('div');
-    el.className = 'title';
-    el.style.display = 'none';
-    const parts = title.parts.map((part) => {
-      const node = document.createElement('div');
-      node.className = part.kind;
-      if (part.kind === 'mark') node.innerHTML = window.LOGO_SVG.replace(/fill="#[0-9A-Fa-f]+"/, `fill="${part.color}"`);
-      else { for (const w of words(part.text)) node.appendChild(w); node.style.color = part.color; node.style.fontSize = part.size + 'px'; }
-      el.appendChild(node);
-      return { part, node, spans: [...node.querySelectorAll('.w')] };
-    });
-    stage.appendChild(el);
-    layers.push({ kind: 'title', title, el, parts });
-  }
 
-  // Words come up one after the other and leave together.
-  // `times` gives each word a second of its own to come up at.
-  function showWords(spans, t, t0, t1, { step = 0.07, rise = 26, dur = 0.5, out = 0.28, times = null } = {}) {
-    const leaving = clamp((t - (t1 - out)) / out);
-    spans.forEach((span, i) => {
-      const k = EASE.outExpo(clamp((t - (times ? times[i] : t0 + i * step)) / dur));
-      span.style.opacity = String(k * (1 - leaving));
-      span.style.transform = `translateY(${(1 - k) * rise - leaving * 10}px)`;
-    });
-  }
-
-  function drawShot(layer, t) {
+  function draw(layer, t) {
     const { shot, el, img } = layer;
     if (t < shot.t0 || t >= shot.t1) { el.style.display = 'none'; return null; }
     el.style.display = 'block';
     const local = t - shot.t0;
-    const [vx, vy, vw, vh] = track(shot.cam, local);
-    const [cx, cy, cw] = track(shot.card, local);
-    const k = cw / vw;
-    const ch = vh * k;
-    let opacity = 1, scale = 1, dx = 0, dy = 0;
-    const enter = shot.enter, exit = shot.exit;
-    if (enter && local < enter.dur) {
-      const e = EASE.outExpo(clamp(local / enter.dur));
-      if (enter.kind === 'rise') { opacity = clamp(local / (enter.dur * 0.35)); dy = (1 - e) * 70; scale = 0.94 + 0.06 * e; }
-      if (enter.kind === 'pop') { opacity = clamp(local / (enter.dur * 0.3)); scale = 0.86 + 0.14 * EASE.outBack(clamp(local / enter.dur)); }
-      if (enter.kind === 'left') { opacity = clamp(local / (enter.dur * 0.35)); dx = (1 - e) * 240; }
-      if (enter.kind === 'right') { opacity = clamp(local / (enter.dur * 0.35)); dx = -(1 - e) * 240; }
-      if (enter.kind === 'fade') opacity = clamp(local / enter.dur);
-    }
-    if (exit && t > shot.t1 - exit.dur) {
-      const x = clamp((t - (shot.t1 - exit.dur)) / exit.dur);
-      const e = EASE.in(x);
-      if (exit.kind === 'fade') opacity *= 1 - x;
-      if (exit.kind === 'sink') { opacity *= 1 - x; scale *= 1 - 0.05 * e; dy += e * 30; }
-      if (exit.kind === 'left') { opacity *= 1 - x; dx -= e * 240; }
-      if (exit.kind === 'right') { opacity *= 1 - x; dx += e * 240; }
-      if (exit.kind === 'grow') { opacity *= 1 - x; scale *= 1 + 0.08 * e; }
-    }
-    el.style.width = cw + 'px';
-    el.style.height = ch + 'px';
-    el.style.opacity = String(opacity);
-    el.style.borderRadius = (shot.radius ?? 20) + 'px';
-    el.style.transform = `translate(${cx - cw / 2 + dx}px, ${cy - ch / 2 + dy}px) scale(${scale})`;
-    img.style.transform = `translate(${-vx * k}px, ${-vy * k}px) scale(${k})`;
+    // A shot that dissolves in lies over the one before it.
+    el.style.opacity = String(shot.fade ? clamp(local / shot.fade) : 1);
+    const [x, y, w] = track(shot.cam, local);
+    const k = 1920 / w;
+    img.style.transform = `translate(${-x * k}px, ${-y * k}px) scale(${k})`;
     const url = frameAt(shot.stretch, track(shot.src, local));
     if (url !== layer.url) { layer.url = url; img.src = 'file://' + url; return img.decode().catch(() => {}); }
     return null;
   }
 
-  function drawCaption(layer, t) {
-    const { cap, el, spans } = layer;
-    if (t < cap.t0 || t >= cap.t1) { el.style.display = 'none'; return; }
-    el.style.display = 'block';
-    el.style.top = (cap.y ?? 84) + 'px';
-    showWords(spans, t, cap.t0, cap.t1, { times: cap.times });
-  }
-
-  function drawTitle(layer, t) {
-    const { title, el, parts } = layer;
-    if (t < title.t0 || t >= title.t1) { el.style.display = 'none'; return; }
-    el.style.display = 'block';
-    const leaving = title.out ? EASE.in(clamp((t - (title.t1 - title.out)) / title.out)) : 0;
-    el.style.opacity = String(1 - leaving);
-    el.style.transform = leaving ? `scale(${1 + 0.04 * leaving})` : '';
-    for (const { part, node, spans } of parts) {
-      const at = title.t0 + (part.at || 0);
-      if (part.kind === 'mark') {
-        const k = clamp((t - at) / 0.7);
-        const s = part.size * (0.6 + 0.4 * EASE.outBack(k));
-        // It breathes a little while it stands.
-        const idle = 1 + 0.012 * Math.sin((t - at) * 2.2);
-        node.style.width = s * idle + 'px'; node.style.height = s * idle + 'px';
-        node.style.marginLeft = -(s * idle) / 2 + 'px';
-        node.style.top = part.y + 'px'; node.style.marginTop = -(s * idle) / 2 + 'px';
-        node.style.opacity = String(clamp((t - at) / 0.25));
-      } else {
-        node.style.top = part.y + 'px';
-        showWords(spans, t, at, Infinity, { step: part.step ?? 0.08, rise: part.rise ?? 30 });
-      }
-    }
-  }
-
-  // The GIF is cut on a plain stage: the drifting lights would change every
-  // pixel of every frame, which a GIF pays for, and its few colours cannot
-  // draw a soft light without bands.
-  if (window.PLAIN) for (const id of ['aura', 'light']) document.getElementById(id).style.display = 'none';
-  const lights = [...document.querySelectorAll('#aura i')];
-  const PATHS = [[420, 260, 300, 150, 0.21, 0.0], [1560, 380, 260, 190, 0.17, 2.1], [980, 1010, 420, 120, 0.13, 4.0]];
   window.seek = (t) => {
-    document.getElementById('dark').style.opacity = String(track(film.dark, t));
-    lights.forEach((el, i) => {
-      const [x, y, rx, ry, speed, phase] = PATHS[i];
-      el.style.transform = `translate(${x + rx * Math.sin(t * speed + phase)}px, ${y + ry * Math.cos(t * speed * 1.3 + phase)}px)`;
-    });
-    const pending = [];
-    for (const layer of layers) {
-      if (layer.kind === 'shot') { const p = drawShot(layer, t); if (p) pending.push(p); }
-      else if (layer.kind === 'caption') drawCaption(layer, t);
-      else drawTitle(layer, t);
-    }
-    return Promise.all(pending).then(() => true);
+    document.getElementById('black').style.opacity = String(track(film.black, t));
+    return Promise.all(layers.map((layer) => draw(layer, t)).filter(Boolean)).then(() => true);
   };
 })();
 </script>
