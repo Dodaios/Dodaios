@@ -200,6 +200,11 @@ export interface AgentChatSession {
   code?: string;
   /** The team thread this session is a member of ("" or absent: an ordinary thread). */
   team_id?: string;
+  /**
+   * The agent that opened the thread ("jarvis" = Dodaios itself, else a
+   * society agent's id); empty or absent = the person started it.
+   */
+  started_by?: string;
 }
 
 export const INTERNAL_DELIVERY_STATUSES = ["queued", "delivered", "failed"] as const;

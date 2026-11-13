@@ -10598,6 +10598,8 @@
     "connect_another": "Weiteren Ordner verbinden",
     "new_activity": "Neue Aktivität",
     "in_worktree": "Arbeitet im Worktree {name}",
+    "started_by_lead": "Von {name} gestartet",
+    "started_by_agent": "Von einem Dodaios-Agenten gestartet",
     "pr_state_open": "Offen",
     "pr_state_draft": "Entwurf",
     "pr_state_queued": "In der Merge-Queue",

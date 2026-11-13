@@ -60,7 +60,8 @@ CREATE TABLE IF NOT EXISTS agent_chat_sessions (
     runtime          TEXT NOT NULL DEFAULT '',
     computer_id      TEXT NOT NULL DEFAULT '',
     last_message_ms  INTEGER NOT NULL DEFAULT 0,
-    speed            TEXT NOT NULL DEFAULT ''
+    speed            TEXT NOT NULL DEFAULT '',
+    started_by       TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS agent_chat_events (
     session_id  TEXT NOT NULL,
@@ -227,6 +228,10 @@ class AgentChatSession:
     #: The coding CLI's speed tier (``dodaios.agent_chat.speed``): Claude
     #: Code's fast mode, a Codex service tier. Empty = the standard speed.
     speed: str = ""
+    #: The agent that opened the thread (``LEAD_AGENT_ID`` for Dodaios itself,
+    #: a society agent's id): the author of its first message. Empty = the
+    #: person started it.
+    started_by: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -332,6 +337,18 @@ class AgentChatStore:
             # The CLI's speed tier; empty = the standard speed (the pre-column behaviour).
             self._conn.execute(
                 "ALTER TABLE agent_chat_sessions ADD COLUMN speed TEXT NOT NULL DEFAULT ''"
+            )
+        if "started_by" not in have:
+            # Which agent opened the thread; an old row takes the author of its
+            # first message, empty when the person wrote that one.
+            self._conn.execute(
+                "ALTER TABLE agent_chat_sessions ADD COLUMN started_by TEXT NOT NULL DEFAULT ''"
+            )
+            self._conn.execute(
+                "UPDATE agent_chat_sessions SET started_by = COALESCE(("
+                "SELECT json_extract(e.payload, '$.author.agent_id') FROM agent_chat_events e "
+                "WHERE e.session_id = agent_chat_sessions.session_id "
+                "AND e.kind = 'user_message' ORDER BY e.seq LIMIT 1), '')"
             )
 
     def close(self) -> None:
@@ -860,6 +877,16 @@ class AgentChatStore:
                     "WHERE session_id = ?",
                     (ts_ms, ts_ms, text[:_PREVIEW_MAX_CHARS], _title_from(text), session_id),
                 )
+                if kind == "user_message":
+                    # The thread's first message names who opened it: the
+                    # agent that wrote it, or the person (no author).
+                    author = payload.get("author")
+                    starter = author.get("agent_id") if isinstance(author, dict) else ""
+                    if starter and seq == self._first_message_seq(session_id):
+                        self._conn.execute(
+                            "UPDATE agent_chat_sessions SET started_by = ? WHERE session_id = ?",
+                            (str(starter), session_id),
+                        )
             elif kind == "assistant_text":
                 text = " ".join(str(payload.get("text") or "").split())
                 if text:
@@ -878,6 +905,15 @@ class AgentChatStore:
         out["seq"] = seq
         out["ts_ms"] = ts_ms
         return out
+
+    def _first_message_seq(self, session_id: str) -> int:
+        """The seq of the session's first ``user_message`` (lock held by the caller)."""
+        row = self._conn.execute(
+            "SELECT MIN(seq) AS first FROM agent_chat_events "
+            "WHERE session_id = ? AND kind = 'user_message'",
+            (session_id,),
+        ).fetchone()
+        return int(row["first"]) if row and row["first"] is not None else 0
 
     def incoming_message(self, session_id: str, message_id: str) -> dict[str, Any] | None:
         """Fold a receipt and its status updates; old user messages stay untouched."""
@@ -1286,4 +1322,5 @@ class AgentChatStore:
                 int(row["last_message_ms"] or 0) if "last_message_ms" in row.keys() else 0
             ),
             speed=str(row["speed"] or "") if "speed" in row.keys() else "",
+            started_by=str(row["started_by"] or "") if "started_by" in row.keys() else "",
         )

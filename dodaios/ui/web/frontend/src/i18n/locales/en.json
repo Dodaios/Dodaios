@@ -10598,6 +10598,8 @@
     "connect_another": "Connect another folder",
     "new_activity": "New activity",
     "in_worktree": "Works in the worktree {name}",
+    "started_by_lead": "Started by {name}",
+    "started_by_agent": "Started by a Dodaios agent",
     "pr_state_open": "Open",
     "pr_state_draft": "Draft",
     "pr_state_queued": "In merge queue",
