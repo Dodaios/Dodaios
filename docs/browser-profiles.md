@@ -37,6 +37,49 @@ account email, extension ID and tab ID are not used as profile identity. Pairing
 state persists locally, is not synchronized through Chrome Sync, and can be
 revoked from Dodaios. Reinstalling the extension requires pairing again.
 
+## Use logins from your browser
+
+The person can copy their website logins from a browser on this computer into
+a Dodaios browser profile, so agents start signed in. **Browser profiles → Use
+logins from your browser** lists the installed browsers and their profiles:
+Google Chrome, Chromium, Brave, Microsoft Edge, Arc, Vivaldi and Firefox.
+Listing reads only each browser's profile list and counts its cookies. It
+reads no key and no cookie value.
+
+- **What is imported.** The cookies of the chosen profile that have not
+  expired. Partitioned (third-party embed) cookies and Firefox container
+  cookies are left out. Passwords, history and bookmarks are not read.
+- **Where they stay.** The import goes to the running agent browser over its
+  local worker pipe (`import_cookies`, browser-wide `Storage.setCookies`).
+  Chromium stores them in the Dodaios profile with its own encryption. If the
+  agent browser is not running, the import starts it first, the same way the
+  live view does. Values never appear in a log, a job result, the flight
+  recorder, an approval card or a model prompt. The API returns counts and a
+  count per site only. The person's own browser is never changed: its cookie
+  database is read from a private temporary copy.
+- **Keychain consent (macOS).** Chromium browsers encrypt cookies with a key
+  in the login Keychain ("Chrome Safe Storage", "Brave Safe Storage", ...).
+  The first import shows one macOS dialog. Choose **Always Allow** so later
+  refreshes do not ask again. Firefox needs no key.
+- **Auto-refresh.** Dodaios remembers which browser profile feeds which
+  Dodaios profile, and when it last imported. Each time that agent browser
+  starts and the source's cookie file changed since the last import, it
+  imports again. If the key cannot be read, the browser starts anyway with the
+  logins it already has, and `/browser/open` reports the status in
+  `login_source`.
+- **Windows.** Chrome 127 and later lock cookies to Chrome itself (app-bound
+  `v20` encryption). Dodaios does not try to get around that and lists Chrome
+  as not supported. Other Chromium browsers that still use the Windows user
+  key can be imported. Chrome users on Windows can sign in through the
+  in-window Chrome sign-in described below.
+- **No supported browser.** Use Firefox or another Chromium browser, or sign
+  in once in the Dodaios browser with **Take control**. That login stays in
+  the Dodaios profile.
+
+Code: `society/browser/login_import.py` (detection, decryption, CDP
+conversion), `LiveSessions.import_logins` in `society/browser/live.py`, and the
+`login_sources` table in the profile registry.
+
 ## Sharing and account changes
 
 **All agents** updates current assignments and sets the default for future
