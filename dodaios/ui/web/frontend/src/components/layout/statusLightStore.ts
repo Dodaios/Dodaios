@@ -32,6 +32,8 @@ export interface StatusRow {
   link: StatusLink;
   /** The agent that asks, as the person knows it; on a card and a browser request. */
   agent_name?: string;
+  /** A Connect card: the service the agent asks for, and what it does once that is connected. */
+  connect?: { kind: string; id: string; label: string; why?: string };
   /** A coding agent's pane: its CLI ("claude"), that CLI's product name, its own name and its workspace. */
   agent?: string;
   agent_label?: string;

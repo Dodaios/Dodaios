@@ -64,6 +64,25 @@ def test_board_opens_and_closes_every_card_kind() -> None:
     assert board.items() == []
 
 
+def test_a_connect_card_names_the_service_it_asks_for() -> None:
+    board = AttentionBoard()
+    # The payload's own "kind" is the field kind, so the event is built without the helper.
+    board.observe("s", make_event("credential_required", {
+        "request_id": "c1", "env": "gmail", "label": "Gmail", "kind": "plugin",
+        "description": "Then I read your unread mail.",
+    }))
+    board.observe("s", _ev(
+        "credential_required", request_id="c2", env="GITHUB_TOKEN", label="GitHub token",
+    ))
+    connect, secret = sorted(board.items(), key=lambda item: item.ref_id)
+    assert connect.detail == {
+        "label": "Gmail", "connect": "plugin", "service": "gmail",
+        "why": "Then I read your unread mail.",
+    }
+    # A secret field is not a service to connect: it keeps its label alone.
+    assert secret.detail == {"label": "GitHub token"}
+
+
 def test_progress_moves_the_summary_to_the_next_question() -> None:
     board = AttentionBoard()
     second = {**_QUESTION, "question": "Where should it run?"}

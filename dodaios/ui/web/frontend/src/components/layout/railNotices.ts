@@ -10,8 +10,8 @@ import { useStatusLightStore, watchStatusLight, type StatusLightData, type Statu
  * The notices on the rail beside the conversation: only what needs the person.
  *
  * A notice is one thing the person has to do something about, said in words:
- * a connection that ended, a provider that stopped working, an agent that
- * asks. Each names its subject (whose logo or face the tile shows), what is
+ * a connection that ended, a service an agent needs connected, a provider
+ * that stopped working, an agent that asks. Each names its subject (whose logo or face the tile shows), what is
  * asked (the badge on the tile's corner), and where a click leads.
  *
  * What is NOT a notice, on purpose: work that merely runs, a provider that is
@@ -25,11 +25,13 @@ import { useStatusLightStore, watchStatusLight, type StatusLightData, type Statu
 
 /** What a notice asks of the person; the badge on the tile says it. */
 export type NoticeAsk =
-  | "reconnect" | "question" | "approval" | "credential" | "proposal" | "takeover" | "waiting" | "trouble";
+  | "reconnect" | "connect" | "question" | "approval" | "credential" | "proposal" | "takeover" | "waiting" | "trouble";
 
 /** Whose notice it is; the tile draws this subject's logo or face. */
 export type NoticeMark =
   | { type: "plugin"; id: string }
+  /** A command-line tool the assistant can use (GitHub's `gh`), not a coding agent. */
+  | { type: "tool"; id: string }
   | { type: "provider"; id: string }
   | { type: "cli"; id: string }
   | { type: "agent"; id: string }
@@ -102,6 +104,24 @@ function cardNotice(row: StatusRow, rows: StatusRow[], t: Translate): RailNotice
   };
 }
 
+/** An agent asks for a service to be connected: the service's own mark, and the card as the place to do it. */
+function connectNotice(row: StatusRow, connect: NonNullable<StatusRow["connect"]>, t: Translate): RailNotice {
+  const who = row.agent_name || t("rail_notice.an_agent");
+  const service = connect.label || connect.id;
+  return {
+    key: `connect:${connect.kind}:${connect.id}`,
+    ask: "connect",
+    tone: "needs",
+    mark: connect.kind === "cli" ? { type: "tool", id: connect.id } : { type: "plugin", id: connect.id },
+    subject: service,
+    title: fill(t("rail_notice.connect_title"), { who, service }),
+    detail: connect.why || fill(t("rail_notice.connect_detail"), { service }),
+    action: t("rail_notice.connect_action"),
+    count: 1,
+    target: { type: "row", row },
+  };
+}
+
 /** A coding agent in the Agentic IDE that stopped and waits for the person. */
 function paneNotice(row: StatusRow, t: Translate): RailNotice {
   const name = row.agent_label || t("rail_notice.a_coding_agent");
@@ -142,13 +162,16 @@ function needsNotices(rows: StatusRow[], t: Translate): RailNotice[] {
   const groups = new Map<string, StatusRow[]>();
   for (const row of rows) {
     const alone = row.kind === "pane" || row.kind === "mission" || !row.link.agent_id;
-    const key = alone ? `${row.kind}:${row.id}` : `agent:${row.link.agent_id}`;
+    // A service to connect is its own notice: it shows that service, not the agent that asks.
+    const key = row.connect ? `connect:${row.connect.kind}:${row.connect.id}`
+      : alone ? `${row.kind}:${row.id}` : `agent:${row.link.agent_id}`;
     const group = groups.get(key);
     if (group) group.push(row);
     else groups.set(key, [row]);
   }
   return [...groups.values()].map((group) => {
     const first = group[0];
+    if (first.connect) return connectNotice(first, first.connect, t);
     if (first.kind === "pane") return paneNotice(first, t);
     if (first.kind === "mission") return missionNotice(first, t);
     return cardNotice(first, group, t);
@@ -216,9 +239,12 @@ function providerNotices(light: StatusLightData, t: Translate): RailNotice[] {
  * answer, then the connections that ended, then the providers in trouble.
  */
 export function railNotices(light: StatusLightData | null, plugins: PluginAttentionItem[], t: Translate): RailNotice[] {
+  const needs = light ? needsNotices(light.needs_you, t) : [];
+  // An agent already asks for this plugin: one tile for it, the one that leads to the card.
+  const asked = new Set(needs.flatMap((notice) => (notice.ask === "connect" && notice.mark.type === "plugin" ? [notice.mark.id] : [])));
   return [
-    ...(light ? needsNotices(light.needs_you, t) : []),
-    ...pluginNotices(plugins, t),
+    ...needs,
+    ...pluginNotices(plugins, t).filter((notice) => notice.mark.type !== "plugin" || !asked.has(notice.mark.id)),
     ...(light ? providerNotices(light, t) : []),
   ];
 }

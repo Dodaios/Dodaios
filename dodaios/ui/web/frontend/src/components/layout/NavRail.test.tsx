@@ -156,6 +156,27 @@ describe("NavRail", () => {
     expect(second.getAttribute("aria-label")).toContain("Writer needs your approval");
   });
 
+  test("an agent that needs a service connected shows that service, not a key", async () => {
+    // The plugin list reports the same plugin too; the person sees it once, as the card's notice.
+    plugins = [{ id: "gmail", display_name: "Gmail", status: "needs_reauth" }];
+    vi.stubGlobal("fetch", backend({
+      ...QUIET,
+      needs_you: [
+        { ...card("credential", "c1", "Gmail", "a1", "Nova"), connect: { kind: "plugin", id: "gmail", label: "Gmail", why: "Then I read your unread mail." } },
+        card("credential", "c2", "GitHub token", "a1", "Nova"),
+      ],
+    }));
+    renderRail();
+    await waitFor(() => expect(screen.getAllByTestId("rail-notice")).toHaveLength(2));
+    const [connect, secret] = screen.getAllByTestId("rail-notice");
+    expect(connect.dataset.ask).toBe("connect");
+    expect(connect.dataset.key).toBe("connect:plugin:gmail");
+    expect(connect.getAttribute("aria-label")).toBe("Nova needs Gmail · Then I read your unread mail. · Connect");
+    // A secret the same agent asks for stays that agent's own notice.
+    expect(secret.dataset.ask).toBe("credential");
+    expect(secret.getAttribute("aria-label")).toContain("Nova needs a login or a key");
+  });
+
   test("a waiting coding agent says which CLI waits and where, and opens its pane", async () => {
     vi.stubGlobal("fetch", backend({ ...QUIET, needs_you: [PANE] }));
     renderRail();

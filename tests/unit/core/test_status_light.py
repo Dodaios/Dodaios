@@ -144,3 +144,17 @@ def test_a_failing_provider_keeps_its_id_beside_its_name() -> None:
     row = build_status_light(findings=[finding])["findings"][0]
     assert row["provider"] == "OpenAI GPT-Live"
     assert row["provider_id"] == "openai-live"
+
+
+def test_a_connect_card_says_which_service_it_asks_for() -> None:
+    connect = {"kind": "credential", "agent_id": "jarvis", "session_id": "s", "ref_id": "c1",
+               "summary": "Gmail", "since_ms": 5, "detail": {
+                   "label": "Gmail", "connect": "plugin", "service": "gmail",
+                   "why": "Then I read your unread mail."}}
+    secret = {"kind": "credential", "agent_id": "jarvis", "session_id": "s", "ref_id": "c2",
+              "summary": "GitHub token", "since_ms": 6, "detail": {"label": "GitHub token"}}
+    first, second = build_status_light(attention=[connect, secret])["needs_you"]
+    assert first["connect"] == {
+        "kind": "plugin", "id": "gmail", "label": "Gmail", "why": "Then I read your unread mail.",
+    }
+    assert "connect" not in second
