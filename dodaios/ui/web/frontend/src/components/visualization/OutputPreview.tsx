@@ -5,10 +5,10 @@
  * Every run gets the same treatment (2026-08-25): the artifacts a worker
  * wrote as HTML fill the stage as pages; everything else — a research answer,
  * a memo, a set of scripts, a failed build — is composed HERE from what the
- * run left behind, in the same design standard the artifact brief hands the
- * worker (`dodaios/artifacts/design_guide.py`: the app's tokens, an eyebrow
- * that says something true, a headline, the body in reading order, a
- * hairline where a section ends; no hero, no gradient, no decoration).
+ * run left behind, in the app's own tokens: an eyebrow that says something
+ * true, a headline, the body in reading order, a hairline where a section
+ * ends; no hero, no gradient, no decoration. (The pages themselves follow
+ * `dodaios/artifacts/design_guide.py`.)
  *
  * Reading order, top to bottom:
  * 1. eyebrow (kind · when · duration · status), the headline, the request;

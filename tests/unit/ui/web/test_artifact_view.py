@@ -49,8 +49,8 @@ def test_csp_blocks_scripts():
 def test_page_wears_the_artifact_tokens_and_no_script():
     out = render_artifact_html("report.md", "# Title")
     # The design guide's token block, both palettes, is the page's stylesheet.
-    assert "--accent:#FFD60A" in out
-    assert ':root[data-theme="light"]' in out
+    assert "--accent:#2A6FD0" in out and "--accent:#4F8EF7" in out
+    assert ':root[data-theme="dark"]' in out
     assert "<script" not in out
 
 

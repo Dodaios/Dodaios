@@ -3,8 +3,8 @@
 When the full answer to a request is a document (the important mails of the
 week, a comparison, a research summary, a plan, more than a handful of items),
 the assistant writes it here as Markdown. The tool lays it out as a page in
-the Artifacts section (:mod:`dodaios.artifacts.report`) and posts a report
-card into the conversation that called it. The reply in the chat is then two
+the Artifacts section (:mod:`dodaios.artifacts.report`) and posts a preview
+of the page into the conversation that called it. The reply in the chat is then two
 or three sentences: the gist, and what needs the person.
 
 Router-tier, risk ``monitor``: it writes one page in the run archive and posts
@@ -43,7 +43,7 @@ def report_card(report: Any) -> dict[str, Any]:
 
 
 class WriteReportTool:
-    """Write a long answer as a report page and show its card in the chat."""
+    """Write a long answer as a report page and show its preview in the chat."""
 
     name: str = "write_report"
     risk_tier: str = "monitor"
@@ -52,8 +52,19 @@ class WriteReportTool:
         "full answer is a document: more than about six items, several sections, a "
         "comparison or table, a research summary, a plan, a digest of mails or news. "
         "Write the complete report in Markdown (## sections, short bullets, tables "
-        "where they help; no title line, the page shows the title). The page opens "
-        "in the Artifacts section and a report card appears in the chat. Then reply "
+        "where they help; no title line, the page shows the title). Every section "
+        "states something that can be checked: a number with its unit, a date, a "
+        "name, a decision. The page draws these Markdown shapes as blocks, use them "
+        "where the content calls for one: a fenced `metrics` block with one "
+        "`value | label | detail` per line for two to four current figures; a "
+        "fenced `chart` block (the same JSON as a chart in the chat) for a series "
+        "of numbers, its points answer on hover; a quote that starts with "
+        "`[!NOTE]`, `[!TIP]`, `[!WARNING]` or `[!CAUTION]` and a bold first line "
+        "for the one recommendation, risk or open decision; a numbered list whose "
+        "items start with a bold title for a real sequence of steps; `Term` then "
+        "`: value` lines for the attributes of one thing; a last section with a "
+        "list of plain links for the sources. The page opens "
+        "in the Artifacts section and a preview of it appears in the chat. Then reply "
         "in two or three short sentences: the gist and what needs the person; do not "
         "repeat the report in the chat."
     )
@@ -63,7 +74,10 @@ class WriteReportTool:
             "title": {"type": "string", "description": "A few words, e.g. 'Mails, 6-11 Nov'."},
             "summary": {
                 "type": "string",
-                "description": "One or two sentences shown under the title: the gist.",
+                "description": (
+                    "Two to four sentences shown under the title: what this is, the "
+                    "date or period it covers, and the result."
+                ),
             },
             "markdown": {"type": "string", "description": "The full report in Markdown."},
             "language": {"type": "string", "description": "The person's language code."},
@@ -72,6 +86,7 @@ class WriteReportTool:
     }
 
     async def execute(self, args: dict[str, Any], ctx: ExecutionContext) -> ToolResult:
+        from dodaios.artifacts.locate import page_link
         from dodaios.artifacts.report import ReportError, write_report
 
         args = args or {}
@@ -98,16 +113,17 @@ class WriteReportTool:
         )
         shown = await post_card(session_of(ctx), report_card(report))
         where = (
-            "Its card is in the chat"
+            "Its preview is in the chat"
             if shown
-            else "It is in the Artifacts section (no card could be posted)"
+            else "It is in the Artifacts section (no preview could be posted)"
         )
         return ToolResult(
             True,
             jobs.with_job_id(
                 f"Report '{report.title}' saved. {where}. Now reply in two or three "
                 "short sentences: the gist and what needs the person. Do not repeat "
-                "the report.",
+                "the report. To name the page in a reply, write this link exactly: "
+                f"{page_link(report.title, report.visual_id)}",
                 job_id, ctx,
             ),
         )

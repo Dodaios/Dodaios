@@ -2,6 +2,7 @@ import { defaultUrlTransform } from "react-markdown";
 
 const LOCAL_PREFIX = "#jarvis-local=";
 const THREAD_PREFIX = "#jarvis-thread=";
+const PAGE_PREFIX = "#jarvis-page=";
 
 export type ChatLinkAction =
   | { type: "local"; path: string }
@@ -98,11 +99,29 @@ export function threadRefFromMarkdownUrl(raw: string): string | null {
   return match ? match[1].toLowerCase() : null;
 }
 
+/**
+ * The page in the Artifacts section a chat link names, as `slug::path`:
+ * `artifact:<slug>::<path>` (what the tools hand the assistant to cite), or
+ * the page's own address under `/api/outputs/…/page`. The chat draws it as
+ * the page's name with a page mark and opens it in the Artifacts section
+ * instead of loading the address in this window. Null for every other address.
+ */
+export function pageRefFromMarkdownUrl(raw: string): string | null {
+  const text = stripAngles(raw);
+  const named = /^artifact:([^\s:/?#]+)::([^\s?#]+)$/i.exec(text);
+  if (named) return `${named[1]}::${decodePath(named[2])}`;
+  const served = /^(?:https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?)?\/api\/outputs\/([^/?#]+)\/files\/([^?#]+)\/(?:page|view)(?:[?#].*)?$/i.exec(text);
+  if (served) return `${decodePath(served[1])}::${decodePath(served[2])}`;
+  return null;
+}
+
 /** Keep a local path on a hash so the desktop window cannot navigate to it. */
 export function chatUrlTransform(url: string): string {
   // Before the default transform, which drops every scheme it does not know.
   const thread = threadRefFromMarkdownUrl(url);
   if (thread) return THREAD_PREFIX + thread;
+  const page = pageRefFromMarkdownUrl(url);
+  if (page) return PAGE_PREFIX + encodeURIComponent(page);
   const local = openableLinkTarget(url);
   if (local) return LOCAL_PREFIX + encodeURIComponent(local);
   return defaultUrlTransform(url);
@@ -112,6 +131,12 @@ export function chatUrlTransform(url: string): string {
 export function threadRefFromChatHref(href: string): string | null {
   if (!href.startsWith(THREAD_PREFIX)) return null;
   return href.slice(THREAD_PREFIX.length) || null;
+}
+
+/** The page (`slug::path`) a transformed chat link carries, or null. */
+export function pageRefFromChatHref(href: string): string | null {
+  if (!href.startsWith(PAGE_PREFIX)) return null;
+  return decodePath(href.slice(PAGE_PREFIX.length)) || null;
 }
 
 export function localPathFromChatHref(href: string): string | null {

@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Any, Final
@@ -56,6 +57,7 @@ from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.missions.events import coerce_mission_language
 from dodaios.orchestrator import mission_jobs
 from dodaios.orchestrator.jobs import with_job_id
+from dodaios.plugins.tool.living_page import post_card, session_of
 from dodaios.voice.action_phrases import action_phrase, resolve_ambient_language
 
 log = logging.getLogger(__name__)
@@ -119,6 +121,35 @@ def _utterance(ctx: Any) -> str:
         if isinstance(value, str) and value.strip():
             return value.strip()
     return ""
+
+
+async def _post_page_card(session_id: str, title: str, filename: str, *, since: float) -> bool:
+    """Show the finished page in the conversation that asked for it.
+
+    The card is a projection of the archive: when the build left no page
+    written after ``since`` (the mission failed, the worker named the file
+    differently, only an older version exists), nothing is posted and the
+    mission's own readback says what happened.
+    """
+    try:
+        located = await asyncio.to_thread(locate_artifact, title)
+        if located is None or located.file.name != filename:
+            return False
+        if located.file.stat().st_mtime < since - 1.0:
+            return False
+        return await post_card(
+            session_id,
+            {
+                "kind": "report",
+                "text": located.title or title,
+                "summary": "",
+                "artifact": f"{located.slug}::{located.artifact_path}",
+                "sections": 0,
+            },
+        )
+    except Exception:  # noqa: BLE001 — the page exists either way; the card is a courtesy
+        log.warning("create_artifact: page card not posted", exc_info=True)
+        return False
 
 
 class CreateArtifactTool:
@@ -349,6 +380,7 @@ class CreateArtifactTool:
                 readback_language=language,
                 background=background,
                 job_id=job_id,
+                card=None if background else (session_of(ctx), brief.title, brief.filename),
             ),
             name=f"jarvis-agent-artifact-{ctx.trace_id.hex[:8]}",
         )
@@ -438,6 +470,7 @@ class CreateArtifactTool:
         readback_language: str,
         background: bool = False,
         job_id: str | None = None,
+        card: tuple[str, str, str] | None = None,
     ) -> None:
         """Read the facts, compose the brief, persist the mission and run it —
         the two-step contract spawn_worker documents (dispatch → PENDING,
@@ -451,7 +484,12 @@ class CreateArtifactTool:
         ``system`` mission, which the mission voice listener does not read back,
         and its failures are logged instead of spoken: nobody called Jarvis, and
         the page (or its absence) shows in the Artifacts section.
+
+        ``card`` is ``(chat session, title, filename)`` of a build the person
+        asked for: when the page has landed, its preview is posted into that
+        conversation, the same card a report leaves.
         """
+        began = time.time()
         try:
             source_data = await self._source_data(needs, trace_id=trace_id, utterance=utterance)
             prompt = build(source_data).prompt
@@ -474,6 +512,8 @@ class CreateArtifactTool:
                     )
                 return
             await kontrollierer.run_mission(mission_id)
+            if card is not None:
+                await _post_page_card(*card, since=began)
         except asyncio.CancelledError:
             log.info("create_artifact background dispatch cancelled (app shutdown)")
             mission_jobs.interrupted(job_id, "The dispatch was cancelled.")

@@ -23,6 +23,7 @@ from dodaios.core.events import (
     NavigateSidebar,
 )
 from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool import create_artifact as tool_mod
 from dodaios.plugins.tool.create_artifact import CreateArtifactTool
 
 
@@ -32,6 +33,19 @@ class _FakeBus:
 
     async def publish(self, event: Any) -> None:
         self.published.append(event)
+
+
+@pytest.fixture(autouse=True)
+def posted_cards(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[str, Any]]]:
+    """No test posts into a real conversation; what would be posted is kept."""
+    cards: list[tuple[str, dict[str, Any]]] = []
+
+    async def fake_post(session_id: str, payload: dict[str, Any]) -> bool:
+        cards.append((session_id, payload))
+        return True
+
+    monkeypatch.setattr(tool_mod, "post_card", fake_post)
+    return cards
 
 
 class _FakeManager:
@@ -397,3 +411,68 @@ async def test_the_jarvis_chat_still_asks_in_the_foreground() -> None:
     await _settle()
     assert manager.dispatched[0]["source_actor"] == "hauptjarvis"
     assert any(isinstance(e, NavigateSidebar) for e in bus.published)
+
+
+def _archive_page(root: Path, name: str, title: str) -> Path:
+    page = root / "20261113T100000__run" / "tasks" / "t1" / "artifacts" / "files" / name
+    page.parent.mkdir(parents=True)
+    page.write_text(f"<!doctype html><title>{title}</title><body>x</body>", encoding="utf-8")
+    return page
+
+
+@pytest.mark.asyncio
+async def test_the_finished_page_shows_as_a_card_in_the_conversation_that_asked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, posted_cards: list[tuple[str, dict[str, Any]]]
+) -> None:
+    monkeypatch.setenv("JARVIS_ISOLATION_ROOT", str(tmp_path))
+
+    class _WritingKontrollierer(_FakeKontrollierer):
+        async def run_mission(self, mission_id: str) -> None:
+            await super().run_mission(mission_id)
+            _archive_page(tmp_path, "plan-comparison.html", "Plan comparison")
+
+    tool = CreateArtifactTool(
+        _FakeBus(), manager=_FakeManager(), kontrollierer=_WritingKontrollierer()
+    )
+    ctx = _ctx(language="en")
+    ctx.config["approval_ref"] = "agent-chat:lead-7"
+    result = await tool.execute({"title": "Plan comparison", "request": "Compare."}, ctx)
+    assert result.success
+    for _ in range(200):
+        if posted_cards:
+            break
+        await asyncio.sleep(0.01)
+    [(session, card)] = posted_cards
+    assert session == "lead-7"
+    assert card["kind"] == "report" and card["text"] == "Plan comparison"
+    slug, _, path = card["artifact"].partition("::")
+    assert (tmp_path / slug / path).name == "plan-comparison.html"
+
+
+@pytest.mark.asyncio
+async def test_no_card_for_a_build_that_left_no_new_page(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, posted_cards: list[tuple[str, dict[str, Any]]]
+) -> None:
+    """A failed revision must not present the old page as the new one, and a
+    build an agent started in the background posts nothing into a chat."""
+    import os
+
+    monkeypatch.setenv("JARVIS_ISOLATION_ROOT", str(tmp_path))
+    old = _archive_page(tmp_path, "plan-comparison.html", "Plan comparison")
+    os.utime(old, (1_000_000.0, 1_000_000.0))
+    assert not await tool_mod._post_page_card(
+        "lead-7", "Plan comparison", "plan-comparison.html", since=2_000_000.0
+    )
+    # Another file under the same title is not this build's page either.
+    assert not await tool_mod._post_page_card("lead-7", "Plan comparison", "other.html", since=0.0)
+    assert posted_cards == []
+
+    tool = CreateArtifactTool(
+        _FakeBus(), manager=_FakeManager(), kontrollierer=_FakeKontrollierer()
+    )
+    ctx = _ctx(language="en")
+    ctx.config["approval_ref"] = "society:agent-3"
+    await tool.execute({"title": "Plan comparison", "request": "Compare."}, ctx)
+    await _settle()
+    await asyncio.sleep(0.05)
+    assert posted_cards == []

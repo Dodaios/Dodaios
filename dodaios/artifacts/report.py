@@ -23,16 +23,18 @@ Layout of one report on disk::
 from __future__ import annotations
 
 import logging
+import os
 import re
 import time
 import uuid
 from dataclasses import dataclass
-from html import escape
+from html import escape, unescape
 from pathlib import Path
 from typing import Any, Final
 
-from dodaios.artifacts.design_guide import GIGI_MARK_SVG, THEME_BOOTSTRAP_JS, THEME_CSS
+from dodaios.artifacts.design_guide import PAGE_JS, THEME_BOOTSTRAP_JS, THEME_CSS
 from dodaios.artifacts.living import _atomic_write, outputs_root
+from dodaios.artifacts.report_blocks import upgrade_blocks
 
 log = logging.getLogger(__name__)
 
@@ -89,61 +91,114 @@ def count_sections(markdown: str) -> int:
 
 # ------------------------------------------------------------------ rendering
 
+# The report body is flat Markdown output (h2, p, table, …), not the kit's
+# nested sections, so the kit's rhythm is restated here for direct children:
+# 64px before a section heading, 20px around a block, 12px between paragraphs.
+# Every rule has the same weight (`:where` adds none), so the later one wins:
+# keep them in this order.
 _PAGE_CSS: Final[str] = """
-.wrap{max-width:860px}
 .report{margin-top:8px}
-.report>*+*{margin-top:14px}
-.report h1{font-size:26px;margin-top:44px}
-.report h2{margin-top:44px;padding-bottom:10px;border-bottom:1px solid var(--line)}
-.report h3{margin-top:28px}
-.report h2+*,.report h3+*{margin-top:12px}
-.report p,.report li{line-height:1.65}
-.report ul,.report ol{padding-left:22px;max-width:72ch}
-.report li+li{margin-top:6px}
+.report>*+*{margin-top:12px}
+.report>:where(.table-wrap,blockquote,pre,ul,ol,dl,.card,.callout,.metrics){margin-top:20px}
+.report>:where(.table-wrap,blockquote,pre,dl,.card,.callout,.metrics)+*{margin-top:20px}
+.report>:where(h3,h4){margin-top:32px;font-size:16px;line-height:1.5;font-weight:600}
+.report>:where(h1,h2){margin-top:64px;scroll-margin-top:24px;font-size:22px;line-height:1.3;
+  letter-spacing:-.01em}
+.report>:where(h1,h2)+*{margin-top:12px}
+.report>:where(h3,h4)+*{margin-top:8px}
 .report li>p{margin:0}
-.report strong{font-weight:600}
-.report blockquote{margin:0;padding:12px 18px;background:var(--bg-2);
-  border-left:3px solid var(--accent);border-radius:0 var(--radius) var(--radius) 0;
-  color:var(--ink-2)}
-.report pre{background:var(--sunken);padding:12px 14px;border-radius:var(--radius-sm);
-  overflow-x:auto;line-height:1.5}
-.report :not(pre)>code{background:var(--bg-3);padding:1px 5px;border-radius:var(--radius-sm)}
-.report hr{border:0;border-top:1px solid var(--line);margin:32px 0}
-.report .table-wrap{margin-top:16px}
+.report li>ul,.report li>ol{margin-top:8px}
+.report blockquote{padding:14px 18px;border-radius:var(--radius);background:var(--bg-2)}
+.report blockquote>*+*{margin-top:8px}
+.report>dl{display:grid;grid-template-columns:minmax(96px,132px) 1fr;font-size:14px;
+  line-height:20px}
+.report>dl dt,.report>dl dd{padding:12px 0;border-bottom:1px solid var(--line)}
+.report>dl dt{padding-right:16px;color:var(--ink-2)}
+.report>dl dt:last-of-type,.report>dl dd:last-of-type{border-bottom:0}
+.report-date{margin-top:12px}
 """
 
 _TABLE_OPEN: Final = re.compile(r"<table>")
 _TABLE_CLOSE: Final = re.compile(r"</table>")
 
+#: The label of the contents box, by page language.
+_CONTENTS_LABEL: Final[dict[str, str]] = {
+    "de": "Auf dieser Seite",
+    "en": "On this page",
+    "es": "En esta página",
+    "pt": "Nesta página",
+}
+#: From this many sections on, the page opens with a contents box.
+MIN_SECTIONS_FOR_CONTENTS: Final[int] = 4
 
-def markdown_to_html(markdown: str) -> str:
+
+@dataclass(frozen=True)
+class RenderedBody:
+    """The report body as HTML, plus its ``##`` sections for the contents box."""
+
+    html: str
+    sections: tuple[tuple[str, str], ...] = ()
+    """``(id, heading text)`` per section, in page order."""
+
+
+def render_body(markdown: str, language: str = "en") -> RenderedBody:
     """The report body as HTML. Raw HTML in the Markdown is shown as text,
     never run: a report often quotes mails and web pages the person did not
-    write. Falls back to escaped paragraphs when the Markdown library is absent."""
+    write. Charts, metric rows, callouts, steps and source lists become kit
+    blocks (:mod:`.report_blocks`). Falls back to escaped paragraphs when the
+    Markdown library is absent."""
+    sections: list[tuple[str, str]] = []
     try:
         import markdown as md_lib  # a base dependency; the fallback keeps a report readable
 
-        converter = md_lib.Markdown(extensions=["extra", "sane_lists"])
+        converter = md_lib.Markdown(extensions=["extra", "sane_lists", "toc"])
         # Raw HTML blocks and inline tags become literal text.
         converter.preprocessors.deregister("html_block")
         converter.inlinePatterns.deregister("html")
         body = converter.convert(markdown)
+        for token in getattr(converter, "toc_tokens", None) or ():
+            if token.get("level") == 2 and token.get("id") and token.get("name"):
+                sections.append((str(token["id"]), unescape(str(token["name"]))))
     except Exception:  # noqa: BLE001 — a report must still be written
         log.info("report: markdown renderer unavailable, writing plain paragraphs")
         paragraphs = [p.strip() for p in re.split(r"\n\s*\n", markdown) if p.strip()]
         body = "".join(
             "<p>" + escape(p).replace("\n", "<br>") + "</p>" for p in paragraphs
         )
-    body = _TABLE_OPEN.sub('<div class="table-wrap"><table class="table">', body)
-    return _TABLE_CLOSE.sub("</table></div>", body)
+    body = upgrade_blocks(body, language)
+    body = _TABLE_OPEN.sub('<div class="table-wrap"><table class="table" data-sort>', body)
+    return RenderedBody(html=_TABLE_CLOSE.sub("</table></div>", body), sections=tuple(sections))
+
+
+def markdown_to_html(markdown: str) -> str:
+    """The report body as HTML (see :func:`render_body`)."""
+    return render_body(markdown).html
+
+
+def _contents_box(sections: tuple[tuple[str, str], ...], language: str) -> str:
+    if len(sections) < MIN_SECTIONS_FOR_CONTENTS:
+        return ""
+    label = _CONTENTS_LABEL.get((language or "").strip().lower()[:2], _CONTENTS_LABEL["en"])
+    links = "".join(
+        f'<a href="#{escape(anchor, quote=True)}">{escape(name)}</a>' for anchor, name in sections
+    )
+    return (
+        f'<nav class="toc" aria-label="{escape(label, quote=True)}">'
+        f'<p class="toc-label">{escape(label)}</p>{links}</nav>'
+    )
 
 
 def render_html(
     *, title: str, summary: str, markdown: str, language: str, created_at: float
 ) -> str:
-    """The report as one self-contained HTML document (no network, no storage)."""
+    """The report as one self-contained HTML document (no network, no storage).
+
+    The plain document of the design standard: the report's name, the summary,
+    when it was written, a contents box from four sections on, then the body.
+    """
     stamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(created_at))
-    standfirst = f'<p class="standfirst">{escape(summary)}</p>' if summary else ""
+    lead = f'<p class="summary">{escape(summary)}</p>' if summary else ""
+    body = render_body(markdown, language)
     return (
         "<!doctype html>\n"
         f'<html lang="{escape(language or "en", quote=True)}"><head>'
@@ -153,19 +208,79 @@ def render_html(
         f"<script>{THEME_BOOTSTRAP_JS}</script>"
         f"<style>{THEME_CSS}{_PAGE_CSS}</style>"
         "</head><body>"
-        '<main class="wrap">'
-        '<header class="masthead">'
-        f'<p class="eyebrow"><time>{escape(stamp)}</time></p>'
+        '<main class="page">'
         f"<h1>{escape(title)}</h1>"
-        f"{standfirst}"
-        "</header>"
-        f'<article class="report">{markdown_to_html(markdown)}</article>'
-        '<footer class="colophon">'
-        f'<span class="brand">{GIGI_MARK_SVG}Dodaios</span>'
-        "</footer>"
+        f"{lead}"
+        f'<p class="caption report-date"><time>{escape(stamp)}</time></p>'
+        f"{_contents_box(body.sections, language)}"
+        f'<article class="report">{body.html}</article>'
         "</main>"
+        f"<script>{PAGE_JS}</script>"
         "</body></html>\n"
     )
+
+
+# -------------------------------------------------------------------- restyle
+
+# What marks a page laid out before 2026-11-13 (the editorial kit), and where
+# that page kept the facts the Markdown beside it does not carry on their own.
+_DATED_MARK: Final = 'class="masthead"'
+_OLD_SUMMARY_RE: Final = re.compile(r'<p class="standfirst">(.*?)</p>', re.DOTALL)
+_OLD_STAMP_RE: Final = re.compile(r'<p class="eyebrow"><time>(.*?)</time></p>')
+_PAGE_LANG_RE: Final = re.compile(r'<html lang="([^"]*)"')
+_PAGE_TITLE_RE: Final = re.compile(r"<title>(.*?)</title>", re.DOTALL)
+
+
+def restyle_if_dated(page: Path) -> bool:
+    """Lay out a report from before the plain look again, in the plain look.
+
+    A report page is a rendering of the Markdown saved beside it, so an old
+    page can be drawn anew without losing a word: the title, the summary, the
+    language and the time come from the old page, the body from the ``.md``.
+    The file keeps its modification time (the Artifacts section sorts by it).
+    Returns True when the page was rewritten; a page that is already current,
+    has no Markdown beside it or cannot be read is left exactly as it is.
+    """
+    try:
+        html = page.read_text(encoding="utf-8")
+        source = page.with_suffix(".md")
+        if _DATED_MARK not in html or not source.is_file():
+            return False
+        found_title = _PAGE_TITLE_RE.search(html)
+        title = unescape(found_title.group(1)).strip() if found_title else ""
+        if not title:
+            return False
+        found_summary = _OLD_SUMMARY_RE.search(html)
+        summary = unescape(found_summary.group(1)).strip() if found_summary else ""
+        found_lang = _PAGE_LANG_RE.search(html)
+        stat = page.stat()
+        created_at = stat.st_mtime
+        found_stamp = _OLD_STAMP_RE.search(html)
+        if found_stamp:
+            try:
+                created_at = time.mktime(time.strptime(found_stamp.group(1), "%Y-%m-%d %H:%M"))
+            except (ValueError, OverflowError):  # an unreadable stamp: the file's time stands
+                created_at = stat.st_mtime
+        body = source.read_text(encoding="utf-8").replace("\r\n", "\n")
+        for head in (f"# {title}", summary):
+            if head and body.lstrip().startswith(head):
+                body = body.lstrip()[len(head):]
+        _atomic_write(
+            page,
+            render_html(
+                title=title,
+                summary=summary,
+                markdown=body.strip(),
+                language=found_lang.group(1) if found_lang else "en",
+                created_at=created_at,
+            ),
+        )
+        os.utime(page, (stat.st_atime, stat.st_mtime))
+    except (OSError, UnicodeDecodeError):
+        log.info("report: could not restyle %s", page.name, exc_info=True)
+        return False
+    log.info("report: %s laid out again in the plain look", page.name)
+    return True
 
 
 # ---------------------------------------------------------------------- write
@@ -195,7 +310,7 @@ def write_report(
         raise ReportError("'title' must name the report in a few words.")
     if not body:
         raise ReportError("'markdown' must hold the report's full text.")
-    # A model often repeats the title as the first heading; the masthead has it.
+    # A model often repeats the title as the first heading; the page has it.
     first, _, rest = body.partition("\n")
     if first.lstrip("# ").strip().lower() == clean_title.lower() and first.startswith("#"):
         body = rest.strip() or body
@@ -234,11 +349,15 @@ def write_report(
 
 __all__ = [
     "MARKER_KIND",
+    "MIN_SECTIONS_FOR_CONTENTS",
     "SLUG_INFIX",
+    "RenderedBody",
     "Report",
     "ReportError",
     "count_sections",
     "markdown_to_html",
+    "render_body",
     "render_html",
+    "restyle_if_dated",
     "write_report",
 ]

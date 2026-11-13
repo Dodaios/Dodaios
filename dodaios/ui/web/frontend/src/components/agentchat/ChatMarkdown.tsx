@@ -7,7 +7,8 @@ import { openExternalUrl } from "@/lib/openExternal";
 import { openLocalPath } from "@/lib/openLocalPath";
 import { readFence, visualFenceLanguage } from "@/lib/visualFence";
 import { CHART_FENCE, endsInOpenFence, parseChartSpec } from "@/lib/chartSpec";
-import { chatLinkAction, chatUrlTransform, localPathFromChatHref, threadRefFromChatHref } from "./chatLinks";
+import { chatLinkAction, chatUrlTransform, localPathFromChatHref, pageRefFromChatHref, threadRefFromChatHref } from "./chatLinks";
+import { PageLink } from "./PageCard";
 import { CodingAgentLink } from "@/components/agentic/threads/CodingAgentLink";
 import { parseToolResult, ToolResultCard } from "./ToolResultCard";
 import { CodeBlock } from "@/components/docs/CodeBlock";
@@ -111,6 +112,9 @@ const MARKDOWN_COMPONENTS: Components = {
     // A coding agent the answer points at: its title and logo, opening its thread.
     const thread = threadRefFromChatHref(href);
     if (thread) return <CodingAgentLink threadRef={thread} label={Children.toArray(children).filter(child => typeof child === "string").join("")} />;
+    // A page in the Artifacts section: its name with the page mark, opening it there.
+    const page = pageRefFromChatHref(href);
+    if (page) return <PageLink pageRef={page} label={Children.toArray(children).filter(child => typeof child === "string").join("")} />;
     const local = localPathFromChatHref(href);
     return <a href={href} title={local || undefined} onClick={event => onChatLinkClick(event, href, label)}>{children}</a>;
   },
