@@ -10,9 +10,9 @@ dispatch — a release never happens by itself) and runnable locally::
 The package version in ``pyproject.toml`` and ``dodaios/__init__.py`` stays
 synchronized with the workspace entry in ``uv.lock``. The CHANGELOG takes the ``[Unreleased]``
 notes when there are any; otherwise it is built from the Conventional Commit
-subjects since the previous tag (feat -> Added, fix -> Fixed, perf/refactor ->
-Changed). The notes are also written to ``--notes-out`` for the GitHub
-Release body. Prints the new version on the last line.
+subjects since the previous release tag (feat -> Added, fix -> Fixed,
+perf/refactor -> Changed). The notes are also written to ``--notes-out`` for
+the GitHub Release body. Prints the new version on the last line.
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ from scripts.ci.release_admit import run_command, versions  # noqa: E402
 
 _SECTIONS = {"feat": "Added", "fix": "Fixed", "perf": "Changed", "refactor": "Changed"}
 _SUBJECT = re.compile(r"^(?P<type>[a-z]+)(?:\([^)]*\))?(?P<bang>!)?: (?P<text>.+)$")
+_RELEASE_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 
 
 def bump(version: str, part: str) -> str:
@@ -64,6 +65,40 @@ def notes_from_commits(subjects: list[str]) -> str:
         if items:
             parts.append(f"### {section}\n\n" + "\n".join(f"- {t}" for t in items))
     return "\n\n".join(parts) or "### Changed\n\n- Maintenance release."
+
+
+def previous_tag(current: str, tags: list[str]) -> str:
+    """The newest ``vX.Y.Z`` tag at or below ``current``, or ``""`` when there is none.
+
+    Chosen by version, not by ``git describe``: a release tag names the
+    frontend bundle commit that release-cut.yml puts on top of the release
+    commit, so the tag is not on main and ``git describe`` from main skips it.
+    It found v4.2.0, the last tag placed on main itself, so the notes of
+    v5.0.0 and v5.1.0 repeated those of every release since v4.2.0.
+    """
+    limit = tuple(int(part) for part in current.split("."))
+    best: tuple[tuple[int, ...], str] | None = None
+    for tag in (line.strip() for line in tags):
+        match = _RELEASE_TAG.match(tag)
+        if not match:
+            continue
+        version = tuple(int(part) for part in match.groups())
+        if version <= limit and (best is None or version > best[0]):
+            best = (version, tag)
+    return best[1] if best else ""
+
+
+def commits_since_release(current: str, root: Path = REPO_ROOT) -> list[str]:
+    """Subjects of the commits on HEAD since the release tag of ``current``.
+
+    ``<tag>..HEAD`` leaves out the tag's bundle commit and everything below
+    it, so it holds exactly the commits that landed after the release commit.
+    """
+    git = ["git", "-C", str(root)]
+    tags = run_command([*git, "tag", "--list", "v*"], check=False).stdout.splitlines()
+    last = previous_tag(current, tags)
+    span = f"{last}..HEAD" if last else "HEAD"
+    return run_command([*git, "log", "--no-merges", "--format=%s", span]).stdout.splitlines()
 
 
 def split_unreleased(changelog: str) -> tuple[str, str, str]:
@@ -147,15 +182,7 @@ def main(argv: list[str] | None = None) -> int:
     _head, body, _rest = split_unreleased(changelog)
     unreleased = body.strip().strip("-").strip()
     if not unreleased:
-        last = run_command(
-            ["git", "describe", "--tags", "--abbrev=0", "--match", "v*"],
-            check=False,
-        ).stdout.strip()
-        span = f"{last}..HEAD" if last else "HEAD"
-        subjects = run_command(
-            ["git", "log", "--no-merges", "--format=%s", span]
-        ).stdout.splitlines()
-        unreleased = notes_from_commits(subjects)
+        unreleased = notes_from_commits(commits_since_release(current))
     apply(new, unreleased, dt.date.today().isoformat())
     args.notes_out.write_text(unreleased.strip() + "\n", encoding="utf-8")
     print(new)
