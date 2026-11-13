@@ -17,7 +17,7 @@ import {
   type LocalAnswer,
 } from "./questionModel";
 import { QuestionStep } from "./QuestionStep";
-import { Dots, SettledQuestion } from "./SettledQuestion";
+import { ChatReplyBubble, Dots, SettledQuestion } from "./SettledQuestion";
 import { useQuestionActions } from "./useQuestionActions";
 import { useQuestionKeyboard } from "./useQuestionKeyboard";
 import "./questionCard.css";
@@ -37,8 +37,20 @@ import "./questionCard.css";
  * on the right. The quiet window shows only in its last minute, as a ring
  * beside the dots; a series also offers to let the agent decide every
  * question, behind a small menu there.
+ *
+ * `settled` says what stays once the card is answered, skipped or closed. A
+ * work view keeps one quiet line with the answers ("summary"). The
+ * conversation with the assistant keeps nothing ("hidden"): the card is gone
+ * the moment the person sends it, and comes back only if the answer did not
+ * get through.
  */
-export const QuestionCard = memo(function QuestionCard({ question }: { question: QuestionState }) {
+export const QuestionCard = memo(function QuestionCard({
+  question,
+  settled = "summary",
+}: {
+  question: QuestionState;
+  settled?: "summary" | "hidden";
+}) {
   const t = useT();
   const draft = useQuestionDraft(question.questionId);
   const look = useAskerLook(question.asker);
@@ -49,9 +61,11 @@ export const QuestionCard = memo(function QuestionCard({ question }: { question:
     if (question.closed && submission) patchQuestionDraft(question.questionId, (d) => ({ ...d, submission: null, answers: [] }));
   }, [question.closed, question.questionId, submission]);
   if (question.closed) {
+    if (settled === "hidden") return <ChatReplyBubble question={question} />;
     return <SettledQuestion question={question} agent={look.agent} style={look.style} agentName={agentName} pending={false} />;
   }
   if (submission && submission.status !== "failed") {
+    if (settled === "hidden") return null;
     return (
       <SettledQuestion
         question={{ ...question, answers: submission.answers, closed: true }}
