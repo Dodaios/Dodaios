@@ -807,3 +807,85 @@ async def test_crashed_worker_recovers_without_touching_the_other_agent(live):
         assert not alive
     finally:
         await live.close()
+
+
+# --------------------------------------------------- consent walls, hung clicks
+# The real worker refuses consent walls before each step, fails a hung click
+# fast and reads a fenced or prose model reply (tests/contract/browser_consent_probe.py).
+
+
+@pytest.fixture(scope="module")
+def consent_observed(tmp_path_factory):
+    import json
+    import subprocess
+
+    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+
+    folder = tmp_path_factory.mktemp("consent")
+    result = subprocess.run(
+        [
+            os.environ["JARVIS_BROWSER_TEST_PYTHON"],
+            str(Path(__file__).with_name("browser_consent_probe.py")),
+            os.environ["JARVIS_BROWSER_TEST_EXECUTABLE"],
+            str(folder / "profile"),
+        ],
+        env=install.worker_env(folder),
+        capture_output=True,
+        encoding="utf-8",
+        timeout=150,
+        creationflags=NO_WINDOW_CREATIONFLAGS,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr[-6000:]
+    return json.loads(result.stdout.strip().splitlines()[-1])
+
+
+def test_google_consent_wall_is_refused_before_the_agent_sees_the_page(consent_observed):
+    assert consent_observed["google_choice"] == "reject"
+    assert consent_observed["consent_dismissed"] == ["alle ablehnen"]
+    assert consent_observed["consent_events"] == ["alle ablehnen"]
+    assert consent_observed["first_view_has_flights"] is True
+    assert consent_observed["first_view_has_consent"] is False
+
+
+@pytest.mark.parametrize(
+    ("site", "choice"),
+    [
+        ("https://news.example.org/", "reject"),  # OneTrust
+        ("https://shop.example.org/", "reject"),  # Sourcepoint, cross-origin iframe
+        ("https://app.example.org/", "necessary"),  # shadow DOM, "necessary only"
+    ],
+)
+def test_cmp_banners_get_the_most_private_choice(consent_observed, site, choice):
+    result = consent_observed["sites"][site]
+    assert result["choice"] == choice
+    assert len(result["hits"]) == 1
+    assert result["seconds"] < 5
+
+
+@pytest.mark.parametrize(
+    "site",
+    [
+        "https://blog.example.org/",  # only "accept": left for the agent
+        "https://magazin.example.org/",  # "refuse and subscribe" is a sale
+        "https://auth.example.org/",  # a sign-in consent screen is not a cookie banner
+    ],
+)
+def test_banners_without_a_free_refusal_are_left_alone(consent_observed, site):
+    assert consent_observed["sites"][site] == {
+        **consent_observed["sites"][site],
+        "hits": [],
+        "choice": "",
+    }
+
+
+def test_a_hung_click_fails_fast_and_the_run_goes_on(consent_observed):
+    assert "timed out after 2s" in consent_observed["click_error"]
+    assert consent_observed["second_view_reports_timeout"] is True
+    assert consent_observed["ok"] is True
+    assert consent_observed["seconds"] < 60
+
+
+def test_a_fenced_or_prose_reply_does_not_cost_a_step(consent_observed):
+    assert consent_observed["reask_seen"] is True
+    assert consent_observed["final_result"] == "fixture done"
+    assert not any("Invalid model output" in error for error in consent_observed["errors"])

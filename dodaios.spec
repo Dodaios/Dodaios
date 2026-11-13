@@ -111,6 +111,8 @@ datas.append((str(PROJECT_ROOT / "dodaios/society/browser/native_window.py"), "d
 datas.append((str(PROJECT_ROOT / "dodaios/society/browser/manual_chrome.py"), "dodaios/society/browser"))
 datas.append((str(PROJECT_ROOT / "dodaios/society/browser/window_actions.py"), "dodaios/society/browser"))
 datas.append((str(PROJECT_ROOT / "dodaios/society/browser/pointer.py"), "dodaios/society/browser"))
+datas.append((str(PROJECT_ROOT / "dodaios/society/browser/consent_walls.py"), "dodaios/society/browser"))
+datas.append((str(PROJECT_ROOT / "dodaios/society/browser/model_reply.py"), "dodaios/society/browser"))
 # The Hermes / OpenClaw pins (agent_runtimes/versions.py). The package-data
 # sweep below also finds them; named here so a narrower sweep cannot drop them
 # and send a frozen app's setup to upstream latest.
