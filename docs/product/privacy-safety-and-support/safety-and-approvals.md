@@ -52,6 +52,22 @@ look plausible. Uncertainty is logged for monitored calls. Ask-level calls
 still require confirmation. This check does not turn a monitored action into
 an approval prompt.
 
+## Bypass Permissions in a Chat
+
+A chat's permission pill sets how much the assistant may do without asking.
+**Bypass permissions** (on a coding agent: its top rung, such as Claude Code's
+Bypass permissions or Codex's Full access) means nothing asks: every tool call
+runs, including a first email to a new recipient, a payment, a credential, a
+delete with no undo, and an agent's own "always ask" rules. Only a **block**
+still stops a call, and the outbound check still refuses an email that carries
+something that looks like a secret.
+
+In **Ask before acting**, **Auto-accept edits** and **Always ask**, a
+consequential call shows an approval card in the chat: the app's logo, the
+action in plain words ("Send this email?"), exactly what will be sent or run,
+and Allow once, Always allow and Deny. Money, credentials, deleting for good
+and the first message to someone always ask in these modes.
+
 ## Review an Approval
 
 One approval authorizes one paused tool call with one trace identifier. It does

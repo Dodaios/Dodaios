@@ -21,34 +21,51 @@
   animation: action-card-in 160ms ease-out;
 }
 
+/* The open card names who acts with the app's own logo, large enough to
+   recognise at a glance (Gmail, Slack, Calendar), on a quiet square tile. */
 .action-card-tile {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
   background: hsl(var(--secondary));
   color: hsl(var(--foreground-secondary));
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.6);
 }
 .action-card-tile svg {
-  width: 13px;
-  height: 13px;
+  width: 16px;
+  height: 16px;
+}
+.action-card-tile .tool-choice-icon {
+  width: 18px !important;
+  height: 18px !important;
 }
 .action-card-tile .tool-choice-icon svg,
 .action-card-tile .tool-choice-icon img {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
 }
 .action-card-tile-sm {
   width: 20px;
   height: 20px;
-  border-radius: 999px;
+  border-radius: 6px;
+  box-shadow: none;
 }
 .action-card-tile-sm svg {
   width: 12px;
   height: 12px;
+}
+.action-card-tile-sm .tool-choice-icon {
+  width: 14px !important;
+  height: 14px !important;
+}
+.action-card-tile-sm .tool-choice-icon svg,
+.action-card-tile-sm .tool-choice-icon img {
+  width: 14px;
+  height: 14px;
 }
 
 .action-card-button {

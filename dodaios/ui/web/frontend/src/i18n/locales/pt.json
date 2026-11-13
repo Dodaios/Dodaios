@@ -11221,7 +11221,22 @@
       "connector_verb": "Usar {app} para “{verb}”?",
       "tool": "Executar {tool}?",
       "tool_plain": "Executar esta ferramenta?",
-      "action": "{action}?"
+      "action": "{action}?",
+      "verb": {
+        "send_message": "Enviar este e-mail?",
+        "send_email": "Enviar este e-mail?",
+        "send": "Enviar com {app}?",
+        "reply": "Enviar esta resposta?",
+        "forward": "Encaminhar este e-mail?",
+        "create_draft": "Guardar este rascunho?",
+        "trash_message": "Mover este e-mail para o lixo?",
+        "delete_message": "Apagar este e-mail para sempre?",
+        "modify_message": "Alterar as etiquetas deste e-mail?",
+        "create_event": "Adicionar este evento ao {app}?",
+        "update_event": "Alterar este evento?",
+        "delete_event": "Apagar este evento?",
+        "post_message": "Publicar esta mensagem?"
+      }
     },
     "field": {
       "in": "Em {where}",

@@ -212,16 +212,19 @@ class ChatApprovalBridge:
     ) -> str | None:
         """The ``approved_by`` label when the stance decides without a card, else None."""
         name = _bare(tool_name)
+        # Bypass means what it says (maintainer, 2026-11-13): nothing asks in
+        # this stance — no hard limit, no saved ask rule, no new recipient.
+        # Only the blacklist still stops a call, and it does so before any
+        # approval is ever requested.
+        if grant.stance == "bypass":
+            return "chat-bypass"
         if grant.stance == "always_ask" or grant.force_ask(name, args or {}):
             return None
         # A hard limit (money, credentials, deleting for good, a new recipient)
-        # and a doubtful send need a person: no stance and no "always" answers.
+        # and a doubtful send need a person in every asking stance: no
+        # "always" answers them.
         if before_execute(tool_name, args or {}).needs_person:
             return None
-        if grant.stance == "bypass":
-            if grant.force_ask(name, args or {}):
-                return None
-            return "chat-bypass"
         if name in grant.always_allowed:
             return "user"
         if name in grant.pre_approved:

@@ -190,7 +190,8 @@ function credentialKind(raw: unknown): CredentialKind {
 
 /** The call shows a card the person answers: a question or a credential field. */
 export function hasPersonCard(block: ToolBlock): boolean {
-  return Boolean(block.question || block.credential);
+  // An open approval is a card of its own too, so it stands off the rail.
+  return Boolean(block.question || block.credential || (block.approval && block.approval.decision === null));
 }
 
 /** The call's card still waits for the person. */

@@ -11221,7 +11221,22 @@
       "connector_verb": "Use {app} to {verb}?",
       "tool": "Run {tool}?",
       "tool_plain": "Run this tool?",
-      "action": "{action}?"
+      "action": "{action}?",
+      "verb": {
+        "send_message": "Send this email?",
+        "send_email": "Send this email?",
+        "send": "Send with {app}?",
+        "reply": "Send this reply?",
+        "forward": "Forward this email?",
+        "create_draft": "Save this draft?",
+        "trash_message": "Move this email to the trash?",
+        "delete_message": "Delete this email for good?",
+        "modify_message": "Change this email's labels?",
+        "create_event": "Add this event to {app}?",
+        "update_event": "Change this event?",
+        "delete_event": "Delete this event?",
+        "post_message": "Post this message?"
+      }
     },
     "field": {
       "in": "In {where}",

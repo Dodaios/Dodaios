@@ -15,6 +15,7 @@ from dodaios.agent_chat.approval_bridge import ChatApprovalBridge, ChatGrant, ap
 from dodaios.core.bus import EventBus
 from dodaios.core.config import SafetyConfig
 from dodaios.core.events import ActionApprovalRequired, ActionApproved, ActionDenied
+from dodaios.core.protocols import ToolResult
 from dodaios.safety.approval import ApprovalWorkflow
 from dodaios.safety.risk_tier import RiskTierEvaluator
 from dodaios.safety.tool_executor import APPROVAL_DENIED_PREFIX, ToolExecutor
@@ -266,35 +267,54 @@ async def test_bypass_asks_nothing(tmp_path: Path):
     assert card.asked == []
 
 
-async def test_bypass_still_cards_an_explicit_require_approval_rule(tmp_path: Path):
-    """Society's require-approval rules (``force_ask``) override Bypass."""
+async def test_bypass_ignores_an_explicit_require_approval_rule(tmp_path: Path):
+    """Bypass means nothing asks: not even Society's require-approval rules."""
     executor, bridge, _ = _stack()
     card = _Card("deny")
-    seen: list[tuple[str, dict[str, Any]]] = []
-
-    def force_ask(name: str, args: dict[str, Any]) -> bool:
-        seen.append((name, dict(args)))
-        return "rm" in str(args.get("command") or "")
-
     grant = _grant(card, "bypass")
-    grant.force_ask = force_ask
+    grant.force_ask = lambda _name, _args: True
     bridge.arm(REF, grant)
     run = ft.folder_tools(tmp_path)["RunCommand"]
 
-    forced = await executor.execute(run, {"command": "rm x"}, config_snapshot=_snapshot())
-    assert not forced.success and forced.error
-    assert forced.error.startswith(APPROVAL_DENIED_PREFIX)
-    assert [a[1] for a in card.asked] == ["RunCommand"]
-    assert seen[0] == ("RunCommand", {"command": "rm x"})
-
     ran = await executor.execute(run, {"command": "echo hi"}, config_snapshot=_snapshot())
     assert ran.success, ran.error
-    assert len(card.asked) == 1
+    assert card.asked == []
+
+
+async def test_bypass_sends_the_first_mail_to_a_new_recipient_without_a_card():
+    """A hard limit (here: a recipient never written to) asks in Ask, not in Bypass."""
+
+    class _Mail:
+        name = "gmail"
+        description = "mail"
+        risk_tier = "monitor"
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": {"action": {}, "to": {}, "body": {}},
+        }
+
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        async def execute(self, args: dict[str, Any], ctx: Any) -> ToolResult:
+            self.calls.append(dict(args))
+            return ToolResult(success=True, output={"id": "m"})
+
+    args = {"action": "send_message", "to": "first@new.example", "body": "hi"}
+    # Ask first: a mail that went out makes its recipient known.
+    for stance, runs in (("ask", False), ("bypass", True)):
+        executor, bridge, _ = _stack(timeout_s=2.0)
+        card = _Card("deny")
+        bridge.arm(REF, _grant(card, stance, {"gmail"}))
+        mail = _Mail()
+        result = await executor.execute(mail, dict(args), config_snapshot=_snapshot())
+        assert result.success is runs, stance
+        assert (card.asked == []) is runs, stance
 
 
 async def test_require_approval_overrides_remembered_grants_in_every_stance(tmp_path: Path):
     """An agent's explicit rule still asks after an earlier Always allow."""
-    for stance in ("ask", "bypass"):
+    for stance in ("ask", "accept-edits"):
         executor, bridge, _ = _stack()
         card = _Card("deny")
         grant = _grant(card, stance, {"RunCommand"})
@@ -408,3 +428,22 @@ async def test_the_approval_event_carries_the_chat_ref(tmp_path: Path):
     )
     assert seen and seen[0].approval_ref == REF
     assert seen[0].expires_at_ns > 0
+
+
+def test_a_vendor_cli_on_its_top_rung_takes_the_bypass_stance():
+    """Bypass / Full access on a coding agent: Dodaios' own tools ask nothing either."""
+    from types import SimpleNamespace
+
+    from dodaios.agent_chat.runner_cli import bridge_stance
+
+    cases = [
+        ("claude-cli", "bypassPermissions", "bypass"),
+        ("codex-cli", "full-access", "bypass"),
+        ("claude-cli", "default", "ask"),
+        ("claude-cli", "acceptEdits", "ask"),
+        ("claude-cli", "auto", "ask"),
+        ("codex-cli", "auto", "ask"),
+        ("claude-cli", "", "ask"),
+    ]
+    for runner, mode, want in cases:
+        assert bridge_stance(runner, SimpleNamespace(permission_mode=mode)) == want, (runner, mode)

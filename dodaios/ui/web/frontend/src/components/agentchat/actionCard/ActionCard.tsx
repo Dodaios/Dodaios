@@ -181,9 +181,9 @@ function SettledCard({ id, source, ariaLabel, lines, disclosure, children, settl
 }
 
 export function SourceChip({ icon, label, showLabel = true }: { icon: ReactNode; label: string; showLabel?: boolean }) {
-  return <span className="flex min-w-0 items-center gap-1.5" title={showLabel ? undefined : label}>
+  return <span className="flex min-w-0 items-center gap-2.5" title={showLabel ? undefined : label}>
     <span className="action-card-tile" aria-hidden>{icon}</span>
-    {showLabel ? <span className="truncate text-[13px] font-medium text-muted-foreground">{label}</span> : <span className="sr-only">{label}</span>}
+    {showLabel ? <span className="truncate text-[13px] font-semibold text-foreground">{label}</span> : <span className="sr-only">{label}</span>}
   </span>;
 }
 

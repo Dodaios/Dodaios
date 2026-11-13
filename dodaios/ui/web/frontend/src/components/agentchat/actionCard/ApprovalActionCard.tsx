@@ -73,7 +73,9 @@ function subtitleLines(info: ApprovalCardInfo, approval: ApprovalState, block: T
   // A command is read in its own block below; a summary that only repeats it says nothing new.
   const what = approvalSummary(info, approval.summary, block);
   const repeatsCommand = kind === "terminal" && Boolean(info.detail) && info.detail.startsWith(approval.summary.trim());
-  const shown = what && !repeatsCommand && kind !== "plan" && !sameWords(what, title) && !sameWords(what, info.action ?? "");
+  // The exact-action preview below names the recipient, the subject and the
+  // rest: a summary line above it would only say part of it a second time.
+  const shown = what && !info.preview && !repeatsCommand && kind !== "plan" && !sameWords(what, title) && !sameWords(what, info.action ?? "");
   if (shown) lines.push(<span className="text-foreground-secondary">{what}</span>);
   // The reason is said once: a "why" that repeats the summary adds nothing.
   if (info.why && !sameWords(info.why, what) && !sameWords(info.why, approval.summary)) {
@@ -90,7 +92,10 @@ function subtitleLines(info: ApprovalCardInfo, approval: ApprovalState, block: T
  */
 export function trustLines(info: ApprovalCardInfo, t: T): ReactNode[] {
   const lines: ReactNode[] = [];
-  if (info.hardLimit) {
+  // A new recipient is already marked "new" in the preview's To line.
+  const markedNew = info.hardLimit === "new_recipient"
+    && Boolean(info.preview?.fields.some((field) => field.kind === "people" && field.items.some((item) => item.new)));
+  if (info.hardLimit && !markedNew) {
     const limit = t(`trust.card.limit.${info.hardLimit}`);
     const text = NO_RULE_LIMITS.has(info.hardLimit) ? `${limit} ${t("trust.card.always_asks")}` : limit;
     lines.push(<span className="text-warning" data-testid="action-card-hard-limit">{text}</span>);
@@ -200,7 +205,8 @@ function OpenApproval({ block, approval, info, onDecide }: {
     failure={error}
     actions={choosing ? [] : actions}
     pending={pending}
-    caution={info.caution ? t(`action_card.caution.${info.caution}`) : null}
+    // The preview shows what leaves and says when it cannot be undone.
+    caution={info.caution && !preview ? t(`action_card.caution.${info.caution}`) : null}
   >
     {preview ? <ApprovalPreviewView preview={preview} drafts={drafts} disabled={Boolean(pending)}
       onDraft={(key, value) => setDrafts((was) => {

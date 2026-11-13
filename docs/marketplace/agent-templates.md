@@ -141,7 +141,9 @@ install-by-name) adds:
   of its own. If the chosen runner refuses that mode, the install fails with
   the runner's error and is never retried in a different mode;
 - `always_allow` is always empty; `require_approval` only adds prompts, and
-  those prompts bind in every mode, Bypass included;
+  those prompts bind in Ask and Always ask. A chat the person puts in Bypass
+  asks nothing at all (maintainer decision 2026-11-13), so the card says what
+  the template asks before only for those two modes;
 - budget, concurrency, ceiling and browser settings are the app's defaults.
 
 The marketplace card shows, before the Install button: the instructions in

@@ -11,8 +11,9 @@ Four kinds, each a code the card and the Trust page can name:
 :func:`hard_limit_for` reads the tool's name, its one-word action and its
 arguments. It never decides whether a call runs; it only says that *a person*
 must decide, so every place that could answer for the person (a standing
-rule, the whitelist, a bypass stance, an unattended bridge) checks it first and
-steps aside.
+rule, the whitelist, the global default, an unattended bridge) checks it first
+and steps aside. The one exception is a chat the person put in "Bypass
+permissions" themselves: there nothing asks (``agent_chat.approval_bridge``).
 
 Pattern-based on purpose: the limits must hold without a model and without a
 network, and the model that proposes the call must not be able to talk its way

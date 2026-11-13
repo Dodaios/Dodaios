@@ -105,21 +105,21 @@ describe("work trace", () => {
   it("keeps errors and pending approval visible beside folded success", () => {
     render(<WorkTrace {...props} blocks={[tool("a"),tool("b"),tool("err",{isError:true,output:"Permission denied"}),tool("approval",{output:null,approval:{approvalId:"ap",summary:"Delete generated files?",decision:null}})]} onDecide={() => undefined} />);
     // Nothing folds: the approval stays actionable in place.
-    expect(screen.getByText("Delete generated files?")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
+    expect(screen.getByTestId("thread-approval").textContent).toContain("Delete generated files?");
+    expect(screen.getByRole("button", { name: "Allow once" })).toBeTruthy();
     // One quiet line for the stretch; the failure opens with it.
     fireEvent.click(screen.getByRole("button", { name: /^Read files/ }));
     fireEvent.click(screen.getByRole("button", { name: /^Read err\.ts.*Failed/ }));
     expect(screen.getAllByText("Failed: Permission denied").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Allow once" })).toBeTruthy();
   });
 
-  it.each(["allow", "allow_always", "deny"] as const)("submits %s exactly once and reports failures", async decision => {
+  it.each(["allow", "deny"] as const)("submits %s exactly once from the approval card and reports failures", async decision => {
     const calls: string[] = [];
     let reject!: (error: Error) => void;
     const onDecide = (id: string, value: string) => { calls.push(`${id}:${value}`); return new Promise<void>((_, fail) => { reject = fail; }); };
     render(<WorkTrace {...props} status="running" blocks={[tool("ap",{output:null,approval:{approvalId:"approval-id",summary:"Confirm this action",decision:null}})]} onDecide={onDecide} />);
-    const name = {allow:"Approve",allow_always:"Always allow",deny:"Deny"}[decision];
+    const name = {allow:"Allow once",deny:"Deny"}[decision];
     const button = screen.getByRole("button", {name});
     fireEvent.click(button); fireEvent.click(button);
     expect(calls).toEqual([`approval-id:${decision}`]);
@@ -371,7 +371,7 @@ describe("work trace", () => {
     // Running and asking: the approval is in the conversation, the finished step is not.
     const ask = tool("ask", { output: null, approval: { approvalId: "ap", summary: "Confirm the send", decision: null } });
     const { rerender } = render(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={[tool("a"), ask]} onDecide={() => undefined} />);
-    expect(screen.getByRole("group", { name: "Approval required" })).toBeTruthy();
+    expect(screen.getByTestId("thread-approval")).toBeTruthy();
     expect(document.querySelectorAll("[data-trace-tool]")).toHaveLength(1);
     // Finished with a failed step: nothing red between the messages, and
     // no count under them (maintainer, 2026-11-13). The answer says what
