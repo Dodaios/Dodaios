@@ -72,8 +72,9 @@ as words: "add a new line to the file" is delivered as that sentence.
 A dictation of about 50 words or more also gets paragraphs by itself:
 
 - where you pause for two seconds or longer between two sentences;
-- before a sentence that opens a new topic ("Außerdem", "Zweitens", "Another
-  thing");
+- before a sentence that opens a new topic, such as one starting with
+  "Another thing" or "Secondly" (German, Spanish and Portuguese have their
+  own lists);
 - once a paragraph has grown to about 70 words, at the next sentence end.
 
 A sentence is never split, and a list you dictated line by line keeps its

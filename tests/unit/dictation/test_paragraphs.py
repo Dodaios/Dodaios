@@ -110,9 +110,8 @@ def test_a_topic_word_right_at_the_start_breaks_nothing() -> None:
 
 def test_german_also_is_not_a_new_topic_in_german() -> None:
     """In German "Also" is "so", how many sentences begin."""
-    text = _sentences(3, words=12) + " Also das war es dann eigentlich schon. " + _sentences(
-        2, words=8
-    )  # i18n-allow: German fixture
+    so_sentence = " Also das war es dann eigentlich schon. "  # i18n-allow: fixture
+    text = _sentences(3, words=12) + so_sentence + _sentences(2, words=8)
 
     out, made = auto_paragraphs(text, language="de")
 

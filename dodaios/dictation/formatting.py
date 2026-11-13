@@ -518,13 +518,13 @@ def auto_paragraphs(text: str, *, language: str | None = None) -> tuple[str, int
     Only at sentence ends, and only inside a paragraph that has no line
     breaks of its own (a spoken list stays as it is). A paragraph begins:
 
-    * before a sentence that opens a new topic ("Außerdem", "Zweitens",
-      "Another thing"), once the paragraph before holds a few sentences;
+    * before a sentence that opens a new topic (see :data:`_TOPIC_OPENERS`),
+      once the paragraph before holds a few sentences;
     * at the next sentence end once a paragraph has grown long, as long as
       enough text follows to fill another one.
 
     A dictation under :data:`PARAGRAPH_MIN_WORDS` words is left as it is.
-    """  # i18n-allow: example openers
+    """
     if count_words(text) < PARAGRAPH_MIN_WORDS:
         return text, 0
     openers = _openers_for(language)
