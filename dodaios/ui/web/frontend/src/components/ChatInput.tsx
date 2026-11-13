@@ -7,6 +7,7 @@ import { useEventStore } from "@/store/events";
 import { cn } from "@/lib/utils";
 import { useT } from "@/i18n";
 import { DictationButton } from "@/components/agentchat/DictationButton";
+import { useComposerDictation } from "@/components/agentchat/useComposerDictation";
 
 // Safety net: if the brain doesn't respond within 60s (no reply, no error event),
 // we revert the indicator. A backend hang must not leave the UI stuck in the
@@ -17,9 +18,9 @@ const THINKING_TIMEOUT_MS = 60_000;
  * The composer — a card with the text box and, on its bottom row, dictation,
  * the model that will answer (click to change it) and send.
  *
- * Restyled 2026-08-23 for the new front page (maintainer sketch): one
- * rounded card in the Claude layout. The behaviour is unchanged — same send
- * path, same thread routing, same dictation mirror; only the frame moved.
+ * One rounded card. Dictation runs through `useComposerDictation`, the same
+ * hook every other composer uses: the dictated text is appended when it
+ * arrives, and Send during a dictation waits for it.
  */
 export function ChatInput() {
   const t = useT();
@@ -35,23 +36,9 @@ export function ChatInput() {
   // column renders the live steps (components/home/TurnSteps) as the
   // in-progress assistant turn. The composer only arms the wait state.
   const setChatThinking = useEventStore((s) => s.setChatThinking);
-  // Mic-dictation: live transcript streams into the box as the user speaks.
-  const dictating = useEventStore((s) => s.dictating);
-  const dictationText = useEventStore((s) => s.dictationText);
-  const dictationCommitSeq = useEventStore((s) => s.dictationCommitSeq);
-  const setDictating = useEventStore((s) => s.setDictating);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // The textarea content captured at dictation-start; interim transcripts are
-  // rendered as `base + interim` so letters appear live without clobbering what
-  // the user had already typed.
-  const dictationBaseRef = useRef("");
-  // True only between this button starting a dictation and that dictation's
-  // final transcript arriving — the window in which `dictationBaseRef` is a
-  // real snapshot rather than a leftover. It cannot be derived from the store's
-  // `dictating` flag: the commit clears that flag in the SAME update that bumps
-  // the sequence, so by the time the commit effect runs it already reads false.
-  const mirroringRef = useRef(false);
-  const lastCommitSeqRef = useRef(dictationCommitSeq);
+  // Microphone dictation: the text is appended to the box when it arrives.
+  const dictation = useComposerDictation(setValue, () => void send());
 
   useEffect(() => {
     return () => {
@@ -59,44 +46,14 @@ export function ChatInput() {
     };
   }, []);
 
-  // While dictating, mirror the live interim tail into the textarea in real time.
-  useEffect(() => {
-    if (!dictating) return;
-    const base = dictationBaseRef.current;
-    const sep = base && dictationText ? " " : "";
-    setValue(base + sep + dictationText);
-  }, [dictating, dictationText]);
-
-  // On a final dictation transcript, append it to the box exactly once (the seq
-  // bump is the one-shot signal) and end the live-mirror.
-  //
-  // The base is only the snapshot taken at dictation START while the live
-  // mirror is actually running, i.e. for a dictation this button began. A
-  // dictation started by the keyboard shortcut never calls `startDictation`, so
-  // the snapshot there is whatever the box held during the LAST button-driven
-  // dictation — stale by minutes, and empty on a session that never used the
-  // button at all. Using it appended the transcript onto a base that no longer
-  // existed and so REPLACED whatever the user had typed. Outside the mirror the
-  // live value is the only correct base, and the functional update reads it
-  // without dragging `value` into the dependency array (which would re-run this
-  // one-shot effect on every keystroke).
-  useEffect(() => {
-    if (dictationCommitSeq === lastCommitSeqRef.current) return;
-    lastCommitSeqRef.current = dictationCommitSeq;
-    const finalText = useEventStore.getState().dictationCommitText;
-    setValue((current) => {
-      const base = mirroringRef.current ? dictationBaseRef.current : current;
-      const sep = base && finalText ? " " : "";
-      return base + sep + finalText;
-    });
-    mirroringRef.current = false;
-  }, [dictationCommitSeq]);
-
   async function send() {
+    // Send during a dictation ends it first; the message goes once the text is here.
+    if (dictation.awaitingText) {
+      dictation.stopAndSend();
+      return;
+    }
     const content = value.trim();
     if (!content) return;
-    // A pending dictation must not bleed into the next turn.
-    if (dictating) stopDictation();
     const client = getWSClient();
     // Route the message into the active conversation so the brain (seeded on
     // resume) and the persisted thread line up. ensureActiveThread() lazily
@@ -129,32 +86,6 @@ export function ChatInput() {
     setValue("");
   }
 
-  function startDictation() {
-    // Capture the current text so the live transcript appends, not overwrites.
-    dictationBaseRef.current = value;
-    mirroringRef.current = true;
-    setDictating(true);
-    getWSClient()?.send({
-      type: "command",
-      action: "stt_dictate",
-      payload: { mode: "start" },
-    });
-  }
-
-  function stopDictation() {
-    getWSClient()?.send({
-      type: "command",
-      action: "stt_dictate",
-      payload: { mode: "stop" },
-    });
-    setDictating(false);
-  }
-
-  function toggleDictation() {
-    if (dictating) stopDictation();
-    else startDictation();
-  }
-
   function onKeyDown(ev: KeyboardEvent<HTMLTextAreaElement>) {
     if (ev.key === "Enter" && !ev.shiftKey) {
       ev.preventDefault();
@@ -162,7 +93,8 @@ export function ChatInput() {
     }
   }
 
-  const canSend = connected && Boolean(value.trim());
+  // Live during a dictation even with an empty box: Send then waits for the text.
+  const canSend = connected && (Boolean(value.trim()) || dictation.awaitingText);
 
   return (
     <div
@@ -188,7 +120,7 @@ export function ChatInput() {
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder={
-          dictating
+          dictation.dictating
             ? t("chats_view.dictation_listening")
             : connected
             ? t("chats_view.input_placeholder")
@@ -204,9 +136,11 @@ export function ChatInput() {
       />
       <div className="flex items-center gap-row">
         <DictationButton
-          dictating={dictating}
-          onToggle={toggleDictation}
-          disabled={!connected}
+          dictating={dictation.dictating}
+          transcribing={dictation.finishing}
+          sendQueued={dictation.sendQueued}
+          onToggle={dictation.toggle}
+          disabled={!connected || dictation.micHeld}
           startLabel={t("chats_view.dictation_start")}
           stopLabel={t("chats_view.dictation_stop")}
         />

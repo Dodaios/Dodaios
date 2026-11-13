@@ -380,7 +380,6 @@ def _session_pipeline(stt, cfg: DictationConfig):
     pipe._utterance_stt = stt
     pipe._dictation_cfg = cfg
     pipe._dictation_target = "chat"
-    pipe._ptt_partial_interval_s = 0.0
     pipe._dictation_max_s = 5.0
     pipe._input_device = None
     pipe._input_priority = None
@@ -397,7 +396,7 @@ def _session_pipeline(stt, cfg: DictationConfig):
 
 @pytest.mark.asyncio
 async def test_duration_is_the_length_of_the_audio_not_of_the_wait(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, speech_by_loudness: None
 ) -> None:
     """Two seconds of speech stay two seconds however long the provider took.
 
@@ -415,7 +414,7 @@ async def test_duration_is_the_length_of_the_audio_not_of_the_wait(
     )
     pipe, events = _session_pipeline(
         _SlowSTT(0.35),
-        DictationConfig(partial_interval_s=0.0, history_enabled=False),
+        DictationConfig(history_enabled=False),
     )
     await pipe._dictation_session()
 
@@ -440,7 +439,7 @@ async def test_a_recording_that_captured_nothing_reports_no_duration(
     )
     pipe, events = _session_pipeline(
         _SlowSTT(0.05),
-        DictationConfig(partial_interval_s=0.0, history_enabled=False),
+        DictationConfig(history_enabled=False),
     )
     await pipe._dictation_session()
     assert _completed(events).duration_s == pytest.approx(0.0)

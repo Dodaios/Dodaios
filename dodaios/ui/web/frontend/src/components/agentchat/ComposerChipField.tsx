@@ -276,9 +276,9 @@ export const ComposerChipField = forwardRef<
       const root = elRef.current;
       if (!root) return;
       // Rebuilt with the chips the field holds, so a chip whose `@name` is
-      // still in `text` stays a chip. A dictation rewrites the box several
-      // times a second; as plain text it turned every chip into its name
-      // and dropped the tool choice with it.
+      // still in `text` stays a chip. Dictated text is appended through
+      // here; written as plain text it would turn every chip into its name
+      // and drop the tool choice with it.
       const typingHere = liveRange(root) !== null;
       hydrateRoot(root, text, serialize(root).choices);
       savedRange.current = rangeAtEnd(root).cloneRange();

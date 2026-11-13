@@ -138,11 +138,12 @@ export interface FinalTranscript {
  *    section the user is not even looking at. A backend too old to send a
  *    target says nothing, which reads as "not for us" and leaves that install
  *    behaving exactly as it did before.
- *  - **Words.** An aborted dictation publishes an empty final transcript purely
- *    to end the live tail; there is nothing to insert and nothing to report.
- *  - **The composer is not recording.** Its microphone button mirrors every
- *    partial into itself and owns the commit, so inserting here as well would
- *    deliver the same sentence twice.
+ *  - **Words.** A dictation that produced nothing still publishes its one
+ *    transcript, with empty text; there is nothing to insert and nothing to
+ *    report.
+ *  - **The composer is not recording.** A composer whose microphone button
+ *    started the dictation takes the text itself, so inserting here as well
+ *    would deliver the same sentence twice.
  */
 export function isForThisWindow(
   payload: FinalTranscript,

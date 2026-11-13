@@ -128,16 +128,31 @@ async def test_punctuation_is_repaired_in_a_language_with_no_filler_rules() -> N
 @pytest.mark.parametrize("target", ["chat", "insert"])
 @pytest.mark.parametrize("remove_fillers", [False, True])
 @pytest.mark.parametrize(
-    ("raw", "language"),
+    ("raw", "language", "delivered"),
     [
-        ("was ich... hier eingesprochen habe.", "de"),  # i18n-allow: regression
-        ("Please do… not delete these files.", "en"),
-        ("Das sind ... Namen und Zahlen.", "de"),  # i18n-allow: German nouns
+        (
+            "was ich... hier eingesprochen habe.",  # i18n-allow: regression
+            "de",
+            "was ich hier eingesprochen habe.",  # i18n-allow: regression
+        ),
+        (
+            "Please do… not delete these files.",
+            "en",
+            "Please do not delete these files.",
+        ),
+        (
+            "Das sind ... Namen und Zahlen.",  # i18n-allow: German nouns
+            "de",
+            "Das sind Namen und Zahlen.",  # i18n-allow: German nouns
+        ),
     ],
 )
-async def test_hesitation_is_preserved_through_final_delivery(
-    raw: str, language: str, target: str, remove_fillers: bool,
+async def test_a_pause_mark_never_reaches_the_delivered_text(
+    raw: str, language: str, delivered: str, target: str, remove_fillers: bool,
 ) -> None:
+    """Nobody dictates three dots: a recognizer writes them where the speaker
+    paused. They are removed whatever the filler switch says, and the words
+    around them stay one sentence. What was recognized is kept as raw text."""
     pipe, events, inserted = _pipeline(
         DictationConfig(
             history_enabled=False, polish=False, remove_fillers=remove_fillers,
@@ -149,10 +164,10 @@ async def test_hesitation_is_preserved_through_final_delivery(
         target=target, hung_up=False,
     )
 
-    assert text == raw
-    assert _final_transcript(events).text == raw
+    assert text == delivered
+    assert _final_transcript(events).text == delivered
     assert _completed(events).raw_text == raw
-    assert inserted == ([raw] if target == "insert" else [])
+    assert inserted == ([delivered] if target == "insert" else [])
 
 
 # --------------------------------------------------------------------------

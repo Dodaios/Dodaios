@@ -302,6 +302,9 @@ pages:
       - dodaios/ui/web/frontend/src/views/voice/LanguageTab.tsx
       - dodaios/ui/web/dictation_routes.py
       - dodaios/dictation/history.py
+      - dodaios/dictation/take.py
+      - dodaios/dictation/formatting.py
+      - dodaios/dictation/recognizers.py
       - dodaios/speech/pipeline.py
     related:
       - voice-conversations

@@ -159,18 +159,15 @@ def _normalized_language(tag: str) -> str:
 
 
 def _restore_stt(pipeline: Any) -> Any:
-    """The provider a Restore transcribes with — the DICTATION one, not voice.
+    """What a Restore reads a kept recording with: the dictation's own reader.
 
-    The dictation lane holds its own instance: no ``[stt].bias_prompt`` (which
-    the config documents as a silence-hallucination amplifier) and its own
-    cross-family fallback chain. A restore that reached past it to the voice
-    provider would transcribe the same audio under different decoder priming
-    than the dictation that produced it, which is the one thing a "give me that
-    back" button must not do.
+    The pipeline hands out a reader that goes through the same recognizers,
+    cuts at the same pauses and sends no silence, exactly as a live dictation
+    does. A restore that reached past it to the voice provider would read the
+    same audio under different rules than the dictation that recorded it.
 
-    Falls back to the voice provider on an older pipeline object (and on the
-    duck-typed doubles the route tests build), so this can only ever add
-    correctness, never remove a working path.
+    Falls back to the voice provider on a pipeline object without that reader
+    (the duck-typed doubles of the route tests).
     """
     if pipeline is None:
         return None
@@ -193,8 +190,8 @@ async def _format_restored_text(
 
     A Restore that produced different text than the original delivery would be
     a quiet lie about what the button does, so this applies the SAME steps, in
-    the same order and with the same decisions: resolve the language, remove
-    fillers, repair the punctuation our own segment boundaries broke, and —
+    the same order and with the same decisions: resolve the language, apply
+    the formatting rules (pause marks, spoken layout commands, fillers), and —
     when it is switched on and reachable — polish and, if a translation target
     is configured, translate. Each step owns its own decision in its own module;
     nothing is re-derived here.
@@ -203,7 +200,7 @@ async def _format_restored_text(
     words back, and a formatting bug must never be the reason they do not get
     them.
     """
-    from dodaios.dictation.cleanup import clean_transcript, tidy_transcript
+    from dodaios.dictation.formatting import format_dictation
 
     cfg = _dictation_cfg(request)
     pinned = str(getattr(cfg, "language", "auto") or "auto")
@@ -225,21 +222,16 @@ async def _format_restored_text(
 
     text = raw
     try:
-        outcome = clean_transcript(
+        text = format_dictation(
             raw,
             language=language,
-            remove_fillers=bool(getattr(cfg, "remove_fillers", True)),
+            fillers=bool(getattr(cfg, "remove_fillers", True)),
             max_removed_fraction=float(
                 getattr(cfg, "filler_max_removed_fraction", 0.25)
             ),
-        )
-        text = outcome.text
-    except Exception:  # noqa: BLE001 — never lose the text to a cleanup bug
-        log.warning("restore cleanup failed; keeping the raw transcript", exc_info=True)
-    try:
-        text = tidy_transcript(text)
-    except Exception:  # noqa: BLE001 — a tidy bug never costs the words
-        log.debug("restore tidy failed; keeping the untidied text", exc_info=True)
+        ).text
+    except Exception:  # noqa: BLE001 — never lose the text to a formatting bug
+        log.warning("restore formatting failed; keeping the raw transcript", exc_info=True)
 
     try:
         from dodaios.dictation.polish import (
@@ -441,47 +433,23 @@ class SettingsBody(BaseModel):
     remove_fillers: bool | None = None
     filler_max_removed_fraction: float | None = None
     max_seconds: float | None = None
-    partial_interval_s: float | None = None
-    segment_seconds: float | None = None
-    final_quality_pass: bool | None = Field(
-        default=None,
-        description=(
-            "Re-transcribe the complete recording after release and deliver "
-            "that quality pass instead of the short live-preview segments"
-        ),
-    )
-    final_window_seconds: float | None = Field(
-        default=None,
-        description="Length of each final transcription window (5-60 seconds)",
-    )
-    final_overlap_seconds: float | None = Field(
-        default=None,
-        description="Audio shared by adjacent final windows (0-5 seconds)",
-    )
     local_engine: bool | None = Field(
         default=None,
         description=(
-            "Read the final pass on this machine in a worker process before "
-            "any configured cloud provider (declines itself on a full card, "
-            "a CPU-only host or a missing local runtime)"
+            "Use the local Whisper engine in a worker process: in front of a "
+            "cloud provider where a graphics card answers, as the stand-in "
+            "behind one elsewhere"
         ),
     )
     local_model: str | None = Field(
         default=None,
-        description="faster-whisper checkpoint for the local final pass",
+        description="faster-whisper checkpoint of the local Whisper engine",
     )
     local_min_free_gb: float | None = Field(
         default=None,
         description=(
-            "Free accelerator memory the local final pass needs before it "
-            "starts (0-64 GB; 0 skips the check)"
-        ),
-    )
-    code_switching: bool | None = Field(
-        default=None,
-        description=(
-            "Let the final recognizer detect language from the audio instead "
-            "of locking the request to one configured language"
+            "Free accelerator memory the local Whisper engine needs before "
+            "it starts (0-64 GB; 0 skips the check)"
         ),
     )
     history_enabled: bool | None = None

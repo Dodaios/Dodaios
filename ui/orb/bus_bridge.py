@@ -110,15 +110,14 @@ SALUTE_DURATION_S = 1.1
 GRACE_HIDE_DURATION_S = 1.5
 
 # Hard ceiling on how long a dictation may keep the bar lit without a
-# ``DictationCompleted``. The pipeline caps a recording at ``dictation.
-# max_seconds`` (300 s default, and a configured 0 falls back to that same
-# default, so the cap can never be switched off); this is that ceiling plus a
-# generous transcription margin. It exists ONLY as a fail-safe: if the
-# completion event is lost — a crashed session, a dropped subscriber, a
-# surface swap mid-dictation — the bar must still come down on its own rather
-# than stay lit with no visible cause and no way back. A deadline expires; a
-# latch you forget to clear does not.
-DICTATION_MAX_VISIBLE_S = 360.0
+# ``DictationCompleted``. A recording is capped at ``dictation.max_seconds``
+# (1800 s by default); this is that default plus a margin for the
+# transcription of the last piece. It exists ONLY as a fail-safe: if the
+# completion event is lost (a crashed session, a dropped subscriber, a surface
+# swap mid-dictation) the bar must still come down on its own rather than stay
+# lit with no visible cause and no way back. A deadline expires; a latch you
+# forget to clear does not.
+DICTATION_MAX_VISIBLE_S = 1980.0
 
 # How long a refused dictation stays on screen before the surface goes back to
 # whatever it was doing. Long enough to be noticed and read on a surface that

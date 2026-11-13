@@ -1,26 +1,27 @@
 /**
- * The composer's microphone — one control that IS the recording state.
+ * The composer's microphone: one control that shows where a dictation stands.
  *
  * Idle it is a plain mic icon. Pressed, it grows in place into a pill that
- * shows everything a live dictation owes the user: a waveform driven by the
+ * shows everything a live dictation owes the person: a waveform driven by the
  * real microphone level, the elapsed time, and the Stop right where the
- * finger already is. It replaces the separate "Listening…" strip that used to
- * float above the composer (a second, full-width bar the eye had to find, with
- * its Stop far away from the button that started it) and the pulsing square
- * that read as a glitch rather than as "recording".
+ * finger already is. After Stop it stays a pill, now with a spinner and a
+ * short line, for as long as the recording is being transcribed, so the wait
+ * for the text is never a blank moment.
  *
- * Everything it shows is real. `dictating` is the live session flag from the
- * event bus; the clock counts from the moment that flag went true; the bars
- * read `readVoiceInputLevel()`, the level the backend streams from the very
- * microphone the dictation transcribes (`audio.level` frames). With no fresh
- * sample — an older backend, a muted device — the bars rest flat instead of
- * inventing motion.
+ * Everything it shows is real. `dictating` and `transcribing` come from the
+ * dictation state the event bus drives; the clock counts from the moment
+ * `dictating` went true; the bars read `readVoiceInputLevel()`, the level the
+ * backend streams from the very microphone the dictation records
+ * (`audio.level` frames). With no fresh sample (a muted device) the bars
+ * rest flat instead of inventing motion.
  *
- * Green, not red: a live microphone is a state, not a fault, and the palette
- * keeps `--destructive` for faults (see components/VoiceIndicator.tsx).
+ * Recording is green, not red: a live microphone is a state, not a fault, and
+ * the palette keeps `--destructive` for faults (see
+ * components/VoiceIndicator.tsx). Transcribing is neutral: the microphone is
+ * closed and nothing is being heard any more.
  */
 import { useEffect, useRef, useState } from "react";
-import { Mic, Square } from "lucide-react";
+import { Loader2, Mic, Square } from "lucide-react";
 
 import { useT } from "@/i18n";
 import { readVoiceInputLevel } from "@/lib/voiceInputLevel";
@@ -97,6 +98,10 @@ function Waveform() {
 
 export interface DictationButtonProps {
   dictating: boolean;
+  /** The microphone is closed and the recording is being transcribed. */
+  transcribing?: boolean;
+  /** Send was pressed meanwhile: the message goes out when the text is here. */
+  sendQueued?: boolean;
   onToggle: () => void;
   disabled?: boolean;
   /** Label of the idle button (differs per surface: "Dictate" / "Record"). */
@@ -106,14 +111,16 @@ export interface DictationButtonProps {
   shape?: "round" | "square";
   className?: string;
   /**
-   * Classes for the idle button only — a size that fits the microphone
-   * glyph would crush the wider recording pill (dot, wave, timer, stop).
+   * Classes for the idle button only: a size that fits the microphone glyph
+   * would crush the wider pills (dot, wave, timer and stop; spinner and line).
    */
   idleClassName?: string;
 }
 
 export function DictationButton({
   dictating,
+  transcribing = false,
+  sendQueued = false,
   onToggle,
   disabled,
   startLabel,
@@ -137,6 +144,27 @@ export function DictationButton({
     const id = window.setInterval(() => setElapsed(Date.now() - startedRef.current), 500);
     return () => window.clearInterval(id);
   }, [dictating]);
+
+  if (!dictating && transcribing) {
+    // No Stop here: the recording is over and its text cannot be called back.
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        data-testid="dictation-transcribing"
+        className={cn(
+          "inline-flex h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-secondary px-3 text-xs text-muted-foreground",
+          "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150",
+          className,
+        )}
+      >
+        <Loader2 className="h-3.5 w-3.5 shrink-0 motion-safe:animate-spin" aria-hidden />
+        <span>
+          {t(sendQueued ? "chats_view.dictation_send_queued" : "chats_view.dictation_transcribing")}
+        </span>
+      </div>
+    );
+  }
 
   if (!dictating) {
     return (

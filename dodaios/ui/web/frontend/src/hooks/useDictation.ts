@@ -189,10 +189,15 @@ export interface DictationStatus {
     detail: string;
   };
   /**
-   * Which recognizer really answers the next press (P-41). `local` is true
-   * while the on-device final pass is armed in front; `provider`/`model`
-   * name whatever answers next, `fallback` the one behind it, and `detail`
-   * says why the local engine is NOT in front when it is not.
+   * Which recognizer reads the next dictation. `provider` and `model` name
+   * the engine in front, `local` says whether it runs on this computer and
+   * `fallback` names the stand-in behind it. `reason` is set when that is not
+   * what the settings suggest: `no_key` (no key saved for the configured
+   * provider, recognition runs on this computer), `no_key_slow` (the same,
+   * and the on-device model in use is slow here while a faster one can be
+   * downloaded), `other_provider` (another keyed provider recognizes
+   * instead), `no_recognizer`. `detail` is the same fact as an English
+   * sentence, for surfaces without texts of their own.
    */
   engine?: {
     local: boolean;
@@ -200,6 +205,9 @@ export interface DictationStatus {
     model: string;
     fallback: string;
     detail: string;
+    reason?: string;
+    /** The provider the settings name, whatever reads in its place. */
+    configured?: string;
   };
 }
 
@@ -291,22 +299,12 @@ export interface DictationSettings {
   remove_fillers: boolean;
   filler_max_removed_fraction: number;
   max_seconds: number;
-  partial_interval_s: number;
-  segment_seconds: number;
-  /** Re-read the complete recording after release; live segments stay preview-only. */
-  final_quality_pass: boolean;
-  /** Length of one final quality window in seconds. */
-  final_window_seconds: number;
-  /** Overlap between adjacent final windows in seconds. */
-  final_overlap_seconds: number;
   /** Read the final pass on this machine (worker process) before any cloud provider. */
   local_engine: boolean;
   /** faster-whisper checkpoint for the local final pass. */
   local_model: string;
   /** Free accelerator memory the local final pass needs before it starts (GB). */
   local_min_free_gb: number;
-  /** Auto-detect within the recording instead of sending a hard language lock. */
-  code_switching: boolean;
   history_enabled: boolean;
   history_max_entries: number;
   history_retention_days: number;

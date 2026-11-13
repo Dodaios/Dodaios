@@ -11,7 +11,10 @@ audience: developer
 
 # ADR-0032 — Final Multilingual Dictation Transcription
 
-**Status:** Accepted (2026-07-30)
+**Status:** Accepted (2026-07-30). Decisions 3 and 4 are superseded by
+[ADR-0047](0047-dictation-is-one-take.md) (2026-11-13): a recording is
+recognized once, in pieces cut at the speaker's pauses, and a chosen language
+is told to the recognizer.
 **Reference:** AP-21, AP-22, AP-23, AP-24, AP-26, AP-30, AP-31
 
 ## Context

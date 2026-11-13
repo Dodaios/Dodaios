@@ -3637,7 +3637,8 @@ class DictationConfig(BaseModel):
     restore_clipboard: bool = True
 
     #: Remove filler sounds with the deterministic per-language rules in
-    #: ``dodaios.dictation.cleanup``. No model call, no rephrasing.
+    #: ``dodaios.dictation.cleanup``, applied by the formatting rules in
+    #: ``dodaios.dictation.formatting``. No model call, no rephrasing.
     remove_fillers: bool = True
 
     #: Safety ceiling for the cleanup: if the rules would drop more than this
@@ -3648,11 +3649,11 @@ class DictationConfig(BaseModel):
     #: Ceiling on ONE dictation, in seconds. ``0`` removes it entirely.
     #:
     #: This is not a provider limit and never was. No speech-to-text request
-    #: carries the whole recording: the final pass cuts the audio at its
-    #: quietest points into segment-sized pieces, so a provider's file-size
-    #: ceiling is reached by a SEGMENT, never by a long dictation. The only
-    #: real cost of speaking longer is the buffer held in memory — 16 kHz
-    #: 16-bit mono is ~1.9 MB per minute, so half an hour is ~58 MB.
+    #: carries the whole recording: a long one is cut at the speaker's pauses
+    #: into pieces of about half a minute, so a provider's file-size ceiling
+    #: is never reached by a long dictation. The only real cost of speaking
+    #: longer is the buffer held in memory — 16 kHz 16-bit mono is ~1.9 MB per
+    #: minute, so half an hour is ~58 MB.
     #:
     #: The default used to be five minutes, which is shorter than plenty of
     #: genuine dictations and cut them off mid-sentence. It is now half an
@@ -3665,91 +3666,29 @@ class DictationConfig(BaseModel):
     #: leave it deaf.
     max_seconds: float = Field(default=1800.0, ge=0.0, le=86_400.0)
 
-    #: Live-transcript refresh interval while speaking. ``0`` disables the live
-    #: preview entirely (the final transcription still happens).
-    partial_interval_s: float = Field(default=1.2, ge=0.0, le=10.0)
-
-    #: Segment length for the LIVE line while you speak. The old dictation lane
-    #: re-transcribed the whole growing buffer on every tick, which costs
-    #: O(n²) audio-seconds and, on a paid API, real money. Closed segments are
-    #: transcribed once and never again; only the open tail is re-sent.
-    #: ``0`` restores the legacy full-buffer behaviour.
-    #:
-    #: With ``final_quality_pass`` on (the default), what these short segments
-    #: produce is a PREVIEW and never the delivered text — see below for why
-    #: that distinction is the whole of the multilingual repair.
-    segment_seconds: float = Field(default=8.0, ge=0.0, le=60.0)
-
-    #: Re-transcribe the WHOLE recording once, in long windows, after the key
-    #: is released — and deliver that instead of the stitched-together short
-    #: segments.
-    #:
-    #: A recognizer detects the spoken language from the audio it is handed.
-    #: On an eight-second segment it is not sure, and an unsure model does not
-    #: merely mislabel the language — it TRANSLATES. That is why one continuous
-    #: recording used to arrive with one paragraph in the language spoken and
-    #: the next in English, and why a sentence that switches language halfway
-    #: through could not survive at all: each segment was decided separately.
-    #: Long windows remove the cause rather than patching the symptom.
-    #:
-    #: The cost is one extra pass over the audio. It is paid back by the live
-    #: line moving to the on-device preview engine where there is one, so a
-    #: desktop install sends FEWER requests than before; a host without a local
-    #: engine sends the short segments as before and this pass on top.
-    final_quality_pass: bool = True
-
-    #: Length of one final-pass window, in seconds. Long enough for reliable
-    #: language detection, short enough to stay inside every provider's upload
-    #: limit and to keep one failed window cheap.
-    final_window_seconds: float = Field(default=25.0, ge=5.0, le=60.0)
-
-    #: How much audio consecutive windows share. The overlap is what stops a
-    #: word that straddles a boundary from being cut in half; the duplicate it
-    #: creates is removed from the TEXT afterwards, which is possible, while
-    #: recovering half a word is not. ``0`` disables the overlap.
-    final_overlap_seconds: float = Field(default=1.5, ge=0.0, le=5.0)
-
-    #: Read the final pass on THIS machine, in a worker process, before any
-    #: configured cloud provider — when the local speech engine is installed
-    #: and the card has room. The worker declines itself (full card, CPU-only
-    #: host, missing runtime) with a crossable failure, so the configured
-    #: provider is one step behind on every press. Off = the configured
-    #: provider is in front, as before.
+    #: Read with the local Whisper engine, in a worker process — in front of
+    #: a cloud provider where a graphics card answers, as the stand-in behind
+    #: one elsewhere. The engine refuses a call it cannot take (full card,
+    #: missing runtime) and the next recognizer reads it. Off = the local
+    #: Whisper worker is never started.
     local_engine: bool = True
 
-    #: faster-whisper checkpoint for the local final pass. ``large-v3-turbo``
+    #: faster-whisper checkpoint of the local Whisper engine. ``large-v3-turbo``
     #: is the accuracy of ``large-v3`` at a fraction of the decode time and
     #: ~1 GB of accelerator memory. Independent of ``[stt].model``, which the
     #: voice lane owns.
     local_model: str = "large-v3-turbo"
 
-    #: Free accelerator memory the local final pass needs before it starts;
-    #: below it the configured provider takes the dictation. ``0`` skips the
+    #: Free accelerator memory the local Whisper engine needs before it starts;
+    #: below it the next recognizer takes the dictation. ``0`` skips the
     #: check. Unknown free memory (no NVIDIA tooling) never blocks the start.
     local_min_free_gb: float = Field(default=1.5, ge=0.0, le=64.0)
 
-    #: Minutes without a dictation after which the local engines (the final
-    #: pass and the live preview) are released. Each holds 1.3 to 2.1 GB of
-    #: committed memory and accelerator memory while it idles; the next
-    #: dictation starts them again in two to five seconds, from the key press.
-    #: ``0`` keeps them loaded for as long as the app runs.
+    #: Minutes without a dictation after which the on-device engines are
+    #: released. A loaded engine holds between several hundred megabytes and
+    #: 2 GB of memory while it idles; the next dictation starts it again from
+    #: the key press. ``0`` keeps them loaded for as long as the app runs.
     local_idle_minutes: float = Field(default=10.0, ge=0.0, le=1440.0)
-
-    #: Allow the language to change WITHIN one dictation.
-    #:
-    #: While this is on (the default), the final pass asks the recognizer to
-    #: detect the language from each long window instead of being told one, so
-    #: a sentence that starts in one language and finishes in another is
-    #: transcribed as it was spoken. ``language`` above then still governs how
-    #: the finished text is treated — which filler rules run, which language
-    #: the polish pass writes in — but it no longer LOCKS the recognizer, which
-    #: is what used to turn a pin into a translation of everything else said.
-    #:
-    #: Turn it off to hand the pinned language to the recognizer outright. That
-    #: is the right choice when you only ever dictate in one language and the
-    #: provider keeps guessing wrong; it is the wrong choice for anyone who
-    #: mixes languages, which is why it is not the default.
-    code_switching: bool = True
 
     #: Keep a local history of dictations (raw + cleaned, for auditing what the
     #: cleanup changed). Dictated text is among the most sensitive data this app

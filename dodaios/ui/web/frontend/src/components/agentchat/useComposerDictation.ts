@@ -1,230 +1,209 @@
-import { useCallback, useEffect, useId, useRef } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { getWSClient } from "@/hooks/useWebSocket";
+import { translate } from "@/i18n";
 import { useEventStore } from "@/store/events";
 
 /**
- * Microphone dictation into a composer's text box. The words stand in the box
- * while they are recognized, and the final transcript takes their place when
- * the dictation ends.
+ * Microphone dictation into a composer's text box.
  *
- * Lifted from components/ChatInput.tsx so the agent composer dictates the
- * same way the classic one does: the same `stt_dictate` command and the same
- * store flags.
+ * ## One dictation, three phases
  *
- * ## The words while speaking
+ * The store holds the state machine (`dictationPhase`, `dictationOwner`,
+ * `dictationResult` in store/events.ts); this hook is one composer's view of
+ * it. Pressing the microphone makes this composer the owner and the phase
+ * `recording`. Stop closes the microphone and the phase becomes
+ * `transcribing` at once, so the button shows that work is going on without
+ * waiting for the backend to say so. The dictation ends with a result: the
+ * text, or the reason there is none.
  *
- * The backend publishes the transcript so far a few times a second (the
- * segments already read, plus a quick reading of the newest audio). The
- * composer whose button started the dictation writes it at the end of its box
- * and overwrites it with each newer reading. The last words can still change;
- * what was read earlier stays. Before, the box stayed empty until the whole
- * recording was transcribed: with a slow recognizer that was many seconds of
- * an empty box after Stop.
- *
- * Only the box's own text is touched. What the person typed before the
- * dictation, or types after the mirrored words while it runs, is kept: the
- * mirrored words are found again by their text and replaced in place. When
- * they are no longer there (the person edited them), the mirror stops and the
- * final text is appended; when the box is empty by then (the message was
- * sent), the final text is dropped.
+ * Nothing is written into the box before that result. The text arrives once,
+ * complete, and is appended to whatever the box holds at that moment, so
+ * words typed while the recording was transcribed are kept.
  *
  * ## Whose dictation it is
  *
- * Several composers can be mounted at once. `start` names this instance as
- * the owner in the store (`dictationOwner`); only the owner mirrors, and only
- * the owner takes the commit of a dictation that has one. A dictation nobody
- * here started (the keyboard shortcut, the classic input) has no owner and
- * its commit appends as before.
+ * Several composers can be mounted at once, and only one dictation runs at a
+ * time. The owner alone shows the recording and transcribing states and takes
+ * the result. Every other composer's microphone rests disabled until the
+ * dictation is over (`micHeld`). A result without an owner (a dictation the
+ * keyboard shortcut started, handed to the composers because no field had
+ * focus) is taken by any composer.
  *
- * After Stop the microphone is closed but the last words are still being
- * recognized (`finishing`). The owner keeps the dictation until its final
- * text is here, so the final replaces the mirrored words instead of being
- * pasted after them. Until then no composer starts another one (`micHeld`):
- * the button rests dimmed, usually for about a second.
+ * ## Send while the text is on its way
  *
- * The setter is read through a ref: callers pass an inline wrapper (the
- * society composer mirrors into its chip field), and with that wrapper in the
- * effect deps the commit effect would re-run on every render of the composer.
- * It must hand the updater the box as it is NOW, not as it was at the last
- * render: several readings can arrive between two renders, and each one looks
- * for the words the one before it wrote.
+ * `stopAndSend` is what Send does while this composer records or waits for
+ * its text. It stops the recording if it still runs and remembers that a send
+ * is owed (`sendQueued`). The message leaves only once the result is here,
+ * however long that takes: there is no timeout that sends without the
+ * dictated words. With text, the text goes into the box first and the send
+ * follows. With nothing said, what was typed is sent. When the dictation
+ * failed or was cancelled, nothing is sent, the box stays as it is and a
+ * toast says so, because a message missing the spoken half is worse than a
+ * message the person sends again.
  *
- * `stopAndSend` lets Send end a running dictation: the mic stops, and the
- * composer's `onSend` runs once the final transcript has landed in the box
- * (or after FINAL_WAIT_MS, so a transcript that never comes cannot strand
- * the message; FINAL_WAIT_SHOWN_MS while the box shows words whose final
- * reading is still on its way). It does the same while `finishing`, so a Send right after
- * Stop goes out with the final words, not the quick reading. `onSend` is also
- * read through a ref, so the call made after the transcript lands sees the
- * box as it is then, not as it was at click.
+ * The setter and `onSend` are read through refs: callers pass inline
+ * wrappers, and the effect that takes the result must run once per result,
+ * not once per render of the composer.
  */
-const FINAL_WAIT_MS = 8000;
-/**
- * How long Send waits when the box already shows the words of a dictation
- * that is still being read. Those words are the quick reading; sending them
- * after 8 s would put a rough draft in front of the assistant while the real
- * transcript is seconds away (a local recognizer on a CPU needs 14 to 25 s
- * for a long recording).
- */
-const FINAL_WAIT_SHOWN_MS = 30_000;
-/** A final text that never comes must not keep the dictation forever. */
-const SETTLE_MAX_MS = 60_000;
 
 type Setter = (next: string | ((current: string) => string)) => void;
 
-function joined(base: string, text: string): string {
-  return base && !/\s$/.test(base) ? " " + text : text;
+/** `text` after what the box holds, with a space between the two when one is needed. */
+function appended(current: string, text: string): string {
+  return current + (current && !/\s$/.test(current) ? " " : "") + text;
+}
+
+function sendDictate(mode: "start" | "stop"): void {
+  getWSClient()?.send({ type: "command", action: "stt_dictate", payload: { mode } });
 }
 
 export function useComposerDictation(setValue: Setter, onSend?: () => void) {
   const id = useId();
-  const dictating = useEventStore((s) => s.dictating);
-  const finishing = useEventStore((s) => s.dictationSettling && s.dictationOwner === id);
-  const micHeld = useEventStore((s) => s.dictationSettling);
-  // The transcript so far, for the owner only: every other mounted composer
-  // reads "" throughout and is not re-rendered by a reading.
-  const reading = useEventStore((s) => (s.dictationOwner === id ? s.dictationText : ""));
-  const dictationCommitSeq = useEventStore((s) => s.dictationCommitSeq);
-  const dictationFinalSeq = useEventStore((s) => s.dictationFinalSeq);
-  const setDictating = useEventStore((s) => s.setDictating);
-  const settleDictation = useEventStore((s) => s.settleDictation);
-  const lastCommitSeqRef = useRef(dictationCommitSeq);
+  const dictating = useEventStore(
+    (s) => s.dictationOwner === id && s.dictationPhase === "recording",
+  );
+  const finishing = useEventStore(
+    (s) => s.dictationOwner === id && s.dictationPhase === "transcribing",
+  );
+  const heldElsewhere = useEventStore(
+    (s) => (s.dictationPhase ?? "idle") !== "idle" && s.dictationOwner !== id,
+  );
+  // Read with care for a store that carries no dictation state at all: a
+  // composer is also mounted where the store is a stand-in.
+  const resultSeq = useEventStore((s) => s.dictationResult?.seq ?? 0);
+  const [sendQueued, setSendQueued] = useState(false);
+  // The same flag for the callbacks, which must not see a stale render.
+  const sendQueuedRef = useRef(false);
+  const lastResultSeqRef = useRef(resultSeq);
   const setValueRef = useRef(setValue);
   setValueRef.current = setValue;
   const onSendRef = useRef(onSend);
   onSendRef.current = onSend;
   const sendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastFinalSeqRef = useRef(dictationFinalSeq);
-  /** The mirrored words exactly as they stand in the box, with their leading space. */
-  const shownRef = useRef("");
-  /** True once the person changed the mirrored words: hands off until the final. */
-  const detachedRef = useRef(false);
-  /** Put `text` where the mirrored words stand, or at the end when there are none. */
-  const write = useCallback((text: string, final: boolean) => {
-    setValueRef.current((current) => {
-      const shown = shownRef.current;
-      const at = shown ? current.lastIndexOf(shown) : -1;
-      let output = current;
-      if (shown && at < 0) {
-        // The mirrored words are gone. An empty box was sent or cleared: the
-        // final text belongs to a message that already left. Otherwise the
-        // person edited them, and the final text is added rather than lost.
-        detachedRef.current = true;
-        if (final && current.trim()) output = current + joined(current, text);
-      } else if (!detachedRef.current || final) {
-        const base = shown ? current.slice(0, at) : current;
-        const rest = shown ? current.slice(at + shown.length) : "";
-        const next = joined(base, text);
-        shownRef.current = next;
-        output = base + next + rest;
-      }
-      if (final) shownRef.current = "";
-      return output;
-    });
-  }, []);
 
-  const flushSend = useCallback(() => {
-    if (sendTimerRef.current === null) return;
-    clearTimeout(sendTimerRef.current);
-    sendTimerRef.current = null;
-    // A tick later, so the box has re-rendered with the transcript first.
-    setTimeout(() => onSendRef.current?.(), 0);
+  /** Run `decide` one tick later, after the composer has rendered the box. */
+  const afterRender = useCallback((decide: () => void) => {
+    if (sendTimerRef.current !== null) clearTimeout(sendTimerRef.current);
+    sendTimerRef.current = setTimeout(() => {
+      sendTimerRef.current = null;
+      decide();
+    }, 0);
   }, []);
 
   useEffect(() => {
-    if (dictationFinalSeq === lastFinalSeqRef.current) return;
-    lastFinalSeqRef.current = dictationFinalSeq;
-    flushSend();
-  }, [dictationFinalSeq, flushSend]);
+    if (resultSeq === lastResultSeqRef.current) return;
+    lastResultSeqRef.current = resultSeq;
+    const result = useEventStore.getState().dictationResult;
+    if (result.owner !== null && result.owner !== id) return; // another composer's dictation
 
+    // The updaters below also report what they saw. A setter may run its
+    // updater right away or at the next render, and a composer that is off
+    // screen may not run it at all, so the flags are read a tick later.
+    let landed = false;
+    if (result.text) {
+      setValueRef.current((current) => {
+        landed = true;
+        return appended(current, result.text);
+      });
+    }
+
+    // Only this composer's own dictation settles a queued send.
+    if (result.owner !== id || !sendQueuedRef.current) return;
+    sendQueuedRef.current = false;
+    setSendQueued(false);
+
+    if (result.outcome === "text") {
+      // Sent only when the text really is in the box.
+      afterRender(() => {
+        if (landed) onSendRef.current?.();
+      });
+    } else if (result.outcome === "empty") {
+      // Nothing was said: what the person typed is the whole message.
+      let holdsText = false;
+      setValueRef.current((current) => {
+        holdsText = current.trim().length > 0;
+        return current;
+      });
+      afterRender(() => {
+        if (holdsText) onSendRef.current?.();
+      });
+    } else {
+      useEventStore
+        .getState()
+        .pushToast("error", translate("chats_view.dictation_failed_not_sent"));
+    }
+  }, [resultSeq, id, afterRender]);
+
+  // A queued send belongs to the dictation it was queued for. Should that
+  // dictation end without a result for this composer, the queue must not
+  // stay set and swallow every later Send.
+  const awaitingText = dictating || finishing;
+  useEffect(() => {
+    if (awaitingText || !sendQueuedRef.current) return;
+    sendQueuedRef.current = false;
+    setSendQueued(false);
+  }, [awaitingText]);
+
+  // A composer that goes away while it records closes the microphone, and no
+  // other composer inherits a recording nobody can stop.
+  const startedRef = useRef(false);
   useEffect(
     () => () => {
       if (sendTimerRef.current !== null) clearTimeout(sendTimerRef.current);
+      // Only a composer that started a dictation has one to close.
+      if (!startedRef.current) return;
+      const store = useEventStore.getState();
+      if (store.dictationOwner === id && store.dictationPhase === "recording") {
+        sendDictate("stop");
+        store.resetDictation();
+      }
     },
-    [],
+    [id],
   );
 
-  // The words while they are recognized.
-  useEffect(() => {
-    if (reading) write(reading, false);
-  }, [reading, write]);
-
-  useEffect(() => {
-    if (dictationCommitSeq === lastCommitSeqRef.current) return;
-    lastCommitSeqRef.current = dictationCommitSeq;
-    const { dictationCommitText: finalText, dictationCommitOwner: owner } =
-      useEventStore.getState();
-    if (owner !== null && owner !== id) return; // another composer's dictation
-    if (!finalText) {
-      // Nothing was recognized at the end: what the box shows stays, as text.
-      shownRef.current = "";
-      return;
-    }
-    if (owner === id) {
-      write(finalText, true);
-      return;
-    }
-    setValueRef.current((current) => current + joined(current, finalText));
-  }, [dictationCommitSeq, id, write]);
-
-  // A dictation whose final text never comes (the connection dropped) is let
-  // go, so the next one into another field is not taken for this box.
-  useEffect(() => {
-    if (!finishing) return;
-    const timer = setTimeout(() => {
-      const state = useEventStore.getState();
-      if (state.dictationSettling && state.dictationOwner === id) setDictating(false);
-    }, SETTLE_MAX_MS);
-    return () => clearTimeout(timer);
-  }, [finishing, id, setDictating]);
-
   const start = useCallback(() => {
-    shownRef.current = "";
-    detachedRef.current = false;
-    setDictating(true, id);
-    getWSClient()?.send({ type: "command", action: "stt_dictate", payload: { mode: "start" } });
-  }, [id, setDictating]);
+    const store = useEventStore.getState();
+    // One dictation at a time: the backend refuses a second start.
+    if (store.dictationPhase !== "idle") return;
+    startedRef.current = true;
+    store.beginDictation(id);
+    sendDictate("start");
+  }, [id]);
 
   const stop = useCallback(() => {
-    getWSClient()?.send({ type: "command", action: "stt_dictate", payload: { mode: "stop" } });
-    settleDictation();
-  }, [settleDictation]);
+    const store = useEventStore.getState();
+    if (store.dictationOwner !== id || store.dictationPhase !== "recording") return;
+    sendDictate("stop");
+    store.markDictationTranscribing();
+  }, [id]);
 
   const toggle = useCallback(() => {
-    // The backend cannot open the microphone while the last dictation is
-    // still being read. A press then would be refused, and the refusal would
-    // let go of the dictation whose final text is on its way.
-    if (useEventStore.getState().dictationSettling) return;
-    if (dictating) stop();
-    else start();
-  }, [dictating, start, stop]);
+    const store = useEventStore.getState();
+    if (store.dictationPhase === "idle") start();
+    else if (store.dictationOwner === id && store.dictationPhase === "recording") stop();
+  }, [id, start, stop]);
 
   const stopAndSend = useCallback(() => {
-    if (sendTimerRef.current !== null) return;
-    const asked = Date.now();
-    const giveUp = () => {
-      const state = useEventStore.getState();
-      const stillReading = state.dictationSettling && state.dictationOwner === id;
-      const waited = Date.now() - asked;
-      if (stillReading && shownRef.current && waited < FINAL_WAIT_SHOWN_MS) {
-        sendTimerRef.current = setTimeout(giveUp, FINAL_WAIT_SHOWN_MS - waited);
-        return;
-      }
-      flushSend();
-    };
-    sendTimerRef.current = setTimeout(giveUp, FINAL_WAIT_MS);
-    if (useEventStore.getState().dictating) stop();
-  }, [flushSend, id, stop]);
+    if (sendQueuedRef.current) return;
+    const store = useEventStore.getState();
+    if (store.dictationOwner !== id || store.dictationPhase === "idle") return;
+    sendQueuedRef.current = true;
+    setSendQueued(true);
+    if (store.dictationPhase === "recording") stop();
+  }, [id, stop]);
 
   return {
+    /** This composer's microphone is recording. */
     dictating,
-    /** Stop was pressed and the final text is not here yet. */
+    /** This composer's recording is being transcribed. */
     finishing,
-    /** Recording or finishing: Send waits for the final text. */
-    awaitingText: dictating || finishing,
-    /** Some composer's dictation is finishing: the microphone cannot start yet. */
-    micHeld,
+    /** Recording or transcribing: Send waits for the result. */
+    awaitingText,
+    /** The microphone button cannot start a dictation right now. */
+    micHeld: heldElsewhere || finishing,
+    /** Send was pressed while the text was on its way; it goes out with the result. */
+    sendQueued,
     start,
     stop,
     toggle,

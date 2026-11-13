@@ -1,74 +1,13 @@
-"""Segment cutting and the local dictation history.
-
-The cut matters because a closed segment is transcribed ONCE and never
-revisited — a cut through the middle of a word is permanent damage, which is
-why it lands at the quietest point near the nominal length rather than exactly
-on it.
-"""
+"""The local dictation history: what is stored, pruned and exposed."""
 from __future__ import annotations
 
 import threading
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 from dodaios.dictation.history import DictationHistory, _prune
-from dodaios.dictation.segment import quietest_cut
-
-SR = 16_000
-BPS = SR * 2  # 16 kHz mono int16
-
-
-def _tone(seconds: float, amplitude: int = 3000) -> np.ndarray:
-    t = np.arange(int(seconds * SR))
-    return (amplitude * np.sin(2 * np.pi * 220 * t / SR)).astype(np.int16)
-
-
-# --------------------------------------------------------------------------
-# quietest_cut
-# --------------------------------------------------------------------------
-
-
-def test_cut_lands_in_the_silent_gap() -> None:
-    audio = _tone(10.0)
-    audio[int(6.8 * SR) : int(7.3 * SR)] = 0  # a clear pause
-    cut = quietest_cut(audio.tobytes(), int(8 * BPS), BPS)
-    assert 6.8 * BPS <= cut <= 7.3 * BPS
-
-
-def test_cut_is_sample_aligned() -> None:
-    audio = _tone(10.0)
-    audio[int(7.0 * SR) : int(7.4 * SR)] = 0
-    assert quietest_cut(audio.tobytes(), int(8 * BPS), BPS) % 2 == 0
-
-
-def test_cut_never_exceeds_the_buffer() -> None:
-    audio = _tone(3.0)
-    cut = quietest_cut(audio.tobytes(), int(8 * BPS), BPS)
-    assert cut <= len(audio.tobytes())
-
-
-def test_short_buffer_falls_back_to_the_nominal_cut() -> None:
-    pcm = b"\x00" * 1000
-    assert quietest_cut(pcm, 8 * BPS, BPS) == 1000
-
-
-def test_zero_nominal_is_zero() -> None:
-    assert quietest_cut(_tone(2.0).tobytes(), 0, BPS) == 0
-
-
-def test_uniformly_loud_audio_still_returns_a_usable_cut() -> None:
-    """No pause anywhere — the cut must still be inside the search window."""
-    audio = _tone(10.0)
-    cut = quietest_cut(audio.tobytes(), int(8 * BPS), BPS)
-    assert 6.4 * BPS <= cut <= 8 * BPS
-
-
-# --------------------------------------------------------------------------
-# History
-# --------------------------------------------------------------------------
 
 
 @pytest.fixture()

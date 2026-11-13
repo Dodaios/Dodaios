@@ -24,13 +24,14 @@ class _Provider:
 def _bare_pipeline() -> tuple[SpeechPipeline, Any, Any]:
     pipeline = SpeechPipeline.__new__(SpeechPipeline)
     old_provider = _Provider("groq-api")
-    old_dictation = _Provider("faster-whisper")
+    # What the dictation resolved before the switch: ``(signature, resolution)``.
+    old_dictation = ("stale-signature", object())
     pipeline._config = SimpleNamespace(stt=STTConfig(provider="groq-api", fallback=""))
     pipeline._dictation_cfg = SimpleNamespace(bias_prompt="", local_engine=False)
     pipeline._stt = None
     pipeline._utterance_stt = old_provider
     pipeline._probe_stt = old_provider
-    pipeline._dictation_stt_instance = old_dictation
+    pipeline._dictation_resolution_cache = old_dictation
     pipeline._voice_stt_fallback_chain = ("openai-api",)
     pipeline._voice_stt_fallback_instances = {"openai-api": object()}
     return pipeline, old_provider, old_dictation
@@ -69,15 +70,22 @@ def test_pipeline_switch_replaces_voice_and_next_dictation_provider(
         pipeline._utterance_stt, "_inner", pipeline._utterance_stt
     )
     assert pipeline._config.stt.provider == "openrouter-stt"
-    assert pipeline._dictation_stt_instance is None
+    assert pipeline._dictation_resolution_cache is None
     assert pipeline._voice_stt_fallback_chain is None
     assert pipeline._voice_stt_fallback_instances == {}
 
-    # The dictation lane builds its own prompt-free instance lazily. Its first
+    # The dictation resolves its own prompt-free recognizers lazily. Its first
     # use after the cut-over must read the new provider, not the stale cache.
-    dictation = pipeline._dictation_stt()
-    assert dictation.name == "openrouter-stt"
-    assert dictation is not pipeline._probe_stt
+    monkeypatch.setattr(
+        "dodaios.plugins.stt.available_stt_provider_names", lambda: ["openrouter-stt"]
+    )
+    monkeypatch.setattr("dodaios.dictation.recognizers.parakeet_ready", lambda: False)
+    monkeypatch.setattr(pipeline, "_recent_dictation_language", lambda: "", raising=False)
+    monkeypatch.setattr("dodaios.speech.pipeline.meter_stt", lambda provider, *_a, **_k: provider)
+    pipeline._speech_trace = None
+    recognizers = pipeline._dictation_resolution().recognizers
+    assert [r.id for r in recognizers] == ["openrouter-stt"]
+    assert recognizers[0].provider is not pipeline._probe_stt
     assert built == ["openrouter-stt", "openrouter-stt"]
 
 
@@ -94,7 +102,7 @@ def test_pipeline_switch_failure_preserves_every_live_reference(
     assert pipeline.set_stt_provider("openrouter-stt") is False
     assert pipeline._utterance_stt is old_provider
     assert pipeline._probe_stt is old_provider
-    assert pipeline._dictation_stt_instance is old_dictation
+    assert pipeline._dictation_resolution_cache is old_dictation
     assert pipeline._config.stt.provider == "groq-api"
 
 

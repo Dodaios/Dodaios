@@ -198,7 +198,7 @@ class TranscriptPolished(Event):
 
 @dataclass(frozen=True, slots=True)
 class DictationTranscript(Event):
-    """Live transcript of a dictation, as it is recognized.
+    """The text of a finished dictation.
 
     Deliberately a SEPARATE event from ``TranscriptionUpdate`` (which rides the
     live voice critical path). Dictation never reaches the brain, so keeping it
@@ -206,8 +206,9 @@ class DictationTranscript(Event):
     field without ever confusing it with a real voice turn, and the voice
     hot-path event stays untouched.
 
-    ``is_final=False`` interim hypotheses overwrite the live tail; the single
-    ``is_final=True`` ends the dictation.
+    A dictation publishes exactly one, with ``is_final=True``, after the
+    recording was read: no text exists while the person speaks. ``text`` is
+    empty when nothing came out; ``DictationCompleted`` then says why.
     """
 
     text: str = ""
@@ -292,19 +293,21 @@ class DictationCompleted(Event):
     #: Effective/requested model ids corresponding to the successful STT calls.
     #: Kept as a set-like ordered tuple because a fallback may use more than one.
     stt_models: tuple[str, ...] = ()
-    #: Language tags reported by the recognizer's final windows. The transcript
-    #: remains the source of truth; these are diagnostics, never a language lock.
+    #: Language tags the recognizers reported for the pieces of the recording.
+    #: The transcript remains the source of truth; these are diagnostics.
     detected_languages: tuple[str, ...] = ()
     #: Aggregate wall-clock time spent awaiting STT for this dictation.
     stt_latency_ms: int = 0
-    #: Number of logical STT uploads, including previews and final attempts.
-    #: A provider's internal request-shape downgrade is deliberately not
+    #: Number of calls to a recognizer: one per piece of the recording, plus
+    #: one for each call that failed and was handed on or tried again. A
+    #: provider's internal request-shape downgrade is deliberately not
     #: observable at this layer.
     stt_calls: int = 0
     #: Stable reason codes observed during STT, with duplicates removed.
     stt_errors: tuple[str, ...] = ()
-    #: Compact audit facts such as final-pass status, window count, and audio
-    #: preprocessing decisions. English machine data, no transcript content.
+    #: Compact audit facts such as the number of pieces, the wait after the
+    #: stop and audio preprocessing decisions. English machine data, no
+    #: transcript content.
     stt_audit: tuple[str, ...] = ()
     #: Stable PCM rate delivered to STT after any capture-side resampling.
     audio_sample_rate_hz: int = 0

@@ -327,7 +327,7 @@ _ON_DEVICE_ATTR = "runs_on_device"
 #: so it is asked only for our OWN plugins (whose behaviour we know without
 #: importing them) and never used to judge a stranger's.
 _SHIPPED_ON_DEVICE_PROVIDERS: frozenset[str] = frozenset(
-    {"faster-whisper", "nemotron-local"}
+    {"faster-whisper", "nemotron-local", "parakeet-local"}
 )
 
 

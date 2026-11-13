@@ -4311,7 +4311,12 @@ async def set_secret_value(key: str, body: SecretBody, request: Request) -> dict
     """
     if key not in ALLOWED_SECRET_KEYS:
         raise HTTPException(status_code=404, detail=f"Unknown secret key: {key}")
-    plan = cfg_mod.plan_secret_save(key, body.value, body.scope)
+    # A pasted key often carries a space or a line break at its end, and a
+    # provider refuses such a value exactly like a wrong key.
+    value = body.value.strip()
+    if not value:
+        raise HTTPException(status_code=422, detail="The key is empty.")
+    plan = cfg_mod.plan_secret_save(key, value, body.scope)
     if plan.choice_required:
         family_spec = get_spec(plan.family) if plan.family else None
         return {
@@ -4324,7 +4329,7 @@ async def set_secret_value(key: str, body: SecretBody, request: Request) -> dict
             "conflicting_labels": _secret_slot_labels(plan.conflicting_slots),
         }
     for slot in plan.writes:
-        if not cfg_mod.set_secret(slot, body.value):
+        if not cfg_mod.set_secret(slot, value):
             raise HTTPException(status_code=500, detail="Keyring write failed")
     for slot in plan.deletes:
         if not cfg_mod.delete_secret(slot):

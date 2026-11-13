@@ -576,29 +576,17 @@ interface EventStore {
   // trademarked placeholder like "Jarvis" — only on the very first run before
   // any name has been cached. See src/lib/assistantNameCache.ts.
   assistantName: string;
-  // Chat mic-dictation (transcribe-only). ``dictating`` is true while the mic
-  // session runs; ``dictationText`` is the live interim tail (overwritten by
-  // each partial). A final transcript bumps ``dictationCommitSeq`` and carries
-  // its text in ``dictationCommitText`` — ChatInput watches the seq to append
-  // the finalized text to its textarea exactly once.
-  dictating: boolean;
-  dictationText: string;
-  dictationCommitSeq: number;
-  dictationCommitText: string;
-  // The composer whose microphone button started the running dictation
-  // (its instance id), ``null`` for a dictation started any other way. That
-  // composer shows the words in its box while they are recognized and takes
-  // the final text itself; ``dictationCommitOwner`` is the owner of the
-  // dictation the last commit ended.
+  // The dictation a microphone button of THIS window started. A dictation
+  // started by the global keyboard shortcut is not tracked here: the phase
+  // stays ``idle`` for it. ``recording`` while the microphone is open,
+  // ``transcribing`` from Stop until the text (or the reason there is none)
+  // is here.
+  dictationPhase: DictationPhase;
+  // The composer whose microphone button started it (its instance id).
   dictationOwner: string | null;
-  dictationCommitOwner: string | null;
-  // True from the owner's Stop until the final text is here: the microphone is
-  // closed, the last words are still being recognized.
-  dictationSettling: boolean;
-  // Bumped on EVERY final transcript this window owns, whichever route it
-  // took (pasted into the focused field, or committed to the composer). A
-  // composer that ended a dictation with "send" waits on it.
-  dictationFinalSeq: number;
+  // The last finished dictation that is meant for a composer. Composers watch
+  // ``seq`` and take the result that carries their id, or no id at all.
+  dictationResult: DictationResult;
   pendingTerminalCommand: PendingTerminalCommand | null;
   cliConnectCoach: CliConnectCoach | null;
   // When the user installs a CLI from within ClisView (clicking
@@ -646,14 +634,55 @@ interface EventStore {
   setBrainModel: (m: string) => void;
   setCodingMode: (m: CodingModeState) => void;
   setAssistantName: (name: string) => void;
-  setDictating: (b: boolean, owner?: string | null) => void;
-  settleDictation: () => void;
-  setDictationInterim: (text: string) => void;
-  commitDictation: (text: string) => void;
-  noteDictationFinal: () => void;
+  /** A composer's microphone button was pressed: the phase becomes ``recording``. */
+  beginDictation: (owner: string) => void;
+  /** The microphone closed: ``recording`` becomes ``transcribing``. Nothing in any other phase. */
+  markDictationTranscribing: () => void;
+  /** Publish how the dictation ended for the composer that owns it, then go idle. */
+  finishDictation: (text: string, outcome: DictationOutcome) => void;
+  /** Go idle without publishing a result. */
+  resetDictation: () => void;
   setPendingTerminalCommand: (cmd: PendingTerminalCommand | null) => void;
   setCliConnectCoach: (coach: CliConnectCoach | null) => void;
   setPendingInstallCliName: (name: string | null) => void;
+}
+
+/** Where the dictation a composer of this window started stands. */
+export type DictationPhase = "idle" | "recording" | "transcribing";
+
+/**
+ * How a dictation meant for a composer ended: with ``text``, with nothing
+ * said (``empty``), with an error (``failed``), or called off (``cancelled``).
+ */
+export type DictationOutcome = "text" | "empty" | "failed" | "cancelled";
+
+export interface DictationResult {
+  /** Increases with every finished dictation. */
+  seq: number;
+  /** The composer the result belongs to; ``null`` when no composer started it. */
+  owner: string | null;
+  text: string;
+  outcome: DictationOutcome;
+}
+
+/**
+ * How long a dictation may stay in ``transcribing`` before it is finished as
+ * failed. Far above any real transcription, so it only ends a wait whose
+ * result was lost.
+ */
+export const DICTATION_TRANSCRIBING_LIMIT_MS = 180_000;
+
+/**
+ * The one timer behind that limit. It belongs to the state machine, not to a
+ * connection or a component, so a reconnect or an unmount cannot leave a
+ * second one running: every action that leaves ``transcribing`` clears it.
+ */
+let dictationWatchdog: ReturnType<typeof setTimeout> | null = null;
+
+function clearDictationWatchdog(): void {
+  if (dictationWatchdog === null) return;
+  clearTimeout(dictationWatchdog);
+  dictationWatchdog = null;
 }
 
 const MAX_EVENTS = 500;
@@ -719,14 +748,9 @@ export const useEventStore = create<EventStore>((set, get) => ({
   codingMode: { active: false, hasWorkspace: false, workspace: "" },
   brainModel: "",
   assistantName: readCachedAssistantName(),
-  dictating: false,
-  dictationText: "",
-  dictationCommitSeq: 0,
-  dictationCommitText: "",
+  dictationPhase: "idle",
   dictationOwner: null,
-  dictationCommitOwner: null,
-  dictationSettling: false,
-  dictationFinalSeq: 0,
+  dictationResult: { seq: 0, owner: null, text: "", outcome: "empty" },
   pendingTerminalCommand: null,
   cliConnectCoach: null,
   pendingInstallCliName: null,
@@ -942,28 +966,38 @@ export const useEventStore = create<EventStore>((set, get) => ({
 
   setAssistantName: (name) => set({ assistantName: name }),
 
-  setDictating: (b, owner = null) =>
-    set(
-      b
-        ? { dictating: true, dictationText: "", dictationOwner: owner, dictationSettling: false }
-        : { dictating: false, dictationOwner: null, dictationSettling: false },
-    ),
-  // Stop pressed: the pill goes, the owner keeps waiting for its final text.
-  settleDictation: () =>
-    set((s) => ({ dictating: false, dictationSettling: s.dictationOwner !== null })),
-  setDictationInterim: (text) => set({ dictationText: text }),
-  noteDictationFinal: () =>
-    set((s) => ({ dictationFinalSeq: s.dictationFinalSeq + 1 })),
-  commitDictation: (text) =>
+  beginDictation: (owner) => {
+    clearDictationWatchdog();
+    set({ dictationPhase: "recording", dictationOwner: owner });
+  },
+  markDictationTranscribing: () => {
+    if (get().dictationPhase !== "recording") return;
+    set({ dictationPhase: "transcribing" });
+    // A transcription whose result never arrives must not hold the microphone
+    // of every composer forever.
+    clearDictationWatchdog();
+    dictationWatchdog = setTimeout(() => {
+      dictationWatchdog = null;
+      if (get().dictationPhase === "transcribing") get().finishDictation("", "failed");
+    }, DICTATION_TRANSCRIBING_LIMIT_MS);
+  },
+  finishDictation: (text, outcome) => {
+    clearDictationWatchdog();
     set((s) => ({
-      dictationCommitText: text,
-      dictationCommitSeq: s.dictationCommitSeq + 1,
-      dictationCommitOwner: s.dictationOwner,
+      dictationResult: {
+        seq: s.dictationResult.seq + 1,
+        owner: s.dictationOwner,
+        text,
+        outcome,
+      },
+      dictationPhase: "idle",
       dictationOwner: null,
-      dictationSettling: false,
-      dictationText: "",
-      dictating: false,
-    })),
+    }));
+  },
+  resetDictation: () => {
+    clearDictationWatchdog();
+    set({ dictationPhase: "idle", dictationOwner: null });
+  },
 
   setPendingTerminalCommand: (cmd) => set({ pendingTerminalCommand: cmd }),
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useDictation } from "@/hooks/useDictation";
-import { useT } from "@/i18n";
+import { fill, useT } from "@/i18n";
 import { useEventStore } from "@/store/events";
 import { DictateRow } from "@/views/voice/dictation/DictateRow";
 import { History } from "@/views/voice/dictation/History";
@@ -10,6 +10,9 @@ import { Notice, VoicePage } from "@/views/voice/kit";
 
 /** How often a running dictation is asked whether it still runs. */
 const ACTIVE_POLL_MS = 2000;
+
+/** The recognizer reasons the tab has a sentence for. */
+const ENGINE_NOTICES: ReadonlySet<string> = new Set(["no_key", "no_key_slow", "other_provider"]);
 
 /**
  * The Dictation tab: how to dictate, then what was dictated.
@@ -81,6 +84,10 @@ export function DictationTab() {
   const unavailable = !loading && status !== null && !status.available;
   const cannotType =
     !loading && status !== null && status.available && status.insertion?.can_insert === false;
+  // Recognition is not where the settings suggest: no key is saved, so it
+  // runs on this computer or at another provider.
+  const engine = !loading && status?.available ? status.engine : undefined;
+  const engineReason = ENGINE_NOTICES.has(engine?.reason ?? "") ? (engine?.reason ?? "") : "";
 
   return (
     <VoicePage wide testId="dictation-tab">
@@ -93,7 +100,7 @@ export function DictationTab() {
         />
       )}
 
-      {(error || unavailable || cannotType) && (
+      {(error || unavailable || cannotType || engineReason) && (
         <div className="flex flex-col gap-stack">
           {error && (
             <Notice
@@ -126,6 +133,25 @@ export function DictationTab() {
           )}
           {cannotType && (
             <Notice testId="dictation-cannot-type">{t("voiceui.dictation.cannot_type")}</Notice>
+          )}
+          {engineReason && (
+            <Notice
+              testId="dictation-engine-notice"
+              action={
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setActiveSection("voice-api-keys")}
+                >
+                  {t("nav.voice_api_keys")}
+                </Button>
+              }
+            >
+              {fill(t(`voiceui.dictation.engine_${engineReason}`), {
+                configured: engine?.configured ?? "",
+                provider: engine?.provider ?? "",
+              })}
+            </Notice>
           )}
         </div>
       )}

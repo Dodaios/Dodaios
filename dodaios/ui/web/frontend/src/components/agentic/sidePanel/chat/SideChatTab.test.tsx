@@ -50,7 +50,7 @@ function seed(items: TimelineItem[], extra: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   localStorage.clear();
-  useEventStore.setState({ dictating: false });
+  useEventStore.getState().resetDictation();
   useIdeChatStore.setState({ workspace: null });
 });
 
@@ -168,8 +168,7 @@ describe("SideChatTab", () => {
     fireEvent.change(input, { target: { value: "Question:" } });
 
     act(() => {
-      const seq = useEventStore.getState().dictationCommitSeq + 1;
-      useEventStore.setState({ dictationCommitText: "why is the sky blue", dictationCommitSeq: seq });
+      useEventStore.getState().finishDictation("why is the sky blue", "text");
     });
 
     expect(input.value).toBe("Question: why is the sky blue");
@@ -177,9 +176,22 @@ describe("SideChatTab", () => {
 
   it("can send while dictating, before anything is in the box", () => {
     seed([]);
-    useEventStore.setState({ dictating: true });
     render(<SideChatTab />);
+    expect((screen.getByTestId("side-chat-send") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Dictate" }));
     expect((screen.getByTestId("side-chat-send") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("shows that the recording is being transcribed, and that Send waits for it", () => {
+    const { send } = seed([]);
+    render(<SideChatTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Dictate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stop dictation" }));
+    expect(screen.getByTestId("dictation-transcribing").textContent).toBe("Transcribing…");
+
+    fireEvent.click(screen.getByTestId("side-chat-send"));
+    expect(screen.getByTestId("dictation-transcribing").textContent).toBe("Sending when ready…");
+    expect(send).not.toHaveBeenCalled();
   });
 });
 
