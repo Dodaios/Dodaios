@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Clock, FileText, Sparkles } from "lucide-react";
-import { PanelStatus } from "@/components/home/PanelStatus";
+import { PanelStatus, usePanelNow } from "@/components/home/PanelStatus";
 import { EarlierChatsLink } from "@/components/home/EarlierChatsLink";
 import { PanelActivity } from "@/components/home/PanelActivity";
 import { PanelComputers } from "@/components/home/PanelComputers";
@@ -97,7 +97,8 @@ function useConversation(): { id: string | null; computerId: string } {
  *
  * On top its face (the pet the person chose in My Pets, the same one the
  * caption switch and the chat draw), the name the person gave it (from the
- * wake phrase) and one line for what it is doing right now; face and name lead back to the conversation. Under
+ * wake phrase) and one line for what it is doing right now; the pet plays
+ * the row that line describes (`usePanelNow`). Face and name lead back to the conversation. Under
  * them the ways to reach it: a call, Slack and Telegram.
  *
  * "Activity" is its work: what it looks after over time (its standing tasks,
@@ -123,6 +124,7 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
   const conversation = useConversation();
   const assistantName = useEventStore((s) => s.assistantName);
   const call = useVoiceModeSwitch();
+  const now = usePanelNow(conversation.id, call.live);
   const [tab, setTab] = useState<Tab>(readTab);
   const [routineId, setRoutineId] = useState<string | null>(null);
   const [fileId, setFileId] = useState<SoulFileId | null>(null);
@@ -167,10 +169,10 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
       <div className="rounded-xl border border-border bg-card p-3">
         <button type="button" data-testid="assistant-panel-conversation" onClick={onConversation} title={name}
           className={cn("flex w-full min-w-0 items-center gap-3 rounded-lg p-1 text-left", FOCUS)}>
-          <PetMark size={48} reactive className="shrink-0" />
+          <PetMark size={48} state={now.pet} className="shrink-0" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-base font-semibold text-foreground-strong">{name}</span>
-            <PanelStatus leadId={conversation.id} onCall={call.live} />
+            <PanelStatus now={now} />
           </span>
         </button>
 

@@ -25,7 +25,10 @@ vi.mock("@/components/home/AssistantRoutineDialog", () => ({
 vi.mock("@/components/home/AssistantFileDialog", () => ({
   default: ({ fileId }: { fileId: string }) => <div data-testid="file-dialog">{fileId}</div>,
 }));
-vi.mock("@/components/pets/PetMark", () => ({ PetMark: () => <span data-testid="pet" /> }));
+vi.mock("@/components/pets/PetMark", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/pets/PetMark")>()),
+  PetMark: ({ state }: { state?: string }) => <span data-testid="pet" data-state={state} />,
+}));
 vi.mock("@/hooks/useVoiceEngineDisplay", () => ({
   useVoiceEngineDisplay: () => ({ tier: "realtime", providerId: "test", providerLabel: "Test Voice", model: "m1" }),
 }));
@@ -100,7 +103,7 @@ function thread(id: string, title: string, more: Record<string, unknown> = {}) {
   return { session_id: id, title, cli_title: "", provider: "claude", cwd: "/work", briefed_ms: 100, updated_ms: 100, running: false, waiting: false, ...more };
 }
 
-function turn(status: "running" | "done", blocks: unknown[] = [], more: Record<string, unknown> = {}): TimelineItem {
+function turn(status: "running" | "done" | "error" | "cancelled", blocks: unknown[] = [], more: Record<string, unknown> = {}): TimelineItem {
   return { type: "turn", id: `t-${status}`, provider: "", model: "", effort: "", runner: "", status, blocks, startedMs: 1,
     durationMs: null, usage: null, liveUsage: null, costUsd: null, error: null, ...more } as unknown as TimelineItem;
 }
@@ -252,6 +255,67 @@ describe("AssistantPanel", () => {
     expect(status().textContent).toBe("1 agent at work");
   });
 
+  it("lets the pet play what the line says, and rests it when nothing happens", async () => {
+    mount([]);
+    const pet = () => screen.getByTestId("pet").getAttribute("data-state");
+    expect(pet()).toBe("idle");
+
+    // A turn that has only just started thinks about its answer.
+    onStage([turn("running")]);
+    await waitFor(() => expect(pet()).toBe("thinking"));
+
+    // A lookup plays the searching row, any other tool the working row.
+    onStage([turn("running", [{ kind: "tool", callId: "s1", name: "web_search", input: { query: "rain" }, output: null }])]);
+    await waitFor(() => expect(pet()).toBe("searching"), { timeout: 2000 });
+    onStage([turn("running", [{ kind: "tool", callId: "b1", name: "Bash", input: { command: "npm test" }, output: null }])]);
+    await waitFor(() => expect(pet()).toBe("working"), { timeout: 2000 });
+
+    // A card that waits for the person: the pet waits for them too.
+    onStage([turn("running", [{ kind: "tool", callId: "c1", name: "shell", output: null, approval: { summary: "Run it?", decision: null } }])]);
+    await waitFor(() => expect(pet()).toBe("listening"));
+
+    // Agents sent out still work after the turn answered.
+    onStage([turn("running", [{ kind: "text", text: "An agent is on it." }], { waitingOn: ["Gmail subject"] })]);
+    await waitFor(() => expect(pet()).toBe("working"));
+  });
+
+  it("plays success once when the turn it watched ends well, and error only when it fails", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mount([]);
+      const pet = () => screen.getByTestId("pet").getAttribute("data-state");
+      // One turn, seen as it runs and as it ends.
+      const same = { id: "t1" };
+
+      onStage([turn("running", [], same)]);
+      onStage([turn("done", [], same)]);
+      expect(pet()).toBe("success");
+      act(() => { vi.advanceTimersByTime(1600); });
+      expect(pet()).toBe("idle");
+
+      onStage([turn("running", [], same)]);
+      onStage([turn("error", [], same)]);
+      expect(pet()).toBe("error");
+      act(() => { vi.advanceTimersByTime(2100); });
+      expect(pet()).toBe("idle");
+
+      // Stopped by the person: neither a success nor a failure.
+      onStage([turn("running", [], same)]);
+      onStage([turn("cancelled", [], same)]);
+      expect(pet()).toBe("idle");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("plays nothing for a turn that was already over when the chat came on stage", () => {
+    mount([]);
+    onStage([turn("done")]);
+    expect(screen.getByTestId("pet").getAttribute("data-state")).toBe("idle");
+    onStage([turn("error")]);
+    expect(screen.getByTestId("pet").getAttribute("data-state")).toBe("idle");
+  });
+
   it("follows the chat list while an earlier chat is on stage, and says when the app is not connected", async () => {
     mount([]);
     await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledWith("/api/agent-chat/lead"));
@@ -260,8 +324,10 @@ describe("AssistantPanel", () => {
     await waitFor(() => expect(screen.getByTestId("assistant-panel-status").textContent).toBe("Ready"));
     act(() => useAgentChatStore.setState({ sessions: [{ session_id: "lead", running: true }] as never }));
     await waitFor(() => expect(screen.getByTestId("assistant-panel-status").textContent).toBe("Working"));
+    expect(screen.getByTestId("pet").getAttribute("data-state")).toBe("working");
     act(() => useEventStore.setState({ connected: false, wsWarming: false }));
     await waitFor(() => expect(screen.getByTestId("assistant-panel-status").textContent).toBe("Offline"));
+    expect(screen.getByTestId("pet").getAttribute("data-state")).toBe("sleeping");
   });
 
   it("starts and ends a call from its button", () => {
@@ -275,6 +341,9 @@ describe("AssistantPanel", () => {
     mount([]);
     expect(screen.getByTestId("assistant-panel-call").textContent).toBe("Hang up");
     expect(screen.getByTestId("assistant-panel-status").textContent).toBe("On a call");
+    // On a call the pet follows the voice: it talks while the assistant speaks.
+    act(() => useEventStore.setState({ voiceState: "speaking" }));
+    expect(screen.getByTestId("pet").getAttribute("data-state")).toBe("talking");
   });
 
   it("opens a connected channel where it lives, and leads an unconnected one to its setup", async () => {
