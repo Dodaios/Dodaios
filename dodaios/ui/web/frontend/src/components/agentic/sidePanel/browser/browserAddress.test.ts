@@ -27,8 +27,8 @@ describe("readBrowserInput", () => {
     expect(readBrowserInput("github")).toEqual({
       kind: "search", query: "github", url: "https://www.google.com/search?q=github",
     });
-    expect(readBrowserInput("  flüge münchen dubai ")).toEqual({
-      kind: "search", query: "flüge münchen dubai",
+    expect(readBrowserInput("  flüge münchen dubai ")).toEqual({ // i18n-allow: a typed search
+      kind: "search", query: "flüge münchen dubai", // i18n-allow: a typed search
       url: "https://www.google.com/search?q=fl%C3%BCge%20m%C3%BCnchen%20dubai",
     });
     expect(readBrowserInput("javascript: alert(1)")?.kind).toBe("search");
