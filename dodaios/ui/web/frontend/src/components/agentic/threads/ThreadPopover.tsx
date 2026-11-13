@@ -62,7 +62,11 @@ export function ThreadPopover({
     measure();
     // A second pass once the panel has its real height.
     const frame = requestAnimationFrame(measure);
-    return () => cancelAnimationFrame(frame);
+    // And again whenever its content grows or shrinks (rows that load after it opened),
+    // so a panel above its anchor never grows down over it.
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => measure());
+    if (observer && panel.current) observer.observe(panel.current);
+    return () => { cancelAnimationFrame(frame); observer?.disconnect(); };
   }, [open, measure]);
 
   useEffect(() => {

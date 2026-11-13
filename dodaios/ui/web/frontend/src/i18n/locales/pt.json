@@ -10681,6 +10681,27 @@
       "other": "Limite",
       "chip": "{limit} {percent}%",
       "title": "{plan}: limite {limit} com {percent}% usado. Clique para ver todos os limites e quando são redefinidos."
+    },
+    "context": {
+      "heading": "Janela de contexto",
+      "used": "{percent} % usado",
+      "of_tokens": "{used} de {window} tokens",
+      "aria": "Janela de contexto {percent} % usada: {used} de {window} tokens. Aponte para ver o que a ocupa.",
+      "loading": "Lendo o que a ocupa…",
+      "unavailable": "O Claude Code não conseguiu dizer agora o que a ocupa.",
+      "after_turn": "O que a ocupa é lido quando o agente terminar.",
+      "compact_at": "Por volta de {percent} % o Claude Code resume sozinho a conversa até aqui.",
+      "part": {
+        "system_prompt": "Prompt do sistema",
+        "system_tools": "Ferramentas",
+        "mcp_tools": "Ferramentas MCP",
+        "agents": "Agentes próprios",
+        "memory": "Arquivos de memória",
+        "skills": "Skills",
+        "messages": "Conversa",
+        "autocompact": "Reserva para resumir",
+        "free": "Livre"
+      }
     }
   },
   "ide_view": {

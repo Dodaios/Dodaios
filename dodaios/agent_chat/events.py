@@ -21,8 +21,12 @@ Kinds (``payload`` keys in brackets):
 ``reasoning``          [turn_id, text, duration_ms]    — the finished block; text
                         may be "" when the vendor redacts thinking — the
                         duration still says how long it thought
-``usage_delta``        [turn_id, usage]                — live only: tokens so far
-                        (cumulative {input_tokens, output_tokens, …})
+``usage_delta``        [turn_id, usage, context?]      — live only: tokens so far
+                        (cumulative {input_tokens, output_tokens, …}); ``context`` is
+                        the main agent's newest message as a ``context_usage`` reading
+``context_usage``      [turn_id, used, window, model]  — once per answer: the tokens in
+                        the context window (``context_window.py``), ``window`` null
+                        when the CLI named no size
 ``tool_call``          [turn_id, call_id, name, input]
 ``tool_result``        [turn_id, call_id, output, is_error, duration_ms]
 ``tool_summary``       [turn_id, summary, call_ids]    — the CLI's short title for

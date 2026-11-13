@@ -10681,6 +10681,27 @@
       "other": "Limit",
       "chip": "{limit} {percent} %",
       "title": "{plan}: Limit {limit} zu {percent} % verbraucht. Klicken für alle Limits und wann sie zurückgesetzt werden."
+    },
+    "context": {
+      "heading": "Kontextfenster",
+      "used": "{percent} % belegt",
+      "of_tokens": "{used} von {window} Tokens",
+      "aria": "Kontextfenster zu {percent} % belegt: {used} von {window} Tokens. Zeig darauf, um zu sehen, was es füllt.",
+      "loading": "Lese, was es füllt …",
+      "unavailable": "Claude Code konnte gerade nicht sagen, was es füllt.",
+      "after_turn": "Was es füllt, wird gelesen, sobald der Agent fertig ist.",
+      "compact_at": "Ab etwa {percent} % fasst Claude Code den bisherigen Verlauf selbst zusammen.",
+      "part": {
+        "system_prompt": "System-Prompt",
+        "system_tools": "Werkzeuge",
+        "mcp_tools": "MCP-Werkzeuge",
+        "agents": "Eigene Agents",
+        "memory": "Memory-Dateien",
+        "skills": "Skills",
+        "messages": "Gespräch",
+        "autocompact": "Reserve fürs Zusammenfassen",
+        "free": "Frei"
+      }
     }
   },
   "ide_view": {
