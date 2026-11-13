@@ -25,3 +25,13 @@ export function normalizeBrowserAddress(raw: string): string | null {
     return null;
   }
 }
+
+/** A local address (a dev server on this machine): no site policy to ask about. */
+export function isLocalBrowserAddress(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return /^(localhost|127(?:\.\d{1,3}){3}|\[::1\]|0\.0\.0\.0)$/i.test(hostname);
+  } catch {
+    return false;
+  }
+}

@@ -245,3 +245,87 @@ def test_closing_a_window_that_refuses_shows_it_again(
 
     assert ("post", browser_embed.WM_CLOSE) in user32.calls
     assert (("show", browser_embed.SW_SHOWNA) in user32.calls) is not closes
+
+
+# --- frame check: may the built-in page view show a page? ---------------------
+
+
+@pytest.mark.parametrize(("xfo", "policies", "refused"), [
+    (None, [], False),
+    ("DENY", [], True),
+    ("SAMEORIGIN", [], True),
+    ("ALLOW-FROM https://example.com", [], True),
+    ("bogus", [], False),
+    (None, ["default-src 'none'; frame-ancestors 'self'"], True),
+    (None, ["frame-ancestors 'none'"], True),
+    (None, ["frame-ancestors https://a.example https://b.example"], True),
+    (None, ["frame-ancestors *"], False),
+    (None, ["script-src 'self'"], False),
+    # frame-ancestors wins over X-Frame-Options, as in browsers.
+    ("DENY", ["frame-ancestors *"], False),
+    # Every policy applies: one refusing is enough.
+    (None, ["frame-ancestors *", "frame-ancestors 'self'"], True),
+])
+def test_framing_refused(xfo: str | None, policies: list[str], refused: bool) -> None:
+    from dodaios.ui.web.ide_browser_routes import framing_refused
+
+    assert framing_refused(xfo, policies) is refused
+
+
+def _frame_client(monkeypatch: pytest.MonkeyPatch, handler: Any) -> TestClient:
+    import httpx
+
+    real = httpx.AsyncClient
+
+    def fake(*args: Any, **kwargs: Any) -> Any:
+        return real(*args, transport=httpx.MockTransport(handler), **kwargs)
+
+    monkeypatch.setattr("dodaios.ui.web.ide_browser_routes.httpx.AsyncClient", fake)
+    return _client(None, FakeEmbed(supported=False), monkeypatch)
+
+
+def test_frame_check_reports_a_refusing_site(monkeypatch: pytest.MonkeyPatch) -> None:
+    import httpx
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "github.example":
+            return httpx.Response(301, headers={"location": "https://www.github.example/"})
+        return httpx.Response(200, headers={"x-frame-options": "deny"}, text="<html></html>")
+
+    client = _frame_client(monkeypatch, handler)
+    body = client.post("/api/ide-browser/frame-check", json={"url": "https://github.example/"}).json()
+    assert body == {"ok": True, "frameable": False, "reason": "refused"}
+
+
+def test_frame_check_lets_a_plain_page_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    import httpx
+
+    client = _frame_client(monkeypatch, lambda request: httpx.Response(200, text="ok"))
+    body = client.post("/api/ide-browser/frame-check", json={"url": "https://example.com/"}).json()
+    assert body == {"ok": True, "frameable": True, "reason": ""}
+
+
+def test_frame_check_reports_an_address_without_an_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    import httpx
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("name not found", request=request)
+
+    client = _frame_client(monkeypatch, handler)
+    body = client.post("/api/ide-browser/frame-check", json={"url": "https://github/"}).json()
+    assert body == {"ok": True, "frameable": False, "reason": "unreachable"}
+
+
+def test_frame_check_asks_only_web_addresses(monkeypatch: pytest.MonkeyPatch) -> None:
+    import httpx
+
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked.append(str(request.url))
+        return httpx.Response(200)
+
+    client = _frame_client(monkeypatch, handler)
+    body = client.post("/api/ide-browser/frame-check", json={"url": "file:///etc/passwd"}).json()
+    assert body["reason"] == "bad_url"
+    assert asked == []

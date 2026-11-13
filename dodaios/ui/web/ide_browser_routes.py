@@ -9,10 +9,14 @@ there (see ``dodaios.ui.browser_embed``). The page drives it through these route
     POST /api/ide-browser/place    {owner, visible, rect?, dpr?, view?}  follow the panel
     POST /api/ide-browser/release  {close}  close it, or hand it back as a normal window
     POST /api/ide-browser/open     {url}  open a link as a new tab in the shown window
+    POST /api/ide-browser/frame-check {url}  may the built-in page view show this page?
 
 Only the Windows desktop shell can do this. Anywhere else (a browser tab, a
 headless server, macOS, Linux) ``status`` answers ``available: false`` with a
-reason and the panel keeps its built-in page view. ``view`` names a detached
+reason and the panel keeps its built-in page view. That view is a frame, and
+most large sites forbid being framed: the browser then draws an empty white
+page and says nothing. ``frame-check`` asks the site first, so the panel can
+say so and offer the user's own browser instead. ``view`` names a detached
 window, as for ``/api/window/zoom``; omitted, the main window is used.
 
 Every native call is thread-hopped off the event loop.
@@ -22,8 +26,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Iterable
 from typing import Any
+from urllib.parse import urlparse
 
+import httpx
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
@@ -55,6 +62,10 @@ class PlaceBody(BaseModel):
 
 
 class OpenBody(BaseModel):
+    url: str = Field(min_length=1, max_length=4096)
+
+
+class FrameCheckBody(BaseModel):
     url: str = Field(min_length=1, max_length=4096)
 
 
@@ -145,3 +156,66 @@ async def ide_browser_open(body: OpenBody) -> dict[str, Any]:
     if not embed.supported():
         return _unavailable("unsupported_platform")
     return await asyncio.to_thread(embed.open_tab, body.url)
+
+
+# A site answers within this or the frame would sit white for as long anyway.
+_FRAME_CHECK_TIMEOUT_S = 6.0
+# Some sites send other headers to clients that do not look like a browser.
+_FRAME_CHECK_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+    "(KHTML, like Gecko) Version/18.0 Safari/605.1.15"
+)
+
+
+def framing_refused(x_frame_options: str | None, policies: Iterable[str]) -> bool:
+    """Whether a page with these response headers refuses to show in this app's frame.
+
+    The app's page is a local origin (``http://127.0.0.1:<port>``) that no site
+    names, so ``'self'``, a host list or ``'none'`` all refuse it. A
+    ``frame-ancestors`` directive wins over ``X-Frame-Options``, as in browsers.
+    """
+    ancestors: list[str] | None = None
+    for policy in policies:
+        for directive in policy.split(";"):
+            parts = directive.split()
+            if parts and parts[0].lower() == "frame-ancestors":
+                sources = [part.lower() for part in parts[1:]]
+                # Several policies all apply: the strictest one decides.
+                allowed = "*" in sources or "http:" in sources
+                if not allowed:
+                    return True
+                ancestors = sources
+    if ancestors is not None:
+        return False
+    value = (x_frame_options or "").split(",")[0].strip().lower()
+    return value in {"deny", "sameorigin"} or value.startswith("allow-from")
+
+
+@router.post("/frame-check", operation_id="frame_check")
+async def ide_browser_frame_check(body: FrameCheckBody) -> dict[str, Any]:
+    """May the built-in page view show ``url``? Asks the site for its headers only.
+
+    ``frameable`` is false with ``reason`` ``refused`` when the site forbids
+    being framed, ``unreachable`` when no answer came (a typo, a server that
+    is not running). Only http and https addresses are asked.
+    """
+    parsed = urlparse(body.url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return {"ok": False, "frameable": False, "reason": "bad_url"}
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=True, timeout=_FRAME_CHECK_TIMEOUT_S,
+            headers={"User-Agent": _FRAME_CHECK_UA, "Accept": "text/html,*/*;q=0.8"},
+        ) as client, client.stream("GET", body.url) as response:
+            # The frame shows the page the redirects end on: its headers decide.
+            refused = framing_refused(
+                response.headers.get("x-frame-options"),
+                response.headers.get_list("content-security-policy"),
+            )
+    except (httpx.HTTPError, ValueError) as exc:
+        log.info(
+            "Browser panel frame check: %s did not answer (%s)",
+            parsed.hostname, type(exc).__name__,
+        )
+        return {"ok": True, "frameable": False, "reason": "unreachable"}
+    return {"ok": True, "frameable": not refused, "reason": "refused" if refused else ""}
