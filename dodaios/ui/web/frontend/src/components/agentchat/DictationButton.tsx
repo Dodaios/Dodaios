@@ -153,7 +153,7 @@ export function DictationButton({
         aria-live="polite"
         data-testid="dictation-transcribing"
         className={cn(
-          "inline-flex h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-secondary px-3 text-xs text-muted-foreground",
+          "inline-flex h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-secondary px-3 text-xs text-foreground/80",
           "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150",
           className,
         )}
