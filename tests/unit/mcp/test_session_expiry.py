@@ -12,6 +12,7 @@ forget the session.
 
 from __future__ import annotations
 
+import asyncio
 import socket
 import threading
 import time
@@ -191,5 +192,174 @@ async def test_a_tool_error_is_not_repeated(server: _RestartableServer) -> None:
             await client.call_tool("no_such_tool", {})
         assert client._circuit_breaker_failures == 1
         assert server.calls == 0
+    finally:
+        await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_calls_made_at_the_same_time_all_move_to_the_new_session(
+    server: _RestartableServer,
+) -> None:
+    """Closing the old session under the other calls left them without an answer."""
+    client = _client(server.port)
+    await client.start()
+    try:
+        await client.call_tool("echo", {"msg": "one"})
+        server.stop()
+        server.start()
+
+        results = await asyncio.gather(
+            *(client.call_tool("echo", {"msg": str(n)}) for n in range(5)),
+            return_exceptions=True,
+        )
+
+        assert [_text(r) if not isinstance(r, BaseException) else repr(r) for r in results] == [
+            f"echoed:{n}" for n in range(5)
+        ]
+        assert client._circuit_breaker_failures == 0
+        assert server.calls == 5  # every tool ran once, none twice
+    finally:
+        await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_call_cancelled_while_the_old_session_closes_leaves_a_working_client(
+    server: _RestartableServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _client(server.port)
+    await client.start()
+    try:
+        await client.call_tool("echo", {"msg": "one"})
+        server.stop()
+        server.start()
+
+        real_close = MCPClient._close_transport
+        closing = asyncio.Event()
+
+        async def close_and_tell(self: MCPClient) -> None:
+            closing.set()
+            await real_close(self)
+
+        monkeypatch.setattr(MCPClient, "_close_transport", close_and_tell)
+        call = asyncio.create_task(client.call_tool("echo", {"msg": "two"}))
+        await asyncio.wait_for(closing.wait(), timeout=10)
+        call.cancel()  # the person cancels the turn in the middle of the renewal
+        with pytest.raises(asyncio.CancelledError):
+            await call
+        monkeypatch.setattr(MCPClient, "_close_transport", real_close)
+
+        result = await client.call_tool("echo", {"msg": "three"})
+
+        assert "echoed:three" in _text(result)
+        assert client._circuit_breaker_failures == 0
+    finally:
+        await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_server_that_says_nothing_to_the_new_session_does_not_hold_the_call(
+    server: _RestartableServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(client_mod, "_CALL_TIMEOUT_S", 1.0)
+    client = _client(server.port)
+    await client.start()
+    silent = socket.socket()
+    silent.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        await client.call_tool("echo", {"msg": "one"})
+        server.stop()
+        server.start()
+
+        real_close = MCPClient._close_transport
+
+        async def close_then_go_silent(self: MCPClient) -> None:
+            await real_close(self)
+            # From here the port accepts connections and never answers.
+            server.stop()
+            silent.bind(("127.0.0.1", server.port))
+            silent.listen(8)
+
+        monkeypatch.setattr(MCPClient, "_close_transport", close_then_go_silent)
+
+        with pytest.raises(ConnectionError, match="did not open a new one within 1s"):
+            # Without a ceiling on the renewal this waits for ever.
+            await asyncio.wait_for(client.call_tool("echo", {"msg": "two"}), timeout=30)
+        assert client._owner_task is None, "the connect that hung must be gone"
+
+        monkeypatch.setattr(MCPClient, "_close_transport", real_close)
+        silent.close()
+        server.start()
+        result = await client.call_tool("echo", {"msg": "three"})
+
+        assert "echoed:three" in _text(result)
+        assert client._circuit_breaker_failures == 0
+    finally:
+        silent.close()
+        await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_calls_queued_behind_a_failed_renewal_share_its_failure(
+    server: _RestartableServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One connect attempt per burst of calls, not one slow attempt per call."""
+    client = _client(server.port)
+    await client.start()
+    try:
+        await client.call_tool("echo", {"msg": "one"})
+        server.stop()
+        server.start()
+
+        real_start = MCPClient.start
+        attempts = 0
+
+        async def start_failing(self: MCPClient) -> None:
+            nonlocal attempts
+            attempts += 1
+            raise ConnectionError("server unreachable")
+
+        monkeypatch.setattr(MCPClient, "start", start_failing)
+
+        results = await asyncio.gather(
+            *(client.call_tool("echo", {"msg": str(n)}) for n in range(3)),
+            return_exceptions=True,
+        )
+
+        assert all(isinstance(r, ConnectionError) for r in results), results
+        assert attempts == 1
+
+        monkeypatch.setattr(MCPClient, "start", real_start)
+        client._disabled_until_ns = 0  # three failures opened the breaker
+        assert "echoed:later" in _text(await client.call_tool("echo", {"msg": "later"}))
+    finally:
+        await client.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_client_stopped_during_a_renewal_stays_stopped(
+    server: _RestartableServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _client(server.port)
+    await client.start()
+    try:
+        await client.call_tool("echo", {"msg": "one"})
+        server.stop()
+        server.start()
+
+        real_start = MCPClient.start
+
+        async def stopped_meanwhile(self: MCPClient) -> None:
+            await self.stop()  # e.g. the plugin is switched off right now
+            await real_start(self)
+
+        monkeypatch.setattr(MCPClient, "start", stopped_meanwhile)
+
+        with pytest.raises(RuntimeError, match="not started"):
+            await client.call_tool("echo", {"msg": "two"})
+
+        assert client._session is None and client._owner_task is None
+        monkeypatch.setattr(MCPClient, "start", real_start)
+        with pytest.raises(RuntimeError, match="not started"):
+            await client.call_tool("echo", {"msg": "three"})
     finally:
         await client.stop()
