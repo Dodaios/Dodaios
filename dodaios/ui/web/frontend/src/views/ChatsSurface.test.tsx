@@ -14,6 +14,10 @@ import { useAgentChatStore } from "@/store/agentChat";
 vi.mock("@/components/home/ChatStage", () => ({
   ChatStage: () => <div data-testid="chat">chat</div>,
 }));
+// The browser beside the chat has its own tests (components/home/chatBrowser).
+vi.mock("@/components/home/chatBrowser/ChatBrowserStage", () => ({
+  ChatWithBrowser: ({ children }: { children: import("react").ReactNode }) => <>{children}</>,
+}));
 vi.mock("@/components/home/HomeAgentChat", () => ({
   default: ({ agentId }: { agentId: string }) => <div data-testid="agent-chat">{agentId}</div>,
 }));
