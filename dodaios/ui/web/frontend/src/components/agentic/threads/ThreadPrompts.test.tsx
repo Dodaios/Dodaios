@@ -118,6 +118,21 @@ describe("a coding agent's questions and plans in a thread", () => {
     expect(api.answerAgentChatQuestion).toHaveBeenCalledWith("s1", "q1", 0, { optionIndex: 1 });
   });
 
+  it("answers the newest card when a restart left an older one open in the turn", async () => {
+    // 2026-11-13: each app restart carried the turn on and the CLI asked again
+    // on a new card; the composer answered the first, dead one.
+    await openThread();
+    const asked = { questions: [{ question: "Reload the Dev app?", options: [{ label: "Yes" }, { label: "Wait" }] }] };
+    feed([
+      ["turn_started", { turn_id: "t1" }],
+      ["question_required", { turn_id: "t1", question_id: "q-old", ...asked }],
+      ["question_required", { turn_id: "t1", question_id: "q-new", ...asked }],
+    ]);
+    expect(screen.getByTestId("thread-question").textContent).toContain("Reload the Dev app?");
+    await act(async () => { fireEvent.click(screen.getByText("Yes")); });
+    expect(api.answerAgentChatQuestion).toHaveBeenCalledWith("s1", "q-new", 0, { optionIndex: 0 });
+  });
+
   it("offers to build a finished plan in the agent's build mode", async () => {
     await openThread();
     feed([

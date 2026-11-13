@@ -189,6 +189,43 @@ def _orphan_event(turn_id: str, started_ms: int, last_ms: int) -> dict[str, Any]
     }
 
 
+def _questions_left_open(
+    turn_id: str, history: list[dict[str, Any]]
+) -> dict[str, list[dict[str, Any]]]:
+    """The live question cards of ``turn_id`` an app restart left open.
+
+    Only the previous process waited on them, so their buttons could only
+    answer "no such open question". The CLI in the turn host asks again on a
+    new card once the turn is carried on. Each card maps to the answers its
+    ``question_resolved`` carries: what the person already picked stays, every
+    other question reads ``cancelled``. An end-of-turn card (``deferred``)
+    lives in the event log and stays open.
+    """
+    open_cards: dict[str, list[dict[str, Any] | None]] = {}
+    for event in history:
+        payload = event.get("payload") or {}
+        if str(payload.get("turn_id") or "") != turn_id:
+            continue
+        question_id = str(payload.get("question_id") or "")
+        if not question_id:
+            continue
+        kind = event.get("kind")
+        if kind == "question_required" and not payload.get("deferred"):
+            asked = payload.get("questions")
+            open_cards[question_id] = [None] * (len(asked) if isinstance(asked, list) else 1)
+        elif kind == "question_progress" and question_id in open_cards:
+            rows = payload.get("answers")
+            if isinstance(rows, list) and len(rows) == len(open_cards[question_id]):
+                open_cards[question_id] = [r if isinstance(r, dict) else None for r in rows]
+        elif kind == "question_resolved":
+            open_cards.pop(question_id, None)
+    cancelled = QuestionAnswer("", None, CANCELLED).to_payload()
+    return {
+        question_id: [row if row is not None else dict(cancelled) for row in rows]
+        for question_id, rows in open_cards.items()
+    }
+
+
 DECISIONS: tuple[str, ...] = ("allow", "allow_always", "deny")
 #: Where a rule from the approval card lives: the agent's own rules or this chat.
 RULE_SCOPES: tuple[str, ...] = ("agent", "chat")
@@ -950,6 +987,7 @@ class AgentChatService:
             on_conversation=lambda vendor: self._keep_conversation(session_id, vendor),
         )
         superseded = self._hold_unanswered_approvals(session_id, turn_id, handle.history)
+        left_open = _questions_left_open(turn_id, handle.history)
 
         async def _carry_on() -> None:
             finished = False
@@ -960,6 +998,14 @@ class AgentChatService:
                         make_event(
                             "approval_resolved",
                             {"turn_id": turn_id, "approval_id": approval_id, "decision": "expired"},
+                        ),
+                    )
+                for question_id, answers in left_open.items():
+                    await self._emit(
+                        session_id,
+                        make_event(
+                            "question_resolved",
+                            {"turn_id": turn_id, "question_id": question_id, "answers": answers},
                         ),
                     )
                 vendor = await resume_hosted_cli_turn(handle, proc)

@@ -99,12 +99,17 @@ function recallableItem(timeline: Timeline, sent: SentMessage, sessionId: string
   return !working || now - sent.sentMs <= RECALL_WINDOW_MS ? asked : null;
 }
 
-/** The open question card of the newest turn, if any. */
+/**
+ * The newest open question card of the newest turn, if any. A turn carried on
+ * across an app restart asks again on a new card, and only the newest one is
+ * still waited on.
+ */
 function openQuestion(timeline: Timeline): { block: ToolBlock; question: QuestionState } | null {
   for (let i = timeline.items.length - 1; i >= 0; i--) {
     const item = timeline.items[i];
     if (item.type !== "turn") continue;
-    for (const block of item.blocks) {
+    for (let j = item.blocks.length - 1; j >= 0; j--) {
+      const block = item.blocks[j];
       if (block.kind === "tool" && block.question && !block.question.closed) return { block, question: block.question };
     }
     return null;
