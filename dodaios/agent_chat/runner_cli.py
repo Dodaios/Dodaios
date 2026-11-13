@@ -955,6 +955,10 @@ def plan_glm(
     )
 
 
+#: Claude Code's switch for its mid-turn "say what you're doing" reminder.
+SILENT_TURN_REMINDER_ENV: Final[str] = "CLAUDE_CODE_SILENT_TURN_REMINDER"
+
+
 def _plan_claude_code(
     *,
     prompt: str,
@@ -975,6 +979,13 @@ def _plan_claude_code(
         # thread shows for that run. Anthropic's endpoint only: GLM's is never
         # asked for the extra summary call.
         env = {**env, "CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES": "true"}
+    if identity is not None:
+        # An assistant's chat (Jarvis or a society seat): every text is a chat
+        # message. Claude Code's own "the user hasn't heard from you, say what
+        # you're doing" reminder made the assistant send status messages
+        # nobody asked for (seven in one evening, 2026-11-12). The chat shows
+        # that it works; the reply style says when to write.
+        env = {**env, SILENT_TURN_REMINDER_ENV: "0"}
     prefix = claude_argv_prefix()
     argv = [
         *prefix,
@@ -3825,13 +3836,25 @@ def _keep_going_prompt(
         if error and error.strip()
         else "An earlier tool call failed and no later call settled it."
     )
+    # The run before this one may already have answered, often with the very
+    # blocker this note is about; told nothing about that, the model wrote the
+    # same answer a second time (the Gmail turn of 2026-11-13).
     return (
         f"{head}\n\n"
         f"{KEEP_GOING_ON_TOOL_FAILURE}\n\n"
         f"{review}"
+        f"{_ALREADY_SENT}\n\n"
         "Original request:\n"
         f"{user_text}"
     )
+
+
+#: The recovery run continues a turn whose messages the person has already read.
+_ALREADY_SENT: Final[str] = (
+    "What you wrote earlier in this turn has already reached the person. Do not repeat "
+    "it. If it already says what is blocked and what they need, end now without writing "
+    "anything more; otherwise write only what is new, briefly."
+)
 
 
 def _merge_cli_outcome(first: _Outcome, second: _Outcome) -> _Outcome:

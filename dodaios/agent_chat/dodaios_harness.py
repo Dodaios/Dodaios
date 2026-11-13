@@ -103,23 +103,19 @@ SOCIETY_PREAMBLE: Final[str] = (
 #: this block a long task filled the chat with interim reports, each a few
 #: paragraphs with bold labels, and said the same thing three times
 #: (maintainer, 2026-11-12: "a thousand messages for a simple question").
+#: How long a message is, is the reply style's rule (``REPLY_STYLE``); this
+#: block says only what makes this chat different: every text is sent.
 CHAT_MESSAGES: Final[str] = (
     "Every piece of text you write in this chat reaches the person at once as a chat "
     "message, also the text between two tool calls. Write only messages worth sending:\n"
-    "- A message is one to three short sentences in plain words, the way a person texts. "
-    "No headings and no bold labels; a list only when they asked for one or must act on "
-    "several separate things.\n"
-    "- While you work, stay silent. Send a message only when the person must know or do "
-    "something now: something they have to do, what blocks you. Partial results, waiting, "
-    "retrying, checking a status, a timeout and how your tools behaved are not messages; "
-    "they wait for the answer or are left out. If a step makes you write while something "
-    "is still running, write one short sentence. No interim summary, and never the same "
-    "point twice in one turn.\n"
+    "- After the line before your first tool call, stay silent while you work. Partial "
+    "results, waiting, retrying, checking a status and how your tools behaved are not "
+    "messages. Write in between only when they must do something now or something "
+    "blocks you, in one short sentence. No interim summary, and never the same point "
+    "twice in one turn.\n"
     "- The answer says the result and stops. For something you made (a file, a page, an "
     "artifact) give its name and where to find it, not a description of what is in it. "
-    "What you could not check takes one sentence. At most one question, last.\n"
-    "- Go longer only when they ask for detail or for something that is long by nature "
-    "(a text, code, data)."
+    "What you could not check takes one sentence. At most one question, last."
 )
 
 _SHARED_PREAMBLE: Final[str] = (
