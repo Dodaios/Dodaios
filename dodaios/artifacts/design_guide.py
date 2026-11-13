@@ -507,22 +507,27 @@ KIT_MARKUP: Final = """\
 
 # --- The guide, section by section ---------------------------------------------
 
+# How a German-speaking person names a full document. Matching data for the
+# worker (the request arrives in the person's own words), not page text.
+_GERMAN_DOCUMENT_WORDS: Final = '"Geschäftsplan", "Bericht", "Auswertung"'  # i18n-allow
+
 READ_THE_REQUEST: Final = """\
 ## Read the request first — the form follows the ask
 The request names the deliverable; honour it literally before any rule below.
 - Asked for a chart, "Balken", "Kurve", "Verlauf", "Anteile" → the chart IS the page: \
 one clear chart (or a small set of them) with a one-line takeaway above it and the \
 numbers in a table below, not a long document with a chart somewhere inside.
-- Asked for a comparison, "Gegenüberstellung", "Vergleich" → a comparison table with \
-the SAME attributes in the same order for every option, then one recommendation.
+- Asked for a comparison, "Gegenüberstellung", "Vergleich" → a comparison table or \
+side-by-side cards with the SAME attributes in the same order for every option, then \
+one recommendation.
 - Asked to explain, "erklär mir", "wie funktioniert" → a readable document: short \
 sections in reading order, ONE diagram or chart exactly where it helps the \
 explanation, never decoration.
-- Asked for a plan, report, analysis, "Geschäftsplan", "Bericht", "Auswertung" → the \
+- Asked for a plan, report, analysis, """ + _GERMAN_DOCUMENT_WORDS + """ → the \
 full document: summary, contents box, sections that each state findings with their \
 numbers, the decisions that are open, the sources.
-- Asked for a dashboard, "Übersicht", "Status" → a page that is scanned, not read: \
-the metric row first, the charts below, a sortable table for the long tail; use \
+- Asked for a dashboard, "Übersicht", "Status" → a UI that is scanned, not read: the \
+metric row first, the charts below, a sortable table for the long tail; use \
 `.page wide`.
 - Asked for a timeline, flow, hierarchy, mind map → a diagram drawn with CSS grid / \
 flex or inline SVG: nodes as `.card`s, hairline connectors, arrows only where \

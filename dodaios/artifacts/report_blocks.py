@@ -120,7 +120,7 @@ def parse_chart(source: str) -> dict[str, Any] | None:
         return None
     try:
         raw = json.loads(source)
-    except ValueError:
+    except ValueError:  # not JSON: the block stays the code block Markdown made of it
         return None
     if not isinstance(raw, dict):
         return None
