@@ -41,6 +41,8 @@ export type NoticeMark =
 /** Where a click on a notice leads. */
 export type NoticeTarget =
   | { type: "reconnect"; pluginId: string }
+  /** An agent's Connect card: the click connects the service and tells the card's chat. */
+  | { type: "connect"; service: "plugin" | "cli"; id: string; row: StatusRow }
   | { type: "plugin"; pluginId: string }
   | { type: "keys" }
   | { type: "row"; row: StatusRow };
@@ -104,7 +106,7 @@ function cardNotice(row: StatusRow, rows: StatusRow[], t: Translate): RailNotice
   };
 }
 
-/** An agent asks for a service to be connected: the service's own mark, and the card as the place to do it. */
+/** An agent asks for a service to be connected: the service's own mark, and a click that connects it. */
 function connectNotice(row: StatusRow, connect: NonNullable<StatusRow["connect"]>, t: Translate): RailNotice {
   const who = row.agent_name || t("rail_notice.an_agent");
   const service = connect.label || connect.id;
@@ -118,7 +120,7 @@ function connectNotice(row: StatusRow, connect: NonNullable<StatusRow["connect"]
     detail: connect.why || fill(t("rail_notice.connect_detail"), { service }),
     action: t("rail_notice.connect_action"),
     count: 1,
-    target: { type: "row", row },
+    target: { type: "connect", service: connect.kind === "cli" ? "cli" : "plugin", id: connect.id, row },
   };
 }
 

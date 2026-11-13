@@ -2,7 +2,7 @@ import { memo, useRef, useState } from "react";
 import { fill, useT } from "@/i18n";
 import { AgentChatApiError, declineAgentChatCredential, submitAgentChatCredential } from "@/lib/agentChatApi";
 import { openExternalUrl } from "@/lib/openExternal";
-import { postJson, useSignIn } from "@/hooks/useSignIn";
+import { useServiceConnect } from "@/hooks/useServiceConnect";
 import { useAgentChat } from "./AgentChatStoreContext";
 import { ChatPromptButton, ChatPromptCard } from "./ChatPromptCard";
 import { ToolChoiceIcon } from "./ToolChoiceChips";
@@ -12,15 +12,11 @@ import { serviceIconRow } from "./toolChoices";
 /**
  * An agent asks the person to connect a plugin or CLI
  * (dodaios/society/connect_tool.py). The card shows the service's logo and a
- * Connect button that runs the same sign-in as the Plugins and CLIs pages.
+ * Connect button that runs the same sign-in as the Plugins and CLIs pages
+ * (`useServiceConnect`, which the rail's notice tile runs too).
  * Once the service reports connected, the card tells the agent's chat; the
  * backend checks the connection again before the agent hears "connected".
  */
-
-async function cliConnected(name: string): Promise<{ connected: boolean; installed: boolean }> {
-  const data = await postJson(`/api/clis/${encodeURIComponent(name)}/check`);
-  return { connected: Boolean(data.connected), installed: Boolean(data.installed) };
-}
 
 export const ConnectCard = memo(function ConnectCard({ credential }: { credential: CredentialState }) {
   const t = useT();
@@ -33,7 +29,10 @@ export const ConnectCard = memo(function ConnectCard({ credential }: { credentia
     <ToolChoiceIcon row={serviceIconRow(credential.kind === "plugin" ? "plugin" : "cli", credential.env, label)} size={24} />
   );
 
-  const { phase, setPhase, watch, stop, connectPlugin, start } = useSignIn(label, () => report("connected"));
+  const { phase, setPhase, stop, connect } = useServiceConnect(
+    { kind: credential.kind === "plugin" ? "plugin" : "cli", id: credential.env, label },
+    () => report("connected"),
+  );
 
   async function report(value: "connected" | "declined") {
     if (reporting.current || !sessionId) return;
@@ -52,23 +51,6 @@ export const ConnectCard = memo(function ConnectCard({ credential }: { credentia
       if (closed) setPhase({ kind: "failed", message: t("credential_card.expired") });
     }
   }
-
-  const connectCli = async () => {
-    const name = credential.env;
-    const state = await cliConnected(name).catch(() => ({ connected: false, installed: true }));
-    if (state.connected) {
-      await report("connected");
-      return;
-    }
-    await postJson(`/api/clis/${encodeURIComponent(name)}/spawn-external`, {
-      kind: state.installed ? "login" : "install",
-      method: null,
-    });
-    setPhase({ kind: "waiting" });
-    watch(async () => (await cliConnected(name)).connected);
-  };
-
-  const connect = () => start(credential.kind === "plugin" ? () => connectPlugin(credential.env) : connectCli);
 
   if (status !== null) {
     const done = status === "saved";
