@@ -1378,11 +1378,12 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
     onModel: () => composerRef.current?.querySelector<HTMLButtonElement>("[data-chat-model-trigger]")?.click(),
   });
   const dictation = useComposerDictation((next) => {
-    const text = typeof next === "function" ? next(value) : next;
+    // The field, not `value`: readings of a dictation arrive between renders.
+    const text = typeof next === "function" ? next(fieldRef.current?.getDraft().text ?? value) : next;
     setValue(text);
     fieldRef.current?.setText(text);
   }, () => void submit());
-  const nothingToSend = !value.trim() && messageDraft.choices.length === 0 && attachments.attachments.length === 0 && !dictation.dictating;
+  const nothingToSend = !value.trim() && messageDraft.choices.length === 0 && attachments.attachments.length === 0 && !dictation.awaitingText;
   const timeline = useAgentChat((s) => s.timeline);
   // A card waiting on the person: the composer becomes a second way to answer it.
   const openAsk = useMemo(() => openQuestionOf(timeline), [timeline]);
@@ -1653,7 +1654,7 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
                   : t("society.chat.placeholder").replace("{0}", agent.name)
           }
           disabled={false}
-          onSubmit={() => (dictation.dictating ? dictation.stopAndSend() : void submit())}
+          onSubmit={() => (dictation.awaitingText ? dictation.stopAndSend() : void submit())}
           onDraftChange={onDraftChange}
           onPasteFiles={attachments.onPaste}
           onKeyDown={(e) => {
@@ -1696,6 +1697,7 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
         <DictationButton
           dictating={dictation.dictating}
           onToggle={dictation.toggle}
+          disabled={dictation.micHeld}
           startLabel={t("society.chat.record")}
           stopLabel={t("society.chat.stop_recording")}
           shape="round"
@@ -1724,7 +1726,7 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
             type="button"
             // While recording, Send ends the dictation and sends once the
             // words land, so it is live before the box holds any text.
-            onClick={() => (dictation.dictating ? dictation.stopAndSend() : void submit())}
+            onClick={() => (dictation.awaitingText ? dictation.stopAndSend() : void submit())}
             disabled={!sessionReady || modelSaving || attachments.analyzing > 0 || nothingToSend}
             aria-label={t("society.chat.send")}
             data-testid="composer-send"

@@ -67,6 +67,25 @@ describe("ComposerChipField", () => {
     expect(draft.caret).toBeGreaterThan(draft.text.indexOf("@gmail"));
   });
 
+  it("keeps a chip when the text around it is replaced", () => {
+    // A dictation rewrites the box with every reading of the words so far.
+    const handle = createRef<ComposerChipFieldHandle>();
+    const drafts = vi.fn();
+    render(<ComposerChipField ref={handle} placeholder="Message" onSubmit={() => {}} onDraftChange={drafts} />);
+    handle.current?.hydrate("Ask @gmail", [gmail]);
+
+    handle.current?.setText("Ask @gmail for the invoice");
+
+    const field = screen.getByTestId("composer-chip-field");
+    expect(field.querySelector('[data-brand="gmail"]')).not.toBeNull();
+    expect(handle.current?.getDraft().text).toBe("Ask @gmail for the invoice");
+    expect(handle.current?.getDraft().choices.map((row) => row.id)).toEqual(["plugin:gmail"]);
+    expect(drafts.mock.lastCall?.[0].choices.map((row: ToolChoice) => row.id)).toEqual(["plugin:gmail"]);
+
+    handle.current?.setText("Ask for the invoice");
+    expect(handle.current?.getDraft().choices).toEqual([]);
+  });
+
   it("keeps an already selected connector to one chip", () => {
     const handle = createRef<ComposerChipFieldHandle>();
     render(<ComposerChipField ref={handle} placeholder="Message" onSubmit={() => {}} onDraftChange={() => {}} />);

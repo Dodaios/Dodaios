@@ -78,7 +78,10 @@ export function SideChatTab() {
   const messageRef = useRef(message);
   messageRef.current = message;
   const setDictated = useCallback((next: string | ((current: string) => string)) => {
-    setMessage(typeof next === "function" ? next(messageRef.current) : next);
+    const text = typeof next === "function" ? next(messageRef.current) : next;
+    // At once, not at the next render: readings of a dictation arrive in between.
+    messageRef.current = text;
+    setMessage(text);
   }, [setMessage]);
   // Send during a dictation sends once the transcript is in the box.
   const sendRef = useRef<() => void>(() => undefined);
@@ -125,12 +128,12 @@ export function SideChatTab() {
   const provider = providers.find((option) => option.id === draft.provider) ?? null;
   const running = busy || timeline.items.some((item) => item.type === "turn" && item.status === "running");
   const hasFiles = files.attachments.length > 0;
-  const canSend = (message.trim().length > 0 || hasFiles || dictation.dictating)
+  const canSend = (message.trim().length > 0 || hasFiles || dictation.awaitingText)
     && !running && files.analyzing === 0 && Boolean(provider?.connected);
   const started = timeline.items.length > 0;
 
   const send = useCallback(async () => {
-    if (dictation.dictating) {
+    if (dictation.awaitingText) {
       dictation.stopAndSend();
       return;
     }
@@ -254,7 +257,7 @@ export function SideChatTab() {
               aria-label={t("agent_chat.attach")} title={t("agent_chat.attach_hint")} className={cn(ICON_BTN, "h-8 w-8 rounded-full")}>
               <Paperclip className="h-4 w-4" aria-hidden />
             </button>
-            <DictationButton dictating={dictation.dictating} onToggle={dictation.toggle}
+            <DictationButton dictating={dictation.dictating} onToggle={dictation.toggle} disabled={dictation.micHeld}
               startLabel={t("chats_view.dictation_start")} stopLabel={t("chats_view.dictation_stop")} shape="round" />
             {running
               ? <button type="button" aria-label={t("ide_side_panel.chat.stop")} title={t("ide_side_panel.chat.stop")} data-testid="side-chat-stop"

@@ -290,6 +290,49 @@ describe("useWebSocket VoiceBootStatus handling", () => {
     expect(voiceInputLevelRef.current).toBe(0);
   });
 
+  it("hands a composer's own dictation back to that composer, words while speaking included", async () => {
+    render(<Harness />);
+    await Promise.resolve();
+    // jsdom's document is not focused: without an owner this window only watches.
+    useEventStore.getState().setDictating(true, "composer-1");
+    const before = useEventStore.getState().dictationCommitSeq;
+
+    MockWebSocket.last!.deliver(
+      envelope("DictationTranscript", { text: "ship it to", is_final: false }),
+    );
+    expect(useEventStore.getState().dictationText).toBe("ship it to");
+
+    useEventStore.getState().settleDictation();
+    expect(useEventStore.getState().dictationSettling).toBe(true);
+    MockWebSocket.last!.deliver(
+      envelope("DictationTranscript", { text: "Ship it today.", is_final: true, target: "chat" }),
+    );
+
+    const after = useEventStore.getState();
+    expect(after.dictationCommitSeq).toBe(before + 1);
+    expect(after.dictationCommitText).toBe("Ship it today.");
+    expect(after.dictationCommitOwner).toBe("composer-1");
+    expect(after.dictationOwner).toBeNull();
+    expect(after.dictationSettling).toBe(false);
+  });
+
+  it("only watches a dictation no composer of this window started while it is in the background", async () => {
+    render(<Harness />);
+    await Promise.resolve();
+    useEventStore.setState({ dictating: false, dictationOwner: null, dictationSettling: false, dictationText: "" });
+    const before = useEventStore.getState().dictationCommitSeq;
+
+    MockWebSocket.last!.deliver(
+      envelope("DictationTranscript", { text: "for another window", is_final: false }),
+    );
+    MockWebSocket.last!.deliver(
+      envelope("DictationTranscript", { text: "For another window.", is_final: true, target: "chat" }),
+    );
+
+    expect(useEventStore.getState().dictationText).toBe("");
+    expect(useEventStore.getState().dictationCommitSeq).toBe(before);
+  });
+
   it("shows one appshot receipt per capture and no window title", async () => {
     render(<Harness />);
     await Promise.resolve();

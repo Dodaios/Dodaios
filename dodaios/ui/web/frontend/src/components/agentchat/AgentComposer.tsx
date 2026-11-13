@@ -214,6 +214,8 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
 
   const {
     dictating,
+    awaitingText: awaitingDictation,
+    micHeld,
     stop: stopDictation,
     toggle: toggleDictation,
     stopAndSend: stopDictationAndSend,
@@ -663,7 +665,8 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
   const hasDraft = Boolean(value.trim()) || files.attachments.length > 0 || dictating || commands.isCommand;
   // Send while the mic is open ends the dictation and sends once the words
   // land, so it is live even before the box holds any text.
-  const canFinishDictation = dictating && connected && (!live || canQueue) && Boolean(provider?.connected);
+  // The same right after Stop, while the last words are still being recognized.
+  const canFinishDictation = awaitingDictation && connected && (!live || canQueue) && Boolean(provider?.connected);
   const placeholder = dictating
     ? t("chats_view.dictation_listening")
     : connected
@@ -705,7 +708,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
       placeholder={placeholder}
       disabled={!connected && !commands.enabled}
       autoFocus={autoFocus}
-      onSubmit={() => (dictating ? stopDictationAndSend() : void onSend())}
+      onSubmit={() => (awaitingDictation ? stopDictationAndSend() : void onSend())}
       onDraftChange={(draft) => {
         writeComposerDraft(store, activeSessionId, { text: draft.text, choices: draft.choices });
       }}
@@ -909,7 +912,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
               <DictationButton
                 dictating={dictating}
                 onToggle={toggleDictation}
-                disabled={!connected}
+                disabled={!connected || micHeld}
                 startLabel={t("chats_view.dictation_start")}
                 stopLabel={t("chats_view.dictation_stop")}
                 shape="round"
@@ -952,7 +955,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
             )}
             <button
               type="button"
-              onClick={() => (dictating ? stopDictationAndSend() : void onSend())}
+              onClick={() => (awaitingDictation ? stopDictationAndSend() : void onSend())}
               disabled={!canSend && !canFinishDictation}
               aria-label={t("agent_chat.send")}
               title={t("agent_chat.send")}
@@ -1157,7 +1160,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
         <DictationButton
           dictating={dictating}
           onToggle={toggleDictation}
-          disabled={!connected}
+          disabled={!connected || micHeld}
           startLabel={t("chats_view.dictation_start")}
           stopLabel={t("chats_view.dictation_stop")}
         />
@@ -1182,7 +1185,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
         ) : (
           <button
             type="button"
-            onClick={() => (dictating ? stopDictationAndSend() : void onSend())}
+            onClick={() => (awaitingDictation ? stopDictationAndSend() : void onSend())}
             disabled={!canSend && !canFinishDictation}
             aria-label={t("agent_chat.send")}
             data-testid="composer-send"

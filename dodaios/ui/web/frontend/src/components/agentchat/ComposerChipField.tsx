@@ -275,8 +275,19 @@ export const ComposerChipField = forwardRef<
     setText(text) {
       const root = elRef.current;
       if (!root) return;
-      root.textContent = text;
+      // Rebuilt with the chips the field holds, so a chip whose `@name` is
+      // still in `text` stays a chip. A dictation rewrites the box several
+      // times a second; as plain text it turned every chip into its name
+      // and dropped the tool choice with it.
+      const typingHere = liveRange(root) !== null;
+      hydrateRoot(root, text, serialize(root).choices);
       savedRange.current = rangeAtEnd(root).cloneRange();
+      if (typingHere) {
+        // The rewrite dropped the caret; someone typing here goes on at the end.
+        const sel = root.ownerDocument.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(savedRange.current);
+      }
       emit();
     },
   }));
