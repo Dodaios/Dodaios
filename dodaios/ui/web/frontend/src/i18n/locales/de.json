@@ -11794,6 +11794,12 @@
       "failed": "Nicht gesendet. Versuch es noch einmal.",
       "request": "Bitte ändere den Node „{0}“ (ID {1}) nach diesem Kommentar{2}: {3}",
       "at": " zur Stelle „{0}“"
+    },
+    "edit": {
+      "toggle": "Bearbeiten",
+      "hint": "Klicke auf einen Text und schreibe. Gespeichert wird beim Verlassen des Feldes; Esc nimmt es zurück.",
+      "saving": "Wird gespeichert …",
+      "failed": "Das ließ sich nicht speichern."
     }
   },
   "agent_browser": {

@@ -1090,6 +1090,8 @@ class _Wire:
     start: _Placed
     end: _Placed
     directed: bool
+    index: int
+    """The link's place in the spec's ``links``."""
     box: _Rect
     """What the curve and its label cover (left, top, right, bottom)."""
 
@@ -1160,6 +1162,7 @@ def _route(links: list[dict[str, Any]], parts: dict[str, _Placed]) -> list[_Wire
                 start=a,
                 end=b,
                 directed=directed,
+                index=index,
                 box=(
                     min(mid[0] - half, *(point[0] for point in points)),
                     min(mid[1] - 10, *(point[1] for point in points)),
@@ -1254,14 +1257,28 @@ html,body{height:auto}body.fill{overflow:visible}
 .wb{position:relative;inset:auto;width:var(--wb-pw);height:var(--wb-ph);margin:0 auto}
 .wb-grid,.wb-tools,.wb-meta{display:none}
 .wb-board{transform:var(--wb-pt)!important}}
+:root[data-node-mode="edit"] .wb-item [data-at]{white-space:pre-wrap}
+:root[data-node-mode="edit"] .wb-label:focus-within{max-width:none;overflow:visible}
+:root[data-node-mode="edit"] .wb-frame h2[data-at]:focus{max-width:none;overflow:visible;
+  text-overflow:clip}
 """
 
+# In edit mode (`nodes/bridge.py`) a text keeps the line breaks typed into it,
+# and a label or a frame title being written is not cut at its usual width.
+#
 # In print the board keeps its clip on purpose: the page is the scaled board's
 # size, and without the clip a browser measures the unscaled board as overflow
 # and shrinks the whole sheet.
 #
 # Pan, zoom and fit. The script reads the board's bounding box (numbers this
 # module wrote) and nothing from the spec. No network, no storage.
+#
+# In edit mode the bridge keeps a pointer-down, a click and a key inside a
+# text from this script, so a click there puts the caret in and typing does
+# not pan or zoom; dragging the background still pans. A click on an item's
+# paper beside its words writes into its text too. A note grows with what is
+# typed (its height is a minimum). The board moves by its transform alone, so
+# a scroll the browser makes to show the caret becomes a pan.
 _JS: Final[str] = """
 (function(){
 var d=document,view=d.getElementById("wb"),board=d.getElementById("wb-board");
@@ -1369,6 +1386,19 @@ d.addEventListener("click",function(e){
     else{location.href=h;}
   }
 },true);
+view.addEventListener("click",function(e){
+  if(d.documentElement.getAttribute("data-node-mode")!=="edit")return;
+  var t=e.target;if(!t.closest||t.closest("[data-at]"))return;
+  var item=t.closest(".wb-item,.wb-label"),f=item?item.querySelector("[data-at]"):null;
+  if(!f||!f.isContentEditable)return;
+  try{f.focus({preventScroll:true});}catch(err){f.focus();}
+  try{var r=d.createRange(),sel=window.getSelection();r.selectNodeContents(f);r.collapse(false);
+    sel.removeAllRanges();sel.addRange(r);}catch(err){}
+});
+view.addEventListener("scroll",function(){
+  var x=view.scrollLeft,y=view.scrollTop;if(!x&&!y)return;
+  view.scrollLeft=0;view.scrollTop=0;pan(-x,-y);
+});
 addEventListener("resize",function(){if(!moved)fit();});
 addEventListener("load",function(){if(!moved)fit();});
 fit();
@@ -1452,20 +1482,38 @@ def _color_class(item: dict[str, Any]) -> str:
     return f"c-{name}"
 
 
-def _item_html(part: _Placed) -> str:
+def _text_marks(item: dict[str, Any], index: int | None, shown: str) -> str:
+    """The edit marks of an item's text (:mod:`dodaios.nodes.bridge`).
+
+    The stored text keeps its line breaks, so Enter makes a new line; it goes
+    along as ``data-src`` whenever the page draws something else (inline
+    marks, a line break).
+    """
+    raw = item.get("text")
+    if index is None or not isinstance(raw, str) or not raw:
+        return ""
+    src = f' data-src="{shell.attr(raw)}"' if shown != shell.esc(raw) else ""
+    return f' data-at="/items/{index}/text"{src} data-multiline'
+
+
+def _item_html(part: _Placed, index: int | None) -> str:
+    """One item; ``index`` is its place in the stored ``items``, ``None`` for a
+    frame drawn for a group name (it is no one value of the spec)."""
     item = part.item
     kind = item["type"]
     ident = f' data-id="{shell.attr(item["id"])}"' if item.get("id") else ""
     color = _color_class(item)
     text = shell.lines(item.get("text", ""), MAX_TEXT_CHARS)
+    marks = _text_marks(item, index, text)
     if kind == "frame":
         title = item.get("title", "")
-        head = f"<h2>{shell.esc(title)}</h2>" if title else ""
+        own = f' data-at="/items/{index}/title"' if index is not None else ""
+        head = f"<h2{own}>{shell.esc(title)}</h2>" if title else ""
         return f'<li class="wb-frame {color}"{ident} style="{_box_style(part)}">{head}</li>'
     if kind == "note":
         return (
             f'<li class="wb-item wb-note {color}"{ident} style="{_box_style(part, grow=True)}">'
-            f"<p>{text}</p></li>"
+            f"<p{marks}>{text}</p></li>"
         )
     if kind == "shape":
         form = shell.pick(item.get("shape"), SHAPES, "rect")
@@ -1479,7 +1527,7 @@ def _item_html(part: _Placed) -> str:
             )
         return (
             f'<li class="wb-item wb-shape is-{form} {color}"{ident} style="{_box_style(part)}">'
-            f"{outline}<p>{text}</p></li>"
+            f"{outline}<p{marks}>{text}</p></li>"
         )
     if kind == "image":
         src = shell.safe_image(item.get("image"))
@@ -1487,7 +1535,7 @@ def _item_html(part: _Placed) -> str:
         picture = (
             f'<img src="{shell.attr(src)}" alt="{alt}">' if src else '<div class="wb-blank"></div>'
         )
-        caption = f"<figcaption>{text}</figcaption>" if item.get("text") else ""
+        caption = f"<figcaption{marks}>{text}</figcaption>" if item.get("text") else ""
         return (
             f'<li class="wb-item wb-image"{ident} style="{_box_style(part)}">'
             f"<figure>{picture}{caption}</figure></li>"
@@ -1496,7 +1544,8 @@ def _item_html(part: _Placed) -> str:
     classes = "wb-item wb-text" + (" is-big" if _is_big(plain) else "")
     if item.get("color") and item["color"] != "gray":
         classes += f" is-tinted {color}"
-    return f'<li class="{classes}"{ident} style="{_box_style(part, grow=True)}"><p>{text}</p></li>'
+    style = _box_style(part, grow=True)
+    return f'<li class="{classes}"{ident} style="{style}"><p{marks}>{text}</p></li>'
 
 
 def _name(part: _Placed) -> str:
@@ -1506,7 +1555,7 @@ def _name(part: _Placed) -> str:
     return text or item["type"]
 
 
-def _wires_html(wires: list[_Wire]) -> tuple[str, str]:
+def _wires_html(wires: list[_Wire], editable: bool) -> tuple[str, str]:
     """The connectors as one SVG, and their labels as a list beside it."""
     paths: list[str] = []
     labels: list[str] = []
@@ -1518,9 +1567,11 @@ def _wires_html(wires: list[_Wire]) -> tuple[str, str]:
         joint = "→" if wire.directed else "–"
         spoken = f"{shell.esc(_name(wire.start))} {joint} {shell.esc(_name(wire.end))}"
         if wire.label:
+            own = f' data-at="/links/{wire.index}/label"' if editable else ""
             labels.append(
                 f'<li class="wb-label" style="left:{_n(wire.mid[0])}px;top:{_n(wire.mid[1])}px">'
-                f'<span class="visually-hidden">{spoken}: </span>{shell.esc(wire.label)}</li>'
+                f'<span class="visually-hidden">{spoken}: </span>'
+                f"<span{own}>{shell.esc(wire.label)}</span></li>"
             )
         else:
             labels.append(f'<li class="visually-hidden">{spoken}</li>')
@@ -1552,13 +1603,43 @@ def _bounds(parts: list[_Placed], wires: list[_Wire]) -> tuple[float, float, flo
     return left, top, right - left, bottom - top
 
 
+def _frames_named_by_title(spec: dict[str, Any]) -> set[str]:
+    """The ids of frame items that their members name by title, not by id.
+
+    Such a frame's title is what holds its group together: a title changed in
+    the page would part the frame from its notes, so it is not offered there.
+    """
+    items = spec["items"]
+    by_id = {item["id"] for item in items if item["type"] == "frame"}
+    by_title: dict[str, str] = {}
+    for item in items:
+        if item["type"] == "frame" and item.get("title"):
+            by_title.setdefault(item["title"], item["id"])
+    return {
+        by_title[item["group"]]
+        for item in items
+        if item.get("group") in by_title and item["group"] not in by_id
+    }
+
+
 def render(node: Any) -> str:
     """The board as one self-contained page; the same node gives the same page."""
-    spec = _group_tinted(_usable(getattr(node, "spec", None)))
+    stored = getattr(node, "spec", None)
+    clean = _usable(stored)
+    spec = _group_tinted(clean)
     parts = _arrange(spec)
     by_key = {part.key: part for part in parts if part.item.get("id")}
     wires = _route(spec["links"], by_key)
-    svg, listing = _wires_html(wires)
+    # What the reader can write into in edit mode (`nodes/bridge.py`): every
+    # item's text, a frame item's title and a link's label, addressed by
+    # their place in the stored lists. Only a stored spec in its clean form
+    # is addressed (a stored node always is): elsewhere a place in the clean
+    # spec might not be the same place in the stored one.
+    editable = clean == stored
+    place = {item["id"]: index for index, item in enumerate(clean["items"])} if editable else {}
+    for frame in _frames_named_by_title(clean):
+        place.pop(frame, None)
+    svg, listing = _wires_html(wires, editable)
     left, top, width, height = _bounds(parts, wires)
     scale = min(_PRINT_W / width, _PRINT_H / height, 1.0)
     print_vars = (
@@ -1567,6 +1648,7 @@ def render(node: Any) -> str:
     )
     title = getattr(node, "title", "") or ""
     meta = shell.upkeep_meta(node)
+    items = "".join(_item_html(part, place.get(part.item.get("id", ""))) for part in parts)
     body = (
         f'<main class="wb" id="wb" tabindex="0" aria-label="{shell.attr(title)}" '
         f'data-box="{_n(left)} {_n(top)} {_n(width)} {_n(height)}" style="{print_vars}">'
@@ -1575,7 +1657,7 @@ def render(node: Any) -> str:
         + (f'<div class="wb-meta">{meta}</div>' if meta else "")
         + '<div class="wb-board" id="wb-board">'
         f"{svg}"
-        f'<ul class="wb-items">{"".join(_item_html(part) for part in parts)}</ul>'
+        f'<ul class="wb-items">{items}</ul>'
         f"{listing}"
         "</div>"
         f"{_TOOLS}"

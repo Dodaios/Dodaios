@@ -1,14 +1,17 @@
 /**
- * The app's side of the talk with a node's page: comments left on the page.
+ * The app's side of the talk with a node's page: comments left on the page,
+ * and values the reader types into it.
  *
  * A node's page runs in a sandboxed frame. The app cannot see where the
- * reader clicks in it, so the page itself drops the pin and the field
- * (`dodaios/nodes/bridge.py`) and tells the app what was written and on what.
- * This module switches the page's mode, takes a comment in, hands it to
- * whoever sends it on, and tells the page how that went.
+ * reader clicks in it, so the page itself drops a comment's pin, or makes its
+ * marked texts typeable (`dodaios/nodes/bridge.py`), and tells the app what
+ * was written and where. This module switches the page's mode, takes a
+ * comment or an edit in, hands it to whoever sends or saves it, and tells the
+ * page how that went. It also remembers where the page was scrolled, so a
+ * page drawn again opens there.
  *
- * Only messages from this very frame count, and a comment is taken as plain,
- * bounded text: the page's script runs in an opaque origin and gets nothing
+ * Only messages from this very frame count, and everything is taken as plain,
+ * bounded data: the page's script runs in an opaque origin and gets nothing
  * else from the app.
  */
 import { useEffect, useRef, type RefObject } from "react";
@@ -18,10 +21,18 @@ export const NODE_READY_MESSAGE = "dodaios-node-ready";
 export const NODE_MODE_MESSAGE = "dodaios-node-mode";
 export const NODE_COMMENT_MESSAGE = "dodaios-node-comment";
 export const NODE_COMMENT_STATE_MESSAGE = "dodaios-node-comment-state";
+export const NODE_EDIT_MESSAGE = "dodaios-node-edit";
+export const NODE_EDIT_STATE_MESSAGE = "dodaios-node-edit-state";
+export const NODE_SCROLL_MESSAGE = "dodaios-node-scroll";
+
+/** What the page is doing with a click: nothing, a comment's pin, or editing. */
+export type NodePageMode = "view" | "comment" | "edit";
 
 const MAX_COMMENT_CHARS = 2000;
 const MAX_QUOTE_CHARS = 240;
 const MAX_WHERE_CHARS = 300;
+const MAX_EDIT_CHARS = 200000;
+const MAX_PATH_CHARS = 400;
 
 /** A comment the reader left on the page. */
 export interface NodeComment {
@@ -32,6 +43,18 @@ export interface NodeComment {
   quote: string;
   /** The place in the node's own terms ("/slides/2", "Price × Netflix", "§ Costs"); may be "". */
   where: string;
+}
+
+/** A value the reader typed into the page. */
+export interface NodeEdit {
+  /** The page's own number for this edit, echoed in the answer. */
+  id: number;
+  /** The place in the spec (a JSON Pointer), or "@title". */
+  path: string;
+  value: string | boolean;
+  as: "text" | "number" | "toggle";
+  /** The page must be drawn again once it is saved. */
+  refresh: boolean;
 }
 
 /** The few words the page shows, in the reader's language. */
@@ -62,24 +85,77 @@ export function parseNodeComment(data: unknown): NodeComment | null {
   };
 }
 
+/** The value a page typed, or null for anything else. */
+export function parseNodeEdit(data: unknown): NodeEdit | null {
+  if (!data || typeof data !== "object") return null;
+  const message = data as Record<string, unknown>;
+  if (message.type !== NODE_EDIT_MESSAGE) return null;
+  const id = typeof message.id === "number" && Number.isInteger(message.id) && message.id > 0 ? message.id : null;
+  const path = typeof message.path === "string" ? message.path : "";
+  const kind = message.as === "number" || message.as === "toggle" ? message.as : "text";
+  if (id === null || path === "" || path.length > MAX_PATH_CHARS) return null;
+  if (!path.startsWith("/") && path !== "@title") return null;
+  let value: string | boolean;
+  if (kind === "toggle") {
+    if (typeof message.value !== "boolean") return null;
+    value = message.value;
+  } else {
+    if (typeof message.value !== "string" || message.value.length > MAX_EDIT_CHARS) return null;
+    value = message.value;
+  }
+  return { id, path, value, as: kind, refresh: message.refresh === true };
+}
+
+/** Where a page is: its scroll position, and the hash it keeps its place in. */
+interface PagePlace {
+  x: number;
+  y: number;
+  hash?: string;
+}
+
+/** Where a page reports it is, or null. */
+function parseScroll(data: unknown): PagePlace | null {
+  if (!data || typeof data !== "object") return null;
+  const message = data as Record<string, unknown>;
+  if (message.type !== NODE_SCROLL_MESSAGE) return null;
+  const x = Number(message.x);
+  const y = Number(message.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0) return null;
+  const hash = typeof message.hash === "string" && /^#[\w-]{1,39}$/.test(message.hash) ? message.hash : "";
+  return hash ? { x, y, hash } : { x, y };
+}
+
 export interface NodeBridgeOptions {
-  /** The page takes comments: a click drops a pin instead of doing what it does. */
-  commenting: boolean;
+  /** What a click on the page does. */
+  mode: NodePageMode;
   labels: NodeBridgeLabels;
   /** Send the comment on. Resolves when it went out; rejects when it did not. */
   onComment: (comment: NodeComment) => Promise<void>;
+  /** Save an edit. Resolves when it is saved; rejects when it was not. */
+  onEdit?: (edit: NodeEdit) => Promise<void>;
+  /**
+   * What the page is. When it changes, the remembered scroll position is
+   * forgotten: another node opens at its top.
+   */
+  pageKey?: string;
 }
 
 /**
- * Keep the framed page in the mode the app is in, and take its comments.
+ * Keep the framed page in the mode the app is in, and take its comments and
+ * edits.
  *
  * The page says when it has loaded (also after it was drawn again), and is
- * told the mode then, so a node the assistant just revised comes back still
- * taking comments.
+ * told the mode then, with the scroll position it last had: a node the
+ * assistant or the reader just revised comes back in the same mode, at the
+ * same place.
  */
 export function useNodeBridge(frame: RefObject<HTMLIFrameElement | null>, options: NodeBridgeOptions): void {
   const latest = useRef(options);
   latest.current = options;
+  const scroll = useRef<PagePlace | null>(null);
+  useEffect(() => {
+    scroll.current = null;
+  }, [options.pageKey]);
 
   useEffect(() => {
     const tell = (message: Record<string, unknown>) => {
@@ -87,11 +163,12 @@ export function useNodeBridge(frame: RefObject<HTMLIFrameElement | null>, option
       // only target that reaches it, and the message carries nothing secret.
       frame.current?.contentWindow?.postMessage(message, "*");
     };
-    const tellMode = () =>
+    const tellMode = (withScroll = false) =>
       tell({
         type: NODE_MODE_MESSAGE,
-        mode: latest.current.commenting ? "comment" : "view",
+        mode: latest.current.mode,
         labels: latest.current.labels,
+        ...(withScroll && scroll.current ? { scroll: scroll.current } : {}),
       });
 
     const onMessage = (event: MessageEvent) => {
@@ -99,7 +176,24 @@ export function useNodeBridge(frame: RefObject<HTMLIFrameElement | null>, option
       if (!node || event.source !== node.contentWindow) return;
       const data = event.data as { type?: unknown } | null;
       if (data && typeof data === "object" && data.type === NODE_READY_MESSAGE) {
-        tellMode();
+        tellMode(true);
+        return;
+      }
+      const at = parseScroll(event.data);
+      if (at !== null) {
+        scroll.current = at;
+        return;
+      }
+      const edit = parseNodeEdit(event.data);
+      if (edit !== null) {
+        // An edit counts only while the reader is editing: a page cannot
+        // write into its node on its own.
+        const save = latest.current.mode === "edit" ? latest.current.onEdit : undefined;
+        const done = save ? save(edit) : Promise.reject(new Error("not editing"));
+        done.then(
+          () => tell({ type: NODE_EDIT_STATE_MESSAGE, id: edit.id, state: "saved" }),
+          () => tell({ type: NODE_EDIT_STATE_MESSAGE, id: edit.id, state: "failed" }),
+        );
         return;
       }
       const comment = parseNodeComment(event.data);
@@ -113,5 +207,5 @@ export function useNodeBridge(frame: RefObject<HTMLIFrameElement | null>, option
     tellMode();
     return () => window.removeEventListener("message", onMessage);
     // The mode is told again whenever it changes; the handlers read the rest live.
-  }, [frame, options.commenting]);
+  }, [frame, options.mode]);
 }

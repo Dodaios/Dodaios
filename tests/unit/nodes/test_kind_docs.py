@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 import pytest
@@ -68,9 +69,14 @@ def _page(markdown: str, **more: Any) -> str:
     return docs.render(_node(docs.normalize({"markdown": markdown}), **more))
 
 
+_EDIT_MARKS = re.compile(r' data-(?:at|src)="[^"]*"| data-(?:multiline|refresh)\b')
+
+
 def _body(html: str) -> str:
-    """The page without its head, so the kit's own styles and scripts are not searched."""
-    return html[html.index("<main") : html.index("</main>")]
+    """What the page DRAWS: without its head (the kit's own styles and scripts
+    are not searched) and without the marks of the edit mode. Those carry the
+    Markdown source as an escaped attribute, which is data and never drawn."""
+    return _EDIT_MARKS.sub("", html[html.index("<main") : html.index("</main>")])
 
 
 # ------------------------------------------------------------------ normalize
@@ -301,3 +307,24 @@ def test_preview_bounds_and_empty_cases() -> None:
     other_blocks = "## T\n\n```chart\n{}\n```\n\n| a | b |\n\n> quote\n\nText."
     skipped = docs.preview({"markdown": other_blocks})
     assert skipped == {"heading": "T", "lines": ["Text."], "bullets": False}
+
+
+def test_the_reader_can_write_into_the_title_the_summary_and_the_body() -> None:
+    from tests.unit.nodes.editable import check_editable
+
+    spec = docs.normalize(
+        {
+            "summary": "Two lines that answer.",
+            "markdown": "## Plan\n\nWeek **one**: <the till>.\n\n- a\n- b",
+        }
+    )
+    page = docs.render(_node(spec))
+    fields = {field.at: field for field in check_editable(page, spec, _node(spec).title)}
+
+    assert set(fields) == {"@title", "/summary", "/markdown"}
+    body = fields["/markdown"]
+    # The body is drawn from Markdown: its field shows the Markdown, takes
+    # several lines, and the page is drawn again after it changed.
+    assert body.src == spec["markdown"] and body.multiline and body.refresh
+    assert not fields["/summary"].multiline and not fields["@title"].refresh
+    assert 'data-src="## Plan' in page and "&lt;the till&gt;" in page

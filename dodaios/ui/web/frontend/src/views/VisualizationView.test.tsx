@@ -79,6 +79,8 @@ interface ServerOptions {
   nodeStates?: Record<string, NodeState>;
   /** The starter node `POST /api/nodes` creates. */
   created?: NodeCard;
+  /** What `POST /api/nodes/{id}/edit` answers: a node state, or a refusal. */
+  edited?: (body: { path: string; value: unknown; as: string }) => NodeState | { status: number; detail: string };
 }
 
 function installFetchMock(
@@ -98,6 +100,12 @@ function installFetchMock(
       const body =
         init?.method === "POST" ? options.created : nodesResponse(runs, artifactsBySlug, options.typed);
       return { ok: true, status: 200, json: async () => body ?? {} };
+    }
+    if (/^\/api\/nodes\/[^/]+\/edit$/.test(url) && init?.method === "POST" && options.edited) {
+      const answer = options.edited(JSON.parse(String(init.body)));
+      return "status" in answer && typeof answer.status === "number" && "detail" in answer
+        ? { ok: false, status: answer.status, json: async () => ({ detail: answer.detail }) }
+        : { ok: true, status: 200, json: async () => answer };
     }
     const bySlug = /^\/api\/nodes\/by-slug\/([^/?]+)/.exec(url);
     if (bySlug) {
@@ -893,6 +901,78 @@ describe("VisualizationView", () => {
     expect(note()).toBe("idle");
   });
 
+  it("saves what the reader types into the page, without drawing the page again", async () => {
+    const nodeStates = { [NODE.slug]: nodeState() };
+    const bodies: { path: string; value: unknown; as: string }[] = [];
+    let revision = 1_700_000_000;
+    installFetchMock(
+      [NODE_RUN, DASH_RUN],
+      { ...NODE_FILES, mission_dash: [DASH_FILE] },
+      {
+        typed: [NODE],
+        nodeStates,
+        edited: (body) => {
+          bodies.push(body);
+          if (body.value === "refused") return { status: 400, detail: "That text is too long for one field." };
+          revision += 60;
+          nodeStates[NODE.slug] = nodeState({ version: bodies.length + 1, updated_at: revision });
+          return nodeStates[NODE.slug];
+        },
+      },
+    );
+    const { client } = renderView();
+
+    fireEvent.click(await findCard(NODE.key));
+    await waitFor(() => expect(frameSrc()).toMatch(/&v=1700000000$/));
+    const frame = screen.getByTestId("visualization-frame") as HTMLIFrameElement;
+    const posted = vi.spyOn(frame.contentWindow as Window, "postMessage");
+    // Always the frame on screen: a page drawn again is a new frame.
+    const fromPage = (data: unknown) =>
+      act(() => {
+        const current = screen.getByTestId("visualization-frame") as HTMLIFrameElement;
+        window.dispatchEvent(new MessageEvent("message", { data, source: current.contentWindow }));
+      });
+    const note = () => screen.getByTestId("visualization-page-note").getAttribute("data-state");
+
+    // The two modes are one choice: editing ends commenting and back.
+    fireEvent.click(screen.getByTestId("visualization-comment"));
+    fireEvent.click(screen.getByTestId("visualization-edit"));
+    expect(screen.getByTestId("visualization-edit").getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByTestId("visualization-comment").getAttribute("aria-pressed")).toBe("false");
+    expect(posted).toHaveBeenLastCalledWith(expect.objectContaining({ type: "dodaios-node-mode", mode: "edit" }), "*");
+    expect(note()).toBe("editing");
+
+    // A value typed into a field is saved into the node …
+    fromPage({ type: "dodaios-node-edit", id: 1, path: "/summary", value: "Shorter", as: "text", refresh: false });
+    await waitFor(() =>
+      expect(posted).toHaveBeenLastCalledWith({ type: "dodaios-node-edit-state", id: 1, state: "saved" }, "*"),
+    );
+    expect(bodies).toEqual([{ path: "/summary", value: "Shorter", as: "text" }]);
+    // … and the watcher's report of that very revision leaves the page as it is.
+    await client.invalidateQueries({ queryKey: ["node-upkeep", NODE.slug] });
+    await waitFor(() => expect(note()).toBe("editing"));
+    expect(frameSrc()).toMatch(/&v=1700000000$/);
+
+    // A field that needs it is drawn again at once.
+    fromPage({ type: "dodaios-node-edit", id: 2, path: "/markdown", value: "## New", as: "text", refresh: true });
+    await waitFor(() => expect(frameSrc()).toMatch(/&v=1700000120$/));
+
+    // A refusal says why, and the page puts the old text back.
+    const before = frameSrc();
+    const drawnAgain = screen.getByTestId("visualization-frame") as HTMLIFrameElement;
+    const toNewPage = vi.spyOn(drawnAgain.contentWindow as Window, "postMessage");
+    fromPage({ type: "dodaios-node-edit", id: 3, path: "/summary", value: "refused", as: "text", refresh: false });
+    await waitFor(() => expect(note()).toBe("edit-failed"));
+    expect(screen.getByTestId("visualization-page-note").textContent).toContain("too long");
+    expect(toNewPage).toHaveBeenLastCalledWith({ type: "dodaios-node-edit-state", id: 3, state: "failed" }, "*");
+    expect(frameSrc()).toBe(before);
+
+    // The assistant's revision still draws the page again.
+    nodeStates[NODE.slug] = nodeState({ version: 9, updated_at: 1_700_009_000 });
+    await client.invalidateQueries({ queryKey: ["node-upkeep", NODE.slug] });
+    await waitFor(() => expect(frameSrc()).toMatch(/&v=1700009000$/));
+  });
+
   it("offers no comments on a page the assistant cannot revise", async () => {
     installFetchMock([DASH_RUN], { mission_dash: [DASH_FILE] });
     renderView();
@@ -900,6 +980,7 @@ describe("VisualizationView", () => {
     fireEvent.click(await findCard(DASH_KEY));
     await screen.findByTestId("visualization-frame");
     expect(screen.queryByTestId("visualization-comment")).toBeNull();
+    expect(screen.queryByTestId("visualization-edit")).toBeNull();
   });
 
   it("opens a node started empty on the stage before the library lists it", async () => {

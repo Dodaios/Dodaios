@@ -411,3 +411,64 @@ def test_a_node_can_be_read_without_its_spec(client: TestClient, store: NodeStor
         assert "spec" in with_spec
         assert "spec" not in without
         assert without["updated_at"] == with_spec["updated_at"]
+
+
+def test_one_typed_value_is_saved_into_the_spec(client: TestClient, store: NodeStore) -> None:
+    node = store.create(
+        type="sheets",
+        title="Costs",
+        spec={"rows": [{"item": "Flight", "price": 40.62, "booked": False}], "note": "draft"},
+    )
+
+    answer = client.post(f"/api/nodes/{node.id}/edit", json={"path": "/note", "value": "final"})
+    assert answer.status_code == 200
+    state = answer.json()
+    assert state["version"] == 2 and "spec" not in state
+    assert store.get(node.id).spec["note"] == "final"
+
+    # A number in the reader's notation, a yes/no, and an empty cell of a row.
+    url = f"/api/nodes/{node.id}/edit"
+    client.post(url, json={"path": "/rows/0/price", "value": "1.234,5", "as": "number"})
+    client.post(url, json={"path": "/rows/0/booked", "value": True, "as": "toggle"})
+    client.post(url, json={"path": "/rows/0/due", "value": "2026-12-01"})
+    row = store.get(node.id).spec["rows"][0]
+    assert row == {"item": "Flight", "price": 1234.5, "booked": True, "due": "2026-12-01"}
+
+    # The node's own name is a field too.
+    client.post(f"/api/nodes/{node.id}/edit", json={"path": "@title", "value": "  Trip costs "})
+    assert store.get(node.id).title == "Trip costs"
+
+
+def test_an_edit_that_changes_nothing_writes_nothing(client: TestClient, store: NodeStore) -> None:
+    node = store.create(type="docs", title="Plan", spec={"summary": "same"})
+
+    answer = client.post(f"/api/nodes/{node.id}/edit", json={"path": "/summary", "value": "same"})
+    assert answer.status_code == 200
+    assert answer.json()["version"] == 1
+
+
+@pytest.mark.parametrize(
+    ("body", "said"),
+    [
+        ({"path": "/rows/3/item", "value": "x"}, "Nothing at"),
+        ({"path": "/rows", "value": "x"}, "more than one value"),
+        ({"path": "/rows/0/price", "value": "twelve", "as": "number"}, "not a number"),
+        ({"path": "/rows/0/price", "value": "1", "as": "colour"}, "'as' must be"),
+        ({"path": "summary", "value": "x"}, "not a place"),
+        ({"path": "@title", "value": "   "}, "needs a name"),
+    ],
+)
+def test_an_edit_the_node_cannot_take_is_refused_with_the_reason(
+    client: TestClient, store: NodeStore, body: dict, said: str
+) -> None:
+    node = store.create(type="sheets", title="Costs", spec={"rows": [{"item": "a", "price": 1}]})
+
+    answer = client.post(f"/api/nodes/{node.id}/edit", json=body)
+    assert answer.status_code == 400
+    assert said in answer.json()["detail"]
+    assert store.get(node.id).version == 1
+
+
+def test_an_edit_of_an_unknown_node_is_a_404(client: TestClient) -> None:
+    answer = client.post("/api/nodes/0123456789ab/edit", json={"path": "/a", "value": "x"})
+    assert answer.status_code == 404

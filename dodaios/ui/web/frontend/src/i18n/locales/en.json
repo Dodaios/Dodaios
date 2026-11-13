@@ -11794,6 +11794,12 @@
       "failed": "Not sent. Try again.",
       "request": "Please change the node \"{0}\" (id {1}) as this comment says{2}: {3}",
       "at": " on \"{0}\""
+    },
+    "edit": {
+      "toggle": "Edit",
+      "hint": "Click a text and write. It is saved when you leave the field; Esc undoes it.",
+      "saving": "Saving…",
+      "failed": "That could not be saved."
     }
   },
   "agent_browser": {

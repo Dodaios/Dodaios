@@ -4,8 +4,19 @@ A sheet is the general form of the living page's table
 (:mod:`dodaios.artifacts.living`): typed columns instead of plain text, so a
 number is right-aligned and written the way the reader's locale writes it, a
 date reads as a date, a status is a chip and a column can carry a total. The
-person sorts, filters and moves through the grid; nothing is edited on the
-page, because the content belongs to the spec the assistant keeps.
+person sorts, filters and moves through the grid. In the app's edit mode
+(:mod:`dodaios.nodes.bridge`) the person may also write into a cell, a column
+label, a sheet's name, the note and the title; each change is saved into the
+spec, which stays the one source of what the page shows.
+
+Why an edited cell is sometimes followed up in the page and sometimes drawn
+again: the reader's place in a grid (the open sheet, the sort, the filter, the
+scroll inside the grid) is lost when the page is drawn again. So a plain sheet
+writes a saved value into its own grid (the number formatted, the date
+written out, the chip and the link kept). A sheet whose values feed a formula
+or a total, and a value only Python can read (a status word's tone, whether a
+text is an address, a number typed in a notation the page is not sure of, an
+emptied cell whose row may go), asks the app to draw the page again.
 
 Why formulas are evaluated HERE and not in the page: the page is a rendering
 of the spec, and a value the reader sees must be the value the assistant can
@@ -955,6 +966,12 @@ _PAGE_CSS: Final[str] = r"""
 .sx-tabs button[aria-selected="true"]::before{content:"";position:absolute;left:12px;right:12px;
   top:0;height:2px;background:var(--ink)}
 .sx-tabs button:focus-visible{outline-offset:-3px;border-radius:6px}
+:root[data-node-mode="edit"] [data-at]{-webkit-user-select:text;user-select:text}
+:root[data-node-mode="edit"] .sx-grid td[data-at]{outline-offset:-2px;border-radius:0}
+:root[data-node-mode="edit"] .sx-grid td[data-at]:focus{white-space:nowrap;text-overflow:clip}
+:root[data-node-mode="edit"] .sx-grid .hl[data-at]{min-width:1ch}
+:root[data-node-mode="edit"] .sx-grid thead th.sel:focus-within{outline:0}
+:root[data-node-mode="edit"] .sx-tn[data-at]{display:inline-block;min-width:1ch}
 @media (max-width:560px){
 .sx-head{gap:8px 16px;padding:12px 14px 11px}
 .sx-tools{flex:1 1 100%}
@@ -1042,17 +1059,30 @@ function Sheet(el){
     if(c.num)c.f=make(c,c.d);
     S.cols.push(c);});
   S.entry=S.table.querySelector('[tabindex="0"]');
+  // A link's address and a chip's tone stay when the text of one is edited.
+  each(S.body.querySelectorAll("td[data-at]"),function(td){
+    if(!/\/text$/.test(td.getAttribute("data-at")))return;
+    var a=td.querySelector("a[href]"),ch=td.querySelector(".chip");
+    if(a)td.sxA=a.cloneNode(false);else if(ch)td.sxC=ch.className;});
+  S.scroll.addEventListener("scroll",function(){clearTimeout(S.held);S.held=setTimeout(hold,200);});
   wire(S);return S;}
+function draw(td,c){
+  // A number or a date written out from its raw value; never in a field being typed into.
+  var v=td.getAttribute("data-value");
+  if(v===null||v===""||td===d.activeElement)return;
+  if(c.num)put(td,c,Number(v));
+  else if(c.t==="date"){var s=dateText(v);if(s)td.textContent=s;}}
+function rowText(S,r){
+  var raw=[];
+  S.cols.forEach(function(c){
+    var v=r.cells[c.i].getAttribute("data-value");
+    if(v!==null&&v!==""&&(c.num||c.t==="date"))raw.push(v);});
+  return (r.textContent+" "+raw.join(" ")).toLocaleLowerCase();}
 function format(S){
   if(S.formatted)return;S.formatted=true;
   S.text=S.rows.map(function(r){
-    var raw=[];
-    S.cols.forEach(function(c){
-      var td=r.cells[c.i],v=td.getAttribute("data-value");
-      if(v===null||v==="")return;
-      if(c.num){raw.push(v);put(td,c,Number(v));}
-      else if(c.t==="date"){raw.push(v);var s=dateText(v);if(s)td.textContent=s;}});
-    return (r.textContent+" "+raw.join(" ")).toLocaleLowerCase();});}
+    S.cols.forEach(function(c){draw(r.cells[c.i],c);});
+    return rowText(S,r);});}
 function lock(S){
   if(S.locked||!S.head.offsetWidth)return;S.locked=true;
   var w=[];
@@ -1124,7 +1154,7 @@ function sortBy(S,c){
     rows=order.map(function(i){return S.rows[i];});}
   var frag=d.createDocumentFragment();
   rows.forEach(function(r){frag.appendChild(r);});
-  S.body.appendChild(frag);}
+  S.body.appendChild(frag);hold();}
 function cellOf(S,target){
   var c=target&&target.closest?target.closest("td,th"):null;
   if(!c||!S.table.contains(c))return null;
@@ -1212,9 +1242,12 @@ function show(i,focus){
   each(tabs,function(t,j){
     t.setAttribute("aria-selected",j===i?"true":"false");t.tabIndex=j===i?0:-1;});
   var S=sheets[i];format(S);totals(S);lock(S);measure(S);filter(S);
-  if(focus&&tabs[i]){tabs[i].focus();}}
+  if(focus&&tabs[i]){tabs[i].focus();}
+  hold();}
 each(tabs,function(t,j){
   t.addEventListener("click",function(){show(j,false);});
+  // In edit mode a click on a tab lands in its name (a field): the sheet opens all the same.
+  t.addEventListener("focusin",function(){if(editing()&&j!==cur)show(j,false);});
   t.addEventListener("keydown",function(e){
     var to=e.key==="ArrowRight"?j+1:e.key==="ArrowLeft"?j-1:
       e.key==="Home"?0:e.key==="End"?tabs.length-1:-1;
@@ -1239,9 +1272,134 @@ d.addEventListener("click",function(e){
   e.preventDefault();
   if(window.parent!==window){window.parent.postMessage({type:"dodaios-open-link",href:h},"*");}
   else{location.href=h;}});
+// Edit mode (nodes/bridge.py): the bridge turns the marked texts into fields and
+// posts each change. Whether the page must be drawn again is often known only
+// once the value is typed, and the bridge reads data-refresh when the field is
+// left: a number the page cannot read for sure, one with more decimals than its
+// column shows, a date only Python reads, an emptied cell (its row may go).
+// Otherwise the page writes the saved value into its own grid, and the reader
+// keeps the open sheet, the sort, the filter and the place in the grid.
+function editing(){return d.documentElement.getAttribute("data-node-mode")==="edit";}
+function sheetOf(el){
+  for(var k=0;k<sheets.length;k++)if(sheets[k].table.contains(el))return sheets[k];
+  return null;}
+function colOf(S,td){
+  for(var k=0;k<S.cols.length;k++)if(S.cols[k].i===td.cellIndex)return S.cols[k];
+  return null;}
+function numberOf(s){
+  // Only what reads one way in every notation: "40,62", "1.234,5", "1200.5", "-3".
+  s=String(s).replace(/[\s\u00a0\u202f]/g,"").replace(/^[\u2212\u2013]/,"-");
+  var m=/^([+-]?)(\d+)$/.exec(s),n=null;
+  if(m)n=Number(m[1]+m[2]);
+  else if((m=/^([+-]?)(\d*)([.,])(\d+)$/.exec(s))){
+    // "1.234" is a thousand in one notation and a decimal in another.
+    if(!(m[4].length===3&&m[2].length>0&&m[2].length<4&&m[2]!=="0"))
+      n=Number(m[1]+(m[2]||"0")+"."+m[4]);}
+  else if((m=/^([+-]?)(\d{1,3}([.,])\d{3}(?:\3\d{3})*)(?:([.,])(\d+))?$/.exec(s))){
+    if(!m[4]||m[4]!==m[3])n=Number(m[1]+m[2].split(m[3]).join("")+(m[4]?"."+m[5]:""));}
+  return n!==null&&isFinite(n)?n:null;}
+function places(n){var t=Math.abs(n).toFixed(2).replace(/0+$/,"");return t.length-t.indexOf(".")-1;}
+var loose=/^\d{4}-\d{2}-\d{2}[T ]/;
+d.addEventListener("input",function(e){
+  var el=e.target,at=el&&el.getAttribute?el.getAttribute("data-at"):null;
+  if(!at||at.indexOf("/sheets/")!==0)return;
+  if(el.sxR===undefined)el.sxR=el.hasAttribute("data-refresh");
+  var v=(el.innerText||el.textContent||"").replace(/\u00a0/g," ").trim(),S=sheetOf(el);
+  var th=S&&el.tagName==="TD"?S.head.cells[el.cellIndex]:null,again=el.sxR||v==="";
+  if(!again&&el.getAttribute("data-as")==="number"){
+    var n=numberOf(v),dg=th?th.getAttribute("data-d"):null;
+    again=n===null||(dg!==null&&places(n)>Number(dg));}
+  if(!again&&th&&th.getAttribute("data-t")==="date")again=loose.test(v)&&!dre.test(v);
+  if(again)el.setAttribute("data-refresh","");else el.removeAttribute("data-refresh");});
+function hold(){
+  // The reader's place in the hash, which the bridge carries across a redraw:
+  // "#s1-o2d-t480" is the second sheet, sorted down by its third column, 480 px down.
+  var S=sheets[cur];if(!S||!editing())return;
+  var h="#s"+cur,k=S.sort?S.cols.indexOf(S.sort):-1;
+  var t=Math.round(S.scroll.scrollTop),l=Math.round(S.scroll.scrollLeft);
+  if(k>=0)h+="-o"+k+(S.dir===1?"a":"d");
+  if(t>0)h+="-t"+t;
+  if(l>0)h+="-l"+l;
+  if(h!==location.hash){try{history.replaceState(null,"",h);}catch(e){}}}
+function anchors(){
+  // A link in a cell is no Tab stop (tabindex -1), which also lets a click focus the
+  // link itself; in edit mode the click must land in the cell's field instead.
+  var on=editing();
+  each(d.querySelectorAll(".sx-grid td[data-at] a[href]"),function(a){
+    if(on)a.removeAttribute("tabindex");else a.setAttribute("tabindex","-1");});
+  hold();}
+if(window.MutationObserver)new MutationObserver(anchors).observe(d.documentElement,
+  {attributes:true,attributeFilter:["data-node-mode"]});
+function check(on){
+  var o;
+  if(!on){o=d.createElement("span");o.className="ck off";}
+  else{
+    var ns="http://www.w3.org/2000/svg",u=d.createElementNS(ns,"use");
+    o=d.createElementNS(ns,"svg");o.setAttribute("class","ck");
+    u.setAttribute("href","#sx-ck");o.appendChild(u);}
+  o.setAttribute("role","img");o.setAttribute("aria-label",on?"\u2713":"\u2013");
+  return o;}
+function linkLabel(t,h){
+  return t&&t!==h?t:(h.replace(/^(?:https?:\/\/(?:www\.)?|mailto:)/,"").replace(/\/+$/,"")||h);}
+function paint(S,c,el){
+  // The saved cell drawn the way the page draws every other cell.
+  if(el===d.activeElement){el.sxLater=true;return;}
+  var as=el.getAttribute("data-as"),v=el.getAttribute("data-value"),t=(el.textContent||"").trim();
+  var src=el.getAttribute("data-src"),o;
+  if(as==="toggle"){el.textContent="";el.appendChild(check(v==="1"||src==="true"));}
+  else if(as==="number"){
+    if(c.num&&v!==null)draw(el,c);
+    else if(src!==null&&(src===""||numberOf(src)!==null))el.textContent=src;}
+  else if(c.t==="date"){if(v!==null)draw(el,c);}
+  else if(el.sxA){o=el.sxA.cloneNode(false);o.textContent=linkLabel(t,o.getAttribute("href"));
+    if(editing())o.removeAttribute("tabindex");
+    el.textContent="";el.appendChild(o);}
+  else if(el.sxC){o=d.createElement("span");o.className=el.sxC;o.textContent=t;
+    el.textContent="";el.appendChild(o);}
+  else if(c.t==="text"){
+    if(t.length>48)el.setAttribute("title",t);else el.removeAttribute("title");}
+  var i=S.rows.indexOf(el.parentNode);
+  if(S.text&&i>=0)S.text[i]=rowText(S,el.parentNode);
+  totals(S);}
+d.addEventListener("node-field-saved",function(e){
+  var el=e.target,v=e.detail?String(e.detail.value):"",t=v.trim(),S=sheetOf(el),c,k;
+  if(!S){
+    // A sheet's name on its tab: the panel and the printed heading follow.
+    k=Array.prototype.indexOf.call(tabs,el.closest?el.closest('[role="tab"]'):null);
+    if(k>=0&&sheets[k]){
+      sheets[k].table.setAttribute("aria-label",t);
+      var h=sheets[k].el.querySelector(".sx-name");if(h)h.textContent=t;}
+    return;}
+  if(el.tagName!=="TD"){measure(S);return;}
+  c=colOf(S,el);if(!c)return;
+  var as=el.getAttribute("data-as");
+  if(as==="toggle")el.setAttribute("data-value",v==="true"?"1":"0");
+  else if(as==="number"){
+    var n=t===""?null:numberOf(t);
+    if(n!==null){el.setAttribute("data-src",String(n));if(c.num)el.setAttribute("data-value",String(n));}
+    else if(t===""){el.setAttribute("data-src","");el.removeAttribute("data-value");}}
+  else if(c.t==="date"){
+    if(dre.test(t))el.setAttribute("data-value",t);else el.removeAttribute("data-value");}
+  paint(S,c,el);});
+d.addEventListener("focusout",function(e){
+  // A saved value that arrived while its field was typed into again.
+  var el=e.target;
+  if(!el||!el.sxLater||/ is-saving/.test(el.className))return;
+  el.sxLater=false;var S=sheetOf(el),c=S?colOf(S,el):null;if(c)paint(S,c,el);});
 addEventListener("resize",function(){if(sheets[cur])measure(sheets[cur]);});
 addEventListener("beforeprint",function(){sheets.forEach(format);sheets.forEach(totals);});
+function goTo(h){
+  // A page drawn again after an edit opens at the place its hash names (see hold);
+  // the bridge sets that hash when the app hands it back.
+  var m=/^#s(\d{1,2})(?:-o(\d{1,2})([ad]))?(?:-t(\d{1,7}))?(?:-l(\d{1,7}))?$/.exec(h||"");
+  var S=m?sheets[Number(m[1])]:null;if(!S)return;
+  var c=m[2]?S.cols[Number(m[2])]||null:null,dir=c?(m[3]==="d"?-1:1):0;
+  if(S!==sheets[cur])show(Number(m[1]),false);
+  for(var n=0;n<3&&(S.sort!==c||S.dir!==dir);n++)sortBy(S,c||S.sort);
+  S.scroll.scrollTop=Number(m[4]||0);S.scroll.scrollLeft=Number(m[5]||0);}
+addEventListener("hashchange",function(){goTo(location.hash);});
 show(0,false);
+goTo(location.hash);
 })();
 """
 
@@ -1284,8 +1442,62 @@ def _text_html(value: Any) -> tuple[str, str]:
     return esc(text), f' title="{attr(text)}"' if len(text) > 48 else ""
 
 
-def _cell_html(value: Any, column: _Column, language: str, entry: bool) -> str:
-    """One body cell. ``entry`` marks the cell the Tab key lands on."""
+def _pointer(*parts: object) -> str:
+    """A JSON Pointer to a place in the stored spec."""
+    return "".join("/" + str(part).replace("~", "~0").replace("/", "~1") for part in parts)
+
+
+def _mark(at: str) -> str:
+    return f' data-at="{attr(at)}"'
+
+
+def _cell_marks(value: Any, column: _Column, at: str, refresh: bool) -> str:
+    """What makes one body cell a field of the edit mode (see :mod:`dodaios.nodes.bridge`).
+
+    ``at`` is the cell's place in the stored spec, ``refresh`` whether every
+    change of the sheet's cells has the page drawn again. Empty for a cell
+    that offers nothing to edit.
+    """
+    empty = value is None or value == ""
+    marks = ""
+    redraw = refresh
+    if isinstance(value, bool) or (empty and column.kind == "check"):
+        marks = f' data-as="toggle" data-src="{"true" if value else "false"}"'
+    elif empty:
+        if column.numeric:
+            marks = ' data-as="number" data-src=""'
+        elif column.kind == "date":
+            marks = ' data-src=""'
+        elif column.kind in ("status", "link"):
+            redraw = True  # what is typed becomes a chip or a link, drawn by Python
+    elif _is_number(value):
+        marks = f' data-as="number" data-src="{attr(_raw(value))}"'
+    elif column.numeric:
+        redraw = True  # text in a number column ("n/a"): a number typed there becomes one
+    elif column.kind == "date":
+        marks = f' data-src="{attr(_text_of(value))}"'
+    elif isinstance(value, dict):
+        # A link or a status chip: its text is the value; the address and the tone stay.
+        if not isinstance(value.get("text"), str):
+            return ""
+        at += "/text"
+        if "href" in value:
+            marks = f' data-src="{attr(value["text"])}"'
+    elif column.kind in ("status", "link"):
+        redraw = True  # a status word's tone, or whether a text is an address, is Python's
+    return f"{_mark(at)}{marks}{' data-refresh' if redraw else ''}"
+
+
+def _cell_html(
+    value: Any,
+    column: _Column,
+    language: str,
+    entry: bool,
+    at: str = "",
+    refresh: bool = False,
+) -> str:
+    """One body cell. ``entry`` marks the cell the Tab key lands on; ``at`` is
+    its place in the stored spec when it can be edited (see :func:`_cell_marks`)."""
     classes = [name for name in (column.align, column.frozen) if name]
     extra = ' tabindex="0"' if entry else ""
     inner = ""
@@ -1316,10 +1528,12 @@ def _cell_html(value: Any, column: _Column, language: str, entry: bool) -> str:
         inner, title = _text_html(value)
         extra += title
     klass = f' class="{" ".join(classes)}"' if classes else ""
-    return f"<td{klass}{extra}>{inner}</td>"
+    marks = _cell_marks(value, column, at, refresh) if at else ""
+    return f"<td{klass}{extra}{marks}>{inner}</td>"
 
 
-def _head_html(column: _Column, entry: bool) -> str:
+def _head_html(column: _Column, entry: bool, at: str = "") -> str:
+    """One column's head; ``at`` is its label's place in the stored spec when editable."""
     classes = " ".join(name for name in (column.align, column.frozen) if name)
     parts = [f' class="{classes}"' if classes else "", f' data-t="{attr(column.kind)}"']
     if column.numeric:
@@ -1333,7 +1547,8 @@ def _head_html(column: _Column, entry: bool) -> str:
         parts.append(' tabindex="0"')
     return (
         f'<th scope="col"{"".join(parts)} aria-sort="none"><span class="hc">'
-        f'<span class="hl">{esc(column.label)}</span>{_ICON_SORT}</span></th>'
+        f'<span class="hl"{_mark(at) if at else ""}>{esc(column.label)}</span>'
+        f"{_ICON_SORT}</span></th>"
     )
 
 
@@ -1371,19 +1586,52 @@ def _total_html(column: _Column, rows: list[dict[str, Any]], language: str) -> s
     )
 
 
-def _sheet_html(sheet: dict[str, Any], index: int, several: bool, language: str) -> str:
-    """One sheet: its grid, and what stands in for the rows when there are none."""
+def _sheet_html(
+    sheet: dict[str, Any],
+    index: int,
+    several: bool,
+    language: str,
+    stored: Any = None,
+) -> str:
+    """One sheet: its grid, and what stands in for the rows when there are none.
+
+    ``stored`` is the sheet as the node's spec holds it. Its cells and labels
+    are offered for editing only where it holds exactly what is drawn, so a
+    field's place (``/sheets/0/rows/3/qty``) is always the stored row's, in
+    whatever order the reader has sorted the grid.
+    """
     columns, rows = _read(sheet)
     name = str(sheet.get("name") or "")
     freeze = sum(1 for column in columns if column.frozen)
+    kept = stored if isinstance(stored, dict) else {}
+    base = _pointer("sheets", index)
+    labels = kept.get("columns") == sheet.get("columns")
+    cells_kept = kept.get("rows") == sheet.get("rows")
+    # A formula or a total is computed from the other cells: the page is drawn again.
+    refresh = any(column.formula or column.total for column in columns)
     head = '<th class="g"></th>' + "".join(
-        _head_html(column, entry=not rows and position == 0)
+        _head_html(
+            column,
+            entry=not rows and position == 0,
+            at=base + _pointer("columns", position, "label") if labels else "",
+        )
         for position, column in enumerate(columns)
     )
     body: list[str] = []
     for row_index, row in enumerate(rows):
         cells = "".join(
-            _cell_html(row.get(column.key), column, language, row_index == 0 and position == 0)
+            _cell_html(
+                row.get(column.key),
+                column,
+                language,
+                row_index == 0 and position == 0,
+                at=(
+                    base + _pointer("rows", row_index, column.key)
+                    if cells_kept and not column.formula
+                    else ""
+                ),
+                refresh=refresh,
+            )
             for position, column in enumerate(columns)
         )
         body.append(f'<tr><td class="g"></td>{cells}<td class="x"></td></tr>')
@@ -1408,6 +1656,12 @@ def _sheet_html(sheet: dict[str, Any], index: int, several: bool, language: str)
     )
 
 
+def _name_mark(stored: list[Any], index: int, sheet: dict[str, Any]) -> str:
+    """The edit mark of a sheet's name on its tab, when the stored spec holds that name."""
+    kept = stored[index] if index < len(stored) and isinstance(stored[index], dict) else {}
+    return _mark(_pointer("sheets", index, "name")) if kept.get("name") == sheet["name"] else ""
+
+
 def render(node: Any) -> str:
     """The node as one self-contained page (see :func:`dodaios.nodes.shell.document`)."""
     try:
@@ -1415,14 +1669,22 @@ def render(node: Any) -> str:
     except NodeError:  # a spec no sheet can be read from still gets a page: an empty one
         spec = {"sheets": []}
     sheets: list[dict[str, Any]] = spec["sheets"]
+    # What the reader can write into in edit mode (`nodes/bridge.py`) is marked
+    # with its place in the spec AS STORED; a value is offered only where the
+    # stored spec holds what the page draws (the store keeps it normalized).
+    raw = getattr(node, "spec", None)
+    raw = raw if isinstance(raw, dict) else {}
+    stored = raw.get("sheets") if isinstance(raw.get("sheets"), list) else []
     language = str(getattr(node, "language", "") or "en")
     several = len(sheets) > 1
     count = len(sheets[0]["rows"]) if sheets else 0
     note = spec.get("note")
-    note_html = f'<p class="sx-note">{esc(note)}</p>' if note else ""
+    note_mark = _mark("/note") if note and raw.get("note") == note else ""
+    note_html = f'<p class="sx-note"{note_mark}>{esc(note)}</p>' if note else ""
     head = (
         '<header class="sx-head"><div class="sx-id">'
-        f"<h1>{esc(getattr(node, 'title', ''))}</h1>{upkeep_meta(node)}{note_html}</div>"
+        f'<h1 data-at="@title">{esc(getattr(node, "title", ""))}</h1>'
+        f"{upkeep_meta(node)}{note_html}</div>"
         '<div class="sx-tools">'
         f'<label class="sx-filter">{_ICON_SEARCH}'
         '<span class="visually-hidden">Filter rows</span>'
@@ -1433,7 +1695,8 @@ def render(node: Any) -> str:
         "</div></header>"
     )
     panels = "".join(
-        _sheet_html(sheet, index, several, language) for index, sheet in enumerate(sheets)
+        _sheet_html(sheet, index, several, language, stored[index] if index < len(stored) else None)
+        for index, sheet in enumerate(sheets)
     )
     if not sheets:
         panels = (
@@ -1445,7 +1708,9 @@ def render(node: Any) -> str:
         buttons = "".join(
             f'<button type="button" role="tab" id="sx-tab-{index}" '
             f'aria-controls="sx-sheet-{index}" aria-selected="{"false" if index else "true"}" '
-            f'tabindex="{-1 if index else 0}">{esc(sheet["name"])}</button>'
+            f'tabindex="{-1 if index else 0}">'
+            f'<span class="sx-tn"{_name_mark(stored, index, sheet)}>{esc(sheet["name"])}</span>'
+            "</button>"
             for index, sheet in enumerate(sheets)
         )
         tabs = f'<div class="sx-tabs" role="tablist" aria-label="Sheets">{buttons}</div>'
