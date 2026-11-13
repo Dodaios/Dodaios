@@ -11726,5 +11726,28 @@
     "provider_other": "目前无法使用",
     "provider_detail": "请在 API 密钥中检查访问权限。",
     "provider_action": "打开 API 密钥"
+  },
+  "agent_browser": {
+    "title": "{name} 的浏览器",
+    "screen": "{name} 的实时浏览器",
+    "driving": "{name} 正在操作",
+    "you_drive": "你正在操作",
+    "take_over": "接管",
+    "hand_back": "交还",
+    "expand": "放大浏览器",
+    "minimize": "缩小浏览器",
+    "hide": "隐藏浏览器",
+    "stop": "停止",
+    "working": "工作中",
+    "ready": "就绪",
+    "connecting": "正在连接…",
+    "needs_you": "{name} 需要你来处理",
+    "private_hint": "你在这里输入的内容不会被记录，也不会给 {name} 看到。",
+    "approval": "允许这一步浏览器操作吗？",
+    "allow": "允许",
+    "deny": "拒绝",
+    "address": "网址",
+    "back": "后退",
+    "forward": "前进"
   }
 }

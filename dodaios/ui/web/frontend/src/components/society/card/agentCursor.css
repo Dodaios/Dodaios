@@ -78,3 +78,19 @@
   from { transform: scale(0.45); opacity: 0.95; }
   to { transform: scale(1.85); opacity: 0; }
 }
+
+/* The name of whoever drives, riding just below and right of the arrow. */
+.agent-cursor-label {
+  position: absolute;
+  left: 22px;
+  top: 30px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #0a0a0a;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.85);
+}

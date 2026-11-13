@@ -1,8 +1,8 @@
-"""Pointer telemetry is evidence of successful, approved browser mouse input."""
+"""Pointer telemetry shows the agent's approved browser mouse input, never typing."""
 
 import pytest
 
-from dodaios.society.browser.pointer import PointerTracker
+from dodaios.society.browser.pointer import PointerTracker, glide_seconds
 
 
 async def test_pointer_tracks_real_click_and_keeps_click_when_mouse_moves():
@@ -11,8 +11,12 @@ async def test_pointer_tracks_real_click_and_keeps_click_when_mouse_moves():
     async def send(**kwargs):
         return {"ok": True}
 
+    async def no_wait(seconds):
+        return None
+
     tracker = PointerTracker("generation", lambda kind, **data: events.append((kind, data)),
-                             lambda: True, lambda x, y: (x * 2, y * 2 + 80, 2560, 1680))
+                             lambda: True, lambda x, y: (x * 2, y * 2 + 80, 2560, 1680),
+                             sleep=no_wait)
     observed = tracker.wrap(send)
     await observed("Input.dispatchMouseEvent", {"type": "mousePressed", "x": 20, "y": 30})
     await observed("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": 40, "y": 50})
@@ -53,6 +57,60 @@ async def test_failed_mouse_command_has_no_click_marker():
     with pytest.raises(RuntimeError, match="Disconnected"):
         await tracker.wrap(send)("Input.dispatchMouseEvent", {"type": "mousePressed", "x": 1, "y": 2})
     assert not events
+
+
+async def test_a_move_is_shown_first_and_sent_after_the_arrow_has_travelled():
+    timeline = []
+
+    async def send(**kwargs):
+        timeline.append(("sent", kwargs["params"]["type"]))
+        return {}
+
+    async def wait(seconds):
+        timeline.append(("waited", round(seconds, 3)))
+
+    tracker = PointerTracker("g", lambda kind, **data: timeline.append(("shown", data["x"], data["click_id"])),
+                             lambda: True, lambda x, y: (x, y, 1280, 800), sleep=wait)
+    observed = tracker.wrap(send)
+    await observed("Input.dispatchMouseEvent", {"type": "mousePressed", "x": 100, "y": 100})
+    # The first event has nowhere to travel from: sent at once.
+    assert timeline == [("sent", "mousePressed"), ("shown", 100.0, 1)]
+    timeline.clear()
+    await observed("Input.dispatchMouseEvent", {"type": "mousePressed", "x": 600, "y": 100})
+    assert timeline == [
+        ("shown", 600.0, 1),
+        ("waited", round(glide_seconds(500) - 0.06, 3)),
+        ("sent", "mousePressed"),
+        ("shown", 600.0, 2),
+    ]
+    timeline.clear()
+    # The release and a press on the same point need no second glide.
+    await observed("Input.dispatchMouseEvent", {"type": "mousePressed", "x": 601, "y": 100})
+    assert [entry[0] for entry in timeline] == ["sent", "shown"]
+
+
+async def test_no_glide_wait_while_the_person_drives():
+    waits = []
+
+    async def send(**kwargs):
+        return {}
+
+    async def wait(seconds):
+        waits.append(seconds)
+
+    tracker = PointerTracker("g", lambda *args, **kwargs: None, lambda: False,
+                             lambda x, y: (x, y, 1280, 800), sleep=wait)
+    observed = tracker.wrap(send)
+    tracker.shown = (0.0, 0.0)
+    await observed("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": 900, "y": 500})
+    assert waits == []
+
+
+def test_glide_matches_the_viewer_arrow():
+    assert glide_seconds(0) == 0
+    assert glide_seconds(40) == 0.28
+    assert glide_seconds(500) == pytest.approx(0.39)
+    assert glide_seconds(5000) == 0.65
 
 
 async def test_native_upgrade_waits_for_the_active_browser_task(tmp_path):
