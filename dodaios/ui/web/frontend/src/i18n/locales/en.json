@@ -8225,7 +8225,7 @@
     },
     "browser": {
       "reload": "Reload",
-      "placeholder": "Address, e.g. localhost:5173",
+      "placeholder": "Address or search, e.g. localhost:5173",
       "address": "Address",
       "open_external": "Open in your browser",
       "empty_title": "Enter an address above",
@@ -8234,6 +8234,8 @@
       "refused_hint": "This site does not allow being shown inside another app. Open it in your browser, where you are signed in.",
       "unreachable_title": "{host} did not answer",
       "unreachable_hint": "Check the address, or whether the server is running.",
+      "searched": "The search for “{query}” opened in your browser.",
+      "search_again": "Open again",
       "native": {
         "opening": "Opening {browser}…",
         "opening_hint": "Your own browser opens here, signed in with the profile you picked.",

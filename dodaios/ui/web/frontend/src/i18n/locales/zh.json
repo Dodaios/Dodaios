@@ -8225,7 +8225,7 @@
     },
     "browser": {
       "reload": "重新加载",
-      "placeholder": "地址，例如 localhost:5173",
+      "placeholder": "地址或搜索，例如 localhost:5173",
       "address": "地址",
       "open_external": "在浏览器中打开",
       "empty_title": "在上方输入地址",
@@ -8234,6 +8234,8 @@
       "refused_hint": "此网站不允许在其他应用中显示。请在你的浏览器中打开，你在那里已登录。",
       "unreachable_title": "{host} 没有响应",
       "unreachable_hint": "请检查地址，或确认服务器正在运行。",
+      "searched": "已在你的浏览器中打开“{query}”的搜索。",
+      "search_again": "再次打开",
       "native": {
         "opening": "正在打开 {browser}…",
         "opening_hint": "你自己的浏览器会在这里打开，并使用你选择的配置文件登录。",

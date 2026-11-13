@@ -236,12 +236,51 @@ describe("IdeSidePanel", () => {
   it("says an address without an answer does not answer", async () => {
     vi.stubGlobal("fetch", vi.fn(async () =>
       new Response(JSON.stringify({ ok: true, frameable: false, reason: "unreachable" }), { status: 200 })));
-    localStorage.setItem("jarvis.agenticIde.browserUrl.v1", "https://github/");
+    localStorage.setItem("jarvis.agenticIde.browserUrl.v1", "https://staging.example.test/");
     act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["browser"], active: "browser" }));
     render(<Harness />);
     const blocked = await screen.findByTestId("ide-browser-blocked");
     expect(blocked.getAttribute("data-reason")).toBe("unreachable");
-    expect(blocked.textContent).toContain("github did not answer");
+    expect(blocked.textContent).toContain("staging.example.test did not answer");
+  });
+
+  it("opens a typed word as a search in the person's browser and keeps the page", async () => {
+    const calls: { path: string; body: unknown }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {
+      calls.push({ path, body: init?.body ? JSON.parse(String(init.body)) : null });
+      return new Response(JSON.stringify({ opened: true }), { status: 200 });
+    }));
+    localStorage.setItem("jarvis.agenticIde.browserUrl.v1", "http://localhost:5173/");
+    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["browser"], active: "browser" }));
+    render(<Harness />);
+    const frame = screen.getByTestId("ide-browser-frame");
+    fireEvent.change(screen.getByTestId("ide-browser-address"), { target: { value: "github" } });
+    fireEvent.submit(screen.getByTestId("ide-browser-address").closest("form")!);
+    await act(async () => {});
+    expect(calls).toContainEqual({
+      path: "/api/settings/open-external", body: { url: "https://www.google.com/search?q=github" },
+    });
+    expect(screen.getByTestId("ide-browser-searched").textContent).toContain("“github”");
+    expect(screen.getByTestId("ide-browser-frame")).toBe(frame);
+    expect(localStorage.getItem("jarvis.agenticIde.browserUrl.v1")).toBe("http://localhost:5173/");
+    fireEvent.change(screen.getByTestId("ide-browser-address"), { target: { value: "github login" } });
+    fireEvent.submit(screen.getByTestId("ide-browser-address").closest("form")!);
+    await act(async () => {});
+    expect(calls).toContainEqual({
+      path: "/api/settings/open-external", body: { url: "https://www.google.com/search?q=github%20login" },
+    });
+  });
+
+  it("offers the word again instead of loading an address the old bar made from it", () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    localStorage.setItem("jarvis.agenticIde.browserUrl.v1", "https://github/");
+    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["browser"], active: "browser" }));
+    render(<Harness />);
+    expect((screen.getByTestId("ide-browser-address") as HTMLInputElement).value).toBe("github");
+    expect(screen.queryByTestId("ide-browser-blocked")).toBeNull();
+    expect(screen.queryByTestId("ide-browser-frame")).toBeNull();
+    expect(fetch).not.toHaveBeenCalledWith("/api/ide-browser/frame-check", expect.anything());
   });
 
   it("keeps + usable with every tab listed, open ones ticked, and focuses an open one", () => {
