@@ -156,17 +156,33 @@ describe("what a message answered beside a running request made", () => {
     expect(within(answer).getByTestId("page-card-title").textContent).toContain("Trip Munich – Dubai");
   });
 
-  it("shows several pages as links, and the coding agent it started", async () => {
+  it("shows a card for each page it made, one for a page made and revised, and the coding agent it started", async () => {
     draw(sideConversation([
       { kind: "report", text: "Trip", artifact: PAGE, ts_ms: 1 },
       { kind: "report", text: "Packing list", artifact: `${PAGE.split("::")[0]}::tasks/node/artifacts/files/pack.html`, ts_ms: 2 },
-      { ...STARTED_AGENT, ts_ms: 3 },
+      { kind: "report", text: "Trip, revised", artifact: PAGE, ts_ms: 3 },
+      { ...STARTED_AGENT, ts_ms: 4 },
       { kind: "report", text: "No address" },
     ]));
     const answer = screen.getByTestId("side-thread-answer");
-    expect(within(answer).getAllByTestId("page-link")).toHaveLength(2);
-    expect(within(answer).queryByTestId("page-card")).toBeNull();
+    const titles = within(answer).getAllByTestId("page-card-title").map((title) => title.textContent);
+    expect(titles).toHaveLength(2);
+    expect(titles[0]).toContain("Packing list");
+    expect(titles[1]).toContain("Trip, revised");
+    expect(within(answer).queryByTestId("page-link")).toBeNull();
     await waitFor(() => expect(within(answer).getByTestId("coding-agent-link").textContent).toContain("Hover popover disappears"));
+  });
+
+  it("shows many pages as links", () => {
+    const run = PAGE.split("::")[0];
+    draw(sideConversation(
+      ["a", "b", "c", "d"].map((name, index) => ({
+        kind: "report", text: `Page ${name}`, artifact: `${run}::tasks/node/artifacts/files/${name}.html`, ts_ms: index,
+      })),
+    ));
+    const answer = screen.getByTestId("side-thread-answer");
+    expect(within(answer).getAllByTestId("page-link")).toHaveLength(4);
+    expect(within(answer).queryByTestId("page-card")).toBeNull();
   });
 
   it("shows nothing more when it made nothing", () => {
