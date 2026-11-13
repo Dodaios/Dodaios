@@ -21,7 +21,7 @@
 import type { LucideIcon } from "lucide-react";
 import { AudioLines, Languages, SlidersHorizontal } from "lucide-react";
 import {
-  ArtifactsIcon,
+  NodesIcon,
   BoardIcon,
   BuiltIcon,
   DocsIcon,
@@ -142,7 +142,7 @@ export const HUB_GROUPS: readonly { id: string; labelKey: string; entries: reado
     id: "tools",
     labelKey: "nav.group_tools",
     entries: [
-      { kind: "link", id: "visualization", labelKey: "nav.visualization", icon: ArtifactsIcon },
+      { kind: "link", id: "visualization", labelKey: "nav.visualization", icon: NodesIcon },
       { kind: "link", id: "marketplace", labelKey: "nav.marketplace", icon: MarketplaceIcon },
       { kind: "link", id: "clis", labelKey: "nav.clis_hub", icon: TerminalIcon },
       { kind: "link", id: "sessions", labelKey: "nav.sessions", icon: MicrophoneIcon },

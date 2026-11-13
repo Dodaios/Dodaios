@@ -182,12 +182,15 @@ export const MarketplaceIcon = defineIcon(
   </>,
 );
 
-/** A card on top of a card: the things a run produced. */
-export const ArtifactsIcon = defineIcon(
-  "ArtifactsIcon",
+/** A small graph, one node branching to two: the Nodes section's mark. */
+export const NodesIcon = defineIcon(
+  "NodesIcon",
   <>
-    <rect x="4" y="8" width="12" height="12" rx="2.5" />
-    <path d="M8 5.5A2.5 2.5 0 0 1 10.5 3.5H17A3 3 0 0 1 20 6.5V13a2.5 2.5 0 0 1-2 2.45" />
+    <rect x="3.5" y="9.25" width="5.5" height="5.5" rx="1.75" />
+    <rect x="15" y="3.5" width="5.5" height="5.5" rx="1.75" />
+    <rect x="15" y="15" width="5.5" height="5.5" rx="1.75" />
+    <path d="M9 12h3" />
+    <path d="M15 6.25h-.5a2.5 2.5 0 0 0-2.5 2.5v6.5a2.5 2.5 0 0 0 2.5 2.5h.5" />
   </>,
 );
 

@@ -552,7 +552,7 @@ def test_readback_keeps_the_options_under_the_length_cap() -> None:
         language="de",
     )
     assert len(text) <= MAX_VOICE_CHARS
-    assert text.endswith("Artefakte.")  # i18n-allow: German TTS phrase under test
+    assert text.endswith("Nodes.")
 
 
 @pytest.mark.parametrize("lang", ["de", "en"])

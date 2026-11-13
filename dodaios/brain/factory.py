@@ -96,6 +96,9 @@ ROUTER_TOOLS = frozenset({
     "show-result-card",
     # Reports (2026-11-11): a long answer as a page plus a card in the chat.
     "write-report",
+    # Nodes (2026-11-13): the typed things the lead makes and keeps current
+    # (dodaios/nodes). A direct monitor write like write-report, never a spawn.
+    "node",
     # Jobs ledger (2026-11-10): read-only handle on the work the lead started.
     "job-status",
     "await-jobs",

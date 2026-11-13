@@ -264,7 +264,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   "voice-shortcuts": "Voice Shortcuts",
   "voice-language": "Dictation Language",
   "voice-api-keys": "Voice Input Keys",
-  visualization: "Visualization",
+  visualization: "Nodes",
   "agentic-ide": "Agentic IDE",
   "chat-workspace": "Chat",
   "agentic-ide-classic": "Terminal grid",

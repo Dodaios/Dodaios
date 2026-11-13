@@ -72,6 +72,7 @@ TOOL_CLASS: Final[dict[str, str]] = {
     "create_artifact": "artifacts",
     "living_page": "artifacts",
     "write_report": "artifacts",
+    "node": "artifacts",
     "slack": "messaging",
     "reply": "messaging",
     "home_assistant": "other",

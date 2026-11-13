@@ -88,16 +88,14 @@ class LivingPageTool:
     name: str = "living_page"
     risk_tier: str = "monitor"
     description: str = (
-        "Keep a LIVING PAGE: a page in the Artifacts section that you keep current "
-        "on a schedule, for when the person asks you to keep, track or watch a list "
-        "('keep a page that tracks my parcels', 'track my job applications', 'watch "
-        "this stock list'). First read the current items from the person's apps or "
-        "the screen, then call operation 'create' with a title, 'track' (what to keep "
-        "current and where to read it, self-contained), the columns and the rows. A "
-        "routine of yours then refreshes the page every 'every_minutes'. On a refresh "
-        "run call 'update' with page_id and the COMPLETE current rows. 'stop' ends the "
-        "refresh, 'resume' starts it again, 'list' shows the pages. Read only: a "
-        "refresh never sends, books or deletes anything."
+        "Look after a LIVING PAGE: a table page in the Nodes section that you keep "
+        "current on a schedule. For something NEW to keep current use the node tool with "
+        "'track' (a list is a node of type sheets); this tool keeps the living pages "
+        "that already exist. On a refresh run call 'update' with page_id and the "
+        "COMPLETE current rows. 'stop' ends the refresh, 'resume' starts it again, "
+        "'list' shows the pages; 'create' still makes a page of this older kind (title, "
+        "'track', columns, rows, 'every_minutes'). Read only: a refresh never sends, "
+        "books or deletes anything."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -254,7 +252,7 @@ class LivingPageTool:
             jobs.with_job_id(
                 f"Created the living page '{page.title}' (page_id {page.id}) with "
                 f"{len(page.rows)} rows. It refreshes every {page.every_minutes} minutes "
-                "and is in the Artifacts section; the person can stop the refresh there.",
+                "and is in the Nodes section; the person can stop the refresh there.",
                 job_id, ctx,
             ),
         )

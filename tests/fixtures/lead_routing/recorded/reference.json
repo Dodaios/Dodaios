@@ -305,10 +305,10 @@
    "tool": "create_artifact"
   },
   "artifact-living-parcels-en": {
-   "tool": "living_page"
+   "tool": "node"
   },
   "artifact-living-applications-de": {
-   "tool": "living_page"
+   "tool": "node"
   },
   "mission-list-active-en": {
    "tool": "missions-list"

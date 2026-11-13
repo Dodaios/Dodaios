@@ -1953,6 +1953,8 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
             "living-page",
             "show-result-card",
             "write-report",
+            # Nodes (2026-11-13): typed pages rendered from a spec. Never spawns.
+            "node",
             # Jobs ledger (2026-11-10): read-only status / wait on started work.
             "job-status",
             "await-jobs",

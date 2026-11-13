@@ -239,7 +239,7 @@
         "files": "{files} Dateien gespeichert.",
         "wait": "Die Mission wartet, bis wieder Kapazität verfügbar ist.",
         "wait_auth": "Die Mission wartet, bis du dich wieder anmeldest.",
-        "paid": "Kostenpflichtige API-Nutzung nur mit deiner ausdrücklichen Freigabe unter Artefakte."
+        "paid": "Kostenpflichtige API-Nutzung nur mit deiner ausdrücklichen Freigabe unter Nodes."
       },
       "provider_fallback_name": "KI-Anbieter",
       "default_target": "diese Aktion"

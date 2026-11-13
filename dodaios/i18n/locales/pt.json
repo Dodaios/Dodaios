@@ -239,7 +239,7 @@
         "files": "{files} ficheiros guardados.",
         "wait": "A missão aguarda até haver capacidade outra vez.",
         "wait_auth": "A missão aguarda até voltares a iniciar sessão.",
-        "paid": "Uso de API paga só com a tua aprovação explícita em Artefactos."
+        "paid": "Uso de API paga só com a tua aprovação explícita em Nodes."
       },
       "provider_fallback_name": "fornecedor de IA",
       "default_target": "esta ação"

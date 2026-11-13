@@ -155,7 +155,7 @@ class CreateArtifactTool:
         "Build an ARTIFACT: one self-contained HTML page the user can look at "
         "and keep — a dashboard, report, infographic, diagram, comparison, "
         "timeline, chart, landing page or small interactive tool. A strong "
-        "background agent writes the page; it appears in the Artifacts "
+        "background agent writes the page; it appears in the Nodes "
         "section when done (about a minute). Use this ONLY when the user "
         "literally says the word artifact ('mach mir ein Artefakt draus', "
         "'build me an artifact', 'hazme un artefacto') or pinned this "
@@ -163,7 +163,7 @@ class CreateArtifactTool:
         "'Dashboard', 'Diagramm', 'Seite' or 'Bericht' alone, and never to "
         "decorate an ordinary answer. To change an existing artifact, the "
         "user names the artifact again and you pass 'revise' with its title "
-        "(or 'latest'). This does NOT open the Artifacts section — that "
+        "(or 'latest'). This does NOT open the Nodes section — that "
         "is 'navigate'. Prefer this over spawn_worker whenever the "
         "deliverable is a page to look at."
     )

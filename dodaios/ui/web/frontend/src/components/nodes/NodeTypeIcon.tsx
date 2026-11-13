@@ -1,0 +1,117 @@
+/**
+ * The Nodes library's own icons: one per node type, and the section's mark
+ * for the navigation rail.
+ *
+ * Drawn in the family of `icons/sectionIcons.tsx`: a 24-unit grid with the
+ * live area inside 3–21, a 1.6 stroke with round caps and joins, a 2.5 corner
+ * radius on boxes, outlines only, one idea per glyph.
+ */
+import type { LucideIcon } from "lucide-react";
+
+import { defineIcon } from "@/components/icons/sectionIcons";
+
+import type { CardType } from "./nodeModel";
+
+// The section's own mark lives with the other section icons (the navigation
+// loads those up front); re-exported here for the library's own use.
+export { NodesIcon } from "@/components/icons/sectionIcons";
+
+/** A page with a folded corner and two written lines. */
+const DocsTypeIcon = defineIcon(
+  "NodeDocsIcon",
+  <>
+    <path d="M7.5 3.5H14l4.5 4.5v10.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z" />
+    <path d="M14 3.5V8h4.5" />
+    <path d="M8.75 12.5h6.5" />
+    <path d="M8.75 16h4.25" />
+  </>,
+);
+
+/** A screen on a stand. */
+const SlidesTypeIcon = defineIcon(
+  "NodeSlidesIcon",
+  <>
+    <rect x="3.5" y="4" width="17" height="11.5" rx="2.5" />
+    <path d="M12 15.5v2" />
+    <path d="m8.5 20.5 3.5-3 3.5 3" />
+  </>,
+);
+
+/** A table: a head row and a first column. */
+const SheetsTypeIcon = defineIcon(
+  "NodeSheetsIcon",
+  <>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+    <path d="M3.5 9.5h17" />
+    <path d="M3.5 14.5h17" />
+    <path d="M9.5 4.5v15" />
+  </>,
+);
+
+/** A painter's palette with its dabs of paint. */
+const DesignTypeIcon = defineIcon(
+  "NodeDesignIcon",
+  <>
+    <path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.05 0 1.9-.85 1.9-1.9 0-.5-.2-.95-.5-1.3-.3-.35-.5-.8-.5-1.3 0-1.05.85-1.9 1.9-1.9H17a3.5 3.5 0 0 0 3.5-3.5c0-3.9-3.8-7.1-8.5-7.1Z" />
+    <path d="M7.5 12.25h.01" />
+    <path d="M9.75 8h.01" />
+    <path d="M14.25 7.5h.01" />
+  </>,
+);
+
+/** Three bars of uneven height. */
+const DataTypeIcon = defineIcon(
+  "NodeDataIcon",
+  <>
+    <rect x="4" y="12" width="4" height="8" rx="1.5" />
+    <rect x="10" y="4" width="4" height="16" rx="1.5" />
+    <rect x="16" y="8.5" width="4" height="11.5" rx="1.5" />
+  </>,
+);
+
+/** A square with a circle laid over its corner: shapes on a board. */
+const WhiteboardTypeIcon = defineIcon(
+  "NodeWhiteboardIcon",
+  <>
+    <path d="M8.5 15H6a2.5 2.5 0 0 1-2.5-2.5V6A2.5 2.5 0 0 1 6 3.5h6.5A2.5 2.5 0 0 1 15 6v2.5" />
+    <circle cx="14.5" cy="14.5" r="6" />
+  </>,
+);
+
+/** Three speed lines trailing a circle: something moving. */
+const MotionTypeIcon = defineIcon(
+  "NodeMotionIcon",
+  <>
+    <circle cx="15.5" cy="12" r="5" />
+    <path d="M4.5 8h5" />
+    <path d="M3 12h4.5" />
+    <path d="M4.5 16h5" />
+  </>,
+);
+
+/** Lines of an answer: a run that left text and no page. */
+const OutputTypeIcon = defineIcon(
+  "NodeOutputIcon",
+  <>
+    <path d="M5 7h14" />
+    <path d="M5 12h14" />
+    <path d="M5 17h8.5" />
+  </>,
+);
+
+const ICON_BY_TYPE: Record<CardType, LucideIcon> = {
+  docs: DocsTypeIcon,
+  slides: SlidesTypeIcon,
+  sheets: SheetsTypeIcon,
+  design: DesignTypeIcon,
+  data: DataTypeIcon,
+  whiteboard: WhiteboardTypeIcon,
+  motion: MotionTypeIcon,
+  output: OutputTypeIcon,
+};
+
+/** The line icon of a node type (24-unit grid, drawn with `currentColor`). */
+export function NodeTypeIcon({ type, className }: { type: CardType; className?: string }) {
+  const Icon = ICON_BY_TYPE[type] ?? OutputTypeIcon;
+  return <Icon data-node-type-icon={type} className={className} />;
+}

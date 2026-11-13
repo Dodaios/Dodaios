@@ -1,27 +1,29 @@
 /**
- * The Artifacts section as the home of EVERY run — what the Outputs section
- * used to guarantee, now pinned here (the Outputs section folded into
- * Artifacts on 2026-08-23).
+ * The Nodes section as the home of EVERY run — what the Outputs section used
+ * to guarantee, now pinned here (the Outputs section folded into this one on
+ * 2026-08-23).
  *
  * Contracts:
- * - a run without a page or picture shows as a run row; its stage opens on
- *   Preview as a composed output page (the answer, the reason it ended, its
- *   files in place), with Files one tab away carrying the notes above the
- *   reader; the empty state appears only when there are no runs at all,
- * - the rail narrows to artifacts or outputs and back, remembering the pick,
+ * - a run without a page or picture has a card under the library's "Runs"
+ *   tab; its stage opens on Preview as a composed output page (the answer,
+ *   the reason it ended, its files in place), with Files one tab away
+ *   carrying the notes above the reader,
+ * - the library keeps such runs apart from the nodes, searches both, and
+ *   remembers the tab; the search outlives a visit to the stage,
  * - Continue / Restart gating per status, the needs-review card, the live
  *   continuation chip that jumps to the child, hold-to-abort while running,
  * - Files: clean paths with primary files first, no direct download, the
  *   opener model (Open / Change how this opens / Reveal), the Browser pick
  *   going through the open-external bridge, an HTML file rendered as a page
  *   with its source behind the toggle,
- * - every rail row can be dragged onto the dock with the mission payload,
+ * - a library card can be dragged onto the dock with the mission payload,
  * - the retired "outputs" id still resolves to this section.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+import { nodesResponse } from "@/components/nodes/testCards";
 import { VisualizationView } from "@/views/VisualizationView";
 import { MISSION_DND_MIME } from "@/lib/missionDnd";
 import { initialSectionFromSearch, resolveSectionId } from "@/store/events";
@@ -39,6 +41,11 @@ vi.mock("@/lib/openExternal", () => ({
   openExternalUrl: vi.fn(async () => {}),
 }));
 import { openExternalUrl } from "@/lib/openExternal";
+
+beforeEach(() => {
+  // The library remembers the tab it was left on.
+  window.localStorage.clear();
+});
 
 afterEach(() => {
   cleanup();
@@ -61,6 +68,10 @@ function installFetchMock(
   ];
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
+    if (url === "/api/nodes") {
+      // The library: what the server adopts from these runs and their files.
+      return { ok: true, status: 200, json: async () => nodesResponse(runs, artifactsBySlug) };
+    }
     if (url.includes("/capabilities")) {
       return {
         ok: true,
@@ -125,16 +136,31 @@ function renderView() {
   );
 }
 
-/** The section opens on the library; a click on the first card opens its stage. */
-async function renderStaged() {
-  const view = renderView();
-  // A run's card turns into its artifact's card when the listing lands; a
-  // click on the card being replaced is retried on the one that replaced it.
-  await waitFor(() => {
-    const first = screen.queryAllByTestId(/^visualization-(artifact|run|building)-row$/)[0];
-    if (first) fireEvent.click(first);
-    expect(screen.getByTestId("visualization-stage")).toBeTruthy();
+/** The library's cards as shown, by key. */
+function cardKeys(): Array<string | null> {
+  return screen.queryAllByTestId("node-card").map((card) => card.getAttribute("data-node-key"));
+}
+
+/** The library's "Runs" tab: where a run that left no page has its card. */
+async function showRuns() {
+  fireEvent.click(await screen.findByTestId("nodes-tab-runs"));
+}
+
+/** One card of the library, once the library shows it. */
+function findCard(key: string): Promise<HTMLElement> {
+  return waitFor(() => {
+    const card = screen.queryAllByTestId("node-card").find((el) => el.getAttribute("data-node-key") === key);
+    if (!card) throw new Error(`no card ${key} among ${cardKeys().join(", ")}`);
+    return card;
   });
+}
+
+/** The section opens on the library; a click on the card named opens its stage. */
+async function renderStaged(key: string) {
+  const view = renderView();
+  if (key.startsWith("run:")) await showRuns();
+  fireEvent.click(await findCard(key));
+  await screen.findByTestId("visualization-stage");
   return view;
 }
 
@@ -165,7 +191,7 @@ async function openFiles() {
 }
 
 describe("VisualizationView — runs without an artifact", () => {
-  it("lists a page-less run as a run row and opens it on Preview as a page, Files one tab away", async () => {
+  it("lists a page-less run under Runs and opens it on Preview as a page, Files one tab away", async () => {
     installFetchMock(
       [
         run({
@@ -180,14 +206,13 @@ describe("VisualizationView — runs without an artifact", () => {
 
     renderView();
 
-    const rows = await screen.findAllByTestId("visualization-run-row");
-    expect(rows).toHaveLength(1);
-    expect(rows[0].textContent).toContain("Write notes");
-    expect(screen.queryAllByTestId("visualization-artifact-row")).toHaveLength(0);
-    // No empty state: the run IS the content.
-    expect(screen.queryByTestId("visualization-empty")).toBeNull();
-    // The library shows the run as a note under its own name; a click opens it.
-    fireEvent.click(rows[0]);
+    await showRuns();
+    const row = await findCard("run:notes-run");
+    expect(cardKeys()).toEqual(["run:notes-run"]);
+    expect(row.textContent).toContain("Write notes");
+    expect(row.getAttribute("data-node-type")).toBe("output");
+    // The library shows the run under its own name; a click opens it.
+    fireEvent.click(row);
     // The stage opens on Preview — the same four views every run gets, in More …
     fireEvent.click(await screen.findByTestId("visualization-more"));
     const previewTab = await screen.findByTestId("visualization-tab-preview");
@@ -211,8 +236,8 @@ describe("VisualizationView — runs without an artifact", () => {
     expect(screen.queryByTestId("run-status-badge")).toBeNull();
   });
 
-  it("narrows the library by category, searches it, and remembers the category", async () => {
-    window.localStorage.removeItem("jarvis.artifacts.rail-filter");
+  it("keeps runs apart from nodes, searches the library, and remembers the tab", async () => {
+    const PAGE = "page-run::tasks/t1/artifacts/files/dashboard.html";
     installFetchMock(
       [
         run({ slug: "page-run", utterance: "Draw a dashboard", status: "success" }),
@@ -230,53 +255,45 @@ describe("VisualizationView — runs without an artifact", () => {
 
     renderView();
 
-    await screen.findAllByTestId("visualization-artifact-row");
-    await screen.findAllByTestId("visualization-run-row");
-    const filter = screen.getByTestId("visualization-filter");
-    expect(within(filter).getByTestId("visualization-filter-all").textContent).toContain("2");
+    // "All" is the nodes; the run that left no page is counted under "Runs".
+    await findCard(PAGE);
+    expect(cardKeys()).toEqual([PAGE]);
+    const tab = (id: string) => screen.getByTestId(`nodes-tab-${id}`);
+    expect(tab("all").getAttribute("data-count")).toBe("1");
+    expect(tab("runs").getAttribute("data-count")).toBe("1");
 
-    expect(within(filter).getByTestId("visualization-filter-pages").textContent).toContain("1");
-    expect(within(filter).getByTestId("visualization-filter-images").textContent).toContain("0");
+    fireEvent.click(tab("runs"));
+    expect(cardKeys()).toEqual(["run:notes-run"]);
+    expect(window.localStorage.getItem("jarvis.nodes.tab")).toBe("runs");
+    // A tab with nothing in it says so instead of showing a blank grid.
+    fireEvent.click(tab("kept"));
+    expect(screen.getByTestId("nodes-no-matches")).toBeTruthy();
 
-    fireEvent.click(within(filter).getByTestId("visualization-filter-pages"));
-    await waitFor(() => expect(screen.queryAllByTestId("visualization-run-row")).toHaveLength(0));
-    expect(screen.getAllByTestId("visualization-artifact-row")).toHaveLength(1);
-    expect(window.localStorage.getItem("jarvis.artifacts.rail-filter")).toBe("pages");
+    // Search narrows across titles and requests, on the tab it is typed in.
+    fireEvent.click(tab("runs"));
+    fireEvent.click(screen.getByTestId("nodes-search"));
+    const search = () => screen.getByTestId("nodes-search-field") as HTMLInputElement;
+    fireEvent.change(search(), { target: { value: "notes" } });
+    expect(cardKeys()).toEqual(["run:notes-run"]);
+    fireEvent.change(search(), { target: { value: "zebra" } });
+    expect(screen.getByTestId("nodes-no-matches").textContent).toContain("zebra");
+    fireEvent.click(tab("all"));
+    fireEvent.change(search(), { target: { value: "draw dashboard" } });
+    expect(cardKeys()).toEqual([PAGE]);
 
-    fireEvent.click(within(filter).getByTestId("visualization-filter-outputs"));
-    await waitFor(() =>
-      expect(screen.queryAllByTestId("visualization-artifact-row")).toHaveLength(0),
-    );
-    expect(screen.getAllByTestId("visualization-run-row")).toHaveLength(1);
-    // A category with nothing in it says so instead of showing a blank grid.
-    fireEvent.click(within(filter).getByTestId("visualization-filter-images"));
-    await screen.findByTestId("visualization-no-matches");
-
-    fireEvent.click(within(filter).getByTestId("visualization-filter-all"));
-    await waitFor(() => expect(screen.getAllByTestId("visualization-run-row")).toHaveLength(1));
-    expect(screen.getAllByTestId("visualization-artifact-row")).toHaveLength(1);
-
-    // Search narrows across titles and requests.
-    fireEvent.change(screen.getByTestId("visualization-search"), { target: { value: "notes" } });
-    await waitFor(() =>
-      expect(screen.queryAllByTestId("visualization-artifact-row")).toHaveLength(0),
-    );
-    expect(screen.getAllByTestId("visualization-run-row")).toHaveLength(1);
-    fireEvent.change(screen.getByTestId("visualization-search"), { target: { value: "zebra" } });
-    await screen.findByTestId("visualization-no-matches");
-    window.localStorage.removeItem("jarvis.artifacts.rail-filter");
-  });
-
-  it("says so only when there are no runs at all", async () => {
-    installFetchMock([], {});
-    renderView();
-    await screen.findByTestId("visualization-empty");
-    expect(screen.queryAllByTestId("visualization-run-row")).toHaveLength(0);
+    // The library's state outlives a visit to the stage: back returns to the
+    // same search.
+    fireEvent.click(await findCard(PAGE));
+    await screen.findByTestId("visualization-stage");
+    fireEvent.click(screen.getByTestId("visualization-back"));
+    await findCard(PAGE);
+    expect(search().value).toBe("draw dashboard");
+    expect(cardKeys()).toEqual([PAGE]);
   });
 
   it("shows Continue (and no Restart) for a cancelled run", async () => {
     installFetchMock([run({ slug: "cancelled-slug", status: "cancelled", mission_id: "m-c" })]);
-    await renderStaged();
+    await renderStaged("run:cancelled-slug");
     await waitFor(() =>
       expect(screen.getAllByRole("button", { name: "Continue" }).length).toBeGreaterThan(0),
     );
@@ -285,7 +302,7 @@ describe("VisualizationView — runs without an artifact", () => {
 
   it("shows Restart (and no Continue) for a failed run", async () => {
     installFetchMock([run({ slug: "error-slug", status: "error", mission_id: "m-e" })]);
-    await renderStaged();
+    await renderStaged("run:error-slug");
     await waitFor(() =>
       expect(screen.getAllByRole("button", { name: "Restart" }).length).toBeGreaterThan(0),
     );
@@ -306,7 +323,7 @@ describe("VisualizationView — runs without an artifact", () => {
       }),
     ]);
 
-    await renderStaged();
+    await renderStaged("run:review-slug");
 
     // The output page leads with why the run ended …
     const outcome = await screen.findByTestId("output-preview-outcome");
@@ -334,7 +351,7 @@ describe("VisualizationView — runs without an artifact", () => {
       }),
     ]);
 
-    await renderStaged();
+    await renderStaged("run:failed-partial");
 
     const outcome = await screen.findByTestId("output-preview-outcome");
     expect(within(outcome).getByText("task_error")).toBeDefined();
@@ -369,8 +386,10 @@ describe("VisualizationView — runs without an artifact", () => {
     ]);
     renderView();
 
-    // The running child sorts first and is on stage; pick the parent.
-    const rows = await screen.findAllByTestId("visualization-run-row");
+    // The running child leads the runs; pick the parent.
+    await showRuns();
+    await findCard("run:mission_019f0fa6-4ff6");
+    const rows = screen.getAllByTestId("node-card");
     expect(rows).toHaveLength(2);
     expect(rows[0].textContent).toContain("Child task");
     fireEvent.click(rows[1]);
@@ -390,7 +409,7 @@ describe("VisualizationView — runs without an artifact", () => {
       run({ slug: "run-slug", status: "running", mission_id: "m-r" }),
       run({ slug: "ok-slug", status: "success", mission_id: "m-ok" }),
     ]);
-    await renderStaged();
+    await renderStaged("run:run-slug");
     await waitFor(() =>
       expect(screen.getAllByRole("button", { name: "Hold to abort" }).length).toBeGreaterThan(0),
     );
@@ -398,12 +417,13 @@ describe("VisualizationView — runs without an artifact", () => {
     expect(screen.queryByRole("button", { name: "Restart" })).toBeNull();
   });
 
-  it("carries the mission payload when a rail row is dragged", async () => {
+  it("carries the mission payload when a library card is dragged", async () => {
     installFetchMock([
       run({ slug: "drag-slug", utterance: "Draggable task", status: "success", mission_id: "m-d" }),
     ]);
     renderView();
-    const row = (await screen.findAllByTestId("visualization-run-row"))[0];
+    await showRuns();
+    const row = await findCard("run:drag-slug");
     expect(row.getAttribute("draggable")).toBe("true");
 
     const setData = vi.fn();
@@ -412,10 +432,11 @@ describe("VisualizationView — runs without an artifact", () => {
     expect(setData).toHaveBeenCalledTimes(1);
     const [mime, json] = setData.mock.calls[0];
     expect(mime).toBe(MISSION_DND_MIME);
+    // The card stands for the run: its slug and what was asked for.
     expect(JSON.parse(json)).toMatchObject({
       slug: "drag-slug",
       utterance: "Draggable task",
-      mission_id: "m-d",
+      status: "success",
     });
   });
 });
@@ -433,7 +454,7 @@ describe("VisualizationView — the Files tab", () => {
       },
     );
 
-    await renderStaged();
+    await renderStaged("run:artifact-slug");
     await openFiles();
 
     await waitFor(() => expect(screen.getAllByTestId("artifact-path")).toHaveLength(3));
@@ -449,7 +470,7 @@ describe("VisualizationView — the Files tab", () => {
       "artifact-slug": [REPORT],
     });
 
-    await renderStaged();
+    await renderStaged("run:artifact-slug");
     await openFiles();
 
     await waitFor(() => expect(screen.getByTestId("artifact-path").textContent).toBe("report.md"));
@@ -478,7 +499,7 @@ describe("VisualizationView — the Files tab", () => {
     );
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
-    await renderStaged();
+    await renderStaged("run:artifact-slug");
     await openFiles();
 
     await waitFor(() => expect(screen.getByTestId("artifact-path").textContent).toBe("report.md"));
@@ -514,7 +535,7 @@ describe("VisualizationView — the Files tab", () => {
     );
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
-    await renderStaged();
+    await renderStaged("run:artifact-slug");
     await openFiles();
 
     await waitFor(() => expect(screen.getByTestId("artifact-path").textContent).toBe("report.md"));
@@ -553,7 +574,7 @@ describe("VisualizationView — the Files tab", () => {
       { rawBySlug: { "html-slug": HTML_SOURCE } },
     );
 
-    await renderStaged();
+    await renderStaged(`html-slug::${HTML_PATH}`);
 
     // The page is an artifact: it opens on Preview, the stage's own frame.
     await screen.findByTestId("visualization-frame");
@@ -586,7 +607,7 @@ describe("VisualizationView — the Files tab", () => {
 });
 
 describe("the retired outputs section id", () => {
-  it("still resolves to Artifacts — deep links, remembered views, voice", () => {
+  it("still resolves to this section — deep links, remembered views, voice", () => {
     expect(resolveSectionId("outputs")).toBe("visualization");
     expect(resolveSectionId("visualization")).toBe("visualization");
     expect(resolveSectionId("weather")).toBeNull();
@@ -640,7 +661,7 @@ describe("VisualizationView — a run waiting for capacity", () => {
     const decisions = installCapacityServer([
       run({ slug: "parked-run", status: "running", waiting_capacity: true }),
     ]);
-    await renderStaged();
+    await renderStaged("run:parked-run");
 
     expect(await screen.findByText("claude-api")).toBeTruthy();
     expect(screen.getByText("claude-sonnet-4-6")).toBeTruthy();
@@ -666,7 +687,7 @@ describe("VisualizationView — a run waiting for capacity", () => {
     const decisions = installCapacityServer([
       run({ slug: "parked-run", status: "running", waiting_capacity: true }),
     ]);
-    await renderStaged();
+    await renderStaged("run:parked-run");
 
     fireEvent.click(await screen.findByRole("button", { name: "Wait" }));
     await waitFor(() =>
@@ -676,7 +697,7 @@ describe("VisualizationView — a run waiting for capacity", () => {
 
   it("asks nothing for a run that is simply running", async () => {
     installCapacityServer([run({ slug: "busy-run", status: "running" })]);
-    await renderStaged();
+    await renderStaged("run:busy-run");
 
     expect(screen.queryByRole("button", { name: "Approve paid API for this mission" })).toBeNull();
     expect(screen.getAllByTestId("run-status-badge")[0].textContent).toBe("running");

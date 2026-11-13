@@ -179,12 +179,12 @@
   category: mission_artifact
   lang: en
   utterance: "Keep a page that tracks my parcels and refreshes every hour."
-  expect: {tool: living_page}
+  expect: {tool: node, also_accept: [living_page]}
 - id: artifact-living-applications-de
   category: mission_artifact
   lang: de
   utterance: "Führe eine Seite, die meine Bewerbungen verfolgt und aktuell hält."
-  expect: {tool: living_page}
+  expect: {tool: node, also_accept: [living_page]}
 - id: mission-list-active-en
   category: mission_artifact
   lang: en
