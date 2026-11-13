@@ -36,12 +36,12 @@
 
 <p align="center">
   <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.gif">
-    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="An 80-second recording of Dodaios: the first-run setup and the built-in tour; Dodaios running a project's command-line tool from its chat; a coding agent in an Agentic IDE thread adding an option with tests, and its changes in review; then Dodaios opening a Claude Code thread to fix a bug and reporting back when the agent is done" width="100%" />
+    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="A one-minute recording of Dodaios at work, in a workspace that is already in use: asked in its chat about an invoice a customer says is one cent too high, Dodaios finds the cause and starts a coding agent on Claude Fable 5.2; the agent's thread is opened in the Agentic IDE while the agent works, and the line it changed is shown; Dodaios checks the result itself and reports; then it builds an incident report as an artifact, and the app opens the page" width="100%" />
   </a>
 </p>
 
 <p align="center">
-  <sub>One take of the real app (version 5.0.0) with Claude Opus 5.5 through a signed-in Claude Code. Every answer and every change is real. Clicks and typing play at 1.4× speed, the waits for the model at 7×.</sub>
+  <sub>One take of the real app (version 5.1.0) with Claude Fable 5.2 through a signed-in Claude Code. Every answer and every change is real. Clicks and typing play at 1.15× speed; each wait for the model is shortened to a few seconds.</sub>
 </p>
 
 ## What it is

@@ -36,12 +36,12 @@
 
 <p align="center">
   <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.gif">
-    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="一段 80 秒的 Dodaios 录屏：首次启动设置和应用自带的导览；Dodaios 在对话中运行一个项目的命令行工具；编码智能体在 Agentic IDE 的线程里为项目添加一个选项和测试，随后审阅它的改动；最后 Dodaios 开启一个 Claude Code 线程修复缺陷，并在智能体完成后汇报结果" width="100%" />
+    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="一段一分钟的 Dodaios 工作录屏，工作区里已有之前的对话和线程：用户在对话中说有客户反映一张发票多收了一分钱，Dodaios 查出原因，并启动一个使用 Claude Fable 5.2 的编码智能体；在智能体工作时打开它在 Agentic IDE 中的线程，并查看它改动的那一行；Dodaios 自己核对结果后汇报；最后它把事故报告生成为一个 Artifact，应用自动打开该页面" width="100%" />
   </a>
 </p>
 
 <p align="center">
-  <sub>真实应用（5.0.0 版）的一次连续录制，模型是通过已登录的 Claude Code 使用的 Claude Opus 5.5。所有回答和改动都是真实的。点击和输入以 1.4 倍速播放，等待模型的部分以 7 倍速播放。</sub>
+  <sub>真实应用（5.1.0 版）的一次连续录制，模型是通过已登录的 Claude Code 使用的 Claude Fable 5.2。所有回答和改动都是真实的。点击和输入以 1.15 倍速播放，每段等待模型的时间都缩短到几秒。</sub>
 </p>
 
 ## 它是什么
