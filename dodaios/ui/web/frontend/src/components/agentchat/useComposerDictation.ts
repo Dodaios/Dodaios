@@ -82,6 +82,9 @@ export function useComposerDictation(setValue: Setter, onSend?: () => void) {
   const dictating = useEventStore((s) => s.dictating);
   const finishing = useEventStore((s) => s.dictationSettling && s.dictationOwner === id);
   const micHeld = useEventStore((s) => s.dictationSettling);
+  // The transcript so far, for the owner only: every other mounted composer
+  // reads "" throughout and is not re-rendered by a reading.
+  const reading = useEventStore((s) => (s.dictationOwner === id ? s.dictationText : ""));
   const dictationCommitSeq = useEventStore((s) => s.dictationCommitSeq);
   const dictationFinalSeq = useEventStore((s) => s.dictationFinalSeq);
   const setDictating = useEventStore((s) => s.setDictating);
@@ -142,18 +145,10 @@ export function useComposerDictation(setValue: Setter, onSend?: () => void) {
     [],
   );
 
-  // The words while they are recognized. A store subscription, not a selector:
-  // a selector would re-render every mounted composer on each reading, and
-  // only the owner has anything to do with it.
-  useEffect(
-    () =>
-      useEventStore.subscribe((state, previous) => {
-        if (state.dictationText === previous.dictationText) return;
-        if (state.dictationOwner !== id || !state.dictationText) return;
-        write(state.dictationText, false);
-      }),
-    [id, write],
-  );
+  // The words while they are recognized.
+  useEffect(() => {
+    if (reading) write(reading, false);
+  }, [reading, write]);
 
   useEffect(() => {
     if (dictationCommitSeq === lastCommitSeqRef.current) return;
