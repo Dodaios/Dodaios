@@ -46,7 +46,7 @@ Kinds (``payload`` keys in brackets):
                         replace, expires_ms] — a secure field for a secret the agent
                         needs (credential_requests.py); the value never appears in any event
 ``credential_resolved`` [turn_id, request_id, env, status]   status: saved | declined |
-                        timeout | cancelled
+                        timeout | cancelled | superseded (a later turn shows it again)
 ``plan_ready``         [turn_id, build_mode]           — a coding agent's plan card
 ``plan_resolved``      [turn_id, decision]             decision: build | keep
 ``subagent_started``   [turn_id, agent_id, description, agent_type, prompt, background,

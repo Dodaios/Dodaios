@@ -8,8 +8,13 @@ hears "connected". Nothing secret passes through the card: the sign-in
 happens with the provider, its token goes to the existing token store.
 
 The card reuses the secure field plumbing (credential_requests.py) with the
-kinds ``plugin`` and ``cli``: it stays open across turns and restarts, and
-the agent checks it on a later turn with ``wait_for``.
+kinds ``plugin`` and ``cli``: it stays open across turns and restarts. When
+the person has connected the service, the chat continues the request in a
+turn of its own (dodaios/agent_chat/connect_resume.py); ``wait_for`` reads an
+earlier card's state.
+
+A chat whose model calls the plugin's tool instead gets the same card without
+asking for it: see ``connect_offer.py``.
 """
 
 from __future__ import annotations
@@ -148,7 +153,8 @@ class RequestConnectTool:
         "the Plugins page. Give in reason what you will do with it, one sentence in the "
         "user's language. A connected service returns 'connected' at once. While the user "
         "has not finished, the call returns 'waiting' with a request_id; do not poll. The "
-        "card stays open; on a later turn, wait_for checks it."
+        "card stays open, and once the user has connected the service this chat continues "
+        "the request by itself; wait_for checks an earlier card."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -225,7 +231,9 @@ class RequestConnectTool:
             return _nobody(target.label)
         try:
             request_id = await service.open_credential_request(
-                self._session_id, spec, connect_save(kind, target.id), asker=self._asker()
+                self._session_id, spec, connect_save(kind, target.id), asker=self._asker(),
+                # Asked again in a later turn, the card stands under that turn's message.
+                renew=True,
             )
         except TooManyCredentialRequests as exc:  # The limit is the visible tool error.
             return ToolResult(
@@ -258,8 +266,9 @@ class RequestConnectTool:
                     "id": spec.env,
                     "note": (
                         f"The user has not connected {spec.label} yet. The card stays open. "
-                        "Continue unrelated work or finish your reply now; do not poll. On a "
-                        f'later turn, check it with {{"wait_for": "{request_id}"}}.'
+                        "Continue unrelated work or finish your reply now; do not poll. Once "
+                        "they have connected it, this chat continues the request by itself. "
+                        f'{{"wait_for": "{request_id}"}} checks the card on a later turn.'
                     ),
                 },
             )
