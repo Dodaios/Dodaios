@@ -44,8 +44,9 @@ target field focused, or return to it before stopping.
 
 ## Choose a Shortcut
 
-Open your assistant-named **Voice** section and select **Shortcuts**. New
-combinations save immediately.
+Open **Settings > Keyboard shortcuts**. The dictation shortcuts are in the
+list with every other shortcut of the app; select the pencil beside one to
+record new keys. New combinations save immediately.
 
 | Shortcut | Behavior | Best for |
 |---|---|---|
@@ -53,8 +54,8 @@ combinations save immediately.
 | **Hands-free** | Press once to start; press again to stop | Longer passages or accessibility |
 | **Paste again** | Re-inserts the latest saved dictation without recording | Recovering from a wrong target |
 
-Select a shortcut's keys to record new ones. If Push to talk behaves like a
-toggle, select **Switch to hold**. A combination that is already in use is
+If Push to talk behaves like a toggle, a notice above the list says so;
+select **Switch to hold** there. A combination that is already in use is
 refused with the name of the action that holds it.
 
 **Paste again** needs local history. If insertion is blocked, it copies the text

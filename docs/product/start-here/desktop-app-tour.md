@@ -88,7 +88,7 @@ Large hubs use a top tab bar:
   Assistant](connect-home-assistant) for a self-hosted example.
 - **CLIs & CLI Test Hub** manages connections under **CLIs** and checks them
   under **CLI Test Hub**.
-- **Voice** has **Dictation**, **Dictionary**, **Shortcuts**, **Language**, and
+- **Voice** has **Dictation**, **Dictionary**, **Language**, and
   speech-input **API Keys**. Full provider setup remains in the main **API
   Keys** area. See [Dictation](dictation).
 - **API Keys** changes provider tabs with Pipeline or Realtime and also holds
@@ -128,7 +128,7 @@ navigates; change the mode inside the IDE. Read [Agentic IDE](agentic-ide).
 ## Check That It Works
 
 1. Select **Skills, Plugins & MCPs** and switch through its three tabs.
-2. Select **Voice** and confirm that Dictation, Dictionary, Shortcuts, Language,
+2. Select **Voice** and confirm that Dictation, Dictionary, Language,
    and API Keys appear in one hub.
 3. Open **Wiki** and confirm that its current Normal or Ultra mode is named.
 4. Select **Docs**, then return to **Chats**. The assistant name and status
