@@ -57,7 +57,7 @@ from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.missions.events import coerce_mission_language
 from dodaios.orchestrator import mission_jobs
 from dodaios.orchestrator.jobs import with_job_id
-from dodaios.plugins.tool.living_page import post_card, session_of
+from dodaios.plugins.tool.living_page import page_card, post_card, session_of
 from dodaios.voice.action_phrases import action_phrase, resolve_ambient_language
 
 log = logging.getLogger(__name__)
@@ -139,13 +139,7 @@ async def _post_page_card(session_id: str, title: str, filename: str, *, since: 
             return False
         return await post_card(
             session_id,
-            {
-                "kind": "report",
-                "text": located.title or title,
-                "summary": "",
-                "artifact": f"{located.slug}::{located.artifact_path}",
-                "sections": 0,
-            },
+            page_card(located.title or title, f"{located.slug}::{located.artifact_path}"),
         )
     except Exception:  # noqa: BLE001 — the page exists either way; the card is a courtesy
         log.warning("create_artifact: page card not posted", exc_info=True)

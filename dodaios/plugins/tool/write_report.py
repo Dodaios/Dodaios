@@ -20,7 +20,7 @@ from typing import Any
 
 from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.orchestrator import jobs
-from dodaios.plugins.tool.living_page import post_card, session_of
+from dodaios.plugins.tool.living_page import page_card, post_card, session_of
 
 log = logging.getLogger(__name__)
 
@@ -33,13 +33,9 @@ def _language(ctx: Any, args: dict[str, Any]) -> str:
 
 def report_card(report: Any) -> dict[str, Any]:
     """The conversation notice that shows a report and opens it."""
-    return {
-        "kind": "report",
-        "text": report.title,
-        "summary": report.summary,
-        "artifact": report.visual_id,
-        "sections": report.sections,
-    }
+    return page_card(
+        report.title, report.visual_id, summary=report.summary, sections=report.sections
+    )
 
 
 class WriteReportTool:
