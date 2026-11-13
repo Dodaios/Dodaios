@@ -1,6 +1,7 @@
 /**
  * The app's side of the comment bridge: only its own frame is heard, a
- * comment is plain bounded text, and the page learns how the sending went.
+ * comment is plain bounded text that waits for "Send", and the page learns
+ * where each of its comments stands.
  */
 import { useRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -8,12 +9,14 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 
 import {
   NODE_COMMENT_MESSAGE,
+  NODE_COMMENT_REMOVE_MESSAGE,
   NODE_COMMENT_STATE_MESSAGE,
   NODE_MODE_MESSAGE,
   NODE_READY_MESSAGE,
   parseNodeComment,
   useNodeBridge,
   type NodeComment,
+  type TellCommentState,
 } from "./nodeBridge";
 
 afterEach(() => {
@@ -21,17 +24,28 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const LABELS = { placeholder: "Add a comment…", send: "Send", sent: "Sent", failed: "Not sent." };
+const LABELS = {
+  placeholder: "Add a comment…",
+  add: "Add comment",
+  pending: "Not sent yet",
+  sent: "Sent",
+  failed: "Not sent.",
+  remove: "Remove comment",
+};
+
+let tellState: TellCommentState | null = null;
 
 function Harness({
   commenting,
   onComment,
+  onRemove,
 }: {
   commenting: boolean;
   onComment: (comment: NodeComment) => Promise<void>;
+  onRemove?: (n: number) => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
-  useNodeBridge(frame, { commenting, labels: LABELS, onComment });
+  tellState = useNodeBridge(frame, { commenting, labels: LABELS, onComment, onRemove });
   return <iframe ref={frame} title="page" data-testid="frame" />;
 }
 
@@ -85,7 +99,7 @@ describe("useNodeBridge", () => {
     expect(posted).toHaveBeenCalledWith({ type: NODE_MODE_MESSAGE, mode: "comment", labels: LABELS }, "*");
   });
 
-  it("hands a comment on and tells the page that it went out", async () => {
+  it("takes a comment in and tells the page that it waits for Send", async () => {
     const onComment = vi.fn(async (_comment: NodeComment) => undefined);
     render(<Harness commenting onComment={onComment} />);
     const frame = screen.getByTestId("frame") as HTMLIFrameElement;
@@ -94,10 +108,24 @@ describe("useNodeBridge", () => {
     fromFrame({ type: NODE_COMMENT_MESSAGE, n: 1, text: "Make this shorter", quote: "Intro", where: "§ Intro" });
     await flush();
     expect(onComment).toHaveBeenCalledWith({ n: 1, text: "Make this shorter", quote: "Intro", where: "§ Intro" });
-    expect(posted).toHaveBeenLastCalledWith({ type: NODE_COMMENT_STATE_MESSAGE, n: 1, state: "sent" }, "*");
+    expect(posted).toHaveBeenLastCalledWith({ type: NODE_COMMENT_STATE_MESSAGE, n: 1, state: "pending" }, "*");
+
+    // Later, once the batch went out, the app tells each pin.
+    act(() => tellState?.([1, 2], "sent"));
+    expect(posted).toHaveBeenCalledWith({ type: NODE_COMMENT_STATE_MESSAGE, n: 1, state: "sent" }, "*");
+    expect(posted).toHaveBeenLastCalledWith({ type: NODE_COMMENT_STATE_MESSAGE, n: 2, state: "sent" }, "*");
   });
 
-  it("tells the page when a comment could not be sent", async () => {
+  it("hears a comment taken back", () => {
+    const onRemove = vi.fn();
+    render(<Harness commenting onComment={vi.fn(async () => undefined)} onRemove={onRemove} />);
+    fromFrame({ type: NODE_COMMENT_REMOVE_MESSAGE, n: 2 });
+    fromFrame({ type: NODE_COMMENT_REMOVE_MESSAGE, n: "2" });
+    expect(onRemove).toHaveBeenCalledTimes(1);
+    expect(onRemove).toHaveBeenCalledWith(2);
+  });
+
+  it("tells the page when a comment could not be taken", async () => {
     const onComment = vi.fn(async () => {
       throw new Error("offline");
     });

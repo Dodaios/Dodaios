@@ -314,6 +314,6 @@ def test_the_bridge_reaches_nothing_but_its_parent() -> None:
     # No network, no storage, and no markup built from a message.
     for word in ("fetch(", "XMLHttpRequest", "localStorage", "sessionStorage", "http://", "https://"):
         assert word not in BRIDGE_JS
-    assert BRIDGE_JS.count("innerHTML") == 1  # the send arrow, a constant
+    assert BRIDGE_JS.count("innerHTML") == 1  # the two constant icons (tick, cross)
     assert "e.source!==up" in BRIDGE_JS
     assert "</script" not in BRIDGE_JS.lower()

@@ -11785,15 +11785,17 @@
     },
     "comment": {
       "toggle": "Kommentieren",
-      "hint": "Klicke auf eine Stelle und schreibe, was {name} dort ändern soll.",
+      "hint": "Klicke auf eine Stelle und schreibe, was {name} dort ändern soll. Danach sendest du alle Kommentare auf einmal.",
       "working": "{name} arbeitet deinen Kommentar ein …",
       "working_many": "{name} arbeitet {0} Kommentare ein …",
       "placeholder": "Kommentar hinzufügen …",
-      "send": "Senden",
+      "add": "Kommentar hinzufügen",
+      "pending": "Noch nicht gesendet",
+      "remove": "Kommentar entfernen",
+      "send_one": "Kommentar senden",
+      "send_many": "{0} Kommentare senden",
       "sent": "Gesendet",
-      "failed": "Nicht gesendet. Versuch es noch einmal.",
-      "request": "Bitte ändere den Node „{0}“ (ID {1}) nach diesem Kommentar{2}: {3}",
-      "at": " zur Stelle „{0}“"
+      "failed": "Nicht gesendet. Versuch es noch einmal."
     }
   },
   "agent_browser": {

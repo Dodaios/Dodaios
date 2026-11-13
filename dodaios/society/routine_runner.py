@@ -145,16 +145,19 @@ async def _hold_unattended_run_off_keys(
     occurrence). The seat is not swapped for another one: the routine stays
     on its model. A "Run now" click is the person's own start and runs on the
     seat as chosen; so is a check-in the person asked for in so many words
-    (``lead-checkin`` tag), which they requested for exactly this moment; an
-    install that never connected a subscription keeps billing the seat it
-    picked, so a single-key download still works.
+    (``lead-checkin`` tag), which they requested for exactly this moment, and
+    the comments they sent on a node (``node-comments:<id>``, sent with a
+    click); an install that never connected a subscription keeps billing the
+    seat it picked, so a single-key download still works.
     """
     from dodaios.agent_chat.checkins import CHECKIN_TAG
     from dodaios.core.protocols import current_started_by_user
+    from dodaios.nodes.comments import is_comments_tag
 
     if (
         current_started_by_user.get()
         or CHECKIN_TAG in tags
+        or any(is_comments_tag(tag) for tag in tags)
         or not _billed_via_api(provider, account_id)
     ):
         return

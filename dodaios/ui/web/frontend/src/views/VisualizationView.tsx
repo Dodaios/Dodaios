@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, MessageSquarePlus, Shapes, ShieldCheck, Star } from "lucide-react";
+import { ArrowUp, Loader2, MessageSquarePlus, Shapes, ShieldCheck, Star } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { OutputPreview } from "@/components/visualization/OutputPreview";
@@ -26,8 +26,9 @@ import {
   runWhen,
 } from "@/components/visualization/galleryModel";
 import { NodesLibrary } from "@/components/nodes/NodesLibrary";
-import { askDodaiosToChange, sendNodeComment } from "@/components/nodes/askDodaios";
+import { askDodaiosToChange } from "@/components/nodes/askDodaios";
 import { useNodeBridge, type NodeComment } from "@/components/nodes/nodeBridge";
+import { useNodeCommentDraft } from "@/components/nodes/nodeCommentDraft";
 import { isNodeSlug, isTypedNode, type NodeCard } from "@/components/nodes/nodeModel";
 import { useNodesLibrary } from "@/components/nodes/useNodesLibrary";
 import { useT } from "@/i18n";
@@ -418,8 +419,9 @@ function Stage({
     setMode("preview");
   }, [currentId]);
 
-  /* Comment mode: a click on the node's page drops a pin with a field, and
-   * what is written there goes to the assistant, which revises the node. Only
+  /* Comment mode: a click on the node's page drops a pin with a field. The
+   * comments wait there until the toolbar's "Send" hands them all to the
+   * assistant at once, in the background; it revises the node. Only
    * a typed node takes comments (its page carries the other half of this,
    * and the assistant can revise it), and only while its page is shown. */
   const canComment = node !== null && visual?.kind === "page" && mode === "preview";
@@ -518,6 +520,13 @@ function ArtifactToolbar({
   const favoriteKey = visual ? visualId(visual) : run ? `run:${run.slug}` : null;
   const favorite = favoriteKey !== null && favorites.has(favoriteKey);
   const pushToast = useEventStore((s) => s.pushToast);
+  const waiting = useNodeCommentDraft((s) => s.pending.length);
+  const sendingComments = useNodeCommentDraft((s) => s.sending);
+  const sendComments = useCallback(async () => {
+    if (node === null) return;
+    const sent = await useNodeCommentDraft.getState().sendAll(node);
+    if (!sent) pushToast("error", t("nodes.comment.failed"));
+  }, [node, pushToast, t]);
   const capabilities = useOutputsCapabilities();
   const parsed = parseArtifactUtterance(visual?.utterance ?? run?.utterance);
   const slug = visual?.slug ?? run?.slug ?? "";
@@ -612,6 +621,29 @@ function ArtifactToolbar({
             >
               <MessageSquarePlus className="h-4 w-4" aria-hidden />
               {t("nodes.comment.toggle")}
+            </button>
+          )}
+          {comment && waiting > 0 && (
+            // The comments left on the page go out together, with one click.
+            <button
+              type="button"
+              onClick={() => void sendComments()}
+              disabled={sendingComments}
+              data-testid="visualization-comments-send"
+              className={
+                "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-4 text-base " +
+                "text-background transition-colors hover:bg-foreground/85 disabled:opacity-60 " +
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              }
+            >
+              {sendingComments ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <ArrowUp className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+              )}
+              {waiting === 1
+                ? t("nodes.comment.send_one")
+                : t("nodes.comment.send_many").replace("{0}", String(waiting))}
             </button>
           )}
           <ShareMenu
@@ -797,28 +829,41 @@ function ArtifactStage({
   // A new file must not inherit the previous file's failure verdict.
   useEffect(() => setFailed(false), [id]);
 
-  /* Comments sent and not yet worked in. The node's next revision answers
-   * them: the page is drawn again then, and the line below goes quiet. */
-  const [working, setWorking] = useState(0);
-  useEffect(() => setWorking(0), [id, livingVersion]);
+  /* The comments left on the page wait in the draft until the toolbar's
+   * "Send". Those sent and not yet worked in are answered by the node's next
+   * revision: the page is drawn again then, and the line below goes quiet. */
+  const nodeKey = node === null ? null : (node.id ?? node.key);
+  const openDraft = useNodeCommentDraft((s) => s.open);
+  const settle = useNodeCommentDraft((s) => s.settle);
+  const working = useNodeCommentDraft((s) => (s.nodeKey === nodeKey ? s.working : 0));
+  const outcome = useNodeCommentDraft((s) => s.outcome);
+  useEffect(() => openDraft(nodeKey), [nodeKey, openDraft]);
+  useEffect(() => settle(), [id, livingVersion, settle]);
   const onComment = useCallback(
     async (comment: NodeComment) => {
       if (node === null) throw new Error("no node takes this comment");
-      await sendNodeComment(node, comment);
-      setWorking((count) => count + 1);
+      useNodeCommentDraft.getState().add(comment);
     },
     [node],
   );
-  useNodeBridge(pageFrame, {
+  const onRemove = useCallback((n: number) => useNodeCommentDraft.getState().remove(n), []);
+  const tellCommentState = useNodeBridge(pageFrame, {
     commenting: commenting && node !== null,
     labels: {
       placeholder: t("nodes.comment.placeholder"),
-      send: t("nodes.comment.send"),
+      add: t("nodes.comment.add"),
+      pending: t("nodes.comment.pending"),
       sent: t("nodes.comment.sent"),
       failed: t("nodes.comment.failed"),
+      remove: t("nodes.comment.remove"),
     },
     onComment,
+    onRemove,
   });
+  // The page learns which of its pins went out, or did not.
+  useEffect(() => {
+    if (outcome !== null) tellCommentState(outcome.ns, outcome.state);
+  }, [outcome, tellCommentState]);
 
   if (failed) {
     return (

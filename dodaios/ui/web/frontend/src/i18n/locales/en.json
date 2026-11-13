@@ -11785,15 +11785,17 @@
     },
     "comment": {
       "toggle": "Comment",
-      "hint": "Click a place and write what {name} should change there.",
+      "hint": "Click a place and write what {name} should change there. Then send all your comments at once.",
       "working": "{name} is working your comment in…",
       "working_many": "{name} is working {0} comments in…",
       "placeholder": "Add a comment…",
-      "send": "Send",
+      "add": "Add comment",
+      "pending": "Not sent yet",
+      "remove": "Remove comment",
+      "send_one": "Send comment",
+      "send_many": "Send {0} comments",
       "sent": "Sent",
-      "failed": "Not sent. Try again.",
-      "request": "Please change the node \"{0}\" (id {1}) as this comment says{2}: {3}",
-      "at": " on \"{0}\""
+      "failed": "Not sent. Try again."
     }
   },
   "agent_browser": {

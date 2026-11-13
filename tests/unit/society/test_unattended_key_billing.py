@@ -120,6 +120,16 @@ async def test_a_check_in_the_person_asked_for_counts_as_their_own_start(
         )
 
 
+async def test_comments_sent_on_a_node_count_as_the_persons_own_start(
+    routine_seat: dict[str, bool],
+) -> None:
+    _connect_a_subscription()
+    with pytest.raises(_SessionStarted):
+        await routine_runner.run_owned_routine(
+            _routine_runtime(), "t1", ("society", "agent:scout", "node-comments:n1"), "Revise."
+        )
+
+
 async def test_a_key_seat_still_runs_on_an_install_without_a_subscription(
     routine_seat: dict[str, bool],
 ) -> None:

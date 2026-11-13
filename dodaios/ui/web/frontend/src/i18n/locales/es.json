@@ -11785,15 +11785,17 @@
     },
     "comment": {
       "toggle": "Comentar",
-      "hint": "Haz clic en un lugar y escribe qué debe cambiar {name} ahí.",
+      "hint": "Haz clic en un lugar y escribe qué debe cambiar {name} ahí. Luego envía todos tus comentarios a la vez.",
       "working": "{name} está aplicando tu comentario…",
       "working_many": "{name} está aplicando {0} comentarios…",
       "placeholder": "Añade un comentario…",
-      "send": "Enviar",
+      "add": "Añadir comentario",
+      "pending": "Aún no enviado",
+      "remove": "Quitar comentario",
+      "send_one": "Enviar comentario",
+      "send_many": "Enviar {0} comentarios",
       "sent": "Enviado",
-      "failed": "No se envió. Inténtalo de nuevo.",
-      "request": "Cambia el node «{0}» (ID {1}) según este comentario{2}: {3}",
-      "at": " sobre «{0}»"
+      "failed": "No se envió. Inténtalo de nuevo."
     }
   },
   "agent_browser": {
