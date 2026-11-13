@@ -29,6 +29,8 @@ describe("NodeTypeRow", () => {
       expect(tile.getAttribute("aria-pressed")).toBe("false");
       expect(tile.style.getPropertyValue("--node-hue")).toBe(`var(--node-${type})`);
       expect(tile.querySelector(`[data-node-type-icon="${type}"]`)).toBeTruthy();
+      // Each card shows its own small scene of what such a node looks like.
+      expect(tile.querySelector(`[data-node-type-scene="${type}"] *`)).toBeTruthy();
     }
   });
 
