@@ -299,3 +299,67 @@ async def test_cli_browser_retries_keep_the_user_turn_trace(monkeypatch):
         server.CHAT_SESSION_REF.reset(ref)
         current_chat_turn.reset(token)
     assert seen == [first, first, second]
+
+
+async def test_page_work_runs_without_a_card_and_an_upload_still_asks(tmp_path, monkeypatch):
+    """One card per click made the browser unusable (2026-11-13); files still ask."""
+    from dodaios.society.browser.bridge import execute_live
+    from dodaios.society.runtime import SocietyRuntime
+
+    monkeypatch.setattr("dodaios.core.config.get_jarvis_agent_secret", lambda _: None)
+    asked = []
+
+    async def refuse(runtime, approval_id, session):
+        asked.append(approval_id)
+        return False
+
+    monkeypatch.setattr("dodaios.society.browser.bridge.wait_for_browser_approval", refuse)
+    rt = SocietyRuntime(tmp_path, seed_starter_team=False)
+    await rt.ensure_started()
+    applied = []
+    verdicts = {}
+
+    def apply_for(name):
+        async def apply():
+            applied.append(name)
+            return {}
+
+        return apply
+
+    async def execute(tool, args, **kwargs):
+        return await tool.execute(args, None)
+
+    async def run(agent, *, action, **kwargs):
+        for name in ("click", "input", "select_dropdown_option", "send_keys", "upload_file"):
+            verdict = await action({"action": {name: {}}, "apply": apply_for(name)})
+            verdicts[name] = verdict["ok"]
+        return {"ok": True, "artifacts": []}
+
+    rt.browser.live.model_resolver = lambda _: SimpleNamespace(complete=lambda *_: None)
+    rt.browser.live.executor = SimpleNamespace(execute=execute)
+    rt.browser.live.run = run
+    try:
+        agent, _ = await rt.roster.create(
+            name="Driver", provider="openai", permission_ceiling="monitor"
+        )
+        await execute_live(
+            rt, agent, rt.browser, {"task": "Look for flights"},
+            SimpleNamespace(trace_id="one", config={}),
+        )
+        assert applied == ["click", "input", "select_dropdown_option", "send_keys"]
+        assert verdicts == {
+            "click": True, "input": True, "select_dropdown_option": True,
+            "send_keys": True, "upload_file": False,
+        }
+        # The upload never ran: asked, or above this agent's ceiling and refused.
+        assert len(asked) <= 1
+    finally:
+        await rt.close()
+
+
+def test_a_task_that_sends_or_buys_asks_once_up_front(tmp_path):
+    from dodaios.society.browser.tool import BrowserTool
+
+    tool = BrowserTool(SimpleNamespace(), "jarvis", SimpleNamespace(_python=None))
+    assert tool.risk_tier_for_args({"task": "Book the cheapest flight and pay"}) == "ask"
+    assert tool.risk_tier_for_args({"task": "Look at flights to Dubai"}) is None

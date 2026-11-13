@@ -61,23 +61,30 @@ network.
 - **Watch.** The agent card's browser panel streams the actual rendered tab and
   is read-only until the owner takes control. The status light lists a running
   browser task as a running row and opens that agent's panel.
-- **In the chat.** While the assistant's own chat runs a browser task, a live
-  tile shows it (`components/home/chatBrowser`): in the assistant's panel at
-  the top of its Computers, or in the chat's top corner when that panel is not
-  shown. A click on it opens the stage: the chat moves left, the browser takes
-  the rest of the page (the panel steps aside until the stage is made small). While
-  the assistant drives, a slow light runs around the frame and the arrow carries
-  its name; the control at the foot reads "Dodaios has control · Take over",
-  and after taking over "You have control · Hand back". Clicking the tile never
-  takes control. The view attaches only to a browser that is already open, and
-  only while a task runs, the person holds control or asked for the stage, and
-  for 12 seconds after a task ends. Hiding it keeps it away until the next task;
-  an agent's request for a hand brings the stage up by itself, and the
-  takeover card's button opens it there.
+- **In the chat.** While the assistant's own chat runs a browser task, its
+  browser shows (`components/home/chatBrowser`): as one row at the top of the
+  assistant's Computers ("Dodaios's browser · Working · google.com") with a
+  small live picture and the arrow, or as a small tile in the chat's corner when
+  that panel is not shown. A click opens the stage: the chat moves left, the
+  browser takes the rest of the page (the panel steps aside until the stage is
+  made small). While the assistant drives, a slow light runs around the frame
+  and the arrow carries its name; the control at the foot reads "Dodaios has
+  control · Take over", and after taking over "You have control · Hand back".
+  Clicking the row or tile never takes control. The view attaches only to a
+  browser that is already open, and stays while a task runs, while the person
+  holds control or has the stage open, and for three minutes after a task, so
+  the pauses between the assistant's browser calls do not close it. A picture
+  that just appeared shows the current page at once (the stream sends only
+  changes). Hiding it keeps it away until the next task; a request for a hand
+  brings the stage up by itself, and the takeover card's button opens it there.
+- **No card per click.** Working a page (click, type, choose, press a key)
+  runs without an approval card. A task whose text sends, buys, deletes,
+  publishes or books asks once before it starts (none in Bypass). Uploading a
+  file or running script on a page still asks each time.
 - **The arrow.** Every agent click is shown as the arrow travelling to the
   target on a slight arc that starts gently and settles, then pressing. The
-  worker announces the point first and dispatches the mouse event after the
-  same glide (`pointer.py`, `glide_seconds`, 0.28 to 0.65 s measured in page
+  worker announces the point first (the first move of a session enters in
+  the middle of the page) and dispatches the mouse event after the same glide (`pointer.py`, `glide_seconds`, 0.28 to 0.65 s measured in page
   pixels), so the page reacts as the arrow lands, in the tile and on the stage
   alike. No wait while the person drives.
 - **Take over / hand back.** "Take control" pauses the agent's browser actions
