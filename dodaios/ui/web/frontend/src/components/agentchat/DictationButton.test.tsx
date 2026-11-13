@@ -128,6 +128,15 @@ describe("DictationButton", () => {
     expect(screen.queryByTestId("dictation-transcribing")).toBeNull();
   });
 
+  test("the live and transcribing pills take no part in a text selection", () => {
+    // A selection reaching the composer painted the ticking clock grey in WebKit.
+    const props = { onToggle: vi.fn(), startLabel: "Dictate", stopLabel: "Stop dictation" };
+    const { rerender } = render(<DictationButton dictating {...props} />);
+    expect(screen.getByTestId("dictation-status").className).toContain("select-none");
+    rerender(<DictationButton dictating={false} transcribing {...props} />);
+    expect(screen.getByTestId("dictation-transcribing").className).toContain("select-none");
+  });
+
   test("formats elapsed time as m:ss", () => {
     expect(formatElapsed(0)).toBe("0:00");
     expect(formatElapsed(102_400)).toBe("1:42");

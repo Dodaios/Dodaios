@@ -213,6 +213,21 @@ describe("ChatStage (agent chat)", () => {
     expect(within(composer).getByTestId("composer-add")).toBeTruthy();
   });
 
+  it("paints no selection on the ground around the composer", () => {
+    // WebKit filled the composer's wrapper with the selection colour: a grey
+    // band under the box once a selection reached it.
+    const { unmount } = render(<ChatStage />);
+    const wrapperOf = () => screen.getByTestId("agent-composer").parentElement!;
+    expect(wrapperOf().className).toContain("selection-text-only");
+    expect(wrapperOf().parentElement!.className).toContain("selection-text-only");
+    unmount();
+    const timeline = reduceEvents(EMPTY_TIMELINE, [ev("user_message", { text: "hello" })]);
+    useAgentChatStore.setState({ activeSessionId: "lead-1", timeline });
+    render(<ChatStage />);
+    expect(screen.getByTestId("chat-stage").getAttribute("data-empty")).toBe("false");
+    expect(wrapperOf().className).toContain("selection-text-only");
+  });
+
   it("shows no greeting while the conversation is still on its way, only the composer", () => {
     useAgentChatStore.setState({ activeSessionId: "lead-1", opening: true });
     render(<ChatStage />);
