@@ -6,22 +6,28 @@ PyPI, where a GitHub video would not.
 
 | | |
 |---|---|
-| Length | 80 s from a take of 163 s: clicks and typing at 1.4x, the waits for the model at 7x |
+| Length | 71 s from a take of 155 s: clicks and typing at 1.4x, the waits for the model at 7x |
 | Picture | 960 x 540, 12 frames a second, 128 colours |
-| Recorded from | Dodaios 5.0.0, a first-run instance that was thrown away afterwards |
+| Recorded from | Dodaios 5.1.0 (main of November 13, 2026), a first-run instance that was thrown away afterwards |
 | Model | Claude Opus 5.5 through Claude Code, signed in to a Claude plan. Every answer and change is real |
 
-It is one take without a cut, in this order:
+It shows Dodaios as a superagent, the one agent that runs the others. One take
+without a cut, in this order:
 
 1. The first-run setup (name, model connection, voice) and two stops of the
    app's own guided walk.
-2. Dodaios, in its chat, on Opus 5.5: it reads the sample project, runs it and
-   answers in two sentences.
-3. The Agentic IDE: the project is connected, a thread asks Claude Code on
-   Opus 5.5 to add a `--pace` option with tests, and its changes are reviewed.
-4. Dodaios again: it opens a Claude Code thread itself to fix a rounding bug
-   in the project. The thread is opened, with the brief Dodaios wrote; when
-   the agent is done, Dodaios checks the result and reports back in its chat.
+2. One request in the Dodaios chat, on Opus 5.5: start two Claude Code
+   threads at once in the sample project, one adding a `--pace` option with
+   tests, one writing a page of documentation. The panel beside the chat says
+   what Dodaios is doing and lists both agents under Recent activity.
+3. While the agents work, a second request: look after the project from now
+   on and run its tests once a day. Dodaios answers it beside the running
+   work, in a side thread.
+4. A row of the panel opens the first agent's thread in the Agentic IDE, with
+   the brief Dodaios wrote. Both threads finish, and their changes are
+   reviewed.
+5. Back in the chat: Dodaios' answer to the standing task, its report on both
+   agents, which it checked itself, and the standing task under Looks after.
 
 The model's answers differ from take to take, so a new recording does not
 match this one word for word.
@@ -55,7 +61,7 @@ A take costs a few minutes of the plan's usage.
 #    (Linux: put CLAUDE_CODE_OAUTH_TOKEN=... in front, see above.)
 PYTHON=/path/to/venv/bin/python scripts/readme_demo/demo-instance.sh
 
-# 2. In a second terminal: the take, about three minutes. It writes the
+# 2. In a second terminal: the take, two to three minutes. It writes the
 #    frames, list.txt (already timed at 1.4x, waits at 7x) and timeline.json.
 node scripts/readme_demo/record.cjs /tmp/dodaios-take
 

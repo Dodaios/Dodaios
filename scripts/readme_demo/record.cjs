@@ -8,11 +8,13 @@
 // Claude Code is installed and signed in. The model answers for real:
 // assets/demo/readme/README.md has the whole procedure.
 //
-// The take: the first-run setup and two stops of the guided walk; a routine
-// asked of Dodaios in its chat; the sample project connected in the Agentic
-// IDE, a coding agent prompted in a thread and its changes reviewed; then
-// Dodaios hands a fix to a coding agent itself, the thread it started is
-// opened, and Dodaios reports back when the agent is done.
+// The take shows Dodaios as a superagent, one agent that runs the others: the
+// first-run setup and two stops of the guided walk; one request in the
+// Dodaios chat that starts two coding agents at once in the sample project;
+// while they work, a second request, a standing task, answered beside the
+// running work; the two threads in the Agentic IDE, with the brief Dodaios
+// wrote, their answers and the changes they made; then Dodaios' own report,
+// and the standing task in its panel.
 //
 // The window is 1280 x 720 at a device scale of 1.5, so the frames are
 // 1920 x 1080 and the interface stays readable when the video is shown small.
@@ -34,8 +36,10 @@ const FAST = Number(process.env.DEMO_FAST || 7);
 if (!OUT) { console.error('usage: node record.cjs <output folder>'); process.exit(2); }
 const W = 1280, H = 720;
 const MODEL_WAIT = 5 * 60 * 1000;
-// Dodaios runs on Claude Code too: ask for a thread, or it may do the work itself.
-const HANDOFF = 'Open a Claude Code thread in trailhead on Opus 5.5 to fix the bug where a time just under a whole hour reads 1 h 60 min. Tell me when it is done.';
+// One request, two coding agents: Dodaios briefs each one itself.
+const TASK = 'In ~/projects/trailhead, start two Claude Code threads on Opus 5.5 at once: one adds a --pace option (relaxed, steady, fast) with tests, the other writes docs/how-it-works.md with a worked example. Tell me when both are done.';
+// Sent while the agents work: a standing task, answered in a side thread.
+const STANDING = 'Also look after trailhead from now on: run its tests once a day and tell me when one fails.';
 
 const CURSOR = `(() => {
   const install = () => {
@@ -173,11 +177,6 @@ const CURSOR = `(() => {
   const chatWorking = page.locator('[data-testid="agent-turn-awaiting"]:visible, [data-testid="agent-turn"][data-status="running"]:visible');
   // The Agentic IDE stays mounted behind the chat, so only a visible field counts.
   const chatInput = () => page.locator('[data-testid="composer-row"] [contenteditable=true]:visible, [data-testid="composer-row"] textarea:visible').first();
-  async function chatTurnEnds(what, startsWithin = 30000) {
-    await chatWorking.first().waitFor({ state: 'visible', timeout: startsWithin }).catch(() => {});
-    await chatWorking.first().waitFor({ state: 'hidden', timeout: MODEL_WAIT });
-    log('turn ended:', what);
-  }
   // A thread's turn ends with "Worked for <time>".
   const workedCount = () => page.getByText(/^Worked for /).count();
   async function threadTurnEnds(nBefore, what) {
@@ -188,10 +187,8 @@ const CURSOR = `(() => {
     }
     log('thread turn ended:', what);
   }
-  const thoughts = () => page.getByText(/^Thought for /).count();
-  // The caption's switch between Dodaios (a new chat) and the Agentic IDE.
-  const toIde = () => click('[data-testid="surface-ide"]', { post: 900 });
-  const toNewChat = () => click('[data-testid="surface-dodaios"]', { post: 900 });
+  // The caption's switch between the Dodaios chat and the Agentic IDE.
+  const toChat = () => click('[data-testid="surface-dodaios"]', { post: 900 });
 
   try {
     // ---- 1. first run: name, connect, voice -----------------------------
@@ -234,52 +231,77 @@ const CURSOR = `(() => {
     }
     await click(btn(/^Skip$/), { post: 500 });
 
-    // ---- 3. Dodaios: pick the model, let it run something on the computer ---
+    // ---- 3. Dodaios hands the work to two coding agents at once ------------
     mark('dodaios');
-    const skipIntro = page.getByText('Skip introduction').first();
-    if (await skipIntro.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)) {
+    const skipIntro = page.locator('[data-testid="first-conversation-skip"]:visible').first();
+    if (await skipIntro.waitFor({ state: 'visible', timeout: 2500 }).then(() => true, () => false)) {
       await click(skipIntro, { post: 500 });
     }
     await click('[aria-label="Model"]:visible', { post: 600 });
     await click(page.getByText(MODEL, { exact: true }).last(), { post: 500 });
     await click(chatInput(), { post: 200 });
-    await type('What does ~/projects/trailhead do? Run it for a 14.5 km hike with 820 m of climb and answer in two sentences.', 30);
+    await type(TASK, 22);
     await sleep(350);
     await page.keyboard.press('Enter');
-    await moveTo(W * 0.5, H * 0.42, 600);
-    waiting('first answer');
-    await chatTurnEnds('first answer');
-    acting('answered');
+    // The panel beside the chat says what Dodaios is doing and lists the
+    // coding agents it wrote a task into.
+    await moveTo(W * 0.86, H * 0.12, 700);
+    waiting('two threads');
+    const activity = page.locator('[data-testid^="assistant-activity-"]:visible');
+    const until2 = Date.now() + MODEL_WAIT;
+    while ((await activity.count()) < 2) {
+      if (Date.now() > until2) throw new Error('Dodaios did not start two coding agents');
+      await sleep(400);
+    }
+    acting('threads started');
+    await sleep(700);
+    await point(activity.first(), { ms: 600 });
     await sleep(900);
-    await point(page.getByText(/about \d+ h \d+ min/).last(), { ms: 650 });
-    await sleep(2200);
+    await point(activity.nth(1), { ms: 400 });
+    await sleep(900);
 
-    // ---- 4. Agentic IDE: connect the project, prompt a coding agent --------
-    mark('ide');
-    await toIde();
-    await click(btn(/Connect folder/).first(), { post: 500 });
-    await click(btn(/Choose folder/), { post: 650 });
-    const picker = page.locator('[role=dialog]').last();
-    await click(picker.getByText('Home', { exact: true }).first(), { post: 450 });
-    await click(picker.getByText('projects', { exact: true }).first(), { post: 450 });
-    await click(picker.getByText('trailhead', { exact: true }).first(), { post: 450 });
-    await click(btn(/Use this folder/), { post: 450 });
-    await click(btn(/^Connect project$/), { post: 1100 });
-    mark('thread');
-    await click('[aria-label="Coding agent and model"]', { post: 600 });
-    await click(page.getByText(MODEL, { exact: true }).last(), { post: 450 });
-    await click('[aria-label="Message the coding agent"]', { post: 200 });
-    const worked0 = await workedCount();
-    await type('Add a --pace option (relaxed, steady, fast) that scales the walking speed, with a test for each pace. Run the tests and keep the summary short.', 28);
+    // ---- 4. a standing task, asked while the agents work ----------------------
+    // Dodaios is still busy with the agents, so this one is answered beside
+    // that work, in a side thread; the take does not wait for it.
+    mark('standing task');
+    await click(chatInput(), { post: 200 });
+    await type(STANDING, 22);
     await sleep(350);
     await page.keyboard.press('Enter');
-    await moveTo(W * 0.62, H * 0.3, 700);
-    waiting('coding agent');
-    await threadTurnEnds(worked0, 'pace');
-    acting('pace done');
-    await sleep(2200);
+    await sleep(1600);
+
+    // ---- 5. the two threads in the Agentic IDE ---------------------------------
+    mark('threads');
+    // A row of the panel opens that agent's thread in the IDE.
+    const paceRow = activity.filter({ hasText: /pace/i }).first();
+    await click((await paceRow.count()) ? paceRow : activity.first(), { post: 1200 });
+    await point(page.getByText('Written by Dodaios').first(), { ms: 600 });
+    await sleep(1500);
+    await moveTo(W * 0.62, H * 0.3, 600);
+    waiting('first coding agent');
+    await threadTurnEnds(0, 'first thread');
+    acting('first thread done');
+    await sleep(1800);
+    // The other thread, from the IDE's own list of threads on the left.
+    let otherThread = null;
+    for (const el of await page.getByText(/how-it-works|docs\//i).all()) {
+      const b = await el.boundingBox().catch(() => null);
+      if (b && b.x < 260 && b.width > 0) { otherThread = el; break; }
+    }
+    if (otherThread) {
+      await click(otherThread, { post: 1000 });
+      await moveTo(W * 0.62, H * 0.3, 500);
+      waiting('second coding agent');
+      await threadTurnEnds(0, 'second thread');
+      acting('second thread done');
+      await sleep(1800);
+    }
     mark('review');
-    await click('[aria-label="Review changes"]', { post: 1500 });
+    // A toast (an achievement, say) can sit on the thread's title bar: close it.
+    for (const dismiss of await page.locator('[data-testid="toast-layer"] [aria-label="Dismiss"]:visible').all()) {
+      await click(dismiss, { post: 400 }).catch(() => {});
+    }
+    await click('[aria-label="Review changes"]:visible', { post: 1500 });
     const review = page.locator('[role=dialog]').last();
     await moveTo(W * 0.6, H * 0.6, 500);
     for (let i = 0; i < 14; i++) { await page.mouse.wheel(0, 45); await sleep(40); }
@@ -288,63 +310,52 @@ const CURSOR = `(() => {
     if (await closeReview.isVisible().catch(() => false)) await click(closeReview, { post: 500 });
     else { await page.keyboard.press('Escape'); await sleep(500); }
 
-    // ---- 5. Dodaios hands a fix to a coding agent ---------------------------
-    mark('handoff');
-    await toNewChat();
-    await click(chatInput(), { post: 200 });
-    await type(HANDOFF, 28);
-    await sleep(350);
-    await page.keyboard.press('Enter');
-    await moveTo(W * 0.5, H * 0.4, 600);
-    waiting('handoff');
-    const openThread = page.getByText('Open thread', { exact: true });
-    await openThread.first().waitFor({ state: 'visible', timeout: MODEL_WAIT });
-    await chatTurnEnds('handoff');
-    const thoughtsAfterHandoff = await thoughts();
-    acting('thread started');
-    await sleep(900);
-    await click(openThread.first(), { post: 1200 });
-    mark('delegated thread');
-    await point(page.getByText('Written by Dodaios').first(), { ms: 600 });
-    await sleep(1600);
-    await moveTo(W * 0.62, H * 0.3, 600);
-    waiting('delegated coding agent');
-    await threadTurnEnds(0, 'fix');
-    acting('fix done');
-    await sleep(1000);
-    // The turn ends with a card of the files it changed: open its diff.
-    const showChanges = btn(/^Show changes$/).last();
-    if (await showChanges.waitFor({ state: 'visible', timeout: 6000 }).then(() => true, () => false)) {
-      await click(showChanges, { post: 900 });
-      await sleep(1900);
-    }
+    // ---- 6. Dodaios reports, and looks after the project from now on ----------
     mark('report');
-    // Back to the chat that started the thread (the switch would open a new one).
-    await click('[aria-label="Go back"]', { post: 700 });
-    await page.getByText(HANDOFF).first().waitFor({ state: 'visible' });
+    await toChat();
     waiting('report');
-    await page.getByText(/finished in/).first().waitFor({ state: 'visible', timeout: MODEL_WAIT });
-    // A finished answer folds its reasoning into "Thought for <time>": the
-    // report is the answer after the hand-off's.
-    const until = Date.now() + MODEL_WAIT;
-    while (!((await thoughts()) >= thoughtsAfterHandoff + 1 && !(await chatWorking.first().isVisible().catch(() => false)))) {
-      if (Date.now() > until) throw new Error('Dodaios did not report back');
-      await sleep(400);
+    // The report is the answer to the two agents' results: a finished turn
+    // that names both of them, with nothing running any more.
+    const turns = page.locator('[data-testid="agent-turn"][data-status="done"]');
+    const untilR = Date.now() + MODEL_WAIT;
+    let report = null;
+    while (!report) {
+      if (!(await chatWorking.first().isVisible().catch(() => false))) {
+        const n = await turns.count();
+        for (let i = n - 1; i >= Math.max(0, n - 3) && !report; i--) {
+          const text = await turns.nth(i).innerText().catch(() => '');
+          if (/pace/i.test(text) && /(docs|how-it-works)/i.test(text)) report = turns.nth(i);
+        }
+      }
+      if (Date.now() > untilR) throw new Error('Dodaios did not report back');
+      if (!report) await sleep(500);
     }
-    log('report written');
     acting('report');
     await sleep(600);
-    // Wheel back to where the report begins, under the "finished" line.
+    // Wheel back to the standing task's answer, then down to the report.
     await moveTo(W * 0.42, H * 0.5, 500);
-    const finished = page.getByText(/finished in/).last();
-    for (let i = 0; i < 40; i++) {
-      const b = await finished.boundingBox();
-      if (!b || b.y >= 40) break;
-      await page.mouse.wheel(0, -40);
-      await sleep(45);
+    async function wheelTo(el, top) {
+      for (let i = 0; i < 80; i++) {
+        const b = await el.boundingBox();
+        if (!b) return;
+        if (b.y >= top - 30 && b.y <= top + 30) return;
+        await page.mouse.wheel(0, b.y < top ? -40 : 40);
+        await sleep(40);
+      }
     }
-    await sleep(1800);
-    await moveTo(W * 0.73, H * 0.62, 900);
+    const asked = page.getByText(STANDING).last();
+    if (await asked.isVisible().catch(() => false) || await asked.count()) {
+      await wheelTo(asked, 90);
+      await sleep(2600);
+    }
+    await wheelTo(report, 70);
+    await sleep(2800);
+    const standing = page.locator('[data-testid^="assistant-standing-task-"]:visible').first();
+    if (await standing.waitFor({ state: 'visible', timeout: 20000 }).then(() => true, () => false)) {
+      await point(standing, { ms: 800 });
+    } else {
+      await moveTo(W * 0.73, H * 0.62, 900);
+    }
 
     mark('end');
     await sleep(3000);
