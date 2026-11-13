@@ -150,7 +150,7 @@ changes, Git, files and a browser preview sit beside every thread.
 
 ### Nodes: what it makes, kept current
 
-<img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-nodes.gif" alt="A 31-second recording of the Nodes section. It opens at the top of the section: the seven type cards Docs, Slides, Sheets, Visuals, Analytics, Whiteboard and Clips, each with a small picture of its kind, above the cards of seven nodes. The pointer passes over the type cards; Analytics narrows the list to the dashboard Shop sales, October, which opens with its revenue, orders and charts and is scrolled. Back in the library, the slide deck Q3 board update opens and goes from its title slide to the next one" width="100%" />
+<img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-nodes.gif" alt="A 31-second recording of the Nodes section. It opens at the top of the section: the seven type cards Docs, Slides, Sheets, Visuals, Analytics, Whiteboard and Clips, each with a small picture of its kind, above the cards of seven nodes. The pointer passes over the type cards; Analytics narrows the list to the dashboard Shop sales, October, which opens with its revenue, orders and charts and is scrolled. Back in the library, the slide deck Q3 board update opens and goes from its title slide over two key figures to a bar chart" width="100%" />
 
 Ask for a report, a deck, a budget or a dashboard, and Dodaios makes it as a
 node: a page you can open, present and share, and that it can change again

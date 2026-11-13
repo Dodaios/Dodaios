@@ -119,7 +119,7 @@ dodaios update     # 安装最新发布的版本
 
 ### 节点：它做出来的东西，并保持最新
 
-<img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-nodes.gif" alt="一段 31 秒的 Nodes 页面录屏。开头是页面顶部：七张类型卡片 Docs、Slides、Sheets、Visuals、Analytics、Whiteboard 和 Clips，每张都有一幅表现该类型的小图，下面是七个节点的卡片。指针依次掠过类型卡片；点击 Analytics 后列表只剩仪表盘 Shop sales, October，打开后显示营收、订单和图表，并向下滚动。回到列表后，打开幻灯片 Q3 board update，从标题页翻到下一页" width="100%" />
+<img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-nodes.gif" alt="一段 31 秒的 Nodes 页面录屏。开头是页面顶部：七张类型卡片 Docs、Slides、Sheets、Visuals、Analytics、Whiteboard 和 Clips，每张都有一幅表现该类型的小图，下面是七个节点的卡片。指针依次掠过类型卡片；点击 Analytics 后列表只剩仪表盘 Shop sales, October，打开后显示营收、订单和图表，并向下滚动。回到列表后，打开幻灯片 Q3 board update，从标题页翻过两个关键数字，翻到一张柱状图" width="100%" />
 
 让它做一份报告、一套幻灯片、一份预算或一个仪表盘，Dodaios 会把它做成一个节点：一个你可以打开、演示和分享的页面，之后它也可以继续修改。节点有七种类型：Docs、Slides、Sheets、Visuals、Analytics、Whiteboard 和 Clips。告诉它某个节点应该跟踪什么，它就会按计划用你的应用中的数据让节点保持最新。在节点的任何位置钉上一条评论，Dodaios 就会据此修改节点。每个节点都是一个在沙箱中运行、不联网的页面，最近十二个版本都可以撤回。
 [节点](https://github.com/Dodaios/Dodaios/blob/main/docs/nodes.md)

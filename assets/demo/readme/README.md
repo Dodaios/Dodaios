@@ -165,9 +165,9 @@ node scripts/readme_demo/stills.cjs /tmp/dodaios-stills connect
 `dodaios-nodes.gif` plays in the README's part about Nodes. It opens at the
 top of the Nodes section, passes over the seven type cards, lets the
 Analytics card narrow the list, opens the dashboard and scrolls it, and then
-takes the slide deck from its title slide to the next. 960 x 600, 12 frames a
-second, 31 s, from a 1440 x 900 window: at 1280 the type card "Whiteboard" is
-cut short.
+takes the slide deck two slides on, from its title to a bar chart.
+960 x 600, 12 frames a second, 31 s, from a 1440 x 900 window: at 1280 the
+type card "Whiteboard" is cut short.
 
 | | |
 |---|---|
