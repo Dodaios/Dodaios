@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  Bot, ChevronRight, Hand, Hourglass, KeyRound, Lightbulb, Loader2, RefreshCw, Rocket, ShieldCheck, SquareTerminal,
+  Bot, ChevronRight, Hand, Hourglass, KeyRound, Lightbulb, Loader2, Plug, RefreshCw, Rocket, ShieldCheck, SquareTerminal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -49,6 +49,7 @@ const BADGE_TONE: Record<RailNotice["tone"], string> = {
 
 const ASK_ICON: Partial<Record<NoticeAsk, LucideIcon>> = {
   reconnect: RefreshCw,
+  connect: Plug,
   approval: ShieldCheck,
   credential: KeyRound,
   proposal: Lightbulb,
@@ -88,7 +89,9 @@ function AgentFace({ agentId, size }: { agentId: string; size: number }) {
 /** Who the notice is about: a logo kept in its own colours, a face, or a plain sign. */
 function SubjectMark({ notice, size }: { notice: RailNotice; size: number }) {
   const { mark, subject } = notice;
-  if (mark.type === "plugin") return <ToolChoiceIcon row={serviceIconRow("plugin", mark.id, subject)} size={size} />;
+  if (mark.type === "plugin" || mark.type === "tool") {
+    return <ToolChoiceIcon row={serviceIconRow(mark.type === "tool" ? "cli" : "plugin", mark.id, subject)} size={size} />;
+  }
   if (mark.type === "provider") {
     return <ProviderLogo providerId={mark.id} label={subject} className="h-full w-full rounded-full bg-transparent" />;
   }

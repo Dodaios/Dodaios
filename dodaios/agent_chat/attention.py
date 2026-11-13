@@ -82,6 +82,10 @@ SEED_SESSIONS: Final[int] = 200
 #: Longest summary line an item carries (the card holds the rest).
 SUMMARY_CHARS: Final[int] = 200
 
+#: Credential cards that ask to connect a service (``credential_requests.PLUGIN`` / ``CLI``);
+#: their ``env`` is the plugin id or the CLI's name.
+_CONNECT_KINDS: Final[frozenset[str]] = frozenset({"plugin", "cli"})
+
 #: The society session prefix (``society:<agent>[...]``).
 _SOCIETY_PREFIX: Final[str] = "society:"
 
@@ -285,9 +289,17 @@ class AttentionBoard:
             if not ref:
                 return []
             label = _line(payload.get("label"), 120) or _line(payload.get("env"), 120)
+            detail: dict[str, Any] = {"label": label}
+            # A Connect card asks for a service, not a secret: say which one, so
+            # the app can show that service's own mark instead of a key.
+            service = _line(payload.get("env"), 120)
+            if str(payload.get("kind") or "") in _CONNECT_KINDS and service:
+                detail["connect"] = str(payload["kind"])
+                detail["service"] = service
+                detail["why"] = _line(payload.get("description"))
             return self._open_item(AttentionItem(
                 kind="credential", session_id=session_id, ref_id=ref, summary=label,
-                since_ms=ts, turn_id=turn_id, detail={"label": label},
+                since_ms=ts, turn_id=turn_id, detail=detail,
             ))
         if kind == "credential_resolved":
             return self._close(session_id, str(payload.get("request_id") or ""))

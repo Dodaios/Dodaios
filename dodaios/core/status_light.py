@@ -115,6 +115,25 @@ def _from_board(
     return running, needs, missions
 
 
+def _connect(card: Mapping[str, Any]) -> dict[str, Any]:
+    """The service a Connect card asks for, as ``{"connect": {...}}``; empty for any other card.
+
+    ``kind`` is ``plugin`` or ``cli``, ``id`` the plugin id or the CLI's name,
+    ``label`` its readable name and ``why`` what the agent does once it is connected.
+    """
+    detail = card.get("detail")
+    if not isinstance(detail, Mapping) or not detail.get("connect") or not detail.get("service"):
+        return {}
+    return {
+        "connect": {
+            "kind": _text(detail.get("connect"), 20),
+            "id": _text(detail.get("service"), 120),
+            "label": _text(detail.get("label") or detail.get("service"), 120),
+            "why": _text(detail.get("why")),
+        }
+    }
+
+
 def _finding(f: Mapping[str, Any]) -> dict[str, Any]:
     """One watchdog finding as a row; a failing provider also says which one and how.
 
@@ -153,7 +172,8 @@ def build_status_light(
 
     ``jobs`` are open ledger jobs; one that a board mission already shows (same
     ``ref``) is not listed twice. ``attention`` is the per-agent cards list; a
-    card may carry the ``agent_name`` the person knows its agent by.
+    card may carry the ``agent_name`` the person knows its agent by, and a
+    Connect card says which service it asks for (``connect``).
     ``seats`` are :class:`~dodaios.brain.seat_health.SeatVerdict` values.
     ``findings`` are the watchdog's open findings (``key``, ``kind``, ``title``).
     ``prepared`` are drafts and fixes made in advance that wait for the person; they are
@@ -181,6 +201,7 @@ def build_status_light(
             "id": str(card.get("ref_id") or ""),
             "title": _text(card.get("summary")),
             "agent_name": _text(card.get("agent_name"), 80),
+            **_connect(card),
             "state": "waiting",
             "since_ms": int(card.get("since_ms") or 0),
             "link": {
