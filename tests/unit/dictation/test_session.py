@@ -216,3 +216,20 @@ async def test_spoken_layout_and_pause_marks_are_formatted_and_the_raw_text_kept
     )
     assert "..." not in completed.text
     assert completed.raw_text == heard
+
+
+async def test_a_recording_of_exact_zeros_says_the_microphone_delivered_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Exact zeros are not a quiet room. The notice then points at the input
+    device instead of at a voice that was too soft."""
+    recognizer = _Recognizer("never asked")
+    pipe, events = _pipeline(recognizer)
+
+    await _dictate(monkeypatch, pipe, _silent(2.0))
+
+    completed = next(e for e in events if isinstance(e, DictationCompleted))
+    assert completed.outcome == "empty"
+    assert completed.audio_rms == 0.0
+    assert "no signal at all" in completed.detail
+    assert "input device" in completed.detail
