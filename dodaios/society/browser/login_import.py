@@ -504,7 +504,7 @@ def _linux_secret(apps: tuple[str, ...]) -> bytes | None:
                 check=False,
             )
         except (OSError, subprocess.TimeoutExpired):
-            log.debug("libsecret lookup failed for %s", app)
+            log.debug("libsecret lookup failed")
             continue
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
