@@ -66,11 +66,12 @@ Three things hold everywhere:
 - **Your models, your accounts.** Use a plan you already pay for through the
   provider's own command-line tool, paste an API key, or run a local model.
   Chat, voice, computer use and agents can each use a different provider.
-- **The big decisions stay yours.** Dodaios does not stop you at every step,
-  but moving money, passwords and keys, deleting something for good and a
-  first message in your name to someone new always wait for you. Work it does
-  on its own may only change what can be taken back, unless a rule you saved
-  allows more.
+- **You set how much it does alone.** Each chat has a permission mode. A new
+  chat starts at Bypass permissions: nothing asks, and only a blocked call is
+  refused. In the asking modes, moving money, passwords and keys, deleting
+  something for good and a first message in your name to someone new always
+  wait for your yes. A routine that runs without you may only do what can be
+  taken back, unless a rule you saved allows more.
 - **Your files, on your computer.** Chats, memory, nodes, settings and results
   are files on the computer that runs Dodaios. There is no Dodaios account and
   no paid tier. A model or a connected service receives what it needs for its
@@ -156,9 +157,10 @@ Ask for a report, a deck, a budget or a dashboard, and Dodaios makes it as a
 node: a page you can open, present and share, and that it can change again
 later. There are seven types: Docs, Slides, Sheets, Visuals, Analytics,
 Whiteboard and Clips. Tell it what a node should follow, and it keeps the node
-current from your apps on a schedule. Pin a comment to any place of a node,
-and Dodaios revises the node. Each node is one page that runs in a sandbox
-with the network off, and the last twelve versions can be taken back.
+current from your apps on a schedule. Pin comments anywhere on a node and
+send them together, and Dodaios revises it; or click Edit and change a text
+yourself. Each node is one page that runs in a sandbox with the network off,
+and the last twelve versions can be taken back.
 [Nodes](https://github.com/Dodaios/Dodaios/blob/main/docs/nodes.md)
 
 ### Work that keeps going without you
@@ -267,16 +269,20 @@ your computer or an account:
 | **Ask** | Waits for a yes. No answer counts as no. |
 | **Block** | Is refused. An approval cannot override it. |
 
-Out of the box, the permission mode answers the Ask calls in work you asked
-for, so Dodaios does not stop you at every step. Set it to ask, and each of
-them waits for you. Two kinds of calls wait for you whatever the mode:
+How much runs without a question is set per chat, by its permission mode:
 
-- **Four hard limits.** Moving money, passwords and keys, deleting something
-  for good, and a first message in your name to someone new. No saved rule
-  and no agent decides these for you.
-- **Work nobody is watching.** A routine, an event or an agent's own step may
-  run only what can be taken back. A send, a post, a payment or a delete
-  without a trash waits for your yes, unless a rule you saved covers it.
+- **Bypass permissions**, where a new chat starts: nothing asks. Every call
+  runs; only a block is refused, and so is an email that seems to carry a
+  secret.
+- **Ask before acting, Auto-accept edits, Always ask:** a consequential call
+  shows a card with the app, the action and exactly what will be sent, and
+  waits for Allow once, Always allow or Deny. Moving money, passwords and
+  keys, deleting something for good and a first message in your name to
+  someone new always ask here.
+
+A routine or an event that runs without you may only do what can be taken
+back. A send, a post, a payment or a delete without a trash waits for your
+yes, unless a rule you saved covers it.
 
 One approval covers one call, not the rest of the job. The gate is not a
 sandbox and not an undo: it covers the tool calls Dodaios makes, and your
