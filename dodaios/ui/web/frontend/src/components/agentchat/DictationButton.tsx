@@ -15,6 +15,9 @@
  * (`audio.level` frames). With no fresh sample (a muted device) the bars
  * rest flat instead of inventing motion.
  *
+ * The pills are controls, not text: they take no part in a selection. A
+ * selection reaching the composer painted the ticking clock grey in WebKit.
+ *
  * Recording is green, not red: a live microphone is a state, not a fault, and
  * the palette keeps `--destructive` for faults (see
  * components/VoiceIndicator.tsx). Transcribing is neutral: the microphone is
@@ -153,7 +156,7 @@ export function DictationButton({
         aria-live="polite"
         data-testid="dictation-transcribing"
         className={cn(
-          "inline-flex h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-secondary px-3 text-xs text-foreground/80",
+          "inline-flex h-8 shrink-0 select-none items-center gap-2 whitespace-nowrap rounded-full border border-border bg-secondary px-3 text-xs text-foreground/80",
           "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150",
           className,
         )}
@@ -198,7 +201,7 @@ export function DictationButton({
       aria-live="polite"
       data-testid="dictation-status"
       className={cn(
-        "inline-flex h-8 shrink-0 items-center gap-2 rounded-full border border-success/35 bg-success/10 pl-3 pr-1",
+        "inline-flex h-8 shrink-0 select-none items-center gap-2 rounded-full border border-success/35 bg-success/10 pl-3 pr-1",
         "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:duration-150",
         className,
       )}

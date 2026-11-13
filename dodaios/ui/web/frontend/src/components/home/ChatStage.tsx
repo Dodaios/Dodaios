@@ -286,10 +286,12 @@ function ChatStageContent() {
         <div className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-8">
           {!opening && <Suspense fallback={<Greeting />}><FirstConversation fallback={<Greeting suggestions />} /></Suspense>}
         </div>
-        <div className="relative w-full max-w-[720px] px-6 pb-5 pt-2">
+        {/* The composer's ground paints no selection (index.css,
+            .selection-text-only): WebKit filled it grey around the box. */}
+        <div className="selection-text-only relative w-full max-w-[720px] px-6 pb-5 pt-2">
           <CallSlot composerControls />
           {/* The digits make way while the pointer is on the composer. */}
-          <div data-binary-field-off>
+          <div data-binary-field-off className="selection-text-only">
             <AgentComposer autoFocus />
           </div>
         </div>
@@ -338,7 +340,10 @@ function ChatStageContent() {
           {isJarvis && <Suspense fallback={null}><FirstConversation /></Suspense>}
         </div>
       </ScrollArea>
-      <div className="relative w-full max-w-[720px] px-6 pb-5 pt-2">
+      {/* A selection reaching the composer left a grey band across the
+          ground under it in WebKit; this box only lays out, so it paints no
+          selection (index.css, .selection-text-only). */}
+      <div className="selection-text-only relative w-full max-w-[720px] px-6 pb-5 pt-2">
         {!atEnd && <ScrollToEndButton onClick={jumpToEnd} testId="chat-scroll-end" />}
         {isJarvis && <CallSlot composerControls />}
         <AgentComposer />
