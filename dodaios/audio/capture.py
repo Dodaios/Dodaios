@@ -107,6 +107,58 @@ _SILENCE_DETAIL = (
 )
 _NOT_GRANTED_MESSAGE = "Microphone access is not granted for Dodaios."
 
+# An automatically chosen microphone that delivers exact zeros from its first
+# frame for this long is left for the next one. A real microphone has a noise
+# floor, so a full second of exact zeros is an input with nothing behind it: a
+# headphone jack without a microphone, a virtual device whose app is closed.
+# Long enough for the start-up zeros of a wireless headset to pass.
+_SILENCE_SWITCH_AFTER_S = 1.0
+# How long such an input is passed over when a microphone is chosen. It is
+# forgotten earlier when the set of input devices changes (a plug or unplug).
+_SILENT_INPUT_MEMORY_S = 30 * 60.0
+# name -> (when it may be tried again, the input names present at the time)
+_SILENT_INPUTS: dict[str, tuple[float, frozenset[str]]] = {}
+
+
+def _input_key(name: object) -> str:
+    return " ".join(str(name or "").casefold().split())
+
+
+def _input_names(devices: Sequence[dict]) -> frozenset[str]:
+    return frozenset(
+        _input_key(dev.get("name"))
+        for dev in devices
+        if dev.get("max_input_channels", 0) > 0
+    )
+
+
+def _remember_silent_input(name: str, devices: Sequence[dict]) -> None:
+    """Pass ``name`` over in automatic microphone selection for a while."""
+    key = _input_key(name)
+    if key:
+        _SILENT_INPUTS[key] = (
+            time.monotonic() + _SILENT_INPUT_MEMORY_S,
+            _input_names(devices),
+        )
+
+
+def _input_known_silent(name: object, devices: Sequence[dict]) -> bool:
+    """Whether ``name`` delivered only digital silence a short while ago."""
+    key = _input_key(name)
+    entry = _SILENT_INPUTS.get(key)
+    if entry is None:
+        return False
+    expires, names_then = entry
+    if time.monotonic() >= expires or names_then != _input_names(devices):
+        del _SILENT_INPUTS[key]
+        return False
+    return True
+
+
+def _forget_silent_inputs() -> None:
+    """Give every input a fresh chance (tests, and a deliberate re-check)."""
+    _SILENT_INPUTS.clear()
+
 
 class MicrophoneAccessError(PermissionError):
     """The microphone may not be opened, or was revoked while it was open.
@@ -227,6 +279,9 @@ _INPUT_DEPRIORITIZE = (
     "NVIDIA Broadcast", "Voice Changer", "VoiceMod", "Virtual",
     "VB-Audio", "VoiceMeeter", "CABLE Output", "Steam Streaming",
     "BlackHole", "Loopback Audio", "Monitor of",
+    # Microphones of camera and meeting apps: they carry audio only while
+    # their app feeds them.
+    "Camo", "EpocCam", "Microsoft Teams Audio", "ZoomAudioDevice",
 )
 
 # Host API preference order for 16 kHz mic capture (Whisper native).
@@ -348,6 +403,8 @@ def _os_default_input_name(
         return None
     if any(v.lower() in low for v in _INPUT_DEPRIORITIZE):
         return None  # virtual/AI mic as OS default -> fall back to a real mic
+    if _input_known_silent(name, devices):
+        return None  # the OS default delivers nothing -> a mic that does
     return name
 
 
@@ -404,6 +461,10 @@ def _rank_input_device_candidates(
                 break
         if any(virtual.lower() in low for virtual in _INPUT_DEPRIORITIZE):
             rank += 1000
+        if _input_known_silent(entry[1].get("name"), devices):
+            # Behind everything, the virtual ones included: it is the one
+            # input known to carry nothing right now.
+            rank += 2000
         return rank
 
     candidates.sort(key=lambda entry: (_name_rank(entry), _hostapi_rank(entry)))
@@ -866,6 +927,11 @@ class MicrophoneCapture:
         self._silence_guard_armed = False
         self._zero_since: float | None = None
         self._silence_reported = False
+        # Leaving a microphone that delivers nothing (see
+        # ``_leave_silent_device``): whether this stream ever carried a
+        # non-zero sample, and the one switch that may be under way.
+        self._heard_signal = False
+        self._silence_switch_task: asyncio.Task | None = None
 
     def _service_gate(self) -> PermissionGate:
         """The injected gate, else the process service (resolved per call)."""
@@ -993,8 +1059,84 @@ class MicrophoneCapture:
         if np.frombuffer(pcm, dtype=np.int16).any():
             self._zero_since = None
             self._silence_reported = False
+            self._heard_signal = True
         elif self._zero_since is None:
             self._zero_since = now
+        elif (
+            not self._heard_signal
+            and self._device_spec == "auto-headset"
+            and self._silence_switch_task is None
+            and now - self._zero_since >= _SILENCE_SWITCH_AFTER_S
+        ):
+            self._silence_switch_task = asyncio.get_running_loop().create_task(
+                self._leave_silent_device(), name="mic-leave-silent-device"
+            )
+
+    async def _leave_silent_device(self) -> None:
+        """Move an automatic capture off a microphone that delivers nothing.
+
+        The operating system's default input is the first choice of the
+        automatic selection, and it can be an input with nothing behind it: a
+        headphone jack without a microphone, a virtual device whose app is
+        closed. Such an input delivers exact zeros, which no real microphone
+        does. It is remembered and passed over, and this capture continues on
+        the next microphone in the same order every selection uses.
+
+        A microphone the person named or pinned is never left: that choice is
+        theirs. When no other input is left the capture stays where it is and
+        the silence is reported as before.
+        """
+        try:
+            devices = sd.query_devices()
+            current = self._device
+            if not isinstance(current, int) or not (0 <= current < len(devices)):
+                return
+            name = str(devices[current].get("name", ""))
+            _remember_silent_input(name, devices)
+            _invalidate_resolve_cache()
+            target = next(
+                (
+                    idx
+                    for idx in _ranked_input_device_indices(self._device_priority)
+                    if idx != current
+                    and not _input_known_silent(devices[idx].get("name"), devices)
+                ),
+                None,
+            )
+            if target is None or self._closed:
+                _log.warning(
+                    "Microphone '{}' delivers only digital silence and no other "
+                    "input is left to try.",
+                    name,
+                )
+                return
+            _log.warning(
+                "Microphone '{}' delivers only digital silence; continuing on '{}'.",
+                name,
+                devices[target].get("name", target),
+            )
+            old_stream = self._stream
+            self._stream = None
+            if old_stream is not None:
+                await self._discard_stream_off_loop(old_stream)
+            if self._closed:
+                return
+            self._preferred_device = target
+            self._zero_since = None
+            self._heard_signal = False
+            self._restart_count += 1
+            await self._try_open_stream(interactive=False)
+            self._last_chunk_monotonic = time.monotonic()
+            if self._closed and self._stream is not None:
+                # The capture ended while the next microphone was opening.
+                late, self._stream = self._stream, None
+                await self._discard_stream_off_loop(late)
+        except MicrophoneAccessError as exc:
+            self._end_revoked(exc)
+        except Exception as exc:  # noqa: BLE001 — the stall watchdog reopens a lost stream
+            _log.warning("Leaving the silent microphone failed: {}", exc)
+        finally:
+            self._silence_switch_task = None
 
     def _safe_put(self, chunk: AudioChunk) -> None:
         """Runs in the event loop — safe put with drop-OLDEST on full."""
@@ -1533,6 +1675,17 @@ class MicrophoneCapture:
                 pass
             except Exception as exc:  # noqa: BLE001
                 _log.debug("Mic-Watchdog cleanup swallow: {}", exc)
+        switching = self._silence_switch_task
+        if switching is not None and not switching.done():
+            # A move to another microphone is under way; it sees ``_closed``
+            # and gives up, and whatever it opened is closed just below.
+            switching.cancel()
+            try:
+                await switching
+            except asyncio.CancelledError:  # Cancellation is the successful teardown.
+                pass
+            except Exception as exc:  # noqa: BLE001
+                _log.debug("Mic silent-device switch cleanup swallow: {}", exc)
         if self._stream is not None:
             stream, self._stream = self._stream, None
             # Same reason as the watchdog path: closing a microphone is a

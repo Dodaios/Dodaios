@@ -12631,6 +12631,13 @@ class SpeechPipeline:
                 "No speech was heard, so nothing was inserted. Check that the "
                 "right microphone is selected and not muted."
             )
+            if audio_sample_rate_hz > 0 and audio_rms == 0.0 and duration_s >= 0.5:
+                # Exact zeros are not a quiet room: the input carries nothing.
+                rejected_detail = (
+                    "The microphone delivered no signal at all, so nothing was "
+                    "inserted. Check which input device is selected in the "
+                    "system sound settings and that it is not muted."
+                )
         if raw_text.strip() and not cleaned.strip() and not hung_up and not rejected_detail:
             # The rules left nothing: the recognizer returned marks, no words.
             rejected_detail = (
