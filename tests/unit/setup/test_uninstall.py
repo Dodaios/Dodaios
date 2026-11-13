@@ -208,6 +208,9 @@ MARKER = keyring_marker_key(uninstall.cfg.LEGACY_KEYRING_SERVICES[0])
 def test_remove_keys_deletes_each_present_key(monkeypatch: pytest.MonkeyPatch) -> None:
     deleted: list[str] = []
     monkeypatch.setattr(uninstall.cfg, "delete_secret", lambda key: (deleted.append(key) or True))
+    # Without this the test deleted the real Keychain items on a Mac, the one
+    # that holds every saved key included (tests/conftest.py now refuses it).
+    monkeypatch.setattr(uninstall, "_macos_delete_keychain_items", lambda key: False)
     n = uninstall._remove_keys(["openai_api_key", "gemini_api_key"])
     assert n == 2
     # Then the migration marker, which is bookkeeping and not a counted key.
