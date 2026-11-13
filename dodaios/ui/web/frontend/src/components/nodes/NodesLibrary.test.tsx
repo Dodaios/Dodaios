@@ -35,7 +35,9 @@ const chat = vi.hoisted(() => ({
 vi.mock("./askDodaios", () => chat);
 // The covers are another component's business (and its own tests).
 vi.mock("./NodeCover", () => ({
-  NodeCover: ({ card }: { card: NodeCard }) => <div data-testid="node-cover" data-node-type={card.type} />,
+  NodeCover: ({ card, peek }: { card: NodeCard; peek?: boolean }) => (
+    <div data-testid="node-cover" data-node-type={card.type} data-peek={peek || undefined} />
+  ),
 }));
 
 function card(key: string, over: Partial<NodeCard> = {}): NodeCard {
@@ -520,5 +522,26 @@ describe("NodesLibrary", () => {
     fireEvent.click(within(error).getByRole("button"));
     await screen.findByTestId("nodes-grid");
     expect(shownKeys()).toEqual(["brief", "deck", "sheet", "logo"]);
+  });
+
+  it("lets a card's page scroll once the pointer rests on it, not while it only passes", async () => {
+    installFetch({ nodes: SAMPLE });
+    renderLibrary();
+    await screen.findByTestId("nodes-grid");
+    const card = cards()[0];
+    const cover = within(card).getByTestId("node-cover");
+
+    // Passing over the library sets nothing moving.
+    fireEvent.pointerEnter(card);
+    fireEvent.pointerLeave(card);
+    await new Promise((resolve) => setTimeout(resolve, 520));
+    expect(cover.getAttribute("data-peek")).toBeNull();
+
+    fireEvent.pointerEnter(card);
+    expect(cover.getAttribute("data-peek")).toBeNull();
+    await waitFor(() => expect(cover.getAttribute("data-peek")).toBe("true"), { timeout: 2000 });
+
+    fireEvent.pointerLeave(card);
+    expect(cover.getAttribute("data-peek")).toBeNull();
   });
 });
