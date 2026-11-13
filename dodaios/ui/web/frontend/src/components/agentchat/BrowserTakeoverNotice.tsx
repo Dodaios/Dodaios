@@ -1,11 +1,13 @@
 import { useT } from "@/i18n";
 import { openAgent } from "@/views/society/agentNavigation";
+import { requestAgentBrowserStage } from "@/components/home/chatBrowser/openEvent";
 import type { NoticeItem } from "./reduce";
 
 /**
  * One written card when the agent asks the person to act in its browser
  * (CAPTCHA, sign-in, a second factor): the reason, and a button that opens the
- * live browser view where the person takes over and hands back. It never
+ * live browser view where the person takes over and hands back: the chat's
+ * own browser stage when it shows that browser, else the agent's card. It never
  * speaks, and once handed back it only says so.
  */
 export function BrowserTakeoverNotice({ item }: { item: NoticeItem }) {
@@ -23,7 +25,7 @@ export function BrowserTakeoverNotice({ item }: { item: NoticeItem }) {
         </span>
       ) : agentId ? (
         <div className="flex flex-wrap gap-2">
-          <button type="button" data-testid="browser-takeover-open" onClick={() => openAgent(agentId)}
+          <button type="button" data-testid="browser-takeover-open" onClick={() => { if (!requestAgentBrowserStage(agentId)) openAgent(agentId); }}
             className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             {t("society.chat.browser_takeover_open")}
           </button>

@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { AgentCursor } from "./AgentCursor";
-import { easeOutCubic, glideDurationMs } from "./agentCursorMotion";
+import { glideDurationMs } from "./agentCursorMotion";
 import type { BrowserPointerState } from "./browserPointerState";
 
 afterEach(() => {
@@ -52,9 +52,11 @@ test("the arrow glides to the next click and only then presses", () => {
   const arrow = screen.getByTestId("browser-agent-pointer");
   expect(arrow.dataset.x).toBe("100");
   expect(screen.getAllByTestId("browser-click-mark")).toHaveLength(1);
-  const duration = glideDurationMs(250);
+  // Timed in page pixels (500 across), whatever size the view is drawn at.
+  const duration = glideDurationMs(500);
   act(() => { clock.frames.at(-1)?.(5000 + duration / 2); });
-  expect(Number(arrow.dataset.x)).toBeCloseTo(100 + 500 * easeOutCubic(0.5), 1);
+  expect(Number(arrow.dataset.x)).toBeCloseTo(350, 1);
+  expect(Number(arrow.dataset.y)).toBeLessThan(200);
   act(() => { clock.frames.at(-1)?.(5000 + duration); });
   expect(Number(arrow.dataset.x)).toBeCloseTo(600, 1);
   expect(screen.getAllByTestId("browser-click-mark")).toHaveLength(2);
@@ -80,4 +82,10 @@ test("the arrow leaves when the agent is no longer driving", () => {
   const { rerender } = render(<AgentCursor pointer={here()} />);
   rerender(<AgentCursor />);
   expect(screen.queryByTestId("browser-agent-pointer")).toBeNull();
+});
+
+test("the arrow carries the driver's name when it is given one", () => {
+  installFrame();
+  render(<AgentCursor pointer={here()} label="Dodaios" />);
+  expect(screen.getByTestId("browser-agent-pointer-label").textContent).toBe("Dodaios");
 });

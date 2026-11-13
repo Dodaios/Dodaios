@@ -11726,5 +11726,28 @@
     "provider_other": "não está funcionando agora",
     "provider_detail": "Verifique o acesso em Chaves de API.",
     "provider_action": "Abrir chaves de API"
+  },
+  "agent_browser": {
+    "title": "Navegador de {name}",
+    "screen": "Navegador em direto de {name}",
+    "driving": "{name} tem o controlo",
+    "you_drive": "Tem o controlo",
+    "take_over": "Assumir",
+    "hand_back": "Devolver",
+    "expand": "Ver o navegador em grande",
+    "minimize": "Reduzir o navegador",
+    "hide": "Ocultar o navegador",
+    "stop": "Parar",
+    "working": "A trabalhar",
+    "ready": "Pronto",
+    "connecting": "A ligar…",
+    "needs_you": "{name} precisa de si aqui",
+    "private_hint": "O que escrever aqui não é guardado nem mostrado a {name}.",
+    "approval": "Permitir este passo do navegador?",
+    "allow": "Permitir",
+    "deny": "Recusar",
+    "address": "Endereço web",
+    "back": "Voltar",
+    "forward": "Avançar"
   }
 }
