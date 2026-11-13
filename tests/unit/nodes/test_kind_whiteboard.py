@@ -623,7 +623,7 @@ def test_a_kept_current_board_shows_when_it_was_refreshed() -> None:
 # --- preview, starter, guide ------------------------------------------------------
 
 
-def test_preview_has_the_first_four_texts_and_the_count() -> None:
+def test_preview_has_four_texts_notes_first_and_the_count() -> None:
     spec = normalize(
         {
             "items": [
@@ -640,11 +640,12 @@ def test_preview_has_the_first_four_texts_and_the_count() -> None:
     card = preview(spec)
     assert set(card) == {"notes", "count"}
     assert card["count"] == 7
+    # Sticky notes first, then the other items that carry text, in board order.
     assert card["notes"] == [
         {"text": ("Bold start with a link " + "x" * 80)[:40], "color": "yellow"},
-        {"text": "A step", "color": "blue"},
-        {"text": "code label", "color": "pink"},
         {"text": "Fourth", "color": "green"},
+        {"text": "Fifth", "color": "yellow"},
+        {"text": "A step", "color": "blue"},
     ]
     for note in card["notes"]:
         assert set(note) == {"text", "color"}
@@ -704,7 +705,9 @@ def test_groups_without_colors_each_get_their_own_paper() -> None:
     # Nothing is written back: the spec stays what the model sent.
     assert all("color" not in item for item in spec["items"])
     notes = whiteboard.preview(spec)["notes"]
-    assert [note["color"] for note in notes] == ["yellow", "yellow", "blue", "yellow"]
+    # One note from each group in turn: Mail, Shop, the loose one, Mail again.
+    assert [note["text"] for note in notes] == ["a", "c", "loose", "b"]
+    assert [note["color"] for note in notes] == ["yellow", "blue", "yellow", "yellow"]
     page = whiteboard.render(_node(spec))
     assert "c-blue" in page
 

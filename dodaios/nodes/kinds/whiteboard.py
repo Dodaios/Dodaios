@@ -1590,15 +1590,35 @@ def render(node: Any) -> str:
 def preview(spec: dict[str, Any]) -> dict[str, Any]:
     """What the library draws on the card: the first few notes and the item count."""
     items = _group_tinted(_usable(spec))["items"]
-    notes: list[dict[str, str]] = []
+    # One sticky note from each group in turn, so the card shows the board's
+    # spread (and its colors) rather than the first group four times over.
+    rounds: dict[str, list[dict[str, str]]] = {}
     for item in items:
+        if item["type"] != "note":
+            continue
         text = shell.clean(_plain(item.get("text", "")), PREVIEW_CHARS).strip()
         if not text:
             continue
         color = shell.pick(item.get("color"), COLORS, _DEFAULT_COLOR[item["type"]])
-        notes.append({"text": text, "color": color})
+        rounds.setdefault(item.get("group", ""), []).append({"text": text, "color": color})
+    notes: list[dict[str, str]] = []
+    queues = list(rounds.values())
+    while queues and len(notes) < PREVIEW_NOTES:
+        for queue in queues:
+            if queue and len(notes) < PREVIEW_NOTES:
+                notes.append(queue.pop(0))
+        queues = [queue for queue in queues if queue]
+    # Room left (few notes, or a board of shapes and labels): the other items
+    # that carry text, in board order.
+    for item in items:
         if len(notes) == PREVIEW_NOTES:
             break
+        if item["type"] == "note":
+            continue
+        text = shell.clean(_plain(item.get("text", "")), PREVIEW_CHARS).strip()
+        if text:
+            color = shell.pick(item.get("color"), COLORS, _DEFAULT_COLOR[item["type"]])
+            notes.append({"text": text, "color": color})
     return {"notes": notes, "count": len(items)}
 
 
