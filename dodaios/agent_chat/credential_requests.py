@@ -219,6 +219,10 @@ class CredentialRequests:
     def spec(self, session_id: str, request_id: str) -> CredentialSpec:
         return self._card(session_id, request_id).spec
 
+    def turn_of(self, session_id: str, request_id: str) -> str:
+        """The turn that showed the field."""
+        return self._card(session_id, request_id).turn_id
+
     def pending(self, session_id: str) -> list[str]:
         return [rid for rid, c in self._open.items() if c.session_id == session_id and not c.done]
 

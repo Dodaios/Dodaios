@@ -65,6 +65,21 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+async def _offer_connect(
+    tool: Tool, result: ToolResult, config_snapshot: dict[str, Any] | None
+) -> ToolResult:
+    """A plugin tool that failed for want of a connection shows its Connect card
+    in the chat that called it (``dodaios/society/connect_offer.py``). Every
+    other failure, and every caller that is not a chat, keeps ``result``."""
+    try:
+        from dodaios.society.connect_offer import offer_connect
+
+        return await offer_connect(str(tool.name), result, config_snapshot)
+    except Exception:  # noqa: BLE001 — the card is an offer; the tool's own error stands
+        log.warning("tool executor: connect card for %s not offered", tool.name, exc_info=True)
+        return result
+
+
 # Sentinel returned (as ``ToolResult.error``) when a confirmation-requiring tool
 # is invoked on a CONVERSATIONAL turn (``config_snapshot["voice_confirm"]``).
 # Instead of blocking in ``ApprovalWorkflow.wait()`` for a UI approval no voice/
@@ -1015,6 +1030,8 @@ class ToolExecutor:
             ))
             return ToolResult(success=False, output=None, error=str(exc))
 
+        if not result.success:
+            result = await _offer_connect(tool, result, config_snapshot)
         self._record_result_origin(tool, tid, result, args)
         after_execute(tool.name, args, result, config_snapshot)
         if edit_changes:

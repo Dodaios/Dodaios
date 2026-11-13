@@ -3860,13 +3860,15 @@ class AgentChatService:
         )
         from dodaios.society.surface import agent_id_of
 
-        agent_id = agent_id_of(session_id)
-        if agent_id is None:
-            return None
         if spec.kind in (PLUGIN, CLI):
+            # A Connect card stores nothing for an agent, so every chat that
+            # showed one gets it back: the lead's chat and a coding thread too.
             from dodaios.society.connect_tool import connect_save
 
             return connect_save(spec.kind, spec.env)
+        agent_id = agent_id_of(session_id)
+        if agent_id is None:
+            return None
         try:
             if spec.kind == LOGIN:
                 login_key(spec.env)
@@ -3928,7 +3930,30 @@ class AgentChatService:
         """The person's pasted value; ``ValueError`` when the vault refuses it."""
         if self.store.get_session(session_id) is None:
             return False
-        return await self._credentials.submit(session_id, request_id, value)
+        await self._credentials.restore(session_id)
+        was_open = request_id in self._credentials.pending(session_id)
+        saved = await self._credentials.submit(session_id, request_id, value)
+        if saved and was_open:
+            self._continue_after_connect(session_id, request_id)
+        return saved
+
+    def _continue_after_connect(self, session_id: str, request_id: str) -> None:
+        """A Connect card that just reported its connection continues its request."""
+        from dodaios.agent_chat.credential_requests import CLI, PLUGIN
+
+        try:
+            spec = self._credentials.spec(session_id, request_id)
+            turn_id = self._credentials.turn_of(session_id, request_id)
+        except KeyError:  # the field was forgotten with its chat
+            return
+        if spec.kind not in (PLUGIN, CLI):
+            return
+        resume = getattr(self, "_connect_resume", None)
+        if resume is None:
+            from dodaios.agent_chat.connect_resume import ConnectResume
+
+            resume = self._connect_resume = ConnectResume(self)
+        resume.connected(session_id, turn_id, spec.label)
 
     async def decline_credential(self, session_id: str, request_id: str) -> bool:
         if self.store.get_session(session_id) is None:
