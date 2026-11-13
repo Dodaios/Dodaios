@@ -452,16 +452,16 @@ KIT_MARKUP: Final = """\
 <!-- column chart: --v is the value as a percentage of the largest one -->
 <figure class="card chart"><h3>New stars per week</h3>
   <div class="cols">
-    <div class="col" style="--v:30" data-tip="28 Sep: 23 stars">
+    <div class="col" style="--v:30" data-tip="28 Sep: 23 stars" tabindex="0">
       <b>23</b><i></i><span>28.09.</span></div>
-    <div class="col is-key" style="--v:100" data-tip="5 Oct: 76 stars">
+    <div class="col is-key" style="--v:100" data-tip="5 Oct: 76 stars" tabindex="0">
       <b>76</b><i></i><span>05.10.</span></div>
   </div>
 </figure>
 
 <!-- horizontal bars, for long names -->
 <div class="bars">
-  <div class="bar" style="--v:64" data-tip="Reddit: 64 %">
+  <div class="bar" style="--v:64" data-tip="Reddit: 64 %" tabindex="0">
     <span>Reddit</span><i></i><b>64 %</b></div>
 </div>
 
@@ -561,7 +561,8 @@ Inside a section, pick the block by what the content IS:
 - running argument → paragraphs, two to four sentences each
 - the one recommendation, the one caveat, the one rule → a `.callout` with a tone \
 (`info` for a recommendation or a role note, `warn` for a risk or an open decision, \
-`good` / `bad` for a verdict); at most one or two per section
+`good` / `bad` for a verdict), with the tones as the kit defines them and no \
+variant of your own; at most one or two per section
 - the same attributes for several things → `.table`; the attributes of ONE thing → \
 `.props`
 - arguments for and against → two `.card`s with `.marks plus` and `.marks minus`
@@ -618,7 +619,9 @@ callout). No shadows, no gradients, no second surface colour.
 - Colour is rare and always means something: `--accent` for links and for the one \
 data series; the tones `--info / --good / --warn / --bad` with their `-soft` grounds \
 for callouts, chips and a marked cell (`.t-warn`), always with words that say what \
-the colour means. Headings and body text are never coloured.
+the colour means. Headings and body text are never coloured. The palette is never \
+themed to the subject: a page about coffee is not brown, a page about money is not \
+green.
 - Type: `--font` for everything a person reads; `--mono` only for code, file paths \
 and commands. One scale — 30 px title, 22 px section heading, 16 px sub-heading and \
 body, 14 px for tables, captions and notes, 12 px for chart ticks and small labels; \
@@ -653,7 +656,8 @@ shows, including the unit and the period. Two small charts go side by side in a 
 `.grid`; a `.cols` chart with more than six columns takes the full width, so its \
 labels fit.
 - Every mark answers on hover and on focus: give each column, bar, point and matrix \
-dot a `data-tip` with the full statement ("5 Oct: 76 stars"); on a line, lay an \
+dot a `data-tip` with the full statement ("5 Oct: 76 stars") and `tabindex="0"`; \
+on a line, lay an \
 invisible `.hit` rect over each point (at least 24 px wide, `tabindex="0"`).
 - Where two readings of the same data are useful (week / month, absolute / share), \
 offer both with a `.seg` control above the chart instead of drawing both. Where a \
@@ -664,10 +668,11 @@ and square at the baseline; lines 2 px with round joins; dots 4 px radius with a
 ring in the page ground; grid lines 1 px solid `--line`, never dashed (the dashed \
 `.event` line is for a dated event only); generous padding; the data is the only loud \
 thing.
-- Colour by job: ONE series → `--s1`, and the one value the text is about marked \
-`is-key` (the others fade by themselves). TWO OR MORE series → the slots `--s1 … \
---s6` in that fixed order (set `--c` on the mark), never cycled, never generated; \
-past six fold the tail into "Other". Magnitude → the ramp `--seq-1 … --seq-5` (one \
+- Colour by job: ONE series → `--s1`, which the kit applies by itself: set no `--c` \
+and no colour of your own; the one value the text is about is marked `is-key` and \
+keeps the same colour (the others fade by themselves). TWO OR MORE series → the \
+slots `--s1 … --s6` in that fixed order (set `--c` on the mark), never cycled, never \
+generated; past six fold the tail into "Other". Magnitude → the ramp `--seq-1 … --seq-5` (one \
 hue). Colour follows the entity, never its rank.
 - Text wears ink tokens: values, labels, ticks and legends in `--ink` / `--ink-2`, \
 never in the series colour; identity comes from a `.legend` swatch beside the text.
@@ -695,6 +700,8 @@ nothing in between.
 - The Tailwind rainbow (#3b82f6, #a855f7, #8b5cf6, #06b6d4, #10b981, #f59e0b, #f43f5e, \
 slate greys) and any palette not in the token block; near-black with one acid-green \
 or neon accent; purple-to-blue gradients.
+- A palette themed to the subject; a second colour for the emphasised bar of a \
+one-series chart; a callout variant of your own.
 - A coloured headline; a card with an accent bar on its side; a filled table head; \
 zebra rows; cards nested in cards; three equal columns of icon + title + sentence.
 - Marketing voice ("Next-Gen", "Intelligence Hub", "Tracker", "supercharge"); \
