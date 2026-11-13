@@ -7172,7 +7172,6 @@
       "message_sent": "Sent {0}",
       "message_read": "Read {0}",
       "background_running": "Keeps running in the background: {0}. The result arrives here.",
-      "background_result": "Result for your earlier request",
       "background_result_lost": "The result for this request could not be brought back: {0}",
       "agent_result_completed": "{0} is finished",
       "agent_result_failed": "{0} failed",

@@ -7172,7 +7172,6 @@
       "message_sent": "已发送 {0}",
       "message_read": "已读 {0}",
       "background_running": "在后台继续运行：{0}。结果会发到这里。",
-      "background_result": "之前请求的结果",
       "background_result_lost": "无法取回这个请求的结果：{0}",
       "agent_result_completed": "{0} 已完成",
       "agent_result_failed": "{0} 失败了",

@@ -155,7 +155,7 @@ describe("the receipt under the person's message", () => {
 });
 
 describe("several orders in one chat", () => {
-  it("marks the result of an earlier request instead of drawing a second bubble", () => {
+  it("draws neither a bubble nor a line for the result of an earlier request", () => {
     draw([
       ev("user_message", {
         text: "Continue the original user task using the delegated results below.",
@@ -164,9 +164,8 @@ describe("several orders in one chat", () => {
       }),
     ]);
     expect(screen.queryByTestId("agent-message-user")).toBeNull();
-    const marker = screen.getByTestId("background-result");
-    expect(marker.textContent).toContain("Brief the agent in terminal two");
-    expect(marker.textContent).not.toContain("Continue the original");
+    expect(screen.queryByText(/Brief the agent in terminal two/)).toBeNull();
+    expect(screen.queryByText(/Continue the original/)).toBeNull();
   });
 
   it("shows a message waiting behind the running turn until it starts", () => {

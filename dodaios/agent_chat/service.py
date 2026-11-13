@@ -1700,8 +1700,8 @@ class AgentChatService:
         ``background_result`` continues an earlier request of the person whose
         delegates finished after its turn had closed (``parked_work``). It is
         their own task, so the turn runs with their standing, but nothing was
-        typed: no command parsing, no goal steering, and the timeline marks
-        the message as that request's result instead of a new bubble.
+        typed: no command parsing, no goal steering, and the timeline draws
+        no bubble or line for the message, only the answer.
 
         ``author`` marks a message another agent wrote on the person's behalf
         (``{"agent_id", "name"}``, a Jarvis agent steering a coding thread):
