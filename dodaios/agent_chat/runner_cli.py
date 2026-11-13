@@ -96,7 +96,7 @@ from dodaios.agent_chat.questions import (
     parse_questions,
     recommended_answer,
 )
-from dodaios.agent_chat.runner_api import TurnHandle
+from dodaios.agent_chat.runner_api import TurnHandle, reply_language_line
 from dodaios.agent_chat.speed import apply_speed
 from dodaios.agent_chat.tool_context import register_turn, unregister_turn
 from dodaios.agent_chat.turn_host import claude_result_without_model_turn
@@ -4018,7 +4018,7 @@ async def run_cli_turn(
         )
     handle = replace(handle, emit=observe, request_approval=ask)
     if getattr(handle, "output_language", "") and not user_text.startswith("/goal"):
-        user_text += "\nRespond in this language: " + handle.output_language
+        user_text += reply_language_line(session.surface, handle.output_language)
     ident: dodaios_harness.Identity | None = None
     ref = approval_ref(session.session_id)
     # A society agent's seat: its own briefing is the identity (not Jarvis'
@@ -4029,7 +4029,7 @@ async def run_cli_turn(
         # has none: an override made of this line alone would stand in for its
         # whole identity (no prompt layers, no catch-up). Its message carries
         # the line already.
-        prompt_override += "\nRespond in this language: " + handle.output_language
+        prompt_override += reply_language_line(session.surface, handle.output_language)
     account_token = ACCOUNT_OVERRIDE.set(getattr(session, "account_id", "") or "")
     turn_seats: dict[str, str] = {}
     seats_token = _TURN_SEATS.set(turn_seats)

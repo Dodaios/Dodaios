@@ -2114,6 +2114,10 @@ class AgentChatService:
                         text,
                         carries_recall=runner in _CLAUDE_CODE_RUNNERS or not session.vendor_session,
                     )
+            if author and not output_language and session.surface == "agent":
+                # An agent briefs a coding thread for the person, usually in
+                # English. The person reads the thread: it answers in theirs.
+                output_language = await self._language_of_the_person(session_id, author)
             # A plain chat's system prompt is the surface's own. Written per
             # turn, so its workspace notes follow the session's folder.
             plain_system = (
@@ -4132,6 +4136,35 @@ class AgentChatService:
                 },
             ),
         )
+
+    async def _language_of_the_person(self, session_id: str, author: dict[str, str]) -> str:
+        """The language of the person ``author`` writes for; ``""`` when unknown.
+
+        Read from the person's own sentences in the conversation they have
+        with that agent (the one that owns the thread), else in the lead's.
+        """
+        try:
+            from dodaios.agent_chat import lead_turn_contract
+            from dodaios.agent_chat.runner_brain import brain_manager
+            from dodaios.society.roster import LEAD_AGENT_ID
+
+            row = await asyncio.to_thread(self.store.thread_owner, session_id)
+            asked_in = [str(row["owner_session"]) if row else ""]
+            if not asked_in[0] or str(author.get("agent_id") or "") != LEAD_AGENT_ID:
+                # An agent the person never wrote to works for the lead's person.
+                asked_in.append(await asyncio.to_thread(self.store.lead_session_id) or "")
+            pin = getattr(brain_manager(), "reply_language", "auto")
+            for conversation in dict.fromkeys(asked_in):
+                if not conversation or conversation == session_id:
+                    continue
+                events = await asyncio.to_thread(self.store.list_events, conversation)
+                language = lead_turn_contract.resolve_language("", events, pin)
+                if language:
+                    return language
+            return ""
+        except Exception:  # noqa: BLE001 - a language hint is never worth a turn
+            log.debug("agent chat %s: the person's language not read", session_id, exc_info=True)
+            return ""
 
     async def _send_turn_answer(
         self,

@@ -94,6 +94,21 @@ def build_brain(provider: str, model: str) -> Any:
     return getattr(mod, cls_name)(model=model or None)
 
 
+def reply_language_line(surface: str, language: str) -> str:
+    """The line that tells a coding CLI's seat which language the person reads.
+
+    A coding thread gets it spelled out: the agent's messages are what the
+    person reads, but the repository keeps its own language. Told only to
+    "respond" in German, an agent may also write its commits in German.
+    """
+    if surface == "agent":
+        return (
+            f"\nWrite your messages to the user in this language: {language}. Code, "
+            "comments and commit messages keep the language the project already uses."
+        )
+    return "\nRespond in this language: " + language
+
+
 def system_prompt(*, cwd: Path, assistant_name: str, plan: bool = False) -> str:
     """Operating instructions for the interactive API chat runner.
 
