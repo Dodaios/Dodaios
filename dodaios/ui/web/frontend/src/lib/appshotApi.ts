@@ -12,6 +12,23 @@ export interface AppshotShortcutStatus {
   hotkey: string;
   armed: boolean;
   detail: string;
+  /** The permission the shortcut waits for (`"input_monitoring"`); absent on an older backend. */
+  needs?: string;
+}
+
+/** Whether any appshot shortcut is held back only by macOS Input Monitoring. */
+export function shortcutsNeedInputMonitoring(settings: AppshotSettings): boolean {
+  if (!settings.enabled) return false;
+  return [settings.shortcut, settings.region_shortcut, settings.recording_shortcut].some(
+    (status) => status?.needs === "input_monitoring",
+  );
+}
+
+/** Open System Settings at Privacy & Security > Input Monitoring. */
+export function openInputMonitoringSettings(): Promise<unknown> {
+  return request("/api/permissions/input_monitoring/open-settings?dry_run=false", {
+    method: "POST",
+  });
 }
 
 export type AppshotScope = "window" | "region";

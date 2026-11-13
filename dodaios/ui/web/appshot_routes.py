@@ -143,7 +143,7 @@ def _settings_payload() -> dict[str, Any]:
     def _status(scope: str) -> dict[str, Any]:
         if shortcut is not None:
             return shortcut.status_for(scope).to_json()
-        return {"hotkey": hotkeys[scope], "armed": False, "detail": ""}
+        return {"hotkey": hotkeys[scope], "armed": False, "detail": "", "needs": ""}
 
     return {
         "enabled": bool(config.screen_context.enabled),

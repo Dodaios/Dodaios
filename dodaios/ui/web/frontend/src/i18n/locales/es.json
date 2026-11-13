@@ -9467,6 +9467,8 @@
     "shortcut_hint_off": "Sin atajo. Pídelo por voz o usa el botón de abajo.",
     "shortcut_off": "Desactivado",
     "shortcut_unavailable": "No activo: {0}",
+    "input_monitoring_body": "Tus atajos no funcionan hasta que macOS permita a Dodaios la monitorización de entrada. Activa Dodaios en Privacidad y seguridad > Monitorización de entrada; los atajos se activan solos.",
+    "input_monitoring_open": "Abrir Ajustes del Sistema",
     "region_shortcut_label": "Atajo para una zona",
     "region_shortcut_hint": "Pulsa {0} y arrastra sobre la parte de la pantalla que quieres mostrar.",
     "region_shortcut_hint_off": "Sin atajo. Usa «Elegir zona» más abajo.",
