@@ -8,6 +8,7 @@ import {
   PAGE_ENTRIES,
   entryKey,
   entryTestId,
+  pageForTarget,
   resolveHubTab,
   type HubContent,
   type HubEntry,
@@ -33,7 +34,7 @@ import { cn } from "@/lib/utils";
 /**
  * The Settings hub — every personal/system section behind one full-window
  * page over the user's current section, with a searchable left navigation in
- * five groups (You · Voice · Connections · Agents · Advanced, see
+ * six groups (You · Voice · Connections · Assistant · Tools · Advanced, see
  * views/settings/hubNav) and the selected section on the right.
  *
  * Same merged-section pattern as VoiceHubView / ClisHubView: the active
@@ -45,9 +46,9 @@ import { cn } from "@/lib/utils";
  *
  * Tab labels and icons resolve from `NAV_GROUPS` (via `resolveNavLabel`, so
  * every locale behaves exactly like the sidebar rows did) — no second
- * hand-written list to drift (AP-4). One exception: inside the hub the
- * "settings" entry reads "All settings", because the whole page already is
- * Settings.
+ * hand-written list to drift (AP-4). The General page has no entry of its
+ * own: each of its groups sits in exactly one slice ("Language & app",
+ * "Voice & wake word", "Behavior"), so no setting is listed twice.
  *
  * Tab contents stay code-split one `lazy` boundary per view, so opening the
  * hub still only pays for the shell plus the visible tab.
@@ -159,12 +160,12 @@ export function SettingsHubView() {
   const [query, setQuery] = useState("");
   const [searchTarget, setSearchTargetState] = useState<string | null>(null);
   // The slice of the General page picked in the nav ("Voice & wake word" …);
-  // null shows the whole page. View state only: the section stays "settings".
+  // null shows the first one. View state only: the section stays "settings".
   const [pickedPage, setPickedPage] = useState<HubPageKey | null>(null);
   const { health: sectionHealth } = useSectionHealth();
-  // A search hit or a jump lands on the WHOLE page, where every anchor lives.
+  // A search hit or a jump opens the slice that holds its anchor.
   const setSearchTarget = (target: string | null) => {
-    if (target) setPickedPage(null);
+    if (target) setPickedPage(pageForTarget(target));
     setSearchTargetState(target);
   };
 
@@ -175,12 +176,12 @@ export function SettingsHubView() {
     if (pendingJump === null) return;
     const target = useSettingsJump.getState().take();
     if (target) {
-      setPickedPage(null);
+      setPickedPage(pageForTarget(target));
       setSearchTargetState(target);
     }
   }, [pendingJump]);
 
-  // Leaving the General page forgets the slice; coming back shows it whole.
+  // Leaving the General page forgets the slice; coming back shows the first.
   useEffect(() => {
     if (active !== "settings") setPickedPage(null);
   }, [active]);
@@ -190,7 +191,6 @@ export function SettingsHubView() {
 
   const labelOf = (entry: HubEntry) => {
     if (entry.kind !== "tab") return t(entry.labelKey);
-    if (entry.id === "settings") return t("design.settings.all_settings");
     return resolveNavLabel(t, findNavItem(entry.id));
   };
   const iconOf = (entry: HubEntry) => (entry.kind === "tab" ? findNavItem(entry.id).icon : entry.icon);

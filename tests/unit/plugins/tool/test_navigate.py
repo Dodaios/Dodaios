@@ -108,6 +108,18 @@ def test_tool_metadata() -> None:
     assert "socials" in enum and "settings" in enum
 
 
+def test_phone_means_the_phone_page_for_the_tool_and_the_intent_matcher() -> None:
+    """An alias used to send "phone" to telephony in SECTION_PHRASES only."""
+    from dodaios.plugins.tool.navigate import SECTION_PHRASES, _resolve
+
+    assert _resolve("phone") == "phone"
+    assert SECTION_PHRASES["phone"] == "phone"
+    assert _resolve("Telefon") == "phone"
+    assert SECTION_PHRASES["telefon"] == "phone"
+    # The call-number setup keeps its own words.
+    assert _resolve("telefonie") == "telephony"
+
+
 def test_removed_sections_are_unknown() -> None:
     """Contacts and Local models left the app; neither is a navigable target."""
     for section in ("contacts", "local-models"):

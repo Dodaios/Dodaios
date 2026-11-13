@@ -195,8 +195,10 @@ _ALIASES: dict[str, str] = {
     "keys": "apikeys",
     "schlüssel": "apikeys",
     "telefonie": "telephony",
-    "telefon": "telephony",
-    "phone": "telephony",
+    # "phone" is a section of its own (the paired phone); the German word for
+    # it leads there too. Both used to land on telephony, which shadowed the
+    # Phone page for the brain-side intent matcher (SECTION_PHRASES).
+    "telefon": "phone",  # i18n-allow: input vocab
     "telephony setup": "telephony-setup",
     "telefonie setup": "telephony-setup",
     "telefon setup": "telephony-setup",

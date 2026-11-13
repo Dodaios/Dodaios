@@ -9,9 +9,11 @@
  *         The section id IS the state, so deep links keep landing on it.
  *   page  a slice of the General settings page (e.g. "Voice & wake word" is
  *         its voice and wake-word groups). The section stays "settings"; the
- *         slice is the hub's own view state. "All settings" under Advanced
- *         is the whole page, which is also where a bare "settings" deep link,
- *         a search hit and the first-run guide land.
+ *         slice is the hub's own view state. Every group belongs to exactly
+ *         one slice, so no entry shows the whole page: a bare "settings"
+ *         deep link opens the first slice, and a search hit, a jump from
+ *         outside or the first-run guide opens the slice holding its group
+ *         (`pageForTarget`).
  *   link  a section that has its own page outside the hub (Memory, Dictation,
  *         Plugins, Artifacts, the tools). Picking it leaves Settings for that
  *         page.
@@ -58,14 +60,34 @@ export type HubPageKey = "language" | "voice" | "behavior";
 
 /**
  * The General page's groups (SettingsView `SECTIONS` ids) behind each page
- * entry. A group may appear in exactly one page; groups no page names stay
- * under "All settings" only (music, overlay & taskbar).
+ * entry. Every group appears in exactly one page (hubNav.test checks it), so
+ * each setting has one place in the navigation.
  */
 export const HUB_PAGES: Record<HubPageKey, readonly string[]> = {
-  language: ["languages", "app"],
+  language: ["languages", "app", "overlay-taskbar", "music"],
   voice: ["voice", "wake-word"],
   behavior: ["system-prompt", "approvals", "self-build"],
 };
+
+/** The slice a bare "settings" link opens. */
+export const DEFAULT_HUB_PAGE: HubPageKey = "language";
+
+/**
+ * Rows that carry their own `settings-<id>` anchor inside a group, by the
+ * group that renders them. A search hit or a jump may name the row.
+ */
+const ROW_GROUPS: Record<string, string> = {
+  volume: "voice",
+  "audio-devices": "voice",
+  more: "app",
+};
+
+/** The slice that shows a group or row anchor; the first slice when unknown. */
+export function pageForTarget(target: string): HubPageKey {
+  const group = ROW_GROUPS[target] ?? target;
+  const found = (Object.keys(HUB_PAGES) as HubPageKey[]).find((key) => HUB_PAGES[key].includes(group));
+  return found ?? DEFAULT_HUB_PAGE;
+}
 
 const page = (key: HubPageKey, labelKey: string, icon: LucideIcon): HubEntry => ({
   kind: "page",
@@ -133,11 +155,9 @@ export const HUB_GROUPS: readonly { id: string; labelKey: string; entries: reado
     id: "advanced",
     labelKey: "design.settings.group_advanced",
     entries: [
-      { kind: "tab", id: "settings" },
       { kind: "tab", id: "costs" },
       { kind: "tab", id: "appshots" },
       { kind: "tab", id: "pets" },
-      { kind: "tab", id: "socials" },
       { kind: "tab", id: "feedback" },
     ],
   },
@@ -168,12 +188,16 @@ export type HubContent = HubTabId | "telephony-setup";
  * Which tab content and which entry is highlighted for an active section id
  * and the page slice the person picked. Plain ids name their own tab; the
  * merged-in ids resolve to the tab hosting their content; anything else falls
- * back to the General page. "languages" opens the language slice directly.
+ * back to the first slice of the General page. "languages" and "taskbar" open
+ * the slice their groups live in, "voice-shortcuts" (the former Voice tab for
+ * the dictation keys) opens Keyboard shortcuts. "socials" keeps its tab for
+ * old links, but no entry lists it.
  */
 export function resolveHubTab(
   active: string,
   pickedPage: HubPageKey | null,
 ): { content: HubContent; highlight: string; page: HubPageKey | null } {
+  // `page` is null for every tab but the General page, which always shows one slice.
   switch (active) {
     case "profile":
     case "agent-instructions":
@@ -189,18 +213,19 @@ export function resolveHubTab(
     case "feedback":
     case "apikeys":
       return { content: active, highlight: active, page: null };
+    case "voice-shortcuts":
+      return { content: "shortcuts", highlight: "shortcuts", page: null };
     case "telephony":
       return { content: "apikeys", highlight: "apikeys", page: null };
     case "telephony-setup":
       return { content: "telephony-setup", highlight: "apikeys", page: null };
     case "languages":
+    case "taskbar":
       return { content: "settings", highlight: "page:language", page: "language" };
     case "settings":
-      return pickedPage
-        ? { content: "settings", highlight: `page:${pickedPage}`, page: pickedPage }
-        : { content: "settings", highlight: "settings", page: null };
-    case "taskbar":
-    default:
-      return { content: "settings", highlight: "settings", page: null };
+    default: {
+      const page = active === "settings" && pickedPage ? pickedPage : DEFAULT_HUB_PAGE;
+      return { content: "settings", highlight: `page:${page}`, page };
+    }
   }
 }

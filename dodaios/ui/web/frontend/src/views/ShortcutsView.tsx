@@ -38,6 +38,7 @@ import { AppZoomChordRow, AppZoomKeybinds, sameChord } from "@/views/settings/Ap
 import { CharacterChordRow } from "@/views/settings/CharacterChordRow";
 import { KeyCaps, NoKeys, ShortcutListRow } from "@/views/settings/ShortcutListRow";
 import { AppshotShortcutField } from "@/views/AppshotShortcutField";
+import { DictationKeyNotices, dictationModeChanged } from "@/views/voice/shortcuts/DictationKeyNotices";
 import { appZoomIntentFor, type AppZoomComboProblem, type AppZoomIntent } from "@/lib/appZoom";
 import { APP_CHORD_IDS, appChordProblem, defaultAppChords, type AppChordId } from "@/lib/appChords";
 import { useAppZoomSettings } from "@/store/appZoomSettings";
@@ -332,7 +333,7 @@ function VoiceKeyRow({ shortcut, keybinds }: { shortcut: RebindableShortcut; key
   const combo = config?.keybinds?.[shortcut.action] ?? "";
 
   // A push-to-talk key only works while dictation listens in "hold" mode, so
-  // saving one pins that mode — the same side effect the voice section has.
+  // saving one pins that mode; the notice above the list reads the mode again.
   const pinHoldMode = useCallback(async () => {
     try {
       const res = await fetch("/api/dictation/settings", {
@@ -345,6 +346,7 @@ function VoiceKeyRow({ shortcut, keybinds }: { shortcut: RebindableShortcut; key
       // The keybind itself is already saved — report the missing side effect.
       pushToast("warning", (e as Error).message);
     }
+    dictationModeChanged();
   }, [pushToast]);
 
   return (
@@ -643,6 +645,7 @@ export function ShortcutsView() {
         />
         <div className="flex flex-col gap-6">
           <KeyTester config={keybinds.config} />
+          <DictationKeyNotices />
           <ShortcutList keybinds={keybinds} />
           <OptionsCard voiceConfig={keybinds.config} />
         </div>

@@ -3330,7 +3330,8 @@
       "keybinds": "Atalhos de teclado",
       "more": "Mais",
       "overlay_taskbar": "Overlay e barra de tarefas",
-      "self_build": "Autoconstrução"
+      "self_build": "Autoconstrução",
+      "approvals": "Modos de permissão"
     },
     "languages_group_title": "Idiomas",
     "sections": {

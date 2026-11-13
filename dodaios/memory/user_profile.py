@@ -221,6 +221,10 @@ class UserProfile:
         if langs:
             primary = ident.get("primary_language") or langs[0]
             parts.append(f"- **Languages:** {', '.join(langs)} (Primary: {primary})")
+        elif ident.get("primary_language"):
+            # The profile page edits the main language on its own row; it must
+            # reach the prompt without the languages list filled in as well.
+            parts.append(f"- **Main language:** {ident['primary_language']}")
         if ident.get("timezone"):
             parts.append(f"- **Timezone:** {ident['timezone']}")
         if ident.get("about"):

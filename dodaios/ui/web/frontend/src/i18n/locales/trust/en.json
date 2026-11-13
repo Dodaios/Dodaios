@@ -154,7 +154,7 @@
     "learned_off": "Memory is not running.",
     "learning_switch": "Learn from conversations",
     "learning_paused_until": "Paused until {until}",
-    "open_memory": "Open Memory",
+    "open_memory": "Pause or resume in Memory",
     "leaves_title": "What leaves this computer",
     "leaves_intro": "Each role runs on the provider named. A cloud provider receives what its role needs: your words and the text it answers.",
     "local": "On this computer",
@@ -173,6 +173,9 @@
     "screen_intro": "One capture of the screen under your cursor, only when you ask for it, then dropped.",
     "screen_switch": "May look at the screen when you ask",
     "recipients_line": "{count} recipients written to from here",
-    "switch_failed": "Could not change this."
+    "state_on": "On",
+    "state_off": "Off",
+    "state_paused": "Paused",
+    "manage_screen": "Change in Appshots"
   }
 }

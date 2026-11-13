@@ -8,10 +8,9 @@ import { ApiKeysTab } from "@/views/voice/ApiKeysTab";
 import { DictationTab } from "@/views/voice/DictationTab";
 import { DictionaryTab } from "@/views/voice/DictionaryTab";
 import { LanguageTab } from "@/views/voice/LanguageTab";
-import { ShortcutsTab } from "@/views/voice/ShortcutsTab";
 
 /**
- * The Voice section: a title, five tabs, one tab's content.
+ * The Voice section: a title, four tabs, one tab's content.
  *
  * The active sidebar section id is the tab state, so a deep link such as
  * "open the dictionary" lands on its tab without extra routing. The title is
@@ -20,11 +19,14 @@ import { ShortcutsTab } from "@/views/voice/ShortcutsTab";
  *
  * The section's strings are the `voice` locale chunk. A tab is not painted
  * before the chunk is resident, so no tab ever shows a raw key.
+ *
+ * The dictation keys are edited in one place, Settings → Keyboard shortcuts,
+ * with every other key of the app. The old "voice-shortcuts" id still answers
+ * (deep links, "open the dictation keys"): the router opens that page for it.
  */
 const TABS = [
   { id: "dictation", labelKey: "nav.dictation" },
   { id: "dictionary", labelKey: "nav.dictionary" },
-  { id: "voice-shortcuts", labelKey: "nav.voice_shortcuts" },
   { id: "voice-language", labelKey: "nav.voice_language" },
   { id: "voice-api-keys", labelKey: "nav.voice_api_keys" },
 ] as const satisfies readonly SectionTab[];
@@ -35,7 +37,7 @@ export function VoiceHubView() {
   const active = useStageSection();
   const ready = useLocaleChunk("voice");
 
-  // The router mounts this view for the five ids above only; anything else
+  // The router mounts this view for the four ids above only; anything else
   // falls back to the first tab.
   const current = TABS.some((tab) => tab.id === active) ? active : "dictation";
 
@@ -48,7 +50,6 @@ export function VoiceHubView() {
       <div className="min-h-0 flex-1 overflow-hidden" data-testid="voice-tab-content">
         {ready && current === "dictation" && <DictationTab />}
         {ready && current === "dictionary" && <DictionaryTab />}
-        {ready && current === "voice-shortcuts" && <ShortcutsTab />}
         {ready && current === "voice-language" && <LanguageTab />}
         {ready && current === "voice-api-keys" && <ApiKeysTab />}
       </div>

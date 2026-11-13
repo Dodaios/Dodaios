@@ -154,7 +154,7 @@
     "learned_off": "La memoria no está en marcha.",
     "learning_switch": "Aprender de las conversaciones",
     "learning_paused_until": "En pausa hasta {until}",
-    "open_memory": "Abrir Memoria",
+    "open_memory": "Pausar o reanudar en Memoria",
     "leaves_title": "Qué sale de este ordenador",
     "leaves_intro": "Cada rol funciona con el proveedor indicado. Un proveedor en la nube recibe lo que su rol necesita: tus palabras y el texto que responde.",
     "local": "En este ordenador",
@@ -173,6 +173,9 @@
     "screen_intro": "Una captura de la pantalla bajo tu cursor, solo cuando la pides, y luego se descarta.",
     "screen_switch": "Puede mirar la pantalla cuando lo pidas",
     "recipients_line": "{count} destinatarios contactados desde aquí",
-    "switch_failed": "No se pudo cambiar esto."
+    "state_on": "Activado",
+    "state_off": "Desactivado",
+    "state_paused": "En pausa",
+    "manage_screen": "Cambiar en Appshots"
   }
 }

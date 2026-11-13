@@ -119,11 +119,12 @@ const DocsView = lazyView(["docs"], () =>
 const BoardView = lazyView(["board"], () =>
   import("@/views/BoardView").then((m) => ({ default: m.BoardView })),
 );
-// Dictation + Dictionary + Shortcuts + Language + Voice API keys are merged
-// behind the one "{name} Voice" sidebar entry. Only the hub is split out here —
-// it statically imports its five tabs, so they travel in its chunk instead of
-// being prefetched as separate ones.
-const VoiceHubView = lazyView(["dictation", "dictionary", "voice-shortcuts", "voice-language", "voice-api-keys"], () =>
+// Dictation + Dictionary + Language + Voice API keys are merged behind the one
+// "{name} Voice" sidebar entry. Only the hub is split out here — it statically
+// imports its four tabs, so they travel in its chunk instead of being
+// prefetched as separate ones. ("voice-shortcuts" is a Settings-hub id now:
+// the dictation keys are edited on the Keyboard shortcuts page.)
+const VoiceHubView = lazyView(["dictation", "dictionary", "voice-language", "voice-api-keys"], () =>
   import("@/views/VoiceHubView").then((m) => ({ default: m.VoiceHubView })),
 );
 const VisualizationView = lazyView(["visualization"], () =>
@@ -519,12 +520,11 @@ function SwitchOnActiveSection({ active }: { active: string }) {
     case "memory":
       return <MemoryView />;
     // The merged voice section: Dictation (default landing) + Dictionary +
-    // Shortcuts + Language + the speech-to-text keys, behind one tab bar. The
-    // active id doubles as the tab state, so a voice deep-link to any of them
-    // still lands on the right tab.
+    // Language + the speech-to-text keys, behind one tab bar. The active id
+    // doubles as the tab state, so a voice deep-link to any of them still
+    // lands on the right tab.
     case "dictation":
     case "dictionary":
-    case "voice-shortcuts":
     case "voice-language":
     case "voice-api-keys":
       return <VoiceHubView />;

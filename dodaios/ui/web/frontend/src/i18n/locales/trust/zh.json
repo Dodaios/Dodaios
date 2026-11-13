@@ -154,7 +154,7 @@
     "learned_off": "记忆功能未运行。",
     "learning_switch": "从对话中学习",
     "learning_paused_until": "暂停至 {until}",
-    "open_memory": "打开记忆",
+    "open_memory": "在记忆中暂停或恢复",
     "leaves_title": "哪些内容会离开这台电脑",
     "leaves_intro": "每个角色由指定的服务商运行。云端服务商会收到其角色所需的内容：你的话以及它回复的文字。",
     "local": "在这台电脑上",
@@ -173,6 +173,9 @@
     "screen_intro": "仅在你要求时截取一次光标所在屏幕，之后即丢弃。",
     "screen_switch": "在你要求时可以查看屏幕",
     "recipients_line": "从这里联系过 {count} 位收件人",
-    "switch_failed": "无法更改此项。"
+    "state_on": "开启",
+    "state_off": "关闭",
+    "state_paused": "已暂停",
+    "manage_screen": "在截图中更改"
   }
 }

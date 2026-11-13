@@ -316,13 +316,18 @@ describe("LanguageTab wording", () => {
     expect(toggle("precision")).toBeTruthy();
   });
 
-  it("offers the conversation switch only while wording is on", () => {
+  it("offers the conversation switch only while clean-up is on", () => {
     show({ polish: false, polish_precision: false });
     expect(screen.queryByTestId("voice-language-conversation")).toBeNull();
     cleanup();
 
-    // Exact words alone keep the wording model at work.
+    // The conversation pass extends clean-up: the backend skips it while
+    // clean-up is off, so exact words alone must not offer a dead switch.
     show({ polish: false, polish_precision: true });
+    expect(screen.queryByTestId("voice-language-conversation")).toBeNull();
+    cleanup();
+
+    show({ polish: true });
     expect(toggle("conversation")).toBeTruthy();
   });
 });

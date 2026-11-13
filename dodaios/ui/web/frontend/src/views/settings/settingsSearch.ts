@@ -10,11 +10,14 @@ type LocaleTree = Record<string, unknown>;
 const LOCALES: Partial<Record<UiLanguage, LocaleTree>> = { en, de, es };
 const localeTree = (language: UiLanguage): LocaleTree => LOCALES[language] ?? uiDictionary(language);
 
-/** Each Settings page group owns the copy used to search its controls. */
+/**
+ * Each Settings page group owns the copy used to search its controls. A group
+ * lists only the copy of rows it still renders, so a hit never lands on a
+ * page that does not show the setting.
+ */
 const SEARCH_GROUPS = [
   { id: "languages", keys: ["language", "languages_group_title"] },
-  { id: "app", keys: ["app_settings_group_title", "autostart", "appearance", "jarvis_api"] },
-  { id: "realtime-voice", keys: ["realtime_voice"] },
+  { id: "app", keys: ["app_settings_group_title", "autostart", "appearance", "look", "background_agents"] },
   { id: "system-prompt", keys: ["system_prompt"] },
   { id: "approvals", keys: ["approvals"] },
   { id: "self-build", keys: ["self_build"] },
@@ -22,15 +25,18 @@ const SEARCH_GROUPS = [
   { id: "volume", keys: ["volume"] },
   { id: "audio-devices", keys: ["audio_devices"] },
   { id: "music", keys: ["music", "music_group_title"] },
-  { id: "more", keys: ["rows", "team_proxy", "codex_title", "safety_title"] },
+  { id: "more", keys: ["rows.toasts_title", "rows.toasts_description"] },
   { id: "overlay-taskbar", keys: ["overlay_style", "bar_size", "overlay_taskbar_group_title"] },
 ] as const;
 
 const SEARCH_PAGES = [
   { id: "profile", keys: ["profile_view"] },
   { id: "agent-instructions", keys: ["assistant_view"] },
-  { id: "socials", keys: ["socials"] },
-  { id: "apikeys", keys: ["apikeys_view", "apikeys_voice", "apikeys_model", "apikeys_cu_model"] },
+  // The Control Key and the voice engine are set on the API Keys page.
+  {
+    id: "apikeys",
+    keys: ["apikeys_view", "apikeys_voice", "apikeys_model", "apikeys_cu_model", "settings_view.jarvis_api", "settings_view.realtime_voice"],
+  },
   { id: "appshots", keys: ["appshots"] },
   { id: "shortcuts", keys: ["shortcuts_view", "settings_view.keybinds", "settings_view.quick_switch"] },
   { id: "pets", keys: ["pets"] },

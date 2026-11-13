@@ -23,7 +23,7 @@ import {
 const SHORTCUTS: readonly { id: SectionId; labelKey: string; Icon: LucideIcon; also: readonly SectionId[] }[] = [
   { id: "chats", labelKey: "sidebar.surface_chat", Icon: ChatIcon, also: [] },
   { id: "plugins", labelKey: "nav.plugins", Icon: ExtensionsIcon, also: ["skills", "mcps"] },
-  { id: "dictation", labelKey: "nav.dictation", Icon: SpeechIcon, also: ["dictionary", "voice-shortcuts", "voice-language", "voice-api-keys"] },
+  { id: "dictation", labelKey: "nav.dictation", Icon: SpeechIcon, also: ["dictionary", "voice-language", "voice-api-keys"] },
   { id: "visualization", labelKey: "nav.visualization", Icon: ArtifactsIcon, also: [] },
   { id: "appshots", labelKey: "nav.appshots", Icon: CaptureIcon, also: [] },
 ];

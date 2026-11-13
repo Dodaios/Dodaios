@@ -154,7 +154,7 @@
     "learned_off": "A memória não está a correr.",
     "learning_switch": "Aprender com as conversas",
     "learning_paused_until": "Em pausa até {until}",
-    "open_memory": "Abrir Memória",
+    "open_memory": "Pausar ou retomar em Memória",
     "leaves_title": "O que sai deste computador",
     "leaves_intro": "Cada papel corre no fornecedor indicado. Um fornecedor na nuvem recebe o que o seu papel precisa: as suas palavras e o texto que responde.",
     "local": "Neste computador",
@@ -173,6 +173,9 @@
     "screen_intro": "Uma captura do ecrã sob o cursor, apenas quando você pede, e depois descartada.",
     "screen_switch": "Pode olhar para o ecrã quando você pedir",
     "recipients_line": "{count} destinatários contactados a partir daqui",
-    "switch_failed": "Não foi possível alterar isto."
+    "state_on": "Ativado",
+    "state_off": "Desativado",
+    "state_paused": "Em pausa",
+    "manage_screen": "Alterar em Appshots"
   }
 }

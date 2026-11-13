@@ -3330,7 +3330,8 @@
       "keybinds": "键盘快捷键",
       "more": "更多",
       "overlay_taskbar": "悬浮层与任务栏",
-      "self_build": "自主构建"
+      "self_build": "自主构建",
+      "approvals": "权限模式"
     },
     "languages_group_title": "语言",
     "sections": {

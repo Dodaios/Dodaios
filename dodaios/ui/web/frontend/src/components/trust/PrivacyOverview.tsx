@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Cloud, Laptop, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { fill, useT } from "@/i18n";
-import { fetchPrivacyOverview, setLearning, setScreenContext, type PrivacyOverview as Overview } from "@/lib/trustApi";
+import { fetchPrivacyOverview, type PrivacyOverview as Overview } from "@/lib/trustApi";
 import { useEventStore } from "@/store/events";
 
 function Section({ title, intro, children, testId }: { title: string; intro?: string; children: React.ReactNode; testId: string }) {
@@ -16,13 +15,16 @@ function Section({ title, intro, children, testId }: { title: string; intro?: st
   );
 }
 
-function SwitchRow({ id, label, checked, onChange, disabled }: {
-  id: string; label: string; checked: boolean; onChange: (next: boolean) => void; disabled?: boolean;
-}) {
+/**
+ * A permission and what it is set to right now. The overview reports; each
+ * permission is changed on the one page that owns it (learning on Memory, the
+ * screen on Appshots), which the link under the row opens.
+ */
+function StateRow({ id, label, state }: { id: string; label: string; state: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3">
-      <label htmlFor={id} className="text-sm text-foreground">{label}</label>
-      <Switch id={id} checked={checked} onCheckedChange={onChange} disabled={disabled} />
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3" data-testid={id}>
+      <span className="text-sm text-foreground">{label}</span>
+      <span className="text-sm font-medium text-foreground-secondary" data-testid={`${id}-state`}>{state}</span>
     </div>
   );
 }
@@ -30,10 +32,8 @@ function SwitchRow({ id, label, checked, onChange, disabled }: {
 export function PrivacyOverview() {
   const t = useT();
   const setActive = useEventStore((s) => s.setActiveSection);
-  const pushToast = useEventStore((s) => s.pushToast);
   const [data, setData] = useState<Overview | null>(null);
   const [failed, setFailed] = useState(false);
-  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -46,19 +46,6 @@ export function PrivacyOverview() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  const flip = async (run: () => Promise<unknown>) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await run();
-      await load();
-    } catch {
-      pushToast("error", t("privacy.switch_failed"));
-    } finally {
-      setBusy(false);
-    }
-  };
 
   if (failed) return <p className="py-6 text-sm text-destructive">{t("trust.page.load_failed")}</p>;
   if (!data) {
@@ -100,13 +87,13 @@ export function PrivacyOverview() {
           <p className="m-0 text-sm text-foreground">
             {data.memory.available ? fill(t("privacy.learned_count"), { count: data.memory.count }) : t("privacy.learned_off")}
           </p>
-          <SwitchRow
-            id="privacy-learning"
-            label={t("privacy.learning_switch")}
-            checked={data.memory.available && !data.memory.learning_paused}
-            disabled={busy || !data.memory.available}
-            onChange={(next) => void flip(() => setLearning(next))}
-          />
+          {data.memory.available && (
+            <StateRow
+              id="privacy-learning-row"
+              label={t("privacy.learning_switch")}
+              state={t(data.memory.learning_paused ? "privacy.state_paused" : "privacy.state_on")}
+            />
+          )}
           {data.memory.learning_paused && data.memory.paused_until && data.memory.paused_until !== "forever" && (
             <p className="m-0 text-xs text-muted-foreground">{fill(t("privacy.learning_paused_until"), { until: data.memory.paused_until })}</p>
           )}
@@ -154,13 +141,14 @@ export function PrivacyOverview() {
       </Section>
 
       <Section title={t("privacy.screen_title")} intro={t("privacy.screen_intro")} testId="privacy-screen">
-        <SwitchRow
-          id="privacy-screen"
+        <StateRow
+          id="privacy-screen-row"
           label={t("privacy.screen_switch")}
-          checked={data.screen_context}
-          disabled={busy}
-          onChange={(next) => void flip(() => setScreenContext(next))}
+          state={t(data.screen_context ? "privacy.state_on" : "privacy.state_off")}
         />
+        <Button variant="link" size="sm" className="mt-2 px-0" onClick={() => setActive("appshots")}>
+          {t("privacy.manage_screen")}
+        </Button>
       </Section>
 
       <p className="m-0 text-xs text-muted-foreground">{fill(t("privacy.recipients_line"), { count: data.known_recipients })}</p>

@@ -35,8 +35,7 @@ reason, act, or speak a reply.
   **GPT-Live** is the Realtime engine and needs one ready live voice
   connection. **Pipeline** needs usable Voice Input, Brain, and Voice Output
   paths, which can be local, hosted, or mixed; the tab lists all three once
-  Pipeline is selected. **Settings > Voice > Realtime voice** is the same
-  choice as a switch.
+  Pipeline is selected.
 
 On a headless computer, native wake detection, desktop shortcuts, microphone,
 and speaker output are unavailable. A browser can offer **Start Realtime

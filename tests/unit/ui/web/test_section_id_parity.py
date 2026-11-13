@@ -45,10 +45,12 @@ SUPPORTED_LOCALES = ("de", "en", "es")
 #: The five tabs behind the merged voice section. "dictation" and "dictionary"
 #: keep their original ids on purpose — renaming them would break the
 #: Command-Registry ``ui_section`` binding and every existing voice deep-link.
+# "voice-shortcuts" is still a section id, but not a Voice tab any more: the
+# dictation keys are edited on Settings -> Keyboard shortcuts, and the id opens
+# that page (views/settings/hubNav.ts).
 EXPECTED_VOICE_TABS = (
     "dictation",
     "dictionary",
-    "voice-shortcuts",
     "voice-language",
     "voice-api-keys",
 )

@@ -39,7 +39,6 @@ function stub(name: string) {
 
 vi.mock("@/views/voice/DictationTab", () => ({ DictationTab: stub("DICTATION") }));
 vi.mock("@/views/voice/DictionaryTab", () => ({ DictionaryTab: stub("DICTIONARY") }));
-vi.mock("@/views/voice/ShortcutsTab", () => ({ ShortcutsTab: stub("SHORTCUTS") }));
 vi.mock("@/views/voice/LanguageTab", () => ({ LanguageTab: stub("LANGUAGE") }));
 vi.mock("@/views/voice/ApiKeysTab", () => ({ ApiKeysTab: stub("API_KEYS") }));
 
@@ -48,7 +47,6 @@ import { VoiceHubView } from "@/views/VoiceHubView";
 const TAB_LABELS = [
   "nav.dictation",
   "nav.dictionary",
-  "nav.voice_shortcuts",
   "nav.voice_language",
   "nav.voice_api_keys",
 ];
@@ -65,7 +63,7 @@ afterEach(() => {
 });
 
 describe("VoiceHubView", () => {
-  it("opens on Dictation and shows all five tabs", () => {
+  it("opens on Dictation and shows all four tabs", () => {
     render(<VoiceHubView />);
 
     expect(screen.getByTestId("DICTATION")).toBeTruthy();
@@ -81,7 +79,6 @@ describe("VoiceHubView", () => {
   it.each([
     ["dictation", "DICTATION"],
     ["dictionary", "DICTIONARY"],
-    ["voice-shortcuts", "SHORTCUTS"],
     ["voice-language", "LANGUAGE"],
     ["voice-api-keys", "API_KEYS"],
   ])("shows the tab of section %s", (section, testId) => {
@@ -95,8 +92,14 @@ describe("VoiceHubView", () => {
   it("selects a section when its tab is clicked", () => {
     render(<VoiceHubView />);
 
-    fireEvent.click(screen.getByRole("button", { name: "nav.voice_shortcuts" }));
-    expect(mockState.setActiveSection).toHaveBeenCalledWith("voice-shortcuts");
+    fireEvent.click(screen.getByRole("button", { name: "nav.voice_language" }));
+    expect(mockState.setActiveSection).toHaveBeenCalledWith("voice-language");
+  });
+
+  it("has no shortcuts tab: the dictation keys live on Settings → Keyboard shortcuts", () => {
+    render(<VoiceHubView />);
+
+    expect(screen.queryByRole("button", { name: "nav.voice_shortcuts" })).toBeNull();
   });
 
   it("falls back to Dictation for a section id it does not own", () => {

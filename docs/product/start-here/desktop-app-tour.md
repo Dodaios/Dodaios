@@ -74,9 +74,9 @@ conditions. Follow the action shown in the notice.
 | **Docs** | Search guides, related pages, and the current contents list. |
 | **API Keys** | Choose providers, Pipeline or Realtime, the Control Key, and advanced connections. |
 | **Settings** | Change language, audio, wake behavior, appearance, permissions, and app behavior. |
-| **Voice** | Open Dictation, Dictionary, Shortcuts, Language, and speech-input keys. |
+| **Voice** | Open Dictation, Dictionary, Language, and speech-input keys. The dictation shortcuts are under **Settings > Keyboard shortcuts**. |
 | **Outputs** | Find reports and files produced by chats, tools, or Agents. |
-| **Socials** and **Feedback** | Open project links or send a problem report or suggestion. |
+| **Feedback** | Send a problem report or suggestion. |
 | **Agentic IDE** | Open coding workspaces with live agent terminals. |
 
 ## Use the Consolidated Hubs

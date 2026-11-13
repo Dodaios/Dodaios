@@ -46,6 +46,8 @@ describe("MainView — every settings-hub id mounts the hub", () => {
     "telephony-setup",
     "costs",
     "feedback",
+    // The former Voice tab for the dictation keys opens Keyboard shortcuts.
+    "voice-shortcuts",
   ] as SectionId[])("routes %s to the Settings hub", async (activeSection) => {
     useEventStore.setState({ activeSection });
     render(<MainView />);

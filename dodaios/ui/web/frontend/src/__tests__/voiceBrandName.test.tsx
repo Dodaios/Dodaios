@@ -203,7 +203,6 @@ function expectNoNameOnVoiceScreen(text: string, where: string): void {
 const VOICE_SECTIONS: readonly SectionId[] = [
   "dictation",
   "dictionary",
-  "voice-shortcuts",
   "voice-language",
   "voice-api-keys",
 ];

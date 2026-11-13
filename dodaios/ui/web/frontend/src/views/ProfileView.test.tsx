@@ -237,7 +237,7 @@ describe("details", () => {
 
     const hero = await screen.findByTestId("profile-hero");
     expect(hero.textContent).toContain("Ruben");
-    expect((await screen.findByTestId("open-details")).textContent).toContain("3/19");
+    expect((await screen.findByTestId("open-details")).textContent).toContain("3/17");
     const stats = screen.getByTestId("profile-stats");
     await waitFor(() => expect(stats.textContent).toContain("491"));
     await waitFor(() => expect(stats.textContent).toContain("3,795"));
