@@ -125,16 +125,54 @@ def test_microphones_of_camera_and_meeting_apps_stand_behind_a_real_one(
     }
 
 
-def test_a_silent_input_is_tried_again_when_the_devices_change(os_default: None) -> None:
-    """Unplugging and plugging something is how a jack gets its microphone."""
+def test_another_device_arriving_does_not_bring_the_silent_one_back(
+    os_default: None,
+) -> None:
+    """Connecting AirPods made the dead jack input the OS default all over
+    again. Another device coming or going changes nothing about it."""
     devices = _laptop_with_headphones()
     capture._remember_silent_input(EXTERNAL, devices)
-    assert capture._input_known_silent(EXTERNAL, devices)
 
-    replugged = [*devices, _device("USB Headset")]
+    with_airpods = [*devices, _device("AirPods Pro")]
 
-    assert not capture._input_known_silent(EXTERNAL, replugged)
-    assert _ranked_names(devices)[0] == EXTERNAL, "the memory must be gone for good"
+    assert capture._input_known_silent(EXTERNAL, with_airpods)
+    assert _ranked_names(with_airpods)[-1] == EXTERNAL
+
+
+def test_a_silent_input_is_tried_again_once_it_left_the_list(os_default: None) -> None:
+    """Unplugging is how a jack gets its microphone."""
+    devices = _laptop_with_headphones()
+    capture._remember_silent_input(EXTERNAL, devices)
+
+    unplugged = [dev for dev in devices if dev["name"] != EXTERNAL]
+    assert not capture._input_known_silent(EXTERNAL, unplugged)
+
+    assert not capture._input_known_silent(EXTERNAL, devices)
+    assert _ranked_names(devices)[0] == EXTERNAL
+
+
+def test_a_phone_lent_as_a_microphone_stands_behind_the_built_in_one(
+    os_default: None,
+) -> None:
+    devices = _laptop_with_headphones()
+    devices.insert(1, _device("Mikrofon von iPhone"))  # i18n-allow: device name
+    capture._remember_silent_input(EXTERNAL, devices)
+
+    ranked = _ranked_names(devices)
+
+    assert ranked[0] == BUILT_IN
+    assert ranked.index("Mikrofon von iPhone") > ranked.index(BUILT_IN)  # i18n-allow
+
+
+def test_a_wireless_headset_gets_longer_before_it_counts_as_silent() -> None:
+    assert capture._silence_switch_after_s("AirPods Pro") == (
+        capture._SILENCE_SWITCH_AFTER_WIRELESS_S
+    )
+    assert capture._silence_switch_after_s("Jabra Evolve2 65") == (
+        capture._SILENCE_SWITCH_AFTER_WIRELESS_S
+    )
+    assert capture._silence_switch_after_s(EXTERNAL) == capture._SILENCE_SWITCH_AFTER_S
+    assert capture._SILENCE_SWITCH_AFTER_WIRELESS_S > capture._SILENCE_SWITCH_AFTER_S
 
 
 def test_a_silent_input_is_tried_again_after_a_while(
@@ -187,6 +225,7 @@ def _granted_mac(
     )
     monkeypatch.setattr(capture.MicrophoneCapture, "_WATCHDOG_TICK_S", 0.01)
     monkeypatch.setattr(capture, "_SILENCE_SWITCH_AFTER_S", 0.05)
+    monkeypatch.setattr(capture, "_SILENCE_SWITCH_AFTER_WIRELESS_S", 0.15)
     return audio
 
 
@@ -330,3 +369,77 @@ def test_the_wait_before_leaving_outlasts_a_wireless_headsets_start() -> None:
     # A wireless headset delivers zeros for a moment while its link comes up.
     # The real value is part of the contract; the tests above shorten it.
     assert capture._SILENCE_SWITCH_AFTER_S == 1.0
+
+
+@pytest.mark.asyncio
+async def test_after_a_device_change_the_new_input_is_judged_afresh(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reported case: a capture that had heard the voice on one input is
+    reopened after headphones connect and lands on the dead jack input. It
+    must notice that, not trust what it heard on the input before."""
+    devices = [_device(BUILT_IN), _device(EXTERNAL)]
+    audio = _granted_mac(monkeypatch, devices)
+    capture.sd.default = SimpleNamespace(device=(0, 1))
+
+    mic = capture.MicrophoneCapture(device="auto-headset")
+    async with mic:
+        (first,) = audio.starts
+        assert first.kwargs["device"] == 0
+        await _pump(first, _LOUD_FRAME, frames=3)
+        assert mic._heard_signal
+
+        # Headphones connect: the jack becomes the default and the device
+        # change makes the capture choose again.
+        capture.sd.default = SimpleNamespace(device=(1, 1))
+        assert mic.discard_native_stream()
+        await _wait_for(lambda: len(audio.starts) >= 2)
+        second = audio.starts[1]
+        assert second.kwargs["device"] == 1, "the new default is tried first"
+        assert not mic._heard_signal
+
+        async def _zeros_until_left() -> None:
+            while len(audio.starts) < 3:
+                await _pump(audio.starts[-1], _ZERO_FRAME, frames=1)
+
+        await asyncio.wait_for(_zeros_until_left(), timeout=3.0)
+        assert audio.starts[2].kwargs["device"] == 0
+        assert mic._device == 0
+
+    assert capture._input_known_silent(EXTERNAL, devices)
+
+
+@pytest.mark.asyncio
+async def test_a_capture_that_delivered_only_zeros_is_not_handed_to_the_next(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The resolve cache lets the next capture skip the device enumeration.
+    It must not be fed by an input that carried nothing."""
+    devices = [_device(EXTERNAL)]
+    audio = _granted_mac(monkeypatch, devices)
+
+    async with capture.MicrophoneCapture(device="auto-headset"):
+        (stream,) = audio.starts
+        await _pump(stream, _ZERO_FRAME, frames=10)
+
+    assert capture._cached_resolve("auto-headset", ()) is None
+
+
+@pytest.mark.asyncio
+async def test_a_wireless_headset_is_not_left_during_its_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Zeros for longer than a wired input may give, but shorter than the
+    wireless allowance, are a headset switching modes, not a dead input."""
+    devices = [_device("AirPods Pro"), _device(BUILT_IN)]
+    audio = _granted_mac(monkeypatch, devices)
+
+    async with capture.MicrophoneCapture(device="auto-headset") as mic:
+        (stream,) = audio.starts
+        await _pump(stream, _ZERO_FRAME, frames=8)  # past the wired wait of 0.05 s
+        await _pump(stream, _LOUD_FRAME, frames=3)
+
+        assert len(audio.starts) == 1
+        assert mic._device == 0
+
+    assert not capture._input_known_silent("AirPods Pro", devices)
