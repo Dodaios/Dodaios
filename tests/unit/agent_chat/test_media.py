@@ -287,6 +287,43 @@ def test_invalid_or_outside_workspace_media_is_not_imported(tmp_path, reference)
     assert result[-1]["kind"] == "error"
 
 
+@pytest.mark.parametrize("inside", [False, True])
+def test_pictures_handed_to_an_agent_are_neither_shown_nor_reported(tmp_path, inside):
+    # The receipt of a work order lists the person's own screenshots, copied
+    # for the agent (often outside this chat's workspace). They are input.
+    cwd = tmp_path / "work"
+    cwd.mkdir()
+    copy = (cwd if inside else tmp_path) / "img_handed.png"
+    copy.write_bytes(PNG)
+    receipt = {
+        "status": "created",
+        "deliveries": [
+            {
+                "status": "accepted",
+                "images": [
+                    {"image_ref": "img_abc", "path": str(copy), "availability": "verified"}
+                ],
+            }
+        ],
+    }
+    result = normalize(tmp_path, json.dumps(receipt), name="mcp__dodaios__workspace-orchestrate")
+    assert [item["kind"] for item in result] == ["tool_result"]
+    assert json.loads(result[0]["payload"]["output"]) == receipt
+    assert not (tmp_path / "archive").exists()
+
+
+def test_a_picture_returned_inline_with_a_reference_is_still_shown(tmp_path):
+    shot = {
+        "image_ref": "img_abc",
+        "type": "image",
+        "mimeType": "image/png",
+        "data": base64.b64encode(PNG).decode(),
+    }
+    result = normalize(tmp_path, json.dumps(shot), name="make_picture")
+    assert [item["kind"] for item in result] == ["tool_result", "assistant_text"]
+    assert "![image]" in result[1]["payload"]["text"]
+
+
 def test_import_limit_reports_an_error_instead_of_silently_hiding_media(tmp_path, monkeypatch):
     monkeypatch.setattr(media, "MAX_FILE_BYTES", 2)
     cwd = tmp_path / "work"
