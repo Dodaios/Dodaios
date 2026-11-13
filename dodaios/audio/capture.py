@@ -107,17 +107,26 @@ _SILENCE_DETAIL = (
 )
 _NOT_GRANTED_MESSAGE = "Microphone access is not granted for Dodaios."
 
-# An automatically chosen microphone that delivers exact zeros from its first
-# frame for this long is left for the next one. A real microphone has a noise
-# floor, so a full second of exact zeros is an input with nothing behind it: a
-# headphone jack without a microphone, a virtual device whose app is closed.
-# Long enough for the start-up zeros of a wireless headset to pass.
+# An automatically chosen microphone that delivers exact zeros from the moment
+# it was opened for this long is left for the next one. A real microphone has a
+# noise floor, so a full second of exact zeros is an input with nothing behind
+# it: a headphone jack without a microphone, a virtual device whose app is
+# closed.
 _SILENCE_SWITCH_AFTER_S = 1.0
+# A wireless headset delivers zeros for a moment after it was opened, while it
+# switches into its two-way mode. Its microphone gets this much longer.
+_SILENCE_SWITCH_AFTER_WIRELESS_S = 3.0
+# Words in the name of an input that is usually wireless.
+_WIRELESS_INPUT_HINTS = (
+    "airpods", "beats", "bluetooth", "buds", "bose", "jabra", "sony",
+    "wh-", "wf-", "powerbeats",
+)
 # How long such an input is passed over when a microphone is chosen. It is
-# forgotten earlier when the set of input devices changes (a plug or unplug).
+# forgotten earlier when it disappears from the list of inputs: unplugging is
+# how a jack gets its microphone, and a reconnected headset starts afresh.
 _SILENT_INPUT_MEMORY_S = 30 * 60.0
-# name -> (when it may be tried again, the input names present at the time)
-_SILENT_INPUTS: dict[str, tuple[float, frozenset[str]]] = {}
+# name -> when it may be tried again
+_SILENT_INPUTS: dict[str, float] = {}
 
 
 def _input_key(name: object) -> str:
@@ -132,27 +141,55 @@ def _input_names(devices: Sequence[dict]) -> frozenset[str]:
     )
 
 
-def _remember_silent_input(name: str, devices: Sequence[dict]) -> None:
+def _silence_switch_after_s(name: object) -> float:
+    """How long ``name`` may deliver zeros after it opened before it is left."""
+    key = _input_key(name)
+    if any(hint in key for hint in _WIRELESS_INPUT_HINTS):
+        return _SILENCE_SWITCH_AFTER_WIRELESS_S
+    return _SILENCE_SWITCH_AFTER_S
+
+
+def _remember_silent_input(name: str, devices: Sequence[dict]) -> None:  # noqa: ARG001
     """Pass ``name`` over in automatic microphone selection for a while."""
     key = _input_key(name)
     if key:
-        _SILENT_INPUTS[key] = (
-            time.monotonic() + _SILENT_INPUT_MEMORY_S,
-            _input_names(devices),
-        )
+        _SILENT_INPUTS[key] = time.monotonic() + _SILENT_INPUT_MEMORY_S
+
+
+def _forget_departed_inputs(devices: Sequence[dict]) -> None:
+    """Forget every remembered input that is no longer in ``devices``."""
+    present = _input_names(devices)
+    for key in [k for k in _SILENT_INPUTS if k not in present]:
+        del _SILENT_INPUTS[key]
 
 
 def _input_known_silent(name: object, devices: Sequence[dict]) -> bool:
-    """Whether ``name`` delivered only digital silence a short while ago."""
+    """Whether ``name`` delivered only digital silence a short while ago.
+
+    Another device coming or going does not change the answer: connecting
+    headphones made the dead jack input the operating system's default all
+    over again. Only the input itself leaving the list, or the time running
+    out, gives it a fresh chance.
+    """
+    _forget_departed_inputs(devices)
     key = _input_key(name)
-    entry = _SILENT_INPUTS.get(key)
-    if entry is None:
+    expires = _SILENT_INPUTS.get(key)
+    if expires is None:
         return False
-    expires, names_then = entry
-    if time.monotonic() >= expires or names_then != _input_names(devices):
+    if time.monotonic() >= expires:
         del _SILENT_INPUTS[key]
         return False
     return True
+
+
+def _input_name_of(device: object) -> str:
+    """The name of input ``device`` (an index), or ``""``. Never raises."""
+    if not isinstance(device, int):
+        return ""
+    try:
+        return str(sd.query_devices(device).get("name", ""))
+    except Exception:  # noqa: BLE001 — a name only tunes a wait, it is never needed
+        return ""
 
 
 def _forget_silent_inputs() -> None:
@@ -282,6 +319,9 @@ _INPUT_DEPRIORITIZE = (
     # Microphones of camera and meeting apps: they carry audio only while
     # their app feeds them.
     "Camo", "EpocCam", "Microsoft Teams Audio", "ZoomAudioDevice",
+    # A phone or tablet lent as a microphone is in a pocket or another room
+    # as often as not, and it fails to open when the link is asleep.
+    "iPhone", "iPad",
 )
 
 # Host API preference order for 16 kHz mic capture (Whisper native).
@@ -931,6 +971,7 @@ class MicrophoneCapture:
         # ``_leave_silent_device``): whether this stream ever carried a
         # non-zero sample, and the one switch that may be under way.
         self._heard_signal = False
+        self._silence_switch_after = _SILENCE_SWITCH_AFTER_S
         self._silence_switch_task: asyncio.Task | None = None
 
     def _service_gate(self) -> PermissionGate:
@@ -1066,7 +1107,7 @@ class MicrophoneCapture:
             not self._heard_signal
             and self._device_spec == "auto-headset"
             and self._silence_switch_task is None
-            and now - self._zero_since >= _SILENCE_SWITCH_AFTER_S
+            and now - self._zero_since >= self._silence_switch_after
         ):
             self._silence_switch_task = asyncio.get_running_loop().create_task(
                 self._leave_silent_device(), name="mic-leave-silent-device"
@@ -1184,6 +1225,18 @@ class MicrophoneCapture:
         await self._ensure_access(
             interactive=self._interactive if interactive is None else interactive
         )
+        if isinstance(self._preferred_device, str) and self._preferred_device == (
+            self._device_spec
+        ):
+            # After a device change the capture is told to choose again
+            # (``discard_native_stream``). The spec is a rule, not a device:
+            # apply it to the current list rather than hand the words
+            # "auto-headset" to PortAudio and land on a fallback.
+            resolved = await asyncio.to_thread(
+                _resolve_input_device, self._device_spec, self._device_priority
+            )
+            if resolved is not None:
+                self._preferred_device = resolved
         preferred_attempts: list[int | str | None] = [self._preferred_device]
         try:
             if isinstance(self._preferred_device, int):
@@ -1289,13 +1342,21 @@ class MicrophoneCapture:
                 )
                 _remember_input_latency(stream)
                 self._device = attempt
+                # Every newly opened input is judged on its own: a microphone
+                # that worked before a device change says nothing about the
+                # one opened after it.
+                self._heard_signal = False
+                self._zero_since = None
+                self._silence_reported = False
+                self._silence_switch_after = _silence_switch_after_s(
+                    _input_name_of(attempt)
+                )
                 self._using_physical_fallback = physical_fallback
                 if not physical_fallback:
                     self._preferred_device = attempt
-                if isinstance(self._device_spec, str) and not physical_fallback:
-                    _touch_resolve_cache(
-                        self._device_spec, self._device_priority, attempt
-                    )
+                # The resolve cache is fed by the watchdog once this input
+                # has delivered real signal, never at the open: an input that
+                # turns out to carry only zeros must not be handed on.
                 if physical_fallback:
                     _log.warning(
                         "Preferred microphone device(s) {} could not be opened; "
@@ -1386,9 +1447,12 @@ class MicrophoneCapture:
                 # The stream is delivering — keep the resolve cache fresh so a
                 # capture constructed moments after this one closes (the
                 # wake→session handover) skips the ~0.4s device enumeration.
+                # Not while it has delivered nothing but zeros: the next
+                # capture would be handed the same dead input.
                 if (
                     isinstance(self._device_spec, str)
                     and not self._using_physical_fallback
+                    and self._heard_signal
                 ):
                     _touch_resolve_cache(
                         self._device_spec, self._device_priority, self._device
