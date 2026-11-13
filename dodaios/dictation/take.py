@@ -5,9 +5,11 @@ A take records everything, and recognizes it once:
 * **Nothing is recognized twice.** There is no live preview that a later pass
   corrects. Each stretch of the recording goes to a recognizer exactly once.
 * **Pauses are where it is cut.** A short dictation is one request. A long one
-  is cut at the speaker's own pauses into pieces of about half a minute, and
-  each piece is recognized while the person is still speaking. After the stop
-  only the last piece is left, so the wait does not grow with the length.
+  is cut at the speaker's own pauses into pieces of about half a minute of
+  speech, and each piece is recognized while the person is still speaking.
+  After the stop only the last piece is left, so the wait does not grow with
+  the length. Silence does not count towards a piece: however long somebody
+  thinks, a piece is cut only once it holds enough speech to be worth reading.
 * **Silence is never sent.** A piece without speech makes no request, silence
   around the words is cut off and a long pause is shortened
   (:mod:`dodaios.dictation.speech_map`). That is what keeps a recognizer from
@@ -37,17 +39,22 @@ log = logging.getLogger("dodaios.dictation.take")
 
 _BYTES_PER_SECOND = SAMPLE_RATE * 2
 
-#: From this much audio on, an open piece is closed at the next pause.
+#: From this much SPEECH on, an open piece is closed at the next pause.
 PIECE_MIN_S = 30.0
-#: The pause that closes a piece, by how long the piece already is. A long
-#: pause most likely ends a sentence, so a young piece waits for one; an old
-#: piece takes any pause, and a piece without one is cut at ``PIECE_MAX_S``.
+#: The pause that closes a piece, by how much speech the piece already holds.
+#: A long pause most likely ends a sentence, so a young piece waits for one;
+#: an old piece takes any pause, and a piece without one is cut once it holds
+#: ``PIECE_MAX_S`` of speech.
 _CUT_LADDER: tuple[tuple[float, float], ...] = (
     (PIECE_MIN_S, 0.9),
     (PIECE_MIN_S * 1.5, 0.5),
     (PIECE_MIN_S * 2.5, 0.25),
 )
 PIECE_MAX_S = 100.0
+
+#: A cut lies at most this far back in the pause that allowed it, so the next
+#: piece starts with a little room tone and not with the whole pause.
+_CUT_BACK_S = 0.5
 
 #: Less speech than this in a whole take is a key tap, not a dictation.
 MIN_SPEECH_S = 0.25
@@ -240,6 +247,8 @@ class Take:
         self._mapper = SpeechMapper()
         self._pieces: list[_Piece] = []
         self._piece_start = 0
+        #: Seconds of speech the recording held when the open piece began.
+        self._speech_before_piece = 0.0
         self._queue: asyncio.Queue[_Piece | None] = asyncio.Queue()
         self._worker: asyncio.Task[None] | None = None
         self._set_aside: list[str] = []
@@ -322,20 +331,23 @@ class Take:
         self._maybe_cut()
 
     def _maybe_cut(self) -> None:
-        total = self._mapper.total_samples
-        open_s = (total - self._piece_start) / SAMPLE_RATE
-        if open_s < PIECE_MIN_S:
+        # Speech decides, not the clock: a piece of silence has nothing to
+        # read, and a cut by elapsed time would fall into the middle of a
+        # word spoken after a long pause.
+        speech_s = self._mapper.speech_so_far_s - self._speech_before_piece
+        if speech_s < PIECE_MIN_S:
             return
+        total = self._mapper.total_samples
         pause = self._mapper.silence_run_s()
         needed = None
-        for age, pause_needed in _CUT_LADDER:
-            if open_s >= age:
+        for held, pause_needed in _CUT_LADDER:
+            if speech_s >= held:
                 needed = pause_needed
         cut_at: int | None = None
         if needed is not None and pause >= needed:
-            # In the middle of the pause, so both pieces keep some room tone.
-            cut_at = total - int(pause * SAMPLE_RATE / 2)
-        elif open_s >= PIECE_MAX_S:
+            # Inside the pause, so both pieces keep some room tone.
+            cut_at = total - int(min(pause / 2, _CUT_BACK_S) * SAMPLE_RATE)
+        elif speech_s >= PIECE_MAX_S:
             cut_at = total
         if cut_at is None or cut_at <= self._piece_start:
             return
@@ -345,6 +357,7 @@ class Take:
         piece = _Piece(index=len(self._pieces), start=self._piece_start, end=end, early=early)
         self._pieces.append(piece)
         self._piece_start = end
+        self._speech_before_piece = self._mapper.speech_so_far_s
         if self._worker is None:
             self._worker = asyncio.get_running_loop().create_task(
                 self._read_pieces(), name="dictation-read"

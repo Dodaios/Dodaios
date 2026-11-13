@@ -169,20 +169,38 @@ async def test_a_key_tap_makes_no_recognizer_call(speech_by_loudness: None) -> N
 
 
 @pytest.mark.asyncio
-async def test_a_silent_piece_of_a_long_take_makes_no_call(
+async def test_silence_never_becomes_a_piece_of_its_own(
     speech_by_loudness: None, short_pieces: None
 ) -> None:
-    """Someone who stops talking for a while and then goes on: the silent
-    stretch in between is a piece of its own and is skipped."""
+    """Someone who stops talking for a long while and then goes on: however
+    long the silence, it makes no piece and no call. Only speech fills a
+    piece."""
     recognizer = _Scripted("one", "two")
-    recording = _speech(2.5) + _silence(5.0) + _speech(1.0)
+    recording = _speech(2.5) + _silence(60.0) + _speech(1.0)
 
     result = await read_recording(recording, [Recognizer("first", recognizer)])
 
-    assert result.pieces > 2
+    assert result.pieces == 2
     assert len(recognizer.calls) == 2
     assert result.text == "one two"
     assert result.error is None
+
+
+@pytest.mark.asyncio
+async def test_a_long_pause_before_little_speech_is_one_piece(
+    speech_by_loudness: None, short_pieces: None
+) -> None:
+    """A piece is cut by the speech it holds, not by the time that passed: a
+    few words after a long silence are not cut off in the middle."""
+    recognizer = _Scripted("words")
+    recording = _silence(30.0) + _speech(1.5) + _silence(1.0)
+
+    result = await read_recording(recording, [Recognizer("first", recognizer)])
+
+    assert result.pieces == 1
+    assert result.pieces_read_early == 0
+    assert len(recognizer.calls) == 1
+    assert recognizer.seconds_heard[0] < 3.0
 
 
 # --------------------------------------------------------------------------
@@ -319,7 +337,8 @@ async def test_a_recording_without_any_pause_is_still_cut(
     assert result.pieces == 2
     assert result.pieces_read_early == 1
     assert result.text == "one two"
-    assert recognizer.seconds_heard == [pytest.approx(3.0), pytest.approx(2.0)]
+    # Speech is counted in whole frames, so the cut falls a little after 3 s.
+    assert recognizer.seconds_heard == [pytest.approx(3.0, abs=0.2), pytest.approx(2.0, abs=0.2)]
 
 
 @pytest.mark.asyncio
@@ -959,9 +978,9 @@ async def test_a_take_started_without_recognizers_reads_once_they_arrive(
 ) -> None:
     """The microphone opens before the recognizers are known. A piece closed
     meanwhile waits for them instead of being counted as unreadable."""
-    monkeypatch.setattr(take_module, "PIECE_MIN_S", 1.0)
-    monkeypatch.setattr(take_module, "_CUT_LADDER", ((1.0, 0.9),))
-    monkeypatch.setattr(take_module, "PIECE_MAX_S", 1.0)
+    monkeypatch.setattr(take_module, "PIECE_MIN_S", 0.9)
+    monkeypatch.setattr(take_module, "_CUT_LADDER", ((0.9, 0.9),))
+    monkeypatch.setattr(take_module, "PIECE_MAX_S", 0.9)
     calls: list[int] = []
 
     class _Late:
@@ -1024,9 +1043,9 @@ async def test_half_a_sample_is_carried_to_the_next_chunk(speech_by_loudness: No
 async def test_finish_after_cancel_returns_what_there_is(
     monkeypatch: pytest.MonkeyPatch, speech_by_loudness: None
 ) -> None:
-    monkeypatch.setattr(take_module, "PIECE_MIN_S", 1.0)
-    monkeypatch.setattr(take_module, "_CUT_LADDER", ((1.0, 0.9),))
-    monkeypatch.setattr(take_module, "PIECE_MAX_S", 1.0)
+    monkeypatch.setattr(take_module, "PIECE_MIN_S", 0.9)
+    monkeypatch.setattr(take_module, "_CUT_LADDER", ((0.9, 0.9),))
+    monkeypatch.setattr(take_module, "PIECE_MAX_S", 0.9)
     release = asyncio.Event()
 
     class _Stuck:

@@ -163,10 +163,15 @@ async def _run(
 
 
 def _short_pieces(monkeypatch, seconds: float) -> None:
-    """Cut a recording every ``seconds``, so a short test recording has pieces."""
-    monkeypatch.setattr(take_mod, "PIECE_MIN_S", seconds)
-    monkeypatch.setattr(take_mod, "_CUT_LADDER", ((seconds, 0.9),))
-    monkeypatch.setattr(take_mod, "PIECE_MAX_S", seconds)
+    """Cut a recording every ``seconds`` of speech, so a short one has pieces.
+
+    Speech is counted in whole frames of 32 ms, so the limit sits a little
+    under the length of the scripted chunks.
+    """
+    limit = seconds - 0.1
+    monkeypatch.setattr(take_mod, "PIECE_MIN_S", limit)
+    monkeypatch.setattr(take_mod, "_CUT_LADDER", ((limit, 0.9),))
+    monkeypatch.setattr(take_mod, "PIECE_MAX_S", limit)
 
 
 @pytest.mark.asyncio

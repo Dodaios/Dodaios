@@ -125,6 +125,7 @@ class SpeechMapper:
         #: Frame-wise "speech" as judged while the audio arrived.
         self._live: list[bool] = []
         self._speaking = False
+        self._speech_frames = 0
         self._peak = 0.0
         self._total_samples = 0
         self._session = None
@@ -217,6 +218,7 @@ class SpeechMapper:
                         _ENERGY_ABSOLUTE_MIN, self._peak * _ENERGY_PEAK_SHARE
                     )
                 self._live.append(self._speaking)
+                self._speech_frames += self._speaking
             self._pending = data[usable:].copy()
         except Exception:  # noqa: BLE001 - a map is a help, never a gate
             log.debug("dictation speech map: a chunk could not be read", exc_info=True)
@@ -229,7 +231,12 @@ class SpeechMapper:
     @property
     def heard_speech(self) -> bool:
         """Whether any frame so far was judged speech."""
-        return any(self._live)
+        return self._speech_frames > 0
+
+    @property
+    def speech_so_far_s(self) -> float:
+        """Seconds judged speech since the recording began."""
+        return self._speech_frames * _FRAME / SAMPLE_RATE
 
     def silence_run_s(self) -> float:
         """How long the recording has been without speech at its end."""
