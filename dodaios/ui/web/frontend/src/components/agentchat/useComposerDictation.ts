@@ -53,12 +53,21 @@ import { useEventStore } from "@/store/events";
  * `stopAndSend` lets Send end a running dictation: the mic stops, and the
  * composer's `onSend` runs once the final transcript has landed in the box
  * (or after FINAL_WAIT_MS, so a transcript that never comes cannot strand
- * the message). It does the same while `finishing`, so a Send right after
+ * the message; FINAL_WAIT_SHOWN_MS while the box shows words whose final
+ * reading is still on its way). It does the same while `finishing`, so a Send right after
  * Stop goes out with the final words, not the quick reading. `onSend` is also
  * read through a ref, so the call made after the transcript lands sees the
  * box as it is then, not as it was at click.
  */
 const FINAL_WAIT_MS = 8000;
+/**
+ * How long Send waits when the box already shows the words of a dictation
+ * that is still being read. Those words are the quick reading; sending them
+ * after 8 s would put a rough draft in front of the assistant while the real
+ * transcript is seconds away (a local recognizer on a CPU needs 14 to 25 s
+ * for a long recording).
+ */
+const FINAL_WAIT_SHOWN_MS = 30_000;
 /** A final text that never comes must not keep the dictation forever. */
 const SETTLE_MAX_MS = 60_000;
 
@@ -198,9 +207,20 @@ export function useComposerDictation(setValue: Setter, onSend?: () => void) {
 
   const stopAndSend = useCallback(() => {
     if (sendTimerRef.current !== null) return;
-    sendTimerRef.current = setTimeout(flushSend, FINAL_WAIT_MS);
+    const asked = Date.now();
+    const giveUp = () => {
+      const state = useEventStore.getState();
+      const stillReading = state.dictationSettling && state.dictationOwner === id;
+      const waited = Date.now() - asked;
+      if (stillReading && shownRef.current && waited < FINAL_WAIT_SHOWN_MS) {
+        sendTimerRef.current = setTimeout(giveUp, FINAL_WAIT_SHOWN_MS - waited);
+        return;
+      }
+      flushSend();
+    };
+    sendTimerRef.current = setTimeout(giveUp, FINAL_WAIT_MS);
     if (useEventStore.getState().dictating) stop();
-  }, [flushSend, stop]);
+  }, [flushSend, id, stop]);
 
   return {
     dictating,

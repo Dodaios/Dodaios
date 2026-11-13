@@ -198,6 +198,38 @@ describe("useComposerDictation", () => {
     expect(sent).toEqual(["Ship it today."]);
   });
 
+  it("waits longer for the final words when the box already shows the quick reading", () => {
+    const { box, setValue } = makeBox("");
+    const sent: string[] = [];
+    const { result } = renderHook(() =>
+      useComposerDictation(setValue, () => sent.push(box.text)),
+    );
+    act(() => result.current.start());
+    interim("chip it to day");
+    act(() => result.current.stopAndSend());
+    act(() => vi.advanceTimersByTime(20_000));
+    expect(sent).toEqual([]);
+    final("Ship it today.");
+    act(() => vi.runOnlyPendingTimers());
+    expect(sent).toEqual(["Ship it today."]);
+  });
+
+  it("sends the shown words when the final ones do not come within half a minute", () => {
+    const { box, setValue } = makeBox("");
+    const sent: string[] = [];
+    const { result } = renderHook(() =>
+      useComposerDictation(setValue, () => sent.push(box.text)),
+    );
+    act(() => result.current.start());
+    interim("ship it today");
+    act(() => result.current.stopAndSend());
+    act(() => vi.advanceTimersByTime(29_999));
+    expect(sent).toEqual([]);
+    act(() => vi.advanceTimersByTime(1));
+    act(() => vi.runOnlyPendingTimers());
+    expect(sent).toEqual(["ship it today"]);
+  });
+
   it("still sends when no final transcript arrives", () => {
     const onSend = vi.fn();
     const { result } = renderHook(() => useComposerDictation(vi.fn(), onSend));
