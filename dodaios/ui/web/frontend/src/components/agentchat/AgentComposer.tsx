@@ -101,7 +101,8 @@ import "./composerPill.css";
  * round "+" and the permission stance as its glyph left of the box; right of
  * it the brain ("Opus 5.5 · High": provider mark and model, then the effort
  * word, each its own menu), dictation and one round white action that is a
- * call while the box is empty, Send once there is something to send, and
+ * call while the box is empty, Send once there is something to send (it
+ * takes the call's place; no Send while the box is empty, 2026-11-13), and
  * "Hang up" during a call (when the microphone button mutes the call). It has
  * no Stop button (maintainer, 2026-11-12): the word "stop", sent while the
  * assistant works, ends the turn (ChatCommands), and the box says so while
@@ -923,11 +924,28 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
                 idleClassName="h-9 w-9 [&>svg]:h-[18px] [&>svg]:w-[18px]"
               />
             )}
-            {/* Send is always there, last in the row, so the box reads as one
-                you can write into at any time: dimmed while there is nothing
-                to send. Beside it, while the box is empty, the call ("Hang
-                up" while one is on). No Stop here: the word "stop" stops. */}
-            {hasDraft ? null : voiceMode.live ? (
+            {/* One round action, last in the row: the call while the box is
+                empty ("Hang up" while one is on), Send the moment there is
+                something to send (maintainer, 2026-11-13). No Stop here: the
+                word "stop" stops. */}
+            {hasDraft ? (
+              <button
+                type="button"
+                onClick={() => (awaitingDictation ? stopDictationAndSend() : void onSend())}
+                disabled={!canSend && !canFinishDictation}
+                aria-label={t("agent_chat.send")}
+                title={t("agent_chat.send")}
+                data-testid="composer-send"
+                className={cn(
+                  ROUND_ACTION_CLASS,
+                  canSend || canFinishDictation
+                    ? "bg-foreground text-background hover:bg-foreground/85"
+                    : "bg-secondary text-faint-foreground",
+                )}
+              >
+                <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2.5} />
+              </button>
+            ) : voiceMode.live ? (
               <button
                 type="button"
                 onClick={voiceMode.exit}
@@ -957,22 +975,6 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
                 <AudioLines className="h-[18px] w-[18px]" />
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => (awaitingDictation ? stopDictationAndSend() : void onSend())}
-              disabled={!canSend && !canFinishDictation}
-              aria-label={t("agent_chat.send")}
-              title={t("agent_chat.send")}
-              data-testid="composer-send"
-              className={cn(
-                ROUND_ACTION_CLASS,
-                canSend || canFinishDictation
-                  ? "bg-foreground text-background hover:bg-foreground/85"
-                  : "bg-secondary text-faint-foreground",
-              )}
-            >
-              <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2.5} />
-            </button>
           </div>
         </div>
       ) : (
