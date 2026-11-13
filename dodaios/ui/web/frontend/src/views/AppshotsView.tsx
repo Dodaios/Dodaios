@@ -13,7 +13,9 @@ import {
   forgetAppshots,
   formatAppshotHotkey,
   latestAppshotImageUrl,
+  openInputMonitoringSettings,
   saveAppshotSettings,
+  shortcutsNeedInputMonitoring,
   takeAppshot,
   type AppshotMeta,
   type AppshotSettings,
@@ -52,6 +54,8 @@ function gestureKeyName(family: "alt" | "shift" | "ctrl"): string {
   return "Shift";
 }
 const TRY_DELAY_S = 3;
+/** How often the page re-reads the shortcut status while Input Monitoring is missing. */
+const INPUT_MONITORING_POLL_MS = 3000;
 
 export function AppshotGlyph({ className }: { className?: string }) {
   // Four camera-frame corners around a pill: "this window, captured".
@@ -258,6 +262,32 @@ export function AppshotsView() {
     return () => {
       active = false;
     };
+  }, [pushToast]);
+
+  // While the shortcuts wait for Input Monitoring, re-read their status so the
+  // notice goes away by itself once the person allows it in System Settings
+  // (the backend re-arms the listener on the grant).
+  const waitingForInputMonitoring = settings ? shortcutsNeedInputMonitoring(settings) : false;
+  useEffect(() => {
+    if (!waitingForInputMonitoring) return;
+    let active = true;
+    const timer = window.setInterval(() => {
+      fetchAppshotSettings()
+        .then((next) => active && setSettings(next))
+        .catch(() => undefined);
+    }, INPUT_MONITORING_POLL_MS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [waitingForInputMonitoring]);
+
+  const openInputMonitoring = useCallback(async () => {
+    try {
+      await openInputMonitoringSettings();
+    } catch (error) {
+      pushToast("error", (error as Error).message);
+    }
   }, [pushToast]);
 
   // Refetch the last appshot whenever the backend reports a new one, or an
@@ -490,6 +520,24 @@ export function AppshotsView() {
                     />
                   }
                 />
+                {waitingForInputMonitoring && (
+                  <div
+                    data-testid="appshots-input-monitoring"
+                    className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 bg-warning/10 px-5 py-4"
+                  >
+                    <p className="min-w-[min(100%,14rem)] flex-1 text-sm text-foreground">
+                      {t("appshots.input_monitoring_body")}
+                    </p>
+                    <Button
+                      size="sm"
+                      className="ml-auto shrink-0"
+                      data-testid="appshots-input-monitoring-open"
+                      onClick={() => void openInputMonitoring()}
+                    >
+                      {t("appshots.input_monitoring_open")}
+                    </Button>
+                  </div>
+                )}
                 <Row
                   label={t("appshots.shortcut_label")}
                   hint={fieldStatus.window ?? shortcutHint}

@@ -284,9 +284,13 @@ async def test_combo_status_tracks_waiting_grant_and_listener_shutdown(monkeypat
         assert not shortcut.status.armed
         await asyncio.sleep(0)
         assert "Input Monitoring" in shortcut.status.detail
+        # The settings page offers "Open System Settings" from this field.
+        assert shortcut.status.needs == "input_monitoring"
+        assert shortcut.status.to_json()["needs"] == "input_monitoring"
         shortcut._trigger.armed = True
         shortcut._trigger.needs_input_monitoring = False
         assert shortcut.status.armed
+        assert shortcut.status.needs == ""
         shortcut._trigger.armed = False
         assert not shortcut.status.armed
         assert gate.calls == []

@@ -63,9 +63,15 @@ class ShortcutStatus:
     hotkey: str
     armed: bool
     detail: str = ""
+    #: The permission the shortcut waits for (``"input_monitoring"``), or empty.
+    #: The settings page offers its fix from this, never from ``detail``'s text.
+    needs: str = ""
 
     def to_json(self) -> dict[str, Any]:
-        return {"hotkey": self.hotkey, "armed": self.armed, "detail": self.detail}
+        return {
+            "hotkey": self.hotkey, "armed": self.armed, "detail": self.detail,
+            "needs": self.needs,
+        }
 
 
 #: Status text for the both-Option gesture on a Mac. Its permission need is
@@ -189,12 +195,14 @@ class AppshotShortcut:
             return status
         if trigger.armed:
             return ShortcutStatus(status.hotkey, True)
-        detail = (
-            "The shortcut is waiting for Input Monitoring access."
-            if trigger.needs_input_monitoring
-            else "The global shortcut listener is not running."
-        )
-        return ShortcutStatus(status.hotkey, False, detail)
+        if trigger.needs_input_monitoring:
+            return ShortcutStatus(
+                status.hotkey,
+                False,
+                "The shortcut is waiting for Input Monitoring access.",
+                needs="input_monitoring",
+            )
+        return ShortcutStatus(status.hotkey, False, "The global shortcut listener is not running.")
 
     async def start(self) -> ShortcutStatus:
         self._loop = asyncio.get_running_loop()

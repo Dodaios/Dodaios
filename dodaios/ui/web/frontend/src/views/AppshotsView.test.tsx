@@ -274,6 +274,51 @@ describe("AppshotsView shortcut recorder", () => {
     await waitFor(() => expect(puts()).toEqual([{ region_hotkey: "shift+shift" }]));
   });
 
+  it("offers System Settings while the shortcuts wait for Input Monitoring, and drops it once allowed", async () => {
+    const waiting = {
+      ...SETTINGS,
+      hotkey: "a+z",
+      shortcut: {
+        hotkey: "a+z", armed: false, needs: "input_monitoring",
+        detail: "The shortcut is waiting for Input Monitoring access.",
+      },
+    };
+    let current: typeof SETTINGS | typeof waiting = waiting;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "/api/appshot/settings") return json(current);
+      if (url === "/api/permissions/input_monitoring/open-settings?dry_run=false") {
+        return json({ ok: true, performed: true });
+      }
+      return json({ appshot: null });
+    });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      render(<AppshotsView />);
+      fireEvent.click(await screen.findByTestId("appshots-input-monitoring-open"));
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.some(
+            ([url, init]) =>
+              url === "/api/permissions/input_monitoring/open-settings?dry_run=false" &&
+              (init as RequestInit | undefined)?.method === "POST",
+          ),
+        ).toBe(true),
+      );
+      // The person turns it on in System Settings; the backend re-arms.
+      current = SETTINGS;
+      await vi.advanceTimersByTimeAsync(3500);
+      await waitFor(() => expect(screen.queryByTestId("appshots-input-monitoring")).toBeNull());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows no Input Monitoring notice while the shortcuts are armed", async () => {
+    render(<AppshotsView />);
+    await screen.findByTestId("appshots-hotkey");
+    expect(screen.queryByTestId("appshots-input-monitoring")).toBeNull();
+  });
+
   it("offers the video recording shortcut beside the picture shortcuts", async () => {
     const withRecording = {
       ...SETTINGS,
