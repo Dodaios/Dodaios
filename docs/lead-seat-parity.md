@@ -19,10 +19,15 @@ fails when the seats drift.
   (`work_board`), the team relay (`ask_agent`), `product_help` and the Connect card.
 - The question card: `society_ask_user`, the tool a team agent asks with, is one of
   the chat's own hands (`society.ask_tool.lead_ask_tools`), so the lead asks the
-  person the same way on a brain seat and on every CLI seat. The doctrine sends a
-  question there instead of into the reply, and the ask-gate decides before any card
+  person the same way on a brain seat and on every CLI seat. The doctrine and the
+  chat's message rules send every question there, all of them in one call, instead
+  of into the reply, and the ask-gate decides before any card
   (`docs/agent-score.md`, "Asking component"). A call has no chat to show a card in
-  and asks aloud (`LEAD_ONLY_TOOLS`).
+  and asks aloud (`LEAD_ONLY_TOOLS`). On a Claude Code seat the tool is listed as
+  always loaded (`_meta` `anthropic/alwaysLoad`, `_ALWAYS_LOADED` in
+  `dodaios/mcp/dodaios_tools_server.py`): the CLI otherwise keeps the server's tools
+  behind its tool search, and with only the name in sight the lead wrote its
+  questions into the reply.
   A new coding agent opens as a chat thread; a terminal pane only when the person
   asks for one (`docs/agentic-ide-threads.md`).
 - The CLI preamble says: delegate through the Dodaios tools, do not use the vendor's

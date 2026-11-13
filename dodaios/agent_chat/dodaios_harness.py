@@ -115,7 +115,8 @@ CHAT_MESSAGES: Final[str] = (
     "twice in one turn.\n"
     "- The answer says the result and stops. For something you made (a file, a page, an "
     "artifact) give its name and where to find it, not a description of what is in it. "
-    "What you could not check takes one sentence. At most one question, last."
+    "What you could not check takes one sentence. A question you need answered is not a "
+    "message: it goes on the question card (society_ask_user), all your questions in one call."
 )
 
 _SHARED_PREAMBLE: Final[str] = (
