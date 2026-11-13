@@ -61,6 +61,7 @@ def _runtime(tmp_path: Path, svc: TeamChatFake) -> SocietyRuntime:
     rt = SocietyRuntime(tmp_path, chat_service=lambda: svc, cfg=lambda: cfg)
     leads = rt.team_leads
     leads._retry_delay = 0.02  # noqa: SLF001 — tests do not wait fifteen seconds
+    leads._retry_max_delay = 0.02  # noqa: SLF001 — nor for the backoff to grow
     leads._review_delay = 0.0  # noqa: SLF001
     leads._lead_retry = 0.02  # noqa: SLF001
     return rt

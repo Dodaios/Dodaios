@@ -87,7 +87,11 @@ RESULT_CHARS: Final[int] = 3_000
 #: Scheduler refusals that mean "not now" rather than "never".
 WAIT_REASONS: Final[frozenset[str]] = frozenset({"target_busy", "concurrency_cap"})
 RETRY_DELAY_S: Final[float] = 15.0
-MAX_WAIT_ATTEMPTS: Final[int] = 120
+#: The knock delay doubles from RETRY_DELAY_S up to this cap, so a member busy for
+#: an hour is asked a few dozen times instead of every fifteen seconds.
+RETRY_MAX_DELAY_S: Final[float] = 300.0
+#: With the backoff above, about two hours of waiting before the task is blocked.
+MAX_WAIT_ATTEMPTS: Final[int] = 30
 #: Results landing close together reach the lead as one review.
 REVIEW_DELAY_S: Final[float] = 1.5
 LEAD_RETRY_S: Final[float] = 10.0
@@ -95,6 +99,12 @@ MAX_LEAD_WAIT_ATTEMPTS: Final[int] = 90
 SWEEP_S: Final[float] = 60.0
 #: A task with no sign of life for this long is checked against the scheduler.
 STALL_MS: Final[int] = 3 * 60 * 1000
+
+
+def wait_retry_delay(base_s: float, attempts: int, cap_s: float = RETRY_MAX_DELAY_S) -> float:
+    """Seconds before a waiting task knocks again: ``base_s`` doubled per earlier knock, capped."""
+    return min(base_s * 2 ** min(attempts, 16), max(base_s, cap_s))
+
 
 CHECKIN_TAG: Final[str] = "team-checkin:"
 #: A check-in that may also set the team's next goal carries this tag too.
@@ -308,6 +318,7 @@ class TeamLeads:
         *,
         publish: Callable[[Any], Any] | None = None,
         retry_delay_s: float = RETRY_DELAY_S,
+        retry_max_delay_s: float = RETRY_MAX_DELAY_S,
         review_delay_s: float = REVIEW_DELAY_S,
         lead_retry_s: float = LEAD_RETRY_S,
         sweep_s: float = SWEEP_S,
@@ -315,6 +326,7 @@ class TeamLeads:
         self._rt = runtime
         self._publish = publish
         self._retry_delay = retry_delay_s
+        self._retry_max_delay = retry_max_delay_s
         self._review_delay = review_delay_s
         self._lead_retry = lead_retry_s
         self._sweep_s = sweep_s
@@ -1658,7 +1670,9 @@ class TeamLeads:
                 },
             )
             self._arm(
-                f"task:{task.task_id}", self._retry_delay, lambda: self._reassign(task.task_id)
+                f"task:{task.task_id}",
+                wait_retry_delay(self._retry_delay, task.attempts, self._retry_max_delay),
+                lambda: self._reassign(task.task_id),
             )
             await self._task_changed(task, news=False)
             return
