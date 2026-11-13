@@ -841,6 +841,39 @@ async def dodaios_read_free(session: Any, tool_name: str, tool_input: Any) -> bo
     return True
 
 
+#: How Claude Code marks the option it recommends: a suffix on the label.
+_CLAUDE_RECOMMENDED: Final[re.Pattern[str]] = re.compile(r"\s*\(recommended\)\s*$", re.I)
+
+
+def claude_question_rows(rows: list[Any]) -> list[Any]:
+    """Claude Code's ``AskUserQuestion`` rows as the question card reads them.
+
+    The CLI's model writes its recommendation into the label ("Via Singapore
+    (Recommended)"). The card has its own mark for that, on the first row: the
+    suffix comes off and the option is named as the recommended one, so the
+    card moves it to the front instead of showing the words twice, or the mark
+    on an option the model did not recommend.
+    """
+    out: list[Any] = []
+    for row in rows:
+        options = row.get("options") if isinstance(row, dict) else None
+        if not isinstance(options, list):
+            out.append(row)
+            continue
+        cleaned: list[Any] = []
+        recommended: int | None = None
+        for index, option in enumerate(options):
+            label = option.get("label") if isinstance(option, dict) else option
+            if isinstance(label, str) and _CLAUDE_RECOMMENDED.search(label):
+                label = _CLAUDE_RECOMMENDED.sub("", label)
+                option = {**option, "label": label} if isinstance(option, dict) else label
+                if recommended is None:
+                    recommended = index
+            cleaned.append(option)
+        out.append({**row, "options": cleaned, "recommended": recommended or 0})
+    return out
+
+
 def claude_stream_input(prompt: str) -> str:
     """One NDJSON user message for ``--input-format stream-json``."""
     return (
@@ -4040,6 +4073,10 @@ async def run_cli_turn(
             session.session_id, user_text, getattr(handle, "output_language", "")
         )
     handle = replace(handle, emit=observe, request_approval=ask)
+    if identity and session.surface == "jarvis" and not user_text.lstrip().startswith("/"):
+        # The assistant's own chat: where a question goes is said beside the
+        # message, not only in the system prompt (``QUESTION_CARD_LINE``).
+        user_text += dodaios_harness.QUESTION_CARD_LINE
     if getattr(handle, "output_language", "") and not user_text.startswith("/goal"):
         user_text += reply_language_line(session.surface, handle.output_language)
     ident: dodaios_harness.Identity | None = None
@@ -5036,7 +5073,7 @@ async def _drive_cli(
         raw = tool_input.get("questions")
         rows = raw if isinstance(raw, list) else []
         try:
-            specs = parse_questions({"questions": rows})
+            specs = parse_questions({"questions": claude_question_rows(rows)})
         except ValueError as exc:  # the error text goes back to the model in the deny message
             return {
                 "behavior": "deny",
