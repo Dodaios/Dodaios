@@ -482,3 +482,122 @@ async def test_idle_reference_bytes_expire_without_another_read():
             break
         await asyncio.sleep(0.01)
     assert not store._entries
+
+
+async def chat_with_picture(monkeypatch, tmp_path, ctx, data):
+    """A Dodaios chat whose first message carries ``data`` as a picture."""
+    from dodaios.agent_chat import attachments, runner_brain
+    from dodaios.agent_chat.service import AgentChatService
+    from dodaios.agent_chat.store import AgentChatStore
+
+    async def describe(readable):
+        return [DropAnalysis(name, reference, "image") for name, _, reference in readable]
+
+    monkeypatch.setattr(attachments, "_analyze", describe)
+    monkeypatch.setattr(runner_brain, "brain_manager", lambda: None)
+    attached = await attachments.ingest(tmp_path, uploads=[("source.png", data)])
+    service = AgentChatService(AgentChatStore(tmp_path / "chat.sqlite"))
+    chat = service.store.create_session(
+        provider="fakeprov", model="", effort="", cwd=str(tmp_path), surface="jarvis",
+    )
+    await service.send(chat.session_id, "This header looks wrong", [a.to_dict() for a in attached])
+    await service.cancel(chat.session_id)
+    [message] = [
+        event["payload"] for event in service.store.list_events(chat.session_id)
+        if event["kind"] == "user_message"
+    ]
+    ref = re.search(r"img_[0-9a-f]{32}", message["text"])[0]
+    chat_ctx = ExecutionContext(
+        ctx.trace_id, ctx.user_utterance, {"approval_ref": "agent-chat:" + chat.session_id}, None,
+    )
+    return service, chat.session_id, ref, attached[0], message, chat_ctx
+
+
+@pytest.mark.parametrize("restart", [False, True])
+async def test_chat_picture_goes_with_a_task_confirmed_later(
+    restart, delivery, monkeypatch, tmp_path, image_store
+):
+    store, now = image_store
+    _, registry, ctx = delivery
+    data = png()
+    service, session_id, ref, _item, message, chat_ctx = await chat_with_picture(
+        monkeypatch, tmp_path, ctx, data
+    )
+    assert message["visual_references"] and "valid in this conversation" in message["text"]
+    now[0] += 30 * 60  # The person talks it through for half an hour first.
+    if restart:
+        # An app restart empties the store; the next message registers the picture again.
+        monkeypatch.setattr(image_references, "_STORE", image_references.ImageReferences(
+            clock=lambda: now[0], schedule_expiry=False,
+        ))
+    await service.send(session_id, "Yes, send an agent")
+    await service.cancel(session_id)
+    current = image_references.get_store()
+    assert [row["id"] for row in current.available("chat:" + session_id)] == [ref]
+    # An earlier picture is offered, never forced on every later work order.
+    assert not current.available("chat:" + session_id, fresh_only=True)
+    result, _ = await assignment(delivery, chat_ctx, "create", [ref])
+    assert result.success, result
+    [image] = result.output["deliveries"][0]["images"]
+    assert Path(image["path"]).read_bytes() == data  # noqa: ASYNC240 - tiny local test image
+    assert Path(image["path"]).as_posix() in "".join(t for _, t in registry._pty.writes)
+
+
+async def test_earlier_chat_picture_asks_for_no_selection(
+    delivery, monkeypatch, tmp_path, image_store
+):
+    store, now = image_store
+    tool, registry, ctx = delivery
+    _service, session_id, ref, _item, _message, chat_ctx = await chat_with_picture(
+        monkeypatch, tmp_path, ctx, png()
+    )
+    fresh = await tool.execute({"action": "create", "prompt": "Fix it", "cli": "Codex"}, chat_ctx)
+    assert fresh.output["status"] == "image_selection_required"
+    now[0] += image_references.TTL_SECONDS + 1
+    later = await tool.execute(
+        {"action": "create", "prompt": "Fix it", "cli": "Codex", "workspace": "Personal Jarvis"},
+        chat_ctx,
+    )
+    assert later.output.get("status") != "image_selection_required", later
+    assert store.available("chat:" + session_id)[0]["id"] == ref
+
+
+async def test_changed_or_deleted_chat_picture_is_refused_later(
+    delivery, monkeypatch, tmp_path, image_store
+):
+    from dodaios.agentic_ide.drops import dereference
+
+    store, now = image_store
+    _, registry, ctx = delivery
+    _service, session_id, ref, item, _message, chat_ctx = await chat_with_picture(
+        monkeypatch, tmp_path, ctx, png()
+    )
+    now[0] += image_references.TTL_SECONDS + 1  # The bytes leave RAM; the file is read again.
+    (tmp_path / dereference(item.reference)).write_bytes(png("blue"))
+    with pytest.raises(image_references.ImageReferenceError, match="changed"):
+        store.resolve("chat:" + session_id, [ref])
+    (tmp_path / dereference(item.reference)).unlink()
+    result, _ = await assignment(delivery, chat_ctx, "create", [ref])
+    assert not result.success and "deleted" in result.error
+    assert not registry._pty.writes
+
+
+def test_refresh_offers_only_recent_pictures_inside_the_chat_folder(tmp_path, image_store):
+    from dodaios.agent_chat.attachments import refresh_handoffs
+
+    root = tmp_path / "chat"
+    (root / ".jarvis" / "drops").mkdir(parents=True)
+    (root / ".jarvis" / "drops" / "new.png").write_bytes(png())
+    (root / ".jarvis" / "drops" / "old.png").write_bytes(png("blue"))
+    (tmp_path / "private.png").write_bytes(png("green"))
+    day = 24 * 3600 * 1000
+    events = [
+        {"kind": "user_message", "ts_ms": 1, "payload": {
+            "visual_references": ['".jarvis/drops/old.png"']}},
+        {"kind": "user_message", "ts_ms": day + 10, "payload": {
+            "visual_references": ['"../private.png"', '".jarvis/drops/new.png"']}},
+    ]
+    refs = refresh_handoffs(str(root), events, session_id="s", now_ms=day + 20)
+    assert len(refs) == 1
+    [image] = image_store[0].resolve("chat:s", refs)
+    assert image.data == png()

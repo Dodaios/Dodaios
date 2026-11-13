@@ -13,9 +13,21 @@ creating a pane or sending a task. No global latest-appshot lookup is used.
   The regular tool loop and Live both deliver pixels as image input rather
   than serializing them as tool-result text.
 - Images on the current brain request receive IDs before tool routing.
-- A Dodaios chat upload registers the bytes of the images selected on that
-  message. Paths must resolve inside that chat's working folder. Missing,
-  oversized, unsupported or escaped files produce an unavailable notice.
+- A Dodaios chat upload registers the images selected on that message. Paths
+  must resolve inside that chat's working folder. Missing, oversized,
+  unsupported or escaped files produce an unavailable notice.
+- A chat upload keeps its ID for later messages of the same conversation: the
+  person often shows a screenshot, talks it through, and confirms the work
+  order a message later. The ID is derived from the conversation and the file,
+  so it is the same when a later message registers the picture again. Every
+  message to the Dodaios chat re-registers the pictures of its last 24 hours
+  (at most 20, listed as `visual_references` on their `user_message` events)
+  under the same folder checks, which also brings them back after an app
+  restart emptied the store. The bytes stay in RAM only for the first 120
+  seconds; afterwards a handoff reads the file again and refuses it when it was
+  deleted or its SHA-256 no longer matches. Only the current message's pictures
+  make a work order without `image_refs` ask for a selection; earlier ones are
+  listed in that answer but block nothing.
 - Appshots attached directly to a live call belong to that call's scope, in
   every live mode (backend thinking, native, and subscription). The ID rides
   beside the pixels wherever the call keeps them in model context, including
@@ -24,7 +36,7 @@ creating a pane or sending a task. No global latest-appshot lookup is used.
   IDs. A live-call reference lives as long as the call keeps the picture in
   context: closing the call clears it, and a one-hour bound expires a scope
   whose call never closed. Other captures retain their configured TTL; other
-  temporary references expire after 120 seconds. One active timer removes
+  temporary references (except chat uploads, above) expire after 120 seconds. One active timer removes
   expired bytes even when there are no later calls.
 
 The existing ToolExecutor authorization, capture denylist/redaction, coding
@@ -72,7 +84,9 @@ live-call appshot sources with new/existing sessions through the real workspace 
 gateway and registry into a fake PTY. It opens the delivered PNG, compares bytes,
 checks the typed file path, receipt and retry behavior, and covers multiple images,
 unrelated images, expiry, conversation isolation, invalid images, path traversal,
-prompt truncation, pane-specific worktrees and moving destinations. SFTP tests
+prompt truncation, pane-specific worktrees and moving destinations, and a chat
+picture that goes with a work order confirmed half an hour later, also after a
+restart, or is refused once its file changed or was deleted. SFTP tests
 exercise verified transfers and corrupt-read refusals using an isolated transport
 and a real in-process SSH/SFTP server bound to loopback.
 

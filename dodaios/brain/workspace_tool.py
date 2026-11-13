@@ -144,6 +144,8 @@ class WorkspaceOrchestrationTool:
         "out, never a read-only request unless the user asked for one (see prompt). "
         "For work based on an uploaded image or appshot, pass its actual image_refs. "
         "A description alone is insufficient. Select only images relevant to this task. "
+        "A picture from an earlier message of this chat keeps its ID for a day: pass it "
+        "when the user asks for or confirms the work a message later. "
         "The authorized handoff copies those images into the target workspace; "
         "missing or expired images refuse delivery. "
         "Never claim an image was sent without a receipt."
@@ -363,13 +365,15 @@ class WorkspaceOrchestrationTool:
 
         scope = scope_for(ctx.config, ctx.trace_id)
         if args.get("action") in {"send", "create", "open_workspace"} and args.get("prompt"):
-            available = get_store().available(scope)
-            if available and "image_refs" not in args:
+            # Only pictures of the message being answered ask for a choice; an
+            # earlier one of the chat stays selectable without blocking every
+            # later work order for a day.
+            if "image_refs" not in args and get_store().available(scope, fresh_only=True):
                 return ToolResult(
                     False,
                     {
                         "status": "image_selection_required",
-                        "available_images": available,
+                        "available_images": get_store().available(scope),
                     "reason": (
                         "Select the image_refs used by this work order; use [] only if this "
                         "task does not use any images. No task has been sent."
