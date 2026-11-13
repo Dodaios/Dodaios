@@ -6460,6 +6460,16 @@ class DesktopApp:
         except Exception:  # noqa: BLE001, S110 - the drag bridge is never load-bearing
             pass
 
+        # macOS share sheet for the Artifacts stage's "Share" button: the page
+        # posts a staged file and AppKit opens NSSharingServicePicker beside the
+        # button. A logged no-op elsewhere, where the stage downloads instead.
+        try:
+            from dodaios.ui.native_share import install_native_share
+
+            install_native_share()
+        except Exception:  # noqa: BLE001, S110 - the share bridge is never load-bearing
+            pass
+
         # macOS: Cmd+W goes to the page (closes a code-editor tab) instead of
         # closing the window; a logged no-op everywhere else. Before start().
         try:

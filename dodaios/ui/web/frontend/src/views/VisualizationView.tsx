@@ -1,20 +1,5 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import {
-  ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
-  Code2,
-  Download,
-  ExternalLink,
-  Eye,
-  Files,
-  FolderOpen,
-  Loader2,
-  Shapes,
-  ShieldCheck,
-  Star,
-  Workflow,
-} from "lucide-react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Shapes, ShieldCheck, Star } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { OutputPreview } from "@/components/visualization/OutputPreview";
@@ -25,6 +10,16 @@ import {
   RunStatusBadge,
   deliverableFiles,
 } from "@/components/visualization/RunPanels";
+import {
+  MenuChoice,
+  MenuHeading,
+  MenuItem,
+  MenuSeparator,
+  MoreMenu,
+  ShareMenu,
+  StageBar,
+  TitlePill,
+} from "@/components/visualization/ArtifactStageBar";
 import {
   ArtifactGallery,
   GALLERY_VIEWS,
@@ -55,7 +50,6 @@ import { useT } from "@/i18n";
 import { useArtifactFavorites } from "@/hooks/useArtifactFavorites";
 import { useFramedPageLinks } from "@/hooks/useFramedPageLinks";
 import { useThemeValue } from "@/hooks/useTheme";
-import { cn } from "@/lib/utils";
 import { artifactKind, isTextKind } from "@/lib/artifactKind";
 import { CapacityDecisionPanel } from "@/components/missions/CapacityDecisionPanel";
 import { isLivingSlug } from "@/components/visualization/livingPage";
@@ -265,12 +259,15 @@ export function VisualizationView() {
    * to the top, so this is not always `rows`. */
   const ordered = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
 
-  /* A `?run=<slug>` in the URL opens that run's newest artifact — what makes a
-   * detached window or a pasted link open on the page it talks about. Read
-   * once at mount; clicks own it after. */
+  /* A `?run=<slug>` in the URL opens that run's newest artifact (or the one
+   * `&artifact=` names) — what makes a detached window or a pasted link open
+   * on the page it talks about. Read once at mount; clicks own it after. */
   const [selection, setSelection] = useState<Selection>(() => {
-    const slug = new URLSearchParams(window.location.search).get("run");
-    return slug ? { slug, path: null } : null;
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get("run");
+    // `&artifact=<path>` names one file of the run — what the stage's
+    // "Copy link" writes, so the link opens exactly that artifact.
+    return slug ? { slug, path: params.get("artifact") || null } : null;
   });
 
   /*
@@ -370,13 +367,13 @@ export function VisualizationView() {
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           {target.building && target.run !== null ? (
             <>
-              <StageBar onBack={back} position={position} total={ordered.length} onStep={step} />
+              <StageBar onClose={back} />
               <RunCapacityDecision run={target.run} />
               <BuildingStage run={target.run} />
             </>
           ) : target.run === null && target.visual === null ? (
             <>
-              <StageBar onBack={back} position={-1} total={0} onStep={step} />
+              <StageBar onClose={back} />
               <EmptyStage loading={loading} error={error} />
             </>
           ) : (
@@ -460,72 +457,6 @@ interface StageNavigation {
   position: number;
   total: number;
   onStep: (delta: number) => void;
-}
-
-const BAR_BUTTON =
-  "inline-flex h-9 min-w-9 shrink-0 items-center justify-center gap-1.5 rounded-full px-2.5 text-base text-muted-foreground " +
-  "transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 " +
-  "focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 [&_svg]:h-[18px] [&_svg]:w-[18px] [&_svg]:shrink-0";
-
-/**
- * The stage's one bar: back to the library on the left, the stage's place in
- * it with previous / next on the right, and whatever the open item brings
- * (its name, its tabs, its actions) in between.
- */
-function StageBar({
-  onBack,
-  position,
-  total,
-  onStep,
-  children,
-}: StageNavigation & { children?: ReactNode }) {
-  const t = useT();
-  return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-2.5">
-      <button
-        type="button"
-        onClick={onBack}
-        title={t("visualization.back")}
-        aria-label={t("visualization.back")}
-        data-testid="visualization-back"
-        className={BAR_BUTTON}
-      >
-        <ArrowLeft aria-hidden />
-      </button>
-      {children ?? <span className="flex-1" />}
-      {position >= 0 && total > 1 && (
-        <div className="flex shrink-0 items-center">
-          <span className="px-2 text-sm tabular-nums text-foreground-faint">
-            {t("visualization.position")
-              .replace("{0}", String(position + 1))
-              .replace("{1}", String(total))}
-          </span>
-          <button
-            type="button"
-            onClick={() => onStep(-1)}
-            disabled={position === 0}
-            title={t("visualization.previous")}
-            aria-label={t("visualization.previous")}
-            data-testid="visualization-previous"
-            className={BAR_BUTTON}
-          >
-            <ChevronLeft aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={() => onStep(1)}
-            disabled={position >= total - 1}
-            title={t("visualization.next")}
-            aria-label={t("visualization.next")}
-            data-testid="visualization-next"
-            className={BAR_BUTTON}
-          >
-            <ChevronRight aria-hidden />
-          </button>
-        </div>
-      )}
-    </div>
-  );
 }
 
 /* ------------------------------------------------------------------------- */
@@ -678,144 +609,185 @@ function ArtifactToolbar({
       : null;
 
   const title = visual?.title ?? (run ? runTitle(run) : "");
-  const caption = [
+  // When and how big — the request is not repeated: it usually IS the title.
+  const request =
+    parsed?.request ||
+    (visual ? cleanRequest(visual.utterance) : run ? cleanRequest(run.utterance) : "");
+  const details = [
     visual ? formatWhen(visual.mtime) : run ? formatWhen(runWhen(run)) : "",
     visual ? formatSize(visual.size) : "",
     run && typeof run.duration_s === "number" ? `${run.duration_s.toFixed(1)} s` : "",
-    parsed?.request ||
-      (visual ? cleanRequest(visual.utterance) || visual.name : run ? cleanRequest(run.utterance) : ""),
+    request && request !== title ? request : "",
   ]
     .filter(Boolean)
     .join(" · ");
 
-  // Every run gets the same four tabs; Code is absent only when there is no
+  // Every run has the same views; Code is absent only when there is no
   // source to show (a picture, a run that left no text file).
-  const tabs: Array<{ id: StageMode; label: string; Icon: typeof Eye; show: boolean }> = [
-    {
-      id: "preview",
-      label: t("visualization.tab_preview"),
-      Icon: Eye,
-      show: visual !== null || run !== null,
-    },
+  const views: Array<{ id: StageMode; label: string; show: boolean }> = [
+    { id: "preview", label: t("visualization.tab_preview"), show: visual !== null || run !== null },
     {
       id: "code",
       label: t("visualization.tab_code"),
-      Icon: Code2,
       show: visual !== null ? visual.kind === "page" || visual.kind === "vector" : primary !== null,
     },
-    { id: "files", label: t("visualization.tab_files"), Icon: Files, show: run !== null },
-    { id: "run", label: t("visualization.tab_run"), Icon: Workflow, show: run !== null },
+    { id: "files", label: t("visualization.tab_files"), show: run !== null },
+    { id: "run", label: t("visualization.tab_run"), show: run !== null },
   ];
+  const shownViews = views.filter((view) => view.show);
+  const modeLabel = mode === "preview" ? undefined : views.find((view) => view.id === mode)?.label;
+  // A run that simply succeeded says nothing; anything else is worth a word.
+  const showStatus = run !== null && (run.status ?? "unknown") !== "success";
+  const { position, total, onStep } = nav;
+  const walkable = position >= 0 && total > 1;
 
   return (
-    <StageBar {...nav}>
-      <div className="min-w-0 flex-1 basis-64">
-        <div className="flex min-w-0 items-center gap-3">
-          <p
-            className="truncate text-xl font-semibold text-foreground-strong"
-            data-testid="visualization-title"
-          >
-            {title}
-          </p>
-          {run && <RunStatusBadge run={run} />}
+    <StageBar
+      onClose={nav.onBack}
+      center={
+        <>
+          <TitlePill
+            title={title}
+            picture={visual !== null && (visual.kind === "image" || visual.kind === "vector")}
+            suffix={modeLabel}
+            status={showStatus && run ? <RunStatusBadge run={run} /> : undefined}
+          />
           {run && <RunActions run={run} onJumpToRun={onJumpToRun} />}
-        </div>
-        <p className="truncate text-sm text-muted-foreground">{caption}</p>
-      </div>
+        </>
+      }
+      actions={
+        <>
+          <ShareMenu
+            target={{
+              slug: file?.slug ?? slug,
+              path: file?.path ?? null,
+              title,
+              page: visual?.kind === "page",
+            }}
+            pageExport={capabilities.data?.page_export === true}
+            theme={theme === "dark" ? "dark" : "light"}
+          />
+          <MoreMenu>
+            {(close) => (
+              <>
+                <MenuHeading title={title} detail={details} />
+                {shownViews.length > 1 && (
+                  <>
+                    <MenuSeparator />
+                    <div role="group" aria-label={t("visualization.stage_tabs")}>
+                      {shownViews.map((view) => (
+                        <MenuChoice
+                          key={view.id}
+                          chosen={mode === view.id}
+                          onSelect={() => {
+                            onMode(view.id);
+                            close();
+                          }}
+                          testId={`visualization-tab-${view.id}`}
+                        >
+                          {view.label}
+                        </MenuChoice>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <MenuSeparator />
+                {favoriteKey !== null && (
+                  <MenuItem
+                    onSelect={() => toggleFavorite(favoriteKey)}
+                    testId="visualization-favorite"
+                    trailing={favorite ? <Star className="h-4 w-4 shrink-0 fill-current text-warning" aria-hidden /> : null}
+                  >
+                    {t(favorite ? "visualization.favorite_remove" : "visualization.favorite_add")}
+                  </MenuItem>
+                )}
+                {mode === "run" && slug && (
+                  <MenuItem
+                    onSelect={() => {
+                      close();
+                      void openExternalUrl(`${window.location.origin}${missionMapUrl(slug)}`);
+                    }}
+                    testId="visualization-open-map"
+                  >
+                    {t("visualization.open_map_page")}
+                  </MenuItem>
+                )}
+                {externalUrl && (
+                  <MenuItem
+                    onSelect={() => {
+                      close();
+                      void openExternalUrl(`${window.location.origin}${externalUrl}`);
+                    }}
+                    testId="visualization-open-external"
+                  >
+                    {t("visualization.open_external")}
+                  </MenuItem>
+                )}
+                {file && (
+                  <a
+                    href={artifactDownloadUrl(file.slug, file.path)}
+                    download
+                    role="menuitem"
+                    onClick={close}
+                    data-testid="visualization-download"
+                    className="flex w-full items-center rounded-lg px-2.5 py-2 text-base text-foreground transition-colors hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none"
+                  >
+                    {t("visualization.download")}
+                  </a>
+                )}
+                {/* Desktop only: a headless host has no file manager to open. */}
+                {file && capabilities.data?.native_file_actions && (
+                  <MenuItem
+                    onSelect={() => {
+                      close();
+                      void onReveal();
+                    }}
+                    testId="visualization-reveal"
+                  >
+                    {t("visualization.reveal")}
+                  </MenuItem>
+                )}
+                {walkable && (
+                  <>
+                    <MenuSeparator />
+                    <MenuItem
+                      onSelect={() => onStep(-1)}
+                      disabled={position === 0}
+                      testId="visualization-previous"
+                      trailing={<Kbd>←</Kbd>}
+                    >
+                      {t("visualization.previous")}
+                    </MenuItem>
+                    <MenuItem
+                      onSelect={() => onStep(1)}
+                      disabled={position >= total - 1}
+                      testId="visualization-next"
+                      trailing={<Kbd>→</Kbd>}
+                    >
+                      {t("visualization.next")}
+                    </MenuItem>
+                    <p className="px-2.5 pb-1 pt-1.5 text-sm tabular-nums text-muted-foreground">
+                      {t("visualization.position")
+                        .replace("{0}", String(position + 1))
+                        .replace("{1}", String(total))}
+                    </p>
+                  </>
+                )}
+              </>
+            )}
+          </MoreMenu>
+        </>
+      }
+    />
+  );
+}
 
-      <div
-        role="tablist"
-        aria-label={t("visualization.stage_tabs")}
-        className="flex shrink-0 items-center gap-0.5 rounded-full bg-secondary p-1"
-      >
-        {tabs
-          .filter((tab) => tab.show)
-          .map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={mode === id}
-              onClick={() => onMode(id)}
-              data-testid={`visualization-tab-${id}`}
-              className={cn(
-                "inline-flex h-8 items-center gap-1.5 rounded-full px-3.5 text-base font-medium transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                mode === id
-                  ? "bg-background text-foreground-strong shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Icon className="h-4 w-4" aria-hidden />
-              {label}
-            </button>
-          ))}
-      </div>
-
-      <div className="flex shrink-0 items-center">
-        {favoriteKey !== null && (
-          <button
-            type="button"
-            aria-pressed={favorite}
-            onClick={() => toggleFavorite(favoriteKey)}
-            title={t(favorite ? "visualization.favorite_remove" : "visualization.favorite_add")}
-            aria-label={t(favorite ? "visualization.favorite_remove" : "visualization.favorite_add")}
-            data-testid="visualization-favorite"
-            className={BAR_BUTTON}
-          >
-            <Star className={cn(favorite && "fill-current text-warning")} aria-hidden />
-          </button>
-        )}
-        {mode === "run" && slug && (
-          <button
-            type="button"
-            onClick={() => void openExternalUrl(`${window.location.origin}${missionMapUrl(slug)}`)}
-            title={t("visualization.open_map_page_hint")}
-            data-testid="visualization-open-map"
-            className={BAR_BUTTON}
-          >
-            <Workflow aria-hidden />
-            {t("visualization.open_map_page")}
-          </button>
-        )}
-        {externalUrl && (
-          <button
-            type="button"
-            onClick={() => void openExternalUrl(`${window.location.origin}${externalUrl}`)}
-            title={t("visualization.open_external_hint")}
-            aria-label={t("visualization.open_external")}
-            data-testid="visualization-open-external"
-            className={BAR_BUTTON}
-          >
-            <ExternalLink aria-hidden />
-          </button>
-        )}
-        {file && (
-          <a
-            href={artifactDownloadUrl(file.slug, file.path)}
-            download
-            title={t("visualization.download")}
-            aria-label={t("visualization.download")}
-            className={BAR_BUTTON}
-          >
-            <Download aria-hidden />
-          </a>
-        )}
-        {/* Desktop only: a headless host has no file manager to open, so the
-            button is absent rather than dead. */}
-        {file && capabilities.data?.native_file_actions && (
-          <button
-            type="button"
-            onClick={() => void onReveal()}
-            title={t("visualization.reveal")}
-            aria-label={t("visualization.reveal")}
-            className={BAR_BUTTON}
-          >
-            <FolderOpen aria-hidden />
-          </button>
-        )}
-      </div>
-    </StageBar>
+/** A key hint beside a menu item. */
+function Kbd({ children }: { children: string }) {
+  return (
+    <kbd className="shrink-0 rounded border border-border px-1.5 font-sans text-sm text-muted-foreground">
+      {children}
+    </kbd>
   );
 }
 
