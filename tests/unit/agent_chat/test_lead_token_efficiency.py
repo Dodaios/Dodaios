@@ -255,7 +255,9 @@ async def test_long_lead_conversation_send_reads_only_the_tail(tmp_path, monkeyp
     real = store.list_events
 
     def spy(session_id, *, after_seq=0, tail=None):
-        reads.append(after_seq)
+        # A bounded tail read (the chat's earlier pictures) is not a full read.
+        if tail is None:
+            reads.append(after_seq)
         return real(session_id, after_seq=after_seq, tail=tail)
 
     monkeypatch.setattr(store, "list_events", spy)
