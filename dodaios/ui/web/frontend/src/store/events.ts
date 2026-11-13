@@ -585,6 +585,16 @@ interface EventStore {
   dictationText: string;
   dictationCommitSeq: number;
   dictationCommitText: string;
+  // The composer whose microphone button started the running dictation
+  // (its instance id), ``null`` for a dictation started any other way. That
+  // composer shows the words in its box while they are recognized and takes
+  // the final text itself; ``dictationCommitOwner`` is the owner of the
+  // dictation the last commit ended.
+  dictationOwner: string | null;
+  dictationCommitOwner: string | null;
+  // True from the owner's Stop until the final text is here: the microphone is
+  // closed, the last words are still being recognized.
+  dictationSettling: boolean;
   // Bumped on EVERY final transcript this window owns, whichever route it
   // took (pasted into the focused field, or committed to the composer). A
   // composer that ended a dictation with "send" waits on it.
@@ -636,7 +646,8 @@ interface EventStore {
   setBrainModel: (m: string) => void;
   setCodingMode: (m: CodingModeState) => void;
   setAssistantName: (name: string) => void;
-  setDictating: (b: boolean) => void;
+  setDictating: (b: boolean, owner?: string | null) => void;
+  settleDictation: () => void;
   setDictationInterim: (text: string) => void;
   commitDictation: (text: string) => void;
   noteDictationFinal: () => void;
@@ -712,6 +723,9 @@ export const useEventStore = create<EventStore>((set, get) => ({
   dictationText: "",
   dictationCommitSeq: 0,
   dictationCommitText: "",
+  dictationOwner: null,
+  dictationCommitOwner: null,
+  dictationSettling: false,
   dictationFinalSeq: 0,
   pendingTerminalCommand: null,
   cliConnectCoach: null,
@@ -928,8 +942,15 @@ export const useEventStore = create<EventStore>((set, get) => ({
 
   setAssistantName: (name) => set({ assistantName: name }),
 
-  setDictating: (b) =>
-    set(b ? { dictating: true, dictationText: "" } : { dictating: false }),
+  setDictating: (b, owner = null) =>
+    set(
+      b
+        ? { dictating: true, dictationText: "", dictationOwner: owner, dictationSettling: false }
+        : { dictating: false, dictationOwner: null, dictationSettling: false },
+    ),
+  // Stop pressed: the pill goes, the owner keeps waiting for its final text.
+  settleDictation: () =>
+    set((s) => ({ dictating: false, dictationSettling: s.dictationOwner !== null })),
   setDictationInterim: (text) => set({ dictationText: text }),
   noteDictationFinal: () =>
     set((s) => ({ dictationFinalSeq: s.dictationFinalSeq + 1 })),
@@ -937,6 +958,9 @@ export const useEventStore = create<EventStore>((set, get) => ({
     set((s) => ({
       dictationCommitText: text,
       dictationCommitSeq: s.dictationCommitSeq + 1,
+      dictationCommitOwner: s.dictationOwner,
+      dictationOwner: null,
+      dictationSettling: false,
       dictationText: "",
       dictating: false,
     })),

@@ -85,7 +85,8 @@ export function MeetingChat({ group, roster }: { group: SocietyChatGroup; roster
     }
   };
   const dictation = useComposerDictation((next) => {
-    const text = typeof next === "function" ? next(value) : next;
+    // The field, not `value`: readings of a dictation arrive between renders.
+    const text = typeof next === "function" ? next(fieldRef.current?.getDraft().text ?? value) : next;
     setValue(text);
     fieldRef.current?.setText(text);
   }, () => void submit());
@@ -144,13 +145,14 @@ export function MeetingChat({ group, roster }: { group: SocietyChatGroup; roster
         <ComposerChipField
           ref={fieldRef}
           placeholder={dictation.dictating ? t("chats_view.dictation_listening") : t("society.meeting.message")}
-          onSubmit={() => (dictation.dictating ? dictation.stopAndSend() : void submit())}
+          onSubmit={() => (dictation.awaitingText ? dictation.stopAndSend() : void submit())}
           onDraftChange={(draft) => setValue(draft.text)}
           className="max-h-[180px] pl-2"
         />
         <DictationButton
           dictating={dictation.dictating}
           onToggle={dictation.toggle}
+          disabled={dictation.micHeld}
           startLabel={t("society.chat.record")}
           stopLabel={t("society.chat.stop_recording")}
           shape="round"
@@ -162,8 +164,8 @@ export function MeetingChat({ group, roster }: { group: SocietyChatGroup; roster
             <Square className="h-3.5 w-3.5" aria-hidden />
           </button>
         ) : (
-          <button type="button" onClick={() => (dictation.dictating ? dictation.stopAndSend() : void submit())}
-            disabled={!canSend || (!value.trim() && !dictation.dictating)}
+          <button type="button" onClick={() => (dictation.awaitingText ? dictation.stopAndSend() : void submit())}
+            disabled={!canSend || (!value.trim() && !dictation.awaitingText)}
             aria-label={t("society.meeting.send")} title={t("society.meeting.send")}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-40">
             <Send className="h-3.5 w-3.5" aria-hidden />

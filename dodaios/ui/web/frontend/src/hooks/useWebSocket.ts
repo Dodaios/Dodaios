@@ -223,7 +223,7 @@ export function useWebSocket(): void {
             (env.payload as { layer?: unknown }).layer === "ui.web.dictation")
         ) {
           const store = useEventStore.getState();
-          if (store.dictating) store.setDictating(false);
+          if (store.dictating || store.dictationSettling) store.setDictating(false);
         }
 
         // Mission deck: cost, computer-use, capture, terminals, wiki, words.
@@ -439,7 +439,16 @@ export function useWebSocket(): void {
           // The server fans this event out to every connected UI. Background
           // tabs/windows are observers; letting each one update its own target
           // is how one utterance was pasted into several shared terminals.
-          if (!documentOwnsDictation()) {
+          //
+          // A composer of THIS window that started the dictation with its
+          // microphone button owns it, focused or not: the words were spoken
+          // into that box, and looking at another program while the last ones
+          // are recognized must not lose them.
+          const composerOwns = (() => {
+            const s = useEventStore.getState();
+            return s.dictationOwner !== null && (s.dictating || s.dictationSettling);
+          })();
+          if (!documentOwnsDictation() && !composerOwns) {
             if (p.is_final) useEventStore.getState().setDictationInterim("");
             return;
           }
@@ -447,7 +456,12 @@ export function useWebSocket(): void {
             useEventStore.getState().setDictationInterim(text);
           } else {
             const store = useEventStore.getState();
-            const forThisWindow = isForThisWindow(p, store.dictating);
+            // Recording, or stopped and waiting for exactly this text: the
+            // composer replaces the words it showed with the final ones.
+            const forThisWindow = isForThisWindow(
+              p,
+              store.dictating || store.dictationSettling,
+            );
             // Signalled after the text has landed (below), so a composer
             // sending on it reads the finished box.
             queueMicrotask(() => useEventStore.getState().noteDictationFinal());

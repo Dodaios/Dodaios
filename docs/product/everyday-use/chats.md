@@ -8,7 +8,7 @@ order: 1
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-07-30
+last_reviewed: 2026-11-13
 phase: "-"
 audience: end-user
 tags: [chat, conversations, history, context, files, voice]
@@ -104,9 +104,11 @@ inactive days.
 The microphone beside **Send** transcribes; it does not start a voice call:
 
 1. Place the caret in the composer and select **Dictate**.
-2. Speak during **Listening... speak now**. Interim words append to the current
-   draft.
-3. Select **Stop dictation**, review the text, then select **Send**.
+2. Speak during **Listening... speak now**. The words appear at the end of the
+   current draft while you speak; the newest ones can still change.
+3. Select **Stop dictation**. The final transcript replaces the words shown so
+   far. Review the text, then select **Send**. **Send** right after stopping
+   waits for the final transcript.
 
 Until **Send**, the Brain has not received the draft.
 

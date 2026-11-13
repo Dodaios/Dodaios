@@ -493,7 +493,7 @@ export function ThreadComposer({
 
   const submit = async () => {
     // Send during a dictation ends it first; the message goes once the words land.
-    if (dictation.dictating) {
+    if (dictation.awaitingText) {
       dictation.stopAndSend();
       return;
     }
@@ -582,7 +582,7 @@ export function ThreadComposer({
     rememberSeat(chat.getState().draft);
   };
 
-  const canSend = (value.trim().length > 0 || files.attachments.length > 0 || dictation.dictating) && files.analyzing === 0 && !starting;
+  const canSend = (value.trim().length > 0 || files.attachments.length > 0 || dictation.awaitingText) && files.analyzing === 0 && !starting;
   const error = problem || lastError || "";
 
   return <div className="selection-text-only mx-auto w-full max-w-3xl">
@@ -634,7 +634,7 @@ export function ThreadComposer({
           onPick={(permissionMode) => void pick({ permissionMode })} />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <DictationButton dictating={dictation.dictating} onToggle={() => { dictationOwner = threadKey; dictation.toggle(); }}
+          <DictationButton dictating={dictation.dictating} onToggle={() => { dictationOwner = threadKey; dictation.toggle(); }} disabled={dictation.micHeld}
             startLabel={t("chats_view.dictation_start")} stopLabel={t("chats_view.dictation_stop")} shape="round" />
           {running && !canSend
             ? <button type="button" aria-label={t("ide_threads.stop_agent")} title={t("ide_threads.stop")} data-testid="thread-stop"
