@@ -12592,6 +12592,7 @@ class SpeechPipeline:
                     raw_text,
                     language=effective_language,
                     fillers=bool(getattr(cfg, "remove_fillers", True)),
+                    paragraphs=bool(getattr(cfg, "auto_paragraphs", True)),
                     max_removed_fraction=float(
                         getattr(cfg, "filler_max_removed_fraction", 0.25)
                     ),

@@ -33,7 +33,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from dodaios.dictation.speech_map import SAMPLE_RATE, SpeechMapper, condense
+from dodaios.dictation.speech_map import SAMPLE_RATE, SpeechMapper, condense_marked
 
 log = logging.getLogger("dodaios.dictation.take")
 
@@ -55,6 +55,12 @@ PIECE_MAX_S = 100.0
 #: A cut lies at most this far back in the pause that allowed it, so the next
 #: piece starts with a little room tone and not with the whole pause.
 _CUT_BACK_S = 0.5
+
+#: A pause between two sentences at least this long starts a new paragraph.
+PARAGRAPH_PAUSE_S = 2.0
+#: How far a long pause may lie outside the gap between two recognized
+#: sentences and still belong to it: recognizer times are approximate.
+_PAUSE_SLACK_S = 0.35
 
 #: Less speech than this in a whole take is a key tap, not a dictation.
 MIN_SPEECH_S = 0.25
@@ -214,6 +220,54 @@ async def _transcribe(provider: Any, clip: bytes, language: str) -> Any:
         if "unexpected keyword argument" not in message or "language" not in message:
             raise
         return await provider.transcribe_pcm(clip)
+
+
+def _gap_around(spans: Sequence[tuple[int, int]], at: int) -> float:
+    """Seconds of silence around sample ``at`` between two stretches of speech."""
+    before = max((end for _start, end in spans if end <= at), default=None)
+    after = min((start for start, _end in spans if start >= at), default=None)
+    if before is None or after is None:
+        return 0.0
+    return (after - before) / SAMPLE_RATE
+
+
+def _paragraphs_at_pauses(text: str, transcript: Any, pauses: Sequence[float]) -> str:
+    """``text`` with a paragraph wherever the speaker stopped between sentences.
+
+    ``pauses`` are times in the clip where a long pause was (see
+    :func:`dodaios.dictation.speech_map.condense_marked`). A recognizer that
+    reports times for its segments tells which sentence ends before such a
+    pause; the next sentence then starts a paragraph. A recognizer without
+    times, or times that do not line up, leave the text as it is.
+    """
+    if not pauses or not text:
+        return text
+    timed: list[tuple[float, float, str]] = []
+    for segment in getattr(transcript, "segments", None) or ():
+        start = _segment_field(segment, "start")
+        end = _segment_field(segment, "end")
+        words = segment.get("text") if isinstance(segment, dict) else getattr(segment, "text", "")
+        if start is None or end is None or not str(words or "").strip():
+            continue
+        timed.append((start, end, str(words).strip()))
+    if len(timed) < 2:
+        return text
+    timed.sort(key=lambda item: item[0])
+
+    from dodaios.dictation.formatting import break_before_sentences, sentence_spans
+
+    breaks: set[int] = set()
+    sentences_so_far = 0
+    for current, following in zip(timed, timed[1:], strict=False):
+        sentences_so_far += max(1, len(sentence_spans(current[2])))
+        if not current[2].endswith((".", "!", "?")):
+            continue
+        if any(
+            current[1] - _PAUSE_SLACK_S <= pause <= following[0] + _PAUSE_SLACK_S
+            for pause in pauses
+        ):
+            breaks.add(sentences_so_far)
+    return break_before_sentences(text, breaks) if breaks else text
 
 
 def _language_tag(value: Any) -> str:
@@ -402,7 +456,7 @@ class Take:
         if speech.speech_s < MIN_SPEECH_S:
             piece.read = True
             return
-        clip = condense(raw, speech)
+        clip, long_pauses = condense_marked(raw, speech, mark_pause_s=PARAGRAPH_PAUSE_S)
         clip_s = len(clip) / _BYTES_PER_SECOND
         shortfall = int(_MIN_CLIP_S * SAMPLE_RATE) - len(clip) // 2
         if shortfall > 0:
@@ -445,7 +499,9 @@ class Take:
                 elapsed = time.perf_counter() - started
                 self._latency_s += elapsed
                 self._audio_sent_s += clip_s
-                piece.text = spoken_text(transcript)
+                piece.text = _paragraphs_at_pauses(
+                    spoken_text(transcript), transcript, long_pauses
+                )
                 piece.language = _language_tag(getattr(transcript, "language", ""))
                 piece.read = True
                 self._remember(recognizer, transcript)
@@ -530,7 +586,7 @@ class Take:
         lost_s = sum(
             self._mapper.speech_between(p.start, p.end) for p in self._pieces if p.lost
         )
-        text = " ".join(p.text for p in self._pieces if p.text).strip()
+        text = self._joined_text()
         error: str | None = None
         detail = ""
         if lost_s > 0 and self._first_error is not None:
@@ -558,6 +614,22 @@ class Take:
             audio_sent_s=self._audio_sent_s,
             detector=speech.detector,
         )
+
+    def _joined_text(self) -> str:
+        """The pieces' text in order; a long pause between two is a paragraph."""
+        spans = self._mapper.finish().spans
+        out = ""
+        previous_end = 0
+        for piece in self._pieces:
+            if not piece.text:
+                continue
+            if out:
+                gap = _gap_around(spans, previous_end)
+                ends_sentence = out.rstrip().endswith((".", "!", "?"))
+                out += "\n\n" if gap >= PARAGRAPH_PAUSE_S and ends_sentence else " "
+            out += piece.text.strip()
+            previous_end = piece.end
+        return out.strip()
 
     def cancel(self) -> None:
         """Stop reading. What was recorded stays available as :attr:`audio`."""

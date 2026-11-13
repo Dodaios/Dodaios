@@ -70,6 +70,54 @@ def supports_language(language: str | None) -> bool:
     return code in SUPPORTED_LANGUAGES
 
 
+#: How long the last token of a sentence is taken to last, for its end time.
+_TOKEN_S = 0.08
+
+
+def _sentence_segments(
+    tokens: Any, timestamps: Any, *, offset_s: float
+) -> tuple[dict[str, Any], ...]:
+    """The decoded sentences with their times in the clip, from token times.
+
+    The model reports the start of every token. A sentence ends at a token
+    that ends in ``.``, ``?`` or ``!``. Times are given relative to the clip
+    the caller passed, so the silence added in front is taken off again.
+    Anything that does not line up yields no segments, never a wrong one.
+    """
+    try:
+        pairs = list(zip(list(tokens), [float(t) for t in timestamps], strict=True))
+    except (TypeError, ValueError):  # no or mismatched times: no segments
+        return ()
+    segments: list[dict[str, Any]] = []
+    words: list[str] = []
+    start: float | None = None
+    last = 0.0
+    for token, at in pairs:
+        piece = str(token)
+        if start is None:
+            start = at
+        words.append(piece)
+        last = at
+        if piece.rstrip().endswith((".", "?", "!")):
+            segments.append(
+                {
+                    "start": max(0.0, start - offset_s),
+                    "end": max(0.0, last + _TOKEN_S - offset_s),
+                    "text": "".join(words).strip(),
+                }
+            )
+            words, start = [], None
+    if words and start is not None:
+        segments.append(
+            {
+                "start": max(0.0, start - offset_s),
+                "end": max(0.0, last + _TOKEN_S - offset_s),
+                "text": "".join(words).strip(),
+            }
+        )
+    return tuple(segment for segment in segments if segment["text"])
+
+
 class ParakeetLocalSTT:
     """Local one-pass speech-to-text via sherpa-onnx (keyless, on-device)."""
 
@@ -198,7 +246,8 @@ class ParakeetLocalSTT:
         stream = recognizer.create_stream()
         stream.accept_waveform(sample_rate, np.concatenate([lead, audio, tail]))
         recognizer.decode_stream(stream)
-        raw = str(getattr(stream.result, "text", "") or "").strip()
+        result = stream.result
+        raw = str(getattr(result, "text", "") or "").strip()
 
         from dodaios.plugins.stt.transcript_filter import clean_stt_text
 
@@ -209,6 +258,11 @@ class ParakeetLocalSTT:
             language=language,
             # The transducer reports no calibrated probability for a clip.
             confidence=1.0 if raw else 0.0,
+            segments=_sentence_segments(
+                getattr(result, "tokens", None) or (),
+                getattr(result, "timestamps", None) or (),
+                offset_s=_LEAD_SILENCE_S,
+            ),
         )
 
     async def aclose(self) -> None:

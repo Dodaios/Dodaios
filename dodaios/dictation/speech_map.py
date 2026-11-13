@@ -321,23 +321,63 @@ def condense(
     end, so the room tone around the words stays natural. With no speech
     mapped the result is empty.
     """
+    return condense_marked(
+        pcm, speech, max_pause_s=max_pause_s, shortened_pause_s=shortened_pause_s
+    )[0]
+
+
+def condense_marked(
+    pcm: bytes,
+    speech: SpeechMap,
+    *,
+    max_pause_s: float = 1.2,
+    shortened_pause_s: float = 0.5,
+    mark_pause_s: float = 2.0,
+) -> tuple[bytes, list[float]]:
+    """:func:`condense`, plus where its long pauses were.
+
+    The second value lists, in seconds of the condensed clip, the middle of
+    every pause that lasted at least ``mark_pause_s`` in the recording. Once
+    shortened, such a pause can no longer be told from an ordinary one in the
+    clip; the marks keep the fact that the speaker stopped for a while there,
+    which is where a new paragraph most likely begins.
+    """
     if not speech.spans:
-        return b""
+        return b"", []
     longest = max(0, int(max_pause_s * SAMPLE_RATE))
     half = max(0, int(shortened_pause_s * SAMPLE_RATE)) // 2
+    mark_at = max(0, int(mark_pause_s * SAMPLE_RATE))
     parts: list[bytes] = []
+    marks: list[float] = []
+    written = 0
     previous_end: int | None = None
     for start, end in speech.spans:
         if previous_end is not None:
-            if start - previous_end <= longest:
-                parts.append(pcm[previous_end * _BYTES_PER_SAMPLE : start * _BYTES_PER_SAMPLE])
+            gap = start - previous_end
+            if gap <= longest:
+                kept = pcm[previous_end * _BYTES_PER_SAMPLE : start * _BYTES_PER_SAMPLE]
             else:
                 cut = previous_end + half
-                parts.append(pcm[previous_end * _BYTES_PER_SAMPLE : cut * _BYTES_PER_SAMPLE])
-                parts.append(pcm[(start - half) * _BYTES_PER_SAMPLE : start * _BYTES_PER_SAMPLE])
-        parts.append(pcm[start * _BYTES_PER_SAMPLE : end * _BYTES_PER_SAMPLE])
+                kept = (
+                    pcm[previous_end * _BYTES_PER_SAMPLE : cut * _BYTES_PER_SAMPLE]
+                    + pcm[(start - half) * _BYTES_PER_SAMPLE : start * _BYTES_PER_SAMPLE]
+                )
+            if gap >= mark_at:
+                marks.append((written + len(kept) / _BYTES_PER_SAMPLE / 2) / SAMPLE_RATE)
+            parts.append(kept)
+            written += len(kept) // _BYTES_PER_SAMPLE
+        chunk = pcm[start * _BYTES_PER_SAMPLE : end * _BYTES_PER_SAMPLE]
+        parts.append(chunk)
+        written += len(chunk) // _BYTES_PER_SAMPLE
         previous_end = end
-    return b"".join(parts)
+    return b"".join(parts), marks
 
 
-__all__ = ["SAMPLE_RATE", "SpeechMap", "SpeechMapper", "condense", "map_speech"]
+__all__ = [
+    "SAMPLE_RATE",
+    "SpeechMap",
+    "SpeechMapper",
+    "condense",
+    "condense_marked",
+    "map_speech",
+]

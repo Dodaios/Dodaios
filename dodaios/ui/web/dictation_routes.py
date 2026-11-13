@@ -226,6 +226,7 @@ async def _format_restored_text(
             raw,
             language=language,
             fillers=bool(getattr(cfg, "remove_fillers", True)),
+            paragraphs=bool(getattr(cfg, "auto_paragraphs", True)),
             max_removed_fraction=float(
                 getattr(cfg, "filler_max_removed_fraction", 0.25)
             ),
@@ -431,6 +432,13 @@ class SettingsBody(BaseModel):
     paste_delay_after_ms: int | None = None
     restore_clipboard: bool | None = None
     remove_fillers: bool | None = None
+    auto_paragraphs: bool | None = Field(
+        default=None,
+        description=(
+            "Break a long dictation into paragraphs at long pauses, new topics "
+            "and sentence ends of long paragraphs"
+        ),
+    )
     filler_max_removed_fraction: float | None = None
     max_seconds: float | None = None
     local_engine: bool | None = Field(
