@@ -1,8 +1,11 @@
 /**
- * The two ways the Nodes library talks to the assistant.
+ * The ways the Nodes section talks to the assistant.
  *
  * `requestNewNode` SENDS: the reader said what the new node should be about,
  * and that sentence goes into the lead conversation as their own message.
+ *
+ * `sendNodeComment` SENDS too: a comment the reader left on a place of the
+ * node, with the text it was left on, so the assistant revises that place.
  *
  * `askDodaiosToChange` only DRAFTS: it opens the lead conversation with the
  * start of a sentence in the composer ("Change the node … : "), and the
@@ -16,6 +19,7 @@ import { fetchLeadSession, sendAgentChatMessage } from "@/lib/agentChatApi";
 import { useAgentChatStore } from "@/store/agentChat";
 import { useEventStore } from "@/store/events";
 import { useHomeStore } from "@/store/home";
+import type { NodeComment } from "./nodeBridge";
 import type { NodeCard, NodeType } from "./nodeModel";
 import { NODE_TYPE_LABEL_KEY } from "./nodeTheme";
 
@@ -34,6 +38,29 @@ export function newNodeRequestText(type: NodeType, text: string): string {
 export async function requestNewNode(type: NodeType, text: string): Promise<void> {
   const session = await fetchLeadSession();
   await sendAgentChatMessage(session.session_id, newNodeRequestText(type, text));
+}
+
+/**
+ * The message that asks for the change a comment describes: the node, the
+ * text the comment was left on, where that is in the node, and the comment.
+ */
+export function nodeCommentText(card: NodeCard, comment: Pick<NodeComment, "text" | "quote" | "where">): string {
+  let place = comment.quote === "" ? "" : translate("nodes.comment.at").replace("{0}", () => comment.quote);
+  if (comment.where !== "") place += ` (${comment.where})`;
+  return translate("nodes.comment.request")
+    .replace("{0}", () => card.title)
+    .replace("{1}", () => card.id ?? card.key)
+    .replace("{2}", () => place)
+    .replace("{3}", () => comment.text.trim());
+}
+
+/** Send a comment on a node to the assistant, as the reader's own message. Rejects when it could not be sent. */
+export async function sendNodeComment(
+  card: NodeCard,
+  comment: Pick<NodeComment, "text" | "quote" | "where">,
+): Promise<void> {
+  const session = await fetchLeadSession();
+  await sendAgentChatMessage(session.session_id, nodeCommentText(card, comment));
 }
 
 /** The start of the sentence that asks for a change to `card`. */

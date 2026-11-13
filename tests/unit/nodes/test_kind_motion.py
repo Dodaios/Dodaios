@@ -272,7 +272,7 @@ def test_no_text_from_a_spec_reaches_the_page_unescaped(attack: str) -> None:
     assert "<img src=x" not in page
     assert '"><img src=x' not in page
     # The page's own scripts are the theme stamp and the player, nothing else.
-    assert [tag for tag, _ in parsed.tags].count("script") == 2
+    assert [tag for tag, _ in parsed.tags].count("script") == 3
     assert not any("alert(1)" in script for script in parsed.scripts)
     assert not any(name.startswith("on") for _, attrs in parsed.tags for name in attrs)
     pictures = [attrs for tag, attrs in parsed.tags if tag == "img"]

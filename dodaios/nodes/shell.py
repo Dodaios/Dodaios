@@ -19,6 +19,7 @@ from html import escape
 from typing import Any, Final
 
 from dodaios.artifacts.design_guide import PAGE_JS, THEME_BOOTSTRAP_JS, THEME_CSS
+from dodaios.nodes.bridge import BRIDGE_CSS, BRIDGE_JS
 
 #: Schemes a link in a node may carry. Everything else is dropped to text.
 _LINK_SCHEMES: Final[tuple[str, ...]] = ("https://", "http://", "mailto:")
@@ -274,7 +275,11 @@ def document(
             handles its own pointer events.
     """
     language = attr(getattr(node, "language", "") or "en")
-    scripts = f"<script>{RELATIVE_TIME_JS}</script>" if getattr(node, "track", "") else ""
+    # The bridge comes first: in comment mode its listeners take a click
+    # before any control of the page does (:mod:`dodaios.nodes.bridge`).
+    scripts = f"<script>{BRIDGE_JS}</script>"
+    if getattr(node, "track", ""):
+        scripts += f"<script>{RELATIVE_TIME_JS}</script>"
     if kit_js:
         scripts += f"<script>{PAGE_JS}</script>"
     if js:
@@ -289,7 +294,7 @@ def document(
         f'<meta name="dodaios-node" content="{attr(node.id)}">'
         f'<meta name="dodaios-node-type" content="{attr(node.type)}">'
         f"<script>{THEME_BOOTSTRAP_JS}</script>"
-        f"<style>{THEME_CSS}{NODE_CSS}{css}</style>"
+        f"<style>{THEME_CSS}{NODE_CSS}{BRIDGE_CSS}{css}</style>"
         f"</head><body{klass}>"
         f"{body}"
         f"{scripts}"

@@ -8,6 +8,7 @@ import pytest
 
 from dodaios.artifacts.design_guide import PAGE_JS
 from dodaios.nodes import shell
+from dodaios.nodes.bridge import BRIDGE_CSS, BRIDGE_JS
 from dodaios.nodes.model import Node
 
 
@@ -290,10 +291,29 @@ def test_document_options_add_the_types_own_parts() -> None:
         kit_js=False,
     )
     assert '<body class="fill"><main>x</main>' in page
-    assert f"{shell.NODE_CSS}.deck{{color:red}}</style>" in page
+    assert f"{shell.NODE_CSS}{BRIDGE_CSS}.deck{{color:red}}</style>" in page
     assert PAGE_JS not in page
     assert page.endswith("<script>window.deck=1;</script></body></html>\n")
 
 
 def test_document_falls_back_to_english() -> None:
     assert '<html lang="en">' in shell.document(_node(language=""), body="")
+
+
+def test_every_page_carries_the_comment_bridge_before_its_own_scripts() -> None:
+    page = shell.document(_node(), body="<main>x</main>", js="window.own=1;")
+
+    assert f"<script>{BRIDGE_JS}</script>" in page
+    # First among the page's scripts: in comment mode it takes a click before
+    # any control of the page does.
+    assert page.index(BRIDGE_JS) < page.index(PAGE_JS) < page.index("window.own=1;")
+    assert BRIDGE_CSS in page
+
+
+def test_the_bridge_reaches_nothing_but_its_parent() -> None:
+    # No network, no storage, and no markup built from a message.
+    for word in ("fetch(", "XMLHttpRequest", "localStorage", "sessionStorage", "http://", "https://"):
+        assert word not in BRIDGE_JS
+    assert BRIDGE_JS.count("innerHTML") == 1  # the send arrow, a constant
+    assert "e.source!==up" in BRIDGE_JS
+    assert "</script" not in BRIDGE_JS.lower()

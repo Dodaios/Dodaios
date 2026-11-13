@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Shapes, ShieldCheck, Star } from "lucide-react";
+import { Loader2, MessageSquarePlus, Shapes, ShieldCheck, Star } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { OutputPreview } from "@/components/visualization/OutputPreview";
@@ -26,7 +26,8 @@ import {
   runWhen,
 } from "@/components/visualization/galleryModel";
 import { NodesLibrary } from "@/components/nodes/NodesLibrary";
-import { askDodaiosToChange } from "@/components/nodes/askDodaios";
+import { askDodaiosToChange, sendNodeComment } from "@/components/nodes/askDodaios";
+import { useNodeBridge, type NodeComment } from "@/components/nodes/nodeBridge";
 import { isNodeSlug, isTypedNode, type NodeCard } from "@/components/nodes/nodeModel";
 import { useNodesLibrary } from "@/components/nodes/useNodesLibrary";
 import { useT } from "@/i18n";
@@ -416,6 +417,28 @@ function Stage({
   useEffect(() => {
     setMode("preview");
   }, [currentId]);
+
+  /* Comment mode: a click on the node's page drops a pin with a field, and
+   * what is written there goes to the assistant, which revises the node. Only
+   * a typed node takes comments (its page carries the other half of this,
+   * and the assistant can revise it), and only while its page is shown. */
+  const canComment = node !== null && visual?.kind === "page" && mode === "preview";
+  const [commenting, setCommenting] = useState(false);
+  useEffect(() => setCommenting(false), [currentId]);
+  useEffect(() => {
+    if (!canComment) setCommenting(false);
+  }, [canComment]);
+  // Escape leaves the comment mode first, and the stage only after that.
+  useEffect(() => {
+    if (!commenting) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      setCommenting(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [commenting]);
   const openFile = useCallback((path: string) => {
     setFilesPath(path);
     setMode("files");
@@ -428,6 +451,7 @@ function Stage({
         visual={visual}
         primary={primary}
         node={node}
+        comment={canComment ? { on: commenting, onToggle: () => setCommenting((on) => !on) } : null}
         mode={mode}
         onMode={setMode}
         onJumpToRun={onJumpToRun}
@@ -435,7 +459,9 @@ function Stage({
       />
       {run && <RunCapacityDecision run={run} />}
       <div className="min-h-0 flex-1" data-testid="visualization-stage">
-        {mode === "preview" && visual && <ArtifactStage visual={visual} />}
+        {mode === "preview" && visual && (
+          <ArtifactStage visual={visual} node={node} commenting={commenting && canComment} />
+        )}
         {mode === "preview" && !visual && run && (
           <OutputPreview key={run.slug} run={run} onOpenFile={openFile} />
         )}
@@ -468,6 +494,7 @@ function ArtifactToolbar({
   visual,
   primary,
   node,
+  comment,
   mode,
   onMode,
   onJumpToRun,
@@ -478,6 +505,8 @@ function ArtifactToolbar({
   /** The output's primary text file when the run drew no page. */
   primary: ArtifactSummary | null;
   node: NodeCard | null;
+  /** The comment mode's switch, or null where nothing takes comments. */
+  comment: { on: boolean; onToggle: () => void } | null;
   mode: StageMode;
   onMode: (mode: StageMode) => void;
   onJumpToRun: (slug: string) => void;
@@ -567,6 +596,24 @@ function ArtifactToolbar({
       }
       actions={
         <>
+          {comment && (
+            <button
+              type="button"
+              aria-pressed={comment.on}
+              onClick={comment.onToggle}
+              data-testid="visualization-comment"
+              className={
+                "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full border px-4 text-base " +
+                "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+                (comment.on
+                  ? "border-transparent bg-primary text-primary-foreground"
+                  : "border-border/70 text-foreground hover:bg-secondary")
+              }
+            >
+              <MessageSquarePlus className="h-4 w-4" aria-hidden />
+              {t("nodes.comment.toggle")}
+            </button>
+          )}
           <ShareMenu
             target={{
               slug: file?.slug ?? slug,
@@ -725,7 +772,17 @@ function Kbd({ children }: { children: string }) {
  * that viewer is a plugin and plugins never load inside a sandboxed frame, so
  * its frame is not sandboxed — the bytes are same-origin and inert.
  */
-function ArtifactStage({ visual }: { visual: VisualArtifact }) {
+function ArtifactStage({
+  visual,
+  node = null,
+  commenting = false,
+}: {
+  visual: VisualArtifact;
+  /** The typed node this page belongs to, or null for anything adopted. */
+  node?: NodeCard | null;
+  /** The page takes comments (see `Stage`). */
+  commenting?: boolean;
+}) {
   const t = useT();
   /* The page follows the APP's theme, not the OS's: the artifact brief has every
    * page stamp `data-theme` from this query (design_guide.THEME_BOOTSTRAP_JS),
@@ -739,6 +796,29 @@ function ArtifactStage({ visual }: { visual: VisualArtifact }) {
   const id = visualId(visual);
   // A new file must not inherit the previous file's failure verdict.
   useEffect(() => setFailed(false), [id]);
+
+  /* Comments sent and not yet worked in. The node's next revision answers
+   * them: the page is drawn again then, and the line below goes quiet. */
+  const [working, setWorking] = useState(0);
+  useEffect(() => setWorking(0), [id, livingVersion]);
+  const onComment = useCallback(
+    async (comment: NodeComment) => {
+      if (node === null) throw new Error("no node takes this comment");
+      await sendNodeComment(node, comment);
+      setWorking((count) => count + 1);
+    },
+    [node],
+  );
+  useNodeBridge(pageFrame, {
+    commenting: commenting && node !== null,
+    labels: {
+      placeholder: t("nodes.comment.placeholder"),
+      send: t("nodes.comment.send"),
+      sent: t("nodes.comment.sent"),
+      failed: t("nodes.comment.failed"),
+    },
+    onComment,
+  });
 
   if (failed) {
     return (
@@ -796,9 +876,30 @@ function ArtifactStage({ visual }: { visual: VisualArtifact }) {
           sandbox="allow-scripts"
           className="min-h-0 w-full flex-1 border-0 bg-background"
         />
-        <p className="flex shrink-0 items-center gap-1.5 border-t border-border px-4 py-1.5 text-sm text-muted-foreground">
-          <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden />
-          {t("visualization.page_sandbox_note")}
+        <p
+          className="flex shrink-0 items-center gap-1.5 border-t border-border px-4 py-1.5 text-sm text-muted-foreground"
+          data-testid="visualization-page-note"
+          data-state={working > 0 ? "working" : commenting ? "commenting" : "idle"}
+          aria-live="polite"
+        >
+          {working > 0 ? (
+            <>
+              <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />
+              {working === 1
+                ? t("nodes.comment.working")
+                : t("nodes.comment.working_many").replace("{0}", String(working))}
+            </>
+          ) : commenting ? (
+            <>
+              <MessageSquarePlus className="h-3 w-3 shrink-0" aria-hidden />
+              {t("nodes.comment.hint")}
+            </>
+          ) : (
+            <>
+              <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden />
+              {t("visualization.page_sandbox_note")}
+            </>
+          )}
         </p>
       </div>
     );
