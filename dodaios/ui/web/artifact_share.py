@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import contextlib
 import json
 import logging
 import os
@@ -327,8 +326,12 @@ async def _draw(socket_url: str, html: bytes, fmt: Literal["pdf", "png"], theme:
             return base64.b64decode(result.get("data", ""))
         finally:
             pump.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
+            try:
                 await pump
+            except asyncio.CancelledError:  # the reader was cancelled just above
+                pass
+            except Exception as exc:  # noqa: BLE001 — the socket closing under the reader
+                log.debug("artifact_share: DevTools reader ended: %s", exc)
 
 
 def _run_browser_export(browser: str, html: bytes, fmt: Literal["pdf", "png"], theme: str) -> bytes:
@@ -367,7 +370,7 @@ def _run_browser_export(browser: str, html: bytes, fmt: Literal["pdf", "png"], t
         process.terminate()
         try:
             process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired:  # a browser that ignores terminate is killed
             process.kill()
         shutil.rmtree(profile, ignore_errors=True)
 

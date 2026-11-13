@@ -88,7 +88,7 @@ def allowed_files(paths: Sequence[str], base: Path) -> list[str]:
     for raw in paths:
         try:
             resolved = Path(raw).resolve()
-        except OSError:
+        except OSError:  # an unreadable path is simply not shared
             continue
         if not resolved.is_file() or root not in resolved.parents:
             log.debug("native_share: %r is not a staged file, skipped", raw)
