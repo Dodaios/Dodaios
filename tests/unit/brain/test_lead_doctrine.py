@@ -48,7 +48,10 @@ def test_the_doctrine_is_short_and_says_what_the_lead_must_do() -> None:
         "await_jobs",
         "verify_delegate",
         "memory before you ask",
-        "one question at a time",
+        # A question goes on the card, all of them in one call, never into the reply.
+        "question card",
+        "society_ask_user with all of them in one call",
+        "never write them into your reply",
         "evidence",
         "never speak uncalled",
     ):

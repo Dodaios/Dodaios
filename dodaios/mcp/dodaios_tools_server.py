@@ -96,6 +96,16 @@ _WITHHELD: Final[frozenset[str]] = frozenset(
     }
 )
 
+#: Tools a Claude Code seat keeps in its prompt instead of behind its tool search.
+#: The CLI defers the tools of a large server: the model then sees only their
+#: names and has to search before it can call one. The ask tool is the one hand
+#: the model reaches for instead of writing: with only its name in sight the
+#: lead wrote its questions into the reply (live 2026-11-13) and no question
+#: card came up. The CLI reads the mark from the tool's ``_meta``; other seats
+#: ignore it.
+_ALWAYS_LOADED: Final[frozenset[str]] = frozenset({"society_ask_user"})
+_ALWAYS_LOAD_META: Final[dict[str, Any]] = {"anthropic/alwaysLoad": True}
+
 #: Native names stay unchanged. Imported MCP names use server/tool internally;
 #: only this outgoing transport projects them to a portable wire name.
 _NAME_OK = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
@@ -339,6 +349,7 @@ def build_server() -> Any:
                     ),
                     inputSchema=schema,
                     annotations=types.ToolAnnotations(readOnlyHint=_read_only(entry)),
+                    _meta=dict(_ALWAYS_LOAD_META) if str(entry.name) in _ALWAYS_LOADED else None,
                 )
             )
         return tools

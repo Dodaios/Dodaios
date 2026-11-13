@@ -11,6 +11,9 @@ Three guarantees keep work moving and asking rare:
   recommendations, and the agent is told so. Closing the card does the same.
 * At most four questions per call and two calls per turn; beyond that the
   agent gets its own recommendations back instead of another card.
+* A gate decides before any card (``agent_chat/ask_gate.py``): memory answers
+  what it holds, a confident reversible action goes ahead, and every question
+  left is shown on one card the person clicks through.
 * A routine never asks. Its chat is unattended by design, so the tool is not
   offered there (``society_tools``) and refuses to wait if called anyway.
 
@@ -133,11 +136,13 @@ class AskUserTool:
         "this tool again with only wait_for set to that id, and do nothing else meanwhile. "
         "A gate runs before any card: it answers from memory when memory already holds the "
         "answer, applies your recommendation when the pending action is reversible and you "
-        "are confident, and asks ONE question at a time otherwise. Say what you are doing "
-        "with pending_action (tool, action), confidence (0-1, your confidence in your "
-        "recommendation) and missing_required (true when the action cannot run without the "
-        "answer). A result with status not_asked means no card was shown: act on it, state "
-        "the assumption in your reply and verify cheaply."
+        "are confident, and shows every question left on one card the user clicks through. "
+        "Say what you are doing with pending_action (tool, action), confidence (0-1, your "
+        "confidence in your recommendation) and missing_required (true when the action "
+        "cannot run without the answer). Set user_asked when the user asked you to ask them "
+        "(\"ask me what you need to know\"): then the questions are the task and are shown. "
+        "A result with status not_asked means no card was shown: act on it, state the "
+        "assumption in your reply and verify cheaply."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -170,6 +175,10 @@ class AskUserTool:
             "missing_required": {
                 "type": "boolean",
                 "description": "True when a required parameter of the action is missing.",
+            },
+            "user_asked": {
+                "type": "boolean",
+                "description": "True when the user asked you to ask them these questions.",
             },
             "wait_for": {
                 "type": "string",
@@ -261,6 +270,7 @@ class AskUserTool:
             ),
             missing_required=args.get("missing_required") is True,
             clarify_enabled=self._clarify_enabled(),
+            requested=args.get("user_asked") is True,
         )
         result = ask_gate.decide(specs, ctx, _safe_search())
         row_ids: list[str] = []
@@ -452,7 +462,7 @@ def _safe_search() -> ask_gate.MemorySearch | None:
 
 _GATE_NOTE: Final[str] = (
     "Not asked (answered from memory, or your recommendation applied): state each assumption "
-    "in your reply and verify it cheaply. One question at a time."
+    "in your reply and verify it cheaply."
 )
 
 _NOBODY: Final[str] = (

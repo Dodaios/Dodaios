@@ -446,6 +446,48 @@ def test_claude_asks_on_the_question_card_and_reads_the_answers(
     ]
 
 
+def test_claudes_recommended_suffix_becomes_the_cards_own_mark(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    question = {
+        "question": "How should I fly from Bali to San Francisco?",
+        "header": "Route",
+        "options": [
+            {"label": "Fastest connection", "description": "Any stop"},
+            {"label": "Via Singapore (Recommended)", "description": "Nonstop from there"},
+            {"label": "With a stopover"},
+        ],
+        "multiSelect": False,
+    }
+
+    async def ask_first(self: Any, session_id: str, specs: Any, **_: Any) -> list[QuestionAnswer]:
+        self.asked.append(specs)
+        return [QuestionAnswer(specs[0].options[0].label, 0, "person")]
+
+    monkeypatch.setattr(_FakeChat, "ask_questions", ask_first)
+    answers, chat, _ = _claude_turn(
+        monkeypatch,
+        tmp_path,
+        [_can_use("AskUserQuestion", {"questions": [question]})],
+        mode="default",
+    )
+    ((spec,),) = chat.asked
+    # The recommended option leads, without the words the card's mark replaces.
+    assert [o.label for o in spec.options] == [
+        "Via Singapore", "Fastest connection", "With a stopover",
+    ]
+    assert spec.options[0].description == "Nonstop from there"
+    # The CLI gets its own questions back untouched, with the answer by question.
+    assert answers[0]["updatedInput"]["questions"] == [question]
+    assert answers[0]["updatedInput"]["answers"] == {question["question"]: "Via Singapore"}
+
+
+def test_rows_without_a_recommended_suffix_keep_their_order() -> None:
+    rows = [{"question": "Which colour?", "options": [{"label": "Red"}, {"label": "Blue"}]}]
+    assert rc.claude_question_rows(rows) == [{**rows[0], "recommended": 0}]
+    assert rc.claude_question_rows(["broken", {"question": "x"}]) == ["broken", {"question": "x"}]
+
+
 def test_claude_multi_select_becomes_a_multi_card_and_answers_with_commas(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

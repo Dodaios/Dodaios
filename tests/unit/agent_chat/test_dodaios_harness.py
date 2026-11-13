@@ -236,7 +236,9 @@ def test_the_assistants_own_chat_writes_short_messages_and_no_interim_reports():
         "No interim summary",
         "never the same point twice in one turn",
         "not a description of what is in it",
-        "At most one question, last",
+        # A question is asked on the card, not written as a message.
+        "A question you need answered is not a message",
+        "question card (society_ask_user), all your questions in one call",
     ):
         assert phrase in rules, phrase
     # A coding thread and a society seat keep their own way of reporting.

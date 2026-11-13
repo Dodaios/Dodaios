@@ -115,7 +115,21 @@ CHAT_MESSAGES: Final[str] = (
     "twice in one turn.\n"
     "- The answer says the result and stops. For something you made (a file, a page, an "
     "artifact) give its name and where to find it, not a description of what is in it. "
-    "What you could not check takes one sentence. At most one question, last."
+    "What you could not check takes one sentence. A question you need answered is not a "
+    "message: it goes on the question card (society_ask_user), all your questions in one call."
+)
+
+#: Rides on every message of the assistant's own chat, in front of the language
+#: line. The same rule stands in the system prompt (``CHAT_MESSAGES``, the lead
+#: doctrine), and in a fresh conversation that is enough. In the person's one
+#: long conversation it was not: hundreds of earlier turns in which questions
+#: were asked and answered as text outweigh a rule far above them, and the lead
+#: kept writing its questions into the reply (replayed 2026-11-13 on a copy of
+#: such a conversation: text without this line, the question card with it).
+#: Small talk is not a question the assistant needs answered and stays text.
+QUESTION_CARD_LINE: Final[str] = (
+    "\nA question you need answered goes on the question card (society_ask_user), all "
+    "your questions in one call, not into your reply."
 )
 
 _SHARED_PREAMBLE: Final[str] = (
@@ -882,6 +896,7 @@ async def build_identity(
 __all__ = [
     "ACTING_PREAMBLE",
     "CHAT_MESSAGES",
+    "QUESTION_CARD_LINE",
     "COMPACT_MAX_CHARS",
     "HEADER_NAME",
     "SPAN_HEADER_NAME",
