@@ -11,6 +11,46 @@ versioning per [SemVer](https://semver.org/).
 
 ---
 
+## [5.2.0] — 2026-11-13
+
+### Added
+
+- A dictation is one take, recognized once, and a chat box waits for its text (#1572)
+- Recent activity shows the logo of the coding agent that got the task (#1564)
+- Pages are plain documents, and the chat shows a preview of the page (#1563)
+- An agent that needs a service connected shows that service on the rail (#1559)
+- The rail beside the conversation shows only notices that need the person (#1556)
+- The assistant asks on the question card, and the card is the question alone (#1555)
+- A plugin that is not connected shows its Connect card in the chat by itself (#1554)
+- The words stand in the input box while they are recognized (#1552)
+
+### Fixed
+
+- A piece is cut by the speech it holds, so a long silence makes no pieces (#1582)
+- The release notes start after the previous release's tag (#1578)
+- One click lets macOS ask for Input Monitoring again (#1581)
+- Every new message comes out at the bottom when two answers are written at once (#1575)
+- A notice's card can be reached and its action clicked (#1580)
+- A picture the person sends is shown above their message (#1579)
+- Screenshots handed to an agent no longer show "Media could not be displayed" (#1577)
+- Reopen a session the server forgot, also for parallel calls and after a cancel (#1576)
+- No small-print status lines under a turn (#1573)
+- The assistant's chat replies are short by default (#1569)
+- The Dodaios chat opens on its conversation, without a greeting first (#1571)
+- Consent walls are refused before each step, and a click waiting for approval is no longer cut off (#1568)
+- No small-print line for an earlier request's result (#1567)
+- A site that refuses the panel's frame is named, not a white page (#1565)
+- Offer System Settings when the shortcuts wait for Input Monitoring (#1566)
+- A click on a service an agent asks for connects it (#1562)
+- Every setting has one place, and the search finds only settings that exist (#1558)
+- A coding agent the assistant briefs answers in the person's language (#1557)
+- The lead answers in the person's language after a file or an agent's result (#1553)
+- The suite can no longer empty the developer's macOS Keychain (#1550)
+- A computer without an accelerator starts the local engine once, not every minute (#1551)
+- The front-page chat shows no line under an answer (#1549)
+
+---
+
 ## [5.1.0] — 2026-11-13
 
 ### Added
