@@ -633,7 +633,9 @@ def _read_chromium(db: Path, decryptor: Callable[[], ChromiumDecryptor], now: fl
         rows = conn.execute(
             f"SELECT host_key, name, value, encrypted_value, path, expires_utc, "  # noqa: S608 — column names from PRAGMA
             f"{secure}, {http_only}, {persistent}, {same_site}, {partition} FROM cookies"
-        )
+        ).fetchall()
+        # All rows are read before any key is: a key error raised mid-iteration
+        # would keep the cursor (and on Windows the temp file) open.
         hashed = version >= _HASHED_VALUES_VERSION
         active: ChromiumDecryptor | None = None
         for host, name, plain, encrypted, path, expires_utc, sec, http, keep, site, part in rows:
@@ -683,7 +685,7 @@ def _read_firefox(db: Path, now: float) -> ReadResult:
         rows = conn.execute(
             f"SELECT host, name, value, path, expiry, isSecure, isHttpOnly, {same_site}, "  # noqa: S608 — column names from PRAGMA
             f"{origin} FROM moz_cookies"
-        )
+        ).fetchall()
         for host, name, value, path, expiry, sec, http, site, attributes in rows:
             host = str(host or "")
             if not host or attributes:
