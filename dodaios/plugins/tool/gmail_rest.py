@@ -15,6 +15,7 @@ import base64
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
+from urllib.parse import quote
 
 from dodaios.core.branding import HTTP_USER_AGENT
 from dodaios.core.protocols import ExecutionContext, ToolResult
@@ -22,6 +23,8 @@ from dodaios.core.protocols import ExecutionContext, ToolResult
 log = logging.getLogger(__name__)
 
 _GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1/users/me"
+#: Where a message opens in Gmail on the web.
+_GMAIL_WEB = "https://mail.google.com/mail/"
 
 # User-facing error strings (English per AGENTS.md; the brain rephrases to the
 # user's language). Kept distinct so the brain can tell "never connected" from
@@ -99,6 +102,20 @@ def _slim_gmail_message(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def gmail_web_link(message_id: str, account: str | None = None) -> str:
+    """The address that opens a message (or its conversation) in Gmail on the web.
+
+    With the account's address the link opens that account even when the
+    browser is signed in to several (``?authuser=``; Gmail keeps the
+    ``#all/<id>`` part through its redirect). Without it the link opens the
+    browser's first account.
+    """
+    target = quote(message_id, safe="")
+    if account:
+        return f"{_GMAIL_WEB}?authuser={quote(account, safe='@')}#all/{target}"
+    return f"{_GMAIL_WEB}u/0/#all/{target}"
+
+
 def _default_token_provider() -> str | None:
     from dodaios.marketplace.token_store import TokenStore
 
@@ -139,6 +156,8 @@ class GmailRestTool:
         "modify_message (add/remove labels by id — archive = remove 'INBOX', "
         "mark read = remove 'UNREAD', star = add 'STARRED'), trash_message (move "
         "to Trash, reversible), delete_message (permanent, irreversible). "
+        "Every message in a result carries `url`, where it opens in Gmail: link the "
+        "mail you sent or name with it. "
         "Requires the Gmail plugin to be connected in the Plugins view."
     )
     schema: dict[str, Any] = {
@@ -198,6 +217,9 @@ class GmailRestTool:
         # tool is built once per BrainManager, so the connection stays warm for
         # the whole session (a read is list_messages + get_message = 2 hops).
         self._pool = HttpClientPool(transport=transport)
+        # The connected account's address, read once for the web links
+        # (``""`` once a lookup failed, so a broken lookup is not retried per call).
+        self._account: str | None = None
 
     # -- internal helpers ---------------------------------------------------
 
@@ -313,6 +335,42 @@ class GmailRestTool:
             lambda headers: self._delete(f"/messages/{message_id}", headers)
         )
 
+    async def account_address(self) -> str:
+        """The connected account's address (``users/me/profile``), or ``""`` when unknown."""
+        if self._account is None:
+            self._account = ""
+            try:
+                profile = await self._with_auth_retry(
+                    lambda headers: self._get("/profile", {}, headers)
+                )
+            except Exception as exc:  # noqa: BLE001 - a link without the account still opens Gmail
+                log.debug("Gmail profile lookup failed: %s", type(exc).__name__)
+                profile = {}
+            address = profile.get("emailAddress") if isinstance(profile, dict) else None
+            if isinstance(address, str) and "@" in address:
+                self._account = address
+        return self._account
+
+    async def _with_links(self, action: str, out: dict[str, Any]) -> dict[str, Any]:
+        """``out`` with a ``url`` on each message: where the person sees it in Gmail.
+
+        The assistant links the mail it sent or found in its reply, so the
+        person can check it with one click (``LINK_GUIDANCE``).
+        """
+        if action == "list_messages":
+            messages = [m for m in out.get("messages") or [] if isinstance(m, dict) and m.get("id")]
+            if not messages:
+                return out
+            account = await self.account_address()
+            for message in messages:
+                target = str(message.get("threadId") or message["id"])
+                message["url"] = gmail_web_link(target, account)
+            return out
+        target = out.get("threadId") or out.get("id")
+        if not target:
+            return out
+        return {**out, "url": gmail_web_link(str(target), await self.account_address())}
+
     # -- Tool protocol ------------------------------------------------------
 
     def risk_tier_for_args(self, args: dict[str, Any]) -> str:
@@ -386,4 +444,6 @@ class GmailRestTool:
         # ack — neither needs projecting).
         if action == "get_message" and isinstance(out, dict):
             out = _slim_gmail_message(out)
+        if action in ("list_messages", "get_message", "send_message") and isinstance(out, dict):
+            out = await self._with_links(action, out)
         return ToolResult(success=True, output=out)

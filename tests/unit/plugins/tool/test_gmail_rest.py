@@ -307,3 +307,86 @@ async def test_get_message_caps_a_long_body():
     body = result.output["body"]
     assert len(body) <= _GMAIL_BODY_CHAR_CAP + 100  # cap + short truncation marker
     assert "truncated" in body
+
+
+# ---- links to the mail in Gmail ----------------------------------------------
+
+
+def _gmail(routes):
+    import json
+
+    seen = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(req.url.path)
+        for suffix, body in routes.items():
+            if req.url.path.endswith(suffix):
+                return httpx.Response(200, content=json.dumps(body))
+        return httpx.Response(404, json={"error": {"code": 404}})
+
+    tool = GmailRestTool(
+        access_token_provider=lambda: "at_1", transport=httpx.MockTransport(handler)
+    )
+    return tool, seen
+
+
+def test_a_link_opens_the_mail_in_the_right_account():
+    from dodaios.plugins.tool.gmail_rest import gmail_web_link
+
+    assert gmail_web_link("1a1d64c67c83436f", "me+tax@example.com") == (
+        "https://mail.google.com/mail/?authuser=me%2Btax@example.com#all/1a1d64c67c83436f"
+    )
+    assert gmail_web_link("1a1d", None) == "https://mail.google.com/mail/u/0/#all/1a1d"
+
+
+@pytest.mark.asyncio
+async def test_a_sent_mail_comes_back_with_its_link():
+    tool, seen = _gmail({
+        "/messages/send": {"id": "m1", "threadId": "t1", "labelIds": ["SENT"]},
+        "/profile": {"emailAddress": "me@example.com"},
+    })
+    result = await tool.execute({"action": "send_message", "to": "a@b.com", "body": "x"}, ctx=None)
+    assert result.success
+    assert result.output["url"] == "https://mail.google.com/mail/?authuser=me@example.com#all/t1"
+    assert result.output["labelIds"] == ["SENT"]
+    # The account is asked once, then remembered.
+    await tool.execute({"action": "send_message", "to": "a@b.com", "body": "y"}, ctx=None)
+    assert seen.count("/gmail/v1/users/me/profile") == 1
+
+
+@pytest.mark.asyncio
+async def test_found_and_read_mails_carry_their_links():
+    headers = [{"name": "Subject", "value": "Hi"}]
+    raw = {"id": "m2", "threadId": "t2", "payload": {"headers": headers}}
+    tool, _seen = _gmail({
+        "/messages": {"messages": [{"id": "m1", "threadId": "t1"}, {"id": "m3"}]},
+        "/messages/m2": raw,
+        "/profile": {"emailAddress": "me@example.com"},
+    })
+    listed = await tool.execute({"action": "list_messages", "query": "from:x"}, ctx=None)
+    urls = [m["url"] for m in listed.output["messages"]]
+    assert urls == [
+        "https://mail.google.com/mail/?authuser=me@example.com#all/t1",
+        "https://mail.google.com/mail/?authuser=me@example.com#all/m3",
+    ]
+    read = await tool.execute({"action": "get_message", "message_id": "m2"}, ctx=None)
+    assert read.output["subject"] == "Hi"
+    assert read.output["url"].endswith("#all/t2")
+
+
+@pytest.mark.asyncio
+async def test_without_the_account_the_link_opens_the_first_one():
+    tool, seen = _gmail({"/messages/send": {"id": "m1", "threadId": "t1"}})
+    result = await tool.execute({"action": "send_message", "to": "a@b.com", "body": "x"}, ctx=None)
+    assert result.output["url"] == "https://mail.google.com/mail/u/0/#all/t1"
+    await tool.execute({"action": "send_message", "to": "a@b.com", "body": "y"}, ctx=None)
+    # A failed lookup is not repeated for every mail.
+    assert seen.count("/gmail/v1/users/me/profile") == 1
+
+
+@pytest.mark.asyncio
+async def test_an_empty_search_needs_no_account_lookup():
+    tool, seen = _gmail({"/messages": {"resultSizeEstimate": 0}})
+    result = await tool.execute({"action": "list_messages", "query": "nothing"}, ctx=None)
+    assert result.success and "messages" not in result.output
+    assert "/gmail/v1/users/me/profile" not in seen
