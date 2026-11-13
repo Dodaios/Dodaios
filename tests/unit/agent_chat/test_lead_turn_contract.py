@@ -20,6 +20,7 @@ from dodaios.agent_chat import attachments as chat_attachments
 from dodaios.agent_chat import dodaios_harness, lead_turn_contract, runner_brain
 from dodaios.agent_chat import service as service_mod
 from dodaios.agent_chat.events import make_event, person_words
+from dodaios.agent_chat.runner_api import reply_language_line
 from dodaios.agent_chat.service import AgentChatService
 from dodaios.agent_chat.store import AgentChatStore
 from dodaios.brain.manager import BrainManager
@@ -311,6 +312,78 @@ async def test_a_delegated_result_is_answered_in_the_conversation_language(
     assert seen.languages == ["de"]
     # The stored continuation does not turn the next turn English either.
     assert lead_turn_contract.resolve_language("Ok", events) == "de"
+
+
+async def test_a_coding_thread_an_agent_briefs_answers_in_the_persons_language(
+    tmp_path, monkeypatch
+):
+    # Live 2026-11-12: the lead briefs its coding agents in English, so their
+    # threads and reports came back in English to a person who writes German.
+    svc = AgentChatService(AgentChatStore(":memory:"), assistant_name=lambda: "Testo")
+
+    def chat(surface: str) -> str:
+        return svc.create_session(
+            provider="claude-api", model="m", effort="", cwd=str(tmp_path),
+            permission_mode="ask", surface=surface,
+        ).session_id
+
+    lead, thread = chat("jarvis"), chat("agent")
+    svc.store.set_lead_session_id(lead)
+    for event in (_said(GERMAN_REQUEST), _answered(GERMAN_ANSWER)):
+        svc.store.append_event(lead, event)
+    languages: list[str] = []
+    monkeypatch.setattr(service_mod, "resolve_runner", lambda *a, **k: "claude-cli")
+
+    async def cli_turn(handle, prompt, runner, **_kwargs):
+        languages.append(handle.output_language)
+        await handle.emit(
+            make_event("turn_finished", {"turn_id": handle.turn_id, "status": "done"})
+        )
+
+    monkeypatch.setattr(service_mod, "run_cli_turn", cli_turn)
+
+    async def send(text: str, **more: Any) -> None:
+        await svc.send(thread, text, **more)
+        await asyncio.wait_for(svc._running[thread].task, 10)
+
+    await send("Find out why the notebooks stay empty.", author={"agent_id": "jarvis", "name": "T"})
+    # What the person types into the thread themselves is theirs to word.
+    await send("Looks good, thank you.")
+    assert languages == ["de", ""]
+
+
+async def test_a_coding_agent_is_told_which_language_the_person_reads(monkeypatch):
+    line = reply_language_line("agent", "de")
+    assert "messages to the user in this language: de" in line
+    assert "commit messages keep the language the project already uses" in line
+    assert reply_language_line("jarvis", "de") == "\nRespond in this language: de"
+
+    # The line rides on the brief the coding CLI receives.
+    from dodaios.agent_chat import runner_cli
+    from dodaios.agent_chat.runner_api import TurnHandle
+
+    prompts: list[str] = []
+
+    async def once(handle, prompt, runner, resume, **kwargs):
+        prompts.append(prompt)
+        return runner_cli._Outcome("done", None, {}, None, resume)  # noqa: SLF001
+
+    async def emit(_event):
+        return None
+
+    async def deny(*_args):
+        return "deny"
+
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
+    handle = TurnHandle(
+        session=SimpleNamespace(
+            surface="agent", session_id="thread-1", vendor_session=None, account_id="",
+        ),
+        turn_id="t1", emit=emit, request_approval=deny, cancel=asyncio.Event(),
+        surface="agent", stance="ask", output_language="de",
+    )
+    await runner_cli.run_cli_turn(handle, "Find the bug.", "claude-cli")
+    assert prompts == ["Find the bug." + line]
 
 
 def test_only_the_persons_own_sentences_are_their_words():
