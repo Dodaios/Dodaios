@@ -76,7 +76,12 @@ LINK_GUIDANCE = (
     "(https://news.ycombinator.com/item?id=123). The chat draws the website's logo in front "
     "of the name and shows the full address when the person points at it, so do not add "
     "the site's name, the domain or the address next to the link. Copy the address exactly "
-    "as a tool gave it to you; never invent or shorten one."
+    "as a tool gave it to you; never invent or shorten one. Link what you did or found "
+    "whenever it has a page, so the person can check it with one click: the email you "
+    "sent ([sent email](...)), the event you created, the file you saved or shared, and "
+    "each pull request, issue, commit, post or article you name, one link per item. Take "
+    "the address from the tool result (a `url` field) or ask the tool for it (GitHub: "
+    "`gh pr list --json number,title,url`, `gh pr view <n> --json url`)."
 )
 
 _CHART_BLOCK_RE = re.compile(

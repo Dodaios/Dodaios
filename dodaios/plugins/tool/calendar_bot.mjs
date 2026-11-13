@@ -115,6 +115,8 @@ function summarizeEvent(rawEvent, calendarId, calendarName) {
     end: rawEvent.end?.dateTime || rawEvent.end?.date || null,
     location: rawEvent.location || null,
     status: rawEvent.status || null,
+    // Where the event opens in Google Calendar; the assistant links it in its reply.
+    url: rawEvent.htmlLink || null,
   };
 }
 

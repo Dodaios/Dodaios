@@ -175,3 +175,15 @@ def test_the_assistant_writes_web_links_as_short_names_on_both_seats() -> None:
         assert LINK_GUIDANCE not in prompt
     for phrase in ("Markdown link", "never the bare address", "logo", "never invent"):
         assert phrase in LINK_GUIDANCE, phrase
+
+
+def test_the_assistant_links_what_it_did_or_found() -> None:
+    from dodaios.core.response_style import LINK_GUIDANCE
+
+    for phrase in (
+        "the email you sent",
+        "each pull request",
+        "one link per item",
+        "--json number,title,url",
+    ):
+        assert phrase in LINK_GUIDANCE, phrase
