@@ -25,7 +25,7 @@ vi.mock("@/components/home/AssistantRoutineDialog", () => ({
 vi.mock("@/components/home/AssistantFileDialog", () => ({
   default: ({ fileId }: { fileId: string }) => <div data-testid="file-dialog">{fileId}</div>,
 }));
-vi.mock("@/components/MascotGigi", () => ({ MascotGigi: () => <span data-testid="mascot" /> }));
+vi.mock("@/components/pets/PetMark", () => ({ PetMark: () => <span data-testid="pet" /> }));
 vi.mock("@/hooks/useVoiceEngineDisplay", () => ({
   useVoiceEngineDisplay: () => ({ tier: "realtime", providerId: "test", providerLabel: "Test Voice", model: "m1" }),
 }));
@@ -134,13 +134,20 @@ afterEach(() => {
 });
 
 describe("AssistantPanel", () => {
-  it("shows the product's mascot and the name, and they lead back to the conversation", () => {
+  it("shows the person's pet and the name they gave the assistant, and they lead back to the conversation", () => {
     const onConversation = mount([]);
     const face = screen.getByTestId("assistant-panel-conversation");
-    expect(face.textContent).toContain("Dodaios");
-    expect(face.querySelector('[data-testid="mascot"]')).toBeTruthy();
+    expect(face.textContent).toContain("Nova");
+    expect(face.textContent).not.toContain("Dodaios");
+    expect(face.querySelector('[data-testid="pet"]')).toBeTruthy();
     fireEvent.click(face);
     expect(onConversation).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the product's name while the assistant has none of its own", () => {
+    useEventStore.setState({ assistantName: "Assistant" });
+    mount([]);
+    expect(screen.getByTestId("assistant-panel-conversation").textContent).toContain("Dodaios");
   });
 
   it("lists the routines with a switch each, without the scheduler's name tag", async () => {
@@ -273,7 +280,7 @@ describe("AssistantPanel", () => {
     const telegram = screen.getByTestId("assistant-panel-channel-telegram");
     await waitFor(() => expect(telegram.getAttribute("data-connected")).toBe("true"));
     expect(telegram.textContent).toBe("@nova_bot");
-    expect(telegram.getAttribute("title")).toBe("Open the chat with Dodaios in Telegram");
+    expect(telegram.getAttribute("title")).toBe("Open the chat with Nova in Telegram");
     fireEvent.click(telegram);
     expect(external.open).toHaveBeenCalledWith("https://t.me/nova_bot");
     expect(useEventStore.getState().activeSection).toBe("chats");
@@ -340,7 +347,7 @@ describe("AssistantPanel", () => {
     expect(own.textContent).toContain("Your computer");
     expect(own.getAttribute("data-home")).toBe("true");
     expect(screen.getAllByTestId("assistant-computer-home")).toHaveLength(1);
-    expect(screen.getByTestId("assistant-computer-home").getAttribute("aria-label")).toBe("Dodaios runs here");
+    expect(screen.getByTestId("assistant-computer-home").getAttribute("aria-label")).toBe("Nova runs here");
 
     // A computer that is switched off is not offered; the third one unfolds.
     fireEvent.click(screen.getByTestId("assistant-computers-more"));
@@ -395,9 +402,9 @@ describe("AssistantPanel", () => {
   it("says so while no chat was handed a task and nothing was made yet", async () => {
     mount([]);
     await waitFor(() => expect(screen.getByTestId("assistant-activity-empty").textContent)
-      .toBe("Nothing yet. Chats in the Agentic IDE that Dodaios hands a task to show up here."));
+      .toBe("Nothing yet. Chats in the Agentic IDE that Nova hands a task to show up here."));
     await waitFor(() => expect(screen.getByTestId("assistant-outputs-empty").textContent)
-      .toBe("Nothing yet. Files Dodaios makes show up here."));
+      .toBe("Nothing yet. Files Nova makes show up here."));
   });
 
   it("lists what the newest finished runs made, newest file first, and opens one on the Artifacts page", async () => {

@@ -1,5 +1,6 @@
-import { cleanup, render } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, render, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AgentSwatch } from "./AgentSwatch";
 import { symbolAppearance } from "./AgentSymbol";
@@ -86,5 +87,20 @@ describe("agent vector identities", () => {
     expect(identities.map(symbolAppearance)).toEqual(first);
     expect(new Set(first.map(a => a.shape)).size).toBe(7);
     expect(new Set(first.map(a => a.color)).size).toBe(11);
+  });
+});
+
+describe("the lead's face", () => {
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  it("is the pet the person chose, the same as the caption switch and the panel", async () => {
+    const pet = (id: string) => ({ id, name: id, sheet_url: `/pets/${id}.png`, frame_size: 64, animations: {} });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ active: "otto", pets: [pet("gigi"), pet("otto")] }))));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(
+      <QueryClientProvider client={client}><AgentSwatch agent={{ ...agent, agentId: "jarvis", tier: "lead", name: "Nova" }} /></QueryClientProvider>,
+    );
+    await waitFor(() => expect(container.querySelector("[data-agent-mascot=pet]")?.getAttribute("data-pet")).toBe("otto"));
+    expect(container.querySelector("[data-agent-mascot=gigi]")).toBeNull();
   });
 });

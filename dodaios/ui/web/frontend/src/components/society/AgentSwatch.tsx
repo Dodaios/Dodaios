@@ -1,4 +1,10 @@
+import { useContext } from "react";
+import { QueryClientContext, useQuery } from "@tanstack/react-query";
+
 import { GigiAvatar } from "./GigiAvatar";
+import { PetSprite } from "@/components/pets/PetSprite";
+import { petKeys, pickActivePet } from "@/hooks/usePets";
+import { fetchPets } from "@/lib/petsApi";
 import { cn } from "@/lib/utils";
 
 import { resolveCompanion } from "./companion/appearance";
@@ -59,7 +65,7 @@ export function AgentSwatch({
     >
       {isJarvis ? (
         <>
-        <GigiAvatar size={size} />
+        <LeadFace size={size} thinking={thinking} />
         {thinking && <WorkingBadge size={size} />}
         </>
       ) : (
@@ -67,4 +73,26 @@ export function AgentSwatch({
       )}
     </span>
   );
+}
+
+/**
+ * The lead is the assistant, and the assistant's face is the pet the person
+ * chose in My Pets (the caption switch, the greeting and the panel draw the
+ * same one). The gold companion stays only where no pets answer can come: an
+ * isolated render without a query client, a failed request, a machine with
+ * no pets. While the answer loads the box stays empty, so no other face
+ * flashes first.
+ */
+function LeadFace({ size, thinking }: { size: number; thinking: boolean }) {
+  const client = useContext(QueryClientContext);
+  if (!client) return <GigiAvatar size={size} />;
+  return <LeadPet size={size} thinking={thinking} />;
+}
+
+function LeadPet({ size, thinking }: { size: number; thinking: boolean }) {
+  const { data, isError } = useQuery({ queryKey: petKeys.all, queryFn: fetchPets, staleTime: Infinity });
+  const pet = pickActivePet(data);
+  if (pet) return <span data-agent-mascot="pet" data-pet={pet.id} className="inline-flex"><PetSprite pet={pet} state={thinking ? "working" : "idle"} px={size} /></span>;
+  if (isError || data) return <GigiAvatar size={size} />;
+  return <span style={{ width: size, height: size }} />;
 }
