@@ -147,6 +147,20 @@ def shown_title(store: Any, session: Any) -> str:
         return stored or "New thread"
 
 
+#: Beside every result that hands the assistant a new coding agent's link. The
+#: person wants the agent linked inside the sentence that names it, not as a
+#: separate chip under the answer (maintainer, 2026-11-13). A rule next to the
+#: tool result holds in the long lead conversation; one in the system prompt
+#: alone did not. The chat keeps the link's words and draws the agent's logo
+#: behind them (``CodingAgentLink.tsx``).
+LINK_IN_SENTENCE: Final[str] = (
+    "In your reply, name each agent with its link inside the sentence that mentions it: "
+    "your own words as the link text, the address after them unchanged, for example "
+    "'A [Claude Code agent](thread:<id>) is on it and has your screenshot.' Do not put "
+    "the link on a line of its own or after the reply."
+)
+
+
 def thread_link(session_id: str, title: str) -> str:
     """The markdown that points at a thread from a chat answer."""
     label = " ".join(str(title or "").split()) or "Coding agent"

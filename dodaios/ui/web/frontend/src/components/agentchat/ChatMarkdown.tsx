@@ -113,7 +113,11 @@ const MARKDOWN_COMPONENTS: Components = {
     if (kind && !imageKeys.has(assetKey(href))) return <MediaPreview src={href} label={label} kind={kind} />;
     // A coding agent the answer points at: its title and logo, opening its thread.
     const thread = threadRefFromChatHref(href);
-    if (thread) return <CodingAgentLink threadRef={thread} label={Children.toArray(children).filter(child => typeof child === "string").join("")} />;
+    if (thread) {
+      // The answer's own words stay: the link is part of its sentence.
+      const written = Children.toArray(children).filter(child => typeof child === "string").join("");
+      return <CodingAgentLink threadRef={thread} label={written} words={written} />;
+    }
     // A page in the Artifacts section: its name with the page mark, opening it there.
     const page = pageRefFromChatHref(href);
     if (page) return <PageLink pageRef={page} label={Children.toArray(children).filter(child => typeof child === "string").join("")} />;
