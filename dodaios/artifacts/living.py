@@ -41,7 +41,7 @@ from html import escape
 from pathlib import Path
 from typing import Any, Final
 
-from dodaios.artifacts.design_guide import THEME_BOOTSTRAP_JS, THEME_CSS
+from dodaios.artifacts.design_guide import PAGE_JS, THEME_BOOTSTRAP_JS, THEME_CSS
 
 log = logging.getLogger(__name__)
 
@@ -188,14 +188,15 @@ def _file_name(title: str) -> str:
 # ------------------------------------------------------------------ rendering
 
 _PAGE_CSS: Final[str] = """
-.living-meta{margin-top:14px;display:flex;flex-wrap:wrap;gap:6px 18px;font-family:var(--mono);
-  font-size:11.5px;letter-spacing:.04em;color:var(--ink-3)}
+.living-meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:12px;font-size:14px;
+  line-height:20px;color:var(--ink-2)}
 .living-meta .live{display:inline-flex;align-items:center;gap:7px}
 .living-meta .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
 .living-meta .live.on .dot{background:var(--accent)}
-.living-note{margin-top:14px;color:var(--ink-2);font-size:14px}
+.living-note{margin-top:12px;color:var(--ink-2);font-size:14px;line-height:20px}
+.living-table{margin-top:32px}
 .empty{padding:28px 0;color:var(--ink-2)}
-.table a{color:var(--ink);text-decoration:underline dotted;text-underline-offset:3px}
+.table a{color:var(--ink)}
 """
 
 # Writes "updated 10 minutes ago" in the viewer's locale and keeps it current.
@@ -222,7 +223,7 @@ def _cell(row: dict[str, str], column: str, first: bool) -> str:
     link = row.get(LINK_KEY, "")
     if first and link and text:
         return (
-            f'<a href="{escape(link, quote=True)}" target="_blank" rel="noopener noreferrer">'
+            f'<a href="{escape(link, quote=True)}" rel="noopener noreferrer">'
             f"{text}</a>"
         )
     return text
@@ -241,7 +242,7 @@ def render_html(page: LivingPage) -> str:
         for row in page.rows
     )
     table = (
-        '<div class="table-wrap"><table class="table">'
+        '<div class="table-wrap"><table class="table" data-sort>'
         f"<thead><tr>{head_cells}</tr></thead><tbody>{body_rows}</tbody></table></div>"
         if page.rows and page.columns
         else '<p class="empty">—</p>'
@@ -259,8 +260,7 @@ def render_html(page: LivingPage) -> str:
         f"<script>{THEME_BOOTSTRAP_JS}</script>"
         f"<style>{THEME_CSS}{_PAGE_CSS}</style>"
         "</head><body>"
-        '<main class="wrap">'
-        '<header class="masthead">'
+        '<main class="page wide">'
         f"<h1>{escape(page.title)}</h1>"
         '<p class="living-meta">'
         f'<span class="{state}"><span class="dot" aria-hidden="true"></span>'
@@ -268,10 +268,10 @@ def render_html(page: LivingPage) -> str:
         f'<span class="num">{count}</span>'
         "</p>"
         f"{note}"
-        "</header>"
-        f'<section class="section">{table}</section>'
+        f'<div class="living-table">{table}</div>'
         "</main>"
         f"<script>{_RELATIVE_TIME_JS}</script>"
+        f"<script>{PAGE_JS}</script>"
         "</body></html>\n"
     )
 

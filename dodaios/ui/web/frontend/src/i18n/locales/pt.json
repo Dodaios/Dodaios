@@ -11622,9 +11622,9 @@
     "open": "Abrir"
   },
   "reports": {
-    "label": "Relatório",
     "open": "Abrir",
-    "sections": "{0} seções"
+    "page": "Página",
+    "download": "Transferir"
   },
   "voice_call": {
     "voice_title": "Voz",

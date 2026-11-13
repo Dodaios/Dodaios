@@ -63,14 +63,22 @@ async def post_card(session_id: str, payload: dict[str, Any]) -> bool:
         return False
 
 
-def page_item(page: Any, *, state: str = "created") -> dict[str, Any]:
-    """One result-card row that opens a living page in the Artifacts section."""
+def page_card(
+    title: str, visual_id: str, *, summary: str = "", sections: int = 0
+) -> dict[str, Any]:
+    """The conversation notice that shows a page: its preview, its name and a
+    download button, opening the page in the Artifacts section. One page in a
+    turn is drawn as that card, several as one link each (``PageCard.tsx``).
+
+    The kind is ``report`` because the report was the first page shown this
+    way; a living page and a worker-built artifact arrive as the same notice.
+    """
     return {
-        "kind": "page",
-        "label": page.title,
-        "state": state,
-        "artifact": page.visual_id,
-        "detail": f"every {page.every_minutes} min" if page.refreshing else "",
+        "kind": "report",
+        "text": title,
+        "summary": summary,
+        "artifact": visual_id,
+        "sections": sections,
     }
 
 
@@ -231,10 +239,7 @@ class LivingPageTool:
             + (f" It cannot refresh yet: {refresh_error}" if refresh_error else ""),
             result_ref=f"artifact:{page.visual_id}",
         )
-        await post_card(
-            session_of(ctx),
-            {"kind": "chain_result", "text": page.title, "items": [page_item(page)]},
-        )
+        await post_card(session_of(ctx), page_card(page.title, page.visual_id))
         if refresh_error:
             return ToolResult(
                 True,
@@ -255,4 +260,4 @@ class LivingPageTool:
         )
 
 
-__all__ = ["LivingPageTool", "page_item", "post_card", "session_of"]
+__all__ = ["LivingPageTool", "page_card", "post_card", "session_of"]

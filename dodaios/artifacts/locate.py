@@ -54,6 +54,17 @@ class LocatedArtifact:
     """The page's full text."""
 
 
+def page_link(title: str, visual_id: str) -> str:
+    """How an answer names a page: a Markdown link the chat draws as the page's
+    name with a page mark and opens in the Artifacts section
+    (``pageRefFromMarkdownUrl`` in the frontend's ``chatLinks.ts``).
+
+    ``visual_id`` is the page's ``slug::path`` address.
+    """
+    label = " ".join((title or "").split()).replace("[", "(").replace("]", ")") or "Page"
+    return f"[{label}](artifact:{visual_id})"
+
+
 def _normalize(text: str) -> str:
     return _NON_WORD_RE.sub(" ", (text or "").lower()).strip()
 
@@ -143,4 +154,4 @@ def locate_artifact(
     return None
 
 
-__all__ = ["MAX_RUNS_SCANNED", "LocatedArtifact", "locate_artifact"]
+__all__ = ["MAX_RUNS_SCANNED", "LocatedArtifact", "locate_artifact", "page_link"]

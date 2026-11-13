@@ -60,36 +60,30 @@ ARTIFACT_PAGE_CSP = (
     "base-uri 'none';"
 )
 
-# The artifact design standard (dodaios/artifacts/design_guide.py): the app's
-# own tokens in both palettes, so a Markdown output opened in the browser
-# looks like the page it sits next to in the Artifacts section — and follows
-# the app's theme through the same `?theme=light|dark` query the artifact
-# stage appends, stamped on <html> by the SERVER (the page stays script-free
-# under VIEW_CSP; the guide's bootstrap script is for worker-written pages).
-# The tokens are the guide's verbatim; only the document rules below are this
-# page's own.
+# The artifact design standard (dodaios/artifacts/design_guide.py): the same
+# tokens in both palettes, so a Markdown output opened in the browser looks
+# like the page it sits next to in the Artifacts section — and follows the
+# app's theme through the same `?theme=light|dark` query the artifact stage
+# appends, stamped on <html> by the SERVER (the page stays script-free under
+# VIEW_CSP; the guide's scripts are for pages that may run them). The tokens
+# and the kit are the guide's verbatim; only the document rules below are
+# this page's own: Markdown output is flat, so the rhythm is restated for it.
 _PAGE_CSS = (
     THEME_CSS + "\n"
-    "body{padding:40px 24px 64px}"
-    "main{max-width:72ch;margin:0 auto}"
-    "h1,h2,h3,h4{margin:1.6em 0 .5em}"
-    "main>h1:first-of-type{margin-top:0}"
-    "h4{font-size:14px;font-weight:600}"
-    "p,ul,ol{margin:.7em 0;max-width:none}li{margin:.25em 0}"
-    "pre{background:var(--bg-2);border:1px solid var(--line);padding:14px 16px;"
-    "overflow:auto;border-radius:var(--radius-sm);font-size:13px;line-height:1.5}"
-    "code{background:var(--bg-3);border:1px solid var(--line);padding:.1em .35em;"
-    "border-radius:4px}"
-    "pre code{background:none;border:none;padding:0;font-size:inherit}"
-    "table{border-collapse:collapse;margin:1em 0;display:block;overflow-x:auto;"
-    "font-size:14px}"
-    "th,td{border:1px solid var(--line);padding:.45rem .7rem;text-align:left}"
-    "th{background:var(--bg-2);font-weight:600}"
-    "blockquote{border-left:2px solid var(--accent);margin:1em 0;"
-    "padding:.1em 0 .1em 1rem;color:var(--ink-2)}"
+    "main>*+*{margin-top:12px}"
+    "main>h1,main>h2{margin-top:64px}"
+    "main>h1{font-size:22px;line-height:1.3;letter-spacing:-.01em}"
+    "main>.artifact-name+*{margin-top:8px}"
+    "main>h3,main>h4{margin-top:32px;font-size:16px;line-height:1.5;font-weight:600}"
+    "main>h3+*,main>h4+*{margin-top:8px}"
+    "main>table,main>pre,main>blockquote,main>*+ul,main>*+ol{margin-top:20px}"
+    "main li>p{margin:0}main li>ul,main li>ol{margin-top:8px}"
+    "table{display:block;overflow-x:auto;border-collapse:collapse;font-size:14px;"
+    "line-height:20px}"
+    "th,td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}"
+    "th{font-weight:500}"
+    "blockquote{padding:14px 18px;border-radius:var(--radius);background:var(--bg-2)}"
     "img{max-width:100%;border-radius:var(--radius-sm)}"
-    "hr{border:none;border-top:1px solid var(--line);margin:2em 0}"
-    ".artifact-name{margin:0 0 24px;padding-bottom:12px;border-bottom:1px solid var(--line)}"
 )
 
 
@@ -103,7 +97,7 @@ def _shell(title: str, body_html: str, theme: str | None) -> str:
         f'<meta http-equiv="Content-Security-Policy" content="{VIEW_CSP}">'
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
         f"<title>{html.escape(title)}</title><style>{_PAGE_CSS}</style></head>"
-        f"<body><main><p class='artifact-name eyebrow'>{html.escape(title)}</p>"
+        f"<body><main class='page'><p class='artifact-name caption'>{html.escape(title)}</p>"
         f"{body_html}</main></body></html>"
     )
 

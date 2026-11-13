@@ -10,7 +10,8 @@ Artifacts section all see it without a second store.
 Two pieces live here:
 
 * :mod:`~dodaios.artifacts.brief` — the worker's task instruction: what a
-  finished artifact is (one file, inline assets, no network, brand look), plus
+  finished artifact is (one file, inline assets, no network, the plain page
+  look of :mod:`~dodaios.artifacts.design_guide`), plus
   the previous version when a revision is asked for.
 * :mod:`~dodaios.artifacts.locate` — find an existing artifact in the archive
   by title, so "make the bars red" can start from the page it refers to.
@@ -28,7 +29,7 @@ from dodaios.artifacts.brief import (
     artifact_filename,
     build_artifact_brief,
 )
-from dodaios.artifacts.locate import LocatedArtifact, locate_artifact
+from dodaios.artifacts.locate import LocatedArtifact, locate_artifact, page_link
 
 __all__ = [
     "MAX_PREVIOUS_HTML_CHARS",
@@ -37,4 +38,5 @@ __all__ = [
     "artifact_filename",
     "build_artifact_brief",
     "locate_artifact",
+    "page_link",
 ]

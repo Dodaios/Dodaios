@@ -1,172 +1,299 @@
 """The design standard every artifact follows — the pattern, not the content.
 
-Distilled on 2026-08-23 from two sources, in this order of authority:
+One look for every page the assistant makes (a worker-written artifact, a
+report, a living page, a rendered Markdown output): a **plain document**. One
+reading column on a near-white ground, near-black text, one accent colour,
+hairline boxes, and a fixed set of blocks that each carry statements — a
+metric row, a table, a callout, numbered steps, a plus/minus pair, a chart, a
+list of sources. The page is simple to look at and dense in what it says.
 
-1. the design guidance Claude itself follows when it builds an artifact
-   (read the request first and calibrate the treatment; honour the existing
-   design system; typography carries the page; pick neutrals, don't default;
-   design both themes at token level; structure encodes information; a
-   dashboard is scanned, a document is read; the catalogue of
-   generated-looking defaults to avoid) and its data-visualisation method
-   (form before colour, thin marks, one axis, legend for two or more series,
-   labels selectively, colour follows the entity, validated palettes);
-2. what our own archive showed when screenshotted the same day — the three
-   pages a worker had produced were textbook generated design: a gradient
-   headline over a centred hero, an eyebrow pill, emoji chips, seven to ten
-   gradients, twenty-plus rounded corners, a Tailwind rainbow for categories,
-   no light theme, and Google Fonts links the sandbox can never load.
+History, because the reasons still apply:
 
-So this module hands the worker three things the guidance says a page needs
-and a model will not supply on its own: the **design system of the desktop
-app it will be shown in** (the tokens below are the app's own light and dark
-palettes, ``frontend/src/index.css``), a **way to read the request** so a
-bar-chart ask yields a bar chart and a memo ask yields a memo, and the
-**explicit list of what reads as generated**. The categorical series colours
-were validated with the method's own checker on both surfaces (lightness
-band, chroma floor, CVD separation, normal-vision floor, contrast) —
-``#C98500,#4F8EF7,#E0633F,#1F9E7F,#9085E9,#C84E8A`` on ``#30302E`` and
-``#A86B00,#2A6FD0,#D4532E,#158F6B,#5B46C2,#C23F86`` on white, all checks
-passing; keep them in this order and re-validate before changing one.
+* 2026-08-23 — the first standard. Our archive of worker pages was textbook
+  generated design (gradient headline over a centred hero, emoji chips, a
+  Tailwind rainbow, no light theme, web fonts the sandbox can never load), so
+  the worker got the tokens, a way to read the request, and the explicit list
+  of what reads as generated. Those three stay.
+* 2026-09-29 — an editorial kit (eyebrow, claim headline, mono labels, hairline
+  section heads, colophon with the mark).
+* 2026-11-13 — the maintainer asked for pages that are "really simple to look
+  at, but with many statements", and for interactive infographics to stay part
+  of them. The editorial furniture went: no eyebrow, no mono labels, no
+  section marks, no colophon, no brand mark on the page (the app that frames
+  it is the brand). What a page has instead is the block kit below and a small
+  script that makes the blocks interactive (hover values, switchable views,
+  sortable tables, a contents box that follows the reader).
 
-Pure text; no I/O. ``brief.py`` assembles it into the mission prompt.
+The categorical series colours were validated with the data-visualisation
+method's own checker on both page grounds (lightness band, chroma floor, CVD
+separation, normal-vision floor, contrast) —
+``#2A6FD0,#D4532E,#158F6B,#A86B00,#5B46C2,#C23F86`` on ``#FDFDFC`` and
+``#4F8EF7,#E0633F,#1F9E7F,#C98500,#9085E9,#C84E8A`` on ``#141413``, all checks
+passing; keep them in this order and re-validate before changing one (amber
+directly beside the orange fails).
+
+Pure text; no I/O. ``brief.py`` assembles it into the mission prompt;
+``report.py``, ``living.py`` and ``ui/web/artifact_view.py`` lay their pages
+out with the same tokens and kit.
 """
 
 from __future__ import annotations
 
 from typing import Final
 
-# --- The app's design system, as a token block the worker pastes verbatim -----
+# --- The tokens and the block kit, as one stylesheet --------------------------
 #
-# Dark-first, because the desktop app is dark-first and the artifact is framed
-# inside it. Light follows the OS preference OR an explicit stamp: the
-# Artifacts stage passes the app's current theme as `?theme=light|dark`, and
-# the bootstrap script below stamps `data-theme` from it — so the page follows
-# the app, not the OS, whenever the app says which it is. Every colour is a
-# token defined in BOTH palettes; nothing is defined only inside a media block
-# (the classic unreadable-artifact bug).
+# Light is the base, because a page is a document: it is read, printed and
+# saved as a PDF on white. Dark follows the OS preference OR an explicit
+# stamp: the Artifacts stage passes the app's current theme as
+# `?theme=light|dark`, and the bootstrap script below stamps `data-theme` from
+# it — so the page follows the app, not the OS, whenever the app says which it
+# is. Every colour is a token defined in ALL THREE scopes; nothing is defined
+# only inside a media block (the classic unreadable-artifact bug). Both dark
+# scopes are `screen` only, so print always gets the light base.
 THEME_CSS: Final = """\
-:root{color-scheme:dark;
-  --bg:#262624;--bg-2:#30302E;--bg-3:#363634;
-  --ink:#F5F4EF;--ink-2:#9C9A92;--ink-3:#73716A;
-  --line:#3B3A38;--line-2:#4A4946;
-  --accent:#FFD60A;--accent-ink:#0A0A0A;--accent-soft:rgba(255,214,10,.14);
-  --good:#4ADE80;--warn:#F2B23D;--bad:#EF5350;
-  --good-soft:rgba(74,222,128,.12);--warn-soft:rgba(242,178,61,.14);--bad-soft:rgba(239,83,80,.14);
-  --sunken:#1F1F1D;
-  --s1:#C98500;--s2:#4F8EF7;--s3:#E0633F;--s4:#1F9E7F;--s5:#9085E9;--s6:#C84E8A;
-  --seq-1:#5A4A12;--seq-2:#8A6E0C;--seq-3:#B9930A;--seq-4:#E0B30A;--seq-5:#FFD60A;
-  --radius:8px;--radius-sm:4px;
-  --font:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
-  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace}
-@media (prefers-color-scheme:light){
-:root:not([data-theme="dark"]){color-scheme:light;
-  --bg:#FAF9F5;--bg-2:#FFFFFF;--bg-3:#F5F4ED;
-  --ink:#141413;--ink-2:#6C6A5F;--ink-3:#8F8D82;
-  --line:#E8E6DC;--line-2:#D9D6C9;
-  --accent:#A86B00;--accent-ink:#FFFFFF;--accent-soft:rgba(168,107,0,.12);
-  --good:#1F8A4C;--warn:#B26A00;--bad:#C0392B;
-  --good-soft:rgba(31,138,76,.10);--warn-soft:rgba(178,106,0,.10);--bad-soft:rgba(192,57,43,.10);
-  --sunken:#F0EEE6;
-  --s1:#A86B00;--s2:#2A6FD0;--s3:#D4532E;--s4:#158F6B;--s5:#5B46C2;--s6:#C23F86;
-  --seq-1:#F3E3A6;--seq-2:#E3C25A;--seq-3:#C99500;--seq-4:#A86B00;--seq-5:#7A4D00}}
-:root[data-theme="light"]{color-scheme:light;
-  --bg:#FAF9F5;--bg-2:#FFFFFF;--bg-3:#F5F4ED;
-  --ink:#141413;--ink-2:#6C6A5F;--ink-3:#8F8D82;
-  --line:#E8E6DC;--line-2:#D9D6C9;
-  --accent:#A86B00;--accent-ink:#FFFFFF;--accent-soft:rgba(168,107,0,.12);
-  --good:#1F8A4C;--warn:#B26A00;--bad:#C0392B;
-  --good-soft:rgba(31,138,76,.10);--warn-soft:rgba(178,106,0,.10);--bad-soft:rgba(192,57,43,.10);
-  --sunken:#F0EEE6;
-  --s1:#A86B00;--s2:#2A6FD0;--s3:#D4532E;--s4:#158F6B;--s5:#5B46C2;--s6:#C23F86;
-  --seq-1:#F3E3A6;--seq-2:#E3C25A;--seq-3:#C99500;--seq-4:#A86B00;--seq-5:#7A4D00}
+:root{color-scheme:light;
+  --bg:#FDFDFC;--bg-2:#F4F4F2;--bg-3:#EAEAE7;
+  --ink:#171717;--ink-2:#62625E;--ink-3:#8F8F8A;
+  --line:#E6E6E2;--line-2:#D4D4CF;
+  --accent:#2A6FD0;--accent-ink:#FFFFFF;--accent-soft:#E8F0FC;
+  --info:#1D4F9A;--info-soft:#E8F0FC;
+  --good:#17703F;--good-soft:#E4F4EA;
+  --warn:#8A5200;--warn-soft:#FCF1DE;
+  --bad:#B3352A;--bad-soft:#FBEAE8;
+  --sunken:#F4F4F2;
+  --s1:#2A6FD0;--s2:#D4532E;--s3:#158F6B;--s4:#A86B00;--s5:#5B46C2;--s6:#C23F86;
+  --seq-1:#DCE8FA;--seq-2:#A9C6F2;--seq-3:#6FA0E6;--seq-4:#2A6FD0;--seq-5:#1D4F9A;
+  --radius:12px;--radius-sm:6px;
+  --font:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,
+    sans-serif;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace}
+@media screen and (prefers-color-scheme:dark){
+:root:not([data-theme="light"]){color-scheme:dark;
+  --bg:#141413;--bg-2:#1E1E1D;--bg-3:#292927;
+  --ink:#F3F3F0;--ink-2:#A6A6A1;--ink-3:#787873;
+  --line:#2B2B29;--line-2:#3C3C39;
+  --accent:#4F8EF7;--accent-ink:#141413;--accent-soft:#17263F;
+  --info:#A9C8FF;--info-soft:#17263F;
+  --good:#6FD39A;--good-soft:#14291D;
+  --warn:#F0B955;--warn-soft:#2E2311;
+  --bad:#F28B82;--bad-soft:#331917;
+  --sunken:#1E1E1D;
+  --s1:#4F8EF7;--s2:#E0633F;--s3:#1F9E7F;--s4:#C98500;--s5:#9085E9;--s6:#C84E8A;
+  --seq-1:#1D3257;--seq-2:#2A4B85;--seq-3:#3A6BC0;--seq-4:#4F8EF7;--seq-5:#A9C8FF}}
+@media screen{
+:root[data-theme="dark"]{color-scheme:dark;
+  --bg:#141413;--bg-2:#1E1E1D;--bg-3:#292927;
+  --ink:#F3F3F0;--ink-2:#A6A6A1;--ink-3:#787873;
+  --line:#2B2B29;--line-2:#3C3C39;
+  --accent:#4F8EF7;--accent-ink:#141413;--accent-soft:#17263F;
+  --info:#A9C8FF;--info-soft:#17263F;
+  --good:#6FD39A;--good-soft:#14291D;
+  --warn:#F0B955;--warn-soft:#2E2311;
+  --bad:#F28B82;--bad-soft:#331917;
+  --sunken:#1E1E1D;
+  --s1:#4F8EF7;--s2:#E0633F;--s3:#1F9E7F;--s4:#C98500;--s5:#9085E9;--s6:#C84E8A;
+  --seq-1:#1D3257;--seq-2:#2A4B85;--seq-3:#3A6BC0;--seq-4:#4F8EF7;--seq-5:#A9C8FF}}
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--font);
-  -webkit-font-smoothing:antialiased;font-feature-settings:"cv02","cv03","cv04","cv11"}
-h1,h2,h3{margin:0;line-height:1.2;letter-spacing:-.01em;text-wrap:balance}
-h1{font-size:clamp(30px,4.6vw,50px);font-weight:700;line-height:1.05;letter-spacing:-.025em}
-h2{font-size:21px;font-weight:650;letter-spacing:-.015em}
-h3{font-size:16px;font-weight:600}
-p{margin:0;max-width:68ch}
-a{color:var(--accent);text-decoration:underline dotted;text-underline-offset:3px}
-code,pre,.mono{font-family:var(--mono);font-size:.92em}
-.eyebrow{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--accent)}
-.card{background:var(--bg-2);border:1px solid var(--line);border-radius:var(--radius);
-  padding:16px 18px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--font);
+  -webkit-font-smoothing:antialiased;overflow-wrap:break-word}
+h1,h2,h3,p,ul,ol,dl,dd,figure,pre,blockquote{margin:0}
+h1{font-size:30px;line-height:1.2;font-weight:600;letter-spacing:-.015em;text-wrap:balance}
+h2{font-size:22px;line-height:1.3;font-weight:600;letter-spacing:-.01em;text-wrap:balance}
+h3{font-size:16px;line-height:1.5;font-weight:600}
+a{color:var(--accent);text-decoration:underline;text-decoration-thickness:1px;
+  text-underline-offset:3px}
+strong,b{font-weight:600}
+code,pre,.mono{font-family:var(--mono);font-size:.875em}
+pre{background:var(--bg-2);border-radius:8px;padding:12px 14px;overflow-x:auto;line-height:1.5}
+:not(pre)>code{background:var(--bg-2);padding:1px 5px;border-radius:4px}
+hr{border:0;border-top:1px solid var(--line);margin:32px 0}
 .muted{color:var(--ink-2)}
 .num{font-variant-numeric:tabular-nums}
-/* --- The kit: the editorial report look, on brand. Use these classes; do not
+.t-good{color:var(--good);font-weight:500}.t-warn{color:var(--warn);font-weight:500}
+.t-bad{color:var(--bad);font-weight:500}
+/* --- The kit: the blocks a page is made of. Use these classes; do not
    rebuild parallel ones. --- */
-.wrap{max-width:1080px;margin:0 auto;padding:56px 32px 80px}
-.prose{max-width:68ch}.prose>*+*{margin-top:14px}
-.masthead{padding-bottom:28px;margin-bottom:8px;border-bottom:1px solid var(--line-2)}
-.masthead h1{margin-top:14px}
-.standfirst{margin-top:18px;font-size:18px;line-height:1.55;color:var(--ink-2);max-width:62ch}
-.standfirst strong{color:var(--ink);font-weight:600}
-.byline{margin-top:18px;font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;color:var(--ink-3)}
-.section{margin-top:56px}
-.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;
-  padding-bottom:10px;margin-bottom:20px;border-bottom:1px solid var(--line)}
-.section-head .mark{font-family:var(--mono);font-size:11px;letter-spacing:.12em;
-  text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
-.split{display:grid;grid-template-columns:5fr 3fr;gap:40px;align-items:start}
-.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;
-  background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
-.metric{background:var(--bg-2);padding:18px 20px}
-.metric .value{font-family:var(--mono);font-size:30px;font-weight:600;line-height:1.1;
-  letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.metric .label{margin-top:6px;font-size:13px;color:var(--ink-2)}
-.metric.is-key .value{color:var(--accent)}
-.finding{display:grid;grid-template-columns:44px 1fr;gap:4px 16px;padding:18px 0 18px 16px;
-  border-left:3px solid var(--line-2);border-bottom:1px solid var(--line)}
-.finding .n{font-family:var(--mono);font-size:12px;color:var(--ink-3);padding-top:3px}
-.finding h3{margin-bottom:6px}
-.finding .src{margin-top:8px;font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
-.finding.good{border-left-color:var(--good)}.finding.warn{border-left-color:var(--warn)}
-.finding.bad{border-left-color:var(--bad)}.finding.key{border-left-color:var(--accent)}
-.chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;
-  font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;
-  border:1px solid currentColor;border-radius:var(--radius-sm);color:var(--ink-2)}
-.chip.good{color:var(--good);background:var(--good-soft)}
-.chip.warn{color:var(--warn);background:var(--warn-soft)}
-.chip.bad{color:var(--bad);background:var(--bad-soft)}
-.evidence{margin-top:10px;font-family:var(--mono);font-size:12.5px;line-height:1.55;
-  background:var(--sunken);border-left:2px solid var(--line-2);padding:10px 14px;
-  white-space:pre;overflow-x:auto;color:var(--ink-2)}
-.verdict{display:grid;grid-template-columns:120px 1fr;gap:20px;align-items:baseline;
-  padding:16px 0;border-bottom:1px solid var(--line)}
-.verdict .tag{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--ink-3)}
-.verdict.yes .tag{color:var(--accent)}
-.callout{background:var(--bg-2);border:1px solid var(--line);border-left:3px solid var(--accent);
-  border-radius:0 var(--radius) var(--radius) 0;padding:16px 20px}
-.callout .eyebrow{display:block;margin-bottom:6px}
-.table-wrap{overflow-x:auto}
-.table{width:100%;border-collapse:collapse;font-size:14px}
-.table th{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.08em;
-  text-transform:uppercase;color:var(--ink-3);text-align:left;padding:8px 12px;
-  border-bottom:1px solid var(--line-2)}
-.table td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
-.table .n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
-.bar{display:grid;gap:6px;margin:14px 0}
-.bar-head{display:flex;justify-content:space-between;gap:12px;font-size:14px}
-.bar-head .v{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink-2)}
-.bar-track{height:8px;background:var(--bg-3)}
-.bar-fill{height:100%;width:var(--w);background:var(--ink-3);border-radius:0 4px 4px 0}
-.bar-fill.is-key{background:var(--accent)}
-.colophon{margin-top:72px;padding-top:16px;border-top:1px solid var(--line);display:flex;
-  flex-wrap:wrap;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:11px;
-  letter-spacing:.05em;color:var(--ink-3)}
-.colophon .brand{display:inline-flex;align-items:center;gap:8px;color:var(--ink-2)}
-.gigi{width:18px;height:18px;flex:none}
-.gigi .body{fill:#0E0E0E;stroke:var(--accent);stroke-width:10;stroke-linejoin:round}
-.gigi .eye{fill:var(--accent)}
-@media (max-width:760px){.wrap{padding:36px 18px 56px}.split{grid-template-columns:1fr;gap:24px}
-.verdict{grid-template-columns:1fr;gap:6px}.finding{grid-template-columns:1fr}}
+.page{max-width:748px;margin:0 auto;padding:56px 24px 96px}
+.page.wide{max-width:1088px}
+.page>h1+*{margin-top:20px}
+.summary+.summary{margin-top:12px}
+.toc{display:flex;flex-direction:column;gap:2px;margin-top:32px;padding:12px 16px;
+  border:1px solid var(--line-2);border-radius:var(--radius)}
+.toc-label{margin-bottom:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--ink-2)}
+.toc a{display:block;margin:0 -6px;padding:2px 6px;border-radius:var(--radius-sm);
+  font-size:14px;line-height:20px;color:var(--ink-2);text-decoration:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toc a:hover{background:var(--bg-2);color:var(--ink)}
+.toc a.is-current{color:var(--ink);font-weight:500}
+.section{margin-top:64px;scroll-margin-top:24px}
+.section>*+*{margin-top:20px}
+.section>h2+*{margin-top:12px}
+.section>h2+.caption{margin-top:4px}
+.section>p+p{margin-top:12px}
+.section>*+h3{margin-top:32px}
+.section>h3+*{margin-top:8px}
+.section>*+.note{margin-top:8px}
+.caption,.note{font-size:14px;line-height:20px;color:var(--ink-2)}
+.page ul:not([class]),.page ol:not([class]){display:grid;gap:8px;padding-left:24px}
+.page ol:not([class])>li::marker{color:var(--ink-2);font-variant-numeric:tabular-nums}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:24px 32px}
+.metric .value{font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-.01em;
+  font-variant-numeric:tabular-nums}
+.metric .label{margin-top:6px;font-size:14px;line-height:20px}
+.metric .detail{font-size:14px;line-height:20px;color:var(--ink-2)}
+.metric .up{color:var(--good)}.metric .down{color:var(--bad)}
+.callout{position:relative;padding:14px 18px 14px 46px;border-radius:var(--radius);
+  background:var(--bg-2)}
+.callout::before{content:"i";position:absolute;left:18px;top:17px;width:18px;height:18px;
+  border:1.5px solid currentColor;border-radius:50%;font:700 11px/15px var(--font);
+  text-align:center}
+.callout .lead{display:block;font-weight:600}
+.callout a{color:inherit}
+.callout p+p{margin-top:8px}
+.callout.info{background:var(--info-soft);color:var(--info)}
+.callout.good{background:var(--good-soft);color:var(--good)}
+.callout.warn{background:var(--warn-soft);color:var(--warn)}
+.callout.bad{background:var(--bad-soft);color:var(--bad)}
+.callout.good::before{content:"\\2713"}
+.callout.warn::before,.callout.bad::before{content:"!"}
+.table-wrap{overflow-x:auto;border:1px solid var(--line-2);border-radius:var(--radius)}
+.table{width:100%;border-collapse:collapse;font-size:14px;line-height:20px}
+.table th,.table td{padding:10px 12px;text-align:left;vertical-align:top;
+  border-bottom:1px solid var(--line);border-left:1px solid var(--line)}
+.table th:first-child,.table td:first-child{border-left:0}
+.table tbody tr:last-child td{border-bottom:0}
+.table th{font-weight:500}
+.table .n{text-align:right;font-variant-numeric:tabular-nums}
+.table[data-sort] thead th{cursor:pointer;user-select:none}
+.table[data-sort] thead th:hover{background:var(--bg-2)}
+.table th[aria-sort="ascending"]::after{content:" \\2191";color:var(--ink-3)}
+.table th[aria-sort="descending"]::after{content:" \\2193";color:var(--ink-3)}
+.props{display:grid;grid-template-columns:minmax(96px,132px) 1fr;font-size:14px;line-height:20px}
+.props dt,.props dd{padding:12px 0;border-bottom:1px solid var(--line)}
+.props dt{padding-right:16px;color:var(--ink-2)}
+.props dt:last-of-type,.props dd:last-of-type{border-bottom:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.card{min-width:0;padding:16px 18px;border:1px solid var(--line-2);border-radius:var(--radius)}
+.card>*+*{margin-top:12px}
+.marks{display:grid;gap:8px;padding:0;list-style:none;font-size:14px;line-height:20px}
+.marks li{position:relative;padding-left:28px}
+.marks li::before{position:absolute;left:0;top:2px;width:16px;height:16px;border-radius:4px;
+  font:700 13px/16px var(--font);text-align:center}
+.marks.plus li::before{content:"+";background:var(--good-soft);color:var(--good)}
+.marks.minus li::before{content:"\\2212";background:var(--bad-soft);color:var(--bad)}
+.steps{padding:0;list-style:none;counter-reset:step}
+.steps>li{position:relative;padding:0 0 20px 36px;counter-increment:step}
+.steps>li:last-child{padding-bottom:0}
+.steps>li::before{content:counter(step);position:absolute;left:0;top:1px;width:22px;height:22px;
+  border:1px solid var(--line-2);border-radius:50%;background:var(--bg);
+  font:600 12px/20px var(--font);text-align:center;font-variant-numeric:tabular-nums}
+.steps>li::after{content:"";position:absolute;left:10.5px;top:27px;bottom:4px;width:1px;
+  background:var(--line-2)}
+.steps>li:last-child::after{display:none}
+.steps>li.is-done::before{content:"\\2713";border-color:transparent;background:var(--good-soft);
+  color:var(--good)}
+.steps>li.is-now::before{border-color:var(--ink);background:var(--ink);color:var(--bg)}
+.steps p{margin-top:2px;font-size:14px;line-height:20px;color:var(--ink-2)}
+.links{padding:0;list-style:none;counter-reset:link;border:1px solid var(--line-2);
+  border-radius:var(--radius);overflow:hidden}
+.links li+li{border-top:1px solid var(--line)}
+.links a{display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:12px;
+  align-items:center;padding:10px 16px;font-size:14px;line-height:20px;color:var(--ink);
+  text-decoration:none}
+.links a:hover{background:var(--bg-2)}
+.links a::before{content:counter(link);counter-increment:link;grid-row:1/span 2;min-width:24px;
+  height:24px;padding:0 4px;border:1px solid var(--line);border-radius:var(--radius-sm);
+  background:var(--bg-2);color:var(--ink-2);font:500 12px/22px var(--font);text-align:center;
+  font-variant-numeric:tabular-nums}
+.links a::after{content:"\\2197";grid-column:3;grid-row:1/span 2;color:var(--ink-3)}
+.links .site{grid-column:2;font-size:12px;line-height:16px;color:var(--ink-2)}
+.chip{display:inline-block;padding:1px 8px;border-radius:var(--radius-sm);background:var(--bg-2);
+  color:var(--ink-2);font-size:12px;line-height:18px;font-weight:500;white-space:nowrap}
+.chip.info{background:var(--info-soft);color:var(--info)}
+.chip.good{background:var(--good-soft);color:var(--good)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+/* Charts. A figure.card holds one; marks take the series tokens, text takes
+   the ink tokens. */
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .gridline{stroke:var(--line);stroke-width:1}
+.chart .axis{stroke:var(--line-2);stroke-width:1}
+.chart .tick,.chart .mark-label{fill:var(--ink-2);font:12px var(--font);
+  font-variant-numeric:tabular-nums}
+.chart .line{fill:none;stroke:var(--c,var(--s1));stroke-width:2;stroke-linejoin:round;
+  stroke-linecap:round}
+.chart .area{fill:var(--c,var(--s1));opacity:.1}
+.chart .dot{fill:var(--c,var(--s1));stroke:var(--bg);stroke-width:2}
+.chart .colbar{fill:var(--c,var(--s1))}
+.chart .event{stroke:var(--ink-3);stroke-width:1;stroke-dasharray:3 3}
+.chart .hit{fill:transparent;cursor:default}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;line-height:16px;color:var(--ink-2)}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:6px;border-radius:3px;
+  background:var(--c,var(--s1))}
+.cols{display:flex;align-items:stretch;gap:6px;height:200px}
+.col{position:relative;flex:1;min-width:0;font-size:12px;line-height:16px;color:var(--ink-2);
+  text-align:center}
+.col i{position:absolute;left:50%;bottom:22px;width:min(100%,28px);min-height:2px;
+  height:calc((100% - 44px)*var(--v)/100);transform:translateX(-50%);
+  border-radius:4px 4px 0 0;background:var(--c,var(--s1))}
+.col b{position:absolute;left:0;right:0;bottom:calc(26px + (100% - 44px)*var(--v)/100);
+  font-weight:500;font-variant-numeric:tabular-nums}
+.col span{position:absolute;left:0;right:0;bottom:0;overflow:hidden;white-space:nowrap}
+.cols:has(.is-key) .col:not(.is-key) i{opacity:.4}
+.col.is-key b{color:var(--ink)}
+.bars{display:grid;gap:10px;font-size:14px;line-height:20px}
+.bar{display:grid;grid-template-columns:minmax(72px,30%) 1fr auto;gap:12px;align-items:center}
+.bar i{display:block;width:calc(var(--v)*1%);min-width:2px;height:10px;border-radius:0 4px 4px 0;
+  background:var(--c,var(--s1))}
+.bar b{font-weight:500;font-variant-numeric:tabular-nums}
+.bars:has(.is-key) .bar:not(.is-key) i{opacity:.4}
+.matrix{position:relative;aspect-ratio:16/9;margin:0 0 24px 24px;border:1px solid var(--line-2);
+  border-radius:8px;font-size:12px;line-height:16px}
+.matrix::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)}
+.matrix::after{content:"";position:absolute;top:50%;left:0;right:0;height:1px;background:var(--line)}
+.matrix .q{position:absolute;color:var(--ink-2)}
+.matrix .q:nth-of-type(1){left:12px;top:10px}
+.matrix .q:nth-of-type(2){left:calc(50% + 12px);top:10px}
+.matrix .q:nth-of-type(3){left:12px;bottom:10px}
+.matrix .q:nth-of-type(4){left:calc(50% + 12px);bottom:10px}
+.matrix .pt{position:absolute;z-index:1;left:calc(var(--x)*1%);bottom:calc(var(--y)*1%);
+  display:flex;align-items:center;gap:6px;transform:translate(-5px,50%);white-space:nowrap}
+.matrix .pt::before{content:"";flex:none;width:10px;height:10px;border-radius:50%;
+  background:var(--c,var(--s1));box-shadow:0 0 0 2px var(--bg)}
+.matrix .x-axis,.matrix .y-axis{position:absolute;display:flex;justify-content:space-between;
+  color:var(--ink-3)}
+.matrix .x-axis{left:0;right:0;top:calc(100% + 6px)}
+.matrix .y-axis{right:calc(100% + 6px);top:0;bottom:0;writing-mode:vertical-rl;
+  transform:rotate(180deg)}
+/* Controls for the interactive blocks. */
+.seg{display:inline-flex;gap:2px;padding:2px;border-radius:8px;background:var(--bg-2)}
+.seg button{appearance:none;padding:4px 12px;border:0;border-radius:6px;background:transparent;
+  color:var(--ink-2);font:500 14px/20px var(--font);cursor:pointer}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--bg);color:var(--ink);
+  box-shadow:0 0 0 1px var(--line-2)}
+.btn{appearance:none;padding:6px 14px;border:1px solid var(--line-2);border-radius:8px;
+  background:var(--bg);color:var(--ink);font:500 14px/20px var(--font);cursor:pointer}
+.btn:hover{background:var(--bg-2)}
+input,select,textarea{font:inherit;color:inherit}
+input[type="range"],input[type="checkbox"],input[type="radio"]{accent-color:var(--accent)}
+.field{padding:6px 10px;border:1px solid var(--line-2);border-radius:8px;background:var(--bg)}
+.tip{position:fixed;z-index:10;max-width:260px;padding:6px 10px;border-radius:8px;
+  background:var(--ink);color:var(--bg);font-size:12px;line-height:16px;pointer-events:none}
+[hidden]{display:none!important}
+@media (max-width:560px){.page{padding:32px 16px 64px}h1{font-size:26px}
+.section{margin-top:48px}.props{grid-template-columns:1fr}
+.props dt{padding-bottom:0;border-bottom:0}.props dd{padding-top:2px}
+.matrix{aspect-ratio:1/1}}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){
-*,*::before,*::after{animation:none!important;transition:none!important}}"""
+*,*::before,*::after{animation:none!important;transition:none!important}}
+@media print{.page{max-width:none;padding:0}.tip,.seg{display:none!important}
+*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+h1,h2,h3{break-after:avoid}tr,.card,.callout,.metric,.steps>li{break-inside:avoid}
+.table-wrap{overflow:visible}}"""
 
 # Stamps `data-theme` from the `?theme=` query the Artifacts stage appends, so
 # the page follows the app's theme. Harmless anywhere else (no query → OS).
@@ -176,193 +303,396 @@ var t=new URLSearchParams(location.search).get("theme");
 if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t);}
 }catch(e){}})();"""
 
-# The brand mark — the gigi ghost (dodaios/ui/web/frontend/src/components/
-# MascotGigi.tsx, reduced to its silhouette and eyes) — for the colophon. It is
-# the ONLY mark the page carries; the rejected gold star never appears.
-GIGI_MARK_SVG: Final = (
-    '<svg class="gigi" viewBox="0 0 256 256" aria-hidden="true">'
-    '<path class="body" d="M58 90Q58 36 128 36Q198 36 198 90L198 208L180 186L160 208'
-    'L140 186L120 208L100 186L80 208L58 186Z"/>'
-    '<ellipse class="eye" cx="102" cy="108" rx="13" ry="17"/>'
-    '<ellipse class="eye" cx="154" cy="108" rx="13" ry="17"/></svg>'
-)
+#: The message a framed page sends to the app when the reader clicks a web
+#: link (``FRAMED_LINK_MESSAGE`` in ``frontend/src/hooks/useFramedPageLinks.ts``;
+#: a parity test keeps both names equal).
+FRAMED_LINK_MESSAGE: Final = "dodaios-open-link"
 
-# The skeleton every page starts from. Its shape is what the strongest pages
-# in the maintainer's own archive share (2026-09-29 review of twenty of them):
-# eyebrow, a headline that is a claim, a standfirst that answers the question,
-# then sections with a hairline head, then the colophon.
+# What makes the kit's blocks interactive, in one script the worker pastes at
+# the end of <body>. Five behaviours, each driven by markup alone, so a page
+# gets them without writing code:
+#   .toc                    the link of the section being read is marked
+#   [data-tip]              a tooltip with that text on hover and on focus
+#   .seg[data-for=G]        its buttons (data-show=V) switch the blocks marked
+#                           data-group=G between their data-view values
+#   table[data-sort]        a click on a column head sorts the rows
+#                           (a cell's data-value wins over its text)
+#   a[href^=http]           a web link opens outside the page: the page is
+#                           framed without popups and navigation, so it asks
+#                           the app to open the address; opened on its own in
+#                           a browser tab, it goes there itself
+# No network, no storage: the sandbox the page runs in allows neither anyway.
+PAGE_JS: Final = """\
+(function(){
+function start(){
+var d=document,each=function(l,f){Array.prototype.forEach.call(l,f);};
+var links=d.querySelectorAll('.toc a[href^="#"]'),secs=[];
+each(links,function(a){
+  secs.push(d.getElementById(decodeURIComponent(a.getAttribute("href").slice(1))));});
+function mark(){var cur=0;
+  secs.forEach(function(s,i){if(s&&s.getBoundingClientRect().top<=innerHeight*.3)cur=i;});
+  if(scrollY>0&&innerHeight+scrollY>=d.documentElement.scrollHeight-2)cur=links.length-1;
+  each(links,function(a,i){a.classList.toggle("is-current",i===cur);});}
+if(links.length){mark();addEventListener("scroll",mark,{passive:true});}
+var tip=d.createElement("div");tip.className="tip";tip.hidden=true;d.body.appendChild(tip);
+function show(e){
+  var t=e.target&&e.target.closest?e.target.closest("[data-tip]"):null;
+  if(!t){tip.hidden=true;return;}
+  tip.textContent=t.getAttribute("data-tip");tip.hidden=false;
+  var r=t.getBoundingClientRect(),x=e.clientX||r.left+r.width/2,y=e.clientY||r.top;
+  var w=tip.offsetWidth,h=tip.offsetHeight;
+  tip.style.left=Math.max(8,Math.min(innerWidth-w-8,x-w/2))+"px";
+  tip.style.top=(y-h-12<8?y+18:y-h-12)+"px";}
+function hide(){tip.hidden=true;}
+d.addEventListener("pointermove",show);d.addEventListener("focusin",show);
+d.addEventListener("focusout",hide);d.documentElement.addEventListener("pointerleave",hide);
+d.addEventListener("click",function(e){
+  var a=e.target.closest?e.target.closest("a[href]"):null;
+  var h=a?(a.getAttribute("href")||"").trim():"";
+  if(h.indexOf("http://")===0||h.indexOf("https://")===0){
+    e.preventDefault();
+    if(window.parent!==window){window.parent.postMessage({type:"dodaios-open-link",href:h},"*");}
+    else{location.href=h;}
+    return;}
+  var b=e.target.closest?e.target.closest(".seg button[data-show]"):null;
+  if(b){var g=b.parentNode.getAttribute("data-for");
+    each(b.parentNode.children,function(x){x.setAttribute("aria-pressed",x===b?"true":"false");});
+    each(d.querySelectorAll('[data-view][data-group="'+g+'"]'),function(v){
+      v.hidden=v.getAttribute("data-view")!==b.getAttribute("data-show");});
+    return;}
+  var th=e.target.closest?e.target.closest("table[data-sort] thead th"):null;
+  if(!th)return;
+  var body=th.closest("table").tBodies[0],i=th.cellIndex;
+  var asc=th.getAttribute("aria-sort")!=="ascending";
+  each(th.parentNode.cells,function(c){c.removeAttribute("aria-sort");});
+  th.setAttribute("aria-sort",asc?"ascending":"descending");
+  function key(r){var c=r.cells[i];
+    return c?(c.getAttribute("data-value")||c.textContent).trim():"";}
+  Array.prototype.slice.call(body.rows).sort(function(a,b){
+    var x=key(a),y=key(b),nx=Number(x),ny=Number(y);
+    var c=x!==""&&y!==""&&!isNaN(nx)&&!isNaN(ny)?nx-ny:x.localeCompare(y,undefined,{numeric:true});
+    return asc?c:-c;}).forEach(function(r){body.appendChild(r);});
+});
+}
+if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",start);}
+else{start();}
+})();"""
+
+# The skeleton every page starts from: the document's name, a summary that
+# already answers, a contents box, then sections that each carry statements,
+# and the sources last.
 PAGE_SKELETON: Final = (
-    '<main class="wrap">\n'
-    '  <header class="masthead">\n'
-    '    <p class="eyebrow">Diagnosis · Laptop performance</p>\n'
-    "    <h1>The laptop crawls because one process holds a whole core</h1>\n"
-    '    <p class="standfirst"><strong>Short answer: yes, it is the app.</strong> '
-    "One render loop keeps 93 % of a core busy while the window is idle.</p>\n"
-    "  </header>\n"
-    '  <section class="section">\n'
-    '    <div class="section-head"><h2>Where the time goes</h2>'
-    '<span class="mark">§ 1 · measured</span></div>\n'
-    "    …\n"
+    '<main class="page">\n'
+    "  <h1>Laptop performance: what slows it down</h1>\n"
+    '  <p class="summary">Measured on 12 May over ten minutes. One render loop keeps '
+    "93 % of a core busy while the window is idle; closing that app fixes it. "
+    "Battery health was not measured.</p>\n"
+    '  <nav class="toc" aria-label="On this page">\n'
+    '    <p class="toc-label">On this page</p>\n'
+    '    <a href="#where-the-time-goes">Where the time goes</a>\n'
+    '    <a href="#what-to-do">What to do</a>\n'
+    '    <a href="#sources">Sources</a>\n'
+    "  </nav>\n"
+    '  <section class="section" id="where-the-time-goes">\n'
+    "    <h2>Where the time goes</h2>\n"
+    '    <p class="caption">Process sampling, ten-minute window, window idle.</p>\n'
+    '    <div class="metrics">\n'
+    '      <div class="metric"><div class="value">93 %</div>'
+    '<div class="label">of one core</div><div class="detail">render loop, idle</div></div>\n'
+    "      …\n"
+    "    </div>\n"
+    "    <p>…</p>\n"
+    '    <div class="callout info"><strong class="lead">Recommendation</strong>…</div>\n'
     "  </section>\n"
-    '  <footer class="colophon">\n'
-    '    <span class="brand">' + GIGI_MARK_SVG + "Dodaios</span>\n"
-    "    <span>Source: process sampling, 10-minute window</span>\n"
-    "  </footer>\n"
+    "  …\n"
+    '  <section class="section" id="sources">\n'
+    "    <h2>Sources</h2>\n"
+    '    <ol class="links">\n'
+    '      <li><a href="https://example.org/doc">Title of the source'
+    '<span class="site">example.org</span></a></li>\n'
+    "    </ol>\n"
+    "  </section>\n"
     "</main>"
 )
 
+# The markup of each block, because a class name alone does not say how the
+# block is built. Shown once, with the smallest content that shows its shape.
+KIT_MARKUP: Final = """\
+<!-- metric row: two to four current values -->
+<div class="metrics">
+  <div class="metric"><div class="value">346</div><div class="label">Stars</div>
+    <div class="detail">as of 9 Nov</div></div>
+</div>
+
+<!-- callout: tone info | good | warn | bad, or none for a neutral note -->
+<div class="callout warn"><strong class="lead">Hard rule</strong>No run without a limit.</div>
+
+<!-- table: .n for a column of numbers, data-sort to make it sortable -->
+<div class="table-wrap"><table class="table" data-sort>
+  <thead><tr><th>Provider</th><th class="n">Price</th></tr></thead>
+  <tbody><tr><td>Alpha</td><td class="n" data-value="19">19 €</td></tr></tbody>
+</table></div>
+<p class="note">List prices, read on 13 Nov.</p>
+
+<!-- properties: what one thing is, attribute by attribute -->
+<dl class="props"><dt>For whom</dt><dd>Single developers and very small teams.</dd></dl>
+
+<!-- for and against, side by side -->
+<div class="grid">
+  <div class="card"><h3>Why A</h3><ul class="marks plus"><li>…</li></ul></div>
+  <div class="card"><h3>Risks of A</h3><ul class="marks minus"><li>…</li></ul></div>
+</div>
+
+<!-- a real sequence; is-done / is-now show progress in a plan -->
+<ol class="steps">
+  <li class="is-done"><h3>Account and billing</h3><p>Login, checkout, invoices.</p></li>
+  <li class="is-now"><h3>Metering and auto-stop</h3><p>Every run has a limit.</p></li>
+</ol>
+
+<!-- column chart: --v is the value as a percentage of the largest one -->
+<figure class="card chart"><h3>New stars per week</h3>
+  <div class="cols">
+    <div class="col" style="--v:30" data-tip="28 Sep: 23 stars" tabindex="0">
+      <b>23</b><i></i><span>28.09.</span></div>
+    <div class="col is-key" style="--v:100" data-tip="5 Oct: 76 stars" tabindex="0">
+      <b>76</b><i></i><span>05.10.</span></div>
+  </div>
+</figure>
+
+<!-- horizontal bars, for long names -->
+<div class="bars">
+  <div class="bar" style="--v:64" data-tip="Reddit: 64 %" tabindex="0">
+    <span>Reddit</span><i></i><b>64 %</b></div>
+</div>
+
+<!-- line chart: inline SVG on the .chart classes; a .hit rect per point
+     carries the tooltip -->
+<figure class="card chart"><h3>Stars over time</h3>
+  <svg viewBox="0 0 700 280" role="img" aria-label="Stars from 10 Sep to 8 Nov">
+    <line class="gridline" x1="44" x2="676" y1="60" y2="60"/>
+    <text class="tick" x="36" y="64" text-anchor="end">300</text>
+    <line class="event" x1="352" x2="352" y1="20" y2="244"/>
+    <text class="mark-label" x="346" y="16" text-anchor="end">Rename</text>
+    <path class="line" d="M44,230 L352,150 L676,24"/>
+    <circle class="dot" cx="676" cy="24" r="4"/>
+    <text class="mark-label" x="668" y="14" text-anchor="end">345</text>
+    <rect class="hit" x="340" y="20" width="24" height="224" data-tip="12 Oct: 188 stars"
+      tabindex="0"/>
+  </svg>
+</figure>
+
+<!-- 2×2 matrix: --x and --y are 0–100 from the bottom left -->
+<div class="matrix">
+  <span class="q">First</span><span class="q">Plan</span>
+  <span class="q">On the side</span><span class="q">Later</span>
+  <span class="pt" style="--x:10;--y:60">Answer the two issues</span>
+  <span class="x-axis"><span>little effort</span><span>much effort →</span></span>
+  <span class="y-axis"><span>little impact</span><span>much impact →</span></span>
+</div>
+
+<!-- switchable views: the buttons show one block of the group -->
+<div class="seg" data-for="range">
+  <button data-show="week" aria-pressed="true">Week</button>
+  <button data-show="month" aria-pressed="false">Month</button>
+</div>
+<div data-group="range" data-view="week">…</div>
+<div data-group="range" data-view="month" hidden>…</div>
+
+<!-- sources: numbered by the list itself -->
+<ol class="links">
+  <li><a href="https://example.org/pricing">Example pricing
+    <span class="site">example.org</span></a></li>
+</ol>"""
+
 
 # --- The guide, section by section ---------------------------------------------
+
+# How a German-speaking person names a full document. Matching data for the
+# worker (the request arrives in the person's own words), not page text.
+_GERMAN_DOCUMENT_WORDS: Final = '"Geschäftsplan", "Bericht", "Auswertung"'  # i18n-allow
 
 READ_THE_REQUEST: Final = """\
 ## Read the request first — the form follows the ask
 The request names the deliverable; honour it literally before any rule below.
 - Asked for a chart, "Balken", "Kurve", "Verlauf", "Anteile" → the chart IS the page: \
-one clear chart (or a small set of them) with a one-line takeaway above it, not a \
-landing page with a chart somewhere inside.
+one clear chart (or a small set of them) with a one-line takeaway above it and the \
+numbers in a table below, not a long document with a chart somewhere inside.
 - Asked for a comparison, "Gegenüberstellung", "Vergleich" → a comparison table or \
-side-by-side cards with the SAME attributes in the same order for every option.
+side-by-side cards with the SAME attributes in the same order for every option, then \
+one recommendation.
 - Asked to explain, "erklär mir", "wie funktioniert" → a readable document: short \
-sections in reading order, running text at most ~68 characters wide, ONE diagram or \
-chart exactly where it helps the explanation, never decoration.
+sections in reading order, ONE diagram or chart exactly where it helps the \
+explanation, never decoration.
+- Asked for a plan, report, analysis, """ + _GERMAN_DOCUMENT_WORDS + """ → the \
+full document: summary, contents box, sections that each state findings with their \
+numbers, the decisions that are open, the sources.
 - Asked for a dashboard, "Übersicht", "Status" → a UI that is scanned, not read: the \
-summary (KPI row / hero figure) before the detail, charts below, a table for the \
-long tail; state encoded in form (pill, chip, stripe) so what needs attention reads at \
-a glance.
+metric row first, the charts below, a sortable table for the long tail; use \
+`.page wide`.
 - Asked for a timeline, flow, hierarchy, mind map → a diagram drawn with CSS grid / \
-flex or inline SVG: nodes as cards, hairline connectors, arrows only where direction \
-carries meaning.
-- Asked for a page, landing page, one-pager, tool, game → the editorial treatment: one \
-real thesis at the top, then restraint.
-Default when unsure: a calm, well-composed document. A utilitarian request (memo, \
-plan, comparison, explanation) gets the same craft as a landing page, delivered \
-quietly — no hero, no tagline, no marketing voice."""
+flex or inline SVG: nodes as `.card`s, hairline connectors, arrows only where \
+direction carries meaning.
+- Asked for a landing page, one-pager, tool, game → the same plain look: one real \
+statement at the top, the working thing right below it, then restraint.
+Default when unsure: the plain document. Every kind of request gets the same quiet \
+page — no hero, no tagline, no marketing voice."""
 
 PAGE_ANATOMY: Final = """\
-## Page anatomy — how a strong page is put together
-Every page opens the same way, whatever its kind: an `.eyebrow` (the kind of page \
-and its subject, e.g. "Diagnosis · Laptop performance"), an `<h1>` that states a \
-CLAIM, and a `.standfirst` whose first sentence answers the user's question. Then \
-the sections, each under a `.section-head`, and last the `.colophon`. Pick the \
-archetype that fits the request and follow its order:
-- Diagnosis / report / audit → the verdict in the standfirst; a `.metrics` strip or \
-ONE hero number; numbered `.finding`s ranked by impact, each with the measured \
-number, a status `.chip` (fixed / open / needs restart …) and an `.src` line naming \
-where it comes from; an `.evidence` block where raw output proves the point; one \
-recommendation in a `.callout`; "still open" last.
-- Comparison / decision → `.verdict` rows ("Not so" / "It is so") that settle the \
-misconception first; the options side by side with the same attributes in the same \
-order (`.table`); ONE option marked Recommended in a `.callout` with the single \
-reason it beats the runner-up; the rejected options stay listed, one line each.
-- Explainer / pipeline → the whole picture first (one diagram of the stages), then \
-the stages as a numbered sequence with input → output for each; what already exists \
-vs. what is new.
-- Brief / status → the one thing that needs the reader today at the top; then \
-grouped lists (needs attention / on track / done) with times and owners in mono.
-- Plan / checklist → the goal in one sentence, then steps as a real sequence with \
-done/open state, then risks.
-- Dashboard / data → the `.metrics` strip, then the chart(s), then a `.table` for the \
-long tail.
-- Tool / prototype / game → the working thing first, the reasoning (rules, what was \
-rejected) calmly below it.
-Use the kit (the classes in the token block: `.wrap .masthead .standfirst .byline \
-.section .section-head .split .metrics .finding .chip .evidence .verdict .callout \
-.table .bar .colophon`) instead of inventing parallel components; extend it only for \
-what the kit does not cover, on the same tokens. The skeleton:
+## Page anatomy — simple to look at, dense in what it says
+A page is one reading column (`.page`, about 700 px) on the page ground. Nothing \
+decorates it: no header band, no logo, no hero, no coloured headline, no footer. \
+What fills it is statements. In this order:
+1. `<h1>` — the document's name, as a person would file it ("Business plan v1: cloud \
+service", "Growth report"), not a slogan.
+2. `<p class="summary">` — two to four sentences that already answer: what this is \
+and for whom, the date and the period the numbers cover, the result in one sentence, \
+and what the page deliberately leaves out.
+3. `<nav class="toc">` — the contents box, when the page has four sections or more: \
+one link per section, in order, each to the section's `id`.
+4. The sections (`<section class="section" id="…">`): an `<h2>` that names the topic \
+in a few words, optionally a `<p class="caption">` right under it that says where the \
+numbers come from or how to read the section, then the blocks.
+5. A last section "Sources" (in the page's language) as `<ol class="links">`, when \
+the page rests on sources: one row per source, its title and its site. Web links \
+are plain `<a href="https://…">` with no `target`; the page script opens them \
+outside the page.
+Inside a section, pick the block by what the content IS:
+- two to four current values → `.metrics`
+- running argument → paragraphs, two to four sentences each
+- the one recommendation, the one caveat, the one rule → a `.callout` with a tone \
+(`info` for a recommendation or a role note, `warn` for a risk or an open decision, \
+`good` / `bad` for a verdict), with the tones as the kit defines them and no \
+variant of your own; at most one or two per section
+- the same attributes for several things → `.table`; the attributes of ONE thing → \
+`.props`
+- arguments for and against → two `.card`s with `.marks plus` and `.marks minus`
+- a real sequence (build order, roadmap, how-to) → `.steps`; points with no order → a \
+plain `<ul>`; ranked or countable points → a plain `<ol>`
+- a number over time, a comparison of magnitudes, a position on two axes → a chart \
+(see Charts)
+A `.note` under a table or chart states the source or the assumption. Use the kit \
+instead of inventing parallel components; extend it only for what it does not cover, \
+on the same tokens. The skeleton:
 ```html
 """ + PAGE_SKELETON + """
 ```
+The blocks, with their markup:
+```html
+""" + KIT_MARKUP + """
+```
 The example text shows the register — replace every word with the request's own \
-content. The colophon carries the gigi mark and "Dodaios" on the left and, on \
-the right, what the page is based on (the source, the time window, the assumption) — \
-the only branding the page has; never a logo anywhere else."""
+content."""
 
 WRITING: Final = """\
-## Writing — the copy is half the page
-- Headlines are claims, not topics: "The wiki writes well and finds badly", not \
-"Wiki analysis". Section headings are claims too wherever the section has a finding.
-- The standfirst answers first ("Short answer: yes — …"), then gives the one reason. \
-The reader who stops after it knows the result.
-- Every finding carries its number with the unit (6 of 53, 93 %, 2.4 s) and its \
-source; a claim without evidence is marked as an assumption.
-- One recommendation, with the reason it beats the runner-up; trade-offs named in one \
-plain clause ("but: the most expensive of the three").
+## Writing — the statements are the page
+- Every section says something that can be checked: a number with its unit (6 of 53, \
+93 %, 19 €/month), a date, a name, a decision. A section that only describes is cut \
+or merged.
+- The summary answers first. The reader who stops after it knows the result.
+- Every figure carries where it comes from and when it was read; a claim without \
+evidence is marked as an assumption in plain words.
+- One recommendation per decision, with the reason it beats the runner-up; trade-offs \
+named in one plain clause ("but: the most expensive of the three").
+- Headings are short and plain: the topic in two to five words ("What comparable \
+products charge"), or the finding itself where the section has one.
 - Short sentences, common words, no filler; labels as short as a person would say \
-them — a stat label is two to four words, never a sentence.
-- Length follows content: a page is as long as its findings, never padded; cut any \
+them — a metric label is two to four words, never a sentence.
+- Open decisions are stated as questions the reader can answer, each with the \
+recommended answer.
+- Length follows content: a page is as long as its statements, never padded; cut any \
 section that restates another."""
 
 DESIGN_SYSTEM: Final = """\
-## Design system — the page is shown inside the Dodaios desktop app and must look like it
-Paste the token block below VERBATIM as the first <style> in <head>, and the \
-bootstrap script as the first <script> in <head>. The block is the tokens AND the \
-component kit (see Page anatomy); your own CSS comes after it. Derive every colour, \
-font and radius from these tokens; never introduce a hex that is not in the block (semantic status \
-colours included). Dark is the default; light is fully defined; both are complete — \
-scan your stylesheet before finishing: no colour may be defined ONLY inside a media \
-or [data-theme] block.
-- Accent (`--accent`) is spent in ONE place — the one number, the one highlighted \
-series, the active state — and is quiet everywhere else. Never a gradient, never a \
-glow, never a coloured headline.
-- Surfaces: page `--bg`, cards `--bg-2`, recessed/hover `--bg-3`; 1px `--line` \
-borders; radius `--radius` (8px) for the few cards there are, `--radius-sm` (4px) \
-for chips and controls. Hairlines over cards: rows separated by 1px lines, a stat \
-strip as a `gap:1px` grid on `--line` (`.metrics`), status as a 3px stripe at the \
-start of a row (`.finding.bad`) — not a coloured box.
-- Type: `--font` for reading text and headings; `--mono` for the typographic anchors — \
-eyebrows, section marks, ids, file paths, stat values, table headers and columns of \
-digits (tabular numbers). One type scale (h1 / h2 / h3 / body / 18px standfirst / 13px \
-caption / 11px eyebrow) — stay on it, never an inline `style="font-size:…"`. Headings \
-carry weight by size and weight, not by colour.
-- Width: the page sits in `.wrap` (max 1080px); running text in a `.prose` column \
-(~68 characters); asymmetric two-column layouts use `.split` (5fr / 3fr), never three \
-equal columns by reflex.
-- Spacing: siblings laid out with flex/grid + gap (never stacked margins); an 8px \
-rhythm (8/12/16/24/32/48); wide tables, code and diagrams scroll inside their own \
-`overflow-x:auto` container — the page body never scrolls sideways.
-- Structure encodes information: an eyebrow, a number, a divider, a badge only when it \
-says something true about the content. Numbered markers (01/02/03) ONLY for a real \
-sequence. Status colour (`--good/--warn/--bad`) only when the colour MEANS good/bad, \
-always with a label or icon, never colour alone.
+## Design system — one plain look for every page
+Paste the stylesheet below VERBATIM as the first <style> in <head>, the bootstrap \
+script as the first <script> in <head>, and the page script as the last <script> \
+before </body>. The stylesheet is the tokens AND the block kit (see Page anatomy); \
+your own CSS comes after it. Derive every colour, font and radius from the tokens; \
+never introduce a hex that is not in the block. Light is the base, dark is fully \
+defined, both are complete — scan your stylesheet before finishing: no colour may be \
+defined ONLY inside a media or [data-theme] block.
+- Ground and ink: the page is `--bg`, text is `--ink`, secondary text (captions, \
+notes, table of contents, labels under a value) is `--ink-2`. Boxes are the page \
+ground with a 1px `--line-2` border and radius `--radius`; rows inside them are \
+separated by 1px `--line`. `--bg-2` is the quiet fill (code, hover, a neutral \
+callout). No shadows, no gradients, no second surface colour.
+- Colour is rare and always means something: `--accent` for links and for the one \
+data series; the tones `--info / --good / --warn / --bad` with their `-soft` grounds \
+for callouts, chips and a marked cell (`.t-warn`), always with words that say what \
+the colour means. Headings and body text are never coloured. The palette is never \
+themed to the subject: a page about coffee is not brown, a page about money is not \
+green.
+- Type: `--font` for everything a person reads; `--mono` only for code, file paths \
+and commands. One scale — 30 px title, 22 px section heading, 16 px sub-heading and \
+body, 14 px for tables, captions and notes, 12 px for chart ticks and small labels; \
+weight 600 for headings and values, 500 for table heads. Stay on it, never an inline \
+`style="font-size:…"`. No uppercase labels, no letter-spaced eyebrows.
+- Width: `.page` for documents (the default); `.page wide` (about 1040 px) only for \
+a dashboard or a table with six columns or more. Running text never goes wider than \
+the 700 px column.
+- Spacing comes from the kit: 64 px between sections, 20 px between blocks, 12 px \
+between paragraphs. Do not add margins of your own between kit blocks. Wide tables, \
+code and diagrams scroll inside their own container — the page body never scrolls \
+sideways.
 - Copy is design material: the `<title>` is the page's name (a short noun phrase, no \
-explainer after a dash), headings say what the reader gets, labels name things the way \
-a person would, numbers carry their unit, captions state the source or assumption."""
+explainer after a dash), labels name things the way a person would, numbers carry \
+their unit, notes state the source or assumption."""
 
 CHARTS: Final = """\
-## Charts and diagrams (when the request calls for them)
-Draw charts with inline SVG (or canvas for dense data); write them against the tokens.
-- Form before colour. A single current value → a stat tile (label, value, optional \
-delta), not a one-bar chart. Magnitude compared → bars/columns. Trend → a line (area \
-only for one series, fill at ~10% opacity). Part-to-whole → a stacked bar (horizontal \
-for long names). Above/below a baseline → a diverging bar. Never a dual-axis chart: two \
-measures of different scale get two charts side by side.
-- Marks are thin and calm: bars ≤ 24px thick, 4px rounded at the data end and square at \
-the baseline, a 2px surface gap between touching bars/segments; lines 2px with round \
-joins; markers ≥ 8px with a 2px `--bg-2` ring; grid and axes hairline 1px solid in \
-`--line`, never dashed; generous padding; the data is the only loud thing.
-- Colour by job: ONE series → `--accent` (emphasis: the one series that matters in \
-`--accent`, the rest in `--ink-3`). TWO OR MORE series → the categorical slots `--s1 … \
---s6` in that fixed order, never cycled, never generated; past six fold the tail into \
-"Other". Magnitude → the sequential ramp `--seq-1 … --seq-5` (one hue, light→dark). \
-Colour follows the entity, never its rank: filtering must not repaint survivors.
-- Text wears text tokens: values, labels, axis ticks and legends in `--ink`/`--ink-2`, \
-never in the series colour; identity comes from a swatch or line-key BESIDE the text.
-- A legend is always present for two or more series (none for one); label selectively \
-(the endpoint, the extreme, the series the story is about) — never a number on every \
-point; axis ticks are round numbers with thousands separators.
-- Every value is reachable without hovering: tooltips enhance, a compact table (or \
-direct labels) carries the data too. Hit targets ≥ 24px.
-- Diagrams: nodes are `.card`s (or plain labelled boxes), connectors hairline `--line-2` \
-with small arrowheads only where direction matters, the current/selected node in \
-`--accent`; a flow reads left→right or top→bottom, never both; no emoji icons — draw \
-small inline-SVG icons or use none."""
+## Charts and interactive blocks
+A page that carries numbers shows the important ones as a picture the reader can \
+question — at least one interactive infographic wherever the content has a series, a \
+ranking or a position on two axes. The page script (pasted verbatim) makes the kit \
+interactive from markup alone; write your own script only for what it does not cover \
+(a calculator, a filter, a slider that recomputes a chart).
+- Form before colour. A single current value → a `.metric`, not a one-bar chart. \
+Magnitude compared → `.cols` (few values, short labels) or `.bars` (long names). \
+Trend → a line as inline SVG on the `.chart` classes (an area only for one series). \
+Position on two measures → `.matrix`. Part-to-whole → one stacked horizontal bar. \
+Never a dual-axis chart: two measures of different scale get two charts side by side \
+in a `.grid`.
+- A chart sits in a `<figure class="card chart">` with an `<h3>` that says what it \
+shows, including the unit and the period. Two small charts go side by side in a \
+`.grid`; a `.cols` chart with more than six columns takes the full width, so its \
+labels fit.
+- Every mark answers on hover and on focus: give each column, bar, point and matrix \
+dot a `data-tip` with the full statement ("5 Oct: 76 stars") and `tabindex="0"`; \
+on a line, lay an \
+invisible `.hit` rect over each point (at least 24 px wide, `tabindex="0"`).
+- Where two readings of the same data are useful (week / month, absolute / share), \
+offer both with a `.seg` control above the chart instead of drawing both. Where a \
+table has more than about eight rows, make it sortable with `data-sort` and give \
+number cells a `data-value`.
+- Marks are thin and calm: columns at most 28 px wide, 4 px rounded at the data end \
+and square at the baseline; lines 2 px with round joins; dots 4 px radius with a 2 px \
+ring in the page ground; grid lines 1 px solid `--line`, never dashed (the dashed \
+`.event` line is for a dated event only); generous padding; the data is the only loud \
+thing.
+- Colour by job: ONE series → `--s1`, which the kit applies by itself: set no `--c` \
+and no colour of your own; the one value the text is about is marked `is-key` and \
+keeps the same colour (the others fade by themselves). TWO OR MORE series → the \
+slots `--s1 … --s6` in that fixed order (set `--c` on the mark), never cycled, never \
+generated; past six fold the tail into "Other". Magnitude → the ramp `--seq-1 … --seq-5` (one \
+hue). Colour follows the entity, never its rank.
+- Text wears ink tokens: values, labels, ticks and legends in `--ink` / `--ink-2`, \
+never in the series colour; identity comes from a `.legend` swatch beside the text.
+- A legend is always present for two or more series (none for one); label \
+selectively (the endpoint, the extreme, the event) — never a number on every point \
+of a line; axis ticks are round numbers with thousands separators.
+- Every value is reachable without hovering: direct labels or a table under the \
+chart carry the data too.
+- Diagrams: nodes are `.card`s, connectors 1 px `--line-2` with small arrowheads \
+only where direction matters; a flow reads left→right or top→bottom, never both; no \
+emoji icons — draw small inline-SVG icons or use none."""
 
 AVOID: Final = """\
 ## What reads as generated — never ship these (they were in our own archive)
-- A centred hero with a giant headline and a tagline on a page that is not a landing \
-page; gradient text; glows, blurred colour blobs, radial backdrops; a gradient anywhere.
-- Pills and chips as decoration (an "eyebrow pill" above the headline, emoji chips as \
-filters); emoji as section markers or icons; 01/02/03 markers on non-sequences.
+- A centred hero with a giant headline and a tagline; gradient text; glows, blurred \
+colour blobs, radial backdrops; a gradient anywhere; a shadow under a card.
+- Furniture that says nothing: an eyebrow line above the title, uppercase \
+letter-spaced labels, a "§ 1" mark beside a heading, a footer band, a logo or brand \
+mark on the page, 01/02/03 markers on non-sequences.
+- Pills and chips as decoration; emoji as section markers or icons.
 - A stand-in for a logo: a lettered tile ("G", "OA", "A" in a coloured square), an emoji, \
 an invented glyph or a generic "AI" spark beside a vendor's name — the original mark \
 (supplied in the brief when the request names the brand) or the name in plain text, \
@@ -370,18 +700,20 @@ nothing in between.
 - The Tailwind rainbow (#3b82f6, #a855f7, #8b5cf6, #06b6d4, #10b981, #f59e0b, #f43f5e, \
 slate greys) and any palette not in the token block; near-black with one acid-green \
 or neon accent; purple-to-blue gradients.
-- Every box a rounded card with an accent bar on its side; "rounded-lg everywhere"; \
-cards nested in cards; three equal columns of icon + title + sentence.
+- A palette themed to the subject; a second colour for the emphasised bar of a \
+one-series chart; a callout variant of your own.
+- A coloured headline; a card with an accent bar on its side; a filled table head; \
+zebra rows; cards nested in cards; three equal columns of icon + title + sentence.
 - Marketing voice ("Next-Gen", "Intelligence Hub", "Tracker", "supercharge"); \
 lorem ipsum; placeholder numbers; "TODO"; a title with an appended explainer \
 ("Dashboard — an interactive overview of…").
 - Charts: dual axes, thick saturated blocks, dashed grids, rainbow categories, a value \
-on every point, a 2-slice pie, legend-less multi-series, text in the series colour.
-- A headline that names a topic instead of stating a claim; a standfirst that \
-restates the title; stat labels that are whole sentences; the same finding said twice.
+on every point of a line, a 2-slice pie, legend-less multi-series, text in the series \
+colour, a chart whose marks say nothing on hover.
+- A summary that restates the title; a section with no number, date or name in it; \
+metric labels that are whole sentences; the same finding said twice.
 - Hex colours or `#fff` written into component CSS (they break the other theme); \
-radii of 12px and more; inline font sizes; a second logo or brand mark beside the \
-colophon's.
+inline font sizes; margins added between kit blocks.
 - Web fonts or anything fetched (the sandbox blocks every request — the page breaks \
 silently); scattered micro-animations; animation that runs without being asked for."""
 
@@ -390,15 +722,18 @@ DONE_MEANS: Final = """\
 - The file opens from disk with no network and renders with no console errors; every \
 script, style and image is inline.
 - Both themes read correctly: open it once with `?theme=light` and once with \
-`?theme=dark` (or flip the OS setting) — same hierarchy, legible contrast, accent \
-working on both grounds; no colour defined only in a media/[data-theme] block.
+`?theme=dark` (or flip the OS setting) — same hierarchy, legible contrast; no colour \
+defined only in a media/[data-theme] block.
 - The page does exactly what the request asked — the chart the user named, the \
 comparison, the explanation — with the real numbers and facts from the request; \
 where something was missing, a clearly labelled assumption.
-- It opens with eyebrow, claim headline and answering standfirst, and closes with the \
-colophon (gigi mark, "Dodaios", the source).
+- It opens with the document's name and a summary that answers, lists its sections \
+in the contents box when there are four or more, and every section states something \
+that can be checked.
+- Every chart mark, every sortable table and every view switch responds; the contents \
+box marks the section being read.
 - Nothing on the page says how it was built, which model wrote it, or what the \
-instructions were.
+instructions were; it carries no logo and no brand line.
 - Nothing else was created or changed."""
 
 
@@ -407,8 +742,10 @@ __all__ = [
     "CHARTS",
     "DESIGN_SYSTEM",
     "DONE_MEANS",
-    "GIGI_MARK_SVG",
+    "FRAMED_LINK_MESSAGE",
+    "KIT_MARKUP",
     "PAGE_ANATOMY",
+    "PAGE_JS",
     "PAGE_SKELETON",
     "READ_THE_REQUEST",
     "THEME_BOOTSTRAP_JS",

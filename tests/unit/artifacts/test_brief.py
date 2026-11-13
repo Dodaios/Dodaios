@@ -10,6 +10,7 @@ rail strips, and the revision block that carries the previous page.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from dodaios.artifacts.brief import (
     MAX_PREVIOUS_HTML_CHARS,
@@ -17,7 +18,9 @@ from dodaios.artifacts.brief import (
     build_artifact_brief,
 )
 from dodaios.artifacts.design_guide import (
-    GIGI_MARK_SVG,
+    FRAMED_LINK_MESSAGE,
+    KIT_MARKUP,
+    PAGE_JS,
     PAGE_SKELETON,
     THEME_BOOTSTRAP_JS,
     THEME_CSS,
@@ -47,27 +50,37 @@ def test_brief_states_the_single_file_and_no_network_contract() -> None:
     assert "`<title>` that names the artifact: `Plan comparison`" in prompt
     assert "written in English" in prompt
     assert "Compare the three plans by price and features." in prompt
-    # The app's own design system rides along, verbatim, so the page matches it.
-    assert THEME_CSS in prompt and THEME_BOOTSTRAP_JS in prompt
+    # The design system rides along, verbatim: the stylesheet, the theme
+    # bootstrap and the script that makes the kit's blocks interactive.
+    assert THEME_CSS in prompt and THEME_BOOTSTRAP_JS in prompt and PAGE_JS in prompt
     assert "## Read the request first" in prompt
-    assert "## Charts and diagrams" in prompt
+    assert "## Charts and interactive blocks" in prompt
     assert "## What reads as generated" in prompt
     assert "## Done means" in prompt
 
 
 def test_theme_tokens_are_defined_in_every_scope() -> None:
     """The classic unreadable-artifact bug is a token that exists in one theme
-    only. Every `--name` in the dark root block must also exist in the OS-light
-    block and in the explicit light stamp."""
+    only. Every `--name` in the light root block must also exist in the OS-dark
+    block and in the explicit dark stamp."""
     blocks = re.findall(r"\{([^{}]*?--[^{}]*)\}", THEME_CSS)
     scoped = [b for b in blocks if "--bg:" in b]
-    assert len(scoped) == 3, "dark root, OS-light, explicit-light"
+    assert len(scoped) == 3, "light root, OS-dark, explicit-dark"
     names = [set(re.findall(r"(--[a-z0-9-]+):", b)) for b in scoped]
     assert names[0] >= names[1] and names[1] == names[2]
+    # The two dark scopes carry the same values.
+    assert scoped[1].split("--bg:", 1)[1] == scoped[2].split("--bg:", 1)[1]
     # The chart palettes documented as validated are the ones shipped.
-    dark = "--s1:#C98500;--s2:#4F8EF7;--s3:#E0633F;--s4:#1F9E7F;--s5:#9085E9;--s6:#C84E8A"
-    light = "--s1:#A86B00;--s2:#2A6FD0;--s3:#D4532E;--s4:#158F6B;--s5:#5B46C2;--s6:#C23F86"
+    light = "--s1:#2A6FD0;--s2:#D4532E;--s3:#158F6B;--s4:#A86B00;--s5:#5B46C2;--s6:#C23F86"
+    dark = "--s1:#4F8EF7;--s2:#E0633F;--s3:#1F9E7F;--s4:#C98500;--s5:#9085E9;--s6:#C84E8A"
     assert dark in THEME_CSS and light in THEME_CSS
+
+
+def test_print_always_gets_the_light_palette() -> None:
+    """A page is saved as a PDF on white: both dark scopes are screen-only."""
+    assert "@media screen and (prefers-color-scheme:dark)" in THEME_CSS
+    assert '@media screen{\n:root[data-theme="dark"]' in THEME_CSS
+    assert "@media print" in THEME_CSS
 
 
 def test_the_brief_names_the_forms_the_user_can_ask_for() -> None:
@@ -115,9 +128,9 @@ def test_an_oversized_previous_page_is_clipped_head_and_tail() -> None:
     brief = build_artifact_brief("Tweak.", title="Huge", language="en", previous_html=huge)
     assert "middle of the previous version omitted" in brief.prompt
     assert brief.prompt.rstrip("`\n").endswith("ZEND")
-    # The guide itself is ~25k chars (tokens, kit, anatomy); the clipped page
-    # adds the cap, not more.
-    assert len(brief.prompt) < MAX_PREVIOUS_HTML_CHARS + 30_000
+    # The guide itself is ~45k chars (tokens, kit, markup, page script); the
+    # clipped page adds the cap, not more.
+    assert len(brief.prompt) < MAX_PREVIOUS_HTML_CHARS + 50_000
 
 
 def test_a_portuguese_request_names_european_portuguese() -> None:
@@ -172,27 +185,64 @@ def test_source_data_rides_between_the_facts_rule_and_the_design_guide() -> None
 
 
 def test_the_brief_teaches_the_page_anatomy_and_the_writing() -> None:
-    """The archive review of 2026-09-29: strong pages open with eyebrow, a claim
-    headline and an answering standfirst, use hairline structure, and close with
-    a colophon. The brief states that shape and ships the kit that draws it."""
+    """The plain document of 2026-11-13: the page opens with its name and a
+    summary that answers, lists its sections, and is built from the block kit.
+    The brief states that shape and ships the kit that draws it."""
     prompt = build_artifact_brief("x", title="T", language="en").prompt
     assert "## Page anatomy" in prompt and "## Writing" in prompt
-    assert PAGE_SKELETON in prompt
-    for kit_class in (".masthead", ".standfirst", ".metrics", ".finding", ".colophon"):
+    assert PAGE_SKELETON in prompt and KIT_MARKUP in prompt
+    for kit_class in (
+        ".page", ".toc", ".section", ".metrics", ".callout", ".table", ".props",
+        ".marks", ".steps", ".links", ".cols", ".bars", ".matrix", ".seg", ".tip",
+    ):
         assert kit_class + "{" in THEME_CSS, kit_class
-    assert "Headlines are claims, not topics" in prompt
+    assert "The summary answers first" in prompt
 
 
-def test_the_colophon_carries_the_gigi_mark_and_never_the_star() -> None:
-    assert GIGI_MARK_SVG in PAGE_SKELETON
-    assert "Dodaios" in PAGE_SKELETON
-    assert 'class="eye"' in GIGI_MARK_SVG
-    assert "star" not in GIGI_MARK_SVG.lower()
+def test_every_class_the_kit_markup_uses_is_styled() -> None:
+    """The markup the worker copies and the stylesheet it pastes must agree."""
+    used = set()
+    for sample in (PAGE_SKELETON, KIT_MARKUP):
+        for value in re.findall(r'class="([^"]+)"', sample):
+            used.update(value.split())
+    for name in sorted(used):
+        assert re.search(r"\." + re.escape(name) + r"(?![\w-])", THEME_CSS), name
+
+
+def test_the_page_carries_no_brand_mark_and_no_editorial_furniture() -> None:
+    """The maintainer's ask of 2026-11-13: simple to look at. No eyebrow, no
+    mono section marks, no colophon, no logo on the page."""
+    for gone in (".eyebrow", ".masthead", ".standfirst", ".colophon", ".gigi", "uppercase"):
+        assert gone not in THEME_CSS, gone
+    assert "<svg" not in PAGE_SKELETON
+    assert "Dodaios" not in PAGE_SKELETON
+
+
+def test_the_page_script_drives_the_kit_from_markup_alone() -> None:
+    """Hover values, view switches, sortable tables and the contents box come
+    from one script that touches no network and no storage."""
+    for hook in (".toc a", "[data-tip]", ".seg button[data-show]", "table[data-sort] thead th"):
+        assert hook in PAGE_JS, hook
+    for banned in ("fetch(", "XMLHttpRequest", "localStorage", "WebSocket", "alert("):
+        assert banned not in PAGE_JS, banned
+    prompt = build_artifact_brief("x", title="T", language="en").prompt
+    assert "at least one interactive infographic" in prompt
+
+
+def test_a_web_link_in_a_page_is_handed_to_the_app_under_one_name() -> None:
+    """The page is framed without popups: it asks the app to open a web link.
+    The page script and the app's listener must use the same message name."""
+    assert f'postMessage({{type:"{FRAMED_LINK_MESSAGE}"' in PAGE_JS
+    hook = (
+        Path(__file__).resolve().parents[3]
+        / "dodaios/ui/web/frontend/src/hooks/useFramedPageLinks.ts"
+    ).read_text(encoding="utf-8")
+    assert f'FRAMED_LINK_MESSAGE = "{FRAMED_LINK_MESSAGE}"' in hook
+    # A link carries no target: a framed page may not open windows.
+    assert "target=" not in PAGE_SKELETON and "target=" not in KIT_MARKUP
 
 
 def test_the_kit_writes_no_theme_breaking_colour() -> None:
-    """Component rules use tokens only; a raw white or black would break one theme.
-    The gigi body is the single fixed colour — the ghost is black in both."""
-    kit = THEME_CSS.split("/* --- The kit", 1)[1]
-    hexes = set(re.findall(r"#[0-9A-Fa-f]{3,8}\b", kit))
-    assert hexes == {"#0E0E0E"}
+    """Component rules use tokens only; a raw white or black would break one theme."""
+    kit = THEME_CSS.split("*,*::before,*::after{box-sizing:border-box}", 1)[1]
+    assert set(re.findall(r"#[0-9A-Fa-f]{3,8}\b", kit)) == set()

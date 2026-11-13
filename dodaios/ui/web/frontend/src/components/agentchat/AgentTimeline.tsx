@@ -9,7 +9,7 @@ import { MessageWithChips } from "./ToolChoiceChips";
 import { SideThread, SideThreadAnswer, SideThreadMessage, type RenderSideTimeline } from "./SideThread";
 import { chronological, typingRow, type ChatRow, type TurnPart } from "./chronology";
 import { ChainResultCard } from "./ChainResultCard";
-import { ReportCard } from "./ReportCard";
+import { PAGE_NOTICE_KIND, PageCard, pageNoticeModes } from "./PageCard";
 import { AgentResultLine } from "./AgentResultLine";
 import { AGENT_RESULT_KIND } from "./agentResults";
 import { BrowserTakeoverNotice } from "./BrowserTakeoverNotice";
@@ -140,6 +140,8 @@ export function AgentTimeline({
     for (let i = shown.length - 1; i >= 0; i--) if (shown[i].type === "turn") return shown[i].id;
     return null;
   }, [bubbles, awaiting, shown]);
+  // One page made in a turn shows as a preview card, several as links.
+  const pageModes = useMemo(() => pageNoticeModes(shown), [shown]);
   // Back-to-back agent-to-agent messages read as one centred line each.
   const rows = useMemo(() => {
     const out: DrawnRow[] = [];
@@ -346,7 +348,7 @@ export function AgentTimeline({
         return <SideThread key={item.id} item={item} renderTimeline={renderSide} typing={!quietTyping} receipt={bubbles} />;
       }
       if (item.kind === "chain_result") return <ChainResultCard key={item.id} item={item} />;
-      if (item.kind === "report") return <ReportCard key={item.id} item={item} />;
+      if (item.kind === PAGE_NOTICE_KIND) return <PageCard key={item.id} item={item} mode={pageModes.get(item.id)} />;
       if (item.kind === AGENT_RESULT_KIND) return <AgentResultLine key={item.id} item={item} />;
       if (item.kind === "seat_trouble") return <SeatTroubleNotice key={item.id} item={item} />;
       if (item.kind === "browser_takeover") return <BrowserTakeoverNotice key={item.id} item={item} />;

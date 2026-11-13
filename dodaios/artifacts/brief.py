@@ -13,11 +13,12 @@ shares none of the app's context. Two kinds of rule ride together:
 * the sandbox's rules — the page is framed with scripts allowed but every
   network request blocked, so an external font, CDN script or remote image is
   not "slightly slower", it is a broken page;
-* the design standard (:mod:`dodaios.artifacts.design_guide`) — the app's own
-  tokens to paste, how to read the request so the form follows the ask, the
-  chart method, and the explicit list of what reads as generated. Without it a
-  worker reaches for the defaults every model reaches for, and the result is
-  the gradient-hero page our archive was full of (2026-08-23).
+* the design standard (:mod:`dodaios.artifacts.design_guide`) — the tokens,
+  the block kit and the page script to paste, how to read the request so the
+  form follows the ask, the chart method, and the explicit list of what reads
+  as generated. Without it a worker reaches for the defaults every model
+  reaches for, and the result is the gradient-hero page our archive was full
+  of (2026-08-23).
 
 Pure function of its inputs: no clock, no filesystem, no randomness. What the
 worker receives for a given request is byte-identical across runs, which is
@@ -38,6 +39,7 @@ from dodaios.artifacts.design_guide import (
     DESIGN_SYSTEM,
     DONE_MEANS,
     PAGE_ANATOMY,
+    PAGE_JS,
     READ_THE_REQUEST,
     THEME_BOOTSTRAP_JS,
     THEME_CSS,
@@ -228,12 +230,19 @@ def build_artifact_brief(
         DESIGN_SYSTEM,
         "\n".join(
             [
+                "In `<head>`, first:",
                 "```html",
                 "<style>",
                 THEME_CSS,
                 "</style>",
                 "<script>",
                 THEME_BOOTSTRAP_JS,
+                "</script>",
+                "```",
+                "Before `</body>`, last:",
+                "```html",
+                "<script>",
+                PAGE_JS,
                 "</script>",
                 "```",
             ]

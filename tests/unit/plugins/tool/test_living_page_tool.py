@@ -76,8 +76,12 @@ async def test_create_builds_the_page_schedules_it_and_shows_a_card(
     assert page.id in result.output and "120 minutes" in result.output
     assert refresh == [f"start:{page.id}"]
     session, card = cards[0]
-    assert session == "lead-1" and card["kind"] == "chain_result"
-    assert card["items"][0]["artifact"] == page.visual_id
+    # The new page shows in the chat as its preview, like every page.
+    assert session == "lead-1"
+    assert card == {
+        "kind": "report", "text": "Bewerbungen", "summary": "",
+        "artifact": page.visual_id, "sections": 0,
+    }
 
 
 async def test_create_without_the_scheduler_still_keeps_the_page(

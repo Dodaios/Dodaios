@@ -11622,9 +11622,9 @@
     "open": "打开"
   },
   "reports": {
-    "label": "报告",
     "open": "打开",
-    "sections": "{0} 个部分"
+    "page": "页面",
+    "download": "下载"
   },
   "voice_call": {
     "voice_title": "声音",

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -53,6 +53,7 @@ import {
 } from "@/components/visualization/galleryModel";
 import { useT } from "@/i18n";
 import { useArtifactFavorites } from "@/hooks/useArtifactFavorites";
+import { useFramedPageLinks } from "@/hooks/useFramedPageLinks";
 import { useThemeValue } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import { artifactKind, isTextKind } from "@/lib/artifactKind";
@@ -839,6 +840,9 @@ function ArtifactStage({ visual }: { visual: VisualArtifact }) {
   const theme = useThemeValue();
   const [failed, setFailed] = useState(false);
   const [livingVersion, setLivingVersion] = useState(0);
+  // A web link in the page opens in the person's browser, not in the frame.
+  const pageFrame = useRef<HTMLIFrameElement>(null);
+  useFramedPageLinks(pageFrame);
   const id = visualId(visual);
   // A new file must not inherit the previous file's failure verdict.
   useEffect(() => setFailed(false), [id]);
@@ -879,6 +883,7 @@ function ArtifactStage({ visual }: { visual: VisualArtifact }) {
           </Suspense>
         )}
         <iframe
+          ref={pageFrame}
           // A living page reloads when its refresh rewrote it.
           key={`${id}:${theme}:${living ? livingVersion : 0}`}
           src={`${artifactPageUrl(visual.slug, visual.path)}?theme=${theme}${living ? `&v=${livingVersion}` : ""}`}
