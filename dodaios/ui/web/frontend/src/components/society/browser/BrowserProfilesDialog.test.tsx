@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import en from "@/i18n/locales/society/en.json";
-import type { BrowserProfilesSnapshot } from "@/lib/browserProfiles";
+import type { BrowserLoginSource, BrowserProfilesSnapshot } from "@/lib/browserProfiles";
 import { BROWSER_PROFILE_CHANGED_EVENT, BROWSER_PROFILES_QUERY } from "@/lib/browserProfiles";
 import BrowserProfilesDialog from "./BrowserProfilesDialog";
 
@@ -14,8 +14,10 @@ vi.mock("@/i18n", () => ({
 let snapshot: BrowserProfilesSnapshot;
 let calls: Array<{ path: string; method: string; body: Record<string, unknown> }>;
 let failingStatus: number | null;
+let loginSources: BrowserLoginSource[];
 
 beforeEach(() => {
+  loginSources = [];
   snapshot = {
     profiles: [{ id: "personal", name: "Personal Chrome", kind: "chrome", connected: false,
       allowed_domains: ["x.com"], agent_ids: ["scout"], is_default: false }],
@@ -30,7 +32,10 @@ beforeEach(() => {
     const method = init?.method ?? "GET";
     const body = init?.body ? JSON.parse(String(init.body)) : {};
     calls.push({ path, method, body });
+    if (path.endsWith("/login-sources")) return Response.json({ sources: loginSources });
     if (method !== "GET" && failingStatus) return new Response("private provider error", { status: failingStatus });
+    if (path.endsWith("/import-logins")) return Response.json({ imported: 1240, failed: 3, expired: 0, skipped: 2, site_count: 312,
+      sites: { "example.com": 4 }, browser: body.browser, browser_name: "Google Chrome", profile: body.profile, imported_at: 1, started: true });
     if (path.endsWith("/pair")) return Response.json({ pairing_code: "private-code", server_url: "http://127.0.0.1:8765", expires_in: 120 });
     if (method === "POST") {
       const profile = { id: "new", ...body, connected: false, agent_ids: [], is_default: false };
@@ -264,5 +269,49 @@ describe("browser profile sharing", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove profile" }));
     expect(screen.getByText(/This is the shared profile/)).toBeTruthy();
     expect(mutations()).toEqual([]);
+  });
+});
+
+describe("logins from an installed browser", () => {
+  const chrome: BrowserLoginSource = { id: "chrome:Profile 1", browser: "chrome", browser_name: "Google Chrome", profile: "Profile 1",
+    name: "Work", email: "owner@example.com", cookies: 3875, last_used: true, supported: true, reason: "", keychain_prompt: true };
+
+  test("lists detected browsers and imports one only when asked", async () => {
+    loginSources = [chrome, { ...chrome, id: "edge:Default", browser: "edge", browser_name: "Microsoft Edge", profile: "Default",
+      name: "Person 1", email: "", cookies: 12, supported: false, keychain_prompt: false, reason: "locked" }];
+    mount("scout");
+    const row = await screen.findByTestId("login-source-chrome:Profile 1");
+    expect(row.textContent).toContain("Google Chrome · Work");
+    expect(row.textContent).toContain("owner@example.com");
+    expect(screen.getByText(/asks once for access to the browser's Keychain item/)).toBeTruthy();
+    const edge = screen.getByTestId("login-source-edge:Default");
+    expect(edge.textContent).toContain("keeps its logins locked to itself");
+    expect(within(edge).queryByRole("button")).toBeNull();
+    expect(mutations()).toEqual([]);
+    fireEvent.click(within(row).getByRole("button", { name: "Import" }));
+    await screen.findByText(/Imported 1,240 logins from 312 sites/);
+    expect(mutations()).toEqual([{ path: "/api/society/agents/scout/browser/import-logins", method: "POST",
+      body: { browser: "chrome", profile: "Profile 1" } }]);
+  });
+
+  test("without an agent the lead's browser receives the logins", async () => {
+    loginSources = [chrome];
+    mount();
+    fireEvent.click(within(await screen.findByTestId("login-source-chrome:Profile 1")).getByRole("button", { name: "Import" }));
+    await waitFor(() => expect(mutations()[0]?.path).toBe("/api/society/agents/jarvis/browser/import-logins"));
+  });
+
+  test("a refused Keychain is explained and nothing else changes", async () => {
+    loginSources = [chrome];
+    failingStatus = 403;
+    mount("scout");
+    fireEvent.click(within(await screen.findByTestId("login-source-chrome:Profile 1")).getByRole("button", { name: "Import" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("macOS did not allow access to the Keychain");
+  });
+
+  test("with no usable browser it points to signing in once", async () => {
+    mount("scout");
+    expect(await screen.findByText(/No browser with saved logins was found/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Import" })).toBeNull();
   });
 });

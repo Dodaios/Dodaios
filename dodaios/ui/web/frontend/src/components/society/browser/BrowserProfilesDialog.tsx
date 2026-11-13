@@ -5,9 +5,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLocaleChunk, useT } from "@/i18n";
 import {
   BROWSER_PROFILES_QUERY, BROWSER_PROFILE_CHANGED_EVENT, BrowserProfileError, bindAgentBrowserProfile, createBrowserProfile,
-  pairBrowserProfile, parseBrowserDomains, removeBrowserProfile, shareBrowserProfile,
-  updateBrowserProfile, useBrowserProfiles,
-  type BrowserBindingMode, type BrowserProfile, type BrowserProfileKind, type BrowserProfilePairing, type BrowserProfilesSnapshot,
+  importBrowserLogins, pairBrowserProfile, parseBrowserDomains, removeBrowserProfile, shareBrowserProfile,
+  updateBrowserProfile, useBrowserLoginSources, useBrowserProfiles,
+  type BrowserBindingMode, type BrowserLoginImport, type BrowserLoginSource, type BrowserProfile, type BrowserProfileKind,
+  type BrowserProfilePairing, type BrowserProfilesSnapshot,
 } from "@/lib/browserProfiles";
 import { cn } from "@/lib/utils";
 
@@ -314,6 +315,68 @@ function NewProfile({ initialKind, onCreated, onCancel }: { initialKind: Browser
   </form>;
 }
 
+// The lead agent's browser is the shared one unless the dialog was opened for another agent.
+const LEAD_AGENT_ID = "jarvis";
+
+function loginImportError(error: unknown): string {
+  if (!(error instanceof BrowserProfileError)) return "society.browser_profiles.logins_error";
+  if (error.status === 403) return "society.browser_profiles.logins_keychain_error";
+  if (error.status === 409) return "society.browser_profiles.logins_busy_error";
+  return "society.browser_profiles.logins_error";
+}
+
+/** "Use logins from your browser": copy website logins from an installed browser into the agent browser. */
+function LoginImport({ agentId }: { agentId: string }) {
+  const t = useT();
+  const sources = useBrowserLoginSources();
+  const [pending, setPending] = useState<string | null>(null);
+  const [result, setResult] = useState<BrowserLoginImport | null>(null);
+  const [error, setError] = useState("");
+  const list = sources.data ?? [];
+  const supported = list.filter((source) => source.supported);
+  const number = (value: number) => new Intl.NumberFormat().format(value);
+  async function start(source: BrowserLoginSource) {
+    setPending(source.id);
+    setResult(null);
+    setError("");
+    try {
+      setResult(await importBrowserLogins(agentId, source.browser, source.profile));
+    } catch (failure) {
+      setError(t(loginImportError(failure)));
+    } finally {
+      setPending(null);
+    }
+  }
+  return <section className="grid gap-3" aria-labelledby="browser-logins-title">
+    <div className="grid gap-1">
+      <h3 id="browser-logins-title" className="text-sm font-semibold">{t("society.browser_profiles.logins_title")}</h3>
+      <p className="text-xs text-muted-foreground">{t("society.browser_profiles.logins_intro")}</p>
+    </div>
+    {sources.isLoading && <p role="status" className="text-xs text-muted-foreground">{t("society.browser_profiles.logins_loading")}</p>}
+    {!sources.isLoading && !supported.length && <p className="rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">{t("society.browser_profiles.logins_none")}</p>}
+    {list.length > 0 && <ul className="grid gap-2">
+      {list.map((source) => <li key={source.id} className="flex items-center gap-3 rounded-lg border border-border p-3" data-testid={`login-source-${source.id}`}>
+        <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-md bg-secondary text-xs font-semibold text-muted-foreground">{source.browser_name.slice(0, 1)}</span>
+        <span className="grid min-w-0 flex-1 gap-0.5">
+          <span className="truncate text-sm font-medium">{source.browser_name} · {source.name}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            {[source.email, source.cookies != null ? t("society.browser_profiles.logins_count").replace("{0}", number(source.cookies)) : ""].filter(Boolean).join(" · ")}
+          </span>
+          {!source.supported && <span className="text-xs text-muted-foreground">{t("society.browser_profiles.logins_unsupported")}</span>}
+        </span>
+        {source.supported && <button type="button" className={button} disabled={pending !== null} onClick={() => void start(source)}>
+          {t(pending === source.id ? "society.browser_profiles.logins_importing" : "society.browser_profiles.logins_import")}
+        </button>}
+      </li>)}
+    </ul>}
+    {supported.some((source) => source.keychain_prompt) && <p className="text-xs text-muted-foreground">{t("society.browser_profiles.logins_keychain_hint")}</p>}
+    {result && <p role="status" className="text-xs text-success">
+      {t("society.browser_profiles.logins_result").replace("{0}", number(result.imported)).replace("{1}", number(result.site_count))}
+    </p>}
+    {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+  </section>;
+}
+
 function HowItWorks() {
   const t = useT();
   return <details className="group rounded-lg border border-border px-4 py-3">
@@ -401,6 +464,7 @@ export default function BrowserProfilesDialog({ agentId, onClose, connectChrome 
               {data.profiles.map((profile) => <ProfileCard key={profile.id} profile={profile} data={data} open={expanded === profile.id}
                 onToggle={() => setOpenId(expanded === profile.id ? null : profile.id)} onSaved={onSaved} onRemoved={() => setOpenId(null)} />)}
             </section>
+            <LoginImport agentId={agentId ?? LEAD_AGENT_ID} />
             <HowItWorks />
           </>}
         </div>
