@@ -418,8 +418,12 @@ class MediaNormalizer:
                 if not uri.startswith("data:"):
                     result.pop("b64_json", None)
                     result["url"] = uri
+            # A row carrying an ``image_ref`` names a picture the person
+            # supplied (an upload, an app shot). Its path is the copy handed
+            # to an agent with a work order: the person's input, not a result.
+            handed_over = isinstance(value.get("image_ref"), str)
             for key, child in list(result.items()):
-                if self.binary_only and (
+                if (self.binary_only or handed_over) and (
                     key in {"image_url", "video_url", "audio_url"} or key.lower() in _REF_KEYS
                 ):
                     continue
