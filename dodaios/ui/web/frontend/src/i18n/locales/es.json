@@ -11811,6 +11811,12 @@
       "send_many": "Enviar {0} comentarios",
       "sent": "Enviado",
       "failed": "No se envió. Inténtalo de nuevo."
+    },
+    "edit": {
+      "toggle": "Editar",
+      "hint": "Haz clic en un texto y escribe. Se guarda al salir del campo; Esc lo deshace.",
+      "saving": "Guardando…",
+      "failed": "No se pudo guardar."
     }
   },
   "agent_browser": {

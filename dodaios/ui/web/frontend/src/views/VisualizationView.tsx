@@ -1,5 +1,5 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Loader2, MessageSquarePlus, Shapes, ShieldCheck, Star } from "lucide-react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ArrowUp, Loader2, MessageSquarePlus, PencilLine, Shapes, ShieldCheck, Star } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { OutputPreview } from "@/components/visualization/OutputPreview";
@@ -27,8 +27,14 @@ import {
 } from "@/components/visualization/galleryModel";
 import { NodesLibrary } from "@/components/nodes/NodesLibrary";
 import { askDodaiosToChange } from "@/components/nodes/askDodaios";
-import { useNodeBridge, type NodeComment } from "@/components/nodes/nodeBridge";
+import {
+  useNodeBridge,
+  type NodeComment,
+  type NodeEdit,
+  type NodePageMode,
+} from "@/components/nodes/nodeBridge";
 import { useNodeCommentDraft } from "@/components/nodes/nodeCommentDraft";
+import { NodesApiError, saveNodeField } from "@/components/nodes/useNodes";
 import { isNodeSlug, isTypedNode, type NodeCard } from "@/components/nodes/nodeModel";
 import { useNodesLibrary } from "@/components/nodes/useNodesLibrary";
 import { useT } from "@/i18n";
@@ -419,28 +425,35 @@ function Stage({
     setMode("preview");
   }, [currentId]);
 
-  /* Comment mode: a click on the node's page drops a pin with a field. The
-   * comments wait there until the toolbar's "Send" hands them all to the
-   * assistant at once, in the background; it revises the node. Only
-   * a typed node takes comments (its page carries the other half of this,
-   * and the assistant can revise it), and only while its page is shown. */
-  const canComment = node !== null && visual?.kind === "page" && mode === "preview";
-  const [commenting, setCommenting] = useState(false);
-  useEffect(() => setCommenting(false), [currentId]);
+  /* What a click on the node's page does. COMMENT: it drops a pin with a
+   * field; the comments wait there until the toolbar's "Send" hands them all
+   * to the assistant at once, in the background, and it revises the node.
+   * EDIT: the page's texts can be typed into, and each change is saved into
+   * the node. Only a typed node takes either (its page carries the other half
+   * of this, and its content is a spec), and only while its page is shown. */
+  const canTouch = node !== null && visual?.kind === "page" && mode === "preview";
+  const [pageMode, setPageMode] = useState<NodePageMode>("view");
+  useEffect(() => setPageMode("view"), [currentId]);
   useEffect(() => {
-    if (!canComment) setCommenting(false);
-  }, [canComment]);
-  // Escape leaves the comment mode first, and the stage only after that.
+    if (!canTouch) setPageMode("view");
+  }, [canTouch]);
+  const toggleMode = useCallback(
+    (wanted: Exclude<NodePageMode, "view">) => setPageMode((now) => (now === wanted ? "view" : wanted)),
+    [],
+  );
+  // Escape leaves the page's mode first, and the stage only after that. (A
+  // field being typed in takes its own Escape inside the page: the key does
+  // not reach this window then.)
   useEffect(() => {
-    if (!commenting) return;
+    if (pageMode === "view") return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       event.preventDefault();
-      setCommenting(false);
+      setPageMode("view");
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [commenting]);
+  }, [pageMode]);
   const openFile = useCallback((path: string) => {
     setFilesPath(path);
     setMode("files");
@@ -453,7 +466,7 @@ function Stage({
         visual={visual}
         primary={primary}
         node={node}
-        comment={canComment ? { on: commenting, onToggle: () => setCommenting((on) => !on) } : null}
+        pageMode={canTouch ? { mode: pageMode, onToggle: toggleMode } : null}
         mode={mode}
         onMode={setMode}
         onJumpToRun={onJumpToRun}
@@ -462,7 +475,7 @@ function Stage({
       {run && <RunCapacityDecision run={run} />}
       <div className="min-h-0 flex-1" data-testid="visualization-stage">
         {mode === "preview" && visual && (
-          <ArtifactStage visual={visual} node={node} commenting={commenting && canComment} />
+          <ArtifactStage visual={visual} node={node} pageMode={canTouch ? pageMode : "view"} />
         )}
         {mode === "preview" && !visual && run && (
           <OutputPreview key={run.slug} run={run} onOpenFile={openFile} />
@@ -496,7 +509,7 @@ function ArtifactToolbar({
   visual,
   primary,
   node,
-  comment,
+  pageMode,
   mode,
   onMode,
   onJumpToRun,
@@ -507,8 +520,8 @@ function ArtifactToolbar({
   /** The output's primary text file when the run drew no page. */
   primary: ArtifactSummary | null;
   node: NodeCard | null;
-  /** The comment mode's switch, or null where nothing takes comments. */
-  comment: { on: boolean; onToggle: () => void } | null;
+  /** The page's mode and its switches, or null where the page takes neither comments nor edits. */
+  pageMode: { mode: NodePageMode; onToggle: (mode: Exclude<NodePageMode, "view">) => void } | null;
   mode: StageMode;
   onMode: (mode: StageMode) => void;
   onJumpToRun: (slug: string) => void;
@@ -605,25 +618,25 @@ function ArtifactToolbar({
       }
       actions={
         <>
-          {comment && (
-            <button
-              type="button"
-              aria-pressed={comment.on}
-              onClick={comment.onToggle}
-              data-testid="visualization-comment"
-              className={
-                "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full border px-4 text-base " +
-                "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
-                (comment.on
-                  ? "border-transparent bg-primary text-primary-foreground"
-                  : "border-border/70 text-foreground hover:bg-secondary")
-              }
-            >
-              <MessageSquarePlus className="h-4 w-4" aria-hidden />
-              {t("nodes.comment.toggle")}
-            </button>
+          {pageMode && (
+            <>
+              <PageModeButton
+                on={pageMode.mode === "edit"}
+                onClick={() => pageMode.onToggle("edit")}
+                testId="visualization-edit"
+                icon={<PencilLine className="h-4 w-4" aria-hidden />}
+                label={t("nodes.edit.toggle")}
+              />
+              <PageModeButton
+                on={pageMode.mode === "comment"}
+                onClick={() => pageMode.onToggle("comment")}
+                testId="visualization-comment"
+                icon={<MessageSquarePlus className="h-4 w-4" aria-hidden />}
+                label={t("nodes.comment.toggle")}
+              />
+            </>
           )}
-          {comment && waiting > 0 && (
+          {pageMode && waiting > 0 && (
             // The comments left on the page go out together, with one click.
             <button
               type="button"
@@ -782,6 +795,40 @@ function ArtifactToolbar({
   );
 }
 
+/** One of the page's two modes in the stage bar: pressed while it is on. */
+function PageModeButton({
+  on,
+  onClick,
+  testId,
+  icon,
+  label,
+}: {
+  on: boolean;
+  onClick: () => void;
+  testId: string;
+  icon: ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      data-testid={testId}
+      className={
+        "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full border px-4 text-base " +
+        "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+        (on
+          ? "border-transparent bg-primary text-primary-foreground"
+          : "border-border/70 text-foreground hover:bg-secondary")
+      }
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
 /** A key hint beside a menu item. */
 function Kbd({ children }: { children: string }) {
   return (
@@ -807,13 +854,13 @@ function Kbd({ children }: { children: string }) {
 function ArtifactStage({
   visual,
   node = null,
-  commenting = false,
+  pageMode = "view",
 }: {
   visual: VisualArtifact;
   /** The typed node this page belongs to, or null for anything adopted. */
   node?: NodeCard | null;
-  /** The page takes comments (see `Stage`). */
-  commenting?: boolean;
+  /** What a click on the page does (see `Stage`). */
+  pageMode?: NodePageMode;
 }) {
   const t = useT();
   /* The page follows the APP's theme, not the OS's: the artifact brief has every
@@ -838,7 +885,11 @@ function ArtifactStage({
   const working = useNodeCommentDraft((s) => (s.nodeKey === nodeKey ? s.working : 0));
   const outcome = useNodeCommentDraft((s) => s.outcome);
   useEffect(() => openDraft(nodeKey), [nodeKey, openDraft]);
-  useEffect(() => settle(), [id, livingVersion, settle]);
+  /* The revision the page last got from someone else than the reader (the
+   * assistant): only that one works comments in. A field the reader saved
+   * with a redraw draws the page again too, but answers no comment. */
+  const [revisedBy, setRevisedBy] = useState(0);
+  useEffect(() => settle(), [id, revisedBy, settle]);
   const onComment = useCallback(
     async (comment: NodeComment) => {
       if (node === null) throw new Error("no node takes this comment");
@@ -846,9 +897,66 @@ function ArtifactStage({
     },
     [node],
   );
+
+  /* The reader's own edits. A saved value is already on the page, so the
+   * revision it makes must NOT draw the page again (that would throw away
+   * the caret, the slide, the scroll): the watcher's report of that revision
+   * is skipped. A field that asks for it (`data-refresh`) is drawn again at
+   * once instead, at the same scroll position. Any OTHER revision (the
+   * assistant's) still draws the page again. */
+  const ownRevisions = useRef(new Set<number>());
+  const saving = useRef(0);
+  const heldRevision = useRef<number | null>(null);
+  const [editState, setEditState] = useState<{ saving: number; error: string }>({ saving: 0, error: "" });
+  useEffect(() => {
+    ownRevisions.current.clear();
+    heldRevision.current = null;
+    setEditState({ saving: 0, error: "" });
+  }, [id]);
+  const onNodeUpdated = useCallback((updatedAt: number) => {
+    if (ownRevisions.current.has(updatedAt)) return;
+    // While a save is on its way the revision it makes may be reported first.
+    if (saving.current > 0) {
+      heldRevision.current = updatedAt;
+      return;
+    }
+    setLivingVersion(updatedAt);
+    setRevisedBy(updatedAt);
+  }, []);
+  const onEdit = useCallback(
+    async (edit: NodeEdit) => {
+      if (node === null || node.id === null) throw new Error("no node takes this edit");
+      saving.current += 1;
+      setEditState((now) => ({ saving: now.saving + 1, error: "" }));
+      try {
+        const saved = await saveNodeField(node.id, { path: edit.path, value: edit.value, as: edit.as });
+        ownRevisions.current.add(saved.updated_at);
+        if (edit.refresh) setLivingVersion(saved.updated_at);
+        setEditState((now) => ({ saving: now.saving - 1, error: "" }));
+      } catch (error) {
+        const reason = error instanceof NodesApiError && error.detail ? error.detail : "";
+        setEditState((now) => ({ saving: now.saving - 1, error: reason || t("nodes.edit.failed") }));
+        throw error;
+      } finally {
+        saving.current -= 1;
+        const held = heldRevision.current;
+        if (saving.current === 0 && held !== null) {
+          heldRevision.current = null;
+          if (!ownRevisions.current.has(held)) {
+            setLivingVersion(held);
+            setRevisedBy(held);
+          }
+        }
+      }
+    },
+    [node, t],
+  );
+
   const onRemove = useCallback((n: number) => useNodeCommentDraft.getState().remove(n), []);
   const tellCommentState = useNodeBridge(pageFrame, {
-    commenting: commenting && node !== null,
+    mode: node !== null ? pageMode : "view",
+    pageKey: id,
+    onEdit,
     labels: {
       placeholder: t("nodes.comment.placeholder"),
       add: t("nodes.comment.add"),
@@ -904,7 +1012,7 @@ function ArtifactStage({
         )}
         {typed && (
           <Suspense fallback={null}>
-            <NodeUpkeepBar slug={visual.slug} onUpdated={setLivingVersion} />
+            <NodeUpkeepBar slug={visual.slug} onUpdated={onNodeUpdated} />
           </Suspense>
         )}
         <iframe
@@ -924,7 +1032,19 @@ function ArtifactStage({
         <p
           className="flex shrink-0 items-center gap-1.5 border-t border-border px-4 py-1.5 text-sm text-muted-foreground"
           data-testid="visualization-page-note"
-          data-state={working > 0 ? "working" : commenting ? "commenting" : "idle"}
+          data-state={
+            working > 0
+              ? "working"
+              : pageMode === "edit"
+                ? editState.saving > 0
+                  ? "saving"
+                  : editState.error
+                    ? "edit-failed"
+                    : "editing"
+                : pageMode === "comment"
+                  ? "commenting"
+                  : "idle"
+          }
           aria-live="polite"
         >
           {working > 0 ? (
@@ -934,7 +1054,21 @@ function ArtifactStage({
                 ? t("nodes.comment.working")
                 : t("nodes.comment.working_many").replace("{0}", String(working))}
             </>
-          ) : commenting ? (
+          ) : pageMode === "edit" ? (
+            editState.saving > 0 ? (
+              <>
+                <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />
+                {t("nodes.edit.saving")}
+              </>
+            ) : editState.error ? (
+              <span className="text-destructive">{editState.error}</span>
+            ) : (
+              <>
+                <PencilLine className="h-3 w-3 shrink-0" aria-hidden />
+                {t("nodes.edit.hint")}
+              </>
+            )
+          ) : pageMode === "comment" ? (
             <>
               <MessageSquarePlus className="h-3 w-3 shrink-0" aria-hidden />
               {t("nodes.comment.hint")}

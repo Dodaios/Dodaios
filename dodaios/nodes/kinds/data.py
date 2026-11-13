@@ -291,25 +291,52 @@ def _cell_number(cell: str | int | float, comma_decimal: bool) -> float | None:
     return -value if found.group("sign") in ("-", "−", "–") else value
 
 
-def _metrics(metrics: list[Any]) -> str:
+def _at(path: str, src: str | None = None) -> str:
+    """The edit marks of one value of the spec (:mod:`dodaios.nodes.bridge`).
+
+    ``src`` is the value as stored, given when the page draws something else
+    (inline marks, a formatted number).
+    """
+    marks = f' data-at="{shell.attr(path)}"'
+    return marks if src is None else f'{marks} data-src="{shell.attr(src)}"'
+
+
+def _inline_at(path: str, text: str, limit: int) -> tuple[str, str]:
+    """A text with inline marks as drawn, and its edit marks."""
+    shown = shell.inline(text, limit)
+    return shown, _at(path, text if shown != shell.esc(text) else None)
+
+
+def _metrics(metrics: list[Any], base: str) -> str:
     cells = []
-    for metric in metrics:
+    for index, metric in enumerate(metrics):
         if not isinstance(metric, dict):
             continue
+        at = f"{base}/{index}"
         delta = _line(metric.get("delta"), MAX_VALUE_CHARS)
         detail = _line(metric.get("detail"), MAX_DETAIL_CHARS)
         below = ""
         if delta or detail:
             tone = _delta_class(delta)
-            if metric.get("better") == "lower" and tone:
+            lower = metric.get("better") == "lower"
+            if lower and tone:
                 tone = " up" if tone == " down" else " down"
-            change = f'<span class="delta{tone}">{shell.esc(delta)}</span>' if delta else ""
-            below = f'<div class="detail">{change}{" " if delta and detail else ""}'
-            below += f"{shell.esc(detail)}</div>"
+            # The page's script colors the delta again after the reader changed
+            # it; ``data-better`` tells it which way round.
+            flip = ' data-better="lower"' if lower else ""
+            change = (
+                f'<span class="delta{tone}"{flip}{_at(f"{at}/delta")}>{shell.esc(delta)}</span>'
+                if delta
+                else ""
+            )
+            said = f'<span{_at(f"{at}/detail")}>{shell.esc(detail)}</span>' if detail else ""
+            below = f'<div class="detail">{change}{" " if delta and detail else ""}{said}</div>'
+        label = shell.esc(_line(metric.get("label"), MAX_LABEL_CHARS))
+        value = shell.esc(_line(metric.get("value"), MAX_VALUE_CHARS))
         cells.append(
             '<div class="metric">'
-            f'<div class="label">{shell.esc(_line(metric.get("label"), MAX_LABEL_CHARS))}</div>'
-            f'<div class="value">{shell.esc(_line(metric.get("value"), MAX_VALUE_CHARS))}</div>'
+            f'<div class="label"{_at(f"{at}/label")}>{label}</div>'
+            f'<div class="value"{_at(f"{at}/value")}>{value}</div>'
             f"{below}</div>"
         )
     if not cells:
@@ -360,13 +387,32 @@ def _is_empty(cell: Any) -> bool:
     return isinstance(cell, str) and cell.strip().lower() in _EMPTY_CELLS
 
 
-def _table_html(table: dict[str, Any], language: str) -> str:
-    columns = [_line(name, MAX_LABEL_CHARS) for name in shell.as_list(table.get("columns"), 99)]
+def _number_source(value: int | float) -> str:
+    """A stored number as plain digits, the way the reader types one."""
+    text = str(value)
+    if "e" in text or "E" in text:
+        text = f"{value:.15f}".rstrip("0").rstrip(".")
+    return text
+
+
+def _cell_marks(at: str, cell: Any, shown: str) -> str:
+    """The edit marks of one table cell; none for a cell the spec does not hold."""
+    if isinstance(cell, bool) or not isinstance(cell, (str, int, float)):
+        return ""
+    if isinstance(cell, str):
+        return _at(at, cell if shown != shell.esc(cell) else None)
+    return f'{_at(at, _number_source(cell))} data-as="number"'
+
+
+def _table_html(table: dict[str, Any], language: str, base: str) -> str:
+    listed = shell.as_list(table.get("columns"), 99)
+    columns = [_line(name, MAX_LABEL_CHARS) for name in listed]
     if not columns:
         return ""
     comma = language.strip().lower()[:2] in _COMMA_DECIMAL
+    stored = shell.as_list(table.get("rows"), MAX_ROWS)
     rows: list[list[str | int | float]] = []
-    for row in shell.as_list(table.get("rows"), MAX_ROWS):
+    for row in stored:
         cells = list(row[: len(columns)]) if isinstance(row, list) else []
         cells += [""] * (len(columns) - len(cells))
         rows.append(
@@ -389,45 +435,62 @@ def _table_html(table: dict[str, Any], language: str) -> str:
         for index in range(len(columns))
     ]
     head = "".join(
-        f'<th scope="col"{_NUMBER_CLASS if numeric[index] else ""}>{shell.esc(name)}</th>'
+        f'<th scope="col"{_NUMBER_CLASS if numeric[index] else ""}'
+        f'{_at(f"{base}/columns/{index}") if isinstance(listed[index], str) else ""}>'
+        f"{shell.esc(name)}</th>"
         for index, name in enumerate(columns)
     )
     body = []
     for at, row in enumerate(rows):
+        # Only a cell the stored row holds is a place to write into: a row of
+        # another shape is drawn padded, and its padding is no place.
+        source = stored[at] if isinstance(stored[at], list) else []
         cells_html = []
         for index, cell in enumerate(row):
             if isinstance(cell, str):
                 shown = shell.inline(cell, MAX_CELL_CHARS)
             else:
                 shown = shell.esc(format_number(float(cell), language))
+            marks = (
+                _cell_marks(f"{base}/rows/{at}/{index}", source[index], shown)
+                if index < len(source)
+                else ""
+            )
             if numeric[index]:
                 value = values[index][at]
                 sort = "" if value is None else f"{value:.12g}"
-                cells_html.append(f'<td{_NUMBER_CLASS} data-value="{sort}">{shown}</td>')
+                cells_html.append(f'<td{_NUMBER_CLASS} data-value="{sort}"{marks}>{shown}</td>')
             else:
-                cells_html.append(f"<td>{shown}</td>")
+                cells_html.append(f"<td{marks}>{shown}</td>")
         body.append(f"<tr>{''.join(cells_html)}</tr>")
     title = _line(table.get("title"), MAX_TITLE_CHARS)
     return (
         '<div class="dash-table">'
-        + (f"<h3>{shell.esc(title)}</h3>" if title else "")
+        + (f'<h3{_at(f"{base}/title")}>{shell.esc(title)}</h3>' if title else "")
         + '<div class="table-wrap"><table class="table" data-sort>'
         f"<thead><tr>{head}</tr></thead><tbody>{''.join(body)}</tbody></table></div></div>"
     )
 
 
-def _section_html(section: dict[str, Any], language: str) -> str:
+def _section_html(section: dict[str, Any], language: str, base: str) -> str:
     title = _line(section.get("title"), MAX_TITLE_CHARS)
     text = _line(section.get("text"), MAX_TEXT_CHARS)
+    # A section of words alone is left out once both are empty, which moves
+    # every later section up one place: the page is drawn again after such
+    # an edit, so its pointers stay true.
+    bare = "" if any(section.get(key) for key in _PARTS) else " data-refresh"
+    shown, text_at = _inline_at(f"{base}/text", text, MAX_TEXT_CHARS)
     parts = [
-        f"<h2>{shell.esc(title)}</h2>" if title else "",
-        f'<p class="dash-text">{shell.inline(text, MAX_TEXT_CHARS)}</p>' if text else "",
-        _metrics(shell.as_list(section.get("metrics"), MAX_METRICS)),
+        f'<h2{_at(f"{base}/title")}{bare}>{shell.esc(title)}</h2>' if title else "",
+        f'<p class="dash-text"{text_at}{bare}>{shown}</p>' if text else "",
+        _metrics(shell.as_list(section.get("metrics"), MAX_METRICS), f"{base}/metrics"),
+        # A chart's title is drawn inside the report kit's figure
+        # (`report_blocks.render_chart`), so it is not offered for editing.
         _charts(shell.as_list(section.get("charts"), MAX_CHARTS), language),
     ]
     parts += [
-        _table_html(table, language)
-        for table in shell.as_list(section.get("tables"), MAX_TABLES)
+        _table_html(table, language, f"{base}/tables/{index}")
+        for index, table in enumerate(shell.as_list(section.get("tables"), MAX_TABLES))
         if isinstance(table, dict)
     ]
     inner = "".join(parts)
@@ -483,21 +546,72 @@ _CSS: Final[str] = """
 .dash .metrics .value{font-size:24px;line-height:30px}.dash .section{margin-top:44px}}
 @media print{.page.dash{max-width:none}.plot{overflow:visible}.plot svg{min-width:0}
 .tile{break-inside:avoid}}
+:root[data-node-mode="edit"] .dash span[data-at]:empty{display:inline-block;min-width:2ch}
 """
 
 # The kit's script sorts a table on a click only; a column head must answer
 # to the keyboard too. A plot that scrolls inside its card opens at its end,
 # where the latest value is.
-_JS: Final[str] = """
-(function(){var d=document;
-Array.prototype.forEach.call(d.querySelectorAll(".plot"),
-  function(p){p.scrollLeft=p.scrollWidth;});
-Array.prototype.forEach.call(d.querySelectorAll("table[data-sort] thead th"),
-  function(th){th.tabIndex=0;});
+#
+# After the reader changed a value in edit mode (`node-field-saved`, see
+# `nodes/bridge.py`) the page follows up without being drawn again, so the
+# reader keeps their place: a delta takes the color of its new sign (the rule
+# of `_delta_class`), a cell of a column of numbers sorts by its new number
+# (the rule of `_cell_number`), and a row left without any value goes, as
+# `normalize` drops it, with the rows below moving up one place.
+_JS: Final[str] = r"""
+(function(){var d=document,each=function(l,f){Array.prototype.forEach.call(l,f);};
+each(d.querySelectorAll(".plot"),function(p){p.scrollLeft=p.scrollWidth;});
+each(d.querySelectorAll("table[data-sort] thead th"),function(th){th.tabIndex=0;});
 d.addEventListener("keydown",function(e){
   if(e.key!=="Enter"&&e.key!==" ")return;
   var th=e.target.closest?e.target.closest("table[data-sort] thead th"):null;
   if(th){e.preventDefault();th.click();}});
+var comma=/^(de|es|pt|fr|it|nl)/i.test(d.documentElement.lang||"");
+var scales={k:1e3,K:1e3,M:1e6,B:1e9,bn:1e9};
+var NUM=new RegExp(/^([+\-\u2212\u2013]?)\s*/.source+
+  /(?:[$\u20ac\u00a3\u00a5~\u2248<>\u2264\u2265]{1,2}|[A-Z]{3}\s)?\s*/.source+
+  /(\d[\d.,\u00a0\u202f '\u2019]*?)\s*([^\d\s.,][^\d]{0,9})?$/.source);
+function num(s){
+  var m=NUM.exec(String(s).replace(/^\s+|\s+$/g,""));
+  if(!m)return "";
+  var t=m[2].replace(/(\d)[\u00a0\u202f '\u2019](?=\d{3}(?!\d))/g,"$1");
+  if(!/^[\d.,]+$/.test(t)||/[.,]$/.test(t))return "";
+  var dots=t.split(".").length-1,commas=t.split(",").length-1;
+  if(dots&&commas){
+    var dec=t.lastIndexOf(",")>t.lastIndexOf(".")?",":".";
+    if(t.split(dec).length>2)return "";
+    t=t.split(dec===","?".":",").join("").replace(dec,".");
+  }else if(dots||commas){
+    var mark=dots?".":",",grouped=/^\d{1,3}(?:[.,]\d{3})+$/.test(t);
+    if(dots+commas>1&&!grouped)return "";
+    if(grouped&&(dots+commas>1||mark!==(comma?",":".")))t=t.split(mark).join("");
+    else t=t.replace(mark,".");
+  }
+  var n=parseFloat(t),unit=(m[3]||"").split(/\s+/)[0];
+  if(Object.prototype.hasOwnProperty.call(scales,unit))n*=scales[unit];
+  if(m[1]&&m[1]!=="+")n=-n;
+  return isFinite(n)?String(Number(n.toPrecision(12))):"";}
+d.addEventListener("node-field-saved",function(e){
+  var el=e.target,v=e.detail&&e.detail.value!=null?String(e.detail.value):"";
+  if(!el||!el.classList)return;
+  if(el.classList.contains("delta")){
+    var sign=/^\s*([+\-\u2212\u2013])?\s*[^\d]*(\d[\d.,]*)/.exec(v),tone="";
+    if(sign&&/[1-9]/.test(sign[2]))tone=sign[1]&&sign[1]!=="+"?"down":"up";
+    if(tone&&el.getAttribute("data-better")==="lower")tone=tone==="up"?"down":"up";
+    el.classList.remove("up","down");if(tone)el.classList.add(tone);
+    return;}
+  if(el.tagName!=="TD")return;
+  if(el.hasAttribute("data-value"))el.setAttribute("data-value",num(v));
+  var at=/^(.*\/rows\/)(\d+)\/\d+$/.exec(el.getAttribute("data-at")||""),row=el.parentNode;
+  if(!at||!row||!row.cells)return;
+  for(var i=0;i<row.cells.length;i++){if(/\S/.test(row.cells[i].textContent))return;}
+  var body=row.parentNode,gone=Number(at[2]);
+  each(body.querySelectorAll("[data-at]"),function(f){
+    var k=f.getAttribute("data-at");if(k.indexOf(at[1])!==0)return;
+    var rest=k.slice(at[1].length).split("/");
+    if(Number(rest[0])>gone)f.setAttribute("data-at",at[1]+(Number(rest[0])-1)+"/"+rest[1]);});
+  body.removeChild(row);});
 })();
 """
 
@@ -507,15 +621,18 @@ def render(node: Any) -> str:
     spec = node.spec if isinstance(node.spec, dict) else {}
     language = str(getattr(node, "language", "") or "en")
     summary = _line(spec.get("summary"), MAX_SUMMARY_CHARS)
-    lead = f'<p class="summary">{shell.esc(summary)}</p>' if summary else ""
+    # What the reader can write into in edit mode (`nodes/bridge.py`): every
+    # text that is one value of the stored spec. The pointers follow the
+    # stored lists, which `normalize` has already folded into sections.
+    lead = f'<p class="summary" data-at="/summary">{shell.esc(summary)}</p>' if summary else ""
     sections = "".join(
-        _section_html(section, language)
-        for section in shell.as_list(spec.get("sections"), MAX_SECTIONS)
+        _section_html(section, language, f"/sections/{index}")
+        for index, section in enumerate(shell.as_list(spec.get("sections"), MAX_SECTIONS))
         if isinstance(section, dict)
     )
     page = (
         '<main class="page wide dash">'
-        f'<header class="dash-head"><h1>{shell.esc(node.title)}</h1>{lead}'
+        f'<header class="dash-head"><h1 data-at="@title">{shell.esc(node.title)}</h1>{lead}'
         f"{shell.upkeep_meta(node)}</header>"
         f"{sections}"
         "</main>"

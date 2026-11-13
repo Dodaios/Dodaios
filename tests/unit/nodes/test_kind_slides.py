@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+from dataclasses import replace
 from html.parser import HTMLParser
 from typing import Any
 
@@ -21,6 +23,7 @@ from dodaios.nodes.kinds.slides import (
 )
 from dodaios.nodes.model import Node
 from dodaios.nodes.types import NodeError
+from tests.unit.nodes.editable import check_editable, editable_fields
 
 PIXEL = (
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBg"
@@ -81,6 +84,17 @@ def _parsed(html: str) -> _Markup:
     markup.feed(html)
     markup.close()
     return markup
+
+
+_EDIT_MARKS = re.compile(r' data-(?:at|src)="[^"]*"| data-(?:multiline|refresh)\b')
+
+
+def _drawn(html: str) -> str:
+    """What the page DRAWS: the deck without the page's head and scripts, and
+    without the marks of the edit mode (``data-src`` carries a stored text as an
+    escaped attribute, which is data and never drawn)."""
+    start = html.index('<div class="dk"')
+    return _EDIT_MARKS.sub("", html[start : html.index("<script>", start)])
 
 
 def _every_layout(text: str = "Text") -> dict[str, Any]:
@@ -431,7 +445,7 @@ def test_the_player_has_its_controls_and_names_them() -> None:
 def test_speaker_notes_are_in_the_page_with_their_line_breaks() -> None:
     spec = {"slides": [{"title": "One"}, {"title": "Two", "notes": "First line\nSecond **line**"}]}
 
-    html = render(_node(spec))
+    html = _drawn(render(_node(spec)))
 
     note = '<div class="dk-note" data-i="1" hidden>First line<br>Second <strong>line</strong>'
     assert note in html
@@ -464,7 +478,7 @@ def test_the_deck_styles_use_tokens_only() -> None:
 
 
 def test_a_table_aligns_its_number_columns() -> None:
-    html = render(_node({"slides": [{"title": "Plans", "table": TABLE}]}))
+    html = _drawn(render(_node({"slides": [{"title": "Plans", "table": TABLE}]})))
 
     assert "<th>Plan</th>" in html and '<th class="n">Price</th>' in html
     assert "<td>Solo</td>" in html and '<td class="n">9 €</td>' in html
@@ -504,6 +518,170 @@ def test_a_stored_spec_no_rule_accepts_still_renders_a_page() -> None:
 
     assert "<title>Old deck</title>" in html
     assert '<li class="dk-cell' not in html
+
+
+# ---------------------------------------------------------------- edit mode
+
+
+def _fields(spec: Any, title: str = "Quarterly review") -> list[Any]:
+    """The page's fields, checked against the spec the node holds."""
+    node = _node(spec, title=title)
+    fields = check_editable(render(node), node.spec, node.title)
+    paths = [field.at for field in fields]
+    assert len(paths) == len(set(paths)), "a place of the spec is offered twice"
+    return fields
+
+
+def test_every_text_of_a_deck_is_a_field_at_its_place_in_the_stored_spec() -> None:
+    spec = _every_layout()
+    spec["slides"][2]["notes"] = "Line one\nLine two"
+    for deck in (
+        EXAMPLE,
+        starter("Offsite plan", "en"),
+        spec,
+        _every_layout("**Bold** [l](https://x.org)"),
+    ):
+        fields = _fields(deck)
+        assert fields and not any(field.refresh for field in fields)
+
+
+def test_a_small_deck_offers_exactly_its_texts() -> None:
+    spec = {
+        "slides": [
+            {"layout": "title", "kicker": "K", "title": "Deck", "subtitle": "Sub"},
+            {"layout": "bullets", "title": "Points", "text": "Lede", "bullets": ["a", "b"]},
+            {"layout": "stats", "stats": [{"value": "9%", "label": "Churn", "detail": "d"}]},
+            {"layout": "table", "title": "T", "table": TABLE, "caption": "c", "notes": "n"},
+            {"layout": "quote", "quote": "Q", "by": "B"},
+            {
+                "layout": "columns",
+                "columns": [{"title": "A", "bullets": ["x"]}, {"text": "B"}],
+            },
+            {"layout": "steps", "steps": [{"title": "One", "text": "first"}]},
+            {"layout": "chart", "title": "C", "text": "aside", "chart": CHART},
+            {"layout": "image", "image": PIXEL, "caption": "Pic"},
+        ]
+    }
+
+    paths = {field.at for field in _fields(spec)}
+
+    assert paths == {
+        "@title",
+        "/slides/0/kicker",
+        "/slides/0/title",
+        "/slides/0/subtitle",
+        "/slides/1/title",
+        "/slides/1/text",
+        "/slides/1/bullets/0",
+        "/slides/1/bullets/1",
+        "/slides/2/stats/0/value",
+        "/slides/2/stats/0/label",
+        "/slides/2/stats/0/detail",
+        "/slides/3/title",
+        "/slides/3/table/columns/0",
+        "/slides/3/table/columns/1",
+        "/slides/3/table/rows/0/0",
+        "/slides/3/table/rows/0/1",
+        "/slides/3/table/rows/1/0",
+        "/slides/3/table/rows/1/1",
+        "/slides/3/caption",
+        "/slides/3/notes",
+        "/slides/4/quote",
+        "/slides/4/by",
+        "/slides/5/columns/0/title",
+        "/slides/5/columns/0/bullets/0",
+        "/slides/5/columns/1/text",
+        "/slides/6/steps/0/title",
+        "/slides/6/steps/0/text",
+        "/slides/7/title",
+        "/slides/7/text",
+        "/slides/8/caption",
+    }
+
+
+def test_texts_drawn_with_marks_keep_the_stored_text_and_notes_take_lines() -> None:
+    spec = {
+        "slides": [
+            {
+                "title": "Points",
+                "bullets": ["Plain", "With **bold**", "A [link](https://example.org/a)"],
+                "notes": "First line\nSecond **line**",
+            },
+            {"title": "Plain notes", "subtitle": "s", "notes": "Only one line"},
+        ]
+    }
+
+    fields = {field.at: field for field in _fields(spec)}
+
+    assert fields["/slides/0/bullets/0"].src is None
+    assert fields["/slides/0/bullets/1"].src == "With **bold**"
+    assert fields["/slides/0/bullets/1"].text == "With bold"
+    assert fields["/slides/0/bullets/2"].src == "A [link](https://example.org/a)"
+    assert fields["/slides/0/notes"].src == "First line\nSecond **line**"
+    assert fields["/slides/0/notes"].multiline and fields["/slides/1/notes"].multiline
+    assert not fields["/slides/0/bullets/1"].multiline
+    # A field holds only its own text: the drawn marks of the bold and the link.
+    page = render(_node(spec))
+    assert '<li data-at="/slides/0/bullets/1" data-src="With **bold**">With <strong>bold' in page
+
+
+def test_the_deck_name_is_a_field_once_and_a_clipped_name_keeps_the_whole() -> None:
+    long = "A deck whose name runs on " * 5
+    node = _node({"slides": [{"title": "One"}, {"title": "Two"}]}, title=long.strip())
+
+    fields = [field for field in editable_fields(render(node)) if field.at == "@title"]
+
+    assert len(fields) == 1
+    assert fields[0].src == long.strip()
+    check_editable(render(node), node.spec, node.title)
+
+
+def test_hostile_texts_in_a_field_are_data_and_never_markup() -> None:
+    harmless = _parsed(render(_node(_every_layout("**Text** *x*"), title="Text")))
+
+    for payload in (SCRIPT, BREAKOUT, f"{SCRIPT} {BREAKOUT}"):
+        text = f"**{payload}** *x*"
+        node = _node(_every_layout(text), title=payload)
+        html = render(node)
+        markup = _parsed(html)
+        fields = check_editable(html, node.spec, node.title)
+
+        assert SCRIPT not in html and "<img src=x" not in html
+        assert SCRIPT not in _drawn(html)
+        # The stored text is in data-src, attribute-escaped, and comes back whole.
+        assert any(field.src == text for field in fields)
+        assert f'data-src="{text}"' not in html
+        assert markup.tags == harmless.tags
+        assert markup.attributes == harmless.attributes
+        assert not any(name.startswith("on") for name in markup.attributes)
+        assert markup.scripts == harmless.scripts
+
+
+def test_a_stored_deck_that_does_not_line_up_offers_no_field_of_a_slide() -> None:
+    drawn = {"slides": [{"title": "One"}, {"title": "Two", "bullets": ["a"]}]}
+    # Stored under older rules: an empty entry the reader drops, a text with
+    # extra spaces the reader cleans. No place in it can be named for sure.
+    shifted = replace(_node(drawn), spec={"slides": [{}, *drawn["slides"]]})
+    spaced = replace(
+        _node(drawn), spec={"slides": [{"title": "One  "}, {"title": "Two", "bullets": ["a"]}]}
+    )
+
+    assert [f.at for f in editable_fields(render(shifted))] == ["@title"]
+    paths = [f.at for f in check_editable(render(spaced), spaced.spec, spaced.title)]
+    assert "/slides/0/title" not in paths and "/slides/1/bullets/0" in paths
+
+
+def test_the_page_keeps_working_in_edit_mode() -> None:
+    html = render(_node(_every_layout()))
+
+    # Sizes that follow a text are kept in step after a save, without a redraw.
+    assert '"node-field-saved"' in html and "follow(sl)" in html
+    # An emptied text may take its slide or point out: only then is it redrawn.
+    assert 'setAttribute("data-refresh","")' in html
+    assert not any(field.refresh for field in editable_fields(html))
+    # Edit mode opens the notes and shows the deck's name in the bar.
+    assert '"data-node-mode"' in html
+    assert ':root[data-node-mode="edit"] .dk-name{visibility:visible}' in html
 
 
 # ------------------------------------------------- preview, starter, the guide

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import html
 import json
+import re
+from collections import Counter
 from html.parser import HTMLParser
 from typing import Any
 
@@ -12,6 +15,7 @@ from dodaios.artifacts.design_guide import THEME_CSS
 from dodaios.nodes.kinds import motion
 from dodaios.nodes.model import Node
 from dodaios.nodes.types import NodeError
+from tests.unit.nodes.editable import check_editable, editable_fields
 
 PNG = (
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8AAAAMB"
@@ -64,6 +68,16 @@ def _tags(page: str) -> _Tags:
     parser.feed(page)
     parser.close()
     return parser
+
+
+_EDIT_MARKS = re.compile(r' data-(?:at|src)="[^"]*"')
+
+
+def _drawn(page: str) -> str:
+    """What the page DRAWS: its body without the edit marks. Those carry the
+    stored strings as escaped attributes, which are data and never drawn."""
+    body = page.index("<body")
+    return _EDIT_MARKS.sub("", page[body : page.index("<script>", body)])
 
 
 # ---------------------------------------------------------------- normalize
@@ -278,8 +292,8 @@ def test_no_text_from_a_spec_reaches_the_page_unescaped(attack: str) -> None:
     pictures = [attrs for tag, attrs in parsed.tags if tag == "img"]
     assert [picture["src"] for picture in pictures] == [PNG]
     assert pictures[0]["alt"] == attack
-    # The words are still there, as text.
-    assert "&lt;" in page
+    # The words are still there, as text, not only in the edit marks.
+    assert "&lt;" in _drawn(page)
 
 
 def test_an_image_that_is_not_embedded_never_becomes_a_source() -> None:
@@ -472,3 +486,136 @@ def test_a_bare_decimal_is_written_the_readers_way() -> None:
     # A value the model wrote out keeps its own marks in every language.
     written = motion.normalize({"scenes": [{"type": "stat", "value": "1,240", "label": "x"}]})
     assert ">1,240<" in motion.render(_node(written, language="de"))
+
+
+# ------------------------------------------------------------------ editing
+
+
+def _every_type() -> dict[str, Any]:
+    return _film(
+        {"type": "title", "kicker": "K", "title": "Two words", "text": "X"},
+        {"type": "text", "kicker": "Say", "text": "One statement that is set large."},
+        {"type": "bullets", "kicker": "B", "title": "Points", "bullets": ["a", "b", "c"]},
+        {"type": "stat", "kicker": "S", "value": 42, "unit": "%", "label": "share",
+         "detail": "of all"},
+        {"type": "bars", "kicker": "R", "title": "B", "unit": "k",
+         "items": [{"label": "x", "value": "3.5"}, {"label": "y", "value": 1240}]},
+        {"type": "quote", "quote": "Said so, plainly.", "by": "Someone"},
+        {"type": "steps", "kicker": "How", "title": "How",
+         "steps": [{"title": "One", "text": "first"}, "Two"]},
+        {"type": "image", "image": PNG, "caption": "A picture"},
+        {"type": "end", "kicker": "Bye", "title": "Bye", "text": "See you"},
+    )  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        motion.normalize(motion.EXAMPLE),
+        motion.starter("Quarterly review", "en"),
+        _every_type(),
+        _every_type() | {"format": "tall"},
+    ],
+    ids=["example", "starter", "every-type", "every-type-tall"],
+)
+def test_every_text_offered_for_editing_is_the_value_the_spec_holds(spec: dict[str, Any]) -> None:
+    for language in ("en", "de"):
+        page = motion.render(_node(spec, language=language))
+        fields = check_editable(page, spec, "Film")
+
+        assert fields
+        assert [at for at, n in Counter(field.at for field in fields).items() if n > 1] == []
+        # One line each: Enter saves, and the app never has to draw the film again.
+        assert not any(field.multiline or field.refresh for field in fields)
+
+
+def test_the_paths_of_a_small_film_are_exactly_its_texts() -> None:
+    spec = _film(
+        {"type": "title", "kicker": "K", "title": "Two words", "text": "Under"},
+        {"type": "stat", "value": 42, "unit": "%", "label": "share"},
+        {"type": "bars", "title": "B", "unit": "k",
+         "items": [{"label": "x", "value": 3.5}, {"label": "y", "value": 2}]},
+        {"type": "steps", "steps": [{"title": "Ask", "text": ""}, {"title": "Do", "text": "it"}]},
+    )  # fmt: skip
+    fields = check_editable(motion.render(_node(spec)), spec, "Film")
+
+    # The bars' unit is drawn after every value, so it is no one place to write
+    # into; a step's empty text is not drawn at all.
+    assert {field.at for field in fields} == {
+        "/scenes/0/kicker",
+        "/scenes/0/title",
+        "/scenes/0/text",
+        "/scenes/1/value",
+        "/scenes/1/unit",
+        "/scenes/1/label",
+        "/scenes/2/title",
+        "/scenes/2/items/0/label",
+        "/scenes/2/items/0/value",
+        "/scenes/2/items/1/label",
+        "/scenes/2/items/1/value",
+        "/scenes/3/steps/0/title",
+        "/scenes/3/steps/1/title",
+        "/scenes/3/steps/1/text",
+    }
+    assert len(fields) == 14
+
+
+def test_split_texts_carry_the_stored_string_and_bar_values_are_numbers() -> None:
+    spec = _every_type()
+    fields = {field.at: field for field in editable_fields(motion.render(_node(spec)))}
+
+    # Drawn as words that rise one by one; edited as the stored string.
+    for at, value in (
+        ("/scenes/0/title", "Two words"),
+        ("/scenes/1/text", "One statement that is set large."),
+        ("/scenes/5/quote", "Said so, plainly."),
+        ("/scenes/8/title", "Bye"),
+    ):
+        assert fields[at].src == value and fields[at].text == value
+    # A number is stored as text; the count is drawn inside the field.
+    assert spec["scenes"][3]["value"] == "42" and fields["/scenes/3/value"].src == "42"
+    # A bar's value is a number, edited plainly, drawn in the reader's notation.
+    assert spec["scenes"][4]["items"] == [
+        {"label": "x", "value": 3.5},
+        {"label": "y", "value": 1240},
+    ]
+    for at, src in (("/scenes/4/items/0/value", "3.5"), ("/scenes/4/items/1/value", "1240")):
+        assert (fields[at].kind, fields[at].src) == ("number", src)
+    # A plain text is the field itself, without a source of its own.
+    assert fields["/scenes/2/bullets/1"].src is None and fields["/scenes/2/bullets/1"].text == "b"
+
+
+def test_a_localized_stat_is_edited_as_stored() -> None:
+    spec = motion.normalize({"scenes": [{"type": "stat", "value": 99.9, "unit": "%"}]})
+    page = motion.render(_node(spec, language="de"))
+    field = {field.at: field for field in check_editable(page, spec, "Film")}["/scenes/0/value"]
+
+    assert (field.text, field.src) == ("99,9", "99.9")
+
+
+def test_a_hostile_text_is_only_ever_an_escaped_attribute_or_text() -> None:
+    attack = ATTACKS[1]
+    spec = _attacked(attack)
+    page = motion.render(_node(spec))
+    fields = check_editable(page, spec, "Film")
+
+    assert any(field.src == attack for field in fields)
+    assert f'data-src="{html.escape(attack, quote=True)}"' in page
+    assert attack not in page
+
+
+def test_the_film_stands_while_it_is_edited() -> None:
+    script = _tags(motion.render(_node(_every_type()))).scripts[-1]
+
+    # The mode is watched on <html>, also when it was set before the script ran.
+    assert "MutationObserver" in script and '"data-node-mode"' in script
+    assert script.rstrip().endswith("moded();\n})();")
+    assert 'getAttribute("data-node-mode")==="edit"' in script
+    # Play is off, every move lands on a settled scene, the stage click is inert.
+    assert "if(playing||editing)return;" in script
+    assert "if(editing)t=settled(index(t));" in script
+    assert "if(editing||e.target.closest" in script
+    # A saved text is split, counted and sized again in the page, not redrawn.
+    assert '"node-field-saved"' in script
+    for name in ("split(el,v)", "recount(el,v)", "restat(el,v)", "refit(box)"):
+        assert name in script

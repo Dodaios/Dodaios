@@ -105,6 +105,14 @@ export async function setNodeUpkeep(
   return readJson<NodeState>(await fetch(nodeUrl(id, `/upkeep/${action}`), init));
 }
 
+/** Save one value the reader typed into a node's page. Rejects with the server's reason. */
+export async function saveNodeField(
+  id: string,
+  edit: { path: string; value: string | boolean; as: "text" | "number" | "toggle" },
+): Promise<NodeState> {
+  return readJson<NodeState>(await fetch(nodeUrl(id, "/edit"), postJson(edit)));
+}
+
 export interface CreateNodeInput {
   type: NodeType;
   title?: string;

@@ -11811,6 +11811,12 @@
       "send_many": "发送 {0} 条评论",
       "sent": "已发送",
       "failed": "未发送，请重试。"
+    },
+    "edit": {
+      "toggle": "编辑",
+      "hint": "点击文字即可输入。离开该字段时保存，按 Esc 撤销。",
+      "saving": "正在保存…",
+      "failed": "无法保存。"
     }
   },
   "agent_browser": {

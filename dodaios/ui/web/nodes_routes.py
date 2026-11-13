@@ -6,6 +6,7 @@
 * ``GET    /api/nodes/{id}``                 one typed node, with its spec.
 * ``POST   /api/nodes``                      a new node from its type's starter.
 * ``PATCH  /api/nodes/{id}``                 rename.
+* ``POST   /api/nodes/{id}/edit``            one value the person typed into the page.
 * ``POST   /api/nodes/{id}/duplicate``       a second node with the same content.
 * ``POST   /api/nodes/{id}/revert``          put the previous version back.
 * ``POST   /api/nodes/{id}/upkeep/stop``     stop keeping it current; the content stays.
@@ -17,9 +18,10 @@ The library is what the app's Nodes section shows: the typed nodes plus what
 older runs left behind (:mod:`dodaios.nodes.library`). The routes that change
 something only reach typed nodes; an adopted file is still deleted through
 ``/api/outputs``. A node's content is written by the assistant through the
-``node`` tool, not from here: the library renames, copies, reverts and removes.
-Nothing here calls a model; the comments route starts a background run of
-the assistant (:mod:`dodaios.nodes.comments`) and returns at once.
+``node`` tool, and by the person one value at a time in the stage's edit mode
+(``/edit``, :mod:`dodaios.nodes.edit`): the library renames, copies, reverts and
+removes. Nothing here calls a model; the comments route starts a background run
+of the assistant (:mod:`dodaios.nodes.comments`) and returns at once.
 
 A node's page runs in a sandbox with no network, so everything a person does
 TO a node (stop its upkeep, rename it) is a control of the app and a route here.
@@ -36,6 +38,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from dodaios.nodes import comments, library, refresh
+from dodaios.nodes.edit import KINDS, apply_field
 from dodaios.nodes.kinds import kind_of
 from dodaios.nodes.model import Node
 from dodaios.nodes.store import MAX_EVERY_MINUTES, MIN_EVERY_MINUTES, NodeStore
@@ -81,6 +84,16 @@ class CreateBody(BaseModel):
 
 class RenameBody(BaseModel):
     title: str = Field(max_length=400)
+
+
+class EditBody(BaseModel):
+    """One value typed into the page: where it goes and what it is."""
+
+    path: str = Field(min_length=1, max_length=400)
+    value: Any = None
+    kind: str = Field(default="text", alias="as")
+
+    model_config = {"populate_by_name": True}
 
 
 class DuplicateBody(BaseModel):
@@ -211,6 +224,27 @@ async def duplicate_node(node_id: str, body: DuplicateBody | None = None) -> dic
     except NodeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return await _card(copy)
+
+
+@router.post("/{node_id}/edit")
+async def edit_node(node_id: str, body: EditBody) -> dict[str, Any]:
+    """Save one value the person typed into the node's page.
+
+    Answers with the node's state (without its spec): its new ``version`` and
+    ``updated_at`` tell the stage which revision the page now shows. A value
+    the type does not accept is a 400 with the reason, and the node stays as
+    it was.
+    """
+    node = await _require(node_id)
+    if body.kind not in KINDS:
+        raise HTTPException(status_code=400, detail=f"'as' must be one of: {', '.join(KINDS)}.")
+    try:
+        saved = await asyncio.to_thread(
+            apply_field, get_store(), node, body.path, body.value, body.kind
+        )
+    except NodeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return await refresh.node_state(saved, with_spec=False)
 
 
 @router.post("/{node_id}/revert")

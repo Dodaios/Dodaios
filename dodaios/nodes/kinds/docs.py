@@ -251,13 +251,19 @@ def render(node: Any) -> str:
     # its card instead of shrinking until its labels cannot be read.
     body = body.replace("<svg ", '<div class="plot"><svg ').replace("</svg>", "</svg></div>")
     contents = _contents_box(_sections(body), language)
-    lead = f'<p class="lead">{shell.esc(summary)}</p>' if summary else ""
+    # What the reader can write into themselves in edit mode (`nodes/bridge.py`):
+    # the title, the summary, and the body. The body is drawn from Markdown, so
+    # its field shows the Markdown while it is edited and the page is drawn
+    # again afterwards.
+    lead = f'<p class="lead" data-at="/summary">{shell.esc(summary)}</p>' if summary else ""
+    source = shell.attr(str(spec.get("markdown") or ""))
     page = (
         f'<main class="page doc{" has-toc" if contents else ""}">'
-        f'<header class="doc-head"><h1>{shell.esc(node.title)}</h1>{lead}'
+        f'<header class="doc-head"><h1 data-at="@title">{shell.esc(node.title)}</h1>{lead}'
         f"{shell.upkeep_meta(node)}</header>"
         f"{contents}"
-        f'<article class="report">{body}</article>'
+        f'<article class="report" data-at="/markdown" data-src="{source}" data-multiline '
+        f"data-refresh>{body}</article>"
         "</main>"
     )
     return shell.document(node, body=page, css=_CSS, js=_JS)

@@ -39,6 +39,7 @@ from typing import Any, Final
 
 from dodaios.artifacts.design_guide import THEME_CSS
 from dodaios.artifacts.report_blocks import parse_chart, render_chart
+from dodaios.nodes.bridge import TITLE_PATH
 from dodaios.nodes.shell import (
     MAX_IMAGE_CHARS,
     as_list,
@@ -661,6 +662,7 @@ _CSS: Final[str] = """
 .dk-name{visibility:hidden;min-width:0;overflow:hidden;font-size:13px;line-height:20px;
   color:var(--ink-2);white-space:nowrap;text-overflow:ellipsis}
 .dk.is-overview .dk-name{visibility:visible}
+:root[data-node-mode="edit"] .dk-name{visibility:visible}
 .dk-nav,.dk-tools{display:flex;align-items:center;gap:2px}
 .dk-tools{justify-content:flex-end}
 .dk-btn{appearance:none;display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;
@@ -858,10 +860,11 @@ var noteEls=list(".dk-note"),btn={};
 list("[data-act]").forEach(function(b){btn[b.getAttribute("data-act")]=b;});
 function frame(c){return c.querySelector(".dk-frame");}
 /* A body that overflows its slide is set smaller, step by step. */
-function fit(){list(".sl-body").forEach(function(b){
+function fitOne(b){
   var f=parseFloat(getComputedStyle(b).fontSize),i=0;
   while(i<14&&(b.scrollHeight>b.clientHeight+1||b.scrollWidth>b.clientWidth+1)){
-    f*=.94;b.style.fontSize=f.toFixed(2)+"px";i++;}});}
+    f*=.94;b.style.fontSize=f.toFixed(2)+"px";i++;}}
+function fit(){list(".sl-body").forEach(fitOne);}
 /* The stage: the largest 16:9 box that fits, on whole pixels so text stays sharp. */
 function layout(){
   var w=view.clientWidth,h=view.clientHeight;
@@ -915,6 +918,8 @@ root.addEventListener("click",function(e){
   var p=t.closest(".dk-pick");
   if(p){show(cells.indexOf(p.parentNode));overview(false);return;}
   if(over||!view.contains(t)||t.closest("a,button,input,select,textarea"))return;
+  /* In edit mode, a click that only ends the writing in a field stays on the slide. */
+  if(leaving){leaving=false;return;}
   if(window.getSelection&&String(window.getSelection()))return;
   var r=view.getBoundingClientRect(),x=(e.clientX-r.left)/r.width;
   if(x>2/3)show(cur+1);else if(x<1/3)show(cur-1);});
@@ -936,6 +941,89 @@ d.addEventListener("keydown",function(e){
   else if(k==="ArrowLeft"||k==="ArrowUp"||k==="PageUp"||(k===" "&&e.shiftKey))show(cur-1);
   else if(k==="Home")show(0);else if(k==="End")show(n-1);else return;
   e.preventDefault();});
+var leaving=false;
+d.addEventListener("pointerdown",function(){
+  var a=d.activeElement;leaving=!!(a&&a.isContentEditable);},true);
+/* Edit mode (nodes/bridge.py): what the layout derives from a text follows the
+   text as it is typed, saved, cancelled or refused, so the page need not be
+   drawn again (that would open slide 1). A field being written or saved holds
+   its plain source; otherwise data-src has it, when the slide draws marks. */
+function len(el){
+  var s=el.getAttribute("data-src");
+  if(s===null||el===d.activeElement||/(^| )is-saving( |$)/.test(el.className))s=el.textContent||"";
+  return s.length;}
+function step(n,bounds){var s=1;bounds.forEach(function(b){if(n>b)s++;});return s;}
+function listFit(items,width){var sizes=[34,28,24,21,18];
+  for(var s=0;s<sizes.length;s++){
+    var size=sizes[s],per=width/(.5*size),rows=0;
+    items.forEach(function(li){rows+=Math.max(1,Math.ceil(len(li)/per));});
+    if(rows*1.3*size+items.length*1.28*size<=540)return s+1;}
+  return sizes.length;}
+/* The number cells of a column align right (_NUMERIC_CELL_RE). */
+var NUMERIC=/^[+\\-−–]?\\s?[$€£¥]?\\s?\\d[\\d.,\\s]*\\s?(?:[%‰]|[A-Za-z€$£¥°\\/²³µ]{1,5})?$/;
+function follow(sl){
+  var all=function(s){return Array.prototype.slice.call(sl.querySelectorAll(s));};
+  all(".sl-h").forEach(function(h){h.setAttribute("data-len",String(step(len(h),[44,78])));});
+  var shift=sl.classList.contains("l-section")||
+    (sl.classList.contains("l-closing")&&!sl.classList.contains("is-bare"))?1:0;
+  all(".sl-big").forEach(function(h){
+    h.setAttribute("data-len",String(Math.min(4,step(len(h),[22,44,76])+shift)));});
+  all(".sl-q blockquote").forEach(function(q){
+    q.setAttribute("data-len",String(step(len(q),[120,210])));});
+  all(".sl-list").forEach(function(u){
+    u.setAttribute("data-fit",String(listFit(all(".sl-list>li"),u.closest(".is-solo")?1088:593)));});
+  all(".sl-cols").forEach(function(c){var cols=all(".sl-col"),most=0;
+    cols.forEach(function(col){var n=0;
+      Array.prototype.forEach.call(col.querySelectorAll("h3,p"),function(e){n+=len(e);});
+      Array.prototype.forEach.call(col.querySelectorAll("li"),function(e){n+=len(e)+30;});
+      most=Math.max(most,n);});
+    c.setAttribute("data-fit",String(step(most,cols.length===2?[260,420]:[170,280])));});
+  all(".sl-stats").forEach(function(st){var vs=all(".sl-v"),count=Math.max(1,vs.length),most=1;
+    vs.forEach(function(v){most=Math.max(most,len(v));});
+    var scale=Math.min([9.2,6.8,5.2,4.2][count-1],(1088/count-72)/(.56*most*22));
+    st.style.setProperty("--vs",scale.toFixed(2));});
+  all(".sl-next").forEach(function(u){var items=all(".sl-next>li"),most=0;
+    items.forEach(function(li){most=Math.max(most,len(li));});
+    u.setAttribute("data-fit",items.length>3||most>70?"2":"1");});
+  all(".sl-table").forEach(function(t){
+    var heads=t.tHead?t.tHead.rows[0].cells:[],rows=t.tBodies[0]?t.tBodies[0].rows:[];
+    for(var c=0;c<heads.length;c++){var any=false,every=true,r,cell,v;
+      for(r=0;r<rows.length;r++){cell=rows[r].cells[c];v=cell?cell.textContent||"":"";
+        if(v){any=true;if(!NUMERIC.test(v))every=false;}}
+      heads[c].classList.toggle("n",any&&every);
+      for(r=0;r<rows.length;r++){if(rows[r].cells[c])rows[r].cells[c].classList.toggle("n",any&&every);}}});
+  all(".sl-body").forEach(function(b){b.style.fontSize="";fitOne(b);});}
+root.addEventListener("node-field-saved",function(e){
+  var t=e.target,sl=t&&t.closest?t.closest(".sl"):null;
+  if(sl){follow(sl);return;}
+  if(t&&t.getAttribute&&t.getAttribute("data-at")==="@title"){
+    var name=t.textContent||"";d.title=name;
+    list(".sl-foot span:first-child").forEach(function(s){s.textContent=name;});}});
+/* A text emptied may take its point, its row or its slide out of the deck, and
+   with it the places the other fields name: then the page is drawn again. */
+d.addEventListener("input",function(e){
+  var el=e.target&&e.target.closest?e.target.closest("[data-at^='/slides/']"):null;
+  if(!el)return;
+  if(/\\S/.test(el.textContent||""))el.removeAttribute("data-refresh");
+  else el.setAttribute("data-refresh","");
+  var sl=el.closest(".sl");if(sl)follow(sl);},true);
+/* The bridge has put the page's own text back by now (Escape, nothing changed). */
+d.addEventListener("focusout",function(e){
+  var sl=e.target&&e.target.closest&&e.target.hasAttribute("data-at")?e.target.closest(".sl"):null;
+  if(sl)follow(sl);},true);
+/* A refused save: the bridge put the old text back (its listener runs first). */
+addEventListener("message",function(e){
+  var m=e.data;if(e.source!==window.parent||!m||m.type!=="dodaios-node-edit-state")return;
+  list(".sl .is-failed").forEach(function(f){follow(f.closest(".sl"));});});
+/* Writing a deck includes its notes: edit mode opens them, and leaving it puts
+   the panel back the way the reader had it. */
+var notesBefore=null;
+function modeChanged(){
+  var edit=d.documentElement.getAttribute("data-node-mode")==="edit";
+  if(edit&&notesBefore===null){notesBefore=!notes.hidden;showNotes(true);}
+  else if(!edit&&notesBefore!==null){showNotes(notesBefore);notesBefore=null;}}
+if(window.MutationObserver){new MutationObserver(modeChanged).observe(d.documentElement,
+  {attributes:true,attributeFilter:["data-node-mode"]});}
 var sx=null,sy=0;
 view.addEventListener("touchstart",function(e){
   if(e.touches.length===1){sx=e.touches[0].clientX;sy=e.touches[0].clientY;}else{sx=null;}
@@ -974,13 +1062,58 @@ _ICONS: Final[dict[str, str]] = {
 
 
 class _Deck:
-    """What a slide needs to know about the deck around it."""
+    """What a slide needs to know about the deck around it.
 
-    __slots__ = ("language", "section")
+    It also hands out the edit marks (``data-at`` and friends, see
+    :mod:`dodaios.nodes.bridge`): a text is marked only when it is exactly the
+    value the stored spec holds at that place, so a deck stored under older
+    rules (which :func:`render` reads through :func:`normalize` again) never
+    offers a field that would write somewhere else.
+    """
 
-    def __init__(self, language: str) -> None:
+    __slots__ = ("index", "language", "section", "stored")
+
+    def __init__(self, language: str, stored: list[Any] | None = None) -> None:
         self.language = language
         self.section = 0
+        self.index = 0
+        #: The stored spec's slides, or ``None`` when the page draws no marks.
+        self.stored = stored
+
+    def _held(self, parts: tuple[str | int, ...]) -> Any:
+        value: Any = self.stored[self.index] if self.stored is not None else None
+        for part in parts:
+            if isinstance(part, int) and isinstance(value, list) and part < len(value):
+                value = value[part]
+            elif isinstance(part, str) and isinstance(value, dict) and part in value:
+                value = value[part]
+            else:
+                return None
+        return value
+
+    def mark(
+        self, value: str, *parts: str | int, shown: str | None = None, multiline: bool = False
+    ) -> str:
+        """The edit marks of one text of the current slide; ``""`` when it is not one."""
+        if self.stored is None or self._held(parts) != value:
+            return ""
+        pointer = "/".join(str(part) for part in ("", "slides", self.index, *parts))
+        marks = f' data-at="{attr(pointer)}"'
+        if shown is not None and shown != esc(value):
+            marks += f' data-src="{attr(value)}"'
+        return marks + (" data-multiline" if multiline else "")
+
+    def text(
+        self, tag: str, value: str, *parts: str | int, klass: str = "", rich: bool = False
+    ) -> str:
+        """One text of the current slide as its element, marked for editing.
+
+        ``rich`` draws the inline marks (bold, links); the field then keeps
+        the stored text in ``data-src``.
+        """
+        html = inline(value) if rich else esc(value)
+        opening = f'<{tag} class="{klass}"' if klass else f"<{tag}"
+        return f"{opening}{self.mark(value, *parts, shown=html)}>{html}</{tag}>"
 
 
 def _step(length: int, bounds: tuple[int, ...]) -> int:
@@ -988,39 +1121,43 @@ def _step(length: int, bounds: tuple[int, ...]) -> int:
     return 1 + sum(length > bound for bound in bounds)
 
 
-def _head(slide: dict[str, Any]) -> str:
+def _head(slide: dict[str, Any], deck: _Deck, lede: str = "") -> str:
     kicker, title = slide.get("kicker", ""), slide.get("title", "")
-    if not kicker and not title:
+    if not kicker and not title and not lede:
         return ""
-    parts = f'<p class="sl-kicker">{esc(kicker)}</p>' if kicker else ""
+    parts = deck.text("p", kicker, "kicker", klass="sl-kicker") if kicker else ""
     if title:
-        parts += f'<h2 class="sl-h" data-len="{_step(len(title), (44, 78))}">{esc(title)}</h2>'
+        size = _step(len(title), (44, 78))
+        parts += f'<h2 class="sl-h" data-len="{size}"{deck.mark(title, "title")}>{esc(title)}</h2>'
+    if lede:
+        parts += deck.text("p", lede, "text", klass="sl-lede", rich=True)
     return f'<header class="sl-head">{parts}</header>'
 
 
-def _hero(slide: dict[str, Any], *, tag: str, shift: int, rule: bool) -> str:
+def _hero(slide: dict[str, Any], deck: _Deck, *, tag: str, shift: int, rule: bool) -> str:
     """The large name of a title, section or closing slide with its lines."""
     title = slide.get("title", "")
     size = min(4, _step(len(title), (22, 44, 76)) + shift)
     parts = '<i class="sl-rule"></i>' if rule else ""
     if tag != "h1" and slide.get("kicker"):
-        parts += f'<p class="sl-kicker">{esc(slide["kicker"])}</p>'
-    parts += f'<{tag} class="sl-big" data-len="{size}">{esc(title)}</{tag}>'
+        parts += deck.text("p", slide["kicker"], "kicker", klass="sl-kicker")
+    parts += (
+        f'<{tag} class="sl-big" data-len="{size}"{deck.mark(title, "title")}>{esc(title)}</{tag}>'
+    )
     if slide.get("subtitle"):
-        parts += f'<p class="sl-sub">{inline(slide["subtitle"])}</p>'
+        parts += deck.text("p", slide["subtitle"], "subtitle", klass="sl-sub", rich=True)
     return f'<div class="sl-hero">{parts}</div>'
 
 
 def _title_slide(slide: dict[str, Any], deck: _Deck) -> str:
-    del deck
     kicker = slide.get("kicker", "")
-    top = f'<p class="sl-kicker">{esc(kicker)}</p>' if kicker else ""
-    return top + _hero(slide, tag="h1", shift=0, rule=True)
+    top = deck.text("p", kicker, "kicker", klass="sl-kicker") if kicker else ""
+    return top + _hero(slide, deck, tag="h1", shift=0, rule=True)
 
 
 def _section_slide(slide: dict[str, Any], deck: _Deck) -> str:
     mark = f'<div class="sl-mark"><span>{deck.section:02d}</span><i></i></div>'
-    return mark + _hero(slide, tag="h2", shift=1, rule=False)
+    return mark + _hero(slide, deck, tag="h2", shift=1, rule=False)
 
 
 def _list_fit(bullets: list[str], width: float) -> int:
@@ -1034,34 +1171,35 @@ def _list_fit(bullets: list[str], width: float) -> int:
     return len(sizes)
 
 
+def _items(deck: _Deck, bullets: list[str], *parts: str | int) -> str:
+    """Points as list items, each its own field."""
+    return "".join(
+        deck.text("li", bullet, *parts, index, rich=True) for index, bullet in enumerate(bullets)
+    )
+
+
 def _bullets_slide(slide: dict[str, Any], deck: _Deck) -> str:
-    del deck
     bullets, text = slide.get("bullets", []), slide.get("text", "")
-    side = _head(slide)
-    solo = not side
     if bullets:
-        if text and side:
-            side = side.replace("</header>", f'<p class="sl-lede">{inline(text)}</p></header>')
-        elif text:
-            side = f'<header class="sl-head"><p class="sl-lede">{inline(text)}</p></header>'
-            solo = False
+        side = _head(slide, deck, lede=text)
+        solo = not side
         fit = _list_fit(bullets, 1088 if solo else 593)
-        items = "".join(f"<li>{inline(bullet)}</li>" for bullet in bullets)
+        items = _items(deck, bullets, "bullets")
         main = f'<ul class="sl-body sl-list" data-fit="{fit}">{items}</ul>'
-    elif text:
-        main = f'<p class="sl-body sl-prose">{inline(text)}</p>'
     else:
-        main, solo = "", True
+        side = _head(slide, deck)
+        solo = not side
+        main = deck.text("p", text, "text", klass="sl-body sl-prose", rich=True) if text else ""
+        solo = solo or not text
     if side:
         side = f'<div class="sl-side">{side}</div>'
     return f'<div class="sl-split{" is-solo" if solo else ""}">{side}{main}</div>'
 
 
 def _columns_slide(slide: dict[str, Any], deck: _Deck) -> str:
-    del deck
     columns = slide.get("columns", [])
     cells, longest = "", 0
-    for column in columns:
+    for index, column in enumerate(columns):
         bullets = column.get("bullets", [])
         longest = max(
             longest,
@@ -1069,33 +1207,33 @@ def _columns_slide(slide: dict[str, Any], deck: _Deck) -> str:
             + len(column.get("text", ""))
             + sum(len(bullet) + 30 for bullet in bullets),
         )
-        part = f"<h3>{esc(column['title'])}</h3>" if column.get("title") else ""
+        where = ("columns", index)
+        part = deck.text("h3", column["title"], *where, "title") if column.get("title") else ""
         if column.get("text"):
-            part += f"<p>{inline(column['text'])}</p>"
+            part += deck.text("p", column["text"], *where, "text", rich=True)
         if bullets:
-            part += "<ul>" + "".join(f"<li>{inline(bullet)}</li>" for bullet in bullets) + "</ul>"
+            part += f"<ul>{_items(deck, bullets, *where, 'bullets')}</ul>"
         cells += f'<div class="sl-col">{part}</div>'
     roomy, tight = (260, 420) if len(columns) == 2 else (170, 280)
     fit = _step(longest, (roomy, tight))
     return (
-        _head(slide)
+        _head(slide, deck)
         + f'<div class="sl-body sl-cols" data-fit="{fit}" style="--n:{len(columns)}">{cells}</div>'
     )
 
 
 def _quote_slide(slide: dict[str, Any], deck: _Deck) -> str:
-    del deck
     quote = slide.get("quote", "")
-    by = f"<figcaption>{esc(slide['by'])}</figcaption>" if slide.get("by") else ""
+    by = deck.text("figcaption", slide["by"], "by") if slide.get("by") else ""
+    size = _step(len(quote), (120, 210))
     return (
         '<figure class="sl-q"><span class="sl-qmark" aria-hidden="true">&ldquo;</span>'
-        f'<blockquote data-len="{_step(len(quote), (120, 210))}">{esc(quote)}</blockquote>'
+        f'<blockquote data-len="{size}"{deck.mark(quote, "quote")}>{esc(quote)}</blockquote>'
         f"{by}</figure>"
     )
 
 
 def _stats_slide(slide: dict[str, Any], deck: _Deck) -> str:
-    del deck
     stats = slide.get("stats", [])
     count = max(1, len(stats))
     # The value as large as its column allows: a little over half an em per character.
@@ -1103,13 +1241,22 @@ def _stats_slide(slide: dict[str, Any], deck: _Deck) -> str:
     room = 1088 / count - 72
     scale = min((9.2, 6.8, 5.2, 4.2)[count - 1], room / (0.56 * longest * 22))
     cells = ""
-    for stat in stats:
-        label = f'<div class="sl-l">{esc(stat["label"])}</div>' if stat.get("label") else ""
-        detail = f'<div class="sl-d">{inline(stat["detail"])}</div>' if stat.get("detail") else ""
-        value = f'<div class="sl-v">{esc(stat["value"])}</div>'
+    for index, stat in enumerate(stats):
+        where = ("stats", index)
+        value = deck.text("div", stat["value"], *where, "value", klass="sl-v")
+        label = (
+            deck.text("div", stat["label"], *where, "label", klass="sl-l")
+            if stat.get("label")
+            else ""
+        )
+        detail = (
+            deck.text("div", stat["detail"], *where, "detail", klass="sl-d", rich=True)
+            if stat.get("detail")
+            else ""
+        )
         cells += f'<div class="sl-stat">{value}{label}{detail}</div>'
     return (
-        _head(slide)
+        _head(slide, deck)
         + f'<div class="sl-body sl-stats" style="--n:{count};--vs:{scale:.2f}">{cells}</div>'
     )
 
@@ -1124,16 +1271,15 @@ def _chart_slide(slide: dict[str, Any], deck: _Deck) -> str:
             parsed["title"] = ""
         figure = render_chart(parsed, deck.language)
     text = slide.get("text", "")
-    aside = f'<p class="sl-aside">{inline(text)}</p>' if text else ""
+    aside = deck.text("p", text, "text", klass="sl-aside", rich=True) if text else ""
     return (
-        _head(slide)
+        _head(slide, deck)
         + f'<div class="sl-body sl-chart{" has-aside" if aside else ""}">'
         + f'<div class="sl-plot">{figure}</div>{aside}</div>'
     )
 
 
 def _table_slide(slide: dict[str, Any], deck: _Deck) -> str:
-    del deck
     table = slide.get("table") or {}
     columns: list[str] = table.get("columns", [])
     rows: list[list[str]] = table.get("rows", [])
@@ -1143,68 +1289,68 @@ def _table_slide(slide: dict[str, Any], deck: _Deck) -> str:
         for index in range(len(columns))
     ]
 
-    def cell(tag: str, index: int, text: str) -> str:
+    def cell(tag: str, index: int, text: str, *parts: str | int) -> str:
         klass = ' class="n"' if numeric[index] else ""
-        return f"<{tag}{klass}>{esc(text)}</{tag}>"
+        return f"<{tag}{klass}{deck.mark(text, 'table', *parts)}>{esc(text)}</{tag}>"
 
-    head = "".join(cell("th", index, name) for index, name in enumerate(columns))
+    head = "".join(cell("th", index, name, "columns", index) for index, name in enumerate(columns))
     body = "".join(
-        "<tr>" + "".join(cell("td", index, text) for index, text in enumerate(row)) + "</tr>"
-        for row in rows
+        "<tr>"
+        + "".join(cell("td", index, text, "rows", number, index) for index, text in enumerate(row))
+        + "</tr>"
+        for number, row in enumerate(rows)
     )
     caption = slide.get("caption", "")
-    note = f'<p class="sl-cap">{inline(caption)}</p>' if caption else ""
+    note = deck.text("p", caption, "caption", klass="sl-cap", rich=True) if caption else ""
     fit = min(4, _step(len(rows), (4, 6, 8)) + (1 if len(columns) > 5 else 0))
     return (
-        _head(slide)
+        _head(slide, deck)
         + f'<div class="sl-body sl-tab" data-fit="{fit}"><table class="sl-table">'
         + f"<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>{note}</div>"
     )
 
 
 def _image_slide(slide: dict[str, Any], deck: _Deck) -> str:
-    del deck
     source = safe_image(slide.get("image"))
     caption = slide.get("caption", "")
     alt = attr(clean(caption or slide.get("title", ""), 140))
     picture = f'<img src="{attr(source)}" alt="{alt}">' if source else ""
     if not slide.get("title"):
-        note = f"<figcaption>{inline(caption)}</figcaption>" if caption else ""
+        note = deck.text("figcaption", caption, "caption", rich=True) if caption else ""
         return f"<figure>{picture}{note}</figure>"
-    note = f'<p class="sl-note">{inline(caption)}</p>' if caption else ""
-    return _head(slide) + note + f'<figure class="sl-pic">{picture}</figure>'
+    note = deck.text("p", caption, "caption", klass="sl-note", rich=True) if caption else ""
+    return _head(slide, deck) + note + f'<figure class="sl-pic">{picture}</figure>'
 
 
 def _steps_slide(slide: dict[str, Any], deck: _Deck) -> str:
-    del deck
     steps = slide.get("steps", [])
     per_row = len(steps) if len(steps) <= 4 else 3
     items = ""
     for index, step in enumerate(steps):
         end = index % per_row == per_row - 1 or index == len(steps) - 1
-        title = f"<h3>{esc(step['title'])}</h3>" if step.get("title") else ""
-        text = f"<p>{inline(step['text'])}</p>" if step.get("text") else ""
+        where = ("steps", index)
+        title = deck.text("h3", step["title"], *where, "title") if step.get("title") else ""
+        text = deck.text("p", step["text"], *where, "text", rich=True) if step.get("text") else ""
         klass = ' class="is-end"' if end else ""
         items += (
             f'<li{klass}><div class="sl-step-n"><b>{index + 1}</b><i></i></div>{title}{text}</li>'
         )
     fit = _step(len(steps), (3, 4))
     return (
-        _head(slide)
+        _head(slide, deck)
         + f'<ol class="sl-body sl-steps" data-fit="{fit}" style="--n:{max(1, per_row)}">'
         + f"{items}</ol>"
     )
 
 
 def _closing_slide(slide: dict[str, Any], deck: _Deck) -> str:
-    del deck
     bullets = slide.get("bullets", [])
-    hero = _hero(slide, tag="h2", shift=1 if bullets else 0, rule=True)
+    hero = _hero(slide, deck, tag="h2", shift=1 if bullets else 0, rule=True)
     if not bullets:
         return hero
     per_row = len(bullets)
     fit = 2 if per_row > 3 or max(len(bullet) for bullet in bullets) > 70 else 1
-    items = "".join(f"<li>{inline(bullet)}</li>" for bullet in bullets)
+    items = _items(deck, bullets, "bullets")
     return hero + f'<ul class="sl-body sl-next" data-fit="{fit}" style="--n:{per_row}">{items}</ul>'
 
 
@@ -1242,6 +1388,14 @@ def render(node: Any) -> str:
 
     The spec is read through :func:`normalize` once more, so a deck that was
     stored under older rules is laid out by today's.
+
+    In edit mode (:mod:`dodaios.nodes.bridge`) every text that is one value of
+    the stored spec can be written into: ``data-at`` names its place
+    (``/slides/2/bullets/0``), ``data-src`` keeps the stored text where the
+    slide draws inline marks, and the speaker notes are ``data-multiline``.
+    No field asks for the page to be drawn again (that would throw the reader
+    back to the first slide); the page script keeps sizes that follow a text
+    in step after a save instead.
     """
     try:
         spec = normalize(node.spec)
@@ -1251,12 +1405,18 @@ def render(node: Any) -> str:
     theme: str = spec["theme"]
     accent = color(spec.get("accent"))
     deck_title = clean(node.title, 80)
-    deck = _Deck(str(getattr(node, "language", "") or "en"))
+    stored = node.spec.get("slides") if isinstance(node.spec, dict) else None
+    # A stored deck whose slides do not line up one to one with the drawn ones
+    # offers no field: a place in it could not be named.
+    if not isinstance(stored, list) or len(stored) != len(slides):
+        stored = None
+    deck = _Deck(str(getattr(node, "language", "") or "en"), stored)
     total = len(slides)
 
     cells, notes = "", ""
     for index, slide in enumerate(slides):
         layout: str = slide["layout"]
+        deck.index = index
         if layout == "section":
             deck.section += 1
         classes = f"sl l-{layout}"
@@ -1281,9 +1441,15 @@ def render(node: Any) -> str:
         )
         if slide.get("notes"):
             hidden = "" if index == 0 else " hidden"
-            notes += f'<div class="dk-note" data-i="{index}"{hidden}>{lines(slide["notes"])}</div>'
+            said = lines(slide["notes"])
+            marks = deck.mark(slide["notes"], "notes", shown=said, multiline=True)
+            notes += f'<div class="dk-note" data-i="{index}"{marks}{hidden}>{said}</div>'
 
     first_has_notes = bool(slides and slides[0].get("notes"))
+    # The deck's name is a field once, in the bar; the slides' footers repeat it.
+    name_marks = f' data-at="{TITLE_PATH}"'
+    if deck_title != node.title:
+        name_marks += f' data-src="{attr(node.title)}"'
     forced = f' data-theme="{theme}"' if theme != "auto" else ""
     style = f' style="--da:{attr(accent)}"' if accent else ""
     body = (
@@ -1296,7 +1462,7 @@ def render(node: Any) -> str:
         '<nav class="dk-bar" aria-label="Slide controls">'
         '<div class="dk-progress" aria-hidden="true">'
         f'<i style="width:{100 / max(1, total):.3f}%"></i></div>'
-        f'<p class="dk-name">{esc(deck_title)}</p>'
+        f'<p class="dk-name"{name_marks}>{esc(deck_title)}</p>'
         '<div class="dk-nav">'
         + _button("prev", "Previous slide", "←")
         + '<p class="dk-count" aria-live="polite" aria-atomic="true">'

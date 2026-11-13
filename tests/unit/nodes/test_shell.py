@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 
 import pytest
 
@@ -314,6 +315,13 @@ def test_the_bridge_reaches_nothing_but_its_parent() -> None:
     # No network, no storage, and no markup built from a message.
     for word in ("fetch(", "XMLHttpRequest", "localStorage", "sessionStorage", "http://", "https://"):
         assert word not in BRIDGE_JS
-    assert BRIDGE_JS.count("innerHTML") == 1  # the two constant icons (tick, cross)
+    # Markup is only ever written from the script's own constant icons (tick,
+    # cross) or put back from what the page itself held before an edit.
+    found = re.findall(r"([\w.]+innerHTML)=([^;]+)", BRIDGE_JS)
+    writes = {target: value.split("+")[0] for target, value in found}
+    assert writes == {
+        "button.innerHTML": "'<svg viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"'",
+        "f.el.innerHTML": "f.html",
+    }
     assert "e.source!==up" in BRIDGE_JS
     assert "</script" not in BRIDGE_JS.lower()
