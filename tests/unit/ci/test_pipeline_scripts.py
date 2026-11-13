@@ -1127,6 +1127,44 @@ def test_bump_and_commit_notes():
     assert "### Breaking" in notes and "Tidy" not in notes
 
 
+def test_previous_tag_is_the_newest_release_at_or_below_the_current_version():
+    tags = ["v4.2.0", "v5.9.0", "v5.10.0", "v5.11.0", "v5.10.0-rc1", "wallpaper-library-v1", ""]
+    assert cut_release.previous_tag("5.10.0", tags) == "v5.10.0"
+    assert cut_release.previous_tag("5.10.1", tags) == "v5.10.0"
+    assert cut_release.previous_tag("5.0.0", tags) == "v4.2.0"
+    assert cut_release.previous_tag("1.0.0", tags) == ""
+
+
+def test_commit_notes_start_after_a_release_tag_that_is_not_on_main(tmp_path):
+    root = tmp_path / "repo"
+    root.mkdir()
+    _git(root, "init", "-q", "-b", "main")
+    _git(root, "config", "user.email", "t@example.invalid")
+    _git(root, "config", "user.name", "t")
+
+    def commit(subject: str) -> None:
+        _git(root, "commit", "-q", "--allow-empty", "-m", subject)
+
+    commit("feat: before the first release")
+    _git(root, "tag", "-a", "v1.0.0", "-m", "v1.0.0")
+    commit("feat: shipped in 1.1.0")
+    commit("chore(release): publish v1.1.0")
+    # release-cut.yml tags the frontend bundle commit on top of the release
+    # commit; main never gets that commit.
+    _git(root, "checkout", "-q", "--detach")
+    commit("chore(release): frontend bundle for v1.1.0")
+    _git(root, "tag", "-a", "v1.1.0", "-m", "v1.1.0")
+    _git(root, "checkout", "-q", "main")
+    commit("feat: new since 1.1.0")
+    commit("fix: repaired since 1.1.0")
+
+    subjects = cut_release.commits_since_release("1.1.0", root)
+    assert subjects == ["fix: repaired since 1.1.0", "feat: new since 1.1.0"]
+    notes = cut_release.notes_from_commits(subjects)
+    assert "- New since 1.1.0" in notes and "- Repaired since 1.1.0" in notes
+    assert "Shipped in 1.1.0" not in notes and "Before the first release" not in notes
+
+
 def test_apply_moves_notes_under_a_dated_section(tmp_path):
     (tmp_path / "dodaios").mkdir()
     (tmp_path / "pyproject.toml").write_text(
