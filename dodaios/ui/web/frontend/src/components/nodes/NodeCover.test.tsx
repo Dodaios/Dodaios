@@ -14,7 +14,7 @@
  *   the live page is a sandboxed frame that mounts only near the viewport.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { runningTime } from "./covers/typed";
 import { NodeCover } from "./NodeCover";
@@ -341,7 +341,7 @@ describe("NodeCover: adopted files", () => {
     const frame = screen.getByTestId("node-cover-frame") as HTMLIFrameElement;
     expect(frame.style.width).toBe("1080px");
     expect(frame.style.height).toBe("1350px");
-    expect(frame.style.transform).toBe("scale(0.1)");
+    expect(frame.style.transform).toBe("scale(0.1) translateY(0px)");
     expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
   });
 
@@ -350,5 +350,95 @@ describe("NodeCover: adopted files", () => {
     const { cover } = renderCover({ type: "design", path: null, preview: SAMPLES.design });
     expect(cover.querySelector("iframe")).toBeNull();
     expect(cover.querySelector("[data-node-mini='placeholder']")).toBeTruthy();
+  });
+});
+
+describe("NodeCover: a resting pointer", () => {
+  const page = { origin: "page" as const, id: null, visual_kind: "page" as const, path: "site/index.html" };
+
+  it("lets a page scroll itself slowly, and glide back when the pointer leaves", () => {
+    onScreen(240, 150);
+    const view = render(<NodeCover card={card(page)} peek />);
+    const frame = screen.getByTestId("node-cover-frame") as HTMLIFrameElement;
+    // Nothing moves before the page has drawn.
+    expect(frame.style.transform).toMatch(/translateY\(0px\)$/);
+    const resting = frame.style.height;
+
+    fireEvent.load(frame);
+    expect(frame.getAttribute("data-scrolling")).toBe("true");
+    expect(frame.style.transform).toMatch(/translateY\(-\d/);
+    expect(frame.style.transition).toMatch(/^transform \d+ms linear/);
+    // Taller only while it scrolls: three more paper heights of the page.
+    expect(parseFloat(frame.style.height)).toBeCloseTo(parseFloat(resting) * 4, 3);
+    expect(screen.getByTestId("node-cover").getAttribute("data-peek")).toBe("true");
+
+    view.rerender(<NodeCover card={card(page)} />);
+    expect(frame.getAttribute("data-scrolling")).toBeNull();
+    expect(frame.style.transform).toMatch(/translateY\(0px\)$/);
+    expect(frame.style.transition).toContain("cubic-bezier");
+  });
+
+  it("holds still for a reader who asked for less motion", () => {
+    onScreen(240, 150);
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query.includes("prefers-reduced-motion"),
+      addEventListener() {},
+      removeEventListener() {},
+    }));
+    render(<NodeCover card={card(page)} peek />);
+    const frame = screen.getByTestId("node-cover-frame") as HTMLIFrameElement;
+    fireEvent.load(frame);
+    expect(frame.getAttribute("data-scrolling")).toBeNull();
+    expect(frame.style.transform).toMatch(/translateY\(0px\)$/);
+  });
+
+  it("shows an artboard whole: there is nothing further down", () => {
+    onScreen(108, 135);
+    render(<NodeCover card={card({ type: "design", preview: SAMPLES.design })} peek />);
+    const frame = screen.getByTestId("node-cover-frame") as HTMLIFrameElement;
+    fireEvent.load(frame);
+    expect(frame.getAttribute("data-scrolling")).toBeNull();
+    expect(frame.style.height).toBe("1350px");
+  });
+
+  it.each(["docs", "data", "sheets"] as const)(
+    "brings the real %s page over the drawing, and takes it away again",
+    (type) => {
+      vi.useFakeTimers();
+      try {
+        onScreen(240, 150);
+        const node = card({ type, preview: SAMPLES[type], path: "tasks/node/artifacts/files/a.html" });
+        const view = render(<NodeCover card={node} />);
+        const cover = screen.getByTestId("node-cover");
+        // A drawn cover costs no frame while nobody looks closer.
+        expect(cover.querySelector("iframe")).toBeNull();
+
+        view.rerender(<NodeCover card={node} peek />);
+        const frame = screen.getByTestId("node-cover-frame") as HTMLIFrameElement;
+        const layer = cover.querySelector("[data-node-peek]") as HTMLElement;
+        // Hidden until the page has drawn: no gray paper flashes over the drawing.
+        expect(layer.className).toContain("opacity-0");
+        fireEvent.load(frame);
+        expect(layer.className).toContain("opacity-100");
+        expect(frame.getAttribute("data-scrolling")).toBe("true");
+
+        view.rerender(<NodeCover card={node} />);
+        expect(layer.className).toContain("opacity-0");
+        act(() => {
+          vi.advanceTimersByTime(1000);
+        });
+        expect(cover.querySelector("iframe")).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it.each(["slides", "whiteboard", "motion"] as const)("leaves a %s cover as it is", (type) => {
+    onScreen(240, 150);
+    render(
+      <NodeCover card={card({ type, preview: SAMPLES[type], path: "tasks/node/artifacts/files/a.html" })} peek />,
+    );
+    expect(screen.getByTestId("node-cover").querySelector("iframe")).toBeNull();
   });
 });

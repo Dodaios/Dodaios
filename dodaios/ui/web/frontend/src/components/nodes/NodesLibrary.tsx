@@ -20,6 +20,7 @@ import {
   type DragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -870,6 +871,33 @@ interface CardProps {
 }
 
 /** One card: the cover, and under it the name, the date, the state and the type. */
+/** How long the pointer rests on a card before its page starts to scroll. */
+const PEEK_DELAY_MS = 420;
+
+/**
+ * True once the pointer has RESTED on the card: passing over the library must
+ * not set a dozen pages moving. A finger never rests, it taps.
+ */
+function useRestingPointer(enabled: boolean) {
+  const [resting, setResting] = useState(false);
+  const timer = useRef<number | null>(null);
+  const leave = useCallback(() => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = null;
+    setResting(false);
+  }, []);
+  useEffect(() => leave, [leave]);
+  const enter = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (!enabled || event.pointerType === "touch") return;
+      if (timer.current !== null) window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => setResting(true), PEEK_DELAY_MS);
+    },
+    [enabled],
+  );
+  return { resting: resting && enabled, onPointerEnter: enter, onPointerLeave: leave };
+}
+
 function GridCard({ card, favorite, menuOpen, actions, onToggleFavorite, onOpen }: CardProps) {
   const t = useT();
   const locale = useRunLocale();
@@ -883,11 +911,13 @@ function GridCard({ card, favorite, menuOpen, actions, onToggleFavorite, onOpen 
   const when = cardIsWorking(card) ? "" : cardWhen(card.updated_at, Date.now(), locale, t("nodes.card.today"));
   // On imagery of any color the corner buttons need their own ground.
   const onCover = "border border-border bg-popover shadow-rim hover:bg-popover";
+  // An open menu keeps the pointer; the page behind it holds still meanwhile.
+  const rest = useRestingPointer(!pending && !menuOpen);
 
   return (
     // The hover target stays where it is and its content rises, so a pointer
     // resting on the lower edge does not fall off the card it just lifted.
-    <div className="group/card min-w-0">
+    <div className="group/card min-w-0" onPointerEnter={rest.onPointerEnter} onPointerLeave={rest.onPointerLeave}>
       <div
         className={cn(
           "relative rounded-lg transition-transform duration-base ease-out-soft",
@@ -915,7 +945,7 @@ function GridCard({ card, favorite, menuOpen, actions, onToggleFavorite, onOpen 
           )}
           {...dragProps}
         >
-          <NodeCover card={card} className="w-full" />
+          <NodeCover card={card} className="w-full" peek={rest.resting} />
           <span className="block px-5 pb-[18px] pt-4">
             <span className="block truncate text-lg font-medium text-foreground-strong">{card.title}</span>
             <span className="mt-1 flex h-[18px] items-center gap-1.5 text-sm text-muted-foreground">
