@@ -181,6 +181,94 @@ def test_a_cpu_only_worker_is_declined(_local_ok: dict[str, Any]) -> None:
     assert "CPU" in stt.unavailable_reason
 
 
+def test_a_computer_without_an_accelerator_is_asked_once(
+    _local_ok: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An Apple M4, 2026-11-12: the worker can only come up on the CPU there, and
+    it was started again every minute. Each start loaded the whole checkpoint
+    (12 to 26 s) on the path of a dictation, which waited for the decline before
+    its audio went to the keyed provider behind."""
+    import dodaios.hardware.detection as detection
+
+    monkeypatch.setattr(detection, "free_accelerator_gb", lambda: (0.0, "none"))
+    _local_ok["next"] = _FakeWorker(device="cpu")
+    stt = LocalFinalSTT()
+
+    with pytest.raises(LocalEngineUnavailable):
+        asyncio.run(stt.transcribe_pcm(_pcm()))
+    assert len(_local_ok["args"]) == 1
+
+    stt._next_attempt_at = 0.0  # the retry is due
+    with pytest.raises(LocalEngineUnavailable) as caught:
+        asyncio.run(stt.transcribe_pcm(_pcm()))
+    stt._next_attempt_at = 0.0
+    stt.warm_up()  # the start at key-down asks the same question
+
+    assert len(_local_ok["args"]) == 1  # never started again
+    assert "CPU" in str(caught.value)
+    assert is_crossable_failure(classify_stt_failure(caught.value))
+    assert "CPU" in stt.unavailable_reason
+
+
+def test_a_cpu_start_beside_a_card_is_tried_again(_local_ok: dict[str, Any]) -> None:
+    """Where a card answers, the CPU was a passing state (the card was full for
+    one start): the next attempt may come up on the card."""
+    _local_ok["next"] = _FakeWorker(device="cpu")
+    stt = LocalFinalSTT()
+
+    with pytest.raises(LocalEngineUnavailable):
+        asyncio.run(stt.transcribe_pcm(_pcm()))
+
+    _local_ok["next"] = _FakeWorker(device="cuda")
+    stt._next_attempt_at = 0.0  # the retry is due
+    transcript = asyncio.run(stt.transcribe_pcm(_pcm()))
+
+    assert len(_local_ok["args"]) == 2
+    assert transcript.text == "Hallo Welt."
+
+
+def test_a_computer_without_an_accelerator_decodes_once_nothing_stands_behind(
+    _local_ok: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The decline is about the provider behind. When the lane is rebuilt
+    without one, the CPU is the only engine there is and it is used."""
+    import dodaios.hardware.detection as detection
+
+    monkeypatch.setattr(detection, "free_accelerator_gb", lambda: (0.0, "none"))
+    _local_ok["next"] = _FakeWorker(device="cpu")
+    stt = LocalFinalSTT()
+    with pytest.raises(LocalEngineUnavailable):
+        asyncio.run(stt.transcribe_pcm(_pcm()))
+
+    stt._allow_cpu = True  # what the lane sets when no cloud provider is keyed
+    stt._next_attempt_at = 0.0
+    transcript = asyncio.run(stt.transcribe_pcm(_pcm()))
+
+    assert transcript.text == "Hallo Welt."
+    assert stt.device == "cpu"
+
+
+def test_an_unreadable_accelerator_probe_keeps_the_retry(
+    _local_ok: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import dodaios.hardware.detection as detection
+
+    def _broken() -> tuple[float, str]:
+        raise OSError("driver went away")
+
+    _local_ok["next"] = _FakeWorker(device="cpu")
+    stt = LocalFinalSTT(min_free_gb=0.0)  # the spawn gate does not ask the card
+    monkeypatch.setattr(detection, "free_accelerator_gb", _broken)
+
+    with pytest.raises(LocalEngineUnavailable):
+        asyncio.run(stt.transcribe_pcm(_pcm()))
+    stt._next_attempt_at = 0.0
+    with pytest.raises(LocalEngineUnavailable):
+        asyncio.run(stt.transcribe_pcm(_pcm()))
+
+    assert len(_local_ok["args"]) == 2
+
+
 def test_a_missing_runtime_is_declined_without_probing_the_card(
     _local_ok: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -37,7 +37,9 @@ Nothing here is Windows-specific: the worker is our own interpreter running
 our own module, the free-memory probe reports "unknown" where there is no
 NVIDIA tooling (and unknown ALLOWS the spawn, AP-22 shape), and a worker that
 comes up on the CPU is declined because a beam-search turbo decode of a 25 s
-window on a CPU is slower than the cloud it would replace.
+window on a CPU is slower than the cloud it would replace. Where no accelerator
+answers at all (an Apple machine), that decline holds for the process: starting
+the worker again would load the whole checkpoint only to put it down again.
 """
 
 from __future__ import annotations
@@ -113,6 +115,13 @@ AUTO_LANGUAGE = "auto"
 #: a full card into a slow cloud.
 _RETRY_AFTER_S = 60.0
 
+#: Why a worker that came up on the CPU is put down again while a cloud
+#: provider stands behind it.
+_CPU_ONLY_REFUSAL = (
+    "the local engine only runs on the CPU here, which is slower "
+    "than the configured provider for a final pass"
+)
+
 #: How long a press waits for a worker that is starting again after an idle
 #: release. That start reads the weights from the file cache (4.4 to 5.1 s
 #: measured on a loaded machine) and began when the key went down, so the wait
@@ -131,6 +140,26 @@ def _concrete_language(language: str | None) -> str | None:
     if not value or value.lower() == AUTO_LANGUAGE:
         return None
     return value
+
+
+def _no_accelerator_answers() -> bool:
+    """True when no accelerator the worker could use answers on this host.
+
+    The worker decodes on CUDA or on the CPU, nothing else. Where no NVIDIA
+    tooling answers (an Apple machine, a box with another vendor's card), a
+    worker that came up on the CPU will come up on the CPU every time. Where it
+    does answer, the CPU was a passing state (the card was full, a library was
+    missing for one start) and the usual retry stays. An unreadable probe
+    counts as "may answer": the retry is the old behaviour.
+    """
+    try:
+        from dodaios.hardware.detection import free_accelerator_gb
+
+        _free_gb, source = free_accelerator_gb()
+    except Exception:  # noqa: BLE001 — an unreadable card keeps the retry
+        log.debug("local dictation: accelerator probe failed", exc_info=True)
+        return False
+    return source == "none"
 
 
 class LocalEngineUnavailable(RuntimeError):
@@ -195,6 +224,10 @@ class LocalFinalSTT:
         self._spawn_in_flight = False
         self._next_attempt_at = 0.0
         self._last_refusal = ""
+        #: True once a worker came up on the CPU on a host where no accelerator
+        #: answers at all: the next start can only end the same way, so it is
+        #: not tried again while the CPU is not allowed (see ``_spawn_refusal``).
+        self._cpu_only_host = False
         #: Releases the worker after ``idle_release_s`` without a dictation.
         self._idle = IdleRelease(
             idle_release_s, self._release_idle_worker, name="dictation-final-idle"
@@ -623,11 +656,15 @@ class LocalFinalSTT:
             # longer than the cloud round-trip it would replace; the
             # preview keeps its own CPU floor, the final pass does not.
             worker.close()
-            self._last_refusal = (
-                "the local engine only runs on the CPU here, which is slower "
-                "than the configured provider for a final pass"
+            self._last_refusal = _CPU_ONLY_REFUSAL
+            self._cpu_only_host = _no_accelerator_answers()
+            log.info(
+                "Local dictation engine declined: %s%s",
+                self._last_refusal,
+                " (no accelerator on this computer: it is not started again)"
+                if self._cpu_only_host
+                else "",
             )
-            log.info("Local dictation engine declined: %s", self._last_refusal)
             return None
         self._worker = worker
         self._device = device
@@ -648,6 +685,13 @@ class LocalFinalSTT:
 
     def _spawn_refusal(self) -> str:
         """Why the worker must not be started right now, or ``""``."""
+        if self._cpu_only_host and not self._allow_cpu:
+            # Starting it again costs a cold load of the whole checkpoint (12 to
+            # 26 s measured on an Apple M4, 2026-11-12) that ends in the same
+            # decline. Every minute one dictation paid for it: the call that
+            # found the retry due started the worker itself and waited for the
+            # decline before its audio went to the provider behind.
+            return _CPU_ONLY_REFUSAL
         try:
             from dodaios.dictation.local_preview import faster_whisper_available
 
