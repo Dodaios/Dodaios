@@ -2,8 +2,10 @@
  * The question card. Every colour comes from the theme tokens (index.css);
  * the one accent is the asking agent's own colour, handed in as --qc-tint
  * with its readable ink as --qc-tint-ink, and the theme's primary fill when
- * the agent is unknown. Calm by default: no borders between rows, one soft
- * lift, motion only where something changes.
+ * the agent is unknown. Calm by default: no header, no borders between rows,
+ * one soft lift, motion only where something changes. The open card reads
+ * top to bottom: the question, its lettered answers, then a foot with the
+ * progress dots on the left and two pill buttons on the right.
  */
 
 .qc {
@@ -13,14 +15,14 @@
   --qc-ease-std: cubic-bezier(0.2, 0, 0, 1);
   position: relative;
   width: 100%;
-  max-width: 40rem;
-  border-radius: 20px;
+  max-width: 36rem;
+  border-radius: 24px;
   background: hsl(var(--card));
   color: hsl(var(--foreground));
   box-shadow:
-    0 0 0 1px hsl(var(--border) / 0.6),
-    0 1px 2px rgb(var(--scrim-rgb) / 0.06),
-    0 10px 28px -14px rgb(var(--scrim-rgb) / 0.28);
+    0 0 0 1px hsl(var(--border) / 0.7),
+    0 1px 2px rgb(var(--scrim-rgb) / 0.04),
+    0 8px 24px -12px rgb(var(--scrim-rgb) / 0.16);
 }
 
 .qc[data-enter="new"] {
@@ -40,15 +42,7 @@
   }
 }
 
-/* --- Header ------------------------------------------------------------ */
-
-.qc-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 10px 10px 0 16px;
-}
+/* --- Small shared parts ------------------------------------------------ */
 
 .qc-mark {
   display: grid;
@@ -59,28 +53,6 @@
   border-radius: 7px;
   background: hsl(var(--secondary));
   color: hsl(var(--muted-foreground));
-}
-
-.qc-asker {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  line-height: 16px;
-  color: hsl(var(--muted-foreground));
-}
-
-.qc-asker b {
-  font-weight: 500;
-  color: hsl(var(--foreground));
-}
-
-.qc-count {
-  flex: none;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  color: hsl(var(--faint-foreground));
 }
 
 .qc-icon-btn {
@@ -159,38 +131,45 @@
 }
 
 .qc-title {
-  padding: 6px 16px 0;
-  font-size: 15px;
+  padding: 16px 16px 0;
+  font-size: 16px;
   font-weight: 600;
   line-height: 22px;
+  letter-spacing: -0.005em;
   color: hsl(var(--foreground-strong));
   overflow-wrap: anywhere;
 }
 
 .qc-help {
-  padding: 2px 16px 0;
-  font-size: 12px;
-  line-height: 18px;
+  padding: 3px 16px 0;
+  font-size: 13.5px;
+  line-height: 20px;
   color: hsl(var(--muted-foreground));
 }
 
 .qc-list {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding: 8px;
+  gap: 2px;
+  padding: 10px 8px 6px;
 }
 
 .qc-row {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
+  min-height: 40px;
   padding: 8px;
-  border-radius: 12px;
+  border-radius: 14px;
   text-align: left;
   color: hsl(var(--foreground));
   transition: background-color 140ms;
+}
+
+/* A picked row keeps its lift, so a multi-select reads at a glance. */
+.qc-row[aria-pressed="true"] {
+  background: hsl(var(--secondary));
 }
 
 .qc-row:hover {
@@ -220,15 +199,16 @@
   align-items: center;
 }
 
+/* The letter tile: a small rounded square, like a key. */
 .qc-keycap {
   display: grid;
   flex: none;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
   background: hsl(var(--secondary));
-  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.7);
+  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.8);
   font-size: 12px;
   font-weight: 500;
   line-height: 1;
@@ -236,7 +216,8 @@
   transition: background-color 140ms, border-color 140ms, color 140ms, transform 140ms var(--qc-ease-out);
 }
 
-.qc[data-target] .qc-keycap {
+/* The card that hears letter keys shows its letters stronger; a picked tile keeps its own ink. */
+.qc[data-target] .qc-keycap:not([data-on]) {
   color: hsl(var(--foreground));
 }
 
@@ -250,8 +231,15 @@
 .qc-keycap[data-size="sm"] {
   width: 20px;
   height: 20px;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 12px;
+}
+
+.qc-row:hover .qc-keycap:not([data-on]),
+.qc-row[aria-pressed="true"] .qc-keycap:not([data-on]),
+.qc-own:hover .qc-keycap:not([data-on]),
+.qc-own:focus-within .qc-keycap:not([data-on]) {
+  background: hsl(var(--surface-raised));
 }
 
 .qc-row-body {
@@ -262,7 +250,7 @@
 
 .qc-label {
   display: block;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 20px;
   overflow-wrap: anywhere;
 }
@@ -275,27 +263,23 @@
   overflow-wrap: anywhere;
 }
 
+/* "Recommended": plain quiet words at the row's end, not a second pill. */
 .qc-tag {
   flex: none;
   align-self: center;
-  border-radius: 999px;
-  padding: 1px 7px;
-  background: hsl(var(--secondary));
-  font-size: 12px;
+  padding-right: 4px;
+  font-size: 12.5px;
   line-height: 16px;
   color: hsl(var(--muted-foreground));
-}
-
-.qc-row:hover .qc-tag {
-  background: hsl(var(--surface-raised));
 }
 
 .qc-own {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
+  min-height: 40px;
   padding: 8px;
-  border-radius: 12px;
+  border-radius: 14px;
   cursor: text;
   transition: background-color 140ms;
 }
@@ -313,13 +297,13 @@
   min-width: 0;
   min-height: 22px;
   max-height: 160px;
-  padding: 1px 0 0;
+  padding: 2px 0 0;
   resize: none;
   overflow-y: auto;
   border: 0;
   background: transparent;
   font: inherit;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 20px;
   color: hsl(var(--foreground));
   white-space: pre-wrap;
@@ -338,9 +322,9 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin: -2px 0 4px 16px;
+  margin: 0 0 4px 16px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 12.5px;
   line-height: 18px;
   color: hsl(var(--muted-foreground));
 }
@@ -365,17 +349,17 @@
 .qc-review {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding: 6px 8px 8px;
+  gap: 2px;
+  padding: 10px 8px 6px;
 }
 
 .qc-review-row {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
   padding: 8px;
-  border-radius: 12px;
+  border-radius: 14px;
   text-align: left;
   transition: background-color 140ms;
 }
@@ -430,65 +414,71 @@
   }
 }
 
-/* --- Footer ------------------------------------------------------------- */
+/* --- Foot: progress on the left, the two pills on the right ------------- */
 
 .qc-foot {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 4px 12px 12px 16px;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 16px 16px;
+}
+
+.qc-foot-start {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  /* The dots sit under the letter tiles. */
+  padding-left: 8px;
 }
 
 .qc-foot-end {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-left: auto;
 }
 
 .qc-dots {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
 }
 
-/* Open: a hollow ring. Answered: a filled dot. On screen: a wide pill. */
+/* Open: a pale dot. On screen: a darker one. Answered: the accent. */
 .qc-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px hsl(var(--border-strong));
-  transition: width 200ms var(--qc-ease-std), background-color 200ms, box-shadow 200ms;
+  background: hsl(var(--surface-raised));
+  transition: background-color 200ms, opacity 200ms;
 }
 
 .qc-dot[data-state="done"] {
   background: var(--qc-tint);
-  box-shadow: none;
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
 .qc-dot[data-state="current"] {
-  width: 18px;
-  background: var(--qc-tint);
-  box-shadow: none;
+  background: hsl(var(--border-strong));
 }
 
-/* The step on screen still open: the pill stays hollow until it is answered. */
-.qc-dot[data-state="current"]:not([data-done]) {
-  background: color-mix(in srgb, var(--qc-tint) 22%, transparent);
-  box-shadow: inset 0 0 0 1.5px var(--qc-tint);
+/* The step on screen once it is answered: the accent at full strength. */
+.qc-dot[data-state="current"][data-done] {
+  background: var(--qc-tint);
 }
 
 .qc-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 10px;
-  font-size: 13px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
   transition: background-color 140ms, color 140ms, opacity 140ms;
@@ -508,7 +498,18 @@
   opacity: 0.9;
 }
 
+/* Skip: a pale pill beside the main button. */
+.qc-btn-soft {
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+}
+
+.qc-btn-soft:not(:disabled):hover {
+  background: hsl(var(--surface-raised));
+}
+
 .qc-btn-quiet {
+  padding: 0 12px;
   color: hsl(var(--muted-foreground));
 }
 
@@ -529,10 +530,11 @@
 
 /* --- The card's menu ---------------------------------------------------- */
 
+/* Opens upward from the foot, over the answers. */
 .qc-menu {
   position: absolute;
-  top: 42px;
-  right: 10px;
+  bottom: calc(100% - 2px);
+  left: 16px;
   z-index: 20;
   width: min(17rem, calc(100% - 20px));
   padding: 4px;
@@ -543,13 +545,13 @@
     0 0 0 1px hsl(var(--border-strong)),
     0 12px 32px -10px rgb(var(--scrim-rgb) / 0.35);
   animation: qc-menu-in 150ms var(--qc-ease-out);
-  transform-origin: top right;
+  transform-origin: bottom left;
 }
 
 @keyframes qc-menu-in {
   from {
     opacity: 0;
-    transform: scale(0.97) translateY(-2px);
+    transform: scale(0.97) translateY(2px);
   }
 }
 

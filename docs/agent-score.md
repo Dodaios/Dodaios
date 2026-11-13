@@ -131,7 +131,9 @@ no model call:
    multi-question call take their recommendations (`trimmed`).
 
 The asker gives `pending_action`, `confidence` and `missing_required` on the
-`society_ask_user` call. Every decision is one row in `trust/ask_log.db`.
+`society_ask_user` call. Every decision is one row in `trust/ask_log.db`. The
+lead's own chat asks through the same tool and the same gate
+(`docs/lead-seat-parity.md`).
 
 The report adds an `asking` component: cards shown, answered from memory, acted
 with an assumption, the **needless** rate (a card whose answer was already in
