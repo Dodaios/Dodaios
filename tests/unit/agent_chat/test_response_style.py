@@ -159,3 +159,19 @@ def test_a_surface_that_cannot_draw_gets_the_reply_without_its_charts() -> None:
     plain = "A chart of the course would help."
     assert without_charts(plain) == plain
     assert without_charts("") == ""
+
+
+# ---- web links in a written answer ----------------------------------------------
+
+
+def test_the_assistant_writes_web_links_as_short_names_on_both_seats() -> None:
+    from dodaios.core.response_style import LINK_GUIDANCE
+
+    assert LINK_GUIDANCE in dodaios_harness.SYSTEM_PREAMBLE
+    assert LINK_GUIDANCE in _WRITTEN_CHAT_STYLE
+    # A coding thread writes for a terminal, and a voice never reads a link aloud.
+    assert LINK_GUIDANCE not in dodaios_harness.CODING_PREAMBLE
+    for prompt in (load_persona_prompt(), load_compact_persona_prompt()):
+        assert LINK_GUIDANCE not in prompt
+    for phrase in ("Markdown link", "never the bare address", "logo", "never invent"):
+        assert phrase in LINK_GUIDANCE, phrase

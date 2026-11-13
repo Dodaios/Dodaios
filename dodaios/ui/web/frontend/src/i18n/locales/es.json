@@ -8045,6 +8045,12 @@
       "context": "Leer su contexto"
     }
   },
+  "chat_links": {
+    "open": "Abrir {site} en el navegador",
+    "x_post": "Publicación de @{user}",
+    "video": "Vídeo de YouTube",
+    "discussion": "Debate en Hacker News"
+  },
   "chat_media": {
     "unavailable": "No se puede cargar o reproducir este archivo. Puedes abrirlo directamente.",
     "expand": "Ampliar {file}",

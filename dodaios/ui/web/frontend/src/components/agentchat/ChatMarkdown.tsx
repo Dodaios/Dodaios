@@ -9,6 +9,8 @@ import { readFence, visualFenceLanguage } from "@/lib/visualFence";
 import { CHART_FENCE, endsInOpenFence, parseChartSpec } from "@/lib/chartSpec";
 import { chatLinkAction, chatUrlTransform, localPathFromChatHref, pageRefFromChatHref, threadRefFromChatHref } from "./chatLinks";
 import { PageLink } from "./PageCard";
+import { WebLink } from "./WebLink";
+import { webLinkInfo } from "./webLinks";
 import { CodingAgentLink } from "@/components/agentic/threads/CodingAgentLink";
 import { parseToolResult, ToolResultCard } from "./ToolResultCard";
 import { CodeBlock } from "@/components/docs/CodeBlock";
@@ -116,6 +118,9 @@ const MARKDOWN_COMPONENTS: Components = {
     const page = pageRefFromChatHref(href);
     if (page) return <PageLink pageRef={page} label={Children.toArray(children).filter(child => typeof child === "string").join("")} />;
     const local = localPathFromChatHref(href);
+    // A web page: its site's logo and a short name; the full address is on the hover card.
+    const web = local ? null : webLinkInfo(href, Children.toArray(children).every(child => typeof child === "string") ? label : null);
+    if (web) return <WebLink info={web} onOpen={event => onChatLinkClick(event, href, label)}>{children}</WebLink>;
     return <a href={href} title={local || undefined} onClick={event => onChatLinkClick(event, href, label)}>{children}</a>;
   },
   pre: ({ children, node: _node, ...props }) => {

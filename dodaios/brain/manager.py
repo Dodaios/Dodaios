@@ -92,7 +92,7 @@ from dodaios.core.protocols import (
     Tool,
 )
 from dodaios.core.redact import safe_preview
-from dodaios.core.response_style import CHART_GUIDANCE, CONVERSATIONAL_RESPONSE_STYLE
+from dodaios.core.response_style import CHART_GUIDANCE, CONVERSATIONAL_RESPONSE_STYLE, LINK_GUIDANCE
 from dodaios.core.turn_language import (
     DEFAULT_LOCALE,
     TURN_LANGUAGE,
@@ -2235,6 +2235,8 @@ _WRITTEN_CHAT_RULES = _WRITTEN_CHAT_STYLE
 _WRITTEN_CHAT_STYLE += "\n" + CONVERSATIONAL_RESPONSE_STYLE
 # The chat that shows a written answer draws its chart blocks (response_style.CHART_GUIDANCE).
 _WRITTEN_CHAT_STYLE += "\n" + CHART_GUIDANCE
+# ... and its web links as a logo and a short name (response_style.LINK_GUIDANCE).
+_WRITTEN_CHAT_STYLE += "\n" + LINK_GUIDANCE
 
 #: Upper bound for the legacy core-memory block in the system prompt.
 _CORE_MEMORY_MAX_CHARS = 20_000
