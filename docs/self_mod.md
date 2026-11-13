@@ -72,9 +72,8 @@ no rotate, no truncate, append-only. Format:
 Values for sensitive paths (e.g. `*_api_key`, `*_token`) are masked with
 `*` of the same length before being written (Plan §AP-2 defense-in-depth).
 
-UI view: SelfModView in the sidebar → History tab. Clicking an audit row
-opens a detail drawer with the full JSON. Sensitive paths explicitly show
-a "***" badge instead of cleartext.
+The app has no page for the audit log any more: the SelfModView page could
+not be reached from any navigation and has been removed.
 
 ## 4. Rollback behavior
 

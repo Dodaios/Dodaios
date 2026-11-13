@@ -22,7 +22,7 @@ import { useT } from "@/i18n";
  *
  * Ctrl+K opens full-text search as long as this view is active. The global
  * hotkey is deliberately section-local — it should not also open the
- * search modal in ChatsView/MissionsView etc.
+ * search modal in ChatsView etc.
  */
 export function DocsView() {
   const t = useT();
