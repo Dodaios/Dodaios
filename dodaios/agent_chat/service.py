@@ -1477,6 +1477,18 @@ class AgentChatService:
         Stored like any event (kind ``notice``) so a reopened chat still shows it."""
         await self._emit(session_id, make_event("notice", dict(payload)))
 
+    def _refresh_picture_handoffs(self, session: Any) -> None:
+        """Register the Dodaios chat's earlier pictures again (off the event loop)."""
+        try:
+            events = self.store.list_events(
+                session.session_id, tail=chat_attachments.EARLIER_PICTURES_EVENTS
+            )
+            chat_attachments.refresh_handoffs(
+                session.cwd, events, session_id=session.session_id
+            )
+        except Exception:  # noqa: BLE001 - only the earlier pictures go unoffered; the turn runs
+            log.warning("chat: earlier pictures not re-registered", exc_info=True)
+
     async def _emit(self, session_id: str, event: dict[str, Any]) -> None:
         # One delivery path for every runner. Normalize only finished receipts;
         # token deltas and voice-critical streaming never perform file I/O.
@@ -1871,7 +1883,13 @@ class AgentChatService:
                 images = tuple(str(path) for path in found)
                 if images:
                     prompt += "\n\n" + plain_chat.IMAGES_NOTE
+            if session.surface == "jarvis":
+                # Pictures of earlier messages keep their IDs, so the task the
+                # person confirms a message after the screenshot still carries it.
+                await asyncio.to_thread(self._refresh_picture_handoffs, session)
+            visual_references: list[str] = []
             if attached and session.surface == "jarvis":
+                visual_references = chat_attachments.handoff_references(attached)
                 image_context = await asyncio.to_thread(
                     chat_attachments.handoff_context, session.cwd, attached, session_id=session_id,
                 )
@@ -2042,6 +2060,14 @@ class AgentChatService:
                             **(
                                 {"attachments": _attachment_receipts(attached)}
                                 if attached
+                                else {}
+                            ),
+                            # The pictures a later message may still forward
+                            # (attachments.refresh_handoffs); the receipts above
+                            # lose their file references when they are shown.
+                            **(
+                                {"visual_references": visual_references}
+                                if visual_references
                                 else {}
                             ),
                         },

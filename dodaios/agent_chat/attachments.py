@@ -53,16 +53,36 @@ class AttachmentError(RuntimeError):
     """The attach carried nothing usable, or the copies could not be written."""
 
 
+#: How far back a Dodaios chat's earlier pictures stay forwardable.
+_EARLIER_PICTURES_MS = 24 * 3600 * 1000
+#: At most this many earlier pictures are re-registered per message.
+_EARLIER_PICTURES_MAX = 20
+#: How many of a conversation's newest events are searched for earlier pictures.
+EARLIER_PICTURES_EVENTS = 400
+
+
+def _upload_path(root: Path, reference: str) -> Path:
+    """The file a chat attachment reference names, refused unless inside ``root``."""
+    from dodaios.agentic_ide.drops import dereference
+    from dodaios.core.image_references import ImageReferenceError
+
+    raw = dereference(reference)
+    path = (root / raw).resolve()
+    if not raw or not path.is_relative_to(root) or not path.is_file():
+        raise ImageReferenceError("Image is outside the chat folder or missing.")
+    return path
+
+
 def handoff_context(cwd: str, attachments: list[Any], *, session_id: str) -> str:
     """Register only the images selected on THIS message, inside its own folder.
 
     Client-provided paths are untrusted. No URL fetching, parent traversal or
     symlink escape may turn an attachment into access to another private file.
+    The IDs stay valid for later messages of the conversation
+    (:func:`refresh_handoffs`), so "yes, send an agent" a message after the
+    screenshot still hands the screenshot over.
     """
-    import mimetypes
-
-    from dodaios.agentic_ide.drops import dereference
-    from dodaios.core.image_references import MAX_BYTES, ImageReferenceError, get_store, instruction
+    from dodaios.core.image_references import get_store, instruction
 
     refs = []
     missing = []
@@ -71,20 +91,14 @@ def handoff_context(cwd: str, attachments: list[Any], *, session_id: str) -> str
         if item.kind != "image":
             continue
         try:
-            raw = dereference(item.reference)
-            path = (root / raw).resolve()
-            if not raw or not path.is_relative_to(root) or not path.is_file():
-                raise ImageReferenceError("Image is outside the chat folder or missing.")
-            if path.stat().st_size > MAX_BYTES:
-                raise ImageReferenceError("Image is too large for a handoff.")
-            mime = mimetypes.guess_type(path.name)[0] or ""
-            refs.append(get_store().add(
-                "chat:" + session_id, path.read_bytes(), mime, source=f"upload #{index}",
+            refs.append(get_store().add_file(
+                "chat:" + session_id, _upload_path(root, item.reference),
+                source=f"upload #{index}",
             ))
         except (OSError, ValueError):
             # No raw client paths in logs or error text; the ordinal identifies the chip.
             missing.append(str(index))
-    note = instruction(refs)
+    note = instruction(refs, lasting=True)
     if missing:
         note += (
             "\nVisual handoff unavailable for attachment(s) " + ", ".join(missing)
@@ -92,6 +106,51 @@ def handoff_context(cwd: str, attachments: list[Any], *, session_id: str) -> str
             "ask the user to attach them again."
         )
     return note
+
+
+def handoff_references(attachments: list[Any]) -> list[str]:
+    """What a ``user_message`` keeps so :func:`refresh_handoffs` finds its pictures again."""
+    return [str(item.reference) for item in attachments if item.kind == "image"]
+
+
+def refresh_handoffs(
+    cwd: str, events: list[dict[str, Any]], *, session_id: str, now_ms: int | None = None
+) -> list[str]:
+    """Register the pictures of this conversation's earlier messages again.
+
+    Their IDs are the ones those messages carried (``add_file`` derives them
+    from the file), so a picture shown a few messages ago, or before an app
+    restart emptied the reference store, can still go with a work order. Only
+    pictures of the last 24 hours, at most the newest
+    :data:`_EARLIER_PICTURES_MAX`, and only files still inside the chat folder
+    under the same checks as a new upload. Returns the registered IDs.
+    """
+    import time
+
+    from dodaios.core.image_references import get_store
+
+    root = Path(cwd).expanduser().resolve()
+    since = (now_ms if now_ms is not None else int(time.time() * 1000)) - _EARLIER_PICTURES_MS
+    references: list[str] = []
+    for event in reversed(events):
+        if event.get("kind") != "user_message" or int(event.get("ts_ms") or 0) < since:
+            continue
+        listed = (event.get("payload") or {}).get("visual_references")
+        for reference in reversed(listed if isinstance(listed, list) else []):
+            if isinstance(reference, str) and reference not in references:
+                references.append(reference)
+        if len(references) >= _EARLIER_PICTURES_MAX:
+            break
+    refs = []
+    for reference in references[:_EARLIER_PICTURES_MAX]:
+        try:
+            refs.append(get_store().add_file(
+                "chat:" + session_id, _upload_path(root, reference),
+                source="upload, earlier message", fresh=False,
+            ))
+        except (OSError, ValueError):  # deleted or moved since: that picture is just not offered
+            continue
+    return refs
 
 
 async def ingest(

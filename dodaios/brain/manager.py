@@ -11030,7 +11030,9 @@ class BrainManager:
             or bool(getattr(self, "_pending_turn_images", {}).get(turn_trace_id))
             or bool(getattr(self, "_pending_drop_images", ()))
             or "Visual reference IDs" in user_text
-            or bool(image_reference_store().available(scope_for(trace_id=turn_trace_id)))
+            or bool(image_reference_store().available(
+                scope_for(trace_id=turn_trace_id), fresh_only=True
+            ))
         )
         ide_reply = None if visual_assignment else await self._run_agentic_ide_fast_path(
             user_text,
