@@ -11772,9 +11772,9 @@
     }
   },
   "agent_browser": {
-    "title": "Browser von {name}",
-    "screen": "Live-Browser von {name}",
-    "driving": "{name} steuert",
+    "title": "Browser von {assistant}",
+    "screen": "Live-Browser von {assistant}",
+    "driving": "{assistant} steuert",
     "you_drive": "Du steuerst",
     "take_over": "Übernehmen",
     "hand_back": "Zurückgeben",
@@ -11785,8 +11785,8 @@
     "working": "Arbeitet",
     "ready": "Bereit",
     "connecting": "Verbinde…",
-    "needs_you": "{name} braucht dich hier",
-    "private_hint": "Was du hier tippst, wird nicht gespeichert und {name} nicht gezeigt.",
+    "needs_you": "{assistant} braucht dich hier",
+    "private_hint": "Was du hier tippst, wird nicht gespeichert und {assistant} nicht gezeigt.",
     "approval": "Diesen Browser-Schritt erlauben?",
     "allow": "Erlauben",
     "deny": "Ablehnen",

@@ -11772,9 +11772,9 @@
     }
   },
   "agent_browser": {
-    "title": "Navegador de {name}",
-    "screen": "Navegador en directo de {name}",
-    "driving": "{name} tiene el control",
+    "title": "Navegador de {assistant}",
+    "screen": "Navegador en directo de {assistant}",
+    "driving": "{assistant} tiene el control",
     "you_drive": "Tienes el control",
     "take_over": "Tomar el control",
     "hand_back": "Devolver",
@@ -11785,8 +11785,8 @@
     "working": "Trabajando",
     "ready": "Listo",
     "connecting": "Conectando…",
-    "needs_you": "{name} te necesita aquí",
-    "private_hint": "Lo que escribas aquí no se guarda ni se muestra a {name}.",
+    "needs_you": "{assistant} te necesita aquí",
+    "private_hint": "Lo que escribas aquí no se guarda ni se muestra a {assistant}.",
     "approval": "¿Permitir este paso del navegador?",
     "allow": "Permitir",
     "deny": "Rechazar",

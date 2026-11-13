@@ -9,14 +9,14 @@ vi.mock("@/i18n", () => ({
     template.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? ""),
   useT: () => (key: string) => ({
     "sidebar.conversation": "Dodaios",
-    "agent_browser.driving": "{name} has control",
+    "agent_browser.driving": "{assistant} has control",
     "agent_browser.you_drive": "You have control",
     "agent_browser.take_over": "Take over",
     "agent_browser.hand_back": "Hand back",
-    "agent_browser.needs_you": "{name} needs you here",
+    "agent_browser.needs_you": "{assistant} needs you here",
     "agent_browser.ready": "Ready",
     "agent_browser.connecting": "Connecting…",
-    "agent_browser.private_hint": "Not recorded, not shown to {name}.",
+    "agent_browser.private_hint": "Not recorded, not shown to {assistant}.",
   } as Record<string, string>)[key] ?? key,
 }));
 const { control, view, browser, state } = vi.hoisted(() => ({

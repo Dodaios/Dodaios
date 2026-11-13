@@ -148,13 +148,13 @@ function BrowserSurface({ view, layout, onLayout, onHide }: SurfaceProps) {
   }, [staged, state.manual, onLayout]);
   const dotState = needsYou ? "needs-you" : driver === "idle" ? "idle" : "live";
   const statusText = needsYou
-    ? fill(t("agent_browser.needs_you"), { name })
+    ? fill(t("agent_browser.needs_you"), { assistant: name })
     : !state.ready
     ? t("agent_browser.connecting")
     : driver === "person"
     ? t("agent_browser.you_drive")
     : driver === "agent"
-    ? fill(t("agent_browser.driving"), { name })
+    ? fill(t("agent_browser.driving"), { assistant: name })
     : t("agent_browser.ready");
   const takeOver = () => { onLayout("stage"); control("takeover", { enabled: true }); };
   const handBack = () => control("takeover", { enabled: false });
@@ -171,7 +171,7 @@ function BrowserSurface({ view, layout, onLayout, onHide }: SurfaceProps) {
       data-layout={layout}
       data-docked={docked ? "true" : undefined}
       data-driver={driver}
-      aria-label={fill(t("agent_browser.title"), { name })}
+      aria-label={fill(t("agent_browser.title"), { assistant: name })}
       className={cn(
         staged
           ? "agent-browser-stage relative flex min-h-0 min-w-0 flex-1 flex-col border-l border-border bg-[radial-gradient(120%_90%_at_50%_0%,hsl(var(--secondary))_0%,hsl(var(--background))_70%)] px-6 pb-6 pt-4"
@@ -232,7 +232,7 @@ function BrowserSurface({ view, layout, onLayout, onHide }: SurfaceProps) {
                 state={state}
                 control={control}
                 live
-                ariaLabel={fill(t("agent_browser.screen"), { name })}
+                ariaLabel={fill(t("agent_browser.screen"), { assistant: name })}
                 cursorLabel={staged ? name : undefined}
               />
               {!staged && (
@@ -254,7 +254,7 @@ function BrowserSurface({ view, layout, onLayout, onHide }: SurfaceProps) {
           <div className="mt-5 flex flex-col items-center gap-2">
             <div className="flex items-center gap-3 rounded-full border border-border bg-background py-1.5 pl-4 pr-1.5 shadow-sm" data-testid="chat-browser-control">
               <span className="text-[13px] text-foreground">
-                {state.manual ? t("agent_browser.you_drive") : needsYou ? fill(t("agent_browser.needs_you"), { name }) : fill(t("agent_browser.driving"), { name })}
+                {state.manual ? t("agent_browser.you_drive") : needsYou ? fill(t("agent_browser.needs_you"), { assistant: name }) : fill(t("agent_browser.driving"), { assistant: name })}
               </span>
               {state.manual ? (
                 <button type="button" data-testid="chat-browser-hand-back"
@@ -282,7 +282,7 @@ function BrowserSurface({ view, layout, onLayout, onHide }: SurfaceProps) {
             )}
             {state.manual && (
               <p role="status" className="text-center text-[12px] text-muted-foreground">
-                {fill(t("agent_browser.private_hint"), { name })}
+                {fill(t("agent_browser.private_hint"), { assistant: name })}
               </p>
             )}
             {state.approval && (
