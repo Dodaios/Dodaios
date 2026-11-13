@@ -123,7 +123,7 @@ describe("the front page's conversation look", () => {
       ev("approval_required", { turn_id: "t3", approval_id: "a1", call_id: "c3", name: "RunCommand", input: { command: "rm x" }, summary: "rm x" }),
     ]);
     expect(screen.getByTestId("lead-face").getAttribute("data-pet")).toBe("idle");
-    expect(screen.getByRole("group", { name: "Approval required" })).toBeTruthy();
+    expect(screen.getByTestId("thread-approval")).toBeTruthy();
   });
 
   it("shows no dots while the turn only waits for an agent it sent out, and types again once the agent is back", () => {

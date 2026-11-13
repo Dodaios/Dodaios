@@ -8,7 +8,7 @@ import { PetStageContext } from "@/components/pets/petStage";
 import { PetMark } from "@/components/pets/PetMark";
 import type { PetState } from "@/lib/petStates";
 import { cn } from "@/lib/utils";
-import type { ApprovalDecision } from "@/lib/agentChatApi";
+import { ApprovalActionCard, type ApprovalDecide } from "./actionCard/ApprovalActionCard";
 import { billedPerToken, hasPersonCard, isCredentialTool, isQuestionTool, waitsInBackground, waitsOnCard, type ReasoningBlock, type TextBlock, type ToolBlock, type ToolReceipt, type TurnBlock, type TurnItem, type TurnStatus } from "./reduce";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { CredentialCard } from "./CredentialCard";
@@ -25,7 +25,7 @@ import "./WorkTrace.css";
 import { turnErrorText } from "./turnError";
 import { flattenMarks } from "@/lib/plainMarks";
 
-export type Decide = (id: string, decision: ApprovalDecision) => void | Promise<void>;
+export type Decide = ApprovalDecide;
 type Group = { id: string; blocks: TurnBlock[]; family: string | null };
 
 /**
@@ -423,19 +423,23 @@ function Detail({ label, text }: { label: string; text: string }) {
 export const TraceTool = memo(function TraceTool({ block, status, onDecide }: { block: ToolBlock; status: TurnStatus; onDecide?: Decide }) {
   if (block.question) return <QuestionCard question={block.question} />;
   if (block.credential) return <CredentialCard credential={block.credential} />;
-  return <TraceToolRow block={block} status={status} onDecide={onDecide} />;
+  // An open approval is the full card: the app's logo, the action in plain
+  // words, exactly what will be sent or run, and the three answers.
+  if (block.approval && block.approval.decision === null) {
+    return <div data-trace-tool={block.callId} data-state="approval" className="my-1">
+      <ApprovalActionCard block={block} onDecide={onDecide} />
+    </div>;
+  }
+  return <TraceToolRow block={block} status={status} />;
 });
 
-function TraceToolRow({ block, status, onDecide }: { block: ToolBlock; status: TurnStatus; onDecide?: Decide }) {
+function TraceToolRow({ block, status }: { block: ToolBlock; status: TurnStatus }) {
   const t = useT();
   const rail = useRail();
   const pending = Boolean(block.approval && block.approval.decision === null);
   const denied = block.approval?.decision === "deny";
   const running = status === "running" && block.output === null && !pending && !denied;
   const elapsed = useClock(block.startedMs, running);
-  const [busy, setBusy] = useState(false);
-  const submitting = useRef(false);
-  const [error, setError] = useState<string | null>(null);
   const view = traceToolIdentity(block);
   const { description, action } = view;
   const readable = description.label.charAt(0).toUpperCase() + description.label.slice(1);
@@ -446,27 +450,7 @@ function TraceToolRow({ block, status, onDecide }: { block: ToolBlock; status: T
   const ActionIcon = action === "command" ? Terminal : action === "edit" || action === "write" || action === "memory" ? FilePenLine
     : action === "read" ? FileText : action === "search" || action === "list" ? FolderSearch : view.identity.Glyph;
   const Icon = pending ? ShieldQuestion : block.isError ? CircleAlert : ActionIcon;
-  const decide = async (decision: ApprovalDecision) => {
-    if (!onDecide || !block.approval || submitting.current) return;
-    submitting.current = true;
-    setBusy(true);
-    setError(null);
-    try { await onDecide(block.approval.approvalId, decision); }
-    catch (err) { setError(err instanceof Error ? err.message : String(err)); }
-    finally { submitting.current = false; setBusy(false); }
-  };
   const branded = view.identity.logo && !pending && !block.isError;
-  const approvalUi = pending ? <div className={cn("space-y-2 text-sm", rail ? "mb-2 pl-7" : "mb-3 ml-6")} role="group" aria-label={t("work_trace.approval")}>
-    <p className={cn("[overflow-wrap:anywhere]", rail && "text-foreground")}>{block.approval?.summary}</p>
-    {onDecide ? <div className="flex flex-wrap gap-2">
-      {(["allow", "allow_always", "deny"] as const).map(decision => <button key={decision} type="button" disabled={busy}
-        onClick={() => void decide(decision)} className={cn("rounded-md px-3 py-1.5 text-xs focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
-          rail && decision === "allow" ? "bg-primary text-primary-foreground hover:opacity-90" : "border border-border text-foreground hover:bg-secondary")}>
-        {t(`work_trace.${decision}`)}
-      </button>)}
-    </div> : <p className="text-xs text-muted-foreground">{t("work_trace.approval_elsewhere")}</p>}
-    {error ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
-  </div> : null;
   if (rail) return <div data-trace-tool={block.callId} data-state={state}>
     <Disclosure
       label={<span className="flex min-w-0 items-baseline gap-2">
@@ -488,7 +472,6 @@ function TraceToolRow({ block, status, onDecide }: { block: ToolBlock; status: T
         </p> : null}>
       <ToolDetails block={block} />
     </Disclosure>
-    {approvalUi}
   </div>;
   return <div data-trace-tool={block.callId} data-state={state}>
     <Disclosure label={<><span className={view.integration ? "font-medium" : undefined}>{label}</span>{detail ? <span className="ml-2 text-xs text-muted-foreground">{" "}{detail}</span> : null}</>}
@@ -501,7 +484,6 @@ function TraceToolRow({ block, status, onDecide }: { block: ToolBlock; status: T
       </>}>
       <ToolDetails block={block} />
     </Disclosure>
-    {approvalUi}
   </div>;
 }
 

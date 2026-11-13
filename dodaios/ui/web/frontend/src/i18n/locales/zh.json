@@ -11221,7 +11221,22 @@
       "connector_verb": "用 {app} 执行“{verb}”？",
       "tool": "运行 {tool}？",
       "tool_plain": "运行这个工具？",
-      "action": "{action}？"
+      "action": "{action}？",
+      "verb": {
+        "send_message": "发送这封邮件？",
+        "send_email": "发送这封邮件？",
+        "send": "用 {app} 发送？",
+        "reply": "发送这条回复？",
+        "forward": "转发这封邮件？",
+        "create_draft": "保存这份草稿？",
+        "trash_message": "将这封邮件移到废纸篓？",
+        "delete_message": "永久删除这封邮件？",
+        "modify_message": "更改这封邮件的标签？",
+        "create_event": "将此日程添加到 {app}？",
+        "update_event": "更改此日程？",
+        "delete_event": "删除此日程？",
+        "post_message": "发布这条消息？"
+      }
     },
     "field": {
       "in": "位置：{where}",

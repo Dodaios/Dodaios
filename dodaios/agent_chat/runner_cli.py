@@ -784,6 +784,24 @@ def claude_rules_cover(rules: Iterable[dict[str, Any]], tool_name: str, tool_inp
     return False
 
 
+def bridge_stance(runner: str, session: Any) -> str:
+    """The stance Dodaios' own tool gate takes for a vendor CLI session.
+
+    The agent surface hands no stance to the runner (the vendor CLI keeps its
+    own ladder), so the gate would ask for every consequential Dodaios tool,
+    even when the person picked "Bypass permissions" or "Full access" there.
+    The top rung of every ladder is the promise that nothing asks; the gate
+    keeps it. Every lower rung asks as before.
+    """
+    mode = str(getattr(session, "permission_mode", "") or "")
+    try:
+        from dodaios.agent_chat.permissions import _stance
+
+        return "bypass" if mode and _stance(runner, mode) >= 3 else "ask"
+    except Exception:  # noqa: BLE001 - an unknown runner or mode asks, as before
+        return "ask"
+
+
 def claude_bypass_chosen(runner: str, session: Any) -> bool:
     """Whether the person picked "Bypass permissions" for this Claude Code session.
 
@@ -4113,7 +4131,7 @@ async def run_cli_turn(
                 ChatGrant(
                     session_id=session.session_id,
                     turn_id=handle.turn_id,
-                    stance=handle.stance or "ask",
+                    stance=handle.stance or bridge_stance(runner, session),
                     always_allowed=always_allowed if always_allowed is not None else set(),
                     ask=handle.request_approval,
                     force_ask=(

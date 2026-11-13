@@ -58,6 +58,18 @@ function draw(block: ToolBlock, onDecide = vi.fn()) {
 }
 
 describe("the exact-action preview on the approval card", () => {
+  it("names the action in plain words and says each warning once", () => {
+    draw(opened({ hard_limit: "new_recipient", checks: [{ code: "unknown_recipient", severity: "ask", detail: "new@stranger.example" }] }));
+    // "Send this email?", never the tool's own id "send_message".
+    expect(screen.getByRole("heading", { name: "Send this email?" })).toBeTruthy();
+    // The preview marks the new recipient and the missing undo; no line above
+    // or below the card repeats them.
+    expect(screen.getByTestId("approval-preview-new")).toBeTruthy();
+    expect(screen.queryByTestId("action-card-hard-limit")).toBeNull();
+    expect(screen.queryByTestId("action-card-caution")).toBeNull();
+    expect(screen.getByTestId("thread-approval").textContent).not.toContain("send_message");
+  });
+
   it("parses the preview and drops an unknown class", () => {
     const info = parseApprovalCard({ ...CARD, preview: MAIL_PREVIEW });
     expect(info?.preview?.cls).toBe("mail");

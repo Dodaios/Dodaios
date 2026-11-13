@@ -144,7 +144,12 @@ export function approvalTitle(info: ApprovalCardInfo, t: T): string {
   if (info.action) return fill(t("action_card.title.action"), { action: info.action });
   const { kind, app, verb } = info.source;
   if (kind === "connector") {
-    if (verb && app) return fill(t("action_card.title.connector_verb"), { app, verb });
+    // The action in plain words ("Send this email?"), never the tool's own
+    // id ("send_message"); an action without its own title reads as words.
+    const key = verb ? `action_card.title.verb.${verb}` : "";
+    const own = key ? t(key) : "";
+    if (own && own !== key) return fill(own, { app });
+    if (verb && app) return fill(t("action_card.title.connector_verb"), { app, verb: verb.replace(/[_.-]+/g, " ") });
     return app ? fill(t("action_card.title.connector"), { app }) : t("action_card.title.tool_plain");
   }
   if (kind === "tool") return app ? fill(t("action_card.title.tool"), { tool: app }) : t("action_card.title.tool_plain");

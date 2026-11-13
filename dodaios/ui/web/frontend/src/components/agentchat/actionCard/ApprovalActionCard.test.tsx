@@ -61,13 +61,13 @@ describe("the approval action card", () => {
     const { onDecide } = drawTurn(asking());
     const card = screen.getByTestId("thread-approval");
     expect(card.textContent).toContain("Gmail");
-    expect(screen.getByRole("heading", { name: "Use Gmail to send?" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Send with Gmail?" })).toBeTruthy();
     expect(card.textContent).toContain("Send the weekly report");
     expect(card.textContent).toContain("“The weekly report is ready”");
     expect(screen.getByTestId("action-card-caution").textContent).toBe("Something from this chat will be sent elsewhere.");
     const buttons = [...card.querySelectorAll("button[data-tone]")].map((b) => [b.textContent, b.getAttribute("data-tone")]);
     expect(buttons).toEqual([["Allow once", "primary"], ["Always allow…", "secondary"], ["Deny", "tertiary"]]);
-    expect(screen.getByRole("group", { name: "Needs approval: Use Gmail to send?" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Needs approval: Send with Gmail?" })).toBeTruthy();
     await act(async () => { fireEvent.click(screen.getByTestId("action-card-allow")); });
     expect(onDecide).toHaveBeenCalledWith("a1", "allow");
   });
