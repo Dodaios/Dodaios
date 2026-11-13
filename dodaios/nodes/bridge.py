@@ -26,6 +26,9 @@ the page that they come from its parent):
   ``{n, state: "pending" | "sent" | "failed"}``: ``pending`` once the app holds
   the comment (it waits for "Send"), ``sent`` once it went to the assistant,
   ``failed`` when that did not work (it stays and can be sent again).
+  A sent comment's pin turns into a speech bubble with three moving dots,
+  and its note says the assistant is working it in (``labels.working``):
+  the assistant has the word until the node's revision draws the page again.
 
 A comment can be spoken instead of typed. The field has a microphone; the page
 cannot reach one (the sandbox allows no device), so it asks the app, which
@@ -130,6 +133,17 @@ BRIDGE_CSS: Final[str] = """
   background:var(--accent);color:var(--accent-ink);font:600 13px/30px var(--font);text-align:center;
   font-variant-numeric:tabular-nums;box-shadow:0 0 0 2px var(--bg),0 4px 14px rgba(0,0,0,.28)}
 .nc-left .nc-pin{border-radius:15px 15px 4px 15px}
+.nc-pin{transition:background .25s,color .25s,min-width .25s,padding .25s}
+.nc-pin.is-thinking{display:flex;align-items:center;justify-content:center;gap:5px;min-width:58px;
+  padding:0 14px;background:var(--bg-3);color:var(--ink-2);
+  box-shadow:0 0 0 2px var(--bg),inset 0 0 0 1px var(--line-2),0 4px 14px rgba(0,0,0,.28)}
+.nc-dot{flex:none;width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.35;
+  animation:nc-dot 1.3s ease-in-out infinite}
+.nc-dot:nth-child(2){animation-delay:.16s}
+.nc-dot:nth-child(3){animation-delay:.32s}
+@keyframes nc-dot{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+.nc.is-sent .nc-note{color:var(--ink-2)}
+@media (prefers-reduced-motion:reduce){.nc-dot{animation:none;opacity:.7}}
 .nc-box{display:flex;align-items:flex-end;gap:6px;width:min(340px,calc(100vw - 96px));
   padding:6px 7px 6px 16px;border:1px solid var(--line-2);border-radius:22px;background:var(--bg-3);
   box-shadow:0 8px 28px rgba(0,0,0,.28)}
@@ -182,7 +196,8 @@ var d=document,root=d.documentElement,up=window.parent;
 if(!up||up===window)return;
 var mode="view",layer=null,draft=null,sent=0,byNumber={},held=false;
 var labels={placeholder:"Add a comment…",add:"Add comment",pending:"Not sent yet",sent:"Sent",
-  failed:"Not sent. Try again.",remove:"Remove comment",dictate:"Dictate",
+  failed:"Not sent. Try again.",remove:"Remove comment",working:"Working your comment in…",
+  dictate:"Dictate",
   stopDictate:"Stop dictation",listening:"Listening… speak now",transcribing:"Transcribing…"};
 function post(m){try{up.postMessage(m,"*");}catch(e){}}
 function squeeze(s,max){s=String(s||"").replace(/\s+/g," ").replace(/^ | $/g,"");
@@ -311,7 +326,7 @@ function open(e){
   dropDraft(true);
   var c={n:sent+1,busy:false,quote:el?textOf(el,240):"",where:el?whereOf(el):""};
   c.node=d.createElement("div");c.node.className="nc";c.node.setAttribute("data-n",String(c.n));
-  var pin=d.createElement("span");pin.className="nc-pin";pin.textContent=String(c.n);
+  var pin=d.createElement("span");pin.className="nc-pin";pin.textContent=String(c.n);c.pin=pin;
   var box=d.createElement("div");box.className="nc-box";
   var body=d.createElement("div");body.style.flex="1";body.style.minWidth="0";
   c.field=d.createElement("textarea");c.field.rows=1;c.field.maxLength=2000;
@@ -356,13 +371,22 @@ function hold(c){
   if(c.mic&&c.mic.parentNode)c.mic.parentNode.removeChild(c.mic);c.mic=null;
   c.held=true;c.busy=false;settle(c,labels.pending,"");sent=Math.max(sent,c.n);
   if(draft===c)draft=null;}
+function thinking(c){
+  // The pin becomes the assistant's speech bubble: three dots while it works
+  // the comment in. The node's revision draws the page again, and with it the
+  // bubble goes.
+  var pin=c.pin;if(!pin)return;
+  pin.textContent="";pin.className="nc-pin is-thinking";
+  pin.setAttribute("role","img");pin.setAttribute("aria-label",labels.working);pin.title=labels.working;
+  for(var i=0;i<3;i++){var dot=d.createElement("span");dot.className="nc-dot";pin.appendChild(dot);}}
 function answered(n,state){
   var c=byNumber[n];if(!c)return;
   if(state==="pending"){if(!c.held)hold(c);}
   else if(state==="sent"){
     if(!c.held)hold(c);
     c.done=true;if(c.button.parentNode)c.button.parentNode.removeChild(c.button);
-    settle(c,labels.sent,"is-sent");delete byNumber[n];
+    settle(c,labels.working,"is-sent");delete byNumber[n];
+    thinking(c);
   }else if(c.held){settle(c,labels.failed,"is-failed");}
   else{
     c.busy=false;c.field.disabled=false;c.button.disabled=false;settle(c,labels.failed,"is-failed");

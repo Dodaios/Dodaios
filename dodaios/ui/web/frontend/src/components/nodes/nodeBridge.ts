@@ -73,6 +73,8 @@ export interface NodeBridgeLabels {
   failed: string;
   /** The button that takes a waiting comment back. */
   remove: string;
+  /** Under a sent comment while the assistant works it in. */
+  working: string;
   /** The field's microphone. */
   dictate: string;
   /** The microphone while it records. */

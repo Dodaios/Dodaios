@@ -1,7 +1,8 @@
 /**
- * The page's side of a spoken comment: the script a node's page runs
+ * The page's side of a comment: the script a node's page runs
  * (`dodaios/nodes/bridge.py`, `BRIDGE_JS`), run here in a page of its own with
- * a stand-in for the app as its parent. Its microphone only asks the app; the
+ * a stand-in for the app as its parent. A sent comment's pin shows that the
+ * assistant is working it in. The field's microphone only asks the app; the
  * words come back as plain text and go after what the field holds.
  */
 import { readFileSync } from "node:fs";
@@ -10,6 +11,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
   NODE_COMMENT_MESSAGE,
+  NODE_COMMENT_STATE_MESSAGE,
   NODE_DICTATE_MESSAGE,
   NODE_DICTATION_STATE_MESSAGE,
   NODE_DICTATION_TEXT_MESSAGE,
@@ -34,6 +36,8 @@ beforeAll(async () => {
 
 const LABELS = {
   placeholder: "Add a comment…",
+  pending: "Not sent yet",
+  working: "Nova is working your comment in…",
   dictate: "Dictate",
   stopDictate: "Stop dictation",
   listening: "Listening… speak now",
@@ -80,6 +84,49 @@ function page() {
     },
   };
 }
+
+describe("a comment sent from a node's page", () => {
+  function sentComment() {
+    const p = page();
+    const { field } = p.pin();
+    p.type(field, "Add a pie chart");
+    p.key(field, "Enter");
+    expect(p.sent(NODE_COMMENT_MESSAGE)).toEqual([expect.objectContaining({ n: 1, text: "Add a pie chart" })]);
+    const doc = p.win.document;
+    return { ...p, pinEl: () => doc.querySelector(".nc .nc-pin") as HTMLElement, note: () => doc.querySelector(".nc .nc-note") as HTMLElement };
+  }
+
+  it("keeps its number while it waits for Send", () => {
+    const p = sentComment();
+    p.say({ type: NODE_COMMENT_STATE_MESSAGE, n: 1, state: "pending" });
+    expect(p.pinEl().textContent).toBe("1");
+    expect(p.pinEl().querySelectorAll(".nc-dot")).toHaveLength(0);
+    expect(p.note().textContent).toBe("Not sent yet");
+  });
+
+  it("turns its pin into a speech bubble with three dots once it went to the assistant", () => {
+    const p = sentComment();
+    p.say({ type: NODE_COMMENT_STATE_MESSAGE, n: 1, state: "pending" });
+    p.say({ type: NODE_COMMENT_STATE_MESSAGE, n: 1, state: "sent" });
+    const pin = p.pinEl();
+    expect(pin.className).toContain("is-thinking");
+    expect(pin.querySelectorAll(".nc-dot")).toHaveLength(3);
+    expect(pin.textContent).toBe("");
+    expect(pin.getAttribute("aria-label")).toBe("Nova is working your comment in…");
+    expect(p.note().textContent).toBe("Nova is working your comment in…");
+    // The comment's words stay readable beside it, with no way to take it back.
+    expect(p.win.document.querySelector(".nc .nc-said")?.textContent).toBe("Add a pie chart");
+    expect(p.win.document.querySelector(".nc .nc-drop")).toBeNull();
+  });
+
+  it("keeps its number when sending failed", () => {
+    const p = sentComment();
+    p.say({ type: NODE_COMMENT_STATE_MESSAGE, n: 1, state: "pending" });
+    p.say({ type: NODE_COMMENT_STATE_MESSAGE, n: 1, state: "failed" });
+    expect(p.pinEl().textContent).toBe("1");
+    expect(p.pinEl().className).not.toContain("is-thinking");
+  });
+});
 
 describe("a comment spoken into a node's page", () => {
   it("has a microphone that asks the app to dictate, and shows where the dictation stands", () => {

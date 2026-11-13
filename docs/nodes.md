@@ -113,6 +113,9 @@ The reader writes what should change and adds it with Enter or the tick. A
 comment does not go out on its own: the reader can leave as many as they like,
 and take one back with its cross. A "Send" button in the stage's toolbar
 counts them ("Send 3 comments") and hands them all to the assistant at once.
+Once they went out, each pin turns into a speech bubble with three moving
+dots, and its note says the assistant is working the comment in. The bubbles
+stay until the node's revision draws the page again.
 
 The comments do not appear in the conversation. They go out as one request
 (`POST /api/nodes/{id}/comments`, `dodaios/nodes/comments.py`) that runs as a

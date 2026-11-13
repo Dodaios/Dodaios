@@ -965,6 +965,7 @@ function ArtifactStage({
       sent: t("nodes.comment.sent"),
       failed: t("nodes.comment.failed"),
       remove: t("nodes.comment.remove"),
+      working: t("nodes.comment.working"),
       dictate: t("chats_view.dictation_start"),
       stopDictate: t("chats_view.dictation_stop"),
       listening: t("chats_view.dictation_listening"),
