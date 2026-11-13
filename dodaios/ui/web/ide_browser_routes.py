@@ -197,8 +197,13 @@ async def ide_browser_frame_check(body: FrameCheckBody) -> dict[str, Any]:
 
     ``frameable`` is false with ``reason`` ``refused`` when the site forbids
     being framed, ``unreachable`` when no answer came (a typo, a server that
-    is not running). Only http and https addresses are asked.
+    is not running). Only http and https addresses are asked, and only public
+    ones: the request runs on this machine, so every hop (redirects included)
+    is kept off the loopback API, the LAN and metadata endpoints. A private
+    address is not asked at all (``ok`` false): the panel then just shows it.
     """
+    from dodaios.core.http_guard import BlockedDestination, public_only_async
+
     parsed = urlparse(body.url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         return {"ok": False, "frameable": False, "reason": "bad_url"}
@@ -206,12 +211,18 @@ async def ide_browser_frame_check(body: FrameCheckBody) -> dict[str, Any]:
         async with httpx.AsyncClient(
             follow_redirects=True, timeout=_FRAME_CHECK_TIMEOUT_S,
             headers={"User-Agent": _FRAME_CHECK_UA, "Accept": "text/html,*/*;q=0.8"},
+            **public_only_async(schemes=("http", "https")),
         ) as client, client.stream("GET", body.url) as response:
             # The frame shows the page the redirects end on: its headers decide.
             refused = framing_refused(
                 response.headers.get("x-frame-options"),
                 response.headers.get_list("content-security-policy"),
             )
+    except BlockedDestination as exc:
+        if not isinstance(exc.__cause__, OSError):
+            return {"ok": False, "frameable": True, "reason": "not_public"}
+        log.info("Browser panel frame check: %s does not resolve", parsed.hostname)
+        return {"ok": True, "frameable": False, "reason": "unreachable"}
     except (httpx.HTTPError, ValueError) as exc:
         log.info(
             "Browser panel frame check: %s did not answer (%s)",

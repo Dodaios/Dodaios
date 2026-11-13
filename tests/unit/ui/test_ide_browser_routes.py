@@ -272,9 +272,17 @@ def test_framing_refused(xfo: str | None, policies: list[str], refused: bool) ->
     assert framing_refused(xfo, policies) is refused
 
 
-def _frame_client(monkeypatch: pytest.MonkeyPatch, handler: Any) -> TestClient:
+def _frame_client(
+    monkeypatch: pytest.MonkeyPatch, handler: Any, *, guard: bool = False
+) -> TestClient:
     import httpx
 
+    if not guard:
+        # The sample hosts do not resolve; the guard has tests of its own below.
+        async def public(request: Any, schemes: Any) -> None:
+            return None
+
+        monkeypatch.setattr("dodaios.core.http_guard._check_public_request", public)
     real = httpx.AsyncClient
 
     def fake(*args: Any, **kwargs: Any) -> Any:
@@ -329,3 +337,58 @@ def test_frame_check_asks_only_web_addresses(monkeypatch: pytest.MonkeyPatch) ->
     body = client.post("/api/ide-browser/frame-check", json={"url": "file:///etc/passwd"}).json()
     assert body["reason"] == "bad_url"
     assert asked == []
+
+
+@pytest.mark.parametrize(
+    "url", ["http://127.0.0.1:47821/api/health", "http://169.254.169.254/latest/meta-data/"]
+)
+def test_frame_check_never_asks_a_private_address(
+    monkeypatch: pytest.MonkeyPatch, url: str
+) -> None:
+    import httpx
+
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked.append(str(request.url))
+        return httpx.Response(200)
+
+    client = _frame_client(monkeypatch, handler, guard=True)
+    body = client.post("/api/ide-browser/frame-check", json={"url": url}).json()
+    assert body == {"ok": False, "frameable": True, "reason": "not_public"}
+    assert asked == []
+
+
+def test_frame_check_never_follows_a_redirect_to_a_private_address(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import httpx
+
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked.append(str(request.url))
+        return httpx.Response(302, headers={"location": "http://10.0.0.1/admin"})
+
+    async def resolve(self: Any, host: str, port: int, **kwargs: Any) -> list[Any]:
+        return [(None, None, None, "", ("93.184.215.14", port))]
+
+    monkeypatch.setattr("asyncio.base_events.BaseEventLoop.getaddrinfo", resolve)
+    client = _frame_client(monkeypatch, handler, guard=True)
+    body = client.post("/api/ide-browser/frame-check", json={"url": "https://site.example/"}).json()
+    assert body["reason"] == "not_public"
+    assert asked == ["https://site.example/"]
+
+
+def test_frame_check_calls_a_name_that_does_not_resolve_unreachable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import httpx
+
+    async def resolve(self: Any, host: str, port: int, **kwargs: Any) -> list[Any]:
+        raise OSError("nodename nor servname provided")
+
+    monkeypatch.setattr("asyncio.base_events.BaseEventLoop.getaddrinfo", resolve)
+    client = _frame_client(monkeypatch, lambda request: httpx.Response(200), guard=True)
+    body = client.post("/api/ide-browser/frame-check", json={"url": "https://github/"}).json()
+    assert body == {"ok": True, "frameable": False, "reason": "unreachable"}
