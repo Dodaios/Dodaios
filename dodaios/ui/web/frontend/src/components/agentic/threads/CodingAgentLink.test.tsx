@@ -35,19 +35,17 @@ describe("a coding agent linked in a chat answer", () => {
     expect(threadRefFromChatHref("#jarvis-local=x")).toBeNull();
   });
 
-  it("shows the thread's own title with the coding agent's logo behind it", async () => {
+  it("keeps the answer's words inside its sentence, with the coding agent's logo behind them", async () => {
     const fetchMock = answerWith({ found: true, session_id: ID, code: "3f9a2c", title: "Login page", agent: "claude", agent_label: "Claude Code" });
-    render(<ChatMarkdown text={`It is in [the login thread](thread:${ID}).`} />);
-    const link = screen.getByTestId("coding-agent-link");
-    // The words of the answer until the thread's title is known.
-    expect(link.textContent).toContain("the login thread");
-    await waitFor(() => expect(screen.getByTestId("coding-agent-link").textContent).toContain("Login page"));
+    render(<ChatMarkdown text={`A [Claude Code agent](thread:${ID}) is on it.`} />);
+    await waitFor(() => expect(screen.getByTestId("coding-agent-link").getAttribute("title")).toContain("Login page"));
     expect(fetchMock).toHaveBeenCalledWith(`/api/agent-chat/thread-links/${ID}`);
     const chip = screen.getByTestId("coding-agent-link");
     const logo = chip.querySelector("[data-agent='claude'], img, svg, [role='img']");
     expect(logo).toBeTruthy();
-    // Title first, logo behind it.
-    expect(chip.firstElementChild?.textContent).toBe("Login page");
+    // The words first, logo behind them; the thread's title is in the hover hint.
+    expect(chip.firstElementChild?.textContent).toBe("Claude Code agent");
+    expect(chip.getAttribute("title")).toContain("Claude Code");
     expect(chip.lastElementChild).not.toBe(chip.firstElementChild);
     expect(screen.queryByRole("link")).toBeNull();
   });
@@ -77,9 +75,21 @@ describe("a coding agent linked in a chat answer", () => {
     expect(screen.queryByTestId("coding-agent-link")).toBeNull();
   });
 
+  it("shows the thread's title where the words are only its address", async () => {
+    answerWith({ found: true, session_id: ID, code: "3f9a2c", title: "Login page", agent: "claude", agent_label: "Claude Code" });
+    render(<ChatMarkdown text={`See [${ID}](thread:${ID}).`} />);
+    await waitFor(() => expect(screen.getByTestId("coding-agent-link").textContent).toBe("Login page"));
+  });
+
+  it("keeps the words as plain text when the thread is gone", async () => {
+    answerWith({ found: false });
+    render(<ChatMarkdown text={`A [Codex agent](thread:${ID}) had it.`} />);
+    await waitFor(() => expect(screen.getByTestId("coding-agent-link-gone").textContent).toBe("Codex agent"));
+  });
+
   it("asks once for a thread several links name", async () => {
     const fetchMock = answerWith({ found: true, session_id: ID, title: "Login page", agent: "claude", agent_label: "Claude Code" });
-    render(<ChatMarkdown text={`[a](thread:${ID}) and again [b](thread:${ID})`} />);
+    render(<ChatMarkdown text={`[#3f9a2c](thread:${ID}) and again [thread:${ID}](thread:${ID})`} />);
     await waitFor(() => expect(screen.getAllByTestId("coding-agent-link")[1].textContent).toContain("Login page"));
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });

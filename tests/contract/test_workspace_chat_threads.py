@@ -201,6 +201,19 @@ async def test_a_new_agent_opens_as_a_chat_thread_not_a_pane(rig: Rig):
     assert rig.service.authors[0]["agent_id"] == "jarvis"
 
 
+async def test_the_result_asks_to_link_the_agent_inside_the_reply_sentence(rig: Rig):
+    from dodaios.agentic_ide.thread_finder import LINK_IN_SENTENCE
+
+    result = await create(rig)
+
+    [agent] = result["agents"]
+    assert agent["link"].endswith(f"({agent['terminal_id']})")
+    # Beside the link, where the lead reads it when it writes the reply.
+    assert result["in_your_reply"] == LINK_IN_SENTENCE
+    for words in ("inside the sentence", "your own words", "](thread:<id>)", "line of its own"):
+        assert words in LINK_IN_SENTENCE, words
+
+
 async def test_a_thread_opens_in_the_pane_stance_not_with_full_access(rig: Rig):
     from dodaios.agent_chat.permissions import default_permission
     from dodaios.agent_chat.service import resolve_runner

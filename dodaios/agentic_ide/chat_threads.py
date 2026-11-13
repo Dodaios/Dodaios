@@ -657,9 +657,10 @@ class ChatThreads:
         note = (
             "Each row is one coding agent's chat thread. Address it by terminal_id: observe "
             "reads its newest messages, context reads the whole conversation in pages, send "
-            "continues it. To point the person at one, write its link value into your answer "
-            "as it is: the chat shows it as the agent's title with its logo and it opens the "
-            "thread in the Agentic IDE."
+            "continues it. To point the person at one, put its link inside the sentence that "
+            "names it, the address (thread:<id>) unchanged and the title or your own words as "
+            "the link text, never on a line of its own: the chat shows the words with the "
+            "agent's logo and a click opens the thread in the Agentic IDE."
         )
         if by == "code" and len(rows) > 1:
             note = "Several threads start with that code; ask the person which one. " + note

@@ -1067,6 +1067,8 @@ class WorkspaceOrchestrator:
             for thread in created
         ]
         delivery_ids = [self._issue(target) for target in targets]
+        from . import thread_finder
+
         result: dict[str, Any] = {
             "status": "created",
             "mode": VIEW_CHAT,
@@ -1079,6 +1081,7 @@ class WorkspaceOrchestrator:
             ],
             "requested": requested,
             "capped": requested > len(rows),
+            **({"in_your_reply": thread_finder.LINK_IN_SENTENCE} if created else {}),
             **({"creation_error": creation_error, "success": False} if creation_error else {}),
         }
         # Persist identity before the first turn starts, as the grid does: a
