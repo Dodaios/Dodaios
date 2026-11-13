@@ -135,6 +135,16 @@ the waiting comments are kept in `nodeCommentDraft.ts`). While the mode is on, a
 does not reach the page's own controls. Pages that are not typed nodes (a
 worker-built page, a report) take no comments.
 
+A comment can also be spoken. The field has a microphone next to the tick.
+The sandbox gives the page no microphone, so the page only asks the app
+(`dodaios-node-dictate`), and the app records with the same dictation the chat
+composer uses (`frontend/src/components/nodes/nodeCommentDictation.ts`). The
+page is told whether it records or transcribes, and then gets the words as
+plain text. They go after what the field already holds. Pressing the tick while
+it records stops the recording, and the comment is added once the words are
+in. While another dictation in the app has the microphone, the field's
+microphone is disabled.
+
 ## Editing a node in its page
 
 On the stage, "Edit" makes a typed node's page writable: the reader clicks a

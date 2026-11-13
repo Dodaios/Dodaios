@@ -37,6 +37,10 @@ const LABELS = {
   sent: "Sent",
   failed: "Not sent.",
   remove: "Remove comment",
+  dictate: "Dictate",
+  stopDictate: "Stop dictation",
+  listening: "Listening… speak now",
+  transcribing: "Transcribing…",
 };
 
 let tellState: TellCommentState | null = null;
