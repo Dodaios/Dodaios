@@ -210,7 +210,9 @@ async def test_open_probe_reports_a_running_browser_without_launching_one(monkey
         return SimpleNamespace(
             roster=SimpleNamespace(resolve=resolve),
             browser=SimpleNamespace(
-                live=SimpleNamespace(sessions=sessions, ensure=ensure),
+                live=SimpleNamespace(
+                    sessions=sessions, ensure=ensure, login_source_for=lambda agent: None
+                ),
                 status_for=lambda agent: {"mode": "chrome", "profile_name": "Work"},
             ),
         )
@@ -222,16 +224,19 @@ async def test_open_probe_reports_a_running_browser_without_launching_one(monkey
         **metadata,
         "open": True,
         "running": True,
+        "login_source": None,
     }
     assert await routes.agent_browser_open("done", request) == {
         **metadata,
         "open": False,
         "running": False,
+        "login_source": None,
     }
     assert await routes.agent_browser_open("idle", request) == {
         **metadata,
         "open": False,
         "running": False,
+        "login_source": None,
     }
     assert ensured == []
 

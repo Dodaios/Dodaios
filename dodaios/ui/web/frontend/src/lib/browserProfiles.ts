@@ -92,3 +92,51 @@ export function pairBrowserProfile(id: string) {
 export function parseBrowserDomains(value: string): string[] {
   return [...new Set(value.split(/[\s,;]+/).map((domain) => domain.trim().toLowerCase()).filter(Boolean))];
 }
+
+/** An installed browser profile whose website logins can be imported. Detection only: no values. */
+export interface BrowserLoginSource {
+  id: string;
+  browser: string;
+  browser_name: string;
+  profile: string;
+  name: string;
+  email: string;
+  cookies: number | null;
+  last_used: boolean;
+  supported: boolean;
+  reason: string;
+  keychain_prompt: boolean;
+}
+
+export interface BrowserLoginImport {
+  imported: number;
+  failed: number;
+  expired: number;
+  skipped: number;
+  site_count: number;
+  sites: Record<string, number>;
+  browser: string;
+  browser_name: string;
+  profile: string;
+  imported_at: number;
+  started: boolean;
+}
+
+export const BROWSER_LOGIN_SOURCES_QUERY = ["society", "browser-login-sources"] as const;
+
+export function useBrowserLoginSources() {
+  return useQuery({
+    queryKey: BROWSER_LOGIN_SOURCES_QUERY,
+    queryFn: async () => {
+      const value = await request<{ sources?: unknown }>("/api/society/browser/login-sources");
+      return Array.isArray(value?.sources) ? value.sources as BrowserLoginSource[] : [];
+    },
+    staleTime: 30_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function importBrowserLogins(agentId: string, browser: string, profile: string) {
+  return request<BrowserLoginImport>(`/api/society/agents/${encodeURIComponent(agentId)}/browser/import-logins`, "POST", { browser, profile });
+}

@@ -37,6 +37,12 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS pairing (
  code_hash TEXT PRIMARY KEY, profile_id TEXT NOT NULL UNIQUE, expires REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS login_sources (
+ profile_key TEXT PRIMARY KEY, browser TEXT NOT NULL, profile TEXT NOT NULL,
+ imported_at REAL, source_mtime REAL, imported INTEGER NOT NULL DEFAULT 0,
+ failed INTEGER NOT NULL DEFAULT 0, sites INTEGER NOT NULL DEFAULT 0,
+ status TEXT NOT NULL DEFAULT '', status_at REAL
+);
 """
 
 
@@ -458,6 +464,59 @@ class BrowserProfiles:
             tuple(getattr(agent, "browser_allowed_domains", ())),
             "Own profile",
         )
+
+    # ------------------------------------------------- imported website logins
+
+    def login_source(self, profile_key: str) -> dict[str, Any] | None:
+        """Which installed browser feeds this profile's logins; no secrets stored."""
+        if not self.path.exists():
+            return None  # Reading a choice never creates the registry.
+        with self._db() as db:
+            row = db.execute(
+                "SELECT * FROM login_sources WHERE profile_key=?", (profile_key,)
+            ).fetchone()
+            if row is None:
+                return None
+            return {
+                "browser": row["browser"],
+                "profile": row["profile"],
+                "imported_at": row["imported_at"],
+                "source_mtime": row["source_mtime"],
+                "imported": row["imported"],
+                "failed": row["failed"],
+                "sites": row["sites"],
+                "status": row["status"],
+                "status_at": row["status_at"],
+            }
+
+    def remember_login_source(
+        self,
+        profile_key: str,
+        *,
+        browser: str,
+        profile: str,
+        imported_at: float,
+        source_mtime: float | None,
+        imported: int,
+        failed: int,
+        sites: int,
+    ) -> None:
+        with self._db() as db:
+            db.execute(
+                "INSERT OR REPLACE INTO login_sources VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (
+                    profile_key, browser, profile, imported_at, source_mtime,
+                    imported, failed, sites, "ok", imported_at,
+                ),
+            )
+
+    def login_source_status(self, profile_key: str, status: str) -> None:
+        """Record a refresh problem; the previously imported logins stay."""
+        with self._db() as db:
+            db.execute(
+                "UPDATE login_sources SET status=?, status_at=? WHERE profile_key=?",
+                (status[:80], time.time(), profile_key),
+            )
 
     def pair_code(self, profile_id: str) -> str:
         code = secrets.token_urlsafe(24)
