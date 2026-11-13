@@ -12,6 +12,7 @@ import { openPaneSession } from "@/components/agentic/openPaneSession";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { AgentSwatch } from "@/components/society/AgentSwatch";
 import { useSocietyRoster } from "@/components/society/data";
+import { HoverCard, type HoverCardHandle } from "@/components/ui/hover-card";
 import { QuickTooltip } from "@/components/ui/tooltip";
 import { refreshPluginAttention } from "@/hooks/usePluginAttention";
 import { useServiceConnect, type ServiceToConnect } from "@/hooks/useServiceConnect";
@@ -30,8 +31,9 @@ import { goToStatusRow, openKeys } from "./statusRows";
  *
  * A tile shows WHO it is about in its middle (the service's own logo, the
  * coding CLI's mark, the agent's face) and WHAT is asked as a small badge on
- * its corner (reconnect, a question, an approval, a warning). Hovering says it
- * in a sentence, with what a click does; the click does it. A connection that
+ * its corner (reconnect, a question, an approval, a warning). Hovering or
+ * focusing it opens a card that says it in a sentence and holds the button
+ * for it; a click on the tile does the same as that button. A connection that
  * ended, and a service an agent asks for, are connected right from the tile:
  * the click starts the service's own sign-in and the tile leaves once the
  * service reports connected.
@@ -176,22 +178,33 @@ function useNoticeGo(notice: RailNotice, onDone?: () => void): { go: () => void;
   return { go, busy, note };
 }
 
-/** The notice in words, in the bubble beside its tile. */
-function NoticeWords({ notice, note }: { notice: RailNotice; note: string | null }) {
+/**
+ * The notice in words, in the card beside its tile. Its last line is the
+ * button that does what the tile's click does, for whoever reads the card
+ * first and then goes for the word.
+ */
+function NoticeWords({ notice, note, go }: { notice: RailNotice; note: string | null; go: () => void }) {
   const second = note ?? notice.detail;
   return (
     <span className="flex max-w-[264px] flex-col gap-0.5 whitespace-normal py-0.5" data-testid="rail-notice-words">
       <span className="font-medium text-foreground-strong">{notice.title}</span>
       {second && <span className="line-clamp-2 text-xs text-muted-foreground [overflow-wrap:anywhere]">{second}</span>}
-      {!note && <span className="pt-1 text-xs font-medium text-accent">{notice.action}</span>}
+      {!note && (
+        <button type="button" onClick={go} data-testid="rail-notice-action"
+          className="-mx-1 mt-0.5 self-start rounded px-1 py-0.5 text-xs font-medium text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {notice.action}
+        </button>
+      )}
     </span>
   );
 }
 
 function NoticeTile({ notice }: { notice: RailNotice }) {
-  const { go, busy, note } = useNoticeGo(notice);
+  const cardRef = useRef<HoverCardHandle | null>(null);
+  // A click that leads somewhere closes the card; a sign-in keeps it, to show how far it is.
+  const { go, busy, note } = useNoticeGo(notice, () => cardRef.current?.close());
   return (
-    <QuickTooltip side="right" className="flex" content={<NoticeWords notice={notice} note={note} />}>
+    <HoverCard ref={cardRef} className="flex" label={notice.title} content={<NoticeWords notice={notice} note={note} go={go} />}>
       <button type="button" onClick={go} data-testid="rail-notice" data-ask={notice.ask} data-tone={notice.tone} data-key={notice.key}
         aria-busy={busy || undefined} aria-label={[notice.title, note ?? notice.detail, notice.action].filter(Boolean).join(" · ")}
         className={TILE}>
@@ -200,7 +213,7 @@ function NoticeTile({ notice }: { notice: RailNotice }) {
         </span>
         <AskBadge notice={notice} busy={busy} />
       </button>
-    </QuickTooltip>
+    </HoverCard>
   );
 }
 

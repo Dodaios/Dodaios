@@ -144,6 +144,74 @@ describe("NavRail", () => {
     }
   });
 
+  describe("the card beside a tile", () => {
+    const APPROVAL = { ...QUIET, needs_you: [{ kind: "approval", id: "a1", title: "Browser: click on https://example.com", state: "waiting", agent_name: "Nova", link: { section: "board" } }] };
+
+    async function hoverTile() {
+      vi.stubGlobal("fetch", backend(APPROVAL));
+      renderRail();
+      const tile = await screen.findByTestId("rail-notice");
+      fireEvent.mouseEnter(tile.parentElement as HTMLElement);
+      await act(async () => { vi.advanceTimersByTime(400); });
+      return tile;
+    }
+
+    beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    test("stays open while the pointer goes from the tile into it, and its button opens the approval", async () => {
+      const tile = await hoverTile();
+      // The pointer leaves the tile and is in the card a moment later.
+      fireEvent.mouseLeave(tile.parentElement as HTMLElement);
+      await act(async () => { vi.advanceTimersByTime(100); });
+      fireEvent.mouseEnter(screen.getByTestId("hover-card-layer"));
+      await act(async () => { vi.advanceTimersByTime(2000); });
+      const action = screen.getByTestId("rail-notice-action");
+      expect(action.tagName).toBe("BUTTON");
+      expect(action.textContent).toBe("Review");
+      fireEvent.click(action);
+      expect(useEventStore.getState().activeSection).toBe("board");
+      expect(screen.queryByTestId("hover-card")).toBeNull();
+    });
+
+    test("takes the pointer: no strip between tile and card that belongs to neither", async () => {
+      await hoverTile();
+      const layer = screen.getByTestId("hover-card-layer");
+      expect(layer.className).not.toContain("pointer-events-none");
+      // The layer starts at the tile's edge; the gap that shows is its own padding.
+      expect(layer.style.paddingLeft).toBe("8px");
+    });
+
+    test("closes shortly after the pointer left both", async () => {
+      const tile = await hoverTile();
+      fireEvent.mouseLeave(tile.parentElement as HTMLElement);
+      await act(async () => { vi.advanceTimersByTime(100); });
+      expect(screen.queryByTestId("hover-card")).not.toBeNull();
+      await act(async () => { vi.advanceTimersByTime(400); });
+      expect(screen.queryByTestId("hover-card")).toBeNull();
+    });
+
+    test("opens on keyboard focus, Tab goes to its button, Escape closes it", async () => {
+      vi.stubGlobal("fetch", backend(APPROVAL));
+      renderRail();
+      const tile = await screen.findByTestId("rail-notice");
+      act(() => tile.focus());
+      const action = screen.getByTestId("rail-notice-action");
+      fireEvent.keyDown(tile, { key: "Tab" });
+      expect(document.activeElement).toBe(action);
+      fireEvent.keyDown(action, { key: "Escape" });
+      expect(screen.queryByTestId("hover-card")).toBeNull();
+      expect(document.activeElement).toBe(tile);
+      // Back on the tile after Escape, the card stays closed until asked for again.
+      act(() => tile.blur());
+      act(() => tile.focus());
+      fireEvent.keyDown(tile, { key: "Tab" });
+      fireEvent.keyDown(screen.getByTestId("rail-notice-action"), { key: "Enter" });
+      fireEvent.click(screen.getByTestId("rail-notice-action"));
+      expect(useEventStore.getState().activeSection).toBe("board");
+    });
+  });
+
   test("an agent with several open cards is one tile that names the agent", async () => {
     vi.stubGlobal("fetch", backend({
       ...QUIET,
