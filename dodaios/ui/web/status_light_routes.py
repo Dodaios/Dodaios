@@ -52,10 +52,59 @@ async def _attention_cards(request: Request) -> list[dict[str, Any]]:
     from .attention_routes import _attention
 
     try:
-        return [item.to_dict() for item in await (await _attention(request)).items()]
+        cards = [item.to_dict() for item in await (await _attention(request)).items()]
     except Exception:  # noqa: BLE001
         log.warning("status light: attention unavailable", exc_info=True)
         return []
+    names = _agent_names() if cards else {}
+    return [
+        {**card, "agent_name": names.get(str(card.get("agent_id") or ""), "")} for card in cards
+    ]
+
+
+def _agent_names() -> dict[str, str]:
+    """Every agent's name as the person knows it, so a card can say who asks."""
+    from dodaios.society.runtime import current_runtime
+
+    try:
+        runtime = current_runtime()
+        if runtime is None:
+            return {}
+        from dodaios.society.display_name import display_name
+
+        return {a.agent_id: display_name(a) for a in runtime.roster.snapshot()}
+    except Exception:  # noqa: BLE001 - a card without a name still shows
+        log.warning("status light: agent names unavailable", exc_info=True)
+        return {}
+
+
+def _name_coding_agents(light: dict[str, Any]) -> dict[str, Any]:
+    """Put each coding CLI's product name beside its id ("claude" -> "Claude Code")."""
+    from dodaios.workspace.agents import get_agent
+
+    for row in (*light["needs_you"], *light["running"]):
+        if row.get("kind") != "pane" or not row.get("agent"):
+            continue
+        try:
+            spec = get_agent(str(row["agent"]))
+        except Exception:  # noqa: BLE001 - the id stands in for the name
+            spec = None
+        row["agent_label"] = spec.display_name if spec is not None else str(row["agent"])
+    return light
+
+
+def _name_seats(light: dict[str, Any]) -> dict[str, Any]:
+    """Put a troubled provider's readable name beside its id."""
+    from dodaios.ui.web.provider_spec import get_spec
+
+    for seat in light["trouble"]:
+        try:
+            spec = get_spec(str(seat.get("provider") or ""))
+        except Exception:  # noqa: BLE001 - the id stands in for the name
+            spec = None
+        if spec is not None:
+            seat["label"] = spec.label
+    return light
 
 
 def _findings() -> list[dict[str, Any]]:
@@ -134,9 +183,7 @@ async def compute(request: Request) -> dict[str, Any]:
     from dodaios.core.status_light import build_status_light
     from dodaios.orchestrator import jobs
 
-    board, cards, prepared = await asyncio.gather(
-        _board(), _attention_cards(request), _prepared()
-    )
+    board, cards, prepared = await asyncio.gather(_board(), _attention_cards(request), _prepared())
     try:
         open_jobs = jobs.get_ledger().recent(limit=50, open_only=True)
     except Exception:  # noqa: BLE001
@@ -147,10 +194,16 @@ async def compute(request: Request) -> dict[str, Any]:
     except Exception:  # noqa: BLE001
         log.warning("status light: seat health unavailable", exc_info=True)
         seats = []
-    return build_status_light(
-        board=board, jobs=open_jobs, attention=cards, seats=seats, findings=_findings(),
-        prepared=prepared, browsers=_browsers(),
+    light = build_status_light(
+        board=board,
+        jobs=open_jobs,
+        attention=cards,
+        seats=seats,
+        findings=_findings(),
+        prepared=prepared,
+        browsers=_browsers(),
     )
+    return _name_seats(_name_coding_agents(light))
 
 
 @router.get("", summary="What runs and what needs the person, for a glance")

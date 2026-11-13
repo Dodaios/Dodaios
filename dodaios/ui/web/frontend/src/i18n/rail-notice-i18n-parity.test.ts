@@ -7,10 +7,10 @@ import zh from "./locales/zh.json";
 
 type Locale = Record<string, unknown>;
 
-const block = (locale: Locale) => (locale.status_light ?? {}) as Record<string, string>;
+const block = (locale: Locale) => (locale.rail_notice ?? {}) as Record<string, string>;
 const placeholders = (text: string) => (text.match(/\{\w+\}/g) ?? []).sort();
 
-describe("status light i18n parity", () => {
+describe("rail notice i18n parity", () => {
   it("en defines the block", () => {
     expect(Object.keys(block(en as Locale)).length).toBeGreaterThan(0);
   });
@@ -27,9 +27,14 @@ describe("status light i18n parity", () => {
     });
   }
 
+  it("no sentence uses {name}: the translator fills that with the assistant's own name", () => {
+    for (const locale of [en, de, es, pt, zh]) {
+      for (const text of Object.values(block(locale as Locale))) expect(text).not.toContain("{name}");
+    }
+  });
+
   it("German uses real umlauts", () => {
-    expect(block(de as Locale).needs_heading).toBe("Braucht dich");
-    expect(block(de as Locale).trouble_heading).toBe("Bitte ansehen");
-    expect(block(de as Locale).running_heading).toBe("Läuft");
+    expect(block(de as Locale).takeover_action).toBe("Browser öffnen");
+    expect(block(de as Locale).provider_action).toBe("API-Schlüssel öffnen");
   });
 });

@@ -9,7 +9,8 @@ import { useAttentionStore } from "@/components/society/attention/attentionStore
  * refreshed when the attention list changes (that list already rides the
  * socket's `AgentAttentionChanged` push), when the window gets focus, and on a
  * slow interval only while the window is visible. It never notifies: this
- * store only feeds the live tiles on the rail beside the conversation (`NavRail`).
+ * store only feeds the notices on the rail beside the conversation
+ * (`railNotices.ts`, drawn by `NavRail`).
  */
 
 export interface StatusLink {
@@ -17,6 +18,9 @@ export interface StatusLink {
   session_id?: string;
   ref_id?: string;
   section?: string;
+  /** A coding agent's pane: the workspace it is in and its name there. */
+  workspace_id?: string;
+  pane?: string;
 }
 
 export interface StatusRow {
@@ -26,10 +30,19 @@ export interface StatusRow {
   state: string;
   since_ms?: number;
   link: StatusLink;
+  /** The agent that asks, as the person knows it; on a card and a browser request. */
+  agent_name?: string;
+  /** A coding agent's pane: its CLI ("claude"), that CLI's product name, its own name and its workspace. */
+  agent?: string;
+  agent_label?: string;
+  name?: string;
+  workspace?: string;
 }
 
 export interface StatusTrouble {
   provider: string;
+  /** The provider's readable name, when the catalog knows one. */
+  label?: string;
   account: string;
   class: string;
   reason: string;
@@ -42,6 +55,8 @@ export interface StatusFinding {
   title: string;
   /** A failing provider's readable name; set only on a provider failure. */
   provider?: string;
+  /** That provider's id, which its logo is picked by. */
+  provider_id?: string;
   modality?: string;
   /** The raw failure (`model_unavailable`, `bad_key`, `no_credits`). */
   status?: string;

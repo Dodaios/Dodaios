@@ -67,8 +67,8 @@ export function QuickTooltip({
   className,
   children,
 }: {
-  /** What the bubble says. An empty string never opens. */
-  content: string;
+  /** What the bubble says: a line of text, or a few lines laid out by the caller. An empty string never opens. */
+  content: ReactNode;
   side?: Side;
   /** Suppress entirely — for rows whose text is not truncated, say. */
   disabled?: boolean;
@@ -92,7 +92,7 @@ export function QuickTooltip({
   }, []);
 
   const schedule = useCallback(() => {
-    if (disabled || !content.trim()) return;
+    if (disabled || content == null || content === false || (typeof content === "string" && !content.trim())) return;
     if (timerRef.current !== null) window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => {
       timerRef.current = null;

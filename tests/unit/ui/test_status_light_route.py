@@ -51,3 +51,30 @@ def test_two_reads_within_the_window_share_one_fold(monkeypatch) -> None:
     client.get("/api/status-light")
     client.get("/api/status-light")
     assert len(calls) == 1
+
+
+def test_a_row_names_who_it_is_about(monkeypatch) -> None:
+    board = {"coding_agents": {"workspaces": [{
+        "workspace": "Library", "workspace_id": "w1",
+        "agents": [{"terminal_id": "t2", "name": "T2", "cli": "claude", "state": "needs_input"}],
+    }]}}
+    cards = [{"kind": "question", "agent_id": "a1", "agent_name": "Researcher",
+              "session_id": "s", "ref_id": "q1", "summary": "Which database?", "since_ms": 1}]
+    body = _client(monkeypatch, board=board, cards=cards).get("/api/status-light").json()
+    card, pane = body["needs_you"]
+    assert card["agent_name"] == "Researcher"
+    # The CLI's product name stands beside its id, so the app need not know the products.
+    assert pane["agent"] == "claude"
+    assert pane["agent_label"] == "Claude Code"
+    assert pane["link"] == {"section": "agentic-ide", "workspace_id": "w1", "pane": "T2"}
+
+
+def test_an_unknown_coding_cli_keeps_its_id_as_its_name(monkeypatch) -> None:
+    board = {"coding_agents": {"workspaces": [{
+        "workspace": "api",
+        "agents": [
+            {"terminal_id": "t9", "name": "T9", "cli": "no-such-cli", "state": "needs_input"},
+        ],
+    }]}}
+    body = _client(monkeypatch, board=board, cards=[]).get("/api/status-light").json()
+    assert body["needs_you"][0]["agent_label"] == "no-such-cli"

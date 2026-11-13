@@ -14,9 +14,11 @@ BOARD = {
         "workspaces": [
             {
                 "workspace": "api",
+                "workspace_id": "w1",
                 "agents": [
                     {"terminal_id": "t1", "name": "Agent 1", "state": "busy"},
-                    {"terminal_id": "t2", "name": "Agent 2", "state": "needs_input"},
+                    {"terminal_id": "t2", "name": "Agent 2", "cli": "claude",
+                     "title": "Fix the login", "state": "needs_input"},
                 ],
             }
         ]
@@ -116,3 +118,29 @@ def test_prepared_items_are_counted_apart_and_never_warn() -> None:
     )
     assert light["counts"] == {"running": 0, "needs_you": 0, "prepared": 1}
     assert light["prepared"][0]["title"] == "Reply to Bob" and light["tone"] == "calm"
+
+
+def test_a_waiting_coding_agent_says_who_it_is_and_where() -> None:
+    light = build_status_light(board=BOARD)
+    pane = next(row for row in light["needs_you"] if row["kind"] == "pane")
+    assert pane["agent"] == "claude"
+    assert pane["name"] == "Fix the login"
+    assert pane["workspace"] == "api"
+    assert pane["title"] == "Fix the login (api)"
+    assert pane["link"] == {"section": "agentic-ide", "workspace_id": "w1", "pane": "Agent 2"}
+
+
+def test_a_card_carries_the_name_of_the_agent_that_asks() -> None:
+    card = {"kind": "question", "agent_id": "a1", "agent_name": "Researcher",
+            "session_id": "s", "ref_id": "q1", "summary": "Which database?", "since_ms": 5}
+    browser = {"agent_id": "a2", "request_id": "r1", "reason": "Log in", "title": "Scout"}
+    light = build_status_light(attention=[card], browsers=[browser])
+    assert [row["agent_name"] for row in light["needs_you"]] == ["Researcher", "Scout"]
+
+
+def test_a_failing_provider_keeps_its_id_beside_its_name() -> None:
+    finding = {"key": "f1", "kind": "seat_failure", "title": "x", "evidence": {
+        "provider": "openai-live", "provider_label": "OpenAI GPT-Live", "status": "bad_key"}}
+    row = build_status_light(findings=[finding])["findings"][0]
+    assert row["provider"] == "OpenAI GPT-Live"
+    assert row["provider_id"] == "openai-live"

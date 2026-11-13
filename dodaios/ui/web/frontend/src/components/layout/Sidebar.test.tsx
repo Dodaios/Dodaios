@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   Sidebar,
@@ -108,8 +108,9 @@ const pluginAttentionMock = vi.hoisted(() => ({ needsReconnect: false }));
 vi.mock("@/hooks/usePluginAttention", () => ({
   usePluginAttention: () =>
     pluginAttentionMock.needsReconnect
-      ? { count: 1, names: ["Cloudflare"] }
-      : { count: 0, names: [] },
+      ? { count: 1, names: ["Cloudflare"], items: [{ id: "cloudflare", name: "Cloudflare", status: "needs_reauth", reauthAt: null }] }
+      : { count: 0, names: [], items: [] },
+  refreshPluginAttention: () => Promise.resolve(),
 }));
 
 // useVoiceMode fetches /api/settings/voice-mode; mock it so the footer card's
@@ -600,6 +601,8 @@ describe("Sidebar collapse state", () => {
 });
 
 describe("the sidebar holds the two places and nothing else", () => {
+  // The rail's tiles are a lazy chunk; fetching it once here keeps its first load out of a test's own time limit.
+  beforeAll(async () => { await import("@/components/layout/RailNoticeTiles"); });
   beforeEach(() => {
     useEventStore.setState({ activeSection: "chats", connected: true });
     useIdeChatStore.setState({ workspaces: [], view: "chat" });
@@ -639,15 +642,16 @@ describe("the sidebar holds the two places and nothing else", () => {
     expect(useEventStore.getState().activeSection).toBe("chats");
   });
 
-  test("shows what waits on the person as a tile, with no list and no heading", () => {
+  test("shows what waits on the person as a tile, with no list and no heading", async () => {
     renderSidebar();
-    expect(screen.queryByTestId("rail-events")).toBeNull();
+    expect(screen.queryByTestId("rail-notices")).toBeNull();
     act(() => useStatusLightStore.setState({ light: {
       counts: { running: 0, needs_you: 1 }, running: [], trouble: [], findings: [], tone: "calm",
       needs_you: [{ kind: "approval", id: "a1", title: "Write the July manifest", state: "waiting", link: { section: "board" } }],
     } }));
-    const tile = screen.getByTestId("rail-event");
+    const tile = await screen.findByTestId("rail-notice");
     expect(tile.dataset.tone).toBe("needs");
+    expect(tile.dataset.ask).toBe("approval");
     expect(tile.getAttribute("aria-label")).toContain("Write the July manifest");
     // The old list and its "Needs you" heading are gone from the column.
     expect(screen.queryByTestId("sidebar-status")).toBeNull();
@@ -657,21 +661,22 @@ describe("the sidebar holds the two places and nothing else", () => {
     act(() => useStatusLightStore.setState({ light: null }));
   });
 
-  test("a failing provider reads as its name and what is wrong, and opens the API keys", () => {
+  test("a failing provider reads as its name and what is wrong, and opens the API keys", async () => {
     renderSidebar();
     act(() => useStatusLightStore.setState({ light: {
       counts: { running: 0, needs_you: 0 }, running: [], needs_you: [], trouble: [], tone: "warn",
       findings: [{
         id: "seat_failure:openai-live-subscription:realtime:model_unavailable", kind: "seat_failure",
         title: "openai-live-subscription (realtime) is failing: model_unavailable",
-        provider: "OpenAI GPT-Live (ChatGPT subscription)", modality: "realtime", status: "model_unavailable",
+        provider: "OpenAI GPT-Live (ChatGPT subscription)", provider_id: "openai-live-subscription",
+        modality: "realtime", status: "model_unavailable",
       }],
     } }));
-    const row = screen.getByTestId("rail-event");
+    const row = await screen.findByTestId("rail-notice");
     expect(row.dataset.tone).toBe("trouble");
     const name = row.getAttribute("aria-label") ?? "";
-    expect(name).toContain("OpenAI GPT-Live");
-    expect(name).toContain("model not available · ChatGPT subscription");
+    expect(name).toContain("OpenAI GPT-Live: model not available");
+    expect(name).toContain("ChatGPT subscription");
     expect(name).not.toContain("model_unavailable");
     fireEvent.click(row);
     expect(useEventStore.getState().activeSection).toBe("apikeys");
