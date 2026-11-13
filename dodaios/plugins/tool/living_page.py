@@ -64,22 +64,29 @@ async def post_card(session_id: str, payload: dict[str, Any]) -> bool:
 
 
 def page_card(
-    title: str, visual_id: str, *, summary: str = "", sections: int = 0
+    title: str, visual_id: str, *, summary: str = "", sections: int = 0, node_type: str = ""
 ) -> dict[str, Any]:
     """The conversation notice that shows a page: its preview, its name and a
-    download button, opening the page in the Artifacts section. One page in a
-    turn is drawn as that card, several as one link each (``PageCard.tsx``).
+    download button, opening the page in the Nodes section. The same page
+    posted again in a turn (made, then revised) is one card, its last one;
+    a few different pages each get their card, many become links
+    (``PageCard.tsx``).
 
     The kind is ``report`` because the report was the first page shown this
-    way; a living page and a worker-built artifact arrive as the same notice.
+    way; a living page, a worker-built artifact and a node arrive as the same
+    notice. ``node_type`` names a node's type (``sheets``, ``slides`` …), so
+    the card can say what it is.
     """
-    return {
+    card: dict[str, Any] = {
         "kind": "report",
         "text": title,
         "summary": summary,
         "artifact": visual_id,
         "sections": sections,
     }
+    if node_type:
+        card["node_type"] = node_type
+    return card
 
 
 class LivingPageTool:
