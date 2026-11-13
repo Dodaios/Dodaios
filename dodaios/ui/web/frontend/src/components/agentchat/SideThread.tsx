@@ -11,7 +11,7 @@ import { TypingBubble } from "./TypingBubble";
 import type { Decide } from "./WorkTrace";
 import { codingThreadRef, type CodingThreadRef, type NoticeItem, type TimelineItem } from "./reduce";
 import { AnswerCodingAgents } from "./AnswerCodingAgents";
-import { PAGE_NOTICE_KIND, PageCard, pageCardData } from "./PageCard";
+import { PAGE_NOTICE_KIND, PageCard, pageCardData, pageModesForTurn } from "./PageCard";
 import type { SidePart } from "./chronology";
 
 /**
@@ -248,6 +248,8 @@ export function sideThreadCards(item: NoticeItem): SideThreadCards {
  * linked twice.
  */
 function StaticReply({ messages, cards = NO_CARDS, said = messages }: { messages: string[]; cards?: SideThreadCards; said?: string[] }) {
+  // The side thread's pages are one turn: a page it made and revised is one card.
+  const pageModes = useMemo(() => pageModesForTurn(cards.pages), [cards.pages]);
   return (
     <div className="lead-turn" data-testid="side-thread-answer" data-look="lead">
       <div className="lead-face-lane" aria-hidden />
@@ -259,7 +261,7 @@ function StaticReply({ messages, cards = NO_CARDS, said = messages }: { messages
         </div>
         {cards.pages.length > 0 && (
           <div className="my-2 flex min-w-0 flex-col gap-2" data-testid="side-thread-pages">
-            {cards.pages.map((page) => <PageCard key={page.id} item={page} mode={cards.pages.length > 1 ? "link" : "preview"} />)}
+            {cards.pages.map((page) => <PageCard key={page.id} item={page} mode={pageModes.get(page.id)} />)}
           </div>
         )}
         <AnswerCodingAgents threads={cards.threads} texts={said} />

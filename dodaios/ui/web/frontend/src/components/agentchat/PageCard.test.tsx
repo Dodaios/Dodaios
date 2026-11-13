@@ -46,22 +46,69 @@ it("shows a page as a link when the turn made several", () => {
   expect(requestVisual).toHaveBeenCalledWith(PAGE);
 });
 
-it("decides per turn: one page is a preview, several are links", () => {
+const SHEET = "run-2__node__abc::tasks/node/artifacts/files/costs.html";
+const DECK = "run-3__node__def::tasks/node/artifacts/files/deck.html";
+const BOARD = "run-4__node__ghi::tasks/node/artifacts/files/board.html";
+
+it("draws a page the turn posted twice (made, then revised) as ONE card, its last", () => {
   const items = [
     user("u-1"),
-    notice({ artifact: PAGE }, "Alone", "n-1"),
-    user("u-2"),
-    notice({ artifact: PAGE }, "First", "n-2"),
+    notice({ artifact: SHEET, node_type: "sheets" }, "Trip analysis", "n-1"),
     { type: "turn", id: "t-1" } as TimelineItem,
-    notice({ artifact: PAGE }, "Second", "n-3"),
+    notice({ artifact: SHEET, node_type: "sheets" }, "Trip analysis", "n-2"),
     // A notice that cannot open a page does not count as one.
-    notice({ artifact: "broken" }, "Broken", "n-4"),
+    notice({ artifact: "broken" }, "Broken", "n-3"),
   ];
   const modes = pageNoticeModes(items);
-  expect(modes.get("n-1")).toBe("preview");
-  expect(modes.get("n-2")).toBe("link");
-  expect(modes.get("n-3")).toBe("link");
-  expect(modes.has("n-4")).toBe(false);
+  expect(modes.get("n-1")).toBe("hidden");
+  expect(modes.get("n-2")).toBe("preview");
+  expect(modes.has("n-3")).toBe(false);
+
+  const { container } = render(<PageCard item={notice({ artifact: SHEET }, "Trip analysis", "n-1")} mode="hidden" />);
+  expect(container.innerHTML).toBe("");
+});
+
+it("gives every page of a turn its card, and turns to links only for many", () => {
+  const few = pageNoticeModes([
+    user("u-1"),
+    notice({ artifact: PAGE }, "Plan", "n-1"),
+    notice({ artifact: SHEET }, "Costs", "n-2"),
+    notice({ artifact: PAGE }, "Plan, revised", "n-3"),
+    notice({ artifact: DECK }, "Deck", "n-4"),
+    user("u-2"),
+    notice({ artifact: BOARD }, "Board", "n-5"),
+  ]);
+  expect(Object.fromEntries(few)).toEqual({
+    "n-1": "hidden",
+    "n-2": "preview",
+    "n-3": "preview",
+    "n-4": "preview",
+    "n-5": "preview",
+  });
+
+  const many = pageNoticeModes([
+    user("u-1"),
+    notice({ artifact: PAGE }, "Plan", "n-1"),
+    notice({ artifact: SHEET }, "Costs", "n-2"),
+    notice({ artifact: DECK }, "Deck", "n-3"),
+    notice({ artifact: BOARD }, "Board", "n-4"),
+    notice({ artifact: BOARD }, "Board", "n-5"),
+  ]);
+  expect(Object.fromEntries(many)).toEqual({
+    "n-1": "link",
+    "n-2": "link",
+    "n-3": "link",
+    "n-4": "hidden",
+    "n-5": "link",
+  });
+});
+
+it("says what a node is under its name, and 'page' for any other page", () => {
+  render(<PageCard item={notice({ artifact: SHEET, node_type: "sheets" }, "Costs", "n-1")} />);
+  expect(screen.getByTestId("page-card-kind").textContent).toBe("nodes.type.sheets");
+  cleanup();
+  render(<PageCard item={notice({ artifact: PAGE, node_type: "spreadsheet!" }, "Plan", "n-2")} />);
+  expect(screen.getByTestId("page-card-kind").textContent).toBe("reports.page");
 });
 
 it("draws nothing when the card cannot open a page", () => {

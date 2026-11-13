@@ -332,7 +332,7 @@ class NodeTool:
             + (f" It cannot refresh yet: {refresh_error}" if refresh_error else ""),
             result_ref=f"artifact:{node.visual_id}",
         )
-        shown = await post_card(session_of(ctx), page_card(node.title, node.visual_id))
+        shown = await post_card(session_of(ctx), page_card(node.title, node.visual_id, node_type=node.type))
         made = f"Created the {node.type} node '{node.title}' (node id {node.id})."
         if refresh_error:
             made += (
@@ -373,7 +373,7 @@ class NodeTool:
         if revised and not _called_in_background(ctx):
             # A person's own revision: the chat shows the fresh page. A refresh run
             # stays out of the conversation; the page itself shows its update.
-            await post_card(session_of(ctx), page_card(updated.title, updated.visual_id))
+            await post_card(session_of(ctx), page_card(updated.title, updated.visual_id, node_type=updated.type))
         if not revised:
             what = (
                 f"the note was recorded, its content is unchanged (version {updated.version})"
@@ -414,7 +414,7 @@ class NodeTool:
     async def _revert(self, store: NodeStore, node: Node, ctx: Any) -> ToolResult:
         restored = await asyncio.to_thread(store.revert, node.id)
         if not _called_in_background(ctx):
-            await post_card(session_of(ctx), page_card(restored.title, restored.visual_id))
+            await post_card(session_of(ctx), page_card(restored.title, restored.visual_id, node_type=restored.type))
         return ToolResult(
             True,
             f"Node '{restored.title}' has its earlier content again "

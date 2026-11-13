@@ -141,6 +141,9 @@ async def test_reopen_after_working_wake_capture_uses_physical_fallback(
     first = capture.MicrophoneCapture(device="auto-headset", access_gate=lambda: True)
     async with first:
         assert first._device == 0
+    # The watchdog feeds the cache once the input delivered real signal; the
+    # test stands in for that moment.
+    capture._touch_resolve_cache("auto-headset", (), 0)
     assert capture._cached_resolve("auto-headset", ()) == 0
 
     preferred_is_poisoned = True
@@ -274,4 +277,5 @@ async def test_healthy_automatic_open_keeps_recovery_enumeration_lazy(
 
     assert mic._device == 0
     assert mic._using_physical_fallback is False
-    assert capture._cached_resolve("auto-headset", ()) == 0
+    # Not cached at the open: only an input that delivered signal is handed on.
+    assert capture._cached_resolve("auto-headset", ()) is None

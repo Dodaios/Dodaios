@@ -1,13 +1,18 @@
 /**
  * How a page the assistant made shows in the conversation.
  *
- * One page in a turn: a preview card. The top of the page itself, live and
- * inert, fading out at the bottom; under it the page's name, what it is, and
- * a download button. The whole card opens the page in the Artifacts section.
+ * A page or node the turn made: a preview card. The top of the page itself,
+ * live and inert, fading out at the bottom; under it the page's name, what it
+ * is, and a download button. The whole card opens the page in the Nodes
+ * section. Up to `MAX_PREVIEWS_PER_TURN` different pages in a turn each get
+ * their card.
  *
- * Several pages in a turn: one line each, the page's name as a link with a
- * page mark (`pageNoticeModes` decides). A stack of previews would bury the
- * short reply they belong to.
+ * The same page posted twice in a turn (made, then revised) is ONE page: only
+ * its last notice is drawn, so a revision does not turn the card into links.
+ *
+ * More pages than that in a turn: one line each, the page's name as a link
+ * with a page mark (`pageNoticeModes` decides). A stack of previews would bury
+ * the short reply they belong to.
  *
  * The same link (`PageLink`) is what a page named inside an answer's text is
  * drawn as (`pageRefFromMarkdownUrl` in chatLinks.ts).
@@ -22,6 +27,8 @@ import { artifactPageUrl } from "@/hooks/useVisualArtifacts";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
+import { NODE_TYPE_LABEL_KEY } from "@/components/nodes/nodeTheme";
+import { isNodeType, type NodeType } from "@/components/nodes/nodeModel";
 import type { NoticeItem, TimelineItem } from "./reduce";
 
 export interface PageCardData {
@@ -32,6 +39,8 @@ export interface PageCardData {
   slug: string;
   path: string;
   sections: number;
+  /** A node's type (`sheets`, `slides` …); null for a page that is no node. */
+  nodeType: NodeType | null;
 }
 
 /** The notice kind a written page arrives as (`write_report`, `create_artifact`). */
@@ -58,26 +67,53 @@ export function pageCardData(item: Pick<NoticeItem, "text" | "data">): PageCardD
     artifact,
     ...parts,
     sections,
+    nodeType: isNodeType(data.node_type) ? data.node_type : null,
   };
 }
 
-export type PageNoticeMode = "preview" | "link";
+/** `hidden`: an earlier notice of a page the same turn posted again. */
+export type PageNoticeMode = "preview" | "link" | "hidden";
+
+/** Different pages in one turn that still each get a preview card. */
+export const MAX_PREVIEWS_PER_TURN = 3;
 
 /**
- * How each page notice is drawn: alone in its turn it is a preview card,
- * together with others it is a link. A turn runs from one message of the
- * person to the next.
+ * How the page notices of one turn are drawn, in their order: the last
+ * notice of each page is shown (a preview card while the turn made at most
+ * `MAX_PREVIEWS_PER_TURN` different pages, a link beyond that), every earlier
+ * notice of the same page is hidden.
+ */
+export function pageModesForTurn(
+  notices: readonly Pick<NoticeItem, "id" | "text" | "data">[],
+): Map<string, PageNoticeMode> {
+  const lastOf = new Map<string, string>();
+  for (const notice of notices) {
+    const page = pageCardData(notice);
+    if (page) lastOf.set(page.artifact, notice.id);
+  }
+  const shown = lastOf.size > MAX_PREVIEWS_PER_TURN ? "link" : "preview";
+  const modes = new Map<string, PageNoticeMode>();
+  for (const notice of notices) {
+    const page = pageCardData(notice);
+    if (page) modes.set(notice.id, lastOf.get(page.artifact) === notice.id ? shown : "hidden");
+  }
+  return modes;
+}
+
+/**
+ * How each page notice of a conversation is drawn (`pageModesForTurn`, turn
+ * by turn). A turn runs from one message of the person to the next.
  */
 export function pageNoticeModes(items: readonly TimelineItem[]): Map<string, PageNoticeMode> {
   const modes = new Map<string, PageNoticeMode>();
-  let turn: string[] = [];
+  let turn: NoticeItem[] = [];
   const close = () => {
-    for (const id of turn) modes.set(id, turn.length > 1 ? "link" : "preview");
+    for (const [id, mode] of pageModesForTurn(turn)) modes.set(id, mode);
     turn = [];
   };
   for (const item of items) {
     if (item.type === "user") close();
-    else if (item.type === "notice" && item.kind === PAGE_NOTICE_KIND && pageCardData(item)) turn.push(item.id);
+    else if (item.type === "notice" && item.kind === PAGE_NOTICE_KIND && pageCardData(item)) turn.push(item);
   }
   close();
   return modes;
@@ -155,7 +191,7 @@ export function PageCard({ item, mode = "preview" }: { item: NoticeItem; mode?: 
   const theme = useThemeValue();
   const requestVisual = useEventStore((s) => s.requestVisual);
   const page = pageCardData(item);
-  if (!page) return null;
+  if (!page || mode === "hidden") return null;
   if (mode === "link") {
     return (
       <div data-message-id={item.id} data-testid="page-link-row" className="flex w-full max-w-[720px] px-1 text-body">
@@ -181,7 +217,9 @@ export function PageCard({ item, mode = "preview" }: { item: NoticeItem; mode?: 
         </span>
         <button type="button" data-testid="page-card-title" onClick={open} aria-label={openLabel} className="min-w-0 flex-1 text-left">
           <span className="block truncate text-[15px] font-medium text-foreground">{page.title}</span>
-          <span className="block truncate text-sm text-muted-foreground">{t("reports.page")}</span>
+          <span className="block truncate text-sm text-muted-foreground" data-testid="page-card-kind">
+            {page.nodeType ? t(NODE_TYPE_LABEL_KEY[page.nodeType]) : t("reports.page")}
+          </span>
         </button>
         <a
           href={artifactDownloadUrl(page.slug, page.path)}

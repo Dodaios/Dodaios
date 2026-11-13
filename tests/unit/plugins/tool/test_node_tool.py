@@ -186,7 +186,7 @@ async def test_create_writes_the_node_records_the_job_and_shows_its_card(
             "lead-1",
             {
                 "kind": "report", "text": "Quarterly plan", "summary": "",
-                "artifact": node.visual_id, "sections": 0,
+                "artifact": node.visual_id, "sections": 0, "node_type": "docs",
             },
         )
     ]
