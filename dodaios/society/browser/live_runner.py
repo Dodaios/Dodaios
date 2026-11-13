@@ -1102,7 +1102,7 @@ class Worker:
                 if args["_takeover_generation"] != self.takeover_generation:
                     return self.status()
         async with self.transition_lock:
-            if op not in {"ensure", "subscribe", "takeover"}:
+            if op not in {"ensure", "subscribe", "takeover", "import_cookies"}:
                 if generation != self.generation or (
                     (self.login_available or "generation" in args)
                     and args.get("generation") != self.generation
@@ -1178,6 +1178,8 @@ class Worker:
         if op == "shutdown":
             self.closed = True
             return {}
+        if op == "import_cookies":
+            return await self.import_cookies(args)
         if not self.manual:
             raise RuntimeError("Take control of the browser before interacting")
         if op == "click" and args.get("move_only") is True:
@@ -1254,6 +1256,48 @@ class Worker:
         else:
             raise ValueError("Unknown browser operation")
         return {}
+
+    async def import_cookies(self, args: dict) -> dict:
+        """Store the person's imported website logins in this browser's profile.
+
+        Browser-level ``Storage.setCookies`` writes into the default context,
+        which Chromium persists with its own encryption. Counts only come back:
+        a rejected cookie is never echoed, logged or described.
+        """
+        if not self.owns_context or self.context is None or self.login_mode:
+            raise RuntimeError("Logins can be imported only while the Dodaios browser is open")
+        cookies = args.get("cookies")
+        if not isinstance(cookies, list):
+            raise ValueError("Invalid cookie import")
+        imported = 0
+        failed: list[int] = []
+        if self.context.browser is not None:
+            connection = await self.context.browser.new_browser_cdp_session()
+            method = "Storage.setCookies"
+        else:
+            # A page session of the default context writes the same cookie jar.
+            page = self.page if self.page and not self.page.is_closed() else None
+            connection = await self.context.new_cdp_session(page or await self.context.new_page())
+            method = "Network.setCookies"
+        try:
+            for start in range(0, len(cookies), 100):
+                batch = cookies[start : start + 100]
+                try:
+                    await connection.send(method, {"cookies": batch})
+                    imported += len(batch)
+                    continue
+                except Exception:  # noqa: BLE001 — one bad cookie rejects its batch; retried singly
+                    logging.getLogger(__name__).debug("Cookie batch rejected; retrying one by one")
+                for offset, cookie in enumerate(batch):
+                    try:
+                        await connection.send(method, {"cookies": [cookie]})
+                        imported += 1
+                    except Exception:  # noqa: BLE001 — counted; the cookie itself is never reported
+                        failed.append(start + offset)
+        finally:
+            with contextlib.suppress(Exception):
+                await connection.detach()
+        return {"imported": imported, "failed": len(failed), "failed_indices": failed}
 
     async def login_navigation(self, op: str, args: dict) -> dict:
         """The login surface never consults a page, DOM, CDP, or browser engine."""

@@ -183,6 +183,13 @@ WITHHELD: Final[dict[str, str]] = {
     "GET /api/society/agents/{agent_id}/browser/open": (
         "whether the owner UI may attach its live view; local process state"
     ),
+    "GET /api/society/browser/login-sources": (
+        "lists the owner's installed browsers and profiles; local machine setup"
+    ),
+    "POST /api/society/agents/{agent_id}/browser/import-logins": (
+        "copies the owner's own website logins after a Keychain consent on their "
+        "screen; never something a remote client starts"
+    ),
     "POST /api/society/agents/{agent_id}/browser/session": (
         "prepares the host browser environment; owner UI, not an external agent command"
     ),

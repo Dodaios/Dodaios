@@ -6,10 +6,12 @@ import asyncio
 import contextlib
 import logging
 import math
+import sys
 from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket
+from pydantic import BaseModel, Field
 
 from .society_routes import _runtime
 from .surface_security import credentials_valid
@@ -120,7 +122,95 @@ async def agent_browser_open(agent_id: str, request: Request) -> dict[str, Any]:
     session = rt.browser.live.sessions.get(agent.agent_id)
     is_open = session is not None and not session.closed
     status = await asyncio.to_thread(rt.browser.status_for, agent)
-    return {**status, "open": is_open, "running": is_open and session.run_lock.locked()}
+    login_source = await asyncio.to_thread(rt.browser.live.login_source_for, agent)
+    return {
+        **status,
+        "open": is_open,
+        "running": is_open and session.run_lock.locked(),
+        "login_source": _public_login_source(login_source),
+    }
+
+
+def _public_login_source(record: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not record:
+        return None
+    return {
+        key: record.get(key)
+        for key in ("browser", "profile", "imported_at", "imported", "sites", "status")
+    }
+
+
+# The response lists sites by name with a count; a long tail is cut, not the total.
+_MAX_SITES_LISTED = 1000
+_IMPORT_ERROR_STATUS = {
+    "keychain_denied": 403,
+    "keychain_unavailable": 503,
+    "key_unavailable": 503,
+    "source_locked": 409,
+    "source_unreadable": 409,
+    "unsupported": 422,
+}
+
+
+class LoginImportBody(BaseModel):
+    browser: str = Field(min_length=1, max_length=40)
+    profile: str = Field(min_length=1, max_length=300)
+
+
+@router.get("/browser/login-sources")
+async def browser_login_sources() -> dict[str, Any]:
+    """Installed browsers whose logins can be imported. Reads no key and no cookie."""
+    from dodaios.society.browser import login_import
+
+    sources = await asyncio.to_thread(login_import.detect_sources)
+    return {"sources": [source.public(sys.platform) for source in sources]}
+
+
+@router.post("/agents/{agent_id}/browser/import-logins", openapi_extra={"x-jarvis-dangerous": True})
+async def import_agent_browser_logins(
+    agent_id: str, body: LoginImportBody, request: Request
+) -> dict[str, Any]:
+    """Copy one browser profile's website logins into this agent's browser.
+
+    Returns counts and per-site totals only; cookie values never leave the
+    local worker pipe.
+    """
+    from dodaios.society.browser.live import BrowserProfileBusy
+    from dodaios.society.browser.login_import import LoginImportError
+
+    rt = await _runtime(request)
+    agent = await rt.roster.resolve(agent_id)
+    if agent is None:
+        raise HTTPException(404, "Agent not found")
+    try:
+        result = await rt.browser.live.import_logins(agent, body.browser, body.profile)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from None
+    except LoginImportError as exc:
+        raise HTTPException(_IMPORT_ERROR_STATUS.get(exc.code, 503), str(exc)) from None
+    except BrowserProfileBusy as exc:
+        raise HTTPException(409, str(exc)) from None
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)[:300]) from None
+    except (RuntimeError, TimeoutError) as exc:
+        log.warning("Login import failed for %s: %s", agent_id, type(exc).__name__)
+        raise HTTPException(
+            503, "The Dodaios browser could not take the logins. Open it and try again."
+        ) from None
+    sites = result.get("sites") or {}
+    return {
+        "imported": int(result.get("imported") or 0),
+        "failed": int(result.get("failed") or 0),
+        "expired": int(result.get("expired") or 0),
+        "skipped": int(result.get("skipped") or 0),
+        "site_count": len(sites),
+        "sites": dict(list(sites.items())[:_MAX_SITES_LISTED]),
+        "browser": result.get("browser"),
+        "browser_name": result.get("browser_name"),
+        "profile": result.get("profile"),
+        "imported_at": result.get("imported_at"),
+        "started": bool(result.get("started")),
+    }
 
 
 @router.post("/browser/repair", openapi_extra={"x-jarvis-dangerous": True})

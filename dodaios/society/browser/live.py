@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import contextvars
 import json
 import logging
 import os
+import time
 from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
@@ -31,6 +33,9 @@ _FORCED_CLOSE_TIMEOUT_S = 2.0
 # One login owner can use 2 s to acknowledge shutdown, 12 s to flush Chrome
 # and release native capture, then 2 s to reap. Parallel owners share a budget.
 _SESSIONS_CLOSE_TIMEOUT_S = 17.0
+# Imported cookies cross the worker pipe in chunks well below MAX_LINE.
+_COOKIE_CHUNK = 400
+_COOKIE_CHUNK_BYTES = 1024 * 1024
 _BUSY = "This browser is busy or under manual control"
 _PAUSED = (
     "This browser is paused until you allow the action in the browser panel. "
@@ -118,6 +123,7 @@ class LiveSession:
     profile_binding: ProfileBinding | None = None
     profile_lease: Any = None
     login_guard: bool = False
+    logins_imported: bool = False
     takeover: TakeoverState = field(default_factory=TakeoverState)
 
     async def send(self, value: dict[str, Any]) -> None:
@@ -387,6 +393,9 @@ class LiveSessions:
 
         self.chrome = ChromeConnections()
         self.profile_start_lock = asyncio.Lock()
+        # One login import per browser profile at a time (explicit or refresh).
+        self._login_locks: dict[str, asyncio.Lock] = {}
+        self._login_refreshes: set[asyncio.Task[None]] = set()
 
     def stop_turn(self, agent_id: str, trace_id: str) -> None:
         if trace_id:
@@ -744,6 +753,7 @@ class LiveSessions:
                 self.sessions[agent_id] = session
                 self._starting_sessions.pop(agent_id, None)
                 self.release_when_idle(session)
+                self._schedule_login_refresh(session, binding)
                 return session
             except BaseException as exc:
                 await self._close_starting(session)
@@ -753,6 +763,172 @@ class LiveSessions:
                         "Try the browser task again."
                     ) from exc
                 raise
+
+    # ------------------------------------------------- imported website logins
+
+    def login_source_for(self, agent: Any) -> dict[str, Any] | None:
+        """The remembered login source of this agent's profile (a read, no IO else)."""
+        try:
+            binding = self.profiles.resolve(agent)
+        except ValueError:
+            return None  # A revoked profile has no login source to show.
+        if binding.kind != "managed":
+            return None
+        return self.profiles.login_source(binding.key)
+
+    async def import_logins(self, agent: Any, browser: str, profile: str) -> dict[str, Any]:
+        """Import one installed browser profile's cookies into the agent browser.
+
+        Reads the source (on macOS the first read shows the Keychain consent
+        dialog), then starts the agent browser if it is not running, the same
+        way the live view does, and sends the cookies over the local worker
+        pipe. The values never reach a log, a result or the registry.
+        """
+        from . import login_import
+
+        binding = await asyncio.to_thread(self.profiles.resolve, agent)
+        if binding.kind != "managed":
+            raise ValueError("Logins can only be imported into a Dodaios browser profile")
+        source = await asyncio.to_thread(login_import.find_source, browser, profile)
+        if source is None:
+            raise LookupError("That browser profile was not found on this computer")
+        if not source.supported:
+            raise ValueError(source.reason or "This browser is not supported")
+        async with self._login_locks.setdefault(binding.key, asyncio.Lock()):
+            mtime = await asyncio.to_thread(source.cookie_mtime)
+            read = await asyncio.to_thread(login_import.read_source_cookies, source)
+            existing = self.sessions.get(agent.agent_id)
+            started = existing is None or existing.closed
+            session = await self.ensure(agent)
+            sent = await self.send_cookies(session, read.cookies)
+            # This browser already holds the newest logins; its start-up refresh
+            # must not read the key (and maybe ask macOS) a second time.
+            session.logins_imported = True
+            now = time.time()
+            await asyncio.to_thread(
+                self.profiles.remember_login_source,
+                binding.key,
+                browser=source.spec.key,
+                profile=source.profile,
+                imported_at=now,
+                source_mtime=mtime,
+                imported=sent["imported"],
+                failed=sent["failed"],
+                sites=len(sent["sites"]),
+            )
+        log.info(
+            "Imported %d of %d logins from %s into a Dodaios browser profile",
+            sent["imported"],
+            len(read.cookies),
+            source.spec.label,
+        )
+        return {
+            **sent,
+            "expired": read.expired,
+            "skipped": read.skipped + read.undecryptable,
+            "browser": source.spec.key,
+            "browser_name": source.spec.label,
+            "profile": source.profile,
+            "imported_at": now,
+            "started": started,
+        }
+
+    async def send_cookies(self, session: Any, cookies: list[dict[str, Any]]) -> dict[str, Any]:
+        """Hand cookies to the worker in pipe-sized chunks; returns counts only."""
+        from .login_import import site_of
+
+        binding = getattr(session, "profile_binding", None)
+        if binding is not None and binding.kind != "managed":
+            raise ValueError("Logins can only be imported into a Dodaios browser profile")
+        imported = failed = 0
+        sites: dict[str, int] = {}
+        chunk: list[dict[str, Any]] = []
+        size = 0
+
+        async def flush() -> None:
+            nonlocal imported, failed, chunk, size
+            if not chunk:
+                return
+            result = await session.command("import_cookies", {"cookies": chunk}, timeout=60)
+            rejected = {
+                int(i) for i in (result.get("failed_indices") or []) if isinstance(i, int)
+            }
+            imported += int(result.get("imported") or 0)
+            failed += int(result.get("failed") or 0)
+            for index, cookie in enumerate(chunk):
+                if index not in rejected:
+                    site = site_of(cookie)
+                    sites[site] = sites.get(site, 0) + 1
+            chunk, size = [], 0
+
+        for cookie in cookies:
+            cost = len(json.dumps(cookie, ensure_ascii=True)) + 2
+            if chunk and (size + cost > _COOKIE_CHUNK_BYTES or len(chunk) >= _COOKIE_CHUNK):
+                await flush()
+            chunk.append(cookie)
+            size += cost
+        await flush()
+        ordered = dict(sorted(sites.items(), key=lambda item: (-item[1], item[0])))
+        return {"imported": imported, "failed": failed, "sites": ordered}
+
+    def _schedule_login_refresh(self, session: LiveSession, binding: ProfileBinding | None) -> None:
+        if binding is None or binding.kind != "managed" or self._closed:
+            return
+        task = asyncio.create_task(self._refresh_logins(session, binding))
+        self._login_refreshes.add(task)
+        task.add_done_callback(self._login_refreshes.discard)
+
+    async def _refresh_logins(self, session: LiveSession, binding: ProfileBinding) -> None:
+        """Re-import a remembered source whose logins changed; never fails a start."""
+        from . import login_import
+
+        key = binding.key
+        try:
+            if await asyncio.to_thread(self.profiles.login_source, key) is None:
+                return
+            async with self._login_locks.setdefault(key, asyncio.Lock()):
+                record = await asyncio.to_thread(self.profiles.login_source, key)
+                if record is None or session.closed or getattr(session, "logins_imported", False):
+                    return
+                source = await asyncio.to_thread(
+                    login_import.find_source, record["browser"], record["profile"]
+                )
+                if source is None or not source.supported:
+                    await asyncio.to_thread(
+                        self.profiles.login_source_status, key, "source_missing"
+                    )
+                    return
+                mtime = await asyncio.to_thread(source.cookie_mtime)
+                if mtime is None or mtime <= float(record.get("imported_at") or 0):
+                    return
+                try:
+                    read = await asyncio.to_thread(login_import.read_source_cookies, source)
+                except login_import.LoginImportError as exc:
+                    # The old cookies stay in the profile; the panel shows why.
+                    log.warning("Login refresh skipped: %s", exc.code)
+                    await asyncio.to_thread(self.profiles.login_source_status, key, exc.code)
+                    return
+                if session.closed:
+                    return
+                sent = await self.send_cookies(session, read.cookies)
+                await asyncio.to_thread(
+                    self.profiles.remember_login_source,
+                    key,
+                    browser=source.spec.key,
+                    profile=source.profile,
+                    imported_at=time.time(),
+                    source_mtime=mtime,
+                    imported=sent["imported"],
+                    failed=sent["failed"],
+                    sites=len(sent["sites"]),
+                )
+                log.info("Refreshed %d logins from %s", sent["imported"], source.spec.label)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            log.warning("Login refresh failed: %s", type(exc).__name__)
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(self.profiles.login_source_status, key, "refresh_failed")
 
     async def _spawn_session(self, agent_id: str) -> LiveSession:
         tree = make_process_tree("agent-browser")
@@ -1003,6 +1179,11 @@ class LiveSessions:
 
     async def close(self) -> None:
         self._closed = True
+        refreshes = set(self._login_refreshes)
+        for refresh in refreshes:
+            refresh.cancel()
+        if refreshes:
+            await asyncio.wait(refreshes, timeout=3)
         starts = set(self._starts)
         for task in starts:
             if not task.cancelling():
