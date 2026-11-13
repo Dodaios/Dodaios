@@ -4,9 +4,9 @@ import type { AgentChatEvent } from "@/lib/agentChatApi";
 import { AgentTimeline } from "./AgentTimeline";
 import { EMPTY_TIMELINE, reduceEvents } from "./reduce";
 
-/** A finished, answered turn keeps its work behind a fold or, on the front page, behind the steps toggle; open every one. */
+/** A finished, answered turn keeps its work behind a fold; open every one. The front page draws no fold. */
 const openWork = () => {
-  for (const toggle of Array.from(document.querySelectorAll<HTMLElement>("[data-testid='conversation-work-fold'][data-open='false'] > button, [data-testid='trace-steps-toggle'][aria-expanded='false']"))) fireEvent.click(toggle);
+  for (const toggle of Array.from(document.querySelectorAll<HTMLElement>("[data-testid='conversation-work-fold'][data-open='false'] > button"))) fireEvent.click(toggle);
 };
 import { attachTurnMessages } from "./turnMessages";
 
@@ -50,8 +50,14 @@ describe("agent messages inside the turn that asked for them", () => {
   });
 
   it("draws the answers as quiet trace lines and keeps Jarvis's reply last", () => {
-    const { container } = render(<AgentTimeline items={reduceEvents(EMPTY_TIMELINE, auditTurn()).items} assistantName="Jarvis"
-      providerLabel={(id) => id} onDecide={() => undefined} bubbles traceLook="rail" />);
+    const timeline = (bubbles: boolean) => <AgentTimeline items={reduceEvents(EMPTY_TIMELINE, auditTurn()).items} assistantName="Jarvis"
+      providerLabel={(id) => id} onDecide={() => undefined} bubbles={bubbles} traceLook="rail" />;
+    const { container, rerender } = render(timeline(true));
+    // The front page is the assistant's own messages: it draws no line for
+    // an agent's answer and nothing that would open one.
+    expect(container.querySelector("[data-trace-entry='message']")).toBeNull();
+    expect(container.querySelector("[data-testid='agent-turn'] button")).toBeNull();
+    rerender(timeline(false));
     openWork();
     // No full-text cards: one line per answer, inside the turn.
     const lines = Array.from(container.querySelectorAll<HTMLElement>("[data-trace-entry='message']"));

@@ -20,7 +20,7 @@ import { activityParts, traceToolIdentity, traceToolName } from "./traceActivity
 import { ToolChoiceIcon } from "./ToolChoiceChips";
 import { toolIdentityStyle } from "./toolIdentity";
 import { timelineItems, useTimeline, type TimelineRenderers } from "./TraceTimeline";
-import { failureReason, plural, traceDuration } from "./traceEntries";
+import { failureReason, traceDuration } from "./traceEntries";
 import "./WorkTrace.css";
 import { turnErrorText } from "./turnError";
 import { flattenMarks } from "@/lib/plainMarks";
@@ -686,10 +686,13 @@ type WorkTraceProps = {
    * (`withoutReasoning`), a turn at work shows three dots in a bubble
    * instead of a state line (`TypingBubble`), every message the assistant
    * sent stays a message, and its steps are not drawn in the conversation
-   * at all: not while it works, not as a fold once it is done. How long a
-   * turn took, what it used and its steps wait under the turn for whoever
-   * looks (`.trace-meta`); only a card that waits for the person, and the
-   * work of a turn that ended without a word, stand in the conversation.
+   * at all: not while it works, not as a fold once it is done. Nothing
+   * about a turn is counted there either: not how long it took, not what
+   * it used, not how many steps it had or how many of them did not work
+   * (maintainer, 2026-11-13: "I do not want to see these in my Dodaios").
+   * Only a card that waits for the person, the work of a turn that ended
+   * without a word, and the word for a turn that stopped or failed stand
+   * in the conversation.
    */
   messenger?: boolean;
   /**
@@ -709,9 +712,6 @@ type WorkTraceProps = {
 function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error, onDecide, renderText, className, receipt, completionLabel, conversation = false, companion = false, face, extras, messenger = false, quietTyping = false, renderAnswer, waiting = false }: WorkTraceProps) {
   const t = useT();
   const rail = useRail();
-  // A messenger turn's steps, opened from the line under it.
-  const [stepsOpen, setStepsOpen] = useState(false);
-  const stepsId = useId();
   const blocks = useMemo(() => {
     const kept = withoutQuestionPolls(rawBlocks);
     return messenger ? withoutReasoning(kept) : kept;
@@ -764,7 +764,8 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
   const foldedError = fold && answered && error ? error : null;
   const visibleError = error && !foldedError ? error : null;
   const outcomeLabel = outcome === "done" && completionLabel ? completionLabel : t(`work_trace.${outcome}`);
-  const receiptNode = receipt ? conversation ? <details className="ml-1"><summary className="cursor-pointer rounded-sm focus-visible:ring-2 focus-visible:ring-ring">{t("society.chat.activity_details")}</summary><div className="flex flex-wrap gap-2 py-1">{receipt}</div></details> : receipt : null;
+  // A messenger conversation shows no figures about a turn.
+  const receiptNode = receipt && !messenger ? conversation ? <details className="ml-1"><summary className="cursor-pointer rounded-sm focus-visible:ring-2 focus-visible:ring-ring">{t("society.chat.activity_details")}</summary><div className="flex flex-wrap gap-2 py-1">{receipt}</div></details> : receipt : null;
 
   if (rail) {
     const working = live && !pending;
@@ -776,7 +777,7 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
     // In a messenger conversation a turn that answered needs no "Done": the
     // answer says so. A turn at work needs no "Working" either: three dots
     // in a bubble say it, and a reply being written says it by growing. The
-    // line stays for assistive technology and for a look.
+    // line is then only read out by assistive technology.
     const resting = messenger && (working || (outcome === "done" && answered));
     // Read from the turn's own blocks: a thought is not drawn here, but the
     // model thinking after a message is the assistant typing again. A turn
@@ -785,8 +786,8 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
     const typing = messenger && working && !waiting && !quietTyping && livePetState(rawBlocks) === "working";
     const typingItem: RailItem = { key: "trace:typing", rail: false, node: <div className="lead-typing-row"><TypingBubble /></div> };
     const statusLine = <div role="status" aria-live="polite" data-trace-status={outcome}
-      className={cn("flex min-w-0 flex-wrap items-start gap-x-3 text-xs leading-6 text-muted-foreground",
-        resting ? "trace-meta" : statusOnRail ? "py-1" : "pb-2 pt-1", pending && "text-foreground")}>
+      className={resting ? "sr-only" : cn("flex min-w-0 flex-wrap items-start gap-x-3 text-xs leading-6 text-muted-foreground",
+        statusOnRail ? "py-1" : "pb-2 pt-1", pending && "text-foreground")}>
       {petState
         ? <span aria-hidden className="trace-node trace-node-pet" data-trace-pet={petState}>{face
           ? <PetStageContext.Provider value={petState}>{face}</PetStageContext.Provider>
@@ -795,9 +796,9 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
       <span className="inline-flex min-w-0 flex-1 flex-wrap items-center gap-x-2">
         {/* The note above already carries the mark when it says why. */}
         {failed && !visibleError ? <span aria-hidden className="trace-flag" /> : null}
-        <span className={resting ? "sr-only" : undefined}><Live on={working}>{outcomeLabel}</Live></span>
+        <span><Live on={working}>{outcomeLabel}</Live></span>
         {toolFailed && !live && !failed ? <span className="sr-only">{t("work_trace.tool_failed")}</span> : null}
-        {(live || durationMs !== null) ? <span aria-live="off" className="tabular-nums">{traceDuration(live ? elapsed : durationMs ?? 0)}</span> : null}
+        {!messenger && (live || durationMs !== null) ? <span aria-live="off" className="tabular-nums">{traceDuration(live ? elapsed : durationMs ?? 0)}</span> : null}
         {receiptNode ? <span aria-hidden className="text-muted-foreground/50">·</span> : null}
         {receiptNode}
       </span>
@@ -839,45 +840,22 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
     // step that failed folds with the rest: the turn answered anyway, the
     // fold says how many steps did not work, and one tap shows each of them
     // with its reason. Nothing red stands between the question and the answer.
+    // A messenger conversation has no fold: there the answer stands alone.
     if (messenger && split && answerItems.length > 0) {
       // The conversation is the messages. A step that still waits for the
-      // person keeps its card; every other step opens from the line under
-      // the turn, for whoever asks to see it.
-      const folded = [...split.work, ...split.after];
-      const waiting = folded.filter(isPendingApproval);
-      const failures = folded.filter((block) => block.kind === "tool" && block.isError).length;
-      const stepCount = timeline.callCount + afterAnswer.callCount;
-      const stepsLabel = stepCount > 0
-        ? t(`run_view.work.steps_${plural(t("trace_report.locale"), stepCount)}`).replace("{count}", String(stepCount))
-        : t("run_view.work.open");
+      // person keeps its card; no other step is drawn, and no line under
+      // the turn counts them or says how long they took.
+      const waiting = [...split.work, ...split.after].filter(isPendingApproval);
       const items: RailItem[] = [...saidItems];
       for (const block of waiting) items.push({ key: block.callId, rail: !hasPersonCard(block), node: <TraceTool block={block} status={status} onDecide={onDecide} /> });
-      // Opened, the steps stand where they happened: after what was said,
-      // above the answer, which stays the last thing the turn shows.
-      if (stepsOpen && workItems.length) items.push({ key: "trace:steps", rail: false, node: <div id={stepsId} className="py-1" data-testid="trace-steps"><Rail items={workItems} /></div> });
       items.push(...answerItems);
       if (visibleError) items.push(errorItem(visibleError, "trace:error"));
-      items.push({ key: "trace:status", rail: statusOnRail, node: <div role="status" aria-live="polite" data-trace-status={outcome} data-open={stepsOpen ? "" : undefined}
-        className={cn("flex min-w-0 flex-wrap items-center gap-x-2 text-xs leading-6 text-muted-foreground", resting ? "trace-meta" : "py-1")}>
+      // An answered turn that stopped or failed says so in one word; one
+      // that is simply done is only read out.
+      items.push({ key: "trace:status", rail: statusOnRail && !resting, node: <div role="status" aria-live="polite" data-trace-status={outcome}
+        className={resting ? "sr-only" : "flex min-w-0 flex-wrap items-center gap-x-2 py-1 text-xs leading-6 text-muted-foreground"}>
         {failed && !visibleError ? <span aria-hidden className="trace-flag" /> : null}
-        <span className={resting ? "sr-only" : undefined}>{outcomeLabel}</span>
-        {toolFailed && !failed ? <span className="sr-only">{t("work_trace.tool_failed")}</span> : null}
-        {durationMs !== null ? <span aria-live="off" className="tabular-nums">{traceDuration(durationMs)}</span> : null}
-        {receiptNode ? <span aria-hidden className="text-muted-foreground/50">·</span> : null}
-        {receiptNode}
-        {workItems.length ? <>
-          <span aria-hidden className="text-muted-foreground/50">·</span>
-          <button type="button" aria-expanded={stepsOpen} aria-controls={stepsId} title={t("run_view.work.open")} data-testid="trace-steps-toggle"
-            className="group/steps inline-flex items-center gap-0.5 rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={() => setStepsOpen(!stepsOpen)}>
-            {stepsLabel}
-            <ChevronRight aria-hidden className={cn("h-3 w-3 shrink-0 opacity-70 transition-transform", stepsOpen && "rotate-90")} />
-          </button>
-        </> : null}
-        {failures > 0 ? <span className="inline-flex shrink-0 items-center gap-1.5" data-testid="trace-failed-count">
-          <span aria-hidden className="trace-flag" />
-          {t(`trace_report.failed_count_${failures === 1 ? "one" : "other"}`).replace("{count}", String(failures))}
-        </span> : null}
+        <span>{outcomeLabel}</span>
       </div> });
       return <div className={cn("min-w-0", className)} data-testid="work-trace" data-look="rail" data-state={status}>
         <Rail items={items} />

@@ -4,10 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ChatStage } from "@/components/home/ChatStage";
 
-/** A finished, answered turn keeps its work behind a fold or, on the front page, behind the steps toggle; open every one. */
-const openWork = () => {
-  for (const toggle of Array.from(document.querySelectorAll<HTMLElement>("[data-testid='conversation-work-fold'][data-open='false'] > button, [data-testid='trace-steps-toggle'][aria-expanded='false']"))) fireEvent.click(toggle);
-};
 import { EMPTY_TIMELINE, reduceEvents } from "@/components/agentchat/reduce";
 import type { AgentChatCatalog, AgentChatEvent } from "@/lib/agentChatApi";
 import { AgentChatStoreProvider } from "@/components/agentchat/AgentChatStoreContext";
@@ -1148,13 +1144,9 @@ describe("ChatStage (agent chat)", () => {
     // The conversation is the two messages: no fold and no step between them.
     expect(within(trace).queryByTestId("conversation-work-fold")).toBeNull();
     expect(trace.textContent).not.toContain("Get-Weather");
-    // The step is one click away, under the turn.
-    openWork();
-    const steps = within(trace).getByTestId("trace-steps");
-    expect(steps.textContent).toContain("Get-Weather");
-    expect(steps.textContent).not.toContain("I'll check the weather");
-    expect(bubbles[0].compareDocumentPosition(steps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(steps.compareDocumentPosition(bubbles[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Nothing under the turn opens the step either (maintainer, 2026-11-13).
+    expect(within(trace).queryByRole("button")).toBeNull();
+    expect(within(trace).getByRole("status").className).toBe("sr-only");
   });
 
   it("shows nobody typing under an old message that never got an answer", () => {
@@ -1165,7 +1157,7 @@ describe("ChatStage (agent chat)", () => {
     expect(screen.queryByTestId("typing-indicator")).toBeNull();
   });
 
-  it("always shows that the turn is alive: the core, a word, the clock and the tokens", () => {
+  it("shows that a running turn is alive with the dots alone: no clock and no tokens", () => {
     vi.useFakeTimers();
     try {
       const started = Date.now();
@@ -1183,17 +1175,17 @@ describe("ChatStage (agent chat)", () => {
       // the duplication the maintainer objected to (2026-08-25).
       expect(screen.queryByTestId("agent-reasoning")).toBeNull();
 
-      const live = within(screen.getByTestId("work-trace")).getByRole("status");
+      const trace = screen.getByTestId("work-trace");
+      expect(within(trace).getByTestId("typing-indicator")).toBeTruthy();
+      // The word is only read out, and no figure runs beside the dots
+      // (maintainer, 2026-11-13): neither the tokens nor a clock.
+      const live = within(trace).getByRole("status");
+      expect(live.className).toBe("sr-only");
       expect(live.textContent).toContain("Working");
-      expect(live.textContent).toMatch(/4\.8k/);
-      // Output only: the input side of a CLI re-counts the whole conversation
-      // on every step, so it reads as an absurd number for one question.
-      expect(live.textContent).not.toMatch(/\b12\b/);
-      // The clock moves on its own.
       act(() => {
         vi.advanceTimersByTime(12_000);
       });
-      expect(live.textContent).toMatch(/1[0-9]s|12s/);
+      expect(trace.textContent).not.toMatch(/4\.8k|tokens|\d+s/);
       // No hairline rail runs down the turn any more.
       expect(screen.queryByTestId("agent-turn-rail")).toBeNull();
       // A running turn shows no receipt yet.
@@ -1207,7 +1199,7 @@ describe("ChatStage (agent chat)", () => {
     // The complaint this guards (maintainer, 2026-11-12): the model's
     // private thoughts and a line per tool call stood in the conversation
     // between its messages. The front-page chat shows what the assistant
-    // says, never what it thought, and its steps only to whoever opens them
+    // says, never what it thought and, since 2026-11-13, never its steps
     // (the 2026-08-25 scratchpad lives on in the IDE and the agent chats,
     // agentchat/AgentTimeline.test.tsx).
     const timeline = reduceEvents(EMPTY_TIMELINE, [
@@ -1228,18 +1220,14 @@ describe("ChatStage (agent chat)", () => {
     expect(trace.querySelector("[data-trace-entry]")).toBeNull();
     expect(trace.textContent).not.toContain("Get-NetTCPConnection");
     expect(within(trace).getAllByTestId("lead-bubble").map((node) => node.textContent)).toEqual(["Running."]);
-    // Under the turn: how long it took, and the step for whoever asks.
+    // Under the turn stands nothing (maintainer, 2026-11-13): no time, no
+    // number of steps, and nothing that opens them.
     const status = within(trace).getByRole("status");
-    expect(status.className).toContain("trace-meta");
-    expect(status.textContent).toContain("6");
-    expect(status.textContent).not.toContain("Thought");
-    openWork();
-    const text = trace.textContent!;
-    expect(text).toContain("Get-NetTCPConnection");
-    expect(text).not.toContain("First the port.");
-    expect(text).not.toContain("It is listening.");
+    expect(status.className).toBe("sr-only");
+    expect(status.textContent).toBe("Done");
+    expect(within(trace).queryByRole("button")).toBeNull();
+    expect(trace.textContent).not.toMatch(/6s|step|Thought/);
     expect(document.querySelectorAll("[data-trace-entry='reasoning']")).toHaveLength(0);
-    expect(text.indexOf("Get-NetTCPConnection")).toBeLessThan(text.indexOf("Running."));
   });
 
   it("keeps thoughts and steps out of a running turn too: only the dots say it is working", () => {
@@ -1305,9 +1293,8 @@ describe("ChatStage (agent chat)", () => {
 
     const outcome = within(screen.getByTestId("work-trace")).getByRole("status");
     expect(outcome.textContent).toContain("Finished without an answer");
-    expect(outcome.textContent).toContain("448");
-    // Only the output side reaches the receipt.
-    expect(outcome.textContent).not.toContain("35.4k");
+    // The line says how it ended and counts nothing: no time, no tokens.
+    expect(outcome.textContent).not.toMatch(/448|35\.4k|28s/);
     // With no answer the report IS the outcome: it stands open and the
     // failure reads without opening anything.
     expect(screen.getByText(/permission check failed for command/)).toBeTruthy();
@@ -1341,7 +1328,7 @@ describe("ChatStage (agent chat)", () => {
     expect(within(grep).getByText("Input")).toBeTruthy();
   });
 
-  it("uses readable tool names, preserves canonical detail, and closes with usage", () => {
+  it("uses readable tool names and preserves canonical detail where a turn's work stands open", () => {
     const timeline = reduceEvents(EMPTY_TIMELINE, [
       ev("user_message", { text: "check the repo" }),
       ev("turn_started", { turn_id: "t9", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
@@ -1350,12 +1337,11 @@ describe("ChatStage (agent chat)", () => {
       ev("tool_call", { turn_id: "t9", call_id: "c2", name: "mcp__github__create_issue", input: { title: "Bug" } }),
       ev("tool_result", { turn_id: "t9", call_id: "c2", output: "#12", is_error: false }),
       ev("reasoning", { turn_id: "t9", text: "", duration_ms: 8585 }),
-      ev("assistant_text", { turn_id: "t9", message_id: "m1", text: "Done." }),
       ev("turn_finished", { turn_id: "t9", status: "done", duration_ms: 12_000, usage: { input_tokens: 2, output_tokens: 219 }, cost_usd: 0.8483 }),
     ]);
     useAgentChatStore.setState({ activeSessionId: "s9", timeline });
     render(<ChatStage />);
-    openWork();
+    // The turn ended without a word, so its work is all it has to show.
     // The plugin the turn used shows on its line by its own logo.
     const stretch = screen.getByRole("button", { name: /^Ran a command, used GitHub/ });
     expect(stretch.querySelector("img, [data-logo]")).toBeTruthy();
@@ -1371,14 +1357,13 @@ describe("ChatStage (agent chat)", () => {
     // Thinking with no readable text draws no line of its own.
     expect(document.querySelectorAll("[data-trace-entry='reasoning']")).toHaveLength(0);
 
+    // The line under it says how it ended, without the time or the usage.
     const footer = within(screen.getByTestId("work-trace")).getByRole("status");
-    expect(footer.textContent).toContain("12s");
-    expect(footer.textContent).toContain("219");
-    // A subscription seat's turn costs nothing extra, so it shows no price.
-    expect(footer.textContent).not.toContain("$");
+    expect(footer.textContent).toContain("Finished without an answer");
+    expect(footer.textContent).not.toMatch(/12s|219|\$/);
   });
 
-  it("shows the price of a turn billed to a per-token key", () => {
+  it("shows no time, usage or price under an answer, even for a turn billed to a per-token key", () => {
     const timeline = reduceEvents(EMPTY_TIMELINE, [
       ev("user_message", { text: "check the repo" }),
       ev("turn_started", { turn_id: "t10", provider: "claude-api", model: "claude-opus-5", effort: "high", runner: "claude-cli" }),
@@ -1387,9 +1372,12 @@ describe("ChatStage (agent chat)", () => {
     ]);
     useAgentChatStore.setState({ activeSessionId: "s10", timeline });
     render(<ChatStage />);
-    openWork();
-    const footer = within(screen.getByTestId("work-trace")).getByRole("status");
-    expect(footer.textContent).toContain("$0.8483");
+    // The request this guards (maintainer, 2026-11-13): "12s · 219 tokens ·
+    // 6 steps · 1 step did not work" stood under every answer of the
+    // front-page chat. The answer is the last thing a turn shows.
+    const trace = screen.getByTestId("work-trace");
+    expect(within(trace).getByRole("status").className).toBe("sr-only");
+    expect(trace.textContent).not.toMatch(/12s|219|tokens|\$0\.8483/);
   });
 
   it("reads an opened voice session in the chat column instead of the previous chat", () => {
