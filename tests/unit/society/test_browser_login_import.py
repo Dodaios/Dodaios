@@ -206,7 +206,7 @@ def test_chromium_v24_decrypts_strips_host_hash_and_converts_to_cdp(tmp_path):
     assert by_name["pref"]["sameSite"] == "None"
     assert "expires" not in by_name["pref"]  # a session cookie stays a session cookie
     assert by_name["plain"]["value"] == "visible"
-    assert by_name["plain"]["url"].startswith("http://legacy.example.co.uk")
+    assert by_name["plain"]["url"] == "http://legacy.example.co.uk/"
     assert "sameSite" not in by_name["plain"]
 
 
