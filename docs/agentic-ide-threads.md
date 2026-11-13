@@ -114,7 +114,9 @@ which leaves that question to the agent, beside the main button; a series of
 questions adds a dot per question on the left, **Back**, a review step before
 one **Send answers**, and a small menu that leaves every open question to the
 agent's recommendations. The same card is drawn on the front page, in the IDE
-and in an agent's chat. **Keep planning** closes a plan card so the person can type
+and in an agent's chat. Claude Code writes its recommendation into an option's
+label ("… (Recommended)"); the card takes the suffix off and puts that option
+first, under its own mark. **Keep planning** closes a plan card so the person can type
 what to change. A card nobody answered closes when the person sends another
 message instead. Cards are rebuilt from the session's event log, so they
 survive reopening the thread and restarting the app.

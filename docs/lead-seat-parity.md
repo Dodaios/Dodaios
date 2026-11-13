@@ -27,7 +27,13 @@ fails when the seats drift.
   always loaded (`_meta` `anthropic/alwaysLoad`, `_ALWAYS_LOADED` in
   `dodaios/mcp/dodaios_tools_server.py`): the CLI otherwise keeps the server's tools
   behind its tool search, and with only the name in sight the lead wrote its
-  questions into the reply.
+  questions into the reply. On a CLI seat the rule also rides on every message of
+  the lead's chat, in front of the language line (`QUESTION_CARD_LINE` in
+  `dodaios/agent_chat/dodaios_harness.py`): in the person's one long conversation
+  the rule in the system prompt alone lost against hundreds of earlier turns that
+  asked and answered in text. A slash command goes out without it. On a Claude
+  Code seat the lead may also reach for the CLI's own `AskUserQuestion`; it opens
+  the same card (`docs/agentic-ide-threads.md`).
   A new coding agent opens as a chat thread; a terminal pane only when the person
   asks for one (`docs/agentic-ide-threads.md`).
 - The CLI preamble says: delegate through the Dodaios tools, do not use the vendor's

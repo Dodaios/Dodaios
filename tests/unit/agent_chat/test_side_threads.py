@@ -436,6 +436,54 @@ async def test_a_reply_language_never_stands_in_for_the_leads_identity(
     assert seen["resume"] == "vendor-1"
     # The line itself reaches every seat on the message.
     assert str(seen["prompt"]).endswith("Respond in this language: de")
+    # The assistant's own chat is also told, beside the message, where a
+    # question goes; a created agent's briefing says that itself.
+    card_line = dodaios_harness.QUESTION_CARD_LINE
+    assert "question card (society_ask_user)" in card_line
+    if surface == "jarvis":
+        assert seen["prompt"] == (
+            "Was steht heute an?" + card_line + "\nRespond in this language: de"
+        )
+    else:
+        assert card_line not in str(seen["prompt"])
+
+
+async def test_a_slash_command_of_the_lead_goes_out_without_the_question_card_line(monkeypatch):
+    from types import SimpleNamespace
+
+    from dodaios.agent_chat import dodaios_harness, runner_cli
+    from dodaios.agent_chat.runner_api import TurnHandle
+
+    seen: dict[str, object] = {}
+
+    async def no_briefing(_session):
+        return None
+
+    async def build_identity(**kwargs):
+        return dodaios_harness.Identity(kwargs["session_id"], "id", "id")
+
+    async def once(handle, prompt, runner, resume, **kwargs):
+        seen["prompt"] = prompt
+        return runner_cli._Outcome("done", None, {}, None, resume)  # noqa: SLF001
+
+    async def emit(_event):
+        return None
+
+    async def deny(*_args):
+        return "deny"
+
+    monkeypatch.setattr(runner_cli, "_surface_identity", no_briefing)
+    monkeypatch.setattr(dodaios_harness, "build_identity", build_identity)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
+    handle = TurnHandle(
+        session=SimpleNamespace(
+            surface="jarvis", session_id="lead-1", vendor_session="vendor-1", account_id="",
+        ),
+        turn_id="t1", emit=emit, request_approval=deny, cancel=asyncio.Event(),
+        surface="jarvis", stance="ask",
+    )
+    await runner_cli.run_cli_turn(handle, "/project list", "claude-cli", identity=True)
+    assert seen["prompt"] == "/project list"
 
 
 def test_the_composer_route_answers_beside_a_working_turn(tmp_path, monkeypatch):
