@@ -298,8 +298,27 @@ class MarkupWindow(_SelectWindow):
             return
         bar.adjustSize()
         sel = self._markup.box() if self._markup.sel is not None else None
-        x, y = mm.toolbar_spot(sel, (bar.width(), bar.height()), (self.width(), self.height()))
+        x, y = mm.toolbar_spot(
+            sel, (bar.width(), bar.height()), (self.width(), self.height()),
+            safe_top=self._safe_top(),
+        )
         bar.move(round(x), round(y))
+
+    def _safe_top(self) -> float:
+        """The band at the top of this screen that hides content (a camera notch).
+
+        On a MacBook with a notch the window is full screen, so the middle of
+        its top 32 logical px is behind the camera housing; a toolbar there
+        was cut in half. Qt reports it as the window's safe-area margin.
+        """
+        handle = self.windowHandle()
+        margins = getattr(handle, "safeAreaMargins", None) if handle is not None else None
+        if margins is None:
+            return 0.0  # Qt before 6.9: no safe area to honour
+        try:
+            return float(max(0, margins().top()))
+        except RuntimeError:  # the native window is already gone
+            return 0.0
 
     def _sync_history(self) -> None:
         if self._toolbar is not None:

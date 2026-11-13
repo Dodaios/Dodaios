@@ -137,6 +137,21 @@ def test_the_toolbar_waits_at_the_top_and_steps_aside_for_a_kept_area() -> None:
     assert mm.toolbar_spot((500, 0, 900, 400), bar, screen) == (550.0, 410.0)
 
 
+def test_the_toolbar_stays_below_a_camera_notch() -> None:
+    # A 15-inch MacBook Air: 1470 x 956 logical px, the notch takes the top 32.
+    screen = (1470.0, 956.0)
+    bar = (700.0, 44.0)
+    assert mm.toolbar_home(bar, screen, safe_top=32.0) == (385.0, 44.0)
+    assert mm.toolbar_spot(None, bar, screen, safe_top=32.0) == (385.0, 44.0)
+    # An area right under the notch: below it there is room, so it docks there.
+    assert mm.toolbar_spot((400, 40, 600, 300), bar, screen, safe_top=32.0) == (350.0, 350.0)
+    # An area as tall as the screen: inside it, still not under the notch.
+    _x, y = mm.toolbar_origin((0, 0, 1470, 956), bar, screen, safe_top=32.0)
+    assert y == 956 - 10 - 44
+    _x, y = mm.toolbar_origin((0, 0, 1470, 60), (700.0, 900.0), screen, safe_top=32.0)
+    assert y >= 32 + 10, "never above the safe area"
+
+
 def test_tab_swaps_the_area_and_the_last_drawing_tool() -> None:
     assert mm.other_tool(mm.AREA, mm.PEN) == mm.PEN
     assert mm.other_tool(mm.PEN, mm.PEN) == mm.AREA
