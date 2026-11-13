@@ -28,6 +28,9 @@ def test_the_app_and_the_page_use_the_same_message_names() -> None:
     assert _app_constant("NODE_EDIT_MESSAGE") == bridge.EDIT_MESSAGE
     assert _app_constant("NODE_EDIT_STATE_MESSAGE") == bridge.EDIT_STATE_MESSAGE
     assert _app_constant("NODE_SCROLL_MESSAGE") == bridge.SCROLL_MESSAGE
+    assert _app_constant("NODE_DICTATE_MESSAGE") == bridge.DICTATE_MESSAGE
+    assert _app_constant("NODE_DICTATION_STATE_MESSAGE") == bridge.DICTATION_STATE_MESSAGE
+    assert _app_constant("NODE_DICTATION_TEXT_MESSAGE") == bridge.DICTATION_TEXT_MESSAGE
 
 
 def test_the_page_script_speaks_those_names() -> None:
@@ -40,6 +43,9 @@ def test_the_page_script_speaks_those_names() -> None:
         bridge.EDIT_MESSAGE,
         bridge.EDIT_STATE_MESSAGE,
         bridge.SCROLL_MESSAGE,
+        bridge.DICTATE_MESSAGE,
+        bridge.DICTATION_STATE_MESSAGE,
+        bridge.DICTATION_TEXT_MESSAGE,
     ):
         assert f'"{name}"' in bridge.BRIDGE_JS
 
@@ -62,3 +68,10 @@ def test_an_edit_is_only_offered_where_a_renderer_marked_a_field() -> None:
     assert '"plaintext-only"' in js
     assert 'getAttribute("data-as")!=="toggle"' in js
     assert 'mode==="edit"' in js
+
+
+def test_the_page_never_reaches_a_microphone_itself() -> None:
+    # The sandbox allows no device; the field's microphone only asks the app.
+    js = bridge.BRIDGE_JS
+    assert "getUserMedia" not in js and "mediaDevices" not in js
+    assert 'type:"dodaios-node-dictate"' in js

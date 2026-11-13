@@ -34,6 +34,7 @@ import {
   type NodePageMode,
 } from "@/components/nodes/nodeBridge";
 import { useNodeCommentDraft } from "@/components/nodes/nodeCommentDraft";
+import { useNodeCommentDictation } from "@/components/nodes/nodeCommentDictation";
 import { NodesApiError, saveNodeField } from "@/components/nodes/useNodes";
 import { isNodeSlug, isTypedNode, type NodeCard } from "@/components/nodes/nodeModel";
 import { useNodesLibrary } from "@/components/nodes/useNodesLibrary";
@@ -964,10 +965,16 @@ function ArtifactStage({
       sent: t("nodes.comment.sent"),
       failed: t("nodes.comment.failed"),
       remove: t("nodes.comment.remove"),
+      dictate: t("chats_view.dictation_start"),
+      stopDictate: t("chats_view.dictation_stop"),
+      listening: t("chats_view.dictation_listening"),
+      transcribing: t("chats_view.dictation_transcribing"),
     },
     onComment,
     onRemove,
   });
+  // A comment can be spoken: the page's microphone asks the app to dictate.
+  useNodeCommentDictation(pageFrame, node !== null && pageMode === "comment");
   // The page learns which of its pins went out, or did not.
   useEffect(() => {
     if (outcome !== null) tellCommentState(outcome.ns, outcome.state);

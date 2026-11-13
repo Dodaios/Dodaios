@@ -26,11 +26,14 @@ export const NODE_COMMENT_REMOVE_MESSAGE = "dodaios-node-comment-remove";
 export const NODE_EDIT_MESSAGE = "dodaios-node-edit";
 export const NODE_EDIT_STATE_MESSAGE = "dodaios-node-edit-state";
 export const NODE_SCROLL_MESSAGE = "dodaios-node-scroll";
+export const NODE_DICTATE_MESSAGE = "dodaios-node-dictate";
+export const NODE_DICTATION_STATE_MESSAGE = "dodaios-node-dictation-state";
+export const NODE_DICTATION_TEXT_MESSAGE = "dodaios-node-dictation-text";
 
 /** What the page is doing with a click: nothing, a comment's pin, or editing. */
 export type NodePageMode = "view" | "comment" | "edit";
 
-const MAX_COMMENT_CHARS = 2000;
+export const MAX_COMMENT_CHARS = 2000;
 const MAX_QUOTE_CHARS = 240;
 const MAX_WHERE_CHARS = 300;
 const MAX_EDIT_CHARS = 200000;
@@ -70,6 +73,14 @@ export interface NodeBridgeLabels {
   failed: string;
   /** The button that takes a waiting comment back. */
   remove: string;
+  /** The field's microphone. */
+  dictate: string;
+  /** The microphone while it records. */
+  stopDictate: string;
+  /** The field's placeholder while it records. */
+  listening: string;
+  /** The microphone while the words are written down. */
+  transcribing: string;
 }
 
 /** Where a comment stands, as the page shows it. */
@@ -114,6 +125,22 @@ export function parseNodeEdit(data: unknown): NodeEdit | null {
     value = message.value;
   }
   return { id, path, value, as: kind, refresh: message.refresh === true };
+}
+
+/** The reader pressed the microphone of comment `n`'s field. */
+export interface NodeDictate {
+  n: number;
+  mode: "start" | "stop";
+}
+
+/** The microphone press a page sent, or null for anything else. */
+export function parseNodeDictate(data: unknown): NodeDictate | null {
+  if (!data || typeof data !== "object") return null;
+  const message = data as Record<string, unknown>;
+  if (message.type !== NODE_DICTATE_MESSAGE) return null;
+  const n = typeof message.n === "number" && Number.isInteger(message.n) && message.n > 0 ? message.n : null;
+  if (n === null || (message.mode !== "start" && message.mode !== "stop")) return null;
+  return { n, mode: message.mode };
 }
 
 /** Where a page is: its scroll position, and the hash it keeps its place in. */

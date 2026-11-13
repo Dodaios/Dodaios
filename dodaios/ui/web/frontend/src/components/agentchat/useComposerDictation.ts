@@ -54,7 +54,8 @@ function appended(current: string, text: string): string {
   return current + (current && !/\s$/.test(current) ? " " : "") + text;
 }
 
-function sendDictate(mode: "start" | "stop"): void {
+/** Ask the backend to start or stop the one dictation. */
+export function sendDictate(mode: "start" | "stop"): void {
   getWSClient()?.send({ type: "command", action: "stt_dictate", payload: { mode } });
 }
 

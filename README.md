@@ -157,8 +157,8 @@ Ask for a report, a deck, a budget or a dashboard, and Dodaios makes it as a
 node: a page you can open, present and share, and that it can change again
 later. There are seven types: Docs, Slides, Sheets, Visuals, Analytics,
 Whiteboard and Clips. Tell it what a node should follow, and it keeps the node
-current from your apps on a schedule. Pin comments anywhere on a node and
-send them together, and Dodaios revises it; or click Edit and change a text
+current from your apps on a schedule. Pin comments anywhere on a node (type
+them or dictate them) and send them together, and Dodaios revises it; or click Edit and change a text
 yourself. Each node is one page that runs in a sandbox with the network off,
 and the last twelve versions can be taken back.
 [Nodes](https://github.com/Dodaios/Dodaios/blob/main/docs/nodes.md)

@@ -27,6 +27,24 @@ the page that they come from its parent):
   the comment (it waits for "Send"), ``sent`` once it went to the assistant,
   ``failed`` when that did not work (it stays and can be sent again).
 
+A comment can be spoken instead of typed. The field has a microphone; the page
+cannot reach one (the sandbox allows no device), so it asks the app, which
+records with its own dictation and hands the words back:
+
+* page → app ``dodaios-node-dictate`` ``{n, mode: "start" | "stop"}``: the
+  reader pressed the microphone of comment ``n``'s field (``stop`` while it
+  records). Pressing Add while it records stops it too; the comment is added
+  once the words are in.
+* app → page ``dodaios-node-dictation-state``
+  ``{n, state: "idle" | "recording" | "transcribing" | "held"}``: where the
+  dictation of comment ``n`` stands. ``n`` is ``0`` for a state that is not
+  about one comment: ``held`` (a dictation elsewhere in the app has the
+  microphone) or ``idle`` (it is free again).
+* app → page ``dodaios-node-dictation-text``
+  ``{n, outcome: "text" | "empty" | "failed" | "cancelled", text}``: how the
+  dictation for comment ``n`` ended; with ``text`` the words go after what the
+  field holds.
+
 The pin and its field are drawn by the page, not by the app, because only
 the page knows its own scroll position and layout: a pin drawn here stays on
 the sentence it was put on. While the mode is on, clicks do not reach the
@@ -87,6 +105,9 @@ COMMENT_REMOVE_MESSAGE: Final[str] = "dodaios-node-comment-remove"
 EDIT_MESSAGE: Final[str] = "dodaios-node-edit"
 EDIT_STATE_MESSAGE: Final[str] = "dodaios-node-edit-state"
 SCROLL_MESSAGE: Final[str] = "dodaios-node-scroll"
+DICTATE_MESSAGE: Final[str] = "dodaios-node-dictate"
+DICTATION_STATE_MESSAGE: Final[str] = "dodaios-node-dictation-state"
+DICTATION_TEXT_MESSAGE: Final[str] = "dodaios-node-dictation-text"
 
 #: The path that stands for the node's own title (it is not part of the spec).
 TITLE_PATH: Final[str] = "@title"
@@ -123,6 +144,20 @@ BRIDGE_CSS: Final[str] = """
 .nc-drop{flex:none;display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;
   border-radius:50%;background:transparent;color:var(--ink-2);cursor:pointer!important}
 .nc-drop:hover{background:var(--line-2);color:var(--ink)}
+.nc-mic{flex:none;display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;
+  border-radius:50%;background:transparent;color:var(--ink-2);cursor:pointer!important;
+  transition:background .12s,color .12s}
+.nc-mic:hover{background:var(--line-2);color:var(--ink)}
+.nc-mic[disabled]{opacity:.35;cursor:default!important}
+.nc-mic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+.nc-mic.is-rec{background:var(--good);color:var(--bg);animation:nc-rec 1.6s ease-in-out infinite}
+.nc-mic.is-rec svg{fill:currentColor}
+.nc-mic.is-wait[disabled]{opacity:1}
+.nc-mic.is-wait svg{animation:nc-spin .9s linear infinite}
+@keyframes nc-rec{0%,100%{box-shadow:0 0 0 0 var(--good-soft)}50%{box-shadow:0 0 0 5px var(--good-soft)}}
+@keyframes nc-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.nc-mic.is-rec,.nc-mic.is-wait svg{animation:none}}
 .nc-said{padding:4px 9px 4px 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .nc-note{display:block;font-size:12px;line-height:16px;color:var(--ink-2)}
 .nc.is-busy .nc-box{opacity:.72}
@@ -145,9 +180,10 @@ BRIDGE_JS: Final[str] = r"""
 (function(){
 var d=document,root=d.documentElement,up=window.parent;
 if(!up||up===window)return;
-var mode="view",layer=null,draft=null,sent=0,byNumber={};
+var mode="view",layer=null,draft=null,sent=0,byNumber={},held=false;
 var labels={placeholder:"Add a comment…",add:"Add comment",pending:"Not sent yet",sent:"Sent",
-  failed:"Not sent. Try again.",remove:"Remove comment"};
+  failed:"Not sent. Try again.",remove:"Remove comment",dictate:"Dictate",
+  stopDictate:"Stop dictation",listening:"Listening… speak now",transcribing:"Transcribing…"};
 function post(m){try{up.postMessage(m,"*");}catch(e){}}
 function squeeze(s,max){s=String(s||"").replace(/\s+/g," ").replace(/^ | $/g,"");
   return s.length>max?s.slice(0,max-1)+"…":s;}
@@ -194,8 +230,10 @@ function whereOf(el){
   }
   if(last&&textOf(last,2))out.push("§ "+textOf(last,80));
   return out.join(", ").slice(0,300);}
-// Only the two constant icons below are ever written as markup.
-var TICK="M3 8.5 6.5 12 13 4.5",CROSS="M4 4l8 8M12 4l-8 8";
+// Only the constant icons below are ever written as markup.
+var TICK="M3 8.5 6.5 12 13 4.5",CROSS="M4 4l8 8M12 4l-8 8",
+  MIC="M8 1.8c1.1 0 2 .9 2 2v3.9a2 2 0 0 1-4 0V3.8c0-1.1.9-2 2-2zM4.3 7.4a3.7 3.7 0 0 0 7.4 0M8 11.1v3",
+  STOP="M5.2 5.2h5.6v5.6H5.2z",ARC="M8 2.5a5.5 5.5 0 1 0 5.5 5.5";
 function icon(button,path){
   button.innerHTML='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="'+path+'"/></svg>';}
 function inLayer(t){return !!(layer&&t&&t.nodeType===1&&layer.contains(t));}
@@ -205,24 +243,72 @@ function ensureLayer(){
   ["click","dblclick","mousedown","pointerdown","touchstart","keydown","keyup","keypress","wheel"]
     .forEach(function(t){layer.addEventListener(t,function(e){e.stopPropagation();});});
   d.body.appendChild(layer);return layer;}
-function dropDraft(){
-  if(draft&&draft.node.parentNode)draft.node.parentNode.removeChild(draft.node);draft=null;}
+function dropDraft(moving){
+  if(!draft)return;
+  // A field that goes away stops its recording; one that only moves keeps it.
+  if(!moving&&draft.dict==="recording")post({type:"dodaios-node-dictate",n:draft.n,mode:"stop"});
+  if(draft.node.parentNode)draft.node.parentNode.removeChild(draft.node);draft=null;}
+function micState(c,state){
+  if(!c.mic)return;
+  c.dict=state;
+  c.mic.className="nc-mic"+(state==="recording"?" is-rec":state==="transcribing"?" is-wait":"");
+  c.mic.disabled=c.busy||state==="transcribing"||state==="held";
+  var label=state==="recording"?labels.stopDictate:state==="transcribing"?labels.transcribing:labels.dictate;
+  c.mic.setAttribute("aria-label",label);c.mic.title=label;
+  icon(c.mic,state==="recording"?STOP:state==="transcribing"?ARC:MIC);
+  c.field.placeholder=state==="recording"?labels.listening:labels.placeholder;}
+function dictate(c){
+  if(c.busy)return;
+  if(c.dict==="recording")post({type:"dodaios-node-dictate",n:c.n,mode:"stop"});
+  else if(c.dict==="idle")post({type:"dodaios-node-dictate",n:c.n,mode:"start"});
+  try{c.field.focus({preventScroll:true});}catch(err){c.field.focus();}}
+function dictationState(n,state){
+  if(["idle","recording","transcribing","held"].indexOf(state)<0)return;
+  if(n===0)held=state==="held";
+  var c=draft;if(!c||(n!==0&&n!==c.n))return;
+  // A state for no comment in particular does not end this field's own dictation.
+  if(n===0&&(c.dict==="recording"||c.dict==="transcribing"))return;
+  micState(c,state);}
+function dictated(n,outcome,text){
+  var c=draft;if(!c||c.n!==n||c.busy)return;
+  micState(c,held?"held":"idle");
+  text=typeof text==="string"?text.replace(/^\s+|\s+$/g,""):"";
+  if(outcome==="text"&&text){
+    var was=c.field.value;
+    c.field.value=(was+(was&&!/\s$/.test(was)?" ":"")+text).slice(0,2000);
+    grow(c.field);c.button.disabled=false;
+    if(/ is-failed/.test(c.node.className))settle(c,"","");
+    try{c.field.focus({preventScroll:true});c.field.setSelectionRange(c.field.value.length,c.field.value.length);}
+    catch(err){}
+  }
+  // Add was pressed while the words were on their way: they go with it. A
+  // dictation that failed sends nothing; the field stays as it is.
+  if(c.queued){c.queued=false;if(outcome==="text"||outcome==="empty")send(c);}}
 function grow(field){
   field.style.height="28px";field.style.height=Math.min(120,field.scrollHeight)+"px";}
 function settle(c,note,cls){
   c.node.className=c.node.className.replace(/ is-(busy|failed|sent)/g,"")+(cls?" "+cls:"");
   c.note.textContent=note||"";c.note.hidden=!note;}
 function send(c){
+  if(c.busy)return;
+  if(c.dict==="recording"||c.dict==="transcribing"){
+    // The comment waits for the words still being spoken or written down.
+    if(!c.queued){c.queued=true;if(c.dict==="recording")post({type:"dodaios-node-dictate",n:c.n,mode:"stop"});}
+    return;}
   var text=c.field.value.replace(/^\s+|\s+$/g,"");
-  if(!text||c.busy)return;
+  if(!text)return;
   c.busy=true;c.field.disabled=true;c.button.disabled=true;settle(c,"","is-busy");
+  if(c.mic)c.mic.disabled=true;
   byNumber[c.n]=c;
   post({type:"dodaios-node-comment",n:c.n,text:text.slice(0,2000),quote:c.quote,where:c.where});}
 function open(e){
   var el=carrier(e.target),x=e.pageX,y=e.pageY,kept=draft&&!draft.busy?draft.field.value:"";
   if(draft&&draft.busy)return;
+  // The field moves to the new place with what it holds, and with a
+  // dictation that still runs for it.
+  var keptDict=draft?draft.dict:(held?"held":"idle"),keptQueue=!!(draft&&draft.queued);
   if(el)el=narrow(el,e.clientX,e.clientY);
-  dropDraft();
+  dropDraft(true);
   var c={n:sent+1,busy:false,quote:el?textOf(el,240):"",where:el?whereOf(el):""};
   c.node=d.createElement("div");c.node.className="nc";c.node.setAttribute("data-n",String(c.n));
   var pin=d.createElement("span");pin.className="nc-pin";pin.textContent=String(c.n);
@@ -236,7 +322,10 @@ function open(e){
   c.button=d.createElement("button");c.button.type="button";c.button.className="nc-send";
   c.button.setAttribute("aria-label",labels.add);c.button.title=labels.add;c.button.disabled=!kept;
   icon(c.button,TICK);
-  body.appendChild(c.field);body.appendChild(c.note);box.appendChild(body);box.appendChild(c.button);
+  c.mic=d.createElement("button");c.mic.type="button";c.mic.className="nc-mic";
+  c.mic.setAttribute("data-node-dictate","");c.queued=keptQueue;micState(c,keptDict||"idle");
+  body.appendChild(c.field);body.appendChild(c.note);box.appendChild(body);box.appendChild(c.mic);
+  box.appendChild(c.button);
   c.node.appendChild(pin);c.node.appendChild(box);
   c.node.style.left=x+"px";c.node.style.top=y+"px";
   var room=(window.innerWidth||root.clientWidth)-(x-(window.pageXOffset||0));
@@ -249,6 +338,7 @@ function open(e){
     if(k.key==="Enter"&&!k.shiftKey&&!k.isComposing){k.preventDefault();send(c);}
     else if(k.key==="Escape"){k.preventDefault();dropDraft();}});
   c.button.addEventListener("click",function(){send(c);});
+  c.mic.addEventListener("click",function(){dictate(c);});
   draft=c;grow(c.field);
   try{c.field.focus({preventScroll:true});}catch(err){c.field.focus();}}
 function remove(c){
@@ -263,6 +353,7 @@ function hold(c){
   icon(drop,CROSS);
   drop.addEventListener("click",function(){if(!c.done)remove(c);});
   c.button.parentNode.replaceChild(drop,c.button);c.button=drop;
+  if(c.mic&&c.mic.parentNode)c.mic.parentNode.removeChild(c.mic);c.mic=null;
   c.held=true;c.busy=false;settle(c,labels.pending,"");sent=Math.max(sent,c.n);
   if(draft===c)draft=null;}
 function answered(n,state){
@@ -275,6 +366,7 @@ function answered(n,state){
   }else if(c.held){settle(c,labels.failed,"is-failed");}
   else{
     c.busy=false;c.field.disabled=false;c.button.disabled=false;settle(c,labels.failed,"is-failed");
+    micState(c,held?"held":"idle");
     try{c.field.focus({preventScroll:true});}catch(err){c.field.focus();}
   }}
 var field=null,edits={},editCount=0;
@@ -423,7 +515,9 @@ window.addEventListener("message",function(e){
   var m=e.data;if(!m||typeof m!=="object")return;
   if(m.type==="dodaios-node-mode")setMode(m.mode,m.labels,m.scroll);
   else if(m.type==="dodaios-node-comment-state")answered(Number(m.n),m.state);
-  else if(m.type==="dodaios-node-edit-state")edited(Number(m.id),m.state);});
+  else if(m.type==="dodaios-node-edit-state")edited(Number(m.id),m.state);
+  else if(m.type==="dodaios-node-dictation-state")dictationState(Number(m.n),m.state);
+  else if(m.type==="dodaios-node-dictation-text")dictated(Number(m.n),m.outcome,m.text);});
 function ready(){
   post({type:"dodaios-node-ready",node:meta("dodaios-node"),kind:meta("dodaios-node-type")});}
 if(d.readyState==="loading"){d.addEventListener("DOMContentLoaded",ready);}else{ready();}
@@ -436,6 +530,9 @@ __all__ = [
     "COMMENT_MESSAGE",
     "COMMENT_REMOVE_MESSAGE",
     "COMMENT_STATE_MESSAGE",
+    "DICTATE_MESSAGE",
+    "DICTATION_STATE_MESSAGE",
+    "DICTATION_TEXT_MESSAGE",
     "EDIT_MESSAGE",
     "EDIT_STATE_MESSAGE",
     "MAX_EDIT_CHARS",
