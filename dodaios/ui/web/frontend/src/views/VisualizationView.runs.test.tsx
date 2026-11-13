@@ -158,8 +158,9 @@ const REPORT = file("tasks/019edf/artifacts/files/report.md", {
   preview: "# Report",
 });
 
-/** The stage opens on Preview; the Files reader is one click away. */
+/** The stage opens on Preview; the Files reader is in the More menu. */
 async function openFiles() {
+  fireEvent.click(await screen.findByTestId("visualization-more"));
   fireEvent.click(await screen.findByTestId("visualization-tab-files"));
 }
 
@@ -187,11 +188,13 @@ describe("VisualizationView — runs without an artifact", () => {
     expect(screen.queryByTestId("visualization-empty")).toBeNull();
     // The library shows the run as a note under its own name; a click opens it.
     fireEvent.click(rows[0]);
-    // The stage opens on Preview — the same four tabs every run gets …
+    // The stage opens on Preview — the same four views every run gets, in More …
+    fireEvent.click(await screen.findByTestId("visualization-more"));
     const previewTab = await screen.findByTestId("visualization-tab-preview");
-    expect(previewTab.getAttribute("aria-selected")).toBe("true");
+    expect(previewTab.getAttribute("aria-checked")).toBe("true");
     expect(screen.getByTestId("visualization-tab-files")).toBeDefined();
     expect(screen.getByTestId("visualization-tab-run")).toBeDefined();
+    fireEvent.click(screen.getByTestId("visualization-more"));
     // … and the page composed from the run: headline, the answer, the file in place.
     const page = await screen.findByTestId("output-preview");
     expect(within(page).getByTestId("output-preview-title").textContent).toBe("Write notes");
@@ -204,8 +207,8 @@ describe("VisualizationView — runs without an artifact", () => {
     await openFiles();
     await screen.findByTestId("run-notes");
     await waitFor(() => expect(screen.getByTestId("artifact-path").textContent).toBe("notes.md"));
-    // The run status sits in the toolbar, one badge.
-    expect(screen.getByTestId("run-status-badge").textContent).toContain("success");
+    // A run that simply succeeded carries no status badge in the bar.
+    expect(screen.queryByTestId("run-status-badge")).toBeNull();
   });
 
   it("narrows the library by category, searches it, and remembers the category", async () => {
@@ -554,7 +557,7 @@ describe("VisualizationView — the Files tab", () => {
 
     // The page is an artifact: it opens on Preview, the stage's own frame.
     await screen.findByTestId("visualization-frame");
-    fireEvent.click(screen.getByTestId("visualization-tab-files"));
+    await openFiles();
 
     const reader = await screen.findByTestId("run-files");
     await waitFor(() => expect(within(reader).getByText("HelloBot.html")).toBeTruthy());

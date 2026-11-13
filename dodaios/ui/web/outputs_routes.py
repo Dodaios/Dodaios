@@ -25,6 +25,7 @@ import time
 from datetime import UTC
 from pathlib import Path
 from typing import Any, Final, Literal, get_args
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -719,7 +720,24 @@ def outputs_capabilities(request: Request) -> dict[str, Any]:
     frontend hides the native buttons when this is False; the routes 404 too.
     """
     native = bool(getattr(request.app.state, "native_file_actions", False))
-    return {"native_file_actions": native, "platform": detect_platform()}
+    return {
+        "native_file_actions": native,
+        "platform": detect_platform(),
+        # A page can be shared as a PDF or a picture only where a headless
+        # Chromium-family browser can draw it (artifact_share.export_page).
+        "page_export": _page_export_available(),
+    }
+
+
+_PAGE_EXPORT_CACHE: dict[str, bool] = {}
+
+
+def _page_export_available() -> bool:
+    if "ok" not in _PAGE_EXPORT_CACHE:
+        from dodaios.ui.web import artifact_share  # noqa: PLC0415 — only on demand
+
+        _PAGE_EXPORT_CACHE["ok"] = artifact_share.find_export_browser() is not None
+    return _PAGE_EXPORT_CACHE["ok"]
 
 
 @router.get("/{slug}/plan")
@@ -1209,6 +1227,82 @@ async def view_output_artifact(slug: str, path: str, request: Request) -> HTMLRe
             "Content-Security-Policy": VIEW_HEADER_CSP,
             "X-Content-Type-Options": "nosniff",
         },
+    )
+
+
+class ShareBody(BaseModel):
+    """What to hand to the share sheet: the file itself, or a page as PDF / PNG."""
+
+    format: Literal["file", "pdf", "png"] = "file"
+    #: The name the shared file carries (the artifact's title); the file's own
+    #: name when empty.
+    title: str = ""
+    #: The theme a page picture is drawn in; a PDF is always light (paper).
+    theme: Literal["light", "dark"] = "light"
+
+
+@router.post("/{slug}/files/{path:path}/share")
+async def share_output_artifact(
+    slug: str, path: str, body: ShareBody, request: Request
+) -> dict[str, Any]:
+    """Stage an artifact for sharing and say where the staged file is.
+
+    Nothing is uploaded or published: the staged copy sits in a private temp
+    folder (``artifact_share.share_folder``) until the person shares it from
+    the OS share sheet or downloads it through ``url``. ``path`` (the staged
+    file on disk, for the desktop window's native share bridge) is only
+    reported on a local desktop run; a headless server's paths mean nothing
+    to the person's own machine.
+    """
+    from dodaios.ui.web import artifact_share  # noqa: PLC0415 — only on demand
+
+    target = _resolve_artifact_target(request, slug, path)
+    title = body.title.strip() or target.stem
+    if body.format == "file":
+        try:
+            token, staged = await asyncio.to_thread(artifact_share.stage_copy, target, title)
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=f"could not stage the file: {exc}") from exc
+    else:
+        if target.suffix.lower() not in (".html", ".htm"):
+            raise HTTPException(
+                status_code=415, detail="only a page can be shared as PDF or picture"
+            )
+        if REPORT_SLUG_INFIX in slug:
+            await asyncio.to_thread(restyle_if_dated, target)
+        theme = "light" if body.format == "pdf" else body.theme
+        try:
+            token, staged = await asyncio.to_thread(
+                artifact_share.export_page, target, title, body.format, theme
+            )
+        except artifact_share.ShareExportError as exc:
+            logger.warning("outputs: %s export of %s failed: %s", body.format, target.name, exc)
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=f"could not stage the file: {exc}") from exc
+    native = bool(getattr(request.app.state, "native_file_actions", False))
+    return {
+        "name": staged.name,
+        "url": f"/api/outputs/shared/{token}/{quote(staged.name)}",
+        "path": str(staged) if native else None,
+    }
+
+
+@router.get("/shared/{token}/{name}")
+async def download_shared_artifact(token: str, name: str) -> FileResponse:
+    """Serve a file staged by the share route, as a download."""
+    from dodaios.ui.web import artifact_share  # noqa: PLC0415 — only on demand
+
+    target = artifact_share.staged_file(token, name)
+    if target is None:
+        raise HTTPException(status_code=404, detail="unknown shared file")
+    media_type, _ = mimetypes.guess_type(target.name)
+    return FileResponse(
+        target,
+        media_type=media_type or "application/octet-stream",
+        filename=target.name,
+        content_disposition_type="attachment",
+        headers={"X-Content-Type-Options": "nosniff"},
     )
 
 
