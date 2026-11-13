@@ -30,6 +30,9 @@ vi.mock("@/hooks/useOverlayStyle", () => ({
 vi.mock("@/hooks/useBarPersistent", () => ({
   useBarPersistent: () => ({ enabled: true, loading: false, setEnabled: vi.fn() }),
 }));
+vi.mock("@/hooks/useAutoMinimize", () => ({
+  useAutoMinimize: () => ({ enabled: true, supported: true, loading: false, setEnabled: vi.fn() }),
+}));
 vi.mock("@/hooks/useBarFollowCursor", () => ({
   useBarFollowCursor: () => ({ enabled: true, loading: false, setEnabled: vi.fn() }),
 }));
@@ -79,10 +82,11 @@ describe("OverlayTaskbarGroup", () => {
     expect(screen.getByText("settings_view.overlay_style.title")).toBeDefined();
   });
 
-  it("renders the overlay-style panel and all four behavior toggles", () => {
+  it("renders the overlay-style panel and all five behavior toggles", () => {
     render(<OverlayTaskbarGroup />);
     expect(screen.getByText("settings_view.overlay_style.title")).toBeDefined();
     expect(screen.getByText("taskbar_view.bar_persistent.title")).toBeDefined();
+    expect(screen.getByText("taskbar_view.auto_minimize.title")).toBeDefined();
     expect(screen.getByText("taskbar_view.follow_cursor.title")).toBeDefined();
     expect(screen.getByText("taskbar_view.mute_music.title")).toBeDefined();
     expect(screen.getByText("taskbar_view.sound_effects.title")).toBeDefined();

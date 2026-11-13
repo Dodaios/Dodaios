@@ -1924,6 +1924,7 @@ class DesktopApp:
         # _run_backend). The real app is delegated to it once built.
         self._bootstrap: Any = None
         self._window: Any = None
+        self._focus_minimizer: Any = None
         # Guards the window against staying blank in silence — a page that never
         # arrives leaves nothing behind that could report it (see
         # dodaios/ui/window_watchdog.py). Armed right after create_window.
@@ -3979,6 +3980,54 @@ class DesktopApp:
             logger.opt(exception=exc).warning("set_bar_persistent failed")
             return {"ok": True, "applied_live": False}
 
+    def set_auto_minimize_on_focus_loss(self, enabled: bool) -> dict[str, object]:
+        """Live-toggle minimize-on-app-switch for the Windows desktop window."""
+        from loguru import logger
+
+        enabled = bool(enabled)
+        try:
+            self.cfg.ui.auto_minimize_on_focus_loss = enabled
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("auto_minimize_on_focus_loss not stored in config: {}", exc)
+
+        if sys.platform != "win32":
+            return {"ok": True, "applied_live": False}
+
+        if enabled and self._window is not None and self._window_visible:
+            self._start_focus_minimizer()
+        elif not enabled:
+            minimizer = self._focus_minimizer
+            if minimizer is not None:
+                minimizer.stop()
+                self._focus_minimizer = None
+        return {"ok": True, "applied_live": True}
+
+    def _start_focus_minimizer(self, *_args: Any, **_kwargs: Any) -> None:
+        """Start the Windows foreground watcher after the main window appears."""
+        if sys.platform != "win32" or not bool(
+            getattr(self.cfg.ui, "auto_minimize_on_focus_loss", True)
+        ):
+            return
+        from dodaios.ui.auto_minimize import AutoMinimizeOnFocusLoss  # noqa: PLC0415
+
+        if self._focus_minimizer is None:
+            self._focus_minimizer = AutoMinimizeOnFocusLoss(
+                WINDOW_TITLE,
+                window_handle=lambda: int(self._window.native.Handle.ToInt32())
+                if self._window is not None and self._window.native is not None
+                else 0,
+                on_minimized=self._on_auto_minimized,
+                enabled=lambda: bool(
+                    getattr(self.cfg.ui, "auto_minimize_on_focus_loss", True)
+                ),
+            )
+        self._focus_minimizer.start()
+
+    def _on_auto_minimized(self) -> None:
+        """Update desktop state while leaving the configured floating HUD up."""
+        self._window_visible = False
+        self._show_overlay_for_work_mode()
+
     def set_bar_size(self, scale: float) -> dict[str, object]:
         """Live-resize the on-screen bar to a new 'Bar size' multiplier.
 
@@ -5875,6 +5924,7 @@ class DesktopApp:
         self._arm_window_frame(self._window)
         if sys.platform == "win32":
             self._window.events.shown += self._park_browser_panel_window
+            self._window.events.shown += self._start_focus_minimizer
 
     @staticmethod
     def _park_browser_panel_window() -> None:
@@ -5903,6 +5953,10 @@ class DesktopApp:
         process alive. Without detached windows the quit flag is already set
         and ``webview.start()`` is about to return — nulling is harmless.
         """
+        minimizer = getattr(self, "_focus_minimizer", None)
+        if minimizer is not None:
+            minimizer.stop()
+            self._focus_minimizer = None
         self._window = None
         self._window_visible = False
         self._main_window_closing = False
@@ -7038,6 +7092,32 @@ class DesktopApp:
 
             logger.debug("overlay suppress for hidden window failed", exc_info=True)
 
+    def _show_overlay_for_work_mode(self) -> None:
+        """Keep the assistant Bar available while the main window is minimized.
+
+        Auto-minimize is the work-along mode, so it temporarily pins a Bar that
+        normally hides at idle. Restoring the main window applies the saved
+        ``bar_persistent`` choice again.
+        """
+        orb_style = str(getattr(self.cfg.ui, "orb_style", "jarvis_bar") or "jarvis_bar")
+        if orb_style != "jarvis_bar":
+            return
+        bar = getattr(self, "_orb", None)
+        bridge = getattr(self, "_bridge", None)
+        if bar is None or bridge is None:
+            return
+        try:
+            bridge._hide_on_idle = False
+            if hasattr(bar, "_persistent"):
+                bar._persistent = True
+            show = getattr(bar, "show", None)
+            if callable(show):
+                show(str(getattr(bar, "_mode", "idle") or "idle"))
+        except Exception:  # noqa: BLE001
+            from loguru import logger
+
+            logger.debug("work-mode overlay show failed", exc_info=True)
+
     def _restore_overlay_for_visible_window(self) -> None:
         """Reverse of :meth:`_suppress_overlay_for_hidden_window`.
 
@@ -7164,6 +7244,10 @@ class DesktopApp:
         self._shutdown_done = True
         _mark_instance_quitting()
         self._window_visible = False
+        minimizer = getattr(self, "_focus_minimizer", None)
+        if minimizer is not None:
+            minimizer.stop()
+            self._focus_minimizer = None
         if sys.platform == "win32":
             from dodaios.ui.browser_embed import shutdown_embed
 

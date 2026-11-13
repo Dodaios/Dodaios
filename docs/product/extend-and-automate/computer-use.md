@@ -167,9 +167,12 @@ way to approve purchases, delete data, send messages, or publish content.
 - During a voice session, say **hang up** or select the visible close control
   on the Dodaios Bar. This cancels every queued or active Computer Use run
   without cancelling a separate Dodaios-Agent mission.
+- In the home **Activity** panel, review recent Computer Use runs and their
+  outcomes. A **Stop this run** control appears for each active run and cancels
+  only that mission. The global shortcut and voice-session close control still
+  cancel all active Computer Use runs.
 - From a terminal, run `dodaios computer-use list`, then cancel one mission by
-  identifier or use `dodaios computer-use cancel-all --yes`. The desktop app
-  does not currently have a dedicated Computer Use run list or cancel button.
+  identifier or use `dodaios computer-use cancel-all --yes`.
 - If none of these controls is available and input continues, exit
   Dodaios. Reopen it only after checking what already changed.
 - Moving the pointer into a screen corner is not a supported stop control in

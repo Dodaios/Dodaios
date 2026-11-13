@@ -559,6 +559,11 @@
       "description": "Mantém a Dodaios Bar disponível em repouso. Se desligado, aparece durante a atividade de voz ou o ditado e volta a esconder-se depois.",
       "saved": "Visibilidade da barra atualizada."
     },
+    "auto_minimize": {
+      "title": "Minimizar o Dodaios ao trocar de aplicação",
+      "description": "No Windows, minimiza a janela principal quando outra aplicação fica em primeiro plano e mantém a Dodaios Bar disponível como painel de trabalho.",
+      "saved": "Comportamento ao trocar de aplicação atualizado."
+    },
     "follow_cursor": {
       "title": "Seguir o rato para o monitor ativo",
       "description": "A barra salta para o monitor onde está o rato, mantendo a mesma posição. Desligado: fica num só monitor.",
@@ -941,6 +946,19 @@
       "brief_hint": "Um breve resumo do teu dia nesta conversa. Só com uma subscrição ou um modelo local.",
       "brief_failed": "Não foi possível guardar o resumo",
       "scheduled_hint": "Pede na conversa para agendar qualquer outra coisa."
+    },
+    "computer_use": {
+      "title": "Controlo do computador",
+      "empty": "Ainda não há tarefas de controlo do computador",
+      "stop": "Parar esta execução",
+      "load_failed": "Não foi possível carregar as tarefas de controlo do computador",
+      "stop_failed": "Não foi possível parar esta execução",
+      "status_queued": "Na fila",
+      "status_running": "Em curso",
+      "status_finished": "Concluída",
+      "status_error": "Falhou",
+      "status_cancelled": "Cancelada",
+      "status_timeout": "Tempo esgotado"
     },
     "triggers": {
       "title": "Eventos",

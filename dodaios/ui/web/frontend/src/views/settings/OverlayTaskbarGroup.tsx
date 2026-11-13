@@ -8,6 +8,7 @@ import {
 } from "@/hooks/useOverlayStyle";
 import { StylePreview } from "@/components/overlay/OverlayStylePreviews";
 import { useBarPersistent } from "@/hooks/useBarPersistent";
+import { useAutoMinimize } from "@/hooks/useAutoMinimize";
 import { useBarFollowCursor } from "@/hooks/useBarFollowCursor";
 import { BarSizeGroup } from "@/views/settings/BarSizeGroup";
 import { useMuteMusic } from "@/hooks/useMuteMusic";
@@ -21,8 +22,9 @@ import { SettingsCard, SettingsRow, SettingsSection } from "@/views/settings/Set
 
 /**
  * "Bar & Overlay" group inside the Settings view — the on-screen overlay
- * appearance (Bar / Mascot / Voice orb / Pet / None) and two dictation behaviours: show the bar at
- * all times, and mute music while a voice session is active. Moved here from the
+ * appearance (Bar / Mascot / Voice orb / Pet / None) and desktop behaviors:
+ * bar visibility, Windows app-switch minimizing, voice-session music muting,
+ * and sound effects. Moved here from the
  * former standalone Taskbar section; the controls, hooks, and i18n keys
  * (``taskbar_view.*`` + ``settings_view.overlay_style.*``) are unchanged.
  */
@@ -40,12 +42,48 @@ export function OverlayTaskbarGroup() {
       <SettingsCard>
         {isBar && <>
           <BarPersistentRow />
+          <AutoMinimizeRow />
           <FollowCursorRow />
         </>}
         <MuteMusicRow />
         <SoundEffectsRow />
       </SettingsCard>
     </SettingsSection>
+  );
+}
+
+function AutoMinimizeRow() {
+  const t = useT();
+  const { enabled, supported, loading, setEnabled } = useAutoMinimize();
+  const pushToast = useEventStore((s) => s.pushToast);
+  const [saving, setSaving] = useState(false);
+
+  async function onToggle(next: boolean) {
+    setSaving(true);
+    try {
+      const res = await setEnabled(next);
+      pushToast(
+        res.applied_live ? "success" : "warning",
+        res.applied_live
+          ? t("taskbar_view.auto_minimize.saved")
+          : t("taskbar_view.restart_required"),
+      );
+    } catch (e) {
+      pushToast("error", (e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!supported) return null;
+  return (
+    <ToggleRow
+      title={t("taskbar_view.auto_minimize.title")}
+      description={t("taskbar_view.auto_minimize.description")}
+      checked={enabled ?? true}
+      disabled={loading || saving}
+      onToggle={onToggle}
+    />
   );
 }
 

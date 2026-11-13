@@ -559,6 +559,11 @@
       "description": "Keep the Dodaios Bar available while idle. When off, it appears during voice activity or dictation and hides again afterward.",
       "saved": "Bar visibility updated."
     },
+    "auto_minimize": {
+      "title": "Minimize Dodaios when I switch apps",
+      "description": "On Windows, minimize the main window when another app takes focus and keep the Dodaios Bar available as your work HUD.",
+      "saved": "App-switch behavior updated."
+    },
     "follow_cursor": {
       "title": "Follow the mouse to the active monitor",
       "description": "The bar hops to whichever monitor your mouse is on, keeping the same spot. Off: it stays on one monitor.",
@@ -941,6 +946,19 @@
       "brief_hint": "A short summary of your day in this conversation. Runs only on a subscription or local model.",
       "brief_failed": "Could not save the brief",
       "scheduled_hint": "Ask in the conversation to schedule anything else."
+    },
+    "computer_use": {
+      "title": "Computer Use",
+      "empty": "No computer-control runs yet",
+      "stop": "Stop this run",
+      "load_failed": "Could not load computer-control runs",
+      "stop_failed": "Could not stop this run",
+      "status_queued": "Queued",
+      "status_running": "Running",
+      "status_finished": "Finished",
+      "status_error": "Failed",
+      "status_cancelled": "Cancelled",
+      "status_timeout": "Timed out"
     },
     "triggers": {
       "title": "Events",

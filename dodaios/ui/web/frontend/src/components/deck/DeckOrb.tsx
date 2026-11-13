@@ -8,37 +8,27 @@ import { driveTarget, isOnset, orbDriveFor, smoothOrbLevel } from "@/lib/orbLeve
 import { cn } from "@/lib/utils";
 
 /**
- * The centre of the deck: the mascot in a reticle — one hairline bezel, one
+ * The centre of the deck: a neural-core hologram in a reticle — one hairline bezel, one
  * bright arc per running step, the voice meter, and four small readouts at
  * the corners.
  *
- * The middle is Gigi itself (`DodaiosOrb`), moved by the real voice state,
- * with a soft accent glow throwing the dark silhouette forward. It was a PNG
- * of a glowing sphere until 2026-08-20; the maintainer had asked repeatedly
- * for that picture to go and for the mascot to carry the product, and the
- * picture had earned it — its baked-in white halo read as a grey box on the
- * dark deck, and this reticle sliced that box off at the ring.
+ * The middle is the animated network diagram (`DodaiosOrb`), moved by the
+ * real voice state, with a cyan holographic glow and a lightweight SVG mesh.
  *
- * The reticle is now INSTRUMENTS ONLY, and every part of it carries
+ * The reticle is instruments only, and every part of it carries
  * information: the arcs are parallel work made visible, the sweep turns only
- * while something runs, the meter is the voice, the readouts are live values
- * the caller sources. What went with the PNG was the scenery that measured
- * nothing — 72 dial ticks, corner brackets, two counter-turning orbits, a
- * satellite riding the bezel and an idle ping (maintainer, 2026-08-20:
- * instruments that show nothing are a stage set). The deck does not need
- * them to look alive: the living thing in the middle blinks, its pupils
- * drift and it waves, so the instruments can hold still until they have
- * something to say. Reduced motion stops what is left.
+ * while something runs, the meter is the voice, and the readouts are live
+ * values supplied by the caller. Reduced-motion preferences stop the
+ * decorative animation.
  *
  * And it MOVES WITH THE VOICE, all of it (maintainer, 2026-08-19: "when you
- * speak the sun moved — that, on the next level; not just the core, all of
+ * speak the core moves — not just the core, all of
  * it, smooth"). One animation-frame loop computes the orb's LEVEL
  * (`lib/orbLevel.ts`: the real microphone while listening, a speech-shaped
  * envelope while the assistant speaks, a heartbeat while it thinks), smooths
  * it, and writes it to ONE CSS variable on the root (`--orb-level`); the
- * core's size and brightness, the glow, the corona's rays, the rings and the
- * level arc on the bezel all read that variable in CSS (index.css). A jump
- * in the level — a word landing — sends one ripple from the sun to the
+ * core's backlight and the level arc on the bezel read that variable in CSS
+ * (index.css). A jump in the level — a word landing — sends one ripple to the
  * bezel. One number, one smoothing, so every part moves as one thing.
  */
 export interface OrbReadouts {
@@ -252,11 +242,11 @@ export function DeckOrb({
             )}
             style={{ width: orbSize, height: orbSize }}
           >
-            <OrbFace voiceState={voiceState} orbSize={orbSize} />
+            <OrbFace voiceState={voiceState} orbSize={orbSize} active={busy} />
           </button>
         ) : (
           <div className="relative" style={{ width: orbSize, height: orbSize }}>
-            <OrbFace voiceState={voiceState} orbSize={orbSize} />
+            <OrbFace voiceState={voiceState} orbSize={orbSize} active={busy} />
           </div>
         )}
       </div>
@@ -280,10 +270,10 @@ export function DeckOrb({
 /**
  * The orb — the part of the centre a press lands on.
  *
- * Back to front: a soft accent glow wider than the sphere (`.deck-orb-glow`,
- * keyed on the voice state), then the mascot itself (`DodaiosOrb`).
+ * Back to front: a soft accent glow wider than the network (`.deck-orb-glow`,
+ * keyed on the voice state), then the neural core (`DodaiosOrb`).
  */
-function OrbFace({ voiceState, orbSize }: { voiceState: VoiceState; orbSize: number }) {
+function OrbFace({ voiceState, orbSize, active }: { voiceState: VoiceState; orbSize: number; active: boolean }) {
   // The light behind the figure, a little wider than it so the silhouette
   // stands IN it rather than on it. It followed a smaller orb at 1.35; with
   // the figure nearly filling the bezel that would spill across the cards.
@@ -296,7 +286,7 @@ function OrbFace({ voiceState, orbSize }: { voiceState: VoiceState; orbSize: num
         data-voice={voiceState}
         style={{ width: glow, height: glow }}
       />
-      <DodaiosOrb size={orbSize} voiceState={voiceState} className="absolute inset-0" />
+      <DodaiosOrb size={orbSize} voiceState={voiceState} active={active} className="absolute inset-0" />
     </>
   );
 }

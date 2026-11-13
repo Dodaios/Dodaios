@@ -559,6 +559,11 @@
       "description": "Hält die Dodaios Bar auch im Leerlauf verfügbar. Ausgeschaltet erscheint sie bei Sprachaktivität oder Diktaten und wird anschließend wieder ausgeblendet.",
       "saved": "Bar-Sichtbarkeit aktualisiert."
     },
+    "auto_minimize": {
+      "title": "Dodaios beim App-Wechsel minimieren",
+      "description": "Unter Windows wird das Hauptfenster minimiert, sobald eine andere App aktiv wird. Die Dodaios Bar bleibt als Arbeitsanzeige verfügbar.",
+      "saved": "Verhalten beim App-Wechsel aktualisiert."
+    },
     "follow_cursor": {
       "title": "Der Maus zum aktiven Monitor folgen",
       "description": "Die Bar wechselt auf den Monitor, auf dem gerade deine Maus ist, und behält dieselbe Stelle. Aus: Sie bleibt auf einem Monitor.",
@@ -941,6 +946,19 @@
       "brief_hint": "Eine kurze Übersicht über deinen Tag in diesem Gespräch. Läuft nur mit einem Abo oder lokalen Modell.",
       "brief_failed": "Briefing konnte nicht gespeichert werden",
       "scheduled_hint": "Alles andere planst du einfach im Gespräch."
+    },
+    "computer_use": {
+      "title": "Computersteuerung",
+      "empty": "Noch keine Desktop-Aufgaben",
+      "stop": "Diesen Lauf stoppen",
+      "load_failed": "Computersteuerungsläufe konnten nicht geladen werden",
+      "stop_failed": "Dieser Lauf konnte nicht gestoppt werden",
+      "status_queued": "In Warteschlange",
+      "status_running": "Läuft",
+      "status_finished": "Abgeschlossen",
+      "status_error": "Fehlgeschlagen",
+      "status_cancelled": "Abgebrochen",
+      "status_timeout": "Zeitüberschreitung"
     },
     "triggers": {
       "title": "Ereignisse",

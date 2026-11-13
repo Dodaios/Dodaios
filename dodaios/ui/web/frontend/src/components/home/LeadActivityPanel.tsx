@@ -8,6 +8,7 @@ import { BrandedSelect } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { LeadTriggersSetting } from "./LeadTriggersSetting";
 import { LifeAdminSetting } from "./LifeAdminSetting";
+import { ComputerUseRuns } from "./ComputerUseRuns";
 import { sideThreadOf, type NoticeItem, type TimelineItem, type TurnItem } from "@/components/agentchat/reduce";
 import { isBackgroundNotice } from "@/components/agentchat/backgroundNotices";
 
@@ -233,6 +234,7 @@ export function LeadActivityPanel({ onClose }: { onClose: () => void }) {
       <Section icon={<Hand aria-hidden className={cn("h-3.5 w-3.5", waiting.length > 0 && "text-primary")} />}
         title={t("home.activity.waiting")} rows={waiting} empty={t("home.activity.nothing")} />
       <Section icon={<CircleDot aria-hidden className="h-3.5 w-3.5" />} title={t("home.activity.running")} rows={running} empty={t("home.activity.nothing")} />
+      <ComputerUseRuns />
       <Section icon={<CircleCheck aria-hidden className="h-3.5 w-3.5" />} title={t("home.activity.done")} rows={done} empty={t("home.activity.nothing")} />
       <BriefSetting />
       <ProactiveSetting />

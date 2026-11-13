@@ -2098,21 +2098,188 @@ textarea:not(:focus)::selection {
      microphone while listening, a speech-shaped envelope while the
      assistant speaks, a heartbeat while it thinks (lib/orbLevel.ts)
      — smoothed once, written once per frame. Everything below
-     reads it: the sun's size and brightness, the glow, the corona's
-     rays, the rings, the level arc on the bezel. Transform, opacity
+     reads it: the neural core's backlight, its brightness, and the level
+     arc on the bezel. Transform, opacity
      and a GPU brightness only, so it all moves as one and costs
      the main thread one style write.
      ----------------------------------------------------------- */
   .deck-orb-root {
     --orb-level: 0;
   }
+  /* The home-screen neural core: an original, low-cost hologram made from
+     SVG strokes and compositor-only CSS. The surrounding reticle continues
+     to carry the voice meter and live task arcs. */
+  .neural-core {
+    --core-cyan: #69f5ff;
+    --core-blue: #2aa9ee;
+    --core-violet: #9a8bff;
+    isolation: isolate;
+    color: var(--core-cyan);
+    filter: drop-shadow(0 0 8px rgb(40 210 245 / 18%));
+  }
+  .neural-core-backlight {
+    inset: -12%;
+    z-index: -1;
+    background: radial-gradient(ellipse, rgb(16 174 230 / 22%) 0%, rgb(50 103 222 / 10%) 42%, transparent 72%);
+    opacity: 0.6;
+    transform: scale(calc(0.92 + var(--orb-level, 0) * 0.16));
+    transition: opacity 240ms ease;
+  }
+  .neural-core-network {
+    overflow: visible;
+  }
+  .neural-core-hull {
+    stroke: var(--core-cyan);
+    stroke-width: 1.15;
+    stroke-opacity: 0.75;
+    filter: drop-shadow(0 0 5px rgb(71 225 255 / 65%));
+  }
+  /* Warm segmented orbits give the core the ordered, audio-reactive JARVIS
+     layer; the blue angular shells underneath carry the more alien Ultron
+     geometry. These are original vector shapes, not film artwork. */
+  .neural-core-orrery ellipse {
+    fill: none;
+    stroke: #ffbb71;
+    stroke-width: 0.8;
+    stroke-opacity: 0.62;
+    stroke-dasharray: 1 5;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: neural-core-orbit 32s linear infinite;
+  }
+  .neural-core-orrery ellipse:nth-child(2) {
+    stroke: #ffc988;
+    stroke-opacity: 0.48;
+    stroke-dasharray: 9 4 2 5;
+    animation-direction: reverse;
+    animation-duration: 25s;
+  }
+  .neural-core-orrery ellipse:nth-child(3) {
+    stroke-opacity: 0.35;
+    stroke-dasharray: 2 7;
+    animation-duration: 42s;
+  }
+  .neural-core-facets path {
+    fill: none;
+    stroke: var(--core-blue);
+    stroke-width: 0.9;
+    stroke-opacity: 0.28;
+    stroke-linejoin: bevel;
+  }
+  .neural-core-facets path:first-child {
+    stroke: var(--core-cyan);
+    stroke-opacity: 0.64;
+    stroke-width: 1.1;
+  }
+  .neural-core-facets path:last-child {
+    stroke-opacity: 0.48;
+  }
+  .neural-core-midline,
+  .neural-core-latitude ellipse,
+  .neural-core-longitude path {
+    fill: none;
+    stroke: var(--core-blue);
+    stroke-width: 0.75;
+    stroke-opacity: 0.42;
+  }
+  .neural-core-midline {
+    stroke: var(--core-cyan);
+    stroke-opacity: 0.72;
+    stroke-dasharray: 2 4;
+  }
+  .neural-core-links line {
+    stroke: var(--core-blue);
+    stroke-width: 0.8;
+    stroke-opacity: 0.38;
+    stroke-dasharray: 2 5;
+  }
+  .neural-core-nodes circle {
+    fill: var(--core-cyan);
+    opacity: 0.58;
+  }
+  .neural-core-nodes circle:nth-child(5n) {
+    fill: var(--core-violet);
+    opacity: 0.78;
+  }
+  .neural-core-nodes circle:nth-child(4n) {
+    animation: neural-core-node 3.6s ease-in-out infinite;
+  }
+  .neural-core-nucleus-halo {
+    fill: rgb(44 210 248 / 12%);
+    stroke: var(--core-cyan);
+    stroke-width: 1;
+    stroke-opacity: 0.7;
+    filter: drop-shadow(0 0 7px rgb(83 232 255 / 90%));
+    animation: neural-core-nucleus 2.8s ease-in-out infinite;
+    transform-origin: 128px 119px;
+  }
+  .neural-core-nucleus {
+    fill: #d9ffff;
+    stroke: var(--core-cyan);
+    stroke-width: 2;
+    filter: drop-shadow(0 0 8px rgb(65 229 255 / 100%));
+  }
+  .neural-core[data-voice="listening"] .neural-core-backlight {
+    opacity: 0.95;
+  }
+  .neural-core[data-voice="listening"] .neural-core-hull,
+  .neural-core[data-voice="speaking"] .neural-core-hull {
+    stroke-opacity: 1;
+  }
+  .neural-core[data-voice="listening"] .neural-core-orrery ellipse,
+  .neural-core[data-voice="speaking"] .neural-core-orrery ellipse {
+    stroke-opacity: 0.92;
+    animation-duration: 11s;
+  }
+  .neural-core[data-voice="thinking"] .neural-core-longitude {
+    transform-origin: 128px 118px;
+    animation: neural-core-rotate 12s linear infinite;
+  }
+  .neural-core[data-voice="thinking"] .neural-core-facets {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: neural-core-fold 8s ease-in-out infinite alternate;
+  }
+  .neural-core[data-active="true"] .neural-core-links line {
+    stroke-opacity: 0.72;
+  }
+  .neural-core[data-active="true"] .neural-core-orrery ellipse {
+    stroke-opacity: 0.82;
+    animation-duration: 16s;
+  }
+  .neural-core[data-active="true"] .neural-core-nucleus-halo {
+    fill: rgb(44 210 248 / 24%);
+  }
+  .neural-core[data-voice="error"] {
+    --core-cyan: #ff8a8a;
+    --core-blue: #e65d72;
+    --core-violet: #ffb27d;
+  }
+  @keyframes neural-core-node {
+    0%, 100% { opacity: 0.42; }
+    50% { opacity: 0.95; }
+  }
+  @keyframes neural-core-nucleus {
+    0%, 100% { transform: scale(0.92); opacity: 0.58; }
+    50% { transform: scale(1.14); opacity: 1; }
+  }
+  @keyframes neural-core-rotate {
+    to { transform: rotateY(360deg); }
+  }
+  @keyframes neural-core-orbit {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes neural-core-fold {
+    from { transform: scaleX(0.94) rotate(-2deg); }
+    to { transform: scaleX(1.04) rotate(2deg); }
+  }
   .deck-orb-glow {
     background: radial-gradient(
       circle,
-      rgba(225, 225, 225, 0.5) 0%,
-      rgba(197, 197, 197, 0.28) 38%,
-      rgba(152, 152, 152, 0.1) 58%,
-      rgba(152, 152, 152, 0) 70%
+      rgb(91 236 255 / 42%) 0%,
+      rgb(31 177 236 / 27%) 38%,
+      rgb(68 103 237 / 10%) 58%,
+      rgb(68 103 237 / 0%) 70%
     );
     opacity: calc(0.6 + var(--orb-level, 0) * 0.4);
     transform: translate(-50%, -50%) scale(calc(1 + var(--orb-level, 0) * 0.18));
@@ -2122,13 +2289,13 @@ textarea:not(:focus)::selection {
   .deck-orb-glow[data-voice="idle"] {
     animation: deck-orb-glow-idle 5.5s ease-in-out infinite;
   }
-  /* the sun itself: bigger and brighter with the voice */
+  /* the network core brightens with the voice */
   .deck-orb-reactor {
     transform: scale(calc(1 + var(--orb-level, 0) * 0.09));
     filter: brightness(calc(1 + var(--orb-level, 0) * 0.55));
     will-change: transform, filter;
   }
-  /* the corona: slow-turning rays behind the sun, seen only in the voice */
+  /* retained for other deck surfaces that use the shared orb classes */
   .deck-orb-corona {
     inset: -18%;
     background: repeating-conic-gradient(
@@ -2225,6 +2392,15 @@ textarea:not(:focus)::selection {
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .neural-core-backlight,
+    .neural-core-nodes circle:nth-child(4n),
+    .neural-core-nucleus-halo,
+    .neural-core-orrery ellipse,
+    .neural-core[data-voice="thinking"] .neural-core-facets,
+    .neural-core[data-voice="thinking"] .neural-core-longitude {
+      animation: none !important;
+      transition: none !important;
+    }
     .deck-orb-glow,
     .deck-orb-corona,
     .deck-orb-ripple,
