@@ -266,28 +266,26 @@ describe("talking to the assistant", () => {
     expect((calls[1].body as { text: string }).text).toBe("Create a new node of type Sheets for me: A budget");
   });
 
-  it("sends a comment with the place it was left on, as the reader's message", async () => {
+  it("sends every comment at once to the node's comments route, not into the conversation", async () => {
     const calls = installFetch();
     const real = await vi.importActual<typeof import("./askDodaios")>("./askDodaios");
-    expect(real.nodeCommentText(BRIEF, { text: " shorter, $& plain ", quote: "Our goals", where: "§ Goals" })).toBe(
-      'Please change the node "Website brief" (id n-brief) as this comment says on "Our goals" (§ Goals): shorter, $& plain',
-    );
-    // A pin on a picture has no text under it; a pin on nothing has no place either.
-    expect(real.nodeCommentText(BRIEF, { text: "brighter", quote: "", where: "/slides/2" })).toBe(
-      'Please change the node "Website brief" (id n-brief) as this comment says (/slides/2): brighter',
-    );
-    expect(real.nodeCommentText(BRIEF, { text: "brighter", quote: "", where: "" })).toBe(
-      'Please change the node "Website brief" (id n-brief) as this comment says: brighter',
-    );
-
-    await real.sendNodeComment(BRIEF, { text: "shorter", quote: "Our goals", where: "" });
-    expect(calls.map((call) => `${call.method} ${call.url}`)).toEqual([
-      "GET /api/agent-chat/lead",
-      "POST /api/agent-chat/sessions/lead-1/messages",
+    await real.sendNodeComments(BRIEF, [
+      { text: " shorter, $& plain ", quote: "Our goals", where: "§ Goals" },
+      { text: "brighter", quote: "", where: "/slides/2" },
     ]);
-    expect((calls[1].body as { text: string }).text).toBe(
-      'Please change the node "Website brief" (id n-brief) as this comment says on "Our goals": shorter',
-    );
+    expect(calls.map((call) => `${call.method} ${call.url}`)).toEqual(["POST /api/nodes/n-brief/comments"]);
+    expect(calls[0].body).toEqual({
+      comments: [
+        { text: "shorter, $& plain", quote: "Our goals", where: "§ Goals" },
+        { text: "brighter", quote: "", where: "/slides/2" },
+      ],
+    });
+  });
+
+  it("rejects when the comments could not be sent", async () => {
+    installFetch((url) => url.endsWith("/comments"));
+    const real = await vi.importActual<typeof import("./askDodaios")>("./askDodaios");
+    await expect(real.sendNodeComments(BRIEF, [{ text: "x", quote: "", where: "" }])).rejects.toBeTruthy();
   });
 
   it("rejects when the request could not be sent", async () => {

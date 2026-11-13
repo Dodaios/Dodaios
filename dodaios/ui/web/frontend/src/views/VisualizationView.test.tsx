@@ -54,7 +54,7 @@ vi.mock("@/hooks/useWebSocket", () => ({
 const chat = vi.hoisted(() => ({
   requestNewNode: vi.fn(async () => undefined),
   askDodaiosToChange: vi.fn(async (_card: unknown) => undefined),
-  sendNodeComment: vi.fn(async (_card: unknown, _comment: unknown) => undefined),
+  sendNodeComments: vi.fn(async (_card: unknown, _comments: unknown) => undefined),
 }));
 vi.mock("@/components/nodes/askDodaios", () => chat);
 
@@ -837,14 +837,14 @@ describe("VisualizationView", () => {
     expect(screen.queryByTestId("visualization-ask-change")).toBeNull();
   });
 
-  it("takes a comment left on a typed node's page and hands it to the assistant", async () => {
+  it("collects the comments left on a typed node's page and sends them all with one click", async () => {
     const nodeStates = { [NODE.slug]: nodeState() };
     installFetchMock(
       [NODE_RUN, DASH_RUN],
       { ...NODE_FILES, mission_dash: [DASH_FILE] },
       { typed: [NODE], nodeStates },
     );
-    chat.sendNodeComment.mockClear();
+    chat.sendNodeComments.mockClear();
     const { client } = renderView();
 
     fireEvent.click(await findCard(NODE.key));
@@ -865,22 +865,37 @@ describe("VisualizationView", () => {
       "*",
     );
 
-    // The page reports what was written, on what, and where.
-    const comment = { n: 1, text: "Make the intro shorter", quote: "Welcome", where: "§ Intro" };
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent("message", {
-          data: { type: "dodaios-node-comment", ...comment },
-          source: frame.contentWindow,
-        }),
-      );
-    });
-    await waitFor(() => expect(chat.sendNodeComment).toHaveBeenCalledWith(NODE, comment));
+    // The page reports what was written, on what, and where; nothing goes out yet.
+    const fromPage = (data: Record<string, unknown>) =>
+      act(() => {
+        window.dispatchEvent(new MessageEvent("message", { data, source: frame.contentWindow }));
+      });
+    const first = { n: 1, text: "Make the intro shorter", quote: "Welcome", where: "§ Intro" };
+    const second = { n: 2, text: "Add a price table", quote: "Costs", where: "§ Costs" };
+    const third = { n: 3, text: "never mind", quote: "", where: "" };
+    expect(screen.queryByTestId("visualization-comments-send")).toBeNull();
+    fromPage({ type: "dodaios-node-comment", ...first });
     await waitFor(() =>
-      expect(posted).toHaveBeenLastCalledWith({ type: "dodaios-node-comment-state", n: 1, state: "sent" }, "*"),
+      expect(posted).toHaveBeenLastCalledWith({ type: "dodaios-node-comment-state", n: 1, state: "pending" }, "*"),
     );
-    // The count goes up in its own render after the send, so wait for it.
-    await waitFor(() => expect(note()).toBe("working"));
+    fromPage({ type: "dodaios-node-comment", ...second });
+    fromPage({ type: "dodaios-node-comment", ...third });
+    await waitFor(() => expect(screen.getByTestId("visualization-comments-send").textContent).toBe("Send 3 comments"));
+    // A comment taken back on the page does not go out.
+    fromPage({ type: "dodaios-node-comment-remove", n: 3 });
+    await waitFor(() => expect(screen.getByTestId("visualization-comments-send").textContent).toBe("Send 2 comments"));
+    expect(chat.sendNodeComments).not.toHaveBeenCalled();
+    expect(note()).toBe("commenting");
+
+    // One click sends them all together, and the page hears it.
+    fireEvent.click(screen.getByTestId("visualization-comments-send"));
+    await waitFor(() => expect(chat.sendNodeComments).toHaveBeenCalledWith(NODE, [first, second]));
+    await waitFor(() =>
+      expect(posted).toHaveBeenLastCalledWith({ type: "dodaios-node-comment-state", n: 2, state: "sent" }, "*"),
+    );
+    expect(posted).toHaveBeenCalledWith({ type: "dodaios-node-comment-state", n: 1, state: "sent" }, "*");
+    expect(screen.queryByTestId("visualization-comments-send")).toBeNull();
+    expect(note()).toBe("working");
 
     // Escape leaves the comment mode first; the node stays open.
     fireEvent.keyDown(window, { key: "Escape" });

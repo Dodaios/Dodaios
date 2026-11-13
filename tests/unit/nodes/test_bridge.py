@@ -24,6 +24,7 @@ def test_the_app_and_the_page_use_the_same_message_names() -> None:
     assert _app_constant("NODE_MODE_MESSAGE") == bridge.MODE_MESSAGE
     assert _app_constant("NODE_COMMENT_MESSAGE") == bridge.COMMENT_MESSAGE
     assert _app_constant("NODE_COMMENT_STATE_MESSAGE") == bridge.COMMENT_STATE_MESSAGE
+    assert _app_constant("NODE_COMMENT_REMOVE_MESSAGE") == bridge.COMMENT_REMOVE_MESSAGE
 
 
 def test_the_page_script_speaks_those_names() -> None:
@@ -32,6 +33,7 @@ def test_the_page_script_speaks_those_names() -> None:
         bridge.MODE_MESSAGE,
         bridge.COMMENT_MESSAGE,
         bridge.COMMENT_STATE_MESSAGE,
+        bridge.COMMENT_REMOVE_MESSAGE,
     ):
         assert f'"{name}"' in bridge.BRIDGE_JS
 

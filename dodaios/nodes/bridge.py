@@ -4,9 +4,10 @@ A node's page runs in a sandbox of its own (scripts, and nothing else): the
 app cannot see where the reader clicks in it, and the page cannot reach the
 app's API. So the two talk in messages, and the page does the part only it
 can do. In COMMENT mode a click on the page drops a numbered pin with a small
-field at that very place; the reader writes what should change and sends it.
+field at that very place; the reader writes what should change and adds it.
 The page tells the app the comment, the text it was left on and where in the
-node that is; the app hands that to the assistant, which revises the node.
+node that is. The app collects them; one "Send" in the app's toolbar hands
+them all to the assistant at once (``comments.py``), which revises the node.
 
 Messages (``postMessage``; the app checks that they come from its own frame,
 the page that they come from its parent):
@@ -16,10 +17,15 @@ the page that they come from its parent):
 * app → page ``dodaios-node-mode`` ``{mode: "view" | "comment", labels}``:
   ``labels`` are the few words the page shows, in the reader's language.
 * page → app ``dodaios-node-comment`` ``{n, text, quote, where}``: comment
-  ``n`` was sent. ``quote`` is the text under the pin, ``where`` names the
+  ``n`` was added. ``quote`` is the text under the pin, ``where`` names the
   place in the node's own terms (``/slides/2``, ``Price × Netflix``,
   ``§ Costs``), so the assistant does not have to guess.
-* app → page ``dodaios-node-comment-state`` ``{n, state: "sent" | "failed"}``.
+* page → app ``dodaios-node-comment-remove`` ``{n}``: the reader took comment
+  ``n`` back before it was sent.
+* app → page ``dodaios-node-comment-state``
+  ``{n, state: "pending" | "sent" | "failed"}``: ``pending`` once the app holds
+  the comment (it waits for "Send"), ``sent`` once it went to the assistant,
+  ``failed`` when that did not work (it stays and can be sent again).
 
 The pin and its field are drawn by the page, not by the app, because only
 the page knows its own scroll position and layout: a pin drawn here stays on
@@ -41,6 +47,7 @@ READY_MESSAGE: Final[str] = "dodaios-node-ready"
 MODE_MESSAGE: Final[str] = "dodaios-node-mode"
 COMMENT_MESSAGE: Final[str] = "dodaios-node-comment"
 COMMENT_STATE_MESSAGE: Final[str] = "dodaios-node-comment-state"
+COMMENT_REMOVE_MESSAGE: Final[str] = "dodaios-node-comment-remove"
 
 MAX_COMMENT_CHARS: Final[int] = 2_000
 MAX_QUOTE_CHARS: Final[int] = 240
@@ -66,8 +73,11 @@ BRIDGE_CSS: Final[str] = """
 .nc-send{flex:none;display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;
   border-radius:50%;background:var(--accent);color:var(--accent-ink);cursor:pointer!important}
 .nc-send[disabled]{opacity:.35;cursor:default!important}
-.nc-send svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;
+.nc-send svg,.nc-drop svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;
   stroke-linecap:round;stroke-linejoin:round}
+.nc-drop{flex:none;display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;
+  border-radius:50%;background:transparent;color:var(--ink-2);cursor:pointer!important}
+.nc-drop:hover{background:var(--line-2);color:var(--ink)}
 .nc-said{padding:4px 9px 4px 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .nc-note{display:block;font-size:12px;line-height:16px;color:var(--ink-2)}
 .nc.is-busy .nc-box{opacity:.72}
@@ -83,7 +93,8 @@ BRIDGE_JS: Final[str] = r"""
 var d=document,root=d.documentElement,up=window.parent;
 if(!up||up===window)return;
 var mode="view",layer=null,draft=null,sent=0,byNumber={};
-var labels={placeholder:"Add a comment…",send:"Send",sent:"Sent",failed:"Not sent. Try again."};
+var labels={placeholder:"Add a comment…",add:"Add comment",pending:"Not sent yet",sent:"Sent",
+  failed:"Not sent. Try again.",remove:"Remove comment"};
 function post(m){try{up.postMessage(m,"*");}catch(e){}}
 function squeeze(s,max){s=String(s||"").replace(/\s+/g," ").replace(/^ | $/g,"");
   return s.length>max?s.slice(0,max-1)+"…":s;}
@@ -130,6 +141,10 @@ function whereOf(el){
   }
   if(last&&textOf(last,2))out.push("§ "+textOf(last,80));
   return out.join(", ").slice(0,300);}
+// Only the two constant icons below are ever written as markup.
+var TICK="M3 8.5 6.5 12 13 4.5",CROSS="M4 4l8 8M12 4l-8 8";
+function icon(button,path){
+  button.innerHTML='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="'+path+'"/></svg>';}
 function inLayer(t){return !!(layer&&t&&t.nodeType===1&&layer.contains(t));}
 function ensureLayer(){
   if(layer)return layer;
@@ -166,9 +181,8 @@ function open(e){
   c.note=d.createElement("span");c.note.className="nc-note";c.note.hidden=true;
   c.note.setAttribute("role","status");
   c.button=d.createElement("button");c.button.type="button";c.button.className="nc-send";
-  c.button.setAttribute("aria-label",labels.send);c.button.disabled=!kept;
-  c.button.innerHTML='<svg viewBox="0 0 16 16" aria-hidden="true">'+
-    '<path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg>';
+  c.button.setAttribute("aria-label",labels.add);c.button.title=labels.add;c.button.disabled=!kept;
+  icon(c.button,TICK);
   body.appendChild(c.field);body.appendChild(c.note);box.appendChild(body);box.appendChild(c.button);
   c.node.appendChild(pin);c.node.appendChild(box);
   c.node.style.left=x+"px";c.node.style.top=y+"px";
@@ -184,15 +198,29 @@ function open(e){
   c.button.addEventListener("click",function(){send(c);});
   draft=c;grow(c.field);
   try{c.field.focus({preventScroll:true});}catch(err){c.field.focus();}}
+function remove(c){
+  if(c.node.parentNode)c.node.parentNode.removeChild(c.node);
+  delete byNumber[c.n];post({type:"dodaios-node-comment-remove",n:c.n});}
+function hold(c){
+  // The app holds the comment until "Send": it reads as said, with a way back.
+  var said=d.createElement("div");said.className="nc-said";said.textContent=c.field.value;
+  c.field.parentNode.replaceChild(said,c.field);
+  var drop=d.createElement("button");drop.type="button";drop.className="nc-drop";
+  drop.setAttribute("aria-label",labels.remove);drop.title=labels.remove;
+  icon(drop,CROSS);
+  drop.addEventListener("click",function(){if(!c.done)remove(c);});
+  c.button.parentNode.replaceChild(drop,c.button);c.button=drop;
+  c.held=true;c.busy=false;settle(c,labels.pending,"");sent=Math.max(sent,c.n);
+  if(draft===c)draft=null;}
 function answered(n,state){
   var c=byNumber[n];if(!c)return;
-  if(state==="sent"){
-    var said=d.createElement("div");said.className="nc-said";said.textContent=c.field.value;
-    c.field.parentNode.replaceChild(said,c.field);
-    if(c.button.parentNode)c.button.parentNode.removeChild(c.button);
-    settle(c,labels.sent,"is-sent");sent=Math.max(sent,c.n);
-    if(draft===c)draft=null;delete byNumber[n];
-  }else{
+  if(state==="pending"){if(!c.held)hold(c);}
+  else if(state==="sent"){
+    if(!c.held)hold(c);
+    c.done=true;if(c.button.parentNode)c.button.parentNode.removeChild(c.button);
+    settle(c,labels.sent,"is-sent");delete byNumber[n];
+  }else if(c.held){settle(c,labels.failed,"is-failed");}
+  else{
     c.busy=false;c.field.disabled=false;c.button.disabled=false;settle(c,labels.failed,"is-failed");
     try{c.field.focus({preventScroll:true});}catch(err){c.field.focus();}
   }}
@@ -224,6 +252,7 @@ __all__ = [
     "BRIDGE_CSS",
     "BRIDGE_JS",
     "COMMENT_MESSAGE",
+    "COMMENT_REMOVE_MESSAGE",
     "COMMENT_STATE_MESSAGE",
     "MAX_COMMENT_CHARS",
     "MAX_QUOTE_CHARS",

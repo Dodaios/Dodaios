@@ -11,7 +11,7 @@ import { PanelStanding } from "@/components/home/PanelStanding";
 import { useVoiceModeSwitch } from "@/components/home/assistantStatus";
 import { chatRowLabel, useChatRows } from "@/components/home/chatRows";
 import { FOCUS, PANEL_ICON, PANEL_ROW, PANEL_ROW_BUTTON, PanelEmpty, PanelSection } from "@/components/home/panelParts";
-import { MascotGigi } from "@/components/MascotGigi";
+import { PetMark } from "@/components/pets/PetMark";
 import { useRunLocale } from "@/components/runs/format";
 import { humanSchedule } from "@/components/society/card/routines/humanSchedule";
 import { Switch } from "@/components/ui/switch";
@@ -19,6 +19,7 @@ import { useSetSkillEnabled, useSkillsList } from "@/hooks/useSkills";
 import { useVoiceEngineDisplay } from "@/hooks/useVoiceEngineDisplay";
 import { useLocaleChunk, useT } from "@/i18n";
 import { fetchLeadSession } from "@/lib/agentChatApi";
+import { NEUTRAL_ASSISTANT_NAME } from "@/lib/assistantNameCache";
 import { setTaskEnabled } from "@/lib/tasksApi";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
@@ -94,8 +95,9 @@ function useConversation(): { id: string | null; computerId: string } {
  * The assistant's panel, to the right of its conversation: one card that
  * says who it is, what it is doing, and what it has to show for it.
  *
- * On top its face (the product's own mascot), its name and one line for what
- * it is doing right now; face and name lead back to the conversation. Under
+ * On top its face (the pet the person chose in My Pets, the same one the
+ * caption switch and the chat draw), the name the person gave it (from the
+ * wake phrase) and one line for what it is doing right now; face and name lead back to the conversation. Under
  * them the ways to reach it: a call, Slack and Telegram.
  *
  * "Activity" is its work: what it looks after over time (its standing tasks,
@@ -119,6 +121,7 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
   const voice = useVoiceEngineDisplay();
   const { rows, isActive, open: openRow } = useChatRows();
   const conversation = useConversation();
+  const assistantName = useEventStore((s) => s.assistantName);
   const call = useVoiceModeSwitch();
   const [tab, setTab] = useState<Tab>(readTab);
   const [routineId, setRoutineId] = useState<string | null>(null);
@@ -154,7 +157,9 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
   const skillRows = [...(skills.data?.skills ?? [])]
     .filter((skill) => skill.state === "active" || skill.state === "disabled")
     .sort((a, b) => Number(b.state === "active") - Number(a.state === "active") || a.name.localeCompare(b.name));
-  const name = t("sidebar.conversation");
+  // The name the person gave the assistant; the product's name while there is none.
+  const ownName = assistantName.trim();
+  const name = ownName && ownName !== NEUTRAL_ASSISTANT_NAME ? ownName : t("sidebar.conversation");
 
   return (
     <aside aria-label={name} data-testid="assistant-panel"
@@ -162,7 +167,7 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
       <div className="rounded-xl border border-border bg-card p-3">
         <button type="button" data-testid="assistant-panel-conversation" onClick={onConversation} title={name}
           className={cn("flex w-full min-w-0 items-center gap-3 rounded-lg p-1 text-left", FOCUS)}>
-          <MascotGigi size={48} enableComments={false} className="shrink-0" />
+          <PetMark size={48} reactive className="shrink-0" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-base font-semibold text-foreground-strong">{name}</span>
             <PanelStatus leadId={conversation.id} onCall={call.live} />

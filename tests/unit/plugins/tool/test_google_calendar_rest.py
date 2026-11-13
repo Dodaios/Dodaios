@@ -265,3 +265,39 @@ async def test_node_runner_graceful_when_node_missing(monkeypatch):
     out = await _default_node_runner("list_events", {}, "at_1")
     assert out["ok"] is False
     assert "node" in out["error"].lower()
+
+
+def test_a_created_event_comes_back_with_its_calendar_link(tmp_path) -> None:
+    """The real Node bot, with Google's answer stubbed: the event keeps its `htmlLink` as `url`."""
+    import json
+    import shutil
+    import subprocess
+
+    from dodaios.plugins.tool.google_calendar_rest import _BOT_PATH
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is not installed")
+    stub = tmp_path / "stub.mjs"
+    stub.write_text(
+        "globalThis.fetch = async () => new Response(JSON.stringify({"
+        "id: 'e1', summary: 'Tax meeting', htmlLink: 'https://www.google.com/calendar/event?eid=abc',"
+        "start: {dateTime: '2026-11-20T10:00:00+01:00'},"
+        "end: {dateTime: '2026-11-20T11:00:00+01:00'}"
+        "}), {status: 200, headers: {'content-type': 'application/json'}});\n",
+        encoding="utf-8",
+    )
+    payload = {
+        "access_token": "at_1",
+        "action": "create_event",
+        "summary": "Tax meeting",
+        "start": "2026-11-20T10:00:00+01:00",
+        "end": "2026-11-20T11:00:00+01:00",
+    }
+    proc = subprocess.run(
+        [node, "--import", stub.as_uri(), str(_BOT_PATH)],
+        input=json.dumps(payload), capture_output=True, text=True, timeout=30, check=False,
+    )
+    result = json.loads(proc.stdout)
+    assert result["ok"] is True, result
+    assert result["data"]["url"] == "https://www.google.com/calendar/event?eid=abc"
