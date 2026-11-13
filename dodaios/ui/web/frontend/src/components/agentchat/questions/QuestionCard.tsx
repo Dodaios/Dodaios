@@ -1,8 +1,8 @@
 import { memo, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
-import { CircleAlert, CornerDownLeft, MoreHorizontal, SkipForward, Sparkles, X } from "lucide-react";
+import { CircleAlert, CornerDownLeft, MoreHorizontal, Sparkles } from "lucide-react";
 import { useT } from "@/i18n";
 import type { QuestionState } from "../reduce";
-import { AskerMark, useAskerLook } from "./askerLook";
+import { useAskerLook } from "./askerLook";
 import { patchQuestionDraft, useQuestionDraft, useQuestionDrafts, type QuestionDraft } from "./questionDraftStore";
 import {
   answerAsLocal,
@@ -30,8 +30,13 @@ import "./questionCard.css";
  * for a multi-select question, and a short series with Back, Skip and a
  * review step where any answer can still change before one Send. Answers
  * settle the card at once and roll back with Try again if they did not get
- * through. The quiet window shows only in its last minute; the menu offers
- * to skip this one question or to let the agent decide them all.
+ * through.
+ *
+ * The card is the question and nothing else: no header row. The foot holds
+ * the progress dots of a series on the left and Skip beside the main button
+ * on the right. The quiet window shows only in its last minute, as a ring
+ * beside the dots; a series also offers to let the agent decide every
+ * question, behind a small menu there.
  */
 export const QuestionCard = memo(function QuestionCard({ question }: { question: QuestionState }) {
   const t = useT();
@@ -215,7 +220,6 @@ function OpenCard({
     forward();
   };
   const skipStep = () => {
-    setMenuOpen(false);
     const skipped = { ...EMPTY_ANSWER, skipped: true };
     if (!series) {
       submitWith(step, skipped);
@@ -267,7 +271,6 @@ function OpenCard({
   const answered = locals.map(hasAnswer);
   // A lone single question shows Send once the person typed their own words.
   const typedSingle = !series && item?.kind === "single" && Boolean(local.text.trim());
-  const footer = series || item?.kind === "multi" || item?.kind === "text" || typedSingle || failed;
 
   return (
     <section
@@ -281,40 +284,8 @@ function OpenCard({
       onKeyDown={onCardKeyDown}
       style={look.style}
     >
-      <header className="qc-head">
-        <AskerMark agent={look.agent} />
-        <span className="qc-asker">
-          <b>{agentName}</b> {t("question_card.asks")}
-        </span>
-        {series && !reviewing ? (
-          <span className="qc-count" data-testid="question-step">
-            {t("question_card.step").replace("{current}", String(Math.min(step + 1, total))).replace("{total}", String(total))}
-          </span>
-        ) : null}
-        <span className="flex-1" />
-        <CountdownRing question={question} />
-        <button
-          type="button"
-          className="qc-icon-btn"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          aria-label={t("question_card.menu")}
-          title={t("question_card.menu")}
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          {menuOpen ? <X aria-hidden className="h-4 w-4" /> : <MoreHorizontal aria-hidden className="h-4 w-4" />}
-        </button>
-      </header>
-
-      {menuOpen ? (
-        <CardMenu
-          agentName={agentName}
-          canSkipStep={Boolean(item) && !locked(step)}
-          onSkipStep={skipStep}
-          onDecideAll={decideAll}
-          onClose={() => setMenuOpen(false)}
-        />
-      ) : null}
+      {/* Who asks is plain from the chat the card sits in; a screen reader still hears it. */}
+      <span className="qc-sr">{agentName} {t("question_card.asks")}</span>
 
       <div className="qc-steps-frame" style={stepsHeight === null ? undefined : { height: stepsHeight }}>
       <div ref={stepsRef} className="qc-steps" data-reviewing={reviewing ? "" : undefined}>
@@ -362,8 +333,8 @@ function OpenCard({
       </div>
       </div>
 
-      {footer ? (
-        <footer className="qc-foot">
+      <footer className="qc-foot">
+        <span className="qc-foot-start">
           {failed ? (
             <p role="alert" className="qc-alert">
               <CircleAlert aria-hidden className="h-3.5 w-3.5 shrink-0" />
@@ -372,57 +343,67 @@ function OpenCard({
           ) : series ? (
             <Dots total={total} current={step} done={answered} label={t("question_card.step")} progressLabel={t("question_card.progress")} />
           ) : null}
-          <span className="qc-foot-end">
-            {failed ? (
-              <button type="button" className="qc-btn qc-btn-quiet" onClick={() => void actions.retry()} title={failed.error}>
-                {t("question_card.try_again")}
-              </button>
-            ) : null}
-            {series && step > 0 ? (
-              <button type="button" className="qc-btn qc-btn-quiet" onClick={() => goTo(step - 1)}>{t("question_card.back")}</button>
-            ) : null}
-            {series && !reviewing ? (
-              <button type="button" className="qc-btn qc-btn-quiet" onClick={skipStep} disabled={locked(step)}>
-                {t("question_card.skip")}
-              </button>
-            ) : null}
-            {series && !reviewing ? (
-              <button type="button" className="qc-btn qc-btn-primary" onClick={forward} disabled={!hasAnswer(local) && !locked(step)}>
-                {step === total - 1 || backToReview ? t("question_card.review") : t("question_card.next")}
-              </button>
-            ) : null}
-            {reviewing ? (
-              <button type="button" className="qc-btn qc-btn-primary" data-testid="question-send" onClick={sendSeries}>
-                {t("question_card.send_answers")}
-              </button>
-            ) : null}
-            {!series && item && (item.kind !== "single" || typedSingle) && !failed ? (
-              <button type="button" className="qc-btn qc-btn-primary" data-testid="question-done" onClick={commitStep}>
-                {item.kind === "multi" ? null : <CornerDownLeft aria-hidden className="h-3.5 w-3.5" />}
-                {item.kind === "multi" ? t("question_card.done") : t("question_card.send")}
-              </button>
-            ) : null}
-          </span>
-        </footer>
-      ) : (
-        <div className="h-1" />
-      )}
+          <CountdownRing question={question} />
+          {series && !failed ? (
+            <button
+              type="button"
+              className="qc-icon-btn"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-label={t("question_card.menu")}
+              title={t("question_card.menu")}
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <MoreHorizontal aria-hidden className="h-4 w-4" />
+            </button>
+          ) : null}
+        </span>
+        <span className="qc-foot-end">
+          {failed ? (
+            <button type="button" className="qc-btn qc-btn-soft" onClick={() => void actions.retry()} title={failed.error}>
+              {t("question_card.try_again")}
+            </button>
+          ) : null}
+          {series && step > 0 ? (
+            <button type="button" className="qc-btn qc-btn-quiet" onClick={() => goTo(step - 1)}>{t("question_card.back")}</button>
+          ) : null}
+          {!reviewing && !failed ? (
+            <button type="button" className="qc-btn qc-btn-soft" data-testid="question-skip" onClick={skipStep} disabled={locked(step)}
+              title={t("question_card.skip_this_hint").replace("{agent}", agentName)}>
+              {t("question_card.skip")}
+            </button>
+          ) : null}
+          {series && !reviewing ? (
+            <button type="button" className="qc-btn qc-btn-primary" onClick={forward} disabled={!hasAnswer(local) && !locked(step)}>
+              {step === total - 1 || backToReview ? t("question_card.review") : t("question_card.next")}
+            </button>
+          ) : null}
+          {reviewing ? (
+            <button type="button" className="qc-btn qc-btn-primary" data-testid="question-send" onClick={sendSeries}>
+              {t("question_card.send_answers")}
+            </button>
+          ) : null}
+          {!series && item && (item.kind !== "single" || typedSingle) && !failed ? (
+            <button type="button" className="qc-btn qc-btn-primary" data-testid="question-done" onClick={commitStep}>
+              {item.kind === "multi" ? null : <CornerDownLeft aria-hidden className="h-3.5 w-3.5" />}
+              {item.kind === "multi" ? t("question_card.done") : t("question_card.send")}
+            </button>
+          ) : null}
+        </span>
+        {menuOpen ? <CardMenu agentName={agentName} onDecideAll={decideAll} onClose={() => setMenuOpen(false)} /> : null}
+      </footer>
       {target ? <span className="qc-sr" aria-live="polite">{t("question_card.keys_hint")}</span> : null}
     </section>
   );
 }
 
-/** The card's own menu: two clearly named ways out, never a silent close. */
+/** A series' menu: leave every open question to the agent, named, never a silent close. */
 function CardMenu({
   agentName,
-  canSkipStep,
-  onSkipStep,
   onDecideAll,
   onClose,
 }: {
   agentName: string;
-  canSkipStep: boolean;
-  onSkipStep: () => void;
   onDecideAll: () => void;
   onClose: () => void;
 }) {
@@ -439,15 +420,6 @@ function CardMenu({
   }, [onClose]);
   return (
     <div ref={ref} className="qc-menu" role="menu" aria-label={t("question_card.menu")}>
-      {canSkipStep ? (
-        <button type="button" role="menuitem" className="qc-menu-item" onClick={onSkipStep}>
-          <SkipForward aria-hidden className="h-4 w-4" />
-          <span>
-            <span className="qc-menu-title">{t("question_card.skip_this")}</span>
-            <span className="qc-menu-hint">{t("question_card.skip_this_hint").replace("{agent}", agentName)}</span>
-          </span>
-        </button>
-      ) : null}
       <button type="button" role="menuitem" className="qc-menu-item" onClick={onDecideAll}>
         <Sparkles aria-hidden className="h-4 w-4" />
         <span>

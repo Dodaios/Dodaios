@@ -844,15 +844,21 @@ def _register_runtime_manager(manager: Any) -> None:
             return await tools_for_cli_session(session_id, tools, manager)
 
         def lead_hands(session_id: str) -> dict[str, Any]:
-            # The chat's own Connect card: a brain seat has it in its kit, a CLI
-            # seat reaches it over MCP.
+            # The chat's own cards (Connect, the question card, the browser
+            # takeover): a brain seat has them in its kit, a CLI seat reaches
+            # them over MCP.
             from types import SimpleNamespace
 
+            from dodaios.society.ask_tool import lead_ask_tools
             from dodaios.society.browser.takeover_tool import lead_takeover_tools
             from dodaios.society.connect_tool import lead_connect_tools
 
             session = SimpleNamespace(session_id=session_id)
-            return {**lead_connect_tools(session), **lead_takeover_tools(session)}
+            return {
+                **lead_connect_tools(session),
+                **lead_ask_tools(session),
+                **lead_takeover_tools(session),
+            }
 
         runtime_refs.set_brain_manager(manager)
         runtime_refs.set_supervisor_tool_gateway(

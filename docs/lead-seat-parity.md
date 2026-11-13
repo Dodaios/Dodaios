@@ -17,6 +17,12 @@ fails when the seats drift.
   `spawn-subagents`) stay withheld from every chat, as on the brain seat.
 - Addressed coding (`workspace-orchestrate`, `workspace-git`), the board
   (`work_board`), the team relay (`ask_agent`), `product_help` and the Connect card.
+- The question card: `society_ask_user`, the tool a team agent asks with, is one of
+  the chat's own hands (`society.ask_tool.lead_ask_tools`), so the lead asks the
+  person the same way on a brain seat and on every CLI seat. The doctrine sends a
+  question there instead of into the reply, and the ask-gate decides before any card
+  (`docs/agent-score.md`, "Asking component"). A call has no chat to show a card in
+  and asks aloud (`LEAD_ONLY_TOOLS`).
   A new coding agent opens as a chat thread; a terminal pane only when the person
   asks for one (`docs/agentic-ide-threads.md`).
 - The CLI preamble says: delegate through the Dodaios tools, do not use the vendor's
@@ -56,7 +62,7 @@ command line. Closing them needs a per-CLI config file written for the turn.
 
 Two constant blocks ride in the lead conversation's prompt, on the brain runner and on
 the CLI identity alike, and nowhere else (not on a society seat, a worker or a plain
-call): `LEAD_DOCTRINE` (`dodaios/brain/lead_doctrine.py`, at most 1,500 characters, placed
+call): `LEAD_DOCTRINE` (`dodaios/brain/lead_doctrine.py`, at most 1,800 characters, placed
 right after the persona) and the ecosystem map (`dodaios/brain/lead_ecosystem.py`, after
 the team card). The brain runner marks the turn with `TurnOverride.lead`; the CLI identity
 asks `render_surface_prompt(lead=True)`. Both blocks are byte-stable, so they stay in the

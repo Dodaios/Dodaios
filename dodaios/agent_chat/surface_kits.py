@@ -168,6 +168,7 @@ def _society_tools(cfg: Any, brain: Any, session: Any) -> dict[str, Tool]:
 
 def _jarvis_tools(_cfg: Any, _brain: Any, session: Any) -> dict[str, Tool]:
     from dodaios.agent_chat.folder_tools import folder_tools
+    from dodaios.society.ask_tool import lead_ask_tools
     from dodaios.society.browser.takeover_tool import lead_takeover_tools
     from dodaios.society.browser.tool import lead_browser_tools
     from dodaios.society.connect_tool import lead_connect_tools
@@ -178,6 +179,8 @@ def _jarvis_tools(_cfg: Any, _brain: Any, session: Any) -> dict[str, Tool]:
     tools.update(lead_takeover_tools(session))
     # A service the task needs is offered as a Connect card in the chat.
     tools.update(lead_connect_tools(session))
+    # A question that belongs to the person opens the question card.
+    tools.update(lead_ask_tools(session))
     # Addressed-pane coding, the repository tool and the work board: the lead
     # has them on every seat (a CLI seat gets the same set over MCP).
     from dodaios.core import runtime_refs
