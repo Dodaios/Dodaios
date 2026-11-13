@@ -65,7 +65,8 @@ export const MessengerTurn = memo(function MessengerTurn({ turn, avatar, color, 
       }
       if (block.kind !== "tool") return null;
       if (block.credential) return <CredentialCard key={block.callId} credential={block.credential} />;
-      if (block.question) return <QuestionCard key={block.callId} question={block.question} />;
+      // A conversation, not a log: once answered, the card leaves no trace here.
+      if (block.question) return <QuestionCard key={block.callId} question={block.question} settled="hidden" />;
       // Open, the card asks. Allowed once, the step reads like any other (no
       // "Allowed once" row per call). An "Always allowed" line stays (it holds
       // the saved rule and its undo); refused or expired, one line says so.

@@ -195,6 +195,21 @@ export function SettledQuestion({
   );
 }
 
+/**
+ * What a chat that shows no settled cards keeps of one: the reply the person
+ * typed to answer it, as their bubble (the chat sent no message of its own
+ * for it). Nothing when they answered on the card.
+ */
+export function ChatReplyBubble({ question }: { question: QuestionState }) {
+  const reply = chatReply(question);
+  if (!reply) return null;
+  return (
+    <div className="qc-reply" data-testid="question-answered-in-chat">
+      <div className="qc-reply-bubble">{reply}</div>
+    </div>
+  );
+}
+
 function answerChips(item: QuestionItem, answer: QuestionState["answers"][number], index: number, skippedLabel: string) {
   const picked = pickedIndices(answer);
   const own = ownWords(answer, item);

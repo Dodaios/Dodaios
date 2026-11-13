@@ -116,7 +116,14 @@ one **Send answers**, and a small menu that leaves every open question to the
 agent's recommendations. The same card is drawn on the front page, in the IDE
 and in an agent's chat. Claude Code writes its recommendation into an option's
 label ("… (Recommended)"); the card takes the suffix off and puts that option
-first, under its own mark. **Keep planning** closes a plan card so the person can type
+first, under its own mark.
+
+What stays of a card once it is answered, skipped or closed depends on the
+view. A thread in the IDE and the work view keep one quiet line with the
+answers, which opens into the questions. The conversation with the assistant
+(the front page, an agent's chat) keeps nothing: the card is gone the moment
+the person sends it, and comes back only when the answer did not get through.
+A reply the person typed to answer the card stays as their own bubble. **Keep planning** closes a plan card so the person can type
 what to change. A card nobody answered closes when the person sends another
 message instead. Cards are rebuilt from the session's event log, so they
 survive reopening the thread and restarting the app.

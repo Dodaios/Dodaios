@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { MessengerTurn, openNestedApprovals } from "./MessengerTurn";
 import { actionNoticeOf, callPresence, presenceOf } from "./messengerPresence";
+import type { AgentChatEvent } from "@/lib/agentChatApi";
+import { EMPTY_TIMELINE, reduceEvents } from "./reduce";
 import type { ReasoningBlock, TextBlock, ToolBlock, TurnBlock, TurnItem } from "./reduce";
 
 afterEach(cleanup);
@@ -94,6 +96,35 @@ describe("MessengerTurn", () => {
     const line = screen.getByTestId("messenger-presence");
     expect(line.dataset.presence).toBe("writing");
     expect(screen.getByTestId("face")).toBeTruthy();
+  });
+
+  it("leaves no trace of a question card once the person answered it", () => {
+    const ev = (seq: number, kind: string, payload: Record<string, unknown>) =>
+      ({ seq, ts_ms: 1000, kind, payload }) as AgentChatEvent;
+    const asked = [
+      ev(1, "turn_started", { turn_id: "t1" }),
+      ev(2, "tool_call", { turn_id: "t1", call_id: "c1", name: "mcp__dodaios__society_ask_user", input: {} }),
+      ev(3, "question_required", {
+        turn_id: "t1",
+        question_id: "q1",
+        asker: "Nova",
+        questions: [{ question: "Which class?", options: [{ label: "First" }, { label: "Business" }], recommended: 0 }],
+      }),
+    ];
+    const settled = [
+      ...asked,
+      ev(4, "question_resolved", { turn_id: "t1", question_id: "q1", answers: [{ answer: "Business", option_index: 1, source: "person" }] }),
+      ev(5, "assistant_text", { turn_id: "t1", text: "Thanks. I am looking for the flights now." }),
+      ev(6, "turn_finished", { turn_id: "t1", status: "done" }),
+    ];
+    const turnOf = (events: AgentChatEvent[]) =>
+      reduceEvents(EMPTY_TIMELINE, events).items.find((item) => item.type === "turn") as TurnItem;
+    const view = render(<MessengerTurn turn={turnOf(settled)} avatar={<span />} color="#7ab6ef" onDecide={() => undefined} />);
+    // Not the one-line summary with the picked answers either: only the reply.
+    expect(screen.queryByTestId("question-card")).toBeNull();
+    expect(view.container.textContent).not.toContain("Business");
+    expect(view.container.textContent).not.toContain("Which class?");
+    expect(screen.getAllByTestId("agent-message-bubble")).toHaveLength(1);
   });
 
   it("opens memory receipts from the Noted quill lines, never as a line of their own twice", () => {

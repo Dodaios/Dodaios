@@ -148,7 +148,11 @@ describe("question events", () => {
   });
 });
 
-function draw(questions: QuestionState | QuestionState[], overrides: Record<string, unknown> = {}) {
+function draw(
+  questions: QuestionState | QuestionState[],
+  overrides: Record<string, unknown> = {},
+  settled?: "summary" | "hidden",
+) {
   const store = createAgentChatStore("society");
   const submit = vi.fn(async () => undefined);
   const skip = vi.fn(async () => undefined);
@@ -157,7 +161,7 @@ function draw(questions: QuestionState | QuestionState[], overrides: Record<stri
   const list = Array.isArray(questions) ? questions : [questions];
   const view = render(
     <AgentChatStoreProvider store={store}>
-      {list.map((q) => <QuestionCard key={q.questionId} question={q} />)}
+      {list.map((q) => <QuestionCard key={q.questionId} question={q} settled={settled} />)}
     </AgentChatStoreProvider>,
   );
   return { store, submit, skip, touch, view };
@@ -550,6 +554,56 @@ describe("QuestionCard", () => {
     expect(card.hasAttribute("data-settled")).toBe(true);
     expect(card.textContent).toContain("Use files");
     expect(screen.queryByTestId("question-answered-in-chat")).toBeNull();
+  });
+});
+
+describe("a conversation that keeps no settled cards", () => {
+  const answered = (source: string, answer = "Postgres", option: number | null = 1) =>
+    ev("question_resolved", {
+      turn_id: "t1",
+      question_id: "q1",
+      answers: [{ answer, option_index: option, source }],
+    });
+
+  it("draws nothing for a card that was answered, skipped or closed", () => {
+    for (const source of ["person", "timeout", "skipped", "declined", "moved_on"]) {
+      const { view } = draw(questionOf(asking([answered(source)], [DB])), {}, "hidden");
+      expect(screen.queryByTestId("question-card")).toBeNull();
+      expect(view.container.textContent).toBe("");
+      view.unmount();
+      seq = 0;
+    }
+    const { view } = draw(questionOf(asking([ev("turn_finished", { turn_id: "t1", status: "cancelled" })], [DB])), {}, "hidden");
+    expect(view.container.textContent).toBe("");
+  });
+
+  it("takes the card away the moment the person answers, and brings it back if that failed", async () => {
+    const submit = vi.fn()
+      .mockRejectedValueOnce(new AgentChatApiError("network down", 500))
+      .mockResolvedValueOnce(undefined);
+    const { view } = draw(questionOf(asking([], [DB])), { submitQuestion: submit }, "hidden");
+    fireEvent.click(rowsOf(screen.getByTestId("question-card"))[1]);
+    // Gone in the same frame, before the request returns.
+    expect(screen.queryByTestId("question-card")).toBeNull();
+    // The answer did not get through: the card is back, with the way to send it again.
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/was not sent/i);
+    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByTestId("question-card")).toBeNull());
+    expect(view.container.textContent).toBe("");
+  });
+
+  it("keeps the reply the person typed to answer the card as their bubble", () => {
+    const { view } = draw(questionOf(asking([answered("message", "Take Postgres please", null)], [DB])), {}, "hidden");
+    expect(screen.queryByTestId("question-card")).toBeNull();
+    expect(screen.getByTestId("question-answered-in-chat").textContent).toBe("Take Postgres please");
+    expect(view.container.textContent).toBe("Take Postgres please");
+  });
+
+  it("still shows the open card", () => {
+    draw(questionOf(asking([], [DB])), {}, "hidden");
+    expect(screen.getByTestId("question-card").getAttribute("data-state")).toBe("open");
   });
 });
 
