@@ -10,6 +10,7 @@ import os
 from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -83,6 +84,10 @@ class LiveUpdates:
             await self.changed.wait()
 
 
+def _forget_rpc(tasks: dict[str, asyncio.Task], key: str, _: asyncio.Task) -> None:
+    tasks.pop(key, None)
+
+
 @dataclass
 class LiveSession:
     agent_id: str
@@ -93,6 +98,8 @@ class LiveSession:
     subscribers: set[LiveUpdates] = field(default_factory=set)
     attention: dict[str, dict] = field(default_factory=dict)
     tasks: set[asyncio.Task] = field(default_factory=set)
+    # The answer task of each open worker request, by request id.
+    rpc_tasks: dict[str, asyncio.Task] = field(default_factory=dict)
     readers: list[asyncio.Task] = field(default_factory=list)
     write_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     run_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -199,6 +206,23 @@ class LiveSession:
                     )
                     self.tasks.add(task)
                     task.add_done_callback(self.tasks.discard)
+                    key = str(event.get("id", ""))
+                    self.rpc_tasks[key] = task
+                    task.add_done_callback(partial(_forget_rpc, self.rpc_tasks, key))
+                elif kind == "rpc_cancel":
+                    # The worker gave up on this request (its step was cancelled
+                    # or timed out). Stop answering it, which also withdraws an
+                    # approval card the request is waiting on.
+                    abandoned = self.rpc_tasks.pop(str(event.get("id", "")), None)
+                    if abandoned is not None and not abandoned.done():
+                        abandoned.cancel()
+                elif kind == "consent":
+                    # The run result lists these too (``consent_dismissed``).
+                    log.info(
+                        "Browser refused a consent wall on %s (%s)",
+                        event.get("host") or "a page",
+                        event.get("text") or event.get("how") or "",
+                    )
                 elif kind == "state":
                     if self.login_guard:
                         event = {**event, "manual": True, "login_mode": True}

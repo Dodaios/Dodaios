@@ -25,6 +25,31 @@ The Dodaios root chat uses the lead agent's same browser profile and its selecte
 chat model. Its Add picker includes the browser tool. Stopping the browser task
 also stops the owning chat, whether it is the root chat or a specialist session.
 
+## Cookie banners, time limits and model replies
+
+- **Consent walls.** Before every agent step the worker refuses a cookie banner
+  or consent wall itself (`society/browser/consent_walls.py`): Google's
+  `consent.google.com`, OneTrust, Cookiebot, Usercentrics, Didomi, Sourcepoint
+  and other TCF banners, and German or English labels inside a consent banner,
+  also in iframes and open shadow roots. It only ever picks "reject all" or
+  "only necessary cookies". A banner that offers only "accept", or a refusal
+  that is really a subscription ("refuse and subscribe", "Pur-Abo"), is left
+  for the agent. The run result lists what was refused (`consent_dismissed`).
+  These clicks need no approval card: they share nothing and are the most
+  private answer the page offers.
+- **Time limits.** A page action that does not return in time fails and the
+  agent tries another way: click 40 s (it may wait for a download it started),
+  typing, scrolling and tab actions 30 s, navigation 60 s; `extract` keeps
+  Browser-Use's 180 s because a model call runs inside it. The step limit
+  (900 s) no longer cuts off a click that waits for the owner's approval card
+  (up to 600 s); the parent's run deadline still bounds the whole task. A
+  request the worker abandons withdraws its approval card (`rpc_cancel`).
+- **Model replies.** Browser-Use needs one JSON object per step. A reply with
+  the JSON in a code fence or after a sentence is read anyway; a prose-only
+  reply gets one plain re-ask inside the same step instead of costing a step
+  (`society/browser/model_reply.py`). Before this, three prose replies in a row
+  ended the run.
+
 ## Watch and take over
 
 The owner can watch an agent's browser live and take over for what an agent

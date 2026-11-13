@@ -182,8 +182,10 @@ async def execute_live(
         system += "\n" + "\n".join(str(m.content) for m in all_messages if m.role == "system")
         if schema:
             system += (
-                "\nReturn a JSON object conforming exactly to this JSON Schema:\n"
-                + json.dumps(schema)
+                "\nReply with exactly one JSON object conforming to this JSON Schema, and "
+                "nothing else: no text before or after it and no code fence. Even when the "
+                "task cannot be finished, reply with that JSON object (its done action with "
+                "success=false), never with prose.\n" + json.dumps(schema)
             )
         request = BrainRequest(
             messages=messages,
