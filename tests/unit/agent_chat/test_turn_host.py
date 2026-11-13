@@ -1333,3 +1333,139 @@ def test_the_host_keeps_stdin_open_past_the_empty_answer_to_a_task_notice() -> N
         turn_id="u", proc=None, meta={}, started_at=0.0, close_stdin_on="result"  # type: ignore[arg-type]
     )
     assert turn_host._is_answer(fresh, json.dumps(empty))
+
+
+async def test_a_restarted_app_closes_the_question_cards_only_the_old_process_waited_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, app_host_mode: Any
+) -> None:
+    """The CLI asks again on a new card; the cards from before the restart close.
+
+    2026-11-13: three restarts in one turn stacked four copies of the same
+    ``AskUserQuestion`` card, and a click on an old one answered "no such open
+    question". What the person picked before the restart still counts.
+    """
+    monkeypatch.setattr(turn_host_client, "spool_dir", lambda: tmp_path / "spool")
+    monkeypatch.setattr(turn_host_client, "_host_alive", lambda state: False)
+
+    async def no_live_host(*, start: bool = True) -> None:
+        return None
+
+    monkeypatch.setattr(turn_host_client, "get_client", no_live_host)
+    db = tmp_path / "agent_chat.db"
+    store = AgentChatStore(db)
+    session = store.create_session(
+        provider="claude-api",
+        model="m",
+        effort="medium",
+        cwd=str(tmp_path),
+        surface="agent",
+        permission_mode="bypassPermissions",
+    )
+    sid = session.session_id
+    rows = [
+        {
+            "question": "Reload the Dev app?",
+            "header": "Dev app",
+            "options": [{"label": "Yes", "description": ""}, {"label": "Wait", "description": ""}],
+            "multiSelect": False,
+        },
+        {
+            "question": "Merge after the check?",
+            "header": "Merge",
+            "options": [
+                {"label": "Merge", "description": ""},
+                {"label": "Hold", "description": ""},
+            ],
+            "multiSelect": False,
+        },
+    ]
+    asked = [
+        {
+            "question": row["question"],
+            "header": row["header"],
+            "options": [{"label": o["label"]} for o in row["options"]],
+        }
+        for row in rows
+    ]
+
+    def card(question_id: str, **extra: Any) -> dict[str, Any]:
+        payload = {"turn_id": "t1", "question_id": question_id, "questions": asked, **extra}
+        return {"kind": "question_required", "ts_ms": 2_000, "payload": payload}
+
+    picked = {"answer": "Yes", "option_index": 0, "source": "person"}
+    store.append_event(sid, {"kind": "turn_started", "ts_ms": 1_000, "payload": {"turn_id": "t1"}})
+    for event in (
+        card("first"),
+        card("second"),
+        {
+            "kind": "question_progress",
+            "ts_ms": 2_500,
+            "payload": {"turn_id": "t1", "question_id": "second", "answers": [picked, None]},
+        },
+        card("later", deferred=True),
+    ):
+        store.append_event(sid, event)
+    lines = [
+        _CLAUDE_LINES[0],
+        _CLAUDE_LINES[2],
+        {
+            "type": "control_request",
+            "request_id": "r1",
+            "request": {
+                "subtype": "can_use_tool",
+                "tool_name": "AskUserQuestion",
+                "input": {"questions": rows},
+                "tool_use_id": "tu1",
+            },
+        },
+        *_CLAUDE_LINES[3:],
+    ]
+    record = _spool_record(tmp_path, session_id=sid, turn_id="t1", acked=2)
+    record["stdout"] = [json.dumps(line) for line in lines]
+    await asyncio.to_thread(
+        Path(record["spool_path"]).write_text, json.dumps(record), encoding="utf-8"
+    )
+
+    svc = AgentChatService(AgentChatStore(db))
+    await svc.wait_reattached()
+
+    def live_card() -> str:
+        ids = [
+            e["payload"]["question_id"]
+            for e in store.list_events(sid)
+            if e["kind"] == "question_required" and not e["payload"].get("deferred")
+        ]
+        return ids[-1]
+
+    for _ in range(200):
+        if live_card() not in ("first", "second"):
+            break
+        await asyncio.sleep(0.02)
+    fresh = live_card()
+    assert fresh not in ("first", "second")
+    closed = {
+        e["payload"]["question_id"]: [a["source"] for a in e["payload"]["answers"]]
+        for e in store.list_events(sid)
+        if e["kind"] == "question_resolved"
+    }
+    # The end-of-turn card lives in the event log and stays open.
+    assert closed == {"first": ["cancelled", "cancelled"], "second": ["person", "cancelled"]}
+    order = [
+        (e["kind"], e["payload"].get("question_id"))
+        for e in store.list_events(sid)
+        if e["kind"] in ("question_required", "question_resolved")
+    ]
+    assert order.index(("question_resolved", "first")) < order.index(("question_required", fresh))
+
+    # The answer from before the restart is recalled; the new card asks only the rest.
+    assert not svc.resolve_question(sid, "second", index=1, option_index=0)
+    assert svc.resolve_question(sid, fresh, index=1, option_index=1)
+    run = svc._running.get(sid)
+    if run is not None and run.task is not None:
+        await asyncio.wait_for(run.task, timeout=10)
+    events = store.list_events(sid)
+    final = [e["payload"] for e in events if e["kind"] == "question_resolved"][-1]
+    assert final["question_id"] == fresh
+    assert [a["answer"] for a in final["answers"]] == ["Yes", "Hold"]
+    assert events[-1]["kind"] == "turn_finished"
+    assert events[-1]["payload"]["status"] == "done"
