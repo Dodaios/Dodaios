@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  Bot, ChevronRight, Hand, Hourglass, KeyRound, Lightbulb, Loader2, Plug, RefreshCw, Rocket, ShieldCheck, SquareTerminal,
+  Bot, ChevronRight, Hand, Hourglass, KeyRound, Lightbulb, Loader2, Plus, RefreshCw, Rocket, ShieldCheck, SquareTerminal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -14,13 +14,15 @@ import { AgentSwatch } from "@/components/society/AgentSwatch";
 import { useSocietyRoster } from "@/components/society/data";
 import { QuickTooltip } from "@/components/ui/tooltip";
 import { refreshPluginAttention } from "@/hooks/usePluginAttention";
-import { useSignIn } from "@/hooks/useSignIn";
+import { useServiceConnect, type ServiceToConnect } from "@/hooks/useServiceConnect";
 import { fill, useT } from "@/i18n";
+import { submitAgentChatCredential } from "@/lib/agentChatApi";
 import { requestPluginFocus } from "@/lib/customConnector";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 
 import { NOTICES_SHOWN, type NoticeAsk, type RailNotice } from "./railNotices";
+import { refreshStatusLight } from "./statusLightStore";
 import { goToStatusRow, openKeys } from "./statusRows";
 
 /**
@@ -30,8 +32,9 @@ import { goToStatusRow, openKeys } from "./statusRows";
  * coding CLI's mark, the agent's face) and WHAT is asked as a small badge on
  * its corner (reconnect, a question, an approval, a warning). Hovering says it
  * in a sentence, with what a click does; the click does it. A connection that
- * ended is reconnected right from its tile: the click starts the service's own
- * sign-in and the tile leaves once the service reports connected.
+ * ended, and a service an agent asks for, are connected right from the tile:
+ * the click starts the service's own sign-in and the tile leaves once the
+ * service reports connected.
  *
  * Loaded only when there is a notice: the logos and the sign-in stay out of
  * the start of the app for the usual case of a quiet rail.
@@ -49,7 +52,8 @@ const BADGE_TONE: Record<RailNotice["tone"], string> = {
 
 const ASK_ICON: Partial<Record<NoticeAsk, LucideIcon>> = {
   reconnect: RefreshCw,
-  connect: Plug,
+  // A plus reads at this size; a plug drawn in eleven pixels did not.
+  connect: Plus,
   approval: ShieldCheck,
   credential: KeyRound,
   proposal: Lightbulb,
@@ -68,11 +72,13 @@ function AskBadge({ notice, busy = false, small = false }: { notice: RailNotice;
     <span aria-hidden data-testid="rail-notice-badge" data-ask={notice.ask}
       className={cn(
         "absolute flex items-center justify-center rounded-full ring-2",
-        small ? "-bottom-1 -right-1 h-4 w-4 ring-popover" : "-bottom-0.5 -right-0.5 h-[18px] w-[18px] ring-sidebar",
+        // Set out past the tile's edge, so it sits beside the logo instead of on it.
+        small ? "-bottom-1 -right-1 h-4 w-4 ring-popover" : "-bottom-1 -right-1 h-[18px] w-[18px] ring-sidebar",
         BADGE_TONE[notice.tone],
       )}>
       {Icon
-        ? <Icon strokeWidth={2.4} className={cn(small ? "h-2.5 w-2.5" : "h-[11px] w-[11px]", busy && "motion-safe:animate-spin")} />
+        // A stroke measured in pixels: scaled down with the glyph it would thin out to a hairline.
+        ? <Icon absoluteStrokeWidth strokeWidth={1.75} className={cn(small ? "h-2.5 w-2.5" : "h-3 w-3", busy && "motion-safe:animate-spin")} />
         : <span className="text-[11px] font-bold leading-none">{ASK_SIGN[notice.ask] ?? "!"}</span>}
     </span>
   );
@@ -105,17 +111,37 @@ function SubjectMark({ notice, size }: { notice: RailNotice; size: number }) {
   return <Glyph aria-hidden strokeWidth={1.75} className="h-5 w-5 text-muted-foreground" />;
 }
 
+/** The service a click on this notice connects, or null when the click leads somewhere instead. */
+function serviceOf(notice: RailNotice): ServiceToConnect | null {
+  const { target } = notice;
+  if (target.type === "reconnect") return { kind: "plugin", id: target.pluginId, label: notice.subject };
+  if (target.type === "connect") return { kind: target.service, id: target.id, label: notice.subject };
+  return null;
+}
+
 /**
- * What a click on a notice does, and how far a reconnect has come.
+ * What a click on a notice does, and how far a connect has come.
+ *
+ * A connection that ended, and a service an agent asks for, are connected
+ * right from the notice: the click starts the service's own sign-in, and the
+ * notice stays to show it. Once the service reports connected, an agent's
+ * Connect card is told so (the agent goes on by itself). Every other notice
+ * leads to its place.
  *
  * `note` replaces the notice's second line while a sign-in runs (finish it in
  * the browser, the code to type there) or after it failed.
  */
 function useNoticeGo(notice: RailNotice, onDone?: () => void): { go: () => void; busy: boolean; note: string | null } {
   const t = useT();
-  const { phase, connectPlugin, start } = useSignIn(notice.subject, () => {
+  const service = serviceOf(notice);
+  const { phase, connect } = useServiceConnect(service ?? { kind: "plugin", id: "", label: notice.subject }, async () => {
+    const { target } = notice;
+    if (target.type === "connect" && target.row.link.session_id && target.row.link.ref_id) {
+      // The card's own chat hears it; the backend checks the connection again before the agent does.
+      await submitAgentChatCredential(target.row.link.session_id, target.row.link.ref_id, "connected").catch(() => undefined);
+    }
     useEventStore.getState().pushToast("success", fill(t("connect_card.connected"), { label: notice.subject }));
-    return refreshPluginAttention();
+    await Promise.all([refreshPluginAttention(), refreshStatusLight()]);
   });
   const failure = phase.kind === "failed" ? phase.message : null;
   // A sign-in that failed says so where the person is looking, not only on hover.
@@ -130,9 +156,9 @@ function useNoticeGo(notice: RailNotice, onDone?: () => void): { go: () => void;
 
   const go = () => {
     const { target } = notice;
-    if (target.type === "reconnect") {
-      if (!busy) start(() => connectPlugin(target.pluginId));
-      // The sign-in goes on in the browser; the tile stays to show it.
+    if (service) {
+      // The sign-in goes on in the browser; the notice stays to show it.
+      if (!busy) connect();
       return;
     }
     if (target.type === "plugin") {
@@ -140,9 +166,9 @@ function useNoticeGo(notice: RailNotice, onDone?: () => void): { go: () => void;
       useEventStore.getState().setActiveSection("plugins");
     } else if (target.type === "keys") {
       openKeys();
-    } else if (target.row.link.workspace_id && target.row.link.pane) {
+    } else if (target.type === "row" && target.row.link.workspace_id && target.row.link.pane) {
       openPaneSession({ workspace_id: target.row.link.workspace_id, name: target.row.link.pane });
-    } else {
+    } else if (target.type === "row") {
       goToStatusRow(target.row);
     }
     onDone?.();

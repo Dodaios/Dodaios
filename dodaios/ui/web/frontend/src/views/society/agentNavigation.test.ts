@@ -93,6 +93,14 @@ describe("cards", () => {
     expect(later.dataset.attentionHighlight).toBeUndefined();
   });
 
+  it("finds a login card and a Connect card as the credential kind", () => {
+    for (const testId of ["login-card", "connect-card"]) {
+      const host = document.createElement("div");
+      host.innerHTML = `<div data-testid="${testId}" data-state="success"></div><div id="open" data-testid="${testId}" data-state="open"></div>`;
+      expect(findCard(host, undefined, "credential")?.id).toBe("open");
+    }
+  });
+
   it("gives up quietly when no card shows", async () => {
     vi.useFakeTimers();
     const found = revealCard({ kind: "credential" }, { root: card(""), timeoutMs: 200, intervalMs: 50 });

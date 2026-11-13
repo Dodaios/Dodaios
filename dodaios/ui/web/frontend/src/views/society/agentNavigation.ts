@@ -78,7 +78,8 @@ export function isAgentOnScreen(agentId: string): boolean {
 const OPEN_CARD: Record<CardKind, string> = {
   question: '[data-testid="question-card"][data-state="open"]',
   approval: '[data-testid="thread-approval"]',
-  credential: '[data-testid="credential-card"][data-state="open"]',
+  // An agent asks for a secret, a login or a service to connect: three cards, one kind.
+  credential: ':is([data-testid="credential-card"], [data-testid="login-card"], [data-testid="connect-card"])[data-state="open"]',
   proposal: '[data-card-kind="proposal"]',
 };
 

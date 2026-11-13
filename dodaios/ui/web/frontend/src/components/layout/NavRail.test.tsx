@@ -31,12 +31,18 @@ const PANE: StatusRow = {
 
 let plugins: Plugin[] = [];
 let calls: string[] = [];
+/** What a notice told an agent's chat: the credential request and the value sent. */
+let reported: string[] = [];
 
 /** Answers the rail's reads: the status light and the plugin list; a sign-in finishes at once. */
 function backend(light: StatusLightData | null = null) {
-  return vi.fn(async (input: RequestInfo | URL) => {
+  return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     calls.push(url);
+    if (url.includes("/credentials/")) {
+      reported.push(`${url} ${String(init?.body ?? "")}`);
+      return new Response(JSON.stringify({ status: "saved" }), { status: 200 });
+    }
     const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
     if (url === "/api/status-light") return light ? json(light) : new Response("no", { status: 500 });
     if (url.endsWith("/connect/start")) {
@@ -59,6 +65,7 @@ beforeAll(async () => { await import("@/components/layout/RailNoticeTiles"); });
 beforeEach(() => {
   plugins = [];
   calls = [];
+  reported = [];
   useStatusLightStore.setState({ light: null, error: false });
   useEventStore.setState({ activeSection: "chats", toasts: [] });
   vi.stubGlobal("fetch", backend());
@@ -176,6 +183,26 @@ describe("NavRail", () => {
     expect(secret.dataset.ask).toBe("credential");
     expect(secret.getAttribute("aria-label")).toContain("Nova needs a login or a key");
   });
+
+  test("a click on a service an agent asks for connects it and tells that agent's chat", async () => {
+    plugins = [{ id: "gmail", display_name: "Gmail", status: "not_connected" }];
+    vi.stubGlobal("fetch", backend({
+      ...QUIET,
+      needs_you: [{ ...card("credential", "c1", "Gmail", "a1", "Nova"), connect: { kind: "plugin", id: "gmail", label: "Gmail" } }],
+    }));
+    renderRail();
+    const tile = await screen.findByTestId("rail-notice");
+    fireEvent.click(tile);
+    // The click starts the sign-in where the person is; nothing sends them looking for a card.
+    await waitFor(() => expect(calls).toContain("/api/marketplace/plugins/gmail/connect/start"));
+    expect(useEventStore.getState().activeSection).toBe("chats");
+    expect(tile.getAttribute("aria-busy")).toBe("true");
+    // Connected: the Connect card's chat hears it, so the agent goes on by itself.
+    await waitFor(() => expect(reported).toEqual([
+      '/api/agent-chat/sessions/society%3Aa1/credentials/c1 {"value":"connected"}',
+    ]), { timeout: 6000 });
+    await waitFor(() => expect(useEventStore.getState().toasts.some((toast) => toast.message === "Gmail connected")).toBe(true));
+  }, 10_000);
 
   test("a waiting coding agent says which CLI waits and where, and opens its pane", async () => {
     vi.stubGlobal("fetch", backend({ ...QUIET, needs_you: [PANE] }));
