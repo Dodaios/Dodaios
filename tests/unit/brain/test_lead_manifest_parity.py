@@ -59,12 +59,13 @@ def _gateway(live=_LIVE):
     workspace = _Tool("workspace-orchestrate")
     workspace.gateway = object()
     connect = _Tool("society_request_connect")
+    ask = _Tool("society_ask_user")
     takeover = _Tool("request_browser_takeover")
     return BrainSupervisorToolGateway(
         manager,
         workspace_tool=workspace,
         lead_session=lambda sid: sid == "lead",
-        lead_hands=lambda sid: {connect.name: connect, takeover.name: takeover},
+        lead_hands=lambda sid: {connect.name: connect, ask.name: ask, takeover.name: takeover},
     )
 
 
@@ -83,6 +84,10 @@ def _brain_seat_names(gateway, monkeypatch) -> set[str]:
     connect = _Tool("society_request_connect")
     monkeypatch.setattr(
         "dodaios.society.connect_tool.lead_connect_tools", lambda session: {connect.name: connect}
+    )
+    ask = _Tool("society_ask_user")
+    monkeypatch.setattr(
+        "dodaios.society.ask_tool.lead_ask_tools", lambda session: {ask.name: ask}
     )
     takeover = _Tool("request_browser_takeover")
     monkeypatch.setattr(
@@ -120,6 +125,8 @@ async def test_the_lead_is_the_same_on_the_brain_seat_the_cli_seat_and_voice(mon
         "workspace-git",
         "society_request_connect",
         "request_browser_takeover",
+        # A question that belongs to the person opens the question card.
+        "society_ask_user",
         # Multi-day work and what the lead looks after with no end date.
         "project",
         "standing_task",

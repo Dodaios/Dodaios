@@ -163,16 +163,23 @@ function draw(questions: QuestionState | QuestionState[], overrides: Record<stri
   return { store, submit, skip, touch, view };
 }
 
+/** The step on screen, as the progress dots announce it ("1 of 2"). */
+function stepOf(): string {
+  return (screen.getByTestId("question-dots").getAttribute("aria-label") ?? "").split(",")[0];
+}
+
 function rowsOf(card: HTMLElement): HTMLButtonElement[] {
   return Array.from(card.querySelectorAll<HTMLButtonElement>(".qc-step[data-active] button[data-recommended]"));
 }
 
 describe("QuestionCard", () => {
-  it("titles the card with the asker and the question, lettered rows and the recommendation", () => {
+  it("opens with the question itself, lettered rows and the recommendation, and no header row", () => {
     draw(questionOf(asking([], [DB])));
     const card = screen.getByTestId("question-card");
     expect(card.getAttribute("data-state")).toBe("open");
-    expect(card.textContent).toContain("Ada");
+    // Who asks is plain from the chat; only a screen reader hears it.
+    expect(within(card).getByText("Ada asks").className).toBe("qc-sr");
+    expect(card.querySelector("header")).toBeNull();
     expect(within(card).getByRole("heading").textContent).toBe(DB.question);
     const rows = rowsOf(card);
     expect(rows.map((r) => r.getAttribute("aria-keyshortcuts"))).toEqual(["A", "B"]);
@@ -238,9 +245,9 @@ describe("QuestionCard", () => {
   it("walks a series with auto-advance, review, change and one send", async () => {
     const { submit } = draw(questionOf(asking()));
     const card = screen.getByTestId("question-card");
-    expect(screen.getByTestId("question-step").textContent).toBe("1 of 2");
+    expect(stepOf()).toBe("1 of 2");
     fireEvent.keyDown(window, { key: "a" });
-    await waitFor(() => expect(screen.getByTestId("question-step").textContent).toBe("2 of 2"));
+    await waitFor(() => expect(stepOf()).toBe("2 of 2"));
     fireEvent.click(rowsOf(card)[2]);
     const review = await screen.findByTestId("question-review");
     await waitFor(() => expect(review.closest(".qc-step")?.hasAttribute("data-active")).toBe(true));
@@ -249,7 +256,7 @@ describe("QuestionCard", () => {
     expect(submit).not.toHaveBeenCalled();
     // Change the first answer: the new pick returns straight to the review.
     fireEvent.click(within(review).getAllByRole("button")[0]);
-    expect(screen.getByTestId("question-step").textContent).toBe("1 of 2");
+    expect(stepOf()).toBe("1 of 2");
     expect(rowsOf(card)[0].querySelector("[data-on]")).not.toBeNull();
     fireEvent.click(rowsOf(card)[1]);
     await waitFor(() => expect(review.closest(".qc-step")?.hasAttribute("data-active")).toBe(true));
@@ -339,9 +346,9 @@ describe("QuestionCard", () => {
     const { submit } = draw(questionOf(asking()));
     const card = screen.getByTestId("question-card");
     fireEvent.click(within(card).getByRole("button", { name: /^skip$/i }));
-    expect(screen.getByTestId("question-step").textContent).toBe("2 of 2");
+    expect(stepOf()).toBe("2 of 2");
     fireEvent.click(within(card).getByRole("button", { name: /^back$/i }));
-    expect(screen.getByTestId("question-step").textContent).toBe("1 of 2");
+    expect(stepOf()).toBe("1 of 2");
     fireEvent.click(within(card).getByRole("button", { name: /^skip$/i }));
     fireEvent.click(within(card).getByRole("button", { name: /^skip$/i }));
     fireEvent.click(screen.getByTestId("question-send"));
@@ -351,7 +358,7 @@ describe("QuestionCard", () => {
   it("toggles a multi-select question and sends it with Done", async () => {
     const { submit } = draw(questionOf(asking([], [FEATURES])));
     const card = screen.getByTestId("question-card");
-    expect(card.textContent).toMatch(/pick all that apply/i);
+    expect(card.textContent).toMatch(/select all that apply/i);
     const rows = rowsOf(card);
     expect(rows.filter((r) => r.getAttribute("data-recommended") === "true")).toHaveLength(2);
     fireEvent.click(rows[0]);
@@ -400,18 +407,32 @@ describe("QuestionCard", () => {
     );
   });
 
-  it("offers two named ways out instead of a silent close", async () => {
+  it("skips a lone question with the Skip pill in the foot, and shows no menu", async () => {
     const { skip, submit } = draw(questionOf(asking([], [DB])));
-    fireEvent.click(screen.getByRole("button", { name: /question options/i }));
+    const card = screen.getByTestId("question-card");
+    expect(within(card).queryByRole("button", { name: /question options/i })).toBeNull();
+    expect(screen.queryByTestId("question-dots")).toBeNull();
+    fireEvent.click(within(card).getByRole("button", { name: /^skip$/i }));
+    await waitFor(() => expect(submit).toHaveBeenCalledWith("q1", [{ skip: true }]));
+    expect(skip).not.toHaveBeenCalled();
+  });
+
+  it("lets the agent decide a whole series from the menu beside the dots", async () => {
+    const { skip, submit } = draw(questionOf(asking()));
+    const foot = screen.getByTestId("question-card").querySelector("footer")!;
+    // The foot: dots and the menu on the left, Skip and Next on the right.
+    expect(within(foot).getByTestId("question-dots")).toBeTruthy();
+    expect(within(foot).getAllByRole("button").map((b) => b.textContent || b.getAttribute("aria-label")))
+      .toEqual(["Question options", "Skip", "Next"]);
+    fireEvent.click(within(foot).getByRole("button", { name: /question options/i }));
     const menu = screen.getByRole("menu");
     expect(within(menu).getAllByRole("menuitem").map((m) => m.textContent)).toEqual([
-      expect.stringMatching(/skip this question/i),
       expect.stringMatching(/let ada decide all/i),
     ]);
     fireEvent.click(within(menu).getByRole("menuitem", { name: /let ada decide all/i }));
     await waitFor(() => expect(skip).toHaveBeenCalledWith("q1"));
     expect(submit).not.toHaveBeenCalled();
-    // Settled optimistically with the recommendation.
+    // Settled optimistically with the recommendations.
     expect(screen.getByTestId("question-card").textContent).toContain("SQLite");
   });
 
@@ -438,10 +459,10 @@ describe("QuestionCard", () => {
     const q = questionOf(asking());
     const first = draw(q);
     fireEvent.click(rowsOf(screen.getByTestId("question-card"))[1]);
-    await waitFor(() => expect(screen.getByTestId("question-step").textContent).toBe("2 of 2"));
+    await waitFor(() => expect(stepOf()).toBe("2 of 2"));
     first.view.unmount();
     draw(q);
-    expect(screen.getByTestId("question-step").textContent).toBe("2 of 2");
+    expect(stepOf()).toBe("2 of 2");
     fireEvent.click(screen.getByRole("button", { name: /^back$/i }));
     expect(rowsOf(screen.getByTestId("question-card"))[1].querySelector("[data-on]")).not.toBeNull();
   });

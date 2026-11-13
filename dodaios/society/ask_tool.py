@@ -13,11 +13,15 @@ Three guarantees keep work moving and asking rare:
   agent gets its own recommendations back instead of another card.
 * A routine never asks. Its chat is unattended by design, so the tool is not
   offered there (``society_tools``) and refuses to wait if called anyway.
+
+The person's own assistant asks the same way: its chat (surface ``jarvis``)
+gets this tool on every seat (:func:`lead_ask_tools`).
 """
 
 from __future__ import annotations
 
 import logging
+from collections import OrderedDict
 from typing import Any, Final
 
 from dodaios.agent_chat import ask_gate
@@ -50,7 +54,7 @@ from .routine_runner import is_routine_session
 
 log = logging.getLogger(__name__)
 
-__all__ = ["ASK_USER_TOOL_NAME", "AskUserTool"]
+__all__ = ["ASK_USER_TOOL_NAME", "AskUserTool", "lead_ask_tools"]
 
 ASK_USER_TOOL_NAME: Final[str] = "society_ask_user"
 _MINUTES: Final[int] = int(QUESTION_TIMEOUT_S // 60)
@@ -177,12 +181,14 @@ class AskUserTool:
         },
     }
 
-    def __init__(self, runtime: Any, agent_id: str, *, session_id: str) -> None:
+    def __init__(
+        self, runtime: Any, agent_id: str, *, session_id: str, asker: str | None = None
+    ) -> None:
         self._runtime = runtime
         self._agent_id = agent_id
         self._session_id = session_id
-        #: Per open card: the specs of the call, the gate's decisions and the log rows.
-        self._gated: dict[str, _Gated] = {}
+        #: The name on the card when it is not the roster row's (the lead's shown name).
+        self._asker_name = asker
 
     async def execute(self, args: dict[str, Any], ctx: Any) -> ToolResult:
         wait_for = str(args.get("wait_for") or "").strip()
@@ -233,7 +239,7 @@ class AskUserTool:
             # can answer, so the recommendations stand rather than a stall.
             log.info("society ask: %s cannot ask here (%s)", self._agent_id, exc)
             return _unattended(specs, _NOBODY)
-        self._gated[question_id] = gate
+        _remember_gate(self._session_id, question_id, gate)
         return await self._wait(service, question_id, asked)
 
     def _gate(self, args: dict[str, Any], specs: tuple[QuestionSpec, ...]) -> _Gated:
@@ -283,7 +289,15 @@ class AskUserTool:
 
     def _clarify_enabled(self) -> bool:
         """The owner's ``voice.clarify_incomplete_enabled`` (default OFF)."""
-        voice = getattr(getattr(self._runtime, "config", None), "voice", None)
+        config = getattr(self._runtime, "config", None)
+        if callable(config):
+            # The society runtime hands its live config out through a method.
+            try:
+                config = config()
+            except Exception:  # noqa: BLE001 - no config reads as the default (off)
+                log.debug("ask gate: config unavailable", exc_info=True)
+                config = None
+        voice = getattr(config, "voice", None)
         return getattr(voice, "clarify_incomplete_enabled", False) is True
 
     async def _keep_waiting(self, question_id: str) -> ToolResult:
@@ -292,7 +306,7 @@ class AskUserTool:
             specs = service.question_specs(self._session_id, question_id)
         except (AttributeError, KeyError):
             # Unknown question id is reported to the agent in the result.
-            self._gated.pop(question_id, None)
+            _take_gate(self._session_id, question_id)
             return ToolResult(
                 success=False,
                 output=None,
@@ -322,10 +336,12 @@ class AskUserTool:
                     ),
                 },
             )
-        gate = self._gated.pop(question_id, None)
+        gate = _take_gate(self._session_id, question_id)
         return gate.finish(answers) if gate else _result(specs, answers)
 
     def _asker(self) -> str:
+        if self._asker_name is not None:
+            return self._asker_name
         cached = getattr(self._runtime, "cached_agent", None)
         agent = cached(self._agent_id) if callable(cached) else None
         return str(getattr(agent, "name", "") or "")
@@ -384,6 +400,46 @@ class _Gated:
         ask_log().mark_answer(
             self.row_ids[index], source=answer.source, answer=answer.answer, needless=needless
         )
+
+
+#: Per open card: the call after the gate (its questions, decisions and log rows).
+#: Kept outside the tool because a CLI seat builds a new tool for every call: the
+#: call that keeps waiting (``wait_for``) is not the one that opened the card, and
+#: must still hand back the questions the gate answered without asking.
+_OPEN_GATES: OrderedDict[tuple[str, str], _Gated] = OrderedDict()
+_MAX_OPEN_GATES: Final[int] = 64
+
+
+def _remember_gate(session_id: str, question_id: str, gate: _Gated) -> None:
+    _OPEN_GATES[(session_id, question_id)] = gate
+    while len(_OPEN_GATES) > _MAX_OPEN_GATES:
+        _OPEN_GATES.popitem(last=False)
+
+
+def _take_gate(session_id: str, question_id: str) -> _Gated | None:
+    return _OPEN_GATES.pop((session_id, question_id), None)
+
+
+def lead_ask_tools(session: Any) -> dict[str, Any]:
+    """The same question card for the lead's own chat (surface ``jarvis``).
+
+    The lead is the person's one assistant; a question that belongs to the
+    person opens the card there too, on every seat. A routine's chat is
+    unattended and gets no way to ask.
+    """
+    from .display_name import lead_display_name
+    from .runtime import current_runtime
+
+    rt = current_runtime()
+    session_id = str(getattr(session, "session_id", "") or "")
+    if rt is None or not session_id or is_routine_session(session_id):
+        return {}
+    # The roster row keeps a fixed name; the card shows what the person calls the lead.
+    return {
+        ASK_USER_TOOL_NAME: AskUserTool(
+            rt, rt.lead_id, session_id=session_id, asker=lead_display_name()
+        )
+    }
 
 
 def _safe_search() -> ask_gate.MemorySearch | None:
