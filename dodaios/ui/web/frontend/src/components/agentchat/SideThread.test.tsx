@@ -216,4 +216,42 @@ describe("a message sent while the conversation still works", () => {
     expect(screen.getByTestId("agent-turn").textContent).toContain("Here are the three desks.");
     expect(screen.getByTestId("agent-turn").textContent).not.toContain("Looking at desks now.");
   });
+
+  it("brings every new message out at the bottom while both answers are written", async () => {
+    // The complaint (maintainer, 2026-11-13): with two messages answered at
+    // once, the main turn's new messages appeared above the answer written
+    // beside it, in the middle of the chat.
+    const start = [
+      ev("user_message", { text: "Send that to the agent" }),
+      ev("turn_started", { turn_id: "t1" }),
+      ev("notice", { kind: "side_thread_started", side_id: "side-1", text: QUESTION }),
+    ];
+    const view = draw(reduceEvents(EMPTY_TIMELINE, start).items);
+    await waitFor(() => expect(Socket.open).toHaveLength(1));
+    act(() => Socket.open[0].push(SNAPSHOT(
+      { seq: 3, ts_ms: 1_010, kind: "assistant_text", payload: { turn_id: "s-t1", message_id: "s-m1", text: "Looking it up." } },
+    )));
+    await screen.findByText("Looking it up.");
+    const redraw = (...more: AgentChatEvent[]) => view.rerender(
+      <AgentTimeline items={reduceEvents(EMPTY_TIMELINE, [...start, ...more]).items} assistantName="Dodaios"
+        providerLabel={(id) => id} onDecide={() => undefined} bubbles />,
+    );
+    const said = { seq: 10, ts_ms: 1_020, kind: "assistant_text", payload: { turn_id: "t1", message_id: "m1", text: "The agent is busy." } } as AgentChatEvent;
+    redraw(said);
+    const order = () => {
+      const text = view.container.textContent ?? "";
+      return ["Send that to the agent", QUESTION, "Looking it up.", "The agent is busy.", "Canberra."]
+        .filter((part) => text.includes(part))
+        .sort((a, b) => text.indexOf(a) - text.indexOf(b));
+    };
+    // The main turn's newest message stands below the side thread's message already on screen.
+    expect(order()).toEqual(["Send that to the agent", QUESTION, "Looking it up.", "The agent is busy."]);
+
+    // The side thread writes again: below that, at the bottom.
+    act(() => Socket.open[0].push({ type: "event", event: {
+      seq: 4, ts_ms: 1_030, kind: "assistant_text", payload: { turn_id: "s-t1", message_id: "s-m2", text: "Canberra." },
+    } }));
+    await screen.findByText("Canberra.");
+    expect(order()).toEqual(["Send that to the agent", QUESTION, "Looking it up.", "The agent is busy.", "Canberra."]);
+  });
 });

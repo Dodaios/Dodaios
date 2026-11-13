@@ -8,6 +8,7 @@ import { codingThreadOf, foldRepeatedThreadStatus } from "@/components/agentic/t
 import { MessageWithChips } from "./ToolChoiceChips";
 import { SideThread, SideThreadAnswer, SideThreadMessage, type RenderSideTimeline } from "./SideThread";
 import { chronological, typingRow, type ChatRow, type TurnPart } from "./chronology";
+import { useSideThreadsLive } from "./useSideThreadsLive";
 import { ChainResultCard } from "./ChainResultCard";
 import { PAGE_NOTICE_KIND, PageCard, pageNoticeModes } from "./PageCard";
 import { AgentResultLine } from "./AgentResultLine";
@@ -122,9 +123,13 @@ export function AgentTimeline({
       pictures={pictures}
     />
   );
+  // Side threads running here, read live: each message of their answers
+  // stands where it was written, so every new message comes out at the bottom.
+  const sideLive = useSideThreadsLive(shown, chat);
+  const sideItems = useMemo(() => new Map([...sideLive].map(([id, live]) => [id, live.items])), [sideLive]);
   const ordered = useMemo<ChatRow[]>(
-    () => chat ? chronological(shown) : shown.map((item) => ({ kind: "item", id: item.id, time: itemTime(item), item })),
-    [chat, shown],
+    () => chat ? chronological(shown, sideItems) : shown.map((item) => ({ kind: "item", id: item.id, time: itemTime(item), item })),
+    [chat, shown, sideItems],
   );
   // The assistant shows as typing in ONE place: the lowest answer still
   // being written.
@@ -196,7 +201,8 @@ export function AgentTimeline({
   function renderRow(row: Exclude<ChatRow, { kind: "item" }>) {
     if (row.kind === "turn_part") return <TurnPartMessages key={row.id} part={row.part} />;
     if (row.kind === "side_message") return <SideThreadMessage key={row.id} item={row.item} receipt />;
-    return <SideThreadAnswer key={row.id} item={row.item} renderTimeline={renderSide}
+    return <SideThreadAnswer key={row.id} rowId={row.id} item={row.item} part={row.part}
+      store={sideLive.get(String(row.item.data.side_id ?? ""))?.store} renderTimeline={renderSide}
       typing={!quietTyping && row.id === typingId} />;
   }
 
