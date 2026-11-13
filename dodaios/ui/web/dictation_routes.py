@@ -893,7 +893,9 @@ async def restore_history_entry(entry_id: str, request: Request) -> dict[str, An
     1. A discarded entry that still has its text simply stops being hidden.
     2. An entry that ended with nothing — a provider 401, a wedged engine, a
        transcript that came back empty — is transcribed again from the audio
-       that was kept for exactly this moment.
+       that was kept for exactly this moment. So is a partly transcribed
+       entry: its recording was kept because words are missing, and the new
+       reading replaces the fragment unless it holds fewer words.
 
     Never a 500 on a missing provider. A host with no speech-to-text reachable
     still restores the entry and says why the words did not come back; that is
@@ -925,10 +927,18 @@ async def restore_history_entry(entry_id: str, request: Request) -> dict[str, An
     changes: dict[str, Any] = {"discarded": False}
     detail: str | None = None
     retranscribed = False
-    if not has_text:
+    fragment = has_text and has_audio and entry.outcome == "partial"
+    if not has_text or fragment:
         raw, text, detected, detail = await _retranscribe_from_audio(
             entry, language=_chosen_language(request), request=request
         )
+        if fragment and count_words(text) < count_words(entry.text or entry.raw_text):
+            # A second reading that lost more than the first must not cost
+            # the words already there.
+            text = ""
+            detail = detail or (
+                "Transcribing the saved audio again did not recover more words."
+            )
         if text:
             retranscribed = True
             changes.update(

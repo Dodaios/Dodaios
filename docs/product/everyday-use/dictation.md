@@ -112,8 +112,8 @@ example **Copied to clipboard** or **Partly transcribed**.
 
 - **Delete** crosses out an entry but keeps it recoverable.
 - **Restore** reactivates a crossed-out entry.
-- **Transcribe again** appears on an entry without text and runs its kept
-  recording with current settings.
+- **Transcribe again** appears on an entry without text and on a partly
+  transcribed one, and runs its kept recording with current settings.
 - **Delete forever** removes a crossed-out entry and its saved audio.
 - **Copy** copies the delivered version.
 
@@ -229,7 +229,7 @@ clipboard fallback also confirms that recognition worked.
 | **Dictation is not set up on this computer.** | No microphone or ready recognition provider | Check microphone permission, then **Voice > API Keys** |
 | The global shortcut does nothing | The binding conflicts, lacks OS permission, or is unsupported on Wayland | Record another shortcut; use the microphone button meanwhile |
 | **Copied to clipboard** | The active field rejected synthetic input | Paste manually and check the operating-system table above |
-| **Partly transcribed** | No recognizer could read part of the recording | Check the provider; an entry without text offers **Transcribe again** |
+| **Partly transcribed** | No recognizer could read part of the recording | Check the provider, then select **Transcribe again** on the entry |
 | Dictation is slow without a key | Whisper runs on the processor | Download **Parakeet** under **Voice > API Keys**, or save a provider key |
 | **Nothing was heard** | The recording held no speech | Check the selected microphone and that it is not muted |
 | Wording or translation is skipped | No selected model answered safely in time | Run **Voice > Language > Test** or choose another ready provider |

@@ -306,8 +306,8 @@ def test_the_signature_holds_no_key_material(monkeypatch: pytest.MonkeyPatch) ->
 
     signature = credential_signature(SimpleNamespace(provider="groq-api"))
 
-    assert "gsk_" not in signature
-    assert "do_not_leak" not in signature
+    assert "gsk_" not in repr(signature)
+    assert "do_not_leak" not in repr(signature)
 
 
 def test_the_signature_follows_the_configured_provider(

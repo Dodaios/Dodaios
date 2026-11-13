@@ -27,7 +27,6 @@ makes a pasted key count from the next dictation on, without a restart.
 
 from __future__ import annotations
 
-import hashlib
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -73,23 +72,27 @@ class Resolution:
         }
 
 
-def credential_signature(stt_cfg: Any) -> str:
-    """A value that changes when a speech-to-text key is saved or removed."""
+def credential_signature(stt_cfg: Any) -> tuple[Any, ...]:
+    """A value that changes when a speech-to-text key is saved or removed.
+
+    Only ever compared with the value of the dictation before, inside this
+    process. A key enters it as Python's own ``hash``, which is salted per
+    process and says nothing about the key outside of it; the value is never
+    stored or logged.
+    """
     try:
         from dodaios.core import config as _cfg
         from dodaios.plugins.stt import _STT_SECRET_CANDIDATES
     except Exception:  # noqa: BLE001 - no plugin layer means nothing to sign
-        return ""
-    digest = hashlib.sha256()
-    digest.update(str(getattr(stt_cfg, "provider", "") or "").encode())
+        return ()
+    marks: list[Any] = [str(getattr(stt_cfg, "provider", "") or "")]
     for name in sorted(_STT_SECRET_CANDIDATES):
         try:
             secret = _cfg.get_secret_any(_STT_SECRET_CANDIDATES[name])
         except Exception:  # noqa: BLE001 - an unreadable store reads as "no key"
             secret = None
-        digest.update(name.encode())
-        digest.update(hashlib.sha256(str(secret or "").encode()).digest())
-    return digest.hexdigest()
+        marks.append((name, hash(str(secret)) if secret else 0))
+    return tuple(marks)
 
 
 def parakeet_ready() -> bool:

@@ -1077,6 +1077,9 @@ def resolve_dictation_language(*, pinned: str, reported: str, text: str) -> str:
     return tag
 
 
+# The longest the Parakeet model stays loaded without a dictation.
+_DICTATION_PARAKEET_REST_S = 180.0
+
 # Serializes the resolution of the dictation's recognizers across the event
 # loop and the worker thread a dictation resolves in.
 _DICTATION_RESOLUTION_LOCK = threading.Lock()
@@ -11815,9 +11818,11 @@ class SpeechPipeline:
     def _rest_dictation_parakeet(self) -> None:
         """Free the Parakeet model after a while without a dictation.
 
-        The model holds several hundred megabytes while loaded and loads in
-        about a second, so it is released after the idle time the settings
-        give the local engines and loaded again with the next key press.
+        The loaded model holds about 1.5 GB of memory and loads in about a
+        second, while the person is already speaking. So it is released after
+        at most three minutes without a dictation, sooner than the idle time
+        the settings give the local engines, and loaded again with the next
+        key press. An idle time of 0 keeps it loaded.
         """
         handle = getattr(self, "_dictation_parakeet_rest", None)
         if handle is not None:
@@ -11827,6 +11832,7 @@ class SpeechPipeline:
         idle_s = self._dictation_idle_release_s(getattr(self, "_dictation_cfg", None))
         if instance is None or idle_s <= 0:
             return
+        idle_s = min(idle_s, _DICTATION_PARAKEET_REST_S)
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
