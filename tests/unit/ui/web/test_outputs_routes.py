@@ -1928,3 +1928,32 @@ async def test_delete_allows_a_finished_mission(
     assert r.status_code == 200
     assert not session.exists()
     assert listing.json()["sessions"] == []
+
+
+def test_an_old_report_is_served_in_the_current_look(app):
+    """A report page written before the plain look is laid out again from its
+    Markdown when it is opened; a worker's page is never rewritten."""
+    from dodaios.artifacts.report import write_report
+
+    root = Path(app.state.outputs_root)
+    report = write_report(
+        title="Mails", summary="Two bills.", markdown="## Money\n\n- one\n", root=root
+    )
+    page = root / report.slug / report.page_path
+    page.write_text(
+        '<!doctype html>\n<html lang="en"><head><title>Mails</title></head><body>'
+        '<main class="wrap"><header class="masthead"><h1>Mails</h1>'
+        '<p class="standfirst">Two bills.</p></header></main></body></html>',
+        encoding="utf-8",
+    )
+    client = TestClient(app)
+    r = client.get(f"/api/outputs/{report.slug}/files/{report.page_path}/page")
+    assert r.status_code == 200
+    assert '<main class="page"><h1>Mails</h1>' in r.text and "masthead" not in r.text
+    assert '<h2 id="money">Money</h2>' in r.text
+
+    rel = _make_deliverable(
+        root, "019ed2dfd0fab1234", "old.html", '<main class="wrap"><header class="masthead">x'
+    )
+    kept = client.get(f"/api/outputs/mission_019ed2dfd0fab/files/{rel}/page")
+    assert kept.status_code == 200 and 'class="masthead"' in kept.text

@@ -60,3 +60,15 @@ def test_only_html_deliverables_count(tmp_path: Path) -> None:
     directory.mkdir(parents=True)
     (directory / "notes.md").write_text("# not a page", encoding="utf-8")
     assert locate_artifact("latest", outputs_roots=(tmp_path,)) is None
+
+
+def test_a_page_link_is_the_markdown_an_answer_names_a_page_with() -> None:
+    from dodaios.artifacts.locate import page_link
+
+    assert (
+        page_link("Plan  v1", "run-1::tasks/report/artifacts/files/plan.html")
+        == "[Plan v1](artifact:run-1::tasks/report/artifacts/files/plan.html)"
+    )
+    # Brackets in a title would end the link text early.
+    assert page_link("Mails [week 46]", "a::b.html") == "[Mails (week 46)](artifact:a::b.html)"
+    assert page_link("", "a::b.html") == "[Page](artifact:a::b.html)"

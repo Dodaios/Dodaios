@@ -14,7 +14,7 @@
  * run (a chart draws, tabs switch) while the opaque origin plus the server's
  * CSP keep it away from the app's cookies, storage, API and the network.
  */
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { useT } from "@/i18n";
 import { robustCopy } from "@/lib/clipboard";
 import { openExternalUrl } from "@/lib/openExternal";
+import { useFramedPageLinks } from "@/hooks/useFramedPageLinks";
 import { useThemeValue } from "@/hooks/useTheme";
 import {
   artifactKind,
@@ -620,6 +621,9 @@ export function HtmlPage({
 }) {
   const t = useT();
   const theme = useThemeValue();
+  // A web link in the page opens in the person's browser, not in the frame.
+  const frame = useRef<HTMLIFrameElement>(null);
+  useFramedPageLinks(frame);
   const pageUrl = artifactPageUrl(slug, path);
   const probe = useQuery<boolean>({
     queryKey: ["output-artifact-page-available", slug, path],
@@ -648,6 +652,7 @@ export function HtmlPage({
   const src = probe.data ? `${pageUrl}?theme=${theme}` : artifactInlineUrl(slug, path);
   return (
     <iframe
+      ref={frame}
       key={`${src}`}
       title={deliverableDisplayPath(path)}
       src={src}

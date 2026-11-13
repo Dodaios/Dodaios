@@ -1542,3 +1542,55 @@ worker, never a spawn, never in a worker set.
 
 - `tests/unit/brain/test_routing.py` (exact router set)
 - `tests/unit/plugins/tool/test_write_report_tool.py`
+
+## Amendment 2026-11-13: Plain pages
+
+No tool joins or leaves. What changes is what a page looks like and how the
+conversation shows it.
+
+- **One look.** Every page the assistant makes (a worker-written artifact, a
+  report, a living page, a rendered Markdown output) is a plain document: one
+  reading column, near-white ground, one accent colour, hairline boxes, no
+  eyebrow, no mono labels, no colophon and no brand mark. The tokens, the
+  block kit and the page script are in `dodaios/artifacts/design_guide.py`
+  (`THEME_CSS`, `KIT_MARKUP`, `PAGE_JS`). Light is the base, so a printed page
+  is always light; dark follows the app or the system.
+- **Blocks that carry statements.** The kit has a metric row, callouts with a
+  tone, a boxed table, properties, a plus/minus pair, numbered steps, a list
+  of sources, column and bar charts, an SVG line chart and a 2×2 matrix. The
+  page script makes them interactive from markup alone: a tooltip on every
+  mark (`data-tip`), views that switch (`.seg`), tables that sort
+  (`data-sort`), a contents box that marks the section being read.
+- **Reports draw blocks too.** `write-report` still takes Markdown.
+  `dodaios/artifacts/report_blocks.py` turns five shapes into kit blocks: a
+  fenced `chart` block (the chat's chart JSON), a fenced `metrics` block, a
+  quote that opens with `[!NOTE]` / `[!TIP]` / `[!WARNING]` / `[!CAUTION]`, a
+  list of plain links, and a numbered list whose items open with a bold
+  title. Anything that does not fit its shape stays ordinary Markdown output.
+  A report gets a contents box from four `##` sections on. A report page from
+  before this look is laid out again from the Markdown saved beside it the
+  first time it is opened (`restyle_if_dated`).
+- **Web links leave the page.** A page is framed without popups and without
+  navigation. The page script hands a click on a web link to the app
+  (`postMessage`, name `dodaios-open-link`), and the frame's owner opens it in
+  the person's browser (`useFramedPageLinks`: only `http(s)`, only from that
+  frame, at most one per click). Opened on its own in a browser tab, the page
+  goes to the address itself.
+- **The conversation shows the page.** A `report` notice is drawn as a
+  preview card: the top of the live page, its name, the word "Page" and a
+  download button (`PageCard.tsx`). Several pages made in one turn are drawn
+  as one link each instead. `create-artifact` posts the same notice when its
+  worker's page has landed, into the conversation that asked. A page named in
+  an answer's text (`artifact:<slug>::<path>`, which `write-report` and
+  `artifacts` hand the model) is drawn as the page's name with a page mark and
+  opens in the Artifacts section.
+
+### Regression guards
+
+- `tests/unit/artifacts/test_brief.py` (tokens in every scope, kit classes,
+  no brand mark, the page script's hooks, the link message name)
+- `tests/unit/artifacts/test_report_blocks.py`
+- `tests/unit/plugins/tool/test_write_report_tool.py`,
+  `tests/unit/plugins/tool/test_create_artifact.py`
+- `dodaios/ui/web/frontend/src/components/agentchat/PageCard.test.tsx`,
+  `chatLinks.test.ts`, `src/hooks/useFramedPageLinks.test.tsx`

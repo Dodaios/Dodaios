@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chatLinkAction, chatUrlTransform, nativePathFromMarkdownUrl } from "./chatLinks";
+import { chatLinkAction, chatUrlTransform, nativePathFromMarkdownUrl, pageRefFromChatHref, pageRefFromMarkdownUrl } from "./chatLinks";
 
 describe("chat file links", () => {
   it.each([
@@ -46,5 +46,33 @@ describe("chat file links", () => {
     expect(chatLinkAction("")).toEqual({ type: "stay" });
     expect(chatLinkAction("javascript:alert(1)")).toEqual({ type: "stay" });
     expect(chatLinkAction("/api/outputs/run/download")).toEqual({ type: "allow" });
+  });
+});
+
+describe("chat page links", () => {
+  const PAGE = "20261113T104000__report__ab12::tasks/report/artifacts/files/plan-v1.html";
+
+  it.each([
+    [`artifact:${PAGE}`, PAGE],
+    ["/api/outputs/run-1/files/tasks/t/artifacts/files/a%20b.html/page", "run-1::tasks/t/artifacts/files/a b.html"],
+    ["/api/outputs/run-1/files/tasks/t/artifacts/files/a.html/page?theme=dark", "run-1::tasks/t/artifacts/files/a.html"],
+    ["http://127.0.0.1:47821/api/outputs/run-1/files/x/notes.md/view", "run-1::x/notes.md"],
+  ])("reads %s as a page in the Artifacts section", (raw, expected) => {
+    expect(pageRefFromMarkdownUrl(raw)).toBe(expected);
+    // The address survives the Markdown renderer and never loads in this window.
+    const href = chatUrlTransform(raw);
+    expect(href.startsWith("#jarvis-page=")).toBe(true);
+    expect(pageRefFromChatHref(href)).toBe(expected);
+  });
+
+  it.each([
+    "https://example.test/api/outputs/run-1/files/a.html/page",
+    "/api/outputs/run-1/files/a.html/download?disposition=attachment",
+    "artifact:no-separator",
+    "artifact:run 1::a.html",
+    "thread:ab12cd",
+  ])("leaves %s alone", (raw) => {
+    expect(pageRefFromMarkdownUrl(raw)).toBeNull();
+    expect(pageRefFromChatHref(chatUrlTransform(raw))).toBeNull();
   });
 });

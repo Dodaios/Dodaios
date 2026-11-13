@@ -30,6 +30,8 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from starlette.responses import FileResponse, HTMLResponse
 
+from dodaios.artifacts.report import SLUG_INFIX as REPORT_SLUG_INFIX
+from dodaios.artifacts.report import restyle_if_dated
 from dodaios.missions.kontrollierer.deliverable_paths import (
     is_nondeliverable_scratch,
 )
@@ -1158,6 +1160,10 @@ async def serve_artifact_page(slug: str, path: str, request: Request) -> FileRes
     target = _resolve_artifact_target(request, slug, path)
     if target.suffix.lower() not in (".html", ".htm"):
         raise HTTPException(status_code=415, detail="only an HTML deliverable is an artifact page")
+    if REPORT_SLUG_INFIX in slug:
+        # A report written before the current page look is laid out again from
+        # its own Markdown the first time it is opened; nothing else is touched.
+        await asyncio.to_thread(restyle_if_dated, target)
     return FileResponse(
         target,
         media_type="text/html",

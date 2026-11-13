@@ -357,7 +357,14 @@ async def test_artifacts_files_and_read_are_bounded_and_say_when_cut(monkeypatch
                 "is_text": True,
                 "mtime": 1.0,
                 "preview": "SECRET PREVIEW",
-            }
+            },
+            {
+                "path": "tasks/t/artifacts/files/plan.html",
+                "title": "Plan v1",
+                "size": 900,
+                "is_text": True,
+                "mtime": 2.0,
+            },
         ]
     }
     raw = {
@@ -378,6 +385,12 @@ async def test_artifacts_files_and_read_are_bounded_and_say_when_cut(monkeypatch
     )
     listed = await ArtifactsTool().execute({"action": "files", "slug": "s1"}, _ctx())
     assert "preview" not in json.dumps(listed.output)
+    # A page comes with the link an answer names it by; another file does not.
+    by_path = {row["path"]: row for row in listed.output["files"]}
+    assert by_path["tasks/t/artifacts/files/plan.html"]["link"] == (
+        "[Plan v1](artifact:s1::tasks/t/artifacts/files/plan.html)"
+    )
+    assert "link" not in by_path["tasks/t/artifacts/files/a.md"]
     read = await ArtifactsTool().execute(
         {"action": "read", "slug": "s1", "path": "tasks/t/artifacts/files/a.md"}, _ctx()
     )

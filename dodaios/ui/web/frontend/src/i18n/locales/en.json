@@ -11621,9 +11621,9 @@
     "open": "Open"
   },
   "reports": {
-    "label": "Report",
     "open": "Open",
-    "sections": "{0} sections"
+    "page": "Page",
+    "download": "Download"
   },
   "voice_call": {
     "voice_title": "Voice",

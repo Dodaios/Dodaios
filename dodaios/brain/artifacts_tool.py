@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Any, Final
 from urllib.parse import quote
 
+from dodaios.artifacts.locate import page_link
 from dodaios.brain.lead_api import bounded, call_app_api, failure
 from dodaios.core.protocols import ExecutionContext, ToolResult
 
@@ -24,6 +25,15 @@ _READ_CHARS = 16_000
 _CELL = 160
 _HINT = "Ask for a slice: a smaller limit, offset to page, or read one file at a time."
 _ACTIONS: Final[tuple[str, ...]] = ("list", "files", "read", "living")
+
+
+def _page_link(slug: str, file: dict[str, Any]) -> dict[str, str]:
+    """``{"link": …}`` for an HTML page, so an answer can name it; else nothing."""
+    path = str(file.get("path") or "")
+    if not path.lower().endswith((".html", ".htm")):
+        return {}
+    title = str(file.get("title") or "") or path.rsplit("/", 1)[-1]
+    return {"link": page_link(title, f"{slug}::{path}")}
 
 
 def _clip(text: Any, limit: int) -> str:
@@ -42,8 +52,9 @@ class ArtifactsTool:
         "from files: the text of one file, bounded), living (the living pages the lead keeps "
         "current: title, what it tracks, cadence, state; with slug it reads one page with its "
         "rows). Use it for 'what did the agent produce', 'show me the last report', 'what is "
-        "on my dashboard page'. Read-only; use living_page or create_artifact to make or "
-        "refresh one."
+        "on my dashboard page'. To name a page in a reply, write the `link` that files "
+        "gives for it, exactly as it is: the chat shows it as the page's name and opens "
+        "the page. Read-only; use living_page or create_artifact to make or refresh one."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -135,6 +146,7 @@ class ArtifactsTool:
                     "size": f.get("size"),
                     "text": f.get("is_text"),
                     "mtime": f.get("mtime"),
+                    **_page_link(slug, f),
                 }
                 for f in files[:limit]
             ],

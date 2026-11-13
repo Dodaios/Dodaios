@@ -48,10 +48,10 @@ def test_a_report_is_one_page_in_the_archive_with_its_markdown(tmp_path: Path) -
     assert report.sections == 2
     page = (run_dir / report.page_path).read_text(encoding="utf-8")
     assert "<h1>Mails, 6-11 Nov</h1>" in page
-    assert 'class="standfirst">Two bills need you.' in page
+    assert 'class="summary">Two bills need you.' in page
     assert '<html lang="de">' in page
-    assert '<table class="table">' in page and 'class="table-wrap"' in page
-    assert "<h2>Money</h2>" in page
+    assert '<table class="table" data-sort>' in page and 'class="table-wrap"' in page
+    assert '<h2 id="money">Money</h2>' in page
     md = (run_dir / report.page_path).with_suffix(".md").read_text(encoding="utf-8")
     assert md.startswith("# Mails, 6-11 Nov\n\nTwo bills need you.")
     marker = (run_dir / ".standalone-run.json").read_text(encoding="utf-8")
@@ -99,6 +99,8 @@ async def test_the_tool_writes_the_page_and_posts_a_report_card(
     assert result.success, result.error
     assert "two or three" in str(result.output)
     [(session, card)] = posted
+    # The assistant is handed the link that names the page in its reply.
+    assert f"[Mails](artifact:{card['artifact']})" in str(result.output)
     assert session == "lead-1"
     assert card["kind"] == "report"
     assert card["text"] == "Mails"
@@ -127,3 +129,54 @@ def test_write_report_is_a_router_tool() -> None:
     from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "write-report" in ROUTER_TOOLS
+
+
+def _dated_page(title: str, summary: str, body_html: str) -> str:
+    """A report page as it was written before the plain look."""
+    return (
+        '<!doctype html>\n<html lang="de"><head><meta charset="utf-8">'
+        f"<title>{title}</title><style>.wrap{{}}</style></head><body>"
+        '<main class="wrap"><header class="masthead">'
+        '<p class="eyebrow"><time>2026-11-12 20:53</time></p>'
+        f'<h1>{title}</h1><p class="standfirst">{summary}</p></header>'
+        f'<article class="report">{body_html}</article>'
+        '<footer class="colophon"><span class="brand">Dodaios</span></footer>'
+        "</main></body></html>\n"
+    )
+
+
+def test_a_report_from_before_the_plain_look_is_laid_out_again_from_its_markdown(
+    tmp_path: Path,
+) -> None:
+    import os
+
+    from dodaios.artifacts.report import restyle_if_dated
+
+    page = tmp_path / "mails.html"
+    page.write_text(
+        _dated_page("Mails &amp; more", "Two bills need you.", "<h2>Money</h2>"), encoding="utf-8"
+    )
+    page.with_suffix(".md").write_text(
+        "# Mails & more\n\nTwo bills need you.\n\n" + BODY + "\n", encoding="utf-8"
+    )
+    os.utime(page, (1_700_000_000, 1_700_000_000))
+
+    assert restyle_if_dated(page) is True
+    html = page.read_text(encoding="utf-8")
+    assert '<main class="page"><h1>Mails &amp; more</h1>' in html
+    assert '<p class="summary">Two bills need you.</p>' in html
+    assert "<time>2026-11-12 20:53</time>" in html and '<html lang="de">' in html
+    # The body comes from the Markdown, and the head is not repeated in it.
+    assert '<h2 id="money">Money</h2>' in html and '<table class="table" data-sort>' in html
+    assert html.count("Two bills need you.") == 1 and html.count("Mails &amp; more</h1>") == 1
+    for gone in ("masthead", "eyebrow", "standfirst", "colophon"):
+        assert gone not in html
+    # Its place in the Artifacts section does not move.
+    assert page.stat().st_mtime == 1_700_000_000
+    # A current page is left alone, and so is an old one without its Markdown.
+    assert restyle_if_dated(page) is False
+    lone = tmp_path / "lone.html"
+    lone.write_text(_dated_page("Lone", "S", "<p>x</p>"), encoding="utf-8")
+    before = lone.read_text(encoding="utf-8")
+    assert restyle_if_dated(lone) is False and lone.read_text(encoding="utf-8") == before
+    assert restyle_if_dated(tmp_path / "missing.html") is False

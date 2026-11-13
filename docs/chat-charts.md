@@ -36,7 +36,8 @@ block. Nothing is drawn from numbers that do not fit.
 | Surface | Result |
 |---------|--------|
 | The assistant's conversation, coding threads, agent chats | The chart card. In the assistant's conversation it is a message of its own. |
-| A report page or Markdown file in Artifacts | The chart card. |
+| A report page in Artifacts | A chart card drawn on the page itself (`dodaios/artifacts/report_blocks.py`, same fields and the same refusals); every point answers on hover. |
+| A Markdown file opened in Artifacts | The chart card. |
 | A phone chat (Telegram, Discord, WhatsApp) | The block is left out; the text stands without it. |
 | Voice | The assistant is told not to write one. |
 

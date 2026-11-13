@@ -194,3 +194,17 @@ describe("shared chat media", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("pages named in an answer", () => {
+  it("draws a page link as the page's name and opens it in the Artifacts section", async () => {
+    const { useEventStore } = await import("@/store/events");
+    const page = "run-1::tasks/report/artifacts/files/plan.html";
+    render(<ChatMarkdown text={`I made [Business plan v1](artifact:${page}) and [a site](https://example.test/x).`} />);
+    const link = screen.getByTestId("page-link");
+    expect(link.textContent).toBe("Business plan v1");
+    // The other link stays an ordinary link.
+    expect(screen.getByText("a site").closest("a")?.getAttribute("href")).toBe("https://example.test/x");
+    fireEvent.click(link);
+    expect(useEventStore.getState().visualStage?.target).toBe(page);
+  });
+});
