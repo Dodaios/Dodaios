@@ -29,8 +29,12 @@ import "./chatBrowser.css";
 
 /** The lead agent: the assistant's own chat browses with its profile. */
 export const ASSISTANT_BROWSER_AGENT = "jarvis";
-/** After a task ends the tile stays this long, so its last page can be read. */
-const LINGER_MS = 12_000;
+/**
+ * After a task ends (or the stage is made small) the view stays this long.
+ * The assistant often calls its browser several times in a row; a short
+ * linger closed and reopened the view between the calls (2026-11-13).
+ */
+export const LINGER_MS = 180_000;
 
 type Layout = "tile" | "stage";
 type Driver = "agent" | "person" | "idle";
@@ -58,20 +62,22 @@ export function ChatWithBrowser({ children, agentId = ASSISTANT_BROWSER_AGENT }:
   // The person opened the stage or holds control: the view stays attached.
   const [pinned, setPinned] = useState(false);
   const [linger, setLinger] = useState(false);
+  // Each bump (a task ended, the stage was made small) restarts the linger.
+  const [lingerFrom, setLingerFrom] = useState(0);
   // Hidden by the person: stays away until the next browser task starts.
   const [dismissed, setDismissed] = useState(false);
   const wasRunning = useRef(false);
   useEffect(() => {
     if (!wasRunning.current && taskRunning) setDismissed(false);
-    if (wasRunning.current && !taskRunning) {
-      setLinger(true);
-      const timer = window.setTimeout(() => setLinger(false), LINGER_MS);
-      wasRunning.current = taskRunning;
-      return () => window.clearTimeout(timer);
-    }
+    if (wasRunning.current && !taskRunning) setLingerFrom(Date.now());
     wasRunning.current = taskRunning;
-    return undefined;
   }, [taskRunning]);
+  useEffect(() => {
+    if (!lingerFrom) return undefined;
+    setLinger(true);
+    const timer = window.setTimeout(() => setLinger(false), LINGER_MS);
+    return () => window.clearTimeout(timer);
+  }, [lingerFrom]);
   const live = open && !dismissed && (taskRunning || pinned || linger);
   const view = useBrowserView(agentId, live);
   const { state } = view;
@@ -83,6 +89,7 @@ export function ChatWithBrowser({ children, agentId = ASSISTANT_BROWSER_AGENT }:
     setPinned(true);
     setLayout("stage");
   }, [requestId]);
+  // Only a closed browser or the person folds the stage; never a pause between calls.
   useEffect(() => { if (!live) setLayout("tile"); }, [live]);
   // "Open the browser" on a takeover card in this chat shows the stage here.
   useEffect(() => {
@@ -111,7 +118,11 @@ export function ChatWithBrowser({ children, agentId = ASSISTANT_BROWSER_AGENT }:
         <BrowserSurface
           view={view}
           layout={layout}
-          onLayout={(next) => { setLayout(next); if (next === "stage") setPinned(true); }}
+          onLayout={(next) => {
+            setLayout(next);
+            if (next === "stage") setPinned(true);
+            else if (!state.manual) { setPinned(false); setLingerFrom(Date.now()); }
+          }}
           onHide={() => { setPinned(false); setLinger(false); setDismissed(true); setLayout("tile"); }}
         />
       )}
@@ -131,7 +142,7 @@ function BrowserSurface({ view, layout, onLayout, onHide }: SurfaceProps) {
   // The assistant as its panel and the sidebar call it.
   const name = t("sidebar.conversation");
   const slot = useAgentBrowserSlot();
-  const { canvas, state, control, approve } = view;
+  const { canvas, state, control, approve, repaint } = view;
   const driver = driverOf(state);
   const needsYou = Boolean(state.takeoverRequest) && !state.manual;
   const host = hostOf(state.url);
@@ -165,18 +176,49 @@ function BrowserSurface({ view, layout, onLayout, onHide }: SurfaceProps) {
   };
 
   const docked = !staged && slot !== null;
+  if (docked && slot) {
+    // Among the assistant's computers: one row with a small live picture,
+    // like a computer it is connected to. A click opens the stage.
+    const rowNote = needsYou
+      ? fill(t("agent_browser.needs_you"), { assistant: name })
+      : driver === "person"
+      ? t("agent_browser.you_drive")
+      : !state.ready
+      ? t("agent_browser.connecting")
+      : t(driver === "agent" ? "agent_browser.working" : "agent_browser.ready");
+    return createPortal(
+      <button type="button" data-testid="chat-browser" data-layout="row" data-docked="true" data-driver={driver}
+        aria-label={t("agent_browser.expand")} onClick={() => onLayout("stage")}
+        className="agent-browser-row flex min-h-8 w-full min-w-0 items-center gap-2.5 rounded-md px-2 py-1 text-left transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <span className="relative shrink-0">
+          <Globe aria-hidden strokeWidth={1.75} className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="agent-browser-live-dot absolute -bottom-0.5 -right-0.5 !h-2 !w-2" data-state={dotState} aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1" data-testid="chat-browser-status">
+          <span className="block truncate text-sm text-foreground">{fill(t("agent_browser.title"), { assistant: name })}</span>
+          <span className="block truncate text-sm text-muted-foreground">{rowNote}{host && ` · ${host}`}</span>
+        </span>
+        <span className="agent-browser-frame agent-browser-thumb shrink-0" data-driver={driver}
+          data-needs-you={needsYou ? "true" : undefined}>
+          <span className="relative block h-[60px] w-[96px] overflow-hidden rounded-[8px] bg-muted">
+            {/* Watching only: the canvas takes no input here. */}
+            <BrowserCanvas canvas={canvas} state={state} control={control} live={false}
+              ariaLabel={fill(t("agent_browser.screen"), { assistant: name })} repaint={repaint} />
+          </span>
+        </span>
+      </button>,
+      slot,
+    );
+  }
   const surface = (
     <section
       data-testid="chat-browser"
       data-layout={layout}
-      data-docked={docked ? "true" : undefined}
       data-driver={driver}
       aria-label={fill(t("agent_browser.title"), { assistant: name })}
       className={cn(
         staged
           ? "agent-browser-stage relative flex min-h-0 min-w-0 flex-1 flex-col border-l border-border bg-[radial-gradient(120%_90%_at_50%_0%,hsl(var(--secondary))_0%,hsl(var(--background))_70%)] px-6 pb-6 pt-4"
-          : docked
-          ? "agent-browser-tile mb-2 w-full"
           : "agent-browser-tile absolute right-4 top-4 z-30 w-[300px] max-w-[45%]",
       )}
     >
@@ -234,6 +276,7 @@ function BrowserSurface({ view, layout, onLayout, onHide }: SurfaceProps) {
                 live
                 ariaLabel={fill(t("agent_browser.screen"), { assistant: name })}
                 cursorLabel={staged ? name : undefined}
+                repaint={repaint}
               />
               {!staged && (
                 // The tile is for watching: a click opens the stage, it never takes control.
@@ -304,5 +347,5 @@ function BrowserSurface({ view, layout, onLayout, onHide }: SurfaceProps) {
       </div>
     </section>
   );
-  return docked && slot ? createPortal(surface, slot) : surface;
+  return surface;
 }

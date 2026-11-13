@@ -134,3 +134,35 @@
 .agent-browser-tile .agent-cursor-ring {
   scale: 0.6;
 }
+
+/* The small live picture in the assistant's panel row. */
+.agent-browser-thumb {
+  border-radius: 8px;
+}
+
+.agent-browser-thumb::before,
+.agent-browser-thumb::after {
+  border-radius: 10px;
+}
+
+.agent-browser-thumb::after {
+  filter: blur(6px);
+}
+
+.agent-browser-row .agent-cursor-shift {
+  scale: 0.42;
+  transform-origin: 0 0;
+}
+
+.agent-browser-row .agent-cursor-ring {
+  scale: 0.45;
+}
+
+/* The click mark shrinks with the arrow in the small pictures. */
+.agent-browser-row .agent-cursor-click {
+  scale: 0.45;
+}
+
+.agent-browser-tile .agent-cursor-click {
+  scale: 0.6;
+}

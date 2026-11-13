@@ -52,11 +52,15 @@ async def test_failed_mouse_command_has_no_click_marker():
     async def send(**kwargs):
         raise RuntimeError("Disconnected")
 
+    async def no_wait(seconds):
+        return None
+
     tracker = PointerTracker("g", lambda *args, **kwargs: events.append(kwargs),
-                             lambda: True, lambda x, y: (x, y, 1280, 800))
+                             lambda: True, lambda x, y: (x, y, 1280, 800), sleep=no_wait)
     with pytest.raises(RuntimeError, match="Disconnected"):
         await tracker.wrap(send)("Input.dispatchMouseEvent", {"type": "mousePressed", "x": 1, "y": 2})
-    assert not events
+    # The arrow may have travelled there; no press is marked for a failed click.
+    assert all(event["click_id"] == 0 for event in events)
 
 
 async def test_a_move_is_shown_first_and_sent_after_the_arrow_has_travelled():
@@ -73,8 +77,14 @@ async def test_a_move_is_shown_first_and_sent_after_the_arrow_has_travelled():
                              lambda: True, lambda x, y: (x, y, 1280, 800), sleep=wait)
     observed = tracker.wrap(send)
     await observed("Input.dispatchMouseEvent", {"type": "mousePressed", "x": 100, "y": 100})
-    # The first event has nowhere to travel from: sent at once.
-    assert timeline == [("sent", "mousePressed"), ("shown", 100.0, 1)]
+    # The first move enters in the middle of the page and travels from there.
+    assert timeline == [
+        ("shown", 640.0, 0),
+        ("shown", 100.0, 0),
+        ("waited", round(glide_seconds(((640 - 100) ** 2 + (400 - 100) ** 2) ** 0.5) - 0.06, 3)),
+        ("sent", "mousePressed"),
+        ("shown", 100.0, 1),
+    ]
     timeline.clear()
     await observed("Input.dispatchMouseEvent", {"type": "mousePressed", "x": 600, "y": 100})
     assert timeline == [

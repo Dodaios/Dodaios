@@ -162,8 +162,8 @@ class BrowserTool:
             )
 
     def risk_tier_for_args(self, args: dict[str, Any]) -> str | None:
-        if self._jobs._python is None:
-            return None  # The persistent runner proposes each actual action separately.
+        # The page work inside a task runs without cards (``bridge.py``), so
+        # a task that sends, buys, deletes or publishes asks once, up front.
         return "ask" if task_needs_approval(str(args.get("task") or "")) else None
 
     def describe_args(self, args: dict[str, Any]) -> dict[str, str] | None:

@@ -62,6 +62,12 @@ class ApprovedBrowserAction:
         )
 
 
+def _hands_over_files_or_code(action: str) -> bool:
+    """Uploads a file, writes one, or runs script: each still needs a person."""
+    lowered = action.lower()
+    return any(part in lowered for part in ("upload", "file", "evaluate", "javascript", "script"))
+
+
 async def wait_for_browser_approval(runtime: Any, approval_id: str, session: Any) -> bool:
     """A one-shot approval belongs to this task and is cancelled with it."""
     try:
@@ -304,7 +310,15 @@ async def execute_live(
                 "ok": False,
                 "error": "This browser task is read-only; writing actions are blocked.",
             }
-        tier = ("safe" if read_only else "monitor") if name in read_actions else "ask"
+        # Working a page (click, type, choose, press a key) is the browser's
+        # job and runs without a card: one card per click made the browser
+        # unusable (the person, 2026-11-13). A task that sends, buys, deletes
+        # or publishes asks once, before it starts (``BrowserTool``). What
+        # hands the person's own files or code to a website still asks.
+        if name in read_actions:
+            tier = "safe" if read_only else "monitor"
+        else:
+            tier = "ask" if _hands_over_files_or_code(name) else "monitor"
         verdict = decide(current, "core:browser", tier, verb=name)
         if verdict is Verdict.BLOCK:
             denied = True

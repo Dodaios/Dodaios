@@ -54,7 +54,26 @@ class PointerTracker:
             return
         previous = self.shown
         if previous is None:
-            return  # The arrow appears where the first event lands; nothing to travel.
+            # The first move of a session: the arrow enters in the middle of
+            # the page and travels from there, instead of appearing on the button.
+            try:
+                cx, cy, _, _ = self.project(640.0, 400.0)
+            except Exception:
+                log.debug("Browser pointer centre unavailable", exc_info=True)
+                return
+            previous = (cx, cy)
+            self.emit(
+                "pointer",
+                visible=True,
+                generation=self.generation,
+                x=cx,
+                y=cy,
+                width=width,
+                height=height,
+                click_id=self.click_id,
+                click_x=self.click[0],
+                click_y=self.click[1],
+            )
         distance = math.hypot(x - previous[0], y - previous[1])
         if distance <= _STILL_PX:
             return

@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { ChatWithBrowser } from "./ChatBrowserStage";
+import { ChatWithBrowser, LINGER_MS } from "./ChatBrowserStage";
 import { requestAgentBrowserStage } from "./openEvent";
 import { setAgentBrowserSlot, useAgentBrowserStaged } from "./slot";
 
@@ -15,6 +15,7 @@ vi.mock("@/i18n", () => ({
     "agent_browser.hand_back": "Hand back",
     "agent_browser.needs_you": "{assistant} needs you here",
     "agent_browser.ready": "Ready",
+    "agent_browser.working": "Working",
     "agent_browser.connecting": "Connecting…",
     "agent_browser.private_hint": "Not recorded, not shown to {assistant}.",
   } as Record<string, string>)[key] ?? key,
@@ -124,21 +125,24 @@ describe("the chat's browser stage", () => {
     expect(requestAgentBrowserStage("scout")).toBe(false);
   });
 
-  test("with the assistant's panel open the tile stands among its computers, not over the chat", () => {
+  test("with the assistant's panel open it is one row among its computers, with a small live picture", () => {
     const slot = document.createElement("div");
     document.body.appendChild(slot);
     act(() => setAgentBrowserSlot(slot));
     const { container } = mount();
-    const tile = screen.getByTestId("chat-browser");
-    expect(tile.dataset.docked).toBe("true");
-    expect(slot.contains(tile)).toBe(true);
-    expect(container.contains(tile)).toBe(false);
+    const row = screen.getByTestId("chat-browser");
+    expect(row.dataset.layout).toBe("row");
+    expect(slot.contains(row)).toBe(true);
+    expect(container.contains(row)).toBe(false);
+    expect(row.textContent).toContain("Working · example.com");
     // Opened large, the stage comes back beside the chat and takes the panel's place.
     let staged = false;
     function Probe() { staged = useAgentBrowserStaged(); return null; }
     render(<Probe />);
     expect(staged).toBe(false);
-    fireEvent.click(screen.getByTestId("chat-browser-open-stage"));
+    // A click on the small picture opens the stage and never takes control.
+    fireEvent.click(row.querySelector("canvas")!);
+    expect(control).not.toHaveBeenCalled();
     const stage = screen.getByTestId("chat-browser");
     expect(stage.dataset.layout).toBe("stage");
     expect(container.contains(stage)).toBe(true);
@@ -146,5 +150,37 @@ describe("the chat's browser stage", () => {
     fireEvent.click(screen.getByTestId("chat-browser-resize"));
     expect(staged).toBe(false);
     slot.remove();
+  });
+
+  test("a pause between two browser calls keeps the view, and the open stage stays open", () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = mount();
+      fireEvent.click(screen.getByTestId("chat-browser-open-stage"));
+      browser.running = false;
+      rerender(<ChatWithBrowser><div data-testid="the-chat">chat</div></ChatWithBrowser>);
+      act(() => { vi.advanceTimersByTime(60_000); });
+      expect(screen.getByTestId("chat-browser").dataset.layout).toBe("stage");
+      browser.running = true;
+      rerender(<ChatWithBrowser><div data-testid="the-chat">chat</div></ChatWithBrowser>);
+      expect(screen.getByTestId("chat-browser").dataset.layout).toBe("stage");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("the small tile lingers for minutes after a task, not seconds", () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = mount();
+      browser.running = false;
+      rerender(<ChatWithBrowser><div data-testid="the-chat">chat</div></ChatWithBrowser>);
+      act(() => { vi.advanceTimersByTime(60_000); });
+      expect(screen.getByTestId("chat-browser")).toBeTruthy();
+      act(() => { vi.advanceTimersByTime(LINGER_MS); });
+      expect(screen.queryByTestId("chat-browser")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

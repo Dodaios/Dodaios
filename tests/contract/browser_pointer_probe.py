@@ -60,8 +60,12 @@ async def main():
             )
         assert await worker.page.evaluate("window.clicked") is True
         pointers = [e for e in events if e["kind"] == "pointer"]
-        assert len(pointers) == 2
-        assert pointers[-1]["click_id"] == 1
+        # The first move of a session enters in the middle of the page and
+        # glides to the button (shown before it is sent), then the move and
+        # the press themselves: four reports, one click.
+        assert len(pointers) == 4
+        assert [e["click_id"] for e in pointers] == [0, 0, 0, 1]
+        assert (pointers[1]["x"], pointers[1]["y"]) == (pointers[-1]["x"], pointers[-1]["y"])
         if worker.native:
             assert pointers[-1]["y"] > 40
         worker.pointer.clear()

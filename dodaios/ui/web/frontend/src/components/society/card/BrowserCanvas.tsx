@@ -4,7 +4,7 @@
  * card's preview and the chat's browser stage, so both forward exactly the
  * same input and never two different interpretations of a click.
  */
-import { useRef, type RefObject } from "react";
+import { useLayoutEffect, useRef, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import { AgentCursor } from "./AgentCursor";
 import { browserPoint } from "./browserInput";
@@ -21,11 +21,15 @@ interface BrowserCanvasProps {
   ariaLabel: string;
   /** A name tag on the agent's arrow (who drives). */
   cursorLabel?: string;
+  /** Draws the last picture into this canvas when it appears (`useBrowserView`). */
+  repaint?: (el: HTMLCanvasElement | null) => void;
   className?: string;
 }
 
-export function BrowserCanvas({ canvas, state, control, live, ariaLabel, cursorLabel, className }: BrowserCanvasProps) {
+export function BrowserCanvas({ canvas, state, control, live, ariaLabel, cursorLabel, className, repaint }: BrowserCanvasProps) {
   const lastHoverAt = useRef(0);
+  // A freshly mounted canvas shows the current page, not a blank until it changes.
+  useLayoutEffect(() => { repaint?.(canvas.current); }, [repaint, canvas]);
   return (
     <>
       <canvas ref={canvas} width={1280} height={800} tabIndex={live && state.manual && !state.previewPaused ? 0 : -1}

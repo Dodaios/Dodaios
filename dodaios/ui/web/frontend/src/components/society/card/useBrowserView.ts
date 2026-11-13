@@ -56,6 +56,10 @@ export function useBrowserView(agentId: string, enabled = true) {
   const loginMode = useRef(false);
   const loginReady = useRef(false);
   const inputs = useRef<Array<{ op: string; args: Record<string, unknown> }>>([]);
+  // The last picture drawn. The page streams only when it changes, so a
+  // canvas that appears later (the view moved from the small tile to the
+  // stage) gets it at once instead of staying blank until the next change.
+  const lastPicture = useRef<HTMLImageElement | null>(null);
   useEffect(() => {
     const onProfileChanged = (event: Event) => {
       if ((event as CustomEvent<{ agentIds: string[] }>).detail?.agentIds.includes(agentId)) {
@@ -90,6 +94,7 @@ export function useBrowserView(agentId: string, enabled = true) {
     inputs.current = [];
     setState(empty);
     const clearCanvas = () => {
+      lastPicture.current = null;
       inputGeneration.current = "";
       const el = canvas.current;
       if (el) el.width = 1280;
@@ -110,6 +115,7 @@ export function useBrowserView(agentId: string, enabled = true) {
           if (el.width !== image.width) el.width = image.width;
           if (el.height !== image.height) el.height = image.height;
           el.getContext("2d")?.drawImage(image, 0, 0);
+          lastPicture.current = image;
           inputGeneration.current = frame.generation;
           el.dataset.browserGeometryId = frame.geometry_id ?? "";
           // Read-only diagnostics for end-to-end stream acceptance and support.
@@ -396,5 +402,13 @@ export function useBrowserView(agentId: string, enabled = true) {
       setState((s) => ({ ...s, error: fill(translate("society.browser_live.error_approval"), { status: response.status }) }));
     } else setState((s) => ({ ...s, approval: undefined }));
   }, [state.approval]);
-  return { canvas, state, control, approve };
+  /** Draw the last picture into a canvas that just appeared. */
+  const repaint = useCallback((el: HTMLCanvasElement | null) => {
+    const image = lastPicture.current;
+    if (!el || !image) return;
+    if (el.width !== image.width) el.width = image.width;
+    if (el.height !== image.height) el.height = image.height;
+    el.getContext("2d")?.drawImage(image, 0, 0);
+  }, []);
+  return { canvas, state, control, approve, repaint };
 }
