@@ -46,6 +46,64 @@ async def test_send_message_posts_base64_raw():
     assert "To: a@b.com" in decoded and "Hello" in decoded
 
 
+# Live bug 2026-11-13: the subject was put into the raw message as bare UTF-8,
+# so Gmail showed mojibake such as "Ã¤" and "â€“" in the subject line.
+_UNICODE_SUBJECT = "Geschäftsreise 17.–29. – Grüße 🚀"  # i18n-allow: umlaut round-trip sample
+_UNICODE_BODY = "Hallo Herr Müller,\n\nGrüße – bis bald 🚀\n"  # i18n-allow: umlaut sample
+_UNICODE_TO = "Jürgen Weiß <juergen@example.com>"  # i18n-allow: umlaut display name sample
+
+
+async def _sent_raw_bytes(*, to: str, subject: str, body: str) -> bytes:
+    captured = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        import json
+
+        captured["body"] = json.loads(req.content)
+        return httpx.Response(200, json={"id": "sent1"})
+
+    tool = GmailRestTool(
+        access_token_provider=lambda: "at_123",
+        transport=httpx.MockTransport(handler),
+    )
+    await tool.send_message(to=to, subject=subject, body=body)
+    return base64.urlsafe_b64decode(captured["body"]["raw"])
+
+
+@pytest.mark.asyncio
+async def test_send_message_unicode_subject_name_and_body_round_trip():
+    from email import message_from_bytes, policy
+
+    raw = await _sent_raw_bytes(to=_UNICODE_TO, subject=_UNICODE_SUBJECT, body=_UNICODE_BODY)
+
+    # On the wire the message is plain ASCII: headers as RFC 2047 encoded-words,
+    # the body in a 7-bit transfer encoding with a declared UTF-8 charset.
+    raw.decode("ascii")
+    assert b"=?utf-8?" in raw
+    assert b"\r\n" in raw
+
+    parsed = message_from_bytes(raw, policy=policy.default)
+    assert parsed["Subject"] == _UNICODE_SUBJECT
+    assert parsed["To"].addresses[0].display_name == "Jürgen Weiß"  # i18n-allow: sample name
+    assert parsed["To"].addresses[0].addr_spec == "juergen@example.com"
+    assert parsed.get_content_type() == "text/plain"
+    assert parsed.get_content_charset() == "utf-8"
+    # Mail line ends are CRLF on the wire; the text itself is unchanged.
+    assert parsed.get_content().replace("\r\n", "\n") == _UNICODE_BODY
+
+
+@pytest.mark.asyncio
+async def test_send_message_line_break_in_subject_cannot_inject_a_header():
+    from email import message_from_bytes, policy
+
+    raw = await _sent_raw_bytes(
+        to="a@b.com", subject="Hi\r\nBcc: evil@example.com", body="x"
+    )
+    parsed = message_from_bytes(raw, policy=policy.default)
+    assert parsed["Bcc"] is None
+    assert parsed["Subject"] == "Hi Bcc: evil@example.com"
+
+
 @pytest.mark.asyncio
 async def test_execute_returns_error_when_not_connected():
     tool = GmailRestTool(access_token_provider=lambda: None)
