@@ -3,7 +3,7 @@ import type { TimelineItem, TurnItem } from "@/components/agentchat/reduce";
 /**
  * What the assistant is doing right now, for the line under its name.
  *
- * Read off the one conversation, the way the activity panel reads it: a card
+ * Read off the one conversation: a card
  * that waits for the person comes first, because nothing moves until they
  * answer; then a turn that is answering; then work handed off that still
  * runs after its turn closed. Pure, so the panel's header and its tests

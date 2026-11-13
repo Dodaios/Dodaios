@@ -1,8 +1,9 @@
 # Life admin
 
 An opt-in layer that carries the small things that slip: birthdays, appointments to book,
-renewals, bills, restocks, document deadlines and follow-ups. Off until the owner turns it on in
-the front page's activity panel ("Life admin").
+renewals, bills, restocks, document deadlines and follow-ups. Off until the owner turns it on with
+`PUT /api/agent-chat/lead/life-admin` (the app has no switch for it since the front page's
+activity panel was removed).
 
 ## What it does
 

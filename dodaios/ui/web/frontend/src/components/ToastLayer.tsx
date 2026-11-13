@@ -42,9 +42,8 @@ export function ToastLayer({ children }: { children?: ReactNode } = {}) {
   const t = useT();
   const toasts = useEventStore((s) => s.toasts);
   const dismiss = useEventStore((s) => s.dismissToast);
-  // On wide windows the conversation has a panel on its right (the assistant's
-  // own or the activity panel, 320 px). The stack stands beside it rather than
-  // over its head.
+  // On wide windows the conversation has the assistant's panel on its right
+  // (320 px). The stack stands beside it rather than over its head.
   const besidePanel = useEventStore((s) => s.activeSection === "chats");
 
   return createPortal(

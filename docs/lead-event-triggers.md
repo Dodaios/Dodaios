@@ -83,8 +83,9 @@ inbox of the connected AgentMail plugin) and the senders who may send it work
   inert; the Gmail poller can still route mail to an alias of the owner's
   account.
 
-Settings and the decision log live in the society store; the app shows them in
-the activity panel next to the proactivity settings.
+Settings and the decision log live in the society store and are read and set
+through `/api/agent-chat/lead/triggers`; the app has no screen for them since the
+front page's activity panel was removed.
 
 ## Thread subscriptions and direct delivery
 
