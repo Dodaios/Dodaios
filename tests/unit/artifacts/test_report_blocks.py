@@ -116,6 +116,10 @@ def test_a_quote_with_a_tone_marker_becomes_a_callout() -> None:
     assert '<div class="callout warn">' in body
     assert '<strong class="lead">Hard rule</strong>' in body
     assert "[!WARNING]" not in body and "<blockquote>" not in body
+    # A blank line after the marker leaves no empty paragraph behind.
+    spaced = render_body("> [!TIP]\n>\n> **Done** Billing works.\n", "en").html
+    assert '<div class="callout good"><p><strong class="lead">Done</strong>' in spaced
+    assert "<p></p>" not in spaced
     # A quote without a marker stays a quote: reports quote mails.
     assert "<blockquote>" in render_body("> said by someone\n", "en").html
 

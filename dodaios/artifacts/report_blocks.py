@@ -409,6 +409,7 @@ _CALLOUT_RE: Final = re.compile(
 _TONES: Final[dict[str, str]] = {
     "note": "info", "important": "info", "tip": "good", "warning": "warn", "caution": "bad",
 }
+_EMPTY_OPENING_RE: Final = re.compile(r"^</p>\s*<p>")
 _LEAD_RE: Final = re.compile(r"^<strong>(.*?)</strong>\s*(?:<br\s*/?>)?\s*", re.DOTALL)
 _FLAT_LIST_RE: Final = re.compile(r"<(ul|ol)>((?:(?!<[uo]l[ >]).)*?)</\1>", re.DOTALL)
 _ITEM_RE: Final = re.compile(r"<li>(.*?)</li>", re.DOTALL)
@@ -430,7 +431,8 @@ def _fence(match: re.Match[str], language: str) -> str:
 
 def _callout(match: re.Match[str]) -> str:
     tone = _TONES[match.group(1).lower()]
-    body = match.group(2).strip()
+    # A blank quote line after the marker leaves an empty first paragraph.
+    body = _EMPTY_OPENING_RE.sub("", match.group(2).strip())
     body = _LEAD_RE.sub(
         lambda lead: f'<strong class="lead">{lead.group(1)}</strong>', body, count=1
     )
