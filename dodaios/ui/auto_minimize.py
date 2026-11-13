@@ -17,6 +17,7 @@ from ctypes import wintypes
 
 _POLL_INTERVAL_S = 0.2
 _FOCUS_GRACE_S = 0.45
+_MINIMIZE_SETTLE_TIMEOUT_S = 1.0
 _SW_MINIMIZE = 6
 _GA_ROOTOWNER = 3
 
@@ -28,12 +29,14 @@ class AutoMinimizeOnFocusLoss:
         self,
         window_title: str,
         *,
+        window_handle: Callable[[], int] | None = None,
         on_minimized: Callable[[], None],
         enabled: Callable[[], bool],
         poll_interval_s: float = _POLL_INTERVAL_S,
         grace_s: float = _FOCUS_GRACE_S,
     ) -> None:
         self._window_title = window_title
+        self._window_handle = window_handle
         self._on_minimized = on_minimized
         self._enabled = enabled
         self._poll_interval_s = max(0.05, float(poll_interval_s))
@@ -98,7 +101,11 @@ class AutoMinimizeOnFocusLoss:
                     was_foreground = False
                     continue
 
-                hwnd = int(user32.FindWindowW(None, self._window_title) or 0)
+                hwnd = int(
+                    (self._window_handle() if self._window_handle else None)
+                    or user32.FindWindowW(None, self._window_title)
+                    or 0
+                )
                 if not hwnd:
                     away_since = None
                     self._stop.wait(self._poll_interval_s)
@@ -141,7 +148,22 @@ class AutoMinimizeOnFocusLoss:
                 # not an operation-success flag. Confirm the resulting state
                 # instead so a valid minimize is never skipped on a false return.
                 user32.ShowWindowAsync(hwnd, _SW_MINIMIZE)
-                if user32.IsIconic(hwnd):
+                # ShowWindowAsync only posts the request to the window's GUI
+                # thread. Wait briefly for that thread to apply it so the next
+                # polling iteration cannot mistake the transition for a
+                # pre-existing minimize and skip the callback.
+                settle_deadline = time.monotonic() + _MINIMIZE_SETTLE_TIMEOUT_S
+                minimized = False
+                while not self._stop.is_set():
+                    if user32.IsIconic(hwnd):
+                        minimized = True
+                        break
+                    remaining = settle_deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    self._stop.wait(min(self._poll_interval_s, remaining))
+
+                if minimized:
                     was_foreground = False
                     away_since = None
                     self._on_minimized()

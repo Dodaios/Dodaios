@@ -4013,6 +4013,9 @@ class DesktopApp:
         if self._focus_minimizer is None:
             self._focus_minimizer = AutoMinimizeOnFocusLoss(
                 WINDOW_TITLE,
+                window_handle=lambda: int(self._window.native.Handle.ToInt32())
+                if self._window is not None and self._window.native is not None
+                else 0,
                 on_minimized=self._on_auto_minimized,
                 enabled=lambda: bool(
                     getattr(self.cfg.ui, "auto_minimize_on_focus_loss", True)
