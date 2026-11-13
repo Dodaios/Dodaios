@@ -60,9 +60,13 @@ assumption holds in both sessions.
    The front page draws the conversation strictly in time
    (`components/agentchat/chronology.ts`): the timeline still keeps one item
    per turn, but a message a turn writes after the person's next message is
-   drawn below that message, a side thread's answer stands where it arrived,
-   and a working turn's closing part (the dots, a card that waits for the
-   person) is the last thing in the chat. Nothing new ever appears above a
+   drawn below that message, each message of a side thread's answer stands
+   where it was written (the same way: the conversation reads the side
+   session live while it runs, and the notice carries `message_times`, when
+   each of its `messages` was written, for a reopened chat), and a working
+   turn's closing part (the dots, a card that waits for the person) is the
+   last thing in the chat. Two answers written at once take turns at the
+   bottom; neither grows in the middle of the chat. Nothing new ever appears above a
    later message. The assistant shows as typing in one place: the lowest
    answer still being written.
 5. **What the lead knows afterwards.** `side_thread_finished` is replayed into

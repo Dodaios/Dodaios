@@ -294,7 +294,7 @@ async def test_each_message_of_a_side_thread_stays_a_message_of_its_own(chat, tm
     looking = "I'll look at your screenshot and then send an agent."
     sent = "An agent is on it. I'll tell you what it changed."
     result = "Done: the line is gone from the chat."
-    for kind, payload in (
+    for second, (kind, payload) in enumerate((
         ("user_message", {"text": _SECOND}),
         ("turn_started", {"turn_id": "t1"}),
         ("assistant_text", {"turn_id": "t1", "message_id": "m1", "text": looking}),
@@ -305,8 +305,10 @@ async def test_each_message_of_a_side_thread_stays_a_message_of_its_own(chat, tm
         ("assistant_text", {"turn_id": "t1", "agent_id": "a1", "text": "helper talk"}),
         ("assistant_text", {"turn_id": "t1", "message_id": "m3", "text": result}),
         ("turn_finished", {"turn_id": "t1", "status": "done"}),
-    ):
-        chat.store.append_event(side, make_event(kind, payload))
+    )):
+        event = make_event(kind, payload)
+        event["ts_ms"] = 1_000_000 + second * 1000
+        chat.store.append_event(side, event)
 
     assert await side_threads.recover(chat.svc) == 1
 
@@ -314,6 +316,9 @@ async def test_each_message_of_a_side_thread_stays_a_message_of_its_own(chat, tm
     assert finished["status"] == "done"
     # Every message it wrote, in order and apart: the chat draws one bubble each.
     assert finished["messages"] == [looking, sent, result]
+    # And when each was written: the chat places each message at that moment,
+    # so one written beside a running turn stays where it came out.
+    assert finished["message_times"] == [1_002_000, 1_005_000, 1_007_000]
     assert finished["truncated"] is False
     # What the lead reads later is still what was said after the last tool call.
     assert finished["answer"] == f"{sent}\n\n{result}"

@@ -10,6 +10,7 @@ import { MessageReceipt } from "./messageReceipt";
 import { TypingBubble } from "./TypingBubble";
 import type { Decide } from "./WorkTrace";
 import type { NoticeItem, TimelineItem } from "./reduce";
+import type { SidePart } from "./chronology";
 
 /**
  * How a side thread's own conversation is drawn: the timeline it stands in
@@ -77,8 +78,63 @@ export function SideThreadMessage({ item, receipt = false }: { item: NoticeItem;
  * answer arrived afterwards, so it can stand below messages that came in
  * between.
  */
-export function SideThreadAnswer({ item, renderTimeline, typing = true }: {
+export function SideThreadAnswer({ item, renderTimeline, typing = true, part, store, rowId }: {
   item: NoticeItem; renderTimeline: RenderSideTimeline; typing?: boolean;
+  /** The row's own id, where the answer is drawn in parts. */
+  rowId?: string;
+  /**
+   * The conversation look: the part of the answer this row draws, each
+   * message placed by its time (`chronology.ts`). Absent: the whole answer,
+   * read here.
+   */
+  part?: SidePart;
+  /** The side thread's session a live part's cards answer to (`useSideThreadsLive`). */
+  store?: AgentChatStoreHook;
+}) {
+  if (part) {
+    return <SideThreadAnswerPart item={item} part={part} store={store} renderTimeline={renderTimeline} typing={typing}
+      rowId={rowId ?? `${item.id}~answer`} />;
+  }
+  return <WholeSideThreadAnswer item={item} renderTimeline={renderTimeline} typing={typing} />;
+}
+
+/** One part of the answer, as the conversation look placed it. */
+function SideThreadAnswerPart({ item, part, store, renderTimeline, typing, rowId }: {
+  item: NoticeItem; part: SidePart; store?: AgentChatStoreHook; renderTimeline: RenderSideTimeline; typing: boolean; rowId: string;
+}) {
+  const t = useT();
+  const running = item.resolved === "";
+  const ended: string | undefined = part.closing ? ENDED[item.resolved] : undefined;
+  let body: ReactNode;
+  if ("live" in part && part.closing && store) {
+    const decide = store.getState().decide;
+    body = (
+      <AgentChatStoreProvider store={store}>
+        <div className="flex min-w-0 flex-col gap-3" data-testid="side-thread-live">
+          {renderTimeline(part.live, (id, decision) => decide(id, decision), typing)}
+        </div>
+      </AgentChatStoreProvider>
+    );
+  } else {
+    const messages = "live" in part ? part.texts.map((block) => block.text) : part.messages;
+    // Sent and not yet answering: the dots stand in until its first message.
+    body = messages.length ? <StaticReply messages={messages} /> : part.closing && running && typing ? <Typing /> : null;
+  }
+  return (
+    <div className="flex min-w-0 flex-col gap-2 empty:hidden" data-testid="side-thread-reply"
+      data-message-id={rowId} data-status={running ? "running" : item.resolved}
+      data-part={part.closing ? "closing" : "earlier"}>
+      {body}
+      {ended && (
+        <p data-testid="side-thread-state" className="ps-[2.625rem] text-xs text-muted-foreground">{t(ended)}</p>
+      )}
+    </div>
+  );
+}
+
+/** The whole answer in one block, for a timeline without the conversation look. */
+function WholeSideThreadAnswer({ item, renderTimeline, typing }: {
+  item: NoticeItem; renderTimeline: RenderSideTimeline; typing: boolean;
 }) {
   const t = useT();
   const sideId = String(item.data.side_id ?? "");

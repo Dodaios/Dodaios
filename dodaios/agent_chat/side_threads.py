@@ -248,18 +248,21 @@ async def _watch(svc: Any, side_id: str, turn_id: str) -> None:
         log.warning("side thread %s: closing notice failed", side_id, exc_info=True)
 
 
-def _outcome(events: list[dict[str, Any]]) -> tuple[str, str, str, list[str]]:
-    """``(status, answer, error, messages)`` of a side thread, read from its own log.
+def _outcome(events: list[dict[str, Any]]) -> tuple[str, str, str, list[str], list[int]]:
+    """``(status, answer, error, messages, times)`` of a side thread, read from its own log.
 
     The answer is what the turn said after its last tool call; a turn that
     only spoke between calls gives everything it said. ``messages`` is every
     message the turn wrote, in order and each on its own: "I'll hand that to
     an agent" and, minutes later, the result are two messages, and the chat
-    shows them as two.
+    shows them as two. ``times`` says when each one was written (ms): the
+    chat places each message at that moment, so a message written beside a
+    running turn stays where it came out (``chronology.ts``).
     """
     status, error = "interrupted", ""
     closing: list[str] = []
     said: list[str] = []
+    times: list[int] = []
     for event in events:
         kind = event.get("kind")
         payload = event.get("payload") or {}
@@ -272,12 +275,13 @@ def _outcome(events: list[dict[str, Any]]) -> tuple[str, str, str, list[str]]:
             if text:
                 closing.append(text)
                 said.append(text)
+                times.append(int(event.get("ts_ms") or 0))
         elif kind == "turn_finished":
             raw = str(payload.get("status") or "")
             status = {"done": "done", "cancelled": "stopped"}.get(raw, "failed")
             error = str(payload.get("error") or "")
     answer = "\n\n".join(closing or said)
-    return status, answer, error, said
+    return status, answer, error, said, times
 
 
 def _bounded(messages: list[str], limit: int = ANSWER_CHARS) -> tuple[list[str], bool]:
@@ -303,7 +307,7 @@ async def _close(svc: Any, side_id: str, status: str = "") -> bool:
     if row is None or row["status"] != "running":
         return False
     events = await asyncio.to_thread(svc.store.list_events, side_id)
-    read_status, answer, error, said = _outcome(events)
+    read_status, answer, error, said, times = _outcome(events)
     final = status or read_status
     if not svc.store.close_side_thread(side_id, final):
         return False
@@ -320,6 +324,8 @@ async def _close(svc: Any, side_id: str, status: str = "") -> bool:
             messages, cut = _bounded(said)
             payload["answer"] = answer[:ANSWER_CHARS]
             payload["messages"] = messages
+            # The bound keeps the newest messages: their times are the last ones.
+            payload["message_times"] = times[len(times) - len(messages):]
             payload["truncated"] = cut or len(answer) > ANSWER_CHARS
         if error and final == "failed":
             payload["error"] = error[:600]

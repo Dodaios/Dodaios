@@ -18,7 +18,15 @@ function read(rows: ChatRow[]): string[] {
   return rows.map((row) => {
     if (row.kind === "turn_part") return `said: ${row.part.blocks.map((block) => block.text).join(" | ")}`;
     if (row.kind === "side_message") return `me: ${row.item.text}`;
-    if (row.kind === "side_answer") return `beside: ${String(row.item.data.answer ?? "…")}`;
+    if (row.kind === "side_answer") {
+      const part = row.part;
+      const texts = "live" in part
+        ? part.closing
+          ? part.live.flatMap((entry) => entry.type === "turn" ? entry.blocks.flatMap((block) => block.kind === "text" ? [block.text] : []) : [])
+          : part.texts.map((block) => block.text)
+        : part.messages;
+      return `beside${part.closing ? "" : " (earlier)"}: ${texts.join(" | ") || "…"}`;
+    }
     const item = row.item;
     if (item.type === "user") return `me: ${item.text}`;
     if (item.type === "turn") {
@@ -127,5 +135,84 @@ describe("the conversation in the order a messenger shows it", () => {
       ev(103, "turn_finished", { turn_id: "t1", status: "done" }),
     ));
     expect(read(rows)).toEqual(["me: first", "me: second, with an older clock", "turn(done): Answer."]);
+  });
+
+  describe("a side thread's answer, one message at a time", () => {
+    // The complaint (maintainer, 2026-11-13): with two messages answered at
+    // once, the main turn's new messages appeared ABOVE the side thread's
+    // answer that was already on screen, and the side thread's first message
+    // jumped below them when it ended. Every new message comes out at the
+    // very bottom.
+    const main = [
+      ev(0, "user_message", { text: "Send that to the agent" }),
+      ev(1, "turn_started", { turn_id: "t1" }),
+      ev(30, "notice", { kind: "side_thread_started", side_id: "s1", text: "And the other PRs?" }),
+      said(40, "t1", "m1", "The agent is busy."),
+      said(44, "t1", "m2", "Not delivered yet."),
+    ];
+    // The side thread's own session, as its store reads it.
+    const sideSession = (...more: AgentChatEvent[]) => items(
+      ev(30, "user_message", { text: "And the other PRs?" }),
+      ev(30, "turn_started", { turn_id: "s-t1" }),
+      said(36, "s-t1", "s-m1", "Looking at the other PRs."),
+      ...more,
+    ).filter((item) => item.type !== "user");
+
+    it("puts each message of both answers where it was written while both run", () => {
+      const rows = chronological(items(...main), new Map([["s1", sideSession()]]));
+      expect(read(rows)).toEqual([
+        "me: Send that to the agent",
+        "me: And the other PRs?",
+        "beside (earlier): Looking at the other PRs.",
+        "said: The agent is busy. | Not delivered yet.",
+        // Still at work: its rest waits at the bottom, above the main turn's dots.
+        "beside: …",
+        "turn(running): ",
+      ]);
+      // The dots belong to the lowest row still being written, never to an earlier part.
+      expect(typingRow(rows)).toBe(rows[5].id);
+    });
+
+    it("keeps the side thread's first message where it was when both have ended", () => {
+      const done = [
+        ...main,
+        said(54, "t1", "m3", "Checked again."),
+        ev(54, "turn_finished", { turn_id: "t1", status: "done" }),
+        ev(59, "notice", {
+          kind: "side_thread_finished", side_id: "s1", status: "done", text: "And the other PRs?",
+          answer: "Seven PRs.", messages: ["Looking at the other PRs.", "Seven PRs."],
+          message_times: [1_036_000, 1_059_000],
+        }),
+      ];
+      const expected = [
+        "me: Send that to the agent",
+        "me: And the other PRs?",
+        "beside (earlier): Looking at the other PRs.",
+        "turn(done): The agent is busy. | Not delivered yet. | Checked again.",
+        "beside: Seven PRs.",
+      ];
+      // Watched while it ran, and read again from the notice after a reload: the same order.
+      const watched = chronological(items(...done), new Map([["s1", sideSession(
+        said(59, "s-t1", "s-m2", "Seven PRs."), ev(59, "turn_finished", { turn_id: "s-t1", status: "done" }),
+      )]]));
+      expect(read(watched)).toEqual(expected);
+      expect(read(chronological(items(...done)))).toEqual(expected);
+      expect(typingRow(watched)).toBeNull();
+    });
+
+    it("keeps a notice without message times in one piece where the answer arrived", () => {
+      const rows = chronological(items(
+        ...main,
+        ev(54, "turn_finished", { turn_id: "t1", status: "done" }),
+        ev(59, "notice", {
+          kind: "side_thread_finished", side_id: "s1", status: "done", text: "And the other PRs?",
+          answer: "Seven PRs.", messages: ["Looking at the other PRs.", "Seven PRs."],
+        }),
+      ));
+      expect(read(rows).slice(-2)).toEqual([
+        "turn(done): The agent is busy. | Not delivered yet.",
+        "beside: Looking at the other PRs. | Seven PRs.",
+      ]);
+    });
   });
 });
