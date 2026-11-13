@@ -93,6 +93,15 @@ def _tags(html: str) -> list[tuple[str, dict[str, str]]]:
     return reader.tags
 
 
+_EDIT_MARKS = re.compile(r' data-(?:at|src)="[^"]*"| data-multiline\b')
+
+
+def _drawn(html: str) -> str:
+    """The page without the marks of the edit mode. Those carry stored texts
+    as escaped attributes, which are data and never drawn."""
+    return _EDIT_MARKS.sub("", html)
+
+
 def _wires(html: str) -> str:
     """The connectors' SVG."""
     found = re.search(r'<svg class="wb-wires".*?</svg>', html, flags=re.S)
@@ -492,7 +501,10 @@ def test_no_text_field_reaches_the_page_unescaped(payload: str) -> None:
     assert SCRIPT not in html
     assert "<img src=x" not in html
     assert '"><img' not in html
-    assert "javascript:" not in html
+    # A text's edit mark carries the stored text, link address and all, as
+    # an escaped attribute; what is drawn holds no such address.
+    assert "javascript:" not in _drawn(html)
+    assert 'data-src="[x](javascript:alert(1)) [y](' in html
     # The only scripts and pictures are the page's own.
     assert html.count("<script>") == 3
     assert html.count("<img ") == 1
@@ -564,7 +576,7 @@ def test_the_page_is_a_list_with_named_controls() -> None:
     assert "<h2>Now</h2>" in html and "<h2>Next</h2>" in html
     # The connector is drawn once, with an arrowhead, and read out with its label.
     assert _wires(html).count('<path d="M') == 2
-    assert "Draft the pricing page → Open the beta: </span>unblocks" in html
+    assert "Draft the pricing page → Open the beta: </span><span>unblocks</span>" in _drawn(html)
     assert "dodaios-open-link" in html
     assert "@media print" in html and "size:landscape" in html
 
@@ -720,3 +732,147 @@ def test_a_board_that_names_a_color_keeps_its_own_colors() -> None:
     notes = whiteboard.preview(whiteboard.normalize({"items": items}))["notes"]
 
     assert [note["color"] for note in notes] == ["pink", "yellow"]
+
+
+# --- edit mode -------------------------------------------------------------------
+
+FULL: dict[str, Any] = {
+    "items": [
+        {"id": "head", "type": "text", "text": "Launch board"},
+        {"id": "a", "text": "Interview **five** customers", "group": "Now"},
+        {"id": "b", "text": "Two lines:\nfirst, then second", "group": "Later"},
+        {"id": "c", "text": "Draft the page", "group": "Now", "color": "blue"},
+        {"id": "f", "type": "frame", "title": "Risks", "color": "pink"},
+        {"id": "r", "text": "Budget", "group": "f"},
+        {"id": "s1", "type": "shape", "shape": "pill", "text": "Start"},
+        {"id": "s2", "type": "shape", "shape": "diamond", "text": "Ready?"},
+        {"id": "pic", "type": "image", "image": PIXEL, "text": "The old page"},
+        {"id": "bare", "type": "shape"},
+    ],
+    "links": [
+        {"from": "s1", "to": "s2", "label": "check"},
+        {"from": "s2", "to": "a"},
+        {"from": "a", "to": "c", "label": "then", "style": "dashed"},
+    ],
+}
+
+
+def _offered(spec: dict[str, Any]) -> dict[str, Any]:
+    """What the page offers to edit, checked against the stored spec, by path."""
+    from tests.unit.nodes.editable import check_editable
+
+    node = _node(spec)
+    fields = check_editable(render(node), node.spec, node.title)
+    paths = [field.at for field in fields]
+    assert len(paths) == len(set(paths)), "a path is offered twice"
+    return {field.at: field for field in fields}
+
+
+@pytest.mark.parametrize(
+    "spec", [EXAMPLE, starter("My board", "en"), FULL], ids=["example", "starter", "full"]
+)
+def test_every_text_offered_for_editing_is_the_value_the_spec_holds(spec: dict[str, Any]) -> None:
+    fields = _offered(spec)
+    clean = normalize(spec)
+    texts = {f"/items/{i}/text" for i, item in enumerate(clean["items"]) if item.get("text")}
+    labels = {f"/links/{i}/label" for i, link in enumerate(clean["links"]) if link.get("label")}
+    titles = {
+        f"/items/{i}/title"
+        for i, item in enumerate(clean["items"])
+        if item["type"] == "frame" and item.get("title")
+    }
+    assert set(fields) == texts | labels | titles
+    # The board's title is not drawn (only read out), so it is not offered.
+    assert "@title" not in fields
+
+
+def test_a_small_board_offers_exactly_its_texts_at_their_stored_places() -> None:
+    spec = {
+        "items": [
+            {"id": "x", "text": "X", "group": "G1"},
+            {"id": "y", "text": "Y", "group": "G2"},
+            {"id": "z", "text": "Z", "group": "G1"},
+            {"id": "q", "type": "shape", "text": "Q"},
+        ],
+        "links": [{"from": "y", "to": "q", "label": "goes"}, {"from": "z", "to": "q"}],
+    }
+    html = render(_node(spec))
+    fields = _offered(spec)
+    assert set(fields) == {
+        "/items/0/text",
+        "/items/1/text",
+        "/items/2/text",
+        "/items/3/text",
+        "/links/0/label",
+    }
+    # The board draws Z (in G1's frame) before Y; the pointer is still Z's
+    # place in the stored list.
+    assert html.index(">Z</p>") < html.index(">Y</p>")
+    assert fields["/items/2/text"].text == "Z" and fields["/items/1/text"].text == "Y"
+    assert all(field.multiline for at, field in fields.items() if at.startswith("/items/"))
+    assert not fields["/links/0/label"].multiline
+    # A board is never drawn again on an edit: that would lose pan and zoom.
+    assert not any(field.refresh for field in fields.values())
+    # The frames drawn for G1 and G2 stand for a group name, not one value.
+    assert re.findall(r"<h2[^>]*>", html) == ["<h2>", "<h2>"]
+
+
+def test_texts_with_marks_or_line_breaks_carry_the_stored_string() -> None:
+    fields = _offered(FULL)
+    assert fields["/items/1/text"].src == "Interview **five** customers"
+    assert fields["/items/1/text"].text == "Interview five customers"
+    assert fields["/items/2/text"].src == "Two lines:\nfirst, then second"
+    assert fields["/items/3/text"].src is None
+    html = render(_node(FULL))
+    assert 'data-src="Two lines:\nfirst, then second" data-multiline>Two lines:<br>first' in html
+
+
+def test_a_frame_title_is_offered_only_when_it_is_not_what_holds_the_group() -> None:
+    by_id = _offered(FULL)
+    assert by_id["/items/4/title"].text == "Risks"
+    by_title = {
+        "items": [
+            {"id": "f", "type": "frame", "title": "Doing now"},
+            {"id": "a", "text": "a", "group": "Doing now"},
+        ]
+    }
+    fields = _offered(by_title)
+    assert set(fields) == {"/items/1/text"}
+    assert "<h2>Doing now</h2>" in render(_node(by_title))
+
+
+def test_an_image_caption_and_a_link_label_are_marked_alone() -> None:
+    html = render(_node(FULL))
+    assert '<figcaption data-at="/items/8/text" data-multiline>The old page</figcaption>' in html
+    # The label's element holds the label alone; the read-out text sits beside it.
+    assert re.search(
+        r'<li class="wb-label"[^>]*><span class="visually-hidden">Start → Ready\?: </span>'
+        r'<span data-at="/links/0/label">check</span></li>',
+        html,
+    )
+    assert '<span data-at="/links/2/label">then</span>' in html
+
+
+def test_a_spec_not_in_its_clean_form_offers_nothing() -> None:
+    raw = {"items": ["loose words", {"text": "A note"}], "links": []}
+    node = Node(
+        id="0123456789ab",
+        type="whiteboard",
+        title="Raw",
+        spec=raw,
+        slug="s",
+        page_path="p.html",
+        created_at=1.0,
+        updated_at=2.0,
+    )
+    html = render(node)
+    assert "A note" in html and "data-at=" not in html
+
+
+def test_the_board_script_lets_a_text_be_written_without_panning() -> None:
+    html = render(_node(FULL))
+    # A click on a note's paper puts the caret in, and a scroll the browser
+    # makes for the caret is turned into a pan; still no script of its own.
+    assert 'getAttribute("data-node-mode")!=="edit"' in html
+    assert 'view.addEventListener("scroll"' in html
+    assert html.count("<script>") == 3

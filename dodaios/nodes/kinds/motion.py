@@ -25,6 +25,16 @@ shared stylesheet's two scopes, the controls and the backdrop follow the app.
 No spec value is ever interpolated raw: texts pass through ``shell.esc`` /
 ``shell.attr``, numbers are formatted here, and the script reads its timing
 from ``data-`` attributes only.
+
+In the app's EDIT mode (:mod:`dodaios.nodes.bridge`) the film stands: it
+pauses and shows the current scene settled, every element at the end of its
+entrance, and the scrub bar and the scene keys only land on such frames.
+Every text that is one value of the spec carries its place (``data-at``). A
+text split into spans for its entrance (a title's words, a statement's lines,
+a counted number, a quote) carries the stored string in ``data-src`` on its
+wrapper; after a save the page script splits the new text again, so it moves
+as before once the film plays, and a bar or a counted number follows its new
+value. Nothing is drawn again by the app: a film drawn again starts over.
 """
 
 from __future__ import annotations
@@ -273,6 +283,31 @@ def normalize(spec: Any) -> dict[str, Any]:
 # attributes (when it starts inside the scene, how long it takes).
 
 
+def _at(base: str, *parts: str | int) -> str:
+    """The edit mark of one value: its place in the stored spec (a JSON Pointer)."""
+    return f' data-at="{attr("/".join([base, *(str(part) for part in parts)]))}"'
+
+
+#: The type sizes of the texts whose size follows their length: up to how many
+#: characters a size is used, and the size for anything longer. The page script
+#: reads the same table (``data-fit``) to set a text written into in edit mode.
+_SIZES: Final[dict[str, tuple[tuple[tuple[int, int], ...], int]]] = {
+    "title": (((18, 120), (32, 104), (56, 84), (84, 68)), 56),
+    "end": (((24, 96), (48, 76), (84, 60)), 50),
+    "say": (((50, 84), (90, 72), (150, 58), (220, 48)), 40),
+    "head": (((28, 60), (56, 50)), 40),
+    "stat": (((4, 248), (6, 208), (9, 160), (13, 120)), 88),
+    "quote": (((60, 72), (120, 60), (200, 48)), 40),
+}
+
+
+def _sized(kind: str, text: str) -> str:
+    """The type size of a text as attributes: its ``--fs``, and the table it came from."""
+    sizes, floor = _SIZES[kind]
+    table = ",".join(f"{limit}:{size}" for limit, size in sizes) + f",{floor}"
+    return f'style="--fs:{_fit(text, sizes, floor)}" data-fit="{table}"'
+
+
 def _cue(kind: str, start: float, length: float, classes: str = "") -> str:
     """The attributes of one animated element."""
     names = f"{classes} a a-{kind}" if classes else f"a a-{kind}"
@@ -300,49 +335,71 @@ def _fit(text: str, sizes: tuple[tuple[int, int], ...], floor: int) -> int:
     return next((size for limit, size in sizes if len(text) <= limit), floor)
 
 
-def _kicker(scene: dict[str, Any], at: float) -> tuple[str, float]:
+def _kicker(scene: dict[str, Any], at: float, base: str) -> tuple[str, float]:
     """The small line above a scene's heading, and when the heading may follow."""
     text = scene.get("kicker", "")
     if not text:
         return "", at
-    return f"<p {_cue('rise', at, 0.7, 'f-kicker')}>{esc(text)}</p>", at + 0.12
+    mark = _at(base, "kicker")
+    return f"<p {_cue('rise', at, 0.7, 'f-kicker')}{mark}>{esc(text)}</p>", at + 0.12
 
 
-def _head(scene: dict[str, Any], at: float) -> tuple[str, float]:
+def _head(scene: dict[str, Any], at: float, base: str) -> tuple[str, float]:
     """Kicker and heading of a scene that shows something under them."""
-    html, at = _kicker(scene, at)
+    html, at = _kicker(scene, at, base)
     title = scene.get("title", "")
     if not title:
         return html, at
-    size = _fit(title, ((28, 60), (56, 50)), 40)
-    html += f'<h2 {_cue("rise", at, 0.8, "f-head")} style="--fs:{size}">{esc(title)}</h2>'
+    html += (
+        f"<h2 {_cue('rise', at, 0.8, 'f-head')} {_sized('head', title)}{_at(base, 'title')}>"
+        f"{esc(title)}</h2>"
+    )
     return html, at + 0.3
 
 
-def _title_scene(scene: dict[str, Any], at: float, *, closing: bool) -> str:
-    html, at = _kicker(scene, at)
+def _split(base: str, field: str, text: str, kind: str, start: float, step: float) -> str:
+    """The marks of a text split into words for its entrance.
+
+    The field shows the stored string while it is edited (``data-src``); the
+    page script splits a saved text again the same way (``data-split``: ``w``
+    for words that rise out of their line, ``q`` for a quote's words) from the
+    first word's cue (``data-ws``) and the step between words (``data-wg``).
+    """
+    return (
+        f'{_at(base, field)} data-src="{attr(text)}" data-split="{kind}" '
+        f'data-ws="{start:.2f}" data-wg="{step:.2f}"'
+    )
+
+
+def _title_scene(scene: dict[str, Any], at: float, base: str, *, closing: bool) -> str:
+    html, at = _kicker(scene, at, base)
     title = scene["title"]
     if closing:
-        size = _fit(title, ((24, 96), (48, 76), (84, 60)), 50)
         html = f"<div {_cue('draw', at, 0.7, 'f-rule')}></div>" + html
         at += 0.1
-    else:
-        size = _fit(title, ((18, 120), (32, 104), (56, 84), (84, 68)), 56)
     words, last = _words(title, at, 0.08)
-    html += f'<h2 class="f-title" style="--fs:{size}">{words}</h2>'
+    html += (
+        f'<h2 class="f-title" {_sized("end" if closing else "title", title)}'
+        f"{_split(base, 'title', title, 'w', at, 0.08)}>{words}</h2>"
+    )
     if scene.get("text"):
-        html += f"<p {_cue('rise', last + 0.28, 0.8, 'f-text')}>{esc(scene['text'])}</p>"
+        html += (
+            f"<p {_cue('rise', last + 0.28, 0.8, 'f-text')}{_at(base, 'text')}>"
+            f"{esc(scene['text'])}</p>"
+        )
     return html
 
 
-def _text_scene(scene: dict[str, Any], at: float) -> str:
-    html, at = _kicker(scene, at)
+def _text_scene(scene: dict[str, Any], at: float, base: str) -> str:
+    html, at = _kicker(scene, at, base)
     text = scene["text"]
-    size = _fit(text, ((50, 84), (90, 72), (150, 58), (220, 48)), 40)
     # Every word starts at the same cue; the script reads which line each word
     # landed on and delays the lines one after another (``data-lines``).
     words, _ = _words(text, at, 0.0)
-    return html + f'<p class="f-say" data-lines="0.16" style="--fs:{size}">{words}</p>'
+    return html + (
+        f'<p class="f-say" data-lines="0.16" {_sized("say", text)}'
+        f"{_split(base, 'text', text, 'w', at, 0.0)}>{words}</p>"
+    )
 
 
 def _points_size(points: list[str], room: tuple[float, float], head: bool) -> int:
@@ -362,14 +419,14 @@ def _points_size(points: list[str], room: tuple[float, float], head: bool) -> in
     return 25
 
 
-def _bullets_scene(scene: dict[str, Any], at: float, room: tuple[float, float]) -> str:
-    html, at = _head(scene, at)
+def _bullets_scene(scene: dict[str, Any], at: float, base: str, room: tuple[float, float]) -> str:
+    html, at = _head(scene, at, base)
     points = scene["bullets"]
     size = _points_size(points, room, bool(html))
     # The points arrive far enough apart to be read, as far as the scene allows.
     gap = max(0.22, min(0.7, (scene["seconds"] - at - 2.0) / len(points)))
     rows = "".join(
-        f"<li {_cue('rise', at + index * gap, 0.7)}>{esc(point)}</li>"
+        f"<li {_cue('rise', at + index * gap, 0.7)}{_at(base, 'bullets', index)}>{esc(point)}</li>"
         for index, point in enumerate(points)
     )
     return html + f'<ul class="f-points" style="--fs:{size}">{rows}</ul>'
@@ -439,10 +496,9 @@ def _localized(value: str, language: str) -> str:
     return value
 
 
-def _stat_scene(scene: dict[str, Any], at: float, language: str = "en") -> str:
-    html, at = _kicker(scene, at)
+def _stat_scene(scene: dict[str, Any], at: float, base: str, language: str = "en") -> str:
+    html, at = _kicker(scene, at, base)
     value, unit = _localized(scene["value"], language), scene.get("unit", "")
-    size = _fit(value + unit, ((4, 248), (6, 208), (9, 160), (13, 120)), 88)
     counted = _counted(value)
     if counted is None:
         figure = esc(value)
@@ -453,18 +509,30 @@ def _stat_scene(scene: dict[str, Any], at: float, language: str = "en") -> str:
             f'data-to="{target:.4f}" data-dec="{decimals}" data-g="{attr(group)}" '
             f'data-pt="{attr(point)}">{esc(token)}</span>{esc(after)}'
         )
+    # The value is one field however it is drawn: the stored text is what it
+    # shows while edited, and the count starts again from ``data-cs`` after a save.
+    figure = (
+        f'<span class="f-num"{_at(base, "value")} data-src="{attr(scene["value"])}" '
+        f'data-cs="{at:.2f}">{figure}</span>'
+    )
     if unit:
-        figure += f'<span class="f-unit">{esc(unit)}</span>'
-    html += f'<p {_cue("rise", at, 0.9, "f-stat")} style="--fs:{size}">{figure}</p>'
+        figure += f'<span class="f-unit"{_at(base, "unit")}>{esc(unit)}</span>'
+    html += f"<p {_cue('rise', at, 0.9, 'f-stat')} {_sized('stat', value + unit)}>{figure}</p>"
     if scene.get("label"):
-        html += f"<p {_cue('rise', at + 0.5, 0.8, 'f-label')}>{esc(scene['label'])}</p>"
+        html += (
+            f"<p {_cue('rise', at + 0.5, 0.8, 'f-label')}{_at(base, 'label')}>"
+            f"{esc(scene['label'])}</p>"
+        )
     if scene.get("detail"):
-        html += f"<p {_cue('rise', at + 0.62, 0.8, 'f-detail')}>{esc(scene['detail'])}</p>"
+        html += (
+            f"<p {_cue('rise', at + 0.62, 0.8, 'f-detail')}{_at(base, 'detail')}>"
+            f"{esc(scene['detail'])}</p>"
+        )
     return html
 
 
-def _bars_scene(scene: dict[str, Any], at: float) -> str:
-    html, at = _head(scene, at)
+def _bars_scene(scene: dict[str, Any], at: float, base: str) -> str:
+    html, at = _head(scene, at, base)
     items, unit = scene["items"], scene.get("unit", "")
     top = max(abs(float(item["value"])) for item in items) or 1.0
     size, gap, height = (34, 30, 24) if len(items) <= 4 else (30, 24, 20)
@@ -483,13 +551,15 @@ def _bars_scene(scene: dict[str, Any], at: float) -> str:
         start = at + index * 0.09
         share = abs(float(item["value"])) / top * 100
         decimals = len(text.partition(".")[2])
+        place = f"/items/{index}"
         rows.append(
             f"<li {_cue('rise', start, 0.7, 'f-bar')}>"
-            f'<span class="f-bar-l">{esc(item["label"])}</span>'
+            f'<span class="f-bar-l"{_at(base + place, "label")}>{esc(item["label"])}</span>'
             f'<span class="f-bar-t"><i {_cue("bar", start + 0.1, 1.1)} data-e="cub" '
             f'style="--v:{share:.2f}"></i></span>'
             f'<span class="f-bar-v"><span {_cue("count", start + 0.1, 1.1)} data-e="cub" '
-            f'data-to="{float(item["value"]):.4f}" data-dec="{decimals}" data-intl>'
+            f'data-to="{float(item["value"]):.4f}" data-dec="{decimals}" data-intl'
+            f'{_at(base + place, "value")} data-as="number" data-src="{attr(text)}">'
             f"{esc(text)}</span>{suffix}</span></li>"
         )
     return html + (
@@ -498,9 +568,8 @@ def _bars_scene(scene: dict[str, Any], at: float) -> str:
     )
 
 
-def _quote_scene(scene: dict[str, Any], at: float) -> str:
+def _quote_scene(scene: dict[str, Any], at: float, base: str) -> str:
     quote = scene["quote"]
-    size = _fit(quote, ((60, 72), (120, 60), (200, 48)), 40)
     parts = quote.split()
     # The quote is revealed word by word, at reading pace but never slower
     # than two seconds for the whole of it.
@@ -511,16 +580,17 @@ def _quote_scene(scene: dict[str, Any], at: float) -> str:
     )
     html = (
         f"<div {_cue('draw', at, 0.7, 'f-rule')}></div>"
-        f'<blockquote class="f-quote" style="--fs:{size}">{words}</blockquote>'
+        f'<blockquote class="f-quote" {_sized("quote", quote)}'
+        f"{_split(base, 'quote', quote, 'q', at + 0.2, 0.0)}>{words}</blockquote>"
     )
     if scene.get("by"):
         after = at + 0.2 + gap * (len(parts) - 1) + 0.45
-        html += f"<p {_cue('rise', after, 0.8, 'f-by')}>{esc(scene['by'])}</p>"
+        html += f"<p {_cue('rise', after, 0.8, 'f-by')}{_at(base, 'by')}>{esc(scene['by'])}</p>"
     return html
 
 
-def _steps_scene(scene: dict[str, Any], at: float, *, row: bool) -> str:
-    html, at = _head(scene, at)
+def _steps_scene(scene: dict[str, Any], at: float, base: str, *, row: bool) -> str:
+    html, at = _head(scene, at, base)
     steps = scene["steps"]
     count = len(steps)
     # All steps arrive dimmed, then light up one after another over the scene.
@@ -536,8 +606,14 @@ def _steps_scene(scene: dict[str, Any], at: float, *, row: bool) -> str:
             lit = first + (index + 1) * gap
             line = f'<span class="f-step-line"><i {_cue("draw", lit - 0.3, 0.5)}></i></span>'
         number = index + 1
-        text = f"<p>{esc(step['text'])}</p>" if step["text"] else ""
-        title = f"<h3>{esc(step['title'])}</h3>" if step["title"] else ""
+        text = (
+            f"<p{_at(base, 'steps', index, 'text')}>{esc(step['text'])}</p>" if step["text"] else ""
+        )
+        title = (
+            f"<h3{_at(base, 'steps', index, 'title')}>{esc(step['title'])}</h3>"
+            if step["title"]
+            else ""
+        )
         rows.append(
             f"<li {_cue('rise', at + index * 0.1, 0.7, 'f-step')}>"
             f"<div {_cue('lit', first + index * gap, 0.6, 'f-step-in')}>"
@@ -550,7 +626,7 @@ def _steps_scene(scene: dict[str, Any], at: float, *, row: bool) -> str:
     return html + f'<ol class="f-steps {layout}" style="--fs:{size}">' + "".join(rows) + "</ol>"
 
 
-def _image_scene(scene: dict[str, Any], at: float) -> str:
+def _image_scene(scene: dict[str, Any], at: float, base: str) -> str:
     caption = scene.get("caption", "")
     # The push-in runs on the scene's own clock, from its first to its last
     # frame, at constant speed: a slow drift, not an entrance.
@@ -563,7 +639,8 @@ def _image_scene(scene: dict[str, Any], at: float) -> str:
         return f'<figure class="f-shot bleed">{picture}</figure>'
     return (
         f'<figure class="f-shot">{picture}'
-        f"<figcaption {_cue('rise', at + 0.5, 0.8, 'f-cap')}>{esc(caption)}</figcaption></figure>"
+        f"<figcaption {_cue('rise', at + 0.5, 0.8, 'f-cap')}{_at(base, 'caption')}>"
+        f"{esc(caption)}</figcaption></figure>"
     )
 
 
@@ -577,22 +654,24 @@ def _scene_html(
     room = ((width - 2 * pad) / factor, height / factor - 144)
     # Where the scene's own entrances begin: after the scene before it has left.
     at = 0.2 if index == 0 else 0.1 if scene["transition"] == "cut" else 0.34
+    # Where the scene's texts are in the stored spec (the edit marks).
+    base = f"/scenes/{index}"
     if kind in ("title", "end"):
-        inner = _title_scene(scene, at, closing=kind == "end")
+        inner = _title_scene(scene, at, base, closing=kind == "end")
     elif kind == "text":
-        inner = _text_scene(scene, at)
+        inner = _text_scene(scene, at, base)
     elif kind == "bullets":
-        inner = _bullets_scene(scene, at, room)
+        inner = _bullets_scene(scene, at, base, room)
     elif kind == "stat":
-        inner = _stat_scene(scene, at, language)
+        inner = _stat_scene(scene, at, base, language)
     elif kind == "bars":
-        inner = _bars_scene(scene, at)
+        inner = _bars_scene(scene, at, base)
     elif kind == "quote":
-        inner = _quote_scene(scene, at)
+        inner = _quote_scene(scene, at, base)
     elif kind == "steps":
-        inner = _steps_scene(scene, at, row=film_format == "wide")
+        inner = _steps_scene(scene, at, base, row=film_format == "wide")
     else:
-        inner = _image_scene(scene, at)
+        inner = _image_scene(scene, at, base)
     state = " is-on" if index == 0 else ""
     return (
         f'<section class="scene s-{kind}{state}" data-sec="{scene["seconds"]:.1f}" '
@@ -770,6 +849,12 @@ _FILM_CSS: Final[str] = """
 @media (max-width:560px){.film-view{padding:12px 12px 4px}
 .film-bar{max-width:calc(100% - 16px);padding:2px 0 10px}.f-scrub{margin:0 6px}}
 @media print{.film-bar,.f-replay{display:none!important}}
+/* Edit mode: the film stands and its texts are fields (the bridge draws their
+   outline). Play is off; a field is selectable inside the unselectable film. */
+.f-btn[disabled],.f-btn[disabled]:hover{opacity:.35;background:transparent;color:var(--ink-2);
+  cursor:default}
+:root[data-node-mode="edit"] .film-fit{cursor:default}
+:root[data-node-mode="edit"] .stage [data-at]{-webkit-user-select:text;user-select:text}
 """
 
 # The player. One clock (`t`, in seconds), one pure `draw(t)`; everything a
@@ -788,17 +873,18 @@ function numbers(dec){
   try{return new Intl.NumberFormat(d.documentElement.lang||undefined,o);}catch(e){}
   try{return new Intl.NumberFormat(undefined,o);}catch(e){}
   return null;}
-var scenes=[],total=0;
-each(stage.querySelectorAll(".scene"),function(el){
-  var sec=+el.getAttribute("data-sec")||4,items=[],end=0;
+// A scene's animated elements and their cues, read from its markup. Read
+// again whenever that markup changed (a text written into in edit mode).
+function build(sc){
+  var el=sc.el,sec=sc.sec,items=[],end=0,lined=[],delay=[];
   each(el.querySelectorAll("[data-lines]"),function(box){
     var top=null,line=-1,gap=+box.getAttribute("data-lines")||.14;
     each(box.querySelectorAll(".w"),function(w){
       if(top===null||Math.abs(w.offsetTop-top)>2){top=w.offsetTop;line++;}
-      var a=w.firstElementChild;
-      if(a)a.setAttribute("data-s",String((+a.getAttribute("data-s")||0)+line*gap));});});
+      var a=w.firstElementChild;if(a){lined.push(a);delay.push(line*gap);}});});
   each(el.querySelectorAll(".a"),function(a){
-    var it={el:a,s:+a.getAttribute("data-s")||0,d:+a.getAttribute("data-d")||.6,
+    var j=lined.indexOf(a);
+    var it={el:a,s:(+a.getAttribute("data-s")||0)+(j<0?0:delay[j]),d:+a.getAttribute("data-d")||.6,
       e:a.getAttribute("data-e")||"",p:-1,c:null};
     if(a.hasAttribute("data-to")){
       var c={to:+a.getAttribute("data-to")||0,dec:+a.getAttribute("data-dec")||0,
@@ -810,9 +896,12 @@ each(stage.querySelectorAll(".scene"),function(el){
     items.push(it);});
   var k=end>sec-.3?Math.max(.15,(sec-.3)/end):1;
   if(k<1)items.forEach(function(it){if(it.e!=="lin"){it.s*=k;it.d*=k;}});
-  scenes.push({el:el,at:total,sec:sec,tr:el.getAttribute("data-tr")||"fade",items:items,
-    on:null});
-  total+=sec;});
+  sc.items=items;}
+var scenes=[],total=0;
+each(stage.querySelectorAll(".scene"),function(el){
+  var sc={el:el,at:total,sec:+el.getAttribute("data-sec")||4,
+    tr:el.getAttribute("data-tr")||"fade",items:[],on:null};
+  build(sc);scenes.push(sc);total+=sc.sec;});
 if(!scenes.length)return;
 var N=scenes.length;
 function clamp(x){return x<0?0:x>1?1:x;}
@@ -848,6 +937,7 @@ function draw(t){
       s.items.forEach(function(it){put(it,1);});
     }});}
 var t=0,playing=false,raf=0,last=0,idle=0,loop=root.getAttribute("data-loop")==="1";
+var editing=false;
 var playB=bar.querySelector(".f-play"),restartB=bar.querySelector(".f-restart"),
   loopB=bar.querySelector(".f-loop"),scrub=bar.querySelector(".f-scrub"),
   fill=bar.querySelector(".f-fill"),knob=bar.querySelector(".f-knob"),
@@ -859,7 +949,7 @@ function sync(){
   root.classList.toggle("is-playing",playing);
   playB.setAttribute("aria-label",playing?"Pause":"Play");
   loopB.setAttribute("aria-pressed",loop?"true":"false");
-  replay.hidden=playing||t<total;
+  replay.hidden=playing||editing||t<total;playB.disabled=editing;
   fill.style.transform="scaleX("+f.toFixed(5)+")";knob.style.left=(f*100).toFixed(3)+"%";
   time.textContent=text;
   scrub.setAttribute("aria-valuenow",t.toFixed(1));scrub.setAttribute("aria-valuetext",text);}
@@ -873,12 +963,15 @@ function frame(now){
   draw(t);sync();
   if(playing)raf=requestAnimationFrame(frame);else wake();}
 function play(){
-  if(playing)return;if(t>=total)t=0;
+  if(playing||editing)return;if(t>=total)t=0;
   playing=true;last=performance.now();draw(t);sync();wake();raf=requestAnimationFrame(frame);}
 function pause(){
   if(!playing)return;playing=false;if(raf){cancelAnimationFrame(raf);raf=0;}sync();wake();}
 function toggle(){if(playing)pause();else play();}
-function seek(x){t=Math.max(0,Math.min(total,x));last=performance.now();draw(t);sync();}
+function seek(x){
+  // While the film is edited, every move lands on a scene's settled frame.
+  t=Math.max(0,Math.min(total,x));if(editing)t=settled(index(t));
+  last=performance.now();draw(t);sync();}
 function settled(i){return i>=N-1?total:scenes[i].at+scenes[i].sec-.001;}
 function step(dir){
   var i=index(t);
@@ -893,7 +986,7 @@ restartB.addEventListener("click",function(){seek(0);play();});
 replay.addEventListener("click",function(){seek(0);play();});
 loopB.addEventListener("click",function(){loop=!loop;sync();});
 fit.addEventListener("click",function(e){
-  if(e.target.closest&&e.target.closest("button"))return;toggle();});
+  if(editing||e.target.closest&&e.target.closest("button"))return;toggle();});
 var drag=false,resume=false;
 function where(e){var r=scrub.getBoundingClientRect();
   return r.width?clamp((e.clientX-r.left)/r.width)*total:0;}
@@ -931,6 +1024,136 @@ var at=q&&q.get("t")!==null?parseFloat(q.get("t")):NaN;
 var still=(q&&q.get("autoplay")==="0")||
   (window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
 if(!isNaN(at))seek(at);else if(still)seek(settled(0));else{draw(0);sync();play();}
+// --- edit mode -------------------------------------------------------------
+// The app's edit mode (data-node-mode="edit" on <html>) stops the film on the
+// current scene, settled, so every text of it is there to be written into.
+function moded(){
+  var on=d.documentElement.getAttribute("data-node-mode")==="edit";
+  if(on===editing)return;editing=on;
+  if(on){pause();seek(t);}else sync();}
+function sceneOf(n){
+  while(n&&n!==stage){if(n.classList&&n.classList.contains("scene"))return n;n=n.parentNode;}
+  return null;}
+function renew(els){
+  scenes.forEach(function(sc){if(els.indexOf(sc.el)>=0)build(sc);});draw(t);}
+function plain(n){
+  return n===Math.round(n)&&Math.abs(n)<1e15?String(n):
+    n.toFixed(4).replace(/0+$/,"").replace(/\\.$/,"");}
+var SP="'\\u00a0\\u202f ";
+function readNumber(v){
+  // What the app reads a typed number as (dodaios/nodes/edit.py read_number).
+  v=String(v).replace(/^\\s+|\\s+$/g,"").replace(/^[€$£¥%]+|[€$£¥%]+$/g,"")
+    .replace(/^\\s+|\\s+$/g,"");
+  if(!new RegExp("^[+-]?[0-9.,"+SP+"]*[0-9][0-9.,"+SP+"]*$").test(v))return NaN;
+  var sign=v.charAt(0)==="-"?-1:1,whole,frac="";
+  v=v.replace(/^[+-]+/,"").replace(new RegExp("["+SP+"]","g"),"");
+  var marks=v.replace(/[^.,]/g,"");whole=v;
+  if(marks.indexOf(".")>=0&&marks.indexOf(",")>=0){
+    var pt=v.charAt(Math.max(v.lastIndexOf("."),v.lastIndexOf(",")));
+    if(v.split(pt).length!==2)return NaN;
+    var two=v.split(pt===","?".":",").join("").split(pt);whole=two[0];frac=two[1];}
+  else if(marks){
+    var cut=v.lastIndexOf(marks[0]),head=v.slice(0,cut),tail=v.slice(cut+1);
+    if(marks.length>1||(tail.length===3&&head!==""&&head!=="0"))whole=v.split(marks[0]).join("");
+    else{whole=head;frac=tail;}}
+  if(!/^\\d*$/.test(whole)||!/^\\d*$/.test(frac))return NaN;
+  return sign*parseFloat((whole||"0")+"."+(frac||"0"));}
+var NUM=new RegExp("[0-9][0-9.,"+SP+"]*[0-9]|[0-9]");
+function countOf(v){
+  // A stat's value split for counting up, as the renderer splits it (_counted).
+  var m=NUM.exec(v);if(!m)return null;
+  var tok=m[0],before=v.slice(0,m.index),after=v.slice(m.index+tok.length);
+  if(/\\d/.test(before+after))return null;
+  var marks=tok.replace(/\\d/g,""),kinds="",g="",pt="";
+  for(var i=0;i<marks.length;i++){if(kinds.indexOf(marks[i])<0)kinds+=marks[i];}
+  if(kinds.length>2)return null;
+  if(kinds.length===2){
+    pt=marks[marks.length-1];
+    if(marks.split(pt).length!==2||".,".indexOf(pt)<0)return null;
+    g=kinds.replace(pt,"");}
+  else if(kinds){
+    var cut=tok.lastIndexOf(kinds),head=tok.slice(0,cut),tail=tok.slice(cut+1);
+    var thousands=tail.length===3&&head.replace(/^0+|0+$/g,"")!==""&&head.length<=3;
+    if(marks.length>1||".,".indexOf(kinds)<0||thousands)g=kinds;else pt=kinds;}
+  var whole=pt?tok.slice(0,tok.indexOf(pt)):tok,frac=pt?tok.slice(tok.indexOf(pt)+1):"";
+  var chunks=g?whole.split(g):[whole];
+  if(g&&(chunks[0].length<1||chunks[0].length>3))return null;
+  for(var j=1;j<chunks.length;j++){if(chunks[j].length!==3)return null;}
+  var digits=chunks.join("");
+  if(!/^\\d+$/.test(digits)||(frac&&!/^\\d+$/.test(frac))||digits.length>12)return null;
+  return {before:before,tok:tok,after:after,to:parseFloat(digits+"."+(frac||"0")),
+    dec:Math.min(frac.length,4),g:g,pt:pt||"."};}
+function local(v){
+  var lang=(d.documentElement.lang||"").slice(0,2).toLowerCase();
+  return /^(de|es|pt|fr|it|nl)$/.test(lang)&&/^-?\\d+\\.\\d+$/.test(v)?v.replace(".",","):v;}
+function split(el,v){
+  // A saved title, statement or quote is split into its words again.
+  var q=el.getAttribute("data-split")==="q",s=+el.getAttribute("data-ws")||0;
+  var parts=v.split(/\\s+/).filter(function(w){return w;}),n=Math.max(1,parts.length);
+  var gap=q?Math.max(.03,Math.min(.09,2/n)):Math.min(+el.getAttribute("data-wg")||0,.9/n);
+  el.textContent="";
+  parts.forEach(function(w,i){
+    var a=d.createElement("span");a.className=q?"a a-rise f-word":"a a-word";
+    a.setAttribute("data-s",(s+i*gap).toFixed(2));a.setAttribute("data-d",q?"0.60":"0.90");
+    a.textContent=w;
+    if(i)el.appendChild(d.createTextNode(" "));
+    if(q){el.appendChild(a);return;}
+    var box=d.createElement("span");box.className="w";box.appendChild(a);el.appendChild(box);});}
+function restat(el,v){
+  // A saved stat value counts up to its new number.
+  v=v.replace(/\\s+/g," ").replace(/^ | $/g,"").slice(0,24).replace(/ $/,"");
+  el.setAttribute("data-src",v);
+  var shown=local(v),c=countOf(shown);
+  el.textContent=c?"":shown;if(!c)return;
+  var a=d.createElement("span");a.className="a a-count";
+  a.setAttribute("data-s",el.getAttribute("data-cs")||"0");a.setAttribute("data-d","1.50");
+  a.setAttribute("data-e","cub");a.setAttribute("data-to",c.to.toFixed(4));
+  a.setAttribute("data-dec",String(c.dec));a.setAttribute("data-g",c.g);
+  a.setAttribute("data-pt",c.pt);a.textContent=c.tok;
+  el.appendChild(d.createTextNode(c.before));el.appendChild(a);
+  el.appendChild(d.createTextNode(c.after));}
+function recount(el,v){
+  // A saved bar value: its number, and every bar's share of the largest.
+  var n=readNumber(v);if(isNaN(n))return;
+  n=Math.max(-1e12,Math.min(1e12,Math.round(n*1e4)/1e4));
+  var text=plain(n),dec=(text.split(".")[1]||"").length,f=numbers(dec);
+  el.setAttribute("data-to",n.toFixed(4));el.setAttribute("data-dec",String(dec));
+  el.setAttribute("data-src",text);el.textContent=f?f.format(n):text;
+  var list=el.closest(".f-bars");if(!list)return;
+  var rows=list.querySelectorAll(".f-bar"),top=0,vs=[];
+  each(rows,function(li){var c=li.querySelector("[data-to]");
+    vs.push(c?Math.abs(+c.getAttribute("data-to")||0):0);top=Math.max(top,vs[vs.length-1]);});
+  each(rows,function(li,i){var b=li.querySelector(".a-bar");
+    if(b)b.style.setProperty("--v",(vs[i]/(top||1)*100).toFixed(2));});}
+function refit(box){
+  // A text whose type size follows its length takes the size of its new length.
+  var table=(box.getAttribute("data-fit")||"").split(","),n=(box.textContent||"").length;
+  var size=+table[table.length-1];
+  for(var i=0;i<table.length-1;i++){
+    var row=table[i].split(":");if(n<=+row[0]){size=+row[1];break;}}
+  if(size)box.style.setProperty("--fs",String(size));}
+stage.addEventListener("node-field-saved",function(e){
+  var el=e.target,v=e.detail&&e.detail.value!=null?String(e.detail.value):el.textContent||"";
+  if(el.hasAttribute("data-split"))split(el,v);
+  else if(el.hasAttribute("data-to"))recount(el,v);
+  else if(el.hasAttribute("data-cs"))restat(el,v);
+  var box=el.closest("[data-fit]");if(box)refit(box);
+  renew([sceneOf(el)]);});
+if(window.MutationObserver){
+  new MutationObserver(moded).observe(d.documentElement,
+    {attributes:true,attributeFilter:["data-node-mode"]});
+  // A field's own markup is replaced while it is edited, and put back when an
+  // edit is cancelled or refused: the scene's elements are read again. A count
+  // writing its own number is the film playing, not an edit.
+  new MutationObserver(function(list){
+    var hit=[];
+    list.forEach(function(r){
+      var n=r.target.nodeType===3?r.target.parentNode:r.target;
+      if(!n||n.nodeType!==1||n.hasAttribute("data-to"))return;
+      var s=sceneOf(n);if(s&&hit.indexOf(s)<0)hit.push(s);});
+    if(hit.length)renew(hit);}).observe(stage,{childList:true,characterData:true,subtree:true});
+}
+moded();
 })();
 """
 

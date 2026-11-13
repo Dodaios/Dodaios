@@ -80,9 +80,21 @@ def _node(spec: dict[str, Any], title: str = "Sales 2026", **more: Any) -> Node:
     )
 
 
+_EDIT_MARKS = re.compile(
+    r' data-(?:at|src|as|better)="[^"]*"| data-(?:multiline|refresh)\b'
+)
+
+
+def _drawn(html: str) -> str:
+    """The page without the marks of the edit mode. Those carry stored values
+    as escaped attributes, which are data and never drawn."""
+    return _EDIT_MARKS.sub("", html)
+
+
 def _body(html: str) -> str:
-    """The page without its head, so the kit's own styles and scripts are not searched."""
-    return html[html.index("<main") : html.index("</main>")]
+    """What the page DRAWS: without its head (the kit's own styles and scripts
+    are not searched) and without the marks of the edit mode."""
+    return _drawn(html[html.index("<main") : html.index("</main>")])
 
 
 # ------------------------------------------------------------------ normalize
@@ -287,7 +299,7 @@ def test_a_full_dashboard_shows_every_part() -> None:
 
 def test_deltas_take_the_kit_tone_and_no_color_of_their_own() -> None:
     body = _body(data.render(_node(data.normalize(FULL))))
-    assert '<span class="delta up">+12 %</span> vs. Sep' in body
+    assert '<span class="delta up">+12 %</span> <span>vs. Sep</span>' in body
     assert '<span class="delta down">−0.5 pts</span>' in body
     assert '<div class="detail up">+12 %</div>' in body
     assert "color:" not in body and "#" not in re.sub(r"&#\d+;", "", body)
@@ -341,7 +353,7 @@ def test_the_page_follows_the_theme_and_carries_no_network_or_storage() -> None:
     assert '<html lang="de">' in html
     assert "data-theme" in html and "--bg:" in html
     for forbidden in ("<link", "@import", "url(", 'src="', "fetch(", "XMLHttpRequest"):
-        assert forbidden not in html
+        assert forbidden not in _drawn(html)
     assert "localStorage" not in html and "sessionStorage" not in html
     assert "prefers-reduced-motion" in html and "@media print" in html
     assert 'tabindex="0"' in html and '"keydown"' in html
@@ -361,7 +373,7 @@ def test_render_survives_a_spec_that_skipped_normalize() -> None:
     assert "<td>only one</td><td></td>" in body
     card = data.preview(odd)
     assert card == {"metrics": [{"label": "A", "value": "1"}], "bars": [], "chart": "bar"}
-    assert "<h1>Sales 2026</h1>" in data.render(_node({}))
+    assert "<h1>Sales 2026</h1>" in _body(data.render(_node({})))
 
 
 # ------------------------------------------------------------------- escaping
@@ -483,6 +495,192 @@ def test_a_falling_figure_can_be_the_good_news() -> None:
     assert "better" not in kept[1]
     assert "better" not in kept[2]  # nothing to color without a delta
     assert data.normalize(spec) == spec
-    page = data.render(_node(spec))
+    page = _body(data.render(_node(spec)))
     assert '<span class="delta up">−0.7 pts</span>' in page
     assert '<span class="delta down">−2 %</span>' in page
+
+
+# ------------------------------------------------------------------ edit mode
+
+
+def _fields(spec: dict[str, Any], **more: Any) -> dict[str, Any]:
+    """What the page offers to edit, checked against the spec, by path."""
+    from tests.unit.nodes.editable import check_editable
+
+    node = _node(spec, **more)
+    fields = check_editable(data.render(node), spec, node.title)
+    paths = [field.at for field in fields]
+    assert len(paths) == len(set(paths)), "a path is offered twice"
+    return {field.at: field for field in fields}
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [data.normalize(data.EXAMPLE), data.starter("My numbers", "en"), data.normalize(FULL)],
+    ids=["example", "starter", "full"],
+)
+def test_every_text_offered_for_editing_is_the_value_the_spec_holds(spec: dict[str, Any]) -> None:
+    fields = _fields(spec)
+    assert "@title" in fields
+    # Every metric, column and cell the spec holds is offered.
+    for s, section in enumerate(spec["sections"]):
+        for m, metric in enumerate(section["metrics"]):
+            for key in metric:
+                if key != "better":
+                    assert f"/sections/{s}/metrics/{m}/{key}" in fields
+        for t, table in enumerate(section["tables"]):
+            for c in range(len(table["columns"])):
+                assert f"/sections/{s}/tables/{t}/columns/{c}" in fields
+            for r, row in enumerate(table["rows"]):
+                for c in range(len(row)):
+                    assert f"/sections/{s}/tables/{t}/rows/{r}/{c}" in fields
+
+
+def test_a_small_dashboard_offers_exactly_its_texts() -> None:
+    spec = data.normalize(
+        {
+            "summary": "As of today.",
+            "metrics": [{"label": "Users", "value": "12", "delta": "+2", "detail": "vs. May"}],
+            "charts": [_bar_chart()],
+            "sections": [
+                {
+                    "title": "Detail",
+                    "text": "Plain words.",
+                    "tables": [{"title": "List", "columns": ["Name", "Count"], "rows": [["a", 3]]}],
+                }
+            ],
+        }
+    )
+    fields = _fields(spec)
+    assert set(fields) == {
+        "@title",
+        "/summary",
+        "/sections/0/metrics/0/label",
+        "/sections/0/metrics/0/value",
+        "/sections/0/metrics/0/delta",
+        "/sections/0/metrics/0/detail",
+        "/sections/1/title",
+        "/sections/1/text",
+        "/sections/1/tables/0/title",
+        "/sections/1/tables/0/columns/0",
+        "/sections/1/tables/0/columns/1",
+        "/sections/1/tables/0/rows/0/0",
+        "/sections/1/tables/0/rows/0/1",
+    }
+    # Plain texts are edited as they are drawn, so they carry no source.
+    assert all(fields[path].src is None for path in fields if "/rows/0/1" not in path)
+    assert not any(field.multiline or field.refresh for field in fields.values())
+
+
+def test_a_chart_is_not_offered_for_editing() -> None:
+    page = data.render(_node(data.normalize(FULL)))
+    for figure in re.findall(r"<figure.*?</figure>", page, flags=re.S):
+        assert "data-at=" not in figure
+
+
+def test_texts_with_inline_marks_carry_the_stored_string() -> None:
+    spec = data.normalize(
+        {
+            "sections": [
+                {
+                    "text": "Revenue grew for the **third month** (see [the shop](https://a.example/)).",
+                    "tables": [{"columns": ["Item"], "rows": [["`SKU-1` *new*"], ["plain"]]}],
+                }
+            ]
+        }
+    )
+    fields = _fields(spec)
+    text = fields["/sections/0/text"]
+    assert text.src == spec["sections"][0]["text"]
+    assert text.text == "Revenue grew for the third month (see the shop)."
+    assert fields["/sections/0/tables/0/rows/0/0"].src == "`SKU-1` *new*"
+    assert fields["/sections/0/tables/0/rows/1/0"].src is None
+
+
+def test_a_number_cell_is_edited_as_a_number_and_a_text_cell_as_text() -> None:
+    spec = data.normalize(FULL)
+    fields = _fields(spec, language="de")
+    units = fields["/sections/1/tables/0/rows/0/1"]
+    assert (units.kind, units.src) == ("number", "412")
+    half = fields["/sections/1/tables/0/rows/2/1"]
+    assert (half.kind, half.src) == ("number", "97.5")
+    # "14,420 €" is text in the spec, however much it reads as a number.
+    revenue = fields["/sections/1/tables/0/rows/0/2"]
+    assert (revenue.kind, revenue.src, revenue.text) == ("text", None, "14,420 €")
+    page = data.render(_node(spec))
+    assert re.search(
+        r'<td class="n" data-value="412" data-at="/sections/1/tables/0/rows/0/1" '
+        r'data-src="412" data-as="number">412</td>',
+        page,
+    )
+    assert data._number_source(1e-07) == "0.0000001"
+    assert data._number_source(1e20) == "100000000000000000000"
+
+
+def test_a_delta_carries_what_the_page_needs_to_color_it_again() -> None:
+    spec = data.normalize(
+        {
+            "metrics": [
+                {"label": "Return rate", "value": "3.1 %", "delta": "−0.7 pts", "better": "lower"},
+                {"label": "Revenue", "value": "48k", "delta": "−2 %"},
+            ]
+        }
+    )
+    page = data.render(_node(spec))
+    assert (
+        '<span class="delta up" data-better="lower" data-at="/sections/0/metrics/0/delta">'
+        "−0.7 pts</span>"
+    ) in page
+    assert '<span class="delta down" data-at="/sections/0/metrics/1/delta">−2 %</span>' in page
+    # The page recolors it on save instead of being drawn again.
+    assert '"node-field-saved"' in page
+    assert not any(field.refresh for field in _fields(spec).values())
+
+
+def test_a_section_of_words_alone_is_drawn_again_after_an_edit() -> None:
+    spec = data.normalize(
+        {
+            "metrics": [{"label": "Users", "value": "12"}],
+            "sections": [{"title": "Note", "text": "Only words here."}],
+        }
+    )
+    fields = _fields(spec)
+    # Emptied, it would be dropped and move the sections below it up.
+    assert fields["/sections/1/title"].refresh and fields["/sections/1/text"].refresh
+    assert not fields["/sections/0/metrics/0/value"].refresh
+
+
+def test_hostile_texts_reach_the_edit_marks_escaped_only() -> None:
+    from html.parser import HTMLParser
+
+    spec = data.normalize(
+        {
+            "sections": [
+                {
+                    "text": f"**{SCRIPT}** {BREAKOUT}",
+                    "tables": [{"columns": [BREAKOUT], "rows": [[f"`{SCRIPT}`"]]}],
+                }
+            ]
+        }
+    )
+    page = data.render(_node(spec))
+    assert SCRIPT not in page and BREAKOUT not in page
+    assert "data-src=\"**&lt;script&gt;alert(1)&lt;/script&gt;** &quot;&gt;&lt;img" in page
+    fields = _fields(spec)
+    assert fields["/sections/0/text"].src == f"**{SCRIPT}** {BREAKOUT}"
+    assert fields["/sections/0/tables/0/rows/0/0"].src == f"`{SCRIPT}`"
+
+    class Tags(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__(convert_charrefs=True)
+            self.found: list[tuple[str, list[tuple[str, str | None]]]] = []
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            self.found.append((tag, attrs))
+
+    reader = Tags()
+    reader.feed(page)
+    assert [tag for tag, _ in reader.found].count("script") == page.count("<script>")
+    assert [tag for tag, _ in reader.found if tag == "img"] == []
+    for _, attrs in reader.found:
+        assert not [key for key, _ in attrs if key.startswith("on")]

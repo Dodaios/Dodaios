@@ -11796,6 +11796,12 @@
       "send_many": "{0} Kommentare senden",
       "sent": "Gesendet",
       "failed": "Nicht gesendet. Versuch es noch einmal."
+    },
+    "edit": {
+      "toggle": "Bearbeiten",
+      "hint": "Klicke auf einen Text und schreibe. Gespeichert wird beim Verlassen des Feldes; Esc nimmt es zurück.",
+      "saving": "Wird gespeichert …",
+      "failed": "Das ließ sich nicht speichern."
     }
   },
   "agent_browser": {

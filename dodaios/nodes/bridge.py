@@ -1,4 +1,4 @@
-"""How a node's page and the app talk: comments left on the page.
+"""How a node's page and the app talk: comments left on the page, and edits made in it.
 
 A node's page runs in a sandbox of its own (scripts, and nothing else): the
 app cannot see where the reader clicks in it, and the page cannot reach the
@@ -14,7 +14,7 @@ the page that they come from its parent):
 
 * page → app ``dodaios-node-ready``: the page has loaded; the app answers
   with the mode it is in.
-* app → page ``dodaios-node-mode`` ``{mode: "view" | "comment", labels}``:
+* app → page ``dodaios-node-mode`` ``{mode: "view" | "comment" | "edit", labels}``:
   ``labels`` are the few words the page shows, in the reader's language.
 * page → app ``dodaios-node-comment`` ``{n, text, quote, where}``: comment
   ``n`` was added. ``quote`` is the text under the pin, ``where`` names the
@@ -33,8 +33,44 @@ the sentence it was put on. While the mode is on, clicks do not reach the
 page's own controls (a deck does not turn its slide, a link does not open):
 the click belongs to the comment.
 
-Everything is text set through ``textContent``; nothing from a message is
-ever written as markup.
+EDIT mode is the reader writing into the node themselves. A renderer marks
+the texts that are one value of the spec, and in edit mode those can be
+clicked and typed into; leaving the field (or Enter) saves it:
+
+``data-at="/slides/2/title"``
+    The place in the spec this text is (a JSON Pointer, as in
+    :mod:`dodaios.nodes.patch`). ``@title`` is the node's own title.
+``data-src="…"``
+    The value as the spec holds it, when the page shows something else (a
+    formatted number, inline marks drawn bold, Markdown drawn as a document).
+    The field shows this while it is edited.
+``data-as="number" | "toggle"``
+    What the value is when it is not text: a number (the app reads what was
+    typed as one), or a yes/no that a click flips (``data-src`` ``true`` /
+    ``false``).
+``data-multiline``
+    Enter makes a new line (Ctrl/Cmd+Enter saves); without it Enter saves.
+``data-refresh``
+    The page has to be drawn again after this value changed (a total, a
+    Markdown body, a layout that follows the text). Without it the page keeps
+    the typed text as it is until it is next drawn.
+
+After a save the field holds the typed text as plain text. The page's own
+script can follow up: the field fires ``node-field-saved`` (it bubbles;
+``detail`` is ``{path, value}``). And the page can tell that it is being
+edited from ``data-node-mode="edit"`` on ``<html>``.
+
+* page → app ``dodaios-node-edit`` ``{id, path, value, as, refresh}``.
+* app → page ``dodaios-node-edit-state`` ``{id, state: "saved" | "failed"}``:
+  a failed edit puts the old text back.
+* page → app ``dodaios-node-scroll`` ``{x, y, hash}``, and the mode message may
+  carry ``scroll``: a page drawn again opens where the reader was, at the same
+  scroll position and with the same ``#hash`` (a deck's slide, a film's scene:
+  a page that keeps its place in the hash keeps it across a redraw).
+
+Everything from a message is text set through ``textContent``; nothing from a
+message is ever written as markup. (An edit that is cancelled or refused puts
+the page's OWN earlier markup back.)
 """
 
 from __future__ import annotations
@@ -48,6 +84,15 @@ MODE_MESSAGE: Final[str] = "dodaios-node-mode"
 COMMENT_MESSAGE: Final[str] = "dodaios-node-comment"
 COMMENT_STATE_MESSAGE: Final[str] = "dodaios-node-comment-state"
 COMMENT_REMOVE_MESSAGE: Final[str] = "dodaios-node-comment-remove"
+EDIT_MESSAGE: Final[str] = "dodaios-node-edit"
+EDIT_STATE_MESSAGE: Final[str] = "dodaios-node-edit-state"
+SCROLL_MESSAGE: Final[str] = "dodaios-node-scroll"
+
+#: The path that stands for the node's own title (it is not part of the spec).
+TITLE_PATH: Final[str] = "@title"
+#: One edited value is one field of a node, not a file: a document's whole
+#: Markdown body is the largest there is.
+MAX_EDIT_CHARS: Final[int] = 200_000
 
 MAX_COMMENT_CHARS: Final[int] = 2_000
 MAX_QUOTE_CHARS: Final[int] = 240
@@ -84,6 +129,14 @@ BRIDGE_CSS: Final[str] = """
 .nc.is-failed .nc-box{border-color:var(--bad)}
 .nc.is-failed .nc-note{color:var(--bad)}
 @media print{.nc-layer{display:none!important}}
+:root[data-node-mode="edit"] [data-at]{outline:1px dashed transparent;outline-offset:3px;
+  border-radius:4px;cursor:text!important;transition:outline-color .12s}
+:root[data-node-mode="edit"] [data-at]:hover{outline-color:var(--ink-3)}
+:root[data-node-mode="edit"] [data-at]:focus{outline:2px solid var(--accent)}
+:root[data-node-mode="edit"] [data-at][data-src]:focus{white-space:pre-wrap}
+:root[data-node-mode="edit"] [data-at][data-as="toggle"]{cursor:pointer!important}
+:root[data-node-mode="edit"] [data-at].is-saving{opacity:.55}
+:root[data-node-mode="edit"] [data-at].is-failed{outline:2px solid var(--bad)!important}
 """
 
 # ES5 on purpose, like the kit's page script: it runs in whatever WebView the
@@ -224,24 +277,153 @@ function answered(n,state){
     c.busy=false;c.field.disabled=false;c.button.disabled=false;settle(c,labels.failed,"is-failed");
     try{c.field.focus({preventScroll:true});}catch(err){c.field.focus();}
   }}
-function setMode(next,given){
+var field=null,edits={},editCount=0;
+function fieldOf(t){
+  var el=near(t&&t.nodeType===1?t:t&&t.parentNode,"[data-at]");return el&&!inLayer(el)?el:null;}
+function typed(el){
+  return String(el.innerText!==undefined?el.innerText:el.textContent||"").replace(/\r/g,"")
+    .replace(/\u00a0/g," ").replace(/\n+$/,"");}
+function arm(on){
+  var all=d.querySelectorAll("[data-at]");
+  for(var i=0;i<all.length;i++){
+    var el=all[i];
+    if(on&&el.getAttribute("data-as")!=="toggle"){
+      el.setAttribute("contenteditable","plaintext-only");
+      if(el.contentEditable!=="plaintext-only")el.setAttribute("contenteditable","true");
+      el.setAttribute("spellcheck","false");
+    }else{el.removeAttribute("contenteditable");el.removeAttribute("spellcheck");}
+  }}
+function caretAt(el,index){
+  // Put the caret at a place in the field's plain text; returns its range.
+  try{
+    var walker=d.createTreeWalker(el,4,null),left=index,node;
+    while((node=walker.nextNode())){
+      if(left<=node.nodeValue.length){
+        var range=d.createRange(),sel=window.getSelection();
+        range.setStart(node,left);range.collapse(true);sel.removeAllRanges();sel.addRange(range);
+        return range;}
+      left-=node.nodeValue.length;
+    }
+  }catch(e){}
+  return null;}
+function topOf(range){
+  try{var r=range.getClientRects();return r.length?r[0].top:range.getBoundingClientRect().top;}
+  catch(e){return null;}}
+function begin(el){
+  if(field&&field.el===el)return;
+  field={el:el,html:el.innerHTML,before:el.hasAttribute("data-src")?el.getAttribute("data-src"):typed(el)};
+  if(el.hasAttribute("data-src")){
+    // The field shows the value as the spec holds it. The caret goes to the
+    // words the reader clicked, when the source has them.
+    var sel=window.getSelection(),hint="",was=null;
+    if(sel&&sel.anchorNode&&el.contains(sel.anchorNode)&&sel.anchorNode.nodeType===3){
+      hint=sel.anchorNode.nodeValue.slice(sel.anchorOffset,sel.anchorOffset+24);
+      if(hint.length<6)hint=sel.anchorNode.nodeValue.slice(Math.max(0,sel.anchorOffset-24),sel.anchorOffset);
+      if(sel.rangeCount)was=topOf(sel.getRangeAt(0));
+    }
+    el.textContent=field.before;
+    var found=hint.replace(/^\s+|\s+$/g,"").length>=4?field.before.indexOf(hint):-1;
+    var range=found>=0?caretAt(el,found):null,now=range?topOf(range):null;
+    // The words the reader clicked stay under the pointer: the source is
+    // longer or shorter than what was drawn, and the page would jump.
+    if(was!==null&&now!==null&&isFinite(was)&&isFinite(now)){
+      try{window.scrollBy(0,now-was);}catch(e){}
+    }
+  }}
+function revert(f){f.el.innerHTML=f.html;}
+function commit(){
+  var f=field;if(!f)return;field=null;
+  var value=typed(f.el);
+  if(value===f.before){revert(f);return;}
+  var id=++editCount;edits[id]=f;f.value=value;
+  f.el.className+=" is-saving";
+  post({type:"dodaios-node-edit",id:id,path:f.el.getAttribute("data-at"),value:value.slice(0,200000),
+    as:f.el.getAttribute("data-as")||"text",refresh:f.el.hasAttribute("data-refresh")});}
+function flip(el){
+  var id=++editCount,now=el.getAttribute("data-src")==="true";
+  edits[id]={el:el,html:el.innerHTML,before:String(now),value:String(!now)};
+  el.className+=" is-saving";
+  post({type:"dodaios-node-edit",id:id,path:el.getAttribute("data-at"),value:!now,as:"toggle",refresh:true});}
+function edited(id,state){
+  var f=edits[id];if(!f)return;delete edits[id];
+  f.el.className=f.el.className.replace(/ is-saving/g,"");
+  if(state==="saved"){
+    if(f.el.hasAttribute("data-src"))f.el.setAttribute("data-src",f.value);
+    // The page's own script may follow up (a size that depends on the text,
+    // a number to format): it hears this on the field or anywhere above it.
+    try{f.el.dispatchEvent(new CustomEvent("node-field-saved",{bubbles:true,detail:{
+      path:f.el.getAttribute("data-at"),value:f.value}}));}catch(e){}
+  }else{
+    revert(f);f.el.className+=" is-failed";
+    setTimeout(function(){f.el.className=f.el.className.replace(/ is-failed/g,"");},2400);
+  }}
+function setMode(next,given,scroll){
   if(given&&typeof given==="object"){
     for(var k in labels){if(typeof given[k]==="string"&&given[k])labels[k]=given[k].slice(0,120);}
   }
-  mode=next==="comment"?"comment":"view";
-  if(mode==="comment"){root.setAttribute("data-node-mode","comment");}
-  else{root.removeAttribute("data-node-mode");if(draft&&!draft.busy)dropDraft();}}
+  var before=mode;
+  mode=next==="comment"||next==="edit"?next:"view";
+  if(mode==="view")root.removeAttribute("data-node-mode");
+  else root.setAttribute("data-node-mode",mode);
+  if(mode!=="comment"&&draft&&!draft.busy)dropDraft();
+  if(mode!=="edit"&&field){var el=field.el;commit();if(el.blur)el.blur();}
+  if((mode==="edit")!==(before==="edit"))arm(mode==="edit");
+  if(scroll&&typeof scroll==="object"){
+    var h=typeof scroll.hash==="string"?scroll.hash:"";
+    if(/^#[\w-]{1,39}$/.test(h)&&location.hash!==h){
+      try{location.hash=h;lastHash=h;}catch(e){}
+    }
+    if(isFinite(scroll.x)&&isFinite(scroll.y)){
+      try{window.scrollTo(Number(scroll.x),Number(scroll.y));}catch(e){}
+    }
+  }}
 function guard(e){
-  if(mode!=="comment"||inLayer(e.target))return;
+  if(inLayer(e.target))return;
+  if(mode==="comment"){
+    e.stopPropagation();
+    if(e.type==="click"){e.preventDefault();open(e);}
+    return;
+  }
+  if(mode!=="edit")return;
+  var el=fieldOf(e.target);if(!el)return;
+  // The click belongs to the field: the page's own controls do not hear it.
   e.stopPropagation();
-  if(e.type==="click"){e.preventDefault();open(e);}}
+  if(e.type==="click"){
+    if(near(e.target,"a[href]"))e.preventDefault();
+    if(el.getAttribute("data-as")==="toggle"){e.preventDefault();flip(el);}
+  }}
 ["click","dblclick","mousedown","pointerdown","touchstart"].forEach(function(t){
   window.addEventListener(t,guard,true);});
+window.addEventListener("focusin",function(e){
+  var el=mode==="edit"?fieldOf(e.target):null;
+  if(el&&el.getAttribute("data-as")!=="toggle")begin(el);},true);
+window.addEventListener("focusout",function(e){
+  if(field&&fieldOf(e.target)===field.el)commit();},true);
+["keydown","keyup","keypress"].forEach(function(t){
+  window.addEventListener(t,function(e){
+    if(mode!=="edit"||!field||fieldOf(e.target)!==field.el)return;
+    // Typing is typing: a deck does not turn its slide on an arrow key.
+    e.stopPropagation();
+    if(t!=="keydown")return;
+    var many=field.el.hasAttribute("data-multiline");
+    if(e.key==="Escape"){e.preventDefault();var f=field;field=null;revert(f);f.el.blur();}
+    else if(e.key==="Enter"&&!e.isComposing&&(!many||e.metaKey||e.ctrlKey)){
+      e.preventDefault();field.el.blur();}
+  },true);});
+var told=0,lastHash=location.hash;
+function place(){
+  post({type:"dodaios-node-scroll",x:window.pageXOffset||0,y:window.pageYOffset||0,
+    hash:String(location.hash||"").slice(0,40)});}
+window.addEventListener("scroll",function(){
+  var now=Date.now();if(now-told<200)return;told=now;place();},true);
+// A page may move its hash without an event (history.replaceState): look.
+setInterval(function(){if(location.hash!==lastHash){lastHash=location.hash;place();}},500);
 window.addEventListener("message",function(e){
   if(e.source!==up)return;
   var m=e.data;if(!m||typeof m!=="object")return;
-  if(m.type==="dodaios-node-mode")setMode(m.mode,m.labels);
-  else if(m.type==="dodaios-node-comment-state")answered(Number(m.n),m.state);});
+  if(m.type==="dodaios-node-mode")setMode(m.mode,m.labels,m.scroll);
+  else if(m.type==="dodaios-node-comment-state")answered(Number(m.n),m.state);
+  else if(m.type==="dodaios-node-edit-state")edited(Number(m.id),m.state);});
 function ready(){
   post({type:"dodaios-node-ready",node:meta("dodaios-node"),kind:meta("dodaios-node-type")});}
 if(d.readyState==="loading"){d.addEventListener("DOMContentLoaded",ready);}else{ready();}
@@ -254,6 +436,11 @@ __all__ = [
     "COMMENT_MESSAGE",
     "COMMENT_REMOVE_MESSAGE",
     "COMMENT_STATE_MESSAGE",
+    "EDIT_MESSAGE",
+    "EDIT_STATE_MESSAGE",
+    "MAX_EDIT_CHARS",
+    "SCROLL_MESSAGE",
+    "TITLE_PATH",
     "MAX_COMMENT_CHARS",
     "MAX_QUOTE_CHARS",
     "MAX_WHERE_CHARS",

@@ -135,6 +135,27 @@ the waiting comments are kept in `nodeCommentDraft.ts`). While the mode is on, a
 does not reach the page's own controls. Pages that are not typed nodes (a
 worker-built page, a report) take no comments.
 
+## Editing a node in its page
+
+On the stage, "Edit" makes a typed node's page writable: the reader clicks a
+text and types; leaving the field (or Enter) saves it, Esc puts the old text
+back. Each change is one value of the spec, saved through
+`POST /api/nodes/{id}/edit` (`dodaios/nodes/edit.py`): a JSON Pointer (or
+`@title` for the node's name), what was typed, and what the field holds
+(text, a number read in the reader's notation, or a yes/no). The type's
+`normalize` judges the result as it does for the assistant's edits; a value
+it refuses is a 400 with the reason, and the page puts the old text back.
+
+A renderer decides what can be edited by marking it (see the docstring of
+`dodaios/nodes/bridge.py`): `data-at` names the place, `data-src` holds the
+stored value when the page shows something else (a document's body shows its
+Markdown while it is edited), `data-as` says it is a number or a yes/no,
+`data-multiline` lets Enter make a new line, and `data-refresh` asks for the
+page to be drawn again after the save. A saved value is already on the page,
+so the stage does not draw the page again for the reader's own revision; a
+field that asks for it is drawn again at the same scroll position, and a
+revision by the assistant still draws the page again.
+
 ## The `node` tool
 
 The assistant works on nodes through one tool
@@ -198,6 +219,7 @@ All routes are in `dodaios/ui/web/nodes_routes.py`.
 | `POST /api/nodes` | Body `{"type", "title"?, "language"?}`. Makes a node from the type's starter and returns its card. |
 | `PATCH /api/nodes/{id}` | Body `{"title"}`. Renames the node and returns its card. |
 | `POST /api/nodes/{id}/duplicate` | Body `{"title"?}`. Makes a second node with the same content and returns its card. The copy has no upkeep and no history. |
+| `POST /api/nodes/{id}/edit` | Body `{"path", "value", "as"}`. Saves one value the reader typed into the page; answers with the node's state. |
 | `POST /api/nodes/{id}/revert` | Puts the previous version back and returns the card. |
 | `POST /api/nodes/{id}/upkeep/stop` | Stops the upkeep and returns the node. |
 | `POST /api/nodes/{id}/upkeep/resume` | Body `{"every_minutes"?}`. Starts the upkeep again and returns the node. |
