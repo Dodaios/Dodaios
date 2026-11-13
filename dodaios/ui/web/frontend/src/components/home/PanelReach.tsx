@@ -85,7 +85,7 @@ export function PanelReach({ call, name }: { call: CallSwitch; name: string }) {
         return (
           <button key={id} type="button" data-testid={`assistant-panel-channel-${id}`} data-connected={channel?.connected === true}
             onClick={() => openChannel(id, channel)} title={hint} aria-label={hint} className={cn(BUTTON, "flex-1")}>
-            {logo && <img src={logo} alt="" draggable={false} className={cn("h-4 w-4 shrink-0 object-contain", !channel?.connected && "grayscale")} />}
+            {logo && <img src={logo} alt="" draggable={false} className={"h-4 w-4 shrink-0 object-contain"} />}
             <span className={cn("truncate", !channel?.connected && "text-muted-foreground")}>{(channel?.connected && channel.handle) || label}</span>
           </button>
         );
