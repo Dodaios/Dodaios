@@ -29,6 +29,7 @@ from dodaios.ui.pets.states import (
     FRAME_SIZES,
     MAX_FRAMES_PER_STATE,
     NO_PET_ID,
+    ONE_SHOT_SECONDS,
     PET_STATES,
     STATE_FALLBACKS,
 )
@@ -72,6 +73,14 @@ def test_typescript_constants_match_python() -> None:
     assert tuple(int(n) for n in re.findall(r"\d+", sizes.group(1))) == FRAME_SIZES
     max_frames = re.search(r"export const MAX_FRAMES_PER_STATE = (\d+);", source)
     assert max_frames and int(max_frames.group(1)) == MAX_FRAMES_PER_STATE
+
+
+def test_typescript_one_shot_times_match_python() -> None:
+    match = re.search(r"export const ONE_SHOT_MS[^=]*=\s*\{([^}]*)\};", _ts())
+    assert match, "ONE_SHOT_MS table not found in petStates.ts"
+    pairs = {state: int(ms) for state, ms in re.findall(r"([a-z_]+):\s*(\d+)", match.group(1))}
+    assert pairs, "parsed no one-shot times from petStates.ts"
+    assert pairs == {state: round(seconds * 1000) for state, seconds in ONE_SHOT_SECONDS.items()}
 
 
 def test_every_fallback_chain_ends_at_idle() -> None:

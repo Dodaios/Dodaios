@@ -40,6 +40,16 @@ export const STATE_FALLBACKS: Readonly<Record<Exclude<PetState, "idle">, PetStat
   held: "listening",
 };
 
+/**
+ * How long a one-shot state (a turn that ended well, or failed) stays on
+ * screen before the pet hands back to what it did before, in milliseconds.
+ * Mirrors `ONE_SHOT_SECONDS`.
+ */
+export const ONE_SHOT_MS: Readonly<Record<"success" | "error", number>> = {
+  success: 1500,
+  error: 2000,
+};
+
 /** The pet id that shows the control strip with no figure ("None" in the UI). */
 export const NO_PET_ID = "none";
 
