@@ -103,7 +103,7 @@ describe("DictationButton", () => {
     const classes = screen.getByTestId("dictation-transcribing").className;
     expect(classes).toContain("border-border");
     expect(classes).toContain("bg-secondary");
-    expect(classes).toContain("text-muted-foreground");
+    expect(classes).toContain("text-foreground/80");
     expect(classes).not.toContain("success");
     // The idle-only size would crush the line.
     expect(classes).not.toContain("w-9");
