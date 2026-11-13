@@ -351,10 +351,20 @@ class _Cleaner(HTMLParser):
         return "".join(self.out).strip()
 
 
+#: What a body fragment has no use for and Python's parser reads differently
+#: from one version to the next (3.11 raises on an unknown ``<![ ]>`` section,
+#: 3.12 skips it): marked sections, processing instructions, a doctype. Taken
+#: out before the parser sees them, so a design cleans the same everywhere.
+_DECLARATION_RE: Final = re.compile(
+    r"<!\[.*?\]\]?>|<\?.*?>|<!doctype[^>]*>", re.DOTALL | re.IGNORECASE
+)
+
+
 def _html_pass(markup: str) -> str:
     cleaner = _Cleaner()
+    text = _plain(markup).replace("\r\n", "\n").replace("\r", "\n")
     try:
-        cleaner.feed(_plain(markup).replace("\r\n", "\n").replace("\r", "\n"))
+        cleaner.feed(_DECLARATION_RE.sub("", text))
         cleaner.close()
     except AssertionError as error:  # the parser gives up on a malformed <![ ]> section
         raise NodeError(

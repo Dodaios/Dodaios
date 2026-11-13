@@ -492,3 +492,11 @@ def test_guide_is_compact_names_the_tokens_and_its_example_is_a_valid_spec() -> 
     assert len(design.GUIDE) <= 2_500
     for needle in ("--bg", "--ink", "--line", "--accent", "--s1", "var(--font)", "canvas", "svg"):
         assert needle in design.GUIDE
+
+
+def test_declarations_are_taken_out_before_the_parser_sees_them() -> None:
+    # Python 3.11's parser raises on an unknown marked section and 3.12 skips
+    # it; neither may decide what a design keeps.
+    markup = "<!DOCTYPE html><![foo bar]><p>a</p><![CDATA[b]]><?php c ?><p>d</p>"
+
+    assert design.clean_html(markup) == "<p>a</p><p>d</p>"
