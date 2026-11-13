@@ -36,7 +36,7 @@ from typing import TYPE_CHECKING, Any, Final, get_args
 
 from dodaios.agent_chat.approval_bridge import ChatApprovalBridge, ChatGrant, approval_ref
 from dodaios.agent_chat.effort import normalize_effort
-from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.events import make_event, person_words
 from dodaios.agent_chat.folder_tools import PLAN_STANCE, folder_tools, plan_filter
 from dodaios.agent_chat.lead_turn_contract import explicit_skill, resolve_skill_pick
 from dodaios.agent_chat.runner_api import messages_from_events
@@ -572,7 +572,7 @@ async def run_brain_turn(
                 "unknown",
                 person_request,
                 conversation_language=conversation_language_from_history(
-                    brain_history_from_events(handle.history)
+                    person_words(handle.history)
                 ),
             )
             if is_known_language(language):

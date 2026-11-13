@@ -36,6 +36,9 @@ __all__ = [
     "unbacked_claim_instruction",
 ]
 
+#: How many of the person's latest sentences establish the conversation's language.
+_LANGUAGE_SENTENCES: Final = 200
+
 #: A leading ``/slug`` — the composer's slash pick — and whatever follows it.
 _EXPLICIT_SKILL_RE: Final = re.compile(r"^\s*/([A-Za-z0-9][\w.:-]*)(?:\s+|$)(.*)$", re.DOTALL)
 
@@ -158,10 +161,16 @@ async def recall_block(text: str) -> str:
 def resolve_language(text: str, history: list[dict[str, Any]], reply_pin: object = "auto") -> str:
     """The language the lead answers in this turn, through the one resolver.
 
+    ``text`` is the person's own sentence of this turn (``""`` when the app
+    composed the turn's prompt), ``history`` the thread's events. Only what
+    the person wrote counts, and their sentences from before the part of the
+    thread a model still reads count too: see
+    :func:`dodaios.agent_chat.events.person_words`.
+
     ``""`` when nothing is known (the seat then mirrors the message as before).
     """
     try:
-        from dodaios.agent_chat.runner_brain import brain_history_from_events
+        from dodaios.agent_chat.events import person_words
         from dodaios.core.turn_language import (
             conversation_language_from_history,
             resolve_conversation_language,
@@ -173,7 +182,7 @@ def resolve_language(text: str, history: list[dict[str, Any]], reply_pin: object
             "unknown",
             text,
             conversation_language=conversation_language_from_history(
-                brain_history_from_events(history)
+                person_words(history)[-_LANGUAGE_SENTENCES:]
             ),
         )
         return language if is_known_language(language) else ""

@@ -70,6 +70,8 @@ def test_normalize_language_tag(tag: str | None, expected: str) -> None:
         ("Wie ist das Wetter morgen?", "de"),  # i18n-allow: German voice fixture
         ("Oeffne bitte den Browser und zeig mir die Logs", "de"),  # i18n-allow: fixture
         ("Mach das Licht an", "de"),  # i18n-allow: German voice fixture
+        # The first word of a new chat: without it the reply had no language.
+        ("Hallo", "de"),  # i18n-allow: German greeting fixture
         ("¿Qué tiempo hace mañana en Madrid?", "es"),
         ("Spotify.", "unknown"),
         ("", "unknown"),

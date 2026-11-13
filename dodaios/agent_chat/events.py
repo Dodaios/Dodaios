@@ -122,6 +122,32 @@ def shown_text(payload: dict[str, Any]) -> str:
     return names or str(payload.get("text") or "")
 
 
+def person_words(events: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """The person's own sentences in a thread, oldest first, as ``user`` messages.
+
+    This is what the person's language is read from. A ``user_message`` is not
+    always their words: ``text`` is the prompt the turn received, so with files
+    it also carries the English note and the files' contents (``typed`` is the
+    sentence), and a message with an ``origin`` (a control command, a
+    delegate's result handed back) or an ``author`` (another agent wrote it)
+    was composed by the app. Read as their words, those turned a German
+    conversation English after every screenshot and every agent result
+    (forensic 2026-11-13).
+    """
+    out: list[dict[str, str]] = []
+    for event in events:
+        if event.get("kind") != "user_message":
+            continue
+        payload = event.get("payload") or {}
+        if payload.get("origin") or payload.get("author"):
+            continue
+        typed = payload.get("typed")
+        text = typed if isinstance(typed, str) else str(payload.get("text") or "")
+        if text.strip():
+            out.append({"role": "user", "content": text})
+    return out
+
+
 def is_transient(event: dict[str, Any]) -> bool:
     return event.get("kind") in TRANSIENT_KINDS
 

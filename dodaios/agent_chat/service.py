@@ -2074,7 +2074,7 @@ class AgentChatService:
             # (lead_turn_contract): the reply language comes from the one
             # resolver, a CLI seat also gets the skill and recall blocks, and
             # the answer is checked after the turn (TurnCompletion, lead mode).
-            from dodaios.agent_chat.side_threads import speaks_as_lead
+            from dodaios.agent_chat.side_threads import parent_of, speaks_as_lead
 
             lead_contract = (
                 session.surface == "jarvis"
@@ -2095,8 +2095,19 @@ class AgentChatService:
 
                 if not output_language:
                     manager = brain_manager()
+                    spoken = history
+                    parent = parent_of(self, session_id)
+                    if parent:
+                        # A side thread is the same conversation to the person:
+                        # a short question beside it keeps its language.
+                        spoken = await asyncio.to_thread(self.store.list_events, parent) + history
                     output_language = lead_turn_contract.resolve_language(
-                        text, history, getattr(manager, "reply_language", "auto")
+                        # A background result's prompt is composed here, in
+                        # English: the answer stays in the conversation's
+                        # language, which the person's own messages set.
+                        "" if background_result else text,
+                        spoken,
+                        getattr(manager, "reply_language", "auto"),
                     )
                 if runner != "brain" and supports_cli_runner(runner) and not background_result:
                     lead_pre = await lead_turn_contract.prepare(

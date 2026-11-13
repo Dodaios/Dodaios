@@ -217,6 +217,7 @@ _DE_TOKENS: frozenset[str] = frozenset({
     "noch", "auch", "doch", "mal", "sehr", "gut", "ja", "nein", "kein",  # i18n-allow
     "keine", "mein", "meine", "dein", "deine", "fuer", "für", "mit", "von",  # i18n-allow
     "auf", "aus", "bei", "nach", "ueber", "über", "wetter", "geht", "gibt",  # i18n-allow
+    "hallo",  # i18n-allow
 })
 _EN_TOKENS: frozenset[str] = frozenset({
     "the", "and", "you", "your", "that", "this", "these", "those", "with",

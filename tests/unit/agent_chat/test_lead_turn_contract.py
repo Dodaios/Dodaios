@@ -11,13 +11,15 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
-from dodaios.agent_chat import dodaios_harness, runner_brain
+from dodaios.agent_chat import attachments as chat_attachments
+from dodaios.agent_chat import dodaios_harness, lead_turn_contract, runner_brain
 from dodaios.agent_chat import service as service_mod
-from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.events import make_event, person_words
 from dodaios.agent_chat.service import AgentChatService
 from dodaios.agent_chat.store import AgentChatStore
 from dodaios.brain.manager import BrainManager
@@ -94,8 +96,16 @@ class _Identity:
 
 
 async def _run(
-    seat: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, text: str, replies: list[str]
+    seat: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    text: str,
+    replies: list[str],
+    *,
+    earlier: tuple[dict[str, Any], ...] = (),
+    **send: Any,
 ) -> tuple[Seen, list[dict[str, Any]]]:
+    """One lead turn on ``seat``. ``earlier`` is the thread so far; ``send`` goes to the service."""
     svc = AgentChatService(AgentChatStore(":memory:"), assistant_name=lambda: "Testo")
     provider = "openai-codex" if seat == "codex-cli" else "claude-api"
     session = svc.create_session(
@@ -103,6 +113,8 @@ async def _run(
         permission_mode="ask", surface="jarvis",
     )
     svc.store.set_lead_session_id(session.session_id)
+    for event in earlier:
+        svc.store.append_event(session.session_id, event)
     seen = Seen()
     monkeypatch.setattr(service_mod, "resolve_runner", lambda *a, **k: seat)
 
@@ -140,7 +152,7 @@ async def _run(
             return None
 
         monkeypatch.setattr(service_mod, "run_cli_turn", cli_turn)
-    await svc.send(session.session_id, text)
+    await svc.send(session.session_id, text, **send)
     await asyncio.wait_for(svc._running[session.session_id].task, 10)
     if seat == "brain":
         seen.skills = [(n, c) for n, c, _s in fake.noted_skills]
@@ -221,6 +233,103 @@ async def test_the_reply_language_is_resolved_and_enforced_on_every_seat(
     assert seen.languages[0] == "de"
     assert len(seen.prompts) == 2
     assert "German" in seen.prompts[1]
+
+
+GERMAN_REQUEST = "Kannst du mir bitte sagen, wie dein Gedächtnis funktioniert?"  # i18n-allow
+GERMAN_ANSWER = "Mein Gedächtnis hat vier Ablagen, und ich schaue für dich nach."  # i18n-allow
+
+
+def _said(text: str, **more: Any) -> dict[str, Any]:
+    return make_event("user_message", {"text": text, **more})
+
+
+def _answered(text: str) -> dict[str, Any]:
+    return make_event("assistant_text", {"turn_id": "earlier", "text": text})
+
+
+def _with_a_file(sentence: str) -> dict[str, Any]:
+    """A message with a file, as the service stores it: the prompt, and the sentence beside it."""
+    return make_event(
+        "user_message",
+        {
+            "text": chat_attachments.compose(
+                sentence,
+                [
+                    SimpleNamespace(
+                        name="notes.txt", kind="document", reference="notes.txt", note="",
+                        detail="The files are empty and nothing is written to them.",
+                    )
+                ],
+            ),
+            "typed": sentence,
+            "attachments": [{"name": "notes.txt"}],
+        },
+    )
+
+
+@pytest.mark.parametrize("seat", SEATS)
+async def test_an_attached_file_does_not_change_the_conversation_language(
+    seat, tmp_path, monkeypatch
+):
+    # Live 2026-11-13: the English note the app writes around a file, and the
+    # file's own text, were read as the person's words. Every short message
+    # after a screenshot ("Ja", "Hallo") was then answered in English.
+    earlier = (
+        _said("Ich habe eine Frage zu meinen Notizen."),  # i18n-allow
+        _answered("Gerne, worum geht es?"),  # i18n-allow
+        _with_a_file(GERMAN_REQUEST),
+        _answered(GERMAN_ANSWER),
+    )
+    assert "Files the user attached" in earlier[2]["payload"]["text"]
+    seen, _ = await _run(seat, tmp_path, monkeypatch, "Ja", [GERMAN_ANSWER], earlier=earlier)
+    assert seen.languages == ["de"]
+
+
+@pytest.mark.parametrize("seat", SEATS)
+async def test_a_delegated_result_is_answered_in_the_conversation_language(
+    seat, tmp_path, monkeypatch
+):
+    # The continuation prompt is composed by the app, in English. It is not
+    # the person's message, now or in the history of a later turn.
+    from dodaios.agent_chat.delegation_wait import continuation_prompt
+
+    prompt = continuation_prompt(
+        [{"agent": "Claude Code", "status": "completed", "report": "The work is done."}],
+        "Ja",
+        later=True,
+    )
+    earlier = (
+        _said(GERMAN_REQUEST),
+        _answered(GERMAN_ANSWER),
+        _said("Ja"),
+        _answered("Ich schicke einen Agenten los."),  # i18n-allow
+    )
+    seen, events = await _run(
+        seat, tmp_path, monkeypatch, prompt, [GERMAN_ANSWER],
+        earlier=earlier, display_text="Ja", background_result=True,
+    )
+    assert seen.languages == ["de"]
+    # The stored continuation does not turn the next turn English either.
+    assert lead_turn_contract.resolve_language("Ok", events) == "de"
+
+
+def test_only_the_persons_own_sentences_are_their_words():
+    events = [
+        _said("Hallo zusammen"),  # i18n-allow
+        _answered("Hello, how can I help?"),
+        _with_a_file("Schau dir das bitte an"),  # i18n-allow
+        # Files alone: no sentence, so nothing to read a language from.
+        _said("Files the user attached…", typed=""),
+        _said("Continue the task.", typed="Ja", origin="background"),
+        _said("Run the plan.", origin="control"),
+        _said("Please continue.", author={"name": "Nova"}),
+        _said("noch eins", steered=True),  # i18n-allow
+    ]
+    assert person_words(events) == [
+        {"role": "user", "content": "Hallo zusammen"},  # i18n-allow
+        {"role": "user", "content": "Schau dir das bitte an"},  # i18n-allow
+        {"role": "user", "content": "noch eins"},  # i18n-allow
+    ]
 
 
 @pytest.mark.parametrize("seat", SEATS)
