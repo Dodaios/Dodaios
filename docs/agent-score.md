@@ -127,8 +127,14 @@ no model call:
 3. while clarify questions are off (`voice.clarify_incomplete_enabled`, the
    default), a card is allowed only for a recoverable or irreversible action
    (an unclassified one counts as recoverable) or a missing required parameter;
-4. otherwise one question is asked, the first listed (`ask`); the rest of a
-   multi-question call take their recommendations (`trimmed`).
+4. otherwise every question left is asked on one card, which the person
+   clicks through in the asker's order (`ask`). Until 2026-11-13 only the
+   first was asked and the rest took their recommendations (`trimmed`, still
+   read from older rows of the log).
+
+Rules 2 and 3 do not apply when the person asked to be asked ("ask me what
+you need to know"; the asker sets `user_asked`): then the questions are the
+task, and only an answer memory already holds is left off the card.
 
 The asker gives `pending_action`, `confidence` and `missing_required` on the
 `society_ask_user` call. Every decision is one row in `trust/ask_log.db`. The

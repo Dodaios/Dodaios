@@ -87,12 +87,16 @@ def test_no_ask_tool_without_a_runtime_a_session_or_in_a_routine(monkeypatch) ->
     assert lead_ask_tools(SimpleNamespace(session_id="society:lead:routine:t1:run1")) == {}
 
 
-def test_a_new_tool_for_the_waiting_call_still_returns_the_gated_questions() -> None:
+def test_a_new_tool_for_the_waiting_call_still_returns_the_gated_questions(monkeypatch) -> None:
     """A CLI seat builds a new tool for every call: the one that keeps waiting
     is not the one that opened the card."""
     service = _Service(polls=1)
     runtime = _runtime(service)
     args = {"questions": [_DB, _HOST]}
+    # Memory holds the second answer, so only the first question is on the card.
+    monkeypatch.setattr(
+        ask_tool, "_safe_search", lambda: lambda _q: [("The service should run on the laptop.", ())]
+    )
 
     first = asyncio.run(AskUserTool(runtime, "lead", session_id="chat-1").execute(args, None))
     assert first.output["status"] == "waiting"
@@ -100,12 +104,39 @@ def test_a_new_tool_for_the_waiting_call_still_returns_the_gated_questions() -> 
     second = asyncio.run(
         AskUserTool(runtime, "lead", session_id="chat-1").execute({"wait_for": "q1"}, None)
     )
-    # The asked question with the person's answer, and the one the gate did
-    # not ask with its recommendation, named as an assumption.
+    # The asked question with the person's answer, and the one the gate
+    # answered from memory, named as such.
+    assert [len(specs) for specs in service.specs.values()] == [1]
     assert [r["answer"] for r in second.output["answers"]] == ["Postgres", "Laptop"]
     assert second.output["answers"][1]["person_answered"] is False
-    assert any(note.startswith("trimmed") for note in second.output["gate"])
+    assert any(note.startswith("answer_from_memory") for note in second.output["gate"])
     assert ask_tool._OPEN_GATES == {}
+
+
+def test_a_call_with_several_questions_opens_one_card_with_all_of_them() -> None:
+    service = _Service()
+    tool = AskUserTool(_runtime(service), "lead", session_id="chat-1")
+    result = asyncio.run(tool.execute({"questions": [_DB, _HOST]}, None))
+    assert [len(specs) for specs in service.specs.values()] == [2]
+    assert [r["answer"] for r in result.output["answers"]] == ["Postgres", "VPS"]
+    assert "gate" not in result.output
+
+
+def test_questions_the_person_asked_for_are_shown_for_a_reversible_action() -> None:
+    args = {
+        "questions": [_DB, _HOST],
+        "pending_action": {"tool": "none", "action": "plan", "reversibility": "reversible"},
+        "confidence": 0.9,
+    }
+    quiet = _Service()
+    spared = asyncio.run(AskUserTool(_runtime(quiet), "lead", session_id="c").execute(args, None))
+    assert spared.output["status"] == "not_asked" and quiet.asked == []
+
+    service = _Service()
+    tool = AskUserTool(_runtime(service), "lead", session_id="chat-1")
+    result = asyncio.run(tool.execute({**args, "user_asked": True}, None))
+    assert [len(specs) for specs in service.specs.values()] == [2]
+    assert [r["answer"] for r in result.output["answers"]] == ["Postgres", "VPS"]
 
 
 def test_another_chat_cannot_take_a_cards_gate() -> None:
@@ -134,5 +165,5 @@ def test_the_owners_clarify_setting_is_read_from_the_runtimes_config_method() ->
 
 
 def test_the_doctrine_sends_a_question_to_the_card_and_the_manifest_names_the_tool() -> None:
-    assert f"question card ({ASK_USER_TOOL_NAME})" in LEAD_DOCTRINE
+    assert f"question card: call {ASK_USER_TOOL_NAME} with all of them in one call" in LEAD_DOCTRINE
     assert ASK_USER_TOOL_NAME in LEAD_ONLY_TOOLS

@@ -84,10 +84,30 @@ def test_an_unclassified_action_counts_as_costly() -> None:
     assert decide(_specs(_ROOM), AskContext()).needs_card
 
 
-def test_one_question_at_a_time() -> None:
+def test_every_question_left_goes_on_one_card() -> None:
     result = decide(_specs(_AIRLINE, _ROOM), AskContext(reversibility="irreversible"))
+    assert result.ask_indices == (0, 1)
+    assert [d.decision for d in result.decisions] == [ask_gate.ASK, ask_gate.ASK]
+    assert all(d.answer is None for d in result.decisions)
+
+
+def test_a_question_memory_answers_is_left_off_the_card() -> None:
+    search = lambda _q: [("The owner prefers the big room for meetings.", ())]  # noqa: E731
+    result = decide(_specs(_AIRLINE, _ROOM), AskContext(reversibility="irreversible"), search)
+    assert [d.decision for d in result.decisions] == [ask_gate.ASK, ask_gate.FROM_MEMORY]
     assert result.ask_indices == (0,)
-    assert [d.decision for d in result.decisions] == [ask_gate.ASK, ask_gate.TRIMMED]
+
+
+def test_questions_the_person_asked_for_are_shown_whatever_the_action() -> None:
+    """ "Ask me what you need": the questions are the task, not a cost to spare."""
+    quiet = AskContext(reversibility="reversible", confidence=0.9, clarify_enabled=False)
+    assert not decide(_specs(_AIRLINE, _ROOM), quiet).needs_card
+    asked = AskContext(
+        reversibility="reversible", confidence=0.9, clarify_enabled=False, requested=True
+    )
+    result = decide(_specs(_AIRLINE, _ROOM), asked)
+    assert result.ask_indices == (0, 1)
+    assert "asked to be asked" in result.decisions[0].reason
 
 
 def test_reversibility_comes_from_the_tool_table_unless_declared() -> None:

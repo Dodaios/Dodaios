@@ -14,9 +14,15 @@ question, with no model call, in this order:
    While off, a card may only be asked for a recoverable or irreversible
    action (an action nobody classified counts as recoverable) or for a missing
    required parameter; anything else takes the recommendation.
-4. **Otherwise ask**, one question at a time: the first remaining one, which
-   the asker lists as the most decision-relevant. The others take their
-   recommendations and are named as assumptions.
+4. **Otherwise ask.** Every question left goes on ONE card, which the person
+   clicks through in the asker's order (the series of ``questions.py``, at
+   most ``MAX_QUESTIONS``). Until 2026-11-13 only the first was asked and the
+   rest took their recommendations; the owner then answered one question per
+   round where one card would have done.
+
+Rules 2 and 3 are the gate's own economy. They do not apply when the person
+asked to be asked ("ask me what you need to know"): then the questions are
+the task, and only an answer memory already holds is spared them.
 
 Every decision is logged (``dodaios.trust.ask_log``) so the agent score can
 report needless questions and questions that should have been asked.
@@ -39,7 +45,9 @@ log = logging.getLogger(__name__)
 ASK: Final[str] = "ask"
 FROM_MEMORY: Final[str] = "answer_from_memory"
 ASSUME: Final[str] = "act_with_assumption"
-#: A question of a multi-question call that lost to the one that matters most.
+#: A question of a multi-question call that was not asked because only the first
+#: one was. No longer decided (every question left goes on the card); kept for
+#: the rows in the ask log the agent score still reads.
 TRIMMED: Final[str] = "trimmed"
 
 #: A stated confidence at or above this lets a reversible action go ahead.
@@ -77,6 +85,8 @@ class AskContext:
     missing_required: bool = False
     #: ``voice.clarify_incomplete_enabled``: the owner's opt-in to clarifying questions.
     clarify_enabled: bool = False
+    #: The person asked to be asked in this turn: the questions are the task.
+    requested: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,7 +101,7 @@ class SpecDecision:
 @dataclass(frozen=True, slots=True)
 class GateResult:
     decisions: tuple[SpecDecision, ...]
-    #: Indices (into the specs) of the questions that need a card: at most one.
+    #: Indices (into the specs) of the questions on the card, in the asker's order.
     ask_indices: tuple[int, ...] = field(default=())
 
     @property
@@ -152,6 +162,8 @@ def recall_answer(spec: QuestionSpec, search: MemorySearch | None) -> SpecDecisi
 
 def _assume_reason(ctx: AskContext) -> str:
     """Why the pending action does not need a card, or ``""`` when it may."""
+    if ctx.requested:
+        return ""
     confident = ctx.confidence is not None and ctx.confidence >= ASSUME_CONFIDENCE
     if ctx.reversibility == "reversible" and confident:
         return (
@@ -166,7 +178,7 @@ def _assume_reason(ctx: AskContext) -> str:
 def decide(
     specs: Sequence[QuestionSpec], ctx: AskContext, search: MemorySearch | None = None
 ) -> GateResult:
-    """Score every question, then ask at most one. Pure: same inputs, same decision."""
+    """Score every question; the ones left go on one card. Pure: same inputs, same decision."""
     reason = _assume_reason(ctx)
     decisions: list[SpecDecision] = []
     ask_indices: list[int] = []
@@ -176,14 +188,14 @@ def decide(
             decisions.append(recalled)
         elif reason:
             decisions.append(SpecDecision(ASSUME, reason, recommended_answer(spec, UNATTENDED)))
-        elif not ask_indices:
-            ask_indices.append(i)
-            decisions.append(
-                SpecDecision(ASK, "the answer is not in memory and the action is costly or unclear")
-            )
         else:
-            why = "one question at a time: the more decision-relevant one was asked"
-            decisions.append(SpecDecision(TRIMMED, why, recommended_answer(spec, UNATTENDED)))
+            ask_indices.append(i)
+            why = (
+                "the person asked to be asked and the answer is not in memory"
+                if ctx.requested
+                else "the answer is not in memory and the action is costly or unclear"
+            )
+            decisions.append(SpecDecision(ASK, why))
     return GateResult(tuple(decisions), tuple(ask_indices))
 
 
