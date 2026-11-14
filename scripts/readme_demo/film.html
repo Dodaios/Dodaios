@@ -2,12 +2,13 @@
 <!-- The README video's picture, drawn for one moment at a time.
 
      render.cjs opens this page, hands it the take (window.TAKE: take.json of
-     record.cjs plus the folder of its frames), then calls seek(seconds) for
-     every frame of the video and takes a picture. Nothing here runs on a
-     clock: the same second always gives the same picture.
+     record.cjs plus the folder of its frames) and the cut (window.EDIT, from
+     edit.js or edit-agents.js), then calls seek(seconds) for every frame of
+     the video and takes a picture. Nothing here runs on a clock: the same
+     second always gives the same picture.
 
      The picture is the footage and nothing else: the app's window fills the
-     frame. What is shown when, and how fast, is edit.js. -->
+     frame. What is shown when, and how fast, is the cut. -->
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -22,7 +23,6 @@
 <body>
 <div id="stage"></div>
 <div id="black"></div>
-<script src="edit.js"></script>
 <script>
 (() => {
   const TAKE = window.TAKE;

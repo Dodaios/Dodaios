@@ -7,6 +7,8 @@
 // picture of the page and hands the pictures to ffmpeg, then lays the music
 // under them. Needs Node.js with Playwright, and ffmpeg.
 //
+//   FILM_EDIT     the cut: edit.js (default, the longer film) or
+//                 edit-agents.js (the agents clip)
 //   FILM_FPS      frames a second (default 30)
 //   FILM_CRF      x264's quality number (default 21; smaller is better and larger)
 //   FILM_STILLS   "3,12.5,40": write only these seconds as PNG files, to
@@ -29,6 +31,7 @@ if (!process.argv[2] || !fs.existsSync(path.join(TAKE_DIR, 'take.json'))) {
   process.exit(2);
 }
 const HERE = __dirname;
+const EDIT = path.resolve(HERE, process.env.FILM_EDIT || 'edit.js');
 const FPS = Number(process.env.FILM_FPS || 30);
 const MUSIC = process.env.FILM_MUSIC || '';
 const BROWSER = process.env.DEMO_BROWSER || '';
@@ -45,6 +48,7 @@ const BROWSER = process.env.DEMO_BROWSER || '';
   const page = await ctx.newPage();
   page.on('pageerror', (e) => { console.error('page error:', e.message); process.exitCode = 1; });
   await page.addInitScript((take) => { window.TAKE = take; }, take);
+  await page.addInitScript({ path: EDIT });
   await page.goto('file://' + path.join(HERE, 'film.html'));
   const duration = await page.evaluate(() => window.DURATION);
   if (!duration) throw new Error('film.html did not come up');
