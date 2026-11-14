@@ -11425,7 +11425,6 @@
     "save_failed": "Die Änderung wurde nicht gespeichert."
   },
   "reminders": {
-    "due_title": "Erinnerung",
     "done": "Erledigt",
     "snooze": "Später",
     "snooze_15": "15 Min.",
@@ -11438,7 +11437,20 @@
     "undo": "Rückgängig",
     "undone": "Entfernt",
     "task": "Aufgabe",
-    "failed": "Das hat nicht geklappt. Versuch es noch einmal."
+    "failed": "Das hat nicht geklappt. Versuch es noch einmal.",
+    "source_google_calendar": "Google Kalender",
+    "source_dodaios": "Erinnerung",
+    "busy_title": "Belegt (keine Details freigegeben)",
+    "busy_hint": "Dieser Kalender teilt nur, dass die Zeit belegt ist, nicht worum es geht.",
+    "untitled": "Termin ohne Titel",
+    "day_time": "{day}, {time}",
+    "all_day_on": "{day}, ganztägig",
+    "dismiss": "Ausblenden",
+    "open_in": "In {service} öffnen",
+    "snooze_label": "Nochmal erinnern:",
+    "count_appointments": "{count} Termine",
+    "count_reminders": "{count} Erinnerungen",
+    "count_items": "{count} Einträge"
   },
   "mobile": {
     "settings": {
@@ -11577,7 +11589,6 @@
   },
   "rail_notice": {
     "title": "Braucht dich",
-    "reminder_detail": "Fällig seit {when}",
     "more": "{count} weitere",
     "and_more": "und {count} weitere",
     "an_agent": "Ein Agent",

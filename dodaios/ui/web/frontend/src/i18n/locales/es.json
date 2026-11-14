@@ -11425,7 +11425,6 @@
     "save_failed": "El cambio no se guardó."
   },
   "reminders": {
-    "due_title": "Recordatorio",
     "done": "Hecho",
     "snooze": "Posponer",
     "snooze_15": "15 min",
@@ -11438,7 +11437,20 @@
     "undo": "Deshacer",
     "undone": "Eliminado",
     "task": "Tarea",
-    "failed": "No ha funcionado. Inténtalo de nuevo."
+    "failed": "No ha funcionado. Inténtalo de nuevo.",
+    "source_google_calendar": "Google Calendar",
+    "source_dodaios": "Recordatorio",
+    "busy_title": "Ocupado (sin detalles compartidos)",
+    "busy_hint": "Este calendario solo comparte que el tiempo está ocupado, no de qué se trata.",
+    "untitled": "Evento sin título",
+    "day_time": "{day}, {time}",
+    "all_day_on": "{day}, todo el día",
+    "dismiss": "Descartar",
+    "open_in": "Abrir en {service}",
+    "snooze_label": "Recordármelo de nuevo:",
+    "count_appointments": "{count} citas",
+    "count_reminders": "{count} recordatorios",
+    "count_items": "{count} elementos"
   },
   "mobile": {
     "settings": {
@@ -11577,7 +11589,6 @@
   },
   "rail_notice": {
     "title": "Te necesita",
-    "reminder_detail": "Pendiente desde {when}",
     "more": "{count} más",
     "and_more": "y {count} más",
     "an_agent": "Un agente",

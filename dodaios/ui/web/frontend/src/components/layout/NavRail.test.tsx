@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -10,6 +10,7 @@ import { NavRail } from "@/components/layout/NavRail";
 import { railNotices } from "@/components/layout/railNotices";
 import { useStatusLightStore, type StatusLightData, type StatusRow } from "@/components/layout/statusLightStore";
 import { translate } from "@/i18n";
+import { openExternalUrl } from "@/lib/openExternal";
 import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
 
@@ -30,10 +31,23 @@ const PANE: StatusRow = {
   link: { section: "agentic-ide", workspace_id: "w1", pane: "T2" },
 };
 
-type Reminder = { id: string; text: string; due_at: string; kind: string; reminder: boolean; overdue: boolean; delivered: boolean };
+type Reminder = {
+  id: string; text: string; due_at: string; kind: string; reminder: boolean; overdue: boolean; delivered: boolean;
+  source?: string; title?: string; busy_only?: boolean; start?: string; end?: string; all_day?: boolean;
+  calendar?: string; location?: string; url?: string;
+};
 
 function reminder(id: string, text: string, extra: Partial<Reminder> = {}): Reminder {
   return { id, text, due_at: "2026-11-14T07:45:00Z", kind: "ephemeral", reminder: true, overdue: true, delivered: true, ...extra };
+}
+
+/** A calendar appointment as the backend sends it: its source, own title, start and end, and its link. */
+function appointment(id: string, title: string, extra: Partial<Reminder> = {}): Reminder {
+  return reminder(id, `Appointment: ${title || "busy, no details shared"} on 2026-11-14 10:15–15:00.`, {
+    reminder: false, source: "google_calendar", title, busy_only: false, due_at: "2026-11-14T09:15:00Z",
+    start: "2026-11-14T09:15:00Z", end: "2026-11-14T14:00:00Z", all_day: false, calendar: "", location: "",
+    url: `https://www.google.com/calendar/event?eid=${id}`, ...extra,
+  });
 }
 
 let plugins: Plugin[] = [];
@@ -367,13 +381,14 @@ describe("NavRail", () => {
 });
 
 describe("NavRail reminders", () => {
-  test("a reminder that came due shows as a bell tile; its card ticks it off and the tile leaves", async () => {
+  test("a reminder that came due shows Dodaios' mark; its card ticks it off and the tile leaves", async () => {
     reminders = [reminder("mem_1", "Call the dentist")];
     renderRail();
     const tile = await screen.findByTestId("rail-notice");
     expect(tile.dataset.ask).toBe("due");
-    expect(tile.dataset.key).toBe("reminder:mem_1");
+    expect(tile.dataset.key).toBe("reminders:dodaios");
     expect(tile.getAttribute("aria-label")).toContain("Call the dentist");
+    expect(within(tile).getByTestId("rail-source-mark").dataset.source).toBe("dodaios");
     // A click on the tile opens the card; it never ticks the reminder off by itself.
     fireEvent.click(tile);
     expect(calls.some((url) => url.endsWith("/done"))).toBe(false);
@@ -386,7 +401,11 @@ describe("NavRail reminders", () => {
     reminders = [reminder("mem_2", "Take the pizza out")];
     renderRail();
     fireEvent.click(await screen.findByTestId("rail-notice"));
-    fireEvent.click((await screen.findAllByTestId("rail-reminder-snooze"))[0]);
+    // The choices wait behind "Snooze", under a line that says what they do.
+    expect(screen.queryByTestId("rail-reminder-snooze")).toBeNull();
+    fireEvent.click(await screen.findByTestId("rail-reminder-later"));
+    expect(screen.getByRole("group", { name: "Remind me again:" })).toBeTruthy();
+    fireEvent.click(screen.getAllByTestId("rail-reminder-snooze")[0]);
     await waitFor(() => expect(screen.queryByTestId("rail-notice")).toBeNull());
     expect(calls).toContain("/api/notify/reminders/mem_2/snooze");
     expect(useEventStore.getState().toasts.some((toast) => toast.message.startsWith("Snoozed until"))).toBe(true);
@@ -402,6 +421,80 @@ describe("NavRail reminders", () => {
     fireEvent.click(await screen.findByTestId("rail-reminder-done"));
     await waitFor(() => expect(useEventStore.getState().toasts.some((toast) => toast.kind === "error")).toBe(true));
     expect(screen.getByTestId("rail-notice")).toBeTruthy();
+  });
+
+  test("a calendar appointment shows its calendar's logo, its own title and time, and no snooze", async () => {
+    reminders = [appointment("ev_1", "Dentist", { location: "Main St 1" })];
+    renderRail();
+    const tile = await screen.findByTestId("rail-notice");
+    expect(tile.dataset.key).toBe("reminders:google_calendar");
+    const mark = within(tile).getByTestId("rail-source-mark");
+    expect(mark.dataset.source).toBe("google_calendar");
+    // The bundled artwork itself (small files are inlined as data URLs), not a fallback sign.
+    expect(mark.querySelector("img")?.getAttribute("src")).toMatch(/google_calendar|^data:image\/svg/);
+    fireEvent.click(tile);
+    const card = await screen.findByTestId("rail-notice-words");
+    expect(within(card).getByTestId("rail-reminder-source").textContent).toBe("Google Calendar");
+    expect(within(card).getByTestId("rail-reminder-title").textContent).toBe("Dentist");
+    expect(within(card).getByTestId("rail-reminder-when").textContent).toMatch(/\d:\d{2}/);
+    expect(within(card).getByTestId("rail-reminder-place").textContent).toBe("Main St 1");
+    expect(card.textContent).not.toMatch(/Due since|Appointment:/);
+    // A meeting that started is opened or dismissed, never snoozed.
+    expect(within(card).queryByTestId("rail-reminder-later")).toBeNull();
+    expect(within(card).queryByTestId("rail-reminder-snooze")).toBeNull();
+    fireEvent.click(within(card).getByTestId("rail-reminder-open"));
+    expect(openExternalUrl).toHaveBeenCalledWith("https://www.google.com/calendar/event?eid=ev_1");
+    expect(within(card).getByTestId("rail-reminder-open").textContent).toBe("Open in Google Calendar");
+    fireEvent.click(within(card).getByTestId("rail-reminder-dismiss"));
+    await waitFor(() => expect(screen.queryByTestId("rail-notice")).toBeNull());
+    expect(calls).toContain("/api/notify/reminders/ev_1/done");
+  });
+
+  test("an entry that only says busy says so, and names the calendar it comes from", async () => {
+    reminders = [appointment("ev_2", "", { busy_only: true, calendar: "Team availability" })];
+    renderRail();
+    fireEvent.click(await screen.findByTestId("rail-notice"));
+    const card = await screen.findByTestId("rail-notice-words");
+    expect(within(card).getByTestId("rail-reminder-title").textContent).toBe("Busy (no details shared)");
+    expect(within(card).getByTestId("rail-reminder-place").textContent).toBe("Team availability");
+  });
+
+  test("one appointment on two calendars is one item, and dismissing it answers both", async () => {
+    reminders = [
+      appointment("v1", "", { busy_only: true, start: "2026-11-14T09:15:00Z", end: "2026-11-14T14:00:00Z" }),
+      appointment("v2", "", { busy_only: true, start: "2026-11-14T10:15:00+01:00", end: "2026-11-14T15:00:00+01:00" }),
+    ];
+    renderRail();
+    const tile = await screen.findByTestId("rail-notice");
+    expect(screen.getAllByTestId("rail-notice")).toHaveLength(1);
+    expect(within(tile).getByTestId("rail-notice-badge").textContent).toBe("");
+    fireEvent.click(tile);
+    expect(screen.getAllByTestId("rail-reminder")).toHaveLength(1);
+    fireEvent.click(screen.getByTestId("rail-reminder-dismiss"));
+    await waitFor(() => expect(screen.queryByTestId("rail-notice")).toBeNull());
+    expect(calls).toEqual(expect.arrayContaining(["/api/notify/reminders/v1/done", "/api/notify/reminders/v2/done"]));
+  });
+
+  test("several due items of one source stand as one tile that counts them", async () => {
+    reminders = [
+      appointment("a1", "Standup", { start: "2026-11-14T09:00:00Z", end: "2026-11-14T09:15:00Z" }),
+      appointment("a2", "Review", { start: "2026-11-14T09:05:00Z", end: "2026-11-14T10:00:00Z" }),
+      reminder("r1", "Call the bank"),
+    ];
+    renderRail();
+    await waitFor(() => expect(screen.getAllByTestId("rail-notice")).toHaveLength(2));
+    const [calendar, own] = screen.getAllByTestId("rail-notice");
+    expect(calendar.dataset.key).toBe("reminders:google_calendar");
+    expect(own.dataset.key).toBe("reminders:dodaios");
+    expect(within(calendar).getByTestId("rail-notice-badge").textContent).toBe("2");
+    expect(calendar.getAttribute("aria-label")).toContain("2 appointments");
+    fireEvent.click(calendar);
+    expect(screen.getAllByTestId("rail-reminder").map((entry) => within(entry).getByTestId("rail-reminder-title").textContent))
+      .toEqual(["Standup", "Review"]);
+    // Dismissing one leaves the other in the card.
+    fireEvent.click(screen.getAllByTestId("rail-reminder-dismiss")[0]);
+    await waitFor(() => expect(screen.getAllByTestId("rail-reminder")).toHaveLength(1));
+    expect(screen.getAllByTestId("rail-notice")).toHaveLength(2);
   });
 });
 
@@ -435,18 +528,26 @@ describe("railNotices", () => {
     expect(notices[3].title).toBe("OpenAI: login or key rejected");
   });
 
-  test("a due reminder stands after who waits for an answer and before an ended connection", () => {
+  test("due reminders stand after who waits for an answer and before an ended connection, one per source", () => {
     const notices = railNotices(
       { ...QUIET, needs_you: [PANE] },
       [{ id: "gmail", name: "Gmail", status: "needs_reauth", reauthAt: null }],
       t,
-      [reminder("m1", "Call the dentist"), reminder("m2", "Appointment: Team", { reminder: false })],
+      [reminder("m1", "Call the dentist"), appointment("m2", "Team sync", { calendar: "Work" })],
     );
-    expect(notices.map((notice) => notice.key)).toEqual(["pane:pane:1", "reminder:m1", "reminder:m2", "plugin:gmail"]);
-    expect(notices[1]).toMatchObject({ ask: "due", tone: "needs", title: "Call the dentist", mark: { type: "glyph", glyph: "reminder" } });
-    expect(notices[1].detail).toMatch(/^Due since /);
-    // A calendar appointment the scheduler told shows a calendar, not the bell.
-    expect(notices[2].mark).toEqual({ type: "glyph", glyph: "appointment" });
+    expect(notices.map((notice) => notice.key)).toEqual(["pane:pane:1", "reminders:dodaios", "reminders:google_calendar", "plugin:gmail"]);
+    expect(notices[1]).toMatchObject({
+      ask: "due", tone: "needs", title: "Call the dentist", subject: "Reminder",
+      mark: { type: "source", id: "dodaios", fallback: "reminder" },
+    });
+    expect(notices[1].detail).toMatch(/\d:\d{2}/);
+    expect(notices[1].detail).not.toMatch(/Due since/);
+    // A calendar appointment shows its calendar's logo, its own title, and when it runs.
+    expect(notices[2]).toMatchObject({
+      title: "Team sync", subject: "Google Calendar", action: "Dismiss",
+      mark: { type: "source", id: "google_calendar", fallback: "appointment" },
+    });
+    expect(notices[2].detail).toMatch(/ · Work$/);
   });
 
   test("a card without a named agent still reads as a sentence", () => {

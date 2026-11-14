@@ -126,6 +126,49 @@ def is_reminder(memory: Any) -> bool:
     return bool((getattr(memory, "source", None) or {}).get("reminder"))
 
 
+#: Where a reminder comes from when its memory names no service: the person's own.
+OWN_SOURCE: Final[str] = "dodaios"
+#: An appointment memory written before its source carried the title (until 2026-11-14).
+_OLD_APPOINTMENT = re.compile(
+    r"^Appointment:\s*(?P<title>.*?)\s+on\s+\d{4}-\d{2}-\d{2}(?P<time>\s+\d{2}:\d{2})?"
+)
+
+
+def _item_fields(memory: Any) -> dict[str, Any]:
+    """What the rail shows of an item: whose it is, its own title, and when it runs.
+
+    A calendar appointment names its service, title, calendar, link, start and
+    end (``memory/vault/calendar_sync.py``); a reminder the person asked for is
+    Dodaios' own, its text is its title, and its time is when it comes due.
+    """
+    from dodaios.memory.vault.calendar_sync import BUSY_TITLES, PROVIDER
+
+    source = dict(getattr(memory, "source", None) or {})
+    text = str(memory.text or "")
+    from_calendar = source.get("via") == "calendar" or bool(source.get("event_id"))
+    old = _OLD_APPOINTMENT.match(text) if from_calendar and "title" not in source else None
+    title = str(source.get("title") or "") if "title" in source else (old["title"] if old else text)
+    if "busy_only" in source:
+        busy = bool(source.get("busy_only"))
+    else:
+        busy = from_calendar and title.strip().casefold() in BUSY_TITLES
+    appointment = from_calendar and not is_reminder(memory)
+    start = str(source.get("start") or "") or memory.due_at
+    end = str(source.get("end") or "") or memory.valid_to
+    return {
+        "source": str(source.get("provider") or (PROVIDER if from_calendar else OWN_SOURCE)),
+        "title": "" if busy else title,
+        "busy_only": busy,
+        "start": start if appointment else memory.due_at,
+        "end": end if appointment else None,
+        "all_day": appointment
+        and bool(source.get("all_day") if "all_day" in source else old and not old["time"]),
+        "calendar": str(source.get("calendar") or "") if from_calendar else "",
+        "location": str(source.get("location") or "") if from_calendar else "",
+        "url": str(source.get("url") or "") if from_calendar else "",
+    }
+
+
 def row_of(memory: Any, now: str) -> dict[str, Any]:
     """The reminder as the API and the notices carry it."""
     return {
@@ -134,9 +177,18 @@ def row_of(memory: Any, now: str) -> dict[str, Any]:
         "due_at": memory.due_at,
         "kind": memory.kind,
         "reminder": is_reminder(memory),
-        "overdue": bool(memory.due_at) and memory.due_at <= now,
+        "overdue": bool(memory.due_at) and _is_past(memory.due_at, now),
         "delivered": False,
+        **_item_fields(memory),
     }
+
+
+def _is_past(due_at: str, now: str) -> bool:
+    """``due_at <= now`` as moments: an older appointment memory kept its event's own offset."""
+    due, clock = _due_moment(due_at), _due_moment(now)
+    if due is None or clock is None:
+        return due_at <= now
+    return due <= clock
 
 
 def create_reminder(
@@ -227,9 +279,29 @@ def list_due(vault: Any, *, days: int = 14) -> list[dict[str, Any]]:
     rows = []
     for memory in vault.upcoming(days=days):
         row = row_of(memory, now)
-        row["delivered"] = vault.get_meta(_DELIVERED + memory.id) is not None
+        row["delivered"] = was_told(vault, memory)
         rows.append(row)
     return rows
+
+
+def was_told(vault: Any, memory: Any) -> bool:
+    """Whether the reminder was told: itself, or a version it replaced that came due then too.
+
+    The calendar sync replaces an appointment's memory when its sentence
+    changes (a renamed event, a new wording); the appointment was told all
+    the same, and telling it again would be a second notification for one
+    appointment.
+    """
+    current = memory
+    for _step in range(8):
+        if vault.get_meta(_DELIVERED + current.id) is not None:
+            return True
+        prior = getattr(current, "supersedes_id", None)
+        older = vault.get(prior) if prior else None
+        if older is None or _due_moment(older.due_at) != _due_moment(memory.due_at):
+            return False
+        current = older
+    return False
 
 
 def _changed() -> None:
@@ -435,9 +507,13 @@ class ReminderScheduler:
             key = _DELIVERED + memory.id
             if vault.get_meta(key) is not None:
                 continue
+            told_before = was_told(vault, memory)
             # Claim first: a second tick (or a restart mid-delivery) must not
             # tell the same reminder twice.
             vault.set_meta(key, _iso_utc(now))
+            if told_before:
+                log.info("reminders: %s replaces a version already told", memory.id)
+                continue
             due_at = _due_moment(memory.due_at)
             if due_at is not None and now - due_at > STALE_AFTER:
                 log.info("reminders: %s was due %s; too old to tell", memory.id, memory.due_at)
@@ -498,6 +574,7 @@ __all__ = [
     "GRACE_DAYS",
     "NOTICE_CAPTURED",
     "NOTICE_DUE",
+    "OWN_SOURCE",
     "REMINDER_KIND",
     "SNOOZE_MINUTES",
     "STALE_AFTER",
@@ -521,4 +598,5 @@ __all__ = [
     "snooze",
     "split_dump",
     "utc_now",
+    "was_told",
 ]

@@ -11425,7 +11425,6 @@
     "save_failed": "The change was not saved."
   },
   "reminders": {
-    "due_title": "Reminder",
     "done": "Done",
     "snooze": "Snooze",
     "snooze_15": "15 min",
@@ -11438,7 +11437,20 @@
     "undo": "Undo",
     "undone": "Removed",
     "task": "Task",
-    "failed": "That did not work. Try again."
+    "failed": "That did not work. Try again.",
+    "source_google_calendar": "Google Calendar",
+    "source_dodaios": "Reminder",
+    "busy_title": "Busy (no details shared)",
+    "busy_hint": "This calendar only shares that the time is busy, not what the entry is.",
+    "untitled": "Untitled event",
+    "day_time": "{day}, {time}",
+    "all_day_on": "{day}, all day",
+    "dismiss": "Dismiss",
+    "open_in": "Open in {service}",
+    "snooze_label": "Remind me again:",
+    "count_appointments": "{count} appointments",
+    "count_reminders": "{count} reminders",
+    "count_items": "{count} items"
   },
   "mobile": {
     "settings": {
@@ -11577,7 +11589,6 @@
   },
   "rail_notice": {
     "title": "Needs you",
-    "reminder_detail": "Due since {when}",
     "more": "{count} more",
     "and_more": "and {count} more",
     "an_agent": "An agent",
