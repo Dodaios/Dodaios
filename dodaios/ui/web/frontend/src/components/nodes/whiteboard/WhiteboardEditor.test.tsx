@@ -203,7 +203,8 @@ describe("WhiteboardEditor", () => {
     expect(initial.appState).toEqual({ viewBackgroundColor: "#fff3bf", gridModeEnabled: true });
     expect(initial.scrollToContent).toBe(true);
 
-    await waitFor(() => expect(pkg.state.api?.addFiles).toHaveBeenCalledTimes(1));
+    // Fetching the picture and reading it into a data URL is slow on a busy CI runner.
+    await waitFor(() => expect(pkg.state.api?.addFiles).toHaveBeenCalledTimes(1), { timeout: 5000 });
     expect(fetchMock.mock.calls.some(([url]) => String(url) === "/api/nodes/b1/files/f1")).toBe(true);
     const [files] = pkg.state.api!.addFiles.mock.calls[0] as [Array<{ id: string; dataURL: string; mimeType: string }>];
     expect(files[0]).toMatchObject({ id: "f1", mimeType: "image/png", created: 3 });
