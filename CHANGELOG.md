@@ -11,6 +11,24 @@ versioning per [SemVer](https://semver.org/).
 
 ---
 
+## [5.3.2] — 2026-11-14
+
+### Added
+
+- Plan Mode is an Off / On pick in the permission menu (#1693)
+- Three permission modes and Plan as its own switch (#1688)
+- Project folders in the thread sidebar move by drag and drop (#1686)
+- Add Buffer as a one-click plugin (#1674)
+- The assistant's routines live in Activity with a switch each, folded after two (#1684)
+- A coding thread's slash list is the CLI's own, and known commands turn blue (#1683)
+
+### Fixed
+
+- The jump to a memory's source stops waiting when the page is gone (#1687)
+- A page in the Browser tab fills the panel instead of sitting small at its top (#1685)
+
+---
+
 ## [5.3.1] — 2026-11-14
 
 ### Added
