@@ -817,7 +817,6 @@ def _build_registry() -> tuple[AppCommand, ...]:
             ),
             method="GET",
             path="/api/designs",
-            worker_allowed=True,
             ui_section="designs",
             voice_aliases={
                 "de": ("welche designs habe ich",),  # i18n-allow: input vocab
