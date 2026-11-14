@@ -11695,7 +11695,7 @@
         "slides": "For a story told page by page: a pitch, a briefing, a review.",
         "sheets": "For rows and columns: lists, budgets, comparisons, trackers.",
         "design": "For a designed page: a one-pager, a poster, an invitation.",
-        "data": "For numbers at a glance: key figures and charts on one board.",
+        "data": "Analyses from your data: files, apps, accounts, portfolios. Kept up to date if you like.",
         "whiteboard": "For thinking in notes: ideas, clusters, a plan on a wall.",
         "motion": "For a short film: a title sequence, an animated explainer."
       },
@@ -11704,7 +11704,7 @@
         "slides": "e.g. Ten slides on last quarter for Monday's team meeting",
         "sheets": "e.g. Our subscriptions with monthly cost, renewal date and owner",
         "design": "e.g. An invitation to the summer party on 12 July, warm and simple",
-        "data": "e.g. Revenue, orders and returns per month for this year",
+        "data": "e.g. Value and performance of my portfolio, per position and over time",
         "whiteboard": "e.g. Ideas for the product launch, grouped by channel",
         "motion": "e.g. A 20-second opener for the product video with our three claims"
       },
@@ -11730,9 +11730,9 @@
           "c": "A menu for a dinner"
         },
         "data": {
-          "a": "Sales per month as a dashboard",
-          "b": "Website visitors over the last 90 days",
-          "c": "Key figures of my project"
+          "a": "My portfolio: value, positions and performance",
+          "b": "Orders and revenue per month from my shop",
+          "c": "Charts from a CSV or Excel file"
         },
         "whiteboard": {
           "a": "Brainstorm names for a product",
@@ -11747,7 +11747,39 @@
       },
       "button": "New",
       "of_type": "New in {0}",
-      "type_label": "Type"
+      "type_label": "Type",
+      "data": {
+        "sources_label": "Where does the data come from?",
+        "sources_placeholder": "e.g. the file orders.csv in Downloads, my Notion database “Projects”, my portfolio",
+        "sources_hint": "{name} reads these sources itself and changes nothing in them.",
+        "chips_label": "Common sources",
+        "chips": {
+          "file": "A CSV or Excel file",
+          "notion": "Notion",
+          "sheets": "Google Sheets",
+          "shop": "Shopify",
+          "portfolio": "My portfolio",
+          "web": "Prices from the web"
+        },
+        "live_label": "Keep it updated automatically",
+        "live_detail": "{name} checks the sources on a schedule and updates the analysis when the data changes.",
+        "every_label": "How often",
+        "every": {
+          "15": "Every 15 min",
+          "60": "Hourly",
+          "180": "Every 3 h",
+          "1440": "Daily"
+        },
+        "request_every": {
+          "15": "every 15 minutes",
+          "60": "every hour",
+          "180": "every 3 hours",
+          "1440": "once a day"
+        },
+        "request_sources": "Read the data from: {0}.",
+        "request_live": "Keep it updated automatically: check the sources {0} and update it when the data changes.",
+        "default_about": "an analysis of this data"
+      }
     },
     "menu": {
       "aria": "Actions for this node",

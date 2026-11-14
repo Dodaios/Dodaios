@@ -60,7 +60,10 @@ TYPE_LINES: Final[dict[str, str]] = {
     "slides": "a deck of slides to present",
     "sheets": "a sheet of rows and columns: a list or table to keep",
     "design": 'a freely designed page: a poster, a one-pager (the app says "Visuals")',
-    "data": 'a dashboard: current figures and charts (the app says "Analytics")',
+    "data": (
+        "an analysis of the person's data: figures and charts read from their files, apps "
+        'and accounts, kept current if they want (the app says "Analytics")'
+    ),
     "whiteboard": "a board of notes, shapes and arrows: a diagram, a map of ideas",
     "motion": 'a short animation (the app says "Clips")',
 }
@@ -122,7 +125,7 @@ class NodeTool:
         "Make and look after a NODE: something the person keeps and looks at, shown in "
         "the Nodes section and as a card in the chat. Types: docs (a written document), "
         "slides (a deck), sheets (rows and columns), design (a free-form page; the app "
-        "says Visuals), data (a dashboard of figures and charts; Analytics), whiteboard "
+        "says Visuals), data (analyses of the person's data; Analytics), whiteboard "
         "(notes, shapes, arrows), motion (a short animation; Clips). Call 'guide' with the "
         "type before your first create of that type; the spec must follow that grammar. "
         "To change a node, use "

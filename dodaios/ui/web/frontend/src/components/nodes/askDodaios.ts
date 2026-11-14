@@ -21,6 +21,7 @@ import { sendNodeComments as postNodeComments } from "./useNodes";
 import { useAgentChatStore } from "@/store/agentChat";
 import { useEventStore } from "@/store/events";
 import { useHomeStore } from "@/store/home";
+import type { AnalyticsCadence } from "./AnalyticsFields";
 import type { NodeComment } from "./nodeBridge";
 import type { NodeCard, NodeType } from "./nodeModel";
 import { NODE_TYPE_LABEL_KEY } from "./nodeTheme";
@@ -28,18 +29,44 @@ import { NODE_TYPE_LABEL_KEY } from "./nodeTheme";
 /** How many frames to wait for the composer to mount after the section switch. */
 const FOCUS_ATTEMPTS = 40;
 
+/**
+ * What the Analytics dialog adds to a request: where the data comes from,
+ * and whether (and how often) the analysis is kept current.
+ */
+export interface AnalyticsRequest {
+  sources: string;
+  /** Null: made once, never refreshed. */
+  everyMinutes: AnalyticsCadence | null;
+}
+
 /** The message that asks for a new node of `type` about `text`. */
-export function newNodeRequestText(type: NodeType, text: string): string {
+export function newNodeRequestText(type: NodeType, text: string, analytics?: AnalyticsRequest): string {
+  const sources = analytics?.sources.trim() ?? "";
+  const about = text.trim() || (sources ? translate("nodes.new.data.default_about") : "");
   // Function replacers: a `$` in what the reader typed must stay a `$`.
-  return translate("nodes.new.request")
-    .replace("{0}", () => translate(NODE_TYPE_LABEL_KEY[type]))
-    .replace("{1}", () => text.trim());
+  const parts = [
+    translate("nodes.new.request")
+      .replace("{0}", () => translate(NODE_TYPE_LABEL_KEY[type]))
+      .replace("{1}", () => about),
+  ];
+  if (sources) parts.push(translate("nodes.new.data.request_sources").replace("{0}", () => sources));
+  if (analytics?.everyMinutes) {
+    const every = translate(`nodes.new.data.request_every.${analytics.everyMinutes}`);
+    parts.push(translate("nodes.new.data.request_live").replace("{0}", () => every));
+  }
+  // The first sentence is the reader's own and may end without a stop.
+  if (parts.length > 1 && !/[.!?。！？]$/.test(parts[0])) parts[0] += ".";
+  return parts.join(" ");
 }
 
 /** Ask the assistant for a new node, as the reader's own message. Rejects when it could not be sent. */
-export async function requestNewNode(type: NodeType, text: string): Promise<void> {
+export async function requestNewNode(
+  type: NodeType,
+  text: string,
+  analytics?: AnalyticsRequest,
+): Promise<void> {
   const session = await fetchLeadSession();
-  await sendAgentChatMessage(session.session_id, newNodeRequestText(type, text));
+  await sendAgentChatMessage(session.session_id, newNodeRequestText(type, text, analytics));
 }
 
 /**
