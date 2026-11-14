@@ -52,6 +52,10 @@ WITHHELD: Final[dict[str, str]] = {
         "loosening every agent's approval mode at once is the owner's own choice in "
         "Settings; a remote client must never be able to switch agents to Bypass"
     ),
+    "POST /api/society/agents/{agent_id}/readiness": (
+        "the readiness check answers with card tools of the owner's own chat (Connect, "
+        "login); a remote client has no chat to show them in"
+    ),
     "GET /api/society/sandbox": (
         "Docker readiness belongs to the owner's local execution settings, "
         "not the remote MCP surface"
