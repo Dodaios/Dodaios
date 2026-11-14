@@ -10,6 +10,8 @@
  * - a request that could not be sent keeps the dialog open with what was
  *   typed, and says so,
  * - "Start with an empty one" creates a starter node and hands the card on,
+ * - an Analytics node also asks where the data comes from and whether to
+ *   keep it current; both go into the request, and sources alone suffice,
  * - the request goes into the lead conversation as the reader's own message;
  *   a change request only drafts, in that conversation's composer.
  */
@@ -23,7 +25,7 @@ import { NewNodeDialog } from "./NewNodeDialog";
 import type { NodeCard, NodeType } from "./nodeModel";
 
 const chat = vi.hoisted(() => ({
-  requestNewNode: vi.fn(async (_type: string, _text: string) => undefined),
+  requestNewNode: vi.fn(async (_type: string, _text: string, _analytics?: unknown) => undefined),
   askDodaiosToChange: vi.fn(async () => undefined),
 }));
 vi.mock("./askDodaios", () => chat);
@@ -171,7 +173,7 @@ describe("NewNodeDialog", () => {
     fireEvent.click(create());
 
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
-    expect(chat.requestNewNode).toHaveBeenCalledWith("sheets", "A budget for this year by month");
+    expect(chat.requestNewNode).toHaveBeenCalledWith("sheets", "A budget for this year by month", undefined);
     expect(onRequested).toHaveBeenCalledWith("sheets", "A budget for this year by month");
     expect(onCreated).not.toHaveBeenCalled();
   });
@@ -237,6 +239,55 @@ describe("NewNodeDialog", () => {
     });
   });
 
+  it("asks other types nothing about data sources", () => {
+    installFetch();
+    renderDialog("sheets");
+    expect(screen.queryByTestId("new-node-analytics")).toBeNull();
+  });
+
+  it("asks an Analytics node where its data comes from and whether to keep it current", async () => {
+    installFetch();
+    const { onRequested, onClose } = renderDialog("data");
+    const sources = screen.getByTestId("new-node-sources") as HTMLTextAreaElement;
+    expect(sources.value).toBe("");
+    // Off by default: nothing is refreshed unless the reader asks for it.
+    expect(screen.getByTestId("new-node-live").getAttribute("aria-checked")).toBe("false");
+    expect(screen.queryByTestId("new-node-every")).toBeNull();
+
+    // A common source is one click away, and is added only once.
+    const chips = screen.getAllByTestId("new-node-source-chip");
+    expect(chips).toHaveLength(6);
+    fireEvent.change(sources, { target: { value: "orders.csv in Downloads" } });
+    fireEvent.click(chips.find((chip) => chip.textContent?.includes("Notion"))!);
+    fireEvent.click(chips.find((chip) => chip.textContent?.includes("Notion"))!);
+    expect(sources.value).toBe("orders.csv in Downloads, Notion");
+
+    fireEvent.click(screen.getByTestId("new-node-live"));
+    const every = within(screen.getByTestId("new-node-every")).getAllByRole("radio");
+    expect(every).toHaveLength(4);
+    expect(screen.getByTestId("new-node-every-60").getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(screen.getByTestId("new-node-every-15"));
+
+    // Sources alone are enough to ask for an analysis.
+    expect(create().disabled).toBe(false);
+    fireEvent.click(create());
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(chat.requestNewNode).toHaveBeenCalledWith("data", "", {
+      sources: "orders.csv in Downloads, Notion",
+      everyMinutes: 15,
+    });
+    expect(onRequested).toHaveBeenCalledWith("data", "orders.csv in Downloads, Notion");
+  });
+
+  it("asks for an analysis made once when keeping it current stays off", async () => {
+    installFetch();
+    const { onRequested } = renderDialog("data");
+    fireEvent.change(field(), { target: { value: "My portfolio" } });
+    fireEvent.click(create());
+    await waitFor(() => expect(onRequested).toHaveBeenCalled());
+    expect(chat.requestNewNode).toHaveBeenCalledWith("data", "My portfolio", { sources: "", everyMinutes: null });
+  });
+
   it("says so when the empty node could not be created", async () => {
     installFetch((url, method) => url === "/api/nodes" && method === "POST");
     const { onClose, onCreated } = renderDialog("sheets");
@@ -264,6 +315,20 @@ describe("talking to the assistant", () => {
       "POST /api/agent-chat/sessions/lead-1/messages",
     ]);
     expect((calls[1].body as { text: string }).text).toBe("Create a new node of type Sheets for me: A budget");
+  });
+
+  it("adds the sources and the refresh to an Analytics request", async () => {
+    const real = await vi.importActual<typeof import("./askDodaios")>("./askDodaios");
+    expect(real.newNodeRequestText("data", "My portfolio", { sources: " Broker, $& prices ", everyMinutes: 60 })).toBe(
+      "Create a new node of type Analytics for me: My portfolio. Read the data from: Broker, $& prices. " +
+        "Keep it updated automatically: check the sources every hour and update it when the data changes.",
+    );
+    expect(real.newNodeRequestText("data", "My portfolio?", { sources: "", everyMinutes: null })).toBe(
+      "Create a new node of type Analytics for me: My portfolio?",
+    );
+    expect(real.newNodeRequestText("data", "", { sources: "orders.csv", everyMinutes: null })).toBe(
+      "Create a new node of type Analytics for me: an analysis of this data. Read the data from: orders.csv.",
+    );
   });
 
   it("sends every comment at once to the node's comments route, not into the conversation", async () => {

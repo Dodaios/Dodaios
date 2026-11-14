@@ -11696,7 +11696,7 @@
         "slides": "Para contar algo página a página: uma proposta, um ponto de situação, um balanço.",
         "sheets": "Para linhas e colunas: listas, orçamentos, comparações, acompanhamentos.",
         "design": "Para uma página desenhada: um resumo de uma página, um cartaz, um convite.",
-        "data": "Para ver os números num relance: indicadores e gráficos num só painel.",
+        "data": "Análises a partir dos teus dados: ficheiros, apps, contas, carteiras. Sempre atualizadas, se quiseres.",
         "whiteboard": "Para pensar com notas: ideias, grupos, um plano na parede.",
         "motion": "Para um filme curto: um genérico, uma explicação animada."
       },
@@ -11705,7 +11705,7 @@
         "slides": "p. ex. Dez diapositivos sobre o último trimestre para a reunião de segunda-feira",
         "sheets": "p. ex. As nossas subscrições com custo mensal, data de renovação e responsável",
         "design": "p. ex. Um convite para a festa de verão de 12 de julho, caloroso e simples",
-        "data": "p. ex. Receitas, encomendas e devoluções por mês deste ano",
+        "data": "p. ex. Valor e desempenho da minha carteira, por posição e ao longo do tempo",
         "whiteboard": "p. ex. Ideias para o lançamento do produto, agrupadas por canal",
         "motion": "p. ex. Um genérico de 20 segundos para o vídeo do produto com as nossas três mensagens"
       },
@@ -11731,9 +11731,9 @@
           "c": "Uma ementa para um jantar"
         },
         "data": {
-          "a": "Vendas por mês num painel",
-          "b": "Visitas ao site nos últimos 90 dias",
-          "c": "Indicadores do meu projeto"
+          "a": "A minha carteira: valor, posições e desempenho",
+          "b": "Encomendas e receita por mês da minha loja",
+          "c": "Gráficos de um ficheiro CSV ou Excel"
         },
         "whiteboard": {
           "a": "Ideias de nomes para um produto",
@@ -11760,6 +11760,38 @@
         "data": "Análise sem título",
         "whiteboard": "Quadro sem título",
         "motion": "Clipe sem título"
+      },
+      "data": {
+        "sources_label": "De onde vêm os dados?",
+        "sources_placeholder": "p. ex. o ficheiro encomendas.csv nas Transferências, a minha base de dados do Notion «Projetos», a minha carteira",
+        "sources_hint": "{name} lê estas fontes sozinho e não altera nada nelas.",
+        "chips_label": "Fontes comuns",
+        "chips": {
+          "file": "Um ficheiro CSV ou Excel",
+          "notion": "Notion",
+          "sheets": "Google Sheets",
+          "shop": "Shopify",
+          "portfolio": "A minha carteira",
+          "web": "Cotações da web"
+        },
+        "live_label": "Manter atualizado automaticamente",
+        "live_detail": "{name} verifica as fontes regularmente e atualiza a análise quando os dados mudam.",
+        "every_label": "Com que frequência",
+        "every": {
+          "15": "A cada 15 min",
+          "60": "De hora a hora",
+          "180": "A cada 3 h",
+          "1440": "Diariamente"
+        },
+        "request_every": {
+          "15": "a cada 15 minutos",
+          "60": "de hora a hora",
+          "180": "a cada 3 horas",
+          "1440": "uma vez por dia"
+        },
+        "request_sources": "Lê os dados de: {0}.",
+        "request_live": "Mantém-no atualizado automaticamente: verifica as fontes {0} e atualiza-o quando os dados mudarem.",
+        "default_about": "uma análise destes dados"
       }
     },
     "menu": {

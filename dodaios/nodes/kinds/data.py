@@ -49,6 +49,10 @@ MAX_LABEL_CHARS: Final[int] = 80
 MAX_VALUE_CHARS: Final[int] = 40
 MAX_DETAIL_CHARS: Final[int] = 120
 MAX_CELL_CHARS: Final[int] = 300
+#: Where the numbers come from, named under the title: "orders.csv",
+#: "Notion: Projects", "Portfolio at the broker".
+MAX_SOURCES: Final[int] = 8
+MAX_SOURCE_CHARS: Final[int] = 80
 
 #: What the card in the library shows of a dashboard.
 PREVIEW_METRICS: Final[int] = 3
@@ -56,9 +60,9 @@ PREVIEW_BARS: Final[int] = 8
 
 _PARTS: Final[tuple[str, ...]] = ("metrics", "charts", "tables")
 _WHAT_TO_SEND: Final[str] = (
-    "A data node's spec is an object {\"summary\": \"…\", \"sections\": [{\"title\", \"text\", "
-    "\"metrics\": [...], \"charts\": [...], \"tables\": [...]}]} with at least one metric, "
-    "chart or table."
+    "A data node's spec is an object {\"summary\": \"…\", \"sources\": [\"…\"], \"sections\": "
+    "[{\"title\", \"text\", \"metrics\": [...], \"charts\": [...], \"tables\": [...]}]} with at "
+    "least one metric, chart or table."
 )
 _CHART_RULES: Final[str] = (
     "'type' is line, area, column or bar; 'x' (the labels) and every series' 'data' must be "
@@ -215,11 +219,22 @@ def _section(raw: Any, number: int) -> dict[str, Any]:
     }
 
 
+def _sources(value: Any) -> list[str]:
+    """The named sources, each once, in the order given."""
+    names: list[str] = []
+    for raw in shell.as_list(value, MAX_SOURCES * 2):
+        name = _line(raw, MAX_SOURCE_CHARS)
+        if name and name.lower() not in (known.lower() for known in names):
+            names.append(name)
+    return names[:MAX_SOURCES]
+
+
 def normalize(spec: Any) -> dict[str, Any]:
-    """The dashboard's clean spec: ``{"summary", "sections"}``.
+    """The dashboard's clean spec: ``{"summary", "sources", "sections"}``.
 
     Top-level ``metrics`` / ``charts`` / ``tables`` become one untitled first
-    section. A section that holds nothing is left out.
+    section. A section that holds nothing is left out. ``sources`` is kept
+    only when the spec names one.
 
     Raises:
         NodeError: the spec is not an object, a part has the wrong shape, a
@@ -240,7 +255,12 @@ def normalize(spec: Any) -> dict[str, Any]:
             break
     if not any(section[key] for section in sections for key in _PARTS):
         raise NodeError(_WHAT_TO_SEND)
-    return {"summary": _line(spec.get("summary"), MAX_SUMMARY_CHARS), "sections": sections}
+    clean: dict[str, Any] = {"summary": _line(spec.get("summary"), MAX_SUMMARY_CHARS)}
+    sources = _sources(spec.get("sources"))
+    if sources:
+        clean["sources"] = sources
+    clean["sections"] = sections
+    return clean
 
 
 # --------------------------------------------------------------------- render
@@ -506,6 +526,10 @@ _CSS: Final[str] = """
 .page.dash{max-width:1216px}
 .dash-head .summary{max-width:700px;margin-top:12px;color:var(--ink-2);text-wrap:pretty}
 .dash-head .node-meta{margin-top:14px}
+.dash-sources{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:14px 0 0;padding:0;
+  list-style:none;font-size:13px;line-height:18px;color:var(--ink-2)}
+.dash-sources>.icon{display:inline-flex;color:var(--ink-3)}
+.dash-sources>li:not(.icon){padding:3px 10px;border:1px solid var(--line-2);border-radius:999px}
 .dash .section{margin-top:56px}
 .dash-head+.section{margin-top:36px}
 .dash .section>h2+.dash-text{margin-top:6px}
@@ -616,6 +640,26 @@ d.addEventListener("node-field-saved",function(e){
 """
 
 
+_SOURCE_ICON: Final[str] = (
+    '<li class="icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" '
+    'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+    'stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/>'
+    '<path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/>'
+    "</svg></li>"
+)
+
+
+def _sources_html(value: Any) -> str:
+    """The row of sources under the summary: where these numbers were read."""
+    names = _sources(value)
+    if not names:
+        return ""
+    items = "".join(
+        f'<li data-at="/sources/{index}">{shell.esc(name)}</li>' for index, name in enumerate(names)
+    )
+    return f'<ul class="dash-sources">{_SOURCE_ICON}{items}</ul>'
+
+
 def render(node: Any) -> str:
     """The dashboard as one self-contained page: title, summary, sections."""
     spec = node.spec if isinstance(node.spec, dict) else {}
@@ -625,6 +669,7 @@ def render(node: Any) -> str:
     # text that is one value of the stored spec. The pointers follow the
     # stored lists, which `normalize` has already folded into sections.
     lead = f'<p class="summary" data-at="/summary">{shell.esc(summary)}</p>' if summary else ""
+    lead += _sources_html(spec.get("sources"))
     sections = "".join(
         _section_html(section, language, f"/sections/{index}")
         for index, section in enumerate(shell.as_list(spec.get("sections"), MAX_SECTIONS))
@@ -734,6 +779,7 @@ def starter(title: str, language: str) -> dict[str, Any]:
 
 EXAMPLE: Final[dict[str, Any]] = {
     "summary": "Sales through October 2026, from the shop's order export of 1 Nov.",
+    "sources": ["Shop order export", "returns.xlsx"],
     "sections": [
         {
             "title": "October",
@@ -772,9 +818,14 @@ EXAMPLE: Final[dict[str, Any]] = {
 
 GUIDE: Final[str] = (
     """\
-data: a dashboard, numbers to scan, not read.
-spec = {"summary": str, "sections": [section, …]} (up to 12 sections). Top-level "metrics", \
-"charts", "tables" are shorthand for one untitled first section.
+data: an analysis of the person's data, a dashboard to scan, not read.
+Read every source the person names before you write a value: files with your file tools, \
+apps and accounts with their tools, prices from the web. Never invent or estimate a figure; \
+leave out what you could not read and say so in the summary. No source known: ask.
+To keep it current ("keep it updated", "live"), give 'track' on create naming each source \
+exactly (path, database, account, tickers), and 'every_minutes'.
+spec = {"summary": what and as of when, "sources": [where the numbers were read, a few words \
+each, up to 8], "sections": [section, …] (up to 12)}. Top-level "metrics", "charts", "tables" are shorthand for one untitled first section.
 section = {"title", "text", "metrics": [metric], "charts": [chart], "tables": [table]}; all \
 optional. "text" is one short paragraph (**bold**, *italic*, `code`, [link](https://…)).
 metric (up to 8) = {"label": two to four words, "value": the figure with its unit as text, \

@@ -29,7 +29,7 @@ import { NodesLibrary } from "./NodesLibrary";
 import { useNodesLibrary } from "./useNodesLibrary";
 
 const chat = vi.hoisted(() => ({
-  requestNewNode: vi.fn(async (_type: string, _text: string) => undefined),
+  requestNewNode: vi.fn(async (_type: string, _text: string, _analytics?: unknown) => undefined),
   askDodaiosToChange: vi.fn(async () => undefined),
 }));
 // The real module opens the chat store; the library only needs its two calls.
@@ -478,7 +478,7 @@ describe("NodesLibrary", () => {
     fireEvent.click(within(dialog).getByTestId("new-node-create"));
 
     await waitFor(() => expect(shownKeys()[0]).toMatch(/^pending:/));
-    expect(chat.requestNewNode).toHaveBeenCalledWith("sheets", "A budget for this year by month and by team");
+    expect(chat.requestNewNode).toHaveBeenCalledWith("sheets", "A budget for this year by month and by team", undefined);
     expect(screen.queryByTestId("new-node-dialog")).toBeNull();
 
     const placeholder = cards()[0];
@@ -580,8 +580,8 @@ describe("NodesLibrary", () => {
     expect(window.localStorage.getItem("jarvis.nodes.type")).toBe("all");
   });
 
-  it("offers every kind under New, each starting a blank node at once", async () => {
-    const fetchMock = installFetch({ nodes: SAMPLE, created: card("fresh", { id: "n-fresh", type: "data" }) });
+  it("offers every kind under New, each but Analytics starting a blank node at once", async () => {
+    const fetchMock = installFetch({ nodes: SAMPLE, created: card("fresh", { id: "n-fresh", type: "sheets" }) });
     const onCreated = vi.fn<(card: NodeCard) => void>();
     const { onOpen } = renderLibrary({ onCreated });
     await screen.findByTestId("nodes-grid");
@@ -599,16 +599,39 @@ describe("NodesLibrary", () => {
       "nodes-new-describe",
     ]);
 
-    fireEvent.click(within(menu).getByTestId("nodes-new-blank-data"));
+    fireEvent.click(within(menu).getByTestId("nodes-new-blank-sheets"));
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
     // No dialog, no request to the assistant: the node is made from its starter.
     expect(screen.queryByTestId("new-node-dialog")).toBeNull();
     expect(chat.requestNewNode).not.toHaveBeenCalled();
     const post = fetchMock.mock.calls.find(([url, init]) => url === "/api/nodes" && init?.method === "POST");
-    expect(JSON.parse(String(post?.[1]?.body))).toEqual({ type: "data", title: "Untitled analytics", language: "en" });
+    expect(JSON.parse(String(post?.[1]?.body))).toEqual({ type: "sheets", title: "Untitled sheet", language: "en" });
     expect(onCreated.mock.calls[0][0].key).toBe("fresh");
     expect(onOpen).not.toHaveBeenCalled();
     expect(screen.queryByTestId("nodes-new-menu")).toBeNull();
+  });
+
+  it("asks an Analytics node for its data instead of making a dashboard of placeholders", async () => {
+    const fetchMock = installFetch({ nodes: SAMPLE });
+    const onCreated = vi.fn<(card: NodeCard) => void>();
+    renderLibrary({ onCreated });
+    await screen.findByTestId("nodes-grid");
+
+    fireEvent.click(screen.getByTestId("nodes-new"));
+    fireEvent.click(screen.getByTestId("nodes-new-blank-data"));
+    const dialog = await screen.findByTestId("new-node-dialog");
+    expect(within(dialog).getByTestId("new-node-type-data").getAttribute("aria-checked")).toBe("true");
+    expect(within(dialog).getByTestId("new-node-sources")).toBeTruthy();
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+
+    // The empty Analytics shelf leads to the same dialog.
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("new-node-dialog")).toBeNull());
+    fireEvent.click(screen.getByTestId("nodes-type-data"));
+    fireEvent.click(within(screen.getByTestId("nodes-no-matches")).getByTestId("nodes-new-of-type"));
+    expect(await screen.findByTestId("new-node-sources")).toBeTruthy();
+    expect(onCreated).not.toHaveBeenCalled();
   });
 
   it("starts a blank node of the shelf's kind from an empty shelf", async () => {

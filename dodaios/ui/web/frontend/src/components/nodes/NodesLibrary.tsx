@@ -16,7 +16,8 @@
  * "New" works like it does in an office suite: a kind (from the menu, or
  * "New in <kind>" on an empty shelf) starts a blank node of that kind at once
  * and opens it, ready to be typed into. Describing it to the assistant is the
- * menu's last entry, not a step on the way.
+ * menu's last entry, not a step on the way. Analytics is the exception: an
+ * analysis is made from data, so it opens the dialog that asks for the sources.
  */
 import {
   useCallback,
@@ -158,6 +159,15 @@ export function NodesLibrary({
     },
     [nodeActions, t, language, pushToast, onCreated],
   );
+  /**
+   * A new node of `type` from the menu or an empty shelf. An analysis is made
+   * from data, so Analytics asks where the data comes from (and whether to keep
+   * it current) instead of opening a dashboard of placeholder figures.
+   */
+  const startNew = useCallback(
+    (type: NodeType) => (type === "data" ? setNewType(type) : void startBlank(type)),
+    [startBlank],
+  );
   const skippedRuns = library.nodes.data?.skipped_runs ?? 0;
   const scannedRuns = library.nodes.data?.scanned_runs ?? 0;
 
@@ -183,7 +193,7 @@ export function NodesLibrary({
               <div className="ml-auto flex items-center gap-1">
                 <NewNodeMenu
                   creating={creating}
-                  onBlank={(type) => void startBlank(type)}
+                  onBlank={startNew}
                   onDescribe={describeNew}
                   className="mr-1.5"
                 />
@@ -227,7 +237,7 @@ export function NodesLibrary({
                 <QuietState testId="nodes-empty" sentence={t("nodes.states.empty")}>
                   <NewNodeMenu
                     creating={creating}
-                    onBlank={(type) => void startBlank(type)}
+                    onBlank={startNew}
                     onDescribe={describeNew}
                     align="start"
                   />
@@ -240,7 +250,7 @@ export function NodesLibrary({
                       <Button
                         size="sm"
                         disabled={creating !== null}
-                        onClick={() => void startBlank(pickedType)}
+                        onClick={() => startNew(pickedType)}
                         data-testid="nodes-new-of-type"
                       >
                         {creating === pickedType ? <Loader2 className="animate-spin" aria-hidden /> : <Plus aria-hidden />}

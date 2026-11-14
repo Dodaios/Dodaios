@@ -39,7 +39,8 @@ def refresh_prompt(node: Node) -> str:
     return (
         f'Refresh the node "{node.title}" (node id {node.id}, type {node.type}). '
         f"It tracks: {node.track}\n\n"
-        "Read the current state from the person's connected apps and sources. Then call the "
+        "Read the current state from the sources it names: the person's files, connected apps "
+        "and accounts, the web. Never invent a figure you could not read. Then call the "
         f'node tool with operation "get" and node "{node.id}" to see its content, and once with '
         f'operation "update", node "{node.id}" and what changed: "changes" for a few values, '
         'or the complete "spec" when most of it is new. Keep the structure and the wording of '
