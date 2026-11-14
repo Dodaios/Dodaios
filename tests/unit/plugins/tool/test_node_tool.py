@@ -584,3 +584,54 @@ async def test_look_without_a_browser_says_how_to_go_on(
     result = await tool.execute({"operation": "look", "node": "Plan"}, _ctx())
     assert not result.success
     assert "no Chromium-family browser" in result.error and "'get'" in result.error
+# ---------------------------------------------------------------- pictures
+
+
+async def test_a_picture_named_by_its_file_is_embedded_on_create_and_update(
+    tmp_path: Path, cards
+) -> None:
+    from PIL import Image
+
+    shot = tmp_path / "shot.png"
+    Image.new("RGB", (1600, 1000), (20, 90, 160)).save(shot)
+    tool, store = _tool(tmp_path / "archive")
+    spec = {"blocks": [{"text": "a"}], "image": str(shot)}
+    created = await tool.execute(
+        {"operation": "create", "type": "docs", "title": "Pic", "spec": spec}, _ctx()
+    )
+    assert created.success, created.error
+    (node,) = store.list_nodes()
+    # The stand-in kind keeps only blocks; the conversion happened before it, so
+    # the update path is checked on the change itself.
+    seen: list[Any] = []
+    real_update = store.update
+
+    def spy(node_id, **kwargs):
+        seen.append(kwargs["changes"])
+        return real_update(node_id, **kwargs)
+
+    store.update = spy  # type: ignore[method-assign]
+    await tool.execute(
+        {
+            "operation": "update",
+            "node": node.id,
+            "changes": [{"op": "set", "path": "/blocks/0/image", "value": str(shot)}],
+        },
+        _ctx(),
+    )
+    assert seen[0][0]["value"].startswith("data:image/jpeg;base64,")
+
+
+async def test_a_missing_picture_file_is_refused_with_its_reason(tmp_path: Path, cards) -> None:
+    tool, store = _tool(tmp_path)
+    result = await tool.execute(
+        {
+            "operation": "create",
+            "type": "docs",
+            "title": "Pic",
+            "spec": {"blocks": [{"text": "a"}], "image": str(tmp_path / "gone.png")},
+        },
+        _ctx(),
+    )
+    assert not result.success and "gone.png" in result.error
+    assert "absolute path" in result.error and store.list_nodes() == []

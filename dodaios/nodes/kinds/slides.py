@@ -597,7 +597,8 @@ GUIDE: Final[str] = (
     "donut: one series; bars: up to 10 rows.\n"
     '- table: kicker, title, caption, table: {"columns": [up to 8], "rows": [up to 10 lists '
     "of short cells]}.\n"
-    "- image: kicker, title, caption, image (a data:image/…;base64 URI, never a web address), "
+    "- image: kicker, title, caption, image (the absolute path of a PNG, JPEG or WebP "
+    "file on this computer, e.g. a screenshot; or a data:image URI; never a web address), "
     'fit: "contain" shows all of it (screenshots), default crops; no title: full-bleed.\n'
     "- steps: kicker, title, steps: up to 6 of {title, text}, numbered.\n"
     "- closing: kicker, title, subtitle, bullets (up to 4, 100 chars). Ends the deck.\n"
