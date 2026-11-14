@@ -38,12 +38,12 @@
 
 <p align="center">
   <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4">
-    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="一段 30 秒的 Dodaios 工作录屏，工作区里已有之前的对话和线程。用户在对话中输入一个请求：审阅 acme-notes 里新的 PR，每个 PR 派一个 Sonnet 智能体，并写一份报告。Dodaios 回答说它会列出未合并的拉取请求，并给每一个派一个智能体。随后打开 Agentic IDE：在项目 acme-notes 下出现五个线程，每个拉取请求一个，智能体工作时线程旁有转动的标记。依次打开其中三个线程：Dodaios 写的任务说明、正在阅读 diff 并运行测试的智能体，以及一份带结论的完成的审阅。回到对话，Dodaios 发出一张报告卡片和两句话的回答：五个拉取请求中四个可以合并，一个需要先做两处小修改。最后打开并滚动这份报告：摘要、三个关键数字，以及给每个拉取请求一个结论的表格" width="100%" />
+    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="一段 30 秒的 Dodaios 工作录屏，工作区里已有之前的对话和线程。用户在对话中输入一个请求：审阅 acme-notes 里新的 PR，每个 PR 派一个 Sonnet 智能体，并写一份报告。Dodaios 回答说它会列出这些拉取请求，随后最先启动的编程智能体出现在对话旁边的“Recent activity”里。点击其中一个，就在 Agentic IDE 里打开它的线程；项目 acme-notes 下为每个拉取请求列出一个线程，智能体工作时线程旁有转动的标记。再把两个线程并排打开，于是能同时看到三个智能体在工作：Dodaios 写的任务说明、阅读 diff 并运行测试的智能体，然后是它们完成的审阅。回到对话，Dodaios 发出一张报告卡片和两句话的回答：五个拉取请求中三个可以合并，两个需要先修改。最后打开并滚动这份报告：摘要、关键数字，以及给每个拉取请求一个结论的表格" width="100%" />
   </a>
 </p>
 
 <p align="center">
-  <sub>真实应用的录屏，剪自一段 2 分 9 秒的录制：等待模型的时间被剪掉，其余部分略微加快。Dodaios 使用 Claude Opus 5.5，并通过已登录的 Claude Code 启动五个 Claude Sonnet 5.5 智能体。拉取请求、审阅和报告都是真实的。<a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><b>以视频形式观看</b></a>（30 秒，无声音）。</sub>
+  <sub>真实应用的录屏，剪自一段 2 分 18 秒的录制：等待模型的时间被剪掉，其余部分加快五分之一。Dodaios 使用 Claude Opus 5.5，并通过已登录的 Claude Code 启动五个 Claude Sonnet 5.5 智能体。拉取请求、审阅和报告都是真实的。<a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><b>以视频形式观看</b></a>（30 秒，每秒 60 帧，无声音）。</sub>
 </p>
 
 <p align="center">
