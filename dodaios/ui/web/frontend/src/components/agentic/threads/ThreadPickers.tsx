@@ -1,12 +1,11 @@
 import { useMemo } from "react";
-import { NotebookPen, Zap } from "lucide-react";
+import { Pause, Zap } from "lucide-react";
 import { brainValue, splitBrainValue } from "@/components/agentchat/AgentComposer";
 import { ComposerBrainPicker, type BrainSection } from "@/components/agentchat/ComposerBrainPicker";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { Combobox, type ComboboxGroup, type ComboboxOption } from "@/components/ui/combobox";
 import { useT } from "@/i18n";
-import { cn } from "@/lib/utils";
 import { isApiRunner, type CuratedModel, type ModelSpeed } from "@/lib/agentChatApi";
 import { offeredModels, useSavedHiddenModels } from "@/lib/agentProviderPrefs";
 import { effortLadder } from "@/lib/effortLadder";
@@ -209,61 +208,68 @@ export function EffortPicker({ provider, draft, liveModels, onPick, onPickSpeed,
   </>;
 }
 
-export function AccessPicker({ provider, draft, onPick, separated = false }: {
+const PLAN = "plan:";
+
+/** Plan mode's mark: two filled bars, the agent holds before it acts. */
+function PlanMark({ testId }: { testId?: string }) {
+  return <Pause aria-hidden data-testid={testId} className="h-3.5 w-3.5 shrink-0 fill-current text-accent" />;
+}
+
+/**
+ * What the agent may do without asking, and Plan mode: one menu with two
+ * picks, the way the effort menu carries Fast Mode. Plan is not a rung of the
+ * ladder here but an Off / On pick under it; while it is on, the trigger wears
+ * the plan mark and names the mode Build returns to.
+ */
+export function AccessPicker({ provider, draft, onPick, onPlan, separated = false }: {
   separated?: boolean;
   provider: ProviderOption | null;
   draft: ComposerDraft;
   onPick: (mode: string) => void;
+  /** Absent = no Plan mode section. */
+  onPlan?: (on: boolean) => void;
 }) {
   const t = useT();
-  // Plan is not a permission: it is the switch beside this pill (PlanSwitch),
-  // and while it is on the pill shows the mode Build returns to.
-  const modes = (provider?.permission_modes ?? []).filter((mode) => mode.id !== "plan");
+  const all = provider?.permission_modes ?? [];
+  const modes = all.filter((mode) => mode.id !== "plan");
   if (modes.length === 0) return null;
+  const hasPlan = Boolean(onPlan) && all.some((mode) => mode.id === "plan");
   const planOn = draft.permissionMode === "plan";
   const value = planOn ? draft.buildMode || provider?.default_permission_mode || "" : draft.permissionMode;
+  const groups: ComboboxGroup[] = [{
+    id: "access",
+    label: t("agent_chat.pick_permission"),
+    // A name and one plain line under it. The description is a second line,
+    // never a right-hand hint: a sentence-long hint pushed the name out of a
+    // narrow list.
+    options: modes.map((mode) => ({
+      value: mode.id,
+      label: mode.label,
+      searchText: mode.description,
+      description: mode.description,
+    })),
+  }];
+  if (hasPlan) {
+    groups.push({
+      id: "plan",
+      label: t("ide_threads.plan_group"),
+      options: [
+        { value: PLAN + "off", label: t("agent_chat.speed_off") },
+        { value: PLAN + "on", label: t("agent_chat.speed_on"), trailing: <PlanMark /> },
+      ],
+    });
+  }
   return <>
     {separated && <Separator />}
     <Combobox ariaLabel={t("ide_threads.access_aria")} testId="thread-access-picker" value={value}
-      groups={[{
-        id: "access",
-        label: t("agent_chat.pick_permission"),
-        // Words only: a name and one plain line under it. No glyph per row
-        // and no colour on any stance, so the pick reads like the effort
-        // pick beside it. The description is a second line, never a
-        // right-hand hint: a sentence-long hint pushed the name out of a
-        // narrow list.
-        options: modes.map((mode) => ({
-          value: mode.id,
-          label: mode.label,
-          searchText: mode.description,
-          description: mode.description,
-        })),
-      }]}
-      onChange={onPick} fallbackLabel={value || t("agent_chat.model_access")} triggerHint={false} panelMinWidth={400}
+      groups={groups}
+      isChecked={(option) => (option.startsWith(PLAN) ? option === PLAN + (planOn ? "on" : "off") : option === value)}
+      onChange={(option) => {
+        if (!option.startsWith(PLAN)) onPick(option);
+        else if ((option === PLAN + "on") !== planOn) onPlan?.(!planOn);
+      }}
+      fallbackLabel={value || t("agent_chat.model_access")} triggerHint={false} panelMinWidth={400}
+      triggerPrefix={hasPlan && planOn ? <PlanMark testId="thread-plan-mark" /> : undefined}
       className={TRIGGER} />
   </>;
-}
-
-/**
- * Plan on or off. On, the agent reads and plans and changes nothing; off, it
- * builds with the permission picked beside it. Shown only for a runner whose
- * ladder has a plan mode.
- */
-export function PlanSwitch({ provider, draft, onToggle }: {
-  provider: ProviderOption | null;
-  draft: ComposerDraft;
-  onToggle: (on: boolean) => void;
-}) {
-  const t = useT();
-  if (!(provider?.permission_modes ?? []).some((mode) => mode.id === "plan")) return null;
-  const on = draft.permissionMode === "plan";
-  return <button type="button" role="switch" aria-checked={on} data-testid="thread-plan-switch"
-    title={on ? t("ide_threads.plan_switch_on") : t("ide_threads.plan_switch_off")}
-    onClick={() => onToggle(!on)}
-    className={cn("flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-      on ? "bg-accent/15 text-accent hover:bg-accent/20" : "text-foreground-secondary hover:bg-secondary hover:text-foreground")}>
-    <NotebookPen aria-hidden className="h-3.5 w-3.5" />
-    {t("ide_threads.plan_switch")}
-  </button>;
 }
