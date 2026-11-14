@@ -525,6 +525,18 @@
         "failing": "El trabajo programado {name} está fallando.",
         "recovered": "El trabajo programado {name} vuelve a funcionar."
       }
+    },
+    "bar": {
+      "mic_mute": "Silenciar micrófono",
+      "mic_unmute": "Activar micrófono",
+      "talk": "Hablar con {assistant}",
+      "hang_up": "Colgar",
+      "speaker_mute": "Silenciar voz",
+      "speaker_unmute": "Activar voz",
+      "compose": "Nuevo chat",
+      "stop_dictation": "Detener dictado",
+      "prompt_pause": "Pausar modo prompt",
+      "prompt_resume": "Reanudar modo prompt"
     }
   },
   "harness": {

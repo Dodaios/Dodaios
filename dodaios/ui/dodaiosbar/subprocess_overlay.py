@@ -296,6 +296,11 @@ class SubprocessBarOverlay:
         self._muted = bool(muted)
         self._send({"op": "set_muted", "muted": self._muted})
 
+    def set_language(self, language: str) -> None:
+        """The interface language for the bar's control labels."""
+        self._language = str(language or "en")
+        self._send({"op": "set_language", "language": self._language})
+
     def set_prompt_mode(self, enabled: bool, paused: bool = False) -> None:
         self._prompt_mode = bool(enabled)
         self._prompt_mode_paused = bool(paused)
@@ -509,6 +514,8 @@ class SubprocessBarOverlay:
             self._send({"op": "hide"})
         if self._muted:
             self._send({"op": "set_muted", "muted": True})
+        if getattr(self, "_language", None):
+            self._send({"op": "set_language", "language": self._language})
         if self._prompt_mode:
             self._send(
                 {

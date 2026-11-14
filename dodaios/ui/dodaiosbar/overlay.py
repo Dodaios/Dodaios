@@ -45,7 +45,7 @@ _WARNED_NO_APPKIT = False
 
 COLOR_KEY_HEX = "#FF00FF"
 DRAG_THRESHOLD_PX = 16
-MARGIN_PX = 12
+MARGIN_PX = 4
 # How long after a file drop the bar keeps ignoring clicks. The synthetic
 # press/release a drop produces on this window arrives around the drop event,
 # not reliably before it, so the guard has to outlive the drop itself. Short
@@ -658,6 +658,11 @@ class JarvisBarOverlay:
         atomic bool write — the frame loop reads it; no Tk marshal needed."""
         self._muted = bool(muted)
 
+    def set_language(self, language: str) -> None:
+        """The interface language for the control labels (atomic write)."""
+        self._language = str(language or "en")
+        self._invalidate_static_frame()
+
     def set_prompt_mode(self, enabled: bool, paused: bool = False) -> None:
         """Mirror ``[dictation].prompt_mode`` and its pause onto the sparkle.
 
@@ -1107,11 +1112,11 @@ class JarvisBarOverlay:
                 rel[0], rel[1], work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H
             )
         else:
-            # Fresh install: bottom-centre on the chosen monitor, just above its
-            # taskbar (the work area already excludes the taskbar on Windows).
-            wl, wt, ww, wh = work
-            self._x = wl + (ww - renderer.WIN_W) // 2
-            self._y = wt + wh - renderer.WIN_H - TASKBAR_GAP_PX
+            # Fresh install: the left edge of the chosen monitor's work area,
+            # centred in its height.
+            self._x, self._y = interaction.default_side_spot(
+                work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H, margin=MARGIN_PX
+            )
             self._x, self._y = interaction.clamp_to_work_area(
                 self._x,
                 self._y,
@@ -1143,19 +1148,19 @@ class JarvisBarOverlay:
             log.debug("jarvisbar live resize failed", exc_info=True)
 
     def _reanchor_after_resize(self, old_win_w: int, old_win_h: int) -> None:
-        """Resize the window + canvas and keep the bar's bottom-centre fixed.
+        """Resize the window + canvas and keep the bar's left edge and middle.
 
-        The pill is bottom-anchored (grows upward), so preserving the window's
-        bottom-centre keeps the resting spot above the taskbar unchanged while
-        a bigger bar simply extends higher. Clamped to the screen so an
+        The upright bar sits at the left of its window, centred in its height,
+        so keeping the window's left edge and vertical middle keeps the bar in
+        place while a bigger bar grows right and evenly up and down. Clamped to the screen so an
         enlarged bar near a screen edge can never spill off it.
         """
         if self._root is None:
             return
-        center_x = self._x + old_win_w / 2.0
-        bottom_y = self._y + old_win_h
-        new_x = round(center_x - renderer.WIN_W / 2.0)
-        new_y = round(bottom_y - renderer.WIN_H)
+        del old_win_w
+        middle_y = self._y + old_win_h / 2.0
+        new_x = self._x
+        new_y = round(middle_y - renderer.WIN_H / 2.0)
         # Clamp to the monitor the bar sits on (measured at the new centre), not
         # the primary screen, so a resize near a secondary-monitor edge stays on
         # that monitor.
@@ -1486,6 +1491,7 @@ class JarvisBarOverlay:
                     # in flight" rather than blow the frame away.
                     drop_elapsed=now - getattr(self, "_drop_visual_t0", 0.0),
                     connect_look=connect_look,
+                    language=getattr(self, "_language", "en"),
                 )
                 if getattr(self, "_mac_transparent", False):
                     # macOS: no color key — carry real per-pixel alpha instead.
@@ -2121,7 +2127,7 @@ class JarvisBarOverlay:
             log.debug("jarvisbar click action failed", exc_info=True)
 
     def _on_reset_double_click(self, _event: Any = None) -> None:
-        """Reset the bar to its default bottom-center anchor.
+        """Reset the bar to its default place: left edge, middle height.
 
         Bridge-compatible: OrbBusBridge looks this up via getattr on
         OrbResetRequested ("Orb reset"). Returning the bar to the default
@@ -2139,9 +2145,9 @@ class JarvisBarOverlay:
                 self._y + renderer.WIN_H // 2,
             )
             work = self._work_area_for_point(anchor[0], anchor[1])
-            wl, wt, ww, wh = work
-            self._x = wl + (ww - renderer.WIN_W) // 2
-            self._y = wt + wh - renderer.WIN_H - TASKBAR_GAP_PX
+            self._x, self._y = interaction.default_side_spot(
+                work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H, margin=MARGIN_PX
+            )
             self._x, self._y = interaction.clamp_to_work_area(
                 self._x,
                 self._y,

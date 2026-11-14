@@ -27,9 +27,10 @@ class _FakePipeline:
         ...
 
 
-def _mic_x() -> int:
+def _mic_x() -> dict:
     """The microphone control of the open bar."""
-    return round(R.control_center("mic", "idle")[0])
+    x, y = R.control_center("mic", "idle")
+    return {"click_x": x, "click_y": y}
 
 
 def _patch_pipeline(monkeypatch, fake) -> None:
@@ -43,11 +44,11 @@ def test_mic_click_fires_toggle_and_optimistically_mutes(monkeypatch):
     _patch_pipeline(monkeypatch, _FakePipeline())
 
     assert bar._muted is False
-    bar._on_click(_mic_x(), hovered=True)
+    bar._on_click(**_mic_x(), hovered=True)
     assert fired == [1]
     assert bar._muted is True  # optimistic flip → slash shows immediately
 
-    bar._on_click(_mic_x(), hovered=True)
+    bar._on_click(**_mic_x(), hovered=True)
     assert fired == [1, 1]
     assert bar._muted is False  # toggles back
 
@@ -59,7 +60,7 @@ def test_mic_callback_does_not_require_a_child_speech_pipeline(monkeypatch):
     bar.set_on_mute_toggle(lambda: fired.append(1))
     _patch_pipeline(monkeypatch, None)
 
-    bar._on_click(_mic_x(), hovered=True)
+    bar._on_click(**_mic_x(), hovered=True)
 
     assert fired == [1]
     assert bar._muted is True
@@ -70,7 +71,7 @@ def test_mic_click_without_callback_is_noop(monkeypatch):
     bar._on_mute_toggle = None  # boot race: bridge not wired yet
     _patch_pipeline(monkeypatch, _FakePipeline())
 
-    bar._on_click(_mic_x(), hovered=True)
+    bar._on_click(**_mic_x(), hovered=True)
     assert bar._muted is False  # no callback → genuine no-op, no false slash
 
 

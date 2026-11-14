@@ -20,6 +20,13 @@ from pathlib import Path
 # IPC proxy and the pure unit tests.
 from dodaios.ui.dodaiosbar.modes import ACTIVE_VOICE_MODES, DICTATION_MODES, MODES, NOTICE_MODES
 
+WorkArea = tuple[int, int, int, int]
+
+#: The bar's place is saved with this marker. A place saved without it belongs
+#: to the earlier bottom-centred bar and is not reused: that bar had another
+#: shape, and its spot would put the upright bar in the middle of the screen.
+PLACEMENT = "side"
+
 
 # --------------------------------------------------------------------------- #
 # Pure geometry helpers (no I/O)                                              #
@@ -58,6 +65,7 @@ def resolve_click(
 
     ``width`` is the window width the click was measured in; it fixes the
     scale, so a bar resized by the "Bar size" slider still resolves right.
+    Without ``y`` the click counts as one on the bar's body (the centre).
     """
     del hovered, pill_w
     from dodaios.ui.dodaiosbar import design
@@ -69,8 +77,11 @@ def resolve_click(
         mode=mode if mode in MODES else "idle", hovered=True, prompt_mode=bool(prompt_mode)
     )
     if y is None:
-        x0, y0, x1, y1 = design.pill_rect(design.layout(state), scale)
-        y = (y0 + y1) / 2.0
+        # A click without a height is a click on the bar's body: the centre.
+        point = design.control_center("center", state, scale)
+        if point is None:
+            return "none"
+        x, y = point
     control = design.hit_test(x, y, state, scale)
     if control is None:
         return "none"
@@ -87,6 +98,12 @@ def resolve_click(
         "prompt": "prompt_mode_toggle",
         "compose": "compose",
     }.get(control, "none")
+
+
+def default_side_spot(*, work: WorkArea, bar_w: int, bar_h: int, margin: int) -> tuple[int, int]:
+    """Default place: at the left edge of the work area, centred in its height."""
+    wl, wt, _ww, wh = work
+    return (int(wl + margin), int(wt + (wh - bar_h) // 2))
 
 
 def default_bottom_center(
@@ -122,7 +139,6 @@ def clamp_to_screen(
 # smaller screen and drift on a larger one — the exact multi-monitor bug this
 # model avoids.
 
-WorkArea = tuple[int, int, int, int]
 
 
 def _clamp01(v: float) -> float:
@@ -229,7 +245,9 @@ def _load_jarvisbar_section(path: str | Path) -> dict | None:
     except (UnicodeDecodeError, tomllib.TOMLDecodeError):
         return None
     section = data.get("jarvisbar")
-    return section if isinstance(section, dict) else None
+    if not isinstance(section, dict) or section.get("placement") != PLACEMENT:
+        return None
+    return section
 
 
 def save_jarvisbar_position(
@@ -269,6 +287,7 @@ def save_jarvisbar_position(
         if section is None:
             section = tomlkit.table()
             doc["jarvisbar"] = section
+        section["placement"] = PLACEMENT
         section["pos_x"] = int(x)
         section["pos_y"] = int(y)
         if rel is not None:
