@@ -1,0 +1,1 @@
+import{p as u}from"./index-CgF0P-7W.js";const o=u(r=>({results:{},record:(e,t)=>r(s=>({results:{...s.results,[e]:t}})),forget:e=>r(t=>{if(!(e in t.results))return t;const s={...t.results};return delete s[e],{results:s}})}));function i(r){return r?r.status==="ok"?"ok":r.status==="not_configured"?null:"failed":null}export{o as u,i as v};

@@ -1,0 +1,1 @@
+.call-window{left:1.5rem;right:1.5rem;height:min(460px,calc(100vh - 17rem));min-height:220px;transform-origin:50% 100%;animation:call-window-in .2s cubic-bezier(.2,.8,.2,1) both}@keyframes call-window-in{0%{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}@media(prefers-reduced-motion:reduce){.call-window{animation:none}}

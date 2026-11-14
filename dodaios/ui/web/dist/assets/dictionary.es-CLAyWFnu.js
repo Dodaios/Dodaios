@@ -1,0 +1,1 @@
+const a={dictionary:{empty:"Aún no hay palabras.",word:"Palabra",heard_as:"Se entiende como",load_failed:"No se pudieron cargar tus palabras.",save_failed:"No se pudo guardar esta palabra.",delete_failed:"No se pudo eliminar esta palabra.",duplicate:"Esta palabra ya está en tu lista."}},e={voiceui:a};export{e as default,a as voiceui};
