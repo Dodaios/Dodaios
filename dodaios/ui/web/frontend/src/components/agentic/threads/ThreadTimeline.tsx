@@ -1,5 +1,5 @@
 import { createContext, memo, startTransition, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowDown, Bot, Check, ChevronDown, ChevronRight, Copy, Diff, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
+import { ArrowDown, Bot, Check, ChevronRight, Copy, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
@@ -21,6 +21,7 @@ import { listSubagents } from "./subagents";
 import { turnErrorText } from "@/components/agentchat/turnError";
 import { useSideFileStore } from "@/store/sideFile";
 import { DiffStat, DiffView } from "./ThreadDiff";
+import { FileTypeIcon } from "@/components/agentic/sidePanel/explorer/FileTypeIcon";
 import { MagicWordText } from "./MagicWordText";
 
 /**
@@ -600,7 +601,7 @@ function splitPath(path: string): { folder: string; name: string } {
   return cut < 0 ? { folder: "", name: clean } : { folder: clean.slice(0, cut + 1), name: clean.slice(cut + 1) };
 }
 
-/** How many files a finished turn lists before the rest fold behind "Show N more files". */
+/** How many files a finished turn lists before the rest fold behind "Show all". */
 export const CHANGED_FILES_FOLDED = 3;
 
 /** Both counts, even a zero — the card's columns line up on them. */
@@ -611,11 +612,13 @@ function ChangeCount({ added, removed, className }: { added: number; removed: nu
 }
 
 /**
- * The card under a finished turn: how many files it edited and by how much,
- * then one row per file — folder quiet, name bright, counts on the right.
- * Only the first few rows show; the rest fold behind "Show N more files" so
- * a big turn never fills the screen. A row opens to its own diff, and
- * "Show changes" opens every diff at once.
+ * The card under a finished turn: "2 files edited" on top, then one row per
+ * file — the explorer's own file-type icon, the file name, the counts on the
+ * right — and a last row "Show all" with the turn's totals. The name stands
+ * alone; its folder shows (quieter) only when two changed files share a name.
+ * Only the first few rows show; "Show all" lists every file with its diff
+ * open, and "Show less" folds them again. A row opens to its own diff, and
+ * the button beside its counts opens the file in the side panel.
  */
 export function ChangedFiles({ turn }: { turn: TurnItem }) {
   const t = useT();
@@ -627,65 +630,59 @@ export function ChangedFiles({ turn }: { turn: TurnItem }) {
   if (rows.length === 0) return null;
   const added = rows.reduce((sum, row) => sum + row.added, 0);
   const removed = rows.reduce((sum, row) => sum + row.removed, 0);
-  const hidden = Math.max(0, rows.length - CHANGED_FILES_FOLDED);
   const shown = expanded ? rows : rows.slice(0, CHANGED_FILES_FOLDED);
-  const allOpen = rows.every((row) => openPaths.has(row.path));
+  // "Show all" lists every file with its diff open; once it did, the same row folds them again.
+  const allShown = expanded;
+  const named = rows.map((row) => splitPath(projectPath(row.path, root)));
+  const nameCount = new Map<string, number>();
+  for (const { name } of named) nameCount.set(name.toLowerCase(), (nameCount.get(name.toLowerCase()) ?? 0) + 1);
   const togglePath = (path: string) => setOpenPaths((prev) => {
     const next = new Set(prev);
     if (next.has(path)) next.delete(path); else next.add(path);
     return next;
   });
   const toggleAll = () => {
-    if (allOpen) { setOpenPaths(new Set()); return; }
+    if (allShown) { setOpenPaths(new Set()); setExpanded(false); return; }
     setOpenPaths(new Set(rows.map((row) => row.path)));
     setExpanded(true);
   };
   const title = fill(t(`thread_turn.files_changed_${plural(lang, rows.length)}`), { count: rows.length });
-  return <section aria-label={t("thread_turn.changed_files")} data-testid="thread-changed-files" className="overflow-hidden rounded-xl border border-border bg-card">
-    <div className="flex items-center gap-3 border-b border-border px-3 py-3">
-      <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground-secondary">
-        <span className="flex h-5 w-5 items-center justify-center rounded-[5px] border-[1.5px] border-current"><Diff className="h-3 w-3" strokeWidth={2.25} /></span>
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold text-foreground-strong">{title}</div>
-        <ChangeCount added={added} removed={removed} className="text-sm" />
-      </div>
-      <button type="button" aria-pressed={allOpen} onClick={toggleAll}
-        className="shrink-0 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        {t(allOpen ? "thread_turn.hide_changes" : "thread_turn.show_changes")}
-      </button>
-    </div>
-    <ul>
-      {shown.map((row) => {
-        const { folder, name } = splitPath(projectPath(row.path, root));
+  return <section aria-label={t("thread_turn.changed_files")} data-testid="thread-changed-files" className="overflow-hidden rounded-xl border border-border bg-card text-sm">
+    <div className="border-b border-border px-4 py-3 text-foreground">{title}</div>
+    <ul className="pt-1">
+      {shown.map((row, index) => {
+        const { folder, name } = named[index];
+        const twin = (nameCount.get(name.toLowerCase()) ?? 0) > 1;
         const open = openPaths.has(row.path);
-        return <li key={row.path} className="group/file relative">
-          <button type="button" aria-expanded={open} onClick={() => togglePath(row.path)} title={row.path}
-            className="flex w-full items-center gap-3 py-1.5 pl-3 pr-10 text-left text-sm hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-            {/* The folder gives way first, cut from its left, so the name stays readable. */}
-            <span className="flex min-w-0 flex-1">
-              {folder && <span dir="rtl" className="min-w-0 shrink-[999] truncate text-left text-muted-foreground">
-                <bdi dir="ltr">{folder}</bdi>
-              </span>}
+        return <li key={row.path}>
+          <div className="group/file relative flex items-center gap-2 px-4 py-1.5 hover:bg-secondary/60">
+            {/* The whole row toggles the diff; only the side-panel button sits above it. */}
+            <button type="button" aria-expanded={open} onClick={() => togglePath(row.path)} title={row.path}
+              className="flex min-w-0 flex-1 items-center gap-2.5 text-left after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring">
+              <FileTypeIcon path={row.path} />
               <span className="min-w-0 max-w-full shrink-0 truncate text-foreground">{name}</span>
-            </span>
+              {/* A twin's folder gives way first, cut from its left, so the name stays readable. */}
+              {twin && folder && <span dir="rtl" className="min-w-0 shrink-[999] truncate text-left text-muted-foreground">
+                <bdi dir="ltr">{folder.replace(/\/$/, "")}</bdi>
+              </span>}
+            </button>
+            <button type="button" aria-label={fill(t("thread_turn.open_file_beside"), { file: name })} title={t("thread_turn.open_beside")}
+              data-testid="thread-changed-file-open"
+              onClick={() => useSideFileStore.getState().show({ path: row.path, folder: root, diff: row.files })}
+              className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover/file:opacity-100">
+              <PanelRight aria-hidden className="h-3.5 w-3.5" />
+            </button>
             <ChangeCount added={row.added} removed={row.removed} />
-          </button>
-          <button type="button" aria-label={fill(t("thread_turn.open_file_beside"), { file: name })} title={t("thread_turn.open_beside")}
-            data-testid="thread-changed-file-open"
-            onClick={() => useSideFileStore.getState().show({ path: row.path, folder: root, diff: row.files })}
-            className="absolute right-2 top-1 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-secondary hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover/file:opacity-100">
-            <PanelRight aria-hidden className="h-3.5 w-3.5" />
-          </button>
-          {open && <div className="px-3 pb-2 pt-0.5"><DiffView files={row.files.map((file) => ({ ...file, path: "" }))} /></div>}
+          </div>
+          {open && <div className="px-4 pb-2 pt-0.5"><DiffView files={row.files.map((file) => ({ ...file, path: "" }))} /></div>}
         </li>;
       })}
     </ul>
-    {hidden > 0 && <button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}
-      className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-sm text-foreground-secondary hover:bg-secondary/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-      {expanded ? t("thread_turn.collapse_files") : fill(t(`thread_turn.more_files_${plural(lang, hidden)}`), { count: hidden })}
-      <ChevronDown aria-hidden className={cn("h-4 w-4 transition-transform duration-200", expanded && "rotate-180")} />
-    </button>}
+    <button type="button" aria-expanded={allShown} onClick={toggleAll} data-testid="thread-changed-files-all"
+      className="mt-1 flex w-full items-center gap-2 px-4 pb-3 pt-1.5 text-left text-foreground hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+      <span className="min-w-0 flex-1 truncate">{t(allShown ? "thread_turn.show_less" : "thread_turn.show_all")}</span>
+      <ChangeCount added={added} removed={removed} />
+    </button>
   </section>;
 }
 

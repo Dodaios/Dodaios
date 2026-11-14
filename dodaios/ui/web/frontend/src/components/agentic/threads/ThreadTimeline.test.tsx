@@ -185,30 +185,37 @@ describe("changed files card", () => {
   const edit = (id: string, path: string): ToolBlock =>
     tool(id, "", { name: "Edit", input: { file_path: path, old_string: "a", new_string: "b\nc" } });
 
-  it("lists three files and folds the rest behind a count", () => {
+  it("lists three files with the explorer's icons and folds the rest behind Show all", () => {
     const paths = ["src/a.ts", "src/b.ts", "docs/c.md", "lib/d.py", "e.json"];
     show(turn(paths.map((path, i) => edit(`e${i}`, path))));
     const card = screen.getByTestId("thread-changed-files");
-    expect(card.textContent).toContain("5 files changed");
+    expect(card.textContent).toContain("5 files edited");
     expect(screen.getByText("a.ts")).toBeTruthy();
-    expect(screen.getAllByText("src/").length).toBe(2);
+    // Names stand alone: no folder for a name no other changed file shares.
+    expect(screen.queryByText("src")).toBeNull();
+    expect([...card.querySelectorAll("[data-file-icon]")].map((icon) => icon.getAttribute("data-file-icon")).length).toBe(3);
     expect(screen.queryByText("d.py")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Show 2 more files/ }));
+    const all = screen.getByTestId("thread-changed-files-all");
+    expect(all.textContent).toBe("Show all+10 -5");
+    fireEvent.click(all);
     expect(screen.getByText("d.py")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /Collapse files/ }));
+    expect(all.textContent).toContain("Show less");
+    fireEvent.click(all);
     expect(screen.queryByText("e.json")).toBeNull();
   });
 
-  it("shows no fold line for three files or fewer", () => {
-    show(turn([edit("e1", "a.ts"), edit("e2", "b.ts")]));
-    expect(screen.queryByRole("button", { name: /more file/ })).toBeNull();
+  it("names the folder only when two changed files share a name", () => {
+    show(turn([edit("e1", "src/index.ts"), edit("e2", "lib/index.ts"), edit("e3", "README.md")]));
+    expect(screen.getByText("src")).toBeTruthy();
+    expect(screen.getByText("lib")).toBeTruthy();
+    expect(screen.getByText("README.md")).toBeTruthy();
   });
 
-  it("opens every diff at once from the header", () => {
+  it("opens every diff at once from Show all", () => {
     show(turn(["a.ts", "b.ts", "c.ts", "d.ts"].map((path, i) => edit(`e${i}`, path))));
-    fireEvent.click(screen.getByRole("button", { name: "Show changes" }));
+    fireEvent.click(screen.getByRole("button", { name: /Show all/ }));
     expect(screen.getByText("d.ts")).toBeTruthy();
-    expect(screen.getAllByRole("button", { expanded: true }).length).toBeGreaterThanOrEqual(4);
+    expect(screen.getAllByRole("button", { expanded: true }).length).toBeGreaterThanOrEqual(5);
   });
 });
 
