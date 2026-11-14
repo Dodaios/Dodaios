@@ -4,11 +4,11 @@ import { SquareTerminal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import antigravityLogo from "@/assets/providers/antigravity.svg?url";
-import claudeLogo from "@/assets/providers/claude.svg?url";
 import deepseekLogo from "@/assets/providers/deepseek.svg?url";
-import openaiLogo from "@/assets/providers/openai.svg?url";
-import xaiLogo from "@/assets/providers/xai.svg?url";
+import claudeCodeLogo from "@/assets/agents/claude-code.svg?url";
+import codexLogo from "@/assets/agents/codex.svg?url";
 import cursorLogo from "@/assets/agents/cursor.svg?url";
+import grokBuildLogo from "@/assets/agents/grok-build.svg?url";
 import kimiLogo from "@/assets/agents/kimi.svg?url";
 import opencodeLogo from "@/assets/agents/opencode.svg?url";
 import zaiLogo from "@/assets/agents/zai.svg?url";
@@ -28,9 +28,9 @@ import zaiLogo from "@/assets/agents/zai.svg?url";
  *   On paper those shapes ARE the paper, so it keeps its colours and gets a
  *   constant dark canvas: the ground it was drawn on. No shipped mark needs
  *   it today; it stays for that shape of logo.
- * * `any` — a full-colour mark on a transparent ground (Claude's spark,
- *   Antigravity's arch, DeepSeek's whale) that reads on either theme in its
- *   own colours.
+ * * `any` — a full-colour mark that reads on either theme in its own
+ *   colours: on a transparent ground (the Claude Code mascot, Antigravity's
+ *   arch, DeepSeek's whale) or on a tile of its own (Codex).
  */
 type LogoGround = "ink" | "dark" | "any";
 
@@ -41,12 +41,12 @@ interface LogoAsset {
 
 const AGENT_LOGOS: Record<string, LogoAsset> = {
   antigravity: { url: antigravityLogo, ground: "any" },
-  claude: { url: claudeLogo, ground: "any" },
-  codex: { url: openaiLogo, ground: "ink" },
+  claude: { url: claudeCodeLogo, ground: "any" },
+  codex: { url: codexLogo, ground: "any" },
   cursor: { url: cursorLogo, ground: "ink" },
   "deepseek-harness": { url: deepseekLogo, ground: "any" },
   glm: { url: zaiLogo, ground: "ink" },
-  "grok-build": { url: xaiLogo, ground: "ink" },
+  "grok-build": { url: grokBuildLogo, ground: "ink" },
   kimi: { url: kimiLogo, ground: "ink" },
   opencode: { url: opencodeLogo, ground: "ink" },
 };
@@ -161,13 +161,17 @@ export function AgentMark({
       aria-hidden="true"
       className={cn(
         "inline-flex shrink-0 items-center justify-center overflow-hidden text-micro font-bold tracking-tight text-muted-foreground",
-        // The tile, and the brightness that goes with being one. Without it the
-        // glyph sits at the weight of the text it accompanies, which is the
-        // point of `plain`.
+        // The tile, and the brightness that goes with being one. Without it a
+        // single-colour glyph sits at the weight of the text it accompanies,
+        // which is the point of `plain`. A full-colour mark keeps its full
+        // strength: dimmed, the mascot and the Codex tile read as washed out
+        // beside the title rather than quieter.
         plain
           ? canvased
             ? "rounded-[4px] bg-scrim/95 p-px"
-            : "opacity-70"
+            : drawn && asset.ground === "any"
+              ? undefined
+              : "opacity-70"
           : canvased
             ? "border border-border bg-scrim/95"
             : "border border-border bg-background",

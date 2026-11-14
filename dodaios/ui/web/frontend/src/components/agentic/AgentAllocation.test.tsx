@@ -7,9 +7,9 @@ import { AgentAllocation, type PlannedTerminal } from "./AgentAllocation";
 import kimiLogo from "@/assets/agents/kimi.svg?url";
 import opencodeLogo from "@/assets/agents/opencode.svg?url";
 import zaiLogo from "@/assets/agents/zai.svg?url";
-import claudeLogo from "@/assets/providers/claude.svg?url";
-import openaiLogo from "@/assets/providers/openai.svg?url";
-import xaiLogo from "@/assets/providers/xai.svg?url";
+import claudeLogo from "@/assets/agents/claude-code.svg?url";
+import codexLogo from "@/assets/agents/codex.svg?url";
+import grokBuildLogo from "@/assets/agents/grok-build.svg?url";
 
 const COPY: Record<string, string> = {
   "workspace_launcher.agents.all": "All",
@@ -172,11 +172,11 @@ describe("AgentAllocation", () => {
       screen.getByTestId(`agent-mark-${agent}`).getAttribute("data-logo");
     const claudeMark = screen.getByTestId("agent-mark-claude");
     expect(claudeMark.getAttribute("data-logo")).toBe(claudeLogo);
-    expect(logo("codex")).toBe(openaiLogo);
+    expect(logo("codex")).toBe(codexLogo);
     expect(logo("opencode")).toBe(opencodeLogo);
     expect(logo("kimi")).toBe(kimiLogo);
     expect(logo("glm")).toBe(zaiLogo);
-    expect(logo("grok-build")).toBe(xaiLogo);
+    expect(logo("grok-build")).toBe(grokBuildLogo);
 
     fireEvent.click(screen.getAllByRole("button", { name: "All" })[0]);
     expect(claudeMark.getAttribute("data-logo")).toBe(claudeLogo);
