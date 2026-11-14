@@ -1,0 +1,144 @@
+/* A design's moving background — see DesignBackdrop.tsx for why it lies over
+   the window and blends instead of sitting behind it. Every animation moves a
+   layer with transform (or fades a star with opacity), so nothing under it
+   repaints. `--design-speed` scales every duration: 1 slow, 0.35 fast. */
+
+.design-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+.design-backdrop--contained {
+  position: absolute;
+  z-index: 0;
+}
+
+.design-backdrop > span {
+  position: absolute;
+  display: block;
+  will-change: transform;
+}
+
+/* --- glow: four soft lights drifting on their own paths ----------------- */
+.design-glow {
+  width: 75vmax;
+  height: 75vmax;
+  border-radius: 50%;
+}
+.design-backdrop--contained .design-glow {
+  width: 140%;
+  height: 140%;
+}
+.design-glow-0 {
+  left: -20%;
+  top: -30%;
+  animation: design-drift-a calc(46s * var(--design-speed, 1)) ease-in-out infinite alternate;
+}
+.design-glow-1 {
+  right: -25%;
+  top: -10%;
+  animation: design-drift-b calc(58s * var(--design-speed, 1)) ease-in-out infinite alternate;
+}
+.design-glow-2 {
+  left: 10%;
+  bottom: -45%;
+  animation: design-drift-c calc(52s * var(--design-speed, 1)) ease-in-out infinite alternate;
+}
+.design-glow-3 {
+  right: -10%;
+  bottom: -35%;
+  opacity: 0.7;
+  animation: design-drift-a calc(64s * var(--design-speed, 1)) ease-in-out infinite alternate-reverse;
+}
+
+@keyframes design-drift-a {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(18%, 12%, 0) scale(1.12); }
+  100% { transform: translate3d(32%, -6%, 0) scale(0.94); }
+}
+@keyframes design-drift-b {
+  0% { transform: translate3d(0, 0, 0) scale(1.05); }
+  50% { transform: translate3d(-22%, 16%, 0) scale(0.92); }
+  100% { transform: translate3d(-10%, 30%, 0) scale(1.1); }
+}
+@keyframes design-drift-c {
+  0% { transform: translate3d(0, 0, 0) scale(0.95); }
+  50% { transform: translate3d(14%, -20%, 0) scale(1.1); }
+  100% { transform: translate3d(-12%, -10%, 0) scale(1); }
+}
+
+/* --- waves: wide bands of light crossing the window --------------------- */
+.design-wave {
+  left: -50%;
+  width: 200%;
+  height: 55%;
+}
+.design-wave-0 {
+  top: -5%;
+  animation: design-wave calc(40s * var(--design-speed, 1)) ease-in-out infinite alternate;
+}
+.design-wave-1 {
+  top: 30%;
+  animation: design-wave calc(54s * var(--design-speed, 1)) ease-in-out infinite alternate-reverse;
+}
+.design-wave-2 {
+  top: 60%;
+  animation: design-wave calc(47s * var(--design-speed, 1)) ease-in-out infinite alternate;
+  animation-delay: calc(-12s * var(--design-speed, 1));
+}
+
+@keyframes design-wave {
+  0% { transform: translate3d(-18%, 0, 0) rotate(-4deg) scaleY(0.8); }
+  50% { transform: translate3d(4%, 6%, 0) rotate(2deg) scaleY(1.15); }
+  100% { transform: translate3d(18%, -4%, 0) rotate(5deg) scaleY(0.9); }
+}
+
+/* --- gradient: one wide gradient turning slowly about the centre -------- */
+.design-sweep {
+  left: 50%;
+  top: 50%;
+  width: 200vmax;
+  height: 200vmax;
+  margin-left: -100vmax;
+  margin-top: -100vmax;
+  animation: design-turn calc(90s * var(--design-speed, 1)) linear infinite;
+}
+.design-backdrop--contained .design-sweep {
+  width: 300%;
+  height: 300%;
+  margin-left: -150%;
+  margin-top: -150%;
+}
+
+@keyframes design-turn {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* --- stars: small points that twinkle ----------------------------------- */
+.design-backdrop > .design-star {
+  border-radius: 50%;
+  will-change: opacity;
+  animation-name: design-twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes design-twinkle {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+
+.design-backdrop[data-still="true"] > span {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .design-backdrop > span {
+    animation: none !important;
+  }
+}

@@ -88,6 +88,9 @@ const ShortcutsTab = lazy(() =>
 const PetsTab = lazy(() =>
   import("@/views/PetsView").then((m) => ({ default: m.PetsView })),
 );
+const DesignsTab = lazy(() =>
+  import("@/views/DesignsView").then((m) => ({ default: m.DesignsView })),
+);
 const PhoneTab = lazy(() =>
   import("@/views/PhoneView").then((m) => ({ default: m.PhoneView })),
 );
@@ -118,6 +121,7 @@ const TAB_CONTENT: Record<HubContent, LazyExoticComponent<ComponentType>> = {
   appshots: AppshotsTab,
   shortcuts: ShortcutsTab,
   pets: PetsTab,
+  designs: DesignsTab,
   notifications: NotificationsTab,
   trust: TrustTab,
   costs: CostsTab,

@@ -89,6 +89,10 @@ export type SectionId =
   // My Pets: the desktop pet — which one, its size, its bubble, and custom
   // pets from a sprite sheet (docs/pets.md). A Settings-hub page.
   | "pets"
+  // Designs: the person's own colours and moving backgrounds, made by
+  // talking to Dodaios, and the way back to the standard look
+  // (docs/designs.md). A Settings-hub page.
+  | "designs"
   // Phone: pair a phone with the companion app, its notifications and the
   // owner-only WhatsApp channel (docs/mobile-companion.md). A Settings-hub page.
   | "phone"
@@ -154,6 +158,7 @@ export const SECTION_IDS = [
   "appshots",
   "shortcuts",
   "pets",
+  "designs",
   "phone",
   "notifications",
   "dictionary",
@@ -254,6 +259,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   appshots: "Appshots",
   shortcuts: "Keyboard shortcuts",
   pets: "My Pets",
+  designs: "Designs",
   phone: "Phone",
   notifications: "Notifications",
   dictionary: "Dictionary",
@@ -304,6 +310,7 @@ export const SECTION_LABEL_KEYS: Record<SectionId, string> = {
   appshots: "nav.appshots",
   shortcuts: "nav.shortcuts",
   pets: "nav.pets",
+  designs: "nav.designs",
   phone: "nav.phone",
   notifications: "nav.notifications",
   dictionary: "nav.dictionary",

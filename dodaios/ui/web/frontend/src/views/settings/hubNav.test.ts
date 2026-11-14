@@ -9,7 +9,7 @@ import { HUB_GROUPS, HUB_PAGES, PAGE_ENTRIES, entryKey, pageForTarget, resolveHu
  * beside it) and "socials" (a list of links, not a setting).
  */
 const LISTED_TABS = [
-  "shortcuts", "appshots", "pets", "profile",
+  "shortcuts", "appshots", "pets", "designs", "profile",
   "agent-instructions", "computers", "apikeys", "costs", "feedback",
   "notifications", "trust", "phone",
 ];

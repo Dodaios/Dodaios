@@ -292,6 +292,7 @@
     "nav_home": "Inicio"
   },
   "nav": {
+    "designs": "Diseños",
     "chat_workspace": "Chat",
     "chats": "Chats",
     "agents": "Agentes",
@@ -11909,5 +11910,65 @@
     "address": "Dirección web",
     "back": "Atrás",
     "forward": "Adelante"
+  },
+  "designs": {
+    "title": "Diseños",
+    "subtitle": "Haz tuya la app: sus colores y un fondo en movimiento. Dile a {name} cómo debe verse o elige un diseño abajo.",
+    "reset": "Volver al estándar",
+    "reset_done": "Ha vuelto el aspecto estándar. Tus diseños siguen guardados.",
+    "error": "No ha funcionado: {0}",
+    "active": "Activo",
+    "use": "Usar {0}",
+    "rename": "Renombrar",
+    "delete": "Eliminar",
+    "delete_confirm": "Eliminar",
+    "cancel": "Cancelar",
+    "deleted": "{0} eliminado.",
+    "only_dark": "Hecho solo para la apariencia oscura.",
+    "only_light": "Hecho solo para la apariencia clara.",
+    "standard_name": "Estándar",
+    "standard_description": "El aspecto propio de la app.",
+    "own_title": "Tus diseños",
+    "own_empty": "Aún no tienes diseños propios. Describe uno arriba y {name} lo crea.",
+    "examples_title": "Ejemplos",
+    "examples_body": "Listos para usar. Pide a {name} que cambie uno y tendrás tu propia copia.",
+    "ask": {
+      "title": "Dile a {name} cómo debe verse",
+      "body": "Colores, ambiente, un fondo en movimiento. El diseño se activa en cuanto está listo y aparece aquí.",
+      "placeholder": "Por ejemplo: azul oscuro con un brillo suave que se mueve al fondo",
+      "send": "Crear diseño",
+      "sent": "Enviado. {name} está creando tu diseño.",
+      "pending": "{name} está creando tu diseño…",
+      "request": "Hazme un diseño para la app: {0}",
+      "example_1": "Azul oscuro con un brillo suave en movimiento",
+      "example_2": "Cálido y tranquilo como el papel, con tinta marrón",
+      "example_3": "Negro con verde neón y estrellas que titilan"
+    },
+    "builtin": {
+      "deep_sea": {
+        "name": "Mar profundo",
+        "description": "Azul verdoso fresco con un brillo que lo cruza despacio."
+      },
+      "ember": {
+        "name": "Brasa",
+        "description": "Marrón oscuro y cálido con luz naranja, como un fuego que se apaga."
+      },
+      "forest": {
+        "name": "Bosque",
+        "description": "Verde profundo con suaves franjas de luz que lo atraviesan."
+      },
+      "night_sky": {
+        "name": "Cielo nocturno",
+        "description": "Azul tinta con pequeñas estrellas que titilan."
+      },
+      "dusk": {
+        "name": "Atardecer",
+        "description": "Violeta y rosa en un degradado que gira despacio."
+      },
+      "paper": {
+        "name": "Papel",
+        "description": "Papel crema cálido con tinta marrón, sin animación."
+      }
+    }
   }
 }
