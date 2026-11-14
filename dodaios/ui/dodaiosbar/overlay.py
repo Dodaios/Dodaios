@@ -53,7 +53,7 @@ MARGIN_PX = 12
 # not left wondering why nothing happened.
 DROP_CLICK_QUIET_S = 0.6
 # Gap above the taskbar (~0.2 cm) when anchoring at the default bottom-center.
-TASKBAR_GAP_PX = 8
+TASKBAR_GAP_PX = 12
 # Window opacity (the pill goes semi-transparent; magenta stays fully keyed
 # out). Lower = more see-through. Tune this one number for the glass look.
 BAR_ALPHA = 1.0
@@ -658,6 +658,11 @@ class JarvisBarOverlay:
         atomic bool write — the frame loop reads it; no Tk marshal needed."""
         self._muted = bool(muted)
 
+    def set_language(self, language: str) -> None:
+        """The interface language for the control labels (atomic write)."""
+        self._language = str(language or "en")
+        self._invalidate_static_frame()
+
     def set_prompt_mode(self, enabled: bool, paused: bool = False) -> None:
         """Mirror ``[dictation].prompt_mode`` and its pause onto the sparkle.
 
@@ -1109,9 +1114,9 @@ class JarvisBarOverlay:
         else:
             # Fresh install: bottom-centre on the chosen monitor, just above its
             # taskbar (the work area already excludes the taskbar on Windows).
-            wl, wt, ww, wh = work
-            self._x = wl + (ww - renderer.WIN_W) // 2
-            self._y = wt + wh - renderer.WIN_H - TASKBAR_GAP_PX
+            self._x, self._y = interaction.default_bar_spot(
+                work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H, gap=TASKBAR_GAP_PX
+            )
             self._x, self._y = interaction.clamp_to_work_area(
                 self._x,
                 self._y,
@@ -1486,6 +1491,7 @@ class JarvisBarOverlay:
                     # in flight" rather than blow the frame away.
                     drop_elapsed=now - getattr(self, "_drop_visual_t0", 0.0),
                     connect_look=connect_look,
+                    language=getattr(self, "_language", "en"),
                 )
                 if getattr(self, "_mac_transparent", False):
                     # macOS: no color key — carry real per-pixel alpha instead.
@@ -2121,7 +2127,7 @@ class JarvisBarOverlay:
             log.debug("jarvisbar click action failed", exc_info=True)
 
     def _on_reset_double_click(self, _event: Any = None) -> None:
-        """Reset the bar to its default bottom-center anchor.
+        """Reset the bar to its default place: bottom-centre.
 
         Bridge-compatible: OrbBusBridge looks this up via getattr on
         OrbResetRequested ("Orb reset"). Returning the bar to the default
@@ -2139,9 +2145,9 @@ class JarvisBarOverlay:
                 self._y + renderer.WIN_H // 2,
             )
             work = self._work_area_for_point(anchor[0], anchor[1])
-            wl, wt, ww, wh = work
-            self._x = wl + (ww - renderer.WIN_W) // 2
-            self._y = wt + wh - renderer.WIN_H - TASKBAR_GAP_PX
+            self._x, self._y = interaction.default_bar_spot(
+                work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H, gap=TASKBAR_GAP_PX
+            )
             self._x, self._y = interaction.clamp_to_work_area(
                 self._x,
                 self._y,

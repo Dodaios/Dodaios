@@ -37,14 +37,16 @@ class _FakePipeline:
         self.ptt_calls += 1
 
 
-def _x_glyph() -> int:
+def _x_glyph() -> dict:
     """The on-screen hang-up X of the open conversation bar."""
-    return round(R.control_center("close", "listen")[0])
+    x, y = R.control_center("close", "listen")
+    return {"click_x": x, "click_y": y}
 
 
-def _talk_x() -> int:
+def _talk_x() -> dict:
     """The centre of the open idle bar, which starts a conversation."""
-    return round(R.control_center("center", "idle")[0])
+    x, y = R.control_center("center", "idle")
+    return {"click_x": x, "click_y": y}
 
 
 def _patch_pipeline(monkeypatch, fake) -> None:
@@ -59,7 +61,7 @@ def test_stuck_active_bar_without_session_starts_session_not_hangup(monkeypatch)
     fake = _FakePipeline(session_active=False)
     _patch_pipeline(monkeypatch, fake)
 
-    bar._on_click(_x_glyph(), hovered=True)
+    bar._on_click(**_x_glyph(), hovered=True)
 
     assert fake.hangup_calls == 0  # never the useless trap-hangup
     assert fake.session_calls == 1  # the click escapes the stuck state
@@ -71,7 +73,7 @@ def test_live_session_close_x_still_hangs_up(monkeypatch):
     fake = _FakePipeline(session_active=True)
     _patch_pipeline(monkeypatch, fake)
 
-    bar._on_click(_x_glyph(), hovered=True)
+    bar._on_click(**_x_glyph(), hovered=True)
 
     assert fake.hangup_calls == 1  # a genuine session is still hang-up-able
     assert fake.session_calls == 0
@@ -88,9 +90,9 @@ def test_repeated_close_click_does_not_reopen_session(monkeypatch):
     fake = _FakePipeline(session_active=True)
     _patch_pipeline(monkeypatch, fake)
 
-    bar._on_click(_x_glyph(), hovered=True)
+    bar._on_click(**_x_glyph(), hovered=True)
     now[0] += 0.2
-    bar._on_click(_x_glyph(), hovered=True)
+    bar._on_click(**_x_glyph(), hovered=True)
 
     assert fake.hangup_calls == 1
     assert fake.session_calls == 0
@@ -99,7 +101,7 @@ def test_repeated_close_click_does_not_reopen_session(monkeypatch):
     # the idle bar deliberately starts a new call again.
     fake._session_active = False
     now[0] += 1.0
-    bar._on_click(_talk_x(), hovered=True)
+    bar._on_click(**_talk_x(), hovered=True)
     assert fake.session_calls == 1
 
 
@@ -127,7 +129,7 @@ def test_missing_accessor_preserves_legacy_hangup(monkeypatch):
     bar = JarvisBarOverlay()
     bar._mode = "listen"
 
-    bar._on_click(_x_glyph(), hovered=True)
+    bar._on_click(**_x_glyph(), hovered=True)
 
     assert fake.hangup_calls == 1
     assert fake.session_calls == 0
@@ -159,7 +161,7 @@ def test_external_hangup_callback_bypasses_child_runtime_refs(monkeypatch):
     bar._mode = "listen"
     bar.set_on_hangup(lambda: fired.append("hangup"))
 
-    bar._on_click(_x_glyph(), hovered=True)
+    bar._on_click(**_x_glyph(), hovered=True)
 
     assert fired == ["hangup"]
     assert bar._mode == "idle"

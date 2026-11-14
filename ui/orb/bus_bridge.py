@@ -727,6 +727,7 @@ class OrbBusBridge:
             if compose_setter is not None:
                 compose_setter(self._publish_compose)
             self._seed_mute_state()
+            self._call_surface("set_language", self._ui_language())
             # ADR-0016 visible-feedback contract: inject the publisher so
             # the orb stays bus-agnostic. Defensive getattr keeps older
             # orb test doubles working.
@@ -906,6 +907,18 @@ class OrbBusBridge:
             log.debug("mute seed: get_tts_volume failed", exc_info=True)
             return
         self._call_surface("set_speaker_muted", speaker_muted)
+
+    def _ui_language(self) -> str:
+        """The interface language as configured (any supported locale)."""
+        try:
+            from dodaios.core.runtime_refs import get_speech_pipeline
+
+            config = getattr(get_speech_pipeline(), "_config", None)
+            language = str(getattr(getattr(config, "ui", None), "language", "") or "")
+        except Exception:  # noqa: BLE001 — English is a safe answer here
+            log.debug("ui language lookup failed", exc_info=True)
+            language = ""
+        return language.strip().lower() or self._language or "en"
 
     def _status_language(self) -> str:
         """The interface language for bubble headers (en / de / es)."""
@@ -1162,6 +1175,7 @@ class OrbBusBridge:
         language = (event.language or "").strip().lower()
         if language in PET_STATUS_LANGUAGES:
             self._language = language
+        self._call_surface("set_language", language or "en")
 
     async def _on_reasoning_summary(self, event: ReasoningSummaryUpdated) -> None:
         """The thinking model's summary (GPT-Live): its newest section is the card.
@@ -1514,6 +1528,7 @@ class OrbBusBridge:
         # user left the Prompt Mode switch (attach() may have run too early).
         self._seed_prompt_mode()
         self._seed_mute_state()
+        self._call_surface("set_language", self._ui_language())
         self._release_bar_startup_gate(event.detail or "voice-ready")
 
     def _release_bar_startup_gate(self, reason: str) -> None:
@@ -2550,6 +2565,7 @@ class OrbBusBridge:
         # A fresh surface starts with default icons; show it the live state.
         self._seed_prompt_mode()
         self._seed_mute_state()
+        self._call_surface("set_language", self._ui_language())
         # A fresh surface shows no card yet; nothing may be deduped against
         # what the previous surface showed.
         self._status_feed.reset()

@@ -525,6 +525,18 @@
         "failing": "The scheduled job {name} has started failing.",
         "recovered": "The scheduled job {name} is working again."
       }
+    },
+    "bar": {
+      "mic_mute": "Mute microphone",
+      "mic_unmute": "Unmute microphone",
+      "talk": "Talk to {assistant}",
+      "hang_up": "Hang up",
+      "speaker_mute": "Mute voice",
+      "speaker_unmute": "Unmute voice",
+      "compose": "New chat",
+      "stop_dictation": "Stop dictation",
+      "prompt_pause": "Pause Prompt Mode",
+      "prompt_resume": "Resume Prompt Mode"
     }
   },
   "harness": {

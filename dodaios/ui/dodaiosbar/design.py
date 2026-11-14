@@ -1,20 +1,24 @@
-"""The Dodaios Bar's look: a small black pill with white marks.
+"""The Dodaios Bar's look: a small dark pill near the bottom of the screen.
 
 This module owns everything the bar draws and where its controls are. It is
 pure (Pillow only, no toolkit) so the Tk surface (Windows/Linux), the Qt
 surface (macOS) and the tests all use the same layout and the same pixels.
 
-The bar has four shapes, chosen by :func:`layout`:
+The bar lies flat, centred near the bottom edge of the screen. It has four
+shapes, chosen by :func:`layout`:
 
-- ``rest``   -- idle and nothing to say: a slim pill that stays out of the way.
-- ``status`` -- idle, but a state is switched on that the user must be able to
-  see without hovering (microphone muted, voice muted, Prompt Mode): the pill
+- ``rest``   -- idle and nothing to say: a small see-through pill with a light
+  rim that stays out of the way.
+- ``status`` -- idle, but a state is switched on that the user must see
+  without hovering (microphone muted, voice muted, Prompt Mode): the pill
   grows just enough to show those marks.
-- ``live``   -- a voice conversation or a dictation runs: level bars move with
-  whoever is speaking, the user into the microphone or Dodaios out of the
-  speakers. Thinking and connecting have their own quiet dot animations.
-- ``open``   -- the pointer is on the bar: the controls slide out around the
-  centre (microphone, centre, speaker, and hang up / new chat).
+- ``live``   -- a voice conversation or a dictation runs: a row of short
+  white bars grows and shrinks with whoever is speaking, the user into the
+  microphone or Dodaios out of the speakers. Thinking and connecting have
+  their own quiet animations.
+- ``open``   -- the pointer is on the bar: round controls line up
+  (microphone, centre, speaker, and hang up / new chat), and the control under
+  the pointer says what it does in a small label above the bar.
 
 Sizes are design points at ``scale == 1``; the surfaces pass their effective
 scale (monitor calibration times the user's "Bar size").
@@ -23,9 +27,11 @@ scale (monitor calibration times the user's "Bar size").
 from __future__ import annotations
 
 import math
+import sys
 from dataclasses import dataclass, field
+from functools import lru_cache
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 from dodaios.ui.dodaiosbar.modes import (
     ACTIVE_VOICE_MODES,
@@ -36,35 +42,50 @@ from dodaios.ui.dodaiosbar.modes import (
 # --------------------------------------------------------------------------- #
 # Geometry (design points at scale 1)                                         #
 # --------------------------------------------------------------------------- #
-WINDOW_W = 236.0
-WINDOW_H = 50.0
-BOTTOM_PAD = 5.0
+WINDOW_W = 212.0
+WINDOW_H = 78.0
+BOTTOM_PAD = 2.0
 
-REST_W, REST_H = 42.0, 9.0
-STATUS_H = 22.0
-LIVE_W, LIVE_H = 86.0, 26.0
+REST_W, REST_H = 44.0, 9.0
+STATUS_H = 20.0
+LIVE_W, LIVE_H = 64.0, 26.0
 OPEN_H = 34.0
-EDGE_PAD = 6.0
-MARK_W = 18.0
-SLOT_W = 30.0
-CENTER_W = 66.0
+EDGE_PAD = 4.0
+MARK_W = 20.0
+SLOT_W = 32.0
+CENTER_W = 54.0
+BUTTON_D = 26.0
 HOVER_KEEP_PAD = 5.0
 
-BAR_COUNT = 11
-BAR_WIDTH = 2.4
-BAR_GAP = 3.1
+LINE_COUNT = 11
+LINE_THICK = 2.0
+LINE_GAP = 2.9
+
+TIP_GAP = 6.0
+TIP_H = 22.0
+TIP_PAD = 8.0
+TIP_FONT = 11.5
+
+#: Kept for callers that still count "bars": the live lines.
+BAR_COUNT = LINE_COUNT
 
 # --------------------------------------------------------------------------- #
 # Colours: black and white only, opaque and pre-blended                       #
 # --------------------------------------------------------------------------- #
 FILL = (12, 12, 12)
-RIM = (66, 66, 66)
+RIM = (150, 150, 150)
 RIM_ACTIVE = (235, 235, 235)
 WHITE = (244, 244, 244)
 GREY = (150, 150, 150)
 DIM = (92, 92, 92)
-HOVER_BG = (46, 46, 46)
-ON_BG = (30, 30, 30)
+HOVER_BG = (52, 52, 52)
+ON_BG = (32, 32, 32)
+
+#: The resting pill lets the page behind show through: a half-clear black
+#: fill inside a light, mostly solid rim.
+REST_FILL_ALPHA = 140
+REST_RIM = (205, 205, 205)
+REST_RIM_ALPHA = 220
 
 #: Shape names, for the surfaces and tests.
 SHAPES = ("rest", "status", "live", "open")
@@ -84,8 +105,11 @@ class BarState:
     prompt_mode: bool = False
     prompt_mode_paused: bool = False
     drop_state: str = "none"
-    #: The control under the pointer (drawn highlighted; no effect on layout).
+    #: The control under the pointer (highlighted and labelled; no effect on
+    #: the layout).
     hover_control: str | None = None
+    #: Interface language of the labels.
+    language: str = "en"
 
 
 @dataclass(frozen=True)
@@ -143,7 +167,7 @@ def layout(state: BarState) -> Layout:
     marks = _status_marks(state)
     if is_live(state.mode) or state.drop_state != "none":
         width = LIVE_W + MARK_W * len(marks)
-        return Layout("live", width, LIVE_H, (("center", EDGE_PAD, width - EDGE_PAD),), marks)
+        return Layout("live", width, LIVE_H, (("center", MARK_W * len(marks), width),), marks)
     if marks:
         width = EDGE_PAD * 2 + MARK_W * len(marks) + 4.0
         return Layout("status", width, STATUS_H, (("center", 0.0, width),), marks)
@@ -151,7 +175,7 @@ def layout(state: BarState) -> Layout:
 
 
 def pill_rect(lay: Layout, scale: float) -> tuple[float, float, float, float]:
-    """The pill's rectangle in window pixels: bottom-centred in the window."""
+    """The pill's rectangle in window pixels: centred, at the window's bottom."""
     win_w, win_h = window_size(scale)
     w, h = lay.width * scale, lay.height * scale
     x0 = (win_w - w) / 2.0
@@ -201,14 +225,76 @@ def in_hover_footprint(x: float, y: float, state: BarState, scale: float) -> boo
 
 
 # --------------------------------------------------------------------------- #
+# Labels                                                                      #
+# --------------------------------------------------------------------------- #
+def control_label(control: str | None, state: BarState) -> str:
+    """What the control under the pointer does, in the interface language.
+
+    Empty for a control that does nothing in this state (the centre of a
+    running call), so no label claims an action that is not there.
+    """
+    if control is None:
+        return ""
+    if control == "mic":
+        key = "mic_unmute" if state.muted else "mic_mute"
+    elif control == "speaker":
+        key = "speaker_unmute" if state.speaker_muted else "speaker_mute"
+    elif control == "close":
+        key = "stop_dictation" if state.mode in DICTATION_MODES else "hang_up"
+    elif control == "center":
+        if state.mode in DICTATION_MODES:
+            key = "stop_dictation"
+        elif state.mode in ACTIVE_VOICE_MODES:
+            return ""
+        else:
+            key = "talk"
+    elif control == "compose":
+        key = "compose"
+    elif control == "prompt":
+        key = "prompt_resume" if state.prompt_mode_paused else "prompt_pause"
+    else:
+        return ""
+    try:
+        from dodaios.i18n import t
+
+        return t(f"ui.bar.{key}", state.language or "en", assistant="Dodaios")
+    except Exception:  # noqa: BLE001 - a missing label hides the tip, never the bar
+        return ""
+
+
+_FONT_CANDIDATES = {
+    "darwin": (
+        "/System/Library/Fonts/SFNS.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+    ),
+    "win32": ("segoeui.ttf", "arial.ttf"),
+}
+
+
+@lru_cache(maxsize=8)
+def _font(size_px: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
+    names = _FONT_CANDIDATES.get(sys.platform, ("DejaVuSans.ttf", "LiberationSans-Regular.ttf"))
+    for name in names:
+        try:
+            return ImageFont.truetype(name, size_px)
+        except OSError:  # this font is not installed here; try the next one
+            continue
+    try:
+        return ImageFont.load_default(size=size_px)
+    except TypeError:  # Pillow without sized default fonts
+        return ImageFont.load_default()
+
+
+# --------------------------------------------------------------------------- #
 # Motion helpers (pure)                                                       #
 # --------------------------------------------------------------------------- #
-def bar_heights(level: float, t: float, *, count: int = BAR_COUNT) -> list[float]:
-    """Relative bar heights in ``[0, 1]`` for a level in ``[0, 1]``.
+def bar_heights(level: float, t: float, *, count: int = LINE_COUNT) -> list[float]:
+    """Relative bar lengths in ``[0, 1]`` for a level in ``[0, 1]``.
 
-    A level of zero gives all zeros: when nobody speaks, the bars rest as dots
-    and do not move. Louder speech raises the middle bars most, and each bar
-    sways on its own slow rhythm so the row reads as a voice, not a meter.
+    A level of zero gives all zeros: when nobody speaks, the bars rest as
+    dots and do not move. Louder speech lengthens the middle bars most, and
+    each bar sways on its own slow rhythm so the row reads as a voice, not a
+    meter.
     """
     lv = max(0.0, min(1.0, float(level)))
     if lv <= 0.0:
@@ -222,23 +308,23 @@ def bar_heights(level: float, t: float, *, count: int = BAR_COUNT) -> list[float
     return out
 
 
-def sweep_glow(t: float, *, count: int = BAR_COUNT, period: float = 1.5) -> list[float]:
+def sweep_glow(t: float, *, count: int = LINE_COUNT, period: float = 1.5) -> list[float]:
     """Brightness ``[0, 1]`` per dot for thinking: a soft light that walks
-    left and right across the row."""
+    left and right along the row."""
     phase = (t % period) / period
     pos = (1.0 - abs(1.0 - 2.0 * phase)) * (count - 1)
     return [math.exp(-(((i - pos) / 1.5) ** 2)) for i in range(count)]
 
 
-def connect_bumps(t: float, *, count: int = BAR_COUNT, period: float = 1.1) -> list[float]:
-    """Relative heights ``[0, 1]`` for connecting: a small wave runs left to
-    right while the voice connection is being set up."""
+def connect_bumps(t: float, *, count: int = LINE_COUNT, period: float = 1.1) -> list[float]:
+    """Relative lengths ``[0, 1]`` for connecting: a small wave runs along
+    the row while the voice connection is being set up."""
     pos = ((t % period) / period) * (count + 3) - 1.5
     return [0.55 * math.exp(-(((i - pos) / 1.1) ** 2)) for i in range(count)]
 
 
-def connected_swell(progress: float, *, count: int = BAR_COUNT) -> list[float]:
-    """Relative heights ``[0, 1]`` for the moment a call connects: one swell
+def connected_swell(progress: float, *, count: int = LINE_COUNT) -> list[float]:
+    """Relative lengths ``[0, 1]`` for the moment a call connects: one swell
     runs from the middle out to both ends and fades (``progress`` 0 to 1)."""
     p = max(0.0, min(1.0, float(progress)))
     centre = (count - 1) / 2.0
@@ -274,13 +360,13 @@ class BarPainter:
         self._target: tuple[float, float] | None = None
         self._last_t: float | None = None
         self._level = 0.0
+        self._flourish: float | None = None
 
     def reset(self) -> None:
         self._cur = None
         self._last_t = None
         self._level = 0.0
 
-    # -- state easing -------------------------------------------------------
     def _advance(self, t: float, target: tuple[float, float], level: float) -> float:
         """Ease the pill size and the level towards their targets; return the
         smoothed level. The first frame jumps straight to the target."""
@@ -305,7 +391,6 @@ class BarPainter:
         """True while the pill is still growing or shrinking."""
         return self._cur is not None and self._cur != self._target
 
-    # -- frame --------------------------------------------------------------
     def paint(
         self,
         state: BarState,
@@ -317,7 +402,7 @@ class BarPainter:
         pixel_ratio: float = 1.0,
         flourish: float | None = None,
     ) -> Image.Image:
-        """One RGBA frame of the whole window (transparent outside the pill).
+        """One RGBA frame of the whole window (transparent outside the bar).
 
         ``look`` is the rendered look the surface derived from the mode and the
         live audio (``idle`` / ``speak`` / ``think`` / ``connect`` / ``notice``).
@@ -342,15 +427,24 @@ class BarPainter:
         pw, ph = cur_w * u, cur_h * u
         x0, y0, x1, y1 = cx - pw / 2.0, bottom - ph, cx + pw / 2.0, bottom
         cy = (y0 + y1) / 2.0
+        radius = ph / 2.0
 
         armed = state.drop_state == "armed"
-        rim = RIM_ACTIVE if armed else RIM
+        resting = target.shape == "rest" and not armed
         rim_w = max(1.0, (1.5 if armed else 1.0) * u)
-        draw.rounded_rectangle((x0, y0, x1, y1), radius=ph / 2.0, fill=rim + (255,))
+        if resting:
+            rim = REST_RIM + (REST_RIM_ALPHA,)
+            fill = FILL + (REST_FILL_ALPHA,)
+        else:
+            rim = (RIM_ACTIVE if armed else RIM) + (255,)
+            fill = FILL + (255,)
+        # ImageDraw replaces pixels rather than blending them, so the inner
+        # fill sets its own alpha over the rim: a clear fill in a solid rim.
+        draw.rounded_rectangle((x0, y0, x1, y1), radius=radius, fill=rim)
         draw.rounded_rectangle(
             (x0 + rim_w, y0 + rim_w, x1 - rim_w, y1 - rim_w),
-            radius=max(0.0, ph / 2.0 - rim_w),
-            fill=FILL + (255,),
+            radius=max(0.0, radius - rim_w),
+            fill=fill,
         )
 
         # The target layout tells what to show; the eased pill tells how much
@@ -366,35 +460,50 @@ class BarPainter:
         if target.shape in ("status", "live"):
             mx = tx0 + EDGE_PAD * u + 2.0 * u
             for mark in target.marks:
-                self._mark(draw, mark, mx + MARK_W * u / 2.0, cy, u, reveal, t)
+                self._mark(draw, mark, mx + MARK_W * u / 2.0, cy, u, reveal)
                 mx += MARK_W * u
             if target.shape == "live":
-                left = tx0 + (EDGE_PAD + MARK_W * len(target.marks)) * u
-                right = tx0 + (target.width - EDGE_PAD) * u
-                self._center(draw, state, look, left, right, cy, u, smooth, t, reveal=1.0)
+                left = tx0 + (MARK_W * len(target.marks)) * u
+                right = tx0 + target.width * u
+                self._lines(
+                    draw,
+                    state,
+                    look,
+                    cy,
+                    left + 7 * u,
+                    right - 7 * u,
+                    ph - 12 * u,
+                    u,
+                    smooth,
+                    t,
+                    reveal=1.0,
+                )
             return self._finish(big, out_w, out_h)
 
         # open
+        tip_x: float | None = None
         for name, sx0, sx1 in target.slots:
             a, b = tx0 + sx0 * u, tx0 + sx1 * u
             if a < x0 + rim_w - 0.5 * u or b > x1 - rim_w + 0.5 * u:
                 continue  # not revealed yet
             hot = hovered_control == name
+            mid = (a + b) / 2.0
+            if hot:
+                tip_x = mid
             if name == "center":
                 if hot and not is_live(state.mode):
-                    pad = 3.0 * u
+                    r = BUTTON_D / 2.0 * u
                     draw.rounded_rectangle(
-                        (a + pad, cy - (OPEN_H / 2 - 5) * u, b - pad, cy + (OPEN_H / 2 - 5) * u),
-                        radius=(OPEN_H / 2 - 5) * u,
-                        fill=HOVER_BG + (255,),
+                        (a + 2 * u, cy - r, b - 2 * u, cy + r), radius=r, fill=HOVER_BG + (255,)
                     )
-                self._center(
+                self._lines(
                     draw,
                     state,
                     look,
-                    a + 6 * u,
-                    b - 6 * u,
                     cy,
+                    a + 7 * u,
+                    b - 7 * u,
+                    (OPEN_H - 16) * u,
                     u,
                     smooth,
                     t,
@@ -402,31 +511,57 @@ class BarPainter:
                     hot=hot,
                 )
                 continue
-            mid = (a + b) / 2.0
             on = (name == "mic" and state.muted) or (name == "speaker" and state.speaker_muted)
-            r = 12.0 * u
+            r = BUTTON_D / 2.0 * u
             if hot or on:
                 draw.ellipse(
                     (mid - r, cy - r, mid + r, cy + r),
                     fill=(HOVER_BG if hot else ON_BG) + (255,),
                 )
             colour = _mix(FILL, WHITE if hot else (215, 215, 215), reveal)
-            self._icon(draw, name, mid, cy, u, colour, state)
+            self._icon(draw, name, mid, cy, u * 0.92, colour, state)
+
+        label = control_label(hovered_control, state) if reveal >= 0.95 else ""
+        if label and tip_x is not None:
+            self._tip(draw, label, tip_x, y0 - TIP_GAP * u, u, big.width)
         return self._finish(big, out_w, out_h)
 
     @staticmethod
     def _finish(big: Image.Image, out_w: int, out_h: int) -> Image.Image:
-        return big.resize((out_w, out_h), Image.Resampling.LANCZOS)
+        return big.resize((out_w, out_h), Image.Resampling.BOX)
 
-    # -- centre: bars, sweep, loading, notice, drop marks ----------------------
-    def _center(
+    # -- label above the bar ---------------------------------------------------
+    @staticmethod
+    def _tip(draw, text: str, cx: float, bottom: float, u: float, max_x: float) -> None:
+        font = _font(max(6, round(TIP_FONT * u)))
+        x0b, y0b, x1b, y1b = draw.textbbox((0, 0), text, font=font)
+        tw, th = x1b - x0b, y1b - y0b
+        h = TIP_H * u
+        w = tw + TIP_PAD * 2 * u
+        left = min(max(1.0, cx - w / 2.0), max_x - 1.0 - w)
+        right = left + w
+        top = bottom - h
+        draw.rounded_rectangle((left, top, right, bottom), radius=h / 2, fill=RIM + (255,))
+        draw.rounded_rectangle(
+            (left + u, top + u, right - u, bottom - u), radius=h / 2 - u, fill=FILL + (255,)
+        )
+        draw.text(
+            (left + TIP_PAD * u - x0b, top + (h - th) / 2 - y0b),
+            text,
+            font=font,
+            fill=WHITE + (255,),
+        )
+
+    # -- the row of bars: level, sweep, loading, notice, drop marks ----------
+    def _lines(
         self,
         draw: ImageDraw.ImageDraw,
         state: BarState,
         look: str,
+        cy: float,
         left: float,
         right: float,
-        cy: float,
+        max_len: float,
         u: float,
         level: float,
         t: float,
@@ -457,42 +592,43 @@ class BarPainter:
             draw.line((cx, cy - r, cx, cy + r), fill=WHITE, width=w)
             return
 
-        n = BAR_COUNT
-        bw, gap = BAR_WIDTH * u, BAR_GAP * u
-        row = n * bw + (n - 1) * gap
+        n = LINE_COUNT
+        th, gap = LINE_THICK * u, LINE_GAP * u
+        row = n * th + (n - 1) * gap
         room = right - left
         if row > room > 0:
             shrink = room / row
-            bw, gap, row = bw * shrink, gap * shrink, room
+            th, gap, row = th * shrink, gap * shrink, room
         start = cx - row / 2.0
-        max_h = (min(LIVE_H, OPEN_H) - 10.0) * u
         if look == "speak":
-            heights = bar_heights(level, t, count=n)
+            lengths = bar_heights(level, t, count=n)
             colours = [WHITE] * n
         elif look == "think":
-            heights = [0.0] * n
+            lengths = [0.0] * n
             colours = [_mix(DIM, WHITE, g) for g in sweep_glow(t, count=n)]
         elif look == "connect":
-            heights = connect_bumps(t, count=n)
-            colours = [_mix(GREY, WHITE, h / 0.55) for h in heights]
+            lengths = connect_bumps(t, count=n)
+            colours = [_mix(GREY, WHITE, h / 0.55) for h in lengths]
         elif look == "connected":
-            heights = connected_swell(getattr(self, "_flourish", None) or 0.0, count=n)
+            lengths = connected_swell(self._flourish or 0.0, count=n)
             colours = [WHITE] * n
         else:  # idle: the quiet row of dots, brighter under the pointer
-            heights = [0.0] * n
+            lengths = [0.0] * n
             colours = [WHITE if hot else GREY] * n
         for i in range(n):
-            h = bw + (max_h - bw) * heights[i]
-            bx = start + i * (bw + gap)
+            length = th + (max(th, max_len) - th) * lengths[i]
+            bx = start + i * (th + gap)
             colour = _mix(FILL, colours[i], reveal)
             draw.rounded_rectangle(
-                (bx, cy - h / 2.0, bx + bw, cy + h / 2.0), radius=bw / 2.0, fill=colour + (255,)
+                (bx, cy - length / 2.0, bx + th, cy + length / 2.0),
+                radius=th / 2.0,
+                fill=colour + (255,),
             )
 
-    # -- status marks ----------------------------------------------------------
-    def _mark(self, draw, mark: str, cx: float, cy: float, u: float, reveal: float, t: float):
+    # -- status marks ------------------------------------------------------------
+    def _mark(self, draw, mark: str, cx: float, cy: float, u: float, reveal: float) -> None:
         colour = _mix(FILL, (225, 225, 225), reveal)
-        k = 0.82
+        k = 0.72
         if mark == "mic_off":
             _mic(draw, cx, cy, u * k, colour, slashed=True)
         elif mark == "speaker_off":
@@ -500,7 +636,7 @@ class BarPainter:
         elif mark in ("prompt", "prompt_paused"):
             _sparkle(draw, cx, cy, u * k, colour, slashed=mark == "prompt_paused")
 
-    # -- control icons ---------------------------------------------------------
+    # -- control icons -------------------------------------------------------------
     @staticmethod
     def _icon(draw, name: str, cx: float, cy: float, u: float, colour, state: BarState) -> None:
         if name == "mic":

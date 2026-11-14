@@ -48,7 +48,7 @@ Z_ORDER_GUARD_INTERVAL_MS = 500
 HOVER_POLL_INTERVAL_MS = 32
 DRAG_THRESHOLD_PX = 16
 MARGIN_PX = 12
-TASKBAR_GAP_PX = 8
+TASKBAR_GAP_PX = 12
 HANGUP_CLICK_GUARD_S = 1.0
 # How long after a file drop the bar keeps ignoring clicks. Mirrors the Tk bar's
 # value for the same reason it exists there: a drop and a deliberate click on
@@ -560,6 +560,11 @@ class QtJarvisBarOverlay:
         self._muted = bool(muted)
         self._invalidate_static_frame()
 
+    def set_language(self, language: str) -> None:
+        """The interface language for the control labels (atomic write)."""
+        self._language = str(language or "en")
+        self._invalidate_static_frame()
+
     def set_prompt_mode(self, enabled: bool, paused: bool = False) -> None:
         self._prompt_mode = bool(enabled)
         self._prompt_mode_paused = bool(paused)
@@ -860,6 +865,7 @@ class QtJarvisBarOverlay:
                 drop_state=drop_visual,
                 drop_elapsed=now - self._drop_visual_t0,
                 connect_look=connect_look,
+                language=getattr(self, "_language", "en"),
             )
             # The frame is drawn at the screen's pixel density (sharp on a
             # Retina display); the input mask is in window points.
@@ -1171,8 +1177,12 @@ class QtJarvisBarOverlay:
                 bar_h=renderer.WIN_H,
                 margin=MARGIN_PX,
             )
-        x = geometry.x() + (geometry.width() - renderer.WIN_W) // 2
-        y = geometry.y() + geometry.height() - renderer.WIN_H - TASKBAR_GAP_PX
+        x, y = interaction.default_bar_spot(
+            work=_geometry_bounds(geometry),
+            bar_w=renderer.WIN_W,
+            bar_h=renderer.WIN_H,
+            gap=TASKBAR_GAP_PX,
+        )
         return self._clamp_to_geometry_ui(x, y, geometry)
 
     def _resolve_position_ui(self) -> None:
@@ -1639,9 +1649,12 @@ class QtJarvisBarOverlay:
                 respect_visible_dock=False,
             )
         if geometry is not None:
-            gx, gy, gw, gh = _geometry_bounds(geometry)
-            x = gx + (gw - renderer.WIN_W) // 2
-            y = gy + gh - renderer.WIN_H - TASKBAR_GAP_PX
+            x, y = interaction.default_bar_spot(
+                work=_geometry_bounds(geometry),
+                bar_w=renderer.WIN_W,
+                bar_h=renderer.WIN_H,
+                gap=TASKBAR_GAP_PX,
+            )
             self._preferred_position = self._clamp_to_geometry_ui(x, y, geometry)
         else:
             self._preferred_position = self._default_position_ui()

@@ -955,10 +955,11 @@ def test_clicking_the_bar_during_dictation_cannot_start_voice(x: int, mode: str)
 
 def test_voice_controls_sit_where_the_bar_draws_them() -> None:
     w = renderer.WIN_W
-    talk = renderer.control_center("center", "idle")[0]
-    close = renderer.control_center("close", "listen")[0]
-    mic = renderer.control_center("mic", "listen")[0]
-    assert interaction.resolve_click(talk, w, "idle") == "talk"
-    assert interaction.resolve_click(close, w, "listen") == "hangup"
-    assert interaction.resolve_click(renderer.control_center("mic", "idle")[0], w, "idle") == "mute"
-    assert interaction.resolve_click(mic, w, "listen") == "mute"
+    for control, mode, expected in [
+        ("center", "idle", "talk"),
+        ("close", "listen", "hangup"),
+        ("mic", "idle", "mute"),
+        ("mic", "listen", "mute"),
+    ]:
+        x, y = renderer.control_center(control, mode)
+        assert interaction.resolve_click(x, w, mode, y=y) == expected

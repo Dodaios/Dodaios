@@ -253,6 +253,7 @@ def bar_state(
     prompt_mode_paused: bool = False,
     drop_state: str = DROP_STATE_NONE,
     hover_control: str | None = None,
+    language: str = "en",
 ) -> design.BarState:
     """The design state for a surface's coarse ``mode`` and switches."""
     return design.BarState(
@@ -264,6 +265,7 @@ def bar_state(
         prompt_mode_paused=bool(prompt_mode_paused),
         drop_state=drop_state if drop_state in DROP_STATES else DROP_STATE_NONE,
         hover_control=hover_control,
+        language=str(language or "en"),
     )
 
 
@@ -290,8 +292,14 @@ def target_pill_size(mode: str, *, hovered: bool = False, **switches) -> tuple[i
     return round(lay.width * s), round(lay.height * s)
 
 
+def pill_center_x(width: float) -> float:
+    """Horizontal centre of a pill of ``width`` pixels (centred in the window)."""
+    del width
+    return WIN_W / 2.0
+
+
 def pill_center_y(height: float) -> float:
-    """Vertical centre of a pill of ``height`` pixels (bottom-anchored)."""
+    """Vertical centre of a pill of ``height`` pixels (at the window's bottom)."""
     return WIN_H - design.BOTTOM_PAD * design_scale() - height / 2.0
 
 
@@ -328,6 +336,7 @@ class JarvisBarRenderer:
         surface_mode: str | None = None,
         connect_look: controls.ConnectLook | None = None,
         pixel_ratio: float | None = None,
+        language: str = "en",
     ) -> Image.Image:
         """A true-alpha frame at ``pixel_ratio`` device pixels per point.
 
@@ -353,6 +362,7 @@ class JarvisBarRenderer:
             prompt_mode_paused=prompt_mode_paused,
             drop_state=drop_state,
             hover_control=hovered_action if hovered else None,
+            language=language,
         )
         level = float(ext_level or 0.0) if look in ("speak", "connect") else 0.0
         flourish = None

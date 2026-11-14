@@ -525,6 +525,18 @@
         "failing": "Der geplante Job {name} schlägt gerade fehl.",
         "recovered": "Der geplante Job {name} läuft wieder."
       }
+    },
+    "bar": {
+      "mic_mute": "Mikrofon stumm",
+      "mic_unmute": "Mikrofon an",
+      "talk": "Mit {assistant} sprechen",
+      "hang_up": "Auflegen",
+      "speaker_mute": "Stimme stumm",
+      "speaker_unmute": "Stimme an",
+      "compose": "Neuer Chat",
+      "stop_dictation": "Diktat beenden",
+      "prompt_pause": "Prompt-Modus pausieren",
+      "prompt_resume": "Prompt-Modus fortsetzen"
     }
   },
   "harness": {

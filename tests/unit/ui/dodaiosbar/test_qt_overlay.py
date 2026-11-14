@@ -511,7 +511,7 @@ def test_hover_poll_tracks_distinct_mouse_out_and_mouse_over_states(
     class _Mask:
         @staticmethod
         def contains(point: _Point) -> bool:
-            center_x = renderer.WIN_W // 2
+            center_x = round(renderer.pill_center_x(renderer.target_pill_size(mode)[0]))
             center_y = round(renderer.pill_center_y(renderer.WIN_H))
             return _Rect(center_x - 5, center_y - 3, 10, 6).contains(point)
 
@@ -534,7 +534,7 @@ def test_hover_poll_tracks_distinct_mouse_out_and_mouse_over_states(
         def update(self) -> None:
             self.updates += 1
 
-    center_x = renderer.WIN_W // 2
+    center_x = round(renderer.pill_center_x(renderer.target_pill_size(mode)[0]))
     center_y = round(renderer.pill_center_y(renderer.WIN_H))
     cursor = [_Point(center_x, center_y)]
     monkeypatch.setattr(
@@ -559,7 +559,7 @@ def test_hover_poll_tracks_distinct_mouse_out_and_mouse_over_states(
     # hovered pill must survive Cocoa's spurious Leave during setMask().
     hovered_w, hovered_h = renderer.target_pill_size(mode, hovered=True)
     cursor[0] = _Point(
-        round(center_x - hovered_w / 2.0 + 3),
+        round(renderer.pill_center_x(hovered_w) - hovered_w / 2.0 + 3),
         round(renderer.pill_center_y(hovered_h)),
     )
     surface._hover_leave_ui()  # noqa: SLF001
@@ -607,11 +607,14 @@ def test_clicks_are_forwarded_to_parent_owned_callbacks() -> None:
     assert surface._dispatch_click_ui(renderer.WIN_W / 2) == "talk"  # noqa: SLF001
 
     surface._mode = "listen"  # noqa: SLF001
-    mic_x = renderer.control_center("mic", "listen")[0]
-    assert surface._dispatch_click_ui(mic_x) == "mute"  # noqa: SLF001
+    mic_x, mic_y = renderer.control_center("mic", "listen")
+    assert surface._dispatch_click_ui(mic_x, click_y=mic_y) == "mute"  # noqa: SLF001
 
-    close_x = renderer.control_center("close", "listen")[0]
-    assert surface._dispatch_click_ui(close_x, hovered=True) == "hangup"  # noqa: SLF001
+    close_x, close_y = renderer.control_center("close", "listen")
+    assert (
+        surface._dispatch_click_ui(close_x, click_y=close_y, hovered=True)  # noqa: SLF001
+        == "hangup"
+    )
 
     assert voice_actions == ["talk", "hangup"]
     assert mute_toggles == [True]

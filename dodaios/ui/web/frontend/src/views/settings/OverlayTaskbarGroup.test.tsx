@@ -59,7 +59,7 @@ describe("OverlayTaskbarGroup", () => {
     render(<OverlayTaskbarGroup />);
     expect(screen.getByTestId("jarvis-bar-preview")).toBeDefined();
     const bar = screen.getByTestId("jarvis-bar-preview");
-    expect(bar.querySelector('[data-testid="bar-preview-levels"]')?.children).toHaveLength(11);
+    expect(bar.querySelector('[data-testid="bar-preview-levels"]')?.children).toHaveLength(9);
   });
 
   it("does not offer bar-only controls for another display style", () => {
