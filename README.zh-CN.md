@@ -10,11 +10,12 @@
 <h1>Dodaios</h1>
 
 <!-- the hook, translated (English word for word in README.md; docs/rename/repo-metadata-proposal.md) -->
-<p><b>替你调度编程智能体的开源 Jarvis。</b></p>
+<p><b>说出你想要什么。Dodaios 用你已有的订阅运行 Claude Code、Codex 等九个编程智能体，<br />
+检查它们的成果，并告诉你哪些已经完成。</b></p>
 
 <p>
-  用消息或直接说出你想要什么。Dodaios 给 Claude Code、Codex 等九个编程智能体写好任务说明，<br />
-  检查它们的成果，然后带着简短的回答和完整的报告回来。
+  打字或直接说出来都可以。聊天里是简短的回答，<br />
+  完整的报告是一个可以打开的页面。开源，无需账号。
 </p>
 
 <p>
