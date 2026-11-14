@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { getWSClient } from "@/hooks/useWebSocket";
 import { translate } from "@/i18n";
+import { robustCopy } from "@/lib/clipboard";
 import { useEventStore } from "@/store/events";
 
 /**
@@ -81,16 +82,20 @@ export function useComposerDictation(setValue: Setter, onSend?: () => void) {
   setValueRef.current = setValue;
   const onSendRef = useRef(onSend);
   onSendRef.current = onSend;
-  const sendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /** Run `decide` one tick later, after the composer has rendered the box. */
-  const afterRender = useCallback((decide: () => void) => {
-    if (sendTimerRef.current !== null) clearTimeout(sendTimerRef.current);
-    sendTimerRef.current = setTimeout(() => {
-      sendTimerRef.current = null;
-      decide();
-    }, 0);
-  }, []);
+  // What the effect below decides once the composer has rendered the result.
+  // The send must not run before that render: the composer's send reads the
+  // box as it rendered last, and a send from before the text landed goes out
+  // without the dictated words (with only the attached pictures) and then
+  // clears the box, words included. An effect after the render that carries
+  // the new text is the one moment the composer's send sees it.
+  const landedRef = useRef(false);
+  const holdsTextRef = useRef(false);
+  const [settle, setSettle] = useState<{
+    seq: number;
+    text: string;
+    send: "landed" | "holds_text" | null;
+  } | null>(null);
 
   useEffect(() => {
     if (resultSeq === lastResultSeqRef.current) return;
@@ -98,43 +103,61 @@ export function useComposerDictation(setValue: Setter, onSend?: () => void) {
     const result = useEventStore.getState().dictationResult;
     if (result.owner !== null && result.owner !== id) return; // another composer's dictation
 
-    // The updaters below also report what they saw. A setter may run its
-    // updater right away or at the next render, and a composer that is off
-    // screen may not run it at all, so the flags are read a tick later.
-    let landed = false;
+    // The updaters below report what they saw. A setter may run its updater
+    // at once or during the next render, and a composer that is off screen
+    // may not run it at all, so the flags are read after that render.
+    landedRef.current = false;
+    holdsTextRef.current = false;
     if (result.text) {
       setValueRef.current((current) => {
-        landed = true;
+        landedRef.current = true;
         return appended(current, result.text);
       });
     }
 
     // Only this composer's own dictation settles a queued send.
-    if (result.owner !== id || !sendQueuedRef.current) return;
-    sendQueuedRef.current = false;
-    setSendQueued(false);
-
-    if (result.outcome === "text") {
-      // Sent only when the text really is in the box.
-      afterRender(() => {
-        if (landed) onSendRef.current?.();
-      });
-    } else if (result.outcome === "empty") {
-      // Nothing was said: what the person typed is the whole message.
-      let holdsText = false;
-      setValueRef.current((current) => {
-        holdsText = current.trim().length > 0;
-        return current;
-      });
-      afterRender(() => {
-        if (holdsText) onSendRef.current?.();
-      });
-    } else {
+    const queued = result.owner === id && sendQueuedRef.current;
+    if (queued) {
+      sendQueuedRef.current = false;
+      setSendQueued(false);
+    }
+    if (queued && result.outcome !== "text" && result.outcome !== "empty") {
       useEventStore
         .getState()
         .pushToast("error", translate("chats_view.dictation_failed_not_sent"));
+      return;
     }
-  }, [resultSeq, id, afterRender]);
+    if (queued && result.outcome === "empty") {
+      // Nothing was said: what the person typed is the whole message.
+      setValueRef.current((current) => {
+        holdsTextRef.current = current.trim().length > 0;
+        return current;
+      });
+    }
+    if (!queued && !(result.owner === id && result.text)) return;
+    setSettle({
+      seq: result.seq,
+      text: result.owner === id ? result.text : "",
+      send: !queued ? null : result.outcome === "text" ? "landed" : "holds_text",
+    });
+  }, [resultSeq, id]);
+
+  useEffect(() => {
+    if (settle === null) return;
+    setSettle(null);
+    if (settle.text && !landedRef.current) {
+      // This composer started the dictation, but its box would not take the
+      // words (it left the screen, or another box took over). They must not
+      // vanish: they go to the clipboard, and nothing is sent without them.
+      void robustCopy(settle.text);
+      useEventStore
+        .getState()
+        .pushToast("info", translate("chats_view.dictation_copied_not_inserted"));
+      return;
+    }
+    if (settle.send === "landed" && landedRef.current) onSendRef.current?.();
+    else if (settle.send === "holds_text" && holdsTextRef.current) onSendRef.current?.();
+  }, [settle]);
 
   // A queued send belongs to the dictation it was queued for. Should that
   // dictation end without a result for this composer, the queue must not
@@ -151,7 +174,6 @@ export function useComposerDictation(setValue: Setter, onSend?: () => void) {
   const startedRef = useRef(false);
   useEffect(
     () => () => {
-      if (sendTimerRef.current !== null) clearTimeout(sendTimerRef.current);
       // Only a composer that started a dictation has one to close.
       if (!startedRef.current) return;
       const store = useEventStore.getState();

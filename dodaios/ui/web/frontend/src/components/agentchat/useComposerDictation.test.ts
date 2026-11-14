@@ -1,4 +1,5 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useI18nStore } from "@/i18n";
@@ -16,6 +17,10 @@ vi.mock("@/hooks/useWebSocket", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/hooks/useWebSocket")>()),
   getWSClient: () => ({ send: wsSend }),
 }));
+
+/** Stands in for the clipboard, so a copied text can be read. */
+const copied = vi.hoisted(() => vi.fn(async (_text: string) => true));
+vi.mock("@/lib/clipboard", () => ({ robustCopy: copied }));
 
 /** A composer's box: text plus the setter the hook gets. */
 function makeBox(initial = "") {
@@ -46,6 +51,7 @@ describe("useComposerDictation", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     wsSend.mockClear();
+    copied.mockClear();
     useI18nStore.getState().setUi("en", { push: false });
     useEventStore.getState().resetDictation();
     useEventStore.setState({ toasts: [] });
@@ -271,7 +277,7 @@ describe("useComposerDictation", () => {
     expect(result.current.sendQueued).toBe(false);
   });
 
-  it("does not send when the box did not take the text", () => {
+  it("does not send when the box did not take the text, and keeps the words on the clipboard", () => {
     // A composer that is off screen ignores what it is handed.
     const onSend = vi.fn();
     const { result } = renderHook(() => useComposerDictation(() => undefined, onSend));
@@ -281,6 +287,51 @@ describe("useComposerDictation", () => {
     tick();
     expect(onSend).not.toHaveBeenCalled();
     expect(result.current.sendQueued).toBe(false);
+    expect(copied).toHaveBeenCalledWith("ship it");
+    expect(toastMessages()).toEqual([
+      "The dictated text could not be put into the box, so it was copied to the clipboard. Nothing was sent.",
+    ]);
+  });
+
+  it("copies the words of its own dictation that the box refused, even without a queued send", () => {
+    const { result } = renderHook(() => useComposerDictation(() => undefined));
+    act(() => result.current.start());
+    act(() => result.current.stop());
+    finish("keep me", "text");
+    expect(copied).toHaveBeenCalledWith("keep me");
+    expect(toastMessages()).toHaveLength(1);
+  });
+
+  it("copies nothing when the box took the words", () => {
+    const { result } = renderHook(() => useComposerDictation(makeBox().setValue));
+    act(() => result.current.start());
+    act(() => result.current.stop());
+    finish("landed", "text");
+    expect(copied).not.toHaveBeenCalled();
+    expect(toastMessages()).toEqual([]);
+  });
+
+  it("a queued send sees the dictated words in what the composer rendered, attachments or not", () => {
+    // Like the real composers: the box is React state, and the send reads the
+    // value of the last render. A send that ran before the render carrying the
+    // words would go out with the pictures alone and then clear the box.
+    const sent: { text: string; pictures: number }[] = [];
+    const { result } = renderHook(() => {
+      const [value, setValue] = useState("");
+      const pictures: number = 1;
+      const dictation = useComposerDictation(setValue, () => {
+        if (!value.trim() && pictures === 0) return;
+        sent.push({ text: value, pictures });
+        setValue("");
+      });
+      return { value, dictation };
+    });
+    act(() => result.current.dictation.start());
+    act(() => result.current.dictation.stopAndSend());
+    finish("Look at this picture.", "text");
+    expect(sent).toEqual([{ text: "Look at this picture.", pictures: 1 }]);
+    expect(result.current.value).toBe("");
+    expect(copied).not.toHaveBeenCalled();
   });
 
   it("ignores another composer's result", () => {

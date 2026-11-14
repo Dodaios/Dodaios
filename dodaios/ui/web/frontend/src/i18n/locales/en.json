@@ -1114,6 +1114,7 @@
     "dictation_transcribing": "Transcribing…",
     "dictation_send_queued": "Sending when ready…",
     "dictation_failed_not_sent": "The dictation could not be transcribed, so the message was not sent.",
+    "dictation_copied_not_inserted": "The dictated text could not be put into the box, so it was copied to the clipboard. Nothing was sent.",
     "dictation_nothing_heard": "Nothing was heard. Check that the right microphone is selected and not muted.",
     "history": "History",
     "new_chat": "New chat",

@@ -1114,6 +1114,7 @@
     "dictation_transcribing": "正在转写…",
     "dictation_send_queued": "转写完成后发送…",
     "dictation_failed_not_sent": "听写内容未能转写，因此消息没有发送。",
+    "dictation_copied_not_inserted": "听写的文字无法放入输入框，已复制到剪贴板。没有发送任何内容。",
     "dictation_nothing_heard": "没有听到任何声音。请检查是否选择了正确的麦克风，以及麦克风是否被静音。",
     "history": "历史记录",
     "new_chat": "新对话",

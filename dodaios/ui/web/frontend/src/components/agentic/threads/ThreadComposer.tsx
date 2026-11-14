@@ -502,7 +502,10 @@ export function ThreadComposer({
       dictation.stopAndSend();
       return;
     }
-    const text = value.trim();
+    // The draft store is written with every change, the rendered `value` only
+    // after the next render: a send right after dictated words landed must
+    // not go out without them.
+    const text = (drafts.get(threadKey) ?? value).trim();
     if (!text && files.attachments.length === 0) return;
     if (files.analyzing > 0 || starting) return;
     if (!provider || !provider.connected) {

@@ -1114,6 +1114,7 @@
     "dictation_transcribing": "Transkribiere…",
     "dictation_send_queued": "Sende, sobald fertig…",
     "dictation_failed_not_sent": "Das Diktat konnte nicht transkribiert werden, deshalb wurde die Nachricht nicht gesendet.",
+    "dictation_copied_not_inserted": "Der diktierte Text konnte nicht ins Feld eingefügt werden, deshalb liegt er in der Zwischenablage. Es wurde nichts gesendet.",
     "dictation_nothing_heard": "Es war nichts zu hören. Prüfe, ob das richtige Mikrofon gewählt und nicht stummgeschaltet ist.",
     "history": "Verlauf",
     "new_chat": "Neuer Chat",

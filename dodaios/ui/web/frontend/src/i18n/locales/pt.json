@@ -1114,6 +1114,7 @@
     "dictation_transcribing": "A transcrever…",
     "dictation_send_queued": "Será enviada ao terminar…",
     "dictation_failed_not_sent": "Não foi possível transcrever o ditado, por isso a mensagem não foi enviada.",
+    "dictation_copied_not_inserted": "O texto ditado não pôde ser colocado na caixa, por isso foi copiado para a área de transferência. Nada foi enviado.",
     "dictation_nothing_heard": "Não se ouviu nada. Verifica se o microfone certo está selecionado e não está silenciado.",
     "history": "Histórico",
     "new_chat": "Novo chat",
