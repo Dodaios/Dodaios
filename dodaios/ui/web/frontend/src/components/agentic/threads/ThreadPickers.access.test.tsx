@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ComposerDraft, ProviderOption } from "@/store/agentChat";
 
-import { AccessPicker, PlanSwitch } from "./ThreadPickers";
+import { AccessPicker } from "./ThreadPickers";
 
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key }));
 
@@ -61,36 +61,40 @@ describe("AccessPicker", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  it("never lists Plan: that is the switch beside it", () => {
-    render(<AccessPicker provider={withPlan} draft={draft("default")} onPick={() => undefined} />);
+  it("never lists Plan as a permission; it is the Plan Mode pick below", () => {
+    render(<AccessPicker provider={withPlan} draft={draft("default")} onPick={() => undefined} onPlan={() => undefined} />);
     fireEvent.click(screen.getByTestId("thread-access-picker"));
     expect(screen.getAllByRole("option").map((row) => row.getAttribute("data-value"))).toEqual([
-      "default", "auto", "bypassPermissions",
+      "default", "auto", "bypassPermissions", "plan:off", "plan:on",
     ]);
   });
 
-  it("shows the mode Build returns to while Plan is on", () => {
-    render(<AccessPicker provider={withPlan} draft={draft("plan", "auto")} onPick={() => undefined} />);
-    expect(screen.getByTestId("thread-access-picker").textContent).toContain("Auto");
-  });
-});
-
-describe("PlanSwitch", () => {
-  it("turns Plan on and off", () => {
-    const onToggle = vi.fn();
-    const { rerender } = render(<PlanSwitch provider={withPlan} draft={draft("default")} onToggle={onToggle} />);
-    const button = screen.getByTestId("thread-plan-switch");
-    expect(button.getAttribute("aria-checked")).toBe("false");
-    fireEvent.click(button);
-    expect(onToggle).toHaveBeenLastCalledWith(true);
-    rerender(<PlanSwitch provider={withPlan} draft={draft("plan", "default")} onToggle={onToggle} />);
-    expect(screen.getByTestId("thread-plan-switch").getAttribute("aria-checked")).toBe("true");
-    fireEvent.click(screen.getByTestId("thread-plan-switch"));
-    expect(onToggle).toHaveBeenLastCalledWith(false);
+  it("shows the mode Build returns to and the plan mark while Plan is on", () => {
+    render(<AccessPicker provider={withPlan} draft={draft("plan", "auto")} onPick={() => undefined} onPlan={() => undefined} />);
+    const trigger = screen.getByTestId("thread-access-picker");
+    expect(trigger.textContent).toContain("Auto");
+    expect(screen.getByTestId("thread-plan-mark")).toBeTruthy();
   });
 
-  it("is absent for an agent without a plan mode", () => {
-    const { container } = render(<PlanSwitch provider={provider} draft={draft("default")} onToggle={() => undefined} />);
-    expect(container.innerHTML).toBe("");
+  it("turns Plan Mode on and off from the menu", () => {
+    const onPlan = vi.fn();
+    const onPick = vi.fn();
+    const { rerender } = render(<AccessPicker provider={withPlan} draft={draft("default")} onPick={onPick} onPlan={onPlan} />);
+    expect(screen.queryByTestId("thread-plan-mark")).toBeNull();
+    fireEvent.click(screen.getByTestId("thread-access-picker"));
+    const row = (value: string) => screen.getAllByRole("option").find((option) => option.getAttribute("data-value") === value)!;
+    fireEvent.click(row("plan:on"));
+    expect(onPlan).toHaveBeenLastCalledWith(true);
+    rerender(<AccessPicker provider={withPlan} draft={draft("plan", "default")} onPick={onPick} onPlan={onPlan} />);
+    if (!screen.queryAllByRole("option").length) fireEvent.click(screen.getByTestId("thread-access-picker"));
+    fireEvent.click(row("plan:off"));
+    expect(onPlan).toHaveBeenLastCalledWith(false);
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it("has no Plan Mode section for an agent without a plan mode", () => {
+    render(<AccessPicker provider={provider} draft={draft("default")} onPick={() => undefined} onPlan={() => undefined} />);
+    fireEvent.click(screen.getByTestId("thread-access-picker"));
+    expect(screen.getAllByRole("option").map((row) => row.getAttribute("data-value"))).toEqual(["default", "bypassPermissions"]);
   });
 });
