@@ -17,8 +17,7 @@
       "paste_blocked": "«Colar outra vez» copia o texto para a área de transferência porque não é possível escrever noutras aplicações.",
       "actions": {
         "call": "Chamar",
-        "hangup": "Desligar",
-        "pet_toggle": "Mostrar ou ocultar o animal"
+        "hangup": "Desligar"
       }
     }
   }

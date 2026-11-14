@@ -1,15 +1,14 @@
-"""The pet's frames on macOS go through a native layer, not the Tk canvas.
+"""The voice orb's frames on macOS go through a native layer, not the Tk canvas.
 
 Aqua-Tk 9 draws into an alpha-less bitmap and composites with source-over:
-transparent pixels show black and old frames are never erased, so the pet
+transparent pixels show black and old frames are never erased, so an overlay
 showed a black box and every animation frame stacked on the last. These tests
 pin the routing with fakes; the real AppKit path was checked against the
-window server (the figure window matched the intended frame pixel for pixel).
+window server (the window matched the intended frame pixel for pixel).
 """
 
 from __future__ import annotations
 
-from collections import OrderedDict
 from types import SimpleNamespace
 from typing import Any
 
@@ -30,15 +29,8 @@ class _Presenter:
 
 
 class _Renderer:
-    def __init__(self) -> None:
-        self.renders = 0
-
     def render(self, *_args: Any) -> Image.Image:
-        self.renders += 1
         return Image.new("RGB", (4, 4), tuple(int(c) for c in overlay.COLOR_KEY_RGB))
-
-    def next_frame_delay_ms(self, _t: float) -> int:
-        return 100
 
 
 def _overlay(presenter: _Presenter, *, mac: bool = True) -> Any:
@@ -46,77 +38,54 @@ def _overlay(presenter: _Presenter, *, mac: bool = True) -> Any:
     o._mac_transparent = mac
     o._root = object()
     o._presenter = presenter
-    o._native_shown = False
+    o._renderer = _Renderer()
     o._image_id = None
-    o._frame_key = None
-    o._photo_cache = OrderedDict()
     o._mode = "idle"
     o._ext_level = 0.0
-    o._controls = None
+    o._t0 = 0.0
     o.shown_photos = []
     o._show_photo = o.shown_photos.append
     return o
 
 
-@pytest.fixture
-def native(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(overlay, "native_frames_available", lambda: True)
-
-
-def test_a_pet_frame_goes_to_the_native_layer(
-    native: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_an_orb_frame_goes_to_the_native_layer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(overlay.ImageTk, "PhotoImage", lambda *a, **k: pytest.fail("Tk drew"))
     presenter = _Presenter(ok=True)
     o = _overlay(presenter)
-    renderer = _Renderer()
-    o._paint_keyed_frame(renderer, 0.0, "idle-0")
+    o._paint_frame()
     assert len(presenter.frames) == 1
     frame = presenter.frames[0]
     assert frame.mode == "RGBA"
     assert frame.getpixel((0, 0))[3] == 0  # the colour key became transparent
     assert o.shown_photos == []
-    # The same frame is not painted again, and a cached frame is not re-rendered.
-    o._paint_keyed_frame(renderer, 0.1, "idle-0")
-    assert len(presenter.frames) == 1
-    o._paint_keyed_frame(renderer, 0.2, "idle-1")
-    o._paint_keyed_frame(renderer, 0.3, "idle-0")
-    assert len(presenter.frames) == 3
-    assert renderer.renders == 2
 
 
-def test_tk_draws_when_the_layer_is_not_ready_and_the_layer_is_tried_again(
-    native: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_tk_draws_when_the_layer_is_not_ready(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(overlay.ImageTk, "PhotoImage", lambda image, **_k: ("photo", image.size))
     presenter = _Presenter(ok=False)
     o = _overlay(presenter)
-    o._paint_keyed_frame(_Renderer(), 0.0, "idle-0")
+    o._paint_frame()
     assert o.shown_photos == [("photo", (4, 4))]
-    assert o._frame_key is None  # next tick retries the native layer
     presenter.ok = True
-    o._paint_keyed_frame(_Renderer(), 0.1, "idle-0")
+    o._paint_frame()
     assert len(presenter.frames) == 2
-    assert o._native_shown
+    assert len(o.shown_photos) == 1
 
 
 def test_other_platforms_keep_the_tk_canvas(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(overlay.ImageTk, "PhotoImage", lambda image, **_k: ("photo", image.size))
     presenter = _Presenter(ok=True)
     o = _overlay(presenter, mac=False)
-    o._paint_keyed_frame(_Renderer(), 0.0, "idle-0")
+    o._paint_frame()
     assert presenter.frames == []
     assert o.shown_photos == [("photo", (4, 4))]
 
 
-def test_the_strip_and_the_cards_use_the_layer_on_macos() -> None:
+def test_the_control_row_uses_the_layer_on_macos() -> None:
     from pathlib import Path
 
-    root = Path(overlay.__file__).parent
-    strip = (root / "overlay.py").read_text(encoding="utf-8")
-    cards = (root / "layered_surface.py").read_text(encoding="utf-8")
-    assert 'MacLayerPresenter(self._top, name="pet strip")' in strip
-    assert "MacLayerPresenter(self.top, name=self._name)" in cards
+    source = (Path(overlay.__file__).parent / "overlay.py").read_text(encoding="utf-8")
+    assert 'MacLayerPresenter(self._top, name="orb controls")' in source
 
 
 def test_present_is_a_no_op_without_pyobjc(monkeypatch: pytest.MonkeyPatch) -> None:

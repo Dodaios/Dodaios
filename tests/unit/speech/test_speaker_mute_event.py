@@ -14,7 +14,7 @@ import pytest
 
 from dodaios.core import runtime_refs
 from dodaios.core.bus import EventBus
-from dodaios.core.events import PetVisibilityToggleRequested, VoiceSpeakerMuteChanged
+from dodaios.core.events import VoiceSpeakerMuteChanged
 from dodaios.core.protocols import AudioChunk
 from dodaios.speech.pipeline import SpeechPipeline
 
@@ -182,31 +182,14 @@ def test_the_speaker_disc_can_unmute_again(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 # ---------------------------------------------------------------------------
-# The pet shortcut
+# The removed pet shortcut
 # ---------------------------------------------------------------------------
 
 
-async def test_pet_toggle_hotkey_publishes_the_visibility_request() -> None:
-    bus = EventBus()
-    pipeline = SpeechPipeline(
-        tts=FakeTTS(), bus=bus, enable_whisper_wake=False, pet_toggle_hotkeys=("alt+win+p",)
-    )
-    seen: list[PetVisibilityToggleRequested] = _collect(bus, PetVisibilityToggleRequested)
-
-    pipeline._dispatch_hotkey_event("pet_toggle")
-    await _drain()
-
-    assert [e.source for e in seen] == ["hotkey"]
-
-
-def test_pet_toggle_is_armed_single_fire_and_only_when_bound() -> None:
-    pipeline = SpeechPipeline(
-        tts=FakeTTS(), bus=None, enable_whisper_wake=False, pet_toggle_hotkeys=("alt+win+p",)
-    )
-    bindings, edges = pipeline._build_hotkey_bindings()
-    assert bindings["pet_toggle"] == ["alt+win+p"]
-    assert "pet_toggle" not in edges
-
-    pipeline.set_keybinds(pet_toggle=[])
+def test_no_pet_shortcut_is_armed_any_more() -> None:
+    """The desktop pet is gone (docs/pets.md), and so is its show/hide key."""
+    pipeline = SpeechPipeline(tts=FakeTTS(), bus=None, enable_whisper_wake=False)
     bindings, _edges = pipeline._build_hotkey_bindings()
     assert "pet_toggle" not in bindings
+    with pytest.raises(TypeError):
+        pipeline.set_keybinds(pet_toggle=[])  # type: ignore[call-arg]

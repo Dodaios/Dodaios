@@ -551,21 +551,12 @@ def _started_mascot(monkeypatch, **kwargs) -> tuple[SubprocessMascotOverlay, _Fa
     return surface, proc
 
 
-def test_mascot_init_line_declares_surface_and_mascot_path(monkeypatch) -> None:
-    surface, proc = _started_mascot(monkeypatch, mascot_path="assets/m.png")
+def test_orb_init_line_declares_the_orb_window(monkeypatch) -> None:
+    surface, proc = _started_mascot(monkeypatch)
     init = proc.sent()[0]
-    # The pet settings ride along for every orb-window style: a live swap to
-    # the pet reuses this window, and a respawn re-initializes it from here.
-    assert init == {
-        "op": "init",
-        "surface": "mascot",
-        "style": "mascot",
-        "mascot_path": "assets/m.png",
-        "pet_id": None,
-        "pet_scale": 1.0,
-        "pet_bubble": True,
-        "pet_strip_always": False,
-    }
+    # "mascot" is the historical surface name of the orb window; it shows the
+    # voice orb, and no pet settings ride along any more.
+    assert init == {"op": "init", "surface": "mascot", "style": "voice_orb"}
     assert surface._ready.is_set()  # scripted ready event consumed
     assert surface._visible is False  # sticky=False mascot starts withdrawn
 
@@ -579,7 +570,7 @@ def test_set_style_is_forwarded_and_survives_a_respawn(monkeypatch) -> None:
     # The host may be respawned after a crash; it is re-initialized from the
     # init line, so a live re-style has to update the remembered style too —
     # otherwise the window comes back wearing the look the user just left.
-    surface, proc = _started_mascot(monkeypatch, style="mascot")
+    surface, proc = _started_mascot(monkeypatch, style="pet")
 
     surface.set_style("voice_orb")
 
@@ -603,7 +594,8 @@ def test_bar_init_payload_is_unchanged_by_the_mascot_variant(monkeypatch) -> Non
     assert not isinstance(surface, SubprocessMascotOverlay)
 
 
-def test_mascot_forwards_text_and_mouth_ops_over_the_wire(monkeypatch) -> None:
+def test_orb_keeps_text_and_mouth_ops_off_the_wire(monkeypatch) -> None:
+    """The voice orb draws no bubble, mouth or figure animation: no IPC for them."""
     surface, proc = _started_mascot(monkeypatch)
     surface.play_animation("wave", x=1)
     surface.stop_animation("wave")
@@ -611,15 +603,7 @@ def test_mascot_forwards_text_and_mouth_ops_over_the_wire(monkeypatch) -> None:
     surface.hide_comment()
     surface.start_mouth_animation(5)
     surface.stop_mouth_animation()
-    sent = proc.sent()[1:]
-    assert sent == [
-        {"op": "play_animation", "name": "wave", "params": {"x": 1}},
-        {"op": "stop_animation", "name": "wave"},
-        {"op": "show_listening_transcript", "text": "hi", "duration_ms": 5},
-        {"op": "hide_comment"},
-        {"op": "start_mouth_animation", "duration_ms": 5},
-        {"op": "stop_mouth_animation"},
-    ]
+    assert proc.sent()[1:] == []
 
 
 def test_mascot_pump_threads_use_orb_host_names(monkeypatch) -> None:

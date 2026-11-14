@@ -53,7 +53,6 @@ _ACTION_ATTR = {
     "dictate": "_dictate_hotkeys",
     "dictate_toggle": "_dictate_toggle_hotkeys",
     "paste_last": "_paste_last_hotkeys",
-    "pet_toggle": "_pet_toggle_hotkeys",
 }
 
 

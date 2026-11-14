@@ -17,8 +17,7 @@
       "paste_blocked": "Paste again copies the text to the clipboard because typing into other apps is blocked.",
       "actions": {
         "call": "Call",
-        "hangup": "Hang up",
-        "pet_toggle": "Show or hide the pet"
+        "hangup": "Hang up"
       }
     }
   }

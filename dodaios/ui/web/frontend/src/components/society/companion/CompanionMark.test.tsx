@@ -17,7 +17,7 @@ function pet(id: string): Pet {
   };
 }
 
-const PETS: PetsState = { active: "gigi", scale: 1, bubble: true, strip_always: false, visible: true, pets: [pet("gigi"), pet("cocoa")] };
+const PETS: PetsState = { active: "gigi", pets: [pet("gigi"), pet("cocoa")] };
 const look = (patch: Partial<CompanionAppearance> = {}): CompanionAppearance => ({ ...defaultCompanion("agent"), shape: "drop", pet: undefined, ...patch });
 
 /** A client already holding the pets answer (or none yet), so nothing is fetched. */

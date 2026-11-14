@@ -2804,7 +2804,7 @@ async def _run_off_pool(fn: Callable[[], object]) -> object:
 async def restart_app(request: Request, force: bool = False) -> dict[str, object]:
     """Cleanly self-restart the desktop app.
 
-    Delivers a pending overlay-style change (bar <-> mascot) that cannot be
+    Delivers a pending overlay-style change (bar <-> voice orb) that cannot be
     applied live (BUG-031) without the user closing + reopening by hand. The
     DesktopApp spawns a detached relauncher and quits ~0.8 s later, so this
     request returns 200 first. Returns 503 on a headless host (no window).

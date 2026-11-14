@@ -373,7 +373,7 @@ class JarvisBarRenderer:
             and level < 0.06
         ):
             # The call just connected and nobody speaks yet: one swell says so.
-            flourish = (connect_look.phase + 1) / max(1, controls.PET_CONNECTED_PHASES)
+            flourish = (connect_look.phase + 1) / max(1, controls.CONNECTED_PHASES)
             look = "connected"
         return self._painter.paint(
             state,

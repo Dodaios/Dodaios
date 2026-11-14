@@ -44,7 +44,6 @@ from typing import IO, Any
 # hand-copied predecessor is precisely why ``show("dictate")`` was a silent
 # no-op on the macOS surface for weeks (AP-4 / BUG-008).
 from dodaios.ui.dodaiosbar.modes import MODES as _MODES
-from dodaios.ui.overlay_styles import PERSISTENT_ORB_STYLES
 
 log = logging.getLogger("dodaios.ui.dodaiosbar")
 
@@ -629,8 +628,7 @@ class SubprocessBarOverlay:
 
         # Same source names as the in-process orb window, so the pipeline's
         # VoiceSpeakerMuteChanged says which control the user pressed.
-        source = "pet" if self._shows_pet() else "orb"
-        result = toggle_speaker_mute(source=source)
+        result = toggle_speaker_mute(source="orb")
         if result is None:
             log.debug("orb speaker toggle had no live pipeline in the parent")
         else:
@@ -722,207 +720,40 @@ class SubprocessMascotOverlay(SubprocessBarOverlay):
     """Surface proxy driving the orb window (``OrbOverlay``) in the same host.
 
     Same spawn / ready / EOF-degrade plumbing as the bar proxy — the host
-    process picks the surface from the init line's ``"surface"`` key and the
-    look from ``"style"`` (``mascot``, ``voice_orb`` or ``pet``). Unlike the bar
-    (which draws no text bubble and no mouth), the orb window renders all of
-    them, so the text/mouth/animation ops are FORWARDED over stdio instead of
-    no-opped locally. The pet's surface methods (``docs/pets.md``) travel the
-    same way, and its pen comes back up as the ``compose`` event.
+    process picks the surface from the init line's ``"surface"`` key (the
+    historical value ``"mascot"`` names the orb window, which shows the voice
+    orb). The voice orb draws no bubble, no mouth and no figure animations, so
+    those ops stay the bar proxy's local no-ops.
     """
 
     _EVENTS_THREAD_NAME = "orb-host-events"
     _STDERR_THREAD_NAME = "orb-host-stderr"
     _RESPAWN_THREAD_NAME = "orb-host-respawn"
 
-    def __init__(
-        self,
-        mascot_path: str | None = None,
-        style: str = "mascot",
-        pet_id: str | None = None,
-        pet_scale: float = 1.0,
-        pet_bubble: bool = True,
-        pet_strip_always: bool = False,
-    ) -> None:
+    def __init__(self, style: str = "voice_orb") -> None:
         super().__init__()
-        self._mascot_path = mascot_path
-        self._style = str(style or "mascot")
+        self._style = str(style or "voice_orb")
         # OrbOverlay(sticky=False) always starts withdrawn. The base proxy's
         # persistent-bar visibility default does not apply to this surface.
         self._visible = False
-        # The pet's settings ride the init line (a respawn restores them) and
-        # its runtime mirrors are replayed by _reapply_desired_state.
-        self._pet_id = pet_id
-        self._pet_scale = float(pet_scale)
-        self._pet_bubble = bool(pet_bubble)
-        self._pet_strip_always = bool(pet_strip_always)
         self._speaker_muted = False
-        self._user_visible = True
-        self._on_compose: Callable[[], None] | None = None
-        #: The pet's bell, mirrored from the host's ``notify_toggle`` events.
-        self._notifications_enabled = True
 
     def _init_payload(self) -> dict[str, Any]:
-        return {
-            "op": "init",
-            "surface": "mascot",
-            "style": self._style,
-            "mascot_path": self._mascot_path,
-            "pet_id": self._pet_id,
-            "pet_scale": self._pet_scale,
-            "pet_bubble": self._pet_bubble,
-            "pet_strip_always": self._pet_strip_always,
-        }
-
-    @property
-    def wants_status_lines(self) -> bool:
-        """True when the hosted window is a pet (the mascot is one): it shows status lines."""
-        return self._shows_pet()
-
-    @property
-    def keeps_visible_when_idle(self) -> bool:
-        """True when the hosted window is a pet (the mascot is one): it stays up at idle."""
-        return self._shows_pet()
-
-    def _shows_pet(self) -> bool:
-        """Mirror of ``OrbOverlay``: a configured mascot image stays the still picture."""
-        if self._style == "mascot" and self._mascot_path:
-            return False
-        return self._style in PERSISTENT_ORB_STYLES
-
-    @property
-    def pet_user_hidden(self) -> bool:
-        """True while the user hid the pet (this proxy's best knowledge)."""
-        return not self._user_visible
-
-    def set_pet(self, pet_id: str) -> None:
-        self._pet_id = str(pet_id or "")
-        self._send({"op": "set_pet", "pet_id": self._pet_id})
-
-    def set_pet_look(
-        self,
-        scale: float | None = None,
-        bubble: bool | None = None,
-        strip_always: bool | None = None,
-    ) -> None:
-        if scale is not None:
-            self._pet_scale = float(scale)
-        if bubble is not None:
-            self._pet_bubble = bool(bubble)
-        if strip_always is not None:
-            self._pet_strip_always = bool(strip_always)
-        self._send(
-            {
-                "op": "set_pet_look",
-                "scale": None if scale is None else float(scale),
-                "bubble": None if bubble is None else bool(bubble),
-                "strip_always": None if strip_always is None else bool(strip_always),
-            }
-        )
-
-    def set_pet_outcome(self, kind: str) -> None:
-        self._send({"op": "set_pet_outcome", "kind": str(kind)})
-
-    def set_pet_action(self, kind: str | None) -> None:
-        self._send({"op": "set_pet_action", "kind": None if kind is None else str(kind)})
-
-    def set_pet_busy(self, busy: bool) -> None:
-        self._send({"op": "set_pet_busy", "busy": bool(busy)})
-
-    def show_status(self, title: str = "", detail: str = "") -> None:
-        self._send({"op": "show_status", "title": str(title), "detail": str(detail)})
-
-    def clear_status(self, linger_s: float = 1.5) -> None:
-        self._send({"op": "clear_status", "linger_s": float(linger_s)})
+        return {"op": "init", "surface": "mascot", "style": self._style}
 
     def set_speaker_muted(self, muted: bool) -> None:
         self._speaker_muted = bool(muted)
         self._send({"op": "set_speaker_muted", "muted": self._speaker_muted})
 
-    def set_visible(self, visible: bool) -> None:
-        self._user_visible = bool(visible)
-        self._send({"op": "set_visible", "visible": self._user_visible})
-
-    def toggle_visible(self) -> None:
-        # Mirror optimistically; the host confirms the result and also reports
-        # right-click dismissal so settings and crash recovery stay in sync.
-        self._user_visible = not self._user_visible
-        self._send({"op": "toggle_visible"})
-
-    def set_on_compose(self, callback: Callable[[], None] | None) -> None:
-        self._on_compose = callback
-
-    def push_notice(self, kind: str = "info", title: str = "", detail: str = "") -> None:
-        self._send(
-            {"op": "push_notice", "kind": str(kind), "title": str(title), "detail": str(detail)}
-        )
-
-    @property
-    def notifications_enabled(self) -> bool:
-        return self._notifications_enabled
-
-    def set_notifications_enabled(self, enabled: bool) -> None:
-        self._notifications_enabled = bool(enabled)
-        self._send({"op": "set_notifications_enabled", "enabled": self._notifications_enabled})
-
-    def _dispatch_event(self, msg: dict[str, Any]) -> None:
-        if msg.get("event") == "visibility_changed":
-            self._user_visible = bool(msg.get("visible", True))
-            return
-        if msg.get("event") == "notify_toggle":
-            self._notifications_enabled = bool(msg.get("enabled", True))
-            return
-        if msg.get("event") != "compose":
-            super()._dispatch_event(msg)
-            return
-        # The pen: without a compose callback, raising the window is the
-        # honest fallback (the same one the in-process pet uses).
-        callback = self._on_compose or self._on_show_window
-        try:
-            if callback is not None:
-                callback()
-        except Exception:  # noqa: BLE001 — a bad callback must not kill the pump
-            log.exception("orb host compose callback failed")
-
     def _reapply_desired_state(self) -> None:
         super()._reapply_desired_state()
         if self._speaker_muted:
             self._send({"op": "set_speaker_muted", "muted": True})
-        if not self._user_visible:
-            self._send({"op": "set_visible", "visible": False})
-        if not self._notifications_enabled:
-            self._send({"op": "set_notifications_enabled", "enabled": False})
 
     def set_style(self, style: str) -> None:
-        """Re-style the hosted orb window live (mascot <-> voice orb).
+        """Pass a style on to the hosted orb window (it keeps the voice orb).
 
-        Remembered locally as well: a host respawn re-sends the init line, and
-        without this the window would come back wearing the OLD look.
+        Remembered locally as well: a host respawn re-sends the init line.
         """
-        self._style = str(style or "mascot")
+        self._style = str(style or "voice_orb")
         self._send({"op": "set_style", "style": self._style})
-
-    # The mascot draws the comment bubble and the mouth — forward the ops the
-    # bar proxy no-ops locally (wire shapes match host.dispatch()).
-    def play_animation(self, name: str, **params: Any) -> None:
-        self._send({"op": "play_animation", "name": str(name), "params": params})
-
-    def stop_animation(self, name: str) -> None:
-        self._send({"op": "stop_animation", "name": str(name)})
-
-    def show_listening_transcript(self, text: str = "", duration_ms: int = 30000) -> None:
-        self._send(
-            {
-                "op": "show_listening_transcript",
-                "text": str(text),
-                "duration_ms": int(duration_ms),
-            }
-        )
-
-    def hide_comment(self) -> None:
-        self._send({"op": "hide_comment"})
-
-    def start_mouth_animation(self, duration_ms: int = 60000) -> None:
-        self._send({"op": "start_mouth_animation", "duration_ms": int(duration_ms)})
-
-    def stop_mouth_animation(self) -> None:
-        self._send({"op": "stop_mouth_animation"})

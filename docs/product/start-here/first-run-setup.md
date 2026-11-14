@@ -16,7 +16,7 @@ related: [providers-and-api-keys, audio-and-wake-word, permissions, start-your-f
 ---
 
 First-run setup happens inside the real app. There is no separate setup
-screen: the window dims and your desktop pet (chosen under **Settings > My
+screen: the window dims and your pet (chosen under **Settings > My
 Pets**) walks you to the places where each thing is really set, explains them
 in a speech bubble, and waits there. A short tour and ten small first steps
 follow and let you try the assistant for real.

@@ -15,16 +15,16 @@ Protocol (UTF-8, one JSON object per line):
   (optional ``opacity``); every further line is a surface command mirroring
   the ``OrbBusBridge`` surface API (``show``, ``hide``, ``set_level``, ...).
   An optional ``"surface"`` key selects what the host renders:
-  ``"jarvis_bar"`` (default) or ``"mascot"`` (the OrbOverlay window, whose look
-  comes from the optional ``"style"`` key — ``"mascot"``, ``"voice_orb"`` or
-  ``"pet"`` — plus optional ``"mascot_path"``, ``"pet_id"``, ``"pet_scale"`` and
-  ``"pet_bubble"`` and ``"pet_strip_always"`` passthroughs).
+  ``"jarvis_bar"`` (default) or ``"mascot"`` (historical name of the
+  OrbOverlay window, which shows the voice orb; an optional ``"style"`` key is
+  passed through).
   stdin EOF means the parent died or shut down → the host stops the bar and
   exits, so no ownerless bar can linger on the user's desktop.
 - child → parent (stdout): events — ``{"event": "ready"}`` once the surface
   is initialized, plus user interactions (``talk``, ``hangup``,
-  ``mute_toggle``, ``feedback``, ``show_window``, ``drop``, and the pet's
-  ``compose`` and ``notify_toggle``). Logging goes to stderr so stdout stays pure protocol.
+  ``mute_toggle``, ``feedback``, ``show_window``, ``drop``, ``speaker_toggle``
+  and the bar's ``compose``). Logging goes to stderr so stdout stays pure
+  protocol.
 
 ``drop`` is the one round trip: the child forwards a file/text dropped on the
 hosted surface, the parent runs the intake (the brain lives there), and the
@@ -73,7 +73,7 @@ def _call(surface: Any, name: str, *args: Any, **kwargs: Any) -> None:
     """Invoke ``surface.<name>(...)`` if present; a missing method is a no-op.
 
     The host now fronts more than one surface class (JarvisBarOverlay has
-    every op; the mascot OrbOverlay lacks a few bar-only ones), so an op the
+    every op; the OrbOverlay lacks a few bar-only ones), so an op the
     current surface does not implement degrades to a debug-logged no-op.
     """
     method = getattr(surface, name, None)
@@ -145,9 +145,9 @@ def dispatch(surface: Any, msg: dict[str, Any]) -> bool:
     elif op == "hide_comment":
         _call(surface, "hide_comment")
     elif op == "set_style":
-        # Live re-style of the orb window (mascot <-> voice orb). The bar has
-        # no styles, so there the op degrades to the no-op _call() logs.
-        _call(surface, "set_style", str(msg.get("style", "mascot")))
+        # The orb window keeps the voice orb whatever style is named. The bar
+        # has no styles, so there the op degrades to the no-op _call() logs.
+        _call(surface, "set_style", str(msg.get("style", "voice_orb")))
     elif op == "start_mouth_animation":
         _call(surface, "start_mouth_animation", int(msg.get("duration_ms", 60000)))
     elif op == "stop_mouth_animation":
@@ -160,52 +160,8 @@ def dispatch(surface: Any, msg: dict[str, Any]) -> bool:
     elif op == "reset_position":
         # The double-click reset seam.
         _call(surface, "_on_reset_double_click")
-    # The desktop pet's surface methods (docs/pets.md); the bar has none of
-    # them, so there each degrades to the no-op _call() logs.
-    elif op == "set_pet":
-        _call(surface, "set_pet", str(msg.get("pet_id") or ""))
-    elif op == "set_pet_look":
-        scale = msg.get("scale")
-        bubble = msg.get("bubble")
-        strip = msg.get("strip_always")
-        _call(
-            surface,
-            "set_pet_look",
-            None if scale is None else float(scale),
-            None if bubble is None else bool(bubble),
-            None if strip is None else bool(strip),
-        )
-    elif op == "set_pet_outcome":
-        _call(surface, "set_pet_outcome", str(msg.get("kind", "")))
-    elif op == "set_pet_action":
-        kind = msg.get("kind")
-        _call(surface, "set_pet_action", None if kind is None else str(kind))
-    elif op == "set_pet_busy":
-        _call(surface, "set_pet_busy", bool(msg.get("busy", False)))
-    elif op == "show_status":
-        # "header"/"line" are the keys an older parent still sends.
-        title = msg.get("title", msg.get("header", ""))
-        detail = msg.get("detail", msg.get("line", ""))
-        _call(surface, "show_status", str(title or ""), str(detail or ""))
-    elif op == "clear_status":
-        linger = msg.get("linger_s")
-        _call(surface, "clear_status", 1.5 if linger is None else float(linger))
     elif op == "set_speaker_muted":
         _call(surface, "set_speaker_muted", bool(msg.get("muted", False)))
-    elif op == "set_visible":
-        _call(surface, "set_visible", bool(msg.get("visible", True)))
-    elif op == "toggle_visible":
-        _call(surface, "toggle_visible")
-    elif op == "push_notice":
-        _call(
-            surface,
-            "push_notice",
-            str(msg.get("kind") or "info"),
-            str(msg.get("title") or ""),
-            str(msg.get("detail") or ""),
-        )
-    elif op == "set_notifications_enabled":
-        _call(surface, "set_notifications_enabled", bool(msg.get("enabled", True)))
     else:
         log.warning("bar-host: unknown op %r", op)
     return True
@@ -282,10 +238,8 @@ class _EchoBar:
     def set_on_dictation_stop(self, cb: Any) -> None: ...
     def set_feedback_publisher(self, cb: Any) -> None: ...
     def set_on_show_window(self, cb: Any) -> None: ...
-    def set_on_visibility_changed(self, cb: Any) -> None: ...
     def set_on_speaker_toggle(self, cb: Any) -> None: ...
     def set_on_compose(self, cb: Any) -> None: ...
-    def set_on_notifications_toggle(self, cb: Any) -> None: ...
 
     def __getattr__(self, name: str) -> Any:
         if name.startswith("__"):
@@ -339,7 +293,7 @@ def _hide_dock_icon() -> None:
 
 
 def _import_orb_overlay() -> Any:
-    """Import the mascot ``OrbOverlay`` — wheel-robust.
+    """Import the orb window's ``OrbOverlay`` — wheel-robust.
 
     The top-level ``ui`` package ships with the source tree but not the
     wheel; when ``import ui`` fails, retry with the ``jarvis`` package's
@@ -377,24 +331,17 @@ def _build_surface(cfg: dict[str, Any]) -> Any:
     surface_name = str(cfg.get("surface", "jarvis_bar"))
     if surface_name == "mascot":
         if sys.platform == "darwin":
-            # The mascot still uses Aqua-Tk, whose TKApplication bootstrap
+            # The orb window still uses Aqua-Tk, whose TKApplication bootstrap
             # must precede AppKit (BUG-074). The Qt bar below deliberately
             # skips this: QApplication must own its own Cocoa lifecycle.
             _hide_dock_icon()
         orb_overlay_cls = _import_orb_overlay()
-        pet_scale = cfg.get("pet_scale")
         return orb_overlay_cls(
             sticky=False,
             mic_reactive=False,
-            # The look inside the orb window (mascot / voice_orb / pet).
             # Forwarded verbatim; OrbOverlay owns the one list of known styles
-            # and falls back to the mascot for anything it does not recognise.
-            style=str(cfg.get("style") or "mascot"),
-            mascot_path=cfg.get("mascot_path") or None,
-            pet_id=cfg.get("pet_id") or None,
-            pet_scale=1.0 if pet_scale is None else float(pet_scale),
-            pet_bubble=bool(cfg.get("pet_bubble", True)),
-            pet_strip_always=bool(cfg.get("pet_strip_always", False)),
+            # and shows the voice orb for anything it does not recognise.
+            style=str(cfg.get("style") or "voice_orb"),
         )
     kwargs = {
         key: cfg[key]
@@ -428,7 +375,7 @@ def _wire_surface_events(surface: Any) -> None:
 
     Talk and hang-up cannot use ``runtime_refs`` in this process: the live
     SpeechPipeline is registered in the parent desktop process. ``_call``
-    keeps mascot and protocol-double surfaces that lack a bar-only setter
+    keeps the orb and protocol-double surfaces that lack a bar-only setter
     compatible with the shared host.
     """
 
@@ -462,28 +409,16 @@ def _wire_surface_events(surface: Any) -> None:
         lambda kind, payload: emit("feedback", kind=kind, payload=payload),
     )
     _call(surface, "set_on_show_window", lambda: emit("show_window"))
-    _call(
-        surface,
-        "set_on_visibility_changed",
-        lambda visible: emit("visibility_changed", visible=bool(visible)),
-    )
-    # The pet's pen: raising the window (and the new chat) happens in the
+    # The bar's pen: raising the window (and the new chat) happens in the
     # parent, where the bus and the window live.
     _call(surface, "set_on_compose", lambda: emit("compose"))
-    # The pet's bell lives in this process; the parent only mirrors its state
-    # so a respawned host comes back with the bell as the user left it.
-    _call(
-        surface,
-        "set_on_notifications_toggle",
-        lambda enabled: emit("notify_toggle", enabled=bool(enabled)),
-    )
     _wire_drop_forwarding()
 
 
 def _wire_drop_forwarding() -> None:
     """Forward drops onto the hosted surface to the parent process.
 
-    Both hosted surfaces (the Qt bar, the mascot) deliver a drop by calling
+    Both hosted surfaces (the Qt bar, the orb window) deliver a drop by calling
     ``drop_bridge.dispatch_drop`` — but the real handler is registered in the
     PARENT, where the brain lives. Without this the child's bridge has no
     handler at all, so on macOS a file dropped on the bar was accepted by the
@@ -539,7 +474,7 @@ def main() -> int:
     ).start()
 
     # THE point of this process: the platform GUI loop runs on the MAIN thread
-    # (Qt for the macOS bar, Aqua-Tk for the macOS mascot).
+    # (Qt for the macOS bar, Aqua-Tk for the macOS orb window).
     surface.start()
     return 0
 

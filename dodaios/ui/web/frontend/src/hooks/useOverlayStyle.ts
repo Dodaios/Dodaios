@@ -2,26 +2,21 @@ import { useCallback, useEffect, useState } from "react";
 
 /**
  * On-screen overlay style from GET /api/settings/overlay-style.
- * "jarvis_bar" = blue-orb control strip (default), "mascot" = the hooded figure of the logo
- * (the built-in pet `MASCOT_PET_ID`), "voice_orb" = the procedural voice orb, "pet" = the
- * animated pixel-art pet chosen under Settings → My Pets, "none" = hidden.
+ * "jarvis_bar" = the Dodaios Bar (default), "voice_orb" = the procedural voice orb,
+ * "none" = hidden. Pets are never drawn on the desktop; they live in the app only
+ * (`docs/pets.md`). A saved "pet" or "mascot" comes back from the backend as "jarvis_bar".
  *
  * Mirror of the backend's one list (``dodaios/ui/overlay_styles.py``); the two
  * are pinned together by tests/unit/ui/test_overlay_style_parity.py, which
  * reads THIS union and the i18n labels. Keep the order identical — it is the
  * order both pickers render.
  */
-export type OverlayStyle = "jarvis_bar" | "mascot" | "voice_orb" | "pet" | "none";
-
-/** The built-in pet the "mascot" style shows (`MASCOT_PET_ID` in the backend's list). */
-export const MASCOT_PET_ID = "dodaios";
+export type OverlayStyle = "jarvis_bar" | "voice_orb" | "none";
 
 /** Client-side fallback while GET is in flight (same order as the backend). */
 export const OVERLAY_STYLES: OverlayStyle[] = [
   "jarvis_bar",
-  "mascot",
   "voice_orb",
-  "pet",
   "none",
 ];
 

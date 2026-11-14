@@ -218,14 +218,6 @@ def test_an_agents_ask_rule_still_gates_the_tool(
 
 
 @SERVERS
-def test_the_pet_reads_the_action_behind_the_server(server: str) -> None:
-    from dodaios.ui.pets.actions import action_for_tool
-
-    assert action_for_tool(f"mcp__{server}__web_search") == "searching"
-    assert action_for_tool(f"mcp__{server}__open-app") == "working"
-
-
-@SERVERS
 def test_the_tools_listing_marks_the_call_as_mcp(server: str) -> None:
     from types import SimpleNamespace
 

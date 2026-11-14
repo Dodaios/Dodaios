@@ -698,13 +698,13 @@ class JarvisBarOverlay:
         self._follow_cursor = bool(enabled)
 
     def _call_ring_phase(self) -> int:
-        from ui.orb.controls import PET_CALL_RING_PASSES, PET_RING_PHASES, PET_RING_STEP_S
+        from ui.orb.controls import CALL_RING_PASSES, RING_PHASES, RING_STEP_S
 
         started = getattr(self, "_call_ring_started_t", 0.0)
         if not started:
             return 0
-        phase = int((time.perf_counter() - started) / PET_RING_STEP_S) + 1
-        return phase if 0 < phase <= PET_RING_PHASES * PET_CALL_RING_PASSES else 0
+        phase = int((time.perf_counter() - started) / RING_STEP_S) + 1
+        return phase if 0 < phase <= RING_PHASES * CALL_RING_PASSES else 0
 
     def _hover_action(self) -> str | None:
         if not self._hovered:

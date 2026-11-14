@@ -12,7 +12,10 @@ def test_defaults_select_jarvis_bar():
 
 
 def test_legacy_and_none_still_accepted():
-    assert UIConfig(orb_style="mascot").orb_style == "mascot"
+    # The removed desktop pet styles load as the bar (docs/pets.md).
+    assert UIConfig(orb_style="mascot").orb_style == "jarvis_bar"
+    assert UIConfig(orb_style="pet").orb_style == "jarvis_bar"
+    assert UIConfig(orb_style="voice_orb").orb_style == "voice_orb"
     assert UIConfig(orb_style="none").orb_style == "none"
 
 

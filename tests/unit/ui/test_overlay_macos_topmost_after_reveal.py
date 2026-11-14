@@ -1,9 +1,9 @@
-"""The pet's windows stay above other apps on macOS after a hide and reveal.
+"""The orb's windows stay above other apps on macOS after a hide and reveal.
 
 Aqua-Tk 9 drops a window's floating level when it is withdrawn and mapped
 again: ``wm attributes -topmost`` still reads 1, but the window comes back at
-the normal level and sinks behind the browser. The pet hides and reveals its
-windows all the time, so it vanished while the app reported it as shown.
+the normal level and sinks behind the browser. The orb hides and reveals its
+windows all the time, so it would vanish while the app reports it as shown.
 Every reveal therefore sets the attribute again.
 """
 
@@ -52,7 +52,7 @@ def test_a_destroyed_window_does_not_raise(monkeypatch: pytest.MonkeyPatch) -> N
     overlay.reassert_macos_topmost(None)
 
 
-@pytest.mark.parametrize("rel", ["ui/orb/overlay.py", "ui/orb/layered_surface.py"])
+@pytest.mark.parametrize("rel", ["ui/orb/overlay.py"])
 def test_every_reveal_restores_the_level(rel: str) -> None:
     """Each ``deiconify()`` is followed by the re-assert on the same window."""
     lines = (_REPO / rel).read_text(encoding="utf-8").splitlines()

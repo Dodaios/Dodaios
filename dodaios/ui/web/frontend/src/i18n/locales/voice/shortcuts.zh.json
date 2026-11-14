@@ -17,8 +17,7 @@
       "paste_blocked": "无法在其他应用中输入文字，因此“再次粘贴”会把文字拷贝到剪贴板。",
       "actions": {
         "call": "通话",
-        "hangup": "挂断",
-        "pet_toggle": "显示或隐藏宠物"
+        "hangup": "挂断"
       }
     }
   }

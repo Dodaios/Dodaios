@@ -436,7 +436,7 @@ export function VoiceBubble({
     };
   }, [mounted]);
 
-  // A mute from anywhere else (the desktop pet's speaker disc, another
+  // A mute from anywhere else (the Dodaios Bar's speaker control, another
   // window) arrives as the backend's VoiceSpeakerMuteChanged; mirror it.
   useEffect(() => {
     if (!mounted) return;

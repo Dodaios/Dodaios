@@ -26,7 +26,6 @@ def _app(*, bar_persistent: bool) -> DesktopApp:
             orb_style="jarvis_bar",
             bar_persistent=bar_persistent,
             bar_accent="#e7c46e",
-            orb_mascot_path="",
         )
     )
     return app

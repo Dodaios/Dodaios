@@ -11,7 +11,7 @@ from dodaios.ui.overlay_styles import OVERLAY_STYLES
 from dodaios.ui.web.settings_routes import router
 
 
-def _client(*, orb_style="mascot", desktop=None):
+def _client(*, orb_style="voice_orb", desktop=None):
     app = FastAPI()
     app.include_router(router)
     app.state.config = SimpleNamespace(
@@ -23,10 +23,10 @@ def _client(*, orb_style="mascot", desktop=None):
 
 
 def test_get_returns_current_and_options():
-    r = _client(orb_style="mascot").get("/api/settings/overlay-style")
+    r = _client(orb_style="voice_orb").get("/api/settings/overlay-style")
     assert r.status_code == 200
     body = r.json()
-    assert body["style"] == "mascot"
+    assert body["style"] == "voice_orb"
     assert body["options"] == list(OVERLAY_STYLES)
 
 
@@ -37,7 +37,13 @@ def test_put_rejects_unknown_style():
 
 @pytest.mark.parametrize(
     ("sent", "stored"),
-    [("whisper_bar", "jarvis_bar"), ("orb", "mascot"), ("Voice_Orb", "voice_orb")],
+    [
+        ("whisper_bar", "jarvis_bar"),
+        ("orb", "jarvis_bar"),
+        ("pet", "jarvis_bar"),
+        ("mascot", "jarvis_bar"),
+        ("Voice_Orb", "voice_orb"),
+    ],
 )
 def test_put_normalizes_legacy_and_cased_values(monkeypatch, sent, stored):
     # An old frontend bundle (or an old jarvis.toml round-trip) must not get a
@@ -63,7 +69,7 @@ def test_put_persists_and_live_applies(monkeypatch):
         return {"ok": True, "applied_live": True, "style": style}
 
     desktop = SimpleNamespace(swap_overlay=swap_overlay)
-    r = _client(orb_style="mascot", desktop=desktop).put(
+    r = _client(orb_style="voice_orb", desktop=desktop).put(
         "/api/settings/overlay-style", json={"style": "jarvis_bar", "persist": True}
     )
     assert r.status_code == 200
@@ -80,7 +86,7 @@ def test_put_without_desktop_app_persists_but_needs_restart(monkeypatch):
     import dodaios.core.config_writer as cw
 
     monkeypatch.setattr(cw, "set_overlay_style", lambda style, **k: None)
-    r = _client(orb_style="mascot").put(  # no desktop_app on app.state
+    r = _client(orb_style="voice_orb").put(  # no desktop_app on app.state
         "/api/settings/overlay-style", json={"style": "none", "persist": True}
     )
     assert r.status_code == 200

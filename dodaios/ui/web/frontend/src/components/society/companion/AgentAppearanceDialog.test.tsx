@@ -10,7 +10,7 @@ vi.mock("./CompanionPreview", () => ({ CompanionPreview: () => <div data-testid=
 vi.mock("../figures/AgentFigureViewer", () => ({ AgentFigureViewer: () => <div data-testid="character-preview" /> }));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-const PETS = { active: "gigi", scale: 1, bubble: true, strip_always: false, visible: true, pets: ["gigi", ...DEFAULT_PETS].map(id => ({
+const PETS = { active: "gigi", pets: ["gigi", ...DEFAULT_PETS].map(id => ({
   id, name: id, description: "", builtin: true, frame_size: 48, animations: { idle: { row: 0, frames: 1, fps: 1, loop: true } }, sheet_url: `/api/pets/${id}/sheet.png`,
 })) };
 

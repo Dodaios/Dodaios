@@ -120,15 +120,9 @@ class TkColorKeyOverlay:
         sticky: bool = False,
         mic_reactive: bool = False,
         style: str | None = None,
-        mascot_path: str | None = None,
     ) -> None:
         self._inner = inner
-        self._inner_kwargs = dict(
-            sticky=sticky,
-            mic_reactive=mic_reactive,
-            style=style,
-            mascot_path=mascot_path,
-        )
+        self._inner_kwargs = dict(sticky=sticky, mic_reactive=mic_reactive, style=style)
         self._started = False
         self._visible = False
         self._state = "idle"
