@@ -1428,6 +1428,39 @@
       "post_install_hint_md": "Sign in to the Granola account containing your meeting notes. Available notes and transcripts follow your account permissions and plan."
     },
     {
+      "id": "buffer",
+      "display_name": "Buffer",
+      "description": "Draft, schedule and review social media posts across your Buffer channels",
+      "category": "Media & Creativity",
+      "logo_slug": "buffer",
+      "logo_color": "231F20",
+      "featured": false,
+      "longevity": "self_renewing",
+      "auth": {
+        "mode": "hosted_mcp_oauth_dcr",
+        "mcp_url": "https://mcp.buffer.com/mcp",
+        "discovery_url": "https://mcp.buffer.com/.well-known/oauth-protected-resource/mcp",
+        "refresh_supported": true,
+        "scopes": [
+          "offline_access",
+          "account:read",
+          "posts:read",
+          "posts:write",
+          "ideas:read",
+          "ideas:write",
+          "snippets:read",
+          "snippets:write"
+        ]
+      },
+      "mcp_server": {
+        "transport": "http",
+        "url": "https://mcp.buffer.com/mcp",
+        "auth_header_template": "Authorization: Bearer $plugin_buffer_access_token",
+        "risk_tier": "ask"
+      },
+      "post_install_hint_md": "Sign in to the Buffer account whose channels you want to post to. The connection covers every organization and channel of that account; posts are scheduled or published only after you approve them."
+    },
+    {
       "id": "zoom",
       "display_name": "Zoom",
       "description": "Create meetings and find cloud recordings and transcript links",

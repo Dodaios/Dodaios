@@ -2174,6 +2174,55 @@
       }
     },
     {
+      "plugin_id": "buffer",
+      "result": "BLOCKED",
+      "config_fingerprint": "0e33bd14b2d2abbeb8250847aeffdf81aa59cfb1fd38c38467719388478eb6de",
+      "initial_state": "connect_attempt",
+      "evidence": {
+        "ui": {
+          "status": "BLOCKED",
+          "detail": "Not run yet: the Buffer journey needs the account holder's own sign-in in the Dev app.",
+          "reference": "docs/marketplace/plugin-auth-audit.md#audit-matrix"
+        },
+        "browser": {
+          "status": "BLOCKED",
+          "detail": "Not run yet: the Buffer journey needs the account holder's own sign-in in the Dev app.",
+          "reference": "docs/marketplace/plugin-auth-audit.md#audit-matrix"
+        },
+        "callback": {
+          "status": "BLOCKED",
+          "detail": "Not run yet: the Buffer journey needs the account holder's own sign-in in the Dev app.",
+          "reference": "docs/marketplace/plugin-auth-audit.md#audit-matrix"
+        },
+        "connected": {
+          "status": "BLOCKED",
+          "detail": "Not run yet: the Buffer journey needs the account holder's own sign-in in the Dev app.",
+          "reference": "docs/marketplace/plugin-auth-audit.md#audit-matrix"
+        },
+        "smoke": {
+          "status": "BLOCKED",
+          "detail": "Not run yet: the Buffer journey needs the account holder's own sign-in in the Dev app.",
+          "reference": "docs/marketplace/plugin-auth-audit.md#audit-matrix"
+        },
+        "reconnect": {
+          "status": "BLOCKED",
+          "detail": "Not run yet: the Buffer journey needs the account holder's own sign-in in the Dev app.",
+          "reference": "docs/marketplace/plugin-auth-audit.md#audit-matrix"
+        },
+        "restart": {
+          "status": "BLOCKED",
+          "detail": "Not run yet: the Buffer journey needs the account holder's own sign-in in the Dev app.",
+          "reference": "docs/marketplace/plugin-auth-audit.md#audit-matrix"
+        }
+      },
+      "blocker": {
+        "reason": "New built-in plugin; the real browser journey has not been run yet.",
+        "owner": "Buffer account holder (repository owner).",
+        "next_action": "Connect Buffer in the Dev app for this pull request, sign in at auth.buffer.com, run a read-only buffer/get_account call, reconnect and restart.",
+        "evidence": "Probe 2026-11-14: mcp.buffer.com/mcp answers 401 with RFC 9728 metadata; auth.buffer.com offers DCR (/reg), PKCE S256 and refresh tokens."
+      }
+    },
+    {
       "plugin_id": "zoom",
       "result": "BLOCKED",
       "config_fingerprint": "ca691c87a94730a5e8d8c5ba9e06b34e27f233912a5c6f23a84972f385b740c3",
