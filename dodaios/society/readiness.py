@@ -220,7 +220,7 @@ async def _seat_blocker(rt: Any, agent: Any, task_id: str) -> dict[str, Any] | N
     try:
         # Creation answers a person or a turn: a slow provider probe reads as unknown.
         reason = await asyncio.wait_for(probe(), timeout=_SEAT_TIMEOUT_S)
-    except (RuntimeError, BackgroundDeferred) as exc:
+    except (RuntimeError, BackgroundDeferred) as exc:  # the run's own refusal is the answer
         reason = str(exc)
     except Exception:  # noqa: BLE001 — an unknown answer is never a blocker
         log.debug("society readiness: seat check inconclusive", exc_info=True)
