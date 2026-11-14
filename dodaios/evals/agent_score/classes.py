@@ -73,6 +73,7 @@ TOOL_CLASS: Final[dict[str, str]] = {
     "living_page": "artifacts",
     "write_report": "artifacts",
     "node": "artifacts",
+    "whiteboard": "artifacts",
     "slack": "messaging",
     "reply": "messaging",
     "home_assistant": "other",

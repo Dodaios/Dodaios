@@ -11885,6 +11885,23 @@
       "hint": "Clica num texto e escreve. Fica guardado ao sair do campo; Esc desfaz.",
       "saving": "A guardar…",
       "failed": "Não foi possível guardar."
+    },
+    "whiteboard": {
+      "new": "Novo quadro branco",
+      "new_failed": "Não foi possível criar o quadro branco. Tente novamente daqui a pouco.",
+      "loading": "A abrir o quadro…",
+      "load_failed": "Não foi possível abrir o quadro.",
+      "retry": "Tentar novamente",
+      "saving": "A guardar…",
+      "saved": "Guardado",
+      "save_failed": "Ainda não foi guardado. Volta a tentar sozinho.",
+      "welcome": {
+        "heading": "Desenhe, escreva e ligue. Este quadro guarda-se sozinho.",
+        "assistant": "Ou peça a {assistant} para desenhar algo aqui.",
+        "menu": "Abrir, exportar como imagem, fundo, ajuda",
+        "toolbar": "Escolha uma ferramenta e comece",
+        "help": "Atalhos de teclado"
+      }
     }
   },
   "agent_browser": {

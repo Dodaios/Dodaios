@@ -11885,6 +11885,23 @@
       "hint": "Klicke auf einen Text und schreibe. Gespeichert wird beim Verlassen des Feldes; Esc nimmt es zurück.",
       "saving": "Wird gespeichert …",
       "failed": "Das ließ sich nicht speichern."
+    },
+    "whiteboard": {
+      "new": "Neues Whiteboard",
+      "new_failed": "Das Whiteboard konnte nicht angelegt werden. Versuch es gleich noch einmal.",
+      "loading": "Das Board wird geöffnet …",
+      "load_failed": "Das Board konnte nicht geöffnet werden.",
+      "retry": "Noch einmal",
+      "saving": "Wird gespeichert …",
+      "saved": "Gespeichert",
+      "save_failed": "Noch nicht gespeichert. Es versucht es von selbst noch einmal.",
+      "welcome": {
+        "heading": "Zeichnen, schreiben, verbinden. Dieses Board speichert sich selbst.",
+        "assistant": "Oder bitte {assistant}, hier etwas zu zeichnen.",
+        "menu": "Öffnen, als Bild exportieren, Hintergrund, Hilfe",
+        "toolbar": "Werkzeug wählen und loslegen",
+        "help": "Tastenkürzel"
+      }
     }
   },
   "agent_browser": {

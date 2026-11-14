@@ -185,6 +185,16 @@
   lang: de
   utterance: "Führe eine Seite, die meine Bewerbungen verfolgt und aktuell hält."
   expect: {tool: node, also_accept: [living_page]}
+- id: artifact-whiteboard-flow-en
+  category: mission_artifact
+  lang: en
+  utterance: "Draw our signup flow as a diagram on a whiteboard."
+  expect: {tool: whiteboard, also_accept: [node]}
+- id: artifact-whiteboard-flow-de
+  category: mission_artifact
+  lang: de
+  utterance: "Zeichne unseren Bestellablauf als Diagramm auf ein Whiteboard."
+  expect: {tool: whiteboard, also_accept: [node]}
 - id: mission-list-active-en
   category: mission_artifact
   lang: en

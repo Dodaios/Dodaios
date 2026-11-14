@@ -11885,6 +11885,23 @@
       "hint": "Haz clic en un texto y escribe. Se guarda al salir del campo; Esc lo deshace.",
       "saving": "Guardando…",
       "failed": "No se pudo guardar."
+    },
+    "whiteboard": {
+      "new": "Nueva pizarra",
+      "new_failed": "No se pudo crear la pizarra. Inténtalo de nuevo en un momento.",
+      "loading": "Abriendo la pizarra…",
+      "load_failed": "No se pudo abrir la pizarra.",
+      "retry": "Reintentar",
+      "saving": "Guardando…",
+      "saved": "Guardado",
+      "save_failed": "Aún no se ha guardado. Lo volverá a intentar por sí solo.",
+      "welcome": {
+        "heading": "Dibuja, escribe y conecta. Esta pizarra se guarda sola.",
+        "assistant": "O pide a {assistant} que dibuje algo aquí.",
+        "menu": "Abrir, exportar como imagen, fondo, ayuda",
+        "toolbar": "Elige una herramienta y empieza",
+        "help": "Atajos de teclado"
+      }
     }
   },
   "agent_browser": {

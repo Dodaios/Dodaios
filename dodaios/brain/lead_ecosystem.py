@@ -115,7 +115,7 @@ AREAS: Final[tuple[Area, ...]] = (
         "what you and the agents made for the person: nodes (docs, slides, sheets, "
         "dashboards, boards), mission outputs, files, reports and living pages",
         reads=("artifacts", "missions-list"),
-        acts=("node", "write_report", "living_page", "create_artifact"),
+        acts=("node", "whiteboard", "write_report", "living_page", "create_artifact"),
     ),
     Area(
         "Automations",

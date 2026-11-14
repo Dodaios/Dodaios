@@ -163,7 +163,8 @@ _SHARED_PREAMBLE: Final[str] = (
 #: that chains several apps runs to the end in one turn, outgoing parts stay
 #: drafts unless the person said to send, and the turn ends with ONE summary
 #: plus the result card (``show_result_card``). Something to keep and look at
-#: is a node (``node``); kept current, it is a node with ``keep_current``.
+#: is a node (``node``); kept current, it is a node with ``keep_current``; a
+#: whiteboard is drawn with ``whiteboard``.
 ACTING_PREAMBLE: Final[str] = (
     "Requests across apps: when one request chains several apps (\"turn this mail into a "
     "calendar event and a task, and draft the reply\"), do every step in this turn with "
@@ -175,7 +176,8 @@ ACTING_PREAMBLE: Final[str] = (
     "for their go, and call show_result_card once with each thing (kind, label, state, "
     "and the link the app returned). Something the person wants to keep and look at (a "
     "document, a deck, a sheet, a dashboard, a whiteboard, a designed page, a short "
-    "animation) is a node: make it with the node tool. A list or numbers to keep current "
+    "animation) is a node: make it with the node tool (draw a whiteboard with the "
+    "whiteboard tool). A list or numbers to keep current "
     "is a node with keep_current: read the items first."
 )
 

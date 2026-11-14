@@ -1955,6 +1955,8 @@ def test_router_tools_is_pure_dispatcher_set() -> None:
             "write-report",
             # Nodes (2026-11-13): typed pages rendered from a spec. Never spawns.
             "node",
+            # Whiteboards (2026-11-14): actions on a whiteboard node's scene. Never spawns.
+            "whiteboard",
             # Jobs ledger (2026-11-10): read-only status / wait on started work.
             "job-status",
             "await-jobs",

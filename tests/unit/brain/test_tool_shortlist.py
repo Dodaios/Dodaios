@@ -536,12 +536,12 @@ async def test_a_deferred_tool_is_found_and_runs_in_the_same_turn() -> None:
     assert ran.success
 
 
-def test_the_node_tool_is_direct_and_sits_after_the_frozen_prefix() -> None:
+def test_the_node_tools_are_direct_and_sit_after_the_frozen_prefix() -> None:
     from dodaios.brain.tool_shortlist import DEFAULT_DIRECT, LEAD_DIRECT
 
-    # Appended at the very end: every schema before it keeps its cached place.
-    assert DEFAULT_DIRECT[-2:] == ("write_report", "node")
-    assert LEAD_DIRECT[-1] == "node"
+    # Appended at the very end: every schema before them keeps its cached place.
+    assert DEFAULT_DIRECT[-3:] == ("write_report", "node", "whiteboard")
+    assert LEAD_DIRECT[-2:] == ("node", "whiteboard")
     assert len(set(DEFAULT_DIRECT)) == len(DEFAULT_DIRECT)
 
 
