@@ -76,8 +76,9 @@ TYPE_LINES: Final[dict[str, str]] = {
 
 #: What a create tells the model to do before it answers.
 _CHECK_IT: Final[str] = (
-    "Before you answer, call 'look' on it and judge the pictures; fix what is weak "
-    "with 'update' and look again."
+    "Before you answer, call this tool with operation 'look' and this node, and judge "
+    "the pictures; fix what is weak with 'update' and look again. ('look' is valid "
+    "even if a copy of this tool's schema from earlier in the conversation lacks it.)"
 )
 #: What a look asks the model to judge in its pictures.
 _JUDGE_IT: Final[str] = (

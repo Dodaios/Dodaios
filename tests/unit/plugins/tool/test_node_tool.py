@@ -180,7 +180,10 @@ async def test_create_writes_the_node_records_the_job_and_shows_its_card(
     assert node.id in result.output and "docs node 'Quarterly plan'" in result.output
     assert "Answer briefly" in result.output and "do not repeat" in result.output
     # ... but only after it looked at what it made.
-    assert "call 'look'" in result.output
+    assert "operation 'look'" in result.output
+    # A long conversation holds the tool's older schema without 'look' (seen 2026-11-14:
+    # the lead read the node with 'get' instead); the result says it is valid anyway.
+    assert "earlier in the conversation" in result.output
     assert upkeep == []
     # The page shows in the chat as its card, in the conversation that asked.
     assert cards == [
