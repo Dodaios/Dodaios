@@ -11696,7 +11696,7 @@
         "slides": "Für eine Geschichte Seite für Seite: ein Pitch, ein Briefing, ein Rückblick.",
         "sheets": "Für Zeilen und Spalten: Listen, Budgets, Vergleiche, Übersichten.",
         "design": "Für eine gestaltete Seite: ein One-Pager, ein Plakat, eine Einladung.",
-        "data": "Für Zahlen auf einen Blick: Kennzahlen und Diagramme auf einer Tafel.",
+        "data": "Analysen aus deinen Daten: Dateien, Apps, Konten, Portfolios. Auf Wunsch immer aktuell.",
         "whiteboard": "Zum Denken mit Notizzetteln: Ideen, Gruppen, ein Plan an der Wand.",
         "motion": "Für einen kurzen Film: ein Vorspann, eine animierte Erklärung."
       },
@@ -11705,7 +11705,7 @@
         "slides": "z. B. Zehn Folien zum letzten Quartal für das Teammeeting am Montag",
         "sheets": "z. B. Unsere Abos mit Monatskosten, Verlängerungsdatum und Zuständigen",
         "design": "z. B. Eine Einladung zum Sommerfest am 12. Juli, warm und schlicht",
-        "data": "z. B. Umsatz, Bestellungen und Retouren pro Monat in diesem Jahr",
+        "data": "z. B. Wert und Entwicklung meines Portfolios, je Position und über die Zeit",
         "whiteboard": "z. B. Ideen für den Produktstart, nach Kanal gruppiert",
         "motion": "z. B. Ein 20-Sekunden-Vorspann für das Produktvideo mit unseren drei Kernaussagen"
       },
@@ -11731,9 +11731,9 @@
           "c": "Eine Speisekarte für ein Abendessen"
         },
         "data": {
-          "a": "Umsatz pro Monat als Dashboard",
-          "b": "Website-Besuche der letzten 90 Tage",
-          "c": "Kennzahlen meines Projekts"
+          "a": "Mein Portfolio: Wert, Positionen und Entwicklung",
+          "b": "Bestellungen und Umsatz pro Monat aus meinem Shop",
+          "c": "Diagramme aus einer CSV- oder Excel-Datei"
         },
         "whiteboard": {
           "a": "Namen für ein Produkt sammeln",
@@ -11760,6 +11760,38 @@
         "data": "Unbenannte Analyse",
         "whiteboard": "Unbenanntes Whiteboard",
         "motion": "Unbenannter Clip"
+      },
+      "data": {
+        "sources_label": "Woher kommen die Daten?",
+        "sources_placeholder": "z. B. die Datei bestellungen.csv in Downloads, meine Notion-Datenbank „Projekte“, mein Portfolio",
+        "sources_hint": "{name} liest diese Quellen selbst und ändert nichts daran.",
+        "chips_label": "Häufige Quellen",
+        "chips": {
+          "file": "Eine CSV- oder Excel-Datei",
+          "notion": "Notion",
+          "sheets": "Google Sheets",
+          "shop": "Shopify",
+          "portfolio": "Mein Portfolio",
+          "web": "Kurse aus dem Web"
+        },
+        "live_label": "Automatisch aktuell halten",
+        "live_detail": "{name} prüft die Quellen regelmäßig und aktualisiert die Analyse, wenn sich die Daten ändern.",
+        "every_label": "Wie oft",
+        "every": {
+          "15": "Alle 15 Min.",
+          "60": "Stündlich",
+          "180": "Alle 3 Std.",
+          "1440": "Täglich"
+        },
+        "request_every": {
+          "15": "alle 15 Minuten",
+          "60": "jede Stunde",
+          "180": "alle 3 Stunden",
+          "1440": "einmal am Tag"
+        },
+        "request_sources": "Lies die Daten aus: {0}.",
+        "request_live": "Halte sie automatisch aktuell: prüfe die Quellen {0} und aktualisiere sie, wenn sich die Daten ändern.",
+        "default_about": "eine Analyse dieser Daten"
       }
     },
     "menu": {

@@ -29,7 +29,7 @@ import { NodesLibrary } from "./NodesLibrary";
 import { useNodesLibrary } from "./useNodesLibrary";
 
 const chat = vi.hoisted(() => ({
-  requestNewNode: vi.fn(async (_type: string, _text: string) => undefined),
+  requestNewNode: vi.fn(async (_type: string, _text: string, _analytics?: unknown) => undefined),
   askDodaiosToChange: vi.fn(async () => undefined),
 }));
 // The real module opens the chat store; the library only needs its two calls.
@@ -478,7 +478,7 @@ describe("NodesLibrary", () => {
     fireEvent.click(within(dialog).getByTestId("new-node-create"));
 
     await waitFor(() => expect(shownKeys()[0]).toMatch(/^pending:/));
-    expect(chat.requestNewNode).toHaveBeenCalledWith("sheets", "A budget for this year by month and by team");
+    expect(chat.requestNewNode).toHaveBeenCalledWith("sheets", "A budget for this year by month and by team", undefined);
     expect(screen.queryByTestId("new-node-dialog")).toBeNull();
 
     const placeholder = cards()[0];

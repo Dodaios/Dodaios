@@ -9,6 +9,10 @@
  * from a blank), the secondary action creates a starter node of the type and
  * opens it.
  *
+ * An Analytics node also asks where its data comes from and whether the
+ * assistant should keep it current (`AnalyticsFields`); both go into the
+ * request.
+ *
  * A request that could not be sent keeps the dialog open with what was
  * typed and says so.
  */
@@ -20,7 +24,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useT, useUiLanguage } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { requestNewNode } from "./askDodaios";
+import { AnalyticsFields, DEFAULT_ANALYTICS_CADENCE, type AnalyticsCadence } from "./AnalyticsFields";
+import { requestNewNode, type AnalyticsRequest } from "./askDodaios";
 import { NODE_TYPES, type NodeCard, type NodeType } from "./nodeModel";
 import { NODE_TYPE_LABEL_KEY, nodeHueStyle } from "./nodeTheme";
 import { NodeTypeIcon } from "./NodeTypeIcon";
@@ -100,12 +105,20 @@ function NewNodeForm({
   const language = useUiLanguage();
   const actions = useNodeActions();
   const [text, setText] = useState("");
+  // Analytics only: where the data comes from, and whether it stays current.
+  const [sources, setSources] = useState("");
+  const [live, setLive] = useState(false);
+  const [every, setEvery] = useState<AnalyticsCadence>(DEFAULT_ANALYTICS_CADENCE);
   const [error, setError] = useState<string | null>(null);
   /** Which of the two actions is under way, for its spinner. */
   const [working, setWorking] = useState<"request" | "empty" | null>(null);
   const field = useRef<HTMLTextAreaElement>(null);
 
   const request = text.trim();
+  const analytics: AnalyticsRequest | undefined =
+    type === "data" ? { sources, everyMinutes: live ? every : null } : undefined;
+  // An analysis can be asked for by its sources alone ("my portfolio").
+  const canRequest = request !== "" || (analytics !== undefined && sources.trim() !== "");
   const typeName = t(NODE_TYPE_LABEL_KEY[type]);
 
   const begin = (which: "request" | "empty") => {
@@ -120,10 +133,10 @@ function NewNodeForm({
   };
 
   const createWithAssistant = async () => {
-    if (busy || request === "") return;
+    if (busy || !canRequest) return;
     begin("request");
     try {
-      await requestNewNode(type, request);
+      await requestNewNode(type, request, analytics);
     } catch {
       // Nothing reached the assistant: the dialog stays, with what was typed.
       fail(t("nodes.new.send_failed"));
@@ -131,7 +144,7 @@ function NewNodeForm({
     }
     setWorking(null);
     onBusy(false);
-    onRequested(type, request);
+    onRequested(type, request || sources.trim());
     onClose();
   };
 
@@ -259,6 +272,21 @@ function NewNodeForm({
         })}
       </ul>
 
+      {type === "data" && (
+        <AnalyticsFields
+          sources={sources}
+          onSources={(value) => {
+            setSources(value);
+            setError(null);
+          }}
+          live={live}
+          onLive={setLive}
+          every={every}
+          onEvery={setEvery}
+          disabled={busy}
+        />
+      )}
+
       {error && (
         <p role="alert" className="mt-4 text-sm text-destructive" data-testid="new-node-error">
           {error}
@@ -278,7 +306,7 @@ function NewNodeForm({
         </Button>
         <Button
           type="button"
-          disabled={busy || request === ""}
+          disabled={busy || !canRequest}
           onClick={() => void createWithAssistant()}
           data-testid="new-node-create"
         >

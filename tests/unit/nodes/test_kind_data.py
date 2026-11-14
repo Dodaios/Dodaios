@@ -122,6 +122,25 @@ def test_normalize_is_idempotent_and_drops_unknown_keys() -> None:
     assert spec["sections"][1]["tables"][0]["rows"][2] == ["Carafe", 97.5, "–", "2025-06-30"]
 
 
+def test_sources_are_named_once_clipped_and_capped() -> None:
+    spec = data.normalize(
+        {
+            "sources": [" orders.csv ", "Notion: Projects", "ORDERS.CSV", "", 7, None, "x" * 200]
+            + [f"Source {n}" for n in range(20)],
+            "metrics": [{"label": "A", "value": "1"}],
+        }
+    )
+    sources = spec["sources"]
+    assert sources[:3] == ["orders.csv", "Notion: Projects", "7"]
+    assert len(sources[3]) <= data.MAX_SOURCE_CHARS
+    assert len(sources) == data.MAX_SOURCES
+    assert list(spec) == ["summary", "sources", "sections"]
+    assert data.normalize(spec) == spec
+    # One source may come as a plain string.
+    lone = data.normalize({"sources": "My portfolio", "metrics": [{"label": "A", "value": "1"}]})
+    assert lone["sources"] == ["My portfolio"]
+
+
 def test_top_level_parts_become_one_untitled_first_section() -> None:
     spec = data.normalize(
         {
@@ -256,8 +275,11 @@ def test_starter_and_example_are_valid_specs() -> None:
 
 
 def test_guide_is_compact_and_carries_the_example() -> None:
-    assert len(data.GUIDE) <= 2_500
+    # The grammar plus the rule that an analysis is read from real sources.
+    assert len(data.GUIDE) <= 3_200
     assert json.dumps(data.EXAMPLE, ensure_ascii=False) in data.GUIDE
+    assert "Never invent" in data.GUIDE and "'track'" in data.GUIDE
+    assert data.normalize(data.EXAMPLE)["sources"]
     assert kind_of("data").guide == data.GUIDE
     assert kind_of("dashboard").render is data.render
 
@@ -295,6 +317,17 @@ def test_a_full_dashboard_shows_every_part() -> None:
     assert '<div class="legend">' in body
     assert "<h3>Top products</h3>" in body
     assert '<table class="table" data-sort>' in body
+
+
+def test_the_sources_are_named_under_the_summary() -> None:
+    spec = data.normalize({**FULL, "sources": ["orders.csv", "Notion: Projects"]})
+    body = _body(data.render(_node(spec)))
+    row = body[body.index('<ul class="dash-sources">') :]
+    assert body.index('class="summary"') < body.index('<ul class="dash-sources">')
+    assert '<li class="icon" aria-hidden="true"><svg ' in row
+    assert "<li>orders.csv</li><li>Notion: Projects</li></ul>" in row
+    # Without sources there is no row.
+    assert "dash-sources" not in _body(data.render(_node(data.normalize(FULL))))
 
 
 def test_deltas_take_the_kit_tone_and_no_color_of_their_own() -> None:
@@ -394,6 +427,7 @@ def test_no_text_field_reaches_the_page_unescaped(payload: str) -> None:
     spec = data.normalize(
         {
             "summary": payload,
+            "sources": [payload],
             "sections": [
                 {
                     "title": payload,
@@ -424,7 +458,8 @@ def test_no_text_field_reaches_the_page_unescaped(payload: str) -> None:
     assert "<img src=x" not in html
     assert "onerror=alert(1)>" not in html
     assert 'href="javascript:' not in html
-    assert _body(html).count("<svg ") == 1
+    # The one line chart, and the icon in front of the sources.
+    assert _body(html).count("<svg ") == 2
 
 
 # -------------------------------------------------------------------- preview
@@ -522,6 +557,8 @@ def _fields(spec: dict[str, Any], **more: Any) -> dict[str, Any]:
 def test_every_text_offered_for_editing_is_the_value_the_spec_holds(spec: dict[str, Any]) -> None:
     fields = _fields(spec)
     assert "@title" in fields
+    for index in range(len(spec.get("sources", []))):
+        assert f"/sources/{index}" in fields
     # Every metric, column and cell the spec holds is offered.
     for s, section in enumerate(spec["sections"]):
         for m, metric in enumerate(section["metrics"]):
