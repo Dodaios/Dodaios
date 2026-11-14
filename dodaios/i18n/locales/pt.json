@@ -525,6 +525,18 @@
         "failing": "A tarefa agendada {name} começou a falhar.",
         "recovered": "A tarefa agendada {name} voltou a funcionar."
       }
+    },
+    "bar": {
+      "mic_mute": "Silenciar microfone",
+      "mic_unmute": "Ativar microfone",
+      "talk": "Falar com {assistant}",
+      "hang_up": "Desligar",
+      "speaker_mute": "Silenciar voz",
+      "speaker_unmute": "Ativar voz",
+      "compose": "Novo chat",
+      "stop_dictation": "Parar ditado",
+      "prompt_pause": "Pausar modo prompt",
+      "prompt_resume": "Retomar modo prompt"
     }
   },
   "harness": {

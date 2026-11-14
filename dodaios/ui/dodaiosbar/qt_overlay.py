@@ -47,7 +47,7 @@ UI_QUEUE_INTERVAL_MS = 20
 Z_ORDER_GUARD_INTERVAL_MS = 500
 HOVER_POLL_INTERVAL_MS = 32
 DRAG_THRESHOLD_PX = 16
-MARGIN_PX = 12
+MARGIN_PX = 4
 TASKBAR_GAP_PX = 8
 HANGUP_CLICK_GUARD_S = 1.0
 # How long after a file drop the bar keeps ignoring clicks. Mirrors the Tk bar's
@@ -560,6 +560,11 @@ class QtJarvisBarOverlay:
         self._muted = bool(muted)
         self._invalidate_static_frame()
 
+    def set_language(self, language: str) -> None:
+        """The interface language for the control labels (atomic write)."""
+        self._language = str(language or "en")
+        self._invalidate_static_frame()
+
     def set_prompt_mode(self, enabled: bool, paused: bool = False) -> None:
         self._prompt_mode = bool(enabled)
         self._prompt_mode_paused = bool(paused)
@@ -860,6 +865,7 @@ class QtJarvisBarOverlay:
                 drop_state=drop_visual,
                 drop_elapsed=now - self._drop_visual_t0,
                 connect_look=connect_look,
+                language=getattr(self, "_language", "en"),
             )
             # The frame is drawn at the screen's pixel density (sharp on a
             # Retina display); the input mask is in window points.
@@ -1171,8 +1177,12 @@ class QtJarvisBarOverlay:
                 bar_h=renderer.WIN_H,
                 margin=MARGIN_PX,
             )
-        x = geometry.x() + (geometry.width() - renderer.WIN_W) // 2
-        y = geometry.y() + geometry.height() - renderer.WIN_H - TASKBAR_GAP_PX
+        x, y = interaction.default_side_spot(
+            work=_geometry_bounds(geometry),
+            bar_w=renderer.WIN_W,
+            bar_h=renderer.WIN_H,
+            margin=MARGIN_PX,
+        )
         return self._clamp_to_geometry_ui(x, y, geometry)
 
     def _resolve_position_ui(self) -> None:
@@ -1257,15 +1267,13 @@ class QtJarvisBarOverlay:
         try:
             old_win_w, old_win_h = renderer.WIN_W, renderer.WIN_H
             renderer.apply_display_scale(self._screen_scale, user_size=user_scale)
-            # Re-anchor the PREFERRED location by its bottom-centre so the bar
-            # grows upward; the Dock-safe reconcile then clamps the actual spot.
+            # Re-anchor the PREFERRED location by its left edge and its middle:
+            # the upright bar grows to the right and evenly up and down. The
+            # Dock-safe reconcile then clamps the actual spot.
+            del old_win_w
             pref = self._preferred_position or (self._x, self._y)
-            center_x = pref[0] + old_win_w / 2.0
-            bottom_y = pref[1] + old_win_h
-            self._preferred_position = (
-                round(center_x - renderer.WIN_W / 2.0),
-                round(bottom_y - renderer.WIN_H),
-            )
+            middle_y = pref[1] + old_win_h / 2.0
+            self._preferred_position = (pref[0], round(middle_y - renderer.WIN_H / 2.0))
             window.setFixedSize(renderer.WIN_W, renderer.WIN_H)
             self._reconcile_dynamic_position_ui()
             # The bar size changed, so the relative-spot basis changed: refresh
@@ -1627,7 +1635,7 @@ class QtJarvisBarOverlay:
 
     def _reset_position_ui(self) -> None:
         # Reset onto the monitor the bar sits on — or, in follow mode, the one
-        # under the mouse — not always the primary. Bottom-centre of that screen.
+        # under the mouse — not always the primary. Left edge, middle height.
         geometry: Any = None
         if self._follow_cursor:
             geometry = self._cursor_screen_geometry_ui(respect_visible_dock=False)
@@ -1639,9 +1647,12 @@ class QtJarvisBarOverlay:
                 respect_visible_dock=False,
             )
         if geometry is not None:
-            gx, gy, gw, gh = _geometry_bounds(geometry)
-            x = gx + (gw - renderer.WIN_W) // 2
-            y = gy + gh - renderer.WIN_H - TASKBAR_GAP_PX
+            x, y = interaction.default_side_spot(
+                work=_geometry_bounds(geometry),
+                bar_w=renderer.WIN_W,
+                bar_h=renderer.WIN_H,
+                margin=MARGIN_PX,
+            )
             self._preferred_position = self._clamp_to_geometry_ui(x, y, geometry)
         else:
             self._preferred_position = self._default_position_ui()

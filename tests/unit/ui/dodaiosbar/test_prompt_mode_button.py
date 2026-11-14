@@ -41,8 +41,9 @@ class _FakePipeline:
         ...
 
 
-def _sparkle_x() -> float:
-    return R.control_center("prompt", "idle", prompt_mode=True)[0]
+def _sparkle_x() -> dict:
+    x, y = R.control_center("prompt", "idle", prompt_mode=True)
+    return {"click_x": x, "click_y": y}
 
 
 def _patch_pipeline(monkeypatch, fake) -> None:
@@ -70,13 +71,13 @@ def test_the_click_pauses_and_a_second_click_brings_it_back(monkeypatch) -> None
     fake = _FakePipeline()
     _patch_pipeline(monkeypatch, fake)
 
-    bar._on_click(_sparkle_x(), hovered=True)
+    bar._on_click(**_sparkle_x(), hovered=True)
     assert fired == [1]
     assert bar._prompt_mode_paused is True  # struck through on the next frame
     assert bar._prompt_mode is True, "the SETTING must survive a pause"
     assert fake.session_calls == 0  # the control is not a session start
 
-    bar._on_click(_sparkle_x(), hovered=True)
+    bar._on_click(**_sparkle_x(), hovered=True)
     assert fired == [1, 1]
     assert bar._prompt_mode_paused is False  # ...and back, in one click
     assert bar._prompt_mode is True
@@ -88,7 +89,7 @@ def test_no_callback_means_no_false_pause(monkeypatch) -> None:
     bar = JarvisBarOverlay()
     bar.set_prompt_mode(True)
     _patch_pipeline(monkeypatch, _FakePipeline())
-    bar._on_click(_sparkle_x(), hovered=True)
+    bar._on_click(**_sparkle_x(), hovered=True)
     assert bar._prompt_mode_paused is False
 
 

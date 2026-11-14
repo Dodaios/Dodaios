@@ -20,7 +20,7 @@ import {
  * panel and the onboarding "System Style" step can render the same graphics
  * without one view importing the other. The mascot reuses the real Gigi SVG.
  *
- * The bar preview is the bar's own black pill with its white level bars.
+ * The bar preview is the bar's own upright black pill with its white level lines.
  *
  * These are still previews, not instruments: they animate nothing. Three
  * thumbnails oscillating side by side on a settings screen is noise, and with
@@ -49,39 +49,33 @@ export function StylePreview({ style }: { style: OverlayStyle }) {
   return <NonePreview />;
 }
 
-/** Resting heights of the preview's level bars: a voice, held still. */
-const BAR_PREVIEW_LEVELS = [0.15, 0.3, 0.55, 0.35, 0.8, 1, 0.7, 0.45, 0.6, 0.25, 0.15];
+/** Resting lengths of the preview's level lines: a voice, held still. */
+const BAR_PREVIEW_LEVELS = [0.15, 0.35, 0.6, 0.85, 1, 0.75, 0.5, 0.3, 0.15];
 
 /**
- * The Dodaios Bar as it looks while a voice runs: a black pill with white
- * level bars, the microphone on the left and the speaker on the right.
+ * The Dodaios Bar as it looks while a voice runs: a slim upright black pill
+ * at the screen edge with a stack of short white lines.
  */
 export function BarPreview() {
-  const barW = 2.4;
-  const gap = 3.1;
-  const rowW = BAR_PREVIEW_LEVELS.length * barW + (BAR_PREVIEW_LEVELS.length - 1) * gap;
-  const startX = 48 - rowW / 2;
+  const thick = 1.6;
+  const gap = 2.2;
+  const stack = BAR_PREVIEW_LEVELS.length * thick + (BAR_PREVIEW_LEVELS.length - 1) * gap;
+  const top = 19 - stack / 2;
   return (
     <div className="flex h-10 w-24 shrink-0 items-center justify-center" data-testid="jarvis-bar-preview">
-      <svg viewBox="0 0 96 26" width={88} height={24} aria-hidden>
-        <rect x={0.5} y={0.5} width={95} height={25} rx={12.5} fill="#0c0c0c" stroke="#424242" />
-        <g fill="none" stroke="#f4f4f4" strokeWidth={1.4} strokeLinecap="round">
-          <rect x={10.5} y={7} width={4} height={7.5} rx={2} />
-          <path d="M8.8 12.2a3.7 3.7 0 0 0 7.4 0M12.5 15.9v3" />
-          <path d="M87.4 9.6a4.4 4.4 0 0 1 0 6.8" />
-        </g>
-        <path d="M78 10.6h2.4l3-2.6v10l-3-2.6H78z" fill="#f4f4f4" />
+      <svg viewBox="0 0 16 38" width={16} height={38} aria-hidden>
+        <rect x={0.5} y={0.5} width={15} height={37} rx={7.5} fill="#0c0c0c" stroke="#4e4e4e" />
         <g fill="#f4f4f4" data-testid="bar-preview-levels">
           {BAR_PREVIEW_LEVELS.map((level, i) => {
-            const h = barW + (14 - barW) * level;
+            const len = thick + (9 - thick) * level;
             return (
               <rect
                 key={i}
-                x={startX + i * (barW + gap)}
-                y={13 - h / 2}
-                width={barW}
-                height={h}
-                rx={barW / 2}
+                x={8 - len / 2}
+                y={top + i * (thick + gap)}
+                width={len}
+                height={thick}
+                rx={thick / 2}
               />
             );
           })}

@@ -105,6 +105,8 @@ def dispatch(surface: Any, msg: dict[str, Any]) -> bool:
         _call(surface, "set_level", float(msg.get("level", 0.0)))
     elif op == "set_muted":
         _call(surface, "set_muted", bool(msg.get("muted", False)))
+    elif op == "set_language":
+        _call(surface, "set_language", str(msg.get("language", "en")))
     elif op == "set_prompt_mode":
         _call(
             surface,
