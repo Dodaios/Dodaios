@@ -277,12 +277,6 @@ function DesignTile({ design, active, busy, appearance, onPick, onRename, onDele
         className="relative block w-full rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <DesignPreview design={design} appearance={appearance} animate={hover || active} />
-        {active && (
-          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-            <Check className="h-3 w-3" aria-hidden />
-            {t("designs.active")}
-          </span>
-        )}
         {busy && (
           <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-scrim/30">
             <Loader2 className="h-5 w-5 animate-spin text-white" aria-hidden />
@@ -306,7 +300,15 @@ function DesignTile({ design, active, busy, appearance, onPick, onRename, onDele
               className="w-full rounded-md border border-border-strong bg-input px-2 py-0.5 text-base text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           ) : (
-            <p className="truncate text-base font-medium text-foreground">{name}</p>
+            <p className="flex items-center gap-2 text-base font-medium text-foreground">
+              <span className="truncate">{name}</span>
+              {active && (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
+                  <Check className="h-3 w-3" aria-hidden />
+                  {t("designs.active")}
+                </span>
+              )}
+            </p>
           )}
           <p className="line-clamp-2 text-sm text-muted-foreground">
             {missingSide ? t(appearance === "dark" ? "designs.only_light" : "designs.only_dark") : description}
