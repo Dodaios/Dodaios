@@ -33,10 +33,14 @@ find a confusing fork later.
 
 ## Former name
 
-Dodaios was called "Personal Jarvis" until October 2026. That is a historical statement
-only. "Jarvis" and "J.A.R.V.I.S." are third-party marks (among others, Marvel/Disney hold
-a JARVIS trademark); this project claims no rights in them and does not use them as its
-product name.
+Dodaios was called "Personal Jarvis" until October 2026. "Jarvis" and "J.A.R.V.I.S." are
+third-party marks (among others, Marvel/Disney hold a JARVIS trademark); this project
+claims no rights in them and does not use them as its product name.
+
+During the transition some technical names still carry the former name so that existing
+installs, scripts and links keep working: legacy download and package aliases, the
+`jarvis` commands, and internal identifiers such as file, registry and bundle names. They
+are being retired step by step ([docs/rename/migration-plan.md](docs/rename/migration-plan.md)).
 
 ## No affiliation
 

@@ -1,4 +1,4 @@
-# Sigstore keyless signing + SLSA L3 provenance for the Personal Jarvis
+# Sigstore keyless signing + SLSA L3 provenance for the Dodaios
 # quick-install one-liner.
 #
 # Trigger: a push of a tag matching v*.*.* (e.g. v0.2.0-supplychain-wave1).
