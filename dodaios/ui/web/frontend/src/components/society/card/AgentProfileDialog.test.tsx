@@ -16,7 +16,7 @@ const knowledge = { files: [
   { path: "skills/check/SKILL.md", name: "check/SKILL.md", kind: "skills", updated_ms: 3, size: 50 },
 ], learned_instructions: ["Check source dates."], reviews: { pending: 0, done: 1 }, last_review: { state: "done", updated_ms: 1000 } };
 
-const PETS = { active: "gigi", scale: 1, bubble: true, strip_always: false, visible: true, pets: ["gigi", "cocoa"].map(id => ({
+const PETS = { active: "gigi", pets: ["gigi", "cocoa"].map(id => ({
   id, name: id, description: "", builtin: true, frame_size: 48, animations: { idle: { row: 0, frames: 1, fps: 1, loop: true } }, sheet_url: `/api/pets/${id}/sheet.png`,
 })) };
 

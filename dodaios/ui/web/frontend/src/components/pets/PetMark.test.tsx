@@ -25,7 +25,7 @@ function pet(id: string): Pet {
 }
 
 function pets(active: string): PetsState {
-  return { active, scale: 1, bubble: true, strip_always: false, visible: true, pets: [pet("gigi"), pet("bolt")] };
+  return { active, pets: [pet("gigi"), pet("bolt")] };
 }
 
 /** A client already holding the pets answer, so nothing is fetched. */

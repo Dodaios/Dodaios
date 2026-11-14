@@ -17,8 +17,7 @@
       "paste_blocked": "«Pegar de nuevo» copia el texto al portapapeles porque no se puede escribir en otras apps.",
       "actions": {
         "call": "Llamar",
-        "hangup": "Colgar",
-        "pet_toggle": "Mostrar u ocultar la mascota"
+        "hangup": "Colgar"
       }
     }
   }

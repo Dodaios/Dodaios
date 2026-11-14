@@ -401,7 +401,7 @@ export function useWebSocket(): void {
           void queryClient.invalidateQueries({ queryKey: ["self-build"] });
         }
 
-        // The desktop pet's pen: the backend already raised this window; land
+        // A new-chat request from outside this window (the backend already raised it): land
         // on an empty typed chat with the caret in the composer. A detached
         // solo window is pinned to its section and stays where it is.
         if (env.event_name === "ComposeRequested" && !useEventStore.getState().solo) {

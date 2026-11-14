@@ -4,15 +4,6 @@ import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/re
 const send = vi.fn();
 const playDropConfirm = vi.fn();
 vi.mock("@/hooks/useWebSocket", () => ({ getWSClient: () => ({ send }) }));
-vi.mock("@/hooks/useOverlayStyle", () => ({
-  useOverlayStyle: () => ({
-    config: { style: "jarvis_bar", options: [] },
-    loading: false,
-    error: null,
-    refetch: vi.fn(),
-    saveStyle: vi.fn(),
-  }),
-}));
 vi.mock("@/lib/sound", () => ({ playDropConfirm: () => playDropConfirm() }));
 
 import { DodaiosDock, MISSION_DND_MIME } from "./DodaiosDock";

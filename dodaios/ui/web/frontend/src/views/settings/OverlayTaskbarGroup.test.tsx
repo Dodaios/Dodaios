@@ -21,7 +21,7 @@ vi.mock("@/components/MascotGigi", () => ({
 const overlayState = vi.hoisted(() => ({ style: "jarvis_bar" }));
 vi.mock("@/hooks/useOverlayStyle", () => ({
   useOverlayStyle: () => ({
-    config: { style: overlayState.style, options: ["jarvis_bar", "mascot", "none"] },
+    config: { style: overlayState.style, options: ["jarvis_bar", "voice_orb", "none"] },
     loading: false,
     error: null,
     saveStyle: vi.fn(),
@@ -63,7 +63,7 @@ describe("OverlayTaskbarGroup", () => {
   });
 
   it("does not offer bar-only controls for another display style", () => {
-    overlayState.style = "mascot";
+    overlayState.style = "voice_orb";
     render(<OverlayTaskbarGroup />);
     expect(screen.queryByText("taskbar_view.bar_persistent.title")).toBeNull();
     expect(screen.queryByText("taskbar_view.follow_cursor.title")).toBeNull();
@@ -102,7 +102,7 @@ describe("OverlayTaskbarGroup", () => {
       screen.getByText("settings_view.overlay_style.options.jarvis_bar"),
     ).toBeDefined();
     expect(
-      screen.getByText("settings_view.overlay_style.options.mascot"),
+      screen.getByText("settings_view.overlay_style.options.voice_orb"),
     ).toBeDefined();
     expect(
       screen.getByText("settings_view.overlay_style.options.none"),

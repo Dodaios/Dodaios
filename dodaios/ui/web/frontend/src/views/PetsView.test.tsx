@@ -26,18 +26,12 @@ interface Call {
 }
 
 /**
- * A stand-in for the pets, overlay-style and keybind endpoints that keeps
- * state, so a click followed by the refetch it triggers reads back what the
- * click wrote.
+ * A stand-in for the pets endpoints that keeps state, so a click followed by
+ * the refetch it triggers reads back what the click wrote.
  */
-function stubServer({ style = "pet" }: { style?: string } = {}) {
+function stubServer({ active = "gigi" }: { active?: string } = {}) {
   const state = {
-    active: "gigi",
-    scale: 1,
-    bubble: true,
-    strip_always: false,
-    visible: true,
-    style,
+    active,
     pets: [pet("gigi", "Gigi", true), pet("miso", "Miso", true), pet("u0123456789abcdef", "Pixel", false)],
   };
   const calls: Call[] = [];
@@ -56,46 +50,14 @@ function stubServer({ style = "pet" }: { style?: string } = {}) {
         typeof init?.body === "string" ? (JSON.parse(init.body) as Record<string, unknown>) : init?.body;
       calls.push({ method, url, body });
 
-      if (url === "/api/pets" && method === "GET") {
-        const { style: _style, ...rest } = state;
-        return json(rest);
-      }
+      if (url === "/api/pets" && method === "GET") return json(state);
       if (url === "/api/pets/active") {
         state.active = String((body as { pet_id: string }).pet_id);
-        return json({ ok: true });
-      }
-      if (url === "/api/pets/settings") {
-        Object.assign(state, body);
-        return json({ ok: true });
-      }
-      if (url === "/api/pets/visibility") {
-        state.visible = Boolean((body as { visible: boolean }).visible);
         return json({ ok: true });
       }
       if (url.startsWith("/api/pets/u") && method === "DELETE") {
         state.pets = state.pets.filter((p) => url !== `/api/pets/${p.id}`);
         return json({ ok: true });
-      }
-      if (url === "/api/settings/overlay-style" && method === "GET") {
-        return json({ style: state.style, options: ["jarvis_bar", "mascot", "voice_orb", "pet", "none"] });
-      }
-      if (url === "/api/settings/overlay-style" && method === "PUT") {
-        state.style = String((body as { style: string }).style);
-        return json({
-          ok: true,
-          style: state.style,
-          persisted: true,
-          applied_live: false,
-          restart_required: true,
-        });
-      }
-      if (url === "/api/settings/keybinds") {
-        return json({
-          keybinds: { pet_toggle: "alt+win+p" },
-          defaults: { pet_toggle: "alt+win+p" },
-          suggestions: [],
-          restart_required: false,
-        });
       }
       return json({}, 404);
     }),
@@ -124,14 +86,15 @@ afterEach(() => {
 });
 
 describe("PetsView", () => {
-  it("lists None first, then every pet, and rings the active one", async () => {
+  it("lists every pet, with no None tile, and rings the active one", async () => {
     stubServer();
     renderView();
 
     const grid = await screen.findByTestId("pets-grid");
     await within(grid).findByText("Miso");
     const tiles = within(grid).getAllByRole("button");
-    expect(tiles[0].getAttribute("data-testid")).toBe("pet-tile-none");
+    expect(tiles[0].getAttribute("data-testid")).toBe("pet-tile-gigi");
+    expect(screen.queryByTestId("pet-tile-none")).toBeNull();
     expect(screen.getByTestId("pet-tile-gigi").getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByTestId("pet-tile-miso").getAttribute("aria-pressed")).toBe("false");
     // Built-in copy comes from the locale, a custom pet keeps its own text.
@@ -149,10 +112,21 @@ describe("PetsView", () => {
     expect(within(grid).getByText("Pixel from the API").getAttribute("title")).toBe("Pixel from the API");
   });
 
-  it("names the shortcut in the explanation", async () => {
+  it("explains pets as the app's own figures, not a desktop companion", async () => {
     stubServer();
     renderView();
-    expect(await screen.findByText(/Press Alt \+ Win \+ P to hide or show it\./)).toBeTruthy();
+    expect(await screen.findByText(/Your pet is how Jarvis looks inside the app\./)).toBeTruthy();
+    expect(screen.queryByText(/desktop/i)).toBeNull();
+  });
+
+  it("offers nothing that belongs to a desktop pet", async () => {
+    stubServer();
+    renderView();
+    await screen.findByTestId("pet-tile-miso");
+    for (const id of ["pets-visibility", "pets-style-notice", "pets-use-pet", "pets-settings-panel", "pets-size", "pets-bubble", "pets-strip-always"]) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
+    expect(screen.queryByTestId("pet-strip-preview")).toBeNull();
   });
 
   it("selects a pet with one click", async () => {
@@ -169,132 +143,13 @@ describe("PetsView", () => {
     );
   });
 
-  it("offers only the control strip for None", async () => {
-    const { calls } = stubServer();
+  it("shows Gigi as the active pet when an old install still holds \"none\"", async () => {
+    stubServer({ active: "none" });
     renderView();
 
-    fireEvent.click(await screen.findByTestId("pet-tile-none"));
-
-    await waitFor(() =>
-      expect(calls).toContainEqual({ method: "PUT", url: "/api/pets/active", body: { pet_id: "none" } }),
-    );
-  });
-
-  it("hides the pet from the header button", async () => {
-    const { calls } = stubServer();
-    renderView();
-
-    const button = await screen.findByTestId("pets-visibility");
-    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
-    expect(button.textContent).toBe("Hide pet");
-    fireEvent.click(button);
-
-    await waitFor(() =>
-      expect(calls).toContainEqual({ method: "POST", url: "/api/pets/visibility", body: { visible: false } }),
-    );
-    await waitFor(() => expect(button.textContent).toBe("Show pet"));
-  });
-
-  it("switches the display style to the pet and offers the restart", async () => {
-    const { calls } = stubServer({ style: "jarvis_bar" });
-    renderView();
-
-    fireEvent.click(await screen.findByTestId("pets-use-pet"));
-
-    await waitFor(() =>
-      expect(calls).toContainEqual({
-        method: "PUT",
-        url: "/api/settings/overlay-style",
-        body: { style: "pet", persist: true },
-      }),
-    );
-    expect(await screen.findByTestId("pets-restart-notice")).toBeTruthy();
-    expect(screen.queryByTestId("pets-style-notice")).toBeNull();
-  });
-
-  it("has no desktop switch of its own: the display style is chosen in Bar & Overlay", async () => {
-    stubServer({ style: "jarvis_bar" });
-    renderView();
-
-    // While another style is active the page only offers the step to the pet.
-    expect(await screen.findByTestId("pets-use-pet")).toBeTruthy();
-    expect(screen.queryByTestId("pets-enabled")).toBeNull();
-    expect(screen.queryByTestId("pets-visibility")).toBeNull();
-  });
-
-  it("shows no style notice while the pet is already the display style", async () => {
-    stubServer();
-    renderView();
     await screen.findByTestId("pet-tile-miso");
-    expect(screen.queryByTestId("pets-style-notice")).toBeNull();
-  });
-
-  it("shows the pet's settings beside the active pet without a click", async () => {
-    stubServer();
-    renderView();
-
-    const panel = await screen.findByTestId("pets-settings-panel");
-    expect(screen.getByTestId("pets-active-card").contains(panel)).toBe(true);
-    expect(within(panel).getByTestId("pets-size")).toBeTruthy();
-    expect(within(panel).getByTestId("pets-bubble")).toBeTruthy();
-    expect(within(panel).getByTestId("pets-strip-always")).toBeTruthy();
-    expect(within(panel).getByTestId("combo-field-pet_toggle")).toBeTruthy();
-    expect(screen.queryByTestId("pets-customize")).toBeNull();
-
-    // The shortcut is one more line of the list: label and hint on the left,
-    // no frame of its own inside the panel's frame.
-    const hint = within(panel).getByText("Hides the pet, or brings it back to the front.");
-    const row = within(panel).getByTestId("record-keybind-pet_toggle").closest("div")!.parentElement!
-      .parentElement!;
-    expect(row.contains(hint)).toBe(true);
-    expect(row.className).not.toContain("border");
-  });
-
-  it("switches the status bubble off from the active pet's settings", async () => {
-    const { calls } = stubServer();
-    renderView();
-
-    fireEvent.click(await screen.findByTestId("pets-bubble"));
-
-    await waitFor(() =>
-      expect(calls).toContainEqual({ method: "PUT", url: "/api/pets/settings", body: { bubble: false } }),
-    );
-  });
-
-  it("switches the always-on buttons on from the active pet's settings", async () => {
-    const { calls } = stubServer();
-    renderView();
-
-    fireEvent.click(await screen.findByTestId("pets-strip-always"));
-
-    await waitFor(() =>
-      expect(calls).toContainEqual({ method: "PUT", url: "/api/pets/settings", body: { strip_always: true } }),
-    );
-  });
-
-  it("resizes the pet live while dragging and saves once on release", async () => {
-    const { calls } = stubServer();
-    renderView();
-
-    const slider = await screen.findByTestId("pets-size");
-    fireEvent.pointerDown(slider);
-    fireEvent.change(slider, { target: { value: "1.37" } });
-
-    await waitFor(() =>
-      expect(calls).toContainEqual({
-        method: "PUT",
-        url: "/api/pets/settings",
-        body: { scale: 1.37, preview: true },
-      }),
-    );
-    expect((slider as HTMLInputElement).disabled).toBe(false);
-    expect(calls.filter((c) => c.method === "PUT" && !(c.body as { preview?: boolean }).preview)).toEqual([]);
-
-    // Released away from the track: the window still sees it.
-    fireEvent.pointerUp(window);
-    await waitFor(() =>
-      expect(calls).toContainEqual({ method: "PUT", url: "/api/pets/settings", body: { scale: 1.37 } }),
-    );
+    expect(screen.getByTestId("pet-tile-gigi").getAttribute("aria-pressed")).toBe("true");
+    expect(within(screen.getByTestId("pets-active-card")).getByText("Gigi")).toBeTruthy();
   });
 
   it("deletes a custom pet after confirming, and never offers it for a built-in", async () => {

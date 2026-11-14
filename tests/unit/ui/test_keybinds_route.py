@@ -50,7 +50,6 @@ def test_get_returns_every_action_plus_defaults() -> None:
         "dictate": "ctrl+right_alt+j",
         "dictate_toggle": "ctrl+right_alt+space",
         "paste_last": "ctrl+alt+v",
-        "pet_toggle": "alt+win+p",
     }
     assert body["defaults"] == {
         "call": "f3+f4",
@@ -58,7 +57,6 @@ def test_get_returns_every_action_plus_defaults() -> None:
         "dictate": "ctrl+right_alt+j",
         "dictate_toggle": "ctrl+right_alt+space",
         "paste_last": "ctrl+alt+v",
-        "pet_toggle": "alt+win+p",
     }
     assert "push_to_talk" not in body
     assert body["restart_required"] is True

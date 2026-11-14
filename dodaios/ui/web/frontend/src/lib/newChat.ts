@@ -1,7 +1,7 @@
 /**
  * Starting a fresh typed chat — ONE definition for every door that opens one:
- * the sidebar's "New chat → Chat", and the desktop pet's pen control, which
- * arrives as the `ComposeRequested` bus event (`useWebSocket`).
+ * the sidebar's "New chat → Chat", and a request from outside the window,
+ * which arrives as the `ComposeRequested` bus event (`useWebSocket`).
  *
  * Store-level on purpose (no hooks), so a socket handler can call it as
  * easily as a click handler.

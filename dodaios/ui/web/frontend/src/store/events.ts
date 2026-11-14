@@ -86,8 +86,8 @@ export type SectionId =
   // Call / Hang up, the dictation keys (listed) and a key tester. A
   // Settings-hub page.
   | "shortcuts"
-  // My Pets: the desktop pet — which one, its size, its bubble, and custom
-  // pets from a sprite sheet (docs/pets.md). A Settings-hub page.
+  // My Pets: which pet the app draws as the assistant, and custom pets from
+  // a sprite sheet (docs/pets.md). A Settings-hub page.
   | "pets"
   // Designs: the person's own colours and moving backgrounds, made by
   // talking to Dodaios, and the way back to the standard look

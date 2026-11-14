@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from dodaios.ui.desktop_app import DesktopApp
 from dodaios.ui.dodaiosbar.null_overlay import NullOverlay
 
@@ -22,7 +24,6 @@ def _app(*, orb_style="jarvis_bar", bridge=..., orb=None):
             orb_style=orb_style,
             bar_persistent=True,
             bar_accent="#e7c46e",
-            orb_mascot_path="",
         )
     )
     app._bridge = bridge
@@ -61,7 +62,7 @@ def test_swap_to_none_uses_nulloverlay_and_hides_old():
 
 def test_swap_reuses_cached_surface():
     bridge = FakeBridge()
-    app = _app(orb_style="mascot", bridge=bridge, orb=FakeOld())
+    app = _app(orb_style="voice_orb", bridge=bridge, orb=FakeOld())
     sentinel = object()
     app._surfaces = {"none": sentinel}  # pretend 'none' was built before
     result = app.swap_overlay("none")
@@ -91,11 +92,11 @@ def _host(app, built):
 
 
 def test_swap_to_an_unbuilt_style_starts_it_hosted_and_hides_the_old():
-    # Boot built only the pet; picking the bar must show the bar NOW and take
-    # the pet off the screen — not leave the pet up until a restart.
-    bridge, old, built = FakeBridge(), FakeOrbWindow("pet"), []
+    # Boot built only the voice orb; picking the bar must show the bar NOW and
+    # take the orb off the screen — not leave it up until a restart.
+    bridge, old, built = FakeBridge(), FakeOrbWindow("voice_orb"), []
     app = _app(orb_style="jarvis_bar", bridge=bridge, orb=old)  # route pre-wrote cfg
-    app._surfaces = {"pet": old}
+    app._surfaces = {"voice_orb": old}
     _host(app, built)
 
     result = app.swap_overlay("jarvis_bar")
@@ -110,7 +111,7 @@ def test_swap_to_an_unbuilt_style_starts_it_hosted_and_hides_the_old():
 
 def test_swap_falls_back_to_restart_when_the_host_will_not_start():
     bridge, old = FakeBridge(), FakeOld()
-    app = _app(orb_style="mascot", bridge=bridge, orb=old)
+    app = _app(orb_style="voice_orb", bridge=bridge, orb=old)
     app._surfaces = {}
     app._build_hosted_surface = lambda style, **_: None
     result = app.swap_overlay("jarvis_bar")
@@ -139,25 +140,31 @@ def test_leaving_a_hosted_surface_stops_its_process(monkeypatch):
     assert "jarvis_bar" not in app._surfaces  # a later switch starts a fresh host
 
 
-def test_bar_back_to_a_cached_orb_window_restyles_it():
-    # Boot was the pet, the bar was started hosted; picking the mascot reuses
-    # the boot orb window instead of starting a second one.
-    bridge, window, built = FakeBridge(), FakeOrbWindow("pet"), []
+def test_bar_back_to_a_cached_orb_window_reuses_it():
+    # Boot was the voice orb, the bar was started hosted; picking the voice
+    # orb again reuses the boot orb window instead of starting a second one.
+    bridge, window, built = FakeBridge(), FakeOrbWindow("voice_orb"), []
     bar = FakeOld()
-    app = _app(orb_style="mascot", bridge=bridge, orb=bar)
-    app._surfaces = {"pet": window, "jarvis_bar": bar}
+    app = _app(orb_style="voice_orb", bridge=bridge, orb=bar)
+    app._surfaces = {"voice_orb": window, "jarvis_bar": bar}
     _host(app, built)
 
-    assert app.swap_overlay("mascot")["applied_live"] is True
+    assert app.swap_overlay("voice_orb")["applied_live"] is True
     assert built == []
-    assert window.style == "mascot"
     assert bridge.surface is window
     assert bar.hidden is True
-    assert app._surfaces["mascot"] is window and "pet" not in app._surfaces
+    assert app._surfaces["voice_orb"] is window
+
+
+@pytest.mark.parametrize("removed", ["pet", "mascot"])
+def test_a_removed_desktop_pet_style_is_refused(removed):
+    """Pets live in the app only (docs/pets.md); the route maps old values first."""
+    app = _app(bridge=FakeBridge(), orb=FakeOld())
+    assert app.swap_overlay(removed)["ok"] is False
 
 
 def test_swap_without_bridge_is_persisted_only():
-    app = _app(orb_style="mascot", bridge=None, orb=None)
+    app = _app(orb_style="voice_orb", bridge=None, orb=None)
     assert app.swap_overlay("jarvis_bar") == {
         "ok": True,
         "applied_live": False,
@@ -173,7 +180,7 @@ def test_swap_rejects_unknown_style():
 class FakeOrbWindow(FakeOld):
     """An orb surface: one window that can change what it paints."""
 
-    def __init__(self, style="mascot"):
+    def __init__(self, style="voice_orb"):
         super().__init__()
         self.style = style
 
@@ -182,34 +189,6 @@ class FakeOrbWindow(FakeOld):
 
     def show(self, mode="listen"):
         self.hidden = False
-
-
-def test_mascot_to_voice_orb_restyles_live_without_a_new_root():
-    # Both orb looks live in ONE window, so this transition needs no second Tk
-    # root and must not send the user through a restart.
-    bridge, orb = FakeBridge(), FakeOrbWindow("mascot")
-    orb._mode = "listen"  # mid-conversation; an idle mascot would make way
-    app = _app(orb_style="mascot", bridge=bridge, orb=orb)
-    app._surfaces = {"mascot": orb}
-
-    result = app.swap_overlay("voice_orb")
-
-    assert result == {"ok": True, "applied_live": True, "style": "voice_orb"}
-    assert orb.style == "voice_orb"
-    assert orb.hidden is False  # same window — never hidden mid-swap
-    assert app.cfg.ui.orb_style == "voice_orb"
-    # Re-keyed, not duplicated: swapping back must find the same live window.
-    assert app._surfaces == {"voice_orb": orb}
-
-
-def test_voice_orb_back_to_mascot_also_applies_live():
-    bridge, orb = FakeBridge(), FakeOrbWindow("voice_orb")
-    app = _app(orb_style="voice_orb", bridge=bridge, orb=orb)
-    app._surfaces = {"voice_orb": orb}
-
-    assert app.swap_overlay("mascot")["applied_live"] is True
-    assert orb.style == "mascot"
-    assert orb.hidden is False  # the mascot is a pet: it is on screen at once
 
 
 def test_bar_to_voice_orb_starts_the_orb_window_hosted():
@@ -221,22 +200,3 @@ def test_bar_to_voice_orb_starts_the_orb_window_hosted():
     assert app.swap_overlay("voice_orb")["applied_live"] is True
     assert [s.style for s in built] == ["voice_orb"]
     assert bridge.surface is built[0]
-
-
-def test_pet_to_voice_orb_hides_the_idle_window_although_the_route_prewrote_cfg():
-    # The settings route stores the NEW style in cfg before calling
-    # swap_overlay, so "what was on screen" must not be read from cfg: an idle
-    # pet turned voice orb has to go off the screen (the orb pops per session).
-    class Window(FakeOrbWindow):
-        _mode = "idle"
-
-        def show(self, mode="listen"):
-            self.hidden = False
-
-    bridge, window = FakeBridge(), Window("pet")
-    app = _app(orb_style="voice_orb", bridge=bridge, orb=window)
-    app._surfaces = {"pet": window}
-    app._live_overlay_style = "pet"
-
-    assert app.swap_overlay("voice_orb")["applied_live"] is True
-    assert window.hidden is True

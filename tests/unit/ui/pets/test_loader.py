@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import json
-import logging
 from pathlib import Path
 
 import pytest
 from PIL import Image
 
-from dodaios.ui.pets import loader
 from dodaios.ui.pets.loader import (
     COLOR_KEY,
     builtin_root,
@@ -17,7 +15,6 @@ from dodaios.ui.pets.loader import (
     find_pet_dir,
     list_pets,
     load_pet,
-    load_pet_by_id,
     normalize_sheet,
     to_color_key,
 )
@@ -137,16 +134,7 @@ def test_custom_root_uses_data_dir(tmp_path: Path) -> None:
     assert not (tmp_path / "pets").exists()
 
 
-def test_load_pet_by_id(tmp_path: Path, user_pet: Path, caplog: pytest.LogCaptureFixture) -> None:
-    assert load_pet_by_id("none", data_dir=tmp_path) is None
-    assert load_pet_by_id(USER_ID, data_dir=tmp_path).manifest.id == USER_ID  # type: ignore[union-attr]
-    with caplog.at_level(logging.WARNING, logger=loader.__name__):
-        fallback = load_pet_by_id("u" + "f" * 16, data_dir=tmp_path)
-    assert fallback is not None and fallback.manifest.id == DEFAULT_PET_ID
-    assert "not found" in caplog.text
-
-
-def test_broken_pet_falls_back_to_default(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_a_broken_pet_is_refused(tmp_path: Path) -> None:
     folder = _write_pet(
         tmp_path / "pets" / USER_ID,
         pet_id=USER_ID,
@@ -155,10 +143,6 @@ def test_broken_pet_falls_back_to_default(tmp_path: Path, caplog: pytest.LogCapt
     )
     with pytest.raises(PetManifestError):
         load_pet(folder, builtin=False)
-    with caplog.at_level(logging.WARNING, logger=loader.__name__):
-        pack = load_pet_by_id(USER_ID, data_dir=tmp_path)
-    assert pack is not None and pack.manifest.id == DEFAULT_PET_ID
-    assert "broken" in caplog.text
 
 
 def test_folder_name_must_match_id(tmp_path: Path) -> None:

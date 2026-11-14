@@ -11,12 +11,6 @@ sys.modules.pop("ui", None)
 
 from dodaios.core.events import SystemStateChanged, TranscriptionUpdate
 from ui.orb.bus_bridge import OrbBusBridge
-from ui.orb.overlay import (
-    BUBBLE_PADDING_Y,
-    TRANSCRIPT_MAX_VISIBLE_LINES,
-    _transcript_body_height,
-    _transcript_visible_line_count,
-)
 
 
 class _FakeBus:
@@ -127,29 +121,3 @@ async def test_final_transcript_during_thinking_still_repaints_the_user_bubble()
         TranscriptionUpdate(text="late final", is_final=True)
     )
     assert orb.calls == []
-
-
-def test_transcript_bubble_height_grows_by_visible_line_count() -> None:
-    line_height = 20
-
-    assert (
-        _transcript_body_height(1, line_height)
-        == (BUBBLE_PADDING_Y * 2) + line_height
-    )
-    assert (
-        _transcript_body_height(2, line_height)
-        == (BUBBLE_PADDING_Y * 2) + (line_height * 2)
-    )
-    assert (
-        _transcript_body_height(4, line_height)
-        == (BUBBLE_PADDING_Y * 2) + (line_height * 4)
-    )
-
-
-def test_transcript_bubble_visible_lines_are_capped_at_four() -> None:
-    assert _transcript_visible_line_count(text_height=20, line_height=20) == 1
-    assert _transcript_visible_line_count(text_height=70, line_height=20) == 4
-    assert (
-        _transcript_visible_line_count(text_height=140, line_height=20)
-        == TRANSCRIPT_MAX_VISIBLE_LINES
-    )

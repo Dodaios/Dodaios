@@ -71,7 +71,7 @@ def test_virtual_cursor_start_returns_false_on_macos(monkeypatch, caplog) -> Non
 def test_desktop_build_overlay_surface_on_macos(monkeypatch) -> None:
     # Both surfaces get an own-process host (their Tk mainloop runs on the
     # CHILD's main thread — legal on Aqua-Tk): the bar via
-    # SubprocessBarOverlay, the mascot via SubprocessMascotOverlay. Neither
+    # SubprocessBarOverlay, the voice orb via SubprocessMascotOverlay. Neither
     # path may create an in-process Tk root.
     from dodaios.ui.desktop_app import DesktopApp
     from dodaios.ui.dodaiosbar.subprocess_overlay import (
@@ -94,7 +94,6 @@ def test_desktop_build_overlay_surface_on_macos(monkeypatch) -> None:
             orb_style="jarvis_bar",
             bar_persistent=True,
             bar_accent="#e7c46e",
-            orb_mascot_path="",
         )
     )
     surface = app._build_overlay_surface("jarvis_bar")
@@ -104,10 +103,10 @@ def test_desktop_build_overlay_surface_on_macos(monkeypatch) -> None:
     assert spawned  # the companion process spawn was requested
 
     spawned.clear()
-    mascot = app._build_overlay_surface("mascot")
-    assert isinstance(mascot, SubprocessMascotOverlay)
-    assert mascot._mascot_path is None  # empty config path → host default
-    assert spawned  # the mascot host spawn was requested
+    orb = app._build_overlay_surface("voice_orb")
+    assert isinstance(orb, SubprocessMascotOverlay)
+    assert orb._init_payload()["style"] == "voice_orb"
+    assert spawned  # the orb host spawn was requested
 
 
 def test_desktop_build_overlay_surface_macos_bar_falls_back_to_null(
@@ -131,17 +130,16 @@ def test_desktop_build_overlay_surface_macos_bar_falls_back_to_null(
             orb_style="jarvis_bar",
             bar_persistent=True,
             bar_accent="#e7c46e",
-            orb_mascot_path="",
         )
     )
     assert isinstance(app._build_overlay_surface("jarvis_bar"), NullOverlay)
 
 
-def test_desktop_build_overlay_surface_macos_mascot_falls_back_to_null(
+def test_desktop_build_overlay_surface_macos_orb_falls_back_to_null(
     monkeypatch,
 ) -> None:
-    # Fail-safe: a broken mascot host spawn must never block the boot
-    # (BUG-057 class) — the mascot degrades to the no-op surface instead.
+    # Fail-safe: a broken orb host spawn must never block the boot
+    # (BUG-057 class) — the orb degrades to the no-op surface instead.
     from dodaios.ui.desktop_app import DesktopApp
     from dodaios.ui.dodaiosbar.null_overlay import NullOverlay
     from dodaios.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
@@ -155,19 +153,18 @@ def test_desktop_build_overlay_surface_macos_mascot_falls_back_to_null(
     app = DesktopApp.__new__(DesktopApp)
     app.cfg = SimpleNamespace(
         ui=SimpleNamespace(
-            orb_style="mascot",
+            orb_style="voice_orb",
             bar_persistent=True,
             bar_accent="#e7c46e",
-            orb_mascot_path="",
         )
     )
-    assert isinstance(app._build_overlay_surface("mascot"), NullOverlay)
+    assert isinstance(app._build_overlay_surface("voice_orb"), NullOverlay)
 
 
-def test_desktop_build_overlay_surface_windows_mascot_stays_in_process(
+def test_desktop_build_overlay_surface_windows_orb_stays_in_process(
     monkeypatch,
 ) -> None:
-    # AD-7 guard: off macOS the mascot keeps its in-process OrbOverlay — the
+    # AD-7 guard: off macOS the voice orb keeps its in-process OrbOverlay — the
     # darwin subprocess host must not leak onto other platforms.
     from dodaios.ui.desktop_app import DesktopApp
     from ui.orb.overlay import OrbOverlay
@@ -182,13 +179,12 @@ def test_desktop_build_overlay_surface_windows_mascot_stays_in_process(
     app = DesktopApp.__new__(DesktopApp)
     app.cfg = SimpleNamespace(
         ui=SimpleNamespace(
-            orb_style="mascot",
+            orb_style="voice_orb",
             bar_persistent=True,
             bar_accent="#e7c46e",
-            orb_mascot_path="",
         )
     )
-    surface = app._build_overlay_surface("mascot")
+    surface = app._build_overlay_surface("voice_orb")
     assert isinstance(surface, OrbOverlay)
     assert started  # the in-process Tk thread spawn was requested (AD-7)
 

@@ -1,9 +1,10 @@
-"""Config contract of the desktop pet (docs/pets.md).
+"""Config contract of the pets (docs/pets.md).
 
-Pins the four keys the pet adds — ``[ui] pet_id / pet_scale / pet_bubble`` and
-``[trigger] hotkey_pet_toggle`` — their sanitizing on load, their TOML writers,
-and the claims the shipped shortcut's comment makes: it validates on every
-platform and collides with no other shortcut the app ships.
+Pets live in the app only: the one key left is ``[ui] pet_id``, the active
+pet. The keys of the removed desktop pet (``pet_scale``, ``pet_bubble``,
+``pet_strip_always``, ``orb_mascot_path``, ``[trigger] hotkey_pet_toggle``)
+must still load from an old ``jarvis.toml`` without effect, and an old
+``orb_style`` of ``pet`` or ``mascot`` loads as the bar.
 """
 from __future__ import annotations
 
@@ -12,36 +13,14 @@ from pathlib import Path
 
 import pytest
 
-from dodaios.appshot.hotkey import BOTH_ALT, normalize_hotkey
-from dodaios.control.wiring import DEFAULT_KILL_HOTKEY
 from dodaios.core import config_writer
-from dodaios.core.config import (
-    AppshotConfig,
-    TriggerConfig,
-    UIConfig,
-    clamp_pet_scale,
-    normalize_pet_id,
-)
-from dodaios.trigger.hotkey import combos_collide, normalized_combo_tokens, validate_hotkey
+from dodaios.core.config import JarvisConfig, TriggerConfig, UIConfig, normalize_pet_id
 from dodaios.ui.pets.manifest import BUILTIN_ID_RE, USER_ID_RE
 from dodaios.ui.pets.states import DEFAULT_PET_ID, NO_PET_ID
 
-#: The Jarvis X keys (one per pane) — not configurable here, but a pet
-#: shortcut that fired inside one of them would be a collision all the same.
-_JARVIS_X_KEYS = tuple(f"ctrl+shift+{n}" for n in range(1, 7))
 
-
-# ---------------------------------------------------------------------------
-# [ui] pet_id / pet_scale / pet_bubble
-# ---------------------------------------------------------------------------
-
-
-def test_defaults() -> None:
-    ui = UIConfig()
-    assert ui.pet_id == DEFAULT_PET_ID
-    assert ui.pet_scale == 1.0
-    assert ui.pet_bubble is True
-    assert ui.pet_strip_always is False
+def test_default_pet() -> None:
+    assert UIConfig().pet_id == DEFAULT_PET_ID
 
 
 @pytest.mark.parametrize(
@@ -77,56 +56,16 @@ def test_pet_id_shape_matches_the_manifest_rules() -> None:
     assert USER_ID_RE.fullmatch("u0123456789abcdef")
 
 
-@pytest.mark.parametrize(
-    "raw,expected",
-    [
-        (1.0, 1.0),
-        ("1.5", 1.5),
-        (0.1, 0.5),
-        (9, 2.0),
-        ("big", 1.0),
-        (float("nan"), 1.0),
-        (float("inf"), 1.0),
-        (None, 1.0),
-    ],
-)
-def test_pet_scale_is_clamped(raw: object, expected: float) -> None:
-    assert UIConfig(pet_scale=raw).pet_scale == expected
-    assert clamp_pet_scale(raw) == expected
-
-
-# ---------------------------------------------------------------------------
-# Writers
-# ---------------------------------------------------------------------------
-
-
 def _ui_table(path: Path) -> dict:
     return tomllib.loads(path.read_text(encoding="utf-8")).get("ui", {})
 
 
-def test_writers_persist_the_three_ui_keys(tmp_path: Path) -> None:
+def test_set_pet_id_persists_and_keeps_comments(tmp_path: Path) -> None:
     toml = tmp_path / "jarvis.toml"
-    toml.write_text('[ui]\norb_style = "pet"  # kept\n', encoding="utf-8")
-
+    toml.write_text('[ui]\norb_style = "jarvis_bar"  # kept\n', encoding="utf-8")
     config_writer.set_pet_id("Miso", path=toml)
-    config_writer.set_pet_scale(3.0, path=toml)
-    config_writer.set_pet_bubble(False, path=toml)
-    config_writer.set_pet_strip_always(True, path=toml)
-
-    ui = _ui_table(toml)
-    assert ui["pet_id"] == "miso"
-    assert ui["pet_scale"] == 2.0  # clamped before it reaches the disk
-    assert ui["pet_bubble"] is False
-    assert ui["pet_strip_always"] is True
-    assert ui["orb_style"] == "pet"
-    assert "# kept" in toml.read_text(encoding="utf-8")  # comments survive
-
-
-def test_set_pet_scale_never_writes_a_non_finite_value(tmp_path: Path) -> None:
-    toml = tmp_path / "jarvis.toml"
-    toml.write_text("", encoding="utf-8")
-    config_writer.set_pet_scale(float("nan"), path=toml)
-    assert _ui_table(toml)["pet_scale"] == 1.0
+    assert _ui_table(toml)["pet_id"] == "miso"
+    assert "# kept" in toml.read_text(encoding="utf-8")
 
 
 def test_set_pet_id_refuses_a_value_that_is_not_an_id(tmp_path: Path) -> None:
@@ -137,72 +76,36 @@ def test_set_pet_id_refuses_a_value_that_is_not_an_id(tmp_path: Path) -> None:
     assert "pet_id" not in _ui_table(toml)
 
 
-# ---------------------------------------------------------------------------
-# [trigger] hotkey_pet_toggle
-# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("old_style", ["pet", "mascot", "orb", "PET"])
+def test_an_old_desktop_pet_style_loads_as_the_bar(old_style: str) -> None:
+    assert UIConfig(orb_style=old_style).orb_style == "jarvis_bar"
 
 
-def test_pet_toggle_is_a_keybind_action() -> None:
-    assert "pet_toggle" in config_writer.KEYBIND_ACTIONS
-    assert config_writer.KEYBIND_TOML_KEY["pet_toggle"] == "hotkey_pet_toggle"
-    assert TriggerConfig().hotkey_pet_toggle == "alt+win+p"
+def test_the_removed_desktop_pet_keys_still_load() -> None:
+    """An old jarvis.toml with the desktop pet's keys loads and ignores them."""
+    cfg = JarvisConfig.model_validate(
+        {
+            "ui": {
+                "orb_style": "pet",
+                "pet_id": "nox",
+                "pet_scale": 1.5,
+                "pet_bubble": False,
+                "pet_strip_always": True,
+                "orb_mascot_path": "me.png",
+            },
+            "trigger": {"hotkey_pet_toggle": "alt+win+p"},
+        }
+    )
+    assert cfg.ui.orb_style == "jarvis_bar"
+    assert cfg.ui.pet_id == "nox"
+    assert "hotkey_pet_toggle" not in TriggerConfig.model_fields
+    assert "pet_toggle" not in config_writer.KEYBIND_ACTIONS
 
 
-def test_set_keybind_persists_the_pet_toggle(tmp_path: Path) -> None:
-    toml = tmp_path / "jarvis.toml"
-    toml.write_text("", encoding="utf-8")
-    config_writer.set_keybind("pet_toggle", "ctrl+alt+shift+p", path=toml)
-    trigger = tomllib.loads(toml.read_text(encoding="utf-8"))["trigger"]
-    assert trigger["hotkey_pet_toggle"] == "ctrl+alt+shift+p"
-
-
-@pytest.mark.parametrize("platform", ["win32", "darwin", "linux"])
-def test_shipped_pet_toggle_validates_without_caution(platform: str) -> None:
-    verdict = validate_hotkey(TriggerConfig().hotkey_pet_toggle, platform=platform)
-    assert verdict.ok is True, verdict.reason
-    assert verdict.cautions == (), verdict.cautions
-
-
-def _other_shipped_shortcuts() -> dict[str, str]:
-    trigger = TriggerConfig()
-    shortcuts = {
-        field: getattr(trigger, field)
-        for field in config_writer.KEYBIND_TOML_KEY.values()
-        if field != "hotkey_pet_toggle"
-    }
-    shortcuts["kill_switch"] = DEFAULT_KILL_HOTKEY
-    shortcuts.update({f"jarvis_x_{n}": combo for n, combo in enumerate(_JARVIS_X_KEYS, 1)})
-    return shortcuts
-
-
-def test_shipped_pet_toggle_collides_with_no_other_shortcut() -> None:
-    """Neither the same key set nor a subset / superset of any shipped combo."""
-    pet = TriggerConfig().hotkey_pet_toggle
-    others = _other_shipped_shortcuts()
-    assert "hotkey_call" in others and "hotkey_paste_last" in others
-    for name, combo in others.items():
-        assert combo, name
-        assert not combos_collide(pet, combo), f"{pet} collides with {name}={combo}"
-
-
-def test_shipped_pet_toggle_cannot_fire_the_both_alt_appshot_gesture() -> None:
-    """``alt+alt`` is watched as BOTH Alt keys down; the pet holds only one.
-
-    ``combos_collide`` cannot judge this pair (the shared backends fold both
-    Alt keys into one token), so the gesture's own rule is checked instead.
-    """
-    pet = TriggerConfig().hotkey_pet_toggle
-    assert normalize_hotkey(AppshotConfig().hotkey) == BOTH_ALT
-    assert normalize_hotkey(pet) != BOTH_ALT
-    assert [part for part in pet.split("+") if "alt" in part] == ["alt"]
-    assert "window" in normalized_combo_tokens(pet)  # win → Command on macOS
-
-
-def test_example_config_documents_the_pet_keys() -> None:
+def test_example_config_documents_only_the_active_pet() -> None:
     example = Path(__file__).resolve().parents[3] / "dodaios.toml.example"
     data = tomllib.loads(example.read_text(encoding="utf-8"))
     assert data["ui"]["pet_id"] == UIConfig().pet_id
-    assert data["ui"]["pet_scale"] == UIConfig().pet_scale
-    assert data["ui"]["pet_bubble"] == UIConfig().pet_bubble
-    assert data["ui"]["pet_strip_always"] == UIConfig().pet_strip_always
-    assert data["trigger"]["hotkey_pet_toggle"] == TriggerConfig().hotkey_pet_toggle
+    for gone in ("pet_scale", "pet_bubble", "pet_strip_always"):
+        assert gone not in data["ui"]
+    assert "hotkey_pet_toggle" not in data["trigger"]

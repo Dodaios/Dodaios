@@ -1,11 +1,10 @@
-"""The orb window paints the style it was asked for, and never a magenta box.
+"""The orb window paints the voice orb, and never a magenta box.
 
-Both looks — the Gigi mascot and the procedural voice orb — share ONE frameless
-always-on-top window, which is what makes the voice orb draggable to any
-monitor instead of being trapped inside the app. These tests pin that seam:
-style in, right renderer out, unknown values recovered rather than fatal, and a
-desktop session without per-pixel transparency degrading to nothing visible
-instead of an opaque key-coloured square.
+The voice orb lives in one frameless always-on-top window, which is what makes
+it draggable to any monitor instead of being trapped inside the app. These
+tests pin that seam: every style resolves to the voice orb (the removed mascot
+and pet looks included), and a desktop session without per-pixel transparency
+degrades to nothing visible instead of an opaque key-coloured square.
 """
 from __future__ import annotations
 
@@ -14,61 +13,25 @@ import tkinter as tk
 import pytest
 
 import ui.orb.overlay as overlay_mod
-from dodaios.ui.overlay_styles import ORB_STYLES
-from ui.orb.overlay import MascotRenderer, OrbOverlay, _apply_color_key, _coerce_style
+from ui.orb.overlay import OrbOverlay, _apply_color_key, _coerce_style
 from ui.orb.voice_orb import VoiceOrbRenderer
 
-# The still-picture mascot; without a configured image the mascot is a pet.
-pytestmark = pytest.mark.usefixtures("still_picture_mascot")
 
-
-@pytest.fixture(autouse=True)
-def _no_env_style(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("JARVIS_ORB_STYLE", raising=False)
-
-
-def test_voice_orb_style_builds_the_voice_orb_renderer() -> None:
+def test_the_orb_window_builds_the_voice_orb_renderer() -> None:
     overlay = OrbOverlay(style="voice_orb")
 
     assert overlay._style == "voice_orb"
-    assert isinstance(overlay._build_renderer("voice_orb"), VoiceOrbRenderer)
+    assert isinstance(overlay._build_renderer(), VoiceOrbRenderer)
 
 
-def test_mascot_style_still_builds_the_mascot_renderer() -> None:
-    overlay = OrbOverlay(style="mascot")
-
-    assert overlay._style == "mascot"
-    assert isinstance(overlay._build_renderer("mascot"), MascotRenderer)
-
-
-def test_env_can_select_the_voice_orb(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("JARVIS_ORB_STYLE", "voice_orb")
-
-    assert OrbOverlay(style="mascot")._style == "voice_orb"
-
-
-def test_style_switch_before_start_is_remembered() -> None:
-    overlay = OrbOverlay(style="mascot")
-
-    overlay.set_style("voice_orb")
-
-    assert overlay._style == "voice_orb"
-
-
-def test_unknown_style_recovers_to_the_mascot_instead_of_raising() -> None:
-    # A jarvis.toml written by a NEWER build must not leave an older one with no
-    # overlay at all — and set_style() is called from a REST route, where an
-    # exception would surface as a 500 on a cosmetic setting.
-    assert _coerce_style("nonsense") == "mascot"
-    assert _coerce_style(None) == "mascot"
-    assert OrbOverlay(style="nonsense")._style == "mascot"
-    OrbOverlay(style="mascot").set_style("nonsense")  # no raise
-
-
-def test_every_orb_style_maps_to_a_renderer() -> None:
-    overlay = OrbOverlay(style="mascot")
-    for style in ORB_STYLES:
-        assert overlay._build_renderer(style) is not None, style
+@pytest.mark.parametrize("style", ["mascot", "pet", "orb", "nonsense", None, ""])
+def test_every_other_style_becomes_the_voice_orb(style: str | None) -> None:
+    # A jarvis.toml written by an older or newer build must not leave the
+    # desktop without an overlay, and set_style() is called from a REST route,
+    # where an exception would surface as a 500 on a cosmetic setting.
+    assert _coerce_style(style) == "voice_orb"
+    assert OrbOverlay(style=style)._style == "voice_orb"
+    OrbOverlay().set_style(style or "")  # no raise
 
 
 class _FakeRoot:

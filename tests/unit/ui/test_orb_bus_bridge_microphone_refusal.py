@@ -86,7 +86,7 @@ async def _refuse(bridge: OrbBusBridge, orb: _Orb, reason: str) -> str:
     ],
 )
 def test_every_table_covers_every_interface_language(table: str) -> None:
-    assert set(getattr(bridge_mod, table)) == set(bridge_mod.PET_STATUS_LANGUAGES)
+    assert set(getattr(bridge_mod, table)) == set(bridge_mod.NOTICE_LANGUAGES)
 
 
 @pytest.mark.parametrize(
@@ -227,7 +227,7 @@ async def test_an_unknown_language_falls_back_to_english(monkeypatch: pytest.Mon
     monkeypatch.setattr(sys, "platform", "darwin")
     orb = _Orb()
     bridge = _bridge(orb)
-    monkeypatch.setattr(bridge, "_status_language", lambda: "fr")
+    monkeypatch.setattr(bridge, "_notice_language", lambda: "fr")
 
     assert (
         await _refuse(bridge, orb, "microphone_unavailable")

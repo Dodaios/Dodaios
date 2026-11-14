@@ -5,7 +5,6 @@ const motion = vi.hoisted(() => ({ reduced: false }));
 vi.mock("framer-motion", () => ({ useReducedMotion: () => motion.reduced }));
 
 import { PetSprite, integerScaleFor, spriteFrameAt } from "@/components/pets/PetSprite";
-import { PetControlStripPreview } from "@/components/pets/PetControlStripPreview";
 import { resolvePetAnimation, type PetAnimation } from "@/lib/petStates";
 
 const ANIMATIONS: Record<string, PetAnimation> = {
@@ -113,15 +112,5 @@ describe("spriteFrameAt (the desktop's playback order)", () => {
     expect(spriteFrameAt(9, 3, { loop: false })).toBe(2);
     expect(spriteFrameAt(5, 4)).toBe(1);
     expect(spriteFrameAt(3, 1)).toBe(0);
-  });
-});
-
-describe("PetControlStripPreview", () => {
-  it("is a decorative picture with the three-stroke indicator", () => {
-    render(<PetControlStripPreview />);
-    const strip = screen.getByTestId("pet-strip-preview");
-    expect(strip.getAttribute("aria-hidden")).toBe("true");
-    expect(strip.querySelector("button")).toBeNull();
-    expect(screen.getByTestId("pet-strip-indicator").children).toHaveLength(3);
   });
 });

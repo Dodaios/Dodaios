@@ -491,20 +491,6 @@ class TriggerConfig(BaseModel):
     # A macOS user can record a Command-based combination instead; the
     # validator accepts `cmd+...` on darwin.
     hotkey_paste_last: str = "ctrl+alt+v"
-    # Hide the desktop pet, or show it and bring it to the front (docs/pets.md).
-    # A no-op for every other overlay style. Ships bound, like the dictation
-    # keys, and curated the same way: ``alt+win+p`` passes ``validate_hotkey``
-    # on win32, darwin AND linux with no caution (Win+P alone is the Windows
-    # projection shortcut; with Alt held it is not a shell chord), and its
-    # normalized key set {alt, window, p} is neither a subset nor a superset of
-    # Call / Hangup / both dictation keys / paste-last, the kill switch
-    # (ctrl+alt+shift+k) or the Jarvis X keys (ctrl+shift+1..6), so
-    # ``combos_collide`` accepts all of them at once. It holds ONE Alt key, so
-    # it can never fire the both-Alt appshot gesture (``alt+alt``) either. On
-    # macOS the win token is Command (cmd+alt+p). An empty value disables it;
-    # on Wayland the compositor owns global shortcuts and this is a no-op.
-    # ``tests/unit/core/test_pet_config.py`` pins every one of these claims.
-    hotkey_pet_toggle: str = "alt+win+p"
     wake_word: WakeWordConfig = Field(default_factory=WakeWordConfig)
     # When false (default), the pipeline keeps the mic open after the
     # response (conversation mode) and only hangs up via HANGUP_RE, the idle
@@ -1099,22 +1085,6 @@ def normalize_pet_id(value: object) -> str | None:
         return None
     pet_id = value.strip().lower()
     return pet_id if _PET_ID_SHAPE.fullmatch(pet_id) else None
-
-
-def clamp_pet_scale(value: object) -> float:
-    """The pet size multiplier, clamped to 0.5–2.0.
-
-    Same sanitizing as ``bar_size_scale``: a non-numeric or non-finite value
-    becomes 1.0. One definition for the config load, the TOML writer and the
-    pets route, so the three can never disagree about the range.
-    """
-    try:
-        f = float(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):  # Invalid saved pet scales use the documented 1.0 default.
-        return 1.0
-    if f != f or f in (float("inf"), float("-inf")):  # NaN / ±inf
-        return 1.0
-    return max(0.5, min(2.0, f))
 
 
 class BrainRoutingConfig(BaseModel):
@@ -2128,15 +2098,11 @@ class UIConfig(BaseModel):
     # (see surface_security.open_access_granted). Toggled live from
     # Settings → API Keys → Control Key.
     require_browser_login: bool = False
-    # On-screen overlay style: "jarvis_bar" (slim default), "mascot" (the
-    # hooded figure of the logo, shown as the built-in Dodaios pet), "pet" (the
-    # pet chosen under My Pets), "voice_orb" (the procedural weather sphere —
-    # the desktop twin of the in-app orb), or "none". One list:
-    # dodaios.ui.overlay_styles.
+    # On-screen overlay style: "jarvis_bar" (slim default), "voice_orb" (the
+    # procedural weather sphere — the desktop twin of the in-app orb), or
+    # "none". One list: dodaios.ui.overlay_styles. The old desktop pet styles
+    # ("pet", "mascot") load as the bar: pets live in the app only now.
     orb_style: str = "jarvis_bar"
-    # Optional own mascot PNG. Set, the mascot style shows that still picture
-    # for a conversation instead of the pet. Empty = the pet.
-    orb_mascot_path: str = ""
     # Jarvis bar: persistent (always-visible dots pill) vs only-when-active.
     bar_persistent: bool = True
     # Hex accent the bar lights up with during activity (gold on-brand).
@@ -2155,24 +2121,19 @@ class UIConfig(BaseModel):
     # a headless / Wayland host with no reliable per-monitor geometry keeps the
     # single-monitor behaviour. See dodaios/ui/dodaiosbar/interaction.py.
     bar_follow_cursor_monitor: bool = True
-    # Desktop pet (orb_style = "pet", docs/pets.md). ``pet_id`` is a built-in
-    # id, a user-created ``u…`` id, or "none" (the control strip without a
-    # figure). An id that no longer exists on disk falls back to the default
-    # pet where it is resolved (pets routes / overlay), never here: the
-    # validator only sanitizes the SHAPE so a hand-edited value cannot brick
-    # the load. Vocabulary: dodaios.ui.pets.states.
+    # The active pet (docs/pets.md): how the app draws the assistant. A
+    # built-in id or a user-created ``u…`` id; older installs may still carry
+    # "none", which the app draws as the default pet. An id that no longer
+    # exists on disk falls back to the default pet where it is resolved (the
+    # pets routes), never here: the validator only sanitizes the SHAPE so a
+    # hand-edited value cannot brick the load. Vocabulary:
+    # dodaios.ui.pets.states. The desktop pet's old keys (pet_scale,
+    # pet_bubble, pet_strip_always, orb_mascot_path) are ignored extras now.
     pet_id: str = DEFAULT_PET_ID
     # The in-app look shown where the voice orb sits (docs/looks.md): "orb"
     # (the default) or the id of a built-in or installed look. A look that is
     # gone from disk falls back to the orb in the app, never here.
     look_id: str = ORB_LOOK_ID
-    # Pet size multiplier on top of the monitor DPI scale, 0.5–2.0.
-    pet_scale: float = 1.0
-    # Show the status bubble under the pet's control strip.
-    pet_bubble: bool = True
-    # Keep the pet's control strip on screen at all times. Off (default): it
-    # shows only while Jarvis listens, thinks or talks, or under the pointer.
-    pet_strip_always: bool = False
     # Remembered "open with" choice for Outputs artifacts: an opener id
     # ("default" = OS default app, "browser", or an editor key like "code").
     # Empty = ask via the chooser dialog on first open. Desktop-only.
@@ -2181,13 +2142,15 @@ class UIConfig(BaseModel):
     @field_validator("orb_style", mode="before")
     @classmethod
     def _normalize_orb_style(cls, v: object) -> object:
-        # Backwards-compat: the slim-bar style was historically persisted as
-        # "whisper_bar". It was renamed to "jarvis_bar" to avoid a
-        # trademark. Normalize the legacy value on load so an existing
-        # jarvis.toml keeps showing the bar instead of falling back to the
-        # mascot orb (the unknown-style default in _build_overlay_surface).
-        if isinstance(v, str) and v.strip().lower() == "whisper_bar":
-            return "jarvis_bar"
+        # Backwards-compat: legacy values map onto what they mean today
+        # (dodaios.ui.overlay_styles.LEGACY_STYLE_ALIASES). The slim-bar style
+        # was persisted as "whisper_bar" before a trademark rename, and the
+        # removed desktop pet styles ("pet", "mascot", the older "orb") now
+        # show the bar, so an existing jarvis.toml keeps an overlay.
+        from dodaios.ui.overlay_styles import LEGACY_STYLE_ALIASES  # noqa: PLC0415
+
+        if isinstance(v, str):
+            return LEGACY_STYLE_ALIASES.get(v.strip().lower(), v)
         return v
 
     @field_validator("bar_size_scale", mode="before")
@@ -2215,13 +2178,9 @@ class UIConfig(BaseModel):
     def _sanitize_pet_id(cls, v: object) -> object:
         # Lower-case and trim; anything that is not a valid pet id shape (a
         # typo, a path, a non-string) falls back to the default pet so a
-        # corrupt jarvis.toml can never brick the load. "none" is a valid pick.
+        # corrupt jarvis.toml can never brick the load. A saved "none" loads
+        # as it is; the app draws the default pet for it.
         return normalize_pet_id(v) or DEFAULT_PET_ID
-
-    @field_validator("pet_scale", mode="before")
-    @classmethod
-    def _clamp_pet_scale(cls, v: object) -> object:
-        return clamp_pet_scale(v)
 
 
 class DuckingConfig(BaseModel):

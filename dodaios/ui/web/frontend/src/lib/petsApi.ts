@@ -1,8 +1,8 @@
 /**
- * Client for `/api/pets` — the desktop pet overlay (`docs/pets.md`).
+ * Client for `/api/pets` — the pets the app draws (`docs/pets.md`).
  *
- * Every write returns once the value is on disk and applied to the desktop;
- * the backend then publishes `PetChanged`, which `useWebSocket` turns into a
+ * Every write returns once the value is on disk; the backend then publishes
+ * `PetChanged`, which `useWebSocket` turns into a
  * refetch of the pets query, so a second open window follows along.
  */
 import type { PetAnimation } from "@/lib/petStates";
@@ -19,20 +19,9 @@ export interface Pet {
 }
 
 export interface PetsState {
-  /** A pet id, or `NO_PET_ID` for the control strip alone. */
+  /** The chosen pet's id (an old install may still hold "none"; see `pickActivePet`). */
   active: string;
-  scale: number;
-  bubble: boolean;
-  /** The control strip stays up even at rest (`[ui] pet_strip_always`). */
-  strip_always: boolean;
-  visible: boolean;
   pets: Pet[];
-}
-
-export interface PetSettingsPatch {
-  scale?: number;
-  bubble?: boolean;
-  strip_always?: boolean;
 }
 
 export interface CreatePetInput {
@@ -88,23 +77,6 @@ export function fetchPets(): Promise<PetsState> {
 
 export function selectPet(petId: string): Promise<unknown> {
   return putJson("/api/pets/active", { pet_id: petId });
-}
-
-export function savePetSettings(patch: PetSettingsPatch): Promise<unknown> {
-  return putJson("/api/pets/settings", patch);
-}
-
-/** Resize the desktop pet live without saving: one step of a slider drag. */
-export function previewPetScale(scale: number): Promise<unknown> {
-  return putJson("/api/pets/settings", { scale, preview: true });
-}
-
-export function setPetVisible(visible: boolean): Promise<unknown> {
-  return request("/api/pets/visibility", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ visible }),
-  });
 }
 
 export function createPet(input: CreatePetInput): Promise<Pet> {

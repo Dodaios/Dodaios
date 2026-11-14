@@ -221,8 +221,9 @@ def test_build_surface_mascot_builds_an_orb_overlay(monkeypatch) -> None:
 
     monkeypatch.delenv("JARVIS_BAR_HOST_FAKE", raising=False)
     monkeypatch.setattr(host, "_hide_dock_icon", lambda: None)
-    surface = host._build_surface({"op": "init", "surface": "mascot", "mascot_path": None})
+    surface = host._build_surface({"op": "init", "surface": "mascot", "style": "voice_orb"})
     assert isinstance(surface, OrbOverlay)
+    assert surface._style == "voice_orb"
 
 
 def test_build_surface_defaults_to_the_tk_bar_off_macos(monkeypatch) -> None:
@@ -349,7 +350,7 @@ def test_host_process_round_trip_with_mascot_surface() -> None:
     )
     try:
         assert proc.stdin is not None and proc.stdout is not None
-        proc.stdin.write('{"op": "init", "surface": "mascot", "mascot_path": "assets/m.png"}\n')
+        proc.stdin.write('{"op": "init", "surface": "mascot", "style": "voice_orb"}\n')
         proc.stdin.flush()
         # Wait for the ready handshake before sending ops — otherwise the
         # stop below can end the host before the daemon ready-announce

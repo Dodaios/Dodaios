@@ -69,7 +69,7 @@ function latestTurn(items: readonly TimelineItem[]): { id: string; status: TurnS
  * A short success or error row when the turn the person watched run ends:
  * only on the change from running to done or to error, seen live. A turn that
  * was already over when the chat came on stage, or one the person stopped,
- * plays nothing. The row holds for the desktop pet's one-shot time.
+ * plays nothing. The row holds for a pet's one-shot time.
  */
 export function useOutcomeFlash(items: readonly TimelineItem[], live: boolean): PetState | null {
   const latest = live ? latestTurn(items) : null;

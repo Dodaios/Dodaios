@@ -1,50 +1,29 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useReducedMotion } from "framer-motion";
-import {
-  Check,
-  Eye,
-  EyeOff,
-  Loader2,
-  PawPrint,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { Check, Loader2, PawPrint, Plus, Trash2 } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CreatePetDialog } from "@/components/pets/CreatePetDialog";
-import { PetControlStripPreview } from "@/components/pets/PetControlStripPreview";
 import { PetSprite, integerScaleFor } from "@/components/pets/PetSprite";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { useKeybinds } from "@/hooks/useHotkey";
-import { useOverlayStyle } from "@/hooks/useOverlayStyle";
-import {
-  useDeletePet,
-  usePets,
-  useSavePetSettings,
-  useSelectPet,
-  useSetPetVisible,
-} from "@/hooks/usePets";
-import { useRestartApp } from "@/hooks/useRestartApp";
+import { pickActivePet, useDeletePet, usePets, useSelectPet } from "@/hooks/usePets";
 import { useT } from "@/i18n";
-import { NO_PET_ID, PET_STATES } from "@/lib/petStates";
-import { previewPetScale, type Pet } from "@/lib/petsApi";
+import { PET_STATES } from "@/lib/petStates";
+import type { Pet } from "@/lib/petsApi";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
-import { KeybindRow, formatCombo } from "@/views/settings/KeybindRow";
 
 /**
- * Settings → My Pets — the desktop pet (`docs/pets.md`).
+ * Settings → My Pets — the pets the app draws (`docs/pets.md`).
  *
- * Top to bottom: what a pet is and the shortcut that hides it; a notice when
- * the desktop shows another display style, with the one click that switches
- * it; the active pet playing through all its states over the strip it
- * carries, with its size, bubble, buttons and shortcut beside it; then every
- * pet as a tile — "None" first — plus "Create pet".
+ * Pets live inside the app only: the active pet is how the assistant looks in
+ * the app, agents can wear any pet, and the Verse walks the active one. Top to
+ * bottom: what a pet is; the active pet playing through all its states; then
+ * every pet as a tile, plus "Create pet".
  *
  * Everything reads from one query (`usePets`), which the `PetChanged` event
- * refreshes, so the shortcut or another window moves this page too.
+ * refreshes, so another window moves this page too.
  */
 
 /** How long the big preview holds each state before showing the next. */
@@ -52,10 +31,6 @@ const STATE_CYCLE_MS = 2500;
 /** Largest edge of the big preview and of a grid tile's sprite, in px. */
 const HERO_SPRITE_PX = 168;
 const TILE_SPRITE_PX = 96;
-const SCALE_MIN = 0.5;
-const SCALE_MAX = 2;
-/** Fine enough that the thumb glides; the pet itself grows in whole pixels. */
-const SCALE_STEP = 0.01;
 
 function useStateCycle(enabled: boolean): number {
   const [index, setIndex] = useState(0);
@@ -77,25 +52,15 @@ export function PetsView() {
   const t = useT();
   const pushToast = useEventStore((s) => s.pushToast);
   const pets = usePets();
-  const overlay = useOverlayStyle();
-  const keybinds = useKeybinds();
   const select = useSelectPet();
-  const setVisible = useSetPetVisible();
   const remove = useDeletePet();
-  const restartApp = useRestartApp();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Pet | null>(null);
-  const [switchingStyle, setSwitchingStyle] = useState(false);
-  const [needsRestart, setNeedsRestart] = useState(false);
 
   const data = pets.data;
-  const activePet =
-    data && data.active !== NO_PET_ID
-      ? data.pets.find((pet) => pet.id === data.active) ?? null
-      : null;
-  const styleIsPet = overlay.config?.style === "pet";
-  const shortcut = keybinds.config?.keybinds?.pet_toggle ?? "";
+  // A pet that is gone (or the old "none") falls back the way the app's own marks do.
+  const activePet = pickActivePet(data);
 
   const describe = (pet: Pet) => {
     const key = `pets.builtin.${pet.id}.description`;
@@ -103,39 +68,9 @@ export function PetsView() {
     return localized !== key ? localized : pet.description;
   };
 
-  /**
-   * Makes the pet the desktop overlay style. What is on the desktop is chosen
-   * in one place, Settings → Bar & Overlay → Display style; this page only
-   * offers the step while another style is active, and that picker is where
-   * the pet is taken off the desktop again. The chosen pet is kept either way.
-   */
-  async function usePetStyle() {
-    setSwitchingStyle(true);
-    try {
-      const result = await overlay.saveStyle("pet");
-      if (result.applied_live) {
-        pushToast("success", t("pets.style_saved"));
-      } else {
-        setNeedsRestart(true);
-      }
-    } catch (error) {
-      pushToast("error", (error as Error).message);
-    } finally {
-      setSwitchingStyle(false);
-    }
-  }
-
   function choose(petId: string) {
-    if (!data || data.active === petId || select.isPending) return;
+    if (!data || activePet?.id === petId || select.isPending) return;
     select.mutate(petId, {
-      onError: (error) =>
-        pushToast("error", t("pets.save_error").replace("{0}", (error as Error).message)),
-    });
-  }
-
-  function toggleVisible() {
-    if (!data) return;
-    setVisible.mutate(!data.visible, {
       onError: (error) =>
         pushToast("error", t("pets.save_error").replace("{0}", (error as Error).message)),
     });
@@ -161,76 +96,8 @@ export function PetsView() {
         <PageHeader
           icon={<PawPrint />}
           title={t("pets.title")}
-          description={
-            shortcut
-              ? t("pets.subtitle").replace("{0}", formatCombo(shortcut))
-              : t("pets.subtitle_no_shortcut")
-          }
-          actions={
-            <div className="flex items-center gap-3">
-              {styleIsPet && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  data-testid="pets-visibility"
-                  disabled={!data || setVisible.isPending}
-                  onClick={toggleVisible}
-                >
-                  {data?.visible === false ? <Eye aria-hidden /> : <EyeOff aria-hidden />}
-                  {data?.visible === false ? t("pets.show") : t("pets.hide")}
-                </Button>
-              )}
-            </div>
-          }
+          description={t("pets.subtitle")}
         />
-
-        {overlay.config && !styleIsPet && !needsRestart && (
-          <div
-            data-testid="pets-style-notice"
-            className="mb-5 flex flex-wrap items-center gap-4 rounded-xl border border-border bg-card p-5"
-          >
-            <PawPrint className="h-6 w-6 shrink-0 text-accent" aria-hidden />
-            <div className="min-w-0 flex-1">
-              <p className="text-base font-medium text-foreground">
-                {t("pets.style_notice_title")}
-              </p>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                {t("pets.style_notice_body").replace(
-                  "{0}",
-                  t(`settings_view.overlay_style.options.${overlay.config.style}`),
-                )}
-              </p>
-            </div>
-            <Button
-              type="button"
-              data-testid="pets-use-pet"
-              disabled={switchingStyle}
-              onClick={() => void usePetStyle()}
-            >
-              {switchingStyle && <Loader2 className="animate-spin" aria-hidden />}
-              {t("pets.use_pet")}
-            </Button>
-          </div>
-        )}
-
-        {needsRestart && (
-          <div
-            data-testid="pets-restart-notice"
-            className="mb-5 flex flex-wrap items-center gap-4 rounded-xl border border-border bg-card p-5"
-          >
-            <p className="min-w-0 flex-1 text-base text-foreground">{t("pets.restart_hint")}</p>
-            <Button
-              type="button"
-              data-testid="pets-restart"
-              disabled={restartApp.restarting}
-              onClick={() => void restartApp.restart()}
-            >
-              {restartApp.restarting && <Loader2 className="animate-spin" aria-hidden />}
-              {restartApp.buttonLabel}
-            </Button>
-          </div>
-        )}
 
         {pets.isError ? (
           <div className="rounded-xl border border-border bg-card p-5" role="alert">
@@ -252,22 +119,8 @@ export function PetsView() {
             <ActivePetCard
               pet={activePet}
               loading={!data}
-              description={activePet ? describe(activePet) : t("pets.none_description")}
-            >
-              {data ? (
-                <PetSettingsPanel
-                  scale={data.scale}
-                  bubble={data.bubble}
-                  stripAlways={data.strip_always}
-                  keybinds={keybinds}
-                />
-              ) : (
-                <div
-                  aria-hidden
-                  className="mt-4 h-[222px] animate-pulse rounded-lg border border-border bg-foreground/5"
-                />
-              )}
-            </ActivePetCard>
+              description={activePet ? describe(activePet) : ""}
+            />
 
             <div className="mb-3 mt-8 flex items-center justify-between gap-4">
               <h2 className="text-lg font-semibold text-foreground-strong">{t("pets.my_pets")}</h2>
@@ -298,26 +151,13 @@ export function PetsView() {
                 ))
               ) : (
                 <>
-                  <li>
-                    <PetTile
-                      id={NO_PET_ID}
-                      name={t("pets.none_name")}
-                      description={t("pets.none_description")}
-                      selected={data.active === NO_PET_ID}
-                      disabled={select.isPending}
-                      onSelect={() => choose(NO_PET_ID)}
-                      selectedLabel={t("pets.selected")}
-                    >
-                      <PetControlStripPreview size="sm" companion />
-                    </PetTile>
-                  </li>
                   {data.pets.map((pet) => (
                     <li key={pet.id}>
                       <PetTile
                         id={pet.id}
                         name={pet.name}
                         description={describe(pet)}
-                        selected={data.active === pet.id}
+                        selected={activePet?.id === pet.id}
                         disabled={select.isPending}
                         onSelect={() => choose(pet.id)}
                         selectedLabel={t("pets.selected")}
@@ -362,13 +202,10 @@ function ActivePetCard({
   pet,
   loading,
   description,
-  children,
 }: {
   pet: Pet | null;
   loading: boolean;
   description: string;
-  /** The pet's settings, shown under its name. */
-  children?: React.ReactNode;
 }) {
   const t = useT();
   const reduced = useReducedMotion() ?? false;
@@ -393,9 +230,7 @@ function ActivePetCard({
               scale={integerScaleFor(pet.frame_size, HERO_SPRITE_PX)}
               label={`${pet.name}: ${stateLabel}`}
             />
-          ) : (
-            <p className="text-sm text-muted-foreground">{t("pets.none_description")}</p>
-          )}
+          ) : null}
         </div>
         {pet && (
           <span
@@ -405,7 +240,6 @@ function ActivePetCard({
             {stateLabel}
           </span>
         )}
-        <PetControlStripPreview companion />
       </div>
 
       <div className="flex min-w-0 flex-col">
@@ -414,192 +248,8 @@ function ActivePetCard({
           {loading ? " " : pet ? pet.name : t("pets.none_name")}
         </p>
         <p className="mt-1 text-sm text-muted-foreground">{loading ? "" : description}</p>
-        {children}
       </div>
     </section>
-  );
-}
-
-/**
- * The pet's settings, always in view beside the preview: every row saves on
- * its own, so there is nothing to open and nothing to confirm.
- */
-function PetSettingsPanel({
-  scale,
-  bubble,
-  stripAlways,
-  keybinds,
-}: {
-  scale: number;
-  bubble: boolean;
-  stripAlways: boolean;
-  keybinds: ReturnType<typeof useKeybinds>;
-}) {
-  const t = useT();
-  const pushToast = useEventStore((s) => s.pushToast);
-  const save = useSavePetSettings();
-  const [size, setSize] = useState(scale);
-  // While the thumb moves the pet follows it live: one preview request at a
-  // time, always the newest value, nothing written. The release saves.
-  const dragging = useRef(false);
-  const slider = useRef<HTMLInputElement>(null);
-  const preview = useRef<{ inFlight: Promise<void> | null; next: number | null; sent: boolean }>({
-    inFlight: null,
-    next: null,
-    sent: false,
-  });
-
-  // Follow the server (another window, a failed save), but never yank the
-  // thumb out from under a drag.
-  useEffect(() => {
-    if (!dragging.current) setSize(scale);
-  }, [scale]);
-
-  function previewSize(next: number) {
-    const queue = preview.current;
-    queue.next = Math.round(next * 100) / 100;
-    if (queue.inFlight) return;
-    const pump = async () => {
-      while (queue.next !== null) {
-        const value = queue.next;
-        queue.next = null;
-        queue.sent = true;
-        try {
-          await previewPetScale(value);
-        } catch {
-          // A missed drag step is harmless: the release saves the final size
-          // and reports any error then.
-        }
-      }
-    };
-    queue.inFlight = pump().finally(() => {
-      queue.inFlight = null;
-    });
-  }
-
-  // The release can happen anywhere on screen, not only over the track.
-  function startDrag() {
-    window.addEventListener(
-      "pointerup",
-      () => {
-        if (slider.current) void commitSize(Number(slider.current.value));
-      },
-      { once: true },
-    );
-  }
-
-  function changeSize(next: number) {
-    dragging.current = true;
-    setSize(next);
-    previewSize(next);
-  }
-
-  async function commitSize(next: number) {
-    dragging.current = false;
-    const rounded = Math.round(next * 100) / 100;
-    const queue = preview.current;
-    queue.next = null;
-    const previewed = queue.sent;
-    queue.sent = false;
-    // The save must land after the last preview, or that preview would win.
-    if (queue.inFlight) await queue.inFlight;
-    if (rounded === scale && !previewed) return;
-    save.mutate(
-      { scale: rounded },
-      {
-        onError: (error) => {
-          setSize(scale);
-          pushToast("error", t("pets.save_error").replace("{0}", (error as Error).message));
-        },
-      },
-    );
-  }
-
-  function saveSetting(change: { bubble: boolean } | { strip_always: boolean }) {
-    save.mutate(change, {
-      onError: (error) =>
-        pushToast("error", t("pets.save_error").replace("{0}", (error as Error).message)),
-    });
-  }
-
-  return (
-    // Hairlines are the panel's own colour showing through 1px gaps, so they
-    // stay right whether the two switches sit side by side or wrap.
-    <div
-      data-testid="pets-settings-panel"
-      className="mt-4 flex flex-col gap-px overflow-hidden rounded-lg border border-border bg-border"
-    >
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 bg-background px-4 py-3">
-        <div className="min-w-0 flex-1 basis-[200px]">
-          <label htmlFor="pets-size" className="text-sm font-medium text-foreground">
-            {t("pets.size_label")}
-          </label>
-          <p className="mt-0.5 text-xs text-muted-foreground">{t("pets.size_hint")}</p>
-        </div>
-        <div className="flex min-w-0 flex-1 basis-[240px] items-center gap-3">
-          <input
-            id="pets-size"
-            ref={slider}
-            type="range"
-            data-testid="pets-size"
-            min={SCALE_MIN}
-            max={SCALE_MAX}
-            step={SCALE_STEP}
-            value={size}
-            onChange={(event) => changeSize(Number(event.target.value))}
-            onPointerDown={startDrag}
-            onKeyUp={(event) => void commitSize(Number(event.currentTarget.value))}
-            onBlur={(event) => {
-              if (dragging.current) void commitSize(Number(event.currentTarget.value));
-            }}
-            className="min-w-0 flex-1 accent-primary disabled:opacity-50"
-          />
-          <span className="w-11 shrink-0 text-right font-mono text-sm text-foreground-strong">
-            {`${Math.round(size * 100)}%`}
-          </span>
-        </div>
-      </div>
-      <div className="grid gap-px [grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))]">
-        <div className="flex items-center justify-between gap-4 bg-background px-4 py-3">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">{t("pets.bubble_label")}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{t("pets.bubble_hint")}</p>
-          </div>
-          <Switch
-            checked={bubble}
-            disabled={save.isPending}
-            aria-label={t("pets.bubble_label")}
-            data-testid="pets-bubble"
-            onCheckedChange={(next) => saveSetting({ bubble: next })}
-          />
-        </div>
-        <div className="flex items-center justify-between gap-4 bg-background px-4 py-3">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">{t("pets.strip_label")}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{t("pets.strip_hint")}</p>
-          </div>
-          <Switch
-            checked={stripAlways}
-            disabled={save.isPending}
-            aria-label={t("pets.strip_label")}
-            data-testid="pets-strip-always"
-            onCheckedChange={(next) => saveSetting({ strip_always: next })}
-          />
-        </div>
-      </div>
-      <div className="bg-background px-4 py-3">
-        <KeybindRow
-          action="pet_toggle"
-          variant="voice"
-          frameless
-          label={t("settings_view.keybinds.pet_toggle_label")}
-          hint={t("pets.shortcut_hint")}
-          config={keybinds.config}
-          loading={keybinds.loading}
-          onSave={keybinds.saveKeybind}
-        />
-      </div>
-    </div>
   );
 }
 

@@ -75,7 +75,6 @@ from dodaios.core.events import (
     MessageSent,
     ObservationCaptured,
     PermissionResolved,
-    PetVisibilityToggleRequested,
     SpeechSpoken,
     TranscriptFinal,
     TranscriptionUpdate,
@@ -2045,10 +2044,6 @@ class SpeechPipeline:
         # persisted, the UI showed the new combo, and the key did nothing —
         # forever, restart included (the AP-4 trap: one layer never told).
         paste_last_hotkeys: tuple[str, ...] = (),
-        # Hide / show the desktop pet ([trigger].hotkey_pet_toggle). Dispatched
-        # here like every other global shortcut; the pipeline only publishes
-        # ``PetVisibilityToggleRequested`` and the overlay bridge does the rest.
-        pet_toggle_hotkeys: tuple[str, ...] = (),
         # Resolved DictationConfig (dodaios.core.config.DictationConfig) or None.
         # None keeps every legacy call site and test on the built-in defaults.
         dictation_config: Any = None,
@@ -2059,7 +2054,6 @@ class SpeechPipeline:
         self._dictate_hotkeys = list(dictate_hotkeys)
         self._dictate_toggle_hotkeys = list(dictate_toggle_hotkeys)
         self._paste_last_hotkeys = list(paste_last_hotkeys)
-        self._pet_toggle_hotkeys = list(pet_toggle_hotkeys)
         # Speaker mute = TTS volume 0. The muted-ness last broadcast as
         # ``VoiceSpeakerMuteChanged``; ``set_tts_volume`` runs on the REST
         # threadpool AND the overlay's Tk thread, so the compare-and-set that
@@ -3233,7 +3227,7 @@ class SpeechPipeline:
 
         The live player's volume when there is a player, else the last value
         ``set_tts_volume`` was asked for, else the configured ``[tts].volume``,
-        else full volume. The orb/pet speaker disc reads this to decide whether
+        else full volume. The orb's speaker disc reads this to decide whether
         a click mutes or unmutes; without it every click read "audible" and the
         voice could be muted but never brought back.
         """
@@ -3497,7 +3491,6 @@ class SpeechPipeline:
         dictate: list[str] | None = None,
         dictate_toggle: list[str] | None = None,
         paste_last: list[str] | None = None,
-        pet_toggle: list[str] | None = None,
     ) -> None:
         """Live-apply changed voice keybinds — no app/pipeline restart.
 
@@ -3532,18 +3525,15 @@ class SpeechPipeline:
             self._dictate_toggle_hotkeys = list(dictate_toggle)
         if paste_last is not None:
             self._paste_last_hotkeys = list(paste_last)
-        if pet_toggle is not None:
-            self._pet_toggle_hotkeys = list(pet_toggle)
         log.info(
             "Keybinds live-switched: CALL=[%s] PTT=[%s] HANGUP=[%s] DICTATE=[%s] "
-            "DICTATE-TOGGLE=[%s] PASTE-LAST=[%s] PET-TOGGLE=[%s]",
+            "DICTATE-TOGGLE=[%s] PASTE-LAST=[%s]",
             ", ".join(self._call_hotkeys),
             ", ".join(self._ptt_hotkeys) or "off",
             ", ".join(self._hangup_hotkeys),
             ", ".join(self._dictate_hotkeys) or "off",
             ", ".join(self._dictate_toggle_hotkeys) or "off",
             ", ".join(getattr(self, "_paste_last_hotkeys", None) or []) or "off",
-            ", ".join(getattr(self, "_pet_toggle_hotkeys", None) or []) or "off",
         )
         self._hotkey_reload_event.set()
 
@@ -3600,10 +3590,6 @@ class SpeechPipeline:
             # Single-fire on release, like every non-hold action: holding the
             # key must paste once, not once per polling tick.
             bindings["paste_last"] = list(paste_last)
-        pet_toggle = getattr(self, "_pet_toggle_hotkeys", None) or []
-        if pet_toggle:
-            # Single-fire on release too: one press hides or shows the pet once.
-            bindings["pet_toggle"] = list(pet_toggle)
         return bindings, edge_events
 
     # ------------------------------------------------------------------
@@ -6369,7 +6355,7 @@ class SpeechPipeline:
         hotkey_bindings, ptt_events = self._build_hotkey_bindings()
         log.info(
             "Pipeline ready. CALL=[%s] PTT=[%s] HANGUP=[%s] DICTATE=[%s/%s] "
-            "DICTATE-TOGGLE=[%s] PASTE-LAST=[%s] PET-TOGGLE=[%s] OWW=%s "
+            "DICTATE-TOGGLE=[%s] PASTE-LAST=[%s] OWW=%s "
             "WAKE=%s (threshold=%.2f) WHISPER-WAKE=%s TURN-MODE=%s",
             ", ".join(self._call_hotkeys),
             ", ".join(self._ptt_hotkeys) or "off",
@@ -6378,7 +6364,6 @@ class SpeechPipeline:
             self._dictate_mode,
             ", ".join(getattr(self, "_dictate_toggle_hotkeys", None) or []) or "off",
             ", ".join(getattr(self, "_paste_last_hotkeys", None) or []) or "off",
-            ", ".join(getattr(self, "_pet_toggle_hotkeys", None) or []) or "off",
             "on" if self._openwakeword_enabled else "off",
             list(self._wake._keywords),
             self._wake._threshold,
@@ -6911,8 +6896,6 @@ class SpeechPipeline:
             self._on_dictate_toggle()
         elif event_name == "paste_last":
             self._on_paste_last()
-        elif event_name == "pet_toggle":
-            self._on_pet_toggle()
         elif event_name == "hangup":
             log.info("📵 HANGUP via Hotkey")
             self._trigger_voice_hangup()
@@ -7042,18 +7025,6 @@ class SpeechPipeline:
         self.start_dictation(
             target=self._configured_dictation_target(), source="toggle_key"
         )
-
-    def _on_pet_toggle(self) -> None:
-        """Pet shortcut — hide the desktop pet, or show it and bring it forward.
-
-        The pipeline owns the shortcut, not the pet: it only announces the
-        press. ``OrbBusBridge`` turns ``PetVisibilityToggleRequested`` into
-        ``surface.toggle_visible()``, which every other overlay style ignores.
-        Scheduled, never awaited — this runs inside the hotkey loop, which must
-        not wait on bus subscribers.
-        """
-        log.info("Pet visibility toggle via hotkey")
-        self._publish_event_soon(PetVisibilityToggleRequested(source="hotkey"))
 
     def _on_paste_last(self) -> None:
         """"Insert the last dictation again" key — re-deliver the last transcript.
@@ -16857,11 +16828,6 @@ async def _main() -> None:
         paste_last_hotkeys=(
             (config.trigger.hotkey_paste_last,)
             if config.trigger.hotkey_paste_last.strip()
-            else ()
-        ),
-        pet_toggle_hotkeys=(
-            (config.trigger.hotkey_pet_toggle,)
-            if config.trigger.hotkey_pet_toggle.strip()
             else ()
         ),
         dictate_mode=config.dictation.mode,

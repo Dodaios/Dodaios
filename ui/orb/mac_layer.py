@@ -7,7 +7,7 @@ fully transparent pixels show as a black box, and a new animation frame never
 erases the previous one, so the frames pile up on top of each other. Tk has no
 option to change either.
 
-So on macOS the pet's windows keep Tk only for what it does well (geometry,
+So on macOS the voice orb's windows keep Tk only for what it does well (geometry,
 mouse events, timers) and put their pixels on screen themselves:
 
 * the Tk content view is made fully transparent (``alphaValue = 0``); AppKit's
@@ -51,7 +51,7 @@ def _appkit() -> tuple[Any, Any, Any] | None:
     except Exception:  # noqa: BLE001 — without PyObjC the Tk canvas path stays
         _UNAVAILABLE = True
         log.warning(
-            "pyobjc unavailable: the pet on macOS falls back to Tk drawing, which "
+            "pyobjc unavailable: the voice orb on macOS falls back to Tk drawing, which "
             "leaves a black box and stacked frames behind (install the "
             "[desktop-macos] extra)."
         )
@@ -90,7 +90,7 @@ def cgimage_from_pil(image: Image.Image, quartz: Any, cf: Any) -> Any:
 class MacLayerPresenter:
     """Puts RGBA frames of one Tk toplevel on screen through a native layer."""
 
-    def __init__(self, window: Any, *, name: str = "pet window") -> None:
+    def __init__(self, window: Any, *, name: str = "orb window") -> None:
         self._window = window
         self._name = name
         self._nswindow: Any = None
