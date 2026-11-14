@@ -2174,6 +2174,50 @@
       }
     },
     {
+      "plugin_id": "buffer",
+      "result": "PASS",
+      "config_fingerprint": "0e33bd14b2d2abbeb8250847aeffdf81aa59cfb1fd38c38467719388478eb6de",
+      "initial_state": "clean_unconnected",
+      "evidence": {
+        "ui": {
+          "status": "PASS",
+          "detail": "2026-11-14, macOS Dev app for PR #1674: the Buffer card rendered with its mark under Media & Creativity; its Connect Buffer button opened the Connecting Buffer dialog and launched the default browser at auth.buffer.com.",
+          "reference": "docs/marketplace/plugin-auth-audit.md#audit-matrix"
+        },
+        "browser": {
+          "status": "PASS",
+          "detail": "Official Buffer sign-in and consent at auth.buffer.com, reached through Dynamic Client Registration (POST auth.buffer.com/reg 201) with PKCE S256; the account holder signed in and authorized.",
+          "reference": "docs/marketplace/plugin-auth-audit.md#audit-matrix"
+        },
+        "callback": {
+          "status": "PASS",
+          "detail": "Buffer redirected to the app's loopback callback; the code exchange stored a grant and the log reported plugin buffer connected via browser authorization.",
+          "reference": "docs/marketplace/plugin-auth-audit.md#audit-matrix"
+        },
+        "connected": {
+          "status": "PASS",
+          "detail": "The plugin reported connected only after the MCP client initialized against mcp.buffer.com/mcp and listed 17 Buffer tools.",
+          "reference": "docs/marketplace/plugin-auth-audit.md#audit-matrix"
+        },
+        "smoke": {
+          "status": "PASS",
+          "detail": "A typed chat request in the Dev app ran buffer get_account and list_channels (both read-only); both tool results returned is_error=false with the real account and its one channel.",
+          "reference": "docs/marketplace/plugin-auth-audit.md#audit-matrix",
+          "real_action": true
+        },
+        "reconnect": {
+          "status": "PASS",
+          "detail": "Disconnect removed the stored grant (status not connected, no token left in the store); Connect Buffer opened Buffer consent again and the plugin returned to connected with the tools listed.",
+          "reference": "docs/marketplace/plugin-auth-audit.md#audit-matrix"
+        },
+        "restart": {
+          "status": "PASS",
+          "detail": "After a full restart of the Dev app process the plugin still reported connected, the stored grant carried a refresh token and the MCP client listed the 17 tools again.",
+          "reference": "docs/marketplace/plugin-auth-audit.md#audit-matrix"
+        }
+      }
+    },
+    {
       "plugin_id": "zoom",
       "result": "BLOCKED",
       "config_fingerprint": "ca691c87a94730a5e8d8c5ba9e06b34e27f233912a5c6f23a84972f385b740c3",

@@ -58,6 +58,7 @@ _PLUGIN_PAIRED_SKILLS: tuple[str, ...] = (
     "plugin-gitlab",
     "plugin-google_cloud",
     "plugin-granola",
+    "plugin-buffer",
     "plugin-hubspot",
     "plugin-linkedin",
     "plugin-meta",

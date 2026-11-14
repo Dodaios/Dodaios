@@ -63,6 +63,7 @@ _PUBLIC_CATALOG_MCP_URLS = {
     "apollo": "https://mcp.apollo.io/mcp",
     "atlassian": "https://mcp.atlassian.com/v1/mcp",
     "aws": "https://aws-mcp.eu-central-1.api.aws/mcp",
+    "buffer": "https://mcp.buffer.com/mcp",
     "github": "https://api.githubcopilot.com/mcp/",
     "granola": "https://mcp.granola.ai/mcp",
     "salesforce": "https://api.salesforce.com/platform/mcp/v1/platform/sobject-all",
