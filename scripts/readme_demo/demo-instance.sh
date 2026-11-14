@@ -12,6 +12,10 @@
 # DEMO_KEEP=1 starts the instance again on the state it has, wiping nothing:
 # copy DEMO_HOME and DEMO_ROOT/state away after the warm-up and back before
 # each attempt, and a take that failed costs only the take.
+# DEMO_PR_REPO=owner/name adds a third project: a clone of that GitHub
+# repository, whose open pull requests the agents clip has reviewed
+# (agents.cjs). It needs the GitHub CLI signed in to an account that can read
+# the repository; the instance gets that login as GH_TOKEN.
 #
 # Needs a Python environment with Dodaios, ptyprocess (the terminal) and pytest
 # (the sample projects' tests), and a built frontend bundle (npm run build in
@@ -420,6 +424,16 @@ invoices go out.
 EOF
 ledger_commit 2 "Describe the month-end check"
 
+# --- the third project: a repository with open pull requests -------------------
+# Only with DEMO_PR_REPO. The clone is made with your own login, before the
+# instance gets its own home folder.
+if [ -n "${DEMO_PR_REPO:-}" ]; then
+  PR_PROJECT="$DEMO_HOME/projects/${DEMO_PR_REPO##*/}"
+  git clone -q "https://github.com/$DEMO_PR_REPO.git" "$PR_PROJECT"
+  git -C "$PR_PROJECT" config user.name "Demo"
+  git -C "$PR_PROJECT" config user.email "demo@example.com"
+fi
+
 fi   # DEMO_KEEP
 
 # --- the instance --------------------------------------------------------------
@@ -438,6 +452,14 @@ export JARVIS__BRAIN__WORKER__PROVIDER="claude-api"
 # The sample projects' tests need no pytest plugin. Whatever the Python
 # environment has installed would only add its warnings to an agent's output.
 export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
+# With a pull-request project the agents use the GitHub CLI. It keeps its
+# login under the home folder, which the instance replaces: hand the token
+# over in the environment and let git ask the CLI for it.
+if [ -n "${DEMO_PR_REPO:-}" ]; then
+  export GH_TOKEN="${GH_TOKEN:-$(gh auth token)}"
+  export GH_PROMPT_DISABLED=1
+  [ -e "$DEMO_HOME/.gitconfig" ] || printf '[credential "https://github.com"]\n\thelper =\n\thelper = !gh auth git-credential\n' > "$DEMO_HOME/.gitconfig"
+fi
 cd "$DEMO_HOME"
 export HOME="$DEMO_HOME"
 export JARVIS_DATA_DIR="$DEMO_STATE/data"
