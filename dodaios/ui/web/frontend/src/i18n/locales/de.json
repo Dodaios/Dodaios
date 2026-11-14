@@ -1680,8 +1680,11 @@
     "installed_no_match": "Keine passenden Plugins",
     "frame_title": "Erweiterungen",
     "plugin_fallback": "Plugin",
-    "detail_files": "Dateien",
-    "detail_information": "Informationen",
+    "detail_access": "Zugriff",
+    "detail_lasts_always": "Bleibt nach der Anmeldung verbunden",
+    "detail_lasts_limited": "Braucht ab und zu eine neue Anmeldung",
+    "detail_technical": "Technische Details",
+    "detail_tools": "Tools",
     "longevity_note": {
       "github": "Die Browser-Anmeldung erneuert sich automatisch. Eingefügte Tokens laufen ab wie beim Erstellen festgelegt.",
       "discord": "OAuth-Tokens erneuern sich automatisch. Ein eingefügtes Bot-Token bleibt gültig, bis du es im Discord-Entwicklerportal zurücksetzt.",

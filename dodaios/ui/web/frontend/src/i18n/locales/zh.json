@@ -1680,8 +1680,11 @@
     "installed_no_match": "没有匹配的插件",
     "frame_title": "扩展",
     "plugin_fallback": "插件",
-    "detail_files": "文件",
-    "detail_information": "信息",
+    "detail_access": "访问",
+    "detail_lasts_always": "登录后保持连接",
+    "detail_lasts_limited": "需要不时重新登录",
+    "detail_technical": "技术详情",
+    "detail_tools": "工具",
     "longevity_note": {
       "github": "浏览器登录会自动续期。粘贴的令牌按创建时的设置过期。",
       "discord": "OAuth 令牌会自动刷新。粘贴的机器人令牌在你于 Discord 开发者门户中重置之前一直有效。",
