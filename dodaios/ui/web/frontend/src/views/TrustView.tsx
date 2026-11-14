@@ -7,8 +7,10 @@
  * - "What it knows": connected accounts, what is learned (with the learning
  *   switch), which providers see what (local vs cloud), channels, the screen.
  *
- * - "Credentials": the logins agents may name by handle (never a value), the
- *   backend they come from and its lock state, and the sites allowed to sign in.
+ * - "Vault": every secret the owner gives the assistant (API keys, tokens,
+ *   client IDs and secrets, passwords, logins), listed by name and kind and never
+ *   by value; below it the logins agents may name by handle, the backend they
+ *   come from and its lock state, and the sites allowed to sign in.
  * - "Self-changes": what the assistant changed in itself (skills, instructions, tools,
  *   code), each with its diff and regression result, one-click rollback, and the
  *   owner approval that core changes wait for.
@@ -24,6 +26,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { TabBar } from "@/components/layout/SectionTabBar";
 import { AuditLog } from "@/components/trust/AuditLog";
 import { CredentialsPanel } from "@/components/trust/CredentialsPanel";
+import { VaultPanel } from "@/components/trust/VaultPanel";
 import { PrivacyOverview } from "@/components/trust/PrivacyOverview";
 import { SelfChanges } from "@/components/trust/SelfChanges";
 import { TrustRules } from "@/components/trust/TrustRules";
@@ -62,7 +65,10 @@ export function TrustView({ initialTab = "rules" }: { initialTab?: Tab }) {
         ) : tab === "privacy" ? (
           <PrivacyOverview />
         ) : tab === "credentials" ? (
-          <CredentialsPanel />
+          <>
+            <VaultPanel />
+            <CredentialsPanel />
+          </>
         ) : tab === "changes" ? (
           <SelfChanges />
         ) : (

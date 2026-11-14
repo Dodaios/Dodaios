@@ -442,4 +442,124 @@ def credentials_otp_mail(rule_id: str, body: OtpMailBody) -> dict[str, Any]:
     return {"ok": True}
 
 
+
+# ------------------------------------------------------------------ vault
+#
+# The owner's own vault: every secret they give the assistant (API keys, tokens,
+# client IDs and secrets, passwords, connection strings …) and their website
+# logins. It is the lead's vault (dodaios/society/credentials.py): the secure
+# field in the lead's chat stores into it, and the lead uses a secret by its
+# name inside run_shell. Names, kinds and notes come back here; a value never
+# does, to the page or anyone else. Every write is owner-only
+# (``x-jarvis-dangerous``).
+
+
+class VaultSecretBody(BaseModel):
+    value: str = Field(min_length=1, max_length=16_384)
+    label: str = Field(default="", max_length=120)
+    kind: str = Field(default="other", max_length=32)
+    note: str = Field(default="", max_length=300)
+
+
+class VaultLoginBody(BaseModel):
+    label: str = Field(min_length=1, max_length=120)
+    url: str = Field(min_length=1, max_length=300)
+    username: str = Field(min_length=1, max_length=1024)
+    password: str = Field(min_length=1, max_length=1024)
+
+
+def _owner_vault() -> tuple[Any, str]:
+    from dodaios.society.credentials import current_vault
+    from dodaios.society.roster import LEAD_AGENT_ID
+
+    vault = current_vault()
+    if vault is None:
+        raise HTTPException(status_code=503, detail="the vault is not running yet")
+    return vault, LEAD_AGENT_ID
+
+
+def _vault_refusal(exc: Exception) -> HTTPException:
+    # A CredentialError's message is written for the owner and never holds the value.
+    from dodaios.society.credentials import CredentialError
+
+    if isinstance(exc, CredentialError):
+        status = 503 if exc.code == "storage_failed" else 400
+        return HTTPException(status_code=status, detail=str(exc))
+    return HTTPException(status_code=400, detail="invalid entry")
+
+
+@router.get("/vault")
+async def vault_overview() -> dict[str, Any]:
+    from dodaios.society.credentials import SECRET_KINDS
+
+    vault, owner = _owner_vault()
+    secrets = await asyncio.to_thread(vault.list, owner)
+    logins = await asyncio.to_thread(vault.list_logins, owner)
+    stored = await asyncio.to_thread(vault.values, owner)
+    return {
+        "secrets": [{**row.to_dict(), "present": row.env in stored} for row in secrets],
+        "logins": [row.to_dict() for row in logins],
+        "kinds": list(SECRET_KINDS),
+    }
+
+
+@router.put("/vault/secrets/{env}", openapi_extra={"x-jarvis-dangerous": True})
+async def vault_store_secret(env: str, body: VaultSecretBody) -> dict[str, Any]:
+    from dodaios.society.credentials import CredentialError, validate_token
+
+    vault, owner = _owner_vault()
+    try:
+        await validate_token(env, body.value, label=body.label)
+        info = await asyncio.to_thread(
+            vault.store, owner, env, body.value, label=body.label, kind=body.kind,
+            note=body.note,
+        )
+    except (CredentialError, ValueError) as exc:
+        raise _vault_refusal(exc) from None
+    return {"ok": True, "secret": info.to_dict()}
+
+
+@router.delete("/vault/secrets/{env}", openapi_extra={"x-jarvis-dangerous": True})
+async def vault_delete_secret(env: str) -> dict[str, Any]:
+    from dodaios.society.credentials import CredentialError
+
+    vault, owner = _owner_vault()
+    try:
+        deleted = await asyncio.to_thread(vault.delete, owner, env)
+    except CredentialError as exc:
+        raise _vault_refusal(exc) from None
+    if not deleted:
+        raise HTTPException(status_code=404, detail="no such secret")
+    return {"ok": True}
+
+
+@router.put("/vault/logins", openapi_extra={"x-jarvis-dangerous": True})
+async def vault_store_login(body: VaultLoginBody) -> dict[str, Any]:
+    from dodaios.society.credentials import CredentialError, login_key
+
+    vault, owner = _owner_vault()
+    try:
+        info = await asyncio.to_thread(
+            vault.store_login, owner, login_key(body.label), body.username, body.password,
+            url=body.url, label=body.label,
+        )
+    except (CredentialError, ValueError) as exc:
+        raise _vault_refusal(exc) from None
+    return {"ok": True, "login": info.to_dict()}
+
+
+@router.delete("/vault/logins/{key}", openapi_extra={"x-jarvis-dangerous": True})
+async def vault_delete_login(key: str) -> dict[str, Any]:
+    from dodaios.society.credentials import CredentialError
+
+    vault, owner = _owner_vault()
+    try:
+        deleted = await asyncio.to_thread(vault.delete_login, owner, key)
+    except CredentialError as exc:
+        raise _vault_refusal(exc) from None
+    if not deleted:
+        raise HTTPException(status_code=404, detail="no such login")
+    return {"ok": True}
+
+
 __all__ = ["router"]

@@ -593,3 +593,53 @@ def test_the_composer_route_answers_beside_a_working_turn(tmp_path, monkeypatch)
             assert store.side_threads(sid, running=True) == []
     finally:
         store.close()
+
+
+@pytest.mark.parametrize(
+    ("text", "carries"),
+    [
+        # The person's own words from the live chat (2026-11-14): the line rides along.
+        ("Hallo, ich will dir ein Google AI Studio API Key geben.", True),  # i18n-allow
+        ("Here is my GitHub token for the release script", True),
+        ("Was steht heute an?", False),  # i18n-allow
+    ],
+)
+async def test_a_lead_message_about_a_secret_names_the_secure_field(monkeypatch, text, carries):
+    from types import SimpleNamespace
+
+    from dodaios.agent_chat import dodaios_harness, runner_cli
+    from dodaios.agent_chat.runner_api import TurnHandle
+
+    seen: dict[str, object] = {}
+
+    async def no_briefing(_session):
+        return None
+
+    async def build_identity(**kwargs):
+        return dodaios_harness.Identity(kwargs["session_id"], "id", "id")
+
+    async def once(handle, prompt, runner, resume, **kwargs):
+        seen["prompt"] = prompt
+        return runner_cli._Outcome("done", None, {}, None, resume)  # noqa: SLF001
+
+    async def emit(_event):
+        return None
+
+    async def deny(*_args):
+        return "deny"
+
+    monkeypatch.setattr(runner_cli, "_surface_identity", no_briefing)
+    monkeypatch.setattr(dodaios_harness, "build_identity", build_identity)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
+    handle = TurnHandle(
+        session=SimpleNamespace(
+            surface="jarvis", session_id="lead-1", vendor_session="vendor-1", account_id="",
+        ),
+        turn_id="t1", emit=emit, request_approval=deny, cancel=asyncio.Event(),
+        surface="jarvis", stance="ask",
+    )
+    await runner_cli.run_cli_turn(handle, text, "claude-cli", identity=True)
+    line = dodaios_harness.SECRET_FIELD_LINE
+    assert "society_request_credential" in line
+    assert (line in str(seen["prompt"])) is carries
+    assert str(seen["prompt"]).endswith(dodaios_harness.QUESTION_CARD_LINE)

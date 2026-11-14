@@ -14,7 +14,7 @@ from contextvars import ContextVar
 from typing import Final
 
 #: Hard ceiling, checked by a test: the block rides in every lead turn.
-LEAD_DOCTRINE_MAX_CHARS: Final[int] = 1_800
+LEAD_DOCTRINE_MAX_CHARS: Final[int] = 2_100
 
 LEAD_DOCTRINE: Final[str] = (
     "LEAD ROLE\n"
@@ -36,6 +36,9 @@ LEAD_DOCTRINE: Final[str] = (
     "- Questions for the owner (what you need to go on, or when they ask to be asked) go "
     "on the question card: call society_ask_user with all of them in one call, never write "
     "them into your reply. Check memory before you ask; ask only what changes what you do.\n"
+    "- Secrets (API keys, tokens, client secrets, passwords) come only through "
+    "society_request_credential: a secure field here stores it in the owner's vault and you "
+    "use it as $NAME in run_shell, never seeing it. Never ask for one in a reply.\n"
     "- Be honest about what failed or is still open, in one sentence.\n"
     "- A chat reply fits on a phone screen. When the full answer is longer (a digest, many "
     "items, a comparison, research, a plan), write it with write_report and reply with the "

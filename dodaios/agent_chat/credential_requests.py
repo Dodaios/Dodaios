@@ -73,11 +73,13 @@ class CredentialSpec:
     replace: bool = False
     kind: str = TOKEN
     url: str = ""
+    #: What a ``token`` field holds (``api_key``, ``client_secret`` …), for the vault's list.
+    secret_kind: str = ""
 
     @classmethod
     def build(
         cls, env: str, label: Any, description: Any = "", placeholder: Any = "",
-        *, replace: bool = False, kind: Any = TOKEN, url: Any = "",
+        *, replace: bool = False, kind: Any = TOKEN, url: Any = "", secret_kind: Any = "",
     ) -> CredentialSpec:
         name = _text(label, 80)
         if not name:
@@ -86,6 +88,7 @@ class CredentialSpec:
         return cls(
             env, name, _text(description, 400), _text(placeholder, 80), replace,
             field_kind, _text(url, 300) if field_kind == LOGIN else "",
+            _text(secret_kind, 32) if field_kind == TOKEN else "",
         )
 
     def to_payload(self) -> dict[str, Any]:
@@ -97,6 +100,8 @@ class CredentialSpec:
             payload["kind"] = self.kind
         if self.kind == LOGIN:
             payload["url"] = self.url
+        if self.secret_kind:
+            payload["secret_kind"] = self.secret_kind
         return payload
 
 
@@ -162,6 +167,7 @@ class CredentialRequests:
                 payload.get("description"), payload.get("placeholder"),
                 replace=bool(payload.get("replace")),
                 kind=payload.get("kind") or TOKEN, url=payload.get("url") or "",
+                secret_kind=payload.get("secret_kind") or "",
             )
             assert self._restore_save is not None
             save = self._restore_save(session_id, spec)

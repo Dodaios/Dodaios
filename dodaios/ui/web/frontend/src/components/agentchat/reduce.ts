@@ -169,6 +169,8 @@ export interface CredentialState {
   description: string;
   placeholder: string;
   replace: boolean;
+  /** What a `token` field holds (`api_key`, `private_key` …); "" when the agent did not say. */
+  secretKind: string;
   expiresMs: number | null;
   status: string | null;
 }
@@ -1575,6 +1577,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         description: str(p.description),
         placeholder: str(p.placeholder),
         replace: Boolean(p.replace),
+        secretKind: str(p.secret_kind),
         expiresMs: num(p.expires_ms),
         status: null,
       };

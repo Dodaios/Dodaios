@@ -92,6 +92,7 @@ const ALIASES: Partial<Record<string, readonly string[]>> = {
   dictionary: ["vocabulary", "words"],
   telephony: ["phone", "calls", "twilio"],
   languages: ["language", "locale", "translation"],
+  trust: ["vault", "secrets", "passwords", "logins", "privacy", "permissions"],
 };
 
 function entry(

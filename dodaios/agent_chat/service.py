@@ -533,11 +533,15 @@ def _expires_ms(timeout_s: float | None) -> int | None:
     return int(time.time() * 1000 + timeout_s * 1000)
 
 
-async def _redact_credentials(session_id: str, event: dict[str, Any]) -> dict[str, Any]:
-    """``event`` with the society agent's stored credential values masked.
+async def _redact_credentials(
+    session_id: str, event: dict[str, Any], agent_id: str | None = None,
+) -> dict[str, Any]:
+    """``event`` with the stored credential values of the chat's owner masked.
 
     A command that prints a token shows ``[credential ENV]`` in the chat, its
     log and the live stream instead of the value (dodaios/society/credentials.py).
+    ``agent_id`` is whose vault applies: a society seat's own, or for the lead's
+    chat the owner's vault the lead keeps; by default the society chat's agent.
     """
     try:
         # Logins a running browser task holds for the credential broker (a
@@ -551,7 +555,8 @@ async def _redact_credentials(session_id: str, event: dict[str, Any]) -> dict[st
         from dodaios.society.surface import agent_id_of
 
         vault = current_vault()
-        agent_id = agent_id_of(session_id)
+        if agent_id is None:
+            agent_id = agent_id_of(session_id)
         if vault is None or agent_id is None:
             return event
         if not vault.is_loaded(agent_id):
@@ -656,7 +661,7 @@ class AgentChatService:
         # Credential cards (credential_requests.py): the value never enters a chat event.
         self._credentials = CredentialRequests(
             self._emit, self._running_turn_id,
-            history=self.store.credential_events, restore_save=self._restore_credential_save,
+            history=self.store.credential_events, restore_save=self._restore_field_save,
         )
         # "Always allow" on the Jarvis surface: the tools a person waved through
         # for the rest of the session, per session. Claude Code's "don't ask
@@ -1535,11 +1540,49 @@ class AgentChatService:
         except Exception:  # noqa: BLE001 - only the earlier pictures go unoffered; the turn runs
             log.warning("chat: earlier pictures not re-registered", exc_info=True)
 
+    def _restore_field_save(self, session_id: str, spec: CredentialSpec) -> Callable | None:
+        return self._restore_credential_save(session_id, spec, self._vault_owner(session_id))
+
+    def _vault_owner(self, session_id: str) -> str | None:
+        """Whose credential vault masks this chat's events, or ``None``.
+
+        A society seat's chat masks its agent's secrets; the lead's own chat
+        (surface ``jarvis``) masks the owner's vault, which the lead keeps. A
+        coding thread holds no vault. The surface is read once per chat: this
+        runs for every streamed token.
+        """
+        if session_id.startswith("society:"):
+            from dodaios.society.surface import agent_id_of
+
+            return agent_id_of(session_id)
+        owners: dict[str, str | None] | None = getattr(self, "_vault_owners", None)
+        if owners is None:
+            owners = self._vault_owners = {}
+        if session_id in owners:
+            return owners[session_id]
+        try:
+            session = self.store.get_session(session_id)
+        except Exception:  # noqa: BLE001 - an unreadable chat is asked again next event
+            log.debug("agent chat: no session for vault lookup", exc_info=True)
+            return None
+        if session is None:
+            return None
+        owner: str | None = None
+        if str(getattr(session, "surface", "") or "") == "jarvis":
+            from dodaios.society.roster import LEAD_AGENT_ID
+
+            owner = LEAD_AGENT_ID
+        if len(owners) > 4096:
+            owners.clear()
+        owners[session_id] = owner
+        return owner
+
     async def _emit(self, session_id: str, event: dict[str, Any]) -> None:
         # One delivery path for every runner. Normalize only finished receipts;
         # token deltas and voice-critical streaming never perform file I/O.
-        if session_id.startswith("society:"):
-            event = await _redact_credentials(session_id, event)
+        owner = self._vault_owner(session_id)
+        if owner is not None:
+            event = await _redact_credentials(session_id, event, owner)
         payload = event.get("payload") or {}
         call_key = (session_id, str(payload.get("call_id") or ""))
         if not hasattr(self, "_tool_call_names"):
@@ -3935,8 +3978,14 @@ class AgentChatService:
     # ------------------------------------------------------------ credentials
 
     @staticmethod
-    def _restore_credential_save(session_id: str, spec: CredentialSpec) -> Callable | None:
-        """Rebuild only a Society field's save callback, never a stored secret."""
+    def _restore_credential_save(
+        session_id: str, spec: CredentialSpec, owner: str | None = None
+    ) -> Callable | None:
+        """Rebuild only a Society field's save callback, never a stored secret.
+
+        ``owner`` is the vault of a chat that is no society seat's: the lead's
+        own chat keeps the owner's secrets (``_vault_owner``).
+        """
         from dodaios.agent_chat.credential_requests import CLI, LOGIN, PLUGIN
         from dodaios.society.credentials import (
             login_key,
@@ -3953,7 +4002,7 @@ class AgentChatService:
             from dodaios.society.connect_tool import connect_save
 
             return connect_save(spec.kind, spec.env)
-        agent_id = agent_id_of(session_id)
+        agent_id = agent_id_of(session_id) or owner
         if agent_id is None:
             return None
         try:
@@ -3972,7 +4021,10 @@ class AgentChatService:
                     agent_id, spec.env, value, url=spec.url, label=spec.label
                 )
             else:
-                await save_requested_credential(agent_id, spec.env, value, label=spec.label)
+                await save_requested_credential(
+                    agent_id, spec.env, value, label=spec.label, kind=spec.secret_kind,
+                    note=spec.description or None,
+                )
 
         return save
 

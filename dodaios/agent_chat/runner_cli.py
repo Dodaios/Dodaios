@@ -1057,14 +1057,24 @@ def _plan_claude_code(
         "--permission-mode",
         mode,
     ]
+    settings: dict[str, Any] = {}
     if effort == "ultracode":
         # Claude Code's Ultracode is no ``--effort`` value of its own: it is
         # the session-scoped ``ultracode`` setting (standing multi-agent
         # workflow orchestration) on top of ``xhigh`` — the level the CLI's
         # own ``/effort ultracode`` keeps. The CLI ignores the key on a model
         # or account that cannot run workflows.
-        argv += ["--settings", json.dumps({"ultracode": True})]
+        settings["ultracode"] = True
         effort = "xhigh"
+    if identity is not None:
+        # An assistant's own file and shell tools never open the secret store:
+        # a hook refuses the call before it runs, in every permission mode
+        # (dodaios/credential_broker/vault_guard.py).
+        from dodaios.credential_broker.vault_guard import hook_settings
+
+        settings.update(hook_settings())
+    if settings:
+        argv += ["--settings", json.dumps(settings)]
     if model:
         argv += ["--model", model]
     if effort:
@@ -4118,6 +4128,10 @@ async def run_cli_turn(
     if identity and session.surface == "jarvis" and not user_text.lstrip().startswith("/"):
         # The assistant's own chat: where a question goes is said beside the
         # message, not only in the system prompt (``QUESTION_CARD_LINE``).
+        from dodaios.agent_chat.secret_requests import SECRET_NOUN
+
+        if SECRET_NOUN.search(user_text):
+            user_text += dodaios_harness.SECRET_FIELD_LINE
         user_text += dodaios_harness.QUESTION_CARD_LINE
     if getattr(handle, "output_language", "") and not user_text.startswith("/goal"):
         user_text += reply_language_line(session.surface, handle.output_language)

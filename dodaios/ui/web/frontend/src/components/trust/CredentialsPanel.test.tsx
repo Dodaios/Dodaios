@@ -27,7 +27,8 @@ describe("Trust: credentials", () => {
     const calls: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       calls.push(`${init?.method ?? "GET"} ${String(input)}`);
-      return new Response(JSON.stringify(OVERVIEW), { status: 200, headers: { "Content-Type": "application/json" } });
+      const body = String(input).startsWith("/api/trust/vault") ? { secrets: [], logins: [], kinds: [] } : OVERVIEW;
+      return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     }));
     await loadLocaleChunk("trust");
     render(<TrustView initialTab="credentials" />);

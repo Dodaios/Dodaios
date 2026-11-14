@@ -30,6 +30,7 @@ import asyncio
 import base64
 import os
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
@@ -199,7 +200,18 @@ class RunShellTool:
         commands = ", ".join(dict.fromkeys(impact.commands))
         return {"level": impact.level, "commands": commands}
 
-    async def execute(self, args: dict[str, Any], ctx: ExecutionContext) -> ToolResult:
+    async def execute(
+        self,
+        args: dict[str, Any],
+        ctx: ExecutionContext,
+        *,
+        extra_env: Mapping[str, str] | None = None,
+    ) -> ToolResult:
+        """Run the command; ``extra_env`` adds variables to its environment only.
+
+        The lead's chat passes the owner's stored secrets here
+        (``dodaios/society/lead_shell.py``); nothing else sets them.
+        """
         command = (args.get("command") or "").strip()
         timeout_s = float(args.get("timeout_s", 30))
         cwd = args.get("cwd") or None
@@ -214,7 +226,7 @@ class RunShellTool:
                     stderr=asyncio.subprocess.PIPE,
                     cwd=cwd,
                     creationflags=NO_WINDOW_CREATIONFLAGS,
-                    env=_windows_subprocess_env(),
+                    env={**_windows_subprocess_env(), **(extra_env or {})},
                 )
             else:
                 proc = await asyncio.create_subprocess_exec(
@@ -225,6 +237,7 @@ class RunShellTool:
                     stderr=asyncio.subprocess.PIPE,
                     cwd=cwd,
                     creationflags=NO_WINDOW_CREATIONFLAGS,
+                    env={**os.environ, **extra_env} if extra_env else None,
                 )
             try:
                 stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)

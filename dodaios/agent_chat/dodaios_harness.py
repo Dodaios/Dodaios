@@ -132,6 +132,16 @@ QUESTION_CARD_LINE: Final[str] = (
     "your questions in one call, not into your reply."
 )
 
+#: Beside a lead message that mentions a secret (an API key, a token, a password …):
+#: the long lead conversation holds turns that sent the person to a settings page
+#: for a key, and a rule in the system prompt alone loses against those (see the
+#: question card line above). Only messages that name a secret carry it.
+SECRET_FIELD_LINE: Final[str] = (
+    "\nA secret they want to give you (API key, token, client ID or secret, password) "  # noqa: S105 - a prompt line, not a secret
+    "goes through the secure field: call society_request_credential, then use it as $NAME "
+    "in run_shell. Never ask for it in your reply or send them to a settings page."
+)
+
 _SHARED_PREAMBLE: Final[str] = (
     "You are the person's assistant (your name is stated at the top of this prompt) in "
     "the chat of the Dodaios desktop app; they also talk to you by voice.\n\n"
@@ -903,6 +913,7 @@ __all__ = [
     "ACTING_PREAMBLE",
     "CHAT_MESSAGES",
     "QUESTION_CARD_LINE",
+    "SECRET_FIELD_LINE",
     "COMPACT_MAX_CHARS",
     "HEADER_NAME",
     "SPAN_HEADER_NAME",

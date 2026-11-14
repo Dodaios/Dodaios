@@ -283,3 +283,72 @@ export const revokeCredentialRule = (id: string) =>
 
 export const setCredentialOtpMail = (id: string, on: boolean) =>
   request<{ ok: boolean }>(`/api/trust/credentials/rules/${encodeURIComponent(id)}/otp-mail`, json({ on }));
+
+// ---- Vault (dodaios/society/credentials.py, the owner's own): names and kinds, never values.
+
+export type SecretKind =
+  | "api_key"
+  | "token"
+  | "client_id"
+  | "client_secret"
+  | "password"
+  | "connection_string"
+  | "webhook_url"
+  | "private_key"
+  | "other";
+
+export interface VaultSecret {
+  /** The environment variable the assistant uses it by. */
+  env: string;
+  label: string;
+  kind: SecretKind;
+  note?: string;
+  created_ms: number;
+  updated_ms: number;
+  /** False when the index lists it but the system store lost the value. */
+  present: boolean;
+}
+
+export interface VaultLogin {
+  key: string;
+  label: string;
+  url: string;
+  domain: string;
+  created_ms: number;
+  updated_ms: number;
+}
+
+export interface VaultOverview {
+  secrets: VaultSecret[];
+  logins: VaultLogin[];
+  kinds: SecretKind[];
+}
+
+export const fetchVault = () => request<VaultOverview>("/api/trust/vault");
+
+/** Saves (or replaces) one secret; the value goes one way, the reply carries only its name. */
+export const storeVaultSecret = (env: string, body: { value: string; label: string; kind: SecretKind; note: string }) =>
+  request<{ ok: boolean; secret: Omit<VaultSecret, "present"> }>(`/api/trust/vault/secrets/${encodeURIComponent(env)}`, json(body));
+
+export const deleteVaultSecret = (env: string) =>
+  request<{ ok: boolean }>(`/api/trust/vault/secrets/${encodeURIComponent(env)}`, { method: "DELETE" });
+
+export const storeVaultLogin = (body: { label: string; url: string; username: string; password: string }) =>
+  request<{ ok: boolean; login: VaultLogin }>("/api/trust/vault/logins", json(body));
+
+export const deleteVaultLogin = (key: string) =>
+  request<{ ok: boolean }>(`/api/trust/vault/logins/${encodeURIComponent(key)}`, { method: "DELETE" });
+
+/** "Google AI Studio API key" → "GOOGLE_AI_STUDIO_API_KEY", the name the assistant uses. */
+export function envNameFor(label: string): string {
+  const base = label
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 60)
+    .replace(/_+$/g, "");
+  if (!base) return "";
+  return /^[A-Z]/.test(base) ? base : `SECRET_${base}`.slice(0, 64);
+}
