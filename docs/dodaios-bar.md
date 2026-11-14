@@ -18,6 +18,12 @@ The pill eases between shapes (about 75 ms) and keeps its bottom centre, so it
 grows upward and evenly to both sides. A notice (a refused request) shows a
 blinking cross in the live pill and does not open.
 
+## Size
+
+"Bar size" in Settings (`[ui] bar_size_scale`, 50 to 200 %) scales the whole
+bar. The default is 100 %, the design size above; it was 135 % for the earlier,
+larger bar, which made the small pill too big.
+
 ## Place
 
 The default place is centred, 12 pt above the bottom of the screen's work
