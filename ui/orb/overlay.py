@@ -375,6 +375,25 @@ def apply_macos_clear_backing() -> None:
         orb_log.warning("macOS clear-backing pass failed", exc_info=True)
 
 
+def reassert_macos_topmost(window: Any) -> None:
+    """Put a just-revealed window back above ordinary windows on macOS.
+
+    Aqua-Tk 9 drops the NSWindow level when a window is withdrawn and mapped
+    again: ``wm attributes -topmost`` still reads 1, but the window comes back
+    at the normal level (layer 0) and sinks under every other app. The pet
+    hides and reveals its windows all the time, so it vanished behind the
+    browser while the app reported it as shown. Setting the attribute again
+    restores the floating level; it never activates the window or takes focus.
+    Call it after every ``deiconify``. No-op elsewhere, never raises.
+    """
+    if sys.platform != "darwin" or window is None:
+        return
+    try:
+        window.wm_attributes("-topmost", True)
+    except tk.TclError:
+        logging.getLogger("jarvis.orb").debug("macOS topmost re-assert failed", exc_info=True)
+
+
 _GWL_EXSTYLE = -20
 _WS_EX_APPWINDOW = 0x00040000
 _WS_EX_TOOLWINDOW = 0x00000080
@@ -1460,6 +1479,7 @@ class OrbCommentBubble:
         )
 
         self._top.deiconify()
+        reassert_macos_topmost(self._top)
         try:
             self._top.lift()
         except tk.TclError:
@@ -1581,6 +1601,7 @@ class OrbCommentBubble:
         )
 
         self._top.deiconify()
+        reassert_macos_topmost(self._top)
         try:
             self._top.lift()
         except tk.TclError:
@@ -1882,6 +1903,7 @@ class OrbControlRow:
         self._place()
         try:
             self._top.deiconify()
+            reassert_macos_topmost(self._top)
             if self._mac_transparent:
                 apply_macos_clear_backing()
             self._top.lift()
@@ -2740,6 +2762,7 @@ class OrbOverlay:
         if self._boot_flash_target_xy is not None and not self._sticky:
             target_x, target_y = self._boot_flash_target_xy
             self._root.deiconify()
+            reassert_macos_topmost(self._root)
             self._root.after(800, lambda: self._finish_boot_flash(target_x, target_y))
         elif not self._sticky:
             self._root.withdraw()
@@ -3743,6 +3766,7 @@ class OrbOverlay:
             self._set_mode(mode)
             if self._root and not self._pet_hidden_by_user():
                 self._root.deiconify()
+                reassert_macos_topmost(self._root)
                 if self._mac_transparent:
                     # Tk 9 can (re)materialize the NSWindow on mapping after a
                     # withdraw; a construction-time clear-backing pass does not
@@ -4459,6 +4483,7 @@ class OrbOverlay:
         self._cancel_pending_hide()
         try:
             root.deiconify()
+            reassert_macos_topmost(root)
             if self._mac_transparent:
                 apply_macos_clear_backing()
             root.lift()

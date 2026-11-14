@@ -20,6 +20,14 @@ orb-window style needs an app restart, because a second Tk root created at
 runtime aborts the process (BUG-031). The settings page offers the restart in
 one click.
 
+On macOS, Aqua-Tk 9 puts a window back at the normal level when it is
+withdrawn and shown again, although `-topmost` still reads 1. Each reveal of
+the pet, its strip, bubble and cards therefore sets `-topmost` again
+(`reassert_macos_topmost`); without it the pet hid behind the browser while
+the app reported it as shown. The macOS host needs a Python with Tk
+(Homebrew: `brew install python-tk@3.12`); without it the host exits with
+`No module named '_tkinter'` and no pet appears.
+
 ## What the user sees
 
 - **The figure.** It reacts to Dodaios in real time (see *States*). It can be

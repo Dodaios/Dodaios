@@ -190,6 +190,7 @@ class AlphaWindow:
             return
         try:
             self.top.deiconify()
+            self._ov.reassert_macos_topmost(self.top)
             self.top.lift()
         except tk.TclError:
             log.debug("%s show failed", self._name, exc_info=True)

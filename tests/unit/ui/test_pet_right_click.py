@@ -35,6 +35,9 @@ class _Window:
     def lift(self) -> None:
         pass
 
+    def wm_attributes(self, *_args: object) -> None:
+        pass
+
     def winfo_pointerxy(self) -> tuple[int, int]:
         return (100, 200)
 
