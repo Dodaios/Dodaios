@@ -11,6 +11,25 @@ versioning per [SemVer](https://semver.org/).
 
 ---
 
+## [5.3.1] — 2026-11-14
+
+### Added
+
+- Coding agents show their own product marks (#1671)
+- Due reminders show where they come from and say plainly what and when (#1670)
+- One vault for every secret the owner gives the assistant, filled from a small secure field in the chat (#1669)
+
+### Fixed
+
+- The release bundle may carry Excalidraw's public Firebase web key (#1678)
+- Admission reads a rerun CI attempt in small pages and retries a failed lookup (#1677)
+- A job that was set up is only called ready when what it needs is reachable (#1676)
+- An appointment from before the UTC fix is over at its end, whatever its text says (#1675)
+- A bare Cmd hold key raises the Dodaios Bar at the key-down, with no wait (#1672)
+- Keep final STT responsive on a cold or slow local engine (#1545)
+
+---
+
 ## [5.3.0] — 2026-11-14
 
 ### Added
