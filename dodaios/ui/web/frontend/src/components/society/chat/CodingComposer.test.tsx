@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SocietyAgent } from "../data";
 import { fetchIdeAgents } from "@/lib/agenticIdeApi";
 import { Composer } from "./AgentChatPanel";
-import openaiLogo from "@/assets/providers/openai.svg?url";
+import codexLogo from "@/assets/agents/codex.svg?url";
 
 vi.mock("../data", async (load) => ({
   ...await load<typeof import("../data")>(),
@@ -55,7 +55,7 @@ async function chooseCodex() {
   fireEvent.click(row);
   await waitFor(() => expect(box.textContent).toContain("@codex"));
   expect(screen.getByRole("status").textContent).toContain("Assignment for");
-  expect(screen.getByTestId("agent-mark-codex").getAttribute("data-logo")).toBe(openaiLogo);
+  expect(screen.getByTestId("agent-mark-codex").getAttribute("data-logo")).toBe(codexLogo);
   return box;
 }
 

@@ -12,8 +12,8 @@ import type {
   ResumeTerminalOffer,
   ResumeWorkspaceOffer,
 } from "@/lib/agenticIdeApi";
-import claudeLogo from "@/assets/providers/claude.svg?url";
-import openaiLogo from "@/assets/providers/openai.svg?url";
+import claudeLogo from "@/assets/agents/claude-code.svg?url";
+import codexLogo from "@/assets/agents/codex.svg?url";
 
 function pane(
   name: string,
@@ -201,10 +201,9 @@ describe("ResumeCard", () => {
         onDismiss={vi.fn()}
       />,
     );
-    // `data-logo` rather than the <img>: both of these are single-colour marks
-    // and are drawn as a CSS mask so they follow the theme's ink.
+    // `data-logo` names the file whichever way it is drawn (CSS mask or <img>).
     const codexMark = screen.getAllByTestId("agent-mark-codex")[0];
-    expect(codexMark.getAttribute("data-logo")).toBe(openaiLogo);
+    expect(codexMark.getAttribute("data-logo")).toBe(codexLogo);
     const claudeMark = screen.getAllByTestId("agent-mark-claude")[0];
     expect(claudeMark.getAttribute("data-logo")).toBe(claudeLogo);
   });

@@ -7,10 +7,10 @@ import kimiLogo from "@/assets/agents/kimi.svg?url";
 import opencodeLogo from "@/assets/agents/opencode.svg?url";
 import zaiLogo from "@/assets/agents/zai.svg?url";
 import antigravityLogo from "@/assets/providers/antigravity.svg?url";
-import claudeLogo from "@/assets/providers/claude.svg?url";
+import claudeLogo from "@/assets/agents/claude-code.svg?url";
 import deepseekLogo from "@/assets/providers/deepseek.svg?url";
-import openaiLogo from "@/assets/providers/openai.svg?url";
-import xaiLogo from "@/assets/providers/xai.svg?url";
+import codexLogo from "@/assets/agents/codex.svg?url";
+import grokBuildLogo from "@/assets/agents/grok-build.svg?url";
 
 afterEach(cleanup);
 
@@ -34,8 +34,7 @@ function mark(agent: string): HTMLElement {
 
 describe("AgentMark", () => {
   it.each([
-    ["codex", openaiLogo],
-    ["grok-build", xaiLogo],
+    ["grok-build", grokBuildLogo],
     ["cursor", cursorLogo],
     ["kimi", kimiLogo],
     ["opencode", opencodeLogo],
@@ -52,6 +51,7 @@ describe("AgentMark", () => {
 
   it.each([
     ["claude", claudeLogo],
+    ["codex", codexLogo],
     ["antigravity", antigravityLogo],
     ["deepseek-harness", deepseekLogo],
   ])("draws the %s mark in its own colours, untouched", (agent, file) => {
@@ -99,5 +99,16 @@ describe("AgentMark", () => {
 
     render(<AgentMark agent="kimi" label="Kimi" variant="plain" />);
     expect(mark("kimi").className).not.toContain("bg-scrim");
+  });
+
+  it("dims a plain single-colour glyph to text weight but keeps a colour mark at full strength", () => {
+    // A row of threads shows the Claude Code mascot and the Codex tile in their
+    // own colours; dimmed they looked washed out next to the title.
+    const { unmount } = render(<AgentMark agent="claude" label="Claude Code" variant="plain" />);
+    expect(mark("claude").className).not.toContain("opacity-70");
+    unmount();
+
+    render(<AgentMark agent="cursor" label="Cursor" variant="plain" />);
+    expect(mark("cursor").className).toContain("opacity-70");
   });
 });
