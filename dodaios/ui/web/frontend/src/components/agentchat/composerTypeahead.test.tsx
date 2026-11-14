@@ -99,7 +99,8 @@ function type(text: string) {
 
 const SLASH_ITEMS = [
   { value: "commit", label: "commit", hint: "Commit the work", kind: "skill", group: "project" },
-  { value: "review", label: "review", hint: "Review the diff", kind: "command", group: "project" },
+  { value: "review", label: "review", hint: "Review the diff", kind: "command", group: "project",
+    argument_hint: "[<pr>|<branch>]" },
   { value: "github:issue", label: "github:issue", hint: "Open an issue", kind: "skill", group: "plugins" },
 ];
 const FILE_ITEMS = [
@@ -142,7 +143,7 @@ describe("composer typeahead", () => {
     vi.restoreAllMocks();
   });
 
-  it("opens the slash list with what the backend read, grouped, and picks with Enter without sending", async () => {
+  it("opens the slash list with what the backend read, plain like a CLI's, and picks with Enter without sending", async () => {
     seed(catalog(["/", "@"]));
     composer();
     type("/");
@@ -154,9 +155,18 @@ describe("composer typeahead", () => {
       "/reviewReview the diff",
       "/github:issueOpen an issue",
     ]);
-    expect(screen.getByTestId("composer-typeahead").textContent).toContain("Plugins");
+    // A coding thread's list is the CLI's own: no heading per source, no icon per kind.
+    expect(screen.getByTestId("composer-typeahead").textContent).not.toContain("Plugins");
+    expect(screen.getByTestId("composer-typeahead").querySelector("svg")).toBeNull();
+    // The first entry takes no arguments, so no usage line; the second one does.
+    expect(screen.queryByTestId("composer-typeahead-usage")).toBeNull();
+    fireEvent.keyDown(box(), { key: "ArrowDown" });
+    expect(screen.getByTestId("composer-typeahead-usage").textContent).toBe("/review [<pr>|<branch>]");
     const typeaheadCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("/typeahead"));
     const asked = new URL(String(typeaheadCall?.[0]), "http://x").searchParams;
+    // The whole list is read once and filtered here, however long the CLI's is.
+    expect(asked.get("q")).toBe("");
+    expect(Number(asked.get("limit"))).toBeGreaterThanOrEqual(1000);
     // Native CLI completions belong to the IDE chat surface.
     expect(asked.get("surface")).toBe("agent");
     expect(asked.get("provider")).toBe("claude-api");
@@ -174,6 +184,43 @@ describe("composer typeahead", () => {
     await waitFor(() => expect(box().textContent).toBe("/review "));
     expect(sent).toEqual([]);
     expect(screen.queryByTestId("composer-typeahead")).toBeNull();
+  });
+
+  it("shows a file as its whole path", async () => {
+    seed(catalog(["/", "@"]));
+    composer();
+    type("see @ap");
+    await waitFor(() => expect(screen.getAllByTestId("composer-typeahead-item")).toHaveLength(2));
+    expect(screen.getAllByTestId("composer-typeahead-item").map((r) => r.textContent)).toEqual(["@src/", "@src/app.py"]);
+  });
+
+  it("paints a known command and a picked file in the box, and leaves a typo plain", async () => {
+    class FakeHighlight {
+      ranges: Range[];
+      constructor(...ranges: Range[]) {
+        this.ranges = ranges;
+      }
+    }
+    const registry = new Map<string, FakeHighlight>();
+    vi.stubGlobal("Highlight", FakeHighlight);
+    vi.stubGlobal("CSS", { highlights: registry });
+    const painted = () => (registry.get("composer-token")?.ranges ?? []).map((range) => range.toString());
+    seed(catalog(["/", "@"]));
+    composer();
+
+    // Typed whole, without ever picking from the list: the name alone decides.
+    type("/review the branch");
+    await waitFor(() => expect(painted()).toEqual(["/review"]));
+    type("/reveiw the branch");
+    await waitFor(() => expect(painted()).toEqual([]));
+
+    type("/review @ap");
+    await waitFor(() => expect(screen.getAllByTestId("composer-typeahead-item")).toHaveLength(2));
+    fireEvent.keyDown(box(), { key: "ArrowDown" });
+    fireEvent.keyDown(box(), { key: "Enter" });
+    await waitFor(() => expect(box().textContent).toBe("/review @src/app.py "));
+    await waitFor(() => expect(painted()).toEqual(["/review", "@src/app.py"]));
+    expect(sent).toEqual([]);
   });
 
   it("asks the backend per keystroke for @ and keeps a folder pick open on its contents", async () => {

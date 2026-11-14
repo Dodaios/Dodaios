@@ -40,6 +40,11 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* A slash command, skill or picked mention the seat will act on, coloured the
+   way a coding CLI colours it in its prompt (ComposerChipField, paintTokens). */
+::highlight(composer-token) {
+  color: hsl(var(--info));
+}
 .composer-chip-field:empty::before,
 .composer-chip-field:not(:focus):has(> br:only-child)::before {
   content: attr(data-placeholder);

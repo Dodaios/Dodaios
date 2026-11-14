@@ -433,6 +433,28 @@ def _agent_trust_configs_in_tmp(tmp_path_factory, monkeypatch):  # noqa: ANN001
 
 
 @pytest.fixture(autouse=True)
+def _no_real_cli_command_probe(monkeypatch):  # noqa: ANN001
+    """Keep a "/" list from starting the developer's real Claude Code.
+
+    A Claude Code seat's slash list is the one the CLI reports, and a thread
+    that has not run a turn asks the installed CLI for it
+    (``dodaios.agent_chat.typeahead._ask_cli``). On a developer machine that
+    would start the real binary, on the real account, from any test that opens
+    a "/" list, and the rows would be that person's skills. Here the CLI never
+    answers, so a list is what the test put on disk or reported itself; the
+    probe has its own tests against a stand-in process
+    (``test_cli_reported_commands.py``). Root conftest because the web and
+    Agentic-IDE suites open the list through the route too.
+    """
+    from dodaios.agent_chat import typeahead
+
+    typeahead.forget_cli_commands()
+    monkeypatch.setattr(typeahead, "_ask_cli", lambda runner, folder: None)
+    yield
+    typeahead.forget_cli_commands()
+
+
+@pytest.fixture(autouse=True)
 def _macos_shell_registration_in_tmp(tmp_path_factory, monkeypatch):  # noqa: ANN001
     """Keep every suite away from the developer's real macOS shell databases.
 

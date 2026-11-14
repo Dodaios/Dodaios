@@ -5,11 +5,12 @@ Every coding CLI has a typeahead: ``/`` lists the slash commands and skills,
 spells an explicit skill ``$name``. The chat composer wears the same three
 gestures — but the seat behind a chat decides what each one means, and the
 list must be what THAT seat will honour when the sentence arrives. Nothing
-here is a catalogue typed by hand: every row is read from the disk the
-runner reads.
+here is a catalogue typed by hand: a Claude Code seat's "/" list is the one
+the CLI itself reports, and every other row is read from the disk the runner
+reads.
 
     runner       "/"                          "@"              "$"
-    claude-cli   skills, commands, plugins    files, agents    —
+    claude-cli   the CLI's own command list   files, agents    —
     codex-cli    —                            files            skills
     agy-cli      —                            files            —
     grok-cli     —                            files            —
@@ -19,6 +20,9 @@ runner reads.
 A Claude Code seat reads its user-level definitions from the account's
 config dir (``CLAUDE_CONFIG_DIR``, the same seat the turn is spawned on —
 never the maintainer's ``~/.claude``); a Codex seat from ``CODEX_HOME``.
+Claude Code's "/" list is asked from the CLI (``cli_commands``): its
+built-ins, skills and plugin commands, exactly the ones it accepts in a
+thread. The disk list stands in only while the CLI cannot answer.
 Project-level definitions come from the chat's folder, and both the
 ``.claude`` tree and its tool-neutral twin ``.agents`` are read because a
 checkout may carry only one of them.
@@ -41,6 +45,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import time
 from collections import deque
 from dataclasses import asdict, dataclass
@@ -119,9 +124,15 @@ class Suggestion:
     #: skill | command | agent | file | folder
     kind: str = ""
     group: str = ""
+    #: What a command takes after its name, in the CLI's own words (``[on|off]``).
+    argument_hint: str = ""
+    #: Other names the CLI accepts for the same command.
+    aliases: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        row = asdict(self)
+        row["aliases"] = list(self.aliases)
+        return row
 
 
 #: surface -> the trigger characters that surface honours, whatever runner it
@@ -175,9 +186,12 @@ def suggest(
     society = surface == "society"
     rows: list[Suggestion]
     if trigger == SLASH:
-        rows = jarvis_skills() if runner == "brain" else claude_slash(folder)
-        if runner in _CLAUDE_SHAPED:
-            rows = rows + _cli_reported_rows(runner, folder, {r.value for r in rows})
+        if runner == "brain":
+            rows = jarvis_skills()
+        elif runner in _CLAUDE_SHAPED:
+            rows = cli_commands(runner, folder)
+        else:
+            rows = claude_slash(folder)
         if society:
             # The agent's OWN learned skills come first: they are the ones it
             # can run with society_run_skill.
@@ -516,58 +530,170 @@ def _installed_plugins(config_dir: Path) -> list[tuple[str, Path]]:
 
 # ------------------------------------------------- commands the CLI reports
 #
-# Claude Code lists every slash command it will accept (built-ins such as
-# ``/compact``, skills, plugin commands) in the ``system/init`` event of each
-# turn and in the answer to the control handshake. The runner hands that list
-# here, so the picker offers what the CLI itself says it understands instead of
-# only what could be read from disk. Nothing is invented: until a turn has run,
-# the list is the disk list.
+# Claude Code lists every slash command it accepts (built-ins such as ``/goal``
+# and ``/compact``, skills, plugin commands): in the answer to the control
+# handshake, in the ``system/init`` event of each turn, and again whenever the
+# set changes mid-session. That list IS the thread's "/" list, the same one the
+# CLI shows in a terminal. A turn hands its list here as it runs; a thread that
+# has not run one yet asks the CLI directly (``_ask_cli``, about a second, no
+# model call). Nothing is invented: when the CLI cannot answer, the list is what
+# the disk shows.
 
-_CLI_REPORTED: dict[tuple[str, str], dict[str, str]] = {}
-#: The latest list per runner, for a folder that has not had a turn yet.
-_CLI_REPORTED_ANY: dict[str, dict[str, str]] = {}
+
+@dataclass(frozen=True, slots=True)
+class _CliCommand:
+    name: str
+    description: str = ""
+    argument_hint: str = ""
+    aliases: tuple[str, ...] = ()
+
+
+#: (runner, folder) -> the CLI's commands by name, in the order it reported them.
+_CLI_REPORTED: dict[tuple[str, str], dict[str, _CliCommand]] = {}
+#: (runner, folder) -> when the CLI last answered (or failed to), monotonic.
+_CLI_ASKED: dict[tuple[str, str], float] = {}
+_CLI_ASK_LOCKS: dict[tuple[str, str], threading.Lock] = {}
+_CLI_ASK_GUARD: Final[threading.Lock] = threading.Lock()
+#: A reported list stands this long before the CLI is asked again.
+_CLI_LIST_TTL_S: Final[float] = 300.0
+#: A CLI that did not answer is left alone this long, so a keystroke never waits twice.
+_CLI_RETRY_S: Final[float] = 30.0
+_COMMAND_NAME: Final[re.Pattern[str]] = re.compile(r"[\w][\w:.\-]*")
+#: Commands the CLI lists for its own plumbing; its terminal does not show them either.
+_INTERNAL_PREFIX: Final[str] = "__"
+#: Prompts an MCP server offers. The probe starts no server, so only a turn reports them.
+_MCP_PREFIX: Final[str] = "mcp__"
 
 
 def _folder_key(folder: str | Path | None) -> str:
     return os.path.normcase(str(folder)) if folder else ""
 
 
-def remember_cli_commands(
-    runner: str, folder: str | Path | None, commands: Any
-) -> None:
-    """Cache the commands a CLI reported: names, or ``{name, description}`` dicts."""
-    found: dict[str, str] = {}
+def _parse_cli_commands(commands: Any) -> tuple[dict[str, _CliCommand], bool]:
+    """The reported entries by name, and whether the report carried details."""
+    found: dict[str, _CliCommand] = {}
+    detailed = False
     for entry in commands if isinstance(commands, (list, tuple)) else []:
         if isinstance(entry, str):
-            name, hint = entry, ""
+            name, row = entry, None
         elif isinstance(entry, dict):
-            name, hint = str(entry.get("name") or ""), str(entry.get("description") or "")
+            name, row = str(entry.get("name") or ""), entry
         else:
             continue
         name = name.strip().lstrip(SLASH)
-        if name and re.fullmatch(r"[\w][\w:.\-]*", name):
-            found[name] = hint.strip()
+        if not name or not _COMMAND_NAME.fullmatch(name):
+            continue
+        if row is None:
+            found[name] = _CliCommand(name)
+            continue
+        detailed = True
+        raw_aliases = row.get("aliases")
+        aliases = tuple(
+            alias.strip().lstrip(SLASH)
+            for alias in (raw_aliases if isinstance(raw_aliases, (list, tuple)) else [])
+            if isinstance(alias, str) and _COMMAND_NAME.fullmatch(alias.strip().lstrip(SLASH))
+        )
+        found[name] = _CliCommand(
+            name,
+            str(row.get("description") or "").strip(),
+            str(row.get("argumentHint") or "").strip(),
+            aliases,
+        )
+    return found, detailed
+
+
+def remember_cli_commands(
+    runner: str, folder: str | Path | None, commands: Any, *, from_probe: bool = False
+) -> None:
+    """Keep the list a CLI reported: names, or ``{name, description, ...}`` dicts.
+
+    Every report is the CLI's whole list, so it replaces the one before it. Two
+    things survive a replacement: the details of a command a names-only report
+    (``system/init``) repeats, and, after a probe, the MCP prompts a turn
+    reported, because the probe starts no MCP server and cannot see them.
+    """
+    found, detailed = _parse_cli_commands(commands)
     if not found:
         return
     key = (runner, _folder_key(folder))
-    merged = {**_CLI_REPORTED.get(key, {}), **found}
-    # A name-only report (init) must not erase a description learned earlier.
-    for name, hint in found.items():
-        if not hint and _CLI_REPORTED.get(key, {}).get(name):
-            merged[name] = _CLI_REPORTED[key][name]
-    _CLI_REPORTED[key] = merged
-    _CLI_REPORTED_ANY[runner] = merged
+    before = _CLI_REPORTED.get(key, {})
+    if not detailed:
+        found = {name: before.get(name, row) for name, row in found.items()}
+    if from_probe:
+        for name, row in before.items():
+            if name.startswith(_MCP_PREFIX):
+                found.setdefault(name, row)
+    _CLI_REPORTED[key] = found
+    if detailed:
+        _CLI_ASKED[key] = time.monotonic()
 
 
-def _cli_reported_rows(runner: str, folder: Path | None, seen: set[str]) -> list[Suggestion]:
-    reported = _CLI_REPORTED.get((runner, _folder_key(folder))) or _CLI_REPORTED_ANY.get(runner)
-    if not reported:
-        return []
-    return [
-        Suggestion(value=name, label=SLASH + name, hint=hint, kind="command", group=GROUP_CLI)
-        for name, hint in reported.items()
-        if name not in seen
+def forget_cli_commands() -> None:
+    """Drop every reported list, so the next "/" asks the CLI again (tests, a new login)."""
+    _CLI_REPORTED.clear()
+    _CLI_ASKED.clear()
+
+
+def _ask_cli(runner: str, folder: Path | None) -> None:
+    """Ask the CLI for its command list in ``folder`` and keep the answer."""
+    from dodaios.agent_chat.runner_cli import read_claude_commands
+
+    reported = read_claude_commands(runner, folder)
+    if reported:
+        remember_cli_commands(runner, folder, reported, from_probe=True)
+
+
+def _reported_commands(runner: str, folder: Path | None) -> dict[str, _CliCommand] | None:
+    """The CLI's current list for this seat and folder, asking it when the list is old."""
+    key = (runner, _folder_key(folder))
+
+    def fresh() -> bool:
+        asked = _CLI_ASKED.get(key)
+        if asked is None:
+            return False
+        limit = _CLI_LIST_TTL_S if key in _CLI_REPORTED else _CLI_RETRY_S
+        return time.monotonic() - asked < limit
+
+    if not fresh():
+        with _CLI_ASK_GUARD:
+            lock = _CLI_ASK_LOCKS.setdefault(key, threading.Lock())
+        # Two lists opened at once (two panes of one folder) ask the CLI once.
+        with lock:
+            if not fresh():
+                try:
+                    _ask_cli(runner, folder)
+                except Exception:  # noqa: BLE001 — the list falls back to the disk, never a 500
+                    log.debug("typeahead: %s did not report its commands", runner, exc_info=True)
+                # Answered or not, the CLI was asked just now.
+                _CLI_ASKED[key] = time.monotonic()
+    return _CLI_REPORTED.get(key) or None
+
+
+def cli_commands(runner: str, folder: Path | None) -> list[Suggestion]:
+    """A Claude Code seat's "/" list: the commands the CLI itself reports, by name.
+
+    The CLI's terminal lists them alphabetically, and so does this. While the
+    CLI cannot answer (not installed, too old for the probe) the list is what
+    the disk shows: the folder's and the account's skills and commands.
+    """
+    reported = _reported_commands(runner, folder)
+    if reported is None:
+        return claude_slash(folder)
+    rows = [
+        Suggestion(
+            value=row.name,
+            label=row.name,
+            hint=_short(row.description),
+            kind="command",
+            group=GROUP_CLI,
+            argument_hint=_short(row.argument_hint),
+            aliases=row.aliases,
+        )
+        for row in reported.values()
+        if not row.name.startswith(_INTERNAL_PREFIX)
     ]
+    rows.sort(key=lambda r: r.value.lower())
+    return rows
 
 
 def claude_slash(folder: Path | None) -> list[Suggestion]:
@@ -696,7 +822,7 @@ def jarvis_skills() -> list[Suggestion]:
 
 
 def _filter_definitions(rows: list[Suggestion], query: str) -> list[Suggestion]:
-    """Prefix matches first, then substring — on the value, the label, or the hint.
+    """Prefix matches first, then substring — on the value, the label, an alias, or the hint.
 
     A single letter sits inside almost every description ("x" in "X-Marketing",
     "xAI", "codex", "dropbox"), so single-character queries stay strictly
@@ -710,14 +836,18 @@ def _filter_definitions(rows: list[Suggestion], query: str) -> list[Suggestion]:
     for idx, row in enumerate(rows):
         value = row.value.lower()
         label = row.label.lower()
+        aliases = [alias.lower() for alias in row.aliases]
         if value.startswith(q) or label.startswith(q):
             score = 0
+        elif any(alias.startswith(q) for alias in aliases):
+            # ``/cost`` finds ``/usage``, as it does in the CLI.
+            score = 1
         elif single:
             continue
         elif q in value or q in label:
-            score = 1
-        elif q in row.hint.lower():
             score = 2
+        elif q in row.hint.lower():
+            score = 3
         else:
             continue
         ranked.append((score, value, label, idx, row))
@@ -953,6 +1083,8 @@ __all__ = [
     "claude_agents",
     "claude_config_dir",
     "claude_slash",
+    "cli_commands",
+    "forget_cli_commands",
     "remember_cli_commands",
     "codex_home",
     "codex_skills",

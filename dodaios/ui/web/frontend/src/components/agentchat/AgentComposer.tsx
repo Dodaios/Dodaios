@@ -725,6 +725,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
         pasteRescue.onPaste();
         files.onPaste(e);
       }}
+      tokenSpans={typeahead.tokenSpans}
       className={cn("scrollbar-jarvis", minimal ? "composer-pill-field min-h-[40px] px-2 py-2 text-base leading-6" : "max-h-[50vh] text-reading")}
     />
   );
@@ -771,6 +772,9 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
       <ComposerTypeahead
         anchorRef={cardRef}
         open={typeahead.open && !commands.open}
+        // A coding thread's list is the CLI's own, flat like the CLI shows it;
+        // the assistant's and the agents' lists keep their headings.
+        grouped={surface === "jarvis" || surface === "society"}
         trigger={typeahead.token?.trigger ?? null}
         items={typeahead.items}
         loading={typeahead.loading}

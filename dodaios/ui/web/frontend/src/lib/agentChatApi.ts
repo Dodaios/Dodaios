@@ -327,11 +327,14 @@ export interface TypeaheadRow {
   hint: string;
   kind: string;
   group: string;
+  argument_hint?: string;
+  aliases?: string[];
 }
 
 /**
- * What the composer lists after a trigger character on one seat — read from
- * the disk that seat's runner reads (`GET /api/agent-chat/typeahead`).
+ * What the composer lists after a trigger character on one seat: the commands
+ * the seat's CLI reports, or what its runner reads from disk
+ * (`GET /api/agent-chat/typeahead`).
  */
 export async function fetchTypeahead(
   input: {

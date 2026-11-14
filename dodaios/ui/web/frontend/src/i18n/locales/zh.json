@@ -1054,6 +1054,7 @@
     "typeahead_group_project": "在此文件夹中",
     "typeahead_group_account": "你的账号",
     "typeahead_group_plugins": "插件",
+    "typeahead_group_cli": "命令",
     "typeahead_group_jarvis": "Dodaios 技能",
     "typeahead_group_agents": "子智能体",
     "typeahead_group_files": "文件和文件夹",

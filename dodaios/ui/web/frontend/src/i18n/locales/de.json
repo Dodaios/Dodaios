@@ -1054,6 +1054,7 @@
     "typeahead_group_project": "In diesem Ordner",
     "typeahead_group_account": "Dein Konto",
     "typeahead_group_plugins": "Plugins",
+    "typeahead_group_cli": "Befehle",
     "typeahead_group_jarvis": "Dodaios-Skills",
     "typeahead_group_agents": "Subagenten",
     "typeahead_group_files": "Dateien und Ordner",
