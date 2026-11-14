@@ -37,8 +37,9 @@ import sys
 import tempfile
 import time
 import urllib.request
+from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, Final, Literal
+from typing import Any, Final, Literal, TypeVar
 
 from dodaios.ui.web.artifact_view import ARTIFACT_PAGE_CSP
 
@@ -61,6 +62,14 @@ _PICTURE_WIDTH: Final = 1280
 _PICTURE_MAX_HEIGHT: Final = 16000
 #: Time the page's own scripts get to draw after load (charts, counters).
 _SETTLE_S: Final = 0.8
+#: A slide of a deck page, in CSS pixels (``dodaios.nodes.kinds.slides``).
+SLIDE_WIDTH: Final = 1280
+SLIDE_HEIGHT: Final = 720
+#: Time a deck gets after load before a slide is captured (fonts, charts).
+_SLIDE_SETTLE_S: Final = 0.35
+
+_T = TypeVar("_T")
+
 #: Upper bound for one export, Chrome start included.
 _EXPORT_TIMEOUT_S: Final = 45.0
 
@@ -240,90 +249,49 @@ def _page_socket_url(port: int, deadline: float) -> str:
     raise ShareExportError("the browser opened no page")
 
 
-async def _draw(socket_url: str, html: bytes, fmt: Literal["pdf", "png"], theme: str) -> bytes:
+def _serve_page(cdp: _Cdp, html: bytes) -> None:
+    """Answer the page address from ``html`` and fail every other request."""
+
+    async def answer(params: dict[str, Any]) -> None:
+        request_id = params.get("requestId")
+        url = str((params.get("request") or {}).get("url", ""))
+        try:
+            if url.split("?", 1)[0] == _PAGE_URL:
+                await cdp.call(
+                    "Fetch.fulfillRequest",
+                    {
+                        "requestId": request_id,
+                        "responseCode": 200,
+                        "responseHeaders": [
+                            {"name": "Content-Type", "value": "text/html; charset=utf-8"},
+                            {"name": "Content-Security-Policy", "value": ARTIFACT_PAGE_CSP},
+                        ],
+                        "body": base64.b64encode(html).decode("ascii"),
+                    },
+                )
+            else:
+                await cdp.call(
+                    "Fetch.failRequest",
+                    {"requestId": request_id, "errorReason": "BlockedByClient"},
+                )
+        except ShareExportError as exc:  # the page went away mid-request
+            log.debug("artifact_share: could not answer %s: %s", url, exc)
+
+    cdp.on_paused = answer
+
+
+async def _with_page(socket_url: str, html: bytes, draw: Callable[[_Cdp], Awaitable[_T]]) -> _T:
+    """Connect to the browser, serve ``html`` and run ``draw`` on the page."""
     import websockets  # noqa: PLC0415 — only an export needs it
 
     async with websockets.connect(socket_url, max_size=None) as socket:
         cdp = _Cdp(socket)
         pump = asyncio.ensure_future(cdp.pump())
-
-        async def answer(params: dict[str, Any]) -> None:
-            request_id = params.get("requestId")
-            url = str((params.get("request") or {}).get("url", ""))
-            try:
-                if url.split("?", 1)[0] == _PAGE_URL:
-                    await cdp.call(
-                        "Fetch.fulfillRequest",
-                        {
-                            "requestId": request_id,
-                            "responseCode": 200,
-                            "responseHeaders": [
-                                {"name": "Content-Type", "value": "text/html; charset=utf-8"},
-                                {"name": "Content-Security-Policy", "value": ARTIFACT_PAGE_CSP},
-                            ],
-                            "body": base64.b64encode(html).decode("ascii"),
-                        },
-                    )
-                else:
-                    await cdp.call(
-                        "Fetch.failRequest",
-                        {"requestId": request_id, "errorReason": "BlockedByClient"},
-                    )
-            except ShareExportError as exc:  # the page went away mid-request
-                log.debug("artifact_share: could not answer %s: %s", url, exc)
-
-        cdp.on_paused = answer
+        _serve_page(cdp, html)
         try:
             await cdp.call("Fetch.enable", {"patterns": [{"urlPattern": "*"}]})
             await cdp.call("Page.enable")
-            if fmt == "png":
-                await cdp.call(
-                    "Emulation.setDeviceMetricsOverride",
-                    {
-                        "width": _PICTURE_WIDTH,
-                        "height": 900,
-                        "deviceScaleFactor": 2,
-                        "mobile": False,
-                    },
-                )
-            loaded = cdp.next_event("Page.loadEventFired")
-            await cdp.call("Page.navigate", {"url": f"{_PAGE_URL}?theme={theme}"})
-            await loaded
-            await asyncio.sleep(_SETTLE_S)
-            if fmt == "pdf":
-                result = await cdp.call(
-                    "Page.printToPDF",
-                    {
-                        "printBackground": True,
-                        "preferCSSPageSize": True,
-                        "displayHeaderFooter": False,
-                        "marginTop": 0.4,
-                        "marginBottom": 0.4,
-                        "marginLeft": 0.4,
-                        "marginRight": 0.4,
-                    },
-                )
-            else:
-                metrics = await cdp.call("Page.getLayoutMetrics")
-                size = metrics.get("cssContentSize") or metrics.get("contentSize") or {}
-                height = int(min(max(float(size.get("height", 900)), 400), _PICTURE_MAX_HEIGHT))
-                # A very long page at double density would be a huge file.
-                scale = 2 if height <= 6000 else 1
-                await cdp.call(
-                    "Emulation.setDeviceMetricsOverride",
-                    {
-                        "width": _PICTURE_WIDTH,
-                        "height": height,
-                        "deviceScaleFactor": scale,
-                        "mobile": False,
-                    },
-                )
-                await asyncio.sleep(0.2)
-                result = await cdp.call(
-                    "Page.captureScreenshot",
-                    {"format": "png", "captureBeyondViewport": True, "fromSurface": True},
-                )
-            return base64.b64decode(result.get("data", ""))
+            return await draw(cdp)
         finally:
             pump.cancel()
             try:
@@ -334,8 +302,116 @@ async def _draw(socket_url: str, html: bytes, fmt: Literal["pdf", "png"], theme:
                 log.debug("artifact_share: DevTools reader ended: %s", exc)
 
 
-def _run_browser_export(browser: str, html: bytes, fmt: Literal["pdf", "png"], theme: str) -> bytes:
-    """Start a throwaway headless browser, draw the page, stop the browser."""
+async def _draw(socket_url: str, html: bytes, fmt: Literal["pdf", "png"], theme: str) -> bytes:
+    async def draw(cdp: _Cdp) -> bytes:
+        if fmt == "png":
+            await cdp.call(
+                "Emulation.setDeviceMetricsOverride",
+                {"width": _PICTURE_WIDTH, "height": 900, "deviceScaleFactor": 2, "mobile": False},
+            )
+        loaded = cdp.next_event("Page.loadEventFired")
+        await cdp.call("Page.navigate", {"url": f"{_PAGE_URL}?theme={theme}"})
+        await loaded
+        await asyncio.sleep(_SETTLE_S)
+        if fmt == "pdf":
+            result = await cdp.call(
+                "Page.printToPDF",
+                {
+                    "printBackground": True,
+                    "preferCSSPageSize": True,
+                    "displayHeaderFooter": False,
+                    "marginTop": 0.4,
+                    "marginBottom": 0.4,
+                    "marginLeft": 0.4,
+                    "marginRight": 0.4,
+                },
+            )
+        else:
+            metrics = await cdp.call("Page.getLayoutMetrics")
+            size = metrics.get("cssContentSize") or metrics.get("contentSize") or {}
+            height = int(min(max(float(size.get("height", 900)), 400), _PICTURE_MAX_HEIGHT))
+            # A very long page at double density would be a huge file.
+            scale = 2 if height <= 6000 else 1
+            await cdp.call(
+                "Emulation.setDeviceMetricsOverride",
+                {
+                    "width": _PICTURE_WIDTH,
+                    "height": height,
+                    "deviceScaleFactor": scale,
+                    "mobile": False,
+                },
+            )
+            await asyncio.sleep(0.2)
+            result = await cdp.call(
+                "Page.captureScreenshot",
+                {"format": "png", "captureBeyondViewport": True, "fromSurface": True},
+            )
+        return base64.b64decode(result.get("data", ""))
+
+    return await _with_page(socket_url, html, draw)
+
+
+async def _draw_slides(
+    socket_url: str, html: bytes, theme: str, numbers: tuple[int, ...]
+) -> list[bytes]:
+    """One 1280 x 720 PNG per slide of a deck page, for the slide ``numbers`` (from 1).
+
+    The deck opens on the slide its address names (``#3``); a new query per
+    slide makes each a real load, so no slide transition is caught midway.
+    The picture is the slide's own frame, as the person sees it in the
+    player (theme included), scaled to the slide's design size.
+    """
+
+    async def draw(cdp: _Cdp) -> list[bytes]:
+        await cdp.call(
+            "Emulation.setDeviceMetricsOverride",
+            {"width": 1440, "height": 900, "deviceScaleFactor": 1, "mobile": False},
+        )
+        shots: list[bytes] = []
+        for number in numbers:
+            loaded = cdp.next_event("Page.loadEventFired")
+            url = f"{_PAGE_URL}?theme={theme}&slide={number}#{number}"
+            await cdp.call("Page.navigate", {"url": url})
+            await loaded
+            await asyncio.sleep(_SLIDE_SETTLE_S)
+            box = await cdp.call(
+                "Runtime.evaluate",
+                {
+                    "expression": (
+                        "(function(){var f=document.querySelector("
+                        "'.dk-cell.is-current .dk-frame');if(!f)return null;"
+                        "var r=f.getBoundingClientRect();"
+                        "return [r.left,r.top,r.width,r.height];})()"
+                    ),
+                    "returnByValue": True,
+                },
+            )
+            frame = (box.get("result") or {}).get("value")
+            if not isinstance(frame, list) or len(frame) != 4 or not frame[2]:
+                break
+            x, y, width, height = (float(v) for v in frame)
+            result = await cdp.call(
+                "Page.captureScreenshot",
+                {
+                    "format": "png",
+                    "fromSurface": True,
+                    "clip": {
+                        "x": x,
+                        "y": y,
+                        "width": width,
+                        "height": height,
+                        "scale": SLIDE_WIDTH / width,
+                    },
+                },
+            )
+            shots.append(base64.b64decode(result.get("data", "")))
+        return shots
+
+    return await _with_page(socket_url, html, draw)
+
+
+def _in_browser(browser: str, draw: Callable[[str], Awaitable[_T]]) -> _T:
+    """Start a throwaway headless browser, run ``draw`` on its page, stop the browser."""
     profile = Path(tempfile.mkdtemp(prefix="dodaios-share-browser-"))
     deadline = time.monotonic() + _EXPORT_TIMEOUT_S
     process = subprocess.Popen(  # noqa: S603 — a resolved browser executable, fixed flags
@@ -361,7 +437,7 @@ def _run_browser_export(browser: str, html: bytes, fmt: Literal["pdf", "png"], t
         port = _devtools_port(profile, deadline)
         socket_url = _page_socket_url(port, deadline)
         remaining = max(1.0, deadline - time.monotonic())
-        return asyncio.run(asyncio.wait_for(_draw(socket_url, html, fmt, theme), remaining))
+        return asyncio.run(asyncio.wait_for(draw(socket_url), remaining))
     except TimeoutError as exc:
         raise ShareExportError("the page took too long to draw") from exc
     except OSError as exc:
@@ -373,6 +449,31 @@ def _run_browser_export(browser: str, html: bytes, fmt: Literal["pdf", "png"], t
         except subprocess.TimeoutExpired:  # a browser that ignores terminate is killed
             process.kill()
         shutil.rmtree(profile, ignore_errors=True)
+
+
+def _run_browser_export(browser: str, html: bytes, fmt: Literal["pdf", "png"], theme: str) -> bytes:
+    """Start a throwaway headless browser, draw the page, stop the browser."""
+    return _in_browser(browser, lambda socket_url: _draw(socket_url, html, fmt, theme))
+
+
+def draw_slides(html: bytes, theme: str, numbers: tuple[int, ...]) -> list[bytes]:
+    """Pictures of the given slides (numbered from 1) of a deck page, 1280 x 720 PNGs.
+
+    Blocking (starts a browser): call it in a worker thread.
+    """
+    browser = find_export_browser()
+    if browser is None:
+        raise ShareExportError("no Chromium-family browser is installed")
+    theme = "dark" if theme == "dark" else "light"
+    return _in_browser(browser, lambda socket_url: _draw_slides(socket_url, html, theme, numbers))
+
+
+def draw_page(html: bytes, theme: str) -> bytes:
+    """A picture of a whole page (1280 wide) as PNG. Blocking: call it in a worker thread."""
+    browser = find_export_browser()
+    if browser is None:
+        raise ShareExportError("no Chromium-family browser is installed")
+    return _run_browser_export(browser, html, "png", "dark" if theme == "dark" else "light")
 
 
 def export_page(

@@ -609,6 +609,18 @@ GUIDE: Final[str] = (
     "*italic*, `code`, [links](https://…).\n"
     "Write a keynote: one idea per slide, a title that states the point, few words, real "
     "numbers with units, the detail in the notes.\n"
+    "How to work (a deck is a piece of work, not one call):\n"
+    "1. Know who it is for, what it should achieve, how long the talk is and in which "
+    "language. Take it from the person's words; ask on the question card what you cannot "
+    "tell, never guess an audience.\n"
+    "2. Gather real material first: the project's own README, site and docs, real numbers "
+    "with their source, screenshots of the product (an image slide shows more than three "
+    "bullets), the person's own story. Nothing invented; leave out what you cannot back.\n"
+    "3. Plan the story before the slides: the one message, then the arc that leads there, "
+    "a title per slide that says its point. Fit the arc to this audience, not a stock "
+    "pitch outline. Vary the layouts: no two text slides in a row.\n"
+    "4. Create, then call 'look' and judge every slide as the audience will see it. "
+    "Revise with 'update' and look again until you would present it yourself.\n"
     "Example:\n" + json.dumps(EXAMPLE, ensure_ascii=False, separators=(",", ":"))
 )
 
