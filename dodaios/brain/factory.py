@@ -859,6 +859,7 @@ def _register_runtime_manager(manager: Any) -> None:
             from dodaios.society.browser.takeover_tool import lead_takeover_tools
             from dodaios.society.connect_tool import lead_connect_tools
             from dodaios.society.credential_tool import lead_credential_tools
+            from dodaios.society.login_tool import lead_login_tools
 
             session = SimpleNamespace(session_id=session_id)
             return {
@@ -866,6 +867,7 @@ def _register_runtime_manager(manager: Any) -> None:
                 **lead_ask_tools(session),
                 **lead_takeover_tools(session),
                 **lead_credential_tools(session),
+                **lead_login_tools(session),
             }
 
         runtime_refs.set_brain_manager(manager)

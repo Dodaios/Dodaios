@@ -257,6 +257,8 @@ class CreateAgentBody(BaseModel):
     output_format: str | None = Field(default=None, max_length=2_000)
     boundaries: list[str] | None = None
     success_criteria: str | None = Field(default=None, max_length=2_000)
+    #: Accounts the agent's work must reach (dodaios.society.readiness); checked, not stored.
+    services: list[str] | None = None
 
 
 class PatchAgentBody(BaseModel):
@@ -427,8 +429,62 @@ def _capability_readback(rt: SocietyRuntime, agent: AgentRecord) -> dict[str, An
     readback: dict[str, Any] = {"focus": focus}
     if missing:
         readback["not_connected"] = missing
-        readback["hint"] = "Tell the user to connect these in the Marketplace first."
+        readback["hint"] = "Show a Connect card for each with society_request_connect."
     return readback
+
+
+async def _readiness(
+    rt: SocietyRuntime,
+    agent: AgentRecord,
+    *,
+    services: list[str] | None,
+    texts: tuple[str, ...],
+    task_ids: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    """Whether the agent's job can run now (dodaios.society.readiness); advisory."""
+    from dodaios.society.readiness import check_readiness
+
+    try:
+        return await check_readiness(
+            rt, agent, services=services, texts=texts, task_ids=task_ids
+        )
+    except Exception:  # noqa: BLE001 — the check is advisory; the save stands
+        log.warning("society: readiness check failed for %s", agent.agent_id, exc_info=True)
+        return {}
+
+
+class ReadinessBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    services: list[str] = Field(default_factory=list, max_length=12)
+
+
+@router.post("/agents/{agent_id}/readiness")
+async def agent_readiness(
+    agent_id: str, body: ReadinessBody, request: Request
+) -> dict[str, Any]:
+    """Can this agent's work and routines run now: services, logins, model seat."""
+    from dodaios.society.routines import list_routines
+
+    rt = await _runtime(request)
+    agent = await rt.roster.resolve(agent_id)
+    if agent is None:
+        raise HTTPException(404, {"reason": str(FailureReason.TARGET_UNKNOWN)})
+    texts = [agent.title, agent.description]
+    task_ids: list[str] = []
+    store = getattr(request.app.state, "task_store", None)
+    if store is not None:
+        for row in await list_routines(store, agent.agent_id):
+            if row.get("state") in ("completed", "cancelled", "failed", "interrupted"):
+                continue
+            texts += [str(row.get("title") or ""), str(row.get("prompt") or "")]
+            task_ids.append(str(row.get("id")))
+    return {
+        "agent_id": agent.agent_id,
+        "routines": len(task_ids),
+        "readiness": await _readiness(
+            rt, agent, services=body.services, texts=tuple(texts), task_ids=tuple(task_ids)
+        ),
+    }
 
 
 @router.post("/agents")
@@ -437,7 +493,8 @@ async def create_agent(body: CreateAgentBody, request: Request) -> dict[str, Any
 
     rt = await _runtime(request)
     fields = body.model_dump(
-        exclude_none=True, exclude={"name", "title", "description", "tier", *BRIEF_FIELDS}
+        exclude_none=True,
+        exclude={"name", "title", "description", "tier", "services", *BRIEF_FIELDS},
     )
     description = compose_description(body.description, body.model_dump(include=set(BRIEF_FIELDS)))
     creator = await _creator_from_request(request, rt)
@@ -517,6 +574,9 @@ async def create_agent(body: CreateAgentBody, request: Request) -> dict[str, Any
         "agent": _agent_row(agent, request),
         "created": created,
         "readback": _capability_readback(rt, agent),
+        "readiness": await _readiness(
+            rt, agent, services=body.services, texts=(agent.title, agent.description)
+        ),
     }
 
 
@@ -1764,6 +1824,8 @@ class RoutineBody(BaseModel):
     model: str | None = None
     effort: str | None = None
     account_id: str | None = None
+    #: Accounts each run must reach (dodaios.society.readiness); checked, not stored.
+    services: list[str] | None = None
 
 
 def _task_store(request: Request) -> Any:
@@ -1903,6 +1965,13 @@ async def _create_routine_for(
         "seat": seat,
         "state": row.get("state"),
         "next_run": next_run_readback(row.get("due_at_ns"), zone),
+        "readiness": await _readiness(
+            await _runtime(request),
+            agent,
+            services=body.services,
+            texts=(agent.title, agent.description, body.title, body.prompt),
+            task_ids=(task_id,),
+        ),
     }
 
 

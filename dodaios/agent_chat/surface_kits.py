@@ -173,6 +173,7 @@ def _jarvis_tools(_cfg: Any, _brain: Any, session: Any) -> dict[str, Tool]:
     from dodaios.society.browser.tool import lead_browser_tools
     from dodaios.society.connect_tool import lead_connect_tools
     from dodaios.society.credential_tool import lead_credential_tools
+    from dodaios.society.login_tool import lead_login_tools
 
     stance = "plan" if getattr(session, "permission_mode", "") == "plan" else "ask"
     tools = folder_tools(Path(getattr(session, "cwd", "") or _chat_workspace()), stance=stance)
@@ -184,6 +185,8 @@ def _jarvis_tools(_cfg: Any, _brain: Any, session: Any) -> dict[str, Tool]:
     tools.update(lead_ask_tools(session))
     # A secret goes into the owner's vault through the secure field, never the chat.
     tools.update(lead_credential_tools(session))
+    # A website login, for its own browser or a team agent's, through the login card.
+    tools.update(lead_login_tools(session))
     # Addressed-pane coding, the repository tool and the work board: the lead
     # has them on every seat (a CLI seat gets the same set over MCP).
     from dodaios.core import runtime_refs

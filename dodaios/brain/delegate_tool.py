@@ -223,7 +223,9 @@ class DelegateTool:
         "(coding_agent: cli, model, effort, count, folder or project or workspace, and mode "
         "grid ONLY when the user asked for a terminal, a pane or the grid; "
         "pane: workspace_id, request_id, while_busy; team_thread: cwd, seats, mode, title; "
-        "mission: action; routine: agent, title, schedule, announce_on_success; "
+        "mission: action; routine: agent, title, schedule, announce_on_success, services "
+        "(every service or website with an account a run must reach; a routine that comes "
+        "back 'blocked' is set up but cannot run until its readiness blockers are fixed); "
         "agent: refs)."
     )
     schema: dict[str, Any] = {
@@ -440,6 +442,12 @@ class DelegateTool:
                     if options.get("announce_on_success")
                     else {}
                 ),
+                # What each run must reach; the creation checks it (society/readiness.py).
+                **(
+                    {"services": options["services"]}
+                    if isinstance(options.get("services"), list)
+                    else {}
+                ),
             }
             missing = [k for k in ("agent_id", "schedule") if not under.get(k)]
             if missing:
@@ -525,9 +533,26 @@ class DelegateTool:
         state = str((data or {}).get("state") or "running")
         if state not in jobs.STATES:
             state = "running"
+        readiness = _readiness_of(data) if kind == "routine" else None
         if kind == "routine" and job_id:
-            jobs.finish(job_id, "done", summary="The routine is scheduled.")
-            state = "done"
+            # Scheduling is finished either way; whether a run can work is said beside it.
+            blocked = readiness is not None and readiness.get("status") == "blocked"
+            jobs.finish(
+                job_id,
+                "done",
+                summary=(
+                    "The routine is scheduled but not ready to run: "
+                    + str(readiness.get("instruction") or "")[:400]
+                    if blocked and readiness is not None
+                    else "The routine is scheduled."
+                ),
+            )
+            state = "blocked" if blocked else "done"
+            if readiness is not None and readiness.get("instruction"):
+                return _answer(
+                    target, state, job_id, True, detail=data, artifacts=result.artifacts,
+                    readiness=readiness,
+                )
         if kind == "skill" and job_id:
             jobs.finish(job_id, "done", summary=f"Instructions of {target} loaded for this turn.")
             state = "done"
@@ -571,6 +596,13 @@ async def _run(tool: Any, args: dict[str, Any], ctx: ExecutionContext) -> ToolRe
     return await tool.execute(clean, ctx)
 
 
+def _readiness_of(data: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The readiness block of a routine creation's answer, if it carries one."""
+    body = (data or {}).get("response")
+    found = (body if isinstance(body, dict) else data or {}).get("readiness")
+    return found if isinstance(found, dict) and found.get("status") else None
+
+
 def _answer(
     target: str,
     state: str,
@@ -580,13 +612,18 @@ def _answer(
     error: str = "",
     detail: Any = None,
     artifacts: tuple[Any, ...] = (),
+    readiness: dict[str, Any] | None = None,
 ) -> ToolResult:
     output: dict[str, Any] = {"job_id": job_id, "target": target, "state": state}
     if error:
         output["error"] = error
     if detail is not None:
         output["detail"] = detail
-    if success and job_id:
+    if readiness is not None:
+        # Scheduled, but a run cannot work yet: the cards to open come before any "done".
+        output["readiness"] = readiness
+        output["next_step"] = str(readiness.get("instruction") or "")
+    elif success and job_id:
         output["next_step"] = (
             "Handed over, not done. Check job_status or await_jobs before you say it is finished."
         )

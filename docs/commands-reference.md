@@ -13,10 +13,10 @@ Commands marked **requires confirmation** never run on a bare voice request — 
 
 ## `society-create-agent` — Create a persistent team agent
 
-Create an agent in the user's existing Agents team, only when requested. This creates a roster profile and starts no work. Responsibilities derive capabilities through the same service as the Agents UI. When a team agent creates a teammate, the new agent inherits that creator's model seat (provider, model, effort, subscription account) and permission setup (approval mode, ceiling, grant mode, grants, denies) and cannot exceed them. Read the returned agent and created flag: an existing name is adopted, never duplicated. Use society-switch-agent-model only if a different provider is requested. Design the agent before calling: turn the user's words into a complete brief — mission, 3-6 responsibilities, working rules naming the data sources, output format and boundaries — inferring sensible defaults instead of copying the request verbatim. Read readback.not_connected and tell the user which services to connect. A requested schedule is a separate society-create-routine call.
+Create an agent in the user's existing Agents team, only when requested. This creates a roster profile and starts no work. Responsibilities derive capabilities through the same service as the Agents UI. When a team agent creates a teammate, the new agent inherits that creator's model seat (provider, model, effort, subscription account) and permission setup (approval mode, ceiling, grant mode, grants, denies) and cannot exceed them. Read the returned agent and created flag: an existing name is adopted, never duplicated. Use society-switch-agent-model only if a different provider is requested. Design the agent before calling: turn the user's words into a complete brief — mission, 3-6 responsibilities, working rules naming the data sources, output format and boundaries — inferring sensible defaults instead of copying the request verbatim. A requested schedule is a separate society-create-routine call. Pass services. The result's readiness says whether the job can run: only status 'ready' may be reported as ready or done. On 'blocked', call each blocker's fix tool in the same turn so its Connect or login card is shown, and tell the user it is set up but blocked until they connect or sign in. On 'unverified', call society-check-readiness with the services first.
 
 - **Endpoint:** `POST /api/society/agents`
-- **Arguments:** `name` (string; required); `title` (string; optional); `description` (string; optional); `mission` (string; optional); `responsibilities` (array; optional); `working_rules` (array; optional); `output_format` (string; optional); `boundaries` (array; optional); `success_criteria` (string; optional); `tier` (one of: specialist, orchestrator; optional); `focus` (array; optional); `skills` (array; optional); `approval_mode` (one of: bypass, ask, always_ask; optional); `daily_budget_usd` (number; optional); `max_concurrent_runs` (integer; optional); `permission_ceiling` (one of: safe, monitor, ask; optional); `grant_mode` (one of: all, allowlist; optional); `grants` (array; optional); `denies` (array; optional)
+- **Arguments:** `name` (string; required); `title` (string; optional); `description` (string; optional); `mission` (string; optional); `responsibilities` (array; optional); `working_rules` (array; optional); `output_format` (string; optional); `boundaries` (array; optional); `success_criteria` (string; optional); `tier` (one of: specialist, orchestrator; optional); `focus` (array; optional); `skills` (array; optional); `approval_mode` (one of: bypass, ask, always_ask; optional); `daily_budget_usd` (number; optional); `max_concurrent_runs` (integer; optional); `permission_ceiling` (one of: safe, monitor, ask; optional); `grant_mode` (one of: all, allowlist; optional); `grants` (array; optional); `denies` (array; optional); `services` (array; optional)
 - **Requires confirmation:** no
 - **Desktop UI section:** `agents`
 - **Voice example (EN):** "create an agent for researching suppliers"
@@ -81,12 +81,22 @@ List one agent's scheduled routines with ids, schedules, state and next run.
 - **Desktop UI section:** `agents`
 - **Voice example (EN):** "which routines does Scout have"
 
+## `society-check-readiness` — Check that an agent's work can run
+
+Check whether an agent and its routines can do their job right now: the services named are connected (plugins, CLIs), the websites have a stored login for this agent, and the model seat is usable. Call it before you tell the user a delegated or scheduled job is ready, and again after they connected or signed in. On 'blocked', call each blocker's fix tool.
+
+- **Endpoint:** `POST /api/society/agents/{agent_id}/readiness`
+- **Arguments:** `agent_id` (string; required); `services` (array; required)
+- **Requires confirmation:** no
+- **Desktop UI section:** `agents`
+- **Voice example (EN):** "is Scout ready to run"
+
 ## `society-create-routine` — Schedule a routine for an agent
 
-The ONLY way to make an agent do something on a schedule (daily briefing, weekly report, every morning at 8). Never use create-skill for this. The prompt is the complete task the agent runs each time: sources, steps, output. For a routine that watches something, write into the prompt that the agent stays quiet while nothing changed and reports only a real change, a completion, a failure or something the user must do, unless the user asked for regular updates. Speak the returned next_run; on timezone_required ask the user.
+The ONLY way to make an agent do something on a schedule (daily briefing, weekly report, every morning at 8). Never use create-skill for this. The prompt is the complete task the agent runs each time: sources, steps, output. For a routine that watches something, write into the prompt that the agent stays quiet while nothing changed and reports only a real change, a completion, a failure or something the user must do, unless the user asked for regular updates. Speak the returned next_run; on timezone_required ask the user. Pass services. The result's readiness says whether the job can run: only status 'ready' may be reported as ready or done. On 'blocked', call each blocker's fix tool in the same turn so its Connect or login card is shown, and tell the user it is set up but blocked until they connect or sign in. On 'unverified', call society-check-readiness with the services first.
 
 - **Endpoint:** `POST /api/society/agents/{agent_id}/routines`
-- **Arguments:** `agent_id` (string; required); `title` (string; required); `prompt` (string; required); `schedule` (object; required); `announce_on_success` (string; optional)
+- **Arguments:** `agent_id` (string; required); `title` (string; required); `prompt` (string; required); `schedule` (object; required); `announce_on_success` (string; optional); `services` (array; optional)
 - **Requires confirmation:** no
 - **Desktop UI section:** `agents`
 - **Voice example (EN):** "give me a briefing every morning at eight"
