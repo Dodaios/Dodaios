@@ -14,6 +14,11 @@
  * assistant's browser tasks. So the tab takes control only for what the
  * person does (an address, a click, a key), and hands it back after a short
  * pause without input. A click after that takes it again on its own.
+ *
+ * The page is laid out for the panel: the tab tells the browser how large its
+ * stage is, so the page fills it like in any browser window instead of being
+ * a small picture of a wide page. That holds while the tab shows; the
+ * assistant's own tasks always run at the browser's usual size.
  */
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { fill, useT } from "@/i18n";
@@ -23,6 +28,13 @@ import { ASSISTANT_BROWSER_AGENT } from "@/components/home/chatBrowser/ChatBrows
 
 /** Without input for this long, control goes back to the assistant. */
 export const IDLE_HANDBACK_MS = 30_000;
+/** A resized panel settles for this long before the page is laid out again. */
+export const VIEWPORT_SETTLE_MS = 150;
+/** The page size the browser accepts (`VIEW_MIN` / `VIEW_MAX` in live_runner.py). */
+const MIN_PAGE = { width: 320, height: 240 };
+const MAX_PAGE = { width: 2560, height: 2560 };
+/** The picture's size before the first one arrived: the browser's usual page. */
+const USUAL_PAGE = { width: 1280, height: 800 };
 /** Takeover attempts for one address before the tab gives up on it. */
 const MAX_TAKEOVER_TRIES = 2;
 
@@ -110,6 +122,37 @@ function useOnScreen(ref: RefObject<HTMLElement>): boolean {
   return onScreen;
 }
 
+/**
+ * The size of the stage in whole pixels once it has settled, or `null` while
+ * it is not measured (hidden, or no layout yet).
+ */
+function useSettledSize(ref: RefObject<HTMLElement>): { width: number; height: number } | null {
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    let timer = 0;
+    const read = () => {
+      const box = el.getBoundingClientRect();
+      const width = Math.floor(box.width);
+      const height = Math.floor(box.height);
+      setSize((old) => width < 1 || height < 1 ? null
+        : old && old.width === width && old.height === height ? old : { width, height });
+    };
+    const observer = new ResizeObserver(() => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(read, VIEWPORT_SETTLE_MS);
+    });
+    observer.observe(el);
+    read();
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(timer);
+    };
+  }, [ref]);
+  return size;
+}
+
 export function LiveBrowserPage({ request, onPageUrl }: Props) {
   const t = useT();
   // The assistant as the sidebar and the chat's browser stage call it.
@@ -117,6 +160,9 @@ export function LiveBrowserPage({ request, onPageUrl }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const onScreen = useOnScreen(root);
   const { canvas, state, control, repaint } = useBrowserView(ASSISTANT_BROWSER_AGENT, onScreen);
+  const stage = useRef<HTMLDivElement>(null);
+  const stageSize = useSettledSize(stage);
+  const sentPage = useRef("");
   const lastInput = useRef(0);
   const tries = useRef(0);
   const [want, setWant] = useState<LiveRequest | null>(request);
@@ -154,6 +200,23 @@ export function LiveBrowserPage({ request, onPageUrl }: Props) {
     setWant(null);
   }, [want, state.connected, state.ready, state.manual, state.controlPending, state.running, state.url, control]);
 
+  // Lay the page out for the panel. A real Chrome window (`fullWindow`) has
+  // its own size. Sent again after a reconnect: a new browser starts at its
+  // usual size. Held while control changes hands, when the view drops input.
+  useEffect(() => {
+    if (!state.connected || !state.ready) {
+      sentPage.current = "";
+      return;
+    }
+    if (!stageSize || state.fullWindow || state.controlPending) return;
+    const width = Math.min(Math.max(stageSize.width, MIN_PAGE.width), MAX_PAGE.width);
+    const height = Math.min(Math.max(stageSize.height, MIN_PAGE.height), MAX_PAGE.height);
+    const key = `${width}x${height}`;
+    if (sentPage.current === key) return;
+    sentPage.current = key;
+    control("viewport", { width, height });
+  }, [stageSize, state.connected, state.ready, state.fullWindow, state.controlPending, control]);
+
   // Hand control back after a pause, unless the assistant asked the person for a hand.
   const waitingForYou = Boolean(state.takeoverRequest);
   useEffect(() => {
@@ -168,6 +231,8 @@ export function LiveBrowserPage({ request, onPageUrl }: Props) {
     if (/^https?:\/\//i.test(state.url)) onPageUrl(state.url);
   }, [state.url, onPageUrl]);
 
+  const frame = state.frameWidth && state.frameHeight
+    ? { width: state.frameWidth, height: state.frameHeight } : USUAL_PAGE;
   const needsYou = waitingForYou && !state.manual;
   const agentDrives = state.running && !state.manual;
   const driver = state.manual ? "person" : state.running ? "agent" : "idle";
@@ -187,9 +252,13 @@ export function LiveBrowserPage({ request, onPageUrl }: Props) {
           </span>
         </div>
       )}
-      {/* The picture keeps the page's 16:10 and fits the panel either way. */}
-      <div className="flex min-h-0 flex-1 items-start justify-center overflow-hidden bg-muted [container-type:size]">
-        <div className="relative aspect-[16/10] bg-muted" style={{ width: "min(100cqw, 160cqh)" }}>
+      {/* The picture keeps the page's own shape and fits the panel either way.
+          A page laid out for the panel fills it; the assistant's wider page
+          (while it works) is shown whole at the top. */}
+      <div ref={stage} data-testid="ide-browser-live-stage"
+        className="flex min-h-0 flex-1 items-start justify-center overflow-hidden bg-muted [container-type:size]">
+        <div className="relative bg-muted"
+          style={{ aspectRatio: `${frame.width} / ${frame.height}`, width: `min(100cqw, ${(100 * frame.width) / frame.height}cqh)` }}>
           <BrowserCanvas
             canvas={canvas}
             state={state}

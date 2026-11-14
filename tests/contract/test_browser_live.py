@@ -258,6 +258,53 @@ async def test_second_viewer_receives_static_page_without_new_browser(live, reco
         await live.close()
 
 
+def _jpeg_size(data: str) -> tuple[int, int]:
+    import base64
+    import struct
+
+    blob = base64.b64decode(data)
+    at = 2
+    while at < len(blob):
+        marker = blob[at + 1]
+        if marker in {0xC0, 0xC2}:
+            height, width = struct.unpack(">HH", blob[at + 5 : at + 9])
+            return width, height
+        at += 2 + struct.unpack(">H", blob[at + 2 : at + 4])[0]
+    raise AssertionError("no JPEG size")
+
+
+async def _frame_of_size(queue, size):
+    async with asyncio.timeout(15):
+        while True:
+            event = await queue.get()
+            if event["kind"] == "frame" and _jpeg_size(event["data"]) == size:
+                return event
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a real Chrome window keeps its own size")
+async def test_a_panel_sizes_the_page_and_its_leaving_restores_it(live, site):
+    agent = SimpleNamespace(
+        agent_id="panel", model="", browser_allowed_domains=["http*://127.0.0.1"]
+    )
+    try:
+        session, panel = await live.subscribe(agent)
+        same, stage = await live.subscribe(agent)
+        await _frame_of_size(panel, (1280, 800))
+        await live.control(session, "panel", "viewport", {"width": 420, "height": 900})
+        frame = await _frame_of_size(panel, (420, 900))
+        assert (frame["width"], frame["height"]) == (420, 900)
+        # The page keeps the panel's size across a navigation.
+        await _control(live, session, "panel", "takeover", {"enabled": True})
+        await _control(live, session, "panel", "navigate", {"url": site})
+        assert await asyncio.to_thread(PageHandler.wait_for_path, "/ready"), "No fixture page"
+        await _control(live, session, "panel", "takeover", {"enabled": False})
+        await _frame_of_size(panel, (420, 900))
+        await live.unsubscribe(same, panel, "panel")
+        await _frame_of_size(stage, (1280, 800))
+    finally:
+        await live.close()
+
+
 @pytest.mark.skipif(os.name != "nt", reason="native window upgrade is Windows-only")
 async def test_viewer_replaces_idle_legacy_page_session(live):
     agent = SimpleNamespace(agent_id="upgrade", model="", browser_allowed_domains=[])

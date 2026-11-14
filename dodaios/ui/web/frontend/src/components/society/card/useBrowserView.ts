@@ -17,6 +17,9 @@ export interface BrowserViewState {
   manual: boolean;
   running: boolean;
   controlPending: boolean;
+  /** The size of the picture last drawn, in page pixels. */
+  frameWidth?: number;
+  frameHeight?: number;
   url: string;
   tabs: Array<{ id: string; url: string }>;
   target: string;
@@ -121,8 +124,10 @@ export function useBrowserView(agentId: string, enabled = true) {
           // Read-only diagnostics for end-to-end stream acceptance and support.
           el.dataset.browserFrameAgeMs = String(Math.max(0, Date.now() - frame.timestamp * 1000));
           el.dataset.browserRenderedFrames = String(++renderedFrames);
-          setState((s) => s.ready && s.extendedInput === (frame.extended_input === true) ? s
-            : { ...s, ready: true, error: "", extendedInput: frame.extended_input === true });
+          setState((s) => s.ready && s.extendedInput === (frame.extended_input === true)
+            && s.frameWidth === image.width && s.frameHeight === image.height ? s
+            : { ...s, ready: true, error: s.ready ? s.error : "", extendedInput: frame.extended_input === true,
+              frameWidth: image.width, frameHeight: image.height });
         }
         decodeBusy = false;
         decodeFrame();

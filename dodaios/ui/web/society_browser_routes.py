@@ -32,6 +32,7 @@ OPERATIONS = {
     "text",
     "key",
     "dialog",
+    "viewport",
 }
 
 
@@ -76,6 +77,11 @@ def validate_control(value: Any) -> tuple[str, dict]:
             or abs(args[key]) > 10000
         ):
             raise ValueError("Invalid browser coordinates")
+    for key in ("width", "height"):
+        if key in args and (type(args[key]) is not int or not 1 <= args[key] <= 10000):
+            raise ValueError("Invalid browser page size")
+    if ("width" in args) != ("height" in args) or ("width" in args and op != "viewport"):
+        raise ValueError("Invalid browser page size")
     if op in {"click", "move"} and not all(k in args for k in ("x", "y")):
         raise ValueError("Click needs coordinates")
     if "button" in args and (
@@ -344,7 +350,9 @@ async def agent_browser_live(websocket: WebSocket, agent_id: str) -> None:
         async def controls() -> None:
             while True:
                 op, args, generation = await next_control()
-                motion = op == "click" and args.get("move_only") is True
+                # A hover and a panel size are not answered: neither is an
+                # input the viewer waits for, and a new one replaces a failed one.
+                motion = op == "viewport" or (op == "click" and args.get("move_only") is True)
                 try:
                     current = session.state.get("generation", session.generation)
                     if op not in {"takeover", "cancel"} and generation != current:
@@ -356,7 +364,7 @@ async def agent_browser_live(websocket: WebSocket, agent_id: str) -> None:
                     if motion:
                         # The next motion replaces a stale one; a hover error
                         # must not overwrite the viewer's visible state.
-                        log.debug("Browser hover motion skipped: %s", exc)
+                        log.debug("Browser %s skipped: %s", op, exc)
                         continue
                     # Control errors are returned to the requesting viewer.
                     await send({"kind": "control", "op": op, "ok": False, "error": str(exc)[:500]})
