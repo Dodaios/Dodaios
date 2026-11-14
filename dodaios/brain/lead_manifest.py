@@ -65,6 +65,7 @@ LEAD_ONLY_TOOLS: Final[Mapping[str, str]] = {
     "society_request_connect": "the Connect card needs a chat to show it in",
     "society_ask_user": "the question card needs a chat to show it in; a call asks aloud",
     "society_request_credential": "the secure field for a secret needs a chat to show it in",
+    "society_request_login": "the login card needs a chat to show it in",
     "request_browser_takeover": "the takeover card needs a chat to show it in",
     "team_thread": "a typed lead starts and steers team threads; a call hands that to the chat",
     "costs_summary": "a typed lead answers spend questions; a call opens the Costs section",

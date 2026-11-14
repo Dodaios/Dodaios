@@ -35,7 +35,13 @@ from .routine_runner import is_routine_session
 
 log = logging.getLogger(__name__)
 
-__all__ = ["LOGIN_TOOL_NAME", "RequestLoginTool", "login_usage_note"]
+__all__ = [
+    "LOGIN_TOOL_NAME",
+    "LeadRequestLoginTool",
+    "RequestLoginTool",
+    "lead_login_tools",
+    "login_usage_note",
+]
 
 LOGIN_TOOL_NAME: Final[str] = "society_request_login"
 
@@ -113,10 +119,13 @@ class RequestLoginTool:
         },
     }
 
-    def __init__(self, runtime: Any, agent_id: str, *, session_id: str) -> None:
+    def __init__(
+        self, runtime: Any, agent_id: str, *, session_id: str, asker: str = ""
+    ) -> None:
         self._runtime = runtime
         self._agent_id = agent_id
         self._session_id = session_id
+        self._asker_name = asker
 
     async def execute(self, args: dict[str, Any], ctx: Any) -> ToolResult:
         wait_for = str(args.get("wait_for") or "").strip()
@@ -250,9 +259,71 @@ class RequestLoginTool:
         )
 
     def _asker(self) -> str:
+        if self._asker_name:
+            return self._asker_name
         cached = getattr(self._runtime, "cached_agent", None)
         agent = cached(self._agent_id) if callable(cached) else None
         return str(getattr(agent, "name", "") or "")
+
+
+class LeadRequestLoginTool(RequestLoginTool):
+    """The login card in the lead's own chat, for its browser or a team agent's.
+
+    A team agent asks for a login in its own chat. The lead sets agents and
+    routines up from its chat, and a job that has to sign in somewhere is not
+    ready before that login exists: with ``agent`` the card is shown here, in
+    the turn that set the job up, and the login lands in that agent's vault.
+    """
+
+    description: str = (
+        f"{RequestLoginTool.description} Pass agent (a team agent's id or name) when that "
+        "agent's browser has to sign in, for example for a routine you just set up for it: "
+        "the card is shown in this chat and the login is stored for that agent. Without "
+        "agent the login is for your own browser. Repeat agent together with wait_for."
+    )
+    schema: dict[str, Any] = {
+        **RequestLoginTool.schema,
+        "properties": {
+            **RequestLoginTool.schema["properties"],
+            "agent": {
+                "type": "string",
+                "description": "The team agent whose browser signs in; omit for your own.",
+            },
+        },
+    }
+
+    async def execute(self, args: dict[str, Any], ctx: Any) -> ToolResult:
+        rest = {key: value for key, value in args.items() if key != "agent"}
+        raw = str(args.get("agent") or "").strip()
+        if not raw:
+            return await super().execute(rest, ctx)
+        agent = await self._runtime.roster.resolve(raw)
+        if agent is None or str(getattr(agent, "state", "")) == "archived":
+            return ToolResult(
+                success=False,
+                output=None,
+                error=f"invalid request: no team agent named {raw!r}. See society_status.",
+            )
+        tool = RequestLoginTool(
+            self._runtime, agent.agent_id, session_id=self._session_id, asker=self._asker()
+        )
+        return await tool.execute(rest, ctx)
+
+
+def lead_login_tools(session: Any) -> dict[str, Any]:
+    """The login card for the lead's own chat (surface ``jarvis``)."""
+    from .display_name import lead_display_name
+    from .runtime import current_runtime
+
+    rt = current_runtime()
+    session_id = str(getattr(session, "session_id", "") or "")
+    if rt is None or not session_id or is_routine_session(session_id):
+        return {}
+    return {
+        LOGIN_TOOL_NAME: LeadRequestLoginTool(
+            rt, rt.lead_id, session_id=session_id, asker=lead_display_name()
+        )
+    }
 
 
 def _nobody(site: str) -> ToolResult:

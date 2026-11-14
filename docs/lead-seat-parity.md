@@ -54,6 +54,11 @@ fails when the seats drift.
   on macOS the store is readable by any process of the person
   (`core/keychain_bundle.py`), so it stops the obvious read, not code written to get
   round it.
+- The login card: `society_request_login` is one of the chat's own hands too
+  (`society.login_tool.lead_login_tools`). Without `agent` the login is for the
+  assistant's own browser; with `agent` it is stored for that team agent, so a job
+  set up from this chat gets its website login in the same turn
+  (`docs/routines.md`, "Ready or only set up").
 - The CLI preamble says: delegate through the Dodaios tools, do not use the vendor's
   own sub-agent tool.
 

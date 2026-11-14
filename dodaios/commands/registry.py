@@ -221,12 +221,27 @@ def _agent_brief_properties() -> dict[str, Any]:
     }
 
 
+def _services_param() -> dict[str, Any]:
+    return _str_list(
+        "Every service or website with an account that the work must reach to post, send "
+        "or sign in, by name, e.g. ['x', 'reddit', 'gmail']. [] only when it needs none."
+    )
+
+
+_READINESS_RULE = (
+    "Pass services. The result's readiness says whether the job can run: only status "
+    "'ready' may be reported as ready or done. On 'blocked', call each blocker's fix tool "
+    "in the same turn so its Connect or login card is shown, and tell the user it is set "
+    "up but blocked until they connect or sign in. On 'unverified', call "
+    "society-check-readiness with the services first."
+)
+
 _AGENT_DESIGN_GUIDE = (
     "Design the agent before calling: turn the user's words into a complete brief — "
     "mission, 3-6 responsibilities, working rules naming the data sources, output "
     "format and boundaries — inferring sensible defaults instead of copying the "
-    "request verbatim. Read readback.not_connected and tell the user which services "
-    "to connect. A requested schedule is a separate society-create-routine call."
+    "request verbatim. A requested schedule is a separate society-create-routine call. "
+    + _READINESS_RULE
 )
 
 
@@ -285,6 +300,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
             params={"type": "object", "properties": {
                 "name": _str_param("Requested unique agent name.", min_length=1, max_length=40),
                 **_society_profile_properties(),
+                "services": _services_param(),
             }, "required": ["name"]},
             voice_aliases={
                 "de": ("erstelle einen rechercheagenten",),  # i18n-allow: input vocab
@@ -414,6 +430,29 @@ def _build_registry() -> tuple[AppCommand, ...]:
             },
         ),
         AppCommand(
+            id="society-check-readiness",
+            title="Check that an agent's work can run",
+            description=(
+                "Check whether an agent and its routines can do their job right now: the "
+                "services named are connected (plugins, CLIs), the websites have a stored "
+                "login for this agent, and the model seat is usable. Call it before you "
+                "tell the user a delegated or scheduled job is ready, and again after they "
+                "connected or signed in. On 'blocked', call each blocker's fix tool."
+            ),
+            method="POST", path="/api/society/agents/{agent_id}/readiness",
+            path_params=("agent_id",), ui_section="agents",
+            params={"type": "object", "properties": {
+                "agent_id": _str_param("Agent id or exact name.", min_length=1),
+                "services": _services_param(),
+            }, "required": ["agent_id", "services"]},
+            voice_aliases={
+                "de": ("kann Scout schon loslegen",),  # i18n-allow: input vocab
+                "en": ("is Scout ready to run",),
+                "es": ("puede Scout empezar ya",),  # i18n-allow: input vocab
+                "pt": ("o Scout já pode começar",),  # i18n-allow: input vocab
+            },
+        ),
+        AppCommand(
             id="society-create-routine",
             title="Schedule a routine for an agent",
             description=(
@@ -424,7 +463,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "the agent stays quiet while nothing changed and reports only a real change, "
                 "a completion, a failure or something the user must do, unless the user "
                 "asked for regular updates. Speak the returned next_run; on "
-                "timezone_required ask the user."
+                "timezone_required ask the user. " + _READINESS_RULE
             ),
             # Not dangerous: the user ordered it, and a routine is paused or
             # deleted in one step (a second spoken yes was a live complaint).
@@ -440,6 +479,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "announce_on_success": _str_param(
                     "Optional line Dodaios says when a run finishes.", max_length=500,
                 ),
+                "services": _services_param(),
             }, "required": ["agent_id", "title", "prompt", "schedule"]},
             voice_aliases={
                 "de": ("gib mir jeden morgen um acht ein briefing",),  # i18n-allow: input vocab

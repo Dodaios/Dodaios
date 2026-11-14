@@ -281,6 +281,34 @@ async def test_routine_target_needs_an_agent_and_a_schedule() -> None:
     assert routine.calls[0]["schedule"] == schedule
 
 
+async def test_a_routine_that_cannot_run_yet_comes_back_blocked_not_done() -> None:
+    readiness = {
+        "status": "blocked",
+        "blockers": [{"kind": "plugin", "id": "x", "missing": "X is not connected"}],
+        "instruction": "NOT READY: connect X first.",
+    }
+    routine = Fake(
+        "society-create-routine",
+        ToolResult(True, {"response": {"id": "t1", "readiness": readiness}}),
+    )
+    result = await _tool(routine).execute(
+        {
+            "target": "routine",
+            "task": "post every day",
+            "options": {
+                "agent": "Herald",
+                "schedule": {"kind": "calendar", "local_time": "16:30"},
+                "services": ["x"],
+            },
+        },
+        _ctx(),
+    )
+    assert routine.calls[0]["services"] == ["x"]
+    assert result.success and result.output["state"] == "blocked"
+    assert result.output["readiness"] == readiness
+    assert result.output["next_step"] == "NOT READY: connect X first."
+
+
 async def test_skill_target_loads_the_skill_by_slug() -> None:
     skill = Fake("run-skill", ToolResult(True, "instructions"))
     result = await _tool(skill).execute({"target": "skill:daily-standup", "task": "go"}, _ctx())

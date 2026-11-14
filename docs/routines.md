@@ -9,6 +9,36 @@ A routine is a fixed prompt on a fixed schedule. Something the assistant looks a
 time with no end date, with notes carried from run to run and a pace it sets itself, is a
 [standing task](standing-tasks.md); it runs on a routine of the lead.
 
+## Ready or only set up
+
+A routine can be stored while nothing it needs is reachable: the plugin it posts
+with is not connected, the website has no login, the agent has no usable model.
+Creating an agent or a routine therefore answers with a `readiness` block
+(`dodaios/society/readiness.py`):
+
+- `status`: `ready`, `blocked`, or `unverified` (nothing found missing, but the
+  caller did not say which services a run needs);
+- `checked`: what was looked at;
+- `blockers`: each missing piece with the tool call that opens its card:
+  `society_request_connect` for a plugin or CLI, `society_request_login` (with
+  the agent) for a website, `society-switch-agent-model` for the model seat;
+- `instruction`: what the assistant has to do with it.
+
+What is checked: the services passed in `services`, unconnected marketplace
+plugins the routine's own title and prompt name, the agent's focus capabilities,
+and the model seat by the same rules a run applies before it starts. A named
+service that is neither a plugin nor a CLI is a website and needs a stored login
+of that agent. A state the app cannot read is never a blocker. Nothing is stored
+with the routine; `society-check-readiness` asks again at any time, for example
+after the person connected a service.
+
+The assistant may call a job ready only on `ready`. On `blocked` it opens the
+cards in the same turn and says the job is set up but blocked until the person
+connects or signs in. The `delegate` front door reports such a routine as
+`blocked`, not `done`. In its own chat the assistant has `society_request_login`
+with an `agent` argument, so the login card for a team agent's browser appears
+where the job was set up.
+
 ## Model seat
 
 A routine is pinned to a model seat at creation: by default the seat its owner

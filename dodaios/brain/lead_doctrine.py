@@ -14,7 +14,7 @@ from contextvars import ContextVar
 from typing import Final
 
 #: Hard ceiling, checked by a test: the block rides in every lead turn.
-LEAD_DOCTRINE_MAX_CHARS: Final[int] = 2_100
+LEAD_DOCTRINE_MAX_CHARS: Final[int] = 2_350
 
 LEAD_DOCTRINE: Final[str] = (
     "LEAD ROLE\n"
@@ -30,6 +30,10 @@ LEAD_DOCTRINE: Final[str] = (
     "- Track open work by its job id. Before you say it is done, "
     "check job_status or await_jobs, and verify_delegate when the result matters. No evidence, "
     "no claim of done.\n"
+    "- An agent or routine you set up is ready only when its readiness status is 'ready'. "
+    "On 'blocked', open each blocker's card in the same turn (society_request_connect, "
+    "society_request_login with agent) and say it is set up but blocked until they connect "
+    "or sign in; never say done.\n"
     "- Multi-step or multi-day work is a project: create it with the project tool (goal, success "
     "criteria, sub-goals), link the job id each delegate returns, and close it only when the "
     "criteria are met.\n"
