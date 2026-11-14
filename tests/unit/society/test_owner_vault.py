@@ -153,9 +153,12 @@ def test_the_claude_code_hook_blocks_a_vault_read_and_lets_the_rest_run() -> Non
     assert entry["hooks"][0]["command"].startswith('"/opt/py/bin/python" "')
 
 
-def test_an_assistant_turn_on_claude_code_runs_the_guard() -> None:
+def test_an_assistant_turn_on_claude_code_runs_the_guard(monkeypatch) -> None:
     from dodaios.agent_chat import runner_cli
     from dodaios.agent_chat.dodaios_harness import Identity
+
+    # No Claude Code needed on the test machine: only the planned argv is read.
+    monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
 
     identity = Identity(session_id="lead-chat", text="", compact="")
     plan = runner_cli._plan_claude_code(
