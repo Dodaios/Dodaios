@@ -1,26 +1,23 @@
 import { lazy, Suspense, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Clock, FileText, Sparkles } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronRight, FileText, Sparkles } from "lucide-react";
 import { PanelStatus, usePanelNow } from "@/components/home/PanelStatus";
 import { EarlierChatsLink } from "@/components/home/EarlierChatsLink";
 import { PanelActivity } from "@/components/home/PanelActivity";
 import { PanelComputers } from "@/components/home/PanelComputers";
 import { PanelOutputs } from "@/components/home/PanelOutputs";
 import { PanelReach } from "@/components/home/PanelReach";
-import { ASSISTANT_ID, ASSISTANT_ROUTINES_KEY, PanelRoutines, useAssistantRoutines, type AssistantRoutine } from "@/components/home/PanelRoutines";
+import { ASSISTANT_ID, PanelRoutines } from "@/components/home/PanelRoutines";
 import { useVoiceModeSwitch } from "@/components/home/assistantStatus";
 import { chatRowLabel, useChatRows } from "@/components/home/chatRows";
 import { FOCUS, PANEL_ICON, PANEL_ROW, PANEL_ROW_BUTTON, PanelEmpty, PanelSection } from "@/components/home/panelParts";
 import { PetMark } from "@/components/pets/PetMark";
-import { useRunLocale } from "@/components/runs/format";
-import { humanSchedule } from "@/components/society/card/routines/humanSchedule";
 import { Switch } from "@/components/ui/switch";
 import { useSetSkillEnabled, useSkillsList } from "@/hooks/useSkills";
 import { useVoiceEngineDisplay } from "@/hooks/useVoiceEngineDisplay";
 import { useLocaleChunk, useT } from "@/i18n";
 import { fetchLeadSession } from "@/lib/agentChatApi";
 import { NEUTRAL_ASSISTANT_NAME } from "@/lib/assistantNameCache";
-import { setTaskEnabled } from "@/lib/tasksApi";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 import { useSettingsJump } from "@/store/settingsJump";
@@ -71,20 +68,17 @@ function useConversation(): { id: string | null; computerId: string } {
  * the row that line describes (`usePanelNow`). Face and name lead back to the conversation. Under
  * them the ways to reach it: a call, Slack and Telegram.
  *
- * "Activity" is its work: its routines (the first two, the rest folded away),
- * the computers it can work on (the one it runs on marked), the chats in the
- * Agentic IDE it sent a task to, and the files it made. "Library" is what belongs to it: its routines, each with a switch,
- * how it is spoken to, its own files (character, standing instructions,
+ * "Activity" is its work: its routines (the first two, the rest folded away,
+ * each with a switch), the computers it can work on (the one it runs on
+ * marked), the chats in the Agentic IDE it sent a task to, and the files it
+ * made. "Library" is what belongs to it: how it is spoken to, its own files (character, standing instructions,
  * memory, what it knows about the person), its skills and the chats from
  * before.
  */
 export default function AssistantPanel({ onConversation }: { onConversation: () => void }) {
   const t = useT();
   useLocaleChunk("society");
-  const locale = useRunLocale();
-  const client = useQueryClient();
   const setActive = useEventStore((s) => s.setActiveSection);
-  const automations = useAssistantRoutines();
   const profile = useSoulProfile();
   const skills = useSkillsList();
   const setSkillEnabled = useSetSkillEnabled();
@@ -97,23 +91,10 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
   const [tab, setTab] = useState<Tab>(readTab);
   const [routineId, setRoutineId] = useState<string | null>(null);
   const [fileId, setFileId] = useState<SoulFileId | null>(null);
-  const [pending, setPending] = useState<string | null>(null);
 
   const pickTab = (next: Tab) => {
     setTab(next);
     try { localStorage.setItem(TAB_KEY, next); } catch { /* a convenience only */ }
-  };
-
-  const toggleRoutine = async (routine: AssistantRoutine, enabled: boolean) => {
-    setPending(routine.id);
-    try {
-      await setTaskEnabled(routine.id, enabled);
-    } catch (error) {
-      useEventStore.getState().pushToast("error", error instanceof Error ? error.message : String(error));
-    } finally {
-      await client.invalidateQueries({ queryKey: ASSISTANT_ROUTINES_KEY });
-      setPending(null);
-    }
   };
 
   const openSettings = (group: string) => {
@@ -121,7 +102,6 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
     setActive("settings");
   };
 
-  const routines = automations.data ?? [];
   // The conversation itself is the face above, not one of the chats from before.
   const recents = rows.filter((row) => row.id !== conversation.id).slice(0, RECENTS_SHOWN);
   const files = profile.data?.files ?? [];
@@ -167,33 +147,6 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
           </div>
         ) : (
           <div role="tabpanel" className="mt-3">
-            <PanelSection id="automations" title={t("sidebar.automations")}>
-              {routines.map((routine) => {
-                const active = routine.state !== "paused";
-                const sentence = humanSchedule(routine.trigger, { t, locale });
-                return (
-                  <div key={routine.id} className={PANEL_ROW}>
-                    <button type="button" data-testid={`assistant-automation-${routine.id}`} onClick={() => setRoutineId(routine.id)} title={routine.title}
-                      className={cn("flex min-w-0 flex-1 items-center gap-2.5 rounded-md text-left", FOCUS)}>
-                      <Clock aria-hidden strokeWidth={1.75} className={PANEL_ICON} />
-                      <span className="min-w-0 flex-1">
-                        <span className={cn("block truncate text-sm", active ? "text-foreground" : "text-muted-foreground")}>{routine.title}</span>
-                        {sentence && <span className="block truncate text-sm text-muted-foreground">{sentence}</span>}
-                      </span>
-                    </button>
-                    <Switch aria-label={routine.title} data-testid={`assistant-automation-switch-${routine.id}`}
-                      checked={active} disabled={pending === routine.id}
-                      onCheckedChange={(enabled) => void toggleRoutine(routine, enabled)} />
-                  </div>
-                );
-              })}
-              {routines.length === 0 && (
-                <PanelEmpty testId="assistant-automations-empty">
-                  {automations.isLoading ? t("common.loading") : t("sidebar.automations_empty")}
-                </PanelEmpty>
-              )}
-            </PanelSection>
-
             <PanelSection id="voice" title={t("sidebar.voice")}>
               <button type="button" data-testid="assistant-voice-model" onClick={() => openSettings("voice")} className={PANEL_ROW_BUTTON}>
                 <span className="shrink-0 text-sm text-foreground">{t("sidebar.voice_model")}</span>

@@ -153,36 +153,24 @@ describe("AssistantPanel", () => {
     expect(screen.getByTestId("assistant-panel-conversation").textContent).toContain("Dodaios");
   });
 
-  it("lists the routines with a switch each, without the scheduler's name tag", async () => {
+  it("lists the routines with a switch each, without the scheduler's name tag, and none in the library", async () => {
     mount([
       { id: "r1", title: "[agent:Dodaios] Morning mail", state: "scheduled" },
       { id: "r2", title: "Weekly review", state: "paused" },
     ]);
-    library();
-    const first = await screen.findByTestId("assistant-automation-r1");
+    const first = await screen.findByTestId("assistant-routine-r1");
     expect(first.textContent).toContain("Morning mail");
     expect(first.textContent).not.toContain("[agent:");
     expect(vi.mocked(fetch)).toHaveBeenCalledWith("/api/society/agents/jarvis/routines");
-    expect(screen.getByTestId("assistant-automation-switch-r1").getAttribute("aria-checked")).toBe("true");
-    const paused = screen.getByTestId("assistant-automation-switch-r2");
+    expect(screen.getByTestId("assistant-routine-switch-r1").getAttribute("aria-checked")).toBe("true");
+    const paused = screen.getByTestId("assistant-routine-switch-r2");
     expect(paused.getAttribute("aria-checked")).toBe("false");
     fireEvent.click(paused);
     await waitFor(() => expect(tasks.setTaskEnabled).toHaveBeenCalledWith("r2", true));
-  });
-
-  it("opens a routine's own page from its row", async () => {
-    mount([{ id: "r1", title: "Morning mail", state: "scheduled" }]);
+    // The library no longer repeats them.
     library();
-    fireEvent.click(await screen.findByTestId("assistant-automation-r1"));
-    expect((await screen.findByTestId("routine-dialog")).textContent).toContain("r1");
-    fireEvent.click(screen.getByText("Close routine"));
-    expect(screen.queryByTestId("routine-dialog")).toBeNull();
-  });
-
-  it("says so when there is no routine yet", async () => {
-    mount([]);
-    library();
-    await waitFor(() => expect(screen.getByTestId("assistant-automations-empty").textContent).toMatch(/None yet/));
+    expect(screen.queryByTestId("assistant-panel-automations")).toBeNull();
+    expect(screen.queryByTestId("assistant-routine-r1")).toBeNull();
   });
 
   it("names the voice model and the wake word, and each leads to its settings", () => {
@@ -381,7 +369,7 @@ describe("AssistantPanel", () => {
 
   it("leads its work with two routines and folds the rest away", async () => {
     mount([
-      { id: "done-once", title: "[agent:Jarvis] Comments: Travel notes", state: "failed", trigger: { type: "after_delay", delay_seconds: 1 } },
+      { id: "r-once", title: "[agent:Jarvis] Comments: Travel notes", state: "failed", trigger: { type: "after_delay", delay_seconds: 1 } },
       { id: "r-paused", title: "[agent:Jarvis] Weekly report", state: "paused", trigger: { type: "every", interval_seconds: 604800 } },
       { id: "r-pr", title: "[agent:Jarvis] Daily PR check", state: "scheduled", trigger: { type: "calendar", local_time: "09:00", weekdays: [] } },
       { id: "r-run", title: "[agent:Jarvis] Inbox sweep", state: "running", trigger: { type: "every", interval_seconds: 3600 } },
@@ -392,11 +380,18 @@ describe("AssistantPanel", () => {
     // What runs comes first, then what waits for its time; the name tag is gone.
     await waitFor(() => expect(shown()).toEqual(["assistant-routine-r-run", "assistant-routine-r-pr"]));
     expect(screen.getByTestId("assistant-routine-r-pr").textContent).toMatch(/^Daily PR check/);
-    // A one-time job that already ran has nothing more to do here.
-    expect(screen.queryByTestId("assistant-routine-done-once")).toBeNull();
     const more = screen.getByTestId("assistant-routines-more");
     fireEvent.click(more);
-    expect(shown()).toEqual(["assistant-routine-r-run", "assistant-routine-r-pr", "assistant-routine-r-paused"]);
+    // Every routine is there, the one-time job that already ran last.
+    expect(shown()).toEqual(["assistant-routine-r-run", "assistant-routine-r-pr", "assistant-routine-r-paused", "assistant-routine-r-once"]);
+    // A one-time job that ran says how it ended, not a time that has passed, and has nothing left to switch.
+    expect(screen.getByTestId("assistant-routine-r-once").textContent).toContain("Failed");
+    expect(screen.getByTestId("assistant-routine-r-once").textContent).not.toMatch(/second/);
+    const done = screen.getByTestId("assistant-routine-switch-r-once");
+    expect(done.getAttribute("aria-checked")).toBe("false");
+    expect(done.hasAttribute("disabled")).toBe(true);
+    // A running routine finishes its run before it can be paused.
+    expect(screen.getByTestId("assistant-routine-switch-r-run").hasAttribute("disabled")).toBe(true);
     fireEvent.click(more);
     expect(shown()).toHaveLength(2);
     // It comes before the computers, the chats and the files.
