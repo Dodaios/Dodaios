@@ -10,16 +10,22 @@ switch, OpenCode's ``run`` has its own rules plus ``--auto`` and a read-only
 plan agent, Kimi's print mode is autonomous by design, the DeepSeek harness
 keeps its policy in its own settings, and the in-process API runner gates
 its own tools. The composer
-shows exactly the ladder of the runner in use — the same words the vendor's
-own CLI uses, so a person who knows Claude Code's "Auto-accept edits" finds
-it here — and
+shows the ladder of the runner in use in the vendor's own words, and
 :func:`normalize_permission` folds a mode onto the nearest one another runner
 offers when a session moves between providers.
 
+A coding agent's menu holds at most three stances: ask, the vendor's own
+middle step, and everything (maintainer, 2026-11-14). For Claude Code that
+is "Ask before edits", "Auto" and "Bypass permissions" (GLM, on the same
+binary, keeps acceptEdits instead of Auto); dontAsk is no longer offered,
+nor acceptEdits for Claude Code itself, and a stored session in one of them folds onto
+the same stance (acceptEdits → auto, dontAsk → default). Codex's read-only
+sandbox is what its Plan already is, so it is not offered twice.
+
 ``plan`` is special: every ladder that has it maps it onto "read and plan,
 change nothing" (Claude Code's plan mode; a read-only sandbox on Codex; the
-read-only tool set on the API runner). The composer draws it as the
-Build | Plan switch next to the permission pill.
+read-only tool set on the API runner). It is never a row of the permission
+menu: the composer draws it as a Plan switch beside the permission pill.
 
 The **Jarvis surface** (the front page's chat — Jarvis with a keyboard, see
 ``dodaios.agent_chat.store.SURFACES``) shows ONE ladder whatever answers:
@@ -56,18 +62,8 @@ class PermissionMode:
 _CLAUDE: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "default",
-        "Ask before acting",
+        "Ask before edits",
         "Edits and commands wait for an approval card here in the chat.",
-    ),
-    PermissionMode(
-        "acceptEdits",
-        "Auto-accept edits",
-        "File edits in the working folder run. Shell commands still ask.",
-    ),
-    PermissionMode(
-        "plan",
-        "Plan",
-        "Reads and plans, changes nothing. Asks before building.",
     ),
     PermissionMode(
         "auto",
@@ -75,9 +71,9 @@ _CLAUDE: Final[tuple[PermissionMode, ...]] = (
         "Approves routine actions itself, asks only for risky ones.",
     ),
     PermissionMode(
-        "dontAsk",
-        "Don't ask",
-        "Never asks. Anything that would need approval is declined.",
+        "plan",
+        "Plan",
+        "Reads and plans, changes nothing. Asks before building.",
     ),
     PermissionMode(
         "bypassPermissions",
@@ -86,12 +82,21 @@ _CLAUDE: Final[tuple[PermissionMode, ...]] = (
     ),
 )
 
-_CODEX: Final[tuple[PermissionMode, ...]] = (
+#: GLM Coding Plan drives the Claude Code binary, so it takes Claude Code's
+#: words, but on Z.ai's endpoint. Claude Code's Auto needs Anthropic's own
+#: classifier, so GLM's middle step stays Claude Code's acceptEdits.
+_GLM: Final[tuple[PermissionMode, ...]] = (
+    _CLAUDE[0],
     PermissionMode(
-        "read-only",
-        "Read only",
-        "The agent can read. Edits and commands that write are blocked.",
+        "acceptEdits",
+        "Auto-accept edits",
+        "File edits in the working folder run. Shell commands still ask.",
     ),
+    _CLAUDE[2],
+    _CLAUDE[3],
+)
+
+_CODEX: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "approve-for-me",
         "Ask (auto-review)",
@@ -138,11 +143,6 @@ _GROK: Final[tuple[PermissionMode, ...]] = (
         "default",
         "Ask before acting",
         "Grok cannot ask back in a chat, so tools run. Plan is the read-only stance.",
-    ),
-    PermissionMode(
-        "acceptEdits",
-        "Auto-accept edits",
-        "Edits and commands run without asking.",
     ),
     PermissionMode(
         "plan",
@@ -299,9 +299,7 @@ _LADDERS: Final[dict[str, tuple[tuple[PermissionMode, ...], str]]] = {
     "grok-cli": (_GROK, "bypassPermissions"),
     "opencode-cli": (_OPENCODE, "auto"),
     "kimi-cli": (_KIMI, "auto"),
-    # GLM Coding Plan drives the Claude Code binary, so it takes Claude
-    # Code's own words.
-    "glm-cli": (_CLAUDE, "bypassPermissions"),
+    "glm-cli": (_GLM, "bypassPermissions"),
     "dsh-cli": (_DSH, "auto"),
     "custom-cli": (_CUSTOM, "auto"),
     "cursor-cli": (_CURSOR, "auto"),

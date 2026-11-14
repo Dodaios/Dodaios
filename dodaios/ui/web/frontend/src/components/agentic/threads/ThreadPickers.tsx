@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import { Zap } from "lucide-react";
+import { NotebookPen, Zap } from "lucide-react";
 import { brainValue, splitBrainValue } from "@/components/agentchat/AgentComposer";
 import { ComposerBrainPicker, type BrainSection } from "@/components/agentchat/ComposerBrainPicker";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { Combobox, type ComboboxGroup, type ComboboxOption } from "@/components/ui/combobox";
 import { useT } from "@/i18n";
+import { cn } from "@/lib/utils";
 import { isApiRunner, type CuratedModel, type ModelSpeed } from "@/lib/agentChatApi";
 import { offeredModels, useSavedHiddenModels } from "@/lib/agentProviderPrefs";
 import { effortLadder } from "@/lib/effortLadder";
@@ -215,11 +216,15 @@ export function AccessPicker({ provider, draft, onPick, separated = false }: {
   onPick: (mode: string) => void;
 }) {
   const t = useT();
-  const modes = provider?.permission_modes ?? [];
+  // Plan is not a permission: it is the switch beside this pill (PlanSwitch),
+  // and while it is on the pill shows the mode Build returns to.
+  const modes = (provider?.permission_modes ?? []).filter((mode) => mode.id !== "plan");
   if (modes.length === 0) return null;
+  const planOn = draft.permissionMode === "plan";
+  const value = planOn ? draft.buildMode || provider?.default_permission_mode || "" : draft.permissionMode;
   return <>
     {separated && <Separator />}
-    <Combobox ariaLabel={t("ide_threads.access_aria")} testId="thread-access-picker" value={draft.permissionMode}
+    <Combobox ariaLabel={t("ide_threads.access_aria")} testId="thread-access-picker" value={value}
       groups={[{
         id: "access",
         label: t("agent_chat.pick_permission"),
@@ -235,7 +240,30 @@ export function AccessPicker({ provider, draft, onPick, separated = false }: {
           description: mode.description,
         })),
       }]}
-      onChange={onPick} fallbackLabel={draft.permissionMode || t("agent_chat.model_access")} triggerHint={false} panelMinWidth={400}
+      onChange={onPick} fallbackLabel={value || t("agent_chat.model_access")} triggerHint={false} panelMinWidth={400}
       className={TRIGGER} />
   </>;
+}
+
+/**
+ * Plan on or off. On, the agent reads and plans and changes nothing; off, it
+ * builds with the permission picked beside it. Shown only for a runner whose
+ * ladder has a plan mode.
+ */
+export function PlanSwitch({ provider, draft, onToggle }: {
+  provider: ProviderOption | null;
+  draft: ComposerDraft;
+  onToggle: (on: boolean) => void;
+}) {
+  const t = useT();
+  if (!(provider?.permission_modes ?? []).some((mode) => mode.id === "plan")) return null;
+  const on = draft.permissionMode === "plan";
+  return <button type="button" role="switch" aria-checked={on} data-testid="thread-plan-switch"
+    title={on ? t("ide_threads.plan_switch_on") : t("ide_threads.plan_switch_off")}
+    onClick={() => onToggle(!on)}
+    className={cn("flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      on ? "bg-accent/15 text-accent hover:bg-accent/20" : "text-foreground-secondary hover:bg-secondary hover:text-foreground")}>
+    <NotebookPen aria-hidden className="h-3.5 w-3.5" />
+    {t("ide_threads.plan_switch")}
+  </button>;
 }

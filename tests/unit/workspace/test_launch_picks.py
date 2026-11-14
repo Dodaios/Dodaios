@@ -66,6 +66,13 @@ def test_claude_picks_become_its_own_flags() -> None:
     ) == ("--model", "claude-opus-5", "--effort", "high", "--permission-mode", "acceptEdits")
 
 
+def test_a_pane_offers_only_what_the_chat_menu_offers() -> None:
+    offered = [m["id"] for m in launch_picks.permission_modes("claude")]
+    assert offered == ["default", "plan", "auto", "bypassPermissions"]
+    # A layout saved with a mode the menu dropped still opens.
+    assert launch_picks.normalize_permission("claude", "acceptEdits") == "acceptEdits"
+
+
 def test_codex_effort_is_a_config_override_not_a_flag() -> None:
     """Codex has no ``--effort``; the level rides in as a ``-c`` override.
 

@@ -109,7 +109,10 @@ def test_every_runner_has_a_ladder_with_its_default_on_it():
 @pytest.mark.parametrize(
     ("runner", "picked", "expected"),
     [
-        ("claude-cli", "acceptEdits", "acceptEdits"),
+        # acceptEdits and dontAsk left the menu; a stored one keeps its stance.
+        ("claude-cli", "acceptEdits", "auto"),
+        ("claude-cli", "dontAsk", "default"),
+        ("codex-cli", "read-only", "plan"),
         ("claude-cli", "auto", "auto"),  # Claude Code's own classifier mode
         ("claude-cli", "ask", "default"),  # legacy draft value
         ("claude-cli", "full-access", "bypassPermissions"),
@@ -123,14 +126,14 @@ def test_every_runner_has_a_ladder_with_its_default_on_it():
         ("api", "read-only", "plan"),
         # The Jarvis ladder's words, folded onto every seat's own spelling.
         ("claude-cli", "bypass", "bypassPermissions"),
-        ("claude-cli", "accept-edits", "acceptEdits"),
+        ("claude-cli", "accept-edits", "auto"),
         ("claude-cli", "ask", "default"),
         ("codex-cli", "ask", "approve-for-me"),
         ("codex-cli", "accept-edits", "auto"),
         ("codex-cli", "bypass", "full-access"),
         ("agy-cli", "bypass", "skip-permissions"),
         ("agy-cli", "ask", "accept-edits"),
-        ("grok-cli", "accept-edits", "acceptEdits"),
+        ("grok-cli", "accept-edits", "default"),
         ("grok-cli", "bypass", "bypassPermissions"),
         ("jarvis", "", "bypass"),
         ("jarvis", "acceptEdits", "accept-edits"),

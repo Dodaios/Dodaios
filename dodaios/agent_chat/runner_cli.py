@@ -1095,6 +1095,7 @@ def plan_glm(
         resume=resume,
         identity=identity,
         env=dodaios_harness.apply_env(_registry_env("glm", dict(os.environ))),
+        ladder="glm-cli",
     )
 
 
@@ -1114,8 +1115,10 @@ def _plan_claude_code(
     env: dict[str, str],
     thinking_summaries: bool = False,
     tool_summaries: bool = False,
+    ladder: str = "claude-cli",
 ) -> CliPlan:
-    mode = normalize_permission("claude-cli", permission_mode)
+    # GLM runs this binary with its own ladder (acceptEdits, no Auto).
+    mode = normalize_permission(ladder, permission_mode)
     if tool_summaries:
         # Claude Code then writes a short title after each run of tool calls
         # ("Read a.txt", "Rewrote the parser and ran its tests"), the line a
