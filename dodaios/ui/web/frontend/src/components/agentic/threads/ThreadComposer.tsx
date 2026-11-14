@@ -13,7 +13,7 @@ import { fetchAgentChatQueue, type AgentChatSession, type ApprovalDecision, type
 import { joinProviderOptions, type ComposerDraft, type ProviderOption } from "@/store/agentChat";
 import { cn } from "@/lib/utils";
 import { effortLadder, snapEffort } from "@/lib/effortLadder";
-import { AccessPicker, AgentModelPicker, EffortPicker, modelsOf } from "./ThreadPickers";
+import { AccessPicker, AgentModelPicker, EffortPicker, PlanSwitch, modelsOf } from "./ThreadPickers";
 import { useRecalledMessages } from "./recalledMessages";
 import { MagicWordText } from "./MagicWordText";
 import { QueuedMessages } from "./QueuedMessages";
@@ -639,7 +639,10 @@ export function ThreadComposer({
         <EffortPicker provider={provider} draft={draft} liveModels={liveModels} separated
           onPick={(effort) => void pick({ effort })} onPickSpeed={(speed) => void pick({ speed })} />
         <AccessPicker provider={provider} draft={draft} separated
-          onPick={(permissionMode) => void pick({ permissionMode })} />
+          onPick={(permissionMode) => void (draft.permissionMode === "plan"
+            ? chat.getState().setDraft({ buildMode: permissionMode })
+            : pick({ permissionMode }))} />
+        <PlanSwitch provider={provider} draft={draft} onToggle={(on) => void chat.getState().setPlan(on)} />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <DictationButton dictating={dictation.dictating} transcribing={dictation.finishing} sendQueued={dictation.sendQueued}

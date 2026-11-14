@@ -102,8 +102,11 @@ def test_every_cli_runner_has_a_permission_ladder_and_a_typeahead_answer() -> No
         assert permissions.permission_modes(runner), runner
         assert permissions.default_permission(runner) in permissions.permission_ids(runner)
         assert isinstance(typeahead.triggers_for(runner), tuple)
-    # GLM Coding Plan IS Claude Code: same words, same commands after "/".
-    assert permissions.permission_modes("glm-cli") == permissions.permission_modes("claude-cli")
+    # GLM Coding Plan IS Claude Code: the same commands after "/", and Claude
+    # Code's words, but acceptEdits instead of Auto (Auto needs Anthropic's
+    # own classifier, which Z.ai's endpoint does not run).
+    assert permissions.permission_ids("glm-cli") == ("default", "acceptEdits", "plan", "bypassPermissions")
+    assert "auto" in permissions.permission_ids("claude-cli")
     assert typeahead.triggers_for("glm-cli") == typeahead.triggers_for("claude-cli")
     assert typeahead.triggers_for("dsh-cli") == ()
 

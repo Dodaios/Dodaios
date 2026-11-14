@@ -449,20 +449,21 @@ def permission_modes(agent: str) -> list[dict[str, str]]:
     permissions` — the same sentences the chat composer shows — narrowed to
     the modes this entry can actually be LAUNCHED into. A mode the ladder
     describes but the CLI has no flag for is left out rather than offered and
-    quietly ignored.
+    quietly ignored, and so is a mode the ladder no longer offers.
     """
     picks = picks_for(agent)
     if picks is None or not picks.permission_args:
         return []
-    described: dict[str, dict[str, str]] = {}
-    if key := _ladder_key(picks):
-        from dodaios.agent_chat.permissions import permission_modes as ladder
+    key = _ladder_key(picks)
+    if not key:
+        return [{"id": mode, "label": mode, "description": ""} for mode in picks.permission_modes]
+    from dodaios.agent_chat.permissions import permission_modes as ladder
 
-        described = {mode.id: _in_a_pane(mode.to_dict()) for mode in ladder(key)}
-    return [
-        described.get(mode, {"id": mode, "label": mode, "description": ""})
-        for mode in picks.permission_modes
-    ]
+    described = {mode.id: _in_a_pane(mode.to_dict()) for mode in ladder(key)}
+    # A mode the binary still takes but the chat's menu no longer offers
+    # (Claude Code's acceptEdits and dontAsk) stays launchable, so a saved
+    # layout keeps opening; it is just not offered for a new pane.
+    return [described[mode] for mode in picks.permission_modes if mode in described]
 
 
 def _in_a_pane(mode: dict[str, str]) -> dict[str, str]:

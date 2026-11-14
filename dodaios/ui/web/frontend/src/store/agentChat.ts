@@ -1081,7 +1081,10 @@ export function createAgentChatStore(
             set({ lastError: errorText(err) });
           }
         }
-        if (sid) {
+        // Only the mode Build returns to (picked while Plan is on): the
+        // session stays in Plan, so there is nothing to tell it yet.
+        const localOnly = Object.keys(patch).every((key) => key === "buildMode");
+        if (sid && !localOnly) {
           const body: PatchSessionInput = {};
           if (patch.provider !== undefined) body.provider = draft.provider;
           if (patch.provider !== undefined || patch.model !== undefined) body.model = draft.model;
@@ -1135,7 +1138,11 @@ export function createAgentChatStore(
           await st.setDraft({ permissionMode: "plan" });
         } else {
           const p = st.providerById(st.draft.provider);
-          const back = st.draft.buildMode && st.draft.buildMode !== "plan" ? st.draft.buildMode : p?.default_permission_mode ?? "";
+          // A mode the ladder no longer offers (an old thread's acceptEdits)
+          // would be refused by the session route; Build then takes the default.
+          const offered = p?.permission_modes?.map((m) => m.id) ?? [];
+          const kept = st.draft.buildMode && st.draft.buildMode !== "plan" && (!offered.length || offered.includes(st.draft.buildMode));
+          const back = kept ? st.draft.buildMode : p?.default_permission_mode ?? "";
           await st.setDraft({ permissionMode: back });
         }
       },
