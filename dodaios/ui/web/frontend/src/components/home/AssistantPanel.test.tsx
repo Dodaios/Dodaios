@@ -492,13 +492,33 @@ describe("AssistantPanel", () => {
     await waitFor(() => expect(screen.getAllByTestId("assistant-output")).toHaveLength(4));
     const rows = screen.getAllByTestId("assistant-output");
     expect(rows.map((row) => row.textContent)).toEqual(["clip.mp4", "cover.png", "marketing.mjs", "Sales dashboard"]);
-    expect(rows.map((row) => row.getAttribute("data-kind"))).toEqual(["video", "image", "code", "page"]);
+    expect(rows.map((row) => row.getAttribute("data-kind"))).toEqual(["motion", "design", "code", "design"]);
     // A run that still builds is not read.
     expect(vi.mocked(fetch)).not.toHaveBeenCalledWith("/api/outputs/run-live/artifacts");
 
     fireEvent.click(rows[3]);
     expect(useEventStore.getState().visualStage?.target).toBe("run-a::tasks/t1/artifacts/files/index.html");
     expect(useEventStore.getState().activeSection).toBe("visualization");
+  });
+
+  it("marks a run's file with the type the library gives it, and its icon", async () => {
+    const page = (name: string, mtime: number, title: string) =>
+      ({ path: `tasks/node/artifacts/files/${name}`, size: 10, mtime, is_text: false, preview: null, title });
+    mount([], {
+      "/api/outputs": [{ slug: "deck", status: "success" }, { slug: "trip", status: "success" }, { slug: "costs", status: "success" }],
+      "/api/outputs/deck/artifacts": { files: [page("untitled-deck.html", 30, "Untitled deck")] },
+      "/api/outputs/trip/artifacts": { files: [page("trip.html", 20, "Trip")] },
+      "/api/outputs/costs/artifacts": { files: [page("costs.html", 10, "Costs")] },
+      "/api/nodes": { nodes: [
+        { key: "deck::tasks/node/artifacts/files/untitled-deck.html", type: "slides" },
+        { key: "trip::tasks/node/artifacts/files/trip.html", type: "docs" },
+        { key: "costs::tasks/node/artifacts/files/costs.html", type: "sheets" },
+      ], scanned_runs: 3, skipped_runs: 0 },
+    });
+    await waitFor(() => expect(screen.getAllByTestId("assistant-output").map((row) => row.getAttribute("data-kind")))
+      .toEqual(["slides", "docs", "sheets"]));
+    const icons = screen.getAllByTestId("assistant-output").map((row) => row.querySelector("[data-node-type-icon]")?.getAttribute("data-node-type-icon"));
+    expect(icons).toEqual(["slides", "docs", "sheets"]);
   });
 
   it("lists the files handed over in the conversation among the runs' files, and opens one on this computer", async () => {
@@ -516,7 +536,7 @@ describe("AssistantPanel", () => {
     const rows = screen.getAllByTestId("assistant-output");
     expect(rows.map((row) => row.textContent)).toEqual(["Nvidia.xlsx", "cover.png", "notes.md"]);
     expect(rows.map((row) => row.getAttribute("data-source"))).toEqual(["chat", "run", "chat"]);
-    expect(rows[0].getAttribute("data-kind")).toBe("document");
+    expect(rows.map((row) => row.getAttribute("data-kind"))).toEqual(["sheets", "design", "docs"]);
     expect(rows[0].getAttribute("title")).toBe("/Users/ada/work/Nvidia.xlsx");
 
     fireEvent.click(rows[0]);
