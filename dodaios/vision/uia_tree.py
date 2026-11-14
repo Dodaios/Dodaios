@@ -136,11 +136,19 @@ class UIATreeSource:
         # Dependency injection for tests: a function that accepts a depth
         # parameter and returns a tuple (root_title, pid, list[RawNode]).
         traverser: Callable[..., tuple[str, int, list[RawNode]]] | None = None,
+        # Depth ladder override. ``None`` keeps the production ladder
+        # (6, 5, 4): shallow and fast, with automatic shallowing on
+        # overflow. A caller that already failed shallow may pass a deeper
+        # ladder for ONE bounded retry (e.g. ``(12,)`` for web content that
+        # lives deep in a browser tree). Never used by the default observe
+        # path — the caller's own node/timeout budget still applies.
+        depth_ladder: tuple[int, ...] | None = None,
     ) -> None:
         self._max_nodes = max_nodes
         self._interesting_roles = interesting_roles
         self._min_overlap = min_on_screen_overlap
         self._monitor_bounds = monitor_bounds  # None = detect at runtime
+        self._depth_ladder = depth_ladder or _DEPTH_RETRY_LADDER
         self._traverser = traverser
         self._traversal_gate = threading.Lock()
         self._closed = False
@@ -176,11 +184,11 @@ class UIATreeSource:
 
         # Retry ladder: on node overflow we shorten the depth.
         nodes_before = 0
-        depth_used = _DEPTH_RETRY_LADDER[0]
         pruned: list[RawNode] = []
         window_title = ""
         active_pid = 0
-        for depth in _DEPTH_RETRY_LADDER:
+        depth_used = self._depth_ladder[0]
+        for depth in self._depth_ladder:
             if cancel_token is not None and cancel_token.is_cancelled():
                 raise RuntimeError(f"cancelled: {cancel_token.reason}")
             traverse_fn = self._traverser or self._traverse_via_pywinauto

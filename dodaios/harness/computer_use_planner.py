@@ -79,6 +79,23 @@ class ProviderAttemptError:
     detail: str
 
 
+def _is_local_planner_provider(provider: str) -> bool:
+    """Whether ``provider`` may serve a local-only Computer-Use mission.
+
+    Same capability-derived rule as the dispatch layer: ``auth_mode ==
+    "none"`` in the provider catalog (``LOCAL_PROVIDERS``). Imported lazily
+    so this planner module never hard-imports the UI layer at load time.
+    """
+    try:
+        from dodaios.brain.app_control import LOCAL_PROVIDERS  # noqa: PLC0415
+
+        return str(provider or "") in LOCAL_PROVIDERS
+    except Exception:  # noqa: BLE001
+        return str(provider or "") in frozenset(
+            {"ollama", "local-openai", "ui-mate"}
+        )
+
+
 @dataclass
 class ComputerUsePlannerSelector:
     """Select healthy, vision-capable planner brains for Computer Use."""
@@ -91,6 +108,12 @@ class ComputerUsePlannerSelector:
     #: Transient (capacity/infra) failures counted per candidate — see
     #: ``_MAX_TRANSIENT_PER_CANDIDATE``.
     transient_hits: dict[tuple[str, str | None], int] = field(default_factory=dict)
+    #: Local-only missions hard-block every nonlocal provider before any
+    #: call. ``False`` (default) preserves the exact prior behavior.
+    local_only: bool = False
+    #: Nonlocal providers refused by the local-only gate (diagnostics: the
+    #: per-step log names what was blocked without naming any secret).
+    nonlocal_blocked: int = 0
 
     def iter_candidates(
         self, *, images_attached: bool,
@@ -102,6 +125,20 @@ class ComputerUsePlannerSelector:
 
         for idx, (provider, model) in enumerate(self.chain):
             key = (provider, model)
+            if self.local_only and not _is_local_planner_provider(provider):
+                self.nonlocal_blocked += 1
+                self._record(
+                    provider,
+                    model,
+                    "nonlocal_blocked",
+                    "skipped - local-only mission hard-blocks nonlocal providers",
+                )
+                log.info(
+                    "[cu] local-only: hard-blocked nonlocal provider %s(%s) "
+                    "before any call",
+                    provider, model,
+                )
+                continue
             if provider in dead_providers:
                 self._record(provider, model, "dead", "skipped dead provider")
                 continue
@@ -246,7 +283,10 @@ class ComputerUsePlannerSelector:
 
 
 def iter_last_resort_vision(
-    manager: Any, *, already_tried: set[tuple[str, str | None]],
+    manager: Any,
+    *,
+    already_tried: set[tuple[str, str | None]],
+    local_only: bool = False,
 ) -> Iterator[tuple[str, str | None, Any]]:
     """Yield ``(provider, model, brain)`` for every REGISTERED vision-capable
     provider, IGNORING the manager's transient ``_dead_providers`` / cooldown
@@ -264,6 +304,10 @@ def iter_last_resort_vision(
     Each ``(provider, model)`` already tried in the normal pass is skipped, so a
     provider that really failed this turn is not retried. Provider-agnostic: the
     only gate is ``supports_vision``; no provider name is special-cased.
+    ``local_only=True`` additionally restricts the rescue pass to local
+    providers, so a local-only mission can never reach the cloud through the
+    back door (the dispatch layer already skips this pass entirely for
+    local-only; this is defense in depth).
     """
     registry = getattr(manager, "_registry", None)
     available: list[str] = []
@@ -274,6 +318,8 @@ def iter_last_resort_vision(
             available = []
     seen = set(already_tried)
     for provider in available:
+        if local_only and not _is_local_planner_provider(provider):
+            continue
         picker = getattr(manager, "_fast_model", None)
         model: str | None = None
         if callable(picker):

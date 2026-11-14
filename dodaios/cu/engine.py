@@ -213,6 +213,24 @@ _JUDGE_SYSTEM = (
     "* When done:false, state briefly in proof what is still missing."
 )
 
+#: Navigation-following missions: the source page is the INTERMEDIATE state
+#: and the linked destination page is the FINAL state. Added after the M5
+#: regression (OPR-20261114-01): the goal "open example.com, click Learn
+#: more, finish once the destination page is shown" was rejected ON the
+#: destination (iana.org/help/example-domains) because the judge held the
+#: source host as the requirement. A goal that explicitly asks to follow a
+#: link is achieved when the linked destination is shown — even when its
+#: host differs from the source — and is NOT achieved while the source page
+#: with the unclicked link is still shown.
+_NAVIGATION_JUDGE_ADDENDUM = (
+    "\n* FOLLOW-THE-LINK goals: when the GOAL explicitly asks to click/follow "
+    "a link and finish on the destination page, the source page still showing "
+    "the unclicked link is NOT done (it is the intermediate state). The "
+    "destination page reached through that link IS done, even when its host "
+    "or title differs from the source. Quote the destination evidence "
+    "(host/page cues) in proof."
+)
+
 _LANGUAGE_NAMES = {
     "de": "German",
     "en": "English",
@@ -791,6 +809,26 @@ _REFINE_SYSTEM = (
 )
 
 
+def _refine_translate_native(text: str) -> tuple[float, float] | None:
+    """Translate a native-protocol refine reply to 0-1000 crop coordinates.
+
+    Only the UI-Mate adapter speaks a non-JSON tool protocol today; JSON
+    brains never reach here with unparseable text worth a second look.
+    Returns ``None`` for anything that is not a UI-Mate click — the caller
+    then keeps the original point or abandons, exactly as before.
+    """
+    try:
+        from dodaios.plugins.brain.ui_mate import (  # noqa: PLC0415
+            parse_refine_reply,
+        )
+    except Exception:  # noqa: BLE001 - adapter unavailable: no translation
+        return None
+    try:
+        return parse_refine_reply(text or "")
+    except Exception:  # noqa: BLE001 - unparseable stays unparseable
+        return None
+
+
 async def _zoom_refine_point(
     ctx: Any,
     frame: Frame,
@@ -800,6 +838,7 @@ async def _zoom_refine_point(
     goal: str,
     target: str,
     expected_window_signature: tuple[Any, ...],
+    local_only: bool = False,
 ) -> tuple[int, int] | None:
     """One coarse-to-fine grounding round after a VERIFIED miss.
 
@@ -840,10 +879,29 @@ async def _zoom_refine_point(
         f"The crop is {bbox['width']}x{bbox['height']} screen units, centered "
         "on the missed click. Reply with the JSON object only."
     )
+
+    def _refine_prompt(provider: str, brain: Any) -> tuple[str, str]:
+        # UI-Mate speaks its native agent protocol, not JSON: give it the
+        # native prompt and translate the reply below. Every other provider
+        # keeps the JSON contract. A missing/unusable adapter degrades to
+        # the JSON prompt (whose failure path is unchanged).
+        if provider == "ui-mate":
+            try:
+                from dodaios.plugins.brain.ui_mate import (  # noqa: PLC0415
+                    build_refine_prompt,
+                )
+
+                _sys, _user = build_refine_prompt(
+                    target, goal, int(bbox["width"]), int(bbox["height"])
+                )
+                return _sys, _user
+            except Exception:  # noqa: BLE001 - fall back to JSON contract
+                log.debug("[cu] ui-mate refine prompt unavailable", exc_info=True)
+        return (_REFINE_SYSTEM, user)
     try:
         reply = await call_vision_brain(
             ctx.brain_manager,
-            build_prompt=lambda provider, brain: (_REFINE_SYSTEM, user),
+            build_prompt=_refine_prompt,
             images=[
                 ImageBlock(
                     mime="image/jpeg",
@@ -852,6 +910,7 @@ async def _zoom_refine_point(
             ],
             max_tokens=64,
             early_stop_json=True,
+            local_only=local_only,
         )
     except Exception:  # noqa: BLE001 — refine is strictly best-effort
         log.debug("[cu] zoom refine call failed", exc_info=True)
@@ -867,13 +926,25 @@ async def _zoom_refine_point(
         cleaned = fence.group(1).strip()
     start, end = cleaned.find("{"), cleaned.rfind("}")
     if start < 0 or end <= start:
-        return None
+        # No JSON object: a native-protocol brain (UI-Mate) answers in its
+        # own XML. Translate best-effort; anything unusable still fails
+        # closed below, exactly like a malformed JSON answer.
+        refined = _refine_translate_native(cleaned)
+        if refined is None:
+            return None
+        return _crop_norm_to_screen(bbox, raw[0], refined[0], refined[1])
     try:
         obj = _json.loads(cleaned[start : end + 1])
     except _json.JSONDecodeError:
-        return None
+        refined = _refine_translate_native(cleaned)
+        if refined is None:
+            return None
+        return _crop_norm_to_screen(bbox, raw[0], refined[0], refined[1])
     if not isinstance(obj, dict) or obj.get("found") is not True:
-        return None
+        refined = _refine_translate_native(cleaned)
+        if refined is None:
+            return None
+        return _crop_norm_to_screen(bbox, raw[0], refined[0], refined[1])
     try:
         nx = min(max(float(obj.get("x", 0)), 0.0), 1000.0)
         ny = min(max(float(obj.get("y", 0)), 0.0), 1000.0)
@@ -890,8 +961,13 @@ async def _judge_done(
     output_language: str | None,
     *,
     frame: Frame | None = None,
+    history: list[str] | None = None,
+    labels: list[str] | None = None,
+    window_title: str | None = None,
+    field_hint: str | None = None,
+    local_only: bool = False,
 ) -> tuple[bool, str]:
-    """Strict completion judge.
+    """Strict completion judge with deterministic navigation corroboration.
 
     Verifies against ``frame`` when the caller passes one — the perception
     frame of the CURRENT step, valid when no action executed since it was
@@ -901,6 +977,15 @@ async def _judge_done(
     capture is taken as before. The recapture cost the completion readback
     ~0.5–1.5 s per done (live complaint 2026-07-02: "he was done but said
     nothing for too long").
+
+    For the M5 follow-the-link regression the LLM verdict is corroborated by
+    the deterministic :mod:`dodaios.cu.navigation_oracle`: a false reject
+    on the verifiable destination is repaired only when the full
+    source->link->destination chain is evidenced (link click observed AND
+    destination cues present); a premature ``done`` on the still-visible
+    source is rejected even when the LLM accepts it. Every other goal is
+    untouched — the oracle returns not-applicable and the LLM verdict
+    stands, so the strict gate is never loosened globally.
     """
     if frame is None:
         try:
@@ -915,7 +1000,11 @@ async def _judge_done(
             )
         except Exception:  # noqa: BLE001 — judge is best-effort; reject on no frame
             return (False, "")
-    system = _JUDGE_SYSTEM + _proof_language_directive(output_language)
+    system = (
+        _JUDGE_SYSTEM
+        + _NAVIGATION_JUDGE_ADDENDUM
+        + _proof_language_directive(output_language)
+    )
     user = (
         f"GOAL: {goal}\n\nThe attached screenshot shows the CURRENT screen. "
         "Is the goal fully achieved? Reply with the JSON object only."
@@ -932,12 +1021,70 @@ async def _judge_done(
             images=[image],
             max_tokens=_JUDGE_MAX_TOKENS,
             early_stop_json=True,
+            local_only=local_only,
+        )
+        log.info(
+            "[cu] judge brain=%s(%s)",
+            reply.provider,
+            reply.model or "provider default",
         )
     except Exception:  # noqa: BLE001 — an unreachable judge must not crash a
         # finished mission; the caller treats it as "not confirmed".
         log.debug("[cu] done-judge call failed", exc_info=True)
         return (False, "")
-    return _parse_verdict(reply.text)
+    llm_done, llm_proof = _parse_verdict(reply.text)
+    try:
+        from dodaios.cu.navigation_oracle import (  # noqa: PLC0415
+            navigation_oracle_verdict,
+        )
+
+        applicable, oracle_done, oracle_proof = navigation_oracle_verdict(
+            goal, history or [], labels or [], window_title or "", field_hint or "",
+        )
+    except Exception:  # noqa: BLE001 — oracle is corroboration, never fatal
+        log.debug("[cu] navigation oracle failed", exc_info=True)
+        return (llm_done, llm_proof)
+    if applicable:
+        log.info(
+            "[cu] navigation oracle applicable=%s done=%s proof=%s llm_done=%s",
+            applicable, oracle_done, oracle_proof[:160], llm_done,
+        )
+        if oracle_done and not llm_done:
+            # False reject repaired ONLY on the full evidence chain (the
+            # oracle itself required link-click + destination cues).
+            return (True, oracle_proof)
+        if not oracle_done and llm_done and "still on the" in oracle_proof:
+            # Premature done on the intermediate source page stays rejected.
+            return (False, oracle_proof)
+    return (llm_done, llm_proof)
+
+
+def _is_local_only_mission(task: Any, ctx: Any) -> bool:
+    """Whether this mission must run on local vision brains only.
+
+    Per-mission only, never global: ``HarnessTask.env`` wins
+    (``JARVIS_CU_LOCAL_ONLY=1``), then an explicit ``ctx.local_only`` opt-in
+    for harness-level callers. Default ``False`` preserves the normal
+    nonlocal chain for every other mission.
+    """
+    try:
+        env = getattr(task, "env", None) or {}
+        raw = str(env.get("JARVIS_CU_LOCAL_ONLY", "") or "").strip().lower()
+        if raw in ("1", "true", "yes", "on"):
+            return True
+    except Exception:  # noqa: BLE001 — env read must never break a mission
+        pass
+    try:
+        if bool(getattr(ctx, "local_only", False)):
+            return True
+    except Exception:  # noqa: BLE001
+        pass
+    return False
+
+
+def _redact_proof(proof: str, limit: int = 220) -> str:
+    """Proof text safe for logs: trimmed, single-line, no image data."""
+    return " ".join(str(proof or "").split())[:limit]
 
 
 async def run_cu_loop(
@@ -992,6 +1139,14 @@ async def run_cu_loop(
         return HarnessResult(stdout=msg + "\n", is_final=False)
 
     yield _progress(f"[cu] Start (v2): {goal[:80]}")
+
+    local_only = _is_local_only_mission(task, ctx)
+    if local_only:
+        log.info(
+            "[cu] local-only mission: nonlocal providers hard-blocked "
+            "(UI-Mate/Ollama local only, fail closed)"
+        )
+        yield _progress("[cu] local-only: nonlocal providers hard-blocked")
 
     wl = _wayland_refusal()
     if wl is not None:
@@ -1233,6 +1388,11 @@ async def run_cu_loop(
                 image_cfg,
                 output_language,
                 frame=frame,  # captured this step; the screen is unchanged
+                history=history,
+                labels=labels,
+                window_title=window_title,
+                field_hint=field_hint,
+                local_only=local_only,
             )
             if done:
                 yield _final(
@@ -1331,6 +1491,14 @@ async def run_cu_loop(
                 images=[image],
                 max_tokens=_DECIDE_MAX_TOKENS,
                 early_stop_json=True,
+                local_only=local_only,
+            )
+            log.info(
+                "[cu] step %d decide brain=%s(%s) local_only=%s",
+                step_idx,
+                reply.provider,
+                reply.model or "provider default",
+                local_only,
             )
         except CUNoVisionProviderError as exc:
             yield _final(
@@ -1405,6 +1573,19 @@ async def run_cu_loop(
                     # frame the model called done on; judge that evidence
                     # directly instead of paying a second stability capture.
                     frame=None if batch_acted else frame,
+                    history=history,
+                    labels=labels,
+                    window_title=window_title,
+                    field_hint=field_hint,
+                    local_only=local_only,
+                )
+                log.info(
+                    "[cu] step %d judge done=%s proof=%s window=%s labels=%d",
+                    step_idx,
+                    done,
+                    _redact_proof(proof),
+                    _redact_proof(window_title or "", 80),
+                    len(labels or []),
                 )
                 if done:
                     yield _final(
@@ -1667,6 +1848,7 @@ async def run_cu_loop(
                                 goal=goal,
                                 target=str(action.get("target", "")),
                                 expected_window_signature=captured_window_signature,
+                                local_only=local_only,
                             )
                             if refined is not None and (
                                 abs(refined[0] - resolved_xy[0]) > 12
@@ -1962,6 +2144,20 @@ async def run_cu_loop(
             # -- bookkeeping ---------------------------------------------------
             batch_acted = True
             summary = _summarize_action(action)
+            # Structured per-step diagnostics (M5): the responding brain for
+            # THIS step, the executed action, the tool's UIA evidence and the
+            # destination readback. Privacy-conscious by construction: provider
+            # + model names, element label/role/rect, window signature and the
+            # judge proof only — never screenshots, secrets or tokens. The
+            # tool detail already carries the UIA match (see click_element's
+            # role=/rect=/window= output); it is logged verbatim in trimmed
+            # form so a missing rect is itself diagnosable.
+            step_diag = (
+                f"brain={reply.provider}({reply.model or 'default'}) "
+                f"action={summary} detail={_redact_proof(detail, 180)} "
+                f"window={_redact_proof(str(captured_window_signature), 120)}"
+            )
+            log.info("[cu] step %d diag: %s", step_idx, step_diag)
             if ok:
                 if kind != "wait":
                     acted_since_capture = True

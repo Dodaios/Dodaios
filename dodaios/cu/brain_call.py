@@ -236,6 +236,26 @@ def _speed_tune_chain(
     return tuned
 
 
+def _is_local_vision_provider(provider: str) -> bool:
+    """Whether ``provider`` may serve a local-only Computer-Use mission.
+
+    Capability-derived, never a name list: every brain-tier provider whose
+    spec declares ``auth_mode == "none"`` (``dodaios.brain.app_control``'s
+    ``LOCAL_PROVIDERS`` — Ollama, local-openai, UI-Mate today, future local
+    brains automatically) is local by definition (AP-21). Falls back to the
+    known local trio only when the catalog cannot be read, so a broken
+    catalog still fails closed instead of opening the nonlocal gate.
+    """
+    try:
+        from dodaios.brain.app_control import LOCAL_PROVIDERS  # noqa: PLC0415
+
+        return str(provider or "") in LOCAL_PROVIDERS
+    except Exception:  # noqa: BLE001
+        return str(provider or "") in frozenset(
+            {"ollama", "local-openai", "ui-mate"}
+        )
+
+
 async def call_vision_brain(
     manager: Any,
     *,
@@ -243,8 +263,19 @@ async def call_vision_brain(
     images: list[ImageBlock],
     max_tokens: int = 256,
     early_stop_json: bool = False,
+    local_only: bool = False,
 ) -> BrainReply:
-    """Dispatch one screenshot-grounded call through the provider chain."""
+    """Dispatch one screenshot-grounded call through the provider chain.
+
+    ``local_only=True`` hard-blocks every nonlocal provider BEFORE any call:
+    Codex/ChatGPT, OpenAI, Gemini and friends are removed from the chain and
+    from the last-resort pass, so they are never attempted — not even once.
+    Only local vision brains (UI-Mate on :8000, Ollama/Qwen, any future
+    ``auth_mode == "none"`` brain) may serve. When no local brain is
+    reachable the call fails closed with :class:`CUNoVisionProviderError`
+    instead of silently falling back to the cloud. ``False`` (default)
+    preserves the exact prior behavior for normal missions.
+    """
     # FakeBrain test shim: single-call managers used across the test suite.
     complete_text = getattr(manager, "complete_text", None)
     if complete_text is not None:
@@ -292,6 +323,8 @@ async def call_vision_brain(
     # pick degrades through the rest of the chain instead of bricking CU
     # (AP-21/22). CU-ONLY: never touches ``_build_fallback_chain`` itself,
     # whose "fast" level is shared with normal voice/chat turns.
+    # Local-only missions never hoist a nonlocal CU pick: it is blocked
+    # before any call, exactly like every other nonlocal chain member.
     cu_provider_fn = getattr(manager, "_cu_provider", None)
     if callable(cu_provider_fn):
         try:
@@ -299,8 +332,35 @@ async def call_vision_brain(
         except Exception:  # noqa: BLE001 — resolver must never break dispatch
             cu_provider = ""
         if cu_provider:
-            chain = [(p, m) for p, m in chain if p != cu_provider]
-            chain.insert(0, (cu_provider, None))
+            if local_only and not _is_local_vision_provider(cu_provider):
+                logger.info(
+                    "[cu] local-only: nonlocal CU provider %s hard-blocked "
+                    "(never hoisted, never attempted)",
+                    cu_provider,
+                )
+            else:
+                chain = [(p, m) for p, m in chain if p != cu_provider]
+                chain.insert(0, (cu_provider, None))
+
+    if local_only:
+        blocked = [(p, m) for p, m in chain if not _is_local_vision_provider(p)]
+        chain = [(p, m) for p, m in chain if _is_local_vision_provider(p)]
+        if blocked:
+            logger.info(
+                "[cu] local-only: hard-blocked nonlocal providers before "
+                "any call: %s",
+                ", ".join(f"{p}({m})" for p, m in blocked),
+            )
+        if not chain:
+            raise CUNoVisionProviderError(
+                "local-only mission: no local vision provider reachable "
+                "(UI-Mate on :8000 / Ollama local Qwen); nonlocal providers "
+                "hard-blocked, failing closed instead of cloud fallback"
+                + (
+                    f" (blocked: {', '.join(p for p, _ in blocked)})"
+                    if blocked else ""
+                ),
+            )
 
     # Per-provider CU model override (Settings can pin a dedicated CU model).
     # A PIN is the user's explicit word and is never second-guessed; every
@@ -328,7 +388,9 @@ async def call_vision_brain(
     images_attached = bool(images)
     if images_attached:
         chain = _speed_tune_chain(chain, pinned=pinned_providers)
-    selector = ComputerUsePlannerSelector(manager=manager, chain=chain)
+    selector = ComputerUsePlannerSelector(
+        manager=manager, chain=chain, local_only=local_only,
+    )
     attempted = 0
 
     async def _try(provider: str, model: str | None, brain: Any) -> BrainReply | None:
@@ -447,7 +509,7 @@ async def call_vision_brain(
     # exit-2 "couldn't get a valid screen-control response" instead of the
     # honest exit-3 "no eyes — check your keys/credit"). Skipping it here lets
     # the CUNoVisionProviderError below carry that honest, actionable readback.
-    if images_attached and attempted == 0:
+    if images_attached and attempted == 0 and not local_only:
         already = set(chain) | {(e.provider, e.model) for e in selector.errors}
         for provider, model, brain in iter_last_resort_vision(
             manager, already_tried=already,

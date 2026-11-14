@@ -92,6 +92,11 @@ class ComputerUseContext:
     # covers the grounding need without touching the window. See
     # dodaios/platform/window_state.py::normalize_foreground_window.
     normalize_window: bool = False
+    # Per-mission local-only opt-in for harness-level callers (M5): when True,
+    # the v2 engine treats the mission as local-only even without the
+    # ``JARVIS_CU_LOCAL_ONLY`` task-env key. Default False preserves the
+    # normal nonlocal chain; this must never be flipped globally.
+    local_only: bool = False
 
 
 _CONTEXT: ComputerUseContext | None = None

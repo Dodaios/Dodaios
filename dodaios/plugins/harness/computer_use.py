@@ -33,6 +33,13 @@ from dodaios.harness.computer_use_context import (
 # through the (frozen) HarnessTask without a protocol change (H-09).
 CU_MISSION_ID_ENV_KEY = "JARVIS_CU_MISSION_ID"
 CU_SOURCE_ENV_KEY = "JARVIS_CU_SOURCE"
+#: Per-mission local-only switch (M5): when ``HarnessTask.env`` carries
+#: ``JARVIS_CU_LOCAL_ONLY=1``, the v2 engine hard-blocks every nonlocal
+#: vision provider before any call (Codex/ChatGPT, OpenAI, Gemini, ...) and
+#: serves only local brains (UI-Mate on :8000, Ollama/Qwen, any future
+#: ``auth_mode == "none"`` brain), failing closed when none is reachable.
+#: Normal missions omit the key and keep the exact prior chain.
+CU_LOCAL_ONLY_ENV_KEY = "JARVIS_CU_LOCAL_ONLY"
 
 _log = logging.getLogger(__name__)
 

@@ -206,6 +206,78 @@ async def test_refuses_engine_capture_from_a_different_foreground_window(
 
 
 @pytest.mark.asyncio
+async def test_deep_lookup_rescues_missed_web_link(
+    monkeypatch: pytest.MonkeyPatch,
+    recorder: list[tuple[int, int, str, bool]],
+) -> None:
+    """Shallow miss + deep Hyperlink hit => click proceeds (web content case)."""
+    import dodaios.plugins.tool.click_element as ce
+
+    nodes = (
+        UIANode(role="Button", name="Close", bounds=(0, 0, 20, 20), enabled=True),
+    )
+    tool = ClickElementTool(vision_source=_FakeVisionSource(nodes))
+
+    async def _deep(name: str, role: str, automation_id: str):
+        assert name == "Learn more"
+        return (UIANode(role="Hyperlink", name="Learn more",
+                        bounds=(950, 700, 120, 24), enabled=True),)
+
+    monkeypatch.setattr(ce, "_deep_web_lookup", _deep)
+    result = await tool.execute({"name": "Learn more"}, _ctx())
+
+    assert result.success is True
+    assert recorder == [(1010, 712, "left", False)]
+
+
+@pytest.mark.asyncio
+async def test_deep_lookup_miss_keeps_honest_error(
+    monkeypatch: pytest.MonkeyPatch,
+    recorder: list[tuple[int, int, str, bool]],
+) -> None:
+    """Shallow miss + deep miss => the original no-match error, no click."""
+    import dodaios.plugins.tool.click_element as ce
+
+    nodes = (
+        UIANode(role="Button", name="Close", bounds=(0, 0, 20, 20), enabled=True),
+    )
+    tool = ClickElementTool(vision_source=_FakeVisionSource(nodes))
+
+    async def _empty(name: str, role: str, automation_id: str):
+        return []
+
+    monkeypatch.setattr(ce, "_deep_web_lookup", _empty)
+    result = await tool.execute({"name": "Ghost"}, _ctx())
+
+    assert result.success is False
+    assert "No matching element" in (result.error or "")
+    assert recorder == []
+
+
+@pytest.mark.asyncio
+async def test_deep_lookup_never_breaks_shallow_path(
+    monkeypatch: pytest.MonkeyPatch,
+    recorder: list[tuple[int, int, str, bool]],
+) -> None:
+    """Shallow hit => deep lookup is never consulted."""
+    import dodaios.plugins.tool.click_element as ce
+
+    async def _boom(name: str, role: str, automation_id: str):
+        raise AssertionError("deep lookup must not run on a shallow hit")
+
+    monkeypatch.setattr(ce, "_deep_web_lookup", _boom)
+    nodes = (
+        UIANode(role="Button", name="Save", bounds=(10, 20, 100, 40), enabled=True),
+    )
+    tool = ClickElementTool(vision_source=_FakeVisionSource(nodes))
+
+    result = await tool.execute({"name": "save"}, _ctx())
+
+    assert result.success is True
+    assert recorder == [(60, 40, "left", False)]
+
+
+@pytest.mark.asyncio
 async def test_refuses_switch_during_async_ui_tree_observation(
     monkeypatch: pytest.MonkeyPatch,
     recorder: list[tuple[int, int, str, bool]],

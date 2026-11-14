@@ -36,6 +36,68 @@ __all__ = ["ClickElementTool", "_click_windows"]
 _VALID_BUTTONS = ("left", "right", "middle")
 _MAX_AVAILABLE_NAMES = 15
 
+#: Roles worth a deeper look when the standard (depth-6) snapshot has no
+#: match. Web content in browsers lives deep in the tree (measured depth
+#: 8-12 in Chrome); native dialogs rarely do.
+_DEEP_ROLES = (
+    "Hyperlink", "Button", "Edit", "TabItem", "MenuItem",
+    "CheckBox", "RadioButton", "ListItem", "Text",
+)
+_DEEP_MAX_NODES = 400
+_DEEP_TIMEOUT_S = 6.0
+
+
+async def _deep_web_lookup(name_needle: str, role_needle: str,
+                           automation_id: str) -> list:
+    """One bounded deep-tree pass for content the shallow snapshot misses.
+
+    Same matching rules as the standard path, deeper ladder, hard timeout,
+    overflow-intolerant: anything but a clean match list degrades to ``[]``
+    and the caller reports the honest no-match error. Never raises.
+    """
+    import logging as _logging
+
+    try:
+        from dodaios.vision.uia_tree import UIATreeSource
+    except Exception:
+        return []
+    source = UIATreeSource(
+        max_nodes=_DEEP_MAX_NODES,
+        interesting_roles=_DEEP_ROLES,
+        depth_ladder=(12,),
+    )
+    try:
+        try:
+            obs = await asyncio.wait_for(source.observe(), timeout=_DEEP_TIMEOUT_S)
+        finally:
+            try:
+                await source.close()
+            except Exception:
+                pass
+    except Exception as exc:  # noqa: BLE001 - timeout/overflow/COM hiccup
+        _logging.getLogger(__name__).debug("click_element: deep lookup skipped (%s)",
+                                           type(exc).__name__)
+        return []
+    name_lower = (name_needle or "").strip().lower()
+    role_lower = (role_needle or "").strip().lower()
+    found = []
+    for node in obs.nodes:
+        if not node.enabled:
+            continue
+        _, _, w, h = node.bounds
+        if w <= 0 or h <= 0:
+            continue
+        if automation_id:
+            if node.automation_id != automation_id:
+                continue
+        elif name_lower:
+            if name_lower not in (node.name or "").lower():
+                continue
+        if role_lower and (node.role or "").lower() != role_lower:
+            continue
+        found.append(node)
+    return found
+
 
 def _foreground_window_signature() -> tuple[Any, ...]:
     """Re-exported seam for tests; implementation is shared with raw click."""
@@ -194,7 +256,24 @@ class ClickElementTool:
                 continue
             candidates.append(node)
 
-        # 3. No candidates -> list visible enabled labels to help the planner.
+        # 3. No candidates in the shallow snapshot -> one bounded deep
+        # pass for web content and other deep trees (depth 8-12), same
+        # matching rules. Anything inconclusive falls through to the
+        # honest no-match error below; a deep hit is logged as such.
+        deep_used = False
+        if not candidates and (name_needle or automation_id):
+            import logging as _logging
+
+            try:
+                deep = await _deep_web_lookup(name_needle, role_needle, automation_id)
+            except Exception:  # noqa: BLE001 - deep pass must never break clicks
+                deep = []
+            if deep:
+                _logging.getLogger(__name__).info(
+                    "click_element: deep-tree match for %r (%d candidate(s))",
+                    name_needle or automation_id, len(deep))
+                candidates.extend(deep)
+                deep_used = True
         if not candidates:
             available = [
                 (n.name or "").strip()
@@ -218,6 +297,25 @@ class ClickElementTool:
         x, y, w, h = matched.bounds
         cx = x + w // 2
         cy = y + h // 2
+        # Structured UIA evidence for the per-step diagnostics (M5): label,
+        # role, rect and owning window handle. Privacy-conscious by design:
+        # control identity and geometry only — never field values, secrets or
+        # screenshots. The engine logs this verbatim in trimmed form.
+        try:
+            signature_handle: str = "n/a"
+            sig = observed_signature
+            if sig and sig[0] == "handle" and len(sig) > 1:
+                signature_handle = str(sig[1])
+            elif sig and sig[0] == "app" and len(sig) > 2:
+                signature_handle = str(sig[2])
+        except Exception:  # noqa: BLE001 — handle is diagnostics, never fatal
+            signature_handle = "n/a"
+        matched_role = str(getattr(matched, "role", "") or "")
+        uia_evidence = (
+            f"role={matched_role or '?'} rect=({x},{y},{w},{h}) "
+            f"window={signature_handle} matches={len(candidates)} "
+            f"stability={'deep' if deep_used else 'shallow'}"
+        )
 
         # Observation is asynchronous (AX/UIA can block). Bind the selected
         # node to the window current before observation and, for CU, to the
@@ -286,5 +384,8 @@ class ClickElementTool:
         # 6. Success.
         return ToolResult(
             success=True,
-            output=f"Clicked {role_needle or 'element'} '{matched.name}' at ({cx},{cy})",
+            output=(
+                f"Clicked {role_needle or 'element'} '{matched.name}' "
+                f"at ({cx},{cy}) [{uia_evidence}]"
+            ),
         )
