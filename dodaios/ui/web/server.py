@@ -540,6 +540,7 @@ class WebServer:
         from .costs_routes import router as costs_router
         from .custom_api_routes import router as custom_api_router
         from .deck_routes import router as deck_router
+        from .designs_routes import router as designs_router
         from .desktop_routes import router as desktop_router
         from .diagnostics_routes import router as diagnostics_router
         from .dictation_routes import router as dictation_router
@@ -783,6 +784,7 @@ class WebServer:
         app.include_router(pets_router)
         # Looks — in-app visuals in the orb's place, and their sandboxed frame files.
         app.include_router(looks_router)
+        app.include_router(designs_router)
         app.include_router(looks_frame_router)
         app.include_router(dictionary_router)
         # Dictation mode — hold to speak, text lands in the focused field.

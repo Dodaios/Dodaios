@@ -292,6 +292,7 @@
     "update_open_release": "打开下载页面"
   },
   "nav": {
+    "designs": "设计",
     "chat_workspace": "对话",
     "chats": "对话",
     "agents": "智能体",
@@ -11877,5 +11878,65 @@
     "address": "网址",
     "back": "后退",
     "forward": "前进"
+  },
+  "designs": {
+    "title": "设计",
+    "subtitle": "让应用成为你自己的：它的颜色和动态背景。告诉 {name} 它应该是什么样子，或在下方选择一个设计。",
+    "reset": "恢复标准",
+    "reset_done": "已恢复标准外观。你的设计仍然保留。",
+    "error": "没有成功：{0}",
+    "active": "使用中",
+    "use": "使用 {0}",
+    "rename": "重命名",
+    "delete": "删除",
+    "delete_confirm": "删除",
+    "cancel": "取消",
+    "deleted": "已删除 {0}。",
+    "only_dark": "仅为深色外观设计。",
+    "only_light": "仅为浅色外观设计。",
+    "standard_name": "标准",
+    "standard_description": "应用自己的外观。",
+    "own_title": "你的设计",
+    "own_empty": "还没有你自己的设计。在上方描述一个，{name} 就会制作。",
+    "examples_title": "示例",
+    "examples_body": "可直接使用。让 {name} 修改其中一个，你会得到自己的副本。",
+    "ask": {
+      "title": "告诉 {name} 它应该是什么样子",
+      "body": "颜色、氛围、动态背景。设计完成后会立即启用并显示在这里。",
+      "placeholder": "例如：深蓝色，背景中有柔和的光在缓缓移动",
+      "send": "创建设计",
+      "sent": "已发送。{name} 正在制作你的设计。",
+      "pending": "{name} 正在制作你的设计…",
+      "request": "为应用给我做一个设计：{0}",
+      "example_1": "深蓝色，带柔和流动的光晕",
+      "example_2": "像纸一样温暖安静，配棕色墨水",
+      "example_3": "黑色配霓虹绿和闪烁的星星"
+    },
+    "builtin": {
+      "deep_sea": {
+        "name": "深海",
+        "description": "清凉的蓝绿色，一道光缓缓穿过。"
+      },
+      "ember": {
+        "name": "余烬",
+        "description": "温暖的深棕色和橙色光，像渐弱的火焰。"
+      },
+      "forest": {
+        "name": "森林",
+        "description": "深绿色，柔和的光带缓缓掠过。"
+      },
+      "night_sky": {
+        "name": "夜空",
+        "description": "墨蓝色，点缀着闪烁的小星星。"
+      },
+      "dusk": {
+        "name": "黄昏",
+        "description": "紫色与玫瑰色的渐变，缓缓旋转。"
+      },
+      "paper": {
+        "name": "纸张",
+        "description": "温暖的米色纸张配棕色墨水，没有动画。"
+      }
+    }
   }
 }

@@ -292,6 +292,7 @@
     "nav_home": "Home"
   },
   "nav": {
+    "designs": "Designs",
     "chat_workspace": "Chat",
     "chats": "Chats",
     "agents": "Agents",
@@ -11877,5 +11878,65 @@
     "address": "Website address",
     "back": "Back",
     "forward": "Forward"
+  },
+  "designs": {
+    "title": "Designs",
+    "subtitle": "Make the app your own: its colours and a moving background. Tell {name} how it should look, or pick a design below.",
+    "reset": "Back to standard",
+    "reset_done": "The standard look is back. Your designs are still here.",
+    "error": "That did not work: {0}",
+    "active": "On",
+    "use": "Use {0}",
+    "rename": "Rename",
+    "delete": "Delete",
+    "delete_confirm": "Delete",
+    "cancel": "Cancel",
+    "deleted": "{0} deleted.",
+    "only_dark": "Made for the dark appearance only.",
+    "only_light": "Made for the light appearance only.",
+    "standard_name": "Standard",
+    "standard_description": "The app's own look.",
+    "own_title": "Your designs",
+    "own_empty": "No designs of your own yet. Describe one above and {name} makes it.",
+    "examples_title": "Examples",
+    "examples_body": "Ready to use. Ask {name} to change one and you get your own copy.",
+    "ask": {
+      "title": "Tell {name} how it should look",
+      "body": "Colours, mood, a moving background. The design switches on as soon as it is ready and appears here.",
+      "placeholder": "For example: dark blue with a soft glow drifting in the background",
+      "send": "Create design",
+      "sent": "Sent. {name} is making your design.",
+      "pending": "{name} is making your design…",
+      "request": "Make me a design for the app: {0}",
+      "example_1": "Dark blue with a soft moving glow",
+      "example_2": "Warm and calm like paper, with brown ink",
+      "example_3": "Black with neon green and twinkling stars"
+    },
+    "builtin": {
+      "deep_sea": {
+        "name": "Deep Sea",
+        "description": "Cool blue-green room with a slow glow drifting through it."
+      },
+      "ember": {
+        "name": "Ember",
+        "description": "Warm dark brown with orange light, like a fire burning low."
+      },
+      "forest": {
+        "name": "Forest",
+        "description": "Deep green with soft bands of light moving across."
+      },
+      "night_sky": {
+        "name": "Night Sky",
+        "description": "Ink blue with small stars that twinkle."
+      },
+      "dusk": {
+        "name": "Dusk",
+        "description": "Violet and rose in a gradient that turns slowly."
+      },
+      "paper": {
+        "name": "Paper",
+        "description": "Warm cream paper with brown ink and no animation."
+      }
+    }
   }
 }

@@ -28,6 +28,7 @@ import { STT_FAILURE_REASONS } from "@/hooks/useDictation";
 import { usePermissionToast } from "@/hooks/usePermissionToast";
 import { handleAppshotEditRequest } from "@/store/appshotEditor";
 import { useDeckStore } from "@/store/deck";
+import { useDesignsStore } from "@/store/designs";
 import { MEMORY_WRITE_EVENT, useMemoryWrites } from "@/store/memoryWrites";
 import { useHomeStore } from "@/store/home";
 import { useAgentChatStore } from "@/store/agentChat";
@@ -656,6 +657,12 @@ export function useWebSocket(): void {
           if (isUiLanguage(p.language)) {
             useI18nStore.getState().setUi(p.language, { push: false });
           }
+        }
+
+        // A design was made, changed, deleted or switched (Dodaios in a chat,
+        // Settings in another window): reload the list and repaint.
+        if (env.event_name === "UiDesignChanged") {
+          void useDesignsStore.getState().load();
         }
 
         // Live theme switch (Control API / another client). ThemeProvider owns

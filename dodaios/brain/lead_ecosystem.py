@@ -48,6 +48,7 @@ SECTION_READS: Final[dict[str, tuple[str, ...]]] = {
     "visualization": ("GET /api/settings/appearance",),
     "appshots": ("GET /api/appshot/settings",),
     "pets": ("GET /api/pets",),
+    "designs": ("design-list",),
     "feedback": ("GET /api/feedback/board",),
     "voice-language": ("GET /api/settings/stt-language",),
     "dictation": ("GET /api/dictation/settings",),
@@ -158,10 +159,11 @@ AREAS: Final[tuple[Area, ...]] = (
     ),
     Area(
         "Look and settings",
-        "providers and keys, language, notifications, shortcuts, taskbar, pets, appshots",
+        "providers and keys, language, notifications, shortcuts, taskbar, pets, appshots, "
+        "designs (the app's colours and animated background)",
         sections=("settings", "apikeys", "languages", "notifications", "shortcuts", "taskbar",
-                  "visualization", "appshots", "pets"),
-        acts=("brain-switch", "set_config_value"),
+                  "visualization", "appshots", "pets", "designs"),
+        acts=("brain-switch", "set_config_value", "design-save"),
     ),
 )
 
