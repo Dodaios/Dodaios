@@ -6900,6 +6900,8 @@ class SpeechPipeline:
             self._on_dictate_press()
         elif event_name == "dictate_release":
             self._on_dictate_release()
+        elif event_name == "dictate_cancel":
+            self._on_dictate_cancel()
         elif event_name == "dictate":
             # Legacy [dictation].mode = "toggle": one press starts, the
             # next stops. Only reached when the HOLD key is in toggle mode.
@@ -7008,6 +7010,22 @@ class SpeechPipeline:
             time.monotonic() - float(getattr(self, "_dictate_key_seen_at", 0.0) or 0.0),
         )
         self.stop_dictation()
+
+    def _on_dictate_cancel(self) -> None:
+        """Another key joined a modifier-only hold key: it was a shortcut.
+
+        Only a modifier-only dictation key sends this (``SOLO_HOLD_EVENTS``),
+        when a key or click joins after the hold had already started the
+        recording: ``cmd`` held a moment, then ``tab``. The recording is
+        discarded the way the bar's X discards it, so nothing is read or
+        typed, no "nothing was heard" mark follows, and the bar rests at once.
+        """
+        if not self._dictate_key_down:
+            log.debug("Dictation key cancel with no hold latched — nothing to discard.")
+            return
+        self._dictate_key_down = False
+        log.info("Dictation key joined by another key — discarding the hold recording.")
+        self.request_dictation_stop(discard=True)
 
     def _on_dictate_toggle(self) -> None:
         """Toggle mode: start if idle, stop if running.
