@@ -7,6 +7,7 @@
   "extensions": {
     "io.github.personaljarvis": {
       "display_name": "Buffer",
+      "acceptance": "verified",
       "category": "Media & Creativity",
       "logo_slug": "buffer",
       "logo_color": "231F20",

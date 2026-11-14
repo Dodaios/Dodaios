@@ -1429,6 +1429,7 @@
     },
     {
       "id": "buffer",
+      "acceptance": "verified",
       "display_name": "Buffer",
       "description": "Draft, schedule and review social media posts across your Buffer channels",
       "category": "Media & Creativity",
