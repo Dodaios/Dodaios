@@ -483,6 +483,16 @@ def recall(
 
 def for_agent(answer: QuestionAnswer) -> dict[str, Any]:
     """What the agent must know about who chose ``answer``."""
+    if answer.source == UNATTENDED:
+        # No card was shown at all: telling the person they left it unanswered
+        # would be false (2026-11-14: "because you did not answer the questions").
+        return {
+            "person_answered": False,
+            "note": (
+                "No card was shown: the person never saw this question. This is your "
+                "own assumption; say so, and never say they chose it or left it unanswered."
+            ),
+        }
     if answer.source in DEFAULTED:
         return {
             "person_answered": False,
