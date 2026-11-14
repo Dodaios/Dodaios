@@ -28,7 +28,6 @@ const SOURCE_FILES = [
   "views/assistant/StandingTaskPage.tsx",
   "views/assistant/standingParts.tsx",
   "views/assistant/standingWords.ts",
-  "components/home/PanelStanding.tsx",
   "components/agentchat/StandingProposalCard.tsx",
   "lib/skipReasons.ts",
 ].map((file) => join(SRC, file));
@@ -87,6 +86,5 @@ describe("standing tasks i18n parity", () => {
 
   it("calls the feature by its German name", () => {
     expect(blockOf(de).title).toBe("Daueraufgaben"); // i18n-allow: German locale check
-    expect(blockOf(de).panel_title).toBe("Kümmert sich um"); // i18n-allow: German locale check
   });
 });

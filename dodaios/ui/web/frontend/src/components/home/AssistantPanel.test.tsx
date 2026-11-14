@@ -379,35 +379,42 @@ describe("AssistantPanel", () => {
     expect(external.open).toHaveBeenCalledWith("https://app.slack.com/client/T024BE7LD");
   });
 
-  it("leads its work with what it looks after over time", async () => {
-    mount([], {
-      "/api/agent-chat/lead/standing": {
-        available: true,
-        tasks: [
-          { id: "s1", title: "Meta ads campaign", goal: "", how: "", autonomy: "prepare", limits: "", state: "active", interval_min: 180,
-            origin: "owner", reason: "", notes: "", task_id: "t1", created_ms: 1, updated_ms: 2, last_run_ms: 3, next_run_ms: null,
-            last_outcome: "reported", last_summary: "CPA rose to 18.40 EUR.", runs: 1 },
-        ],
-        limits: { min_interval_min: 15, max_interval_min: 10080, default_interval_min: 180, max_open: 12 },
-        autonomy: ["watch", "prepare", "act"],
-      },
-    });
-    const block = await screen.findByTestId("assistant-panel-standing");
-    expect(block.textContent).toContain("Looks after");
-    expect(screen.getByTestId("assistant-standing-task-s1").textContent).toBe("Meta ads campaignTold you: CPA rose to 18.40 EUR.");
+  it("leads its work with two routines and folds the rest away", async () => {
+    mount([
+      { id: "done-once", title: "[agent:Jarvis] Comments: Travel notes", state: "failed", trigger: { type: "after_delay", delay_seconds: 1 } },
+      { id: "r-paused", title: "[agent:Jarvis] Weekly report", state: "paused", trigger: { type: "every", interval_seconds: 604800 } },
+      { id: "r-pr", title: "[agent:Jarvis] Daily PR check", state: "scheduled", trigger: { type: "calendar", local_time: "09:00", weekdays: [] } },
+      { id: "r-run", title: "[agent:Jarvis] Inbox sweep", state: "running", trigger: { type: "every", interval_seconds: 3600 } },
+    ]);
+    const block = await screen.findByTestId("assistant-panel-routines");
+    expect(block.querySelector("h2")?.textContent).toBe("Routines");
+    const shown = () => Array.from(block.querySelectorAll("[data-testid^='assistant-routine-r']")).map((row) => row.getAttribute("data-testid"));
+    // What runs comes first, then what waits for its time; the name tag is gone.
+    await waitFor(() => expect(shown()).toEqual(["assistant-routine-r-run", "assistant-routine-r-pr"]));
+    expect(screen.getByTestId("assistant-routine-r-pr").textContent).toMatch(/^Daily PR check/);
+    // A one-time job that already ran has nothing more to do here.
+    expect(screen.queryByTestId("assistant-routine-done-once")).toBeNull();
+    const more = screen.getByTestId("assistant-routines-more");
+    fireEvent.click(more);
+    expect(shown()).toEqual(["assistant-routine-r-run", "assistant-routine-r-pr", "assistant-routine-r-paused"]);
+    fireEvent.click(more);
+    expect(shown()).toHaveLength(2);
     // It comes before the computers, the chats and the files.
     const computers = screen.getByTestId("assistant-panel-computers");
     expect(block.compareDocumentPosition(computers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // The library is about what belongs to the assistant, not about its work.
-    library();
+    // The standing tasks no longer have a block here.
     expect(screen.queryByTestId("assistant-panel-standing")).toBeNull();
   });
 
-  it("keeps quiet about standing tasks on a backend that does not offer them", async () => {
+  it("opens a routine from the activity tab, and says so when there is none", async () => {
+    mount([{ id: "r1", title: "Daily PR check", state: "scheduled", trigger: { type: "calendar", local_time: "09:00", weekdays: [] } }]);
+    fireEvent.click(await screen.findByTestId("assistant-routine-r1"));
+    expect((await screen.findByTestId("routine-dialog")).textContent).toContain("r1");
+    expect(screen.queryByTestId("assistant-routines-more")).toBeNull();
+    cleanup();
+
     mount([]);
-    await screen.findByTestId("assistant-computer-this");
-    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledWith("/api/agent-chat/lead/standing", undefined));
-    expect(screen.queryByTestId("assistant-panel-standing")).toBeNull();
+    await waitFor(() => expect(screen.getByTestId("assistant-routines-empty").textContent).toMatch(/None yet/));
   });
 
   it("lists this computer first with the green dot while the conversation runs on it, and folds the rest", async () => {
