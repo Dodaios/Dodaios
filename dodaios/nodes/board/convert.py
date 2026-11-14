@@ -458,22 +458,28 @@ def route(
         b = el.outline_point(end, mid, ARROW_GAP)
         return [a, mid, b]
 
-    def clear(points: list[tuple[float, float]]) -> bool:
-        return not any(
-            _segment_hits(points[i], points[i + 1], rect)
-            for i in range(len(points) - 1)
+    def crossed(points: list[tuple[float, float]]) -> int:
+        return sum(
+            1
             for rect in obstacles
+            if any(_segment_hits(points[i], points[i + 1], rect) for i in range(len(points) - 1))
         )
 
     preferred = path(bend)
-    if clear(preferred):
+    best, fewest = preferred, crossed(preferred)
+    if fewest == 0:
         return preferred
-    for share in (0.2, -0.2, 0.35, -0.35, 0.5, -0.5, 0.8, -0.8):
-        offset = bend + share * max(120.0, length)
-        candidate = path(offset)
-        if clear(candidate):
+    # A long link (a loop back to the start of a flow) needs a wide bend to
+    # get round the boxes between its ends.
+    for share in (0.2, -0.2, 0.35, -0.35, 0.5, -0.5, 0.8, -0.8, 1.2, -1.2, 1.6, -1.6):
+        candidate = path(bend + share * max(120.0, length))
+        hits = crossed(candidate)
+        if hits == 0:
             return candidate
-    return preferred
+        if hits < fewest:
+            best, fewest = candidate, hits
+    # Nothing is clear: the path through the fewest boxes.
+    return best
 
 
 def arrow_between(
@@ -763,6 +769,11 @@ def _uniform_sizes(nodes: list[dict[str, Any]]) -> dict[str, tuple[float, float]
     return sizes
 
 
+def _grid_up(value: float) -> float:
+    """``value`` rounded up to whole grid steps."""
+    return math.ceil(value / lay.GRID - 1e-9) * lay.GRID
+
+
 def _group_columns(most: int) -> int | None:
     """Columns of a group of loose notes, by the fullest group of the diagram, so the
     frames of one diagram are equally wide."""
@@ -811,10 +822,12 @@ def layout_diagram(diagram: dict[str, Any]) -> dict[str, Any]:
         else:
             w, h = lay.grid(members, columns=columns or (None if kind == "grid" else len(members)))
         name_w = len(group["label"]) * 9 + 2 * FRAME_PAD
+        # Whole grid steps: a frame's corner is snapped to the grid below, and
+        # an odd width would let that snap eat into the gap to its neighbour.
         box = lay.Box(
             group["id"],
-            max(w + 2 * FRAME_PAD, name_w, group.get("w", 0)),
-            max(h + 2 * FRAME_PAD, group.get("h", 0)),
+            _grid_up(max(w + 2 * FRAME_PAD, name_w, group.get("w", 0))),
+            _grid_up(max(h + 2 * FRAME_PAD, group.get("h", 0))),
             top=FRAME_NAME_ROOM,
         )
         for member in members:

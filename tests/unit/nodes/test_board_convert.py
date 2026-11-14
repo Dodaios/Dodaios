@@ -356,3 +356,118 @@ def test_legacy_of_only_texts_lays_them_out_as_labels() -> None:
     texts = scene["elements"]
     assert [t["text"] for t in texts] == ["Title", "Sub"]
     assert not lay.overlaps(el.box_of(texts[0]), el.box_of(texts[1]))
+
+
+def _frames(items: list[dict[str, Any]]) -> list[tuple[float, float, float, float]]:
+    return [el.box_of(e) for e in items if e["type"] == "frame"]
+
+
+def _gap(a: tuple[float, ...], b: tuple[float, ...]) -> float:
+    """The free space between two boxes (negative when they overlap)."""
+    return max(b[0] - a[2], a[0] - b[2], b[1] - a[3], a[1] - b[3])
+
+
+def test_unlinked_groups_stand_side_by_side_top_aligned_a_block_gap_apart() -> None:
+    # Two groups with no link between them, as in a board that compares two
+    # pull requests: a flow in one frame, a fan-out in the other.
+    items, _ = cv.diagram_to_elements(
+        {
+            "direction": "LR",
+            "nodes": [
+                {"id": "a1", "label": "Before: the first call freezes"},
+                {"id": "a2", "label": "Warm the model at start"},
+                {"id": "a3", "label": "Reacts at once", "type": "ellipse"},
+                {"id": "a4", "label": "5 files, tests", "type": "note"},
+                {"id": "b0", "label": "4 features in one PR"},
+                {"id": "b1", "label": "Animated view"},
+                {"id": "b2", "label": "Window minimises"},
+                {"id": "b3", "label": "Stop button"},
+                {"id": "b4", "label": "Split it up", "type": "diamond"},
+            ],
+            "edges": [
+                ["a1", "a2"],
+                ["a2", "a3"],
+                ["b0", "b1"],
+                ["b0", "b2"],
+                ["b0", "b3"],
+                {"from": "b0", "to": "b4", "style": "dashed"},
+            ],
+            "groups": [
+                {"id": "pr1", "label": "PR one", "nodes": ["a1", "a2", "a3", "a4"]},
+                {"id": "pr2", "label": "PR two", "nodes": ["b0", "b1", "b2", "b3", "b4"]},
+            ],
+        },
+        now_ms=NOW,
+    )
+    first, second = _frames(items)
+    assert first[1] == second[1]  # top-aligned: the names stand on one line
+    assert second[0] - first[2] >= lay.BLOCK_GAP
+    shapes = [el.box_of(e) for e in items if e["type"] not in ("arrow", "text", "frame")]
+    for index, a in enumerate(shapes):
+        for b in shapes[index + 1 :]:
+            assert _gap(a, b) > 0
+
+
+@pytest.mark.parametrize("kind", ["flow", "tree", "mindmap", "grid"])
+@pytest.mark.parametrize("direction", ["LR", "TB"])
+def test_frames_keep_clear_of_each_other_in_every_layout(kind: str, direction: str) -> None:
+    items, _ = cv.diagram_to_elements(
+        {
+            "layout": kind,
+            "direction": direction,
+            "nodes": [
+                {"id": "hub", "label": "Hub"},
+                {"id": "x", "label": "A label of some length here"},
+                {"id": "y", "label": "Short"},
+                {"id": "z", "label": "Another one", "type": "diamond"},
+                {"id": "w", "label": "Loose", "type": "note"},
+            ],
+            "edges": [["hub", "x"], ["hub", "y"], ["hub", "z"]],
+            "groups": [
+                {"id": "gx", "label": "First group with a long name", "nodes": ["x"]},
+                {"id": "gy", "label": "Second", "nodes": ["y"]},
+                {"id": "gz", "label": "Third", "nodes": ["z"]},
+                {"id": "gw", "label": "Fourth", "nodes": ["w"]},
+            ],
+        },
+        now_ms=NOW,
+    )
+    frames = _frames(items)
+    assert len(frames) == 4
+    for frame in frames:
+        assert frame[2] - frame[0] == pytest.approx(round((frame[2] - frame[0]) / 20) * 20)
+    for index, a in enumerate(frames):
+        for b in frames[index + 1 :]:
+            assert _gap(a, b) >= lay.CROSS_GAP
+
+
+def test_a_long_link_takes_a_wide_bend_round_a_wall() -> None:
+    a = el.shape("rectangle", x=0, y=0, width=100, height=60, now_ms=NOW, element_id="a")
+    b = el.shape("rectangle", x=600, y=0, width=100, height=60, now_ms=NOW, element_id="b")
+    # Too tall for the usual bends: only a wide one gets past.
+    wall = el.shape("rectangle", x=300, y=-500, width=100, height=1060, now_ms=NOW, element_id="w")
+    obstacles = cv.obstacle_rects([wall], set())
+    points = cv.route(a, b, obstacles)
+    assert len(points) == 3
+    assert not any(
+        cv._segment_hits(points[i], points[i + 1], rect)
+        for i in range(len(points) - 1)
+        for rect in obstacles
+    )
+
+
+def test_with_no_clear_way_the_link_crosses_the_fewest_boxes() -> None:
+    a = el.shape("rectangle", x=0, y=0, width=100, height=60, now_ms=NOW, element_id="a")
+    b = el.shape("rectangle", x=600, y=0, width=100, height=60, now_ms=NOW, element_id="b")
+    # A wall no bend gets round, and two more boxes on the straight line.
+    wall = el.shape("rectangle", x=300, y=-5000, width=60, height=10060, now_ms=NOW, element_id="w")
+    near = el.shape("rectangle", x=180, y=0, width=60, height=60, now_ms=NOW, element_id="n")
+    far = el.shape("rectangle", x=440, y=0, width=60, height=60, now_ms=NOW, element_id="f")
+    obstacles = cv.obstacle_rects([wall, near, far], set())
+    points = cv.route(a, b, obstacles)
+    crossed = sum(
+        1
+        for rect in obstacles
+        if any(cv._segment_hits(points[i], points[i + 1], rect) for i in range(len(points) - 1))
+    )
+    assert crossed == 1
