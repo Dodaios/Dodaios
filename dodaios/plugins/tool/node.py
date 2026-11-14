@@ -30,6 +30,7 @@ from dodaios.nodes import refresh
 from dodaios.nodes.kinds import kind_of
 from dodaios.nodes.look import MAX_SLIDES, LookError, look
 from dodaios.nodes.model import Node
+from dodaios.nodes.pictures import data_url, embed_pictures, picture_path
 from dodaios.nodes.store import NodeStore
 from dodaios.nodes.types import NODE_TYPES, NodeError, node_type
 from dodaios.orchestrator import jobs
@@ -135,6 +136,46 @@ def _overview() -> str:
         + "\n".join(lines)
         + "\nBefore your first create of a type in a conversation, call this tool with "
         "operation 'guide' and that type: the answer is the grammar its 'spec' must follow."
+    )
+
+
+def _with_pictures(spec: Any, changes: Any) -> tuple[Any, Any, list[str]]:
+    """``spec`` and ``changes`` with every picture a file names embedded, plus problems.
+
+    Blocking (reads files): call it in a worker thread.
+    """
+    problems: list[str] = []
+    if spec is not None:
+        spec, problems = embed_pictures(spec)
+    if isinstance(changes, list):
+        out: list[Any] = []
+        for change in changes:
+            if not isinstance(change, dict):
+                out.append(change)
+                continue
+            change = dict(change)
+            value = change.get("value")
+            path = picture_path(value) if str(change.get("path") or "").endswith("/image") else None
+            if path is not None:
+                try:
+                    change["value"] = data_url(path)
+                except ValueError as exc:  # reported back to the model, and logged
+                    log.info("node picture not taken: %s", exc)
+                    problems.append(str(exc))
+            elif isinstance(value, (dict, list)):
+                change["value"], more = embed_pictures(value)
+                problems.extend(more)
+            out.append(change)
+        changes = out
+    return spec, changes, problems
+
+
+def _picture_error(problems: list[str]) -> ToolResult:
+    return ToolResult(
+        False,
+        "",
+        "These pictures could not be taken: " + "; ".join(problems) + ". Name a PNG, JPEG, "
+        "WebP or GIF file on this computer (an absolute path), or leave the picture out.",
     )
 
 
@@ -337,6 +378,9 @@ class NodeTool:
                 f"'spec' is missing. Call this tool with operation 'guide' and type "
                 f"'{type_name}' first, then create the node with a spec in that grammar.",
             )
+        spec, _, problems = await asyncio.to_thread(_with_pictures, spec, None)
+        if problems:
+            return _picture_error(problems)
         node = await asyncio.to_thread(
             store.create,
             type=type_name,
@@ -424,6 +468,9 @@ class NodeTool:
     ) -> ToolResult:
         spec = _json_value(args.get("spec"))
         changes = _json_value(args.get("changes"))
+        spec, changes, problems = await asyncio.to_thread(_with_pictures, spec, changes)
+        if problems:
+            return _picture_error(problems)
         title = _text(args.get("title"))
         note = _text(args.get("note"))
         has_content = spec is not None or changes is not None
