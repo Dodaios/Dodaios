@@ -113,6 +113,8 @@ class LiveSession:
     rpc: dict[str, RPC] = field(default_factory=dict)
     rpc_context: contextvars.Context | None = None
     control_owner: str | None = None
+    # The viewer whose panel set the page size; it goes back when that viewer leaves.
+    view_owner: str | None = None
     manual_epoch: str = ""
     active_trace: str = ""
     active_chat: str = ""
@@ -1009,6 +1011,13 @@ class LiveSessions:
                 session.control_owner = None
                 if session.window_upgrade_pending:
                     session.publish({"kind": "disconnected"})
+            if owner and getattr(session, "view_owner", None) == owner:
+                session.view_owner = None
+                try:
+                    await session.command("viewport", {})
+                except (RuntimeError, ValueError, TimeoutError, OSError):
+                    # A worker that is going away takes its page size with it.
+                    log.debug("Browser page size not reset", exc_info=True)
             if not session.subscribers:
                 await session.command("subscribe", {"enabled": False})
                 self.release_when_idle(session)
@@ -1093,6 +1102,12 @@ class LiveSessions:
                     session.publish({"kind": "disconnected"})
                 session.publish({"kind": "control", "ok": True, **result})
                 return result
+        if op == "viewport":
+            # A panel's size changes how the page is laid out for watching.
+            # It needs no control of the browser and is no input by the person.
+            sized = "width" in args and "height" in args
+            session.view_owner = owner if sized else None
+            return await session.command(op, args if sized else {})
         if op != "cancel" and session.control_owner != owner:
             raise ValueError("Take browser control first")
         if op == "cancel":

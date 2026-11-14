@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BrowserViewState } from "@/components/society/card/useBrowserView";
-import { IDLE_HANDBACK_MS, LiveBrowserPage, type LiveRequest } from "./LiveBrowserPage";
+import { IDLE_HANDBACK_MS, LiveBrowserPage, VIEWPORT_SETTLE_MS, type LiveRequest } from "./LiveBrowserPage";
 
 const view = vi.hoisted(() => ({
   control: vi.fn(),
@@ -112,5 +112,72 @@ describe("LiveBrowserPage", () => {
     const status = screen.getByTestId("ide-browser-live-status");
     expect(status.textContent).toContain("needs you here");
     expect(status.textContent).toContain("Solve the CAPTCHA");
+  });
+
+  describe("page size", () => {
+    let box = { width: 0, height: 0 };
+    let resized: (() => void) | undefined;
+    beforeEach(() => {
+      box = { width: 421.6, height: 903.2 };
+      vi.stubGlobal("ResizeObserver", class {
+        constructor(callback: () => void) { resized = callback; }
+        observe() {}
+        disconnect() {}
+      });
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+        const size = this.dataset.testid === "ide-browser-live-stage" ? box : { width: 0, height: 0 };
+        return { ...size, top: 0, left: 0, right: size.width, bottom: size.height, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+      });
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    it("lays the page out for the panel, without taking control", () => {
+      render(page(null));
+      expect(view.control.mock.calls).toEqual([["viewport", { width: 421, height: 903 }]]);
+    });
+
+    it("follows a resized panel once it has settled, and sends a size only once", () => {
+      vi.useFakeTimers();
+      const { rerender } = render(page(null));
+      view.control.mockClear();
+      rerender(page(null));
+      expect(view.control).not.toHaveBeenCalled();
+      box = { width: 640, height: 700 };
+      act(() => { resized?.(); });
+      expect(view.control).not.toHaveBeenCalled();
+      act(() => { vi.advanceTimersByTime(VIEWPORT_SETTLE_MS); });
+      expect(view.control.mock.calls).toEqual([["viewport", { width: 640, height: 700 }]]);
+    });
+
+    it("sends the size again to a browser that reconnected", () => {
+      const { rerender } = render(page(null));
+      view.state = viewState({ ready: false });
+      rerender(page(null));
+      view.control.mockClear();
+      view.state = viewState();
+      rerender(page(null));
+      expect(view.control.mock.calls).toEqual([["viewport", { width: 421, height: 903 }]]);
+    });
+
+    it("leaves a real Chrome window and a hidden panel alone", () => {
+      view.state = viewState({ fullWindow: true });
+      const { unmount } = render(page(null));
+      expect(view.control).not.toHaveBeenCalled();
+      unmount();
+      view.state = viewState();
+      box = { width: 0, height: 0 };
+      render(page(null));
+      expect(view.control).not.toHaveBeenCalled();
+    });
+
+    it("shapes the picture like the page the browser sent", () => {
+      view.state = viewState({ frameWidth: 421, frameHeight: 903 });
+      render(page(null));
+      const picture = screen.getByTestId("ide-browser-live-stage").firstElementChild as HTMLElement;
+      expect(picture.style.aspectRatio).toBe("421 / 903");
+    });
   });
 });

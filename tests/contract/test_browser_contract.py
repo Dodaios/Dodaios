@@ -891,3 +891,22 @@ async def test_chat_only_model_has_actionable_browser_failure_without_paid_fallb
     assert "Model menu" in result.error
     assert calls == ["chat-only"]
     assert live.sessions == {}
+
+
+def test_a_panel_page_size_is_a_whole_size_or_nothing():
+    assert validate_control({"op": "viewport", "args": {"width": 420, "height": 900}}) == (
+        "viewport",
+        {"width": 420, "height": 900},
+    )
+    assert validate_control({"op": "viewport", "args": {}}) == ("viewport", {})
+    for args in (
+        {"width": 420},
+        {"width": 420.5, "height": 900},
+        {"width": 0, "height": 900},
+        {"width": 420, "height": 20000},
+        {"width": True, "height": 900},
+    ):
+        with pytest.raises(ValueError, match="page size"):
+            validate_control({"op": "viewport", "args": args})
+    with pytest.raises(ValueError, match="page size"):
+        validate_control({"op": "click", "args": {"x": 1, "y": 1, "width": 4, "height": 4}})

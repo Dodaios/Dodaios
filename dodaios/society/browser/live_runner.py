@@ -131,6 +131,24 @@ def scrub_secrets(secrets: dict | None, value: Any) -> Any:
     return walk(value)
 
 
+#: The page size the agent browses with; its screenshots and clicks assume it.
+DEFAULT_VIEW = (1280, 800)
+#: A viewer's panel may ask for another page size within these bounds.
+VIEW_MIN = (320, 240)
+VIEW_MAX = (2560, 2560)
+
+
+def panel_view(args: dict) -> tuple[int, int] | None:
+    """The page size a viewer asked for, or ``None`` to go back to the default."""
+    width, height = args.get("width"), args.get("height")
+    if type(width) is not int or type(height) is not int:
+        return None
+    return (
+        min(max(width, VIEW_MIN[0]), VIEW_MAX[0]),
+        min(max(height, VIEW_MIN[1]), VIEW_MAX[1]),
+    )
+
+
 def emit(kind: str, **values: Any) -> None:
     WIRE.write(json.dumps({"kind": kind, **values}, ensure_ascii=True) + "\n")
     WIRE.flush()
@@ -190,6 +208,7 @@ class Worker:
         self.latest: dict | None = None
         self.sequence = 0
         self.viewers = False
+        self.panel_view: tuple[int, int] | None = None
         self.manual = False
         self.closed = False
         self.workspace = Path(".")
@@ -606,10 +625,53 @@ class Worker:
                 self.generation,
                 emit,
                 lambda: self.visual_action and not self.manual,
-                lambda x, y: self.native.viewport_point(x, y) if self.native else (x, y, 1280, 800),
+                lambda x, y: (
+                    self.native.viewport_point(x, y)
+                    if self.native
+                    else (x, y, *self.view_of(self.page))
+                ),
             )
             browser.cdp_client.send_raw = self.pointer.wrap(browser.cdp_client.send_raw)
             self.browser = browser
+
+    def wanted_view(self) -> tuple[int, int]:
+        """The page size that applies now.
+
+        A viewer's panel size holds only while a viewer watches and the agent
+        has no task: the agent always browses the default size, so its
+        screenshots and clicks mean the same with or without a panel open.
+        """
+        if (
+            self.panel_view
+            and self.viewers
+            and not self.native
+            and not self.login_mode
+            and not (self.job and not self.job.done())
+        ):
+            return self.panel_view
+        return DEFAULT_VIEW
+
+    def view_of(self, page: Any) -> tuple[int, int]:
+        size = None if page is None or page.is_closed() else page.viewport_size
+        return (int(size["width"]), int(size["height"])) if size else DEFAULT_VIEW
+
+    def view_fields(self, page: Any) -> dict[str, int]:
+        width, height = self.view_of(page)
+        return {"width": width, "height": height}
+
+    async def fit_view(self, page: Any) -> None:
+        """Give one page the size that applies now; a no-op when it has it."""
+        if page is None or page.is_closed() or self.native or self.login_mode:
+            return
+        wanted = self.wanted_view()
+        if self.view_of(page) != wanted:
+            await page.set_viewport_size({"width": wanted[0], "height": wanted[1]})
+
+    async def fit_views(self) -> None:
+        if self.context is None or self.native or self.login_mode:
+            return
+        for page in list(self.context.pages):
+            await self.fit_view(page)
 
     def page_opened(self, page: Any) -> None:
         page.on("dialog", self.on_dialog)
@@ -713,8 +775,7 @@ class Worker:
                 "data": event["data"],
                 "timestamp": event.get("metadata", {}).get("timestamp", time.time()),
                 "target": target,
-                "width": 1280,
-                "height": 800,
+                **self.view_fields(page),
             }
             try:
                 await cdp.send("Page.screencastFrameAck", {"sessionId": event["sessionId"]})
@@ -729,8 +790,9 @@ class Worker:
                 {
                     "format": "jpeg",
                     "quality": 65,
-                    "maxWidth": 1280,
-                    "maxHeight": 800,
+                    # Frames come in page pixels, whatever size a panel asked for.
+                    "maxWidth": VIEW_MAX[0],
+                    "maxHeight": VIEW_MAX[1],
                     "everyNthFrame": 1,
                 },
             )
@@ -751,6 +813,7 @@ class Worker:
                         self.target = target
                     elif page and (target != self.target or self.cdp is None):
                         await self.switch_stream(page, target)
+                    await self.fit_view(page)
                     emit(
                         "state",
                         **self.status(),
@@ -761,11 +824,13 @@ class Worker:
                         if self.login_mode
                         else [{"id": t, "url": p.url} for t, p in self.tabs.items()],
                     )
-                elif self.cdp and not self.login_mode:
-                    await self.cdp.send("Page.stopScreencast")
-                    await self.cdp.detach()
-                    self.cdp = None
-                    self.target = ""
+                else:
+                    if self.cdp and not self.login_mode:
+                        await self.cdp.send("Page.stopScreencast")
+                        await self.cdp.detach()
+                        self.cdp = None
+                        self.target = ""
+                    await self.fit_views()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -806,8 +871,7 @@ class Worker:
                             "data": base64.b64encode(blob).decode(),
                             "timestamp": captured_at,
                             "target": self.target,
-                            "width": 1280,
-                            "height": 800,
+                            **self.view_fields(self.page),
                         }
                     if self.latest:
                         frame = self.latest
@@ -842,6 +906,8 @@ class Worker:
         await self.ensure_browser()
         if self.login_mode or self.manual:
             raise RuntimeError("Return browser control to the agent first")
+        # The agent browses the default page size, also while a panel shows it smaller.
+        await self.fit_views()
         self.step_idle.clear()
         previous_downloads = set(self.browser.downloaded_files)
         from browser_use import Agent, Tools  # type: ignore[import-not-found]
@@ -1102,7 +1168,7 @@ class Worker:
                 if args["_takeover_generation"] != self.takeover_generation:
                     return self.status()
         async with self.transition_lock:
-            if op not in {"ensure", "subscribe", "takeover", "import_cookies"}:
+            if op not in {"ensure", "subscribe", "takeover", "import_cookies", "viewport"}:
                 if generation != self.generation or (
                     (self.login_available or "generation" in args)
                     and args.get("generation") != self.generation
@@ -1128,9 +1194,14 @@ class Worker:
                     "data": base64.b64encode(blob).decode(),
                     "timestamp": captured_at,
                     "target": self.target,
-                    "width": 1280,
-                    "height": 800,
+                    **self.view_fields(self.page),
                 }
+            return {}
+        if op == "viewport":
+            # A viewer's panel size. No control of the browser is needed: it
+            # changes how the page is laid out for watching, not the page.
+            self.panel_view = panel_view(args)
+            await self.fit_views()
             return {}
         if op == "cancel":
             if self.job and not self.job.done():

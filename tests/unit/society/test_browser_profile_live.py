@@ -280,3 +280,27 @@ async def test_inline_login_explicit_return_records_worker_state(tmp_path):
     await live.control(session, "viewer", "takeover", {"enabled": False, "login": False})
     assert not session.state["manual"] and not session.state["login_mode"]
     assert session.control_owner is None
+
+
+async def test_a_panel_sets_the_page_size_without_taking_control(tmp_path):
+    live = LiveSessions(tmp_path)
+    session = ProfileSession("lead")
+    await live.control(session, "panel", "viewport", {"width": 420, "height": 900})
+    assert session.commands[-1] == ("viewport", {"width": 420, "height": 900})
+    assert session.control_owner is None
+    assert session.view_owner == "panel"
+    await live.close()
+
+
+async def test_the_page_size_goes_back_when_its_panel_leaves(tmp_path):
+    live = LiveSessions(tmp_path)
+    session = ProfileSession("lead")
+    panel, stage = LiveUpdates(), LiveUpdates()
+    session.subscribers.update({panel, stage})
+    await live.control(session, "panel", "viewport", {"width": 420, "height": 900})
+    await live.unsubscribe(session, stage, "stage")
+    assert session.commands[-1] == ("viewport", {"width": 420, "height": 900})
+    await live.unsubscribe(session, panel, "panel")
+    assert ("viewport", {}) in session.commands
+    assert session.view_owner is None
+    await live.close()
