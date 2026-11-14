@@ -93,6 +93,12 @@ export function jumpToMessage(anchor: MessageAnchor, { navigate = false, timeout
   const started = Date.now();
   return new Promise((resolve) => {
     const look = () => {
+      // The page is gone while this was still waiting for the message (the
+      // window closed, a test's document was torn down): nothing to find.
+      if (typeof document === "undefined") {
+        resolve(false);
+        return;
+      }
       const el = findMessage(anchor);
       if (el) {
         reveal(el);

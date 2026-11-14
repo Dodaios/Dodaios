@@ -75,4 +75,20 @@ describe("jumpToMessage", () => {
   it("gives up when the message is not on screen", async () => {
     await expect(jumpToMessage({ seq: 5 }, { timeoutMs: 0 })).resolves.toBe(false);
   });
+
+  it("stops waiting when the page is gone", async () => {
+    // The wait outlives a closed window, and in the test run a torn-down
+    // document: its next look must end quietly instead of throwing from a timer.
+    vi.useFakeTimers();
+    try {
+      const waiting = jumpToMessage({ seq: 5 });
+      vi.stubGlobal("document", undefined);
+      await vi.advanceTimersByTimeAsync(150);
+      vi.unstubAllGlobals();
+      await expect(waiting).resolves.toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
 });
