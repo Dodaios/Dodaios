@@ -38,6 +38,12 @@ reused.
   microphone feeds them; while Dodaios speaks, its voice output feeds the
   same bars through the same level feed (`ui/orb/bus_bridge.py`,
   `_note_tts_level` and `_on_mic_level`; Dodaios's voice wins while it plays).
+- The newest loudness enters in the middle bar and travels outward to both
+  ends (one step every 45 ms), so the row shows the last half second of
+  speech; each bar glides to its height on a soft spring
+  (`design.VoiceRow`). The green waveform of the chat input box glides the
+  same way: it slides left by the share of a step that has passed instead of
+  jumping one bar at a time.
 - Silence draws a still row of dots: nothing moves when nothing is heard.
 - Thinking (and a dictation being transcribed): a soft light walks across the
   dots.
