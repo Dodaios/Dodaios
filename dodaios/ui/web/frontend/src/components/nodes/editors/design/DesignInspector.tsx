@@ -59,8 +59,16 @@ import { KIND_ICONS } from "./LayersPanel";
 export function safeLink(typed: string): string {
   const value = typed.trim();
   const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value)?.[1]?.toLowerCase();
-  if (scheme === undefined) return value;
-  return ["http", "https", "mailto", "tel"].includes(scheme) ? value : "";
+  if (scheme !== undefined && !["http", "https", "mailto", "tel"].includes(scheme)) return "";
+  // Written as an encoded address: no quote or angle bracket survives into
+  // the markup, and what is already encoded is not encoded twice.
+  let plain = value;
+  try {
+    plain = decodeURI(value);
+  } catch {
+    // A stray "%" that encodes nothing: encode the text as it was typed.
+  }
+  return encodeURI(plain);
 }
 
 /**

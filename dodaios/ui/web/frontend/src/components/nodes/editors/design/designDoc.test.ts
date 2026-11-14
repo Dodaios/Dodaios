@@ -200,6 +200,9 @@ describe("what the inspector lets into a design", () => {
     for (const bad of ["javascript:alert(1)", " JavaScript:alert(1)", "data:text/html,<b>", "vbscript:x"]) {
       expect(safeLink(bad)).toBe("");
     }
+    expect(safeLink('https://a.b/x"onmouseover="x')).toBe("https://a.b/x%22onmouseover=%22x");
+    expect(safeLink("https://a.b/a%20b")).toBe("https://a.b/a%20b");
+    expect(safeLink("https://a.b/100%")).toBe("https://a.b/100%25");
   });
 
   it("shows only an embedded picture in the app", async () => {
