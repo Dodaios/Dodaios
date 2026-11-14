@@ -92,6 +92,7 @@ from ui.orb.drag_persistence import (
     save_position_to_toml,
     screens_from_tk,
 )
+from ui.orb.mac_layer import MacLayerPresenter, native_frames_available
 from ui.orb.notice_stack import PetNoticeStack
 from ui.orb.pet_renderer import PET_TARGET_EDGE_PX, PetRenderer, dpi_ratio_for
 from ui.orb.taskbar import (
@@ -1745,6 +1746,8 @@ class OrbControlRow:
         self._canvas: tk.Canvas | None = None
         self._photo: ImageTk.PhotoImage | None = None
         self._image_id: int | None = None
+        # macOS: frames go through a native layer (see ui/orb/mac_layer.py).
+        self._presenter: MacLayerPresenter | None = None
         self._state = self._initial_state()
         self._visible = False
         self._pointer_inside = False
@@ -1886,6 +1889,11 @@ class OrbControlRow:
         try:
             frame = self._render_frame()
             image = key_to_alpha(frame) if self._mac_transparent else frame
+            if self._mac_transparent:
+                if self._presenter is None:
+                    self._presenter = MacLayerPresenter(self._top, name="pet strip")
+                if self._presenter.present(image):
+                    return
             self._photo = ImageTk.PhotoImage(image, master=self._canvas)
             if self._image_id is None:
                 self._image_id = self._canvas.create_image(0, 0, anchor="nw", image=self._photo)
@@ -2457,6 +2465,11 @@ class OrbOverlay:
         self._frame_after_id: str | None = None
         self._frame_key: Hashable | None = None
         self._photo_cache: OrderedDict[Hashable, Any] = OrderedDict()
+        # macOS: the figure's frames go through a native layer instead of the
+        # Tk canvas, which leaves a black box and stacked frames behind there
+        # (ui/orb/mac_layer.py). The cache then holds RGBA images.
+        self._presenter: MacLayerPresenter | None = None
+        self._native_shown = False
         self._frame_error_logged = False
         self._topmost_fns: tuple[Callable[..., Any], Callable[..., Any]] | None = None
         self._work_area_cache: tuple[tuple[int, int], int] | None = None
@@ -2969,10 +2982,17 @@ class OrbOverlay:
                 # under a freshly opened window (see _reassert_topmost).
                 self._reassert_topmost()
                 self._reconcile_pet_hover()
+                self._refresh_native_layers()
         except (tk.TclError, OSError):
             logging.getLogger("jarvis.orb").debug("orb position recheck skipped", exc_info=True)
         if self._root is not None:
             self._root.after(POSITION_RECHECK_MS, self._schedule_position_recheck)
+
+    def _refresh_native_layers(self) -> None:
+        """macOS: put the last frames back if Tk replaced a window's NSWindow."""
+        for presenter in (self._presenter, getattr(self._controls, "_presenter", None)):
+            if presenter is not None:
+                presenter.refresh()
 
     def _topmost_helpers(
         self,
@@ -4873,6 +4893,8 @@ class OrbOverlay:
             # macOS has no color key — the frame carries a real alpha
             # channel instead (magenta → fully transparent).
             img = key_to_alpha(img)
+            if self._present_native(img):
+                return FRAME_INTERVAL_MS
 
         # The PhotoImage must be kept as self._photo — otherwise Tkinter
         # garbage-collects the image before it gets rendered.  It must also be
@@ -4886,22 +4908,33 @@ class OrbOverlay:
 
     def _paint_keyed_frame(self, renderer: Any, t: float, key: Hashable) -> int:
         """The pet's path: repaint only when the frame changes, sleep until it does."""
-        if key != self._frame_key or self._image_id is None:
+        if key != self._frame_key or not (self._image_id is not None or self._native_shown):
+            native = self._mac_transparent and native_frames_available()
             cache = self._photo_cache
-            photo = cache.get(key)
-            if photo is None:
+            frame = cache.get(key)
+            if frame is None:
                 img = renderer.render(t, self._mode, self._ext_level)
                 if self._mac_transparent:
                     img = key_to_alpha(img)
-                photo = ImageTk.PhotoImage(img, master=self._root)
-                cache[key] = photo
+                # Natively shown frames are cached as RGBA images, Tk ones as
+                # Tk images.
+                frame = img if native else ImageTk.PhotoImage(img, master=self._root)
+                cache[key] = frame
                 while len(cache) > PET_PHOTO_CACHE_MAX:
                     cache.popitem(last=False)
             else:
                 cache.move_to_end(key)
-            self._photo = photo
-            self._show_photo(photo)
             self._frame_key = key
+            if isinstance(frame, Image.Image):
+                if not self._present_native(frame):
+                    # Not shown natively yet (the NSWindow may not exist):
+                    # draw through Tk now and try the layer again next tick.
+                    self._photo = ImageTk.PhotoImage(frame, master=self._root)
+                    self._show_photo(self._photo)
+                    self._frame_key = None
+            else:
+                self._photo = frame
+                self._show_photo(frame)
         delay_ms = int(renderer.next_frame_delay_ms(t))
         if self._pump_strip_level():
             row = self._controls
@@ -4912,6 +4945,15 @@ class OrbOverlay:
             pulse_ms = PET_CONNECT_INTERVAL_MS if connecting else PET_PULSE_INTERVAL_MS
             delay_ms = min(delay_ms, pulse_ms)
         return delay_ms
+
+    def _present_native(self, image: Image.Image) -> bool:
+        """Show ``image`` through the macOS native layer. False: use the Tk canvas."""
+        if not self._mac_transparent or self._root is None:
+            return False
+        if self._presenter is None:
+            self._presenter = MacLayerPresenter(self._root, name="pet")
+        self._native_shown = self._presenter.present(image)
+        return self._native_shown
 
     def _show_photo(self, photo: Any) -> None:
         if self._image_id is None:
@@ -4982,6 +5024,7 @@ class OrbOverlay:
     def _reset_frame_cache(self) -> None:
         self._photo_cache.clear()
         self._frame_key = None
+        self._native_shown = False
 
     def _window_mapped(self) -> bool:
         """Is the orb window mapped (not withdrawn)? Test doubles count as mapped."""
