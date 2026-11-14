@@ -18,7 +18,7 @@ from pathlib import Path
 
 # Dependency-free import (no numpy/PIL): this module stays cheap enough for the
 # IPC proxy and the pure unit tests.
-from dodaios.ui.dodaiosbar.modes import ACTIVE_VOICE_MODES, DICTATION_MODES, NOTICE_MODES
+from dodaios.ui.dodaiosbar.modes import ACTIVE_VOICE_MODES, DICTATION_MODES, MODES, NOTICE_MODES
 
 
 # --------------------------------------------------------------------------- #
@@ -43,26 +43,50 @@ def resolve_click(
     prompt_mode: bool = False,
     y: float | None = None,
 ) -> str:
-    """Resolve the shared strip's visible controls, never a hidden old zone."""
-    from ui.orb.controls import pet_hit_test, pet_strip_size
+    """Map a click at window point ``(x, y)`` to the bar action it means.
 
-    scale = width / pet_strip_size()[0]
-    action = pet_hit_test(x, pet_strip_size(scale)[1] / 2 if y is None else y, scale)
-    if action is None or mode in NOTICE_MODES:
+    The click resolves against the OPEN bar (a press always opens it), so the
+    controls are exactly the ones drawn under the pointer:
+
+    - microphone → ``"mute"``, speaker → ``"speaker"``, sparkle →
+      ``"prompt_mode_toggle"``, pencil → ``"compose"``;
+    - the centre of an idle bar → ``"talk"`` (start a conversation);
+    - the X of a running conversation → ``"hangup"``; the centre of a running
+      conversation does nothing, so a stray click never ends a call;
+    - while dictating, the X or the centre → ``"dictation_stop"``;
+    - a notice is not a control → ``"none"``.
+
+    ``width`` is the window width the click was measured in; it fixes the
+    scale, so a bar resized by the "Bar size" slider still resolves right.
+    """
+    del hovered, pill_w
+    from dodaios.ui.dodaiosbar import design
+
+    if mode in NOTICE_MODES:
+        return "none"
+    scale = max(0.05, float(width) / design.WINDOW_W)
+    state = design.BarState(
+        mode=mode if mode in MODES else "idle", hovered=True, prompt_mode=bool(prompt_mode)
+    )
+    if y is None:
+        x0, y0, x1, y1 = design.pill_rect(design.layout(state), scale)
+        y = (y0 + y1) / 2.0
+    control = design.hit_test(x, y, state, scale)
+    if control is None:
         return "none"
     if mode in DICTATION_MODES:
-        return "dictation_stop" if action == "orb" else "none"
-    if action == "bell":
-        return "compose"
-    if action == "mic_mute":
-        return "mute"
-    if action == "speaker":
-        return "speaker"
-    if action == "orb" and prompt_mode:
-        return "prompt_mode_toggle"
-    if action in ("orb", "call"):
-        return "hangup" if mode in ACTIVE_VOICE_MODES else "talk"
-    return "none"
+        return "dictation_stop" if control in ("center", "close") else "none"
+    active = mode in ACTIVE_VOICE_MODES
+    if control == "close":
+        return "hangup" if active else "none"
+    if control == "center":
+        return "none" if active else "talk"
+    return {
+        "mic": "mute",
+        "speaker": "speaker",
+        "prompt": "prompt_mode_toggle",
+        "compose": "compose",
+    }.get(control, "none")
 
 
 def default_bottom_center(

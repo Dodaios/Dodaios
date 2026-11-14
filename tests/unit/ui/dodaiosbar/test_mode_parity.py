@@ -192,8 +192,8 @@ def test_a_notice_is_always_legible_never_fully_faded() -> None:
 
 
 @pytest.mark.parametrize("mode", modes.NOTICE_MODES)
-def test_a_notice_keeps_the_strip_geometry(mode: str) -> None:
-    assert renderer.target_pill_size(mode) == (renderer.WIN_W, renderer.WIN_H)
+def test_a_notice_keeps_its_shape_under_the_pointer(mode: str) -> None:
+    assert renderer.target_pill_size(mode, hovered=True) == renderer.target_pill_size(mode)
 
 
 @pytest.mark.parametrize("mode", modes.MODES)

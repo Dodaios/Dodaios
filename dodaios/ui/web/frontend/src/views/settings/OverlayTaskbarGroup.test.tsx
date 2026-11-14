@@ -59,8 +59,7 @@ describe("OverlayTaskbarGroup", () => {
     render(<OverlayTaskbarGroup />);
     expect(screen.getByTestId("jarvis-bar-preview")).toBeDefined();
     const bar = screen.getByTestId("jarvis-bar-preview");
-    expect(bar.querySelector('[data-testid="pet-strip-indicator"]')?.children).toHaveLength(3);
-    expect(screen.getByTestId("pet-strip-call")).toBeDefined();
+    expect(bar.querySelector('[data-testid="bar-preview-levels"]')?.children).toHaveLength(11);
   });
 
   it("does not offer bar-only controls for another display style", () => {

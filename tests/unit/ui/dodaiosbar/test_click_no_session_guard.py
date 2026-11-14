@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from dodaios.ui.dodaiosbar import renderer as R
 from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
-from ui.orb.controls import pet_strip_layout
 
 
 class _FakePipeline:
@@ -39,8 +38,13 @@ class _FakePipeline:
 
 
 def _x_glyph() -> int:
-    """The on-screen End-X centre for the deployed pill (mirror renderer)."""
-    return round(pet_strip_layout(R.strip_scale()).call[0])
+    """The on-screen hang-up X of the open conversation bar."""
+    return round(R.control_center("close", "listen")[0])
+
+
+def _talk_x() -> int:
+    """The centre of the open idle bar, which starts a conversation."""
+    return round(R.control_center("center", "idle")[0])
 
 
 def _patch_pipeline(monkeypatch, fake) -> None:
@@ -91,13 +95,11 @@ def test_repeated_close_click_does_not_reopen_session(monkeypatch):
     assert fake.hangup_calls == 1
     assert fake.session_calls == 0
 
-    # The guard is bounded: after the backend has reached idle, the same area
-    # behaves like the normal idle body and can deliberately start a new call.
-    # (The Prompt Mode sparkle sits further in, at the mic's mirrored inset,
-    # and only exists while that mode is on — so it never shadows this spot.)
+    # The guard is bounded: after the backend has reached idle, the centre of
+    # the idle bar deliberately starts a new call again.
     fake._session_active = False
     now[0] += 1.0
-    bar._on_click(_x_glyph(), hovered=True)
+    bar._on_click(_talk_x(), hovered=True)
     assert fake.session_calls == 1
 
 

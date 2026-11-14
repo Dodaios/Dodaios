@@ -1,7 +1,10 @@
-"""Canonical Jarvis Bar: the Pet control strip in the native bar hosts.
+"""The Dodaios Bar's renderer: turns the surface state into frames.
 
-Geometry and painting come from ui.orb.controls. The platform hosts retain
-their lifecycle, saved placement and display scaling without another design.
+The look itself (shapes, controls, marks, motion) lives in
+:mod:`dodaios.ui.dodaiosbar.design`. This module keeps what the platform
+surfaces share around it: the screen-scale calibration, the user's "Bar size",
+the mode-to-look rule, and the frame formats the two hosts need (an RGB frame
+on a colour key for the Tk surface, a true RGBA frame for the Qt surface).
 """
 
 from __future__ import annotations
@@ -9,8 +12,9 @@ from __future__ import annotations
 import math
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image
 
+from dodaios.ui.dodaiosbar import design
 from dodaios.ui.dodaiosbar.modes import (  # noqa: F401
     ACTIVE_VOICE_MODES,
     CONNECT_MODES,
@@ -225,34 +229,88 @@ def apply_display_scale(scale: float, user_size: float | None = None) -> None:
     DISPLAY_SCALE = max(MIN_DISPLAY_SCALE, min(MAX_DISPLAY_SCALE, float(scale)))
     if user_size is not None:
         USER_SIZE_SCALE = clamp_user_size(user_size)
-    WIN_W, WIN_H = controls.pet_strip_size(strip_scale())
+    WIN_W, WIN_H = design.window_size(design_scale())
 
 
 def strip_scale() -> float:
+    """The calibrated screen scale times the user's "Bar size"."""
     return DISPLAY_SCALE * USER_SIZE_SCALE
 
 
-def target_pill_size(mode: str, **_kwargs) -> tuple[int, int]:
-    """The strip keeps all of its controls visible in every mode."""
-    return WIN_W, WIN_H
+def design_scale() -> float:
+    """Window pixels per design point. The reference monitor draws the bar at
+    its design size; smaller screens and the size slider scale it."""
+    return strip_scale() / BASE_DISPLAY_SCALE
 
 
-def pill_center_y(_height: float) -> float:
-    return WIN_H / 2.0
+def bar_state(
+    mode: str,
+    *,
+    hovered: bool = False,
+    muted: bool = False,
+    speaker_muted: bool = False,
+    prompt_mode: bool = False,
+    prompt_mode_paused: bool = False,
+    drop_state: str = DROP_STATE_NONE,
+    hover_control: str | None = None,
+) -> design.BarState:
+    """The design state for a surface's coarse ``mode`` and switches."""
+    return design.BarState(
+        mode=mode if mode in MODES else "idle",
+        hovered=bool(hovered),
+        muted=bool(muted),
+        speaker_muted=bool(speaker_muted),
+        prompt_mode=bool(prompt_mode),
+        prompt_mode_paused=bool(prompt_mode_paused),
+        drop_state=drop_state if drop_state in DROP_STATES else DROP_STATE_NONE,
+        hover_control=hover_control,
+    )
+
+
+def hit_action(x: float, y: float, mode: str, **switches) -> str | None:
+    """The control under window point ``(x, y)`` (see ``design.CONTROLS``)."""
+    return design.hit_test(x, y, bar_state(mode, **switches), design_scale())
+
+
+def control_center(name: str, mode: str, **switches) -> tuple[float, float] | None:
+    """Window point at the middle of control ``name`` on the open bar."""
+    switches.setdefault("hovered", True)
+    return design.control_center(name, bar_state(mode, **switches), design_scale())
+
+
+def in_hover_footprint(x: float, y: float, mode: str, **switches) -> bool:
+    """True while the pointer is on the open bar or just around its edge."""
+    return design.in_hover_footprint(x, y, bar_state(mode, **switches), design_scale())
+
+
+def target_pill_size(mode: str, *, hovered: bool = False, **switches) -> tuple[int, int]:
+    """The pill's target size in window pixels for a mode."""
+    lay = design.layout(bar_state(mode, hovered=hovered, **switches))
+    s = design_scale()
+    return round(lay.width * s), round(lay.height * s)
+
+
+def pill_center_y(height: float) -> float:
+    """Vertical centre of a pill of ``height`` pixels (bottom-anchored)."""
+    return WIN_H - design.BOTTOM_PAD * design_scale() - height / 2.0
 
 
 class JarvisBarRenderer:
-    def __init__(self, accent: str = "#e7c46e") -> None:
-        # The Prompt Mode mark takes this colour; the indicator keeps its own sky.
-        try:
-            value = accent.lstrip("#")
-            if len(value) != 6:
-                raise ValueError("Expected an RGB color")
-            self.accent = tuple(int(value[i : i + 2], 16) for i in (0, 2, 4))
-        except (AttributeError, ValueError):  # An invalid optional accent retains the standard visible highlight.
-            self.accent = controls.PET_ORB_HIGHLIGHT
+    """Frames for one surface. Keeps the easing state between frames, so each
+    surface owns exactly one renderer."""
 
-    def render(
+    def __init__(self, accent: str = "#e7c46e", *, pixel_ratio: float = 1.0) -> None:
+        # The bar is black and white; ``accent`` stays accepted for callers
+        # that still pass the theme colour.
+        del accent
+        self.pixel_ratio = max(1.0, float(pixel_ratio or 1.0))
+        self._painter = design.BarPainter()
+
+    @property
+    def easing(self) -> bool:
+        return self._painter.easing
+
+    def render_rgba(
         self,
         t: float,
         mode: str,
@@ -269,87 +327,57 @@ class JarvisBarRenderer:
         drop_elapsed: float = 0.0,
         surface_mode: str | None = None,
         connect_look: controls.ConnectLook | None = None,
+        pixel_ratio: float | None = None,
     ) -> Image.Image:
-        actual = surface_mode or mode
-        motion = (
-            "connect"
-            if mode in CONNECT_MODES
-            else "think"
-            if mode in ("think", "dictate_transcribing")
-            else "voice"
-            if mode in ("listen", "speak", "dictate")
-            else "rest"
-        )
-        phase = controls.indicator_phase(motion, t)
-        spin = 0
-        if connect_look is not None and actual in ACTIVE_VOICE_MODES:
-            # The surface's ConnectTimeline: the strokes bending into the
-            # loading loop, or the one-shot back out of it once connected.
-            motion, phase, spin = connect_look.motion, connect_look.phase, connect_look.spin
-        elif motion == "connect":
-            # No timeline (a bare render): the loop, fully bent, spinning on t.
-            phase, spin = controls.PET_MORPH_STEPS, controls.spin_step(t)
-        state = controls.PetStripState(
-            jarvis_bar=True,
-            mic_muted=muted,
-            speaker_muted=speaker_muted,
-            active=actual in ACTIVE_VOICE_MODES,
-            level=controls.quantize_level(ext_level) if motion in ("voice", "connect") else 0,
-            motion=motion,
-            phase=phase,
-            spin=spin,
-            hovered=hovered_action,
-            call_ring=call_ring,
-        )
-        # Cached frames belong to the shared component; never mutate them.
-        frame = controls.render_pet_strip(state, strip_scale()).copy()
-        layout = controls.pet_strip_layout(strip_scale())
-        _, x0, x1 = next(slot for slot in layout.slots if slot[0] == "orb")
-        cx, cy = (x0 + x1) / 2, WIN_H / 2
-        pill_h = layout.pill[3] - layout.pill[1]
-        r = max(2, pill_h * 0.16)
-        draw = ImageDraw.Draw(frame)
-        width = max(1, round(strip_scale() * 2))
-        backdrop = controls.PET_FILL_HOVER if hovered_action == "orb" else controls.PET_FILL
-        clear_r = pill_h * 0.40
+        """A true-alpha frame at ``pixel_ratio`` device pixels per point.
 
-        def clear_indicator() -> None:
-            # A mark replaces the indicator; drawn over the strokes it is unreadable.
-            draw.ellipse((cx - clear_r, cy - clear_r, cx + clear_r, cy + clear_r), fill=backdrop)
-
-        if (
-            drop_state in (DROP_STATE_OK, DROP_STATE_REJECTED)
-            and drop_elapsed >= DROP_CONFIRM_TOTAL_S
-        ):
+        ``mode`` is the look (``renderer.visual_mode``); ``surface_mode`` the
+        coarse mode the bridge set, which decides the shape and controls.
+        """
+        del call_ring
+        if drop_state in (DROP_STATE_OK, DROP_STATE_REJECTED) and drop_elapsed >= DROP_CONFIRM_TOTAL_S:
             drop_state = DROP_STATE_NONE
-        if actual in NOTICE_MODES or drop_state == DROP_STATE_REJECTED:
-            clear_indicator()
-            red = tuple(round(c * notice_alpha(t)) for c in controls.PET_ICON_MUTED)
-            draw.line((cx - r, cy - r, cx + r, cy + r), fill=red, width=width)
-            draw.line((cx - r, cy + r, cx + r, cy - r), fill=red, width=width)
-        elif drop_state == DROP_STATE_OK:
-            clear_indicator()
-            draw.line(
-                [(cx - r, cy), (cx, cy + r), (cx + r, cy - r)], fill=(126, 200, 133), width=width
-            )
-        elif prompt_mode and motion == "rest":
-            # Prompt Mode marks the resting bar only; once a voice or a
-            # dictation runs, the moving strokes tell more than the mark.
-            clear_indicator()
-            draw.line(
-                [(cx - r, cy), (cx, cy - r), (cx + r, cy), (cx, cy + r), (cx - r, cy)],
-                fill=self.accent,
-                width=width,
-            )
-            if prompt_mode_paused:
-                draw.line(
-                    (cx - r, cy - r, cx + r, cy + r), fill=controls.PET_ICON_MUTED, width=width
-                )
-        if drop_state == DROP_STATE_ARMED:
-            draw.rounded_rectangle(
-                layout.pill, radius=WIN_H / 2, outline=controls.PET_ORB_HIGHLIGHT, width=width
-            )
-        return frame
+        coarse = surface_mode or mode
+        look = "notice" if coarse in NOTICE_MODES else mode
+        if look in ("listen", "dictate"):
+            look = "speak"
+        if look == "dictate_transcribing":
+            look = "think"
+        state = bar_state(
+            coarse,
+            hovered=hovered,
+            muted=muted,
+            speaker_muted=speaker_muted,
+            prompt_mode=prompt_mode,
+            prompt_mode_paused=prompt_mode_paused,
+            drop_state=drop_state,
+            hover_control=hovered_action if hovered else None,
+        )
+        level = float(ext_level or 0.0) if look in ("speak", "connect") else 0.0
+        flourish = None
+        if (
+            connect_look is not None
+            and connect_look.motion == "connected"
+            and coarse in ACTIVE_VOICE_MODES
+            and level < 0.06
+        ):
+            # The call just connected and nobody speaks yet: one swell says so.
+            flourish = (connect_look.phase + 1) / max(1, controls.PET_CONNECTED_PHASES)
+            look = "connected"
+        return self._painter.paint(
+            state,
+            float(t),
+            max(0.0, min(1.0, level)),
+            look=look,
+            scale=design_scale(),
+            pixel_ratio=self.pixel_ratio if pixel_ratio is None else max(1.0, pixel_ratio),
+            flourish=flourish,
+        )
+
+    def render(self, t: float, mode: str, ext_level: float | None = None, **kwargs) -> Image.Image:
+        """An RGB frame at window size with the outside on the colour key."""
+        kwargs["pixel_ratio"] = 1.0
+        return design.to_keyed_rgb(self.render_rgba(t, mode, ext_level, **kwargs), COLOR_KEY_RGB)
 
 
 apply_display_scale(1.0)

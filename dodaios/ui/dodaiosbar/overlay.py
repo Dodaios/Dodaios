@@ -709,13 +709,19 @@ class JarvisBarOverlay:
                 return None
             px, py = self._root.winfo_pointerxy()
             x, y = px - self._root.winfo_rootx(), py - self._root.winfo_rooty()
-            from ui.orb.controls import pet_hit_test
-
-            action = pet_hit_test(x, y, renderer.strip_scale())
-            return "compose" if action == "bell" else action
+            return renderer.hit_action(x, y, self._mode, hovered=True, **self._bar_switches())
         except Exception:  # no window yet, or teardown in progress
             log.debug("bar hover unavailable", exc_info=True)
             return None
+
+    def _bar_switches(self) -> dict[str, bool]:
+        """The switches that change what the bar draws (and so where it is hit)."""
+        return {
+            "muted": bool(getattr(self, "_muted", False)),
+            "speaker_muted": bool(getattr(self, "_speaker_muted", False)),
+            "prompt_mode": bool(getattr(self, "_prompt_mode", False)),
+            "prompt_mode_paused": bool(getattr(self, "_prompt_mode_paused", False)),
+        }
 
     def set_on_compose(self, callback: Callable[[], None] | None) -> None:
         self._on_compose = callback
@@ -1452,6 +1458,7 @@ class JarvisBarOverlay:
                 and drop_visual == renderer.DROP_STATE_NONE
                 and connect_look is None
                 and self._static_tick_count >= _IDLE_SETTLE_TICKS
+                and not getattr(self._renderer, "easing", False)
             )
 
             if not is_settled_static:
