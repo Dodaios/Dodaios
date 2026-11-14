@@ -141,6 +141,40 @@ describe("thread work log", () => {
     expect(screen.getByText("Fetching the description.")).toBeTruthy();
   });
 
+  it("keeps the answer in view when the agent, woken again, only adds a line", () => {
+    // A background task it waited on finished after the answer: the agent
+    // thought briefly and wrote one sentence. That sentence is no answer of its own.
+    show(turn([
+      { kind: "text", id: "pre", text: "Waiting for the merge." },
+      tool("c1", "python scripts/agent_done_gate.py --wait"),
+      { kind: "text", id: "a", text: "PR #1652 is merged and live in your app." },
+      thought("r1", "Nothing needs doing here."),
+      { kind: "text", id: "b", text: "That message was only my old watch. Nothing changed." },
+      thought("r2", "Still nothing."),
+      { kind: "text", id: "c", text: "The last watch ended too." },
+    ]));
+    expect(screen.getByText("PR #1652 is merged and live in your app.")).toBeTruthy();
+    expect(screen.getByText("That message was only my old watch. Nothing changed.")).toBeTruthy();
+    expect(screen.getByText("The last watch ended too.")).toBeTruthy();
+    // Words before a step stay with the work, and so do the thoughts in between.
+    expect(screen.queryByText("Waiting for the merge.")).toBeNull();
+    expect(screen.queryByTestId("thread-thought-sentence")).toBeNull();
+    fireEvent.click(screen.getByTestId("thread-worked-for"));
+    expect(screen.getByText("Waiting for the merge.")).toBeTruthy();
+    expect(screen.getAllByTestId("thread-thought-sentence").map((node) => node.textContent)).toEqual(["Nothing needs doing here.", "Still nothing."]);
+  });
+
+  it("folds earlier words when the woken agent worked before its last answer", () => {
+    show(turn([
+      { kind: "text", id: "a", text: "The PR waits in the merge queue." },
+      thought("r1", "The queue moved."),
+      tool("c1", "gh pr view 1652"),
+      { kind: "text", id: "b", text: "PR #1652 is merged." },
+    ]));
+    expect(screen.getByText("PR #1652 is merged.")).toBeTruthy();
+    expect(screen.queryByText("The PR waits in the merge queue.")).toBeNull();
+  });
+
   it("shows wordless live thinking as one Thinking step", () => {
     show(turn([thought("r1", "", true)], "running"));
     expect(screen.getByText("Thinking")).toBeTruthy();
