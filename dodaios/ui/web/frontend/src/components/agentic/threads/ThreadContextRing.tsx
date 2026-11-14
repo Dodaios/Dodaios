@@ -86,7 +86,8 @@ export function ContextRingIcon({ fraction, size = 16 }: { fraction: number; siz
  * How full the thread's context window is, at the right end of the strip
  * under the composer. The ring fills clockwise from the top and turns bluer
  * as the window fills. Pointing at it (or a click, which keeps it open) shows
- * the numbers and what fills the window, as Claude Code itself counts it
+ * the numbers in one line over a bar (no second ring) and what fills the
+ * window, as Claude Code itself counts it
  * (`/context`, run on an unsaved fork of the session — no model call).
  *
  * The live number comes with the thread's events; a thread that has none yet
@@ -185,16 +186,13 @@ export function ThreadContextRing({ sessionId, live, running, className }: {
       label={t("ide_threads.context.heading")} side="top" align="end" width={300}>
       <div onPointerEnter={enter} onPointerLeave={leave} data-testid="thread-context-details">
         <ThreadMenuHeading>{t("ide_threads.context.heading")}</ThreadMenuHeading>
-        <div className="flex items-center gap-3 px-2 pb-2">
-          <ContextRingIcon fraction={fraction} size={34} />
-          <div className="min-w-0">
-            <p className="text-sm font-medium tabular-nums text-foreground">{fill(t("ide_threads.context.used"), { percent })}</p>
-            <p className="text-xs tabular-nums text-muted-foreground">{fill(t("ide_threads.context.of_tokens"), { used: usedText, window: windowText })}</p>
-          </div>
+        <div className="flex items-baseline justify-between gap-3 px-2 pb-1.5" data-testid="thread-context-summary">
+          <p className="text-sm font-medium tabular-nums text-foreground">{fill(t("ide_threads.context.used"), { percent })}</p>
+          <p className="truncate text-xs tabular-nums text-muted-foreground">{fill(t("ide_threads.context.of_tokens"), { used: usedText, window: windowText })}</p>
         </div>
 
         <div className="px-2 pb-2">
-          <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted" data-testid="thread-context-bar">
+          <div className="flex h-2 w-full overflow-hidden rounded-full" style={{ background: partColor("free") }} data-testid="thread-context-bar">
             {parts.length > 0
               ? parts.map((part) => <span key={part.key} className="h-full" title={partLabel(part)}
                 style={{ width: `${(part.tokens / total) * 100}%`, background: partColor(part.key) }} />)

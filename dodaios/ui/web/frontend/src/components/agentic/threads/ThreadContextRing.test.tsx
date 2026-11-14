@@ -67,7 +67,10 @@ describe("ThreadContextRing", () => {
     render(<ThreadContextRing sessionId="s1" live={{ used: 139_400, window: 1_000_000, model: "claude-opus-5-5" }} running className="" />);
     const ring = screen.getByTestId("thread-context-ring");
     fireEvent.click(ring);
-    expect(await screen.findByTestId("thread-context-details")).toBeTruthy();
+    const details = await screen.findByTestId("thread-context-details");
+    // The open panel shows the numbers over a bar, not a second, bigger ring.
+    expect(details.querySelector("[data-testid=context-ring-icon]")).toBeNull();
+    expect(screen.getByTestId("thread-context-summary").textContent).toContain("139k of 1M tokens");
     // While the agent works, the breakdown waits for the turn's end.
     expect(fetchMock).not.toHaveBeenCalled();
     fireEvent.pointerLeave(ring);
