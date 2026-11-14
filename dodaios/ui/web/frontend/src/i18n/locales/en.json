@@ -11451,7 +11451,6 @@
   "reminders": {
     "due_title": "Reminder",
     "done": "Done",
-    "marked_done": "Done",
     "snooze": "Snooze",
     "snooze_15": "15 min",
     "snooze_1h": "1 hour",
@@ -11602,6 +11601,7 @@
   },
   "rail_notice": {
     "title": "Needs you",
+    "reminder_detail": "Due since {when}",
     "more": "{count} more",
     "and_more": "and {count} more",
     "an_agent": "An agent",

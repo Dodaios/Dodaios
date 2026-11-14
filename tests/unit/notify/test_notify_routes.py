@@ -103,10 +103,30 @@ def test_snooze_and_done(client: TestClient) -> None:
     ).json()
     assert tomorrow["due_at"] == "2026-11-11T08:00:00+00:00"
     assert client.post(f"/api/notify/reminders/{tomorrow['id']}/done").json() == {"ok": True}
-    assert client.post(f"/api/notify/reminders/{tomorrow['id']}/done").status_code == 404
+    # Ticked off already: a second Done is not a failure the person has to read.
+    again = client.post(f"/api/notify/reminders/{tomorrow['id']}/done").json()
+    assert again == {"ok": True, "already": True}
+    assert client.post("/api/notify/reminders/nope/done").status_code == 404
     assert client.post("/api/notify/reminders/nope/snooze", json={}).status_code == 404
     bad = client.post(f"/api/notify/reminders/{row['id']}/snooze", json={"until": "whenever"})
     assert bad.status_code == 400
+
+
+def test_done_on_an_appointment_that_already_ended(client: TestClient) -> None:
+    """A calendar appointment leaves the current set when it ends; Done after that still holds."""
+    vault = vault_runtime.active()
+    assert vault is not None
+    result = vault.remember(
+        "Appointment: Busy",
+        "ephemeral",
+        origin="imported",
+        source={"via": "calendar", "event_id": "e1"},
+        valid_to="2026-11-10T09:00:00+00:00",
+        due_at="2026-11-10T08:45:00+00:00",
+    )
+    response = client.post(f"/api/notify/reminders/{result.memory.id}/done")
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "already": True}
 
 
 def test_capture_splits_a_dump(client: TestClient) -> None:

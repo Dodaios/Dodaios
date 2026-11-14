@@ -11451,7 +11451,6 @@
   "reminders": {
     "due_title": "Lembrete",
     "done": "Feito",
-    "marked_done": "Feito",
     "snooze": "Adiar",
     "snooze_15": "15 min",
     "snooze_1h": "1 hora",
@@ -11602,6 +11601,7 @@
   },
   "rail_notice": {
     "title": "Precisa de você",
+    "reminder_detail": "Pendente desde {when}",
     "more": "mais {count}",
     "and_more": "e mais {count}",
     "an_agent": "Um agente",

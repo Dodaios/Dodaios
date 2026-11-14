@@ -21,7 +21,18 @@ export function isBackgroundNotice(item: TimelineItem): boolean {
     && item.status !== "" && item.status !== "done";
 }
 
-/** `items` without the background notices; the same array when it holds none. */
+/**
+ * Notice kinds the app draws beside the chat instead of in it. A reminder
+ * that came due waits on the rail (`components/layout/dueReminders.ts`) until
+ * it is ticked off or snoozed. The phone keeps it: it has no rail.
+ */
+const RAIL_KINDS = new Set(["reminder_due"]);
+
+function notDrawnInChat(item: TimelineItem): boolean {
+  return isBackgroundNotice(item) || (item.type === "notice" && RAIL_KINDS.has(item.kind));
+}
+
+/** `items` without the background notices and those drawn on the rail; the same array when it holds none. */
 export function withoutBackgroundNotices(items: TimelineItem[]): TimelineItem[] {
-  return items.some(isBackgroundNotice) ? items.filter((item) => !isBackgroundNotice(item)) : items;
+  return items.some(notDrawnInChat) ? items.filter((item) => !notDrawnInChat(item)) : items;
 }

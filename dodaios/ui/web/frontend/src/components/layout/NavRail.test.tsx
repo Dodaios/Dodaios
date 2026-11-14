@@ -5,6 +5,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vi
 vi.mock("@/lib/bootStagger", () => ({ bootSettled: () => Promise.resolve() }));
 vi.mock("@/lib/openExternal", () => ({ openExternalUrl: vi.fn(async () => true) }));
 
+import { dueNow, useDueRemindersStore } from "@/components/layout/dueReminders";
 import { NavRail } from "@/components/layout/NavRail";
 import { railNotices } from "@/components/layout/railNotices";
 import { useStatusLightStore, type StatusLightData, type StatusRow } from "@/components/layout/statusLightStore";
@@ -29,7 +30,14 @@ const PANE: StatusRow = {
   link: { section: "agentic-ide", workspace_id: "w1", pane: "T2" },
 };
 
+type Reminder = { id: string; text: string; due_at: string; kind: string; reminder: boolean; overdue: boolean; delivered: boolean };
+
+function reminder(id: string, text: string, extra: Partial<Reminder> = {}): Reminder {
+  return { id, text, due_at: "2026-11-14T07:45:00Z", kind: "ephemeral", reminder: true, overdue: true, delivered: true, ...extra };
+}
+
 let plugins: Plugin[] = [];
+let reminders: Reminder[] = [];
 let calls: string[] = [];
 /** What a notice told an agent's chat: the credential request and the value sent. */
 let reported: string[] = [];
@@ -50,6 +58,18 @@ function backend(light: StatusLightData | null = null) {
       return json({ flow_id: "", kind: "local", open_url: null });
     }
     if (url === "/api/marketplace/plugins") return json({ plugins });
+    if (url.startsWith("/api/notify/reminders?")) return json({ items: reminders });
+    const done = /^\/api\/notify\/reminders\/([^/]+)\/done$/.exec(url);
+    if (done) {
+      reminders = reminders.filter((row) => row.id !== decodeURIComponent(done[1]));
+      return json({ ok: true });
+    }
+    const snoozed = /^\/api\/notify\/reminders\/([^/]+)\/snooze$/.exec(url);
+    if (snoozed) {
+      const row = reminders.find((r) => r.id === decodeURIComponent(snoozed[1]));
+      reminders = reminders.filter((r) => r !== row);
+      return json({ ...row, id: "mem_new", due_at: "2026-11-14T09:00:00Z", overdue: false, delivered: false });
+    }
     return new Response("gone", { status: 404 });
   });
 }
@@ -64,9 +84,11 @@ beforeAll(async () => { await import("@/components/layout/RailNoticeTiles"); });
 
 beforeEach(() => {
   plugins = [];
+  reminders = [];
   calls = [];
   reported = [];
   useStatusLightStore.setState({ light: null, error: false });
+  useDueRemindersStore.setState({ items: [] });
   useEventStore.setState({ activeSection: "chats", toasts: [] });
   vi.stubGlobal("fetch", backend());
 });
@@ -344,6 +366,56 @@ describe("NavRail", () => {
   });
 });
 
+describe("NavRail reminders", () => {
+  test("a reminder that came due shows as a bell tile; its card ticks it off and the tile leaves", async () => {
+    reminders = [reminder("mem_1", "Call the dentist")];
+    renderRail();
+    const tile = await screen.findByTestId("rail-notice");
+    expect(tile.dataset.ask).toBe("due");
+    expect(tile.dataset.key).toBe("reminder:mem_1");
+    expect(tile.getAttribute("aria-label")).toContain("Call the dentist");
+    // A click on the tile opens the card; it never ticks the reminder off by itself.
+    fireEvent.click(tile);
+    expect(calls.some((url) => url.endsWith("/done"))).toBe(false);
+    fireEvent.click(await screen.findByTestId("rail-reminder-done"));
+    await waitFor(() => expect(screen.queryByTestId("rail-notice")).toBeNull());
+    expect(calls).toContain("/api/notify/reminders/mem_1/done");
+  });
+
+  test("a snooze takes the tile away and says when the reminder comes back", async () => {
+    reminders = [reminder("mem_2", "Take the pizza out")];
+    renderRail();
+    fireEvent.click(await screen.findByTestId("rail-notice"));
+    fireEvent.click((await screen.findAllByTestId("rail-reminder-snooze"))[0]);
+    await waitFor(() => expect(screen.queryByTestId("rail-notice")).toBeNull());
+    expect(calls).toContain("/api/notify/reminders/mem_2/snooze");
+    expect(useEventStore.getState().toasts.some((toast) => toast.message.startsWith("Snoozed until"))).toBe(true);
+  });
+
+  test("a failed Done keeps the tile and says so", async () => {
+    reminders = [reminder("mem_3", "Pay the rent")];
+    const answer = backend();
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).endsWith("/done") ? new Response("{}", { status: 500 }) : answer(input, init)));
+    renderRail();
+    fireEvent.click(await screen.findByTestId("rail-notice"));
+    fireEvent.click(await screen.findByTestId("rail-reminder-done"));
+    await waitFor(() => expect(useEventStore.getState().toasts.some((toast) => toast.kind === "error")).toBe(true));
+    expect(screen.getByTestId("rail-notice")).toBeTruthy();
+  });
+});
+
+describe("dueNow", () => {
+  test("keeps only what is past its time and already told", () => {
+    const rows = [
+      reminder("a", "told"),
+      reminder("b", "not yet told", { delivered: false }),
+      reminder("c", "later today", { overdue: false }),
+    ];
+    expect(dueNow(rows).map((row) => row.id)).toEqual(["a"]);
+  });
+});
+
 describe("railNotices", () => {
   const t = (key: string) => translate(key);
 
@@ -361,6 +433,20 @@ describe("railNotices", () => {
     expect(notices.map((notice) => notice.tone)).toEqual(["needs", "needs", "trouble", "trouble"]);
     expect(notices[1].title).toBe("Scout needs a login or a key");
     expect(notices[3].title).toBe("OpenAI: login or key rejected");
+  });
+
+  test("a due reminder stands after who waits for an answer and before an ended connection", () => {
+    const notices = railNotices(
+      { ...QUIET, needs_you: [PANE] },
+      [{ id: "gmail", name: "Gmail", status: "needs_reauth", reauthAt: null }],
+      t,
+      [reminder("m1", "Call the dentist"), reminder("m2", "Appointment: Team", { reminder: false })],
+    );
+    expect(notices.map((notice) => notice.key)).toEqual(["pane:pane:1", "reminder:m1", "reminder:m2", "plugin:gmail"]);
+    expect(notices[1]).toMatchObject({ ask: "due", tone: "needs", title: "Call the dentist", mark: { type: "glyph", glyph: "reminder" } });
+    expect(notices[1].detail).toMatch(/^Due since /);
+    // A calendar appointment the scheduler told shows a calendar, not the bell.
+    expect(notices[2].mark).toEqual({ type: "glyph", glyph: "appointment" });
   });
 
   test("a card without a named agent still reads as a sentence", () => {

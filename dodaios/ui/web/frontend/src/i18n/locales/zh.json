@@ -11451,7 +11451,6 @@
   "reminders": {
     "due_title": "提醒",
     "done": "完成",
-    "marked_done": "已完成",
     "snooze": "稍后",
     "snooze_15": "15 分钟",
     "snooze_1h": "1 小时",
@@ -11602,6 +11601,7 @@
   },
   "rail_notice": {
     "title": "需要你处理",
+    "reminder_detail": "自 {when} 起到期",
     "more": "还有 {count} 项",
     "and_more": "另有 {count} 项",
     "an_agent": "一个智能体",

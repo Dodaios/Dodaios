@@ -11451,7 +11451,6 @@
   "reminders": {
     "due_title": "Erinnerung",
     "done": "Erledigt",
-    "marked_done": "Erledigt",
     "snooze": "Später",
     "snooze_15": "15 Min.",
     "snooze_1h": "1 Stunde",
@@ -11602,6 +11601,7 @@
   },
   "rail_notice": {
     "title": "Braucht dich",
+    "reminder_detail": "Fällig seit {when}",
     "more": "{count} weitere",
     "and_more": "und {count} weitere",
     "an_agent": "Ein Agent",
