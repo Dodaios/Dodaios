@@ -50,17 +50,21 @@ export function DesignBackdrop({ background, dark, contained = false, still = fa
     () => background.colors.map((c) => tune(c, dark, style)),
     [background.colors, dark, style],
   );
-  const stars = useMemo(() => {
+  // Three layers of stars, each drawn once as the shadows of one point and
+  // faded as a whole: a few animated layers instead of one per star.
+  const starLayers = useMemo(() => {
     if (style !== "stars") return [];
     const rand = seeded(7);
-    return Array.from({ length: contained ? 26 : 110 }, (_, i) => ({
-      left: `${(rand() * 100).toFixed(2)}%`,
-      top: `${(rand() * 100).toFixed(2)}%`,
-      size: 1 + rand() * (contained ? 1.5 : 2.2),
-      delay: `${(-rand() * 6).toFixed(2)}s`,
-      duration: `${(3 + rand() * 4).toFixed(2)}s`,
-      color: colors[i % Math.max(1, colors.length)] ?? "white",
-    }));
+    const perLayer = contained ? 9 : 40;
+    return [0, 1, 2].map((layer) =>
+      Array.from({ length: perLayer }, (_, i) => {
+        const x = (rand() * 100).toFixed(2);
+        const y = (rand() * 100).toFixed(2);
+        const size = (0.4 + rand() * (contained ? 0.6 : 1)).toFixed(2);
+        const color = colors[(i + layer) % Math.max(1, colors.length)] ?? "white";
+        return `${x}cqw ${y}cqh ${(Number(size) * 3).toFixed(1)}px ${size}px ${color}`;
+      }).join(", "),
+    );
   }, [style, colors, contained]);
 
   if (style === "none" || colors.length === 0 || strength <= 0) return null;
@@ -107,21 +111,8 @@ export function DesignBackdrop({ background, dark, contained = false, still = fa
         />
       )}
       {style === "stars" &&
-        stars.map((star, i) => (
-          <span
-            key={i}
-            className="design-star"
-            style={{
-              left: star.left,
-              top: star.top,
-              width: star.size,
-              height: star.size,
-              background: star.color,
-              boxShadow: `0 0 ${star.size * 3}px ${star.color}`,
-              animationDelay: star.delay,
-              animationDuration: `calc(${star.duration} * var(--design-speed, 1))`,
-            }}
-          />
+        starLayers.map((shadow, i) => (
+          <span key={i} className={`design-stars design-stars-${i}`} style={{ boxShadow: shadow }} />
         ))}
     </div>
   );

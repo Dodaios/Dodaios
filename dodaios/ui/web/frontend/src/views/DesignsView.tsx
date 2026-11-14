@@ -37,20 +37,18 @@ export function DesignsView() {
   const [sending, setSending] = useState(false);
   const [pendingSince, setPendingSince] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const knownIds = useRef<Set<string>>(new Set());
+  // What the list looked like when the description went out; any change by
+  // Dodaios (a new design, a changed one, a switch) ends the wait.
+  const sentAt = useRef("");
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  // A new design of the person's own arriving ends the wait.
+  const signature = `${active}|${designs.map((d) => `${d.id}:${d.updated_at}`).join(",")}`;
   useEffect(() => {
-    const ids = new Set(designs.map((d) => d.id));
-    if (pendingSince !== null && designs.some((d) => !d.builtin && !knownIds.current.has(d.id))) {
-      setPendingSince(null);
-    }
-    if (pendingSince === null) knownIds.current = ids;
-  }, [designs, pendingSince]);
+    if (pendingSince !== null && signature !== sentAt.current) setPendingSince(null);
+  }, [signature, pendingSince]);
 
   useEffect(() => {
     if (pendingSince === null) return;
@@ -84,7 +82,7 @@ export function DesignsView() {
     try {
       const session = await fetchLeadSession();
       await sendAgentChatMessage(session.session_id, t("designs.ask.request").replace("{0}", () => text));
-      knownIds.current = new Set(designs.map((d) => d.id));
+      sentAt.current = signature;
       setPendingSince(Date.now());
       setPrompt("");
       pushToast("success", t("designs.ask.sent"));

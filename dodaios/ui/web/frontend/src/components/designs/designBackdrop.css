@@ -119,17 +119,29 @@
   to { transform: rotate(360deg); }
 }
 
-/* --- stars: small points that twinkle ----------------------------------- */
-.design-backdrop > .design-star {
+/* --- stars: three layers of points, each layer twinkling as a whole ------
+   Every star is a shadow of one 1 px point, placed in container units so the
+   same list fills the window and a preview card alike. */
+.design-backdrop {
+  container-type: size;
+}
+.design-backdrop > .design-stars {
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
   border-radius: 50%;
   will-change: opacity;
   animation-name: design-twinkle;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
 }
+.design-stars-0 { animation-duration: calc(4.2s * var(--design-speed, 1)); }
+.design-stars-1 { animation-duration: calc(5.6s * var(--design-speed, 1)); animation-delay: calc(-1.9s * var(--design-speed, 1)); }
+.design-stars-2 { animation-duration: calc(7.1s * var(--design-speed, 1)); animation-delay: calc(-3.4s * var(--design-speed, 1)); }
 
 @keyframes design-twinkle {
-  0%, 100% { opacity: 0.25; }
+  0%, 100% { opacity: 0.3; }
   50% { opacity: 1; }
 }
 
