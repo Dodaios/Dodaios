@@ -21,8 +21,12 @@ export interface TypeaheadItem {
   hint: string;
   /** skill | command | agent | file | folder */
   kind: string;
-  /** project | account | plugins | jarvis | agents | teammates | files | tool:<category> */
+  /** cli | project | account | plugins | jarvis | agents | teammates | files | tool:<category> */
   group: string;
+  /** What a command takes after its name, in the CLI's own words (`[on|off]`). */
+  argument_hint?: string;
+  /** Other names the CLI accepts for the same command (`/cost` for `/usage`). */
+  aliases?: string[];
   /** A plugin or tool from the composer's catalog: the pick becomes its chip. */
   choice?: ToolChoice;
 }
@@ -85,7 +89,14 @@ export function applyPick(
   return { text: next, caret: token.start + inserted.length };
 }
 
-/** A prefix match on the value or the label first, then a substring, then the hint. */
+/**
+ * A name that starts with the query first, then an alias that does, then a
+ * name that contains it, then a description that does.
+ *
+ * Short queries stay strict, the way a CLI's own list does: one letter matches
+ * the start of a name only, and a description counts from three letters up,
+ * because two letters sit inside almost every description.
+ */
 export function filterItems(items: readonly TypeaheadItem[], query: string): TypeaheadItem[] {
   const q = query.trim().toLowerCase();
   if (!q) return [...items];
@@ -95,13 +106,88 @@ export function filterItems(items: readonly TypeaheadItem[], query: string): Typ
     const label = item.label.toLowerCase();
     let score: number;
     if (value.startsWith(q) || label.startsWith(q)) score = 0;
-    else if (value.includes(q) || label.includes(q)) score = 1;
-    else if (item.hint.toLowerCase().includes(q)) score = 2;
+    else if (item.aliases?.some((alias) => alias.toLowerCase().startsWith(q))) score = 1;
+    else if (q.length < 2) return;
+    else if (value.includes(q) || label.includes(q)) score = 2;
+    else if (q.length >= 3 && item.hint.toLowerCase().includes(q)) score = 3;
     else return;
     ranked.push({ score, index, item });
   });
   ranked.sort((a, b) => a.score - b.score || a.index - b.index);
   return ranked.map((r) => r.item);
+}
+
+/** A stretch of the composer's text, in characters. */
+export interface TokenSpan {
+  start: number;
+  end: number;
+}
+
+/** What the seat is known to understand: these words are drawn in the command colour. */
+export interface KnownTokens {
+  /** The names and aliases of the seat's `/` list. */
+  slash: ReadonlySet<string>;
+  /** The names of the seat's `$` list. */
+  skills: ReadonlySet<string>;
+}
+
+/** The names a fetched `/` or `$` list answers to, lower-cased. */
+export function tokenNames(items: readonly TypeaheadItem[]): Set<string> {
+  const names = new Set<string>();
+  for (const item of items) {
+    names.add(item.value.toLowerCase());
+    for (const alias of item.aliases ?? []) names.add(alias.toLowerCase());
+  }
+  return names;
+}
+
+/**
+ * Paths and names picked from an `@` list. A picked one is a real file, folder
+ * or agent, so it keeps the command colour; a hand-typed `@word` is not checked
+ * against the disk and stays plain. Kept for the life of the page, so a draft
+ * that comes back after a thread switch still knows its mentions.
+ */
+const pickedMentions = new Set<string>();
+
+export function rememberMention(value: string): void {
+  if (value) pickedMentions.add(value);
+}
+
+const TRAILING_PUNCTUATION = /[.,;:!?)\]]+$/;
+
+/**
+ * The words of `text` the seat will act on: the slash command that opens the
+ * message, every `$skill` it knows and every picked `@mention`.
+ *
+ * Only a known name counts, as in a coding CLI: `/goal` turns blue, `/gaol`
+ * does not, which is how a typo shows before the message is sent. A slash
+ * counts only as the first thing of the message, the one place a CLI reads it.
+ */
+export function knownTokenSpans(
+  text: string,
+  triggers: readonly string[],
+  known: KnownTokens,
+): TokenSpan[] {
+  const spans: TokenSpan[] = [];
+  if (triggers.includes("/")) {
+    const command = /^(\s*)\/(\S+)/.exec(text);
+    if (command && known.slash.has(command[2].toLowerCase())) {
+      spans.push({ start: command[1].length, end: command[1].length + 1 + command[2].length });
+    }
+  }
+  const words = /(^|\s)([@$])(\S+)/g;
+  for (let match = words.exec(text); match; match = words.exec(text)) {
+    const trigger = match[2];
+    if (!triggers.includes(trigger)) continue;
+    const start = match.index + match[1].length;
+    const raw = match[3];
+    const bare = raw.replace(TRAILING_PUNCTUATION, "");
+    const name = [raw, bare].find((candidate) =>
+      trigger === "$" ? known.skills.has(candidate.toLowerCase()) : pickedMentions.has(candidate),
+    );
+    if (name) spans.push({ start, end: start + 1 + name.length });
+  }
+  return spans.sort((a, b) => a.start - b.start);
 }
 
 /**

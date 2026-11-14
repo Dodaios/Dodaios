@@ -69,7 +69,18 @@ news since it was last opened.
   mode — beside the paperclip and the send button. A new thread starts on the
   agent, model, effort and access the person picked last (else the newest
   thread's). Files and images go in by drop, paste or paperclip; `/` `@` `$`
-  open the typeahead where the CLI offers it. An approval or a question the
+  open the typeahead where the CLI offers it. On Claude Code and GLM the `/`
+  list is the one the CLI itself reports: its built-in commands (`/goal`,
+  `/compact`, `/context`, ...), the skills and the plugin commands, each with
+  its description, and the line under the list says what the highlighted one
+  takes after its name. A thread that has not run a turn asks the CLI for the
+  list (about a second, no model call, no session kept, no hook run); a turn
+  refreshes it as it runs. The message goes to the CLI as typed, so the
+  command runs there and its answer is the turn's answer. The list is plain,
+  like the CLI's own: one line per entry, no icons, files by their whole path.
+  In the text box a command the seat knows, a known `$skill` and a picked
+  `@file` are drawn in blue; a name the seat does not know stays plain, which
+  shows a typo before it is sent. An approval or a question the
   agent waits on opens at the top of the composer. A message sent while the
   turn is open goes into that turn on Claude Code and GLM, pictures included:
   while the agent works, and while it waits for its background tasks after

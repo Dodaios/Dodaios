@@ -6,6 +6,9 @@ import {
   filterItems,
   groupRuns,
   isStaticTrigger,
+  knownTokenSpans,
+  rememberMention,
+  tokenNames,
   type TypeaheadItem,
 } from "@/components/agentchat/typeahead";
 
@@ -83,6 +86,67 @@ describe("filterItems", () => {
     ];
     expect(filterItems(items, "commit").map((i) => i.value)).toEqual(["commit", "autocommit", "release"]);
     expect(filterItems(items, "").map((i) => i.value)).toEqual(["release", "autocommit", "commit", "deploy"]);
+  });
+});
+
+describe("filterItems on a CLI's command list", () => {
+  const commands: TypeaheadItem[] = [
+    { ...item("autocompact", "command", "cli", "Configure the window") },
+    { ...item("compact", "command", "cli", "Free up context") },
+    { ...item("skill-doctor", "command", "cli", "Skills costing context") },
+    { ...item("usage", "command", "cli", "Show session cost"), aliases: ["cost", "stats"] },
+  ];
+
+  it("finds a command by its alias, after the names that start with the query", () => {
+    expect(filterItems(commands, "co").map((i) => i.value)).toEqual(["compact", "usage", "autocompact"]);
+    expect(filterItems(commands, "stats").map((i) => i.value)).toEqual(["usage"]);
+  });
+
+  it("keeps a short query strict: one letter is a first letter, a description counts from three", () => {
+    expect(filterItems(commands, "c").map((i) => i.value)).toEqual(["compact", "usage"]);
+    expect(filterItems(commands, "sk").map((i) => i.value)).toEqual(["skill-doctor"]);
+    expect(filterItems(commands, "cost").map((i) => i.value)).toEqual(["usage", "skill-doctor"]);
+  });
+});
+
+describe("knownTokenSpans", () => {
+  const known = {
+    slash: tokenNames([{ ...item("goal", "command", "cli"), aliases: [] }, { ...item("usage"), aliases: ["cost"] }]),
+    skills: tokenNames([item("deploy")]),
+  };
+  const cut = (text: string, triggers: readonly string[] = ALL) =>
+    knownTokenSpans(text, triggers, known).map((span) => text.slice(span.start, span.end));
+
+  it("marks the command that opens the message, by name or alias", () => {
+    expect(cut("/goal ship the docs")).toEqual(["/goal"]);
+    expect(cut("  /cost")).toEqual(["/cost"]);
+    expect(cut("/GOAL now")).toEqual(["/GOAL"]);
+  });
+
+  it("leaves a name the seat does not know plain, so a typo shows before sending", () => {
+    expect(cut("/gaol ship the docs")).toEqual([]);
+    expect(cut("/goalpost")).toEqual([]);
+  });
+
+  it("reads a slash only as the first thing of the message", () => {
+    expect(cut("please /goal")).toEqual([]);
+    expect(cut("see src/goal and a/goal")).toEqual([]);
+  });
+
+  it("marks a known skill anywhere and a mention only once it was picked", () => {
+    expect(cut("run $deploy, then $nope")).toEqual(["$deploy"]);
+    expect(cut("read @src/app.py")).toEqual([]);
+    rememberMention("src/app.py");
+    expect(cut("read @src/app.py and @src/other.py")).toEqual(["@src/app.py"]);
+    // The full stop after a picked path is the sentence's, not the path's.
+    expect(cut("it is in @src/app.py.")).toEqual(["@src/app.py"]);
+    expect(cut("mail a@src/app.py")).toEqual([]);
+  });
+
+  it("marks nothing for a trigger the seat does not honour", () => {
+    rememberMention("src/app.py");
+    expect(cut("/goal with $deploy in @src/app.py", ["@"])).toEqual(["@src/app.py"]);
+    expect(cut("/goal with $deploy in @src/app.py", [])).toEqual([]);
   });
 });
 

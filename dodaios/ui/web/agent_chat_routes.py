@@ -725,16 +725,18 @@ async def get_typeahead(
     provider: str = "",
     cwd: str | None = None,
     q: str = Query("", max_length=200),
-    limit: int = Query(40, ge=1, le=200),
+    limit: int = Query(40, ge=1, le=1000),
     session_id: str = "",
 ) -> dict[str, Any]:
     """What the composer lists after ``/``, ``@`` or ``$`` on one seat.
 
     The seat is (surface, provider) resolved to its runner exactly as a turn
-    would be; the folder is the chat's. Rows are read from the disk that
-    runner reads (``dodaios.agent_chat.typeahead``) — the account's skills,
-    commands and plugins, the folder's own, or the files under it — and a
-    trigger the seat does not honour answers with an empty list.
+    would be; the folder is the chat's. A Claude Code seat's ``/`` rows are the
+    commands the CLI itself reports; the other rows are read from the disk the
+    runner reads (``dodaios.agent_chat.typeahead``) — skills, plugins, the
+    files under the folder — and a trigger the seat does not honour answers
+    with an empty list. The composer reads a ``/`` or ``$`` list whole and
+    filters it itself, hence the high ``limit``.
     """
     svc = (await _async_service(request))
     runner = resolve_runner(provider, surface=surface) if provider else "api"

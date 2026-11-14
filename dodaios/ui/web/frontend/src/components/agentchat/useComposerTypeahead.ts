@@ -8,8 +8,12 @@ import {
   applyPick,
   filterItems,
   isStaticTrigger,
+  knownTokenSpans,
+  rememberMention,
+  tokenNames,
   toolTypeaheadItems,
   type ActiveToken,
+  type TokenSpan,
   type TypeaheadItem,
 } from "@/components/agentchat/typeahead";
 
@@ -17,6 +21,8 @@ import {
 const MENTION_DEBOUNCE_MS = 120;
 /** One fetched `/` or `$` list stands this long before it is read again. */
 const STATIC_LIST_TTL_MS = 15_000;
+/** A `/` or `$` list is read whole and filtered here, however long the CLI's list is. */
+const STATIC_LIST_LIMIT = 1000;
 
 export interface ComposerTypeahead {
   open: boolean;
@@ -34,6 +40,11 @@ export interface ComposerTypeahead {
   close: () => void;
   /** Focus left the box: hide the list; it comes back with the next caret move. */
   blur: () => void;
+  /**
+   * The words of a text this seat will act on (its slash command, its skills,
+   * picked mentions); the text box draws them in the command colour.
+   */
+  tokenSpans: (text: string) => TokenSpan[];
 }
 
 interface Seat {
@@ -73,7 +84,9 @@ async function jarvisMentions(seat: Seat, query: string, signal: AbortSignal): P
  * (`typeahead.ts`), the list for that trigger is shown, filtered by what was
  * typed after it. `/` and `$` lists are read once per seat and folder and
  * filtered here; `@` asks the backend per keystroke, because the folder's
- * file list is too large to ship. On the Jarvis surface `@` also reads the
+ * file list is too large to ship. The same `/` and `$` lists say which words
+ * of the draft are real commands (`tokenSpans`), so a draft that already holds
+ * one reads its list without waiting for the caret. On the Jarvis surface `@` also reads the
  * tool catalog, and picking a tool writes its chip, not a bare word. Escape dismisses the list for THIS token
  * only — a `/` typed on purpose as text must not keep re-opening, and the
  * next token opens as usual.
@@ -91,6 +104,9 @@ export function useComposerTypeahead(
   const [activeIndex, setActiveIndex] = useState(0);
   const dismissedStart = useRef<number | null>(null);
   const staticCache = useRef(new Map<string, { at: number; items: TypeaheadItem[] }>());
+  const staticInflight = useRef(new Map<string, Promise<TypeaheadItem[]>>());
+  /** The `/` and `$` lists read so far, by `trigger|seat` (what `tokenSpans` knows). */
+  const [staticLists, setStaticLists] = useState<Record<string, TypeaheadItem[]>>({});
   const abortRef = useRef<AbortController | null>(null);
   const seatRef = useRef(seat);
   seatRef.current = seat;
@@ -127,6 +143,32 @@ export function useComposerTypeahead(
   const trigger = token?.trigger ?? null;
   const query = token?.query ?? "";
 
+  /** One seat's whole `/` or `$` list: the cached one while it is fresh, else one request. */
+  const readStatic = useCallback((wanted: Seat, staticTrigger: string, key: string): Promise<TypeaheadItem[]> => {
+    const cached = staticCache.current.get(key);
+    if (cached && Date.now() - cached.at < STATIC_LIST_TTL_MS) return Promise.resolve(cached.items);
+    const running = staticInflight.current.get(key);
+    if (running) return running;
+    const request = fetchTypeahead({
+      surface: wanted.surface,
+      provider: wanted.provider,
+      cwd: wanted.cwd,
+      trigger: staticTrigger,
+      q: "",
+      limit: STATIC_LIST_LIMIT,
+    })
+      .then((res) => {
+        staticCache.current.set(key, { at: Date.now(), items: res.items });
+        setStaticLists((prev) => (prev[key] === res.items ? prev : { ...prev, [key]: res.items }));
+        return res.items;
+      })
+      .finally(() => {
+        staticInflight.current.delete(key);
+      });
+    staticInflight.current.set(key, request);
+    return request;
+  }, []);
+
   useEffect(() => {
     if (!trigger) {
       abortRef.current?.abort();
@@ -149,23 +191,17 @@ export function useComposerTypeahead(
     setLoading(true);
     const timer = window.setTimeout(
       () => {
-        const request: Promise<TypeaheadItem[]> =
-          wanted.surface === "jarvis" && trigger === "@"
+        const request: Promise<TypeaheadItem[]> = isStaticTrigger(trigger)
+          ? readStatic(wanted, trigger, key)
+          : wanted.surface === "jarvis" && trigger === "@"
             ? jarvisMentions(wanted, query, controller.signal)
             : fetchTypeahead(
-                {
-                  surface: wanted.surface,
-                  provider: wanted.provider,
-                  cwd: wanted.cwd,
-                  trigger,
-                  q: isStaticTrigger(trigger) ? "" : query,
-                },
+                { surface: wanted.surface, provider: wanted.provider, cwd: wanted.cwd, trigger, q: query },
                 controller.signal,
               ).then((res) => res.items);
         request
           .then((rows) => {
             if (controller.signal.aborted) return;
-            if (isStaticTrigger(trigger)) staticCache.current.set(key, { at: Date.now(), items: rows });
             setRawItems(rows);
             setLoading(false);
           })
@@ -183,7 +219,33 @@ export function useComposerTypeahead(
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [trigger, query, seatKey]);
+  }, [trigger, query, seatKey, readStatic]);
+
+  // A draft that already opens with a command (restored after a thread
+  // switch, dictated, pasted) reads the list too, so the command is known
+  // without the caret ever sitting in it.
+  const opensWithSlash = seat.triggers.includes("/") && /^\s*\/\S/.test(value);
+  const namesSkill = seat.triggers.includes("$") && /(^|\s)\$\S/.test(value);
+  useEffect(() => {
+    const wanted = seatRef.current;
+    for (const [needed, staticTrigger] of [[opensWithSlash, "/"], [namesSkill, "$"]] as const) {
+      if (!needed) continue;
+      // A failed read leaves the word uncoloured; the next keystroke asks again.
+      readStatic(wanted, staticTrigger, `${staticTrigger}|${seatKey}`).catch(() => undefined);
+    }
+  }, [opensWithSlash, namesSkill, seatKey, readStatic]);
+
+  const slashList = staticLists[`/|${seatKey}`];
+  const skillList = staticLists[`$|${seatKey}`];
+  const known = useMemo(
+    () => ({ slash: tokenNames(slashList ?? []), skills: tokenNames(skillList ?? []) }),
+    [slashList, skillList],
+  );
+  const triggers = seat.triggers;
+  const tokenSpans = useCallback(
+    (text: string) => knownTokenSpans(text, triggers, known),
+    [triggers, known],
+  );
 
   const items = useMemo(
     () => (trigger && isStaticTrigger(trigger) ? filterItems(rawItems, query) : rawItems),
@@ -210,6 +272,8 @@ export function useComposerTypeahead(
       const box = textareaRef.current;
       const field = fieldRef?.current;
       if (!token) return;
+      // A picked file, folder or name is a real one: it keeps the command colour.
+      if (token.trigger === "@" && !item.choice) rememberMention(item.value);
       const applied = applyPick(field?.getDraft().text ?? box?.value ?? value, token, item);
       setValue(applied.text);
       // A catalog tool joins the draft's choices, so hydrating turns its
@@ -286,5 +350,6 @@ export function useComposerTypeahead(
     pick,
     close,
     blur,
+    tokenSpans,
   };
 }

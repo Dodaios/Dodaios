@@ -1054,6 +1054,7 @@
     "typeahead_group_project": "Nesta pasta",
     "typeahead_group_account": "A tua conta",
     "typeahead_group_plugins": "Plugins",
+    "typeahead_group_cli": "Comandos",
     "typeahead_group_jarvis": "Skills do Dodaios",
     "typeahead_group_agents": "Subagentes",
     "typeahead_group_files": "Ficheiros e pastas",

@@ -1,6 +1,5 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { Bot, FileText, Folder, Sparkles, TerminalSquare } from "lucide-react";
 
 import { groupRuns, type TypeaheadItem } from "@/components/agentchat/typeahead";
 import { ToolChoiceIcon } from "@/components/agentchat/ToolChoiceChips";
@@ -14,9 +13,17 @@ const PANEL_MAX_HEIGHT = 320;
 const VIEWPORT_MARGIN = 8;
 
 /**
- * The list over the composer — what `/`, `@` or `$` offers, one row per
- * item, grouped by where it came from (this folder, the account, a plugin,
- * Jarvis' registry, the subagents, the files).
+ * The list over the composer: what `/`, `@` or `$` offers on this seat.
+ *
+ * It reads like the list a coding CLI shows in its terminal, because for a
+ * coding thread it IS that list: one line per entry, the name in a fixed
+ * column of monospace type, the description beside it, nothing else. No icon
+ * per kind and, in a coding thread, no headings. A file shows its whole path
+ * with the folder part held back. The highlighted entry takes the command
+ * colour, and the line under the list says what it takes after its name.
+ *
+ * The assistant's and the agents' own chats (`grouped`) keep their headings
+ * and the faces of the things they name: an agent's swatch, a plugin's mark.
  *
  * Drawn above the card, portalled and fixed like the Combobox panel, so the
  * page's scroll columns cannot clip it. The highlighted row follows the
@@ -27,6 +34,7 @@ const VIEWPORT_MARGIN = 8;
 export function ComposerTypeahead({
   anchorRef,
   open,
+  grouped = false,
   trigger,
   items,
   loading,
@@ -36,6 +44,8 @@ export function ComposerTypeahead({
 }: {
   anchorRef: RefObject<HTMLElement | null>;
   open: boolean;
+  /** Head each run of one group with its name (the assistant's and the agents' chats). */
+  grouped?: boolean;
   trigger: string | null;
   items: TypeaheadItem[];
   loading: boolean;
@@ -85,17 +95,14 @@ export function ComposerTypeahead({
 
   if (!open || !position || !trigger) return null;
 
-  const runs = groupRuns(items);
+  const runs = grouped ? groupRuns(items) : [{ group: "", items }];
+  const usage = items[activeIndex]?.argument_hint ? items[activeIndex] : null;
   let runningIndex = 0;
 
   return createPortal(
     <div
       data-testid="composer-typeahead"
       data-trigger={trigger}
-      role="listbox"
-      id={listId}
-      aria-label={t("agent_chat.typeahead_label")}
-      ref={listRef}
       style={{
         left: position.left,
         bottom: position.bottom,
@@ -103,79 +110,142 @@ export function ComposerTypeahead({
         maxHeight: position.maxHeight,
       }}
       onMouseDown={(ev) => ev.preventDefault()}
-      className="fixed z-[70] flex flex-col overflow-y-auto rounded-xl border border-primary/25 bg-popover p-1 text-sm shadow-[0_22px_55px_-16px_rgb(var(--scrim-rgb)/0.7),inset_0_1px_0_hsl(var(--foreground)/0.05)] backdrop-blur-xl"
+      className="fixed z-[70] flex flex-col overflow-hidden rounded-lg border border-border-strong bg-popover text-sm text-foreground shadow-float"
     >
-      {items.length === 0 ? (
-        <div className="px-3 py-2 text-xs text-muted-foreground" data-testid="composer-typeahead-empty">
-          {loading ? t("agent_chat.typeahead_loading") : t("agent_chat.typeahead_empty")}
-        </div>
-      ) : (
-        runs.map((run) => (
-          <div key={`${run.group}-${runningIndex}`} role="group" aria-label={groupLabel(run.group, t)}>
-            <div className="px-2 pb-0.5 pt-1.5 text-micro font-semibold text-muted-foreground">
-              {groupLabel(run.group, t)}
-            </div>
-            {run.items.map((item) => {
-              const index = runningIndex;
-              runningIndex += 1;
-              const active = index === activeIndex;
-              const Icon = kindIcon(item.kind);
-              // A named thing (an agent, a plugin) reads by its name first,
-              // the way the agents' own picker shows it; a file or a command
-              // keeps the terse `@value` row.
-              const teammate = item.group === "teammates";
-              const named = Boolean(item.choice) || teammate || (item.kind === "agent" && item.label !== item.value);
-              return (
-                <div
-                  key={`${item.group}:${item.value}`}
-                  role="option"
-                  aria-selected={active}
-                  data-index={index}
-                  data-testid="composer-typeahead-item"
-                  onMouseEnter={() => onHover(index)}
-                  onClick={() => onPick(item)}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5",
-                    active ? "bg-primary/15 text-foreground" : "text-foreground",
-                  )}
-                >
-                  {teammate ? (
-                    <TeammateAvatar name={item.label} />
-                  ) : item.choice ? (
-                    <span className="tool-identity inline-flex shrink-0" style={toolIdentityStyle(item.choice)} aria-hidden>
-                      <ToolChoiceIcon row={item.choice} size={16} />
-                    </span>
-                  ) : (
-                    <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                  )}
-                  {named ? (
-                    <span className="flex min-w-0 flex-1 items-baseline gap-2">
-                      <span className="shrink-0 font-medium">{item.label}</span>
-                      <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                        {trigger}
-                        {item.value}
-                      </span>
-                      {item.hint && <span className="min-w-0 truncate text-xs text-muted-foreground">{item.hint}</span>}
-                    </span>
-                  ) : (
-                    <>
-                      <span className="shrink-0 font-mono text-meta">
-                        <span className="text-muted-foreground">{trigger}</span>
-                        {item.value}
-                      </span>
-                      {item.hint && (
-                        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{item.hint}</span>
-                      )}
-                    </>
-                  )}
-                </div>
-              );
-            })}
+      <div
+        role="listbox"
+        id={listId}
+        aria-label={t("agent_chat.typeahead_label")}
+        ref={listRef}
+        // One grid for the whole list, so every description starts at the
+        // same column (each row is a subgrid of it). The names take the room
+        // the longest one needs, up to two fifths of the list.
+        className="grid min-h-0 flex-1 grid-cols-[fit-content(40%)_minmax(0,1fr)] content-start gap-x-4 overflow-y-auto p-1"
+      >
+        {items.length === 0 ? (
+          <div className="col-span-2 px-2 py-1.5 text-xs text-muted-foreground" data-testid="composer-typeahead-empty">
+            {loading ? t("agent_chat.typeahead_loading") : t("agent_chat.typeahead_empty")}
           </div>
-        ))
+        ) : (
+          runs.map((run, runIndex) => (
+            <div
+              key={`${run.group}-${runIndex}`}
+              role="group"
+              aria-label={grouped ? groupLabel(run.group, t) : undefined}
+              className="col-span-2 grid grid-cols-subgrid"
+            >
+              {grouped && (
+                <div className="col-span-2 px-2 pb-0.5 pt-1.5 text-micro font-semibold text-muted-foreground">
+                  {groupLabel(run.group, t)}
+                </div>
+              )}
+              {run.items.map((item) => {
+                const index = runningIndex;
+                runningIndex += 1;
+                const active = index === activeIndex;
+                return (
+                  <div
+                    key={`${item.group}:${item.value}`}
+                    role="option"
+                    aria-selected={active}
+                    data-index={index}
+                    data-kind={item.kind}
+                    data-testid="composer-typeahead-item"
+                    onMouseEnter={() => onHover(index)}
+                    onClick={() => onPick(item)}
+                    className={cn(
+                      "col-span-2 grid cursor-pointer grid-cols-subgrid items-baseline rounded-md px-2 py-1",
+                      active && "bg-secondary",
+                    )}
+                  >
+                    <Row item={item} trigger={trigger} active={active} />
+                  </div>
+                );
+              })}
+            </div>
+          ))
+        )}
+      </div>
+      {usage && (
+        <div
+          data-testid="composer-typeahead-usage"
+          className="shrink-0 truncate border-t border-border px-3 py-1.5 font-mono text-xs text-muted-foreground"
+        >
+          <span className="text-foreground">
+            {trigger}
+            {usage.value}
+          </span>{" "}
+          {usage.argument_hint}
+        </div>
       )}
     </div>,
     document.body,
+  );
+}
+
+/** The two cells of one row: the name column, then what there is to say about it. */
+function Row({ item, trigger, active }: { item: TypeaheadItem; trigger: string; active: boolean }) {
+  // A plugin or tool of the assistant's catalog, or one of the user's agents:
+  // a named thing, shown with its own face and read by its name first.
+  const teammate = item.group === "teammates";
+  if (item.choice || teammate) {
+    return (
+      <span className="col-span-2 flex min-w-0 items-center gap-2">
+        {teammate ? (
+          <TeammateAvatar name={item.label} />
+        ) : (
+          <span className="tool-identity inline-flex shrink-0" style={toolIdentityStyle(item.choice!)} aria-hidden>
+            <ToolChoiceIcon row={item.choice!} size={16} />
+          </span>
+        )}
+        <span className="shrink-0 font-medium">{item.label}</span>
+        <Name trigger={trigger} active={active} className="shrink-0 text-xs">
+          {item.value}
+        </Name>
+        {item.hint && <span className="min-w-0 truncate text-xs text-muted-foreground">{item.hint}</span>}
+      </span>
+    );
+  }
+  if (item.kind === "file" || item.kind === "folder") {
+    // The whole path on one line; when it is too long the folder part gives
+    // way and the file's own name stays readable.
+    const path = item.value;
+    const cut = path.replace(/\/$/, "").lastIndexOf("/") + 1;
+    return (
+      <span className="col-span-2 flex min-w-0 font-mono text-meta">
+        <span className={cn("shrink-0", active ? "text-info" : "text-muted-foreground")}>{trigger}</span>
+        <span className="min-w-0 truncate text-muted-foreground">{path.slice(0, cut)}</span>
+        <span className={cn("shrink-0", active && "text-info")}>{path.slice(cut)}</span>
+      </span>
+    );
+  }
+  return (
+    <>
+      <Name trigger={trigger} active={active} className="min-w-0 truncate text-meta">
+        {item.value}
+      </Name>
+      <span className="min-w-0 truncate text-xs text-muted-foreground">{item.hint}</span>
+    </>
+  );
+}
+
+/** `/goal`, `@reviewer`, `$deploy`: the word as it will stand in the message. */
+function Name({
+  trigger,
+  active,
+  className,
+  children,
+}: {
+  trigger: string;
+  active: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <span className={cn("font-mono", active ? "text-info" : "text-foreground", className)}>
+      {trigger}
+      {children}
+    </span>
   );
 }
 
@@ -207,6 +277,8 @@ function groupLabel(group: string, t: (key: string) => string): string {
       return t("agent_chat.typeahead_group_account");
     case "plugins":
       return t("agent_chat.typeahead_group_plugins");
+    case "cli":
+      return t("agent_chat.typeahead_group_cli");
     case "jarvis":
       return t("agent_chat.typeahead_group_jarvis");
     case "agents":
@@ -217,20 +289,5 @@ function groupLabel(group: string, t: (key: string) => string): string {
       return t("agent_chat.typeahead_group_files");
     default:
       return group;
-  }
-}
-
-function kindIcon(kind: string) {
-  switch (kind) {
-    case "skill":
-      return Sparkles;
-    case "command":
-      return TerminalSquare;
-    case "agent":
-      return Bot;
-    case "folder":
-      return Folder;
-    default:
-      return FileText;
   }
 }

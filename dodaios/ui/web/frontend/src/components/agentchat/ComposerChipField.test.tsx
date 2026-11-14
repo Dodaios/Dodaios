@@ -1,6 +1,6 @@
 import { createRef } from "react";
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
 
 import { ComposerChipField, type ComposerChipFieldHandle } from "./ComposerChipField";
 import type { ToolChoice } from "./toolChoices";
@@ -109,5 +109,86 @@ describe("ComposerChipField", () => {
     document.dispatchEvent(new Event("selectionchange"));
     expect(blank).not.toHaveBeenCalled();
     expect(assigned).toHaveBeenCalledWith(expect.objectContaining({ text: "Followup draft" }));
+  });
+});
+
+/**
+ * The words a seat acts on are painted with the CSS Custom Highlight API.
+ * jsdom has none, so a stand-in registry records what the field hands it.
+ */
+describe("ComposerChipField token colour", () => {
+  class FakeHighlight {
+    ranges: Range[];
+    constructor(...ranges: Range[]) {
+      this.ranges = ranges;
+    }
+  }
+  const registry = new Map<string, FakeHighlight>();
+  const painted = () => (registry.get("composer-token")?.ranges ?? []).map((range) => range.toString());
+  const slashOnly = (text: string) => (text.startsWith("/goal") ? [{ start: 0, end: 5 }] : []);
+
+  function withHighlightApi() {
+    registry.clear();
+    vi.stubGlobal("Highlight", FakeHighlight);
+    vi.stubGlobal("CSS", { highlights: registry });
+  }
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it("paints the stretches it is given and clears them when the text changes", () => {
+    withHighlightApi();
+    const handle = createRef<ComposerChipFieldHandle>();
+    render(
+      <ComposerChipField ref={handle} placeholder="Message" onSubmit={() => {}} onDraftChange={() => {}} tokenSpans={slashOnly} />,
+    );
+    handle.current?.setText("/goal ship it");
+    expect(painted()).toEqual(["/goal"]);
+    // The text itself is untouched: no wrapper element, one plain text node.
+    const field = screen.getByTestId("composer-chip-field");
+    expect(field.children).toHaveLength(0);
+    expect(handle.current?.getDraft().text).toBe("/goal ship it");
+
+    handle.current?.setText("ship it");
+    expect(registry.has("composer-token")).toBe(false);
+  });
+
+  it("counts a chip as its @tag, so a word after a chip is painted in the right place", () => {
+    withHighlightApi();
+    const handle = createRef<ComposerChipFieldHandle>();
+    const afterChip = (text: string) => {
+      const at = text.indexOf("$deploy");
+      return at < 0 ? [] : [{ start: at, end: at + 7 }];
+    };
+    render(
+      <ComposerChipField ref={handle} placeholder="Message" onSubmit={() => {}} onDraftChange={() => {}} tokenSpans={afterChip} />,
+    );
+    handle.current?.hydrate("ask @gmail then $deploy now", [gmail]);
+    expect(handle.current?.getDraft().text).toBe("ask @gmail then $deploy now");
+    expect(painted()).toEqual(["$deploy"]);
+  });
+
+  it("repaints when the seat's list arrives after the text, and lets go on unmount", () => {
+    withHighlightApi();
+    const handle = createRef<ComposerChipFieldHandle>();
+    const props = { ref: handle, placeholder: "Message", onSubmit: () => {}, onDraftChange: () => {} };
+    const view = render(<ComposerChipField {...props} tokenSpans={() => []} />);
+    handle.current?.setText("/goal ship it");
+    expect(painted()).toEqual([]);
+    view.rerender(<ComposerChipField {...props} tokenSpans={slashOnly} />);
+    expect(painted()).toEqual(["/goal"]);
+    view.unmount();
+    expect(registry.has("composer-token")).toBe(false);
+  });
+
+  it("works unpainted where the web view has no highlight API", () => {
+    const handle = createRef<ComposerChipFieldHandle>();
+    render(
+      <ComposerChipField ref={handle} placeholder="Message" onSubmit={() => {}} onDraftChange={() => {}} tokenSpans={slashOnly} />,
+    );
+    handle.current?.setText("/goal ship it");
+    expect(handle.current?.getDraft().text).toBe("/goal ship it");
   });
 });

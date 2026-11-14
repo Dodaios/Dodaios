@@ -707,6 +707,96 @@ def claude_control_init() -> str:
     )
 
 
+#: How long Claude Code gets to answer the handshake of a command-list probe.
+_CLAUDE_COMMANDS_TIMEOUT_S: Final[float] = 12.0
+
+
+def claude_reported_commands(obj: dict[str, Any]) -> list[Any] | None:
+    """The command list inside one line of Claude Code's stream, if it has one.
+
+    Three lines carry it: the answer to the control handshake (every command
+    with its description and argument hint), the ``system/init`` event of a
+    turn (names only) and ``system/commands_changed`` (the full list again,
+    sent when a skill or plugin appeared mid-session).
+    """
+    body: Any = obj
+    if obj.get("type") == "control_response":
+        inner = obj.get("response")
+        body = inner.get("response") if isinstance(inner, dict) else None
+    elif not (
+        obj.get("type") == "system" and obj.get("subtype") in ("init", "commands_changed")
+    ):
+        return None
+    if not isinstance(body, dict):
+        return None
+    for key in ("commands", "slash_commands"):
+        found = body.get(key)
+        if isinstance(found, list) and found:
+            return found
+    return None
+
+
+def read_claude_commands(runner: str, cwd: Path | str | None) -> list[Any] | None:
+    """The slash commands Claude Code itself lists in ``cwd``, asked without a turn.
+
+    The CLI answers the control handshake (``claude_control_init``) with every
+    command it accepts — its built-ins (``/goal``, ``/compact``, ...), the
+    skills and the plugin commands — each with a description and an argument
+    hint. Stdin ends right after the handshake: no message is sent, no model is
+    called, and the CLI exits. The probe keeps no session, starts no MCP server
+    and runs no hook, because it stands for a "/" typed in a thread, not for
+    work.
+
+    Blocking (about a second) — call it off the event loop. ``None`` when the
+    CLI is missing, the seat is not configured, or no list came back (an older
+    CLI that does not know one of the flags).
+    """
+    import subprocess
+
+    try:
+        if runner == "glm-cli":
+            env = _registry_env("glm", dict(os.environ))
+        else:
+            env = _account_env("claude")
+        argv = [
+            *claude_argv_prefix(),
+            "--print",
+            "--output-format",
+            "stream-json",
+            "--verbose",
+            "--input-format",
+            "stream-json",
+            "--no-session-persistence",
+            "--strict-mcp-config",
+            "--settings",
+            json.dumps({"disableAllHooks": True}),
+        ]
+        proc = subprocess.run(  # noqa: S603 — fixed argv, no shell
+            argv,
+            input=claude_control_init().encode("utf-8"),
+            capture_output=True,
+            timeout=_CLAUDE_COMMANDS_TIMEOUT_S,
+            env=env,
+            cwd=str(_resolved_cwd(cwd)),
+            creationflags=NO_WINDOW_CREATIONFLAGS,
+            check=False,
+        )
+    except (CliUnavailable, OSError, subprocess.SubprocessError) as exc:
+        log.debug("agent chat: %s command list unavailable: %s", runner, type(exc).__name__)
+        return None
+    for line in proc.stdout.decode("utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            obj = json.loads(line)
+        except ValueError:  # a non-JSON line of the CLI is not the answer
+            continue
+        if isinstance(obj, dict) and obj.get("type") == "control_response":
+            return claude_reported_commands(obj)
+    return None
+
+
 def claude_session_rules(tool_name: str, suggestions: Any) -> list[dict[str, Any]]:
     """What "Always allow" answers Claude Code: its own rule, for this session.
 
@@ -4962,7 +5052,7 @@ async def _drive_cli(
                     # timeline and not a line to translate.
                     _remember_cli_commands(obj)
                     continue
-            if obj.get("type") == "system" and obj.get("subtype") == "init":
+            if obj.get("type") == "system" and obj.get("subtype") in ("init", "commands_changed"):
                 _remember_cli_commands(obj)
             for ev in translate(obj, state):
                 await handle.emit(ev)
@@ -4997,14 +5087,9 @@ async def _drive_cli(
         try:
             from dodaios.agent_chat import typeahead
 
-            body = obj
-            if obj.get("type") == "control_response":
-                inner = obj.get("response")
-                body = inner.get("response") if isinstance(inner, dict) else None
-                body = body if isinstance(body, dict) else {}
-            for key in ("commands", "slash_commands"):
-                if body.get(key):
-                    typeahead.remember_cli_commands(runner, session.cwd, body[key])
+            reported = claude_reported_commands(obj)
+            if reported:
+                typeahead.remember_cli_commands(runner, session.cwd, reported)
         except Exception as exc:  # noqa: BLE001 - the picker is a convenience
             log.debug("agent chat %s: command list not kept: %s", handle.turn_id, exc)
 

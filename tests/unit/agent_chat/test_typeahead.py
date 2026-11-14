@@ -192,6 +192,8 @@ def test_mention_on_claude_lists_agents_before_files(account: Path, folder: Path
         "hint": "Reviews code",
         "kind": "agent",
         "group": "agents",
+        "argument_hint": "",
+        "aliases": [],
     }
     # The definition file itself is a file of the folder too — nearer names first.
     assert [r["value"] for r in rows[1:]] == ["reviewer_notes.txt", ".claude/agents/reviewer.md"]
@@ -305,6 +307,8 @@ def test_jarvis_surface_lists_the_registry_by_slug(tmp_path: Path, monkeypatch: 
             "hint": "Morning briefing",
             "kind": "skill",
             "group": "jarvis",
+            "argument_hint": "",
+            "aliases": [],
         }
     ]
 

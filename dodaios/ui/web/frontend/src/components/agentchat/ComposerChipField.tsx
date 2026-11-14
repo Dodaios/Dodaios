@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { choiceLookup, choiceToken } from "./composerChips";
 import type { ToolChoice } from "./toolChoices";
 import { toolIdentity, toolIdentityStyle } from "./toolIdentity";
+import type { TokenSpan } from "./typeahead";
 import "./toolIdentity.css";
 
 export interface ComposerDraft {
@@ -75,7 +76,13 @@ function createChipEl(row: ToolChoice): HTMLSpanElement {
   return el;
 }
 
-function serialize(root: HTMLElement): ComposerDraft {
+/** One text node of the field and where its characters sit in the draft's text. */
+interface TextRun {
+  node: Text;
+  start: number;
+}
+
+function serialize(root: HTMLElement, runs?: TextRun[]): ComposerDraft {
   const choices: ToolChoice[] = [];
   let text = "";
   const sel = root.ownerDocument.getSelection();
@@ -88,6 +95,7 @@ function serialize(root: HTMLElement): ComposerDraft {
       seenCaret = true;
     }
     if (node.nodeType === Node.TEXT_NODE) {
+      runs?.push({ node: node as Text, start: text.length });
       text += node.textContent ?? "";
       return;
     }
@@ -118,6 +126,49 @@ function serialize(root: HTMLElement): ComposerDraft {
   for (const child of Array.from(root.childNodes)) walk(child);
   if (!seenCaret) caret = text.length;
   return { text, choices, caret };
+}
+
+/**
+ * The words the seat will act on (a slash command, a skill, a picked mention)
+ * are drawn in the command colour, as a coding CLI colours them in its prompt.
+ *
+ * Painted with the CSS Custom Highlight API: ranges over the existing text
+ * nodes, styled by `::highlight(composer-token)`. Nothing is wrapped or
+ * inserted, so the caret, the selection, undo and the IME see plain text. One
+ * registry entry serves every text box on the page, hence the shared map. A
+ * web view without the API (WebKit before 17.2) shows the words uncoloured.
+ */
+const TOKEN_HIGHLIGHT = "composer-token";
+const paintedTokens = new Map<HTMLElement, Range[]>();
+
+function paintTokens(root: HTMLElement, spans: readonly TokenSpan[] | null, runs: readonly TextRun[]) {
+  const registry = typeof CSS === "undefined" ? undefined : CSS.highlights;
+  if (!registry || typeof Highlight === "undefined") return;
+  const ranges: Range[] = [];
+  for (const span of spans ?? []) {
+    for (const run of runs) {
+      const from = Math.max(span.start, run.start);
+      const to = Math.min(span.end, run.start + run.node.data.length);
+      if (from >= to) continue;
+      const range = root.ownerDocument.createRange();
+      range.setStart(run.node, from - run.start);
+      range.setEnd(run.node, to - run.start);
+      ranges.push(range);
+    }
+  }
+  if (ranges.length) paintedTokens.set(root, ranges);
+  else if (!paintedTokens.delete(root)) return;
+  const all = [...paintedTokens.values()].flat();
+  if (all.length) registry.set(TOKEN_HIGHLIGHT, new Highlight(...all));
+  else registry.delete(TOKEN_HIGHLIGHT);
+}
+
+/** Read the field once: its draft, with the known words painted on the way. */
+function readPainted(root: HTMLElement, tokenSpans?: (text: string) => TokenSpan[]): ComposerDraft {
+  const runs: TextRun[] = [];
+  const draft = serialize(root, runs);
+  paintTokens(root, tokenSpans?.(draft.text) ?? null, runs);
+  return draft;
 }
 
 function rangeAtEnd(root: HTMLElement): Range {
@@ -171,16 +222,30 @@ export const ComposerChipField = forwardRef<
     onDraftChange: (draft: ComposerDraft) => void;
     onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => boolean | void;
     onPasteFiles?: (event: ClipboardEvent<HTMLElement>) => void;
+    /** Which stretches of the text are words the seat acts on; drawn in the command colour. */
+    tokenSpans?: (text: string) => TokenSpan[];
     className?: string;
   }
 >(function ComposerChipField(
-  { placeholder, disabled, autoFocus, onSubmit, onDraftChange, onKeyDown: onKeyDownProp, onPasteFiles, className },
+  {
+    placeholder,
+    disabled,
+    autoFocus,
+    onSubmit,
+    onDraftChange,
+    onKeyDown: onKeyDownProp,
+    onPasteFiles,
+    tokenSpans,
+    className,
+  },
   ref,
 ) {
   const elRef = useRef<HTMLDivElement>(null);
   const savedRange = useRef<Range | null>(null);
   const onDraftChangeRef = useRef(onDraftChange);
   onDraftChangeRef.current = onDraftChange;
+  const tokenSpansRef = useRef(tokenSpans);
+  tokenSpansRef.current = tokenSpans;
 
   const rememberRange = (root: HTMLElement) => {
     const range = liveRange(root);
@@ -200,7 +265,7 @@ export const ComposerChipField = forwardRef<
     if (!root) return;
     // The document selection listener outlives a render or session switch.
     // Always notify the current draft owner, including after session creation.
-    onDraftChangeRef.current(serialize(root));
+    onDraftChangeRef.current(readPainted(root, tokenSpansRef.current));
   };
 
   const insertNode = (node: Node, afterSpace = true) => {
@@ -295,6 +360,19 @@ export const ComposerChipField = forwardRef<
   useEffect(() => {
     if (autoFocus) elRef.current?.focus();
   }, [autoFocus]);
+
+  // The seat's command list arrives after the text (and changes with the
+  // seat): repaint what is already in the box, and let go of it on unmount.
+  useEffect(() => {
+    const root = elRef.current;
+    if (root) readPainted(root, tokenSpans);
+  }, [tokenSpans]);
+  useEffect(() => {
+    const root = elRef.current;
+    return () => {
+      if (root) paintTokens(root, null, []);
+    };
+  }, []);
 
   useEffect(() => {
     const root = elRef.current;

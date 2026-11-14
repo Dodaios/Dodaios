@@ -1054,6 +1054,7 @@
     "typeahead_group_project": "In this folder",
     "typeahead_group_account": "Your account",
     "typeahead_group_plugins": "Plugins",
+    "typeahead_group_cli": "Commands",
     "typeahead_group_jarvis": "Dodaios skills",
     "typeahead_group_agents": "Subagents",
     "typeahead_group_files": "Files and folders",
