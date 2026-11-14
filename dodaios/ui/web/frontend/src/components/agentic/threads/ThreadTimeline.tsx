@@ -724,7 +724,8 @@ export function ApprovalPrompt({ block, onDecide }: { block: ToolBlock; onDecide
  * The answer is the last run of prose. A thought or a step that arrives after
  * those words (a thinking snapshot landing once the text is already on screen)
  * must not pull the answer into the fold. Prose written before an earlier
- * step stays with the work. A turn with no step at all has nothing to fold.
+ * step stays with the work; prose that only thoughts separate from the answer
+ * is part of it. A turn with no step at all has nothing to fold.
  * A card the turn ended on is no step: it stays with the answer it belongs to.
  */
 /**
@@ -752,21 +753,41 @@ function isSteerRow(row: ThreadRow): boolean {
 }
 
 export function foldFinished(rows: ThreadRow[]): { work: ThreadRow[]; answer: ThreadRow[] } {
+  const prose = (row: ThreadRow) => row.kind === "text" && !isSteerRow(row);
   let lastStep = -1;
   let lastText = -1;
   rows.forEach((row, index) => {
     if (row.kind === "work" || row.kind === "thought") lastStep = index;
-    if (row.kind === "text" && !isSteerRow(row)) lastText = index;
+    if (prose(row)) lastText = index;
   });
-  // No prose yet, or the prose already follows every step.
-  if (lastText < 0 || lastText > lastStep) {
-    return { work: rows.slice(0, lastStep + 1), answer: rows.slice(lastStep + 1) };
-  }
+  // No prose yet: everything up to the last step is work.
+  if (lastText < 0) return { work: rows.slice(0, lastStep + 1), answer: rows.slice(lastStep + 1) };
+  // The answer is the last run of prose, with what follows every step.
   let start = lastText;
-  while (start > 0 && rows[start - 1].kind === "text" && !isSteerRow(rows[start - 1])) start -= 1;
+  let end = lastText;
+  if (lastText > lastStep) {
+    start = lastStep + 1;
+    end = rows.length - 1;
+  } else {
+    while (start > 0 && prose(rows[start - 1])) start -= 1;
+  }
+  // Words separated from the answer by thoughts alone belong to it. An agent
+  // that ended its message and is woken again (a background task it waited
+  // on finished) often only adds a line ("nothing new, that was my old
+  // watch"); without this, that line read as the whole answer and the real
+  // one sat in the fold. Work in between ends the walk: then the earlier
+  // words were a step on the way, not the answer.
+  for (;;) {
+    let before = start - 1;
+    while (before >= 0 && rows[before].kind === "thought") before -= 1;
+    if (before < 0 || !prose(rows[before])) break;
+    start = before;
+    while (start > 0 && prose(rows[start - 1])) start -= 1;
+  }
+  const kept = (row: ThreadRow, index: number) => index >= start && index <= end && row.kind !== "thought";
   return {
-    work: rows.filter((_, index) => index < start || index > lastText),
-    answer: rows.slice(start, lastText + 1),
+    work: rows.filter((row, index) => !kept(row, index)),
+    answer: rows.filter(kept),
   };
 }
 
