@@ -10532,6 +10532,7 @@
     "tools_other": "{count} herramientas",
     "tokens": "{count} tokens",
     "waiting_approval": "Esperando tu aprobación",
+    "waiting_answer": "Esperando tu respuesta",
     "using_tool": "Usando {tool}",
     "stopped_before_answer": "Detenido antes de responder",
     "finished": "Terminado",

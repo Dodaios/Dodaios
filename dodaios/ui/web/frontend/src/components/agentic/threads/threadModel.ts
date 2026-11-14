@@ -51,7 +51,7 @@ export function draggedThread(): string | null {
 }
 
 /** How a row in the thread list reads at a glance. */
-export type ThreadStatus = "approval" | "running" | "unseen" | "idle";
+export type ThreadStatus = "question" | "approval" | "running" | "unseen" | "idle";
 
 /** What a thread is called in the list and its header. */
 export function threadTitle(session: Pick<AgentChatSession, "title" | "cli_title"> | null | undefined): string {
@@ -158,12 +158,16 @@ export function threadsByProject(
   return out;
 }
 
-/** The row's state: a waiting approval first, then work, then news since the last look. */
+/**
+ * The row's state: what the agent needs from the person first (an open
+ * question, then an approval), then work, then news since the last look.
+ */
 export function threadStatus(
-  session: Pick<AgentChatSession, "session_id" | "running" | "pending_approvals" | "updated_ms">,
+  session: Pick<AgentChatSession, "session_id" | "running" | "pending_approvals" | "pending_questions" | "updated_ms">,
   seen: Readonly<Record<string, number>>,
   openSessionId: string | null,
 ): ThreadStatus {
+  if (session.pending_questions && session.pending_questions.length > 0) return "question";
   if (session.pending_approvals && session.pending_approvals.length > 0) return "approval";
   if (session.running) return "running";
   if (session.session_id !== openSessionId && session.updated_ms > (seen[session.session_id] ?? Number.POSITIVE_INFINITY)) {

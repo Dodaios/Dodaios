@@ -472,6 +472,22 @@ describe("ThreadTree", () => {
     expect(useIdeThreadsStore.getState().selection).toEqual({ projectId: "p1", sessionId: null, team: "new" });
   });
 
+  it("marks a thread whose agent asks a question or waits for an approval, in place of its spinner", async () => {
+    api.fetchAgentChatSessions.mockResolvedValue([
+      sessionRow({ session_id: "s1", cli_title: "Asks", running: true, pending_questions: ["q1"] }),
+      sessionRow({ session_id: "s2", cli_title: "Needs an OK", running: true, pending_approvals: ["a1"] }),
+      sessionRow({ session_id: "s3", cli_title: "Works", running: true, pending_questions: [] }),
+    ]);
+    render(<ThreadTree />);
+    await waitFor(() => expect(screen.getByText("Asks")).toBeTruthy());
+    const mark = (id: string) => within(screen.getByTestId(`thread-row-${id}`));
+    expect(mark("s1").getByRole("img", { name: "Waiting for your answer" })).toBeTruthy();
+    expect(mark("s1").queryByRole("img", { name: "Working" })).toBeNull();
+    expect(mark("s2").getByRole("img", { name: "Waiting for your approval" })).toBeTruthy();
+    expect(mark("s3").getByRole("img", { name: "Working" })).toBeTruthy();
+    expect(mark("s3").queryByRole("img", { name: "Waiting for your answer" })).toBeNull();
+  });
+
   it("lists threads newest first and folds the rest behind Show more after 20", async () => {
     // Stamps 0..22 in a shuffled order, so the list has to sort them itself.
     api.fetchAgentChatSessions.mockResolvedValue(Array.from({ length: 23 }, (_, index) =>

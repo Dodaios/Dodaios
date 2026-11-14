@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, Hash, Loader2, MoreHorizontal, Pencil, Plus, SquarePen, SquarePlus, Trash2, X } from "lucide-react";
+import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, Hash, Loader2, MessageCircleQuestion, MoreHorizontal, Pencil, Plus, ShieldQuestion, SquarePen, SquarePlus, Trash2, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
 import type { IdeProject } from "@/lib/agenticIdeApi";
@@ -99,12 +99,19 @@ function saveExpansion(value: Record<string, boolean>): void {
   catch { /* storage blocked — the choice holds for this session only */ }
 }
 
-/** The quiet mark at a row's end: what the thread is doing, else whose it is. */
+/**
+ * The mark at a row's end: what the thread is doing. A thread whose agent
+ * needs the person (a question, an approval) shows the same icon as the card
+ * waiting in its chat, in the warning colour, so it stands out in the list.
+ */
 function StatusMark({ status }: { status: ThreadStatus }) {
   const t = useT();
-  if (status === "approval") {
-    return <span role="img" aria-label={t("ide_threads.waiting_approval")} title={t("ide_threads.waiting_approval")}
-      className="h-2 w-2 shrink-0 rounded-full bg-warning" />;
+  if (status === "question" || status === "approval") {
+    const Icon = status === "question" ? MessageCircleQuestion : ShieldQuestion;
+    const label = t(status === "question" ? "ide_threads.waiting_answer" : "ide_threads.waiting_approval");
+    return <span role="img" aria-label={label} title={label} data-status={status} className="flex shrink-0 items-center">
+      <Icon aria-hidden className="h-3.5 w-3.5 text-warning" strokeWidth={2} />
+    </span>;
   }
   if (status === "running") {
     return <Loader2 role="img" aria-label={t("ide_threads.sub_status_running")} className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />;
