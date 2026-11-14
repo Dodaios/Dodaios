@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  capabilityLines,
   matchesNamePrefix,
   matchesQuery,
   PatConnectDialog,
@@ -336,7 +337,7 @@ describe("plugin row click", () => {
       fireEvent.click(screen.getByRole("button", { name: "Vercel" }));
     });
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Plugins" })).toBeDefined();
+      expect(screen.getByRole("button", { name: "Back" })).toBeDefined();
     });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByText("Deployments, runtime logs, domains and env-vars")).toBeDefined();
@@ -363,19 +364,15 @@ describe("plugin row click", () => {
 
     // The detail page states the connection; nothing destructive fires.
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Plugins" })).toBeDefined();
+      expect(screen.getByRole("button", { name: "Back" })).toBeDefined();
     });
     expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
     const urls = (
       globalThis.fetch as unknown as ReturnType<typeof vi.fn>
     ).mock.calls.map((c: unknown[]) => String(c[0]));
-    // Only reads: the catalog and the plugin's own files — never a DELETE.
-    expect(
-      urls.every(
-        (u: string) => u === "/api/marketplace/plugins" || u === "/api/marketplace/plugins/github/files",
-      ),
-    ).toBe(true);
+    // Only the catalog is read — never a DELETE, and no files until asked.
+    expect(urls.every((u: string) => u === "/api/marketplace/plugins")).toBe(true);
   });
 });
 
@@ -1142,17 +1139,17 @@ describe("PluginsView category sections are data-driven", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "limited" })).toBeDefined();
     });
-    // The detail page carries the longevity fact sheet.
+    // The detail page says it under the name, and why beside the button.
     fireEvent.click(screen.getByRole("button", { name: "limited" }));
     await waitFor(() => {
-      expect(screen.getByText("Sign in again periodically")).toBeDefined();
+      expect(screen.getByText(/Needs a new sign-in from time to time/)).toBeDefined();
     });
     expect(screen.getByText("Google asks again every 7 days in Testing mode.")).toBeDefined();
 
-    fireEvent.click(screen.getByRole("button", { name: "Plugins" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
     fireEvent.click(await screen.findByRole("button", { name: "forever" }));
     await waitFor(() => {
-      expect(screen.getByText("Stays connected")).toBeDefined();
+      expect(screen.getByText(/Stays connected after sign-in/)).toBeDefined();
     });
   });
 });
@@ -1418,8 +1415,131 @@ describe("PluginsView search and scope controls", () => {
   });
 });
 
+describe("plugin page", () => {
+  const X = {
+    id: "x",
+    display_name: "X (Twitter)",
+    description: "Read posts and mentions; publish posts and replies",
+    category: "Media & Creativity",
+    logo_slug: "x",
+    auth: { mode: "oauth_pkce_loopback" },
+    oauth_client_family: "x",
+    oauth_client_configured: false,
+    longevity: "self_renewing",
+    status: "not_connected",
+  };
+
+  function openPage(plugin: Record<string, unknown>) {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/marketplace/plugins") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ version: 1, schema_version: "t", total: 1, connected: 0, plugins: [plugin] }),
+        } as Response;
+      }
+      if (url.endsWith("/files") && !init?.method) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ files: [{ path: "plugin.json", text: "{}", size: 2 }] }),
+        } as Response;
+      }
+      throw new Error(`unexpected fetch ${init?.method ?? "GET"} ${url}`);
+    });
+    (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+    renderPluginsView();
+    return fetchMock;
+  }
+
+  it("shows the name, one Access row and what the plugin does, and nothing technical", async () => {
+    const fetchMock = openPage(X);
+    fireEvent.click(await screen.findByRole("button", { name: "X (Twitter)" }));
+
+    await screen.findByRole("heading", { name: "X (Twitter)" });
+    const access = within(screen.getByRole("region", { name: "Access" }));
+    expect(access.getByText("Not connected")).toBeDefined();
+    expect(access.getByRole("button", { name: "Connect" })).toBeDefined();
+    // The description is the Tools list, one line per clause.
+    const tools = within(screen.getByRole("region", { name: "Tools" }));
+    expect(tools.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "Read posts and mentions",
+      "Publish posts and replies",
+    ]);
+
+    // Sign-in mode, OAuth client and files stay folded away, and unread.
+    expect(screen.queryByText("OAuth client")).toBeNull();
+    expect(screen.queryByText("Sign-in")).toBeNull();
+    expect(screen.queryByText("plugin.json")).toBeNull();
+    const read = () => fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(read().some((url) => url.endsWith("/files"))).toBe(false);
+
+    const toggle = screen.getByRole("button", { name: "Technical details" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("OAuth client")).toBeDefined();
+    expect(screen.getByText("Browser Login")).toBeDefined();
+    await waitFor(() => expect(read()).toContain("/api/marketplace/plugins/x/files"));
+  });
+
+  it("offers Disconnect on a connected plugin and asks before it disconnects", async () => {
+    const fetchMock = openPage({ ...X, status: "connected", live_callable: true });
+    fireEvent.click(await screen.findByRole("button", { name: "X (Twitter)" }));
+
+    const access = within(await screen.findByRole("region", { name: "Access" }));
+    expect(access.getByText("Connected · Live")).toBeDefined();
+    expect(access.queryByRole("button", { name: "Connect" })).toBeNull();
+    fireEvent.click(access.getByRole("button", { name: "Disconnect" }));
+
+    // A question first: nothing is deleted by the click itself.
+    await screen.findByRole("dialog");
+    expect(fetchMock.mock.calls.some((call) => (call[1] as RequestInit | undefined)?.method === "DELETE")).toBe(false);
+    // Signing in again stays reachable from the menu.
+    fireEvent.click(screen.getByRole("button", { name: /^More actions/ }));
+    expect(screen.getByRole("menuitem", { name: "Reconnect" })).toBeDefined();
+  });
+
+  it("says why a broken connection needs a new sign-in, with Reconnect as the one button", async () => {
+    openPage({ ...X, status: "needs_reauth", reauth_reason: "provider_rejected" });
+    fireEvent.click(await screen.findByRole("button", { name: "X (Twitter)" }));
+
+    const access = within(await screen.findByRole("region", { name: "Access" }));
+    expect(access.getByText("Reconnect needed")).toBeDefined();
+    expect(access.getByText(/no longer accepts this authorization/i)).toBeDefined();
+    expect(access.getByRole("button", { name: "Reconnect" })).toBeDefined();
+    expect(access.queryByRole("button", { name: "Disconnect" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /^More actions/ }));
+    expect(screen.getByRole("menuitem", { name: "Disconnect" })).toBeDefined();
+  });
+});
+
+describe("capabilityLines", () => {
+  it("keeps a one-clause description as one line", () => {
+    expect(capabilityLines("Repos, issues, pull requests and Actions runs")).toEqual([
+      "Repos, issues, pull requests and Actions runs",
+    ]);
+  });
+
+  it("starts each later clause with a capital, but leaves a word's own capitals", () => {
+    expect(capabilityLines("Read notebooks and pages; create and update notes")).toEqual([
+      "Read notebooks and pages",
+      "Create and update notes",
+    ]);
+    expect(capabilityLines("Build apps; iOS and macOS builds;")).toEqual([
+      "Build apps",
+      "iOS and macOS builds",
+    ]);
+  });
+
+  it("has no lines for an empty description", () => {
+    expect(capabilityLines("  ")).toEqual([]);
+  });
+});
+
 describe("PluginsView breadcrumbs", () => {
-  it("returns to the directory home from a plugin opened in search results", async () => {
+  it("goes back from a plugin to the search results it was opened from", async () => {
     installCatalogFetchMock();
     renderPluginsView();
 
@@ -1428,13 +1548,14 @@ describe("PluginsView breadcrumbs", () => {
       target: { value: "deploy" },
     });
     fireEvent.click(await screen.findByRole("button", { name: "Vercel" }));
-    const crumbs = within(await screen.findByRole("navigation", { name: "Breadcrumb" }));
-    fireEvent.click(crumbs.getByRole("button", { name: "Plugins" }));
+    // A plugin page has one way out, not a path of crumbs.
+    fireEvent.click(await screen.findByRole("button", { name: "Back" }));
+    expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
 
-    // The crumb says "Plugins" and leads to the directory, not back into the search.
-    await screen.findByRole("tablist", { name: "Plugin directory" });
-    expect((screen.getByRole("searchbox", { name: "Search plugins…" }) as HTMLInputElement).value).toBe("");
-    expect(screen.getByRole("button", { name: "GitHub" })).toBeDefined();
+    // Back is the list as it was left: the search and its one match.
+    await screen.findByRole("button", { name: "Vercel" });
+    expect((screen.getByRole("searchbox", { name: "Search plugins…" }) as HTMLInputElement).value).toBe("deploy");
+    expect(screen.queryByRole("button", { name: "GitHub" })).toBeNull();
   });
 
   it("closes a section whose last plugin went away while it was open", async () => {

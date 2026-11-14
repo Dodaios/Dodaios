@@ -1680,8 +1680,11 @@
     "installed_no_match": "Nenhum plugin corresponde",
     "frame_title": "Extensões",
     "plugin_fallback": "Plugin",
-    "detail_files": "Ficheiros",
-    "detail_information": "Informações",
+    "detail_access": "Acesso",
+    "detail_lasts_always": "Continua ligado depois de iniciares sessão",
+    "detail_lasts_limited": "Pede um novo início de sessão de tempos a tempos",
+    "detail_technical": "Detalhes técnicos",
+    "detail_tools": "Ferramentas",
     "longevity_note": {
       "github": "O início de sessão no browser renova-se automaticamente. Os tokens colados expiram conforme configurado na criação.",
       "discord": "Os tokens OAuth renovam-se automaticamente. Um token de bot colado continua válido até o repores no portal de programadores do Discord.",

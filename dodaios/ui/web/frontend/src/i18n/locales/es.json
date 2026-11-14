@@ -1680,8 +1680,11 @@
     "installed_no_match": "Ningún plugin coincide",
     "frame_title": "Extensiones",
     "plugin_fallback": "Plugin",
-    "detail_files": "Archivos",
-    "detail_information": "Información",
+    "detail_access": "Acceso",
+    "detail_lasts_always": "Sigue conectado tras iniciar sesión",
+    "detail_lasts_limited": "Pide iniciar sesión de nuevo cada cierto tiempo",
+    "detail_technical": "Detalles técnicos",
+    "detail_tools": "Herramientas",
     "longevity_note": {
       "github": "El inicio de sesión en el navegador se renueva automáticamente. Los tokens pegados caducan según lo configurado al crearlos.",
       "discord": "Los tokens OAuth se renuevan automáticamente. Un token de bot pegado sigue siendo válido hasta que lo restablezcas en el portal para desarrolladores de Discord.",

@@ -9,8 +9,8 @@ import { useEventStore } from "@/store/events";
 import {
   ExternalLink,
   RotateCw,
-  Plus,
   Check,
+  ChevronDown,
   Copy,
   X,
   Loader2,
@@ -21,8 +21,8 @@ import {
   KeyRound,
 } from "lucide-react";
 import { CommunityTab } from "@/views/PluginsCommunity";
-import { Breadcrumbs, type Crumb, PluginBrowse, sectionTitle } from "@/views/plugins/PluginBrowse";
-import { homeSectionId, type PluginScope } from "@/views/plugins/sections";
+import { Breadcrumbs, type Crumb, PluginBrowse } from "@/views/plugins/PluginBrowse";
+import type { PluginScope } from "@/views/plugins/sections";
 import { PluginUploadDialog } from "@/views/PluginUploadDialog";
 import { AddConnectorDialog, AddPluginTabs, type AddPluginMode } from "@/views/AddConnectorDialog";
 import { removeAddedPlugin, takePluginFocus } from "@/lib/customConnector";
@@ -31,12 +31,11 @@ import { backendMessage } from "@/lib/backendMessage";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   ActionMenu,
-  ClampedText,
+  BackLink,
   FactRows,
   IconButton,
   Panel,
   SoftButton,
-  StatusDot,
 } from "@/components/extensions/primitives";
 import { FileCard, type CardFile } from "@/components/extensions/FileCard";
 import { cn } from "@/lib/utils";
@@ -1224,52 +1223,28 @@ export function PluginsView({
   // Checked before the community and API pages: the sidebar opens a plugin
   // from wherever the directory currently is.
   if (selectedId) {
-    // The crumb between the directory and the plugin is the list the plugin
-    // belongs to — the installed list while managing, otherwise its section —
-    // so the path reads the same however the page was reached.
-    const home = selectedPlugin ? homeSectionId(selectedPlugin) : null;
-    const origin: Crumb | null = managing
-      ? {
-          label: translate("plugins_view.manage_title"),
-          onClick: () => {
-            setView("list");
-            setSelectedId(null);
-          },
-        }
-      : home
-        ? {
-            label: sectionTitle(home),
-            onClick: () => {
-              setView("list");
-              setSectionId(home);
-              setQuery("");
-              setSelectedId(null);
-            },
-          }
-        : null;
+    // Back returns to the list the page was opened from, as it was left: a
+    // section, the installed list, or the results of a search.
+    const back = () => setSelectedId(null);
     return shell(
-      <>
-        <Breadcrumbs
-          crumbs={[
-            directoryCrumb,
-            ...(origin ? [origin] : []),
-            { label: selectedPlugin?.name ?? translate("plugins_view.plugin_fallback") },
-          ]}
+      selectedPlugin ? (
+        <PluginDetail
+          key={selectedPlugin.id}
+          plugin={selectedPlugin}
+          onBack={back}
+          onConnect={handleConnect}
+          onDisconnect={handleDisconnect}
+          onRemove={setRemovingPlugin}
+          onOwnClient={handleOwnClient}
         />
-        {selectedPlugin ? (
-          <PluginDetail
-            plugin={selectedPlugin}
-            onConnect={handleConnect}
-            onDisconnect={handleDisconnect}
-            onRemove={setRemovingPlugin}
-            onOwnClient={handleOwnClient}
-          />
-        ) : (
+      ) : (
+        <>
+          <BackLink label={translate("common.back")} onClick={back} />
           <p className="mt-6 text-sm text-muted-foreground">
             {isLoading ? translate("plugins_view.loading") : translate("plugins_view.not_found")}
           </p>
-        )}
-      </>,
+        </>
+      ),
     );
   }
 
@@ -1374,28 +1349,69 @@ async function fetchPluginFiles(pluginId: string): Promise<{ files: CardFile[] }
   return res.json();
 }
 
+/** The lines of the "Tools" card: the plugin's own description, one line per
+ *  clause the catalog separates with a semicolon. The description is the only
+ *  statement of what a plugin does that every plugin carries, shipped or added. */
+export function capabilityLines(description: string): string[] {
+  return description
+    .split(";")
+    .map((clause) => clause.trim())
+    .filter(Boolean)
+    .map((clause, index) =>
+      // A later clause continued a sentence, so it starts in lower case. A
+      // word with its own capitals ("iOS") keeps them.
+      index > 0 && /^[a-z]+\b/.test(clause)
+        ? clause.charAt(0).toUpperCase() + clause.slice(1)
+        : clause,
+    );
+}
+
+/** How long a sign-in lasts, said before the person connects. A plugin that
+ *  needs no sign-in has nothing to say here. */
+function lastsText(plugin: Plugin): string | undefined {
+  if (plugin.authMode === "local" || plugin.authMode === "hosted_mcp_open") return undefined;
+  return translate(
+    plugin.longevity === "provider_limited"
+      ? "plugins_view.detail_lasts_limited"
+      : "plugins_view.detail_lasts_always",
+  );
+}
+
 function PluginDetail({
   plugin,
+  onBack,
   onConnect,
   onDisconnect,
   onRemove,
   onOwnClient,
 }: {
   plugin: Plugin;
+  onBack: () => void;
   onRemove?: (plugin: Plugin) => void;
   onOwnClient?: (plugin: Plugin) => void;
 } & ConnectHandlers) {
   const { busy, run } = useConnectLock(() => onConnect(plugin));
+  // Sign-in mode, OAuth client and the plugin's files stay folded away: they
+  // matter to somebody checking a plugin, not to somebody connecting one.
+  const [technicalOpen, setTechnicalOpen] = useState(false);
   const filesQuery = useQuery({
     queryKey: ["marketplace-plugin-files", plugin.id],
     queryFn: () => fetchPluginFiles(plugin.id),
+    enabled: technicalOpen,
   });
   const connected = plugin.status === "connected";
   const needsReconnect = plugin.status === "needs_reauth" || plugin.status === "error";
+  const unavailable = Boolean(plugin.unavailableReason);
   const family = oauthClientFamily(plugin);
   const ownClientAction = Boolean(
-    onOwnClient && supportsOwnClient(plugin) && !plugin.unavailableReason,
+    onOwnClient && supportsOwnClient(plugin) && !unavailable,
   );
+  const lines = capabilityLines(plugin.description);
+  const lasts = lastsText(plugin);
+  const limitedNote =
+    plugin.longevity === "provider_limited" && plugin.status !== "needs_reauth"
+      ? longevityNoteText(plugin)
+      : undefined;
 
   const menuActions = [
     ...(plugin.sourceUrl
@@ -1419,7 +1435,20 @@ function PluginDetail({
           },
         ]
       : []),
-    ...(connected || needsReconnect
+    // The row's one button is the next step: Disconnect while connected,
+    // Reconnect while broken. The other of the two waits here.
+    ...(connected && !unavailable
+      ? [
+          {
+            id: "reconnect",
+            label: translate("plugins_view.reconnect"),
+            icon: <RotateCw className="h-3.5 w-3.5" />,
+            separatorAbove: Boolean(plugin.sourceUrl) || ownClientAction,
+            onSelect: () => void run(),
+          },
+        ]
+      : []),
+    ...(needsReconnect
       ? [
           {
             id: "disconnect",
@@ -1448,51 +1477,36 @@ function PluginDetail({
       : []),
   ];
 
-  const primaryAction = connected ? (
-    <>
-      <SoftButton onClick={() => void run()} disabled={busy || Boolean(plugin.unavailableReason)}>
-        {busy && <Loader2 className="animate-spin" />}
-        {translate("plugins_view.reconnect")}
-      </SoftButton>
-      <span className="inline-flex h-9 items-center gap-1.5 rounded-md bg-secondary px-3 text-base font-medium text-foreground-strong">
-        <Check className="h-4 w-4 text-success" aria-hidden />
-        {translate("plugins_view.status_connected")}
-      </span>
-    </>
-  ) : (
-    <SoftButton
-      primary={!needsReconnect}
-      onClick={() => void run()}
-      disabled={busy || Boolean(plugin.unavailableReason)}
-    >
-      {busy ? <Loader2 className="animate-spin" /> : needsReconnect ? <RotateCw /> : <Plus />}
-      {needsReconnect ? translate("plugins_view.reconnect") : translate("plugins_view.connect")}
-    </SoftButton>
-  );
+  const sectionLabel = "px-1 text-sm text-muted-foreground";
+  const dot = {
+    ok: "bg-success",
+    off: "bg-muted-foreground/40",
+    warn: "bg-foreground",
+    error: "bg-destructive",
+  }[statusTone(plugin.status)];
 
   return (
-    <article className="mt-6 flex flex-col gap-8">
-      <header className="flex flex-col gap-4">
-        <div className="flex items-start justify-between gap-4">
-          <BrandTile plugin={plugin} size="hero" />
-          <div className="flex flex-wrap items-center justify-end gap-2" title={unavailableReasonText(plugin)}>
-            {menuActions.length > 0 && (
-              <ActionMenu
-                label={translate("plugins_view.more_actions")}
-                actions={menuActions}
-                trigger={({ open, toggle }) => (
-                  <IconButton label={translate("plugins_view.more_actions")} onClick={toggle} active={open} className="h-9 w-9">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </IconButton>
-                )}
-              />
+    <article className="flex flex-col gap-8">
+      <div className="flex min-h-9 items-center justify-between gap-4">
+        <BackLink label={translate("common.back")} onClick={onBack} />
+        {menuActions.length > 0 && (
+          <ActionMenu
+            label={translate("plugins_view.more_actions")}
+            actions={menuActions}
+            trigger={({ open, toggle }) => (
+              <IconButton label={translate("plugins_view.more_actions")} onClick={toggle} active={open} className="h-9 w-9">
+                <MoreHorizontal className="h-4 w-4" />
+              </IconButton>
             )}
-            {primaryAction}
-          </div>
-        </div>
+          />
+        )}
+      </div>
+
+      <header className="flex items-center gap-4">
+        <BrandTile plugin={plugin} size="hero" />
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <h3 className="min-w-0 break-words text-2xl font-semibold text-foreground-strong">{plugin.name}</h3>
+            <h3 className="min-w-0 break-words text-xl font-semibold text-foreground-strong">{plugin.name}</h3>
             <PreviewBadge plugin={plugin} />
             {plugin.fromMarketplace && <MarketplaceBadge publisher={plugin.publisher} />}
             {plugin.selfUploaded && (
@@ -1504,104 +1518,152 @@ function PluginDetail({
               </span>
             )}
           </div>
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-base text-muted-foreground">
-            <StatusDot tone={statusTone(plugin.status)} label={pluginStatusLabel(plugin)} />
-            <span>· {categoryLabel(plugin.category)}</span>
-            {plugin.publisher && (
-              <span>· {fill(translate("plugins_view.by"), { publisher: plugin.publisher })}</span>
-            )}
+          <p className="mt-0.5 text-base text-muted-foreground">
+            {[
+              categoryLabel(plugin.category),
+              plugin.publisher
+                ? fill(translate("plugins_view.by"), { publisher: plugin.publisher })
+                : null,
+              lasts,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         </div>
       </header>
 
-      {(plugin.unavailableReason || plugin.status === "needs_reauth" || plugin.description || cliPrecedenceText(plugin)) && (
-        <div className="flex flex-col gap-3">
-          {plugin.unavailableReason && (
-            <p className="text-base text-muted-foreground">{unavailableReasonText(plugin)}</p>
-          )}
-          {cliPrecedenceText(plugin) && (
-            <p data-testid="plugin-cli-precedence" className="text-xs text-muted-foreground">
-              {cliPrecedenceText(plugin)}
-            </p>
-          )}
-          {plugin.status === "needs_reauth" ? (
-            <div className="rounded-lg bg-secondary px-3 py-2.5 text-xs">
-              <ReauthExplanation plugin={plugin} />
-            </div>
-          ) : null}
-          <GrantExpiry plugin={plugin} />
-          {plugin.description && (
-            <ClampedText
-              text={plugin.description}
-              moreLabel={translate("common.see_more")}
-              lessLabel={translate("common.see_less")}
-            />
-          )}
-        </div>
-      )}
-
-      <section aria-labelledby="plugin-information" className="flex flex-col gap-3">
-        <h4 id="plugin-information" className="text-title font-semibold text-foreground-strong">
-          {translate("plugins_view.detail_information")}
+      <section aria-labelledby="plugin-access" className="flex flex-col gap-2">
+        <h4 id="plugin-access" className={sectionLabel}>
+          {translate("plugins_view.detail_access")}
         </h4>
         <Panel>
-          <div className="px-5 py-4">
-            <FactRows
-              rows={[
-                { label: translate("plugins_view.col_status"), value: pluginStatusLabel(plugin) },
-                { label: translate("plugins_view.col_category"), value: categoryLabel(plugin.category) },
-                { label: translate("plugins_view.fact_signin"), value: translate(AUTH_LABELS[plugin.authMode]) },
-                {
-                  label: translate("plugins_view.fact_connection"),
-                  value: (
-                    <span className={cn(plugin.longevity === "provider_limited" && "text-foreground")}>
-                      {translate(LONGEVITY_LABEL[plugin.longevity])}
-                      {plugin.longevityNote ? (
-                        <span className="block text-xs text-muted-foreground">{longevityNoteText(plugin)}</span>
-                      ) : null}
-                    </span>
-                  ),
-                },
-                {
-                  label: translate("plugins_view.fact_oauth_client"),
-                  value: family
-                    ? plugin.oauthClientConfigured
-                      ? fill(translate("plugins_view.oauth_client_own"), { family: family.label })
-                      : translate("plugins_view.err_misconfigured")
-                    : null,
-                },
-                {
-                  label: translate("custom_connector.fact_server"),
-                  value:
-                    plugin.selfUploaded && plugin.mcpUrl ? (
-                      <code className="break-all font-mono text-meta">{plugin.mcpUrl}</code>
-                    ) : null,
-                },
-                { label: translate("plugins_view.fact_publisher"), value: plugin.publisher ?? null },
-                {
-                  label: translate("plugins_view.fact_source"),
-                  value: plugin.selfUploaded
-                    ? translate("plugin_upload.unreviewed")
-                    : plugin.fromMarketplace
-                      ? translate("marketplace_origin.tooltip")
-                      : null,
-                },
-              ]}
-            />
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="flex min-w-0 flex-col gap-1">
+              <p className="flex items-center gap-2 text-base text-foreground">
+                <span className={cn("h-2 w-2 shrink-0 rounded-full", dot)} aria-hidden />
+                <span className="min-w-0 break-words">{pluginStatusLabel(plugin)}</span>
+              </p>
+              {unavailable && (
+                <p className="text-sm text-muted-foreground">{unavailableReasonText(plugin)}</p>
+              )}
+              {plugin.status === "needs_reauth" && (
+                <div className="min-w-0">
+                  <ReauthExplanation plugin={plugin} />
+                </div>
+              )}
+              {limitedNote && <p className="text-sm text-muted-foreground">{limitedNote}</p>}
+              <GrantExpiry plugin={plugin} />
+              {cliPrecedenceText(plugin) && (
+                <p data-testid="plugin-cli-precedence" className="text-sm text-muted-foreground">
+                  {cliPrecedenceText(plugin)}
+                </p>
+              )}
+            </div>
+            <div className="shrink-0" title={unavailableReasonText(plugin)}>
+              {connected ? (
+                <SoftButton className="min-w-28 justify-center" onClick={() => onDisconnect(plugin.id)}>
+                  {translate("plugins_view.disconnect")}
+                </SoftButton>
+              ) : (
+                <SoftButton
+                  primary
+                  className="min-w-28 justify-center"
+                  onClick={() => void run()}
+                  disabled={busy || unavailable}
+                >
+                  {busy && <Loader2 className="animate-spin" />}
+                  {needsReconnect ? translate("plugins_view.reconnect") : translate("plugins_view.connect")}
+                </SoftButton>
+              )}
+            </div>
           </div>
         </Panel>
       </section>
 
-      <section aria-labelledby="plugin-files" className="flex flex-col gap-3">
-        <h4 id="plugin-files" className="text-title font-semibold text-foreground-strong">
-          {translate("plugins_view.detail_files")}
-        </h4>
-        <FileCard
-          rootLabel={plugin.id}
-          files={filesQuery.data?.files ?? []}
-          loading={filesQuery.isPending}
-          error={filesQuery.error ? (filesQuery.error as Error).message : null}
-        />
+      {lines.length > 0 && (
+        <section aria-labelledby="plugin-tools" className="flex flex-col gap-2">
+          <h4 id="plugin-tools" className={sectionLabel}>
+            {translate("plugins_view.detail_tools")}
+          </h4>
+          <Panel>
+            <ul className="flex flex-col gap-3 px-5 py-4 text-base text-foreground">
+              {lines.map((line) => (
+                <li key={line} className="break-words">{line}</li>
+              ))}
+            </ul>
+          </Panel>
+        </section>
+      )}
+
+      <section className="flex flex-col gap-2">
+        <button
+          type="button"
+          aria-expanded={technicalOpen}
+          aria-controls="plugin-technical"
+          onClick={() => setTechnicalOpen((open) => !open)}
+          className={cn(
+            sectionLabel,
+            "inline-flex w-fit items-center gap-1 rounded-sm transition-colors hover:text-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          )}
+        >
+          {translate("plugins_view.detail_technical")}
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", technicalOpen && "rotate-180")} aria-hidden />
+        </button>
+        {technicalOpen && (
+          <div id="plugin-technical" className="flex flex-col gap-3">
+            <Panel>
+              <div className="px-5 py-4">
+                <FactRows
+                  rows={[
+                    { label: translate("plugins_view.fact_signin"), value: translate(AUTH_LABELS[plugin.authMode]) },
+                    {
+                      label: translate("plugins_view.fact_connection"),
+                      value: (
+                        <span>
+                          {translate(LONGEVITY_LABEL[plugin.longevity])}
+                          {plugin.longevityNote ? (
+                            <span className="block text-xs text-muted-foreground">{longevityNoteText(plugin)}</span>
+                          ) : null}
+                        </span>
+                      ),
+                    },
+                    {
+                      label: translate("plugins_view.fact_oauth_client"),
+                      value: family
+                        ? plugin.oauthClientConfigured
+                          ? fill(translate("plugins_view.oauth_client_own"), { family: family.label })
+                          : translate("plugins_view.err_misconfigured")
+                        : null,
+                    },
+                    {
+                      label: translate("custom_connector.fact_server"),
+                      value:
+                        plugin.selfUploaded && plugin.mcpUrl ? (
+                          <code className="break-all font-mono text-meta">{plugin.mcpUrl}</code>
+                        ) : null,
+                    },
+                    { label: translate("plugins_view.fact_publisher"), value: plugin.publisher ?? null },
+                    {
+                      label: translate("plugins_view.fact_source"),
+                      value: plugin.selfUploaded
+                        ? translate("plugin_upload.unreviewed")
+                        : plugin.fromMarketplace
+                          ? translate("marketplace_origin.tooltip")
+                          : null,
+                    },
+                  ]}
+                />
+              </div>
+            </Panel>
+            <FileCard
+              rootLabel={plugin.id}
+              files={filesQuery.data?.files ?? []}
+              loading={filesQuery.isPending}
+              error={filesQuery.error ? (filesQuery.error as Error).message : null}
+            />
+          </div>
+        )}
       </section>
     </article>
   );

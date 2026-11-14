@@ -44,8 +44,8 @@ it("lists what is installed in the sidebar and opens a plugin page from there", 
   // Only what was connected or added: the untouched plugins stay in the directory.
   expect(installedList().getAllByRole("listitem")).toHaveLength(1);
   fireEvent.click(gmail);
-  const crumbs = within(await pane().findByRole("navigation", { name: "Breadcrumb" }));
-  expect(crumbs.getByText("Gmail").getAttribute("aria-current")).toBe("page");
+  await pane().findByRole("heading", { name: "Gmail" });
+  expect(pane().getByRole("button", { name: "Back" })).toBeDefined();
   expect(gmail.getAttribute("aria-current")).toBe("page");
   // "Plugins" in the sidebar always returns to the directory's home page.
   const areas = within(screen.getByRole("navigation", { name: "Plugins, MCPs & Skills" }));
@@ -113,9 +113,7 @@ it("opens a plugin picked in the sidebar even while the community page is open",
   fireEvent.click(installedList().getByRole("button", { name: "Gmail" }));
 
   // The plugin page replaces the community page instead of the click doing nothing.
-  await waitFor(() => {
-    const crumbs = within(pane().getByRole("navigation", { name: "Breadcrumb" }));
-    expect(crumbs.getByText("Gmail").getAttribute("aria-current")).toBe("page");
-  });
+  await pane().findByRole("heading", { name: "Gmail" });
+  expect(pane().queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
 });
 

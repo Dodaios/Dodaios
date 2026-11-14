@@ -1680,8 +1680,11 @@
     "installed_no_match": "No matching plugins",
     "frame_title": "Extensions",
     "plugin_fallback": "Plugin",
-    "detail_files": "Files",
-    "detail_information": "Information",
+    "detail_access": "Access",
+    "detail_lasts_always": "Stays connected after sign-in",
+    "detail_lasts_limited": "Needs a new sign-in from time to time",
+    "detail_technical": "Technical details",
+    "detail_tools": "Tools",
     "longevity_note": {
       "github": "Browser login renews automatically. Pasted tokens expire as configured at creation.",
       "discord": "OAuth tokens refresh automatically. A pasted bot token stays valid until you reset it in the Discord developer portal.",
