@@ -99,6 +99,9 @@ ROUTER_TOOLS = frozenset({
     # Nodes (2026-11-13): the typed things the lead makes and keeps current
     # (dodaios/nodes). A direct monitor write like write-report, never a spawn.
     "node",
+    # Whiteboards (2026-11-14): actions on a whiteboard node's scene (add,
+    # connect, layout, diagram, Mermaid). A direct monitor write, never a spawn.
+    "whiteboard",
     # Jobs ledger (2026-11-10): read-only handle on the work the lead started.
     "job-status",
     "await-jobs",

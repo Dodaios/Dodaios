@@ -234,6 +234,358 @@
           "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
         }
       ]
+    },
+    "@radix-ui/primitive@1.0.0": {
+      "version": "1.0.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/primitive@1.1.1": {
+      "version": "1.1.1",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-arrow@1.1.2": {
+      "version": "1.1.2",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-collection@1.0.1": {
+      "version": "1.0.1",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-compose-refs@1.0.0": {
+      "version": "1.0.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-compose-refs@1.1.1": {
+      "version": "1.1.1",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-context@1.0.0": {
+      "version": "1.0.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-context@1.1.1": {
+      "version": "1.1.1",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-direction@1.0.0": {
+      "version": "1.0.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-dismissable-layer@1.1.5": {
+      "version": "1.1.5",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-focus-guards@1.1.1": {
+      "version": "1.1.1",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-focus-scope@1.1.2": {
+      "version": "1.1.2",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-id@1.0.0": {
+      "version": "1.0.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-id@1.1.0": {
+      "version": "1.1.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-popover@1.1.6": {
+      "version": "1.1.6",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-popper@1.2.2": {
+      "version": "1.2.2",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-portal@1.1.4": {
+      "version": "1.1.4",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-presence@1.0.0": {
+      "version": "1.0.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-presence@1.1.2": {
+      "version": "1.1.2",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-primitive@1.0.1": {
+      "version": "1.0.1",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-primitive@2.0.2": {
+      "version": "2.0.2",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-roving-focus@1.0.2": {
+      "version": "1.0.2",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-slot@1.0.1": {
+      "version": "1.0.1",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-slot@1.1.2": {
+      "version": "1.1.2",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-tabs@1.0.2": {
+      "version": "1.0.2",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-use-callback-ref@1.0.0": {
+      "version": "1.0.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-use-callback-ref@1.1.0": {
+      "version": "1.1.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-use-controllable-state@1.0.0": {
+      "version": "1.0.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-use-controllable-state@1.1.0": {
+      "version": "1.1.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-use-escape-keydown@1.1.0": {
+      "version": "1.1.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-use-layout-effect@1.0.0": {
+      "version": "1.0.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-use-layout-effect@1.1.0": {
+      "version": "1.1.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@radix-ui/react-use-size@1.1.0": {
+      "version": "1.1.0",
+      "documents": [
+        {
+          "file": "third_party/radix-ui/LICENSE",
+          "source": "https://raw.githubusercontent.com/radix-ui/primitives/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE",
+          "sha256": "0e80a2d229d2fd4fc7e8636142ec5d0ff0bc031f14c15b682e2ac01dfd5b5138"
+        }
+      ]
+    },
+    "@excalidraw/excalidraw": {
+      "version": "0.18.1",
+      "reason": "The published package omits LICENSE. This is the full MIT license from the upstream source at the v0.18.1 release tag. The fonts the package ships (dist/prod/fonts) are declared by upstream under the SIL Open Font License 1.1 (Comic Shanns: MIT); upstream ships no separate license texts for them.",
+      "documents": [
+        {
+          "file": "third_party/excalidraw/LICENSE",
+          "source": "https://raw.githubusercontent.com/excalidraw/excalidraw/a2ec2889babf7d2295469c6d90ebe77fae57df84/LICENSE",
+          "sha256": "1352d204fdb90d5e482c13139d848bc2c9300a9a7de358a0a558a23e72d0d8be"
+        }
+      ]
+    },
+    "fastdom": {
+      "version": "1.0.12",
+      "reason": "Neither the published package nor its upstream repository has a LICENSE file; the package declares MIT. This document is the License section of the package's own README.md, copied verbatim.",
+      "documents": [
+        {
+          "file": "third_party/fastdom/LICENSE",
+          "source": "https://registry.npmjs.org/fastdom/-/fastdom-1.0.12.tgz#package/README.md",
+          "sha256": "50c0de64f5cd5e39859b43f7eca7f5843fb3c3d5ac7e34a453e27419ad51e08c"
+        }
+      ]
     }
   }
 }

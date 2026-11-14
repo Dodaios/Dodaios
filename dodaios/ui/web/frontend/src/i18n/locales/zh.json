@@ -11884,6 +11884,23 @@
       "hint": "点击文字即可输入。离开该字段时保存，按 Esc 撤销。",
       "saving": "正在保存…",
       "failed": "无法保存。"
+    },
+    "whiteboard": {
+      "new": "新建白板",
+      "new_failed": "无法创建白板。请稍后再试。",
+      "loading": "正在打开白板…",
+      "load_failed": "无法打开白板。",
+      "retry": "重试",
+      "saving": "正在保存…",
+      "saved": "已保存",
+      "save_failed": "尚未保存，稍后会自动重试。",
+      "welcome": {
+        "heading": "绘制、书写、连接。此白板会自动保存。",
+        "assistant": "也可以让 {assistant} 在这里画点什么。",
+        "menu": "打开、导出为图片、背景、帮助",
+        "toolbar": "选择一个工具开始",
+        "help": "键盘快捷键"
+      }
     }
   },
   "agent_browser": {

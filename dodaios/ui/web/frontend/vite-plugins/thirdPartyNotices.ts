@@ -72,7 +72,10 @@ export class NoticeCollector {
       for (const document of rootDocuments) this.addDocument(notice, document, path.basename(document));
       // Some npm tarballs omit LICENSE. Each exception is version-pinned and
       // retains a real, unedited upstream document with its source and digest.
-      const source = this.sources[notice.name];
+      // A package bundled in two versions at once (a dependency that pins an
+      // older copy for itself) is keyed `name@version`; the plain name covers
+      // the common case of one version.
+      const source = this.sources[`${notice.name}@${notice.version}`] ?? this.sources[notice.name];
       if (source) {
         if (source.version !== notice.version) {
           throw new Error(`Review notice source for ${notice.name}@${notice.version}; recorded version is ${source.version}`);
@@ -169,6 +172,10 @@ export function thirdPartyNotices(root: string): { plugin: Plugin; workerPlugin:
           collector.collect(bundle);
           // These SVGs are copied directly by materialIconAssets, outside Rollup.
           collector.addFile(path.join(root, "node_modules/material-icon-theme/icons"));
+          // The whiteboard editor's fonts are copied by whiteboardAssets, outside
+          // Rollup (its code reaches the notices through the chunks anyway).
+          const boardFonts = path.join(root, "node_modules/@excalidraw/excalidraw/dist/prod/fonts");
+          if (fs.existsSync(boardFonts)) collector.addFile(boardFonts);
           this.emitFile({ type: "asset", fileName: NOTICE_NAME, source: collector.render() });
         },
       },

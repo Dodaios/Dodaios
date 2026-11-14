@@ -27,6 +27,11 @@ names, so the store, the tool and the library treat all types alike:
     The grammar of the spec as text for the model, with one compact example.
     Handed out by the ``node`` tool's ``guide`` operation.
 
+A module may also export ``render_in_run(node, run_dir) -> str``: the page
+drawn with files the node keeps in its run directory (a whiteboard's
+pictures). The store uses it when it is there; ``render`` stays the page
+without them.
+
 ``RENDER_REVISION`` below goes up whenever a renderer's output changes; the
 store rewrites the pages of older nodes when they are next read, so every
 node gets the current look without being rebuilt by hand.
@@ -37,17 +42,18 @@ from __future__ import annotations
 import importlib
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Final
 
 from dodaios.nodes.types import NODE_TYPES, node_type
 
 #: Raise by one when any renderer's output changes.
-RENDER_REVISION: Final[int] = 6
+RENDER_REVISION: Final[int] = 7
 
 
 @dataclass(frozen=True)
 class NodeKind:
-    """One node type's five functions."""
+    """One node type's five functions (and the optional page with run files)."""
 
     type: str
     normalize: Callable[[Any], dict[str, Any]]
@@ -55,6 +61,7 @@ class NodeKind:
     preview: Callable[[dict[str, Any]], dict[str, Any]]
     starter: Callable[[str, str], dict[str, Any]]
     guide: str
+    render_in_run: Callable[[Any, Path], str] | None = None
 
 
 _KINDS: dict[str, NodeKind] = {}
@@ -74,6 +81,7 @@ def kind_of(type_name: str) -> NodeKind:
         preview=module.preview,
         starter=module.starter,
         guide=str(module.GUIDE),
+        render_in_run=getattr(module, "render_in_run", None),
     )
     _KINDS[name] = kind
     return kind

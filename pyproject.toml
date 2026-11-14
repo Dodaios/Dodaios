@@ -848,6 +848,11 @@ write-report = "dodaios.plugins.tool.write_report:WriteReportTool"
 # page (dodaios/nodes/). Router-tier, monitor (one page + at most one own
 # routine); no model call, never spawns (AP-5/AP-14).
 node = "dodaios.plugins.tool.node:NodeTool"
+# Whiteboards (2026-11-14): the assistant draws on a whiteboard node (the embedded
+# editor's scene) through high-level actions: add, connect, layout, a diagram, a
+# Mermaid flowchart (dodaios/nodes/board/). Router-tier, monitor (one node + its
+# card); no model call, never spawns (AP-5/AP-14).
+whiteboard = "dodaios.plugins.tool.whiteboard:WhiteboardTool"
 # Jobs ledger (2026-11-10): every async hand-off returns a job_id; these two read
 # it. job-status reports jobs now, await-jobs waits on evidence up to a timeout
 # the model picks. Both are read-only (safe) and never spawn (AP-5/AP-14).

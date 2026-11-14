@@ -8,6 +8,7 @@ import path from "node:path";
 import { missingNameGate } from "./vite-plugins/missingNameGate";
 import { safePublication } from "./vite-plugins/safePublication";
 import { thirdPartyNotices } from "./vite-plugins/thirdPartyNotices";
+import { whiteboardAssets } from "./vite-plugins/whiteboardAssets";
 
 const notices = thirdPartyNotices(__dirname);
 
@@ -104,7 +105,15 @@ function mobileStrings(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [safePublication(__dirname), react(), materialIconAssets(), missingNameGate(__dirname), notices.plugin, mobileStrings()],
+  plugins: [
+    safePublication(__dirname),
+    react(),
+    materialIconAssets(),
+    whiteboardAssets(__dirname),
+    missingNameGate(__dirname),
+    notices.plugin,
+    mobileStrings(),
+  ],
   worker: { plugins: () => [notices.workerPlugin()] },
   // The society's figures are binary glTF; Vite serves them as fingerprinted
   // assets (docs/agent-society/character-pipeline.md §4.2).

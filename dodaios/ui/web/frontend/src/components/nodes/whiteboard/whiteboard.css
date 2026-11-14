@@ -1,0 +1,39 @@
+/*
+ * The whiteboard editor inside the app. The package's dialogs and popovers are
+ * rendered into the document body, so these rules match `.excalidraw`
+ * anywhere, not only inside the board.
+ *
+ * Hidden: the editor's ways out to web services. The app works offline and
+ * nothing in it should send a board, or the person, to a website.
+ */
+
+/* The help dialog's links to the project's website, blog and issue tracker.
+   The keyboard shortcuts below them stay. */
+.excalidraw .HelpDialog__header {
+  display: none;
+}
+
+/* "Browse libraries" opens a public library website. */
+.excalidraw .library-menu-browse-button {
+  display: none;
+}
+
+/* "Publish library" sends the selected items to a public library service. The
+   package labels that menu item with this test id. */
+.excalidraw .library-menu [data-testid="lib-dropdown--remove"] {
+  display: none;
+}
+
+/* The web embed tool frames videos and pages from the web, which a board does
+   not keep. The package gives the Mermaid item the same test id, so only the
+   one followed by the laser pointer (the embed tool) is hidden. */
+.excalidraw .App-toolbar__extra-tools-dropdown [data-testid="toolbar-embeddable"]:has(+ [data-testid="toolbar-laser"]) {
+  display: none;
+}
+
+/* The board fills the stage; the editor brings its own scrolling. */
+.dodaios-board {
+  position: relative;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}

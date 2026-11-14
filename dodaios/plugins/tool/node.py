@@ -64,7 +64,10 @@ TYPE_LINES: Final[dict[str, str]] = {
         "an analysis of the person's data: figures and charts read from their files, apps "
         'and accounts, kept current if they want (the app says "Analytics")'
     ),
-    "whiteboard": "a board of notes, shapes and arrows: a diagram, a map of ideas",
+    "whiteboard": (
+        "a board of notes, shapes and arrows: a diagram, a map of ideas "
+        "(make and edit it with the whiteboard tool)"
+    ),
     "motion": 'a short animation (the app says "Clips")',
 }
 
@@ -126,10 +129,10 @@ class NodeTool:
         "the Nodes section and as a card in the chat. Types: docs (a written document), "
         "slides (a deck), sheets (rows and columns), design (a free-form page; the app "
         "says Visuals), data (analyses of the person's data; Analytics), whiteboard "
-        "(notes, shapes, arrows), motion (a short animation; Clips). Call 'guide' with the "
+        "(a canvas: use the whiteboard tool), motion (a short animation; Clips). Call 'guide' with the "
         "type before your first create of that type; the spec must follow that grammar. "
         "To change a node, use "
-        "'update' with 'changes' (small edits by path) rather than resending everything. "
+        "'update' with 'changes' (small edits by path) instead of a full resend. "
         "To keep one current from the person's apps, give 'track' (on create, or with "
         "'keep_current'); 'stop' ends that. 'get' reads a node, 'list' shows all, 'revert' "
         "undoes the last change. The renderer does the design: send content, never HTML "

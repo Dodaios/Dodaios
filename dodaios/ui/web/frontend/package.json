@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "0.18.1",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/pixelify-sans": "^5.3.0",
@@ -83,6 +84,9 @@
   },
   "overrides": {
     "dompurify": "3.4.17",
-    "postcss-selector-parser": "^6.1.5"
+    "postcss-selector-parser": "^6.1.5",
+    "lodash-es": "4.18.1",
+    "nanoid@3": "3.3.20",
+    "nanoid@4": "5.1.16"
   }
 }

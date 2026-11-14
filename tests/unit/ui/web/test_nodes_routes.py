@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import base64
+import sys
+import types
 from pathlib import Path
 from typing import Any
 
@@ -518,3 +521,187 @@ def test_an_edit_the_node_cannot_take_is_refused_with_the_reason(
 def test_an_edit_of_an_unknown_node_is_a_404(client: TestClient) -> None:
     answer = client.post("/api/nodes/0123456789ab/edit", json={"path": "/a", "value": "x"})
     assert answer.status_code == 404
+
+
+# ----------------------------------------------------------------- whiteboards
+
+_PNG = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+    "0000000d4944415478da63fcff9f010005fe02fea7d6a4b90000000049454e44ae426082"
+)
+_PNG_URL = "data:image/png;base64," + base64.b64encode(_PNG).decode()
+
+
+def _box(ident: str, **fields: Any) -> dict[str, Any]:
+    return {"id": ident, "type": "rectangle", "x": 0, "y": 0, "width": 80, "height": 40, **fields}
+
+
+@pytest.fixture
+def boards(store: NodeStore, monkeypatch: pytest.MonkeyPatch) -> NodeStore:
+    """The store, with the real whiteboard type (the others stay stand-ins)."""
+    kinds = dict(node_kinds._KINDS)
+    kinds.pop("whiteboard")
+    monkeypatch.setattr(node_kinds, "_KINDS", kinds)
+    return store
+
+
+def test_a_board_scene_is_read_and_saved_with_its_version(
+    client: TestClient, boards: NodeStore
+) -> None:
+    node = boards.create(type="whiteboard", title="Board")
+    answer = client.get(f"/api/nodes/{node.id}/scene")
+    assert answer.status_code == 200
+    assert answer.json() == {
+        "version": 1,
+        "updated_at": node.updated_at,
+        "scene": {
+            "format": "scene",
+            "elements": [],
+            "appState": {"viewBackgroundColor": "#ffffff", "gridModeEnabled": False},
+            "files": {},
+        },
+    }
+    saved = client.put(f"/api/nodes/{node.id}/scene", json={"scene": {"elements": [_box("a")]}})
+    assert saved.status_code == 200
+    body = saved.json()
+    assert body["version"] == 2 and body["merged"] is False and "scene" not in body
+    assert [element["id"] for element in boards.get(node.id).spec["elements"]] == ["a"]
+
+
+def test_a_save_behind_the_assistant_gets_the_merged_scene_back(
+    client: TestClient, boards: NodeStore
+) -> None:
+    node = boards.create(type="whiteboard", title="Board")
+    client.put(f"/api/nodes/{node.id}/scene", json={"scene": {"elements": [_box("a")]}})
+    boards.update(node.id, spec={"elements": [_box("a"), _box("drawn-by-assistant", x=300)]})
+    answer = client.put(
+        f"/api/nodes/{node.id}/scene",
+        json={"scene": {"elements": [_box("a", x=5, version=2)]}},
+    ).json()
+    assert answer["merged"] is True and answer["version"] == 4
+    assert [element["id"] for element in answer["scene"]["elements"]] == [
+        "a",
+        "drawn-by-assistant",
+    ]
+    assert answer["scene"]["elements"][0]["x"] == 5
+
+
+@pytest.mark.parametrize(
+    ("body", "status", "said"),
+    [
+        ({"scene": {"elements": [{"id": "a", "type": "box"}]}}, 400, "types"),
+        ({"scene": "x"}, 422, "scene"),
+        ({}, 422, "scene"),
+    ],
+)
+def test_a_scene_the_board_cannot_take_is_refused(
+    client: TestClient, boards: NodeStore, body: dict, status: int, said: str
+) -> None:
+    node = boards.create(type="whiteboard", title="Board")
+    answer = client.put(f"/api/nodes/{node.id}/scene", json=body)
+    assert answer.status_code == status
+    assert said in answer.json()["detail"]
+    assert boards.get(node.id).version == 1
+
+
+def test_a_body_that_is_not_json_or_too_large_is_refused(
+    client: TestClient, boards: NodeStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    node = boards.create(type="whiteboard", title="Board")
+    answer = client.put(
+        f"/api/nodes/{node.id}/scene",
+        content=b"{not json",
+        headers={"content-type": "application/json"},
+    )
+    assert answer.status_code == 422
+    monkeypatch.setattr(nodes_routes, "MAX_SCENE_BODY", 50)
+    answer = client.put(
+        f"/api/nodes/{node.id}/scene", json={"scene": {"elements": [_box("a")] * 3}}
+    )
+    assert answer.status_code == 413
+
+
+def test_the_board_routes_reach_only_whiteboards(client: TestClient, boards: NodeStore) -> None:
+    sheet = boards.create(type="sheets", title="Sheet", spec={"rows": []})
+    for method, path, body in (
+        ("get", "scene", None),
+        ("put", "scene", {"scene": {"elements": []}}),
+        ("post", "files", {"dataURL": _PNG_URL}),
+        ("get", "files/abc", None),
+        ("post", "whiteboard", {"actions": [{"do": "clear"}]}),
+    ):
+        wrong = client.request(method, f"/api/nodes/{sheet.id}/{path}", json=body)
+        assert wrong.status_code == 422 and "not a whiteboard" in wrong.json()["detail"]
+        missing = client.request(method, f"/api/nodes/{_UNKNOWN}/{path}", json=body)
+        assert missing.status_code == 404
+
+
+def test_a_picture_is_kept_and_served_with_its_own_type(
+    client: TestClient, boards: NodeStore
+) -> None:
+    node = boards.create(type="whiteboard", title="Board")
+    answer = client.post(
+        f"/api/nodes/{node.id}/files",
+        json={"dataURL": _PNG_URL.replace("image/png", "image/svg+xml")},
+    )
+    assert answer.status_code == 200
+    file_id = answer.json()["id"]
+    assert answer.json() == {"id": file_id, "mimeType": "image/png"}
+    served = client.get(f"/api/nodes/{node.id}/files/{file_id}")
+    assert served.status_code == 200 and served.content == _PNG
+    assert served.headers["content-type"] == "image/png"
+    assert served.headers["cache-control"] == "private, max-age=31536000, immutable"
+    assert served.headers["content-security-policy"] == "default-src 'none'"
+    assert served.headers["x-content-type-options"] == "nosniff"
+    assert client.get(f"/api/nodes/{node.id}/files/nope").status_code == 404
+    assert client.get(f"/api/nodes/{node.id}/files/..%2F..%2Fnode.json").status_code == 404
+
+
+def test_a_picture_that_is_none_or_takes_a_used_id_is_refused(
+    client: TestClient, boards: NodeStore
+) -> None:
+    node = boards.create(type="whiteboard", title="Board")
+    svg = "data:image/svg+xml;base64," + base64.b64encode(b"<svg><script/></svg>").decode()
+    answer = client.post(f"/api/nodes/{node.id}/files", json={"dataURL": svg})
+    assert answer.status_code == 400 and "PNG, JPEG, GIF and WebP" in answer.json()["detail"]
+    client.post(f"/api/nodes/{node.id}/files", json={"dataURL": _PNG_URL, "id": "pic"})
+    gif = "data:image/gif;base64," + base64.b64encode(b"GIF89a" + b"\x00" * 20).decode()
+    taken = client.post(f"/api/nodes/{node.id}/files", json={"dataURL": gif, "id": "pic"})
+    assert taken.status_code == 409
+    bad_id = client.post(f"/api/nodes/{node.id}/files", json={"dataURL": _PNG_URL, "id": "../x"})
+    assert bad_id.status_code == 400
+    assert client.post(f"/api/nodes/{node.id}/files", json={}).status_code == 422
+
+
+def test_actions_run_on_the_board_and_save_one_revision(
+    client: TestClient, boards: NodeStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[Any] = []
+
+    def apply_actions(scene: dict, actions: list, *, now_ms: Any = None) -> tuple[dict, list]:
+        seen.append((scene, actions))
+        if actions[0].get("do") == "fail":
+            raise NodeError("actions[0]: 'fail' is no action.")
+        return {**scene, "elements": [_box("new", x=10, y=20)]}, ["added new"]
+
+    module = types.ModuleType("dodaios.nodes.board.ops")
+    module.apply_actions = apply_actions  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "dodaios.nodes.board.ops", module)
+    node = boards.create(type="whiteboard", title="Board")
+
+    answer = client.post(f"/api/nodes/{node.id}/whiteboard", json={"actions": [{"do": "add"}]})
+    assert answer.status_code == 200
+    assert answer.json() == {
+        "version": 2,
+        "report": ["added new"],
+        "summary": {"elements": 1, "bounds": [10, 20, 90, 60]},
+    }
+    assert seen[0][1] == [{"do": "add"}] and seen[0][0]["format"] == "scene"
+    run_dir = boards.dir_of(node.id)
+    assert run_dir is not None
+    assert len(list((run_dir / "history").iterdir())) == 1  # an ordinary revision
+
+    failed = client.post(f"/api/nodes/{node.id}/whiteboard", json={"actions": [{"do": "fail"}]})
+    assert failed.status_code == 400 and "actions[0]" in failed.json()["detail"]
+    assert boards.get(node.id).version == 2
+    assert client.post(f"/api/nodes/{node.id}/whiteboard", json={"actions": []}).status_code == 422

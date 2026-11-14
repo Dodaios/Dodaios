@@ -15,7 +15,7 @@ later, take a change back, and keep it current from the person's apps.
 | `sheets` | Sheets | Rows and columns: a list or a table to keep. |
 | `design` | Visuals | A freely designed page: a poster, a one-pager, an invitation. |
 | `data` | Analytics | A dashboard: current figures and charts. |
-| `whiteboard` | Whiteboard | Notes, shapes and arrows: a diagram, a map of ideas. |
+| `whiteboard` | Whiteboard | An infinite canvas: shapes, notes, arrows, drawings, pictures, a diagram. |
 | `motion` | Clips | A short animation. |
 
 The names in the app are the same in every language (`DISPLAY_NAMES` in
@@ -33,7 +33,8 @@ other names a person may use for a type (`deck`, `spreadsheet`, `dashboard`).
 
 **Spec.** The content of a node is its `spec`: plain JSON in the grammar of
 its type. The assistant writes the spec. It never writes markup for a typed
-node. A spec is at most one megabyte of JSON.
+node. A spec is at most one megabyte of JSON (a whiteboard's eight, see
+[Whiteboards](#whiteboards)).
 
 **Renderer.** Each type has one renderer in `dodaios/nodes/kinds/<type>.py`.
 The renderer turns a spec into one self-contained HTML page. The same spec
@@ -50,6 +51,10 @@ A renderer module exports five names:
 | `preview(spec)` | Returns the few values the library draws on the node's card. |
 | `starter(title, language)` | Returns the spec of a new, empty node of this type. |
 | `GUIDE` | The grammar of the spec as text for the model, with one example. |
+
+A renderer may also export `render_in_run(node, run_dir)`: the page drawn with
+files the node keeps in its run directory (a whiteboard's pictures). The store
+uses it when it is there.
 
 **Revision.** A change to a node is a change to its spec. The assistant sends
 a complete new spec, or a list of small edits by path
@@ -93,6 +98,7 @@ A node is one run directory in the run archive
     .standalone-run.json                     marks the run (kind "node")
     node.json                                type, title, spec, version, upkeep
     history/v<N>.json                        earlier specs, the newest 12
+    board-files/<hash>                       a whiteboard's pictures
     tasks/node/artifacts/files/<name>.html   the page, rendered from the spec
 ```
 
@@ -104,6 +110,72 @@ scripts and blocks the network.
 
 The page file is always written again from the spec. Nothing edits it in
 place. A rename keeps the file name, so links to the page stay valid.
+
+## Whiteboards
+
+A whiteboard is an infinite canvas. The person draws on it in the app: the
+stage shows the embedded open-source editor `@excalidraw/excalidraw` (MIT
+licence) instead of the page. The assistant draws on the same board with the
+`whiteboard` tool, whose actions are high level: a box with a label, an
+arrow between two things, a frame, a whole diagram, a Mermaid flowchart, a
+layout. Several boards are several nodes; "New whiteboard" makes another.
+
+**The spec is the editor's scene** (`dodaios/nodes/board/scene.py`):
+
+```json
+{
+  "format": "scene",
+  "elements": [{"id": "a1", "type": "rectangle", "x": 0, "y": 0, "width": 200, "height": 100, "version": 1, "...": "..."}],
+  "appState": {"viewBackgroundColor": "#ffffff", "gridModeEnabled": false},
+  "files": {"<fileId>": {"id": "<fileId>", "mimeType": "image/png", "created": 1731500000000}}
+}
+```
+
+The element types are `rectangle`, `ellipse`, `diamond`, `text`, `arrow`,
+`line`, `freedraw`, `image` and `frame`, with the editor's own fields.
+`normalize_scene` keeps only these types and fields, bounds every number and
+string, accepts a colour as hex, `transparent` or a short list of words, and
+keeps links to `https:`, `http:` and `mailto:` only. Unknown fields are
+dropped; an unknown element type is refused with a sentence that names the
+element. The editor's `embeddable`, `iframe` and generated-page frames are
+dropped, because they load the web. A board holds at most 5 000 elements,
+and its spec may be eight megabytes, because a drawn stroke has many points.
+
+**Versions and the merge.** Whoever changes an element raises its `version`
+and draws a new random `versionNonce`. A deleted element stays in the list
+with `isDeleted: true` (a tombstone). When the editor saves, the store joins
+its scene with the stored one (`merge_scene`): per element the higher version
+wins, and on a tie the lower nonce, as in the editor. An element only the
+stored scene has stays, so what the assistant drew meanwhile is kept. When
+the stored scene had something newer, the answer carries the merged scene and
+the editor takes it. Old tombstones are pruned when there are more than 2 000.
+
+**History.** The editor saves about once a second while the person draws.
+Saves less than ten minutes apart share one history version, for at most an
+hour; the version number still goes up with each save. Any other revision
+(the assistant's, a revert) ends that stretch. Changes to one node are
+serialised by a lock, so a save and an edit by the assistant cannot overwrite
+each other.
+
+**Pictures.** The scene keeps only a picture's metadata. The bytes are in the
+node's run directory, under `board-files/`, in a file named by a hash of the
+file id. A picture is kept only when its bytes are a PNG, JPEG, GIF or WebP
+(whatever the upload claims), at most 5 MB each and 50 MB per board. When a
+board passes its budget, pictures that neither the scene nor a kept version
+names are removed first. A duplicated board gets a copy of its pictures.
+
+**The page** (`dodaios/nodes/board/render.py`) is a read-only drawing of the
+scene as SVG, for the library card, the chat card and a shared file. It
+draws clean lines rather than the editor's hand-drawn look, fits the drawing
+into the window, and pans and zooms. In the dark theme the drawing is
+inverted as the editor does it, and pictures are inverted back. Pictures are
+embedded up to 3 MB per page; the rest are labelled boxes.
+
+**The older grammar.** Boards made before the canvas used `items`, `links`
+and `layout`. The `node` tool still accepts that grammar; it becomes a scene
+laid out by the auto layout (`dodaios/nodes/board/convert.py`). A stored board
+in the older grammar is converted the next time it is read, and its embedded
+pictures become board files.
 
 ## Comments on a node
 
@@ -187,6 +259,59 @@ The assistant works on nodes through one tool
 
 A node is named by its id or by its exact title.
 
+## The `whiteboard` tool
+
+The assistant draws on whiteboards through a second tool
+(`dodaios/plugins/tool/whiteboard.py`). It does not write the scene: it
+sends actions, and `dodaios/nodes/board/ops.py` turns them into valid
+elements.
+
+| Operation | What it does |
+|-----------|--------------|
+| `guide` | Returns the reference of every action, with short examples. |
+| `list` | Returns the whiteboards. |
+| `create` | Makes a board from `title`, and optionally a `mermaid` flowchart, a `diagram` or `actions`. |
+| `read` | Returns what is on a board: each thing's id, type, label, box, colours, frame and connections. `query`, `ids` and `raw` narrow it. |
+| `edit` | Runs `actions` on a board (also `mermaid`, `diagram`, a new `title`). |
+| `duplicate` | Makes a copy of a board. |
+| `revert` | Puts the previous version back. |
+
+An action is `{"do": NAME, ...}`. The actions are `add`, `update`,
+`delete`, `move`, `resize`, `connect`, `group`, `ungroup`, `frame`, `align`,
+`distribute`, `layout` (flow, tree, mindmap, grid), `diagram`, `mermaid`,
+`style`, `order`, `lock`, `unlock`, `clear`, `background` and `grid`.
+
+The rules the actions keep:
+
+- All or nothing. When one action fails, the error names its index and
+  what to fix, and the board does not change.
+- An id the model gives is kept, so one call can add two boxes and connect
+  them. Other things get short ids such as `note-3`; an arrow of a diagram
+  is `from:to`.
+- A thing without a position goes to a free place right of the content, and
+  things added in one call flow in rows. `near`, `right_of`, `below` and
+  `inside` place it next to an element or in a frame. Nothing new overlaps
+  what is there.
+- An arrow is bound to the shapes it joins. When a shape moves, its arrows
+  are drawn again; when it is deleted, they go too.
+- The board looks the same everywhere: one size per kind of shape, the
+  editor's 20 px grid and colour palette, sticky notes as yellow boxes,
+  groups as frames.
+- An edit runs under the node's lock on the scene as it is stored. Every
+  element it changes gets a new version, so the open editor merges it with
+  the person's drawing. Each edit is one history version.
+
+`POST /api/nodes/{id}/whiteboard` runs the same actions for scripts and
+other agents.
+
+| Part | File |
+|------|------|
+| Element factory, palette, fonts, fractional indices | `dodaios/nodes/board/elements.py` |
+| Layouts and free places | `dodaios/nodes/board/layout.py` |
+| Diagrams, the older grammar | `dodaios/nodes/board/convert.py` |
+| Mermaid flowcharts | `dodaios/nodes/board/mermaid.py` |
+| Actions and the reading | `dodaios/nodes/board/ops.py` |
+
 ## The library
 
 The Nodes section shows one list of cards. It holds the typed nodes and
@@ -236,16 +361,26 @@ All routes are in `dodaios/ui/web/nodes_routes.py`.
 | `POST /api/nodes/{id}/revert` | Puts the previous version back and returns the card. |
 | `POST /api/nodes/{id}/upkeep/stop` | Stops the upkeep and returns the node. |
 | `POST /api/nodes/{id}/upkeep/resume` | Body `{"every_minutes"?}`. Starts the upkeep again and returns the node. |
+| `GET /api/nodes/{id}/scene` | A whiteboard's scene: `{"version", "updated_at", "scene"}`. |
+| `PUT /api/nodes/{id}/scene` | Body `{"scene"}`. The editor's save, merged with the stored scene. Answers `{"version", "updated_at", "merged"}`, and `"scene"` (the merged scene) when `merged` is true. |
+| `POST /api/nodes/{id}/files` | Body `{"dataURL", "id"?}`. Keeps a picture for a whiteboard. Without `id` the id is the SHA-1 of the bytes. Answers `{"id", "mimeType"}`. |
+| `GET /api/nodes/{id}/files/{fileId}` | A whiteboard picture's bytes, with the type its bytes have, cached for good and under `Content-Security-Policy: default-src 'none'`. |
+| `POST /api/nodes/{id}/whiteboard` | Body `{"actions": [...]}`: the `whiteboard` tool's actions, for scripts and other agents. All actions or none; saved as one revision. Answers `{"version", "report", "summary"}`: one report line per action, and `{"elements", "bounds"}` of the board. |
 | `DELETE /api/nodes/{id}` | Stops the upkeep, then removes the node, its page and its history. Returns `{"deleted": true}`. |
 
 Errors: `404` for an id that is not a node. `400` with the reason as one
 sentence for a request the store refuses (an unknown type, an empty title, no
 earlier version, no `track` to resume). `422` for a body of the wrong shape.
 `503` when the upkeep cannot be scheduled because the task scheduler is not
-running.
+running. The whiteboard routes answer `422` for a node of another type, `409`
+for a picture id that already holds a different picture, and `413` for a body
+over its ceiling (a scene of 8.5 MB, a picture of about 7 MB as base64, 2 MB
+of actions).
 
-The content of a node is not written through these routes. The assistant
-writes it through the `node` tool.
+The content of a node is not written through these routes, except a
+whiteboard's: the person's editor saves the scene, and scripts may run the
+`whiteboard` tool's actions. The assistant writes every other node through
+the `node` tool.
 
 For a typed node, `refreshing` is checked against the routine in every
 answer. If a person deleted or paused the routine in Automations, the node
@@ -282,8 +417,9 @@ one.
 | Edits by path | `dodaios/nodes/patch.py` |
 | The document around a page, safe text | `dodaios/nodes/shell.py` |
 | Renderers | `dodaios/nodes/kinds/` |
+| Whiteboard scene, page, pictures, actions | `dodaios/nodes/board/` |
 | Upkeep | `dodaios/nodes/refresh.py` |
 | The library's cards | `dodaios/nodes/library.py` |
-| The tool | `dodaios/plugins/tool/node.py` |
+| The tools | `dodaios/plugins/tool/node.py`, `dodaios/plugins/tool/whiteboard.py` |
 | HTTP API | `dodaios/ui/web/nodes_routes.py` |
 | Card model of the frontend | `dodaios/ui/web/frontend/src/components/nodes/nodeModel.ts` |

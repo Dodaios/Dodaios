@@ -151,3 +151,25 @@ it("reports every missing emitted-package license in one failed build", async ()
     expect(String(error)).toContain("No full license document for bundled missing-two@1.0.0");
   }
 });
+
+it("takes a version-keyed exception for a package bundled in a second, older version", async () => {
+  const { root, repository } = await fixture();
+  const current = await makePackage(root, "twice", undefined, null);
+  const older = path.join(root, "node_modules/host/node_modules/twice/index.js");
+  await mkdir(path.dirname(older), { recursive: true });
+  await writeFile(path.join(path.dirname(older), "package.json"), JSON.stringify({ name: "twice", version: "0.9.0" }));
+  await writeFile(older, "export default 1;");
+  await mkdir(path.join(repository, "third_party/twice"), { recursive: true });
+  await writeFile(path.join(repository, "third_party/twice/LICENSE"), license);
+  const document = { file: "third_party/twice/LICENSE", source: "https://example.invalid/pinned/LICENSE",
+    sha256: createHash("sha256").update(license).digest("hex") };
+  await writeFile(path.join(repository, "third_party/frontend-notice-sources.json"), JSON.stringify({ packages: {
+    twice: { version: "1.0.0", documents: [document] },
+    "twice@0.9.0": { version: "0.9.0", documents: [document] },
+  } }));
+  const collector = new NoticeCollector(root);
+  collector.addFile(current);
+  collector.addFile(older);
+  expect(collector.render()).toContain("twice@1.0.0");
+  expect(collector.render()).toContain("twice@0.9.0");
+});

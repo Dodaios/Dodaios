@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowUp, Loader2, MessageSquarePlus, PencilLine, Shapes, ShieldCheck, Star } from "lucide-react";
+import { ArrowUp, Loader2, MessageSquarePlus, PencilLine, Plus, Shapes, ShieldCheck, Star } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { OutputPreview } from "@/components/visualization/OutputPreview";
@@ -38,6 +38,7 @@ import { useNodeCommentDictation } from "@/components/nodes/nodeCommentDictation
 import { NodesApiError, saveNodeField } from "@/components/nodes/useNodes";
 import { isNodeSlug, isTypedNode, type NodeCard } from "@/components/nodes/nodeModel";
 import { useNodesLibrary } from "@/components/nodes/useNodesLibrary";
+import { useNewWhiteboard } from "@/components/nodes/whiteboard/useNewWhiteboard";
 import { useT } from "@/i18n";
 import { useArtifactFavorites } from "@/hooks/useArtifactFavorites";
 import { useFramedPageLinks } from "@/hooks/useFramedPageLinks";
@@ -72,6 +73,8 @@ import {
 const LivingPageBar = lazy(() => import("@/components/visualization/LivingPageBar"));
 // The same for a typed node: its strip also tells the stage when it changed.
 const NodeUpkeepBar = lazy(() => import("@/components/nodes/NodeUpkeepBar"));
+// A whiteboard's canvas is a large editor: loaded when a board is opened.
+const WhiteboardEditor = lazy(() => import("@/components/nodes/whiteboard/WhiteboardEditor"));
 
 /**
  * The Nodes section: a library first and a stage second.
@@ -358,6 +361,7 @@ export function VisualizationView() {
               node={stagedNode}
               startEditing={stagedNode !== null && stagedNode.key === startEditingKey}
               onEditingStarted={editingStarted}
+              onOpenNode={open}
               onJumpToRun={(slug) => setSelection({ slug, path: null })}
               nav={{ onBack: back, position, total: ordered.length, onStep: step }}
             />
@@ -405,6 +409,7 @@ function Stage({
   node,
   startEditing = false,
   onEditingStarted,
+  onOpenNode,
   onJumpToRun,
   nav,
 }: {
@@ -416,6 +421,8 @@ function Stage({
   startEditing?: boolean;
   /** The page went into Edit for `startEditing`; it is not asked again. */
   onEditingStarted?: () => void;
+  /** Put another node on stage (one just made from the toolbar). */
+  onOpenNode: (card: NodeCard) => void;
   onJumpToRun: (slug: string) => void;
   /** Back to the library and previous / next — the ends of the stage's bar. */
   nav: StageNavigation;
@@ -452,7 +459,10 @@ function Stage({
    * EDIT: the page's texts can be typed into, and each change is saved into
    * the node. Only a typed node takes either (its page carries the other half
    * of this, and its content is a spec), and only while its page is shown. */
-  const canTouch = node !== null && visual?.kind === "page" && mode === "preview";
+  /* A whiteboard is drawn on in its editor, always editable: its page (the
+   * picture of the board the library and chat show) takes neither mode. */
+  const board = node !== null && isTypedNode(node) && node.type === "whiteboard" ? node : null;
+  const canTouch = node !== null && board === null && visual?.kind === "page" && mode === "preview";
   const [pageMode, setPageMode] = useState<NodePageMode>("view");
   useEffect(() => setPageMode("view"), [currentId]);
   useEffect(() => {
@@ -460,10 +470,16 @@ function Stage({
   }, [canTouch]);
   // After the two resets above, so a node started blank ends up in Edit.
   useEffect(() => {
-    if (!startEditing || !canTouch) return;
+    if (!startEditing) return;
+    // A blank board is already open for drawing: nothing to switch on.
+    if (board !== null) {
+      onEditingStarted?.();
+      return;
+    }
+    if (!canTouch) return;
     setPageMode("edit");
     onEditingStarted?.();
-  }, [startEditing, canTouch, onEditingStarted]);
+  }, [startEditing, canTouch, board, onEditingStarted]);
   const toggleMode = useCallback(
     (wanted: Exclude<NodePageMode, "view">) => setPageMode((now) => (now === wanted ? "view" : wanted)),
     [],
@@ -494,6 +510,7 @@ function Stage({
         primary={primary}
         node={node}
         pageMode={canTouch ? { mode: pageMode, onToggle: toggleMode } : null}
+        onNewBoard={board !== null ? onOpenNode : null}
         mode={mode}
         onMode={setMode}
         onJumpToRun={onJumpToRun}
@@ -501,7 +518,8 @@ function Stage({
       />
       {run && <RunCapacityDecision run={run} />}
       <div className="min-h-0 flex-1" data-testid="visualization-stage">
-        {mode === "preview" && visual && (
+        {mode === "preview" && visual && board !== null && <WhiteboardStage node={board} visual={visual} />}
+        {mode === "preview" && visual && board === null && (
           <ArtifactStage visual={visual} node={node} pageMode={canTouch ? pageMode : "view"} />
         )}
         {mode === "preview" && !visual && run && (
@@ -537,6 +555,7 @@ function ArtifactToolbar({
   primary,
   node,
   pageMode,
+  onNewBoard,
   mode,
   onMode,
   onJumpToRun,
@@ -549,6 +568,8 @@ function ArtifactToolbar({
   node: NodeCard | null;
   /** The page's mode and its switches, or null where the page takes neither comments nor edits. */
   pageMode: { mode: NodePageMode; onToggle: (mode: Exclude<NodePageMode, "view">) => void } | null;
+  /** On a whiteboard: opens the blank board "New whiteboard" makes. Null elsewhere. */
+  onNewBoard: ((card: NodeCard) => void) | null;
   mode: StageMode;
   onMode: (mode: StageMode) => void;
   onJumpToRun: (slug: string) => void;
@@ -645,6 +666,7 @@ function ArtifactToolbar({
       }
       actions={
         <>
+          {onNewBoard && <NewBoardButton onCreated={onNewBoard} />}
           {pageMode && (
             <>
               <PageModeButton
@@ -819,6 +841,28 @@ function ArtifactToolbar({
         </>
       }
     />
+  );
+}
+
+/** "New whiteboard" in a board's stage bar: a blank board, opened at once. */
+function NewBoardButton({ onCreated }: { onCreated: (card: NodeCard) => void }) {
+  const t = useT();
+  const { create, creating } = useNewWhiteboard(onCreated);
+  return (
+    <button
+      type="button"
+      onClick={() => void create()}
+      disabled={creating}
+      data-testid="visualization-new-whiteboard"
+      className={
+        "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full border border-border/70 px-4 text-base " +
+        "text-foreground transition-colors hover:bg-secondary disabled:opacity-60 " +
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      }
+    >
+      {creating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Plus className="h-4 w-4" aria-hidden />}
+      {t("nodes.whiteboard.new")}
+    </button>
   );
 }
 
@@ -1127,6 +1171,35 @@ function ArtifactStage({
       onError={() => setFailed(true)}
       className="h-full w-full border-0 bg-white"
     />
+  );
+}
+
+/**
+ * A whiteboard on stage: its editor, filling the stage. The node's watcher
+ * (mounted for every typed node) reports when the node changed, so what the
+ * assistant draws appears in the open editor.
+ */
+function WhiteboardStage({ node, visual }: { node: NodeCard & { id: string }; visual: VisualArtifact }) {
+  const t = useT();
+  const [revision, setRevision] = useState<number | null>(null);
+  return (
+    <div className="flex h-full flex-col" data-testid="visualization-whiteboard">
+      <Suspense fallback={null}>
+        <NodeUpkeepBar slug={visual.slug} onUpdated={setRevision} />
+      </Suspense>
+      <div className="min-h-0 flex-1">
+        <Suspense
+          fallback={
+            <div className="flex h-full items-center justify-center gap-2 text-base text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              {t("nodes.whiteboard.loading")}
+            </div>
+          }
+        >
+          <WhiteboardEditor key={node.id} nodeId={node.id} title={node.title} revision={revision} />
+        </Suspense>
+      </div>
+    </div>
   );
 }
 

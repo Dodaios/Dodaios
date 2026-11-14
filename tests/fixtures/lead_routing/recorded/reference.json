@@ -310,6 +310,12 @@
   "artifact-living-applications-de": {
    "tool": "node"
   },
+  "artifact-whiteboard-flow-en": {
+   "tool": "whiteboard"
+  },
+  "artifact-whiteboard-flow-de": {
+   "tool": "whiteboard"
+  },
   "mission-list-active-en": {
    "tool": "missions-list"
   },

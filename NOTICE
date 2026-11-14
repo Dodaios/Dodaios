@@ -32,3 +32,9 @@ and file-name rules from @pierre/trees (https://www.npmjs.com/package/@pierre/tr
 Copyright 2025 Pierre Computer Company, used under the Apache License, Version 2.0 -
 see third_party/pierre-trees/LICENSE - and a colour table adapted from T3 Code under
 the MIT License.
+
+The whiteboard editor in the Nodes section embeds Excalidraw
+(@excalidraw/excalidraw, https://github.com/excalidraw/excalidraw),
+Copyright (c) 2020 Excalidraw, used under the MIT License - see
+third_party/excalidraw/LICENSE. The fonts it ships are distributed with it
+under their own licenses (SIL Open Font License 1.1; Comic Shanns: MIT).
