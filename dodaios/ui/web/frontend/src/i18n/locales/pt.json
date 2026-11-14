@@ -11747,7 +11747,19 @@
       },
       "button": "Novo",
       "of_type": "Novo em {0}",
-      "type_label": "Tipo"
+      "type_label": "Tipo",
+      "menu_label": "Novo nó",
+      "blank_heading": "Começar um em branco",
+      "describe": "Descrever a {name}…",
+      "untitled": {
+        "docs": "Documento sem título",
+        "slides": "Apresentação sem título",
+        "sheets": "Folha sem título",
+        "design": "Design sem título",
+        "data": "Análise sem título",
+        "whiteboard": "Quadro sem título",
+        "motion": "Clipe sem título"
+      }
     },
     "menu": {
       "aria": "Ações deste node",

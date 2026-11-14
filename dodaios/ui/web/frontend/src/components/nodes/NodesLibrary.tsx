@@ -10,7 +10,13 @@
  * The page owns no data and no choices: both come in as `library`
  * (`useNodesLibrary`), so the section view can keep them alive while a node
  * is open. What the page does own is what is open ON it: the search field,
- * the filter panel, the card menu, and the dialog a type tile leads to.
+ * the filter panel, the card menu, the "New" menu and the dialog that hands a
+ * described node to the assistant.
+ *
+ * "New" works like it does in an office suite: a kind (from the menu, or
+ * "New in <kind>" on an empty shelf) starts a blank node of that kind at once
+ * and opens it, ready to be typed into. Describing it to the assistant is the
+ * menu's last entry, not a step on the way.
  */
 import {
   useCallback,
@@ -32,9 +38,10 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { QuickTooltip } from "@/components/ui/tooltip";
 import type { OutputSummary } from "@/hooks/useOutputs";
-import { useT } from "@/i18n";
+import { useT, useUiLanguage } from "@/i18n";
 import { endMissionDrag, startMissionDrag } from "@/lib/missionDnd";
 import { cn } from "@/lib/utils";
+import { useEventStore } from "@/store/events";
 import {
   LIBRARY_SORTS,
   LIBRARY_TABS,
@@ -49,6 +56,7 @@ import {
   type TypeFilter,
 } from "./libraryModel";
 import { NewNodeDialog } from "./NewNodeDialog";
+import { NewNodeMenu } from "./NewNodeMenu";
 import { NodeTypeRow } from "./NodeTypeRow";
 import { NODE_MENU_WIDTH, cardIsWorking, useNodeCardActions, type NodeCardActions } from "./NodeCardMenu";
 import { NodeCover } from "./NodeCover";
@@ -56,6 +64,7 @@ import { NODE_TYPES, type NodeCard, type NodeType } from "./nodeModel";
 import { NODE_TYPE_LABEL_KEY } from "./nodeTheme";
 import { NodeTypeIcon } from "./NodeTypeIcon";
 import type { NodesLibraryState } from "./useNodesLibrary";
+import { useNodeActions } from "./useNodes";
 
 type Translate = (key: string) => string;
 
@@ -86,12 +95,21 @@ const REVEALED_ON_CARD =
 export function NodesLibrary({
   library,
   onOpen,
+  onCreated = onOpen,
 }: {
   library: NodesLibraryState;
   onOpen: (card: NodeCard) => void;
+  /** A node the reader just started blank: it opens ready to be typed into. */
+  onCreated?: (card: NodeCard) => void;
 }) {
   const t = useT();
+  const language = useUiLanguage();
+  const pushToast = useEventStore((s) => s.pushToast);
+  const nodeActions = useNodeActions();
   const [newType, setNewType] = useState<NodeType | null>(null);
+  /** The kind a blank node is being made of right now (one at a time). */
+  const [creating, setCreating] = useState<NodeType | null>(null);
+  const creatingRef = useRef(false);
 
   const open = useCallback(
     (card: NodeCard) => {
@@ -117,8 +135,29 @@ export function NodesLibrary({
     () => countByType(filterByTab(library.allCards, tab, library.favorites)),
     [library.allCards, tab, library.favorites],
   );
-  /** "New" starts with the type the reader is looking at, else a document. */
-  const startNew = useCallback(() => setNewType(pickedType ?? "docs"), [pickedType]);
+  /** Describing a new node starts with the type the reader is looking at, else a document. */
+  const describeNew = useCallback(() => setNewType(pickedType ?? "docs"), [pickedType]);
+  /** A blank node of `type`, made and opened at once, with a name in the reader's language. */
+  const startBlank = useCallback(
+    async (type: NodeType) => {
+      if (creatingRef.current) return;
+      creatingRef.current = true;
+      setCreating(type);
+      let card: NodeCard;
+      try {
+        card = await nodeActions.createNode({ type, title: t(`nodes.new.untitled.${type}`), language });
+      } catch {
+        creatingRef.current = false;
+        setCreating(null);
+        pushToast("error", t("nodes.new.create_failed"));
+        return;
+      }
+      creatingRef.current = false;
+      setCreating(null);
+      onCreated(card);
+    },
+    [nodeActions, t, language, pushToast, onCreated],
+  );
   const skippedRuns = library.nodes.data?.skipped_runs ?? 0;
   const scannedRuns = library.nodes.data?.scanned_runs ?? 0;
 
@@ -142,10 +181,12 @@ export function NodesLibrary({
                 onChange={library.setTab}
               />
               <div className="ml-auto flex items-center gap-1">
-                <Button size="sm" onClick={startNew} data-testid="nodes-new" className="mr-1.5">
-                  <Plus aria-hidden />
-                  {t("nodes.new.button")}
-                </Button>
+                <NewNodeMenu
+                  creating={creating}
+                  onBlank={(type) => void startBlank(type)}
+                  onDescribe={describeNew}
+                  className="mr-1.5"
+                />
                 <SearchTool value={search} onChange={library.setSearch} />
                 <FilterTool
                   tab={tab}
@@ -184,18 +225,25 @@ export function NodesLibrary({
             ) : shown.length === 0 ? (
               bare ? (
                 <QuietState testId="nodes-empty" sentence={t("nodes.states.empty")}>
-                  <Button size="sm" onClick={startNew} data-testid="nodes-new">
-                    <Plus aria-hidden />
-                    {t("nodes.new.button")}
-                  </Button>
+                  <NewNodeMenu
+                    creating={creating}
+                    onBlank={(type) => void startBlank(type)}
+                    onDescribe={describeNew}
+                    align="start"
+                  />
                 </QuietState>
               ) : (
                 <QuietState testId="nodes-no-matches" sentence={emptySentence(library, t)}>
                   <div className="flex flex-wrap items-center justify-center gap-2">
                     {/* An empty shelf: the one place where making one is the next step. */}
                     {pickedType !== null && search.trim() === "" && (
-                      <Button size="sm" onClick={startNew} data-testid="nodes-new-of-type">
-                        <Plus aria-hidden />
+                      <Button
+                        size="sm"
+                        disabled={creating !== null}
+                        onClick={() => void startBlank(pickedType)}
+                        data-testid="nodes-new-of-type"
+                      >
+                        {creating === pickedType ? <Loader2 className="animate-spin" aria-hidden /> : <Plus aria-hidden />}
                         {t("nodes.new.of_type").replace("{0}", () => t(NODE_TYPE_LABEL_KEY[pickedType]))}
                       </Button>
                     )}
@@ -226,7 +274,7 @@ export function NodesLibrary({
         onType={setNewType}
         onClose={() => setNewType(null)}
         onRequested={library.addPending}
-        onCreated={onOpen}
+        onCreated={onCreated}
       />
     </div>
   );

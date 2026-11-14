@@ -1,5 +1,6 @@
 /**
- * The dialog a tile of the "Make something new" row opens.
+ * The dialog behind "Describe it to …", the last entry of the library's
+ * "New" menu (the kinds above it start a blank node without asking).
  *
  * It asks one thing: what the new node should be about. With an answer, the
  * primary action hands it to the assistant as the reader's own message in

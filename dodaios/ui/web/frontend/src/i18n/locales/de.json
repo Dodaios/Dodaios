@@ -11747,7 +11747,19 @@
       },
       "button": "Neu",
       "of_type": "Neu in {0}",
-      "type_label": "Typ"
+      "type_label": "Typ",
+      "menu_label": "Neuer Node",
+      "blank_heading": "Leer beginnen",
+      "describe": "{name} beschreiben, was es werden soll…",
+      "untitled": {
+        "docs": "Unbenanntes Dokument",
+        "slides": "Unbenannte Präsentation",
+        "sheets": "Unbenannte Tabelle",
+        "design": "Unbenanntes Visual",
+        "data": "Unbenannte Analyse",
+        "whiteboard": "Unbenanntes Whiteboard",
+        "motion": "Unbenannter Clip"
+      }
     },
     "menu": {
       "aria": "Aktionen für diesen Node",

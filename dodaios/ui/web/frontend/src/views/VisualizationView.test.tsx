@@ -1013,7 +1013,7 @@ describe("VisualizationView", () => {
     expect(screen.queryByTestId("visualization-edit")).toBeNull();
   });
 
-  it("opens a node started empty on the stage before the library lists it", async () => {
+  it("opens a node started blank on the stage, in Edit, before the library lists it", async () => {
     const created = typedNodeCard("n9", { title: "Untitled document" });
     const fetchMock = installFetchMock([DASH_RUN], { mission_dash: [DASH_FILE] }, { created });
 
@@ -1021,13 +1021,18 @@ describe("VisualizationView", () => {
 
     await findCard(DASH_KEY);
     fireEvent.click(screen.getByTestId("nodes-new"));
-    fireEvent.click(await screen.findByTestId("new-node-empty"));
+    fireEvent.click(screen.getByTestId("nodes-new-blank-docs"));
 
     await screen.findByTestId("visualization-frame");
     expect(frameSrc()).toContain(`/api/outputs/${created.slug}/files/index.html/page?theme=`);
     expect(stageTitle()).toBe("Untitled document");
     const post = fetchMock.mock.calls.find(([url, init]) => String(url) === "/api/nodes" && init?.method === "POST");
-    expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({ type: "docs" });
+    expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({ type: "docs", title: "Untitled document" });
+    // Ready to be typed into, like a new file.
+    await waitFor(() => expect(screen.getByTestId("visualization-edit").getAttribute("aria-pressed")).toBe("true"));
+    // Leaving Edit is the reader's own choice: it is not forced back on.
+    fireEvent.click(screen.getByTestId("visualization-edit"));
+    expect(screen.getByTestId("visualization-edit").getAttribute("aria-pressed")).toBe("false");
 
     // The library was read again after the create and still does not list it.
     const reads = () =>
