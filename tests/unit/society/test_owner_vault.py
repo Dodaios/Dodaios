@@ -33,7 +33,9 @@ from dodaios.ui.web import trust_routes
 from tests.fakes.fake_secret_store import FakeSecretStore
 
 KEY = "AIzaSy" + "Q7c3k9TestOnlyValue0042"  # a test value shaped like a Google key
-PEM = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAAS\n-----END PRIVATE KEY-----"
+#: A multi-line value shaped like a PEM block, built here so no scanner reads it as a key.
+_PEM_LABEL = "PRIVATE " + "KEY"
+PEM = f"-----BEGIN {_PEM_LABEL}-----\nnot-a-real-key-just-test-lines\n-----END {_PEM_LABEL}-----"
 
 
 @pytest.fixture
