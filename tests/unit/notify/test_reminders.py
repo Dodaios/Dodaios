@@ -365,3 +365,51 @@ def test_a_reminder_moved_to_another_time_is_told_again(vault: MemoryVault, cloc
     calendar_sync.apply_events(vault, [moved])
     [row] = reminders.list_due(vault, days=1)
     assert row["id"] != first.id and row["delivered"] is False
+
+
+def test_an_old_format_appointment_that_ended_is_neither_listed_nor_told(
+    vault: MemoryVault, clock: Clock
+) -> None:
+    """Its end kept the event's offset: as text it still looks current, as a moment it is over."""
+    old = vault.remember(
+        "Appointment: Busy on 2026-11-10 08:15.",
+        "ephemeral",
+        origin="imported",
+        source={"via": "calendar", "event_id": "e1"},
+        # 08:15–09:15 +01:00 is 07:15–08:15 UTC.
+        valid_to="2026-11-10T09:15:00+01:00",
+        due_at="2026-11-10T08:15:00+01:00",
+    ).memory
+    later = vault.remember(
+        "Appointment: Busy on 2026-11-10 11:00.",
+        "ephemeral",
+        origin="imported",
+        source={"via": "calendar", "event_id": "e2"},
+        valid_to="2026-11-10T12:00:00+01:00",
+        due_at="2026-11-10T11:00:00+01:00",
+    ).memory
+    # At 09:00 UTC its end "…T09:15:00+01:00" still sorts after the clock's "…T09:00:00+00:00".
+    clock.moment = datetime(2026, 11, 10, 9, 0, tzinfo=UTC)
+    assert old.id in [m.id for m in vault.upcoming(days=0)]
+    assert [row["id"] for row in reminders.list_due(vault, days=1)] == [later.id]
+
+
+async def test_the_scheduler_does_not_tell_an_old_format_appointment_after_its_end(
+    vault: MemoryVault, clock: Clock
+) -> None:
+    notifier = _Notifier()
+    # 08:15–08:30 +01:00 is 07:15–07:30 UTC; as text it comes due at 08:15 UTC.
+    vault.remember(
+        "Appointment: Busy on 2026-11-10 08:15.",
+        "ephemeral",
+        origin="imported",
+        source={"via": "calendar", "event_id": "e1"},
+        valid_to="2026-11-10T08:30:00+01:00",
+        due_at="2026-11-10T08:15:00+01:00",
+    )
+    clock.moment = datetime(2026, 11, 10, 8, 20, tzinfo=UTC)
+    scheduler = reminders.ReminderScheduler(
+        vault=lambda: vault, target=lambda: None, notifier=lambda: notifier, clock=clock.utc
+    )
+    assert await scheduler.tick() == []
+    assert notifier.calls == []
