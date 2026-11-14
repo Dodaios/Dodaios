@@ -13,22 +13,18 @@ metadata that carries it. Related: [migration-plan.md](migration-plan.md).
 The maintainer moved from "agent OS" to "superagent" on November 10, 2026: one
 agent that you talk to and that runs your coding agents and your own agents. Use it word for word.
 
-## Launch hook (README, from November 14, 2026)
+## README hook (from November 14, 2026)
 
-For the launch on December 1, 2026 the README opens with the hook of the
-launch plan instead of the tagline:
+The README opens with this hook instead of the tagline:
 
-> **The open-source Jarvis that runs your coding agents for you.**
+> **Say what you want. Dodaios runs Claude Code, Codex and seven more agents on your own plans, checks their work, and tells you what is done.**
 
-The README marks it with a `the hook` comment. Voice, memory, routines and the
-plugins are proof for the hook, not part of it. The GitHub description, the
-website and the X bio still carry the tagline above. Whether they follow the
-hook is the maintainer's decision.
-
-One caution for that decision: "Jarvis" is a registered trademark of a third
-party, which was one reason for the rename (see the note on topics in section
-2). The hook uses the word as a comparison, not as the name of the product,
-and the topic `jarvis` stays out.
+It replaces "The open-source Jarvis that runs your coding agents for you."
+(#1680), which named a third party's registered trademark in the first line.
+The README marks the hook with a `the hook` comment. Voice, memory, routines
+and the plugins are proof for the hook, not part of it. The GitHub
+description, the website and the X bio still carry the tagline above. Whether
+they follow the hook is the maintainer's decision.
 
 ## 1. GitHub description
 

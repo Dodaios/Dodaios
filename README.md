@@ -10,12 +10,12 @@
 <h1>Dodaios</h1>
 
 <!-- the hook: word for word everywhere (docs/rename/repo-metadata-proposal.md) -->
-<p><b>The open-source Jarvis that runs your coding agents for you.</b></p>
+<p><b>Say what you want. Dodaios runs Claude Code, Codex and seven more agents<br />
+on your own plans, checks their work, and tells you what is done.</b></p>
 
 <p>
-  Say what you want, in a message or out loud. Dodaios briefs Claude Code, Codex<br />
-  and seven more coding agents, checks what they did,<br />
-  and comes back with a short answer and the full report.
+  Type it or say it out loud. You get a short answer in the chat<br />
+  and the full report as a page. Open source, no account.
 </p>
 
 <p>
