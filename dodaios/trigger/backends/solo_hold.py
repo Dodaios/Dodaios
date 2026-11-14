@@ -11,16 +11,26 @@ firing although nobody said it".
 
 ``SoloHold`` is the gate in front of such a chord's push-to-talk callbacks:
 
-- the press fires only after the chord has been held alone for
+- the press is CONFIRMED only after the chord has been held alone for
   ``SOLO_HOLD_S``; a key (or click) that joins before then turns the hold
-  into a shortcut and nothing fires, not even on release;
-- a key that joins after the press fired cancels the recording
+  into a shortcut and nothing is confirmed, not even on release;
+- a key that joins after the press was confirmed cancels the recording
   (``on_cancel``), and the release that follows fires nothing;
-- a release after a clean press fires ``on_release`` as before.
+- a release after a confirmed press fires ``on_release`` as before.
+
+Waiting the whole window before anything happened made the Dodaios Bar rise
+a noticeable moment after the key went down (reported 2026-11-14). So a gate
+can also be given an ``on_early`` hook: it fires AT the key-down of a chord
+held alone, so the recording and the bar start at once. Inside the window the
+early start is only on approval: a key that joins, or a release (a tap on
+Command dictates nothing anyone could say in that time), takes it back
+through ``on_abandon``, which must leave no trace. Without ``on_early`` the
+gate behaves as it always did.
 
 The backends feed it chord-down / foreign-input / chord-up edges from their
-own listener thread; the press itself fires from a timer thread. All state
-changes happen under one lock, and the callbacks run outside it.
+own listener thread; the early hook fires on that thread, the confirmation
+from a timer thread. All state changes happen under one lock, and the
+callbacks run outside it.
 """
 
 from __future__ import annotations
@@ -28,11 +38,13 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 log = logging.getLogger(__name__)
 
-#: How long a modifier-only hold key must be held alone before it fires.
+#: How long a modifier-only hold key must be held alone before its press is
+#: confirmed (and, with an early start, how long that start stays on approval).
 #: Long enough that the second key of an ordinary shortcut lands first (people
 #: press ``c`` of ``cmd+c`` well inside this), short enough that a deliberate
 #: hold-and-speak loses no more than a breath.
@@ -50,6 +62,33 @@ _SPOILED = "spoiled"
 Callback = Callable[[], None] | None
 
 
+@dataclass(frozen=True)
+class SoloHoldHooks:
+    """The extra callbacks of one gated chord, beside its press and release.
+
+    ``cancel``: a key joined after the press was confirmed. ``early``: the
+    chord went down alone (fires at once). ``abandon``: an early start is
+    taken back, because a key joined or the chord went up inside the window.
+    """
+
+    cancel: Callback = None
+    early: Callback = None
+    abandon: Callback = None
+
+
+def gate_for(on_press: Callback, on_release: Callback, hooks: Any) -> SoloHold:
+    """Build the gate for one chord; ``hooks`` is a ``SoloHoldHooks`` or a bare cancel."""
+    if isinstance(hooks, SoloHoldHooks):
+        return SoloHold(
+            on_press,
+            on_release,
+            hooks.cancel,
+            on_early=hooks.early,
+            on_abandon=hooks.abandon,
+        )
+    return SoloHold(on_press, on_release, hooks)
+
+
 class SoloHold:
     """Push-to-talk gate for one modifier-only chord (see module docstring)."""
 
@@ -59,12 +98,16 @@ class SoloHold:
         on_release: Callback,
         on_cancel: Callback,
         *,
+        on_early: Callback = None,
+        on_abandon: Callback = None,
         delay_s: float | None = None,
         timer_factory: Callable[..., Any] | None = None,
     ) -> None:
         self._on_press = on_press
         self._on_release = on_release
         self._on_cancel = on_cancel
+        self._on_early = on_early
+        self._on_abandon = on_abandon
         # Read when the gate is built, not when this module is imported, so a
         # test can swap the clock for every gate a backend creates.
         self._delay_s = SOLO_HOLD_S if delay_s is None else delay_s
@@ -93,20 +136,25 @@ class SoloHold:
             timer = self._timer_factory(self._delay_s, self._fire, args=(generation,))
             timer.daemon = True
             self._timer = timer
+        # Before the timer runs, so the confirmation can never overtake it.
+        _call(self._on_early, "early")
         timer.start()
 
     def spoil(self) -> None:
         """Other input joined while the chord is down: it is a shortcut."""
-        cancel = False
+        cancel = abandon = False
         with self._lock:
             if self._state == _PENDING:
                 self._cancel_timer_locked()
                 self._state = _SPOILED
+                abandon = True
             elif self._state == _ACTIVE:
                 self._state = _SPOILED
                 cancel = True
         if cancel:
             _call(self._on_cancel, "cancel")
+        elif abandon and self._on_early is not None:
+            _call(self._on_abandon, "abandon")
 
     def up(self) -> None:
         """The chord went up."""
@@ -117,13 +165,20 @@ class SoloHold:
             self._state = _UP
         if previous == _ACTIVE:
             _call(self._on_release, "release")
+        elif previous == _PENDING and self._on_early is not None:
+            # A tap: the early start had nothing to record.
+            _call(self._on_abandon, "abandon")
 
     def reset(self) -> None:
-        """Forget the hold without firing anything (listener stop, grant lost)."""
+        """Forget the hold (listener stop, grant lost); only an early start is taken back."""
         with self._lock:
+            previous = self._state
             self._cancel_timer_locked()
             self._generation += 1
             self._state = _UP
+        if previous == _PENDING and self._on_early is not None:
+            # Before the early start there was nothing running; leave it so.
+            _call(self._on_abandon, "abandon")
 
     def _fire(self, generation: int) -> None:
         with self._lock:

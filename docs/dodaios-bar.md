@@ -18,6 +18,12 @@ The pill eases between shapes (about 75 ms) and keeps its bottom centre, so it
 grows upward and evenly to both sides. A notice (a refused request) shows a
 blinking cross in the live pill and does not open.
 
+A dictation hold key made of a modifier alone (a bare `cmd`) raises the bar
+at the key-down, with no wait. Because the same key starts every Command
+shortcut, a key or click that joins within 0.3 s, or a release in that time,
+takes the dictation back at once: the bar goes back to rest and nothing is
+recorded in the dictation history (`dodaios/trigger/backends/solo_hold.py`).
+
 ## Size
 
 "Bar size" in Settings (`[ui] bar_size_scale`, 50 to 200 %) scales the whole

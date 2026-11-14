@@ -413,3 +413,60 @@ async def test_every_refusal_reason_comes_from_the_shared_vocabulary(
     for event in seen.refused:
         assert event.reason in DICTATION_REFUSAL_REASONS
         assert event.detail.strip(), "a refusal without a sentence is not observable"
+
+
+# --------------------------------------------------------------------------
+# the solo hold key's early start (2026-11-14)
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("immediate", [False, True])
+async def test_an_early_start_taken_back_by_a_shortcut_leaves_no_trace(
+    monkeypatch, immediate
+) -> None:
+    """``cmd`` down alone opens the bar at once; the ``c`` of ``cmd+c`` closes it.
+
+    The take-back ends on a quiet ``cancelled`` (no detail, so the bar rests at
+    once instead of showing a sentence) and writes no history row: one row per
+    Command shortcut would push the real dictations out of the history.
+    """
+    import dodaios.dictation.history as history_mod
+
+    written: list[dict] = []
+
+    class _History:
+        def add(self, **fields):  # type: ignore[no-untyped-def]
+            written.append(fields)
+
+    monkeypatch.setattr(history_mod, "DictationHistory", _History)
+    bus = EventBus()
+    seen = _Collector(bus)
+    pipe = _dictation_pipeline(bus)
+    pipe._dictate_key_down = False
+    pipe._dictate_early_pending = False
+    pipe._dictation_target = "auto"
+    monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", _FakeMic)
+
+    pipe._dispatch_hotkey_event("dictate_early")
+    if not immediate:
+        await _drain_bus()
+        assert len(seen.started) == 1
+    assert pipe.dictation_active()
+
+    pipe._dispatch_hotkey_event("dictate_abandon")
+    task = pipe._dictation_task
+    try:
+        await asyncio.wait_for(asyncio.shield(task), timeout=2)
+    except asyncio.CancelledError:
+        pass
+    await _drain_bus()
+
+    assert len(seen.started) == 1
+    assert len(seen.completed) == 1
+    assert seen.completed[0].outcome == "cancelled"
+    assert seen.completed[0].detail == ""
+    assert seen.refused == []
+    assert written == []
+    assert not pipe.dictation_active()
+    assert pipe._activation_allowed()

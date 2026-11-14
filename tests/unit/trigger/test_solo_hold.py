@@ -16,7 +16,7 @@ import pytest
 from dodaios.trigger.backends import solo_hold
 from dodaios.trigger.backends.pynput import PynputBackend
 from dodaios.trigger.backends.quartz import QuartzHotkeyBackend
-from dodaios.trigger.backends.solo_hold import SoloHold
+from dodaios.trigger.backends.solo_hold import SoloHold, SoloHoldHooks
 from dodaios.trigger.hotkey import HotkeyTrigger
 
 _FLAG_SHIFT = 1 << 17
@@ -135,6 +135,91 @@ def test_a_stale_timer_cannot_fire_into_the_next_hold() -> None:
     assert events == ["press"]
 
 
+# ------------------------------------------------- the early start (2026-11-14)
+#
+# Waiting the whole window before anything happened made the Dodaios Bar rise a
+# noticeable moment after Command went down. With an ``on_early`` hook the
+# recording starts at the key-down, and the window only decides whether it
+# stays (``press`` confirms it) or is taken back without a trace (``abandon``).
+
+
+def _early_gate(events: list[str]) -> SoloHold:
+    return SoloHold(
+        lambda: events.append("press"),
+        lambda: events.append("release"),
+        lambda: events.append("cancel"),
+        on_early=lambda: events.append("early"),
+        on_abandon=lambda: events.append("abandon"),
+    )
+
+
+def test_early_start_fires_at_the_key_down() -> None:
+    events: list[str] = []
+    gate = _early_gate(events)
+    gate.down(alone=True)
+    assert events == ["early"]
+    _last_timer().fire()
+    gate.up()
+    assert events == ["early", "press", "release"]
+
+
+def test_early_start_is_taken_back_by_a_shortcut_inside_the_window() -> None:
+    events: list[str] = []
+    gate = _early_gate(events)
+    gate.down(alone=True)
+    gate.spoil()  # the c of cmd+c
+    _last_timer().fire()  # cancelled: must not confirm
+    gate.up()
+    assert events == ["early", "abandon"]
+
+
+def test_early_start_is_taken_back_by_a_tap() -> None:
+    events: list[str] = []
+    gate = _early_gate(events)
+    gate.down(alone=True)
+    gate.up()
+    _last_timer().fire()
+    assert events == ["early", "abandon"]
+
+
+def test_early_start_a_key_after_the_window_cancels_as_before() -> None:
+    events: list[str] = []
+    gate = _early_gate(events)
+    gate.down(alone=True)
+    _last_timer().fire()
+    gate.spoil()  # cmd held a moment, then tab
+    gate.up()
+    assert events == ["early", "press", "cancel"]
+
+
+def test_early_start_never_fires_with_other_input_held() -> None:
+    events: list[str] = []
+    gate = _early_gate(events)
+    gate.down(alone=False)
+    gate.spoil()
+    gate.up()
+    assert events == []
+
+
+def test_early_start_a_listener_stop_takes_it_back() -> None:
+    events: list[str] = []
+    gate = _early_gate(events)
+    gate.down(alone=True)
+    gate.reset()
+    _last_timer().fire()
+    assert events == ["early", "abandon"]
+
+
+def test_without_an_early_hook_reset_and_tap_stay_silent() -> None:
+    events: list[str] = []
+    gate = _gate(events)
+    gate.down(alone=True)
+    gate.reset()
+    gate.down(alone=True)
+    gate.up()
+    assert events == []
+
+
 # ---------------------------------------------------------------- Quartz
 
 
@@ -218,6 +303,52 @@ def test_quartz_combos_with_a_plain_key_keep_firing_at_once() -> None:
     assert _ManualTimer.created == []
 
 
+def _quartz_early(events: list[str]) -> QuartzHotkeyBackend:
+    backend = QuartzHotkeyBackend()
+    backend._permission_check = lambda: True
+    backend.register([["window", lambda: events.append("press"), lambda: events.append("release")]])
+    backend.set_solo_hold(
+        {
+            "window": SoloHoldHooks(
+                cancel=lambda: events.append("cancel"),
+                early=lambda: events.append("early"),
+                abandon=lambda: events.append("abandon"),
+            )
+        }
+    )
+    return backend
+
+
+def test_quartz_early_cmd_starts_at_the_key_down() -> None:
+    events: list[str] = []
+    backend = _quartz_early(events)
+    backend._handle_flags(_FLAG_CMD)
+    assert events == ["early"]
+    _last_timer().fire()
+    backend._handle_flags(0)
+    assert events == ["early", "press", "release"]
+
+
+def test_quartz_early_cmd_c_takes_the_start_back() -> None:
+    events: list[str] = []
+    backend = _quartz_early(events)
+    backend._handle_flags(_FLAG_CMD)
+    backend._handle_key_down(_KC_C)
+    backend._handle_key_up(_KC_C)
+    _last_timer().fire()
+    backend._handle_flags(0)
+    assert events == ["early", "abandon"]
+
+
+def test_quartz_early_command_click_takes_the_start_back() -> None:
+    events: list[str] = []
+    backend = _quartz_early(events)
+    backend._handle_flags(_FLAG_CMD)
+    backend._spoil_solo()  # what the tap does on a primary click
+    backend._handle_flags(0)
+    assert events == ["early", "abandon"]
+
+
 def test_quartz_stop_forgets_a_pending_hold() -> None:
     events: list[str] = []
     backend = _quartz(events)
@@ -283,6 +414,14 @@ def test_trigger_gates_only_a_modifier_only_dictation_hold_key() -> None:
         push_to_talk={"dictate", "ptt"},
     )
     assert set(trigger._solo_hold_cancels()) == {"window"}
+
+
+def test_trigger_starts_the_solo_hold_key_early() -> None:
+    """The gated key gets all three exits: early start, take-back, cancel."""
+    trigger = HotkeyTrigger({"dictate": ["cmd"]}, push_to_talk={"dictate"})
+    hooks = trigger._solo_hold_cancels()["window"]
+    assert isinstance(hooks, SoloHoldHooks)
+    assert callable(hooks.early) and callable(hooks.abandon) and callable(hooks.cancel)
 
 
 def test_trigger_leaves_a_dictation_chord_with_a_plain_key_alone() -> None:

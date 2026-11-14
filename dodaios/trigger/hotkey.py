@@ -70,7 +70,7 @@ from dodaios.trigger.backends.global_hotkeys import (
     _normalize_combo,
     _reset_checker_state_for_tests,
 )
-from dodaios.trigger.backends.solo_hold import SOLO_HOLD_S
+from dodaios.trigger.backends.solo_hold import SOLO_HOLD_S, SoloHoldHooks
 
 log = logging.getLogger(__name__)
 
@@ -125,6 +125,7 @@ SELF_INPUT_SUPPRESSED_EVENTS: frozenset[str] = frozenset(
     {
         "ptt_press",
         "dictate_press",
+        "dictate_early",  # the solo hold key's start at key-down
         "dictate",  # legacy [dictation].mode = "toggle"
         "dictate_toggle",
         "paste_last",
@@ -132,9 +133,12 @@ SELF_INPUT_SUPPRESSED_EVENTS: frozenset[str] = frozenset(
 )
 
 #: Push-to-talk events whose modifier-only combos fire only while held alone
-#: (``backends/solo_hold.py``). Each needs a ``<name>_cancel`` consumer: a key
-#: that joins after the press fired cancels the recording instead of letting
-#: the release submit it.
+#: (``backends/solo_hold.py``). Each needs three consumers: ``<name>_early``
+#: (the key went down alone: start at once, on approval), ``<name>_abandon``
+#: (a key joined or the key went up inside the window: take the early start
+#: back without a trace) and ``<name>_cancel`` (a key joined after the press
+#: was confirmed: discard the recording instead of letting the release submit
+#: it). ``<name>_press`` is the confirmation.
 SOLO_HOLD_EVENTS: frozenset[str] = frozenset({"dictate"})
 
 
@@ -919,22 +923,27 @@ class HotkeyTrigger:
             except asyncio.QueueEmpty:
                 pass
 
-    def _solo_hold_cancels(self) -> dict[str, Callable[[], None]]:
+    def _solo_hold_cancels(self) -> dict[str, SoloHoldHooks]:
         """Modifier-only hold keys that must fire only while held alone.
 
-        Maps each such normalized combo to its ``<name>_cancel`` handler. Only
+        Maps each such normalized combo to its ``<name>_cancel`` /
+        ``<name>_early`` / ``<name>_abandon`` handlers. Only
         the events in ``SOLO_HOLD_EVENTS`` are gated, and only when every combo
         of the binding is modifiers alone: ``cmd`` is also the first key of
         every Command shortcut, ``cmd+d`` is not (see ``backends/solo_hold.py``).
         """
-        cancels: dict[str, Callable[[], None]] = {}
+        cancels: dict[str, SoloHoldHooks] = {}
         for event_name, combos in self._bindings_cfg.items():
             if event_name not in SOLO_HOLD_EVENTS or event_name not in self._ptt_events:
                 continue
             for combo in combos:
                 normalized = _normalize_combo(combo)
                 if _is_modifier_only(normalized):
-                    cancels[normalized] = self._make_handler(f"{event_name}_cancel")
+                    cancels[normalized] = SoloHoldHooks(
+                        cancel=self._make_handler(f"{event_name}_cancel"),
+                        early=self._make_handler(f"{event_name}_early"),
+                        abandon=self._make_handler(f"{event_name}_abandon"),
+                    )
         return cancels
 
     def _arm_solo_hold(self, backend: HotkeyBackend) -> None:
@@ -947,8 +956,9 @@ class HotkeyTrigger:
             setter(cancels)
             if cancels:
                 log.info(
-                    "Hold key %s starts only when held alone for %.1fs; a shortcut "
-                    "that uses it starts nothing.",
+                    "Hold key %s starts at once when pressed alone and is taken back "
+                    "without a trace if another key joins within %.1fs; a shortcut "
+                    "that uses it dictates nothing.",
                     ", ".join(sorted(cancels)),
                     SOLO_HOLD_S,
                 )

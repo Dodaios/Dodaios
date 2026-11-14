@@ -59,7 +59,7 @@ from dodaios.trigger.backends.pynput import (
     _macos_hotkey_permissions_granted,
     _parse_combo_tokens,
 )
-from dodaios.trigger.backends.solo_hold import SoloHold
+from dodaios.trigger.backends.solo_hold import gate_for
 
 log = logging.getLogger(__name__)
 
@@ -280,16 +280,16 @@ class QuartzHotkeyBackend:
     def set_solo_hold(self, cancels: dict) -> None:
         """Gate the named push-to-talk combos behind :class:`SoloHold`.
 
-        ``cancels`` maps a registered combo string to the callback that cancels
-        its recording when another key joins after the press fired. Call it
+        ``cancels`` maps a registered combo string to its ``SoloHoldHooks`` (or
+        to a bare callback that cancels its recording when another key joins
+        after the press fired). Call it
         after ``register`` and before ``start``: the tap asks for primary
         clicks only when a gated combo exists (a Command-click is a shortcut
         too). Never raises.
         """
         for combo in self._combos:
-            on_cancel = cancels.get(combo["combo"])
             combo["solo"] = (
-                SoloHold(combo["on_press"], combo["on_release"], on_cancel)
+                gate_for(combo["on_press"], combo["on_release"], cancels[combo["combo"]])
                 if combo["combo"] in cancels
                 else None
             )
