@@ -851,19 +851,21 @@ def _register_runtime_manager(manager: Any) -> None:
 
         def lead_hands(session_id: str) -> dict[str, Any]:
             # The chat's own cards (Connect, the question card, the browser
-            # takeover): a brain seat has them in its kit, a CLI seat reaches
-            # them over MCP.
+            # takeover, the secure field for a secret): a brain seat has them
+            # in its kit, a CLI seat reaches them over MCP.
             from types import SimpleNamespace
 
             from dodaios.society.ask_tool import lead_ask_tools
             from dodaios.society.browser.takeover_tool import lead_takeover_tools
             from dodaios.society.connect_tool import lead_connect_tools
+            from dodaios.society.credential_tool import lead_credential_tools
 
             session = SimpleNamespace(session_id=session_id)
             return {
                 **lead_connect_tools(session),
                 **lead_ask_tools(session),
                 **lead_takeover_tools(session),
+                **lead_credential_tools(session),
             }
 
         runtime_refs.set_brain_manager(manager)
@@ -1349,11 +1351,10 @@ def _phase2_full_brain(
 
 def _legacy_full_brain(bus: Any | None = None) -> Any:
     """Legacy BrainManager path (before tiered routing) — only via JARVIS_BRAIN=legacy."""
-    from dodaios.core.entry_points import entry_points
-
     from dodaios.brain.manager import BrainManager
     from dodaios.core import config as cfg
     from dodaios.core.bus import EventBus
+    from dodaios.core.entry_points import entry_points
     from dodaios.memory import (
         CORE_MEMORY_FILENAME,
         CoreMemory,

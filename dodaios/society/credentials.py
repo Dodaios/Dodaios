@@ -47,13 +47,32 @@ __all__ = [
     "CredentialVault",
     "LoginInfo",
     "MAX_VALUE_CHARS",
+    "SECRET_KINDS",
     "login_key",
     "login_site",
+    "secret_kind",
     "validate_env_name",
 ]
 
 #: A pasted secret longer than this is a file, not a token.
 MAX_VALUE_CHARS: Final[int] = 16_384
+
+#: What a stored secret is, for the vault's list and the card's icon. Only a
+#: private key may span several lines (a PEM block); every other kind is one line.
+SECRET_KINDS: Final[tuple[str, ...]] = (
+    "api_key",
+    "token",
+    "client_id",
+    "client_secret",
+    "password",
+    "connection_string",
+    "webhook_url",
+    "private_key",
+    "other",
+)
+_MULTILINE_KINDS: Final[frozenset[str]] = frozenset({"private_key"})
+#: A short note the owner keeps beside a secret ("for the PR checks").
+MAX_NOTE_CHARS: Final[int] = 300
 
 #: Shorter values are never scrubbed from text: "1234" would eat every number.
 _MIN_REDACT_CHARS: Final[int] = 6
@@ -114,14 +133,24 @@ class CredentialError(ValueError):
         self.code = code
 
 
-def normalize_value(value: str) -> str:
-    """Reject malformed input before validation or storage, without echoing it."""
+def secret_kind(raw: Any) -> str:
+    """``raw`` as one of ``SECRET_KINDS``; anything unknown is ``other``."""
+    kind = str(raw or "").strip().casefold().replace("-", "_").replace(" ", "_")
+    return kind if kind in SECRET_KINDS else "other"
+
+
+def normalize_value(value: str, *, kind: str = "") -> str:
+    """Reject malformed input before validation or storage, without echoing it.
+
+    A private key keeps its line breaks (a PEM block); every other secret is one line.
+    """
     value = value.strip()
     if not value:
         raise CredentialError("Enter the credential before saving.")
     if len(value) > MAX_VALUE_CHARS:
         raise CredentialError("The credential is too long.")
-    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+    allowed = {"\n", "\r", "\t"} if kind in _MULTILINE_KINDS else set()
+    if any((ord(ch) < 32 or ord(ch) == 127) and ch not in allowed for ch in value):
         raise CredentialError("A credential must be a single line without control characters.")
     return value
 
@@ -179,18 +208,21 @@ async def validate_token(env: str, value: str, *, label: str = "") -> None:
 
 
 async def save_requested_credential(
-    agent_id: str, env: str, value: str, *, label: str = "",
+    agent_id: str, env: str, value: str, *, label: str = "", kind: str = "",
+    note: str | None = None,
 ) -> None:
     """The shared validation and storage path for new and restored fields."""
     validate_env_name(env)
-    value = normalize_value(value)
+    value = normalize_value(value, kind=secret_kind(kind) if kind else "")
     vault = current_vault()
     if vault is None:
         raise CredentialError(
             "The credential store is unavailable. Please try again shortly.", code="storage_failed",
         )
     await validate_token(env, value, label=label)
-    await asyncio.to_thread(vault.store, agent_id, env, value, label=label)
+    await asyncio.to_thread(
+        vault.store, agent_id, env, value, label=label, kind=kind, note=note,
+    )
 
 
 async def save_requested_login(
@@ -349,14 +381,21 @@ class CredentialInfo:
     label: str
     created_ms: int
     updated_ms: int
+    #: One of ``SECRET_KINDS``; rows written before kinds existed read as ``other``.
+    kind: str = "other"
+    note: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        body: dict[str, Any] = {
             "env": self.env,
             "label": self.label,
             "created_ms": self.created_ms,
             "updated_ms": self.updated_ms,
+            "kind": self.kind,
         }
+        if self.note:
+            body["note"] = self.note
+        return body
 
 
 class CredentialVault:
@@ -431,6 +470,8 @@ class CredentialVault:
                 label=str(entry.get("label") or "")[:120],
                 created_ms=int(entry.get("created_ms") or 0),
                 updated_ms=int(entry.get("updated_ms") or 0),
+                kind=secret_kind(entry.get("kind")),
+                note=str(entry.get("note") or "")[:MAX_NOTE_CHARS],
             )
         return rows
 
@@ -467,19 +508,31 @@ class CredentialVault:
         """The value is really there: an index row whose store entry vanished is not."""
         return env in self.values(agent_id)
 
-    def store(self, agent_id: str, env: str, value: str, *, label: str = "") -> CredentialInfo:
-        """Save ``value`` for ``agent_id`` as ``env``; raises ``CredentialError``."""
+    def store(
+        self, agent_id: str, env: str, value: str, *, label: str = "", kind: str = "",
+        note: str | None = None,
+    ) -> CredentialInfo:
+        """Save ``value`` for ``agent_id`` as ``env``; raises ``CredentialError``.
+
+        ``kind`` and ``note`` left empty keep what an earlier save of ``env`` set.
+        """
         env = validate_env_name(env)
-        value = normalize_value(value)
+        with self._lock:
+            previous = self._read_index(agent_id).get(env)
+        chosen = secret_kind(kind) if kind else (previous.kind if previous else "other")
+        value = normalize_value(value, kind=chosen)
         now = int(time.time() * 1000)
         with self._lock:
             rows = self._read_index(agent_id)
             previous = rows.get(env)
+            kept_note = previous.note if previous else ""
             info = CredentialInfo(
                 env=env,
                 label=(label.strip() or (previous.label if previous else ""))[:120],
                 created_ms=previous.created_ms if previous else now,
                 updated_ms=now,
+                kind=chosen,
+                note=(kept_note if note is None else " ".join(note.split()))[:MAX_NOTE_CHARS],
             )
             slot = self._slot(agent_id, env)
             previous_value: str | None = None

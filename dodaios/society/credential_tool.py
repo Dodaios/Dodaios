@@ -1,10 +1,12 @@
 """``society_request_credential``: an agent asks the person for a token or key.
 
-The chat shows a secure field ("GitHub token — stored safely, available as
-$GITHUB_TOKEN"); the person pastes the value and saves. The value goes from
-that field into the agent's credential vault (credentials.py) and never into
-the chat, a prompt or this tool's result: the agent learns only that the
-variable is set, and uses it by name inside its commands.
+The chat shows a secure field (its title is the label, "GitHub token"); the
+person pastes the value and saves. The value goes from that field into the
+agent's credential vault (credentials.py) and never into the chat, a prompt or
+this tool's result: the agent learns only that the variable is set, and uses it
+by name inside its commands. The lead's own chat has the same tool
+(:func:`lead_credential_tools`); its secrets are the owner's vault, the one the
+Trust page lists, and its commands run through ``run_shell``.
 
 A credential the agent already has is not asked for again unless the agent
 says the stored one stopped working (``replace``). A routine never asks: its
@@ -28,20 +30,30 @@ from dodaios.agent_chat.credential_requests import (
 from dodaios.core.protocols import ToolResult
 
 from . import credentials
-from .credentials import validate_env_name
+from .credentials import SECRET_KINDS, secret_kind, validate_env_name
 from .routine_runner import is_routine_session
 
 log = logging.getLogger(__name__)
 
-__all__ = ["CREDENTIAL_TOOL_NAME", "RequestCredentialTool", "usage_note"]
+__all__ = [
+    "CREDENTIAL_TOOL_NAME",
+    "LEAD_SHELL_TOOL",
+    "RequestCredentialTool",
+    "lead_credential_tools",
+    "usage_note",
+]
 
 CREDENTIAL_TOOL_NAME: Final[str] = "society_request_credential"
+#: The shell a society seat's secrets are set in, and the lead's.
+SOCIETY_SHELL_TOOL: Final[str] = "society_shell"
+LEAD_SHELL_TOOL: Final[str] = "run_shell"
 
-def usage_note(env: str) -> str:
+
+def usage_note(env: str, shell: str = SOCIETY_SHELL_TOOL) -> str:
     """How the agent uses a stored credential without ever seeing it."""
     return (
         f"The value is set as the environment variable {env} in every command you run with "
-        f"society_shell (only there, not in any other shell). Reference it by name inside the "
+        f"{shell} (only there, not in any other shell). Reference it by name inside the "
         f"command (bash: ${env}, PowerShell: $env:{env}). Never print, echo, log, commit or "
         "write the value anywhere, and never ask the user to paste it into the chat; Dodaios "
         "masks it in command output."
@@ -64,11 +76,12 @@ class RequestCredentialTool:
         "ONLY way to obtain a secret: never ask for one in your reply or a question card, and "
         "never send the user to settings, a plugin dialog, a .env file or the browser to "
         "enter it. You NEVER see the value: it is set as the environment variable you name "
-        "in env for commands you run with society_shell; reference it by name inside them "
+        "in env for commands you run with {shell}; reference it by name inside them "
         "($GITHUB_TOKEN) and have your code read it from the environment. "
-        "Choose a conventional UPPER_SNAKE_CASE name, give a short label, and say in "
-        "description what it is for and where the user creates it (with the minimal scopes), "
-        "in the user's language. This explanation appears before the secure field. "
+        "Choose a conventional UPPER_SNAKE_CASE name, a short label (the card's only text, "
+        "e.g. 'Google AI Studio API key'), the kind, and in description what it is for, in "
+        "the user's language: it is kept as the secret's note in the vault. Say where the "
+        "user creates it (with the minimal scopes) in your reply. "
         "A credential you already have is not asked for again: the call returns 'available'. "
         "Set replace only when the stored value was rejected by the service. While the user "
         "has not answered yet, the call returns immediately with status 'waiting' and a "
@@ -89,13 +102,18 @@ class RequestCredentialTool:
             },
             "label": {
                 "type": "string",
-                "description": "What it is, 1-4 words, e.g. 'GitHub token'.",
+                "description": "What it is, 1-5 words, e.g. 'GitHub token'.",
+            },
+            "kind": {
+                "type": "string",
+                "enum": list(SECRET_KINDS),
+                "description": "What sort of secret it is (default other).",
             },
             "description": {
                 "type": "string",
                 "description": (
-                    "One or two sentences: what you need it for and where the user creates "
-                    "it, with the minimal permissions."
+                    "One sentence: what you need it for. Kept as the secret's note in the "
+                    "vault."
                 ),
             },
             "placeholder": {
@@ -116,10 +134,16 @@ class RequestCredentialTool:
         },
     }
 
-    def __init__(self, runtime: Any, agent_id: str, *, session_id: str) -> None:
+    def __init__(
+        self, runtime: Any, agent_id: str, *, session_id: str, shell: str = SOCIETY_SHELL_TOOL,
+        asker: str = "",
+    ) -> None:
         self._runtime = runtime
         self._agent_id = agent_id
         self._session_id = session_id
+        self._shell = shell
+        self._asker_name = asker
+        self.description = type(self).description.replace("{shell}", shell)
 
     async def execute(self, args: dict[str, Any], ctx: Any) -> ToolResult:
         wait_for = str(args.get("wait_for") or "").strip()
@@ -133,6 +157,7 @@ class RequestCredentialTool:
                 args.get("description"),
                 args.get("placeholder"),
                 replace=bool(args.get("replace")),
+                secret_kind=secret_kind(args.get("kind")),
             )
             if not spec.description:
                 raise ValueError(
@@ -149,7 +174,7 @@ class RequestCredentialTool:
         if not spec.replace and await asyncio.to_thread(vault.has, self._agent_id, env):
             return ToolResult(
                 success=True,
-                output={"status": "available", "env": env, "note": usage_note(env)},
+                output={"status": "available", "env": env, "note": usage_note(env, self._shell)},
             )
         if is_routine_session(self._session_id):
             return ToolResult(
@@ -166,7 +191,10 @@ class RequestCredentialTool:
         agent_id = self._agent_id
 
         async def save(value: str) -> None:
-            await credentials.save_requested_credential(agent_id, env, value, label=spec.label)
+            await credentials.save_requested_credential(
+                agent_id, env, value, label=spec.label, kind=spec.secret_kind,
+                note=spec.description,
+            )
 
         try:
             request_id = await service.open_credential_request(
@@ -226,7 +254,8 @@ class RequestCredentialTool:
             )
         if status == SAVED:
             return ToolResult(
-                success=True, output={"status": SAVED, "env": env, "note": usage_note(env)}
+                success=True,
+                output={"status": SAVED, "env": env, "note": usage_note(env, self._shell)},
             )
         if status == CANCELLED:
             return ToolResult(
@@ -249,9 +278,33 @@ class RequestCredentialTool:
         )
 
     def _asker(self) -> str:
+        if self._asker_name:
+            return self._asker_name
         cached = getattr(self._runtime, "cached_agent", None)
         agent = cached(self._agent_id) if callable(cached) else None
         return str(getattr(agent, "name", "") or "")
+
+
+def lead_credential_tools(session: Any) -> dict[str, Any]:
+    """The same secure field for the lead's own chat (surface ``jarvis``).
+
+    What the owner pastes there lands in the lead's vault, the owner's own
+    (the Trust page's Vault lists it), and is set in the lead's ``run_shell``.
+    A routine's chat is unattended and gets no way to ask.
+    """
+    from .display_name import lead_display_name
+    from .runtime import current_runtime
+
+    rt = current_runtime()
+    session_id = str(getattr(session, "session_id", "") or "")
+    if rt is None or not session_id or is_routine_session(session_id):
+        return {}
+    return {
+        CREDENTIAL_TOOL_NAME: RequestCredentialTool(
+            rt, rt.lead_id, session_id=session_id, shell=LEAD_SHELL_TOOL,
+            asker=lead_display_name(),
+        )
+    }
 
 
 def _nobody(env: str) -> ToolResult:

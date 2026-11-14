@@ -60,6 +60,7 @@ export interface ActionCardProps {
   /** A stable id for this card: remembers whether its settled line is open. */
   id: string;
   source: { icon: ReactNode; label: string; showLabel?: boolean };
+  /** Without a title the source chip names the card (a secure field's label). */
   title: ReactNode;
   /** The accessible name, "Needs approval: Run this command?". */
   ariaLabel: string;
@@ -111,7 +112,7 @@ function OpenCard({
         <SourceChip icon={source.icon} label={source.label} showLabel={source.showLabel !== false} />
         {trailing ? <div className="-mr-1.5 ml-auto flex shrink-0 items-center">{trailing}</div> : null}
       </div>
-      <h3 id={titleId} className="mt-2 text-[14px] font-semibold leading-5 text-foreground-strong [overflow-wrap:anywhere]">{title}</h3>
+      {title ? <h3 id={titleId} className="mt-2 text-[14px] font-semibold leading-5 text-foreground-strong [overflow-wrap:anywhere]">{title}</h3> : null}
       {lines?.filter(Boolean).length ? <div className="mt-0.5 space-y-0.5">
         {lines.filter(Boolean).map((line, i) => <p key={i} className="m-0 text-[13px] leading-5 text-muted-foreground [overflow-wrap:anywhere]">{line}</p>)}
       </div> : null}

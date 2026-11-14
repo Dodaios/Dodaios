@@ -36,6 +36,24 @@ fails when the seats drift.
   the same card (`docs/agentic-ide-threads.md`).
   A new coding agent opens as a chat thread; a terminal pane only when the person
   asks for one (`docs/agentic-ide-threads.md`).
+- The secure field for a secret: `society_request_credential`, the tool a team agent
+  asks for a token with, is one of the chat's own hands too
+  (`society.credential_tool.lead_credential_tools`, and the brain seat's kit). What
+  the person pastes there goes into the owner's vault, the lead's own
+  (`dodaios/society/credentials.py`), with its kind (API key, token, client ID or
+  secret, password, connection string, webhook URL, private key) and a note. The
+  card shows only the secret's label, the field and one button. The lead uses a
+  secret by its name: in the lead's chat `run_shell` runs with the stored values as
+  environment variables and masks them in its output (`society/lead_shell.py`), and
+  the chat's events are masked the same way. Settings → Trust → Vault lists the
+  vault by name and kind, adds, replaces and deletes; a value never comes back, to
+  the page or to the model. A command that would read the secret store itself (the
+  Keychain item, a keyring, the file store) is refused in `run_shell`,
+  `society_shell` and, on a Claude Code assistant seat, by a `PreToolUse` hook in
+  every permission mode (`credential_broker/vault_guard.py`). That guard is lexical:
+  on macOS the store is readable by any process of the person
+  (`core/keychain_bundle.py`), so it stops the obvious read, not code written to get
+  round it.
 - The CLI preamble says: delegate through the Dodaios tools, do not use the vendor's
   own sub-agent tool.
 

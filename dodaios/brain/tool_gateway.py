@@ -196,6 +196,15 @@ class BrainSupervisorToolGateway:
         tools.update(self.lead_extra_tools())
         return tools
 
+    def lead_shell_tool(self) -> Any | None:
+        """The lead's ``run_shell`` with the owner's vault, or ``None`` when it is off."""
+        from dodaios.society.lead_shell import SHELL_NAME, with_vault_shell
+
+        live = self._live_tools()
+        if SHELL_NAME not in live:
+            return None
+        return with_vault_shell({SHELL_NAME: live[SHELL_NAME]})[SHELL_NAME]
+
     def lead_session_tools(self, session_id: str) -> dict[str, Any]:
         """The lead's tools for one chat: the shared set plus the chat's own hands."""
         tools = self.lead_tools()
@@ -204,7 +213,11 @@ class BrainSupervisorToolGateway:
                 tools.update(self._lead_hands(session_id))
             except Exception:  # noqa: BLE001 - a chat without its own hands still has the rest
                 pass
-        return tools
+        # The chat's run_shell carries the owner's stored secrets by name and
+        # masks their values (society/lead_shell.py); voice and workers do not.
+        from dodaios.society.lead_shell import with_vault_shell
+
+        return with_vault_shell(tools)
 
     def _voice_tools(self) -> dict[str, Any]:
         from dodaios.harness.computer_use_context import peek_computer_use_context

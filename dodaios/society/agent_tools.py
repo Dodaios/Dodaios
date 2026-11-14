@@ -744,6 +744,12 @@ class ShellTool:
         command = str(args.get("command") or "").strip()
         if not command:
             return _failure(FailureReason.BLOCKED_BY_POLICY, "command is required")
+        from dodaios.credential_broker.vault_guard import refusal
+
+        reason = refusal(command)
+        if reason:
+            # Reading the secret store would show the model every stored value.
+            return _failure(FailureReason.BLOCKED_BY_POLICY, reason)
         try:
             cwd = resolve_contained(self._workspace, args.get("cwd"))
         except ContainmentError as exc:  # Return the workspace containment failure to the caller.

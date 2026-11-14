@@ -61,11 +61,14 @@ def _gateway(live=_LIVE):
     connect = _Tool("society_request_connect")
     ask = _Tool("society_ask_user")
     takeover = _Tool("request_browser_takeover")
+    secret = _Tool("society_request_credential")
     return BrainSupervisorToolGateway(
         manager,
         workspace_tool=workspace,
         lead_session=lambda sid: sid == "lead",
-        lead_hands=lambda sid: {connect.name: connect, ask.name: ask, takeover.name: takeover},
+        lead_hands=lambda sid: {
+            connect.name: connect, ask.name: ask, takeover.name: takeover, secret.name: secret,
+        },
     )
 
 
@@ -93,6 +96,11 @@ def _brain_seat_names(gateway, monkeypatch) -> set[str]:
     monkeypatch.setattr(
         "dodaios.society.browser.takeover_tool.lead_takeover_tools",
         lambda session=None: {takeover.name: takeover},
+    )
+    secret = _Tool("society_request_credential")
+    monkeypatch.setattr(
+        "dodaios.society.credential_tool.lead_credential_tools",
+        lambda session: {secret.name: secret},
     )
     monkeypatch.setattr("dodaios.society.browser.tool.lead_browser_tools", lambda session=None: {})
     runtime_refs.set_supervisor_tool_gateway(gateway)
@@ -127,6 +135,8 @@ async def test_the_lead_is_the_same_on_the_brain_seat_the_cli_seat_and_voice(mon
         "request_browser_takeover",
         # A question that belongs to the person opens the question card.
         "society_ask_user",
+        # A secret the person gives goes into the vault through the secure field.
+        "society_request_credential",
         # Multi-day work and what the lead looks after with no end date.
         "project",
         "standing_task",

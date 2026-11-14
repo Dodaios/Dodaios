@@ -80,14 +80,16 @@ describe("CredentialCard", () => {
     );
     draw(asking());
     const card = screen.getByTestId("credential-card");
+    // Small on purpose: the label is the only heading; the agent's reason is its
+    // reply and the vault's note, not a paragraph around the field.
     expect(card.textContent).toContain("GitHub token");
-    const explanation = screen.getByText("To open the pull request.");
-    expect(explanation.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(card.contains(explanation)).toBe(false);
+    expect(screen.queryByText("To open the pull request.")).toBeNull();
+    expect(card.querySelector("h3")).toBeNull();
     const input = screen.getByLabelText("GitHub token") as HTMLInputElement;
     expect(input.type).toBe("password");
-    expect(input.getAttribute("aria-describedby")).toBe(explanation.id);
-    const save = screen.getByRole("button", { name: "Save securely" }) as HTMLButtonElement;
+    const footer = document.getElementById(input.getAttribute("aria-describedby") ?? "");
+    expect(footer?.textContent).toContain("never shown to Ada");
+    const save = screen.getByRole("button", { name: "Save" }) as HTMLButtonElement;
     expect(save.disabled).toBe(true);
     fireEvent.change(input, { target: { value: `  ${SECRET}  ` } });
     fireEvent.click(save);
@@ -107,7 +109,7 @@ describe("CredentialCard", () => {
     );
     draw(asking());
     fireEvent.change(screen.getByLabelText("GitHub token"), { target: { value: "x" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save securely" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect((await screen.findByRole("alert")).textContent).toContain("single line");
   });
 
@@ -179,12 +181,12 @@ describe("CredentialCard", () => {
     draw(asking());
     const input = screen.getByLabelText("GitHub token") as HTMLInputElement;
     fireEvent.change(input, { target: { value: SECRET } });
-    fireEvent.click(screen.getByRole("button", { name: "Save securely" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect((await screen.findByRole("alert")).textContent).toContain(message);
     expect(screen.getByTestId("credential-card").textContent).not.toContain(SECRET);
     expect(input.value).toBe(SECRET);
     expect(input.disabled).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "Save securely" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.getByTestId("credential-card").getAttribute("data-state")).toBe("saved"));
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -194,7 +196,7 @@ describe("CredentialCard", () => {
     draw(asking());
     const input = screen.getByLabelText("GitHub token") as HTMLInputElement;
     fireEvent.change(input, { target: { value: SECRET } });
-    fireEvent.click(screen.getByRole("button", { name: "Save securely" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect((await screen.findByRole("alert")).textContent).toContain("Check your connection");
     expect(input.disabled).toBe(false);
     expect(input.value).toBe(SECRET);
@@ -208,7 +210,7 @@ describe("CredentialCard", () => {
     draw(asking());
     const input = screen.getByLabelText("GitHub token") as HTMLInputElement;
     fireEvent.change(input, { target: { value: SECRET } });
-    fireEvent.click(screen.getByRole("button", { name: "Save securely" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
     expect(screen.getByRole("alert").textContent).toContain("timed out");
     expect(input.disabled).toBe(false);
@@ -220,9 +222,31 @@ describe("CredentialCard", () => {
     draw(asking());
     const input = screen.getByLabelText("GitHub token") as HTMLInputElement;
     fireEvent.change(input, { target: { value: SECRET } });
-    fireEvent.click(screen.getByRole("button", { name: "Save securely" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await screen.findByRole("alert");
     expect(input.value).toBe(SECRET);
     expect(input.disabled).toBe(false);
+  });
+});
+
+describe("CredentialCard for a private key", () => {
+  it("takes a multi-line value in a masked text area", () => {
+    const store = createAgentChatStore("society");
+    store.setState({ activeSessionId: "society:ada" });
+    const events = [
+      ev("turn_started", { turn_id: "t1" }),
+      ev("tool_call", { turn_id: "t1", call_id: "c1", name: "society_request_credential", input: { env: "DEPLOY_KEY" } }),
+      ev("credential_required", {
+        turn_id: "t1", request_id: "r9", asker: "Ada", env: "DEPLOY_KEY", label: "Deploy key",
+        description: "", placeholder: "", replace: false, secret_kind: "private_key",
+      }),
+    ];
+    render(
+      <AgentChatStoreProvider store={store}>
+        <ThreadTurn turn={reduceEvents(EMPTY_TIMELINE, events).items[0] as TurnItem} prompts="inline" />
+      </AgentChatStoreProvider>,
+    );
+    const field = screen.getByLabelText("Deploy key");
+    expect(field.tagName).toBe("TEXTAREA");
   });
 });

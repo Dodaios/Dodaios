@@ -172,6 +172,7 @@ def _jarvis_tools(_cfg: Any, _brain: Any, session: Any) -> dict[str, Tool]:
     from dodaios.society.browser.takeover_tool import lead_takeover_tools
     from dodaios.society.browser.tool import lead_browser_tools
     from dodaios.society.connect_tool import lead_connect_tools
+    from dodaios.society.credential_tool import lead_credential_tools
 
     stance = "plan" if getattr(session, "permission_mode", "") == "plan" else "ask"
     tools = folder_tools(Path(getattr(session, "cwd", "") or _chat_workspace()), stance=stance)
@@ -181,6 +182,8 @@ def _jarvis_tools(_cfg: Any, _brain: Any, session: Any) -> dict[str, Tool]:
     tools.update(lead_connect_tools(session))
     # A question that belongs to the person opens the question card.
     tools.update(lead_ask_tools(session))
+    # A secret goes into the owner's vault through the secure field, never the chat.
+    tools.update(lead_credential_tools(session))
     # Addressed-pane coding, the repository tool and the work board: the lead
     # has them on every seat (a CLI seat gets the same set over MCP).
     from dodaios.core import runtime_refs
@@ -188,6 +191,11 @@ def _jarvis_tools(_cfg: Any, _brain: Any, session: Any) -> dict[str, Tool]:
     extra = getattr(runtime_refs.get_supervisor_tool_gateway(), "lead_extra_tools", None)
     if callable(extra):
         tools.update(extra())
+    # run_shell with the owner's stored secrets set by name, their values masked.
+    shell = getattr(runtime_refs.get_supervisor_tool_gateway(), "lead_shell_tool", None)
+    vault_shell = shell() if callable(shell) else None
+    if vault_shell is not None:
+        tools[vault_shell.name] = vault_shell
     return tools
 
 
