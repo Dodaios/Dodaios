@@ -183,6 +183,19 @@ def row_of(memory: Any, now: str) -> dict[str, Any]:
     }
 
 
+def is_over(memory: Any, now: str) -> bool:
+    """Whether the memory's end has passed, compared as moments.
+
+    The vault compares ends as text against its UTC clock. An appointment
+    memory written before 2026-11-14 kept its event's offset, so as text a
+    10:15–15:00 +01:00 block stayed current until 15:00 UTC, and one that had
+    ended could still come due and be told after its end (hours late east of
+    UTC). Such a memory is over, whatever its text says.
+    """
+    end, clock = _due_moment(getattr(memory, "valid_to", None)), _due_moment(now)
+    return end is not None and clock is not None and end <= clock
+
+
 def _is_past(due_at: str, now: str) -> bool:
     """``due_at <= now`` as moments: an older appointment memory kept its event's own offset."""
     due, clock = _due_moment(due_at), _due_moment(now)
@@ -278,6 +291,8 @@ def list_due(vault: Any, *, days: int = 14) -> list[dict[str, Any]]:
     now = vault.now()
     rows = []
     for memory in vault.upcoming(days=days):
+        if is_over(memory, now):
+            continue
         row = row_of(memory, now)
         row["delivered"] = was_told(vault, memory)
         rows.append(row)
@@ -514,6 +529,9 @@ class ReminderScheduler:
             if told_before:
                 log.info("reminders: %s replaces a version already told", memory.id)
                 continue
+            if is_over(memory, _iso_utc(now)):
+                log.info("reminders: %s ended %s; not told after it", memory.id, memory.valid_to)
+                continue
             due_at = _due_moment(memory.due_at)
             if due_at is not None and now - due_at > STALE_AFTER:
                 log.info("reminders: %s was due %s; too old to tell", memory.id, memory.due_at)
@@ -585,6 +603,7 @@ __all__ = [
     "capture_dump",
     "create_reminder",
     "create_task",
+    "is_over",
     "is_reminder",
     "lead_target",
     "list_due",
