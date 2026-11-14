@@ -2143,11 +2143,11 @@ class UIConfig(BaseModel):
     bar_accent: str = "#e7c46e"
     # Jarvis bar size multiplier (Settings → "Bar size" slider). The whole bar
     # scales proportionally (width AND height together, shape preserved) on top
-    # of the physical-size-consistent base scale. Default 1.35 (135%) — the bar
-    # reads a touch small at 100% on high-DPI monitors. Range mirrors
+    # of the physical-size-consistent base scale. Default 1.0 (100%): the bar's
+    # own design size, a small pill near the bottom edge. Range mirrors
     # renderer.USER_SIZE_MIN/MAX (0.5–2.0); the renderer re-clamps, so this
     # validator only sanitizes a corrupt value.
-    bar_size_scale: float = 1.35
+    bar_size_scale: float = 1.0
     # Follow the mouse across monitors: when on, the on-screen bar hops to
     # whichever monitor the mouse cursor is currently on, keeping the SAME
     # relative spot (so different-sized monitors line up). Off pins it to one
