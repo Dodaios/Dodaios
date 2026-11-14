@@ -1,8 +1,12 @@
 import { useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { CodeXml, File, FileCode, FileText, Film, Image, Music, type LucideIcon } from "lucide-react";
+import { File, FileCode, Music, type LucideIcon } from "lucide-react";
 
 import { PANEL_ICON, PANEL_ROW_BUTTON, PanelEmpty, PanelSection, ShowMore } from "@/components/home/panelParts";
+import { isNodeType, type NodeType } from "@/components/nodes/nodeModel";
+import { NODE_INK_CLASS, nodeHueStyle } from "@/components/nodes/nodeTheme";
+import { NodeTypeIcon } from "@/components/nodes/NodeTypeIcon";
+import { fetchNodes, NODES_QUERY_KEY } from "@/components/nodes/useNodes";
 import { fetchOutputsList, type ArtifactSummary, type ArtifactsResponse, type OutputSummary } from "@/hooks/useOutputs";
 import { classifyVisual, toVisuals } from "@/hooks/useVisualArtifacts";
 import { fill, useT } from "@/i18n";
@@ -18,33 +22,54 @@ const RUNS_READ = 6;
 const RUNS_STALE_MS = 2 * 60_000;
 const LISTING_STALE_MS = 5 * 60_000;
 
-export type OutputKind = "image" | "page" | "document" | "video" | "audio" | "code" | "file";
+/**
+ * What a file is, for its icon: one of the library's own types (Docs, Slides,
+ * Sheets, Visuals, Analytics, Whiteboard, Clips), or audio, code or a plain
+ * file for what none of them is.
+ */
+export type OutputKind = NodeType | "audio" | "code" | "file";
 
 const VIDEO = /\.(mp4|mov|webm|mkv|m4v)$/i;
 const AUDIO = /\.(mp3|wav|m4a|ogg|flac)$/i;
 const CODE = /\.(m?js|cjs|jsx?|tsx?|py|json|css|sh|rs|go|ya?ml|toml|sql)$/i;
-const TEXT = /\.(md|txt|docx?|csv|xlsx?|pptx?)$/i;
+const SHEET = /\.(xlsx?|xlsm|csv|tsv|numbers|ods)$/i;
+const DECK = /\.(pptx?|key|odp)$/i;
+const TEXT = /\.(md|txt|rtf|docx?|pages|odt)$/i;
 
-/** What a file is, for its icon: the gallery's own kinds, then media and code. */
+/**
+ * The type a file has by its name alone, sorted the way the library adopts a
+ * file it did not build from a spec: a page or a picture is a visual, a PDF a
+ * doc. A spreadsheet, a deck and a video get their own type.
+ */
 export function outputKind(path: string): OutputKind {
+  if (SHEET.test(path)) return "sheets";
+  if (DECK.test(path)) return "slides";
   const visual = classifyVisual(path);
-  if (visual === "image" || visual === "vector") return "image";
-  if (visual === "page") return "page";
-  if (visual === "document" || TEXT.test(path)) return "document";
-  if (VIDEO.test(path)) return "video";
+  if (visual === "image" || visual === "vector" || visual === "page") return "design";
+  if (visual === "document" || TEXT.test(path)) return "docs";
+  if (VIDEO.test(path)) return "motion";
   if (AUDIO.test(path)) return "audio";
   return CODE.test(path) ? "code" : "file";
 }
 
-const ICONS: Record<OutputKind, LucideIcon> = {
-  image: Image,
-  page: CodeXml,
-  document: FileText,
-  video: Film,
+const OTHER_ICONS: Record<Exclude<OutputKind, NodeType>, LucideIcon> = {
   audio: Music,
   code: FileCode,
   file: File,
 };
+
+/** A row's icon: the library's mark and hue for a type, a quiet glyph otherwise. */
+function OutputIcon({ kind }: { kind: OutputKind }) {
+  if (isNodeType(kind)) {
+    return (
+      <span aria-hidden className={`flex shrink-0 ${NODE_INK_CLASS}`} style={nodeHueStyle(kind)}>
+        <NodeTypeIcon type={kind} className="h-4 w-4" />
+      </span>
+    );
+  }
+  const Icon = OTHER_ICONS[kind];
+  return <Icon aria-hidden strokeWidth={1.75} className={PANEL_ICON} />;
+}
 
 export interface OutputRow {
   /** The run a file came out of; "" for a file handed over in the conversation. */
@@ -72,6 +97,16 @@ export function outputRows(run: OutputSummary, files: ArtifactSummary[]): Output
     kind: outputKind(file.path),
     mtime: file.mtime,
   }));
+}
+
+/** Rows with the type the library gives the same file, where it lists it. */
+export function withLibraryTypes(rows: OutputRow[], cards: { key: string; type: string }[]): OutputRow[] {
+  const types = new Map<string, NodeType>();
+  for (const card of cards) if (isNodeType(card.type)) types.set(card.key, card.type);
+  return rows.map((row) => {
+    const type = row.slug ? types.get(`${row.slug}::${row.path}`) : undefined;
+    return type && type !== row.kind ? { ...row, kind: type } : row;
+  });
 }
 
 /**
@@ -126,9 +161,19 @@ export function PanelOutputs({ name }: { name: string }) {
     refetchInterval: import.meta.env.MODE === "test" ? false : 30_000,
     retry: false,
   });
+  // The library's own answer names each run file's type (a typed node is a
+  // deck or a sheet even though its file is a page); read under its key, so
+  // the library and this list share one answer.
+  const nodes = useQuery({
+    queryKey: NODES_QUERY_KEY,
+    queryFn: fetchNodes,
+    staleTime: RUNS_STALE_MS,
+    retry: false,
+  });
   const files = useMemo(
-    () => [...rows.files, ...chatFileRows(handed.data ?? [])].sort((a, b) => b.mtime - a.mtime),
-    [rows.files, handed.data],
+    () => withLibraryTypes([...rows.files, ...chatFileRows(handed.data ?? [])], nodes.data?.nodes ?? [])
+      .sort((a, b) => b.mtime - a.mtime),
+    [rows.files, handed.data, nodes.data],
   );
   const shown = files.slice(0, open ? OUTPUTS_UNFOLDED : OUTPUTS_SHOWN);
   const openRow = (row: OutputRow) => {
@@ -138,17 +183,14 @@ export function PanelOutputs({ name }: { name: string }) {
 
   return (
     <PanelSection id="outputs" title={t("sidebar.outputs")}>
-      {shown.map((row) => {
-        const Icon = ICONS[row.kind];
-        return (
-          <button key={`${row.slug}::${row.path}`} type="button" data-testid="assistant-output" data-kind={row.kind}
-            data-source={row.slug ? "run" : "chat"} onClick={() => openRow(row)} title={row.slug ? row.path.split("/").pop() : row.path}
-            className={PANEL_ROW_BUTTON}>
-            <Icon aria-hidden strokeWidth={1.75} className={PANEL_ICON} />
-            <span className="min-w-0 flex-1 truncate text-sm text-foreground">{row.label}</span>
-          </button>
-        );
-      })}
+      {shown.map((row) => (
+        <button key={`${row.slug}::${row.path}`} type="button" data-testid="assistant-output" data-kind={row.kind}
+          data-source={row.slug ? "run" : "chat"} onClick={() => openRow(row)} title={row.slug ? row.path.split("/").pop() : row.path}
+          className={PANEL_ROW_BUTTON}>
+          <OutputIcon kind={row.kind} />
+          <span className="min-w-0 flex-1 truncate text-sm text-foreground">{row.label}</span>
+        </button>
+      ))}
       {files.length === 0 && (
         <PanelEmpty testId="assistant-outputs-empty">
           {runs.isLoading || rows.loading || handed.isLoading ? t("common.loading") : fill(t("sidebar.outputs_empty"), { assistant: name })}
