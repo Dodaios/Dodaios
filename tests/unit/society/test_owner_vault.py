@@ -414,3 +414,22 @@ def test_the_vault_page_refuses_bad_names_and_marks_writes_owner_only(http: Test
         ("/api/trust/vault/logins/{key}", "delete"),
     ):
         assert schema[path][verb].get("x-jarvis-dangerous") is True
+
+
+def test_the_lead_deletes_a_secret_once_the_job_is_done(
+    vault: CredentialVault, monkeypatch
+) -> None:
+    from dodaios.society import runtime as runtime_mod
+
+    rt = SimpleNamespace(
+        lead_id=LEAD_AGENT_ID, chat_service=lambda: None, cached_agent=lambda _a: None
+    )
+    monkeypatch.setattr(runtime_mod, "current_runtime", lambda: rt)
+    vault.store(LEAD_AGENT_ID, "GOOGLE_AI_STUDIO_API_KEY", KEY)
+    tool = lead_credential_tools(SimpleNamespace(session_id="lead-chat"))[CREDENTIAL_TOOL_NAME]
+    gone = asyncio.run(tool.execute({"env": "GOOGLE_AI_STUDIO_API_KEY", "forget": True}, None))
+    assert gone.output["status"] == "deleted" and vault.list(LEAD_AGENT_ID) == []
+    again = asyncio.run(tool.execute({"env": "GOOGLE_AI_STUDIO_API_KEY", "forget": True}, None))
+    assert again.output["status"] == "not_stored"
+    bad = asyncio.run(tool.execute({"env": "path", "forget": True}, None))
+    assert not bad.success

@@ -90,6 +90,8 @@ class RequestCredentialTool:
         "work and respond to new messages while the user obtains the credential. If nothing "
         "else can be done now, finish your reply so the user can ask questions. On a later "
         "turn, wait_for checks the existing field's status immediately without opening another. "
+        "When the person wants a secret used only for one job, or no longer needs it, "
+        "delete it with forget=true and env once the job is done; it is gone from the vault. "
         "To sign in to a website in your browser with a username and password, use "
         "society_request_login instead."
     )
@@ -124,6 +126,13 @@ class RequestCredentialTool:
                 "type": "boolean",
                 "description": "Ask again although a value is stored (the service rejected it).",
             },
+            "forget": {
+                "type": "boolean",
+                "description": (
+                    "Delete the stored secret named in env from the vault (send env with it; "
+                    "label and description are not needed)."
+                ),
+            },
             "wait_for": {
                 "type": "string",
                 "description": (
@@ -149,6 +158,8 @@ class RequestCredentialTool:
         wait_for = str(args.get("wait_for") or "").strip()
         if wait_for:
             return await self._check_existing(wait_for)
+        if args.get("forget"):
+            return await self._forget(args.get("env"))
         try:
             env = validate_env_name(args.get("env"))
             spec = CredentialSpec.build(
@@ -213,6 +224,30 @@ class RequestCredentialTool:
             log.info("society credential: %s cannot ask here (%s)", agent_id, exc)
             return _nobody(env)
         return await self._status(service, request_id, env)
+
+    async def _forget(self, raw_env: Any) -> ToolResult:
+        """Delete one stored secret: the person's "only for this job" kept."""
+        try:
+            env = validate_env_name(raw_env)
+        except ValueError as exc:
+            # A malformed name goes back to the agent as the error to fix.
+            return ToolResult(success=False, output=None, error=f"invalid request: {exc}")
+        vault = credentials.current_vault()
+        if vault is None:
+            return ToolResult(
+                success=False, output=None, error="The credential store is not available yet."
+            )
+        try:
+            deleted = await asyncio.to_thread(vault.delete, self._agent_id, env)
+        except credentials.CredentialError as exc:
+            # The store refused the delete; the agent reports it, the value stays put.
+            return ToolResult(success=False, output={"env": env}, error=str(exc))
+        if not deleted:
+            return ToolResult(success=True, output={"status": "not_stored", "env": env})
+        return ToolResult(
+            success=True,
+            output={"status": "deleted", "env": env, "note": f"{env} is gone from the vault."},
+        )
 
     async def _check_existing(self, request_id: str) -> ToolResult:
         service = self._runtime.chat_service()
