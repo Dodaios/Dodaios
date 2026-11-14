@@ -66,13 +66,14 @@ const DataTypeIcon = defineIcon(
   </>,
 );
 
-/** Two notes on a board, joined by a line: a diagram. */
+/** A whiteboard on its stand, with a line drawn freehand on it. */
 const WhiteboardTypeIcon = defineIcon(
   "NodeWhiteboardIcon",
   <>
-    <rect x="3.5" y="3.5" width="7.5" height="6.5" rx="2" />
-    <rect x="13" y="14" width="7.5" height="6.5" rx="2" />
-    <path d="M11 6.75h3.75a2 2 0 0 1 2 2V14" />
+    <rect x="3.5" y="3.5" width="17" height="12" rx="2.5" />
+    <path d="M8.5 15.5 7 20.5" />
+    <path d="M15.5 15.5 17 20.5" />
+    <path d="M7 10.5c1.25-2 2.5-2 3.5 0s2.25 2 3.5 0 2.25-2 3 0" />
   </>,
 );
 
