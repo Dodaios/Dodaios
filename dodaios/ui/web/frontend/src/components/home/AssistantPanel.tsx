@@ -7,7 +7,7 @@ import { PanelActivity } from "@/components/home/PanelActivity";
 import { PanelComputers } from "@/components/home/PanelComputers";
 import { PanelOutputs } from "@/components/home/PanelOutputs";
 import { PanelReach } from "@/components/home/PanelReach";
-import { PanelStanding } from "@/components/home/PanelStanding";
+import { ASSISTANT_ID, ASSISTANT_ROUTINES_KEY, PanelRoutines, useAssistantRoutines, type AssistantRoutine } from "@/components/home/PanelRoutines";
 import { useVoiceModeSwitch } from "@/components/home/assistantStatus";
 import { chatRowLabel, useChatRows } from "@/components/home/chatRows";
 import { FOCUS, PANEL_ICON, PANEL_ROW, PANEL_ROW_BUTTON, PanelEmpty, PanelSection } from "@/components/home/panelParts";
@@ -30,22 +30,11 @@ import { useSoulProfile, type SoulFileId } from "@/views/assistant/api";
 const AssistantRoutineDialog = lazy(() => import("@/components/home/AssistantRoutineDialog"));
 const AssistantFileDialog = lazy(() => import("@/components/home/AssistantFileDialog"));
 
-/** The assistant's own id in the roster; its routines are the automations listed here. */
-const ASSISTANT_ID = "jarvis";
 const RECENTS_SHOWN = 4;
 const SKILLS_SHOWN = 8;
 const TAB_KEY = "jarvis.sidebar.assistantTab.v1";
-const AGENT_TITLE_PREFIX = /^\[agent:[^\]]+\]\s*/i;
-const AUTOMATIONS_KEY = ["sidebar", "automations"] as const;
 
 type Tab = "activity" | "library";
-
-interface Automation {
-  id: string;
-  title: string;
-  state: string;
-  trigger: unknown;
-}
 
 function readTab(): Tab {
   try {
@@ -53,25 +42,6 @@ function readTab(): Tab {
   } catch {
     return "activity";
   }
-}
-
-function useAutomations() {
-  return useQuery({
-    queryKey: AUTOMATIONS_KEY,
-    staleTime: 30_000,
-    refetchInterval: import.meta.env.MODE === "test" ? false : 60_000,
-    retry: false,
-    queryFn: async (): Promise<Automation[]> => {
-      const response = await fetch(`/api/society/agents/${ASSISTANT_ID}/routines`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const body = (await response.json()) as { routines?: { id?: string; title?: string; state?: string; trigger?: unknown }[] };
-      return (body.routines ?? []).flatMap((row) =>
-        row.id
-          ? [{ id: row.id, title: (row.title ?? "").replace(AGENT_TITLE_PREFIX, "").trim(), state: row.state ?? "", trigger: row.trigger ?? null }]
-          : [],
-      );
-    },
-  });
 }
 
 /**
@@ -101,10 +71,9 @@ function useConversation(): { id: string | null; computerId: string } {
  * the row that line describes (`usePanelNow`). Face and name lead back to the conversation. Under
  * them the ways to reach it: a call, Slack and Telegram.
  *
- * "Activity" is its work: what it looks after over time (its standing tasks,
- * and the ones it suggests), the computers it can work on (the one it runs on
- * marked), the chats in the Agentic IDE it sent a task to, and the files it
- * made. "Library" is what belongs to it: its routines, each with a switch,
+ * "Activity" is its work: its routines (the first two, the rest folded away),
+ * the computers it can work on (the one it runs on marked), the chats in the
+ * Agentic IDE it sent a task to, and the files it made. "Library" is what belongs to it: its routines, each with a switch,
  * how it is spoken to, its own files (character, standing instructions,
  * memory, what it knows about the person), its skills and the chats from
  * before.
@@ -115,7 +84,7 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
   const locale = useRunLocale();
   const client = useQueryClient();
   const setActive = useEventStore((s) => s.setActiveSection);
-  const automations = useAutomations();
+  const automations = useAssistantRoutines();
   const profile = useSoulProfile();
   const skills = useSkillsList();
   const setSkillEnabled = useSetSkillEnabled();
@@ -135,14 +104,14 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
     try { localStorage.setItem(TAB_KEY, next); } catch { /* a convenience only */ }
   };
 
-  const toggleRoutine = async (routine: Automation, enabled: boolean) => {
+  const toggleRoutine = async (routine: AssistantRoutine, enabled: boolean) => {
     setPending(routine.id);
     try {
       await setTaskEnabled(routine.id, enabled);
     } catch (error) {
       useEventStore.getState().pushToast("error", error instanceof Error ? error.message : String(error));
     } finally {
-      await client.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
+      await client.invalidateQueries({ queryKey: ASSISTANT_ROUTINES_KEY });
       setPending(null);
     }
   };
@@ -191,7 +160,7 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
 
         {tab === "activity" ? (
           <div role="tabpanel" className="mt-3">
-            <PanelStanding />
+            <PanelRoutines onOpen={setRoutineId} />
             <PanelComputers leadComputerId={conversation.computerId} name={name} />
             <PanelActivity name={name} />
             <PanelOutputs name={name} />
