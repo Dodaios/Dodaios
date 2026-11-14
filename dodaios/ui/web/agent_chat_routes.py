@@ -43,7 +43,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import threading
 import time
 from pathlib import Path
 from typing import Any, Final, Literal
@@ -63,6 +62,7 @@ from pydantic import BaseModel, Field
 
 from dodaios.agent_chat import attachments as chat_attachments
 from dodaios.agent_chat import runner_cli, send_queue, typeahead
+from dodaios.agent_chat.app_service import service_from_state
 from dodaios.agent_chat.catalog import ACCESS_ACCOUNTS, claude_code_models, offers, rows_for
 from dodaios.agent_chat.control_types import CommandRequest, CommandResult
 from dodaios.agent_chat.credential_requests import CredentialRequestBusy
@@ -386,38 +386,9 @@ class PickFolderBody(BaseModel):
 # ------------------------------------------------------------------ helpers
 
 
-# Sync HTTP routes run in worker threads while boot and WebSockets use the
-# event loop. Construction opens SQLite and schedules turn recovery, so the
-# first requests must not create competing owners of the same hosted turns.
-_SERVICE_BUILD_LOCK = threading.Lock()
-
-
-def _service_from_state(state: Any) -> AgentChatService | None:
-    """The service, built on first use from ``app.state.agent_chat_factory``."""
-    svc = getattr(state, "agent_chat", None)
-    if svc is not None:
-        return svc
-    if getattr(state, "agent_chat_factory", None) is not None:
-        # Resolve the app's loop while NOT holding the lock: from a worker
-        # thread this waits for the loop, and the loop may itself be waiting
-        # for the lock in an async route — a deadlock that froze every route.
-        from dodaios.agent_chat.service import remember_app_loop
-
-        remember_app_loop()
-    with _SERVICE_BUILD_LOCK:
-        svc = getattr(state, "agent_chat", None)
-        if svc is not None:
-            return svc
-        factory = getattr(state, "agent_chat_factory", None)
-        if factory is None:
-            return None
-        try:
-            svc = factory()
-        except Exception as exc:  # noqa: BLE001 — surfaces as 503 with the reason in the log
-            log.warning("agent chat: service could not be built: %s", exc)
-            return None
-        state.agent_chat = svc
-        return svc
+# The one builder of the service, under one lock: two services would both
+# carry on the hosted turns, and the one the window talks to would lose them.
+_service_from_state = service_from_state
 
 
 #: How long after the server is up the boot reattach waits, so it never sits
