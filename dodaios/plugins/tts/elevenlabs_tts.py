@@ -18,7 +18,10 @@ keep the implementation small.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
+import contextlib
 import logging
+import threading
 import time
 from collections.abc import AsyncIterator
 from typing import Any
@@ -36,6 +39,8 @@ from dodaios.plugins.tts.gemini_flash_tts import (
 ELEVENLABS_TTS_SAMPLE_RATE = 24_000
 _OUTPUT_FORMAT = "pcm_24000"
 _STREAMING_LATENCY_OPTIMIZATION = 1
+# How often a producer blocked on a full queue checks that a consumer remains.
+_PRODUCER_POLL_S = 0.1
 
 DEFAULT_MODEL = "eleven_flash_v2_5"
 
@@ -262,6 +267,28 @@ class ElevenLabsTTS:
 
         loop = asyncio.get_running_loop()
         queue: asyncio.Queue[bytes | None | BaseException] = asyncio.Queue(maxsize=64)
+        consumer_gone = threading.Event()
+        producer_log = logging.getLogger("jarvis.tts.elevenlabs")
+
+        def _deliver(item: bytes | None | BaseException) -> bool:
+            """Queue one item, waiting for room; False once nobody is reading.
+
+            Waiting is what keeps at most one ``put`` outstanding. Scheduling
+            them unawaited left one task per remaining chunk stuck on the full
+            queue after an aborted playback, and those died pending when the
+            queue was collected (~100 "Task was destroyed" per cancelled turn).
+            """
+            try:
+                delivered = asyncio.run_coroutine_threadsafe(queue.put(item), loop)
+            except RuntimeError as exc:
+                producer_log.debug("ElevenLabs producer stopped, loop closed: %s", exc)
+                return False
+            while not consumer_gone.is_set():
+                done, _ = concurrent.futures.wait({delivered}, timeout=_PRODUCER_POLL_S)
+                if done:
+                    return not delivered.cancelled() and delivered.exception() is None
+            delivered.cancel()
+            return False
 
         def _producer() -> None:
             try:
@@ -276,15 +303,24 @@ class ElevenLabsTTS:
                 if lang_short:
                     kwargs["language_code"] = lang_short
                 stream = self._client.text_to_speech.stream(**kwargs)
-                for chunk in stream:
-                    if chunk:
-                        asyncio.run_coroutine_threadsafe(queue.put(chunk), loop)
+                try:
+                    for chunk in stream:
+                        if chunk and not _deliver(chunk):
+                            break  # stop paying for audio nobody will hear
+                finally:
+                    close = getattr(stream, "close", None)
+                    if callable(close):
+                        with contextlib.suppress(Exception):
+                            close()
             except BaseException as exc:  # noqa: BLE001
-                asyncio.run_coroutine_threadsafe(queue.put(exc), loop)
+                _deliver(exc)
             finally:
-                asyncio.run_coroutine_threadsafe(queue.put(None), loop)
+                _deliver(None)
 
         producer_future = loop.run_in_executor(None, _producer)
+        producer_future.add_done_callback(
+            lambda done: done.cancelled() or done.exception()
+        )
 
         try:
             while True:
@@ -295,7 +331,10 @@ class ElevenLabsTTS:
                     raise item
                 yield item
         finally:
-            await producer_future
+            # Signal, never join: the worker may be parked on the network, and
+            # awaiting it here held a cancelled turn open until the HTTP stream
+            # ended.
+            consumer_gone.set()
 
     async def _fallback(
         self, text: str, language_code: str | None

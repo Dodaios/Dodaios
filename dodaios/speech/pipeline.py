@@ -583,6 +583,11 @@ _STT_TRANSIENT_STATUS: frozenset[int] = frozenset({429, 500, 502, 503, 504})
 _STT_FINAL_RETRIES: int = 2
 _STT_RETRY_BASE_S: float = 0.4
 _STT_RETRY_CAP_S: float = 2.0
+# A turn that meets a cold local utterance engine waits for the build before
+# its inference windows start: loading is not inference, and a large local
+# checkpoint on a cold file cache has taken 90+ s (whisper-large-v3 on CUDA).
+# Past this ceiling the turn goes ahead and the normal windows decide.
+_VOICE_STT_COLD_LOAD_TIMEOUT_S: float = 180.0
 
 # Hard ceiling on a single TTS playback. PortAudio's blocking ``stream.write``
 # waits for output-buffer room, and a flaky output device can make it (or a
@@ -2917,6 +2922,8 @@ class SpeechPipeline:
         # honest readiness; the task is tracked for shutdown.
         self._dictation_warmup_task: asyncio.Task | None = None
         self._dictation_warmup_shutdown = False
+        self._voice_stt_warmup_task: asyncio.Task | None = None
+        self._voice_stt_warmup_provider: Any = None
         self._audio_topology_task: asyncio.Task | None = None
 
         # ContinuationBuffer (Spec docs/superpowers/specs/
@@ -6478,6 +6485,7 @@ class SpeechPipeline:
             "_warmup_ready_cue_task",
             "_deferred_warmup_task",
             "_dictation_warmup_task",
+            "_voice_stt_warmup_task",
             "_audio_topology_task",
         ):
             task = getattr(self, attr, None)
@@ -6722,6 +6730,8 @@ class SpeechPipeline:
             # prompt-free provider. Start it only AFTER honest readiness so its
             # model load + first CUDA decode can never delay boot (AP-26).
             self._schedule_dictation_warmup()
+            # Same for a local utterance engine that is not the wake engine.
+            self._ensure_voice_stt_warmup()
         finally:
             # Never orphan the concurrently-started TTS init: if this deferred
             # task is cancelled (desktop shutdown) before the ``await tts_task``
@@ -13371,54 +13381,193 @@ class SpeechPipeline:
         returns from inside the loop, and nothing about the crossover — not the
         keyring read, not the chain resolution, not a provider construction —
         happens until a turn has already failed.
+
+        The whole phase races the hangup event: this is the longest wait in a
+        turn with no other observer of it, so a Cancel pressed here used to sit
+        latched until the ladder ran out (live 2026-11-08: pressed at 20:54:07,
+        acted on at 20:54:20). Returns ``None`` on a hangup; the caller checks
+        the event before deciding to apologise.
         """
+        hangup_event = getattr(self, "_hangup_event", None) or asyncio.Event()
+        work = asyncio.create_task(
+            self._transcribe_final_ladder(pcm), name="stt-final-turn"
+        )
+        hangup_wait = asyncio.create_task(
+            hangup_event.wait(), name="stt-final-hangup"
+        )
+        try:
+            await asyncio.wait(
+                {work, hangup_wait}, return_when=asyncio.FIRST_COMPLETED
+            )
+            if work.done():
+                return work.result()
+            log.info("📵 Hangup during final transcription — abandoning the turn")
+            return None
+        finally:
+            hangup_wait.cancel()
+            work.cancel()
+            # Every await in the ladder is cancellable (a native worker thread
+            # is orphaned, not joined), so this cannot delay Cancel.
+            await asyncio.gather(work, hangup_wait, return_exceptions=True)
+
+    async def _transcribe_final_ladder(self, pcm: bytes) -> Transcript | None:
+        """The final-transcription attempts, cold-engine wait included."""
         # A VAD preview may still own the provider connection/inference lock on
         # the endpoint edge. Cancel and drain it before the authoritative upload
         # so the final request never queues behind obsolete audio or triggers a
         # same-provider rate-limit retry.
         await self._drain_stale_probe()
-        last_exc: BaseException | None = None
-        for attempt in range(_STT_FINAL_RETRIES + 1):
-            stt_task = asyncio.create_task(
-                self._utterance_stt.transcribe_pcm(pcm), name="stt-final"
-            )
-            try:
-                return await asyncio.wait_for(
-                    stt_task, timeout=self._stt_final_timeout_s
-                )
-            except TimeoutError as exc:
-                stt_task.cancel()
-                last_exc = exc
-                log.warning(
-                    "STT final timeout after %.1fs (attempt %d/%d)",
-                    self._stt_final_timeout_s,
-                    attempt + 1,
-                    _STT_FINAL_RETRIES + 1,
-                )
-            except Exception as exc:  # noqa: BLE001
-                last_exc = exc
-                if not _is_transient_stt_error(exc):
-                    log.exception("STT finalization failed (non-retryable): %s", exc)
-                    # Not retryable HERE is not the same as hopeless: a 401 or a
-                    # 402 is final for THIS key and says nothing about the other
-                    # families the user holds. The crossover makes that call; a
-                    # 400 (the provider understood the audio and refused it) is
-                    # classified as not crossable and returns None as before.
-                    return await self._transcribe_final_crossing(pcm, exc)
-                log.warning(
-                    "STT transient error %s (attempt %d/%d)",
-                    _stt_error_status(exc),
-                    attempt + 1,
-                    _STT_FINAL_RETRIES + 1,
-                )
-            if attempt < _STT_FINAL_RETRIES:
-                await asyncio.sleep(_stt_retry_delay(last_exc, attempt))
-        log.error(
-            "STT final exhausted %d attempts (last error: %s)",
-            _STT_FINAL_RETRIES + 1,
-            last_exc,
+        await self._await_voice_stt_engine()
+        provider = self._utterance_stt
+        # A native engine cannot be cancelled and refuses a second caller, so
+        # re-sending audio after a timeout only ever raises ``TranscribeBusy``
+        # behind the decode still running (live 2026-11-08). Its later windows
+        # keep waiting on that SAME decode; a cloud request is really abandoned
+        # and retried. Same total budget either way.
+        keep_in_flight = not getattr(
+            provider, "supports_concurrent_transcription", True
         )
+        last_exc: BaseException | None = None
+        stt_task: asyncio.Task[Transcript] | None = None
+        try:
+            for attempt in range(_STT_FINAL_RETRIES + 1):
+                if stt_task is None:
+                    stt_task = asyncio.create_task(
+                        provider.transcribe_pcm(pcm), name="stt-final"
+                    )
+                try:
+                    return await asyncio.wait_for(
+                        asyncio.shield(stt_task), timeout=self._stt_final_timeout_s
+                    )
+                except TimeoutError as exc:
+                    if (
+                        stt_task.done()
+                        and not stt_task.cancelled()
+                        and stt_task.exception() is None
+                    ):
+                        # The decode ended in the same loop pass as its window
+                        # (a coarse timer: 15.6 ms steps on Windows, or a busy
+                        # loop). The transcript is there; sending the audio
+                        # again would only make the turn miss its last window.
+                        return stt_task.result()
+                    last_exc = exc
+                    if stt_task.done() or not keep_in_flight:
+                        stt_task.cancel()
+                        stt_task = None
+                    log.warning(
+                        "STT final timeout after %.1fs (attempt %d/%d)",
+                        self._stt_final_timeout_s,
+                        attempt + 1,
+                        _STT_FINAL_RETRIES + 1,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    last_exc = exc
+                    stt_task = None
+                    if not _is_transient_stt_error(exc):
+                        log.exception("STT finalization failed (non-retryable): %s", exc)
+                        # Not retryable HERE is not the same as hopeless: a 401 or a
+                        # 402 is final for THIS key and says nothing about the other
+                        # families the user holds. The crossover makes that call; a
+                        # 400 (the provider understood the audio and refused it) is
+                        # classified as not crossable and returns None as before.
+                        return await self._transcribe_final_crossing(pcm, exc)
+                    log.warning(
+                        "STT transient error %s (attempt %d/%d)",
+                        _stt_error_status(exc),
+                        attempt + 1,
+                        _STT_FINAL_RETRIES + 1,
+                    )
+                if attempt < _STT_FINAL_RETRIES and stt_task is None:
+                    await asyncio.sleep(_stt_retry_delay(last_exc, attempt))
+            log.error(
+                "STT final exhausted %d attempts (last error: %r)",
+                _STT_FINAL_RETRIES + 1,
+                last_exc,
+            )
+            if stt_task is not None:
+                # Still decoding after every window is the AP-24 wedge. Without
+                # a fresh engine and lock, each later turn dies on TranscribeBusy.
+                self._recover_voice_stt(provider)
+        finally:
+            if stt_task is not None and not stt_task.done():
+                stt_task.cancel()
         return await self._transcribe_final_crossing(pcm, last_exc)
+
+    @staticmethod
+    def _recover_voice_stt(provider: Any) -> None:
+        """Swap a wedged native engine for a fresh one; never fails the turn."""
+        recover = getattr(provider, "recover", None)
+        if not callable(recover):
+            return
+        try:
+            recover()
+        except Exception:  # noqa: BLE001 — the apology must still be spoken
+            log.warning("Voice STT recovery failed.", exc_info=True)
+
+    def _ensure_voice_stt_warmup(self) -> asyncio.Task[None] | None:
+        """The running warm-up of a cold local voice engine, started if needed.
+
+        ``_warmup_deferred_loaders`` only warms ``self._stt`` (the wake engine),
+        and on a Vosk-wake install the utterance provider is a separate object
+        nothing ever primed — its first build then landed inside the first
+        spoken turn's 8 s budget (measured on an RTX 4060: 10.6 s build + 2.4 s
+        first decode standalone, ~25 s inside the app, then 0.5 s per decode).
+        Returns ``None`` when there is nothing to wait for, including every
+        cloud provider, which has no ``warm_up``.
+        """
+        provider = getattr(self, "_utterance_stt", None)
+        warm_up = getattr(provider, "warm_up", None)
+        if not callable(warm_up) or getattr(provider, "is_warm", True) is not False:
+            return None
+        task = getattr(self, "_voice_stt_warmup_task", None)
+        if (
+            task is not None
+            and not task.done()
+            and getattr(self, "_voice_stt_warmup_provider", None) is provider
+        ):
+            return task
+        if getattr(self, "_dictation_warmup_shutdown", False):
+            return None
+
+        def _log_failure(done: asyncio.Task[None]) -> None:
+            if not done.cancelled() and done.exception() is not None:
+                log.warning("Voice STT warm-up failed: %s", done.exception())
+
+        task = asyncio.create_task(
+            asyncio.to_thread(warm_up), name="voice-stt-warmup"
+        )
+        task.add_done_callback(_log_failure)
+        self._voice_stt_warmup_task = task
+        self._voice_stt_warmup_provider = provider
+        return task
+
+    async def _await_voice_stt_engine(self) -> None:
+        """Wait out a cold engine before the inference budget starts.
+
+        Loading is not inference: the 8 s final timeout is ~16x a healthy
+        decode and has no relation to a model build, so it gets the build
+        ceiling instead. ``asyncio.wait`` leaves the warm-up running when this
+        turn is abandoned, so the next turn joins it rather than restarting a
+        load that was almost done.
+        """
+        task = self._ensure_voice_stt_warmup()
+        if task is None:
+            return
+        log.info("Voice STT engine still warming up; holding this turn for it.")
+        started = time.monotonic()
+        done, _pending = await asyncio.wait(
+            {task}, timeout=_VOICE_STT_COLD_LOAD_TIMEOUT_S
+        )
+        if done:
+            log.info(
+                "Voice STT engine ready after a %.1fs wait.",
+                time.monotonic() - started,
+            )
+        else:
+            log.error(
+                "Voice STT engine still not ready after %.0fs.",
+                _VOICE_STT_COLD_LOAD_TIMEOUT_S,
+            )
 
     async def _transcribe_final_crossing(
         self, pcm: bytes, exc: BaseException | None
@@ -13765,6 +13914,11 @@ class SpeechPipeline:
         # endpointed (push-to-talk, a hotkey call) must not hold this turn.
         self._vad_speech_after_endpoint = False
         transcript = await self._transcribe_final(pcm)
+        hangup_event = getattr(self, "_hangup_event", None)
+        if hangup_event is not None and hangup_event.is_set():
+            # The user already left: no apology and no brain turn for them.
+            # True hands control to the session loop, which ends on the event.
+            return True
         if transcript is None:
             # AD-OE6 zero-silent-drop: every retry of the final transcription
             # failed (e.g. a sustained Groq 429 rate-limit). Do NOT slip back to
