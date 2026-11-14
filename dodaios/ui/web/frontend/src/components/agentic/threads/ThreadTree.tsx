@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, Hash, Loader2, MessageCircleQuestion, MoreHorizontal, Pencil, Plus, ShieldQuestion, SquarePen, SquarePlus, Trash2, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
@@ -8,6 +8,8 @@ import { fill, useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
 import { useEventStore } from "@/store/events";
 import { useIdeProjectsStore } from "@/store/ideProjects";
+import { reorderProjects } from "@/lib/chatLibraryApi";
+import { PROJECT_DRAG_MIME, projectNeighbour, projectOrderAfterMove, reorderErrorMessage, sortByIds } from "../projectOrder";
 import { MAX_THREAD_COLUMNS, TEAM_DRAFT, useIdeThreadsStore } from "@/store/ideThreads";
 import { useTeamThreads, type TeamThreadRow } from "@/lib/teamThreadsApi";
 import { openSubagentOf, useThreadSubagentsStore } from "@/store/threadSubagents";
@@ -185,6 +187,10 @@ export function ThreadTree() {
   const [menu, setMenu] = useState<{ sessionId: string; projectId: string } | null>(null);
   const [archiveOpen, setArchiveOpen] = useState<Record<string, boolean>>({});
   const [dragged, setDragged] = useState<string | null>(null);
+  // A project folder being dragged to a new place, and where it would land.
+  const [draggedProject, setDraggedProject] = useState<string | null>(null);
+  const [projectDrop, setProjectDrop] = useState<{ id: string; before: boolean } | null>(null);
+  const [reordering, setReordering] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   // Threads whose sub-agent rows the person folded away; open by default.
@@ -259,6 +265,26 @@ export function ThreadTree() {
   };
 
   const clearDrag = () => { setDragged(null); setDraggedThread(null); };
+  const clearProjectDrag = () => { setDraggedProject(null); setProjectDrop(null); };
+
+  /** Moves a folder before or after another one of its section: shown at once, then stored. */
+  const moveProject = async (sourceId: string, targetId: string, before: boolean) => {
+    if (reordering) return;
+    const next = projectOrderAfterMove(visible, sourceId, targetId, before);
+    if (!next) return;
+    const { requestRefresh } = useIdeProjectsStore.getState();
+    useIdeProjectsStore.setState((state) => ({ projects: sortByIds(state.projects, next) }));
+    setReordering(true);
+    try {
+      await reorderProjects(next);
+    } catch (error) {
+      pushToast("error", reorderErrorMessage(error));
+    } finally {
+      setReordering(false);
+      // The stored order comes back either way: the new one, or the old one after a failure.
+      requestRefresh();
+    }
+  };
 
   const remove = async (sessionId: string) => {
     setConfirmDelete(null);
@@ -293,10 +319,56 @@ export function ThreadTree() {
     const open = expansion[project.id] ?? (threads.length > 0 || teamRows.length > 0 || draftHere || teamDraftHere);
     const shown = showAll[project.id] ? threads : threads.slice(0, FOLDED_COUNT);
     const running = threads.filter((thread) => thread.running).length;
+    const dropBefore = projectDrop?.id === project.id && projectDrop.before;
+    const dropAfter = projectDrop?.id === project.id && !projectDrop.before;
+    const dropAbove = (event: DragEvent<HTMLElement>) => {
+      const rect = event.currentTarget.getBoundingClientRect();
+      return event.clientY - rect.top < rect.height / 2;
+    };
     return <div key={project.id} className="mb-px" data-testid={`thread-project-${project.id}`}>
-      <div className="group relative flex min-h-8 items-center rounded-md pr-1 transition-colors hover:bg-muted">
+      <div draggable={!reordering} data-testid={`thread-project-header-${project.id}`}
+        onDragStart={(event) => {
+          if (reordering) { event.preventDefault(); return; }
+          event.dataTransfer.setData(PROJECT_DRAG_MIME, project.id);
+          event.dataTransfer.effectAllowed = "move";
+          setDraggedProject(project.id);
+        }}
+        onDragEnd={clearProjectDrag}
+        onDragOver={(event) => {
+          // Only a folder moves here; a thread row carries its own payload and is left alone.
+          if (!draggedProject || draggedProject === project.id || !event.dataTransfer.types.includes(PROJECT_DRAG_MIME)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          const before = dropAbove(event);
+          setProjectDrop((current) => current?.id === project.id && current.before === before ? current : { id: project.id, before });
+        }}
+        onDragLeave={(event) => {
+          const next = event.relatedTarget as Node | null;
+          if (next && event.currentTarget.contains(next)) return;
+          setProjectDrop((current) => current?.id === project.id ? null : current);
+        }}
+        onDrop={(event) => {
+          if (!draggedProject) return;
+          event.preventDefault();
+          const sourceId = event.dataTransfer.getData(PROJECT_DRAG_MIME) || draggedProject;
+          const before = dropAbove(event);
+          clearProjectDrag();
+          void moveProject(sourceId, project.id, before);
+        }}
+        className={cn("group relative flex min-h-8 items-center rounded-md pr-1 transition-colors hover:bg-muted",
+          draggedProject === project.id && "opacity-40",
+          dropBefore && "before:absolute before:-top-0.5 before:left-2 before:right-2 before:h-0.5 before:rounded-full before:bg-primary",
+          dropAfter && "after:absolute after:-bottom-0.5 after:left-2 after:right-2 after:h-0.5 after:rounded-full after:bg-primary")}>
         <button type="button" aria-expanded={open} aria-label={fill(t(open ? "ide_projects.collapse_named" : "ide_projects.expand_named"), { target: project.name })}
-          onClick={() => setProjectOpen(project.id, !open)} title={project.path}
+          onClick={() => setProjectOpen(project.id, !open)}
+          onKeyDown={(event) => {
+            // Alt with an arrow moves the folder one place, for those who do not drag.
+            if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+            event.preventDefault();
+            const neighbour = projectNeighbour(visible, project.id, event.key === "ArrowUp");
+            if (neighbour) void moveProject(project.id, neighbour.id, event.key === "ArrowUp");
+          }}
+          title={fill(t("ide_projects.drag_hint"), { target: project.path })}
           className={cn(ROW, "flex-1 text-foreground-secondary group-hover:text-foreground", FOCUS_RING)}>
           {open
             ? <FolderOpen aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />

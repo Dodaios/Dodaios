@@ -10,10 +10,10 @@ import { useIdeProjectsStore } from "@/store/ideProjects";
 import cursorLogo from "@/assets/editors/cursor.svg?url";
 import vscodeLogo from "@/assets/editors/vscode.svg?url";
 import { fill, translate, useT } from "@/i18n";
+import { PROJECT_DRAG_MIME, projectNeighbour, projectOrderAfterMove, reorderErrorMessage } from "./projectOrder";
 
 const EXPANSION_KEY = "jarvis.ide.projectExpansion.v1";
 const WORKSPACE_DRAG_MIME = "application/x-jarvis-workspace-id";
-const PROJECT_DRAG_MIME = "application/x-jarvis-project-id";
 /**
  * An open workspace row accepts a terminal pane dragged out of the grid: the
  * grid reads these attributes under the pointer and lights the row with
@@ -31,12 +31,6 @@ const PANE_DROP_ACTIVE = "data-[pane-drop-active=true]:bg-primary/10 data-[pane-
  */
 const REORDER_NEEDS_RESTART = "ide_projects.reorder_needs_restart";
 
-/** A reorder failure in the user's terms: a stale backend gets the fix, anything else the server's own words. */
-function reorderErrorMessage(error: unknown): string {
-  if (error instanceof IdeApiError && error.status === 405) return translate(REORDER_NEEDS_RESTART);
-  if (error instanceof ChatLibraryError && error.status === 405) return translate(REORDER_NEEDS_RESTART);
-  return error instanceof Error ? error.message : String(error);
-}
 
 /** Why opening a folder failed, in the user's terms. */
 function revealErrorMessage(error: unknown): string {
@@ -446,27 +440,9 @@ export function IdeProjectTree() {
   };
 
   const moveProject = async (sourceId: string, targetId: string, before: boolean) => {
-    if (reordering || sourceId === targetId) return;
-    const pinned = visible.filter((project) => project.pinned);
-    const unpinned = visible.filter((project) => !project.pinned);
-    const section = pinned.some((project) => project.id === sourceId) ? pinned : unpinned;
-    if (!section.some((project) => project.id === targetId)) return;
-    const without = section.map((project) => project.id).filter((id) => id !== sourceId);
-    const targetIndex = without.indexOf(targetId);
-    if (targetIndex < 0) return;
-    const insertAt = before ? targetIndex : targetIndex + 1;
-    const sectionNext = [...without.slice(0, insertAt), sourceId, ...without.slice(insertAt)];
-    if (sectionNext.join("\u0000") === section.map((project) => project.id).join("\u0000")) return;
-    const orderOf = (ids: string[]) => {
-      const rank = new Map(ids.map((id, index) => [id, index] as const));
-      return (left: IdeProject, right: IdeProject) => (rank.get(left.id) ?? 0) - (rank.get(right.id) ?? 0);
-    };
-    const pinnedNext = (section === pinned ? sectionNext : pinned.map((project) => project.id));
-    const unpinnedNext = (section === unpinned ? sectionNext : unpinned.map((project) => project.id));
-    const next = [
-      ...[...pinned].sort(orderOf(pinnedNext)).map((project) => project.id),
-      ...[...unpinned].sort(orderOf(unpinnedNext)).map((project) => project.id),
-    ];
+    if (reordering) return;
+    const next = projectOrderAfterMove(visible, sourceId, targetId, before);
+    if (!next) return;
     setReordering(true);
     try {
       await reorderProjects(next);
@@ -545,9 +521,7 @@ export function IdeProjectTree() {
               if (!event.altKey) return;
               if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
               event.preventDefault();
-              const section = visible.filter((entry) => (entry.pinned || false) === (project.pinned || false));
-              const index = section.findIndex((entry) => entry.id === project.id);
-              const neighbour = event.key === "ArrowUp" ? section[index - 1] : section[index + 1];
+              const neighbour = projectNeighbour(visible, project.id, event.key === "ArrowUp");
               if (!neighbour) return;
               void moveProject(project.id, neighbour.id, event.key === "ArrowUp");
             }}
