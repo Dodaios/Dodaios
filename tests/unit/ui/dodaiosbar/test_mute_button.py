@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from dodaios.ui.dodaiosbar import renderer as R
 from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
-from ui.orb.controls import pet_strip_layout
 
 
 class _FakePipeline:
@@ -29,9 +28,8 @@ class _FakePipeline:
 
 
 def _mic_x() -> int:
-    """The on-screen microphone-button centre (mirror renderer x_right)."""
-    slot = next(s for s in pet_strip_layout(R.strip_scale()).slots if s[0] == "mic_mute")
-    return round((slot[1] + slot[2]) / 2)
+    """The microphone control of the open bar."""
+    return round(R.control_center("mic", "idle")[0])
 
 
 def _patch_pipeline(monkeypatch, fake) -> None:
@@ -103,8 +101,9 @@ def test_muted_render_is_safe_for_every_mode():
 
 
 def test_muted_idle_keeps_all_controls_available():
-    assert R.target_pill_size("idle", muted=True) == (R.WIN_W, R.WIN_H)
-    assert R.target_pill_size("idle", muted=False) == (R.WIN_W, R.WIN_H)
+    assert R.target_pill_size("idle", hovered=True, muted=True) == R.target_pill_size(
+        "idle", hovered=True, muted=False
+    )
 
 
 def test_muted_idle_shows_slashed_mic_without_hover():

@@ -607,18 +607,10 @@ def test_clicks_are_forwarded_to_parent_owned_callbacks() -> None:
     assert surface._dispatch_click_ui(renderer.WIN_W / 2) == "talk"  # noqa: SLF001
 
     surface._mode = "listen"  # noqa: SLF001
-    assert (
-        surface._dispatch_click_ui(
-            next(
-                (a + b) / 2
-                for action, a, b in renderer.controls.pet_strip_layout(renderer.strip_scale()).slots
-                if action == "mic_mute"
-            )
-        )
-        == "mute"
-    )  # noqa: SLF001
+    mic_x = renderer.control_center("mic", "listen")[0]
+    assert surface._dispatch_click_ui(mic_x) == "mute"  # noqa: SLF001
 
-    close_x = renderer.controls.pet_strip_layout(renderer.strip_scale()).call[0]
+    close_x = renderer.control_center("close", "listen")[0]
     assert surface._dispatch_click_ui(close_x, hovered=True) == "hangup"  # noqa: SLF001
 
     assert voice_actions == ["talk", "hangup"]

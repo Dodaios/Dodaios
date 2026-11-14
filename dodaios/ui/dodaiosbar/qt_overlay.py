@@ -598,14 +598,21 @@ class QtJarvisBarOverlay:
             if self._window is None:
                 return None
             local = self._window.mapFromGlobal(_qt().QtGui.QCursor.pos())
-            x, y = local.x(), local.y()
-            from ui.orb.controls import pet_hit_test
-
-            action = pet_hit_test(x, y, renderer.strip_scale())
-            return "compose" if action == "bell" else action
+            return renderer.hit_action(
+                local.x(), local.y(), self._mode, hovered=True, **self._bar_switches()
+            )
         except Exception:  # no window yet, or teardown in progress
             log.debug("bar hover unavailable", exc_info=True)
             return None
+
+    def _bar_switches(self) -> dict[str, bool]:
+        """The switches that change what the bar draws (and so where it is hit)."""
+        return {
+            "muted": bool(getattr(self, "_muted", False)),
+            "speaker_muted": bool(getattr(self, "_speaker_muted", False)),
+            "prompt_mode": bool(getattr(self, "_prompt_mode", False)),
+            "prompt_mode_paused": bool(getattr(self, "_prompt_mode_paused", False)),
+        }
 
     def set_on_compose(self, callback: Callable[[], None] | None) -> None:
         self._on_compose = callback
@@ -700,7 +707,13 @@ class QtJarvisBarOverlay:
             # documented follow-up (renderer.resolve_screen_scale accepts a dpi).
             self._screen_scale = renderer.resolve_screen_scale(geometry.width(), geometry.height())
         renderer.apply_display_scale(self._screen_scale, user_size=self._user_size_scale)
-        self._renderer = renderer.JarvisBarRenderer(accent=self._accent)
+        pixel_ratio = 1.0
+        if screen is not None:
+            try:
+                pixel_ratio = float(screen.devicePixelRatio())
+            except Exception:  # noqa: BLE001 - a blurry bar beats no bar
+                log.debug("Qt Dodaios Bar could not read the pixel ratio", exc_info=True)
+        self._renderer = renderer.JarvisBarRenderer(accent=self._accent, pixel_ratio=pixel_ratio)
 
         window_type = _window_class()
         self._window = window_type(self)
@@ -824,11 +837,12 @@ class QtJarvisBarOverlay:
                 effective_mode == "idle"
                 and drop_visual == renderer.DROP_STATE_NONE
                 and self._static_tick_count >= _IDLE_SETTLE_TICKS
+                and not getattr(bar_renderer, "easing", False)
             )
             if settled_idle:
                 return
 
-            pil_frame = bar_renderer.render(
+            rgba_frame = bar_renderer.render_rgba(
                 now - self._t0,
                 effective_mode,
                 renderer.effective_ext_level(
@@ -847,8 +861,15 @@ class QtJarvisBarOverlay:
                 drop_elapsed=now - self._drop_visual_t0,
                 connect_look=connect_look,
             )
-            rgba_frame = renderer.key_to_alpha(pil_frame)
-            input_mask_key = rgba_frame.getchannel("A").tobytes()
+            # The frame is drawn at the screen's pixel density (sharp on a
+            # Retina display); the input mask is in window points.
+            mask_alpha = rgba_frame.getchannel("A")
+            if mask_alpha.size != (renderer.WIN_W, renderer.WIN_H):
+                mask_alpha = mask_alpha.resize(
+                    (renderer.WIN_W, renderer.WIN_H), Image.Resampling.BOX
+                )
+            mask_alpha = mask_alpha.point(lambda a: 255 if a >= 96 else 0)
+            input_mask_key = mask_alpha.tobytes()
             self._qimage = _qimage_from_pil(rgba_frame)
             # Visual transparency does not imply mouse transparency on macOS:
             # an unmasked Qt window intercepts clicks across its full WIN_W x
@@ -856,7 +877,9 @@ class QtJarvisBarOverlay:
             # native window shape synchronized with the eased pill so only the
             # visible bar is interactive and all clear padding clicks through.
             if input_mask_key != self._input_mask_key:
-                input_mask = _input_mask_from_frame(self._qimage)
+                mask_image = Image.new("RGBA", mask_alpha.size, (0, 0, 0, 0))
+                mask_image.putalpha(mask_alpha)
+                input_mask = _input_mask_from_frame(_qimage_from_pil(mask_image))
                 window.setMask(input_mask)
                 self._input_mask = input_mask
                 self._input_mask_key = input_mask_key
@@ -1048,10 +1071,10 @@ class QtJarvisBarOverlay:
             return False
 
     def _point_in_hover_footprint_ui(self, point: Any) -> bool:
-        """Keep hover on the authored controls, excluding transparent gaps."""
-        from ui.orb.controls import pet_hit_test
-
-        return pet_hit_test(point.x(), point.y(), renderer.strip_scale()) is not None
+        """Keep hover while the pointer stays on the open bar or near its edge."""
+        return renderer.in_hover_footprint(
+            point.x(), point.y(), self._mode, hovered=True, **self._bar_switches()
+        )
 
     def _poll_hover_ui(self) -> None:
         if self._startup_gated or not self._desired_visible:

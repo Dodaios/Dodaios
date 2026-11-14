@@ -61,15 +61,15 @@ Without PyObjC the Tk drawing stays as the fallback. The macOS host needs a Pyth
     bell forgotten off cannot hide tomorrow's "your agent is done";
   - microphone: mute Dodaios's microphone (`VoiceMuteToggleRequested`, mirrored
     from `VoiceMuteChanged`);
-  - talk indicator (three strokes, the Dodaios Bar's equalizer cut down to
-    three, each a light-blue sky with soft white clouds in it): start a conversation, or hang up the running one. The
+  - talk indicator (three strokes, each a light-blue sky with soft white clouds in it): start a conversation, or hang up the running one. The
     strokes stand still and dimmed at rest, follow the live audio level while
     listening, dictating or talking, and carry a travelling highlight while
     thinking or transcribing. While a realtime call is still connecting
     (`SystemStateChanged(CONNECTING)`) the three strokes bend into the arcs
     of one ring and spin as the loading loop (a live voice lengthens the
     arcs); once the provider takes the call they flash green, unbend and
-    slide back into the listening row. The Dodaios Bar shows the same loop;
+    slide back into the listening row. The Dodaios Bar has its own look
+    (`docs/dodaios-bar.md`);
   - speaker: silence the assistant's voice for this session (TTS volume 0,
     mirrored from `VoiceSpeakerMuteChanged`).
 - **The thought bubble** above the pet's head while Dodaios thinks, drawn in

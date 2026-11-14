@@ -79,15 +79,9 @@ def test_connect_is_a_call_mode_but_not_a_plain_voice_mode() -> None:
     assert "connect" not in modes.DICTATION_MODES
 
 
-def test_a_connecting_call_can_be_hung_up_from_the_talk_control_and_the_phone() -> None:
-    width = controls.pet_strip_size()[0]
-    for action in ("orb", "call"):
-        layout = controls.pet_strip_layout()
-        if action == "call":
-            x = layout.call[0]
-        else:
-            x = next((x0 + x1) / 2 for name, x0, x1 in layout.slots if name == "orb")
-        assert interaction.resolve_click(x, width, "connect") == "hangup"
+def test_a_connecting_call_can_be_hung_up_from_the_bar() -> None:
+    x, y = renderer.control_center("close", "connect")
+    assert interaction.resolve_click(x, renderer.WIN_W, "connect", y=y) == "hangup"
 
 
 # -- bridge -------------------------------------------------------------------

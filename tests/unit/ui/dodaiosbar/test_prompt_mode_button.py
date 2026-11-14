@@ -42,11 +42,7 @@ class _FakePipeline:
 
 
 def _sparkle_x() -> float:
-    return next(
-        (a + b) / 2
-        for action, a, b in R.controls.pet_strip_layout(R.strip_scale()).slots
-        if action == "orb"
-    )
+    return R.control_center("prompt", "idle", prompt_mode=True)[0]
 
 
 def _patch_pipeline(monkeypatch, fake) -> None:

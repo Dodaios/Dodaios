@@ -40,20 +40,11 @@ def test_a_notice_draws_something_the_resting_pill_does_not(mode: str) -> None:
 
 
 @pytest.mark.parametrize("mode", modes.NOTICE_MODES)
-def test_a_notice_is_red_not_gold(mode: str) -> None:
-    """Red is this surface's existing "no" (the muted rim, the rejected drop).
-
-    Gold means activity here — a gold refusal would read as something starting.
-    """
-    frame = _settled(mode)
-    reds = frame[:, :, 0].astype(int)
-    greens = frame[:, :, 1].astype(int)
-    blues = frame[:, :, 2].astype(int)
-    # Ignore the magenta color key (R and B both maxed), which is the
-    # transparent background rather than drawn content.
-    drawn = ~((reds >= 250) & (blues >= 250))
-    warm = drawn & (reds > greens + 40) & (reds > blues + 40)
-    assert warm.sum() > 0, "no red content in the notice frame"
+def test_a_notice_is_not_a_session_look(mode: str) -> None:
+    """The bar is black and white, so the refusal speaks through its shape: a
+    blinking cross where a session would show its level bars."""
+    for session in ("listen", "speak", "think", "dictate"):
+        assert not np.array_equal(_settled(mode), _settled(session))
 
 
 @pytest.mark.parametrize("mode", modes.NOTICE_MODES)
@@ -83,5 +74,5 @@ def test_frames_without_a_notice_are_byte_identical_to_before() -> None:
         a = _settled(mode, t=0.3)
         b = _settled(mode, t=0.3)
         assert np.array_equal(a, b)
-        # And nothing in a non-notice frame turns the rim into the refusal red.
+        # And nothing in a non-notice frame draws the refusal cross.
         assert not np.array_equal(a, _settled("notice", t=0.3))
