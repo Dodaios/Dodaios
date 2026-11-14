@@ -50,6 +50,28 @@ import {
 } from "./designDoc";
 import { KIND_ICONS } from "./LayersPanel";
 
+/**
+ * A link the person typed, kept unless it names a scheme a page must not
+ * follow. An address without a scheme (one being typed, a relative path, an
+ * anchor) and http(s), mailto and tel pass; `javascript:`, `data:` and every
+ * other scheme would run or load something when the link is clicked.
+ */
+export function safeLink(typed: string): string {
+  const value = typed.trim();
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value)?.[1]?.toLowerCase();
+  if (scheme === undefined) return value;
+  return ["http", "https", "mailto", "tel"].includes(scheme) ? value : "";
+}
+
+/**
+ * A picture's source as the inspector may show it in the app itself: only a
+ * picture embedded in the design. The design's page runs in a sandbox, this
+ * preview does not, so it never loads an address from the web.
+ */
+export function embeddedPicture(src: string | null): string {
+  return src && /^data:image\/(png|jpeg|gif|webp|avif);base64,/i.test(src) ? src : "";
+}
+
 /** A change to the selected element, made inside the editor's `apply`. */
 export type ElementChange = (label: string, change: (element: Element) => void, coalesce?: string) => void;
 
@@ -193,7 +215,8 @@ export function ElementInspector({
                     onChange(
                       t("nodes.editor.design.history.link"),
                       (el) => {
-                        if (event.target.value.trim()) el.setAttribute("href", event.target.value.trim());
+                        const href = safeLink(event.target.value);
+                        if (href) el.setAttribute("href", href);
                         else el.removeAttribute("href");
                       },
                       `href:${pathKey}`,
@@ -206,7 +229,13 @@ export function ElementInspector({
           {tag === "img" && (
             <>
               <div className="overflow-hidden rounded-md border border-border bg-input">
-                <img src={element.getAttribute("src") ?? ""} alt="" className="mx-auto max-h-40 object-contain" />
+                {embeddedPicture(element.getAttribute("src")) && (
+                  <img
+                    src={embeddedPicture(element.getAttribute("src"))}
+                    alt=""
+                    className="mx-auto max-h-40 object-contain"
+                  />
+                )}
               </div>
               <input
                 ref={file}

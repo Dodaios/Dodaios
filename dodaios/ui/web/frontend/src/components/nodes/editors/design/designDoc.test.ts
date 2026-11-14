@@ -190,3 +190,23 @@ describe("the preview frame's messages", () => {
     expect(script).not.toContain("</script");
   });
 });
+
+describe("what the inspector lets into a design", () => {
+  it("keeps web, mail and phone links and anything still being typed, never a script link", async () => {
+    const { safeLink } = await import("./DesignInspector");
+    for (const ok of ["https://example.com", "http://a.b", "mailto:x@y.z", "tel:+49", "#top", "h", "www.example.com", "/path"]) {
+      expect(safeLink(ok)).toBe(ok);
+    }
+    for (const bad of ["javascript:alert(1)", " JavaScript:alert(1)", "data:text/html,<b>", "vbscript:x"]) {
+      expect(safeLink(bad)).toBe("");
+    }
+  });
+
+  it("shows only an embedded picture in the app", async () => {
+    const { embeddedPicture } = await import("./DesignInspector");
+    expect(embeddedPicture("data:image/png;base64,AAAA")).toBe("data:image/png;base64,AAAA");
+    expect(embeddedPicture("https://tracker.example/pixel.png")).toBe("");
+    expect(embeddedPicture("data:image/svg+xml;base64,PHN2Zz4=")).toBe("");
+    expect(embeddedPicture(null)).toBe("");
+  });
+});
