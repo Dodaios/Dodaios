@@ -171,6 +171,54 @@ def test_api_lookup_failure_cannot_reuse_stale_green(monkeypatch):
     assert release_admit.gate_state(REPO, SHA) == "failure"
 
 
+def _gh_api(outcomes):
+    """A ``run_command`` stand-in: each call takes the next outcome."""
+    calls = []
+
+    def command(args, **kwargs):
+        calls.append(args)
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return subprocess.CompletedProcess(args, 0, json.dumps(outcome), "")
+
+    return command, calls
+
+
+def test_api_lookup_that_fails_once_is_tried_again(monkeypatch, capsys):
+    timeout = subprocess.CalledProcessError(1, ["gh", "api"], "", "HTTP 502: Server Error")
+    command, calls = _gh_api([timeout, [{"jobs": [{"name": "CI gate"}]}]])
+    monkeypatch.setattr(release_admit, "run_command", command)
+    naps = []
+    jobs = release_admit.api_pages("repos/x/jobs?per_page=30", "jobs", sleep=naps.append)
+    assert jobs == [{"name": "CI gate"}]
+    assert len(calls) == 2 and len(naps) == 1
+    assert "HTTP 502: Server Error" in capsys.readouterr().out
+
+
+def test_api_lookup_that_keeps_failing_raises_with_its_cause(monkeypatch, capsys):
+    failures = [
+        subprocess.CalledProcessError(1, ["gh", "api"], "", "HTTP 502: Server Error")
+        for _ in range(release_admit.API_TRIES)
+    ]
+    command, calls = _gh_api(failures)
+    monkeypatch.setattr(release_admit, "run_command", command)
+    with pytest.raises(subprocess.CalledProcessError):
+        release_admit.api_pages("repos/x/jobs", "jobs", sleep=lambda _s: None)
+    tries = release_admit.API_TRIES
+    assert len(calls) == tries
+    assert f"({tries}/{tries}): HTTP 502" in capsys.readouterr().out
+
+
+def test_attempt_jobs_are_read_in_small_pages(monkeypatch):
+    """A page of 100 jobs with their steps outlasted GitHub's 10 s request limit."""
+    fake = FakeActions([run_record(run_attempt=2)])
+    monkeypatch.setattr(release_admit, "api_pages", fake.pages)
+    assert release_admit.gate_state(REPO, SHA) == "success"
+    assert fake.calls[-1].endswith(f"/attempts/2/jobs?per_page={release_admit.JOBS_PAGE_SIZE}")
+    assert release_admit.JOBS_PAGE_SIZE <= 30
+
+
 @pytest.mark.parametrize("tag_sha,fetch_fails", [("b" * 40, False), (SHA, True)])
 def test_commit_identity_and_fresh_main_are_required(monkeypatch, tag_sha, fetch_fails):
     def command(args, **kwargs):

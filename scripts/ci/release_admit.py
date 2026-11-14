@@ -44,6 +44,14 @@ CI_WORKFLOW = ".github/workflows/ci.yml"
 QUEUE_BRANCH = re.compile(r"gh-readonly-queue/main/pr-\d+-[0-9a-f]{40}")
 #: The only path the release bundle commit on top of a main commit may touch.
 BUNDLE_PREFIX = "dodaios/ui/web/dist/"
+#: Jobs per page when reading a CI attempt. GitHub ends a REST request after
+#: 10 s, and a full CI run listed 100 jobs (with every step) to a page took
+#: longer than that on a rerun attempt: v5.3.0's admission failed twice on it.
+JOBS_PAGE_SIZE = 30
+#: A lookup that fails (a server error, a timeout) is tried this many times in
+#: all before it counts. A lookup that keeps failing still counts as failure.
+API_TRIES = 3
+API_RETRY_PAUSE_S = 5.0
 
 
 def versions(root: Path = REPO_ROOT) -> tuple[str, str]:
@@ -85,10 +93,33 @@ def run_command(args: list[str], *, check: bool = True) -> subprocess.CompletedP
     )
 
 
-def api_pages(endpoint: str, key: str) -> list[dict[str, Any]]:
-    """Read every API page; a failed lookup can never stand in for green CI."""
-    proc = run_command(["gh", "api", "--paginate", "--slurp", endpoint])
-    return [item for page in json.loads(proc.stdout) for item in (page[key] if key else page)]
+def api_pages(
+    endpoint: str,
+    key: str,
+    *,
+    tries: int = API_TRIES,
+    pause_s: float = API_RETRY_PAUSE_S,
+    sleep: Any = time.sleep,
+) -> list[dict[str, Any]]:
+    """Read every API page; a failed lookup can never stand in for green CI.
+
+    A failing ``gh api`` call is tried again (GitHub answers a slow request
+    with a server error after 10 s), and its error is printed, so a lookup that
+    keeps failing names its cause. The last failure is raised.
+    """
+    for attempt in range(1, tries + 1):
+        try:
+            proc = run_command(["gh", "api", "--paginate", "--slurp", endpoint])
+        except subprocess.CalledProcessError as exc:
+            detail = " ".join((exc.stderr or "").split())[:300] or f"exit {exc.returncode}"
+            path = endpoint.split("?", 1)[0]
+            print(f"[admit] gh api {path} failed ({attempt}/{tries}): {detail}")
+            if attempt == tries:
+                raise
+            sleep(pause_s * attempt)
+            continue
+        return [item for page in json.loads(proc.stdout) for item in (page[key] if key else page)]
+    raise AssertionError("unreachable")
 
 
 def _main_or_tag_run(run: dict[str, Any], tag: str | None) -> bool:
@@ -170,7 +201,8 @@ def gate_state(
         if state != "success":
             return state
         jobs = api_pages(
-            f"repos/{repo}/actions/runs/{run['id']}/attempts/{run['run_attempt']}/jobs?per_page=100",
+            f"repos/{repo}/actions/runs/{run['id']}/attempts/{run['run_attempt']}/jobs"
+            f"?per_page={JOBS_PAGE_SIZE}",
             "jobs",
         )
     except (subprocess.SubprocessError, OSError, ValueError, KeyError, TypeError) as exc:
