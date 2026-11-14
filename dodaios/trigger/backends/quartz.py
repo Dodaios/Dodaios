@@ -417,7 +417,7 @@ class QuartzHotkeyBackend:
 
     def _handle_key_down(self, keycode: int) -> None:
         # Any key-down while a modifier-only hold key is down makes it a
-        # shortcut, mapped key or not (``cmd+ä`` counts as much as ``cmd+c``).
+        # shortcut, whether this backend maps that key or not.
         self._spoil_solo()
         token = _KEYCODE_TO_TOKEN.get(keycode)
         if token is None:
