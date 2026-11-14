@@ -24,10 +24,17 @@ def _decoded(url: str) -> Image.Image:
 
 
 def test_only_local_picture_files_are_named(tmp_path: Path) -> None:
-    assert pictures.picture_path("/x/shot.PNG") == Path("/x/shot.PNG")
-    assert pictures.picture_path("file:///x/my%20shot.jpg") == Path("/x/my shot.jpg")
+    shot = tmp_path / "my shot.PNG"
+    assert pictures.picture_path(str(shot)) == shot
+    assert pictures.picture_path(shot.as_uri()) == shot
     assert pictures.picture_path("~/a.webp") == Path("~/a.webp").expanduser()
-    for value in ("data:image/png;base64,AAAA", "https://x.org/a.png", "a.png", "/x/a.pdf", 3):
+    for value in (
+        "data:image/png;base64,AAAA",
+        "https://x.org/a.png",
+        "a.png",
+        str(tmp_path / "a.pdf"),
+        3,
+    ):
         assert pictures.picture_path(value) is None
 
 

@@ -20,7 +20,8 @@ import io
 import logging
 from pathlib import Path
 from typing import Any, Final
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 from dodaios.nodes.shell import MAX_IMAGE_CHARS
 
@@ -44,12 +45,10 @@ def picture_path(value: Any) -> Path | None:
     if not text or text.startswith("data:"):
         return None
     if text.startswith("file://"):
-        text = unquote(urlparse(text).path)
-    elif text.startswith("~"):
-        text = str(Path(text).expanduser())
-    if not text.startswith("/"):
+        text = url2pathname(urlparse(text).path)
+    path = Path(text).expanduser() if text.startswith("~") else Path(text)
+    if not path.is_absolute():
         return None
-    path = Path(text)
     return path if path.suffix.lower() in SUFFIXES else None
 
 
