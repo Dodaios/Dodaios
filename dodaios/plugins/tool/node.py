@@ -401,13 +401,15 @@ class NodeTool:
         try:
             html = await asyncio.to_thread(page.read_bytes)
             pictures, line = await asyncio.to_thread(look, node, html, slides=slides)
-        except LookError as exc:
+        except LookError as exc:  # no browser or a timeout: said to the model, logged
+            log.info("node look %s: not drawn: %s", node.id, exc)
             return ToolResult(
                 False,
                 "",
                 f"The node could not be drawn ({exc}). Check it with 'get' instead.",
             )
-        except OSError as exc:
+        except OSError as exc:  # the page file went away: said to the model, logged
+            log.warning("node look %s: page unreadable: %s", node.id, exc)
             return ToolResult(False, "", f"The page of node {node.id} could not be read: {exc}")
         return ToolResult(
             True,
