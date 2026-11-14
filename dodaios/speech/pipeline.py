@@ -584,6 +584,11 @@ _STT_TRANSIENT_STATUS: frozenset[int] = frozenset({429, 500, 502, 503, 504})
 _STT_FINAL_RETRIES: int = 2
 _STT_RETRY_BASE_S: float = 0.4
 _STT_RETRY_CAP_S: float = 2.0
+# A turn that meets a cold local utterance engine waits for the build before
+# its inference windows start: loading is not inference, and a large local
+# checkpoint on a cold file cache has taken 90+ s (whisper-large-v3 on CUDA).
+# Past this ceiling the turn goes ahead and the normal windows decide.
+_VOICE_STT_COLD_LOAD_TIMEOUT_S: float = 180.0
 
 # Hard ceiling on a single TTS playback. PortAudio's blocking ``stream.write``
 # waits for output-buffer room, and a flaky output device can make it (or a
@@ -15449,6 +15454,16 @@ class SpeechPipeline:
                         asyncio.shield(stt_task), timeout=self._stt_final_timeout_s
                     )
                 except TimeoutError as exc:
+                    if (
+                        stt_task.done()
+                        and not stt_task.cancelled()
+                        and stt_task.exception() is None
+                    ):
+                        # The decode ended in the same loop pass as its window
+                        # (a coarse timer: 15.6 ms steps on Windows, or a busy
+                        # loop). The transcript is there; sending the audio
+                        # again would only make the turn miss its last window.
+                        return stt_task.result()
                     last_exc = exc
                     if stt_task.done() or not keep_in_flight:
                         stt_task.cancel()
@@ -15555,7 +15570,7 @@ class SpeechPipeline:
         log.info("Voice STT engine still warming up; holding this turn for it.")
         started = time.monotonic()
         done, _pending = await asyncio.wait(
-            {task}, timeout=_DICTATION_WARMUP_COLD_LOAD_TIMEOUT_S
+            {task}, timeout=_VOICE_STT_COLD_LOAD_TIMEOUT_S
         )
         if done:
             log.info(
@@ -15565,7 +15580,7 @@ class SpeechPipeline:
         else:
             log.error(
                 "Voice STT engine still not ready after %.0fs.",
-                _DICTATION_WARMUP_COLD_LOAD_TIMEOUT_S,
+                _VOICE_STT_COLD_LOAD_TIMEOUT_S,
             )
 
     async def _transcribe_final_crossing(

@@ -8,14 +8,17 @@ meanwhile sat latched until the ladder ran out.
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 import time
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
 from dodaios.core.bus import EventBus
 from dodaios.core.protocols import Transcript
+from dodaios.speech import pipeline as pipeline_module
 from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 from dodaios.speech.stt_dictionary import DictionaryCorrectingSTT
 from dodaios.speech.stt_fallback import FallbackSTT
@@ -160,10 +163,44 @@ async def test_cancel_during_decode_is_prompt() -> None:
 
 
 @pytest.mark.asyncio
-async def test_slow_local_decode_is_never_sent_twice() -> None:
-    """The later windows wait on the running decode (the TranscribeBusy path)."""
-    engine = _LocalEngine(decode_s=0.12)
-    pipe = _make_pipe(engine, timeout_s=0.05)
+async def test_slow_local_decode_is_never_sent_twice(caplog: pytest.LogCaptureFixture) -> None:
+    """The later windows wait on the running decode (the TranscribeBusy path).
+
+    The margins are many timer ticks wide on purpose: Windows' asyncio clock
+    moves in 15.6 ms steps and fires a timer up to one step early, so a decode
+    that only just outlasts one window, or only just fits three, is a coin toss
+    there.
+    """
+    engine = _LocalEngine(decode_s=0.18)
+    pipe = _make_pipe(engine, timeout_s=0.1)
+
+    with caplog.at_level(logging.WARNING, logger="dodaios.speech.pipeline"):
+        assert await pipe._transcribe_final(_PCM) is _OK
+    assert engine.decode_calls == 1
+    assert engine.recover_calls == 0
+    assert "attempt 1/3" in caplog.text, "the decode must have outlasted a window"
+
+
+@pytest.mark.asyncio
+async def test_decode_ending_as_its_window_closes_is_kept(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A window that closes in the same loop pass as the decode loses nothing.
+
+    This is how the test above failed on Windows: the decode finished at
+    ~112 ms in the pass where a window expired, its transcript was dropped, the
+    audio went out again after a retry pause, and that second decode could not
+    fit the last window.
+    """
+    engine = _LocalEngine()
+    pipe = _make_pipe(engine, timeout_s=10.0)
+    real_wait_for = asyncio.wait_for
+
+    async def _window_closes_with_the_decode(awaitable: Any, **kwargs: Any) -> Any:
+        await real_wait_for(awaitable, **kwargs)
+        raise TimeoutError
+
+    monkeypatch.setattr(pipeline_module.asyncio, "wait_for", _window_closes_with_the_decode)
 
     assert await pipe._transcribe_final(_PCM) is _OK
     assert engine.decode_calls == 1
