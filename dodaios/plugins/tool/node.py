@@ -28,6 +28,7 @@ from typing import Any, Final
 from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.nodes import refresh
 from dodaios.nodes.kinds import kind_of
+from dodaios.nodes.look import MAX_SLIDES, LookError, look
 from dodaios.nodes.model import Node
 from dodaios.nodes.store import NodeStore
 from dodaios.nodes.types import NODE_TYPES, NodeError, node_type
@@ -41,6 +42,7 @@ _OPERATIONS: Final[tuple[str, ...]] = (
     "guide",
     "create",
     "update",
+    "look",
     "get",
     "list",
     "revert",
@@ -49,7 +51,7 @@ _OPERATIONS: Final[tuple[str, ...]] = (
 )
 #: Operations that name one existing node.
 _ON_ONE_NODE: Final[frozenset[str]] = frozenset(
-    {"update", "get", "revert", "keep_current", "stop"}
+    {"update", "look", "get", "revert", "keep_current", "stop"}
 )
 #: How much of a node's JSON ``get`` hands back; more would crowd the turn.
 MAX_GET_CHARS: Final[int] = 60_000
@@ -70,6 +72,23 @@ TYPE_LINES: Final[dict[str, str]] = {
     ),
     "motion": 'a short animation (the app says "Clips")',
 }
+
+
+#: What a create tells the model to do before it answers.
+_CHECK_IT: Final[str] = (
+    "Before you answer, call this tool with operation 'look' and this node, and judge "
+    "the pictures; fix what is weak with 'update' and look again. ('look' is valid "
+    "even if a copy of this tool's schema from earlier in the conversation lacks it.)"
+)
+#: What a look asks the model to judge in its pictures.
+_JUDGE_IT: Final[str] = (
+    "Judge each picture as the audience will see it. Weak means: not for the audience or "
+    "not in the language the person wanted; a slide or section without one clear point; "
+    "a third of a slide empty, or text cramped or cut off; the same layout several times "
+    "in a row; a claim or number without a source; text where a picture, chart or real "
+    "example would say more. 'Acceptable' is not the bar: fix every weak point with "
+    "'update', then look again, and answer only when you would present it yourself."
+)
 
 
 def _language(ctx: Any, args: dict[str, Any]) -> str:
@@ -125,18 +144,18 @@ class NodeTool:
     name: str = "node"
     risk_tier: str = "monitor"
     description: str = (
-        "Make and look after a NODE: something the person keeps and looks at, shown in "
-        "the Nodes section and as a card in the chat. Types: docs (a written document), "
-        "slides (a deck), sheets (rows and columns), design (a free-form page; the app "
-        "says Visuals), data (analyses of the person's data; Analytics), whiteboard "
-        "(a canvas: use the whiteboard tool), motion (a short animation; Clips). Call 'guide' with the "
-        "type before your first create of that type; the spec must follow that grammar. "
-        "To change a node, use "
-        "'update' with 'changes' (small edits by path) instead of a full resend. "
-        "To keep one current from the person's apps, give 'track' (on create, or with "
-        "'keep_current'); 'stop' ends that. 'get' reads a node, 'list' shows all, 'revert' "
-        "undoes the last change. The renderer does the design: send content, never HTML "
-        "(except type design). A long answer to a question stays a report (write_report)."
+        "Make and look after a NODE: something the person keeps, shown in the Nodes "
+        "section and as a card in the chat. Types: docs (a document), slides (a deck), "
+        "sheets (rows and columns), design (a free-form page; Visuals), data (analyses "
+        "of the person's data; Analytics), whiteboard (a canvas: use the whiteboard "
+        "tool), motion (a short animation; Clips). Call 'guide' with the type before "
+        "your first create of it; the spec follows that grammar. Change one with "
+        "'update' and 'changes' (edits by path), not a full resend. To keep one current "
+        "from the person's apps, give 'track' (on create, or with 'keep_current'); "
+        "'stop' ends that. 'look' shows it as pictures: look after a create, fix what is "
+        "weak. 'get' reads one, 'list' shows all, 'revert' undoes the last change. The "
+        "renderer does the design: send content, never HTML (except type design). A long "
+        "answer to a question stays a report (write_report)."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -210,6 +229,14 @@ class NodeTool:
                     "instead of 'spec' when only a few places change."
                 ),
             },
+            "slides": {
+                "type": "array",
+                "items": {"type": "integer"},
+                "description": (
+                    f"look, on a deck: the slide numbers (from 1) to see, up to {MAX_SLIDES}; "
+                    "default the first ones."
+                ),
+            },
             "track": {
                 "type": "string",
                 "description": (
@@ -259,6 +286,8 @@ class NodeTool:
             node = await self._find(store, args, operation)
             if operation == "update":
                 return await self._update(store, node, args, ctx)
+            if operation == "look":
+                return await self._look(store, node, args)
             if operation == "get":
                 return await self._get(node)
             if operation == "revert":
@@ -356,8 +385,37 @@ class NodeTool:
         return ToolResult(
             True,
             jobs.with_job_id(
-                f"{made} {where}. Answer briefly; do not repeat its content.",
+                f"{made} {where}. {_CHECK_IT} Answer briefly; do not repeat its content.",
                 job_id, ctx,
+            ),
+        )
+
+    async def _look(self, store: NodeStore, node: Node, args: dict[str, Any]) -> ToolResult:
+        """Pictures of the node's rendered page, for the model to judge."""
+        run_dir = await asyncio.to_thread(store.dir_of, node.id)
+        page = run_dir / node.page_path if run_dir is not None else None
+        if page is None or not page.is_file():
+            return ToolResult(False, "", f"The page of node {node.id} is missing; update it.")
+        wanted = _json_value(args.get("slides"))
+        slides = [v for v in wanted if isinstance(v, int)] if isinstance(wanted, list) else None
+        try:
+            html = await asyncio.to_thread(page.read_bytes)
+            pictures, line = await asyncio.to_thread(look, node, html, slides=slides)
+        except LookError as exc:  # no browser or a timeout: said to the model, logged
+            log.info("node look %s: not drawn: %s", node.id, exc)
+            return ToolResult(
+                False,
+                "",
+                f"The node could not be drawn ({exc}). Check it with 'get' instead.",
+            )
+        except OSError as exc:  # the page file went away: said to the model, logged
+            log.warning("node look %s: page unreadable: %s", node.id, exc)
+            return ToolResult(False, "", f"The page of node {node.id} could not be read: {exc}")
+        return ToolResult(
+            True,
+            f"{line} {_JUDGE_IT}",
+            artifacts=tuple(
+                {"type": "image", "mime": "image/jpeg", "data": data} for data in pictures
             ),
         )
 

@@ -806,8 +806,10 @@ def test_starter_is_a_small_valid_deck_named_after_the_node() -> None:
 def test_the_guide_is_compact_and_its_example_is_a_valid_deck() -> None:
     spec = normalize(EXAMPLE)
 
-    # The grammar grew (pie and donut charts, stacked bars, colours, a picture's fit).
-    assert len(GUIDE) <= 2_600
+    # The grammar grew (pie and donut charts, stacked bars, colours, a picture's fit),
+    # then the way to work (plan, real material, look and revise; 2026-11-14).
+    assert len(GUIDE) <= 3_600
+    assert "'look'" in GUIDE and "question card" in GUIDE
     assert json.dumps(EXAMPLE, ensure_ascii=False, separators=(",", ":")) in GUIDE
     assert all(f"- {layout}:" in GUIDE for layout in LAYOUTS)
     assert [slide["layout"] for slide in spec["slides"]] == [

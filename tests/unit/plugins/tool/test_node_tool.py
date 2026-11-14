@@ -146,7 +146,7 @@ def test_every_type_has_its_line_and_the_schema_offers_exactly_the_types() -> No
     properties = NodeTool.schema["properties"]
     assert properties["type"]["enum"] == list(NODE_TYPES)
     assert properties["operation"]["enum"] == [
-        "guide", "create", "update", "get", "list", "revert", "keep_current", "stop",
+        "guide", "create", "update", "look", "get", "list", "revert", "keep_current", "stop",
     ]
     assert NodeTool.schema["required"] == ["operation"]
 
@@ -179,6 +179,11 @@ async def test_create_writes_the_node_records_the_job_and_shows_its_card(
     # The result names the node and keeps the chat reply short.
     assert node.id in result.output and "docs node 'Quarterly plan'" in result.output
     assert "Answer briefly" in result.output and "do not repeat" in result.output
+    # ... but only after it looked at what it made.
+    assert "operation 'look'" in result.output
+    # A long conversation holds the tool's older schema without 'look' (seen 2026-11-14:
+    # the lead read the node with 'get' instead); the result says it is valid anyway.
+    assert "earlier in the conversation" in result.output
     assert upkeep == []
     # The page shows in the chat as its card, in the conversation that asked.
     assert cards == [
@@ -533,3 +538,49 @@ def test_the_entry_point_resolves_to_the_tool() -> None:
     target = declared["project"]["entry-points"]["jarvis.tool"]["node"]
     module, _, attr = target.partition(":")
     assert getattr(importlib.import_module(module), attr) is NodeTool
+
+
+# -------------------------------------------------------------------- look
+
+
+async def test_look_hands_the_pictures_to_the_model(
+    tmp_path: Path, cards, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tool, store = _tool(tmp_path)
+    await tool.execute(
+        {"operation": "create", "type": "docs", "title": "Plan", "spec": SPEC}, _ctx()
+    )
+    (node,) = store.list_nodes()
+    seen: dict[str, Any] = {}
+
+    def fake_look(found, html, *, slides=None, theme=""):
+        seen.update(id=found.id, html=html, slides=slides)
+        return ["AAAA", "BBBB"], "The page from the top, in 2 piece(s)."
+
+    monkeypatch.setattr(node_tool, "look", fake_look)
+    result = await tool.execute(
+        {"operation": "look", "node": node.id, "slides": [2, "x", 3]}, _ctx()
+    )
+    assert result.success, result.error
+    assert seen["id"] == node.id and b"<p>First</p>" in seen["html"]
+    assert seen["slides"] == [2, 3]
+    assert [a["data"] for a in result.artifacts] == ["AAAA", "BBBB"]
+    assert all(a["type"] == "image" and a["mime"] == "image/jpeg" for a in result.artifacts)
+    assert "2 piece(s)" in result.output and "fix every weak point" in result.output
+
+
+async def test_look_without_a_browser_says_how_to_go_on(
+    tmp_path: Path, cards, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tool, store = _tool(tmp_path)
+    await tool.execute(
+        {"operation": "create", "type": "docs", "title": "Plan", "spec": SPEC}, _ctx()
+    )
+
+    def no_browser(*_args, **_kwargs):
+        raise node_tool.LookError("no Chromium-family browser is installed")
+
+    monkeypatch.setattr(node_tool, "look", no_browser)
+    result = await tool.execute({"operation": "look", "node": "Plan"}, _ctx())
+    assert not result.success
+    assert "no Chromium-family browser" in result.error and "'get'" in result.error
