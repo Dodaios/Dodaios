@@ -64,9 +64,13 @@ END = "<!-- contributors:end -->"
 #: third-party account.
 EXCLUDED_LOGINS = frozenset({"claude"})
 
-#: Avatars per row, matching the layout OpenClaw uses. Purely cosmetic.
-PER_ROW = 7
-AVATAR_PX = 64
+#: The wall is one flow of avatars with no table and no names, the way
+#: OpenClaw shows its contributors: GitHub wraps it to the width of the page.
+#: Avatars per source line only keeps README.md readable.
+PER_LINE = 10
+#: Shown size. The image is fetched at twice this, so it stays sharp on a
+#: high-density screen.
+AVATAR_PX = 48
 
 #: Inline marker that scripts/ci/check_no_new_german.py skips.
 LANGUAGE_GATE_ESCAPE = "i18n-allow"
@@ -303,45 +307,43 @@ def fetch_contributors() -> list[dict]:
 
 def _avatar_src(url: str) -> str:
     join = "&" if "?" in url else "?"
-    return f"{url}{join}s={AVATAR_PX}"
+    return f"{url}{join}s={AVATAR_PX * 2}"
 
 
-def _user_cell(person: dict) -> str:
-    """One table cell: the avatar with the GitHub login underneath."""
+def _avatar(person: dict) -> str:
+    """One avatar linked to the profile. The login is its alt text and tooltip."""
     login = person["login"]
     safe = html.escape(login, quote=True)
     return (
-        f'<td align="center"><a href="https://github.com/{safe}">'
+        f'<a href="https://github.com/{safe}">'
         f'<img src="{_avatar_src(person.get("avatar_url") or "")}" '
-        f'width="{AVATAR_PX}" height="{AVATAR_PX}" alt="{safe}"><br>'
-        f"<sub><b>{safe}</b></sub></a></td>"
+        f'width="{AVATAR_PX}" height="{AVATAR_PX}" alt="{safe}" title="{safe}"></a>'
     )
 
 
 def _marked(line: str) -> str:
     # GitHub logins and real names are not prose: a login or a name made of
-    # German words must not trip the output-language gate, so every row
+    # German words must not trip the output-language gate, so every line
     # carries its escape marker.
     return line + f" <!-- {LANGUAGE_GATE_ESCAPE} -->"
 
 
 def render(people: list[dict]) -> str:
-    """A table of GitHub accounts, ``PER_ROW`` to a row, name under each avatar.
+    """The avatar wall: linked avatars side by side, ``PER_LINE`` to a line.
 
-    People with no linked account are left out. Their only identity is a git
-    author name, which is often someone else's machine login, so printing it
-    would name the wrong person.
+    The lines form one paragraph, so GitHub flows the avatars into as many
+    rows as the page is wide. The login shows on hover, not under the
+    avatar. People with no linked account are left out. Their only identity
+    is a git author name, which is often someone else's machine login, so
+    printing it would name the wrong person.
     """
     accounts = [person for person in people if person.get("login")]
     if not accounts:
         return "_Nobody yet. That first square is yours._"
-    rows = [
-        _marked(
-            "<tr>" + "".join(_user_cell(person) for person in accounts[i : i + PER_ROW]) + "</tr>"
-        )
-        for i in range(0, len(accounts), PER_ROW)
-    ]
-    return "\n".join(["<table>", *rows, "</table>"])
+    return "\n".join(
+        _marked(" ".join(_avatar(person) for person in accounts[i : i + PER_LINE]))
+        for i in range(0, len(accounts), PER_LINE)
+    )
 
 
 def splice(text: str, block: str) -> str:

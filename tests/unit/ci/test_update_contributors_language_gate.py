@@ -37,29 +37,36 @@ def test_german_looking_login_passes_the_language_gate() -> None:
     assert check_no_new_german.find_violations(added, []) == []
 
 
-def test_every_row_carries_the_escape_marker() -> None:
-    people = [_person(f"user{i}") for i in range(update_contributors.PER_ROW * 2 + 1)]
+def test_every_line_carries_the_escape_marker() -> None:
+    people = [_person(f"user{i}") for i in range(update_contributors.PER_LINE * 2 + 1)]
     lines = update_contributors.render(people).splitlines()
-    rows = [line for line in lines if line.startswith("<tr>")]
 
-    assert lines[0] == "<table>" and lines[-1] == "</table>"
-    assert len(rows) == 3
-    assert all(row.endswith("<!-- i18n-allow -->") for row in rows)
+    assert len(lines) == 3
+    assert [line.count("<img ") for line in lines] == [
+        update_contributors.PER_LINE,
+        update_contributors.PER_LINE,
+        1,
+    ]
+    assert all(line.endswith("<!-- i18n-allow -->") for line in lines)
 
 
-def test_user_cell_shows_avatar_and_name() -> None:
+def test_the_wall_is_avatars_only_without_a_table_or_names() -> None:
     block = update_contributors.render(
-        [{"login": "octocat", "avatar_url": "https://avatars.example/octocat?v=4"}]
+        [
+            {"login": "octocat", "avatar_url": "https://avatars.example/octocat?v=4"},
+            {"login": "hubot", "avatar_url": "https://avatars.example/hubot"},
+        ]
     )
 
     assert block == (
-        "<table>\n"
-        '<tr><td align="center"><a href="https://github.com/octocat">'
-        '<img src="https://avatars.example/octocat?v=4&s=64" '
-        'width="64" height="64" alt="octocat"><br>'
-        "<sub><b>octocat</b></sub></a></td></tr> <!-- i18n-allow -->\n"
-        "</table>"
+        '<a href="https://github.com/octocat">'
+        '<img src="https://avatars.example/octocat?v=4&s=96" '
+        'width="48" height="48" alt="octocat" title="octocat"></a> '
+        '<a href="https://github.com/hubot">'
+        '<img src="https://avatars.example/hubot?s=96" '
+        'width="48" height="48" alt="hubot" title="hubot"></a> <!-- i18n-allow -->'
     )
+    assert "<table" not in block and "<sub>" not in block
 
 
 def test_wall_includes_pull_authors_and_unlinked_names_without_emails() -> None:
