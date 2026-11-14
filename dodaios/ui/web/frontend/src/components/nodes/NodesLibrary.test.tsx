@@ -23,6 +23,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { MISSION_DND_MIME } from "@/lib/missionDnd";
+import { useEventStore } from "@/store/events";
 import type { NodeCard } from "./nodeModel";
 import { NodesLibrary } from "./NodesLibrary";
 import { useNodesLibrary } from "./useNodesLibrary";
@@ -97,6 +98,7 @@ interface Api {
   fail?: boolean;
   hang?: boolean;
   created?: NodeCard;
+  createFails?: boolean;
 }
 
 function installFetch(api: Api) {
@@ -109,6 +111,7 @@ function installFetch(api: Api) {
       return { ok: true, status: 200, json: async () => ({ nodes: api.nodes, scanned_runs: 5, skipped_runs: 0 }) };
     }
     if (url === "/api/nodes" && method === "POST") {
+      if (api.createFails) return { ok: false, status: 500, json: async () => ({ detail: "down" }) };
       return { ok: true, status: 200, json: async () => api.created ?? BRIEF };
     }
     if (url.includes("/capabilities")) {
@@ -120,17 +123,23 @@ function installFetch(api: Api) {
   return fetchMock;
 }
 
-function Harness({ onOpen }: { onOpen: (card: NodeCard) => void }) {
+function Harness({
+  onOpen,
+  onCreated,
+}: {
+  onOpen: (card: NodeCard) => void;
+  onCreated?: (card: NodeCard) => void;
+}) {
   const library = useNodesLibrary();
-  return <NodesLibrary library={library} onOpen={onOpen} />;
+  return <NodesLibrary library={library} onOpen={onOpen} onCreated={onCreated} />;
 }
 
-function renderLibrary() {
+function renderLibrary({ onCreated }: { onCreated?: (card: NodeCard) => void } = {}) {
   const onOpen = vi.fn<(card: NodeCard) => void>();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   render(
     <QueryClientProvider client={client}>
-      <Harness onOpen={onOpen} />
+      <Harness onOpen={onOpen} onCreated={onCreated} />
     </QueryClientProvider>,
   );
   return { onOpen, client };
@@ -460,6 +469,7 @@ describe("NodesLibrary", () => {
     await screen.findByTestId("nodes-grid");
 
     fireEvent.click(screen.getByTestId("nodes-new"));
+    fireEvent.click(screen.getByTestId("nodes-new-describe"));
     const dialog = await screen.findByTestId("new-node-dialog");
     fireEvent.click(within(dialog).getByTestId("new-node-type-sheets"));
     fireEvent.change(within(dialog).getByTestId("new-node-request"), {
@@ -507,7 +517,7 @@ describe("NodesLibrary", () => {
     expect(screen.getByTestId("nodes-type-row")).toBeTruthy();
     // The one action of an empty library: make the first node.
     fireEvent.click(within(empty).getByTestId("nodes-new"));
-    expect(await screen.findByTestId("new-node-dialog")).toBeTruthy();
+    expect(screen.getByTestId("nodes-new-menu")).toBeTruthy();
     // Nothing to pick from, nothing to search: the tabs and tools are left out.
     expect(screen.queryByTestId("nodes-tab-all")).toBeNull();
     expect(screen.queryByTestId("nodes-search")).toBeNull();
@@ -570,21 +580,80 @@ describe("NodesLibrary", () => {
     expect(window.localStorage.getItem("jarvis.nodes.type")).toBe("all");
   });
 
-  it("starts a new node with the type the reader is looking at", async () => {
-    installFetch({ nodes: SAMPLE });
-    renderLibrary();
+  it("offers every kind under New, each starting a blank node at once", async () => {
+    const fetchMock = installFetch({ nodes: SAMPLE, created: card("fresh", { id: "n-fresh", type: "data" }) });
+    const onCreated = vi.fn<(card: NodeCard) => void>();
+    const { onOpen } = renderLibrary({ onCreated });
     await screen.findByTestId("nodes-grid");
 
     fireEvent.click(screen.getByTestId("nodes-new"));
-    let dialog = await screen.findByTestId("new-node-dialog");
-    expect(within(dialog).getByTestId("new-node-type-docs").getAttribute("aria-checked")).toBe("true");
-    fireEvent.keyDown(dialog, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByTestId("new-node-dialog")).toBeNull());
+    const menu = screen.getByTestId("nodes-new-menu");
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.getAttribute("data-testid"))).toEqual([
+      "nodes-new-blank-docs",
+      "nodes-new-blank-slides",
+      "nodes-new-blank-sheets",
+      "nodes-new-blank-design",
+      "nodes-new-blank-data",
+      "nodes-new-blank-whiteboard",
+      "nodes-new-blank-motion",
+      "nodes-new-describe",
+    ]);
+
+    fireEvent.click(within(menu).getByTestId("nodes-new-blank-data"));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    // No dialog, no request to the assistant: the node is made from its starter.
+    expect(screen.queryByTestId("new-node-dialog")).toBeNull();
+    expect(chat.requestNewNode).not.toHaveBeenCalled();
+    const post = fetchMock.mock.calls.find(([url, init]) => url === "/api/nodes" && init?.method === "POST");
+    expect(JSON.parse(String(post?.[1]?.body))).toEqual({ type: "data", title: "Untitled analytics", language: "en" });
+    expect(onCreated.mock.calls[0][0].key).toBe("fresh");
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("nodes-new-menu")).toBeNull();
+  });
+
+  it("starts a blank node of the shelf's kind from an empty shelf", async () => {
+    const fetchMock = installFetch({ nodes: SAMPLE, created: card("clip", { id: "n-clip", type: "motion" }) });
+    const onCreated = vi.fn<(card: NodeCard) => void>();
+    renderLibrary({ onCreated });
+    await screen.findByTestId("nodes-grid");
 
     // An empty shelf says so and offers the one next step.
     fireEvent.click(screen.getByTestId("nodes-type-motion"));
     fireEvent.click(within(screen.getByTestId("nodes-no-matches")).getByTestId("nodes-new-of-type"));
-    dialog = await screen.findByTestId("new-node-dialog");
-    expect(within(dialog).getByTestId("new-node-type-motion").getAttribute("aria-checked")).toBe("true");
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId("new-node-dialog")).toBeNull();
+    const post = fetchMock.mock.calls.find(([url, init]) => url === "/api/nodes" && init?.method === "POST");
+    expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({ type: "motion", title: "Untitled clip" });
+  });
+
+  it("says so when a blank node could not be made, and stays on the library", async () => {
+    const api: Api = { nodes: SAMPLE, createFails: true };
+    installFetch(api);
+    const onCreated = vi.fn<(card: NodeCard) => void>();
+    renderLibrary({ onCreated });
+    await screen.findByTestId("nodes-grid");
+
+    fireEvent.click(screen.getByTestId("nodes-new"));
+    fireEvent.click(screen.getByTestId("nodes-new-blank-docs"));
+    await waitFor(() =>
+      expect(useEventStore.getState().toasts.map((toast) => toast.message)).toContain(
+        "The node could not be created. Try again in a moment.",
+      ),
+    );
+    expect(onCreated).not.toHaveBeenCalled();
+    // The button is usable again.
+    expect(screen.getByTestId("nodes-new").hasAttribute("disabled")).toBe(false);
+  });
+
+  it("describes a new node with the type the reader is looking at", async () => {
+    installFetch({ nodes: SAMPLE });
+    renderLibrary();
+    await screen.findByTestId("nodes-grid");
+
+    fireEvent.click(screen.getByTestId("nodes-type-slides"));
+    fireEvent.click(screen.getByTestId("nodes-new"));
+    fireEvent.click(screen.getByTestId("nodes-new-describe"));
+    const dialog = await screen.findByTestId("new-node-dialog");
+    expect(within(dialog).getByTestId("new-node-type-slides").getAttribute("aria-checked")).toBe("true");
   });
 });

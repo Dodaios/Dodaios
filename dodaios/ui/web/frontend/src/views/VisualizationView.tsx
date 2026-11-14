@@ -277,6 +277,18 @@ export function VisualizationView() {
     setOpened(card);
     setSelection(selectionOf(card));
   }, []);
+  /* A node the reader just started blank opens ready to be typed into, the
+   * way a new file does in an office suite: its key waits here until the
+   * stage has switched its page to Edit. */
+  const [startEditingKey, setStartEditingKey] = useState<string | null>(null);
+  const openNew = useCallback(
+    (card: NodeCard) => {
+      setStartEditingKey(card.key);
+      open(card);
+    },
+    [open],
+  );
+  const editingStarted = useCallback(() => setStartEditingKey(null), []);
   const back = useCallback(() => setSelection(null), []);
 
   /* Previous / next: the stage's place in the library as currently shown.
@@ -344,6 +356,8 @@ export function VisualizationView() {
               run={target.run}
               visual={target.visual}
               node={stagedNode}
+              startEditing={stagedNode !== null && stagedNode.key === startEditingKey}
+              onEditingStarted={editingStarted}
               onJumpToRun={(slug) => setSelection({ slug, path: null })}
               nav={{ onBack: back, position, total: ordered.length, onStep: step }}
             />
@@ -355,7 +369,7 @@ export function VisualizationView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <NodesLibrary library={library} onOpen={open} />
+      <NodesLibrary library={library} onOpen={open} onCreated={openNew} />
     </div>
   );
 }
@@ -389,6 +403,8 @@ function Stage({
   run,
   visual: pickedVisual,
   node,
+  startEditing = false,
+  onEditingStarted,
   onJumpToRun,
   nav,
 }: {
@@ -396,6 +412,10 @@ function Stage({
   visual: VisualArtifact | null;
   /** The typed node on stage, or null for anything adopted. */
   node: NodeCard | null;
+  /** The node was just started blank: its page opens in Edit as soon as it can. */
+  startEditing?: boolean;
+  /** The page went into Edit for `startEditing`; it is not asked again. */
+  onEditingStarted?: () => void;
   onJumpToRun: (slug: string) => void;
   /** Back to the library and previous / next — the ends of the stage's bar. */
   nav: StageNavigation;
@@ -438,6 +458,12 @@ function Stage({
   useEffect(() => {
     if (!canTouch) setPageMode("view");
   }, [canTouch]);
+  // After the two resets above, so a node started blank ends up in Edit.
+  useEffect(() => {
+    if (!startEditing || !canTouch) return;
+    setPageMode("edit");
+    onEditingStarted?.();
+  }, [startEditing, canTouch, onEditingStarted]);
   const toggleMode = useCallback(
     (wanted: Exclude<NodePageMode, "view">) => setPageMode((now) => (now === wanted ? "view" : wanted)),
     [],

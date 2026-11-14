@@ -11748,7 +11748,19 @@
       },
       "button": "新建",
       "of_type": "在 {0} 中新建",
-      "type_label": "类型"
+      "type_label": "类型",
+      "menu_label": "新建节点",
+      "blank_heading": "从空白开始",
+      "describe": "向 {name} 描述你想要的…",
+      "untitled": {
+        "docs": "未命名文档",
+        "slides": "未命名演示",
+        "sheets": "未命名表格",
+        "design": "未命名设计",
+        "data": "未命名分析",
+        "whiteboard": "未命名白板",
+        "motion": "未命名短片"
+      }
     },
     "menu": {
       "aria": "此 Node 的操作",

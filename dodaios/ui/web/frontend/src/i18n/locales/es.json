@@ -11748,7 +11748,19 @@
       },
       "button": "Nuevo",
       "of_type": "Nuevo en {0}",
-      "type_label": "Tipo"
+      "type_label": "Tipo",
+      "menu_label": "Nuevo nodo",
+      "blank_heading": "Empezar uno en blanco",
+      "describe": "Descríbeselo a {name}…",
+      "untitled": {
+        "docs": "Documento sin título",
+        "slides": "Presentación sin título",
+        "sheets": "Hoja sin título",
+        "design": "Diseño sin título",
+        "data": "Análisis sin título",
+        "whiteboard": "Pizarra sin título",
+        "motion": "Clip sin título"
+      }
     },
     "menu": {
       "aria": "Acciones de este node",

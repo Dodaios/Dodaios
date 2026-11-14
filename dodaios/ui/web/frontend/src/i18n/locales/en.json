@@ -11748,7 +11748,19 @@
       },
       "button": "New",
       "of_type": "New in {0}",
-      "type_label": "Type"
+      "type_label": "Type",
+      "menu_label": "New node",
+      "blank_heading": "Start a blank one",
+      "describe": "Describe it to {name}…",
+      "untitled": {
+        "docs": "Untitled document",
+        "slides": "Untitled deck",
+        "sheets": "Untitled sheet",
+        "design": "Untitled visual",
+        "data": "Untitled analytics",
+        "whiteboard": "Untitled whiteboard",
+        "motion": "Untitled clip"
+      }
     },
     "menu": {
       "aria": "Actions for this node",
