@@ -35,6 +35,16 @@ a counted number, a quote) carries the stored string in ``data-src`` on its
 wrapper; after a save the page script splits the new text again, so it moves
 as before once the film plays, and a bar or a counted number follows its new
 value. Nothing is drawn again by the app: a film drawn again starts over.
+
+The app's clip editor shows this page, drawn from the unsaved spec, as its
+live preview and steers it in two messages (see the player script):
+``dodaios-film-seek`` moves the clock or plays from a scene, and
+``dodaios-film-time`` tells the editor where the film is, so its timeline
+follows the playing film.
+
+A ``chart`` scene holds the shared chart grammar of
+:mod:`dodaios.artifacts.report_blocks` and is drawn as the kit's chart card,
+so one chart editor serves every node type.
 """
 
 from __future__ import annotations
@@ -44,6 +54,7 @@ import re
 from typing import Any, Final
 
 from dodaios.artifacts.design_guide import THEME_CSS
+from dodaios.artifacts.report_blocks import parse_chart, render_chart
 from dodaios.nodes import shell
 from dodaios.nodes.shell import attr, esc
 from dodaios.nodes.types import NodeError
@@ -65,6 +76,7 @@ SCENE_TYPES: Final[tuple[str, ...]] = (
     "quote",
     "steps",
     "image",
+    "chart",
     "end",
 )
 TRANSITIONS: Final[tuple[str, ...]] = ("fade", "slide", "zoom", "cut")
@@ -86,6 +98,7 @@ _FIELDS: Final[dict[str, tuple[str, ...]]] = {
     "quote": ("quote", "by"),
     "steps": ("kicker", "title", "steps"),
     "image": ("image", "caption"),
+    "chart": ("kicker", "title", "chart"),
     "end": ("kicker", "title", "text"),
 }
 
@@ -103,12 +116,18 @@ _NEEDS: Final[dict[str, tuple[tuple[str, ...], str]]] = {
         "an 'image' as a data:image/png|jpeg|webp;base64 URI of at most "
         f"{shell.MAX_IMAGE_CHARS} characters",
     ),
+    "chart": (
+        ("chart",),
+        'a \'chart\' in the chart grammar: {"type", "x": 2 or more labels, '
+        '"series": [{"name", "data": one number per label}]}',
+    ),
     "end": (("title",), "a 'title'"),
 }
 
 #: Which field decides the type of a scene that names none, first match wins.
 _INFER: Final[tuple[tuple[str, str], ...]] = (
     ("image", "image"),
+    ("chart", "chart"),
     ("items", "bars"),
     ("steps", "steps"),
     ("bullets", "bullets"),
@@ -187,6 +206,47 @@ def _steps(value: Any) -> list[dict[str, str]]:
     return steps[:MAX_STEPS]
 
 
+def _whole(value: float | None) -> float | int | None:
+    """A chart value as JSON writes it plainly: 420, not 420.0; a gap stays a gap."""
+    if value is None:
+        return None
+    return int(value) if value == int(value) and abs(value) < 1e15 else value
+
+
+def _chart(value: Any) -> dict[str, Any]:
+    """A scene's chart as the spec keeps it, or ``{}`` when it cannot be drawn.
+
+    A film's chart is the same JSON a report's fenced ``chart`` block holds
+    (:func:`dodaios.artifacts.report_blocks.parse_chart`), so the model and the
+    app's chart editor write one grammar for every node type. It is kept in the
+    parser's own reading (its type name, every series as ``{name, data}``,
+    empty fields left out), so a spec read twice is the same spec, and any
+    field the shared grammar learns is carried along without a change here.
+    """
+    if isinstance(value, str):
+        source = value
+    elif isinstance(value, dict):
+        try:
+            source = json.dumps(value, ensure_ascii=False, allow_nan=False)
+        except (TypeError, ValueError):  # not plain JSON: no chart rather than a broken one
+            return {}
+    else:
+        return {}
+    parsed = parse_chart(source)
+    if parsed is None:
+        return {}
+    kept: dict[str, Any] = {}
+    for key, item in parsed.items():
+        if key == "series":
+            kept[key] = [
+                {"name": name, "data": [_whole(point) for point in data]} for name, data in item
+            ]
+        elif item and not (isinstance(item, list) and not any(item)):
+            # A list of nothing but defaults (colours left to the kit) is no choice.
+            kept[key] = item
+    return kept
+
+
 def _default_seconds(scene: dict[str, Any]) -> float:
     """How long a scene runs when the spec does not say: its entrance plus a hold."""
     kind = scene["type"]
@@ -200,7 +260,7 @@ def _default_seconds(scene: dict[str, Any]) -> float:
         return min(7.0, 3.0 + len(scene["text"]) / 45)
     if kind == "quote":
         return min(8.0, 3.5 + len(scene["quote"]) / 45)
-    if kind == "image":
+    if kind in ("image", "chart"):
         return 5.0
     return 4.0
 
@@ -231,6 +291,7 @@ def _scene(raw: Any, index: int) -> dict[str, Any]:
         "steps": _steps(raw.get("steps")),
         "image": shell.safe_image(raw.get("image")),
         "caption": shell.clean(raw.get("caption"), 140),
+        "chart": _chart(raw.get("chart")),
     }
     kind = shell.pick(raw.get("type"), SCENE_TYPES, "")
     if not kind:
@@ -644,6 +705,35 @@ def _image_scene(scene: dict[str, Any], at: float, base: str) -> str:
     )
 
 
+#: Chart forms that are not read left to right: they fade in instead of being drawn.
+_ROUND_CHARTS: Final = frozenset({"pie", "donut"})
+
+
+def _chart_scene(scene: dict[str, Any], at: float, base: str, language: str) -> str:
+    """A chart under the scene's heading, drawn from left to right.
+
+    The chart is the shared kit's own card (:func:`render_chart`), laid out at
+    the width the kit draws it and scaled by the page script to fill the room
+    under the heading, so every chart form keeps its proportions on every
+    format. The stored chart always parses again: :func:`_chart` keeps it in
+    the parser's own reading.
+    """
+    html, at = _head(scene, at, base)
+    chart = parse_chart(json.dumps(scene["chart"], ensure_ascii=False))
+    if chart is None:  # pragma: no cover - normalize only keeps charts that parse
+        return html
+    entrance = "fade" if chart["type"] in _ROUND_CHARTS else "reveal"
+    # A lone series wears the film's accent; several series, or the slices of a
+    # pie, keep the kit's colours so the accent never paints two of them alike.
+    lone = len(chart["series"]) == 1 and chart["type"] not in _ROUND_CHARTS
+    box = "f-chart is-lone" if lone else "f-chart"
+    return html + (
+        f"<div {_cue('rise', at, 0.7, box)}>"
+        f'<div {_cue(entrance, at + 0.15, 1.4, "f-chart-in")} data-e="cub">'
+        f"{render_chart(chart, language)}</div></div>"
+    )
+
+
 def _scene_html(
     scene: dict[str, Any], index: int, count: int, film_format: str, language: str = "en"
 ) -> str:
@@ -670,6 +760,8 @@ def _scene_html(
         inner = _quote_scene(scene, at, base)
     elif kind == "steps":
         inner = _steps_scene(scene, at, base, row=film_format == "wide")
+    elif kind == "chart":
+        inner = _chart_scene(scene, at, base, language)
     else:
         inner = _image_scene(scene, at, base)
     state = " is-on" if index == 0 else ""
@@ -818,11 +910,32 @@ _FILM_CSS: Final[str] = """
 .f-shot.bleed{padding:0}
 .f-shot.bleed .f-shot-frame{border-radius:0;box-shadow:none}
 .f-cap{flex:none;font-size:calc(28px*var(--k));line-height:1.35;color:var(--ink-2)}
+/* A chart fills the room under its heading: the kit's card at its own width
+   (narrower on a narrow format, so it is scaled up as much as on a wide one),
+   scaled by the script (fitCharts). It wears the film's accent, without the
+   card's frame, and its small print is set a little larger for the distance. */
+.a-reveal{clip-path:inset(0 calc((1 - var(--p))*100%) 0 0)}
+.f-chart{position:relative;flex:1 1 0;min-height:calc(160px*var(--k))}
+.f-chart.is-lone{--s1:var(--fa)}
+.f-chart-in{position:absolute;left:0;top:0;width:calc(640px*var(--k)*var(--k));transform-origin:0 0}
+.f-chart .chart{padding:0;border:0;border-radius:0;background:none}
+.f-chart .chart h3{margin:0 0 10px;font-size:20px;line-height:1.3}
+/* SVG text and strokes are in the chart's own units, which shrink with the
+   narrower card of a narrow format: they grow back (text a little less, so it
+   keeps clear of the axis). */
+.f-chart .chart .tick,.f-chart .chart .mark-label{font-size:calc(14px/var(--k))}
+.f-chart .chart .line{stroke-width:calc(3px/(var(--k)*var(--k)))}
+.f-chart .legend{margin-bottom:12px;font-size:14px}
+.f-chart .note{margin-top:10px;font-size:13px;color:var(--ink-2)}
+.f-chart .bars{font-size:17px;line-height:24px}
+.f-chart .bar i{height:14px}
+.f-chart .col{font-size:14px}
 .f-replay{appearance:none;position:absolute;right:14px;bottom:14px;display:grid;
   place-items:center;width:40px;height:40px;border:0;border-radius:50%;
   background:color-mix(in srgb,var(--ink) 12%,var(--bg));color:var(--ink);cursor:pointer}
 .f-replay:hover{background:color-mix(in srgb,var(--ink) 20%,var(--bg))}
-.film svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;
+/* The player's icons only: a chart scene draws its own SVG on the stage. */
+.film-bar svg,.f-replay svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;
   stroke-linecap:round;stroke-linejoin:round}
 /* The controls: quiet, small, in the app's own theme. */
 .film-bar{flex:none;display:flex;align-items:center;gap:4px;width:100%;
@@ -897,6 +1010,14 @@ function build(sc){
   var k=end>sec-.3?Math.max(.15,(sec-.3)/end):1;
   if(k<1)items.forEach(function(it){if(it.e!=="lin"){it.s*=k;it.d*=k;}});
   sc.items=items;}
+// A chart is laid out at the kit's width and scaled to the room under its
+// heading. The stage has one logical size, so this is done once.
+function fitCharts(){
+  each(stage.querySelectorAll(".f-chart"),function(box){
+    var c=box.firstElementChild;if(!c||!c.offsetWidth||!c.offsetHeight)return;
+    var s=Math.min(box.clientWidth/c.offsetWidth,box.clientHeight/c.offsetHeight);
+    if(s>0&&isFinite(s))c.style.transform="scale("+s.toFixed(4)+")";});}
+fitCharts();
 var scenes=[],total=0;
 each(stage.querySelectorAll(".scene"),function(el){
   var sc={el:el,at:total,sec:+el.getAttribute("data-sec")||4,
@@ -952,7 +1073,8 @@ function sync(){
   replay.hidden=playing||editing||t<total;playB.disabled=editing;
   fill.style.transform="scaleX("+f.toFixed(5)+")";knob.style.left=(f*100).toFixed(3)+"%";
   time.textContent=text;
-  scrub.setAttribute("aria-valuenow",t.toFixed(1));scrub.setAttribute("aria-valuetext",text);}
+  scrub.setAttribute("aria-valuenow",t.toFixed(1));scrub.setAttribute("aria-valuetext",text);
+  report(false);}
 function wake(){
   root.classList.remove("is-idle");clearTimeout(idle);
   if(playing)idle=setTimeout(function(){if(playing)root.classList.add("is-idle");},2400);}
@@ -1019,11 +1141,37 @@ function size(){
   fit.style.width=fw+"px";fit.style.height=Math.round(H*s)+"px";
   stage.style.transform="scale("+s.toFixed(5)+")";bar.style.width=Math.max(fw,300)+"px";}
 size();addEventListener("resize",size);
+// --- steered by an editor ----------------------------------------------------
+// The app's clip editor shows this page as its live preview and steers it from
+// its own frame (the parent): "dodaios-film-seek" {t, play} moves the clock
+// (and plays when asked). From the first such message on, the page tells the
+// parent where it is, "dodaios-film-time" {t, scene, playing, total}, on every
+// change of scene or play state and a few times a second while it plays, so the
+// editor's timeline can follow. Nothing else is read from a message.
+var up=window.parent&&window.parent!==window?window.parent:null;
+var steered=false,toldAt=0,toldScene=-1,toldPlaying=null;
+function report(force){
+  if(!steered)return;
+  var i=index(t),now=Date.now();
+  if(!force&&i===toldScene&&playing===toldPlaying&&now-toldAt<200)return;
+  toldAt=now;toldScene=i;toldPlaying=playing;
+  try{up.postMessage({type:"dodaios-film-time",t:Math.round(t*100)/100,scene:i,
+    playing:playing,total:total},"*");}catch(e){}}
+addEventListener("message",function(e){
+  if(!up||e.source!==up)return;
+  var m=e.data;if(!m||typeof m!=="object"||m.type!=="dodaios-film-seek")return;
+  var x=Number(m.t);steered=true;pause();
+  if(isFinite(x))seek(x);if(m.play===true)play();report(true);});
 var q=null;try{q=new URLSearchParams(location.search);}catch(e){}
 var at=q&&q.get("t")!==null?parseFloat(q.get("t")):NaN;
 var still=(q&&q.get("autoplay")==="0")||
   (window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
-if(!isNaN(at))seek(at);else if(still)seek(settled(0));else{draw(0);sync();play();}
+// An editor's preview opens standing on the scene being edited, settled, instead
+// of playing from the start (data-film-scene on <html>, a scene's index).
+var held=parseInt(d.documentElement.getAttribute("data-film-scene"),10);
+if(!isNaN(at))seek(at);
+else if(!isNaN(held))seek(settled(Math.max(0,Math.min(N-1,held))));
+else if(still)seek(settled(0));else{draw(0);sync();play();}
 // --- edit mode -------------------------------------------------------------
 // The app's edit mode (data-node-mode="edit" on <html>) stops the film on the
 // current scene, settled, so every text of it is there to be written into.
@@ -1325,6 +1473,9 @@ GUIDE: Final[str] = (
     "- quote: quote, by.\n"
     "- steps: kicker, title, steps [{title, text}] (up to 5), lighting up in order.\n"
     "- image: image (a data:image/...;base64 URI), caption. A slow push-in.\n"
+    '- chart: kicker, title, chart {"type": line|area|column|bar|pie|donut, "x": '
+    '[labels], "series": [{"name", "data": [numbers]}], "unit", "stacked"}. Drawn left '
+    "to right; for a few named values bars move better.\n"
     "- end: kicker, title, text. The closing card.\n"
     'Without "type" the fields decide (bullets -> bullets, value -> stat, items -> bars).\n'
     "Writing a film: one thought per scene. 5 to 9 scenes and 20 to 45 seconds are "

@@ -46,7 +46,7 @@ def test_numbers_that_do_not_line_up_stay_a_code_block() -> None:
     body = render_body(_fence("chart", json.dumps(broken)), "en").html
     assert "language-chart" in body and "<svg" not in body
     assert parse_chart("not json") is None
-    assert parse_chart(json.dumps(dict(LINE, type="pie"))) is None
+    assert parse_chart(json.dumps(dict(LINE, type="radar"))) is None
     seven = [{"name": str(n), "data": [1, 2, 3]} for n in range(7)]
     assert parse_chart(json.dumps(dict(LINE, series=seven))) is None
 

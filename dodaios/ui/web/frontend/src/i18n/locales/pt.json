@@ -11885,6 +11885,12 @@
       "saving": "A guardar…",
       "failed": "Não foi possível guardar."
     },
+    "editor": {
+      "done": "Concluído",
+      "loading": "Abrindo o editor…",
+      "load_failed": "Não foi possível abrir o editor.",
+      "retry": "Tentar novamente"
+    },
     "whiteboard": {
       "new": "Novo quadro branco",
       "new_failed": "Não foi possível criar o quadro branco. Tente novamente daqui a pouco.",

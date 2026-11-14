@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -269,6 +270,72 @@ def test_right_aligned_table_columns_keep_their_alignment() -> None:
     assert '<td style="text-align: right;">1</td>' in body
 
 
+def test_struck_text_is_drawn_struck_but_never_inside_code() -> None:
+    body = _body(_page("Price ~~27 €~~ **19 €**, written `~~as is~~`; a lone ~~ stays."))
+    assert "<del>27 €</del>" in body
+    assert "<code>~~as is~~</code>" in body
+    assert "a lone ~~ stays" in body
+
+
+def test_a_strike_does_not_run_across_paragraphs_or_out_of_a_link() -> None:
+    body = _body(_page("~~one\n\ntwo~~ and [a](https://a.example/~~x~~)"))
+    assert "<del>" not in body
+    assert 'href="https://a.example/~~x~~"' in body
+
+
+def test_checklist_items_are_ticked_boxes_the_reader_cannot_change() -> None:
+    body = _body(_page("- [ ] Open\n- [x] Done\n- [z] Not a task"))
+    assert '<li class="task"><input type="checkbox" disabled> Open</li>' in body
+    assert '<li class="task"><input type="checkbox" disabled checked> Done</li>' in body
+    assert "<li>[z] Not a task</li>" in body
+
+
+# The document editor (frontend `components/nodes/editors/docs`) reads a
+# document's Markdown and writes it back. Its fixtures are shared with its
+# own tests: `<name>.md` is what the assistant wrote, `<name>.out.md` what the
+# editor writes after every block was edited. The page drawn from the
+# editor's text must hold everything the page drawn from the original holds.
+_EDITOR_FIXTURES = (
+    Path(__file__).resolve().parents[3]
+    / "dodaios/ui/web/frontend/src/components/nodes/editors/docs/__fixtures__"
+)
+
+
+def test_the_editor_keeps_the_example_and_the_starter_as_written() -> None:
+    assert (_EDITOR_FIXTURES / "example.md").read_text().strip() == docs.EXAMPLE["markdown"].strip()
+    starter = docs.starter("Plan", "en")["markdown"]
+    assert (_EDITOR_FIXTURES / "starter.md").read_text().strip() == starter.strip()
+
+
+def test_the_editors_markdown_draws_every_block_of_the_original() -> None:
+    original = _body(_page((_EDITOR_FIXTURES / "rich.md").read_text()))
+    written = _body(_page((_EDITOR_FIXTURES / "rich.out.md").read_text()))
+    for drawn in (
+        '<div class="callout warn">',
+        '<strong class="lead">Careful</strong>',
+        '<ol class="steps">',
+        '<ol class="links">',
+        '<div class="metrics">',
+        "<svg ",
+        "<del>struck</del>",
+        '<input type="checkbox" disabled checked> Done task',
+        '<td style="text-align: right;">19 €</td>',
+        '<a href="https://example.com/page" title="Title">link</a>',
+        "<code>code</code>",
+        "<hr",
+        'class="footnote"',
+        "<dl>",
+        "<br",
+    ):
+        assert drawn in written, drawn
+    # The original's nested list and table are drawn the same way.
+    for shape in ("<li>Nested item</li>", "US | EU", "def hello():"):
+        assert shape in original and shape in written, shape
+    # The editor keeps a callout that follows a quote apart from it; in the
+    # original the page had swallowed it into the quote.
+    assert '<div class="callout warn">' not in original
+
+
 # -------------------------------------------------------------------- preview
 
 
@@ -292,6 +359,11 @@ def test_preview_reads_a_list_as_bullets() -> None:
     assert len(card["lines"]) == 5
     assert card["lines"][0].startswith("Item 1 with code and a link")
     assert all(len(line) <= 64 for line in card["lines"])
+
+
+def test_preview_reads_checklists_and_the_editors_separator_as_the_page_does() -> None:
+    card = docs.preview({"markdown": "## Tasks\n\n- [ ] Call Alpha\n- [x] Read &#126;docs\n\n&#8203;\n\n- Next"})
+    assert card == {"heading": "Tasks", "lines": ["Call Alpha", "Read ~docs"], "bullets": True}
 
 
 def test_preview_bounds_and_empty_cases() -> None:

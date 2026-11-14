@@ -8,7 +8,9 @@ module is the bridge. It reads what Markdown already produced and turns five
 shapes into kit blocks:
 
 * a fenced ``chart`` block (the same JSON the chat draws, ``CHART_GUIDANCE``
-  in ``core/response_style.py``) becomes a chart card;
+  in ``core/response_style.py``) becomes a chart card: a line, an area,
+  columns or bars (grouped, or stacked with ``"stacked": true``), or a pie or
+  donut that cuts one series into the shares of a whole;
 * a fenced ``metrics`` block, one ``value | label | detail`` per line, becomes
   the metric row;
 * a quote that opens with ``[!NOTE]``, ``[!TIP]``, ``[!IMPORTANT]``,
@@ -36,15 +38,24 @@ MAX_BAR_ROWS: Final[int] = 24
 MAX_METRICS: Final[int] = 6
 #: Up to this many values a one-series column chart is drawn as labelled columns.
 MAX_LABELLED_COLUMNS: Final[int] = 14
+#: A pie or donut with more slices than this cannot be read; a bar chart can.
+MAX_SLICES: Final[int] = 12
+#: A donut's hole, as a share of its radius.
+_DONUT_HOLE: Final[float] = 0.58
 _MAX_SOURCE_CHARS: Final[int] = 60_000
 
 _TYPES: Final[dict[str, str]] = {
     "line": "line", "lines": "line", "area": "area",
     "column": "column", "columns": "column", "bar": "bar", "bars": "bar",
+    "pie": "pie", "donut": "donut", "doughnut": "donut",
 }
+#: The kinds that cut one series into slices, and the kinds that can stack.
+_ROUND: Final = frozenset({"pie", "donut"})
+_STACKABLE: Final = frozenset({"column", "bar"})
 _UNIT_BEFORE: Final = frozenset({"$", "£", "¥", "US$"})
 _COMMA_DECIMAL: Final = frozenset({"de", "es", "pt", "fr", "it", "nl"})
 _NUMBER_RE: Final = re.compile(r"^-?\d+(?:\.\d+)?(?:e[+-]?\d+)?$", re.IGNORECASE)
+_HEX_RE: Final = re.compile(r"^#[0-9a-f]{6}$", re.IGNORECASE)
 
 
 # ------------------------------------------------------------------- numbers
@@ -114,7 +125,17 @@ def parse_chart(source: str) -> dict[str, Any] | None:
 
     Reads the same fields as the chat's reader
     (``frontend/src/lib/chartSpec.ts``), with the same refusals: a list of
-    another length would put numbers under the wrong labels.
+    another length would put numbers under the wrong labels. The node
+    editors check a chart against the same rules before they save it
+    (``frontend/src/components/nodes/editors/charts/chartModel.ts``).
+
+    Beyond the chat's fields: ``"stacked": true`` puts the series of a
+    column or bar chart on top of each other; ``pie`` and ``donut`` take
+    exactly one series of shares (no negative value, one above zero, at
+    most :data:`MAX_SLICES`; a gap leaves its slice out); ``"colors"`` names
+    a ``#rrggbb`` per series (per slice for a pie or donut), where anything
+    else keeps the kit's colour for that place. The result always carries
+    ``stacked`` and ``colors`` (one entry per slot, ``""`` for the kit's).
     """
     if len(source) > _MAX_SOURCE_CHARS:
         return None
@@ -128,7 +149,7 @@ def parse_chart(source: str) -> dict[str, Any] | None:
     if not kind:
         return None
     labels = raw.get("x") if isinstance(raw.get("x"), list) else raw.get("labels")
-    limit = MAX_BAR_ROWS if kind == "bar" else MAX_POINTS
+    limit = MAX_SLICES if kind in _ROUND else MAX_BAR_ROWS if kind == "bar" else MAX_POINTS
     if not isinstance(labels, list) or not 2 <= len(labels) <= limit:
         return None
     x = [_text(label, 40) for label in labels]
@@ -155,6 +176,21 @@ def parse_chart(source: str) -> dict[str, Any] | None:
         series.append((_text(entry.get("name"), 60), numbers))
     if len(series) > 1 and not all(name for name, _ in series):
         return None
+    if kind in _ROUND:
+        if len(series) != 1:
+            return None
+        shares = [value for value in series[0][1] if value is not None]
+        if any(value < 0 for value in shares) or not any(value > 0 for value in shares):
+            return None
+    slots = len(x) if kind in _ROUND else len(series)
+    given = raw.get("colors")
+    listed_colours: list[Any] = given if isinstance(given, list) else []
+    colours = [
+        value.strip().upper()
+        if isinstance(value, str) and _HEX_RE.match(value.strip())
+        else ""
+        for value in (listed_colours + [""] * slots)[:slots]
+    ]
     note = raw.get("note") or raw.get("subtitle") or raw.get("source")
     return {
         "type": kind,
@@ -163,8 +199,10 @@ def parse_chart(source: str) -> dict[str, Any] | None:
         "unit": _text(raw.get("unit"), 12),
         "value": _text(raw.get("value"), 40),
         "delta": _text(raw.get("delta"), 40),
+        "stacked": raw.get("stacked") is True and kind in _STACKABLE,
         "x": x,
         "series": series,
+        "colors": colours,
     }
 
 
@@ -180,6 +218,27 @@ def _delta_class(delta: str) -> str:
 _W, _H, _LEFT, _RIGHT, _TOP, _BOTTOM = 700.0, 280.0, 48.0, 24.0, 20.0, 34.0
 
 
+def _paint(spec: dict[str, Any], slot: int) -> str:
+    """The colour of slot ``slot``: the chart's own, else the kit's series token.
+
+    The kit has six series tokens and never cycles them; a pie's slices past
+    the sixth take a lighter mix of the token six places before, so twelve
+    slices stay twelve tells.
+    """
+    own = (spec.get("colors") or [])[slot : slot + 1]
+    if own and own[0]:
+        return own[0]
+    if slot < 6:
+        return f"var(--s{slot + 1})"
+    return f"color-mix(in srgb, var(--s{slot - 5}) 55%, var(--bg))"
+
+
+def _lone_paint(spec: dict[str, Any]) -> str:
+    """`` style="--c:…"`` for a one-series chart with its own colour, else ""."""
+    own = (spec.get("colors") or [""])[0]
+    return f";--c:{own}" if own else ""
+
+
 def _statement(label: str, name: str, value: float | None, unit: str, language: str) -> str:
     amount = "–" if value is None else with_unit(format_number(value, language), unit)
     return f"{label} · {name}: {amount}" if name else f"{label}: {amount}"
@@ -188,6 +247,7 @@ def _statement(label: str, name: str, value: float | None, unit: str, language: 
 def _labelled_columns(spec: dict[str, Any], language: str) -> str:
     """One series, few values: the kit's columns, each with its value on top."""
     name, data = spec["series"][0]
+    paint = _lone_paint(spec)
     values = [value or 0.0 for value in data]
     top = max((abs(value) for value in values), default=0.0) or 1.0
     key = max(range(len(values)), key=lambda index: values[index])
@@ -197,7 +257,7 @@ def _labelled_columns(spec: dict[str, Any], language: str) -> str:
         shown = "–" if value is None else format_number(value, language)
         tip = _statement(label, "", value, spec["unit"], language)
         cells.append(
-            f'<div class="col{" is-key" if index == key else ""}" style="--v:{share}" '
+            f'<div class="col{" is-key" if index == key else ""}" style="--v:{share}{paint}" '
             f'data-tip="{escape(tip, quote=True)}" tabindex="0">'
             f"<b>{escape(shown)}</b><i></i><span>{escape(label)}</span></div>"
         )
@@ -207,6 +267,7 @@ def _labelled_columns(spec: dict[str, Any], language: str) -> str:
 def _bars(spec: dict[str, Any], language: str) -> str:
     """One series of named things: horizontal bars, longest marked."""
     _, data = spec["series"][0]
+    paint = _lone_paint(spec)
     values = [value or 0.0 for value in data]
     top = max((abs(value) for value in values), default=0.0) or 1.0
     key = max(range(len(values)), key=lambda index: values[index])
@@ -218,7 +279,7 @@ def _bars(spec: dict[str, Any], language: str) -> str:
         )
         tip = _statement(label, "", value, spec["unit"], language)
         rows.append(
-            f'<div class="bar{" is-key" if index == key else ""}" style="--v:{share}" '
+            f'<div class="bar{" is-key" if index == key else ""}" style="--v:{share}{paint}" '
             f'data-tip="{escape(tip, quote=True)}" tabindex="0">'
             f"<span>{escape(label)}</span><i></i><b>{escape(shown)}</b></div>"
         )
@@ -226,14 +287,25 @@ def _bars(spec: dict[str, Any], language: str) -> str:
 
 
 def _plot(spec: dict[str, Any], language: str) -> str:
-    """Lines, an area or grouped columns on one value axis, as inline SVG."""
+    """Lines, an area, or grouped or stacked columns on one value axis, as inline SVG."""
     kind: str = spec["type"]
     series: list[tuple[str, list[float | None]]] = spec["series"]
     labels: list[str] = spec["x"]
     count = len(labels)
-    present = [value for _, data in series for value in data if value is not None]
-    low, high = min(present), max(present)
     columns = kind in ("column", "bar")
+    stacked = columns and bool(spec.get("stacked")) and len(series) > 1
+    present = [value for _, data in series for value in data if value is not None]
+    if stacked:
+        # A stack reaches from the sum of its negative parts to that of its positive ones.
+        present = [
+            total
+            for index in range(count)
+            for total in (
+                sum(max(0.0, data[index] or 0.0) for _, data in series),
+                sum(min(0.0, data[index] or 0.0) for _, data in series),
+            )
+        ]
+    low, high = min(present), max(present)
     # Columns are measured from zero. A line may leave zero when its values
     # sit far above it, so a flat-looking course still shows its movement.
     if columns or (low >= 0 and low < high * 0.5) or low == high:
@@ -276,8 +348,27 @@ def _plot(spec: dict[str, Any], language: str) -> str:
             f'<text class="tick" x="{at_x(index):.1f}" y="{_H - 12:.0f}" '
             f'text-anchor="{anchor}">{escape(labels[index])}</text>'
         )
+    rises = [0.0] * count
+    falls = [0.0] * count
     for slot, (_, data) in enumerate(series):
-        colour = f' style="--c:var(--s{slot + 1})"'
+        colour = f' style="--c:{_paint(spec, slot)}"'
+        if stacked:
+            bar = min(band * 0.72, 40.0)
+            for index, value in enumerate(data):
+                if not value:
+                    continue
+                start = rises[index] if value > 0 else falls[index]
+                end = start + value
+                if value > 0:
+                    rises[index] = end
+                else:
+                    falls[index] = end
+                top_y, bottom_y = at_y(max(start, end)), at_y(min(start, end))
+                parts.append(
+                    f'<rect class="colbar" x="{at_x(index) - bar / 2:.1f}" y="{top_y:.1f}" '
+                    f'width="{bar:.1f}" height="{max(1.0, bottom_y - top_y):.1f}"{colour}/>'
+                )
+            continue
         if columns:
             group = min(band * 0.72, 28.0 * len(series))
             bar = group / len(series)
@@ -333,6 +424,9 @@ def _plot(spec: dict[str, Any], language: str) -> str:
         tip = lines[0] if len(lines) == 1 else label + " — " + "; ".join(
             line.split(" · ", 1)[1] for line in lines
         )
+        if stacked:
+            total = sum(data[index] or 0.0 for _, data in series)
+            tip += " (" + with_unit(format_number(total, language), spec["unit"]) + ")"
         parts.append(
             f'<rect class="hit" x="{at_x(index) - hit / 2:.1f}" y="{_TOP:.0f}" '
             f'width="{hit:.1f}" height="{height:.0f}" '
@@ -345,11 +439,128 @@ def _plot(spec: dict[str, Any], language: str) -> str:
     )
 
 
+def _stacked_bars(spec: dict[str, Any], language: str) -> str:
+    """Named things, each a bar made of its series' parts, the total at its end.
+
+    Bars grow from zero, so a negative part has no length; its statement
+    still says what it is.
+    """
+    series: list[tuple[str, list[float | None]]] = spec["series"]
+    totals = [
+        sum(max(0.0, data[index] or 0.0) for _, data in series) for index in range(len(spec["x"]))
+    ]
+    top = max(totals, default=0.0) or 1.0
+    rows = []
+    for index, label in enumerate(spec["x"]):
+        parts = []
+        for slot, (name, data) in enumerate(series):
+            value = data[index]
+            share = max(0.0, value or 0.0) / top * 100
+            tip = _statement(label, name, value, spec["unit"], language)
+            parts.append(
+                f'<i style="--v:{share:.2f};--c:{_paint(spec, slot)}" '
+                f'data-tip="{escape(tip, quote=True)}" tabindex="0"></i>'
+            )
+        shown = with_unit(format_number(totals[index], language), spec["unit"])
+        rows.append(
+            f'<div class="bar stacked"><span>{escape(label)}</span>'
+            f'<div class="stack">{"".join(parts)}</div><b>{escape(shown)}</b></div>'
+        )
+    return f'<div class="bars">{"".join(rows)}</div>'
+
+
+def _arc(cx: float, cy: float, outer: float, inner: float, start: float, end: float) -> str:
+    """The path of one slice from angle ``start`` to ``end`` (radians, clockwise from
+    twelve o'clock); a ring segment when ``inner`` is above zero."""
+
+    def at(radius: float, angle: float) -> tuple[float, float]:
+        return cx + radius * math.sin(angle), cy - radius * math.cos(angle)
+
+    large = 1 if end - start > math.pi else 0
+    x1, y1 = at(outer, start)
+    x2, y2 = at(outer, end)
+    if inner <= 0:
+        return (
+            f"M{cx:.2f},{cy:.2f} L{x1:.2f},{y1:.2f} "
+            f"A{outer:.2f},{outer:.2f} 0 {large} 1 {x2:.2f},{y2:.2f} Z"
+        )
+    x3, y3 = at(inner, end)
+    x4, y4 = at(inner, start)
+    return (
+        f"M{x1:.2f},{y1:.2f} A{outer:.2f},{outer:.2f} 0 {large} 1 {x2:.2f},{y2:.2f} "
+        f"L{x3:.2f},{y3:.2f} A{inner:.2f},{inner:.2f} 0 {large} 0 {x4:.2f},{y4:.2f} Z"
+    )
+
+
+def _pie(spec: dict[str, Any], language: str) -> str:
+    """One series as the shares of a whole: slices beside a legend that lists
+    every value and its share. A donut says the total in its hole."""
+    _, data = spec["series"][0]
+    unit = spec["unit"]
+    slices = [
+        (index, label, value)
+        for index, (label, value) in enumerate(zip(spec["x"], data, strict=True))
+        if value is not None and value > 0
+    ]
+    total = sum(value for _, _, value in slices)
+    donut = spec["type"] == "donut"
+    size, gap = 240.0, 2.0
+    cx = cy = size / 2
+    outer = size / 2 - gap
+    inner = outer * _DONUT_HOLE if donut else 0.0
+    marks: list[str] = []
+    legend: list[str] = []
+    angle = 0.0
+    for index, label, value in slices:
+        share = value / total
+        sweep = share * 2 * math.pi
+        percent = format_number(share * 100, language) + "%"
+        amount = with_unit(format_number(value, language), unit)
+        tip = escape(f"{label}: {amount} ({percent})", quote=True)
+        paint = _paint(spec, index)
+        if len(slices) == 1:
+            # One slice is the whole: an arc from a point back to itself draws nothing.
+            ring = (
+                f'<circle class="slice" cx="{cx:.0f}" cy="{cy:.0f}" r="{(outer + inner) / 2:.2f}" '
+                f'style="--c:{paint};fill:none;stroke:var(--c);stroke-width:{outer - inner:.2f}"'
+                if donut
+                else f'<circle class="slice" cx="{cx:.0f}" cy="{cy:.0f}" r="{outer:.2f}" '
+                f'style="--c:{paint}"'
+            )
+            marks.append(f'{ring} data-tip="{tip}" tabindex="0"/>')
+        else:
+            marks.append(
+                f'<path class="slice" d="{_arc(cx, cy, outer, inner, angle, angle + sweep)}" '
+                f'style="--c:{paint}" data-tip="{tip}" tabindex="0"/>'
+            )
+        angle += sweep
+        legend.append(
+            f'<li><i style="--c:{paint}"></i><span>{escape(label)}</span>'
+            f'<b>{escape(amount)}</b><span class="share">{escape(percent)}</span></li>'
+        )
+    if donut:
+        marks.append(
+            f'<text class="total" x="{cx:.0f}" y="{cy + 7:.0f}" text-anchor="middle">'
+            f"{escape(with_unit(format_number(total, language), unit))}</text>"
+        )
+    described = spec["title"] or ", ".join(label for _, label, _ in slices)
+    return (
+        f'<div class="pie"><svg viewBox="0 0 {size:.0f} {size:.0f}" role="img" '
+        f'aria-label="{escape(described, quote=True)}">{"".join(marks)}</svg>'
+        f'<ol>{"".join(legend)}</ol></div>'
+    )
+
+
 def render_chart(spec: dict[str, Any], language: str) -> str:
     """One chart card on the kit's classes; every mark carries its statement."""
     series = spec["series"]
     lone = len(series) == 1
-    if spec["type"] == "bar" and lone:
+    stacked = bool(spec.get("stacked")) and not lone
+    if spec["type"] in _ROUND:
+        body = _pie(spec, language)
+    elif spec["type"] == "bar" and stacked:
+        body = _stacked_bars(spec, language)
+    elif spec["type"] == "bar" and lone:
         body = _bars(spec, language)
     elif spec["type"] == "column" and lone and len(spec["x"]) <= MAX_LABELLED_COLUMNS:
         body = _labelled_columns(spec, language)
@@ -366,7 +577,7 @@ def render_chart(spec: dict[str, Any], language: str) -> str:
     legend = ""
     if not lone:
         legend = '<div class="legend">' + "".join(
-            f'<span><i style="--c:var(--s{slot + 1})"></i>{escape(name)}</span>'
+            f'<span><i style="--c:{_paint(spec, slot)}"></i>{escape(name)}</span>'
             for slot, (name, _) in enumerate(series)
         ) + "</div>"
     note = f'<p class="note">{escape(spec["note"])}</p>' if spec["note"] else ""
@@ -478,6 +689,7 @@ def upgrade_blocks(html: str, language: str = "en") -> str:
 
 __all__ = [
     "MAX_LABELLED_COLUMNS",
+    "MAX_SLICES",
     "format_number",
     "parse_chart",
     "render_chart",

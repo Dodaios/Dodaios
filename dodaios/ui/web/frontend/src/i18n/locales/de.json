@@ -11885,6 +11885,12 @@
       "saving": "Wird gespeichert …",
       "failed": "Das ließ sich nicht speichern."
     },
+    "editor": {
+      "done": "Fertig",
+      "loading": "Editor wird geöffnet…",
+      "load_failed": "Der Editor konnte nicht geöffnet werden.",
+      "retry": "Erneut versuchen"
+    },
     "whiteboard": {
       "new": "Neues Whiteboard",
       "new_failed": "Das Whiteboard konnte nicht angelegt werden. Versuch es gleich noch einmal.",

@@ -249,6 +249,20 @@ hr{border:0;border-top:1px solid var(--line);margin:32px 0}
   background:var(--c,var(--s1))}
 .bar b{font-weight:500;font-variant-numeric:tabular-nums}
 .bars:has(.is-key) .bar:not(.is-key) i{opacity:.4}
+.bar.stacked .stack{display:flex;min-width:2px;height:10px}
+.bar.stacked .stack i{width:calc(var(--v)*1%);height:100%;border-radius:0;
+  box-shadow:inset -1px 0 0 var(--bg)}
+.bar.stacked .stack i:last-child{border-radius:0 4px 4px 0}
+.pie{display:flex;flex-wrap:wrap;align-items:center;gap:16px 32px}
+.pie svg{flex:none;width:min(220px,100%);height:auto}
+.chart .slice{fill:var(--c,var(--s1));stroke:var(--bg);stroke-width:2}
+.chart .total{fill:var(--ink);font:600 20px var(--font);font-variant-numeric:tabular-nums}
+.pie ol{flex:1;min-width:180px;display:grid;gap:6px;margin:0;padding:0;list-style:none;
+  font-size:14px;line-height:20px}
+.pie li{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;gap:8px;align-items:center}
+.pie li i{width:10px;height:10px;border-radius:3px;background:var(--c,var(--s1))}
+.pie li b{font-weight:500;font-variant-numeric:tabular-nums}
+.pie li .share{min-width:3.5em;text-align:right;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .matrix{position:relative;aspect-ratio:16/9;margin:0 0 24px 24px;border:1px solid var(--line-2);
   border-radius:8px;font-size:12px;line-height:16px}
 .matrix::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)}

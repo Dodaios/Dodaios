@@ -148,7 +148,7 @@ def test_normalize_is_idempotent_and_survives_a_json_round_trip() -> None:
     }
     assert qty == {"key": "qty", "label": "Qty", "type": "number", "total": "sum"}
     assert amount["formula"] == "qty * unit_price" and "type" not in amount
-    # A formula column never stores cells; an empty row and a non-row are dropped.
+    # A formula column never stores cells; a trailing empty row and a non-row are dropped.
     assert sheet["rows"] == [
         {"item": "Paper", "unit_price": 5.5, "qty": 4},
         {"item": "Toner", "unit_price": 39, "qty": 2, "_2026": 12.5, "class_": "A",
@@ -926,7 +926,7 @@ def test_the_starter_is_a_text_a_number_and_a_status_column() -> None:
 
 
 def test_the_guide_is_compact_and_its_example_is_a_valid_sheet() -> None:
-    assert len(GUIDE) <= 2_500
+    assert len(GUIDE) <= 3_000
     assert json.dumps(EXAMPLE, ensure_ascii=False) in GUIDE
     for word in ("formula", "total", "freeze", "status", "currency"):
         assert word in GUIDE
@@ -937,3 +937,216 @@ def test_the_guide_is_compact_and_its_example_is_a_valid_sheet() -> None:
     assert any("formula" in c for c in columns) and any("total" in c for c in columns)
     _columns, rows = sheets._read(spec["sheets"][0])
     assert [row["amount"] for row in rows] == [22.0, 78.0]
+
+
+# ------------------------------------------------- column look and charts
+
+
+def test_a_column_keeps_its_look_and_drops_what_it_cannot_hold() -> None:
+    spec = normalize(
+        {
+            "columns": [
+                {"label": "A", "width": 132.6, "align": "Center", "bold": True, "color": "Green"},
+                {"label": "B", "width": 9, "align": "justify", "bold": "no", "color": "#ff0000"},
+                {"label": "C", "width": 10_000, "bold": "true"},
+                "D",
+            ],
+            "rows": [[1, 2, 3, 4]],
+        }
+    )
+    columns = spec["sheets"][0]["columns"]
+    assert columns[0] == {
+        "key": "a", "label": "A", "width": 132, "align": "center", "bold": True, "color": "green",
+    }
+    assert columns[1] == {"key": "b", "label": "B", "width": sheets.MIN_WIDTH}
+    assert columns[2] == {"key": "c", "label": "C", "width": sheets.MAX_WIDTH, "bold": True}
+    assert columns[3] == {"key": "d", "label": "D"}
+    assert normalize(spec) == spec
+
+
+def test_a_column_look_reaches_the_page_as_classes_and_a_width_rule() -> None:
+    page = render(
+        _node(
+            {
+                "sheets": [
+                    {
+                        "name": "One",
+                        "columns": [
+                            {"label": "Name", "width": 200, "bold": True, "color": "bad"},
+                            {"label": "Qty", "type": "number", "align": "left"},
+                        ],
+                        "rows": [["Ada", 4]],
+                    }
+                ]
+            }
+        )
+    )
+    rule = "#sx-sheet-0 .sx-grid tr>:nth-child(2){width:200px;min-width:200px;max-width:200px}"
+    assert rule in page
+    assert re.search(r'<td class="f1 b k-bad"[^>]*>Ada</td>', page)
+    assert re.search(r'<td class="l"[^>]*data-value="4"', page)
+    assert ".sx-grid tbody .k-bad{color:var(--bad)}" in page
+
+
+def _sales(**chart: Any) -> dict[str, Any]:
+    return {
+        "sheets": [
+            {
+                "name": "Sales",
+                "columns": [
+                    {"key": "month", "label": "Month"},
+                    {"key": "units", "label": "Units", "type": "number"},
+                    {"key": "price", "label": "Price", "type": "currency", "unit": "EUR"},
+                    {
+                        "key": "revenue",
+                        "label": "Revenue",
+                        "type": "currency",
+                        "formula": "units * price",
+                    },
+                ],
+                "rows": [
+                    {"month": "Jan", "units": 10, "price": 2},
+                    {"month": "Feb", "units": 12, "price": 2.5},
+                    {"month": "Mar", "units": 8, "price": 3},
+                ],
+                "charts": [chart],
+            }
+        ]
+    }
+
+
+def test_a_bound_chart_is_stored_by_column_and_drawn_from_the_cells() -> None:
+    spec = normalize(
+        _sales(
+            type="columns",
+            title="Revenue",
+            x="Month",
+            series=["revenue", {"column": "units", "name": "Sold"}],
+        )
+    )
+    sheet = spec["sheets"][0]
+    chart = sheet["charts"][0]
+    assert chart == {
+        "type": "column",
+        "title": "Revenue",
+        "x": "month",
+        "series": [{"column": "revenue"}, {"column": "units", "name": "Sold"}],
+    }
+    assert normalize(spec) == spec
+    drawn = sheets.drawn_chart(chart, sheet)
+    assert drawn["x"] == ["Jan", "Feb", "Mar"]
+    assert drawn["series"] == [
+        {"name": "Revenue", "data": [20, 30, 24]},
+        {"name": "Sold", "data": [10, 12, 8]},
+    ]
+    page = render(_node(spec))
+    assert '<div class="sx-charts"><figure class="card chart"><h3>Revenue</h3>' in page
+
+    # The chart follows the cells: a changed value is drawn without touching the chart.
+    sheet["rows"][1]["units"] = 20
+    assert sheets.drawn_chart(chart, sheet)["series"][0]["data"] == [20, 50, 24]
+
+
+def test_a_bound_chart_takes_a_row_range_and_row_numbers_without_a_label_column() -> None:
+    spec = normalize(_sales(type="line", series=["units"], rows=[2, 99]))
+    sheet = spec["sheets"][0]
+    assert sheet["charts"][0]["rows"] == [2, 99]
+    drawn = sheets.drawn_chart(sheet["charts"][0], sheet)
+    assert drawn["x"] == ["2", "3"]
+    assert drawn["series"] == [{"name": "Units", "data": [12, 8]}]
+
+
+def test_a_bound_chart_that_cannot_be_drawn_now_keeps_its_place_and_never_fails_a_save() -> None:
+    spec = _sales(type="column", title="Units", x="month", series=["units"])
+    spec["sheets"][0]["rows"] = spec["sheets"][0]["rows"][:1]
+    stored = normalize(spec)  # one row: no chart can be drawn, the sheet still saves
+    assert stored["sheets"][0]["charts"][0]["series"] == [{"column": "units"}]
+    page = render(_node(stored))
+    assert "Not enough numbers to draw this chart" in page and "<h3>Units</h3>" in page
+
+
+@pytest.mark.parametrize(
+    "chart",
+    [
+        {"type": "radar", "x": "month", "series": ["units"]},
+        {"type": "column", "x": "nope", "series": ["units"]},
+        {"type": "column", "x": "month", "series": ["ghost"]},
+        {"type": "column", "x": "month", "series": []},
+        {"type": "pie", "x": "month", "series": ["units", "price"]},
+        {"type": "column", "x": ["Only one"], "series": [{"name": "a", "data": [1]}]},
+        "a chart",
+    ],
+    ids=[
+        "type",
+        "x-key",
+        "series-key",
+        "no-series",
+        "pie-two",
+        "literal-undrawable",
+        "not-an-object",
+    ],
+)
+def test_a_chart_the_sheet_cannot_hold_is_refused_naming_it(chart: Any) -> None:
+    with pytest.raises(NodeError, match=r"Sheet 'Sales', chart 1"):
+        normalize(_sales(**chart) if isinstance(chart, dict) else {**_sales(), "sheets": [
+            {**_sales()["sheets"][0], "charts": [chart]}
+        ]})
+
+
+def test_a_literal_chart_is_kept_in_the_shared_grammar() -> None:
+    spec = normalize(
+        _sales(
+            type="bar",
+            title="Fixed",
+            x=["North", "South"],
+            series=[{"name": "Units", "data": ["4", 5.5]}],
+            stacked=True,
+            colors=["#2A6FD0", "red", 3],
+        )
+    )
+    chart = spec["sheets"][0]["charts"][0]
+    assert chart["x"] == ["North", "South"]
+    assert chart["series"] == [{"name": "Units", "data": [4, 5.5]}]
+    assert chart["stacked"] is True and chart["colors"] == ["#2A6FD0", "", ""]
+    assert sheets.drawn_chart(chart, spec["sheets"][0]) is chart
+    assert normalize(spec) == spec
+
+
+def test_chart_texts_are_escaped_and_charts_are_bounded() -> None:
+    many = [{"type": "line", "title": SCRIPT, "x": "month", "series": ["units"]}] * 20
+    spec = _sales()
+    spec["sheets"][0]["charts"] = many
+    stored = normalize(spec)
+    assert len(stored["sheets"][0]["charts"]) == sheets.MAX_CHARTS
+    page = render(_node(stored))
+    assert SCRIPT not in page and escape(SCRIPT, quote=False) in page
+
+
+def test_old_specs_stay_exactly_what_they_were() -> None:
+    for spec in (_orders(), starter("Budget", "en"), _every_type()):
+        stored = normalize(spec)
+        for sheet in stored["sheets"]:
+            assert "charts" not in sheet
+            for column in sheet["columns"]:
+                assert not {"width", "align", "bold", "color"} & set(column)
+
+
+def test_a_blank_row_between_filled_rows_is_kept_and_trailing_ones_are_dropped() -> None:
+    spec = normalize({"columns": ["A", "B"], "rows": [["x", 1], {}, [None, None], ["y"], {}, []]})
+    assert spec["sheets"][0]["rows"] == [{"a": "x", "b": 1}, {}, {}, {"a": "y"}]
+    assert normalize(spec) == spec
+    assert normalize({"columns": ["A"], "rows": [{}, {}]})["sheets"][0]["rows"] == []
+
+
+def test_a_bound_pie_and_a_headline_value_are_kept_and_drawn() -> None:
+    spec = normalize(_sales(type="donut", title="Units", x="month", series=["units"], value="30"))
+    chart = spec["sheets"][0]["charts"][0]
+    assert chart == {
+        "type": "donut",
+        "title": "Units",
+        "value": "30",
+        "x": "month",
+        "series": [{"column": "units"}],
+    }
+    page = render(_node(spec))
+    assert "Not enough numbers" not in page and "<h3>Units</h3>" in page

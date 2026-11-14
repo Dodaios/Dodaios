@@ -11885,6 +11885,12 @@
       "saving": "Saving…",
       "failed": "That could not be saved."
     },
+    "editor": {
+      "done": "Done",
+      "loading": "Opening the editor…",
+      "load_failed": "The editor could not be opened.",
+      "retry": "Try again"
+    },
     "whiteboard": {
       "new": "New whiteboard",
       "new_failed": "The whiteboard could not be created. Try again in a moment.",

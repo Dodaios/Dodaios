@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import replace
 from html.parser import HTMLParser
+from pathlib import Path
 from typing import Any
 
 import pytest
 
+from dodaios.artifacts.report_blocks import parse_chart, render_chart
 from dodaios.nodes.kinds import kind_of
 from dodaios.nodes.kinds.slides import (
     EXAMPLE,
@@ -315,7 +318,7 @@ def test_a_deck_without_a_slide_is_refused_with_what_to_send(spec: Any) -> None:
 @pytest.mark.parametrize(
     ("slide", "message"),
     [
-        ({"chart": {"type": "pie", "x": ["a", "b"], "data": [1, 2]}}, '"chart" must be'),
+        ({"chart": {"type": "radar", "x": ["a", "b"], "data": [1, 2]}}, '"chart" must be'),
         ({"chart": {"type": "line", "x": ["a", "b"], "data": [1]}}, "one number per label"),
         ({"layout": "chart", "chart": "not json"}, '"chart" must be'),
         ({"columns": [{"title": "alone"}]}, "2 or 3 columns"),
@@ -341,6 +344,81 @@ def test_an_unusable_field_the_layout_does_not_show_is_dropped_not_refused() -> 
     )
 
     assert spec["slides"] == [{"layout": "bullets", "title": "T", "bullets": ["a"]}]
+
+
+def test_a_slide_that_names_its_layout_and_fits_no_other_keeps_it() -> None:
+    # The person is writing an opening's title anew, or a quote has only its author yet.
+    spec = normalize(
+        {
+            "slides": [
+                {"layout": "title", "kicker": "Board update", "subtitle": "Q3"},
+                {"layout": "quote", "by": "Ada"},
+                {"layout": "closing", "subtitle": "Thanks"},
+            ]
+        }
+    )
+
+    assert spec["slides"] == [
+        {"layout": "title", "kicker": "Board update", "subtitle": "Q3"},
+        {"layout": "quote", "by": "Ada"},
+        {"layout": "closing", "subtitle": "Thanks"},
+    ]
+    assert normalize(spec) == spec
+    html = render(_node(spec))
+    assert html.count('aria-roledescription="slide"') == 3
+
+
+def test_a_slide_with_nothing_of_its_layout_is_still_dropped() -> None:
+    spec = normalize({"slides": [{"title": "Opening"}, {"layout": "title", "notes": "only notes"}]})
+
+    assert len(spec["slides"]) == 1
+
+
+def test_an_image_slide_may_show_all_of_its_picture() -> None:
+    spec = normalize(
+        {
+            "slides": [
+                {"layout": "image", "title": "Dashboard", "image": PIXEL, "fit": "CONTAIN"},
+                {"layout": "image", "image": PIXEL, "fit": "contain"},
+                {"layout": "image", "title": "Photo", "image": PIXEL, "fit": "cover"},
+                {"layout": "image", "title": "Photo", "image": PIXEL, "fit": "stretch"},
+                {"layout": "bullets", "title": "T", "bullets": ["a"], "fit": "contain"},
+            ]
+        }
+    )
+
+    assert [slide.get("fit") for slide in spec["slides"]] == [
+        "contain",
+        "contain",
+        None,
+        None,
+        None,
+    ]
+    assert normalize(spec) == spec
+    html = _drawn(render(_node(spec)))
+    assert '<figure class="sl-pic is-contain">' in html
+    assert '<figure class="is-contain">' in html
+    assert html.count('<figure class="sl-pic">') == 2
+
+
+def test_a_chart_keeps_its_stacking_and_colours_through_a_save() -> None:
+    chart = {
+        "type": "column",
+        "stacked": True,
+        "colors": ["#2a6fd0", ""],
+        "x": ["Q1", "Q2"],
+        "series": [{"name": "A", "data": [1, 2]}, {"name": "B", "data": [3, 4]}],
+    }
+    pie = {"type": "donut", "x": ["Yes", "No"], "series": [{"name": "Votes", "data": [7, 3]}]}
+
+    kept = normalize(
+        {"slides": [{"title": "Mix", "chart": chart}, {"title": "Vote", "chart": pie}]}
+    )
+
+    assert kept["slides"][0]["chart"]["stacked"] is True
+    assert kept["slides"][0]["chart"]["colors"] == ["#2A6FD0", ""]
+    assert kept["slides"][1]["chart"]["type"] == "donut"
+    assert normalize(kept) == kept
 
 
 def test_theme_and_accent_accept_only_known_values() -> None:
@@ -728,7 +806,8 @@ def test_starter_is_a_small_valid_deck_named_after_the_node() -> None:
 def test_the_guide_is_compact_and_its_example_is_a_valid_deck() -> None:
     spec = normalize(EXAMPLE)
 
-    assert len(GUIDE) <= 2_500
+    # The grammar grew (pie and donut charts, stacked bars, colours, a picture's fit).
+    assert len(GUIDE) <= 2_600
     assert json.dumps(EXAMPLE, ensure_ascii=False, separators=(",", ":")) in GUIDE
     assert all(f"- {layout}:" in GUIDE for layout in LAYOUTS)
     assert [slide["layout"] for slide in spec["slides"]] == [
@@ -744,3 +823,72 @@ def test_the_type_is_registered_under_its_names() -> None:
     assert kind.type == "slides"
     assert kind.guide == GUIDE
     assert kind.preview(kind.normalize(EXAMPLE))["count"] == 4
+
+
+# ------------------------------------------------- the editor draws the same slides
+
+#: The editor draws slides itself (``editors/slides/SlideView.tsx``) with the
+#: page's stylesheet; this file holds the page's markup of one slide of every
+#: shape, and ``SlideView.test.tsx`` checks the editor draws the very same.
+MARKUP_FIXTURE = (
+    Path(__file__).resolve().parents[3]
+    / "dodaios/ui/web/frontend/src/components/nodes/editors/slides/__fixtures__/slides_markup.json"
+)
+_SECTION_RE = re.compile(r'<section class="sl[ "].*?</section>', re.S)
+
+
+def _markup_deck() -> dict[str, Any]:
+    deck = _every_layout("A **bold** move & [more](https://example.org)")
+    deck["slides"] += [
+        {"layout": "bullets", "bullets": ["Solo point one", "Solo point two"]},
+        {"layout": "bullets", "title": "Only prose", "text": "A paragraph of prose."},
+        {"layout": "closing", "title": "Thanks"},
+        {
+            "layout": "columns",
+            "title": "Three",
+            "columns": [{"title": "A", "bullets": ["x", "y"]}, {"text": "B"}, {"title": "C"}],
+        },
+        {"layout": "steps", "title": "Five", "steps": [f"Step {n}" for n in range(5)]},
+        {
+            "layout": "stats",
+            "stats": [{"value": "€4.2M", "label": "Revenue"}, {"value": "94%"}, {"value": "12"}],
+        },
+        {"layout": "table", "title": "Numbers", "table": TABLE},
+        {"layout": "image", "title": "Whole", "image": PIXEL, "fit": "contain"},
+        {"layout": "section", "title": "A much longer section title that wraps over two lines"},
+        {"layout": "quote", "quote": "x" * 150, "by": "Someone"},
+    ]
+    return normalize(deck)
+
+
+def _markup_fixture() -> str:
+    spec = _markup_deck()
+    node = _node(spec, title="Quarterly review")
+    sections = _SECTION_RE.findall(_drawn(render(node)))
+    slides = []
+    for slide, html in zip(spec["slides"], sections, strict=True):
+        entry: dict[str, Any] = {"html": html}
+        if slide["layout"] == "chart":
+            parsed = parse_chart(json.dumps(slide["chart"]))
+            assert parsed is not None
+            if parsed["title"].casefold() == slide.get("title", "").casefold():
+                parsed["title"] = ""
+            entry["figure"] = render_chart(parsed, "en")
+        slides.append(entry)
+    return (
+        json.dumps(
+            {"title": node.title, "spec": spec, "slides": slides}, ensure_ascii=False, indent=1
+        )
+        + "\n"
+    )
+
+
+def test_the_editor_markup_fixture_matches_the_page() -> None:
+    fresh = _markup_fixture()
+    if os.environ.get("UPDATE_SLIDES_MARKUP") == "1":
+        MARKUP_FIXTURE.parent.mkdir(parents=True, exist_ok=True)
+        MARKUP_FIXTURE.write_text(fresh, encoding="utf-8")
+    assert MARKUP_FIXTURE.read_text(encoding="utf-8") == fresh, (
+        "The deck page's slide markup changed: run this test with UPDATE_SLIDES_MARKUP=1, "
+        "then make SlideView.tsx draw the same (SlideView.test.tsx compares them)."
+    )

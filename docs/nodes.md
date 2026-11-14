@@ -177,6 +177,397 @@ laid out by the auto layout (`dodaios/nodes/board/convert.py`). A stored board
 in the older grammar is converted the next time it is read, and its embedded
 pictures become board files.
 
+## Clips
+
+A clip (`motion`) is a short film of scenes on one timeline. The spec holds
+only the scenes: their type (`title`, `text`, `bullets`, `stat`, `bars`,
+`chart`, `steps`, `quote`, `image`, `end`), their words and numbers, their
+length in seconds (1.5 to 20) and the transition they come in with (`fade`,
+`slide`, `zoom`, `cut`). The whole clip has a format (`wide`, `square`,
+`tall`), a dark or light background, one accent colour and a loop switch.
+How the scenes move is decided by the renderer
+(`dodaios/nodes/kinds/motion.py`), so every clip has the same calm motion.
+
+**Chart scenes.** A `chart` scene holds the shared chart grammar
+(`report_blocks.parse_chart`, the same JSON as a report's `chart` block) and
+draws the kit's chart card, revealed from left to right (a pie or donut
+fades in). The renderer keeps the chart in the parser's own reading, so a
+spec read twice is the same spec. A chart with one series wears the clip's
+accent.
+
+**The clip editor.** "Edit" on a clip opens the native editor
+(`frontend/src/components/nodes/editors/motion/`):
+
+* The preview is the real film, drawn by the server from the unsaved spec
+  (`POST /api/nodes/{id}/preview`). It stands on the picked scene, settled,
+  and its texts can be clicked and typed into right there (the bridge's edit
+  mode; each edit is applied to the spec as one undo step). "Play" (or Space
+  on a scene) plays from the picked scene; when the film ends or is paused,
+  the editor stands on the scene it reached. A new page loads in a second,
+  hidden frame and takes over once it is ready, so a change never blanks the
+  preview.
+* The timeline shows every scene as a block as long as it runs, and the
+  total length. A block is dragged sideways to reorder (or moved with
+  Alt+arrow); its right edge drags its length (or takes the arrow keys, a
+  tenth of a second, half a second with Shift). Between two blocks the
+  transition of the later scene can be changed. Delete removes a scene,
+  Cmd/Ctrl+D duplicates it, "+" adds a scene of a type after the picked one.
+* The inspector holds the picked scene's type (a switch keeps the words that
+  carry over), every field that type keeps, capped at the length the server
+  keeps, the lists (points, bars, steps) with add, move and remove, the
+  picture (made small enough to embed: at most 1600 px and 400,000
+  characters), the chart (the shared chart editor), the length with "Fit to
+  content" (the renderer's default length for that content) and the
+  transition.
+* The toolbar holds the whole clip's format, background, accent (the kit's
+  six colours are kept by name, so the film takes that colour's shade for
+  its theme) and loop.
+
+Every change is an undo step of the shared editor history and saves itself.
+A save waits while a scene lacks what its type needs (a title card without a
+title) and the save state says which scene and what.
+
+The editor steers the page in two messages of the film's own, accepted only
+from the parent frame: `dodaios-film-seek` `{t, play}` moves the clock (and
+plays), and the page answers with `dodaios-film-time`
+`{t, scene, playing, total}` on every change of scene or play state and a
+few times a second while it plays. `data-film-scene` on `<html>` opens a
+page standing on a scene instead of playing from the start.
+
+## Sheets
+
+A sheet node (`sheets`) is a spreadsheet of 1 to 12 sheets
+(`dodaios/nodes/kinds/sheets.py`). Each sheet has typed columns (text,
+number, currency, percent, date, yes/no, status, link) with a unit, decimals,
+a total (sum, average, minimum, maximum, count) and an optional formula. It
+also has up to 1,000 rows, up to 3 frozen leading columns and up to 8 charts.
+The page writes numbers and dates in the reader's locale, and the reader
+sorts, filters and moves through the grid.
+
+* **Formulas are column formulas.** A formula is arithmetic over the row's
+  other columns by key (`qty * price`, `round(a / b * 100, 1)`). Python
+  computes it with a small, checked grammar and never `eval`. There are no
+  per-cell formulas such as `=B2*C2`. A cell is found by its row's place,
+  and a sort or an inserted row changes that place, so a cell reference would
+  quietly point at another value. A column formula and a total depend on the
+  row and the column only, and reordering rows cannot break them.
+* **A column's look** is stored on the column: `width` (48 to 480 px),
+  `align`, `bold` and a named `color` (the theme's tokens, never a colour
+  value). Cells stay plain values, so formulas, totals, sorting and the
+  assistant read them without unwrapping them.
+* **Charts** are stored in the shared chart grammar under the sheet's grid.
+  A chart can be literal (labels and numbers, like a report's chart) or
+  bound to the sheet: `x` names the label column, each series names a
+  `column`, and `rows` is an optional 1-based range. A bound chart reads its
+  numbers each time the page is drawn, so it follows the cells. A bound chart
+  that cannot be drawn right now (one row left) shows an empty card. It does
+  not make the save fail.
+* **Blank rows** between filled rows are kept (the editor inserts them to
+  fill in later). Blank rows at the end are dropped.
+
+**The Sheets editor** (`frontend/src/components/nodes/editors/sheets/`) is a
+spreadsheet grid. It is keyboard-first:
+
+* Arrows move the selection; Shift extends it. Cmd/Ctrl+arrow jumps to the
+  edge of the filled block. Home and End go to the start and end of the row,
+  and with Cmd/Ctrl to the start and end of the data. Page Up and Page Down
+  move by a screen. Cmd/Ctrl+A selects everything, Shift+Space selects the
+  row, and Ctrl+Space selects the column. A click selects, a drag or a
+  Shift+click extends, and a click on a row number or a column head selects
+  the row or the column.
+* Typing replaces the cell. F2, a double-click or the formula bar edits the
+  value as it is. Enter, Tab, Shift+Enter and Shift+Tab commit and move. In
+  a selected range they move inside the range. Escape cancels. Delete
+  empties the selection. Space toggles a yes/no cell. Input methods work,
+  because typing goes into a real text field over the active cell.
+* Copy, cut and paste carry tab-separated text, the format other
+  spreadsheet apps read and write (quoted cells with tabs, line breaks and
+  quotes too). Pasted text is read per column type: numbers in the person's
+  notation, with currency signs and grouping; dates in ISO form or the
+  locale's order; yes/no words. A paste wider than the sheet adds columns,
+  and a paste below the data adds rows. A single value pasted into a range
+  fills the range.
+* Cmd/Ctrl+D fills down and Cmd/Ctrl+R fills right. Rows and columns are
+  inserted above, below, left or right, and deleted, from the context menu
+  (right click, the menu key or Shift+F10) or the Insert menu. A column that
+  a formula reads cannot be deleted; the editor names the formula column.
+  Columns move left and right from the column head's menu. A column is
+  resized by dragging its head's edge.
+* The toolbar sets the selected columns' type and number format, decimals,
+  and bold; it sorts by the active column (the stored rows are reordered) and
+  filters. A filter is a column's value list and only hides rows while the
+  person works; it is not saved. The page has its own filter for readers.
+  "Column settings" opens the inspector: name, type, unit or currency code,
+  decimals, total, formula (checked as it is typed, with the other columns'
+  keys listed), width, alignment, bold, colour, and the sheet's frozen
+  columns and note.
+* The header row and the frozen columns stay in view. The totals row stays
+  at the bottom. Below the data, empty rows are offered to type into. The
+  grid draws only the rows in view, so 1,000 rows scroll smoothly.
+* "Insert chart" opens the shared chart editor on the selection (all
+  columns when one cell is selected; all rows when one row or less is
+  selected). The chart is stored bound to the chosen columns and rows,
+  clipped to what the chart type can draw. Charts appear under the grid and
+  can be edited or deleted there.
+* The sheet tabs add, rename (double-click or F2), reorder (drag, or
+  Alt+Shift+arrow) and, from a tab's menu, duplicate and delete sheets. The
+  last sheet stays.
+
+Every grid action is one undo step with its name ("Paste", "Sort by
+Amount"). A typed cell is one step when it is committed. Cmd/Ctrl+Z works
+from the grid; while a cell is being typed in, it undoes the typing. A save
+waits, with the reason, while a formula is one the server would refuse.
+
+## Documents
+
+A document (`docs`) is a summary line and a body of Markdown
+(`dodaios/nodes/kinds/docs.py`). The page draws the body with the report
+pipeline (Python-Markdown with the "extra", "sane_lists" and "toc"
+extensions, raw HTML shown as text) and the report blocks
+(`report_blocks.py`): a fenced `chart` block, a fenced `metrics` block, a
+quote opening with `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]` or
+`[!CAUTION]` (a callout), a numbered list of bold-titled items (steps), and
+a list of links (sources). On top of that the docs page draws `~~struck~~`
+text and checklist items (`- [ ]`, `- [x]`) as a box that cannot be
+changed on the page. A picture is shown only when it is embedded (a data URI); one from
+an address is its description.
+
+**The document editor.** "Edit" on a document opens a rich-text editor
+(`frontend/src/components/nodes/editors/docs/`, TipTap on ProseMirror):
+
+* The page's title, then the summary as the first line (plain text, Enter
+  goes on into the body), then the body as it reads: headings, paragraphs,
+  bold, italic, strikethrough, inline code, links, bulleted, numbered and
+  check lists (nested with Tab), quotes, callouts in their five tones, code
+  blocks, tables, dividers, pictures, charts and key figures.
+* The toolbar holds the block type (text, section heading `##`, subheading
+  `###`, minor heading `####`), the marks, the link form (Cmd/Ctrl+K),
+  the lists, quote, callout and code block, and "Insert" (table, chart, key
+  figures, picture, divider). While the caret is in a table, the toolbar also
+  holds rows and columns (insert above, below, left, right; delete) and the
+  column's alignment, which Markdown keeps per column. The outline button
+  opens the headings in the side panel; a click goes to the heading.
+* Markdown typed at the start of a line becomes its block (`## `, `- `,
+  `1. `, `[ ] `, `> `, three backticks, `---`, `[!tip] ` for a callout),
+  and `**bold**`, `*italic*`, `~~struck~~` and backticks become marks.
+  The keys, each with Cmd/Ctrl: B, I, E (code), Shift+S (strike),
+  Shift+7/8/9 (numbered, bulleted, check list), Shift+B (quote), Alt+C
+  (code block), Alt+1/2/3 (the three headings), Alt+0 (text), K (link).
+* A chart block is drawn as the chart (`charts/ChartPreview.tsx`) and edited
+  in the shared chart dialog. A chart whose JSON the grammar cannot draw is
+  offered as its JSON to fix. Key figures are edited as up to six value,
+  label and detail fields.
+* A picture is pasted, dropped or picked, then scaled down and embedded as a
+  JPEG data URI until it fits in what is left of the body's 200,000
+  characters. A picture that cannot fit is refused with a sentence.
+* Undo and redo are the text editor's own history for the whole document,
+  summary included. The frame's buttons and keys use it. Saving, conflicts
+  and the assistant's revisions are the shared `useNodeSpecEditor`. A
+  revision taken while open replaces the content, and one undo brings the
+  person's version back. A save waits with a sentence when the body is empty
+  or longer than the server keeps.
+
+**How the Markdown survives.** The editor reads the body with markdown-it
+(`markdown/parse.ts`) and writes it back with its own writer
+(`markdown/serialize.ts`) in the subset that Python-Markdown and markdown-it
+read the same way:
+
+* list items are nested by four spaces;
+* blocks are separated by a blank line;
+* a hard break is two trailing spaces;
+* only characters Python-Markdown can unescape get a backslash, and the rest
+  are written as character references (`&#126;` for a literal `~~`).
+
+Python-Markdown merges a quote with a quote above it, and a list with a list
+of its kind above it, even across a blank line. The writer keeps them apart
+with a paragraph holding only `&#8203;`, which draws nothing and which the
+reader drops again.
+
+A block the person did not touch keeps its exact original text, and so does
+the gap between two untouched neighbours (`markdown/document.ts`). Blocks
+are matched by their content, not their position. Opening and closing a
+document therefore changes nothing, and an edit rewrites only the blocks it
+touched. Shapes only Python-Markdown knows (a footnote, abbreviation or
+definition-list paragraph, a lone attribute list) are kept as a "Markdown"
+block that is edited as text. Link reference definitions are kept while a
+block still uses them.
+
+Limits of the writer, in edited blocks only:
+
+* Markdown has no underline, so the editor offers none.
+* Bold or italic on inline code is dropped, because the code mark excludes
+  other marks.
+* A link's title is kept, but it cannot be edited.
+* A list written loose (blank lines between items) is written tight when it
+  is edited.
+* A paragraph's line breaks inside a sentence become spaces.
+
+The round trip is tested both ways on shared fixtures (`docs/__fixtures__/`):
+the frontend tests that each fixture keeps its text untouched and means the
+same when it is written again. `tests/unit/nodes/test_kind_docs.py` tests
+that the page drawn from the editor's text holds every block of the original.
+
+## Visuals
+
+A visual (`design`) is one freely designed page: a poster, an invitation, a
+one-pager. Its spec is the markup and the style sheet the assistant wrote
+(`html`, `css`), cleaned by `normalize` to an allowlist of elements and
+attributes (`dodaios/nodes/kinds/design.py`), and how it is shown: `fit`
+`page` (a scrolling page as wide as the window) or `canvas` (an artboard of
+`width` x `height` px, scaled to the window), a `background`, and two
+optional keys:
+
+* `accent`: a colour that replaces the theme's `--accent` on this design,
+  with its `--accent-soft` and, for a hex, an `--accent-ink` that keeps its
+  contrast. A design built on `var(--accent)` changes colour in one step.
+* `theme`: `light` or `dark` keeps the design in that theme whatever the
+  app shows (a dark poster stays dark). Left out, it follows the app.
+
+Both are written only when set, so a spec from before them is unchanged.
+
+**The Visuals editor** (`frontend/src/components/nodes/editors/design/`).
+A design has no block grammar, so the editor's blocks are the markup's own
+elements, addressed by their path of child indexes from `<main
+class="design">` (`designDoc.ts`):
+
+* The preview in the middle is the real page, drawn by the server from the
+  unsaved spec (`POST /api/nodes/{id}/preview`). A small script put into the
+  frame (`picker.ts`) outlines the block under the pointer, selects a block
+  on a click and lets a double-click type into a text in place (Enter or
+  leaving it keeps the words, Esc puts them back, Shift+Enter breaks the
+  line, Cmd/Ctrl+B and I mark words). Typed markup comes back with its inline
+  marks only, so typing never changes the structure. A drawing (`<svg>`) is
+  selected as a whole, and so is a text with inline marks. The frame talks in
+  messages tagged `dodaios-design` (`select`, `text`, `scroll`, `key` from
+  the frame; `state`, `select` to it); the editor checks every field.
+* The blocks list on the left is the same elements as a tree. The arrow keys
+  travel it (Right opens, Left closes or goes out), Alt+Up/Down moves a
+  block, Cmd/Ctrl+D duplicates, Delete removes, Enter goes to its text. A row
+  is dragged onto the edge of another to go before or after it, onto the
+  middle of a box to go inside it.
+* "Add block" puts a heading, text, button, picture, list, quote, card,
+  tags, figures, callout, divider or space after the selected block (or
+  inside a design's single wrapper). New blocks use the kit's classes and the
+  theme's tokens, so they take the design's type and colours.
+* The inspector edits the selected block: its words (a new line is a line
+  break), a link's address, a picture (replaced from a file, scaled down to
+  fit the 400,000 characters a design may embed) and its description, and
+  its look as the element's own inline style: text colour, background (theme
+  tokens first, so it reads in both themes, or any hex), size, weight,
+  alignment, padding, corners; fill, line and line width for a drawing.
+  With nothing selected it edits the page: shown as page or artboard, the
+  artboard's size (presets or width and height), ground, accent, theme and
+  the style sheet itself.
+
+A save waits while the design holds no block at all, and says so.
+
+## Analytics
+
+An analysis (`data`) is a dashboard: a summary, the named `sources`, and up
+to 12 sections, each with a title, a short text, metric tiles (label,
+value, change, detail, and `better: lower` for a figure whose fall is good
+news), charts in the shared chart grammar, and tables
+(`dodaios/nodes/kinds/data.py`). Charts keep the grammar's `stacked` and
+`colors` when they say something, and a pie or donut is drawn at its own
+size beside its legend instead of on the plot frame the other kinds scroll
+on. A dashboard can be kept current: the new-node dialog asks where the data
+comes from and how often to look, and the refresh reads those sources again.
+
+**The Analytics editor** (`frontend/src/components/nodes/editors/data/`)
+lays the dashboard out as the page does: tiles in rows of even length,
+charts two per row with wide ones across, tables below, every text typed
+where it stands.
+
+* Every tile, chart, table and section can be selected, moved earlier or
+  later (its buttons, the arrow keys on its handle, or a drag in its row),
+  duplicated (Cmd/Ctrl+D) and deleted (Delete). "Metric", "Chart", "Table"
+  and "Section" add one to the selected section, up to the limits the
+  renderer keeps (8 tiles, 8 charts, 4 tables, 12 sections).
+* Charts are made and changed in the shared chart editor; the width in the
+  row ("Full width") is the dashboard's and stays when a chart is edited.
+* A table is a small grid: Enter and the arrows move between cells, Enter on
+  the last row adds one, rows and columns are added and removed, and cells
+  pasted from a spreadsheet or a CSV file fill it from the cell they land in,
+  growing it. A plain number is saved as a number; text with a unit or a
+  currency stays text, which the page still reads as a number.
+* The inspector holds what has no place on the page: "Lower is better",
+  "Full width", moving a piece to another section, and with nothing selected
+  the summary and the sources.
+* "See the page" shows the real page drawn from the unsaved spec.
+
+The dashboard keeps at least one tile, chart or table: the last one cannot
+be deleted. A save waits, with the reason, while a tile lacks its label or
+value or a table its column names. The status of a kept-current dashboard
+is the stage's upkeep bar above the editor; the inspector adds that a
+refresh may replace values typed by hand and keeps the layout.
+
+## Decks
+
+A deck (`slides`) is a list of slides, each a layout and that layout's
+fields (`dodaios/nodes/kinds/slides.py`, the grammar is in its `GUIDE`): an
+opening (`title`), a chapter divider (`section`), points (`bullets`),
+`columns`, a `quote`, figures (`stats`), a `chart`, a `table`, a picture
+(`image`), numbered `steps` and a `closing` slide. Every slide may carry
+speaker notes; the deck has a theme (`auto`, `light`, `dark`) and an accent
+colour. The page is a 16:9 player with an overview and the notes.
+
+Two things the grammar holds besides the layouts:
+
+* A chart slide's `chart` is the shared chart grammar, so it may be a pie or
+  a donut, stack its columns or bars (`"stacked": true`) and name its
+  colours (`"colors"`); a bar chart shows its first 10 rows.
+* An image slide's `fit` is `"contain"` to show the whole picture (a
+  screenshot, a diagram) instead of cropping it to its box.
+
+A slide that names its layout but lacks the layout's main field still takes
+the layout its fields fit (a `chart` slide without a chart becomes a
+section). When no layout fits but the slide holds some of its layout's texts
+(an opening whose title is being rewritten), it keeps its layout instead of
+being dropped.
+
+**The deck editor.** "Edit" on a deck opens the native editor
+(`frontend/src/components/nodes/editors/slides/`):
+
+* The strip shows every slide as a live thumbnail. "New slide" (toolbar or
+  under the strip) adds a slide of a picked layout after the selected one,
+  filled with short sample texts in the person's language, its title
+  selected so typing replaces it. A thumbnail is dragged to a new place; the
+  strip is a listbox, so the arrow keys select, Alt+arrow moves, Cmd/Ctrl+D
+  duplicates, Delete removes and Enter goes to the slide's title. Each
+  thumbnail also has a menu with these actions.
+* The selected slide stands large in the middle and every text on it is
+  typed into directly. A text with inline marks shows its source (`**bold**`)
+  while it is written. Enter in a point adds the next point, Backspace in an
+  empty point removes it. The speaker notes are under the slide.
+* The inspector holds every field of the slide's layout with the server's
+  length limits, the lists (points, columns, figures, steps, the table's rows
+  and columns) with add, move and remove, the picture (chosen, dropped or
+  pasted, made small enough to embed: at most 1920 px and 400,000
+  characters) and how it fills its box, and the chart, opened in the shared
+  chart editor. Changing the layout carries the content over: points become
+  steps, figures or columns; figures or a table become a chart and a chart a
+  table; a subtitle, a text and a quote move into each other. Adding a
+  picture slide, or switching to one, asks for the picture first.
+* The toolbar holds the deck's theme and accent, and "Present", which plays
+  the unsaved deck full screen from the selected slide (arrows, Space, N for
+  the notes, Escape ends on the slide reached).
+
+Every action is one step of the editor's undo history (typing in one field
+is one step per run, in the inspector or on the slide); undo and redo select
+the slide they change.
+
+How the editor draws a slide: in React (`SlideView.tsx`), with the same
+elements and classes as `slides.py`, inside a shadow root that carries the
+page's own stylesheet, taken once from `POST /api/nodes/{id}/preview` (the
+theme tokens move from `:root` to `:host`). The canvas, the thumbnails and
+the presenter are therefore the page's exact look without a request per
+keystroke. A chart's figure is the one exception: it is drawn by the
+server's chart renderer, fetched from the preview route when the chart or
+its slide's title changes. `tests/unit/nodes/test_kind_slides.py` writes the
+page's markup of one slide of every shape to
+`slides/__fixtures__/slides_markup.json` (and fails when it is stale);
+`SlideView.test.tsx` checks the editor draws the same tree.
+
 ## Comments on a node
 
 On the stage, "Comment" switches a typed node's page into comment mode. A
@@ -219,6 +610,53 @@ plain text. They go after what the field already holds. Pressing the tick while
 it records stops the recording, and the comment is added once the words are
 in. While another dictation in the app has the microphone, the field's
 microphone is disabled.
+
+## Editing a node
+
+"Edit" on the stage opens the node's native editor, one per type, in the
+app (`frontend/src/components/nodes/editors/`; a whiteboard has its own
+canvas, see Whiteboards). The editor works on the spec, not on the page: the
+page stays the reading view, the cover and what is shared, and Done draws it
+again from the saved spec. A node started blank from the library opens
+straight in its editor. Comment mode stays on the page. The page's own Edit
+(next section) is what a node without an editor falls back to.
+
+Every editor has the same frame (`EditorShell.tsx`): undo and redo, the
+type's toolbar, the save state and Done along the top, an optional inspector
+on the right. The editing state is `useNodeSpecEditor.ts`:
+
+* **Undo and redo.** Each change makes a new version of the spec without
+  touching the old one; the parts that did not change are shared, so a deep
+  history is cheap. A run of keystrokes in one field is one step (until
+  another field, a pause of two seconds, or an undo). A new change clears what
+  could be redone. The history keeps 200 steps. Cmd/Ctrl+Z undoes,
+  Shift+Cmd/Ctrl+Z and Ctrl+Y redo, while focus is in the editor; a text field
+  with its own undo (a rich-text field) keeps the keys.
+* **Saving.** The editor saves by itself 0.7 s after the last change, and at
+  once when focus leaves it, the window is hidden, Done is pressed or the
+  editor closes. A save sends the whole spec and the version it was edited
+  from. The type's `normalize` checks it as it checks the assistant's
+  writes. The answer carries the spec as it was kept, but the editor does not
+  put it under the person's hands (an empty row the person just added would
+  vanish); the page after Done shows what was kept. The saves of one stretch
+  of editing share one history version, so "undo that" (`revert`) goes back a
+  stretch, not a keystroke.
+* **Conflicts.** When the assistant revised the node while it is open, the
+  editor takes the new version if nothing is unsaved (as a step that can be
+  undone). With unsaved work, autosave stops and a bar offers "Take theirs"
+  (also undoable, so the person's own work is one undo away) or "Keep mine"
+  (saved over the other version). A save the server refuses because the node
+  moved on (409) ends in the same bar. Done does not drop unsaved work
+  silently: when the save fails it says so and offers to leave anyway.
+
+Charts are made in one shared dialog (`editors/charts/ChartEditor.tsx`): the
+kind (columns, bars, line, area, pie, donut, columns and bars stacked),
+title, unit, note, the data in a small grid (a block pasted from a
+spreadsheet app fills it) or taken from a sheet's columns, the colours, and a
+live preview. It hands back exactly the JSON `parse_chart`
+(`dodaios/artifacts/report_blocks.py`) reads, checked by the same rules
+(`charts/chartModel.ts`), so every type that holds charts draws them with the
+one renderer.
 
 ## Editing a node in its page
 
@@ -358,6 +796,8 @@ All routes are in `dodaios/ui/web/nodes_routes.py`.
 | `PATCH /api/nodes/{id}` | Body `{"title"}`. Renames the node and returns its card. |
 | `POST /api/nodes/{id}/duplicate` | Body `{"title"?}`. Makes a second node with the same content and returns its card. The copy has no upkeep and no history. |
 | `POST /api/nodes/{id}/edit` | Body `{"path", "value", "as"}`. Saves one value the reader typed into the page; answers with the node's state. |
+| `PUT /api/nodes/{id}/spec` | Body `{"spec", "base_version"}`. A type editor's save of the whole spec, made from `base_version` (`null`: whatever the node holds). Answers `{"version", "updated_at", "spec"}` with the spec as the type kept it. `409` `{"detail", "version", "updated_at", "spec"}` when the node is no longer at `base_version`; `422` with the type's sentence when the spec is refused (and for a whiteboard). |
+| `POST /api/nodes/{id}/preview` | Body `{"spec"}`. The node's page drawn from that spec without saving it, served like the node's page (scripts run, network shut, not cached). `422` when the spec is refused. |
 | `POST /api/nodes/{id}/revert` | Puts the previous version back and returns the card. |
 | `POST /api/nodes/{id}/upkeep/stop` | Stops the upkeep and returns the node. |
 | `POST /api/nodes/{id}/upkeep/resume` | Body `{"every_minutes"?}`. Starts the upkeep again and returns the node. |
@@ -375,12 +815,12 @@ earlier version, no `track` to resume). `422` for a body of the wrong shape.
 running. The whiteboard routes answer `422` for a node of another type, `409`
 for a picture id that already holds a different picture, and `413` for a body
 over its ceiling (a scene of 8.5 MB, a picture of about 7 MB as base64, 2 MB
-of actions).
+of actions). The spec routes take a body of up to about 4 MB.
 
-The content of a node is not written through these routes, except a
-whiteboard's: the person's editor saves the scene, and scripts may run the
-`whiteboard` tool's actions. The assistant writes every other node through
-the `node` tool.
+The person's editors write a node's content through these routes: a
+whiteboard's scene, every other type's spec (`/spec`), one value typed into a
+page (`/edit`); scripts may run the `whiteboard` tool's actions. The
+assistant writes nodes through the `node` tool.
 
 For a typed node, `refreshing` is checked against the routine in every
 answer. If a person deleted or paused the routine in Automations, the node

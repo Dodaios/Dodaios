@@ -9,6 +9,8 @@ import { describe, expect, it } from "vitest";
 import en from "./locales/en.json";
 import pt from "./locales/pt.json";
 import appshotEditorEn from "./locales/appshot_editor/en.json";
+import nodeEditorsEn from "./locales/node_editors/en.json";
+import nodeEditorsPt from "./locales/node_editors/pt.json";
 import appshotEditorPt from "./locales/appshot_editor/pt.json";
 import computersEn from "./locales/computers/en.json";
 import computersPt from "./locales/computers/pt.json";
@@ -32,6 +34,7 @@ type Tree = Record<string, unknown>;
 const PAIRS: [string, Tree, Tree][] = [
   ["main", en, pt],
   ["appshot_editor", appshotEditorEn, appshotEditorPt],
+  ["node_editors", nodeEditorsEn, nodeEditorsPt],
   ["computers", computersEn, computersPt],
   ["local_models", localModelsEn, localModelsPt],
   ["marketplace", marketplaceEn, marketplacePt],

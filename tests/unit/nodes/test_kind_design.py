@@ -413,6 +413,19 @@ def test_cleaning_twice_changes_nothing(markup: str) -> None:
         assert design.normalize(spec) == spec
 
 
+def test_accent_and_theme_are_kept_only_when_set() -> None:
+    plain = design.normalize({"html": "<p>x</p>", "accent": "", "theme": "auto"})
+    styled = design.normalize({"html": "<p>x</p>", "accent": "#E4572E", "theme": "Dark"})
+
+    # A spec from before these keys normalizes exactly as it did.
+    assert "accent" not in plain and "theme" not in plain
+    assert (styled["accent"], styled["theme"]) == ("#E4572E", "dark")
+    assert design.normalize(styled) == styled
+    assert "accent" not in design.normalize({"html": "<p>x</p>", "accent": "red;}x{"})
+    assert "theme" not in design.normalize({"html": "<p>x</p>", "theme": "sepia"})
+    assert design.normalize({"html": "<p>x</p>", "accent": "green"})["accent"] == "green"
+
+
 # ------------------------------------------------------------------- render
 
 
@@ -449,6 +462,38 @@ def test_a_canvas_design_is_an_artboard_scaled_to_the_window() -> None:
     # Print shows the artboard at its natural size.
     assert ".design-art{position:relative;transform:none!important}" in page
     assert page == design.render(_node(spec))
+
+
+def test_an_accent_replaces_the_theme_accent_with_a_readable_ink() -> None:
+    light = design.render(_node(design.normalize({"html": "<p>x</p>", "accent": "#F5C518"})))
+    deep = design.render(_node(design.normalize({"html": "<p>x</p>", "accent": "#0B1F3A"})))
+    token = design.render(_node(design.normalize({"html": "<p>x</p>", "accent": "green"})))
+
+    assert ":root{--accent:#F5C518!important;" in light
+    assert "--accent-soft:color-mix(in srgb,#F5C518 16%,var(--bg))!important" in light
+    assert "--accent-ink:#141413!important" in light
+    assert "--accent-ink:#FFFFFF!important" in deep
+    # A token accent has no ink of its own to work out: the theme's stays.
+    assert ":root{--accent:var(--s3)!important;" in token and "--accent-ink:" not in (
+        token.split("--accent:var(--s3)")[1].split("}")[0]
+    )
+    # The design's own styles still come after it and can build on it.
+    assert light.index("--accent:#F5C518") < light.index(".design{min-height")
+
+
+@pytest.mark.parametrize("fit", [{}, {"width": 1080, "height": 1080}])
+def test_a_theme_keeps_the_design_in_it_whatever_the_app_shows(fit: dict[str, Any]) -> None:
+    dark = design.render(_node(design.normalize({"html": "<p>x</p>", "theme": "dark", **fit})))
+    auto = design.render(_node(design.normalize({"html": "<p>x</p>", **fit})))
+
+    lock = '<script>document.documentElement.setAttribute("data-theme","dark");</script>'
+    assert dark.count(lock) == 1
+    # In the head, after the bootstrap that reads ?theme=, before the styles.
+    assert dark.index("URLSearchParams") < dark.index(lock) < dark.index("<style>")
+    assert dark.index(lock) < dark.index("</head>")
+    assert "setAttribute(\"data-theme\",\"" not in auto.split("</head>")[0].replace(
+        "setAttribute(\"data-theme\",t)", ""
+    )
 
 
 def test_render_cleans_a_spec_that_was_stored_unclean() -> None:
@@ -489,7 +534,7 @@ def test_guide_is_compact_names_the_tokens_and_its_example_is_a_valid_spec() -> 
     assert (spec["fit"], spec["width"], spec["height"]) == ("canvas", 1080, 1350)
     assert spec["css"] == design.EXAMPLE["css"]
     assert json.dumps(design.EXAMPLE, ensure_ascii=False, separators=(",", ":")) in design.GUIDE
-    assert len(design.GUIDE) <= 2_500
+    assert len(design.GUIDE) <= 2_800
     for needle in ("--bg", "--ink", "--line", "--accent", "--s1", "var(--font)", "canvas", "svg"):
         assert needle in design.GUIDE
 
