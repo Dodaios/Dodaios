@@ -566,7 +566,7 @@ async def test_look_hands_the_pictures_to_the_model(
     assert seen["slides"] == [2, 3]
     assert [a["data"] for a in result.artifacts] == ["AAAA", "BBBB"]
     assert all(a["type"] == "image" and a["mime"] == "image/jpeg" for a in result.artifacts)
-    assert "2 piece(s)" in result.output and "Fix what fails" in result.output
+    assert "2 piece(s)" in result.output and "fix every weak point" in result.output
 
 
 async def test_look_without_a_browser_says_how_to_go_on(

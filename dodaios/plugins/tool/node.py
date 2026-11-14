@@ -82,12 +82,12 @@ _CHECK_IT: Final[str] = (
 )
 #: What a look asks the model to judge in its pictures.
 _JUDGE_IT: Final[str] = (
-    "Judge each picture as the audience will see it: is it for the audience and in the "
-    "language the person wanted; does every slide or section make one clear point; is "
-    "anything cramped, cut off, half empty or repetitive (the same layout again and "
-    "again); is every claim and number true and sourced; would a picture, chart or "
-    "real example say it better than text. Fix what fails with 'update', then look "
-    "again; answer the person only when you would present it yourself."
+    "Judge each picture as the audience will see it. Weak means: not for the audience or "
+    "not in the language the person wanted; a slide or section without one clear point; "
+    "a third of a slide empty, or text cramped or cut off; the same layout several times "
+    "in a row; a claim or number without a source; text where a picture, chart or real "
+    "example would say more. 'Acceptable' is not the bar: fix every weak point with "
+    "'update', then look again, and answer only when you would present it yourself."
 )
 
 
