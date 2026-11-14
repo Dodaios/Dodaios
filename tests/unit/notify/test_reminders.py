@@ -232,3 +232,136 @@ async def test_no_vault_is_a_quiet_tick() -> None:
 def test_person_zone_falls_back_to_utc() -> None:
     assert str(reminders.person_zone("Europe/Berlin")) == "Europe/Berlin"
     assert str(reminders.person_zone("Mars/Olympus")) in ("UTC", str(reminders.person_zone(None)))
+
+
+# ------------------------------------------------------------ calendar items
+
+
+def test_rows_say_whose_item_it_is_what_it_is_called_and_when_it_runs(vault: MemoryVault) -> None:
+    from dodaios.memory.vault import calendar_sync
+
+    calendar_sync.apply_events(
+        vault,
+        [
+            {
+                "id": "e1",
+                "summary": "Dentist",
+                "start": "2026-11-10T11:00:00+01:00",
+                "end": "2026-11-10T11:30:00+01:00",
+                "location": "Main St 1",
+                "url": "https://calendar.example/e1",
+                "calendar": "Family",
+            },
+            {
+                "id": "b1",
+                "summary": "Busy",
+                "start": "2026-11-10T12:00:00Z",
+                "end": "2026-11-10T12:15:00Z",
+                "calendar": "availability",
+            },
+            {"id": "h1", "summary": "Holiday", "start": "2026-11-11", "end": "2026-11-12"},
+        ],
+        zone=BERLIN,
+    )
+    reminders.create_reminder(vault, "call the bank", NOW_LOCAL + timedelta(hours=1))
+    rows = reminders.list_due(vault, days=2)
+    dentist = next(r for r in rows if r["title"] == "Dentist")
+    assert dentist["source"] == "google_calendar" and dentist["reminder"] is False
+    assert (dentist["start"], dentist["end"]) == (
+        "2026-11-10T10:00:00+00:00",
+        "2026-11-10T10:30:00+00:00",
+    )
+    assert (dentist["calendar"], dentist["location"]) == ("Family", "Main St 1")
+    assert dentist["url"] == "https://calendar.example/e1"
+    assert dentist["all_day"] is False and dentist["busy_only"] is False
+    busy = next(r for r in rows if r["busy_only"])
+    assert (busy["title"], busy["calendar"]) == ("", "availability")
+    holiday = next(r for r in rows if r["title"] == "Holiday")
+    assert holiday["all_day"] is True
+    assert (holiday["start"], holiday["end"]) == ("2026-11-11", "2026-11-12")
+    own = next(r for r in rows if r["reminder"])
+    assert (own["source"], own["title"], own["end"], own["url"]) == (
+        "dodaios",
+        "call the bank",
+        None,
+        "",
+    )
+
+
+def test_an_appointment_written_before_its_source_fields_still_reads(vault: MemoryVault) -> None:
+    """An older sync's memory: title from the sentence, overdue by its moment, not its text."""
+    vault.remember(
+        "Appointment: Busy on 2026-11-10 10:15.",
+        "ephemeral",
+        origin="imported",
+        source={"via": "calendar", "event_id": "e1"},
+        valid_to="2026-11-10T15:00:00+01:00",
+        due_at="2026-11-10T10:15:00+01:00",
+    )
+    vault.remember(
+        "Appointment: Holiday on 2026-11-11.",
+        "ephemeral",
+        origin="imported",
+        source={"via": "calendar", "event_id": "h1"},
+        valid_to="2026-11-12T00:00:00+00:00",
+        due_at="2026-11-11T00:00:00+00:00",
+    )
+    busy, holiday = reminders.list_due(vault, days=2)
+    assert (busy["source"], busy["busy_only"], busy["title"]) == ("google_calendar", True, "")
+    # 10:15 +01:00 is 09:15 UTC: past at 09:30 UTC, although its text sorts later.
+    assert busy["overdue"] is True
+    assert busy["start"] == "2026-11-10T10:15:00+01:00"
+    assert busy["end"] == "2026-11-10T15:00:00+01:00"
+    assert (holiday["title"], holiday["all_day"], holiday["busy_only"]) == ("Holiday", True, False)
+
+
+async def test_an_appointment_the_sync_rewrites_is_not_told_twice(
+    vault: MemoryVault, clock: Clock, tmp_path: Path
+) -> None:
+    import json
+
+    from dodaios.memory.vault import calendar_sync
+
+    svc, sid = _service(tmp_path)
+    notifier = _Notifier()
+    # Written before 2026-11-14: the old sentence and the event's own offset.
+    old = vault.remember(
+        "Appointment: Workshop on 2026-11-10 10:00.",
+        "ephemeral",
+        origin="imported",
+        source={"via": "calendar", "event_id": "e1"},
+        valid_to="2026-11-10T12:00:00+01:00",
+        due_at="2026-11-10T10:00:00+01:00",
+    ).memory
+    vault.set_meta(calendar_sync.META_KEY, json.dumps({"e1": old.id}))
+    scheduler = reminders.ReminderScheduler(
+        vault=lambda: vault, target=lambda: (svc, sid), notifier=lambda: notifier, clock=clock.utc
+    )
+    clock.moment = NOW_LOCAL + timedelta(hours=1)
+    assert await scheduler.tick() == [old.id]
+    event = {
+        "id": "e1",
+        "summary": "Workshop",
+        "start": "2026-11-10T10:00:00+01:00",
+        "end": "2026-11-10T12:00:00+01:00",
+    }
+    assert calendar_sync.apply_events(vault, [event], zone=BERLIN)["updated"] == 1
+    [row] = reminders.list_due(vault, days=1)
+    assert row["id"] != old.id and row["delivered"] is True
+    assert row["due_at"] == "2026-11-10T09:00:00+00:00"
+    assert await scheduler.tick() == []
+    assert len(notifier.calls) == 1
+
+
+def test_a_reminder_moved_to_another_time_is_told_again(vault: MemoryVault, clock: Clock) -> None:
+    from dodaios.memory.vault import calendar_sync
+
+    event = {"id": "e1", "summary": "Call", "start": "2026-11-10T09:00:00Z"}
+    event["end"] = "2026-11-10T10:00:00Z"
+    calendar_sync.apply_events(vault, [event])
+    [first] = vault.list(kind="ephemeral")
+    vault.set_meta("reminder.delivered:" + first.id, clock())
+    moved = {**event, "start": "2026-11-10T09:20:00Z", "end": "2026-11-10T10:20:00Z"}
+    calendar_sync.apply_events(vault, [moved])
+    [row] = reminders.list_due(vault, days=1)
+    assert row["id"] != first.id and row["delivered"] is False

@@ -5,7 +5,8 @@ import { fill, useT, useUiLanguage } from "@/i18n";
 import { prettyProviderName } from "@/lib/prettyProviderName";
 import type { ReminderRow } from "@/lib/remindersApi";
 
-import { formatDue, useDueRemindersStore, watchDueReminders } from "./dueReminders";
+import { useDueRemindersStore, watchDueReminders } from "./dueReminders";
+import { itemDetail, itemTitle, reminderItems, sourceName, type ReminderItem } from "./reminderItems";
 
 import { useStatusLightStore, watchStatusLight, type StatusLightData, type StatusRow } from "./statusLightStore";
 
@@ -41,7 +42,12 @@ export type NoticeMark =
   | { type: "cli"; id: string }
   | { type: "agent"; id: string }
   /** No logo and no face to show: a plain sign for the kind of thing it is. */
-  | { type: "glyph"; glyph: NoticeGlyph };
+  | { type: "glyph"; glyph: NoticeGlyph }
+  /**
+   * Where due reminders come from: the service's own logo (Google Calendar),
+   * Dodaios' mark for the person's own, and `fallback` for a service without one.
+   */
+  | { type: "source"; id: string; fallback: NoticeGlyph };
 
 /** The plain signs a tile can show when there is no logo and no face. */
 export type NoticeGlyph = "agent" | "terminal" | "mission" | "reminder" | "appointment";
@@ -54,8 +60,12 @@ export type NoticeTarget =
   | { type: "plugin"; pluginId: string }
   | { type: "keys" }
   | { type: "row"; row: StatusRow }
-  /** A due reminder: its card ticks it off or snoozes it, right on the rail. */
-  | { type: "reminder"; id: string };
+  /**
+   * The due reminders of one source: its card lists them, each with what fits
+   * it (an appointment opens in its calendar or is dismissed; a reminder is
+   * ticked off or snoozed), right on the rail.
+   */
+  | { type: "reminders"; items: ReminderItem[] };
 
 export interface RailNotice {
   key: string;
@@ -247,24 +257,37 @@ function providerNotices(light: StatusLightData, t: Translate): RailNotice[] {
 }
 
 /**
- * Reminders whose time has come, oldest first: the text as the sentence, when
- * it was due as the second line. A calendar appointment the scheduler told
- * (no `reminder` flag) shows a calendar instead of the bell.
+ * Reminders whose time has come: one notice per source (Google Calendar, the
+ * person's own), oldest first, with the same item seen twice folded into one.
+ * The tile shows the source's logo; its card lists every item with its own
+ * title, its time in words, and what fits it.
  */
 function reminderNotices(rows: ReminderRow[], t: Translate, locale: string): RailNotice[] {
-  return rows.filter((row) => row.id && row.text).map((row): RailNotice => {
-    const when = formatDue(row.due_at, locale);
+  const bySource = new Map<string, ReminderItem[]>();
+  for (const item of reminderItems(rows)) {
+    const list = bySource.get(item.source);
+    if (list) list.push(item);
+    else bySource.set(item.source, [item]);
+  }
+  return [...bySource.entries()].map(([source, items]): RailNotice => {
+    const [first] = items;
+    const more = items.length - 1;
+    const appointments = items.every((item) => item.appointment);
+    const reminders = items.every((item) => !item.appointment);
+    const counted = appointments ? "reminders.count_appointments" : reminders ? "reminders.count_reminders" : "reminders.count_items";
     return {
-      key: `reminder:${row.id}`,
+      key: `reminders:${source}`,
       ask: "due",
       tone: "needs",
-      mark: { type: "glyph", glyph: row.reminder ? "reminder" : "appointment" },
-      subject: t("reminders.due_title"),
-      title: row.text,
-      detail: when ? fill(t("rail_notice.reminder_detail"), { when }) : "",
-      action: t("reminders.done"),
-      count: 1,
-      target: { type: "reminder", id: row.id },
+      mark: { type: "source", id: source, fallback: first.appointment ? "appointment" : "reminder" },
+      subject: sourceName(source, t),
+      title: more > 0 ? fill(t(counted), { count: items.length }) : itemTitle(first.row, t),
+      detail: more > 0
+        ? [itemTitle(first.row, t), fill(t("rail_notice.and_more"), { count: more })].join(" · ")
+        : itemDetail(first.row, locale, t),
+      action: t(first.appointment ? "reminders.dismiss" : "reminders.done"),
+      count: items.length,
+      target: { type: "reminders", items },
     };
   });
 }

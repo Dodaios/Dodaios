@@ -104,19 +104,29 @@ async function apiFetch({ method, token, path, params, body }) {
 
 const ev = (id) => encodeURIComponent(id);
 
-/** Trim a raw Calendar event down to the fields Dodaios actually uses. */
-function summarizeEvent(rawEvent, calendarId, calendarName) {
+/**
+ * Trim a raw Calendar event down to the fields Dodaios actually uses.
+ * `calendar` is the calendar as `fetchCalendars` lists it; without one (a
+ * write, or the primary-only fallback) only its id is known.
+ */
+function summarizeEvent(rawEvent, calendarId, calendar = {}) {
   return {
     id: rawEvent.id,
     calendar_id: calendarId,
-    calendar: calendarName || calendarId,
+    calendar: calendar.name || calendarId,
     summary: rawEvent.summary || "(no title)",
     start: rawEvent.start?.dateTime || rawEvent.start?.date || null,
     end: rawEvent.end?.dateTime || rawEvent.end?.date || null,
+    // A whole day (or several): the start is a date without a time.
+    all_day: Boolean(rawEvent.start?.date && !rawEvent.start?.dateTime),
     location: rawEvent.location || null,
     status: rawEvent.status || null,
     // Where the event opens in Google Calendar; the assistant links it in its reply.
     url: rawEvent.htmlLink || null,
+    // "freeBusyReader": the calendar is shared as free/busy only, so its
+    // entries carry no title of their own. "owner", "writer", "reader" otherwise.
+    calendar_access: calendar.access || null,
+    calendar_primary: Boolean(calendar.primary),
   };
 }
 
@@ -128,20 +138,25 @@ async function fetchCalendars(token) {
   const items = Array.isArray(res.data?.items) ? res.data.items : [];
   return {
     ok: true,
-    calendars: items.map((c) => ({ id: c.id, name: c.summary || c.id })),
+    calendars: items.map((c) => ({
+      id: c.id,
+      name: c.summary || c.id,
+      access: c.accessRole || "",
+      primary: Boolean(c.primary),
+    })),
   };
 }
 
-async function listEventsForCalendar(token, calId, calName, params) {
+async function listEventsForCalendar(token, calendar, params) {
   const res = await apiFetch({
     method: "GET",
     token,
-    path: `/calendars/${ev(calId)}/events`,
+    path: `/calendars/${ev(calendar.id)}/events`,
     params,
   });
   if (!res.ok) return { error: res, events: [] };
   const items = Array.isArray(res.data?.items) ? res.data.items : [];
-  return { events: items.map((e) => summarizeEvent(e, calId, calName)) };
+  return { events: items.map((e) => summarizeEvent(e, calendar.id, calendar)) };
 }
 
 async function listEvents(token, args) {
@@ -165,11 +180,11 @@ async function listEvents(token, args) {
     if (cal.status === 401) {
       return { ok: false, status: 401, error: "Calendar API 401" };
     }
-    targets = [{ id: "primary", name: "primary" }];
+    targets = [{ id: "primary", name: "primary", access: "", primary: true }];
   }
 
   const perCal = await Promise.all(
-    targets.map((t) => listEventsForCalendar(token, t.id, t.name, params))
+    targets.map((t) => listEventsForCalendar(token, t, params))
   );
   // A 401 from any calendar → ask the bridge to refresh.
   const auth401 = perCal.find((r) => r.error && r.error.status === 401);

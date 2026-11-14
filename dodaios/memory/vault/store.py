@@ -603,6 +603,21 @@ class MemoryVault:
             "entities": self._db.execute("SELECT COUNT(*) FROM entity").fetchone()[0],
         }
 
+    def end_reason(self, memory_id: str) -> str | None:
+        """Why a memory was ended without a replacement (its last ``invalidate``), else None."""
+        row = self._db.execute(
+            "SELECT detail FROM audit WHERE memory_id=? AND action='invalidate' "
+            "ORDER BY seq DESC LIMIT 1",
+            (memory_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        try:
+            detail = json.loads(row["detail"] or "{}")
+        except ValueError:  # an unreadable audit row still says it was ended
+            return ""
+        return str(detail.get("reason") or "") if isinstance(detail, dict) else ""
+
     def audit_log(self, *, limit: int | None = None) -> list[dict[str, Any]]:
         sql = "SELECT seq, at, action, memory_id, detail FROM audit ORDER BY seq"
         if limit:

@@ -11425,7 +11425,6 @@
     "save_failed": "更改未保存。"
   },
   "reminders": {
-    "due_title": "提醒",
     "done": "完成",
     "snooze": "稍后",
     "snooze_15": "15 分钟",
@@ -11438,7 +11437,20 @@
     "undo": "撤销",
     "undone": "已移除",
     "task": "任务",
-    "failed": "没有成功，请再试一次。"
+    "failed": "没有成功，请再试一次。",
+    "source_google_calendar": "Google 日历",
+    "source_dodaios": "提醒",
+    "busy_title": "忙碌（未共享详情）",
+    "busy_hint": "此日历只显示这段时间忙碌，不显示具体内容。",
+    "untitled": "无标题日程",
+    "day_time": "{day} {time}",
+    "all_day_on": "{day} 全天",
+    "dismiss": "忽略",
+    "open_in": "在 {service} 中打开",
+    "snooze_label": "再次提醒：",
+    "count_appointments": "{count} 个日程",
+    "count_reminders": "{count} 条提醒",
+    "count_items": "{count} 项"
   },
   "mobile": {
     "settings": {
@@ -11577,7 +11589,6 @@
   },
   "rail_notice": {
     "title": "需要你处理",
-    "reminder_detail": "自 {when} 起到期",
     "more": "还有 {count} 项",
     "and_more": "另有 {count} 项",
     "an_agent": "一个智能体",

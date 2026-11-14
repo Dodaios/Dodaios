@@ -73,12 +73,29 @@ export interface TelegramState {
 
 export interface ReminderRow {
   id: string;
+  /** The memory's sentence ("Appointment: Dentist on 2026-11-12 09:00–10:00."). */
   text: string;
   due_at: string | null;
   kind: string;
+  /** A reminder the person asked for; false for an appointment from a calendar. */
   reminder: boolean;
   overdue: boolean;
   delivered: boolean;
+  /** Whose item it is: `dodaios` for the person's own, else the service (`google_calendar`). */
+  source?: string;
+  /** The item's own title; "" when the calendar entry has none (see `busy_only`). */
+  title?: string;
+  /** The calendar shares only that this time is busy, not what the entry is. */
+  busy_only?: boolean;
+  /** When an appointment runs: ISO moments, or dates for a whole day. A reminder's start is its due time. */
+  start?: string | null;
+  end?: string | null;
+  all_day?: boolean;
+  /** The calendar's name ("" for the primary one). */
+  calendar?: string;
+  location?: string;
+  /** Where the item opens in its own service (Google Calendar's event page). */
+  url?: string;
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {

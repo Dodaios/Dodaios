@@ -141,3 +141,29 @@ def test_build_never_raises(monkeypatch) -> None:
     monkeypatch.setattr(spoken_brief, "_read_upcoming", broken)
     text = asyncio.run(spoken_brief.build(language="es"))
     assert "nada previsto" in text
+
+
+def test_compose_reads_utc_due_times_on_the_persons_clock() -> None:
+    """The vault keeps due times in UTC; the brief says them on the person's clock."""
+    from zoneinfo import ZoneInfo
+
+    now = datetime(2026, 11, 10, 7, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+    # In the vault's order: by due time.
+    memories = [
+        _memory("Appointment: Fair from 2026-11-10 to 2026-11-12.", "2026-11-09T23:00:00+00:00"),
+        _memory(
+            "Appointment: Dentist on 2026-11-10 09:00–09:30 (Main Street).",
+            "2026-11-10T08:00:00+00:00",
+        ),
+        _memory(
+            'Appointment: busy, no details shared (calendar "Work") on 2026-11-10 23:30–23:45.',
+            "2026-11-10T22:30:00+00:00",
+        ),
+        # Half past midnight in Berlin is tomorrow, although UTC still says today.
+        _memory("Appointment: Gym on 2026-11-11 00:30–01:30.", "2026-11-10T23:30:00+00:00"),
+    ]
+    text = spoken_brief.compose_from_memories(memories, now=now, language="en")
+    assert text == (
+        "Today: at 00:00, Fair; at 09:00, Dentist (Main Street); "
+        'at 23:30, busy, no details shared (calendar "Work").'
+    )

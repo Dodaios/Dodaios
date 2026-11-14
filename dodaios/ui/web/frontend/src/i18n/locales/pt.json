@@ -11425,7 +11425,6 @@
     "save_failed": "A alteração não foi salva."
   },
   "reminders": {
-    "due_title": "Lembrete",
     "done": "Feito",
     "snooze": "Adiar",
     "snooze_15": "15 min",
@@ -11438,7 +11437,20 @@
     "undo": "Desfazer",
     "undone": "Removido",
     "task": "Tarefa",
-    "failed": "Não funcionou. Tente de novo."
+    "failed": "Não funcionou. Tente de novo.",
+    "source_google_calendar": "Google Agenda",
+    "source_dodaios": "Lembrete",
+    "busy_title": "Ocupado (sem detalhes compartilhados)",
+    "busy_hint": "Esta agenda só compartilha que o horário está ocupado, não do que se trata.",
+    "untitled": "Evento sem título",
+    "day_time": "{day}, {time}",
+    "all_day_on": "{day}, o dia todo",
+    "dismiss": "Dispensar",
+    "open_in": "Abrir no {service}",
+    "snooze_label": "Lembrar de novo:",
+    "count_appointments": "{count} compromissos",
+    "count_reminders": "{count} lembretes",
+    "count_items": "{count} itens"
   },
   "mobile": {
     "settings": {
@@ -11577,7 +11589,6 @@
   },
   "rail_notice": {
     "title": "Precisa de você",
-    "reminder_detail": "Pendente desde {when}",
     "more": "mais {count}",
     "and_more": "e mais {count}",
     "an_agent": "Um agente",

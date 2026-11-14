@@ -301,3 +301,53 @@ def test_a_created_event_comes_back_with_its_calendar_link(tmp_path) -> None:
     result = json.loads(proc.stdout)
     assert result["ok"] is True, result
     assert result["data"]["url"] == "https://www.google.com/calendar/event?eid=abc"
+
+
+def test_listed_events_say_whose_calendar_and_how_it_is_shared(tmp_path) -> None:
+    """The real Node bot, Google stubbed: each event names its calendar's access and whole days."""
+    import json
+    import shutil
+    import subprocess
+
+    from dodaios.plugins.tool.google_calendar_rest import _BOT_PATH
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is not installed")
+    stub = tmp_path / "stub.mjs"
+    stub.write_text(
+        "globalThis.fetch = async (url) => {\n"
+        "  const u = String(url);\n"
+        "  const body = u.includes('/calendarList') ? {items: [\n"
+        "      {id: 'me@example.com', summary: 'me@example.com',\n"
+        "       accessRole: 'owner', primary: true},\n"
+        "      {id: 'team@group', summary: 'Team', accessRole: 'freeBusyReader'}]}\n"
+        "    : u.includes('team%40group') ? {items: [{id: 'b1',\n"
+        "      start: {dateTime: '2026-11-20T10:00:00Z'},\n"
+        "      end: {dateTime: '2026-11-20T11:00:00Z'}}]}\n"
+        "    : {items: [{id: 'h1', summary: 'Holiday',\n"
+        "      start: {date: '2026-11-21'}, end: {date: '2026-11-22'}}]};\n"
+        "  return new Response(JSON.stringify(body),\n"
+        "    {status: 200, headers: {'content-type': 'application/json'}});\n"
+        "};\n",
+        encoding="utf-8",
+    )
+    payload = {
+        "access_token": "at_1",
+        "action": "list_events",
+        "time_min": "2026-11-20T00:00:00Z",
+        "time_max": "2026-11-23T00:00:00Z",
+    }
+    proc = subprocess.run(
+        [node, "--import", stub.as_uri(), str(_BOT_PATH)],
+        input=json.dumps(payload), capture_output=True, text=True, timeout=30, check=False,
+    )
+    result = json.loads(proc.stdout)
+    assert result["ok"] is True, result
+    by_id = {event["id"]: event for event in result["data"]["events"]}
+    busy, holiday = by_id["b1"], by_id["h1"]
+    assert busy["calendar"] == "Team" and busy["calendar_access"] == "freeBusyReader"
+    assert busy["summary"] == "(no title)" and busy["calendar_primary"] is False
+    assert busy["all_day"] is False
+    assert holiday["all_day"] is True and holiday["calendar_primary"] is True
+    assert holiday["calendar_access"] == "owner"

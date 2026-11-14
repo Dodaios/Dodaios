@@ -69,7 +69,12 @@ _MD_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]*\)")
 _MD_MARK_RE = re.compile(r"[*_`~]+")
 _MD_LEAD_RE = re.compile(r"^\s*(?:#{1,6}\s*|[-*•]\s+|\d+[.)]\s+|>\s*)")
 _WS_RE = re.compile(r"\s+")
-_DUE_TAIL_RE = re.compile(r"\s+on\s+\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?(?=\s*[(.]|\s*$)")
+#: "on 2026-11-12 09:00–10:00", "on 2026-11-20", "from 2026-11-20 to 2026-11-22" at the end
+#: of an appointment's sentence (``memory/vault/calendar_sync.py``).
+_DUE_TAIL_RE = re.compile(
+    r"\s+(?:on\s+\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2}(?:[–-](?:\d{4}-\d{2}-\d{2}\s+)?\d{2}:\d{2})?)?"
+    r"|from\s+\d{4}-\d{2}-\d{2}\s+to\s+\d{4}-\d{2}-\d{2})(?=\s*[(.]|\s*$)"
+)
 _TIME_RE = re.compile(r"T?(\d{2}):(\d{2})")
 
 
@@ -98,6 +103,24 @@ def spoken_form(markdown: str, *, max_chars: int = SPOKEN_MAX_CHARS) -> str:
     return text[: cut + 1] if cut > 0 else text[:max_chars].rstrip() + "."
 
 
+def _on_clock(value: str, now: datetime) -> str:
+    """A due time on the person's clock (``now``'s zone), as ``YYYY-MM-DDTHH:MM``.
+
+    The vault keeps due times in UTC: read as written, a reminder at 10:15 in
+    Berlin was spoken as 09:15. A ``now`` without a zone keeps it as written.
+    """
+    text = str(value or "")
+    if now.tzinfo is None or "T" not in text:
+        return text
+    try:
+        moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:  # an unreadable time is spoken as written
+        return text
+    if moment.tzinfo is None:
+        return text
+    return moment.astimezone(now.tzinfo).isoformat(timespec="minutes")
+
+
 def _local_date(value: str) -> str:
     return str(value or "")[:10]
 
@@ -124,7 +147,7 @@ def compose_from_memories(
     due_today: list[Any] = []
     overdue: list[Any] = []
     for memory in memories:
-        due = _local_date(getattr(memory, "due_at", "") or "")
+        due = _local_date(_on_clock(getattr(memory, "due_at", "") or "", now))
         if not due:
             continue
         if due == today:
@@ -137,7 +160,7 @@ def compose_from_memories(
     if due_today:
         items = []
         for memory in due_today[:8]:
-            when = _time_of(str(getattr(memory, "due_at", "") or ""))
+            when = _time_of(_on_clock(str(getattr(memory, "due_at", "") or ""), now))
             text = _item_text(memory)
             items.append(
                 i18n_catalog.t("speech.brief.item_at", language, time=when, text=text)
@@ -219,7 +242,8 @@ async def _brief_task_id() -> str:
 
 async def build(*, language: str | None, now: datetime | None = None) -> str:
     """The brief to say now, in ``language``; never raises, never empty."""
-    moment = now or datetime.now()
+    # On the person's clock: the vault's due times are UTC (``_on_clock``).
+    moment = now or datetime.now().astimezone()
     try:
         task_id = await _brief_task_id()
         if task_id:
