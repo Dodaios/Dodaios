@@ -134,12 +134,14 @@ export function boardFileUrl(nodeId: string, fileId: string): string {
 export async function fetchBoardFile(nodeId: string, fileId: string): Promise<{ dataURL: string; mimeType: string }> {
   const response = await fetch(boardFileUrl(nodeId, fileId));
   if (!response.ok) throw new NodesApiError(response.status, "");
-  const blob = await response.blob();
-  const dataURL = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error("could not read the picture"));
-    reader.readAsDataURL(blob);
-  });
-  return { dataURL, mimeType: blob.type || response.headers.get("Content-Type") || "application/octet-stream" };
+  // The server names the type the bytes really have. The data URL is built
+  // from the bytes themselves rather than through a FileReader: that works the
+  // same in every engine, and a FileReader refuses a Blob from another realm.
+  const mimeType = (response.headers.get("Content-Type") || "application/octet-stream").split(";")[0]!.trim();
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  let binary = "";
+  for (let start = 0; start < bytes.length; start += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(start, start + 0x8000));
+  }
+  return { dataURL: `data:${mimeType};base64,${btoa(binary)}`, mimeType };
 }
