@@ -11,6 +11,85 @@ versioning per [SemVer](https://semver.org/).
 
 ---
 
+## [5.3.0] — 2026-11-14
+
+### Added
+
+- A deck's picture can name a file on this computer, so slides show screenshots (#1662)
+- The assistant looks at the deck it made and revises it before it answers (#1661)
+- Pets live in the app only, never on the desktop (#1655)
+- The level bars follow the voice smoothly (#1657)
+- Every node opens in a real editor of its own, with undo and charts (#1651)
+- A coding thread that asks the person something shows a question mark in the sidebar (#1652)
+- The Whiteboard icon is a board on its stand with a freehand line (#1648)
+- The Dodaios Bar is a small flat pill near the bottom edge with a lighter rim (#1647)
+- Whiteboards become a real infinite canvas the assistant can fully steer (#1641)
+- Clearer icons for Slides, Sheets, Visuals, Whiteboard and Clips (#1646)
+- The Activity tab shows the assistant's routines instead of "Looks after" (#1645)
+- Make the app your own by telling Dodaios how it should look (#1640)
+- The Dodaios Bar is rebuilt as a black pill with white marks (#1644)
+- Analytics asks where the data comes from and can keep itself current (#1638)
+- Each output in the side panel shows its library type's icon (#1637)
+- New starts a blank node of a kind at once and opens it ready to type (#1636)
+- A reminder that came due waits on the rail beside the chat (#1634)
+- A ring under the composer shows how full the context window is, and what fills it (#1626)
+- A sent comment's pin shows the assistant thinking (#1627)
+- Mark the threads Dodaios opened with its logo on the agent's mark (#1625)
+- A long dictation gets sensible paragraphs by itself (#1622)
+- A comment on a node can be dictated (#1624)
+- The pet in the panel plays what the assistant is doing (#1623)
+- The reader writes into a node's page directly, and each change is saved (#1614)
+- The assistant links a coding agent inside its sentence, in its own words (#1615)
+- Bypass permissions asks nothing, and the chat's approval card shows the app, the action and what is sent (#1611)
+- Comments on a node are collected and sent together, in the background (#1608)
+- The assistant links what it did or found: the sent email, the event, each pull request (#1609)
+- A comment left on a place of a node goes to the assistant, which revises it (#1606)
+- The call button turns into Send once there is text (#1605)
+- The type cards are redrawn, each with a small scene of what its nodes look like (#1604)
+- Web links show the site's logo and a short name, the full address on hover (#1601)
+- A type's tile shows the nodes of that type, and three types get new names (#1603)
+- Import website logins from the person's installed browsers (#1594)
+- The assistant's browser lives beside its chat, with a gliding arrow and take over (#1593)
+- A card's page scrolls itself under a resting pointer again, and the section gets its card mark back (#1598)
+- The Artifacts section becomes Nodes, with seven kinds the assistant builds and keeps current (#1589)
+- A picture shown to Dodaios still goes to the coding agent a message later (#1590)
+
+### Changed
+
+- Remove the front page's activity panel and its open button (#1592)
+
+### Fixed
+
+- Frames of a diagram keep clear of each other, and long arrows bend round the boxes (#1665)
+- The contributor wall credits co-authors of commits too (#1663)
+- A finished turn keeps its answer in view when the woken agent only adds a line (#1659)
+- The open context panel shows its numbers over a bar, without a second ring (#1658)
+- Questions about a deck or document reach the person, and an assumed answer is never called unanswered (#1656)
+- A Command shortcut no longer starts a dictation when the hold key is a bare Cmd (#1654)
+- The bar size default is 100 %, so the small pill keeps its design size (#1653)
+- Public sites show live in the assistant's browser instead of "cannot be shown here" (#1649)
+- A message typed while a coding agent works waits in the queue again after an app restart (#1643)
+- No black box and no stacked frames for the pet on macOS (#1642)
+- The pet stays above other windows on macOS after it hides and shows again (#1639)
+- A send pressed during a dictation goes out with the words (#1635)
+- The assistant's browser is a live row among its computers, clicks need no card, and the stage never goes blank (#1619)
+- A selection no longer paints grey under the front page composer (#1621)
+- Slack and Telegram logos in the assistant panel keep their brand colours (#1620)
+- A device change no longer puts dictation back on the silent jack input (#1618)
+- A node made in a turn shows as its preview card, for every kind (#1617)
+- The panel says an agent is at work, not "Thinking", while a turn waits on it (#1612)
+- The panel and the rail show the person's pet and the assistant's own name (#1613)
+- Send mail with encoded headers and a UTF-8 body (#1610)
+- An answer always shows the node it made and the coding agent it started (#1602)
+- An automatically chosen microphone that delivers nothing is left for the next one (#1600)
+- A word typed into the address bar is a search, not the host https://github/ (#1599)
+- A question card answers after an app restart (#1595)
+- An answered question card leaves no trace in the conversation (#1596)
+- The assistant puts its questions on the card, all of them, instead of into the reply (#1591)
+- The area picker's toolbar sits below a MacBook's camera notch (#1587)
+
+---
+
 ## [5.2.0] — 2026-11-13
 
 ### Added
