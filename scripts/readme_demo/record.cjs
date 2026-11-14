@@ -27,11 +27,12 @@
 //   warmup-agents  two more requests to Dodaios, not filmed: how long its
 //                  answers should be, and a short report on the day so far
 //   agents         one request to Dodaios: review the open pull requests of
-//                  a project, a coding agent for each. The Agentic IDE is
-//                  opened while the agents start, three of their threads are
-//                  looked at while they work, and back in the conversation
-//                  Dodaios answers with a report, which is opened. It needs
-//                  the third project (DEMO_PR_REPO of demo-instance.sh,
+//                  a project, a coding agent for each. The agents come up
+//                  beside the conversation; the first one's thread is opened
+//                  in the Agentic IDE and two more beside it, so three are
+//                  seen at work at once. Back in the conversation Dodaios
+//                  answers with a report, which is opened. It needs the
+//                  third project (DEMO_PR_REPO of demo-instance.sh,
 //                  DEMO_PR_PROJECT here).
 //
 // DEMO_PARTS names the parts to run (default "setup,warmup,take").
@@ -39,9 +40,9 @@
 // The window is 1200 x 675 at a device scale of 2.4, so the frames are
 // 2880 x 1620: the video is 1920 x 1080 and stays sharp when the picture
 // moves in a little. DEMO_WINDOW and DEMO_SCALE change that: the agents clip
-// is filmed at 960 x 540 and a scale of 2, so its text stays readable in a
-// small player. The pointer is drawn into the page because a headless
-// browser has none.
+// is filmed at a scale of 1.6, which gives 1920 x 1080 without moving in, and
+// at 60 frames a second (DEMO_FPS) where something moves. The pointer is
+// drawn into the page because a headless browser has none.
 //
 // The folder gets the frames and take.json: every frame's time, the
 // stretches of footage in order (a name and the time each began), and the
@@ -68,6 +69,9 @@ const BROWSER = process.env.DEMO_BROWSER || '';
 if (!OUT) { console.error('usage: node record.cjs <output folder>'); process.exit(2); }
 const [W, H] = (process.env.DEMO_WINDOW || '1200x675').split('x').map(Number);
 const SCALE = Number(process.env.DEMO_SCALE || 2.4);
+// How good the filmed pictures are (JPEG quality). At 60 frames a second a
+// take is two to three times the size, and 86 is still clean in a video.
+const JPEG = Number(process.env.DEMO_JPEG || 92);
 const MODEL_WAIT = 6 * 60 * 1000;
 const BUILD_WAIT = 20 * 60 * 1000;   // an artifact took two to nine minutes
 const TYPING = 30;   // milliseconds a key, the same everywhere
@@ -96,8 +100,16 @@ const ASK_FIX = `Brightwell Dental says invoice INV-2041 is one cent too high. C
 // clip does not depend on which one a new thread starts on.
 const AGENTS_MODEL = process.env.DEMO_AGENTS_MODEL || 'Sonnet';
 const ASK_REVIEW = `Review the new PRs in ${PR_PROJECT || 'the project'}, one ${AGENTS_MODEL} agent per PR, and write me a report.`;
-// How many of the agents' threads are opened while they work.
-const AGENTS_WATCHED = 3;
+// How many of the agents' threads are opened beside the first one, each in a
+// column of its own. Three columns need a window at least 1140 wide.
+const AGENTS_BESIDE = 2;
+// How many agents the request will start (the number of open pull requests).
+// Dodaios may start them many seconds apart: without the number, a moment in
+// which the first ones are done and the last ones not yet started looks like
+// the end of their work.
+const AGENTS_EXPECTED = Number(process.env.DEMO_AGENTS || 0);
+// Frames a second for the agents clip's stretches with movement in them.
+const AGENTS_FPS = Number(process.env.DEMO_FPS || 60);
 
 // The computer's own name and the home folder of whoever records never
 // belong in the picture. Everything else on screen is shown as it is.
@@ -380,7 +392,7 @@ const PAGE_HELPERS = `(() => {
   // (a wait for a model needs few, a click or typing needs them all).
   async function film(name, fps = 30) {
     if (!casting) {
-      await client.send('Page.startScreencast', { format: 'jpeg', quality: 92, maxWidth: Math.round(W * SCALE), maxHeight: Math.round(H * SCALE), everyNthFrame: 1 });
+      await client.send('Page.startScreencast', { format: 'jpeg', quality: JPEG, maxWidth: Math.round(W * SCALE), maxHeight: Math.round(H * SCALE), everyNthFrame: 1 });
       casting = true;
     }
     gap = 1 / fps - 0.004; kept = 0; recording = true;
@@ -500,8 +512,8 @@ const PAGE_HELPERS = `(() => {
       await sleep(700);
     }
     // A request, typed and sent. The footage after it is "wait-<name>".
-    async function ask(name, text) {
-      await film('ask-' + name);
+    async function ask(name, text, fps = 30) {
+      await film('ask-' + name, fps);
       await sleep(600);
       await click(chatInput(), { post: 280 });
       // The time of every key: the cut plays the typing at an even pace,
@@ -671,87 +683,134 @@ const PAGE_HELPERS = `(() => {
       await openChat();
       const threadsBefore = await threadIds();
       const fresh = async () => ((await api('api/agent-chat/sessions?surface=agent'))?.sessions || []).filter((t) => !threadsBefore.has(t.session_id));
+      const byStart = (a, b) => (a.created_ms || 0) - (b.created_ms || 0);
       const bubbles = () => page.locator('[data-testid="lead-bubble"]').count();
       const cards = () => page.locator('[data-testid="page-card"]').count();
       const bubblesBefore = await bubbles();
       const cardsBefore = await cards();
       await mark('stage', '[data-testid="chat-stage"]');
 
+      // The clip must look like the app does on a screen. An earlier cut of it
+      // looked like a slide show: filmed at 30 frames, played faster, with a
+      // pointer that jumped and stood still in between. So every stretch with
+      // movement in it is filmed at 60 frames a second, the cut plays it at its
+      // own speed, and the pointer travels at a person's pace and keeps moving.
+      const FPS = AGENTS_FPS;
+      // A wait of unknown length is not worth that many frames: it is filmed
+      // as a stretch of its own, which the cut leaves out.
+      const hold = (name) => film('hold-' + name, 6);
+      const pace = (x, y) => Math.min(1050, Math.max(430, Math.hypot(x - cx, y - cy) * 1.5));
+      // The pointer's way to an element, at that pace.
+      async function way(loc, { dx = 0, dy = 0 } = {}) {
+        const el = first(loc);
+        await el.waitFor({ state: 'visible' });
+        const b = await reveal(el);
+        return { el, ms: pace(b.x + b.width / 2 + dx, b.y + b.height / 2 + dy) };
+      }
+      const go = async (loc, opts = {}) => { const { el, ms } = await way(loc, opts); await click(el, { ms, pre: 200, ...opts }); };
+      const over = async (loc, opts = {}) => { const { el, ms } = await way(loc, opts); await point(el, { ms, ...opts }); };
+      const drift = async (x, y, ms) => moveTo(x, y, ms ?? pace(x, y));
+
       // 1. The request, and the first words of Dodaios.
-      await ask('review', ASK_REVIEW);
+      await ask('review', ASK_REVIEW, FPS);
       await until(async () => (await bubbles()) > bubblesBefore, 'the first words of Dodaios');
       moment('ack');
-      await film('ack');
-      await sleep(1200);
+      await film('ack', FPS);
+      await drift(W * 0.5, H * 0.52, 700);
+      await sleep(500);
 
-      // 2. Into the Agentic IDE, where a thread appears for each pull request.
-      await film('to-ide');
-      await click('[data-testid="surface-ide"]', { pre: 250, post: 500 });
-      await moveTo(W * 0.6, H * 0.6, 500);
+      // 2. The agents come up beside the conversation, under "Recent activity":
+      //    the pointer goes to the first of them while the next ones arrive.
       await film('starting', 20);
       await until(async () => (await fresh()).length >= 1, 'Dodaios to start the first coding agent');
+      const leader = (await fresh()).sort(byStart)[0];
+      const entry = first(`[data-testid="assistant-activity-${leader.session_id}"]`);
+      await entry.waitFor({ state: 'visible', timeout: 20000 });
       moment('first-agent');
-      await sleep(2600);   // the next threads come into the list meanwhile
+      await film('agents-in', FPS);
+      await sleep(350);
+      await over(entry);
+      await sleep(1300);
 
-      // 3. Their threads while they work: one that is still at work each time,
-      //    the one started first, which has the most to show.
-      // How much the open thread has written, without its clock and counters.
-      const written = () => page.evaluate(() => {
-        const turns = [...document.querySelectorAll('[data-testid="thread-turn"]')].filter((e) => e.getBoundingClientRect().height > 0);
-        return turns.length ? turns[turns.length - 1].innerText.replace(/[\d.,]+\s?[sk]?/g, '').length : 0;
-      });
-      const watched = [];
-      for (let i = 0; i < AGENTS_WATCHED; i++) {
+      // 3. Into the Agentic IDE by that one: its thread opens while it works.
+      await film('to-ide', FPS);
+      await go(entry, { pre: 120, post: 500 });
+      await threadInput().waitFor({ state: 'visible' });
+      await mark('thread-input', threadInput());
+      await drift(W * 0.5, H * 0.42);
+      await sleep(700);
+      await hold('ide');
+
+      // 4. Two more of them beside it, each in a column of its own, by the
+      //    "Open side by side" of a thread's menu: one that is still at work each
+      //    time, the one started first, which has the most to show.
+      const shown = [leader.session_id];
+      for (let i = 0; i < AGENTS_BESIDE; i++) {
         let next = null;
         await until(async () => {
-          const open = (await fresh()).filter((t) => !watched.includes(t.session_id));
-          const byStart = (a, b) => (a.created_ms || 0) - (b.created_ms || 0);
-          next = open.filter((t) => t.running).sort(byStart)[0] || (i === 0 ? open.sort(byStart)[0] : null);
-          // Nothing left at work: the agents were quicker than the look at them.
-          return Boolean(next) || !(await fresh()).some((t) => t.running);
-        }, 'a coding agent at work', MODEL_WAIT, 200);
-        if (!next) break;
-        watched.push(next.session_id);
+          const others = (await fresh()).filter((t) => !shown.includes(t.session_id));
+          next = others.filter((t) => t.running).sort(byStart)[0] || others.sort(byStart)[0] || null;
+          return Boolean(next);
+        }, 'another coding agent', MODEL_WAIT, 200);
+        shown.push(next.session_id);
         const row = first(`[data-testid="thread-row-${next.session_id}"]`);
         await row.waitFor({ state: 'visible', timeout: 15000 });
-        await film('watch-' + (i + 1));
-        await click(row, { pre: 200, post: 300 });
-        await threadInput().waitFor({ state: 'visible' });
-        if (i === 0) await mark('thread-input', threadInput());
-        await moveTo(W * 0.66, H * 0.42, 450);
-        await sleep(900);
-        // Stay until the agent has shown its next step (or is done), and a
-        // moment longer. How long an agent takes for a step differs a lot.
-        const before = await written();
-        const patience = Date.now() + 30000;
-        while (Date.now() < patience) {
-          if ((await written()) >= before + 30) break;
-          if (!(await fresh()).some((t) => t.session_id === next.session_id && t.running)) break;
+        await film('beside-' + (i + 1), FPS);
+        await over(row);
+        await sleep(200);
+        // The row shows its menu button at its right end only while the
+        // pointer is over it, and the list moves when a thread gets its title:
+        // aim by the row, and look whether the menu came.
+        const item = page.getByText('Open side by side', { exact: true }).first();
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const at = await row.boundingBox();
+          await moveTo(at.x + at.width - 17, at.y + at.height / 2, 300);
           await sleep(150);
+          await press();
+          if (await item.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)) break;
         }
-        moment('step-' + (i + 1));
-        await sleep(2600);
+        await go(item, { pre: 150, post: 300 });
+        const column = first(`[data-testid="thread-column-${next.session_id}"]`);
+        await column.waitFor({ state: 'visible', timeout: 10000 });
+        const at = await column.boundingBox();
+        await drift(at.x + at.width / 2, H * 0.42);
+        await sleep(350);
+        await hold('beside-' + (i + 1));
       }
-      await film('finishing', 15);
-      await until(async () => { const all = await fresh(); return all.length > 0 && all.every((t) => !t.running); }, 'the coding agents to finish');
+
+      // 5. All of them at work: the pointer goes from one column to the next.
+      await film('watching', FPS);
+      const columns = [];
+      for (const id of shown) {
+        const box = await first(id === leader.session_id ? '[data-testid="thread-column-main"]' : `[data-testid="thread-column-${id}"]`).boundingBox().catch(() => null);
+        if (box) columns.push(box);
+      }
+      columns.sort((a, b) => a.x - b.x);
+      for (const box of [...columns].reverse()) {
+        await drift(box.x + box.width / 2, H * 0.4, 1500);
+        await sleep(500);
+      }
+      await film('finishing', 20);
+      await until(async () => { const all = await fresh(); return all.length >= Math.max(1, AGENTS_EXPECTED) && all.every((t) => !t.running); }, 'the coding agents to finish');
       // The thread list hears of it a moment later: wait until none of its rows turns any more.
       const turning = () => page.locator('[data-testid^="thread-row-"] .animate-spin').count();
       for (const limit = Date.now() + 20000; Date.now() < limit && (await turning()) > 0;) await sleep(200);
       for (const t of await fresh()) threads.push({ id: t.session_id, title: t.title, model: t.model, cwd: t.cwd });
       log('agents:', threads.length, threads.map((t) => t.model).join(', '));
       moment('agents-done');
-      await film('done');
-      await sleep(1600);
+      await film('done', FPS);
+      await drift(W * 0.62, H * 0.5, 1100);
+      await sleep(500);
 
-      // 4. Back to Dodaios, which reads the reviews and writes the report.
-      await film('to-chat');
-      await click('[data-testid="surface-dodaios"]', { pre: 250, post: 700 });
+      // 6. Back to Dodaios, which reads the reviews and writes the report.
+      await film('to-chat', FPS);
+      await go('[data-testid="surface-dodaios"]', { post: 600 });
       await chatInput().waitFor({ state: 'visible' });
-      await moveTo(W * 0.5, H * 0.66, 500);
+      await drift(W * 0.4, H * 0.6);
       await film('wait-report', 8);
       await until(async () => (await cards()) > cardsBefore, 'the report');
       moment('card');
-      await film('report');
+      await film('report', FPS);
       // Its answer stands under the card of the report: there once the text
       // after the card has stood still for a moment.
       const answer = () => page.evaluate(() => {
@@ -768,31 +827,30 @@ const PAGE_HELPERS = `(() => {
         return text.length > 40 && Date.now() - still > 1200;
       }, 'the answer of Dodaios', MODEL_WAIT, 150);
       moment('answer');
-      await sleep(2300);
+      await sleep(1900);
 
-      // 5. The report itself, opened from its card. The answer under the card
+      // 7. The report itself, opened from its card. The answer under the card
       //    has pushed it up: wheel it well into the conversation first, so the
       //    click does not land on the window's caption above it.
-      await film('open-report');
+      await film('open-report', FPS);
       const preview = page.locator('[data-testid="page-card-preview"]:visible').last();
-      await moveTo(W * 0.5, H * 0.5, 350);
-      for (let i = 0; i < 60; i++) {
+      for (let i = 0; i < 240; i++) {
         const box = await preview.boundingBox();
         if (!box) break;
         const mid = box.y + box.height / 2;
-        if (mid >= 110 && mid <= H - 150) break;
-        await page.mouse.wheel(0, mid < 110 ? -36 : 36);
-        await sleep(30);
+        if (mid >= 120 && mid <= H - 160) break;
+        await page.mouse.wheel(0, mid < 120 ? -9 : 9);
+        await sleep(14);
       }
-      await sleep(350);
-      await click(preview, { pre: 300, post: 500 });
+      await sleep(250);
+      await go(preview, { post: 400 });
       await onArtifact().waitFor({ state: 'visible', timeout: 30000 });
-      await film('page');
+      await film('page', FPS);
       await mark('page', onArtifact());
-      await moveTo(W * 0.6, H * 0.62, 500);
-      await sleep(1900);
-      await wheel(470, 5, 16);   // down to its figures and its table
-      await sleep(2800);
+      await drift(W * 0.6, H * 0.6);
+      await sleep(800);
+      await wheel(560, 3, 14);   // down to its figures and its table, at an even pace
+      await sleep(1300);
       cut();
       save();
     }

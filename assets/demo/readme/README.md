@@ -5,16 +5,16 @@ to five coding agents. It is in this folder in two forms:
 
 | File | What it is for |
 |---|---|
-| `dodaios-demo.gif` | Plays by itself and without sound in the README. It is linked with an absolute `raw.githubusercontent.com` URL so it also plays on PyPI. 960 x 540, 10 frames a second |
-| `dodaios-demo.mp4` | The same recording as a video, 1920 x 1080, 30 frames a second, without sound. The GIF links to it, and GitHub plays it on the file's page |
+| `dodaios-demo.gif` | Plays by itself and without sound in the README. It is linked with an absolute `raw.githubusercontent.com` URL so it also plays on PyPI. 960 x 540, 15 frames a second |
+| `dodaios-demo.mp4` | The same recording as a video, 1920 x 1080, 60 frames a second, without sound. The GIF links to it, and GitHub plays it on the file's page |
 
 A short clip of the Nodes section, `dodaios-nodes.gif`, is the other
 recording in this folder ([The Nodes clip](#the-nodes-clip)).
 
 | | |
 |---|---|
-| Length | 30 s, cut from a take of 2 min 9 s |
-| Recorded from | `main` of 14 November 2026 (after 5.3.0), a throwaway instance that was deleted afterwards |
+| Length | 30 s, cut from a take of 2 min 18 s |
+| Recorded from | `main` of 14 November 2026 (after 5.3.1), a throwaway instance that was deleted afterwards |
 | Models | Dodaios on Claude Opus 5.5, its five coding agents on Claude Sonnet 5.5, all through Claude Code, signed in to a Claude plan. Every answer and every review is real |
 | Project | A private demo repository on GitHub with five open pull requests. The agents read them with the GitHub CLI |
 | Sound | None |
@@ -22,16 +22,18 @@ recording in this folder ([The Nodes clip](#the-nodes-clip)).
 It shows one request to Dodaios, in a workspace that is already in use:
 
 1. "Review the new PRs in acme-notes, one Sonnet agent per PR, and write me a
-   report." Dodaios answers that it will list the open pull requests and put
-   an agent on each.
-2. The Agentic IDE is opened. A thread appears under the project for each
-   pull request, with a spinner while its agent works.
-3. Three of the threads are opened in turn: the brief Dodaios wrote, an agent
-   that reads the diff and runs the tests, a finished review with its verdict.
+   report." Dodaios answers that it will list the pull requests, and the first
+   coding agents come up beside the conversation, under "Recent activity".
+2. A click on one of them opens its thread in the Agentic IDE. The project
+   lists a thread for each pull request, with a spinner while its agent works.
+3. Two more threads are opened beside the first, each by "Open side by side"
+   in its menu. Three agents are seen at work at once: the brief Dodaios
+   wrote, the diff being read, the tests being run, and then the finished
+   reviews with their verdicts.
 4. Back in the chat, Dodaios posts the card of a report and an answer of two
-   sentences: which pull requests are ready to merge, and which one is not.
-5. The report is opened from its card: its summary, its key figures and a
-   table with a verdict for each pull request.
+   sentences: which pull requests are ready to merge, and which are not.
+5. The report is opened from its card and scrolled: its summary, its key
+   figures and a table with a verdict for each pull request.
 
 The model's answers differ from take to take, so a new recording does not
 match this one word for word. Which pull request the agents object to differs
@@ -55,24 +57,33 @@ as well.
   that shows how much of the plan is used; `DEMO_SCRUB` takes more pairs
   (`text=replacement`, separated by commas). A report on pull requests names
   their author: give `DEMO_SCRUB` the name and the login of the GitHub account.
-- Readable in a small player: the clip is filmed in a window of 960 x 540, so
-  the GIF shows the app's text at its real size.
+- It must move the way the app does on a screen. The first version of this
+  clip was filmed at 30 frames a second, its shots played up to twice as fast,
+  and its pointer jumped to a place and stood there: the maintainer said it
+  looked like two frames a second (14 November 2026). So every stretch with
+  movement is filmed at 60 frames a second, the cut plays the footage at the
+  speed it was filmed at, the pointer travels at a person's pace and keeps
+  moving, and more than one agent is on screen at a time.
 
 ## How it is made
 
 Two things are kept apart: the footage and the cut.
 
 - **The footage** is filmed by `record.cjs` from an isolated instance, in
-  named stretches (`ask-review`, `ack`, `to-ide`, `starting`, `watch-1` to
-  `watch-3`, `finishing`, `done`, `to-chat`, `report`, `open-report`, `page`).
-  It also writes down when every key of the request was pressed and the
-  moments the cut needs: when an agent showed its next step, when the report
-  and the answer came (`take.json`).
-- **The cut** is `edit-agents.js`. It keeps the take's own order and does
-  three things: the typing plays at an even pace, a wait for a model is left
-  out (the picture before it dissolves into the one after it), and the rest
-  plays a little faster. `film.html` draws the picture for any second of the
-  video; `render.cjs` takes a picture of every frame and hands them to ffmpeg.
+  named stretches (`ask-review`, `ack`, `agents-in`, `to-ide`, `beside-1`,
+  `beside-2`, `watching`, `finishing`, `done`, `to-chat`, `report`,
+  `open-report`, `page`). A wait of unknown length is a stretch of its own
+  with few frames (`starting`, `hold-...`, `wait-report`). It also writes
+  down when every key of the request was pressed and the moments the cut
+  needs: when the report and the answer came (`take.json`).
+- **The cut** is `edit-agents.js`. It keeps the take's own order and does two
+  things: the typing plays at an even pace, and a wait for a model is left out
+  (the picture before it dissolves into the one after it). Everything else
+  plays at the speed it was filmed at. What the shots are too long for thirty
+  seconds is taken off all of them alike (this take plays a fifth faster),
+  and the cut refuses to go beyond a quarter. `film.html` draws the picture
+  for any second of the video; `render.cjs` takes a picture of every frame and
+  hands them to ffmpeg.
 
 ## Make it again
 
@@ -115,21 +126,30 @@ DEMO_HOME=/Users/Shared/demo DEMO_PR_REPO=your-org/your-demo-repo \
 
 # 2. In a second terminal: setup, warm-up and the take. It writes the frames
 #    and take.json. DEMO_BROWSER=chrome uses an installed Chrome instead of
-#    Playwright's own browser. DEMO_MODEL is the model of Dodaios itself.
+#    Playwright's own browser. DEMO_MODEL is the model of Dodaios itself,
+#    DEMO_AGENTS the number of open pull requests. A scale of 1.6 gives
+#    frames of 1920 x 1080; DEMO_JPEG=86 keeps a take of 60 frames a second
+#    at about 700 MB.
 DEMO_PARTS=setup,warmup,warmup-agents,agents DEMO_PR_PROJECT=your-demo-repo \
-DEMO_WINDOW=960x540 DEMO_SCALE=2 DEMO_MODEL="Claude Opus 5.5" \
+DEMO_SCALE=1.6 DEMO_FPS=60 DEMO_JPEG=86 DEMO_AGENTS=5 DEMO_MODEL="Claude Opus 5.5" \
 DEMO_SCRUB="Your Name=Alex Rivera,your-login=alexrivera" \
   node scripts/readme_demo/record.cjs /tmp/dodaios-take
 
-# 3. The video, then the GIF from the same cut.
-FILM_EDIT=edit-agents.js FILM_CRF=20 \
-  node scripts/readme_demo/render.cjs /tmp/dodaios-take dodaios-demo.mp4
-FILM_EDIT=edit-agents.js FILM_FPS=10 FILM_CRF=8 \
-  node scripts/readme_demo/render.cjs /tmp/dodaios-take /tmp/gif-source.mp4
-ffmpeg -i /tmp/gif-source.mp4 \
-  -vf "fps=10,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" \
+# 3. The cut, once, at 60 frames a second and nearly without loss. The video
+#    for this folder and the GIF are both made from it.
+FILM_EDIT=edit-agents.js FILM_FPS=60 FILM_CRF=12 \
+  node scripts/readme_demo/render.cjs /tmp/dodaios-take /tmp/master.mp4
+ffmpeg -i /tmp/master.mp4 -c:v libx264 -preset slow -crf 23 -profile:v high \
+  -level:v 4.2 -x264-params ref=4 -pix_fmt yuv420p -movflags +faststart -an \
+  dodaios-demo.mp4
+ffmpeg -i /tmp/master.mp4 \
+  -vf "fps=15,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=80:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" \
   -loop 0 dodaios-demo.gif
 ```
+
+The GIF is the larger of the two (6 MB): a GIF grows with every frame in
+which something moves. At 20 frames a second it was 8 MB, at 10 the pointer
+jumps.
 
 Copy both files over the ones in this folder. They are the only recordings
 `scripts/ci/check_repo_junk.py` lets into the repository.
@@ -140,15 +160,22 @@ finds its places by itself (the stretches by name, the typing by its keys,
 the answers by the moments `record.cjs` wrote down), but a take differs from
 the last one, so a number in `edit-agents.js` may need a new value.
 
+Stills show what is in the picture, not how it moves. Before a cut goes into
+the README, count what moves: decode the video, compare each frame with the
+one before it, and look for seconds in which hardly a frame differs. And
+watch it, or have someone watch it.
+
 `record.cjs` clicks through the interface by its labels and asks the app's
 own API whether a model is still at work. When a label or a flow changes, or
 a turn cannot reach its model, the script stops at that step, says which one,
 and saves a picture of the screen as `failure.png`. `DEMO_PARTS` runs only
 some of the parts (`setup`, `warmup`, `warmup-agents`, `agents`, `take`).
 
-Not every take is one to keep. Of the seven filmed for this clip, one ended
-without a report, and in the first a notice of the app's own stood in the
-picture. What the scripts do about it:
+Not every take is one to keep. Of the ten filmed for this clip, one ended
+without a report, one was filmed while the computer was busy (Dodaios started
+the agents twenty seconds apart, and the filmed frames came unevenly), and in
+the first a notice of the app's own stood in the picture. What the scripts do
+about it:
 
 - The warm-up asks Dodaios for answers of two sentences, the way a person
   would have said long ago, and for a short report. That uses enough different
@@ -169,7 +196,9 @@ The instance runs the code of the Python environment you name. If that is a
 checkout that follows `main` by itself, a merge in the middle of a take
 changes the app under it: point `PYTHONPATH` at a checkout that stands still
 (with its own built bundle) before you start the instance. Do nothing heavy
-on the computer while a take films.
+on the computer while a take films, and look at its load before you start
+(`uptime`): above about five, the frames of a take come unevenly and every
+model answers late.
 
 ## The earlier film
 
