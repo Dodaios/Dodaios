@@ -433,6 +433,10 @@ def mindmap(
     """A centre (``root``, else the most connected box) with branches to both sides."""
     if not boxes:
         return 0.0, 0.0
+    framed = any(b.top > 0 for b in boxes)
+    if framed:
+        # Frames side by side need the room a flow gives them, not a note's.
+        cross_gap = max(cross_gap, CROSS_GAP)
     ids = [b.key for b in boxes]
     by_key = {b.key: b for b in boxes}
     if root not in by_key:
@@ -487,7 +491,7 @@ def mindmap(
     loose = [by_key[k] for k in ids if k not in reached]
     if loose:
         bottom = max(b.y + b.h for b in boxes if b.key in reached) + ROW_GAP
-        grid(loose, columns=min(6, len(loose)))
+        grid(loose, columns=min(6, len(loose)), gap=BLOCK_GAP if framed else GRID_GAP)
         left_edge = min(b.x for b in boxes if b.key in reached)
         for b in loose:
             b.x += left_edge
@@ -618,7 +622,15 @@ def arrange(
         blocks.append(Box(key=f"cluster:{cluster[0]}", w=w, h=h))
         members.append(parts)
     loose = [b for b in boxes if b.key not in linked]
-    if loose:
+    if loose and any(b.top > 0 for b in loose) and columns is None:
+        # Frames are blocks, not notes: a grid would set them a note's gap
+        # apart and centre them on each other, so neighbours almost touch and
+        # their names stand at different heights. Packed, they are top-aligned
+        # a block's gap apart.
+        w, h = pack(loose)
+        blocks.append(Box(key="loose", w=w, h=h))
+        members.append(loose)
+    elif loose:
         w, h = grid(loose, columns=columns)
         blocks.append(Box(key="loose", w=w, h=h))
         members.append(loose)
