@@ -17,8 +17,7 @@
       "paste_blocked": "„Erneut einfügen“ kopiert den Text in die Zwischenablage, weil das Schreiben in andere Apps blockiert ist.",
       "actions": {
         "call": "Anruf",
-        "hangup": "Auflegen",
-        "pet_toggle": "Pet ein- oder ausblenden"
+        "hangup": "Auflegen"
       }
     }
   }

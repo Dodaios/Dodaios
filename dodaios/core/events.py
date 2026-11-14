@@ -1378,7 +1378,7 @@ class VoiceSpeakerMuteChanged(Event):
 class ComposeRequested(Event):
     """A surface asked for a fresh typed conversation.
 
-    Publishers: the pet's pen control, wired through ``OrbBusBridge``. The
+    Publishers: the bar's pen control, wired through ``OrbBusBridge``. The
     DesktopApp raises the main window; the frontend (``useWebSocket``) starts
     a new chat and focuses the composer. Null-safe when no window exists.
     """
@@ -1386,29 +1386,14 @@ class ComposeRequested(Event):
 
 
 @dataclass(frozen=True, slots=True)
-class PetVisibilityToggleRequested(Event):
-    """The pet shortcut fired: hide the pet, or show it and bring it forward.
-
-    Publishers: the ``pet_toggle`` hotkey (``[trigger].hotkey_pet_toggle``),
-    dispatched by the speech pipeline like every other shortcut. ``OrbBusBridge``
-    forwards it to ``surface.toggle_visible()``; a surface without that method
-    (the bar, ``NullOverlay``) ignores it.
-    """
-    source: str = ""
-
-
-@dataclass(frozen=True, slots=True)
 class PetChanged(Event):
-    """The active desktop pet or its look settings changed.
+    """The active pet changed (docs/pets.md).
 
-    Emitted by ``dodaios/ui/web/pets_routes.py`` after the value is on disk and
-    applied live, so every open settings page redraws from one event. ``pet_id``
-    is a built-in id, a custom ``u…`` id, or ``"none"`` (control strip only).
+    Emitted by ``dodaios/ui/web/pets_routes.py`` after the value is on disk, so
+    every open window redraws its pets from one event. ``pet_id`` is a
+    built-in id or a custom ``u…`` id.
     """
     pet_id: str = ""
-    scale: float = 1.0
-    bubble: bool = True
-    visible: bool = True
     source: str = ""
 
 
@@ -2419,8 +2404,8 @@ class JarvisChatTurnFinished(Event):
     """A turn of a typed chat with Jarvis itself (surface ``jarvis``) ended.
 
     Published by ``AgentChatService`` once the turn's ``turn_finished`` is
-    stored, so a surface the user is not looking at can confirm it — the
-    desktop pet shows "what was asked / how Jarvis answered". Chats with other
+    stored, so a listener the user is not looking at can react to it (the
+    progression service counts it). Chats with other
     agents publish nothing here. A cancelled turn is not announced.
     """
 

@@ -91,6 +91,8 @@ class UserVisibleFeedback(Event):
   while idle, so it opens on the monitor it was dragged to without the
   opt-in and without the flash, and waits on the primary screen while
   that monitor is unplugged (`docs/pets.md`). The orb is unchanged.
+  Amendment 2026-11-14: the desktop pet was removed (pets live in the
+  app only), so the exemption no longer applies to anything.
 - **L2 — Discovery-independent recovery.** Voice phrases "Orb zurück", "wo bist du", "reset orb" are matched by <!-- i18n-allow -->
   `dodaios.brain.local_action_gate` and dispatched to the new
   `reset_orb_position` tool, which publishes `OrbResetRequested`.

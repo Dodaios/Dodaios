@@ -1,9 +1,10 @@
-"""REST contract of the desktop pets (``dodaios/ui/web/pets_routes.py``, docs/pets.md).
+"""REST contract of the pets (``dodaios/ui/web/pets_routes.py``, docs/pets.md).
 
 Everything runs against the real pet engine and the real TOML writers, pointed
 at a tmp directory: one hand-built "built-in" pet under a tmp built-in root,
 user pets under a tmp data directory, and ``JARVIS_CONFIG`` at a tmp
-``jarvis.toml``. The DesktopApp and the bus are hand-written recorders.
+``jarvis.toml``. The bus is a hand-written recorder. Pets live in the app
+only, so nothing here reaches a desktop overlay.
 """
 from __future__ import annotations
 
@@ -73,31 +74,6 @@ class RecordingBus:
         self.events.append(event)
 
 
-class FakeDesktop:
-    """The DesktopApp surface the routes call (see docs/pets.md)."""
-
-    def __init__(self, *, applied_live: bool = True) -> None:
-        self.calls: list[tuple] = []
-        self.visible = True
-        self._applied = applied_live
-
-    def set_pet(self, pet_id: str) -> dict:
-        self.calls.append(("set_pet", pet_id))
-        return {"ok": True, "applied_live": self._applied}
-
-    def set_pet_look(self, scale: float, bubble: bool, strip_always: bool) -> dict:
-        self.calls.append(("set_pet_look", scale, bubble, strip_always))
-        return {"ok": True, "applied_live": self._applied}
-
-    def set_pet_visible(self, visible: bool) -> dict:
-        self.calls.append(("set_pet_visible", visible))
-        self.visible = visible
-        return {"ok": True, "applied_live": self._applied}
-
-    def pet_visible(self) -> bool:
-        return self.visible
-
-
 @pytest.fixture()
 def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     builtin = tmp_path / "builtin"
@@ -108,15 +84,14 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     data.mkdir()
     monkeypatch.setattr(config_module, "DATA_DIR", data)
     toml = tmp_path / "jarvis.toml"
-    toml.write_text("[ui]\norb_style = \"pet\"\n", encoding="utf-8")
+    toml.write_text("[ui]\norb_style = \"jarvis_bar\"\n", encoding="utf-8")
     monkeypatch.setenv("JARVIS_CONFIG", str(toml))
     monkeypatch.delenv("JARVIS_INSTANCE", raising=False)
 
     app = FastAPI()
     app.include_router(router)
-    app.state.config = SimpleNamespace(ui=UIConfig(orb_style="pet"))
+    app.state.config = SimpleNamespace(ui=UIConfig())
     app.state.bus = RecordingBus()
-    app.state.desktop_app = FakeDesktop()
     return SimpleNamespace(
         client=TestClient(app), app=app, toml=toml, data=data, builtin=builtin
     )
@@ -141,12 +116,10 @@ def _upload(env: SimpleNamespace, **fields: str) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def test_list_returns_state_and_every_pet(env) -> None:
+def test_list_returns_the_active_pet_and_every_pet(env) -> None:
     body = env.client.get("/api/pets").json()
+    assert set(body) == {"active", "pets"}  # no desktop settings any more
     assert body["active"] == DEFAULT_PET_ID
-    assert body["scale"] == 1.0
-    assert body["bubble"] is True
-    assert body["visible"] is True
     ids = [p["id"] for p in body["pets"]]
     assert ids[0] == DEFAULT_PET_ID  # the default pet leads
     assert "miso" in ids
@@ -165,8 +138,9 @@ def test_list_returns_state_and_every_pet(env) -> None:
 def test_list_reports_the_default_when_the_configured_pet_is_gone(env) -> None:
     env.app.state.config.ui.pet_id = "u0123456789abcdef"
     assert env.client.get("/api/pets").json()["active"] == DEFAULT_PET_ID
+    # An old install's "none" (no figure on the desktop) is drawn as the default.
     env.app.state.config.ui.pet_id = "none"
-    assert env.client.get("/api/pets").json()["active"] == "none"
+    assert env.client.get("/api/pets").json()["active"] == DEFAULT_PET_ID
 
 
 def test_sheet_is_served_with_safe_headers(env) -> None:
@@ -200,26 +174,22 @@ def test_unknown_or_malformed_sheet_ids_are_404(env, pet_id: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_put_active_saves_applies_and_announces(env) -> None:
+def test_put_active_saves_and_announces(env) -> None:
     r = env.client.put("/api/pets/active", json={"pet_id": "Miso"})
     assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["active"] == "miso"
-    assert body["persisted"] is True
-    assert body["applied_live"] is True
+    assert r.json() == {"ok": True, "active": "miso", "persisted": True}
     assert _toml_ui(env)["pet_id"] == "miso"
-    assert _toml_ui(env)["orb_style"] == "pet"
+    assert _toml_ui(env)["orb_style"] == "jarvis_bar"
     assert env.app.state.config.ui.pet_id == "miso"
-    assert env.app.state.desktop_app.calls == [("set_pet", "miso")]
     (event,) = env.app.state.bus.events
     assert isinstance(event, PetChanged)
-    assert (event.pet_id, event.scale, event.bubble, event.visible) == ("miso", 1.0, True, True)
+    assert (event.pet_id, event.source) == ("miso", "settings")
 
 
-def test_put_active_accepts_none(env) -> None:
+def test_put_active_refuses_none(env) -> None:
     r = env.client.put("/api/pets/active", json={"pet_id": "none"})
-    assert r.status_code == 200
-    assert _toml_ui(env)["pet_id"] == "none"
+    assert r.status_code == 400
+    assert "pet_id" not in _toml_ui(env)
 
 
 @pytest.mark.parametrize(
@@ -232,82 +202,27 @@ def test_put_active_refuses_what_is_not_a_pet(env, pet_id: str, status: int) -> 
     assert env.app.state.bus.events == []
 
 
-def test_put_active_headless_saves_and_waits_for_the_next_start(env) -> None:
-    env.app.state.desktop_app = None
-    r = env.client.put("/api/pets/active", json={"pet_id": "miso"})
-    assert r.status_code == 200
-    assert r.json()["applied_live"] is False
-    assert _toml_ui(env)["pet_id"] == "miso"
-
-
 def test_a_dev_instance_does_not_change_the_shared_pet(env, monkeypatch) -> None:
     monkeypatch.setenv("JARVIS_INSTANCE", "dev")
     assert env.client.put("/api/pets/active", json={"pet_id": "miso"}).status_code == 409
-    assert env.client.put("/api/pets/settings", json={"scale": 1.5}).status_code == 409
     assert "pet_id" not in _toml_ui(env)
-    assert "pet_scale" not in _toml_ui(env)
 
 
 # ---------------------------------------------------------------------------
-# PUT /settings, POST /visibility
+# The removed desktop endpoints
 # ---------------------------------------------------------------------------
 
 
-def test_put_settings_clamps_saves_and_applies(env) -> None:
-    r = env.client.put("/api/pets/settings", json={"scale": 5, "bubble": False})
-    assert r.status_code == 200
-    body = r.json()
-    assert (body["scale"], body["bubble"]) == (2.0, False)
-    assert _toml_ui(env)["pet_scale"] == 2.0
-    assert _toml_ui(env)["pet_bubble"] is False
-    assert env.app.state.desktop_app.calls == [("set_pet_look", 2.0, False, False)]
-    (event,) = env.app.state.bus.events
-    assert (event.scale, event.bubble) == (2.0, False)
-
-
-def test_a_preview_resizes_live_but_writes_and_announces_nothing(env) -> None:
-    before = env.toml.read_text(encoding="utf-8")
-    r = env.client.put("/api/pets/settings", json={"scale": 1.37, "preview": True})
-    assert r.status_code == 200
-    assert r.json()["persisted"] is False
-    assert env.app.state.desktop_app.calls == [("set_pet_look", 1.37, True, False)]
-    assert env.toml.read_text(encoding="utf-8") == before
+def test_the_desktop_settings_and_visibility_endpoints_are_gone(env) -> None:
+    assert env.client.put("/api/pets/settings", json={"scale": 1.5}).status_code in (404, 405)
+    assert env.client.post("/api/pets/visibility", json={"visible": False}).status_code in (
+        404,
+        405,
+    )
+    paths = env.app.openapi()["paths"]
+    assert "/api/pets/settings" not in paths
+    assert "/api/pets/visibility" not in paths
     assert env.app.state.bus.events == []
-    # The release that follows saves it like any other change.
-    env.client.put("/api/pets/settings", json={"scale": 1.37})
-    assert _toml_ui(env)["pet_scale"] == 1.37
-    assert len(env.app.state.bus.events) == 1
-
-
-def test_put_settings_changes_only_what_is_sent(env) -> None:
-    env.client.put("/api/pets/settings", json={"bubble": False})
-    assert "pet_scale" not in _toml_ui(env)
-    assert env.app.state.desktop_app.calls == [("set_pet_look", 1.0, False, False)]
-
-
-def test_the_always_on_strip_is_saved_applied_and_reported(env) -> None:
-    assert env.client.get("/api/pets").json()["strip_always"] is False
-    r = env.client.put("/api/pets/settings", json={"strip_always": True})
-    assert r.status_code == 200
-    assert r.json()["strip_always"] is True
-    assert _toml_ui(env)["pet_strip_always"] is True
-    assert env.app.state.desktop_app.calls == [("set_pet_look", 1.0, True, True)]
-    assert env.client.get("/api/pets").json()["strip_always"] is True
-
-
-def test_put_settings_needs_something_to_change(env) -> None:
-    assert env.client.put("/api/pets/settings", json={}).status_code == 400
-
-
-def test_visibility_is_runtime_only(env) -> None:
-    before = env.toml.read_text(encoding="utf-8")
-    r = env.client.post("/api/pets/visibility", json={"visible": False})
-    assert r.status_code == 200
-    assert r.json()["visible"] is False
-    assert env.app.state.desktop_app.calls == [("set_pet_visible", False)]
-    assert env.toml.read_text(encoding="utf-8") == before
-    assert env.app.state.bus.events[-1].visible is False
-    assert env.client.get("/api/pets").json()["visible"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -417,14 +332,12 @@ def test_delete_removes_a_user_pet(env) -> None:
 def test_deleting_the_active_pet_falls_back_to_the_default(env) -> None:
     pet_id = _upload(env).json()["id"]
     env.client.put("/api/pets/active", json={"pet_id": pet_id})
-    env.app.state.desktop_app.calls.clear()
     env.app.state.bus.events.clear()
 
     r = env.client.delete(f"/api/pets/{pet_id}")
     assert r.status_code == 200
     assert r.json()["active"] == DEFAULT_PET_ID
     assert _toml_ui(env)["pet_id"] == DEFAULT_PET_ID
-    assert env.app.state.desktop_app.calls == [("set_pet", DEFAULT_PET_ID)]
     (event,) = env.app.state.bus.events
     assert (event.pet_id, event.source) == (DEFAULT_PET_ID, "pet_deleted")
 

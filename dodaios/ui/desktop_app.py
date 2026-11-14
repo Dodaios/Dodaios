@@ -142,26 +142,6 @@ _BACKEND_MIN_UPTIME_FOR_RECOVERY_S = 120.0
 _SHUTDOWN_FORCE_EXIT_MIN_S = 45.0
 
 
-def _clamp_pet_scale(value: object) -> float:
-    """``[ui] pet_scale`` as a usable multiplier: 0.5–2.0, 1.0 when unusable."""
-    import math
-
-    try:
-        scale = float(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):  # Invalid saved pet scales keep the normal-sized overlay.
-        return 1.0
-    if not math.isfinite(scale):
-        return 1.0
-    return max(0.5, min(2.0, scale))
-
-
-def _pet_toggle_hotkey(cfg: Any) -> str:
-    """``[trigger] hotkey_pet_toggle``, stripped; empty when unset or disabled."""
-    value = getattr(getattr(cfg, "trigger", None), "hotkey_pet_toggle", "")
-    return str(value or "").strip()
-
-
-
 def _cached_orb_window(cache: dict[str, Any]) -> Any | None:
     """The orb window among the cached overlay surfaces, if one was built."""
     from dodaios.ui.overlay_styles import ORB_STYLES
@@ -190,7 +170,9 @@ def boot_overlay_style(configured: str | None, *, instance: Any | None = None) -
     instance always boots the NullOverlay, at runtime only: the configured
     value is left exactly as it is for the app that owns it.
     """
-    configured = configured or "jarvis_bar"
+    from dodaios.ui.overlay_styles import normalize_overlay_style
+
+    configured = normalize_overlay_style(configured) or "jarvis_bar"
     identity = instance if instance is not None else current_instance()
     return configured if identity.owns_ambient_duties else "none"
 
@@ -2918,7 +2900,7 @@ class DesktopApp:
 
         server.bus.subscribe(MessageSent, _on_user_message)
 
-        # Drag-drop onto the floating overlay (bar/mascot) reuses the SAME
+        # Drag-drop onto the floating overlay (bar/orb) reuses the SAME
         # intake as the web dock. In the Agentic IDE it stages files for the
         # selected pane; elsewhere it retains them as silent brain context. The
         # overlay thread calls dispatch_drop, so the actual intake is marshalled
@@ -2976,7 +2958,7 @@ class DesktopApp:
 
             _dlog.opt(exception=exc).debug("overlay drop handler wiring skipped")
 
-        # Overlay right-click (bar OR mascot) → raise the main desktop window.
+        # Overlay right-click (bar OR orb) → raise the main desktop window.
         # OrbBusBridge publishes ShowWindowRequested from the Tk thread; the
         # handler runs on the asyncio loop and immediately thread-hops, because
         # pywebview calls block their calling thread (see _on_show_window_requested).
@@ -2995,7 +2977,7 @@ class DesktopApp:
             from loguru import logger as _alog
 
             _alog.opt(exception=exc).debug("appshot editor window wiring skipped")
-        # The pet's pen asks for a fresh chat: the window comes up through the
+        # The bar's pen asks for a fresh chat: the window comes up through the
         # very same off-loop path; the frontend opens the new chat itself.
         server.bus.subscribe(ComposeRequested, self._on_show_window_requested)
         self._install_focus_route(server)
@@ -3735,24 +3717,24 @@ class DesktopApp:
 
         Returns a ``NullOverlay`` for ``"none"`` (no Tk window, no-op surface),
         a started ``JarvisBarOverlay`` for ``"jarvis_bar"``, or a started
-        mascot ``OrbOverlay`` for anything else. Shared by boot wiring and the
+        voice orb ``OrbOverlay`` for ``"voice_orb"``. Shared by boot wiring and the
         live ``swap_overlay`` path so the two never drift.
 
         ``gate_until_voice_ready=True`` is reserved for the desktop boot path.
         It lets the Jarvis Bar initialize and paint off-screen, but suppresses
         every reveal until ``OrbBusBridge`` receives the honest voice-usable
         signal. Runtime surfaces keep their immediate behavior. A non-persistent
-        bar / the mascot still starts withdrawn and pops on a real session.
+        bar / the voice orb still starts withdrawn and pops on a real session.
         """
         if sys.platform == "darwin":
             # This runs on the jarvis-backend worker thread; Aqua-Tk (like
             # AppKit) is main-thread-only on macOS, so an in-process bar or
-            # mascot Tk root here aborts the WHOLE process natively — the
+            # orb Tk root here aborts the WHOLE process natively — the
             # second macOS first-boot crash (BUG-057; the first was the
             # BUG-056 tray). Both surfaces therefore live in their own
             # companion process whose MAIN thread owns the Tk mainloop
             # (dodaios.ui.dodaiosbar.host), remote-driven over stdio; the init
-            # line's "surface" key selects bar vs. mascot.
+            # line's "surface" key selects bar vs. orb.
             if style != "none":
                 hosted = self._build_hosted_surface(
                     style, gate_until_voice_ready=gate_until_voice_ready
@@ -3778,16 +3760,10 @@ class DesktopApp:
                 size_scale=getattr(self.cfg.ui, "bar_size_scale", 1.0),
                 follow_cursor_monitor=getattr(self.cfg.ui, "bar_follow_cursor_monitor", True),
             )
-        else:  # an orb style ("mascot" / "voice_orb"), or any legacy value
+        else:  # the orb window ("voice_orb")
             from ui.orb.overlay import OrbOverlay
 
-            surface = OrbOverlay(
-                sticky=False,
-                mic_reactive=False,
-                style=style,
-                mascot_path=self.cfg.ui.orb_mascot_path or None,
-                **self._pet_surface_kwargs(),
-            )
+            surface = OrbOverlay(sticky=False, mic_reactive=False, style=style)
         surface.start_in_thread()
         return surface
 
@@ -3820,11 +3796,7 @@ class DesktopApp:
             elif style in ORB_STYLES:
                 from dodaios.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
 
-                surface = SubprocessMascotOverlay(
-                    mascot_path=self.cfg.ui.orb_mascot_path or None,
-                    style=style,
-                    **self._pet_surface_kwargs(),
-                )
+                surface = SubprocessMascotOverlay(style=style)
             else:
                 return None
             # The host imports its renderer before it reports ready; give a
@@ -3839,108 +3811,14 @@ class DesktopApp:
         logger.info("Overlay hosted out-of-process (dodaios.ui.dodaiosbar.host, style={}).", style)
         return surface
 
-    def _pet_surface_kwargs(self) -> dict[str, object]:
-        """The pet's ``[ui]`` settings for the orb window (``docs/pets.md``).
-
-        Passed to every orb-window surface, not only a pet one: a live swap to
-        the pet style reuses the same window, which must already know them.
-        """
-        from dodaios.ui.pets.states import DEFAULT_PET_ID
-
-        ui = self.cfg.ui
-        return {
-            "pet_id": str(getattr(ui, "pet_id", DEFAULT_PET_ID) or DEFAULT_PET_ID),
-            "pet_scale": _clamp_pet_scale(getattr(ui, "pet_scale", 1.0)),
-            "pet_bubble": bool(getattr(ui, "pet_bubble", True)),
-            "pet_strip_always": bool(getattr(ui, "pet_strip_always", False)),
-        }
-
     def _hide_on_idle_for(self, style: str) -> bool:
         """The bridge's idle regime for one overlay style.
 
-        The bar follows "show at all times"; a persistent orb style (the pet,
-        and the mascot, which is one) stays up while idle; the voice orb pops
-        up per session.
+        The bar follows "show at all times"; the voice orb pops up per session.
         """
-        from dodaios.ui.overlay_styles import stays_while_idle
-
         if style == "jarvis_bar":
             return not bool(getattr(self.cfg.ui, "bar_persistent", True))
-        mascot_image = str(getattr(self.cfg.ui, "orb_mascot_path", "") or "")
-        return not stays_while_idle(style, mascot_image=mascot_image)
-
-    def _pet_call(self, method: str, *args: object) -> bool:
-        """Call a pet surface method on the live overlay. True when it ran."""
-        from loguru import logger
-
-        fn = getattr(getattr(self, "_orb", None), method, None)
-        if not callable(fn):
-            return False
-        try:
-            fn(*args)
-        except Exception as exc:  # noqa: BLE001 — cosmetic; the setting is stored
-            logger.opt(exception=exc).warning("pet surface call {} failed", method)
-            return False
         return True
-
-    def set_pet(self, pet_id: str) -> dict[str, object]:
-        """Switch the desktop pet live (``PUT /api/pets/active``).
-
-        Updates ``[ui] pet_id`` in memory (the route persists it) and swaps the
-        figure on the running orb window. ``applied_live`` is False when there
-        is no orb window to swap it on — the choice then applies at the next
-        start or the next switch to the pet style.
-        """
-        from loguru import logger
-
-        from dodaios.ui.pets.states import NO_PET_ID
-
-        pet = str(pet_id or "").strip() or NO_PET_ID
-        try:
-            self.cfg.ui.pet_id = pet
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("pet_id not stored in config: {}", exc)
-        return {"ok": True, "applied_live": self._pet_call("set_pet", pet)}
-
-    def set_pet_look(
-        self,
-        scale: float | None = None,
-        bubble: bool | None = None,
-        strip_always: bool | None = None,
-    ) -> dict[str, object]:
-        """Apply the pet's size, bubble and strip switch live (``PUT /api/pets/settings``)."""
-        from loguru import logger
-
-        clamped = None if scale is None else _clamp_pet_scale(scale)
-        flag = None if bubble is None else bool(bubble)
-        strip = None if strip_always is None else bool(strip_always)
-        try:
-            if clamped is not None:
-                self.cfg.ui.pet_scale = clamped
-            if flag is not None:
-                self.cfg.ui.pet_bubble = flag
-            if strip is not None:
-                self.cfg.ui.pet_strip_always = strip
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("pet look not stored in config: {}", exc)
-        return {"ok": True, "applied_live": self._pet_call("set_pet_look", clamped, flag, strip)}
-
-    def set_pet_visible(self, visible: bool) -> dict[str, object]:
-        """Hide or show the pet for this run (``POST /api/pets/visibility``).
-
-        Runtime only by design, like the shortcut: nothing is written, and the
-        pet is back at the next start.
-        """
-        return {"ok": True, "applied_live": self._pet_call("set_visible", bool(visible))}
-
-    def pet_visible(self) -> bool:
-        """Is the pet shown for this run? False only after the user hid it.
-
-        Read by ``GET /api/pets``. A surface without the flag (the bar,
-        ``NullOverlay``, no overlay at all) reports True: nothing hid a pet.
-        """
-        hidden = getattr(getattr(self, "_orb", None), "pet_user_hidden", None)
-        return not hidden if isinstance(hidden, bool) else True
 
     def set_bar_persistent(self, enabled: bool) -> dict[str, object]:
         """Live-toggle 'show bar at all times' (bar_persistent) without a restart.
@@ -3984,7 +3862,7 @@ class DesktopApp:
 
         Clamps the value, updates the in-memory config, and calls the surface's
         ``set_size_scale`` so the bar grows/shrinks immediately (proportionally,
-        shape preserved). Only the bar surface implements it — on the mascot /
+        shape preserved). Only the bar surface implements it — on the voice orb /
         no-overlay style this reports ``applied_live=False`` (persisted only).
         """
         from loguru import logger
@@ -4015,7 +3893,7 @@ class DesktopApp:
 
         Updates the in-memory config and calls the surface's ``set_follow_cursor``
         so the running bar starts/stops following the cursor across monitors
-        immediately. Only the bar surface implements it — on the mascot /
+        immediately. Only the bar surface implements it — on the voice orb /
         no-overlay style this reports ``applied_live=False`` (persisted only).
         """
         from loguru import logger
@@ -4048,15 +3926,14 @@ class DesktopApp:
         the wrong thread`` (BUG-031). The transitions therefore are:
 
         - ``"none"``              → the rootless ``NullOverlay``.
-        - one orb look to another → re-style the live orb window (same root).
         - an already-built style  → show it again (same root, never destroyed).
         - anything else           → start the surface in its own host process
                                     (``_build_hosted_surface``), whose root
                                     lives on that process's main thread.
 
         The surface being left is taken off the screen at once, so the old look
-        never lingers beside the new one (the 2026-10-06 "the pet stays next to
-        the bar" report). A hosted surface is stopped — its process ends — and
+        never lingers beside the new one (the 2026-10-06 "the old look stays
+        next to the bar" report). A hosted surface is stopped — its process ends — and
         an in-process one is only hidden, never destroyed. ``applied_live`` is
         False only when a host fails to start; the route then reports
         ``restart_required`` and the frontend offers a one-click restart.
@@ -4076,36 +3953,11 @@ class DesktopApp:
         if bridge is None:
             # No live bridge (headless / overlay unavailable) — persisted only.
             return {"ok": True, "applied_live": False, "style": style}
-        # What is on screen right now. Not cfg.ui.orb_style: the settings route
-        # stores the NEW style there before it calls this method.
-        previous = str(
-            getattr(self, "_live_overlay_style", None)
-            or getattr(self.cfg.ui, "orb_style", "")
-            or ""
-        )
         try:
             cache = getattr(self, "_surfaces", None)
             if cache is None:
                 cache = self._surfaces = {}
             old = getattr(self, "_orb", None)
-
-            # Mascot <-> voice orb <-> pet is a RENDERER swap inside one window,
-            # not a new surface: the orb window stays, only what it paints
-            # changes.
-            if style in ORB_STYLES and old is not None and hasattr(old, "set_style"):
-                old.set_style(style)
-                _recache_surface(cache, old, style)
-                # The idle regime travels with the look: a pet (the mascot
-                # is one) stays up while idle, the voice orb pops up per session.
-                bridge._hide_on_idle = self._hide_on_idle_for(style)
-                mode = str(getattr(old, "_mode", "idle") or "idle")
-                if not bridge._hide_on_idle:
-                    old.show(mode)
-                elif not self._hide_on_idle_for(previous) and mode == "idle":
-                    old.hide()
-                self._note_live_overlay_style(style)
-                logger.info("Orb window re-styled live to {}.", style)
-                return {"ok": True, "applied_live": True, "style": style}
 
             if style == HIDDEN_STYLE:
                 new = cache.get(HIDDEN_STYLE)
@@ -4186,7 +4038,7 @@ class DesktopApp:
     def request_restart(self) -> bool:
         """Cleanly self-restart the app to deliver a pending overlay change.
 
-        An overlay style that needs a brand-new Tk root (e.g. bar → mascot)
+        An overlay style that needs a brand-new Tk root (e.g. bar → voice orb)
         cannot be applied live (BUG-031 — ``Tcl_AsyncDelete`` cross-thread
         abort). Instead of asking the user to close + reopen by hand, this
         spawns a detached relauncher (``dodaios.ui.relauncher``) that waits for
@@ -4514,8 +4366,7 @@ class DesktopApp:
         # On-screen overlay in its own Tk daemon thread — the bus bridge reacts
         # to SystemStateChanged and drives whichever surface is selected.
         # Style is chosen by [ui].orb_style: "jarvis_bar" (slim default),
-        # "mascot" / "voice_orb" (the two looks of the floating orb window), or
-        # "none". Every real surface shares OrbBusBridge.
+        # "voice_orb" (the floating orb window), or "none". Every real surface shares OrbBusBridge.
         try:
             from loguru import logger
 
@@ -4548,7 +4399,7 @@ class DesktopApp:
                 from ui.orb.bus_bridge import OrbBusBridge
 
                 # NullOverlay for "none" still gets a bridge, so a live switch to
-                # bar/mascot works without a restart. The boot-created Jarvis Bar
+                # bar/orb works without a restart. The boot-created Jarvis Bar
                 # initializes withdrawn; the bridge releases its visibility gate
                 # only on the genuine voice-usable signal.
                 surface = self._build_overlay_surface(
@@ -4560,18 +4411,11 @@ class DesktopApp:
                     bus=bus,
                     orb=surface,
                     hide_on_idle=hide_on_idle,
-                    # The pet's bubble headers follow the interface language
+                    # The surface's labels follow the interface language
                     # (and UiLanguageChanged live, inside the bridge).
                     language=str(getattr(self.cfg.ui, "language", "") or "") or None,
                 )
                 bridge.attach()
-                if not hide_on_idle and orb_style != "jarvis_bar":
-                    # A persistent orb style (the pet) is on screen from the
-                    # start; the bar keeps its voice-ready gate instead.
-                    try:
-                        surface.show("idle")
-                    except Exception:  # noqa: BLE001 — cosmetic; never block boot
-                        logger.debug("persistent overlay boot reveal failed", exc_info=True)
                 self._orb = surface
                 self._bridge = bridge
                 # Cache the boot surface so a later swap back to it reuses the
@@ -4870,10 +4714,6 @@ class DesktopApp:
                     if self.cfg.trigger.hotkey_paste_last.strip()
                     else ()
                 ),
-                # "Hide / show the desktop pet" (docs/pets.md). Armed here like
-                # every other editable shortcut; its dispatch publishes
-                # PetVisibilityToggleRequested, which the bridge forwards.
-                pet_toggle_hotkeys=tuple(filter(None, (_pet_toggle_hotkey(self.cfg),))),
                 dictate_mode=self.cfg.dictation.mode,
                 dictation_config=self.cfg.dictation,
                 hangup_hotkeys=(
@@ -6981,7 +6821,7 @@ class DesktopApp:
         hand_off_on_quit(state, getattr(server, "cfg", None) or self.cfg)
 
     def _stop_overlay(self) -> None:
-        """Take the on-screen bar or mascot down. Idempotent, never raises."""
+        """Take the on-screen bar or orb down. Idempotent, never raises."""
         orb = getattr(self, "_orb", None)
         if orb is None:
             return
@@ -7018,10 +6858,6 @@ class DesktopApp:
         # Always-on bar: the tray-minimise must not disturb it.
         if bool(getattr(self.cfg.ui, "bar_persistent", True)):
             return
-        # The pet is always-on by nature: a companion that vanished whenever
-        # the app went to the tray would be exactly the pop-up it is not.
-        if not self._hide_on_idle_for(str(getattr(self.cfg.ui, "orb_style", "") or "")):
-            return
         bar = getattr(self, "_orb", None)
         bridge = getattr(self, "_bridge", None)
         if bar is None or bridge is None:
@@ -7052,7 +6888,7 @@ class DesktopApp:
             return
         try:
             # Mirror the boot wiring in ``_start_speech_and_orb``: bar_persistent
-            # only governs the jarvis bar; the mascot is always hide-at-idle.
+            # only governs the jarvis bar; the voice orb is always hide-at-idle.
             orb_style = getattr(self.cfg.ui, "orb_style", "jarvis_bar") or "jarvis_bar"
             persistent = bool(getattr(self.cfg.ui, "bar_persistent", True))
             is_bar = orb_style == "jarvis_bar"
@@ -7060,12 +6896,8 @@ class DesktopApp:
             if hasattr(bar, "_persistent"):
                 bar._persistent = persistent
             show = getattr(bar, "show", None)
-            if is_bar and persistent:
-                if callable(show):
-                    show("idle")
-            elif not is_bar and not bridge._hide_on_idle and callable(show):
-                # The pet comes back with the window, in whatever it is doing.
-                show(str(getattr(bar, "_mode", "idle") or "idle"))
+            if is_bar and persistent and callable(show):
+                show("idle")
         except Exception:  # noqa: BLE001
             from loguru import logger
 

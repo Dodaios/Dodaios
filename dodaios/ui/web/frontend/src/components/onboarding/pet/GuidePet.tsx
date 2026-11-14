@@ -1,5 +1,5 @@
 /**
- * The pet that guides a new user: the user's own desktop pet (Settings → My
+ * The pet that guides a new user: the user's own pet (Settings → My
  * Pets), drawn from its sprite sheet, speaking in a bubble.
  *
  * Used by every guide surface — the "how it works" walk, the setup steps,

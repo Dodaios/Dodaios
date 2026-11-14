@@ -93,7 +93,7 @@ const overlayMock = vi.hoisted(() => ({ style: "jarvis_bar" as string | null }))
 vi.mock("@/hooks/useOverlayStyle", () => ({
   useOverlayStyle: () => ({
     config: overlayMock.style
-      ? { style: overlayMock.style, options: ["jarvis_bar", "mascot", "none"] }
+      ? { style: overlayMock.style, options: ["jarvis_bar", "voice_orb", "none"] }
       : null,
     loading: false,
     error: null,

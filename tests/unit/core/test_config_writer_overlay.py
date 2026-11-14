@@ -8,7 +8,7 @@ from dodaios.core import config_writer
 
 def test_set_overlay_style_round_trip(tmp_path):
     cfg = tmp_path / "jarvis.toml"
-    cfg.write_text('[ui]\norb_style = "mascot"\n', encoding="utf-8")
+    cfg.write_text('[ui]\norb_style = "voice_orb"\n', encoding="utf-8")
     config_writer.set_overlay_style("jarvis_bar", path=cfg)
     data = tomllib.loads(cfg.read_text(encoding="utf-8"))
     assert data["ui"]["orb_style"] == "jarvis_bar"

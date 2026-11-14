@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDragSessionEnd } from "@/components/agentic/dragSessionEnd";
 import { getWSClient } from "@/hooks/useWebSocket";
-import { useOverlayStyle } from "@/hooks/useOverlayStyle";
 import { useEventStore } from "@/store/events";
 import { useMissionDrag } from "@/store/missionDrag";
-import { PetMark } from "@/components/pets/PetMark";
 import { BarPreview } from "@/components/overlay/OverlayStylePreviews";
 import { playDropConfirm } from "@/lib/sound";
 import { cn } from "@/lib/utils";
@@ -51,24 +49,17 @@ function isDroppable(dt: DataTransfer | null): boolean {
  * shows the OS "no-drop" sign and a toss *near* Jarvis still lands. A successful
  * drop plays a quiet confirmation chime and an "absorb" burst.
  *
- * It mirrors the chosen on-screen display style: the Jarvis Bar for `jarvis_bar`,
- * the ghost mascot otherwise. This in-app surface is the cloud-first drop
+ * It shows the Dodaios Bar's own pill. This in-app surface is the cloud-first drop
  * target — it works in any browser, unlike the separate Tk overlay windows.
  */
 export function DodaiosDock() {
   const t = useT();
-  const { config } = useOverlayStyle();
   const dragging = useMissionDrag((s) => s.dragging);
   const endDrag = useMissionDrag((s) => s.end);
   const [armed, setArmed] = useState(false); // a card is directly over the dock
   const [fileArmed, setFileArmed] = useState(false); // a native OS drag is in flight
   const [flash, setFlash] = useState(false); // brief post-drop "absorb" burst
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Mascot ONLY when explicitly selected; the bar for "jarvis_bar"/"none"
-  // and while the style is still loading (config === null). Defaulting the
-  // unknown/loading state to the bar (the documented default) stops a ghost
-  // mascot from flashing in for a user who picked the bar.
-  const isBar = config?.style !== "mascot";
 
   // Clear the pending "absorb" timer on unmount so it can't setState on a gone
   // component (the source of a stray act() warning and a small leak).
@@ -253,11 +244,7 @@ export function DodaiosDock() {
         )}
 
         <span className={cn(flash && "animate-[dock-pop_0.5s_ease-out]")}>
-          {isBar ? (
-            <BarPreview />
-          ) : (
-            <PetMark size={28} reactive />
-          )}
+          <BarPreview />
         </span>
 
         {label && (

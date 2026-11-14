@@ -24,7 +24,6 @@ import pytest
 
 from dodaios.ui.overlay_styles import (
     LEGACY_STYLE_ALIASES,
-    MASCOT_PET_ID,
     ORB_STYLES,
     OVERLAY_STYLES,
     normalize_overlay_style,
@@ -52,14 +51,6 @@ def test_typescript_union_matches_python() -> None:
     assert match, "OverlayStyle union not found — did the hook move?"
     union = re.findall(r'"([a-z_]+)"', match.group(1))
     assert union == list(OVERLAY_STYLES)
-
-
-def test_typescript_mascot_pet_matches_python() -> None:
-    """The desktop and the Jarvis Verse must show the same pet as the mascot."""
-    source = _ts("hooks/useOverlayStyle.ts")
-    match = re.search(r'export const MASCOT_PET_ID = "([a-z0-9-]+)";', source)
-    assert match, "MASCOT_PET_ID not found in the overlay style hook"
-    assert match.group(1) == MASCOT_PET_ID
 
 
 def test_typescript_fallback_array_matches_python() -> None:
@@ -97,6 +88,13 @@ def test_legacy_values_still_resolve() -> None:
     for legacy, current in LEGACY_STYLE_ALIASES.items():
         assert normalize_overlay_style(legacy) == current
         assert current in OVERLAY_STYLES
-    assert normalize_overlay_style("  MASCOT ") == "mascot"
+    assert normalize_overlay_style("  VOICE_ORB ") == "voice_orb"
     assert normalize_overlay_style("bogus") is None
     assert normalize_overlay_style(None) is None
+
+
+@pytest.mark.parametrize("removed", ["pet", "mascot", "orb", " Pet "])
+def test_the_removed_desktop_pet_styles_resolve_to_the_bar(removed: str) -> None:
+    """Pets live in the app only (docs/pets.md): an old pick shows the bar."""
+    assert normalize_overlay_style(removed) == "jarvis_bar"
+    assert removed.strip().lower() not in OVERLAY_STYLES

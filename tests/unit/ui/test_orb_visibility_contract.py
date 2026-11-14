@@ -45,10 +45,6 @@ from ui.orb.drag_persistence import (
     resolve_placement,
 )
 
-# The still-picture mascot; without a configured image the mascot is a pet.
-pytestmark = pytest.mark.usefixtures("still_picture_mascot")
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -400,7 +396,7 @@ def test_finish_boot_flash_migrates_and_hides(tmp_path, monkeypatch):
 
     ov._finish_boot_flash(target_x=2428, target_y=1268)
 
-    fake_root.geometry.assert_called_with("108x108+2428+1268")
+    fake_root.geometry.assert_called_with("216x216+2428+1268")
     fake_root.withdraw.assert_called_once()
     assert ov._boot_flash_target_xy is None
     _ = (tmp_path, monkeypatch, overlay_mod)
@@ -427,7 +423,7 @@ def test_finish_boot_flash_keeps_orb_visible_during_active_show(
 
     ov._finish_boot_flash(target_x=2428, target_y=1268)
 
-    fake_root.geometry.assert_called_with("108x108+2428+1268")
+    fake_root.geometry.assert_called_with("216x216+2428+1268")
     fake_root.withdraw.assert_not_called()
     _ = (tmp_path, monkeypatch)
 

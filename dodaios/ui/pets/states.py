@@ -1,7 +1,7 @@
-"""The desktop pet's vocabulary — ONE definition, imported everywhere.
+"""The pets' vocabulary — ONE definition, imported everywhere.
 
-A pet state is what the floating pet *does* on screen (its animation row). It
-is derived from real Jarvis events by ``dodaios.ui.pets.state_machine`` and it
+A pet state is what a pet *does* where the app draws it (its animation row:
+the assistant's mark, an agent wearing the pet, the Verse companion). It
 crosses Python, the sprite manifest on disk, the REST payload, TypeScript and
 the i18n labels — the five-layer enum this repo has been bitten by four times
 (AP-4 / BUG-008). Same remedy as ``dodaios.ui.dodaiosbar.modes``: the tuples live
@@ -15,8 +15,8 @@ The ORDER of ``PET_STATES`` is also the row order of a sprite sheet: row 0 is
 state, but the template sheet and every built-in pet follow this order.
 
 Adding a state = add it here (at the END, so existing sheets keep their rows),
-give it a fallback, teach the state machine when it applies, and add the label
-to every locale. Nothing else needs touching.
+give it a fallback, teach the app when it applies, and add the label to every
+locale. Nothing else needs touching.
 """
 from __future__ import annotations
 
@@ -67,7 +67,8 @@ STATE_FALLBACKS: dict[str, str] = {
     "held": "listening",
 }
 
-#: The pet id that shows the control strip with no figure ("None" in the UI).
+#: The pet id older installs saved for "no figure on the desktop". It is no
+#: longer offered; the app draws the default pet when it finds it.
 NO_PET_ID: str = "none"
 
 #: The pet a fresh install shows.

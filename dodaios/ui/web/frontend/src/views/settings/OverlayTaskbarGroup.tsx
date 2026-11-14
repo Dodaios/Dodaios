@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { PawPrint } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
   useOverlayStyle,
@@ -21,7 +20,7 @@ import { SettingsCard, SettingsRow, SettingsSection } from "@/views/settings/Set
 
 /**
  * "Bar & Overlay" group inside the Settings view — the on-screen overlay
- * appearance (Bar / Mascot / Voice orb / Pet / None) and two dictation behaviours: show the bar at
+ * appearance (Bar / Voice orb / None) and two dictation behaviours: show the bar at
  * all times, and mute music while a voice session is active. Moved here from the
  * former standalone Taskbar section; the controls, hooks, and i18n keys
  * (``taskbar_view.*`` + ``settings_view.overlay_style.*``) are unchanged.
@@ -216,7 +215,7 @@ function SoundEffectsRow() {
 }
 
 /**
- * On-screen overlay style selector (Bar / Mascot / Voice orb / Pet / None).
+ * On-screen overlay style selector (Bar / Voice orb / None).
  * Reuses the settings_view.overlay_style.* i18n. A switch between the bar and
  * an orb-window style cannot apply live (BUG-031: Tcl cross-thread abort), so
  * the app self-restarts to deliver it (`useRestartApp`).
@@ -225,7 +224,6 @@ function OverlayStylePanel({ overlay }: { overlay: ReturnType<typeof useOverlayS
   const t = useT();
   const { config, loading, error, saveStyle } = overlay;
   const pushToast = useEventStore((s) => s.pushToast);
-  const setActiveSection = useEventStore((s) => s.setActiveSection);
   const [style, setStyle] = useState<OverlayStyle>("jarvis_bar");
   const [saving, setSaving] = useState(false);
   const [needsRestart, setNeedsRestart] = useState(false);
@@ -264,7 +262,7 @@ function OverlayStylePanel({ overlay }: { overlay: ReturnType<typeof useOverlayS
       description={t("settings_view.overlay_style.description")}
     >
       {/* Visual preview cards — click to apply (no dropdown). They wrap on a
-          narrow window so a fifth style never squeezes the previews into
+          narrow window so a new style never squeezes the previews into
           unreadable slivers. */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-2.5 pt-1">
         {options.map((opt) => {
@@ -299,19 +297,6 @@ function OverlayStylePanel({ overlay }: { overlay: ReturnType<typeof useOverlayS
           );
         })}
       </div>
-
-      {/* Which pet, its size and its bubble live on their own page. */}
-      {style === "pet" && (
-        <button
-          type="button"
-          data-testid="overlay-style-open-pets"
-          onClick={() => setActiveSection("pets")}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <PawPrint className="h-3.5 w-3.5" aria-hidden />
-          {t("pets.open_settings")}
-        </button>
-      )}
 
       {needsRestart && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-secondary px-3 py-2.5">

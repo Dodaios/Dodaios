@@ -1,93 +1,25 @@
-# Desktop pets
+# Pets
 
-A desktop pet is an animated pixel-art companion that floats on the desktop
-while Dodaios runs. It is the overlay style `pet`, an alternative to the slim
-Dodaios Bar (`jarvis_bar`) and the voice orb (`voice_orb`). Users pick the
-style and the pet under **Settings → My Pets**.
+A pet is an animated pixel-art companion. Pets live in the app: the active pet
+is how the app draws the assistant, an agent can wear any pet, and the user
+can draw their own. Users pick and create pets under **Settings → My Pets**.
 
-The style `mascot` is a pet as well: it always shows the built-in `dodaios`
-pet, the hooded figure of the logo (`MASCOT_PET_ID` in
-`dodaios/ui/overlay_styles.py`), with everything on this page: the states, the
-control strip, the thought bubble and the cards. The pet chosen under My Pets
-is kept and shows again once the style is `pet`. Only an own picture
-(`[ui] orb_mascot_path`) makes the mascot a still image that pops up for a
-conversation.
+Pets are not shown on the desktop any more. The desktop overlay styles `pet`
+and `mascot` were removed (2026-11-14); an install that still has
+`[ui] orb_style = "pet"` or `"mascot"` loads the Dodaios Bar instead
+(`dodaios.ui.overlay_styles.LEGACY_STYLE_ALIASES`). The desktop overlay is the
+bar, the voice orb or nothing (`docs/dodaios-bar.md`).
 
-The pet sits in the same frameless, always-on-top window as the mascot and the
-voice orb (`ui/orb/overlay.py`, `OrbOverlay`). Switching between those three
-styles, or between pets, applies live. Switching between the bar and any
-orb-window style needs an app restart, because a second Tk root created at
-runtime aborts the process (BUG-031). The settings page offers the restart in
-one click.
+## Where pets appear
 
-On macOS, Aqua-Tk 9 puts a window back at the normal level when it is
-withdrawn and shown again, although `-topmost` still reads 1. Each reveal of
-the pet, its strip, bubble and cards therefore sets `-topmost` again
-(`reassert_macos_topmost`); without it the pet hid behind the browser while
-the app reported it as shown. Aqua-Tk 9 also draws every window into a bitmap without an alpha channel
-and composites images onto it with source-over: transparent pixels show
-black and a new animation frame never erases the last, so the pet showed a
-black box and every frame stacked on the one before. On macOS the figure,
-the strip, the bubble and the cards therefore put their frames on screen
-through a native Core Animation layer (`ui/orb/mac_layer.py`): the Tk
-content view is made fully transparent (it still gets every click and
-pointer event), and each frame replaces the layer's contents outright.
-Without PyObjC the Tk drawing stays as the fallback. The macOS host needs a Python with Tk
-(Homebrew: `brew install python-tk@3.12`); without it the host exits with
-`No module named '_tkinter'` and no pet appears.
-
-## What the user sees
-
-- **The figure.** It reacts to Dodaios in real time (see *States*). It can be
-  dragged anywhere, and after a restart it stands where it was dropped, on a
-  second monitor too (`[overlay.mascot] position_*`, shared with the mascot).
-  If that monitor is not connected, the pet waits at the same offset on the
-  primary screen. The saved spot is kept, so the pet goes back when the
-  monitor returns, at the next start or within a second or two while the app
-  runs. Dragging the pet while it waits gives it a new spot. **Reset
-  position** forgets the spot.
-- **The control strip** under the figure. At rest only the figure shows; the
-  strip appears while Dodaios listens, thinks or talks, while notification cards
-  are up, and while the pointer is on the pet. When none of that holds any
-  more it stays for a short grace, then fades out. It stays up for as long as
-  the pet is held or dragged, and goes only once the pointer has left the pet
-  after the drop. The size slider changes the figure only: the strip keeps
-  its size. With the pet "None", or with
-  **Always show the buttons** on (My Pets, `[ui] pet_strip_always`),
-  it always shows. From left to right:
-  - bell: done cards on or off for this run (see *Cards*). Off
-    shows a red, struck-through bell and sends the cards on screen away; on
-    rings the bell. Like the speaker mute it never survives a restart, so a
-    bell forgotten off cannot hide tomorrow's "your agent is done";
-  - microphone: mute Dodaios's microphone (`VoiceMuteToggleRequested`, mirrored
-    from `VoiceMuteChanged`);
-  - talk indicator (three strokes, each a light-blue sky with soft white clouds in it): start a conversation, or hang up the running one. The
-    strokes stand still and dimmed at rest, follow the live audio level while
-    listening, dictating or talking, and carry a travelling highlight while
-    thinking or transcribing. While a realtime call is still connecting
-    (`SystemStateChanged(CONNECTING)`) the three strokes bend into the arcs
-    of one ring and spin as the loading loop (a live voice lengthens the
-    arcs); once the provider takes the call they flash green, unbend and
-    slide back into the listening row. The Dodaios Bar has its own look
-    (`docs/dodaios-bar.md`);
-  - speaker: silence the assistant's voice for this session (TTS volume 0,
-    mirrored from `VoiceSpeakerMuteChanged`).
-- **The thought bubble** above the pet's head while Dodaios thinks, drawn in
-  the pets' pixel art: a white pixel cloud with a dark outline and two small
-  puffs trailing down to the head. Bobbing dots while Dodaios just thinks, the
-  current step ("Search the web") while it works. Never the live transcript,
-  never the reply. It can be switched off (`[ui] pet_bubble`). See *The
-  thought bubble*.
-- **Done cards** under the strip (above the pet when there is no room below):
-  little pixel-art letters — the pet gets mail — when Dodaios answered a typed
-  chat or a job Dodaios started came back: a pixel envelope with a check badge,
-  what was asked, the start of the answer (see *Cards*).
-- **The pet "None"** (`pet_id = "none"`) shows the control strip and the
-  cards without a figure.
+- **The assistant's mark.** The active pet (`[ui] pet_id`) is the figure the
+  app draws for the assistant (`PetMark`, the onboarding guide, the
+  assistant's swatch). An id that no longer exists on disk, and the old
+  `"none"` an earlier install may have saved, are drawn as the default pet,
+  Gigi.
 - **In the Dodaios Verse.** Aboard the capital ship the chosen pet is the
   commander's companion drone: it hovers at the commander's heel
-  (`docs/verse/README.md`). While the mascot is the display style, the
-  mascot's pet is that companion.
+  (`docs/verse/README.md`).
 - **Worn by an agent.** In an agent's look dialog (*Companion → Look →
   Pet*) any pet from My Pets can replace the agent's shape. It is stored as
   `companion.pet` in the agent's avatar JSON (`dodaios/society/companion.py`,
@@ -100,132 +32,30 @@ Without PyObjC the Tk drawing stays as the fallback. The macOS host needs a Pyth
   machine (deleted, or drawn on another one) shows the shape again; a shared
   agent template keeps a built-in pet and drops a drawn one.
 
-The pet stays on screen while Dodaios is idle. Right-clicking the figure or its
-control strip opens a menu with **Open app**, **Reset position**, and **Hide pet**.
-The popup follows the app's light, dark or system appearance: neutral surfaces,
-rounded rows, Inter labels, line icons and a JetBrains Mono shortcut hint.
-Arrow keys move between available actions; Enter selects, Escape or an outside
-click dismisses the popup. It stays within the pointer's monitor work area.
-Only choosing **Hide pet** hides the whole pet, including its bubble and cards.
-The menu shows the current restore shortcut beside that action. The global shortcut
-(`[trigger] hotkey_pet_toggle`, default `alt+win+p`) hides it or brings it
-back and to the front; voice updates do not undo dismissal. The pet returns
-when shown again or on the next app start. The shortcut is
-changed on the My Pets page, beside the active pet; an empty value switches it off. On
-Wayland, global shortcuts are a no-op, as for every other shortcut.
-
-## Cards
-
-One window (`ui/orb/notice_stack.py`) holds the done cards;
-`ui/orb/pet_cards.py` draws them in the same pixel-art language as the thought
-bubble, at the pet sprite's pixel size: a sheet of cream paper with the
-sprites' dark outline, a shaded bottom row, a folded top-right corner and a
-hard one-pixel drop shadow; a pixel envelope that drops in, then a green check
-badge (a red cross when it failed) that pops onto its corner; the text in the
-pets' dark ink. Both windows show their frames through
-`ui/orb/layered_surface.py`: on Windows with real per-pixel alpha
-(`dodaios/platform/layered_window.py`, `UpdateLayeredWindow`), so cards fade in
-and out; elsewhere, or when Windows refuses a frame, flattened onto the colour
-key with hard edges.
-
-Done cards are about Dodaios and nothing else (`dodaios/ui/pets/notices.py`):
-
-| Source | Card |
-| --- | --- |
-| `JarvisChatTurnFinished` — a turn of a typed chat with Dodaios (surface `jarvis`), published by `AgentChatService` | ✓ what was asked / the start of the answer; ✕ when the turn failed (a cancel stays quiet) |
-| `JarvisAgentBackgroundCompleted` | ✓ / ✕ the task as asked / its result |
-| `DelegationResultReady` — a coding job Dodaios delegated | ✓ / ✕ `<agent> is done` / its report |
-
-A coding agent the user runs on their own, a mission, a routine or an app
-error gets no card; neither does a spoken turn (the answer was heard).
-
-Done cards are always the column's width, so they stack edge to edge: the
-newest in front, up to two older ones peeking out behind it, each a step
-smaller and fainter and showing its paper only; at most three are kept.
-Hovering fans them into a column; leaving folds them back. A click sends the
-card under the pointer away. A card leaves on its own after 9 s (`error` 14
-s), never while the pointer rests on the stack; the same card twice within 3 s
-refreshes instead of stacking. Cards drift in and fade on springs, and the
-envelope and its badge arrive in steps. The column repaints at ~60 fps only while something
-moves and not at all at rest. Done cards are dropped while the bell is off,
-the pet is hidden, or the look is not the pet; the strip stays in sight while
-they show.
-
-## The thought bubble
-
-`ui/orb/thought_bubble.py` draws it at the pet sprite's own pixel size
-(`PetRenderer.factor`), nearest-neighbour like the sprites: a white cloud with
-the pets' dark outline (`#1B1622`), a shaded bottom row and a corner highlight,
-and two puffs whose smallest ends just above the pet's head. It pops in puff by
-puff, then the cloud, floats up and down by one art pixel, and pops out in
-reverse. The bare "Thinking …" label shows as three dots bobbing in turn; any
-other line is the cloud's text (ellipsized at 230 px). It repaints at ~16 fps
-while up and not at all otherwise.
-
-What it says mirrors Dodaios's real thinking, fed by bus events in
-`ui/orb/bus_bridge.py` and condensed by `dodaios/ui/pets/status_line.py`:
-
-The bubble shows ONE line: the detail when there is one, else the title.
-
-| Source | Title | Detail |
-|---|---|---|
-| `ReasoningSummaryUpdated` — the thinking model behind GPT-Live (`dodaios/live/session.py`, streamed as cumulative snapshots a few times per second) | the newest section heading of the summary (`**Heading**`) | the last complete sentence of that section |
-| `ActionProposed` / `ToolCallStarted` — a tool step | the current thought's heading, else the running agent task, else "Working" | the step's rationale, else the humanized tool name |
-| `ActionExecuted` while a card is up | unchanged | "Step done" / "Step failed" |
-| `JarvisAgentTaskStarted` / `JarvisAgentTaskCompleted` — an agent task | the task (the user's request, condensed) | "Working …", then "Done" / "Failed" |
-| `SystemStateChanged(THINKING)` with no thought after 1.5 s | "Thinking …" | empty |
-
-When it goes away (a 1.5 s linger, then it fades out):
-
-- Dodaios starts talking out loud (`AudioOutFirst`), the turn ends (`IDLE`,
-  `ERROR`, `PAUSED`), a fresh turn starts listening, or the session ends;
-- a thought that arrives while Dodaios is already talking (the thinking model
-  working on behind the voice model) clears itself after four quiet seconds;
-- a finished agent task shows Done / Failed for three seconds.
-
-A running agent task keeps its card across all of these until it completes;
-a completion that never arrives stops holding the card after 30 minutes.
-Spoken lines (acks, progress readbacks), the transcript and the reply never
-reach the card. Updates are rate-limited (0.3 s) and deduplicated, and the
-newest held-back update is always shown once the limit allows. The fixed
-labels follow the interface language (`[ui] language`: en / de / es). Title
-and detail are clipped to 60 and 110 characters; markdown, code, URLs, file
-paths and JSON dumps are stripped.
-
 ## States
 
 The vocabulary lives in `dodaios/ui/pets/states.py` (a module with no imports)
 and is mirrored in `frontend/src/lib/petStates.ts`; a parity test keeps them
-equal.
+equal. A state is one animation row of a pet:
 
-| State | Driven by |
+| State | Meaning |
 |---|---|
-| `idle` | `SystemStateChanged(IDLE)`, no session |
-| `listening` | wake word, `VoiceSessionStarted`, `SystemStateChanged(LISTENING)`, dictation |
-| `thinking` | `SystemStateChanged(THINKING)`; also `SystemStateChanged(CONNECTING)` while a realtime call connects (the pet nods once it is connected) |
-| `talking` | `AudioOutFirst`, `SystemStateChanged(SPEAKING)` with audible output |
-| `success` (one-shot, 1.5 s) | `SpeechSpoken.spoken_kind` in `action_done`/`completion`, `JarvisAgentBackgroundCompleted(success=True)`, `ActionExecuted(success=True)` while no turn is running |
-| `error` (one-shot, 2 s) | `ErrorOccurred(recoverable=False)`, `SpeechSpoken.spoken_kind` in `timeout`/`unavailable`/`stt_unavailable`, `VoiceSessionEnded(hangup_reason="error")`, `ActionExecuted(success=False)` while no turn is running |
-| `sleeping` | five minutes without any Dodaios event; any event wakes it |
-| `working` | a tool step that changes, sends or runs something (`ActionProposed` / `ToolCallStarted`) while thinking; also an agent task running in the background while Dodaios is otherwise idle (`JarvisAgentTaskStarted` until `JarvisAgentTaskCompleted`) |
-| `searching` | a tool step that looks something up: its name contains a word like search, find, read, fetch, browse, query, list or wiki (`dodaios/ui/pets/actions.py`) |
-| `held` | the user drags the pet with the mouse (from the first real movement until the release) |
+| `idle` | nothing is happening |
+| `listening` | the assistant hears the user |
+| `thinking` | the assistant works out an answer |
+| `talking` | the assistant speaks |
+| `success` (one-shot, 1.5 s) | something the user asked for worked |
+| `error` (one-shot, 2 s) | something failed |
+| `sleeping` | a long quiet stretch |
+| `working` | a step that changes, sends or runs something |
+| `searching` | a step that looks something up |
+| `held` | the pet is picked up |
 
-Precedence, highest first: `held`, a one-shot, `listening` / `talking`, an action state, background work, `thinking` / `idle`, `sleeping`. An action ends with the tool's `ActionExecuted`, when Dodaios starts talking or the turn ends, and at the latest after 12 seconds without a newer tool call. A pet whose sheet has no row for a new state borrows one: `working` -> `thinking`, `searching` -> `working`, `held` -> `listening`.
-
-States come only from real bus events (`ui/orb/bus_bridge.py`); nothing is
-simulated. The classic voice pipeline does not publish `ErrorOccurred`, so on
-that path an error shows through the `SpeechSpoken` kinds.
-
-The one-shots report what the user experiences, not every internal step:
-
-- a tool result inside a running voice or typed turn (any state other than
-  `IDLE`, `ERROR` or `PAUSED`) is a step of that turn and plays nothing; the
-  turn's own end reports how it went;
-- a recoverable `ErrorOccurred` (a retry or fallback the user never notices)
-  plays nothing;
-- at most one one-shot plays per three seconds. The only exception is an error
-  right after a success, because the failure is the news.
+Where the app draws a pet, it picks the state from what it shows (an agent's
+routine trace, a bot-stage scene, the assistant's turn). A pet whose sheet has
+no row for a state borrows one: `working` -> `thinking`, `searching` ->
+`working`, `held` -> `listening`, and every chain ends at `idle`
+(`STATE_FALLBACKS`).
 
 ## Sprite format `jarvis-pet/1`
 
@@ -265,25 +95,19 @@ rows); the missing ones fall back as described under *States*.
 }
 ```
 
-Two row conventions make the pet feel alive:
+Row conventions:
 
 - **Accent frames.** `accent_frames` (optional) marks the last cells of a
   looping row as an accent, such as a blink, that plays only on every
   `accent_every`-th pass. The built-in idle rows breathe on seven cells and
   blink on the eighth every third breath.
 - **Talking by voice.** The `talking` row is ordered by mouth openness, from
-  closed to widest. While a live output level is fresh (under 250 ms old),
-  the renderer picks the frame from that level, lightly smoothed, so the mouth
-  follows the real voice. Without a level the row swings back and forth.
-- **Idle acts.** A pet may ship little one-shot scenes it plays on its own
-  while nothing happens: the dragon spits fire, the cat chases a ball of
-  yarn. They live on a second sheet, declared next to the animations:
-  `"acts_sheet": "acts.png"` and `"acts": {"fire": {"row": 0, "frames": 8,
-  "fps": 9}, ...}` (1-24 character slugs, at most 12 acts, one row each,
-  always one-shot). The renderer (`ui/orb/pet_renderer.py`) starts one at
-  random 40-100 s into an idle stretch and then every 1.5-4 min, never the same
-  act twice in a row; any other state cancels it, and the overlay's frame
-  timer covers the wait, so idling costs nothing extra. A user upload is a
+  closed to widest, so a renderer with a live output level can pick the frame
+  from that level.
+- **Idle acts.** A built-in pet may ship little one-shot scenes on a second
+  sheet, declared next to the animations: `"acts_sheet": "acts.png"` and
+  `"acts": {"fire": {"row": 0, "frames": 8, "fps": 9}, ...}` (1-24 character
+  slugs, at most 12 acts, one row each, always one-shot). A user upload is a
   single sheet, so the store drops `acts` from an uploaded `pet.json`.
 
 Rules the loader enforces (`dodaios/ui/pets/manifest.py`):
@@ -295,10 +119,9 @@ Rules the loader enforces (`dodaios/ui/pets/manifest.py`):
   `STATE_FALLBACKS` (for example `sleeping` → `idle`).
 - `frames` is 1–8, `fps` is 1–12, and every referenced cell lies inside the
   sheet. The sheet is at most 512 × 512 pixels and 2 MB.
-- Transparency is binary on screen: a pixel is either opaque or gone
-  (alpha ≥ 128 counts as opaque). The overlay keys out pure magenta
-  (`#FF00FF`), so the loader nudges any exact-magenta sprite pixel to
-  `#FE00FE`.
+- Transparency is binary: a pixel is either opaque or gone (alpha ≥ 128
+  counts as opaque). The loader nudges any exact-magenta (`#FF00FF`) sprite
+  pixel to `#FE00FE`, so a colour-keyed renderer never punches a hole in it.
 
 Built-in pets live in `dodaios/ui/pets/builtin/<id>/` and are generated from
 pixel data by `scripts/pets/build_pets.py` (deterministic; a test checks the
@@ -343,84 +166,31 @@ committed PNGs match the script). User-created pets live in
 
 ## Interfaces
 
-### Surface methods
-
-`OrbOverlay` gains these methods. The bridge calls them through `getattr`, so
-the bar and `NullOverlay` stay untouched. The macOS companion process
-(`dodaios/ui/dodaiosbar/host.py`) forwards each one as a command of the same
-name.
-
-| Method | Meaning |
-|---|---|
-| `set_pet(pet_id)` | Swap the figure live; `"none"` shows the strip only |
-| `set_pet_look(scale, bubble, strip_always)` | Apply size, card on/off and the always-on strip live |
-| `set_pet_outcome(kind)` | Play the one-shot `success` or `error` |
-| `set_pet_action(kind)` | `working` / `searching` for the running tool step, `None` when it ended |
-| `set_pet_busy(busy)` | An agent task is running in the background |
-| `show_status(title, detail="")` | Show or update the thought bubble (already condensed) |
-| `clear_status(linger_s=1.5)` | Take the card down after `linger_s` |
-| `wants_status_lines` (attribute) | True only for the pet: the bridge feeds the card to nothing else |
-| `set_muted(muted)` | Mirror the microphone mute on the strip |
-| `set_speaker_muted(muted)` | Mirror the speaker mute on the strip |
-| `set_visible(visible)` | Hide or show the whole pet (shortcut, settings) |
-| `toggle_visible()` | Shortcut action: hide, or show and raise |
-| `push_notice(kind, title, detail)` | One done card (`done` / `error`); rings the bell |
-| `set_notifications_enabled(enabled)` | Switch the bell without a click (a respawned host) |
-| `set_on_notifications_toggle(cb)` | `cb(enabled)` after the bell was clicked |
-
-Control-strip actions: `bell` (handled in the surface, reported through
-`set_on_notifications_toggle`; the macOS host sends it up as `notify_toggle`),
-`mic_mute`, `talk`/`hangup` (the orb) and `speaker`.
-
 ### Events (`dodaios/core/events.py`)
 
-- `VoiceSpeakerMuteChanged(muted, source)`: published by
-  `SpeechPipeline.set_tts_volume` when the muted-ness flips.
-- `ComposeRequested(source)`: a new typed chat; DesktopApp raises the
-  window, the frontend opens a new chat. (The strip's pen became the bell.)
-- `PetVisibilityToggleRequested(source)`: the `pet_toggle` shortcut; the
-  bridge calls `surface.toggle_visible()`.
-- `PetChanged(pet_id, scale, bubble, visible, source)`: published by the pets
-  routes after a change is on disk and applied.
+- `PetChanged(pet_id, source)`: published by the pets routes after a new
+  active pet is on disk; `useWebSocket` turns it into a refetch of the pets
+  query, so every open window redraws its pets.
 
 ### Configuration
 
 | Key | Default | Meaning |
 |---|---|---|
-| `[ui] orb_style` | `jarvis_bar` | `pet` selects the pet |
-| `[ui] pet_id` | `gigi` | Active pet (built-in id, `u…` id or `none`) |
-| `[ui] pet_scale` | `1.0` | Size multiplier of the figure, 0.5–2.0 |
-| `[ui] pet_bubble` | `true` | Show the thought bubble |
-| `[ui] pet_strip_always` | `false` | Keep the control strip up even at rest |
-| `[trigger] hotkey_pet_toggle` | `alt+win+p` | Hide / show the pet; empty disables it |
+| `[ui] pet_id` | `gigi` | The active pet (built-in id or `u…` id) |
+
+The removed desktop pet's keys (`[ui] pet_scale`, `pet_bubble`,
+`pet_strip_always`, `orb_mascot_path`, `[trigger] hotkey_pet_toggle`) still
+load from an old `jarvis.toml` and are ignored.
 
 ### REST (`dodaios/ui/web/pets_routes.py`)
 
 | Method and path | Body / result |
 |---|---|
-| `GET /api/pets` | `{active, scale, bubble, visible, pets: [{id, name, description, builtin, frame_size, animations, sheet_url}]}` |
+| `GET /api/pets` | `{active, pets: [{id, name, description, builtin, frame_size, animations, sheet_url}]}` |
 | `GET /api/pets/{id}/sheet.png` | The sprite sheet |
 | `GET /api/pets/template.png` | The empty sprite-sheet template (48 px cells, rows in state order) |
-| `PUT /api/pets/active` | `{pet_id}` → saves `[ui] pet_id`, applies live |
-| `PUT /api/pets/settings` | `{scale?, bubble?, strip_always?, preview?}` → applies live, then saves; `preview: true` (a size-slider drag step) only applies live, writes nothing and sends no `PetChanged` |
-| `POST /api/pets/visibility` | `{visible}` → runtime only |
+| `PUT /api/pets/active` | `{pet_id}` → saves `[ui] pet_id`, publishes `PetChanged`; `"none"` is refused; 409 on a dev instance (both instances share one `jarvis.toml`) |
 | `POST /api/pets` | multipart: `sheet` (PNG), `name`, `description`, optional `manifest` (JSON), optional `frame_size` → the new pet |
-| `DELETE /api/pets/{id}` | user-created pets only |
+| `DELETE /api/pets/{id}` | user-created pets only; deleting the active pet makes the default pet active |
 
-## Performance budget
-
-The pet must cost next to nothing while idle:
-
-- every frame is scaled once (nearest-neighbour, an integer factor chosen
-  from the figure's visible size so it reads about 180 logical px tall,
-  times the monitor DPI and `pet_scale`) and cached as a Tk image; the strip
-  and the cards follow the monitor DPI only;
-- the window repaints only when the frame key changes (frame index, plus the
-  level bucket while talking), and the timer sleeps until the next frame
-  boundary: 6 fps idle, 3 fps asleep, 8–10 fps active, nothing while hidden;
-- the control strip's indicator animates only while connecting, listening, talking or thinking;
-- the strip's fade is the opacity of its window, a dozen attribute changes
-  with no frame drawn, and nothing polls the pointer: a hover that outlived
-  the pointer is caught by the position check that already runs every 1.5 s.
-
-Target: an idle pet adds less than 1 % of one CPU core to the app process.
+Every route is also a `jarvis api pets <op>` command (CLI-first contract).

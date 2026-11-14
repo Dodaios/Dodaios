@@ -15,7 +15,7 @@ text — and hands it to the conversation as context. Settings live under
 | **Try it** buttons on the Appshots page | "Take appshot in 3 s" waits three seconds so you can switch windows; "Select area" opens the area picker at once. Both then behave like the shortcuts. |
 
 "Front window" means the app window you work in. Dodaios's own floating
-overlays (the mascot, the bar) take the focus when you click them, so the
+overlays (the orb, the bar) take the focus when you click them, so the
 capture looks past them to the app window underneath (BUG-228); with no app
 window there, it takes the whole screen instead.
 

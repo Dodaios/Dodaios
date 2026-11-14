@@ -130,8 +130,7 @@ export function PetSprite({
 }
 
 /**
- * The frame for timer `step` — the desktop renderer's order
- * (`ui/orb/pet_renderer.py`): a swing goes 0, 1, …, n-1, …, 1; a one-shot
+ * The frame for timer `step`: a swing goes 0, 1, …, n-1, …, 1; a one-shot
  * holds its last cell; a looping row with an accent plays its ordinary cells
  * `accentEvery` times, then the accent cells once.
  */

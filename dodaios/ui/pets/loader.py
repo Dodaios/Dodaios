@@ -2,11 +2,11 @@
 
 Built-in pets ship under ``dodaios/ui/pets/builtin/<id>/``; user-created pets
 live under ``<DATA_DIR>/pets/<u…id>/``. :func:`load_pet` turns a folder into a
-:class:`PetPack` whose frames are ready for the overlay: RGBA at source size,
-binary alpha, and no pixel in the overlay's exact colour key.
+:class:`PetPack` whose frames are ready to draw: RGBA at source size, binary
+alpha, and no pixel in the exact magenta colour key.
 
-Pure Pillow, no OS-specific code: the same loader runs in the Tk overlay, the
-macOS companion process and the REST routes.
+Pure Pillow, no OS-specific code: the REST routes and the pet scripts
+(``scripts/pets/``) use the same loader.
 """
 
 from __future__ import annotations
@@ -38,7 +38,8 @@ _log = logging.getLogger(__name__)
 
 MANIFEST_NAME = "pet.json"
 
-#: The overlay's transparent colour (pure magenta). Sprites never use it.
+#: The colour key a keyed renderer makes transparent (pure magenta). Sprites
+#: never use it.
 COLOR_KEY: tuple[int, int, int] = (255, 0, 255)
 
 #: Alpha at or above this counts as opaque; everything else is gone.
@@ -73,7 +74,7 @@ def builtin_root() -> Path:
 def custom_root(data_dir: Path | None = None) -> Path:
     """Folder holding user-created pets: ``<DATA_DIR>/pets``. Not created here."""
     if data_dir is None:
-        from dodaios.core import config  # lazy: the overlay may run without it loaded
+        from dodaios.core import config  # lazy: scripts may run without it loaded
 
         data_dir = config.DATA_DIR
     return Path(data_dir) / "pets"
@@ -160,7 +161,7 @@ def normalize_sheet(image: Image.Image) -> Image.Image:
 
     Alpha at or above :data:`ALPHA_THRESHOLD` becomes 255, everything else
     becomes fully transparent black. An opaque pixel that is exactly
-    ``#FF00FF`` is nudged to ``#FE00FE`` so the overlay's colour key never
+    ``#FF00FF`` is nudged to ``#FE00FE`` so a renderer's colour key never
     punches a hole into the sprite.
     """
     rgba = image.convert("RGBA")
@@ -217,37 +218,6 @@ def _decode(path: Path) -> Image.Image:
         raise PetManifestError("The sprite sheet could not be decoded.") from exc
     check_sheet_size(*sheet.size)
     return sheet
-
-
-def load_default_pet() -> PetPack | None:
-    """The :data:`DEFAULT_PET_ID` pack, or ``None`` when even that is broken."""
-    try:
-        return load_pet(builtin_root() / DEFAULT_PET_ID, builtin=True)
-    except PetManifestError as exc:
-        # A broken default is a packaging bug; the strip without a figure
-        # still works, so the overlay degrades instead of crashing.
-        _log.error("default pet %r failed to load: %s", DEFAULT_PET_ID, exc)
-        return None
-
-
-def load_pet_by_id(pet_id: str, *, data_dir: Path | None = None) -> PetPack | None:
-    """Load a pet by id.
-
-    ``"none"`` returns ``None`` (strip without a figure). An unknown or broken
-    id logs a warning and returns the :data:`DEFAULT_PET_ID` pack instead.
-    """
-    if pet_id == NO_PET_ID:
-        return None
-    found = find_pet_dir(pet_id, data_dir=data_dir)
-    if found is None:
-        _log.warning("pet %r not found; showing %r", pet_id, DEFAULT_PET_ID)
-        return load_default_pet()
-    folder, builtin = found
-    try:
-        return load_pet(folder, builtin=builtin)
-    except PetManifestError as exc:
-        _log.warning("pet %r is broken (%s); showing %r", pet_id, exc, DEFAULT_PET_ID)
-        return load_default_pet()
 
 
 def _builtin_manifests() -> list[PetManifest]:

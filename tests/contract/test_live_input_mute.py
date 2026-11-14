@@ -71,12 +71,12 @@ async def test_a_mute_during_the_call_stops_the_audio_and_tells_the_page(call):
     await call.session.handle_audio_frame(PCM)
     assert len(call.connection.sent) == 1
 
-    await call.bus.publish(VoiceMuteChanged(muted=True, source="pet_strip"))
+    await call.bus.publish(VoiceMuteChanged(muted=True, source="orb"))
     assert call.page[-1] == {"type": "input_mute", "muted": True}
     await call.session.handle_audio_frame(PCM)
     assert len(call.connection.sent) == 1
 
-    await call.bus.publish(VoiceMuteChanged(muted=False, source="pet_strip"))
+    await call.bus.publish(VoiceMuteChanged(muted=False, source="orb"))
     assert call.page[-1] == {"type": "input_mute", "muted": False}
     await call.session.handle_audio_frame(PCM)
     assert len(call.connection.sent) == 2
@@ -95,7 +95,7 @@ async def test_a_call_that_starts_muted_adopts_the_mute(call):
 async def test_an_ended_call_stops_following_the_mute(call):
     call.session._watch_input_mute()
     call.session._stop_watching_input_mute()
-    await call.bus.publish(VoiceMuteChanged(muted=True, source="pet_strip"))
+    await call.bus.publish(VoiceMuteChanged(muted=True, source="orb"))
     assert call.page == []
     assert call.session._input_muted is False
 
@@ -117,7 +117,7 @@ async def test_a_dictation_holds_the_call_input_until_it_is_delivered(call):
 @pytest.mark.asyncio
 async def test_releasing_the_hold_never_unmutes_the_user(call):
     call.session._watch_input_mute()
-    await call.bus.publish(VoiceMuteChanged(muted=True, source="pet_strip"))
+    await call.bus.publish(VoiceMuteChanged(muted=True, source="orb"))
     await call.bus.publish(VoiceInputHeld(held=True, reason="dictation"))
     await call.bus.publish(VoiceInputHeld(held=False, reason="dictation"))
     assert call.page[-1] == {"type": "input_mute", "muted": True}

@@ -700,7 +700,7 @@ describe("useWebSocket VoiceBootStatus handling", () => {
     },
   );
 
-  it("opens an empty typed chat when the desktop pet's pen asks for one", async () => {
+  it("opens an empty typed chat when a new chat is requested from outside the window", async () => {
     useEventStore.setState({
       solo: false,
       activeSection: "settings",
@@ -748,7 +748,7 @@ describe("useWebSocket VoiceBootStatus handling", () => {
     await Promise.resolve();
 
     MockWebSocket.last!.deliver(
-      envelope("PetChanged", { pet_id: "miso", scale: 1, bubble: true, visible: true, source: "api" }),
+      envelope("PetChanged", { pet_id: "miso", source: "api" }),
     );
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["pets"] });

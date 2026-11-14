@@ -19,33 +19,10 @@ from __future__ import annotations
 BAR_STYLE = "jarvis_bar"
 
 #: Styles drawn by the floating orb window (``ui.orb.overlay.OrbOverlay``):
-#: ``mascot`` is the hooded figure of the logo, ``voice_orb`` the procedural
-#: weather sphere — the desktop twin of the in-app orb — and ``pet`` an
-#: animated pixel-art companion with its own control strip
-#: (``dodaios.ui.pets``). All three live in the SAME frameless, always-on-top
-#: window, so all can be dragged onto any monitor and swapped live without a
-#: restart.
-ORB_STYLES: tuple[str, ...] = ("mascot", "voice_orb", "pet")
-
-#: The built-in pet the ``mascot`` style shows: the mascot is that pet, with
-#: the pet's animations, control strip and cards, whatever pet is chosen under
-#: My Pets for the ``pet`` style.
-MASCOT_PET_ID = "dodaios"
-
-#: Orb-window styles that stay on screen while Jarvis is idle. The others pop
-#: up only for a conversation.
-PERSISTENT_ORB_STYLES: tuple[str, ...] = ("mascot", "pet")
-
-
-def stays_while_idle(style: str, *, mascot_image: str = "") -> bool:
-    """True for an orb-window style that stays on screen while Jarvis is idle.
-
-    A configured mascot image (``[ui] orb_mascot_path``) is shown as the still
-    picture it is, which pops up only for a conversation.
-    """
-    if style == "mascot" and mascot_image.strip():
-        return False
-    return style in PERSISTENT_ORB_STYLES
+#: ``voice_orb``, the procedural weather sphere, the desktop twin of the
+#: in-app orb. It pops up for a conversation and can be dragged onto any
+#: monitor.
+ORB_STYLES: tuple[str, ...] = ("voice_orb",)
 
 #: No on-screen overlay at all.
 HIDDEN_STYLE = "none"
@@ -56,10 +33,13 @@ OVERLAY_STYLES: tuple[str, ...] = (BAR_STYLE, *ORB_STYLES, HIDDEN_STYLE)
 #: Values older installs may still carry in ``jarvis.toml`` (or an old frontend
 #: bundle may still PUT), mapped onto what they mean today. ``whisper_bar`` was
 #: renamed to drop a trademarked word; ``orb`` was the removed procedural
-#: renderer, whose selection the mascot inherited.
+#: renderer. ``pet`` and ``mascot`` were the desktop pet styles: pets live in
+#: the app only now (docs/pets.md), so those installs get the bar.
 LEGACY_STYLE_ALIASES: dict[str, str] = {
     "whisper_bar": BAR_STYLE,
-    "orb": "mascot",
+    "orb": BAR_STYLE,
+    "pet": BAR_STYLE,
+    "mascot": BAR_STYLE,
 }
 
 

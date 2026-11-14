@@ -1,5 +1,5 @@
 /**
- * The desktop pet's state vocabulary, mirrored from `dodaios/ui/pets/states.py`.
+ * The pets' state vocabulary, mirrored from `dodaios/ui/pets/states.py`.
  *
  * A pet state is one animation row of a sprite sheet. The value crosses
  * Python, the manifest on disk, the REST payload, this file and the
