@@ -275,7 +275,7 @@ def _font(size_px: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
     for name in names:
         try:
             return ImageFont.truetype(name, size_px)
-        except OSError:
+        except OSError:  # this font is not installed here; try the next one
             continue
     try:
         return ImageFont.load_default(size=size_px)

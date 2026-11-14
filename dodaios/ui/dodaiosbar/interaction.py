@@ -140,7 +140,6 @@ def clamp_to_screen(
 # model avoids.
 
 
-
 def _clamp01(v: float) -> float:
     return 0.0 if v < 0.0 else 1.0 if v > 1.0 else float(v)
 
