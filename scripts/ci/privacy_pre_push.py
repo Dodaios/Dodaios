@@ -42,6 +42,7 @@ stdlib only (cloud-first €5-VPS doctrine: must run on a bare python:3.11-slim)
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import re
@@ -206,6 +207,30 @@ def forbidden_pushed_file(rel: str, text: str, forbidden: set[str]) -> bool:
     )
 
 
+#: The frontend bundle a release tag carries. It is built in CI, without
+#: secrets, from tracked sources and the locked npm packages.
+_BUNDLE_PREFIX = "dodaios/ui/web/dist/"
+
+#: Secret-shaped values that third-party packages publish in their own builds,
+#: so they reach our bundle verbatim. Each is allowed ONLY under _BUNDLE_PREFIX,
+#: where the content-hashed file names rule out the exact (value, path)
+#: allowlist. Kept as SHA-256 so the value itself is in no tracked file.
+_PUBLIC_BUNDLE_VALUES_SHA256: dict[str, str] = {
+    # @excalidraw/excalidraw: the browser API key of Excalidraw's own
+    # collaboration Firebase project (excalidraw-room-persistence), built into
+    # the package as VITE_APP_FIREBASE_CONFIG. It blocked the v5.3.0 tag CI.
+    "831eae7f580f7721f62d7f654e8c071879bcafd6452d5613f8db051f15082b85": (
+        "Excalidraw collaboration Firebase web config"
+    ),
+}
+
+
+def _is_public_bundle_value(value: str, rel: str) -> bool:
+    if not rel.replace("\\", "/").startswith(_BUNDLE_PREFIX):
+        return False
+    return hashlib.sha256(value.encode("utf-8")).hexdigest() in _PUBLIC_BUNDLE_VALUES_SHA256
+
+
 def scan_text_for_secrets(
     rel: str,
     text: str,
@@ -216,7 +241,9 @@ def scan_text_for_secrets(
 
     For each compiled secret regex, every match value is reported as a finding
     unless the exact (value, rel) pair is in the allowlist (the ship skill's
-    secret-allowlist, loaded as a set of (value, path) tuples).
+    secret-allowlist, loaded as a set of (value, path) tuples), or the value is
+    a known public third-party value inside the built frontend bundle
+    (:data:`_PUBLIC_BUNDLE_VALUES_SHA256`).
 
     Returns: list of {"path": rel, "pattern": <name>, "value": <matched>,
     "line": <1-based line number>}. ``value`` is for allowlist matching only --
@@ -226,7 +253,7 @@ def scan_text_for_secrets(
     for name, rx in compiled_patterns.items():
         for m in rx.finditer(text):
             value = m.group(0)
-            if (value, rel) in allowlist:
+            if (value, rel) in allowlist or _is_public_bundle_value(value, rel):
                 continue
             line = text.count("\n", 0, m.start()) + 1
             findings.append({"path": rel, "pattern": name, "value": value, "line": line})

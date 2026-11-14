@@ -17,6 +17,7 @@ tests use fake `.invalid` stand-ins.
 """
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import io
 import json
@@ -246,6 +247,25 @@ class TestScanTextForSecrets:
         text = f"# header\n\nOPENAI_API_KEY = '{_REAL_OPENAI}'\n"
         findings = gate.scan_text_for_secrets("config.py", text, _COMPILED, set())
         assert findings[0]["line"] == 3
+
+    def test_public_vendor_value_passes_only_inside_the_bundle(self, monkeypatch):
+        # A third-party key built into a package (Excalidraw's own Firebase web
+        # config) reaches dist/ verbatim; the hashed file names rule out the
+        # exact (value, path) allowlist, so it is allowed by its SHA-256 there.
+        vendor = "AIza" + ("V" * 35)
+        digest = hashlib.sha256(vendor.encode()).hexdigest()
+        monkeypatch.setattr(gate, "_PUBLIC_BUNDLE_VALUES_SHA256", {digest: "vendor"})
+        text = f'VITE_APP_FIREBASE_CONFIG:\'{{"apiKey":"{vendor}"}}\'\n'
+        bundle = "dodaios/ui/web/dist/assets/percentages-ABC123.js"
+        assert gate.scan_text_for_secrets(bundle, text, _COMPILED, set()) == []
+        # The same value anywhere else, or any other key in the bundle, still blocks.
+        assert len(gate.scan_text_for_secrets("src/config.ts", text, _COMPILED, set())) == 1
+        other = text.replace(vendor, "AIza" + ("W" * 35))
+        assert len(gate.scan_text_for_secrets(bundle, other, _COMPILED, set())) == 1
+
+    def test_shipped_public_bundle_values_are_hashes_not_keys(self):
+        for digest in gate._PUBLIC_BUNDLE_VALUES_SHA256:
+            assert re.fullmatch(r"[0-9a-f]{64}", digest)
 
     def test_description_never_contains_the_secret(self):
         text = f"# header\nOPENAI_API_KEY = '{_REAL_OPENAI}'\n"
