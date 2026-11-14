@@ -11887,6 +11887,12 @@
       "saving": "Guardando…",
       "failed": "No se pudo guardar."
     },
+    "editor": {
+      "done": "Listo",
+      "loading": "Abriendo el editor…",
+      "load_failed": "No se pudo abrir el editor.",
+      "retry": "Reintentar"
+    },
     "whiteboard": {
       "new": "Nueva pizarra",
       "new_failed": "No se pudo crear la pizarra. Inténtalo de nuevo en un momento.",

@@ -147,6 +147,11 @@ _BY_FIELD: Final[tuple[str, ...]] = (
 )
 
 #: What a model may call a layout.
+#: How an image slide fills its picture's box: ``cover`` crops the picture to
+#: the box (a photo), ``contain`` shows all of it (a screenshot, a diagram, a
+#: logo), on the slide's quiet ground.
+IMAGE_FITS: Final[tuple[str, ...]] = ("cover", "contain")
+
 _LAYOUT_ALIASES: Final[dict[str, str]] = {
     "cover": "title",
     "opening": "title",
@@ -342,6 +347,10 @@ def _chart_spec(parsed: dict[str, Any]) -> dict[str, Any]:
     for key in ("title", "note", "unit", "value", "delta"):
         if parsed[key]:
             chart[key] = parsed[key]
+    # What the shared grammar grew later (stacked bars, chosen colours) is kept
+    # as the reader returned it, so a slide's chart loses nothing in a save.
+    if parsed.get("stacked"):
+        chart["stacked"] = True
     chart["x"] = list(parsed["x"][:rows])
     series = []
     for name, data in parsed["series"]:
@@ -349,6 +358,9 @@ def _chart_spec(parsed: dict[str, Any]) -> dict[str, Any]:
         entry["data"] = [_plain_number(point) for point in data[:rows]]
         series.append(entry)
     chart["series"] = series
+    colors = parsed.get("colors")
+    if isinstance(colors, (list, tuple)) and any(colors):
+        chart["colors"] = list(colors)
     return chart
 
 
@@ -361,9 +373,9 @@ def _chart(value: Any, where: str) -> dict[str, Any]:
     if value in (None, "", [], {}):
         return {}
     hint = (
-        f'{where}: "chart" must be {{"type": "line" | "area" | "column" | "bar", '
-        '"x": [2 or more labels], "series": [{"name": …, "data": [one number per label]}]}, '
-        'with optional "unit", "title" and "note".'
+        f'{where}: "chart" must be {{"type": "line" | "area" | "column" | "bar" | "pie" | '
+        '"donut", "x": [2 or more labels], "series": [{"name": …, "data": [one number per '
+        'label]}]}, with optional "unit", "title", "note", "stacked" and "colors".'
     )
     chart = value
     # Twice: the reader trims what it clips, and the second reading settles it.
@@ -436,6 +448,12 @@ def _slide(raw: Any, position: int, first: bool) -> dict[str, Any] | None:
             found[key] = value
     layout = asked if asked and any(found.get(key) for key in _CORE[asked]) else ""
     layout = layout or _infer(found, first)
+    # A slide that names its layout and holds some of that layout's texts, but
+    # fits no layout (an opening whose title the person is writing anew, a
+    # quote with only its author yet), keeps its layout: dropping it would
+    # lose what it holds in the middle of an edit.
+    if not layout and asked and any(found.get(key) for key in _FIELDS[asked]):
+        layout = asked
     if not layout:
         return None
     slide: dict[str, Any] = {"layout": layout}
@@ -444,6 +462,8 @@ def _slide(raw: Any, position: int, first: bool) -> dict[str, Any] | None:
             slide[key] = found[key]
     if layout == "closing" and "bullets" in slide:
         slide["bullets"] = _texts(slide["bullets"], MAX_CLOSING_BULLETS, CLOSING_BULLET_CHARS)
+    if layout == "image" and pick(_text(raw.get("fit"), 12), IMAGE_FITS, "cover") == "contain":
+        slide["fit"] = "contain"
     notes = _block(raw.get("notes"), NOTE_CHARS)
     if notes:
         slide["notes"] = notes
@@ -562,28 +582,28 @@ EXAMPLE: Final[dict[str, Any]] = {
 
 GUIDE: Final[str] = (
     'Type "slides": a deck, played as a 16:9 presentation (keys, overview, notes).\n'
-    'Spec: {"theme": "auto" | "light" | "dark" ("auto" follows the app), "accent": a color '
-    '(blue, orange, green, amber, violet, pink or a hex), "slides": [1-60 slides]}.\n'
-    'A slide: {"layout": …, that layout\'s fields, "notes": speaker notes}; other fields are '
-    "dropped. Layouts:\n"
+    'Spec: {"theme": "auto" | "light" | "dark" ("auto" follows the app), "accent": blue, '
+    'orange, green, amber, violet, pink or a hex, "slides": [1-60 slides]}.\n'
+    'A slide: {"layout": …, its fields, "notes": speaker notes}; other fields are dropped.\n'
     "- title: kicker, title, subtitle. Opens the deck.\n"
     "- section: kicker, title, subtitle. A chapter divider.\n"
     "- bullets: kicker, title, text, bullets (up to 6, 160 chars each).\n"
     "- columns: kicker, title, columns: 2-3 of {title, text, bullets (up to 4, short)}.\n"
     "- quote: quote (up to 320 chars), by.\n"
     '- stats: kicker, title, stats: 1-4 of {value (up to 12 chars, "94%"), label, detail}.\n'
-    '- chart: kicker, title, text (short, beside it), chart: {"type": "line" | "area" | '
-    '"column" | "bar", "x": [labels], "series": [{"name", "data": [a number per label]}], '
-    '"unit", "note"}; bars: up to 10 rows.\n'
+    '- chart: kicker, title, text (short, beside it), chart: {"type": line|area|column|bar|'
+    'pie|donut, "x": [labels], "series": [{"name", "data": [a number per label]}], "unit", '
+    '"note", "stacked": true (column/bar), "colors": ["#hex" per series or slice]}; pie and '
+    "donut: one series; bars: up to 10 rows.\n"
     '- table: kicker, title, caption, table: {"columns": [up to 8], "rows": [up to 10 lists '
     "of short cells]}.\n"
-    "- image: kicker, title, caption, image (a data:image/…;base64 URI, never a web address); "
-    "full-bleed without a title.\n"
+    "- image: kicker, title, caption, image (a data:image/…;base64 URI, never a web address), "
+    'fit: "contain" shows all of it (screenshots), default crops; no title: full-bleed.\n'
     "- steps: kicker, title, steps: up to 6 of {title, text}, numbered.\n"
     "- closing: kicker, title, subtitle, bullets (up to 4, 100 chars). Ends the deck.\n"
     'Without "layout" it follows from the fields (stats, chart, table, image, steps, columns, '
-    "quote, else bullets; only a title: opens or divides the deck). An undrawable chart, "
-    "table, image or column set is refused with the reason.\n"
+    "quote, else bullets; only a title: opens or divides the deck). Undrawable content is "
+    "refused with the reason.\n"
     "Limits: title 110 chars (best under 60), subtitle 180, text 280, kicker 60, caption 140, "
     "notes 1200; longer is clipped. Bullets, text, captions and notes take **bold**, "
     "*italic*, `code`, [links](https://…).\n"
@@ -801,6 +821,8 @@ _CSS: Final[str] = """
 .l-image .sl-foot{right:calc(52% + 56px)}
 .l-bleed{padding:0}
 .l-bleed figure{position:absolute;inset:0;margin:0}
+.sl-pic.is-contain img,.l-bleed .is-contain img{object-fit:contain}
+.l-bleed .is-contain{background:var(--bg-2)}
 .l-bleed figcaption{position:absolute;left:40px;bottom:36px;max-width:780px;padding:10px 16px;
   border-radius:10px;background:var(--bg);font-size:18px;line-height:1.36}
 /* steps: numbers on a line that runs to the next one. */
@@ -1315,11 +1337,14 @@ def _image_slide(slide: dict[str, Any], deck: _Deck) -> str:
     caption = slide.get("caption", "")
     alt = attr(clean(caption or slide.get("title", ""), 140))
     picture = f'<img src="{attr(source)}" alt="{alt}">' if source else ""
+    contain = slide.get("fit") == "contain"
     if not slide.get("title"):
         note = deck.text("figcaption", caption, "caption", rich=True) if caption else ""
-        return f"<figure>{picture}{note}</figure>"
+        opening = '<figure class="is-contain">' if contain else "<figure>"
+        return f"{opening}{picture}{note}</figure>"
     note = deck.text("p", caption, "caption", klass="sl-note", rich=True) if caption else ""
-    return _head(slide, deck) + note + f'<figure class="sl-pic">{picture}</figure>'
+    klass = "sl-pic is-contain" if contain else "sl-pic"
+    return _head(slide, deck) + note + f'<figure class="{klass}">{picture}</figure>'
 
 
 def _steps_slide(slide: dict[str, Any], deck: _Deck) -> str:
@@ -1480,6 +1505,7 @@ def render(node: Any) -> str:
 __all__ = [
     "EXAMPLE",
     "GUIDE",
+    "IMAGE_FITS",
     "LAYOUTS",
     "MAX_SLIDES",
     "normalize",

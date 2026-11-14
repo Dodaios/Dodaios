@@ -1,0 +1,327 @@
+/*
+ * The document editor's text, close to how the page draws it
+ * (`kinds/docs.py`): a 720 px reading measure, the page's heading steps and
+ * rhythm, callouts in their tones, so what the person edits already reads
+ * like the document it becomes. Colours come from the app's theme tokens, so
+ * the editor follows light and dark like the rest of the app.
+ */
+
+.doc-editor {
+  color: hsl(var(--foreground));
+}
+
+.doc-title {
+  font-size: 32px;
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: hsl(var(--foreground-strong));
+  text-wrap: balance;
+}
+
+.doc-editor-content {
+  outline: none;
+  font-size: 16px;
+  line-height: 1.65;
+  max-width: 720px;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  font-variant-ligatures: none;
+}
+
+.doc-editor-content > * + * {
+  margin-top: 12px;
+}
+
+.doc-editor-content > .doc-summary {
+  margin-top: 14px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid hsl(var(--border));
+  font-size: 18px;
+  line-height: 28px;
+  color: hsl(var(--foreground-secondary));
+}
+
+.doc-editor-content > .doc-summary + * {
+  margin-top: 28px;
+}
+
+/* Headings: the page draws "#" and "##" alike (the title is its only h1). */
+.doc-editor-content :is(h1, h2) {
+  margin-top: 48px;
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: hsl(var(--foreground-strong));
+}
+.doc-editor-content :is(h3, h4) {
+  margin-top: 28px;
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 600;
+  color: hsl(var(--foreground-strong));
+}
+.doc-editor-content :is(h5, h6) {
+  margin-top: 20px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: hsl(var(--foreground-secondary));
+}
+.doc-editor-content :is(h1, h2, h3, h4, h5, h6) + * {
+  margin-top: 8px;
+}
+
+.doc-editor-content a {
+  color: hsl(var(--accent));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: text;
+}
+
+.doc-editor-content del,
+.doc-editor-content s {
+  color: hsl(var(--foreground-secondary));
+}
+
+.doc-editor-content code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: hsl(var(--muted));
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.875em;
+}
+
+.doc-editor-content pre {
+  margin-top: 20px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: hsl(var(--muted));
+  font-size: 13px;
+  line-height: 20px;
+  tab-size: 2;
+  overflow-x: auto;
+  white-space: pre;
+}
+.doc-editor-content pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+
+/* Markdown only the page understands, kept as its text. */
+.doc-editor-content pre.doc-raw {
+  position: relative;
+  padding-top: 30px;
+  border: 1px dashed hsl(var(--border-strong));
+  background: transparent;
+  white-space: pre-wrap;
+}
+.doc-editor-content pre.doc-raw::before {
+  content: attr(data-label);
+  position: absolute;
+  top: 8px;
+  left: 16px;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+.doc-editor-content ul,
+.doc-editor-content ol {
+  padding-left: 1.6em;
+}
+.doc-editor-content ul {
+  list-style: disc;
+}
+.doc-editor-content ol {
+  list-style: decimal;
+}
+.doc-editor-content li > p {
+  margin: 0;
+}
+.doc-editor-content li + li {
+  margin-top: 4px;
+}
+.doc-editor-content li > :is(ul, ol) {
+  margin-top: 4px;
+}
+.doc-editor-content ul li::marker {
+  color: hsl(var(--muted-foreground));
+}
+
+/* Checklists: the box beside each item, ticked items quieter. */
+.doc-editor-content ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0.2em;
+}
+.doc-editor-content ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.doc-editor-content ul[data-type="taskList"] li > label {
+  flex: none;
+  margin-top: 0.3em;
+  user-select: none;
+}
+.doc-editor-content ul[data-type="taskList"] li > label input {
+  width: 15px;
+  height: 15px;
+  accent-color: hsl(var(--accent));
+  cursor: pointer;
+}
+.doc-editor-content ul[data-type="taskList"] li > div {
+  flex: 1;
+  min-width: 0;
+}
+.doc-editor-content ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: hsl(var(--muted-foreground));
+}
+
+.doc-editor-content blockquote {
+  margin-top: 20px;
+  padding-left: 20px;
+  border-left: 2px solid hsl(var(--border-strong));
+  color: hsl(var(--foreground-secondary));
+}
+
+/* Callouts in the page's tones. */
+.doc-editor-content .doc-callout {
+  --tone: var(--info);
+  position: relative;
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 14px 44px 14px 14px;
+  border: 1px solid hsl(var(--tone) / 0.35);
+  border-radius: 10px;
+  background: hsl(var(--tone) / 0.08);
+  line-height: 1.5;
+}
+.doc-editor-content .doc-callout[data-tone="tip"] {
+  --tone: var(--success);
+}
+.doc-editor-content .doc-callout[data-tone="warning"] {
+  --tone: var(--warning);
+}
+.doc-editor-content .doc-callout[data-tone="caution"] {
+  --tone: var(--destructive);
+}
+.doc-editor-content .doc-callout-icon {
+  flex: none;
+  margin-top: 3px;
+  color: hsl(var(--tone));
+}
+.doc-editor-content .doc-callout-body {
+  flex: 1;
+  min-width: 0;
+}
+.doc-editor-content .doc-callout-body > * + * {
+  margin-top: 8px;
+}
+.doc-editor-content .doc-callout-tone {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+/* Tables: the page's ruled table, a column's alignment kept. */
+.doc-editor-content .tableWrapper {
+  margin-top: 20px;
+  overflow-x: auto;
+}
+.doc-editor-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.doc-editor-content :is(th, td) {
+  position: relative;
+  min-width: 64px;
+  padding: 8px 10px;
+  border-bottom: 1px solid hsl(var(--border));
+  text-align: left;
+  vertical-align: top;
+}
+.doc-editor-content th {
+  font-weight: 600;
+  color: hsl(var(--foreground-secondary));
+  border-bottom-color: hsl(var(--border-strong));
+}
+.doc-editor-content :is(th, td) > p {
+  margin: 0;
+}
+.doc-editor-content .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: hsl(var(--accent) / 0.12);
+  pointer-events: none;
+}
+
+.doc-editor-content hr {
+  margin: 28px 0;
+  border: 0;
+  border-top: 1px solid hsl(var(--border-strong));
+}
+
+.doc-editor-content img.doc-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 8px 0;
+  border-radius: 8px;
+}
+.doc-editor-content .doc-image-missing {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px dashed hsl(var(--border-strong));
+  border-radius: 6px;
+  font-size: 0.875em;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Chart and key-figure blocks: a framed card with its own small bar. */
+.doc-editor-content :is(.doc-chart, .doc-metrics) {
+  margin-top: 20px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--card));
+  overflow: hidden;
+}
+.doc-editor-content .doc-block-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 12px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.doc-editor-content .doc-chart > div:last-child {
+  padding: 12px;
+}
+
+/* A chosen block (a chart, a rule, a picture) shows it is chosen. */
+.doc-editor-content .ProseMirror-selectednode,
+.doc-editor-content :is(.doc-chart, .doc-metrics).is-selected {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Hints in empty lines. */
+.doc-editor-content :is(p, h1, h2, h3, h4, h5, h6).is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: hsl(var(--faint-foreground));
+}
+
+.doc-editor-content .ProseMirror-gapcursor::after {
+  border-top-color: hsl(var(--foreground));
+}

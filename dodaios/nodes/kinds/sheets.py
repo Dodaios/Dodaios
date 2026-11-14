@@ -4,10 +4,20 @@ A sheet is the general form of the living page's table
 (:mod:`dodaios.artifacts.living`): typed columns instead of plain text, so a
 number is right-aligned and written the way the reader's locale writes it, a
 date reads as a date, a status is a chip and a column can carry a total. The
-person sorts, filters and moves through the grid. In the app's edit mode
-(:mod:`dodaios.nodes.bridge`) the person may also write into a cell, a column
-label, a sheet's name, the note and the title; each change is saved into the
-spec, which stays the one source of what the page shows.
+person sorts, filters and moves through the grid. The person edits the sheet
+in the app's grid editor (``frontend/src/components/nodes/editors/sheets``),
+which saves the whole spec; the page's own edit mode
+(:mod:`dodaios.nodes.bridge`) stays the fallback that writes one cell, label,
+name, the note or the title at a time. Either way the spec stays the one
+source of what the page shows.
+
+A column may carry a look (width, alignment, bold, a named colour) and a sheet
+may carry charts drawn under its grid, in the report chart grammar; a chart
+bound to the sheet's columns follows its cells (see ``drawn_chart``). There
+are no per-cell formulas: a cell is addressed by its row's place, which a
+sort or an inserted row changes, so a cell reference would silently point at
+another value. Column formulas and totals compute from the row and the
+column, which no reordering breaks.
 
 Why an edited cell is sometimes followed up in the page and sometimes drawn
 again: the reader's place in a grid (the open sheet, the sort, the filter, the
@@ -56,7 +66,9 @@ from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any, Final
 
+from dodaios.artifacts.report_blocks import MAX_BAR_ROWS, MAX_SERIES, parse_chart, render_chart
 from dodaios.nodes.shell import (
+    NAMED_COLORS,
     as_list,
     attr,
     bounded,
@@ -90,6 +102,25 @@ MAX_FORMULA_NODES: Final[int] = 120
 MAX_EXPONENT: Final[float] = 64.0
 #: Integers a page script can still hold exactly.
 _MAX_EXACT: Final[int] = 2**53
+MAX_CHARTS: Final[int] = 8
+#: A column's width in CSS pixels, when the person (or the assistant) set one.
+MIN_WIDTH: Final[int] = 48
+MAX_WIDTH: Final[int] = 480
+ALIGNS: Final[tuple[str, ...]] = ("left", "center", "right")
+#: The colours a column's text may take: the theme's series and tone tokens, by
+#: name only, so a spec never writes a colour value into the page's styles.
+COLUMN_COLORS: Final[tuple[str, ...]] = (
+    "blue",
+    "orange",
+    "green",
+    "amber",
+    "violet",
+    "pink",
+    "good",
+    "warn",
+    "bad",
+    "muted",
+)
 
 COLUMN_TYPES: Final[tuple[str, ...]] = (
     "text",
@@ -538,6 +569,226 @@ def _cell(value: Any, kind: str | None) -> Any:
     return _free_cell(value)
 
 
+def _column_style(raw: dict[str, Any]) -> dict[str, Any]:
+    """A column's look: width, alignment, bold and text colour, each only when set.
+
+    Why the look belongs to the column and not to a cell: a cell stays a plain
+    value (a number, a text, true/false) that formulas, totals, sorting and the
+    assistant read without unwrapping it, and a column keeps its look in
+    whatever order its rows are put.
+    """
+    out: dict[str, Any] = {}
+    if number(raw.get("width")) is not None:
+        out["width"] = int(bounded(raw.get("width"), MIN_WIDTH, MAX_WIDTH, MIN_WIDTH))
+    align = pick(raw.get("align"), ALIGNS, "")
+    if align:
+        out["align"] = align
+    if raw.get("bold") is True or str(raw.get("bold")).strip().lower() == "true":
+        out["bold"] = True
+    colour = pick(raw.get("color"), COLUMN_COLORS, "")
+    if colour:
+        out["color"] = colour
+    return out
+
+
+# --------------------------------------------------------------------- charts
+#
+# A sheet may carry charts, drawn under its grid. A chart is written in the
+# report chart grammar (:mod:`dodaios.artifacts.report_blocks`), so every node
+# type speaks one chart language. It comes in two forms:
+#
+# * literal: "x" is a list of labels and every series carries its "data", the
+#   way a report or a slide writes a chart;
+# * bound to the sheet: "x" names the column whose cells label the points (or
+#   is left out: the row numbers label them), every series names the "column"
+#   it plots, and "rows" is an optional 1-based range. The numbers are read
+#   from the sheet each time the page is drawn, so the chart follows the cells.
+#
+# Why a bound chart is not refused when it cannot be drawn right now: the
+# person edits the grid freely, and deleting rows until one is left must not
+# make the save of the sheet fail. Its type and its keys are checked here;
+# its numbers when it is drawn, and an undrawable one shows an empty card.
+
+_COLOR_RE: Final = re.compile(r"^#[0-9a-fA-F]{6}$")
+#: Colours kept for a chart: one per series, or one per slice of a pie.
+_MAX_CHART_COLORS: Final[int] = MAX_BAR_ROWS
+
+
+def _chart_type(value: Any) -> str:
+    """The chart reader's name for a type, or "" when the reader does not know it.
+
+    Asked of the reader itself with a two-point chart, so a type the shared
+    grammar learns is accepted here without a second list to keep in step.
+    """
+    kind = clean(value, 20).lower() or "line"
+    probe = {"type": kind, "x": ["a", "b"], "series": [{"name": "a", "data": [1, 2]}]}
+    parsed = parse_chart(json.dumps(probe))
+    return str(parsed["type"]) if parsed else ""
+
+
+def _chart_colors(value: Any) -> list[str]:
+    """``#rrggbb`` per series or slice ("" keeps the theme's colour); [] when none is set."""
+    colours = [
+        str(item).strip() if _COLOR_RE.match(str(item or "").strip()) else ""
+        for item in as_list(value, _MAX_CHART_COLORS)
+    ]
+    return colours if any(colours) else []
+
+
+def _chart_look(raw: dict[str, Any], kind: str) -> dict[str, Any]:
+    """What both forms of a chart share: type, texts, the stacked flag, colours."""
+    chart: dict[str, Any] = {"type": kind}
+    for key, limit in (("title", 120), ("unit", 12), ("note", 200), ("value", 40), ("delta", 40)):
+        text = clean(raw.get(key), limit)
+        if text:
+            chart[key] = text
+    if raw.get("stacked") is True:
+        chart["stacked"] = True
+    colours = _chart_colors(raw.get("colors"))
+    if colours:
+        chart["colors"] = colours
+    return chart
+
+
+def _plain(value: float | None) -> int | float | None:
+    if value is None:
+        return None
+    return int(value) if value.is_integer() and abs(value) <= _MAX_EXACT else value
+
+
+def _is_bound(raw: dict[str, Any]) -> bool:
+    if isinstance(raw.get("x"), str):
+        return True
+    listed = raw.get("series")
+    return isinstance(listed, list) and any(
+        isinstance(item, str) or (isinstance(item, dict) and "column" in item) for item in listed
+    )
+
+
+def _chart(
+    raw: Any, columns: list[dict[str, Any]], sheet: str, index: int
+) -> dict[str, Any]:
+    """One chart of a sheet in its stored form, or ``NodeError`` naming it."""
+    title = clean(raw.get("title"), 60) if isinstance(raw, dict) else ""
+    where = f"Sheet '{sheet}', chart {index + 1}" + (f" ({title!r})" if title else "")
+    keys = [str(column["key"]) for column in columns]
+    hint = (
+        f'{where}: a chart is {{"type": "column" | "bar" | "line" | "area" | "pie" | "donut", '
+        '"title", "x": the key of the label column, "series": [keys of number columns]} '
+        f'(keys: {", ".join(keys)}), or a literal chart with "x": [labels] and '
+        '"series": [{"name", "data": [one number per label]}].'
+    )
+    if not isinstance(raw, dict):
+        raise NodeError(hint)
+    kind = _chart_type(raw.get("type"))
+    if not kind:
+        raise NodeError(hint)
+    chart = _chart_look(raw, kind)
+    if not _is_bound(raw):
+        try:
+            parsed = parse_chart(json.dumps(raw))
+        except (TypeError, ValueError):  # not JSON data at all: refused like any undrawable chart
+            parsed = None
+        if parsed is None:
+            raise NodeError(hint)
+        chart["x"] = list(parsed["x"])
+        chart["series"] = [
+            {**({"name": name} if name else {}), "data": [_plain(value) for value in data]}
+            for name, data in parsed["series"]
+        ]
+        return chart
+    # A key, or (for a model that wrote what it sees) a column's label.
+    by_name = {key: key for key in keys}
+    for column in columns:
+        by_name.setdefault(str(column["label"]).lower(), str(column["key"]))
+
+    def resolve(name: Any) -> str:
+        text = clean(name, 80)
+        found = by_name.get(text) or by_name.get(text.lower())
+        if not found:
+            raise NodeError(f"{where}: '{clean(name, 40)}' is not a column of the sheet. {hint}")
+        return found
+
+    if isinstance(raw.get("x"), str) and raw["x"].strip():
+        chart["x"] = resolve(raw["x"])
+    listed = raw.get("series") if isinstance(raw.get("series"), list) else []
+    if not 1 <= len(listed) <= MAX_SERIES:
+        raise NodeError(hint)
+    if kind in ("pie", "donut") and len(listed) != 1:
+        raise NodeError(f"{where}: a {kind} chart plots exactly one column. {hint}")
+    series: list[dict[str, Any]] = []
+    for item in listed:
+        entry = {"column": resolve(item.get("column") if isinstance(item, dict) else item)}
+        name = clean(item.get("name"), 60) if isinstance(item, dict) else ""
+        if name:
+            entry["name"] = name
+        series.append(entry)
+    chart["series"] = series
+    span = raw.get("rows")
+    if isinstance(span, (list, tuple)) and len(span) == 2 and number(span[0]) is not None:
+        first = int(bounded(span[0], 1, MAX_ROWS, 1))
+        chart["rows"] = [first, int(bounded(span[1], first, MAX_ROWS, MAX_ROWS))]
+    return chart
+
+
+def _charts(raw: Any, columns: list[dict[str, Any]], sheet: str) -> list[dict[str, Any]]:
+    return [
+        _chart(item, columns, sheet, index)
+        for index, item in enumerate(as_list(raw, MAX_CHARTS))
+        if item not in (None, {}, "")
+    ]
+
+
+def _label(value: Any, position: int) -> str:
+    """A point's label from a cell; an empty cell is labelled with its row number."""
+    if isinstance(value, bool):
+        text = "✓" if value else "–"
+    elif _is_number(value):
+        text = _raw(value)
+    else:
+        text = clean(_text_of(value), 40)
+    return text[:40] or str(position)
+
+
+def drawn_chart(chart: dict[str, Any], sheet: dict[str, Any]) -> dict[str, Any]:
+    """A stored chart as the literal chart the reader draws.
+
+    A bound chart takes its labels and numbers from ``sheet`` (normalized),
+    with its formula columns computed; a literal chart is returned as it is.
+    """
+    if not isinstance(chart.get("x"), str) and not any(
+        isinstance(item, dict) and "column" in item for item in chart.get("series") or []
+    ):
+        return chart
+    columns = [c for c in as_list(sheet.get("columns"), MAX_COLUMNS) if isinstance(c, dict)]
+    raw_rows = [r for r in as_list(sheet.get("rows"), MAX_ROWS) if isinstance(r, dict)]
+    try:
+        rows = _filled(raw_rows, _formula_order(columns, str(sheet.get("name") or "")))
+    except NodeError:  # a spec that was never normalized: formula cells stay empty
+        rows = raw_rows
+    first, last = 1, len(rows)
+    span = chart.get("rows")
+    if isinstance(span, list) and len(span) == 2 and all(_is_number(v) for v in span):
+        first, last = max(1, int(span[0])), min(len(rows), int(span[1]))
+    numbered = list(enumerate(rows, start=1))[first - 1 : last]
+    labels = {str(c.get("key")): str(c.get("label") or c.get("key")) for c in columns}
+    x_key = chart.get("x") if isinstance(chart.get("x"), str) else ""
+    literal = {k: v for k, v in chart.items() if k not in ("x", "series", "rows")}
+    literal["x"] = [_label(row.get(x_key) if x_key else None, n) for n, row in numbered]
+    literal["series"] = [
+        {
+            "name": str(item.get("name") or labels.get(str(item.get("column")), "")),
+            "data": [
+                _plain(float(v)) if _is_number(v := row.get(str(item.get("column")))) else None
+                for _, row in numbered
+            ],
+        }
+        for item in chart.get("series") or []
+        if isinstance(item, dict)
+    ]
+    return literal
+
+
 def _columns(
     raw_columns: Any, raw_rows: list[Any], sheet: str
 ) -> tuple[list[dict[str, Any]], list[tuple[str, ...]]]:
@@ -583,6 +834,7 @@ def _columns(
             column["total"] = total
         if formula:
             column["formula"] = formula
+        column.update(_column_style(raw))
         columns.append(column)
         other_names.append((raw_key.lower(), label.lower()))
     if not columns:
@@ -608,7 +860,13 @@ def _columns(
 def _rows(
     raw_rows: list[Any], columns: list[dict[str, Any]], aliases: list[tuple[str, ...]]
 ) -> list[dict[str, Any]]:
-    """Rows as objects keyed by column key. A row without any cell is dropped."""
+    """Rows as objects keyed by column key.
+
+    A row without any cell is kept between filled rows and dropped at the end:
+    the person's editor inserts blank rows to fill in later (and clearing a
+    row's cells must not delete the row), while blank rows trailing a sheet
+    say nothing (the editor offers empty rows below the last one by itself).
+    """
     out: list[dict[str, Any]] = []
     for raw in raw_rows[:MAX_ROWS]:
         if isinstance(raw, dict):
@@ -628,8 +886,9 @@ def _rows(
             cell = _cell(value, column.get("type"))
             if cell is not None:
                 row[column["key"]] = cell
-        if row:
-            out.append(row)
+        out.append(row)
+    while out and not out[-1]:
+        out.pop()
     return out
 
 
@@ -647,12 +906,16 @@ def _sheet(raw: Any, index: int) -> dict[str, Any]:
         )
     columns, aliases = _columns(raw.get("columns"), list(raw_rows), name)
     _formula_order(columns, name)
-    return {
+    out: dict[str, Any] = {
         "name": name,
         "columns": columns,
         "rows": _rows(list(raw_rows), columns, aliases),
         "freeze": int(bounded(raw.get("freeze"), 0, MAX_FREEZE, 1)),
     }
+    charts = _charts(raw.get("charts"), columns, name)
+    if charts:
+        out["charts"] = charts
+    return out
 
 
 def normalize(spec: Any) -> dict[str, Any]:
@@ -794,6 +1057,10 @@ class _Column:
     formula: str
     frozen: str
     """``f1`` … ``f3`` for a leading column that stays in view, else empty."""
+    side: str = ""
+    """The alignment the spec set ("left", "center", "right"), else empty."""
+    look: str = ""
+    """The body cells' classes for the column's bold and colour, else empty."""
 
     @property
     def numeric(self) -> bool:
@@ -801,6 +1068,8 @@ class _Column:
 
     @property
     def align(self) -> str:
+        if self.side:
+            return {"left": "l", "center": "c", "right": "n"}[self.side]
         return "n" if self.numeric else "c" if self.kind == "check" else ""
 
 
@@ -828,6 +1097,17 @@ def _read(sheet: dict[str, Any]) -> tuple[list[_Column], list[dict[str, Any]]]:
                 total=total,
                 formula=str(raw.get("formula") or ""),
                 frozen=f"f{index + 1}" if index < freeze else "",
+                side=pick(raw.get("align"), ALIGNS, ""),
+                look=" ".join(
+                    name
+                    for name in (
+                        "b" if raw.get("bold") is True else "",
+                        f"k-{pick(raw.get('color'), COLUMN_COLORS, '')}"
+                        if pick(raw.get("color"), COLUMN_COLORS, "")
+                        else "",
+                    )
+                    if name
+                ),
             )
         )
     return columns, rows
@@ -919,6 +1199,14 @@ _PAGE_CSS: Final[str] = r"""
 .sx-grid thead th[aria-sort="descending"] .ar{transform:rotate(180deg)}
 .sx-grid .n{text-align:right}
 .sx-grid .c{text-align:center}
+.sx-grid .l{text-align:left}
+.sx-grid tbody .b{font-weight:600}
+.sx-charts{flex:none;max-height:46%;overflow:auto;display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;padding:12px 20px 14px;
+  border-top:1px solid var(--line-2);background:var(--bg-2);scrollbar-width:thin}
+.sx-charts .card{margin:0;background:var(--bg)}
+.sx-charts .sx-chart-off{display:flex;align-items:center;justify-content:center;min-height:120px;
+  color:var(--ink-3)}
 .sx-grid .s,.sx-grid .u{color:var(--ink-2)}
 .sx-grid .g{position:sticky;left:0;z-index:2;width:44px;min-width:44px;max-width:44px;
   padding:0 4px;color:var(--ink-3);font-size:12px;text-align:center;cursor:default;
@@ -1000,8 +1288,15 @@ body.fill{overflow:visible}
 .sx-grid tfoot td{border-top:1px solid var(--line-2)}
 .sx-grid tfoot td::before{display:none}
 .sx-grid .sel{outline:0}
-.sx-grid .ar{display:none}}
+.sx-grid .ar{display:none}
+.sx-charts{display:block;max-height:none;overflow:visible;padding:12px 0;border:0;background:none}
+.sx-charts .card{margin-top:12px;break-inside:avoid}}
 """
+
+# A column's colour is a class per named token, never a value from the spec.
+_COLOR_CSS: Final[str] = "".join(
+    f".sx-grid tbody .k-{name}{{color:{NAMED_COLORS[name]}}}" for name in COLUMN_COLORS
+)
 
 # Everything the grid does on the page: numbers and dates in the viewer's
 # locale, the filter, the sort, the totals of the rows left visible, the
@@ -1498,7 +1793,7 @@ def _cell_html(
 ) -> str:
     """One body cell. ``entry`` marks the cell the Tab key lands on; ``at`` is
     its place in the stored spec when it can be edited (see :func:`_cell_marks`)."""
-    classes = [name for name in (column.align, column.frozen) if name]
+    classes = [name for name in (column.align, column.frozen, column.look) if name]
     extra = ' tabindex="0"' if entry else ""
     inner = ""
     if value is None or value == "":
@@ -1644,6 +1939,7 @@ def _sheet_html(
         if rows
         else f'<div class="sx-empty">{_ICON_EMPTY}<p>No rows yet</p></div>'
     )
+    charts = _charts_html(sheet, language)
     panel = f' role="tabpanel" aria-labelledby="sx-tab-{index}"' if several else ""
     title = f'<h2 class="sx-name">{esc(name)}</h2>' if several else ""
     return (
@@ -1652,8 +1948,49 @@ def _sheet_html(
         f'<table class="sx-grid" role="grid" aria-readonly="true" aria-label="{attr(name)}" '
         f'data-freeze="{freeze}" data-fz="{freeze}">'
         f'<thead><tr>{head}<th class="x"></th></tr></thead>'
-        f"<tbody>{''.join(body)}</tbody>{foot}</table>{state}</div></section>"
+        f"<tbody>{''.join(body)}</tbody>{foot}</table>{state}</div>{charts}</section>"
     )
+
+
+def _charts_html(sheet: dict[str, Any], language: str) -> str:
+    """The sheet's charts under its grid, each drawn by the shared chart renderer."""
+    figures: list[str] = []
+    for chart in as_list(sheet.get("charts"), MAX_CHARTS):
+        if not isinstance(chart, dict):
+            continue
+        try:
+            parsed = parse_chart(json.dumps(drawn_chart(chart, sheet)))
+        except (TypeError, ValueError):  # a spec that skipped normalize: nothing to draw
+            parsed = None
+        if parsed is not None:
+            figures.append(render_chart(parsed, language))
+            continue
+        # A bound chart whose cells cannot be drawn right now (one row left, no
+        # numbers yet): its place stays, so the reader knows a chart belongs here.
+        title = clean(chart.get("title"), 120)
+        head = f"<h3>{esc(title)}</h3>" if title else ""
+        figures.append(
+            f'<figure class="card chart">{head}'
+            '<p class="sx-chart-off">Not enough numbers to draw this chart</p></figure>'
+        )
+    return f'<div class="sx-charts">{"".join(figures)}</div>' if figures else ""
+
+
+def _widths_css(sheets: list[dict[str, Any]]) -> str:
+    """The set column widths, one rule per column (a bounded integer, never spec text)."""
+    rules: list[str] = []
+    for index, sheet in enumerate(sheets):
+        for position, column in enumerate(sheet.get("columns") or []):
+            width = column.get("width") if isinstance(column, dict) else None
+            if not _is_number(width):
+                continue
+            px = int(bounded(width, MIN_WIDTH, MAX_WIDTH, MIN_WIDTH))
+            # +2: the row number cell comes first, and nth-child counts from 1.
+            rules.append(
+                f"#sx-sheet-{index} .sx-grid tr>:nth-child({position + 2})"
+                f"{{width:{px}px;min-width:{px}px;max-width:{px}px}}"
+            )
+    return "".join(rules)
 
 
 def _name_mark(stored: list[Any], index: int, sheet: dict[str, Any]) -> str:
@@ -1715,7 +2052,8 @@ def render(node: Any) -> str:
         )
         tabs = f'<div class="sx-tabs" role="tablist" aria-label="Sheets">{buttons}</div>'
     body = f'{_SYMBOLS}<div class="sx">{head}<main class="sx-main">{panels}</main>{tabs}</div>'
-    return document(node, body=body, css=_PAGE_CSS, js=_PAGE_JS, body_class="fill", kit_js=False)
+    css = _PAGE_CSS + _COLOR_CSS + _widths_css(sheets)
+    return document(node, body=body, css=css, js=_PAGE_JS, body_class="fill", kit_js=False)
 
 
 # -------------------------------------------------------------------- preview
@@ -1816,23 +2154,30 @@ EXAMPLE: Final[dict[str, Any]] = {
                 {"item": "Paper", "qty": 4, "price": 5.5},
                 {"item": "Toner", "qty": 2, "price": 39},
             ],
+            "charts": [{"type": "column", "title": "Amount", "x": "item", "series": ["amount"]}],
         }
     ],
 }
 
 GUIDE: Final[str] = (
-    'Node type "sheets": a spreadsheet the person reads, sorts and filters (read-only).\n'
+    'Node type "sheets": a spreadsheet; the person reads it and edits it in a grid.\n'
     "\n"
     'spec = {"sheets": [sheet, ...] (1-12), "note": one line under the title (optional)}\n'
     'Shorthand: top-level "columns" + "rows" is one sheet.\n'
     'sheet = {"name": str, "columns": [column, ...] (1-30), "rows": [row, ...] (up to 1000), '
-    '"freeze": 0-3 leading columns that stay in view (default 1)}\n'
+    '"freeze": 0-3 leading columns that stay in view (default 1), "charts": [chart, ...] '
+    "(up to 8, drawn under the grid)}\n"
     'column = {"key": id used in rows and formulas (default: the label in lower case with _ '
     'for other characters), "label": str, "type": "text" | "number" | "currency" | "percent" '
     '| "date" | "check" | "status" | "link" (default: inferred from the rows), "unit": e.g. '
     '"kg", for currency a code such as "EUR", "decimals": 0-4, "total": "sum" | "avg" | '
-    '"min" | "max" | "count" (a pinned bottom row), "formula": str}. A plain string is a '
-    "column with that label.\n"
+    '"min" | "max" | "count" (a pinned bottom row), "formula": str, "width": 48-480 px, '
+    '"align": "left" | "center" | "right", "bold": true, "color": "blue" | "green" | "orange" '
+    '| "violet" | "good" | "warn" | "bad" | "muted"}. A plain string is a column with that label.\n'
+    'chart = {"type": "column" | "bar" | "line" | "area" | "pie" | "donut", "title": str, '
+    '"x": key of the label column, "series": [keys of number columns] (pie/donut: one), '
+    '"stacked": true (column/bar), "rows": [first, last] (1-based, optional)}: it follows the '
+    "cells.\n"
     "row = an object keyed by column key, or a list of cells in column order (null for a "
     "formula column). A cell is text, a number, true/false or null.\n"
     "\n"

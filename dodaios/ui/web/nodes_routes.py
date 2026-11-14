@@ -7,6 +7,8 @@
 * ``POST   /api/nodes``                      a new node from its type's starter.
 * ``PATCH  /api/nodes/{id}``                 rename.
 * ``POST   /api/nodes/{id}/edit``            one value the person typed into the page.
+* ``PUT    /api/nodes/{id}/spec``            the type editor's save: the whole spec, from a version.
+* ``POST   /api/nodes/{id}/preview``         the page drawn from an unsaved spec.
 * ``POST   /api/nodes/{id}/duplicate``       a second node with the same content.
 * ``POST   /api/nodes/{id}/revert``          put the previous version back.
 * ``POST   /api/nodes/{id}/upkeep/stop``     stop keeping it current; the content stays.
@@ -34,6 +36,16 @@ of the assistant (:mod:`dodaios.nodes.comments`) and returns at once.
 A node's page runs in a sandbox with no network, so everything a person does
 TO a node (stop its upkeep, rename it) is a control of the app and a route here.
 
+The type editors (``frontend/src/components/nodes/editors``) save the whole
+spec with the version they started from. When the node moved on meanwhile
+(the assistant revised it) the save is refused with 409 and the node's
+current ``version``, ``updated_at`` and ``spec``, so the editor can let the
+person take that version or save over it; a spec the type's ``normalize``
+refuses is a 422 with its sentence. The answer to a save carries the spec as
+it was kept. ``/preview`` draws a spec without saving it and is served like
+the node's page itself (scripts run, every way out shut), because the editor
+frames it the same way.
+
 The whiteboard routes read their bodies themselves, with a ceiling checked
 while the body streams in: a scene may be megabytes (a hand-drawn stroke is
 hundreds of points) and a picture five, and neither should be read whole
@@ -54,6 +66,7 @@ from dataclasses import replace
 from typing import Any, Final
 
 from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 
 from dodaios.nodes import comments, library, refresh
@@ -62,9 +75,10 @@ from dodaios.nodes.board.scene import MAX_SCENE_BYTES, live_elements, scene_boun
 from dodaios.nodes.edit import KINDS, apply_field
 from dodaios.nodes.kinds import kind_of
 from dodaios.nodes.model import Node
-from dodaios.nodes.store import MAX_EVERY_MINUTES, MIN_EVERY_MINUTES, NodeStore
-from dodaios.nodes.types import MAX_TITLE_CHARS, NODE_TYPES, NodeError, node_type
+from dodaios.nodes.store import MAX_EVERY_MINUTES, MIN_EVERY_MINUTES, NodeStore, SpecConflict
+from dodaios.nodes.types import MAX_SPEC_BYTES, MAX_TITLE_CHARS, NODE_TYPES, NodeError, node_type
 from dodaios.ui.web import living_pages_routes
+from dodaios.ui.web.artifact_view import ARTIFACT_PAGE_CSP
 
 log = logging.getLogger(__name__)
 
@@ -87,6 +101,16 @@ MAX_SCENE_BODY: Final[int] = MAX_SCENE_BYTES + 512 * 1024
 MAX_FILE_BODY: Final[int] = board_files.MAX_DATA_URL_CHARS + 4 * 1024
 MAX_ACTIONS_BODY: Final[int] = 2 * 1024 * 1024
 MAX_ACTIONS: Final[int] = 500
+#: Body ceiling of a spec save or preview. The spec bound counts characters;
+#: in UTF-8 a character of a non-Latin script takes up to four bytes, and an
+#: editor may send a few parts ``normalize`` then drops.
+MAX_SPEC_BODY: Final[int] = 4 * MAX_SPEC_BYTES + 64 * 1024
+#: A preview is served like the node's page (``/api/outputs/…/page``).
+_PAGE_HEADERS: Final[dict[str, str]] = {
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": ARTIFACT_PAGE_CSP,
+    "Cache-Control": "no-store",
+}
 #: A picture never changes under its id, and runs nothing.
 _FILE_HEADERS: Final[dict[str, str]] = {
     "Cache-Control": "private, max-age=31536000, immutable",
@@ -146,6 +170,17 @@ class CommentsBody(BaseModel):
 
 class SceneBody(BaseModel):
     scene: dict[str, Any]
+
+
+class SpecBody(BaseModel):
+    """The editor's whole spec, and the version it was edited from (null: any)."""
+
+    spec: dict[str, Any]
+    base_version: int | None = Field(default=None, ge=0)
+
+
+class PreviewBody(BaseModel):
+    spec: dict[str, Any]
 
 
 class FileBody(BaseModel):
@@ -338,6 +373,49 @@ async def edit_node(node_id: str, body: EditBody) -> dict[str, Any]:
     return await refresh.node_state(saved, with_spec=False)
 
 
+@router.put("/{node_id}/spec")
+async def put_spec(node_id: str, request: Request) -> Any:
+    """Save the type editor's spec, made from ``base_version``.
+
+    Answers ``{version, updated_at, spec}`` with the spec as the type kept
+    it. 409 ``{detail, version, updated_at, spec}`` when the node is no
+    longer at ``base_version``; 422 with the type's sentence when the spec
+    is refused (and for a whiteboard, which saves its scene).
+    """
+    await _require(node_id)
+    body = _body(SpecBody, await _read_json(request, MAX_SPEC_BODY))
+    try:
+        node = await asyncio.to_thread(
+            lambda: get_store().save_spec(node_id, body.spec, base_version=body.base_version)
+        )
+    except SpecConflict as exc:  # an answer, not a failure: the editor offers both versions
+        current = exc.node
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": str(exc),
+                "version": current.version,
+                "updated_at": current.updated_at,
+                "spec": current.spec,
+            },
+        )
+    except NodeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"version": node.version, "updated_at": node.updated_at, "spec": node.spec}
+
+
+@router.post("/{node_id}/preview")
+async def preview_spec(node_id: str, request: Request) -> HTMLResponse:
+    """The node's page drawn from ``{spec}`` without saving it (422 when refused)."""
+    await _require(node_id)
+    body = _body(PreviewBody, await _read_json(request, MAX_SPEC_BODY))
+    try:
+        page = await asyncio.to_thread(get_store().preview, node_id, body.spec)
+    except NodeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return HTMLResponse(page, headers=dict(_PAGE_HEADERS))
+
+
 @router.post("/{node_id}/revert")
 async def revert_node(node_id: str) -> dict[str, Any]:
     await _require(node_id)
@@ -521,4 +599,4 @@ async def delete_node(node_id: str) -> dict[str, Any]:
     return {"deleted": True}
 
 
-__all__ = ["DEFAULT_TITLES", "MAX_SCENE_BODY", "get_store", "router", "set_store"]
+__all__ = ["DEFAULT_TITLES", "MAX_SCENE_BODY", "MAX_SPEC_BODY", "get_store", "router", "set_store"]

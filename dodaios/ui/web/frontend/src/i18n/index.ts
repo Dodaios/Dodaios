@@ -127,7 +127,8 @@ export type LocaleChunk =
   | "ship"
   | "self_build"
   | "trust"
-  | "voice";
+  | "voice"
+  | "node_editors";
 
 const SHIP_LOCALES = import.meta.glob("./locales/ship/*.json");
 const VOICE_LOCALES = import.meta.glob("./locales/voice/*.json");
@@ -199,6 +200,15 @@ const CHUNK_LOADERS: Record<LocaleChunk, Record<UiLanguage, () => Promise<unknow
     es: () => import("./locales/onboarding/es.json"),
     zh: () => import("./locales/onboarding/zh.json"),
     pt: () => import("./locales/onboarding/pt.json"),
+  },
+  // The node editors (a sheet, deck, document, page, dashboard or clip in Edit):
+  // several hundred strings that only an open editor reads.
+  node_editors: {
+    en: () => import("./locales/node_editors/en.json"),
+    de: () => import("./locales/node_editors/de.json"),
+    es: () => import("./locales/node_editors/es.json"),
+    zh: () => import("./locales/node_editors/zh.json"),
+    pt: () => import("./locales/node_editors/pt.json"),
   },
   // The appshot editor: opened from a capture, never on start.
   appshot_editor: {

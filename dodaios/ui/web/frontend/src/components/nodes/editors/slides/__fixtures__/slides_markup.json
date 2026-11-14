@@ -1,0 +1,318 @@
+{
+ "title": "Quarterly review",
+ "spec": {
+  "theme": "auto",
+  "slides": [
+   {
+    "layout": "title",
+    "kicker": "A **bold** move & [more](https://example.org)",
+    "title": "A **bold** move & [more](https://example.org)",
+    "subtitle": "A **bold** move & [more](https://example.org)",
+    "notes": "A **bold** move & [more](https://example.org)"
+   },
+   {
+    "layout": "section",
+    "kicker": "A **bold** move & [more](https://example.org)",
+    "title": "A **bold** move & [more](https://example.org)",
+    "subtitle": "A **bold** move & [more](https://example.org)"
+   },
+   {
+    "layout": "bullets",
+    "kicker": "A **bold** move & [more](https://example.org)",
+    "title": "A **bold** move & [more](https://example.org)",
+    "text": "A **bold** move & [more](https://example.org)",
+    "bullets": [
+     "A **bold** move & [more](https://example.org)"
+    ]
+   },
+   {
+    "layout": "columns",
+    "title": "A **bold** move & [more](https://example.org)",
+    "columns": [
+     {
+      "title": "A **bold** move & [more](https://example.org)",
+      "text": "A **bold** move & [more](https://example.org)",
+      "bullets": [
+       "A **bold** move & [more](https://example.org)"
+      ]
+     },
+     {
+      "title": "A **bold** move & [more](https://example.org)",
+      "text": "A **bold** move & [more](https://example.org)",
+      "bullets": [
+       "A **bold** move & [more](https://example.org)"
+      ]
+     }
+    ]
+   },
+   {
+    "layout": "quote",
+    "quote": "A **bold** move & [more](https://example.org)",
+    "by": "A **bold** move & [more](https://example.org)"
+   },
+   {
+    "layout": "stats",
+    "title": "A **bold** move & [more](https://example.org)",
+    "stats": [
+     {
+      "value": "A **bold**…",
+      "label": "A **bold** move & [more](https://example.org)",
+      "detail": "A **bold** move & [more](https://example.org)"
+     }
+    ]
+   },
+   {
+    "layout": "chart",
+    "title": "Chart",
+    "text": "A **bold** move & [more](https://example.org)",
+    "chart": {
+     "type": "column",
+     "title": "A **bold** move & [more](https://example.org)",
+     "note": "A **bold** move & [more](https://example.org)",
+     "unit": "A **bold** m",
+     "x": [
+      "A **bold** move & [more](https://example",
+      "A **bold** move & [more](https://example"
+     ],
+     "series": [
+      {
+       "name": "A **bold** move & [more](https://example.org)",
+       "data": [
+        1,
+        2
+       ]
+      },
+      {
+       "name": "A **bold** move & [more](https://example.org) b",
+       "data": [
+        2,
+        3
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "layout": "table",
+    "title": "A **bold** move & [more](https://example.org)",
+    "table": {
+     "columns": [
+      "A **bold** move & [more](https:…",
+      "A **bold** move & [more](https:…"
+     ],
+     "rows": [
+      [
+       "A **bold** move & [more](https://example.org)",
+       "A **bold** move & [more](https://example.org)"
+      ]
+     ]
+    },
+    "caption": "A **bold** move & [more](https://example.org)"
+   },
+   {
+    "layout": "image",
+    "title": "A **bold** move & [more](https://example.org)",
+    "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==",
+    "caption": "A **bold** move & [more](https://example.org)"
+   },
+   {
+    "layout": "image",
+    "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==",
+    "caption": "A **bold** move & [more](https://example.org)"
+   },
+   {
+    "layout": "steps",
+    "title": "A **bold** move & [more](https://example.org)",
+    "steps": [
+     {
+      "title": "A **bold** move & [more](https://example.org)",
+      "text": "A **bold** move & [more](https://example.org)"
+     }
+    ]
+   },
+   {
+    "layout": "closing",
+    "title": "A **bold** move & [more](https://example.org)",
+    "subtitle": "A **bold** move & [more](https://example.org)",
+    "bullets": [
+     "A **bold** move & [more](https://example.org)"
+    ]
+   },
+   {
+    "layout": "bullets",
+    "bullets": [
+     "Solo point one",
+     "Solo point two"
+    ]
+   },
+   {
+    "layout": "bullets",
+    "title": "Only prose",
+    "text": "A paragraph of prose."
+   },
+   {
+    "layout": "closing",
+    "title": "Thanks"
+   },
+   {
+    "layout": "columns",
+    "title": "Three",
+    "columns": [
+     {
+      "title": "A",
+      "bullets": [
+       "x",
+       "y"
+      ]
+     },
+     {
+      "text": "B"
+     },
+     {
+      "title": "C"
+     }
+    ]
+   },
+   {
+    "layout": "steps",
+    "title": "Five",
+    "steps": [
+     {
+      "title": "Step 0"
+     },
+     {
+      "title": "Step 1"
+     },
+     {
+      "title": "Step 2"
+     },
+     {
+      "title": "Step 3"
+     },
+     {
+      "title": "Step 4"
+     }
+    ]
+   },
+   {
+    "layout": "stats",
+    "stats": [
+     {
+      "value": "€4.2M",
+      "label": "Revenue"
+     },
+     {
+      "value": "94%"
+     },
+     {
+      "value": "12"
+     }
+    ]
+   },
+   {
+    "layout": "table",
+    "title": "Numbers",
+    "table": {
+     "columns": [
+      "Plan",
+      "Price"
+     ],
+     "rows": [
+      [
+       "Solo",
+       "9 €"
+      ],
+      [
+       "Team",
+       "29 €"
+      ]
+     ]
+    }
+   },
+   {
+    "layout": "image",
+    "title": "Whole",
+    "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==",
+    "fit": "contain"
+   },
+   {
+    "layout": "section",
+    "title": "A much longer section title that wraps over two lines"
+   },
+   {
+    "layout": "quote",
+    "quote": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "by": "Someone"
+   }
+  ]
+ },
+ "slides": [
+  {
+   "html": "<section class=\"sl l-title\" aria-roledescription=\"slide\" aria-label=\"Slide 1: A **bold** move &amp; [more](https://example.org)\"><p class=\"sl-kicker\">A **bold** move &amp; [more](https://example.org)</p><div class=\"sl-hero\"><i class=\"sl-rule\"></i><h1 class=\"sl-big\" data-len=\"3\">A **bold** move &amp; [more](https://example.org)</h1><p class=\"sl-sub\">A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></p></div></section>"
+  },
+  {
+   "html": "<section class=\"sl l-section\" aria-roledescription=\"slide\" aria-label=\"Slide 2: A **bold** move &amp; [more](https://example.org)\"><div class=\"sl-mark\"><span>01</span><i></i></div><div class=\"sl-hero\"><p class=\"sl-kicker\">A **bold** move &amp; [more](https://example.org)</p><h2 class=\"sl-big\" data-len=\"4\">A **bold** move &amp; [more](https://example.org)</h2><p class=\"sl-sub\">A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></p></div><footer class=\"sl-foot\"><span>Quarterly review</span><span>2</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-bullets\" aria-roledescription=\"slide\" aria-label=\"Slide 3: A **bold** move &amp; [more](https://example.org)\"><div class=\"sl-split\"><div class=\"sl-side\"><header class=\"sl-head\"><p class=\"sl-kicker\">A **bold** move &amp; [more](https://example.org)</p><h2 class=\"sl-h\" data-len=\"2\">A **bold** move &amp; [more](https://example.org)</h2><p class=\"sl-lede\">A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></p></header></div><ul class=\"sl-body sl-list\" data-fit=\"1\"><li>A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></li></ul></div><footer class=\"sl-foot\"><span>Quarterly review</span><span>3</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-columns\" aria-roledescription=\"slide\" aria-label=\"Slide 4: A **bold** move &amp; [more](https://example.org)\"><header class=\"sl-head\"><h2 class=\"sl-h\" data-len=\"2\">A **bold** move &amp; [more](https://example.org)</h2></header><div class=\"sl-body sl-cols\" data-fit=\"1\" style=\"--n:2\"><div class=\"sl-col\"><h3>A **bold** move &amp; [more](https://example.org)</h3><p>A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></p><ul><li>A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></li></ul></div><div class=\"sl-col\"><h3>A **bold** move &amp; [more](https://example.org)</h3><p>A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></p><ul><li>A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></li></ul></div></div><footer class=\"sl-foot\"><span>Quarterly review</span><span>4</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-quote\" aria-roledescription=\"slide\" aria-label=\"Slide 5: A **bold** move &amp; [more](https://example.org)\"><figure class=\"sl-q\"><span class=\"sl-qmark\" aria-hidden=\"true\">&ldquo;</span><blockquote data-len=\"1\">A **bold** move &amp; [more](https://example.org)</blockquote><figcaption>A **bold** move &amp; [more](https://example.org)</figcaption></figure><footer class=\"sl-foot\"><span>Quarterly review</span><span>5</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-stats\" aria-roledescription=\"slide\" aria-label=\"Slide 6: A **bold** move &amp; [more](https://example.org)\"><header class=\"sl-head\"><h2 class=\"sl-h\" data-len=\"2\">A **bold** move &amp; [more](https://example.org)</h2></header><div class=\"sl-body sl-stats\" style=\"--n:1;--vs:7.50\"><div class=\"sl-stat\"><div class=\"sl-v\">A **bold**…</div><div class=\"sl-l\">A **bold** move &amp; [more](https://example.org)</div><div class=\"sl-d\">A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></div></div></div><footer class=\"sl-foot\"><span>Quarterly review</span><span>6</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-chart\" aria-roledescription=\"slide\" aria-label=\"Slide 7: Chart\"><header class=\"sl-head\"><h2 class=\"sl-h\" data-len=\"1\">Chart</h2></header><div class=\"sl-body sl-chart has-aside\"><div class=\"sl-plot\"><figure class=\"card chart\"><h3>A **bold** move &amp; [more](https://example.org)</h3><div class=\"legend\"><span><i style=\"--c:var(--s1)\"></i>A **bold** move &amp; [more](https://example.org)</span><span><i style=\"--c:var(--s2)\"></i>A **bold** move &amp; [more](https://example.org) b</span></div><svg viewBox=\"0 0 700 280\" role=\"img\" aria-label=\"A **bold** move &amp; [more](https://example.org)\"><line class=\"axis\" x1=\"48\" x2=\"676\" y1=\"246.0\" y2=\"246.0\"/><text class=\"tick\" x=\"40\" y=\"250.0\" text-anchor=\"end\">0</text><line class=\"gridline\" x1=\"48\" x2=\"676\" y1=\"170.7\" y2=\"170.7\"/><text class=\"tick\" x=\"40\" y=\"174.7\" text-anchor=\"end\">1</text><line class=\"gridline\" x1=\"48\" x2=\"676\" y1=\"95.3\" y2=\"95.3\"/><text class=\"tick\" x=\"40\" y=\"99.3\" text-anchor=\"end\">2</text><line class=\"gridline\" x1=\"48\" x2=\"676\" y1=\"20.0\" y2=\"20.0\"/><text class=\"tick\" x=\"40\" y=\"24.0\" text-anchor=\"end\">3</text><text class=\"tick\" x=\"205.0\" y=\"268\" text-anchor=\"middle\">A **bold** move &amp; [more](https://example</text><text class=\"tick\" x=\"519.0\" y=\"268\" text-anchor=\"middle\">A **bold** move &amp; [more](https://example</text><rect class=\"colbar\" x=\"178.0\" y=\"170.7\" width=\"26.0\" height=\"75.3\" rx=\"2\" style=\"--c:var(--s1)\"/><rect class=\"colbar\" x=\"492.0\" y=\"95.3\" width=\"26.0\" height=\"150.7\" rx=\"2\" style=\"--c:var(--s1)\"/><rect class=\"colbar\" x=\"206.0\" y=\"95.3\" width=\"26.0\" height=\"150.7\" rx=\"2\" style=\"--c:var(--s2)\"/><rect class=\"colbar\" x=\"520.0\" y=\"20.0\" width=\"26.0\" height=\"226.0\" rx=\"2\" style=\"--c:var(--s2)\"/><rect class=\"hit\" x=\"48.0\" y=\"20\" width=\"314.0\" height=\"226\" data-tip=\"A **bold** move &amp; [more](https://example — A **bold** move &amp; [more](https://example.org): 1 A **bold** m; A **bold** move &amp; [more](https://example.org) b: 2 A **bold** m\" tabindex=\"0\"/><rect class=\"hit\" x=\"362.0\" y=\"20\" width=\"314.0\" height=\"226\" data-tip=\"A **bold** move &amp; [more](https://example — A **bold** move &amp; [more](https://example.org): 2 A **bold** m; A **bold** move &amp; [more](https://example.org) b: 3 A **bold** m\" tabindex=\"0\"/></svg><p class=\"note\">A **bold** move &amp; [more](https://example.org)</p></figure></div><p class=\"sl-aside\">A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></p></div><footer class=\"sl-foot\"><span>Quarterly review</span><span>7</span></footer></section>",
+   "figure": "<figure class=\"card chart\"><h3>A **bold** move &amp; [more](https://example.org)</h3><div class=\"legend\"><span><i style=\"--c:var(--s1)\"></i>A **bold** move &amp; [more](https://example.org)</span><span><i style=\"--c:var(--s2)\"></i>A **bold** move &amp; [more](https://example.org) b</span></div><svg viewBox=\"0 0 700 280\" role=\"img\" aria-label=\"A **bold** move &amp; [more](https://example.org)\"><line class=\"axis\" x1=\"48\" x2=\"676\" y1=\"246.0\" y2=\"246.0\"/><text class=\"tick\" x=\"40\" y=\"250.0\" text-anchor=\"end\">0</text><line class=\"gridline\" x1=\"48\" x2=\"676\" y1=\"170.7\" y2=\"170.7\"/><text class=\"tick\" x=\"40\" y=\"174.7\" text-anchor=\"end\">1</text><line class=\"gridline\" x1=\"48\" x2=\"676\" y1=\"95.3\" y2=\"95.3\"/><text class=\"tick\" x=\"40\" y=\"99.3\" text-anchor=\"end\">2</text><line class=\"gridline\" x1=\"48\" x2=\"676\" y1=\"20.0\" y2=\"20.0\"/><text class=\"tick\" x=\"40\" y=\"24.0\" text-anchor=\"end\">3</text><text class=\"tick\" x=\"205.0\" y=\"268\" text-anchor=\"middle\">A **bold** move &amp; [more](https://example</text><text class=\"tick\" x=\"519.0\" y=\"268\" text-anchor=\"middle\">A **bold** move &amp; [more](https://example</text><rect class=\"colbar\" x=\"178.0\" y=\"170.7\" width=\"26.0\" height=\"75.3\" rx=\"2\" style=\"--c:var(--s1)\"/><rect class=\"colbar\" x=\"492.0\" y=\"95.3\" width=\"26.0\" height=\"150.7\" rx=\"2\" style=\"--c:var(--s1)\"/><rect class=\"colbar\" x=\"206.0\" y=\"95.3\" width=\"26.0\" height=\"150.7\" rx=\"2\" style=\"--c:var(--s2)\"/><rect class=\"colbar\" x=\"520.0\" y=\"20.0\" width=\"26.0\" height=\"226.0\" rx=\"2\" style=\"--c:var(--s2)\"/><rect class=\"hit\" x=\"48.0\" y=\"20\" width=\"314.0\" height=\"226\" data-tip=\"A **bold** move &amp; [more](https://example — A **bold** move &amp; [more](https://example.org): 1 A **bold** m; A **bold** move &amp; [more](https://example.org) b: 2 A **bold** m\" tabindex=\"0\"/><rect class=\"hit\" x=\"362.0\" y=\"20\" width=\"314.0\" height=\"226\" data-tip=\"A **bold** move &amp; [more](https://example — A **bold** move &amp; [more](https://example.org): 2 A **bold** m; A **bold** move &amp; [more](https://example.org) b: 3 A **bold** m\" tabindex=\"0\"/></svg><p class=\"note\">A **bold** move &amp; [more](https://example.org)</p></figure>"
+  },
+  {
+   "html": "<section class=\"sl l-table\" aria-roledescription=\"slide\" aria-label=\"Slide 8: A **bold** move &amp; [more](https://example.org)\"><header class=\"sl-head\"><h2 class=\"sl-h\" data-len=\"2\">A **bold** move &amp; [more](https://example.org)</h2></header><div class=\"sl-body sl-tab\" data-fit=\"1\"><table class=\"sl-table\"><thead><tr><th>A **bold** move &amp; [more](https:…</th><th>A **bold** move &amp; [more](https:…</th></tr></thead><tbody><tr><td>A **bold** move &amp; [more](https://example.org)</td><td>A **bold** move &amp; [more](https://example.org)</td></tr></tbody></table><p class=\"sl-cap\">A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></p></div><footer class=\"sl-foot\"><span>Quarterly review</span><span>8</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-image\" aria-roledescription=\"slide\" aria-label=\"Slide 9: A **bold** move &amp; [more](https://example.org)\"><header class=\"sl-head\"><h2 class=\"sl-h\" data-len=\"2\">A **bold** move &amp; [more](https://example.org)</h2></header><p class=\"sl-note\">A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></p><figure class=\"sl-pic\"><img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==\" alt=\"A **bold** move &amp; [more](https://example.org)\"></figure><footer class=\"sl-foot\"><span>Quarterly review</span><span>9</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-bleed\" aria-roledescription=\"slide\" aria-label=\"Slide 10: A **bold** move &amp; [more](https://example.org)\"><figure><img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==\" alt=\"A **bold** move &amp; [more](https://example.org)\"><figcaption>A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></figcaption></figure></section>"
+  },
+  {
+   "html": "<section class=\"sl l-steps\" aria-roledescription=\"slide\" aria-label=\"Slide 11: A **bold** move &amp; [more](https://example.org)\"><header class=\"sl-head\"><h2 class=\"sl-h\" data-len=\"2\">A **bold** move &amp; [more](https://example.org)</h2></header><ol class=\"sl-body sl-steps\" data-fit=\"1\" style=\"--n:1\"><li class=\"is-end\"><div class=\"sl-step-n\"><b>1</b><i></i></div><h3>A **bold** move &amp; [more](https://example.org)</h3><p>A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></p></li></ol><footer class=\"sl-foot\"><span>Quarterly review</span><span>11</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-closing\" aria-roledescription=\"slide\" aria-label=\"Slide 12: A **bold** move &amp; [more](https://example.org)\"><div class=\"sl-hero\"><i class=\"sl-rule\"></i><h2 class=\"sl-big\" data-len=\"4\">A **bold** move &amp; [more](https://example.org)</h2><p class=\"sl-sub\">A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></p></div><ul class=\"sl-body sl-next\" data-fit=\"1\" style=\"--n:1\"><li>A <strong>bold</strong> move &amp; <a href=\"https://example.org\" rel=\"noopener noreferrer\">more</a></li></ul><footer class=\"sl-foot\"><span>Quarterly review</span><span>12</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-bullets\" aria-roledescription=\"slide\" aria-label=\"Slide 13\"><div class=\"sl-split is-solo\"><ul class=\"sl-body sl-list\" data-fit=\"1\"><li>Solo point one</li><li>Solo point two</li></ul></div><footer class=\"sl-foot\"><span>Quarterly review</span><span>13</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-bullets\" aria-roledescription=\"slide\" aria-label=\"Slide 14: Only prose\"><div class=\"sl-split\"><div class=\"sl-side\"><header class=\"sl-head\"><h2 class=\"sl-h\" data-len=\"1\">Only prose</h2></header></div><p class=\"sl-body sl-prose\">A paragraph of prose.</p></div><footer class=\"sl-foot\"><span>Quarterly review</span><span>14</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-closing is-bare\" aria-roledescription=\"slide\" aria-label=\"Slide 15: Thanks\"><div class=\"sl-hero\"><i class=\"sl-rule\"></i><h2 class=\"sl-big\" data-len=\"1\">Thanks</h2></div><footer class=\"sl-foot\"><span>Quarterly review</span><span>15</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-columns\" aria-roledescription=\"slide\" aria-label=\"Slide 16: Three\"><header class=\"sl-head\"><h2 class=\"sl-h\" data-len=\"1\">Three</h2></header><div class=\"sl-body sl-cols\" data-fit=\"1\" style=\"--n:3\"><div class=\"sl-col\"><h3>A</h3><ul><li>x</li><li>y</li></ul></div><div class=\"sl-col\"><p>B</p></div><div class=\"sl-col\"><h3>C</h3></div></div><footer class=\"sl-foot\"><span>Quarterly review</span><span>16</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-steps\" aria-roledescription=\"slide\" aria-label=\"Slide 17: Five\"><header class=\"sl-head\"><h2 class=\"sl-h\" data-len=\"1\">Five</h2></header><ol class=\"sl-body sl-steps\" data-fit=\"3\" style=\"--n:3\"><li><div class=\"sl-step-n\"><b>1</b><i></i></div><h3>Step 0</h3></li><li><div class=\"sl-step-n\"><b>2</b><i></i></div><h3>Step 1</h3></li><li class=\"is-end\"><div class=\"sl-step-n\"><b>3</b><i></i></div><h3>Step 2</h3></li><li><div class=\"sl-step-n\"><b>4</b><i></i></div><h3>Step 3</h3></li><li class=\"is-end\"><div class=\"sl-step-n\"><b>5</b><i></i></div><h3>Step 4</h3></li></ol><footer class=\"sl-foot\"><span>Quarterly review</span><span>17</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-stats\" aria-roledescription=\"slide\" aria-label=\"Slide 18\"><div class=\"sl-body sl-stats\" style=\"--n:3;--vs:4.72\"><div class=\"sl-stat\"><div class=\"sl-v\">€4.2M</div><div class=\"sl-l\">Revenue</div></div><div class=\"sl-stat\"><div class=\"sl-v\">94%</div></div><div class=\"sl-stat\"><div class=\"sl-v\">12</div></div></div><footer class=\"sl-foot\"><span>Quarterly review</span><span>18</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-table\" aria-roledescription=\"slide\" aria-label=\"Slide 19: Numbers\"><header class=\"sl-head\"><h2 class=\"sl-h\" data-len=\"1\">Numbers</h2></header><div class=\"sl-body sl-tab\" data-fit=\"1\"><table class=\"sl-table\"><thead><tr><th>Plan</th><th class=\"n\">Price</th></tr></thead><tbody><tr><td>Solo</td><td class=\"n\">9 €</td></tr><tr><td>Team</td><td class=\"n\">29 €</td></tr></tbody></table></div><footer class=\"sl-foot\"><span>Quarterly review</span><span>19</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-image\" aria-roledescription=\"slide\" aria-label=\"Slide 20: Whole\"><header class=\"sl-head\"><h2 class=\"sl-h\" data-len=\"1\">Whole</h2></header><figure class=\"sl-pic is-contain\"><img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==\" alt=\"Whole\"></figure><footer class=\"sl-foot\"><span>Quarterly review</span><span>20</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-section\" aria-roledescription=\"slide\" aria-label=\"Slide 21: A much longer section title that wraps over two lines\"><div class=\"sl-mark\"><span>02</span><i></i></div><div class=\"sl-hero\"><h2 class=\"sl-big\" data-len=\"4\">A much longer section title that wraps over two lines</h2></div><footer class=\"sl-foot\"><span>Quarterly review</span><span>21</span></footer></section>"
+  },
+  {
+   "html": "<section class=\"sl l-quote\" aria-roledescription=\"slide\" aria-label=\"Slide 22: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"><figure class=\"sl-q\"><span class=\"sl-qmark\" aria-hidden=\"true\">&ldquo;</span><blockquote data-len=\"2\">xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</blockquote><figcaption>Someone</figcaption></figure><footer class=\"sl-foot\"><span>Quarterly review</span><span>22</span></footer></section>"
+  }
+ ]
+}

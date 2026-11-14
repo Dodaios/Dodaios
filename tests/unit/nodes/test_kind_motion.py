@@ -22,6 +22,13 @@ PNG = (
     "AQDJ/pLvAAAAAElFTkSuQmCC"
 )
 ATTACKS = ("<script>alert(1)</script>", '"><img src=x onerror=alert(1)>')
+CHART = {
+    "type": "line",
+    "title": "Revenue",
+    "unit": "k",
+    "x": ["Jan", "Feb", "Mar"],
+    "series": [{"name": "2026", "data": [12, 15.5, None]}],
+}
 
 
 def _node(spec: dict[str, Any], *, title: str = "Film", language: str = "en") -> Node:
@@ -106,6 +113,7 @@ def test_normalize_is_idempotent_for_every_scene_type() -> None:
         {"type": "quote", "quote": "Said so.", "by": "Someone"},
         {"type": "steps", "title": "How", "steps": [{"title": "One", "text": "first"}, "Two"]},
         {"type": "image", "image": PNG, "caption": "A picture"},
+        {"type": "chart", "kicker": "C", "title": "Trend", "chart": CHART},
         {"type": "end", "title": "Bye", "text": "See you", "transition": "zoom", "seconds": 3},
         format="tall",
         theme="light",
@@ -134,6 +142,7 @@ def test_normalize_is_idempotent_for_every_scene_type() -> None:
         ({"quote": "It works.", "by": "A reader"}, "quote"),
         ({"title": "How", "steps": [{"title": "Ask"}]}, "steps"),
         ({"image": PNG, "caption": "The library"}, "image"),
+        ({"title": "Trend", "chart": CHART}, "chart"),
         ({"type": "nonsense", "quote": "Unknown types fall back to the fields."}, "quote"),
         ("A bare string is a statement", "text"),
     ],
@@ -242,6 +251,8 @@ def test_total_duration_is_the_sum_of_the_scenes() -> None:
         ({"scenes": [{"type": "stat", "label": "no number"}]}, "'value'"),
         ({"scenes": [{"type": "image", "image": "https://example.org/a.png"}]}, "data:image"),
         ({"scenes": [{"type": "steps", "steps": [{}]}]}, "'steps'"),
+        ({"scenes": [{"type": "chart", "title": "No chart"}]}, "'chart'"),
+        ({"scenes": [{"type": "chart", "chart": {"x": ["a"], "data": [1]}}]}, "'chart'"),
     ],
 )
 def test_an_unusable_spec_is_refused_with_one_sentence(spec: Any, needle: str) -> None:
@@ -270,6 +281,9 @@ def _attacked(attack: str) -> dict[str, Any]:
         {"type": "steps", "kicker": attack, "title": attack,
          "steps": [{"title": attack, "text": attack}]},
         {"type": "image", "image": PNG, "caption": attack},
+        {"type": "chart", "kicker": attack, "title": attack,
+         "chart": {"type": "column", "title": attack, "unit": attack, "x": [attack, "b"],
+                   "series": [{"name": attack, "data": [1, 2]}, {"name": "b", "data": [3, 4]}]}},
         {"type": "end", "kicker": attack, "title": attack, "text": attack},
         accent=attack,
         format=attack,
@@ -504,6 +518,7 @@ def _every_type() -> dict[str, Any]:
         {"type": "steps", "kicker": "How", "title": "How",
          "steps": [{"title": "One", "text": "first"}, "Two"]},
         {"type": "image", "image": PNG, "caption": "A picture"},
+        {"type": "chart", "kicker": "C", "title": "Trend", "chart": CHART},
         {"type": "end", "kicker": "Bye", "title": "Bye", "text": "See you"},
     )  # fmt: skip
 
@@ -569,7 +584,7 @@ def test_split_texts_carry_the_stored_string_and_bar_values_are_numbers() -> Non
         ("/scenes/0/title", "Two words"),
         ("/scenes/1/text", "One statement that is set large."),
         ("/scenes/5/quote", "Said so, plainly."),
-        ("/scenes/8/title", "Bye"),
+        ("/scenes/9/title", "Bye"),
     ):
         assert fields[at].src == value and fields[at].text == value
     # A number is stored as text; the count is drawn inside the field.
@@ -619,3 +634,112 @@ def test_the_film_stands_while_it_is_edited() -> None:
     assert '"node-field-saved"' in script
     for name in ("split(el,v)", "recount(el,v)", "restat(el,v)", "refit(box)"):
         assert name in script
+
+
+# ------------------------------------------------------------------- charts
+
+
+def test_a_chart_is_kept_in_the_shared_grammars_own_reading() -> None:
+    scene = _film({"type": "chart", "title": "Trend", "chart": CHART})["scenes"][0]
+
+    assert scene["chart"] == {
+        "type": "line",
+        "title": "Revenue",
+        "unit": "k",
+        "x": ["Jan", "Feb", "Mar"],
+        "series": [{"name": "2026", "data": [12, 15.5, None]}],
+    }
+    assert scene["seconds"] == 5.0
+    # The fenced-block form (a JSON string) and the lone-series form read the same.
+    lone = {"type": "lines", "title": "Revenue", "unit": "k", "x": ["Jan", "Feb", "Mar"],
+            "data": [12, 15.5, None]}  # fmt: skip
+    for given in (json.dumps(CHART), lone):
+        again = _film({"type": "chart", "chart": given})["scenes"][0]["chart"]
+        assert again["type"] == "line" and again["x"] == ["Jan", "Feb", "Mar"]
+        assert again["series"][0]["data"] == [12, 15.5, None]
+    # The shared grammar's own fields come along; colours left to the kit are no choice.
+    pie = {"type": "donut", "x": ["a", "b"], "data": [3, 1], "colors": ["", ""]}
+    assert _film({"type": "chart", "chart": pie})["scenes"][0]["chart"] == {
+        "type": "donut",
+        "x": ["a", "b"],
+        "series": [{"name": "", "data": [3, 1]}],
+    }
+    stacked = {
+        "type": "column",
+        "stacked": True,
+        "x": ["a", "b"],
+        "colors": ["#112233", ""],
+        "series": [{"name": "s", "data": [1, 2]}, {"name": "t", "data": [3, 4]}],
+    }
+    kept = _film({"type": "chart", "chart": stacked})["scenes"][0]["chart"]
+    assert kept["stacked"] is True and kept["colors"] == ["#112233", ""]
+    assert _film({"type": "chart", "chart": kept})["scenes"][0]["chart"] == kept
+    # A chart elsewhere is not kept, and a broken one is no chart.
+    assert "chart" not in _film({"type": "title", "title": "T", "chart": CHART})["scenes"][0]
+    assert "chart" not in _film({"title": "T", "chart": {"x": ["a"]}})["scenes"][0]
+
+
+def test_a_chart_scene_draws_the_kits_chart_card_with_its_entrance() -> None:
+    spec = _film(
+        {"type": "chart", "kicker": "Q3", "title": "Trend", "chart": CHART},
+        {"type": "chart", "chart": {"type": "bar", "x": ["North", "South"], "data": [4, 2]}},
+    )
+    page = motion.render(_node(spec))
+    parsed = _tags(page)
+    sections = [attrs for tag, attrs in parsed.tags if tag == "section"]
+
+    assert [attrs["class"] for attrs in sections] == ["scene s-chart is-on", "scene s-chart"]
+    assert page.count('<figure class="card chart">') == 2
+    assert "<svg" in page and ">Revenue</h3>" in page
+    # Drawn from left to right as one animated element, under the heading.
+    boxes = [attrs for tag, attrs in parsed.tags if "f-chart-in" in str(attrs.get("class"))]
+    assert [attrs["class"] for attrs in boxes] == ["f-chart-in a a-reveal"] * 2
+    assert all(attrs["data-e"] == "cub" for attrs in boxes)
+    # The chart wears the film's accent, and the script fits it into the room.
+    assert ".f-chart.is-lone{--s1:var(--fa)}" in page
+    assert [
+        attrs["class"]
+        for tag, attrs in parsed.tags
+        if "a-rise" in str(attrs.get("class")) and "f-chart" in str(attrs.get("class"))
+    ] == [
+        "f-chart is-lone a a-rise",
+        "f-chart is-lone a a-rise",
+    ]
+    assert "fitCharts();" in parsed.scripts[-1]
+    # The scene's own heading stays a field; the chart is edited as a whole.
+    fields = {field.at for field in check_editable(page, spec, "Film")}
+    assert fields == {"/scenes/0/kicker", "/scenes/0/title"}
+
+
+def test_an_editor_can_steer_the_film_from_its_own_frame_only() -> None:
+    script = _tags(motion.render(_node(_film({"title": "One"}, {"text": "Two"})))).scripts[-1]
+
+    # Only the parent frame is heard, and only its seek message.
+    assert "if(!up||e.source!==up)return;" in script
+    assert 'm.type!=="dodaios-film-seek"' in script
+    assert "if(m.play===true)play();" in script
+    # The page reports where it is only once it was steered, and throttled.
+    assert 'type:"dodaios-film-time"' in script
+    assert "if(!steered)return;" in script and "now-toldAt<200" in script
+    # A preview can open standing on the scene being edited.
+    assert 'getAttribute("data-film-scene")' in script
+    assert "seek(settled(Math.max(0,Math.min(N-1,held))))" in script
+
+
+def test_a_round_chart_fades_in_instead_of_being_drawn_left_to_right() -> None:
+    spec = _film(
+        {
+            "type": "chart",
+            "title": "Share",
+            "chart": {"type": "pie", "x": ["a", "b"], "data": [3, 1]},
+        }
+    )
+    boxes = [
+        attrs["class"]
+        for tag, attrs in _tags(motion.render(_node(spec))).tags
+        if "f-chart-in" in str(attrs.get("class"))
+    ]
+
+    assert boxes == ["f-chart-in a a-fade"]
+    # The slices keep the kit's colours: the accent would paint two alike.
+    assert "f-chart is-lone" not in motion.render(_node(spec))

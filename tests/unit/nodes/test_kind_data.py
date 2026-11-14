@@ -228,7 +228,13 @@ def test_a_spec_with_nothing_to_show_is_refused(spec: Any) -> None:
         {"type": "line", "title": "Uneven", "x": ["a", "b", "c"], "data": [1, 2]},
         {"type": "line", "title": "One point", "x": ["a"], "data": [1]},
         {"type": "line", "title": "Words", "x": ["a", "b"], "data": [1, "many"]},
-        {"type": "pie", "title": "Unknown type", "x": ["a", "b"], "data": [1, 2]},
+        {"type": "radar", "title": "Unknown type", "x": ["a", "b"], "data": [1, 2]},
+        {
+            "type": "pie",
+            "title": "Two pies",
+            "x": ["a", "b"],
+            "series": [{"name": "x", "data": [1, 2]}, {"name": "y", "data": [2, 1]}],
+        },
         {"type": "line", "title": "No data", "x": ["a", "b"]},
         {
             "type": "line",
@@ -245,6 +251,33 @@ def test_a_chart_that_cannot_be_drawn_is_named_with_the_rule(broken: dict[str, A
     message = str(raised.value)
     assert message.startswith(f"Chart 2 in section 2 ({broken['title']!r}) cannot be drawn.")
     assert "same length" in message and "2 or more points" in message and "numbers" in message
+
+
+def test_stacked_colors_and_round_charts_are_kept_only_when_they_say_something() -> None:
+    stacked = _bar_chart(type="column", stacked=True, colors=["#D4532E"])
+    plain = _bar_chart(stacked=False, colors=[""])
+    donut = {"type": "donut", "title": "Share", "x": ["A", "B", "C"], "data": [5, 3, 2]}
+    spec = data.normalize({"charts": [stacked, plain, donut]})
+    charts = spec["sections"][0]["charts"]
+
+    assert charts[0]["stacked"] is True and charts[0]["colors"] == ["#D4532E"]
+    # A chart written without the newer keys reads back exactly as it was sent.
+    assert "stacked" not in charts[1] and "colors" not in charts[1]
+    assert charts[2]["type"] == "donut" and "stacked" not in charts[2]
+    assert data.normalize(spec) == spec
+    assert "pie or donut" in data.GUIDE and '"stacked": true' in data.GUIDE
+
+
+def test_a_round_chart_is_drawn_at_its_own_size_beside_its_legend() -> None:
+    donut = {"type": "donut", "title": "Share", "x": ["A", "B"], "data": [5, 3]}
+    body = _body(data.render(_node(data.normalize({"charts": [donut, _line_chart()]}))))
+
+    pie = body[body.index('<div class="pie">') :]
+    assert '<div class="plot"><svg' not in pie.split("</figure>")[0]
+    # The line chart beside it still scrolls inside its card.
+    assert body.count('<div class="plot"><svg') == 1
+    # On a wide card the round chart sits in the plot's column, beside its head.
+    assert ".tile>.split>.pie{grid-column:2" in data.render(_node(data.normalize({"charts": [donut]})))
 
 
 @pytest.mark.parametrize(
@@ -276,7 +309,7 @@ def test_starter_and_example_are_valid_specs() -> None:
 
 def test_guide_is_compact_and_carries_the_example() -> None:
     # The grammar plus the rule that an analysis is read from real sources.
-    assert len(data.GUIDE) <= 3_200
+    assert len(data.GUIDE) <= 3_400
     assert json.dumps(data.EXAMPLE, ensure_ascii=False) in data.GUIDE
     assert "Never invent" in data.GUIDE and "'track'" in data.GUIDE
     assert data.normalize(data.EXAMPLE)["sources"]

@@ -1,0 +1,1025 @@
+{
+  "nodes": {
+    "editor": {
+      "sheets": {
+        "toolbar": {
+          "format": "数字格式",
+          "data": "数据",
+          "insert": "插入",
+          "fewer_decimals": "减少小数位",
+          "more_decimals": "增加小数位",
+          "bold": "列加粗",
+          "settings": "列设置"
+        },
+        "types": {
+          "text": "文本",
+          "number": "数字",
+          "currency": "货币",
+          "percent": "百分比",
+          "date": "日期",
+          "check": "是/否",
+          "status": "状态",
+          "link": "链接"
+        },
+        "total": {
+          "none": "无合计",
+          "sum": "求和",
+          "avg": "平均值",
+          "min": "最小值",
+          "max": "最大值",
+          "count": "计数"
+        },
+        "align": {
+          "left": "左对齐",
+          "center": "居中",
+          "right": "右对齐"
+        },
+        "color": {
+          "none": "默认颜色",
+          "blue": "蓝色",
+          "orange": "橙色",
+          "green": "绿色",
+          "amber": "琥珀色",
+          "violet": "紫色",
+          "pink": "粉色",
+          "good": "良好（绿色）",
+          "warn": "警告（琥珀色）",
+          "bad": "不佳（红色）",
+          "muted": "淡色"
+        },
+        "freeze": {
+          "0": "不冻结列",
+          "1": "第一列",
+          "2": "前 2 列",
+          "3": "前 3 列"
+        },
+        "panel": {
+          "title": "列设置",
+          "close": "关闭设置",
+          "column": "列",
+          "label": "名称",
+          "key": "公式中的键",
+          "type": "列类型",
+          "unit": "单位",
+          "currency": "货币代码",
+          "decimals": "小数位",
+          "total": "合计行",
+          "formula": "公式",
+          "look": "外观",
+          "width": "宽度",
+          "align": "对齐",
+          "color": "文字颜色",
+          "sheet": "工作表",
+          "freeze": "冻结列",
+          "note": "标题下方的备注"
+        },
+        "formula": {
+          "hint": "用本行其他列的键进行计算，例如 qty * price。允许：+ - * / // % **、round、min、max、abs、sum。",
+          "keys": "其他列的键",
+          "unknown": "“{0}”不是其他列的键。",
+          "cycle": "此公式通过其他公式列依赖了自身。",
+          "grammar": "只能使用数字、列键、+ - * / // % **、括号以及 round、min、max、abs、sum。",
+          "held": "需要先修正列 {0} 的公式，才能保存你的更改。"
+        },
+        "menu": {
+          "label": "单元格操作",
+          "column_label": "列 {0}",
+          "cut": "剪切",
+          "copy": "复制",
+          "paste": "粘贴",
+          "insert_above": "在上方插入 {0} 行",
+          "insert_below": "在下方插入 {0} 行",
+          "insert_left": "在左侧插入 {0} 列",
+          "insert_right": "在右侧插入 {0} 列",
+          "delete_rows": "删除 {0} 行",
+          "delete_columns": "删除 {0} 列",
+          "clear": "清除内容",
+          "fill_down": "向下填充",
+          "fill_right": "向右填充",
+          "sort_asc": "从 A 到 Z 排序",
+          "sort_desc": "从 Z 到 A 排序",
+          "filter": "筛选",
+          "chart": "插入图表",
+          "move_left": "列左移",
+          "move_right": "列右移",
+          "settings": "列设置"
+        },
+        "filter": {
+          "title": "筛选 {0}",
+          "search": "搜索值",
+          "all": "全选",
+          "none": "全不选",
+          "values": "值",
+          "empty": "（空）",
+          "clear": "清除",
+          "apply": "应用",
+          "clear_all": "清除所有筛选",
+          "count": "显示 {1} 行中的 {0} 行"
+        },
+        "tabs": {
+          "label": "工作表",
+          "add": "添加工作表",
+          "rename": "重命名工作表",
+          "duplicate": "复制工作表",
+          "move_left": "左移",
+          "move_right": "右移",
+          "delete": "删除工作表",
+          "menu": "工作表操作",
+          "default": "工作表",
+          "copy_word": "副本"
+        },
+        "charts": {
+          "label": "此工作表的图表",
+          "untitled": "未命名图表",
+          "edit": "编辑",
+          "delete": "删除图表 {0}",
+          "cannot_draw": "这些单元格中的数字还不足以绘制此图表。"
+        },
+        "bar": {
+          "address": "活动单元格",
+          "value": "单元格内容"
+        },
+        "grid": {
+          "column_menu": "列 {0} 的菜单",
+          "resize": "调整列 {0} 的宽度",
+          "row": "第 {0} 行",
+          "cell": "{0}，{1}：{2}",
+          "empty": "空",
+          "select_all": "选择所有单元格",
+          "new_row": "新行"
+        },
+        "message": {
+          "formula_cell": "此列由其公式计算。请在列设置中修改公式。",
+          "columns_added": "已为粘贴的单元格添加 {0} 列。",
+          "row_limit": "一个工作表最多 1,000 行。",
+          "column_limit": "一个工作表最多 30 列。",
+          "last_column": "一个工作表至少保留一列。",
+          "used_by_formula": "被以下列的公式使用：{0}。请先修改该公式。",
+          "chart_limit": "一个工作表最多 8 个图表。",
+          "paste_keys": "请使用 {0}V 在此粘贴。",
+          "sheet_deleted": "已删除工作表 {0}。撤销可恢复。"
+        },
+        "step": {
+          "edit_cell": "编辑单元格",
+          "clear": "清空单元格",
+          "cut": "剪切单元格",
+          "paste": "粘贴",
+          "fill_down": "向下填充",
+          "fill_right": "向右填充",
+          "insert_rows": "插入行",
+          "delete_rows": "删除行",
+          "insert_columns": "插入列",
+          "delete_columns": "删除列",
+          "move_column": "移动列",
+          "sort": "按 {0} 排序",
+          "rename_column": "重命名列",
+          "column_type": "更改列类型",
+          "number_format": "更改数字格式",
+          "total": "更改合计",
+          "formula": "更改公式",
+          "resize_column": "调整列宽",
+          "align": "对齐列",
+          "bold": "列加粗",
+          "color": "列颜色",
+          "freeze": "冻结列",
+          "note": "编辑备注",
+          "add_sheet": "添加工作表",
+          "rename_sheet": "重命名工作表",
+          "move_sheet": "移动工作表",
+          "duplicate_sheet": "复制工作表",
+          "delete_sheet": "删除工作表",
+          "insert_chart": "插入图表",
+          "edit_chart": "编辑图表",
+          "delete_chart": "删除图表"
+        }
+      },
+      "region": "{0} 的编辑器",
+      "toolbar": "编辑工具",
+      "inspector": "检查器",
+      "undo": "撤销",
+      "redo": "重做",
+      "history": {
+        "group": "历史",
+        "remote": "由 {assistant} 修改",
+        "theirs": "已采用另一版本"
+      },
+      "save": {
+        "saving": "正在保存…",
+        "saved": "已保存",
+        "pending": "有未保存的更改",
+        "failed": "尚未保存。",
+        "held": "尚未保存",
+        "conflict": "已在别处更改",
+        "retry": "重试"
+      },
+      "conflict": {
+        "message": "你编辑时，{assistant} 修改了这个节点。你想保留哪个版本？",
+        "theirs": "采用对方的",
+        "mine": "保留我的"
+      },
+      "leave": {
+        "message": "你最近的更改尚未保存。现在离开，这些更改将会丢失。",
+        "stay": "留下",
+        "anyway": "仍然离开"
+      },
+      "color": {
+        "default": "默认",
+        "custom": "自定义颜色",
+        "hex": "颜色代码"
+      },
+      "generic": {
+        "label": "节点内容（JSON）",
+        "step": "编辑内容",
+        "invalid": "这还不是有效的 JSON；保留最后一个有效版本。"
+      },
+      "chart": {
+        "new": "新建图表",
+        "edit": "编辑图表",
+        "kind": "图表类型",
+        "kinds": {
+          "column": "柱形",
+          "bar": "条形",
+          "line": "折线",
+          "area": "面积",
+          "pie": "饼图",
+          "donut": "环形"
+        },
+        "stacked": "堆叠",
+        "title": "标题",
+        "unit": "单位",
+        "note": "图表下方的注释",
+        "data": "数据",
+        "labels": "标签",
+        "series_name": "系列 {0}",
+        "series_name_of": "系列 {0} 的名称",
+        "label_of": "标签 {0}",
+        "value_of": "{1} 处的 {0}",
+        "add_row": "添加行",
+        "remove_row": "删除第 {0} 行",
+        "add_series": "添加系列",
+        "remove_series": "删除系列 {0}",
+        "paste_hint": "将电子表格中的单元格粘贴到任一单元格即可填充表格。",
+        "preview_empty": "数据完整后，图表会显示在这里。",
+        "series_colors": "系列颜色",
+        "slice_colors": "扇区颜色",
+        "color_of": "{0} 的颜色",
+        "label_column": "标签列",
+        "value_column": "数值列",
+        "value_columns": "数值列",
+        "not_numbers": "不是数字",
+        "cancel": "取消",
+        "apply": "应用",
+        "insert": "插入图表",
+        "errors": {
+          "not_object": "图表需要类型、标签和数值。",
+          "type": "请选择一种图表类型。",
+          "labels_count": "图表需要 2 到 {0} 个标签。",
+          "label_empty": "每个标签都需要文字。",
+          "series_count": "图表需要一到六个系列。",
+          "series_length": "每个系列的每个标签都需要一个数值。",
+          "value": "数值必须是数字（空单元格表示缺口）。",
+          "series_empty": "一个系列至少需要一个数值。",
+          "series_name": "有多个系列时，每个系列都需要名称。",
+          "round_one_series": "饼图或环形图只显示一个系列。",
+          "round_negative": "饼图或环形图不能显示负值。",
+          "round_zero": "饼图或环形图至少需要一个大于零的数值。"
+        }
+      },
+      "motion": {
+        "add": "添加场景",
+        "needs": "场景 {n} 还需要：{field}。",
+        "kinds": {
+          "title": "标题",
+          "text": "陈述",
+          "bullets": "要点",
+          "stat": "数字",
+          "bars": "条形",
+          "chart": "图表",
+          "steps": "步骤",
+          "quote": "引语",
+          "image": "图片",
+          "end": "结尾卡"
+        },
+        "transitions": {
+          "fade": "淡入",
+          "slide": "滑入",
+          "zoom": "缩放",
+          "cut": "切换"
+        },
+        "formats": {
+          "wide": "横屏 16:9",
+          "square": "方形 1:1",
+          "tall": "竖屏 9:16"
+        },
+        "toolbar": {
+          "scenes": "场景",
+          "clip": "短片",
+          "play": "播放",
+          "stop": "停止",
+          "space": "空格",
+          "format": "画幅",
+          "toLight": "浅色背景",
+          "toDark": "深色背景",
+          "accent": "强调色",
+          "loop": "循环"
+        },
+        "timeline": {
+          "label": "场景",
+          "summary": "{count} 个场景 · {clock}（{seconds} 秒）",
+          "keys": "方向键选择 · Alt+方向键移动 · 空格播放",
+          "scene": "场景 {n}：{kind}，{seconds} 秒。{text}",
+          "seconds": "{seconds} 秒",
+          "length": "场景 {n} 的时长",
+          "transition": "场景 {n} 的进入方式：{transition}"
+        },
+        "preview": {
+          "label": "{title} 的预览",
+          "loading": "正在绘制短片…",
+          "error": "无法绘制预览：{reason}",
+          "hint": "点击预览中的文字即可直接编辑。",
+          "playing": "正在播放。选择一个场景或按停止以继续编辑。"
+        },
+        "inspector": {
+          "heading": "场景 {n}",
+          "type": "场景类型",
+          "required": "这个场景需要此项。",
+          "editChart": "编辑图表",
+          "timing": "时间",
+          "seconds": "时长",
+          "fit": "按内容调整",
+          "transition": "进入方式",
+          "transitionFirst": "进入方式（第一个场景开启短片）",
+          "max": "最多 {n} 个",
+          "addPoint": "添加要点",
+          "addBar": "添加条形",
+          "addStep": "添加步骤",
+          "pointN": "要点 {n}",
+          "barN": "条形 {n}",
+          "stepN": "步骤 {n}",
+          "barLabel": "条形 {n} 的标签",
+          "barValue": "条形 {n} 的数值",
+          "stepTitle": "步骤 {n} 的标题",
+          "stepText": "步骤 {n} 的文字",
+          "stepTextPlaceholder": "下方的一行说明（可选）",
+          "moveUp": "上移{item}",
+          "moveDown": "下移{item}",
+          "remove": "删除{item}"
+        },
+        "actions": {
+          "moveEarlier": "场景前移",
+          "moveLater": "场景后移",
+          "duplicate": "复制场景",
+          "delete": "删除场景"
+        },
+        "fields": {
+          "kicker": "上方小字",
+          "title": "标题",
+          "text": "文字",
+          "value": "数字",
+          "unit": "单位",
+          "label": "标签",
+          "detail": "细节",
+          "quote": "引语",
+          "by": "说话人",
+          "caption": "图片说明",
+          "bullets": "要点",
+          "items": "条形",
+          "steps": "步骤",
+          "image": "图片",
+          "chart": "图表"
+        },
+        "picture": {
+          "choose": "选择图片…",
+          "drop": "或拖放到这里",
+          "type": "该文件不是图片。",
+          "read": "无法读取这张图片。",
+          "size": "这张图片太大，即使缩小后也放不下。"
+        },
+        "samples": {
+          "title": "你的标题",
+          "text": "一句清晰的陈述，以大字呈现。",
+          "point": "要点 {n}",
+          "statLabel": "某个重要的指标",
+          "barLabel": "项目 {n}",
+          "quote": "一句值得重复的话。",
+          "by": "某人",
+          "step": "步骤 {n}",
+          "end": "谢谢"
+        },
+        "history": {
+          "add": "添加场景",
+          "duplicate": "复制场景",
+          "delete": "删除场景",
+          "move": "移动场景",
+          "seconds": "更改时长",
+          "transition": "更改转场",
+          "type": "更改场景类型",
+          "text": "编辑文字",
+          "format": "更改画幅",
+          "theme": "更改背景",
+          "accent": "更改强调色",
+          "loop": "开关循环",
+          "picture": "更改图片",
+          "chart": "编辑图表",
+          "addRow": "添加一行",
+          "moveRow": "移动一行",
+          "removeRow": "删除一行"
+        }
+      },
+      "docs": {
+        "body": "文档正文",
+        "step": "编辑文本",
+        "raw": "Markdown",
+        "placeholder": {
+          "summary": "摘要：用两到四句话直接给出结论",
+          "body": "在此输入，或输入 ## 创建标题、- 创建列表、> 创建引用",
+          "heading": "标题"
+        },
+        "groups": {
+          "block": "段落类型",
+          "marks": "文本样式",
+          "lists": "列表",
+          "blocks": "引用和代码",
+          "table": "表格"
+        },
+        "block": {
+          "label": "段落类型",
+          "paragraph": "正文",
+          "h2": "章节标题",
+          "h3": "副标题",
+          "h4": "小标题",
+          "other": "标题 {0}",
+          "quote": "引用",
+          "code": "代码块"
+        },
+        "mark": {
+          "bold": "粗体",
+          "italic": "斜体",
+          "strike": "删除线",
+          "code": "行内代码"
+        },
+        "list": {
+          "bullet": "项目符号列表",
+          "ordered": "编号列表",
+          "task": "清单"
+        },
+        "link": {
+          "label": "链接",
+          "address": "网址或邮箱地址",
+          "apply": "应用",
+          "remove": "移除链接",
+          "invalid": "请输入网址（https://…）或邮箱地址。"
+        },
+        "callout": {
+          "label": "提示框",
+          "tone": "提示框类型",
+          "remove": "转为普通文本",
+          "tones": {
+            "note": "说明",
+            "tip": "提示",
+            "important": "重要",
+            "warning": "警告",
+            "caution": "注意"
+          }
+        },
+        "insert": {
+          "label": "插入",
+          "table": "表格",
+          "metrics": "关键数字",
+          "metrics_starter": "19 € | 第一个数字 | 每月\n27 € | 第二个数字",
+          "picture": "图片…",
+          "rule": "分隔线"
+        },
+        "table": {
+          "label": "行和列",
+          "row_above": "在上方插入行",
+          "row_below": "在下方插入行",
+          "column_left": "在左侧插入列",
+          "column_right": "在右侧插入列",
+          "delete_row": "删除行",
+          "delete_column": "删除列",
+          "delete": "删除表格",
+          "align_left": "列左对齐",
+          "align_center": "列居中",
+          "align_right": "列右对齐"
+        },
+        "chart": {
+          "label": "图表：{0}",
+          "untitled": "图表",
+          "remove": "移除图表",
+          "invalid": "无法绘制此图表：数据不一致。请在此修正其 JSON，或将其移除。",
+          "source": "图表的 JSON"
+        },
+        "metrics": {
+          "label": "关键数字",
+          "add": "添加数字",
+          "remove": "移除第 {0} 个数字",
+          "remove_block": "移除关键数字",
+          "value": "数值",
+          "label_field": "名称",
+          "detail": "说明（可选）",
+          "value_of": "第 {0} 个数字的数值",
+          "label_of": "第 {0} 个数字的名称",
+          "detail_of": "第 {0} 个数字的说明",
+          "incomplete": "每个数字都需要数值和名称（最多六个），否则页面会以纯文本显示。"
+        },
+        "picture": {
+          "not_loaded": "图片未加载",
+          "not_picture": "文档中只能插入图片（PNG、JPEG、GIF、WebP）。",
+          "too_large": "即使缩小，这张图片也放不进文档。",
+          "unreadable": "无法读取这张图片。"
+        },
+        "outline": {
+          "label": "大纲",
+          "toggle": "大纲",
+          "empty": "标题会显示在这里。"
+        },
+        "errors": {
+          "empty": "文档需要有一些文字才能保存。",
+          "too_long": "文档太长，无法保存。请删除部分文字或图片。"
+        }
+      },
+      "design": {
+        "add": "添加区块",
+        "add_group": "添加",
+        "block_actions": "区块",
+        "move_up": "上移",
+        "move_down": "下移",
+        "duplicate": "复制",
+        "delete": "删除",
+        "select_parent": "选择外层区块",
+        "block": {
+          "heading": "标题",
+          "text": "文本",
+          "button": "按钮",
+          "image": "图片…",
+          "list": "列表",
+          "quote": "引用",
+          "card": "卡片",
+          "chips": "标签",
+          "metrics": "数字",
+          "callout": "提示框",
+          "divider": "分隔线",
+          "spacer": "间距"
+        },
+        "block_text": {
+          "heading": "标题",
+          "text": "一行文字。",
+          "button": "了解更多",
+          "item": "列表项",
+          "quote": "一句值得引用的话。",
+          "label": "标签",
+          "value": "42"
+        },
+        "kind": {
+          "heading": "标题",
+          "text": "文本",
+          "link": "链接",
+          "button": "按钮",
+          "image": "图片",
+          "graphic": "绘图",
+          "list": "列表",
+          "divider": "分隔线",
+          "table": "表格",
+          "box": "容器"
+        },
+        "layers": {
+          "title": "区块",
+          "label": "设计中的区块",
+          "empty": "这个设计还没有区块。请从工具栏添加一个。"
+        },
+        "tab": {
+          "block": "区块",
+          "page": "页面"
+        },
+        "content": "内容",
+        "text": "文本",
+        "text_hint": "换行会变成页面上的换行。也可以在预览中双击文字直接修改。",
+        "rich_hint": "这段文字带有格式。在预览中双击它即可就地修改文字。",
+        "clear_formatting": "清除格式",
+        "link": "链接",
+        "link_hint": "网址（https://…）或页面中的位置（#id）。",
+        "image": {
+          "replace": "替换图片…",
+          "alt": "描述",
+          "alt_hint": "屏幕阅读器会用它代替图片朗读。",
+          "wrong_type": "设计中只能放入 PNG、JPEG、GIF、WebP 或 AVIF 图片。",
+          "too_large": "这张图片太大，即使缩小也无法嵌入。",
+          "failed": "无法读取这张图片。"
+        },
+        "look": "外观",
+        "color": "文字颜色",
+        "color_tokens": "主题颜色（随浅色和深色切换）",
+        "background": "背景",
+        "fill": "填充",
+        "stroke": "线条",
+        "stroke_width": "线条粗细",
+        "size": "字号",
+        "weight": "字重",
+        "weight_default": "按样式",
+        "weights": {
+          "400": "常规",
+          "500": "中等",
+          "600": "半粗",
+          "700": "粗体"
+        },
+        "align": "对齐",
+        "align_left": "左对齐",
+        "align_center": "居中",
+        "align_right": "右对齐",
+        "padding": "内边距",
+        "radius": "圆角",
+        "clear_style": "清除此区块的样式",
+        "page": {
+          "format": "格式",
+          "fit": "显示方式",
+          "fit_page": "滚动页面",
+          "fit_page_hint": "与窗口同宽：单页介绍、落地页",
+          "fit_canvas": "固定画板",
+          "fit_canvas_hint": "精确尺寸，缩放以适应窗口：海报、卡片",
+          "presets": "尺寸",
+          "size": "尺寸",
+          "width": "宽度",
+          "height": "高度",
+          "preset": {
+            "portrait": "竖版帖子",
+            "square": "方形",
+            "story": "快拍",
+            "wide": "宽屏",
+            "a4": "A4 页面"
+          },
+          "colours": "颜色",
+          "background": "页面底色",
+          "background_hint": "主题颜色名会随浅色和深色切换。",
+          "accent": "强调色",
+          "accent_hint": "在整个设计中替换主题的强调色。",
+          "theme": "主题",
+          "theme_auto": "跟随应用",
+          "theme_light": "始终浅色",
+          "theme_dark": "始终深色",
+          "styles": "样式表",
+          "styles_hint": "设计的 CSS。请基于主题变量，例如 var(--accent)。",
+          "styles_open": "编辑样式表"
+        },
+        "history": {
+          "add": "添加区块",
+          "alt": "修改描述",
+          "css": "编辑样式表",
+          "delete": "删除区块",
+          "duplicate": "复制区块",
+          "image": "替换图片",
+          "link": "修改链接",
+          "move": "移动区块",
+          "text": "编辑文字"
+        },
+        "empty": "设计至少需要一个区块。请添加一个，或撤销。",
+        "preview": "{0} 的预览",
+        "preview_hint": "单击区块即可选中，双击文字即可输入。"
+      },
+      "data": {
+        "add_group": "添加",
+        "add": {
+          "metrics": "指标",
+          "charts": "图表",
+          "tables": "表格",
+          "section": "分区"
+        },
+        "view": {
+          "label": "视图",
+          "edit": "编辑仪表板",
+          "page": "查看页面",
+          "page_title": "{0} 的页面预览"
+        },
+        "actions": {
+          "label": "{0} 的操作",
+          "earlier": "将 {0} 前移",
+          "later": "将 {0} 后移",
+          "up": "将 {0} 上移",
+          "down": "将 {0} 下移",
+          "duplicate": "复制 {0}",
+          "delete": "删除 {0}",
+          "keep_last": "仪表板至少保留一个指标、图表或表格"
+        },
+        "grip": "移动 {0}（拖动或使用方向键）",
+        "held": "每个指标都需要标签和数值，每个表格都需要列名。填写后即可保存。",
+        "summary": "摘要",
+        "summary_hint": "这些数字涵盖什么内容，截至何时。",
+        "summary_placeholder": "简短摘要：这些数字涵盖什么内容，截至何时。",
+        "sources": {
+          "label": "数据来源",
+          "item": "来源 {0}",
+          "add": "添加来源",
+          "remove": "移除 {0}",
+          "placeholder": "orders.csv、网店、投资组合…",
+          "edit": "编辑来源",
+          "none": "注明来源"
+        },
+        "upkeep_note": "此仪表板每 {0} 更新一次。更新可能会替换在此输入的数值；你设定的布局会保留。",
+        "inspector": {
+          "dashboard": "仪表板",
+          "section": "分区"
+        },
+        "section": {
+          "title": "分区标题",
+          "title_placeholder": "分区标题",
+          "text": "分区说明",
+          "text_placeholder": "一小段文字（可选）",
+          "text_hint": "**粗体**、*斜体* 和 [链接](https://…) 会在页面上按格式显示。",
+          "numbered": "分区 {0}",
+          "new_title": "新分区",
+          "counts": "{0} 个指标，{1} 个图表，{2} 个表格"
+        },
+        "metric": {
+          "label": "标签",
+          "label_placeholder": "标签",
+          "value": "数值",
+          "delta": "变化",
+          "delta_placeholder": "+12 %",
+          "detail": "说明",
+          "detail_placeholder": "较上月",
+          "lower": "越低越好",
+          "lower_hint": "数值下降显示为好消息（成本、退货、等待时间）。",
+          "new_label": "新指标",
+          "untitled": "指标"
+        },
+        "chart": {
+          "edit": "编辑图表",
+          "open": "在图表编辑器中打开 {0}",
+          "untitled": "未命名图表",
+          "wide": "全宽",
+          "wide_hint": "在宽窗口中占满整行。独占一行的图表总是如此。",
+          "half": "半宽",
+          "new_title": "新图表"
+        },
+        "table": {
+          "title": "表格标题",
+          "title_placeholder": "表格标题（可选）",
+          "untitled": "表格",
+          "column": "第 {0} 列的名称",
+          "column_placeholder": "列",
+          "cell": "{0}，第 {1} 行",
+          "add_row": "添加行",
+          "add_column": "添加列",
+          "remove_row": "移除第 {0} 行",
+          "remove_column": "移除第 {0} 列",
+          "new_title": "新表格",
+          "new_item": "项目",
+          "new_value": "数值",
+          "size": "{0} 行，{1} 列",
+          "paste_hint": "可将从电子表格或 CSV 文件复制的单元格粘贴到任意单元格中，表格会自动扩展。"
+        },
+        "history": {
+          "add_metrics": "添加指标",
+          "add_charts": "添加图表",
+          "add_tables": "添加表格",
+          "add_section": "添加分区",
+          "cell": "编辑单元格",
+          "chart": "编辑图表",
+          "column": "重命名列",
+          "column_add": "添加列",
+          "column_remove": "移除列",
+          "delete": "删除",
+          "duplicate": "复制",
+          "metric": "编辑指标",
+          "move": "移动",
+          "paste": "粘贴单元格",
+          "row_add": "添加行",
+          "row_remove": "移除行",
+          "section": "编辑分区",
+          "source": "编辑来源",
+          "summary": "编辑摘要",
+          "table": "编辑表格标题"
+        }
+      },
+      "slides": {
+        "toolbar": {
+          "slides": "幻灯片",
+          "look": "外观"
+        },
+        "add": {
+          "button": "新建幻灯片",
+          "label": "新建幻灯片",
+          "pick": "为新幻灯片选择版式"
+        },
+        "action": {
+          "duplicate": "复制幻灯片",
+          "delete": "删除幻灯片",
+          "move_up": "上移",
+          "move_down": "下移"
+        },
+        "theme": {
+          "label": "主题",
+          "auto": "跟随应用",
+          "light": "浅色",
+          "dark": "深色"
+        },
+        "accent": {
+          "label": "强调色",
+          "default": "默认",
+          "custom": "自定义颜色",
+          "blue": "蓝色",
+          "orange": "橙色",
+          "green": "绿色",
+          "amber": "琥珀色",
+          "violet": "紫色",
+          "pink": "粉色"
+        },
+        "present": {
+          "button": "演示",
+          "label": "演示",
+          "previous": "上一张",
+          "next": "下一张",
+          "notes": "演讲者备注（N）",
+          "end": "结束演示（Esc）",
+          "position": "{n} / {total}"
+        },
+        "canvas": {
+          "label": "第 {n} 张，共 {total} 张",
+          "loading": "正在加载演示文稿的外观…",
+          "failed": "无法加载演示文稿的外观。",
+          "retry": "重试"
+        },
+        "notes": {
+          "label": "第 {n} 张幻灯片的演讲者备注",
+          "placeholder": "你想在这张幻灯片上说的话。演示时只有你能看到。",
+          "none": "这张幻灯片没有备注。"
+        },
+        "strip": {
+          "label": "幻灯片",
+          "slide": "第 {n} 张",
+          "slide_named": "第 {n} 张：{title}",
+          "menu": "第 {n} 张幻灯片的操作",
+          "moved": "第 {from} 张已移到第 {to} 位。",
+          "duplicated": "已复制第 {n} 张。",
+          "deleted": "已删除第 {n} 张。",
+          "has_notes": "有演讲者备注"
+        },
+        "inspector": {
+          "slide": "第 {n} 张"
+        },
+        "layout": {
+          "change": "更改版式",
+          "change_short": "更改",
+          "title": "标题",
+          "section": "章节",
+          "bullets": "要点",
+          "columns": "分栏",
+          "quote": "引言",
+          "stats": "数据",
+          "chart": "图表",
+          "table": "表格",
+          "image": "图片",
+          "steps": "步骤",
+          "closing": "结尾"
+        },
+        "section": {
+          "text": "文字",
+          "points": "要点",
+          "columns": "分栏",
+          "stats": "数据",
+          "steps": "步骤",
+          "table": "表格",
+          "chart": "图表",
+          "image": "图片"
+        },
+        "field": {
+          "kicker": "眉题（上方小字）",
+          "title": "标题",
+          "subtitle": "副标题",
+          "quote": "引言",
+          "by": "出处",
+          "text": "正文",
+          "caption": "说明",
+          "value": "数值",
+          "label": "标签",
+          "detail": "详情"
+        },
+        "placeholder": {
+          "title": "标题",
+          "subtitle": "副标题",
+          "quote": "引言",
+          "by": "出处",
+          "kicker": "眉题",
+          "text": "正文",
+          "caption": "说明",
+          "bullets": "要点",
+          "table": "单元格",
+          "value": "数值",
+          "label": "标签",
+          "detail": "详情"
+        },
+        "item": {
+          "point": "要点",
+          "column": "栏",
+          "stat": "数据",
+          "step": "步骤",
+          "numbered": "{item} {n}"
+        },
+        "list": {
+          "up": "上移{item}",
+          "down": "下移{item}",
+          "remove": "移除{item}",
+          "add_point": "添加要点",
+          "add_column": "添加栏",
+          "add_stat": "添加数据",
+          "add_step": "添加步骤"
+        },
+        "table": {
+          "add_row": "添加行",
+          "add_column": "添加列",
+          "remove_row": "移除第 {n} 行",
+          "remove_column": "移除第 {n} 列",
+          "column_name": "第 {n} 列的名称",
+          "cell": "第 {row} 行，第 {column} 列"
+        },
+        "chart": {
+          "edit": "编辑图表",
+          "none": "还没有图表",
+          "summary": "{kind} · {labels} 个标签 · {series} 个系列",
+          "kind": {
+            "column": "柱形图",
+            "bar": "条形图",
+            "line": "折线图",
+            "area": "面积图",
+            "pie": "饼图",
+            "donut": "环形图"
+          }
+        },
+        "image": {
+          "choose": "选择图片…",
+          "replace": "替换图片…",
+          "drop": "把图片拖到这里，或粘贴到演示文稿中",
+          "fit": "图片如何填充空间",
+          "fit_cover": "填充并裁剪",
+          "fit_contain": "完整显示",
+          "too_large": "这张图片无法缩小到适合幻灯片的大小。请换一张更小的。",
+          "wrong_type": "幻灯片只支持 PNG、JPEG、GIF、WebP 和 AVIF 图片。",
+          "failed": "无法读取图片。",
+          "working": "正在处理图片…"
+        },
+        "hint": {
+          "stat_value": "没有数值的数据不会显示在幻灯片上。",
+          "table": "只含数字的列在幻灯片上右对齐。",
+          "bar_rows": "幻灯片只显示条形图的前 10 条。",
+          "image_bleed": "没有标题时，图片铺满整张幻灯片。"
+        },
+        "step": {
+          "type": "输入",
+          "notes": "演讲者备注",
+          "add_slide": "新建幻灯片",
+          "add_image_slide": "新建图片幻灯片",
+          "duplicate": "复制幻灯片",
+          "delete": "删除幻灯片",
+          "move": "移动幻灯片",
+          "layout": "更改版式",
+          "theme": "更改主题",
+          "accent": "更改强调色",
+          "chart": "编辑图表",
+          "replace_image": "替换图片",
+          "image_fit": "图片填充方式",
+          "add_point": "添加要点",
+          "remove_point": "移除要点",
+          "move_point": "移动要点",
+          "add_column": "添加栏",
+          "remove_column": "移除栏",
+          "move_column": "移动栏",
+          "add_stat": "添加数据",
+          "remove_stat": "移除数据",
+          "move_stat": "移动数据",
+          "add_step": "添加步骤",
+          "remove_step": "移除步骤",
+          "move_step": "移动步骤",
+          "add_table_row": "添加表格行",
+          "remove_table_row": "移除表格行",
+          "add_table_column": "添加表格列",
+          "remove_table_column": "移除表格列"
+        },
+        "sample": {
+          "deck_title": "演示文稿标题",
+          "title": "幻灯片标题",
+          "subtitle": "副标题",
+          "section_title": "章节标题",
+          "point": "要点 {n}",
+          "column": "第 {n} 栏",
+          "column_text": "一段简短的文字",
+          "quote": "一句值得重复的话。",
+          "by": "姓名",
+          "stat_label": "标签 {n}",
+          "step": "步骤 {n}",
+          "closing_title": "谢谢",
+          "closing_subtitle": "问题与下一步",
+          "chart_x1": "1月",
+          "chart_x2": "2月",
+          "chart_x3": "3月",
+          "chart_series": "系列",
+          "table_col1": "项目",
+          "table_col2": "详情",
+          "table_value": "数值",
+          "table_row1": "第一项",
+          "table_row2": "第二项",
+          "table_new_col": "第 {n} 列"
+        }
+      }
+    }
+  }
+}

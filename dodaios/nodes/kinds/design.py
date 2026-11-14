@@ -47,11 +47,13 @@ PAGE_SIZE: Final[tuple[int, int]] = (1280, 800)
 MIN_SIDE: Final[int] = 320
 MAX_WIDTH: Final[int] = 4000
 MAX_HEIGHT: Final[int] = 6000
+#: How a design may stand towards the app's theme: follow it, or keep one.
+THEMES: Final[tuple[str, ...]] = ("auto", "light", "dark")
 
 _SPEC_HINT: Final[str] = (
     "A design spec is an object with 'html': the body markup of the visual as a string "
-    "(no scripts, no external resources), plus optional 'css', 'fit', 'width', 'height' "
-    "and 'background'."
+    "(no scripts, no external resources), plus optional 'css', 'fit', 'width', 'height', "
+    "'background', 'accent' and 'theme'."
 )
 
 # --- what a design may be made of ----------------------------------------------
@@ -392,6 +394,30 @@ def _background(value: Any) -> str:
     return text if shell.color(text) else ""
 
 
+def _hex_ink(color: str) -> str:
+    """The text color that reads on ``color`` (a hex), or ``""`` for anything else.
+
+    The kit sets text on the accent (a button, a chip) in ``--accent-ink``; a
+    design that brings its own accent needs one that keeps its contrast.
+    """
+    digits = color.lstrip("#")
+    if not color.startswith("#") or len(digits) not in (3, 4, 6, 8):
+        return ""
+    if len(digits) in (3, 4):
+        digits = "".join(char * 2 for char in digits[:3])
+    try:
+        red, green, blue = (int(digits[index : index + 2], 16) / 255 for index in (0, 2, 4))
+    except ValueError:  # not hex digits: no readable ink, the theme's own stays
+        return ""
+
+    def linear(channel: float) -> float:
+        return channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
+
+    luminance = 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
+    # Where white and near-black have the same contrast against the color.
+    return "#141413" if luminance > 0.179 else "#FFFFFF"
+
+
 def normalize(spec: Any) -> dict[str, Any]:
     """A clean design spec. Raises ``NodeError`` with one sentence for the model."""
     if isinstance(spec, str):
@@ -431,10 +457,50 @@ def normalize(spec: Any) -> dict[str, Any]:
             shell.bounded(spec.get("height"), MIN_SIDE, MAX_HEIGHT, DEFAULT_SIZE[1])
         )
     clean["background"] = _background(spec.get("background"))
+    # Both are left out unless set, so a spec written before they existed
+    # normalizes to exactly what it did.
+    accent = _background(spec.get("accent"))
+    if accent:
+        clean["accent"] = accent
+    theme = shell.pick(spec.get("theme"), THEMES, "auto")
+    if theme != "auto":
+        clean["theme"] = theme
     return clean
 
 
 # --- the page ------------------------------------------------------------------
+
+# Puts the page into the design's own theme, whatever the app's is. It runs
+# right after the theme bootstrap (which reads ``?theme=``), in the head, so
+# the page is never painted in the other theme first.
+_THEME_LOCK_JS: Final[str] = (
+    '<script>document.documentElement.setAttribute("data-theme","{theme}");</script>'
+)
+
+
+def _accent_css(accent: str) -> str:
+    """The design's accent laid over the theme's, in both themes.
+
+    ``!important`` because the theme sets the token under ``[data-theme]``
+    selectors that a plain ``:root`` rule would lose to.
+    """
+    value = shell.color(accent)
+    if not value:
+        return ""
+    soft = f"color-mix(in srgb,{value} 16%,var(--bg))"
+    css = f":root{{--accent:{value}!important;--accent-soft:{soft}!important"
+    ink = _hex_ink(value)
+    if ink:
+        css += f";--accent-ink:{ink}!important"
+    return css + "}"
+
+
+def _themed(page: str, theme: str) -> str:
+    """``page`` locked to ``theme``, or as it is for a design that follows the app."""
+    if theme not in ("light", "dark"):
+        return page
+    lock = _THEME_LOCK_JS.replace("{theme}", theme)
+    return page.replace("</script><style>", f"</script>{lock}<style>", 1)
 
 _PAGE_CSS: Final[str] = """
 body{background:var(--design-bg,var(--bg))}
@@ -481,11 +547,16 @@ def render(node: Any) -> str:
     # ``shell.color`` returns a token, a hex or an rgb()/hsl() of digits only,
     # so the value can stand in a style sheet as it is.
     css = f":root{{--design-bg:{ground}}}" if ground else ""
+    css += _accent_css(spec.get("accent", ""))
+    theme = spec.get("theme", "auto")
     if spec["fit"] == "page":
-        return shell.document(
-            node,
-            body=f'<main class="design">{spec["html"]}</main>',
-            css=css + _PAGE_CSS + spec["css"],
+        return _themed(
+            shell.document(
+                node,
+                body=f'<main class="design">{spec["html"]}</main>',
+                css=css + _PAGE_CSS + spec["css"],
+            ),
+            theme,
         )
     width, height = int(spec["width"]), int(spec["height"])
     size = f"width:{width}px;height:{height}px"
@@ -496,12 +567,15 @@ def render(node: Any) -> str:
         "</div></div>"
     )
     page = f"@page{{size:{width}px {height}px;margin:0}}"
-    return shell.document(
-        node,
-        body=body,
-        css=css + _CANVAS_CSS + page + spec["css"],
-        js=_CANVAS_JS,
-        body_class="fill",
+    return _themed(
+        shell.document(
+            node,
+            body=body,
+            css=css + _CANVAS_CSS + page + spec["css"],
+            js=_CANVAS_JS,
+            body_class="fill",
+        ),
+        theme,
     )
 
 
@@ -607,6 +681,8 @@ GUIDE: Final[str] = (
     "width and height (default 1080 x 1350; 1080 x 1080 square, 1920 x 1080 wide) and lay "
     "out in px for exactly that size.\n"
     "- background: a hex or a token color name; default the page ground.\n"
+    "- accent: a hex that replaces --accent (and its -soft, -ink) on this design.\n"
+    "- theme: \"light\" or \"dark\" keeps the design in that theme; default follows the app.\n"
     "The theme is already on the page. Color tokens, which switch between the light and "
     "the dark theme: --bg, --bg-2, --bg-3 (grounds), --ink, --ink-2, --ink-3 (text), "
     "--line, --line-2 (hairlines), --accent, --accent-soft, --good, --warn, --bad (each "

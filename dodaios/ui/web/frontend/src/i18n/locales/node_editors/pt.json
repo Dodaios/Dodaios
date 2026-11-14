@@ -1,0 +1,1025 @@
+{
+  "nodes": {
+    "editor": {
+      "sheets": {
+        "toolbar": {
+          "format": "Formato de número",
+          "data": "Dados",
+          "insert": "Inserir",
+          "fewer_decimals": "Menos casas decimais",
+          "more_decimals": "Mais casas decimais",
+          "bold": "Coluna em negrito",
+          "settings": "Configurações da coluna"
+        },
+        "types": {
+          "text": "Texto",
+          "number": "Número",
+          "currency": "Moeda",
+          "percent": "Porcentagem",
+          "date": "Data",
+          "check": "Sim/Não",
+          "status": "Status",
+          "link": "Link"
+        },
+        "total": {
+          "none": "Sem total",
+          "sum": "Soma",
+          "avg": "Média",
+          "min": "Mínimo",
+          "max": "Máximo",
+          "count": "Contagem"
+        },
+        "align": {
+          "left": "Alinhar à esquerda",
+          "center": "Centralizar",
+          "right": "Alinhar à direita"
+        },
+        "color": {
+          "none": "Cor padrão",
+          "blue": "Azul",
+          "orange": "Laranja",
+          "green": "Verde",
+          "amber": "Âmbar",
+          "violet": "Violeta",
+          "pink": "Rosa",
+          "good": "Bom (verde)",
+          "warn": "Aviso (âmbar)",
+          "bad": "Ruim (vermelho)",
+          "muted": "Discreto"
+        },
+        "freeze": {
+          "0": "Sem colunas fixas",
+          "1": "Primeira coluna",
+          "2": "Primeiras 2 colunas",
+          "3": "Primeiras 3 colunas"
+        },
+        "panel": {
+          "title": "Configurações da coluna",
+          "close": "Fechar configurações",
+          "column": "Coluna",
+          "label": "Nome",
+          "key": "Chave nas fórmulas",
+          "type": "Tipo de coluna",
+          "unit": "Unidade",
+          "currency": "Código da moeda",
+          "decimals": "Casas decimais",
+          "total": "Linha de total",
+          "formula": "Fórmula",
+          "look": "Aparência",
+          "width": "Largura",
+          "align": "Alinhamento",
+          "color": "Cor do texto",
+          "sheet": "Planilha",
+          "freeze": "Colunas fixas",
+          "note": "Nota abaixo do título"
+        },
+        "formula": {
+          "hint": "Cálculo com as outras colunas desta linha pela chave, por exemplo qty * price. Permitido: + - * / // % **, round, min, max, abs, sum.",
+          "keys": "Chaves das outras colunas",
+          "unknown": "“{0}” não é a chave de outra coluna.",
+          "cycle": "Esta fórmula depende de si mesma por meio de outras colunas com fórmula.",
+          "grammar": "Use números, chaves de coluna, + - * / // % **, parênteses e round, min, max, abs, sum.",
+          "held": "A fórmula da coluna {0} precisa ser corrigida antes que suas alterações possam ser salvas."
+        },
+        "menu": {
+          "label": "Ações da célula",
+          "column_label": "Coluna {0}",
+          "cut": "Recortar",
+          "copy": "Copiar",
+          "paste": "Colar",
+          "insert_above": "Inserir {0} linha(s) acima",
+          "insert_below": "Inserir {0} linha(s) abaixo",
+          "insert_left": "Inserir {0} coluna(s) à esquerda",
+          "insert_right": "Inserir {0} coluna(s) à direita",
+          "delete_rows": "Excluir {0} linha(s)",
+          "delete_columns": "Excluir {0} coluna(s)",
+          "clear": "Limpar conteúdo",
+          "fill_down": "Preencher para baixo",
+          "fill_right": "Preencher para a direita",
+          "sort_asc": "Ordenar de A a Z",
+          "sort_desc": "Ordenar de Z a A",
+          "filter": "Filtrar",
+          "chart": "Inserir gráfico",
+          "move_left": "Mover coluna para a esquerda",
+          "move_right": "Mover coluna para a direita",
+          "settings": "Configurações da coluna"
+        },
+        "filter": {
+          "title": "Filtrar {0}",
+          "search": "Pesquisar valores",
+          "all": "Selecionar tudo",
+          "none": "Não selecionar nada",
+          "values": "Valores",
+          "empty": "(vazio)",
+          "clear": "Limpar",
+          "apply": "Aplicar",
+          "clear_all": "Limpar todos os filtros",
+          "count": "{0} de {1} linhas exibidas"
+        },
+        "tabs": {
+          "label": "Planilhas",
+          "add": "Adicionar planilha",
+          "rename": "Renomear planilha",
+          "duplicate": "Duplicar planilha",
+          "move_left": "Mover para a esquerda",
+          "move_right": "Mover para a direita",
+          "delete": "Excluir planilha",
+          "menu": "Ações da planilha",
+          "default": "Planilha",
+          "copy_word": "cópia"
+        },
+        "charts": {
+          "label": "Gráficos desta planilha",
+          "untitled": "Gráfico sem título",
+          "edit": "Editar",
+          "delete": "Excluir o gráfico {0}",
+          "cannot_draw": "Estas células ainda não têm números suficientes para desenhar este gráfico."
+        },
+        "bar": {
+          "address": "Célula ativa",
+          "value": "Conteúdo da célula"
+        },
+        "grid": {
+          "column_menu": "Menu da coluna {0}",
+          "resize": "Redimensionar a coluna {0}",
+          "row": "Linha {0}",
+          "cell": "{0}, {1}: {2}",
+          "empty": "vazia",
+          "select_all": "Selecionar todas as células",
+          "new_row": "Nova linha"
+        },
+        "message": {
+          "formula_cell": "Esta coluna é calculada pela sua fórmula. Altere a fórmula nas configurações da coluna.",
+          "columns_added": "{0} coluna(s) adicionada(s) para as células coladas.",
+          "row_limit": "Uma planilha comporta até 1.000 linhas.",
+          "column_limit": "Uma planilha comporta até 30 colunas.",
+          "last_column": "Uma planilha mantém pelo menos uma coluna.",
+          "used_by_formula": "Usada na fórmula de: {0}. Altere essa fórmula primeiro.",
+          "chart_limit": "Uma planilha comporta até 8 gráficos.",
+          "paste_keys": "Use {0}V para colar aqui.",
+          "sheet_deleted": "Planilha {0} excluída. Desfazer a traz de volta."
+        },
+        "step": {
+          "edit_cell": "Editar célula",
+          "clear": "Limpar células",
+          "cut": "Recortar células",
+          "paste": "Colar",
+          "fill_down": "Preencher para baixo",
+          "fill_right": "Preencher para a direita",
+          "insert_rows": "Inserir linhas",
+          "delete_rows": "Excluir linhas",
+          "insert_columns": "Inserir colunas",
+          "delete_columns": "Excluir colunas",
+          "move_column": "Mover coluna",
+          "sort": "Ordenar por {0}",
+          "rename_column": "Renomear coluna",
+          "column_type": "Alterar tipo de coluna",
+          "number_format": "Alterar formato de número",
+          "total": "Alterar total",
+          "formula": "Alterar fórmula",
+          "resize_column": "Redimensionar coluna",
+          "align": "Alinhar coluna",
+          "bold": "Coluna em negrito",
+          "color": "Cor da coluna",
+          "freeze": "Fixar colunas",
+          "note": "Editar nota",
+          "add_sheet": "Adicionar planilha",
+          "rename_sheet": "Renomear planilha",
+          "move_sheet": "Mover planilha",
+          "duplicate_sheet": "Duplicar planilha",
+          "delete_sheet": "Excluir planilha",
+          "insert_chart": "Inserir gráfico",
+          "edit_chart": "Editar gráfico",
+          "delete_chart": "Excluir gráfico"
+        }
+      },
+      "region": "Editor de {0}",
+      "toolbar": "Ferramentas de edição",
+      "inspector": "Inspetor",
+      "undo": "Desfazer",
+      "redo": "Refazer",
+      "history": {
+        "group": "Histórico",
+        "remote": "Revisado por {assistant}",
+        "theirs": "A outra versão foi adotada"
+      },
+      "save": {
+        "saving": "Salvando…",
+        "saved": "Salvo",
+        "pending": "Alterações não salvas",
+        "failed": "Ainda não salvo.",
+        "held": "Ainda não salvo",
+        "conflict": "Alterado em outro lugar",
+        "retry": "Tentar novamente"
+      },
+      "conflict": {
+        "message": "{assistant} alterou este nó enquanto você editava. Qual versão você quer manter?",
+        "theirs": "Usar a deles",
+        "mine": "Manter a minha"
+      },
+      "leave": {
+        "message": "Suas últimas alterações ainda não foram salvas. Se sair agora, elas serão perdidas.",
+        "stay": "Ficar",
+        "anyway": "Sair mesmo assim"
+      },
+      "color": {
+        "default": "Padrão",
+        "custom": "Cor personalizada",
+        "hex": "Código da cor"
+      },
+      "generic": {
+        "label": "O conteúdo do nó como JSON",
+        "step": "Editar conteúdo",
+        "invalid": "Isto ainda não é JSON válido; a última versão válida é mantida."
+      },
+      "chart": {
+        "new": "Novo gráfico",
+        "edit": "Editar gráfico",
+        "kind": "Tipo de gráfico",
+        "kinds": {
+          "column": "Colunas",
+          "bar": "Barras",
+          "line": "Linha",
+          "area": "Área",
+          "pie": "Pizza",
+          "donut": "Rosca"
+        },
+        "stacked": "Empilhado",
+        "title": "Título",
+        "unit": "Unidade",
+        "note": "Nota abaixo do gráfico",
+        "data": "Dados",
+        "labels": "Rótulos",
+        "series_name": "Série {0}",
+        "series_name_of": "Nome da série {0}",
+        "label_of": "Rótulo {0}",
+        "value_of": "{0} em {1}",
+        "add_row": "Adicionar linha",
+        "remove_row": "Remover linha {0}",
+        "add_series": "Adicionar série",
+        "remove_series": "Remover série {0}",
+        "paste_hint": "Cole células de uma planilha em qualquer célula para preencher a grade.",
+        "preview_empty": "O gráfico aparece aqui assim que os dados estiverem completos.",
+        "series_colors": "Cores das séries",
+        "slice_colors": "Cores das fatias",
+        "color_of": "Cor de {0}",
+        "label_column": "Coluna de rótulos",
+        "value_column": "Coluna de valores",
+        "value_columns": "Colunas de valores",
+        "not_numbers": "não são números",
+        "cancel": "Cancelar",
+        "apply": "Aplicar",
+        "insert": "Inserir gráfico",
+        "errors": {
+          "not_object": "Um gráfico precisa de um tipo, rótulos e valores.",
+          "type": "Escolha um dos tipos de gráfico.",
+          "labels_count": "Um gráfico precisa de 2 a {0} rótulos.",
+          "label_empty": "Cada rótulo precisa de um texto.",
+          "series_count": "Um gráfico precisa de uma a seis séries.",
+          "series_length": "Cada série precisa de um valor por rótulo.",
+          "value": "Os valores devem ser números (uma célula vazia é uma lacuna).",
+          "series_empty": "Uma série precisa de pelo menos um valor.",
+          "series_name": "Com várias séries, cada uma precisa de um nome.",
+          "round_one_series": "Um gráfico de pizza ou rosca mostra exatamente uma série.",
+          "round_negative": "Um gráfico de pizza ou rosca não pode mostrar valores negativos.",
+          "round_zero": "Um gráfico de pizza ou rosca precisa de pelo menos um valor acima de zero."
+        }
+      },
+      "motion": {
+        "add": "Adicionar cena",
+        "needs": "A cena {n} precisa de: {field}.",
+        "kinds": {
+          "title": "Título",
+          "text": "Mensagem",
+          "bullets": "Pontos",
+          "stat": "Número",
+          "bars": "Barras",
+          "chart": "Gráfico",
+          "steps": "Passos",
+          "quote": "Citação",
+          "image": "Imagem",
+          "end": "Encerramento"
+        },
+        "transitions": {
+          "fade": "Esmaecer",
+          "slide": "Deslizar",
+          "zoom": "Zoom",
+          "cut": "Corte"
+        },
+        "formats": {
+          "wide": "Largo 16:9",
+          "square": "Quadrado 1:1",
+          "tall": "Vertical 9:16"
+        },
+        "toolbar": {
+          "scenes": "Cenas",
+          "clip": "Clipe",
+          "play": "Reproduzir",
+          "stop": "Parar",
+          "space": "Espaço",
+          "format": "Formato",
+          "toLight": "Fundo claro",
+          "toDark": "Fundo escuro",
+          "accent": "Cor de destaque",
+          "loop": "Repetir"
+        },
+        "timeline": {
+          "label": "Cenas",
+          "summary": "{count} cenas · {clock} ({seconds} s)",
+          "keys": "Setas escolhem · Alt+setas movem · Espaço reproduz",
+          "scene": "Cena {n}: {kind}, {seconds} segundos. {text}",
+          "seconds": "{seconds} s",
+          "length": "Duração da cena {n}",
+          "transition": "Como a cena {n} entra: {transition}"
+        },
+        "preview": {
+          "label": "Pré-visualização de {title}",
+          "loading": "A desenhar o clipe…",
+          "error": "Não foi possível desenhar a pré-visualização: {reason}",
+          "hint": "Clique num texto da pré-visualização para escrever nele.",
+          "playing": "A reproduzir. Escolha uma cena ou prima Parar para voltar a editar."
+        },
+        "inspector": {
+          "heading": "Cena {n}",
+          "type": "Tipo de cena",
+          "required": "Esta cena precisa disto.",
+          "editChart": "Editar gráfico",
+          "timing": "Tempo",
+          "seconds": "Duração",
+          "fit": "Ajustar ao conteúdo",
+          "transition": "Entra com",
+          "transitionFirst": "Entra com (a primeira cena abre o clipe)",
+          "max": "No máximo {n}",
+          "addPoint": "Adicionar ponto",
+          "addBar": "Adicionar barra",
+          "addStep": "Adicionar passo",
+          "pointN": "Ponto {n}",
+          "barN": "Barra {n}",
+          "stepN": "Passo {n}",
+          "barLabel": "Rótulo da barra {n}",
+          "barValue": "Valor da barra {n}",
+          "stepTitle": "Título do passo {n}",
+          "stepText": "Texto do passo {n}",
+          "stepTextPlaceholder": "Uma linha por baixo (opcional)",
+          "moveUp": "Subir {item}",
+          "moveDown": "Descer {item}",
+          "remove": "Remover {item}"
+        },
+        "actions": {
+          "moveEarlier": "Mover cena para trás",
+          "moveLater": "Mover cena para a frente",
+          "duplicate": "Duplicar cena",
+          "delete": "Eliminar cena"
+        },
+        "fields": {
+          "kicker": "Linha pequena por cima",
+          "title": "Cabeçalho",
+          "text": "Texto",
+          "value": "Número",
+          "unit": "Unidade",
+          "label": "Rótulo",
+          "detail": "Detalhe",
+          "quote": "Citação",
+          "by": "Quem disse",
+          "caption": "Legenda",
+          "bullets": "Pontos",
+          "items": "Barras",
+          "steps": "Passos",
+          "image": "Imagem",
+          "chart": "Gráfico"
+        },
+        "picture": {
+          "choose": "Escolher imagem…",
+          "drop": "ou largue-a aqui",
+          "type": "Esse ficheiro não é uma imagem.",
+          "read": "Não foi possível ler esta imagem.",
+          "size": "Esta imagem é demasiado grande, mesmo reduzida."
+        },
+        "samples": {
+          "title": "O seu cabeçalho",
+          "text": "Uma mensagem clara, em grande.",
+          "point": "Ponto {n}",
+          "statLabel": "de algo que importa",
+          "barLabel": "Item {n}",
+          "quote": "Uma frase que vale a pena repetir.",
+          "by": "Alguém",
+          "step": "Passo {n}",
+          "end": "Obrigado"
+        },
+        "history": {
+          "add": "Adicionar cena",
+          "duplicate": "Duplicar cena",
+          "delete": "Eliminar cena",
+          "move": "Mover cena",
+          "seconds": "Alterar duração",
+          "transition": "Alterar transição",
+          "type": "Alterar tipo de cena",
+          "text": "Editar texto",
+          "format": "Alterar formato",
+          "theme": "Alterar fundo",
+          "accent": "Alterar cor de destaque",
+          "loop": "Ligar ou desligar repetição",
+          "picture": "Alterar imagem",
+          "chart": "Editar gráfico",
+          "addRow": "Adicionar linha",
+          "moveRow": "Mover linha",
+          "removeRow": "Remover linha"
+        }
+      },
+      "docs": {
+        "body": "Texto do documento",
+        "step": "Editar texto",
+        "raw": "Markdown",
+        "placeholder": {
+          "summary": "Resumo: duas a quatro frases que já dão a resposta",
+          "body": "Escreva aqui, ou digite ## para um título, - para uma lista, > para uma citação",
+          "heading": "Título"
+        },
+        "groups": {
+          "block": "Tipo de bloco",
+          "marks": "Estilo do texto",
+          "lists": "Listas",
+          "blocks": "Citações e código",
+          "table": "Tabela"
+        },
+        "block": {
+          "label": "Tipo de bloco",
+          "paragraph": "Texto",
+          "h2": "Título de seção",
+          "h3": "Subtítulo",
+          "h4": "Título menor",
+          "other": "Título {0}",
+          "quote": "Citação",
+          "code": "Bloco de código"
+        },
+        "mark": {
+          "bold": "Negrito",
+          "italic": "Itálico",
+          "strike": "Tachado",
+          "code": "Código no texto"
+        },
+        "list": {
+          "bullet": "Lista com marcadores",
+          "ordered": "Lista numerada",
+          "task": "Lista de verificação"
+        },
+        "link": {
+          "label": "Link",
+          "address": "Endereço web ou de e-mail",
+          "apply": "Aplicar",
+          "remove": "Remover link",
+          "invalid": "Digite um endereço web (https://…) ou de e-mail."
+        },
+        "callout": {
+          "label": "Destaque",
+          "tone": "Tipo de destaque",
+          "remove": "Converter em texto normal",
+          "tones": {
+            "note": "Nota",
+            "tip": "Dica",
+            "important": "Importante",
+            "warning": "Aviso",
+            "caution": "Cuidado"
+          }
+        },
+        "insert": {
+          "label": "Inserir",
+          "table": "Tabela",
+          "metrics": "Números-chave",
+          "metrics_starter": "19 € | Primeiro número | por mês\n27 € | Segundo número",
+          "picture": "Imagem…",
+          "rule": "Divisória"
+        },
+        "table": {
+          "label": "Linhas e colunas",
+          "row_above": "Inserir linha acima",
+          "row_below": "Inserir linha abaixo",
+          "column_left": "Inserir coluna à esquerda",
+          "column_right": "Inserir coluna à direita",
+          "delete_row": "Excluir linha",
+          "delete_column": "Excluir coluna",
+          "delete": "Excluir tabela",
+          "align_left": "Alinhar coluna à esquerda",
+          "align_center": "Centralizar coluna",
+          "align_right": "Alinhar coluna à direita"
+        },
+        "chart": {
+          "label": "Gráfico: {0}",
+          "untitled": "Gráfico",
+          "remove": "Remover gráfico",
+          "invalid": "Este gráfico não pode ser desenhado: os dados não batem. Corrija o JSON aqui ou remova-o.",
+          "source": "JSON do gráfico"
+        },
+        "metrics": {
+          "label": "Números-chave",
+          "add": "Adicionar número",
+          "remove": "Remover número {0}",
+          "remove_block": "Remover números-chave",
+          "value": "Valor",
+          "label_field": "Rótulo",
+          "detail": "Detalhe (opcional)",
+          "value_of": "Valor do número {0}",
+          "label_of": "Rótulo do número {0}",
+          "detail_of": "Detalhe do número {0}",
+          "incomplete": "Cada número precisa de um valor e de um rótulo (no máximo seis); senão a página os mostra como texto."
+        },
+        "picture": {
+          "not_loaded": "Imagem não carregada",
+          "not_picture": "Só imagens (PNG, JPEG, GIF, WebP) podem ser inseridas em um documento.",
+          "too_large": "Esta imagem não cabe no documento, nem reduzida.",
+          "unreadable": "Não foi possível ler esta imagem."
+        },
+        "outline": {
+          "label": "Estrutura",
+          "toggle": "Estrutura",
+          "empty": "Os títulos aparecem aqui."
+        },
+        "errors": {
+          "empty": "O documento precisa de algum texto antes de ser salvo.",
+          "too_long": "O documento é longo demais para salvar. Remova parte do texto ou das imagens."
+        }
+      },
+      "design": {
+        "add": "Adicionar bloco",
+        "add_group": "Adicionar",
+        "block_actions": "Bloco",
+        "move_up": "Mover para cima",
+        "move_down": "Mover para baixo",
+        "duplicate": "Duplicar",
+        "delete": "Excluir",
+        "select_parent": "Selecionar o bloco em volta",
+        "block": {
+          "heading": "Título",
+          "text": "Texto",
+          "button": "Botão",
+          "image": "Imagem…",
+          "list": "Lista",
+          "quote": "Citação",
+          "card": "Cartão",
+          "chips": "Etiquetas",
+          "metrics": "Números",
+          "callout": "Destaque",
+          "divider": "Divisória",
+          "spacer": "Espaço"
+        },
+        "block_text": {
+          "heading": "Título",
+          "text": "Uma linha de texto.",
+          "button": "Saiba mais",
+          "item": "Item da lista",
+          "quote": "Uma frase que vale a pena citar.",
+          "label": "Rótulo",
+          "value": "42"
+        },
+        "kind": {
+          "heading": "Título",
+          "text": "Texto",
+          "link": "Link",
+          "button": "Botão",
+          "image": "Imagem",
+          "graphic": "Desenho",
+          "list": "Lista",
+          "divider": "Divisória",
+          "table": "Tabela",
+          "box": "Caixa"
+        },
+        "layers": {
+          "title": "Blocos",
+          "label": "Blocos do design",
+          "empty": "Este design ainda não tem blocos. Adicione um pela barra de ferramentas."
+        },
+        "tab": {
+          "block": "Bloco",
+          "page": "Página"
+        },
+        "content": "Conteúdo",
+        "text": "Texto",
+        "text_hint": "Uma nova linha vira uma quebra de linha. Você também pode clicar duas vezes no texto da pré-visualização.",
+        "rich_hint": "Este texto tem formatação. Clique duas vezes nele na pré-visualização para mudar as palavras ali mesmo.",
+        "clear_formatting": "Remover formatação",
+        "link": "Link",
+        "link_hint": "Um endereço web (https://…) ou um lugar na página (#id).",
+        "image": {
+          "replace": "Substituir imagem…",
+          "alt": "Descrição",
+          "alt_hint": "Lida por leitores de tela no lugar da imagem.",
+          "wrong_type": "Só imagens PNG, JPEG, GIF, WebP ou AVIF podem entrar em um design.",
+          "too_large": "Esta imagem é grande demais para incorporar, mesmo reduzida.",
+          "failed": "Não foi possível ler a imagem."
+        },
+        "look": "Aparência",
+        "color": "Cor do texto",
+        "color_tokens": "Cores do tema (seguem o claro e o escuro)",
+        "background": "Fundo",
+        "fill": "Preenchimento",
+        "stroke": "Linha",
+        "stroke_width": "Espessura da linha",
+        "size": "Tamanho",
+        "weight": "Peso",
+        "weight_default": "Conforme o estilo",
+        "weights": {
+          "400": "Normal",
+          "500": "Médio",
+          "600": "Seminegrito",
+          "700": "Negrito"
+        },
+        "align": "Alinhamento",
+        "align_left": "Esquerda",
+        "align_center": "Centro",
+        "align_right": "Direita",
+        "padding": "Espaçamento interno",
+        "radius": "Cantos",
+        "clear_style": "Limpar o estilo deste bloco",
+        "page": {
+          "format": "Formato",
+          "fit": "Exibido como",
+          "fit_page": "Página com rolagem",
+          "fit_page_hint": "Da largura da janela: páginas únicas, landing pages",
+          "fit_canvas": "Prancheta fixa",
+          "fit_canvas_hint": "Um tamanho exato, ajustado à janela: cartazes, cartões",
+          "presets": "Tamanhos",
+          "size": "Tamanho",
+          "width": "Largura",
+          "height": "Altura",
+          "preset": {
+            "portrait": "Post vertical",
+            "square": "Quadrado",
+            "story": "Story",
+            "wide": "Widescreen",
+            "a4": "Página A4"
+          },
+          "colours": "Cores",
+          "background": "Fundo da página",
+          "background_hint": "Os nomes do tema mudam com o claro e o escuro.",
+          "accent": "Destaque",
+          "accent_hint": "Substitui a cor de destaque do tema em todo este design.",
+          "theme": "Tema",
+          "theme_auto": "Igual ao app",
+          "theme_light": "Sempre claro",
+          "theme_dark": "Sempre escuro",
+          "styles": "Folha de estilos",
+          "styles_hint": "O CSS do design. Use os tokens do tema, como var(--accent).",
+          "styles_open": "Editar a folha de estilos"
+        },
+        "history": {
+          "add": "Adicionar bloco",
+          "alt": "Alterar descrição",
+          "css": "Editar folha de estilos",
+          "delete": "Excluir bloco",
+          "duplicate": "Duplicar bloco",
+          "image": "Substituir imagem",
+          "link": "Alterar link",
+          "move": "Mover bloco",
+          "text": "Editar texto"
+        },
+        "empty": "Um design precisa de pelo menos um bloco. Adicione um ou desfaça.",
+        "preview": "Pré-visualização de {0}",
+        "preview_hint": "Clique em um bloco para selecioná-lo. Clique duas vezes em um texto para digitar."
+      },
+      "data": {
+        "add_group": "Adicionar",
+        "add": {
+          "metrics": "Indicador",
+          "charts": "Gráfico",
+          "tables": "Tabela",
+          "section": "Seção"
+        },
+        "view": {
+          "label": "Visualização",
+          "edit": "Editar o painel",
+          "page": "Ver a página",
+          "page_title": "Pré-visualização da página de {0}"
+        },
+        "actions": {
+          "label": "Ações para {0}",
+          "earlier": "Mover {0} para antes",
+          "later": "Mover {0} para depois",
+          "up": "Mover {0} para cima",
+          "down": "Mover {0} para baixo",
+          "duplicate": "Duplicar {0}",
+          "delete": "Excluir {0}",
+          "keep_last": "O painel mantém pelo menos um indicador, gráfico ou tabela"
+        },
+        "grip": "Mover {0} (arraste ou use as setas)",
+        "held": "Cada indicador precisa de um rótulo e de um valor, e cada tabela de um nome de coluna. Preencha-os para salvar.",
+        "summary": "Resumo",
+        "summary_hint": "O que estes números cobrem e de quando são.",
+        "summary_placeholder": "Um resumo curto: o que estes números cobrem e de quando são.",
+        "sources": {
+          "label": "Fontes",
+          "item": "Fonte {0}",
+          "add": "Adicionar fonte",
+          "remove": "Remover {0}",
+          "placeholder": "pedidos.csv, a loja, uma carteira…",
+          "edit": "Editar fontes",
+          "none": "Indicar uma fonte"
+        },
+        "upkeep_note": "Este painel é atualizado a cada {0}. Uma atualização pode substituir valores digitados aqui; o layout que você definir permanece.",
+        "inspector": {
+          "dashboard": "Painel",
+          "section": "Seção"
+        },
+        "section": {
+          "title": "Título da seção",
+          "title_placeholder": "Título da seção",
+          "text": "Texto da seção",
+          "text_placeholder": "Um parágrafo curto (opcional)",
+          "text_hint": "**negrito**, *itálico* e [links](https://…) aparecem assim na página.",
+          "numbered": "Seção {0}",
+          "new_title": "Nova seção",
+          "counts": "{0} indicadores, {1} gráficos, {2} tabelas"
+        },
+        "metric": {
+          "label": "Rótulo",
+          "label_placeholder": "Rótulo",
+          "value": "Valor",
+          "delta": "Variação",
+          "delta_placeholder": "+12 %",
+          "detail": "Detalhe",
+          "detail_placeholder": "vs. mês anterior",
+          "lower": "Menor é melhor",
+          "lower_hint": "Um número em queda aparece como boa notícia (custos, devoluções, tempos de espera).",
+          "new_label": "Novo indicador",
+          "untitled": "Indicador"
+        },
+        "chart": {
+          "edit": "Editar gráfico",
+          "open": "Abrir {0} no editor de gráficos",
+          "untitled": "Gráfico sem título",
+          "wide": "Largura total",
+          "wide_hint": "Ocupa a linha inteira numa janela larga. Um gráfico sozinho na linha sempre ocupa.",
+          "half": "Meia largura",
+          "new_title": "Novo gráfico"
+        },
+        "table": {
+          "title": "Título da tabela",
+          "title_placeholder": "Título da tabela (opcional)",
+          "untitled": "Tabela",
+          "column": "Nome da coluna {0}",
+          "column_placeholder": "Coluna",
+          "cell": "{0}, linha {1}",
+          "add_row": "Adicionar linha",
+          "add_column": "Adicionar coluna",
+          "remove_row": "Remover linha {0}",
+          "remove_column": "Remover coluna {0}",
+          "new_title": "Nova tabela",
+          "new_item": "Item",
+          "new_value": "Valor",
+          "size": "{0} linhas, {1} colunas",
+          "paste_hint": "Cole células copiadas de uma planilha ou de um arquivo CSV em qualquer célula: a tabela cresce para caber."
+        },
+        "history": {
+          "add_metrics": "Adicionar indicador",
+          "add_charts": "Adicionar gráfico",
+          "add_tables": "Adicionar tabela",
+          "add_section": "Adicionar seção",
+          "cell": "Editar célula",
+          "chart": "Editar gráfico",
+          "column": "Renomear coluna",
+          "column_add": "Adicionar coluna",
+          "column_remove": "Remover coluna",
+          "delete": "Excluir",
+          "duplicate": "Duplicar",
+          "metric": "Editar indicador",
+          "move": "Mover",
+          "paste": "Colar células",
+          "row_add": "Adicionar linha",
+          "row_remove": "Remover linha",
+          "section": "Editar seção",
+          "source": "Editar fontes",
+          "summary": "Editar resumo",
+          "table": "Editar título da tabela"
+        }
+      },
+      "slides": {
+        "toolbar": {
+          "slides": "Slides",
+          "look": "Aparência"
+        },
+        "add": {
+          "button": "Novo slide",
+          "label": "Novo slide",
+          "pick": "Escolha um layout para o novo slide"
+        },
+        "action": {
+          "duplicate": "Duplicar slide",
+          "delete": "Excluir slide",
+          "move_up": "Mover para cima",
+          "move_down": "Mover para baixo"
+        },
+        "theme": {
+          "label": "Tema",
+          "auto": "Igual ao app",
+          "light": "Claro",
+          "dark": "Escuro"
+        },
+        "accent": {
+          "label": "Cor de destaque",
+          "default": "Padrão",
+          "custom": "Cor personalizada",
+          "blue": "Azul",
+          "orange": "Laranja",
+          "green": "Verde",
+          "amber": "Âmbar",
+          "violet": "Violeta",
+          "pink": "Rosa"
+        },
+        "present": {
+          "button": "Apresentar",
+          "label": "Apresentação",
+          "previous": "Slide anterior",
+          "next": "Próximo slide",
+          "notes": "Notas do apresentador (N)",
+          "end": "Encerrar apresentação (Esc)",
+          "position": "{n} / {total}"
+        },
+        "canvas": {
+          "label": "Slide {n} de {total}",
+          "loading": "Carregando a aparência da apresentação…",
+          "failed": "Não foi possível carregar a aparência da apresentação.",
+          "retry": "Tentar novamente"
+        },
+        "notes": {
+          "label": "Notas do apresentador do slide {n}",
+          "placeholder": "O que você quer dizer neste slide. Ao apresentar, só você vê.",
+          "none": "Este slide não tem notas."
+        },
+        "strip": {
+          "label": "Slides",
+          "slide": "Slide {n}",
+          "slide_named": "Slide {n}: {title}",
+          "menu": "Ações do slide {n}",
+          "moved": "Slide {from} movido para a posição {to}.",
+          "duplicated": "Slide {n} duplicado.",
+          "deleted": "Slide {n} excluído.",
+          "has_notes": "Tem notas do apresentador"
+        },
+        "inspector": {
+          "slide": "Slide {n}"
+        },
+        "layout": {
+          "change": "Mudar layout",
+          "change_short": "Mudar",
+          "title": "Título",
+          "section": "Seção",
+          "bullets": "Tópicos",
+          "columns": "Colunas",
+          "quote": "Citação",
+          "stats": "Números",
+          "chart": "Gráfico",
+          "table": "Tabela",
+          "image": "Imagem",
+          "steps": "Etapas",
+          "closing": "Encerramento"
+        },
+        "section": {
+          "text": "Texto",
+          "points": "Tópicos",
+          "columns": "Colunas",
+          "stats": "Números",
+          "steps": "Etapas",
+          "table": "Tabela",
+          "chart": "Gráfico",
+          "image": "Imagem"
+        },
+        "field": {
+          "kicker": "Chapéu (linha pequena acima)",
+          "title": "Título",
+          "subtitle": "Subtítulo",
+          "quote": "Citação",
+          "by": "Quem disse",
+          "text": "Texto",
+          "caption": "Legenda",
+          "value": "Valor",
+          "label": "Rótulo",
+          "detail": "Detalhe"
+        },
+        "placeholder": {
+          "title": "Título",
+          "subtitle": "Subtítulo",
+          "quote": "Citação",
+          "by": "Quem disse",
+          "kicker": "Chapéu",
+          "text": "Texto",
+          "caption": "Legenda",
+          "bullets": "Tópico",
+          "table": "Célula",
+          "value": "Valor",
+          "label": "Rótulo",
+          "detail": "Detalhe"
+        },
+        "item": {
+          "point": "Tópico",
+          "column": "Coluna",
+          "stat": "Número",
+          "step": "Etapa",
+          "numbered": "{item} {n}"
+        },
+        "list": {
+          "up": "Mover {item} para cima",
+          "down": "Mover {item} para baixo",
+          "remove": "Remover {item}",
+          "add_point": "Adicionar tópico",
+          "add_column": "Adicionar coluna",
+          "add_stat": "Adicionar número",
+          "add_step": "Adicionar etapa"
+        },
+        "table": {
+          "add_row": "Adicionar linha",
+          "add_column": "Adicionar coluna",
+          "remove_row": "Remover a linha {n}",
+          "remove_column": "Remover a coluna {n}",
+          "column_name": "Nome da coluna {n}",
+          "cell": "Linha {row}, coluna {column}"
+        },
+        "chart": {
+          "edit": "Editar gráfico",
+          "none": "Ainda sem gráfico",
+          "summary": "{kind} · {labels} rótulos · {series} séries",
+          "kind": {
+            "column": "Gráfico de colunas",
+            "bar": "Gráfico de barras",
+            "line": "Gráfico de linhas",
+            "area": "Gráfico de área",
+            "pie": "Gráfico de pizza",
+            "donut": "Gráfico de rosca"
+          }
+        },
+        "image": {
+          "choose": "Escolher imagem…",
+          "replace": "Substituir imagem…",
+          "drop": "Solte uma imagem aqui ou cole-a na apresentação",
+          "fit": "Como a imagem preenche seu espaço",
+          "fit_cover": "Preencher e cortar",
+          "fit_contain": "Mostrar inteira",
+          "too_large": "Não é possível reduzir esta imagem o suficiente para um slide. Tente uma menor.",
+          "wrong_type": "Só imagens PNG, JPEG, GIF, WebP e AVIF podem ir em um slide.",
+          "failed": "Não foi possível ler a imagem.",
+          "working": "Preparando a imagem…"
+        },
+        "hint": {
+          "stat_value": "Um número sem valor fica de fora do slide.",
+          "table": "Colunas só com números ficam alinhadas à direita no slide.",
+          "bar_rows": "Um slide mostra as 10 primeiras barras de um gráfico de barras.",
+          "image_bleed": "Sem título, a imagem ocupa o slide inteiro."
+        },
+        "step": {
+          "type": "Digitação",
+          "notes": "Notas do apresentador",
+          "add_slide": "Novo slide",
+          "add_image_slide": "Novo slide com imagem",
+          "duplicate": "Duplicar slide",
+          "delete": "Excluir slide",
+          "move": "Mover slide",
+          "layout": "Mudar layout",
+          "theme": "Mudar tema",
+          "accent": "Mudar cor de destaque",
+          "chart": "Editar gráfico",
+          "replace_image": "Substituir imagem",
+          "image_fit": "Ajuste da imagem",
+          "add_point": "Adicionar tópico",
+          "remove_point": "Remover tópico",
+          "move_point": "Mover tópico",
+          "add_column": "Adicionar coluna",
+          "remove_column": "Remover coluna",
+          "move_column": "Mover coluna",
+          "add_stat": "Adicionar número",
+          "remove_stat": "Remover número",
+          "move_stat": "Mover número",
+          "add_step": "Adicionar etapa",
+          "remove_step": "Remover etapa",
+          "move_step": "Mover etapa",
+          "add_table_row": "Adicionar linha da tabela",
+          "remove_table_row": "Remover linha da tabela",
+          "add_table_column": "Adicionar coluna da tabela",
+          "remove_table_column": "Remover coluna da tabela"
+        },
+        "sample": {
+          "deck_title": "Título da apresentação",
+          "title": "Título do slide",
+          "subtitle": "Subtítulo",
+          "section_title": "Título da seção",
+          "point": "Tópico {n}",
+          "column": "Coluna {n}",
+          "column_text": "Um texto curto",
+          "quote": "Uma citação que vale repetir.",
+          "by": "Nome",
+          "stat_label": "Rótulo {n}",
+          "step": "Etapa {n}",
+          "closing_title": "Obrigado",
+          "closing_subtitle": "Perguntas e próximos passos",
+          "chart_x1": "Jan",
+          "chart_x2": "Fev",
+          "chart_x3": "Mar",
+          "chart_series": "Série",
+          "table_col1": "Item",
+          "table_col2": "Detalhe",
+          "table_value": "Valor",
+          "table_row1": "Primeiro",
+          "table_row2": "Segundo",
+          "table_new_col": "Coluna {n}"
+        }
+      }
+    }
+  }
+}

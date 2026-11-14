@@ -11887,6 +11887,12 @@
       "saving": "正在保存…",
       "failed": "无法保存。"
     },
+    "editor": {
+      "done": "完成",
+      "loading": "正在打开编辑器…",
+      "load_failed": "无法打开编辑器。",
+      "retry": "重试"
+    },
     "whiteboard": {
       "new": "新建白板",
       "new_failed": "无法创建白板。请稍后再试。",

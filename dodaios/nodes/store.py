@@ -19,13 +19,18 @@ the spec (:mod:`.patch`), the type's renderer (:mod:`.kinds`) draws it again.
 That is also how nodes stay maintained: when a renderer improves
 (``RENDER_REVISION``), a node's page is rewritten the next time it is read.
 
-A whiteboard is the one type the person edits whole, in the embedded editor:
-its saves come through :meth:`NodeStore.merge_save_scene`, which joins them
-with what the assistant drew meanwhile (:func:`~dodaios.nodes.board.scene.merge_scene`)
-and keeps one history version per stretch of drawing instead of one per
-save (an editor saves every second while the person draws). Changes to one
-node are serialised by a per-node lock, so a save from the editor and an
-edit from the assistant cannot overwrite each other.
+The person edits a node whole, in the app's editor for its type. A
+whiteboard's saves come through :meth:`NodeStore.merge_save_scene`, which
+joins them with what the assistant drew meanwhile
+(:func:`~dodaios.nodes.board.scene.merge_scene`); every other type's come
+through :meth:`NodeStore.save_spec`, which refuses a save made from an older
+version (:class:`SpecConflict`) instead of merging, because two versions of
+a sheet or a deck cannot be joined element by element the way a board's
+shapes can. Both keep one history version per stretch of editing instead of
+one per save (an editor saves within a second of every pause), so "undo
+that" goes back a stretch of work, not one keystroke. Changes to one node
+are serialised by a per-node lock, so a save from an editor and an edit from
+the assistant cannot overwrite each other.
 """
 
 from __future__ import annotations
@@ -75,9 +80,9 @@ DEFAULT_EVERY_MINUTES: Final[int] = 180
 
 #: The spec size of the types that may be larger than :data:`MAX_SPEC_BYTES`.
 SPEC_BYTES_BY_TYPE: Final[dict[str, int]] = {"whiteboard": MAX_SCENE_BYTES}
-#: The person's whiteboard saves within this many seconds of the previous
+#: The person's saves from an editor within this many seconds of the previous
 #: one share one history version, up to :data:`SAVE_STRETCH_SECONDS` in all:
-#: "undo that" then goes back a stretch of drawing, not one stroke.
+#: "undo that" then goes back a stretch of editing, not one stroke.
 SAVE_COALESCE_SECONDS: Final[float] = 10 * 60
 SAVE_STRETCH_SECONDS: Final[float] = 60 * 60
 
@@ -212,8 +217,23 @@ def _lock_of(node_id: str) -> threading.RLock:
         return lock
 
 
+class SpecConflict(NodeError):
+    """A save from an editor that was made from an older version of the node.
+
+    ``node`` is the node as it is now, so the editor can show it and let the
+    person choose which version to keep.
+    """
+
+    def __init__(self, node: Node):
+        super().__init__(
+            f"The node changed since it was opened (now version {node.version}): "
+            "take its current content, or save again over it."
+        )
+        self.node = node
+
+
 def _without_person_save(extra: dict[str, Any]) -> dict[str, Any]:
-    """``extra`` without the mark of the person's last whiteboard save: any
+    """``extra`` without the mark of the person's last save from an editor: any
     other revision starts a new history version for the next save."""
     if "last_save" not in extra:
         return extra
@@ -535,9 +555,18 @@ class NodeStore:
         # Not converted yet (the conversion failed when the node was read).
         return node, _checked_spec(node.type, _prepared(node.type, node.spec, run_dir))
 
-    def _save_scene(
+    def _save_person(
         self, node: Node, run_dir: Path, clean: dict[str, Any], now: float | None
     ) -> Node:
+        """Write ``clean`` as the person's save from an editor.
+
+        A save that changes nothing returns the node as it is. A save within
+        :data:`SAVE_COALESCE_SECONDS` of the person's previous one (and within
+        :data:`SAVE_STRETCH_SECONDS` of the stretch's first) keeps no history
+        version of its own: the version before the stretch stays the one to
+        go back to. The version number goes up on every save all the same,
+        so an editor can tell its own revisions from anyone else's.
+        """
         if clean == node.spec:
             return node
         stamp = now if now is not None else time.time()
@@ -577,7 +606,7 @@ class NodeStore:
         """
         with self.locked(node_id):
             node, run_dir = self._board(node_id)
-            return self._save_scene(node, run_dir, _checked_spec(node.type, scene), now)
+            return self._save_person(node, run_dir, _checked_spec(node.type, scene), now)
 
     def merge_save_scene(
         self, node_id: str, scene: Any, *, now: float | None = None
@@ -597,8 +626,52 @@ class NodeStore:
             merged, stored_newer = merge_scene(stored, incoming, now_ms=int(stamp * 1000))
             if node.spec != stored:
                 node = replace(node, spec=stored)
-            saved = self._save_scene(node, run_dir, _checked_spec(node.type, merged), stamp)
+            saved = self._save_person(node, run_dir, _checked_spec(node.type, merged), stamp)
             return saved, stored_newer
+
+    # ------------------------------------------------------ the type editors
+
+    def save_spec(
+        self, node_id: str, spec: Any, *, base_version: int | None, now: float | None = None
+    ) -> Node:
+        """Save the person's spec from the type's editor.
+
+        Inputs: ``spec`` in the type's grammar, checked by its ``normalize``;
+        ``base_version``, the version the editor started from (``None``
+        saves whatever the node holds now). Returns the node as saved, its
+        spec normalized. Saves of one stretch of editing share one history
+        version (:meth:`_save_person`).
+
+        Raises :class:`SpecConflict` when ``base_version`` is not the node's
+        version (the assistant revised it meanwhile), and ``NodeError`` for a
+        spec ``normalize`` refuses or a whiteboard (saved through its scene).
+        Check, compare and write happen under the node's lock.
+        """
+        with self.locked(node_id):
+            node = self._require(node_id)
+            if node.type == "whiteboard":
+                raise NodeError("A whiteboard is saved through its scene, not its spec.")
+            if base_version is not None and base_version != node.version:
+                raise SpecConflict(node)
+            run_dir = self.dir_of(node_id)
+            assert run_dir is not None  # _require found it
+            return self._save_person(node, run_dir, _checked_spec(node.type, spec), now)
+
+    def preview(self, node_id: str, spec: Any) -> str:
+        """The node's page drawn from ``spec`` without saving anything.
+
+        The page is exactly what saving ``spec`` would write (the same
+        renderer, the files the node keeps). Raises ``NodeError`` for an
+        unknown node or a spec ``normalize`` refuses.
+        """
+        node = self._require(node_id)
+        run_dir = self.dir_of(node_id)
+        assert run_dir is not None
+        drafted = replace(node, spec=_checked_spec(node.type, spec))
+        kind = kind_of(node.type)
+        if kind.render_in_run is not None:
+            return kind.render_in_run(drafted, run_dir)
+        return kind.render(drafted)
 
     def _kept_file_ids(self, node: Node, run_dir: Path) -> set[str]:
         """Every file id the board's scene and its kept versions name."""
@@ -719,6 +792,7 @@ __all__ = [
     "SAVE_COALESCE_SECONDS",
     "SAVE_STRETCH_SECONDS",
     "SPEC_BYTES_BY_TYPE",
+    "SpecConflict",
     "DEFAULT_EVERY_MINUTES",
     "MAX_EVERY_MINUTES",
     "MAX_HISTORY",

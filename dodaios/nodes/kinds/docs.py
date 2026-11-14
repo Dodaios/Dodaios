@@ -14,6 +14,9 @@ What this module adds on top of the report page is what a KEPT document needs:
   (no date line; the upkeep line says when a kept-current document was read);
 * a reading measure of 720 px, and on a wide window the contents box moves
   beside the text and follows the reader;
+* two marks the Markdown library leaves as text and the document editor
+  offers (``editors/docs`` in the frontend): ``~~struck~~`` text and checklist
+  items (``- [ ]`` / ``- [x]``), drawn here as struck text and ticked boxes;
 * a last pass over the rendered body. Markdown lets its writer set attributes
   and link anywhere, and a document often quotes mails and web pages the
   person did not write: no event handler, no style, no script address and no
@@ -152,6 +155,34 @@ def _tag(match: re.Match[str]) -> str:
     return f"<{name}{attributes}{' /' if opening.group(3) else ''}>"
 
 
+# The library writes ``~~`` and ``[ ]`` as text. Both are read from the
+# rendered body: code keeps its characters, and a strike never runs across a
+# block (a paragraph, an item, a cell). Control characters cannot be in a
+# document (`normalize` drops them), so one can stand in for "~~" meanwhile.
+_CODE_OR_TAG_RE: Final = re.compile(r"(<pre\b.*?</pre>|<code\b.*?</code>|<[^>]*>)", re.DOTALL)
+_STRIKE_MARK: Final[str] = "\x01"
+_STRIKE_RE: Final = re.compile(
+    "\x01(?=[^\\s\x01])((?:(?!\x01|</?(?:p|li|h[1-6]|td|th|dd|dt|blockquote|ul|ol|div|table|tr)\\b).)+?)"
+    "(?<=[^\\s\x01])\x01",
+    re.DOTALL,
+)
+_TASK_RE: Final = re.compile(r"<li>(\s*(?:<p>)?)\[([ xX])\](?:\s+|(?=</))")
+
+
+def _strike_and_tasks(html: str) -> str:
+    """``~~text~~`` as struck text and ``[ ]``/``[x]`` items as checklist items."""
+    parts = _CODE_OR_TAG_RE.split(html)
+    for index in range(0, len(parts), 2):  # text between tags and code
+        parts[index] = parts[index].replace("~~", _STRIKE_MARK)
+    html = _STRIKE_RE.sub(r"<del>\1</del>", "".join(parts)).replace(_STRIKE_MARK, "~~")
+
+    def task(match: re.Match[str]) -> str:
+        ticked = " checked" if match.group(2) in "xX" else ""
+        return f'<li class="task">{match.group(1)}<input type="checkbox" disabled{ticked}> '
+
+    return _TASK_RE.sub(task, html)
+
+
 def _harden(html: str) -> str:
     """The rendered body with every tag checked (see the module docstring)."""
     return _ANY_TAG_RE.sub(_tag, html)
@@ -198,6 +229,10 @@ _CSS: Final[str] = _PAGE_CSS + """
 .doc .report .metrics{line-height:1.5}
 .doc .report a:not([href]){color:inherit;text-decoration:none}
 .doc .report sup{font-size:.75em;line-height:0}
+.doc .report del{color:var(--ink-2)}
+.doc .report li.task{position:relative;list-style:none}
+.doc .report li.task>input,.doc .report li.task>p>input:first-child{position:absolute;left:-1.6em;
+  top:.3em;width:15px;height:15px;margin:0;accent-color:var(--accent)}
 .doc .report sup a{text-decoration:none}
 .doc .footnote{margin-top:48px;font-size:14px;line-height:20px;color:var(--ink-2)}
 .doc .footnote hr{margin:0 0 16px}
@@ -246,7 +281,7 @@ def render(node: Any) -> str:
     language = str(getattr(node, "language", "") or "en")
     summary = _line(spec.get("summary"), MAX_SUMMARY_CHARS)
     markdown = _without_title(str(spec.get("markdown") or ""), str(node.title))
-    body = _harden(render_body(markdown, language).html)
+    body = _harden(_strike_and_tasks(render_body(markdown, language).html))
     # A plot is drawn on a fixed frame; on a narrow window it scrolls inside
     # its card instead of shrinking until its labels cannot be read.
     body = body.replace("<svg ", '<div class="plot"><svg ').replace("</svg>", "</svg></div>")
@@ -273,8 +308,12 @@ def render(node: Any) -> str:
 
 _FENCE_RE: Final = re.compile(r"^(?:```|~~~)")
 _ATX_RE: Final = re.compile(r"^#{1,6}\s+(.*?)\s*#*$")
-_ITEM_RE: Final = re.compile(r"^(?:[-*+]|\d{1,3}[.)])\s+(.*)$")
-_SKIPPED_RE: Final = re.compile(r"^(?:[|>]|!\[|\{:|={3,}$|-{3,}$|\*{3,}$|_{3,}$|\[\^[^\]]+\]:)")
+_ITEM_RE: Final = re.compile(r"^(?:[-*+]|\d{1,3}[.)])\s+(?:\[[ xX]\]\s+)?(.*)$")
+# `&#8203;` alone is the document editor's separator between two quotes or
+# two lists (it draws nothing).
+_SKIPPED_RE: Final = re.compile(
+    r"^(?:[|>]|!\[|\{:|={3,}$|-{3,}$|\*{3,}$|_{3,}$|\[\^[^\]]+\]:|&#8203;$)"
+)
 _MD_IMAGE_RE: Final = re.compile(r"!\[([^\]]*)\]\([^)]*\)")
 _MD_LINK_RE: Final = re.compile(r"\[([^\]]+)\]\([^)]*\)")
 _MD_NOTE_RE: Final = re.compile(r"\[\^[^\]]+\]|\{:[^}]*\}")
@@ -286,7 +325,8 @@ def _plain(text: str) -> str:
     text = _MD_IMAGE_RE.sub(r"\1", text)
     text = _MD_LINK_RE.sub(r"\1", text)
     text = _MD_NOTE_RE.sub("", text)
-    return " ".join(_MD_MARK_RE.sub("", text).split())
+    # Character references (the editor writes "&#126;" for a literal "~") are read as the page reads them.
+    return " ".join(unescape(_MD_MARK_RE.sub("", text)).split())
 
 
 def _clip(text: str, limit: int) -> str:
@@ -420,8 +460,9 @@ spec = {"summary": str, "markdown": str}
 under the title.
 - markdown (required): the whole body. The node's title is the page's h1, so do not repeat \
 it. Sections are "## " headings (four or more get a contents box), "### " inside them.
-Markdown: paragraphs, **bold**, *italic*, `code`, [links](https://…), lists, tables (a \
-"--:" column is right-aligned), quotes, fenced code, footnotes. Raw HTML is shown as text. \
+Markdown: paragraphs, **bold**, *italic*, ~~struck~~, `code`, [links](https://…), lists, \
+checklists ("- [ ] open", "- [x] done"), tables (a "--:" column is right-aligned), quotes, \
+fenced code, footnotes. Nest a list by four spaces. Raw HTML is shown as text. \
 Pictures from an address are not loaded (the page has no network): say what they show.
 Blocks beyond plain Markdown:
 - a fenced "chart" block holding one JSON object {"type": "line"|"area"|"column"|"bar", \

@@ -37,6 +37,7 @@ import { useNodeCommentDraft } from "@/components/nodes/nodeCommentDraft";
 import { useNodeCommentDictation } from "@/components/nodes/nodeCommentDictation";
 import { NodesApiError, saveNodeField } from "@/components/nodes/useNodes";
 import { isNodeSlug, isTypedNode, type NodeCard } from "@/components/nodes/nodeModel";
+import { isEditableType, type EditableType } from "@/components/nodes/editors/types";
 import { useNodesLibrary } from "@/components/nodes/useNodesLibrary";
 import { useNewWhiteboard } from "@/components/nodes/whiteboard/useNewWhiteboard";
 import { useT } from "@/i18n";
@@ -75,6 +76,8 @@ const LivingPageBar = lazy(() => import("@/components/visualization/LivingPageBa
 const NodeUpkeepBar = lazy(() => import("@/components/nodes/NodeUpkeepBar"));
 // A whiteboard's canvas is a large editor: loaded when a board is opened.
 const WhiteboardEditor = lazy(() => import("@/components/nodes/whiteboard/WhiteboardEditor"));
+// Every other typed node has a native editor of its type, loaded on "Edit".
+const NodeEditorHost = lazy(() => import("@/components/nodes/editors/NodeEditorHost"));
 
 /**
  * The Nodes section: a library first and a stage second.
@@ -318,10 +321,13 @@ export function VisualizationView() {
   }, [activeKey, allCards, opened]);
 
   /* Escape goes back to the library, ←/→ walk it — unless a text field has
-   * the keys. A framed page keeps its own keys (its events never reach us). */
+   * the keys. A framed page keeps its own keys (its events never reach us).
+   * An open node editor keeps them all: its arrows move a selection, and
+   * leaving it is its own Done. */
   const staged = target !== null;
+  const [editorOpen, setEditorOpen] = useState(false);
   useEffect(() => {
-    if (!staged) return;
+    if (!staged || editorOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || isTypingTarget(event.target)) return;
       if (event.altKey || event.ctrlKey || event.metaKey) return;
@@ -333,7 +339,7 @@ export function VisualizationView() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [staged, back, step]);
+  }, [staged, editorOpen, back, step]);
 
   const loading = outputs.isLoading || library.loading;
   const error = outputs.isError || library.failed;
@@ -361,6 +367,7 @@ export function VisualizationView() {
               node={stagedNode}
               startEditing={stagedNode !== null && stagedNode.key === startEditingKey}
               onEditingStarted={editingStarted}
+              onEditorOpen={setEditorOpen}
               onOpenNode={open}
               onJumpToRun={(slug) => setSelection({ slug, path: null })}
               nav={{ onBack: back, position, total: ordered.length, onStep: step }}
@@ -409,6 +416,7 @@ function Stage({
   node,
   startEditing = false,
   onEditingStarted,
+  onEditorOpen,
   onOpenNode,
   onJumpToRun,
   nav,
@@ -421,6 +429,8 @@ function Stage({
   startEditing?: boolean;
   /** The page went into Edit for `startEditing`; it is not asked again. */
   onEditingStarted?: () => void;
+  /** The node's editor opened or closed (the stage's own keys pause while it is open). */
+  onEditorOpen?: (open: boolean) => void;
   /** Put another node on stage (one just made from the toolbar). */
   onOpenNode: (card: NodeCard) => void;
   onJumpToRun: (slug: string) => void;
@@ -463,12 +473,28 @@ function Stage({
    * picture of the board the library and chat show) takes neither mode. */
   const board = node !== null && isTypedNode(node) && node.type === "whiteboard" ? node : null;
   const canTouch = node !== null && board === null && visual?.kind === "page" && mode === "preview";
+  /* EDIT on a type with a native editor (every type but the whiteboard)
+   * swaps the page for that editor; Done brings the page back, drawn again
+   * from the saved spec. The page's own Edit (typing into its texts) stays
+   * for anything without one. */
+  const editorType: EditableType | null =
+    canTouch && node !== null && isTypedNode(node) && isEditableType(node.type) ? node.type : null;
+  const [editing, setEditing] = useState(false);
+  useEffect(() => setEditing(false), [currentId]);
+  useEffect(() => {
+    if (editorType === null) setEditing(false);
+  }, [editorType]);
+  const editorOpen = editing && editorType !== null;
+  useEffect(() => {
+    onEditorOpen?.(editorOpen);
+  }, [editorOpen, onEditorOpen]);
+  useEffect(() => () => onEditorOpen?.(false), [onEditorOpen]);
   const [pageMode, setPageMode] = useState<NodePageMode>("view");
   useEffect(() => setPageMode("view"), [currentId]);
   useEffect(() => {
     if (!canTouch) setPageMode("view");
   }, [canTouch]);
-  // After the two resets above, so a node started blank ends up in Edit.
+  // After the resets above, so a node started blank ends up in Edit.
   useEffect(() => {
     if (!startEditing) return;
     // A blank board is already open for drawing: nothing to switch on.
@@ -477,13 +503,26 @@ function Stage({
       return;
     }
     if (!canTouch) return;
-    setPageMode("edit");
+    if (editorType !== null) {
+      setPageMode("view");
+      setEditing(true);
+    } else {
+      setPageMode("edit");
+    }
     onEditingStarted?.();
-  }, [startEditing, canTouch, board, onEditingStarted]);
+  }, [startEditing, canTouch, board, editorType, onEditingStarted]);
   const toggleMode = useCallback(
-    (wanted: Exclude<NodePageMode, "view">) => setPageMode((now) => (now === wanted ? "view" : wanted)),
-    [],
+    (wanted: Exclude<NodePageMode, "view">) => {
+      if (wanted === "edit" && editorType !== null) {
+        setPageMode("view");
+        setEditing(true);
+        return;
+      }
+      setPageMode((now) => (now === wanted ? "view" : wanted));
+    },
+    [editorType],
   );
+  const closeEditor = useCallback(() => setEditing(false), []);
   // Escape leaves the page's mode first, and the stage only after that. (A
   // field being typed in takes its own Escape inside the page: the key does
   // not reach this window then.)
@@ -509,7 +548,7 @@ function Stage({
         visual={visual}
         primary={primary}
         node={node}
-        pageMode={canTouch ? { mode: pageMode, onToggle: toggleMode } : null}
+        pageMode={canTouch && !editorOpen ? { mode: pageMode, onToggle: toggleMode } : null}
         onNewBoard={board !== null ? onOpenNode : null}
         mode={mode}
         onMode={setMode}
@@ -519,7 +558,17 @@ function Stage({
       {run && <RunCapacityDecision run={run} />}
       <div className="min-h-0 flex-1" data-testid="visualization-stage">
         {mode === "preview" && visual && board !== null && <WhiteboardStage node={board} visual={visual} />}
-        {mode === "preview" && visual && board === null && (
+        {mode === "preview" && visual && board === null && editorOpen && editorType !== null && node?.id && (
+          <Suspense fallback={null}>
+            <NodeEditorHost
+              node={node as NodeCard & { id: string }}
+              type={editorType}
+              slug={visual.slug}
+              onDone={closeEditor}
+            />
+          </Suspense>
+        )}
+        {mode === "preview" && visual && board === null && !editorOpen && (
           <ArtifactStage visual={visual} node={node} pageMode={canTouch ? pageMode : "view"} />
         )}
         {mode === "preview" && !visual && run && (

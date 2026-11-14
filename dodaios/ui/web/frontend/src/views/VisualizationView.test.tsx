@@ -59,6 +59,14 @@ const chat = vi.hoisted(() => ({
 }));
 vi.mock("@/components/nodes/askDodaios", () => chat);
 
+// These tests pin the page's own Edit (typing into its texts), which stays the
+// fallback for a node without a native editor; the swap to the native editors
+// is pinned in VisualizationView.editors.test.tsx.
+vi.mock("@/components/nodes/editors/types", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/nodes/editors/types")>()),
+  isEditableType: () => false,
+}));
+
 beforeEach(() => {
   // The library remembers its tab, order and view, and the stars.
   window.localStorage.clear();

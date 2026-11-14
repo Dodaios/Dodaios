@@ -65,10 +65,11 @@ _WHAT_TO_SEND: Final[str] = (
     "least one metric, chart or table."
 )
 _CHART_RULES: Final[str] = (
-    "'type' is line, area, column or bar; 'x' (the labels) and every series' 'data' must be "
-    "lists of the same length with 2 or more points (a bar chart at most 24, the others at "
-    "most 366); the values must be numbers (null for a gap); two or more series each need a "
-    "'name', and there are at most 6."
+    "'type' is line, area, column, bar, pie or donut; 'x' (the labels) and every series' "
+    "'data' must be lists of the same length with 2 or more points (a bar chart at most 24, "
+    "a pie or donut 12 with exactly one series of values >= 0, the others at most 366); the "
+    "values must be numbers (null for a gap); two or more series each need a 'name', and "
+    "there are at most 6."
 )
 
 _CONTROL_RE: Final = re.compile(r"[\x00-\x1f\x7f]")
@@ -145,6 +146,13 @@ def _chart(raw: Any, where: str) -> dict[str, Any]:
     for key in ("unit", "note", "value", "delta"):
         if parsed[key]:
             chart[key] = parsed[key]
+    # The shared grammar's newer keys, kept only when they say something so a
+    # chart written without them reads back exactly as it was sent.
+    if parsed.get("stacked"):
+        chart["stacked"] = True
+    colors = parsed.get("colors") or []
+    if any(colors):
+        chart["colors"] = list(colors)
     if raw.get("wide") is True or str(raw.get("wide")).strip().lower() == "true":
         chart["wide"] = True
     return chart
@@ -366,6 +374,8 @@ def _metrics(metrics: list[Any], base: str) -> str:
     return f'<div class="metrics" style="--n:{per_row}">{"".join(cells)}</div>'
 
 
+#: The chart types that cut one series into the shares of a whole.
+_ROUND: Final = frozenset({"pie", "donut"})
 _SPLIT_FIGURE: Final[str] = '<figure class="card chart split">'
 _NUMBER_CLASS: Final[str] = ' class="n"'
 
@@ -395,8 +405,12 @@ def _charts(charts: list[Any], language: str) -> str:
             wide = index == len(drawable) - 1 or drawable[index + 1][1]
         column = 0 if wide or column == 1 else 1
         figure = render_chart(parsed, language)
-        figure = figure.replace("<svg ", '<div class="plot"><svg ', 1)
-        figure = figure.replace("</svg>", "</svg></div>", 1)
+        if parsed["type"] not in _ROUND:
+            # A plot on the 700-unit frame scrolls inside its card when the
+            # card is narrow. A pie or donut is drawn at its own size beside
+            # its legend (the kit's `.pie`) and is never stretched or scrolled.
+            figure = figure.replace("<svg ", '<div class="plot"><svg ', 1)
+            figure = figure.replace("</svg>", "</svg></div>", 1)
         if parsed["title"] or parsed["value"]:
             figure = figure.replace('<figure class="card chart">', _SPLIT_FIGURE, 1)
         tiles.append(f'<div class="tile{" wide" if wide else ""}">{figure}</div>')
@@ -554,7 +568,7 @@ _CSS: Final[str] = """
 .tile>.split{display:grid;grid-template-columns:minmax(200px,248px) minmax(0,1fr);
   grid-template-rows:auto auto auto 1fr;column-gap:40px;align-items:start;padding:20px 24px}
 .tile>.split>*{grid-column:1}
-.tile>.split>.plot,.tile>.split>.cols,.tile>.split>.bars{grid-column:2;grid-row:1/-1;margin-top:0;
+.tile>.split>.plot,.tile>.split>.cols,.tile>.split>.bars,.tile>.split>.pie{grid-column:2;grid-row:1/-1;margin-top:0;
   align-self:center}
 .tile>.split>.note{grid-row:4;align-self:end}
 .tile>.split>.legend{flex-direction:column;gap:6px}
@@ -831,13 +845,16 @@ optional. "text" is one short paragraph (**bold**, *italic*, `code`, [link](http
 metric (up to 8) = {"label": two to four words, "value": the figure with its unit as text, \
 "detail": optional, "delta": optional change such as "+12 %" or "−3"}. Colored by its \
 sign; "better":"lower" flips it.
-chart (up to 8) = {"type": "line"|"area"|"column"|"bar", "title", "x": [labels], "series": \
-[{"name", "data": [numbers]}] (up to 6) or "data": [numbers] for one series, "unit", "note" \
-(source or assumption), "value" and "delta" (a headline figure above the plot), "wide": true}
+chart (up to 8) = {"type": "line"|"area"|"column"|"bar"|"pie"|"donut", "title", "x": \
+[labels], "series": [{"name", "data": [numbers]}] (up to 6) or "data": [numbers] for one \
+series, "unit", "note" (source or assumption), "value" and "delta" (a headline figure above \
+the plot), "stacked": true (column/bar: series on top of each other), "colors": [hex per \
+series, or per slice], "wide": true}
 - "x" and every "data" have the same length, 2 or more points (bar: at most 24); numbers \
 only, null for a gap.
-- line or area for a course over time, column for a few periods, bar for named things. One \
-unit per chart; two measures are two charts.
+- line or area for a course over time, column for a few periods, bar for named things, pie \
+or donut for shares of one whole (one series, at most 12 slices). One unit per chart; two \
+measures are two charts.
 - Charts sit two per row on a wide window. "wide": true takes the whole row; a chart left \
 alone in its row takes it too.
 table (up to 4) = {"title", "columns": [names] (up to 12), "rows": [[cell, …]] (up to \
