@@ -25,37 +25,33 @@ const DocsTypeIcon = defineIcon(
   </>,
 );
 
-/** A presentation board on its stand. */
+/** A deck: the front slide, with the next one showing behind it. */
 const SlidesTypeIcon = defineIcon(
   "NodeSlidesIcon",
   <>
-    <path d="M12 3v2.25" />
-    <rect x="3.75" y="5.25" width="16.5" height="10.75" rx="2" />
-    <path d="M12 16v2.5" />
-    <path d="m8.75 20.75 3.25-2.25 3.25 2.25" />
+    <rect x="3.5" y="8" width="13.5" height="10.5" rx="2.5" />
+    <path d="M7 4.75h11a2.5 2.5 0 0 1 2.5 2.5v7.5" />
   </>,
 );
 
-/** A grid of cells: three columns, three rows. */
+/** A table: a header row over two rows, a first column beside them. */
 const SheetsTypeIcon = defineIcon(
   "NodeSheetsIcon",
   <>
-    <rect x="3.5" y="5" width="17" height="14" rx="2" />
-    <path d="M3.5 9.67h17" />
-    <path d="M3.5 14.33h17" />
-    <path d="M9.17 5v14" />
-    <path d="M14.83 5v14" />
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+    <path d="M3.5 9.5h17" />
+    <path d="M3.5 14.5h17" />
+    <path d="M9.5 9.5v10" />
   </>,
 );
 
-/** A painter's palette with three dabs of paint. */
+/** A picture: a sun over a hill inside a frame. */
 const DesignTypeIcon = defineIcon(
   "NodeDesignIcon",
   <>
-    <path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.05 0 1.9-.85 1.9-1.9 0-.5-.2-.95-.5-1.3-.3-.35-.5-.8-.5-1.3 0-1.05.85-1.9 1.9-1.9H17a3.5 3.5 0 0 0 3.5-3.5c0-3.9-3.8-7.1-8.5-7.1Z" />
-    <circle cx="7.6" cy="12.6" r="0.9" fill="currentColor" stroke="none" />
-    <circle cx="10.6" cy="8" r="0.9" fill="currentColor" stroke="none" />
-    <circle cx="15.2" cy="8.4" r="0.9" fill="currentColor" stroke="none" />
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+    <circle cx="9" cy="9.75" r="1.75" />
+    <path d="m3.75 17.5 4.75-4.5 3.5 3.25 3-2.75 5.25 4.75" />
   </>,
 );
 
@@ -70,23 +66,22 @@ const DataTypeIcon = defineIcon(
   </>,
 );
 
-/** A square with a circle laid over its corner: shapes on a board. */
+/** Two notes on a board, joined by a line: a diagram. */
 const WhiteboardTypeIcon = defineIcon(
   "NodeWhiteboardIcon",
   <>
-    <path d="M9.4 14H6.5A2.5 2.5 0 0 1 4 11.5v-5A2.5 2.5 0 0 1 6.5 4h5A2.5 2.5 0 0 1 14 6.5v2.9" />
-    <circle cx="15" cy="15" r="5.5" />
+    <rect x="3.5" y="3.5" width="7.5" height="6.5" rx="2" />
+    <rect x="13" y="14" width="7.5" height="6.5" rx="2" />
+    <path d="M11 6.75h3.75a2 2 0 0 1 2 2V14" />
   </>,
 );
 
-/** Three speed lines trailing a circle: something moving. */
+/** A video: a play button inside a screen. */
 const MotionTypeIcon = defineIcon(
   "NodeMotionIcon",
   <>
-    <circle cx="16" cy="12" r="4.75" />
-    <path d="M3.5 8.25h6" />
-    <path d="M5.5 12h4" />
-    <path d="M3.5 15.75h6" />
+    <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
+    <path d="M10.25 9.25v5.5L14.75 12Z" />
   </>,
 );
 
