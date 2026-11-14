@@ -1019,6 +1019,8 @@ def list_sessions(
         d["running"] = _reported_running(svc, s.session_id)
         if s.surface == "agent":
             d["pending_approvals"] = svc.pending_approvals(s.session_id)
+            # An open question card: the sidebar marks the thread as waiting for the person.
+            d["pending_questions"] = svc.pending_questions(s.session_id)
             d["cli_title"] = _cli_title(svc, s)
             # What the person gives Dodaios to name this thread (``thread_finder``).
             d["code"] = thread_finder.thread_code(s.session_id)
@@ -1295,7 +1297,10 @@ def list_lead_threads(request: Request, limit: int = Query(12, ge=1, le=50)) -> 
                 "briefed_ms": briefed_ms,
                 "updated_ms": session.updated_ms,
                 "running": _reported_running(svc, session.session_id),
-                "waiting": bool(svc.pending_approvals(session.session_id)),
+                "waiting": bool(
+                    svc.pending_approvals(session.session_id)
+                    or svc.pending_questions(session.session_id)
+                ),
             }
         )
     return {"threads": out}

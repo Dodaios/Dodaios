@@ -10531,6 +10531,7 @@
     "tools_other": "{count} Tools",
     "tokens": "{count} Tokens",
     "waiting_approval": "Wartet auf deine Freigabe",
+    "waiting_answer": "Wartet auf deine Antwort",
     "using_tool": "Nutzt {tool}",
     "stopped_before_answer": "Gestoppt, bevor er geantwortet hat",
     "finished": "Abgeschlossen",

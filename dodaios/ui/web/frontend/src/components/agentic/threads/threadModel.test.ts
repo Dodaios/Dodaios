@@ -68,8 +68,10 @@ describe("projectIdFor", () => {
 });
 
 describe("threadStatus", () => {
-  it("puts a waiting approval before work and work before news", () => {
+  it("puts an open question first, then a waiting approval, then work, then news", () => {
     const base = session("s", "/code", { updated_ms: 10 });
+    expect(threadStatus({ ...base, running: true, pending_questions: ["q"], pending_approvals: ["a"] }, {}, null)).toBe("question");
+    expect(threadStatus({ ...base, running: true, pending_questions: [] }, {}, null)).toBe("running");
     expect(threadStatus({ ...base, running: true, pending_approvals: ["a"] }, {}, null)).toBe("approval");
     expect(threadStatus({ ...base, running: true }, {}, null)).toBe("running");
     expect(threadStatus(base, { s: 5 }, null)).toBe("unseen");

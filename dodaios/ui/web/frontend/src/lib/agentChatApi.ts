@@ -187,6 +187,8 @@ export interface AgentChatSession {
   preview: string;
   running?: boolean;
   pending_approvals?: string[];
+  /** Open question cards the coding agent waits on an answer for. Absent on an older backend. */
+  pending_questions?: string[];
   /**
    * The name the coding CLI gave this conversation itself (Claude Code's
    * session title, Codex's thread name) — set on the IDE's own sessions while

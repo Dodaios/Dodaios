@@ -10531,6 +10531,7 @@
     "tools_other": "{count} 个工具",
     "tokens": "{count} 个 token",
     "waiting_approval": "等待你的批准",
+    "waiting_answer": "等待你的回答",
     "using_tool": "正在使用 {tool}",
     "stopped_before_answer": "在回答前已停止",
     "finished": "已完成",
