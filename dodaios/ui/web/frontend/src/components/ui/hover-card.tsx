@@ -33,6 +33,8 @@ const FOCUSABLE = 'button:not([disabled]), a[href], input:not([disabled]), [tabi
 
 export interface HoverCardHandle {
   close: () => void;
+  /** Open at once, as a click on the anchor does where a hover would wait. */
+  open: () => void;
 }
 
 interface Place {
@@ -116,7 +118,7 @@ export const HoverCard = forwardRef<HoverCardHandle, {
     }, CLOSE_DELAY_MS);
   }, [clearTimer]);
 
-  useImperativeHandle(ref, () => ({ close }), [close]);
+  useImperativeHandle(ref, () => ({ close, open: () => show(0) }), [close, show]);
   useEffect(() => clearTimer, [clearTimer]);
 
   // The layer has to exist to be measured: it mounts hidden and is placed before the first paint.

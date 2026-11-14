@@ -1,8 +1,11 @@
 import { useEffect } from "react";
 
 import { usePluginAttention, type PluginAttentionItem } from "@/hooks/usePluginAttention";
-import { fill, useT } from "@/i18n";
+import { fill, useT, useUiLanguage } from "@/i18n";
 import { prettyProviderName } from "@/lib/prettyProviderName";
+import type { ReminderRow } from "@/lib/remindersApi";
+
+import { formatDue, useDueRemindersStore, watchDueReminders } from "./dueReminders";
 
 import { useStatusLightStore, watchStatusLight, type StatusLightData, type StatusRow } from "./statusLightStore";
 
@@ -11,7 +14,7 @@ import { useStatusLightStore, watchStatusLight, type StatusLightData, type Statu
  *
  * A notice is one thing the person has to do something about, said in words:
  * a connection that ended, a service an agent needs connected, a provider
- * that stopped working, an agent that asks. Each names its subject (whose logo or face the tile shows), what is
+ * that stopped working, an agent that asks, a reminder that has come due. Each names its subject (whose logo or face the tile shows), what is
  * asked (the badge on the tile's corner), and where a click leads.
  *
  * What is NOT a notice, on purpose: work that merely runs, a provider that is
@@ -25,7 +28,9 @@ import { useStatusLightStore, watchStatusLight, type StatusLightData, type Statu
 
 /** What a notice asks of the person; the badge on the tile says it. */
 export type NoticeAsk =
-  | "reconnect" | "connect" | "question" | "approval" | "credential" | "proposal" | "takeover" | "waiting" | "trouble";
+  | "reconnect" | "connect" | "question" | "approval" | "credential" | "proposal" | "takeover" | "waiting" | "trouble"
+  /** A reminder (or a calendar appointment) whose time has come. */
+  | "due";
 
 /** Whose notice it is; the tile draws this subject's logo or face. */
 export type NoticeMark =
@@ -36,7 +41,10 @@ export type NoticeMark =
   | { type: "cli"; id: string }
   | { type: "agent"; id: string }
   /** No logo and no face to show: a plain sign for the kind of thing it is. */
-  | { type: "glyph"; glyph: "agent" | "terminal" | "mission" };
+  | { type: "glyph"; glyph: NoticeGlyph };
+
+/** The plain signs a tile can show when there is no logo and no face. */
+export type NoticeGlyph = "agent" | "terminal" | "mission" | "reminder" | "appointment";
 
 /** Where a click on a notice leads. */
 export type NoticeTarget =
@@ -45,7 +53,9 @@ export type NoticeTarget =
   | { type: "connect"; service: "plugin" | "cli"; id: string; row: StatusRow }
   | { type: "plugin"; pluginId: string }
   | { type: "keys" }
-  | { type: "row"; row: StatusRow };
+  | { type: "row"; row: StatusRow }
+  /** A due reminder: its card ticks it off or snoozes it, right on the rail. */
+  | { type: "reminder"; id: string };
 
 export interface RailNotice {
   key: string;
@@ -237,15 +247,46 @@ function providerNotices(light: StatusLightData, t: Translate): RailNotice[] {
 }
 
 /**
- * Everything that needs the person, most pressing first: who waits for an
- * answer, then the connections that ended, then the providers in trouble.
+ * Reminders whose time has come, oldest first: the text as the sentence, when
+ * it was due as the second line. A calendar appointment the scheduler told
+ * (no `reminder` flag) shows a calendar instead of the bell.
  */
-export function railNotices(light: StatusLightData | null, plugins: PluginAttentionItem[], t: Translate): RailNotice[] {
+function reminderNotices(rows: ReminderRow[], t: Translate, locale: string): RailNotice[] {
+  return rows.filter((row) => row.id && row.text).map((row): RailNotice => {
+    const when = formatDue(row.due_at, locale);
+    return {
+      key: `reminder:${row.id}`,
+      ask: "due",
+      tone: "needs",
+      mark: { type: "glyph", glyph: row.reminder ? "reminder" : "appointment" },
+      subject: t("reminders.due_title"),
+      title: row.text,
+      detail: when ? fill(t("rail_notice.reminder_detail"), { when }) : "",
+      action: t("reminders.done"),
+      count: 1,
+      target: { type: "reminder", id: row.id },
+    };
+  });
+}
+
+/**
+ * Everything that needs the person, most pressing first: who waits for an
+ * answer, then the reminders that have come due, then the connections that
+ * ended, then the providers in trouble.
+ */
+export function railNotices(
+  light: StatusLightData | null,
+  plugins: PluginAttentionItem[],
+  t: Translate,
+  reminders: ReminderRow[] = [],
+  locale = "en",
+): RailNotice[] {
   const needs = light ? needsNotices(light.needs_you, t) : [];
   // An agent already asks for this plugin: one tile for it, the one that leads to the card.
   const asked = new Set(needs.flatMap((notice) => (notice.ask === "connect" && notice.mark.type === "plugin" ? [notice.mark.id] : [])));
   return [
     ...needs,
+    ...reminderNotices(reminders, t, locale),
     ...pluginNotices(plugins, t).filter((notice) => notice.mark.type !== "plugin" || !asked.has(notice.mark.id)),
     ...(light ? providerNotices(light, t) : []),
   ];
@@ -255,7 +296,10 @@ export function railNotices(light: StatusLightData | null, plugins: PluginAttent
 export function useRailNotices(): RailNotice[] {
   const t = useT();
   const light = useStatusLightStore((s) => s.light);
+  const locale = useUiLanguage();
   const plugins = usePluginAttention();
+  const reminders = useDueRemindersStore((s) => s.items);
   useEffect(() => watchStatusLight(), []);
-  return railNotices(light, plugins.items, t);
+  useEffect(() => watchDueReminders(), []);
+  return railNotices(light, plugins.items, t, reminders, locale);
 }

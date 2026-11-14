@@ -11451,7 +11451,6 @@
   "reminders": {
     "due_title": "Recordatorio",
     "done": "Hecho",
-    "marked_done": "Hecho",
     "snooze": "Posponer",
     "snooze_15": "15 min",
     "snooze_1h": "1 hora",
@@ -11602,6 +11601,7 @@
   },
   "rail_notice": {
     "title": "Te necesita",
+    "reminder_detail": "Pendiente desde {when}",
     "more": "{count} más",
     "and_more": "y {count} más",
     "an_agent": "Un agente",

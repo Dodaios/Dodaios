@@ -16,7 +16,6 @@ import { AGENT_RESULT_KIND } from "./agentResults";
 import { BrowserTakeoverNotice } from "./BrowserTakeoverNotice";
 import { SeatTroubleNotice } from "./SeatTroubleNotice";
 import { StandingPausedNotice, StandingProposalCard } from "./StandingProposalCard";
-import { ReminderDueNotice } from "./reminders/ReminderDueNotice";
 import { TasksCapturedCard } from "./reminders/TasksCapturedCard";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { effortLabel } from "./AgentComposer";
@@ -359,7 +358,8 @@ export function AgentTimeline({
       if (item.kind === AGENT_RESULT_KIND) return <AgentResultLine key={item.id} item={item} />;
       if (item.kind === "seat_trouble") return <SeatTroubleNotice key={item.id} item={item} />;
       if (item.kind === "browser_takeover") return <BrowserTakeoverNotice key={item.id} item={item} />;
-      if (item.kind === "reminder_due") return <ReminderDueNotice key={item.id} item={item} />;
+      // A reminder that came due waits on the rail beside the chat (Done, Snooze there), not in it.
+      if (item.kind === "reminder_due") return null;
       if (item.kind === "tasks_captured") return <TasksCapturedCard key={item.id} item={item} />;
       if (item.kind === "standing_proposal") return <StandingProposalCard key={item.id} item={item} />;
       if (item.kind === "standing_paused") return <StandingPausedNotice key={item.id} item={item} />;

@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  Bot, ChevronRight, Hand, Hourglass, KeyRound, Lightbulb, Loader2, Plus, RefreshCw, Rocket, ShieldCheck, SquareTerminal,
-  type LucideIcon,
+  BellRing, Bot, CalendarClock, Check, ChevronRight, Clock, Hand, Hourglass, KeyRound, Lightbulb, Loader2, Plus, RefreshCw,
+  Rocket, ShieldCheck, SquareTerminal, type LucideIcon,
 } from "lucide-react";
 
 import { ToolChoiceIcon } from "@/components/agentchat/ToolChoiceChips";
@@ -16,13 +16,15 @@ import { HoverCard, type HoverCardHandle } from "@/components/ui/hover-card";
 import { QuickTooltip } from "@/components/ui/tooltip";
 import { refreshPluginAttention } from "@/hooks/usePluginAttention";
 import { useServiceConnect, type ServiceToConnect } from "@/hooks/useServiceConnect";
-import { fill, useT } from "@/i18n";
+import { fill, useT, useUiLanguage } from "@/i18n";
 import { submitAgentChatCredential } from "@/lib/agentChatApi";
 import { requestPluginFocus } from "@/lib/customConnector";
+import { markReminderDone, snoozeReminder } from "@/lib/remindersApi";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 
-import { NOTICES_SHOWN, type NoticeAsk, type RailNotice } from "./railNotices";
+import { dropDueReminder, formatDue, refreshDueReminders } from "./dueReminders";
+import { NOTICES_SHOWN, type NoticeAsk, type NoticeGlyph, type RailNotice } from "./railNotices";
 import { refreshStatusLight } from "./statusLightStore";
 import { goToStatusRow, openKeys } from "./statusRows";
 
@@ -36,7 +38,8 @@ import { goToStatusRow, openKeys } from "./statusRows";
  * for it; a click on the tile does the same as that button. A connection that
  * ended, and a service an agent asks for, are connected right from the tile:
  * the click starts the service's own sign-in and the tile leaves once the
- * service reports connected.
+ * service reports connected. A reminder that has come due is ticked off or
+ * snoozed in its card; the tile leaves once it is.
  *
  * Loaded only when there is a notice: the logos and the sign-in stay out of
  * the start of the app for the usual case of a quiet rail.
@@ -61,11 +64,14 @@ const ASK_ICON: Partial<Record<NoticeAsk, LucideIcon>> = {
   proposal: Lightbulb,
   takeover: Hand,
   waiting: Hourglass,
+  due: Clock,
 };
 /** A question and a warning read best as the character itself. */
 const ASK_SIGN: Partial<Record<NoticeAsk, string>> = { question: "?", trouble: "!" };
 
-const GLYPH: Record<"agent" | "terminal" | "mission", LucideIcon> = { agent: Bot, terminal: SquareTerminal, mission: Rocket };
+const GLYPH: Record<NoticeGlyph, LucideIcon> = {
+  agent: Bot, terminal: SquareTerminal, mission: Rocket, reminder: BellRing, appointment: CalendarClock,
+};
 
 /** What is asked, on the tile's corner. `busy` turns it into a quiet spinner. */
 function AskBadge({ notice, busy = false, small = false }: { notice: RailNotice; busy?: boolean; small?: boolean }) {
@@ -178,13 +184,80 @@ function useNoticeGo(notice: RailNotice, onDone?: () => void): { go: () => void;
   return { go, busy, note };
 }
 
+/** The snooze choices a due reminder offers; "tomorrow" is resolved by the backend. */
+const SNOOZES: readonly { key: string; minutes?: number; until?: string }[] = [
+  { key: "reminders.snooze_15", minutes: 15 },
+  { key: "reminders.snooze_1h", minutes: 60 },
+  { key: "reminders.snooze_3h", minutes: 180 },
+  { key: "reminders.snooze_tomorrow", until: "tomorrow" },
+];
+
+/**
+ * Done and the four snooze choices of a due reminder. Either takes the tile
+ * off the rail at once; a snooze says in a toast when the reminder comes back,
+ * a failure says it went wrong and leaves the tile where it was.
+ */
+function ReminderActions({ id, onDone }: { id: string; onDone?: () => void }) {
+  const t = useT();
+  const locale = useUiLanguage();
+  const [busy, setBusy] = useState(false);
+  const settle = (work: Promise<string | null>) => {
+    setBusy(true);
+    void work.then(
+      (message) => {
+        dropDueReminder(id);
+        if (message) useEventStore.getState().pushToast("success", message);
+        onDone?.();
+        void refreshDueReminders();
+      },
+      () => {
+        setBusy(false);
+        useEventStore.getState().pushToast("error", t("reminders.failed"));
+      },
+    );
+  };
+  const done = () => settle(markReminderDone(id).then(() => null));
+  const snooze = (choice: (typeof SNOOZES)[number]) => settle(
+    snoozeReminder(id, choice.until ? { until: choice.until } : { minutes: choice.minutes })
+      .then((row) => fill(t("reminders.snoozed_until"), { when: formatDue(row.due_at, locale) })),
+  );
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-1 text-xs" data-testid="rail-reminder-actions">
+      <button type="button" onClick={done} disabled={busy} data-testid="rail-reminder-done"
+        className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-0.5 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Check aria-hidden className="h-3 w-3" />
+        {t("reminders.done")}
+      </button>
+      {SNOOZES.map((choice) => (
+        <button key={choice.key} type="button" onClick={() => snooze(choice)} disabled={busy} data-testid="rail-reminder-snooze"
+          title={t("reminders.snooze")}
+          className="rounded-md border border-border px-1.5 py-0.5 text-foreground hover:bg-secondary disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {t(choice.key)}
+        </button>
+      ))}
+    </span>
+  );
+}
+
 /**
  * The notice in words, in the card beside its tile. Its last line is the
  * button that does what the tile's click does, for whoever reads the card
  * first and then goes for the word.
  */
-function NoticeWords({ notice, note, go }: { notice: RailNotice; note: string | null; go: () => void }) {
+function NoticeWords({ notice, note, go, onDone }: {
+  notice: RailNotice; note: string | null; go: () => void; onDone?: () => void;
+}) {
   const second = note ?? notice.detail;
+  if (notice.target.type === "reminder") {
+    return (
+      <span className="flex max-w-[264px] flex-col gap-0.5 whitespace-normal py-0.5" data-testid="rail-notice-words">
+        <span className="text-xs text-muted-foreground">{notice.subject}</span>
+        <span className="font-medium text-foreground-strong [overflow-wrap:anywhere]">{notice.title}</span>
+        {notice.detail && <span className="text-xs text-muted-foreground">{notice.detail}</span>}
+        <ReminderActions id={notice.target.id} onDone={onDone} />
+      </span>
+    );
+  }
   return (
     <span className="flex max-w-[264px] flex-col gap-0.5 whitespace-normal py-0.5" data-testid="rail-notice-words">
       <span className="font-medium text-foreground-strong">{notice.title}</span>
@@ -202,10 +275,14 @@ function NoticeWords({ notice, note, go }: { notice: RailNotice; note: string | 
 function NoticeTile({ notice }: { notice: RailNotice }) {
   const cardRef = useRef<HoverCardHandle | null>(null);
   // A click that leads somewhere closes the card; a sign-in keeps it, to show how far it is.
-  const { go, busy, note } = useNoticeGo(notice, () => cardRef.current?.close());
+  const close = () => cardRef.current?.close();
+  const { go, busy, note } = useNoticeGo(notice, close);
+  // A reminder is answered in its card: a click on the tile opens it, it never ticks the reminder off.
+  const click = notice.target.type === "reminder" ? () => cardRef.current?.open() : go;
   return (
-    <HoverCard ref={cardRef} className="flex" label={notice.title} content={<NoticeWords notice={notice} note={note} go={go} />}>
-      <button type="button" onClick={go} data-testid="rail-notice" data-ask={notice.ask} data-tone={notice.tone} data-key={notice.key}
+    <HoverCard ref={cardRef} className="flex" label={notice.title}
+      content={<NoticeWords notice={notice} note={note} go={go} onDone={close} />}>
+      <button type="button" onClick={click} data-testid="rail-notice" data-ask={notice.ask} data-tone={notice.tone} data-key={notice.key}
         aria-busy={busy || undefined} aria-label={[notice.title, note ?? notice.detail, notice.action].filter(Boolean).join(" · ")}
         className={TILE}>
         <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full">
@@ -221,6 +298,24 @@ function NoticeTile({ notice }: { notice: RailNotice }) {
 function NoticeRow({ notice, onDone }: { notice: RailNotice; onDone: () => void }) {
   const { go, busy, note } = useNoticeGo(notice, onDone);
   const second = note ?? notice.detail;
+  if (notice.target.type === "reminder") {
+    // Its buttons are the row's own: Done and the snooze choices, under the text.
+    return (
+      <div data-testid="rail-notice-row" data-ask={notice.ask} className="flex w-full min-w-0 items-start gap-3 rounded-lg px-2 py-2">
+        <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary ring-1 ring-inset ring-border">
+          <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full">
+            <SubjectMark notice={notice} size={18} />
+          </span>
+          <AskBadge notice={notice} small />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-foreground [overflow-wrap:anywhere]">{notice.title}</span>
+          {second && <span className="block truncate text-xs text-muted-foreground">{second}</span>}
+          <ReminderActions id={notice.target.id} />
+        </span>
+      </div>
+    );
+  }
   return (
     <button type="button" onClick={go} data-testid="rail-notice-row" data-ask={notice.ask} aria-busy={busy || undefined}
       className="group flex w-full min-w-0 items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

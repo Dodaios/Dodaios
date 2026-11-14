@@ -158,9 +158,14 @@ def capture(body: Dump) -> dict[str, Any]:
 
 @router.post("/reminders/{memory_id}/done")
 def done(memory_id: str) -> dict[str, Any]:
-    if not reminders.mark_done(_vault(), memory_id):
-        raise HTTPException(status_code=404, detail="no open reminder with that id")
-    return {"ok": True}
+    vault = _vault()
+    if reminders.mark_done(vault, memory_id):
+        return {"ok": True}
+    # Already over by itself (a calendar appointment that ended, a reminder a
+    # week past its time) or ticked off before: what the person wanted is so.
+    if vault.get(memory_id) is not None:
+        return {"ok": True, "already": True}
+    raise HTTPException(status_code=404, detail="no reminder with that id")
 
 
 @router.post("/reminders/{memory_id}/snooze")

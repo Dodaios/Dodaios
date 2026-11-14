@@ -38,6 +38,11 @@ it("drops the background notices and keeps the order of the rest", () => {
   expect(withoutBackgroundNotices(items).map((item) => item.id)).toEqual(["u1", "n2"]);
 });
 
+it("leaves a reminder that came due out of the chat: it waits on the rail", () => {
+  const items = [user, notice("n1", "reminder_due", "", { memory_id: "m1" }), notice("n2", "tasks_captured")];
+  expect(withoutBackgroundNotices(items).map((item) => item.id)).toEqual(["u1", "n2"]);
+});
+
 it("returns the same array when nothing is dropped", () => {
   const items = [user, notice("n1", "society_result", "done", { source: "routine" })];
   expect(withoutBackgroundNotices(items)).toBe(items);

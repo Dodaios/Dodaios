@@ -10,8 +10,12 @@ time (``valid_to``), so an overdue reminder stays visible for a week.
 :class:`ReminderScheduler` wakes every :data:`TICK_S` seconds, takes every
 current memory whose time has come and that was not delivered yet (a meta
 flag per memory), and delivers it: a ``reminder_due`` notice in the lead
-conversation (where Done / Snooze live) plus a desktop notification through
-the :class:`~dodaios.notify.notifier.Notifier`. Nothing is spoken.
+conversation plus a desktop notification through the
+:class:`~dodaios.notify.notifier.Notifier`. Nothing is spoken. The desktop
+app does not draw that notice in the chat: from then on the reminder waits as
+a tile on the rail beside it (read from ``/api/notify/reminders``), where Done
+and Snooze live, until it is ticked off, snoozed, or over. The phone keeps the
+notice in its chat.
 
 :func:`capture_dump` turns a brain dump ("tomorrow dentist, buy milk, mail
 Anna about the offer") into separate items without a model call: split on
