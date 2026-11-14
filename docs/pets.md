@@ -24,7 +24,15 @@ On macOS, Aqua-Tk 9 puts a window back at the normal level when it is
 withdrawn and shown again, although `-topmost` still reads 1. Each reveal of
 the pet, its strip, bubble and cards therefore sets `-topmost` again
 (`reassert_macos_topmost`); without it the pet hid behind the browser while
-the app reported it as shown. The macOS host needs a Python with Tk
+the app reported it as shown. Aqua-Tk 9 also draws every window into a bitmap without an alpha channel
+and composites images onto it with source-over: transparent pixels show
+black and a new animation frame never erases the last, so the pet showed a
+black box and every frame stacked on the one before. On macOS the figure,
+the strip, the bubble and the cards therefore put their frames on screen
+through a native Core Animation layer (`ui/orb/mac_layer.py`): the Tk
+content view is made fully transparent (it still gets every click and
+pointer event), and each frame replaces the layer's contents outright.
+Without PyObjC the Tk drawing stays as the fallback. The macOS host needs a Python with Tk
 (Homebrew: `brew install python-tk@3.12`); without it the host exits with
 `No module named '_tkinter'` and no pet appears.
 

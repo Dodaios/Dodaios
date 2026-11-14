@@ -6,8 +6,10 @@ window puts such a frame on the desktop the best way the platform allows:
 * **Windows** — ``UpdateLayeredWindow`` (:mod:`dodaios.platform.layered_window`):
   real per-pixel alpha, so soft shadows, see-through surfaces and fades work,
   and fully transparent pixels let clicks through.
-* **macOS** — a transparent Tk window; the frame is flattened to hard edges
-  first (Aqua composites RGBA images without clearing the previous frame).
+* **macOS** — a native Core Animation layer over the Tk window
+  (:mod:`ui.orb.mac_layer`): real per-pixel alpha, each frame replaces the
+  last. Without PyObjC it falls back to a transparent Tk window with the frame
+  flattened to hard edges.
 * **Elsewhere**, or when Windows refuses a frame — the overlay's colour key:
   the frame is flattened onto opaque colour with hard edges, so no blended
   pixel survives as a pink fringe.
@@ -23,6 +25,7 @@ from collections.abc import Callable
 from PIL import Image, ImageTk
 
 from dodaios.platform import layered_window
+from ui.orb.mac_layer import MacLayerPresenter
 
 log = logging.getLogger("jarvis.orb")
 
@@ -69,6 +72,7 @@ class AlphaWindow:
         self._shown = False
         self._photo: ImageTk.PhotoImage | None = None
         self._image_id: int | None = None
+        self._presenter: MacLayerPresenter | None = None
         top = tk.Toplevel(parent)
         top.overrideredirect(True)
         top.wm_attributes("-topmost", True)
@@ -170,6 +174,13 @@ class AlphaWindow:
                     self.top.wm_attributes("-transparentcolor", _ov.COLOR_KEY_HEX)
                 except tk.TclError:
                     log.debug("colour-key fallback failed", exc_info=True)
+        if self._mac_transparent:
+            # macOS: real per-pixel alpha through a native layer; Tk's canvas
+            # would leave a black box and every earlier frame behind.
+            if self._presenter is None and self.top is not None:
+                self._presenter = MacLayerPresenter(self.top, name=self._name)
+            if self._presenter is not None and self._presenter.present(frame):
+                return
         canvas = self.canvas
         if canvas is None:
             return
