@@ -81,7 +81,7 @@ def test_motion_above_threshold_moves_orb(tmp_path, monkeypatch):
     # new_x = event.x_root - offset_x = 1820 - 4 = 1816
     assert ov._mascot_x == 1816
     assert ov._mascot_y == 940
-    ov._root.geometry.assert_called_with("108x108+1816+940")
+    ov._root.geometry.assert_called_with(f"{ov._win_w}x{ov._win_h}+1816+940")
 
 
 def test_release_after_real_drag_persists(tmp_path, monkeypatch):
