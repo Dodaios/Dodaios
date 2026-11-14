@@ -194,7 +194,7 @@ def designs_path(data_dir: Path | None = None) -> Path:
 def _read_file(path: Path) -> dict[str, Any]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
+    except FileNotFoundError:  # no designs yet: the standard look, nothing to report
         return {"active": STANDARD_ID, "designs": []}
     except (OSError, ValueError) as exc:
         log.warning("designs file %s unreadable, starting from the standard look: %s", path, exc)
