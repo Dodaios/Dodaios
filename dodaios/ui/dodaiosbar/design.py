@@ -29,7 +29,6 @@ from PIL import Image, ImageDraw
 
 from dodaios.ui.dodaiosbar.modes import (
     ACTIVE_VOICE_MODES,
-    CONNECT_MODES,
     DICTATION_MODES,
     NOTICE_MODES,
 )
@@ -390,8 +389,17 @@ class BarPainter:
                         fill=HOVER_BG + (255,),
                     )
                 self._center(
-                    draw, state, look, a + 6 * u, b - 6 * u, cy, u, smooth, t,
-                    reveal=reveal, hot=hot,
+                    draw,
+                    state,
+                    look,
+                    a + 6 * u,
+                    b - 6 * u,
+                    cy,
+                    u,
+                    smooth,
+                    t,
+                    reveal=reveal,
+                    hot=hot,
                 )
                 continue
             mid = (a + b) / 2.0
@@ -432,7 +440,9 @@ class BarPainter:
             if state.drop_state == "ok":
                 draw.line(
                     [(cx - r, cy), (cx - r * 0.25, cy + r * 0.7), (cx + r, cy - r * 0.7)],
-                    fill=WHITE, width=round(1.8 * u), joint="curve",
+                    fill=WHITE,
+                    width=round(1.8 * u),
+                    joint="curve",
                 )
             else:
                 c = _mix(FILL, WHITE, blink(t) if look in NOTICE_MODES else 1.0)
@@ -560,7 +570,11 @@ def _pencil(draw, cx: float, cy: float, u: float, colour) -> None:
     r = 5.2 * u
     draw.line((cx - r, cy + r, cx + r * 0.75, cy - r * 0.75), fill=colour, width=w * 2)
     draw.polygon(
-        [(cx - r - 0.6 * u, cy + r + 0.6 * u), (cx - r + 2.6 * u, cy + r), (cx - r, cy + r - 2.6 * u)],
+        [
+            (cx - r - 0.6 * u, cy + r + 0.6 * u),
+            (cx - r + 2.6 * u, cy + r),
+            (cx - r, cy + r - 2.6 * u),
+        ],
         fill=colour,
     )
     draw.line((cx - 1.0 * u, cy + r + 0.4 * u, cx + r, cy + r + 0.4 * u), fill=colour, width=w)
@@ -570,8 +584,14 @@ def _sparkle(draw, cx: float, cy: float, u: float, colour, *, slashed: bool) -> 
     r, q = 6.0 * u, 1.5 * u
     draw.polygon(
         [
-            (cx, cy - r), (cx + q, cy - q), (cx + r, cy), (cx + q, cy + q),
-            (cx, cy + r), (cx - q, cy + q), (cx - r, cy), (cx - q, cy - q),
+            (cx, cy - r),
+            (cx + q, cy - q),
+            (cx + r, cy),
+            (cx + q, cy + q),
+            (cx, cy + r),
+            (cx - q, cy + q),
+            (cx - r, cy),
+            (cx - q, cy - q),
         ],
         fill=colour,
     )

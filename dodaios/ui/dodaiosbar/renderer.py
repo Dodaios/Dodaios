@@ -335,7 +335,8 @@ class JarvisBarRenderer:
         coarse mode the bridge set, which decides the shape and controls.
         """
         del call_ring
-        if drop_state in (DROP_STATE_OK, DROP_STATE_REJECTED) and drop_elapsed >= DROP_CONFIRM_TOTAL_S:
+        confirmed = drop_state in (DROP_STATE_OK, DROP_STATE_REJECTED)
+        if confirmed and drop_elapsed >= DROP_CONFIRM_TOTAL_S:
             drop_state = DROP_STATE_NONE
         coarse = surface_mode or mode
         look = "notice" if coarse in NOTICE_MODES else mode

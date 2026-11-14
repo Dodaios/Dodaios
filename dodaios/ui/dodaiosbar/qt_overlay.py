@@ -865,7 +865,9 @@ class QtJarvisBarOverlay:
             # Retina display); the input mask is in window points.
             mask_alpha = rgba_frame.getchannel("A")
             if mask_alpha.size != (renderer.WIN_W, renderer.WIN_H):
-                mask_alpha = mask_alpha.resize((renderer.WIN_W, renderer.WIN_H), Image.Resampling.BOX)
+                mask_alpha = mask_alpha.resize(
+                    (renderer.WIN_W, renderer.WIN_H), Image.Resampling.BOX
+                )
             mask_alpha = mask_alpha.point(lambda a: 255 if a >= 96 else 0)
             input_mask_key = mask_alpha.tobytes()
             self._qimage = _qimage_from_pil(rgba_frame)

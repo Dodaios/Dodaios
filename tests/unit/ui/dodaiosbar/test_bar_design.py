@@ -112,9 +112,10 @@ def test_the_tk_frame_has_no_key_coloured_fringe():
 def test_silence_is_still_and_speech_moves_the_bars():
     silent = [frame("speak", 0.0, t, surface_mode="listen").tobytes() for t in (0.1, 0.9)]
     assert silent[0] == silent[1]
-    assert frame("speak", 0.0, surface_mode="listen").tobytes() != frame(
-        "speak", 0.8, surface_mode="listen"
-    ).tobytes()
+    assert (
+        frame("speak", 0.0, surface_mode="listen").tobytes()
+        != frame("speak", 0.8, surface_mode="listen").tobytes()
+    )
 
 
 def test_dodaios_speaking_moves_the_same_bars_as_the_user():
