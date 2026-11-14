@@ -295,14 +295,13 @@ def _chat_from(state: Any) -> Any:
     """The agent-chat service on ``app.state``, built on first use like its routes do."""
 
     def get() -> Any:
-        service = getattr(state, "agent_chat", None)
-        if service is not None:
-            return service
-        factory = getattr(state, "agent_chat_factory", None)
-        if factory is None:
+        # The app's one builder: a second service would take the running
+        # thread turns away from the one the window talks to.
+        from dodaios.agent_chat.app_service import service_from_state
+
+        service = service_from_state(state)
+        if service is None:
             raise RuntimeError("this app has no agent chat service")
-        service = factory()
-        state.agent_chat = service
         return service
 
     return get

@@ -78,20 +78,17 @@ def chat_service() -> Any:
         raise EcosystemUnavailable(
             "agent chat", "Dodaios' web server is still starting. Try again in a moment."
         )
-    service = getattr(state, "agent_chat", None)
-    if service is not None:
-        return service
-    factory = getattr(state, "agent_chat_factory", None)
-    if factory is None:
+    if getattr(state, "agent_chat", None) is None and getattr(
+        state, "agent_chat_factory", None
+    ) is None:
         raise EcosystemUnavailable("agent chat", "no chat service is configured on this build.")
-    try:
-        service = factory()
-    except Exception as exc:  # noqa: BLE001 — surfaced as a typed refusal
-        log.warning("agent MCP: chat service could not be built: %s", exc)
-        raise EcosystemUnavailable(
-            "agent chat", f"the service failed to build ({type(exc).__name__})."
-        ) from exc
-    state.agent_chat = service
+    # The app's one builder: a second service would take the running thread
+    # turns away from the one the window talks to.
+    from dodaios.agent_chat.app_service import service_from_state
+
+    service = service_from_state(state)
+    if service is None:
+        raise EcosystemUnavailable("agent chat", "the service failed to build (see the app log).")
     return service
 
 
