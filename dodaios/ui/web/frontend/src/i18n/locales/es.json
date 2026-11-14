@@ -8236,6 +8236,7 @@
       "open_external": "Abrir en tu navegador",
       "empty_title": "Escribe una dirección arriba",
       "empty_hint": "Pensado para vistas previas locales, como un servidor de desarrollo. Muchos sitios públicos no permiten mostrarse dentro de otra app; ábrelos en tu navegador.",
+      "empty_hint_live": "Los sitios públicos se abren aquí en directo en el navegador de {assistant}, donde también trabaja. Las vistas previas locales como localhost cargan directamente.",
       "refused_title": "{host} no se puede mostrar aquí",
       "refused_hint": "Este sitio no permite mostrarse dentro de otra aplicación. Ábrelo en tu navegador, donde tienes la sesión iniciada.",
       "unreachable_title": "{host} no responde",

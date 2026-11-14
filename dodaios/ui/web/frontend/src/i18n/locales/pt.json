@@ -8236,6 +8236,7 @@
       "open_external": "Abrir no teu navegador",
       "empty_title": "Introduz um endereço acima",
       "empty_hint": "Feito para pré-visualizações locais, como um servidor de desenvolvimento. Muitos sites públicos não permitem ser mostrados dentro de outra aplicação; abre-os no teu navegador.",
+      "empty_hint_live": "Os sites públicos abrem aqui em direto no navegador de {assistant}, onde também trabalha. Pré-visualizações locais como localhost carregam diretamente.",
       "refused_title": "{host} não pode ser exibido aqui",
       "refused_hint": "Este site não permite ser exibido dentro de outro aplicativo. Abra-o no seu navegador, onde você já está conectado.",
       "unreachable_title": "{host} não respondeu",

@@ -8236,6 +8236,7 @@
       "open_external": "在浏览器中打开",
       "empty_title": "在上方输入地址",
       "empty_hint": "适用于本地预览，例如开发服务器。许多公共网站不允许在其他应用中显示；请在浏览器中打开它们。",
+      "empty_hint_live": "公共网站会在这里实时显示在 {assistant} 的浏览器中，它也在这个浏览器里工作。localhost 等本地预览会直接加载。",
       "refused_title": "无法在此显示 {host}",
       "refused_hint": "此网站不允许在其他应用中显示。请在你的浏览器中打开，你在那里已登录。",
       "unreachable_title": "{host} 没有响应",
