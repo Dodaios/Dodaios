@@ -261,16 +261,18 @@ class AskUserTool:
             if isinstance(confidence, (int, float)) and not isinstance(confidence, bool)
             else None
         )
+        tool = str(pending.get("tool") or "").strip()
         ctx = ask_gate.AskContext(
             confidence=confidence,
             reversibility=ask_gate.pending_reversibility(
-                str(pending.get("tool") or "").strip(),
+                tool,
                 str(pending.get("action") or "").strip(),
                 str(pending.get("reversibility") or "").strip(),
             ),
             missing_required=args.get("missing_required") is True,
             clarify_enabled=self._clarify_enabled(),
             requested=args.get("user_asked") is True,
+            deliverable=ask_gate.is_deliverable(tool),
         )
         result = ask_gate.decide(specs, ctx, _safe_search())
         row_ids: list[str] = []

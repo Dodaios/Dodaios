@@ -209,3 +209,52 @@ def test_clarify_default_is_off() -> None:
     from dodaios.core.config import VoiceConfig
 
     assert VoiceConfig().clarify_incomplete_enabled is False
+
+
+_AUDIENCE: dict[str, Any] = {
+    "question": "Who is the presentation for?",
+    "options": [{"label": "Investors"}, {"label": "My own introduction"}],
+    "recommendation_reason": "Real growth numbers.",
+}
+
+
+def test_an_unsure_deliverable_asks_even_with_clarify_off() -> None:
+    unsure = AskContext(reversibility="reversible", confidence=0.5, deliverable=True)
+    assert decide(_specs(_AUDIENCE), unsure).needs_card
+    sure = AskContext(reversibility="reversible", confidence=0.9, deliverable=True)
+    assert not decide(_specs(_AUDIENCE), sure).needs_card
+
+
+def test_deliverable_tools_by_bare_and_mcp_name() -> None:
+    for tool in ("node", "mcp__dodaios__node", "dodaios__create_artifact", "write_report"):
+        assert ask_gate.is_deliverable(tool), tool
+    for tool in ("", "gmail", "google_calendar", "mcp__dodaios__run_shell"):
+        assert not ask_gate.is_deliverable(tool), tool
+
+
+def test_the_tool_asks_before_an_unsure_deck(monkeypatch, log: AskLog) -> None:
+    monkeypatch.setattr(ask_gate, "vault_search", lambda: None)
+    service = _Service()
+    args = {
+        **_AUDIENCE,
+        "pending_action": {
+            "tool": "node",
+            "action": "create slides deck",
+            "reversibility": "reversible",
+        },
+        "confidence": 0.5,
+    }
+    asyncio.run(_tool(service).execute(args, None))
+    assert len(service.opened) == 1, "the deck's audience must reach the person"
+
+
+def test_an_assumed_answer_never_claims_the_person_left_it_open() -> None:
+    from dodaios.agent_chat.questions import TIMEOUT, for_agent, recommended_answer
+
+    (spec,) = _specs(_ROOM)
+    unattended = for_agent(recommended_answer(spec, UNATTENDED))
+    assert unattended["person_answered"] is False
+    assert "never saw" in unattended["note"]
+    assert "did not answer" not in unattended["note"]
+    timed_out = for_agent(recommended_answer(spec, TIMEOUT))
+    assert "did not answer" in timed_out["note"]

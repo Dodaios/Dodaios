@@ -13,7 +13,12 @@ question, with no model call, in this order:
 3. **Clarify questions are OFF by default** (``voice.clarify_incomplete_enabled``).
    While off, a card may only be asked for a recoverable or irreversible
    action (an action nobody classified counts as recoverable) or for a missing
-   required parameter; anything else takes the recommendation.
+   required parameter; anything else takes the recommendation. A thing made for
+   the person to keep (a deck, a document, a page: ``DELIVERABLE_TOOLS``) is
+   the exception: what it is for and in which language decide the whole work,
+   so an unsure asker asks even while clarify questions are off. Found
+   2026-11-14: "a presentation for my introduction" became an English investor
+   deck because the card was swallowed.
 4. **Otherwise ask.** Every question left goes on ONE card, which the person
    clicks through in the asker's order (the series of ``questions.py``, at
    most ``MAX_QUESTIONS``). Until 2026-11-13 only the first was asked and the
@@ -53,6 +58,13 @@ TRIMMED: Final[str] = "trimmed"
 #: A stated confidence at or above this lets a reversible action go ahead.
 ASSUME_CONFIDENCE: Final[float] = 0.7
 
+#: Tools that make something the person keeps and uses: a node (deck, document,
+#: sheet, page), an artifact, a report. Undoing one is cheap; making it for the
+#: wrong audience wastes the whole work, so rule 3 does not swallow its questions.
+DELIVERABLE_TOOLS: Final[frozenset[str]] = frozenset(
+    {"node", "create_artifact", "living_page", "write_report", "whiteboard"}
+)
+
 _WORD: Final[re.Pattern[str]] = re.compile(r"\w+", re.UNICODE)
 _STOP: Final[frozenset[str]] = frozenset(
     "the and for you your with that this what which when where who how should would could "
@@ -87,6 +99,8 @@ class AskContext:
     clarify_enabled: bool = False
     #: The person asked to be asked in this turn: the questions are the task.
     requested: bool = False
+    #: The pending action makes a thing the person keeps (``DELIVERABLE_TOOLS``).
+    deliverable: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +140,12 @@ def pending_reversibility(tool: str, action: str, declared: str = "") -> str:
     except Exception:  # noqa: BLE001 - an unclassifiable call reads as "not stated"
         log.debug("ask gate: could not classify %r", tool, exc_info=True)
         return ""
+
+
+def is_deliverable(tool: str) -> bool:
+    """Whether ``tool`` (bare, or an MCP name like ``mcp__dodaios__node``) makes a deliverable."""
+    name = (tool or "").strip().lower().rsplit("__", 1)[-1]
+    return name in DELIVERABLE_TOOLS
 
 
 def recall_answer(spec: QuestionSpec, search: MemorySearch | None) -> SpecDecision | None:
@@ -170,7 +190,12 @@ def _assume_reason(ctx: AskContext) -> str:
             f"the action is reversible and confidence {ctx.confidence:.2f} is at or above "
             f"{ASSUME_CONFIDENCE:.2f}"
         )
-    if not ctx.clarify_enabled and ctx.reversibility == "reversible" and not ctx.missing_required:
+    if (
+        not ctx.clarify_enabled
+        and ctx.reversibility == "reversible"
+        and not ctx.missing_required
+        and not ctx.deliverable
+    ):
         return "clarify questions are off and the action is reversible"
     return ""
 
