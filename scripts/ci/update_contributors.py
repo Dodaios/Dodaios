@@ -23,6 +23,12 @@ Three sources are merged, because any one of them hides people:
   opened by one account, the commits are credited to that account. Otherwise
   they are left off the wall. Neither the name nor the email is written: a
   git name is often a family member's machine login, not the contributor.
+* ``Co-authored-by`` trailers on the default branch. A contribution from a
+  pull request that was closed and landed in another one names its author
+  only there, and neither source above counts co-authors. The trailers are
+  read from the local history (the checkout must be complete), and GitHub
+  resolves their emails to accounts, the way it shows co-authors on a
+  commit. A co-author whose email no account claims stays off the wall.
 
 Two kinds of accounts are deliberately excluded:
 
@@ -54,7 +60,8 @@ import urllib.request
 from pathlib import Path
 
 REPO = "Dodaios/Dodaios"
-README = Path(__file__).resolve().parents[2] / "README.md"
+ROOT = Path(__file__).resolve().parents[2]
+README = ROOT / "README.md"
 
 START = "<!-- contributors:start -->"
 END = "<!-- contributors:end -->"
@@ -63,6 +70,13 @@ END = "<!-- contributors:end -->"
 #: See the module docstring for why the AI co-author trailer lands on a
 #: third-party account.
 EXCLUDED_LOGINS = frozenset({"claude"})
+
+#: Co-author addresses of AI coding agents. Their trailers credit a tool, not
+#: a person, so they are dropped before GitHub is asked who owns an address.
+AI_AGENT_EMAILS = frozenset({"noreply@anthropic.com", "cursoragent@cursor.com"})
+
+#: Commits per GraphQL query when co-author emails are resolved.
+RESOLVE_BATCH = 50
 
 #: The wall is one flow of avatars with no table and no names, the way
 #: OpenClaw shows its contributors: GitHub wraps it to the width of the page.
@@ -226,13 +240,140 @@ def fetch_merged_pull_authors() -> list[dict]:
     return list(by_login.values())
 
 
-def combine(commit_people: list[dict], pr_people: list[dict]) -> list[dict]:
+def _trailer_emails(values: str) -> list[str]:
+    """The addresses in ``Co-authored-by`` values, lower case, people only.
+
+    AI agents (``AI_AGENT_EMAILS``) and bots (``[bot]`` in the address) are
+    dropped: they are tools, and the wall thanks people.
+    """
+    emails: list[str] = []
+    for value in values.split("\x1e"):
+        value = value.strip()
+        if "<" not in value or not value.endswith(">"):
+            continue
+        email = value[value.rindex("<") + 1 : -1].strip().lower()
+        if not email or email in AI_AGENT_EMAILS or "[bot]" in email:
+            continue
+        if email not in emails:
+            emails.append(email)
+    return emails
+
+
+def coauthored_commits(log: str) -> dict[str, list[str]]:
+    """``sha -> co-author emails`` for every commit that credits a person.
+
+    ``log`` is ``git log --format=%H%x1f<trailer values>%x1d``: a record per
+    commit, the hash and its ``Co-authored-by`` values separated by 0x1f,
+    the values among themselves by 0x1e.
+    """
+    commits: dict[str, list[str]] = {}
+    for record in log.split("\x1d"):
+        sha, _, values = record.strip().partition("\x1f")
+        emails = _trailer_emails(values)
+        if sha and emails:
+            commits[sha] = emails
+    return commits
+
+
+def credit_coauthors(commits: dict[str, list[str]], resolved: dict[str, list[dict]]) -> list[dict]:
+    """One entry per account credited as a co-author, counted per commit.
+
+    ``resolved`` maps a hash to the commit's authors as GitHub resolved them
+    (``email`` and ``user``). Only an author whose address is one of that
+    commit's co-author trailers counts; the git author is counted by the
+    contributors API already.
+    """
+    by_login: dict[str, dict] = {}
+    for sha, emails in commits.items():
+        wanted = set(emails)
+        seen: set[str] = set()
+        for author in resolved.get(sha) or []:
+            email = str(author.get("email") or "").strip().lower()
+            user = author.get("user") or {}
+            login = str(user.get("login") or "")
+            if email not in wanted or not _keep(login, "User") or login in seen:
+                continue
+            seen.add(login)
+            entry = by_login.setdefault(
+                login,
+                {
+                    "login": login,
+                    "avatar_url": user.get("avatarUrl") or "",
+                    "type": "User",
+                    "contributions": 0,
+                },
+            )
+            entry["contributions"] += 1
+    return list(by_login.values())
+
+
+def _git(*args: str) -> str:
+    proc = subprocess.run(  # noqa: S603 - fixed git argv, no user input
+        ["git", "-C", str(ROOT), *args],  # noqa: S607 - git from PATH
+        capture_output=True,
+        check=False,
+        text=True,
+        encoding="utf-8",
+    )
+    if proc.returncode != 0:
+        raise SystemExit(f"git {' '.join(args)} failed: {proc.stderr.strip()[:400]}")
+    return proc.stdout
+
+
+def _resolve_commit_authors(shas: list[str]) -> dict[str, list[dict]]:
+    """Ask GitHub who each commit's authors are, ``RESOLVE_BATCH`` at a time."""
+    owner, name = REPO.split("/")
+    resolved: dict[str, list[dict]] = {}
+    for start in range(0, len(shas), RESOLVE_BATCH):
+        batch = shas[start : start + RESOLVE_BATCH]
+        fields = "\n".join(
+            f'c{i}: object(oid: "{sha}") {{ ... on Commit {{ authors(first: 20) '
+            f"{{ nodes {{ email user {{ login avatarUrl }} }} }} }} }}"
+            for i, sha in enumerate(batch)
+        )
+        query = f'query {{ repository(owner: "{owner}", name: "{name}") {{\n{fields}\n}} }}'
+        payload = _read_json(
+            urllib.request.Request(
+                "https://api.github.com/graphql",
+                data=json.dumps({"query": query}).encode(),
+                headers={**_headers(), "Content-Type": "application/json"},
+                method="POST",
+            )
+        )
+        if not isinstance(payload, dict) or payload.get("errors"):
+            detail = repr(payload)[:400]
+            raise SystemExit(f"GitHub GraphQL returned errors: {detail}")
+        repository = payload["data"]["repository"]
+        for i, sha in enumerate(batch):
+            commit = repository.get(f"c{i}") or {}
+            resolved[sha] = list(((commit.get("authors") or {}).get("nodes")) or [])
+    return resolved
+
+
+def fetch_coauthor_credits() -> list[dict]:
+    """Accounts credited in ``Co-authored-by`` trailers on the checked-out branch."""
+    if _git("rev-parse", "--is-shallow-repository").strip() == "true":
+        raise SystemExit(
+            "update_contributors.py reads co-authors from the git history: run it "
+            "in a complete clone (the workflow checks out with fetch-depth: 0)."
+        )
+    log = _git("log", "--format=%H%x1f%(trailers:key=Co-authored-by,valueonly,separator=%x1e)%x1d")
+    commits = coauthored_commits(log)
+    if not commits:
+        return []
+    return credit_coauthors(commits, _resolve_commit_authors(list(commits)))
+
+
+def combine(
+    commit_people: list[dict], pr_people: list[dict], coauthors: list[dict] | None = None
+) -> list[dict]:
     """Every human who shipped something, most work first.
 
     A GitHub account is ranked by its commit count, or by its merged pull
-    request count when the contributors index has not listed it yet. Anonymous
-    git names fold into an account when exactly one merged-pull-request author
-    used that name. Names that fold nowhere stay, without their email.
+    request count when the contributors index has not listed it yet, plus the
+    commits it is credited on as a co-author. Anonymous git names fold into an
+    account when exactly one merged-pull-request author used that name. Names
+    that fold nowhere stay, without their email.
     """
     users: dict[str, dict] = {}
     for person in commit_people:
@@ -271,6 +412,25 @@ def combine(commit_people: list[dict], pr_people: list[dict]) -> list[dict]:
             if cleaned:
                 name_to_logins.setdefault(cleaned, set()).add(login)
 
+    for person in coauthors or []:
+        login = person.get("login") or ""
+        if not _keep(login, person.get("type") or "User"):
+            continue
+        count = int(person.get("contributions") or 0)
+        entry = users.get(login)
+        if entry is None:
+            users[login] = {
+                "login": login,
+                "avatar_url": person.get("avatar_url") or "",
+                "contributions": count,
+            }
+        else:
+            if not entry["avatar_url"]:
+                entry["avatar_url"] = person.get("avatar_url") or ""
+            # A co-authored commit is one the person did not author, so it
+            # adds to what the other sources counted.
+            entry["contributions"] += count
+
     anon_counts: dict[str, int] = {}
     for person in commit_people:
         if person.get("type") != "Anonymous":
@@ -302,7 +462,9 @@ def combine(commit_people: list[dict], pr_people: list[dict]) -> list[dict]:
 
 def fetch_contributors() -> list[dict]:
     """Every human who shipped something here, most work first."""
-    return combine(fetch_commit_contributors(), fetch_merged_pull_authors())
+    return combine(
+        fetch_commit_contributors(), fetch_merged_pull_authors(), fetch_coauthor_credits()
+    )
 
 
 def _avatar_src(url: str) -> str:
