@@ -35,7 +35,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from dodaios.core.branding import PERSISTENT_PRODUCT_NAME, PRODUCT_NAME
+from dodaios.core.branding import PRODUCT_NAME
 from dodaios.marketplace.catalog import PluginSpec
 
 log = logging.getLogger(__name__)
@@ -213,7 +213,7 @@ def _initialize_body() -> dict[str, Any]:
         "params": {
             "protocolVersion": _PROTOCOL_VERSION,
             "capabilities": {},
-            "clientInfo": {"name": PERSISTENT_PRODUCT_NAME, "version": "1.0"},
+            "clientInfo": {"name": PRODUCT_NAME, "version": "1.0"},
         },
     }
 
@@ -418,7 +418,7 @@ async def probe_connector(
     request_headers = {
         "Accept": "application/json, text/event-stream",
         "Content-Type": "application/json",
-        "User-Agent": f"{PERSISTENT_PRODUCT_NAME}/1.0",
+        "User-Agent": f"{PRODUCT_NAME}/1.0",
         **dict(headers or {}),
     }
     try:
@@ -482,7 +482,7 @@ async def _probe_sse(
         url,
         headers={
             "Accept": "text/event-stream",
-            "User-Agent": f"{PERSISTENT_PRODUCT_NAME}/1.0",
+            "User-Agent": f"{PRODUCT_NAME}/1.0",
             **headers,
         },
     ) as response:

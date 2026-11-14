@@ -437,19 +437,18 @@ if sys.platform == "win32":
                         "040904B0",
                         [
                             StringStruct("CompanyName", "Dodaios"),
-                            # TODO(signpath): FileDescription and ProductName keep
-                            # the earlier name until the SignPath artifact
-                            # configuration pins the new product name
-                            # (docs/code-signing-policy.md). Change them together.
-                            StringStruct("FileDescription", "Personal Jarvis"),
+                            # SignPath pins only the setup's product name
+                            # (docs/code-signing-policy.md), so the app's own
+                            # version info carries the current name.
+                            StringStruct("FileDescription", "Dodaios"),
                             StringStruct("FileVersion", VERSION),
                             StringStruct("InternalName", GUI_EXE_NAME),
                             StringStruct(
                                 "LegalCopyright",
-                                "Personal Jarvis contributors. Apache 2.0 licensed.",
+                                "Dodaios contributors. Apache 2.0 licensed.",
                             ),
                             StringStruct("OriginalFilename", f"{GUI_EXE_NAME}.exe"),
-                            StringStruct("ProductName", "Personal Jarvis"),
+                            StringStruct("ProductName", "Dodaios"),
                             StringStruct("ProductVersion", VERSION),
                         ],
                     )

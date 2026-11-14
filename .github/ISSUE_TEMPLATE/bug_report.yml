@@ -22,7 +22,7 @@ body:
       label: Steps to reproduce
       description: How can we trigger the bug?
       placeholder: |
-        1. Start with `jarvis serve`
+        1. Start with `dodaios serve`
         2. Open http://localhost:47821
         3. Do '...'
         4. See the error

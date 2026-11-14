@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <base href="/" />
-    <title>Hero banner — Personal Jarvis</title>
+    <title>Hero banner — Dodaios</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
     <style>
       :root { --yellow:#ffd60a; --black:#0a0a0a; --ink:#f4f4f5; --muted:#8f8f8f; --card:#0f0f0f; --border:#242424; }
@@ -20,8 +20,8 @@
       .label .note { color:var(--muted); }
       .frame { background:var(--black); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
       .frame img { display:block; width:100%; height:auto; }
-      .frame.live { aspect-ratio: 1280 / 480; }
-      .frame.live iframe { width:1280px; height:480px; border:0; transform-origin:top left; }
+      .frame.live { aspect-ratio: 1086 / 362; }
+      .frame.live iframe { width:1086px; height:362px; border:0; transform-origin:top left; }
       .placeholder { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; min-height:300px; border:1px dashed var(--border); border-radius:14px; color:var(--muted); text-align:center; padding:30px; }
       .placeholder b { color:var(--ink); font-size:18px; }
       .scaler { position:relative; width:100%; }
@@ -34,23 +34,23 @@
       <p class="lead">The chosen banner, wired into the README hero.</p>
 
       <div class="variant">
-        <div class="label">Live hero <span class="note">— AI-generated metallic-gold wordmark (assets/brand/banner.png)</span></div>
-        <div class="frame"><img src="assets/brand/banner.png" alt="Personal Jarvis banner" /></div>
+        <div class="label">Live hero <span class="note">— gold mascot and pixel wordmark (assets/brand/banner.png, rendered from banner.html)</span></div>
+        <div class="frame"><img src="assets/brand/banner.png" alt="Dodaios banner" /></div>
       </div>
 
       <div class="variant">
-        <div class="label">CSS fallback <span class="note">— reproducible pure-CSS treatment (banner.html → banner-css.png)</span></div>
+        <div class="label">Source <span class="note">— banner.html, live</span></div>
         <div class="frame live"><div class="scaler"><iframe src="assets/brand/banner.html" scrolling="no"></iframe></div></div>
       </div>
     </div>
     <script>
-      // Scale the 1280px live iframe to fit the column width.
+      // Scale the 1086px live iframe to fit the column width.
       function fit() {
         document.querySelectorAll(".frame.live").forEach((f) => {
           const s = f.querySelector(".scaler"), ifr = f.querySelector("iframe");
-          const k = f.clientWidth / 1280;
+          const k = f.clientWidth / 1086;
           ifr.style.transform = "scale(" + k + ")";
-          s.style.height = 480 * k + "px";
+          s.style.height = 362 * k + "px";
         });
       }
       window.addEventListener("resize", fit);

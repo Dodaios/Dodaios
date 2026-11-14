@@ -73,7 +73,7 @@ async function apiFetch({ method, token, path, params, body }) {
     method,
     headers: {
       Authorization: `Bearer ${token}`,
-      "User-Agent": "Personal-Jarvis/1.0",
+      "User-Agent": "Dodaios/1.0",
     },
   };
   if (body !== undefined) {

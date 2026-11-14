@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Build the Windows installer for Personal Jarvis.
+    Build the Windows installer for Dodaios.
 
 .DESCRIPTION
     One command from a clean checkout to a shippable installer:
@@ -96,7 +96,7 @@ $InitText = Get-Content -Raw -Encoding UTF8 $InitFile
 $VersionMatch = [regex]::Match($InitText, '__version__\s*=\s*"([^"]+)"')
 if (-not $VersionMatch.Success) { Stop-WithError "dodaios/__init__.py does not define __version__" }
 $AppVersion = $VersionMatch.Groups[1].Value
-Write-Step "Personal Jarvis $AppVersion"
+Write-Step "Dodaios $AppVersion"
 
 # --- Python ----------------------------------------------------------------
 if ($Python -eq "") {

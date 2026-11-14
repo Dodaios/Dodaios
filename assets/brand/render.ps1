@@ -1,7 +1,7 @@
 <#
   Rasterize a brand HTML file to PNG via headless Chrome.
   Usage:  pwsh assets/brand/render.ps1 [-In banner.html] [-Out banner-css.png] [-W 1280] [-H 480]
-  NOTE: defaults to banner-css.png so it never overwrites the AI-generated banner.png.
+  The hero banner: -In banner.html -Out banner.png -W 1086 -H 362 -Scale 2
   Writes to a space-free temp path first (Chrome --screenshot mishandles spaces),
   then copies into assets/brand/.
 #>

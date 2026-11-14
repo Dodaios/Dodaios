@@ -101,15 +101,10 @@ The wordmark is the word **DODAIOS** as an embossed, beveled **metallic-gold** w
 on matte black — chunky geometric capitals with 3D bevels, specular highlights, a warm
 golden bloom, and faint embers. It should read like forged gold, not flat text.
 
-The banner files below still spell the former product name; regenerate them with the
-current name before using the banner anywhere.
-
-- **Live banner:** [`../assets/brand/banner.png`](../assets/brand/banner.png) — a
-  high-resolution generated raster (2172×724, 3:1).
-- **CSS fallback:** [`../assets/brand/banner.html`](../assets/brand/banner.html) is a
-  fully reproducible pure-CSS/SVG treatment of the same wordmark;
-  `pwsh assets/brand/render.ps1` rasterizes it to `banner-css.png`. Use it only where a
-  generated raster isn't available.
+- **Live banner:** [`../assets/brand/banner.png`](../assets/brand/banner.png) — the
+  gold mascot next to the pixel wordmark DODAIOS, 2172×724 (3:1).
+- **Source:** [`../assets/brand/banner.html`](../assets/brand/banner.html) renders it:
+  `pwsh assets/brand/render.ps1 -In banner.html -Out banner.png -W 1086 -H 362 -Scale 2`.
 
 ### Do
 
@@ -140,7 +135,7 @@ Write like a senior engineer who respects the reader's time.
 | Asset | Path |
 |---|---|
 | Hero banner (live) | `assets/brand/banner.png` |
-| Hero banner (CSS fallback source) | `assets/brand/banner.html` → `banner-css.png` |
+| Hero banner (source) | `assets/brand/banner.html` → `banner.png` |
 | Banner render script | `assets/brand/render.ps1` |
 | Product Orb | `dodaios/ui/web/frontend/public/hero-orb.png` |
 | Logo (vector source) | `assets/brand/dodaios-logo.svg` |
