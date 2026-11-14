@@ -251,6 +251,56 @@ Set the text-to-speech output volume (0.0 to 1.0).
 - **Desktop UI section:** `settings`
 - **Voice example (EN):** "set the voice volume to 50 percent"
 
+## `design-list` — List designs
+
+List the app's designs (colours plus an optional animated background): the built-in ones, the person's own, which one is on screen ('standard' = the app's own look), and every colour key and background style a design may use.
+
+- **Endpoint:** `GET /api/designs`
+- **Arguments:** none
+- **Requires confirmation:** no
+- **Desktop UI section:** `designs`
+- **Voice example (EN):** "which designs do i have"
+
+## `design-save` — Make or change a design
+
+Make a new design for the whole app from what the person describes (its colours and an optional animated background), or change one of their own designs by passing its id; it is switched on right away (apply=false only saves it). Choose colours that match the description and keep text readable: foreground on background needs a contrast of at least 7:1. Give BOTH a `dark` and a `light` palette so the design works in either appearance. Each palette needs background, foreground and accent as #rrggbb; the app derives every other surface, and these keys are optional overrides: sidebar, card, popover, surface, border, muted, primary, user_bubble, bubble_out, bubble_in, success, warning, destructive. `background` moves behind the interface: style glow (soft drifting light), waves (bands of light), stars (twinkling points), gradient (a slowly turning colour gradient) or none; colors 1 to 5 #rrggbb (deep saturated tones suit a dark design, soft pastels a light one), speed slow, medium or fast, strength 0 to 1 (0.3 subtle, 0.5 normal, 0.8 strong). To change a design send its id and only what changes. Tell the person they can switch designs or go back to the standard look in Settings > Designs.
+
+- **Endpoint:** `POST /api/designs`
+- **Arguments:** `id` (string; optional); `name` (string; optional); `description` (string; optional); `dark` (object; optional); `light` (object; optional); `background` (object; optional); `apply` (boolean; optional)
+- **Requires confirmation:** no
+- **Desktop UI section:** `designs`
+- **Voice example (EN):** "make me a dark blue design"
+
+## `design-apply` — Switch design
+
+Switch the app to one of its designs by id (see design-list); 'standard' goes back to the app's own look.
+
+- **Endpoint:** `PUT /api/designs/active`
+- **Arguments:** `id` (string; required)
+- **Requires confirmation:** no
+- **Desktop UI section:** `designs`
+- **Voice example (EN):** "switch to the deep sea design"
+
+## `design-reset` — Back to the standard look
+
+Switch designs off and go back to the app's standard colours. The person's designs stay saved.
+
+- **Endpoint:** `POST /api/designs/reset`
+- **Arguments:** none
+- **Requires confirmation:** no
+- **Desktop UI section:** `designs`
+- **Voice example (EN):** "reset the design"
+
+## `design-delete` — Delete a design
+
+Delete one of the person's own designs by id; built-in designs cannot be deleted. If it was on screen, the standard look takes over.
+
+- **Endpoint:** `DELETE /api/designs/{design_id}`
+- **Arguments:** `design_id` (string; required)
+- **Requires confirmation:** yes
+- **Desktop UI section:** `designs`
+- **Voice example (EN):** "delete my design"
+
 ## `audio-devices-list` — List audio devices
 
 List available speaker and microphone devices.

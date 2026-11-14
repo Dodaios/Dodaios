@@ -646,6 +646,17 @@ class UiThemeChanged(Event):
     theme: str = ""  # "dark" | "light" | "system"
 
 
+@dataclass(frozen=True, slots=True)
+class UiDesignChanged(Event):
+    """Fired when a design is made, changed, deleted or switched (docs/designs.md).
+
+    The frontend listens for this over ``/ws`` (wildcard-forwarded) and reloads
+    the designs, so a design Dodaios made in the chat shows in every open window
+    at once. ``active`` is the design now on screen, ``"standard"`` for none.
+    """
+    active: str = ""
+
+
 # ----------------------------------------------------------------------
 # Action-Lifecycle
 # ----------------------------------------------------------------------

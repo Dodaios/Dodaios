@@ -40,6 +40,7 @@ export type HubTabId =
   | "shortcuts"
   | "appshots"
   | "pets"
+  | "designs"
   | "notifications"
   | "trust"
   | "phone"
@@ -104,6 +105,7 @@ export const HUB_GROUPS: readonly { id: string; labelKey: string; entries: reado
     entries: [
       { kind: "tab", id: "profile" },
       page("language", "design.settings.language_app", Languages),
+      { kind: "tab", id: "designs" },
       { kind: "tab", id: "notifications" },
       { kind: "link", id: "memory", labelKey: "design.settings.memory", icon: WikiIcon },
     ],
@@ -206,6 +208,7 @@ export function resolveHubTab(
     case "appshots":
     case "shortcuts":
     case "pets":
+    case "designs":
     case "notifications":
     case "trust":
     case "phone":

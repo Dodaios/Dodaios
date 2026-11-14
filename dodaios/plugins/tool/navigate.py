@@ -73,6 +73,9 @@ KNOWN: frozenset[str] = frozenset(
         "marketplace",
         # My Pets: the desktop pet, its look, and the pets the user created.
         "pets",
+        # Designs: the person's own colours and animated backgrounds, and the
+        # way back to the standard look. A Settings-hub page.
+        "designs",
         # Notifications: desktop notifications, quiet hours and approvals in
         # Telegram. A Settings-hub page.
         "notifications",
@@ -313,6 +316,17 @@ _ALIASES: dict[str, str] = {
     "mein haustier": "pets",  # i18n-allow: input vocab
     "mis mascotas": "pets",  # i18n-allow: input vocab
     "mascota de escritorio": "pets",  # i18n-allow: input vocab
+    # Designs. Only phrases that name the app's own designs: a bare "design"
+    # or "theme" would pull ordinary questions onto a settings page, and
+    # "look" is the orb's.
+    "my designs": "designs",
+    "app design": "designs",
+    "colour theme": "designs",
+    "color theme": "designs",
+    "meine designs": "designs",  # i18n-allow: input vocab
+    "farbschema": "designs",  # i18n-allow: input vocab
+    "mis diseños": "designs",  # i18n-allow: input vocab
+    "os meus designs": "designs",  # i18n-allow: input vocab
 }
 
 

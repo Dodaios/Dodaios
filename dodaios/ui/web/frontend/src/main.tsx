@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 import { ThemeProvider } from "./hooks/useTheme";
+import { DesignLayer } from "./components/designs/DesignLayer";
 import { ViewErrorBoundary } from "./components/ViewErrorBoundary";
 import { AuthGate } from "./components/AuthGate";
 import { installPreloadRecovery } from "./lib/preloadRecovery";
@@ -167,7 +168,10 @@ function renderApp(): void {
                   <AppshotEditorWindow />
                 </React.Suspense>
               ) : (
-                <App />
+                <>
+                  <App />
+                  <DesignLayer />
+                </>
               )}
             </AuthGate>
           </ViewErrorBoundary>

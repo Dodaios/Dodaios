@@ -292,6 +292,7 @@
     "nav_home": "Início"
   },
   "nav": {
+    "designs": "Designs",
     "chat_workspace": "Chat",
     "chats": "Chats",
     "agents": "Agentes",
@@ -11909,5 +11910,65 @@
     "address": "Endereço web",
     "back": "Voltar",
     "forward": "Avançar"
+  },
+  "designs": {
+    "title": "Designs",
+    "subtitle": "Torna a app tua: as cores e um fundo em movimento. Diz ao {name} como deve ficar, ou escolhe um design abaixo.",
+    "reset": "Voltar ao padrão",
+    "reset_done": "O aspeto padrão voltou. Os teus designs continuam guardados.",
+    "error": "Não funcionou: {0}",
+    "active": "Ativo",
+    "use": "Usar {0}",
+    "rename": "Mudar o nome",
+    "delete": "Apagar",
+    "delete_confirm": "Apagar",
+    "cancel": "Cancelar",
+    "deleted": "{0} apagado.",
+    "only_dark": "Feito só para o aspeto escuro.",
+    "only_light": "Feito só para o aspeto claro.",
+    "standard_name": "Padrão",
+    "standard_description": "O aspeto próprio da app.",
+    "own_title": "Os teus designs",
+    "own_empty": "Ainda não tens designs teus. Descreve um acima e o {name} cria-o.",
+    "examples_title": "Exemplos",
+    "examples_body": "Prontos a usar. Pede ao {name} para mudar um e ficas com a tua própria cópia.",
+    "ask": {
+      "title": "Diz ao {name} como deve ficar",
+      "body": "Cores, ambiente, um fundo em movimento. O design liga-se assim que estiver pronto e aparece aqui.",
+      "placeholder": "Por exemplo: azul escuro com um brilho suave a mover-se no fundo",
+      "send": "Criar design",
+      "sent": "Enviado. O {name} está a criar o teu design.",
+      "pending": "O {name} está a criar o teu design…",
+      "request": "Faz-me um design para a app: {0}",
+      "example_1": "Azul escuro com um brilho suave em movimento",
+      "example_2": "Quente e calmo como papel, com tinta castanha",
+      "example_3": "Preto com verde néon e estrelas a cintilar"
+    },
+    "builtin": {
+      "deep_sea": {
+        "name": "Mar profundo",
+        "description": "Azul esverdeado fresco com um brilho que o atravessa devagar."
+      },
+      "ember": {
+        "name": "Brasa",
+        "description": "Castanho escuro e quente com luz laranja, como um fogo a apagar-se."
+      },
+      "forest": {
+        "name": "Floresta",
+        "description": "Verde profundo com faixas suaves de luz a passar."
+      },
+      "night_sky": {
+        "name": "Céu noturno",
+        "description": "Azul tinta com pequenas estrelas a cintilar."
+      },
+      "dusk": {
+        "name": "Crepúsculo",
+        "description": "Violeta e rosa num gradiente que roda devagar."
+      },
+      "paper": {
+        "name": "Papel",
+        "description": "Papel creme quente com tinta castanha, sem animação."
+      }
+    }
   }
 }

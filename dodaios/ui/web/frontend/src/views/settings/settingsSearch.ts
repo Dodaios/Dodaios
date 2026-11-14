@@ -40,6 +40,7 @@ const SEARCH_PAGES = [
   { id: "appshots", keys: ["appshots"] },
   { id: "shortcuts", keys: ["shortcuts_view", "settings_view.keybinds", "settings_view.quick_switch"] },
   { id: "pets", keys: ["pets"] },
+  { id: "designs", keys: ["designs"] },
   { id: "phone", keys: ["mobile.settings"] },
   { id: "notifications", keys: ["notify"] },
   { id: "trust", keys: ["trust"] },

@@ -53,6 +53,22 @@
         // nothing, never the app's start-up screen in front of a picture.
         if (new URLSearchParams(location.search).get("view") === "appshot-editor") {
           root.classList.add("jarvis-quiet-boot");
+        } else {
+          // The person's design (docs/designs.md): its colours, from the copy
+          // store/designs.ts keeps, so they are on screen from the first paint.
+          // Keep the key, the element id and the class in lockstep with it.
+          try {
+            var design = JSON.parse(localStorage.getItem("jarvis.design") || "null");
+            if (design && typeof design.css === "string" && design.css) {
+              var style = document.createElement("style");
+              style.id = "dodaios-design";
+              style.textContent = design.css;
+              document.head.appendChild(style);
+              root.classList.add("dodaios-design");
+            }
+          } catch (e) {
+            /* storage blocked or an unreadable copy — the standard colours */
+          }
         }
         window.__JARVIS_BOOT_STARTED_AT = performance.now();
       })();

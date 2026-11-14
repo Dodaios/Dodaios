@@ -292,6 +292,7 @@
     "nav_home": "Startseite"
   },
   "nav": {
+    "designs": "Designs",
     "chat_workspace": "Chat",
     "chats": "Chats",
     "agents": "Agenten",
@@ -11909,5 +11910,65 @@
     "address": "Webadresse",
     "back": "Zurück",
     "forward": "Vorwärts"
+  },
+  "designs": {
+    "title": "Designs",
+    "subtitle": "Mach die App zu deiner: ihre Farben und ein bewegter Hintergrund. Sag {name}, wie sie aussehen soll, oder wähle unten ein Design.",
+    "reset": "Zurück zum Standard",
+    "reset_done": "Der Standard-Look ist zurück. Deine Designs bleiben gespeichert.",
+    "error": "Das hat nicht geklappt: {0}",
+    "active": "Aktiv",
+    "use": "{0} verwenden",
+    "rename": "Umbenennen",
+    "delete": "Löschen",
+    "delete_confirm": "Löschen",
+    "cancel": "Abbrechen",
+    "deleted": "{0} gelöscht.",
+    "only_dark": "Nur für das dunkle Erscheinungsbild gemacht.",
+    "only_light": "Nur für das helle Erscheinungsbild gemacht.",
+    "standard_name": "Standard",
+    "standard_description": "Der eigene Look der App.",
+    "own_title": "Deine Designs",
+    "own_empty": "Noch keine eigenen Designs. Beschreib oben eins, und {name} baut es.",
+    "examples_title": "Beispiele",
+    "examples_body": "Sofort nutzbar. Bitte {name}, eins zu ändern, und du bekommst deine eigene Kopie.",
+    "ask": {
+      "title": "Sag {name}, wie es aussehen soll",
+      "body": "Farben, Stimmung, ein bewegter Hintergrund. Das Design wird eingeschaltet, sobald es fertig ist, und erscheint hier.",
+      "placeholder": "Zum Beispiel: Dunkelblau mit einem sanften Leuchten, das im Hintergrund wandert",
+      "send": "Design erstellen",
+      "sent": "Gesendet. {name} baut dein Design.",
+      "pending": "{name} baut dein Design…",
+      "request": "Mach mir ein Design für die App: {0}",
+      "example_1": "Dunkelblau mit sanft wanderndem Leuchten",
+      "example_2": "Warm und ruhig wie Papier, mit brauner Tinte",
+      "example_3": "Schwarz mit Neongrün und funkelnden Sternen"
+    },
+    "builtin": {
+      "deep_sea": {
+        "name": "Tiefsee",
+        "description": "Kühles Blaugrün mit einem Leuchten, das langsam hindurchzieht."
+      },
+      "ember": {
+        "name": "Glut",
+        "description": "Warmes dunkles Braun mit orangem Licht, wie ein Feuer, das herunterbrennt."
+      },
+      "forest": {
+        "name": "Wald",
+        "description": "Tiefes Grün mit weichen Lichtbändern, die darüberziehen."
+      },
+      "night_sky": {
+        "name": "Nachthimmel",
+        "description": "Tintenblau mit kleinen funkelnden Sternen."
+      },
+      "dusk": {
+        "name": "Abenddämmerung",
+        "description": "Violett und Rosé in einem Verlauf, der sich langsam dreht."
+      },
+      "paper": {
+        "name": "Papier",
+        "description": "Warmes cremefarbenes Papier mit brauner Tinte, ohne Animation."
+      }
+    }
   }
 }
