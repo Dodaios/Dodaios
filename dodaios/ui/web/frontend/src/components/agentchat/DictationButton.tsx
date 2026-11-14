@@ -32,10 +32,12 @@ import { cn } from "@/lib/utils";
 
 /** Bars in the waveform; the newest sample enters on the right. */
 const BAR_COUNT = 18;
-/** How often the waveform scrolls one bar, in ms. */
+/** How often the waveform moves on by one bar, in ms. */
 const STEP_MS = 60;
 /** Resting height of a silent bar, as a fraction of the full height. */
 const REST = 0.14;
+/** Bar width plus the gap after it, in px: one step of the glide. */
+const PITCH_PX = 4;
 
 /** "0:07", "1:42" — mm:ss with no leading hour nobody dictates for. */
 export function formatElapsed(ms: number): string {
@@ -49,52 +51,84 @@ export function formatElapsed(ms: number): string {
  * The live waveform. Written straight to the DOM from one animation frame
  * loop: the level arrives ~30 times a second, and routing that through React
  * state would re-render the whole composer on every sample.
+ *
+ * The row glides: every frame it slides left by the share of a step that has
+ * passed, and when a full step is done the heights move over by one bar and
+ * the slide starts again from zero, so nothing jumps. The bar entering on the
+ * right follows the live level at once and rises softly into it; the bar
+ * leaving on the left fades out under the edge mask.
  */
 function Waveform() {
-  const barsRef = useRef<HTMLSpanElement>(null);
+  const rowRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    const host = barsRef.current;
-    if (!host) return;
-    const bars = Array.from(host.children) as HTMLElement[];
-    const history = new Array<number>(bars.length).fill(0);
+    const row = rowRef.current;
+    if (!row) return;
+    const bars = Array.from(row.children) as HTMLElement[];
+    // The settled bars; the last element of `bars` is the entering one, which
+    // shows `live` and slides in from the right.
+    const history = new Array<number>(bars.length - 1).fill(0);
     let frame = 0;
-    let last = 0;
+    let stepStart = performance.now();
+    let lastFrame = stepStart;
     let peak = 0;
-    const tick = (now: number) => {
-      // Hold the loudest sample of each step so a short syllable between two
-      // steps still shows up as a bar instead of being skipped.
-      peak = Math.max(peak, readVoiceInputLevel(now));
-      if (now - last >= STEP_MS) {
-        last = now;
-        history.shift();
-        history.push(peak);
-        peak = 0;
-        for (let i = 0; i < bars.length; i += 1) {
-          const bar = bars[i];
-          if (bar) bar.style.transform = `scaleY(${REST + (1 - REST) * (history[i] ?? 0)})`;
-        }
+    let live = 0;
+    const paint = (offset: number) => {
+      row.style.transform = `translateX(${-offset * PITCH_PX}px)`;
+      for (let i = 0; i < bars.length; i += 1) {
+        const bar = bars[i];
+        const value = i < history.length ? (history[i] ?? 0) : live;
+        if (bar) bar.style.transform = `scaleY(${REST + (1 - REST) * value})`;
       }
+    };
+    const tick = (now: number) => {
+      const dt = Math.min(100, Math.max(0, now - lastFrame));
+      lastFrame = now;
+      const level = readVoiceInputLevel(now);
+      // Hold the loudest sample of each step, so a short syllable between two
+      // steps still shows up as a bar instead of being skipped.
+      peak = Math.max(peak, level);
+      // The entering bar rises fast and falls a little slower, so it reads as
+      // a voice rather than a flicker.
+      const rate = peak > live ? 0.45 : 0.18;
+      live += (peak - live) * (1 - Math.pow(1 - rate, dt / 16.7));
+      if (now - stepStart > 1000) stepStart = now - STEP_MS;
+      while (now - stepStart >= STEP_MS) {
+        stepStart += STEP_MS;
+        // The entering bar settles at the height it shows, so the hand-over
+        // is seamless; the next one starts from there towards the new level.
+        history.shift();
+        history.push(live);
+        peak = level;
+      }
+      paint((now - stepStart) / STEP_MS);
       frame = window.requestAnimationFrame(tick);
     };
+    paint(0);
     frame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
   return (
     <span
-      ref={barsRef}
       aria-hidden
       data-testid="dictation-waveform"
-      className="flex h-4 items-center gap-[2px]"
+      className="relative flex h-4 overflow-hidden"
+      style={{
+        width: `${BAR_COUNT * PITCH_PX - 2}px`,
+        maskImage: "linear-gradient(to right, transparent, #000 18%, #000 92%, transparent)",
+        WebkitMaskImage: "linear-gradient(to right, transparent, #000 18%, #000 92%, transparent)",
+      }}
     >
-      {Array.from({ length: BAR_COUNT }, (_, i) => (
-        <span
-          key={i}
-          className="h-full w-[2px] origin-center rounded-full bg-success transition-transform duration-75 ease-out"
-          style={{ transform: `scaleY(${REST})` }}
-        />
-      ))}
+      <span ref={rowRef} className="flex h-full items-center gap-[2px] will-change-transform">
+        {Array.from({ length: BAR_COUNT + 1 }, (_, i) => (
+          <span
+            key={i}
+            className="h-full w-[2px] shrink-0 origin-center rounded-full bg-success"
+            style={{ transform: `scaleY(${REST})` }}
+          />
+        ))}
+      </span>
     </span>
   );
 }

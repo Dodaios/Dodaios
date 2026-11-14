@@ -308,6 +308,103 @@ def bar_heights(level: float, t: float, *, count: int = LINE_COUNT) -> list[floa
     return out
 
 
+class VoiceRow:
+    """Bar lengths that follow the voice, for the row a live voice shows.
+
+    The newest loudness enters in the middle bar and travels outward to both
+    ends, one step every :attr:`STEP_S`, so the row draws the last half second
+    of speech rather than one number repeated eleven times. The right side
+    runs half a step ahead of the left, so the row is lively without being a
+    mirror image. Each bar glides to its target on a slightly soft spring,
+    which turns the ~30 level samples a second into motion at the frame rate.
+
+    Nothing here invents movement: with no sound the history empties, every
+    bar glides down to a dot and stops.
+    """
+
+    STEP_S = 0.045
+    STIFFNESS = 600.0
+    DAMPING = 2.0 * math.sqrt(600.0) * 0.78
+    SUBSTEP_S = 1.0 / 120.0
+    REST_EPS = 0.004
+
+    def __init__(self, count: int = LINE_COUNT) -> None:
+        self.count = count
+        self.centre = count // 2
+        self._history = [0.0] * (self.centre + 2)
+        self._peak = 0.0
+        self._pos = [0.0] * count
+        self._vel = [0.0] * count
+        self._step_t: float | None = None
+        self._last_t: float | None = None
+
+    def reset(self) -> None:
+        self.__init__(self.count)
+
+    def targets(self) -> list[float]:
+        """Where each bar is heading (``0`` to ``1``)."""
+        out = []
+        reach = max(1, self.centre)
+        for i in range(self.count):
+            k = abs(i - self.centre)
+            if i > self.centre:
+                value = 0.5 * (self._history[k] + self._history[k - 1])
+            else:
+                value = self._history[k]
+            envelope = 1.0 - 0.45 * (k / reach) ** 1.6
+            out.append(min(1.0, value * envelope))
+        return out
+
+    def update(self, t: float, level: float) -> list[float]:
+        """Advance to clock time ``t`` with the live ``level``; return lengths."""
+        level = max(0.0, min(1.0, float(level)))
+        if self._last_t is None or self._step_t is None:
+            # The first frame shows the voice as it is now, at rest.
+            self._history = [level] * len(self._history)
+            self._peak = level
+            self._pos = self.targets()
+            self._vel = [0.0] * self.count
+            self._step_t = self._last_t = t
+            return list(self._pos)
+        dt = max(0.0, min(0.1, t - self._last_t))
+        self._last_t = t
+        # Hold the loudest sample of each step, so a short syllable between two
+        # steps still becomes a bar instead of being skipped.
+        self._peak = max(self._peak, level)
+        if t - self._step_t > 1.0:
+            self._step_t = t - self.STEP_S
+        while t - self._step_t >= self.STEP_S:
+            self._history.insert(0, self._peak)
+            self._history.pop()
+            self._peak = level
+            self._step_t += self.STEP_S
+        goal = self.targets()
+        steps = max(1, math.ceil(dt / self.SUBSTEP_S)) if dt > 0 else 0
+        h = dt / steps if steps else 0.0
+        for _ in range(steps):
+            for i in range(self.count):
+                accel = self.STIFFNESS * (goal[i] - self._pos[i]) - self.DAMPING * self._vel[i]
+                self._vel[i] += accel * h
+                self._pos[i] = max(0.0, min(1.08, self._pos[i] + self._vel[i] * h))
+        if all(v == 0.0 for v in goal) and all(
+            p < self.REST_EPS and abs(v) < self.REST_EPS * 10
+            for p, v in zip(self._pos, self._vel, strict=True)
+        ):
+            # Silence: settle exactly, so the dots stop rather than creep.
+            self._pos = [0.0] * self.count
+            self._vel = [0.0] * self.count
+        return [min(1.0, p) for p in self._pos]
+
+    @property
+    def moving(self) -> bool:
+        """True while any bar is still on its way or the voice is still heard."""
+        if self._last_t is None:
+            return False
+        return any(self._history) or any(
+            p > 0.0 or v != 0.0 for p, v in zip(self._pos, self._vel, strict=True)
+        )
+
+
 def sweep_glow(t: float, *, count: int = LINE_COUNT, period: float = 1.5) -> list[float]:
     """Brightness ``[0, 1]`` per dot for thinking: a soft light that walks
     left and right along the row."""
@@ -361,11 +458,14 @@ class BarPainter:
         self._last_t: float | None = None
         self._level = 0.0
         self._flourish: float | None = None
+        self._voice = VoiceRow()
+        self._voice_lengths: list[float] = []
 
     def reset(self) -> None:
         self._cur = None
         self._last_t = None
         self._level = 0.0
+        self._voice.reset()
 
     def _advance(self, t: float, target: tuple[float, float], level: float) -> float:
         """Ease the pill size and the level towards their targets; return the
@@ -388,8 +488,9 @@ class BarPainter:
 
     @property
     def easing(self) -> bool:
-        """True while the pill is still growing or shrinking."""
-        return self._cur is not None and self._cur != self._target
+        """True while the pill is still growing or shrinking, or the level
+        bars are still gliding."""
+        return (self._cur is not None and self._cur != self._target) or self._voice.moving
 
     def paint(
         self,
@@ -412,6 +513,9 @@ class BarPainter:
         target = layout(state)
         self._target = (target.width, target.height)
         smooth = self._advance(t, (target.width, target.height), level)
+        # The voice row follows the raw level (its springs do the smoothing),
+        # and hears silence whenever the look is not a voice.
+        self._voice_lengths = self._voice.update(t, level if look == "speak" else 0.0)
         cur_w, cur_h = self._cur or (target.width, target.height)
 
         px = scale * pixel_ratio
@@ -601,7 +705,8 @@ class BarPainter:
             th, gap, row = th * shrink, gap * shrink, room
         start = cx - row / 2.0
         if look == "speak":
-            lengths = bar_heights(level, t, count=n)
+            voice = getattr(self, "_voice_lengths", None)
+            lengths = voice if voice and len(voice) == n else bar_heights(level, t, count=n)
             colours = [WHITE] * n
         elif look == "think":
             lengths = [0.0] * n

@@ -334,3 +334,48 @@ def test_the_label_is_drawn_above_the_bar():
     )
     assert plain[: y0 - 2, :, 3].max() == 0
     assert labelled[: y0 - 2, :, 3].max() > 0
+
+
+# -- voice row ----------------------------------------------------------------------
+
+
+def _run_row(levels, *, fps=60, start=0.0):
+    row = design.VoiceRow()
+    frames = []
+    for i, level in enumerate(levels):
+        frames.append(row.update(start + i / fps, level))
+    return row, frames
+
+
+def test_a_new_sound_enters_in_the_middle_and_travels_outward():
+    row, frames = _run_row([0.0] * 10 + [0.9] * 3)
+    centre = row.centre
+    early = frames[-1]
+    assert early[centre] > early[0] and early[centre] > early[-1]
+    _row, later = _run_row([0.0] * 10 + [0.9] * 40)
+    assert later[-1][0] > 0.3, "the sound reaches the ends after a moment"
+
+
+def test_bars_glide_instead_of_jumping():
+    levels = [0.0] * 5 + [1.0] * 10 + [0.0] * 10 + [0.8] * 10
+    _row, frames = _run_row(levels)
+    for before, after in zip(frames, frames[1:], strict=False):
+        assert max(abs(a - b) for a, b in zip(before, after, strict=True)) < 0.5
+
+
+def test_silence_drains_to_still_dots():
+    row, frames = _run_row([0.8] * 20 + [0.0] * 120)
+    assert frames[-1] == [0.0] * design.LINE_COUNT
+    assert not row.moving
+
+
+def test_the_painter_keeps_drawing_while_the_bars_glide():
+    bar = renderer.JarvisBarRenderer()
+    for i in range(10):
+        bar.render(i / 60, "speak", 0.9, surface_mode="dictate")
+    for i in range(10, 14):
+        bar.render(i / 60, "speak", 0.0, surface_mode="dictate")
+    assert bar.easing, "a host must not freeze the frame mid-glide"
+    for i in range(14, 200):
+        bar.render(i / 60, "speak", 0.0, surface_mode="dictate")
+    assert not bar.easing
