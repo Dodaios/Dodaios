@@ -1,0 +1,1 @@
+import{w as e}from"./index-CBpRi8dE.js";function n(r){return r==="de"?"de-DE":r==="es"?"es-ES":r==="zh"?"zh-CN":r==="pt"?"pt-PT":"en-US"}function i(){return n(e())}function o(r,t){return r.toLocaleString(t)}export{o as f,n as l,i as u};

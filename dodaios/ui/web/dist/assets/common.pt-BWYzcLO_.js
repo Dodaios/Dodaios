@@ -1,0 +1,1 @@
+const e={common:{save:"Salvar",cancel:"Cancelar",delete:"Excluir",edit:"Editar",add:"Adicionar",copy:"Copiar",done:"Concluído",retry:"Tentar novamente",search:"Buscar",no_matches:"Nenhum resultado"}},a={voiceui:e};export{a as default,e as voiceui};

@@ -1,0 +1,1 @@
+const d={dictionary:{empty:"No words yet.",word:"Word",heard_as:"Heard as",load_failed:"Your words could not be loaded.",save_failed:"This word could not be saved.",delete_failed:"This word could not be deleted.",duplicate:"This word is already in your list."}},e={voiceui:d};export{e as default,d as voiceui};
