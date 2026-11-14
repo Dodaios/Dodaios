@@ -43,7 +43,7 @@ import sys
 import threading
 
 from dodaios.trigger.backends.global_hotkeys import MOUSE_BUTTON_TOKENS
-from dodaios.trigger.backends.solo_hold import SoloHold
+from dodaios.trigger.backends.solo_hold import gate_for
 
 log = logging.getLogger(__name__)
 
@@ -230,15 +230,15 @@ class PynputBackend:
     def set_solo_hold(self, cancels: dict) -> None:
         """Gate the named push-to-talk combos behind :class:`SoloHold`.
 
-        ``cancels`` maps a registered combo string to the callback that cancels
-        its recording when another key joins after the press fired. Never
+        ``cancels`` maps a registered combo string to its ``SoloHoldHooks`` (or
+        to a bare callback that cancels its recording when another key joins
+        after the press fired). Never
         raises. Primary clicks are not observed here (no mouse hook is opened
         for them); keys are.
         """
         for combo in self._combos:
-            on_cancel = cancels.get(combo["combo"])
             combo["solo"] = (
-                SoloHold(combo["on_press"], combo["on_release"], on_cancel)
+                gate_for(combo["on_press"], combo["on_release"], cancels[combo["combo"]])
                 if combo["combo"] in cancels
                 else None
             )

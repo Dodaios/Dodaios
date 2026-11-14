@@ -147,11 +147,14 @@ def test_the_deny_list_only_names_events_that_start_something() -> None:
     assert SELF_INPUT_SUPPRESSED_EVENTS == {
         "ptt_press",
         "dictate_press",
+        "dictate_early",
         "dictate",
         "dictate_toggle",
         "paste_last",
     }
     assert not any(name.endswith("_release") for name in SELF_INPUT_SUPPRESSED_EVENTS)
+    # A take-back is a stop edge too: suppressing it would strand the start.
+    assert not any(name.endswith(("_abandon", "_cancel")) for name in SELF_INPUT_SUPPRESSED_EVENTS)
 
 
 # --------------------------------------------------------------------------

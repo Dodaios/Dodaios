@@ -2200,6 +2200,11 @@ class SpeechPipeline:
         # makes the session treat it as a hangup: nothing transcribed, nothing
         # delivered. Reset at every commit.
         self._dictation_discard_requested = False
+        # Set when the early start of a solo hold key is taken back
+        # (``_on_dictate_abandon``): that discard writes no history row.
+        self._dictation_leave_no_trace = False
+        # True between a solo hold key's early start and its confirmation.
+        self._dictate_early_pending = False
         # ``self._stt`` is the LOCAL FasterWhisperProvider used by the wake
         # backstop + VAD endpoint-probe (many calls/sec, a cloud round-trip
         # would be too slow). In the cloud-first lightweight path it is None:
@@ -6897,6 +6902,10 @@ class SpeechPipeline:
             self._on_dictate_release()
         elif event_name == "dictate_cancel":
             self._on_dictate_cancel()
+        elif event_name == "dictate_early":
+            self._on_dictate_early()
+        elif event_name == "dictate_abandon":
+            self._on_dictate_abandon()
         elif event_name == "dictate":
             # Legacy [dictation].mode = "toggle": one press starts, the
             # next stops. Only reached when the HOLD key is in toggle mode.
@@ -6948,6 +6957,15 @@ class SpeechPipeline:
         explicit press ends whatever is running and delivers it, which is what
         the user pressing it means.
         """
+        if getattr(self, "_dictate_early_pending", False):
+            # The confirmation of a solo hold key whose recording already
+            # started at key-down (``_on_dictate_early``): it is a dictation
+            # now, and the release submits it. Nothing else to do: should the
+            # early recording have ended meanwhile, this hold started one
+            # already, and a second one on the same hold would surprise.
+            self._dictate_early_pending = False
+            log.debug("Dictation key held alone — the early recording stays.")
+            return
         now = time.monotonic()
         last_seen = float(getattr(self, "_dictate_key_seen_at", 0.0))
         latched = bool(getattr(self, "_dictate_key_down", False))
@@ -6991,6 +7009,82 @@ class SpeechPipeline:
             # these: it is accepted and handed over, and the latch has to stay
             # so the release can cancel a handover that is still running.
             self._dictate_key_down = False
+
+    def _on_dictate_early(self) -> None:
+        """A modifier-only hold key went down ALONE: start recording at once.
+
+        Such a key (a bare ``cmd``) is confirmed as a dictation only after it
+        was held alone for ``SOLO_HOLD_S``, because it is also the first half
+        of every shortcut that uses it. Waiting for that before anything
+        happened made the Dodaios Bar rise a noticeable moment after the key
+        went down (reported 2026-11-14). So the recording, and with it the
+        bar, starts here at key-down, on approval: ``dictate_press`` confirms
+        it, ``dictate_abandon`` (a shortcut, or a tap) takes it back without a
+        trace.
+
+        Only the plain start is taken early. Everything that would be seen or
+        felt when the hold turns out to be ``cmd+c`` waits for the
+        confirmation, which then runs the ordinary press: a refusal (it paints
+        a cross on the bar), a voice conversation (the handover hangs it up,
+        and beside a live call its input is held), a dictation that is already
+        running (the press is its stop) and a microphone macOS has not decided
+        on yet (the press may raise the system dialog).
+        """
+        if getattr(self, "_dictate_key_down", False) or self.dictation_active():
+            return
+        if not self._dictation_can_start_quietly():
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return  # the confirmation's ordinary press says why
+        self._dictate_key_seen_at = time.monotonic()
+        self._dictate_key_down = True
+        self._dictate_early_pending = True
+        log.info("Dictation key down alone — starting the hold recording at once.")
+        self._commit_dictation(
+            loop, target=self._configured_dictation_target(), source="hold_key"
+        )
+
+    def _dictation_can_start_quietly(self) -> bool:
+        """Would a dictation start right now with nothing but its bar to show?
+
+        ``start_dictation``'s checks without any of its side effects: nothing
+        is refused, published or asked. ``False`` for anything that is not the
+        plain start.
+        """
+        if getattr(self, "_utterance_stt", None) is None:
+            return False
+        if self._live_call_owns_microphone() or self._voice_session_holds_microphone():
+            return False
+        if not self._user_capture_allowed():
+            return False
+        try:
+            state = self._permission_service().check("microphone")
+        except Exception:  # noqa: BLE001 - unknown: the confirmed press asks properly
+            log.debug("Microphone state unreadable for an early dictation start.", exc_info=True)
+            return False
+        return str(getattr(state, "value", state)) in ("granted", "not_required")
+
+    def _on_dictate_abandon(self) -> None:
+        """The early start of a solo hold key was a shortcut or a tap: undo it.
+
+        Another key joined inside the window (``cmd+c``), or the key went up
+        before it (a tap on Command). Nobody dictated, so the recording goes
+        the way the bar's X sends it, and leaves nothing behind: no history
+        row, no statistics, no "nothing was heard" mark. The bar rests again.
+        """
+        if not getattr(self, "_dictate_early_pending", False):
+            return  # nothing started early; the confirmation never came either
+        self._dictate_early_pending = False
+        if not getattr(self, "_dictate_key_down", False):
+            return
+        self._dictate_key_down = False
+        if not self.dictation_active():
+            return
+        log.info("Dictation key was a shortcut or a tap — taking the early recording back.")
+        self._dictation_leave_no_trace = True
+        self.request_dictation_stop(discard=True)
 
     def _on_dictate_release(self) -> None:
         """Dictation key UP — stop recording and submit what was held."""
@@ -11384,6 +11478,7 @@ class SpeechPipeline:
         """
         self._dictation_started_by = str(source or "api")
         self._dictation_discard_requested = False
+        self._dictation_leave_no_trace = False
         self._dictation_beside_call = beside_call
         # A fresh dictation session must NOT inherit a stale hangup. ``_hangup_event``
         # is set by every "auflegen" and is otherwise only cleared when the next
@@ -12352,7 +12447,13 @@ class SpeechPipeline:
                     DictationCompleted(
                         source_layer="speech.dictation",
                         outcome="cancelled",
-                        detail="The dictation ended before it produced text.",
+                        # A hold key's early start taken back by a shortcut
+                        # is not news: nobody dictated, so nothing is said.
+                        detail=(
+                            ""
+                            if getattr(self, "_dictation_leave_no_trace", False)
+                            else "The dictation ended before it produced text."
+                        ),
                         duration_s=take.duration_s,
                         audio_sample_rate_hz=quality_metrics.sample_rate_hz,
                         audio_rms=quality_metrics.rms,
@@ -13093,6 +13194,10 @@ class SpeechPipeline:
         # says the user LOST something (partial / failed / cancelled / empty):
         # that row is the only place a later Restore can start from.
         if not (raw_text or is_recoverable(outcome_name)):
+            return
+        if getattr(self, "_dictation_leave_no_trace", False) and outcome_name == "cancelled":
+            # The early start of a hold key that turned out to be a shortcut
+            # (``_on_dictate_abandon``): nobody dictated, nothing was lost.
             return
         if not getattr(cfg, "history_enabled", True):
             return
