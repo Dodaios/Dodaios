@@ -409,6 +409,7 @@ src/assets/brands
 | apollo | [Original mark](https://cdn.jsdelivr.net/gh/pheralb/svgl@main/static/library/apollo-io.svg) | MIT; nominative use | 2026-09-10 |
 | salesforce | [Original mark](https://cdn.jsdelivr.net/gh/gilbarbara/logos@main/logos/salesforce.svg) | CC0-1.0; nominative use | 2026-09-10 |
 | granola | [Original mark](https://cdn.jsdelivr.net/gh/pheralb/svgl@main/static/library/granola-light.svg) | MIT; nominative use | 2026-09-10 |
+| buffer | [Original mark](https://cdn.jsdelivr.net/npm/simple-icons@16.37.0/icons/buffer.svg) | CC0-1.0; nominative use | 2026-11-14 |
 | zoom | [Original mark](https://cdn.jsdelivr.net/gh/gilbarbara/logos@main/logos/zoom-icon.svg) | CC0-1.0; nominative use | 2026-09-10 |
 | amd_gpu | [Original AMD arrow](https://cdn.jsdelivr.net/gh/gilbarbara/logos@main/logos/amd.svg) cropped to the square mark | CC0-1.0; nominative use | 2026-09-17 |
 | onedrive | [Vendor original](https://www.microsoft.com/content/dam/microsoft/bade/images/icons/en-us/m365-app-icons-fy26/OneDrive-Icon-FY26.svg) | Vendor artwork; nominative identification only | 2026-09-10 |
