@@ -15,6 +15,31 @@ vi.mock("@/components/workspace/WorkspaceTerminal", () => ({
   ),
 }));
 
+const liveView = vi.hoisted(() => ({ control: vi.fn() }));
+vi.mock("@/components/society/card/useBrowserView", () => ({
+  useBrowserView: () => ({
+    canvas: { current: null }, control: liveView.control, approve: vi.fn(), repaint: vi.fn(),
+    state: {
+      connected: true, ready: true, fullWindow: false, extendedInput: false, previewPaused: false,
+      loginAvailable: false, loginMode: false, loginReady: false, manual: false, running: false,
+      controlPending: false, url: "about:blank", tabs: [], target: "", error: "",
+    },
+  }),
+}));
+
+/** The backend with the assistant's browser available; every call is recorded. */
+function stubLiveBackend(open = false) {
+  const calls: { path: string; body: unknown }[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {
+    calls.push({ path, body: init?.body ? JSON.parse(String(init.body)) : null });
+    const answer = path === "/api/society/agents/jarvis/browser/open"
+      ? { installed: true, mode: "own", open, running: false }
+      : { opened: true };
+    return new Response(JSON.stringify(answer), { status: 200 });
+  }));
+  return calls;
+}
+
 function Harness() {
   return (
     <>
@@ -269,6 +294,42 @@ describe("IdeSidePanel", () => {
     expect(calls).toContainEqual({
       path: "/api/settings/open-external", body: { url: "https://www.google.com/search?q=github%20login" },
     });
+  });
+
+  it("shows a public site live in the assistant's browser instead of refusing it", async () => {
+    liveView.control.mockReset();
+    const calls = stubLiveBackend();
+    localStorage.setItem("jarvis.agenticIde.browserUrl.v1", "https://github.com/");
+    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["browser"], active: "browser" }));
+    render(<Harness />);
+    expect(await screen.findByTestId("ide-browser-live")).toBeTruthy();
+    expect(screen.queryByTestId("ide-browser-frame")).toBeNull();
+    expect(screen.queryByTestId("ide-browser-blocked")).toBeNull();
+    expect(calls.some((call) => call.path === "/api/ide-browser/frame-check")).toBe(false);
+    // The restored address opens on the blank browser: control first.
+    expect(liveView.control).toHaveBeenCalledWith("takeover", { enabled: true });
+  });
+
+  it("opens a search live and keeps a local address in the frame", async () => {
+    const calls = stubLiveBackend();
+    localStorage.setItem("jarvis.agenticIde.browserUrl.v1", "http://localhost:5173/");
+    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["browser"], active: "browser" }));
+    render(<Harness />);
+    expect(screen.getByTestId("ide-browser-frame").getAttribute("src")).toBe("http://localhost:5173/");
+    await act(async () => {});
+    fireEvent.change(screen.getByTestId("ide-browser-address"), { target: { value: "github login" } });
+    fireEvent.submit(screen.getByTestId("ide-browser-address").closest("form")!);
+    expect(await screen.findByTestId("ide-browser-live")).toBeTruthy();
+    expect(screen.queryByTestId("ide-browser-searched")).toBeNull();
+    expect(calls.some((call) => call.path === "/api/settings/open-external")).toBe(false);
+    expect(localStorage.getItem("jarvis.agenticIde.browserUrl.v1")).toBe("https://www.google.com/search?q=github%20login");
+  });
+
+  it("shows the assistant's browser while it is open and no address is set", async () => {
+    stubLiveBackend(true);
+    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["browser"], active: "browser" }));
+    render(<Harness />);
+    expect(await screen.findByTestId("ide-browser-live")).toBeTruthy();
   });
 
   it("offers the word again instead of loading an address the old bar made from it", () => {

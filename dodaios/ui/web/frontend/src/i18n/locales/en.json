@@ -8236,6 +8236,7 @@
       "open_external": "Open in your browser",
       "empty_title": "Enter an address above",
       "empty_hint": "Made for local previews such as a dev server. Many public sites do not allow being shown inside another app; open those in your browser.",
+      "empty_hint_live": "Public sites open live here in {assistant}'s browser, where it works too. Local previews such as localhost load directly.",
       "refused_title": "{host} cannot be shown here",
       "refused_hint": "This site does not allow being shown inside another app. Open it in your browser, where you are signed in.",
       "unreachable_title": "{host} did not answer",
