@@ -513,7 +513,7 @@ def test_hover_poll_tracks_distinct_mouse_out_and_mouse_over_states(
         def contains(point: _Point) -> bool:
             center_x = round(renderer.pill_center_x(renderer.target_pill_size(mode)[0]))
             center_y = round(renderer.pill_center_y(renderer.WIN_H))
-            return _Rect(center_x - 3, center_y - 5, 6, 10).contains(point)
+            return _Rect(center_x - 5, center_y - 3, 10, 6).contains(point)
 
     class _Window:
         def __init__(self) -> None:
@@ -559,8 +559,8 @@ def test_hover_poll_tracks_distinct_mouse_out_and_mouse_over_states(
     # hovered pill must survive Cocoa's spurious Leave during setMask().
     hovered_w, hovered_h = renderer.target_pill_size(mode, hovered=True)
     cursor[0] = _Point(
-        round(renderer.pill_center_x(hovered_w)),
-        round(renderer.pill_center_y(hovered_h) - hovered_h / 2.0 + 3),
+        round(renderer.pill_center_x(hovered_w) - hovered_w / 2.0 + 3),
+        round(renderer.pill_center_y(hovered_h)),
     )
     surface._hover_leave_ui()  # noqa: SLF001
     assert surface._hovered is True  # noqa: SLF001

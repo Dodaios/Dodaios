@@ -20,7 +20,7 @@ import {
  * panel and the onboarding "System Style" step can render the same graphics
  * without one view importing the other. The mascot reuses the real Gigi SVG.
  *
- * The bar preview is the bar's own upright black pill with its white level lines.
+ * The bar preview is the bar's own small black pill with its white level bars.
  *
  * These are still previews, not instruments: they animate nothing. Three
  * thumbnails oscillating side by side on a settings screen is noise, and with
@@ -49,32 +49,32 @@ export function StylePreview({ style }: { style: OverlayStyle }) {
   return <NonePreview />;
 }
 
-/** Resting lengths of the preview's level lines: a voice, held still. */
+/** Resting heights of the preview's level bars: a voice, held still. */
 const BAR_PREVIEW_LEVELS = [0.15, 0.35, 0.6, 0.85, 1, 0.75, 0.5, 0.3, 0.15];
 
 /**
- * The Dodaios Bar as it looks while a voice runs: a slim upright black pill
- * at the screen edge with a stack of short white lines.
+ * The Dodaios Bar as it looks while a voice runs: a small black pill with a
+ * light rim and a row of short white bars.
  */
 export function BarPreview() {
   const thick = 1.6;
   const gap = 2.2;
-  const stack = BAR_PREVIEW_LEVELS.length * thick + (BAR_PREVIEW_LEVELS.length - 1) * gap;
-  const top = 19 - stack / 2;
+  const row = BAR_PREVIEW_LEVELS.length * thick + (BAR_PREVIEW_LEVELS.length - 1) * gap;
+  const left = 23 - row / 2;
   return (
     <div className="flex h-10 w-24 shrink-0 items-center justify-center" data-testid="jarvis-bar-preview">
-      <svg viewBox="0 0 16 38" width={16} height={38} aria-hidden>
-        <rect x={0.5} y={0.5} width={15} height={37} rx={7.5} fill="#0c0c0c" stroke="#4e4e4e" />
+      <svg viewBox="0 0 46 18" width={46} height={18} aria-hidden>
+        <rect x={0.5} y={0.5} width={45} height={17} rx={8.5} fill="#0c0c0c" stroke="#969696" />
         <g fill="#f4f4f4" data-testid="bar-preview-levels">
           {BAR_PREVIEW_LEVELS.map((level, i) => {
             const len = thick + (9 - thick) * level;
             return (
               <rect
                 key={i}
-                x={8 - len / 2}
-                y={top + i * (thick + gap)}
-                width={len}
-                height={thick}
+                x={left + i * (thick + gap)}
+                y={9 - len / 2}
+                width={thick}
+                height={len}
                 rx={thick / 2}
               />
             );

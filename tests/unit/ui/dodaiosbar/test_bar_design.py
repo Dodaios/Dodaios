@@ -264,32 +264,41 @@ def test_hangup_guard_keeps_audio_controls_available(kind):
     assert events == ["compose", "speaker", "mic"]
 
 
-# -- upright at the screen edge ---------------------------------------------------
+# -- flat near the bottom edge ---------------------------------------------------
 
 
 @pytest.mark.parametrize("mode", ["idle", "listen", "dictate"])
 @pytest.mark.parametrize("hovered", [False, True])
-def test_the_bar_stands_upright_at_the_left_of_its_window(mode, hovered):
+def test_the_bar_lies_flat_at_the_bottom_of_its_window(mode, hovered):
     state = design.BarState(mode=mode, hovered=hovered)
     lay = design.layout(state)
-    assert lay.height > lay.width
-    x0, y0, _x1, y1 = design.pill_rect(lay, 1.0)
-    assert x0 == design.LEFT_PAD
-    assert abs((y0 + y1) / 2 - design.WINDOW_H / 2) < 1e-6
+    assert lay.width > lay.height
+    x0, _y0, x1, y1 = design.pill_rect(lay, 1.0)
+    assert abs((x0 + x1) / 2 - design.WINDOW_W / 2) < 1e-6
+    assert abs(y1 - (design.WINDOW_H - design.BOTTOM_PAD)) < 1e-6
 
 
-def test_the_open_controls_stack_top_to_bottom():
+def test_the_open_controls_line_up_left_to_right():
     lay = design.layout(design.BarState(mode="listen", hovered=True))
     names = [name for name, *_ in lay.slots]
     assert names == ["mic", "center", "speaker", "close"]
-    tops = [y0 for _name, y0, _y1 in lay.slots]
-    assert tops == sorted(tops)
+    lefts = [x0 for _name, x0, _x1 in lay.slots]
+    assert lefts == sorted(lefts)
 
 
-def test_the_default_place_is_the_left_edge_at_middle_height():
-    x, y = interaction.default_side_spot(work=(0, 38, 1470, 918), bar_w=150, bar_h=190, margin=4)
-    assert x == 4
-    assert y == 38 + (918 - 190) // 2
+def test_the_resting_pill_is_see_through_inside_a_light_rim():
+    pixels = rgba("idle")
+    alpha = pixels[:, :, 3]
+    drawn = pixels[alpha > 0]
+    assert drawn[:, 3].min() < 200, "the fill lets the page show through"
+    rim = drawn[drawn[:, 0] > 150]
+    assert len(rim) > 0, "the rim is light"
+
+
+def test_the_default_place_is_centred_near_the_bottom():
+    x, y = interaction.default_bar_spot(work=(0, 38, 1470, 918), bar_w=190, bar_h=70, gap=12)
+    assert x == (1470 - 190) // 2
+    assert y == 38 + 918 - 70 - 12
 
 
 def test_a_place_saved_by_the_earlier_bar_is_not_reused(tmp_path):
@@ -297,9 +306,9 @@ def test_a_place_saved_by_the_earlier_bar_is_not_reused(tmp_path):
     cfg.write_text("[jarvisbar]\npos_x = 870\npos_y = 598\nrel_x = 0.73\nrel_y = 0.65\n")
     assert interaction.load_jarvisbar_position(cfg) is None
     assert interaction.load_jarvisbar_relative(cfg) is None
-    interaction.save_jarvisbar_position(cfg, 4, 300, rel=(0.0, 0.5))
-    assert interaction.load_jarvisbar_position(cfg) == (4, 300)
-    assert interaction.load_jarvisbar_relative(cfg) == (0.0, 0.5)
+    interaction.save_jarvisbar_position(cfg, 640, 874, rel=(0.5, 1.0))
+    assert interaction.load_jarvisbar_position(cfg) == (640, 874)
+    assert interaction.load_jarvisbar_relative(cfg) == (0.5, 1.0)
 
 
 # -- labels -----------------------------------------------------------------------
@@ -317,11 +326,11 @@ def test_no_label_for_a_control_that_does_nothing():
     assert design.control_label("center", design.BarState(mode="listen")) == ""
 
 
-def test_the_label_is_drawn_beside_the_bar():
+def test_the_label_is_drawn_above_the_bar():
     plain = rgba("idle", hovered=True)
     labelled = rgba("idle", hovered=True, hovered_action="mic")
-    x1 = round(
-        design.pill_rect(design.layout(design.BarState(hovered=True)), renderer.design_scale())[2]
+    y0 = round(
+        design.pill_rect(design.layout(design.BarState(hovered=True)), renderer.design_scale())[1]
     )
-    assert plain[:, x1 + 4 :, 3].max() == 0
-    assert labelled[:, x1 + 4 :, 3].max() > 0
+    assert plain[: y0 - 2, :, 3].max() == 0
+    assert labelled[: y0 - 2, :, 3].max() > 0

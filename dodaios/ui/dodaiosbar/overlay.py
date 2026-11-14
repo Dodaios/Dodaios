@@ -45,7 +45,7 @@ _WARNED_NO_APPKIT = False
 
 COLOR_KEY_HEX = "#FF00FF"
 DRAG_THRESHOLD_PX = 16
-MARGIN_PX = 4
+MARGIN_PX = 12
 # How long after a file drop the bar keeps ignoring clicks. The synthetic
 # press/release a drop produces on this window arrives around the drop event,
 # not reliably before it, so the guard has to outlive the drop itself. Short
@@ -53,7 +53,7 @@ MARGIN_PX = 4
 # not left wondering why nothing happened.
 DROP_CLICK_QUIET_S = 0.6
 # Gap above the taskbar (~0.2 cm) when anchoring at the default bottom-center.
-TASKBAR_GAP_PX = 8
+TASKBAR_GAP_PX = 12
 # Window opacity (the pill goes semi-transparent; magenta stays fully keyed
 # out). Lower = more see-through. Tune this one number for the glass look.
 BAR_ALPHA = 1.0
@@ -1112,10 +1112,10 @@ class JarvisBarOverlay:
                 rel[0], rel[1], work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H
             )
         else:
-            # Fresh install: the left edge of the chosen monitor's work area,
-            # centred in its height.
-            self._x, self._y = interaction.default_side_spot(
-                work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H, margin=MARGIN_PX
+            # Fresh install: bottom-centre on the chosen monitor, just above its
+            # taskbar (the work area already excludes the taskbar on Windows).
+            self._x, self._y = interaction.default_bar_spot(
+                work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H, gap=TASKBAR_GAP_PX
             )
             self._x, self._y = interaction.clamp_to_work_area(
                 self._x,
@@ -1148,19 +1148,19 @@ class JarvisBarOverlay:
             log.debug("jarvisbar live resize failed", exc_info=True)
 
     def _reanchor_after_resize(self, old_win_w: int, old_win_h: int) -> None:
-        """Resize the window + canvas and keep the bar's left edge and middle.
+        """Resize the window + canvas and keep the bar's bottom-centre fixed.
 
-        The upright bar sits at the left of its window, centred in its height,
-        so keeping the window's left edge and vertical middle keeps the bar in
-        place while a bigger bar grows right and evenly up and down. Clamped to the screen so an
+        The pill is bottom-anchored (grows upward), so preserving the window's
+        bottom-centre keeps the resting spot above the taskbar unchanged while
+        a bigger bar simply extends higher. Clamped to the screen so an
         enlarged bar near a screen edge can never spill off it.
         """
         if self._root is None:
             return
-        del old_win_w
-        middle_y = self._y + old_win_h / 2.0
-        new_x = self._x
-        new_y = round(middle_y - renderer.WIN_H / 2.0)
+        center_x = self._x + old_win_w / 2.0
+        bottom_y = self._y + old_win_h
+        new_x = round(center_x - renderer.WIN_W / 2.0)
+        new_y = round(bottom_y - renderer.WIN_H)
         # Clamp to the monitor the bar sits on (measured at the new centre), not
         # the primary screen, so a resize near a secondary-monitor edge stays on
         # that monitor.
@@ -2127,7 +2127,7 @@ class JarvisBarOverlay:
             log.debug("jarvisbar click action failed", exc_info=True)
 
     def _on_reset_double_click(self, _event: Any = None) -> None:
-        """Reset the bar to its default place: left edge, middle height.
+        """Reset the bar to its default place: bottom-centre.
 
         Bridge-compatible: OrbBusBridge looks this up via getattr on
         OrbResetRequested ("Orb reset"). Returning the bar to the default
@@ -2145,8 +2145,8 @@ class JarvisBarOverlay:
                 self._y + renderer.WIN_H // 2,
             )
             work = self._work_area_for_point(anchor[0], anchor[1])
-            self._x, self._y = interaction.default_side_spot(
-                work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H, margin=MARGIN_PX
+            self._x, self._y = interaction.default_bar_spot(
+                work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H, gap=TASKBAR_GAP_PX
             )
             self._x, self._y = interaction.clamp_to_work_area(
                 self._x,

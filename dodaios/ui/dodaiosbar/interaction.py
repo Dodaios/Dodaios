@@ -23,9 +23,9 @@ from dodaios.ui.dodaiosbar.modes import ACTIVE_VOICE_MODES, DICTATION_MODES, MOD
 WorkArea = tuple[int, int, int, int]
 
 #: The bar's place is saved with this marker. A place saved without it belongs
-#: to the earlier bottom-centred bar and is not reused: that bar had another
-#: shape, and its spot would put the upright bar in the middle of the screen.
-PLACEMENT = "side"
+#: to an earlier bar of another size and is not reused: such a spot put the
+#: small bar high up on the screen instead of near the bottom edge.
+PLACEMENT = "pill"
 
 
 # --------------------------------------------------------------------------- #
@@ -100,10 +100,10 @@ def resolve_click(
     }.get(control, "none")
 
 
-def default_side_spot(*, work: WorkArea, bar_w: int, bar_h: int, margin: int) -> tuple[int, int]:
-    """Default place: at the left edge of the work area, centred in its height."""
-    wl, wt, _ww, wh = work
-    return (int(wl + margin), int(wt + (wh - bar_h) // 2))
+def default_bar_spot(*, work: WorkArea, bar_w: int, bar_h: int, gap: int) -> tuple[int, int]:
+    """Default place: centred, ``gap`` above the bottom of the work area."""
+    wl, wt, ww, wh = work
+    return (int(wl + (ww - bar_w) // 2), int(wt + wh - bar_h - gap))
 
 
 def default_bottom_center(

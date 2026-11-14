@@ -293,14 +293,14 @@ def target_pill_size(mode: str, *, hovered: bool = False, **switches) -> tuple[i
 
 
 def pill_center_x(width: float) -> float:
-    """Horizontal centre of a pill of ``width`` pixels (at the window's left)."""
-    return design.LEFT_PAD * design_scale() + width / 2.0
+    """Horizontal centre of a pill of ``width`` pixels (centred in the window)."""
+    del width
+    return WIN_W / 2.0
 
 
 def pill_center_y(height: float) -> float:
-    """Vertical centre of a pill of ``height`` pixels (centred in the window)."""
-    del height
-    return WIN_H / 2.0
+    """Vertical centre of a pill of ``height`` pixels (at the window's bottom)."""
+    return WIN_H - design.BOTTOM_PAD * design_scale() - height / 2.0
 
 
 class JarvisBarRenderer:

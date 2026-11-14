@@ -1,45 +1,46 @@
 # Dodaios Bar
 
 The Dodaios Bar is the default on-screen overlay (`[ui] orb_style =
-"jarvis_bar"`): a slim upright black pill with white marks at the left edge of
-the screen, centred in its height. It shows whether a voice runs and who is
-speaking, and it holds the voice controls under the pointer.
+"jarvis_bar"`): a small dark pill, centred near the bottom edge of the screen.
+It shows whether a voice runs and who is speaking, and it holds the voice
+controls under the pointer.
 
 ## Shapes
 
 | Shape | When | What it shows |
 |-------|------|---------------|
-| rest | idle, nothing switched on | a thin dark pill (slightly see-through), no marks |
-| status | idle with the microphone muted, the voice muted or Prompt Mode on | one mark per switch, stacked (slashed microphone, slashed speaker, sparkle) |
-| live | a conversation (after the wake phrase, a shortcut or a click) or a dictation runs | a stack of eleven short white lines; the status marks stay on top |
-| open | the pointer is on the bar | round controls stack up (below); the control under the pointer shows a label beside the bar in the interface language |
+| rest | idle, nothing switched on | a small pill (about 40 x 8 pt on a 15-inch MacBook Air): a half-clear black fill in a light rim |
+| status | idle with the microphone muted, the voice muted or Prompt Mode on | one mark per switch (slashed microphone, slashed speaker, sparkle) |
+| live | a conversation (after the wake phrase, a shortcut or a click) or a dictation runs | a row of eleven short white bars; the status marks stay on the left |
+| open | the pointer is on the bar | round controls line up (below); the control under the pointer shows a label above the bar in the interface language |
 
-The pill eases between shapes (about 75 ms); it keeps its left edge and its
-middle, so it grows to the right and evenly up and down. A notice (a refused
-request) shows a blinking cross in the live pill and does not open.
+The pill eases between shapes (about 75 ms) and keeps its bottom centre, so it
+grows upward and evenly to both sides. A notice (a refused request) shows a
+blinking cross in the live pill and does not open.
 
 ## Place
 
-The default place is the left edge of the screen's work area, centred in its
-height. A drag moves the bar; the place is saved in `[jarvisbar]` together
-with `placement = "side"`. A place saved without that marker belongs to the
-earlier bottom-centred bar and is not reused.
+The default place is centred, 12 pt above the bottom of the screen's work
+area (above a visible Dock or taskbar). A drag moves the bar; the place is
+saved in `[jarvisbar]` together with `placement = "pill"`. A place saved
+without that marker belongs to an earlier bar of another size and is not
+reused.
 
-## The level lines
+## The level bars
 
-- The lines grow and shrink with the live audio level. While the person speaks, the
+- The bars grow and shrink with the live audio level. While the person speaks, the
   microphone feeds them; while Dodaios speaks, its voice output feeds the
-  same lines through the same level feed (`ui/orb/bus_bridge.py`,
+  same bars through the same level feed (`ui/orb/bus_bridge.py`,
   `_note_tts_level` and `_on_mic_level`; Dodaios's voice wins while it plays).
-- Silence draws a still stack of dots: nothing moves when nothing is heard.
+- Silence draws a still row of dots: nothing moves when nothing is heard.
 - Thinking (and a dictation being transcribed): a soft light walks across the
   dots.
-- Connecting a realtime call: a small wave runs down the stack; when the call
+- Connecting a realtime call: a small wave runs along the row; when the call
   is connected, one swell runs from the middle to both ends.
 
 ## Controls (open bar)
 
-| Mode | Controls, top to bottom |
+| Mode | Controls, left to right |
 |------|-------------------------|
 | idle | sparkle (only with Prompt Mode on), microphone, centre, speaker, pencil |
 | conversation | microphone, centre, speaker, X |
