@@ -43,6 +43,7 @@ import sys
 import threading
 
 from dodaios.trigger.backends.global_hotkeys import MOUSE_BUTTON_TOKENS
+from dodaios.trigger.backends.solo_hold import SoloHold
 
 log = logging.getLogger(__name__)
 
@@ -156,6 +157,13 @@ def _parse_combo_tokens(normalized: str) -> tuple[str, ...]:
     return tuple(_MODIFIER_TO_KEY_ATTR.get(p, p) for p in parts)
 
 
+def _token_in(token: str | None, tokens: frozenset[str]) -> bool:
+    """Whether a held physical ``token`` is one of the configured ``tokens``."""
+    return token is not None and any(
+        token in _GENERIC_MODIFIER_ALIASES.get(t, frozenset({t})) for t in tokens
+    )
+
+
 def _combo_is_down(tokens: frozenset[str], held: set[str]) -> bool:
     """Whether every configured token is represented by a held physical key."""
     return all(
@@ -206,16 +214,34 @@ class PynputBackend:
             on_release = row[2] if len(row) > 2 else None
             combos.append(
                 {
+                    "combo": combo,
                     "tokens": frozenset(_parse_combo_tokens(combo)),
                     "on_press": on_press,
                     "on_release": on_release,
                     "down": False,
+                    "solo": None,
                 }
             )
         self._combos = combos
         self._needs_mouse = any(
             combo["tokens"] & MOUSE_BUTTON_TOKENS for combo in combos
         )
+
+    def set_solo_hold(self, cancels: dict) -> None:
+        """Gate the named push-to-talk combos behind :class:`SoloHold`.
+
+        ``cancels`` maps a registered combo string to the callback that cancels
+        its recording when another key joins after the press fired. Never
+        raises. Primary clicks are not observed here (no mouse hook is opened
+        for them); keys are.
+        """
+        for combo in self._combos:
+            on_cancel = cancels.get(combo["combo"])
+            combo["solo"] = (
+                SoloHold(combo["on_press"], combo["on_release"], on_cancel)
+                if combo["combo"] in cancels
+                else None
+            )
 
     def chord_is_down(self, combo: str) -> bool | None:
         """Is every token of ``combo`` in the held-set right now? ``None`` = unknown.
@@ -298,6 +324,12 @@ class PynputBackend:
 
     def _on_press_key(self, key) -> None:
         token = self._token_for(key)
+        for combo in self._combos:
+            # Any other key going down while a modifier-only hold key is down
+            # makes it a shortcut (``cmd+c``), mapped key or not.
+            solo = combo.get("solo")
+            if solo is not None and combo["down"] and not _token_in(token, combo["tokens"]):
+                solo.spoil()
         if token is None:
             return
         self._held.add(token)
@@ -377,9 +409,26 @@ class PynputBackend:
             self._held.clear()
             for combo in self._combos:
                 combo["down"] = False
+                if combo.get("solo") is not None:
+                    combo["solo"].reset()
             return
         for combo in self._combos:
             is_down = _combo_is_down(combo["tokens"], self._held)
+            solo = combo.get("solo")
+            if solo is not None:
+                # A modifier-only hold key: fires only while held alone.
+                alone = all(_token_in(t, combo["tokens"]) for t in self._held)
+                if is_down and not combo["down"]:
+                    combo["down"] = True
+                    self._got_event = True
+                    solo.down(alone=alone)
+                elif is_down and not alone:
+                    solo.spoil()
+                elif not is_down and combo["down"]:
+                    combo["down"] = False
+                    self._got_event = True
+                    solo.up()
+                continue
             if is_down and not combo["down"]:
                 combo["down"] = True
                 self._got_event = True
@@ -515,6 +564,8 @@ class PynputBackend:
         self._held.clear()
         for combo in self._combos:
             combo["down"] = False
+            if combo.get("solo") is not None:
+                combo["solo"].reset()
         if self._incremented:
             with _LISTENER_LOCK:
                 global _LISTENER_REFCOUNT

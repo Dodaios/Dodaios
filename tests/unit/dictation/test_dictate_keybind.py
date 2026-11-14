@@ -593,3 +593,30 @@ async def test_start_dictation_records_the_requested_target() -> None:
             await task
         except (asyncio.CancelledError, Exception):  # noqa: BLE001, S110
             pass  # teardown only — the session body never runs in this test
+
+
+# --------------------------------------------------------------------------
+# A modifier-only hold key joined by another key (``dictate_cancel``)
+# --------------------------------------------------------------------------
+
+
+def _cancel_pipeline(*, key_down: bool) -> tuple[SpeechPipeline, list[dict]]:
+    pipe = SpeechPipeline.__new__(SpeechPipeline)
+    pipe._dictate_key_down = key_down
+    stops: list[dict] = []
+    pipe.request_dictation_stop = lambda **kw: stops.append(kw) or True  # type: ignore[method-assign]
+    return pipe, stops
+
+
+def test_a_shortcut_joining_the_hold_key_discards_the_recording() -> None:
+    """``cmd`` held, then ``tab``: nothing is read or typed, no failure mark."""
+    pipe, stops = _cancel_pipeline(key_down=True)
+    pipe._dispatch_hotkey_event("dictate_cancel")
+    assert stops == [{"discard": True}]
+    assert pipe._dictate_key_down is False
+
+
+def test_a_cancel_with_no_hold_running_does_nothing() -> None:
+    pipe, stops = _cancel_pipeline(key_down=False)
+    pipe._dispatch_hotkey_event("dictate_cancel")
+    assert stops == []

@@ -70,6 +70,7 @@ from dodaios.trigger.backends.global_hotkeys import (
     _normalize_combo,
     _reset_checker_state_for_tests,
 )
+from dodaios.trigger.backends.solo_hold import SOLO_HOLD_S
 
 log = logging.getLogger(__name__)
 
@@ -129,6 +130,19 @@ SELF_INPUT_SUPPRESSED_EVENTS: frozenset[str] = frozenset(
         "paste_last",
     }
 )
+
+#: Push-to-talk events whose modifier-only combos fire only while held alone
+#: (``backends/solo_hold.py``). Each needs a ``<name>_cancel`` consumer: a key
+#: that joins after the press fired cancels the recording instead of letting
+#: the release submit it.
+SOLO_HOLD_EVENTS: frozenset[str] = frozenset({"dictate"})
+
+
+def _is_modifier_only(normalized: str) -> bool:
+    """``"window"`` / ``"control + alt"`` -> True, ``"window + d"`` -> False."""
+    parts = [_canonical_token(p.strip().lower()) for p in normalized.split("+") if p.strip()]
+    return bool(parts) and all(p in _MODIFIER_TOKENS for p in parts)
+
 
 def _is_bare_ctrl_alt_chord(combo: str) -> bool:
     """A modifier-only chord holding Ctrl and Alt, e.g. ``ctrl+alt``.
@@ -905,6 +919,42 @@ class HotkeyTrigger:
             except asyncio.QueueEmpty:
                 pass
 
+    def _solo_hold_cancels(self) -> dict[str, Callable[[], None]]:
+        """Modifier-only hold keys that must fire only while held alone.
+
+        Maps each such normalized combo to its ``<name>_cancel`` handler. Only
+        the events in ``SOLO_HOLD_EVENTS`` are gated, and only when every combo
+        of the binding is modifiers alone: ``cmd`` is also the first key of
+        every Command shortcut, ``cmd+d`` is not (see ``backends/solo_hold.py``).
+        """
+        cancels: dict[str, Callable[[], None]] = {}
+        for event_name, combos in self._bindings_cfg.items():
+            if event_name not in SOLO_HOLD_EVENTS or event_name not in self._ptt_events:
+                continue
+            for combo in combos:
+                normalized = _normalize_combo(combo)
+                if _is_modifier_only(normalized):
+                    cancels[normalized] = self._make_handler(f"{event_name}_cancel")
+        return cancels
+
+    def _arm_solo_hold(self, backend: HotkeyBackend) -> None:
+        """Hand the gated combos to a backend that can gate them. Never raises."""
+        setter = getattr(backend, "set_solo_hold", None)
+        if not callable(setter):
+            return  # Windows poller: no per-key stream to judge "alone" from
+        try:
+            cancels = self._solo_hold_cancels()
+            setter(cancels)
+            if cancels:
+                log.info(
+                    "Hold key %s starts only when held alone for %.1fs; a shortcut "
+                    "that uses it starts nothing.",
+                    ", ".join(sorted(cancels)),
+                    SOLO_HOLD_S,
+                )
+        except Exception:  # noqa: BLE001 - the plain chord still works
+            log.warning("Hold-key shortcut guard could not be armed.", exc_info=True)
+
     def _build_bindings(self) -> tuple[list[list], list[str]]:
         """Build the normalized ``[combo, on_press, on_release]`` rows.
 
@@ -958,6 +1008,7 @@ class HotkeyTrigger:
         # raises, so the voice pipeline at ``async with HotkeyTrigger(...)``
         # stays alive (AD-OE6).
         backend.register(bindings)
+        self._arm_solo_hold(backend)
         if (
             type(backend).__name__ == "GlobalHotkeysBackend"
             and getattr(backend, "_gh", None) is None
@@ -1206,6 +1257,7 @@ class HotkeyTrigger:
             backend.stop()
             backend.unregister()
             backend.register(new_bindings)
+            self._arm_solo_hold(backend)
             if (
                 type(backend).__name__ == "GlobalHotkeysBackend"
                 and getattr(backend, "_gh", None) is None

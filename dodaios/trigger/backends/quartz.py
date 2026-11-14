@@ -59,6 +59,7 @@ from dodaios.trigger.backends.pynput import (
     _macos_hotkey_permissions_granted,
     _parse_combo_tokens,
 )
+from dodaios.trigger.backends.solo_hold import SoloHold
 
 log = logging.getLogger(__name__)
 
@@ -123,6 +124,8 @@ _FLAG_MASK_TO_TOKEN: tuple[tuple[int, str], ...] = (
     (1 << 19, "alt"),        # kCGEventFlagMaskAlternate
     (1 << 20, "cmd"),        # kCGEventFlagMaskCommand
 )
+
+_FLAG_TOKENS = frozenset(token for _mask, token in _FLAG_MASK_TO_TOKEN)
 
 # ``kCGMouseEventButtonNumber`` -> the shared mouse token. Quartz numbers the
 # buttons in hardware order: 0 left, 1 right, 2 middle, 3 and 4 the side pair.
@@ -261,16 +264,45 @@ class QuartzHotkeyBackend:
             }
             combos.append(
                 {
+                    "combo": combo,
                     "tokens": frozenset(tokens),
                     "on_press": on_press,
                     "on_release": on_release,
                     "down": False,
+                    "solo": None,
                 }
             )
         self._combos = combos
         self._needs_mouse = any(
             combo["tokens"] & MOUSE_BUTTON_TOKENS for combo in combos
         )
+
+    def set_solo_hold(self, cancels: dict) -> None:
+        """Gate the named push-to-talk combos behind :class:`SoloHold`.
+
+        ``cancels`` maps a registered combo string to the callback that cancels
+        its recording when another key joins after the press fired. Call it
+        after ``register`` and before ``start``: the tap asks for primary
+        clicks only when a gated combo exists (a Command-click is a shortcut
+        too). Never raises.
+        """
+        for combo in self._combos:
+            on_cancel = cancels.get(combo["combo"])
+            combo["solo"] = (
+                SoloHold(combo["on_press"], combo["on_release"], on_cancel)
+                if combo["combo"] in cancels
+                else None
+            )
+
+    def _has_solo(self) -> bool:
+        return any(combo.get("solo") is not None for combo in self._combos)
+
+    def _spoil_solo(self) -> None:
+        """A key-down or a click while a gated chord is down: it is a shortcut."""
+        for combo in self._combos:
+            solo = combo.get("solo")
+            if solo is not None and combo["down"]:
+                solo.spoil()
 
     def chord_is_down(self, combo: str) -> bool | None:
         """Is every token of ``combo`` in the held-set right now? ``None`` = unknown.
@@ -341,9 +373,31 @@ class QuartzHotkeyBackend:
             self._held.clear()
             for combo in self._combos:
                 combo["down"] = False
+                if combo.get("solo") is not None:
+                    combo["solo"].reset()
             return
         for combo in self._combos:
             is_down = combo["tokens"].issubset(self._held)
+            solo = combo.get("solo")
+            if solo is not None:
+                # A modifier-only hold key: fires only while held alone.
+                # "Alone" is judged on the modifiers, which every event's flags
+                # word re-syncs; a plain key whose key-up was lost must not
+                # block the dictation key for the rest of the session. A plain
+                # key that joins is caught on its own key-down
+                # (``_handle_key_down``).
+                alone = not ((self._held & _FLAG_TOKENS) - combo["tokens"])
+                if is_down and not combo["down"]:
+                    combo["down"] = True
+                    self._got_event = True
+                    solo.down(alone=alone)
+                elif is_down and not alone:
+                    solo.spoil()
+                elif not is_down and combo["down"]:
+                    combo["down"] = False
+                    self._got_event = True
+                    solo.up()
+                continue
             if is_down and not combo["down"]:
                 combo["down"] = True
                 self._got_event = True
@@ -362,6 +416,9 @@ class QuartzHotkeyBackend:
                     combo["on_release"]()
 
     def _handle_key_down(self, keycode: int) -> None:
+        # Any key-down while a modifier-only hold key is down makes it a
+        # shortcut, whether this backend maps that key or not.
+        self._spoil_solo()
         token = _KEYCODE_TO_TOKEN.get(keycode)
         if token is None:
             return
@@ -478,6 +535,20 @@ class QuartzHotkeyBackend:
                 "still works via the wake word."
             )
 
+        # A Command-click is a shortcut as well, so a gated hold key needs to
+        # see primary clicks. Asked for only then: every click of the day
+        # crosses the tap once it is in the mask.
+        primary_click_types: tuple[int, ...] = ()
+        if self._has_solo():
+            primary_click_types = tuple(
+                t
+                for t in (
+                    getattr(Quartz, "kCGEventLeftMouseDown", None),
+                    getattr(Quartz, "kCGEventRightMouseDown", None),
+                )
+                if t is not None
+            )
+
         def _callback(_proxy, event_type, event, _refcon):
             try:
                 if event_type not in (
@@ -499,6 +570,8 @@ class QuartzHotkeyBackend:
                     self._handle_key_up(int(keycode))
                 elif event_type == Quartz.kCGEventFlagsChanged:
                     self._handle_flags(int(Quartz.CGEventGetFlags(event)))
+                elif event_type in primary_click_types:
+                    self._spoil_solo()
                 elif mouse_ready and event_type == mouse_down_type:
                     self._handle_mouse_down(
                         int(Quartz.CGEventGetIntegerValueField(event, button_field))
@@ -527,6 +600,8 @@ class QuartzHotkeyBackend:
             if self._needs_mouse and mouse_ready:
                 mask |= Quartz.CGEventMaskBit(mouse_down_type)
                 mask |= Quartz.CGEventMaskBit(mouse_up_type)
+            for click_type in primary_click_types:
+                mask |= Quartz.CGEventMaskBit(click_type)
             tap = Quartz.CGEventTapCreate(
                 Quartz.kCGSessionEventTap,
                 Quartz.kCGHeadInsertEventTap,
@@ -669,6 +744,8 @@ class QuartzHotkeyBackend:
         self._held.clear()
         for combo in self._combos:
             combo["down"] = False
+            if combo.get("solo") is not None:
+                combo["solo"].reset()
         self._started = False
         # A re-arm must ask TCC again rather than trust a verdict taken before
         # the user was sent to System Settings.
