@@ -169,6 +169,8 @@ class TelegramChannel:
         # instance is built (see FIRST_CONTACT_PAIRING_WINDOW_S).
         self._pairing_closes_at = time.monotonic() + FIRST_CONTACT_PAIRING_WINDOW_S
         self._pairing_closed_logged = False
+        #: The language the owner's Telegram app is set to (``language_code``).
+        self.owner_language = ""
         #: Per chat: pictures waiting for the message that belongs to them.
         self._held: dict[int, _Held] = {}
         self.picture_wait_s = PICTURE_WAIT_S
@@ -384,6 +386,10 @@ class TelegramChannel:
                 log.debug("Telegram message without text or readable media dropped")
                 return
 
+            told = str(getattr(user, "language_code", "") or "")
+            if told and getattr(getattr(msg_obj, "chat", None), "type", "") == "private":
+                # The owner's Telegram language words their approval requests.
+                self.owner_language = told
             friend = await self._resolve_friend(chat_id, user)
             session = self._session_for_chat(chat_id, user)
 

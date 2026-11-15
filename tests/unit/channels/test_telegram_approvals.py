@@ -108,7 +108,8 @@ async def test_a_button_answers_the_card_the_app_is_waiting_on(tmp_path: Path) -
     assert len(channel.sent) == 1
     sent = channel.sent[0]
     assert sent["chat_id"] == 42 and sent["approval_id"] == approval_id
-    assert "RunCommand" in sent["text"] and "ls" in sent["text"]
+    assert sent["text"].startswith("An agent wants to run a command.")
+    assert "\nls\n" in sent["text"]
     assert (sent["allow"], sent["deny"]) == ("Allow", "Deny")
     assert channel.on_approval_callback == bridge.on_callback
     # A stranger's press changes nothing.
@@ -136,7 +137,9 @@ async def test_a_decision_in_the_app_settles_the_telegram_message(tmp_path: Path
     assert svc.resolve_approval(sid, approval_id, "deny") is True
     assert await waiting == "deny"
     await asyncio.sleep(0.05)
-    assert channel.edited and channel.edited[0][2].endswith("Decided in the app.")
+    # Decided: the message shrinks to its first line and the decision.
+    assert channel.edited
+    assert channel.edited[0][2] == "An agent wants to run a command.\nDenied in the app."
     assert bridge.open() == []
     _close(svc, sid)
 
@@ -221,3 +224,151 @@ async def test_a_callback_query_reaches_the_bridge_and_edits_the_message() -> No
     )
     await ch._on_callback_query(SimpleNamespace(callback_query=other), None)  # noqa: SLF001
     other.edit_message_text.assert_not_awaited()
+
+
+# ---- the message itself: the owner's language, whole, who asks ----------------------------
+
+_GERMAN_OWNER = "Bitte repariere den Scheduler, damit Termine wieder kommen."  # i18n-allow
+_LONG_COMMAND = (
+    'echo "== load / disk =="; uptime; df -h / | tail -1; echo; '
+    'echo "== was the Mac awake at 09:00 on 2026-11-14? (sleep/wake between 08:30 and 09:45) =="; '
+    "pmset -g log | grep -E \"^2026-11-14 0(8:[3-5]|9:[0-4])\" | awk '{print $1, $2, $4}'"
+)
+
+
+def _thread(tmp_path: Path, *, title: str, said: str = "") -> tuple[AgentChatService, str]:
+    svc = AgentChatService(AgentChatStore(":memory:"), assistant_name=lambda: "Dodaios")
+    sid = svc.store.create_session(
+        provider="claude", model="m", effort="", cwd=str(tmp_path), title=title, surface="agent"
+    ).session_id
+    if said:
+        svc.store.append_event(sid, make_event("user_message", {"text": said}))
+    return svc, sid
+
+
+def _bridge(svc: AgentChatService) -> TelegramApprovalBridge:
+    return TelegramApprovalBridge(
+        svc, channel=lambda: _Channel(), config=lambda: _cfg([42]), settings=NotifySettings
+    )
+
+
+def test_a_command_is_shown_whole_in_the_owners_language(tmp_path: Path) -> None:
+    svc, sid = _thread(tmp_path, title="Scheduler fix", said=_GERMAN_OWNER)
+    bridge = _bridge(svc)
+    payload = {
+        "name": "Bash",
+        "why": "Check load and disk",
+        "preview": {
+            "class": "shell",
+            "irreversible": False,
+            "fields": [
+                {"key": "command", "value": _LONG_COMMAND},
+                {"key": "folder", "value": "Dodaios"},
+            ],
+        },
+    }
+    lang = bridge._owner_language(sid, None)  # noqa: SLF001
+    assert lang == "de"
+    text = bridge._text(payload, lang, sid)  # noqa: SLF001
+    lines = text.split("\n")
+    assert lines[0] == "Coding-Agent „Scheduler fix“ möchte einen Befehl ausführen."  # i18n-allow
+    assert lines[1] == "Warum: Check load and disk"  # i18n-allow
+    assert _LONG_COMMAND in text  # not cut after 140 characters
+    assert "…" not in text
+    assert lines[-1] == "Ordner: Dodaios"  # i18n-allow
+    assert "An agent" not in text and "Bash" not in text
+
+
+def test_a_file_edit_shows_the_path_and_the_changed_lines(tmp_path: Path) -> None:
+    svc, sid = _thread(tmp_path, title="Scheduler fix", said=_GERMAN_OWNER)
+    path = ".claude/worktrees/scheduler-due-after-sleep/dodaios/tasks/scheduler.py"
+    payload = {
+        "name": "Edit",
+        "preview": {
+            "class": "file_write",
+            "irreversible": True,
+            "fields": [{"key": "path", "value": path}],
+            "diff": {
+                "path": path, "creates": False, "added": 2, "removed": 1,
+                "lines": [
+                    {"op": "@", "text": "@@ -1,3 +1,4 @@"},
+                    {"op": " ", "text": "import asyncio"},
+                    {"op": "-", "text": "MAX_WAIT_S = 3600"},
+                    {"op": "+", "text": "MAX_WAIT_S = 60"},
+                    {"op": "+", "text": "# wake up often enough to notice a sleep"},
+                ],
+            },
+        },
+    }
+    text = _bridge(svc)._text(payload, "de", sid)  # noqa: SLF001
+    assert text.split("\n") == [
+        "Coding-Agent „Scheduler fix“ möchte eine Datei ändern.",  # i18n-allow
+        f"Datei: {path}",  # i18n-allow
+        "2 Zeilen dazu, 1 entfernt",  # i18n-allow
+        "",
+        "- MAX_WAIT_S = 3600",
+        "+ MAX_WAIT_S = 60",
+        "+ # wake up often enough to notice a sleep",
+        "",
+        "Das lässt sich nicht rückgängig machen.",  # i18n-allow
+    ]
+
+
+def test_more_changed_lines_than_a_screenful_point_to_the_app(tmp_path: Path) -> None:
+    svc, sid = _thread(tmp_path, title="Big edit")
+    rows = [{"op": "+", "text": f"line {i}"} for i in range(30)]
+    payload = {
+        "name": "Write",
+        "preview": {
+            "class": "file_write",
+            "fields": [{"key": "path", "value": "new.py"}],
+            "diff": {"creates": True, "added": 51, "removed": 0, "lines": rows},
+        },
+    }
+    text = _bridge(svc)._text(payload, "en", sid)  # noqa: SLF001
+    assert text.startswith('Coding agent "Big edit" wants to create a file.')
+    assert "+ line 19" in text and "+ line 20" not in text
+    assert text.endswith("… 31 more lines in the app")
+
+
+def test_the_owners_telegram_language_decides_without_typed_words(tmp_path: Path) -> None:
+    svc, sid = _thread(tmp_path, title="t")
+    bridge = _bridge(svc)
+    assert bridge._owner_language(sid, SimpleNamespace(owner_language="de-DE")) == "de"  # noqa: SLF001
+
+
+def test_an_agents_own_words_do_not_set_the_language(tmp_path: Path) -> None:
+    svc, sid = _thread(tmp_path, title="t", said=_GERMAN_OWNER)
+    svc.store.append_event(
+        sid,
+        make_event("user_message", {
+            "text": "Please run the whole test suite and report back in English.",
+            "author": {"agent_id": "a1", "name": "Scout"},
+        }),
+    )
+    assert _bridge(svc)._owner_language(sid, None) == "de"  # noqa: SLF001
+
+
+def test_a_plan_approval_says_so_in_plain_words(tmp_path: Path) -> None:
+    svc, sid = _thread(tmp_path, title="Rituals")
+    payload = {"name": "ExitPlanMode", "summary": "ExitPlanMode", "source": {"kind": "plan"}}
+    text = _bridge(svc)._text(payload, "de", sid)  # noqa: SLF001
+    assert text == "Coding-Agent „Rituals“ möchte mit seinem Plan anfangen."  # i18n-allow
+
+
+def test_a_huge_command_is_cut_with_a_note(tmp_path: Path) -> None:
+    svc, sid = _thread(tmp_path, title="t")
+    payload = {
+        "name": "Bash",
+        "preview": {"class": "shell", "fields": [{"key": "command", "value": "x" * 6000}]},
+    }
+    text = _bridge(svc)._text(payload, "en", sid)  # noqa: SLF001
+    assert len(text) < 4096
+    assert "(shortened, the whole text is in the app)" in text
+
+
+def test_the_owners_words_count_however_long_the_thread_is(tmp_path: Path) -> None:
+    svc, sid = _thread(tmp_path, title="t", said=_GERMAN_OWNER)
+    for i in range(400):  # a busy coding thread: tool events after the person's words
+        svc.store.append_event(sid, make_event("tool_result", {"output": f"ok {i} done"}))
+    assert _bridge(svc)._owner_language(sid, None) == "de"  # noqa: SLF001
