@@ -514,6 +514,15 @@ def github_repositories(refresh: bool = Query(False)) -> dict:
     }
 
 
+#: What the person reads when GitHub could not be asked, by ``GitHubError.code``.
+_GITHUB_REASONS: dict[str, str] = {
+    "not_connected": "The GitHub connection has expired. Connect GitHub again.",
+    "rate_limited": "GitHub's rate limit is reached; it resets within the hour.",
+    "unreachable": "GitHub could not be reached.",
+    "error": "GitHub could not answer this request.",
+}
+
+
 @router.get(
     "/github/pull-requests",
     summary="The person's open pull requests on GitHub, and those waiting for their review",
@@ -533,12 +542,13 @@ def github_pull_requests(limit: int = Query(30, ge=1, le=30)) -> dict:
     try:
         login, mine, review = github_link.open_pull_requests(cred, limit=limit)
     except github_link.GitHubError as exc:
-        # The GitHub error is returned as the reason field, like the repository list.
+        # Why it failed, as one of a few fixed sentences picked by the error's
+        # kind: nothing of the exception itself leaves the app.
         return {
             "connected": exc.code != "not_connected",
             "source": cred.source,
             **empty,
-            "reason": str(exc),
+            "reason": _GITHUB_REASONS.get(exc.code, _GITHUB_REASONS["error"]),
         }
     return {
         "connected": True,

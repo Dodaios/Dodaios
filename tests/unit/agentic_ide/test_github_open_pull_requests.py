@@ -165,6 +165,20 @@ def test_githubs_own_reason_is_passed_on(github) -> None:
     assert too_many.status_code == 422
 
 
+def test_the_reason_is_a_fixed_sentence_never_the_errors_own_text(github) -> None:
+    """Whatever an error carries inside stays in the app; its kind picks the sentence."""
+    github["error"] = github_link.GitHubError(
+        "Traceback (most recent call last): secret-looking internals", code="unreachable"
+    )
+    with _client() as client:
+        unreachable = client.get(URL).json()
+        github["error"] = github_link.GitHubError("internals again", code="something-new")
+        unknown = client.get(URL).json()
+    assert unreachable["reason"] == "GitHub could not be reached."
+    assert unknown["reason"] == "GitHub could not answer this request."
+    assert unknown["connected"] is True
+
+
 def test_the_assistant_may_read_it_without_asking() -> None:
     """A look that may only read gets the pull requests through this route, not a shell."""
     from dodaios.app_actions.catalog import build_catalog, default_tier
