@@ -264,6 +264,7 @@ async def watch_topology(
     and :func:`refresh_audio_backend`.
     """
     global _probe_request, _probe_loop
+    real_probe = probe is None
     probe = probe or _fresh_signature
     refresh = refresh or (lambda: refresh_audio_backend(player, output_device))
     _probe_request = asyncio.Event()
@@ -271,6 +272,13 @@ async def watch_topology(
     loop = _probe_loop
     last: str | None = None
     last_probe_at = float("-inf")
+    if real_probe:
+        # The real probe also brings what only a fresh process can read for
+        # the automatic microphone choice: which inputs the operating system
+        # calls virtual. Ask once at the start instead of a poll interval
+        # later; what it saw is the baseline. It does not count against the
+        # gap between probes, so a device-loss signal right after is not held.
+        last = await asyncio.to_thread(probe)
     while True:
         # Wake early when a device-loss signal fires, otherwise poll.
         requested = True

@@ -712,6 +712,25 @@ def _fallback_input_devices(primary_idx: int) -> list[int]:
     return [idx for idx, _ in matches]
 
 
+def _is_virtual_input(name: str) -> bool:
+    """Whether ``name`` is a virtual microphone: by the system's word, or by name.
+
+    The operating system's own answer covers every product (macOS reports a
+    software-only device as such; ``dodaios.audio.devices`` keeps what the
+    device probe last read). The name list stays for the systems that do not
+    tell, and for the first moments of a start, before a probe has answered.
+    """
+    low = name.lower()
+    if any(virtual.lower() in low for virtual in _INPUT_DEPRIORITIZE):
+        return True
+    try:
+        from dodaios.audio.devices import is_virtual_device  # noqa: PLC0415 - devices imports capture
+
+        return is_virtual_device(name)
+    except Exception:  # noqa: BLE001 - a ranking hint, never a reason to fail a resolve
+        return False
+
+
 def _os_default_input_name(
     devices: Sequence[dict], hostapis: Sequence[dict]
 ) -> str | None:
@@ -744,7 +763,7 @@ def _os_default_input_name(
         return None
     if is_legacy_primary_mapper(default_in, hostapis, devices, output=False):
         return None
-    if any(v.lower() in low for v in _INPUT_DEPRIORITIZE):
+    if _is_virtual_input(name):
         return None  # virtual/AI mic as OS default -> fall back to a real mic
     if _input_known_silent(name, devices):
         return None  # the OS default delivers nothing -> a mic that does
@@ -802,7 +821,7 @@ def _rank_input_device_candidates(
             if substring.lower() in low:
                 rank = len(effective_priority) + generic_rank
                 break
-        if any(virtual.lower() in low for virtual in _INPUT_DEPRIORITIZE):
+        if _is_virtual_input(low):
             rank += 1000
         if _input_known_silent(entry[1].get("name"), devices):
             # Behind everything, the virtual ones included: it is the one
@@ -1804,10 +1823,14 @@ class MicrophoneCapture:
                         preferred_attempts,
                         attempt,
                     )
+                # The name too: an index says nothing once the device table
+                # has changed, and "which microphone was it" is the question
+                # every report of "it does not hear me" starts with.
                 _log.info(
-                    "Mic opened (device={}, capture_sr={}, output_sr={}, "
+                    "Mic opened (device={} '{}', capture_sr={}, output_sr={}, "
                     "blocksize={}, dtype={}).",
                     attempt,
+                    input_name,
                     capture_rate,
                     self._sample_rate,
                     capture_blocksize,

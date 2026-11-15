@@ -188,11 +188,47 @@ def _query_tables_fresh() -> _DeviceTables | None:
         return None
     if not isinstance(defaults, list) or len(defaults) != 2:
         return None
+    _remember_virtual_devices(payload.get("virtual"))
     return (
         devices,
         hostapis,
         (_default_index(defaults[0]), _default_index(defaults[1])),
     )
+
+
+# Names of the devices the operating system itself calls virtual (software
+# only), as the fresh probe last reported them. ``None`` until a probe has
+# answered: the automatic microphone choice then knows virtual inputs only by
+# its list of product names, as before.
+_virtual_device_names: frozenset[str] | None = None
+
+
+def _device_name_key(name: object) -> str:
+    return " ".join(str(name or "").casefold().split())
+
+
+def _remember_virtual_devices(names: object) -> None:
+    """Keep the probe's list of virtual devices; a malformed one changes nothing."""
+    global _virtual_device_names
+    if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
+        return
+    _virtual_device_names = frozenset(_device_name_key(name) for name in names)
+
+
+def is_virtual_device(name: object) -> bool:
+    """Whether the operating system reported the device ``name`` as virtual.
+
+    ``False`` when no probe has answered yet, and on every system that does
+    not tell (only macOS does): "not known to be virtual", never "real".
+    """
+    known = _virtual_device_names
+    return bool(known) and _device_name_key(name) in known
+
+
+def _forget_virtual_devices() -> None:
+    """Back to "no probe has answered" (tests)."""
+    global _virtual_device_names
+    _virtual_device_names = None
 
 
 def _query_tables(*, fresh: bool = False) -> _DeviceTables | None:
