@@ -24,8 +24,10 @@ Answer them before they are asked:
 ## Do not claim
 
 - That Dodaios is better than a named product, or modelled on one.
-- A Slack bot. Slack is a plugin the assistant posts through, and nobody can
-  write to the assistant there. The chat channels are Telegram and Discord.
+- A Slack bot. Slack is a plugin the assistant reads and posts through, and
+  nobody can write to the assistant there. The chat channel is Telegram.
+- Discord as a chat channel. Its direct messages are in the code but have no
+  recorded live check; name them only once one exists.
 - A native phone app. The phone app is a web app that the desktop serves.
 - WhatsApp, or phone calls as a finished feature.
 - That all 48 plugins are proven. Two passed a recorded end-to-end run. The

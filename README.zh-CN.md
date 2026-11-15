@@ -126,7 +126,7 @@ Dodaios 是容纳这一切的一个工作区。它不出售模型访问权限。
   </tr>
   <tr>
     <td><a href="#离开电脑时它也跟着你"><b>离开电脑时，它也跟着你</b></a></td>
-    <td>在你的手机上、在 Telegram 和 Discord 里，都是同一场对话。</td>
+    <td>在你的手机上和 Telegram 里，都是同一场对话。在 Slack 里，它替你阅读和发帖。</td>
   </tr>
 </table>
 
@@ -207,10 +207,11 @@ Agentic IDE 在一个窗口里运行九个编程智能体，每个都可以作�
 你和助手的对话会跟着你走：
 
 - **手机应用。** 一个由你自己的电脑提供的网页应用。你用配对码把它配对好，它就会显示同一场对话：你可以打字、发语音消息，也可以允许或拒绝正在等你同意的事。通过 HTTPS 访问时，你可以安装它并接收推送通知。
-- **Telegram 和 Discord。** 你和自己的机器人之间的私聊，也会延续这场对话。
-- **同一场对话。** 你在手机上说过的话，等你回来时就在桌面端的聊天里。
+- **Telegram。** 你和自己的 Telegram 机器人之间的私聊就是同一场对话。你可以写消息、发语音消息或照片，Nova 会在那里回答；正在等你同意的事会附带“Allow”和“Deny”按钮。无论你在哪里都能用：你的电脑会从 Telegram 取回消息。
+- **Slack。** Nova 也会用你自己的登录在你的 Slack 里工作：它搜索和阅读频道与讨论串，并替你发帖。目前还不能在 Slack 里给 Nova 发消息。
+- **同一场对话。** 你在手机上或 Telegram 里说过的话，等你回来时就在桌面端的聊天里。
 
-默认情况下，只有这台电脑能连接。要用手机，请在启动 Dodaios 时让它在你的家庭网络上监听（这需要一个控制密钥），或者通过 HTTPS 提供服务。[手机指南](https://github.com/Dodaios/Dodaios/blob/main/docs/mobile-companion.md)里有这两种方法。
+默认情况下，只有这台电脑能连接手机应用。请在启动 Dodaios 时让它在你的家庭网络上监听（这需要一个控制密钥），或者通过 HTTPS 提供服务；Telegram 两者都不需要。[手机指南](https://github.com/Dodaios/Dodaios/blob/main/docs/mobile-companion.md)里有这两种方法。
 
 <br clear="right" />
 
