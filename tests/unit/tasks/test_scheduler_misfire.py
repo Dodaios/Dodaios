@@ -13,16 +13,21 @@ app was down still fires at boot — there is no next occurrence to skip to.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import heapq
 import json
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+from dodaios.control.cancel import CancelToken
 from dodaios.core.bus import EventBus
 from dodaios.core.misfire import MISFIRE_GRACE_NS
+from dodaios.tasks import scheduler as scheduler_module
 from dodaios.tasks.scheduler import TaskScheduler, parse_iso_timestamp_to_ns
 from dodaios.tasks.schema import SpeakAction, TaskSpec, TriggerAtTime, TriggerEvery
 from dodaios.tasks.store import TaskStore
@@ -190,6 +195,56 @@ async def test_drain_skips_a_slot_the_loop_slept_through(store: TaskStore) -> No
     assert runner.dispatched == []
     assert scheduler._heap[0] == (anchor_ns + _DAY_NS, task_id)
     assert len(await _missed_steps(store, task_id)) == 1
+
+
+async def test_run_notices_a_slot_that_came_due_while_the_machine_slept(
+    store: TaskStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The loop's timer stands still during sleep; the wall clock does not.
+
+    A daily slot one hour away used to be waited for with a one-hour timer.
+    On a laptop that slept through most of that hour the timer ended long
+    after the slot, which was then skipped as missed although the machine was
+    awake when it came due. The loop now reads the wall clock again after at
+    most ``MAX_WAIT_S``, so a slot five minutes old still runs.
+    """
+    start = datetime.now(UTC).replace(microsecond=0)
+    anchor = start - timedelta(hours=23)
+    task_id = await store.insert(_daily_at(anchor))
+    due_ns = parse_iso_timestamp_to_ns(anchor.isoformat()) + _DAY_NS
+    await store.set_next_due(task_id, due_ns)
+
+    wall = {"now_ns": parse_iso_timestamp_to_ns(start.isoformat())}
+    monkeypatch.setattr(
+        scheduler_module,
+        "time",
+        SimpleNamespace(time_ns=lambda: wall["now_ns"], monotonic=time.monotonic),
+    )
+    monkeypatch.setattr(scheduler_module, "MAX_WAIT_S", 0.02)
+
+    runner = RecordingRunner()
+    scheduler = TaskScheduler(store=store, bus=EventBus(), runner=runner)
+    await scheduler.hydrate()
+    assert scheduler._heap[0] == (due_ns, task_id)
+    token = CancelToken()
+    loop_task = asyncio.create_task(scheduler.run(token))
+    try:
+        # The loop waits for the slot an hour away: ticks pass, nothing runs.
+        await asyncio.sleep(0.1)
+        assert runner.dispatched == []
+
+        # The machine wakes five minutes after the slot.
+        wall["now_ns"] = due_ns + 5 * 60 * 1_000_000_000
+        await asyncio.wait_for(runner.gate.wait(), timeout=5.0)
+    finally:
+        token.cancel("test_done")
+        loop_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await loop_task
+
+    assert runner.dispatched == [task_id]
+    assert await _missed_steps(store, task_id) == []
+    assert scheduler._heap[0] == (due_ns + _DAY_NS, task_id)
 
 
 async def test_unanchored_task_rearms_one_interval_from_now(store: TaskStore) -> None:
