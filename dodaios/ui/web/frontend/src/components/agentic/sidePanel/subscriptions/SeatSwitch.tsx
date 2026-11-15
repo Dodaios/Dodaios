@@ -5,9 +5,12 @@ import { fill, useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
 import {
   fetchAutoSwitch,
+  fetchModelFallback,
   switchSeat,
   updateAutoSwitch,
+  updateModelFallback,
   type AutoSwitchState,
+  type ModelFallbackState,
   type SeatSwitchEvent,
 } from "@/lib/agentAccountsApi";
 import { cn } from "@/lib/utils";
@@ -201,6 +204,7 @@ export function AutoSwitchBar() {
           className="h-7 w-auto shrink-0 text-[11px]"
         />
       </div>
+      <ModelFallbackToggle />
       {seat.notice && (
         <p
           data-testid="seat-switch-notice"
@@ -216,6 +220,52 @@ export function AutoSwitchBar() {
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * Whether a coding thread whose model hits its usage or rate limit goes on
+ * on the next model of its CLI's chain, in the same thread. Read once when
+ * the bar mounts; absent on a backend without the feature.
+ */
+function ModelFallbackToggle() {
+  const t = useT();
+  const [state, setState] = useState<ModelFallbackState | null>(null);
+  const [failed, setFailed] = useState("");
+  useEffect(() => {
+    let alive = true;
+    fetchModelFallback()
+      .then((next) => { if (alive) setState(next); })
+      .catch(() => { /* no line: the bar keeps its subscription switch */ });
+    return () => { alive = false; };
+  }, []);
+  if (!state) return null;
+  const toggle = async (enabled: boolean) => {
+    setFailed("");
+    try {
+      setState(await updateModelFallback(enabled));
+    } catch (err) {
+      setFailed(fill(t("ide_side_panel.subscriptions.switch.failed"), { error: (err as Error).message }));
+    }
+  };
+  return (
+    <>
+      <div className="flex min-h-7 items-center gap-2">
+        <Switch
+          id="model-fallback-toggle"
+          data-testid="model-fallback-toggle"
+          checked={state.enabled}
+          onCheckedChange={(enabled) => void toggle(enabled)}
+          aria-label={t("ide_side_panel.subscriptions.switch.model_fallback")}
+        />
+        <QuickTooltip content={t("ide_side_panel.subscriptions.switch.model_fallback_tip")} side="bottom" className="min-w-0 flex-1">
+          <label htmlFor="model-fallback-toggle" className="block cursor-pointer truncate text-[11.5px] text-foreground">
+            {t("ide_side_panel.subscriptions.switch.model_fallback")}
+          </label>
+        </QuickTooltip>
+      </div>
+      {failed && <p role="status" className="text-[10.5px] text-destructive">{failed}</p>}
+    </>
   );
 }
 

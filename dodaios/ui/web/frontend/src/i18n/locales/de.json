@@ -7864,6 +7864,14 @@
     "note_saved": "Notiert"
   },
   "thread_turn": {
+    "model_fallback": {
+      "switched_until": "{limit}-Limit erreicht bis {when} – weiter mit {model}",
+      "switched": "{limit}-Limit erreicht – weiter mit {model}",
+      "rate": "{limit} ist gerade gedrosselt – weiter mit {model}",
+      "exhausted": "Alle Modelle, auf die dieser Thread wechseln kann, sind am Limit ({models}). Angehalten.",
+      "exhausted_until": "Alle Modelle, auf die dieser Thread wechseln kann, sind am Limit ({models}). Angehalten – das erste ist wieder frei {when}.",
+      "model_until": "{model} bis {when}"
+    },
     "worked": "Gearbeitet",
     "worked_for": "{duration} gearbeitet",
     "working_for": "Arbeitet seit {duration}",
@@ -8564,6 +8572,8 @@
         "empty_until": "Aufgebraucht bis {when}",
         "auto": "Automatisch wechseln",
         "auto_tip": "Wenn ein Abo knapp wird oder sein Limit erreicht, ziehen laufende Agents auf das Abo mit dem meisten Restbudget um und arbeiten weiter.",
+        "model_fallback": "Modell wechseln bei Limit",
+        "model_fallback_tip": "Erreicht das Modell eines Coding-Threads sein Nutzungs- oder Ratenlimit, arbeitet derselbe Thread mit dem nächsten Modell weiter (Claude Code: Fable 5.2 → Opus 5.5 → Sonnet 5.5).",
         "threshold": "Wann wechseln",
         "at_left": "bei {left} % Rest",
         "at_limit": "erst am Limit",

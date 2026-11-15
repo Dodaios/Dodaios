@@ -575,6 +575,14 @@ class SwitchSeatRequest(BaseModel):
     account_id: str = Field(description="Id of a stored subscription of that agent.")
 
 
+class ModelFallbackRequest(BaseModel):
+    """Whether a coding thread moves on to another model when its model is limited."""
+
+    enabled: bool = Field(
+        description="Switch a limited thread to the next model of its CLI's chain and go on.",
+    )
+
+
 class AutoSwitchRequest(BaseModel):
     """When running work moves off a subscription that is running out."""
 
@@ -3802,6 +3810,35 @@ async def set_auto_switch(req: AutoSwitchRequest) -> dict:
         lambda: agent_accounts.set_auto_switch(enabled=req.enabled, at_percent=req.at_percent)
     )
     return {"ok": True, **await asyncio.to_thread(seat_switch.status)}
+
+
+def _model_fallback_status() -> dict:
+    from dodaios.agent_chat import model_fallback
+
+    return {
+        "ok": True,
+        "enabled": model_fallback.enabled(),
+        "chains": model_fallback.effective_chains(),
+    }
+
+
+@router.get("/accounts/model-fallback", summary="Automatic model fallback for coding threads")
+async def get_model_fallback() -> dict:
+    """Whether a thread whose model hits its limit continues on the next model.
+
+    ``chains`` is each CLI's fallback order as it applies now, most preferred
+    first (``[agentic_ide] model_fallback_chains`` over the built-in ones).
+    """
+    return await asyncio.to_thread(_model_fallback_status)
+
+
+@router.put("/accounts/model-fallback", summary="Turn automatic model fallback on or off")
+async def set_model_fallback(req: ModelFallbackRequest) -> dict:
+    """Saved in ``[agentic_ide] model_fallback``; the next limited turn reads it."""
+    from dodaios.core import config_writer
+
+    await asyncio.to_thread(config_writer.set_agentic_ide_model_fallback, req.enabled)
+    return await asyncio.to_thread(_model_fallback_status)
 
 
 @router.post(

@@ -296,6 +296,42 @@ every line the CLI prints and streams them to the app.
   app replaces a host of another build at the next thread start at which
   the host holds no turn; a host with turns is never touched.
 
+## A model that hits its limit
+
+When a thread's model hits its usage or rate limit ("You've hit your Fable
+limit · resets Nov 17 at 12am"), the same thread switches to the next model of
+its CLI's fallback chain and goes on. Context, history and link stay in this
+one thread (`dodaios/agent_chat/model_fallback.py`, called from
+`runner_cli.run_cli_turn` after the subscription switch).
+
+- **Detection:** the CLI's own stream decides. Claude Code prints a
+  `rate_limit_event` with `status: "rejected"` and `resetsAt`, a message with
+  `error: "rate_limit"`, and a result with `api_error_status: 429`. Codex
+  limit codes count where its error carries them. The error text is only a
+  fallback. A sub-agent's limit is not the thread's.
+- **Switch:** the thread's model is stored, the composer follows, and the
+  same CLI conversation resumes with "Continue where you stopped". A turn
+  that was refused before it started gets the person's message again.
+- **Chain:** `[agentic_ide] model_fallback_chains`, one list per runner, most
+  preferred first. Without it, Claude Code uses Fable 5.2, Opus 5.5, Sonnet
+  5.5, and Codex uses GPT-5.6 Sol, Terra, Luna. A limit that names a family
+  ("Fable limit") skips every model of that family. An empty list switches
+  one CLI off.
+- **What you see:** one quiet line in the thread, "Fable limit reached until
+  17 Nov, 00:00 – continued on Opus 5.5". The result that goes back to the
+  lead names the model that finished.
+- **No loop:** each model is tried at most once per turn, and a spent model
+  stays out until its reset. When no model is left, the turn stops once. A
+  red line lists the models and when the first one is free again, and the
+  failed-turn card shows the usage limit with that time.
+- **Off:** the switch "Switch models at a limit" in the Subscriptions bar, or
+  `[agentic_ide] model_fallback = false`. The thread then stops with the
+  limit error, as before.
+
+Only coding threads switch. The lead's own chat and society agents keep the
+model the person picked. A turn that the turn host carried over an app
+restart ends with the limit error. The next message switches.
+
 ## Scrolling back in a grid pane
 
 A grid pane is xterm.js, and its scrollback lives in that xterm instance. The

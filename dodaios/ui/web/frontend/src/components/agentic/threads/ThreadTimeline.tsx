@@ -4,11 +4,12 @@ import { planOps, planViews, samePlanOps, type PlanOp, type PlanView } from "@/c
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
-import { STEER_PREFIX, waitsOnCard, type SetupStep, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserAttachment, type UserItem } from "@/components/agentchat/reduce";
+import { STEER_PREFIX, waitsOnCard, type NoticeItem, type SetupStep, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserAttachment, type UserItem } from "@/components/agentchat/reduce";
+import { isModelFallback, MODEL_FALLBACK_EXHAUSTED_KIND, modelFallbackText } from "@/components/agentchat/modelFallback";
 import { toolDiff, type DiffFile } from "@/components/agentchat/toolDiff";
 import { capitalize, plural, readableOutput, tr, traceDuration, type Call } from "@/components/agentchat/traceEntries";
 import { fill, useI18nStore, useT } from "@/i18n";
-import { localeForUiLanguage } from "@/components/runs/format";
+import { localeForUiLanguage, useRunLocale } from "@/components/runs/format";
 import { ApprovalActionCard, type ApprovalDecide } from "@/components/agentchat/actionCard/ApprovalActionCard";
 import { robustCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
@@ -1074,6 +1075,22 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   </div></CallMedia.Provider>;
 });
 
+/** The thread moved to another model at a limit, or every model is limited: one quiet line. */
+function ModelFallbackLine({ item }: { item: NoticeItem }) {
+  const t = useT();
+  const locale = useRunLocale();
+  const stopped = item.kind === MODEL_FALLBACK_EXHAUSTED_KIND;
+  return (
+    <p
+      data-testid="model-fallback-notice"
+      role={stopped ? "alert" : "note"}
+      className={cn("text-center text-xs", stopped ? "text-destructive" : "text-muted-foreground")}
+    >
+      {modelFallbackText(item, t, locale)}
+    </p>
+  );
+}
+
 function ErrorLine({ text }: { text: string }) {
   return <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{text}</p>;
 }
@@ -1084,6 +1101,7 @@ function ItemView({ item, tone, plans }: { item: TimelineItem } & Pick<ThreadTur
   if (item.type === "turn") return <ThreadTurn turn={item} tone={tone} plans={plans} />;
   if (item.type === "error") return <ErrorLine text={item.text} />;
   if (item.type === "notice") {
+    if (isModelFallback(item)) return <ModelFallbackLine item={item} />;
     return <p className="text-center text-xs text-muted-foreground">{item.agentName ? `${item.agentName}: ` : ""}{item.text}</p>;
   }
   return <div className="rounded-xl border border-border px-3 py-2 text-sm">

@@ -7864,6 +7864,14 @@
     "note_saved": "Anotado"
   },
   "thread_turn": {
+    "model_fallback": {
+      "switched_until": "Limite de {limit} atingido até {when} – continua com {model}",
+      "switched": "Limite de {limit} atingido – continua com {model}",
+      "rate": "{limit} está limitado por frequência – continua com {model}",
+      "exhausted": "Todos os modelos para os quais este tópico pode mudar estão no limite ({models}). Parado.",
+      "exhausted_until": "Todos os modelos para os quais este tópico pode mudar estão no limite ({models}). Parado – o primeiro fica livre {when}.",
+      "model_until": "{model} até {when}"
+    },
     "worked": "Trabalhou",
     "worked_for": "Trabalhou durante {duration}",
     "working_for": "A trabalhar há {duration}",
@@ -8564,6 +8572,8 @@
         "empty_until": "Esgotada até {when}",
         "auto": "Mudar automaticamente",
         "auto_tip": "Quando uma subscrição está a acabar ou atinge o limite, os agentes em execução passam para a subscrição com mais orçamento restante e continuam a trabalhar.",
+        "model_fallback": "Mudar de modelo no limite",
+        "model_fallback_tip": "Quando o modelo de um tópico de código atinge o limite de utilização ou de frequência, o mesmo tópico continua com o modelo seguinte (Claude Code: Fable 5.2 → Opus 5.5 → Sonnet 5.5).",
         "threshold": "Quando mudar",
         "at_left": "com {left}% restante",
         "at_limit": "só no limite",

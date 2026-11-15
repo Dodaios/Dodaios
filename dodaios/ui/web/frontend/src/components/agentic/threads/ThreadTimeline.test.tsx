@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ToolBlock, TurnBlock, TurnItem, TurnStatus } from "@/components/agentchat/reduce";
+import type { NoticeItem, ToolBlock, TurnBlock, TurnItem, TurnStatus } from "@/components/agentchat/reduce";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { useSideFileStore } from "@/store/sideFile";
 import { pictureUrls, projectPath, ThreadTimeline } from "./ThreadTimeline";
@@ -377,5 +377,25 @@ describe("switching threads", () => {
     expect(screen.getByText("message 19")).toBeTruthy();
     expect(screen.queryByText("message 0")).toBeNull();
     expect(await screen.findByText("message 0")).toBeTruthy();
+  });
+});
+
+describe("model fallback line", () => {
+  it("draws a thread that switched models at a limit as one quiet line, and a spent chain as an alert", () => {
+    const switched: NoticeItem = {
+      type: "notice", id: "n1", kind: "model_fallback", text: "Fable limit reached – continued on Opus 5.5.",
+      agentName: "", agentId: "", status: "", tsMs: 1, resolved: "",
+      data: { kind: "model_fallback", limit: "usage", limit_label: "Fable", to_label: "Opus 5.5", resets_at: null },
+    };
+    const spent: NoticeItem = {
+      ...switched, id: "n2", kind: "model_fallback_exhausted", text: "Every model is at its limit.",
+      data: { kind: "model_fallback_exhausted", models: [{ model: "claude-sonnet-5-5", label: "Sonnet 5.5", resets_at: null }] },
+    };
+    render(<ThreadTimeline items={[turn([{ kind: "text", id: "a", text: "Done." }]), switched, spent]} sessionId="s1" bottomInset={0} />);
+    const [first, second] = screen.getAllByTestId("model-fallback-notice");
+    expect(first.textContent).toBe("Fable limit reached – continued on Opus 5.5");
+    expect(first.getAttribute("role")).toBe("note");
+    expect(second.textContent).toContain("Sonnet 5.5");
+    expect(second.getAttribute("role")).toBe("alert");
   });
 });

@@ -7864,6 +7864,14 @@
     "note_saved": "已记下"
   },
   "thread_turn": {
+    "model_fallback": {
+      "switched_until": "{limit} 已达上限，{when} 恢复 – 已改用 {model} 继续",
+      "switched": "{limit} 已达上限 – 已改用 {model} 继续",
+      "rate": "{limit} 正被限速 – 已改用 {model} 继续",
+      "exhausted": "此线程可切换的所有模型都已达上限（{models}）。已停止。",
+      "exhausted_until": "此线程可切换的所有模型都已达上限（{models}）。已停止 – 最早 {when} 恢复。",
+      "model_until": "{model}（{when} 恢复）"
+    },
     "worked": "已工作",
     "worked_for": "已工作 {duration}",
     "working_for": "已工作 {duration}",
@@ -8564,6 +8572,8 @@
         "empty_until": "已用完，{when} 恢复",
         "auto": "自动切换",
         "auto_tip": "当某个订阅额度将尽或达到上限时，正在运行的智能体会迁移到剩余额度最多的订阅并继续工作。",
+        "model_fallback": "达到上限时切换模型",
+        "model_fallback_tip": "编程线程的模型达到用量或速率上限时，同一线程会改用下一个模型继续（Claude Code：Fable 5.2 → Opus 5.5 → Sonnet 5.5）。",
         "threshold": "切换时机",
         "at_left": "剩余 {left}% 时",
         "at_limit": "仅在达到上限时",
