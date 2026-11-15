@@ -236,6 +236,26 @@ def _ritual_properties() -> dict[str, Any]:
                     "id": _str_param(
                         "Only when changing a ritual: the id of the step this replaces."
                     ),
+                    "call": {
+                        "type": "object",
+                        "description": (
+                            "Only for a 'now' step that is exactly ONE call of one of your "
+                            "tools with fixed arguments (play this playlist, open that "
+                            "app): that call. It is then made at once when the phrase is "
+                            "said, without you. Find the arguments out first (search the "
+                            "playlist). Leave it out for a step that needs judgment; it "
+                            "is then done by a turn."
+                        ),
+                        "properties": {
+                            "tool": _str_param("The tool's name, without a server prefix."),
+                            "args": {"type": "object", "description": "Its arguments."},
+                            "says": _str_param(
+                                "The call in a few plain words for the user, in their "
+                                "language: 'YouTube Music: liked songs'.", max_length=160,
+                            ),
+                        },
+                        "required": ["tool", "args", "says"],
+                    },
                 },
                 "required": ["when", "text"],
             },

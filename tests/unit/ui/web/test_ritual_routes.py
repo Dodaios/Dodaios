@@ -182,6 +182,26 @@ def test_gather_now_says_why_it_cannot(world) -> None:
     assert unavailable.status_code == 503
 
 
+def test_a_step_keeps_the_one_tool_call_it_comes_down_to(world) -> None:
+    call = {"tool": "open_app", "args": {"name": "Notes"}, "says": "Open Notes"}
+    body = {
+        "name": "Focus", "phrases": ["Focus time"],
+        "steps": [{"when": "now", "text": "Open my notes.", "call": call}],
+    }
+    with _client() as client:
+        made = client.post(BASE, json=body)
+        ritual = made.json()["ritual"]
+        # The panel sends a step back as it got it while its sentence stays.
+        same = client.patch(f"{BASE}/{ritual['id']}", json={"steps": ritual["steps"]})
+        on_ahead = client.post(BASE, json={
+            "name": "Wrong", "phrases": ["Wrong one"],
+            "steps": [{"when": "ahead", "text": "The news.", "call": call}],
+        })
+    assert made.status_code == 201 and ritual["steps"][0]["call"] == call
+    assert same.json()["ritual"]["steps"][0]["call"] == call
+    assert on_ahead.status_code == 422
+
+
 def test_a_ritual_is_found_by_its_name_as_well(world) -> None:
     with _client() as client:
         ritual = client.post(BASE, json=MORNING).json()["ritual"]

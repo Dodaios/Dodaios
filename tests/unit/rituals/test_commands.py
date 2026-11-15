@@ -32,6 +32,10 @@ def test_writing_one_asks_for_a_name_a_phrase_and_sorted_steps() -> None:
     step = create.params["properties"]["steps"]["items"]
     assert step["required"] == ["when", "text"]
     assert step["properties"]["when"]["enum"] == ["now", "ahead"]
+    # A step that is one tool call may carry it, so it is done without a model.
+    call = step["properties"]["call"]
+    assert call["required"] == ["tool", "args", "says"]
+    assert "exactly ONE call" in call["description"]
     # The description tells the model when a ritual is the right thing.
     assert "SAYING a short phrase" in create.description
     assert "Do not run the steps now" in create.description

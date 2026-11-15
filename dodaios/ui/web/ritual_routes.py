@@ -30,6 +30,9 @@ class RitualStepBody(BaseModel):
     #: ``now`` (the moment the phrase is said) or ``ahead`` (gathered before).
     when: str
     text: str
+    #: For a ``now`` step that is exactly one tool call: ``{tool, args, says}``.
+    #: Send it back unchanged while the step's sentence stays the same.
+    call: dict[str, Any] | None = None
 
 
 class RitualBody(BaseModel):

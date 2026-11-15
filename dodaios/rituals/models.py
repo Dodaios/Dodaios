@@ -61,9 +61,17 @@ class RitualStep:
     when: str
     #: What should happen, in the person's own words.
     text: str
+    #: For a ``now`` step that is exactly one tool call: that call (``tool``,
+    #: ``args``, and ``says``, the call in plain words). It is made directly
+    #: at the start, with no model (:mod:`dodaios.rituals.instant`). ``None``:
+    #: the step is done by a turn.
+    call: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "when": self.when, "text": self.text}
+        view: dict[str, Any] = {"id": self.id, "when": self.when, "text": self.text}
+        if self.call is not None:
+            view["call"] = dict(self.call)
+        return view
 
 
 @dataclass(frozen=True, slots=True)
