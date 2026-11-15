@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowUp, Loader2, MessageSquarePlus, PencilLine, Plus, Shapes, ShieldCheck, Star } from "lucide-react";
+import { ArrowUp, Loader2, MessageSquarePlus, MousePointerClick, PencilLine, Plus, Shapes, ShieldCheck, Star } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { OutputPreview } from "@/components/visualization/OutputPreview";
@@ -31,13 +31,14 @@ import {
   useNodeBridge,
   type NodeComment,
   type NodeEdit,
+  type NodeEditHere,
   type NodePageMode,
 } from "@/components/nodes/nodeBridge";
 import { useNodeCommentDraft } from "@/components/nodes/nodeCommentDraft";
 import { useNodeCommentDictation } from "@/components/nodes/nodeCommentDictation";
 import { NodesApiError, saveNodeField } from "@/components/nodes/useNodes";
 import { isNodeSlug, isTypedNode, type NodeCard } from "@/components/nodes/nodeModel";
-import { isEditableType, type EditableType } from "@/components/nodes/editors/types";
+import { isEditableType, type EditableType, type NodeEditorStart } from "@/components/nodes/editors/types";
 import { useNodesLibrary } from "@/components/nodes/useNodesLibrary";
 import { useNewWhiteboard } from "@/components/nodes/whiteboard/useNewWhiteboard";
 import { useT } from "@/i18n";
@@ -480,7 +481,14 @@ function Stage({
   const editorType: EditableType | null =
     canTouch && node !== null && isTypedNode(node) && isEditableType(node.type) ? node.type : null;
   const [editing, setEditing] = useState(false);
+  /* A node is edited by clicking into it: a click on one of the page's texts
+   * opens the editor with the caret there, without pressing Edit first. Not
+   * a film: a click on it plays and pauses. */
+  const [startAt, setStartAt] = useState<NodeEditorStart | null>(null);
   useEffect(() => setEditing(false), [currentId]);
+  useEffect(() => {
+    if (!editing) setStartAt(null);
+  }, [editing]);
   useEffect(() => {
     if (editorType === null) setEditing(false);
   }, [editorType]);
@@ -523,6 +531,12 @@ function Stage({
     [editorType],
   );
   const closeEditor = useCallback(() => setEditing(false), []);
+  const editHere = useCallback((at: NodeEditHere) => {
+    setStartAt(at);
+    setPageMode("view");
+    setEditing(true);
+  }, []);
+  const tapToEdit = editorType !== null && editorType !== "motion" && pageMode === "view";
   // Escape leaves the page's mode first, and the stage only after that. (A
   // field being typed in takes its own Escape inside the page: the key does
   // not reach this window then.)
@@ -564,12 +578,18 @@ function Stage({
               node={node as NodeCard & { id: string }}
               type={editorType}
               slug={visual.slug}
+              startAt={startAt}
               onDone={closeEditor}
             />
           </Suspense>
         )}
         {mode === "preview" && visual && board === null && !editorOpen && (
-          <ArtifactStage visual={visual} node={node} pageMode={canTouch ? pageMode : "view"} />
+          <ArtifactStage
+            visual={visual}
+            node={node}
+            pageMode={canTouch ? pageMode : "view"}
+            onEditHere={tapToEdit ? editHere : undefined}
+          />
         )}
         {mode === "preview" && !visual && run && (
           <OutputPreview key={run.slug} run={run} onOpenFile={openFile} />
@@ -975,12 +995,15 @@ function ArtifactStage({
   visual,
   node = null,
   pageMode = "view",
+  onEditHere,
 }: {
   visual: VisualArtifact;
   /** The typed node this page belongs to, or null for anything adopted. */
   node?: NodeCard | null;
   /** What a click on the page does (see `Stage`). */
   pageMode?: NodePageMode;
+  /** A click into the page's text opens the node's editor there; absent where it does not. */
+  onEditHere?: (at: NodeEditHere) => void;
 }) {
   const t = useT();
   /* The page follows the APP's theme, not the OS's: the artifact brief has every
@@ -1077,6 +1100,7 @@ function ArtifactStage({
     mode: node !== null ? pageMode : "view",
     pageKey: id,
     onEdit,
+    onEditHere: node !== null ? onEditHere : undefined,
     labels: {
       placeholder: t("nodes.comment.placeholder"),
       add: t("nodes.comment.add"),
@@ -1170,7 +1194,9 @@ function ArtifactStage({
                     : "editing"
                 : pageMode === "comment"
                   ? "commenting"
-                  : "idle"
+                  : onEditHere
+                    ? "tap-to-edit"
+                    : "idle"
           }
           aria-live="polite"
         >
@@ -1199,6 +1225,18 @@ function ArtifactStage({
             <>
               <MessageSquarePlus className="h-3 w-3 shrink-0" aria-hidden />
               {t("nodes.comment.hint")}
+            </>
+          ) : onEditHere ? (
+            <>
+              <MousePointerClick className="h-3 w-3 shrink-0" aria-hidden />
+              <span className="min-w-0 truncate">{t("nodes.edit.tap_hint")}</span>
+              <span
+                className="ml-auto flex min-w-0 items-center gap-1.5 truncate"
+                title={t("visualization.page_sandbox_note")}
+              >
+                <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden />
+                <span className="truncate">{t("visualization.page_sandbox_note")}</span>
+              </span>
             </>
           ) : (
             <>

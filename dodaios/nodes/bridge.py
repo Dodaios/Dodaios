@@ -14,8 +14,10 @@ the page that they come from its parent):
 
 * page → app ``dodaios-node-ready``: the page has loaded; the app answers
   with the mode it is in.
-* app → page ``dodaios-node-mode`` ``{mode: "view" | "comment" | "edit", labels}``:
+* app → page ``dodaios-node-mode`` ``{mode: "view" | "comment" | "edit", labels, tapEdit}``:
   ``labels`` are the few words the page shows, in the reader's language.
+  ``tapEdit`` (in view mode) says that a click on a marked text opens the
+  node's editor (see below).
 * page → app ``dodaios-node-comment`` ``{n, text, quote, where}``: comment
   ``n`` was added. ``quote`` is the text under the pin, ``where`` names the
   place in the node's own terms (``/slides/2``, ``Price × Netflix``,
@@ -84,6 +86,18 @@ edited from ``data-node-mode="edit"`` on ``<html>``.
 * page → app ``dodaios-node-edit`` ``{id, path, value, as, refresh}``.
 * app → page ``dodaios-node-edit-state`` ``{id, state: "saved" | "failed"}``:
   a failed edit puts the old text back.
+A node is edited by clicking into it: nobody has to press Edit first. While
+the app says ``tapEdit``, a plain click on a marked text in VIEW mode (not on
+a link, a button, a field, a chart or any other control of the page, not the
+end of a drag that selected text, and not the node's title, which is renamed
+from the library) tells the app to open the node's editor there. The marked
+texts show a text cursor meanwhile.
+
+* page → app ``dodaios-node-edit-here`` ``{path, before, after}``: the reader
+  clicked into the text at ``path`` (``data-at``). ``before`` and ``after``
+  are the drawn words right before and after the clicked spot (up to 40
+  characters each, spaces squeezed), so the editor can put its caret where
+  the reader clicked.
 * page → app ``dodaios-node-scroll`` ``{x, y, hash}``, and the mode message may
   carry ``scroll``: a page drawn again opens where the reader was, at the same
   scroll position and with the same ``#hash`` (a deck's slide, a film's scene:
@@ -107,6 +121,7 @@ COMMENT_STATE_MESSAGE: Final[str] = "dodaios-node-comment-state"
 COMMENT_REMOVE_MESSAGE: Final[str] = "dodaios-node-comment-remove"
 EDIT_MESSAGE: Final[str] = "dodaios-node-edit"
 EDIT_STATE_MESSAGE: Final[str] = "dodaios-node-edit-state"
+EDIT_HERE_MESSAGE: Final[str] = "dodaios-node-edit-here"
 SCROLL_MESSAGE: Final[str] = "dodaios-node-scroll"
 DICTATE_MESSAGE: Final[str] = "dodaios-node-dictate"
 DICTATION_STATE_MESSAGE: Final[str] = "dodaios-node-dictation-state"
@@ -121,6 +136,8 @@ MAX_EDIT_CHARS: Final[int] = 200_000
 MAX_COMMENT_CHARS: Final[int] = 2_000
 MAX_QUOTE_CHARS: Final[int] = 240
 MAX_WHERE_CHARS: Final[int] = 300
+#: The words around a click into the text that tell the editor where its caret goes.
+MAX_HINT_CHARS: Final[int] = 40
 
 BRIDGE_CSS: Final[str] = """
 :root[data-node-mode="comment"],:root[data-node-mode="comment"] *{cursor:crosshair!important}
@@ -186,6 +203,8 @@ BRIDGE_CSS: Final[str] = """
 :root[data-node-mode="edit"] [data-at][data-as="toggle"]{cursor:pointer!important}
 :root[data-node-mode="edit"] [data-at].is-saving{opacity:.55}
 :root[data-node-mode="edit"] [data-at].is-failed{outline:2px solid var(--bad)!important}
+:root[data-node-tap-edit] [data-at]:not([data-at="@title"]){cursor:text}
+:root[data-node-tap-edit] [data-at][data-as="toggle"]{cursor:pointer}
 """
 
 # ES5 on purpose, like the kit's page script: it runs in whatever WebView the
@@ -194,7 +213,7 @@ BRIDGE_JS: Final[str] = r"""
 (function(){
 var d=document,root=d.documentElement,up=window.parent;
 if(!up||up===window)return;
-var mode="view",layer=null,draft=null,sent=0,byNumber={},held=false;
+var mode="view",layer=null,draft=null,sent=0,byNumber={},held=false,tapEdit=false;
 var labels={placeholder:"Add a comment…",add:"Add comment",pending:"Not sent yet",sent:"Sent",
   failed:"Not sent. Try again.",remove:"Remove comment",working:"Working your comment in…",
   dictate:"Dictate",
@@ -473,7 +492,7 @@ function edited(id,state){
     revert(f);f.el.className+=" is-failed";
     setTimeout(function(){f.el.className=f.el.className.replace(/ is-failed/g,"");},2400);
   }}
-function setMode(next,given,scroll){
+function setMode(next,given,scroll,tap){
   if(given&&typeof given==="object"){
     for(var k in labels){if(typeof given[k]==="string"&&given[k])labels[k]=given[k].slice(0,120);}
   }
@@ -481,6 +500,8 @@ function setMode(next,given,scroll){
   mode=next==="comment"||next==="edit"?next:"view";
   if(mode==="view")root.removeAttribute("data-node-mode");
   else root.setAttribute("data-node-mode",mode);
+  tapEdit=mode==="view"&&tap===true;
+  if(tapEdit)root.setAttribute("data-node-tap-edit","");else root.removeAttribute("data-node-tap-edit");
   if(mode!=="comment"&&draft&&!draft.busy)dropDraft();
   if(mode!=="edit"&&field){var el=field.el;commit();if(el.blur)el.blur();}
   if((mode==="edit")!==(before==="edit"))arm(mode==="edit");
@@ -510,6 +531,36 @@ function guard(e){
   }}
 ["click","dblclick","mousedown","pointerdown","touchstart"].forEach(function(t){
   window.addEventListener(t,guard,true);});
+// A click into a marked text opens the node's editor there. The page's own
+// controls keep their clicks: a link, a button, a field, a chart, a film.
+var TAP_SKIP="a[href],button,input,select,textarea,label,summary,option,video,audio,canvas,svg,iframe,"+
+  "[contenteditable],[role=button],[role=link],[role=tab],[role=checkbox],[role=switch],[role=slider],"+
+  "[role=menuitem],[data-no-edit]";
+function around(x,y){
+  // The drawn words right before and after the clicked spot.
+  var node=null,off=0,r;
+  try{
+    if(d.caretRangeFromPoint){r=d.caretRangeFromPoint(x,y);if(r){node=r.startContainer;off=r.startOffset;}}
+    else if(d.caretPositionFromPoint){r=d.caretPositionFromPoint(x,y);if(r){node=r.offsetNode;off=r.offset;}}
+  }catch(e){}
+  if(!node||node.nodeType!==3)return {before:"",after:""};
+  var s=node.nodeValue||"";
+  return {before:s.slice(Math.max(0,off-40),off).replace(/\s+/g," "),
+    after:s.slice(off,off+40).replace(/\s+/g," ")};}
+window.addEventListener("click",function(e){
+  if(!tapEdit||mode!=="view"||e.defaultPrevented||e.button!==0)return;
+  if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+  var t=e.target&&e.target.nodeType===1?e.target:e.target&&e.target.parentNode;
+  if(!t||t.nodeType!==1||inLayer(t)||near(t,TAP_SKIP))return;
+  // The title is renamed from the library, not in the editor.
+  var el=near(t,"[data-at]");if(!el||el.getAttribute("data-at")==="@title")return;
+  // The end of a drag that selected words is the reader copying, not editing.
+  var sel=window.getSelection?window.getSelection():null;
+  if(sel&&!sel.isCollapsed&&String(sel).replace(/\s+/g,""))return;
+  var at=around(e.clientX,e.clientY);
+  post({type:"dodaios-node-edit-here",path:String(el.getAttribute("data-at")||"").slice(0,400),
+    before:at.before,after:at.after});
+},false);
 window.addEventListener("focusin",function(e){
   var el=mode==="edit"?fieldOf(e.target):null;
   if(el&&el.getAttribute("data-as")!=="toggle")begin(el);},true);
@@ -537,7 +588,7 @@ setInterval(function(){if(location.hash!==lastHash){lastHash=location.hash;place
 window.addEventListener("message",function(e){
   if(e.source!==up)return;
   var m=e.data;if(!m||typeof m!=="object")return;
-  if(m.type==="dodaios-node-mode")setMode(m.mode,m.labels,m.scroll);
+  if(m.type==="dodaios-node-mode")setMode(m.mode,m.labels,m.scroll,m.tapEdit);
   else if(m.type==="dodaios-node-comment-state")answered(Number(m.n),m.state);
   else if(m.type==="dodaios-node-edit-state")edited(Number(m.id),m.state);
   else if(m.type==="dodaios-node-dictation-state")dictationState(Number(m.n),m.state);
@@ -557,12 +608,14 @@ __all__ = [
     "DICTATE_MESSAGE",
     "DICTATION_STATE_MESSAGE",
     "DICTATION_TEXT_MESSAGE",
+    "EDIT_HERE_MESSAGE",
     "EDIT_MESSAGE",
     "EDIT_STATE_MESSAGE",
     "MAX_EDIT_CHARS",
     "SCROLL_MESSAGE",
     "TITLE_PATH",
     "MAX_COMMENT_CHARS",
+    "MAX_HINT_CHARS",
     "MAX_QUOTE_CHARS",
     "MAX_WHERE_CHARS",
     "MODE_MESSAGE",

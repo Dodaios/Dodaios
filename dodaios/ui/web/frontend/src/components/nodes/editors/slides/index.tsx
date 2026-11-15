@@ -113,7 +113,13 @@ function sectionNumbers(slides: readonly Slide[]): number[] {
 
 type ImageTarget = { kind: "replace"; index: number } | { kind: "add"; at: number } | { kind: "layout"; index: number };
 
-export default function SlidesEditor({ node, initial, onDone }: NodeEditorProps) {
+/** The slide a click into the deck's page was on (`/slides/2/title` → 2), else the first. */
+function slideOf(path: string | undefined): number {
+  const found = /^\/slides\/(\d+)(?:\/|$)/.exec(path ?? "");
+  return found ? Number(found[1]) : 0;
+}
+
+export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEditorProps) {
   const t = useT();
   const tr: Translate = useCallback((key, vars) => (vars ? fill(t(key), vars) : t(key)), [t]);
   const L = useCallback((key: string) => t(`nodes.editor.slides.${key}`), [t]);
@@ -126,7 +132,8 @@ export default function SlidesEditor({ node, initial, onDone }: NodeEditorProps)
   const slides = useMemo(() => deck.slides ?? [], [deck.slides]);
   const count = slides.length;
 
-  const [selected, setSelected] = useState(0);
+  // Opened by a click into the deck's page: on the slide that was clicked.
+  const [selected, setSelected] = useState(() => slideOf(startAt?.path));
   const current = Math.max(0, Math.min(selected, count - 1));
   const slide = slides[current];
 
