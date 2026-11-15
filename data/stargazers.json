@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 378,
+  "count": 379,
   "forks": 135,
-  "placed": 76,
-  "stated": 94,
-  "generatedAt": "2026-11-14T23:09:56.299Z",
+  "placed": 77,
+  "stated": 95,
+  "generatedAt": "2026-11-15T00:55:27.990Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -375,6 +375,13 @@
       "lon": -111.868,
       "label": "Scottsdale",
       "country": "United States",
+      "count": 1
+    },
+    {
+      "lat": 31.218,
+      "lon": 121.435,
+      "label": "Shanghai",
+      "country": "China",
       "count": 1
     },
     {
