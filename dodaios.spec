@@ -237,6 +237,19 @@ def _installed_distribution() -> str:
 
 datas += copy_metadata(_installed_distribution())
 
+# The local speech runtime keeps its package metadata in the frozen app. The
+# freezer collects the module and its native libraries but not the dist-info
+# folder, so importlib.metadata found no "sherpa-onnx" there and the on-device
+# voice failed on the first sentence (issue #1698). The voice no longer asks
+# the metadata first; the folder ships so that any other caller finds it too.
+# Collected only when installed: the runtime is an optional extra, and
+# upstream publishes no wheel for some platforms.
+for _dist in ("sherpa-onnx", "sherpa-onnx-core"):
+    try:
+        datas += copy_metadata(_dist)
+    except Exception as exc:
+        print(f"[dodaios.spec] no package metadata for {_dist}: {exc}")
+
 # Legacy optional data packages are collected only when installed.
 for pkg in ("chromadb", "sentence_transformers"):
     try:

@@ -313,7 +313,9 @@ _ENSUREPIP_TIMEOUT_S: Final[float] = 180.0
 _NO_PIP_MARKER: Final[str] = "no module named pip"
 
 
-def _pip_install_cmd(package: str, *, only_binary: bool) -> list[str]:
+def _pip_install_cmd(
+    package: str, *, only_binary: bool, force_reinstall: bool = False
+) -> list[str]:
     """Build the ``<python> -m pip install`` argv for ``package``."""
     cmd = [
         sys.executable, "-m", "pip", "install",
@@ -321,6 +323,8 @@ def _pip_install_cmd(package: str, *, only_binary: bool) -> list[str]:
     ]
     if only_binary:
         cmd += ["--only-binary", ":all:"]
+    if force_reinstall:
+        cmd.append("--force-reinstall")
     cmd.append(package)
     return cmd
 
@@ -359,7 +363,12 @@ def _run_installer(
 
 
 def _install_without_pip(
-    package: str, *, timeout_s: float, only_binary: bool, pip_error: str
+    package: str,
+    *,
+    timeout_s: float,
+    only_binary: bool,
+    pip_error: str,
+    force_reinstall: bool = False,
 ) -> tuple[bool, str]:
     """Recover an in-app install when the environment has NO pip module.
 
@@ -391,7 +400,9 @@ def _install_without_pip(
 
     if bootstrapped:
         ok, message = _run_installer(
-            _pip_install_cmd(package, only_binary=only_binary),
+            _pip_install_cmd(
+                package, only_binary=only_binary, force_reinstall=force_reinstall
+            ),
             timeout_s=timeout_s,
             flavor="pip",
         )
@@ -403,6 +414,8 @@ def _install_without_pip(
         cmd = [uv_path, "pip", "install", "--python", sys.executable]
         if only_binary:
             cmd += ["--only-binary", ":all:"]
+        if force_reinstall:
+            cmd.append("--reinstall")
         cmd.append(package)
         return _run_installer(cmd, timeout_s=timeout_s, flavor="uv")
 
@@ -416,7 +429,11 @@ def _install_without_pip(
 
 
 def install_pip_package(
-    package: str, *, timeout_s: float = 600.0, only_binary: bool = False
+    package: str,
+    *,
+    timeout_s: float = 600.0,
+    only_binary: bool = False,
+    force_reinstall: bool = False,
 ) -> tuple[bool, str]:
     """Best-effort install of ``package`` into the RUNNING interpreter's
     environment. Never raises. Returns ``(ok, message)``.
@@ -435,19 +452,38 @@ def install_pip_package(
     installs of native packages, so the installer fails fast with the honest
     no-wheel diagnosis instead of attempting a source build (FFmpeg/toolchain)
     that no end user can satisfy (BUG-059).
+
+    ``force_reinstall=True`` replaces a package that is already there, for the
+    repair of one that is installed but does not load.
+
+    The desktop installers freeze Python into the app. There ``sys.executable``
+    is the app itself, so running it with ``-m pip`` would start a second app
+    instead of an installer: such a build answers with a plain refusal.
     """
+    if getattr(sys, "frozen", False):
+        return False, (
+            "This app was installed with the desktop installer, which carries "
+            "its Python packages inside the app. It cannot add or replace one "
+            "by itself; install Dodaios again to repair it."
+        )
     if not sys.executable:
         return False, "no Python interpreter available to run pip"
 
     ok, message = _run_installer(
-        _pip_install_cmd(package, only_binary=only_binary),
+        _pip_install_cmd(
+            package, only_binary=only_binary, force_reinstall=force_reinstall
+        ),
         timeout_s=timeout_s,
         flavor="pip",
     )
     if ok or _NO_PIP_MARKER not in message.lower():
         return ok, message
     return _install_without_pip(
-        package, timeout_s=timeout_s, only_binary=only_binary, pip_error=message
+        package,
+        timeout_s=timeout_s,
+        only_binary=only_binary,
+        pip_error=message,
+        force_reinstall=force_reinstall,
     )
 
 

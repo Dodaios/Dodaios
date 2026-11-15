@@ -9,6 +9,7 @@ cannot transcribe a word.
 """
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,25 @@ from dodaios.speech import local_models
 def _isolated_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep every probe away from the developer's real model cache."""
     monkeypatch.setenv("JARVIS__MEMORY__DATA_DIR", str(tmp_path))
+    # No test inherits another one's note about a runtime that did not load.
+    monkeypatch.setattr(local_models, "_LOAD_FAILURES", {})
+
+
+def _stand_in_runtime(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, name: str, source: str | None
+) -> None:
+    """Put a package called *name* on the path and make it the sherpa runtime.
+
+    ``source`` is the text of its ``__init__.py``; None leaves only a folder,
+    which is what an interrupted uninstall leaves behind.
+    """
+    package = tmp_path / "site" / name
+    (package / "lib").mkdir(parents=True)
+    if source is not None:
+        (package / "__init__.py").write_text(source, encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path / "site"))
+    monkeypatch.setitem(local_models._RUNTIME_MODULES, "sherpa-onnx", name)
+    importlib.invalidate_caches()
 
 
 def test_missing_engine_is_never_ready(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -196,3 +216,97 @@ def test_uncached_repo_reads_as_not_downloaded(monkeypatch: pytest.MonkeyPatch) 
         local_models._whisper_model_cache_issue("Systran/faster-whisper-large-v3")
         == local_models._WHISPER_NOT_DOWNLOADED
     )
+
+
+def test_a_leftover_runtime_folder_is_not_an_installed_engine(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A folder without code is importable as a namespace package, and is no engine.
+
+    An interrupted uninstall or update leaves exactly that behind. The probe
+    used to answer "installed" for it, so the card said "ready".
+    """
+    _stand_in_runtime(monkeypatch, tmp_path, "leftover_runtime_only_a_folder", None)
+
+    assert importlib.util.find_spec("leftover_runtime_only_a_folder") is not None
+    assert local_models.runtime_installed("sherpa-onnx") is False
+
+
+def test_a_real_package_is_an_installed_engine_without_being_imported(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The poll finds the package and does not load it (it may be a heavy native one)."""
+    _stand_in_runtime(
+        monkeypatch, tmp_path, "runtime_never_imported", "raise RuntimeError('imported')\n"
+    )
+
+    assert local_models.runtime_installed("sherpa-onnx") is True
+
+
+def test_a_runtime_that_does_not_load_is_not_ready_and_says_why(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """After one failed load the card stops saying "ready" and gives the reason."""
+    _stand_in_runtime(
+        monkeypatch,
+        tmp_path,
+        "runtime_with_a_broken_library",
+        "raise OSError('DLL load failed while importing _native')\n",
+    )
+    monkeypatch.setattr(local_models, "bundle_present", lambda model_id, **kw: True)
+    before = local_models.sherpa_status(("voice",), model_label="Voice", download_size="1 MB")
+    assert before.ready is True
+
+    with pytest.raises(ImportError, match="DLL load failed"):
+        local_models.import_runtime("sherpa-onnx")
+
+    after = local_models.sherpa_status(("voice",), model_label="Voice", download_size="1 MB")
+    assert after.ready is False
+    assert after.engine_installed is False
+    assert "could not be loaded" in after.detail
+    assert "DLL load failed" in after.detail
+
+
+def test_a_runtime_without_the_needed_parts_is_refused(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A module that imports but lacks what the provider calls cannot run either."""
+    _stand_in_runtime(monkeypatch, tmp_path, "runtime_with_half_an_api", "Present = object\n")
+
+    module = local_models.import_runtime("sherpa-onnx", needs=("Present",))
+    assert module.Present is object
+    assert local_models.runtime_load_failure("sherpa-onnx") is None
+
+    with pytest.raises(ImportError, match="no OfflineTts"):
+        local_models.import_runtime("sherpa-onnx", needs=("Present", "OfflineTts"))
+    assert local_models.runtime_installed("sherpa-onnx") is False
+
+
+def test_a_load_that_works_again_makes_the_runtime_usable_again(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _stand_in_runtime(monkeypatch, tmp_path, "runtime_repaired_later", "Present = object\n")
+    with pytest.raises(ImportError):
+        local_models.import_runtime("sherpa-onnx", needs=("Missing",))
+    assert local_models.runtime_installed("sherpa-onnx") is False
+
+    local_models.import_runtime("sherpa-onnx", needs=("Present",))
+
+    assert local_models.runtime_installed("sherpa-onnx") is True
+
+
+def test_a_runtime_that_was_never_installed_leaves_no_note(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Plain absence is the cheap probe's own finding.
+
+    A note would outlive a later install made outside the app and keep the
+    card at "not installed" until the next start.
+    """
+    monkeypatch.setitem(local_models._RUNTIME_MODULES, "sherpa-onnx", "runtime_that_is_not_there")
+
+    with pytest.raises(ImportError):
+        local_models.import_runtime("sherpa-onnx")
+
+    assert local_models.runtime_load_failure("sherpa-onnx") is None
+    assert local_models.runtime_installed("sherpa-onnx") is False
