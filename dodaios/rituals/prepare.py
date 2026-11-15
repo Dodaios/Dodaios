@@ -162,10 +162,6 @@ def _fresh(ritual: Ritual, day: RitualDay | None, at_ms: int) -> bool:
 
 #: The assistant's command that lists the person's open pull requests.
 PULL_REQUESTS_TOOL: Final[str] = "pull-requests-list"
-#: How a vendor CLI names the app's tools.
-_TOOL_PREFIXES: Final[tuple[str, ...]] = ("mcp__dodaios__", "dodaios__")
-
-
 def looks_only(name: str, args: dict[str, Any] | None = None) -> bool:
     """Whether a call that asked for an approval in a gathering run only looks.
 
@@ -176,13 +172,17 @@ def looks_only(name: str, args: dict[str, Any] | None = None) -> bool:
     """
     from dodaios.standing_tasks.service import run_may
 
+    from dodaios.core.mcp_names import TOOLS_SERVER_NAMES, own_cli_tool
+
     bare = str(name or "").strip()
     if run_may(bare, dict(args or {}), autonomy="watch", folder=""):
         return True
-    for prefix in _TOOL_PREFIXES:
-        if bare.startswith(prefix):
-            bare = bare[len(prefix):]
-            break
+    tool = own_cli_tool(bare)
+    if tool is None:
+        # A runner that names the app's tools "<server>__<tool>", without the MCP prefix.
+        server = next((s for s in TOOLS_SERVER_NAMES if bare.startswith(f"{s}__")), "")
+        tool = bare[len(server) + 2 :] if server else bare
+    bare = tool
     try:
         from dodaios.commands.registry import get_registry
 
