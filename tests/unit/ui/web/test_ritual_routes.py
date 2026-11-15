@@ -6,7 +6,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from dodaios.rituals import service
+from dodaios.rituals import prepare, service
 from dodaios.rituals.store import RitualStore, get_store, set_store
 from dodaios.ui.web.ritual_routes import router
 from tests.unit.rituals.conftest import MORNING, Society
@@ -20,12 +20,15 @@ def world(monkeypatch: pytest.MonkeyPatch):
     set_store(store)
     society = Society()
     monkeypatch.setattr(service, "_runtime", lambda: society)
+    monkeypatch.setattr(prepare, "_runtime", lambda: society)
     monkeypatch.setattr(service, "_POLL_S", 0.01)
     try:
         yield society
     finally:
         set_store(None)
         store.close()
+        prepare._runs.clear()
+        prepare._tried_at.clear()
 
 
 def _client() -> TestClient:
@@ -138,7 +141,45 @@ def test_the_assistant_asks_before_it_writes_or_starts_one_through_the_raw_route
         ("PATCH", f"{BASE}/{{ritual_id}}"): "ask",
         ("DELETE", f"{BASE}/{{ritual_id}}"): "ask",
         ("POST", f"{BASE}/{{ritual_id}}/run"): "ask",
+        # Gathering only looks: it is logged, not asked about.
+        ("POST", f"{BASE}/{{ritual_id}}/prepare"): "monitor",
     }
+
+
+def test_gather_now_starts_the_run_and_says_where_the_day_stands(
+    world, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[dict] = []
+
+    async def start(ritual_id: str, **options) -> bool:
+        calls.append({"ritual_id": ritual_id, **options})
+        today = service.day_of(service._moment(None))
+        get_store().patch_day(ritual_id, today, prep_state="running")
+        return True
+
+    monkeypatch.setattr(prepare, "start", start)
+    with _client() as client:
+        ritual = client.post(BASE, json=MORNING).json()["ritual"]
+        body = client.post(f"{BASE}/{ritual['id']}/prepare").json()
+    assert body["started"] is True and body["ritual"]["id"] == ritual["id"]
+    assert body["today"]["prep_state"] == "running"
+    # The person's own click: on their seat, and anew although a result may be there.
+    assert calls == [{"ritual_id": ritual["id"], "by_user": True, "again": True}]
+
+
+def test_gather_now_says_why_it_cannot(world) -> None:
+    only_now = {**MORNING, "steps": [{"when": "now", "text": "Play my favourite music."}]}
+    with _client() as client:
+        nothing_ahead = client.post(BASE, json=only_now).json()["ritual"]
+        refused = client.post(f"{BASE}/{nothing_ahead['id']}/prepare")
+        missing = client.post(f"{BASE}/rit_missing/prepare")
+        client.delete(f"{BASE}/{nothing_ahead['id']}")
+        ritual = client.post(BASE, json=MORNING).json()["ritual"]
+        # No scheduler behind this society: the run cannot be set up.
+        unavailable = client.post(f"{BASE}/{ritual['id']}/prepare")
+    assert refused.status_code == 409 and "nothing to gather" in refused.json()["detail"]
+    assert missing.status_code == 404
+    assert unavailable.status_code == 503
 
 
 def test_removing_one(world) -> None:

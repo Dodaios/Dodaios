@@ -277,6 +277,7 @@ class SocietyRuntime:
         self._skill_routines_task: asyncio.Task[None] | None = None
         self._project_review_task: asyncio.Task[None] | None = None
         self._standing_heal_task: asyncio.Task[None] | None = None
+        self._ritual_clock_task: asyncio.Task[None] | None = None
         self._delivery_unsubscribe: Callable[[], None] | None = None
         self._lead_incoming_unsubscribe: Callable[[], None] | None = None
         self._started = False
@@ -393,6 +394,10 @@ class SocietyRuntime:
 
         # It waits for the scheduler, so it is not one of ``_watchers`` either.
         self._standing_heal_task = asyncio.create_task(heal_after_start())
+        # Rituals: gather ahead what a ritual wants ready, as soon as the machine is awake.
+        from dodaios.rituals.prepare import run_clock as run_ritual_clock
+
+        self._ritual_clock_task = asyncio.create_task(run_ritual_clock())
         self._runtime_updates_task = asyncio.create_task(self._keep_agent_runtimes_current())
         log.info("society runtime started (%s)", self.store.path)
         return self
@@ -639,6 +644,7 @@ class SocietyRuntime:
                 self._skill_routines_task,
                 self._project_review_task,
                 self._standing_heal_task,
+                self._ritual_clock_task,
             ):
                 if task is not None:
                     tasks.add(task)
@@ -665,6 +671,8 @@ class SocietyRuntime:
                     self._skill_routines_task = None
                 if self._standing_heal_task is not None and self._standing_heal_task.done():
                     self._standing_heal_task = None
+                if self._ritual_clock_task is not None and self._ritual_clock_task.done():
+                    self._ritual_clock_task = None
                 self._watchers.difference_update(task for task in tasks if task.done())
 
     def skills_for(self, agent_id: str) -> AgentSkills:

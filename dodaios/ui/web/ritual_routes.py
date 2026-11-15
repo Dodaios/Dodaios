@@ -167,6 +167,22 @@ async def delete_ritual(ritual_id: str) -> dict[str, Any]:
     return {"ok": True, "id": ritual_id}
 
 
+@router.post("/{ritual_id}/prepare", summary="Gather now what a ritual wants ready ahead")
+async def prepare_ritual(ritual_id: str) -> dict[str, Any]:
+    from dodaios.rituals import prepare, service
+    from dodaios.rituals.models import RitualError
+
+    try:
+        # The person's own click: gathers anew although today's result is still good.
+        started = await prepare.start(ritual_id, by_user=True, again=True)
+    except RitualError as exc:
+        raise _refused(exc) from exc
+    ritual = service.get(ritual_id)
+    if ritual is None:
+        raise HTTPException(status_code=404, detail="No such ritual")
+    return {"started": started, **_view(ritual)}
+
+
 @router.post(
     "/{ritual_id}/run",
     summary="Start a ritual now, whatever the clock says",
