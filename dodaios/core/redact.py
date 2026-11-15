@@ -52,13 +52,16 @@ _REDACTORS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "telegram_bot_token",
         re.compile(r"(?<!\d)\d{6,12}:[A-Za-z0-9_-]{30,}\b"),
     ),
+    # Slack keys: bot / user / config tokens (xoxb-, xoxp-, xoxe-, ...) and
+    # app-level tokens (xapp-), which open the Socket Mode link.
+    ("slack_token", re.compile(r"\b(?:xox[abeoprs]|xapp)-[A-Za-z0-9-]{10,}")),
     # SDK request logs can include credentials in URLs. Keep the parameter name
     # for diagnostics while removing its value. ``key`` is intentionally broad:
     # over-redacting an opaque URL value is safer than persisting a new key shape.
     (
         "query_secret",
         re.compile(
-            r"(?i)([?&](?:api[_-]?key|key|token|access[_-]?token|auth)=)"
+            r"(?i)([?&](?:api[_-]?key|key|token|access[_-]?token|auth|ticket)=)"
             r"[^&\s\"']{8,}"
         ),
     ),

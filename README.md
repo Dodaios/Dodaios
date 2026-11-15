@@ -143,7 +143,7 @@ each agent did.
   </tr>
   <tr>
     <td><a href="#with-you-when-you-leave-the-desk"><b>With you when you leave the desk</b></a></td>
-    <td>The same conversation on your phone and in Telegram. In Slack it reads and posts for you.</td>
+    <td>The same conversation on your phone, in Telegram and in Slack.</td>
   </tr>
 </table>
 
@@ -260,16 +260,20 @@ Your conversation with the assistant goes with you:
   conversation. You write, send a voice note or a photo, Nova answers there,
   and what waits for your yes comes with Allow and Deny buttons. It works
   wherever you are: your computer fetches the messages from Telegram.
-- **Slack.** Nova also works in your Slack with your own sign-in: it
-  searches and reads channels and threads, and posts for you. Writing to Nova
-  in Slack is not possible yet.
-- **One conversation.** What you said on the phone or in Telegram is in the
-  chat on the desktop when you come back.
+- **Slack.** A direct message to your own Slack app is the same
+  conversation, and a mention of it in a channel is answered in a thread.
+  You create the app from a filled-in manifest in one click and paste its two
+  keys. Pictures, voice clips and Allow and Deny buttons work as in Telegram,
+  and only you get answers. Socket Mode needs no public address. With your
+  own Slack sign-in, Nova also searches, reads and posts in your workspace.
+- **One conversation.** What you said on the phone, in Telegram or in Slack is
+  in the chat on the desktop when you come back.
 
 By default only this computer can connect to the phone app. Start Dodaios so
 that it listens on your home network (this needs a control key), or serve it
-over HTTPS; Telegram needs neither. The [phone guide](https://github.com/Dodaios/Dodaios/blob/main/docs/mobile-companion.md)
-has both ways.
+over HTTPS; Telegram and Slack need neither. The [phone guide](https://github.com/Dodaios/Dodaios/blob/main/docs/mobile-companion.md)
+has both ways, and the [Slack guide](https://github.com/Dodaios/Dodaios/blob/main/docs/slack-channel.md)
+sets up the Slack app.
 
 <br clear="right" />
 

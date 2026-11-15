@@ -14,7 +14,8 @@ Three pieces, in the order they are useful:
 2. **Web push** to the paired phone: needs-you cards (approvals, questions,
    credentials, proposals) and the lead's reminders.
 3. **WhatsApp**, owner-only: the person's own chat with the assistant continues
-   the lead conversation like the Telegram private chat does. Shipped as a
+   the lead conversation like the Telegram private chat and the direct message
+   with the person's own Slack app ([slack-channel.md](slack-channel.md)) do. Shipped as a
    channel adapter behind a flag; the linked-device bridge is the missing part
    (see below).
 

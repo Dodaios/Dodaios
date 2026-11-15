@@ -47,6 +47,8 @@ async def apply_channel_live(app_state: Any, name: str) -> bool:
             config={
                 "telegram_config": integrations.telegram,
                 "discord_config": integrations.discord,
+                # Read like an optional section: an older config object has none.
+                "slack_config": getattr(integrations, "slack", None),
             },
         )
         manager.set_context(fresh_ctx)

@@ -144,6 +144,8 @@ class NotifySettings:
     quiet_hours: QuietHours = field(default_factory=QuietHours)
     #: Send waiting approvals to the owner's Telegram with Allow / Deny buttons.
     telegram_approvals: bool = True
+    #: The same in the direct message with the owner's own Slack app.
+    slack_approvals: bool = True
     #: Which kinds of lead updates reach the phone chat (see ``PHONE_DEFAULTS``).
     phone: dict[str, bool] = field(default_factory=lambda: dict(PHONE_DEFAULTS))
     #: The opt-in "call me for urgent decisions" feature (off by default).
@@ -181,6 +183,7 @@ class NotifySettings:
             kinds=kinds,
             quiet_hours=quiet,
             telegram_approvals=bool(data.get("telegram_approvals", True)),
+            slack_approvals=bool(data.get("slack_approvals", True)),
             phone=phone,
             urgent_call=UrgentCallSettings.from_dict(data.get("urgent_call")),
         )
@@ -188,7 +191,7 @@ class NotifySettings:
     def patched(self, patch: dict[str, Any]) -> NotifySettings:
         """A copy with the given top-level fields changed; unknown keys are ignored."""
         merged = self.to_dict()
-        for key in ("enabled", "telegram_approvals"):
+        for key in ("enabled", "telegram_approvals", "slack_approvals"):
             if key in patch:
                 merged[key] = bool(patch[key])
         if isinstance(patch.get("kinds"), dict):

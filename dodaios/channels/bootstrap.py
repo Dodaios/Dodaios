@@ -19,7 +19,7 @@ from pathlib import Path
 
 from dodaios.channels.manager import ChannelContext, ChannelManager
 from dodaios.core.bus import EventBus
-from dodaios.core.config import DiscordConfig, TelegramConfig
+from dodaios.core.config import DiscordConfig, SlackChannelConfig, TelegramConfig
 from dodaios.friends.registry import FriendRegistry
 
 log = logging.getLogger(__name__)
@@ -30,6 +30,7 @@ async def bootstrap_channels(
     bus: EventBus,
     telegram_config: TelegramConfig | None = None,
     discord_config: DiscordConfig | None = None,
+    slack_config: SlackChannelConfig | None = None,
     friends_db_path: str | Path = "data/friends.db",
     auto_start: bool = True,
 ) -> tuple[ChannelManager, FriendRegistry]:
@@ -39,10 +40,11 @@ async def bootstrap_channels(
 
     cfg = telegram_config if telegram_config is not None else TelegramConfig()
     dc_cfg = discord_config if discord_config is not None else DiscordConfig()
+    sl_cfg = slack_config if slack_config is not None else SlackChannelConfig()
     context = ChannelContext(
         bus=bus,
         friend_registry=registry,
-        config={"telegram_config": cfg, "discord_config": dc_cfg},
+        config={"telegram_config": cfg, "discord_config": dc_cfg, "slack_config": sl_cfg},
     )
     manager = ChannelManager(context)
 

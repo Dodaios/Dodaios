@@ -100,7 +100,7 @@ def install(
 
 
 def attach_chat_service(service: Any, *, app_state: Any, cfg: Any) -> None:
-    """Add the Telegram approval buttons once the chat service exists (idempotent)."""
+    """Add the Telegram and Slack approval buttons once the chat service exists (idempotent)."""
     global _telegram_bridge
     if _telegram_bridge is not None:
         return
@@ -117,6 +117,22 @@ def attach_chat_service(service: Any, *, app_state: Any, cfg: Any) -> None:
 
     _telegram_bridge = TelegramApprovalBridge(service, channel=_channel, config=lambda: cfg)
     _telegram_bridge.install()
+
+    def _slack_channel() -> Any | None:
+        manager = getattr(app_state, "channel_manager", None)
+        if manager is None:
+            return None
+        try:
+            if "slack" not in manager.started():
+                return None
+            channel = manager.get("slack")
+        except Exception:  # noqa: BLE001 — a channel that is not up is "no Slack"
+            return None
+        return channel if getattr(channel, "active", False) else None
+
+    TelegramApprovalBridge(
+        service, channel=_slack_channel, config=lambda: cfg, source="slack"
+    ).install()
     _attach_urgent_calls(service, cfg)
 
 

@@ -582,6 +582,7 @@ class WebServer:
         from .mobile_routes import router as mobile_router
         from .nodes_routes import router as nodes_router
         from .notify_routes import router as notify_router
+        from .slack_channel_routes import router as slack_channel_router
         from .onboarding_routes import router as onboarding_router
         from .outputs_routes import router as outputs_router
         from .permissions_routes import router as permissions_router
@@ -904,6 +905,8 @@ class WebServer:
         app.include_router(nodes_router)
         # Reminders and desktop notifications (dodaios/notify).
         app.include_router(notify_router)
+        # The owner's own Slack app as a conversation channel (dodaios/channels/slack.py).
+        app.include_router(slack_channel_router)
         # Trust & privacy: standing rules, undo, the "what it knows" overview.
         app.include_router(trust_router)
         # ConnectionManager singleton for the global event stream. Attached
@@ -3851,6 +3854,7 @@ class WebServer:
         # Telegram/Discord configs from integrations.* (branch-portable via getattr)
         tg_cfg = None
         dc_cfg = None
+        sl_cfg = None
         integrations = getattr(self.cfg, "integrations", None)
         from dodaios.core.instance import current_instance
 
@@ -3867,11 +3871,13 @@ class WebServer:
         elif integrations is not None:
             tg_cfg = getattr(integrations, "telegram", None)
             dc_cfg = getattr(integrations, "discord", None)
+            sl_cfg = getattr(integrations, "slack", None)
 
         manager, registry = await bootstrap_channels(
             bus=self.bus,
             telegram_config=tg_cfg,
             discord_config=dc_cfg,
+            slack_config=sl_cfg,
             friends_db_path=friends_db,
             auto_start=True,
         )
@@ -3922,6 +3928,14 @@ class WebServer:
                 logger.info("Friends-Stack live: Telegram-Channel disabled ({})", errs)
             else:
                 logger.info("Friends-Stack live: Telegram-Channel disabled (config off)")
+        if "slack" in manager.started() and getattr(manager.get("slack"), "active", False):
+            logger.info("Friends-Stack live: Slack channel active")
+        elif manager.start_errors().get("slack"):
+            logger.info(
+                "Friends-Stack live: Slack channel not running ({}){}",
+                manager.start_errors()["slack"],
+                "; trying again in the background" if "slack" in manager.retrying() else "",
+            )
 
     async def _society_routine_result(
         self,

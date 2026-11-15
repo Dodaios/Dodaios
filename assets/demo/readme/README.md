@@ -155,6 +155,25 @@ refuses the bot of the app you use, because two readers of one bot conflict.
 `--dry-run --fake-telegram` runs the whole take against a local stand-in for
 Telegram, without a phone.
 
+### The Slack clip
+
+Not recorded yet: Slack needs a real phone and a person's Slack account.
+`slack_take.py` does all but the phone part, with the same instance,
+warm-up, filming and cut as `telegram_take.py`. It prints a link that opens
+Slack's page to create an app from a manifest, with the app "Nova" filled in;
+the person creates and installs it in a demo workspace and pastes its two
+keys (the bot token and an app-level token with `connections:write`) into
+hidden prompts. The keys are checked with Slack, kept in a file only the
+person can read, and reach the instance only in its environment, never the
+Keychain. The person records the phone's screen while sending the same
+sentence in the direct message with Nova; that first message pairs them as
+the owner. The script replaces the members' Slack names with the persona in
+the desktop picture and reads every frame for private text. It refuses a
+Slack app the app you use already runs, because two Socket Mode readers of
+one app split its messages. `--dry-run --fake-slack` runs the whole take
+against `tests/fakes/slack_standin.py`, a local stand-in for Slack, and
+`selftest` checks the channel without a model.
+
 ### The voice clip
 
 Not recorded yet: dictation needs a real voice and a microphone, and the

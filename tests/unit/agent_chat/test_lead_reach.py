@@ -96,7 +96,9 @@ def test_slack_without_a_usable_grant_is_not_connected(tokens: Any) -> None:
 
 
 def test_the_route_lists_slack_then_telegram(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(reach, "slack_row", lambda store=None: {"id": "slack", "connected": False})
+    monkeypatch.setattr(
+        reach, "slack_row", lambda store=None, manager=None: {"id": "slack", "connected": False}
+    )
     app = FastAPI()
     app.include_router(router)
     app.state.channel_manager = _Manager(["telegram"], "nova_bot")
@@ -104,3 +106,37 @@ def test_the_route_lists_slack_then_telegram(monkeypatch: pytest.MonkeyPatch) ->
         rows = client.get("/api/agent-chat/lead/channels").json()["channels"]
     assert [row["id"] for row in rows] == ["slack", "telegram"]
     assert rows[1]["url"] == "https://t.me/nova_bot"
+
+
+class _SlackManager:
+    def __init__(self, channel: Any) -> None:
+        self._channel = channel
+
+    def started(self) -> list[str]:
+        return ["slack"]
+
+    def get(self, name: str) -> Any:
+        assert name == "slack"
+        return self._channel
+
+
+def test_a_running_slack_app_is_a_chat_that_opens_its_direct_message() -> None:
+    channel = SimpleNamespace(
+        active=True, bot_name="nova", team_name="Acme", app_id="A0STANDIN1", team_id="T024BE7LD"
+    )
+    row = reach.slack_row(_Tokens(None), _SlackManager(channel))
+    assert row == {
+        "id": "slack",
+        "kind": "chat",
+        "connected": True,
+        "handle": "@nova",
+        "url": "https://slack.com/app_redirect?app=A0STANDIN1&team=T024BE7LD",
+    }
+
+
+def test_a_switched_off_slack_app_falls_back_to_the_sign_in() -> None:
+    channel = SimpleNamespace(active=False)
+    row = reach.slack_row(
+        _Tokens(_grant(extra={"team_id": "T024BE7LD", "team_name": "Acme"})), _SlackManager(channel)
+    )
+    assert (row["kind"], row["handle"]) == ("tool", "Acme")
