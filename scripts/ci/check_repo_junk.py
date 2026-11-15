@@ -9,7 +9,8 @@ after it is deleted again.
 
 This gate blocks the classes that never belong in the product:
 
-* video and screen recordings (``.mp4``, ``.webm``, ``.mov``, ``.gif`` ...)
+* video and screen recordings (``.mp4``, ``.webm``, ``.mov``, ``.gif``,
+  ``.webp`` ...)
 * raw audio, design and 3D masters (``.wav``, ``.blend``, ``.psd`` ...)
 * archives (``.zip``, ``.7z`` ...)
 * working folders: ``video/``, ``films/``, ``renders/``, ``evidence/`` ...
@@ -40,6 +41,9 @@ BLOCKED_EXTENSIONS = {
     ".mp4": "video", ".m4v": "video", ".mov": "video", ".webm": "video",
     ".mkv": "video", ".avi": "video", ".wmv": "video", ".flv": "video",
     ".gif": "animated recording",
+    # WebP can be animated, and an animated one is a recording like a GIF. The
+    # repository has no still WebP pictures, so the whole type is held back.
+    ".webp": "animated recording",
     # Raw audio masters.
     ".wav": "raw audio", ".flac": "raw audio", ".aiff": "raw audio", ".aif": "raw audio",
     # Design and 3D source files (exports such as .glb ship, masters do not).
