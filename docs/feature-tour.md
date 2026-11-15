@@ -89,6 +89,7 @@ in isolated Git worktrees, and a result is reviewed before it counts as done.
 All of it runs while Dodaios is running.
 [Standing tasks](standing-tasks.md) ·
 [Routines](routines.md) ·
+[Rituals](rituals.md) ·
 [Background agents](product/extend-and-automate/dodaios-agents.md)
 
 ### Your computer, your apps
