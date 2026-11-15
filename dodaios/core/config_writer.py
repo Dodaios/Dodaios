@@ -123,6 +123,11 @@ def set_agentic_ide_follow_main(enabled: bool, *, path: Path = DEFAULT_CONFIG_FI
     _patch_table(path, "agentic_ide", "follow_main", bool(enabled))
 
 
+def set_agentic_ide_model_fallback(enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
+    """Set ``[agentic_ide] model_fallback``: a limited thread moves on to the next model."""
+    _patch_table(path, "agentic_ide", "model_fallback", bool(enabled))
+
+
 def set_brain_primary(name: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     """Set ``[brain] primary`` to the given provider name across all layers.
 

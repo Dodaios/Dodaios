@@ -906,6 +906,12 @@ class ChatThreads:
                 )
             else:
                 return
+            if kind in {"completed", "failed"}:
+                from dodaios.agent_chat.model_fallback import report_line
+
+                # Which model finished it, when the thread switched at a limit.
+                if switched := report_line(state["events"], turn_id):
+                    report += "\n\n" + switched
             tracked.reported.extend(fresh)
             event: Any = result_announcement(
                 source="agentic_ide.readback", request_id=tracked.request_id,

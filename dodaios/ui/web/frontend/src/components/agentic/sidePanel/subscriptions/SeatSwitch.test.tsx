@@ -4,8 +4,10 @@ import {
   fetchAgentAccounts,
   fetchAgentUsage,
   fetchAutoSwitch,
+  fetchModelFallback,
   switchSeat,
   updateAutoSwitch,
+  updateModelFallback,
   type AgentAccount,
   type AutoSwitchState,
 } from "@/lib/agentAccountsApi";
@@ -19,8 +21,10 @@ vi.mock("@/lib/agentAccountsApi", async () => {
     fetchAgentAccounts: vi.fn(),
     fetchAgentUsage: vi.fn(),
     fetchAutoSwitch: vi.fn(),
+    fetchModelFallback: vi.fn(),
     switchSeat: vi.fn(),
     updateAutoSwitch: vi.fn(),
+    updateModelFallback: vi.fn(),
   };
 });
 
@@ -75,6 +79,7 @@ beforeEach(() => {
   vi.mocked(fetchAgentAccounts).mockResolvedValue(ACCOUNTS);
   vi.mocked(fetchAgentUsage).mockResolvedValue({ accounts: [], ttl_seconds: 60, generated_at: 0 });
   vi.mocked(fetchAutoSwitch).mockResolvedValue(STATE);
+  vi.mocked(fetchModelFallback).mockResolvedValue({ enabled: true, chains: { "claude-cli": ["claude-fable-5-2", "claude-opus-5-5"] } });
 });
 
 afterEach(() => {
@@ -140,6 +145,16 @@ describe("seat switching in the Subscriptions tab", () => {
     await rows();
     fireEvent.click(screen.getByTestId("auto-switch-toggle"));
     await waitFor(() => expect(updateAutoSwitch).toHaveBeenCalledWith({ enabled: false }));
+  });
+
+  it("turns the model switch at a limit off", async () => {
+    vi.mocked(updateModelFallback).mockResolvedValue({ enabled: false, chains: {} });
+    await rows();
+    const toggle = await screen.findByTestId("model-fallback-toggle");
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(toggle);
+    await waitFor(() => expect(updateModelFallback).toHaveBeenCalledWith(false));
+    await waitFor(() => expect(screen.getByTestId("model-fallback-toggle").getAttribute("aria-checked")).toBe("false"));
   });
 
   it("draws no switching UI on a backend without the feature", async () => {

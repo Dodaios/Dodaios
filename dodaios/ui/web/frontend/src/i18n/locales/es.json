@@ -7864,6 +7864,14 @@
     "note_saved": "Anotado"
   },
   "thread_turn": {
+    "model_fallback": {
+      "switched_until": "Límite de {limit} alcanzado hasta {when} – continúa con {model}",
+      "switched": "Límite de {limit} alcanzado – continúa con {model}",
+      "rate": "{limit} está limitado por frecuencia – continúa con {model}",
+      "exhausted": "Todos los modelos a los que este hilo puede cambiar están en su límite ({models}). Detenido.",
+      "exhausted_until": "Todos los modelos a los que este hilo puede cambiar están en su límite ({models}). Detenido – el primero vuelve a estar libre {when}.",
+      "model_until": "{model} hasta {when}"
+    },
     "worked": "Trabajó",
     "worked_for": "Trabajó durante {duration}",
     "working_for": "Trabajando desde hace {duration}",
@@ -8564,6 +8572,8 @@
         "empty_until": "Agotada hasta {when}",
         "auto": "Cambiar automáticamente",
         "auto_tip": "Cuando una suscripción se queda corta o llega a su límite, los agentes en marcha pasan a la suscripción con más presupuesto y siguen trabajando.",
+        "model_fallback": "Cambiar de modelo al llegar al límite",
+        "model_fallback_tip": "Cuando el modelo de un hilo de código alcanza su límite de uso o de frecuencia, el mismo hilo continúa con el siguiente modelo (Claude Code: Fable 5.2 → Opus 5.5 → Sonnet 5.5).",
         "threshold": "Cuándo cambiar",
         "at_left": "con un {left} % restante",
         "at_limit": "solo al llegar al límite",

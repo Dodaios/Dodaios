@@ -7864,6 +7864,14 @@
     "note_saved": "Noted"
   },
   "thread_turn": {
+    "model_fallback": {
+      "switched_until": "{limit} limit reached until {when} – continued on {model}",
+      "switched": "{limit} limit reached – continued on {model}",
+      "rate": "{limit} is rate limited – continued on {model}",
+      "exhausted": "Every model this thread can switch to is at its limit ({models}). Stopped.",
+      "exhausted_until": "Every model this thread can switch to is at its limit ({models}). Stopped – the first one is free again {when}.",
+      "model_until": "{model} until {when}"
+    },
     "worked": "Worked",
     "worked_for": "Worked for {duration}",
     "working_for": "Working for {duration}",
@@ -8564,6 +8572,8 @@
         "empty_until": "Used up until {when}",
         "auto": "Switch automatically",
         "auto_tip": "When a subscription runs low or hits its limit, running agents move to the subscription with the most budget left and keep working.",
+        "model_fallback": "Switch models at a limit",
+        "model_fallback_tip": "When a coding thread's model hits its usage or rate limit, the same thread continues on the next model (Claude Code: Fable 5.2 → Opus 5.5 → Sonnet 5.5).",
         "threshold": "When to switch",
         "at_left": "at {left}% left",
         "at_limit": "only at the limit",

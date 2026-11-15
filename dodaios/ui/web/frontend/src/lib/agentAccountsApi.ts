@@ -367,3 +367,26 @@ export function updateAutoSwitch(change: { enabled?: boolean; at_percent?: numbe
     body: JSON.stringify(change),
   });
 }
+
+/** Whether a coding thread whose model hits its limit continues on the next model. */
+export interface ModelFallbackState {
+  enabled: boolean;
+  /** Each CLI's fallback order (runner id -> model ids, most preferred first). */
+  chains: Record<string, string[]>;
+}
+
+export async function fetchModelFallback(): Promise<ModelFallbackState | null> {
+  const res = await fetch("/api/agentic-ide/accounts/model-fallback", { cache: "no-store" });
+  // An older backend has no such route: the bar then has no model switch.
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(await detail(res));
+  return (await res.json()) as ModelFallbackState;
+}
+
+export function updateModelFallback(enabled: boolean): Promise<ModelFallbackState> {
+  return send<ModelFallbackState>("/api/agentic-ide/accounts/model-fallback", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  });
+}
