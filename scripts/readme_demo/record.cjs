@@ -61,6 +61,9 @@ const MODEL_SPOKEN = MODEL.replace(/^Claude /, '');
 // Models of the warm-up's threads: any two the picker offers.
 const WARM_MODELS = (process.env.DEMO_WARM_MODELS || 'Claude Sonnet 5.5,Claude Haiku 5.5').split(',');
 const PARTS = (process.env.DEMO_PARTS || 'setup,warmup,take').split(',');
+// The name the person gives the assistant in the first-run dialog. It is also
+// the wake word, and the app shows it wherever the assistant speaks.
+const NAME = process.env.DEMO_NAME || 'Dodaios';
 // The folder of the project with open pull requests, when demo-instance.sh
 // was started with DEMO_PR_REPO. The setup connects it as a third project.
 const PR_PROJECT = process.env.DEMO_PR_PROJECT || '';
@@ -425,7 +428,7 @@ const PAGE_HELPERS = `(() => {
       const dlg = page.locator('[role=dialog]').first();
       await dlg.locator('input').first().waitFor({ state: 'visible', timeout: 30000 });
       await click(dlg.locator('input').first(), { post: 200 });
-      await type('Dodaios');
+      await type(NAME);
       await click(btn(/Continue/), { post: 500 });
       await page.getByText('Connect your AI').waitFor();
       await page.getByText(/^Signed in/).first().waitFor({ timeout: 30000 });
