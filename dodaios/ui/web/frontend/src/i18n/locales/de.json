@@ -7958,7 +7958,8 @@
       "done_hidden_one": "{count} erledigt",
       "done_hidden_other": "{count} erledigt",
       "more_hidden_one": "{count} weiterer",
-      "more_hidden_other": "{count} weitere"
+      "more_hidden_other": "{count} weitere",
+      "took": "Dauerte {duration}"
     }
   },
   "work_trace": {

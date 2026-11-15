@@ -1,6 +1,6 @@
 import { createContext, memo, startTransition, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, Bot, Check, ChevronRight, Copy, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, ListTodo, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
-import { planOps, planViews, samePlanOps, type PlanOp, type PlanView } from "@/components/agentchat/agentPlan";
+import { planOps, planSpans, planViews, samePlanOps, type PlanOp, type PlanView } from "@/components/agentchat/agentPlan";
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
@@ -948,7 +948,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   const running = turn.status === "running";
   const inline = prompts === "inline";
   const pictures = useMemo(() => callPictures(turn.blocks), [turn.blocks]);
-  const plans = useMemo(() => shared ?? planViews(planOps([turn])), [shared, turn]);
+  const plans = useMemo(() => shared ?? planViews(planOps([turn]), planSpans([turn])), [shared, turn]);
   // Keep credential fields mounted while the surrounding work folds at turn end.
   // The pasted value lives only in the field, so a remount would discard it.
   const credentials = turn.blocks.filter((block): block is ToolBlock => block.kind === "tool" && Boolean(block.credential));
@@ -1114,13 +1114,15 @@ function ItemView({ item, tone, plans }: { item: TimelineItem } & Pick<ThreadTur
  * The agent's to-do list after each of its list calls, over the whole
  * conversation: a task changed in this turn may have been made in an earlier
  * one. The map keeps its identity until a list call arrives or ends, so a
- * streaming answer does not redraw every turn.
+ * streaming answer does not redraw every turn. The turns' times only take
+ * the idle time between turns out of an entry's time; a turn that ends
+ * changes no time already told, so they need not refresh it.
  */
 export function usePlanViews(items: readonly TimelineItem[]): ReadonlyMap<string, PlanView> {
   const held = useRef<{ ops: PlanOp[]; views: ReadonlyMap<string, PlanView> } | null>(null);
   return useMemo(() => {
     const ops = planOps(items);
-    if (!held.current || !samePlanOps(held.current.ops, ops)) held.current = { ops, views: planViews(ops) };
+    if (!held.current || !samePlanOps(held.current.ops, ops)) held.current = { ops, views: planViews(ops, planSpans(items)) };
     return held.current.views;
   }, [items]);
 }
