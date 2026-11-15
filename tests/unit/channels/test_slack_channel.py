@@ -77,6 +77,13 @@ async def _next(channel: SlackChannel, timeout: float = 5.0) -> ChannelMessage:
         await agen.aclose()
 
 
+async def _until(check, timeout: float) -> None:
+    deadline = asyncio.get_running_loop().time() + timeout
+    while not check():
+        assert asyncio.get_running_loop().time() < deadline, "not in time"
+        await asyncio.sleep(0.02)
+
+
 async def _nothing(channel: SlackChannel, wait: float = 0.4) -> bool:
     try:
         await _next(channel, wait)
@@ -371,8 +378,9 @@ async def test_while_slack_is_unreachable_the_link_keeps_trying(
     try:
         slack.go_offline()
         await slack.drop()
-        await asyncio.sleep(0.4)
-        assert not channel.connected and channel.last_error
+        # A refused connect takes about two seconds on Windows: wait for it,
+        # never for a fixed moment.
+        await _until(lambda: not channel.connected and bool(channel.last_error), 15.0)
         slack.go_online()
         await slack.wait_link(count=2)
         await slack.dm(OWNER, "back")
@@ -388,10 +396,7 @@ async def test_socket_mode_turned_off_ends_the_link_for_good(
     await channel.start()
     try:
         await slack.disconnect("link_disabled")
-        for _ in range(100):
-            if channel.last_error:
-                break
-            await asyncio.sleep(0.02)
+        await _until(lambda: bool(channel.last_error), 15.0)
         assert "Socket Mode" in channel.last_error and not channel.connected
         assert slack.links_opened == 1
     finally:
@@ -428,10 +433,7 @@ async def test_a_start_without_network_is_tried_again_and_binds_late(
     assert manager.retrying() == ["slack"]
     slack.go_online()
     gate.set()
-    for _ in range(200):
-        if late:
-            break
-        await asyncio.sleep(0.02)
+    await _until(lambda: bool(late), 20.0)
     try:
         assert late == ["slack"] and manager.started() == ["slack"]
         assert manager.get("slack").connected
