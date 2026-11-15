@@ -154,6 +154,14 @@ async def precheck_skip(runtime: Any, service: Any, tags: tuple[str, ...]) -> st
         except Exception:  # noqa: BLE001 - without its task the run has no work order
             log.warning("standing tasks: pre-check unreadable, run skipped", exc_info=True)
             return "the standing task could not be read"
+    from dodaios.rituals import prepare as rituals
+
+    if rituals.ritual_id_of(tags):
+        try:
+            return await rituals.precheck_skip(tags)
+        except Exception:  # noqa: BLE001 - without its ritual the run has no work order
+            log.warning("rituals: pre-check unreadable, run skipped", exc_info=True)
+            return "the ritual could not be read"
     if DIGEST_TAG in tags:
         from dodaios.life_admin.service import digest_skip_reason
 
@@ -244,7 +252,22 @@ async def run_context(task_store: Any, task_id: str, tags: tuple[str, ...]) -> s
             parts.append(flagged)
     parts.extend(await _life_admin_parts(tags))
     parts.extend(await _standing_parts(tags))
+    parts.extend(await _ritual_parts(tags))
     return "\n\n".join(parts)
+
+
+async def _ritual_parts(tags: tuple[str, ...]) -> list[str]:
+    """The work order of a ritual's gathering run; empty for any other routine."""
+    from dodaios.rituals import prepare as rituals
+
+    if not rituals.ritual_id_of(tags):
+        return []
+    try:
+        text = await rituals.run_context(tags)
+    except Exception:  # noqa: BLE001 - the run goes on without the work order and gathers nothing
+        log.warning("rituals: work order unreadable", exc_info=True)
+        return []
+    return [text] if text else []
 
 
 async def _standing_parts(tags: tuple[str, ...]) -> list[str]:

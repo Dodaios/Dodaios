@@ -319,6 +319,7 @@ async def run_owned_routine(
         log.info("society: routine %s needs no model call (%s)", task_id, skipped)
         return NOTHING
     cfg = runtime.config()
+    from dodaios.rituals import prepare as rituals
     from dodaios.standing_tasks import service as standing
 
     try:
@@ -334,15 +335,20 @@ async def run_owned_routine(
         standing_mode = await standing.permission_mode(
             tags, provider=provider, account_id=account_id
         )
+        # A ritual gathers ahead with a run that may only look ("" for any other routine).
+        ritual_mode = await rituals.permission_mode(
+            tags, provider=provider, account_id=account_id
+        )
     except Exception as exc:
         # A standing task's run log says why a run never started (held back or broken).
         await standing.run_not_started(tags, exc)
+        await rituals.run_not_started(tags, exc)
         raise
     # Results nobody opens for days: pause instead of producing another one.
     from .routine_parking import maybe_park
 
     await maybe_park(runtime, agent, task_id)
-    permission_mode = standing_mode or "bypass"
+    permission_mode = standing_mode or ritual_mode or "bypass"
     if autonomous:
         from .autonomous_routines import ORIGIN_PERMISSION_TAG, ORIGIN_SESSION_TAG
 
@@ -453,8 +459,9 @@ async def run_owned_routine(
         while True:
             if cancel_token is not None and cancel_token.is_cancelled():
                 raise asyncio.CancelledError
-            if standing_mode:
+            if standing_mode or ritual_mode:
                 # Nobody watches this chat: a card is refused with the reason, never left open.
+                # A ritual's run is no standing task, so it gets the lowest level: looking only.
                 standing.refuse_open_cards(service, session.session_id, tags)
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=0.25)
@@ -513,6 +520,10 @@ async def run_owned_routine(
         service.unsubscribe(session.session_id, queue)
         # A standing task keeps its own run log, pace and notes; a no-op for other routines.
         await standing.after_run(
+            tags, answer=answer, session_id=session.session_id, error=failure
+        )
+        # A ritual keeps what was gathered back until it is started; a no-op otherwise.
+        await rituals.after_run(
             tags, answer=answer, session_id=session.session_id, error=failure
         )
 

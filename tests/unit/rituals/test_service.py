@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from dodaios.rituals import service
+from dodaios.rituals import prepare, service
 from dodaios.rituals.models import (
     MAX_PHRASES,
     MAX_RITUALS,
@@ -16,7 +16,7 @@ from dodaios.rituals.models import (
     RitualError,
 )
 from dodaios.rituals.store import get_store
-from tests.unit.rituals.conftest import LEAD_SESSION, MONDAY_0830, MORNING, WAKE_PHRASE
+from tests.unit.rituals.conftest import LEAD_SESSION, MONDAY_0830, MORNING, WAKE_PHRASE, settle
 
 
 async def _code(awaitable) -> str:
@@ -260,11 +260,14 @@ async def test_the_second_time_on_a_day_is_a_greeting_unless_it_may_repeat(socie
 async def test_a_start_posts_the_card_and_runs_the_steps_for_this_moment(society) -> None:
     ritual = await service.create(**MORNING)
     result = await service.fire(ritual.id, via="voice", now=MONDAY_0830)
-    await service.drain()
+    await settle()
 
     assert result["ritual"]["id"] == ritual.id
     assert result["today"]["fired_via"] == "voice" and result["today"]["day"] == "2026-03-02"
+    # Nothing was gathered for the news yet: the card says more follows.
+    assert result["pending"] is True and result["today"]["delivered_ms"] is None
     (card,) = society.notices
+    assert card["pending"] is True
     assert card["kind"] == "society_result" and card["status"] == "done"
     assert card["source"] == "ritual" and card["via"] == "voice"
     assert (card["ritual_id"], card["ritual_title"]) == (ritual.id, "Good morning")
@@ -286,13 +289,27 @@ async def test_what_was_gathered_ahead_leads_the_card(society) -> None:
     ritual = await service.create(**MORNING)
     get_store().patch_day(
         ritual.id, "2026-03-02", prep_state="ready", prepared_ms=1,
-        written="## News\n- A new model came out.",
+        steps_hash=prepare.steps_hash(ritual), written="## News\n- A new model came out.",
     )
-    await service.fire(ritual.id, via="chat", now=MONDAY_0830)
-    await service.drain()
-    assert society.notices[0]["text"] == (
-        "## News\n- A new model came out.\n\n- Play my favourite music."
+    result = await service.fire(ritual.id, via="chat", now=MONDAY_0830)
+    await settle()
+    (card,) = society.notices
+    assert card["text"] == "## News\n- A new model came out.\n\n- Play my favourite music."
+    # It was ready: handed over with the start, nothing follows.
+    assert card["pending"] is False and result["pending"] is False
+    assert result["today"]["delivered_ms"] is not None
+
+
+async def test_what_was_gathered_for_other_steps_is_not_handed_over(society) -> None:
+    ritual = await service.create(**MORNING)
+    get_store().patch_day(
+        ritual.id, "2026-03-02", prep_state="ready", prepared_ms=1,
+        steps_hash="another-set-of-steps", written="## Yesterday's question",
     )
+    result = await service.fire(ritual.id, via="chat", now=MONDAY_0830)
+    await settle()
+    assert result["pending"] is True
+    assert society.notices[0]["text"] == "- Play my favourite music."
 
 
 async def test_a_ritual_without_steps_for_this_moment_starts_no_turn(society) -> None:
@@ -301,9 +318,9 @@ async def test_a_ritual_without_steps_for_this_moment_starts_no_turn(society) ->
         steps=[{"when": "ahead", "text": "My open pull requests."}],
     )
     await service.fire(ritual.id, via="chat", now=MONDAY_0830)
-    await service.drain()
+    await settle()
     assert society.chat.sent == []
-    assert society.notices[0]["text"] == ""
+    assert society.notices[0]["text"] == "" and society.notices[0]["pending"] is True
 
 
 async def test_the_steps_wait_for_a_busy_conversation(society) -> None:
@@ -314,7 +331,7 @@ async def test_the_steps_wait_for_a_busy_conversation(society) -> None:
     society.chat.running = False
     # Another turn takes the seat once more before the steps get it.
     society.chat.refusals = 1
-    await service.drain()
+    await settle()
     assert len(society.chat.sent) == 1
 
 
@@ -325,7 +342,7 @@ async def test_the_steps_give_up_on_a_conversation_that_stays_busy(
     monkeypatch.setattr(service, "SEAT_WAIT_S", 0.05)
     society.chat.running = True
     await service.fire(ritual.id, via="button", force=True, now=MONDAY_0830)
-    await service.drain()
+    await settle()
     assert society.chat.sent == []
     # The start itself counted.
     assert service.today_of(ritual.id, now=MONDAY_0830).fired_via == "button"
@@ -336,7 +353,7 @@ async def test_a_phrase_does_not_start_what_its_conditions_hold_back(society) ->
     assert await _code(service.fire(ritual.id, via="voice", now=_at(13, 0))) == "state"
     await service.fire(ritual.id, via="voice", now=MONDAY_0830)
     assert await _code(service.fire(ritual.id, via="chat", now=_at(9, 0))) == "state"
-    await service.drain()
+    await settle()
     assert len(society.notices) == 1 and len(society.chat.sent) == 1
     assert await _code(service.fire(ritual.id, via="telepathy", now=MONDAY_0830)) == "invalid"
     assert await _code(service.fire("rit_missing", via="voice", now=MONDAY_0830)) == "not_found"
@@ -352,7 +369,7 @@ async def test_a_click_does_not_use_up_the_phrase(society) -> None:
     # And a click after the phrase starts it again without freeing the phrase.
     await service.fire(ritual.id, via="button", force=True, now=_at(9, 30))
     assert service.find_match("Good morning", now=_at(9, 45)).blocked == "done_today"
-    await service.drain()
+    await settle()
     assert [card["via"] for card in society.notices] == ["button", "voice", "button"]
 
 
@@ -362,7 +379,7 @@ async def test_a_click_starts_it_whatever_the_clock_says_and_again(society) -> N
     )
     await service.fire(ritual.id, via="button", force=True, now=_at(13, 0))
     await service.fire(ritual.id, via="button", force=True, now=_at(13, 5))
-    await service.drain()
+    await settle()
     assert len(society.notices) == 2 and len(society.chat.sent) == 2
 
 
@@ -382,7 +399,7 @@ async def test_a_card_that_cannot_be_posted_does_not_undo_the_start(society) -> 
 
     society.post_chat_notice = broken
     await service.fire(ritual.id, via="voice", now=MONDAY_0830)
-    await service.drain()
+    await settle()
     assert service.today_of(ritual.id, now=MONDAY_0830).fired_ms is not None
     assert len(society.chat.sent) == 1
 

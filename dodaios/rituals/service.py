@@ -8,7 +8,8 @@ two things at once:
   own words and may ask for anything the assistant can do, so they run as one
   turn of the lead's conversation, with the person's standing and nothing typed;
 * a card in that conversation says the ritual started and carries what was
-  gathered ahead for it.
+  gathered ahead for it (:mod:`dodaios.rituals.prepare`). If that is not ready
+  yet, it is gathered now and follows in a second card (:func:`deliver_late`).
 
 Whether a phrase starts a ritual right now is a matter of words and the clock
 (:func:`find_match`, :func:`why_not`); no model is asked. A ritual whose
@@ -308,7 +309,11 @@ async def update(ritual_id: str, **changes: Any) -> Ritual:
 
 
 async def remove(ritual_id: str) -> None:
+    from . import prepare
+
     ritual = _require(ritual_id)
+    # The run that gathers ahead for it goes with it.
+    await prepare.drop_routine(ritual)
     get_store().delete(ritual.id)
     log.info("rituals: %s removed", ritual.id)
 
@@ -442,6 +447,11 @@ def card_text(ritual: Ritual, day: RitualDay | None) -> str:
     return "\n\n".join(parts)[:_MAX_CARD_CHARS]
 
 
+def card_text_late(day: RitualDay) -> str:
+    """The body of the second card: what was gathered, once it is there."""
+    return day.written.strip()[:_MAX_CARD_CHARS]
+
+
 async def _lead_chat() -> tuple[Any, Any, Any]:
     """``(runtime, lead, chat service)``, or ``RitualError("unavailable")``."""
     from dodaios.society.roster import LEAD_AGENT_ID
@@ -455,8 +465,8 @@ async def _lead_chat() -> tuple[Any, Any, Any]:
     return runtime, lead, runtime.chat_service()
 
 
-async def _post_card(ritual: Ritual, day: RitualDay | None, *, via: str) -> None:
-    """The card in the lead's conversation. A failure is logged, never raised."""
+async def _post(ritual: Ritual, fields: dict[str, Any]) -> None:
+    """One notice about ``ritual`` in the lead's conversation. Never raises."""
     try:
         runtime, lead, _svc = await _lead_chat()
         namer = getattr(runtime, "display_name", None)
@@ -470,14 +480,50 @@ async def _post_card(ritual: Ritual, day: RitualDay | None, *, via: str) -> None
                 "agent_name": namer(lead) if callable(namer) else str(lead.name),
                 "ritual_id": ritual.id,
                 "ritual_title": ritual.name,
-                "via": via,
-                "text": card_text(ritual, day),
-                # The person started it where they are; their phone stays quiet.
-                "push": False,
+                **fields,
             },
         )
     except Exception:  # noqa: BLE001 — the card is a projection; the ritual itself started
         log.warning("rituals: card of %s not posted", ritual.id, exc_info=True)
+
+
+async def _post_card(
+    ritual: Ritual, day: RitualDay | None, *, via: str, pending: bool = False
+) -> None:
+    """The card of a start. ``pending``: what is gathered ahead follows in a second card."""
+    await _post(
+        ritual,
+        {
+            "via": via,
+            "text": card_text(ritual, day),
+            "pending": pending,
+            # The person started it where they are; their phone stays quiet.
+            "push": False,
+        },
+    )
+
+
+async def deliver_late(ritual: Ritual, day: str) -> None:
+    """Hand over what was gathered after the ritual had already started.
+
+    The start found nothing ready and said so; this is the second card. It may
+    reach the phone: the person may have walked away while it was gathered.
+    When the gathering failed for good, the card says that instead.
+    """
+    from . import prepare
+
+    store = get_store()
+    row = store.day(ritual.id, day)
+    if row is None or row.fired_ms is None or row.delivered_ms is not None:
+        return
+    if prepare.usable(ritual, row):
+        await _post(ritual, {"via": row.fired_via, "late": True, "text": card_text_late(row)})
+    else:
+        reason = row.prep_error or "Nothing could be gathered."
+        await _post(
+            ritual, {"via": row.fired_via, "late": True, "status": "failed", "text": reason}
+        )
+    store.patch_day(ritual.id, day, delivered_ms=now_ms())
 
 
 async def _run_now_steps(ritual: Ritual, steps: Sequence[RitualStep]) -> None:
@@ -572,14 +618,25 @@ async def fire(
         else:
             store.record_fire(ritual.id, day, stamp, via)
     log.info("rituals: %s started via %s", ritual.id, via)
+    from . import prepare
+
     today = store.day(ritual.id, day)
-    await _post_card(ritual, today, via=via)
+    ahead = ritual.steps_at("ahead")
+    ready = prepare.usable(ritual, today)
+    await _post_card(ritual, today if ready else None, via=via, pending=bool(ahead) and not ready)
+    if ready or not ahead:
+        today = store.patch_day(ritual.id, day, delivered_ms=now_ms())
+    else:
+        # Nothing ready (the machine slept, the phrase came early): gather now,
+        # the result follows in a second card.
+        prepare.request(ritual.id, day)
     now_steps = ritual.steps_at("now")
     if now_steps:
         _spawn(_run_now_steps(ritual, now_steps), f"ritual-now-{ritual.id}")
     return {
         "ritual": ritual.to_dict(),
         "today": today.to_dict() if today is not None else None,
+        "pending": bool(ahead) and not ready,
     }
 
 
@@ -587,8 +644,10 @@ __all__ = [
     "Match",
     "SEAT_WAIT_S",
     "card_text",
+    "card_text_late",
     "create",
     "day_of",
+    "deliver_late",
     "drain",
     "find_match",
     "fire",
