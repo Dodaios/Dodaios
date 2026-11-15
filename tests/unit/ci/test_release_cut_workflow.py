@@ -56,8 +56,13 @@ python() {
   printf 'python %s\n' "$*" >> "$TRACE_FILE"
   if [ "$1" = -c ]; then
     case "$2" in
-      # The version in the resumed commit's parent, read from stdin.
-      *stdin*) printf '%s\n' "$PARENT_VERSION" ;;
+      # The version in the resumed commit's parent, read from stdin. Read it
+      # to the end like the real interpreter: a reader that leaves early
+      # makes the writer of `git show ... | python` die of SIGPIPE, and the
+      # step fails with 141 under pipefail. That race failed the resume tests
+      # on the hosted macOS runners now and then (v5.3.3 release CI).
+      *stdin*) while IFS= read -r _; do :; done
+               printf '%s\n' "$PARENT_VERSION" ;;
       *) if [ -f checked-out ]; then printf '%s\n' "$RESUME_VERSION";
          else printf '%s\n' "$BASE_VERSION"; fi ;;
     esac
@@ -101,6 +106,9 @@ def _exercise(
     result = subprocess.run(
         [bash, "--noprofile", "--norc", "-e", "-o", "pipefail", script.name],
         cwd=tmp_path,
+        # A fake that reads stdin outside a pipe must see its end at once,
+        # not wait on the test runner's own input.
+        stdin=subprocess.DEVNULL,
         env={
             **os.environ,
             "V": "1.2.3",
