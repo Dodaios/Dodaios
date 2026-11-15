@@ -274,8 +274,8 @@ async def test_a_start_posts_the_card_and_runs_the_steps_for_this_moment(society
     assert card["agent_name"] == "Nova"
     # They started it where they are: the card is not sent to their phone as well.
     assert card["push"] is False
-    # Only the step for this moment is on the card; nothing was gathered yet.
-    assert card["text"] == "- Play my favourite music."
+    # Nothing was gathered yet, and the steps for the moment answer for themselves.
+    assert card["text"] == ""
 
     (turn,) = society.chat.sent
     assert turn["session_id"] == LEAD_SESSION
@@ -294,7 +294,8 @@ async def test_what_was_gathered_ahead_leads_the_card(society) -> None:
     result = await service.fire(ritual.id, via="chat", now=MONDAY_0830)
     await settle()
     (card,) = society.notices
-    assert card["text"] == "## News\n- A new model came out.\n\n- Play my favourite music."
+    # The card carries what was gathered, not the list of steps for the moment.
+    assert card["text"] == "## News\n- A new model came out."
     # It was ready: handed over with the start, nothing follows.
     assert card["pending"] is False and result["pending"] is False
     assert result["today"]["delivered_ms"] is not None
@@ -309,7 +310,7 @@ async def test_what_was_gathered_for_other_steps_is_not_handed_over(society) -> 
     result = await service.fire(ritual.id, via="chat", now=MONDAY_0830)
     await settle()
     assert result["pending"] is True
-    assert society.notices[0]["text"] == "- Play my favourite music."
+    assert society.notices[0]["text"] == ""
 
 
 async def test_a_ritual_without_steps_for_this_moment_starts_no_turn(society) -> None:

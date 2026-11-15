@@ -460,10 +460,12 @@ async def run_owned_routine(
         while True:
             if cancel_token is not None and cancel_token.is_cancelled():
                 raise asyncio.CancelledError
-            if standing_mode or ritual_mode:
+            if standing_mode:
                 # Nobody watches this chat: a card is refused with the reason, never left open.
-                # A ritual's run is no standing task, so it gets the lowest level: looking only.
                 standing.refuse_open_cards(service, session.session_id, tags)
+            elif ritual_mode:
+                # A ritual's gathering only looks: reads pass, anything else is refused.
+                rituals.answer_open_cards(service, session.session_id)
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=0.25)
             except TimeoutError:

@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_TIMELINE, type TimelineItem } from "@/components/agentchat/reduce";
 import { takePluginFocus } from "@/lib/customConnector";
+import { RITUAL_LIMITS, ritual, ritualDay } from "@/lib/ritualsApi.testkit";
 import { useAgentChatStore } from "@/store/agentChat";
 import { useEventStore } from "@/store/events";
 import { useIdeThreadsStore } from "@/store/ideThreads";
@@ -24,6 +25,11 @@ vi.mock("@/components/home/AssistantRoutineDialog", () => ({
 }));
 vi.mock("@/components/home/AssistantFileDialog", () => ({
   default: ({ fileId }: { fileId: string }) => <div data-testid="file-dialog">{fileId}</div>,
+}));
+vi.mock("@/components/home/RitualDialog", () => ({
+  default: ({ ritualId, onClose }: { ritualId: string | null; onClose: () => void }) => (
+    <div data-testid="ritual-dialog">{ritualId ?? "a new one"}<button onClick={onClose}>Close ritual</button></div>
+  ),
 }));
 vi.mock("@/components/pets/PetMark", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/components/pets/PetMark")>()),
@@ -73,6 +79,7 @@ function mount(routines: unknown[], backend: Backend = {}) {
     "/api/agent-chat/lead/threads": { threads: [] },
     "/api/agent-chat/lead/channels": { channels: [] },
     "/api/agent-chat/lead/files": { files: [] },
+    "/api/agent-chat/lead/rituals": { available: true, rituals: [], limits: RITUAL_LIMITS },
     "/api/outputs": [],
     ...backend,
   };
@@ -212,6 +219,36 @@ describe("AssistantPanel", () => {
     expect(skills.set).toHaveBeenCalledWith({ name: "zeta", enabled: true });
     fireEvent.click(screen.getByTestId("assistant-skills-all"));
     expect(useEventStore.getState().activeSection).toBe("skills");
+  });
+
+  it("keeps the rituals in the library, between how it is spoken to and its files, and opens one in its dialog", async () => {
+    mount([], { "/api/agent-chat/lead/rituals": { available: true, limits: RITUAL_LIMITS, rituals: [
+      ritual("rit_1", { name: "Good morning", phrases: ["Good morning"], today: ritualDay({ prep_state: "ready", prepared_ms: 1 }) }),
+    ] } });
+    // A ritual is something the assistant has, not work it is doing.
+    expect(screen.queryByTestId("assistant-panel-rituals")).toBeNull();
+
+    library();
+    const block = screen.getByTestId("assistant-panel-rituals");
+    expect(block.querySelector("h2")?.textContent).toBe("Rituals");
+    const voice = screen.getByTestId("assistant-panel-voice");
+    const files = screen.getByTestId("assistant-panel-files");
+    expect(voice.compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(block.compareDocumentPosition(files) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    const row = await screen.findByTestId("assistant-ritual-rit_1");
+    expect(row.textContent).toBe("Good morning“Good morning” · Ready");
+    fireEvent.click(row);
+    expect((await screen.findByTestId("ritual-dialog")).textContent).toContain("rit_1");
+    fireEvent.click(screen.getByText("Close ritual"));
+    expect(screen.queryByTestId("ritual-dialog")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("assistant-ritual-new"));
+    expect((await screen.findByTestId("ritual-dialog")).textContent).toContain("a new one");
+
+    fireEvent.click(screen.getByTestId("assistant-panel-tab-activity"));
+    expect(screen.queryByTestId("assistant-panel-rituals")).toBeNull();
+    expect(screen.queryByTestId("assistant-ritual-rit_1")).toBeNull();
   });
 
   it("says what the assistant is doing right now, under its name", async () => {

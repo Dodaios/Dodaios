@@ -116,3 +116,23 @@ describe("in other chats", () => {
     expect(line().textContent).toBe("Routine · Daily issue check");
   });
 });
+
+describe("a ritual's card", () => {
+  const ritual = (more: Record<string, unknown> = {}): NoticeItem => ({
+    type: "notice", id: "r1", kind: "society_result", text: "", agentName: "Nova", agentId: "jarvis",
+    status: "done", tsMs: 1, resolved: "",
+    data: { kind: "society_result", source: "ritual", ritual_id: "rit_1", ritual_title: "Good morning", ...more },
+  });
+
+  it("names the ritual on its line, which opens nothing: a ritual has no run chat of its own", () => {
+    render(<RoutineResultMessage item={ritual()} look="document" />);
+    const line = screen.getByTestId("routine-result-line");
+    expect(line.tagName).toBe("P");
+    expect(line.textContent).toBe("“Good morning” started");
+  });
+
+  it("adds that the rest follows when nothing was ready yet", () => {
+    render(<RoutineResultMessage item={ritual({ pending: true })} look="document" />);
+    expect(screen.getByTestId("routine-result").textContent).toContain("The rest is being gathered and follows shortly.");
+  });
+});
