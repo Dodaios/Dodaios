@@ -5,18 +5,18 @@ for each pillar. They are in this folder:
 
 | File | Where it plays | What it shows |
 |---|---|---|
-| `hero.webp` | at the top | One request to the assistant crosses the chat, the Agentic IDE with three coding agents side by side, and a slide deck changed by hand. 33 s, 1280 x 720, 30 frames a second |
+| `hero.webp` | at the top | One request to the assistant crosses the chat, the Agentic IDE with three coding agents side by side, and a slide deck changed by hand. 33 s, 1120 x 630, 24 frames a second |
 | `dodaios-demo.mp4` | linked from the clip at the top | The same recording as a video, 1920 x 1080, 60 frames a second, without sound. GitHub plays it on the file's page |
 | `assistant.webp` | An assistant that does the work | The assistant answers a question with the GitHub plugin. 15 s, 1280 x 720 |
 | `agents.webp` | Your coding agents, side by side | Three coding agents side by side, then the rail of coding agents in a thread's picker. 15 s, 1280 x 720 |
 | `nodes.webp` | Docs, decks, sheets and whiteboards | A whiteboard made from a sentence and changed by hand. 16 s, 1280 x 720 |
-| `phone.webp` | With you when you leave the desk | The phone app: a request, two approvals tapped, the answer. 13 s, 420 x 908 |
+| `phone.webp` | With you when you leave the desk | The phone app: a request, two approvals tapped, the answer. 13 s, 420 x 908, 30 frames a second |
 | `voice.webp` | Your voice, in every app | Not recorded yet: it needs a real voice and microphone ([The voice clip](#the-voice-clip)) |
 | `dodaios-demo.gif` | nowhere since 15 November 2026 | The clip that stood at the top before. The project page on PyPI of every release up to 5.3.3 still shows it from this path. Delete it once a newer release is on PyPI |
 
 Each `.webp` is an animated WebP picture: it starts by itself, loops, has no
-sound and needs no player. Browsers have shown it for years, it is about half
-the size of a GIF at twice the frame rate, and it keeps the full colours. The
+sound and needs no player. Browsers have shown it for years, it keeps the full
+colours, and it is much smaller than a GIF of the same clip. The
 README links every picture with an absolute `raw.githubusercontent.com` URL,
 so it also plays on PyPI.
 
@@ -201,14 +201,18 @@ Each recording is cut into a master video first (60 frames a second, nearly
 without loss), and the README picture is made from the master:
 
 ```sh
-python scripts/readme_demo/encode_webp.py hero-master.mp4 assets/demo/readme/hero.webp --width 1280 --fps 30
-python scripts/readme_demo/encode_webp.py phone-master.mp4 assets/demo/readme/phone.webp --width 560 --fps 30
+python scripts/readme_demo/encode_webp.py hero-master.mp4 assets/demo/readme/hero.webp --width 1120 --fps 24
+python scripts/readme_demo/encode_webp.py phone-master.mp4 assets/demo/readme/phone.webp --width 420 --quality 85
+python scripts/readme_demo/encode_webp.py nodes-master.mp4 assets/demo/readme/nodes.webp
 ```
 
 `encode_webp.py` reads the frames with ffmpeg and lets Pillow write the
-animated WebP, storing only what changed from one frame to the next. Keep the
-picture at the top under 5 MB and the others under 2 MB: every version stays
-in the repository's history. The video next to the hero picture is the master
+animated WebP. Between whole pictures it stores only what changed, lossy, and
+it stores a whole picture at least every 15 frames: without those, the small
+errors pile up and stay on screen as faint blocks after a dissolve or a
+scroll. Compare a new picture frame by frame with its master before it goes
+in. Keep every picture under 5 MB: every version stays in the repository's
+history. The video next to the hero picture is the master
 again, smaller:
 
 ```sh

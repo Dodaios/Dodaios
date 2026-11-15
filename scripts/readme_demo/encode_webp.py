@@ -2,14 +2,24 @@
 """Turn a recording into the animated WebP the README shows.
 
     python scripts/readme_demo/encode_webp.py master.mp4 clip.webp [--width 1280]
-        [--fps 30] [--quality 70] [--start 2.5] [--duration 12]
+        [--fps 30] [--quality 70] [--keyframe 15] [--start 2.5] [--duration 12]
 
 The README plays its recordings as animated WebP pictures: they start by
-themselves, loop, need no player, and are about half the size of a GIF at twice
-its frame rate and with full colour. ffmpeg here has no WebP encoder, so this
-reads the frames from ffmpeg and lets Pillow write the file. Only frames that
-changed are stored (``minimize_size``), which is why a screen recording stays
-small.
+themselves, loop, need no player, and keep their full colour at a fraction of
+a GIF's size. ffmpeg here has no WebP encoder, so this reads the frames from
+ffmpeg and lets Pillow write the file.
+
+Every ``--keyframe`` frames at the latest the picture is stored whole. Between
+those frames only what changed is stored, lossy, on top of the frame before.
+Without whole frames the small errors of that piling up stay on screen as
+faint blocks after a dissolve or a scroll (``minimize_size`` alone stores no
+whole frame at all: measured on the hero clip, blocks covered up to 8 % of the
+picture for three seconds). With a whole frame every half second they last
+no longer than the dissolve. The clips of 15 November 2026 were made with:
+
+    hero.webp     --width 1120 --fps 24
+    phone.webp    --width 420 --quality 85
+    the others    the defaults
 
 Needs ffmpeg and ffprobe on the PATH and Pillow with WebP support.
 """
@@ -52,6 +62,7 @@ def main() -> int:
     parser.add_argument("--width", type=int, default=1280, help="width in pixels; the height follows")
     parser.add_argument("--fps", type=float, default=30.0)
     parser.add_argument("--quality", type=int, default=70, help="0 to 100; 70 keeps text clean")
+    parser.add_argument("--keyframe", type=int, default=15, help="store the whole picture at least every this many frames")
     parser.add_argument("--start", default=None, help="second the clip starts at in the source")
     parser.add_argument("--duration", default=None, help="length of the clip in seconds")
     args = parser.parse_args()
@@ -74,7 +85,8 @@ def main() -> int:
         return 1
     first.save(
         args.target, save_all=True, append_images=frames, loop=0,
-        duration=round(1000 / args.fps), quality=args.quality, method=4, minimize_size=True,
+        duration=round(1000 / args.fps), quality=args.quality, method=4,
+        kmin=max(1, args.keyframe // 3), kmax=args.keyframe,
     )
     megabytes = Path(args.target).stat().st_size / 1_000_000
     print(f"{args.target}: {megabytes:.2f} MB, {width} x {height}, {args.fps:g} frames a second")
