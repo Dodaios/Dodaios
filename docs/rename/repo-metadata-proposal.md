@@ -8,33 +8,50 @@ metadata that carries it. Related: [migration-plan.md](migration-plan.md).
 
 ## Canonical tagline
 
-> **The open-source superagent for your desktop. One agent that runs all your other agents.**
+> **One workspace for everything you do with AI.**
 
-The maintainer moved from "agent OS" to "superagent" on November 10, 2026: one
-agent that you talk to and that runs your coding agents and your own agents. Use it word for word.
+The maintainer decided on November 15, 2026 that Dodaios stands for one
+workspace in which everything a person does with AI happens.
+[positioning.md](../positioning.md) has the whole of it: who it is for, the
+five pillars, and the sentence that always follows the tagline:
 
-## README hook (from November 14, 2026)
+> Claude Code, Codex, Cursor CLI and six more coding agents side by side, one
+> assistant that runs them, voice and dictation, and docs, decks and sheets.
+> Open source, on your computer, on the plans and keys you already have.
 
-The README opens with this hook instead of the tagline:
+Use the tagline word for word. The README marks it with a `the promise`
+comment.
 
-> **Say what you want. Dodaios runs Claude Code, Codex and seven more agents on your own plans, checks their work, and tells you what is done.**
+What it replaced:
 
-It replaces "The open-source Jarvis that runs your coding agents for you."
-(#1680), which named a third party's registered trademark in the first line.
-The README marks the hook with a `the hook` comment. Voice, memory, routines
-and the plugins are proof for the hook, not part of it. The GitHub
-description, the website and the X bio still carry the tagline above. Whether
-they follow the hook is the maintainer's decision.
+- "The open-source superagent for your desktop. One agent that runs all your
+  other agents." (November 10, 2026). The assistant that runs the agents is
+  now the first of five pillars.
+- The README hook of November 14, 2026: "Say what you want. Dodaios runs
+  Claude Code, Codex and seven more agents on your own plans, checks their
+  work, and tells you what is done." Its coding agents are now the second
+  pillar. "Checks their work" holds only for a terminal agent on the same
+  computer, whose diff and recorded tests the assistant reads.
+- "The open-source Jarvis that runs your coding agents for you." (#1680),
+  which named a third party's registered trademark in the first line.
 
 ## 1. GitHub description
 
-Tagline plus the rename note, 113 characters (limit 350):
+The tagline, what is in the workspace, and the rename note, 238 characters
+(limit 350):
 
 ```text
-The open-source superagent for your desktop. One agent that runs all your other agents. Formerly Personal Jarvis.
+One workspace for everything you do with AI: Claude Code, Codex and seven more coding agents side by side, one assistant that runs them, voice, and docs. Open source, on your computer, on your own plans and keys. Formerly Personal Jarvis.
 ```
 
 Website field: `https://dodaios.ai`.
+
+PyPI summary (`description` in `pyproject.toml`, shown under the name on
+pypi.org; the README is the page's body):
+
+```text
+One workspace for everything you do with AI: your coding agents side by side, an assistant that runs them, voice and docs. Open source, on your computer.
+```
 
 ## 2. Topics (at most 12)
 
@@ -67,14 +84,15 @@ a discovery term.
 
 ## 3. Website and X
 
-- dodaios.ai: use the tagline as the page description (`<meta name="description">`
-  and the Open Graph description). The page title uses its first half:
-  "Dodaios — an open-source agent OS for your desktop". The hero heading stays
-  as it is.
-- X bio of @dodaios: the tagline word for word (136 characters, limit 160). The
-  rename note does not fit as well, so it stays out of the bio. Set the profile
-  link to `https://github.com/Dodaios/Dodaios` (it still pointed to the old
-  repository on 2026-10-26).
+- dodaios.ai: use the tagline as the hero heading and the page title
+  ("Dodaios: one workspace for everything you do with AI"), and the sentence
+  that follows it as the page description (`<meta name="description">` and the
+  Open Graph description).
+- X bio of @dodaios: "One workspace for everything you do with AI. Nine
+  coding agents side by side, one assistant, voice, docs. Open source, on
+  your computer." (136 characters, limit 160). Set the profile link to
+  `https://github.com/Dodaios/Dodaios` (it still pointed to the old repository
+  on 2026-10-26).
 
 ## Applying it
 

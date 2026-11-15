@@ -21,25 +21,34 @@
 //            IDE is opened from the conversation and its changes are
 //            reviewed; then back to Dodaios, which reports.
 //
-// Two more parts film the shorter clip at the top of the README instead of
-// the take ("setup,warmup,warmup-agents,agents"):
+// Three more parts film the two clips of the README instead of the take
+// ("setup,warmup,warmup-hero,hero,picker"). Both clips are cut from the one
+// take of "hero": the hero clip (edit-hero.js) and the agents clip
+// (edit-agents.js).
 //
-//   warmup-agents  two more requests to Dodaios, not filmed: how long its
-//                  answers should be, and a short report on the day so far
-//   agents         one request to Dodaios: review the open pull requests of
-//                  a project, a coding agent for each. The agents come up
-//                  beside the conversation; the first one's thread is opened
-//                  in the Agentic IDE and two more beside it, so three are
-//                  seen at work at once. Back in the conversation Dodaios
-//                  answers with a report, which is opened. It needs the
-//                  third project (DEMO_PR_REPO of demo-instance.sh,
-//                  DEMO_PR_PROJECT here).
+//   warmup-hero  three more requests to the assistant, not filmed: how long
+//                its answers should be, a short slide deck on the day so far
+//                with a word on how decks should be, and a small question
+//   hero         one request to the assistant: review the open pull requests
+//                of a project, a coding agent for each, the verdicts on a
+//                slide deck. The agents come up beside the conversation; the
+//                first one's thread is opened in the Agentic IDE and two more
+//                beside it, so three are seen at work at once and finishing.
+//                Back in the conversation the assistant answers with the card
+//                of the deck, a node. The deck is opened, taken a slide on,
+//                and its title is changed by hand. It needs the third project
+//                (DEMO_PR_REPO of demo-instance.sh, DEMO_PR_PROJECT here).
+//   picker       a short stretch of its own, filmed before the take: the
+//                picker at the foot of a thread in the Agentic IDE, which
+//                lists the coding agents and the models of each
+//   deck         only the end of "hero", on the newest deck: for trying the
+//                hand edit without a take (no model works in it)
 //
 // DEMO_PARTS names the parts to run (default "setup,warmup,take").
 //
 // The window is 1200 x 675 at a device scale of 2.4, so the frames are
 // 2880 x 1620: the video is 1920 x 1080 and stays sharp when the picture
-// moves in a little. DEMO_WINDOW and DEMO_SCALE change that: the agents clip
+// moves in a little. DEMO_WINDOW and DEMO_SCALE change that: the hero take
 // is filmed at a scale of 1.6, which gives 1920 x 1080 without moving in, and
 // at 60 frames a second (DEMO_FPS) where something moves. The pointer is
 // drawn into the page because a headless browser has none.
@@ -84,14 +93,20 @@ const WARM_THREADS = [
   ['ledger', WARM_MODELS[1] || WARM_MODELS[0], 'Where is the billing export read, and what happens when a line has no quantity? A few lines, change nothing.'],
 ];
 const WARM_AGENT = 'Put a Haiku agent on trailhead: describe the --json flag in the README, in two lines.';
-// Two more requests in the warm-up of the agents clip. The first says how
-// long an answer should be, as a person would have said long ago. Together
+// Three more requests in the warm-up of the hero clip. The first says how long
+// an answer should be, the second how a deck should be, as a person would
+// have said long ago: the deck of the take then has its table on the second
+// slide, and the assistant makes it without asking who it is for. Together
 // they use enough different tools that the app's "Tool Dabbler" achievement
 // (five different tools) comes up here and not as a toast in the clip.
-const WARM_AGENTS = [
+const WARM_HERO = [
   'Remind me at 5 pm to check the month-end numbers. And from now on, answer me in two sentences unless I ask for more.',
-  'What did the agents change in trailhead and ledger today? Put it in a short report.',
+  'What did the agents change in trailhead and ledger today? Put it on a short slide deck: a title slide, the facts as one table, then next steps. Keep my decks that short from now on, and never ask first.',
+  // The take begins on the end of this conversation: a few words, not the card of that deck.
+  'Thanks. When is my next reminder?',
 ];
+// The first of these requests to send (a warm-up that stopped half way goes on from there).
+const WARM_FROM = Number(process.env.DEMO_WARM_FROM || 0);
 // The take's four requests to Dodaios.
 const ASK_NUMBERS = 'How much did we invoice in October, by customer? The billing export is in the ledger project.';
 const ASK_PAGE = 'Make that a page I can send to finance.';
@@ -99,10 +114,20 @@ const ASK_PAGE = 'Make that a page I can send to finance.';
 const ASK_TASK = "Look after ledger's tests for me and tell me if one fails.";
 const ASK_FIX = `Brightwell Dental says invoice INV-2041 is one cent too high. Check it, then put a ${MODEL_SPOKEN} agent on the fix. No commit, I want to review it.`;
 
-// The agents clip's one request. It names the model of the agents, so the
-// clip does not depend on which one a new thread starts on.
+// The hero take's one request. It names the model of the agents, so the
+// clip does not depend on which one a new thread starts on. "One agent per
+// PR" is what makes the assistant start a coding agent for each pull request
+// instead of reviewing them itself, and "a slide deck" what makes the result
+// a node of the type slides and not a report page.
 const AGENTS_MODEL = process.env.DEMO_AGENTS_MODEL || 'Sonnet';
-const ASK_REVIEW = `Review the new PRs in ${PR_PROJECT || 'the project'}, one ${AGENTS_MODEL} agent per PR, and write me a report.`;
+const ASK_REVIEW = process.env.DEMO_ASK
+  || `Review the new PRs in ${PR_PROJECT || 'the project'}, one ${AGENTS_MODEL} agent per PR, and put the verdicts on a slide deck.`;
+// What the person types over the title of the deck's slide, by hand.
+const DECK_TITLE = process.env.DEMO_DECK_TITLE || 'What we merge this week';
+const TYPING_HAND = 55;   // milliseconds a key when a title is rewritten
+// How long the three agents are filmed at work, in seconds: the agents clip
+// is cut from this stretch.
+const AGENTS_WATCH = Number(process.env.DEMO_WATCH || 12);
 // How many of the agents' threads are opened beside the first one, each in a
 // column of its own. Three columns need a window at least 1140 wide.
 const AGENTS_BESIDE = 2;
@@ -111,7 +136,7 @@ const AGENTS_BESIDE = 2;
 // which the first ones are done and the last ones not yet started looks like
 // the end of their work.
 const AGENTS_EXPECTED = Number(process.env.DEMO_AGENTS || 0);
-// Frames a second for the agents clip's stretches with movement in them.
+// Frames a second for the hero take's stretches with movement in them.
 const AGENTS_FPS = Number(process.env.DEMO_FPS || 60);
 
 // The computer's own name and the home folder of whoever records never
@@ -134,9 +159,42 @@ const PAGE_HELPERS = `(() => {
     for (const c of n.childNodes) walk(c);
   };
   if (pairs.length) {
-    new MutationObserver((ms) => { for (const m of ms) { if (m.type === 'characterData') walk(m.target); for (const n of m.addedNodes) walk(n); } })
-      .observe(document, { subtree: true, childList: true, characterData: true });
+    const watch = (root) => new MutationObserver((ms) => { for (const m of ms) { if (m.type === 'characterData') walk(m.target); for (const n of m.addedNodes) walk(n); } })
+      .observe(root, { subtree: true, childList: true, characterData: true });
+    watch(document);
+    // What is drawn inside a shadow root (a deck's slide in its editor) is
+    // not seen from the document: each shadow root is watched as it is made.
+    const attach = Element.prototype.attachShadow;
+    Element.prototype.attachShadow = function (init) {
+      const root = attach.call(this, init);
+      try { watch(root); } catch { /* a closed root of the browser's own */ }
+      return root;
+    };
+    // A form field draws its value, which is no text node (a deck's speaker
+    // notes in its editor): the value the page sets is drawn with the
+    // replacements. Only the picture changes. Reading the value gives back
+    // what the page set as long as the field shows it unchanged, and no event
+    // is sent, so an editor never sees or saves the replacement.
+    for (const Field of [HTMLInputElement, HTMLTextAreaElement]) {
+      const own = Object.getOwnPropertyDescriptor(Field.prototype, 'value');
+      const set = new WeakMap();
+      Object.defineProperty(Field.prototype, 'value', {
+        configurable: true,
+        enumerable: own.enumerable,
+        get() { const shown = own.get.call(this); return set.has(this) && fix(set.get(this)) === shown ? set.get(this) : shown; },
+        set(v) {
+          const s = v == null ? '' : String(v), f = fix(s);
+          if (f === s) set.delete(this); else set.set(this, s);
+          own.set.call(this, f);
+        },
+      });
+    }
   }
+  // "Present" in a deck's editor asks the window for full screen. A page in
+  // full screen is drawn without anything beside it, the pointer of this
+  // recording included. Refused, the presentation covers the window instead,
+  // which is the same picture.
+  Element.prototype.requestFullscreen = () => Promise.reject(new Error('no full screen in a recording'));
   // How much of the recording person's plan is used is nobody's business.
   const hide = () => {
     if (document.getElementById('__demo_hide') || !document.head) return;
@@ -286,7 +344,7 @@ const PAGE_HELPERS = `(() => {
   // A turn that could not reach its model says so in the conversation. Such a
   // take is of no use: stop at once instead of waiting for an answer.
   async function noFailedTurn() {
-    const failure = page.getByText(/API Error|Failed to authenticate/).first();
+    const failure = page.getByText(/API Error|Failed to authenticate|Not logged in/).first();
     if (await failure.isVisible().catch(() => false)) throw new Error('a turn failed: ' + (await failure.innerText()).slice(0, 160));
   }
   // Poll until `done()` says so.
@@ -315,6 +373,10 @@ const PAGE_HELPERS = `(() => {
     log('settled:', what);
     return idleSince / 1000;
   }
+  // The slide decks among the nodes, the newest first.
+  const deckNodes = async () => ((await api('api/nodes'))?.nodes || [])
+    .filter((n) => n.origin === 'node' && n.type === 'slides' && n.id)
+    .sort((a, b) => b.created_at - a.created_at);
   const missions = async () => (await api('api/missions'))?.missions || [];
   // A build of an artifact is a mission. Wait for the one started after `known`.
   async function built(known, what) {
@@ -375,6 +437,7 @@ const PAGE_HELPERS = `(() => {
   const marks = [];       // a moment or a place the cut needs: a name, when, and where in the window
   const threads = [];     // the coding agents the take started
   const typed = {};       // for each request, when each of its keys was pressed
+  const extra = {};       // what the take was about: the request, the deck, the answer
   const now = () => Date.now() / 1000;
   client.on('Page.screencastFrame', (f) => {
     client.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => {});
@@ -386,7 +449,7 @@ const PAGE_HELPERS = `(() => {
     frames.push({ name, ts });
   });
   const save = () => {
-    fs.writeFileSync(path.join(OUT, 'take.json'), JSON.stringify({ window: { width: W, height: H, scale: SCALE }, model: MODEL, stretches, marks, threads, typed, frames }));
+    fs.writeFileSync(path.join(OUT, 'take.json'), JSON.stringify({ window: { width: W, height: H, scale: SCALE }, model: MODEL, ...extra, stretches, marks, threads, typed, frames }));
   };
   // A frame comes only when the picture changes: move the pointer by a hair,
   // so that a stretch begins with a frame of its own.
@@ -480,19 +543,24 @@ const PAGE_HELPERS = `(() => {
       log('warm-up done, the window shows', page.url());
     }
 
-    // ---- more warm-up before the agents clip, not recorded -------------------------
-    if (PARTS.includes('warmup-agents')) {
-      log('warm-up: two more requests before the agents clip');
+    // ---- more warm-up before the hero clip, not recorded ---------------------------
+    if (PARTS.includes('warmup-hero')) {
+      log('warm-up: more requests before the hero clip');
       await toChat();
       const intro = page.getByText('Skip introduction').first();
       if (await intro.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false)) await click(intro, { post: 800 });
-      for (const [i, request] of WARM_AGENTS.entries()) {
+      for (const [i, request] of WARM_HERO.entries()) {
+        if (i < WARM_FROM) continue;
         await click(chatInput(), { post: 200 });
         await type(request, 4);
         await page.keyboard.press('Enter');
-        await settled('warm-up request ' + (i + 1), { startsWithin: 20000 });
+        // A deck is looked at and revised before the answer: that takes minutes.
+        await settled('warm-up request ' + (i + 1), { startsWithin: 20000, timeout: BUILD_WAIT });
       }
       await debug('warm-requests');
+      const decks = await deckNodes();
+      log('decks so far:', decks.map((d) => `"${d.title}"`).join(', ') || 'none');
+      if (!decks.length) throw new Error('the warm-up made no slide deck: the take would not make one either');
       const unlocked = ((await api('api/board/achievements'))?.items || []).filter((a) => a.unlocked || a.unlocked_at).map((a) => a.id);
       log('achievements so far:', unlocked.join(', ') || 'none');
       if (!unlocked.includes('tool_dabbler')) log('warning: "Tool Dabbler" is still to come and may show as a toast in the clip');
@@ -515,7 +583,8 @@ const PAGE_HELPERS = `(() => {
       await sleep(700);
     }
     // A request, typed and sent. The footage after it is "wait-<name>".
-    async function ask(name, text, fps = 30) {
+    //   `waitFps`: frames a second of that wait (the hero take keeps only a few).
+    async function ask(name, text, fps = 30, waitFps = 12) {
       await film('ask-' + name, fps);
       await sleep(600);
       await click(chatInput(), { post: 280 });
@@ -528,7 +597,7 @@ const PAGE_HELPERS = `(() => {
       moment('sent-' + name);
       await page.keyboard.press('Enter');
       await moveTo(Math.min(W - 40, cx + 130), cy - 95, 550);
-      await film('wait-' + name, 12);
+      await film('wait-' + name, waitFps);
     }
 
     // ---- the take ---------------------------------------------------------------
@@ -675,9 +744,187 @@ const PAGE_HELPERS = `(() => {
       save();
     }
 
-    // ---- the agents clip ----------------------------------------------------------
-    if (PARTS.includes('agents')) {
-      if (!PR_PROJECT) throw new Error('the agents clip needs DEMO_PR_PROJECT, the folder of the project with open pull requests');
+    // ---- what the parts of the hero take share --------------------------------------
+    // The clip must look like the app does on a screen. An earlier cut of it
+    // looked like a slide show: filmed at 30 frames, played faster, with a
+    // pointer that jumped and stood still in between. So every stretch with
+    // movement in it is filmed at 60 frames a second, the cut plays it at its
+    // own speed, and the pointer travels at a person's pace and keeps moving.
+    const FPS = AGENTS_FPS;
+    // A wait of unknown length is not worth that many frames: it is filmed
+    // as a stretch of its own, which the cut leaves out. Its few frames are
+    // there to look at afterwards (a toast, a turn that went wrong).
+    const hold = (name) => film('hold-' + name, 1);
+    const pace = (x, y) => Math.min(1050, Math.max(430, Math.hypot(x - cx, y - cy) * 1.5));
+    // The pointer's way to an element, at that pace.
+    async function way(loc, { dx = 0, dy = 0 } = {}) {
+      const el = first(loc);
+      await el.waitFor({ state: 'visible' });
+      const b = await reveal(el);
+      return { el, ms: pace(b.x + b.width / 2 + dx, b.y + b.height / 2 + dy) };
+    }
+    const go = async (loc, opts = {}) => { const { el, ms } = await way(loc, opts); await click(el, { ms, pre: 200, ...opts }); };
+    const over = async (loc, opts = {}) => { const { el, ms } = await way(loc, opts); await point(el, { ms, ...opts }); };
+    const drift = async (x, y, ms) => moveTo(x, y, ms ?? pace(x, y));
+
+    // The end of the hero take: the card of the deck and the answer under it
+    // are read, the deck is opened from its card, taken to the slide with the
+    // table, and its title is changed by hand. No model works in this.
+    async function deckByHand(deck, said) {
+      const preview = page.locator('[data-testid="page-card-preview"]:visible').last();
+      // 7. The card and the answer, read. The card is taller than the answer:
+      //    wheel it well into the conversation, so both are in the window and
+      //    the click on it does not land on the window's caption.
+      await film('answer', FPS);
+      moment('answer');
+      await sleep(300);
+      for (let i = 0; i < 240; i++) {
+        const box = await preview.boundingBox();
+        if (!box) break;
+        const mid = box.y + box.height / 2;
+        if (mid >= 150 && mid <= H - 200) break;
+        await page.mouse.wheel(0, mid < 150 ? -9 : 9);
+        await sleep(14);
+      }
+      {
+        const box = await preview.boundingBox();
+        if (box) await drift(box.x + box.width * 0.62, Math.min(H - 60, box.y + box.height + 110), 800);   // over the answer
+      }
+      await sleep(1300);
+
+      // 8. The deck itself, opened from its card: one slide on (or as many as
+      //    it takes to the slide with the table), and then the person changes
+      //    its title by hand. A click into a text of the page opens the deck's
+      //    editor on that slide; there the title is clicked, selected and typed
+      //    over, and Present shows the slide as it now is.
+      await film('open-deck', FPS);
+      await go(preview, { post: 400 });
+      const stage = first('[data-testid="visualization-frame"]:visible');
+      await stage.waitFor({ state: 'visible', timeout: 30000 });
+      const frame = page.frameLocator('[data-testid="visualization-frame"]');
+      await frame.locator('.dk.is-ready').first().waitFor({ state: 'visible', timeout: 30000 });
+      await film('deck', FPS);
+      await mark('page', stage);
+      {
+        const box = await stage.boundingBox();
+        await drift(box.x + box.width * 0.58, box.y + box.height * 0.6);
+      }
+      await sleep(600);
+      const slides = ((await api('api/nodes/' + deck.id))?.spec || {}).slides || [];
+      let target = slides.findIndex((s, i) => i > 0 && (s.layout === 'table' || s.table));
+      if (target < 0) target = slides.findIndex((s, i) => i > 0 && (s.chart || s.stats) && s.title);
+      if (target < 0 || target > 3) target = Math.min(1, slides.length - 1);
+      log('deck slides:', slides.map((s) => s.layout || '?').join(', '), '; the edit goes to slide', target + 1);
+      for (let i = 0; i < target; i++) {
+        await go(frame.locator('[data-act="next"]').first(), { pre: 180, post: 300 });
+        await sleep(i + 1 < target ? 650 : 900);
+      }
+      moment('on-slide');
+      // The title of the slide in view. The click goes onto its words, and
+      // into the middle third of the slide: a click further left or right
+      // would also turn the slide.
+      let heading = frame.locator(`.dk-cell.is-current [data-at="/slides/${target}/title"]`).first();
+      // A slide without a title of its own: any of its texts opens the editor on it.
+      if (!(await heading.count())) heading = frame.locator(`.dk-cell.is-current [data-at^="/slides/${target}/"]`).first();
+      await heading.waitFor({ state: 'visible', timeout: 10000 });
+      {
+        const frameBox = await stage.boundingBox();
+        const words = await heading.evaluate((el) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const r = range.getClientRects()[0] || el.getBoundingClientRect();
+          return { x: r.left, y: r.top, w: r.width, h: r.height };
+        });
+        const x = Math.min(Math.max(frameBox.x + frameBox.width * 0.42, frameBox.x + words.x + 12), frameBox.x + words.x + words.w - 12);
+        const y = frameBox.y + words.y + words.h / 2;
+        await drift(x, y);
+        await sleep(300);
+        await press();
+      }
+      const field = page.locator('[data-testid="slides-editor"] [data-field="title"]:visible').first();
+      await field.waitFor({ state: 'visible', timeout: 20000 });
+      moment('editor');
+      await sleep(650);
+      // Into the title, all of it selected, and the new one typed.
+      {
+        const box = await field.boundingBox();
+        const words = await field.evaluate((el) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const all = range.getClientRects();
+          const r = all[all.length - 1] || el.getBoundingClientRect();
+          return { right: r.right, y: r.top + r.height / 2 };
+        });
+        await drift(Math.min(box.x + box.width - 6, words.right - 4), words.y);
+        await sleep(250);
+        await press();
+        await sleep(300);
+        await page.keyboard.press('ControlOrMeta+a');
+        await sleep(400);
+        const keys = [];
+        for (const ch of DECK_TITLE) { await page.keyboard.type(ch); keys.push(now()); await sleep(TYPING_HAND); }
+        typed.title = keys;
+        moment('typed');
+      }
+      // The editor saves by itself: wait for it to say so, then look at the slide.
+      const saveState = first('[data-testid="node-editor-save-state"]');
+      await until(async () => (await saveState.getAttribute('data-state').catch(() => '')) === 'saved', 'the editor to save the title', 15000, 150).catch((e) => log('warning:', e.message));
+      moment('saved');
+      // The slide as it now is, large: Present plays the deck from this slide.
+      await go('[data-testid="slides-present-button"]', { pre: 220, post: 300 });
+      await first('[data-testid="slides-present"]').waitFor({ state: 'visible', timeout: 10000 });
+      moment('present');
+      await drift(W * 0.8, H * 0.82, 1000);
+      await sleep(1400);
+      cut();
+      save();
+      await page.keyboard.press('Escape');
+      await sleep(500);
+      const kept = ((await api('api/nodes/' + deck.id))?.spec || {}).slides || [];
+      log('title kept:', JSON.stringify((kept[target] || {}).title));
+      Object.assign(extra, { request: ASK_REVIEW, deck: { id: deck.id, title: deck.title, slides: slides.map((s) => s.layout || ''), edited: target + 1, typed: DECK_TITLE, kept: (kept[target] || {}).title || '' }, answer: said });
+      save();
+    }
+
+    // ---- the picker of coding agents, a stretch of its own ----------------------------
+    // In a thread of the warm-up, before the hero take: the picker at the foot
+    // of a thread lists the coding agents down its side and the models of the
+    // chosen one beside them. The pointer goes down the agents, looks into
+    // one of them and comes back.
+    if (PARTS.includes('picker')) {
+      await click('[data-testid="surface-ide"]', { post: 1200 });
+      await first('[data-testid^="thread-project-"]').waitFor({ state: 'visible', timeout: 20000 });
+      await click(page.locator('[data-testid^="thread-row-"]:visible').last(), { post: 1200 });
+      await threadInput().waitFor({ state: 'visible' });
+      const control = page.locator('[aria-label="Coding agent and model"]:visible').first();
+      await control.waitFor({ state: 'visible' });
+      await moveTo(W * 0.62, H * 0.5, 500);
+      await sleep(1500);   // the list of models loads
+      await film('picker', FPS);
+      await sleep(400);
+      await go(control, { pre: 200, post: 500 });
+      const panel = first('[data-testid="thread-model-picker-panel"]');
+      await panel.waitFor({ state: 'visible', timeout: 10000 });
+      await mark('picker', panel);
+      moment('picker-open');
+      const rail = (id) => page.locator(`[data-testid="composer-model-rail-${id}"]`).first();
+      await over(rail('glm'));
+      await sleep(150);
+      await go(rail('openai-codex'), { pre: 160, post: 650 });
+      moment('picker-other');
+      await over(rail('opencode'));
+      await sleep(250);
+      await go(rail('claude-api'), { pre: 160, post: 700 });
+      moment('picker-back');
+      cut();
+      await page.keyboard.press('Escape');
+      await sleep(400);
+      save();
+    }
+
+    // ---- the hero clip and the agents clip: one take ---------------------------------
+    if (PARTS.includes('hero')) {
+      if (!PR_PROJECT) throw new Error('the hero clip needs DEMO_PR_PROJECT, the folder of the project with open pull requests');
       // The Agentic IDE loads its projects when it is first opened in a window:
       // open it once before the film, so the clip does not show it filling up.
       await click('[data-testid="surface-ide"]', { post: 800 });
@@ -691,32 +938,12 @@ const PAGE_HELPERS = `(() => {
       const cards = () => page.locator('[data-testid="page-card"]').count();
       const bubblesBefore = await bubbles();
       const cardsBefore = await cards();
+      const decksBefore = new Set((await deckNodes()).map((d) => d.id));
       await mark('stage', '[data-testid="chat-stage"]');
 
-      // The clip must look like the app does on a screen. An earlier cut of it
-      // looked like a slide show: filmed at 30 frames, played faster, with a
-      // pointer that jumped and stood still in between. So every stretch with
-      // movement in it is filmed at 60 frames a second, the cut plays it at its
-      // own speed, and the pointer travels at a person's pace and keeps moving.
-      const FPS = AGENTS_FPS;
-      // A wait of unknown length is not worth that many frames: it is filmed
-      // as a stretch of its own, which the cut leaves out.
-      const hold = (name) => film('hold-' + name, 6);
-      const pace = (x, y) => Math.min(1050, Math.max(430, Math.hypot(x - cx, y - cy) * 1.5));
-      // The pointer's way to an element, at that pace.
-      async function way(loc, { dx = 0, dy = 0 } = {}) {
-        const el = first(loc);
-        await el.waitFor({ state: 'visible' });
-        const b = await reveal(el);
-        return { el, ms: pace(b.x + b.width / 2 + dx, b.y + b.height / 2 + dy) };
-      }
-      const go = async (loc, opts = {}) => { const { el, ms } = await way(loc, opts); await click(el, { ms, pre: 200, ...opts }); };
-      const over = async (loc, opts = {}) => { const { el, ms } = await way(loc, opts); await point(el, { ms, ...opts }); };
-      const drift = async (x, y, ms) => moveTo(x, y, ms ?? pace(x, y));
-
-      // 1. The request, and the first words of Dodaios.
-      await ask('review', ASK_REVIEW, FPS);
-      await until(async () => (await bubbles()) > bubblesBefore, 'the first words of Dodaios');
+      // 1. The request, and the first words of the assistant.
+      await ask('review', ASK_REVIEW, FPS, 1);
+      await until(async () => (await bubbles()) > bubblesBefore, 'the first words of the assistant');
       moment('ack');
       await film('ack', FPS);
       await drift(W * 0.5, H * 0.52, 700);
@@ -724,8 +951,8 @@ const PAGE_HELPERS = `(() => {
 
       // 2. The agents come up beside the conversation, under "Recent activity":
       //    the pointer goes to the first of them while the next ones arrive.
-      await film('starting', 20);
-      await until(async () => (await fresh()).length >= 1, 'Dodaios to start the first coding agent');
+      await hold('starting');
+      await until(async () => (await fresh()).length >= 1, 'the assistant to start the first coding agent');
       const leader = (await fresh()).sort(byStart)[0];
       const entry = first(`[data-testid="assistant-activity-${leader.session_id}"]`);
       await entry.waitFor({ state: 'visible', timeout: 20000 });
@@ -778,44 +1005,82 @@ const PAGE_HELPERS = `(() => {
         const at = await column.boundingBox();
         await drift(at.x + at.width / 2, H * 0.42);
         await sleep(350);
-        await hold('beside-' + (i + 1));
+        if (i + 1 < AGENTS_BESIDE) await hold('beside-' + (i + 1));
       }
 
-      // 5. All of them at work: the pointer goes from one column to the next.
+      // 5. All of them at work. The agents clip is cut from this stretch, so it
+      //    is filmed for longer than the hero clip needs, begins on a calm
+      //    picture, and ends when the three in view have finished (or after
+      //    WATCH seconds). The pointer goes from one column to the next, the
+      //    way a reader's eye does, and rests in each.
       await film('watching', FPS);
+      moment('watching');
       const columns = [];
       for (const id of shown) {
         const box = await first(id === leader.session_id ? '[data-testid="thread-column-main"]' : `[data-testid="thread-column-${id}"]`).boundingBox().catch(() => null);
         if (box) columns.push(box);
       }
       columns.sort((a, b) => a.x - b.x);
-      for (const box of [...columns].reverse()) {
-        await drift(box.x + box.width / 2, H * 0.4, 1500);
-        await sleep(500);
+      const atWork = async () => (await fresh()).filter((t) => shown.includes(t.session_id) && t.running).length;
+      const heights = [0.4, 0.5, 0.36, 0.46];
+      {
+        const t0 = Date.now();
+        await sleep(700);
+        // The pointer rests in the column opened last: from there to the others and back.
+        let at = columns.findIndex((box) => cx >= box.x && cx <= box.x + box.width);
+        if (at < 0) at = columns.length - 1;
+        let step = at > 0 ? -1 : 1;
+        for (let n = 0; Date.now() - t0 < AGENTS_WATCH * 1000; n++) {
+          if (at + step < 0 || at + step >= columns.length) step = -step;
+          at += step;
+          const box = columns[at];
+          await drift(box.x + box.width * (0.42 + 0.16 * ((n * 7) % 3) / 2), H * heights[n % heights.length], 1300);
+          moment('rest');   // a cut can end here, on a calm picture
+          await sleep(1100);
+          if (Date.now() - t0 > 5000 && !(await atWork())) break;
+        }
+        moment('watched');
       }
-      await film('finishing', 20);
+      if (await atWork()) await hold('finishing');
       await until(async () => { const all = await fresh(); return all.length >= Math.max(1, AGENTS_EXPECTED) && all.every((t) => !t.running); }, 'the coding agents to finish');
       // The thread list hears of it a moment later: wait until none of its rows turns any more.
       const turning = () => page.locator('[data-testid^="thread-row-"] .animate-spin').count();
       for (const limit = Date.now() + 20000; Date.now() < limit && (await turning()) > 0;) await sleep(200);
-      for (const t of await fresh()) threads.push({ id: t.session_id, title: t.title, model: t.model, cwd: t.cwd });
+      await sleep(600);
+      for (const t of await fresh()) threads.push({ id: t.session_id, title: t.title, model: t.model, cwd: t.cwd, shown: shown.includes(t.session_id) });
       log('agents:', threads.length, threads.map((t) => t.model).join(', '));
       moment('agents-done');
+      // The finished reviews: the pointer goes over them once, and rests.
       await film('done', FPS);
-      await drift(W * 0.62, H * 0.5, 1100);
       await sleep(500);
+      for (const [n, box] of columns.entries()) {
+        await drift(box.x + box.width / 2, H * (n % 2 ? 0.56 : 0.48), 1150);
+        await sleep(380);
+      }
+      await sleep(700);
 
-      // 6. Back to Dodaios, which reads the reviews and writes the report.
+      // 6. Back to the assistant, which reads the reviews and makes the deck.
       await film('to-chat', FPS);
       await go('[data-testid="surface-dodaios"]', { post: 600 });
       await chatInput().waitFor({ state: 'visible' });
       await drift(W * 0.4, H * 0.6);
-      await film('wait-report', 8);
-      await until(async () => (await cards()) > cardsBefore, 'the report');
+      await sleep(300);
+      await hold('deck');
+      // The deck is a node: its card comes into the conversation when it is
+      // made, and the assistant looks at it and revises it before it answers.
+      let deck = null, idle = 0;
+      await until(async () => {
+        deck = (await deckNodes()).find((d) => !decksBefore.has(d.id)) || null;
+        if (deck && (await cards()) > cardsBefore) return true;
+        if (await busy()) idle = 0;
+        else if (!idle) idle = Date.now();
+        else if (Date.now() - idle > 60000) throw new Error('the assistant ended its turn without a slide deck');
+        return false;
+      }, 'the slide deck', BUILD_WAIT, 1500);
       moment('card');
-      await film('report', FPS);
-      // Its answer stands under the card of the report: there once the text
-      // after the card has stood still for a moment.
+      log('deck:', deck.title);
+      await settled('the answer under the deck', { calm: 6000, startsWithin: 2000, timeout: BUILD_WAIT });
+      // Its answer stands under the card of the deck.
       const answer = () => page.evaluate(() => {
         const card = [...document.querySelectorAll('[data-testid="page-card"]')].pop();
         if (!card) return '';
@@ -823,39 +1088,20 @@ const PAGE_HELPERS = `(() => {
           .filter((b) => card.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
           .map((b) => b.innerText).join('\n');
       });
-      let text = '', still = Date.now();
-      await until(async () => {
-        const t = await answer();
-        if (t !== text) { text = t; still = Date.now(); }
-        return text.length > 40 && Date.now() - still > 1200;
-      }, 'the answer of Dodaios', MODEL_WAIT, 150);
-      moment('answer');
-      await sleep(1900);
+      const said = await answer();
+      log('answer:', said.replace(/\s+/g, ' ').slice(0, 300) || '(none under the card)');
+      await debug('answer');
 
-      // 7. The report itself, opened from its card. The answer under the card
-      //    has pushed it up: wheel it well into the conversation first, so the
-      //    click does not land on the window's caption above it.
-      await film('open-report', FPS);
-      const preview = page.locator('[data-testid="page-card-preview"]:visible').last();
-      for (let i = 0; i < 240; i++) {
-        const box = await preview.boundingBox();
-        if (!box) break;
-        const mid = box.y + box.height / 2;
-        if (mid >= 120 && mid <= H - 160) break;
-        await page.mouse.wheel(0, mid < 120 ? -9 : 9);
-        await sleep(14);
-      }
-      await sleep(250);
-      await go(preview, { post: 400 });
-      await onArtifact().waitFor({ state: 'visible', timeout: 30000 });
-      await film('page', FPS);
-      await mark('page', onArtifact());
-      await drift(W * 0.6, H * 0.6);
-      await sleep(800);
-      await wheel(560, 3, 14);   // down to its figures and its table, at an even pace
-      await sleep(1300);
-      cut();
-      save();
+      await deckByHand(deck, said);
+    }
+
+    // ---- only the end of the hero take, on the newest deck -----------------------------
+    // For trying its shots without a take: no model works in it.
+    if (PARTS.includes('deck')) {
+      const deck = (await deckNodes())[0];
+      if (!deck) throw new Error('there is no slide deck to open');
+      await openChat();
+      await deckByHand(deck, '');
     }
 
     await finish();

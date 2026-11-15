@@ -9,13 +9,13 @@
 
 <h1>Dodaios</h1>
 
-<!-- the hook: word for word everywhere (docs/rename/repo-metadata-proposal.md) -->
-<p><b>Say what you want. Dodaios runs Claude Code, Codex and seven more agents<br />
-on your own plans, checks their work, and tells you what is done.</b></p>
+<!-- the promise: word for word everywhere (docs/positioning.md) -->
+<p><b>One workspace for everything you do with AI.</b></p>
 
 <p>
-  Type it or say it out loud. You get a short answer in the chat<br />
-  and the full report as a page. Open source, no account.
+  Claude Code, Codex, Cursor CLI and six more coding agents side by side,<br />
+  one assistant that runs them, voice and dictation, and docs, decks and sheets.<br />
+  Open source, on your computer, on the plans and keys you already have.
 </p>
 
 <p>
@@ -27,8 +27,8 @@ on your own plans, checks their work, and tells you what is done.</b></p>
 
 <p>
   <a href="#install">Install</a> ·
-  <a href="#three-things-to-say-to-it">Examples</a> ·
-  <a href="#how-it-works">How it works</a> ·
+  <a href="#what-it-is">What is inside</a> ·
+  <a href="#bring-your-own-plans-and-keys">Your plans</a> ·
   <a href="#documentation">Documentation</a> ·
   <a href="https://dodaios.ai">Website</a> ·
   <a href="https://discord.gg/x7USduHxbc">Discord</a> ·
@@ -39,37 +39,33 @@ on your own plans, checks their work, and tells you what is done.</b></p>
 
 <p align="center">
   <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4">
-    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="A 30-second recording of Dodaios at work, in a workspace that is already in use. One request is typed into its chat: review the new PRs in acme-notes, one Sonnet agent per PR, and write me a report. Dodaios answers that it will list the pull requests, and the first coding agents appear beside the conversation under Recent activity. A click on one of them opens its thread in the Agentic IDE, where the project acme-notes lists a thread for each pull request, each with a spinner while its agent works. Two more threads are opened side by side, so three agents are seen at work at once: the brief Dodaios wrote, the agents reading the diffs and running the tests, and then their finished reviews. Back in the chat, Dodaios posts the card of a report and an answer of two sentences: three of the five pull requests are ready to merge, and two need changes first. The report is opened and scrolled: its summary, its key figures and a table with a verdict for each pull request" width="100%" />
+    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/hero.webp" alt="A 33-second recording of Dodaios at work. In the chat, the person asks the assistant, Nova, to review the new pull requests of a project with one Sonnet agent each and to put the verdicts on a slide deck. Agent threads start under Nova's answer. One click opens the first in the Agentic IDE, and two more open beside it: three coding agents read diffs and run commands side by side, then finish their reviews. Back in the chat, Nova answers under the card of a slide deck. The deck opens, the title of its second slide is changed by hand to What we merge this week, and the deck is presented." width="100%" />
   </a>
 </p>
 
 <p align="center">
-  <sub>A recording of the real app, cut from a take of 2 min 18 s: the waits for the models are cut out and the rest plays a fifth faster. Dodaios runs on Claude Opus 5.5 and starts five Claude Sonnet 5.5 agents through a signed-in Claude Code. The pull requests, the reviews and the report are real. <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><b>Watch it as a video</b></a> (30 s, 60 frames a second, no sound).</sub>
-</p>
-
-<p align="center">
-  <a href="https://github.com/Dodaios/Dodaios"><img src="https://img.shields.io/github/stars/Dodaios/Dodaios?style=for-the-badge&amp;label=Star%20Dodaios&amp;logo=github&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="Star Dodaios on GitHub" /></a>
-  <br />
-  <sub>If Dodaios is useful to you, star the repository. A star is how other developers find it.</sub>
+  <sub>A real recording of the app, cut from a take of about three minutes. The waits for the models are cut out, and the rest plays 1.18 times as fast. Nova runs on Claude Opus 5.5 and starts five Claude Sonnet 5.5 agents through Claude Code, signed in to a Claude plan. The pull requests, the reviews and the deck are real. <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><b>Watch it as a video</b></a></sub>
 </p>
 
 ## Install
+
+macOS and Linux:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash
 ```
 
-That line is for macOS and Linux. On Windows, in PowerShell:
+Windows, in PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 | iex
 ```
 
 The installer sets up its own Python environment, adds a launcher and opens
-the app. The first start asks for three things: a name (it is also the wake
-word), one model connection, and how you want to talk to it. To hand out
-coding work, install at least one coding agent and sign in to it, for example
-Claude Code or Codex.
+the app. The first start asks for three things: a name for your assistant (it
+is also the wake word), one model connection, and how you want to talk to it.
+To hand out coding work, install at least one coding agent and sign in to it,
+for example Claude Code or Codex.
 
 ```bash
 dodaios            # the desktop app: window, voice and the on-screen overlay
@@ -87,8 +83,9 @@ Download the installer for your system from the latest release:
 | --- | --- | --- |
 | [Dodaios-Setup-x64.exe](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-Setup-x64.exe) | [Apple Silicon](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-macOS-arm64.dmg) · [Intel](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-macOS-x64.dmg) | [AppImage, x86_64](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-Linux-x86_64.AppImage) |
 
-Each release lists the checksums in `installers-SHA256SUMS.txt`. The Windows
-installer is not code-signed yet; the
+Each release lists the checksums in `installers-SHA256SUMS.txt`. The
+installers are not signed yet: Windows shows a warning, and macOS asks you to
+allow the app once in System Settings, under Privacy & Security. The
 [code signing policy](https://github.com/Dodaios/Dodaios/blob/main/docs/code-signing-policy.md)
 says where that stands.
 
@@ -102,83 +99,225 @@ curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/instal
 dodaios serve      # browser interface only, for a server without a screen
 ```
 
-It runs on 64-bit Windows, macOS and glibc-based Linux, on x86-64 and Arm64.
-The terminal installer needs Python 3.11 to 3.14 and Git and fetches whichever
-is missing. A graphics card is optional. Installing needs no provider. Answers
-do.
+It runs on 64-bit Windows, macOS and glibc-based Linux. The terminal installer
+works on x86-64 and Arm64 and needs Python 3.11 to 3.14 and Git. It fetches a
+missing Python and offers to install a missing Git. A graphics card is optional. Installing needs no
+provider. Answers do.
 [Install guide](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/install-dodaios.md) ·
 [Platform support](https://github.com/Dodaios/Dodaios/blob/main/docs/product/reference/platform-support.md) ·
 [Running it on a server](https://github.com/Dodaios/Dodaios/blob/main/docs/headless-vps-deployment.md)
 
 </details>
 
-## Three things to say to it
+<p align="center">
+  <a href="https://github.com/Dodaios/Dodaios"><img src="https://img.shields.io/github/stars/Dodaios/Dodaios?style=for-the-badge&amp;label=Star%20Dodaios&amp;logo=github&amp;labelColor=0A0A0A&amp;color=FAFAFA" alt="Star Dodaios on GitHub" /></a>
+  <br />
+  <sub>If Dodaios is useful to you, star the repository. A star is how other people find it.</sub>
+</p>
 
-**"Review the new PRs, one agent per PR, and tell me what to do."**
-Dodaios looks up the open pull requests and starts a coding agent for each.
-It reads their reviews and tells you which to merge and which to fix first.
-The recording above is this request, with a report asked for as well.
+## What it is
 
-**"Find the invoice from Kestrel in my mail, put its due date in my calendar and tell the team in Slack."**
-One request, three apps. Gmail, Google Calendar and Slack are among the 47
-services in the plugin catalog. In a permission mode that asks, the message
-in your name waits for your yes.
+Each big AI company now builds its own app for everything, around its own
+models and its own account. If you pay two or three of them, you work in two
+or three places, and none knows what you did in the others.
 
-**"Every weekday at 9, run the tests in ledger and tell me if one fails."**
-A request with a time becomes a routine. It runs on that schedule while
-Dodaios is running, and you hear from it when a test fails.
+Dodaios is one workspace for all of it. It sells no model access. Your coding
+agents run inside it, on your computer, with the models and plans you choose.
+One assistant holds it together. You can talk to it, and it can look up what
+each agent did.
 
-## How it works
+<table>
+  <tr>
+    <td width="36%"><a href="#an-assistant-that-does-the-work"><b>An assistant that does the work</b></a></td>
+    <td>You name it, type or talk, and it uses your apps, a browser and your coding agents.</td>
+  </tr>
+  <tr>
+    <td><a href="#your-coding-agents-side-by-side"><b>Your coding agents, side by side</b></a></td>
+    <td>Claude Code, Codex, Cursor CLI and six more, as chat threads and terminals.</td>
+  </tr>
+  <tr>
+    <td><a href="#your-voice-in-every-app"><b>Your voice, in every app</b></a></td>
+    <td>A wake word, spoken conversations, and dictation that types where you work.</td>
+  </tr>
+  <tr>
+    <td><a href="#docs-decks-sheets-and-whiteboards"><b>Docs, decks, sheets and whiteboards</b></a></td>
+    <td>The assistant makes them from a sentence. You edit them by hand.</td>
+  </tr>
+  <tr>
+    <td><a href="#with-you-when-you-leave-the-desk"><b>With you when you leave the desk</b></a></td>
+    <td>The same conversation on your phone, in Telegram and in Discord.</td>
+  </tr>
+</table>
 
-1. **Talk.** Type a message, or say the wake word and speak. It is one
-   conversation, and Dodaios remembers what you told it.
-2. **Delegate.** Dodaios writes the brief and starts the work. Coding goes to
-   coding agents in your project, each in its own thread of the Agentic IDE,
-   side by side. Other work goes to its own background agents, its browser or
-   your connected apps.
-3. **Verify.** It follows the work and checks the result itself before it
-   calls anything done: the diff, the tests, the page.
-4. **Report.** You get a short answer in the chat, the long version as a page
-   you can open, and a question only when it needs you.
+It runs on your computer, on the model plans and keys you already have. There
+is no Dodaios account and no paid tier.
 
-You set how much it does alone. Each chat has a permission mode, from Bypass
-permissions, where nothing asks, to Always ask.
-[Safety and approvals](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/safety-and-approvals.md)
+### An assistant that does the work
 
-## Supported coding agents
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/assistant.webp" alt="A 15-second recording. The Plugins catalog shows GitHub installed and connected. In the chat, the person asks Nova: Which acme-notes PRs are still open, and which should I look at first? While Nova works, the line under its name in the side panel says Working in GitHub. The answer lists the five open pull requests as GitHub links and says to start with #9, the only bug fix and the smallest." width="100%" />
+</p>
+
+You give it a name, and that name is also the wake word. In these recordings
+it is Nova. You type or talk, and Nova does the work itself or hands it on:
+
+- **Your apps.** 48 plugins are in the catalog, among them GitHub, Slack,
+  Notion, Linear, Gmail and Google Calendar. Two have passed a full
+  end-to-end check, and the others are marked Preview. Your own MCP server
+  connects by its URL or its start command.
+- **A browser and your desktop.** It browses in its own browser while you
+  watch, and uses the mouse and keyboard in desktop apps.
+- **Memory you can read.** Short sentences about you and your work, in one
+  file on your computer. You can correct, pin, export or forget every entry.
+- **Work that goes on without you.** While Dodaios runs, a routine starts on a
+  schedule, on an event or on a webhook. A standing task keeps looking after
+  something: a project's tests, an inbox, a server.
+- **Coding work goes to coding agents.** Nova writes the brief, follows each
+  agent and reads its report. For a terminal agent on this computer it also
+  checks the diff and the tests the agent recorded.
+
+[Plugins](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md) ·
+[Browser](https://github.com/Dodaios/Dodaios/blob/main/docs/browser-use.md) ·
+[Computer use](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/computer-use.md) ·
+[Memory](https://github.com/Dodaios/Dodaios/blob/main/docs/product/knowledge-and-sharing/wiki-and-memory.md) ·
+[Routines](https://github.com/Dodaios/Dodaios/blob/main/docs/routines.md) ·
+[Standing tasks](https://github.com/Dodaios/Dodaios/blob/main/docs/standing-tasks.md)
+
+### Your coding agents, side by side
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/agents.webp" alt="A 15-second recording of the Agentic IDE. From the thread list, two more threads open side by side, until three coding agents work on three pull requests in three columns, and the first review arrives with findings by file and line. Then the agent and model control of a thread opens on its rail of coding agents: the models of Claude Code, then those of Codex, with OpenCode and more below." width="100%" />
+</p>
 
 **Claude Code · Codex · Cursor CLI · OpenCode · Kimi Code · GLM Coding Plan · Grok Build · Antigravity · DeepSeek Harness**
 
-Nine coding agents, each through its own command-line tool. You install it and
-sign in yourself, so it runs on the plan you already pay for, with the models,
-effort levels and permission modes it really has. A thread can get its own
-worktree on its own branch, and a team thread puts two to eight agents on
-different models onto one task.
+The Agentic IDE runs nine coding agents in one window, each as a chat thread
+or in a terminal:
+
+- **Side by side.** Up to four threads next to each other, each with its tool
+  calls, its diffs, its plan and its questions. (DeepSeek Harness shows only
+  its final answer in a thread.)
+- **Teams.** A team thread puts two to eight agents on different models onto
+  one task.
+- **Their own space.** A thread can work in its own worktree on its own
+  branch. An editor, a Git client and a browser preview sit beside the
+  threads.
+- **On other computers.** A terminal agent can run on your own Linux server
+  over SSH. It runs in tmux there, so it keeps working when you close the
+  laptop.
+
 [Agentic IDE](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md) ·
+[Threads](https://github.com/Dodaios/Dodaios/blob/main/docs/agentic-ide-threads.md) ·
 [Team threads](https://github.com/Dodaios/Dodaios/blob/main/docs/agentic-ide-team-threads.md)
 
-Dodaios itself runs on the model you choose: Claude, OpenAI, Google Gemini or
-xAI Grok with an API key or a plan you already pay for, OpenRouter, LiteLLM,
-Google Vertex AI or NVIDIA NIM, or a local model through Ollama with no
-account and no key.
-[Providers and API keys](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/providers-and-api-keys.md)
+### Your voice, in every app
 
-## What else it does
+<!-- The recording of this pillar needs a real voice and microphone; it is made
+     with scripts/readme_demo/voice_take.py (assets/demo/readme/README.md) and
+     goes here as voice.webp. -->
 
-- **Voice.** Say the wake word or press your Call shortcut and talk. Dictation types what you say into the app you are working in. [Voice](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md)
-- **Memory you can read.** Short sentences about you and your work, in one file on your computer. You can correct, pin, export or forget every entry. [Memory](https://github.com/Dodaios/Dodaios/blob/main/docs/product/knowledge-and-sharing/wiki-and-memory.md)
-- **Routines and standing tasks.** Work on a schedule, on an event or on a webhook, and things it keeps looking after: a project's tests, an inbox, a server. [Routines](https://github.com/Dodaios/Dodaios/blob/main/docs/routines.md) · [Standing tasks](https://github.com/Dodaios/Dodaios/blob/main/docs/standing-tasks.md)
-- **47 plugins.** GitHub, Slack, Notion, Linear, Gmail, Google Calendar, Home Assistant, Spotify and more, and any MCP server. [Plugins](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md)
-- **Nodes.** Reports, decks, sheets and dashboards that it makes and keeps current. [Nodes](https://github.com/Dodaios/Dodaios/blob/main/docs/nodes.md)
-- **Its own browser and your desktop.** You watch it browse and can take over at any moment. It also uses the mouse and keyboard in desktop apps. [Browser](https://github.com/Dodaios/Dodaios/blob/main/docs/browser-use.md) · [Computer use](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/computer-use.md)
-- **Away from the desk.** The phone app, your private Telegram chat and Discord direct messages continue the same conversation. [Phone app](https://github.com/Dodaios/Dodaios/blob/main/docs/mobile-companion.md)
-- **Yours.** Chats, memory, nodes and settings are files on your computer. There is no Dodaios account and no paid tier. [Privacy and local data](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/privacy-and-local-data.md)
+- **Talk to it.** Say the wake word or press your Call shortcut, speak, and
+  the assistant answers out loud.
+- **Dictate anywhere.** Hold the dictation key in any app, and what you say is
+  pasted there with its punctuation. Filler sounds are removed in English,
+  German, Spanish and Portuguese.
+- **On your computer if you want.** The wake word is recognized on your
+  computer, and dictation can run there too, with no key and no account.
 
-The [feature tour](https://github.com/Dodaios/Dodaios/blob/main/docs/feature-tour.md) has all of it, with pictures:
-what each part does, how a tool call is checked before it runs, and what runs
-on which system.
+[Voice conversations](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md) ·
+[Dictation](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/dictation.md) ·
+[Wake word](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/audio-and-wake-word.md)
+
+### Docs, decks, sheets and whiteboards
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/nodes.webp" alt="A 16-second recording of the chat with the assistant, Nova. The person types: Put our launch plan on a whiteboard: research, build, beta, launch. The card of a whiteboard comes in, four boxes joined by arrows, and Nova says it is ready. The card opens the whiteboard in the editor; the person drags the Launch box below Beta, renames Beta to Private beta, and the board saves itself." width="100%" />
+</p>
+
+What the assistant makes for you is a node, and a node is a document you can
+work in. There are seven kinds, each with its own editor: docs, slide decks,
+sheets, whiteboards, visuals, dashboards and clips.
+
+- **Made from a sentence.** Ask for a deck, a sheet or a whiteboard, and it is
+  there with the content filled in.
+- **Edited by hand.** Type into the text, change a cell, move a box. On a
+  whiteboard you and the assistant draw on the same canvas.
+- **Kept current.** A dashboard can refresh from its sources on a schedule.
+  Every node exports as HTML, and as PDF or PNG when Chrome, Edge or another
+  Chromium browser is on the computer.
+
+[Nodes](https://github.com/Dodaios/Dodaios/blob/main/docs/nodes.md)
+
+### With you when you leave the desk
+
+<img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/phone.webp" alt="A 13-second recording of the phone app in a phone-sized window. The conversation with Nova began at the desk: a rounding fault in a small invoicing project, and a test that catches it. On the phone the person types: Go ahead, fix it and run the tests. A card asks to allow an edit of invoice.py, and a tap allows it. A second card asks to run the tests, and a tap allows that too. Nova answers that the fault is fixed and all seven tests pass." width="34%" align="right" />
+
+Your conversation with the assistant goes with you:
+
+- **The phone app.** A web app that your own computer serves. You pair it
+  with a code, and it shows the same conversation: you type, send a voice
+  note, and allow or deny what waits for your yes. Over HTTPS you can install
+  it and get push notices.
+- **Telegram and Discord.** Your private chat with your own bot continues the
+  conversation too.
+- **One conversation.** What you said on the phone is in the chat on the
+  desktop when you come back.
+
+By default only this computer can connect. For the phone, start Dodaios so
+that it listens on your home network (this needs a control key), or serve it
+over HTTPS. The [phone guide](https://github.com/Dodaios/Dodaios/blob/main/docs/mobile-companion.md) has both ways.
+
+<br clear="right" />
+
+## Bring your own plans and keys
+
+Dodaios sells no model access and does not sign in for you. It starts each
+agent's official command-line tool, and you sign in to each one yourself. So a
+coding agent works on the plan or key you already have:
+
+| You have | It runs |
+| --- | --- |
+| A paid Claude plan (Pro or higher) | Claude Code |
+| A ChatGPT plan | Codex |
+| A Cursor account | Cursor CLI |
+| SuperGrok or X Premium+ | Grok Build |
+| A Google account (the free plan has weekly limits) | Antigravity |
+| The providers you set up in OpenCode | OpenCode |
+| A Moonshot, Z.ai or DeepSeek key or plan | Kimi Code, GLM Coding Plan (Claude Code against Z.ai), DeepSeek Harness |
+
+The assistant runs on the model you choose. Claude, OpenAI, Google Gemini and
+xAI Grok connect with a plan or an API key. OpenRouter, LiteLLM, Google Vertex
+AI, NVIDIA NIM and DeepSeek connect with a key. A local model runs through
+Ollama, with no account and no key. Your use of each service follows that
+service's own terms.
+[Providers and API keys](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/providers-and-api-keys.md) ·
+[Local models](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/local-ai-providers.md)
+
+## Yours
+
+- **Open source.** Apache 2.0. There is no Dodaios account and no paid tier.
+- **On your computer.** Chats, memory, nodes and settings are files on the
+  computer that runs Dodaios. A model or a connected service gets what it
+  needs for its part of a request. Signing in to a Google, Slack or Figma
+  plugin, and each later token refresh, goes through a small token service
+  that the project runs. Dodaios does not upload its logs on its own.
+- **You set how much it does alone.** Each chat has a permission mode. A new
+  chat starts at Bypass permissions, where nothing asks. In the asking modes,
+  moving money, passwords and keys, deleting something for good and a first
+  message in your name to someone new always wait for your yes.
+- **Windows, macOS and Linux.** The interface comes in English, German,
+  Spanish, Chinese and Portuguese. So far only Windows 11 has a recorded live
+  sign-off.
+
+[Privacy and local data](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/privacy-and-local-data.md) ·
+[Safety and approvals](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/safety-and-approvals.md) ·
+[Platform support](https://github.com/Dodaios/Dodaios/blob/main/docs/product/reference/platform-support.md)
 
 ## Documentation
+
+The [feature tour](https://github.com/Dodaios/Dodaios/blob/main/docs/feature-tour.md) has all of it on one page, with
+pictures: what each part does, how a tool call is checked before it runs, and
+what runs on which system.
 
 - [Welcome to Dodaios](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/welcome-to-dodaios.md): what it does and what it does not do
 - [First-run setup](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/first-run-setup.md) and [your first chat](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/start-your-first-chat.md)
@@ -220,7 +359,7 @@ the logo are covered by the
 not by the license.
 
 Dodaios is an independent project. The products it works with, such as the
-coding agents above, belong to their makers; that Dodaios supports a tool does
+coding agents above, belong to their makers. That Dodaios supports a tool does
 not mean its maker supports or approves of Dodaios.
 
 Dodaios was called Personal Jarvis until October 2026. It is the same project

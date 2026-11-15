@@ -30,14 +30,21 @@ makes **Installed** a list of saved connections, not a list of added programs.
 
 ## Browse the Current Catalog
 
-The packaged catalog currently contains 14 service cards in three filter
-categories:
+The packaged catalog contains 48 cards in eight filter categories:
 
 | Category | Services |
 |---|---|
-| **Developer** | GitHub, Vercel, Supabase, Linear, Stripe, and Cloudflare |
-| **Productivity** | Notion, Asana, Google Drive, and Google Calendar |
-| **Communication** | Slack, Discord, Telegram, and Gmail |
+| **Home & Devices** | Home Assistant, AMD GPU Status |
+| **Lists & Tasks** | Asana, Todoist, ClickUp, Atlassian (Jira & Confluence), Microsoft To Do |
+| **Calendar & Mail** | Gmail, Google Calendar, Cal.com, Outlook Mail & Calendar, AgentMail |
+| **Messaging** | Slack, Discord, Telegram, Microsoft Teams, Zoom |
+| **Knowledge & Reading** | Notion, Airtable, SharePoint, OneNote, HubSpot, Apollo.io, Salesforce, Granola |
+| **Media & Creativity** | Canva, Spotify, YouTube Music, Higgsfield, X (Twitter), LinkedIn, Meta (Facebook & Instagram), YouTube Studio, Buffer, Figma |
+| **Files & Photos** | Google Drive, Dropbox, OneDrive |
+| **Developer** | GitHub, Vercel, Supabase, Linear, Stripe, Cloudflare, AWS, Microsoft Azure, Google Cloud, GitLab |
+
+Two of them, Atlassian and Buffer, have passed a recorded end-to-end check.
+The others carry a **Preview** badge until they do.
 
 Categories only organize the list. Each service has its own account,
 permissions, connection method, and availability requirements.

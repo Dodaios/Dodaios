@@ -1,10 +1,10 @@
 # Feature tour
 
 Everything Dodaios does, in one page. The [README](../README.md) shows the
-short version: one request, the coding agents at work, and the report that
-comes back. This page has the rest: what it can use on your computer, what it
-makes, how it keeps working without you, and what a tool call must pass before
-it runs.
+five parts of the workspace, with short recordings: the assistant, the coding
+agents, voice, the documents it makes, and the phone. This page has the
+rest: what it can use on your computer, how it keeps working without you, and
+what a tool call must pass before it runs.
 
 An [earlier recording of 55 seconds](https://github.com/Dodaios/Dodaios/blob/8c0d31b3c096561b2770fcbaf4f34f5270abb4b6/assets/demo/readme/dodaios-demo.mp4)
 shows four everyday requests in a row: a question answered from a file, a
@@ -65,7 +65,7 @@ changes, Git, files and a browser preview sit beside every thread.
 
 ### Nodes: what it makes, kept current
 
-<img src="../assets/demo/readme/dodaios-nodes.gif" alt="A 31-second recording of the Nodes section. It opens at the top of the section: the seven type cards Docs, Slides, Sheets, Visuals, Analytics, Whiteboard and Clips, each with a small picture of its kind, above the cards of seven nodes. The pointer passes over the type cards; Analytics narrows the list to the dashboard Shop sales, October, which opens with its revenue, orders and charts and is scrolled. Back in the library, the slide deck Q3 board update opens and goes from its title slide over two key figures to a bar chart" width="100%" />
+<img src="../assets/demo/readme/nodes.webp" alt="A 16-second recording of the chat with the assistant, Nova. The person types: Put our launch plan on a whiteboard: research, build, beta, launch. The card of a whiteboard comes in, four boxes joined by arrows, and Nova says it is ready. The card opens the whiteboard in the editor; the person drags the Launch box below Beta, renames Beta to Private beta, and the board saves itself." width="100%" />
 
 Ask for a report, a deck, a budget or a dashboard, and Dodaios makes it as a
 node: a page you can open, present and share, and that it can change again
@@ -101,7 +101,7 @@ All of it runs while Dodaios is running.
   logins of a browser you already use.
 - **Computer use.** It reads the screen and uses the mouse and keyboard in
   desktop apps.
-- **Plugins.** 47 services ship in the catalog, among them GitHub, Slack,
+- **Plugins.** 48 plugins are in the catalog, among them GitHub, Slack,
   Notion, Linear, Gmail, Google Calendar, Home Assistant and Spotify.
 - **MCP servers and skills.** Add any Model Context Protocol server, or let
   another MCP client hand work to Dodaios. A skill is a written procedure the

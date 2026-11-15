@@ -102,7 +102,7 @@ Removing the local Dodaios record does not send a deletion request to them.
 
 ### Understand the Project OAuth Service
 
-Shipped Google and Slack clients use the project-run `token.personaljarvis.ai`
+Shipped Google, Slack and Figma clients use the project-run `token.personaljarvis.ai`
 service on Cloudflare for token exchange and refresh. Slack's browser callback
 also passes through it. You sign in and approve access at the provider.
 

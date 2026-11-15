@@ -46,13 +46,22 @@ def test_product_files_and_allowlisted_assets_pass() -> None:
         "dodaios/ui/web/dist/assets/ort-wasm.wasm": 14 * MB,
         "assets/demo/readme/dodaios-demo.gif": 3 * MB,
         "assets/demo/readme/dodaios-demo.mp4": 9 * MB,
+        "assets/demo/readme/hero.webp": 4 * MB,
     }
     allow = [
         "dodaios/ui/web/dist/*",
         "assets/demo/readme/dodaios-demo.gif",
         "assets/demo/readme/dodaios-demo.mp4",
+        "assets/demo/readme/hero.webp",
     ]
     assert gate.problems(paths, allow) == []
+
+
+def test_an_animated_webp_is_a_recording_like_a_gif() -> None:
+    """The README plays its clips as WebP, so a new one needs a line in the allowlist."""
+    found = gate.problems({"docs/clips/walkthrough.webp": 10}, [])
+    assert len(found) == 1
+    assert "animated recording" in found[0]
 
 
 def test_current_tree_is_clean() -> None:

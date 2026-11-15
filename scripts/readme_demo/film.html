@@ -76,8 +76,19 @@
     at: (mark, stretch) => { const m = latest(mark), st = byName[stretch]; return m && st ? m.at - st.at : 0; },
     // Where a part of the window was.
     place: (mark) => { const m = latest(mark); return m ? m.box : null; },
-    // When each key of a request was pressed, in the seconds of its "ask-" stretch.
-    keys: (name) => { const st = byName['ask-' + name]; return ((TAKE.typed || {})[name] || []).map((ts) => ts - st.at); },
+    // When each key of a request was pressed, in the seconds of its "ask-"
+    // stretch (or of `stretch`, for something typed elsewhere).
+    keys: (name, stretch = 'ask-' + name) => { const st = byName[stretch]; return st ? ((TAKE.typed || {})[name] || []).map((ts) => ts - st.at) : []; },
+    // Every moment called `mark` that lies in a stretch, in its own seconds.
+    all: (mark, stretch) => { const st = byName[stretch]; return st ? TAKE.marks.filter((x) => x.name === mark && x.at >= st.at && x.at < st.end).map((x) => x.at - st.at) : []; },
+    // A second of a stretch at which the pointer rests (record.cjs wrote these
+    // moments down as "rest"), the one nearest to `about`: a shot that ends
+    // there ends on a calm picture. Without such a moment, `about` itself.
+    rest: (stretch, about) => {
+      const st = byName[stretch];
+      const rests = st ? TAKE.marks.filter((x) => x.name === 'rest' && x.at >= st.at && x.at < st.end).map((x) => x.at - st.at + 0.3) : [];
+      return rests.length ? rests.reduce((best, s) => (Math.abs(s - about) < Math.abs(best - about) ? s : best)) : about;
+    },
   };
   const film = window.EDIT(footage);
   window.DURATION = film.duration;

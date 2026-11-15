@@ -1,206 +1,243 @@
-# README demo
+# README recordings
 
-The README opens with one recording of Dodaios at work: one request that goes
-to five coding agents. It is in this folder in two forms:
+The README shows Dodaios at work in short recordings: one at the top, and one
+for each pillar. They are in this folder:
 
-| File | What it is for |
-|---|---|
-| `dodaios-demo.gif` | Plays by itself and without sound in the README. It is linked with an absolute `raw.githubusercontent.com` URL so it also plays on PyPI. 960 x 540, 15 frames a second |
-| `dodaios-demo.mp4` | The same recording as a video, 1920 x 1080, 60 frames a second, without sound. The GIF links to it, and GitHub plays it on the file's page |
+| File | Where it plays | What it shows |
+|---|---|---|
+| `hero.webp` | at the top | One request to the assistant crosses the chat, the Agentic IDE with three coding agents side by side, and a slide deck changed by hand. 33 s, 1280 x 720, 30 frames a second |
+| `dodaios-demo.mp4` | linked from the clip at the top | The same recording as a video, 1920 x 1080, 60 frames a second, without sound. GitHub plays it on the file's page |
+| `assistant.webp` | An assistant that does the work | The assistant answers a question with the GitHub plugin. 15 s, 1280 x 720 |
+| `agents.webp` | Your coding agents, side by side | Three coding agents side by side, then the rail of coding agents in a thread's picker. 15 s, 1280 x 720 |
+| `nodes.webp` | Docs, decks, sheets and whiteboards | A whiteboard made from a sentence and changed by hand. 16 s, 1280 x 720 |
+| `phone.webp` | With you when you leave the desk | The phone app: a request, two approvals tapped, the answer. 13 s, 420 x 908 |
+| `voice.webp` | Your voice, in every app | Not recorded yet: it needs a real voice and microphone ([The voice clip](#the-voice-clip)) |
+| `dodaios-demo.gif` | nowhere since 15 November 2026 | The clip that stood at the top before. The project page on PyPI of every release up to 5.3.3 still shows it from this path. Delete it once a newer release is on PyPI |
 
-A short clip of the Nodes section, `dodaios-nodes.gif`, is the other
-recording in this folder ([The Nodes clip](#the-nodes-clip)).
+Each `.webp` is an animated WebP picture: it starts by itself, loops, has no
+sound and needs no player. Browsers have shown it for years, it is about half
+the size of a GIF at twice the frame rate, and it keeps the full colours. The
+README links every picture with an absolute `raw.githubusercontent.com` URL,
+so it also plays on PyPI.
 
-| | |
-|---|---|
-| Length | 30 s, cut from a take of 2 min 18 s |
-| Recorded from | `main` of 14 November 2026 (after 5.3.1), a throwaway instance that was deleted afterwards |
-| Models | Dodaios on Claude Opus 5.5, its five coding agents on Claude Sonnet 5.5, all through Claude Code, signed in to a Claude plan. Every answer and every review is real |
-| Project | A private demo repository on GitHub with five open pull requests. The agents read them with the GitHub CLI |
-| Sound | None |
-
-It shows one request to Dodaios, in a workspace that is already in use:
-
-1. "Review the new PRs in acme-notes, one Sonnet agent per PR, and write me a
-   report." Dodaios answers that it will list the pull requests, and the first
-   coding agents come up beside the conversation, under "Recent activity".
-2. A click on one of them opens its thread in the Agentic IDE. The project
-   lists a thread for each pull request, with a spinner while its agent works.
-3. Two more threads are opened beside the first, each by "Open side by side"
-   in its menu. Three agents are seen at work at once: the brief Dodaios
-   wrote, the diff being read, the tests being run, and then the finished
-   reviews with their verdicts.
-4. Back in the chat, Dodaios posts the card of a report and an answer of two
-   sentences: which pull requests are ready to merge, and which are not.
-5. The report is opened from its card and scrolled: its summary, its key
-   figures and a table with a verdict for each pull request.
-
-The model's answers differ from take to take, so a new recording does not
-match this one word for word. Which pull request the agents object to differs
-as well.
+Every recording is of the real app in a throwaway instance, with real models
+at work on real projects: a private demo repository with five open pull
+requests, and two small sample projects. The person in them is Alex Rivera,
+and the assistant is called Nova.
 
 ## What a recording must be
 
 - A recording of the real app and nothing else: no title cards, no words laid
   over the picture, no stage around the window, no motion graphics. The
   maintainer turned down a designed film with captions on 13 November 2026.
-- About Dodaios as the one you hand things to. The request is made in its
-  chat and the answer comes back there. The Agentic IDE is where the agents
-  are seen at work.
-- A workspace that is in use, never the first-run setup: `record.cjs` does a
-  morning's work in a warm-up that is not filmed.
-- No mock-ups and no staged answers. A wait for a model is cut out, never
-  replaced by something else.
+- A workspace that is in use, never the first-run setup: a warm-up that is not
+  filmed does a morning's work first.
+- No mock-ups and no staged answers. A wait for a model is cut out (the
+  picture before it dissolves into the one after it), never replaced by
+  something else.
 - Nothing private on screen: no real names, email addresses, account ids or
-  keys, no error output and no warning cards. `record.cjs` replaces the name of
-  the computer and the home folder of whoever records, and hides the meter
-  that shows how much of the plan is used; `DEMO_SCRUB` takes more pairs
-  (`text=replacement`, separated by commas). A report on pull requests names
-  their author: give `DEMO_SCRUB` the name and the login of the GitHub account.
-- It must move the way the app does on a screen. The first version of this
-  clip was filmed at 30 frames a second, its shots played up to twice as fast,
-  and its pointer jumped to a place and stood there: the maintainer said it
-  looked like two frames a second (14 November 2026). So every stretch with
-  movement is filmed at 60 frames a second, the cut plays the footage at the
-  speed it was filmed at, the pointer travels at a person's pace and keeps
-  moving, and more than one agent is on screen at a time.
+  keys. The scripts replace the name of the computer and the home folder of
+  whoever records, and `DEMO_SCRUB` takes more pairs (`text=replacement`,
+  separated by commas). A model copies what it reads into what it writes (the
+  author of a pull request into a slide's speaker notes, for example), so the
+  scrub covers the values of text fields too. Check every take for leaks
+  before it is cut.
+- It must move the way the app does on a screen. The first clip at the top
+  was filmed at 30 frames a second, its shots played up to twice as fast, and
+  its pointer jumped to a place and stood there: the maintainer said it looked
+  like two frames a second (14 November 2026). So every stretch with movement
+  is filmed at 60 frames a second, the cut plays the footage at the speed it
+  was filmed at (the whole cut may play up to a quarter faster, never single
+  shots), the pointer travels at a person's pace, and more than a seconds
+  counter changes in the picture.
+- Measure before it goes in: decode the video, count per second how much of
+  the picture changes, and look for the longest stretch in which nothing
+  does. Stills show what is in the picture, not how it moves.
+- Readable at the size the README shows it, about 830 pixels wide: the window
+  is small (about 1000 to 1200 points wide) and the frames are 1920 x 1080.
 
-## How it is made
+## The clips
 
-Two things are kept apart: the footage and the cut.
+All were filmed on 15 November 2026 from `main` (between 5.3.2 and 5.3.3), in throwaway
+instances started by `demo-instance.sh` that were stopped afterwards. Nova ran
+on Claude Opus 5.5 through Claude Code, signed in to a Claude plan; the coding
+agents in the hero take ran on Claude Sonnet 5.5 the same way. Every answer,
+review, edit and test run is real. The models' answers differ from take to
+take, so a new recording does not match these word for word.
 
-- **The footage** is filmed by `record.cjs` from an isolated instance, in
-  named stretches (`ask-review`, `ack`, `agents-in`, `to-ide`, `beside-1`,
-  `beside-2`, `watching`, `finishing`, `done`, `to-chat`, `report`,
-  `open-report`, `page`). A wait of unknown length is a stretch of its own
-  with few frames (`starting`, `hold-...`, `wait-report`). It also writes
-  down when every key of the request was pressed and the moments the cut
-  needs: when the report and the answer came (`take.json`).
-- **The cut** is `edit-agents.js`. It keeps the take's own order and does two
-  things: the typing plays at an even pace, and a wait for a model is left out
-  (the picture before it dissolves into the one after it). Everything else
-  plays at the speed it was filmed at. What the shots are too long for thirty
-  seconds is taken off all of them alike (this take plays a fifth faster),
-  and the cut refuses to go beyond a quarter. `film.html` draws the picture
-  for any second of the video; `render.cjs` takes a picture of every frame and
-  hands them to ffmpeg.
+### The clip at the top (`hero.webp`, `dodaios-demo.mp4`)
 
-## Make it again
+33 seconds, cut from a take of about three minutes: one request crosses the
+chat, the Agentic IDE and a slide deck.
 
-The interface changes often, so the recording is made by scripts in
-`scripts/readme_demo/`. They need Linux or macOS, Node.js with Playwright,
-ffmpeg, a Python environment that has Dodaios, `ptyprocess` and `pytest`, a
-built frontend bundle, Claude Code signed in to a Claude plan, and the GitHub
-CLI signed in to an account that can read a repository with a few open pull
-requests. The CLI must be a current one: an old one fails on `gh pr view`
-("Projects (classic) is being deprecated"), and the failed call shows in red
-in the agents' threads.
+1. In a conversation that is already in use, the request is typed: "Review
+   the new PRs in acme-notes, one Sonnet agent per PR, and put the verdicts
+   on a slide deck." Five coding agents start and show up under "Recent
+   activity".
+2. A click opens the first agent's thread in the Agentic IDE, and "Open side
+   by side" puts two more beside it: three agents read the diffs and run the
+   tests, then finish.
+3. Back in the chat, Nova answers under the card of the slide deck it made.
+4. The deck opens, goes a slide on, and the title of that slide is changed by
+   hand to "What we merge this week". Then the deck is presented.
 
-The instance gets a home folder of its own, so Claude Code there does not see
-a login kept under your own home folder. On macOS the login is in your
-Keychain; the instance script links the Keychain folder into the instance's
-home folder so Claude Code finds it. On Linux, create a token with
-`claude setup-token` and start the instance with it in
-`CLAUDE_CODE_OAUTH_TOKEN`; the instance hands its environment to Claude Code.
-The GitHub login reaches the instance as `GH_TOKEN`. The instance keeps its
-own keys in a file under its data folder and never reads or writes the keys of
-the app you use.
+The deck's end was filmed a second time on the same instance, with no model
+at work: in the first take the model had copied the author of the pull
+requests into a slide's speaker notes, where the scrub did not reach yet.
 
-Start the instance from a plain terminal. Started from the shell of a coding
-agent, it inherits that agent's session variables and hands them on to the
-agents it starts.
+Make it again: `record.cjs` with `DEMO_PARTS=setup,warmup,warmup-hero,picker,hero`
+films the footage (its header lists the settings; the instance needs
+`DEMO_PR_REPO`, a repository with a few open pull requests), and
+`FILM_EDIT=edit-hero.js FILM_FPS=60 FILM_CRF=14 node render.cjs <take> hero-master.mp4`
+cuts it. `measure-hero.py` measures the movement and lays out a contact
+sheet. `DEMO_PARTS=deck` films only the deck's end again, with no model at
+work.
 
-A whole run takes about six minutes (setup and warm-up three and a half, the
-take two to three) and that much of the plan's usage: three threads and three
-requests to Dodaios in the warm-up, then one request and five coding agents.
+### Your coding agents, side by side (`agents.webp`)
+
+15 seconds from the same take: two more threads open beside the first, three
+agents work on three pull requests in three columns, and the first review
+arrives; then the agent and model control of a thread shows its rail of
+coding agents (Claude Code, Codex, OpenCode and more) and their models. It
+plays at the speed it was filmed at and loops without a jump. The cut is
+`edit-agents.js` (`FILM_EDIT=edit-agents.js` for `render.cjs`).
+
+### An assistant that does the work (`assistant.webp`)
+
+15 seconds: the Plugins catalog with GitHub connected, then "Which acme-notes
+PRs are still open, and which should I look at first?" in the chat. While
+Nova works, the line under its name in the side panel says "Working in
+GitHub" (the conversation itself draws no steps); the answer lists the five
+pull requests as GitHub links and says where to start. The instance reaches
+GitHub only through the plugin: `plugins_connect.py` puts a token into the
+instance's own credential file, never into the system keychain.
+
+### Docs, decks, sheets and whiteboards (`nodes.webp`)
+
+16 seconds: "Put our launch plan on a whiteboard: research, build, beta,
+launch". The whiteboard's card comes into the chat; the card opens the board
+in its editor; the Launch box is dragged below Beta, Beta is renamed "Private
+beta", and the board saves itself. The feature tour shows the same clip.
+
+The Nodes and assistant clips share one instance and one set of scripts:
+`nodes-plugins-setup.cjs` (first run and a warm-up), `seed_nodes.py
+--workspace` (sample nodes for the library), `clip-nodes.cjs` and
+`clip-assistant.cjs` (the takes), `nodes-plugins-cut.cjs` with the cuts in
+`nodes-plugins-edit.cjs`, `nodes-plugins-measure.cjs`, and
+`nodes-plugins-ocr.py`, which reads every frame for names that must not be in
+it. They film a 1024 x 576 window at a device scale of 1.875.
+
+### With you when you leave the desk (`phone.webp`)
+
+13 seconds of the phone app in a phone-sized browser (390 x 844 at scale 2),
+paired with the instance by a code. The conversation began at the desk: Nova
+found a rounding fault in a small invoicing project and added a test that
+catches it. On the phone: "Go ahead, fix it and run the tests." Two approval
+cards come up, an edit of `invoice.py` and the test run, and each is allowed
+with a tap; Nova answers that all seven tests pass. For the cards, the
+conversation was set to "Ask before acting" (a new chat starts at "Bypass
+permissions", where nothing asks). Taps and drags are real touch events.
+Scripts: `phone-take.cjs`, `edit-phone.js`, `phone-film.html`,
+`phone-render.cjs`, `phone-measure.py`.
+
+### The voice clip
+
+Not recorded yet: dictation needs a real voice and a microphone, and the
+recording is the maintainer's own. `voice_take.py` does all but the speaking.
+It records only the Dodaios window with the microphone, after a test
+recording that checks the frame rate, the sound and the picture for private
+text, and then cuts the waits by itself. The clip shows dictation into the
+chat with the microphone button of the message field (a live waveform, then
+"Transcribing…", then the sentence without its "uh"), and Nova's answer.
+Dictation by the hold key leaves the field idle, and the Dodaios Bar keeps
+itself out of screen recordings, so neither would show the listening.
+`voice_take_synthetic.py` makes a made-up take to test the cut without a
+person.
+
+## Instances
+
+The scripts film throwaway instances, never the app you use. They need Linux
+or macOS, Node.js with Playwright, ffmpeg, a Python environment that has
+Dodaios, a built frontend bundle, Claude Code signed in to a Claude plan, and
+for the hero take the GitHub CLI signed in to an account that can read a
+repository with a few open pull requests. The CLI must be a current one: an
+old one fails on `gh pr view` ("Projects (classic) is being deprecated"), and
+the failed call shows in red in the agents' threads.
 
 ```sh
-# 1. A throwaway first-run instance on port 47990, as a normal user.
-#    It writes only under /tmp/dodaios-demo and DEMO_HOME, and never touches
-#    your own app. DEMO_HOME is the home folder the instance sees; its path
-#    can show in the picture, so choose one that reads well. DEMO_PR_REPO is
-#    the repository with the open pull requests; it is cloned as a project.
-#    (Linux: put CLAUDE_CODE_OAUTH_TOKEN=... in front, see above.)
-DEMO_HOME=/Users/Shared/demo DEMO_PR_REPO=your-org/your-demo-repo \
-  PYTHON=/path/to/venv/bin/python scripts/readme_demo/demo-instance.sh
-
-# 2. In a second terminal: setup, warm-up and the take. It writes the frames
-#    and take.json. DEMO_BROWSER=chrome uses an installed Chrome instead of
-#    Playwright's own browser. DEMO_MODEL is the model of Dodaios itself,
-#    DEMO_AGENTS the number of open pull requests. A scale of 1.6 gives
-#    frames of 1920 x 1080; DEMO_JPEG=86 keeps a take of 60 frames a second
-#    at about 700 MB.
-DEMO_PARTS=setup,warmup,warmup-agents,agents DEMO_PR_PROJECT=your-demo-repo \
-DEMO_SCALE=1.6 DEMO_FPS=60 DEMO_JPEG=86 DEMO_AGENTS=5 DEMO_MODEL="Claude Opus 5.5" \
-DEMO_SCRUB="Your Name=Alex Rivera,your-login=alexrivera" \
-  node scripts/readme_demo/record.cjs /tmp/dodaios-take
-
-# 3. The cut, once, at 60 frames a second and nearly without loss. The video
-#    for this folder and the GIF are both made from it.
-FILM_EDIT=edit-agents.js FILM_FPS=60 FILM_CRF=12 \
-  node scripts/readme_demo/render.cjs /tmp/dodaios-take /tmp/master.mp4
-ffmpeg -i /tmp/master.mp4 -c:v libx264 -preset slow -crf 23 -profile:v high \
-  -level:v 4.2 -x264-params ref=4 -pix_fmt yuv420p -movflags +faststart -an \
-  dodaios-demo.mp4
-ffmpeg -i /tmp/master.mp4 \
-  -vf "fps=15,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=80:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" \
-  -loop 0 dodaios-demo.gif
+# A first-run instance on its own port, data folder and home folder.
+DEMO_PORT=47990 DEMO_ROOT=/tmp/dodaios-demo DEMO_HOME=/Users/Shared/demo \
+DEMO_PR_REPO=your-org/your-demo-repo PYTHON=/path/to/venv/bin/python \
+  scripts/readme_demo/demo-instance.sh
 ```
 
-The GIF is the larger of the two (6 MB): a GIF grows with every frame in
-which something moves. At 20 frames a second it was 8 MB, at 10 the pointer
-jumps.
+- The instance gets a home folder of its own, so Claude Code there does not
+  see a login kept under yours. On macOS the login is in the Keychain: the
+  script links the Keychain folder into the instance's home, and Claude Code
+  finds the login only when `USER` and `LOGNAME` are set (without them every
+  turn says "Not logged in"). On Linux, create a token with
+  `claude setup-token` and start the instance with it in
+  `CLAUDE_CODE_OAUTH_TOKEN`.
+- Start it from a plain terminal, or with `env -i` and an explicit
+  environment. Started from the shell of a coding agent, it inherits that
+  agent's session variables and hands them on to the agents it starts.
+- It runs the code of the Python environment you name. If that is a checkout
+  that follows `main` by itself, a merge in the middle of a take changes the
+  app under it: point `PYTHONPATH` at a checkout that stands still, with its
+  own built bundle.
+- A take that fails need not cost the warm-up: stop the instance after the
+  warm-up, copy `DEMO_HOME` and `DEMO_ROOT/state` away, and start it again
+  with `DEMO_KEEP=1`, which wipes nothing.
+- Do nothing heavy on the computer while a take films, and look at its load
+  first (`uptime`): above about five, the frames come unevenly and every
+  model answers late. A take at 60 frames a second writes 150 to 700 MB of
+  pictures; delete a failed one at once.
+- Every model turn runs on the plan you signed in to. A take with its warm-up
+  costs a few minutes of it.
 
-Copy both files over the ones in this folder. They are the only recordings
-`scripts/ci/check_repo_junk.py` lets into the repository.
+## Make the pictures
 
-Look at a new take before you render it. `FILM_STILLS=6,12.5,24` writes single
-pictures of the cut at those seconds, which is quicker than a video. The cut
-finds its places by itself (the stretches by name, the typing by its keys,
-the answers by the moments `record.cjs` wrote down), but a take differs from
-the last one, so a number in `edit-agents.js` may need a new value.
+Each recording is cut into a master video first (60 frames a second, nearly
+without loss), and the README picture is made from the master:
 
-Stills show what is in the picture, not how it moves. Before a cut goes into
-the README, count what moves: decode the video, compare each frame with the
-one before it, and look for seconds in which hardly a frame differs. And
-watch it, or have someone watch it.
+```sh
+python scripts/readme_demo/encode_webp.py hero-master.mp4 assets/demo/readme/hero.webp --width 1280 --fps 30
+python scripts/readme_demo/encode_webp.py phone-master.mp4 assets/demo/readme/phone.webp --width 560 --fps 30
+```
 
-`record.cjs` clicks through the interface by its labels and asks the app's
-own API whether a model is still at work. When a label or a flow changes, or
-a turn cannot reach its model, the script stops at that step, says which one,
-and saves a picture of the screen as `failure.png`. `DEMO_PARTS` runs only
-some of the parts (`setup`, `warmup`, `warmup-agents`, `agents`, `take`).
+`encode_webp.py` reads the frames with ffmpeg and lets Pillow write the
+animated WebP, storing only what changed from one frame to the next. Keep the
+picture at the top under 5 MB and the others under 2 MB: every version stays
+in the repository's history. The video next to the hero picture is the master
+again, smaller:
 
-Not every take is one to keep. Of the ten filmed for this clip, one ended
-without a report, one was filmed while the computer was busy (Dodaios started
-the agents twenty seconds apart, and the filmed frames came unevenly), and in
-the first a notice of the app's own stood in the picture. What the scripts do
-about it:
+```sh
+ffmpeg -i hero-master.mp4 -c:v libx264 -preset slow -crf 23 -pix_fmt yuv420p \
+  -movflags +faststart -an assets/demo/readme/dodaios-demo.mp4
+```
 
-- The warm-up asks Dodaios for answers of two sentences, the way a person
-  would have said long ago, and for a short report. That uses enough different
-  tools for the app's "Tool Dabbler" achievement to come up there, and not as
-  a toast in the clip.
-- The project with the pull requests is connected first, so its threads stand
-  at the top of the thread list and do not fall below the small window.
-- A look into a thread waits until the agent has shown its next step. How long
-  an agent takes for a step differs a lot.
+Copy the files over the ones in this folder. They are the only recordings
+`scripts/ci/check_repo_junk.py` lets into the repository; a new one needs a
+line in `scripts/ci/repo-junk-allowlist.txt`.
 
-A take that fails need not cost the warm-up. Stop the instance after
-`DEMO_PARTS=setup,warmup,warmup-agents`, copy `DEMO_HOME` and
-`/tmp/dodaios-demo/state` away, and start the instance again with
-`DEMO_KEEP=1`, which wipes nothing. Before each further attempt, stop it, copy
-both folders back and start it with `DEMO_KEEP=1` again.
+## Screenshots
 
-The instance runs the code of the Python environment you name. If that is a
-checkout that follows `main` by itself, a merge in the middle of a take
-changes the app under it: point `PYTHONPATH` at a checkout that stands still
-(with its own built bundle) before you start the instance. Do nothing heavy
-on the computer while a take films, and look at its load before you start
-(`uptime`): above about five, the frames of a take come unevenly and every
-model answers late.
+The pictures in `assets/readme/` come from the instance of the earlier film,
+right after its take (1920 x 1280). The feature tour
+(`docs/feature-tour.md`) shows them.
 
-## The earlier film
+```sh
+node scripts/readme_demo/stills.cjs /tmp/dodaios-stills plugins pets ide
+# "connect" is the setup step: start the demo instance again first.
+node scripts/readme_demo/stills.cjs /tmp/dodaios-stills connect
+```
+
+## Earlier clips at the top
+
+From 14 to 15 November 2026 the README opened with a clip of 30 seconds: one
+request to five coding agents and the report that came back. It was replaced
+in place; [its last version](https://github.com/Dodaios/Dodaios/blob/0946e91c62f92a7b96e57391a514b0ced502bc4d/assets/demo/readme/dodaios-demo.mp4)
+is in the history, and `dodaios-demo.gif` is its GIF.
 
 Until 14 November 2026 the README opened with a longer film of 55 seconds:
 four requests in a row to Dodaios (a question answered from a file with a
@@ -229,58 +266,6 @@ FILM_MUSIC=/tmp/making-it-look-easy.mp3 FILM_CRF=23 \
 The film is as long as its music, and the licence asks for the credit
 wherever the film is shown.
 
-## Screenshots
-
-The pictures in `assets/readme/` come from the instance of the earlier film,
-right after its take (1920 x 1280). The feature tour
-(`docs/feature-tour.md`) shows them.
-
-```sh
-node scripts/readme_demo/stills.cjs /tmp/dodaios-stills plugins pets ide
-# "connect" is the setup step: start the demo instance again first.
-node scripts/readme_demo/stills.cjs /tmp/dodaios-stills connect
-```
-
-## The Nodes clip
-
-`dodaios-nodes.gif` plays in the feature tour's part about Nodes
-(`docs/feature-tour.md`). It opens at the top of the Nodes section, passes
-over the seven type cards, lets the Analytics card narrow the list, opens the
-dashboard and scrolls it, and then takes the slide deck two slides on, from
-its title to a bar chart. 960 x 600, 12 frames a second, 31 s, from a
-1440 x 900 window: at 1280 the type card "Whiteboard" is cut short.
-
-| | |
-|---|---|
-| Recorded from | `main` of 13 November 2026 (after 5.2.0), a throwaway instance that was deleted afterwards |
-| Content | One node of each type, each the example its type ships with (`EXAMPLE` in `dodaios/nodes/kinds/*.py`), put into the node store by `seed_nodes.py`. No model made them, and no model runs in the clip |
-
-The rules for the film hold here as well: the real app and nothing else, and
-nothing private on screen. No Claude Code login is needed.
-
-```sh
-# 1. A throwaway instance, the same as for the film.
-PYTHON=/path/to/venv/bin/python scripts/readme_demo/demo-instance.sh
-
-# 2. In a second terminal: the seven nodes, with the instance's paths.
-JARVIS_DATA_DIR=/tmp/dodaios-demo/state/data \
-JARVIS_CONFIG=/tmp/dodaios-demo/state/dodaios.toml \
-HOME=/tmp/dodaios-demo/home \
-  /path/to/venv/bin/python scripts/readme_demo/seed_nodes.py
-
-# 3. The take. It marks the first-run steps done, films the section and
-#    writes cut.json: the WebM and the seconds the clip starts and ends in it.
-node scripts/readme_demo/nodes.cjs /tmp/dodaios-nodes
-
-# 4. The GIF. FILE, FROM and TO are the three values in cut.json.
-ffmpeg -ss "$FROM" -to "$TO" -i "/tmp/dodaios-nodes/$FILE" \
-  -vf "fps=12,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" \
-  -loop 0 dodaios-nodes.gif
-```
-
-Copy the GIF over the one in this folder. Keep it under 5 MB: every version
-stays in the repository's history.
-
 ## A video with a player
 
 GitHub plays a video inline in a README only when it is a user attachment; a
@@ -290,9 +275,9 @@ comment box on an issue or pull request of the repository, wait for the
 upload and post the comment (an attachment in an unposted comment stays
 private). The comment then holds a
 `https://github.com/user-attachments/assets/...` URL. Put that URL on a line of its own in `README.md` and
-`README.zh-CN.md`, in place of the GIF. GitHub accepts up to 10 MB for an
+`README.zh-CN.md`, in place of the picture. GitHub accepts up to 10 MB for an
 inline video on a free plan, and the player starts muted. PyPI shows such a
-line as a bare link, which is why the README uses the GIF.
+line as a bare link, which is why the README uses animated pictures.
 
 ## Earlier recordings
 

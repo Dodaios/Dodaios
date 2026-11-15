@@ -1,16 +1,24 @@
 # Paths check_repo_junk.py lets through. One glob per line; say why.
 # Add a path only when the running product (or its tests) loads it.
 
-# The README's recordings (assets/demo/readme/README.md). The clip at its top,
-# in two forms: the GIF plays by itself and without sound in the README (and
-# on PyPI), the MP4 is the same recording as a video, which the GIF links to.
-# Replace both together. The Nodes clip shows the Nodes section in the feature
-# tour (the maintainer asked for it on 13 November 2026). Replace a recording
-# in place; never add another one.
-assets/demo/readme/dodaios-demo.gif
+# The README's recordings (assets/demo/readme/README.md). The maintainer asked
+# on 15 November 2026 for a clip at the top and one for each of the five
+# pillars, so there are six, each an animated WebP that plays by itself in the
+# README (voice.webp is recorded by the maintainer and not in yet). Keep the
+# clip at the top under 5 MB and the others under 3 MB. The MP4 is the clip at
+# the top as a video; the picture links to it.
+# Replace a recording in place; add another one only with a new pillar.
+assets/demo/readme/hero.webp
+assets/demo/readme/assistant.webp
+assets/demo/readme/agents.webp
+assets/demo/readme/voice.webp
+assets/demo/readme/nodes.webp
+assets/demo/readme/phone.webp
 assets/demo/readme/dodaios-demo.mp4
-assets/demo/readme/dodaios-nodes.gif
-
+# The clip that stood at the top until 15 November 2026. The project page on
+# PyPI of every release up to 5.3.3 still shows it from this path. Delete it
+# once a newer release is on PyPI.
+assets/demo/readme/dodaios-demo.gif
 # Built frontend bundle: rebuilt by the bot on main; the ONNX runtime and the
 # editor workers are large by nature.
 dodaios/ui/web/dist/*
