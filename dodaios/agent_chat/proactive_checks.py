@@ -83,8 +83,10 @@ def runs_per_day(settings: ProactiveSettings) -> int:
 
 
 def quiet_routine(tags: tuple[str, ...] | list[str]) -> bool:
-    """Whether a routine with these tags posts no card into the conversation
-    for a run that starts or finishes well (failures and skips keep showing)."""
+    """Whether a routine with these tags posts no start card into the
+    conversation. Its result still comes back when it has something to say
+    (``routine_runner._report_result``, which drops :data:`NOTHING`), and
+    failures and skips keep showing."""
     return any(
         tag == QUIET_TAG or tag.startswith(QUIET_TAG_PREFIXES) for tag in (str(t) for t in tags)
     )

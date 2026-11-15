@@ -258,15 +258,19 @@ async def test_routine_uses_current_rules_and_memory(world):
     routine_session_id = kwargs["conversation_id"]
     assert routine_session_id.startswith(f"{session.session_id}:routine:{spec.id}:")
     assert svc.store.get_session(routine_session_id).permission_mode == "bypass"
-    assert all(event["kind"] == "notice"
-               and event["payload"].get("kind") in {"memory_updated", "routine_run"}
+    # The agent's one chat gets notices only: the run's card and its answer, no turn.
+    shown = {"memory_updated", "routine_run", "society_result"}
+    assert all(event["kind"] == "notice" and event["payload"].get("kind") in shown
                for event in svc.store.list_events(session.session_id))
 
     await run_owned_routine(rt, str(spec.id), spec.tags, spec.action.prompt)
     assert brain.calls[-1][1]["conversation_id"] != routine_session_id
-    assert all(event["kind"] == "notice"
-               and event["payload"].get("kind") in {"memory_updated", "routine_run"}
+    assert all(event["kind"] == "notice" and event["payload"].get("kind") in shown
                for event in svc.store.list_events(session.session_id))
+    answers = [e["payload"] for e in svc.store.list_events(session.session_id)
+               if e["payload"].get("kind") == "society_result"]
+    assert [a["text"] for a in answers] == [brain.reply, brain.reply]
+    assert answers[0]["session_id"] == routine_session_id
 
 
 async def test_routine_update_preserves_id_and_pause_state(tmp_path):

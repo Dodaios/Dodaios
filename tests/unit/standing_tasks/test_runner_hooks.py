@@ -247,5 +247,8 @@ async def test_other_routines_run_as_before(lead_world) -> None:
         if s["payload"].get("event") == "routine_chat"
     )
     assert svc.store.get_session(link).permission_mode == "bypass"
-    assert [n["kind"] for n in _notices(svc, conversation.session_id)] == ["routine_run"]
+    posted = _notices(svc, conversation.session_id)
+    # The start card, then the answer as a message of its own; no standing-task labels.
+    assert [n["kind"] for n in posted] == ["routine_run", "society_result"]
+    assert posted[1]["session_id"] == link and "standing_id" not in posted[1]
     assert "standing task" not in brain.calls[-1][0]

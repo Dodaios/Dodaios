@@ -309,8 +309,9 @@ it("draws no background record in the lead's chat; an agent's own chat keeps its
   setJarvisCardMode("chat");
   const lead = render(<AgentChatPanel agent={jarvis} roster={[jarvis]} />);
   expect(screen.getByText("VISIBLE_MESSAGE")).toBeTruthy();
-  // A result is a folded line under its headline; the finished one stays.
-  expect(screen.getByText("society.chat.result_done")).toBeTruthy();
+  // A routine's finished result is the agent's own message, its words in view.
+  expect(screen.getByTestId("routine-result")).toBeTruthy();
+  expect(screen.getByText("ROUTINE_RESULT")).toBeTruthy();
   for (const hidden of ["WATCHDOG_FINDING", "LEARNED_MEMORY", "society.chat.result_blocked"]) expect(screen.queryByText(hidden)).toBeNull();
   lead.unmount();
 

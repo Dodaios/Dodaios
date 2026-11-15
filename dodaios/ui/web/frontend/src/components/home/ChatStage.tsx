@@ -1,6 +1,8 @@
 import { useTranscriptView } from "../society/chat/useTranscriptView";
+import { RoutineChatHost } from "../society/chat/RoutineChatHost";
+import { useRoutineNavigation } from "../society/chat/routineNavigation";
 import { PairConversationBoundary } from "@/components/agentchat/PairConversation";
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { useEventStore } from "@/store/events";
 import { useHomeStore } from "@/store/home";
@@ -123,7 +125,39 @@ export function ChatStage() {
   const assistantName = useEventStore((s) => s.assistantName);
   const surface = useAgentChat((s) => s.surface);
   const sessionId = useAgentChat((s) => s.activeSessionId);
-  return surface === "jarvis" ? <PairConversationBoundary key={sessionId} recipient={{ id: "jarvis", name: assistantName }}><ChatStageContent /></PairConversationBoundary> : <ChatStageContent />;
+  return surface === "jarvis" ? (
+    <PairConversationBoundary key={sessionId} recipient={{ id: "jarvis", name: assistantName }}>
+      <WithRoutineRuns><ChatStageContent /></WithRoutineRuns>
+    </PairConversationBoundary>
+  ) : <ChatStageContent />;
+}
+
+/** Who runs the front page's routines: the assistant itself. */
+const ASSISTANT_ID = "jarvis";
+
+/**
+ * Nothing to do when a run opens. An agent's card closes its chat's socket
+ * then; the front page keeps the conversation connected, so what arrives
+ * while the run is read is there on the way back (nothing here would open
+ * it again), and the run reads on a store of its own (`RoutineChat`). A
+ * module constant: the host calls it from an effect.
+ */
+const KEEP_CONVERSATION = () => {};
+
+/**
+ * A routine's result in the conversation opens the run it came from
+ * (`RoutineResultMessage`): the run's chat takes the chat's column, and its
+ * back button returns to the conversation. The box is always there, so the
+ * host never remounts (its cleanup would close the run it just opened);
+ * with no run open it takes no part in the layout.
+ */
+function WithRoutineRuns({ children }: { children: ReactNode }) {
+  const runOpen = useRoutineNavigation((s) => s.target?.agentId === ASSISTANT_ID);
+  return (
+    <div className={runOpen ? "mx-auto flex min-h-0 w-full max-w-[720px] flex-1 flex-col" : "contents"}>
+      <RoutineChatHost agentId={ASSISTANT_ID} onOpen={KEEP_CONVERSATION}>{children}</RoutineChatHost>
+    </div>
+  );
 }
 
 function ChatStageContent() {
