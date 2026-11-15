@@ -514,6 +514,42 @@ def github_repositories(refresh: bool = Query(False)) -> dict:
     }
 
 
+@router.get(
+    "/github/pull-requests",
+    summary="The person's open pull requests on GitHub, and those waiting for their review",
+)
+def github_pull_requests(limit: int = Query(30, ge=1, le=30)) -> dict:
+    """Every open pull request the person wrote and every one that waits for
+    their review, across their repositories, with its checks and review state.
+
+    One read with the existing GitHub connection, so a look that may only read
+    (a morning summary, a run nobody watches) needs no shell for it.
+    ``connected=false`` when GitHub is not connected.
+    """
+    empty: dict = {"login": "", "mine": [], "review_requested": []}
+    cred = github_link.credential()
+    if cred is None:
+        return {"connected": False, "source": "", **empty, "reason": ""}
+    try:
+        login, mine, review = github_link.open_pull_requests(cred, limit=limit)
+    except github_link.GitHubError as exc:
+        # The GitHub error is returned as the reason field, like the repository list.
+        return {
+            "connected": exc.code != "not_connected",
+            "source": cred.source,
+            **empty,
+            "reason": str(exc),
+        }
+    return {
+        "connected": True,
+        "source": cred.source,
+        "login": login,
+        "mine": github_link.pull_request_dicts(mine),
+        "review_requested": github_link.pull_request_dicts(review),
+        "reason": "",
+    }
+
+
 @router.put("/github/binding", summary="Remember a workspace folder's GitHub repository")
 def bind_github_repository(req: BindingRequest) -> dict:
     """Asked once per folder; every worktree of the same repository shares it."""
