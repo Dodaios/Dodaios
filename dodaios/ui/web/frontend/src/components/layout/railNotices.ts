@@ -1,27 +1,28 @@
 import { useEffect } from "react";
 
 import { usePluginAttention, type PluginAttentionItem } from "@/hooks/usePluginAttention";
-import { fill, useT, useUiLanguage } from "@/i18n";
+import { fill, useT } from "@/i18n";
 import { prettyProviderName } from "@/lib/prettyProviderName";
-import type { ReminderRow } from "@/lib/remindersApi";
-
-import { useDueRemindersStore, watchDueReminders } from "./dueReminders";
-import { itemDetail, itemTitle, reminderItems, sourceName, type ReminderItem } from "./reminderItems";
 
 import { useStatusLightStore, watchStatusLight, type StatusLightData, type StatusRow } from "./statusLightStore";
 
 /**
  * The notices on the rail beside the conversation: only what needs the person.
  *
- * A notice is one thing the person has to do something about, said in words:
- * a connection that ended, a service an agent needs connected, a provider
- * that stopped working, an agent that asks, a reminder that has come due. Each names its subject (whose logo or face the tile shows), what is
- * asked (the badge on the tile's corner), and where a click leads.
+ * A notice is one thing the person has to do something about themselves,
+ * said in words: a connection that ended, a service an agent needs connected,
+ * a provider that stopped working, an agent elsewhere that asks, a coding
+ * agent that waits. Each names its subject (whose logo or face the tile
+ * shows), what is asked (the badge on the tile's corner), and where a click
+ * leads.
  *
  * What is NOT a notice, on purpose: work that merely runs, a provider that is
  * throttled for a moment, a health finding nobody can act on, and anything the
- * assistant made. The rail is on screen all day; a tile there has to be worth
- * a click every time, or the person stops reading the rail.
+ * assistant made. Nor is anything the assistant itself tells the person: a
+ * reminder or calendar appointment that came due, and the assistant's own
+ * question, approval or proposal, are said in its chat, where the person
+ * answers them (the person, 2026-11-15). The rail is on screen all day; a tile
+ * there has to be worth a click every time, or the person stops reading it.
  *
  * This module only folds data into notices. Drawing them (logos, faces, the
  * sign-in a reconnect runs) is `RailNoticeTiles`, loaded once there is one.
@@ -29,9 +30,7 @@ import { useStatusLightStore, watchStatusLight, type StatusLightData, type Statu
 
 /** What a notice asks of the person; the badge on the tile says it. */
 export type NoticeAsk =
-  | "reconnect" | "connect" | "question" | "approval" | "credential" | "proposal" | "takeover" | "waiting" | "trouble"
-  /** A reminder (or a calendar appointment) whose time has come. */
-  | "due";
+  | "reconnect" | "connect" | "question" | "approval" | "credential" | "proposal" | "takeover" | "waiting" | "trouble";
 
 /** Whose notice it is; the tile draws this subject's logo or face. */
 export type NoticeMark =
@@ -42,15 +41,10 @@ export type NoticeMark =
   | { type: "cli"; id: string }
   | { type: "agent"; id: string }
   /** No logo and no face to show: a plain sign for the kind of thing it is. */
-  | { type: "glyph"; glyph: NoticeGlyph }
-  /**
-   * Where due reminders come from: the service's own logo (Google Calendar),
-   * Dodaios' mark for the person's own, and `fallback` for a service without one.
-   */
-  | { type: "source"; id: string; fallback: NoticeGlyph };
+  | { type: "glyph"; glyph: NoticeGlyph };
 
 /** The plain signs a tile can show when there is no logo and no face. */
-export type NoticeGlyph = "agent" | "terminal" | "mission" | "reminder" | "appointment";
+export type NoticeGlyph = "agent" | "terminal" | "mission";
 
 /** Where a click on a notice leads. */
 export type NoticeTarget =
@@ -59,13 +53,7 @@ export type NoticeTarget =
   | { type: "connect"; service: "plugin" | "cli"; id: string; row: StatusRow }
   | { type: "plugin"; pluginId: string }
   | { type: "keys" }
-  | { type: "row"; row: StatusRow }
-  /**
-   * The due reminders of one source: its card lists them, each with what fits
-   * it (an appointment opens in its calendar or is dismissed; a reminder is
-   * ticked off or snoozed), right on the rail.
-   */
-  | { type: "reminders"; items: ReminderItem[] };
+  | { type: "row"; row: StatusRow };
 
 export interface RailNotice {
   key: string;
@@ -256,60 +244,37 @@ function providerNotices(light: StatusLightData, t: Translate): RailNotice[] {
   return [...seen.values()];
 }
 
+/** The lead's agent id (`dodaios.society.roster.LEAD_AGENT_ID`): the assistant itself. */
+const LEAD_AGENT_ID = "jarvis";
+/** What the assistant itself asks in its chat: answered there, never a tile. */
+const ASKED_IN_CHAT = new Set(["question", "approval", "proposal"]);
+
 /**
- * Reminders whose time has come: one notice per source (Google Calendar, the
- * person's own), oldest first, with the same item seen twice folded into one.
- * The tile shows the source's logo; its card lists every item with its own
- * title, its time in words, and what fits it.
+ * Whether the row is the assistant's own card in its chat. Its question,
+ * approval or proposal stands in the conversation, where the person answers
+ * it; a tile beside it would say the same thing twice. A service it asks to
+ * connect, a login it needs and a browser it hands over stay: those the
+ * person does outside the chat.
  */
-function reminderNotices(rows: ReminderRow[], t: Translate, locale: string): RailNotice[] {
-  const bySource = new Map<string, ReminderItem[]>();
-  for (const item of reminderItems(rows)) {
-    const list = bySource.get(item.source);
-    if (list) list.push(item);
-    else bySource.set(item.source, [item]);
-  }
-  return [...bySource.entries()].map(([source, items]): RailNotice => {
-    const [first] = items;
-    const more = items.length - 1;
-    const appointments = items.every((item) => item.appointment);
-    const reminders = items.every((item) => !item.appointment);
-    const counted = appointments ? "reminders.count_appointments" : reminders ? "reminders.count_reminders" : "reminders.count_items";
-    return {
-      key: `reminders:${source}`,
-      ask: "due",
-      tone: "needs",
-      mark: { type: "source", id: source, fallback: first.appointment ? "appointment" : "reminder" },
-      subject: sourceName(source, t),
-      title: more > 0 ? fill(t(counted), { count: items.length }) : itemTitle(first.row, t),
-      detail: more > 0
-        ? [itemTitle(first.row, t), fill(t("rail_notice.and_more"), { count: more })].join(" · ")
-        : itemDetail(first.row, locale, t),
-      action: t(first.appointment ? "reminders.dismiss" : "reminders.done"),
-      count: items.length,
-      target: { type: "reminders", items },
-    };
-  });
+function askedInChat(row: StatusRow): boolean {
+  return row.link.agent_id === LEAD_AGENT_ID && ASKED_IN_CHAT.has(row.kind) && !row.connect;
 }
 
 /**
- * Everything that needs the person, most pressing first: who waits for an
- * answer, then the reminders that have come due, then the connections that
- * ended, then the providers in trouble.
+ * Everything the person has to do themselves, most pressing first: who waits
+ * for an answer, then the connections that ended, then the providers in
+ * trouble.
  */
 export function railNotices(
   light: StatusLightData | null,
   plugins: PluginAttentionItem[],
   t: Translate,
-  reminders: ReminderRow[] = [],
-  locale = "en",
 ): RailNotice[] {
-  const needs = light ? needsNotices(light.needs_you, t) : [];
+  const needs = light ? needsNotices(light.needs_you.filter((row) => !askedInChat(row)), t) : [];
   // An agent already asks for this plugin: one tile for it, the one that leads to the card.
   const asked = new Set(needs.flatMap((notice) => (notice.ask === "connect" && notice.mark.type === "plugin" ? [notice.mark.id] : [])));
   return [
     ...needs,
-    ...reminderNotices(reminders, t, locale),
     ...pluginNotices(plugins, t).filter((notice) => notice.mark.type !== "plugin" || !asked.has(notice.mark.id)),
     ...(light ? providerNotices(light, t) : []),
   ];
@@ -319,10 +284,7 @@ export function railNotices(
 export function useRailNotices(): RailNotice[] {
   const t = useT();
   const light = useStatusLightStore((s) => s.light);
-  const locale = useUiLanguage();
   const plugins = usePluginAttention();
-  const reminders = useDueRemindersStore((s) => s.items);
   useEffect(() => watchStatusLight(), []);
-  useEffect(() => watchDueReminders(), []);
-  return railNotices(light, plugins.items, t, reminders, locale);
+  return railNotices(light, plugins.items, t);
 }

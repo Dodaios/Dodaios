@@ -11463,9 +11463,11 @@
     "dismiss": "Dismiss",
     "open_in": "Open in {service}",
     "snooze_label": "Remind me again:",
-    "count_appointments": "{count} appointments",
-    "count_reminders": "{count} reminders",
-    "count_items": "{count} items"
+    "chat_from": "From your {service}:",
+    "chat_own": "You asked me to remind you:",
+    "chat_mixed": "A quick heads-up:",
+    "settled_done": "Ticked off",
+    "settled_dismissed": "Dismissed"
   },
   "mobile": {
     "settings": {

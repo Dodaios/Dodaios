@@ -2,29 +2,29 @@ import { fill } from "@/i18n";
 import type { ReminderRow } from "@/lib/remindersApi";
 
 /**
- * What the rail says about a reminder that has come due, in words a person
+ * What the chat says about a reminder that has come due, in words a person
  * reads at a glance: whose it is (Google Calendar, Dodaios itself), what it is
  * called, and when it runs, on the person's clock and in their language.
  *
- * Two kinds stand on the rail. An appointment from a calendar runs from its
- * start to its end and leaves the rail once it is over; it can be opened in
+ * Two kinds are told. An appointment from a calendar runs from its start to
+ * its end and stops asking for anything once it is over; it can be opened in
  * its calendar or dismissed, never snoozed (a meeting that already started
  * does not come back later). A reminder the person asked Dodaios for is ticked
  * off or snoozed.
  *
  * A calendar entry that only says "busy" (a calendar shared as free/busy, a
- * published availability) has no name to show: the rail says so instead of
+ * published availability) has no name to show: the chat says so instead of
  * presenting "Busy" as its title (`busy_only`, set by the calendar sync).
  */
 
-/** The person's own reminders: Dodaios' mark on the rail. */
+/** The person's own reminders, as the source they come from. */
 export const OWN_SOURCE = "dodaios";
 /** Where an appointment comes from when an older backend does not say: the one calendar it syncs. */
 export const CALENDAR_SOURCE = "google_calendar";
 
 type Translate = (key: string) => string;
 
-/** One reminder on the rail, with the ids of the same item seen twice (one appointment on two calendars). */
+/** One due reminder, with the ids of the same item seen twice (one appointment on two calendars). */
 export interface ReminderItem {
   key: string;
   row: ReminderRow;
@@ -164,7 +164,7 @@ function itemKey(row: ReminderRow, source: string): string {
   return [source, row.reminder ? "r" : "a", name, startMs, endMs].join("|");
 }
 
-/** The due rows as rail items, oldest first, with duplicates folded into one. */
+/** The due rows as items, oldest first, with duplicates folded into one. */
 export function reminderItems(rows: ReminderRow[]): ReminderItem[] {
   const items = new Map<string, ReminderItem>();
   for (const row of rows) {

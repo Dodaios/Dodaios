@@ -11463,9 +11463,11 @@
     "dismiss": "Descartar",
     "open_in": "Abrir en {service}",
     "snooze_label": "Recordármelo de nuevo:",
-    "count_appointments": "{count} citas",
-    "count_reminders": "{count} recordatorios",
-    "count_items": "{count} elementos"
+    "chat_from": "De tu {service}:",
+    "chat_own": "Me pediste que te lo recordara:",
+    "chat_mixed": "Un aviso rápido:",
+    "settled_done": "Hecho",
+    "settled_dismissed": "Ocultado"
   },
   "mobile": {
     "settings": {

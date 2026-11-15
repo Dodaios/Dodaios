@@ -11463,9 +11463,11 @@
     "dismiss": "忽略",
     "open_in": "在 {service} 中打开",
     "snooze_label": "再次提醒：",
-    "count_appointments": "{count} 个日程",
-    "count_reminders": "{count} 条提醒",
-    "count_items": "{count} 项"
+    "chat_from": "来自你的{service}：",
+    "chat_own": "你让我提醒你：",
+    "chat_mixed": "提醒一下：",
+    "settled_done": "已完成",
+    "settled_dismissed": "已隐藏"
   },
   "mobile": {
     "settings": {

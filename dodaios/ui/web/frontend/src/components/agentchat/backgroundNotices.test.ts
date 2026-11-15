@@ -38,9 +38,9 @@ it("drops the background notices and keeps the order of the rest", () => {
   expect(withoutBackgroundNotices(items).map((item) => item.id)).toEqual(["u1", "n2"]);
 });
 
-it("leaves a reminder that came due out of the chat: it waits on the rail", () => {
+it("keeps a reminder that came due in the chat: the assistant tells it there", () => {
   const items = [user, notice("n1", "reminder_due", "", { memory_id: "m1" }), notice("n2", "tasks_captured")];
-  expect(withoutBackgroundNotices(items).map((item) => item.id)).toEqual(["u1", "n2"]);
+  expect(withoutBackgroundNotices(items).map((item) => item.id)).toEqual(["u1", "n1", "n2"]);
 });
 
 it("returns the same array when nothing is dropped", () => {

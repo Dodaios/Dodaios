@@ -11463,9 +11463,11 @@
     "dismiss": "Ausblenden",
     "open_in": "In {service} öffnen",
     "snooze_label": "Nochmal erinnern:",
-    "count_appointments": "{count} Termine",
-    "count_reminders": "{count} Erinnerungen",
-    "count_items": "{count} Einträge"
+    "chat_from": "Aus deinem {service}:",
+    "chat_own": "Du wolltest erinnert werden:",
+    "chat_mixed": "Kurz zur Erinnerung:",
+    "settled_done": "Abgehakt",
+    "settled_dismissed": "Ausgeblendet"
   },
   "mobile": {
     "settings": {
