@@ -259,6 +259,13 @@ def messages_from_events(
                 flush()
                 out.append(BrainMessage(role="assistant", content=text))
             continue
+        if kind == "notice" and payload.get("kind") == _recall.REMINDER_NOTICE_KIND:
+            # The chat shows a due reminder as the assistant telling it.
+            text = _recall.reminder_replay(int(ev.get("seq") or 0), payload, with_id=recall_ids)
+            if text:
+                flush()
+                out.append(BrainMessage(role="assistant", content=text))
+            continue
         if recall_ids and kind == "notice" and payload.get("kind") == _recall.TRIGGER_NOTICE_KIND:
             flush()
             text = _recall.trigger_notice_replay(int(ev.get("seq") or 0), payload)

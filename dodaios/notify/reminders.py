@@ -11,11 +11,15 @@ time (``valid_to``), so an overdue reminder stays visible for a week.
 current memory whose time has come and that was not delivered yet (a meta
 flag per memory), and delivers it: a ``reminder_due`` notice in the lead
 conversation plus a desktop notification through the
-:class:`~dodaios.notify.notifier.Notifier`. Nothing is spoken. The desktop
-app does not draw that notice in the chat: from then on the reminder waits as
-a tile on the rail beside it (read from ``/api/notify/reminders``), where Done
-and Snooze live, until it is ticked off, snoozed, or over. The phone keeps the
-notice in its chat.
+:class:`~dodaios.notify.notifier.Notifier`. Nothing is spoken. The chat
+draws that notice as the assistant telling the person ("From your Google
+Calendar: Dentist, today 10:00"), with what fits the item right under it: an
+appointment opens in its calendar or is dismissed, a reminder is ticked off
+or snoozed. The notice carries the item's fields (:func:`row_of`) for that.
+The lead reads it back in its history (``agent_chat.recall.reminder_replay``),
+so "move it to tomorrow" right after it has something to point at. The rail
+beside the chat keeps only what the person has to fix themselves (a plugin to
+reconnect), never a reminder.
 
 :func:`capture_dump` turns a brain dump ("tomorrow dentist, buy milk, mail
 Anna about the offer") into separate items without a model call: split on
@@ -552,6 +556,9 @@ class ReminderScheduler:
                     svc,
                     session_id,
                     {
+                        # The item as the API lists it (title, start, end,
+                        # calendar, link), so the chat can say it in words.
+                        **_notice_fields(memory),
                         "kind": NOTICE_DUE,
                         "status": "",
                         "text": memory.text,
@@ -576,6 +583,15 @@ class ReminderScheduler:
             # window is in front (the notice is a line among many).
             ignore_focus=True,
         )
+
+
+def _notice_fields(memory: Any) -> dict[str, Any]:
+    """The item's fields for its notice; a memory that cannot say them still gets told."""
+    try:
+        return _item_fields(memory)
+    except Exception:  # noqa: BLE001 — the text alone still makes a notice
+        log.debug("reminders: no item fields for %s", getattr(memory, "id", ""), exc_info=True)
+        return {}
 
 
 def _due_moment(value: str | None) -> datetime | None:

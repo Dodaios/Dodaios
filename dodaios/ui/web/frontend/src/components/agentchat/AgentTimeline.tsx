@@ -17,6 +17,7 @@ import { BrowserTakeoverNotice } from "./BrowserTakeoverNotice";
 import { SeatTroubleNotice } from "./SeatTroubleNotice";
 import { StandingPausedNotice, StandingProposalCard } from "./StandingProposalCard";
 import { TasksCapturedCard } from "./reminders/TasksCapturedCard";
+import { foldReminderNotices, REMINDER_DUE_KIND, ReminderDueMessage } from "./reminders/ReminderDueMessage";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { effortLabel } from "./AgentComposer";
 import { livePetState, TurnTrace, type Decide, type TraceLook } from "./WorkTrace";
@@ -98,7 +99,8 @@ export function AgentTimeline({
   // that turn's trace, so the reply stays the last thing in the chat.
   const { items: shown, messagesByTurn } = useMemo(() => {
     // A coding thread's unchanged status is one row, however often it arrived.
-    const folded = foldRepeatedThreadStatus(items);
+    // Reminders told one right after the other are one message.
+    const folded = foldReminderNotices(foldRepeatedThreadStatus(items));
     return traceLook === "rail" ? attachTurnMessages(folded) : { items: folded, messagesByTurn: NO_MESSAGES };
   }, [items, traceLook]);
   // The conversation look says under each of the person's messages when it was read.
@@ -358,8 +360,8 @@ export function AgentTimeline({
       if (item.kind === AGENT_RESULT_KIND) return <AgentResultLine key={item.id} item={item} />;
       if (item.kind === "seat_trouble") return <SeatTroubleNotice key={item.id} item={item} />;
       if (item.kind === "browser_takeover") return <BrowserTakeoverNotice key={item.id} item={item} />;
-      // A reminder that came due waits on the rail beside the chat (Done, Snooze there), not in it.
-      if (item.kind === "reminder_due") return null;
+      // A reminder or appointment that came due: the assistant says it, with Done / Open right under it.
+      if (item.kind === REMINDER_DUE_KIND) return <ReminderDueMessage key={item.id} item={item} />;
       if (item.kind === "tasks_captured") return <TasksCapturedCard key={item.id} item={item} />;
       if (item.kind === "standing_proposal") return <StandingProposalCard key={item.id} item={item} />;
       if (item.kind === "standing_paused") return <StandingPausedNotice key={item.id} item={item} />;

@@ -45,6 +45,8 @@ REPORT_KINDS: Final[frozenset[str]] = frozenset(
 )
 #: The notice a trigger decision writes for the person.
 TRIGGER_NOTICE_KIND: Final[str] = "event_trigger"
+#: A reminder or calendar appointment that came due, told in the chat (``notify.reminders``).
+REMINDER_NOTICE_KIND: Final[str] = "reminder_due"
 
 #: A report longer than this shrinks to a card once an answer followed it.
 SPILL_AT: Final[int] = 2000
@@ -138,6 +140,33 @@ def trigger_notice_replay(seq: int, payload: dict[str, Any]) -> str:
     return f"Event notice you wrote [{event_id(seq)}]{related}: {text}"
 
 
+def reminder_replay(seq: int, payload: dict[str, Any], *, with_id: bool = True) -> str:
+    """How a reminder told in the chat reads in the lead's history.
+
+    The chat shows it as the assistant speaking, so the lead has to know it
+    said it: "move it to tomorrow" right after it points at this item.
+    """
+    title = one_line(payload.get("title") or payload.get("text"), 300)
+    if payload.get("busy_only"):
+        title = "busy (the calendar shares no details)"
+    if not title:
+        return ""
+    kind = "reminder" if payload.get("reminder") else "calendar appointment"
+    when = str(payload.get("start") or payload.get("due_at") or "")
+    facts = [f"due {when}" if when else "", "all day" if payload.get("all_day") else ""]
+    place = one_line(payload.get("location") or payload.get("calendar"), 120)
+    if place:
+        facts.append(f"at {place}")
+    memory = str(payload.get("memory_id") or "")
+    if memory:
+        facts.append(f"memory {memory}")
+    detail = ", ".join(fact for fact in facts if fact)
+    head = "Reminder you posted in the chat"
+    if with_id:
+        head += f" [{event_id(seq)}]"
+    return f"{head} ({kind}): {title}" + (f" ({detail})" if detail else "")
+
+
 def rendered_notice_chars(events: list[dict[str, Any]], *, spill: bool) -> int:
     """Characters the history spends on notices (reports and trigger cards).
 
@@ -158,6 +187,8 @@ def rendered_notice_chars(events: list[dict[str, Any]], *, spill: bool) -> int:
             )
         elif spill and kind == TRIGGER_NOTICE_KIND:
             total += len(trigger_notice_replay(seq, payload))
+        elif kind == REMINDER_NOTICE_KIND:
+            total += len(reminder_replay(seq, payload, with_id=spill))
     return total
 
 

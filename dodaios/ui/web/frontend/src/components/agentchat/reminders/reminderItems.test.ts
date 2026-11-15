@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import {
   dayLabel, itemDetail, itemTitle, itemWhen, reminderItems, reminderSource, sourceName,
-} from "@/components/layout/reminderItems";
+} from "@/components/agentchat/reminders/reminderItems";
 import { translate } from "@/i18n";
 import de from "@/i18n/locales/de.json";
 import type { ReminderRow } from "@/lib/remindersApi";

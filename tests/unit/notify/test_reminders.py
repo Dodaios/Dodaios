@@ -196,6 +196,43 @@ async def test_due_reminders_are_delivered_once(
     assert reminders.list_due(vault, days=1)[0]["delivered"] is True
 
 
+async def test_an_appointment_notice_carries_what_the_chat_says_of_it(
+    vault: MemoryVault, clock: Clock, tmp_path: Path
+) -> None:
+    """The chat says the item in words: its title, when, where, and the link to its calendar."""
+    from dodaios.memory.vault import calendar_sync
+
+    svc, sid = _service(tmp_path)
+    calendar_sync.apply_events(
+        vault,
+        [
+            {
+                "id": "e1",
+                "summary": "Dentist",
+                "start": "2026-11-10T10:40:00+01:00",
+                "end": "2026-11-10T11:30:00+01:00",
+                "location": "Main St 1",
+                "url": "https://calendar.example/e1",
+            }
+        ],
+        zone=BERLIN,
+    )
+    scheduler = reminders.ReminderScheduler(
+        vault=lambda: vault, target=lambda: (svc, sid), notifier=lambda: None, clock=clock.utc
+    )
+    clock.moment = NOW_LOCAL + timedelta(minutes=15)
+    assert len(await scheduler.tick()) == 1
+    payload = svc.store.list_events(sid)[-1]["payload"]
+    assert payload["kind"] == reminders.NOTICE_DUE and payload["reminder"] is False
+    assert (payload["title"], payload["source"], payload["location"]) == (
+        "Dentist",
+        "google_calendar",
+        "Main St 1",
+    )
+    assert payload["start"] == "2026-11-10T09:40:00+00:00"
+    assert payload["url"] == "https://calendar.example/e1"
+
+
 async def test_a_very_old_reminder_is_not_told_after_a_long_shutdown(
     vault: MemoryVault, clock: Clock, tmp_path: Path
 ) -> None:

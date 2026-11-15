@@ -346,3 +346,37 @@ def test_three_hops_from_a_report_to_its_job_thread_and_agent(store, ledger):
     assert hop3["summary"] == "Scout chat" and job_ref in hop3["related"]["jobs"]
     who = _run(rc.recall(hop2["related"]["agent"]))
     assert who["related"]["thread"] == thread_ref and job_ref in who["related"]["jobs"]
+
+
+def test_a_reminder_told_in_the_chat_is_in_the_leads_history(store):
+    """The chat shows a due reminder as the assistant saying it: the lead must know it said it."""
+    sid = _lead(store)
+    _add(
+        store,
+        sid,
+        "notice",
+        kind="reminder_due",
+        text="Appointment: Dentist on 2026-11-10 11:00.",
+        memory_id="mem_1",
+        reminder=False,
+        title="Dentist",
+        start="2026-11-10T10:00:00+00:00",
+        location="Main St 1",
+    )
+    _add(store, sid, "user_message", text="move it to tomorrow")
+    history = brain_history_from_events(store.list_events(sid), recall_ids=True)
+    assert [m.role for m in history] == ["assistant", "user"]
+    told = history[0].content
+    assert told.startswith("Reminder you posted in the chat [ev:1] (calendar appointment): Dentist")
+    assert "2026-11-10T10:00:00+00:00" in told and "Main St 1" in told and "mem_1" in told
+
+
+def test_a_busy_only_reminder_names_no_title_and_an_old_one_its_text(store):
+    sid = _lead(store)
+    _add(store, sid, "notice", kind="reminder_due", busy_only=True, title="", text="x", memory_id="m1")
+    _add(store, sid, "notice", kind="reminder_due", text="call the bank", reminder=True, memory_id="m2")
+    # Told one after the other, they are one thing the assistant said.
+    (told,) = (m.content for m in brain_history_from_events(store.list_events(sid)))
+    busy, bank = told.split("\n")
+    assert "busy (the calendar shares no details)" in busy and "[ev:" not in told
+    assert "(reminder): call the bank" in bank
