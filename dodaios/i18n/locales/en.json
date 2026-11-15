@@ -190,6 +190,10 @@
       "more": "and {count} more.",
       "open": "Still open: {items}.",
       "nothing": "Nothing is scheduled for today, as far as I know."
+    },
+    "ritual": {
+      "started": "On it.",
+      "pending": "On it. The rest is on its way."
     }
   },
   "missions": {

@@ -518,6 +518,10 @@ async def deliver_late(ritual: Ritual, day: str) -> None:
         return
     if prepare.usable(ritual, row):
         await _post(ritual, {"via": row.fired_via, "late": True, "text": card_text_late(row)})
+        from . import said
+
+        # Started by voice: it is also said, when the call is still open.
+        await said.announce_late(ritual, row)
     else:
         reason = row.prep_error or "Nothing could be gathered."
         await _post(
@@ -586,8 +590,29 @@ async def drain() -> None:
         await asyncio.gather(*list(_background), return_exceptions=True)
 
 
+async def _file_said(said: str) -> None:
+    """Put what the person said or typed into the conversation, without a turn for it."""
+    text = str(said or "").strip()
+    if not text:
+        return
+    try:
+        from dodaios.agent_chat.lead import lead_session
+
+        _runtime_, _lead, svc = await _lead_chat()
+        session = lead_session(svc) if svc is not None else None
+        if session is not None:
+            await svc.import_voice_turn(str(session.session_id), text, "")
+    except Exception:  # noqa: BLE001 — the ritual starts without the line that shows what was said
+        log.warning("rituals: the phrase was not filed into the conversation", exc_info=True)
+
+
 async def fire(
-    ritual_id: str, *, via: str, force: bool = False, now: datetime | None = None
+    ritual_id: str,
+    *,
+    via: str,
+    force: bool = False,
+    said: str = "",
+    now: datetime | None = None,
 ) -> dict[str, Any]:
     """Start a ritual: the card, and its ``now`` steps as a turn.
 
@@ -596,6 +621,9 @@ async def fire(
     leaves the phrase its one start of the day. Without it the ritual's
     conditions hold, and a ritual that may start once a day is claimed first,
     so the same phrase heard twice in one moment starts it once.
+
+    ``said`` is the sentence that started it (spoken or typed). It is filed
+    into the conversation above the card, because no turn answers it.
     """
     if via not in FIRED_VIA:
         raise RitualError("invalid", "via must be one of " + ", ".join(FIRED_VIA) + ".")
@@ -623,6 +651,7 @@ async def fire(
     today = store.day(ritual.id, day)
     ahead = ritual.steps_at("ahead")
     ready = prepare.usable(ritual, today)
+    await _file_said(said)
     await _post_card(ritual, today if ready else None, via=via, pending=bool(ahead) and not ready)
     if ready or not ahead:
         today = store.patch_day(ritual.id, day, delivered_ms=now_ms())
@@ -637,6 +666,8 @@ async def fire(
         "ritual": ritual.to_dict(),
         "today": today.to_dict() if today is not None else None,
         "pending": bool(ahead) and not ready,
+        # What was gathered, in the form made for the ear; "" when nothing is ready.
+        "spoken": today.spoken if ready and today is not None else "",
     }
 
 

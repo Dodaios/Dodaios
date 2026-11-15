@@ -3217,6 +3217,14 @@ class WebServer:
         except Exception as exc:  # noqa: BLE001 — the app runs without event triggers
             logger.opt(exception=exc).warning("lead triggers: not started")
 
+        try:
+            from dodaios.rituals import said as ritual_said
+
+            # What a ritual gathered after it was started by voice is said in the open call.
+            ritual_said.install(self.bus)
+        except Exception as exc:  # noqa: BLE001 — rituals still start; a late result is only written
+            logger.opt(exception=exc).warning("rituals: voice not wired")
+
         # Run the deferred registry disk scans (skill + doc reload_sync) off the
         # boot critical path. Each is a blocking glob + FTS index build (~hundreds
         # of ms) that nothing at BOOT_READY needs — the views tolerate an empty

@@ -190,6 +190,10 @@
       "more": "e mais {count}.",
       "open": "Ainda em aberto: {items}.",
       "nothing": "Não há nada previsto para hoje, tanto quanto sei."
+    },
+    "ritual": {
+      "started": "Já está em curso.",
+      "pending": "Já está em curso. O resto chega daqui a pouco."
     }
   },
   "missions": {

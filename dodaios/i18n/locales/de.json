@@ -190,6 +190,10 @@
       "more": "und {count} weitere.",
       "open": "Noch offen: {items}.",
       "nothing": "Für heute ist nichts geplant, soweit ich weiß."
+    },
+    "ritual": {
+      "started": "Läuft.",
+      "pending": "Läuft. Der Rest kommt gleich."
     }
   },
   "missions": {
