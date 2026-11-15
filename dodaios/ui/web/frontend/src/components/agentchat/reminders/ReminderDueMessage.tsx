@@ -10,7 +10,7 @@ import { useEventStore } from "@/store/events";
 import { REPLY_PROSE } from "../LeadReply";
 import type { NoticeItem, TimelineItem } from "../reduce";
 import { dropDueReminder, formatDue, refreshDueReminders, useDueRemindersStore, watchDueReminders } from "./dueReminders";
-import { itemPlace, itemTitle, itemWhen, reminderItems, sourceName, type ReminderItem } from "./reminderItems";
+import { itemPlace, itemTitle, itemWhen, OWN_SOURCE, reminderItems, sourceName, type ReminderItem } from "./reminderItems";
 
 /**
  * A reminder or calendar appointment that came due, said by the assistant in
@@ -77,18 +77,30 @@ export function foldReminderNotices(items: TimelineItem[]): TimelineItem[] {
 
 const text = (value: unknown): string => (typeof value === "string" ? value : "");
 
-/** The item as the API lists it, from what its notice carries; an older notice has only its text. */
+/** How the calendar sync words an appointment memory ("Appointment: Dentist on 2026-11-12 09:00."). */
+const CALENDAR_TEXT = /^Appointment:\s/;
+
+/**
+ * The item as the API lists it, from what its notice carries; an older notice
+ * has only its text. Only an entry from a calendar is an appointment: any
+ * other dated memory that came due (a task, a plan with a date) is the
+ * person's own, ticked off or snoozed like a reminder, never "from your
+ * Google Calendar".
+ */
 export function noticeRow(item: NoticeItem): ReminderRow {
   const d = item.data;
+  const body = text(d.text) || item.text;
+  const source = text(d.source);
+  const calendar = source ? source !== OWN_SOURCE : CALENDAR_TEXT.test(body);
   return {
     id: text(d.memory_id),
-    text: text(d.text) || item.text,
+    text: body,
     due_at: text(d.due_at) || null,
     kind: "",
-    reminder: d.reminder !== false,
+    reminder: d.reminder === true || !calendar,
     overdue: true,
     delivered: true,
-    source: text(d.source) || undefined,
+    source: source || (calendar ? undefined : OWN_SOURCE),
     title: typeof d.title === "string" ? d.title : undefined,
     busy_only: d.busy_only === true,
     start: text(d.start) || null,
