@@ -18,3 +18,18 @@ def _require_loaded_sounddevice(request: pytest.FixtureRequest) -> None:
 
     if player.sd is None:
         pytest.skip("sounddevice did not load (PortAudio missing or unloadable)")
+
+
+@pytest.fixture(autouse=True)
+def _no_native_calls_left_over(request: pytest.FixtureRequest) -> None:
+    """What one test leaves with the audio system must not hold the next one back."""
+    if request.path.name == "test_headless_import.py":
+        yield
+        return
+    from dodaios.audio import capture
+
+    capture._forget_unanswered_calls()
+    capture._STREAM_ENDINGS.clear()
+    yield
+    capture._forget_unanswered_calls()
+    capture._STREAM_ENDINGS.clear()

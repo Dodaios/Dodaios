@@ -690,6 +690,7 @@
       "rejected": "语音识别无法处理这段录音。",
       "engine_busy": "语音识别仍在忙——请稍后再试。",
       "recording_interrupted": "录音在你停止之前就结束了。",
+      "no_microphone": "麦克风没有响应，因此没有录到任何内容。请重启 Dodaios 以恢复收音。",
       "no_stt": "尚未设置语音识别。",
       "unknown": "语音识别失败。"
     },
@@ -3078,6 +3079,16 @@
     "effective": "工具模型当前运行",
     "cleared": "工具模型已重置为你的主模型",
     "vision_note": "只列出能看懂图像的模型。Computer Use 通过截图读取屏幕，纯文本模型无法运行它。"
+  },
+  "microphone_notice": {
+    "not_answering": "音频系统不再响应麦克风“{device}”，所以 Dodaios 听不到你。重启即可解决：一旦没有任务在运行，Dodaios 会自动重启。",
+    "not_answering_unnamed": "音频系统不再响应麦克风，所以 Dodaios 听不到你。重启即可解决：一旦没有任务在运行，Dodaios 会自动重启。",
+    "silent": "麦克风“{device}”没有声音。它被静音了，或者选错了设备。",
+    "silent_unnamed": "麦克风没有声音。它被静音了，或者选错了设备。",
+    "action": {
+      "restart": "立即重启",
+      "choose": "选择麦克风"
+    }
   },
   "permissions": {
     "restart_failed": "Dodaios 无法重启。请手动退出后重新打开。",

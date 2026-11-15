@@ -36,7 +36,9 @@ from dodaios.audio.capture import (
     REALTIME_QUEUE_CHUNKS,
     MicrophoneAccessError,
     MicrophoneCapture,
+    MicrophoneStuckError,
     capture_chunks_for_duration,
+    last_input_name,
     pcm_bytes_to_np,
 )
 from dodaios.audio.chime import (
@@ -73,6 +75,7 @@ from dodaios.core.events import (
     LatencyTurnComplete,
     ListeningStarted,
     MessageSent,
+    MicrophoneTrouble,
     ObservationCaptured,
     PermissionResolved,
     SpeechSpoken,
@@ -927,6 +930,14 @@ _MICROPHONE_REFUSED_SENTENCE = "Microphone access is not available for Dodaios r
 # gate on its own. The grant normally wakes it at once (PermissionResolved); this
 # is the fallback for an edge that never arrived.
 _WAKE_PERMISSION_PARK_S = 30.0
+
+# How long the wake loop waits before it asks again for a microphone the audio
+# system stopped answering for. The capture answers such a retry at once and
+# starts no native call while the first one is outstanding, so this only sets
+# how soon listening resumes after the audio system answered.
+_WAKE_STUCK_RETRY_S = 2.0
+# The same stuck microphone is written to the log this often, not on every retry.
+_WAKE_STUCK_LOG_EVERY_S = 300.0
 
 
 # Fallback recording ceiling for a MISSING or unparseable ``[dictation]
@@ -8154,6 +8165,7 @@ class SpeechPipeline:
         # blocks waking"; AP-22: recovery must be reachable in-app, not a restart.)
         await self._wait_while_wake_disabled()
         gate_blocked_logged_at = 0.0
+        stuck_logged_at = 0.0
         while True:
             # Re-checked on EVERY pass, not only before the loop: a user who
             # switches the wake word OFF while the loop is parked on the
@@ -8197,6 +8209,16 @@ class SpeechPipeline:
                 # traceback and no 0.5 s retry churn. Park until it is granted.
                 log.info("Wake listening paused: %s", exc)
                 await self._park_until_microphone_allowed()
+            except MicrophoneStuckError as exc:
+                # The audio system stopped answering for the microphone. Not a
+                # crash either: the capture has told the person, and asking
+                # again every half second would only fill the log. Listening
+                # resumes by itself once the audio system answers.
+                now = time.time()
+                if now - stuck_logged_at > _WAKE_STUCK_LOG_EVERY_S:
+                    log.warning("Wake listening paused: %s", exc)
+                    stuck_logged_at = now
+                await asyncio.sleep(_WAKE_STUCK_RETRY_S)
             except Exception as exc:  # noqa: BLE001
                 log.exception("Wake loop failed: %s", exc)
                 await asyncio.sleep(0.5)
@@ -12573,6 +12595,25 @@ class SpeechPipeline:
             return False
         return True
 
+    async def _tell_silent_microphone(self, input_name: str) -> None:
+        """Publish which microphone a dictation heard nothing from (never raises).
+
+        The window turns it into the notice that names the input and opens the
+        microphone picker; the bar keeps showing the dictation's own sentence.
+        """
+        try:
+            await self._publish_event(
+                MicrophoneTrouble(
+                    source_layer="speech.pipeline",
+                    reason="silent",
+                    device=input_name,
+                    feature="dictation",
+                    automatic=getattr(self, "_input_device", None) == "auto-headset",
+                )
+            )
+        except Exception:  # noqa: BLE001 - a notice must never cost the dictation its result
+            log.debug("The silent-microphone notice could not be published.", exc_info=True)
+
     async def _finish_dictation(
         self,
         *,
@@ -12734,11 +12775,16 @@ class SpeechPipeline:
             )
             if audio_sample_rate_hz > 0 and audio_rms == 0.0 and duration_s >= 0.5:
                 # Exact zeros are not a quiet room: the input carries nothing.
+                # Say WHICH input: "the microphone" is whichever one the
+                # automatic choice landed on, and the person cannot see that.
+                silent_input = last_input_name()
+                named = f"The microphone '{silent_input}'" if silent_input else "The microphone"
                 rejected_detail = (
-                    "The microphone delivered no signal at all, so nothing was "
-                    "inserted. Check which input device is selected in the "
-                    "system sound settings and that it is not muted."
+                    f"{named} delivered no signal at all, so nothing was "
+                    "inserted. Choose another microphone in Settings, or check "
+                    "that this one is not muted."
                 )
+                await self._tell_silent_microphone(silent_input)
         if raw_text.strip() and not cleaned.strip() and not hung_up and not rejected_detail:
             # The rules left nothing: the recognizer returned marks, no words.
             rejected_detail = (

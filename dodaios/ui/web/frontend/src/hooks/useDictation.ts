@@ -62,6 +62,7 @@ export const STT_FAILURE_REASONS = [
   "rejected",
   "engine_busy",
   "recording_interrupted",
+  "no_microphone",
   "no_stt",
   "unknown",
 ] as const;

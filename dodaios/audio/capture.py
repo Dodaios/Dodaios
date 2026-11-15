@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import asyncio
 import math
+import sys
+import threading
 import time
 from collections.abc import AsyncIterator, Callable, Iterator, Sequence
 from typing import TYPE_CHECKING, Any
@@ -35,7 +37,13 @@ else:
 
 from dodaios.audio import topology
 from dodaios.audio.device_select import is_legacy_primary_mapper
-from dodaios.core.events import PERMISSION_FEATURES, PermissionNeeded
+from dodaios.core.events import (
+    PERMISSION_FEATURES,
+    Event,
+    MicrophoneRecovered,
+    MicrophoneTrouble,
+    PermissionNeeded,
+)
 from dodaios.core.protocols import AudioChunk
 
 SAMPLE_RATE = 16_000       # Whisper native rate
@@ -80,6 +88,23 @@ def _remember_input_latency(stream: Any) -> None:
     if not (latency > 0.0):
         latency = 0.0
     _last_input_latency_s = min(_INPUT_LATENCY_CAP_S, latency)
+
+
+# Name of the input the open capture stream reads from, as the operating
+# system lists it. Kept module-level for the same reason as the latency above:
+# a dictation that borrowed the wake stream never saw the capture that opened
+# it, and it is the one that has to say which microphone delivered nothing.
+_last_input_name = ""
+
+
+def last_input_name() -> str:
+    """Name of the input of the stream opened last, ``""`` when unknown."""
+    return _last_input_name
+
+
+def _remember_input_name(name: str) -> None:
+    global _last_input_name
+    _last_input_name = name
 
 
 def capture_chunks_for_duration(seconds: float) -> int:
@@ -195,6 +220,284 @@ def _input_name_of(device: object) -> str:
 def _forget_silent_inputs() -> None:
     """Give every input a fresh chance (tests, and a deliberate re-check)."""
     _SILENT_INPUTS.clear()
+
+
+# How a running input stream is ended on macOS.
+#
+# PortAudio's CoreAudio backend, in the build that ships with sounddevice up
+# to 0.5.6, can deadlock when a thread stops a stream whose I/O thread is
+# running. The stopping thread holds the AudioUnit's lock inside
+# ``AudioOutputUnitStop`` and waits for the device's I/O lock; the I/O thread
+# holds that I/O lock and waits for the AudioUnit's lock inside PortAudio's own
+# "is running" listener. Neither returns, every later open of that device
+# queues behind them, and only a new process hears the microphone again
+# (PortAudio issue 1174; fixed upstream after the build we ship). Measured on
+# a MacBook Air on 2026-11-15: 2 deadlocks in 1,272 open/start/abort/close
+# cycles on the built-in microphone, and four in three days of ordinary use.
+#
+# The stream's own callback is the one place where a stop cannot meet that
+# lock order: it runs on the I/O thread, so the stop it asks for is carried out
+# by the thread that already holds the I/O lock. A close therefore asks the
+# callback to end the stream, waits for PortAudio's "finished" signal, and only
+# then closes the handle, which by then has nothing left to wait for.
+_END_FROM_CALLBACK = sys.platform == "darwin"
+# A stream whose callback ran this recently has a live I/O thread.
+_CALLBACK_ALIVE_S = 2.0
+# How long a close waits for the callback to take the request and for the
+# stream to report that it finished. A healthy stream answers within one
+# block (32 ms).
+_CALLBACK_END_WAIT_S = 1.0
+# Once the callback has taken the request the I/O thread is stopping the
+# stream; a stop from another thread would be the second one. Wait this long.
+_CALLBACK_END_FINISH_S = 2.0
+# The I/O thread still winds down for a moment after the "finished" signal.
+_CALLBACK_END_SETTLE_S = 0.02
+
+
+class _StreamEnding:
+    """Lets one native input stream end itself from its own callback.
+
+    One per opened stream. ``in_callback`` runs first in every callback, on the
+    audio thread; ``end`` runs on the thread that closes the stream.
+    """
+
+    _RUNNING = 0
+    _REQUESTED = 1
+    _TAKEN = 2
+    _WITHDRAWN = 3
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._state = self._RUNNING
+        self._started = time.monotonic()
+        self._last_callback = 0.0
+        self.finished = threading.Event()
+
+    def mark_started(self) -> None:
+        """The stream was started just now: its first callback is still to come."""
+        self._started = time.monotonic()
+
+    def in_callback(self) -> bool:
+        """``True`` when this callback must end the stream instead of reading."""
+        self._last_callback = time.monotonic()
+        if self._state == self._RUNNING:
+            return False
+        with self._lock:
+            if self._state == self._REQUESTED:
+                self._state = self._TAKEN
+        return self._state == self._TAKEN
+
+    def end(self) -> bool:
+        """Ask the callback to end the stream; ``True`` once PortAudio says it has.
+
+        ``False`` means nothing ended it and the caller stops the stream itself,
+        as before. That is right for a stream whose callback no longer runs (a
+        device that is gone has no I/O thread to deadlock with) and it is all
+        that is left when the callback does not come round in time. The request
+        is withdrawn first, so the callback and the caller never both stop the
+        same stream.
+        """
+        if not self.finished.is_set():
+            last_sign_of_life = self._last_callback or self._started
+            if time.monotonic() - last_sign_of_life > _CALLBACK_ALIVE_S:
+                return False
+            with self._lock:
+                if self._state != self._RUNNING:
+                    return False
+                self._state = self._REQUESTED
+            if not self.finished.wait(_CALLBACK_END_WAIT_S):
+                with self._lock:
+                    if self._state == self._REQUESTED:
+                        self._state = self._WITHDRAWN
+                        return False
+                if not self.finished.wait(_CALLBACK_END_FINISH_S):
+                    return False
+        time.sleep(_CALLBACK_END_SETTLE_S)
+        return True
+
+
+# id(stream) -> how that stream ends itself. Only streams opened by
+# ``MicrophoneCapture`` on a platform that needs it are listed.
+_STREAM_ENDINGS: dict[int, _StreamEnding] = {}
+
+
+def _ends_from_callback(stream: object) -> bool:
+    """Whether ``stream`` is a real PortAudio stream that must end itself."""
+    if not _END_FROM_CALLBACK or getattr(sd, "CallbackAbort", None) is None:
+        return False
+    # A test double has no I/O thread, so nothing would ever take the request.
+    return type(stream).__module__.partition(".")[0] == "sounddevice"
+
+
+# How long the audio system gets to answer before the capture stops waiting:
+# for an open, and for the close of the stream that held the device before it.
+# An ordinary open takes well under a second, a wireless headset that has to
+# switch into its two-way mode a few seconds.
+_OPEN_TIMEOUT_S = 10.0
+# On macOS a close that does not come back holds the device's I/O lock, so an
+# open of that device waits behind it, and while it waits it holds the open
+# guard that playback needs too (2026-11-12: an open took 123 s that way).
+# Elsewhere a new stream opens fine beside a slow close.
+_CLOSE_HOLDS_DEVICE = sys.platform == "darwin"
+
+
+class _NativeCall:
+    """One open or close handed to the audio system, until it comes back."""
+
+    def __init__(self, device_name: str) -> None:
+        self.device_name = device_name
+        self.started = time.monotonic()
+        self.lock = threading.Lock()
+        #: An open the capture stopped waiting for: its worker closes what it opens.
+        self.abandoned = False
+        #: The worker handed its started stream to the capture.
+        self.published = False
+
+    def age(self) -> float:
+        return time.monotonic() - self.started
+
+
+class _Unanswered:
+    """Native calls the audio system has not answered in time.
+
+    While one is listed no further open is started. It would wait behind the
+    first one, parking a thread for good and holding the open guard.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._calls: dict[int, _NativeCall] = {}
+        self._reported = False
+
+    def add(self, call: _NativeCall) -> None:
+        with self._lock:
+            self._calls[id(call)] = call
+
+    def came_back(self, call: _NativeCall) -> bool:
+        """``call`` returned. ``True`` when that ends an episode the person was told of."""
+        with self._lock:
+            self._calls.pop(id(call), None)
+            if self._calls or not self._reported:
+                return False
+            self._reported = False
+            return True
+
+    def oldest(self) -> _NativeCall | None:
+        with self._lock:
+            return min(self._calls.values(), key=lambda call: call.started, default=None)
+
+    def report_once(self) -> bool:
+        """``True`` the first time in an episode: the caller tells the person."""
+        with self._lock:
+            if self._reported or not self._calls:
+                return False
+            self._reported = True
+            return True
+
+    def clear(self) -> None:
+        with self._lock:
+            self._calls.clear()
+            self._reported = False
+
+
+_UNANSWERED = _Unanswered()
+
+
+def stuck_microphone() -> str | None:
+    """Name of the input the audio system has stopped answering for, or ``None``.
+
+    ``""`` stands for an input without a name (the system default). It clears by
+    itself when the audio system answers after all.
+    """
+    call = _UNANSWERED.oldest()
+    if call is None or call.age() < _OPEN_TIMEOUT_S:
+        return None
+    return call.device_name
+
+
+class MicrophoneStuckError(RuntimeError):
+    """The operating system's audio layer no longer answers for a microphone.
+
+    Raised instead of waiting for ever when opening an input does not come
+    back. ``device_name`` is the input as the system lists it (``""`` when it
+    has no name). Nothing in this process can free it: the audio system
+    answering after all, or a restart of the app, does.
+    """
+
+    def __init__(self, device_name: str = "") -> None:
+        self.device_name = device_name
+        named = f"the microphone '{device_name}'" if device_name else "the microphone"
+        # Kept free of the words the dictation failure classifier matches on.
+        super().__init__(f"The audio system does not answer for {named}.")
+
+
+async def _publish_quietly(event: Event) -> None:
+    """Publish ``event`` on the default bus; a notice must never break a capture."""
+    try:
+        from dodaios.core.bus import get_default_bus  # noqa: PLC0415 - only on rare paths
+
+        await get_default_bus().publish(event)
+    except Exception:  # noqa: BLE001 - a notice must never break the capture
+        _log.debug("Microphone notice could not be published.", exc_info=True)
+
+
+# Publishes started from a callback; held so they are not collected mid-flight.
+_NOTICE_TASKS: set[asyncio.Task[None]] = set()
+
+
+def _publish_in_background(event: Event) -> None:
+    """Publish ``event`` from synchronous code on the event loop."""
+    try:
+        notice = asyncio.get_running_loop().create_task(_publish_quietly(event))
+    except RuntimeError:  # no running loop: the process is shutting down
+        return
+    _NOTICE_TASKS.add(notice)
+    notice.add_done_callback(_NOTICE_TASKS.discard)
+
+
+# A background listener that hears nothing says so once in this long per input:
+# the wake word reopens its stream after every turn, and a microphone the person
+# muted on purpose must not be announced each time.
+_SILENCE_TOLD_AGAIN_AFTER_S = 30 * 60.0
+# input name -> when it may be told again
+_SILENCE_TOLD: dict[str, float] = {}
+
+
+def _silence_may_be_told(name: str, *, by_gesture: bool) -> bool:
+    """Whether a silent input is worth a notice now. A gesture always is."""
+    now = time.monotonic()
+    key = _input_key(name)
+    if not by_gesture and now < _SILENCE_TOLD.get(key, 0.0):
+        return False
+    _SILENCE_TOLD[key] = now + _SILENCE_TOLD_AGAIN_AFTER_S
+    return True
+
+
+def _consume_result(task: asyncio.Future[Any]) -> None:
+    """Read a finished task's outcome so nothing warns about it later."""
+    if not task.cancelled():
+        task.exception()
+
+
+def _native_call_came_back(call: _NativeCall, task: asyncio.Future[Any]) -> None:
+    """Done-callback of a native call that was listed as unanswered. On the loop."""
+    _consume_result(task)  # a call we gave up on must not warn later
+    if not _UNANSWERED.came_back(call):
+        return
+    _log.warning(
+        "The audio system answers again for the microphone '{}' after {:.0f}s.",
+        call.device_name,
+        call.age(),
+    )
+    _publish_in_background(
+        MicrophoneRecovered(source_layer="audio.capture", device=call.device_name)
+    )
+
+
+def _forget_unanswered_calls() -> None:
+    """Drop every remembered unanswered call and told silence (tests)."""
+    _UNANSWERED.clear()
+    _SILENCE_TOLD.clear()
 
 
 class MicrophoneAccessError(PermissionError):
@@ -973,6 +1276,10 @@ class MicrophoneCapture:
         self._heard_signal = False
         self._silence_switch_after = _SILENCE_SWITCH_AFTER_S
         self._silence_switch_task: asyncio.Task | None = None
+        # The input of the open stream by name, and whether the person was told
+        # that it delivers nothing (so the first sound can take that back).
+        self._input_name = ""
+        self._silence_told = False
 
     def _service_gate(self) -> PermissionGate:
         """The injected gate, else the process service (resolved per call)."""
@@ -1101,6 +1408,11 @@ class MicrophoneCapture:
             self._zero_since = None
             self._silence_reported = False
             self._heard_signal = True
+            if self._silence_told:
+                self._silence_told = False
+                _publish_in_background(
+                    MicrophoneRecovered(source_layer="audio.capture", device=self._input_name)
+                )
         elif self._zero_since is None:
             self._zero_since = now
         elif (
@@ -1210,6 +1522,166 @@ class MicrophoneCapture:
                 pass
             self._drops += 1
 
+    def _open_blocking(
+        self,
+        call: _NativeCall,
+        device: int | str | None,
+        rate: int,
+        blocksize: int,
+    ) -> Any:
+        """Open and start one native stream. Blocking: runs on a worker thread.
+
+        The guard keeps this open out of the PortAudio re-init window of the
+        hot-swap watcher (BUG-102): a stream born between _terminate and
+        _initialize is a native fault. The open runs OFF the event loop so a
+        refresh holding the guard stalls only this open, never the whole loop.
+
+        Returns the started stream, already published as ``self._stream``, or
+        ``None`` when the capture stopped waiting meanwhile (``call`` is
+        abandoned): the stream is then closed here, because nobody else will.
+        """
+        with topology.stream_open_guard():
+            ending = _StreamEnding()
+            ends_itself = (
+                _END_FROM_CALLBACK and getattr(sd, "CallbackAbort", None) is not None
+            )
+
+            def _self_ending_callback(
+                indata: Any, frames: int, time_info: Any, status: Any
+            ) -> None:
+                if ending.in_callback():
+                    raise sd.CallbackAbort
+                self._callback(indata, frames, time_info, status)
+
+            if ends_itself:
+                opened = sd.InputStream(
+                    device=device,
+                    channels=self._channels,
+                    samplerate=rate,
+                    blocksize=blocksize,
+                    dtype=DTYPE,
+                    callback=_self_ending_callback,
+                    finished_callback=ending.finished.set,
+                )
+            else:
+                opened = sd.InputStream(
+                    device=device,
+                    channels=self._channels,
+                    samplerate=rate,
+                    blocksize=blocksize,
+                    dtype=DTYPE,
+                    callback=self._callback,
+                )
+            topology.register_native_stream(opened)
+            try:
+                opened.start()
+            except BaseException:
+                # The failed native stream must not leak — the
+                # outer candidate loop only sees the exception.
+                try:
+                    opened.close()
+                    topology.unregister_native_stream(opened)
+                except Exception:  # noqa: BLE001, S110 - preserve the original open failure
+                    pass
+                raise
+            if ends_itself and _ends_from_callback(opened):
+                ending.mark_started()
+                _STREAM_ENDINGS[id(opened)] = ending
+            with call.lock:
+                if not call.abandoned:
+                    # Publish before releasing the refresh guard. Otherwise
+                    # the watcher can miss this live stream while its async
+                    # caller is still waiting for the worker result.
+                    self._stream = opened
+                    call.published = True
+                    return opened
+        # Nobody waits for this stream any more: the wait ran out, or the
+        # capture was cancelled while it opened. Left alone it would run for
+        # the rest of the process and hold every device refresh back.
+        self._discard_stream(opened)
+        return None
+
+    @staticmethod
+    def _abandon_open(call: _NativeCall) -> bool:
+        """Stop waiting for an open. ``False``: its stream was already handed over."""
+        with call.lock:
+            if call.published:
+                return False
+            call.abandoned = True
+            return True
+
+    async def _open_native_stream(
+        self, device: int | str | None, rate: int, blocksize: int
+    ) -> Any:
+        """Open one native stream off the loop and never wait for it for ever.
+
+        Raises :class:`MicrophoneStuckError` when the audio system does not
+        answer within ``_OPEN_TIMEOUT_S``. That time counts from the oldest
+        call still outstanding, so an open that follows a stuck one fails at
+        once instead of queueing behind it. Every other failure of the open is
+        raised unchanged.
+        """
+        await self._wait_for_audio_system()
+        call = _NativeCall(_input_name_of(device))
+        task = asyncio.ensure_future(
+            asyncio.to_thread(self._open_blocking, call, device, rate, blocksize)
+        )
+        try:
+            done, _waiting = await asyncio.wait({task}, timeout=_OPEN_TIMEOUT_S)
+        except asyncio.CancelledError:
+            if self._abandon_open(call):
+                task.add_done_callback(_consume_result)
+            else:
+                # Handed over in the moment of the cancel. Whoever cancelled
+                # will not close a stream it never saw.
+                stream, self._stream = self._stream, None
+                if stream is not None:
+                    asyncio.get_running_loop().run_in_executor(
+                        None, self._discard_stream, stream
+                    )
+            raise
+        if done or not self._abandon_open(call):
+            return await task
+        _UNANSWERED.add(call)
+        task.add_done_callback(lambda done_task: _native_call_came_back(call, done_task))
+        _log.error(
+            "The audio system has not answered for the microphone '{}' for "
+            "{:.0f}s; no further open is started until it does.",
+            call.device_name,
+            call.age(),
+        )
+        await self._report_not_answering(call.device_name)
+        raise MicrophoneStuckError(call.device_name)
+
+    async def _wait_for_audio_system(self) -> None:
+        """Hold an open back while an earlier native call is still outstanding.
+
+        Returns as soon as none is. Raises :class:`MicrophoneStuckError` once
+        the oldest one has been out for ``_OPEN_TIMEOUT_S``.
+        """
+        while True:
+            call = _UNANSWERED.oldest()
+            if call is None:
+                return
+            if call.age() >= _OPEN_TIMEOUT_S:
+                await self._report_not_answering(call.device_name)
+                raise MicrophoneStuckError(call.device_name)
+            await asyncio.sleep(0.05)
+
+    async def _report_not_answering(self, device_name: str) -> None:
+        """Tell the person, once per episode, which microphone stopped answering."""
+        if not _UNANSWERED.report_once():
+            return
+        await _publish_quietly(
+            MicrophoneTrouble(
+                source_layer="audio.capture",
+                reason="not_answering",
+                device=device_name,
+                feature=self._permission_feature,
+                automatic=self._device_spec == "auto-headset",
+            )
+        )
+
     async def _try_open_stream(self, *, interactive: bool | None = None) -> None:
         """Open the preferred mic, then recover through safe alternatives.
 
@@ -1302,55 +1774,23 @@ class MicrophoneCapture:
                         capture_rate, self._sample_rate, self._channels
                     )
                 )
-                # The guard keeps this open out of the PortAudio re-init
-                # window of the hot-swap watcher (BUG-102): a stream born
-                # between _terminate and _initialize is a native fault. The
-                # open runs OFF the event loop so a refresh holding the
-                # guard stalls only this open, never the whole loop.
-                def _guarded_open(
-                    device: int | str | None, rate: int, blocksize: int
-                ) -> Any:
-                    with topology.stream_open_guard():
-                        opened = sd.InputStream(
-                            device=device,
-                            channels=self._channels,
-                            samplerate=rate,
-                            blocksize=blocksize,
-                            dtype=DTYPE,
-                            callback=self._callback,
-                        )
-                        topology.register_native_stream(opened)
-                        try:
-                            opened.start()
-                        except BaseException:
-                            # The failed native stream must not leak — the
-                            # outer candidate loop only sees the exception.
-                            try:
-                                opened.close()
-                                topology.unregister_native_stream(opened)
-                            except Exception:  # noqa: BLE001, S110 - preserve the original open failure
-                                pass
-                            raise
-                        # Publish before releasing the refresh guard. Otherwise
-                        # the watcher can miss this live stream while its async
-                        # caller is still waiting for the worker result.
-                        self._stream = opened
-                        return opened
-
-                stream = await asyncio.to_thread(
-                    _guarded_open, attempt, capture_rate, capture_blocksize
-                )
-                _remember_input_latency(stream)
-                self._device = attempt
                 # Every newly opened input is judged on its own: a microphone
                 # that worked before a device change says nothing about the
-                # one opened after it.
+                # one opened after it. Reset before the open, not after it:
+                # the new stream's first frames can arrive while the open is
+                # still returning, and what they show must not be wiped.
                 self._heard_signal = False
                 self._zero_since = None
                 self._silence_reported = False
-                self._silence_switch_after = _silence_switch_after_s(
-                    _input_name_of(attempt)
+                input_name = _input_name_of(attempt)
+                self._input_name = input_name
+                self._silence_switch_after = _silence_switch_after_s(input_name)
+                stream = await self._open_native_stream(
+                    attempt, capture_rate, capture_blocksize
                 )
+                _remember_input_latency(stream)
+                self._device = attempt
+                _remember_input_name(input_name)
                 self._using_physical_fallback = physical_fallback
                 if not physical_fallback:
                     self._preferred_device = attempt
@@ -1374,6 +1814,11 @@ class MicrophoneCapture:
                     DTYPE,
                 )
                 return
+            except MicrophoneStuckError:
+                # The audio system holds this open, and the open guard with it:
+                # another device would only wait behind it. Say so now.
+                self._using_physical_fallback = False
+                raise
             except Exception as exc:  # noqa: BLE001
                 last_error = exc
                 # ``InputStream`` can be constructed before ``start`` fails.
@@ -1593,10 +2038,24 @@ class MicrophoneCapture:
             _log.debug("Mic silence re-check failed; no notice published.", exc_info=True)
             return
         _log.warning(
-            "Mic delivered only digital silence for {:.0f}s while access reads as "
-            "granted (denied or muted input).",
+            "Mic '{}' delivered only digital silence for {:.0f}s while access reads "
+            "as granted (denied or muted input).",
+            self._input_name,
             _SILENCE_REPORT_AFTER_S,
         )
+        if _silence_may_be_told(self._input_name, by_gesture=self._interactive):
+            # Which microphone it is, so the person can unmute it or pick
+            # another one: the permission notice below cannot say that.
+            self._silence_told = True
+            await _publish_quietly(
+                MicrophoneTrouble(
+                    source_layer="audio.capture",
+                    reason="silent",
+                    device=self._input_name,
+                    feature=self._permission_feature,
+                    automatic=self._device_spec == "auto-headset",
+                )
+            )
         try:
             from dodaios.core.bus import get_default_bus  # noqa: PLC0415 - only on this rare path
 
@@ -1668,14 +2127,23 @@ class MicrophoneCapture:
         thread; the coroutine waits a short grace so the normal case keeps its
         ordering, then moves on and lets the thread finish alone.
         """
+        call = _NativeCall(_input_name_of(getattr(stream, "device", None)))
         task = asyncio.create_task(asyncio.to_thread(cls._discard_stream, stream))
         done, _pending = await asyncio.wait({task}, timeout=cls._DISCARD_GRACE_S)
         if done:
             return
-        # Left running on purpose. Consume the eventual result so a failure in
-        # a stream we already gave up on cannot surface as a stray "task
+        # Left running on purpose. Its eventual result is consumed so a failure
+        # in a stream we already gave up on cannot surface as a stray "task
         # exception was never retrieved".
-        task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
+        if _CLOSE_HOLDS_DEVICE:
+            # The next open of this device would wait behind this close. Until
+            # it comes back no open is started (see ``_wait_for_audio_system``).
+            _UNANSWERED.add(call)
+            task.add_done_callback(
+                lambda done_task: _native_call_came_back(call, done_task)
+            )
+        else:
+            task.add_done_callback(_consume_result)
         _log.warning(
             "Mic discard is still blocked after {:.0f}s (native close wedged) — "
             "continuing without it; the event loop stays responsive.",
@@ -1691,9 +2159,16 @@ class MicrophoneCapture:
         leave ``stop()`` blocked for minutes after an endpoint transition.
         The ``stop`` fallback keeps lightweight test doubles compatible.
 
+        A stream that ends itself (macOS, see ``_END_FROM_CALLBACK``) is asked
+        to do so first; the abort below then finds it stopped and has nothing
+        to wait for.
+
         Blocking by nature — callers ON the event loop must go through
         :meth:`_discard_stream_off_loop`.
         """
+        ending = _STREAM_ENDINGS.pop(id(stream), None)
+        if ending is not None and not ending.end():
+            _log.debug("Mic discard: the stream did not end itself; stopping it from here.")
         discard_method = "abort"
         try:
             abort = getattr(stream, "abort", None)

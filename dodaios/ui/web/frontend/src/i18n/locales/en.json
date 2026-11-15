@@ -690,6 +690,7 @@
       "rejected": "Speech recognition could not process this recording.",
       "engine_busy": "Speech recognition was still busy — try again in a moment.",
       "recording_interrupted": "The recording ended before you stopped it.",
+      "no_microphone": "The microphone did not answer, so nothing was recorded. Restart Dodaios to be heard again.",
       "no_stt": "No speech recognition is set up yet.",
       "unknown": "Speech recognition failed."
     },
@@ -3078,6 +3079,16 @@
     "effective": "The Tool Model runs",
     "cleared": "Tool Model reset to your main model",
     "vision_note": "Only models that can see images are listed - Computer-Use reads the screen from screenshots, so a text-only model cannot run it."
+  },
+  "microphone_notice": {
+    "not_answering": "The audio system stopped answering for the microphone \"{device}\", so Dodaios cannot hear you. A restart fixes it: Dodaios restarts by itself as soon as nothing is running.",
+    "not_answering_unnamed": "The audio system stopped answering for the microphone, so Dodaios cannot hear you. A restart fixes it: Dodaios restarts by itself as soon as nothing is running.",
+    "silent": "No sound is coming from the microphone \"{device}\". It is muted, or it is the wrong one.",
+    "silent_unnamed": "No sound is coming from the microphone. It is muted, or it is the wrong one.",
+    "action": {
+      "restart": "Restart now",
+      "choose": "Choose microphone"
+    }
   },
   "permissions": {
     "restart_failed": "Dodaios could not restart. Quit and reopen it manually.",
