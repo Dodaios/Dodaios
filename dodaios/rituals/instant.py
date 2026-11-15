@@ -123,6 +123,7 @@ async def run(call: Mapping[str, Any], *, sentence: str) -> tuple[bool, str]:
             timeout=CALL_TIMEOUT_S,
         )
     except TimeoutError:
+        log.info("rituals: call %s gave no answer in %.0f s", call.get("tool"), CALL_TIMEOUT_S)
         return False, f"{label}: no answer in time"
     except Exception as exc:  # noqa: BLE001 — the step goes to a turn, with the reason kept
         log.warning("rituals: call %s failed", call.get("tool"), exc_info=True)

@@ -121,6 +121,56 @@ Pause, resume, delete or run-now one agent routine on user request.
 - **Desktop UI section:** `agents`
 - **Voice example (EN):** "pause the morning briefing"
 
+## `ritual-list` — List the user's rituals
+
+A ritual is a sequence the user wrote beforehand and starts by SAYING a short phrase after the wake word, or typing it ('Good morning': music starts, the news and their pull requests are there). Use it, not a routine or a skill, whenever something should happen when the user says something. A routine runs by the clock instead. Lists every ritual with its phrases, steps, times and where it stands today (gathered, started). Read it before changing one.
+
+- **Endpoint:** `GET /api/agent-chat/lead/rituals`
+- **Arguments:** none
+- **Requires confirmation:** no
+- **Desktop UI section:** `chats`
+- **Voice example (EN):** "which rituals do i have"
+
+## `ritual-create` — Write a ritual for the user
+
+A ritual is a sequence the user wrote beforehand and starts by SAYING a short phrase after the wake word, or typing it ('Good morning': music starts, the news and their pull requests are there). Use it, not a routine or a skill, whenever something should happen when the user says something. A routine runs by the clock instead. Write the steps as the user said them, one sentence each, and sort them: 'ahead' for what can be found out beforehand, 'now' for what must happen at that moment. Do not run the steps now. The result reads back the stored ritual; tell the user the phrase that starts it. A refusal names what to change (a phrase another ritual uses, a time).
+
+- **Endpoint:** `POST /api/agent-chat/lead/rituals`
+- **Arguments:** `name` (string; required); `phrases` (array; required); `steps` (array; required); `window_from` (string; optional); `window_to` (string; optional); `weekdays` (array; optional); `once_per_day` (boolean; optional); `prepare_from` (string; optional)
+- **Requires confirmation:** no
+- **Desktop UI section:** `chats`
+- **Voice example (EN):** "set up a ritual for good morning"
+
+## `ritual-update` — Change a ritual
+
+Change a ritual: send only what changes. 'steps' replaces the whole list, so read the ritual with ritual-list first and keep each step's id that stays. 'enabled' switches it on or off.
+
+- **Endpoint:** `PATCH /api/agent-chat/lead/rituals/{ritual_id}`
+- **Arguments:** `ritual_id` (string; required); `name` (string; optional); `phrases` (array; optional); `steps` (array; optional); `window_from` (string; optional); `window_to` (string; optional); `weekdays` (array; optional); `once_per_day` (boolean; optional); `prepare_from` (string; optional); `enabled` (boolean; optional)
+- **Requires confirmation:** no
+- **Desktop UI section:** `chats`
+- **Voice example (EN):** "take the news out of my morning ritual"
+
+## `ritual-remove` — Remove a ritual
+
+Remove one ritual for good, on the user's request.
+
+- **Endpoint:** `DELETE /api/agent-chat/lead/rituals/{ritual_id}`
+- **Arguments:** `ritual_id` (string; required)
+- **Requires confirmation:** yes
+- **Desktop UI section:** `chats`
+- **Voice example (EN):** "delete my morning ritual"
+
+## `ritual-run` — Start a ritual now
+
+Start one of the user's rituals now, when they ask for it by name instead of saying its phrase ('start my morning ritual'). It runs whatever the clock says. Its card appears in the conversation; if 'pending' is true, what it gathers follows there shortly, so do not gather it yourself.
+
+- **Endpoint:** `POST /api/agent-chat/lead/rituals/{ritual_id}/run`
+- **Arguments:** `ritual_id` (string; required)
+- **Requires confirmation:** no
+- **Desktop UI section:** `chats`
+- **Voice example (EN):** "start my morning ritual"
+
 ## `brain-switch` — Switch brain provider
 
 Switch the ACTIVE main brain (LLM) provider, e.g. from openai to claude-api. Reversible; validated against the provider catalog and stored credentials.
