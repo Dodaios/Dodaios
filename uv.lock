@@ -1126,7 +1126,7 @@ wheels = [
 
 [[package]]
 name = "dodaios"
-version = "5.3.3"
+version = "5.3.4"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
