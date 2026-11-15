@@ -2,18 +2,21 @@ import { Fragment, useEffect, useMemo, useRef, useState, type DragEvent, type Re
 import { Archive, ArchiveRestore, Check, ChevronDown, ChevronRight, Columns2, Folder, FolderOpen, FolderPlus, GitBranch, Hash, Loader2, MessageCircleQuestion, MoreHorizontal, Pencil, Plus, ShieldQuestion, SquarePen, SquarePlus, Trash2, X } from "lucide-react";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { patchAgentChatSession, type AgentChatSession } from "@/lib/agentChatApi";
-import type { IdeProject } from "@/lib/agenticIdeApi";
+import { removeWorkspace, renameWorkspace, type IdeProject } from "@/lib/agenticIdeApi";
 import { cn } from "@/lib/utils";
 import { fill, useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
 import { useEventStore } from "@/store/events";
 import { useIdeProjectsStore } from "@/store/ideProjects";
-import { reorderProjects } from "@/lib/chatLibraryApi";
+import { ChatLibraryError, deleteProject, openProject, openProjectIn, patchProject, reorderProjects, revealProject } from "@/lib/chatLibraryApi";
+import { robustCopy } from "@/lib/clipboard";
 import { PROJECT_DRAG_MIME, projectNeighbour, projectOrderAfterMove, reorderErrorMessage, sortByIds } from "../projectOrder";
+import { cachedLaunchers, loadLaunchers, revealErrorMessage } from "../projectLaunchers";
 import { MAX_THREAD_COLUMNS, TEAM_DRAFT, useIdeThreadsStore } from "@/store/ideThreads";
 import { useTeamThreads, type TeamThreadRow } from "@/lib/teamThreadsApi";
 import { openSubagentOf, useThreadSubagentsStore } from "@/store/threadSubagents";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "./ThreadPopover";
+import { ProjectMenu, type ProjectMenuActions } from "./ProjectMenu";
 import { SubagentFoldToggle, ThreadTreeSubagents } from "./ThreadTreeSubagents";
 import { ThreadPullRequests } from "./ThreadPullRequests";
 import { ThreadSearch } from "./ThreadSearch";
@@ -199,6 +202,11 @@ export function ThreadTree() {
   const subagentRows = useThreadSubagentsStore((state) => state.rows);
   const openSubagent = useThreadSubagentsStore((state) => openSubagentOf(state.open, selection.sessionId));
   const menuAnchor = useRef<HTMLElement | null>(null);
+  // A project's own menu: right-click on its row (at the pointer) or its ⋯ button (under it).
+  const [projectMenu, setProjectMenu] = useState<{ projectId: string; point: { x: number; y: number } | null } | null>(null);
+  const projectMenuAnchor = useRef<HTMLElement | null>(null);
+  const [renamingProject, setRenamingProject] = useState<{ id: string; name: string } | null>(null);
+  const [projectBusy, setProjectBusy] = useState<string | null>(null);
 
   useEffect(() => {
     const store = useThreadChatStore.getState();
@@ -297,6 +305,83 @@ export function ThreadTree() {
     }
   };
 
+  /** Renames or pins a project, then reads the list back. */
+  const patchProjectRow = async (project: IdeProject, changes: { pinned?: boolean; name?: string }) => {
+    if (projectBusy) return;
+    setProjectBusy(project.id);
+    try {
+      try {
+        await patchProject(project.id, changes);
+      } catch (error) {
+        if (!(error instanceof ChatLibraryError) || error.status !== 404) throw error;
+        // A project known only from its workspaces has no library row yet:
+        // register the folder once, then apply the same change.
+        await openProject(project.path);
+        await patchProject(project.id, changes);
+      }
+      // The workspace layout shows a one-workspace project as one row; its
+      // workspace keeps the project's name so that row does not split.
+      const solo = project.workspaces.length === 1 ? project.workspaces[0] : null;
+      if (changes.name && solo?.status === "open" && solo.name.trim().toLowerCase() === project.name.trim().toLowerCase()) {
+        await renameWorkspace(solo.id, changes.name);
+      }
+      useIdeProjectsStore.getState().requestRefresh();
+    } catch (error) {
+      pushToast("error", error instanceof Error ? error.message : String(error));
+    } finally {
+      setProjectBusy(null);
+    }
+  };
+
+  const renameProject = (project: IdeProject, name: string) => {
+    const clean = name.trim();
+    setRenamingProject(null);
+    if (clean && clean !== project.name) void patchProjectRow(project, { name: clean });
+  };
+
+  /**
+   * Takes a project out of the sidebar. Its open workspaces close first (the
+   * list derives a project from every workspace, so it would come straight
+   * back); the folder and the threads' conversations stay where they are.
+   */
+  const removeProject = async (project: IdeProject): Promise<boolean> => {
+    setProjectBusy(project.id);
+    try {
+      for (const workspace of project.workspaces) await removeWorkspace(workspace.id);
+      await deleteProject(project.id);
+      useIdeProjectsStore.getState().requestRefresh();
+      return true;
+    } catch (error) {
+      pushToast("error", error instanceof Error ? error.message : String(error));
+      return false;
+    } finally {
+      setProjectBusy(null);
+    }
+  };
+
+  const projectActions: ProjectMenuActions = {
+    newThread: (project) => { setProjectOpen(project.id, true); newThread(project.id); },
+    newTeam: (project) => { setProjectOpen(project.id, true); newTeam(project.id); },
+    openIn: async (project, target, label) => {
+      // A cold editor can take seconds to draw its first window: say at once that the click landed.
+      pushToast("info", fill(t("ide_projects.opening"), { label }));
+      try {
+        if (!(await openProjectIn(project.id, target))) pushToast("error", fill(t("ide_projects.open_failed"), { label }));
+      } catch (error) { pushToast("error", revealErrorMessage(error)); }
+    },
+    reveal: async (project) => {
+      try { await revealProject(project.id); }
+      catch (error) { pushToast("error", revealErrorMessage(error)); }
+    },
+    copyPath: async (project) => {
+      const copied = await robustCopy(project.path);
+      pushToast(copied ? "success" : "error", t(copied ? "ide_projects.path_copied" : "ide_projects.path_copy_failed"));
+    },
+    rename: (project) => setRenamingProject({ id: project.id, name: project.name }),
+    togglePin: (project) => void patchProjectRow(project, { pinned: !project.pinned }),
+    remove: removeProject,
+  };
+
   /** A new thread or team goes into the project in view, else the first one; with none, a folder is connected first. */
   const startIn = (start: (projectId: string) => void) => {
     const current = visible.find((project) => project.id === selection.projectId);
@@ -325,8 +410,20 @@ export function ThreadTree() {
       const rect = event.currentTarget.getBoundingClientRect();
       return event.clientY - rect.top < rect.height / 2;
     };
+    const menuOpenHere = projectMenu?.projectId === project.id;
+    const renamingHere = renamingProject?.id === project.id;
     return <div key={project.id} className="mb-px" data-testid={`thread-project-${project.id}`}>
-      <div draggable={!reordering} data-testid={`thread-project-header-${project.id}`}
+      <div draggable={!reordering && !renamingHere} data-testid={`thread-project-header-${project.id}`}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          // Keep the app-wide edit menu (EditContextMenu) from opening on top.
+          event.stopPropagation();
+          if (renamingHere) return;
+          projectMenuAnchor.current = event.currentTarget;
+          setProjectMenu({ projectId: project.id, point: { x: event.clientX, y: event.clientY } });
+        }}
+        // The menu's editor rows are read while the pointer is on the way to it.
+        onPointerEnter={() => { if (!cachedLaunchers(project.id)) void loadLaunchers(project.id); }}
         onDragStart={(event) => {
           if (reordering) { event.preventDefault(); return; }
           event.dataTransfer.setData(PROJECT_DRAG_MIME, project.id);
@@ -356,9 +453,23 @@ export function ThreadTree() {
           void moveProject(sourceId, project.id, before);
         }}
         className={cn("group relative flex min-h-8 items-center rounded-md pr-1 transition-colors hover:bg-muted",
+          menuOpenHere && "bg-muted",
           draggedProject === project.id && "opacity-40",
           dropBefore && "before:absolute before:-top-0.5 before:left-2 before:right-2 before:h-0.5 before:rounded-full before:bg-primary",
           dropAfter && "after:absolute after:-bottom-0.5 after:left-2 after:right-2 after:h-0.5 after:rounded-full after:bg-primary")}>
+        {renamingHere ? <form className="flex min-h-8 min-w-0 flex-1 items-center gap-1 pl-[30px]"
+          onSubmit={(event) => { event.preventDefault(); renameProject(project, renamingProject.name); }}>
+          <input autoFocus aria-label={fill(t("ide_projects.rename_named"), { target: project.name })} value={renamingProject.name} maxLength={80}
+            data-testid={`thread-project-rename-${project.id}`}
+            onFocus={(event) => event.currentTarget.select()}
+            onChange={(event) => setRenamingProject({ id: project.id, name: event.target.value })}
+            onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); setRenamingProject(null); } }}
+            onBlur={() => renameProject(project, renamingProject.name)}
+            className="min-w-0 flex-1 rounded border border-input bg-background px-2 py-1 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring" />
+          <button type="submit" aria-label={fill(t("ide_projects.save_named"), { target: project.name })} className="rounded p-1 text-muted-foreground hover:text-foreground"><Check className="h-4 w-4" /></button>
+          <button type="button" aria-label={t("ide_threads.cancel_renaming")} onMouseDown={(event) => event.preventDefault()} onClick={() => setRenamingProject(null)}
+            className="rounded p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+        </form> : <>
         <button type="button" aria-expanded={open} aria-label={fill(t(open ? "ide_projects.collapse_named" : "ide_projects.expand_named"), { target: project.name })}
           onClick={() => setProjectOpen(project.id, !open)}
           onKeyDown={(event) => {
@@ -374,7 +485,9 @@ export function ThreadTree() {
             ? <FolderOpen aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
             : <Folder aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />}
           <span className="min-w-0 flex-1 truncate">{project.name}</span>
-          {!open && running > 0 && <Loader2 aria-label={fill(t("ide_threads.count_working"), { count: running })} className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />}
+          {projectBusy === project.id
+            ? <Loader2 aria-hidden className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+            : !open && running > 0 && <Loader2 aria-label={fill(t("ide_threads.count_working"), { count: running })} className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />}
         </button>
         <button type="button" aria-label={fill(t("ide_threads.new_thread_in"), { project: project.name })} title={t("ide_threads.new_thread")}
           data-testid={`thread-new-${project.id}`}
@@ -388,6 +501,16 @@ export function ThreadTree() {
           className={HOVER_ACTION}>
           <TeamThreadIcon className="h-3.5 w-3.5" />
         </button>
+        <button type="button" aria-label={fill(t("ide_projects.project_actions_for"), { target: project.name })} title={t("ide_projects.project_actions")}
+          aria-haspopup="menu" aria-expanded={menuOpenHere} data-testid={`thread-project-more-${project.id}`}
+          onClick={(event) => {
+            projectMenuAnchor.current = event.currentTarget;
+            setProjectMenu(menuOpenHere ? null : { projectId: project.id, point: null });
+          }}
+          className={cn(HOVER_ACTION, menuOpenHere && "opacity-100")}>
+          <MoreHorizontal className="h-3.5 w-3.5" />
+        </button>
+        </>}
       </div>
       {open && <div className="mb-2 flex flex-col gap-px">
         {teamDraftHere && <div aria-current="page" className={cn(ROW, "bg-muted text-muted-foreground")}>
@@ -622,6 +745,11 @@ export function ThreadTree() {
     </SectionLabel>
     {visible.filter((project) => !project.pinned).map(projectRow)}
     {visible.length === 0 && <p className="px-2 py-2 text-sm text-muted-foreground">{t("ide_projects.empty")}</p>}
+
+    <ProjectMenu anchor={projectMenuAnchor} point={projectMenu?.point ?? null}
+      project={projectMenu ? visible.find((project) => project.id === projectMenu.projectId) ?? null : null}
+      threads={projectMenu ? (grouped.get(projectMenu.projectId) ?? []).filter((thread) => !(thread.session_id in archived)) : []}
+      busy={projectBusy !== null} actions={projectActions} onClose={() => setProjectMenu(null)} />
 
     <ThreadPopover anchor={menuAnchor} open={menu !== null && menuSession !== null} onClose={() => { setMenu(null); setConfirmDelete(null); }}
       label={t("ide_threads.thread_actions")} width={250}>

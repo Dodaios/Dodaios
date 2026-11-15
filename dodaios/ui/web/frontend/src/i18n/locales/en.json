@@ -10453,6 +10453,13 @@
     "signin_not_yet": "— installing does not connect anything yet."
   },
   "ide_threads": {
+    "remove_project": "Remove project",
+    "remove_project_title": "Remove {project} from the sidebar?",
+    "remove_project_body_none": "The folder on disk stays untouched; add it again to bring the project back.",
+    "remove_project_body_one": "Its thread leaves the list with it. The folder on disk and the conversation stay; add the folder again to bring them back.",
+    "remove_project_body_other": "Its {count} threads leave the list with it. The folder on disk and the conversations stay; add the folder again to bring them back.",
+    "remove_project_stops": "It also stops {agents} in {workspaces}.",
+    "remove": "Remove",
     "header": {
       "label": "Thread: {thread}",
       "review_changes": "Review changes",

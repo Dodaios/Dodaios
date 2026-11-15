@@ -10453,6 +10453,13 @@
     "signin_not_yet": "— die Installation verbindet noch nichts."
   },
   "ide_threads": {
+    "remove_project": "Projekt entfernen",
+    "remove_project_title": "{project} aus der Seitenleiste entfernen?",
+    "remove_project_body_none": "Der Ordner auf der Festplatte bleibt unberührt; füge ihn wieder hinzu, um das Projekt zurückzuholen.",
+    "remove_project_body_one": "Sein Thread verschwindet mit aus der Liste. Der Ordner auf der Festplatte und das Gespräch bleiben; füge den Ordner wieder hinzu, um beides zurückzuholen.",
+    "remove_project_body_other": "Seine {count} Threads verschwinden mit aus der Liste. Der Ordner auf der Festplatte und die Gespräche bleiben; füge den Ordner wieder hinzu, um alles zurückzuholen.",
+    "remove_project_stops": "Außerdem werden {agents} in {workspaces} beendet.",
+    "remove": "Entfernen",
     "header": {
       "label": "Thread: {thread}",
       "review_changes": "Änderungen prüfen",
