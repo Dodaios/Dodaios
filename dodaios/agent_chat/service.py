@@ -4348,8 +4348,8 @@ class AgentChatService:
     ) -> bool:
         """The person's answer to a plan card: ``build`` or ``keep``.
 
-        ``build`` moves the session to the mode its permission pill names
-        (:func:`mode_after_plan`; the mode the card offered when the session
+        ``build`` moves a session that is still in Plan to the mode its
+        permission pill names (the mode the card offered when the session
         recorded none) and sends the go-ahead as the next message; ``keep``
         only closes the card, so the person can tell the agent what to
         change. False when the card is not open (any more).
@@ -4367,18 +4367,12 @@ class AgentChatService:
             if decision == turn_prompts.PLAN_KEEP:
                 return True
             session = self.store.get_session(session_id)
-            # The pill may have changed since the card opened, and a session
+            # The pill may have moved since the card opened, and a session
             # the person already took out of Plan keeps the mode they picked.
-            build = (
-                mode_after_plan(
-                    ladder_key(session.surface, session_runner(session)),
-                    session.permission_mode,
-                    session.build_mode or card.build_mode,
-                )
-                if session is not None
-                else ""
-            )
-            if session is not None and build and session.permission_mode != build:
+            build = ""
+            if session is not None and session.permission_mode in PLAN_MODES:
+                build = session.build_mode or card.build_mode
+            if session is not None and build and build not in PLAN_MODES:
                 self.store.update_session(session_id, permission_mode=build)
                 await self._emit(
                     session_id,

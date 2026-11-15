@@ -173,21 +173,24 @@ def _kinds(svc: AgentChatService, sid: str, kind: str) -> list[dict[str, Any]]:
 def test_a_new_thread_in_plan_takes_the_pill_s_mode(tmp_path: Path) -> None:
     svc = AgentChatService(AgentChatStore(":memory:"))
 
+    # Codex: its runner, and so its ladder, is the same on every machine.
     def create(mode: str, build: str) -> Any:
         return svc.create_session(
-            provider="claude-api",
+            provider="openai-codex",
             cwd=str(tmp_path),
             permission_mode=mode,
             build_mode=build,
             surface="agent",
         )
 
-    assert create("plan", "default").build_mode == "default"
-    # A mode the ladder dropped folds onto the same stance.
+    assert create("plan", "approve-for-me").build_mode == "approve-for-me"
+    # A mode from another ladder folds onto the same stance, never onto more.
     assert create("plan", "acceptEdits").build_mode == "auto"
+    assert create("plan", "default").build_mode == "approve-for-me"
     # Plan is no build mode, and a thread that does not plan has none.
     assert create("plan", "plan").build_mode == ""
-    assert create("default", "bypassPermissions").build_mode == ""
+    assert create("plan", "read-only").build_mode == ""
+    assert create("auto", "full-access").build_mode == ""
 
 
 def test_the_plan_card_offers_the_pill_s_mode_not_the_default(tmp_path: Path) -> None:
@@ -249,46 +252,41 @@ def _chat_app(tmp_path: Path) -> tuple[FastAPI, AgentChatService]:
 def test_the_composer_tells_the_thread_where_build_returns_to(tmp_path: Path) -> None:
     app, service = _chat_app(tmp_path)
     with TestClient(app) as client:
+        # Codex: its runner, and so its ladder, is the same on every machine.
         created = client.post(
             "/api/agent-chat/sessions",
             json={
-                "provider": "claude-api",
+                "provider": "openai-codex",
                 "cwd": str(tmp_path),
                 "permission_mode": "plan",
-                "build_mode": "default",
+                "build_mode": "approve-for-me",
                 "surface": "agent",
             },
         )
         assert created.status_code == 201, created.text
         sid = created.json()["session_id"]
-        assert created.json()["build_mode"] == "default"
+        assert created.json()["build_mode"] == "approve-for-me"
 
         # A pick on the pill while Plan is on reaches the session.
         url = f"/api/agent-chat/sessions/{sid}"
-        picked = client.patch(url, json={"build_mode": "bypassPermissions"}).json()
-        assert (picked["permission_mode"], picked["build_mode"]) == ("plan", "bypassPermissions")
-        assert _events(service, sid)[-1] == {"build_mode": "bypassPermissions"}
+        picked = client.patch(url, json={"build_mode": "full-access"}).json()
+        assert (picked["permission_mode"], picked["build_mode"]) == ("plan", "full-access")
+        assert _events(service, sid)[-1] == {"build_mode": "full-access"}
 
         # Plan off: the thread is in the pill's mode and has nothing to return to.
-        off = client.patch(url, json={"permission_mode": "bypassPermissions"}).json()
-        assert (off["permission_mode"], off["build_mode"]) == ("bypassPermissions", "")
-        assert _events(service, sid)[-1] == {
-            "permission_mode": "bypassPermissions",
-            "build_mode": "",
-        }
+        off = client.patch(url, json={"permission_mode": "full-access"}).json()
+        assert (off["permission_mode"], off["build_mode"]) == ("full-access", "")
+        assert _events(service, sid)[-1] == {"permission_mode": "full-access", "build_mode": ""}
         # Outside Plan a build mode means nothing and is not kept.
-        ignored = client.patch(url, json={"build_mode": "default"}).json()
-        assert (ignored["permission_mode"], ignored["build_mode"]) == ("bypassPermissions", "")
+        ignored = client.patch(url, json={"build_mode": "approve-for-me"}).json()
+        assert (ignored["permission_mode"], ignored["build_mode"]) == ("full-access", "")
 
         # Plan on: the mode it had is where Build returns to, and the composer hears it.
         on = client.patch(url, json={"permission_mode": "plan"}).json()
-        assert (on["permission_mode"], on["build_mode"]) == ("plan", "bypassPermissions")
-        assert _events(service, sid)[-1] == {
-            "permission_mode": "plan",
-            "build_mode": "bypassPermissions",
-        }
+        assert (on["permission_mode"], on["build_mode"]) == ("plan", "full-access")
+        assert _events(service, sid)[-1] == {"permission_mode": "plan", "build_mode": "full-access"}
         # Plan on together with the pill's mode.
-        client.patch(url, json={"permission_mode": "default"})
+        client.patch(url, json={"permission_mode": "approve-for-me"})
         both = client.patch(url, json={"permission_mode": "plan", "build_mode": "auto"}).json()
         assert (both["permission_mode"], both["build_mode"]) == ("plan", "auto")
 
