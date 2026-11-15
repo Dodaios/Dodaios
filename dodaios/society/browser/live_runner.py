@@ -783,7 +783,10 @@ class Worker:
             window_title = await asyncio.to_thread(self.native.title)
             candidates = []
             for page in self.tabs.values():
-                title = await page.title()
+                try:
+                    title = await page.title()
+                except Exception:  # navigating: no title for a moment, visibility decides below
+                    title = ""
                 if title and (window_title == title or window_title.startswith(title + " - ")):
                     candidates.append(page)
             # Chrome's internal new-tab content can report visible even when
@@ -797,7 +800,7 @@ class Worker:
                 # instead of failing a single-tab run as "ambiguous".
                 visible = []
                 for page in candidates or list(self.tabs.values()):
-                    if await page.evaluate("document.visibilityState === 'visible'"):
+                    if await self.shown(page):
                         visible.append(page)
                 if len(visible) == 1:
                     self.page = visible[0]
@@ -808,6 +811,24 @@ class Worker:
         if self.page is None or self.page.is_closed():
             self.page = next(iter(self.tabs.values()), None)
         return self.page
+
+    async def shown(self, page: Any) -> bool:
+        """Whether this tab is the one the window shows.
+
+        A page that is just navigating (a form submit, an upload) has no
+        document to ask for a moment, and the question fails. It is asked
+        again instead of failing the agent's step: since a tab's id is no
+        longer looked up before every question, this one comes that early.
+        """
+        for wait in (0.05, 0.1, 0.2, 0.4, None):
+            try:
+                return bool(await page.evaluate("document.visibilityState === 'visible'"))
+            except Exception:
+                if wait is None or page.is_closed():
+                    raise
+                logging.getLogger(__name__).debug("Tab is navigating; asking again")
+                await asyncio.sleep(wait)
+        return False
 
     async def switch_stream(self, page: Any, target: str) -> None:
         if self.cdp:

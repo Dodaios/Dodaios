@@ -286,3 +286,42 @@ async def test_a_fast_page_load_is_finished_when_the_input_returns(worker):
 )
 def test_the_agent_opens_websites_only(runner, proposal, scheme):
     assert runner.internal_address(proposal) == scheme
+
+
+async def test_a_tab_that_is_just_navigating_is_asked_again(worker):
+    """A real Chrome window: the visible tab is found though its page is mid-navigation."""
+    answers: list = [RuntimeError("Execution context was destroyed"), True]
+
+    async def evaluate(_script: str):
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    async def title() -> str:
+        return "Upload fixture"
+
+    worker.page.evaluate = evaluate
+    worker.page.title = title
+    # The window's caption still names the page before the navigation.
+    worker.native = SimpleNamespace(title=lambda: "Live browser fixture - Chrome", failed=False)
+    assert await worker.focused(strict_native=True) is worker.page
+    assert answers == []
+
+
+async def test_a_tab_that_never_answers_still_fails_the_question(worker, runner, monkeypatch):
+    async def no_wait(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(runner.asyncio, "sleep", no_wait)
+    asked = 0
+
+    async def evaluate(_script: str):
+        nonlocal asked
+        asked += 1
+        raise RuntimeError("Execution context was destroyed")
+
+    worker.page.evaluate = evaluate
+    with pytest.raises(RuntimeError, match="Execution context"):
+        await worker.shown(worker.page)
+    assert asked == 5
