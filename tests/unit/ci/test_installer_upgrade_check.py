@@ -219,7 +219,7 @@ def test_the_deadline_writes_what_was_stuck_and_ends_the_run(tmp_path):
 _STAND_IN_APP = '''\
 #!{python}
 """A stand-in for the installed app: --version, and serve with the two probes."""
-import http.server, json, os, sys, tomllib
+import http.server, json, os, socketserver, sys, tomllib
 from pathlib import Path
 
 VERSION = "{version}"
@@ -254,7 +254,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
         pass
 
 
-http.server.HTTPServer(("127.0.0.1", port), Handler).serve_forever()
+class Server(http.server.HTTPServer):
+    # HTTPServer looks up the host's full name on bind (socket.getfqdn). On
+    # the hosted macOS runners that reverse lookup took longer than the 30 s
+    # boot window, so the stand-in never answered. The name is not needed.
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = "127.0.0.1", self.server_address[1]
+
+
+Server(("127.0.0.1", port), Handler).serve_forever()
 '''
 
 
