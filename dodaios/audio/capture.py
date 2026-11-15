@@ -1774,21 +1774,23 @@ class MicrophoneCapture:
                         capture_rate, self._sample_rate, self._channels
                     )
                 )
+                # Every newly opened input is judged on its own: a microphone
+                # that worked before a device change says nothing about the
+                # one opened after it. Reset before the open, not after it:
+                # the new stream's first frames can arrive while the open is
+                # still returning, and what they show must not be wiped.
+                self._heard_signal = False
+                self._zero_since = None
+                self._silence_reported = False
+                input_name = _input_name_of(attempt)
+                self._input_name = input_name
+                self._silence_switch_after = _silence_switch_after_s(input_name)
                 stream = await self._open_native_stream(
                     attempt, capture_rate, capture_blocksize
                 )
                 _remember_input_latency(stream)
                 self._device = attempt
-                # Every newly opened input is judged on its own: a microphone
-                # that worked before a device change says nothing about the
-                # one opened after it.
-                self._heard_signal = False
-                self._zero_since = None
-                self._silence_reported = False
-                input_name = _input_name_of(attempt)
                 _remember_input_name(input_name)
-                self._input_name = input_name
-                self._silence_switch_after = _silence_switch_after_s(input_name)
                 self._using_physical_fallback = physical_fallback
                 if not physical_fallback:
                     self._preferred_device = attempt

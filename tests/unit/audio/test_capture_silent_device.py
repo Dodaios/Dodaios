@@ -267,7 +267,8 @@ async def test_a_capture_leaves_an_input_that_delivers_only_zeros(
 
         assert second.kwargs["device"] == 2, "the built-in microphone comes next"
         assert first.closed
-        assert mic._device == 2
+        # ``starts`` grows inside the open, before the capture takes the stream.
+        await _wait_for(lambda: mic._device == 2)
 
         # What the next microphone hears reaches the consumer.
         frames = mic.stream()
@@ -406,7 +407,7 @@ async def test_after_a_device_change_the_new_input_is_judged_afresh(
 
         await asyncio.wait_for(_zeros_until_left(), timeout=3.0)
         assert audio.starts[2].kwargs["device"] == 0
-        assert mic._device == 0
+        await _wait_for(lambda: mic._device == 0)
 
     assert capture._input_known_silent(EXTERNAL, devices)
 
@@ -474,10 +475,17 @@ def _only_the_built_in() -> list[dict]:
 async def _silent_capture(
     audio: FakeAudioInput, mic: capture.MicrophoneCapture, told: Callable[[], bool]
 ) -> None:
-    """Run ``mic`` on zeros until ``told()``, or for half a second."""
+    """Run ``mic`` on zeros until ``told()``, or for half a second.
+
+    Measured by the clock, not by passes: on Windows a 10 ms sleep can come
+    back at once (its loop clock ticks every 15.6 ms), so fifty passes may
+    take no time at all and the silence would never last long enough.
+    """
+    loop = asyncio.get_running_loop()
     async with mic:
         stream = audio.starts[-1]
-        for _ in range(50):
+        deadline = loop.time() + 0.5
+        while loop.time() < deadline:
             stream.callback(_ZERO_FRAME, capture.BLOCKSIZE, None, None)
             await asyncio.sleep(0.01)
             if told():
