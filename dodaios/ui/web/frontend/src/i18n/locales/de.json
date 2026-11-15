@@ -690,6 +690,7 @@
       "rejected": "Die Spracherkennung konnte diese Aufnahme nicht verarbeiten.",
       "engine_busy": "Die Spracherkennung war noch beschäftigt — versuch es gleich noch einmal.",
       "recording_interrupted": "Die Aufnahme endete, bevor du gestoppt hast.",
+      "no_microphone": "Das Mikrofon hat nicht geantwortet, deshalb wurde nichts aufgenommen. Starte Dodaios neu, damit es dich wieder hört.",
       "no_stt": "Es ist noch keine Spracherkennung eingerichtet.",
       "unknown": "Die Spracherkennung ist fehlgeschlagen."
     },
@@ -3069,6 +3070,16 @@
     "effective": "Das Tool Model nutzt",
     "cleared": "Tool Model auf dein Hauptmodell zurückgesetzt",
     "vision_note": "Es werden nur Modelle angezeigt, die Bilder verstehen - Computer-Use liest den Bildschirm über Screenshots, ein reines Text-Modell kann es nicht steuern."
+  },
+  "microphone_notice": {
+    "not_answering": "Das Audiosystem antwortet für das Mikrofon „{device}“ nicht mehr, deshalb hört Dodaios dich nicht. Ein Neustart behebt das: Dodaios startet von selbst neu, sobald nichts mehr läuft.",
+    "not_answering_unnamed": "Das Audiosystem antwortet für das Mikrofon nicht mehr, deshalb hört Dodaios dich nicht. Ein Neustart behebt das: Dodaios startet von selbst neu, sobald nichts mehr läuft.",
+    "silent": "Vom Mikrofon „{device}“ kommt kein Ton. Es ist stumm geschaltet oder das falsche.",
+    "silent_unnamed": "Vom Mikrofon kommt kein Ton. Es ist stumm geschaltet oder das falsche.",
+    "action": {
+      "restart": "Jetzt neu starten",
+      "choose": "Mikrofon wählen"
+    }
   },
   "permissions": {
     "restart_failed": "Dodaios konnte nicht neu starten. Beende und öffne es manuell erneut.",

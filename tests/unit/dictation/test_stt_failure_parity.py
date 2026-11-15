@@ -160,6 +160,24 @@ def test_the_local_engines_busy_error_is_named_rather_than_generic() -> None:
     assert is_crossable_failure("engine_busy") is False
 
 
+def test_a_microphone_the_audio_system_holds_is_not_a_recognition_failure() -> None:
+    """2026-11-15: a dictation without a microphone must not blame the recognizer.
+
+    The capture raises its own error when the operating system's audio layer
+    stops answering for the input. "Speech recognition failed." would send the
+    person looking at keys and providers; the fix is a restart of the app."""
+    from dodaios.audio.capture import MicrophoneStuckError
+    from dodaios.speech.stt_failure import stt_failure_message
+
+    stuck = MicrophoneStuckError("MacBook Air Microphone")
+    assert classify_stt_failure(stuck) == "no_microphone"
+    # The stored string form classifies the same way as the exception did.
+    assert classify_stt_failure(f"{type(stuck).__name__}: {stuck}") == "no_microphone"
+    assert "Restart" in stt_failure_message("no_microphone")
+    # Another provider would get no audio either.
+    assert is_crossable_failure("no_microphone") is False
+
+
 def test_normalization_is_idempotent_and_keeps_none_as_none() -> None:
     """The backstop at the store: a code survives, raw text is converted."""
     from dodaios.speech.stt_failure import normalize_stt_failure

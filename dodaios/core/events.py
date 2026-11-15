@@ -566,6 +566,46 @@ class PermissionResolved(Event):
     granted: bool = False
 
 
+#: Why the microphone cannot be heard although the OS permission is granted.
+#:
+#: ``not_answering``
+#:     The operating system's audio layer no longer answers for this input: an
+#:     open or a close did not come back. Nothing in the process can free it;
+#:     the audio layer answering after all, or a restart of the app, does.
+#: ``silent``
+#:     The input is open and delivers exact digital silence: a hardware mute,
+#:     a jack without a microphone, a virtual device whose app is closed. The
+#:     way out is another microphone, or unmuting this one.
+MICROPHONE_TROUBLE_REASONS: Final[tuple[str, ...]] = ("not_answering", "silent")
+
+
+@dataclass(frozen=True, slots=True)
+class MicrophoneTrouble(Event):
+    """The microphone cannot be heard: which input, and why.
+
+    Published once per episode, on the edge, so a surface may show its one
+    notice. ``device`` is the input's name as the operating system lists it
+    (``""`` when it has none), so the notice can say which microphone is
+    meant. ``reason`` comes from ``MICROPHONE_TROUBLE_REASONS`` and ``feature``
+    from ``PERMISSION_FEATURES``. ``automatic`` says whether the automatic
+    selection chose the input (``False``: the person named or pinned it).
+
+    ``MicrophoneRecovered`` follows when the input is heard again.
+    """
+
+    reason: str = ""
+    device: str = ""
+    feature: str = ""
+    automatic: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class MicrophoneRecovered(Event):
+    """The episode a ``MicrophoneTrouble`` opened is over: the input is heard again."""
+
+    device: str = ""
+
+
 # ----------------------------------------------------------------------
 # Intent & Routing
 # ----------------------------------------------------------------------

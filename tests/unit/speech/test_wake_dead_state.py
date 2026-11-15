@@ -31,7 +31,7 @@ from types import SimpleNamespace
 import pytest
 
 import dodaios.speech.pipeline as pipeline_mod
-from dodaios.audio.capture import MicrophoneAccessError
+from dodaios.audio.capture import MicrophoneAccessError, MicrophoneStuckError
 from dodaios.core.bus import EventBus
 from dodaios.core.events import PermissionResolved
 from dodaios.platform.permission_service import PermissionOutcome
@@ -336,6 +336,48 @@ async def test_a_lost_grant_at_open_parks_instead_of_looping_on_an_exception() -
 
     await wake.run(body)
     assert len(wake.permission.ensure_calls(PermissionId.MICROPHONE)) == 1
+
+
+async def test_a_microphone_the_audio_system_holds_is_waited_for_not_hammered(
+    monkeypatch, caplog
+) -> None:
+    """``MicrophoneStuckError`` is not a crash either (2026-11-15: CoreAudio deadlock).
+
+    The loop used to retry every half second with a traceback each time. It now
+    waits, says it once, and listens again as soon as the microphone answers."""
+    import logging
+
+    monkeypatch.setattr(pipeline_mod, "_WAKE_STUCK_RETRY_S", 0.05)
+    wake = _Wake(granted=True)
+    attempts = 0
+    answering = False
+
+    async def _open() -> None:
+        nonlocal attempts
+        attempts += 1
+        if not answering:
+            raise MicrophoneStuckError("MacBook Air Microphone")
+        await wake._listen()
+
+    wake.pipe._run_parallel_wake = _open  # type: ignore[method-assign]
+
+    async def body() -> None:
+        nonlocal answering
+        with caplog.at_level(logging.INFO, logger=pipeline_mod.log.name):
+            await asyncio.sleep(0.3)
+            assert 3 <= attempts <= 8, f"{attempts} attempts in 0.3 s at one per 0.05 s"
+            assert not wake.listened.is_set()
+            answering = True
+            await asyncio.wait_for(wake.listened.wait(), timeout=2.0)
+
+    await wake.run(body)
+    paused = [r for r in caplog.records if "Wake listening paused" in r.getMessage()]
+    assert len(paused) == 1, "the same stuck microphone was logged on every retry"
+    assert "MacBook Air Microphone" in paused[0].getMessage()
+    assert not [r for r in caplog.records if r.exc_info], "a stuck microphone is not a crash"
+    assert wake.permission.ensure_calls(PermissionId.MICROPHONE) == [], (
+        "a stuck microphone is not a missing permission"
+    )
 
 
 async def test_mute_keeps_the_short_poll_and_never_opens_a_permission_episode() -> None:

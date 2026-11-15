@@ -23,6 +23,7 @@ from dodaios.core.events import (
     DictationCompleted,
     DictationTranscribing,
     DictationTranscript,
+    MicrophoneTrouble,
 )
 from dodaios.speech.pipeline import SpeechPipeline
 
@@ -37,6 +38,12 @@ def _loud(seconds: float) -> bytes:
 
 def _silent(seconds: float) -> bytes:
     return np.zeros(int(seconds * RATE), dtype=np.int16).tobytes()
+
+
+def _quiet_room(seconds: float) -> bytes:
+    """Noise far below speech: a microphone that works and hears nobody."""
+    rng = np.random.default_rng(7)
+    return rng.integers(-3, 4, int(seconds * RATE), dtype=np.int16).tobytes()
 
 
 class _Recognizer:
@@ -232,4 +239,38 @@ async def test_a_recording_of_exact_zeros_says_the_microphone_delivered_nothing(
     assert completed.outcome == "empty"
     assert completed.audio_rms == 0.0
     assert "no signal at all" in completed.detail
-    assert "input device" in completed.detail
+    assert "Choose another microphone" in completed.detail
+
+
+async def test_a_recording_of_exact_zeros_names_the_microphone_it_came_from(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ "The microphone" is whichever input the automatic choice landed on, and
+    the person cannot see that. The sentence names it, and the window gets the
+    event that offers the microphone picker."""
+    monkeypatch.setattr(pipeline_mod, "last_input_name", lambda: "External Microphone")
+    pipe, events = _pipeline(_Recognizer("never asked"))
+    pipe._input_device = "auto-headset"
+
+    await _dictate(monkeypatch, pipe, _silent(2.0))
+
+    completed = next(e for e in events if isinstance(e, DictationCompleted))
+    assert "The microphone 'External Microphone' delivered no signal at all" in completed.detail
+    (trouble,) = [e for e in events if isinstance(e, MicrophoneTrouble)]
+    assert trouble.reason == "silent"
+    assert trouble.device == "External Microphone"
+    assert trouble.feature == "dictation"
+    assert trouble.automatic is True
+
+
+async def test_a_quiet_room_is_not_reported_as_a_silent_microphone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only exact zeros say that the input carries nothing."""
+    pipe, events = _pipeline(_Recognizer(""))
+
+    await _dictate(monkeypatch, pipe, _quiet_room(2.0))
+
+    completed = next(e for e in events if isinstance(e, DictationCompleted))
+    assert completed.outcome == "empty"
+    assert not [e for e in events if isinstance(e, MicrophoneTrouble)]

@@ -237,6 +237,7 @@ class WebServer:
         # Local server autostart: one task a few seconds after the serving
         # path returned; starts nothing unless local models are in use.
         self._local_models_autostart_task: asyncio.Task[None] | None = None
+        self._microphone_rescue_task: asyncio.Task[None] | None = None
         self._refresh_registry_tasks: set[asyncio.Task[Any]] = set()
         self._refresh_scheduler_stopping = False
         # Realtime transport pre-warm — scheduled at the end of start() so the
@@ -2579,45 +2580,85 @@ class WebServer:
         here it is only created. ``[agentic_ide] follow_main`` is re-read every
         round, so the toggle takes effect without a restart.
         """
-        app = self.app
 
         def enabled() -> bool:
             return bool(getattr(self.cfg.agentic_ide, "follow_main", False)) or _follow_main_saved()
 
-        def idle() -> bool:
-            kontrollierer = getattr(app.state, "kontrollierer", None)
-            running = getattr(kontrollierer, "running_mission_ids", None)
-            if callable(running) and running():
-                return False
-            # A chat that answers in this process (the front page's, a created
-            # agent's) loses its running turn to a restart; a thread's CLI
-            # lives in the turn host and is carried on. A chat service that
-            # was never built runs nothing.
-            chat = getattr(app.state, "agent_chat", None)
-            interrupted = getattr(chat, "turns_a_restart_would_end", None)
-            if callable(interrupted) and interrupted():
-                return False
-            from dodaios.live.runtime import active
-
-            if any(getattr(session, "is_active", False) for session in active()):
-                return False
-            from dodaios.core.runtime_refs import get_speech_pipeline
-
-            pipeline = get_speech_pipeline()
-            in_session = getattr(pipeline, "is_session_active", None)
-            return not (callable(in_session) and in_session())
-
-        def restart() -> bool:
-            desktop = getattr(app.state, "desktop_app", None)
-            request = getattr(desktop, "request_restart", None)
-            return bool(request()) if callable(request) else False
-
         try:
             from dodaios.core.main_follow import start_follower
 
-            start_follower(enabled=enabled, idle=idle, restart=restart)
+            start_follower(
+                enabled=enabled, idle=self._nothing_a_restart_would_end, restart=self._restart_app
+            )
         except Exception as exc:  # noqa: BLE001 -- following main is a convenience, never a boot blocker
             logger.opt(exception=exc).warning("Follow main did not start.")
+
+    def _nothing_a_restart_would_end(self) -> bool:
+        """Whether the app may restart by itself right now without costing anybody work."""
+        app = self.app
+        kontrollierer = getattr(app.state, "kontrollierer", None)
+        running = getattr(kontrollierer, "running_mission_ids", None)
+        if callable(running) and running():
+            return False
+        # A chat that answers in this process (the front page's, a created
+        # agent's) loses its running turn to a restart; a thread's CLI
+        # lives in the turn host and is carried on. A chat service that
+        # was never built runs nothing.
+        chat = getattr(app.state, "agent_chat", None)
+        interrupted = getattr(chat, "turns_a_restart_would_end", None)
+        if callable(interrupted) and interrupted():
+            return False
+        from dodaios.live.runtime import active
+
+        if any(getattr(session, "is_active", False) for session in active()):
+            return False
+        from dodaios.core.runtime_refs import get_speech_pipeline
+
+        pipeline = get_speech_pipeline()
+        in_session = getattr(pipeline, "is_session_active", None)
+        return not (callable(in_session) and in_session())
+
+    def _restart_app(self) -> bool:
+        """Ask the desktop shell to restart the app. ``False``: there is none to ask."""
+        desktop = getattr(self.app.state, "desktop_app", None)
+        request = getattr(desktop, "request_restart", None)
+        return bool(request()) if callable(request) else False
+
+    def _start_microphone_rescue(self) -> None:
+        """Restart by itself when the audio system stops answering for the microphone.
+
+        Best-effort, exactly once, off the boot path: the task only looks at a
+        flag every few seconds (see ``dodaios.audio.stuck_rescue``).
+        """
+        # ``getattr``: tests build a server without its constructor.
+        if getattr(self, "_microphone_rescue_task", None) is not None:
+            return
+        try:
+            from dodaios.audio.capture import stuck_microphone
+            from dodaios.audio.stuck_rescue import MicrophoneRescue
+
+            rescue = MicrophoneRescue(
+                stuck=stuck_microphone,
+                idle=self._nothing_a_restart_would_end,
+                restart=self._restart_app,
+                data_dir=Path(self.cfg.memory.data_dir),
+            )
+            self._microphone_rescue_task = asyncio.get_running_loop().create_task(
+                rescue.run(), name="microphone-rescue"
+            )
+        except Exception as exc:  # noqa: BLE001 -- a safety net must never block boot
+            logger.opt(exception=exc).warning("Microphone rescue did not start.")
+
+    async def _stop_microphone_rescue(self) -> None:
+        task = getattr(self, "_microphone_rescue_task", None)
+        self._microphone_rescue_task = None
+        if task is None or task.done():
+            return
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:  # Cancellation is the successful teardown.
+            pass
 
     def _start_local_models_health_monitor(self) -> None:
         """The Local models self-check task (best-effort, exactly once, off the boot path)."""
@@ -3269,6 +3310,7 @@ class WebServer:
         self._schedule_marketplace_refresh_scheduler()
         self._start_local_models_health_monitor()
         self._start_main_follower()
+        self._start_microphone_rescue()
         self._schedule_local_models_autostart()
         # Same reasoning, and the same three boot paths: a headless or
         # browser-only install has no desktop shell to warm the realtime
@@ -4225,6 +4267,7 @@ class WebServer:
         # cannot enqueue a live-session rebuild while that registry is closing.
         await self._stop_marketplace_refresh_scheduler()
         await self._stop_local_models_health_monitor()
+        await self._stop_microphone_rescue()
         await self._stop_local_models_autostart()
 
         # Stop the skill watcher, otherwise the watchdog thread stays behind

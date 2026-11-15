@@ -25,6 +25,7 @@ import {
 } from "@/store/commandActivity";
 import { isDictationStartFailure } from "@/lib/dictationRefusal";
 import { STT_FAILURE_REASONS } from "@/hooks/useDictation";
+import { useMicrophoneToast } from "@/hooks/useMicrophoneToast";
 import { usePermissionToast } from "@/hooks/usePermissionToast";
 import { handleAppshotEditRequest } from "@/store/appshotEditor";
 import { useDeckStore } from "@/store/deck";
@@ -76,6 +77,7 @@ export function useWebSocket(): void {
   const setBrainProvider = useEventStore((s) => s.setBrainProvider);
   const pushToast = useEventStore((s) => s.pushToast);
   const { onEvent: onPermissionEvent, seed: seedPermissionToast } = usePermissionToast();
+  const onMicrophoneEvent = useMicrophoneToast();
 
   useEffect(() => {
     if (mounted.current) return;
@@ -218,6 +220,13 @@ export function useWebSocket(): void {
         // (lib/permissionToast). It reads just these two events.
         if (env.event_name === "PermissionNeeded" || env.event_name === "PermissionResolved") {
           onPermissionEvent(env.event_name, env.payload);
+        }
+
+        // The microphone is allowed and still cannot be heard: the audio system
+        // stopped answering for it, or it delivers no sound at all. ONE toast
+        // that names the input and offers the way out (lib/microphoneToast).
+        if (env.event_name === "MicrophoneTrouble" || env.event_name === "MicrophoneRecovered") {
+          onMicrophoneEvent(env.event_name, env.payload);
         }
 
         // A dictation that could not start, or one the backend gave up on.
@@ -812,6 +821,7 @@ export function useWebSocket(): void {
     setBrainProvider,
     pushToast,
     onPermissionEvent,
+    onMicrophoneEvent,
     seedPermissionToast,
     queryClient,
   ]);

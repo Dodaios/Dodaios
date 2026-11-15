@@ -76,6 +76,10 @@ from typing import Final
 #:     The microphone stream ended before the user stopped dictating. Not a
 #:     transcription failure at all — but it is the reason the transcript is
 #:     short, and presenting a truncated result as complete is the worse lie.
+#: ``no_microphone``
+#:     The operating system's audio layer did not answer for the microphone, so
+#:     nothing was recorded. Not a transcription failure either, and no other
+#:     provider can help: restarting the app frees the microphone.
 #: ``no_stt``
 #:     No speech-to-text provider is configured or installed.
 #: ``unknown``
@@ -90,6 +94,7 @@ STT_FAILURE_REASONS: Final[tuple[str, ...]] = (
     "rejected",
     "engine_busy",
     "recording_interrupted",
+    "no_microphone",
     "no_stt",
     "unknown",
 )
@@ -106,6 +111,10 @@ _ENGINE_BUSY_MARKERS: Final[tuple[str, ...]] = (
     "resource busy",
     "device busy",
 )
+#: The capture's own error for an input the audio system stopped answering
+#: for (``dodaios.audio.capture.MicrophoneStuckError``), by its type name so
+#: this module keeps needing no import from the audio layer.
+_NO_MICROPHONE_MARKERS: Final[tuple[str, ...]] = ("microphonestuckerror",)
 _RATE_LIMITED_MARKERS: Final[tuple[str, ...]] = (
     "429",
     "too many requests",
@@ -169,6 +178,7 @@ _REJECTED_MARKERS: Final[tuple[str, ...]] = (
 
 #: reason -> the markers that identify it, in precedence order.
 _MARKERS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
+    ("no_microphone", _NO_MICROPHONE_MARKERS),
     ("engine_busy", _ENGINE_BUSY_MARKERS),
     ("rate_limited", _RATE_LIMITED_MARKERS),
     ("no_credit", _NO_CREDIT_MARKERS),
@@ -204,6 +214,10 @@ _MESSAGES: Final[dict[str, str]] = {
     "rejected": "The speech recognition service could not process this audio.",
     "engine_busy": "The speech recognition engine was still busy.",
     "recording_interrupted": "The recording ended before you stopped it.",
+    "no_microphone": (
+        "The microphone did not answer, so nothing was recorded. "
+        "Restart Dodaios to be heard again."
+    ),
     "no_stt": "No speech-to-text provider is available.",
     "unknown": "Speech recognition failed.",
 }

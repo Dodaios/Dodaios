@@ -690,6 +690,7 @@
       "rejected": "O reconhecimento de voz não conseguiu processar esta gravação.",
       "engine_busy": "O reconhecimento de voz ainda estava ocupado — tenta novamente daqui a pouco.",
       "recording_interrupted": "A gravação terminou antes de a parares.",
+      "no_microphone": "O microfone não respondeu, por isso nada foi gravado. Reinicia o Dodaios para voltar a ser ouvido.",
       "no_stt": "Ainda não há reconhecimento de voz configurado.",
       "unknown": "O reconhecimento de voz falhou."
     },
@@ -3069,6 +3070,16 @@
     "effective": "O modelo de ferramentas executa",
     "cleared": "Modelo de ferramentas reposto para o teu modelo principal",
     "vision_note": "Só são listados modelos que conseguem ver imagens - o Computer-Use lê o ecrã a partir de capturas, por isso um modelo só de texto não o consegue executar."
+  },
+  "microphone_notice": {
+    "not_answering": "O sistema de áudio deixou de responder para o microfone «{device}», por isso o Dodaios não te ouve. Reiniciar resolve: o Dodaios reinicia sozinho assim que nada estiver a decorrer.",
+    "not_answering_unnamed": "O sistema de áudio deixou de responder para o microfone, por isso o Dodaios não te ouve. Reiniciar resolve: o Dodaios reinicia sozinho assim que nada estiver a decorrer.",
+    "silent": "Não chega som do microfone «{device}». Está silenciado ou não é o certo.",
+    "silent_unnamed": "Não chega som do microfone. Está silenciado ou não é o certo.",
+    "action": {
+      "restart": "Reiniciar agora",
+      "choose": "Escolher microfone"
+    }
   },
   "permissions": {
     "restart_failed": "Não foi possível reiniciar o Dodaios. Fecha-o e volta a abri-lo manualmente.",

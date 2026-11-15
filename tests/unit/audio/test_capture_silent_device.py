@@ -22,6 +22,8 @@ from types import SimpleNamespace
 import pytest
 
 from dodaios.audio import capture
+from dodaios.core.bus import get_default_bus, reset_default_bus
+from dodaios.core.events import Event, MicrophoneRecovered, MicrophoneTrouble
 from tests.fakes.fake_tcc import (
     FakeAudioInput,
     TccService,
@@ -443,3 +445,110 @@ async def test_a_wireless_headset_is_not_left_during_its_start(
         assert mic._device == 0
 
     assert not capture._input_known_silent("AirPods Pro", devices)
+
+
+# --------------------------------------------------------------------------
+# A silent input nobody can leave is named to the person
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def notices() -> list[Event]:
+    reset_default_bus()
+    seen: list[Event] = []
+
+    async def _keep(event: Event) -> None:
+        seen.append(event)
+
+    bus = get_default_bus()
+    bus.subscribe(MicrophoneTrouble, _keep)
+    bus.subscribe(MicrophoneRecovered, _keep)
+    yield seen
+    reset_default_bus()
+
+
+def _only_the_built_in() -> list[dict]:
+    return [_device(BUILT_IN), _device("MacBook Air Speakers", inputs=0)]
+
+
+async def _silent_capture(
+    audio: FakeAudioInput, mic: capture.MicrophoneCapture, told: Callable[[], bool]
+) -> None:
+    """Run ``mic`` on zeros until ``told()``, or for half a second."""
+    async with mic:
+        stream = audio.starts[-1]
+        for _ in range(50):
+            stream.callback(_ZERO_FRAME, capture.BLOCKSIZE, None, None)
+            await asyncio.sleep(0.01)
+            if told():
+                return
+
+
+@pytest.mark.asyncio
+async def test_a_silent_input_with_no_other_left_is_named_to_the_person(
+    monkeypatch: pytest.MonkeyPatch, notices: list[Event]
+) -> None:
+    """ "Nothing was heard" does not say which microphone, and that is the question."""
+    audio = _granted_mac(monkeypatch, _only_the_built_in())
+    monkeypatch.setattr(capture, "_SILENCE_REPORT_AFTER_S", 0.1)
+
+    mic = capture.MicrophoneCapture(device="auto-headset", permission_feature="wake_word")
+    async with mic:
+        (stream,) = audio.starts
+        await _pump(stream, _ZERO_FRAME, frames=10)
+        await _wait_for(lambda: len(notices) == 1)
+        (trouble,) = notices
+        assert isinstance(trouble, MicrophoneTrouble)
+        assert trouble.reason == "silent"
+        assert trouble.device == BUILT_IN
+        assert trouble.feature == "wake_word"
+        assert trouble.automatic is True
+
+        # The first sound takes it back.
+        await _pump(stream, _LOUD_FRAME, frames=3)
+        await _wait_for(lambda: len(notices) == 2)
+
+    assert isinstance(notices[1], MicrophoneRecovered)
+    assert notices[1].device == BUILT_IN
+
+
+@pytest.mark.asyncio
+async def test_a_microphone_the_person_named_is_reported_silent_and_kept(
+    monkeypatch: pytest.MonkeyPatch, notices: list[Event]
+) -> None:
+    audio = _granted_mac(monkeypatch, _laptop_with_headphones())
+    monkeypatch.setattr(capture, "_SILENCE_REPORT_AFTER_S", 0.1)
+
+    mic = capture.MicrophoneCapture(device=EXTERNAL)
+    await _silent_capture(audio, mic, lambda: bool(notices))
+
+    assert len(audio.starts) == 1, "a microphone the person named was left"
+    (trouble,) = notices
+    assert isinstance(trouble, MicrophoneTrouble)
+    assert trouble.device == EXTERNAL
+    assert trouble.automatic is False
+
+
+@pytest.mark.asyncio
+async def test_a_background_listener_names_a_silent_input_once_not_at_every_reopen(
+    monkeypatch: pytest.MonkeyPatch, notices: list[Event]
+) -> None:
+    """The wake word reopens its stream after every turn. A microphone that is
+    muted on purpose must not be announced each time; a dictation the person
+    started on it is told again."""
+    audio = _granted_mac(monkeypatch, _only_the_built_in())
+    monkeypatch.setattr(capture, "_SILENCE_REPORT_AFTER_S", 0.1)
+
+    def _told() -> int:
+        return len([n for n in notices if isinstance(n, MicrophoneTrouble)])
+
+    for _ in range(3):
+        mic = capture.MicrophoneCapture(device="auto-headset", permission_feature="wake_word")
+        await _silent_capture(audio, mic, lambda: False)
+    assert _told() == 1
+
+    dictation = capture.MicrophoneCapture(
+        device="auto-headset", permission_feature="dictation", interactive=True
+    )
+    await _silent_capture(audio, dictation, lambda: _told() == 2)
+    assert _told() == 2
