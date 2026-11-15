@@ -92,6 +92,23 @@ export function useAssistantBrowserStatus(): AssistantBrowserStatus | null {
   return status;
 }
 
+/**
+ * The page size to ask the browser for, so its picture fills a stage of this size.
+ *
+ * The browser lays a page out no narrower than 320 and no lower than 240
+ * pixels. A smaller stage gets a page of the same shape, scaled up until it
+ * fits those bounds, and its picture is drawn a little smaller. Raising only
+ * the short side (320 x 795 for a 256 x 795 panel) changed the shape: the
+ * picture filled the width and left a fifth of the panel empty below it.
+ */
+export function pageSizeFor(stage: { width: number; height: number }): { width: number; height: number } {
+  const scale = Math.max(1, MIN_PAGE.width / stage.width, MIN_PAGE.height / stage.height);
+  return {
+    width: Math.min(Math.max(Math.round(stage.width * scale), MIN_PAGE.width), MAX_PAGE.width),
+    height: Math.min(Math.max(Math.round(stage.height * scale), MIN_PAGE.height), MAX_PAGE.height),
+  };
+}
+
 function isBlankPage(url: string): boolean {
   return !url || url === "about:blank" || url.startsWith("chrome://newtab") || url.startsWith("chrome://new-tab-page");
 }
@@ -209,8 +226,7 @@ export function LiveBrowserPage({ request, onPageUrl }: Props) {
       return;
     }
     if (!stageSize || state.fullWindow || state.controlPending) return;
-    const width = Math.min(Math.max(stageSize.width, MIN_PAGE.width), MAX_PAGE.width);
-    const height = Math.min(Math.max(stageSize.height, MIN_PAGE.height), MAX_PAGE.height);
+    const { width, height } = pageSizeFor(stageSize);
     const key = `${width}x${height}`;
     if (sentPage.current === key) return;
     sentPage.current = key;

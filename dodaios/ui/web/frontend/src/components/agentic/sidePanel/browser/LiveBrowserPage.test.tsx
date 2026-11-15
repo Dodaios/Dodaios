@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BrowserViewState } from "@/components/society/card/useBrowserView";
-import { IDLE_HANDBACK_MS, LiveBrowserPage, VIEWPORT_SETTLE_MS, type LiveRequest } from "./LiveBrowserPage";
+import { IDLE_HANDBACK_MS, LiveBrowserPage, VIEWPORT_SETTLE_MS, pageSizeFor, type LiveRequest } from "./LiveBrowserPage";
 
 const view = vi.hoisted(() => ({
   control: vi.fn(),
@@ -37,6 +37,23 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+});
+
+describe("pageSizeFor", () => {
+  it("asks for the panel's own size where it is large enough", () => {
+    expect(pageSizeFor({ width: 421, height: 903 })).toEqual({ width: 421, height: 903 });
+  });
+
+  it("scales a small panel up as a whole, keeping its shape", () => {
+    expect(pageSizeFor({ width: 256, height: 795 })).toEqual({ width: 320, height: 994 });
+    expect(pageSizeFor({ width: 900, height: 180 })).toEqual({ width: 1200, height: 240 });
+    expect(pageSizeFor({ width: 160, height: 120 })).toEqual({ width: 320, height: 240 });
+  });
+
+  it("stays within what the browser accepts", () => {
+    expect(pageSizeFor({ width: 3000, height: 900 })).toEqual({ width: 2560, height: 900 });
+    expect(pageSizeFor({ width: 200, height: 2000 })).toEqual({ width: 320, height: 2560 });
+  });
 });
 
 describe("LiveBrowserPage", () => {
@@ -190,6 +207,16 @@ describe("LiveBrowserPage", () => {
       box = { width: 0, height: 0 };
       render(page(null));
       expect(view.control).not.toHaveBeenCalled();
+    });
+
+    it("keeps the shape of a panel narrower than the smallest page, so the picture fills it", () => {
+      box = { width: 256.4, height: 795.8 };
+      render(page(null));
+      const [[op, size]] = view.control.mock.calls as [[string, { width: number; height: number }]];
+      expect(op).toBe("viewport");
+      expect(size).toEqual({ width: 320, height: 994 });
+      // The same shape as the panel: no strip left empty below the picture.
+      expect(Math.abs(size.width / size.height - 256 / 795)).toBeLessThan(0.002);
     });
 
     it("shapes the picture like the page the browser sent", () => {
