@@ -64,7 +64,13 @@ news since it was last opened.
   last changed the list, so the work on the entry it began reads right under
   it; a finished turn folds the card with the rest of its work. Earlier
   changes are steps of the folded rows ("Completed the draft, started the
-  review"), and each opens to the list as it stood then. A list of more than
+  review"), and each opens to the list as it stood then. A checked entry says
+  at its right end how long it took: from the call that began it to the call
+  that checked it off, working time only (the time between two turns, while
+  the agent waited for the person, does not count). An entry the agent ticked
+  off without beginning it took the time since the entry before it was
+  checked off; when one call ticks several such entries at once, or the
+  entry took under a second, no time shows. A list of more than
   eight entries folds the finished ones on top and the far ones below. The
   list is read from the agent's own tools: Claude Code's task tools or
   `TodoWrite`, Codex's plan, an ACP agent's `plan` update, and the list tools
