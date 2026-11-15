@@ -84,7 +84,8 @@ export function useChatCommands({ value, setValue, onModel, onClear, agentId = "
     if (surface !== "jarvis") throw new Error(t("slash.session_loading"));
     const draft = current.draft;
     const session = await createAgentChatSession({ provider: draft.provider, model: draft.model,
-      effort: draft.effort, cwd: draft.cwd, permission_mode: draft.permissionMode, surface });
+      effort: draft.effort, cwd: draft.cwd, permission_mode: draft.permissionMode,
+      ...(draft.permissionMode === "plan" && draft.buildMode && draft.buildMode !== "plan" ? { build_mode: draft.buildMode } : {}), surface });
     if (store.getState().activeSessionId) throw new Error(t("slash.session_changed"));
     store.setState((s) => ({ sessions: [session, ...s.sessions] }));
     store.getState().openSession(session.session_id);

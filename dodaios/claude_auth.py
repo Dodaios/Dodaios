@@ -72,6 +72,7 @@ _AUTH_STATUS_CACHE: dict[
 ] = {}
 _SAFE_MODE_CACHE: dict[tuple[str, ...], bool] = {}
 _THINKING_DISPLAY_CACHE: dict[tuple[str, ...], bool] = {}
+_ALLOW_BYPASS_CACHE: dict[tuple[str, ...], bool] = {}
 _AUTH_STATUS_TTL_S = 5.0
 
 
@@ -99,6 +100,7 @@ def clear_version_cache() -> None:
     _AUTH_STATUS_CACHE.clear()
     _SAFE_MODE_CACHE.clear()
     _THINKING_DISPLAY_CACHE.clear()
+    _ALLOW_BYPASS_CACHE.clear()
 
 
 # ----------------------------------------------------------------------
@@ -391,6 +393,40 @@ def claude_cli_supports_thinking_display(argv_prefix: Sequence[str]) -> bool:
 def claude_cli_thinking_display_known(argv_prefix: Sequence[str]) -> bool:
     """The cached probe result only — never spawns, so it is safe on the event loop."""
     return _THINKING_DISPLAY_CACHE.get(tuple(argv_prefix), False)
+
+
+def claude_cli_supports_allow_bypass(argv_prefix: Sequence[str]) -> bool:
+    """Capability-probe ``--allow-dangerously-skip-permissions`` (read from ``--help``).
+
+    The flag offers "bypass permissions" to a session that starts in another
+    mode, so a chat that plans first can go on in bypass once its plan is
+    approved. A CLI from before the flag would refuse to start with it.
+    Cached per prefix.
+    """
+    key = tuple(argv_prefix)
+    if key in _ALLOW_BYPASS_CACHE:
+        return _ALLOW_BYPASS_CACHE[key]
+    try:
+        proc = subprocess.run(
+            [*key, "--help"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=4.0,
+            text=True,
+            creationflags=NO_WINDOW_CREATIONFLAGS,
+        )
+        output = f"{proc.stdout or ''}\n{proc.stderr or ''}"
+        supported = proc.returncode == 0 and "--allow-dangerously-skip-permissions" in output
+    except (OSError, subprocess.SubprocessError):  # unprobeable CLI: assume no flag
+        supported = False
+    _ALLOW_BYPASS_CACHE[key] = supported
+    return supported
+
+
+def claude_cli_allow_bypass_known(argv_prefix: Sequence[str]) -> bool:
+    """The cached probe result only: never spawns, so it is safe on the event loop."""
+    return _ALLOW_BYPASS_CACHE.get(tuple(argv_prefix), False)
 
 
 def claude_native_auth_env(env: Mapping[str, str]) -> dict[str, str]:

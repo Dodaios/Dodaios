@@ -26,6 +26,9 @@ sandbox is what its Plan already is, so it is not offered twice.
 change nothing" (Claude Code's plan mode; a read-only sandbox on Codex; the
 read-only tool set on the API runner). It is never a row of the permission
 menu: the composer draws it as a Plan switch beside the permission pill.
+While Plan is on, the pill names the mode the session goes back to when its
+plan is approved; the session keeps that mode as ``build_mode``
+(:func:`mode_after_plan`).
 
 The **Jarvis surface** (the front page's chat — Jarvis with a keyboard, see
 ``dodaios.agent_chat.store.SURFACES``) shows ONE ladder whatever answers:
@@ -372,6 +375,30 @@ def is_permission_mode(runner: str, mode: str) -> bool:
     return mode in permission_ids(runner)
 
 
+#: The modes in which an agent only reads and plans.
+PLAN_MODES: Final[frozenset[str]] = frozenset({"plan", "read-only"})
+
+
+def mode_after_plan(ladder: str, permission_mode: str, build_mode: str = "") -> str:
+    """The access mode a session works in once its plan is approved.
+
+    A session the person switched to Plan goes back to the mode its
+    permission pill names: ``build_mode``, folded onto ``ladder``, or the
+    ladder's default when none was recorded. A session that is not in Plan
+    keeps its own mode: the agent entered plan mode on its own, and approving
+    its plan must never change what the person picked.
+    """
+    mode = (permission_mode or "").strip()
+    if mode and mode not in PLAN_MODES:
+        return mode
+    picked = (build_mode or "").strip()
+    if picked:
+        folded = normalize_permission(ladder, picked)
+        if folded not in PLAN_MODES:
+            return folded
+    return default_permission(ladder)
+
+
 def society_mode_supported(runner: str, mode: str) -> bool:
     """Whether this transport can honor a Society mode without hidden prompts."""
     if mode == "bypass":
@@ -427,10 +454,12 @@ def normalize_permission(runner: str, mode: str | None) -> str:
 
 __all__ = [
     "JARVIS_LADDER",
+    "PLAN_MODES",
     "PermissionMode",
     "default_permission",
     "is_permission_mode",
     "ladder_key",
+    "mode_after_plan",
     "normalize_permission",
     "permission_ids",
     "permission_modes",

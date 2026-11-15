@@ -557,6 +557,44 @@ def test_thinking_display_probe_reads_the_rejection(
     assert calls == [["claude", "--thinking-display", "probe", "--version"]]
 
 
+@pytest.mark.parametrize(
+    ("returncode", "stdout", "expected"),
+    [
+        (0, "  --allow-dangerously-skip-permissions  Enable bypassing all permission checks", True),
+        # A CLI from before the flag lists only the switch that starts in bypass.
+        (0, "  --dangerously-skip-permissions        Bypass all permission checks.", False),
+        (1, "  --allow-dangerously-skip-permissions", False),
+    ],
+)
+def test_allow_bypass_probe_reads_the_help_once(
+    monkeypatch: pytest.MonkeyPatch, returncode: int, stdout: str, expected: bool
+) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(argv, **_kwargs):  # noqa: ANN001, ANN003
+        calls.append(list(argv))
+        return subprocess.CompletedProcess(argv, returncode, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(claude_auth.subprocess, "run", fake_run)
+
+    assert claude_auth.claude_cli_allow_bypass_known(["claude"]) is False
+    assert claude_auth.claude_cli_supports_allow_bypass(["claude"]) is expected
+    assert claude_auth.claude_cli_supports_allow_bypass(["claude"]) is expected
+    assert claude_auth.claude_cli_allow_bypass_known(["claude"]) is expected
+    assert calls == [["claude", "--help"]]
+
+
+def test_allow_bypass_probe_takes_an_unprobeable_cli_as_not_offering_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(argv, **_kwargs):  # noqa: ANN001, ANN003
+        raise OSError("no such file")
+
+    monkeypatch.setattr(claude_auth.subprocess, "run", fake_run)
+    assert claude_auth.claude_cli_supports_allow_bypass(["claude"]) is False
+    assert claude_auth.claude_cli_allow_bypass_known(["claude"]) is False
+
+
 def test_windows_cmd_resolves_to_adjacent_node_entrypoint(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -168,6 +168,11 @@ export interface AgentChatSession {
   effort: string;
   cwd: string;
   permission_mode: string;
+  /**
+   * While the session is in Plan: the mode its permission pill names, which an
+   * approved plan goes on in. Empty or absent = the provider's default mode.
+   */
+  build_mode?: string;
   /** The coding CLI's speed tier; empty or absent = standard. */
   speed?: string;
   /** Absent on a backend older than the surface split; the store keeps such rows. */
@@ -575,6 +580,8 @@ export interface CreateSessionInput {
   speed?: string;
   cwd?: string | null;
   permission_mode?: string;
+  /** With permission_mode "plan": the mode the permission pill shows. */
+  build_mode?: string;
   title?: string;
   surface?: AgentChatSurface;
   /** A coding thread's placement; empty or absent = this computer. */
@@ -597,7 +604,7 @@ export async function createAgentChatSession(input: CreateSessionInput): Promise
 }
 
 export type PatchSessionInput = Partial<
-  Pick<AgentChatSession, "title" | "provider" | "model" | "effort" | "speed" | "cwd" | "permission_mode" | "computer_id">
+  Pick<AgentChatSession, "title" | "provider" | "model" | "effort" | "speed" | "cwd" | "permission_mode" | "build_mode" | "computer_id">
 >;
 
 export async function patchAgentChatSession(
