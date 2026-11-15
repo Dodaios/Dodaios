@@ -11,6 +11,35 @@ versioning per [SemVer](https://semver.org/).
 
 ---
 
+## [5.3.3] — 2026-11-15
+
+### Added
+
+- Background work is one quiet line, and a routine comes back with its answer (#1718)
+- The phrase starts it by voice, chat or live call; the assistant's commands; steps that are one tool call (#1717)
+- What a ritual wants ready is gathered ahead and kept back (#1714)
+- The person's open pull requests on GitHub as one read (#1711)
+- A short phrase starts a sequence the person wrote beforehand (core) (#1709)
+- A coding agent's to-do list shows as a checklist in its thread (#1704)
+- Click into a node's text to edit it, no Edit press first (#1702)
+- The assistant says due reminders and appointments in its chat; the rail keeps only what the person fixes (#1703)
+- Right-click on a project opens its own menu, and a project can be removed (#1700)
+
+### Fixed
+
+- The in-app browser follows the hand, keeps its cache and checks redirects (#1715)
+- An approved plan goes on in the access mode the thread's pill names (#1712)
+- The Windows upgrade check ends by itself and says what was stuck; a command closes answered "not published" reports (#1713)
+- The on-device voice speaks in the desktop-installer build, and a runtime that does not load is not "ready" (#1698) (#1710)
+- Approval requests in the owner's language, whole, named, and one line once decided (#1708)
+- The Copy button in connect dialogs copies again inside a modal (#1707)
+- A routine that came due while the Mac slept is noticed on waking (#1706)
+- A dated note that is not from a calendar reads as the person's own reminder (#1705)
+- Voice messages are read and answered, photos reach the turn and the app's chat (#1701)
+- A routine of an assistant without a global model pick runs on its conversation's subscription (#1699)
+
+---
+
 ## [5.3.2] — 2026-11-14
 
 ### Added
