@@ -45,7 +45,7 @@ Each is something a person would otherwise open another tool for.
 | **Your coding agents, side by side** | Nine agents as chat threads and terminals, four threads side by side, teams of two to eight, an editor and a Git client, terminal agents on your own servers |
 | **Your voice, in every app** | A wake word, spoken conversation, dictation into any app. Wake word and dictation can run on the computer with no key |
 | **Docs, decks, sheets and whiteboards** | Seven kinds of node, each with its own editor: made from a sentence, edited by hand |
-| **With you when you leave the desk** | The same conversation in the phone app and in Telegram; in Slack the assistant reads and posts for you |
+| **With you when you leave the desk** | The same conversation in the phone app, in Telegram and in the person's own Slack app; with the person's Slack sign-in the assistant also reads and posts there |
 
 ## How it differs
 

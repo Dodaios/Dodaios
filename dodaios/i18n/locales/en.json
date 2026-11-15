@@ -576,6 +576,8 @@
     "telegram_deny": "Deny",
     "telegram_allowed": "Allowed from Telegram.",
     "telegram_denied": "Denied from Telegram.",
+    "slack_allowed": "Allowed from Slack.",
+    "slack_denied": "Denied from Slack.",
     "telegram_settled": "Decided in the app.",
     "telegram_expired": "This request is no longer open.",
     "telegram_coding_agent": "Coding agent \"{title}\"",

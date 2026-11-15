@@ -658,6 +658,9 @@ telegram = "dodaios.channels.telegram:TelegramChannel"
 # optional [channels] extra; token via Credential Manager (key "discord_bot_token"
 # / ENV DISCORD_BOT_TOKEN). Enable [Message Content Intent] in the bot settings.
 discord = "dodaios.channels.discord:DiscordChannel"
+# The owner's own Slack app over Socket Mode (no public address). Keys in the
+# Credential Manager ("slack_bot_token", "slack_app_token"); off until connected.
+slack = "dodaios.channels.slack:SlackChannel"
 # Owner-only WhatsApp channel over a local linked-device bridge. Off by default
 # (mobile/whatsapp.json in the data dir or DODAIOS_WHATSAPP_ENABLED); starts
 # silently when off. No library dependency: the bridge is a separate process

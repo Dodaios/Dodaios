@@ -33,6 +33,7 @@ class SettingsPatch(BaseModel):
     kinds: dict[str, bool] | None = None
     quiet_hours: dict[str, Any] | None = None
     telegram_approvals: bool | None = None
+    slack_approvals: bool | None = None
     phone: dict[str, bool] | None = None
     urgent_call: dict[str, Any] | None = None
 
@@ -118,6 +119,21 @@ def telegram_state(request: Request) -> dict[str, Any]:
     cfg = getattr(request.app.state, "config", None) or getattr(request.app.state, "cfg", None)
     owner = owner_chat_id(cfg) if cfg is not None else None
     return {"connected": bool(connected), "owner_known": owner is not None}
+
+
+@router.get("/slack")
+def slack_state(request: Request) -> dict[str, Any]:
+    """Whether a waiting approval could reach the owner's Slack app right now."""
+    manager = getattr(request.app.state, "channel_manager", None)
+    channel = None
+    try:
+        if manager is not None and "slack" in manager.started():
+            channel = manager.get("slack")
+    except Exception:  # noqa: BLE001 — a manager mid-start counts as not connected
+        channel = None
+    connected = bool(getattr(channel, "active", False))
+    owner_known = bool(getattr(channel, "owner_ids", None))
+    return {"connected": connected, "owner_known": owner_known}
 
 
 # ----------------------------------------------------------------- reminders

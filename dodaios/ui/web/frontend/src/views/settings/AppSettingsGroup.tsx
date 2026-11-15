@@ -246,7 +246,7 @@ function AutostartRow() {
   );
 }
 
-const CHANNEL_LABELS: Record<string, string> = { telegram: "Telegram", discord: "Discord" };
+const CHANNEL_LABELS: Record<string, string> = { telegram: "Telegram", discord: "Discord", slack: "Slack" };
 
 /**
  * "Keep agents running after closing": on quit the app hands routines and chat

@@ -8,6 +8,7 @@ import { useT } from "@/i18n";
 import {
   NOTIFY_KINDS,
   getNotifySettings,
+  getSlackApprovalState,
   getTelegramState,
   putNotifySettings,
   sendTestNotification,
@@ -39,7 +40,7 @@ const KIND_LABEL: Record<NotifyKind, string> = {
 /**
  * Settings → Notifications: how the assistant reaches the person while the
  * app is in the background (`dodaios/notify`). One switch for desktop
- * notifications, one per kind, quiet hours, approvals in Telegram, and a test
+ * notifications, one per kind, quiet hours, approvals in Telegram and Slack, and a test
  * button that shows exactly what a notification looks like. Every change
  * saves on the spot; the backend's gate reads the same file.
  */
@@ -47,6 +48,7 @@ export function NotificationsView() {
   const t = useT();
   const [settings, setSettings] = useState<NotifySettings | null>(null);
   const [telegram, setTelegram] = useState<TelegramState | null>(null);
+  const [slack, setSlack] = useState<TelegramState | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -59,6 +61,10 @@ export function NotificationsView() {
     );
     getTelegramState().then(
       (body) => { if (live) setTelegram(body); },
+      () => undefined,
+    );
+    getSlackApprovalState().then(
+      (body) => { if (live) setSlack(body); },
       () => undefined,
     );
     return () => { live = false; };
@@ -201,6 +207,19 @@ export function NotificationsView() {
                     aria-label={t("notify.telegram_title")}
                     data-testid="notify-telegram"
                     onCheckedChange={(on) => void save({ telegram_approvals: on })}
+                  />
+                }
+              />
+              <Row
+                label={t("notify.slack_title")}
+                hint={slack && !slack.connected ? t("notify.slack_not_connected") : t("notify.slack_hint")}
+                control={
+                  <Switch
+                    checked={settings.slack_approvals !== false}
+                    disabled={saving}
+                    aria-label={t("notify.slack_title")}
+                    data-testid="notify-slack"
+                    onCheckedChange={(on) => void save({ slack_approvals: on })}
                   />
                 }
               />

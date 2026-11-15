@@ -42,6 +42,7 @@ export interface NotifySettings {
   kinds: Record<NotifyKind, boolean>;
   quiet_hours: QuietHours;
   telegram_approvals: boolean;
+  slack_approvals: boolean;
   /** Which lead updates reach the phone chat (Telegram, Discord DM, WhatsApp). */
   phone: Record<PhoneKind, boolean>;
   urgent_call?: UrgentCallSettings;
@@ -52,6 +53,7 @@ export interface NotifySettingsPatch {
   kinds?: Partial<Record<NotifyKind, boolean>>;
   quiet_hours?: Partial<QuietHours>;
   telegram_approvals?: boolean;
+  slack_approvals?: boolean;
   phone?: Partial<Record<PhoneKind, boolean>>;
   urgent_call?: Partial<Omit<UrgentCallSettings, "events">> & {
     events?: Partial<Record<UrgentEvent, boolean>>;
@@ -125,6 +127,9 @@ export const sendTestNotification = () =>
   request<NotifyVerdict>(`${BASE}/test`, { method: "POST" });
 
 export const getTelegramState = () => request<TelegramState>(`${BASE}/telegram`);
+
+/** Whether a waiting approval could reach the owner's own Slack app right now. */
+export const getSlackApprovalState = () => request<TelegramState>(`${BASE}/slack`);
 
 export const listReminders = (days = 14) =>
   request<{ items: ReminderRow[] }>(`${BASE}/reminders?days=${days}`);

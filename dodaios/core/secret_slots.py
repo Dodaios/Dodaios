@@ -44,6 +44,9 @@ KNOWN_SECRET_KEYS: frozenset[str] = frozenset(
         "telegram_bot_token",
         # dodaios.marketplace.discord_connect
         "discord_bot_token",
+        # dodaios.channels.slack, dodaios.ui.web.slack_channel_routes
+        "slack_bot_token",
+        "slack_app_token",
         # dodaios.friends.identity.PRIVKEY_SECRET_KEY
         "socials_node_privkey",
         # dodaios.computers.identity.PRIVATE_KEY_SECRET

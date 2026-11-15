@@ -24,8 +24,11 @@ Answer them before they are asked:
 ## Do not claim
 
 - That Dodaios is better than a named product, or modelled on one.
-- A Slack bot. Slack is a plugin the assistant reads and posts through, and
-  nobody can write to the assistant there. The chat channel is Telegram.
+- Slack as a chat channel that anybody in a workspace can use. Only the
+  owner of the Slack app gets answers, and the person creates that app
+  themselves (one click from a manifest, then two keys). Until the first
+  recorded take in a real workspace, its checks ran against a stand-in for
+  Slack (`tests/fakes/slack_standin.py`); say so if asked.
 - Discord as a chat channel. Its direct messages are in the code but have no
   recorded live check; name them only once one exists.
 - A native phone app. The phone app is a web app that the desktop serves.

@@ -576,6 +576,8 @@
     "telegram_deny": "Recusar",
     "telegram_allowed": "Permitido pelo Telegram.",
     "telegram_denied": "Recusado pelo Telegram.",
+    "slack_allowed": "Permitido pelo Slack.",
+    "slack_denied": "Negado pelo Slack.",
     "telegram_settled": "Decidido no app.",
     "telegram_expired": "Este pedido já não está aberto.",
     "telegram_coding_agent": "Agente de código «{title}»",

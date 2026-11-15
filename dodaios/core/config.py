@@ -2470,17 +2470,55 @@ class DiscordConfig(BaseModel):
     pair_on_first_dm: bool = True
 
 
+#: Where the Slack channel sends its Web API calls. Only Slack itself, or a
+#: stand-in on this computer (tests, the demo take): the bot token travels with
+#: every call, so no other host may be configured.
+SLACK_API_BASE_URL = "https://slack.com/api"
+
+
+class SlackChannelConfig(BaseModel):
+    """Slack as a conversation channel: the owner messages their own Slack app.
+
+    Not the Slack plugin (that one searches, reads and posts with the person's
+    own sign-in). Here the person creates a small Slack app of their own from
+    the manifest the app offers, and a direct message to it (or a mention of it
+    in a channel) continues the assistant's one conversation, like Telegram.
+
+    Two keys, both in the Credential Manager, never in this file:
+    ``slack_bot_token`` (``xoxb-``, ENV ``SLACK_BOT_TOKEN``) for the Web API
+    and ``slack_app_token`` (``xapp-``, ENV ``SLACK_APP_TOKEN``) for Socket
+    Mode, which needs no public address.
+
+    Security default: ``allowed_user_ids = []`` answers nobody. The first
+    direct message within a few minutes of connecting claims it
+    (``pair_on_first_dm``), unless the connect already knew the owner from
+    the person's own Slack sign-in in the same workspace.
+    """
+
+    enabled: bool = False
+    #: Slack member ids (``U…`` / ``W…``) the assistant answers.
+    allowed_user_ids: list[str] = Field(default_factory=list)
+    pair_on_first_dm: bool = True
+    #: A mention of the app in a channel, by the owner, is answered in a thread.
+    answer_mentions: bool = True
+    #: The workspace the app was connected in (not a secret).
+    team_id: str = ""
+    api_base_url: str = SLACK_API_BASE_URL
+
+
 class IntegrationsConfig(BaseModel):
-    """External service integrations (Telegram, Discord, WhatsApp, Twilio, ...)."""
+    """External service integrations (Telegram, Discord, Slack, Twilio, ...)."""
 
     telegram: TelegramConfig = Field(default_factory=TelegramConfig)
     discord: DiscordConfig = Field(default_factory=DiscordConfig)
+    slack: SlackChannelConfig = Field(default_factory=SlackChannelConfig)
     twilio: TwilioConfig = Field(default_factory=TwilioConfig)
 
 
 CHANNEL_SECRET_CANDIDATES: dict[str, tuple[tuple[str, str], ...]] = {
     "telegram": (("telegram_bot_token", "TELEGRAM_BOT_TOKEN"),),
     "discord": (("discord_bot_token", "DISCORD_BOT_TOKEN"),),
+    "slack": (("slack_bot_token", "SLACK_BOT_TOKEN"), ("slack_app_token", "SLACK_APP_TOKEN")),
     "twilio": (("twilio_auth_token", "TWILIO_AUTH_TOKEN"),),
 }
 

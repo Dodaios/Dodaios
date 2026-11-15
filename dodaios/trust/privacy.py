@@ -153,7 +153,7 @@ def overview(cfg: Any | None = None) -> dict[str, Any]:
             cfg = None
     providers = providers_in_use(cfg) if cfg is not None else []
     channels = []
-    for name in ("telegram", "discord"):
+    for name in ("telegram", "discord", "slack"):
         if bool(_get(cfg, f"integrations.{name}.enabled")):
             channels.append(name)
     return {

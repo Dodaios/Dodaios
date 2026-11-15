@@ -10,6 +10,10 @@ owner (the first allowed private user, or the configured chat) can press.
 The bridge listens on the chat service's event listener, so it sees every
 runner the chat has. It never awaits inside the listener: it schedules.
 
+The same bridge serves the owner's Slack app (``channels/slack.py``): one
+instance per channel, built with ``source="slack"``, which asks the live
+channel for its owner and reads the ``slack_approvals`` switch.
+
 The message is written for a phone, in the owner's language: who asks (a
 coding thread by its title), what it wants in plain words, and the whole of
 it, the full command or the changed lines, not a line cut off after 140
@@ -51,8 +55,10 @@ _LANGS: Final[tuple[str, ...]] = ("en", "de", "es", "pt")
 @dataclass(slots=True)
 class Sent:
     session_id: str
-    chat_id: int
-    message_id: int | None
+    #: Telegram: the chat id (an int); Slack: the owner's member id.
+    chat_id: Any
+    #: Telegram: the message id; Slack: ``"<channel>|<ts>"``.
+    message_id: Any
     text: str
     lang: str = "en"
 
@@ -90,6 +96,12 @@ def parse_callback(data: str) -> tuple[str, str] | None:
     return DECISIONS[parts[1]], parts[2]
 
 
+def slack_owner(channel: Any) -> str | None:
+    """The owner of the Slack app: the first paired member id of the live channel."""
+    owners = list(getattr(channel, "owner_ids", None) or [])
+    return str(owners[0]) if owners else None
+
+
 class TelegramApprovalBridge:
     def __init__(
         self,
@@ -98,11 +110,14 @@ class TelegramApprovalBridge:
         channel: Callable[[], Any | None],
         config: Callable[[], Any],
         settings: Callable[[], NotifySettings] = load_settings,
+        source: str = "telegram",
     ) -> None:
         self._service = service
         self._channel = channel
         self._config = config
         self._settings = settings
+        #: ``telegram`` or ``slack``: whose switch, owner and words apply.
+        self._source = source if source in ("telegram", "slack") else "telegram"
         self._sent: dict[str, Sent] = {}
         self._from_telegram: set[str] = set()
         self._tasks: set[asyncio.Task[Any]] = set()
@@ -125,13 +140,13 @@ class TelegramApprovalBridge:
             coro = self._send(session_id, payload)
         else:
             coro = self._settle(str(payload.get("approval_id") or ""), payload)
-        task = loop.create_task(coro, name="telegram-approval")
+        task = loop.create_task(coro, name=f"{self._source}-approval")
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
     async def _send(self, session_id: str, payload: dict[str, Any]) -> None:
         try:
-            if not self._settings().telegram_approvals:
+            if not getattr(self._settings(), f"{self._source}_approvals", True):
                 return
             if _unattended(session_id):
                 return
@@ -141,7 +156,7 @@ class TelegramApprovalBridge:
             channel = self._channel()
             if channel is None:
                 return
-            chat_id = owner_chat_id(self._config())
+            chat_id = self._owner(channel)
             if chat_id is None:
                 return
             send = getattr(channel, "send_approval", None)
@@ -159,7 +174,13 @@ class TelegramApprovalBridge:
             )
             self._sent[approval_id] = Sent(session_id, chat_id, message_id, text, lang)
         except Exception:  # noqa: BLE001 — the app's own card still works without Telegram
-            log.warning("telegram approvals: request not sent", exc_info=True)
+            log.warning("%s approvals: request not sent", self._source, exc_info=True)
+
+    def _owner(self, channel: Any | None) -> Any | None:
+        """Who may decide: the Telegram owner chat from the config, the Slack app's owner."""
+        if self._source == "slack":
+            return slack_owner(channel) if channel is not None else None
+        return owner_chat_id(self._config())
 
     def _text(self, payload: dict[str, Any], lang: str = "en", session_id: str = "") -> str:
         """The request in plain words, whole, in ``lang``."""
@@ -309,8 +330,8 @@ class TelegramApprovalBridge:
         """A button press; returns the short answer Telegram shows the presser."""
         sent = self._sent.get(approval_id)
         lang = sent.lang if sent else notification_language("")
-        owner = owner_chat_id(self._config())
-        if owner is not None and from_user is not None and int(from_user) != owner:
+        owner = self._owner(self._channel())
+        if owner is not None and from_user is not None and str(from_user) != str(owner):
             return phrase("telegram_expired", lang)
         if sent is None:
             return phrase("telegram_expired", lang)
@@ -322,7 +343,8 @@ class TelegramApprovalBridge:
             self._sent.pop(approval_id, None)
             return phrase("telegram_expired", lang)
         self._from_telegram.add(approval_id)
-        return phrase("telegram_allowed" if decision == "allow" else "telegram_denied", lang)
+        said = "allowed" if decision == "allow" else "denied"
+        return phrase(f"{self._source}_{said}", lang)
 
     async def _settle(self, approval_id: str, payload: dict[str, Any]) -> None:
         sent = self._sent.pop(approval_id, None)
@@ -386,4 +408,5 @@ __all__ = [
     "callback_data",
     "owner_chat_id",
     "parse_callback",
+    "slack_owner",
 ]

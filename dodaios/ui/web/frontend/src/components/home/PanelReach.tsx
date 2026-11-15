@@ -43,9 +43,10 @@ function channelHint(channel: LeadChannel | undefined, label: string, name: stri
  *
  * `name` is the assistant as the panel's head calls it.
  *
- * Telegram is a conversation with the assistant. Slack is a workspace it
- * works in for the person: the button opens that workspace, because nobody
- * can write to the assistant there.
+ * Telegram is a conversation with the assistant. Slack is one too once the
+ * person connected their own Slack app (the button then opens the direct
+ * message with it); without that app it is a workspace the assistant works
+ * in for the person, and the button opens that workspace.
  */
 export function PanelReach({ call, name }: { call: CallSwitch; name: string }) {
   const t = useT();

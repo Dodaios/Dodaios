@@ -24,6 +24,7 @@ import { CommunityTab } from "@/views/PluginsCommunity";
 import { Breadcrumbs, type Crumb, PluginBrowse } from "@/views/plugins/PluginBrowse";
 import type { PluginScope } from "@/views/plugins/sections";
 import { PluginUploadDialog } from "@/views/PluginUploadDialog";
+import { SlackChatCard } from "@/views/plugins/SlackChatCard";
 import { AddConnectorDialog, AddPluginTabs, type AddPluginMode } from "@/views/AddConnectorDialog";
 import { removeAddedPlugin, takePluginFocus } from "@/lib/customConnector";
 import { fill, translate, useLocaleChunk } from "@/i18n";
@@ -1579,6 +1580,9 @@ function PluginDetail({
           </div>
         </Panel>
       </section>
+
+      {/* Slack is also a way to talk to the assistant: the owner's own Slack app. */}
+      {plugin.id === "slack" && <SlackChatCard />}
 
       {lines.length > 0 && (
         <section aria-labelledby="plugin-tools" className="flex flex-col gap-2">

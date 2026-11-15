@@ -246,12 +246,16 @@ class ChannelChatBridge:
         """The chat service when this message belongs in the lead conversation.
 
         Only the owner's private chats qualify: a Telegram private chat, a
-        Discord direct message or the owner's own WhatsApp chat (the channel
-        admits nobody else). A friend (``friend_id``), a group chat or a
-        server channel never reaches the owner's personal conversation, and
-        other channels keep their own threads.
+        Discord direct message, the owner's own WhatsApp chat (the channel
+        admits nobody else), or the owner's direct message to their Slack app
+        and their mention of it (the Slack channel passes nobody else on). A
+        friend (``friend_id``), a group chat or a server channel never reaches
+        the owner's personal conversation, and other channels keep their own
+        threads.
         """
-        if self._get_chat_service is None or name not in ("telegram", "discord", "whatsapp"):
+        if self._get_chat_service is None or name not in (
+            "telegram", "discord", "whatsapp", "slack"
+        ):
             return None
         if _metadata_value(msg.metadata, "friend_id"):
             return None
@@ -263,6 +267,9 @@ class ChannelChatBridge:
                 return None
         elif name == "whatsapp":
             if msg.metadata.get("whatsapp_private") is not True:
+                return None
+        elif name == "slack":
+            if msg.metadata.get("slack_owner") is not True:
                 return None
         elif msg.metadata.get("discord_dm") is not True:
             return None
@@ -494,12 +501,15 @@ def _language_of(text: str, *, fallback: str = "en") -> str:
 
 
 def _sender_language(msg: ChannelMessage) -> str:
-    """The language the sender's chat app is set to (Telegram says it), else English.
+    """The language the sender's chat app is set to (Telegram and Slack say it), else English.
 
     A message that carries no words to read the language from (a picture, a
     voice note that could not be read) is answered in this one.
     """
-    code = _metadata_value(msg.metadata, "telegram_language").lower().split("-")[0]
+    told = _metadata_value(msg.metadata, "telegram_language") or _metadata_value(
+        msg.metadata, "slack_language"
+    )
+    code = told.lower().split("-")[0]
     return code if code in _LANGS else "en"
 
 

@@ -1942,6 +1942,67 @@ def set_discord_pairing(on: bool, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     _set_integration_value("discord", "pair_on_first_dm", bool(on), path=path)
 
 
+def add_slack_allowed_user_id(user_id: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
+    """Persist a Slack member id under ``[integrations.slack] allowed_user_ids``.
+
+    Written by first-DM pairing and by a connect that knew the owner. A member
+    id is not a secret; the keys stay in the Credential Manager. Idempotent.
+    """
+    uid = str(user_id).strip()
+    if not uid:
+        raise ValueError("empty Slack user id")
+    path = _ensure_writable_config_path(path)
+    with _WRITE_LOCK:
+        raw = path.read_text(encoding="utf-8")
+        had_bom = raw.startswith(_BOM)
+        if had_bom:
+            raw = raw[len(_BOM) :]
+        doc: TOMLDocument = tomlkit.parse(raw)
+        integrations = doc.get("integrations")
+        if integrations is None:
+            integrations = tomlkit.table()
+            doc["integrations"] = integrations
+        slack = integrations.get("slack")
+        if slack is None:
+            slack = tomlkit.table()
+            integrations["slack"] = slack
+        current = slack.get("allowed_user_ids")
+        values = [str(v) for v in current] if current is not None else []
+        if uid not in values:
+            values.append(uid)
+            slack["allowed_user_ids"] = values
+        out = tomlkit.dumps(doc)
+        if had_bom:
+            out = _BOM + out
+        _atomic_write(path, out)
+
+
+def set_slack_channel(
+    *,
+    enabled: bool | None = None,
+    allowed_user_ids: list[str] | None = None,
+    pair_on_first_dm: bool | None = None,
+    team_id: str | None = None,
+    path: Path = DEFAULT_CONFIG_FILE,
+) -> None:
+    """Set fields of ``[integrations.slack]``; ``None`` leaves a field alone.
+
+    The connect writes the owner and the workspace before it enables the
+    channel, so a crash between the writes never leaves an enabled channel
+    with an open allowlist.
+    """
+    if allowed_user_ids is not None:
+        _set_integration_value(
+            "slack", "allowed_user_ids", [str(v) for v in allowed_user_ids], path=path
+        )
+    if pair_on_first_dm is not None:
+        _set_integration_value("slack", "pair_on_first_dm", bool(pair_on_first_dm), path=path)
+    if team_id is not None:
+        _set_integration_value("slack", "team_id", str(team_id), path=path)
+    if enabled is not None:
+        _set_integration_value("slack", "enabled", bool(enabled), path=path)
+
+
 def set_brain_provider_defaults(
     name: str,
     *,

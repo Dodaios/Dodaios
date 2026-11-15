@@ -546,8 +546,9 @@ export async function fetchLeadFiles(limit = 30): Promise<LeadFile[]> {
 
 /**
  * A place outside the app where the person meets the assistant (`GET
- * /lead/channels`). `chat` is a conversation with it (Telegram); `tool` is a
- * workspace it works in for the person (Slack), where nobody can write to it.
+ * /lead/channels`). `chat` is a conversation with it (Telegram, and Slack once
+ * the person connected their own Slack app); `tool` is a workspace it works in
+ * for the person (Slack without that app), where nobody can write to it.
  */
 export interface LeadChannel {
   id: "slack" | "telegram";
