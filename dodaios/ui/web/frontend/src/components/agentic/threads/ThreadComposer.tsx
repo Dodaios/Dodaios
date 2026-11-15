@@ -202,14 +202,16 @@ function waitingPlan(timeline: Timeline): TurnItem | null {
  * Any coding agent's finished plan (dodaios/agent_chat/turn_prompts.py): build
  * it in the runner's build mode, or keep planning and type what to change.
  */
-function PlanPanel({ timeline, provider }: { timeline: Timeline; provider: ProviderOption | null }) {
+function PlanPanel({ timeline, provider, draft }: { timeline: Timeline; provider: ProviderOption | null; draft: ComposerDraft }) {
   const t = useT();
   const chat = useThreadChat();
   const turn = waitingPlan(timeline);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   if (!turn?.plan) return null;
-  const buildMode = turn.plan.buildMode;
+  // Build goes to the mode the permission pill shows now; the card's own mode
+  // is what it showed when the plan was finished.
+  const buildMode = (draft.permissionMode === "plan" ? draft.buildMode : draft.permissionMode) || turn.plan.buildMode;
   const mode = provider?.permission_modes?.find((row) => row.id === buildMode);
   const decide = async (decision: PlanDecision) => {
     setSending(true);
@@ -606,7 +608,7 @@ export function ThreadComposer({
       <ApprovalPanel timeline={timeline} />
       {/* Keyed by thread: a half-typed answer or an old error never carries over to another thread's card. */}
       <QuestionPanel key={`q:${threadKey}`} timeline={timeline} />
-      {!running && <PlanPanel key={`p:${threadKey}`} timeline={timeline} provider={provider} />}
+      {!running && <PlanPanel key={`p:${threadKey}`} timeline={timeline} provider={provider} draft={draft} />}
       {(files.attachments.length > 0 || files.analyzing > 0) && <div className="px-3 pt-3 sm:px-4">
         <ChatAttachmentStrip attachments={files.attachments} analyzing={files.analyzing}
           onRemove={files.remove} previews={files.previews} look="thumbnail" />

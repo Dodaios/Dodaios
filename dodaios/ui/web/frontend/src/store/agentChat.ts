@@ -417,7 +417,9 @@ function draftFromSession(session: AgentChatSession, prev: ComposerDraft): Compo
     effort: session.effort,
     speed: session.speed ?? "",
     permissionMode: session.permission_mode,
-    buildMode: plan ? prev.buildMode || prev.permissionMode : session.permission_mode,
+    // In Plan the session itself says where Build returns to; a session from
+    // before it kept that falls back to what the composer last showed.
+    buildMode: plan ? session.build_mode || prev.buildMode || prev.permissionMode : session.permission_mode,
     cwd: session.cwd,
     computerId: session.computer_id ?? "",
   };
@@ -1081,11 +1083,14 @@ export function createAgentChatStore(
             set({ lastError: errorText(err) });
           }
         }
-        // Only the mode Build returns to (picked while Plan is on): the
-        // session stays in Plan, so there is nothing to tell it yet.
-        const localOnly = Object.keys(patch).every((key) => key === "buildMode");
+        // The mode Build returns to (the pill while Plan is on) goes to the
+        // session too: its plan is approved into that mode, not the default.
+        const buildPick = (patch.buildMode !== undefined || patch.permissionMode === "plan")
+          && draft.permissionMode === "plan" && Boolean(draft.buildMode) && draft.buildMode !== "plan";
+        const localOnly = Object.keys(patch).every((key) => key === "buildMode") && !buildPick;
         if (sid && !localOnly) {
           const body: PatchSessionInput = {};
+          if (buildPick) body.build_mode = draft.buildMode;
           if (patch.provider !== undefined) body.provider = draft.provider;
           if (patch.provider !== undefined || patch.model !== undefined) body.model = draft.model;
           if (patch.provider !== undefined || patch.effort !== undefined) body.effort = draft.effort;
@@ -1289,6 +1294,8 @@ export function createAgentChatStore(
               ...(d.speed ? { speed: d.speed } : {}),
               cwd: d.cwd || null,
               permission_mode: d.permissionMode,
+              // A thread that starts in Plan: the pill's mode is where Build returns to.
+              ...(d.permissionMode === "plan" && d.buildMode && d.buildMode !== "plan" ? { build_mode: d.buildMode } : {}),
               ...(d.computerId ? { computer_id: d.computerId } : {}),
               surface,
             });

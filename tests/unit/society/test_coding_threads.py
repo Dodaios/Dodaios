@@ -234,8 +234,10 @@ async def test_the_agent_answers_the_threads_question(society: Society, tmp_path
 async def test_plan_cards_close_with_build(society: Society, tmp_path: Path):
     rt = society
     thread = await open_thread(rt, tmp_path)
+    # The person switched the thread to Plan, with the pill on "Ask before edits".
+    rt.service.store.update_session(thread, permission_mode="plan", build_mode="default")
     rt.service.steps[thread] = [["The plan: 1. schema 2. API", make_event(
-        "plan_ready", {"build_mode": "acceptEdits"}
+        "plan_ready", {"build_mode": "default"}
     )]]
     await settle(rt, thread)
     assert open_plan(rt.service.store.list_events(thread)) is not None
@@ -246,7 +248,7 @@ async def test_plan_cards_close_with_build(society: Society, tmp_path: Path):
     assert result.success, result.error
     await settle(rt, thread)
     assert open_plan(rt.service.store.list_events(thread)) is None
-    assert rt.service.store.get_session(thread).permission_mode == "acceptEdits"
+    assert rt.service.store.get_session(thread).permission_mode == "default"
 
 
 async def test_only_the_owner_steers_a_thread(society: Society, tmp_path: Path):

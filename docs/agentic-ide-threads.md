@@ -131,8 +131,18 @@ Every coding agent gets the same cards at the top of the composer
 | Moment | Claude Code, GLM | Every other CLI (Codex, Antigravity, Grok Build, OpenCode, Kimi, Cursor, DeepSeek Harness) |
 |---|---|---|
 | The agent has a question | Its own `AskUserQuestion` opens the question card mid-turn; the answers go back on the control protocol and it keeps working | It ends its reply with a `jarvis-ask` block (the protocol rides in front of every prompt); the card opens when the turn ends and the answers are the next message |
-| The plan is ready | `ExitPlanMode` opens a plan card with the plan itself; **Build it** switches the thread to the runner's build mode and the same turn starts building | A turn that finished in plan mode opens a plan card; **Build it** switches the thread to the runner's build mode and sends the go-ahead |
+| The plan is ready | `ExitPlanMode` opens a plan card with the plan itself; **Build it** switches the thread back to the access mode its permission pill names and the same turn starts building | A turn that finished in plan mode opens a plan card; **Build it** switches the thread back to the access mode its permission pill names and sends the go-ahead |
 | A tool needs permission | The approval card (Approve, Always allow, Decline) | The CLI cannot ask from a headless run: the access mode decides, as each mode's description says |
+
+While Plan Mode is on, the permission pill names the access mode **Build it**
+returns to: the mode the thread had when Plan Mode was switched on, or the one
+picked on the pill since. The thread keeps that mode itself (`build_mode` on
+the session), so it survives a restart of the app and is the same in every
+window. After **Build it** the thread works in exactly that mode: a thread on
+"Bypass permissions" asks nothing more in the building turn, one on "Ask
+before edits" asks as it did before the plan. When the agent enters plan mode
+on its own, in a thread the person never switched to Plan Mode, approving its
+plan leaves the thread's access mode as it is.
 
 The question card is the question and nothing else: no header row. It shows
 the question, the agent's options as lettered rows (its recommendation first)

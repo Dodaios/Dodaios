@@ -54,9 +54,9 @@ from dodaios.agent_chat.effort import normalize_effort
 from dodaios.agent_chat.events import make_event, shown_text
 from dodaios.agent_chat.parked_work import BACKGROUND_ORIGIN, ParkedWorkBoard
 from dodaios.agent_chat.permissions import (
-    default_permission,
-    is_permission_mode,
+    PLAN_MODES,
     ladder_key,
+    mode_after_plan,
     normalize_permission,
 )
 from dodaios.agent_chat.questions import (
@@ -1208,6 +1208,7 @@ class AgentChatService:
         account_id: str = "",
         computer_id: str = "",
         speed: str = "",
+        build_mode: str = "",
     ) -> AgentChatSession:
         row = provider_row(provider)
         if row is None and not supports_api_runner(provider):
@@ -1220,6 +1221,11 @@ class AgentChatService:
         runner = resolve_runner(provider, surface=surface, account_id=account_id)
         ladder = ladder_key(surface, runner)
         permission_mode = normalize_permission(ladder, permission_mode)
+        # A thread that starts in Plan: the mode its permission pill showed, so
+        # an approved plan builds in the mode the person picked.
+        build = normalize_permission(ladder, build_mode) if build_mode.strip() else ""
+        if permission_mode not in PLAN_MODES or build in PLAN_MODES:
+            build = ""
         eff = normalize_effort(provider, effort) if effort is not None else ""
         if effort is None and surface != "agent":
             # A coding thread keeps "" until the person picks a level: the CLI
@@ -1238,6 +1244,7 @@ class AgentChatService:
             account_id=account_id,
             computer_id=computer_id,
             speed=normalize_speed(speed),
+            build_mode=build,
         )
 
     def _keep_conversation(self, session_id: str, vendor: str) -> None:
@@ -4152,11 +4159,10 @@ class AgentChatService:
         session = self.store.get_session(session_id)
         if session is None or session.permission_mode != "plan" or not text.strip():
             return
-        build = default_permission(ladder_key(session.surface, runner))
-        before = self.store.mode_before_plan(session_id)
-        if before and is_permission_mode(ladder_key(session.surface, runner), before):
-            build = before
-        if build == "plan":
+        build = mode_after_plan(
+            ladder_key(session.surface, runner), session.permission_mode, session.build_mode
+        )
+        if build in PLAN_MODES:
             return
         await self._emit(
             session_id,
@@ -4342,10 +4348,11 @@ class AgentChatService:
     ) -> bool:
         """The person's answer to a plan card: ``build`` or ``keep``.
 
-        ``build`` moves the session to the build mode the card offered and
-        sends the go-ahead as the next message; ``keep`` only closes the card,
-        so the person can tell the agent what to change. False when the card
-        is not open (any more).
+        ``build`` moves a session that is still in Plan to the mode its
+        permission pill names (the mode the card offered when the session
+        recorded none) and sends the go-ahead as the next message; ``keep``
+        only closes the card, so the person can tell the agent what to
+        change. False when the card is not open (any more).
         """
         if decision not in turn_prompts.PLAN_DECISIONS:
             raise ValueError(f"decision must be one of {turn_prompts.PLAN_DECISIONS}")
@@ -4360,8 +4367,12 @@ class AgentChatService:
             if decision == turn_prompts.PLAN_KEEP:
                 return True
             session = self.store.get_session(session_id)
-            build = card.build_mode
-            if session is not None and build and session.permission_mode != build:
+            # The pill may have moved since the card opened, and a session
+            # the person already took out of Plan keeps the mode they picked.
+            build = ""
+            if session is not None and session.permission_mode in PLAN_MODES:
+                build = session.build_mode or card.build_mode
+            if session is not None and build and build not in PLAN_MODES:
                 self.store.update_session(session_id, permission_mode=build)
                 await self._emit(
                     session_id,

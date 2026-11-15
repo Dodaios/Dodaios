@@ -900,3 +900,99 @@ describe("a thread read ahead opens painted", () => {
     expect(ws.closed).toBe(false);
   });
 });
+
+/**
+ * While Plan is on, the permission pill names the mode Build returns to. The
+ * thread itself has to know it: an approved plan is answered on the server,
+ * and it went on in the runner's default instead of the pill's mode.
+ */
+describe("the mode Build returns to", () => {
+  const draft = { provider: "claude-api", model: "", effort: "high", cwd: "C:\\work" };
+
+  /** A thread in the given mode, and a PATCH route that answers like the server. */
+  function openThread(row: AgentChatSession): { store: ReturnType<typeof createAgentChatStore>; patches: Array<Record<string, unknown>> } {
+    const patches: Array<Record<string, unknown>> = [];
+    let current = { ...row };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: string, init?: RequestInit) => {
+        const body = typeof init?.body === "string" ? (JSON.parse(init.body) as Record<string, unknown>) : {};
+        if (init?.method === "PATCH") {
+          patches.push(body);
+          current = { ...current, ...body } as AgentChatSession;
+        }
+        return new Response(JSON.stringify(current), { status: 200 });
+      }),
+    );
+    const store = createAgentChatStore("agent", `build-${row.session_id}`);
+    store.setState({ activeSessionId: row.session_id, activeSession: row, sessions: [row] });
+    return { store, patches };
+  }
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.stubGlobal("WebSocket", FakeSocket);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("starts a thread in Plan with the pill's mode, and names none for a thread that does not plan", async () => {
+    const calls = stubFetch([]);
+    const planning = createAgentChatStore("agent", "build-new");
+    planning.setState({ draft: { ...draft, permissionMode: "plan", buildMode: "default" } });
+    await planning.getState().send("plan this");
+    const created = calls.find((c) => c.url === "/api/agent-chat/sessions" && c.method === "POST");
+    expect(created?.body).toMatchObject({ permission_mode: "plan", build_mode: "default" });
+
+    calls.length = 0;
+    const building = createAgentChatStore("agent", "build-new-2");
+    building.setState({ draft: { ...draft, permissionMode: "default", buildMode: "default" } });
+    await building.getState().send("build this");
+    const plain = calls.find((c) => c.url === "/api/agent-chat/sessions" && c.method === "POST");
+    expect(plain?.body).toMatchObject({ permission_mode: "default" });
+    expect(plain?.body).not.toHaveProperty("build_mode");
+  });
+
+  it("tells the thread a pick made on the pill while Plan is on", async () => {
+    const row = { ...session("p1", "agent"), permission_mode: "plan", build_mode: "bypassPermissions" };
+    const { store, patches } = openThread(row);
+    store.setState({ draft: { ...draft, permissionMode: "plan", buildMode: "bypassPermissions" } });
+
+    await store.getState().setDraft({ buildMode: "default" });
+
+    expect(patches).toEqual([{ build_mode: "default" }]);
+    expect(store.getState().draft).toMatchObject({ permissionMode: "plan", buildMode: "default" });
+    expect(store.getState().activeSession?.build_mode).toBe("default");
+  });
+
+  it("names the pill's mode when Plan is switched on, and nothing when Plan is off", async () => {
+    const row = { ...session("p2", "agent"), permission_mode: "bypassPermissions" };
+    const { store, patches } = openThread(row);
+    store.setState({ draft: { ...draft, permissionMode: "bypassPermissions", buildMode: "bypassPermissions" } });
+
+    // Outside Plan the pill is the thread's mode itself.
+    await store.getState().setDraft({ buildMode: "default" });
+    expect(patches).toEqual([]);
+    await store.getState().setDraft({ permissionMode: "auto" });
+    expect(patches).toEqual([{ permission_mode: "auto" }]);
+
+    await store.getState().setPlan(true);
+    expect(patches[1]).toEqual({ permission_mode: "plan", build_mode: "auto" });
+    expect(store.getState().draft).toMatchObject({ permissionMode: "plan", buildMode: "auto" });
+  });
+
+  it("shows the thread's own mode on the pill, not the one the composer showed last", () => {
+    const row = { ...session("p3", "agent"), permission_mode: "bypassPermissions" };
+    const { store } = openThread(row);
+    store.setState({ timeline: EMPTY_TIMELINE, draft: { ...draft, permissionMode: "bypassPermissions", buildMode: "bypassPermissions" } });
+
+    // Plan switched on elsewhere, with "Ask before edits" to return to.
+    store.getState().ingest(chatEvent(1, "session_updated", { permission_mode: "plan", build_mode: "default" }));
+    expect(store.getState().draft).toMatchObject({ permissionMode: "plan", buildMode: "default" });
+
+    // The plan is approved: the thread is in that mode, and so is the pill.
+    store.getState().ingest(chatEvent(2, "session_updated", { permission_mode: "default" }));
+    expect(store.getState().draft).toMatchObject({ permissionMode: "default", buildMode: "default" });
+  });
+});

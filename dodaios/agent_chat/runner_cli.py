@@ -86,8 +86,9 @@ from dodaios.agent_chat.effort import (
 )
 from dodaios.agent_chat.events import make_event, plan_steps, plan_update_events
 from dodaios.agent_chat.permissions import (
-    default_permission,
-    is_permission_mode,
+    PLAN_MODES,
+    ladder_key,
+    mode_after_plan,
     normalize_permission,
 )
 from dodaios.agent_chat.questions import (
@@ -215,13 +216,17 @@ def claude_argv_prefix() -> list[str]:
 
 def warm_claude_capabilities() -> None:
     """Run the Claude CLI's flag probes (blocking, cached) so planning only reads them."""
-    from dodaios.claude_auth import claude_cli_supports_thinking_display
+    from dodaios.claude_auth import (
+        claude_cli_supports_allow_bypass,
+        claude_cli_supports_thinking_display,
+    )
 
     try:
         prefix = claude_argv_prefix()
     except CliUnavailable:
         return  # planning reports the missing CLI itself
     claude_cli_supports_thinking_display(prefix)
+    claude_cli_supports_allow_bypass(prefix)
 
 
 def codex_argv_prefix() -> list[str]:
@@ -912,6 +917,61 @@ def claude_bypass_chosen(runner: str, session: Any) -> bool:
         return normalize_permission(runner, stance) == "bypassPermissions"
     except Exception:  # noqa: BLE001 - an unknown runner or mode asks, as before
         return False
+
+
+#: Offers "Bypass permissions" to a Claude Code process without starting in it.
+CLAUDE_ALLOW_BYPASS_FLAG: Final[str] = "--allow-dangerously-skip-permissions"
+
+
+def _claude_refuses_bypass_here() -> bool:
+    """Whether Claude Code would exit instead of offering bypass (root outside a sandbox)."""
+    geteuid = getattr(os, "geteuid", None)
+    return callable(geteuid) and geteuid() == 0 and os.environ.get("IS_SANDBOX") != "1"
+
+
+def allow_bypass_after_plan(argv: list[str], runner: str, session: Any) -> None:
+    """Let a Claude Code turn that starts in Plan go on in "Bypass permissions".
+
+    An approved plan is answered with the mode the thread returns to. Claude
+    Code takes "bypassPermissions" from that answer only when the process was
+    started with bypass on offer; otherwise it drops to its ask-everything
+    mode and every call of the building turn became an approval card (live
+    2026-11-15). So a thread that plans and whose permission pill says
+    "Bypass permissions" starts with the offer.
+
+    Left out where the CLI would not start with it: an older CLI that does
+    not know the flag, and root outside a sandbox. There the runner answers
+    the prompts itself once the plan is approved (:func:`claude_bypass_chosen`).
+    """
+    if runner not in _CLAUDE_CODE_RUNNERS or CLAUDE_ALLOW_BYPASS_FLAG in argv:
+        return
+    try:
+        started_in = argv[argv.index("--permission-mode") + 1]
+    except (ValueError, IndexError):  # no mode on the command line: nothing to offer
+        return
+    if started_in != "plan":
+        return
+    from dodaios.agent_chat.surface_kits import kit_for
+    from dodaios.claude_auth import claude_cli_allow_bypass_known
+
+    surface = str(getattr(session, "surface", "") or "agent")
+    if not kit_for(surface).turn_prompts:
+        return  # only a coding thread's plan approval names a mode (``_leave_plan_mode``)
+    build = mode_after_plan(
+        ladder_key(surface, runner),
+        str(getattr(session, "permission_mode", "") or ""),
+        str(getattr(session, "build_mode", "") or ""),
+    )
+    if normalize_permission(runner, build) != "bypassPermissions":
+        return
+    if _claude_refuses_bypass_here():
+        return
+    try:
+        known = claude_cli_allow_bypass_known(claude_argv_prefix())
+    except CliUnavailable:  # planning reports the missing CLI itself
+        return
+    if known:
+        argv.append(CLAUDE_ALLOW_BYPASS_FLAG)
 
 
 async def dodaios_read_free(session: Any, tool_name: str, tool_input: Any) -> bool:
@@ -4650,7 +4710,7 @@ async def _run_cli_once(
                     planned_prompt = (
                         effort_note(session.provider, told_effort, model_ladder) + planned_prompt
                     )
-                if runner == "claude-cli":
+                if runner in _CLAUDE_CODE_RUNNERS:
                     await asyncio.to_thread(warm_claude_capabilities)
                 custom_kwargs: dict[str, Any] = (
                     {"provider": session.provider, "session_id": session.session_id}
@@ -4672,6 +4732,8 @@ async def _run_cli_once(
                 # The speed pick (Claude Code's fast mode, a Codex service
                 # tier) is one flag on top of any plan; see ``speed.py``.
                 apply_speed(plan.argv, runner, getattr(session, "speed", ""))
+                # A thread that plans may go on in "Bypass permissions".
+                allow_bypass_after_plan(plan.argv, runner, session)
                 await asyncio.to_thread(_carry_thread_conversation, runner, resume, plan.env)
             apply_child_env_drops(session.session_id, plan.env)
             if getattr(handle, "tools_disabled", False):
@@ -5162,7 +5224,8 @@ async def _drive_cli(
                 or await dodaios_read_free(session, tool_name, tool_input)
             ):
                 # The person picked "Bypass permissions" (the CLI still asks
-                # once the model enters plan mode itself), covered by this
+                # once the model enters plan mode itself, or when it did not
+                # take the mode an approved plan returned to), covered by this
                 # process's own "Always allow", or a read of Dodaios' own
                 # tools that Ask never puts in front of the person.
                 await _respond(request_id, {"behavior": "allow", "updatedInput": tool_input})
@@ -5282,26 +5345,41 @@ async def _drive_cli(
         return {"behavior": "allow", "updatedInput": {**tool_input, "answers": picked}}
 
     async def _leave_plan_mode() -> str:
-        """The build mode an approved plan continues in, or "" to leave it to the CLI.
+        """The access mode an approved plan goes on in, or "" to leave it to the CLI.
 
-        Coding threads only (``turn_prompts``): the session goes back to the
-        mode it was in before it entered plan mode (the runner's default when
-        that is unknown), so the next message builds too and the composer's
-        access pick shows it.
+        Coding threads only (``turn_prompts``). A thread the person switched
+        to Plan goes back to the mode its permission pill names; one whose
+        agent entered plan mode on its own keeps the mode it has
+        (``mode_after_plan``). The session and the composer follow, and so
+        does this turn: from here on ``session`` is the thread as it is now,
+        so the checks below it answer for the new mode, and the Dodaios tools
+        are no longer held read-only.
         """
+        nonlocal session
         from dodaios.agent_chat.surface_kits import kit_for
+        from dodaios.core.tool_read_only import set_chat_read_only
 
         if not kit_for(session.surface).turn_prompts:
             return ""
-        build = default_permission(runner)
         store = getattr(handle.control_service, "store", None)
-        before_of = getattr(store, "mode_before_plan", None)
-        before = before_of(session.session_id) if callable(before_of) else ""
-        if before and is_permission_mode(runner, before):
-            build = before
-        if store is not None and build != session.permission_mode:
-            store.update_session(session.session_id, permission_mode=build)
+        read = getattr(store, "get_session", None)
+        # The pill may have moved while the plan was written.
+        now = (read(session.session_id) if callable(read) else None) or session
+        build = mode_after_plan(
+            ladder_key(session.surface, runner),
+            str(now.permission_mode or ""),
+            str(getattr(now, "build_mode", "") or ""),
+        )
+        if store is not None and build != now.permission_mode:
+            now = store.update_session(session.session_id, permission_mode=build) or now
             await handle.emit(make_event("session_updated", {"permission_mode": build}))
+        if getattr(now, "permission_mode", "") != build:
+            try:
+                now = replace(now, permission_mode=build)
+            except TypeError:  # not a session record (a test double): the mode alone is lost
+                log.debug("agent chat %s: turn keeps its start mode", handle.turn_id)
+        session = now
+        set_chat_read_only(session.session_id, build in PLAN_MODES)
         return build
 
     async def _feed_stdin() -> None:

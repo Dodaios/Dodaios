@@ -69,6 +69,7 @@ from dodaios.agent_chat.credential_requests import CredentialRequestBusy
 from dodaios.agent_chat.effort import normalize_effort
 from dodaios.agent_chat.events import make_event
 from dodaios.agent_chat.permissions import (
+    PLAN_MODES,
     default_permission,
     is_permission_mode,
     ladder_key,
@@ -262,6 +263,9 @@ class CreateSessionBody(BaseModel):
     cwd: str | None = None
     #: "" = the runner's default mode (dodaios/agent_chat/permissions.py).
     permission_mode: str = ""
+    #: With ``permission_mode`` "plan": the mode the permission pill shows,
+    #: which the session goes back to once its plan is approved.
+    build_mode: str = Field(default="", max_length=64)
     title: str = ""
     #: Which chat the session belongs to — the front page ("jarvis"), the
     #: Agentic IDE's chat mode ("agent"), or the Local models section's setup
@@ -297,6 +301,9 @@ class PatchSessionBody(BaseModel):
     speed: str | None = Field(default=None, max_length=32)
     cwd: str | None = None
     permission_mode: str | None = None
+    #: A pick on the permission pill while Plan is on: the mode an approved
+    #: plan builds in. Ignored for a session that is not in Plan.
+    build_mode: str | None = Field(default=None, max_length=64)
     computer_id: str | None = None
 
 
@@ -1232,6 +1239,7 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
             speed=body.speed,
             cwd=cwd,
             permission_mode=normalize_permission(ladder, body.permission_mode),
+            build_mode=body.build_mode,
             title=body.title,
             surface=body.surface,
             account_id=body.account_id,
@@ -2024,6 +2032,11 @@ async def patch_session(
         # A provider change folds the old mode onto the new runner's ladder
         # (a no-op on the Jarvis surface, whose ladder is the same for all).
         fields["permission_mode"] = normalize_permission(ladder, current.permission_mode)
+    if body.build_mode and fields.get("permission_mode", current.permission_mode) in PLAN_MODES:
+        # The pill while Plan is on: where an approved plan goes on.
+        build = normalize_permission(ladder, body.build_mode)
+        if build not in PLAN_MODES:
+            fields["build_mode"] = build
     if any(key in fields for key in ("provider", "model", "permission_mode", "account_id")):
         if fields.get("permission_mode") == "plan" and current.permission_mode not in (
             "plan",
@@ -2062,6 +2075,9 @@ async def patch_session(
                 # the roster narrowed during binding.
                 svc.store.set_permission_override(session_id, session.permission_mode)
     changed = {key: getattr(session, key) for key in fields if key != "vendor_session"}
+    if "permission_mode" in changed:
+        # Entering Plan records the mode to return to, leaving it drops that.
+        changed["build_mode"] = session.build_mode
     if changed:
         await svc._emit(session_id, make_event("session_updated", changed))  # noqa: SLF001 — same package boundary
     d = session.to_dict()

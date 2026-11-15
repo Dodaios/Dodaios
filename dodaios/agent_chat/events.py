@@ -71,7 +71,8 @@ Kinds (``payload`` keys in brackets):
                         start), shown until the agent's first output
 ``turn_finished``      [turn_id, status, duration_ms, usage, error, cost_usd]
                         status: done | cancelled | error
-``session_updated``    [title?, provider?, model?, effort?, cwd?, permission_mode?]
+``session_updated``    [title?, provider?, model?, effort?, cwd?, permission_mode?,
+                        build_mode?]
 ``error``              [turn_id?, message]
 ``notice``              [kind, ...]                      — a system line outside a turn
 

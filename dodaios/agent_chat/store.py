@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from dodaios.agent_chat.events import is_transient, now_ms, shown_text
+from dodaios.agent_chat.permissions import PLAN_MODES as _PLAN_MODES
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +62,8 @@ CREATE TABLE IF NOT EXISTS agent_chat_sessions (
     computer_id      TEXT NOT NULL DEFAULT '',
     last_message_ms  INTEGER NOT NULL DEFAULT 0,
     speed            TEXT NOT NULL DEFAULT '',
-    started_by       TEXT NOT NULL DEFAULT ''
+    started_by       TEXT NOT NULL DEFAULT '',
+    build_mode       TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS agent_chat_events (
     session_id  TEXT NOT NULL,
@@ -232,6 +234,11 @@ class AgentChatSession:
     #: a society agent's id): the author of its first message. Empty = the
     #: person started it.
     started_by: str = ""
+    #: The access mode a session in Plan goes back to once its plan is
+    #: approved (``permissions.mode_after_plan``): the mode its permission
+    #: pill names. Set only while the session is in Plan; empty there means
+    #: the ladder's default.
+    build_mode: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -273,8 +280,6 @@ class AgentChatStore:
         # The thread search's caseless match (``search_sessions``).
         self._conn.create_function("dodaios_fold", 1, _fold, deterministic=True)
         self._lock = threading.Lock()
-        #: The mode a session was in before it entered plan mode (this run only).
-        self._mode_before_plan: dict[str, str] = {}
         with self._lock:
             if self._path != ":memory:":
                 self._conn.execute("PRAGMA journal_mode=WAL")
@@ -349,6 +354,12 @@ class AgentChatStore:
                 "SELECT json_extract(e.payload, '$.author.agent_id') FROM agent_chat_events e "
                 "WHERE e.session_id = agent_chat_sessions.session_id "
                 "AND e.kind = 'user_message' ORDER BY e.seq LIMIT 1), '')"
+            )
+        if "build_mode" not in have:
+            # The mode a session in Plan returns to; empty = the ladder's default,
+            # which is what a session from before the column returned to.
+            self._conn.execute(
+                "ALTER TABLE agent_chat_sessions ADD COLUMN build_mode TEXT NOT NULL DEFAULT ''"
             )
 
     def close(self) -> None:
@@ -429,6 +440,7 @@ class AgentChatStore:
         runtime: str = "",
         computer_id: str = "",
         speed: str = "",
+        build_mode: str = "",
     ) -> AgentChatSession:
         if surface not in SURFACES:
             raise ValueError(f"surface must be one of {SURFACES}, not {surface!r}")
@@ -441,8 +453,8 @@ class AgentChatStore:
             self._conn.execute(
                 "INSERT INTO agent_chat_sessions (session_id, title, provider, model, effort, "
                 "cwd, permission_mode, vendor_session, created_ms, updated_ms, message_count, "
-                "preview, surface, account_id, runtime, computer_id, last_message_ms, speed) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 0, '', ?, ?, ?, ?, ?, ?)",
+                "preview, surface, account_id, runtime, computer_id, last_message_ms, speed, "
+                "build_mode) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 0, '', ?, ?, ?, ?, ?, ?, ?)",
                 (
                     sid,
                     title,
@@ -459,6 +471,8 @@ class AgentChatStore:
                     computer_id,
                     now,
                     speed,
+                    # Only a session that starts in Plan has a mode to return to.
+                    build_mode if mode in _PLAN_MODES else "",
                 ),
             )
             self._conn.commit()
@@ -631,9 +645,12 @@ class AgentChatStore:
 
     def update_session(self, session_id: str, **fields: Any) -> AgentChatSession | None:
         """Set any of title / provider / model / effort / speed / cwd /
-        permission_mode / vendor_session. Unknown keys are ignored so a route can pass its body
-        through after validation. ``surface`` is deliberately NOT settable: a
-        session is born on one chat and stays there."""
+        permission_mode / build_mode / vendor_session. Unknown keys are ignored so a route
+        can pass its body through after validation. ``surface`` is deliberately NOT
+        settable: a session is born on one chat and stays there.
+
+        A session that enters Plan keeps the mode it had as its ``build_mode``
+        (unless the caller names one), and one that leaves Plan drops it."""
         allowed = {
             "title",
             "provider",
@@ -642,6 +659,7 @@ class AgentChatStore:
             "speed",
             "cwd",
             "permission_mode",
+            "build_mode",
             "vendor_session",
             "account_id",
             "runtime",
@@ -651,26 +669,24 @@ class AgentChatStore:
         if not updates:
             return self.get_session(session_id)
         updates["updated_ms"] = now_ms()
-        cols = ", ".join(f"{k} = ?" for k in updates)
         with self._lock:
-            if updates.get("permission_mode") == "plan":
+            mode = updates.get("permission_mode")
+            if mode is not None and mode not in _PLAN_MODES:
+                updates["build_mode"] = ""
+            elif mode is not None and "build_mode" not in updates:
                 row = self._conn.execute(
                     "SELECT permission_mode FROM agent_chat_sessions WHERE session_id = ?",
                     (session_id,),
                 ).fetchone()
-                if row is not None and row[0] not in ("plan", "read-only"):
-                    self._mode_before_plan[session_id] = str(row[0])
+                if row is not None and row[0] and row[0] not in _PLAN_MODES:
+                    updates["build_mode"] = str(row[0])
+            cols = ", ".join(f"{k} = ?" for k in updates)
             self._conn.execute(
                 f"UPDATE agent_chat_sessions SET {cols} WHERE session_id = ?",  # noqa: S608 — column names are from the allow-list above
                 (*updates.values(), session_id),
             )
             self._conn.commit()
         return self.get_session(session_id)
-
-    def mode_before_plan(self, session_id: str) -> str:
-        """The mode the session was in before it entered plan mode, or "" if unknown."""
-        with self._lock:
-            return self._mode_before_plan.get(session_id, "")
 
     def permission_override(self, session_id: str) -> str:
         """The user's explicit stance, separate from a Society roster ceiling."""
@@ -1337,4 +1353,5 @@ class AgentChatStore:
             ),
             speed=str(row["speed"] or "") if "speed" in row.keys() else "",
             started_by=str(row["started_by"] or "") if "started_by" in row.keys() else "",
+            build_mode=str(row["build_mode"] or "") if "build_mode" in row.keys() else "",
         )

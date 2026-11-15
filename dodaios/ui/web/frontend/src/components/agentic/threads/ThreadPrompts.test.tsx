@@ -13,6 +13,7 @@ const api = vi.hoisted(() => ({
   answerAgentChatQuestion: vi.fn(),
   resolveAgentChatPlan: vi.fn(),
   resolveAgentChatApproval: vi.fn(),
+  patchAgentChatSession: vi.fn(),
 }));
 vi.mock("@/lib/agentChatApi", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/agentChatApi")>()), ...api }));
 vi.mock("@/lib/gitApi", async (importOriginal) => ({
@@ -45,7 +46,8 @@ const CATALOG: AgentChatCatalog = {
     id: "openai-codex", label: "OpenAI Codex", family: "openai", runner: "codex-cli", agent: "codex",
     models_source: "curated", curated_models: [], default_model: "",
     keyless: false, native_resume: true, effort_levels: ["high"], default_effort: "high",
-    permission_modes: [{ id: "auto", label: "Auto", description: "" }, { id: "plan", label: "Plan", description: "" }],
+    permission_modes: [{ id: "auto", label: "Auto", description: "" }, { id: "plan", label: "Plan", description: "" },
+      { id: "full-access", label: "Full access", description: "" }],
     default_permission_mode: "auto", cli_installed: true, typeahead: [],
   }],
 } as AgentChatCatalog;
@@ -90,6 +92,7 @@ beforeEach(() => {
   api.answerAgentChatQuestion.mockReset().mockResolvedValue(undefined);
   api.resolveAgentChatPlan.mockReset().mockResolvedValue(undefined);
   api.resolveAgentChatApproval.mockReset().mockResolvedValue(undefined);
+  api.patchAgentChatSession.mockReset().mockImplementation(async (_sid: string, body: Partial<AgentChatSession>) => sessionRow(body));
   useIdeProjectsStore.setState({ projects: [project], activeWorkspaceId: null });
   useIdeThreadsStore.setState({ layout: "threads", selection: { projectId: "p1", sessionId: null }, projectOf: {}, seen: {}, archived: {}, focusNonce: 0 });
   useThreadChatStore.getState().newChat();
@@ -146,6 +149,33 @@ describe("a coding agent's questions and plans in a thread", () => {
     expect(api.resolveAgentChatPlan).toHaveBeenCalledWith("s1", "t1", "build");
     feed([["plan_resolved", { turn_id: "t1", decision: "build" }]]);
     expect(screen.queryByTestId("thread-plan")).toBeNull();
+  });
+
+  it("names the mode the permission pill shows now, not the one from when the plan was finished", async () => {
+    await openThread();
+    feed([
+      ["assistant_text", { turn_id: "t1", message_id: "m1", text: "1. Add the table" }],
+      ["turn_finished", { turn_id: "t1", status: "done", duration_ms: 1000 }],
+      ["plan_ready", { turn_id: "t1", build_mode: "auto" }],
+      // The person moves the pill after the card opened; Plan stays on.
+      ["session_updated", { build_mode: "full-access" }],
+    ]);
+    const card = await screen.findByTestId("thread-plan");
+    expect(card.textContent).toContain("switches access to Full access");
+  });
+
+  it("tells the thread the mode picked on the pill while Plan Mode is on", async () => {
+    // The pick used to stay in the composer; the approved plan then went on in the default mode.
+    await openThread();
+    // The thread's own state, as its socket reports it: in Plan, returning to Auto.
+    feed([["session_updated", { permission_mode: "plan", build_mode: "auto" }]]);
+    expect(screen.getByTestId("thread-access-picker").textContent).toContain("Auto");
+    fireEvent.click(screen.getByTestId("thread-access-picker"));
+    const row = screen.getAllByRole("option").find((option) => option.getAttribute("data-value") === "full-access");
+    await act(async () => { fireEvent.click(row!); });
+    await waitFor(() => expect(api.patchAgentChatSession).toHaveBeenCalledWith("s1", { build_mode: "full-access" }));
+    expect(screen.getByTestId("thread-access-picker").textContent).toContain("Full access");
+    expect(useThreadChatStore.getState().draft).toMatchObject({ permissionMode: "plan", buildMode: "full-access" });
   });
 
   it("shows Claude's plan on its approval card, without an always-allow", async () => {
