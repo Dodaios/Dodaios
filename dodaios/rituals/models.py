@@ -136,6 +136,9 @@ class RitualDay:
     results: tuple[str, ...]
     #: When the gathered result reached the person; ``None`` while it is owed.
     delivered_ms: int | None
+    #: When its phrase started it on this day; ``None`` while the phrase is
+    #: still free. A click or a start on request does not use the phrase up.
+    phrase_ms: int | None = None
 
     def to_dict(self, *, with_text: bool = False) -> dict[str, Any]:
         view: dict[str, Any] = {
@@ -147,6 +150,7 @@ class RitualDay:
             "fired_via": self.fired_via,
             "results": list(self.results),
             "delivered_ms": self.delivered_ms,
+            "phrase_ms": self.phrase_ms,
         }
         if with_text:
             view["spoken"] = self.spoken

@@ -3,8 +3,8 @@
 Opened like the standing-task store: one connection in WAL mode behind a lock.
 ``rituals`` holds what the person wrote; ``ritual_days`` holds one row per
 ritual and local day: what was gathered ahead, and whether the ritual ran.
-"Ran today" is decided by one conditional update, so two starts in the same
-moment (a spoken phrase and a click) cannot both win.
+"Its phrase started it today" is decided by one conditional update, so the
+same phrase heard twice in one moment cannot start it twice.
 """
 
 from __future__ import annotations
@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS ritual_days (
     fired_via TEXT NOT NULL DEFAULT '',
     results TEXT NOT NULL DEFAULT '[]',
     delivered_ms INTEGER,
+    phrase_ms INTEGER,
     PRIMARY KEY (ritual_id, day)
 );
 """
@@ -63,7 +64,7 @@ _RITUAL_COLUMNS: Final[str] = (
 )
 _DAY_COLUMNS: Final[str] = (
     "ritual_id, day, prep_state, prep_attempts, prep_error, prep_session, prepared_ms, "
-    "steps_hash, spoken, written, fired_ms, fired_via, results, delivered_ms"
+    "steps_hash, spoken, written, fired_ms, fired_via, results, delivered_ms, phrase_ms"
 )
 #: The columns of a day :meth:`RitualStore.patch_day` may write.
 _DAY_FIELDS: Final[frozenset[str]] = frozenset(
@@ -162,7 +163,8 @@ class RitualStore:
         return [_day(row) for row in rows]
 
     def claim_fire(self, ritual_id: str, day: str, at_ms: int, via: str) -> bool:
-        """Mark the ritual as started today; ``False`` when it already was.
+        """Start the ritual by its phrase for today; ``False`` when the phrase
+        already started it on this day.
 
         One conditional update decides it, so of two starts in the same moment
         exactly one gets ``True``.
@@ -170,15 +172,18 @@ class RitualStore:
         with self._lock:
             self._ensure_day(ritual_id, day)
             cursor = self._conn.execute(
-                "UPDATE ritual_days SET fired_ms = ?, fired_via = ?, results = '[]', "
-                "delivered_ms = NULL WHERE ritual_id = ? AND day = ? AND fired_ms IS NULL",
-                (int(at_ms), str(via), str(ritual_id), str(day)),
+                "UPDATE ritual_days SET phrase_ms = ?, fired_ms = ?, fired_via = ?, "
+                "results = '[]', delivered_ms = NULL "
+                "WHERE ritual_id = ? AND day = ? AND phrase_ms IS NULL",
+                (int(at_ms), int(at_ms), str(via), str(ritual_id), str(day)),
             )
             self._conn.commit()
             return cursor.rowcount == 1
 
     def record_fire(self, ritual_id: str, day: str, at_ms: int, via: str) -> None:
-        """Mark a start that does not depend on an earlier one (a click, a second run)."""
+        """Mark a start that is not the phrase's one start of the day: a click,
+        the assistant on request, a ritual that may repeat. It neither uses up
+        the phrase nor is held back by it."""
         with self._lock:
             self._ensure_day(ritual_id, day)
             self._conn.execute(
@@ -274,6 +279,7 @@ def _day(row: tuple[Any, ...]) -> RitualDay:
         fired_via=str(row[11]),
         results=tuple(str(line) for line in _json_list(row[12], "results", row[0])),
         delivered_ms=int(row[13]) if row[13] is not None else None,
+        phrase_ms=int(row[14]) if row[14] is not None else None,
     )
 
 

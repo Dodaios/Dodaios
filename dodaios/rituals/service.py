@@ -11,9 +11,10 @@ two things at once:
   gathered ahead for it.
 
 Whether a phrase starts a ritual right now is a matter of words and the clock
-(:func:`find_match`, :func:`why_not`); no model is asked. A ritual that may
-start only once a day is claimed with one conditional update in the store, so
-a spoken phrase and a click in the same moment cannot both start it.
+(:func:`find_match`, :func:`why_not`); no model is asked. A ritual whose
+phrase may start it only once a day is claimed with one conditional update in
+the store, so the phrase heard twice in one moment starts it once. A click or
+a start on request always runs and does not use the phrase up.
 """
 
 from __future__ import annotations
@@ -366,22 +367,28 @@ def _inside_window(ritual: Ritual, moment: datetime) -> bool:
     return minute >= start or minute <= end
 
 
-def why_not(ritual: Ritual, moment: datetime, *, fired_today: bool) -> str:
-    """Why its phrase does not start ``ritual`` at ``moment``; ``""`` when it does."""
+def why_not(ritual: Ritual, moment: datetime, *, phrase_used: bool) -> str:
+    """Why its phrase does not start ``ritual`` at ``moment``; ``""`` when it does.
+
+    ``phrase_used`` is whether the phrase already started it on that day. A
+    click on "Run now" or a start on request does not count: the phrase keeps
+    its one start of the day.
+    """
     if not ritual.enabled:
         return "off"
     if ritual.weekdays and moment.weekday() not in ritual.weekdays:
         return "day"
     if not _inside_window(ritual, moment):
         return "time"
-    if ritual.once_per_day and fired_today:
+    if ritual.once_per_day and phrase_used:
         return "done_today"
     return ""
 
 
-def _fired_today(ritual_id: str, day: str) -> bool:
+def _phrase_used(ritual_id: str, day: str) -> bool:
+    """Whether the ritual's phrase already started it on ``day``."""
     row = get_store().day(ritual_id, day)
-    return row is not None and row.fired_ms is not None
+    return row is not None and row.phrase_ms is not None
 
 
 def find_match(
@@ -402,7 +409,7 @@ def find_match(
         for phrase in ritual.phrases:
             if matcher.says(said, phrase, wake_phrase=wake):
                 blocked = why_not(
-                    ritual, moment, fired_today=_fired_today(ritual.id, day_of(moment))
+                    ritual, moment, phrase_used=_phrase_used(ritual.id, day_of(moment))
                 )
                 return Match(ritual=ritual, phrase=phrase, blocked=blocked)
     return None
@@ -539,9 +546,10 @@ async def fire(
     """Start a ritual: the card, and its ``now`` steps as a turn.
 
     ``force`` is the person's own click or the assistant on request: it starts
-    the ritual whatever the clock says and however often it ran today. Without
-    it the ritual's conditions hold, and a ritual that may start once a day is
-    claimed first, so only one of two starts in the same moment goes through.
+    the ritual whatever the clock says and however often it ran today, and it
+    leaves the phrase its one start of the day. Without it the ritual's
+    conditions hold, and a ritual that may start once a day is claimed first,
+    so the same phrase heard twice in one moment starts it once.
     """
     if via not in FIRED_VIA:
         raise RitualError("invalid", "via must be one of " + ", ".join(FIRED_VIA) + ".")
@@ -555,7 +563,7 @@ async def fire(
     if force:
         store.record_fire(ritual.id, day, stamp, via)
     else:
-        blocked = why_not(ritual, moment, fired_today=_fired_today(ritual.id, day))
+        blocked = why_not(ritual, moment, phrase_used=_phrase_used(ritual.id, day))
         if blocked:
             raise _does_not_start(ritual, blocked)
         if ritual.once_per_day:

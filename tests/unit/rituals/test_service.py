@@ -342,6 +342,20 @@ async def test_a_phrase_does_not_start_what_its_conditions_hold_back(society) ->
     assert await _code(service.fire("rit_missing", via="voice", now=MONDAY_0830)) == "not_found"
 
 
+async def test_a_click_does_not_use_up_the_phrase(society) -> None:
+    """Trying a ritual with "Run now" in the morning must not silence its phrase."""
+    ritual = await service.create(**MORNING)
+    await service.fire(ritual.id, via="button", force=True, now=_at(7, 0))
+    assert service.find_match("Good morning", now=MONDAY_0830).fires
+    await service.fire(ritual.id, via="voice", now=MONDAY_0830)
+    assert service.find_match("Good morning", now=_at(9, 0)).blocked == "done_today"
+    # And a click after the phrase starts it again without freeing the phrase.
+    await service.fire(ritual.id, via="button", force=True, now=_at(9, 30))
+    assert service.find_match("Good morning", now=_at(9, 45)).blocked == "done_today"
+    await service.drain()
+    assert [card["via"] for card in society.notices] == ["button", "voice", "button"]
+
+
 async def test_a_click_starts_it_whatever_the_clock_says_and_again(society) -> None:
     ritual = await service.create(
         **{**MORNING, "window_from": "05:00", "window_to": "11:00", "enabled": False}

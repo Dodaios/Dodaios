@@ -78,18 +78,23 @@ def test_a_file_store_survives_being_reopened(tmp_path: Path) -> None:
         second.close()
 
 
-def test_a_day_is_claimed_exactly_once(store: RitualStore) -> None:
+def test_the_phrase_starts_a_day_exactly_once(store: RitualStore) -> None:
     assert store.day("rit_1", DAY) is None
     assert store.claim_fire("rit_1", DAY, 100, "voice") is True
-    assert store.claim_fire("rit_1", DAY, 200, "button") is False
+    assert store.claim_fire("rit_1", DAY, 200, "chat") is False
     row = store.day("rit_1", DAY)
-    assert (row.fired_ms, row.fired_via) == (100, "voice")
+    assert (row.phrase_ms, row.fired_ms, row.fired_via) == (100, 100, "voice")
     # Another day, and another ritual, are their own claims.
     assert store.claim_fire("rit_1", "2026-03-03", 300, "chat") is True
     assert store.claim_fire("rit_2", DAY, 400, "chat") is True
 
 
-def test_a_start_that_needs_no_claim_overwrites_the_last_one(store: RitualStore) -> None:
+def test_a_click_is_the_newest_start_and_leaves_the_phrase_as_it_was(store: RitualStore) -> None:
+    # A click before the phrase: the phrase still has its one start of the day.
+    store.record_fire("rit_0", DAY, 50, "button")
+    assert store.day("rit_0", DAY).phrase_ms is None
+    assert store.claim_fire("rit_0", DAY, 60, "voice") is True
+
     store.claim_fire("rit_1", DAY, 100, "voice")
     store.patch_day("rit_1", DAY, results=["Music is playing."], delivered_ms=150)
     store.record_fire("rit_1", DAY, 900, "button")
@@ -97,6 +102,9 @@ def test_a_start_that_needs_no_claim_overwrites_the_last_one(store: RitualStore)
     assert (row.fired_ms, row.fired_via) == (900, "button")
     # What the earlier start did and delivered belongs to that start.
     assert row.results == () and row.delivered_ms is None
+    # The click did not hand the phrase a second start.
+    assert row.phrase_ms == 100
+    assert store.claim_fire("rit_1", DAY, 950, "voice") is False
 
 
 def test_what_was_gathered_is_kept_on_the_day_and_outlives_a_start(store: RitualStore) -> None:
@@ -112,6 +120,7 @@ def test_what_was_gathered_is_kept_on_the_day_and_outlives_a_start(store: Ritual
     assert kept.to_dict() == {
         "day": DAY, "prep_state": "ready", "prep_error": "", "prepared_ms": 50,
         "fired_ms": 100, "fired_via": "voice", "results": [], "delivered_ms": None,
+        "phrase_ms": 100,
     }
     assert kept.to_dict(with_text=True)["written"] == "## Today\n- one"
     with pytest.raises(ValueError, match="not a day field"):
