@@ -8,8 +8,9 @@
  * was written and where. This module switches the page's mode, takes a
  * comment in (it waits, with the others, for the toolbar's "Send"), hears a
  * comment taken back, tells the page where each comment stands, and saves an
- * edit. It also remembers where the page was, so a page drawn again opens
- * there.
+ * edit. It hears a click into the page's text, which opens the node's
+ * editor there. It also remembers where the page was, so a page drawn again
+ * opens there.
  *
  * Only messages from this very frame count, and everything is taken as plain,
  * bounded data: the page's script runs in an opaque origin and gets nothing
@@ -25,6 +26,7 @@ export const NODE_COMMENT_STATE_MESSAGE = "dodaios-node-comment-state";
 export const NODE_COMMENT_REMOVE_MESSAGE = "dodaios-node-comment-remove";
 export const NODE_EDIT_MESSAGE = "dodaios-node-edit";
 export const NODE_EDIT_STATE_MESSAGE = "dodaios-node-edit-state";
+export const NODE_EDIT_HERE_MESSAGE = "dodaios-node-edit-here";
 export const NODE_SCROLL_MESSAGE = "dodaios-node-scroll";
 export const NODE_DICTATE_MESSAGE = "dodaios-node-dictate";
 export const NODE_DICTATION_STATE_MESSAGE = "dodaios-node-dictation-state";
@@ -38,6 +40,7 @@ const MAX_QUOTE_CHARS = 240;
 const MAX_WHERE_CHARS = 300;
 const MAX_EDIT_CHARS = 200000;
 const MAX_PATH_CHARS = 400;
+const MAX_HINT_CHARS = 40;
 
 /** A comment the reader left on the page. */
 export interface NodeComment {
@@ -60,6 +63,16 @@ export interface NodeEdit {
   as: "text" | "number" | "toggle";
   /** The page must be drawn again once it is saved. */
   refresh: boolean;
+}
+
+/** The reader clicked into a text of the page: open the editor there. */
+export interface NodeEditHere {
+  /** The place in the spec the text is (a JSON Pointer), or "@title". */
+  path: string;
+  /** The drawn words right before the clicked spot (may be ""). */
+  before: string;
+  /** The drawn words right after it (may be ""). */
+  after: string;
 }
 
 /** The few words the page shows, in the reader's language. */
@@ -129,6 +142,21 @@ export function parseNodeEdit(data: unknown): NodeEdit | null {
   return { id, path, value, as: kind, refresh: message.refresh === true };
 }
 
+/** The click into the text a page sent, or null for anything else. */
+export function parseNodeEditHere(data: unknown): NodeEditHere | null {
+  if (!data || typeof data !== "object") return null;
+  const message = data as Record<string, unknown>;
+  if (message.type !== NODE_EDIT_HERE_MESSAGE) return null;
+  const path = typeof message.path === "string" ? message.path : "";
+  if (path === "" || path.length > MAX_PATH_CHARS) return null;
+  if (!path.startsWith("/") && path !== "@title") return null;
+  return {
+    path,
+    before: clipped(message.before, MAX_HINT_CHARS),
+    after: clipped(message.after, MAX_HINT_CHARS),
+  };
+}
+
 /** The reader pressed the microphone of comment `n`'s field. */
 export interface NodeDictate {
   n: number;
@@ -175,6 +203,12 @@ export interface NodeBridgeOptions {
   /** Save an edit. Resolves when it is saved; rejects when it was not. */
   onEdit?: (edit: NodeEdit) => Promise<void>;
   /**
+   * The reader clicked into a text while the page is only shown: open the
+   * node's editor there. Given, the page shows its texts as clickable; a click
+   * on one counts only in view mode.
+   */
+  onEditHere?: (at: NodeEditHere) => void;
+  /**
    * What the page is. When it changes, the remembered scroll position is
    * forgotten: another node opens at its top.
    */
@@ -199,6 +233,7 @@ export function useNodeBridge(
 ): TellCommentState {
   const latest = useRef(options);
   latest.current = options;
+  const tapEdit = options.onEditHere !== undefined;
   const scroll = useRef<PagePlace | null>(null);
   useEffect(() => {
     scroll.current = null;
@@ -215,6 +250,7 @@ export function useNodeBridge(
         type: NODE_MODE_MESSAGE,
         mode: latest.current.mode,
         labels: latest.current.labels,
+        tapEdit: latest.current.mode === "view" && latest.current.onEditHere !== undefined,
         ...(withScroll && scroll.current ? { scroll: scroll.current } : {}),
       });
 
@@ -229,6 +265,11 @@ export function useNodeBridge(
       const at = parseScroll(event.data);
       if (at !== null) {
         scroll.current = at;
+        return;
+      }
+      const here = parseNodeEditHere(event.data);
+      if (here !== null) {
+        if (latest.current.mode === "view") latest.current.onEditHere?.(here);
         return;
       }
       const edit = parseNodeEdit(event.data);
@@ -258,8 +299,9 @@ export function useNodeBridge(
     window.addEventListener("message", onMessage);
     tellMode();
     return () => window.removeEventListener("message", onMessage);
-    // The mode is told again whenever it changes; the handlers read the rest live.
-  }, [frame, options.mode]);
+    // The mode is told again whenever it changes (and whether a click into the
+    // text opens the editor); the handlers read the rest live.
+  }, [frame, options.mode, tapEdit]);
 
   return useCallback<TellCommentState>(
     (ns, state) => {

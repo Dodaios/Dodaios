@@ -17,12 +17,14 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { EditorContent, ReactNodeViewRenderer, useEditor, useEditorState, type Editor } from "@tiptap/react";
+import { Selection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 
 import { useT } from "@/i18n";
 import { EditorShell } from "../EditorShell";
 import type { NodeEditorProps } from "../types";
 import { hasOwnUndo, shortcutOf, useNodeSpecEditor, type NodeSpecEditor } from "../useNodeSpecEditor";
+import { caretFor, startOf } from "./caret";
 import { DocSession, MAX_BODY_CHARS, cleanSummary, readSpec, type DocsSpec } from "./docModel";
 import { docExtensions } from "./extensions";
 import { pictureFiles, pictureFromFile } from "./images";
@@ -37,7 +39,7 @@ import "./docs.css";
 const PICTURE_HEADROOM = 2_000;
 const NOTICE_MS = 6_000;
 
-export default function DocsEditor({ node, initial, onDone }: NodeEditorProps) {
+export default function DocsEditor({ node, initial, startAt = null, onDone }: NodeEditorProps) {
   const t = useT();
   const prepare = useCallback(
     (value: DocsSpec): DocsSpec | { error: string } => {
@@ -163,6 +165,28 @@ export default function DocsEditor({ node, initial, onDone }: NodeEditorProps) {
   // Pair the loaded blocks with their Markdown once the editor holds them.
   useEffect(() => {
     if (editor) sessionRef.current!.remember(editor.state.doc);
+  }, [editor]);
+
+  /* Opened by a click into the page: the caret goes where the reader
+   * clicked, and that spot is scrolled to the middle, so they can type at
+   * once. Only when the editor opens; a revision later does not move it. */
+  const startRef = useRef(startAt);
+  useEffect(() => {
+    const start = startRef.current;
+    startRef.current = null;
+    if (!editor || editor.isDestroyed || start === null) return;
+    const { doc } = editor.state;
+    const at = caretFor(doc, start) ?? startOf(doc, start.path);
+    const selection = Selection.near(doc.resolve(Math.max(0, Math.min(at, doc.content.size))));
+    editor.view.dispatch(editor.state.tr.setSelection(selection));
+    editor.view.focus();
+    try {
+      const { node: found } = editor.view.domAtPos(selection.from);
+      const element = found instanceof Element ? found : found.parentElement;
+      element?.scrollIntoView({ block: "center" });
+    } catch {
+      // Not drawn yet (or no layout at all): the caret is set either way.
+    }
   }, [editor]);
 
   // A spec that did not come from this editor (the assistant's revision, or

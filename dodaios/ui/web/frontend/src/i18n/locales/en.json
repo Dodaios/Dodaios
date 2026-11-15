@@ -11885,6 +11885,7 @@
     },
     "edit": {
       "toggle": "Edit",
+      "tap_hint": "Click any text to edit it.",
       "hint": "Click a text and write. It is saved when you leave the field; Esc undoes it.",
       "saving": "Saving…",
       "failed": "That could not be saved."

@@ -29,10 +29,23 @@ export interface NodeEditorInitial {
   updated_at: number;
 }
 
+/**
+ * Where the reader clicked into the node's page to open the editor: the place
+ * in the spec (a JSON Pointer) and the drawn words right before and after the
+ * click. An editor that can find the spot puts its caret there.
+ */
+export interface NodeEditorStart {
+  path: string;
+  before: string;
+  after: string;
+}
+
 export interface NodeEditorProps {
   /** The typed node being edited (its `id` is never null here). */
   node: NodeCard;
   initial: NodeEditorInitial;
+  /** The editor was opened by a click into the page: where. Absent after "Edit". */
+  startAt?: NodeEditorStart | null;
   /** Leave the editor: the stage shows the node's page again, drawn from the saved spec. */
   onDone: () => void;
 }

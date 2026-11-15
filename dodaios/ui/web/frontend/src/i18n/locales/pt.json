@@ -11885,6 +11885,7 @@
     },
     "edit": {
       "toggle": "Editar",
+      "tap_hint": "Clica num texto para o editar.",
       "hint": "Clica num texto e escreve. Fica guardado ao sair do campo; Esc desfaz.",
       "saving": "A guardar…",
       "failed": "Não foi possível guardar."
