@@ -85,6 +85,40 @@ async def _subscription_seat(cfg: Any) -> tuple[str, str, str] | None:
     return None
 
 
+async def conversation_seat(runtime: Any) -> dict[str, str]:
+    """The seat of the lead's own conversation, when it bills no API key; else ``{}``.
+
+    An install without a global model pick (``brain.worker``) has no
+    subscription seat to read from the config, yet the person talks to the
+    assistant every day on a signed-in subscription. That conversation's seat
+    is the one an owner without its own provider answers on.
+    """
+    try:
+        from dodaios.agent_chat.lead import lead_session
+        from dodaios.core.task_agent import subscription_seat_off_loop
+
+        service = runtime.chat_service()
+        session = lead_session(service, create=False) if service is not None else None
+        provider = str(getattr(session, "provider", "") or "")
+        if not provider:
+            return {}
+        account_id = str(getattr(session, "account_id", "") or "")
+        mapped = await subscription_seat_off_loop(provider)
+        if mapped is None and _billed_via_api(provider, account_id):
+            return {}
+        seat = {
+            "provider": mapped[0] if mapped is not None else provider,
+            "model": str(getattr(session, "model", "") or ""),
+            "effort": str(getattr(session, "effort", "") or ""),
+        }
+        if account_id:
+            seat["account_id"] = account_id
+        return seat
+    except Exception:  # noqa: BLE001 — no readable conversation: no seat from it
+        log.debug("routine seat: lead conversation seat unreadable", exc_info=True)
+        return {}
+
+
 async def _seat_for_run(runtime: Any, agent: Any, task_id: str) -> tuple[str, str, str, str]:
     """The ``(provider, model, effort, account_id)`` this run answers on.
 
@@ -94,6 +128,8 @@ async def _seat_for_run(runtime: Any, agent: Any, task_id: str) -> tuple[str, st
     never slide silently onto an API-key chain: an owner without an explicit
     provider takes the Jarvis chat's subscription seat, and when there is no
     usable subscription seat the run fails honestly instead of billing a key.
+    Without a global model pick that subscription seat is the one the lead's
+    own conversation answers on (:func:`conversation_seat`).
     """
     cfg = runtime.config()
     pinned = {"provider": "", "model": "", "effort": "", "account_id": ""}
@@ -115,6 +151,14 @@ async def _seat_for_run(runtime: Any, agent: Any, task_id: str) -> tuple[str, st
     if subscription is not None:
         provider, model, effort = subscription
         return provider, model, effort, account_id
+    conversation = await conversation_seat(runtime)
+    if conversation.get("provider"):
+        return (
+            conversation["provider"],
+            conversation.get("model", ""),
+            conversation.get("effort", ""),
+            conversation.get("account_id") or account_id,
+        )
     try:
         provider, model, effort = pair_for(cfg, agent)
     except PermissionError as exc:

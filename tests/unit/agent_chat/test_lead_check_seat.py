@@ -92,3 +92,54 @@ async def test_no_conversation_and_an_unreadable_one_mean_no_seat(
     assert await proactive_checks._seat_for_checks(runtime, lead) == {}
     broken = SimpleNamespace(config=lambda: object())  # no chat service at all
     assert await proactive_checks._seat_for_checks(broken, lead) == {}
+
+
+class _NoSpecStore:
+    async def get_spec(self, _task_id: str) -> None:
+        return None
+
+
+def _routine_runtime() -> Any:
+    service = SimpleNamespace(store=SimpleNamespace())
+    return SimpleNamespace(
+        config=lambda: object(),
+        chat_service=lambda: service,
+        task_services=lambda: (_NoSpecStore(), None),
+    )
+
+
+async def test_a_routine_without_a_pick_runs_on_the_conversations_seat(
+    monkeypatch: pytest.MonkeyPatch, no_global_pick: None
+) -> None:
+    """Live 2026-11-13/14: node comments and a daily check of an assistant
+    without a global model pick failed at once with "no model seat", although
+    the conversation ran on a signed-in Claude subscription."""
+
+    def no_tool_model(*_a: Any, **_kw: Any) -> Any:
+        raise PermissionError("Pick a Tool Model with an API key first")
+
+    session = SimpleNamespace(provider="claude-api", model="claude-opus-5-5", effort="high",
+                              account_id="")
+    _conversation(monkeypatch, session)
+    _seats(monkeypatch, mapped=("claude-api", "claude-cli"), billed=False)
+    monkeypatch.setattr(routine_runner, "pair_for", no_tool_model)
+    seat = await routine_runner._seat_for_run(
+        _routine_runtime(), SimpleNamespace(provider="", account_id=""), "task-1"
+    )
+    assert seat == ("claude-api", "claude-opus-5-5", "high", "")
+
+
+async def test_a_routine_never_takes_a_conversation_that_bills_a_key(
+    monkeypatch: pytest.MonkeyPatch, no_global_pick: None
+) -> None:
+    def no_tool_model(*_a: Any, **_kw: Any) -> Any:
+        raise PermissionError("Pick a Tool Model with an API key first")
+
+    session = SimpleNamespace(provider="openai", model="gpt", effort="", account_id="")
+    _conversation(monkeypatch, session)
+    _seats(monkeypatch, mapped=None, billed=True)
+    monkeypatch.setattr(routine_runner, "pair_for", no_tool_model)
+    with pytest.raises(RuntimeError, match="no model seat"):
+        await routine_runner._seat_for_run(
+            _routine_runtime(), SimpleNamespace(provider="", account_id=""), "task-1"
+        )

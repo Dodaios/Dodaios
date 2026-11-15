@@ -155,6 +155,25 @@ async def test_list_filters_by_agent_tag(agent):
     assert rows[0]["trigger"]["type"] == "every"
 
 
+async def test_a_run_that_works_comments_into_a_node_is_no_routine(agent):
+    from dodaios.nodes.comments import tag_for
+
+    store = FakeTaskStore()
+    routine = build_task_spec(agent, title="brief", prompt="p", schedule={"kind": "every"})
+    await create_routine(store, None, routine)
+    comments = build_task_spec(
+        agent,
+        title="Comments: Trip costs",
+        prompt="p",
+        schedule={"kind": "after_delay", "delay_seconds": 1.0},
+    )
+    comments = comments.model_copy(update={"tags": (*comments.tags, tag_for("a7cf9b42d8cb"))})
+    await create_routine(store, None, comments)
+    store.rows[1]["state"] = "failed"
+    assert is_agent_routine(store.rows[1], "mailbox")
+    assert [r["id"] for r in await list_routines(store, "mailbox")] == ["task-1"]
+
+
 async def test_scheduler_is_preferred(agent):
     store = FakeTaskStore()
     scheduler = FakeScheduler(store)
