@@ -286,6 +286,8 @@ async def test_a_fast_scroll_arrives_whole_and_a_click_meets_the_page_after_it(l
     )
     try:
         session, _queue = await live.subscribe(agent)
+        if session.state.get("full_window"):
+            pytest.skip("a real Chrome window takes the wheel through the operating system")
         await _control(live, session, "viewer", "takeover", {"enabled": True})
         await _control(live, session, "viewer", "navigate", {"url": site + "/tall"})
         assert await asyncio.to_thread(PageHandler.wait_for_path, "/ready"), "Fixture"
@@ -340,6 +342,10 @@ async def test_a_redirect_into_the_local_network_is_refused(live, site):
 
     try:
         session, _queue = await live.subscribe(agent)
+        if session.state.get("full_window"):
+            # Opened by a person where Chrome is installed, the browser is their
+            # own plain Chrome for signing in: not automated, and not checked.
+            pytest.skip("the person's own Chrome window has no request check")
         await _control(live, session, "viewer", "takeover", {"enabled": True})
         # A redirect to an address the agent may reach arrives.
         await _control(live, session, "viewer", "navigate", {"url": hop(named + "/inner-open")})
