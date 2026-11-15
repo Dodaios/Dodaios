@@ -37,13 +37,14 @@ Design contract, mirroring ``dodaios.setup.model_report``:
 from __future__ import annotations
 
 import ast
+import importlib
 import importlib.util
 import logging
 import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 log = logging.getLogger("dodaios.speech.local_models")
 
@@ -76,6 +77,12 @@ _RUNTIME_MODULES: dict[str, str] = {
     "faster-whisper": FASTER_WHISPER_MODULE,
     "sherpa-onnx": SHERPA_ONNX_MODULE,
 }
+
+#: Runtime id -> why its last real load failed in this process. The cheap probe
+#: (``runtime_installed``) only looks for the package; a provider that then
+#: fails to load it writes the reason here, and from that moment the card says
+#: so instead of "ready". Emptied by a load that works and by a new install.
+_LOAD_FAILURES: dict[str, str] = {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,16 +238,80 @@ def runtime_installed(runtime: str) -> bool:
     ``find_spec`` rather than a real import: this runs on status polls and on
     the provider-list path, and importing ctranslate2/onnxruntime eagerly would
     put a heavy load on a route that only asked a question (AP-26).
+
+    Two things a bare ``find_spec`` gets wrong are answered here. A folder an
+    interrupted uninstall left behind is importable as an empty namespace
+    package, and a package that is there but failed to load cannot run either:
+    both read as "not installed".
     """
     module = _RUNTIME_MODULES.get(runtime)
     if module is None:
         log.debug("Unknown local runtime %r -- reporting absent.", runtime)
         return False
+    if runtime in _LOAD_FAILURES:
+        return False
     try:
-        return importlib.util.find_spec(module) is not None
+        spec = importlib.util.find_spec(module)
     except Exception as exc:  # noqa: BLE001 — a broken sys.path is "not installed"
         log.debug("Probe for local runtime %r failed: %s", runtime, exc)
         return False
+    # A namespace package has no file of its own: no code, so no engine.
+    return spec is not None and spec.origin not in (None, "namespace")
+
+
+def runtime_load_failure(runtime: str) -> str | None:
+    """Why *runtime* failed to load in this process, or None if it has not."""
+    return _LOAD_FAILURES.get(runtime)
+
+
+def forget_runtime_load_failure(runtime: str) -> None:
+    """Let the next probe look again, after an install changed the files."""
+    _LOAD_FAILURES.pop(runtime, None)
+
+
+def import_runtime(runtime: str, *, needs: tuple[str, ...] = ()) -> Any:
+    """Import *runtime* for real and return its module. Raises ``ImportError``.
+
+    The one place a provider loads its engine, so a failure is remembered for
+    the readiness probe: the card must not keep saying "ready" over a runtime
+    that just refused to load. *needs* names the module attributes the caller
+    is about to use; a module without them is as unusable as a missing one.
+    """
+    module_name = _RUNTIME_MODULES.get(runtime)
+    if module_name is None:
+        raise ImportError(f"'{runtime}' is not a local speech runtime.")
+    try:
+        module = importlib.import_module(module_name)
+        missing = [name for name in needs if not hasattr(module, name)]
+        if missing:
+            raise ImportError(
+                f"{module_name} is on this machine but incomplete "
+                f"(no {', '.join(missing)})."
+            )
+    except Exception as exc:  # noqa: BLE001 — a native library can fail in many ways
+        # A package that was simply never installed needs no note: the cheap
+        # probe sees that by itself, also after the package arrives later.
+        absent = isinstance(exc, ModuleNotFoundError) and exc.name == module_name
+        if not absent:
+            reason = " ".join(f"{type(exc).__name__}: {exc}".split())[:300]
+            _LOAD_FAILURES[runtime] = reason
+            log.warning("Local speech runtime %s could not be loaded: %s", runtime, reason)
+        if isinstance(exc, ImportError):
+            raise
+        raise ImportError(f"{module_name} could not be loaded: {exc}") from exc
+    _LOAD_FAILURES.pop(runtime, None)
+    return module
+
+
+def _runtime_missing_detail(runtime: str, *, never_installed: str) -> str:
+    """The card's sentence for a runtime that cannot be used right now."""
+    reason = runtime_load_failure(runtime)
+    if reason is None:
+        return never_installed
+    return (
+        "The local speech runtime is on this machine but could not be loaded "
+        f"({reason}). Install it again from here."
+    )
 
 
 def whisper_model_cached(name: str) -> bool:
@@ -383,9 +454,12 @@ def whisper_status(model: str) -> LocalModelStatus:
     cache_issue = _whisper_model_cache_issue(model) if engine else None
     cached = engine and cache_issue is None
     if not engine:
-        detail = (
-            "The local speech engine is not installed yet. Install it from here "
-            "to transcribe on this machine without an API key."
+        detail = _runtime_missing_detail(
+            "faster-whisper",
+            never_installed=(
+                "The local speech engine is not installed yet. Install it from here "
+                "to transcribe on this machine without an API key."
+            ),
         )
     elif cache_issue == _WHISPER_NOT_DOWNLOADED:
         detail = (
@@ -433,9 +507,12 @@ def sherpa_status(
         else False
     )
     if not engine:
-        detail = (
-            "The local speech runtime is not installed yet. Install it from here "
-            "to run this model on your own machine."
+        detail = _runtime_missing_detail(
+            "sherpa-onnx",
+            never_installed=(
+                "The local speech runtime is not installed yet. Install it from here "
+                "to run this model on your own machine."
+            ),
         )
     elif not present:
         detail = (
@@ -774,10 +851,13 @@ __all__ = [
     "LocalModelStatus",
     "accelerator_status",
     "LocalProvider",
+    "forget_runtime_load_failure",
     "get_local_provider",
+    "import_runtime",
     "local_status",
     "models_root",
     "runtime_installed",
+    "runtime_load_failure",
     "sherpa_model_dir",
     "sherpa_model_present",
     "sherpa_status",

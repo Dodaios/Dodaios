@@ -31,9 +31,11 @@ import queue
 import re
 import shutil
 import subprocess
+import sys
 import threading
 from collections.abc import AsyncIterator
 from contextlib import suppress
+from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Any
@@ -54,6 +56,43 @@ _DEFAULT_SPEED = 1.0
 #: list dash or quote mark at the start of a line. eSpeak reads "**" aloud as
 #: "astérisque astérisque"; a voice must say the words, not the markup.
 _MARKUP_RE = re.compile(r"[*_`#~|]+|^[ \t]*(?:[-•>]|\d+[.)])[ \t]+", re.MULTILINE)
+
+
+#: The sherpa-onnx major version the app installs (``SHERPA_ONNX_PACKAGE`` caps
+#: the requirement below 2), used when a runtime does not say its version.
+_PINNED_SHERPA_MAJOR = 1
+
+
+def _sherpa_major_version(module: Any = None) -> int:
+    """Major version of the sherpa-onnx runtime that will speak.
+
+    Asked of the loaded module first. The desktop installers freeze the
+    runtime into the app without its ``dist-info`` folder, so the package
+    metadata is not there to ask: the voice then failed with "No package
+    metadata was found for sherpa-onnx" although the runtime itself worked.
+    The metadata is the second source, for a caller that has not loaded the
+    module, and a runtime that answers neither is taken as the pinned release.
+    """
+    if module is None:
+        module = sys.modules.get("sherpa_onnx")
+    candidates: list[Any] = [
+        getattr(module, "__version__", None),
+        getattr(module, "version", None),
+    ]
+    try:
+        candidates.append(package_version("sherpa-onnx"))
+    except PackageNotFoundError:
+        log.debug("sherpa-onnx carries no package metadata here.")
+    for raw in candidates:
+        if isinstance(raw, str):
+            match = re.match(r"\s*v?(\d+)", raw)
+            if match:
+                return int(match.group(1))
+    log.warning(
+        "The sherpa-onnx runtime does not say its version; assuming %d.x.",
+        _PINNED_SHERPA_MAJOR,
+    )
+    return _PINNED_SHERPA_MAJOR
 
 
 def _speech_text(text: str) -> str:
@@ -161,12 +200,25 @@ class PiperLocalTTS:
 
     # -- engine -------------------------------------------------------------
     def _build_engine(self, model_id: str) -> Any:
+        from dodaios.speech.local_models import import_runtime
+
         try:
-            import sherpa_onnx  # noqa: PLC0415 — optional engine, lazy on purpose
+            # Loaded through the readiness module, so a runtime that does not
+            # load also stops the card from saying "ready".
+            sherpa_onnx = import_runtime(
+                "sherpa-onnx",
+                needs=(
+                    "OfflineTts",
+                    "OfflineTtsConfig",
+                    "OfflineTtsModelConfig",
+                    "OfflineTtsVitsModelConfig",
+                ),
+            )
         except ImportError as exc:
             raise RuntimeError(
-                "The local speech runtime (sherpa-onnx) is not installed, so the "
-                "on-device voice cannot speak. Install it from the API-Keys view."
+                "The local speech runtime (sherpa-onnx) is not installed or "
+                f"cannot be loaded ({exc}), so the on-device voice cannot "
+                "speak. Install it from the API-Keys view."
             ) from exc
 
         from dodaios.speech.sherpa_models import model_paths
@@ -185,7 +237,7 @@ class PiperLocalTTS:
             )
 
         # sherpa-onnx >= 2.0 needs explicit phonemes for legacy Piper voices.
-        if int(package_version("sherpa-onnx").split(".", 1)[0]) >= 2:
+        if _sherpa_major_version(sherpa_onnx) >= 2:
             if shutil.which("espeak-ng") is None:
                 raise RuntimeError(
                     "Piper with sherpa-onnx 2 requires eSpeak NG for "
@@ -323,7 +375,7 @@ class PiperLocalTTS:
 
         def _generate() -> None:
             try:
-                sherpa2 = int(package_version("sherpa-onnx").split(".", 1)[0]) >= 2
+                sherpa2 = _sherpa_major_version() >= 2
                 segments = (
                     self._prosody_segments(spoken)
                     if sherpa2 and model_language == "fr"

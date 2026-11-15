@@ -166,11 +166,16 @@ class ParakeetLocalSTT:
                 self._recognizer = self._load()
 
     def _load(self) -> Any:
+        from dodaios.speech.local_models import import_runtime
+
         try:
-            import sherpa_onnx  # noqa: PLC0415 - optional engine, lazy on purpose
+            # Through the readiness module: a runtime that does not load also
+            # stops the card from saying "ready".
+            sherpa_onnx = import_runtime("sherpa-onnx", needs=("OfflineRecognizer",))
         except ImportError as exc:
             raise RuntimeError(
-                "The local speech runtime (sherpa-onnx) is not installed, so "
+                "The local speech runtime (sherpa-onnx) is not installed or "
+                f"cannot be loaded ({exc}), so "
                 "Parakeet cannot transcribe. Install it from the API-Keys view, "
                 "or switch voice input to a provider you have a key for."
             ) from exc

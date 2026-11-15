@@ -30,8 +30,10 @@ from typing import Any, Literal
 
 from dodaios.speech.local_models import (
     LocalProvider,
+    forget_runtime_load_failure,
     get_local_provider,
     local_status,
+    runtime_load_failure,
 )
 
 log = logging.getLogger("dodaios.speech.local_install")
@@ -60,8 +62,12 @@ def _run_for(provider_id: str) -> _InstallRun:
         return _runs.setdefault(provider_id, _InstallRun())
 
 
-def _install_engine(entry: LocalProvider) -> tuple[bool, str]:
-    """pip-install the inference runtime. Returns (ok, human message)."""
+def _install_engine(entry: LocalProvider, *, repair: bool = False) -> tuple[bool, str]:
+    """pip-install the inference runtime. Returns (ok, human message).
+
+    ``repair`` replaces a runtime that is on disk but failed to load: a plain
+    install would find the requirement satisfied and change nothing.
+    """
     from dodaios.setup.dependencies import install_pip_package
 
     # only_binary: this runs on an END USER's machine, where a source build
@@ -69,7 +75,24 @@ def _install_engine(entry: LocalProvider) -> tuple[bool, str]:
     # not there. No wheel for this Python/OS must fail FAST with an honest
     # diagnosis rather than after a ten-minute compile that cannot succeed
     # (BUG-059).
-    return install_pip_package(entry.pip_package, only_binary=True)
+    return install_pip_package(entry.pip_package, only_binary=True, force_reinstall=repair)
+
+
+def _verify_engine(entry: LocalProvider) -> str | None:
+    """Load the runtime for real; the reason it cannot run, or None.
+
+    The readiness probe only looks for the package, because it runs on every
+    status poll. The end of an install is the one moment a real load is right:
+    the person is about to use this provider, and "ready" over a runtime that
+    does not load is the failure this whole area is about.
+    """
+    from dodaios.speech.local_models import import_runtime
+
+    try:
+        import_runtime(entry.runtime)
+    except ImportError as exc:  # not silent: the reason is the return value, shown on the card
+        return " ".join(str(exc).split())[:300]
+    return None
 
 
 def _download_model(
@@ -105,13 +128,25 @@ def _run_install(provider_id: str) -> None:
     ok = True
     message = ""
     if status is not None and not status.engine_installed:
-        ok, message = _install_engine(entry)
+        ok, message = _install_engine(
+            entry, repair=runtime_load_failure(entry.runtime) is not None
+        )
         # Let THIS interpreter see a package that was not importable when it
         # started; without it the very next readiness probe would still say
         # "not installed" and the UI would offer the install again.
         importlib.invalidate_caches()
+        forget_runtime_load_failure(entry.runtime)
     else:
         message = "The local speech engine was already installed."
+
+    if ok:
+        problem = _verify_engine(entry)
+        if problem is not None:
+            ok = False
+            message = (
+                "The local speech runtime is on this machine but could not be "
+                f"loaded ({problem})."
+            )
 
     if ok:
         try:

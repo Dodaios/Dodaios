@@ -184,22 +184,35 @@ def test_missing_model_files_raise_one_actionable_error(tmp_path: Path) -> None:
 
 def test_missing_engine_raises_one_actionable_error(monkeypatch) -> None:
     """A base install has no sherpa-onnx; the failure must name the fix."""
-    import builtins
+    import sys
 
-    real_import = builtins.__import__
-
-    def _no_sherpa(name: str, *args: Any, **kwargs: Any) -> Any:
-        if name == "sherpa_onnx":
-            raise ImportError("No module named 'sherpa_onnx'")
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", _no_sherpa)
+    # ``None`` in ``sys.modules`` makes the import fail as on a base install.
+    monkeypatch.setitem(sys.modules, "sherpa_onnx", None)
     provider = NemotronLocalSTT()
 
     with pytest.raises(RuntimeError) as excinfo:
         asyncio.run(provider.transcribe_pcm(_pcm(0.3), 16_000))
 
     assert "not installed" in str(excinfo.value)
+
+
+def test_a_runtime_that_does_not_load_is_remembered_for_the_card(monkeypatch) -> None:
+    """The recognizer's failed load makes the provider card stop saying "ready"."""
+    import sys
+    import types
+
+    from dodaios.speech import local_models
+
+    monkeypatch.setattr(local_models, "_LOAD_FAILURES", {})
+    # Importable, but without the recognizer: a half-removed runtime.
+    monkeypatch.setitem(sys.modules, "sherpa_onnx", types.ModuleType("sherpa_onnx"))
+    provider = NemotronLocalSTT()
+
+    with pytest.raises(RuntimeError, match="cannot be loaded"):
+        asyncio.run(provider.transcribe_pcm(_pcm(0.3), 16_000))
+
+    assert "OnlineRecognizer" in (local_models.runtime_load_failure("sherpa-onnx") or "")
+    assert local_models.runtime_installed("sherpa-onnx") is False
 
 
 def test_declares_that_it_runs_on_device() -> None:

@@ -321,3 +321,144 @@ def test_a_cancelled_stream_does_not_keep_the_process_alive() -> None:
         pytest.fail("the process did not exit: a Piper reader thread is still blocked")
     assert result.returncode == 0, result.stderr[-2000:]
     assert "EXITED" in result.stdout
+
+
+# -- the runtime's version and a runtime without package metadata -----------
+# Issue #1698: the desktop installers freeze sherpa-onnx into the app without
+# its dist-info folder. The voice asked importlib.metadata for the version and
+# failed with "No package metadata was found for sherpa-onnx", although the
+# runtime itself was there and the card said "ready".
+
+
+def _no_package_metadata(name: str) -> str:
+    from importlib.metadata import PackageNotFoundError
+
+    raise PackageNotFoundError(name)
+
+
+def _runtime_module(**attributes: Any) -> Any:
+    import types
+
+    module = types.ModuleType("sherpa_onnx")
+    for name, value in attributes.items():
+        setattr(module, name, value)
+    return module
+
+
+@pytest.mark.parametrize(
+    ("version", "major"),
+    [("1.13.8", 1), ("2.0.1", 2), ("v1.12.40", 1), ("10.0.0", 10)],
+)
+def test_the_version_comes_from_the_module_when_there_is_no_package_metadata(
+    monkeypatch: pytest.MonkeyPatch, version: str, major: int
+) -> None:
+    monkeypatch.setattr(piper_local, "package_version", _no_package_metadata)
+
+    assert piper_local._sherpa_major_version(_runtime_module(__version__=version)) == major
+
+
+def test_the_loaded_module_wins_over_stale_package_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The code that runs is the module; metadata can belong to another copy."""
+    monkeypatch.setattr(piper_local, "package_version", lambda _name: "2.0.1")
+
+    assert piper_local._sherpa_major_version(_runtime_module(__version__="1.13.8")) == 1
+
+
+def test_package_metadata_answers_when_the_module_is_not_loaded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delitem(sys.modules, "sherpa_onnx", raising=False)
+    monkeypatch.setattr(piper_local, "package_version", lambda _name: "2.0.1")
+
+    assert piper_local._sherpa_major_version() == 2
+
+
+def test_a_runtime_that_says_no_version_is_taken_as_the_pinned_release(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(piper_local, "package_version", _no_package_metadata)
+
+    assert piper_local._sherpa_major_version(_runtime_module()) == 1
+
+
+def _frozen_style_runtime(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[Any]:
+    """A working sherpa-onnx 1.x stand-in with no package metadata, plus one voice."""
+    built: list[Any] = []
+
+    class _Config:
+        def __init__(self, **kwargs: Any) -> None:
+            self.kwargs = kwargs
+
+    class _OfflineTts:
+        sample_rate = 22_050
+
+        def __init__(self, config: Any) -> None:
+            built.append(config)
+
+        def generate(self, _text, _speaker, _speed=None, *, callback=None):
+            callback(np.full(220, 0.25, dtype=np.float32), 1.0)
+            return _FakeAudio(seconds=0.0)
+
+    module = _runtime_module(
+        __version__="1.13.8",
+        OfflineTts=_OfflineTts,
+        OfflineTtsConfig=_Config,
+        OfflineTtsModelConfig=_Config,
+        OfflineTtsVitsModelConfig=_Config,
+    )
+    monkeypatch.setitem(sys.modules, "sherpa_onnx", module)
+    monkeypatch.setattr(piper_local, "package_version", _no_package_metadata)
+    monkeypatch.setattr("dodaios.speech.local_models._LOAD_FAILURES", {})
+
+    voice = tmp_path / "voice"
+    (voice / "espeak-ng-data").mkdir(parents=True)
+    for name in ("voice.onnx", "tokens.txt"):
+        (voice / name).write_bytes(b"x")
+    monkeypatch.setattr(
+        "dodaios.speech.sherpa_models.model_paths",
+        lambda _model_id, **_kw: {
+            "voice.onnx": voice / "voice.onnx",
+            "tokens.txt": voice / "tokens.txt",
+            "espeak-ng-data": voice / "espeak-ng-data",
+        },
+    )
+    monkeypatch.setattr(
+        "dodaios.speech.local_models.bundle_present", lambda _model_id, **_kw: True
+    )
+    return built
+
+
+def test_the_voice_speaks_when_the_runtime_has_no_package_metadata(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The whole path of the Test button: load the voice, then speak."""
+    built = _frozen_style_runtime(monkeypatch, tmp_path)
+
+    pcm = asyncio.run(_speak(PiperLocalTTS(), "Hello there", "en-US"))
+
+    assert len(built) == 1
+    assert len(pcm) == 440  # 220 samples as int16
+
+
+def test_a_runtime_that_cannot_load_stops_the_card_from_saying_ready(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The first failed use is remembered: the card then tells the truth."""
+    from dodaios.speech import local_models
+
+    _frozen_style_runtime(monkeypatch, tmp_path)
+    # What an interrupted uninstall leaves: a module with nothing in it.
+    monkeypatch.setitem(sys.modules, "sherpa_onnx", _runtime_module())
+    monkeypatch.setattr(
+        local_models.importlib.util, "find_spec", lambda _name: sys.modules["os"].__spec__
+    )
+    assert local_models.local_status("piper-local").ready is True
+
+    with pytest.raises(RuntimeError, match="cannot be loaded"):
+        asyncio.run(_speak(PiperLocalTTS(), "Hello there", "en-US"))
+
+    status = local_models.local_status("piper-local")
+    assert status.ready is False
+    assert "could not be loaded" in status.detail
