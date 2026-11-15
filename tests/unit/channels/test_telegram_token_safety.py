@@ -118,6 +118,9 @@ async def test_a_failed_start_never_carries_the_token(
     assert FAKE_TOKEN not in repr(via_manager.value)
     assert FAKE_TOKEN not in str(manager.start_errors())  # the status payload
     assert FAKE_TOKEN not in caplog.text
+    # A "Bad gateway" is passing: the manager would try again; cancel that.
+    await manager.stop_all()
+    assert manager.retrying() == []
 
 
 async def test_the_manager_redacts_any_channel_error(caplog: pytest.LogCaptureFixture) -> None:

@@ -65,6 +65,16 @@ async def apply_channel_live(app_state: Any, name: str) -> bool:
         log.info("channel '%s' reloaded live", name)
         return True
     except Exception as exc:  # noqa: BLE001
+        retrying = getattr(manager, "retrying", None)
+        if callable(retrying) and name in retrying():
+            # A passing failure (no network): the manager starts it later, and
+            # the chat bridge binds its consumer then (late-start listener).
+            log.warning(
+                "live reload of channel '%s' failed; trying again in the background: %s",
+                name,
+                exc,
+            )
+            return False
         log.warning(
             "live reload of channel '%s' failed (config persisted, will apply on next start): %s",
             name,

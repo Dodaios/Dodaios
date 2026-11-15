@@ -128,9 +128,13 @@ def work_from_state(state: Any) -> BackgroundWork:
     started = getattr(manager, "started", None)
     if callable(started):
         try:
+            # A channel the manager still tries to start (no network yet at
+            # login) is kept too: closing the window must not end its retry.
+            retrying = getattr(manager, "retrying", None)
+            names = [*started(), *(retrying() if callable(retrying) else [])]
             channels = tuple(
                 name
-                for name in (str(raw) for raw in started())
+                for name in (str(raw) for raw in names)
                 if _is_outside_channel(name, state)
             )
         except Exception:  # noqa: BLE001 — same: unreadable means none to keep
