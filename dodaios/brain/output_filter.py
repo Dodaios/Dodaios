@@ -663,7 +663,7 @@ def _is_prose_mentioning_code(text: str) -> bool:
 
 
 def scrub_for_voice(
-    text: str, *, language: str = "en", ack_mode: bool = False
+    text: str, *, language: str = "en", ack_mode: bool = False, spell_numbers: bool = True
 ) -> ScrubResult:
     """Cleans up brain output for TTS synthesis.
 
@@ -678,6 +678,9 @@ def scrub_for_voice(
             the persona spec to use such openers ("Let me take a quick
             look.", "Let me check on that."). All other filters (blacklist,
             stacktrace, markdown, self-reference) stay active.
+        spell_numbers: ``False`` keeps digits as digits. A chat message
+            (Telegram, Discord) is read, not spoken, and "fourteen. November"
+            in a written German reply is a bug, not a pronunciation aid.
 
     Returns:
         ``ScrubResult`` with cleaned/actions/fallback_used.
@@ -898,12 +901,13 @@ def scrub_for_voice(
     #     words. A flash-tier model still emits digits despite that rule, so this
     #     is the deterministic backstop (num2words, rule-based — NO LLM, AP-11
     #     safe). Locale-aware; a transparent no-op when num2words is missing.
-    from dodaios.voice.number_speller import spell_out_numbers
+    if spell_numbers:
+        from dodaios.voice.number_speller import spell_out_numbers
 
-    new = spell_out_numbers(out, language=language)
-    if new != out:
-        actions.append("spelled_out_numbers")
-        out = new
+        new = spell_out_numbers(out, language=language)
+        if new != out:
+            actions.append("spelled_out_numbers")
+            out = new
 
     # 8. Normalise whitespace. After the first line every blank run is a
     #    single character, so the ``\s+`` patterns below cannot backtrack.

@@ -124,13 +124,20 @@ class ChannelChatBridge:
         if msg.kind not in {"text", "voice"}:
             return
         text = (msg.content or "").strip()
-        if not text:
+        pictures = [item for item in msg.media if item.kind == "image"]
+        voices = [item for item in msg.media if item.kind == "voice"]
+        if voices:
+            # A voice message is the owner's words: read it, then treat it as
+            # if it had been typed.
+            heard = await self._read_voice(name, msg, voices)
+            text = "\n\n".join(part for part in (text, heard) if part)
+        if not text and not pictures:
             return
         svc = self._lead_service(name, msg)
         if svc is not None:
-            if await self._owner_stop_or_resume(svc, name, msg, text):
+            if text and await self._owner_stop_or_resume(svc, name, msg, text):
                 return
-            if await self._answers_open_card(svc, text):
+            if not pictures and await self._answers_open_card(svc, text):
                 return  # the waiting turn goes on and answers this chat itself
             # The owner's own private chat continues the assistant's one
             # conversation; the reply goes back to the same chat.
@@ -140,6 +147,8 @@ class ChannelChatBridge:
             self._replies.add(task)
             task.add_done_callback(self._replies.discard)
             return
+        if not text:
+            return  # pictures alone reach only the owner's own conversation
         # Not the owner's private chat: a trigger candidate for the lead's event
         # intake (a no-op unless the owner turned the channel source on).
         from dodaios.lead_triggers.wiring import on_channel_message
@@ -238,17 +247,53 @@ class ChannelChatBridge:
         except Exception:  # noqa: BLE001 — fall back to the classic chat path
             return None
 
+    async def _read_voice(self, name: str, msg: ChannelMessage, voices: list[Any]) -> str:
+        """The words of the message's voice notes; "" (after one honest line) when unreadable."""
+        from dodaios.speech.voice_note import (
+            VoiceNoteError,
+            VoiceNoteUnavailable,
+            transcribe_voice_note,
+        )
+
+        language = _sender_language(msg)
+        heard: list[str] = []
+        problem = ""
+        for note in voices:
+            try:
+                words = await transcribe_voice_note(note.data)
+            except VoiceNoteUnavailable:  # the owner is told below that voice is off
+                problem = "voice_off"
+                continue
+            except VoiceNoteError as exc:
+                log.warning("ChannelChatBridge: voice note from '%s' unreadable: %s", name, exc)
+                problem = problem or "voice_unreadable"
+                continue
+            if words:
+                heard.append(words)
+            else:
+                problem = problem or "voice_unreadable"
+        if heard:
+            log.info("ChannelChatBridge: voice note from '%s' read (%d chars)", name,
+                     sum(len(w) for w in heard))
+            return "\n\n".join(heard)
+        if problem:
+            await self._update(name, msg, "failures", _failure_line(problem, language))
+        return ""
+
     async def _answer_in_lead(self, svc: Any, name: str, msg: ChannelMessage, text: str) -> None:
         from dodaios.agent_chat.lead import LeadCard, LeadReport, answer_in_lead
 
-        language = _language_of(text)
+        language = _language_of(text, fallback=_sender_language(msg))
         report = LeadReport()
+        pictures = [(item.name, item.data) for item in msg.media if item.kind == "image"]
 
         async def on_card(card: LeadCard) -> None:
             await self._update(name, msg, "decisions", _card_line(card, language))
 
         try:
-            answer = await answer_in_lead(svc, text, source=name, report=report, on_card=on_card)
+            answer = await answer_in_lead(
+                svc, text, source=name, report=report, on_card=on_card, pictures=pictures
+            )
         except Exception as exc:  # noqa: BLE001
             log.warning("ChannelChatBridge: lead turn for '%s' failed: %s", name, exc)
             answer = ""
@@ -344,6 +389,8 @@ _FAILURES: dict[str, dict[str, str]] = {
         "empty": "I couldn't finish that: the turn ended without an answer. It's in the app.",
         "not_sent": "I couldn't start that: the message did not go through. It's in the app.",
         "no_session": "I couldn't reach the conversation. Please try again in the app.",
+        "voice_off": "I can't listen to voice messages right now: speech recognition is off on the computer. Please write it instead.",  # noqa: E501
+        "voice_unreadable": "I couldn't understand that voice message. Please say it again or write it.",  # noqa: E501
     },
     "de": {  # i18n-allow: localized phone lines
         "error": "Das habe ich nicht geschafft: Es gab einen Fehler. Es steht in der App.",  # i18n-allow  # noqa: E501
@@ -352,6 +399,8 @@ _FAILURES: dict[str, dict[str, str]] = {
         "empty": "Das habe ich nicht geschafft: Es kam keine Antwort. Es steht in der App.",  # i18n-allow  # noqa: E501
         "not_sent": "Das konnte ich nicht starten: Nachricht nicht angekommen. Es steht in der App.",  # i18n-allow  # noqa: E501
         "no_session": "Ich komme gerade nicht an die Unterhaltung. Bitte versuch es in der App.",  # i18n-allow  # noqa: E501
+        "voice_off": "Sprachnachrichten kann ich gerade nicht anhören: Die Spracherkennung am Computer ist aus. Bitte schreib es mir.",  # i18n-allow  # noqa: E501
+        "voice_unreadable": "Die Sprachnachricht habe ich nicht verstanden. Sag es bitte noch einmal oder schreib es mir.",  # i18n-allow  # noqa: E501
     },
     "es": {  # i18n-allow: localized phone lines
         "error": "No pude terminarlo: hubo un error. Está en la app.",
@@ -360,6 +409,8 @@ _FAILURES: dict[str, dict[str, str]] = {
         "empty": "No pude terminarlo: terminó sin respuesta. Está en la app.",
         "not_sent": "No pude empezarlo: el mensaje no se envió. Está en la app.",
         "no_session": "No llego a la conversación. Inténtalo en la app.",
+        "voice_off": "Ahora no puedo escuchar mensajes de voz: el reconocimiento de voz está apagado en el ordenador. Escríbemelo, por favor.",  # i18n-allow  # noqa: E501
+        "voice_unreadable": "No entendí el mensaje de voz. Repítelo o escríbemelo, por favor.",  # i18n-allow  # noqa: E501
     },
     "pt": {  # i18n-allow: localized phone lines
         "error": "Não consegui terminar: houve um erro. Está na app.",
@@ -368,6 +419,8 @@ _FAILURES: dict[str, dict[str, str]] = {
         "empty": "Não consegui terminar: acabou sem resposta. Está na app.",
         "not_sent": "Não consegui começar: a mensagem não seguiu. Está na app.",
         "no_session": "Não consigo chegar à conversa. Tenta na app.",
+        "voice_off": "Agora não consigo ouvir mensagens de voz: o reconhecimento de voz está desligado no computador. Escreve-me, por favor.",  # i18n-allow  # noqa: E501
+        "voice_unreadable": "Não percebi a mensagem de voz. Repete ou escreve-me, por favor.",  # i18n-allow  # noqa: E501
     },
 }
 _CARD_APPROVAL: dict[str, str] = {
@@ -403,15 +456,26 @@ _CARD_TAKEOVER: dict[str, str] = {
 _OPTIONS: dict[str, str] = {"en": "Options", "de": "Optionen", "es": "Opciones", "pt": "Opções"}
 
 
-def _language_of(text: str) -> str:
-    """The language of the owner's message, English when it cannot be told."""
+def _language_of(text: str, *, fallback: str = "en") -> str:
+    """The language of the owner's message; ``fallback`` when it cannot be told."""
+    fallback = fallback if fallback in _LANGS else "en"
     try:
         from dodaios.core.turn_language import resolve_turn_language
 
-        code = resolve_turn_language(None, text)
+        code = resolve_turn_language(None, text, default=fallback)
     except Exception:  # noqa: BLE001
         log.debug("ChannelChatBridge: reply language not detected", exc_info=True)
-        return "en"
+        return fallback
+    return code if code in _LANGS else fallback
+
+
+def _sender_language(msg: ChannelMessage) -> str:
+    """The language the sender's chat app is set to (Telegram says it), else English.
+
+    A message that carries no words to read the language from (a picture, a
+    voice note that could not be read) is answered in this one.
+    """
+    code = _metadata_value(msg.metadata, "telegram_language").lower().split("-")[0]
     return code if code in _LANGS else "en"
 
 

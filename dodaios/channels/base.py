@@ -17,6 +17,7 @@ from dodaios.core.protocols import ChannelAdapter
 __all__ = [
     "FIRST_CONTACT_PAIRING_WINDOW_S",
     "ChannelAdapter",
+    "ChannelMedia",
     "ChannelMessage",
     "ChannelSession",
 ]
@@ -39,12 +40,29 @@ ChannelMessageKind = Literal["text", "voice", "system", "action", "event_mirror"
 
 
 @dataclass(frozen=True, slots=True)
+class ChannelMedia:
+    """A picture or a voice note that came with an inbound chat message.
+
+    ``kind="image"`` travels to the turn as an attachment (and is drawn in the
+    app's chat); ``kind="voice"`` is transcribed and becomes the message text.
+    """
+
+    kind: Literal["image", "voice"]
+    name: str
+    data: bytes
+    mime: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class ChannelMessage:
     """A message flowing through a channel in either direction.
 
     - ``kind="text"`` / ``"voice"``: user input from the UI.
     - ``kind="system"`` / ``"action"``: server -> client (status lines, tool runs).
     - ``kind="event_mirror"``: serialised bus event for UI rendering.
+
+    ``media`` holds what came with an inbound message besides its text: the
+    pictures and voice notes of a phone chat (see :class:`ChannelMedia`).
     """
 
     session_id: UUID
@@ -53,6 +71,7 @@ class ChannelMessage:
     trace_id: UUID = field(default_factory=uuid4)
     metadata: dict[str, Any] = field(default_factory=dict)
     timestamp_ns: int = field(default_factory=_now_ns)
+    media: tuple[ChannelMedia, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
