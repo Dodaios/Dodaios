@@ -79,6 +79,11 @@ A sub-agent's own text, thoughts and calls are the ordinary kinds with an
 ``agent_id`` in the payload: they belong to that sub-agent's conversation,
 never to the main agent's answer.
 
+A coding agent's own to-do list is a ``tool_call`` like any other: the thread
+reads the list from the call's input and draws it as a checklist
+(``src/components/agentchat/agentPlan.ts``). A runtime that reports its list
+as a notification instead of a call is told as one (:func:`plan_update_events`).
+
 ``text_delta`` / ``reasoning_delta`` / ``reasoning_started`` / ``usage_delta`` /
 ``subagent_progress`` are the transient kinds: the finished block carries the whole text and the
 ``turn_finished`` event the whole usage, so the log never stores token dust.
@@ -101,6 +106,79 @@ def now_ms() -> int:
 def make_event(kind: str, payload: dict[str, Any] | None = None, *, seq: int = 0) -> dict[str, Any]:
     """Build one event dict. ``seq`` is assigned by the store on persist."""
     return {"seq": seq, "ts_ms": now_ms(), "kind": kind, "payload": dict(payload or {})}
+
+
+#: The tool a runtime's own to-do list is filed under when the runtime reports
+#: it as a notification, not as a tool call (Codex's name for that tool).
+PLAN_TOOL: Final[str] = "update_plan"
+
+_PLAN_STATUS: Final[dict[str, str]] = {
+    "completed": "completed",
+    "complete": "completed",
+    "done": "completed",
+    "in_progress": "in_progress",
+    "inprogress": "in_progress",
+    "active": "in_progress",
+}
+
+
+def plan_steps(raw: Any) -> list[dict[str, str]]:
+    """A runtime's to-do list as ``[{"step", "status"}]``, the shape of ``update_plan``.
+
+    Takes the entries as the runtimes send them: Codex's ``todo_list`` item
+    (``{"text", "completed"}``) and ACP's ``plan`` update (``{"content",
+    "status"}``). ``status`` is ``pending``, ``in_progress`` or ``completed``;
+    an entry is in progress only when the runtime said so.
+    """
+    steps: list[dict[str, str]] = []
+    for entry in raw if isinstance(raw, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        text = ""
+        for key in ("text", "content", "step", "title"):
+            value = entry.get(key)
+            if isinstance(value, str) and value.strip():
+                text = " ".join(value.split())
+                break
+        if not text:
+            continue
+        status = _PLAN_STATUS.get(str(entry.get("status") or "").strip().lower(), "pending")
+        if entry.get("completed") is True:
+            status = "completed"
+        steps.append({"step": text, "status": status})
+    return steps
+
+
+def plan_update_events(
+    turn_id: str, call_id: str, steps: list[dict[str, str]]
+) -> list[dict[str, Any]]:
+    """An agent's to-do list as it stands now, told as one finished tool call.
+
+    ``call_id`` must be unique in the conversation, not only in the turn: the
+    thread keys the list by it.
+    """
+    return [
+        make_event(
+            "tool_call",
+            {
+                "turn_id": turn_id,
+                "call_id": call_id,
+                "name": PLAN_TOOL,
+                "input": {"plan": steps},
+                "summary": "",
+            },
+        ),
+        make_event(
+            "tool_result",
+            {
+                "turn_id": turn_id,
+                "call_id": call_id,
+                "output": "done",
+                "is_error": False,
+                "duration_ms": 0,
+            },
+        ),
+    ]
 
 
 def shown_text(payload: dict[str, Any]) -> str:

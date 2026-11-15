@@ -127,6 +127,18 @@ describe("trace timeline", () => {
     expect(line.callCount).toBe(0);
   });
 
+  it("draws nothing for an agent reading its own to-do list back, unless the read failed", () => {
+    const line = buildTimeline([
+      tool("l", { name: "TaskList", input: {}, output: "#1 [completed] Collect facts" }),
+      tool("g", { name: "TaskGet", input: { taskId: "1" }, output: "Task #1: Collect facts" }),
+      tool("c1"),
+    ], opts());
+    expect(line.callCount).toBe(1);
+    expect((line.entries[0] as ActivityEntry).calls.map((call) => call.id)).toEqual(["c1"]);
+    const failed = buildTimeline([tool("l", { name: "TaskList", input: {}, output: "ELOCKED", isError: true })], opts());
+    expect(failed.callCount).toBe(1);
+  });
+
   it("names refusals, declines, failures and cut-offs in plain words", () => {
     const calls = activity([
       tool("b", { output: "blacklist: <tool-declared-block>", isError: true }),
@@ -277,6 +289,9 @@ describe("counted stretch lines", () => {
     expect(only(tool("x", { name: "WebFetch", input: { url: "https://example.com" } })).text).toBe("Fetched a page");
     expect(only(tool("x", { name: "WebSearch", input: { query: "recoil springs" } })).text).toBe("Searched the web");
     expect(only(tool("x", { name: "TodoWrite", input: { todos: [] } })).text).toBe("Updated the to-do list");
+    // Claude Code's task tools keep the same list, one entry per call.
+    expect(only(tool("x", { name: "TaskCreate", input: { subject: "Collect facts" } })).text).toBe("Updated the to-do list");
+    expect(only(tool("x", { name: "TaskUpdate", input: { taskId: "1", status: "completed" } })).text).toBe("Updated the to-do list");
     expect(only(tool("x", { name: "ListAgents", input: {} })).text).toBe("Checked the agents");
     expect(only(tool("x", { name: "CronCreate", input: {} })).text).toBe("Cron create");
   });

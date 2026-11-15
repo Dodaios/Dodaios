@@ -12,16 +12,26 @@
  * except the thought the running turn is having, which shows as a live
  * "Thinking" step so the turn never looks idle. The group the running turn is
  * still in is live.
+ *
+ * The agent's own to-do list is no work: its list calls are told as what they
+ * changed ("Completed the draft"), and the list as it stands after the newest
+ * of them is one card in the flow, where the agent last touched it.
  */
 
+import { joinPlanViews, type PlanView } from "@/components/agentchat/agentPlan";
 import type { ReasoningBlock, TextBlock, ToolBlock, TurnBlock, TurnStatus } from "@/components/agentchat/reduce";
 import { buildTimeline, summarize, type Call, type CallKind, type Translate } from "@/components/agentchat/traceEntries";
 import { isSubagentCall } from "./subagents";
 
-/** One step of a group: a tool call, or the wordless thought a running turn is having. */
+/**
+ * One step of a group: a tool call, the wordless thought a running turn is
+ * having, or a run of to-do list calls read as one step (what they changed,
+ * and the list after them).
+ */
 export type WorkItem =
   | { kind: "call"; id: string; call: Call; startedMs: number }
-  | { kind: "thought"; id: string; block: ReasoningBlock; startedMs: number };
+  | { kind: "thought"; id: string; block: ReasoningBlock; startedMs: number }
+  | { kind: "plan"; id: string; calls: Call[]; plan: PlanView; startedMs: number };
 
 export interface WorkGroup {
   kind: "work";
@@ -46,7 +56,18 @@ export type ThreadRow =
   /** A call that waits for the person: an approval or a question card. */
   | { kind: "pending"; id: string; block: ToolBlock }
   /** A sub-agent the turn spawned: a card of its own that opens its conversation. */
-  | { kind: "agent"; id: string; block: ToolBlock };
+  | { kind: "agent"; id: string; block: ToolBlock }
+  /** The agent's to-do list as it stands after the turn's newest list call. */
+  | { kind: "plan"; id: string; plan: PlanView; calls: Call[] };
+
+/**
+ * A row that is bookkeeping, not work: a thought, the to-do list, or a line
+ * whose only steps are list calls.
+ */
+export function isBookkeeping(row: ThreadRow): boolean {
+  return row.kind === "thought" || row.kind === "plan"
+    || (row.kind === "work" && row.items.every((item) => item.kind === "plan"));
+}
 
 export function isFailed(call: Call): boolean {
   return call.status === "failed" || call.status === "blocked" || call.status === "declined";
@@ -80,14 +101,33 @@ export function thoughtGist(text: string): string {
 
 function soleKind(items: WorkItem[]): WorkGroup["sole"] {
   const calls = items.flatMap((item) => item.kind === "call" ? [item.call] : []);
-  if (calls.length === 0) return "thought";
+  if (calls.length === 0) return items.some((item) => item.kind === "thought") ? "thought" : null;
   const kinds = new Set(calls.map((call) => call.kind));
   return kinds.size === 1 ? calls[0].kind : null;
 }
 
-/** Lay out a turn's blocks as text, thoughts, waiting cards and work groups. */
-export function buildThreadRows(blocks: TurnBlock[], options: { t: Translate; lang: string; status: TurnStatus }): ThreadRow[] {
+/**
+ * Lay out a turn's blocks as text, thoughts, waiting cards and work groups.
+ *
+ * `plans` is the agent's to-do list after each of its list calls
+ * (`planViewsOf`). With it, list calls leave the work: the newest run of them
+ * becomes the list's card, earlier runs one step each. Without it a list call
+ * is a call like any other.
+ */
+export function buildThreadRows(
+  blocks: TurnBlock[],
+  options: { t: Translate; lang: string; status: TurnStatus; plans?: ReadonlyMap<string, PlanView> },
+): ThreadRow[] {
   const timeline = buildTimeline(blocks, { ...options, live: true });
+  const plans = options.plans;
+  // The turn's newest list call: the run it belongs to is drawn as the card.
+  let newestPlan = "";
+  if (plans?.size) {
+    for (const entry of timeline.entries) {
+      if (entry.kind !== "activity") continue;
+      for (const call of entry.calls) if (plans.has(call.id)) newestPlan = call.id;
+    }
+  }
   const started = new Map<string, number>();
   for (const block of blocks) {
     if (block.kind === "tool") started.set(block.callId, block.startedMs);
@@ -104,7 +144,7 @@ export function buildThreadRows(blocks: TurnBlock[], options: { t: Translate; la
       kind: "work",
       id: `work:${items[0].id}`,
       items,
-      summary: calls.length ? summarize(calls, options.t, options.lang, true) : "Thinking",
+      summary: calls.length ? summarize(calls, options.t, options.lang, true) : items.some((item) => item.kind === "thought") ? "Thinking" : "",
       sole: soleKind(items),
       added: calls.reduce((sum, call) => sum + call.added, 0),
       removed: calls.reduce((sum, call) => sum + call.removed, 0),
@@ -116,7 +156,27 @@ export function buildThreadRows(blocks: TurnBlock[], options: { t: Translate; la
 
   for (const entry of timeline.entries) {
     if (entry.kind === "activity") {
-      for (const call of entry.calls) {
+      for (let at = 0; at < entry.calls.length; at++) {
+        const call = entry.calls[at];
+        const view = plans?.get(call.id);
+        if (plans && view) {
+          // List calls right after one another are one step: what they changed together.
+          const run = [call];
+          const views = [view];
+          while (at + 1 < entry.calls.length && plans.has(entry.calls[at + 1].id)) {
+            at += 1;
+            run.push(entry.calls[at]);
+            views.push(plans.get(entry.calls[at].id)!);
+          }
+          const plan = joinPlanViews(views);
+          if (plan.items.length > 0 && run.some((one) => one.id === newestPlan)) {
+            flush();
+            rows.push({ kind: "plan", id: `plan:${call.id}`, plan, calls: run });
+          } else {
+            items.push({ kind: "plan", id: `plan:${call.id}`, calls: run, plan, startedMs: started.get(call.id) ?? 0 });
+          }
+          continue;
+        }
         if (isSubagentCall(call.block)) {
           flush();
           rows.push({ kind: "agent", id: `agent:${call.id}`, block: call.block });
@@ -206,7 +266,8 @@ export function joinStretches<T extends { kind: string }>(
     }
     const calls = items.flatMap((item) => item.kind === "call" ? [item.call] : []);
     // A runtime titles each run of calls under the run's last call; the
-    // newest title among these calls names the whole line.
+    // newest title among these calls names the whole line. A title filed
+    // under a list call ("Marked task 1 in progress") names no work.
     let title: string | undefined;
     for (let i = calls.length - 1; i >= 0 && !title; i--) title = options.titles?.[calls[i].id];
     out.push({

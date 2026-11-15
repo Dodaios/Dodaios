@@ -7852,7 +7852,30 @@
     "setup_step_start": "正在启动 {cli}",
     "tokens_hint": "输入 {input} 个新词元（另有 {cached} 个来自缓存）· 输出 {output} 个词元",
     "open_beside": "在侧边栏中显示",
-    "open_file_beside": "在侧边栏中显示 {file}"
+    "open_file_beside": "在侧边栏中显示 {file}",
+    "plan": {
+      "label": "待办清单",
+      "progress": "已完成 {done}/{total}",
+      "status_completed": "已完成",
+      "status_in_progress": "进行中",
+      "status_pending": "待办",
+      "made_one": "创建了含 {count} 项的待办清单",
+      "made_other": "创建了含 {count} 项的待办清单",
+      "completed": "完成了 {item}",
+      "completed_started": "完成了 {item}，开始 {next}",
+      "completed_n": "完成了 {count} 项待办",
+      "started": "开始 {item}",
+      "added": "添加了 {item}",
+      "added_n": "添加了 {count} 项待办",
+      "removed": "移除了 {item}",
+      "removed_n": "移除了 {count} 项待办",
+      "updated": "更新了待办清单",
+      "cleared": "清空了待办清单",
+      "done_hidden_one": "已完成 {count} 项",
+      "done_hidden_other": "已完成 {count} 项",
+      "more_hidden_one": "还有 {count} 项",
+      "more_hidden_other": "还有 {count} 项"
+    }
   },
   "work_trace": {
     "tool_failed": "一个工具操作失败",

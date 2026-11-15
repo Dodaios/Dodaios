@@ -1,5 +1,6 @@
 import { createContext, memo, startTransition, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowDown, Bot, Check, ChevronRight, Copy, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
+import { ArrowDown, Bot, Check, ChevronRight, Copy, FilePlus2, FileText, FolderOpen, Globe, Image as ImageIcon, Lightbulb, ListTodo, MessageCircleQuestion, PanelRight, Pencil, Search, ShieldAlert, SquareTerminal, Wrench, X } from "lucide-react";
+import { planOps, planViews, samePlanOps, type PlanOp, type PlanView } from "@/components/agentchat/agentPlan";
 import { ChatMarkdown, MediaPreview } from "@/components/agentchat/ChatMarkdown";
 import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
@@ -14,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { ChatThought } from "./ChatThought";
 import { PetMark } from "@/components/pets/PetMark";
 import { formatTokens, inputTokens, outputTokens } from "@/components/agentchat/toolView";
-import { buildThreadRows, isFailed, joinStretches, thoughtGist, type Stretch, type StretchItem, type ThreadRow } from "./threadWork";
+import { buildThreadRows, isBookkeeping, isFailed, joinStretches, thoughtGist, type Stretch, type StretchItem, type ThreadRow } from "./threadWork";
 import { flattenMarks } from "@/lib/plainMarks";
 import { SubagentRun } from "./ThreadSubagents";
 import { listSubagents } from "./subagents";
@@ -23,6 +24,7 @@ import { useSideFileStore } from "@/store/sideFile";
 import { DiffStat, DiffView } from "./ThreadDiff";
 import { FileTypeIcon } from "@/components/agentic/sidePanel/explorer/FileTypeIcon";
 import { MagicWordText } from "./MagicWordText";
+import { PlanCard, PlanList, planParts, planText } from "./ThreadPlan";
 
 /**
  * A thread's conversation: the person's messages on the right, the agent's
@@ -36,6 +38,12 @@ import { MagicWordText } from "./MagicWordText";
  * them; a row opens to what the call ran, the diff it made or what came back,
  * or to the whole thought. A running turn ends in "Working for 12s";
  * a finished one says how long it worked and which files it changed.
+ *
+ * A to-do list the agent keeps for itself is no line of work: it is one card
+ * (ThreadPlan), drawn where the agent last touched the list, so the newest
+ * state sits right above the work on the entry it began. Earlier changes to
+ * the list are steps of the lines before it ("Completed the draft"), each
+ * opening to the list as it stood then.
  *
  * The work-log geometry and the live shine are adapted from pingdotgg/t3code
  * @ e22c880 (apps/web/src/components/chat/WorkLog.tsx, MessagesTimeline.tsx),
@@ -252,6 +260,7 @@ export const THREAD_MEDIA = "[&_[data-kind=image]_img]:max-h-48 [&_[data-kind=im
 
 /** The mark a step of an opened line wears: what kind of work it was. */
 function stepIcon(item: StretchItem): ReactNode {
+  if (item.kind === "plan") return <ListTodo />;
   if (item.kind !== "call") return <Lightbulb />;
   switch (item.call.kind) {
     case "command": return <SquareTerminal />;
@@ -358,6 +367,15 @@ function StepView({ item, running, lone = false }: { item: StretchItem; running:
     </StepRow>;
   }
   if (item.kind === "thought") return running ? <StepRow icon={stepIcon(item)} words={t("thread_turn.thinking")} live /> : null;
+  if (item.kind === "plan") {
+    // What the list calls changed, the entry's own words a tone brighter; it opens to the list as it stood.
+    const parts = planParts(item.plan, t, t("trace_report.locale"));
+    return <StepRow icon={stepIcon(item)} testId="thread-plan-step" startOpen={lone}
+      live={item.calls.some((call) => call.status === "running")}
+      words={parts.map((part, index) => typeof part === "string" ? part : <Target key={index} text={part.entry} />)}>
+      {item.plan.items.length > 0 && <PlanList items={item.plan.items} running={false} compact />}
+    </StepRow>;
+  }
   const call = item.call;
   const failed = isFailed(call);
   const tail = callTail(call, t);
@@ -449,10 +467,13 @@ function StretchView({ stretch, running }: { stretch: Stretch; running: boolean 
   const [open, setOpen] = useState(false);
   const calls = stretch.items.flatMap((item) => item.kind === "call" ? [item.call] : []);
   const said = stretch.items.flatMap((item) => item.kind === "said" ? [item] : []);
+  const plans = stretch.items.flatMap((item) => item.kind === "plan" ? [item] : []);
   // Only the wordless thought of a running turn: one live line, nothing to open.
-  if (calls.length === 0 && said.length === 0) return running ? <WorkRow label={t("thread_turn.thinking")} live /> : null;
+  if (calls.length === 0 && said.length === 0 && plans.length === 0) return running ? <WorkRow label={t("thread_turn.thinking")} live /> : null;
   // The runtime's own title for the calls wins; else what they did, counted.
-  const label = calls.length === 0 ? t(stretch.live ? "thread_turn.thinking" : "work_trace.thought")
+  // Changes to the agent's own to-do list name a line only when it did nothing else.
+  const label = calls.length === 0
+    ? plans.length > 0 ? planText(plans[plans.length - 1].plan, t, lang) : t(stretch.live ? "thread_turn.thinking" : "work_trace.thought")
     : stretch.title ? stretch.title : calls.length === 1 ? callWords(calls[0], t) : stretch.label;
   const failed = calls.length === 1 && isFailed(calls[0]);
   // What the agent is thinking right now; it folds into the card once it speaks.
@@ -754,7 +775,7 @@ export function foldFinished(rows: ThreadRow[]): { work: ThreadRow[]; answer: Th
   let lastStep = -1;
   let lastText = -1;
   rows.forEach((row, index) => {
-    if (row.kind === "work" || row.kind === "thought") lastStep = index;
+    if (row.kind === "work" || row.kind === "thought" || row.kind === "plan") lastStep = index;
     if (prose(row)) lastText = index;
   });
   // No prose yet: everything up to the last step is work.
@@ -773,15 +794,17 @@ export function foldFinished(rows: ThreadRow[]): { work: ThreadRow[]; answer: Th
   // on finished) often only adds a line ("nothing new, that was my old
   // watch"); without this, that line read as the whole answer and the real
   // one sat in the fold. Work in between ends the walk: then the earlier
-  // words were a step on the way, not the answer.
+  // words were a step on the way, not the answer. Ticking an entry off its
+  // own to-do list is no work either: an agent that writes its answer, marks
+  // the last entry done and adds a closing line has still answered above.
   for (;;) {
     let before = start - 1;
-    while (before >= 0 && rows[before].kind === "thought") before -= 1;
+    while (before >= 0 && isBookkeeping(rows[before])) before -= 1;
     if (before < 0 || !prose(rows[before])) break;
     start = before;
     while (start > 0 && prose(rows[start - 1])) start -= 1;
   }
-  const kept = (row: ThreadRow, index: number) => index >= start && index <= end && row.kind !== "thought";
+  const kept = (row: ThreadRow, index: number) => index >= start && index <= end && !isBookkeeping(row);
   return {
     work: rows.filter((row, index) => !kept(row, index)),
     answer: rows.filter(kept),
@@ -905,6 +928,12 @@ export interface ThreadTurnProps {
    * answer.
    */
   tone?: "work" | "chat";
+  /**
+   * The agent's to-do list after each of its list calls, folded over the
+   * whole conversation (`usePlanViews`). A turn drawn on its own reads the
+   * list from its own calls.
+   */
+  plans?: ReadonlyMap<string, PlanView>;
 }
 
 /**
@@ -912,19 +941,20 @@ export interface ThreadTurnProps {
  * threads and every agent chat draw their turns with it, so a turn looks and
  * behaves the same wherever it is read — streaming, finished or reloaded.
  */
-export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer", onDecide, extras, receipt, tone = "work" }: ThreadTurnProps) {
+export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer", onDecide, extras, receipt, tone = "work", plans: shared }: ThreadTurnProps) {
   const t = useT();
   const lang = t("trace_report.locale");
   const running = turn.status === "running";
   const inline = prompts === "inline";
   const pictures = useMemo(() => callPictures(turn.blocks), [turn.blocks]);
+  const plans = useMemo(() => shared ?? planViews(planOps([turn])), [shared, turn]);
   // Keep credential fields mounted while the surrounding work folds at turn end.
   // The pasted value lives only in the field, so a remount would discard it.
   const credentials = turn.blocks.filter((block): block is ToolBlock => block.kind === "tool" && Boolean(block.credential));
   const rows = useMemo(
-    () => buildThreadRows(turn.blocks, { t, lang, status: turn.status }).filter((row) =>
+    () => buildThreadRows(turn.blocks, { t, lang, status: turn.status, plans }).filter((row) =>
       !(row.kind === "text" && pictures.moved.has(row.block.id)) && !(row.kind === "pending" && row.block.credential)),
-    [turn.blocks, t, lang, turn.status, pictures],
+    [turn.blocks, t, lang, turn.status, pictures, plans],
   );
   const answer = answerText(turn);
   const [workOpen, setWorkOpen] = useState(false);
@@ -966,6 +996,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     </div>;
     if (row.kind === "text") return <div key={row.id} className={cn(PROSE, THREAD_MEDIA)}><ChatMarkdown text={row.text} /></div>;
     if (row.kind === "agent") return <SubagentRun key={row.id} blocks={[row.block]} turn={turn} />;
+    if (row.kind === "plan") return <PlanCard key={row.id} plan={row.plan} running={running} />;
     // A secret is pasted where it is asked for, never into a composer.
     if (row.block.credential) return <CredentialCard key={row.id} credential={row.block.credential} />;
     if (inline) {
@@ -1048,9 +1079,9 @@ function ErrorLine({ text }: { text: string }) {
 }
 
 /** One item of the conversation, drawn by its kind. */
-function ItemView({ item, tone }: { item: TimelineItem } & Pick<ThreadTurnProps, "tone">) {
+function ItemView({ item, tone, plans }: { item: TimelineItem } & Pick<ThreadTurnProps, "tone" | "plans">) {
   if (item.type === "user") return <UserBubble item={item} />;
-  if (item.type === "turn") return <ThreadTurn turn={item} tone={tone} />;
+  if (item.type === "turn") return <ThreadTurn turn={item} tone={tone} plans={plans} />;
   if (item.type === "error") return <ErrorLine text={item.text} />;
   if (item.type === "notice") {
     return <p className="text-center text-xs text-muted-foreground">{item.agentName ? `${item.agentName}: ` : ""}{item.text}</p>;
@@ -1059,6 +1090,21 @@ function ItemView({ item, tone }: { item: TimelineItem } & Pick<ThreadTurnProps,
     <p className="mb-1 text-xs text-muted-foreground">Message from {item.message.sender_name}</p>
     <div className={PROSE}><ChatMarkdown text={item.message.text} /></div>
   </div>;
+}
+
+/**
+ * The agent's to-do list after each of its list calls, over the whole
+ * conversation: a task changed in this turn may have been made in an earlier
+ * one. The map keeps its identity until a list call arrives or ends, so a
+ * streaming answer does not redraw every turn.
+ */
+export function usePlanViews(items: readonly TimelineItem[]): ReadonlyMap<string, PlanView> {
+  const held = useRef<{ ops: PlanOp[]; views: ReadonlyMap<string, PlanView> } | null>(null);
+  return useMemo(() => {
+    const ops = planOps(items);
+    if (!held.current || !samePlanOps(held.current.ops, ops)) held.current = { ops, views: planViews(ops) };
+    return held.current.views;
+  }, [items]);
 }
 
 /** How many of a just-opened thread's newest items paint before the rest. */
@@ -1084,6 +1130,7 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
   const scroller = useRef<HTMLDivElement | null>(null);
   const pinned = useRef(true);
   const [away, setAway] = useState(false);
+  const plans = usePlanViews(items);
 
   // A thread opened from another one (or from a new thread's page) paints its
   // newest messages first and the older ones a moment later, out of the way
@@ -1151,7 +1198,7 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
       {/* "Select all" outside a text field selects this conversation (lib/selectAllScope). */}
       <div data-select-all className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 pt-6" style={{ paddingBottom: bottomInset + 24 }}>
         {lead}
-        {shown.map((item) => <ItemView key={item.id} item={item} tone={tone} />)}
+        {shown.map((item) => <ItemView key={item.id} item={item} tone={tone} plans={plans} />)}
       </div>
     </div>
     {away && <button type="button" aria-label={t("ide_threads.scroll_newest")}

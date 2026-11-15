@@ -7852,7 +7852,30 @@
     "setup_step_start": "Starting {cli}",
     "tokens_hint": "Input {input} tokens new to the model ({cached} more reused from the cache) · output {output} tokens",
     "open_beside": "Show in the side panel",
-    "open_file_beside": "Show {file} in the side panel"
+    "open_file_beside": "Show {file} in the side panel",
+    "plan": {
+      "label": "To-do list",
+      "progress": "{done} of {total} done",
+      "status_completed": "Done",
+      "status_in_progress": "In progress",
+      "status_pending": "To do",
+      "made_one": "Made a to-do list with {count} item",
+      "made_other": "Made a to-do list with {count} items",
+      "completed": "Completed {item}",
+      "completed_started": "Completed {item}, started {next}",
+      "completed_n": "Completed {count} to-dos",
+      "started": "Started {item}",
+      "added": "Added {item}",
+      "added_n": "Added {count} to-dos",
+      "removed": "Removed {item}",
+      "removed_n": "Removed {count} to-dos",
+      "updated": "Updated the to-do list",
+      "cleared": "Cleared the to-do list",
+      "done_hidden_one": "{count} done",
+      "done_hidden_other": "{count} done",
+      "more_hidden_one": "{count} more",
+      "more_hidden_other": "{count} more"
+    }
   },
   "work_trace": {
     "tool_failed": "A tool action failed",

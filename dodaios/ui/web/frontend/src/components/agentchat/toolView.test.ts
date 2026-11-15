@@ -33,6 +33,10 @@ describe("agentToolView", () => {
     expect(agentToolView("MultiEdit", {}).family).toBe("edit");
     expect(agentToolView("Bash", { command: "ls -la\nsecond line" }).summary).toBe("ls -la");
     expect(agentToolView("TodoWrite", {}).family).toBe("plan");
+    // Claude Code's task tools keep the agent's to-do list too; stopping a background task does not.
+    expect(agentToolView("TaskCreate", { subject: "Collect facts" }).family).toBe("plan");
+    expect(agentToolView("TaskUpdate", { taskId: "1" }).family).toBe("plan");
+    expect(agentToolView("TaskStop", {}).family).not.toBe("plan");
     expect(agentToolView("Task", { prompt: "go" }).family).toBe("agent");
   });
 
