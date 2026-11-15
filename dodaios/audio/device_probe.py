@@ -63,7 +63,22 @@ def collect_snapshot() -> dict[str, Any]:
         "devices": devices,
         "hostapis": hostapis,
         "default": default,
+        "virtual": _virtual_device_names(),
     }
+
+
+def _virtual_device_names() -> list[str]:
+    """Names of the devices the operating system calls virtual (macOS; else none).
+
+    Read here because this process is new: the app's own audio client can be
+    blocked behind a stream that does not close, this one never is.
+    """
+    try:
+        from dodaios.audio.device_transport import virtual_device_names  # noqa: PLC0415
+
+        return virtual_device_names()
+    except Exception:  # noqa: BLE001 - the device list is worth more than this extra
+        return []
 
 
 def main(output_path: str | None = None) -> int:

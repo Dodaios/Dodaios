@@ -26,10 +26,12 @@ def _no_native_calls_left_over(request: pytest.FixtureRequest) -> None:
     if request.path.name == "test_headless_import.py":
         yield
         return
-    from dodaios.audio import capture
+    from dodaios.audio import capture, devices
 
     capture._forget_unanswered_calls()
     capture._STREAM_ENDINGS.clear()
+    devices._forget_virtual_devices()
     yield
     capture._forget_unanswered_calls()
     capture._STREAM_ENDINGS.clear()
+    devices._forget_virtual_devices()
