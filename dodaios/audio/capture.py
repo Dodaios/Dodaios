@@ -1823,10 +1823,14 @@ class MicrophoneCapture:
                         preferred_attempts,
                         attempt,
                     )
+                # The name too: an index says nothing once the device table
+                # has changed, and "which microphone was it" is the question
+                # every report of "it does not hear me" starts with.
                 _log.info(
-                    "Mic opened (device={}, capture_sr={}, output_sr={}, "
+                    "Mic opened (device={} '{}', capture_sr={}, output_sr={}, "
                     "blocksize={}, dtype={}).",
                     attempt,
+                    input_name,
                     capture_rate,
                     self._sample_rate,
                     capture_blocksize,
