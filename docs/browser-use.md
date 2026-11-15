@@ -91,6 +91,19 @@ network.
   between steps (the task waits, nothing more reaches the page from the agent)
   and forwards the owner's clicks and keys to the page. "Return control"
   resumes the agent.
+- **The person's input follows the hand.** Wheel events go to the page as they
+  come, without waiting for the page's answer to each one: it answers with the
+  next picture it draws, about 30 ms later, and waiting for that let a
+  two-second trackpad scroll play out for five to eight seconds. Events that
+  wait behind each other on the way reach the browser as one with the summed
+  distance (`ControlQueue` in `ui/web/society_browser_routes.py`). A click or
+  key after a scroll waits until the page stands where the scroll left it. An
+  address, Back, Forward or Reload holds the next input for at most a second;
+  a slow page goes on loading by itself. A new picture goes out when the page
+  drew it, not on a fixed beat: up to 30 a second while the person holds
+  control, up to 15 while the page is only watched. In the IDE's Browser tab
+  the wheel scrolls the page under the pointer without a click on it first,
+  unless the assistant is working in the browser.
 - **Agent request.** The lead's `request_browser_takeover(reason)` tool posts
   ONE written card in the lead conversation (never spoken), adds a desktop
   notification and a status-light "needs you" row, shows the reason in the
@@ -136,6 +149,17 @@ Chromium. It does not overwrite the user's installed Chrome. Each agent owns
 a separate persistent profile and workspace. Raw CDP ports are local and are
 never provided to the frontend. The frontend uses the app's authenticated
 WebSocket boundary and short-lived handshake tickets.
+
+Every request the managed browser sends is checked before it leaves
+(`society/browser/request_guard.py`): only http and https, a page only on a
+site the agent may open, and no address inside this computer or its network
+unless the agent was given that host by name. The check listens on one CDP
+session of the whole browser, so it covers every tab, frame and popup, and
+each hop of a redirect is checked like a request of its own. The browser's
+HTTP cache stays on, so a second visit takes a page's files from the cache.
+(Playwright's routing, which did this check before, switches the cache off
+and never shows a redirect to its handler.) The agent's own navigation opens
+http and https addresses only.
 
 Browser-Use cloud sessions, telemetry and automatic browser extensions are
 disabled. Model requests use the existing Dodaios provider interface and

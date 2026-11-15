@@ -7,6 +7,7 @@ import contextlib
 import logging
 import math
 import sys
+from collections import deque
 from typing import Any
 from uuid import uuid4
 
@@ -34,6 +35,76 @@ OPERATIONS = {
     "dialog",
     "viewport",
 }
+
+
+#: A viewer's input: the operation, its arguments, the browser generation it was made for.
+Control = tuple[str, dict, str]
+_MAX_QUEUED_CONTROLS = 256
+_SCROLL_DISTANCE = ("dx", "dy")
+_SCROLL_PLACE = ("x", "y")
+
+
+class ControlQueue:
+    """A viewer's inputs in the order they came, with motion folded together.
+
+    The browser takes one input at a time. Wheel events and hover motion come
+    faster than that: a trackpad sends 60 to 120 wheel events a second, a
+    moving pointer 30 positions. Queued one by one they played out seconds
+    after the hand had stopped, and then overflowed the queue. So wheel events
+    that wait behind each other become one with the summed distance, and only
+    the newest hover position waits, behind every real input.
+    """
+
+    def __init__(self, maxsize: int = _MAX_QUEUED_CONTROLS) -> None:
+        self._inputs: deque[Control] = deque()
+        self._hover: Control | None = None
+        self._ready = asyncio.Event()
+        self._maxsize = maxsize
+
+    def put(self, op: str, args: dict, generation: str) -> None:
+        """Queue one input; raises ``asyncio.QueueFull`` when the browser is too far behind."""
+        if op == "click" and args.get("move_only") is True:
+            self._hover = (op, args, generation)
+        else:
+            # Motion recorded before this input is older than it.
+            self._hover = None
+            if not self._joins_waiting_scroll(op, args, generation):
+                if len(self._inputs) >= self._maxsize:
+                    raise asyncio.QueueFull
+                self._inputs.append((op, args, generation))
+        self._ready.set()
+
+    def _joins_waiting_scroll(self, op: str, args: dict, generation: str) -> bool:
+        if op != "scroll" or not self._inputs:
+            return False
+        last_op, last, last_generation = self._inputs[-1]
+        if last_op != "scroll" or last_generation != generation:
+            return False
+
+        def rest(values: dict) -> dict:
+            return {
+                key: value
+                for key, value in values.items()
+                if key not in _SCROLL_DISTANCE and key not in _SCROLL_PLACE
+            }
+
+        if rest(last) != rest(args):
+            return False
+        joined = {**last, **args}
+        for key in _SCROLL_DISTANCE:
+            joined[key] = last.get(key, 0) + args.get(key, 0)
+        self._inputs[-1] = (op, joined, generation)
+        return True
+
+    async def get(self) -> Control:
+        while True:
+            if self._inputs:
+                return self._inputs.popleft()
+            if self._hover is not None:
+                item, self._hover = self._hover, None
+                return item
+            self._ready.clear()
+            await self._ready.wait()
 
 
 async def _subscribe_with_progress(live: Any, agent: Any, send: Any) -> Any:
@@ -320,36 +391,11 @@ async def agent_browser_live(websocket: WebSocket, agent_id: str) -> None:
                     return
 
         sender = asyncio.create_task(frames())
-        commands: asyncio.Queue[tuple[str, dict, str]] = asyncio.Queue(maxsize=256)
-        # Hover motion arrives ~30 times a second. Queued one by one behind a
-        # slower worker round trip it delayed every click by seconds and then
-        # overflowed the queue, so only the newest motion waits, behind input.
-        hover: list[tuple[str, dict, str]] = []
-        hover_ready = asyncio.Event()
-
-        async def next_control() -> tuple[str, dict, str]:
-            while True:
-                if not commands.empty():
-                    return commands.get_nowait()
-                if hover:
-                    hover_ready.clear()
-                    return hover.pop()
-                getter = asyncio.ensure_future(commands.get())
-                waiter = asyncio.ensure_future(hover_ready.wait())
-                try:
-                    done, _ = await asyncio.wait(
-                        {getter, waiter}, return_when=asyncio.FIRST_COMPLETED
-                    )
-                finally:
-                    waiter.cancel()
-                    if getter not in done:
-                        getter.cancel()
-                if getter in done:
-                    return getter.result()
+        inputs = ControlQueue()
 
         async def controls() -> None:
             while True:
-                op, args, generation = await next_control()
+                op, args, generation = await inputs.get()
                 # A hover and a panel size are not answered: neither is an
                 # input the viewer waits for, and a new one replaces a failed one.
                 motion = op == "viewport" or (op == "click" and args.get("move_only") is True)
@@ -387,14 +433,7 @@ async def agent_browser_live(websocket: WebSocket, agent_id: str) -> None:
             receive = asyncio.create_task(websocket.receive_json())
             try:
                 op, args = validate_control(value)
-                item = (op, args, session.state.get("generation", session.generation))
-                if op == "click" and args.get("move_only") is True:
-                    hover[:] = [item]
-                    hover_ready.set()
-                else:
-                    # Motion recorded before this input is older than it.
-                    hover.clear()
-                    commands.put_nowait(item)
+                inputs.put(op, args, session.state.get("generation", session.generation))
             except asyncio.QueueFull:  # the client is told below that the input was dropped
                 await send(
                     {

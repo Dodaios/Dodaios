@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BrowserViewState } from "@/components/society/card/useBrowserView";
 import { IDLE_HANDBACK_MS, LiveBrowserPage, VIEWPORT_SETTLE_MS, type LiveRequest } from "./LiveBrowserPage";
@@ -51,6 +51,25 @@ describe("LiveBrowserPage", () => {
     view.control.mockClear();
     rerender(page(request));
     expect(view.control).not.toHaveBeenCalledWith("navigate", expect.anything());
+  });
+
+  it("scrolls the page under the pointer without a click on it first", () => {
+    view.state = viewState({ manual: true, url: "https://github.com/" });
+    render(page(null));
+    const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0, width: 1280, height: 800 } as DOMRect);
+    expect(document.activeElement).not.toBe(canvas);
+    fireEvent.wheel(canvas, { clientX: 300, clientY: 400, deltaY: 30 });
+    expect(view.control).toHaveBeenCalledWith("scroll", { x: 300, y: 400, dx: 0, dy: 30 });
+  });
+
+  it("leaves the page to the assistant when a swipe crosses the panel while it works", () => {
+    view.state = viewState({ running: true, url: "https://github.com/" });
+    render(page(null));
+    const canvas = document.querySelector("canvas") as HTMLCanvasElement;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0, width: 1280, height: 800 } as DOMRect);
+    fireEvent.wheel(canvas, { clientX: 300, clientY: 400, deltaY: 30 });
+    expect(view.control).not.toHaveBeenCalledWith("scroll", expect.anything());
   });
 
   it("waits for the browser's first picture before acting", () => {

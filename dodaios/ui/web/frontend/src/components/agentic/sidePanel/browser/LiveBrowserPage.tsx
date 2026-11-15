@@ -267,6 +267,10 @@ export function LiveBrowserPage({ request, onPageUrl }: Props) {
             ariaLabel={fill(t("agent_browser.screen"), { assistant: name })}
             cursorLabel={name}
             repaint={repaint}
+            // A browser scrolls what the pointer is over. While the assistant
+            // works in it, a swipe across the panel must not take the page
+            // from it: then the page is clicked first, as before.
+            scrollOnHover={!agentDrives}
           />
           {!state.ready && (
             <div data-testid="ide-browser-live-waiting"
