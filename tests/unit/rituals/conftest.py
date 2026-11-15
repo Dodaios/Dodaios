@@ -37,6 +37,7 @@ class Chat:
 
     def __init__(self) -> None:
         self.sent: list[dict[str, Any]] = []
+        self.filed: list[dict[str, Any]] = []
         self.running = False
         #: How many sends are refused because another turn took the seat first.
         self.refusals = 0
@@ -48,6 +49,10 @@ class Chat:
 
     def is_running(self, session_id: str) -> bool:
         return self.running
+
+    async def import_voice_turn(self, session_id: str, user_text: str, assistant_text: str) -> None:
+        # What the person said or typed, filed without a turn for it.
+        self.filed.append({"session_id": session_id, "text": user_text, "reply": assistant_text})
 
     async def send(self, session_id: str, text: str, **options: Any) -> str:
         if self.refusals:

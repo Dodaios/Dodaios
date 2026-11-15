@@ -252,6 +252,7 @@ def _ritual(row: tuple[Any, ...]) -> Ritual:
             id=str(item.get("id") or ""),
             when=str(item.get("when") or ""),
             text=str(item.get("text") or ""),
+            call=dict(item["call"]) if isinstance(item.get("call"), dict) else None,
         )
         for item in _json_list(row[9], "steps", row[0])
         if isinstance(item, dict)

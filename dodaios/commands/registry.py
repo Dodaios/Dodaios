@@ -206,6 +206,92 @@ def _str_list(description: str) -> dict[str, Any]:
     return {"type": "array", "items": {"type": "string"}, "description": description}
 
 
+def _ritual_properties() -> dict[str, Any]:
+    """What a ritual is made of, for the commands that write or change one."""
+    clock = "24-hour HH:MM on the user's clock"
+    return {
+        "name": _str_param("Short name, e.g. 'Good morning'.", min_length=1, max_length=60),
+        "phrases": _str_list(
+            "What the user says after the wake word (or types) to start it, in their "
+            "words and language, without the wake word: 'Guten Morgen'. At most six "
+            "words each, at most five."
+        ),
+        "steps": {
+            "type": "array",
+            "description": (
+                "What happens, in order, each a sentence in the user's own words. Anything "
+                "you can do is allowed."
+            ),
+            "items": {
+                "type": "object",
+                "properties": {
+                    "when": _str_param(
+                        "'now': done the moment the phrase is said (start music, open an "
+                        "app, switch a light). 'ahead': gathered before that and kept back "
+                        "until then, so the user does not wait (news, open pull requests, "
+                        "today's calendar, mail).",
+                        enum=["now", "ahead"],
+                    ),
+                    "text": _str_param("The step.", min_length=1, max_length=500),
+                    "id": _str_param(
+                        "Only when changing a ritual: the id of the step this replaces."
+                    ),
+                    "call": {
+                        "type": "object",
+                        "description": (
+                            "Only for a 'now' step that is exactly ONE call of one of your "
+                            "tools with fixed arguments (play this playlist, open that "
+                            "app): that call. It is then made at once when the phrase is "
+                            "said, without you. Find the arguments out first (search the "
+                            "playlist). Leave it out for a step that needs judgment; it "
+                            "is then done by a turn."
+                        ),
+                        "properties": {
+                            "tool": _str_param("The tool's name, without a server prefix."),
+                            "args": {"type": "object", "description": "Its arguments."},
+                            "says": _str_param(
+                                "The call in a few plain words for the user, in their "
+                                "language: 'YouTube Music: liked songs'.", max_length=160,
+                            ),
+                        },
+                        "required": ["tool", "args", "says"],
+                    },
+                },
+                "required": ["when", "text"],
+            },
+        },
+        "window_from": _str_param(
+            f"Optional. Start of the time of day in which the phrase starts it, {clock}. "
+            "Outside it the phrase is an ordinary greeting."
+        ),
+        "window_to": _str_param(f"End of that time of day, {clock}. Needed with window_from."),
+        "weekdays": {
+            "type": "array", "items": {"type": "integer"},
+            "description": "Optional. Days it may start on, Monday is 0. Leave out for every day.",
+        },
+        "once_per_day": {
+            "type": "boolean",
+            "description": "Default true: the phrase starts it only the first time on a day.",
+        },
+        "prepare_from": _str_param(
+            f"Optional. From when the 'ahead' steps are gathered, {clock}. Default: the "
+            "start of the window. It gathers as soon as the computer is awake from then on."
+        ),
+    }
+
+
+def _ritual_ref_param() -> dict[str, Any]:
+    return _str_param("The ritual's id or its exact name.", min_length=1)
+
+
+_RITUAL_GUIDE = (
+    "A ritual is a sequence the user wrote beforehand and starts by SAYING a short phrase "
+    "after the wake word, or typing it ('Good morning': music starts, the news and their "
+    "pull requests are there). Use it, not a routine or a skill, whenever something should "
+    "happen when the user says something. A routine runs by the clock instead. "
+)
+
+
 def _agent_brief_properties() -> dict[str, Any]:
     """The structured brief rendered into the agent's standing instructions."""
     return {
@@ -530,6 +616,101 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "en": ("pause the morning briefing",),
                 "es": ("pausa el resumen de la mañana",),  # i18n-allow: input vocab
                 "pt": ("pausa o resumo da manhã",),  # i18n-allow: input vocab
+            },
+        ),
+        # ------------------------------------------------------ rituals
+        AppCommand(
+            id="ritual-list",
+            title="List the user's rituals",
+            description=(
+                _RITUAL_GUIDE + "Lists every ritual with its phrases, steps, times and "
+                "where it stands today (gathered, started). Read it before changing one."
+            ),
+            method="GET", path="/api/agent-chat/lead/rituals", ui_section="chats",
+            voice_aliases={
+                "de": ("welche rituale habe ich",),  # i18n-allow: input vocab
+                "en": ("which rituals do i have",),
+                "es": ("qué rituales tengo",),  # i18n-allow: input vocab
+                "pt": ("que rituais tenho",),  # i18n-allow: input vocab
+            },
+        ),
+        AppCommand(
+            id="ritual-create",
+            title="Write a ritual for the user",
+            description=(
+                _RITUAL_GUIDE + "Write the steps as the user said them, one sentence each, "
+                "and sort them: 'ahead' for what can be found out beforehand, 'now' for "
+                "what must happen at that moment. Do not run the steps now. The result "
+                "reads back the stored ritual; tell the user the phrase that starts it. "
+                "A refusal names what to change (a phrase another ritual uses, a time)."
+            ),
+            # Not dangerous: the user ordered it, and it is switched off or
+            # removed in one step in the assistant's panel.
+            method="POST", path="/api/agent-chat/lead/rituals", ui_section="chats",
+            params={"type": "object", "properties": _ritual_properties(),
+                    "required": ["name", "phrases", "steps"]},
+            voice_aliases={
+                "de": ("leg ein ritual für guten morgen an",),  # i18n-allow: input vocab
+                "en": ("set up a ritual for good morning",),
+                "es": ("crea un ritual para buenos días",),  # i18n-allow: input vocab
+                "pt": ("cria um ritual para bom dia",),  # i18n-allow: input vocab
+            },
+        ),
+        AppCommand(
+            id="ritual-update",
+            title="Change a ritual",
+            description=(
+                "Change a ritual: send only what changes. 'steps' replaces the whole list, "
+                "so read the ritual with ritual-list first and keep each step's id that "
+                "stays. 'enabled' switches it on or off."
+            ),
+            method="PATCH", path="/api/agent-chat/lead/rituals/{ritual_id}",
+            path_params=("ritual_id",), ui_section="chats",
+            params={"type": "object", "properties": {
+                "ritual_id": _ritual_ref_param(),
+                **_ritual_properties(),
+                "enabled": {"type": "boolean", "description": "Switch the ritual on or off."},
+            }, "required": ["ritual_id"]},
+            voice_aliases={
+                "de": ("nimm die nachrichten aus meinem morgenritual",),  # i18n-allow: input vocab
+                "en": ("take the news out of my morning ritual",),
+                "es": ("quita las noticias de mi ritual de la mañana",),  # i18n-allow: input vocab
+                "pt": ("tira as notícias do meu ritual da manhã",),  # i18n-allow: input vocab
+            },
+        ),
+        AppCommand(
+            id="ritual-remove",
+            title="Remove a ritual",
+            description="Remove one ritual for good, on the user's request.",
+            method="DELETE", path="/api/agent-chat/lead/rituals/{ritual_id}",
+            path_params=("ritual_id",), ui_section="chats", dangerous=True,
+            params={"type": "object", "properties": {"ritual_id": _ritual_ref_param()},
+                    "required": ["ritual_id"]},
+            voice_aliases={
+                "de": ("lösch mein morgenritual",),  # i18n-allow: input vocab
+                "en": ("delete my morning ritual",),
+                "es": ("borra mi ritual de la mañana",),  # i18n-allow: input vocab
+                "pt": ("apaga o meu ritual da manhã",),  # i18n-allow: input vocab
+            },
+        ),
+        AppCommand(
+            id="ritual-run",
+            title="Start a ritual now",
+            description=(
+                "Start one of the user's rituals now, when they ask for it by name instead "
+                "of saying its phrase ('start my morning ritual'). It runs whatever the "
+                "clock says. Its card appears in the conversation; if 'pending' is true, "
+                "what it gathers follows there shortly, so do not gather it yourself."
+            ),
+            method="POST", path="/api/agent-chat/lead/rituals/{ritual_id}/run",
+            path_params=("ritual_id",), ui_section="chats",
+            params={"type": "object", "properties": {"ritual_id": _ritual_ref_param()},
+                    "required": ["ritual_id"]},
+            voice_aliases={
+                "de": ("starte mein morgenritual",),  # i18n-allow: input vocab
+                "en": ("start my morning ritual",),
+                "es": ("empieza mi ritual de la mañana",),  # i18n-allow: input vocab
+                "pt": ("começa o meu ritual da manhã",),  # i18n-allow: input vocab
             },
         ),
         # ------------------------------------------------------ providers
