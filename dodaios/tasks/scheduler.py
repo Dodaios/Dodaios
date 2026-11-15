@@ -27,7 +27,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Final, Protocol
 
 from dodaios.core.bus import EventBus
 from dodaios.core.events import (
@@ -52,6 +52,14 @@ if TYPE_CHECKING:
 
 
 log = logging.getLogger(__name__)
+
+#: The longest the main loop waits before it reads the wall clock again.
+#: The loop's timer counts on a clock that stands still while the machine
+#: sleeps (macOS), so a wait "until 09:00" set the evening before ended nine
+#: *waking* hours later: a daily routine due while the laptop was open was
+#: noticed long after its slot and then skipped as missed. A short wait keeps
+#: the wall clock in charge; it costs one look at the heap per tick.
+MAX_WAIT_S: Final[float] = 30.0
 
 
 class TaskNotFound(LookupError):
@@ -1006,9 +1014,11 @@ class TaskScheduler:
             await self._drain_due_tasks(now_ns)
             await self._drain_hooks()
 
-            # Next wakeup: either the next-due time or indefinitely
+            # Next wakeup: the next-due time, but never further away than
+            # MAX_WAIT_S (the timer below does not count time spent asleep);
+            # indefinitely when nothing is scheduled.
             if self._heap:
-                timeout = max(0.05, (self._heap[0][0] - now_ns) / 1e9)
+                timeout = min(MAX_WAIT_S, max(0.05, (self._heap[0][0] - now_ns) / 1e9))
             else:
                 timeout = None
             if self._hook_retry_at:
