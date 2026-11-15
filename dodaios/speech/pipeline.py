@@ -14244,6 +14244,14 @@ class SpeechPipeline:
             self._hold_for_resumed_speech(text, lang)
             return True
 
+        # A ritual's phrase ("good morning") starts the sequence the person
+        # wrote beforehand, with no model turn: what was gathered ahead is
+        # said at once (dodaios/rituals). Here, after fragments were joined
+        # and the floor is free, so a sentence that merely begins with the
+        # phrase is still an ordinary one.
+        if await self._maybe_ritual(text, lang):
+            return True
+
         # Privacy-Voice-Toggle (Wave-2 B7): matcht Privacy-Phrasen aus Config,
         # pausiert/resumed den VisionContextProvider und spricht kurzen ACK
         # BEVOR das Brain aufgerufen wird. Brain-Call wird uebersprungen.
@@ -16008,6 +16016,33 @@ class SpeechPipeline:
                 seed([*history, ("user", text), ("assistant", brief)])
             except Exception:  # noqa: BLE001 — a follow-up without context beats a broken turn
                 log.debug("spoken brief: history seed failed", exc_info=True)
+        await self._set_turn_state(TurnTakingState.LISTENING)
+        return True
+
+    async def _maybe_ritual(self, text: str, lang: str) -> bool:
+        """Start the ritual ``text`` names and say what it has ready; ``True`` when it did.
+
+        Decided by words and the clock, with no model turn. The exchange is
+        appended to the brain's history like the spoken brief's, so a
+        follow-up ("tell me more about the second one") is an ordinary turn
+        with what was said as its context.
+        """
+        from dodaios.rituals import said as ritual_said
+
+        spoken = await ritual_said.spoken_answer(text, language=lang)
+        if not spoken:
+            return False
+        log.info("A ritual answers the turn (%d chars)", len(spoken))
+        await self._set_turn_state(TurnTakingState.JARVIS_SPEAKING)
+        await self._speak(spoken, language=lang, kind=SPOKEN_KIND_REPLY)
+        brain = getattr(self, "_brain", None)
+        seed = getattr(brain, "seed_history", None)
+        if callable(seed):
+            try:
+                history = list(getattr(brain, "_history", None) or [])
+                seed([*history, ("user", text), ("assistant", spoken)])
+            except Exception:  # noqa: BLE001 — a follow-up without context beats a broken turn
+                log.debug("ritual: history seed failed", exc_info=True)
         await self._set_turn_state(TurnTakingState.LISTENING)
         return True
 

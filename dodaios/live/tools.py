@@ -32,7 +32,10 @@ log = logging.getLogger(__name__)
 # history inside the 64 KiB message limit of smaller WebRTC clients.
 _CATALOG_BYTE_BUDGET = 24_000
 _BUILTIN_TOOLS = frozenset(
-    {"discover_tools", "call_tool", "confirm_action", "end_call", "task_status", "today_brief"}
+    {
+        "discover_tools", "call_tool", "confirm_action", "end_call", "task_status",
+        "today_brief", "start_ritual",
+    }
 )
 # An approval is a short answer made only of go-ahead words: "Ja, send ihn"
 # approves (refused live 2026-10-01 by an exact-phrase list), while "yes,
@@ -253,6 +256,23 @@ class LiveTools:
             log.info("Live background %s (%s) cancelled by the user", task.task_id, task.tool)
         await self._cancel_confirmations("user_cancelled")
 
+    def _ritual_tool(self) -> list[dict]:
+        """The ``start_ritual`` declaration, only while a ritual is on: a model
+        that is told of a tool with nothing behind it calls it anyway."""
+        from dodaios.rituals import said
+
+        phrases = said.live_phrases()
+        if not phrases:
+            return []
+        return [
+            function(
+                "start_ritual",
+                said.live_tool_description(phrases),
+                {"phrase": {"type": "string", "description": "What the user said."}},
+                ["phrase"],
+            )
+        ]
+
     def declarations(self, *, defer_catalog: bool = False) -> list[dict]:
         self._defer_catalog = defer_catalog
         definitions = [
@@ -293,6 +313,7 @@ class LiveTools:
                 {},
                 [],
             ),
+            *self._ritual_tool(),
             function(
                 "task_status",
                 "One board of everything running for the user: this call's background "
@@ -773,6 +794,10 @@ class LiveTools:
             from dodaios.speech.spoken_brief import build
 
             return {"success": True, "brief": await build(language=self.language)}
+        if name == "start_ritual":
+            from dodaios.rituals import said
+
+            return await said.live_start(str(args.get("phrase", "")), language=self.language)
         if name == "confirm_action":
             approval_id = str(args.get("approval_id", ""))
             if approval_id not in self._pending and len(self._pending) == 1:

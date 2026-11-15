@@ -2125,6 +2125,15 @@ async def post_message(session_id: str, body: MessageBody, request: Request) -> 
     svc = (await _async_service(request))
     token = client_timezone.set(body.timezone)
     try:
+        # A ritual's phrase typed into the assistant's conversation starts the
+        # sequence the person wrote beforehand; its card is the answer, no turn.
+        from dodaios.rituals import said as ritual_said
+
+        ritual_id = await ritual_said.typed(
+            svc, session_id, body.text, has_attachments=bool(body.attachments)
+        )
+        if ritual_id:
+            return {"turn_id": "", "session_id": session_id, "ritual": ritual_id}
         # A coding thread whose running CLI takes a message mid-turn is steered:
         # the text goes into the turn like typing into a terminal.
         # The person may ask for the other way: wait for the agent to finish.

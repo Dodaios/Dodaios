@@ -5,8 +5,10 @@ person's click on "Run now", or by the assistant on request. Starting it does
 two things at once:
 
 * its ``now`` steps are done at that moment. They are sentences in the person's
-  own words and may ask for anything the assistant can do, so they run as one
-  turn of the lead's conversation, with the person's standing and nothing typed;
+  own words and may ask for anything the assistant can do. A step that is one
+  tool call is made at once, with no model (:mod:`dodaios.rituals.instant`);
+  the others run as one turn of the lead's conversation, with the person's
+  standing and nothing typed;
 * a card in that conversation says the ritual started and carries what was
   gathered ahead for it (:mod:`dodaios.rituals.prepare`). If that is not ready
   yet, it is gathered now and follows in a second card (:func:`deliver_late`).
@@ -189,12 +191,35 @@ def _clean_steps(raw: Any) -> tuple[RitualStep, ...]:
         if not step_id or step_id in seen:
             step_id = new_step_id()
         seen.add(step_id)
-        steps.append(RitualStep(id=step_id, when=when, text=text))
+        steps.append(RitualStep(id=step_id, when=when, text=text, call=_clean_call(item, when)))
     if not steps:
         raise RitualError("invalid", f"A {NOUN} needs at least one step.")
     if len(steps) > MAX_STEPS:
         raise RitualError("invalid", f"A {NOUN} takes at most {MAX_STEPS} steps.")
     return tuple(steps)
+
+
+def _clean_call(item: dict[str, Any], when: str) -> dict[str, Any] | None:
+    """The one tool call a ``now`` step comes down to, checked against the app's tools."""
+    from . import instant
+
+    try:
+        call = instant.clean(item.get("call"))
+    except ValueError as exc:
+        raise RitualError("invalid", f"A step's call is not usable: {exc}.") from exc
+    if call is None:
+        return None
+    if when != "now":
+        raise RitualError(
+            "invalid", "Only a step for the moment itself ('now') can carry a call."
+        )
+    why = instant.problem(call)
+    if why:
+        raise RitualError(
+            "invalid",
+            f"{why} Leave 'call' out of this step and it is done by an ordinary turn.",
+        )
+    return call
 
 
 def _clean_weekdays(raw: Any) -> tuple[int, ...]:
@@ -327,6 +352,18 @@ def list_rituals() -> list[Ritual]:
 
 def get(ritual_id: str) -> Ritual | None:
     return get_store().get(str(ritual_id or "").strip())
+
+
+def find(ref: str) -> Ritual | None:
+    """A ritual by its id or by its exact name (case does not matter)."""
+    key = str(ref or "").strip()
+    if not key:
+        return None
+    by_id = get_store().get(key)
+    if by_id is not None:
+        return by_id
+    folded = " ".join(key.split()).casefold()
+    return next((r for r in get_store().list() if r.name.casefold() == folded), None)
 
 
 def today_of(ritual_id: str, *, now: datetime | None = None) -> RitualDay | None:
@@ -518,6 +555,10 @@ async def deliver_late(ritual: Ritual, day: str) -> None:
         return
     if prepare.usable(ritual, row):
         await _post(ritual, {"via": row.fired_via, "late": True, "text": card_text_late(row)})
+        from . import said
+
+        # Started by voice: it is also said, when the call is still open.
+        await said.announce_late(ritual, row)
     else:
         reason = row.prep_error or "Nothing could be gathered."
         await _post(
@@ -570,6 +611,31 @@ async def _run_now_steps(ritual: Ritual, steps: Sequence[RitualStep]) -> None:
         await asyncio.sleep(_POLL_S)
 
 
+async def _do_now_steps(ritual: Ritual, steps: Sequence[RitualStep], day: str) -> None:
+    """The steps for this moment: what is one tool call is made at once, the
+    rest (and whatever such a call could not do) is done by one turn."""
+    from . import instant
+
+    left: list[RitualStep] = []
+    lines: list[str] = []
+    for step in steps:
+        if step.call is None:
+            left.append(step)
+            continue
+        done, said = await instant.run(step.call, sentence=step.text)
+        lines.append(said)
+        if not done:
+            log.info("rituals: a step of %s goes to a turn (%s)", ritual.id, said)
+            left.append(step)
+    if lines:
+        try:
+            get_store().patch_day(ritual.id, day, results=lines)
+        except Exception:  # noqa: BLE001 — the steps ran; only the note about them is missing
+            log.warning("rituals: results of %s not kept", ritual.id, exc_info=True)
+    if left:
+        await _run_now_steps(ritual, left)
+
+
 def _does_not_start(ritual: Ritual, why: str) -> RitualError:
     return RitualError("state", f'The {NOUN} "{ritual.name}" does not start now ({why}).')
 
@@ -586,8 +652,29 @@ async def drain() -> None:
         await asyncio.gather(*list(_background), return_exceptions=True)
 
 
+async def _file_said(said: str) -> None:
+    """Put what the person said or typed into the conversation, without a turn for it."""
+    text = str(said or "").strip()
+    if not text:
+        return
+    try:
+        from dodaios.agent_chat.lead import lead_session
+
+        _runtime_, _lead, svc = await _lead_chat()
+        session = lead_session(svc) if svc is not None else None
+        if session is not None:
+            await svc.import_voice_turn(str(session.session_id), text, "")
+    except Exception:  # noqa: BLE001 — the ritual starts without the line that shows what was said
+        log.warning("rituals: the phrase was not filed into the conversation", exc_info=True)
+
+
 async def fire(
-    ritual_id: str, *, via: str, force: bool = False, now: datetime | None = None
+    ritual_id: str,
+    *,
+    via: str,
+    force: bool = False,
+    said: str = "",
+    now: datetime | None = None,
 ) -> dict[str, Any]:
     """Start a ritual: the card, and its ``now`` steps as a turn.
 
@@ -596,6 +683,9 @@ async def fire(
     leaves the phrase its one start of the day. Without it the ritual's
     conditions hold, and a ritual that may start once a day is claimed first,
     so the same phrase heard twice in one moment starts it once.
+
+    ``said`` is the sentence that started it (spoken or typed). It is filed
+    into the conversation above the card, because no turn answers it.
     """
     if via not in FIRED_VIA:
         raise RitualError("invalid", "via must be one of " + ", ".join(FIRED_VIA) + ".")
@@ -623,6 +713,7 @@ async def fire(
     today = store.day(ritual.id, day)
     ahead = ritual.steps_at("ahead")
     ready = prepare.usable(ritual, today)
+    await _file_said(said)
     await _post_card(ritual, today if ready else None, via=via, pending=bool(ahead) and not ready)
     if ready or not ahead:
         today = store.patch_day(ritual.id, day, delivered_ms=now_ms())
@@ -632,11 +723,13 @@ async def fire(
         prepare.request(ritual.id, day)
     now_steps = ritual.steps_at("now")
     if now_steps:
-        _spawn(_run_now_steps(ritual, now_steps), f"ritual-now-{ritual.id}")
+        _spawn(_do_now_steps(ritual, now_steps, day), f"ritual-now-{ritual.id}")
     return {
         "ritual": ritual.to_dict(),
         "today": today.to_dict() if today is not None else None,
         "pending": bool(ahead) and not ready,
+        # What was gathered, in the form made for the ear; "" when nothing is ready.
+        "spoken": today.spoken if ready and today is not None else "",
     }
 
 
@@ -649,6 +742,7 @@ __all__ = [
     "day_of",
     "deliver_late",
     "drain",
+    "find",
     "find_match",
     "fire",
     "get",
