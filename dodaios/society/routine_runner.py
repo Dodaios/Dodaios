@@ -408,7 +408,8 @@ async def run_owned_routine(
     _, separator, original = prompt.partition("\nRoutine:\n")
     task = original if separator else prompt
     # The run keeps its own seat and chat; the agent's one chat shows a card
-    # that opens it (MASTERPLAN §2.10).
+    # that opens it (MASTERPLAN §2.10), and the run's answer comes back there
+    # as a message of its own when it finishes (``_report_result``).
     title = next((line.strip() for line in task.splitlines() if line.strip()), task_id)
     routine_title = await _routine_title(task_store, task_id)
     from dodaios.agent_chat.proactive_checks import quiet_routine, run_context
@@ -506,7 +507,15 @@ async def run_owned_routine(
                 if payload.get("status") not in {"done", "ok", "completed"}:
                     raise RuntimeError(str(payload.get("error") or "The routine failed"))
                 if autonomous:
-                    await _report_autonomous_result(runtime, agent, tags, task_id, answer)
+                    await _report_autonomous_result(
+                        runtime, agent, tags, task_id, answer,
+                        session_id=session.session_id, title=routine_title,
+                    )
+                else:
+                    await _report_result(
+                        runtime, agent, tags, task_id, answer,
+                        session_id=session.session_id, title=routine_title,
+                    )
                 return answer
     except asyncio.CancelledError:
         failure = standing.CANCELLED
@@ -567,8 +576,90 @@ async def _record_run_summary(
         log.warning("routine: run summary not recorded for %s", task_id, exc_info=True)
 
 
+#: A trigger's preparation job (``lead_triggers/wiring.py::_agent_json``): its
+#: JSON answer is read back by the code that started it, never shown.
+_PREPARE_TAG = "lead-prepare"
+
+
+def _posts_result(tags: tuple[str, ...]) -> bool:
+    """Whether the runner posts a finished run's answer into its owner's chat.
+
+    Not for a standing task: its own ``after_run`` posts the answer, labelled
+    with the task. Not for a routine whose update lands elsewhere: a living
+    page's refresh and a kept-current node's show it on the page, a team
+    check-in's work shows in the team's reports (its "nothing is needed"
+    every interval would only be noise), and a trigger's preparation hands
+    its answer back to the code that asked for it. Every other routine posts,
+    a scheduled skill (``skill-cron:``) and a quiet lead routine included:
+    quiet only means no start card. Comments worked into a node post too:
+    their run answers the "nothing to report" sentinel when every comment is
+    in, and one sentence only when a comment could not be carried out.
+    """
+    from dodaios.artifacts.living_refresh import TAG_PREFIX as PAGE_PREFIX
+    from dodaios.nodes.refresh import TAG_PREFIX as NODE_PREFIX
+    from dodaios.standing_tasks.service import standing_id_of
+
+    from .team_lead import CHECKIN_TAG
+
+    if standing_id_of(tags):
+        return False
+    elsewhere = (PAGE_PREFIX, NODE_PREFIX, CHECKIN_TAG)
+    return not any(
+        str(tag) == _PREPARE_TAG or str(tag).startswith(elsewhere) for tag in tags
+    )
+
+
+async def _report_result(
+    runtime: Any,
+    agent: Any,
+    tags: tuple[str, ...],
+    task_id: str,
+    answer: str,
+    *,
+    session_id: str,
+    title: str,
+) -> None:
+    """Post a finished run's answer into its owner's chat as a message of its own.
+
+    For the lead that is the person's one conversation (``runtime._notify_chat``).
+    An empty answer or the "nothing to report" sentinel posts nothing, for any
+    owner. A failed delivery is logged and never changes how the run ends.
+    """
+    try:
+        if not _posts_result(tags):
+            return
+        from dodaios.agent_chat.proactive_checks import quiet_result
+
+        payload = {
+            "kind": "society_result",
+            "status": "done",
+            "source": "routine",
+            "text": str(answer or "")[:4000],
+            "agent_id": agent.agent_id,
+            "agent_name": display_name(agent),
+            "task_id": task_id,
+            # The run's own chat, which the message opens.
+            "session_id": session_id,
+            # The routine's own name, as on the run's start card.
+            "title": title[:200],
+        }
+        if quiet_result(payload):
+            log.info("society: routine %s had nothing to report", task_id)
+            return
+        await runtime.post_chat_notice(agent, payload)
+    except Exception:  # noqa: BLE001 — the task runner keeps the answer; delivery is a projection
+        log.warning("routine: result not posted for %s", task_id, exc_info=True)
+
+
 async def _report_autonomous_result(
-    runtime: Any, agent: Any, tags: tuple[str, ...], task_id: str, answer: str,
+    runtime: Any,
+    agent: Any,
+    tags: tuple[str, ...],
+    task_id: str,
+    answer: str,
+    *,
+    session_id: str = "",
+    title: str = "",
 ) -> None:
     """Deliver the result to the originating chat without another model turn."""
     from .autonomous_routines import ORIGIN_SESSION_TAG
@@ -580,6 +671,7 @@ async def _report_autonomous_result(
         "kind": "society_result", "status": "done", "text": answer,
         "agent_id": agent.agent_id, "agent_name": display_name(agent),
         "source": "routine", "task_id": task_id,
+        "session_id": session_id, "title": title[:200],
     }
     try:
         service = runtime.chat_service()

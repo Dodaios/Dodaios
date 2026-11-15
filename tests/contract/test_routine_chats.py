@@ -13,7 +13,7 @@ from tests.contract.test_society_continuity import world as world
 
 
 def _beyond_routine_cards(events: list[dict]) -> list[dict]:
-    """The agent's one chat may only show the card that opens a run."""
+    """A run that did not finish leaves only the card that opens it in the agent's one chat."""
     return [
         e for e in events
         if not (e["kind"] == "notice" and e["payload"].get("kind") == "routine_run")
@@ -50,11 +50,14 @@ async def test_persisted_run_links_survive_reopening_without_loading_main_chat(w
                 assert session.provider == main.provider
                 assert session.cwd == main.cwd
                 assert reopened.list_events(sid)[-1]["kind"] == "turn_finished"
-            assert _beyond_routine_cards(reopened.list_events(main.session_id)) == []
-            # The agent's one chat holds a card per run that opens that run.
-            cards = [e["payload"] for e in reopened.list_events(main.session_id)]
-            assert [c["session_id"] for c in cards] == links
-            assert all(c["kind"] == "routine_run" and c["task_id"] == task_id for c in cards)
+            # The agent's one chat holds, per run, a card that opens that run
+            # and the run's answer, which opens the same run; nothing else.
+            events = reopened.list_events(main.session_id)
+            assert all(e["kind"] == "notice" for e in events)
+            cards = [e["payload"] for e in events]
+            assert [c["session_id"] for c in cards] == [sid for sid in links for _ in (1, 2)]
+            assert [c["kind"] for c in cards] == ["routine_run", "society_result"] * 2
+            assert all(c["task_id"] == task_id for c in cards)
             assert reopened.get_session(main.session_id).permission_mode == main.permission_mode
         finally:
             reopened.close()

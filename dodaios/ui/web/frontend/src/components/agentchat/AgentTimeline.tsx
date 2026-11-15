@@ -3,6 +3,10 @@ import { ChatMarkdown, MediaPreview, mediaKind } from "@/components/agentchat/Ch
 import { PictureDisplayContext, type PictureDisplay } from "@/components/agentchat/MediaPreview";
 import { FileText, ImageIcon } from "lucide-react";
 import { InternalMessageRun, groupInternalRuns, type InternalRunItem, type RunFace } from "./InternalMessageRun";
+import { BackgroundRun } from "./BackgroundRun";
+import { groupBackgroundRuns, type BackgroundRunItem } from "./backgroundLine";
+import { RoutineResultMessage } from "./RoutineResultMessage";
+import { isRoutineResult, withoutReportedRoutineStarts } from "./routineResult";
 import { CodingThreadActivity } from "@/components/agentic/threads/CodingThreadLink";
 import { codingThreadOf, foldRepeatedThreadStatus } from "@/components/agentic/threads/openCodingThread";
 import { MessageWithChips } from "./ToolChoiceChips";
@@ -30,7 +34,9 @@ import type { PetState } from "@/lib/petStates";
 import { SIDE_THREAD_STARTED, waitsInBackground, type TimelineItem, type TurnItem, type TextBlock, type UserAttachment } from "./reduce";
 import { TraceMessageLine } from "./TraceTimeline";
 import { attachTurnMessages, type TraceMessage } from "./turnMessages";
-import { MessageReceipt, messageReceipts, stampLabel } from "./messageReceipt";
+import { MessageReceipt, messageReceipts, stampLabel as receiptStamp } from "./messageReceipt";
+import { stampLabel } from "./activity/transcriptTime";
+import { localeForUiLanguage } from "@/components/runs/format";
 import { useT } from "@/i18n";
 import { societyResultHeadline, societyResultText } from "@/lib/skipReasons";
 import { cn } from "@/lib/utils";
@@ -99,8 +105,9 @@ export function AgentTimeline({
   // that turn's trace, so the reply stays the last thing in the chat.
   const { items: shown, messagesByTurn } = useMemo(() => {
     // A coding thread's unchanged status is one row, however often it arrived.
-    // Reminders told one right after the other are one message.
-    const folded = foldReminderNotices(foldRepeatedThreadStatus(items));
+    // Reminders told one right after the other are one message. A routine
+    // whose result is in the chat needs no "started" line above it.
+    const folded = foldReminderNotices(foldRepeatedThreadStatus(withoutReportedRoutineStarts(items)));
     return traceLook === "rail" ? attachTurnMessages(folded) : { items: folded, messagesByTurn: NO_MESSAGES };
   }, [items, traceLook]);
   // The conversation look says under each of the person's messages when it was read.
@@ -136,10 +143,17 @@ export function AgentTimeline({
   // The assistant shows as typing in ONE place: the lowest answer still
   // being written.
   const typingId = useMemo(() => chat ? typingRow(ordered) : null, [chat, ordered]);
-  const stamps = useMemo(
-    () => chat ? stampsOf(ordered.map((row) => ({ id: row.id, ts: row.time }))) : null,
-    [chat, ordered],
-  );
+  // "Today 12:10", "Yesterday 8:57": the day said in words, as in an agent's
+  // own chat. The words are read once per language, so the stamps are only
+  // worked out again when the rows or the language change.
+  const locale = localeForUiLanguage(t("trace_report.locale"));
+  const todayWord = t("run_view.time.today");
+  const yesterdayWord = t("run_view.time.yesterday");
+  const stamps = useMemo(() => {
+    if (!chat) return null;
+    const words = (key: string) => (key === "run_view.time.yesterday" ? yesterdayWord : todayWord);
+    return stampsOf(ordered.map((row) => ({ id: row.id, ts: row.time })), (ms, now) => stampLabel(ms, now, locale, words));
+  }, [chat, ordered, locale, todayWord, yesterdayWord]);
   // The assistant's pet stands beside its newest turn only.
   const latestTurnId = useMemo(() => {
     // While it types its next turn, it stands beside the dots instead.
@@ -149,12 +163,14 @@ export function AgentTimeline({
   }, [bubbles, awaiting, shown]);
   // One page made in a turn shows as a preview card, several as links.
   const pageModes = useMemo(() => pageNoticeModes(shown), [shown]);
-  // Back-to-back agent-to-agent messages read as one centred line each.
+  // Back-to-back agent-to-agent messages read as one centred line each, and
+  // so do back-to-back background notices (a routine started, a memory noted).
   const rows = useMemo(() => {
     const out: DrawnRow[] = [];
     let run: TimelineItem[] = [];
     const flush = () => {
-      for (const item of groupInternalRuns(run, (entry) => !codingThreadOf(entry.message.sender_id))) out.push({ id: item.id, item });
+      const grouped = groupBackgroundRuns(groupInternalRuns(run, (entry) => !codingThreadOf(entry.message.sender_id)));
+      for (const item of grouped) out.push({ id: item.id, item });
       run = [];
     };
     for (const row of ordered) {
@@ -208,7 +224,10 @@ export function AgentTimeline({
       typing={!quietTyping && row.id === typingId} />;
   }
 
-  function renderItem(item: TimelineItem | InternalRunItem) {
+  function renderItem(item: TimelineItem | InternalRunItem | BackgroundRunItem) {
+    if (item.type === "background_run") {
+      return <BackgroundRun key={item.id} run={item} agentsById={agentsById} assistantName={assistantName} />;
+    }
     if (item.type === "internal_run") {
       return (
         <InternalMessageRun
@@ -365,6 +384,8 @@ export function AgentTimeline({
       if (item.kind === "tasks_captured") return <TasksCapturedCard key={item.id} item={item} />;
       if (item.kind === "standing_proposal") return <StandingProposalCard key={item.id} item={item} />;
       if (item.kind === "standing_paused") return <StandingPausedNotice key={item.id} item={item} />;
+      // A routine's result is the assistant answering: its message, not a notice.
+      if (isRoutineResult(item)) return <RoutineResultMessage key={item.id} item={item} look={bubbles ? "lead" : "document"} />;
       if (item.kind === "context_reset") {
         return (
           <div key={item.id} data-message-id={item.id} data-testid="context-reset"
@@ -433,21 +454,26 @@ function itemTime(item: TimelineItem): number {
 }
 
 /**
- * Which items open with a time stamp, and what it says: the first one, and
- * every one after a pause of {@link STAMP_GAP_MS}. Today shows the clock
- * only; any other day leads with the date, the way a messenger does.
+ * Which items open with a time stamp: the first one, and every one after a
+ * pause of {@link STAMP_GAP_MS}. This helper words them like a read receipt
+ * (today the clock only, any other day the date first); the conversation look
+ * itself says the day in words ("Today 12:10", `activity/transcriptTime`).
  */
 export function timeStamps(items: TimelineItem[], now: Date = new Date()): Map<string, string> {
-  return stampsOf(items.map((item) => ({ id: item.id, ts: itemTime(item) })), now);
+  return stampsOf(items.map((item) => ({ id: item.id, ts: itemTime(item) })), undefined, now);
 }
 
 /** {@link timeStamps} for rows that carry their own time (0 = none yet). */
-function stampsOf(entries: { id: string; ts: number }[], now: Date = new Date()): Map<string, string> {
+function stampsOf(
+  entries: { id: string; ts: number }[],
+  label: (ms: number, nowMs: number) => string = (ms, nowMs) => receiptStamp(new Date(ms), new Date(nowMs)),
+  now: Date = new Date(),
+): Map<string, string> {
   const out = new Map<string, string>();
   let last = 0;
   for (const { id, ts } of entries) {
     if (!ts || !Number.isFinite(ts)) continue;
-    if (!last || ts - last >= STAMP_GAP_MS) out.set(id, stampLabel(new Date(ts), now));
+    if (!last || ts - last >= STAMP_GAP_MS) out.set(id, label(ts, now.getTime()));
     last = Math.max(last, ts);
   }
   return out;
@@ -455,7 +481,7 @@ function stampsOf(entries: { id: string; ts: number }[], now: Date = new Date())
 
 /** A row as it is drawn: a timeline item (or a run of internal messages), or a placed row. */
 type DrawnRow =
-  | { id: string; item: TimelineItem | InternalRunItem; row?: undefined }
+  | { id: string; item: TimelineItem | InternalRunItem | BackgroundRunItem; row?: undefined }
   | { id: string; row: Exclude<ChatRow, { kind: "item" }>; item?: undefined };
 
 /** A turn's earlier messages, standing where they were written; the turn's closing part is further down. */

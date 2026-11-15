@@ -64,7 +64,9 @@ import {
   type TurnItem,
   type UserItem,
 } from "@/components/agentchat/reduce";
-import { AwaitingTurn, MessengerTurn, type MemoryLink } from "@/components/agentchat/MessengerTurn";
+import { AwaitingTurn, MessageBubble, MessengerTurn, type MemoryLink } from "@/components/agentchat/MessengerTurn";
+import { RoutineResultMessage } from "@/components/agentchat/RoutineResultMessage";
+import { isRoutineResult, withoutReportedRoutineStarts } from "@/components/agentchat/routineResult";
 import { ActionCard, type ActionSpec } from "@/components/agentchat/actionCard/ActionCard";
 import { WandSparkles as ProposalIcon } from "lucide-react";
 import { openQuestionOf } from "@/components/agentchat/questions/questionModel";
@@ -772,13 +774,15 @@ export function Transcript({
   // Memory receipts are drawn inside the turn they follow, above its reply.
   // A coding thread's unchanged status is one row, however often it arrived.
   // Applied identity changes stay in history without chat rows or timestamps.
+  // A routine whose result is in the chat needs no "started" line above it:
+  // the result names the routine and opens the same run.
   const { items, memoryByTurn } = useMemo(
-    () => foldMemoryNotices(foldRepeatedThreadStatus(rawItems.filter((item) => !(
+    () => foldMemoryNotices(foldRepeatedThreadStatus(withoutReportedRoutineStarts(rawItems.filter((item) => !(
       item.type === "notice" && item.data.proposal_kind === "identity" && (
         item.kind === "proposal" && item.resolved === "applied"
         || item.kind === "proposal_resolved" && (!item.status || item.status === "applied")
       )
-    )))),
+    ))))),
     [rawItems],
   );
   // Follow the newest while the view sits at the end — the rule every
@@ -939,10 +943,17 @@ export function Transcript({
 /**
  * A delegated task coming back: the agent's name as the headline, its
  * summary underneath, muted — it is the society reporting, not Jarvis
- * speaking, so it never wears an assistant bubble.
+ * speaking, so it never wears an assistant bubble. A routine's finished
+ * result is the exception: the agent answering what the person set it to
+ * do, so it is the agent's own message, the routine named above it.
  */
 export function NoticeLine({ item }: { item: NoticeItem }) {
   const t = useT();
+  if (isRoutineResult(item)) {
+    return <RoutineResultMessage item={item} look="messenger">
+      {item.text.trim() ? <MessageBubble text={item.text} /> : null}
+    </RoutineResultMessage>;
+  }
   if (item.kind === "memory_updated") return <MemoryUpdateNotice item={item} />;
   if (item.kind === "team_report") return <TeamReportNotice item={item} />;
   if (item.kind === "message_queued") {

@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentTimeline, timeStamps } from "./AgentTimeline";
 import { messageReceipts } from "./messageReceipt";
-import { EMPTY_TIMELINE, reduceEvents, type TimelineItem } from "./reduce";
+import { EMPTY_TIMELINE, reduceEvents, type NoticeItem, type TimelineItem } from "./reduce";
 import type { PictureDisplay } from "./MediaPreview";
 import type { AgentChatEvent } from "@/lib/agentChatApi";
 let seq = 0;
@@ -240,5 +240,69 @@ describe("a delegated agent's result nobody answered", () => {
     expect(line.textContent).toBe("Claude Code failed");
     expect(line.className).toContain("text-destructive");
     expect(document.body.textContent).not.toContain("has finished:");
+  });
+});
+
+describe("a routine's result", () => {
+  const at = new Date(2026, 10, 15, 8, 0).getTime();
+  const notice = (id: string, kind: string, data: Record<string, unknown>, tsMs: number, status = ""): NoticeItem => ({
+    type: "notice", id, kind, text: String(data.text ?? ""), agentName: "Nova", agentId: "jarvis",
+    status, tsMs, resolved: "", data: { kind, agent_id: "jarvis", agent_name: "Nova", ...data },
+  });
+  /** What the routine runner posts into the owner's chat when a run answers. */
+  const result = (id: string, session: string, tsMs = at + 60_000) => notice(id, "society_result", {
+    status: "done", source: "routine", text: "Two new issues since yesterday.", task_id: "task_1",
+    session_id: session, title: "Daily issue check",
+  }, tsMs, "done");
+  /** The "a routine started" line it posts when a run begins. */
+  const started = (id: string, session: string, tsMs = at) => notice(id, "routine_run", {
+    session_id: session, title: "Daily issue check", text: "Check the open issues on GitHub.",
+  }, tsMs);
+  const show = (items: TimelineItem[], bubbles = true) =>
+    render(<AgentTimeline items={items} assistantName="Nova" providerLabel={(id) => id} onDecide={() => undefined} bubbles={bubbles} />);
+
+  it("is the assistant's own message in the conversation look, never the muted card", () => {
+    show([result("n1", "run_s1")]);
+    const message = screen.getByTestId("routine-result");
+    expect(message.getAttribute("data-look")).toBe("lead");
+    expect(message.getAttribute("data-message-id")).toBe("n1");
+    expect(within(message).getByTestId("lead-bubble").textContent).toBe("Two new issues since yesterday.");
+    // The card for an agent reporting back is headed with who reported.
+    expect(screen.queryByText("Nova is done")).toBeNull();
+    expect(screen.getAllByText("Two new issues since yesterday.")).toHaveLength(1);
+  });
+
+  it("reads as plain type, under the same line, in the document look", () => {
+    show([result("n1", "run_s1")], false);
+    const message = screen.getByTestId("routine-result");
+    expect(message.getAttribute("data-look")).toBe("document");
+    expect(within(message).queryByTestId("lead-bubble")).toBeNull();
+    expect(within(message).getByTestId("routine-result-line").textContent).toBe("Routine · Daily issue check");
+    expect(screen.queryByText("Nova is done")).toBeNull();
+  });
+
+  it("takes the place of its run's start line; another run's start line stays", () => {
+    show([started("n1", "run_s1"), started("n2", "run_s2", at + 1000), result("n3", "run_s1")]);
+    expect(document.querySelector('[data-message-id="n1"]')).toBeNull();
+    expect(document.querySelector('[data-message-id="n2"]')).toBeTruthy();
+    expect(document.querySelector('[data-message-id="n3"]')?.getAttribute("data-testid")).toBe("routine-result");
+  });
+});
+
+describe("the conversation look's time stamps", () => {
+  afterEach(() => { vi.useRealTimers(); });
+  const user = (id: string, tsMs: number) =>
+    ({ type: "user", id, text: `message ${id}`, attachments: [], tsMs }) as TimelineItem;
+  const stampOf = (tsMs: number) => {
+    render(<AgentTimeline items={[user("a", tsMs)]} assistantName="Nova" providerLabel={(id) => id} onDecide={() => undefined} bubbles />);
+    return screen.getByTestId("agent-time-stamp").textContent ?? "";
+  };
+
+  it("say the day in words: today, yesterday", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 15, 12, 0));
+    expect(stampOf(new Date(2026, 10, 15, 11, 10).getTime())).toMatch(/^Today \d{1,2}:10/);
+    cleanup();
+    expect(stampOf(new Date(2026, 10, 14, 8, 57).getTime())).toMatch(/^Yesterday \d{1,2}:57/);
   });
 });

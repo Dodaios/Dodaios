@@ -1,10 +1,11 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Transcript } from "@/components/society/chat/AgentChatPanel";
 import { EMPTY_TIMELINE, reduceEvents } from "@/components/agentchat/reduce";
 import type { AgentChatEvent } from "@/lib/agentChatApi";
 import type { SocietyAgent } from "@/components/society/data";
+import { useRoutineNavigation } from "@/components/society/chat/routineNavigation";
 
 /**
  * The society transcript's run view: time stamps that mark a pause, a
@@ -138,5 +139,32 @@ describe("live turn", () => {
     const finished = screen.getByTestId("messenger-turn");
     expect(finished).toBe(running);
     expect(finished.dataset.status).toBe("done");
+  });
+});
+
+describe("a routine's result", () => {
+  afterEach(() => { useRoutineNavigation.setState({ target: null }); });
+  const started = (session: string, title: string, at: number) =>
+    ev("notice", { kind: "routine_run", session_id: session, agent_id: "a1", title, text: `Run ${title}.` }, at);
+
+  it("is the agent's own message under the routine's name, in place of its run's start line", () => {
+    draw([
+      started("run_s1", "Morning inbox", BASE),
+      started("run_s2", "Evening inbox", BASE + MIN),
+      ev("notice", {
+        kind: "society_result", status: "done", source: "routine", text: "Three new mails, one from the bank.",
+        agent_id: "a1", agent_name: "Scout", task_id: "task_1", session_id: "run_s1", title: "Morning inbox",
+      }, BASE + 2 * MIN),
+    ]);
+    const result = screen.getByTestId("routine-result");
+    expect(result.getAttribute("data-look")).toBe("messenger");
+    expect(within(result).getByTestId("agent-message-bubble").textContent).toBe("Three new mails, one from the bank.");
+    // Not the muted "Scout is done" report.
+    expect(screen.queryByText("Scout is done")).toBeNull();
+    // The answered run's start line is gone; the run that has not answered keeps its own.
+    expect(document.querySelector('[data-chat-item="n-1"]')).toBeNull();
+    expect(document.querySelector('[data-chat-item="n-2"]')).toBeTruthy();
+    fireEvent.click(within(result).getByRole("button", { name: /^Routine · Morning inbox/ }));
+    expect(useRoutineNavigation.getState().target).toMatchObject({ agentId: "a1", sessionId: "run_s1", title: "Morning inbox" });
   });
 });

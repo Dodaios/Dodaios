@@ -1,5 +1,6 @@
-"""Quiet lead routines: no start card, nothing posted when there is nothing to say,
-and the next run of an adaptive routine sees the previous result."""
+"""Quiet lead routines: no start card, a finding comes back as a message, nothing
+posted when there is nothing to say, and the next run of an adaptive routine sees
+the previous result."""
 
 from __future__ import annotations
 
@@ -37,7 +38,7 @@ async def lead_world(world, tmp_path):  # noqa: F811
 
 
 async def test_a_quiet_routine_posts_no_start_card_and_a_loud_one_does(lead_world):
-    runtime, svc, store, lead, conversation, _ = lead_world
+    runtime, svc, store, lead, conversation, brain = lead_world
     quiet = build_task_spec(lead, title="Needs you", prompt="Check.", schedule={"kind": "every"})
     quiet = quiet.model_copy(update={"tags": (*quiet.tags, QUIET_TAG)})
     # A living page's refresh (PR "living pages") shows its update on the page.
@@ -47,12 +48,19 @@ async def test_a_quiet_routine_posts_no_start_card_and_a_loud_one_does(lead_worl
     quiet_id = str(await store.insert(quiet))
     page_id = str(await store.insert(page))
     loud_id = str(await store.insert(loud))
-    await run_owned_routine(runtime, quiet_id, quiet.tags, quiet.action.prompt)
     await run_owned_routine(runtime, page_id, page.tags, page.action.prompt)
-    assert [n["kind"] for n in _notices(svc, conversation.session_id)] == []
+    assert _notices(svc, conversation.session_id) == []
+    # Quiet means no start card; a finding still comes back as a message.
+    await run_owned_routine(runtime, quiet_id, quiet.tags, quiet.action.prompt)
+    posted = _notices(svc, conversation.session_id)
+    assert [(n["kind"], n["task_id"]) for n in posted] == [("society_result", quiet_id)]
+    assert posted[0]["text"] == brain.reply
     await run_owned_routine(runtime, loud_id, loud.tags, loud.action.prompt)
-    cards = _notices(svc, conversation.session_id)
-    assert [c["kind"] for c in cards] == ["routine_run"] and cards[0]["task_id"] == loud_id
+    cards = _notices(svc, conversation.session_id)[1:]
+    assert [(c["kind"], c["task_id"]) for c in cards] == [
+        ("routine_run", loud_id), ("society_result", loud_id),
+    ]
+    assert cards[0]["session_id"] == cards[1]["session_id"]
 
 
 async def test_nothing_to_report_is_not_posted_but_a_finding_is(lead_world):
