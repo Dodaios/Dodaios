@@ -372,8 +372,21 @@ def _summary(row: dict[str, Any]) -> dict[str, Any]:
 
 
 async def list_routines(task_store: Any, agent_id: str) -> list[dict[str, Any]]:
+    """The agent's routines, without the runs that work comments into a node.
+
+    Comments sent on a node run as a one-shot lead task (``node-comments:<id>``).
+    That run is not a routine the person set up: how it went shows on the
+    comment's pin on the node, so it never lands in a routine list, where a
+    failed one stayed as a "Failed" routine with nothing to switch on.
+    """
+    from dodaios.nodes.comments import is_comments_tag
+
     rows = await task_store.list(limit=1000)
-    return [_summary(r) for r in rows if is_agent_routine(r, agent_id)]
+    return [
+        _summary(r)
+        for r in rows
+        if is_agent_routine(r, agent_id) and not any(is_comments_tag(t) for t in _tags_of(r))
+    ]
 
 
 async def create_routine(task_store: Any, scheduler: Any | None, spec: TaskSpec) -> str:

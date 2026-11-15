@@ -352,31 +352,9 @@ async def _seat_for_checks(runtime: Any, lead: Any) -> dict[str, str]:
 
 async def _conversation_seat(runtime: Any) -> dict[str, str]:
     """The seat of the lead's own conversation, when it bills no API key; else ``{}``."""
-    try:
-        from dodaios.agent_chat.lead import lead_session
-        from dodaios.core.task_agent import subscription_seat_off_loop
-        from dodaios.society.routine_runner import _billed_via_api
+    from dodaios.society.routine_runner import conversation_seat
 
-        service = runtime.chat_service()
-        session = lead_session(service, create=False) if service is not None else None
-        provider = str(getattr(session, "provider", "") or "")
-        if not provider:
-            return {}
-        account_id = str(getattr(session, "account_id", "") or "")
-        mapped = await subscription_seat_off_loop(provider)
-        if mapped is None and _billed_via_api(provider, account_id):
-            return {}
-        seat = {
-            "provider": mapped[0] if mapped is not None else provider,
-            "model": str(getattr(session, "model", "") or ""),
-            "effort": str(getattr(session, "effort", "") or ""),
-        }
-        if account_id:
-            seat["account_id"] = account_id
-        return seat
-    except Exception:  # noqa: BLE001 — no readable conversation: the lead's own seat
-        log.debug("lead checks: conversation seat unreadable", exc_info=True)
-        return {}
+    return await conversation_seat(runtime)
 
 
 def _billed(provider: str, account_id: str) -> bool:
