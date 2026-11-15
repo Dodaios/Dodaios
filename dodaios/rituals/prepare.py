@@ -170,9 +170,8 @@ def looks_only(name: str, args: dict[str, Any] | None = None) -> bool:
     is a plain read (a ``GET`` that is not marked dangerous): the list of the
     person's pull requests, of their routines, of their rituals.
     """
-    from dodaios.standing_tasks.service import run_may
-
     from dodaios.core.mcp_names import TOOLS_SERVER_NAMES, own_cli_tool
+    from dodaios.standing_tasks.service import run_may
 
     bare = str(name or "").strip()
     if run_may(bare, dict(args or {}), autonomy="watch", folder=""):
