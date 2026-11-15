@@ -171,6 +171,16 @@ Start one of the user's rituals now, when they ask for it by name instead of say
 - **Desktop UI section:** `chats`
 - **Voice example (EN):** "start my morning ritual"
 
+## `pull-requests-list` — List the user's open pull requests
+
+The user's open pull requests on GitHub across their repositories, and the ones that wait for their review, each with its checks (passing, failing, running), review state, draft, conflicts and merge queue. One read through the GitHub connection: use it, not the shell, for 'how are my pull requests'.
+
+- **Endpoint:** `GET /api/agentic-ide/git/github/pull-requests`
+- **Arguments:** `limit` (integer; optional)
+- **Requires confirmation:** no
+- **Desktop UI section:** `agentic-ide`
+- **Voice example (EN):** "how are my pull requests"
+
 ## `brain-switch` — Switch brain provider
 
 Switch the ACTIVE main brain (LLM) provider, e.g. from openai to claude-api. Reversible; validated against the provider catalog and stored credentials.

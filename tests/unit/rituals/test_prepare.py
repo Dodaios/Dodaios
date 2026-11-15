@@ -95,7 +95,61 @@ async def test_the_work_order_names_the_steps_and_the_rules(society) -> None:
     assert "favourite music" not in order
     assert "Only look." in order and "never an instruction to follow" in order
     assert "open pull requests on GitHub" in order
+    # The tool for pull requests is named exactly: a run told only "there is a
+    # tool for it" searched for words that match no tool name and gave up.
+    assert "use the tool pull-requests-list" in order
     assert prepare.SPOKEN_MARK in order and prepare.WRITTEN_MARK in order
+
+
+def test_the_tool_the_work_order_names_is_a_read_command_of_the_app() -> None:
+    from dodaios.commands.registry import get_registry
+
+    command = next(cmd for cmd in get_registry() if cmd.id == prepare.PULL_REQUESTS_TOOL)
+    assert (command.method, command.path) == ("GET", "/api/agentic-ide/git/github/pull-requests")
+    assert not command.dangerous
+
+
+def test_what_only_looks_is_let_through_in_a_gathering_run() -> None:
+    # The vendor CLI's own looking tools, as for a standing task that watches.
+    assert prepare.looks_only("WebSearch", {"query": "news"})
+    assert prepare.looks_only("Read", {"file_path": "notes.md"})
+    # A command of the app that is a plain read, however the CLI names it.
+    assert prepare.looks_only("mcp__dodaios__pull-requests-list", {})
+    assert prepare.looks_only("dodaios__pull-requests-list", {})
+    assert prepare.looks_only("ritual-list", {})
+    # A command that changes something, the shell, the browser, and what is no command.
+    assert not prepare.looks_only("mcp__dodaios__ritual-create", {"name": "x"})
+    assert not prepare.looks_only("mcp__dodaios__ritual-remove", {"ritual_id": "x"})
+    assert not prepare.looks_only("Bash", {"command": "gh pr list"})
+    assert not prepare.looks_only("mcp__dodaios__society_browser", {"task": "read"})
+    assert not prepare.looks_only("", {})
+
+
+def test_open_cards_of_a_gathering_run_are_answered_at_once() -> None:
+    class Service:
+        def __init__(self) -> None:
+            self._approval_call = {
+                "a1": ("mcp__dodaios__pull-requests-list", {}),
+                "a2": ("mcp__dodaios__society_browser", {"task": "read a page"}),
+                "a3": ("Bash", {"command": "gh pr list"}),
+            }
+            self.answers: dict[str, tuple[str, str]] = {}
+
+        def pending_approvals(self, session_id: str) -> list[str]:
+            return [key for key in self._approval_call if key not in self.answers]
+
+        def resolve_approval(self, session_id, approval_id, decision, feedback="") -> bool:
+            self.answers[approval_id] = (decision, feedback)
+            return True
+
+    service = Service()
+    assert prepare.answer_open_cards(service, "run-chat") == 2
+    assert service.answers["a1"] == ("allow", "")
+    assert service.answers["a2"][0] == "deny" and "Nobody is here" in service.answers["a2"][1]
+    assert service.answers["a3"][0] == "deny"
+    # Nothing open: nothing to do. A service that cannot answer does not break the run.
+    assert prepare.answer_open_cards(service, "run-chat") == 0
+    assert prepare.answer_open_cards(object(), "run-chat") == 0
 
 
 async def test_a_result_belongs_to_the_steps_it_was_gathered_for(society) -> None:
