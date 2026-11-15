@@ -1,16 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUpRight, Check, Copy, CopyPlus, Folder, FolderGit2, GitBranch, FolderOpen, FolderPlus, Globe, Loader2, Mic, MoreHorizontal, OctagonPause, Pencil, Pin, PinOff, Plus, Server, SquareCode, Trash2, X, type LucideIcon } from "lucide-react";
-import { ChatLibraryError, deleteProject, openProject, patchProject, reorderProjects, revealProject, fetchProjectLaunchers, openProjectIn, type ProjectLaunchers } from "@/lib/chatLibraryApi";
+import { ChatLibraryError, deleteProject, openProject, patchProject, reorderProjects, revealProject, openProjectIn, type ProjectLaunchers } from "@/lib/chatLibraryApi";
 import { robustCopy } from "@/lib/clipboard";
 import { useComputerChoices } from "@/hooks/useComputers";
 import { addTerminal, fetchWorkspacePanes, interruptTerminal, placeWorkspace, removeWorkspace, renameWorkspace, startIdeSession, IdeApiError, reorderWorkspaces, type IdeProject, type ProjectWorkspace, type WorkspacePaneRow } from "@/lib/agenticIdeApi";
 import { useEventStore } from "@/store/events";
 import { useIdeProjectsStore } from "@/store/ideProjects";
-import cursorLogo from "@/assets/editors/cursor.svg?url";
-import vscodeLogo from "@/assets/editors/vscode.svg?url";
 import { fill, translate, useT } from "@/i18n";
 import { PROJECT_DRAG_MIME, projectNeighbour, projectOrderAfterMove, reorderErrorMessage } from "./projectOrder";
+import { EDITOR_LOGOS, FILE_MANAGER_LABEL, MONO_EDITOR_LOGOS, NEEDS_RESTART, allCachedLaunchers, cachedLaunchers, loadLaunchers, revealErrorMessage } from "./projectLaunchers";
+
+export { resetLauncherCacheForTests } from "./projectLaunchers";
 
 const EXPANSION_KEY = "jarvis.ide.projectExpansion.v1";
 const WORKSPACE_DRAG_MIME = "application/x-jarvis-workspace-id";
@@ -24,61 +25,15 @@ function paneDropProps(workspace: ProjectWorkspace | null): Record<string, strin
 }
 const PANE_DROP_ACTIVE = "data-[pane-drop-active=true]:bg-primary/10 data-[pane-drop-active=true]:ring-1 data-[pane-drop-active=true]:ring-inset data-[pane-drop-active=true]:ring-primary/60";
 /**
- * What a 405 on a reorder means: this view already knows drag and drop, but
- * the backend serving it predates the endpoint — a restart brings the two
- * back in step. Shown instead of the server's bare "Method Not Allowed",
- * which names the HTTP verdict rather than the fix.
- */
-const REORDER_NEEDS_RESTART = "ide_projects.reorder_needs_restart";
-
-
-/** Why opening a folder failed, in the user's terms. */
-function revealErrorMessage(error: unknown): string {
-  if (error instanceof ChatLibraryError && error.message === "native-file-actions-disabled") {
-    return translate("ide_projects.reveal_desktop_only");
-  }
-  if (error instanceof ChatLibraryError && (error.status === 405 || (error.status === 404 && error.message === "Not Found"))) {
-    return translate(REORDER_NEEDS_RESTART);
-  }
-  return error instanceof Error ? error.message : String(error);
-}
-
-/**
  * A removal failure in the user's terms. FastAPI answers an unknown route with
  * a bare "Not Found" (the route's own 404 says which workspace is missing), so
  * that exact pair means a backend older than this view: restart it.
  */
 function removalErrorMessage(error: unknown): string {
   if (error instanceof IdeApiError && (error.status === 405 || (error.status === 404 && error.message === "Not Found"))) {
-    return translate(REORDER_NEEDS_RESTART);
+    return translate(NEEDS_RESTART);
   }
   return error instanceof Error ? error.message : String(error);
-}
-
-const NO_LAUNCHERS: ProjectLaunchers = { file_manager: false, editors: [], remote_url: null, remote_label: null };
-
-// Launchers outlive the tree, so a menu opened after switching views is
-// complete at once instead of growing its editor rows a moment later.
-const launcherCache = new Map<string, ProjectLaunchers>();
-const launcherRequests = new Map<string, Promise<ProjectLaunchers>>();
-
-/** One launcher request per project at a time; settles into `launcherCache`. */
-function loadLaunchers(projectId: string): Promise<ProjectLaunchers> {
-  const pending = launcherRequests.get(projectId);
-  if (pending) return pending;
-  const request = fetchProjectLaunchers(projectId)
-    // A headless or older backend has no launchers; the menu simply omits them.
-    .catch(() => NO_LAUNCHERS)
-    .then((found) => { launcherCache.set(projectId, found); return found; })
-    .finally(() => { launcherRequests.delete(projectId); });
-  launcherRequests.set(projectId, request);
-  return request;
-}
-
-/** Test hook: forget every cached launcher set. */
-export function resetLauncherCacheForTests(): void {
-  launcherCache.clear();
-  launcherRequests.clear();
 }
 
 /**
@@ -148,7 +103,7 @@ export function IdeProjectTree() {
   // What the open menu can offer beyond the row itself: the project's editors
   // and remote, and the panes of the workspace. Fetched when a menu opens, so
   // an item is only shown when it can actually run.
-  const [launchers, setLaunchers] = useState<Record<string, ProjectLaunchers>>(() => Object.fromEntries(launcherCache));
+  const [launchers, setLaunchers] = useState<Record<string, ProjectLaunchers>>(allCachedLaunchers);
   const [menuPanes, setMenuPanes] = useState<WorkspacePaneRow[] | null>(null);
   const [confirmProject, setConfirmProject] = useState<string | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
@@ -293,7 +248,7 @@ export function IdeProjectTree() {
     void (async () => {
       for (const id of visibleProjectKey ? visibleProjectKey.split("\u0000") : []) {
         if (!live) return;
-        if (launcherCache.has(id)) continue;
+        if (cachedLaunchers(id)) continue;
         const found = await loadLaunchers(id);
         if (live) setLaunchers((previous) => ({ ...previous, [id]: found }));
       }
@@ -877,18 +832,7 @@ export function IdeProjectTree() {
 
 const TREE_MENU_WIDTH = 240;
 
-/** What the OS calls its file manager, for the "show the folder" item (a locale key). */
-const FILE_MANAGER_LABEL = (() => {
-  const platform = typeof navigator === "undefined" ? "" : navigator.userAgent;
-  if (/Windows/i.test(platform)) return "ide_projects.show_in_explorer";
-  if (/Mac OS X|Macintosh/i.test(platform)) return "ide_projects.show_in_finder";
-  return "ide_projects.show_in_file_manager";
-})();
 const TREE_MENU_MARGIN = 8;
-/** Each featured editor's own app icon, in its real colours. */
-const EDITOR_LOGOS: Record<string, string> = { code: vscodeLogo, cursor: cursorLogo };
-/** Single-colour editor glyphs (src/assets/editors/LOGOS.md), drawn in the text ink. */
-const MONO_EDITOR_LOGOS = new Set(["cursor"]);
 
 /** One row of the sidebar's action menu. */
 interface TreeMenuItem {

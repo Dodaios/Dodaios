@@ -52,6 +52,15 @@ export function ThreadPopover({
     const wantTop = side === "top" ? above > Math.min(height, 240) || above > below : below < Math.min(height, 240) && above > below;
     const left = align === "end" ? rect.right - width : rect.left;
     const clampedLeft = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+    // A right-click menu that does not fit below the pointer moves up until it
+    // does, as the system's own menus do, rather than scrolling inside itself.
+    // Its full height, not the height an earlier pass capped it to.
+    const full = panel.current?.scrollHeight ?? 0;
+    const fitsWindow = full > 0 && full <= window.innerHeight - 2 * margin;
+    if (point && fitsWindow && full > below - 4) {
+      setPlace({ left: clampedLeft, top: Math.max(margin, window.innerHeight - margin - full), maxHeight: window.innerHeight - 2 * margin });
+      return;
+    }
     const room = Math.max(120, wantTop ? above - 4 : below - 4);
     const top = wantTop ? Math.max(margin, rect.top - 4 - Math.min(height, room)) : rect.bottom + 4;
     setPlace({ left: clampedLeft, top, maxHeight: room });
@@ -128,7 +137,7 @@ export function ThreadMenuItem({
       danger ? "text-destructive hover:bg-destructive/10" : "hover:bg-secondary",
       selected && "bg-secondary text-foreground-strong",
     )}>
-    {icon && <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">{icon}</span>}
+    {icon && <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center", danger ? "text-destructive" : "text-muted-foreground")}>{icon}</span>}
     <span className="min-w-0 flex-1 truncate">{label}</span>
     {hint && <span className="shrink-0 text-xs text-muted-foreground">{hint}</span>}
   </button>;

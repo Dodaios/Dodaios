@@ -10453,6 +10453,13 @@
     "signin_not_yet": "— instalarlo todavía no conecta nada."
   },
   "ide_threads": {
+    "remove_project": "Quitar proyecto",
+    "remove_project_title": "¿Quitar {project} de la barra lateral?",
+    "remove_project_body_none": "La carpeta en el disco no se toca; añádela de nuevo para recuperar el proyecto.",
+    "remove_project_body_one": "Su hilo sale de la lista con él. La carpeta en el disco y la conversación se quedan; añade la carpeta de nuevo para recuperarlos.",
+    "remove_project_body_other": "Sus {count} hilos salen de la lista con él. La carpeta en el disco y las conversaciones se quedan; añade la carpeta de nuevo para recuperarlos.",
+    "remove_project_stops": "También detiene {agents} en {workspaces}.",
+    "remove": "Quitar",
     "header": {
       "label": "Hilo: {thread}",
       "review_changes": "Revisar cambios",

@@ -10453,6 +10453,13 @@
     "signin_not_yet": "— instalar ainda não liga nada."
   },
   "ide_threads": {
+    "remove_project": "Remover projeto",
+    "remove_project_title": "Remover {project} da barra lateral?",
+    "remove_project_body_none": "A pasta no disco fica intacta; adicione-a de novo para recuperar o projeto.",
+    "remove_project_body_one": "O seu tópico sai da lista com ele. A pasta no disco e a conversa ficam; adicione a pasta de novo para os recuperar.",
+    "remove_project_body_other": "Os seus {count} tópicos saem da lista com ele. A pasta no disco e as conversas ficam; adicione a pasta de novo para os recuperar.",
+    "remove_project_stops": "Também para {agents} em {workspaces}.",
+    "remove": "Remover",
     "header": {
       "label": "Thread: {thread}",
       "review_changes": "Revisar alterações",

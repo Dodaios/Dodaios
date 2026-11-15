@@ -10453,6 +10453,13 @@
     "signin_not_yet": "——安装后尚不会连接任何内容。"
   },
   "ide_threads": {
+    "remove_project": "移除项目",
+    "remove_project_title": "从侧边栏移除 {project}？",
+    "remove_project_body_none": "磁盘上的文件夹保持不变；重新添加即可恢复该项目。",
+    "remove_project_body_one": "它的线程会一起从列表中移除。磁盘上的文件夹和对话都会保留；重新添加该文件夹即可恢复。",
+    "remove_project_body_other": "它的 {count} 个线程会一起从列表中移除。磁盘上的文件夹和对话都会保留；重新添加该文件夹即可恢复。",
+    "remove_project_stops": "同时会停止 {workspaces} 中的 {agents}。",
+    "remove": "移除",
     "header": {
       "label": "线程：{thread}",
       "review_changes": "查看更改",
