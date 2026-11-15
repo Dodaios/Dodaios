@@ -9,6 +9,12 @@ owner (the first allowed private user, or the configured chat) can press.
 
 The bridge listens on the chat service's event listener, so it sees every
 runner the chat has. It never awaits inside the listener: it schedules.
+
+The message is written for a phone, in the owner's language: who asks (a
+coding thread by its title), what it wants in plain words, and the whole of
+it, the full command or the changed lines, not a line cut off after 140
+characters. Once decided, the message shrinks to its first line and the
+decision, so a busy coding session does not fill the chat.
 """
 
 from __future__ import annotations
@@ -29,12 +35,26 @@ CALLBACK_PREFIX: Final[str] = "apr:"
 DECISIONS: Final[dict[str, str]] = {"a": "allow", "d": "deny"}
 
 
+#: Telegram's message limit is 4096 characters; the body stays well below.
+_MAX_MESSAGE: Final[int] = 3500
+#: The longest command shown in full; a longer one is cut with a note.
+_MAX_COMMAND: Final[int] = 2500
+#: Changed lines of a file edit shown on the phone.
+_MAX_DIFF_LINES: Final[int] = 20
+#: A thread title is shown up to this length.
+_MAX_TITLE: Final[int] = 48
+#: The owner's own messages read to tell their language.
+_LANGUAGE_SAMPLE: Final[int] = 600
+_LANGS: Final[tuple[str, ...]] = ("en", "de", "es", "pt")
+
+
 @dataclass(slots=True)
 class Sent:
     session_id: str
     chat_id: int
     message_id: int | None
     text: str
+    lang: str = "en"
 
 
 def owner_chat_id(cfg: Any) -> int | None:
@@ -128,8 +148,8 @@ class TelegramApprovalBridge:
             if not callable(send):
                 return
             channel.on_approval_callback = self.on_callback
-            text = self._text(payload)
-            lang = notification_language(text)
+            lang = self._owner_language(session_id, channel)
+            text = self._text(payload, lang, session_id)
             message_id = await send(
                 chat_id,
                 text,
@@ -137,18 +157,143 @@ class TelegramApprovalBridge:
                 allow=phrase("telegram_allow", lang),
                 deny=phrase("telegram_deny", lang),
             )
-            self._sent[approval_id] = Sent(session_id, chat_id, message_id, text)
+            self._sent[approval_id] = Sent(session_id, chat_id, message_id, text, lang)
         except Exception:  # noqa: BLE001 — the app's own card still works without Telegram
             log.warning("telegram approvals: request not sent", exc_info=True)
 
-    def _text(self, payload: dict[str, Any]) -> str:
+    def _text(self, payload: dict[str, Any], lang: str = "en", session_id: str = "") -> str:
+        """The request in plain words, whole, in ``lang``."""
         preview = payload.get("preview") if isinstance(payload.get("preview"), dict) else {}
-        said = str(preview.get("compact") or payload.get("summary") or "")
-        summary = " ".join(said.split())[:400]
+        klass = str(preview.get("class") or "")
+        fields = {
+            str(f.get("key")): f for f in preview.get("fields", []) if isinstance(f, dict)
+        }
         tool = str(payload.get("name") or payload.get("tool") or "").strip() or "a tool"
-        agent = str(payload.get("agent_name") or "").strip() or self._assistant_name()
-        lang = notification_language(summary or tool)
-        return phrase("telegram_approval", lang, agent=agent, tool=tool, summary=summary or "…")
+        agent = self._agent_label(payload, session_id, lang)
+        why = " ".join(str(payload.get("why") or "").split())
+        lines: list[str] = []
+        if klass == "shell":
+            lines.append(phrase("telegram_wants_command", lang, agent=agent))
+            if why:
+                lines.append(phrase("telegram_why", lang, why=why))
+            command = str(fields.get("command", {}).get("value") or "").strip()
+            if command:
+                if len(command) > _MAX_COMMAND:
+                    command = command[:_MAX_COMMAND].rstrip() + "\n" + phrase("telegram_cut", lang)
+                lines += ["", command, ""]
+            folder = str(fields.get("folder", {}).get("value") or "").strip()
+            if folder:
+                lines.append(phrase("telegram_folder", lang, folder=folder))
+        elif klass in ("file_write", "file_delete"):
+            diff = preview.get("diff") if isinstance(preview.get("diff"), dict) else {}
+            key = (
+                "telegram_wants_delete" if klass == "file_delete"
+                else "telegram_wants_create" if diff.get("creates")
+                else "telegram_wants_edit"
+            )
+            lines.append(phrase(key, lang, agent=agent))
+            if why:
+                lines.append(phrase("telegram_why", lang, why=why))
+            path = str(fields.get("path", {}).get("value") or diff.get("path") or "").strip()
+            if path:
+                lines.append(phrase("telegram_file", lang, path=path))
+            if diff:
+                lines.append(phrase(
+                    "telegram_lines", lang,
+                    added=int(diff.get("added") or 0), removed=int(diff.get("removed") or 0),
+                ))
+                lines += _diff_lines(diff, lang)
+        else:
+            source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
+            if source.get("kind") == "plan":
+                lines.append(phrase("telegram_wants_plan", lang, agent=agent))
+            else:
+                lines.append(phrase("telegram_wants_tool", lang, agent=agent, tool=tool))
+            if why:
+                lines.append(phrase("telegram_why", lang, why=why))
+            if preview:
+                from dodaios.agent_chat.approval_preview import compact_line
+
+                said = compact_line(preview, lang)
+            else:
+                said = str(payload.get("summary") or "")
+            said = said.strip()
+            if said and said != tool and said != why:
+                lines += ["", said]
+        if preview.get("irreversible"):
+            lines += ["", phrase("telegram_irreversible", lang)]
+        text = "\n".join(lines).strip()
+        if len(text) > _MAX_MESSAGE:
+            text = text[:_MAX_MESSAGE].rstrip() + "\n" + phrase("telegram_cut", lang)
+        return text
+
+    def _agent_label(self, payload: dict[str, Any], session_id: str, lang: str) -> str:
+        """Who asks: the named agent, a coding thread by its title, else the assistant."""
+        named = str(payload.get("agent_name") or "").strip()
+        if named:
+            return named
+        session = self._session(session_id)
+        if session is not None and str(getattr(session, "surface", "")) == "agent":
+            title = " ".join(str(getattr(session, "title", "") or "").split())
+            if title:
+                if len(title) > _MAX_TITLE:
+                    title = title[: _MAX_TITLE - 1].rstrip() + "…"
+                return phrase("telegram_coding_agent", lang, title=title)
+            return phrase("an_agent", lang)
+        return self._assistant_name()
+
+    def _session(self, session_id: str) -> Any | None:
+        store = getattr(self._service, "store", None)
+        if not session_id or store is None:
+            return None
+        try:
+            return store.get_session(session_id)
+        except Exception:  # noqa: BLE001 — a cosmetic label; the phrase has a fallback
+            log.debug("telegram approvals: session not readable", exc_info=True)
+            return None
+
+    def _owner_language(self, session_id: str, channel: Any) -> str:
+        """The language the owner writes in: their own words in this chat first.
+
+        An agent's command or file path says nothing about the person who has
+        to decide, so the request is not worded in the language of its
+        content. Order: what the owner typed in this conversation, the
+        language their Telegram app is set to, then the app's setting.
+        """
+        from dodaios.core.turn_language import detect_text_language
+
+        typed = self._owner_words(session_id)
+        if typed:
+            code = detect_text_language(typed)
+            if code in _LANGS:
+                return code
+        told = str(getattr(channel, "owner_language", "") or "").lower().split("-")[0]
+        if told in _LANGS:
+            return told
+        code = notification_language("")
+        return code if code in _LANGS else "en"
+
+    def _owner_words(self, session_id: str) -> str:
+        store = getattr(self._service, "store", None)
+        if not session_id or store is None:
+            return ""
+        try:
+            events = store.recent_user_messages(session_id)
+        except Exception:  # noqa: BLE001 — without the history the next signal decides
+            log.debug("telegram approvals: history not readable", exc_info=True)
+            return ""
+        words: list[str] = []
+        for event in events:
+            payload = event.get("payload") or {}
+            if payload.get("author") or payload.get("origin") in ("control", "background"):
+                continue  # written by an agent or the app, not by the owner
+            typed = payload.get("typed")
+            said = str(typed if isinstance(typed, str) else payload.get("text") or "").strip()
+            if said:
+                words.append(said)
+            if sum(len(w) for w in words) >= _LANGUAGE_SAMPLE:
+                break
+        return " ".join(words)[:_LANGUAGE_SAMPLE]
 
     def _assistant_name(self) -> str:
         name = getattr(self._service, "assistant_name", None)
@@ -163,7 +308,7 @@ class TelegramApprovalBridge:
     async def on_callback(self, approval_id: str, decision: str, from_user: int | None) -> str:
         """A button press; returns the short answer Telegram shows the presser."""
         sent = self._sent.get(approval_id)
-        lang = notification_language(sent.text if sent else "")
+        lang = sent.lang if sent else notification_language("")
         owner = owner_chat_id(self._config())
         if owner is not None and from_user is not None and int(from_user) != owner:
             return phrase("telegram_expired", lang)
@@ -191,8 +336,16 @@ class TelegramApprovalBridge:
         edit = getattr(channel, "edit_message", None)
         if channel is None or not callable(edit) or sent.message_id is None:
             return
-        lang = notification_language(sent.text)
-        settled = f"{sent.text}\n\n{phrase('telegram_settled', lang)}"
+        decision = str(payload.get("decision") or "")
+        key = (
+            "telegram_settled_allowed" if decision.startswith("allow")
+            else "telegram_settled_denied" if decision == "deny"
+            else "telegram_settled"
+        )
+        # Decided: only the first line stays, so the chat is not filled with
+        # commands nobody has to read any more.
+        head = sent.text.split("\n", 1)[0]
+        settled = f"{head}\n{phrase(key, sent.lang)}"
         try:
             await edit(sent.chat_id, sent.message_id, settled)
         except Exception:  # noqa: BLE001 — a stale Telegram message is cosmetic
@@ -201,6 +354,21 @@ class TelegramApprovalBridge:
     def open(self) -> list[str]:
         """Approval ids this bridge is showing right now (tests, diagnostics)."""
         return list(self._sent)
+
+
+def _diff_lines(diff: dict[str, Any], lang: str) -> list[str]:
+    """The added and removed lines of a file edit, at most a screenful."""
+    changed = [
+        r for r in diff.get("lines") or []
+        if isinstance(r, dict) and r.get("op") in ("+", "-")
+    ]
+    out = [f"{r['op']} {str(r.get('text') or '').rstrip()}" for r in changed[:_MAX_DIFF_LINES]]
+    hidden = max(0, int(diff.get("added") or 0) + int(diff.get("removed") or 0) - len(out))
+    if not out:
+        return []
+    if hidden:
+        out.append(phrase("telegram_more_lines", lang, count=hidden))
+    return ["", *out]
 
 
 def _unattended(session_id: str) -> bool:

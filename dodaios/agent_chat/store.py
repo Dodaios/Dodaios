@@ -1252,6 +1252,20 @@ class AgentChatStore:
             ).fetchall()
         return [{"kind": row["kind"], "payload": json.loads(row["payload"])} for row in rows]
 
+    def recent_user_messages(self, session_id: str, *, limit: int = 20) -> list[dict[str, Any]]:
+        """The newest ``user_message`` events (newest first), however long the chat is.
+
+        A busy coding thread holds thousands of tool events after the
+        person's last words; a tail of the event list would miss them.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT kind, payload FROM agent_chat_events WHERE session_id = ? "
+                "AND kind = 'user_message' ORDER BY seq DESC LIMIT ?",
+                (session_id, int(limit)),
+            ).fetchall()
+        return [{"kind": row["kind"], "payload": json.loads(row["payload"])} for row in rows]
+
     def finished_turn_count(self, since_ms: int, *, exclude_session: str = "") -> int:
         """Turns of any session that finished after ``since_ms`` (one chat left out)."""
         with self._lock:
