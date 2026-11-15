@@ -9,7 +9,6 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
-from urllib.parse import quote, unquote
 
 import pytest
 
@@ -69,6 +68,7 @@ def test_actual_browser_click_emits_pointer_telemetry(tmp_path):
 class PageHandler(BaseHTTPRequestHandler):
     profile_requests = []
     page_requests = []
+    redirects: dict[str, str] = {}
     requests_ready = threading.Condition()
 
     def do_GET(self):
@@ -93,21 +93,23 @@ class PageHandler(BaseHTTPRequestHandler):
             self.send_response(204)
             self.end_headers()
             return
-        if self.path.startswith("/hop?to="):
+        if self.path.startswith("/hop/"):
             # A page whose script asks for an address that redirects elsewhere.
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
             self.end_headers()
             self.wfile.write(
                 b"""<!doctype html><title>Hop</title><script>
-                const to = new URLSearchParams(location.search).get('to');
-                fetch('/leave?to=' + encodeURIComponent(to), {mode: 'no-cors'})
+                fetch('/leave/' + location.pathname.split('/').pop(), {mode: 'no-cors'})
                   .catch(() => {}).finally(() => fetch('/hop-done'))</script>"""
             )
             return
-        if self.path.startswith("/leave?to="):
-            self.send_response(302)
-            self.send_header("Location", unquote(self.path.split("=", 1)[1]))
+        if self.path.startswith("/leave/"):
+            # The targets are the test's own list; nothing of the request goes into the header.
+            target = self.redirects.get(self.path.removeprefix("/leave/"))
+            self.send_response(302 if target else 404)
+            if target:
+                self.send_header("Location", target)
             self.end_headers()
             return
         if self.path == "/kept.js":
@@ -188,6 +190,7 @@ class PageHandler(BaseHTTPRequestHandler):
 def site():
     PageHandler.profile_requests = []
     PageHandler.page_requests = []
+    PageHandler.redirects = {}
     server = ThreadingHTTPServer(("127.0.0.1", 0), PageHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -337,9 +340,11 @@ async def test_a_redirect_into_the_local_network_is_refused(live, site):
         agent_id="hops", model="", browser_allowed_domains=["http*://localhost"]
     )
 
-    def hop(target: str) -> str:
-        return named + "/hop?to=" + quote(target, safe="")
-
+    PageHandler.redirects = {
+        "open": named + "/inner-open",
+        "shut": site + "/inner-shut",
+        "page": site + "/inner-page",
+    }
     try:
         session, _queue = await live.subscribe(agent)
         if session.state.get("full_window"):
@@ -348,25 +353,24 @@ async def test_a_redirect_into_the_local_network_is_refused(live, site):
             pytest.skip("the person's own Chrome window has no request check")
         await _control(live, session, "viewer", "takeover", {"enabled": True})
         # A redirect to an address the agent may reach arrives.
-        await _control(live, session, "viewer", "navigate", {"url": hop(named + "/inner-open")})
+        await _control(live, session, "viewer", "navigate", {"url": named + "/hop/open"})
         assert await asyncio.to_thread(PageHandler.wait_for_path, "/hop-done")
         assert "/inner-open" in PageHandler.page_requests
         # The same redirect to an address inside the network does not.
-        await _control(live, session, "viewer", "navigate", {"url": hop(site + "/inner-shut")})
+        await _control(live, session, "viewer", "navigate", {"url": named + "/hop/shut"})
         assert await asyncio.to_thread(PageHandler.wait_for_path, "/hop-done", 2)
         assert "/inner-shut" not in PageHandler.page_requests
         # Nor does a page that is itself such a redirect.
-        leave = "/leave?to=" + quote(site + "/inner-page", safe="")
         try:
             await live.control(
                 session,
                 "viewer",
                 "navigate",
-                {"generation": session.generation, "url": named + leave},
+                {"generation": session.generation, "url": named + "/leave/page"},
             )
         except RuntimeError as exc:
             assert "ERR_FAILED" in str(exc)
-        assert await asyncio.to_thread(PageHandler.wait_for_path, leave)
+        assert await asyncio.to_thread(PageHandler.wait_for_path, "/leave/page")
         await asyncio.sleep(1)  # Time for a second hop that must never come.
         assert "/inner-page" not in PageHandler.page_requests
     finally:
