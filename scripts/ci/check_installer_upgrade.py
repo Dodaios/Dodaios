@@ -314,7 +314,11 @@ def boot(app: Path, profile: Path, log: Path, key: str, timeout: float, *, compl
                     break
                 time.sleep(1)
             else:
-                raise TimeoutError(f"{app.name} was not healthy within {timeout:.0f} s")
+                stream.flush()
+                raise TimeoutError(
+                    f"{app.name} was not healthy within {timeout:.0f} s. "
+                    f"End of {log.name}:\n{log_tail(log)}"
+                )
             row = {"healthy_seconds": round(time.monotonic() - started, 3)}
             status, state = request(port, "/api/onboarding/state", key)
             if status != 200:
