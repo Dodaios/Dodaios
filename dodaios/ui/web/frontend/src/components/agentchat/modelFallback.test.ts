@@ -18,7 +18,10 @@ describe("model fallback notice", () => {
       limit: "usage", limit_label: "Fable", from_label: "Fable 5.2", to_label: "Opus 5.5", resets_at: RESET,
     });
     const when = limitResetLabel(RESET, "en-GB");
-    expect(when).toMatch(/17 Nov/);
+    // The reader's own time zone: 17 Nov, 00:00 in Berlin, 16 Nov, 23:00 in UTC.
+    expect(when).toBe(new Intl.DateTimeFormat("en-GB", {
+      day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+    }).format(RESET * 1000));
     expect(modelFallbackText(item, t, "en-GB")).toBe(`Fable limit reached until ${when} – continued on Opus 5.5`);
     expect(isModelFallback(item)).toBe(true);
   });
