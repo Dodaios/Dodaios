@@ -666,18 +666,27 @@ def verify(repo: str, tag: str, platform: str | None, folder: Path | None, attes
 STRANDED_TITLE = re.compile(r"Release v(\d+)\.(\d+)\.(\d+) is tagged but not published")
 
 
+def _is_published(repo: str, tag: str) -> bool:
+    """True when *tag* has a release that is public; a draft or no release is not."""
+    try:
+        return not release_info(repo, tag).get("isDraft", True)
+    except subprocess.CalledProcessError:  # gh finds no release for this tag: not published
+        return False
+
+
 def close_stranded(repo: str, tag: str) -> int:
     """Close the "tagged but not published" reports that *tag* answers.
 
     The report is opened when a release cut ends without a published release.
     Nothing closed it when a rerun published that release later, or when the
     next release replaced it: v5.3.0, v5.3.1 and v5.3.2 each left an open
-    report, the last one for a release that had been public for hours. Once
-    *tag* is public, its own report is answered, and so is the report of
-    every lower version: the updater follows the latest release, so a lower
-    draft will never be published.
+    report, the last one for a release that had been public for hours, and
+    v5.0.0 kept one for three days after it was published. Once *tag* is
+    public, its own report is answered, and so is the report of every lower
+    version: either that version got published too, or the updater follows
+    the latest release and its draft will never be published.
     """
-    if release_info(repo, tag).get("isDraft"):
+    if not _is_published(repo, tag):
         print(f"[release] {tag} is still a draft; its report stays open")
         return 0
     published = tuple(int(part) for part in tag[1:].split("."))
@@ -690,16 +699,18 @@ def close_stranded(repo: str, tag: str) -> int:
         if version > published:
             continue
         name = "v" + ".".join(str(part) for part in version)
-        if version == published:
+        if version == published or _is_published(repo, name):
             note = (
                 f"{name} is published now: https://github.com/{repo}/releases/tag/{name}. "
                 "The in-app updater and the installers see it."
+                if version == published
+                else f"{name} is published: https://github.com/{repo}/releases/tag/{name}."
             )
             reason = "completed"
         else:
             note = (
-                f"Superseded: {tag} is published and is the latest release. "
-                f"{name} stays an unpublished draft (docs/ci-pipeline.md)."
+                f"Superseded by {tag}, which is published. "
+                f"{name} was never published (docs/ci-pipeline.md)."
             )
             reason = "not_planned"
         number = str(issue["number"])
