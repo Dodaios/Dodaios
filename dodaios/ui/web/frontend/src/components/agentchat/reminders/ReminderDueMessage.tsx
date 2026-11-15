@@ -256,7 +256,8 @@ export function ReminderDueMessage({ item }: { item: NoticeItem }) {
               ) : (
                 <>
                   <span>{words}</span>
-                  <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+                  {/* `not-prose`: the reading type's list indent and spacing would push the items off the sentence. */}
+                  <ul className="not-prose m-0 flex list-none flex-col gap-2.5 p-0 text-[15px] leading-[25px] text-foreground">
                     {items.map((entry) => (
                       <li key={entry.key} className="m-0 p-0">
                         <ItemLines item={entry} service={serviceOf(entry)} open={open(entry)} />
