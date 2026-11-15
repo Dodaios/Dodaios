@@ -7958,7 +7958,8 @@
       "done_hidden_one": "{count} hecha",
       "done_hidden_other": "{count} hechas",
       "more_hidden_one": "{count} más",
-      "more_hidden_other": "{count} más"
+      "more_hidden_other": "{count} más",
+      "took": "Tardó {duration}"
     }
   },
   "work_trace": {

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Check, ChevronRight, CircleDashed, CircleDot, LoaderCircle } from "lucide-react";
 import { planProgress, type PlanItem, type PlanStatus, type PlanView } from "@/components/agentchat/agentPlan";
-import { plural } from "@/components/agentchat/traceEntries";
+import { plural, traceDuration } from "@/components/agentchat/traceEntries";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
  * the one the agent works on, a dashed ring on what is still open. A thread
  * shows it as a card where the agent last touched the list; an opened step of
  * the work log shows the same rows smaller, as the list stood at that step.
+ * A checked entry says at its right end how long it took.
  */
 
 /** How many entries a card shows before the finished ones on top and the far ones below fold. */
@@ -30,17 +31,33 @@ function Mark({ status, running, compact }: { status: PlanStatus; running: boole
   return <CircleDashed aria-hidden className={cn(box, "text-muted-foreground/80")} />;
 }
 
+/**
+ * How long a checked entry took, as its row says it ("42s", "3m 05s",
+ * "1h 20m"); nothing under a second, when the agent only ticked it off.
+ */
+export function tookLabel(ms: number | undefined): string {
+  if (ms == null || !Number.isFinite(ms) || ms < 1000) return "";
+  if (ms < 3_600_000) return traceDuration(ms);
+  const minutes = Math.floor(ms / 60_000);
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+}
+
 function Row({ item, running, compact, t }: { item: PlanItem; running: boolean; compact: boolean; t: Translate }) {
+  const took = item.status === "completed" ? tookLabel(item.tookMs) : "";
   return <li data-status={item.status} className={cn("flex min-w-0 items-start", compact ? "gap-2 text-sm leading-5" : "gap-3 text-[15px] leading-[21px]")}>
     <span className={cn("flex shrink-0 items-center justify-center", compact ? "h-5 w-4" : "h-[21px] w-4")}>
       <Mark status={item.status} running={running} compact={compact} />
     </span>
     <span className="sr-only">{t(`thread_turn.plan.status_${item.status}`)}: </span>
-    <span title={item.active && item.status === "in_progress" ? item.active : undefined} className={cn(
+    <span data-plan-text title={item.active && item.status === "in_progress" ? item.active : undefined} className={cn(
       "min-w-0 [overflow-wrap:anywhere]",
       item.status === "completed" ? "text-muted-foreground"
         : compact ? "text-foreground-secondary" : item.status === "in_progress" ? "text-foreground" : "text-foreground/90",
     )}>{item.text}</span>
+    {took && <span data-testid="thread-plan-took" title={fill(t("thread_turn.plan.took"), { duration: took })}
+      className={cn("ml-auto shrink-0 pl-2 tabular-nums text-muted-foreground/80", compact ? "text-xs leading-5" : "text-[13px] leading-[21px]")}>
+      <span className="sr-only">, </span>{took}
+    </span>}
   </li>;
 }
 

@@ -7958,7 +7958,8 @@
       "done_hidden_one": "已完成 {count} 项",
       "done_hidden_other": "已完成 {count} 项",
       "more_hidden_one": "还有 {count} 项",
-      "more_hidden_other": "还有 {count} 项"
+      "more_hidden_other": "还有 {count} 项",
+      "took": "用时 {duration}"
     }
   },
   "work_trace": {

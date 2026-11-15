@@ -224,3 +224,108 @@ describe("the list calls of a conversation", () => {
     expect(planViews(planOps(grown)).size).toBe(1);
   });
 });
+
+describe("how long an entry took", () => {
+  const at = (ms: number) => ({ startedMs: ms });
+  const S = 1000;
+  // One turn that has run from 0 on and still runs.
+  const viewsOf = (...blocks: TurnBlock[]) => planViewsOf([{ ...turn("t1", blocks), startedMs: 0, durationMs: null, status: "running" }]);
+
+  it("times an entry from the call that began it to the call that checked it off", () => {
+    const views = viewsOf(
+      call("k1", "TaskCreate", { subject: "Collect facts" }, "Task #1 created successfully: Collect facts", at(0)),
+      call("k2", "TaskCreate", { subject: "Write draft" }, "Task #2 created successfully: Write draft", at(1 * S)),
+      call("u1", "TaskUpdate", { taskId: "1", status: "in_progress" }, "Updated task #1 status", at(5 * S)),
+      call("u2", "TaskUpdate", { taskId: "1", status: "completed" }, "Updated task #1 status", at(47 * S)),
+      call("u3", "TaskUpdate", { taskId: "2", status: "in_progress" }, "Updated task #2 status", at(48 * S)),
+    );
+    const done = views.get("u3")!.items;
+    expect(done[0]).toMatchObject({ status: "completed", startedMs: 5 * S, tookMs: 42 * S });
+    // The entry in work has begun and has no time yet.
+    expect(done[1]).toMatchObject({ status: "in_progress", startedMs: 48 * S });
+    expect(done[1].tookMs).toBeUndefined();
+  });
+
+  it("times a whole-list tool's entries by text, the first one in work from the list's start", () => {
+    const list = (...rows: [string, string][]) => ({ todos: rows.map(([content, status]) => ({ content, status })) });
+    const views = viewsOf(
+      call("p1", "TodoWrite", list(["Read", "in_progress"], ["Write", "pending"]), "ok", at(10 * S)),
+      call("p2", "TodoWrite", list(["Read", "completed"], ["Write", "in_progress"]), "ok", at(70 * S)),
+      call("p3", "TodoWrite", list(["Read", "completed"], ["Write", "completed"]), "ok", at(100 * S)),
+    );
+    expect(views.get("p3")!.items.map((item) => item.tookMs)).toEqual([60 * S, 30 * S]);
+  });
+
+  it("gives an entry checked off without being begun the time since the entry before it", () => {
+    // Codex only says whether an entry is done.
+    const plan = (...done: boolean[]) => ({ plan: done.map((value, index) => ({ step: `Step ${index + 1}`, status: value ? "completed" : "pending" })) });
+    const views = viewsOf(
+      call("c1", "update_plan", plan(false, false, false, false, false), "done", at(0)),
+      call("c2", "update_plan", plan(true, false, false, false, false), "done", at(20 * S)),
+      call("c3", "update_plan", plan(true, true, false, false, false), "done", at(50 * S)),
+      call("c4", "update_plan", plan(true, true, true, false, false), "done", at(90 * S)),
+      // Two at once: which one took how long is not known.
+      call("c5", "update_plan", plan(true, true, true, true, true), "done", at(99 * S)),
+    );
+    expect(views.get("c5")!.items.map((item) => item.tookMs)).toEqual([20 * S, 30 * S, 40 * S, undefined, undefined]);
+  });
+
+  it("does not count two entries checked off in one call against each other", () => {
+    const list = (...rows: [string, string][]) => ({ todos: rows.map(([content, status]) => ({ content, status })) });
+    const views = viewsOf(
+      call("p1", "TodoWrite", list(["Read", "in_progress"], ["Write", "pending"]), "ok", at(0)),
+      call("p2", "TodoWrite", list(["Read", "completed"], ["Write", "completed"]), "ok", at(30 * S)),
+    );
+    expect(views.get("p2")!.items.map((item) => item.tookMs)).toEqual([30 * S, undefined]);
+  });
+
+  it("leaves out the time between turns, while the agent waited for the person", () => {
+    const items: TimelineItem[] = [
+      { ...turn("t1", [
+        call("k1", "TaskCreate", { subject: "Ask about the colour" }, "Task #1 created successfully: Ask about the colour", at(1 * S)),
+        call("u1", "TaskUpdate", { taskId: "1", status: "in_progress" }, "Updated task #1 status", at(2 * S)),
+      ]), startedMs: 0, durationMs: 10 * S },
+      // The person answered an hour later.
+      { ...turn("t2", [
+        call("u2", "TaskUpdate", { taskId: "1", status: "completed" }, "Updated task #1 status", at(3600 * S + 5 * S)),
+      ]), startedMs: 3600 * S, durationMs: 60 * S },
+    ];
+    // 8 s in the first turn, 5 s in the second.
+    expect(planViewsOf(items).get("u2")!.items[0].tookMs).toBe(13 * S);
+  });
+
+  it("counts a turn that still runs up to the moment the entry was checked off", () => {
+    const items: TimelineItem[] = [
+      { ...turn("t1", [
+        call("p1", "TodoWrite", { todos: [{ content: "A", status: "in_progress" }] }, "ok", at(2 * S)),
+        call("p2", "TodoWrite", { todos: [{ content: "A", status: "completed" }] }, "ok", at(9 * S)),
+      ]), startedMs: 0, durationMs: null, status: "running" },
+    ];
+    expect(planViewsOf(items).get("p2")!.items[0].tookMs).toBe(7 * S);
+  });
+
+  it("knows no time for a change another agent made", () => {
+    const views = viewsOf(
+      call("k1", "TaskCreate", { subject: "Mine" }, "Task #1 created successfully: Mine", at(0)),
+      call("u1", "TaskUpdate", { taskId: "1", status: "in_progress" }, "Updated task #1 status", at(1 * S)),
+      call("l1", "TaskList", {}, "#1 [completed] Mine\n#2 [in_progress] Theirs", at(30 * S)),
+      call("k2", "TaskCreate", { subject: "Next" }, "Task #3 created successfully: Next", at(31 * S)),
+    );
+    const items = views.get("k2")!.items;
+    expect(items.find((item) => item.text === "Mine")?.tookMs).toBeUndefined();
+    expect(items.find((item) => item.text === "Theirs")?.startedMs).toBeUndefined();
+  });
+
+  it("starts the times again when an entry is opened again", () => {
+    const views = viewsOf(
+      call("k1", "TaskCreate", { subject: "Fix" }, "Task #1 created successfully: Fix", at(0)),
+      call("u1", "TaskUpdate", { taskId: "1", status: "in_progress" }, "Updated task #1 status", at(1 * S)),
+      call("u2", "TaskUpdate", { taskId: "1", status: "completed" }, "Updated task #1 status", at(4 * S)),
+      call("k2", "TaskCreate", { subject: "Other" }, "Task #2 created successfully: Other", at(5 * S)),
+      call("u3", "TaskUpdate", { taskId: "1", status: "pending" }, "Updated task #1 status", at(6 * S)),
+    );
+    // A finished list began a new one at k2, so task 1 is gone from it.
+    expect(views.get("u3")).toBeUndefined();
+    expect(views.get("u2")!.items[0].tookMs).toBe(3 * S);
+  });
+});

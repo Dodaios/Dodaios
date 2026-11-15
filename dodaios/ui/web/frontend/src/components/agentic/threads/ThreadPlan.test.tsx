@@ -21,7 +21,8 @@ function turn(blocks: TurnBlock[], status: TurnStatus = "done", id = "t1"): Turn
 const show = (...items: TimelineItem[]) => render(<ThreadTimeline items={items} sessionId="s1" bottomInset={0} />);
 
 const todos = (...rows: [string, string][]) => ({ todos: rows.map(([content, status]) => ({ content, status, activeForm: `Doing ${content}` })) });
-const rowsOf = (list: HTMLElement) => [...list.querySelectorAll("li[data-status]")].map((row) => `${row.getAttribute("data-status")}:${row.lastElementChild?.textContent}`);
+const rowsOf = (list: HTMLElement) => [...list.querySelectorAll("li[data-status]")].map((row) => `${row.getAttribute("data-status")}:${row.querySelector("[data-plan-text]")?.textContent}`);
+const tookOf = (list: HTMLElement) => [...list.querySelectorAll("li[data-status]")].map((row) => row.querySelector("[data-testid=thread-plan-took]")?.textContent?.replace(/^, /, "") ?? "");
 
 afterEach(cleanup);
 
@@ -143,5 +144,26 @@ describe("the agent's to-do list in a thread", () => {
     fireEvent.click(within(card).getByRole("button", { name: "5 done" }));
     expect(rowsOf(card)).toHaveLength(PLAN_SHOWN + 6);
     expect(within(card).queryByTestId("thread-plan-more")).toBeNull();
+  });
+
+  it("says at a checked entry how long it took, nothing at one only ticked off or still in work", () => {
+    const at = (ms: number) => ({ startedMs: ms });
+    show({ ...turn([
+      tool("k1", "TaskCreate", { subject: "Read the repo" }, "Task #1 created successfully: Read the repo", at(0)),
+      tool("k2", "TaskCreate", { subject: "Write the drafts" }, "Task #2 created successfully: Write the drafts", at(100)),
+      tool("k3", "TaskCreate", { subject: "Open the pull request" }, "Task #3 created successfully: Open the pull request", at(200)),
+      tool("u1", "TaskUpdate", { taskId: "1", status: "in_progress" }, "Updated task #1 status", at(1_000)),
+      bash("c1", "git log"),
+      tool("u2", "TaskUpdate", { taskId: "1", status: "completed" }, "Updated task #1 status", at(43_000)),
+      tool("u3", "TaskUpdate", { taskId: "2", status: "in_progress" }, "Updated task #2 status", at(43_200)),
+      tool("u4", "TaskUpdate", { taskId: "2", status: "completed" }, "Updated task #2 status", at(43_500)),
+      tool("u5", "TaskUpdate", { taskId: "3", status: "in_progress" }, "Updated task #3 status", at(44_000)),
+      bash("c2", "gh pr create", null),
+    ], "running"), startedMs: 0 });
+    const card = screen.getByTestId("thread-plan");
+    expect(tookOf(card)).toEqual(["42s", "", ""]);
+    expect(within(card).getByTestId("thread-plan-took").getAttribute("title")).toBe("Took 42s");
+    // A screen reader hears the time with the entry.
+    expect(card.querySelector("li[data-status=completed]")?.textContent).toBe("Done: Read the repo, 42s");
   });
 });
