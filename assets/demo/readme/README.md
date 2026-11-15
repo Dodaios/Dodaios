@@ -140,6 +140,21 @@ permissions", where nothing asks). Taps and drags are real touch events.
 Scripts: `phone-take.cjs`, `edit-phone.js`, `phone-film.html`,
 `phone-render.cjs`, `phone-measure.py`.
 
+### The Telegram clip
+
+Not recorded yet: Telegram needs a real phone and a person's Telegram
+account. `telegram_take.py` does all but the phone part. It runs a throwaway
+instance with its own new bot (the token is pasted into a hidden prompt and
+never reaches the Keychain), warms it up, waits until the person's first
+message pairs the bot, and films the desktop while the assistant answers. The
+person records the phone's screen while sending one sentence ("Run the tests
+in trailhead and tell me if anything fails.") and sends the recording to the
+Mac; the script then cuts both, replaces the sender's Telegram name with the
+persona in the desktop picture, and reads every frame for private text. It
+refuses the bot of the app you use, because two readers of one bot conflict.
+`--dry-run --fake-telegram` runs the whole take against a local stand-in for
+Telegram, without a phone.
+
 ### The voice clip
 
 Not recorded yet: dictation needs a real voice and a microphone, and the
