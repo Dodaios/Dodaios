@@ -226,6 +226,116 @@ def list_repositories(cred: Credential, *, refresh: bool = False) -> tuple[str, 
     return login, list(repos)
 
 
+# ------------------------------------------------------------------ pull requests
+
+#: Most pull requests listed per group (the person's own, waiting for their review).
+MAX_PULL_REQUESTS = 30
+
+_PULL_REQUESTS_QUERY = """
+query($mine: String!, $review: String!, $first: Int!) {
+  viewer { login }
+  mine: search(query: $mine, type: ISSUE, first: $first) { nodes { ...pr } }
+  review: search(query: $review, type: ISSUE, first: $first) { nodes { ...pr } }
+}
+fragment pr on PullRequest {
+  number title url isDraft updatedAt reviewDecision mergeable
+  repository { nameWithOwner }
+  author { login }
+  mergeQueueEntry { position }
+  commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+}
+"""
+#: Every open pull request the person wrote, and every one waiting for their review.
+_MINE_SEARCH = "is:pr is:open author:@me archived:false sort:updated-desc"
+_REVIEW_SEARCH = "is:pr is:open review-requested:@me archived:false sort:updated-desc"
+
+_CHECKS = {"SUCCESS": "passing", "FAILURE": "failing", "ERROR": "failing",
+           "PENDING": "running", "EXPECTED": "running"}
+_REVIEWS = {"APPROVED": "approved", "CHANGES_REQUESTED": "changes_requested",
+            "REVIEW_REQUIRED": "review_required"}
+
+
+@dataclass(slots=True)
+class OpenPullRequest:
+    repo: str
+    number: int
+    title: str
+    url: str = ""
+    author: str = ""
+    draft: bool = False
+    updated_at: str = ""
+    #: ``passing``, ``failing``, ``running``, or ``""`` when the head has no checks.
+    checks: str = ""
+    #: ``approved``, ``changes_requested``, ``review_required``, or ``""``.
+    review: str = ""
+    #: The branch cannot be merged as it is.
+    conflicts: bool = False
+    #: It waits in the repository's merge queue.
+    queued: bool = False
+
+
+def _pull_request(node: Any) -> OpenPullRequest | None:
+    if not isinstance(node, dict) or not node.get("number"):
+        return None
+    repo = str((node.get("repository") or {}).get("nameWithOwner") or "")
+    if not repo:
+        return None
+    commits = ((node.get("commits") or {}).get("nodes")) or []
+    head = commits[-1] if commits and isinstance(commits[-1], dict) else {}
+    rollup = ((head.get("commit") or {}).get("statusCheckRollup")) or {}
+    return OpenPullRequest(
+        repo=repo,
+        number=int(node["number"]),
+        title=str(node.get("title") or "")[:300],
+        url=str(node.get("url") or ""),
+        author=str((node.get("author") or {}).get("login") or ""),
+        draft=bool(node.get("isDraft")),
+        updated_at=str(node.get("updatedAt") or ""),
+        checks=_CHECKS.get(str(rollup.get("state") or ""), ""),
+        review=_REVIEWS.get(str(node.get("reviewDecision") or ""), ""),
+        conflicts=str(node.get("mergeable") or "") == "CONFLICTING",
+        queued=node.get("mergeQueueEntry") is not None,
+    )
+
+
+def open_pull_requests(
+    cred: Credential, *, limit: int = MAX_PULL_REQUESTS
+) -> tuple[str, list[OpenPullRequest], list[OpenPullRequest]]:
+    """``(login, the person's own open pull requests, those waiting for their review)``.
+
+    Across every repository the account can see, newest change first. One
+    call, no cache: whoever asks wants the state as it is now.
+    """
+    first = max(1, min(int(limit), MAX_PULL_REQUESTS))
+    data = (
+        graphql(
+            cred.token,
+            _PULL_REQUESTS_QUERY,
+            {"mine": _MINE_SEARCH, "review": _REVIEW_SEARCH, "first": first},
+        ).get("data")
+        or {}
+    )
+    login = str((data.get("viewer") or {}).get("login") or "")
+
+    def rows(group: str) -> list[OpenPullRequest]:
+        nodes = (data.get(group) or {}).get("nodes") or []
+        return [row for row in (_pull_request(node) for node in nodes) if row is not None]
+
+    return login, rows("mine"), rows("review")
+
+
+def pull_request_dicts(rows: list[OpenPullRequest]) -> list[dict[str, Any]]:
+    return [
+        {
+            "repo": row.repo, "number": row.number, "title": row.title, "url": row.url,
+            "author": row.author, "draft": row.draft, "updated_at": row.updated_at,
+            "checks": row.checks, "review": row.review, "conflicts": row.conflicts,
+            "queued": row.queued,
+        }
+        for row in rows
+    ]
+
+
 # ------------------------------------------------------------------ folder → repo
 
 
