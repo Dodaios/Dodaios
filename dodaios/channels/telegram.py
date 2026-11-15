@@ -10,12 +10,17 @@ Architecture (Phase F1):
 - **Outbound routing via InflightMap**: ``trace_id -> chat_id`` with TTL.
 - **Privacy**: every outbound message passes through ``scrub_for_voice``.
 - **FriendRegistry integration**: inbound reverse-lookup, optional auto-register.
+- **Pictures and voice notes**: a photo (or an image sent as a file) and a voice
+  message are downloaded and travel as :class:`ChannelMedia`; the chat bridge
+  transcribes the voice and hands the pictures to the turn. A picture sent
+  without words waits briefly for the question that usually follows it.
 
 Jarvis-Agent pattern adopted: token hierarchy, ``group_policy``, ``require_mention``.
 """
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -24,6 +29,7 @@ from uuid import UUID, uuid4
 
 from dodaios.channels.base import (
     FIRST_CONTACT_PAIRING_WINDOW_S,
+    ChannelMedia,
     ChannelMessage,
     ChannelSession,
 )
@@ -46,12 +52,16 @@ except ImportError:  # pragma: no cover
             self.cleaned = text
             self.fallback_used = False
 
-    def _scrub_impl(text: str, *, language: str = "en") -> Any:  # type: ignore[no-redef]
+    def _scrub_impl(  # type: ignore[no-redef]
+        text: str, *, language: str = "en", spell_numbers: bool = True
+    ) -> Any:
         return _IdentityScrubResult(text or "")
 
 
 def scrub_for_voice(text: str, *, language: str = "en") -> Any:
-    return _scrub_impl(text, language=language)
+    # A chat message is read, not spoken: digits stay digits ("14. November",
+    # not "fourteen. November").
+    return _scrub_impl(text, language=language, spell_numbers=False)
 
 if TYPE_CHECKING:  # pragma: no cover
     from dodaios.friends.registry import FriendRegistry
@@ -64,6 +74,24 @@ __all__ = ["TelegramChannel", "InflightMap"]
 
 #: Longest error text kept from a Telegram/httpx exception.
 _ERROR_TEXT_MAX = 300
+
+#: The Bot API serves files up to this size to a bot.
+_MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
+
+#: A picture sent without words waits this long for the question that follows
+#: it (people send the photo first and then type or dictate what they want).
+PICTURE_WAIT_S = 25.0
+#: The pictures of one album arrive as separate messages within a moment.
+ALBUM_WAIT_S = 2.0
+
+
+@dataclasses.dataclass(slots=True)
+class _Held:
+    """Pictures of one chat waiting for the words that belong to them."""
+
+    message: ChannelMessage
+    album: str
+    timer: asyncio.Task[None] | None = None
 
 
 def _safe_error(exc: BaseException, token: str | None = None) -> str:
@@ -141,6 +169,10 @@ class TelegramChannel:
         # instance is built (see FIRST_CONTACT_PAIRING_WINDOW_S).
         self._pairing_closes_at = time.monotonic() + FIRST_CONTACT_PAIRING_WINDOW_S
         self._pairing_closed_logged = False
+        #: Per chat: pictures waiting for the message that belongs to them.
+        self._held: dict[int, _Held] = {}
+        self.picture_wait_s = PICTURE_WAIT_S
+        self.album_wait_s = ALBUM_WAIT_S
         #: ``(approval_id, decision, from_user_id) -> answer text`` for the
         #: Allow / Deny buttons; set by ``channels.telegram_approvals``.
         self.on_approval_callback: Callable[[str, str, int | None], Awaitable[str]] | None = None
@@ -253,6 +285,11 @@ class TelegramChannel:
                 wildcards.remove(self._event_handler_ref)
             self._event_handler_ref = None
 
+        for held in self._held.values():
+            if held.timer is not None:
+                held.timer.cancel()
+        self._held.clear()
+
         if self._app is not None:
             try:
                 await self._app.updater.stop()
@@ -326,7 +363,8 @@ class TelegramChannel:
                 )
                 return
 
-            text = msg_obj.text or ""
+            # A photo's words are its caption.
+            text = getattr(msg_obj, "text", None) or getattr(msg_obj, "caption", None) or ""
             chat_id = msg_obj.chat.id
             user = getattr(msg_obj, "from_user", None)
             user_id = user.id if user is not None else None
@@ -341,25 +379,120 @@ class TelegramChannel:
                 )
                 return
 
+            media = await self._media_of(msg_obj)
+            if not text.strip() and not media:
+                log.debug("Telegram message without text or readable media dropped")
+                return
+
             friend = await self._resolve_friend(chat_id, user)
             session = self._session_for_chat(chat_id, user)
 
             channel_msg = ChannelMessage(
                 session_id=session.session_id,
-                kind="text",
+                kind="voice" if any(m.kind == "voice" for m in media) else "text",
                 content=text,
                 metadata={
                     "telegram_chat_id": chat_id,
                     "telegram_user_id": user_id,
                     "telegram_username": getattr(user, "username", None),
+                    "telegram_language": getattr(user, "language_code", None),
                     "friend_id": str(friend.id) if friend else None,
                     "friend_display_name": friend.display_name if friend else None,
                 },
+                media=media,
             )
-            self._inflight.set(channel_msg.trace_id, chat_id)
-            await self._inbox.put(channel_msg)
+            await self._deliver(
+                chat_id, channel_msg, album=str(getattr(msg_obj, "media_group_id", None) or "")
+            )
         except Exception as exc:  # noqa: BLE001
             log.exception("TelegramChannel._on_telegram_msg failed: %s", exc)
+
+    async def _deliver(self, chat_id: int, msg: ChannelMessage, *, album: str = "") -> None:
+        """Put ``msg`` in the inbox, or hold pictures for the words that follow.
+
+        A picture without words waits :data:`PICTURE_WAIT_S` for the next
+        message of the same chat and then travels with it, so "photo, then the
+        question" is one message with the picture attached. The pictures of an
+        album (one ``media_group_id``) are gathered into one message.
+        """
+        held = self._held.pop(chat_id, None)
+        if held is not None:
+            if held.timer is not None:
+                held.timer.cancel()
+            words = "\n\n".join(
+                part for part in (held.message.content.strip(), msg.content.strip()) if part
+            )
+            msg = dataclasses.replace(
+                msg,
+                content=words,
+                kind="voice" if "voice" in (msg.kind, held.message.kind) else "text",
+                media=held.message.media + msg.media,
+            )
+            album = album if album and album == held.album else ""
+        pictures_only = bool(msg.media) and all(m.kind == "image" for m in msg.media)
+        if album or (pictures_only and not msg.content.strip()):
+            wait = self.album_wait_s if album and msg.content.strip() else self.picture_wait_s
+            waiting = _Held(message=msg, album=album)
+            waiting.timer = asyncio.create_task(
+                self._release_after(chat_id, waiting, wait), name=f"telegram-hold:{chat_id}"
+            )
+            self._held[chat_id] = waiting
+            return
+        await self._enqueue(chat_id, msg)
+
+    async def _release_after(self, chat_id: int, held: _Held, wait_s: float) -> None:
+        """Send held pictures on their own when no words followed in time."""
+        await asyncio.sleep(wait_s)
+        if self._held.get(chat_id) is not held:
+            return
+        del self._held[chat_id]
+        await self._enqueue(chat_id, held.message)
+
+    async def _enqueue(self, chat_id: int, msg: ChannelMessage) -> None:
+        self._inflight.set(msg.trace_id, chat_id)
+        await self._inbox.put(msg)
+
+    async def _media_of(self, msg_obj: Any) -> tuple[ChannelMedia, ...]:
+        """The pictures and voice note of one Telegram message, downloaded.
+
+        A photo comes in several sizes; the largest is taken. An image sent as
+        a file (no compression) counts as a picture. A voice message, or an
+        audio file, is a voice note. A file the Bot API will not serve (over
+        20 MB) or one that fails to download is left out; the words still go.
+        """
+        message_id = getattr(msg_obj, "message_id", None) or int(time.time())
+        wanted: list[tuple[str, str, str, Any]] = []
+        photos = getattr(msg_obj, "photo", None) or ()
+        if photos:
+            wanted.append(("image", f"telegram-photo-{message_id}.jpg", "image/jpeg", photos[-1]))
+        document = getattr(msg_obj, "document", None)
+        doc_mime = str(getattr(document, "mime_type", "") or "")
+        if document is not None and doc_mime.startswith("image/") and doc_mime != "image/svg+xml":
+            name = str(getattr(document, "file_name", "") or f"telegram-image-{message_id}")
+            wanted.append(("image", name, doc_mime, document))
+        for attr, default_name in (("voice", "voice.ogg"), ("audio", "audio")):
+            note = getattr(msg_obj, attr, None)
+            if note is None:
+                continue
+            mime = str(getattr(note, "mime_type", "") or "audio/ogg")
+            name = str(getattr(note, "file_name", "") or f"telegram-{default_name}")
+            wanted.append(("voice", name, mime, note))
+
+        out: list[ChannelMedia] = []
+        for kind, name, mime, item in wanted:
+            size = getattr(item, "file_size", None)
+            if isinstance(size, int) and size > _MAX_DOWNLOAD_BYTES:
+                log.info("Telegram %s left out: %d bytes is over the download limit", kind, size)
+                continue
+            try:
+                handle = await item.get_file()
+                data = bytes(await handle.download_as_bytearray())
+            except Exception as exc:  # noqa: BLE001 - the words of the message still go
+                log.warning("Telegram %s download failed: %s", kind, _safe_error(exc))
+                continue
+            if data:
+                out.append(ChannelMedia(kind=kind, name=name, data=data, mime=mime))  # type: ignore[arg-type]
+        return tuple(out)
 
     def _is_allowed(self, update: Any) -> bool:
         msg = update.message
@@ -368,7 +501,7 @@ class TelegramChannel:
         user_id = msg.from_user.id
         chat = msg.chat
         chat_type = getattr(chat, "type", "private")
-        text = msg.text or ""
+        text = getattr(msg, "text", None) or getattr(msg, "caption", None) or ""
 
         if chat_type == "private":
             return user_id in self._cfg.allowed_user_ids

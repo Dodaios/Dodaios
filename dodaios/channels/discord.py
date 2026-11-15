@@ -55,7 +55,9 @@ except ImportError:  # pragma: no cover
             self.cleaned = text
             self.fallback_used = False
 
-    def _scrub_impl(text: str, *, language: str = "en") -> Any:  # type: ignore[no-redef]
+    def _scrub_impl(  # type: ignore[no-redef]
+        text: str, *, language: str = "en", spell_numbers: bool = True
+    ) -> Any:
         return _IdentityScrubResult(text or "")
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -65,7 +67,8 @@ log = logging.getLogger(__name__)
 
 
 def scrub_for_voice(text: str, *, language: str = "en") -> Any:
-    return _scrub_impl(text, language=language)
+    # A chat message is read, not spoken: digits stay digits.
+    return _scrub_impl(text, language=language, spell_numbers=False)
 
 __all__ = ["DiscordChannel", "InflightMap"]
 

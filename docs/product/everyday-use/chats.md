@@ -44,6 +44,11 @@ Use **Chats** for questions, follow-ups, and conversations you may revisit.
 > - Your own private Telegram chat and Discord direct messages with the
 >   assistant are part of the same conversation; friends, groups and server
 >   channels are not.
+> - In your private Telegram chat you can also send a **voice message**: the
+>   assistant reads it with the same speech recognition as dictation and
+>   answers it like typed words. A **photo** goes into the conversation too and
+>   shows above your message in the app. A photo sent without words waits a
+>   few seconds for the question you type or speak next and travels with it.
 
 History combines local text threads and retained voice transcripts; files,
 detailed runs, and durable knowledge stay elsewhere.

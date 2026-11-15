@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -336,6 +336,7 @@ async def answer_in_lead(
     timeout_s: float = 900.0,
     report: LeadReport | None = None,
     on_card: Callable[[LeadCard], Awaitable[None]] | None = None,
+    pictures: Sequence[tuple[str, bytes]] = (),
 ) -> str:
     """Send ``text`` into the lead conversation and return the reply text.
 
@@ -345,6 +346,11 @@ async def answer_in_lead(
     when no answer came in time; ``report`` then says why. ``on_card`` is told
     about an approval or question card the turn opens, so the person away from
     the desk can answer it from the same chat.
+
+    ``pictures`` (``(name, bytes)``, a photo sent in that chat) are attached the
+    way a picture dropped into the app's composer is: stored in the
+    conversation's folder, described for the turn, and drawn above the
+    person's message in the app.
     """
     from dodaios.agent_chat.send_queue import send_or_queue
 
@@ -354,13 +360,17 @@ async def answer_in_lead(
         report.status = "no_session"
         return ""
     sid = session.session_id
+    attachments = await _picture_attachments(session, pictures) if pictures else None
+    if not text.strip() and not attachments:
+        report.status = "not_sent"
+        return ""
     queue = svc.subscribe(sid)
     try:
         from dodaios.agent_chat.screen_reference import away_from_screen
 
         # "this" in a message from away is not the desk's screen.
         with away_from_screen():
-            turn_id, queue_id = await send_or_queue(svc, sid, text)
+            turn_id, queue_id = await send_or_queue(svc, sid, text, attachments)
         log.debug("lead thread: a %s message joins the conversation", source)
         parts: list[str] = []
         # Events of a turn can arrive before the notice that names it.
@@ -432,6 +442,28 @@ async def answer_in_lead(
         return ""
     finally:
         svc.unsubscribe(sid, queue)
+
+
+async def _picture_attachments(
+    session: Any, pictures: Sequence[tuple[str, bytes]]
+) -> list[dict[str, Any]] | None:
+    """Store a chat's pictures in the conversation's folder; the attachments to send.
+
+    ``None`` when they could not be stored: the words of the message still go.
+    """
+    from dodaios.agent_chat import attachments as chat_attachments
+
+    cwd = str(getattr(session, "cwd", "") or "")
+    if not cwd:
+        return None
+    try:
+        found = await chat_attachments.ingest(
+            cwd, uploads=[(name, data) for name, data in pictures if data], always_copy=True
+        )
+    except chat_attachments.AttachmentError as exc:
+        log.warning("lead thread: pictures from a phone chat not stored: %s", exc)
+        return None
+    return [item.to_dict() for item in found] or None
 
 
 FRESH_START_SUMMARY = (
