@@ -3904,11 +3904,21 @@ class WebServer:
             logger.debug("Mobile push notifier init failed: {}", exc)
         self.app.state.channel_chat_bridge = bridge
 
+        # A channel that a background retry starts later (no network yet at
+        # login) gets its chat-bridge consumer through the manager's late-start
+        # listener the bridge registered; the panel and the approval buttons
+        # read the manager live.
         if "telegram" in manager.started():
-            logger.info("Friends-Stack live: Telegram-Channel aktiv")
+            logger.info("Friends-Stack live: Telegram channel active")
         else:
             errs = manager.start_errors().get("telegram")
-            if errs:
+            if errs and "telegram" in manager.retrying():
+                logger.info(
+                    "Friends-Stack live: Telegram channel not started yet ({}); "
+                    "trying again in the background",
+                    errs,
+                )
+            elif errs:
                 logger.info("Friends-Stack live: Telegram-Channel disabled ({})", errs)
             else:
                 logger.info("Friends-Stack live: Telegram-Channel disabled (config off)")
@@ -4527,6 +4537,19 @@ class WebServer:
         except Exception as exc:  # noqa: BLE001
             logger.opt(exception=exc).warning("notify shutdown failed")
 
+        # A shutdown inside the channel bootstrap (the first seconds after
+        # login) cancels it; bootstrap_channels then stops what it started
+        # and cancels its start retries itself, so none outlives the app.
+        _channel_stack_task = getattr(self, "_channel_stack_task", None)
+        self._channel_stack_task = None
+        if _channel_stack_task is not None and not _channel_stack_task.done():
+            _channel_stack_task.cancel()
+            try:
+                await asyncio.wait_for(_channel_stack_task, timeout=5.0)
+            except (TimeoutError, asyncio.CancelledError):  # cancelled on purpose: nothing to tell
+                pass
+            except Exception as exc:  # noqa: BLE001 -- shutdown stays best-effort
+                logger.opt(exception=exc).debug("Channel bootstrap shutdown: {}", exc)
         channel_manager = getattr(self.app.state, "channel_manager", None)
         friend_registry = getattr(self.app.state, "friend_registry", None)
         channel_bridge = getattr(self, "_channel_chat_bridge", None)

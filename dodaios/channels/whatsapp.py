@@ -39,7 +39,11 @@ from uuid import uuid4
 from pydantic import BaseModel
 
 from dodaios.channels.base import FIRST_CONTACT_PAIRING_WINDOW_S, ChannelMessage, ChannelSession
-from dodaios.channels.manager import ChannelContext, ChannelStartError
+from dodaios.channels.manager import (
+    ChannelContext,
+    ChannelStartError,
+    is_transient_start_error,
+)
 from dodaios.core.paths import user_data_dir
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -152,7 +156,9 @@ class BridgeTransport:
         except Exception as exc:  # noqa: BLE001 — reported as "no bridge", with the class only
             raise ChannelStartError(
                 f"WhatsApp bridge not reachable at {self.url} ({type(exc).__name__}). "
-                "Start a linked-device bridge first (docs/mobile-companion.md)."
+                "Start a linked-device bridge first (docs/mobile-companion.md).",
+                # A bridge that is not up yet is tried again by the manager.
+                transient=is_transient_start_error(exc),
             ) from None
         self._linked = bool(data.get("linked"))
         self._me = str(data.get("me") or "")

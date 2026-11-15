@@ -47,15 +47,23 @@ async def bootstrap_channels(
     manager = ChannelManager(context)
 
     if auto_start:
-        errors = await manager.start_all()
-        if errors:
-            for name, err in errors.items():
+        try:
+            errors = await manager.start_all()
+        except BaseException:
+            # Cancelled by a shutdown during boot: no channel and no start
+            # retry may outlive the stack nobody will get to stop.
+            await shutdown_channels(manager, registry)
+            raise
+        retrying = manager.retrying()
+        for name, err in errors.items():
+            if name not in retrying:  # a retried start was already logged with its next try
                 log.warning("Channel '%s' start failed: %s", name, err)
         log.info(
-            "Channels initialized: started=%s failed_load=%s start_errors=%s",
+            "Channels initialized: started=%s failed_load=%s start_errors=%s retrying=%s",
             manager.started(),
             list(manager.failed()),
             list(errors),
+            retrying,
         )
 
     return manager, registry

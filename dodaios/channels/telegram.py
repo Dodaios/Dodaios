@@ -33,7 +33,11 @@ from dodaios.channels.base import (
     ChannelMessage,
     ChannelSession,
 )
-from dodaios.channels.manager import ChannelContext, ChannelStartError
+from dodaios.channels.manager import (
+    ChannelContext,
+    ChannelStartError,
+    is_transient_start_error,
+)
 from dodaios.core.bus import EventBus
 from dodaios.core.config import TelegramConfig, get_secret, set_secret
 from dodaios.core.events import Event, ResponseGenerated
@@ -246,6 +250,7 @@ class TelegramChannel:
         await self._validate_token(token)
 
         failure: str | None = None
+        transient = False
         try:
             self._app = ApplicationBuilder().token(token).build()
             # Approval buttons (telegram_approvals.py) answer through callback
@@ -264,12 +269,22 @@ class TelegramChannel:
         except Exception as exc:  # noqa: BLE001 — reported below without the token
             # ``initialize()`` re-checks the token and raises InvalidToken with
             # the token in its message.
-            self._app = None
             failure = _safe_error(exc, token)
+            # The error is dropped below, so its type is read here: the
+            # channel manager tries a passing failure again later.
+            transient = is_transient_start_error(exc)
+        except BaseException:
+            # Cancelled mid-start (a stop or the shutdown ended a background
+            # retry): no half-started poller may stay behind.
+            await self._discard_app(token)
+            raise
         if failure is not None:
+            # A failed start leaves nothing running, or every retry would add
+            # an Application that still waits for updates.
+            await self._discard_app(token)
             # Raised outside the handler: the original error is then not even
             # reachable from this one (no ``__context__``), whatever prints it.
-            raise ChannelStartError(f"Telegram start failed: {failure}")
+            raise ChannelStartError(f"Telegram start failed: {failure}", transient=transient)
 
         self._event_handler_ref = self._on_bus_event
         self._bus.subscribe_all(self._event_handler_ref)
@@ -304,6 +319,23 @@ class TelegramChannel:
         self._started = False
         log.info("TelegramChannel stopped")
 
+    async def _discard_app(self, token: str) -> None:
+        """Stop and shut down the Application of a start that failed or was cancelled."""
+        app, self._app = self._app, None
+        if app is None:
+            return
+        try:
+            updater = getattr(app, "updater", None)
+            if getattr(updater, "running", False):
+                await updater.stop()
+            if getattr(app, "running", False):
+                await app.stop()
+            shutdown = getattr(app, "shutdown", None)
+            if callable(shutdown):
+                await shutdown()
+        except Exception as exc:  # noqa: BLE001 — the start already failed; this is cleanup
+            log.debug("Telegram cleanup after a failed start raised: %s", _safe_error(exc, token))
+
     def _token_from_marketplace_store(self) -> str | None:
         """Migration fallback for tokens saved before the channel mirror existed."""
         try:
@@ -333,6 +365,7 @@ class TelegramChannel:
 
         bot = Bot(token=token)
         failure: str | None = None
+        transient = False
         try:
             me = await bot.get_me()
             self._bot_username = (me.username or "").lower() or "<unknown>"
@@ -343,9 +376,12 @@ class TelegramChannel:
             )
         except Exception as exc:  # noqa: BLE001 — reported below without the token
             failure = f"Telegram getMe failed: {_safe_error(exc, token)}"
+            # A timeout or no network yet (the app starts at login): the
+            # manager tries again. Read from the type, as the error is dropped.
+            transient = is_transient_start_error(exc)
         if failure is not None:
             # Outside the handler, so the original error is not its context.
-            raise ChannelStartError(failure)
+            raise ChannelStartError(failure, transient=transient)
 
     # ------------------------------------------------------------------
     # Inbound
