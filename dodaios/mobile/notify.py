@@ -130,6 +130,10 @@ class MobilePushNotifier:
         if not isinstance(payload, dict):
             return
         notice_kind = str(payload.get("kind") or "")
+        if payload.get("push") is False:
+            # The notice says so itself: it answers what the person just asked
+            # for where they are (a ritual they started), so their pocket stays quiet.
+            return
         if payload.get("push") is not True and notice_kind not in REMINDER_NOTICE_KINDS:
             return
         if is_background_notice(payload):

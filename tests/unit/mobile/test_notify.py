@@ -135,6 +135,24 @@ async def test_background_notices_are_not_pushed(paired: MobileDevices) -> None:
 
 
 @pytest.mark.asyncio
+async def test_a_notice_that_asks_for_no_push_is_not_pushed(paired: MobileDevices) -> None:
+    """A card that answers what the person just started at the desk stays off the phone."""
+    sender = _Sender()
+    notifier = MobilePushNotifier(
+        devices=paired, sender=sender, lead_session_id=lambda: "lead-1",
+        assistant_name=lambda: "Nova",
+    )
+    notifier.listener("lead-1", {"seq": 1, "kind": "notice", "payload": {
+        "kind": "society_result", "source": "ritual", "status": "done", "push": False,
+        "text": "Three things today."}})
+    notifier.listener("lead-1", {"seq": 2, "kind": "notice", "payload": {
+        "kind": "society_result", "source": "ritual", "status": "done",
+        "text": "What was still being gathered."}})
+    await asyncio.sleep(0.05)
+    assert {p["tag"] for _, p in sender.sent} == {"notice-2"}
+
+
+@pytest.mark.asyncio
 async def test_no_phones_means_nothing_is_sent(tmp_path) -> None:
     sender = _Sender()
     notifier = MobilePushNotifier(devices=MobileDevices(tmp_path / "d.json"), sender=sender)

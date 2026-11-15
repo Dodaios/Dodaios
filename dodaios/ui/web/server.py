@@ -590,6 +590,7 @@ class WebServer:
         from .profile_routes import router as profile_router
         from .provider_routes import router as provider_router
         from .review_routes import router as review_router
+        from .ritual_routes import router as ritual_router
         from .routine_hooks_routes import router as routine_hooks_router
         from .runtime_gateway_routes import router as runtime_gateway_router
         from .screen_context_routes import router as screen_context_router
@@ -834,6 +835,8 @@ class WebServer:
         app.include_router(attention_router)
         app.include_router(status_light_router)
         app.include_router(agent_chat_router)
+        # What a short phrase starts ("good morning"): the lead's rituals.
+        app.include_router(ritual_router)
         from .agent_server_routes import router as agent_server_router
 
         app.include_router(agent_server_router)
