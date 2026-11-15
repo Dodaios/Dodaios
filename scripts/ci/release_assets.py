@@ -661,9 +661,77 @@ def verify(repo: str, tag: str, platform: str | None, folder: Path | None, attes
     return 0
 
 
+#: Title of the report release-cut's ``stranded`` job opens for a pushed tag
+#: whose release did not get published.
+STRANDED_TITLE = re.compile(r"Release v(\d+)\.(\d+)\.(\d+) is tagged but not published")
+
+
+def _is_published(repo: str, tag: str) -> bool:
+    """True when *tag* has a release that is public; a draft or no release is not."""
+    try:
+        return not release_info(repo, tag).get("isDraft", True)
+    except subprocess.CalledProcessError:  # gh finds no release for this tag: not published
+        return False
+
+
+def close_stranded(repo: str, tag: str) -> int:
+    """Close the "tagged but not published" reports that *tag* answers.
+
+    The report is opened when a release cut ends without a published release.
+    Nothing closed it when a rerun published that release later, or when the
+    next release replaced it: v5.3.0, v5.3.1 and v5.3.2 each left an open
+    report, the last one for a release that had been public for hours, and
+    v5.0.0 kept one for three days after it was published. Once *tag* is
+    public, its own report is answered, and so is the report of every lower
+    version: either that version got published too, or the updater follows
+    the latest release and its draft will never be published.
+    """
+    if not _is_published(repo, tag):
+        print(f"[release] {tag} is still a draft; its report stays open")
+        return 0
+    published = tuple(int(part) for part in tag[1:].split("."))
+    closed = 0
+    for issue in api_pages(f"repos/{repo}/issues?state=open&per_page=100", ""):
+        match = STRANDED_TITLE.fullmatch(issue.get("title") or "")
+        if match is None or "pull_request" in issue:
+            continue
+        version = tuple(int(part) for part in match.groups())
+        if version > published:
+            continue
+        name = "v" + ".".join(str(part) for part in version)
+        if version == published or _is_published(repo, name):
+            note = (
+                f"{name} is published now: https://github.com/{repo}/releases/tag/{name}. "
+                "The in-app updater and the installers see it."
+                if version == published
+                else f"{name} is published: https://github.com/{repo}/releases/tag/{name}."
+            )
+            reason = "completed"
+        else:
+            note = (
+                f"Superseded by {tag}, which is published. "
+                f"{name} was never published (docs/ci-pipeline.md)."
+            )
+            reason = "not_planned"
+        number = str(issue["number"])
+        path = f"repos/{repo}/issues/{number}"
+        run_command(["gh", "api", "-X", "POST", f"{path}/comments", "-f", f"body={note}"])
+        run_command(
+            ["gh", "api", "-X", "PATCH", path, "-f", "state=closed", "-f", f"state_reason={reason}"]
+        )
+        print(f"[release] closed #{number}: {note}")
+        closed += 1
+    if not closed:
+        print(f"[release] no open report is answered by {tag}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("prepare", "upload", "dispatch", "finalize", "verify"))
+    parser.add_argument(
+        "command",
+        choices=("prepare", "upload", "dispatch", "finalize", "verify", "close-stranded"),
+    )
     parser.add_argument("--repo", required=True)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--sha")
@@ -697,6 +765,8 @@ def main(argv: list[str] | None = None) -> int:
             return verify(
                 args.repo, args.tag, args.platform, args.directory, args.require_attestation
             )
+        if args.command == "close-stranded":
+            return close_stranded(args.repo, args.tag)
         sha = run_command(["git", "rev-parse", f"refs/tags/{args.tag}^{{commit}}"]).stdout.strip()
         if args.sha and sha != args.sha:
             raise ValueError("release tag moved away from the publisher's commit")

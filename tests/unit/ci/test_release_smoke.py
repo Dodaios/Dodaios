@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import subprocess
 from pathlib import Path
 
@@ -269,3 +270,94 @@ def test_release_smoke_is_read_only_and_follows_every_cut():
     assert smoke["with"]["require_attestation"] is True
     wrapper = definitions["installer-smoke.yml"]["jobs"]["verify-release"]
     assert wrapper["uses"] == "./.github/workflows/release-wrapper-smoke.yml"
+
+
+# -- closing the "tagged but not published" reports a release answers -------
+
+
+class FakeIssues:
+    """The repository's open issues and its releases; records every write."""
+
+    def __init__(self, *, issues: list[dict], published=(TAG,), drafts=()):
+        self.issues = issues
+        self.published = set(published)
+        self.drafts = set(drafts)
+        self.writes: list[list[str]] = []
+
+    def command(self, args, **kwargs):
+        if args[:3] == ["gh", "release", "view"]:
+            tag = args[3]
+            if tag not in self.published | self.drafts:
+                raise subprocess.CalledProcessError(1, args, "", "release not found")
+            info = {"databaseId": 1, "tagName": tag, "isDraft": tag in self.drafts}
+            return subprocess.CompletedProcess(args, 0, json.dumps(info), "")
+        self.writes.append(args)
+        return subprocess.CompletedProcess(args, 0, "{}", "")
+
+    def pages(self, endpoint, key, **kwargs):
+        assert endpoint.startswith(f"repos/{REPO}/issues?state=open")
+        return self.issues
+
+
+def _stranded(number: int, version: str) -> dict:
+    return {"number": number, "title": f"Release v{version} is tagged but not published"}
+
+
+def _close_stranded(monkeypatch, fake: FakeIssues, tag: str = TAG) -> int:
+    monkeypatch.setattr(release_assets, "run_command", fake.command)
+    monkeypatch.setattr(release_assets, "api_pages", fake.pages)
+    return release_assets.close_stranded(REPO, tag)
+
+
+def test_a_published_release_closes_its_own_report_and_those_of_lower_versions(monkeypatch):
+    # v5.3.2 was public for hours with its report still open, beside the
+    # reports of v5.3.0 and v5.3.1, which never got published, and the one of
+    # v5.0.0, which had been published three days before.
+    fake = FakeIssues(
+        published=("v1.1.0", TAG),
+        drafts=("v1.2.1",),
+        issues=[
+            _stranded(10, "1.1.0"),
+            _stranded(11, "1.2.1"),
+            _stranded(12, "1.2.3"),
+            _stranded(13, "1.3.0"),
+            {"number": 14, "title": "Release v1.2.3 is tagged but not published, why?"},
+            {**_stranded(15, "1.2.2"), "pull_request": {}},
+            _stranded(16, "1.2.0"),
+        ],
+    )
+
+    assert _close_stranded(monkeypatch, fake) == 0
+
+    closed = [args[4].split("/")[-1] for args in fake.writes if "PATCH" in args]
+    assert closed == ["10", "11", "12", "16"]
+    notes = {
+        args[4].split("/")[-2]: args[-1] for args in fake.writes if args[4].endswith("/comments")
+    }
+    # A lower version with a public release of its own was published, not superseded.
+    assert f"v1.1.0 is published: https://github.com/{REPO}/releases/tag/v1.1.0" in notes["10"]
+    assert "Superseded by v1.2.3, which is published" in notes["11"]
+    assert "v1.2.1 was never published" in notes["11"]
+    assert f"v1.2.3 is published now: https://github.com/{REPO}/releases/tag/v1.2.3" in notes["12"]
+    # No release at all for the tag reads like a draft: never published.
+    assert "v1.2.0 was never published" in notes["16"]
+    reasons = [args[-1].split("=")[1] for args in fake.writes if "PATCH" in args]
+    assert reasons == ["completed", "not_planned", "completed", "not_planned"]
+
+
+def test_a_draft_release_closes_nothing(monkeypatch):
+    fake = FakeIssues(published=(), drafts=(TAG,), issues=[_stranded(12, "1.2.3")])
+
+    assert _close_stranded(monkeypatch, fake) == 0
+    assert fake.writes == []
+
+
+def test_versions_compare_as_numbers(monkeypatch):
+    # 1.10.0 is higher than 1.9.0; a text comparison would close the wrong one.
+    fake = FakeIssues(
+        published=("v1.10.0",), issues=[_stranded(21, "1.9.0"), _stranded(22, "1.10.1")]
+    )
+
+    assert _close_stranded(monkeypatch, fake, tag="v1.10.0") == 0
+
+    assert [args[4] for args in fake.writes if "PATCH" in args] == [f"repos/{REPO}/issues/21"]

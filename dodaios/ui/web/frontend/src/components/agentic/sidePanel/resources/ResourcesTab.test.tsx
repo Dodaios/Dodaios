@@ -140,9 +140,21 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+/**
+ * Render the tab and wait for its first reading and for the row that reading
+ * opens. The heaviest row opens in an effect after the meters are painted, so
+ * a test that looked into the row as soon as the meters were there found it
+ * still closed now and then: "resources-tool" and "resources-runtime" were
+ * missing in about one CI run in thirty, once on the v5.3.2 release tag.
+ */
 async function shown() {
   render(<ResourcesTab />);
   await screen.findByTestId("resources-tile-cpu");
+  await waitFor(() => {
+    const rows = [...screen.queryAllByTestId("resources-agent"), ...screen.queryAllByTestId("resources-app")];
+    // A reading without agents and apps opens nothing.
+    if (rows.length > 0) expect(rows.some((row) => row.querySelector('[aria-expanded="true"]'))).toBe(true);
+  });
 }
 
 function agentOrder(): string[] {
