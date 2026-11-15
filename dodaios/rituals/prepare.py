@@ -455,9 +455,10 @@ async def start(
         ritual = await ensure_routine(ritual, services)
     except RitualError:
         raise
-    except Exception as exc:  # noqa: BLE001 — the caller hears why, nothing is marked
+    except Exception as exc:  # noqa: BLE001 — the caller hears that it failed, nothing is marked
+        # The cause goes to the log; what leaves the app is one fixed sentence.
         log.warning("rituals: routine of %s not created", ritual.id, exc_info=True)
-        raise RitualError("unavailable", f"The gathering run could not be set up: {exc}") from exc
+        raise RitualError("unavailable", "The gathering run could not be set up.") from exc
     _begin(ritual, day)
     scheduler = services[2]
     try:
@@ -471,8 +472,9 @@ async def start(
         log.info("rituals: %s is already gathering", ritual.id)
         return False
     except Exception as exc:
-        _settle(ritual.id, prep_state="failed", prep_error=_line(exc, 300))
-        raise RitualError("unavailable", f"The gathering run could not start: {exc}") from exc
+        log.warning("rituals: gathering for %s could not start", ritual.id, exc_info=True)
+        _settle(ritual.id, prep_state="failed", prep_error="The run could not be started.")
+        raise RitualError("unavailable", "The gathering run could not be started.") from exc
     log.info("rituals: gathering for %s started (%s)", ritual.id, "asked" if by_user else "clock")
     return True
 

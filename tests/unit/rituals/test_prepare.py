@@ -276,7 +276,8 @@ async def test_what_cannot_be_started_says_why(scheduled, monkeypatch: pytest.Mo
     )
     assert await _code(prepare.start(other.id, now=_at(8, 31))) == "unavailable"
     row = get_store().day(other.id, DAY)
-    assert row.prep_state == "failed" and "closing" in row.prep_error
+    # The cause is in the log; the day keeps one plain sentence.
+    assert row.prep_state == "failed" and row.prep_error == "The run could not be started."
 
 
 async def test_without_a_scheduler_nothing_is_marked(society) -> None:
