@@ -510,7 +510,11 @@ A release happens **only** when the maintainer asks for one.
   When a release cut pushed its tag but publishing did not succeed, its
   `stranded` job opens (or comments on) the issue "Release vX.Y.Z is tagged
   but not published" with these recovery steps, so a draft behind a public
-  tag never goes unnoticed.
+  tag never goes unnoticed. Once a release is published,
+  `python scripts/ci/release_assets.py close-stranded --repo Dodaios/Dodaios --tag vX.Y.Z`
+  closes that version's report and the reports of every lower version, which
+  the published release supersedes; it leaves them open while the release is
+  still a draft.
   The in-app updater follows `releases/latest`; draft releases remain hidden.
 * **Two names per installer.** Every native installer is published as
   `Dodaios-*` and, with identical bytes, under its earlier `PersonalJarvis-*`
@@ -557,6 +561,17 @@ A release happens **only** when the maintainer asks for one.
   (`scripts/ci/check_installer_upgrade.py`, evidence artifact
   `installer-upgrade-windows-x64`). A changed AppId, a renamed executable left
   behind or a data migration that fails on first boot blocks the release.
+  The check takes about 90 seconds and every wait in the script ends by
+  itself: no child is read through a pipe, a setup or app that runs too long
+  is stopped with its process tree, and after 20 minutes without a result the
+  script writes `hang.log` (the phase, every thread's stack, the process
+  list) into the evidence and fails. On tags up to v5.3.2 this step stopped
+  for good five times and each time someone cancelled the job, which keeps
+  neither log nor evidence; if it stalls again, do not cancel before those 20
+  minutes, let it fail and read `hang.log`. The report also names every
+  process a stopped app left running in the install folder (`left_behind`).
+  With `--previous-release OWNER/REPO` the script downloads the previous
+  setup itself, limited and tried three times.
 * **Signed installers, once required.** The repository variable
   `REQUIRE_SIGNED_INSTALLERS` (for example `windows,macos`) makes a missing
   Authenticode signature or notarization fail the tag build and
