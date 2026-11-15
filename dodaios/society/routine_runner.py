@@ -585,7 +585,9 @@ def _posts_result(tags: tuple[str, ...]) -> bool:
     """Whether the runner posts a finished run's answer into its owner's chat.
 
     Not for a standing task: its own ``after_run`` posts the answer, labelled
-    with the task. Not for a routine whose update lands elsewhere: a living
+    with the task. Not for a ritual's preparation: what it gathered is kept
+    back until the person starts the ritual (``rituals.prepare.after_run``).
+    Not for a routine whose update lands elsewhere: a living
     page's refresh and a kept-current node's show it on the page, a team
     check-in's work shows in the team's reports (its "nothing is needed"
     every interval would only be noise), and a trigger's preparation hands
@@ -597,11 +599,12 @@ def _posts_result(tags: tuple[str, ...]) -> bool:
     """
     from dodaios.artifacts.living_refresh import TAG_PREFIX as PAGE_PREFIX
     from dodaios.nodes.refresh import TAG_PREFIX as NODE_PREFIX
+    from dodaios.rituals.prepare import ritual_id_of
     from dodaios.standing_tasks.service import standing_id_of
 
     from .team_lead import CHECKIN_TAG
 
-    if standing_id_of(tags):
+    if standing_id_of(tags) or ritual_id_of(tags):
         return False
     elsewhere = (PAGE_PREFIX, NODE_PREFIX, CHECKIN_TAG)
     return not any(
