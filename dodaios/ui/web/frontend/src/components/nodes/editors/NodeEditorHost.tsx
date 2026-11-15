@@ -2,7 +2,8 @@
  * The stage's side of a node editor: load the spec, load the type's editor,
  * and feed it the node's revisions.
  *
- * "Edit" on the stage swaps the node's page for this. It reads the node's
+ * "Edit" on the stage, or a click into the page's text, swaps the node's
+ * page for this. It reads the node's
  * spec (`GET /api/nodes/{id}`), downloads the type's editor chunk
  * (`registry.ts`), and keeps the node's watcher (`NodeUpkeepBar`, the same
  * strip the page has) running, its reports handed to the editor through
@@ -22,7 +23,7 @@ import { invalidateNodes } from "../useNodes";
 import { fetchNodeSpec } from "./api";
 import { RevisionContext, createRevisionSource } from "./editorContext";
 import { NODE_EDITORS } from "./registry";
-import type { EditableType, NodeEditorInitial, NodeEditorProps } from "./types";
+import type { EditableType, NodeEditorInitial, NodeEditorProps, NodeEditorStart } from "./types";
 
 const NodeUpkeepBar = lazy(() => import("../NodeUpkeepBar"));
 
@@ -58,9 +59,11 @@ export interface NodeEditorHostProps {
   slug: string;
   /** Back to the page. */
   onDone: () => void;
+  /** Opened by a click into the page: where, for the editor's caret. */
+  startAt?: NodeEditorStart | null;
 }
 
-export default function NodeEditorHost({ node, type, slug, onDone }: NodeEditorHostProps) {
+export default function NodeEditorHost({ node, type, slug, onDone, startAt = null }: NodeEditorHostProps) {
   const t = useT();
   // The editors' words are their own locale chunk, kept out of the startup
   // bundle; an editor is drawn once they are in.
@@ -122,7 +125,7 @@ export default function NodeEditorHost({ node, type, slug, onDone }: NodeEditorH
           <RevisionContext.Provider value={source}>
             <EditorBoundary fallback={failed}>
               <Suspense fallback={waiting}>
-                <Editor key={node.id} node={node} initial={load.initial} onDone={done} />
+                <Editor key={node.id} node={node} initial={load.initial} startAt={startAt} onDone={done} />
               </Suspense>
             </EditorBoundary>
           </RevisionContext.Provider>

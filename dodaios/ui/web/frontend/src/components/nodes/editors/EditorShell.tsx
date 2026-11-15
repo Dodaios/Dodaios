@@ -83,7 +83,9 @@ export function EditorShell({ editor, title, onDone, toolbar, side, bodyClassNam
       <div
         role="toolbar"
         aria-label={t("nodes.editor.toolbar")}
-        className="flex h-12 shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-3"
+        // The bar comes in from the top when the editor opens (from Edit, or
+        // from a click into the page), so the switch to editing reads as one.
+        className="flex h-12 shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-3 animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none"
       >
         <ToolbarGroup label={t("nodes.editor.history.group")}>
           <ToolbarButton

@@ -48,7 +48,7 @@ from typing import Any, Final
 from dodaios.nodes.types import NODE_TYPES, node_type
 
 #: Raise by one when any renderer's output changes.
-RENDER_REVISION: Final[int] = 7
+RENDER_REVISION: Final[int] = 8
 
 
 @dataclass(frozen=True)

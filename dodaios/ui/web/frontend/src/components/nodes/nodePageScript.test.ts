@@ -3,7 +3,9 @@
  * (`dodaios/nodes/bridge.py`, `BRIDGE_JS`), run here in a page of its own with
  * a stand-in for the app as its parent. A sent comment's pin shows that the
  * assistant is working it in. The field's microphone only asks the app; the
- * words come back as plain text and go after what the field holds.
+ * words come back as plain text and go after what the field holds. A click
+ * into a marked text, while the page is only shown, asks the app to open the
+ * node's editor there.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -15,6 +17,7 @@ import {
   NODE_DICTATE_MESSAGE,
   NODE_DICTATION_STATE_MESSAGE,
   NODE_DICTATION_TEXT_MESSAGE,
+  NODE_EDIT_HERE_MESSAGE,
   NODE_MODE_MESSAGE,
 } from "./nodeBridge";
 
@@ -243,5 +246,72 @@ describe("a comment spoken into a node's page", () => {
     p.say({ type: NODE_DICTATION_TEXT_MESSAGE, n: 1, outcome: "text", text: "<img src=x onerror=alert(1)>" });
     expect(field.value).toBe("<img src=x onerror=alert(1)>");
     expect(p.win.document.querySelector(".nc img")).toBeNull();
+  });
+});
+
+describe("a click into a node's page while it is shown", () => {
+  /** A docs page in view mode; `tapEdit` says whether the app opens an editor on a click. */
+  function shown(tapEdit: boolean) {
+    const app = new JSDOM("").window;
+    const posted = vi.fn();
+    (app as unknown as { postMessage: typeof posted }).postMessage = posted;
+    const dom = new JSDOM(
+      '<!doctype html><body><h1 data-at="@title">Plan</h1><p data-at="/summary">Four weeks.</p>' +
+        '<article data-at="/markdown"><p>Build the <b>shop window</b> first.</p>' +
+        '<p>Read <a href="#costs">the costs</a>.</p><button type="button">Play</button></article>' +
+        "<nav><p>On this page</p></nav></body>",
+      { runScripts: "outside-only", pretendToBeVisual: true },
+    );
+    const win = dom.window;
+    Object.defineProperty(win, "parent", { value: app, configurable: true });
+    win.eval(SCRIPT);
+    const say = (data: Record<string, unknown>) =>
+      win.dispatchEvent(new win.MessageEvent("message", { data, source: app as unknown as Window }));
+    say({ type: NODE_MODE_MESSAGE, mode: "view", labels: LABELS, tapEdit });
+    const doc = win.document;
+    return {
+      doc,
+      say,
+      click(selector: string, init: MouseEventInit = {}) {
+        doc.querySelector(selector)!.dispatchEvent(
+          new win.MouseEvent("click", { bubbles: true, cancelable: true, button: 0, ...init }),
+        );
+      },
+      asked: () => posted.mock.calls.map(([message]) => message).filter((m) => m.type === NODE_EDIT_HERE_MESSAGE),
+    };
+  }
+
+  it("asks the app to open the editor at the clicked text", () => {
+    const p = shown(true);
+    expect(p.doc.documentElement.hasAttribute("data-node-tap-edit")).toBe(true);
+    p.click("article b");
+    p.click("p[data-at]");
+    expect(p.asked()).toEqual([
+      { type: NODE_EDIT_HERE_MESSAGE, path: "/markdown", before: "", after: "" },
+      { type: NODE_EDIT_HERE_MESSAGE, path: "/summary", before: "", after: "" },
+    ]);
+  });
+
+  it("leaves the page's own controls, the title and unmarked text alone", () => {
+    const p = shown(true);
+    p.click("article a");
+    p.click("article button");
+    p.click("h1");
+    p.click("nav p");
+    p.click("article b", { metaKey: true });
+    expect(p.asked()).toEqual([]);
+  });
+
+  it("asks nothing where the app opens no editor, or while comments are left", () => {
+    const p = shown(false);
+    expect(p.doc.documentElement.hasAttribute("data-node-tap-edit")).toBe(false);
+    p.click("article b");
+    expect(p.asked()).toEqual([]);
+
+    const q = shown(true);
+    q.say({ type: NODE_MODE_MESSAGE, mode: "comment", labels: LABELS, tapEdit: true });
+    expect(q.doc.documentElement.hasAttribute("data-node-tap-edit")).toBe(false);
+    q.click("article b");
+    expect(q.asked()).toEqual([]);
   });
 });

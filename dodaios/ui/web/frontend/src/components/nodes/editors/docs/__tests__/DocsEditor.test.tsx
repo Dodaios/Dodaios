@@ -2,7 +2,8 @@
  * The document editor as a whole: it shows the document's blocks, the
  * toolbar's commands change the Markdown that is saved, the frame's undo is
  * the text editor's history, charts are edited through the shared chart
- * editor, and a revision by the assistant replaces the content.
+ * editor, a revision by the assistant replaces the content, and an editor
+ * opened by a click into the page has its caret where the click was.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -11,6 +12,7 @@ import type { ReactNode } from "react";
 
 import type { NodeCard } from "../../../nodeModel";
 import { RevisionContext, createRevisionSource } from "../../editorContext";
+import type { NodeEditorStart } from "../../types";
 import DocsEditor from "../index";
 import { linkHref } from "../Toolbar";
 
@@ -100,11 +102,16 @@ function server(markdown = MARKDOWN) {
   };
 }
 
-function mount(remote: ReturnType<typeof server>, wrapper?: (props: { children: ReactNode }) => JSX.Element) {
+function mount(
+  remote: ReturnType<typeof server>,
+  wrapper?: (props: { children: ReactNode }) => JSX.Element,
+  startAt: NodeEditorStart | null = null,
+) {
   const view = render(
     <DocsEditor
       node={NODE}
       initial={{ spec: { ...remote.state.spec }, version: remote.state.version, updated_at: remote.state.updated_at }}
+      startAt={startAt}
       onDone={() => {}}
     />,
     wrapper ? { wrapper } : undefined,
@@ -291,6 +298,44 @@ describe("DocsEditor", () => {
     expect(content.querySelector("p.doc-summary")?.textContent).toBe("New summary.");
     expect(content.textContent).not.toContain("Old text");
     // Taking it is not a save of the person's own.
+    expect(remote.puts).toHaveLength(0);
+  });
+});
+
+describe("DocsEditor opened by a click into the page", () => {
+  /** The text around the caret: `[before, after]`, a few characters each. */
+  function caret(editor: Editor): [string, string] {
+    const { from } = editor.state.selection;
+    const $at = editor.state.doc.resolve(from);
+    const text = $at.parent.textContent;
+    const offset = $at.parentOffset;
+    return [text.slice(Math.max(0, offset - 6), offset), text.slice(offset, offset + 6)];
+  }
+
+  it("puts the caret on the clicked spot, across a bold mark", () => {
+    const remote = server();
+    const { editor } = mount(remote, undefined, { path: "/markdown", before: "Alpha costs ", after: "19 €" });
+    expect(editor.isFocused).toBe(true);
+    expect(caret(editor)).toEqual(["costs ", "19 € p"]);
+  });
+
+  it("finds the spot from the words after the click alone, and in the summary", () => {
+    const remote = server();
+    const { editor } = mount(remote, undefined, { path: "/summary", before: "", after: "plans compared" });
+    expect(caret(editor)).toEqual(["Three ", "plans "]);
+  });
+
+  it("opens at the start of the body when the words are not there", () => {
+    const remote = server();
+    const { editor } = mount(remote, undefined, { path: "/markdown", before: "", after: "Nothing like this" });
+    expect(editor.state.selection.$from.parent.textContent).toBe("Result");
+    expect(editor.state.selection.$from.parentOffset).toBe(0);
+  });
+
+  it("saves nothing just for opening", async () => {
+    const remote = server();
+    mount(remote, undefined, { path: "/markdown", before: "Alpha costs ", after: "19 €" });
+    await new Promise((resolve) => setTimeout(resolve, 900));
     expect(remote.puts).toHaveLength(0);
   });
 });

@@ -11883,6 +11883,7 @@
     },
     "edit": {
       "toggle": "Editar",
+      "tap_hint": "Haz clic en un texto para editarlo.",
       "hint": "Haz clic en un texto y escribe. Se guarda al salir del campo; Esc lo deshace.",
       "saving": "Guardando…",
       "failed": "No se pudo guardar."

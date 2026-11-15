@@ -11,6 +11,7 @@ import {
   NODE_COMMENT_MESSAGE,
   NODE_COMMENT_REMOVE_MESSAGE,
   NODE_COMMENT_STATE_MESSAGE,
+  NODE_EDIT_HERE_MESSAGE,
   NODE_EDIT_MESSAGE,
   NODE_EDIT_STATE_MESSAGE,
   NODE_MODE_MESSAGE,
@@ -18,9 +19,11 @@ import {
   NODE_SCROLL_MESSAGE,
   parseNodeComment,
   parseNodeEdit,
+  parseNodeEditHere,
   useNodeBridge,
   type NodeComment,
   type NodeEdit,
+  type NodeEditHere,
   type NodePageMode,
   type TellCommentState,
 } from "./nodeBridge";
@@ -52,6 +55,7 @@ function Harness({
   onComment = async () => undefined,
   onRemove,
   onEdit,
+  onEditHere,
   pageKey,
 }: {
   commenting?: boolean;
@@ -59,6 +63,7 @@ function Harness({
   onComment?: (comment: NodeComment) => Promise<void>;
   onRemove?: (n: number) => void;
   onEdit?: (edit: NodeEdit) => Promise<void>;
+  onEditHere?: (at: NodeEditHere) => void;
   pageKey?: string;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
@@ -68,6 +73,7 @@ function Harness({
     onComment,
     onRemove,
     onEdit,
+    onEditHere,
     pageKey,
   });
   return <iframe ref={frame} title="page" data-testid="frame" />;
@@ -112,15 +118,15 @@ describe("useNodeBridge", () => {
     const posted = vi.spyOn(frame.contentWindow as Window, "postMessage");
 
     fromFrame({ type: NODE_READY_MESSAGE });
-    expect(posted).toHaveBeenLastCalledWith({ type: NODE_MODE_MESSAGE, mode: "view", labels: LABELS }, "*");
+    expect(posted).toHaveBeenLastCalledWith({ type: NODE_MODE_MESSAGE, mode: "view", labels: LABELS, tapEdit: false }, "*");
 
     view.rerender(<Harness commenting onComment={onComment} />);
-    expect(posted).toHaveBeenLastCalledWith({ type: NODE_MODE_MESSAGE, mode: "comment", labels: LABELS }, "*");
+    expect(posted).toHaveBeenLastCalledWith({ type: NODE_MODE_MESSAGE, mode: "comment", labels: LABELS, tapEdit: false }, "*");
 
     // A page drawn again asks once more and comes back in the same mode.
     posted.mockClear();
     fromFrame({ type: NODE_READY_MESSAGE });
-    expect(posted).toHaveBeenCalledWith({ type: NODE_MODE_MESSAGE, mode: "comment", labels: LABELS }, "*");
+    expect(posted).toHaveBeenCalledWith({ type: NODE_MODE_MESSAGE, mode: "comment", labels: LABELS, tapEdit: false }, "*");
   });
 
   it("takes a comment in and tells the page that it waits for Send", async () => {
@@ -216,7 +222,7 @@ describe("useNodeBridge: editing", () => {
     expect(posted).toHaveBeenLastCalledWith({ type: NODE_EDIT_STATE_MESSAGE, id: 1, state: "failed" }, "*");
 
     view.rerender(<Harness mode="edit" onEdit={onEdit} />);
-    expect(posted).toHaveBeenLastCalledWith({ type: NODE_MODE_MESSAGE, mode: "edit", labels: LABELS }, "*");
+    expect(posted).toHaveBeenLastCalledWith({ type: NODE_MODE_MESSAGE, mode: "edit", labels: LABELS, tapEdit: false }, "*");
     fromFrame({ ...edit, id: 2 });
     await flush();
     expect(onEdit).toHaveBeenCalledWith({ id: 2, path: "/summary", value: "Shorter", as: "text", refresh: false });
@@ -237,7 +243,7 @@ describe("useNodeBridge: editing", () => {
     fromFrame({ type: NODE_SCROLL_MESSAGE, x: 0, y: 840 });
     fromFrame({ type: NODE_READY_MESSAGE });
     expect(posted).toHaveBeenLastCalledWith(
-      { type: NODE_MODE_MESSAGE, mode: "edit", labels: LABELS, scroll: { x: 0, y: 840 } },
+      { type: NODE_MODE_MESSAGE, mode: "edit", labels: LABELS, tapEdit: false, scroll: { x: 0, y: 840 } },
       "*",
     );
 
@@ -245,18 +251,62 @@ describe("useNodeBridge: editing", () => {
     fromFrame({ type: NODE_SCROLL_MESSAGE, x: 0, y: 0, hash: "#7" });
     fromFrame({ type: NODE_READY_MESSAGE });
     expect(posted).toHaveBeenLastCalledWith(
-      { type: NODE_MODE_MESSAGE, mode: "edit", labels: LABELS, scroll: { x: 0, y: 0, hash: "#7" } },
+      { type: NODE_MODE_MESSAGE, mode: "edit", labels: LABELS, tapEdit: false, scroll: { x: 0, y: 0, hash: "#7" } },
       "*",
     );
     fromFrame({ type: NODE_SCROLL_MESSAGE, x: 0, y: 0, hash: "javascript:alert(1)" });
     fromFrame({ type: NODE_READY_MESSAGE });
     expect(posted).toHaveBeenLastCalledWith(
-      { type: NODE_MODE_MESSAGE, mode: "edit", labels: LABELS, scroll: { x: 0, y: 0 } },
+      { type: NODE_MODE_MESSAGE, mode: "edit", labels: LABELS, tapEdit: false, scroll: { x: 0, y: 0 } },
       "*",
     );
 
     view.rerender(<Harness mode="edit" pageKey="b" />);
     fromFrame({ type: NODE_READY_MESSAGE });
-    expect(posted).toHaveBeenLastCalledWith({ type: NODE_MODE_MESSAGE, mode: "edit", labels: LABELS }, "*");
+    expect(posted).toHaveBeenLastCalledWith({ type: NODE_MODE_MESSAGE, mode: "edit", labels: LABELS, tapEdit: false }, "*");
+  });
+});
+
+describe("a click into the page's text", () => {
+  it("is taken as a bounded place in the spec with the words around it", () => {
+    expect(
+      parseNodeEditHere({ type: NODE_EDIT_HERE_MESSAGE, path: "/markdown", before: "Week 1 ", after: "Shop window" }),
+    ).toEqual({ path: "/markdown", before: "Week 1 ", after: "Shop window" });
+    const long = parseNodeEditHere({ type: NODE_EDIT_HERE_MESSAGE, path: "/summary", before: "b".repeat(90), after: 7 });
+    expect(long).toEqual({ path: "/summary", before: "b".repeat(40), after: "" });
+    expect(parseNodeEditHere({ type: NODE_EDIT_HERE_MESSAGE, path: "markdown", before: "", after: "" })).toBeNull();
+    expect(parseNodeEditHere({ type: NODE_EDIT_HERE_MESSAGE, path: "/" + "x".repeat(500) })).toBeNull();
+    expect(parseNodeEditHere({ type: NODE_EDIT_MESSAGE, path: "/markdown" })).toBeNull();
+  });
+
+  it("tells the page that a click opens the editor, and opens it only in view mode", () => {
+    const onEditHere = vi.fn();
+    const view = render(<Harness mode="view" onEditHere={onEditHere} />);
+    const frame = screen.getByTestId("frame") as HTMLIFrameElement;
+    const posted = vi.spyOn(frame.contentWindow as Window, "postMessage");
+
+    fromFrame({ type: NODE_READY_MESSAGE });
+    expect(posted).toHaveBeenLastCalledWith(
+      { type: NODE_MODE_MESSAGE, mode: "view", labels: LABELS, tapEdit: true },
+      "*",
+    );
+    fromFrame({ type: NODE_EDIT_HERE_MESSAGE, path: "/markdown", before: "the ", after: "plan" });
+    expect(onEditHere).toHaveBeenCalledWith({ path: "/markdown", before: "the ", after: "plan" });
+
+    // While comments are being left, a click belongs to the comment.
+    view.rerender(<Harness mode="comment" onEditHere={onEditHere} />);
+    expect(posted).toHaveBeenLastCalledWith(
+      { type: NODE_MODE_MESSAGE, mode: "comment", labels: LABELS, tapEdit: false },
+      "*",
+    );
+    fromFrame({ type: NODE_EDIT_HERE_MESSAGE, path: "/markdown", before: "", after: "plan" });
+    expect(onEditHere).toHaveBeenCalledTimes(1);
+
+    // Where nothing opens an editor, the page is not told to offer it.
+    view.rerender(<Harness mode="view" />);
+    expect(posted).toHaveBeenLastCalledWith(
+      { type: NODE_MODE_MESSAGE, mode: "view", labels: LABELS, tapEdit: false },
+      "*",
+    );
   });
 });
