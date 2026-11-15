@@ -9,6 +9,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import quote, unquote
 
 import pytest
 
@@ -79,14 +80,59 @@ class PageHandler(BaseHTTPRequestHandler):
                 self.requests_ready.notify_all()
 
     @classmethod
-    def wait_for_path(cls, path):
+    def wait_for_path(cls, path, count=1):
         with cls.requests_ready:
-            return cls.requests_ready.wait_for(lambda: path in cls.page_requests, timeout=15)
+            return cls.requests_ready.wait_for(
+                lambda: cls.page_requests.count(path) >= count, timeout=15
+            )
 
     def _respond(self):
-        if self.path == "/ready":
+        if self.path == "/ready" or self.path.startswith(
+            ("/at/", "/clicked/", "/shelf-ready", "/hop-done", "/inner")
+        ):
             self.send_response(204)
             self.end_headers()
+            return
+        if self.path.startswith("/hop?to="):
+            # A page whose script asks for an address that redirects elsewhere.
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(
+                b"""<!doctype html><title>Hop</title><script>
+                const to = new URLSearchParams(location.search).get('to');
+                fetch('/leave?to=' + encodeURIComponent(to), {mode: 'no-cors'})
+                  .catch(() => {}).finally(() => fetch('/hop-done'))</script>"""
+            )
+            return
+        if self.path.startswith("/leave?to="):
+            self.send_response(302)
+            self.send_header("Location", unquote(self.path.split("=", 1)[1]))
+            self.end_headers()
+            return
+        if self.path == "/kept.js":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/javascript")
+            self.send_header("Cache-Control", "max-age=3600")
+            self.end_headers()
+            self.wfile.write(b"fetch('/shelf-ready')")
+            return
+        if self.path == "/shelf":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(b"<!doctype html><title>Shelf</title><script src='/kept.js'></script>")
+            return
+        if self.path == "/tall":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(
+                b"""<!doctype html><title>Tall</title><body style="margin:0;height:9000px">
+                <script>addEventListener('scroll',()=>fetch('/at/'+Math.round(scrollY)));
+                addEventListener('click',()=>fetch('/clicked/'+Math.round(scrollY)));
+                requestAnimationFrame(()=>requestAnimationFrame(()=>fetch('/ready')))</script>"""
+            )
             return
         if self.path.startswith(("/login", "/account")):
             signed_in = "fixture_session=verified" in self.headers.get("Cookie", "")
@@ -229,6 +275,94 @@ async def test_live_pixels_change_between_tasks_and_sessions_stay_open(live, sit
         assert await live.ensure(agent) is session
         await live.unsubscribe(session, queue, "viewer")
         assert not session.closed
+    finally:
+        await live.close()
+
+
+async def test_a_fast_scroll_arrives_whole_and_a_click_meets_the_page_after_it(live, site):
+    """A trackpad sends wheel events faster than the page answers each one."""
+    agent = SimpleNamespace(
+        agent_id="scroll", model="", browser_allowed_domains=["http*://127.0.0.1"]
+    )
+    try:
+        session, _queue = await live.subscribe(agent)
+        await _control(live, session, "viewer", "takeover", {"enabled": True})
+        await _control(live, session, "viewer", "navigate", {"url": site + "/tall"})
+        assert await asyncio.to_thread(PageHandler.wait_for_path, "/ready"), "Fixture"
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        for _ in range(200):
+            await _control(
+                live, session, "viewer", "scroll", {"x": 300, "y": 300, "dx": 0, "dy": 20}
+            )
+        took = loop.time() - started
+        await _control(live, session, "viewer", "click", {"x": 300, "y": 300})
+        # Every event counted, and the click came after all of them.
+        assert await asyncio.to_thread(PageHandler.wait_for_path, "/clicked/4000"), (
+            PageHandler.page_requests[-6:]
+        )
+        # Waiting for the page's answer to each event took about 40 ms apiece: 8 s.
+        assert took < 4, f"200 wheel events took {took:.1f} s"
+    finally:
+        await live.close()
+
+
+async def test_a_second_visit_takes_a_page_file_from_the_cache(live, site):
+    """The request check must not switch the browser's cache off."""
+    agent = SimpleNamespace(
+        agent_id="shelf", model="", browser_allowed_domains=["http*://127.0.0.1"]
+    )
+    try:
+        session, _queue = await live.subscribe(agent)
+        await _control(live, session, "viewer", "takeover", {"enabled": True})
+        for visit in (1, 2):
+            await _control(live, session, "viewer", "navigate", {"url": site + "/shelf"})
+            assert await asyncio.to_thread(PageHandler.wait_for_path, "/shelf-ready", visit)
+            await _control(live, session, "viewer", "navigate", {"url": site + "/tall"})
+            assert await asyncio.to_thread(PageHandler.wait_for_path, "/ready", visit)
+        assert PageHandler.page_requests.count("/shelf") == 2
+        assert PageHandler.page_requests.count("/kept.js") == 1
+    finally:
+        await live.close()
+
+
+async def test_a_redirect_into_the_local_network_is_refused(live, site):
+    """Each hop of a redirect is checked like a request of its own."""
+    # The agent was given "localhost" by name; 127.0.0.1 is the same fixture
+    # server under an address it was not given.
+    named = site.replace("127.0.0.1", "localhost")
+    agent = SimpleNamespace(
+        agent_id="hops", model="", browser_allowed_domains=["http*://localhost"]
+    )
+
+    def hop(target: str) -> str:
+        return named + "/hop?to=" + quote(target, safe="")
+
+    try:
+        session, _queue = await live.subscribe(agent)
+        await _control(live, session, "viewer", "takeover", {"enabled": True})
+        # A redirect to an address the agent may reach arrives.
+        await _control(live, session, "viewer", "navigate", {"url": hop(named + "/inner-open")})
+        assert await asyncio.to_thread(PageHandler.wait_for_path, "/hop-done")
+        assert "/inner-open" in PageHandler.page_requests
+        # The same redirect to an address inside the network does not.
+        await _control(live, session, "viewer", "navigate", {"url": hop(site + "/inner-shut")})
+        assert await asyncio.to_thread(PageHandler.wait_for_path, "/hop-done", 2)
+        assert "/inner-shut" not in PageHandler.page_requests
+        # Nor does a page that is itself such a redirect.
+        leave = "/leave?to=" + quote(site + "/inner-page", safe="")
+        try:
+            await live.control(
+                session,
+                "viewer",
+                "navigate",
+                {"generation": session.generation, "url": named + leave},
+            )
+        except RuntimeError as exc:
+            assert "ERR_FAILED" in str(exc)
+        assert await asyncio.to_thread(PageHandler.wait_for_path, leave)
+        await asyncio.sleep(1)  # Time for a second hop that must never come.
+        assert "/inner-page" not in PageHandler.page_requests
     finally:
         await live.close()
 

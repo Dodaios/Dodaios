@@ -7,12 +7,11 @@ import base64
 import contextlib
 import importlib.metadata
 import io
-import ipaddress
 import json
 import logging
 import os
 import random
-import socket
+import re
 import sys
 import time
 import uuid
@@ -133,6 +132,43 @@ def scrub_secrets(secrets: dict | None, value: Any) -> Any:
 
 #: The page size the agent browses with; its screenshots and clicks assume it.
 DEFAULT_VIEW = (1280, 800)
+#: The least time between two pictures while the person works in the page:
+#: what they scroll or type should follow the hand. The page says when it drew
+#: a new picture, so a still page sends none.
+HANDS_ON_INTERVAL_S = 1 / 30
+#: The same while the page is only watched (the agent works, or nobody does).
+#: Every picture passes through the app's server; half the rate is enough to
+#: follow, and it is what a viewer got before.
+WATCH_INTERVAL_S = 1 / 15
+#: How often a source that has to be asked is asked (a real Chrome window, the
+#: screenshot fallback), and the longest the pump sleeps without a picture.
+POLL_INTERVAL_S = 1 / 15
+#: Wheel events Chromium may still owe an answer for (see ``Worker.wheel``).
+MAX_WHEELS_IN_FLIGHT = 16
+#: The longest a later input waits for the page to take the wheel events before it.
+WHEEL_SETTLE_S = 1.0
+#: How long after a wheel event the page may still be moving to its place, and
+#: the longest a later input waits for the page's next frame.
+WHEEL_LANDS_S = 0.25
+_NEXT_FRAME = "() => new Promise((done) => requestAnimationFrame(() => done()))"
+#: How long an address, Back, Forward or Reload of the person holds their next input.
+LOAD_WAIT_S = 1.0
+_SCHEME = re.compile(r"\s*([a-zA-Z][a-zA-Z0-9+.-]*)://")
+
+
+def internal_address(proposal: dict) -> str:
+    """The scheme of a non-web address the agent wants to open, or ``""``.
+
+    Websites cannot send the browser to its own pages (``chrome://``) or to
+    local files; only the agent's own navigation could. The request check
+    never sees those pages, because they are not requests.
+    """
+    for name, params in proposal.items():
+        if name in _NAVIGATIONS and isinstance(params, dict):
+            found = _SCHEME.match(str(params.get("url") or ""))
+            if found and found.group(1).lower() not in {"http", "https"}:
+                return found.group(1).lower()
+    return ""
 #: A viewer's panel may ask for another page size within these bounds.
 VIEW_MIN = (320, 240)
 VIEW_MAX = (2560, 2560)
@@ -206,6 +242,7 @@ class Worker:
         self.state_task: asyncio.Task | None = None
         self.generation = uuid.uuid4().hex
         self.latest: dict | None = None
+        self.frame_ready = asyncio.Event()
         self.sequence = 0
         self.viewers = False
         self.panel_view: tuple[int, int] | None = None
@@ -215,6 +252,13 @@ class Worker:
         self.cdp: Any = None
         self.target = ""
         self.tabs: dict[str, Any] = {}
+        self.target_ids: dict[Any, str] = {}
+        self.wheels: set[asyncio.Future] = set()
+        self.wheel_at = 0.0
+        self.loads: set[asyncio.Future] = set()
+        self.guard: Any = None
+        self.input_cdp: tuple[Any, Any] | None = None
+        self.pointer_at: tuple[float, float] | None = None
         self.dialog: Any = None
         self.owns_context = True
         self.capture_fallback = False
@@ -312,47 +356,8 @@ class Worker:
                     *(["--restore-last-session"] if self.login_mode else []),
                 ],
             )
-        private_hosts = {
-            str(pattern).split("://")[-1].split("/")[0]
-            for pattern in args.get("allowed_domains", [])
-            if "*" not in str(pattern).split("://")[-1]
-        }
-
-        async def route_request(route: Any) -> None:
-            from window_actions import navigation_allowed
-
-            parsed = urlsplit(route.request.url)
-            host = parsed.hostname or ""
-            if parsed.scheme not in {"http", "https"}:
-                await route.abort()
-                return
-            if route.request.is_navigation_request() and not navigation_allowed(
-                route.request.url,
-                list(args.get("allowed_domains") or []),
-                manual=self.manual,
-            ):
-                await route.abort()
-                return
-            if host not in private_hosts:
-                try:
-                    addresses = await asyncio.get_running_loop().getaddrinfo(
-                        host,
-                        parsed.port or (443 if parsed.scheme == "https" else 80),
-                        type=socket.SOCK_STREAM,
-                    )
-                    if not addresses or any(
-                        not ipaddress.ip_address(a[4][0]).is_global for a in addresses
-                    ):
-                        await route.abort()
-                        return
-                except (OSError, ValueError):
-                    # An unresolved or invalid destination is denied at the network boundary.
-                    await route.abort()
-                    return
-            await route.continue_()
-
         if self.owns_context:
-            await self.context.route("**/*", route_request)
+            await self.guard_requests(list(args.get("allowed_domains") or []))
             # Chromium can return its first page before publishing the CDP port
             # file. A cold first launch (fresh profile, antivirus scanning the
             # binary, a loaded ARM machine) has taken longer than 15 s, which
@@ -413,6 +418,36 @@ class Worker:
         self.start_monitors()
         return self.status()
 
+    async def guard_requests(self, domains: list) -> None:
+        """Check every request of this browser before it leaves (``request_guard``)."""
+        from request_guard import RequestGuard  # type: ignore[import-not-found]
+
+        def may_open(url: str) -> bool:
+            from window_actions import navigation_allowed
+
+            return navigation_allowed(url, domains, manual=self.manual)
+
+        guard = RequestGuard(allowed_domains=domains, navigation_allowed=may_open)
+        try:
+            await guard.attach(await self.context.browser.new_browser_cdp_session())
+        except Exception:
+            # Without a session of the whole browser the same rules run through
+            # Playwright's routing: nothing gets past, but pages load uncached.
+            logging.getLogger(__name__).warning(
+                "Browser request check falls back to routing", exc_info=True
+            )
+
+            async def route_request(route: Any) -> None:
+                if await guard.permits(
+                    route.request.url, navigation=route.request.is_navigation_request()
+                ):
+                    await route.continue_()
+                else:
+                    await route.abort()
+
+            await self.context.route("**/*", route_request)
+        self.guard = guard
+
     def status(self) -> dict:
         return {
             "generation": self.generation,
@@ -448,11 +483,15 @@ class Worker:
     async def stop_monitors(self) -> None:
         tasks = [task for task in (self.stream, self.state_task) if task is not None]
         tasks.extend(self.cursor_jobs)
+        tasks.extend(self.wheels)
+        tasks.extend(self.loads)
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         self.stream = self.state_task = None
         self.cursor_jobs.clear()
+        self.wheels.clear()
+        self.loads.clear()
 
     async def stop_job(self) -> None:
         if self.job and not self.job.done():
@@ -468,6 +507,9 @@ class Worker:
         self.latest = None
         self.target = ""
         self.tabs = {}
+        self.target_ids = {}
+        self.input_cdp = None
+        self.pointer_at = None
         self.page = None
         self.dialog = None
         self.native_frame_at = 0.0
@@ -489,6 +531,9 @@ class Worker:
         if self.browser:
             await self.browser.stop()
             self.browser = None
+        if self.guard:
+            self.guard.close()
+            self.guard = None
         if self.context and self.owns_context:
             await self.context.close()
             self.context = None
@@ -716,16 +761,23 @@ class Worker:
     async def focused(self, *, strict_native: bool = False) -> Any:
         if self.login_mode:
             raise RuntimeError("Page inspection is unavailable while signing in")
-        self.tabs = {}
+        tabs: dict[str, Any] = {}
         for page in self.context.pages:
             if page.is_closed():
                 continue
-            session = await self.context.new_cdp_session(page)
-            try:
-                info = await session.send("Target.getTargetInfo")
-                self.tabs[info["targetInfo"]["targetId"]] = page
-            finally:
-                await session.detach()
+            # A tab keeps its id for life, and this runs for every input of
+            # the person and twice a second for the viewers: ask once per tab.
+            target = self.target_ids.get(page)
+            if target is None:
+                session = await self.context.new_cdp_session(page)
+                try:
+                    info = await session.send("Target.getTargetInfo")
+                    target = str(info["targetInfo"]["targetId"])
+                finally:
+                    await session.detach()
+            tabs[target] = page
+        self.tabs = tabs
+        self.target_ids = {page: target for target, page in tabs.items()}
         focused = self.browser.get_focused_target() if self.browser is not None else None
         if self.native:
             window_title = await asyncio.to_thread(self.native.title)
@@ -777,6 +829,7 @@ class Worker:
                 "target": target,
                 **self.view_fields(page),
             }
+            self.frame_ready.set()
             try:
                 await cdp.send("Page.screencastFrameAck", {"sessionId": event["sessionId"]})
             except Exception:
@@ -845,6 +898,7 @@ class Worker:
 
     async def watch(self) -> None:
         while not self.closed:
+            started = time.monotonic()
             try:
                 if self.viewers and (not self.login_mode or self.plain_login_ready()):
                     if self.native:
@@ -898,7 +952,128 @@ class Worker:
                 emit("fatal", error="The Chrome window closed or its capture stopped")
                 self.closed = True
                 return
-            await asyncio.sleep(1 / 15)
+            await self.next_frame(started)
+
+    async def next_frame(self, started: float) -> None:
+        """Sleep until the pump should look again.
+
+        A real Chrome window and the screenshot fallback have to be asked, at
+        a fixed pace. The page's own stream says when it drew a picture: that
+        one goes out at once, only kept a least time apart from the one
+        before. On a fixed 15-a-second beat every picture waited up to 66 ms.
+        """
+        if self.native or self.capture_fallback or self.login_mode:
+            await asyncio.sleep(POLL_INTERVAL_S)
+            return
+        interval = HANDS_ON_INTERVAL_S if self.manual else WATCH_INTERVAL_S
+        rest = interval - (time.monotonic() - started)
+        if rest > 0:
+            await asyncio.sleep(rest)
+        with contextlib.suppress(TimeoutError):
+            async with asyncio.timeout(POLL_INTERVAL_S):
+                await self.frame_ready.wait()
+        self.frame_ready.clear()
+
+    async def load(self, loading: Any) -> None:
+        """Wait for a page load the person started, but only for a moment.
+
+        A page that loads fast is there when this returns, and a refused or
+        failed address is reported, as before. A slow one goes on loading by
+        itself: the person's next click, scroll or address waited behind it
+        for up to 30 s on a slow line. If it fails later the browser shows
+        its own error page.
+        """
+        task = asyncio.ensure_future(loading)
+        self.loads.add(task)
+        task.add_done_callback(self.loaded)
+        done, _ = await asyncio.wait({task}, timeout=LOAD_WAIT_S)
+        if done:
+            task.result()
+
+    def loaded(self, task: asyncio.Future) -> None:
+        self.loads.discard(task)
+        if not task.cancelled() and task.exception() is not None:
+            logging.getLogger(__name__).debug(
+                "Page load did not finish: %s", type(task.exception()).__name__
+            )
+
+    async def wheel(self, page: Any, args: dict) -> None:
+        """Scroll the page without waiting for Chromium's answer to each event.
+
+        Chromium answers a wheel event with the next picture it draws, about
+        30 ms later. Waiting for that, one event after the other, let a
+        two-second trackpad gesture play out for five to eight seconds.
+        Chromium takes the events in the order they arrive, so they are sent
+        as they come and only their number in flight is bounded.
+        """
+        if "x" in args and "y" in args:
+            self.pointer_at = (float(args["x"]), float(args["y"]))
+        if len(self.wheels) >= MAX_WHEELS_IN_FLIGHT:
+            await asyncio.wait(
+                set(self.wheels), timeout=WHEEL_SETTLE_S, return_when=asyncio.FIRST_COMPLETED
+            )
+            if len(self.wheels) >= MAX_WHEELS_IN_FLIGHT:
+                raise RuntimeError("The page does not react to scrolling right now")
+        width, height = self.view_of(page)
+        x, y = self.pointer_at or (width / 2, height / 2)
+        session = await self.input_session(page)
+        sent = asyncio.ensure_future(
+            session.send(
+                "Input.dispatchMouseEvent",
+                {
+                    "type": "mouseWheel",
+                    "x": x,
+                    "y": y,
+                    "deltaX": float(args.get("dx", 0)),
+                    "deltaY": float(args.get("dy", 0)),
+                    "modifiers": 0,
+                },
+            )
+        )
+        self.wheels.add(sent)
+        self.wheel_at = time.monotonic()
+        sent.add_done_callback(lambda done: self.wheel_answered(session, done))
+
+    def wheel_answered(self, session: Any, sent: asyncio.Future) -> None:
+        self.wheels.discard(sent)
+        if sent.cancelled() or sent.exception() is None:
+            return
+        # A page that closed took the event with it; the next one opens a new session.
+        logging.getLogger(__name__).debug(
+            "Wheel event not delivered: %s", type(sent.exception()).__name__
+        )
+        if self.input_cdp is not None and self.input_cdp[1] is session:
+            self.input_cdp = None
+
+    async def wheels_taken(self, page: Any) -> None:
+        """Wait until the page is where the wheel events sent so far put it.
+
+        A click or a key after a scroll must meet the page where the scroll
+        left it, not where it was a moment before. Chromium answers a wheel
+        event when its compositor took it; the page's own scroll position
+        follows with its next frame, so that frame is waited for too.
+        """
+        if self.wheels:
+            await asyncio.wait(set(self.wheels), timeout=WHEEL_SETTLE_S)
+        if time.monotonic() - self.wheel_at >= WHEEL_LANDS_S:
+            return
+        self.wheel_at = 0.0
+        # A page that draws no frame (hung, or closing) does not hold the input.
+        with contextlib.suppress(Exception):
+            async with asyncio.timeout(WHEEL_LANDS_S):
+                await page.evaluate(_NEXT_FRAME)
+
+    async def input_session(self, page: Any) -> Any:
+        """The CDP session for input that is sent without waiting (``wheel``)."""
+        if self.input_cdp is not None and self.input_cdp[0] is page:
+            return self.input_cdp[1]
+        if self.input_cdp is not None:
+            with contextlib.suppress(Exception):
+                await self.input_cdp[1].detach()
+            self.input_cdp = None
+        session = await self.context.new_cdp_session(page)
+        self.input_cdp = (page, session)
+        return session
 
     async def run(self, args: dict) -> dict:
         if self.login_mode or self.manual:
@@ -987,6 +1162,11 @@ class Worker:
         class GatedTools(Tools):
             async def act(self, action, browser_session, *pos, **kw):
                 proposal = action.model_dump(exclude_unset=True)
+                scheme = internal_address(proposal)
+                if scheme:
+                    return ActionResult(
+                        error=f"Only http and https addresses can be opened, not {scheme}://"
+                    )
                 if any(name.startswith("browser_window_") for name in proposal):
                     current = await worker.focused(strict_native=True)
                     current_url = current.url
@@ -1196,6 +1376,7 @@ class Worker:
                     "target": self.target,
                     **self.view_fields(self.page),
                 }
+                self.frame_ready.set()
             return {}
         if op == "viewport":
             # A viewer's panel size. No control of the browser is needed: it
@@ -1269,18 +1450,22 @@ class Worker:
         if self.login_mode:
             return await self.login_navigation(op, args)
         page = await self.focused()
+        if op == "scroll":
+            await self.wheel(page, args)
+            return {}
+        await self.wheels_taken(page)
+        if op in {"click", "move"}:
+            self.pointer_at = (float(args["x"]), float(args["y"]))
         if op == "navigate":
-            from urllib.parse import urlsplit
-
             if urlsplit(args["url"]).scheme not in {"http", "https"}:
                 raise ValueError("Only HTTP(S) website addresses are supported")
-            await page.goto(args["url"], wait_until="domcontentloaded")
+            await self.load(page.goto(args["url"], wait_until="domcontentloaded"))
         elif op == "back":
-            await page.go_back()
+            await self.load(page.go_back())
         elif op == "forward":
-            await page.go_forward()
+            await self.load(page.go_forward())
         elif op == "reload":
-            await page.reload()
+            await self.load(page.reload())
         elif op == "tab":
             await self.ensure_browser()
             from browser_use.browser.events import SwitchTabEvent  # type: ignore[import-not-found]
@@ -1309,10 +1494,6 @@ class Worker:
                 )
         elif op == "move":
             await page.mouse.move(float(args["x"]), float(args["y"]))
-        elif op == "scroll":
-            if "x" in args and "y" in args:
-                await page.mouse.move(float(args["x"]), float(args["y"]))
-            await page.mouse.wheel(float(args.get("dx", 0)), float(args.get("dy", 0)))
         elif op == "text":
             await page.keyboard.insert_text(str(args["text"]))
         elif op == "key":
