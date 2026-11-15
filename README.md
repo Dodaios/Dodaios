@@ -38,13 +38,11 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4">
-    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/hero.webp" alt="A 33-second recording of Dodaios at work. In the chat, the person asks the assistant, Nova, to review the new pull requests of a project with one Sonnet agent each and to put the verdicts on a slide deck. Agent threads start under Nova's answer. One click opens the first in the Agentic IDE, and two more open beside it: three coding agents read diffs and run commands side by side, then finish their reviews. Back in the chat, Nova answers under the card of a slide deck. The deck opens, the title of its second slide is changed by hand to What we merge this week, and the deck is presented." width="100%" />
-  </a>
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/hero.webp" alt="A 33-second recording of Dodaios at work. In the chat, the person asks the assistant, Nova, to review the new pull requests of a project with one Sonnet agent each and to put the verdicts on a slide deck. Agent threads start under Nova's answer. One click opens the first in the Agentic IDE, and two more open beside it: three coding agents read diffs and run commands side by side, then finish their reviews. Back in the chat, Nova answers under the card of a slide deck. The deck opens, the title of its second slide is changed by hand to What we merge this week, and the deck is presented." width="100%" />
 </p>
 
 <p align="center">
-  <sub>A real recording of the app, cut from a take of about three minutes. The waits for the models are cut out, and the rest plays 1.18 times as fast. Nova runs on Claude Opus 5.5 and starts five Claude Sonnet 5.5 agents through Claude Code, signed in to a Claude plan. The pull requests, the reviews and the deck are real. <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><b>Watch it as a video</b></a></sub>
+  <sub>A real recording of the app, cut from a take of about three minutes. The waits for the models are cut out, and the rest plays 1.18 times as fast. Nova runs on Claude Opus 5.5 and starts five Claude Sonnet 5.5 agents through Claude Code, signed in to a Claude plan. The pull requests, the reviews and the deck are real. <a href="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.mp4"><b>Download it as a video</b></a> (MP4, 1920 x 1080, 4 MB)</sub>
 </p>
 
 ## Install

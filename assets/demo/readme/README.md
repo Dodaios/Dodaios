@@ -6,7 +6,7 @@ for each pillar. They are in this folder:
 | File | Where it plays | What it shows |
 |---|---|---|
 | `hero.webp` | at the top | One request to the assistant crosses the chat, the Agentic IDE with three coding agents side by side, and a slide deck changed by hand. 33 s, 1120 x 630, 24 frames a second |
-| `dodaios-demo.mp4` | linked from the clip at the top | The same recording as a video, 1920 x 1080, 60 frames a second, without sound. GitHub plays it on the file's page |
+| `dodaios-demo.mp4` | linked under the clip at the top, as a download | The same recording as a video, 1920 x 1080, 60 frames a second, without sound. GitHub shows no player for it on the file's page (too large to show), and `raw.githubusercontent.com` sends it as a download |
 | `assistant.webp` | An assistant that does the work | The assistant answers a question with the GitHub plugin. 15 s, 1280 x 720 |
 | `agents.webp` | Your coding agents, side by side | Three coding agents side by side, then the rail of coding agents in a thread's picker. 15 s, 1280 x 720 |
 | `nodes.webp` | Docs, decks, sheets and whiteboards | A whiteboard made from a sentence and changed by hand. 16 s, 1280 x 720 |

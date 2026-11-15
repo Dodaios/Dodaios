@@ -39,13 +39,11 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4">
-    <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/hero.webp" alt="一段 33 秒的 Dodaios 工作录屏。用户在对话中请助手 Nova 审阅一个项目里新的拉取请求，每个拉取请求派一个 Sonnet 智能体，并把结论做成一份幻灯片。智能体线程在 Nova 的回答下方启动。点一下，第一个线程在 Agentic IDE 中打开，另外两个并排打开：三个编程智能体并排阅读差异、运行命令，然后完成审阅。回到对话，Nova 在一份幻灯片的卡片下作答。幻灯片打开，第二张的标题被手动改为 What we merge this week，然后开始放映。" width="100%" />
-  </a>
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/hero.webp" alt="一段 33 秒的 Dodaios 工作录屏。用户在对话中请助手 Nova 审阅一个项目里新的拉取请求，每个拉取请求派一个 Sonnet 智能体，并把结论做成一份幻灯片。智能体线程在 Nova 的回答下方启动。点一下，第一个线程在 Agentic IDE 中打开，另外两个并排打开：三个编程智能体并排阅读差异、运行命令，然后完成审阅。回到对话，Nova 在一份幻灯片的卡片下作答。幻灯片打开，第二张的标题被手动改为 What we merge this week，然后开始放映。" width="100%" />
 </p>
 
 <p align="center">
-  <sub>真实应用的录屏，剪自一段约三分钟的录制：等待模型的时间被剪掉，其余部分以 1.18 倍速播放。Nova 使用 Claude Opus 5.5，并通过已登录 Claude 套餐的 Claude Code 启动五个 Claude Sonnet 5.5 智能体。拉取请求、审阅和幻灯片都是真实的。<a href="https://github.com/Dodaios/Dodaios/blob/main/assets/demo/readme/dodaios-demo.mp4"><b>以视频观看</b></a></sub>
+  <sub>真实应用的录屏，剪自一段约三分钟的录制：等待模型的时间被剪掉，其余部分以 1.18 倍速播放。Nova 使用 Claude Opus 5.5，并通过已登录 Claude 套餐的 Claude Code 启动五个 Claude Sonnet 5.5 智能体。拉取请求、审阅和幻灯片都是真实的。<a href="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.mp4"><b>下载视频</b></a>（MP4，1920 x 1080，4 MB）</sub>
 </p>
 
 ## 安装
