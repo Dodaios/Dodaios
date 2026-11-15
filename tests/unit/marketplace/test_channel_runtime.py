@@ -81,3 +81,28 @@ async def test_reload_failure_returns_false(monkeypatch) -> None:
     monkeypatch.setattr(cr, "load_config", lambda: fake_cfg)
 
     assert await cr.apply_channel_live(state, "discord") is False
+
+
+@pytest.mark.asyncio
+async def test_a_passing_reload_failure_says_it_keeps_trying(monkeypatch, caplog) -> None:
+    """No network while connecting: the manager starts it later by itself."""
+
+    class _OfflineManager(_FakeManager):
+        async def reload(self, name: str) -> None:
+            raise RuntimeError("Telegram getMe failed: TimedOut: Timed out")
+
+        def retrying(self) -> list[str]:
+            return ["telegram"]
+
+    bridge = _FakeBridge()
+    state = types.SimpleNamespace(channel_manager=_OfflineManager(), channel_chat_bridge=bridge)
+    fake_cfg = types.SimpleNamespace(
+        integrations=types.SimpleNamespace(telegram="TG", discord="DC")
+    )
+    monkeypatch.setattr(cr, "load_config", lambda: fake_cfg)
+
+    with caplog.at_level("WARNING"):
+        assert await cr.apply_channel_live(state, "telegram") is False
+    assert "trying again in the background" in caplog.text
+    assert "next start" not in caplog.text
+    assert bridge.refreshed == []  # bound when the retry starts it (late-start listener)

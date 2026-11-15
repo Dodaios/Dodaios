@@ -202,7 +202,14 @@ class DiscordChannel:
             ) from exc
         except Exception as exc:  # noqa: BLE001
             await self._safe_close_client()
+            # Chained on purpose: the channel manager reads the cause's type
+            # (no network yet, a timeout) to decide whether to try again.
             raise ChannelStartError(f"Discord login failed: {exc}") from exc
+        except BaseException:
+            # Cancelled mid-login (a stop or the shutdown ended a background
+            # retry): close the HTTP session discord.py opened.
+            await self._safe_close_client()
+            raise
 
         self._client_task = asyncio.create_task(
             self._run_client(), name="discord-gateway"

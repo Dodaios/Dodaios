@@ -64,6 +64,19 @@ def test_work_counts_routines_runs_and_channels() -> None:
     assert "telegram" in work.describe()
 
 
+def test_a_channel_still_being_retried_is_kept() -> None:
+    """No network yet at login: Telegram is not started but will be."""
+
+    class _Retrying(_Channels):
+        def retrying(self) -> list[str]:
+            return ["telegram"]
+
+    state = SimpleNamespace(task_scheduler=_Scheduler(0, 0), channel_manager=_Retrying("web"))
+    work = bg.work_from_state(state)
+    assert work.channels == ("telegram",)
+    assert work
+
+
 def test_no_scheduler_and_no_channels_is_no_work() -> None:
     assert not bg.work_from_state(SimpleNamespace())
     assert not bg.work_from_state(_state())

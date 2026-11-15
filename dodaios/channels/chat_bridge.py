@@ -60,8 +60,15 @@ class ChannelChatBridge:
         self._replies: set[asyncio.Task[None]] = set()
         self._phone_allows = phone_allows or _phone_allows
         self._sent: dict[tuple[str, str], float] = {}
+        self._stopped = False
 
     def start(self) -> None:
+        self._stopped = False
+        # A channel that comes up later, on a background retry (no network
+        # yet at login), gets its consumer then, like one started with the app.
+        add_listener = getattr(self._manager, "add_late_start_listener", None)
+        if callable(add_listener):
+            add_listener(self._on_late_start)
         for name in self._manager.started():
             if name in self._tasks:
                 continue
@@ -77,6 +84,12 @@ class ChannelChatBridge:
         log.info("ChannelChatBridge started for channels: %s", sorted(self._tasks))
 
     async def stop(self) -> None:
+        # From here on no consumer is added: a channel that a retry starts
+        # during the shutdown must not leave one behind.
+        self._stopped = True
+        remove_listener = getattr(self._manager, "remove_late_start_listener", None)
+        if callable(remove_listener):
+            remove_listener(self._on_late_start)
         if not self._tasks:
             return
         tasks = list(self._tasks.values())
@@ -84,7 +97,11 @@ class ChannelChatBridge:
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-        log.info("ChannelChatBridge gestoppt")
+        log.info("ChannelChatBridge stopped")
+
+    async def _on_late_start(self, name: str) -> None:
+        """A background retry started ``name``: consume its inbox from now on."""
+        await self.refresh(name)
 
     async def refresh(self, name: str) -> None:
         """Rebind the consumer for ``name`` to the manager's current instance.
@@ -94,12 +111,18 @@ class ChannelChatBridge:
         now-detached ``messages()`` iterator, so inbound messages on the new
         instance would never reach the bus. This cancels the stale consumer and
         spawns a fresh one bound to ``manager.get(name)``. Idempotent and
-        no-op-safe if the channel is unknown.
+        no-op-safe if the channel is unknown. A channel that a background
+        retry started late is bound the same way. Does nothing once the bridge
+        is stopped.
         """
+        if self._stopped:
+            return
         task = self._tasks.pop(name, None)
         if task is not None:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
+            if self._stopped:  # stopped while the old consumer ended
+                return
         try:
             channel = self._manager.get(name)
         except Exception as exc:  # noqa: BLE001
@@ -109,7 +132,8 @@ class ChannelChatBridge:
             self._consume(name, channel),
             name=f"channel-chat-bridge:{name}",
         )
-        log.info("ChannelChatBridge consumer rebound for '%s'", name)
+        how = "rebound" if task is not None else "bound"
+        log.info("ChannelChatBridge consumer %s for '%s'", how, name)
 
     async def _consume(self, name: str, channel: ChannelAdapter) -> None:
         try:
