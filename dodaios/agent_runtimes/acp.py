@@ -37,7 +37,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Final, Protocol
 
-from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.events import make_event, plan_steps, plan_update_events
 from dodaios.agent_chat.turn_errors import gateway_unavailable_reason
 from dodaios.core.mcp_names import CLI_TOOL_PREFIX, TOOLS_SERVER_NAMES, cli_tool_name
 
@@ -238,6 +238,9 @@ class AcpTurn:
     _cancel_sent: bool = field(default=False, init=False)
     #: Text was shown after the last tool call (``_flush_text``).
     _text_since_tool: bool = field(default=False, init=False)
+    #: The agent's to-do list as it was last told, and how often it was told.
+    _plan: list[dict[str, str]] = field(default_factory=list, init=False)
+    _plan_calls: int = field(default=0, init=False)
 
     # ------------------------------------------------------------------ frames
 
@@ -581,8 +584,23 @@ class AcpTurn:
                     make_event("usage_delta", {"turn_id": self.turn_id, "usage": dict(self.usage)})
                 )
             return
-        # plan, available_commands_update, current_mode_update,
-        # session_info_update, user_message_chunk: nothing the timeline shows.
+        if kind == "plan":
+            # The agent's to-do list, whole on every update: told as a list
+            # call when it changed, so the thread shows it as a checklist.
+            steps = plan_steps(update.get("entries"))
+            if not steps or steps == self._plan:
+                return
+            self._plan = steps
+            self._plan_calls += 1
+            await self._flush_thought(io)
+            await self._flush_text(io)
+            for event in plan_update_events(
+                self.turn_id, f"plan-{self.turn_id}-{self._plan_calls}", steps
+            ):
+                await io.emit(event)
+            return
+        # available_commands_update, current_mode_update, session_info_update,
+        # user_message_chunk: nothing the timeline shows.
 
     async def _tool_start(self, update: dict[str, Any], io: AcpIO) -> None:
         call_id = str(update.get("toolCallId") or uuid.uuid4().hex)

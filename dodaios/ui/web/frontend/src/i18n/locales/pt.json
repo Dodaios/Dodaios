@@ -7852,7 +7852,30 @@
     "setup_step_start": "A iniciar {cli}",
     "tokens_hint": "Entrada {input} tokens novos ({cached} reutilizados da cache) · saída {output} tokens",
     "open_beside": "Mostrar no painel lateral",
-    "open_file_beside": "Mostrar {file} no painel lateral"
+    "open_file_beside": "Mostrar {file} no painel lateral",
+    "plan": {
+      "label": "Lista de tarefas",
+      "progress": "{done} de {total} concluídas",
+      "status_completed": "Concluída",
+      "status_in_progress": "Em andamento",
+      "status_pending": "Pendente",
+      "made_one": "Criou uma lista de tarefas com {count} item",
+      "made_other": "Criou uma lista de tarefas com {count} itens",
+      "completed": "Concluiu {item}",
+      "completed_started": "Concluiu {item}, começou {next}",
+      "completed_n": "Concluiu {count} tarefas",
+      "started": "Começou {item}",
+      "added": "Adicionou {item}",
+      "added_n": "Adicionou {count} tarefas",
+      "removed": "Removeu {item}",
+      "removed_n": "Removeu {count} tarefas",
+      "updated": "Atualizou a lista de tarefas",
+      "cleared": "Esvaziou a lista de tarefas",
+      "done_hidden_one": "{count} concluída",
+      "done_hidden_other": "{count} concluídas",
+      "more_hidden_one": "mais {count}",
+      "more_hidden_other": "mais {count}"
+    }
   },
   "work_trace": {
     "tool_failed": "Uma ação de ferramenta falhou",

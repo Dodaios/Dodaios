@@ -57,6 +57,22 @@ news since it was last opened.
   sub-agent, a `monitor`); when it waits on work none of them named, the
   wait shows one task called "background work". While tasks are open the turn
   waits as long as they run; there is no clock.
+- **To-do list:** a coding agent may keep a to-do list for a longer job and
+  tick its entries off as it goes. The conversation shows the list as one
+  checklist card: a check on what is done, a turning ring on the entry in
+  work, a dashed ring on what is still open. The card stands where the agent
+  last changed the list, so the work on the entry it began reads right under
+  it; a finished turn folds the card with the rest of its work. Earlier
+  changes are steps of the folded rows ("Completed the draft, started the
+  review"), and each opens to the list as it stood then. A list of more than
+  eight entries folds the finished ones on top and the far ones below. The
+  list is read from the agent's own tools: Claude Code's task tools or
+  `TodoWrite`, Codex's plan, an ACP agent's `plan` update, and the list tools
+  of the other CLIs. Claude Code gives its list tools to its newer models
+  only when the host asks, so a coding thread starts it with
+  `CLAUDE_CODE_ENABLE_TODO_TOOLS=true`; the variable set to `false` in the
+  app's own environment leaves them off. Codex's stream says only whether an
+  entry is done, so a Codex list has checks and open entries and no ring.
 - **When a turn ends:** as soon as the CLI sent its final answer, is idle
   and has nothing running in the background. A background task that ends
   after an answer wakes the agent again, and its next answer still belongs

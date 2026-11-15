@@ -27,6 +27,7 @@ import { cliVendor } from "@/lib/cliVendors";
 import { stripInlineMarks } from "@/lib/plainMarks";
 import { resolveToolBrand } from "@/lib/toolBrand";
 import { describeToolStep } from "@/lib/toolStepLabel";
+import { isPlanRead } from "./agentPlan";
 import { isCredentialTool, isQuestionTool, type ReasoningBlock, type TextBlock, type ToolBlock, type TurnBlock, type TurnStatus } from "./reduce";
 import { toolDiff } from "./toolDiff";
 import { traceToolIdentity, traceToolName } from "./traceActivity";
@@ -130,7 +131,7 @@ function humanize(name: string): string {
  */
 const CLI_HELPERS: Record<string, string> = {
   webfetch: "fetch", fetchurl: "fetch",
-  todowrite: "todo", todoread: "todo", updateplan: "todo",
+  todowrite: "todo", updateplan: "todo", writetodos: "todo", taskcreate: "todo", taskupdate: "todo",
   sendmessage: "message",
   listagents: "agents_list",
   taskstop: "stop", killshell: "stop", killbash: "stop",
@@ -197,8 +198,12 @@ export function outputGist(output: string): string {
   return text.replace(/^(?:✅\s*)?[\w.:-]+ (?:result|completed)\s*(?:\r?\n|$)/i, "").trim();
 }
 
-/** Plumbing calls draw nothing: loading a tool's schema, polling a question card. */
+/**
+ * Plumbing calls draw nothing: loading a tool's schema, polling a question
+ * card, an agent reading its own to-do list back.
+ */
 export function isPlumbing(block: ToolBlock): boolean {
+  if (isPlanRead(block.name)) return !block.isError;
   // A poll that failed is told like any failed step: the fold counts it, so the
   // opened work has to show it.
   if (isQuestionTool(block.name) && !block.question) return !block.isError;

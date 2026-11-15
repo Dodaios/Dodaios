@@ -84,7 +84,7 @@ from dodaios.agent_chat.effort import (
     normalize_effort,
     snap_to_ladder,
 )
-from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.events import make_event, plan_steps, plan_update_events
 from dodaios.agent_chat.permissions import (
     default_permission,
     is_permission_mode,
@@ -1102,6 +1102,9 @@ def plan_glm(
 #: Claude Code's switch for its mid-turn "say what you're doing" reminder.
 SILENT_TURN_REMINDER_ENV: Final[str] = "CLAUDE_CODE_SILENT_TURN_REMINDER"
 
+#: Claude Code's switch for the tools an agent keeps its own to-do list with.
+TODO_TOOLS_ENV: Final[str] = "CLAUDE_CODE_ENABLE_TODO_TOOLS"
+
 
 def _plan_claude_code(
     *,
@@ -1125,6 +1128,13 @@ def _plan_claude_code(
         # thread shows for that run. Anthropic's endpoint only: GLM's is never
         # asked for the extra summary call.
         env = {**env, "CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES": "true"}
+    if identity is None and TODO_TOOLS_ENV not in env:
+        # A coding thread: the agent may keep a to-do list for a longer job,
+        # and the thread shows it as a checklist. Claude Code gives its list
+        # tools (TaskCreate, TaskUpdate, ...) to its newer models only when the
+        # host asks for them; older models have them anyway. A person who set
+        # the variable themselves keeps their choice.
+        env = {**env, TODO_TOOLS_ENV: "true"}
     if identity is not None:
         # An assistant's chat (Jarvis or a society seat): every text is a chat
         # message. Claude Code's own "the user hasn't heard from you, say what
@@ -2918,6 +2928,9 @@ class _CodexState:
     #: Sub-agents whose end was already told, so a later ``close_agent`` that
     #: reports them shut down does not turn a finished agent into a stopped one.
     agents_ended: set[str] = field(default_factory=set)
+    #: The agent's to-do list as it was last told, and how often it was told.
+    plan: list[dict[str, str]] = field(default_factory=list)
+    plan_calls: int = 0
 
 
 #: Codex's word for a sub-agent that is still working.
@@ -3096,6 +3109,16 @@ def translate_codex_line(obj: dict[str, Any], st: _CodexState) -> list[dict[str,
         return out
     if itype == "collab_tool_call":
         return _codex_collab_events(item, phase, st)
+    if itype == "todo_list":
+        # Codex's plan (its ``update_plan`` tool) is ONE item: started with the
+        # first list, updated on every change, completed with the turn. Each
+        # change is told as a list call of its own; the closing repeat is not.
+        steps = plan_steps(item.get("items"))
+        if not steps or steps == st.plan:
+            return out
+        st.plan = steps
+        st.plan_calls += 1
+        return plan_update_events(st.turn_id, f"plan-{st.turn_id}-{st.plan_calls}", steps)
     if itype in {"command_execution", "file_change", "mcp_tool_call", "web_search"}:
         if itype == "command_execution":
             name, args = "RunCommand", {"command": str(item.get("command") or "")}

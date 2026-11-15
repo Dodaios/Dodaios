@@ -7852,7 +7852,30 @@
     "setup_step_start": "{cli} starten",
     "tokens_hint": "Eingabe {input} neue Tokens ({cached} weitere aus dem Cache wiederverwendet) · Ausgabe {output} Tokens",
     "open_beside": "In der Seitenleiste anzeigen",
-    "open_file_beside": "{file} in der Seitenleiste anzeigen"
+    "open_file_beside": "{file} in der Seitenleiste anzeigen",
+    "plan": {
+      "label": "Aufgabenliste",
+      "progress": "{done} von {total} erledigt",
+      "status_completed": "Erledigt",
+      "status_in_progress": "In Arbeit",
+      "status_pending": "Offen",
+      "made_one": "Aufgabenliste mit {count} Punkt angelegt",
+      "made_other": "Aufgabenliste mit {count} Punkten angelegt",
+      "completed": "Erledigt: {item}",
+      "completed_started": "Erledigt: {item}, begonnen: {next}",
+      "completed_n": "{count} Punkte erledigt",
+      "started": "Begonnen: {item}",
+      "added": "Hinzugefügt: {item}",
+      "added_n": "{count} Punkte hinzugefügt",
+      "removed": "Entfernt: {item}",
+      "removed_n": "{count} Punkte entfernt",
+      "updated": "Aufgabenliste aktualisiert",
+      "cleared": "Aufgabenliste geleert",
+      "done_hidden_one": "{count} erledigt",
+      "done_hidden_other": "{count} erledigt",
+      "more_hidden_one": "{count} weiterer",
+      "more_hidden_other": "{count} weitere"
+    }
   },
   "work_trace": {
     "tool_failed": "Eine Tool-Aktion ist fehlgeschlagen",
