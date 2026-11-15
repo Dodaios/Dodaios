@@ -753,14 +753,27 @@ export async function discardQueuedMessage(sessionId: string, queueId: string): 
  */
 export type SendDelivery = "now" | "after";
 
+/** What a send came to: a turn, a steered turn, a place in the queue, or a ritual. */
+export interface SentMessage {
+  turn_id: string;
+  steered?: boolean;
+  queued?: boolean;
+  queue_id?: string;
+  /**
+   * The id of the ritual the message started. Its card in the conversation is
+   * the answer: no turn was started for the message.
+   */
+  ritual?: string;
+}
+
 export async function sendAgentChatMessage(
   sessionId: string,
   text: string,
   attachments: ChatAttachment[] = [],
   toolChoices: string[] = [],
   delivery?: SendDelivery,
-): Promise<{ turn_id: string; steered?: boolean; queued?: boolean; queue_id?: string }> {
-  const result = await json<{ turn_id: string; steered?: boolean; queued?: boolean; queue_id?: string }>(
+): Promise<SentMessage> {
+  const result = await json<SentMessage>(
     await fetch(`/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

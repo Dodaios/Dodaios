@@ -659,6 +659,21 @@ describe("thread running state stays in step with the turn", () => {
     expect(runningForTimeline(turnDone, false, { now: t0 + 10, sentAtMs: t0 })).toBe(true);
     // A turn that started after the send answers it.
     expect(runningForTimeline(turnDone, false, { now: t0 + 10, sentAtMs: t0 - 6000 })).toBe(false);
+    // A ritual's phrase is answered by the card under it: no turn is on the way.
+    const card = (data: Record<string, unknown>) => ({
+      type: "notice" as const, id: "n3", kind: "society_result", text: "", agentName: "", agentId: "",
+      status: "done", tsMs: t0 + 5, data, resolved: "",
+    });
+    const started: Timeline = { ...asked, items: [...asked.items, card({ source: "ritual" })] };
+    expect(runningForTimeline(started, false, { now: t0 + 2000 })).toBe(false);
+    // What a ritual gathered later, or any other notice, answers no message.
+    const late: Timeline = { ...asked, items: [...asked.items, card({ source: "ritual", late: true })] };
+    const routine: Timeline = { ...asked, items: [...asked.items, card({ source: "routine" })] };
+    expect(runningForTimeline(late, false, { now: t0 + 2000 })).toBe(true);
+    expect(runningForTimeline(routine, false, { now: t0 + 2000 })).toBe(true);
+    // A message typed after the ritual's card is a turn about to start again.
+    const next: Timeline = { ...started, items: [...started.items, { type: "user", id: "u4", text: "and now?", attachments: [], tsMs: t0 + 100 }] };
+    expect(runningForTimeline(next, false, { now: t0 + 2000 })).toBe(true);
     // No turn and no message yet: the report decides.
     expect(runningForTimeline(EMPTY_TIMELINE, true)).toBe(true);
   });

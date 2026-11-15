@@ -457,8 +457,15 @@ const PRELOAD_LIMIT = 2;
  * for `TURN_START_GRACE_MS` it counts as running, so the stop control and the
  * row's spinner do not drop in the seconds before `turn_started`, and a
  * queued message is not flushed into that gap. After the grace the report
- * decides again.
+ * decides again. A message that started a ritual is the exception: the
+ * ritual's card under it is its answer.
  */
+/** The card a started ritual puts under the phrase that started it (not the one that follows later). */
+function isRitualStart(item: Timeline["items"][number]): boolean {
+  return item.type === "notice" && item.kind === "society_result"
+    && item.data.source === "ritual" && item.data.late !== true;
+}
+
 export function runningForTimeline(
   timeline: Timeline,
   reported: boolean | undefined,
@@ -467,13 +474,20 @@ export function runningForTimeline(
   if (runningTurn(timeline) !== null) return true;
   let lastTurn: TurnItem | null = null;
   let askedAt: number | null = null;
+  let newestMessageSeen = false;
+  let answeredByRitual = false;
   for (let i = timeline.items.length - 1; i >= 0; i -= 1) {
     const item = timeline.items[i];
     if (item.type === "turn") {
       lastTurn = item;
       break;
     }
-    if (item.type === "user" && askedAt === null) askedAt = item.tsMs;
+    // A ritual's phrase is answered by the card under it: no turn is on the way.
+    if (!newestMessageSeen && isRitualStart(item)) answeredByRitual = true;
+    if (item.type === "user" && !newestMessageSeen) {
+      newestMessageSeen = true;
+      if (!answeredByRitual) askedAt = item.tsMs;
+    }
   }
   const sent = opts.sentAtMs;
   if (sent !== undefined && (lastTurn === null || lastTurn.startedMs <= sent)) askedAt = Math.max(askedAt ?? 0, sent);
@@ -1318,7 +1332,13 @@ export function createAgentChatStore(
           // a message sent right after Stop waits for that instead of
           // bouncing off the busy session.
           await stopping.get(sid);
-          await sendAgentChatMessage(sid, content, attachments, toolChoices, delivery);
+          const sent = await sendAgentChatMessage(sid, content, attachments, toolChoices, delivery);
+          if (sent.ritual) {
+            // The message was a ritual's phrase: its card is the answer and no
+            // turn is on the way, so nothing here pretends one is.
+            if (surface === "jarvis") writeDraft(DRAFT_KEY, st.draft);
+            return isVisible() ? "sent" as const : "stale" as const;
+          }
           // The message is in: its turn is on the way even before the socket
           // says so, and the stop control and the row's spinner show it.
           sentAt.set(sid, Date.now());
