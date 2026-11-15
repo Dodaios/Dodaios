@@ -154,19 +154,33 @@ function execCommandCopy(text: string): boolean {
   ta.style.top = "0";
   ta.style.opacity = "0";
   ta.setAttribute("readonly", "");
-  document.body.appendChild(ta);
+  // Inside a modal dialog (Radix focus trap) a textarea on <body> can never
+  // take focus: the trap pulls focus straight back, nothing is selected and
+  // execCommand("copy") copies nothing — sometimes while still returning true,
+  // which made the "Copy" button of the connect dialogs look broken. Mount the
+  // textarea inside the open dialog instead, so the trap lets it keep focus.
+  const host =
+    (document.activeElement instanceof Element
+      ? document.activeElement.closest('[role="dialog"], dialog')
+      : null) ?? document.querySelector('[role="dialog"][data-state="open"]') ?? document.body;
+  const previouslyFocused = document.activeElement;
+  host.appendChild(ta);
   // Important: focus + select must happen before execCommand runs,
   // otherwise WebView2 has nothing to copy.
   ta.focus();
   ta.select();
   ta.setSelectionRange(0, text.length);
+  // Without focus there is no selection to copy; do not trust execCommand.
   let ok = false;
-  try {
-    ok = document.execCommand("copy");
-  } catch {
-    ok = false;
+  if (document.activeElement === ta) {
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      ok = false;
+    }
   }
-  document.body.removeChild(ta);
+  host.removeChild(ta);
+  if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
   return ok;
 }
 
