@@ -322,6 +322,10 @@ async def test_startup_reuses_durable_chrome_pin_and_never_falls_back_if_invalid
     monkeypatch.setitem(
         sys.modules, "page_cursor", SimpleNamespace(install_cursor=pw.install_cursor)
     )
+    # The worker loads its request check by its bare name, like its other helpers.
+    from dodaios.society.browser import request_guard
+
+    monkeypatch.setitem(sys.modules, "request_guard", request_guard)
 
     def read_pin(profile):
         if pinned == "invalid":

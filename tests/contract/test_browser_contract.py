@@ -769,6 +769,74 @@ async def test_hover_motion_coalesces_and_never_delays_or_drops_clicks(monkeypat
     ]
 
 
+async def test_a_trackpad_scroll_is_not_played_out_event_by_event(monkeypatch):
+    """Wheel events that arrive while the browser is busy reach it as one."""
+    import asyncio
+
+    from starlette.websockets import WebSocketDisconnect
+
+    from dodaios.ui.web import society_browser_routes as routes
+
+    clicked = asyncio.Event()
+    all_read = asyncio.Event()
+    seen: list[tuple[str, float | None]] = []
+
+    class Live:
+        async def subscribe(self, agent):
+            return SimpleNamespace(state={}, generation="g", control_owner=None), asyncio.Queue()
+
+        async def control(self, _session, _owner, op, args):
+            seen.append((op, args.get("dy")))
+            await all_read.wait()
+            if op == "click":
+                clicked.set()
+            return {}
+
+        async def unsubscribe(self, *args):
+            pass  # Nothing to release in this fake.
+
+    class Socket:
+        scope = {}
+        reads = 0
+
+        async def accept(self):
+            pass  # Test socket has no transport to accept.
+
+        async def close(self, **kwargs):
+            pass  # Test socket has no transport to close.
+
+        async def receive_json(self):
+            self.reads += 1
+            # Two seconds of a 120 Hz trackpad; 400 single inputs overflowed the queue.
+            if self.reads <= 400:
+                return {"op": "scroll", "args": {"x": 5, "y": 5, "dx": 0, "dy": 10}}
+            if self.reads == 401:
+                all_read.set()
+                return {"op": "click", "args": {"x": 9, "y": 9}}
+            await clicked.wait()
+            raise WebSocketDisconnect()
+
+        async def send_json(self, value):
+            assert value.get("ok") is not False, value
+
+    async def resolve(_):
+        return SimpleNamespace(agent_id="test")
+
+    async def runtime(_):
+        return SimpleNamespace(
+            roster=SimpleNamespace(resolve=resolve), browser=SimpleNamespace(live=Live())
+        )
+
+    monkeypatch.setattr(routes, "_runtime", runtime)
+    monkeypatch.setattr(routes, "credentials_valid", lambda _: True)
+    await asyncio.wait_for(routes.agent_browser_live(Socket(), "test"), 2)
+    scrolls = [dy for op, dy in seen if op == "scroll"]
+    # The one in flight, then everything that waited behind it as one input.
+    assert len(scrolls) <= 3
+    assert sum(scrolls) == 4000
+    assert seen[-1] == ("click", None)
+
+
 @pytest.mark.parametrize(
     "detail",
     [
