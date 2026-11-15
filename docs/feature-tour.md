@@ -136,7 +136,8 @@ each of them local or hosted, or one live model that listens and speaks.
 Dictation types what you say into the app you are working in. Away from the
 desk, the phone app continues the same conversation: it shows what waits for
 your yes, takes voice notes and sends a push when something needs you. Your
-private Telegram chat with your own bot continues it too.
+private chat with your own Telegram bot or your own Slack app continues it
+too.
 [Voice conversations](product/everyday-use/voice-conversations.md) ·
 [Dictation](product/everyday-use/dictation.md) ·
 [Phone app](mobile-companion.md)
