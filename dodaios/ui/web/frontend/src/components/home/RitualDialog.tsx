@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronDown, ChevronRight, Sparkles, X, Zap, type LucideIcon } from "lucide-react";
 
@@ -247,6 +247,36 @@ function Phrases({ phrases, typed, max, maxChars, onChange }: {
   );
 }
 
+/**
+ * A step's sentence, shown whole: the field looks like the one-line field and
+ * grows with what is written, so a long sentence is never cut at the edge.
+ * A step is one sentence, so Enter adds no line.
+ */
+function Sentence({ value, className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { value: string }) {
+  const field = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const element = field.current;
+    // Without a layout (a test's document) there is no height to follow.
+    if (!element || element.scrollHeight === 0) return;
+    element.style.height = "auto";
+    // The border counts: the field's height includes it, its scroll height does not.
+    element.style.height = `${element.scrollHeight + element.offsetHeight - element.clientHeight}px`;
+  }, [value]);
+
+  return (
+    <textarea ref={field} rows={1} value={value}
+      onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }}
+      className={cn(
+        "block min-h-9 w-full resize-none overflow-hidden rounded-md border border-border-strong bg-input px-3 py-1.5 text-base leading-snug text-foreground",
+        "placeholder:text-foreground-faint",
+        "transition-colors focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        className,
+      )}
+      {...props} />
+  );
+}
+
 /** The words of the two kinds of step: what happens the moment the phrase is said, and what is gathered before. */
 const STEP_WORDS: Record<RitualWhen, { add: string; label: string; remove: string; placeholder: string }> = {
   now: { add: "rituals.now_add", label: "rituals.now_step", remove: "rituals.now_remove", placeholder: "rituals.now_placeholder" },
@@ -273,14 +303,14 @@ function Steps({ when, icon: Icon, rows, focusKey, canAdd, maxChars, onChange, o
         // Only a step for the moment can come down to one tool call.
         const call = when === "now" ? callOf(row) : undefined;
         return (
-          <div key={row.key} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 pb-1.5">
-            <Icon aria-hidden strokeWidth={1.75} className={PANEL_ICON} />
-            <Input data-testid={`ritual-${when}-${index}`} aria-label={fill(t(words.label), { n: index + 1 })}
+          <div key={row.key} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2.5 pb-1.5">
+            <Icon aria-hidden strokeWidth={1.75} className={cn(PANEL_ICON, "mt-2.5")} />
+            <Sentence data-testid={`ritual-${when}-${index}`} aria-label={fill(t(words.label), { n: index + 1 })}
               placeholder={t(words.placeholder)} value={row.text} maxLength={maxChars} autoFocus={row.key === focusKey}
-              onChange={(event) => onChange(rows.map((other) => (other.key === row.key ? { ...other, text: event.target.value } : other)))} />
+              onChange={(event) => onChange(rows.map((other) => (other.key === row.key ? { ...other, text: event.target.value.replace(/\s*\n\s*/g, " ") } : other)))} />
             <button type="button" data-testid={`ritual-${when}-remove-${index}`} aria-label={fill(t(words.remove), { n: index + 1 })}
               onClick={() => onChange(rows.filter((other) => other.key !== row.key))}
-              className={cn("shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground", FOCUS)}>
+              className={cn("mt-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground", FOCUS)}>
               <X aria-hidden strokeWidth={1.75} className="h-4 w-4" />
             </button>
             {/* What the sentence comes down to, under it: this step needs no model and is done without a wait. */}
