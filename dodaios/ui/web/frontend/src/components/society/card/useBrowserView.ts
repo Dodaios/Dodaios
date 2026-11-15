@@ -261,10 +261,17 @@ export function useBrowserView(agentId: string, enabled = true) {
                   }
                 }
               }
-              setState((s) => ({ ...s, controlPending: false, error: event.ok ? "" : event.error,
-                loginMode: typeof event.login_mode === "boolean" ? event.login_mode : s.loginMode,
-                loginReady: typeof event.login_ready === "boolean" ? event.login_ready : s.loginReady,
-                manual: typeof event.manual === "boolean" ? event.manual : s.manual }));
+              setState((s) => {
+                const next = { ...s, controlPending: false, error: event.ok ? "" : event.error,
+                  loginMode: typeof event.login_mode === "boolean" ? event.login_mode : s.loginMode,
+                  loginReady: typeof event.login_ready === "boolean" ? event.login_ready : s.loginReady,
+                  manual: typeof event.manual === "boolean" ? event.manual : s.manual };
+                // The answer to a scroll or a key changes nothing the view
+                // shows, and they come many times a second: no redraw for them.
+                return next.controlPending === s.controlPending && next.error === s.error
+                  && next.loginMode === s.loginMode && next.loginReady === s.loginReady
+                  && next.manual === s.manual ? s : next;
+              });
             } else if (event.kind === "control_pending") {
               setState((s) => ({ ...s, controlPending: true }));
             } else if (event.kind === "approval") {
