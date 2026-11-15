@@ -302,3 +302,31 @@ describe("robustPasteFiles", () => {
     await expect(robustPasteFiles()).resolves.toBeNull();
   });
 });
+
+describe("robustCopy inside a modal dialog", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    document.body.innerHTML = "";
+    restoreProperty(navigator, "clipboard", originalClipboard);
+    restoreProperty(document, "execCommand", originalExecCommand);
+  });
+
+  it("mounts the copy textarea inside the open dialog so a focus trap cannot steal it", async () => {
+    document.body.innerHTML = '<div role="dialog" data-state="open"><button id="copy">Copy</button></div>';
+    const button = document.getElementById("copy") as HTMLButtonElement;
+    button.focus();
+    let parentRole: string | null = null;
+    stubClipboard(vi.fn(async () => Promise.reject(new Error("blocked"))));
+    stubExecCommand(() => {
+      parentRole = document.activeElement?.parentElement?.getAttribute("role") ?? null;
+      return true;
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false })));
+
+    await expect(robustCopy("https://example.test/oauth")).resolves.toBe(true);
+
+    expect(parentRole).toBe("dialog");
+    expect(document.activeElement).toBe(button);
+  });
+});
