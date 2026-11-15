@@ -179,6 +179,23 @@ describe("foldReminderNotices", () => {
 });
 
 describe("noticeRow", () => {
+  test("a dated memory that is not from a calendar is the person's own, never an appointment", () => {
+    // The scheduler's payload for a task memory with a due date: no reminder flag, Dodaios' own source.
+    const task = told("n1", { memory_id: "m1", reminder: false, source: "dodaios", title: "Book the hotels", text: "Book the hotels" });
+    expect(noticeRow(task)).toMatchObject({ reminder: true, source: "dodaios" });
+    // An older notice without a source: only the calendar sync's wording makes it an appointment.
+    const old = told("n2", { memory_id: "m2", reminder: false, text: "Plan the trip" });
+    expect(noticeRow(old)).toMatchObject({ reminder: true, source: "dodaios" });
+    const oldAppointment = told("n3", { memory_id: "m3", reminder: false, text: "Appointment: Dentist on 2026-11-14 10:15." });
+    expect(noticeRow(oldAppointment)).toMatchObject({ reminder: false, source: undefined });
+  });
+
+  test("such an item reads as the person's own reminder in the chat", () => {
+    show(told("n4", { memory_id: "m4", reminder: false, source: "dodaios", title: "Book the hotels", text: "Book the hotels" }));
+    expect(screen.getByTestId("reminder-message").textContent).toContain("You asked me to remind you: Book the hotels");
+    expect(screen.getByTestId("reminder-message").textContent).not.toMatch(/Calendar/);
+  });
+
   test("reads the item's fields from the notice", () => {
     expect(noticeRow(appointment("n1", "ev_9", "Dentist"))).toMatchObject({
       id: "ev_9", reminder: false, source: "google_calendar", title: "Dentist", start: "2026-11-14T09:15:00Z",
