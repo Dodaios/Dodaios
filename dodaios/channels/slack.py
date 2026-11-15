@@ -282,6 +282,10 @@ class SlackChannel:
         if self._started:
             return
         if not self._cfg.enabled:
+            # Like every channel, a switched-off one still listens on the bus
+            # (the channel contract); it has nothing to route, so it stays idle.
+            self._event_handler_ref = self._on_bus_event
+            self._bus.subscribe_all(self._event_handler_ref)
             self._started = True
             log.info("SlackChannel disabled (config.enabled=False) — skipping")
             return
