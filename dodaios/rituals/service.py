@@ -472,21 +472,15 @@ def now_prompt(ritual: Ritual, steps: Sequence[RitualStep]) -> str:
     )
 
 
-def card_text(ritual: Ritual, day: RitualDay | None) -> str:
-    """The body of the card a started ritual puts into the conversation."""
-    parts: list[str] = []
+def card_text(day: RitualDay | None) -> str:
+    """The body of a ritual's card: what was gathered ahead for it.
+
+    The steps for the moment are not listed there. The chat draws the card as
+    the assistant's answer to the phrase, and those steps answer for
+    themselves: a call is simply done, a turn says what it did.
+    """
     written = (day.written if day is not None else "").strip()
-    if written:
-        parts.append(written)
-    now_steps = ritual.steps_at("now")
-    if now_steps:
-        parts.append("\n".join(f"- {step.text}" for step in now_steps))
-    return "\n\n".join(parts)[:_MAX_CARD_CHARS]
-
-
-def card_text_late(day: RitualDay) -> str:
-    """The body of the second card: what was gathered, once it is there."""
-    return day.written.strip()[:_MAX_CARD_CHARS]
+    return written[:_MAX_CARD_CHARS]
 
 
 async def _lead_chat() -> tuple[Any, Any, Any]:
@@ -532,7 +526,7 @@ async def _post_card(
         ritual,
         {
             "via": via,
-            "text": card_text(ritual, day),
+            "text": card_text(day),
             "pending": pending,
             # The person started it where they are; their phone stays quiet.
             "push": False,
@@ -554,7 +548,7 @@ async def deliver_late(ritual: Ritual, day: str) -> None:
     if row is None or row.fired_ms is None or row.delivered_ms is not None:
         return
     if prepare.usable(ritual, row):
-        await _post(ritual, {"via": row.fired_via, "late": True, "text": card_text_late(row)})
+        await _post(ritual, {"via": row.fired_via, "late": True, "text": card_text(row)})
         from . import said
 
         # Started by voice: it is also said, when the call is still open.
@@ -737,7 +731,6 @@ __all__ = [
     "Match",
     "SEAT_WAIT_S",
     "card_text",
-    "card_text_late",
     "create",
     "day_of",
     "deliver_late",

@@ -950,8 +950,10 @@ export function Transcript({
 export function NoticeLine({ item }: { item: NoticeItem }) {
   const t = useT();
   if (isRoutineResult(item)) {
+    // The words as the result says them: a ritual that started early adds that the rest follows.
+    const words = societyResultText(t, item);
     return <RoutineResultMessage item={item} look="messenger">
-      {item.text.trim() ? <MessageBubble text={item.text} /> : null}
+      {words.trim() ? <MessageBubble text={words} /> : null}
     </RoutineResultMessage>;
   }
   if (item.kind === "memory_updated") return <MemoryUpdateNotice item={item} />;

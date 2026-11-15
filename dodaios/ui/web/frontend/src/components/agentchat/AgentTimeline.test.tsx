@@ -289,6 +289,56 @@ describe("a routine's result", () => {
   });
 });
 
+describe("a ritual's card", () => {
+  /** What `dodaios/rituals/service.py` posts when a ritual starts, and later. */
+  const card = (more: Record<string, unknown> = {}) => ev("notice", {
+    kind: "society_result", source: "ritual", status: "done", agent_name: "Nova",
+    ritual_id: "rit_1", ritual_title: "Good morning", via: "voice", text: "", push: false, ...more,
+  });
+  const show = (events: AgentChatEvent[]) =>
+    render(<AgentTimeline items={reduceEvents(EMPTY_TIMELINE, events).items} assistantName="Nova" providerLabel={(id) => id} onDecide={() => undefined} bubbles />);
+
+  it("is the assistant's answer to the phrase, under a line that names the ritual", () => {
+    show([card({ text: "## News\n\n- One thing happened." })]);
+    const message = screen.getByTestId("routine-result");
+    expect(within(message).getByTestId("routine-result-line").textContent).toBe("“Good morning” started");
+    expect(within(message).getByTestId("lead-bubble").textContent).toContain("One thing happened.");
+  });
+
+  it("says that the rest follows when nothing was ready, also without words of its own", () => {
+    show([card({ pending: true })]);
+    const message = screen.getByTestId("routine-result");
+    expect(within(message).getByTestId("lead-bubble").textContent).toBe("The rest is being gathered and follows shortly.");
+  });
+
+  it("is its line alone when it owes nothing and has nothing to say", () => {
+    show([card({ pending: false })]);
+    const message = screen.getByTestId("routine-result");
+    expect(within(message).queryByTestId("lead-bubble")).toBeNull();
+    expect(message.textContent).toBe("“Good morning” started");
+  });
+
+  it("brings what was gathered in a second message, or says that nothing could be", () => {
+    show([
+      card({ late: true, text: "- One thing happened." }),
+      card({ late: true, status: "failed", text: "No model answered." }),
+    ]);
+    expect(screen.getAllByTestId("routine-result-line").map((line) => line.textContent))
+      .toEqual(["“Good morning”: what was gathered", "“Good morning”: gathering failed"]);
+    expect(screen.getByText("One thing happened.")).toBeTruthy();
+    expect(screen.getByText("No model answered.")).toBeTruthy();
+  });
+
+  it("is never folded into the quiet line of background work", () => {
+    show([
+      ev("notice", { kind: "memory_learned", text: "Noted something." }, 1000),
+      card({ pending: true }),
+      ev("notice", { kind: "memory_learned", text: "Noted more." }, 1200),
+    ]);
+    expect(screen.getAllByTestId("routine-result")).toHaveLength(1);
+  });
+});
+
 describe("the conversation look's time stamps", () => {
   afterEach(() => { vi.useRealTimers(); });
   const user = (id: string, tsMs: number) =>

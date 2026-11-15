@@ -7,6 +7,7 @@ import { PanelActivity } from "@/components/home/PanelActivity";
 import { PanelComputers } from "@/components/home/PanelComputers";
 import { PanelOutputs } from "@/components/home/PanelOutputs";
 import { PanelReach } from "@/components/home/PanelReach";
+import { PanelRituals } from "@/components/home/PanelRituals";
 import { ASSISTANT_ID, PanelRoutines } from "@/components/home/PanelRoutines";
 import { useVoiceModeSwitch } from "@/components/home/assistantStatus";
 import { chatRowLabel, useChatRows } from "@/components/home/chatRows";
@@ -23,9 +24,10 @@ import { useEventStore } from "@/store/events";
 import { useSettingsJump } from "@/store/settingsJump";
 import { useSoulProfile, type SoulFileId } from "@/views/assistant/api";
 
-// A routine's or a file's own page is only fetched when one is opened.
+// A routine's, a file's or a ritual's own page is only fetched when one is opened.
 const AssistantRoutineDialog = lazy(() => import("@/components/home/AssistantRoutineDialog"));
 const AssistantFileDialog = lazy(() => import("@/components/home/AssistantFileDialog"));
+const RitualDialog = lazy(() => import("@/components/home/RitualDialog"));
 
 const RECENTS_SHOWN = 4;
 const SKILLS_SHOWN = 8;
@@ -71,7 +73,8 @@ function useConversation(): { id: string | null; computerId: string } {
  * "Activity" is its work: its routines (the first two, the rest folded away,
  * each with a switch), the computers it can work on (the one it runs on
  * marked), the chats in the Agentic IDE it sent a task to, and the files it
- * made. "Library" is what belongs to it: how it is spoken to, its own files (character, standing instructions,
+ * made. "Library" is what belongs to it: how it is spoken to, the rituals a
+ * short phrase starts, its own files (character, standing instructions,
  * memory, what it knows about the person), its skills and the chats from
  * before.
  */
@@ -91,6 +94,8 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
   const [tab, setTab] = useState<Tab>(readTab);
   const [routineId, setRoutineId] = useState<string | null>(null);
   const [fileId, setFileId] = useState<SoulFileId | null>(null);
+  // The ritual in the dialog: one that exists by its id, a new one without an id, or none.
+  const [ritual, setRitual] = useState<{ id: string | null } | null>(null);
 
   const pickTab = (next: Tab) => {
     setTab(next);
@@ -160,6 +165,8 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
               </button>
             </PanelSection>
 
+            <PanelRituals onOpen={(id) => setRitual({ id })} onNew={() => setRitual({ id: null })} />
+
             <PanelSection id="files" title={t("assistant_view.files_title")}>
               {files.map((file) => (
                 <button key={file.id} type="button" data-testid={`assistant-file-${file.id}`} onClick={() => setFileId(file.id)}
@@ -213,6 +220,7 @@ export default function AssistantPanel({ onConversation }: { onConversation: () 
       <Suspense fallback={null}>
         {routineId && <AssistantRoutineDialog agentId={ASSISTANT_ID} routineId={routineId} onClose={() => setRoutineId(null)} />}
         {fileId && <AssistantFileDialog fileId={fileId} onClose={() => setFileId(null)} />}
+        {ritual && <RitualDialog ritualId={ritual.id} onClose={() => setRitual(null)} />}
       </Suspense>
     </aside>
   );

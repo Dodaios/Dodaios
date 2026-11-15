@@ -18,22 +18,27 @@ export interface RoutineResultNotice extends NoticeItem {
  * the assistant's message (`RoutineResultMessage`), never as background.
  *
  * Payload fields a result may carry: `text` (the answer), `title` (the
- * routine's name) or `standing_title` (a standing task's), `task_id`,
- * `session_id` (the run's own chat), `agent_id`, `agent_name`.
+ * routine's name) or `standing_title` (a standing task's) or `ritual_title`
+ * (a ritual's), `task_id`, `session_id` (the run's own chat), `agent_id`,
+ * `agent_name`.
  */
 export function isRoutineResult(item: TimelineItem | { type: string }): item is RoutineResultNotice {
   if (item.type !== "notice") return false;
   const notice = item as NoticeItem;
-  return notice.kind === "society_result"
-    && notice.data.source === "routine"
-    && (notice.status === "" || notice.status === "done");
+  if (notice.kind !== "society_result") return false;
+  // A ritual's card answers the phrase the person just said or typed, so it is
+  // drawn the same way, whatever it says: that it started, what was gathered
+  // for it, or that the gathering failed (`dodaios/rituals/service.py`).
+  if (notice.data.source === "ritual") return true;
+  return notice.data.source === "routine" && (notice.status === "" || notice.status === "done");
 }
 
 /** The routine's own name on a result, "" when the notice carries none. */
 export function routineResultTitle(item: NoticeItem): string {
   const title = typeof item.data.title === "string" ? item.data.title : "";
   const standing = typeof item.data.standing_title === "string" ? item.data.standing_title : "";
-  return (title || standing).trim();
+  const ritual = typeof item.data.ritual_title === "string" ? item.data.ritual_title : "";
+  return (title || standing || ritual).trim();
 }
 
 /**

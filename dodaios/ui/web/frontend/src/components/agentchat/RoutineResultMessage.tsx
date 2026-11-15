@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { ChevronRight, Clock3 } from "lucide-react";
+import { AudioLines, ChevronRight, Clock3 } from "lucide-react";
 
 import { useRoutineNavigation } from "@/components/society/chat/routineNavigation";
 import { useT } from "@/i18n";
-import { societyResultHeadline } from "@/lib/skipReasons";
+import { societyResultHeadline, societyResultText } from "@/lib/skipReasons";
 import { cn } from "@/lib/utils";
 
 import { ChatMarkdown } from "./ChatMarkdown";
@@ -40,7 +40,10 @@ export function RoutineResultMessage({ item, look, children }: {
   /** "messenger" only: the agent's message as its chat draws it. */
   children?: ReactNode;
 }) {
-  const words = item.text.trim() ? item.text : "";
+  const t = useT();
+  // A ritual that started before what it gathers was ready says that the rest follows.
+  const said = societyResultText(t, item);
+  const words = said.trim() ? said : "";
   if (look === "lead") {
     return (
       <div className="lead-turn" data-testid="routine-result" data-look="lead" data-message-id={item.id}>
@@ -76,13 +79,16 @@ function RoutineLine({ item, className }: { item: NoticeItem; className?: string
   const t = useT();
   const title = routineResultTitle(item);
   const standing = typeof item.data.standing_title === "string" && item.data.standing_title.trim() !== "";
-  const label = standing
+  const ritual = item.data.source === "ritual";
+  // A standing task and a ritual are labelled with themselves and what happened.
+  const label = standing || ritual
     ? societyResultHeadline(t, item)
     : title ? `${t("agent_chat.routine_result")} · ${title}` : t("agent_chat.routine_result");
+  const Icon = ritual ? AudioLines : Clock3;
   const sessionId = typeof item.data.session_id === "string" ? item.data.session_id.trim() : "";
   const content = (
     <>
-      <Clock3 aria-hidden className="h-3 w-3 shrink-0" />
+      <Icon aria-hidden className="h-3 w-3 shrink-0" />
       <span className="min-w-0 truncate">{label}</span>
     </>
   );
