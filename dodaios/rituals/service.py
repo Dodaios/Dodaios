@@ -329,6 +329,18 @@ def get(ritual_id: str) -> Ritual | None:
     return get_store().get(str(ritual_id or "").strip())
 
 
+def find(ref: str) -> Ritual | None:
+    """A ritual by its id or by its exact name (case does not matter)."""
+    key = str(ref or "").strip()
+    if not key:
+        return None
+    by_id = get_store().get(key)
+    if by_id is not None:
+        return by_id
+    folded = " ".join(key.split()).casefold()
+    return next((r for r in get_store().list() if r.name.casefold() == folded), None)
+
+
 def today_of(ritual_id: str, *, now: datetime | None = None) -> RitualDay | None:
     return get_store().day(ritual_id, day_of(_moment(now)))
 
@@ -680,6 +692,7 @@ __all__ = [
     "day_of",
     "deliver_late",
     "drain",
+    "find",
     "find_match",
     "fire",
     "get",

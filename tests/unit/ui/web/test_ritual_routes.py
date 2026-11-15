@@ -182,6 +182,62 @@ def test_gather_now_says_why_it_cannot(world) -> None:
     assert unavailable.status_code == 503
 
 
+def test_a_ritual_is_found_by_its_name_as_well(world) -> None:
+    with _client() as client:
+        ritual = client.post(BASE, json=MORNING).json()["ritual"]
+        by_name = client.get(f"{BASE}/good MORNING")
+        off = client.patch(f"{BASE}/Good morning", json={"enabled": False})
+        ran = client.post(f"{BASE}/Good morning/run")
+        gone = client.delete(f"{BASE}/Good morning")
+    assert by_name.status_code == 200 and by_name.json()["ritual"]["id"] == ritual["id"]
+    assert off.json()["ritual"]["enabled"] is False
+    assert ran.status_code == 200 and ran.json()["ritual"]["id"] == ritual["id"]
+    assert gone.json() == {"ok": True, "id": ritual["id"]}
+
+
+def test_what_the_assistant_writes_on_request_says_so_and_starts_as_its_own_start(world) -> None:
+    from dodaios.agent_chat.dodaios_harness import HEADER_NAME
+
+    asked = {HEADER_NAME: "the-lead-conversation"}
+    with _client() as client:
+        written = client.post(BASE, json=MORNING, headers=asked).json()["ritual"]
+        by_hand = client.post(
+            BASE, json={**MORNING, "name": "By hand", "phrases": ["Start by hand"]}
+        ).json()["ritual"]
+        ran = client.post(f"{BASE}/{written['id']}/run", headers=asked)
+    assert written["origin"] == "assistant" and written["enabled"] is True
+    assert by_hand["origin"] == "owner"
+    assert ran.json()["today"]["fired_via"] == "tool"
+    assert world.notices[-1]["via"] == "tool"
+
+
+def test_a_run_nobody_watches_can_write_one_that_is_off_and_change_nothing(world) -> None:
+    """A ritual's steps later run with the person's standing: no planting from a routine."""
+    from dodaios.agent_chat.dodaios_harness import HEADER_NAME
+    from dodaios.society.routine_runner import ROUTINE_SESSION_MARKER
+
+    unattended = {HEADER_NAME: f"society:jarvis{ROUTINE_SESSION_MARKER}task-1:abc"}
+    with _client() as client:
+        existing = client.post(BASE, json=MORNING).json()["ritual"]
+        planted = client.post(
+            BASE,
+            json={**MORNING, "name": "Planted", "phrases": ["Open sesame"]},
+            headers=unattended,
+        )
+        changed = client.patch(
+            f"{BASE}/{existing['id']}", json={"enabled": False}, headers=unattended
+        )
+        started = client.post(f"{BASE}/{existing['id']}/run", headers=unattended)
+        removed = client.delete(f"{BASE}/{existing['id']}", headers=unattended)
+        still = client.get(f"{BASE}/{existing['id']}").json()["ritual"]
+    assert planted.status_code == 201
+    assert planted.json()["ritual"]["enabled"] is False
+    assert planted.json()["ritual"]["origin"] == "assistant"
+    for refused in (changed, started, removed):
+        assert refused.status_code == 409 and "nobody watches" in refused.json()["detail"]
+    assert still == existing and world.notices == []
+
+
 def test_removing_one(world) -> None:
     with _client() as client:
         ritual = client.post(BASE, json=MORNING).json()["ritual"]
