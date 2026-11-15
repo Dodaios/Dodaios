@@ -143,7 +143,7 @@ each agent did.
   </tr>
   <tr>
     <td><a href="#with-you-when-you-leave-the-desk"><b>With you when you leave the desk</b></a></td>
-    <td>The same conversation on your phone, in Telegram and in Discord.</td>
+    <td>The same conversation on your phone and in Telegram. In Slack it reads and posts for you.</td>
   </tr>
 </table>
 
@@ -256,14 +256,20 @@ Your conversation with the assistant goes with you:
   with a code, and it shows the same conversation: you type, send a voice
   note, and allow or deny what waits for your yes. Over HTTPS you can install
   it and get push notices.
-- **Telegram and Discord.** Your private chat with your own bot continues the
-  conversation too.
-- **One conversation.** What you said on the phone is in the chat on the
-  desktop when you come back.
+- **Telegram.** Your private chat with your own Telegram bot is the same
+  conversation. You write, send a voice note or a photo, Nova answers there,
+  and what waits for your yes comes with Allow and Deny buttons. It works
+  wherever you are: your computer fetches the messages from Telegram.
+- **Slack.** Nova also works in your Slack with your own sign-in: it
+  searches and reads channels and threads, and posts for you. Writing to Nova
+  in Slack is not possible yet.
+- **One conversation.** What you said on the phone or in Telegram is in the
+  chat on the desktop when you come back.
 
-By default only this computer can connect. For the phone, start Dodaios so
+By default only this computer can connect to the phone app. Start Dodaios so
 that it listens on your home network (this needs a control key), or serve it
-over HTTPS. The [phone guide](https://github.com/Dodaios/Dodaios/blob/main/docs/mobile-companion.md) has both ways.
+over HTTPS; Telegram needs neither. The [phone guide](https://github.com/Dodaios/Dodaios/blob/main/docs/mobile-companion.md)
+has both ways.
 
 <br clear="right" />
 
