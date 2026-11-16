@@ -2257,6 +2257,11 @@ class _ClaudeState:
     #: ``result`` (no model turn) before the person's prompt runs. That line
     #: must not end the turn (``claude_result_without_model_turn``).
     notice_pending: bool = False
+    #: The conversation's compaction under way (``context_compaction`` call id),
+    #: "" when none is; and how many compactions this turn has told.
+    compaction_id: str = ""
+    compactions: int = 0
+    compaction_started: float = 0.0
 
 
 #: Streamed characters per estimated output token (English and code average).
@@ -2655,6 +2660,77 @@ def _claude_task_events(obj: dict[str, Any], st: _ClaudeState) -> list[dict[str,
     ]
 
 
+def _claude_compaction_open(st: _ClaudeState, trigger: str = "") -> list[dict[str, Any]]:
+    """The ``compaction`` start, once per compaction."""
+    if st.compaction_id:
+        return []
+    st.compactions += 1
+    st.compaction_id = f"compact-{st.turn_id}-{st.compactions}"
+    st.compaction_started = time.perf_counter()
+    payload: dict[str, Any] = {
+        "turn_id": st.turn_id,
+        "call_id": st.compaction_id,
+        "phase": "started",
+    }
+    if trigger:
+        payload["trigger"] = trigger
+    return [make_event("compaction", payload)]
+
+
+def _claude_compaction_close(
+    st: _ClaudeState, meta: dict[str, Any], *, error: str = ""
+) -> list[dict[str, Any]]:
+    """The ``compaction`` end with what the CLI reported; nothing when none is open."""
+    if not st.compaction_id:
+        return []
+    payload: dict[str, Any] = {
+        "turn_id": st.turn_id,
+        "call_id": st.compaction_id,
+        "phase": "failed" if error else "done",
+    }
+    trigger = meta.get("trigger")
+    if trigger in ("auto", "manual"):
+        payload["trigger"] = trigger
+    for theirs, ours in (("pre_tokens", "tokens_before"), ("post_tokens", "tokens_after")):
+        value = meta.get(theirs)
+        if isinstance(value, int | float) and value > 0:
+            payload[ours] = int(value)
+    took = meta.get("duration_ms")
+    payload["duration_ms"] = (
+        int(took)
+        if isinstance(took, int | float) and took >= 0
+        else int((time.perf_counter() - st.compaction_started) * 1000)
+    )
+    if error:
+        payload["error"] = error[:300]
+    st.compaction_id = ""
+    return [make_event("compaction", payload)]
+
+
+def _claude_compaction_events(obj: dict[str, Any], st: _ClaudeState) -> list[dict[str, Any]] | None:
+    """A compaction line as ``compaction`` events; ``None`` for any other system line.
+
+    Claude Code says ``status: "compacting"`` when it starts (and again every
+    30 s while it runs), ``compact_boundary`` with the token counts once the
+    summary replaced the history, and a ``status`` line with ``compact_result``
+    at the end, ``compact_error`` when it failed.
+    """
+    subtype = obj.get("subtype")
+    if subtype == "compact_boundary":
+        raw = obj.get("compact_metadata")
+        meta = raw if isinstance(raw, dict) else {}
+        trigger = str(meta.get("trigger") or "")
+        return _claude_compaction_open(st, trigger) + _claude_compaction_close(st, meta)
+    if subtype != "status":
+        return None
+    if obj.get("status") == "compacting":
+        return _claude_compaction_open(st)
+    if obj.get("compact_result") == "failed" or obj.get("compact_error"):
+        reason = str(obj.get("compact_error") or "The conversation could not be compacted.")
+        return _claude_compaction_close(st, {}, error=reason)
+    return []
+
+
 def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[str, Any]]:
     """One Claude-shaped NDJSON object -> zero or more agent-chat events."""
     out: list[dict[str, Any]] = []
@@ -2693,8 +2769,12 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
         return []
 
     if kind == "system":
-        # init / hooks / status are nothing the timeline shows; a sub-agent's
-        # life (started, working, finished) is, and so is a wait on open tasks.
+        # init / hooks are nothing the timeline shows; a sub-agent's life
+        # (started, working, finished) is, a wait on open tasks is, and so is
+        # the agent compacting its own conversation.
+        compaction = _claude_compaction_events(obj, st)
+        if compaction is not None:
+            return compaction
         out = _claude_task_events(obj, st)
         _claude_track_task(obj, st)
         if obj.get("subtype") == "task_notification" and not st.saw_result:
@@ -2705,6 +2785,8 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
         ev = obj.get("event") or {}
         et = ev.get("type")
         if et == "message_start":
+            # The model answers again: a compaction still open has ended.
+            out.extend(_claude_compaction_close(st, {}))
             mid = ((ev.get("message") or {}).get("id")) or uuid.uuid4().hex
             st.current_message_id = str(mid)
             # The agent works again (a finished task woke it): no longer waiting.
@@ -2921,6 +3003,7 @@ def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[st
         return out
 
     if kind == "result":
+        out.extend(_claude_compaction_close(st, {}))
         notice, st.notice_pending = st.notice_pending, False
         if notice and claude_result_without_model_turn(obj):
             # The CLI's own empty answer to a task notice it found on resume:

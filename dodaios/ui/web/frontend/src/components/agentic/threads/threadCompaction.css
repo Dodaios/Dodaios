@@ -1,0 +1,94 @@
+/*
+ * The line a thread draws where its coding agent compacted the conversation
+ * (ThreadTimeline `CompactionLine`). While the agent compacts, the three
+ * lines of the mark press together and the hairlines on both sides draw in
+ * toward the middle; once it is done, the mark rests pressed and the line
+ * stays as a quiet divider.
+ */
+
+.compaction-mark {
+  position: relative;
+  display: inline-block;
+  width: 14px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.compaction-mark > span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.compaction-mark > span:nth-child(1) { top: 1px; }
+.compaction-mark > span:nth-child(2) { top: 5.25px; left: 2px; right: 2px; }
+.compaction-mark > span:nth-child(3) { top: 9.5px; }
+
+/* At rest after the fact: the lines lie close together. */
+.compaction-mark[data-live="false"] > span:nth-child(1) { transform: translateY(2.75px); }
+.compaction-mark[data-live="false"] > span:nth-child(3) { transform: translateY(-2.75px); }
+
+.compaction-mark[data-live="true"] > span:nth-child(1) { animation: compaction-press-top 1.6s ease-in-out infinite; }
+.compaction-mark[data-live="true"] > span:nth-child(2) { animation: compaction-press-middle 1.6s ease-in-out infinite; }
+.compaction-mark[data-live="true"] > span:nth-child(3) { animation: compaction-press-bottom 1.6s ease-in-out infinite; }
+
+@keyframes compaction-press-top {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4.25px); }
+}
+
+@keyframes compaction-press-middle {
+  0%, 100% { opacity: 1; transform: scaleX(1); }
+  50% { opacity: 0.35; transform: scaleX(0.5); }
+}
+
+@keyframes compaction-press-bottom {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4.25px); }
+}
+
+.compaction-rail {
+  height: 1px;
+  min-width: 16px;
+  flex: 1 1 0%;
+  background: hsl(var(--border));
+}
+
+.compaction-rail[data-live="true"][data-side="left"] {
+  transform-origin: right center;
+  animation: compaction-draw-in 1.6s ease-in-out infinite;
+  background: linear-gradient(to right, transparent, hsl(var(--muted-foreground) / 0.55));
+}
+
+.compaction-rail[data-live="true"][data-side="right"] {
+  transform-origin: left center;
+  animation: compaction-draw-in 1.6s ease-in-out infinite;
+  background: linear-gradient(to left, transparent, hsl(var(--muted-foreground) / 0.55));
+}
+
+/* The outer ends move in toward the words, then back out. */
+@keyframes compaction-draw-in {
+  0%, 100% { transform: scaleX(1); opacity: 1; }
+  50% { transform: scaleX(0.6); opacity: 0.6; }
+}
+
+/* The finished line settles in once. */
+.compaction-line[data-live="false"] {
+  animation: compaction-settle 360ms ease-out both;
+}
+
+@keyframes compaction-settle {
+  from { opacity: 0; transform: scaleY(0.6); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compaction-mark > span,
+  .compaction-rail,
+  .compaction-line {
+    animation: none !important;
+  }
+}

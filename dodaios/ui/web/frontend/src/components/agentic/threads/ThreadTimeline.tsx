@@ -26,6 +26,8 @@ import { DiffStat, DiffView } from "./ThreadDiff";
 import { FileTypeIcon } from "@/components/agentic/sidePanel/explorer/FileTypeIcon";
 import { MagicWordText } from "./MagicWordText";
 import { PlanCard, PlanList, planParts, planText } from "./ThreadPlan";
+import { compactionInfo } from "@/components/agentchat/compaction";
+import "./threadCompaction.css";
 
 /**
  * A thread's conversation: the person's messages on the right, the agent's
@@ -776,7 +778,7 @@ export function foldFinished(rows: ThreadRow[]): { work: ThreadRow[]; answer: Th
   let lastStep = -1;
   let lastText = -1;
   rows.forEach((row, index) => {
-    if (row.kind === "work" || row.kind === "thought" || row.kind === "plan") lastStep = index;
+    if (row.kind === "work" || row.kind === "thought" || row.kind === "plan" || row.kind === "compaction") lastStep = index;
     if (prose(row)) lastText = index;
   });
   // No prose yet: everything up to the last step is work.
@@ -904,6 +906,42 @@ function BackgroundWait({ tasks, since }: { tasks: readonly string[]; since: num
   </div>;
 }
 
+/**
+ * Where the coding agent compacted its own conversation: one quiet line
+ * across the turn. While it compacts, the mark presses its lines together and
+ * the hairlines draw in ("Compacting the conversation" with the clock); once
+ * done, the line stays as a divider with how far it shrank the context.
+ */
+export function CompactionLine({ block, running }: { block: ToolBlock; running: boolean }) {
+  const t = useT();
+  const live = running && block.output === null;
+  const info = compactionInfo(block);
+  const failed = block.isError;
+  const before = info.tokensBefore != null ? formatTokens(info.tokensBefore) : "";
+  const after = info.tokensAfter != null ? formatTokens(info.tokensAfter) : "";
+  const words = live ? t("thread_turn.compacting")
+    : failed ? t("thread_turn.compaction_failed")
+      : before && after ? fill(t("thread_turn.compacted_tokens"), { before, after })
+        : before ? fill(t("thread_turn.compacted_from"), { before })
+          : t("thread_turn.compacted");
+  const took = !live && block.durationMs != null && block.durationMs >= 1000 ? traceDuration(block.durationMs) : "";
+  const title = failed && info.error ? info.error : t(info.trigger === "manual" ? "thread_turn.compaction_manual_hint" : "thread_turn.compaction_hint");
+  const state = String(live);
+  return <div role={live ? "status" : "note"} title={title} data-testid="thread-compaction" data-live={state} data-failed={failed ? "true" : "false"}
+    className="compaction-line flex min-w-0 items-center gap-3 text-[13px] leading-5 text-muted-foreground">
+    <span aria-hidden className="compaction-rail" data-side="left" data-live={state} />
+    <span className={cn("flex min-w-0 shrink items-center gap-2", failed && "text-destructive/80")}>
+      <span aria-hidden className="compaction-mark" data-live={state}><span /><span /><span /></span>
+      <span className={cn("truncate", live && "live-tool-shine")}>{words}</span>
+      {live && <><span aria-hidden className="text-muted-foreground/50">·</span>
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground/80"><Elapsed since={block.startedMs} /></span></>}
+      {took && <><span aria-hidden className="text-muted-foreground/50">·</span>
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground/70">{took}</span></>}
+    </span>
+    <span aria-hidden className="compaction-rail" data-side="right" data-live={state} />
+  </div>;
+}
+
 export interface ThreadTurnProps {
   turn: TurnItem;
   /**
@@ -998,6 +1036,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     if (row.kind === "text") return <div key={row.id} className={cn(PROSE, THREAD_MEDIA)}><ChatMarkdown text={row.text} /></div>;
     if (row.kind === "agent") return <SubagentRun key={row.id} blocks={[row.block]} turn={turn} />;
     if (row.kind === "plan") return <PlanCard key={row.id} plan={row.plan} running={running} />;
+    if (row.kind === "compaction") return <CompactionLine key={row.id} block={row.block} running={running} />;
     // A secret is pasted where it is asked for, never into a composer.
     if (row.block.credential) return <CredentialCard key={row.id} credential={row.block.credential} />;
     if (inline) {
