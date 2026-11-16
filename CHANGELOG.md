@@ -11,6 +11,24 @@ versioning per [SemVer](https://semver.org/).
 
 ---
 
+## [5.5.1] — 2026-11-16
+
+### Added
+
+- A coding agent is done only when the issues its pull request fixes are closed (#1752)
+- Slack is a conversation channel: a direct message to the owner's own Slack app continues the one conversation, with pictures, voice clips and approval buttons (#1735)
+- A checked entry of the agent's to-do list says how long it took (#1731)
+
+### Fixed
+
+- A screenshot goes through on a nearly full disk: the free-space reserve scales with the drop (#1751)
+- The Slack stand-in starts at once on macOS, so the macOS main sweep is green again (#1749)
+- A sent message shows in the chat the moment Enter is pressed, with the assistant typing under it (#1750)
+- A new node opens empty, and whatever the person empties in an editor saves (#1744)
+- A channel whose start fails for a passing reason starts again by itself, so Telegram comes back after a login without network (#1732)
+
+---
+
 ## [5.5.0] — 2026-11-16
 
 ### Added
