@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # --- Build-Stage --------------------------------------------------------
-FROM --platform=$BUILDPLATFORM python:3.11-slim@sha256:a2bc8c35469b6fe37735f7c4dae39049470b2ce068e73f799c02452de31d24c6 AS builder
+FROM --platform=$BUILDPLATFORM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS builder
 
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -23,7 +23,7 @@ RUN python -m pip install --upgrade pip wheel \
 
 
 # --- Runtime-Stage ------------------------------------------------------
-FROM python:3.11-slim@sha256:a2bc8c35469b6fe37735f7c4dae39049470b2ce068e73f799c02452de31d24c6 AS runtime
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
