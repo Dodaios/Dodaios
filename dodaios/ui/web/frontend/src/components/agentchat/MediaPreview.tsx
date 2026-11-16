@@ -101,7 +101,14 @@ export function MediaPreview({ src, label, kind, bare = false, thumb = false }: 
     <MediaDownloadLink href={safe} label={label} />
   </span>;
   return <Dialog.Root open={expanded} onOpenChange={setExpanded}><span className={cn("block min-w-0 max-w-full", !bare && "my-3")} data-testid="chat-media" data-kind={kind}>
-    {failed ? <span role="status" className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+    {failed ? thumb ? <span role="status" title={`${label}: ${unavailable}`}
+      // A picture that will not load keeps its tile, so the row stays a row.
+      className="flex h-32 w-44 max-w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-muted/30 px-2 text-center text-xs text-muted-foreground">
+      <AlertCircle aria-hidden className="h-4 w-4 shrink-0" />
+      <span className="sr-only">{unavailable}</span>
+      <span className="w-full truncate">{label}</span>
+      {safe ? <button type="button" onClick={() => { setFailedSource(null); setRevision(value => value + 1); }} className="shrink-0 rounded px-2 py-0.5 text-foreground underline focus-visible:ring-2 focus-visible:ring-ring">{t("chat_media.retry")}</button> : null}
+    </span> : <span role="status" className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
       <AlertCircle aria-hidden className="h-4 w-4 shrink-0" />{unavailable}
       {safe ? <button type="button" onClick={() => { setFailedSource(null); setRevision(value => value + 1); }} className="shrink-0 rounded px-2 py-1 text-foreground underline focus-visible:ring-2 focus-visible:ring-ring">{t("chat_media.retry")}</button> : null}
     </span> : kind === "image" ? <Dialog.Trigger asChild><button type="button"

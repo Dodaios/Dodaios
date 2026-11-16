@@ -105,6 +105,18 @@ describe("the person's turn with files", () => {
       .toContain("object-contain");
   });
 
+  it("keeps a tile in the row for a picture that will not load", () => {
+    draw([ev("user_message", { text: "two", attachments: [SHOT, { ...SHOT, name: "gone.png", url: "/api/outputs/gone.png" }] })], "files");
+    const tiles = within(screen.getByTestId("agent-message-pictures")).getAllByTestId("agent-message-image");
+    fireEvent.error(within(tiles[1]).getByRole("img"));
+    const broken = within(tiles[1]).getByRole("status");
+    expect(broken.className).toContain("h-32");
+    expect(broken.className).toContain("w-44");
+    expect(broken.textContent).toContain("gone.png");
+    expect(within(broken).getByRole("button")).toBeTruthy();
+    expect(within(tiles[0]).getByRole("img", { name: "shot.png" })).toBeTruthy();
+  });
+
   it("draws a picture sent without words and no empty bubble", () => {
     draw([ev("user_message", { text: "", attachments: [SHOT] })], "files");
     const turn = screen.getByTestId("agent-message-user");
