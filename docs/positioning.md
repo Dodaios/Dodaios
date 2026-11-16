@@ -16,35 +16,42 @@ three places, and none knows what happened in the others.
 
 ## The promise
 
-> **Talk to one assistant. It runs your coding agents for you.**
+> **Your AI-native office. Talk, write, build.**
 
 Use it word for word, and never alone: the definition always follows.
 
-It names the one thing a reader gets that no single tool gives them: an
-assistant they can type or talk to, which runs the coding agents they already
-use. The maintainer settled on it on 16 November 2026. Until then the promise
-was "One workspace for everything you do with AI." That described an
-ecosystem rather than a problem, and model makers say nearly the same about
-their own apps.
+> Dodaios brings everything together: a voice assistant that knows your work,
+> Nodes for docs, slides and sheets, and coding agents it runs for you.
+> Open source, on your desktop, with the models you already use.
 
-The definition:
+The maintainer settled on it on 16 November 2026, in the evening. It presents
+Dodaios as one connected set of tools for working with AI, the way an office
+suite joined writing, slides and sheets for working on a PC. The three verbs
+are the three pillars a reader meets first: **talk** (the assistant and the
+voice), **write** (docs, decks, sheets and whiteboards) and **build** (the
+coding agents the assistant runs). Do not name an office suite or any other
+product as the comparison, and do not claim that Dodaios replaces one: nodes
+neither import nor export Office files ([positioning-claims.md](positioning-claims.md)).
 
-> Dodaios is an open-source desktop app. You tell its assistant what you need,
-> and it does the work itself or hands it to Claude Code, Codex and your other
-> coding agents.
+Earlier promises:
+
+- Until the evening of 16 November 2026: "Talk to one assistant. It runs your
+  coding agents for you.", with the definition "Dodaios is an open-source
+  desktop app. You tell its assistant what you need, and it does the work
+  itself or hands it to Claude Code, Codex and your other coding agents." The
+  maintainer found that it reduced Dodaios to one coding feature, while the
+  point is how the parts work together.
+- Until the morning of 16 November 2026: "One workspace for everything you do
+  with AI." Before that, the promise was followed by a list of features in one
+  sentence, which said neither what Dodaios is nor which problem it solves.
 
 Then comes the problem it solves, in the reader's own day: the work is spread
-over a terminal per coding agent, a chat app, a dictation app and a documents
-tool; none of them knows what the others did; so the person keeps track of
-which agent is done, which one waits for an answer and what to copy where.
-Dodaios puts it in one app on the computer, and its assistant keeps track. The
-README says this under "Why Dodaios", followed by one short line per pillar.
-
-Until 16 November 2026 the promise was followed by a list of features in one
-sentence ("Claude Code, Codex, Cursor CLI and six more coding agents side by
-side, one assistant that runs them, voice and dictation, and docs, decks and
-sheets"). The maintainer found that it said neither what Dodaios is nor which
-problem it solves, and that it read like generated text.
+over a chat app, a dictation app, a documents tool and a terminal per coding
+agent; none of them knows what the others did; so the person copies between
+them and keeps track. Dodaios puts it in one app on the computer, around one
+assistant that keeps track. The README says this under "Why Dodaios", with one
+short line each for Talk, Write, Build and Yours, and its "What it does"
+sections follow the same three verbs.
 
 Promise, definition and problem together hold the three things a model
 maker's own app does not offer:

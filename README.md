@@ -10,11 +10,12 @@
 <h1>Dodaios</h1>
 
 <!-- the promise and the definition: word for word everywhere (docs/positioning.md) -->
-<p><b>Talk to one assistant. It runs your coding agents for you.</b></p>
+<p><b>Your AI-native office. Talk, write, build.</b></p>
 
 <p>
-  Dodaios is an open-source desktop app. You tell its assistant what you need,<br />
-  and it does the work itself or hands it to Claude Code, Codex and your other coding agents.
+  Dodaios brings everything together: a voice assistant that knows your work,<br />
+  Nodes for docs, slides and sheets, and coding agents it runs for you.<br />
+  Open source, on your desktop, with the models you already use.
 </p>
 
 <p>
@@ -108,33 +109,33 @@ is optional.
 
 ## Why Dodaios
 
-If you work with AI every day, your work is probably spread out. Claude Code
-runs in one terminal and Codex in another. The chat assistant is in a browser
-tab, dictation is a separate app, and your documents are somewhere else. None
-of them knows what the others did. So you keep track yourself: which agent is
-done, which one is waiting for an answer, and what to copy where.
+If you work with AI every day, your work is probably spread out. The chat
+assistant is in a browser tab, dictation is a separate app, your documents are
+somewhere else, and each coding agent runs in its own terminal. None of them
+knows what the others did, so you copy between them and keep track yourself.
 
-Dodaios puts all of it in one app on your computer, and its assistant keeps
-track for you.
+Dodaios is one app on your computer for all of it, built around one assistant
+that keeps track for you.
 
-- **Hand off work, get a result.** Say what you want done. The assistant
-  writes the brief for one or more coding agents, answers their questions and
-  tells you how it went.
-- **Every coding agent in one window.** Claude Code, Codex, Cursor CLI,
-  OpenCode, Grok Build, Antigravity, Kimi Code, GLM Coding Plan and DeepSeek
-  Harness, as chat threads or in terminals, up to four side by side.
-- **No new subscription.** Dodaios sells no model access. Each coding agent
-  runs on the plan or key you already have, such as a Claude or ChatGPT plan.
-- **Yours.** Apache 2.0, no Dodaios account, no paid tier. Your chats, memory
-  and documents are files on your computer.
+- **Talk.** Type to the assistant or say its name and speak. It answers,
+  works in your apps through plugins, and remembers what you told it. Dictate
+  into any other app with one key.
+- **Write.** Ask for a doc, a slide deck, a sheet or a whiteboard, and it
+  arrives filled in. Each has its own editor, so you change it by hand.
+- **Build.** The assistant hands coding work to Claude Code, Codex and seven
+  more coding agents, answers their questions and tells you how it went. Up
+  to four run side by side.
+- **Yours.** Apache 2.0, no Dodaios account, no paid tier. Dodaios sells no
+  model access: every agent runs on the plan or key you already have. Your
+  chats, memory and documents are files on your computer.
 
-It also talks and listens, makes docs, decks, sheets and whiteboards, goes
-with you to your phone, Telegram and Slack, and runs routines while you are
-away. Each has its own section under [What it does](#what-it-does).
+It also goes with you to your phone, Telegram and Slack, and runs routines
+while you are away. Each part has its own section under
+[What it does](#what-it-does).
 
 ## What it does
 
-### The assistant
+### Talk: the assistant and your voice
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/assistant.webp" alt="A 12-second recording. In a conversation that is already in use, the person types to Nova: How much did I spend on groceries each month this year? The bank export is in Documents. Nova says it will look for the bank export, reads the file on the computer and answers that 4,571.65 euros went on groceries from January to October, with July the highest and February the lowest. Under the answer the chat draws a column chart, Groceries per month, 2026, with one column per month; the pointer moves along the columns and each one shows its amount, ending on July at 600.7 euros." width="100%" />
@@ -155,7 +156,34 @@ and reads its report.
 [Routines](https://github.com/Dodaios/Dodaios/blob/main/docs/routines.md) ·
 [Standing tasks](https://github.com/Dodaios/Dodaios/blob/main/docs/standing-tasks.md)
 
-### Your coding agents
+<!-- The voice recording (voice.webp) needs a real voice and microphone; it is made
+     with scripts/readme_demo/voice_take.py (assets/demo/readme/README.md). -->
+
+Say the wake word or press your call shortcut, and talk; the assistant answers
+out loud. Hold the dictation key in any app, and what you say is typed there
+with punctuation. In English, German, Spanish and Portuguese the "um"s are
+left out. The wake word and dictation can run on your computer, with no key
+and no account.
+
+[Voice conversations](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md) ·
+[Dictation](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/dictation.md) ·
+[Wake word](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/audio-and-wake-word.md)
+
+### Write: docs, decks, sheets and whiteboards
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/nodes.webp" alt="A 14-second recording of the chat with the assistant, Nova. The person types: Make a four-slide deck on brewing pour-over coffee. The card of a slide deck comes into the chat, showing its title slide, Brewing great pour-over coffee, and Nova's answer appears under it. A click on the card opens the deck large. A click on its title opens the deck's editor, with the slides in a strip on the left and the title's fields on the right. The person selects the title, types Pour-over, step by step, the strip and the fields change with it, and the editor says Saved." width="100%" />
+</p>
+
+Ask for a doc, a slide deck, a sheet or a whiteboard, and it arrives filled
+in. Each has its own editor, so you can change it by hand: type into the text,
+edit a cell, drag a box. On a whiteboard you and the assistant draw on the
+same canvas. Everything exports as HTML, and as PDF or PNG when a Chromium
+browser such as Chrome or Edge is installed.
+
+[Nodes](https://github.com/Dodaios/Dodaios/blob/main/docs/nodes.md)
+
+### Build: your coding agents
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/agents.webp" alt="A 12-second recording of the Agentic IDE in Dodaios. Two coding agents work in two columns; from the thread list a third thread is opened beside them, so three Claude Code agents work side by side on three small tasks in two sample projects. The middle agent fixes how VAT is rounded, reports that all 7 tests pass and lists the two files it edited; then all three have finished, each with its card of edited files. Last, the agent and model picker of a thread opens and shows the other coding agents down its side, with the models of Codex." width="100%" />
@@ -172,36 +200,6 @@ your own Linux server over SSH and keep going when you close the laptop.
 [Agentic IDE](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md) ·
 [Threads](https://github.com/Dodaios/Dodaios/blob/main/docs/agentic-ide-threads.md) ·
 [Team threads](https://github.com/Dodaios/Dodaios/blob/main/docs/agentic-ide-team-threads.md)
-
-### Voice
-
-<!-- The recording of this section needs a real voice and microphone; it is made
-     with scripts/readme_demo/voice_take.py (assets/demo/readme/README.md) and
-     goes here as voice.webp. -->
-
-Say the wake word or press your call shortcut, and talk; the assistant answers
-out loud. Hold the dictation key in any app, and what you say is typed there
-with punctuation. In English, German, Spanish and Portuguese the "um"s are
-left out. The wake word and dictation can run on your computer, with no key
-and no account.
-
-[Voice conversations](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md) ·
-[Dictation](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/dictation.md) ·
-[Wake word](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/audio-and-wake-word.md)
-
-### Docs, decks, sheets and whiteboards
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/nodes.webp" alt="A 14-second recording of the chat with the assistant, Nova. The person types: Make a four-slide deck on brewing pour-over coffee. The card of a slide deck comes into the chat, showing its title slide, Brewing great pour-over coffee, and Nova's answer appears under it. A click on the card opens the deck large. A click on its title opens the deck's editor, with the slides in a strip on the left and the title's fields on the right. The person selects the title, types Pour-over, step by step, the strip and the fields change with it, and the editor says Saved." width="100%" />
-</p>
-
-Ask for a doc, a slide deck, a sheet or a whiteboard, and it arrives filled
-in. Each has its own editor, so you can change it by hand: type into the text,
-edit a cell, drag a box. On a whiteboard you and the assistant draw on the
-same canvas. Everything exports as HTML, and as PDF or PNG when a Chromium
-browser such as Chrome or Edge is installed.
-
-[Nodes](https://github.com/Dodaios/Dodaios/blob/main/docs/nodes.md)
 
 ### Away from your desk
 
