@@ -2499,8 +2499,11 @@ class SlackChannelConfig(BaseModel):
     #: Slack member ids (``U…`` / ``W…``) the assistant answers.
     allowed_user_ids: list[str] = Field(default_factory=list)
     pair_on_first_dm: bool = True
-    #: A mention of the app in a channel, by the owner, is answered in a thread.
-    answer_mentions: bool = True
+    #: Off by default. On: the owner's mention of the app in a channel is
+    #: answered in a thread under it. The answer comes from the owner's
+    #: private conversation, and every member of that channel (and of a
+    #: channel shared with another company) can read it.
+    answer_mentions: bool = False
     #: The workspace the app was connected in (not a secret).
     team_id: str = ""
     api_base_url: str = SLACK_API_BASE_URL

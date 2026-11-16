@@ -8,7 +8,9 @@ Architecture (Phase F1):
 - **getMe validation on ``start()``**: raises ``ChannelStartError`` on InvalidToken.
 - **Allowlist default**: empty ``allowed_user_ids`` = bot replies to nothing.
 - **Outbound routing via InflightMap**: ``trace_id -> chat_id`` with TTL.
-- **Privacy**: every outbound message passes through ``scrub_for_voice``.
+- **Readable text**: an outbound message is sent as written, links, code and
+  lines kept; only keys and the call's hang-up marker are taken out
+  (``channels.chat_text``). The speech filter is for a voice, not a chat.
 - **FriendRegistry integration**: inbound reverse-lookup, optional auto-register.
 - **Pictures and voice notes**: a photo (or an image sent as a file) and a voice
   message are downloaded and travel as :class:`ChannelMedia`; the chat bridge
@@ -33,6 +35,7 @@ from dodaios.channels.base import (
     ChannelMessage,
     ChannelSession,
 )
+from dodaios.channels.chat_text import readable_text
 from dodaios.channels.manager import (
     ChannelContext,
     ChannelStartError,
@@ -44,29 +47,6 @@ from dodaios.core.events import Event, ResponseGenerated
 from dodaios.friends.models import Friend, FriendChannel
 
 # === F-FRIENDS [F1] · feature/friends-section · ruben-2026-04-30 ===
-# Branch-portable import: ``output_filter`` exists in later branches
-# (Phase 5+) but not yet in skills-brain-integration. Fallback is identity —
-# Telegram outbound then goes out unscrubbed (acceptable for F2 scope).
-try:
-    from dodaios.brain.output_filter import scrub_for_voice as _scrub_impl
-except ImportError:  # pragma: no cover
-
-    class _IdentityScrubResult:
-        def __init__(self, text: str) -> None:
-            self.cleaned = text
-            self.fallback_used = False
-
-    def _scrub_impl(  # type: ignore[no-redef]
-        text: str, *, language: str = "en", spell_numbers: bool = True
-    ) -> Any:
-        return _IdentityScrubResult(text or "")
-
-
-def scrub_for_voice(text: str, *, language: str = "en") -> Any:
-    # A chat message is read, not spoken: digits stay digits ("14. November",
-    # not "fourteen. November").
-    return _scrub_impl(text, language=language, spell_numbers=False)
-
 if TYPE_CHECKING:  # pragma: no cover
     from dodaios.friends.registry import FriendRegistry
     from dodaios.friends.schemas import StatusUpdate
@@ -715,8 +695,8 @@ class TelegramChannel:
 
         from dodaios.channels.telegram_approvals import callback_data
 
-        scrub = scrub_for_voice(text, language="en")
-        cleaned = scrub.cleaned.strip() or text.strip()
+        # The whole command or diff, as it will run: read, not spoken.
+        cleaned = readable_text(text)
         if not cleaned:
             return None
         keyboard = InlineKeyboardMarkup(
@@ -783,10 +763,9 @@ class TelegramChannel:
         if self._app is None:
             log.debug("TelegramChannel send aborted: not started")
             return
-        scrub = scrub_for_voice(text, language=language)
-        cleaned = scrub.cleaned
-        if not cleaned.strip():
-            log.debug("TelegramChannel send aborted: empty after scrub")
+        cleaned = readable_text(text)
+        if not cleaned:
+            log.debug("TelegramChannel send aborted: nothing to send")
             return
         try:
             await self._app.bot.send_message(chat_id=chat_id, text=cleaned)

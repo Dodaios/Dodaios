@@ -12,10 +12,17 @@ Architecture, the same as the Telegram channel's:
   direct message within :data:`FIRST_CONTACT_PAIRING_WINDOW_S` of the start
   claims it (``pair_on_first_dm``) and is answered with one line that says so.
   Anyone else gets nothing back, not even a refusal.
-- **One conversation**: the owner's direct message (and their mention of the
-  app in a channel, answered in a thread) carries ``slack_owner`` and goes to
-  the lead conversation through the chat bridge, the one that continues on
-  the desktop and the phone.
+- **One conversation**: the owner's direct message carries ``slack_owner`` and
+  goes to the lead conversation through the chat bridge, the one that
+  continues on the desktop and the phone. A mention of the app in a channel
+  is answered only when ``answer_mentions`` is on (off by default): the answer
+  comes from that private conversation and every member of the channel reads
+  it in the thread.
+- **In order**: the events of one conversation are handled one after the
+  other, so a picture still downloading is not overtaken by the question
+  typed after it.
+- **Readable text**: replies and approvals are sent as written, links, code
+  and lines kept; only keys are taken out (``channels.chat_text``).
 - **Pictures and voice clips** sent to the app travel as :class:`ChannelMedia`;
   a picture without words waits briefly for the words that follow.
 - **Approvals**: :meth:`send_approval` posts Allow / Deny buttons
@@ -50,6 +57,7 @@ from dodaios.channels.base import (
     ChannelMessage,
     ChannelSession,
 )
+from dodaios.channels.chat_text import readable_text
 from dodaios.channels.manager import (
     ChannelContext,
     ChannelStartError,
@@ -91,15 +99,6 @@ _MENTION = re.compile(r"<@([UW][A-Z0-9]+)(?:\|[^>]*)?>")
 _CHANNEL_REF = re.compile(r"<#[CG][A-Z0-9]+\|([^>]*)>")
 _LINK = re.compile(r"<((?:https?|mailto):[^|>]+)(?:\|([^>]*))?>")
 _SPECIAL = re.compile(r"<!(here|channel|everyone)(?:\|[^>]*)?>")
-
-
-def scrub_for_chat(text: str, *, language: str = "en") -> str:
-    """The reply as the Telegram channel sends it: no voice markup, digits kept."""
-    try:
-        from dodaios.brain.output_filter import scrub_for_voice
-    except ImportError:  # pragma: no cover - a build without the scrubber sends the text as is
-        return text or ""
-    return scrub_for_voice(text or "", language=language, spell_numbers=False).cleaned
 
 
 def slack_escape(text: str) -> str:
@@ -206,7 +205,9 @@ class SlackChannel:
         self._sessions: dict[str, ChannelSession] = {}
         self._held: dict[str, _Held] = {}
         self._seen: OrderedDict[str, None] = OrderedDict()
-        self._tasks: set[asyncio.Task[Any]] = set()
+        self._tasks: set[asyncio.Future[Any]] = set()
+        #: The newest event task of each conversation (see _spawn_in_order).
+        self._lanes: dict[str, asyncio.Future[Any]] = {}
         self._runner: asyncio.Task[None] | None = None
         self._ws: Any = None
         self._event_handler_ref: Any = None
@@ -311,10 +312,29 @@ class SlackChannel:
         redact_logger("websockets")
         redact_logger("websockets.client")
         self._stopping = False
-        await self._who_am_i()
-        failure_exc: ChannelStartError | None = None
         try:
-            ws = await self._open_link()
+            ws = await self._first_link()
+        except BaseException:
+            # A failed or cancelled start leaves no HTTP client open: stop()
+            # does nothing for a channel that never started, and a reload
+            # builds a new channel with a client of its own. A retry of this
+            # one opens a fresh client on its first call.
+            with contextlib.suppress(Exception):
+                await self._api.aclose()
+            raise
+        self.active = True
+        self.last_error = ""
+        self._event_handler_ref = self._on_bus_event
+        self._bus.subscribe_all(self._event_handler_ref)
+        self._runner = asyncio.create_task(self._run(ws), name="slack-socket")
+        self._started = True
+        log.info("SlackChannel started (workspace=%s, app=%s)", self.team_name or "?", self.app_id)
+
+    async def _first_link(self) -> Any:
+        """Who the bot is, then the first link; a failure as a :class:`ChannelStartError`."""
+        await self._who_am_i()
+        try:
+            return await self._open_link()
         except _Lasting as exc:
             raise ChannelStartError(f"Slack start failed: {exc}", transient=False) from None
         except Exception as exc:  # noqa: BLE001 — reported below without any key
@@ -328,16 +348,8 @@ class SlackChannel:
             )
             if isinstance(exc, SlackApiError) and exc.lasting:
                 transient = False
-            failure_exc = ChannelStartError(f"Slack start failed: {failure}", transient=transient)
-        if failure_exc is not None:
-            raise failure_exc
-        self.active = True
-        self.last_error = ""
-        self._event_handler_ref = self._on_bus_event
-        self._bus.subscribe_all(self._event_handler_ref)
-        self._runner = asyncio.create_task(self._run(ws), name="slack-socket")
-        self._started = True
-        log.info("SlackChannel started (workspace=%s, app=%s)", self.team_name or "?", self.app_id)
+        # Outside the handler, so the original error (and any key) is not its context.
+        raise ChannelStartError(f"Slack start failed: {failure}", transient=transient)
 
     async def _who_am_i(self) -> None:
         """Ask Slack who the bot is; a refused key is lasting, no network passing."""
@@ -378,6 +390,7 @@ class SlackChannel:
             if held.timer is not None:
                 held.timer.cancel()
         self._held.clear()
+        self._lanes.clear()
         runner, self._runner = self._runner, None
         if runner is not None:
             runner.cancel()
@@ -501,7 +514,7 @@ class SlackChannel:
                 if kind == "events_api":
                     event = payload.get("event")
                     if isinstance(event, dict):
-                        self._spawn(self._on_event(event), "slack-event")
+                        self._spawn_in_order(str(event.get("channel") or ""), event)
                 elif kind == "interactive":
                     self._spawn(self._on_interactive(payload), "slack-action")
         except asyncio.CancelledError:
@@ -510,11 +523,35 @@ class SlackChannel:
             return _safe_error(exc, self._app_token).split(":", 1)[0]
         return "closed"
 
-    def _spawn(self, coro: Awaitable[Any], name: str) -> None:
+    def _spawn(self, coro: Awaitable[Any], name: str) -> asyncio.Future[Any]:
         task = asyncio.ensure_future(coro)
         task.set_name(name)
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
+        return task
+
+    def _spawn_in_order(self, conversation: str, event: dict[str, Any]) -> None:
+        """Handle ``event`` after the earlier events of the same conversation.
+
+        Each event still gets its own task (the link reads on at once), but a
+        picture that is downloading is not overtaken by the question typed
+        after it: the question waits, then joins the held picture.
+        """
+        previous = self._lanes.get(conversation)
+
+        async def run() -> None:
+            if previous is not None and not previous.done():
+                await asyncio.wait({previous})
+            await self._on_event(event)
+
+        task = self._spawn(run(), "slack-event")
+        self._lanes[conversation] = task
+
+        def _done(finished: asyncio.Future[Any]) -> None:
+            if self._lanes.get(conversation) is finished:
+                del self._lanes[conversation]
+
+        task.add_done_callback(_done)
 
     # ------------------------------------------------------------------
     # Inbound
@@ -723,16 +760,18 @@ class SlackChannel:
         if target is None:
             return
         channel, thread_ts = target
-        text = scrub_for_chat(event.text or "", language=event.language or "en")
-        await self._post(channel, text, thread_ts=thread_ts)
+        await self._post(channel, readable_text(event.text or ""), thread_ts=thread_ts)
 
     async def send_message(self, msg: ChannelMessage) -> None:
         channel = str(msg.metadata.get("slack_channel") or "")
         if not channel:
             log.warning("SlackChannel.send_message without slack_channel; dropped")
             return
-        text = scrub_for_chat(msg.content, language=str(msg.metadata.get("slack_language") or "en"))
-        await self._post(channel, text, thread_ts=str(msg.metadata.get("slack_thread_ts") or ""))
+        await self._post(
+            channel,
+            readable_text(msg.content),
+            thread_ts=str(msg.metadata.get("slack_thread_ts") or ""),
+        )
 
     async def broadcast_event(self, event: Event) -> None:
         """No-op: replies are routed by channel, not broadcast."""
@@ -767,12 +806,11 @@ class SlackChannel:
         """A waiting approval with Allow / Deny buttons in the owner's DM; returns its reference."""
         from dodaios.channels.telegram_approvals import callback_data
 
-        cleaned = scrub_for_chat(text).strip() or text.strip()
+        # The whole command or diff, as it will run: read, not spoken.
+        cleaned = readable_text(text)
         if not cleaned or not self.active:
             return None
-        body = slack_escape(cleaned)
-        if len(body) > _SECTION_MAX:
-            body = body[:_SECTION_MAX].rstrip() + " …"
+        body = _section_text(slack_escape(cleaned))
         blocks = [
             {"type": "section", "text": {"type": "mrkdwn", "text": body, "verbatim": True}},
             {
@@ -807,7 +845,7 @@ class SlackChannel:
         channel, _, ts = str(message_id or "").partition("|")
         if not channel or not ts or not self.active:
             return
-        body = slack_escape(text)[:_SECTION_MAX]
+        body = _section_text(slack_escape(text))
         section = {"type": "section", "text": {"type": "mrkdwn", "text": body, "verbatim": True}}
         try:
             await self._api.call(
@@ -848,8 +886,11 @@ class SlackChannel:
         channel = str(container.get("channel_id") or (payload.get("channel") or {}).get("id") or "")
         ts = str(container.get("message_ts") or (payload.get("message") or {}).get("ts") or "")
         original = plain_from_slack(str((payload.get("message") or {}).get("text") or ""))
+        # Decided: the first line stays and the answer follows it, as for a
+        # decision in the app, so a long command never pushes the answer out.
+        head = original.split("\n", 1)[0].strip()
         if channel and ts:
-            await self.edit_message(channel, f"{channel}|{ts}", f"{original}\n\n{answer}".strip())
+            await self.edit_message(channel, f"{channel}|{ts}", f"{head}\n{answer}".strip())
 
 
 # Closed list of the one line the owner reads when the pairing happened.
@@ -864,3 +905,17 @@ _PAIRED: dict[str, str] = {
 def _paired_line(locale: str) -> str:
     code = (locale or "en").lower().split("-")[0]
     return _PAIRED.get(code, _PAIRED["en"])
+
+
+def _section_text(body: str) -> str:
+    """``body`` cut to what one Slack section holds, never inside an escape or a code block."""
+    if len(body) <= _SECTION_MAX:
+        return body
+    cut = body[:_SECTION_MAX]
+    amp = cut.rfind("&")
+    if amp != -1 and ";" not in cut[amp:]:
+        cut = cut[:amp]  # a cut "&am" would show as text
+    cut = cut.rstrip() + " …"
+    if cut.count("```") % 2:
+        cut += "\n```"
+    return cut

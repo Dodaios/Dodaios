@@ -3,7 +3,8 @@
 The person writes to the assistant in Slack, and the assistant answers there.
 A direct message to the person's own Slack app is the same conversation as
 the chat on the desktop, the phone app and Telegram. A mention of the app in a
-channel is answered in a thread under the mention.
+channel is not answered unless the owner turns that on (see "Mentions in a
+channel" below).
 
 This is not the Slack plugin. The plugin signs in as the person and lets the
 assistant search, read and post with their own permissions. The channel is a
@@ -54,18 +55,34 @@ member ids) starts empty, and an empty allowlist answers nobody.
 Anyone else who writes to the app, or mentions it, gets nothing back: no
 answer and no refusal. Only the owner can press an approval's buttons.
 
+## Mentions in a channel
+
+Off by default. With `[integrations.slack] answer_mentions = true` in the
+config file, the owner's mention of the app in a channel is answered in a
+thread under the mention. **Everyone in that channel can read the answer**,
+and in a channel shared with another company, so can its people. The answer
+comes from the owner's private conversation, the same one as the direct
+message, so it can carry what the assistant knows about the owner. Leave it
+off unless the channel is one only trusted people read.
+
 ## What travels
 
-- **Text** both ways. Replies go through the same scrubber as Telegram's
-  (digits stay digits) and Slack's three reserved characters are escaped.
+- **Text** both ways, as written: links, code and line breaks stay. Only
+  key-shaped text is masked, and Slack's three reserved characters are
+  escaped. (The speech filter of the voice is not used: it would turn a link
+  into "the website".)
 - **Pictures** sent to the app go to the turn as attachments, as from
   Telegram. A picture sent without words waits 25 seconds for the words that
-  follow it.
+  follow it. The messages of one conversation are handled in the order they
+  were sent, so a question typed right after a picture joins it even while
+  the picture is still downloading.
 - **Voice clips** recorded in Slack are transcribed like a Telegram voice
   note.
 - **Approvals.** A tool call that waits for a yes also arrives in the direct
-  message with Allow and Deny buttons; a decision in the app settles the
-  Slack message. Settings → Notifications → "Approvals in Slack" switches
+  message with Allow and Deny buttons. The command or the changed lines stand
+  in a code block exactly as they will run. A decision in the app settles
+  the Slack message, also when it comes while the message is still on its
+  way; a button shrinks the message to its first line and the decision. Settings → Notifications → "Approvals in Slack" switches
   this off. A plain "yes" or "no" typed in Slack answers the oldest open
   approval too.
 - **"Stop"** typed in Slack stops everything, as from any of the owner's

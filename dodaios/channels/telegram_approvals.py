@@ -119,6 +119,10 @@ class TelegramApprovalBridge:
         #: ``telegram`` or ``slack``: whose switch, owner and words apply.
         self._source = source if source in ("telegram", "slack") else "telegram"
         self._sent: dict[str, Sent] = {}
+        #: Approvals whose message is on its way (the send has not returned).
+        self._sending: set[str] = set()
+        #: Decisions taken in the app while their message was on its way.
+        self._settled_early: dict[str, dict[str, Any]] = {}
         self._from_telegram: set[str] = set()
         self._tasks: set[asyncio.Task[Any]] = set()
 
@@ -151,7 +155,7 @@ class TelegramApprovalBridge:
             if _unattended(session_id):
                 return
             approval_id = str(payload.get("approval_id") or "")
-            if not approval_id or approval_id in self._sent:
+            if not approval_id or approval_id in self._sent or approval_id in self._sending:
                 return
             channel = self._channel()
             if channel is None:
@@ -165,14 +169,26 @@ class TelegramApprovalBridge:
             channel.on_approval_callback = self.on_callback
             lang = self._owner_language(session_id, channel)
             text = self._text(payload, lang, session_id)
-            message_id = await send(
-                chat_id,
-                text,
-                approval_id,
-                allow=phrase("telegram_allow", lang),
-                deny=phrase("telegram_deny", lang),
-            )
+            # A decision in the app can come while the message is on its way;
+            # it is kept and applied once the message exists (see _settle).
+            self._sending.add(approval_id)
+            try:
+                message_id = await send(
+                    chat_id,
+                    text,
+                    approval_id,
+                    allow=phrase("telegram_allow", lang),
+                    deny=phrase("telegram_deny", lang),
+                )
+            except BaseException:
+                self._settled_early.pop(approval_id, None)
+                raise
+            finally:
+                self._sending.discard(approval_id)
             self._sent[approval_id] = Sent(session_id, chat_id, message_id, text, lang)
+            early = self._settled_early.pop(approval_id, None)
+            if early is not None:
+                await self._settle(approval_id, early)
         except Exception:  # noqa: BLE001 — the app's own card still works without Telegram
             log.warning("%s approvals: request not sent", self._source, exc_info=True)
 
@@ -199,9 +215,12 @@ class TelegramApprovalBridge:
                 lines.append(phrase("telegram_why", lang, why=why))
             command = str(fields.get("command", {}).get("value") or "").strip()
             if command:
-                if len(command) > _MAX_COMMAND:
-                    command = command[:_MAX_COMMAND].rstrip() + "\n" + phrase("telegram_cut", lang)
-                lines += ["", command, ""]
+                cut = len(command) > _MAX_COMMAND
+                if cut:
+                    command = command[:_MAX_COMMAND].rstrip()
+                lines += ["", *self._code(command.split("\n")), ""]
+                if cut:
+                    lines += [phrase("telegram_cut", lang), ""]
             folder = str(fields.get("folder", {}).get("value") or "").strip()
             if folder:
                 lines.append(phrase("telegram_folder", lang, folder=folder))
@@ -223,7 +242,11 @@ class TelegramApprovalBridge:
                     "telegram_lines", lang,
                     added=int(diff.get("added") or 0), removed=int(diff.get("removed") or 0),
                 ))
-                lines += _diff_lines(diff, lang)
+                shown, more = _diff_lines(diff, lang)
+                if shown:
+                    lines += ["", *self._code(shown)]
+                    if more:
+                        lines.append(more)
         else:
             source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
             if source.get("kind") == "plan":
@@ -245,8 +268,18 @@ class TelegramApprovalBridge:
             lines += ["", phrase("telegram_irreversible", lang)]
         text = "\n".join(lines).strip()
         if len(text) > _MAX_MESSAGE:
-            text = text[:_MAX_MESSAGE].rstrip() + "\n" + phrase("telegram_cut", lang)
+            text = text[:_MAX_MESSAGE].rstrip()
+            if text.count("```") % 2:
+                text += "\n```"  # a code block cut open would swallow the note
+            text += "\n" + phrase("telegram_cut", lang)
         return text
+
+    def _code(self, lines: list[str]) -> list[str]:
+        """Command or diff lines as they run: a code block on Slack, plain lines on Telegram."""
+        if self._source != "slack":
+            return lines
+        # A fence inside the command would end the block early.
+        return ["```", *(line.replace("```", "`\u200b`\u200b`") for line in lines), "```"]
 
     def _agent_label(self, payload: dict[str, Any], session_id: str, lang: str) -> str:
         """Who asks: the named agent, a coding thread by its title, else the assistant."""
@@ -349,6 +382,9 @@ class TelegramApprovalBridge:
     async def _settle(self, approval_id: str, payload: dict[str, Any]) -> None:
         sent = self._sent.pop(approval_id, None)
         if sent is None:
+            if approval_id in self._sending:
+                # Decided before the message arrived: settle it once it has.
+                self._settled_early[approval_id] = payload
             return
         if approval_id in self._from_telegram:
             # The button's own answer already edited the message.
@@ -378,8 +414,8 @@ class TelegramApprovalBridge:
         return list(self._sent)
 
 
-def _diff_lines(diff: dict[str, Any], lang: str) -> list[str]:
-    """The added and removed lines of a file edit, at most a screenful."""
+def _diff_lines(diff: dict[str, Any], lang: str) -> tuple[list[str], str]:
+    """The changed lines of a file edit (at most a screenful), and the "more" line."""
     changed = [
         r for r in diff.get("lines") or []
         if isinstance(r, dict) and r.get("op") in ("+", "-")
@@ -387,10 +423,8 @@ def _diff_lines(diff: dict[str, Any], lang: str) -> list[str]:
     out = [f"{r['op']} {str(r.get('text') or '').rstrip()}" for r in changed[:_MAX_DIFF_LINES]]
     hidden = max(0, int(diff.get("added") or 0) + int(diff.get("removed") or 0) - len(out))
     if not out:
-        return []
-    if hidden:
-        out.append(phrase("telegram_more_lines", lang, count=hidden))
-    return ["", *out]
+        return [], ""
+    return out, phrase("telegram_more_lines", lang, count=hidden) if hidden else ""
 
 
 def _unattended(session_id: str) -> bool:

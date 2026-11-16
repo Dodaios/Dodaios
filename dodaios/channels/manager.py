@@ -32,6 +32,13 @@ Retry:
     ``stop``, ``reload`` and ``stop_all`` cancel a pending retry. A channel a
     retry starts is announced to the late-start listeners, so whatever binds
     to channels at boot (the chat bridge's consumers) binds to it as well.
+
+One at a time:
+    ``start``, ``stop`` and ``reload`` of one channel never overlap (a lock per
+    channel). Two reloads at once (a connect and a "pair again" a moment
+    later) would otherwise both build and start an instance, and the one the
+    manager forgot would keep its link open, unstopped, taking messages
+    nobody reads.
 """
 
 from __future__ import annotations
@@ -305,6 +312,14 @@ class ChannelManager:
         #: passing reason; gone once it started the channel or gave up.
         self._retries: dict[str, asyncio.Task[None]] = {}
         self._late_start_listeners: list[LateStartListener] = []
+        #: One lock per channel: its start, stop and reload never overlap.
+        self._locks: dict[str, asyncio.Lock] = {}
+
+    def _lock(self, name: str) -> asyncio.Lock:
+        lock = self._locks.get(name)
+        if lock is None:
+            lock = self._locks[name] = asyncio.Lock()
+        return lock
 
     # ------------------------------------------------------------------
     # Discovery
@@ -414,6 +429,10 @@ class ChannelManager:
         (see :meth:`retrying`); the error stays in :meth:`start_errors` until
         a retry succeeds.
         """
+        async with self._lock(name):
+            await self._start_locked(name)
+
+    async def _start_locked(self, name: str) -> None:
         if name in self._started:
             return
         # Two starts of one instance never run at once: a direct start
@@ -519,10 +538,29 @@ class ChannelManager:
         the fresh start fails (same contract as :meth:`start`). A pending retry
         of the old instance is cancelled first.
         """
-        await self.stop(name)
-        self._instances.pop(name, None)
-        self._start_errors.pop(name, None)
-        await self.start(name)
+        async with self._lock(name):
+            await self._stop_locked(name)
+            old = self._instances.pop(name, None)
+            self._start_errors.pop(name, None)
+            self._carry_over(old, name)
+            await self._start_locked(name)
+
+    def _carry_over(self, old: Any, name: str) -> None:
+        """Hand the old instance's approval-button handler to the new one.
+
+        The approval bridge sets ``on_approval_callback`` on the instance it
+        sends a request through; without this a button on a message sent
+        before the reload would do nothing.
+        """
+        callback = getattr(old, "on_approval_callback", None)
+        if callback is None:
+            return
+        try:
+            fresh = self.get(name)
+        except Exception:  # noqa: BLE001 — the start below reports a channel that cannot be built
+            return
+        if getattr(fresh, "on_approval_callback", "absent") is None:
+            fresh.on_approval_callback = callback  # type: ignore[attr-defined]
 
     async def start_all(self) -> dict[str, str]:
         names = self.available()
@@ -542,6 +580,10 @@ class ChannelManager:
 
     async def stop(self, name: str) -> None:
         """Stop ``name``; a pending retry is cancelled, so it never starts it later."""
+        async with self._lock(name):
+            await self._stop_locked(name)
+
+    async def _stop_locked(self, name: str) -> None:
         await self._cancel_retry(name)
         if name not in self._started:
             return

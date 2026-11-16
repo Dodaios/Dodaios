@@ -22,7 +22,9 @@ Design:
 - **Outbound routing via InflightMap**: ``trace_id -> channel_id`` with a TTL;
   ``ResponseGenerated`` carries the originating ``trace_id`` (see
   ``BrainManager.generate``), so the reply lands back in the right channel.
-- **Privacy**: every outbound message passes through ``scrub_for_voice``.
+- **Readable text**: an outbound message is sent as written, links, code and
+  lines kept; only keys and the call's hang-up marker are taken out
+  (``channels.chat_text``).
 """
 from __future__ import annotations
 
@@ -38,37 +40,18 @@ from dodaios.channels.base import (
     ChannelMessage,
     ChannelSession,
 )
+from dodaios.channels.chat_text import readable_text
 from dodaios.channels.manager import ChannelContext, ChannelStartError
 from dodaios.core.bus import EventBus
 from dodaios.core.config import DiscordConfig, get_secret
 from dodaios.core.events import Event, ResponseGenerated
 from dodaios.friends.models import Friend, FriendChannel
 
-# Branch-portable import: identity fallback when the voice output filter is not
-# present (keeps Discord working unscrubbed rather than crashing on import).
-try:
-    from dodaios.brain.output_filter import scrub_for_voice as _scrub_impl
-except ImportError:  # pragma: no cover
-
-    class _IdentityScrubResult:
-        def __init__(self, text: str) -> None:
-            self.cleaned = text
-            self.fallback_used = False
-
-    def _scrub_impl(  # type: ignore[no-redef]
-        text: str, *, language: str = "en", spell_numbers: bool = True
-    ) -> Any:
-        return _IdentityScrubResult(text or "")
-
 if TYPE_CHECKING:  # pragma: no cover
     from dodaios.friends.registry import FriendRegistry
 
 log = logging.getLogger(__name__)
 
-
-def scrub_for_voice(text: str, *, language: str = "en") -> Any:
-    # A chat message is read, not spoken: digits stay digits.
-    return _scrub_impl(text, language=language, spell_numbers=False)
 
 __all__ = ["DiscordChannel", "InflightMap"]
 
@@ -497,9 +480,9 @@ class DiscordChannel:
         if client is None:
             log.debug("DiscordChannel send aborted: not started")
             return
-        cleaned = scrub_for_voice(text, language=language).cleaned
-        if not cleaned.strip():
-            log.debug("DiscordChannel send aborted: empty after scrub")
+        cleaned = readable_text(text)
+        if not cleaned:
+            log.debug("DiscordChannel send aborted: nothing to send")
             return
 
         target = client.get_channel(channel_id)
