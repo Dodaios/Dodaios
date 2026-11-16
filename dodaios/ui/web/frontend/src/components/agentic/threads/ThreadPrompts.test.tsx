@@ -146,7 +146,7 @@ describe("a coding agent's questions and plans in a thread", () => {
     const card = await screen.findByTestId("thread-plan");
     expect(card.textContent).toContain("switches access to Auto");
     await act(async () => { fireEvent.click(screen.getByTestId("thread-plan-build")); });
-    expect(api.resolveAgentChatPlan).toHaveBeenCalledWith("s1", "t1", "build");
+    expect(api.resolveAgentChatPlan).toHaveBeenCalledWith("s1", "t1", "build", "auto");
     feed([["plan_resolved", { turn_id: "t1", decision: "build" }]]);
     expect(screen.queryByTestId("thread-plan")).toBeNull();
   });
@@ -162,6 +162,30 @@ describe("a coding agent's questions and plans in a thread", () => {
     ]);
     const card = await screen.findByTestId("thread-plan");
     expect(card.textContent).toContain("switches access to Full access");
+    // What the button says is what runs: the server gets the pill's mode.
+    await act(async () => { fireEvent.click(screen.getByTestId("thread-plan-build")); });
+    expect(api.resolveAgentChatPlan).toHaveBeenCalledWith("s1", "t1", "build", "full-access");
+  });
+
+  it("names the ladder's ask rung, never its default, for a thread that recorded no mode", async () => {
+    // A forked thread in Plan had no build mode: the pill showed another
+    // thread's mode while the server built in "Full access".
+    api.fetchAgentChatCatalog.mockResolvedValue({
+      ...CATALOG,
+      providers: [{ ...CATALOG.providers[0], default_permission_mode: "full-access" }],
+    });
+    await openThread();
+    feed([
+      ["assistant_text", { turn_id: "t1", message_id: "m1", text: "1. Add the table" }],
+      ["turn_finished", { turn_id: "t1", status: "done", duration_ms: 1000 }],
+      ["plan_ready", { turn_id: "t1", build_mode: "auto" }],
+      // The thread as the server has it: in Plan, no build mode recorded.
+      ["session_updated", { permission_mode: "plan", build_mode: "" }],
+    ]);
+    const card = await screen.findByTestId("thread-plan");
+    expect(card.textContent).toContain("switches access to Auto");
+    await act(async () => { fireEvent.click(screen.getByTestId("thread-plan-build")); });
+    expect(api.resolveAgentChatPlan).toHaveBeenCalledWith("s1", "t1", "build", "auto");
   });
 
   it("tells the thread the mode picked on the pill while Plan Mode is on", async () => {

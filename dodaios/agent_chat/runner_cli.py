@@ -808,6 +808,10 @@ def read_claude_commands(runner: str, cwd: Path | str | None) -> list[Any] | Non
     return None
 
 
+#: The session modes an "Always allow" on one card may switch Claude Code to.
+_CARD_SESSION_MODES: Final[frozenset[str]] = frozenset({"acceptEdits"})
+
+
 def claude_session_rules(tool_name: str, suggestions: Any) -> list[dict[str, Any]]:
     """What "Always allow" answers Claude Code: its own rule, for this session.
 
@@ -816,11 +820,17 @@ def claude_session_rules(tool_name: str, suggestions: Any) -> list[dict[str, Any
     Those name a settings file as their destination; the chat keeps them to
     the running session, so a click never writes into the person's repo or
     user settings. Without a suggestion the tool itself is allowed.
+
+    A suggestion that switches the whole session to a mode above "accept
+    edits" is dropped: one click on one card must never put the thread in
+    "Bypass permissions". Only the permission pill does that.
     """
     rules = [
         {**rule, "destination": "session"}
         for rule in (suggestions if isinstance(suggestions, list) else [])
-        if isinstance(rule, dict) and rule.get("type")
+        if isinstance(rule, dict)
+        and rule.get("type")
+        and (rule.get("type") != "setMode" or rule.get("mode") in _CARD_SESSION_MODES)
     ]
     return rules or [
         {
@@ -862,9 +872,8 @@ def claude_rules_cover(rules: Iterable[dict[str, Any]], tool_name: str, tool_inp
             continue
         kind = rule.get("type")
         if kind == "setMode":
+            # Only "accept edits" is a mode a card may grant (``_CARD_SESSION_MODES``).
             mode = rule.get("mode")
-            if mode == "bypassPermissions":
-                return True
             if mode == "acceptEdits" and tool_name in _CLAUDE_EDIT_TOOLS:
                 return True
             continue
@@ -5524,10 +5533,16 @@ async def _drive_cli(
                 message = said or "The person declined this action."
         if decision in {"allow", "allow_always"}:
             body: dict[str, Any] = {"behavior": "allow", "updatedInput": req.get("input") or {}}
-            if decision == "allow_always" and subtype == "can_use_tool":
+            if (
+                decision == "allow_always"
+                and subtype == "can_use_tool"
+                and tool_name != "ExitPlanMode"
+            ):
                 # Without a rule the CLI asked again at the very next call of
                 # this turn: the session's new access mode only reaches the
-                # next process.
+                # next process. Not for a plan: its suggestions switch the
+                # whole session's mode, and where an approved plan goes on
+                # is the permission pill's to say (``_leave_plan_mode``).
                 body["updatedPermissions"] = claude_session_rules(
                     tool_name, req.get("permission_suggestions")
                 )

@@ -277,7 +277,7 @@ export interface AgentChatStore {
    */
   answerByMessage?: (text: string) => Promise<boolean>;
   /** Answer a coding agent's plan card in the active session; throws so the card can say why. */
-  resolvePlan: (turnId: string, decision: PlanDecision) => Promise<void>;
+  resolvePlan: (turnId: string, decision: PlanDecision, buildMode?: string) => Promise<void>;
   /** Tests and the socket: fold one event into the active timeline. */
   ingest: (event: AgentChatEvent) => void;
   disconnect: () => void;
@@ -421,7 +421,7 @@ export function joinProviderOptions(
 }
 
 /** A session patch the composer's draft must mirror. */
-function draftFromSession(session: AgentChatSession, prev: ComposerDraft): ComposerDraft {
+function draftFromSession(session: AgentChatSession): ComposerDraft {
   const plan = session.permission_mode === "plan";
   return {
     provider: session.provider,
@@ -430,9 +430,10 @@ function draftFromSession(session: AgentChatSession, prev: ComposerDraft): Compo
     effort: session.effort,
     speed: session.speed ?? "",
     permissionMode: session.permission_mode,
-    // In Plan the session itself says where Build returns to; a session from
-    // before it kept that falls back to what the composer last showed.
-    buildMode: plan ? session.build_mode || prev.buildMode || prev.permissionMode : session.permission_mode,
+    // In Plan the session itself says where Build returns to. One that kept
+    // none (a fork, a thread from a grid pane) shows the ladder's ask rung
+    // (`planReturnMode`), never another thread's mode.
+    buildMode: plan ? session.build_mode || "" : session.permission_mode,
     cwd: session.cwd,
     computerId: session.computer_id ?? "",
   };
@@ -444,6 +445,20 @@ function draftFromSession(session: AgentChatSession, prev: ComposerDraft): Compo
  * sessions can be open at the same time without sharing a connection.
  */
 /** `value` when the ladder offers it (or the ladder is unknown), else `fallback`. */
+/**
+ * The mode an approved plan goes on in, as the permission pill shows it: the
+ * draft's pick when the ladder offers it, else the ladder's first mode that is
+ * not Plan (its ask rung). Never the provider's default: that is "Bypass
+ * permissions" on most coding ladders, and the server never falls back to it
+ * either (`permissions.mode_after_plan`).
+ */
+export function planReturnMode(draft: Pick<ComposerDraft, "buildMode">, provider: ProviderOption | null): string {
+  const offered = (provider?.permission_modes ?? []).map((mode) => mode.id).filter((id) => id !== "plan");
+  const picked = draft.buildMode && draft.buildMode !== "plan" ? draft.buildMode : "";
+  if (offered.length === 0) return picked;
+  return picked && offered.includes(picked) ? picked : offered[0];
+}
+
 function onLadder(value: string, ladder: readonly string[], fallback: string): string {
   if (!value) return fallback;
   if (ladder.length === 0) return value;
@@ -782,7 +797,7 @@ export function createAgentChatStore(
             sessions: sessions.some((row, index) => row !== prev.sessions[index]) ? sessions : prev.sessions,
             timeline: { ...tl, sessionPatch: null },
             opening: false,
-            draft: draftFromSession(session, prev.draft),
+            draft: draftFromSession(session),
           });
           if (surface !== "jarvis") writeDraft(DRAFT_KEY, get().draft);
           if (typeof session.running === "boolean") announceRunning(session.session_id, session.running);
@@ -963,11 +978,10 @@ export function createAgentChatStore(
                 known.permission_modes.map((m) => m.id),
                 known.default_permission_mode,
               ),
-              buildMode: onLadder(
-                draft.buildMode,
-                known.permission_modes.map((m) => m.id),
-                known.default_permission_mode,
-              ),
+              // No build mode stays none, and one the ladder does not offer
+              // snaps to its ask rung (`planReturnMode`), never to the
+              // provider's default.
+              buildMode: draft.buildMode ? planReturnMode(draft, known) : "",
               cwd: draft.cwd || catalog.default_cwd,
             };
           }
@@ -1147,7 +1161,7 @@ export function createAgentChatStore(
             set((s) => {
               const latest = patchRevisions.get(sid) === revision;
               const active = s.activeSessionId === sid && latest;
-              if (active) reconciledDraft = draftFromSession(session, s.draft);
+              if (active) reconciledDraft = draftFromSession(session);
               return {
                 activeSession: active ? session : s.activeSession,
                 draft: reconciledDraft ?? s.draft,
@@ -1175,12 +1189,9 @@ export function createAgentChatStore(
         if (on) {
           await st.setDraft({ permissionMode: "plan" });
         } else {
-          const p = st.providerById(st.draft.provider);
-          // A mode the ladder no longer offers (an old thread's acceptEdits)
-          // would be refused by the session route; Build then takes the default.
-          const offered = p?.permission_modes?.map((m) => m.id) ?? [];
-          const kept = st.draft.buildMode && st.draft.buildMode !== "plan" && (!offered.length || offered.includes(st.draft.buildMode));
-          const back = kept ? st.draft.buildMode : p?.default_permission_mode ?? "";
+          // The mode the pill shows. One the ladder no longer offers (an old
+          // thread's acceptEdits) would be refused by the session route.
+          const back = planReturnMode(st.draft, st.providerById(st.draft.provider));
           await st.setDraft({ permissionMode: back });
         }
       },
@@ -1517,10 +1528,10 @@ export function createAgentChatStore(
         }
       },
 
-      resolvePlan: async (turnId, decision) => {
+      resolvePlan: async (turnId, decision, buildMode) => {
         const sid = get().activeSessionId;
         if (!sid) throw new Error("no open chat");
-        await resolveAgentChatPlan(sid, turnId, decision);
+        await resolveAgentChatPlan(sid, turnId, decision, buildMode);
       },
 
       ingest: (event) => {
@@ -1533,7 +1544,7 @@ export function createAgentChatStore(
         if (patch.timeline && tl.sessionPatch && session) {
           session = { ...session, ...tl.sessionPatch } as AgentChatSession;
           patch.activeSession = session;
-          patch.draft = draftFromSession(session, st.draft);
+          patch.draft = draftFromSession(session);
           if (surface !== "jarvis") writeDraft(DRAFT_KEY, patch.draft);
         }
         const sid = st.activeSessionId;
