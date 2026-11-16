@@ -176,6 +176,22 @@ describe("the node window", () => {
     home.remove();
   });
 
+  it("does not wait for a frame that never comes: a covered window still gets its conversation", async () => {
+    installFetchMock();
+    const home = document.body.appendChild(document.createElement("div"));
+    const element = home.appendChild(document.createElement("div"));
+    useNodePeek.setState({ lender: { chat: useAgentChatStore, element, home } });
+    // A window that is covered or minimised is given no frames.
+    const frames = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 1);
+    mount();
+    await openWindow(PLAN);
+    const place = screen.getByTestId("node-peek-conversation");
+    await waitFor(() => expect(place.contains(element)).toBe(true));
+    frames.mockRestore();
+    fireEvent.keyDown(screen.getByTestId("node-peek-window"), { key: "Escape" });
+    home.remove();
+  });
+
   it("draws a conversation the page behind it does not have, after the node", async () => {
     installFetchMock();
     // The page behind offers another chat than the one the node was opened from.

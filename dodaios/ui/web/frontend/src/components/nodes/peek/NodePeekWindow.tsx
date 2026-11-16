@@ -488,18 +488,32 @@ function BorrowedChat({ lent, ready }: { lent: LentConversation; ready: boolean 
   );
 }
 
-/** False while the component's first frame is drawn, true right after it. */
+/**
+ * The longest the conversation waits for the window's first frame. A window
+ * that is covered or minimised is given no frames at all, and the desktop
+ * shell's engine has been seen to treat a window on screen that way for a
+ * while; the conversation must not hang on a frame that does not come.
+ */
+const FIRST_FRAME_WAIT_MS = 150;
+
+/**
+ * False while the component's first frame is drawn, true right after it, or
+ * after `FIRST_FRAME_WAIT_MS` when no frame is drawn.
+ */
 function useAfterFirstPaint(): boolean {
   const [painted, setPainted] = useState(false);
   useEffect(() => {
     let timer: number | undefined;
+    const done = () => setPainted(true);
     // The frame callback runs before the paint; the timer it sets, after it.
     const frame = window.requestAnimationFrame(() => {
-      timer = window.setTimeout(() => setPainted(true), 0);
+      timer = window.setTimeout(done, 0);
     });
+    const latest = window.setTimeout(done, FIRST_FRAME_WAIT_MS);
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timer);
+      window.clearTimeout(latest);
     };
   }, []);
   return painted;
