@@ -3,9 +3,10 @@
  *
  * A page or node the turn made: a preview card. The top of the page itself,
  * live and inert, fading out at the bottom; under it the page's name, what it
- * is, and a download button. The whole card opens the page in the Nodes
- * section. Up to `MAX_PREVIEWS_PER_TURN` different pages in a turn each get
- * their card.
+ * is, and a download button. The whole card opens the page in the node
+ * window, over the conversation it stands in (components/nodes/peek): the
+ * page on the left, this conversation on the right. Up to
+ * `MAX_PREVIEWS_PER_TURN` different pages in a turn each get their card.
  *
  * The same page posted twice in a turn (made, then revised) is ONE page: only
  * its last notice is drawn, so a revision does not turn the card into links.
@@ -26,9 +27,10 @@ import { useThemeValue } from "@/hooks/useTheme";
 import { artifactPageUrl } from "@/hooks/useVisualArtifacts";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { useEventStore } from "@/store/events";
+import { useNodePeek } from "@/store/nodePeek";
 import { NODE_TYPE_LABEL_KEY } from "@/components/nodes/nodeTheme";
 import { isNodeType, type NodeType } from "@/components/nodes/nodeModel";
+import { useAgentChatApi } from "./AgentChatStoreContext";
 import type { NoticeItem, TimelineItem } from "./reduce";
 
 export interface PageCardData {
@@ -119,16 +121,17 @@ export function pageNoticeModes(items: readonly TimelineItem[]): Map<string, Pag
   return modes;
 }
 
-/** A page's name as a link with the page mark; opens it in the Artifacts section. */
+/** A page's name as a link with the page mark; opens it in the node window, beside this conversation. */
 export function PageLink({ pageRef, label, className }: { pageRef: string; label: string; className?: string }) {
   const t = useT();
-  const requestVisual = useEventStore((s) => s.requestVisual);
+  const chat = useAgentChatApi();
+  const openPeek = useNodePeek((s) => s.open);
   const name = label.trim() || splitPageRef(pageRef)?.path.split("/").pop() || pageRef;
   return (
     <button
       type="button"
       data-testid="page-link"
-      onClick={() => requestVisual(pageRef)}
+      onClick={() => openPeek(pageRef, { chat, title: label.trim() })}
       title={`${t("reports.open")}: ${name}`}
       className={cn(
         "inline-flex max-w-full items-baseline gap-1.5 rounded-sm text-left align-baseline text-foreground",
@@ -189,8 +192,13 @@ function PagePreview({ src, title }: { src: string; title: string }) {
 export function PageCard({ item, mode = "preview" }: { item: NoticeItem; mode?: PageNoticeMode }) {
   const t = useT();
   const theme = useThemeValue();
-  const requestVisual = useEventStore((s) => s.requestVisual);
+  const chat = useAgentChatApi();
+  const openPeek = useNodePeek((s) => s.open);
   const page = pageCardData(item);
+  // The page is open in the node window right now: its card says so.
+  const isOpen = useNodePeek((s) => page !== null && s.peek?.ref === page.artifact);
+  // Edited in the window since: the preview is drawn again from the new page.
+  const touched = useNodePeek((s) => (page !== null ? (s.touched[page.artifact] ?? 0) : 0));
   if (!page || mode === "hidden") return null;
   if (mode === "link") {
     return (
@@ -199,17 +207,21 @@ export function PageCard({ item, mode = "preview" }: { item: NoticeItem; mode?: 
       </div>
     );
   }
-  const open = () => requestVisual(page.artifact);
+  const open = () => openPeek(page.artifact, { chat, title: page.title });
   const openLabel = `${t("reports.open")}: ${page.title}`;
   const fileName = page.path.split("/").pop() || "page.html";
   return (
     <article
       data-message-id={item.id}
       data-testid="page-card"
-      className="group w-full max-w-[720px] overflow-hidden rounded-2xl border border-border bg-card shadow-rim transition-colors hover:border-border-strong"
+      data-open={isOpen ? "true" : undefined}
+      className={cn(
+        "group w-full max-w-[720px] overflow-hidden rounded-2xl border bg-card shadow-rim transition-colors",
+        isOpen ? "border-primary/60" : "border-border hover:border-border-strong",
+      )}
     >
       <button type="button" data-testid="page-card-preview" onClick={open} aria-label={openLabel} className="relative block h-[300px] w-full cursor-pointer overflow-hidden text-left">
-        <PagePreview src={`${artifactPageUrl(page.slug, page.path)}?theme=${theme}`} title={page.title} />
+        <PagePreview src={`${artifactPageUrl(page.slug, page.path)}?theme=${theme}${touched ? `&v=${touched}` : ""}`} title={page.title} />
       </button>
       <footer className="flex items-center gap-3 border-t border-border px-4 py-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">

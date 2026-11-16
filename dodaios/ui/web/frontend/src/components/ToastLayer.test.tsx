@@ -3,11 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useI18nStore } from "@/i18n";
 import { useEventStore } from "@/store/events";
+import { useNodePeek } from "@/store/nodePeek";
 import { ToastLayer } from "./ToastLayer";
 
 beforeEach(() => {
   useI18nStore.getState().setUi("en", { push: false });
   useEventStore.setState({ toasts: [] });
+  useNodePeek.setState({ peek: null, touched: {} });
 });
 
 afterEach(() => {
@@ -22,6 +24,28 @@ describe("ToastLayer", () => {
     expect(screen.getByTestId("toast-layer").className).toContain("lg:right-[336px]");
     act(() => useEventStore.setState({ activeSection: "agentic-ide" }));
     expect(screen.getByTestId("toast-layer").className).not.toContain("lg:right-[336px]");
+  });
+
+  it("makes way for the node window: toasts under its title row, standing notices held back", () => {
+    useEventStore.setState({ activeSection: "chats" });
+    render(<ToastLayer><p data-testid="standing-notice">Connection expired</p></ToastLayer>);
+    expect(screen.getByTestId("standing-notice")).toBeTruthy();
+    expect(screen.getByTestId("toast-layer").getAttribute("data-under-node-window")).toBeNull();
+
+    act(() => useNodePeek.getState().open("run-1::tasks/report/artifacts/files/plan.html"));
+    const layer = screen.getByTestId("toast-layer");
+    expect(layer.getAttribute("data-under-node-window")).toBe("true");
+    // Not over the window's buttons, and not pushed aside for a panel that is covered.
+    expect(layer.className).toContain("top-[112px]");
+    expect(layer.className).not.toContain("lg:right-[336px]");
+    expect(screen.queryByTestId("standing-notice")).toBeNull();
+    // A toast still shows: it reports what was just done in the window.
+    act(() => useEventStore.getState().pushToast("info", "Saved"));
+    expect(screen.getByText("Saved")).toBeTruthy();
+
+    act(() => useNodePeek.getState().close());
+    expect(screen.getByTestId("standing-notice")).toBeTruthy();
+    expect(screen.getByTestId("toast-layer").className).toContain("lg:right-[336px]");
   });
 
   it("shows a plain toast without a button", () => {

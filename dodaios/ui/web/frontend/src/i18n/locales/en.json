@@ -11955,6 +11955,21 @@
     "ask": {
       "change_draft": "Change the node \"{0}\" (id {1}): "
     },
+    "peek": {
+      "window": "Node",
+      "conversation": "Conversation",
+      "open_in_nodes": "Open in Nodes",
+      "show_chat": "Show the conversation",
+      "hide_chat": "Hide the conversation",
+      "resize": "Drag to make the conversation wider or narrower. Double-click for the usual width.",
+      "unsent_title": "Comments not sent",
+      "unsent_one": "1 comment is not sent yet",
+      "unsent_many": "{0} comments are not sent yet",
+      "unsent_body": "Send them to {name} now, or close and drop them.",
+      "unsent_send": "Send and close",
+      "unsent_discard": "Drop them",
+      "unsent_keep": "Stay here"
+    },
     "states": {
       "loading": "Loading your nodes",
       "empty": "Nothing here yet. Start with New, and {name} makes it with you.",

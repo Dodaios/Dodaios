@@ -7,6 +7,7 @@ import { RITUAL_LIMITS, ritual, ritualDay } from "@/lib/ritualsApi.testkit";
 import { useAgentChatStore } from "@/store/agentChat";
 import { useEventStore } from "@/store/events";
 import { useIdeThreadsStore } from "@/store/ideThreads";
+import { useNodePeek } from "@/store/nodePeek";
 import { useSettingsJump } from "@/store/settingsJump";
 
 const chats = vi.hoisted(() => ({
@@ -520,7 +521,7 @@ describe("AssistantPanel", () => {
       .toBe("Nothing yet. Files Nova makes show up here."));
   });
 
-  it("lists what the newest finished runs made, newest file first, and opens one on the Artifacts page", async () => {
+  it("lists what the newest finished runs made, newest file first, and opens one in the node window", async () => {
     const file = (path: string, mtime: number, title: string | null = null) =>
       ({ path: `tasks/t1/artifacts/files/${path}`, size: 10, mtime, is_text: false, preview: null, title });
     mount([], {
@@ -535,9 +536,16 @@ describe("AssistantPanel", () => {
     // A run that still builds is not read.
     expect(vi.mocked(fetch)).not.toHaveBeenCalledWith("/api/outputs/run-live/artifacts");
 
+    const section = useEventStore.getState().activeSection;
     fireEvent.click(rows[3]);
-    expect(useEventStore.getState().visualStage?.target).toBe("run-a::tasks/t1/artifacts/files/index.html");
-    expect(useEventStore.getState().activeSection).toBe("visualization");
+    // Beside the lead conversation (no chat named), and the page stays put.
+    expect(useNodePeek.getState().peek).toMatchObject({
+      ref: "run-a::tasks/t1/artifacts/files/index.html",
+      title: "Sales dashboard",
+      chat: null,
+    });
+    expect(useEventStore.getState().activeSection).toBe(section);
+    useNodePeek.setState({ peek: null, touched: {} });
   });
 
   it("marks a run's file with the type the library gives it, and its icon", async () => {

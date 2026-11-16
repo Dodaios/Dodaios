@@ -3,7 +3,8 @@
  * new living page): each thing that was made, where it is, and whether it is
  * done, a draft, or waiting for the person's go.
  *
- * A row opens its page in the Artifacts section (`artifact`, "slug::path") or
+ * A row opens its page in the node window, beside the conversation
+ * (`artifact`, "slug::path"; components/nodes/peek), or
  * its app's own link in the browser (`url`, http(s) only — the backend drops
  * anything else).
  */
@@ -23,7 +24,8 @@ import {
 import { useT } from "@/i18n";
 import { openExternalUrl } from "@/lib/openExternal";
 import { cn } from "@/lib/utils";
-import { useEventStore } from "@/store/events";
+import { openNodePeek } from "@/store/nodePeek";
+import { useAgentChatApi } from "./AgentChatStoreContext";
 import type { NoticeItem } from "./reduce";
 
 export interface ChainResultRow {
@@ -75,11 +77,11 @@ export function chainResultRows(data: Record<string, unknown>): ChainResultRow[]
 
 export function ChainResultCard({ item }: { item: NoticeItem }) {
   const t = useT();
-  const requestVisual = useEventStore((s) => s.requestVisual);
+  const chat = useAgentChatApi();
   const rows = chainResultRows(item.data);
   if (!rows.length) return null;
   const open = (row: ChainResultRow) => {
-    if (row.artifact) requestVisual(row.artifact);
+    if (row.artifact) openNodePeek(row.artifact, { chat, title: row.label });
     else if (row.url) void openExternalUrl(row.url);
   };
   return (

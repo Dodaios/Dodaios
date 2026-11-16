@@ -19,6 +19,7 @@ import {
   ShareMenu,
   StageBar,
   TitlePill,
+  type StageBarLayout,
 } from "@/components/visualization/ArtifactStageBar";
 import {
   parseArtifactUtterance,
@@ -36,8 +37,10 @@ import {
 } from "@/components/nodes/nodeBridge";
 import { useNodeCommentDraft } from "@/components/nodes/nodeCommentDraft";
 import { useNodeCommentDictation } from "@/components/nodes/nodeCommentDictation";
-import { NodesApiError, saveNodeField } from "@/components/nodes/useNodes";
+import { RenameNodeDialog } from "@/components/nodes/RenameNodeDialog";
+import { NodesApiError, saveNodeField, useNodeActions } from "@/components/nodes/useNodes";
 import { isNodeSlug, isTypedNode, type NodeCard } from "@/components/nodes/nodeModel";
+import { NODE_TYPE_LABEL_KEY } from "@/components/nodes/nodeTheme";
 import { isEditableType, type EditableType, type NodeEditorStart } from "@/components/nodes/editors/types";
 import { useNodesLibrary } from "@/components/nodes/useNodesLibrary";
 import { useNewWhiteboard } from "@/components/nodes/whiteboard/useNewWhiteboard";
@@ -155,7 +158,7 @@ function selectionOf(card: NodeCard): { slug: string; path: string | null } {
  * A library card's file as the stage takes it, or null for a card without
  * one (a run, a page still being built).
  */
-function visualOf(card: NodeCard, run: OutputSummary | undefined): VisualArtifact | null {
+export function visualOf(card: NodeCard, run: OutputSummary | undefined): VisualArtifact | null {
   if (card.path === null || card.visual_kind === null) return null;
   return {
     slug: card.slug,
@@ -174,7 +177,7 @@ function visualOf(card: NodeCard, run: OutputSummary | undefined): VisualArtifac
 }
 
 /** A key press that belongs to a text field, not to the gallery's navigation. */
-function isTypingTarget(target: EventTarget | null): boolean {
+export function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return (
     target.isContentEditable ||
@@ -389,12 +392,28 @@ export function VisualizationView() {
 /* ------------------------------------------------------------------------- */
 
 /** What the stage needs to know about its place in the library. */
-interface StageNavigation {
+export interface StageNavigation {
   onBack: () => void;
   /** Index in the library as shown, or -1 when the open item is not in it. */
   position: number;
   total: number;
   onStep: (delta: number) => void;
+}
+
+/**
+ * What changes when the stage stands in the node window instead of the Nodes
+ * section (components/nodes/peek): the bar is a window's title row, the
+ * window adds its own buttons to it, and "ask for a change" drafts into the
+ * conversation beside the node instead of leaving for the front page.
+ */
+export interface StageChrome {
+  layout: StageBarLayout;
+  /** The window's own buttons, between the stage's actions and the close button. */
+  trailing?: ReactNode;
+  /** False while the window's close button stands right of the stage (see `StageBar`). */
+  closeButton?: boolean;
+  /** Takes "ask for a change" instead of the lead conversation's composer. */
+  onAskChange?: (node: NodeCard) => void;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -411,7 +430,7 @@ interface StageNavigation {
  * page or picture in it goes on stage — an older dashboard is one click away
  * instead of "not scanned".
  */
-function Stage({
+export function Stage({
   run,
   visual: pickedVisual,
   node,
@@ -421,6 +440,7 @@ function Stage({
   onOpenNode,
   onJumpToRun,
   nav,
+  chrome,
 }: {
   run: OutputSummary | null;
   visual: VisualArtifact | null;
@@ -437,6 +457,8 @@ function Stage({
   onJumpToRun: (slug: string) => void;
   /** Back to the library and previous / next — the ends of the stage's bar. */
   nav: StageNavigation;
+  /** Set where the stage stands in the node window; absent in the section. */
+  chrome?: StageChrome;
 }) {
   const slug = run?.slug ?? pickedVisual?.slug ?? null;
   const listing = useArtifactsForOutput(run !== null ? slug : null);
@@ -568,6 +590,7 @@ function Stage({
         onMode={setMode}
         onJumpToRun={onJumpToRun}
         nav={nav}
+        chrome={chrome}
       />
       {run && <RunCapacityDecision run={run} />}
       <div className="min-h-0 flex-1" data-testid="visualization-stage">
@@ -629,6 +652,7 @@ function ArtifactToolbar({
   onMode,
   onJumpToRun,
   nav,
+  chrome,
 }: {
   run: OutputSummary | null;
   visual: VisualArtifact | null;
@@ -643,8 +667,14 @@ function ArtifactToolbar({
   onMode: (mode: StageMode) => void;
   onJumpToRun: (slug: string) => void;
   nav: StageNavigation;
+  chrome?: StageChrome;
 }) {
   const t = useT();
+  const windowed = chrome?.layout === "window";
+  /* A typed node keeps its name and its last revision: both can be changed
+   * from where the node is open, not only from its card in the library. */
+  const nodeActions = useNodeActions();
+  const [renaming, setRenaming] = useState<NodeCard | null>(null);
   const { favorites, toggle: toggleFavorite } = useArtifactFavorites();
   // The same key the library's card carries, so a star set here shows there.
   const favoriteKey = visual ? visualId(visual) : run ? `run:${run.slug}` : null;
@@ -657,6 +687,17 @@ function ArtifactToolbar({
     const sent = await useNodeCommentDraft.getState().sendAll(node);
     if (!sent) pushToast("error", t("nodes.comment.failed"));
   }, [node, pushToast, t]);
+  const undoLastChange = useCallback(() => {
+    if (node === null || !isTypedNode(node)) return;
+    // The page is drawn again by the stage's watcher once the node went back.
+    nodeActions.revertNode(node.id).then(
+      () => pushToast("success", t("nodes.revert.done")),
+      (failure: unknown) => {
+        const nothing = failure instanceof NodesApiError && failure.status === 400;
+        pushToast(nothing ? "info" : "error", t(nothing ? "nodes.revert.nothing" : "nodes.revert.failed"));
+      },
+    );
+  }, [node, nodeActions, pushToast, t]);
   const capabilities = useOutputsCapabilities();
   const parsed = parseArtifactUtterance(visual?.utterance ?? run?.utterance);
   const slug = visual?.slug ?? run?.slug ?? "";
@@ -693,7 +734,7 @@ function ArtifactToolbar({
     (visual ? cleanRequest(visual.utterance) : run ? cleanRequest(run.utterance) : "");
   const details = [
     visual ? formatWhen(visual.mtime) : run ? formatWhen(runWhen(run)) : "",
-    visual ? formatSize(visual.size) : "",
+    visual && visual.size > 0 ? formatSize(visual.size) : "",
     run && typeof run.duration_s === "number" ? `${run.duration_s.toFixed(1)} s` : "",
     request && request !== title ? request : "",
   ]
@@ -718,10 +759,28 @@ function ArtifactToolbar({
   const showStatus = run !== null && (run.status ?? "unknown") !== "success";
   const { position, total, onStep } = nav;
   const walkable = position >= 0 && total > 1;
+  // A window's title also says what the thing is and when it last changed.
+  const titleDetail = [
+    node !== null && isTypedNode(node) ? t(NODE_TYPE_LABEL_KEY[node.type]) : "",
+    visual ? formatWhen(visual.mtime) : run ? formatWhen(runWhen(run)) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
+    <>
+    <RenameNodeDialog
+      card={renaming}
+      onClose={() => setRenaming(null)}
+      onRename={async (card, name) => {
+        if (isTypedNode(card)) await nodeActions.renameNode(card.id, name);
+      }}
+    />
     <StageBar
       onClose={nav.onBack}
+      layout={chrome?.layout}
+      trailing={chrome?.trailing}
+      closeButton={chrome?.closeButton}
       center={
         <>
           <TitlePill
@@ -729,6 +788,8 @@ function ArtifactToolbar({
             picture={visual !== null && (visual.kind === "image" || visual.kind === "vector")}
             suffix={modeLabel}
             status={showStatus && run ? <RunStatusBadge run={run} /> : undefined}
+            plain={windowed}
+            detail={titleDetail}
           />
           {run && <RunActions run={run} onJumpToRun={onJumpToRun} />}
         </>
@@ -762,7 +823,7 @@ function ArtifactToolbar({
               disabled={sendingComments}
               data-testid="visualization-comments-send"
               className={
-                "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-4 text-base " +
+                "stage-bar-button inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full bg-foreground px-4 text-base " +
                 "text-background transition-colors hover:bg-foreground/85 disabled:opacity-60 " +
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               }
@@ -772,9 +833,11 @@ function ArtifactToolbar({
               ) : (
                 <ArrowUp className="h-4 w-4" strokeWidth={2.5} aria-hidden />
               )}
-              {waiting === 1
-                ? t("nodes.comment.send_one")
-                : t("nodes.comment.send_many").replace("{0}", String(waiting))}
+              <span className="stage-bar-label">
+                {waiting === 1
+                  ? t("nodes.comment.send_one")
+                  : t("nodes.comment.send_many").replace("{0}", String(waiting))}
+              </span>
             </button>
           )}
           <ShareMenu
@@ -825,12 +888,35 @@ function ArtifactToolbar({
                   <MenuItem
                     onSelect={() => {
                       close();
-                      void askDodaiosToChange(node);
+                      if (chrome?.onAskChange) chrome.onAskChange(node);
+                      else void askDodaiosToChange(node);
                     }}
                     testId="visualization-ask-change"
                   >
                     {t("nodes.menu.ask")}
                   </MenuItem>
+                )}
+                {node !== null && isTypedNode(node) && (
+                  <>
+                    <MenuItem
+                      onSelect={() => {
+                        close();
+                        setRenaming(node);
+                      }}
+                      testId="visualization-rename"
+                    >
+                      {t("nodes.menu.rename")}
+                    </MenuItem>
+                    <MenuItem
+                      onSelect={() => {
+                        close();
+                        undoLastChange();
+                      }}
+                      testId="visualization-revert"
+                    >
+                      {t("nodes.menu.revert")}
+                    </MenuItem>
+                  </>
                 )}
                 {mode === "run" && slug && (
                   <MenuItem
@@ -910,6 +996,7 @@ function ArtifactToolbar({
         </>
       }
     />
+    </>
   );
 }
 
@@ -924,13 +1011,13 @@ function NewBoardButton({ onCreated }: { onCreated: (card: NodeCard) => void }) 
       disabled={creating}
       data-testid="visualization-new-whiteboard"
       className={
-        "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full border border-border/70 px-4 text-base " +
+        "stage-bar-button inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full border border-border/70 px-4 text-base " +
         "text-foreground transition-colors hover:bg-secondary disabled:opacity-60 " +
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       }
     >
       {creating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Plus className="h-4 w-4" aria-hidden />}
-      {t("nodes.whiteboard.new")}
+      <span className="stage-bar-label">{t("nodes.whiteboard.new")}</span>
     </button>
   );
 }
@@ -956,7 +1043,7 @@ function PageModeButton({
       onClick={onClick}
       data-testid={testId}
       className={
-        "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full border px-4 text-base " +
+        "stage-bar-button inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-full border px-4 text-base " +
         "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
         (on
           ? "border-transparent bg-primary text-primary-foreground"
@@ -964,7 +1051,7 @@ function PageModeButton({
       }
     >
       {icon}
-      {label}
+      <span className="stage-bar-label">{label}</span>
     </button>
   );
 }
@@ -1331,7 +1418,7 @@ function RunCapacityDecision({ run }: { run: OutputSummary }) {
   return <CapacityDecisionPanel missionId={run.mission_id} state="WAITING_CAPACITY" />;
 }
 
-function BuildingStage({ run }: { run: OutputSummary }) {
+export function BuildingStage({ run }: { run: OutputSummary }) {
   const t = useT();
   const parsed = parseArtifactUtterance(run.utterance);
   return (
@@ -1351,7 +1438,7 @@ function BuildingStage({ run }: { run: OutputSummary }) {
   );
 }
 
-function EmptyStage({ loading, error }: { loading: boolean; error: boolean }) {
+export function EmptyStage({ loading, error }: { loading: boolean; error: boolean }) {
   const t = useT();
   return (
     <div
