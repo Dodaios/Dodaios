@@ -180,14 +180,27 @@ async def test_the_worker_describes_an_indexed_click_and_never_fails_the_action(
     assert await describe_target({"click": {"index": 3}}, gone, None) is None
     assert await describe_target({"scroll": {"down": True}}, session, None) is None
 
+    points = []
+
     async def page():
         return SimpleNamespace(evaluate=_evaluate)
 
-    async def _evaluate(script):
+    async def _evaluate(script, point=None):
+        if point is not None:
+            points.append(point)
+            return {"tag": "button", "label": "Pay now", "context": "", "field": ""}
         return {"tag": "button", "label": "Send", "context": "", "field": "text"}
 
     typed = await describe_target({"send_keys": {"keys": "Enter"}}, session, page)
     assert typed["label"] == "Send"
+    # A model that clicks by coordinates names no element: the control under
+    # the point is read, with the screenshot's pixels scaled to the viewport.
+    scaled = SimpleNamespace(llm_screenshot_size=(1000, 500), _original_viewport_size=(2000, 1000))
+    by_point = await describe_target(
+        {"click": {"coordinate_x": 100, "coordinate_y": 50}}, scaled, page
+    )
+    assert by_point["label"] == "Pay now" and points == [[200, 100]]
+    assert commit_step("click", {"coordinate_x": 100}, by_point, PLAY).kind == "buy"
 
 
 # ------------------------------------------------------------------ the run

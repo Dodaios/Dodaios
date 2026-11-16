@@ -4,7 +4,8 @@ The host decides whether a step commits something for the person
 (``commit_gate.py``) and what the approval card says. For that it needs the
 control's own words: its label, what kind of control it is, and the dialog or
 form around it. This module reads exactly that and nothing else, for a click
-on an indexed element and for an Enter key in the focused field.
+on an indexed element, a click by coordinates and an Enter key in the focused
+field.
 
 Runs inside the browser worker next to ``live_runner.py``: no imports from the
 app, and no import of the browser library (its nodes are read by attribute).
@@ -56,6 +57,42 @@ _ACTIVE_SCRIPT = """() => {
   if (!typed) return null;
   return {tag, type: "composer", role: "", href: "", label: "Enter", context: typed, field};
 }"""
+
+
+#: The control under a viewport point (a click by coordinates), as one JS object.
+_POINT_SCRIPT = """([x, y]) => {
+  const squash = (s) => (s || "").replace(/\\s+/g, " ").trim();
+  let el = document.elementFromPoint(x, y);
+  while (el && el.shadowRoot && el.shadowRoot.elementFromPoint(x, y)
+      && el.shadowRoot.elementFromPoint(x, y) !== el) {
+    el = el.shadowRoot.elementFromPoint(x, y);
+  }
+  if (!el) return null;
+  const control = el.closest(
+    "button, a, input, summary, label, [role=button], [role=menuitem], [role=link]"
+  ) || el;
+  const around = control.closest("dialog, [role=dialog], [role=alertdialog], form");
+  return {
+    tag: control.tagName.toLowerCase(),
+    type: (control.getAttribute("type") || "").toLowerCase(),
+    role: (control.getAttribute("role") || "").toLowerCase(),
+    href: control.getAttribute("href") || "",
+    label: squash(control.innerText || control.value || control.getAttribute("aria-label")
+      || control.getAttribute("title") || control.getAttribute("alt")).slice(0, 160),
+    context: squash(around ? around.innerText : "").slice(0, 600),
+    field: "",
+  };
+}"""
+
+
+def _viewport_point(params: dict, browser_session: Any) -> list[int]:
+    """A click's model coordinates as viewport pixels (the library scales the same way)."""
+    x, y = int(params["coordinate_x"]), int(params["coordinate_y"])
+    shown = getattr(browser_session, "llm_screenshot_size", None)
+    real = getattr(browser_session, "_original_viewport_size", None)
+    if shown and real and shown[0] and shown[1]:
+        return [int(x / shown[0] * real[0]), int(y / shown[1] * real[1])]
+    return [x, y]
 
 
 def _squash(value: Any, limit: int) -> str:
@@ -113,10 +150,11 @@ def describe_node(node: Any) -> dict[str, str] | None:
 
 
 async def describe_target(proposal: dict, browser_session: Any, page: Any) -> dict[str, str] | None:
-    """What ``proposal`` presses: the indexed control, or the focused field for Enter.
+    """What ``proposal`` presses: the indexed control, the control under the
+    clicked point, or the focused field for Enter.
 
     ``page`` is an awaitable that yields the focused page; it is only awaited
-    for a key press.
+    for a click by coordinates and for a key press.
     """
     try:
         async with asyncio.timeout(_READ_TIMEOUT_S):
@@ -128,6 +166,12 @@ async def describe_target(proposal: dict, browser_session: Any, page: Any) -> di
                     if not callable(lookup):
                         return None
                     return describe_node(await lookup(int(params["index"])))
+                if name == "click" and params.get("coordinate_x") is not None:
+                    # A model that clicks by coordinates names no element: the
+                    # control under the point is read from the page instead.
+                    point = _viewport_point(params, browser_session)
+                    found = await (await page()).evaluate(_POINT_SCRIPT, point)
+                    return dict(found) if isinstance(found, dict) else None
                 if name == "send_keys" and "enter" in str(params.get("keys") or "").lower():
                     found = await (await page()).evaluate(_ACTIVE_SCRIPT)
                     return dict(found) if isinstance(found, dict) else None
