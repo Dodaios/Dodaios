@@ -3,13 +3,14 @@
 import stat
 import sys
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 
 import pytest
 
 from dodaios.core.instance import DEV_PORT_OFFSET
 from scripts.ci import check_frozen_browser as probe
 from tests.fakes.fake_frozen_browser import FrozenBrowserApp
+from tests.fakes.loopback_http import LoopbackHTTPServer
 
 
 def test_probe_does_not_inherit_account_or_runtime_credentials(tmp_path, monkeypatch):
@@ -37,7 +38,7 @@ def test_probe_refuses_http_redirect_instead_of_forwarding_its_key(method):
         def log_message(self, *_args):
             pass  # Test traffic is intentionally quiet.
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Redirect)
+    server = LoopbackHTTPServer(("127.0.0.1", 0), Redirect)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -194,7 +195,7 @@ def test_a_missing_permission_route_fails_at_once_but_a_starting_app_is_retried(
 # A stand-in for the frozen app: `<exe> serve` answers the three requests the
 # smoke makes, with the permission status a given build would report.
 _FAKE_APP = """#!{python}
-import json, os, re
+import json, os, re, socketserver
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 config = open(os.environ["JARVIS_CONFIG"], encoding="utf-8").read()
@@ -230,7 +231,15 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
-ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+class Server(ThreadingHTTPServer):
+    # Bind without the host name lookup (socket.getfqdn), which stalls on the
+    # hosted macOS runners; see tests/fakes/loopback_http.py.
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = "127.0.0.1", self.server_address[1]
+
+
+Server(("127.0.0.1", port), Handler).serve_forever()
 """
 
 

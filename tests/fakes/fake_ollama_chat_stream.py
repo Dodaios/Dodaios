@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import json
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from typing import Any
+
+from tests.fakes.loopback_http import LoopbackHTTPServer
 
 __all__ = ["FakeOllamaChatStream"]
 
@@ -53,7 +55,7 @@ class FakeOllamaChatStream:
                     self.wfile.write((json.dumps(event) + "\n").encode("utf-8"))
                     self.wfile.flush()
 
-        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self._server = LoopbackHTTPServer(("127.0.0.1", 0), Handler)
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
 
     @property
