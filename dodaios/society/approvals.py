@@ -294,6 +294,10 @@ class Approvals:
                         return "declined"
                     await asyncio.sleep(poll_s)
         except TimeoutError:
+            log.info(
+                "approvals: nobody answered %s within %.0f s; the item is closed", approval_id,
+                timeout_s,
+            )
             row = await self.get(approval_id)
             if row is not None and row.state is ApprovalState.PENDING:
                 await self.resolve(approval_id, approve=False, note="No answer in time")
