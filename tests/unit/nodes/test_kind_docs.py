@@ -320,12 +320,13 @@ _EDITOR_FIXTURES = (
 
 
 def test_the_editor_keeps_the_example_as_written() -> None:
-    assert (_EDITOR_FIXTURES / "example.md").read_text().strip() == docs.EXAMPLE["markdown"].strip()
+    example = (_EDITOR_FIXTURES / "example.md").read_text(encoding="utf-8")
+    assert example.strip() == docs.EXAMPLE["markdown"].strip()
 
 
 def test_the_editors_markdown_draws_every_block_of_the_original() -> None:
-    original = _body(_page((_EDITOR_FIXTURES / "rich.md").read_text()))
-    written = _body(_page((_EDITOR_FIXTURES / "rich.out.md").read_text()))
+    original = _body(_page((_EDITOR_FIXTURES / "rich.md").read_text(encoding="utf-8")))
+    written = _body(_page((_EDITOR_FIXTURES / "rich.out.md").read_text(encoding="utf-8")))
     for drawn in (
         '<div class="callout warn">',
         '<strong class="lead">Careful</strong>',
