@@ -150,6 +150,15 @@ before edits" asks as it did before the plan. When the agent enters plan mode
 on its own, in a thread the person never switched to Plan Mode, approving its
 plan leaves the thread's access mode as it is.
 
+A thread in Plan Mode that kept no mode to return to (one from before the
+field existed) shows and returns to the lowest rung of its ladder ("Ask before
+edits" on Claude Code), never the ladder's default "Bypass permissions". A
+fork keeps its source's mode. **Build it** sends the mode the pill shows, so
+the button's words are what runs. "Always allow" on the plan card approves
+the plan only: the CLI's own suggestion to switch the session to another
+mode is not kept. No card switches a session to "Bypass permissions"; only
+the pill does.
+
 The question card is the question and nothing else: no header row. It shows
 the question, the agent's options as lettered rows (its recommendation first)
 and a row for a typed answer behind the next letter. Its foot holds **Skip**,
@@ -304,32 +313,47 @@ every line the CLI prints and streams them to the app.
 
 ## A model that hits its limit
 
-When a thread's model hits its usage or rate limit ("You've hit your Fable
-limit · resets Nov 17 at 12am"), the same thread switches to the next model of
-its CLI's fallback chain and goes on. Context, history and link stay in this
+When a thread's model hits the usage limit of its model family ("You've hit
+your Fable limit · resets Nov 17 at 12am"), the same thread switches to the
+next model of its CLI's fallback chain and goes on. Context, history and link stay in this
 one thread (`dodaios/agent_chat/model_fallback.py`, called from
 `runner_cli.run_cli_turn` after the subscription switch).
 
 - **Detection:** the CLI's own stream decides. Claude Code prints a
   `rate_limit_event` with `status: "rejected"` and `resetsAt`, a message with
   `error: "rate_limit"`, and a result with `api_error_status: 429`. Codex
-  limit codes count where its error carries them. The error text is only a
-  fallback. A sub-agent's limit is not the thread's.
-- **Switch:** the thread's model is stored, the composer follows, and the
-  same CLI conversation resumes with "Continue where you stopped". A turn
-  that was refused before it started gets the person's message again.
+  limit codes count where its error carries them. The CLI's own error text is
+  only a fallback; a tool's output or the CLI's stderr never counts (a tool
+  that hit a 429 is not the model). A sub-agent's limit is not the thread's.
+- **When it switches:** only for a limit that names one model family, in the
+  sentence or in Claude Code's limit window (`seven_day_opus`). A limit that
+  names no family is the whole account's, and a rate limit passes in a
+  minute or two: another model would not help, so the thread keeps its model
+  and the turn ends with the limit error. Such a limit also leaves the
+  subscription switch to act; a one-family limit does not take the whole
+  subscription out of rotation while the thread has another model to go on.
+- **Switch:** the same CLI conversation resumes on the next model with
+  "Continue where you stopped". A turn that was refused before it started
+  gets the person's message again. The thread keeps the new model (stored,
+  the composer follows) only once a run on it went through. A model the CLI
+  cannot run at all ("There's an issue with the selected model", a login it
+  cannot use) is skipped for the next one; any other failure ends the switch
+  with its own error, on the model the thread had.
 - **Chain:** `[agentic_ide] model_fallback_chains`, one list per runner, most
   preferred first. Without it, Claude Code uses Fable 5.2, Opus 5.5, Sonnet
-  5.5, and Codex uses GPT-5.6 Sol, Terra, Luna. A limit that names a family
-  ("Fable limit") skips every model of that family. An empty list switches
-  one CLI off.
+  5.5, and Codex uses GPT-5.6 Sol, Terra, Luna. A thread walks down the chain
+  from its own model and never up: an Opus thread goes on on Sonnet, not on
+  Fable. A model outside the chain tries it from the top. A limit that names
+  a family ("Fable limit") skips every model of that family. An empty list
+  switches one CLI off.
 - **What you see:** one quiet line in the thread, "Fable limit reached until
   17 Nov, 00:00 – continued on Opus 5.5". The result that goes back to the
   lead names the model that finished.
 - **No loop:** each model is tried at most once per turn, and a spent model
   stays out until its reset. When no model is left, the turn stops once. A
   red line lists the models and when the first one is free again, and the
-  failed-turn card shows the usage limit with that time.
+  failed-turn card shows the usage limit with that time. The thread stays on
+  the model it had.
 - **Off:** the switch "Switch models at a limit" in the Subscriptions bar, or
   `[agentic_ide] model_fallback = false`. The thread then stops with the
   limit error, as before.

@@ -793,6 +793,37 @@ of the run, or the first lines of the answer the run wrote down. The card
 shape is `NodeCard` in
 `dodaios/ui/web/frontend/src/components/nodes/nodeModel.ts`.
 
+## A node opened from a conversation
+
+A click on a node's card in a chat does not leave the chat for the Nodes
+section. It opens the node window: a window over the app, with a margin on
+every side. The node is on the left, on the same stage the Nodes section has.
+The conversation the click came from is on the right, with its composer.
+
+| In the window | What it does |
+|---------------|--------------|
+| Edit, Comment, Share, the overflow menu | The same as on the stage of the Nodes section. |
+| "Ask to change it" | Writes the start of the request into the composer beside the node. Nothing is sent. |
+| The seam between node and conversation | Drag it to resize the conversation. The width is remembered. |
+| The panel button | Puts the conversation away or brings it back. The choice is remembered. |
+| The arrows button | "Open in Nodes": closes the window and opens the node in the Nodes section. |
+| Left and right arrow keys | Go to the previous or next page this conversation made. |
+| Escape, the close button, a click beside the window | Close it. |
+
+A card clicked in the conversation beside the node puts that node in the
+window. The assistant's next revision shows in the open node after a few
+seconds, because the stage watches the node. If comments were left on the
+node and not sent, the window asks before it closes: send them, drop them, or
+stay.
+
+In a window too narrow for two columns, the conversation is closed at first
+and slides over the node when the panel button opens it.
+
+The same window opens from the file list in the assistant's panel, from a
+page link in an answer, and from a result card. A change of section closes
+it. The store is `store/nodePeek.ts`; `openNodePeek(ref, { chat })` opens a
+`slug::path` address beside the chat store it is given.
+
 ## HTTP API
 
 All routes are in `dodaios/ui/web/nodes_routes.py`.
@@ -874,3 +905,4 @@ one.
 | The tools | `dodaios/plugins/tool/node.py`, `dodaios/plugins/tool/whiteboard.py` |
 | HTTP API | `dodaios/ui/web/nodes_routes.py` |
 | Card model of the frontend | `dodaios/ui/web/frontend/src/components/nodes/nodeModel.ts` |
+| The node window over a conversation | `dodaios/ui/web/frontend/src/components/nodes/peek/` |

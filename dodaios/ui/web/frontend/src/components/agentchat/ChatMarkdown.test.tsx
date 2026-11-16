@@ -196,8 +196,8 @@ describe("shared chat media", () => {
 });
 
 describe("pages named in an answer", () => {
-  it("draws a page link as the page's name and opens it in the Artifacts section", async () => {
-    const { useEventStore } = await import("@/store/events");
+  it("draws a page link as the page's name and opens it in the node window", async () => {
+    const { useNodePeek } = await import("@/store/nodePeek");
     const page = "run-1::tasks/report/artifacts/files/plan.html";
     render(<ChatMarkdown text={`I made [Business plan v1](artifact:${page}) and [a site](https://example.test/x).`} />);
     const link = screen.getByTestId("page-link");
@@ -207,7 +207,8 @@ describe("pages named in an answer", () => {
     expect(web.textContent).toBe("a site");
     expect(web.getAttribute("href")).toBe("https://example.test/x");
     fireEvent.click(link);
-    expect(useEventStore.getState().visualStage?.target).toBe(page);
+    expect(useNodePeek.getState().peek).toMatchObject({ ref: page, title: "Business plan v1" });
+    useNodePeek.setState({ peek: null, touched: {} });
   });
 });
 

@@ -11955,6 +11955,21 @@
     "ask": {
       "change_draft": "修改 Node“{0}”（ID {1}）："
     },
+    "peek": {
+      "window": "节点",
+      "conversation": "对话",
+      "open_in_nodes": "在 Nodes 中打开",
+      "show_chat": "显示对话",
+      "hide_chat": "隐藏对话",
+      "resize": "拖动可调整对话的宽度。双击恢复默认宽度。",
+      "unsent_title": "评论尚未发送",
+      "unsent_one": "有 1 条评论尚未发送",
+      "unsent_many": "有 {0} 条评论尚未发送",
+      "unsent_body": "现在发送给 {name}，或者关闭并放弃这些评论。",
+      "unsent_send": "发送并关闭",
+      "unsent_discard": "放弃",
+      "unsent_keep": "留在这里"
+    },
     "states": {
       "loading": "正在加载你的 Nodes",
       "empty": "这里还没有内容。点击“新建”，{name} 会和你一起创建。",

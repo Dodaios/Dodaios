@@ -145,6 +145,47 @@ def test_normalize_permission_folds_across_runners(runner, picked, expected):
     assert permissions.normalize_permission(runner, picked) == expected
 
 
+@pytest.mark.parametrize(
+    ("source", "runner", "picked", "expected"),
+    [
+        # Claude Code's and Codex's "auto" ask before risky actions; the same
+        # word is full access on OpenCode, Cursor and the API runner. It must
+        # never fold onto a runner's top rung.
+        ("claude-cli", "glm-cli", "auto", "acceptEdits"),
+        ("claude-cli", "agy-cli", "auto", "accept-edits"),
+        ("claude-cli", "grok-cli", "auto", "default"),
+        ("claude-cli", "opencode-cli", "auto", "default"),
+        ("claude-cli", "cursor-cli", "auto", "ask"),
+        ("claude-cli", "api", "auto", "accept-edits"),
+        ("codex-cli", "opencode-cli", "auto", "default"),
+        ("codex-cli", "api", "auto", "accept-edits"),
+        # Full access stays full access where the target says it in other words.
+        ("opencode-cli", "claude-cli", "auto", "bypassPermissions"),
+        ("api", "codex-cli", "auto", "full-access"),
+        # The same word with the same stance passes through.
+        ("claude-cli", "codex-cli", "auto", "auto"),
+        ("opencode-cli", "api", "auto", "auto"),
+        ("claude-cli", "claude-cli", "auto", "auto"),
+    ],
+)
+def test_a_mode_is_read_in_the_words_of_the_ladder_it_was_picked_on(
+    source, runner, picked, expected
+):
+    assert permissions.normalize_permission(runner, picked, source=source) == expected
+
+
+@pytest.mark.parametrize("runner", ["glm-cli", "agy-cli", "grok-cli"])
+def test_an_auto_of_unknown_origin_is_never_full_access(runner):
+    # A GLM thread stored in "auto" before GLM had its own ladder (Claude
+    # Code's classifier mode then) ran with --permission-mode bypassPermissions.
+    folded = permissions.normalize_permission(runner, "auto")
+    assert folded not in ("bypassPermissions", "skip-permissions"), folded
+
+
+def test_an_old_glm_thread_in_auto_keeps_its_middle_step():
+    assert permissions.normalize_permission("glm-cli", "auto") == "acceptEdits"
+
+
 def test_the_jarvis_ladder_is_the_three_stances_and_plan():
     assert permissions.permission_ids("jarvis") == ("ask", "accept-edits", "plan", "bypass")
     assert permissions.ladder_key("jarvis", "claude-cli") == "jarvis"

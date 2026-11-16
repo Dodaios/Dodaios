@@ -18,7 +18,7 @@ import { writeComposerDraft } from "@/components/agentchat/composerDrafts";
 import { translate } from "@/i18n";
 import { fetchLeadSession, sendAgentChatMessage } from "@/lib/agentChatApi";
 import { sendNodeComments as postNodeComments } from "./useNodes";
-import { useAgentChatStore } from "@/store/agentChat";
+import { useAgentChatStore, type AgentChatStoreHook } from "@/store/agentChat";
 import { useEventStore } from "@/store/events";
 import { useHomeStore } from "@/store/home";
 import type { AnalyticsCadence } from "./AnalyticsFields";
@@ -90,11 +90,15 @@ export function changeDraftText(card: NodeCard): string {
     .replace("{1}", () => card.id ?? card.key);
 }
 
-/** Put the caret at the end of the visible chat composer, once it is on screen. */
-function focusComposerAtEnd(): void {
+/**
+ * Put the caret at the end of the visible chat composer, once it is on
+ * screen. `within` names the part of the page whose composer is meant, for
+ * the moments when two are on screen (the node window over the front page).
+ */
+export function focusComposerAtEnd(within: () => ParentNode | null = () => document): void {
   let attempts = 0;
   const tryFocus = () => {
-    const field = [...document.querySelectorAll<HTMLElement>("[data-jarvis-chat-input]")].find(
+    const field = [...(within() ?? document).querySelectorAll<HTMLElement>("[data-jarvis-chat-input]")].find(
       (node) => node.isContentEditable && node.offsetParent !== null,
     );
     // The draft reaches the field a frame after it mounts; wait for both.
@@ -115,6 +119,16 @@ function focusComposerAtEnd(): void {
     else field?.focus();
   };
   window.requestAnimationFrame(tryFocus);
+}
+
+/**
+ * The same draft, written into the conversation that stands beside the node
+ * in the node window (`chat`): nothing is opened and nothing is left, the
+ * caret lands in that conversation's composer. Nothing is sent.
+ */
+export function draftChangeBeside(card: NodeCard, chat: AgentChatStoreHook, within: () => ParentNode | null): void {
+  writeComposerDraft(chat, chat.getState().activeSessionId, { text: changeDraftText(card), choices: [] });
+  focusComposerAtEnd(within);
 }
 
 /**

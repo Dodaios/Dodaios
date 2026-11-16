@@ -17,6 +17,7 @@ import {
   SIDEBAR_WIDTH_STORAGE_KEY,
 } from "@/components/layout/Sidebar";
 import { PaneResizer } from "@/components/layout/PaneResizer";
+import { NodePeekHost } from "@/components/nodes/peek/NodePeekHost";
 import { IDE_SECTIONS } from "@/lib/ideSections";
 import { useResizablePane } from "@/hooks/useResizablePane";
 import { TopBar } from "@/components/layout/TopBar";
@@ -299,6 +300,8 @@ export default function App() {
         {/* Only this window's own "Edit" opens it here; the card's request
             goes to the main window (handleAppshotEditRequest). */}
         <AppshotEditorHost />
+        {/* A page card in a detached chat opens its node over that window. */}
+        <NodePeekHost />
         <EditContextMenu />
         <ZoomIndicator />
         {shortcutsOpen && (
@@ -375,6 +378,10 @@ export default function App() {
       <ToastLayer>
         <PluginReconnectHost />
       </ToastLayer>
+      {/* A node opened from a conversation: a window over the app, the node on
+          the left and that conversation on the right (components/nodes/peek).
+          Inside this root, so the window caption stays above it. */}
+      <NodePeekHost />
       {/* The appshot editor, over whatever is open (a click on the appshot
           card in the screen corner opens it). */}
       <AppshotEditorHost />

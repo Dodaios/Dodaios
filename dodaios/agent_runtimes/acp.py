@@ -241,6 +241,9 @@ class AcpTurn:
     #: The agent's to-do list as it was last told, and how often it was told.
     _plan: list[dict[str, str]] = field(default_factory=list, init=False)
     _plan_calls: int = field(default=0, init=False)
+    #: The tag of the CLI process this turn reads (``runner_cli.run_tag``):
+    #: a turn run twice must not reuse its first run's to-do list ids.
+    run: str = field(default="", init=False)
 
     # ------------------------------------------------------------------ frames
 
@@ -595,7 +598,9 @@ class AcpTurn:
             await self._flush_thought(io)
             await self._flush_text(io)
             for event in plan_update_events(
-                self.turn_id, f"plan-{self.turn_id}-{self._plan_calls}", steps
+                self.turn_id,
+                f"plan-{self.turn_id}-{self.run + '-' if self.run else ''}{self._plan_calls}",
+                steps,
             ):
                 await io.emit(event)
             return

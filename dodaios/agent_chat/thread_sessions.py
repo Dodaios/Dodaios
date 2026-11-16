@@ -80,6 +80,8 @@ def fork_session(
         speed=source.speed,
         cwd=cwd or source.cwd,
         permission_mode=source.permission_mode,
+        # A fork of a thread in Plan builds where its source would.
+        build_mode=source.build_mode,
         title=title or source.title,
         surface=source.surface,
         account_id=source.account_id,

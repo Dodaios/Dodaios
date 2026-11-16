@@ -201,6 +201,46 @@ async def test_a_new_agent_opens_as_a_chat_thread_not_a_pane(rig: Rig):
     assert rig.service.authors[0]["agent_id"] == "jarvis"
 
 
+async def test_pictures_handed_to_a_thread_show_in_its_message(rig: Rig, monkeypatch):
+    """The prompt's pictures are the message's own attachments, not only paths in text.
+
+    Live 2026-11-16: Dodaios briefed a thread with two screenshots; the agent
+    got their file paths, but the thread showed the prompt with no picture,
+    so nobody could see that they went along.
+    """
+    import io
+
+    from PIL import Image
+
+    from dodaios.core import image_references
+
+    store = image_references.ImageReferences(schedule_expiry=False)
+    monkeypatch.setattr(image_references, "_STORE", store)
+    out = io.BytesIO()
+    Image.new("RGB", (24, 16), "red").save(out, format="PNG")
+    ref = store.add("scope-1", out.getvalue(), "image/png", source="upload")
+
+    result = await create(rig, image_refs=[ref], _image_scope="scope-1")
+
+    assert [d["status"] for d in result["deliveries"]] == ["accepted"], result
+    await rig.settle()
+    [thread] = rig.threads()
+    [message] = [
+        e for e in rig.service.store.list_events(thread.session_id)
+        if e["kind"] == "user_message"
+    ]
+    payload = message["payload"]
+    # The bubble shows the prompt as written, the pictures above it.
+    assert payload["typed"] == "Fix the failing tests"
+    [picture] = payload["attachments"]
+    assert picture["kind"] == "image"
+    # The timeline gets a same-origin address to draw the picture from.
+    assert picture.get("url"), picture
+    # The agent still gets the files and the rule for reading them.
+    [(_, prompt)] = rig.service.prompts
+    assert "Open every listed file" in prompt
+
+
 async def test_the_result_asks_to_link_the_agent_inside_the_reply_sentence(rig: Rig):
     from dodaios.agentic_ide.thread_finder import LINK_IN_SENTENCE
 

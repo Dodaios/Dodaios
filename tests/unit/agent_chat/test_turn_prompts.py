@@ -191,13 +191,15 @@ def test_no_card_for_a_failed_turn_or_plain_text(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("provider", "runner", "build"),
     [
-        ("openai-codex", "codex-cli", "full-access"),
-        ("antigravity", "agy-cli", "skip-permissions"),
-        ("grok-build", "grok-cli", "bypassPermissions"),
-        ("opencode", "opencode-cli", "auto"),
-        ("kimi", "kimi-cli", "auto"),
-        ("cursor", "cursor-cli", "auto"),
-        ("claude-api", "claude-cli", "bypassPermissions"),
+        # A thread in Plan that recorded no mode builds on its ladder's ask
+        # rung, never on the default "Bypass permissions" / "Full access".
+        ("openai-codex", "codex-cli", "approve-for-me"),
+        ("antigravity", "agy-cli", "accept-edits"),
+        ("grok-build", "grok-cli", "default"),
+        ("opencode", "opencode-cli", "default"),
+        ("kimi", "kimi-cli", "auto"),  # Kimi has no other rung
+        ("cursor", "cursor-cli", "ask"),
+        ("claude-api", "claude-cli", "default"),
     ],
 )
 def test_a_finished_plan_gets_a_build_card(
@@ -548,11 +550,12 @@ def test_an_approved_claude_plan_leaves_plan_mode(
     )
     (body,) = answers
     assert body["behavior"] == "allow"
+    # No build mode recorded: the ladder's ask rung, never "Bypass permissions".
     assert body["updatedPermissions"] == [
-        {"type": "setMode", "mode": "bypassPermissions", "destination": "session"}
+        {"type": "setMode", "mode": "default", "destination": "session"}
     ]
-    assert chat.updates == [{"permission_mode": "bypassPermissions"}]
-    assert {"permission_mode": "bypassPermissions"} in [
+    assert chat.updates == [{"permission_mode": "default"}]
+    assert {"permission_mode": "default"} in [
         e["payload"] for e in events if e["kind"] == "session_updated"
     ]
 

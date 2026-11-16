@@ -8,7 +8,9 @@ which the host has to ask for on its newer models; Codex reports its list as a
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from types import SimpleNamespace
 
 from dodaios.agent_chat import dodaios_harness, runner_cli
 from dodaios.agent_chat.events import PLAN_TOOL, plan_steps, plan_update_events
@@ -179,3 +181,55 @@ def test_a_plan_update_is_one_finished_call():
     assert (call["kind"], result["kind"]) == ("tool_call", "tool_result")
     assert call["payload"]["input"] == {"plan": steps}
     assert result["payload"]["call_id"] == call["payload"]["call_id"] == "plan-t-1"
+
+
+def _codex_ids(st: _CodexState, *lines: dict) -> list[str]:
+    return [
+        str(ev["payload"].get("call_id") or ev["payload"].get("message_id"))
+        for obj in lines
+        for ev in translate_codex_line(obj, st)
+        if ev["kind"] in {"tool_call", "assistant_text"}
+    ]
+
+
+def test_a_turn_codex_runs_twice_never_reuses_its_first_runs_ids():
+    # After a limit, a recovery or a model switch the same turn runs Codex
+    # again, which counts its items from item_0 and its lists from 1 anew.
+    # The chat kept the first run's checklist, messages and tool rows: the
+    # second run's updates were dropped as repeats.
+    first = _CodexState(turn_id="T", run=runner_cli.run_tag(SimpleNamespace(pid=101)))
+    second = _CodexState(turn_id="T", run=runner_cli.run_tag(SimpleNamespace(pid=202)))
+    said = {
+        "type": "item.completed",
+        "item": {"id": "item_0", "type": "agent_message", "text": "hi"},
+    }
+    lines = (_codex_list("started", ("A", False)), said)
+    ids_first = _codex_ids(first, *lines)
+    ids_second = _codex_ids(second, *lines)
+    assert len(ids_first) == len(ids_second) == 2
+    assert not set(ids_first) & set(ids_second)
+
+
+def test_a_run_keeps_its_ids_when_the_app_reattaches_to_it():
+    # A hosted CLI read again after an app restart replays its lines: they
+    # must rebuild the ids the thread already shows.
+    host = SimpleNamespace(host_id="h-42", pid=7)
+    assert runner_cli.run_tag(host) == runner_cli.run_tag(SimpleNamespace(host_id="h-42", pid=8))
+    assert runner_cli.run_tag(host) != runner_cli.run_tag(SimpleNamespace(host_id="h-43"))
+
+
+def test_each_codex_process_of_a_turn_gets_its_own_list_ids(monkeypatch, tmp_path: Path):
+    from tests.unit.agent_chat.test_ide_cli_seats import _fake_cli, _turn
+
+    lines = [
+        {"type": "thread.started", "thread_id": "th-1"},
+        _codex_list("started", ("Read the code", False)),
+        {"type": "turn.completed", "usage": {}},
+    ]
+    seen: list[str] = []
+    for _ in range(2):
+        plan = runner_cli.CliPlan(_fake_cli(lines), dict(os.environ), None, "codex", None)
+        _vendor, events = _turn(monkeypatch, tmp_path, "codex-cli", plan, "openai-codex")
+        seen += [ev["payload"]["call_id"] for ev in events if ev["kind"] == "tool_call"]
+    assert len(seen) == 2 and seen[0] != seen[1]
+    assert all(call.startswith("plan-t1-") for call in seen)

@@ -10,7 +10,7 @@ import { isApiRunner, type CuratedModel, type ModelSpeed } from "@/lib/agentChat
 import { offeredModels, useSavedHiddenModels } from "@/lib/agentProviderPrefs";
 import { effortLadder } from "@/lib/effortLadder";
 import { rankModels } from "@/lib/modelRanking";
-import type { ComposerDraft, ProviderOption } from "@/store/agentChat";
+import { planReturnMode, type ComposerDraft, type ProviderOption } from "@/store/agentChat";
 
 /**
  * The picks under a thread's composer: which coding agent and model answer,
@@ -235,7 +235,7 @@ export function AccessPicker({ provider, draft, onPick, onPlan, separated = fals
   if (modes.length === 0) return null;
   const hasPlan = Boolean(onPlan) && all.some((mode) => mode.id === "plan");
   const planOn = draft.permissionMode === "plan";
-  const value = planOn ? draft.buildMode || provider?.default_permission_mode || "" : draft.permissionMode;
+  const value = planOn ? planReturnMode(draft, provider) : draft.permissionMode;
   const groups: ComboboxGroup[] = [{
     id: "access",
     label: t("agent_chat.pick_permission"),

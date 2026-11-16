@@ -283,6 +283,10 @@ class AgentChatStore:
         with self._lock:
             if self._path != ":memory:":
                 self._conn.execute("PRAGMA journal_mode=WAL")
+                # Every streamed event commits. In WAL mode NORMAL waits for the
+                # disk only at a checkpoint, not at each commit, and still never
+                # corrupts the file; at worst a power cut loses the last events.
+                self._conn.execute("PRAGMA synchronous=NORMAL")
             self._conn.executescript(_SCHEMA)
             self._migrate()
             # A voice turn id only has to outlive a redelivery, not the chat.
