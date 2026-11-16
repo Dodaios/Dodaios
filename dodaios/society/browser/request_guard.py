@@ -52,6 +52,8 @@ def named_hosts(allowed_domains: Iterable[Any]) -> set[tuple[str, int | None]]:
             target = urlsplit("https://" + address)
             host, port = (target.hostname or "").lower(), target.port
         except ValueError:
+            # A grant that cannot be read names no host; the request check stays closed.
+            log.warning("Browser grant %r names no readable host; it is ignored", pattern)
             continue
         if host:
             named.add((host, port))
