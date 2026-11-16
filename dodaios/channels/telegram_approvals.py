@@ -275,9 +275,11 @@ class TelegramApprovalBridge:
         return text
 
     def _code(self, lines: list[str]) -> list[str]:
-        """Command or diff lines as they run: a code block on Slack, plain lines on Telegram."""
-        if self._source != "slack":
-            return lines
+        """Command or diff lines as they run, in a code block.
+
+        A fenced block in the text: Slack shows it as one, Telegram's channel
+        turns it into ``<pre>`` (``chat_text.telegram_html``).
+        """
         # A fence inside the command would end the block early.
         return ["```", *(line.replace("```", "`\u200b`\u200b`") for line in lines), "```"]
 

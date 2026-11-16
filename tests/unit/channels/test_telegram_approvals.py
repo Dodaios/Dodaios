@@ -306,9 +306,12 @@ def test_a_file_edit_shows_the_path_and_the_changed_lines(tmp_path: Path) -> Non
         f"Datei: {path}",  # i18n-allow
         "2 Zeilen dazu, 1 entfernt",  # i18n-allow
         "",
+        # A code block: Telegram's channel sends it as <pre> (chat_text.telegram_html).
+        "```",
         "- MAX_WAIT_S = 3600",
         "+ MAX_WAIT_S = 60",
         "+ # wake up often enough to notice a sleep",
+        "```",
         "",
         "Das lässt sich nicht rückgängig machen.",  # i18n-allow
     ]

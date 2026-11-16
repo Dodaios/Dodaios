@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import html
 import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -35,7 +36,7 @@ from dodaios.channels.base import (
     ChannelMessage,
     ChannelSession,
 )
-from dodaios.channels.chat_text import readable_text
+from dodaios.channels.chat_text import readable_text, telegram_html, without_fences
 from dodaios.channels.manager import (
     ChannelContext,
     ChannelStartError,
@@ -695,7 +696,8 @@ class TelegramChannel:
 
         from dodaios.channels.telegram_approvals import callback_data
 
-        # The whole command or diff, as it will run: read, not spoken.
+        # The whole command or diff, as it will run: read, not spoken, and in
+        # a code block, escaped for Telegram's HTML and nothing else.
         cleaned = readable_text(text)
         if not cleaned:
             return None
@@ -709,11 +711,21 @@ class TelegramChannel:
         )
         try:
             message = await self._app.bot.send_message(
-                chat_id=chat_id, text=cleaned, reply_markup=keyboard
+                chat_id=chat_id,
+                text=telegram_html(cleaned),
+                parse_mode="HTML",
+                reply_markup=keyboard,
             )
         except Exception as exc:  # noqa: BLE001
-            log.warning("Telegram send_approval failed: %s", _safe_error(exc))
-            return None
+            # Telegram refused the markup: the same words as plain text.
+            log.warning("Telegram send_approval as HTML failed: %s", _safe_error(exc))
+            try:
+                message = await self._app.bot.send_message(
+                    chat_id=chat_id, text=without_fences(cleaned), reply_markup=keyboard
+                )
+            except Exception as again:  # noqa: BLE001
+                log.warning("Telegram send_approval failed: %s", _safe_error(again))
+                return None
         return getattr(message, "message_id", None)
 
     async def edit_message(self, chat_id: int, message_id: int, text: str) -> None:
@@ -754,8 +766,18 @@ class TelegramChannel:
             return
         message = getattr(query, "message", None)
         original = str(getattr(message, "text", "") or "")
+        # The approval went out as HTML: keep its code block where the message
+        # says how it looked.
+        marked = getattr(message, "text_html", None)
         try:
-            await query.edit_message_text(text=f"{original}\n\n{answer}", reply_markup=None)
+            if isinstance(marked, str) and marked:
+                await query.edit_message_text(
+                    text=f"{marked}\n\n{html.escape(answer, quote=False)}",
+                    parse_mode="HTML",
+                    reply_markup=None,
+                )
+            else:
+                await query.edit_message_text(text=f"{original}\n\n{answer}", reply_markup=None)
         except Exception as exc:  # noqa: BLE001
             log.debug("Telegram callback edit failed: %s", _safe_error(exc))
 
