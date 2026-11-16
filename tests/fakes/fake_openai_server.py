@@ -20,8 +20,10 @@ from __future__ import annotations
 import json
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from typing import Any
+
+from tests.fakes.loopback_http import LoopbackHTTPServer
 
 MODEL_ID = "fake-model"
 
@@ -172,10 +174,8 @@ def _completion(decision: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-class FakeOpenAIServer(ThreadingHTTPServer):
+class FakeOpenAIServer(LoopbackHTTPServer):
     """Run with ``with FakeOpenAIServer() as server: server.base_url``."""
-
-    daemon_threads = True
 
     def __init__(self, host: str = "127.0.0.1", port: int = 0) -> None:
         super().__init__((host, port), _Handler)

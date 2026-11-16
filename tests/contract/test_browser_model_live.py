@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs
 from uuid import uuid4
@@ -21,6 +21,7 @@ from dodaios.safety.risk_tier import RiskTierEvaluator
 from dodaios.safety.tool_executor import ToolExecutor
 from dodaios.society.browser.bridge import execute_live
 from dodaios.society.runtime import SocietyRuntime
+from tests.fakes.loopback_http import LoopbackHTTPServer
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("JARVIS_BROWSER_MODEL_TEST") != "1",
@@ -88,7 +89,7 @@ async def test_actual_model_submits_fixture_form(tmp_path, widgets):
     runtime.browser.live.executor = ToolExecutor(
         bus, RiskTierEvaluator(SafetyConfig()), ApprovalWorkflow(bus)
     )
-    server = ThreadingHTTPServer(("127.0.0.1", 0), FormHandler)
+    server = LoopbackHTTPServer(("127.0.0.1", 0), FormHandler)
     FormHandler.received = []
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

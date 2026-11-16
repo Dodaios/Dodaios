@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from collections.abc import Iterator
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from types import SimpleNamespace
 from typing import Any
 
@@ -23,6 +23,7 @@ from dodaios.marketplace.plugin_registry import PluginToolRegistry
 from dodaios.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
 from dodaios.mcp.client import MCPClient
 from tests.fakes.fake_plugin_http import RotatingPluginHandler
+from tests.fakes.loopback_http import LoopbackHTTPServer
 
 
 class _Refuse(BaseHTTPRequestHandler):
@@ -39,7 +40,7 @@ class _Refuse(BaseHTTPRequestHandler):
 
 @pytest.fixture
 def refusing_url() -> Iterator[str]:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _Refuse)
+    server = LoopbackHTTPServer(("127.0.0.1", 0), _Refuse)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{server.server_port}/mcp"
     server.shutdown()

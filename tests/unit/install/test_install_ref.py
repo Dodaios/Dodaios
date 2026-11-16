@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from tests.fakes.loopback_http import LoopbackHTTPServer
 
 ROOT = Path(__file__).resolve().parents[3]
 INSTALL_SH = ROOT / "install" / "install.sh"
@@ -68,7 +69,7 @@ def _fake_api(tmp_path: Path, tag: str | None) -> Iterator[str]:
         # The API pretty-prints, one key per line, like this.
         latest.write_text(json.dumps({"tag_name": tag, "draft": False}, indent=2), "utf-8")
     handler = functools.partial(_QuietHandler, directory=str(root))
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    server = LoopbackHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:

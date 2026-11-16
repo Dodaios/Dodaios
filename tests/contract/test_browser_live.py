@@ -6,7 +6,7 @@ import asyncio
 import html
 import os
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,6 +14,7 @@ import pytest
 
 from dodaios.society.browser import install
 from dodaios.society.browser.live import LiveSessions
+from tests.fakes.loopback_http import LoopbackHTTPServer
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("JARVIS_BROWSER_TEST_PYTHON"), reason="requires isolated Browser-Use runtime"
@@ -191,7 +192,7 @@ def site():
     PageHandler.profile_requests = []
     PageHandler.page_requests = []
     PageHandler.redirects = {}
-    server = ThreadingHTTPServer(("127.0.0.1", 0), PageHandler)
+    server = LoopbackHTTPServer(("127.0.0.1", 0), PageHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     yield f"http://127.0.0.1:{server.server_port}"
