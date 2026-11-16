@@ -87,7 +87,7 @@ async def test_the_second_time_on_a_day_is_a_greeting(society) -> None:
     assert await said.spoken_answer("Good morning", language="en")
     assert await said.spoken_answer("Good morning", language="en") is None
     await settle()
-    assert len(society.cards()) == 1
+    assert len(society.start_cards()) == 1
 
 
 async def test_a_phrase_that_cannot_be_looked_at_is_an_ordinary_sentence(

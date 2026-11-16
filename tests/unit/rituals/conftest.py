@@ -102,6 +102,14 @@ class Society:
     def cards(self) -> list[dict[str, Any]]:
         return [n for n in self.notices if n.get("source") == "ritual"]
 
+    def start_cards(self) -> list[dict[str, Any]]:
+        """The cards that answer a start, without the second ones that follow it.
+
+        Without a scheduler (this world's default) nothing can be gathered, so
+        a start that waits for its ``ahead`` steps hears that in a second card.
+        """
+        return [n for n in self.cards() if not n.get("late")]
+
     def config(self) -> Any:
         wake_word = SimpleNamespace(phrase=self.wake_phrase)
         return SimpleNamespace(trigger=SimpleNamespace(wake_word=wake_word))
@@ -155,6 +163,7 @@ async def society(ritual_store, monkeypatch: pytest.MonkeyPatch):
         await settle()
         prepare._runs.clear()
         prepare._tried_at.clear()
+        prepare._starting.clear()
 
 
 @pytest.fixture

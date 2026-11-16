@@ -51,10 +51,13 @@ export function societyResultHeadline(t: T, item: { status: string; agentName: s
     return t(`standing.result_${outcome}`).replace("{title}", standing);
   }
   // A ritual's card is labelled with the ritual: that it started, or, on the
-  // second card, what was gathered for it after the start or that nothing could be.
+  // second card, what was gathered for it after the start or that nothing could
+  // be, or which of its steps for the moment did not run.
   const ritual = ritualTitle(item.data);
   if (ritual) {
-    const key = item.status === "failed" ? "rituals.card_failed" : item.data?.late === true ? "rituals.card_late" : "rituals.started";
+    const key = item.data?.steps_not_run === true ? "rituals.card_steps_not_run"
+      : item.status === "failed" ? "rituals.card_failed"
+      : item.data?.late === true ? "rituals.card_late" : "rituals.started";
     // A function, so a "$" in the person's title is not read as a pattern.
     return t(key).replace("{title}", () => ritual);
   }

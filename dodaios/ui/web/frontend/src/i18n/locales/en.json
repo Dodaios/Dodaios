@@ -586,6 +586,7 @@
     "started": "“{title}” started",
     "card_late": "“{title}”: what was gathered",
     "card_failed": "“{title}”: gathering failed",
+    "card_steps_not_run": "“{title}”: these steps did not run",
     "card_pending": "The rest is being gathered and follows shortly."
   },
   "extensions": {

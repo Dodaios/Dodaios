@@ -107,13 +107,17 @@ def test_the_phrase_starts_the_ritual_and_its_card_is_the_answer(chat) -> None:
     assert body == {"turn_id": "", "session_id": lead, "ritual": ritual.id}
     events = store.list_events(lead)
     # What was typed stands in the conversation, then the card. No turn ran.
-    assert [event["kind"] for event in events] == ["user_message", "notice"]
+    assert [event["kind"] for event in events] == ["user_message", "notice", "notice"]
     assert events[0]["payload"]["text"] == "Good morning"
     card = events[1]["payload"]
     assert card["kind"] == "society_result" and card["source"] == "ritual"
     assert card["via"] == "chat" and card["ritual_id"] == ritual.id
-    # Nothing was gathered and no scheduler is behind this society: it says more follows.
+    # Nothing was gathered: it says more follows.
     assert card["pending"] is True
+    # No scheduler is behind this society, so nothing can be gathered: the
+    # second card says so at once instead of the first one waiting for good.
+    late = events[2]["payload"]
+    assert late["late"] is True and late["status"] == "failed"
 
 
 def test_any_other_message_is_answered_as_a_turn(chat) -> None:

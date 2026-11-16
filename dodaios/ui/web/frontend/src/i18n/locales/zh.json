@@ -586,6 +586,7 @@
     "started": "“{title}”已启动",
     "card_late": "“{title}”：准备好的内容",
     "card_failed": "“{title}”：准备失败",
+    "card_steps_not_run": "“{title}”：这些步骤没有执行",
     "card_pending": "其余内容正在准备，稍后送达。"
   },
   "extensions": {
