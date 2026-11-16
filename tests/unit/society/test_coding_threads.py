@@ -37,10 +37,20 @@ class ScriptedService(AgentChatService):
         super().__init__(store)
         self.prompts: list[tuple[str, str]] = []
         self.steps: dict[str, list[Any]] = {}
+        # The script of the next thread to open: its first turn can start
+        # before ``open`` returns the thread id (the chat writes off the loop).
+        self.next_thread_steps: list[Any] | None = None
+        self.next_thread_setup: Any = None
 
     async def send(self, session_id: str, text: str, *args: Any, **kwargs: Any) -> str:
         async def runner(handle: Any, prompt: str) -> None:
             self.prompts.append((session_id, prompt))
+            if session_id not in self.steps and self.next_thread_steps is not None:
+                self.steps[session_id] = self.next_thread_steps
+                self.next_thread_steps = None
+                if self.next_thread_setup is not None:
+                    self.next_thread_setup(session_id)
+                    self.next_thread_setup = None
             queue = self.steps.get(session_id) or []
             step = queue.pop(0) if queue else "done"
             for event in step if isinstance(step, list) else [step]:
@@ -115,7 +125,15 @@ async def settle(rt: Society, session_id: str) -> None:
     raise AssertionError("the chats did not settle")
 
 
-async def open_thread(rt: Society, folder: Path, prompt: str = "Add a login page") -> str:
+async def open_thread(
+    rt: Society,
+    folder: Path,
+    prompt: str = "Add a login page",
+    steps: list[Any] | None = None,
+    setup: Any = None,
+) -> str:
+    rt.service.next_thread_steps = steps
+    rt.service.next_thread_setup = setup
     result = await tool(rt).execute(
         {"action": "open", "agent": "Claude Code", "folder": str(folder), "prompt": prompt,
          "model": "Opus 5.5"},
@@ -161,8 +179,9 @@ async def test_a_finished_thread_wakes_its_owner_with_the_answer(
     society: Society, tmp_path: Path
 ):
     rt = society
-    thread = await open_thread(rt, tmp_path)
-    rt.service.steps[thread] = ["Added login.tsx and its test. All tests pass."]
+    thread = await open_thread(
+        rt, tmp_path, steps=["Added login.tsx and its test. All tests pass."]
+    )
     await settle(rt, thread)
     owner_prompts = [p for sid, p in rt.service.prompts if sid == rt.owner]
     assert len(owner_prompts) == 1
@@ -212,8 +231,7 @@ async def test_the_agent_answers_the_threads_question(society: Society, tmp_path
             ],
         },
     )
-    thread = await open_thread(rt, tmp_path)
-    rt.service.steps[thread] = [["Which database should I use?", question]]
+    thread = await open_thread(rt, tmp_path, steps=[["Which database should I use?", question]])
     await settle(rt, thread)
     owner_prompts = [p for sid, p in rt.service.prompts if sid == rt.owner]
     assert "Which database?" in owner_prompts[-1]
@@ -233,12 +251,17 @@ async def test_the_agent_answers_the_threads_question(society: Society, tmp_path
 
 async def test_plan_cards_close_with_build(society: Society, tmp_path: Path):
     rt = society
-    thread = await open_thread(rt, tmp_path)
     # The person switched the thread to Plan, with the pill on "Ask before edits".
-    rt.service.store.update_session(thread, permission_mode="plan", build_mode="default")
-    rt.service.steps[thread] = [["The plan: 1. schema 2. API", make_event(
-        "plan_ready", {"build_mode": "default"}
-    )]]
+    thread = await open_thread(
+        rt,
+        tmp_path,
+        steps=[["The plan: 1. schema 2. API", make_event(
+            "plan_ready", {"build_mode": "default"}
+        )]],
+        setup=lambda sid: rt.service.store.update_session(
+            sid, permission_mode="plan", build_mode="default"
+        ),
+    )
     await settle(rt, thread)
     assert open_plan(rt.service.store.list_events(thread)) is not None
     assert "Its plan:" in [p for sid, p in rt.service.prompts if sid == rt.owner][-1]

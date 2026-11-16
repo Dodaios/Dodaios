@@ -51,7 +51,7 @@ from dodaios.agent_chat.credential_requests import (
     CredentialSpec,
 )
 from dodaios.agent_chat.effort import normalize_effort
-from dodaios.agent_chat.events import make_event, shown_text
+from dodaios.agent_chat.events import is_transient, make_event, shown_text
 from dodaios.agent_chat.parked_work import BACKGROUND_ORIGIN, ParkedWorkBoard
 from dodaios.agent_chat.permissions import (
     PLAN_MODES,
@@ -1635,9 +1635,43 @@ class AgentChatService:
                         ),
                     ]
                 for item in expanded:
-                    self._publish_event(session_id, item)
+                    await self._publish_event_off_loop(session_id, item)
                 return
-        self._publish_event(session_id, event)
+        await self._publish_event_off_loop(session_id, event)
+
+    async def _publish_event_off_loop(self, session_id: str, event: dict[str, Any]) -> None:
+        """``_publish_event`` with the database write on a worker thread.
+
+        Every streamed event of every running turn passes through here, and
+        ``append_event`` ends in an SQLite commit. On the event loop, one slow
+        commit (a full disk, a paging system) froze the whole app for 15 s at a
+        time: the Dodaios Bar stopped mid-dictation, the key release waited and
+        nothing was pasted. The write now runs beside the loop; a lock per
+        session keeps the events of a chat in the order they were sent.
+        Transient events (no write) and the rare end-of-turn and error events
+        (they read the store to dedupe and word the error) keep the inline path.
+        """
+        if is_transient(event) or event.get("kind") in {"turn_finished", "error"}:
+            async with self._publish_lock(session_id):
+                self._publish_event(session_id, event)
+            return
+        async with self._publish_lock(session_id):
+            stored = await asyncio.to_thread(self.store.append_event, session_id, event)
+            self._deliver_event(session_id, stored)
+
+    def _publish_lock(self, session_id: str) -> asyncio.Lock:
+        """The lock that keeps one chat's events in order, for the running loop."""
+        locks: dict[tuple[int, str], asyncio.Lock] = self.__dict__.setdefault(
+            "_publish_locks", {}
+        )
+        key = (id(asyncio.get_running_loop()), session_id)
+        lock = locks.get(key)
+        if lock is None:
+            if len(locks) > 4096:
+                for stale in [k for k, held in locks.items() if not held.locked()]:
+                    del locks[stale]
+            lock = locks[key] = asyncio.Lock()
+        return lock
 
     def _publish_event(self, session_id: str, event: dict[str, Any]) -> None:
         if event.get("kind") == "turn_finished":
@@ -1664,6 +1698,10 @@ class AgentChatService:
             if run is not None and run.turn_id == finished_id:
                 run.finished = True
             self._announce_jarvis_turn(session_id, event)
+        self._deliver_event(session_id, stored)
+
+    def _deliver_event(self, session_id: str, stored: dict[str, Any]) -> None:
+        """Hand a stored event to the listeners and the open chat sockets (on the loop)."""
         for listener in list(getattr(self, "_event_listeners", ())):
             try:
                 listener(session_id, stored)
