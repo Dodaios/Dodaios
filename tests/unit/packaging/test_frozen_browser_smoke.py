@@ -218,6 +218,16 @@ class Handler(BaseHTTPRequestHandler):
             }})
         return self.reply(404, {{}})
 
+    def do_PUT(self):
+        # The setup wizard's name save (issue #1734).
+        length = int(self.headers.get("Content-Length") or 0)
+        sent = json.loads(self.rfile.read(length) or b"{{}}")
+        if self.path != "/api/settings/wake-word" or not sent.get("phrase"):
+            return self.reply(404, {{}})
+        if mode == "name-save-fails":
+            return self.reply(500, {{"detail": "Something went wrong inside Dodaios (KeyError)."}})
+        return self.reply(200, {{"ok": True, "resolved_engine": "stt_match"}})
+
     def reply(self, code, body):
         data = json.dumps(body).encode()
         self.send_response(code)
@@ -262,6 +272,14 @@ def test_a_mac_boot_records_the_permission_check(tmp_path, monkeypatch):
         "bundle_id": "ai.personaljarvis.desktop",
     }
     assert "healthy_seconds" in report
+    assert report["setup_name_save"] == "stt_match"
+
+
+@posix_only
+def test_a_boot_whose_setup_name_save_fails_names_the_answer(tmp_path, monkeypatch):
+    # Issue #1734: the setup wizard's first step answered HTTP 500.
+    with pytest.raises(RuntimeError, match=r"setup name failed: HTTP 500 .*KeyError"):
+        _boot_fake_app(tmp_path, monkeypatch, platform="linux", mode="name-save-fails")
 
 
 @posix_only

@@ -1486,18 +1486,29 @@ async def put_wake_word(body: WakeWordBody, request: Request) -> dict[str, objec
     # language-specific, so selection and provisioning must agree on the language.
     from dodaios.speech.wake_model_fetch import resolve_wake_language
 
-    _cfg_for_lang = _config(request)
-    _wake_lang = resolve_wake_language(_cfg_for_lang)
-    plan = resolve_wake_plan(
-        SimpleNamespace(
-            phrase=body.phrase,
-            engine=engine,
-            custom_model_path=body.custom_model_path,
-            fuzzy_match_ratio=body.fuzzy_match_ratio,
-        ),
-        local_whisper_available=_local_whisper_available(),
-        language=_wake_lang,
-    )
+    #
+    # The preview never decides whether the phrase is saved: the setup wizard's
+    # first step saves the name through here, and a failure in this preview
+    # must not end that save with an HTTP 500 (issue #1734).
+    _wake_lang = ""
+    plan = None
+    try:
+        _wake_lang = resolve_wake_language(_config(request))
+        plan = resolve_wake_plan(
+            SimpleNamespace(
+                phrase=body.phrase,
+                engine=engine,
+                custom_model_path=body.custom_model_path,
+                fuzzy_match_ratio=body.fuzzy_match_ratio,
+            ),
+            local_whisper_available=_local_whisper_available(),
+            language=_wake_lang,
+        )
+    except Exception:  # noqa: BLE001 - the save goes on; the log keeps the cause
+        log.exception(
+            "Resolving the wake plan for the new phrase failed; the phrase is saved "
+            "and the voice picks it up on the next start."
+        )
 
     # Best-effort in-memory cfg update so a later cfg read agrees pre-restart.
     # Only the fields the client actually sent (non-None) are applied, mirroring
@@ -1538,7 +1549,7 @@ async def put_wake_word(body: WakeWordBody, request: Request) -> dict[str, objec
     # just means it applies on next start.
     applied_live = False
     pipeline = getattr(request.app.state, "speech_pipeline", None)
-    if pipeline is not None and hasattr(pipeline, "set_wake_plan"):
+    if plan is not None and pipeline is not None and hasattr(pipeline, "set_wake_plan"):
         try:
             pipeline.set_wake_plan(plan)
             applied_live = True
@@ -1553,7 +1564,7 @@ async def put_wake_word(body: WakeWordBody, request: Request) -> dict[str, objec
     # lexicon guess is exactly the AP-27 trap (a spelling rule deciding whether
     # a wake word is allowed to exist).
     phrase_in_vocab: bool | None = None
-    if plan.engine == "vosk_kws":
+    if plan is not None and plan.engine == "vosk_kws":
         try:
             from dodaios.speech.wake_constants import resolve_vosk_model_path
 
@@ -1580,20 +1591,20 @@ async def put_wake_word(body: WakeWordBody, request: Request) -> dict[str, objec
         "ok": True,
         "phrase": body.phrase,
         "engine": engine,
-        "resolved_engine": plan.engine,
-        "degraded": plan.degraded,
+        "resolved_engine": plan.engine if plan is not None else "none",
+        "degraded": plan.degraded if plan is not None else True,
         # False when no local model matches the user's word: the wake word is off
         # and the Call shortcut is the activation.
-        "wake_available": plan.wake_available,
+        "wake_available": plan.wake_available if plan is not None else False,
         # None = not applicable / not probed. False is a WARNING, not a
         # rejection: the phrase saved, but this engine's lexicon has no entry
         # for it, so the UI should say so instead of leaving the user guessing.
         "phrase_in_vocab": phrase_in_vocab,
-        "message": plan.message,
+        "message": plan.message if plan is not None else "",
         # Stable code + fill-in values for ``message`` so the UI can show it in
         # the user's language (``WAKE_PLAN_MESSAGE_CODES``); ``message`` stays.
-        "message_code": plan.message_code,
-        "message_params": dict(plan.message_params),
+        "message_code": plan.message_code if plan is not None else "",
+        "message_params": dict(plan.message_params) if plan is not None else {},
         "persisted": persisted,
         # When live-applied, the running pipeline already swapped the detector;
         # no restart needed. Otherwise it takes effect on the next voice start.
