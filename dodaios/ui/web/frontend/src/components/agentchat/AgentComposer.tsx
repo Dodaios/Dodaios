@@ -172,6 +172,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
   // control; one that swallows the click was the reported bug (2026-08-27).
   const locks = useAgentChat((s) => s.locks);
   const setDraft = useAgentChat((s) => s.setDraft);
+  const loadModels = useAgentChat((s) => s.loadModels);
   const setPlan = useAgentChat((s) => s.setPlan);
   const send = useAgentChat((s) => s.send);
   const cancel = useAgentChat((s) => s.cancel);
@@ -845,6 +846,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
               groups={brainGroups}
               sections={brainSections}
               currentSection={draft.provider}
+              onBrowse={(id) => void loadModels(id)}
               onChange={(v) => {
                 const [nextProvider, nextModel] = splitBrainValue(v);
                 void setDraft(
