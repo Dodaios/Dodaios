@@ -10,9 +10,10 @@ description: >-
   boundaries the person drew, and then get out of the way. Step scripts,
   guessed fixes and shouted rules make current models worse.
 when_to_use: >-
-  Use when you are about to write a brief for another agent (delegate to
-  coding_agent, pane, team_thread, mission, routine or agent) and this guide
-  is not already in the conversation. Not for replies to the person.
+  Use when you are about to write a brief for another agent (the prompt of
+  workspace-orchestrate, or delegate to coding_agent, pane, team_thread,
+  mission, routine or agent) and this guide is not already in the
+  conversation. Not for replies to the person.
 category: meta
 tags: [meta, delegation, prompting, coding-agents, briefs]
 author: builtin
@@ -110,8 +111,8 @@ coding briefs fit in 5 to 25 lines. Hard or unattended work gets more context,
 not more steps. Use short headings or a few bullets when they help a reader;
 none of the sections is compulsory.
 
-Write a brief for work in a code repository in English, because commit
-messages and comments follow the language of the brief. Name the language of
+Write the brief in the language the person uses with you; the repository's
+own rules decide the language of commits and comments. Name the language of
 anything the person will read, such as a report or a message.
 
 ## By kind of work

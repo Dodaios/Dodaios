@@ -44,6 +44,7 @@ import re
 from collections.abc import Callable, Mapping
 from typing import Any, Final
 
+from dodaios.core.agent_brief import AGENT_BRIEF_RULE
 from dodaios.core.protocols import ExecutionContext, ToolResult
 from dodaios.orchestrator import jobs
 from dodaios.society.communication import REPLY_POLICY_SCHEMA
@@ -218,10 +219,9 @@ class DelegateTool:
         "says; a wait that runs out reports it as still running. A name that is not clearly "
         "one agent returns needs_clarification with a question to ask first. Not for answers "
         "you can give yourself, knowledge questions, or status reads (work_board, "
-        "society_status). The agent sees only your brief, never this chat: state the outcome "
-        "and why it matters, what it cannot see (quoted symptoms, files, decisions already "
-        "made), a checkable done and only the limits the person drew; never a step script or "
-        "a guessed fix (the full guide: skill:agent-brief). Target-specific extras go in options "
+        "society_status). "
+        + AGENT_BRIEF_RULE
+        + " Target-specific extras go in options "
         "(coding_agent: cli, model, effort, count, folder or project or workspace, and mode "
         "grid ONLY when the user asked for a terminal, a pane or the grid; "
         "pane: workspace_id, request_id, while_busy; team_thread: cwd, seats, mode, title; "
