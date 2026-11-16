@@ -172,7 +172,7 @@ async def ask_commit(
     await open_card(
         runtime, caller, approval.id, what=step.summary, where=step.host,
         detail="" if step.context.lower() == step.label.lower() else step.context,
-        label=step.label, browser=True,
+        label="" if step.is_key else step.label, browser=True,
     )
     outcome = "declined"
     try:

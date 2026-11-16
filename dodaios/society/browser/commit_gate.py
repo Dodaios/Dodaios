@@ -34,6 +34,9 @@ __all__ = [
 #: (``core:browser:commit`` in ``always_allow`` / ``require_approval``).
 COMMIT_VERB: Final[str] = "commit"
 
+#: The label the worker gives an Enter key in a message box (``commit_target.py``).
+KEY_LABEL: Final[str] = "Enter"
+
 #: Browser actions that press a control or submit what is focused.
 _CLICKS: Final[frozenset[str]] = frozenset(
     {"click", "click_element_by_index", "browser_window_click"}
@@ -143,10 +146,16 @@ class CommitStep:
     context: str
 
     @property
+    def is_key(self) -> bool:
+        """The step is an Enter key in a message box, not a click on a control."""
+        return self.label == KEY_LABEL
+
+    @property
     def summary(self) -> str:
         """What is about to be clicked, where, and what the page says about it."""
         where = f" on {self.host}" if self.host else ""
-        line = f'Click "{self.label}"{where}'
+        # A key press has no button to name (``KEY_LABEL``).
+        line = f"Press Enter{where}" if self.is_key else f'Click "{self.label}"{where}'
         if self.context and self.context.lower() != self.label.lower():
             line += f": {self.context}"
         return line
@@ -211,6 +220,9 @@ def commit_step(
         return None
     context = _clean(target.get("context"), _CONTEXT_CHARS)
     kind = _kind_of(label)
+    if not kind and name in _KEYS and str(target.get("type") or "") == "composer":
+        # Enter in a message box with text in it sends that text.
+        kind = "send"
     if not kind and _CONFIRM.search(label):
         kind = _kind_of(context) or "confirm"
     if not kind and _AFFIRM.match(label) and target.get("in_dialog"):
@@ -219,12 +231,16 @@ def commit_step(
         return None
     if kind == "accept" and _CONSENT.search(f"{label} {context}"):
         return None
+    # The card quotes what the page says about the step: a dialog's question,
+    # or the message an Enter key is about to send. A form's text is only its
+    # field labels ("Name: Phone: E-mail:"), which says nothing about it.
+    quoted = bool(target.get("in_dialog")) or str(target.get("type") or "") == "composer"
     return CommitStep(
         kind=kind,
         label=label,
         host=(urlsplit(url).hostname or "").removeprefix("www."),
         url=url,
-        context=context,
+        context=context if quoted else "",
     )
 
 

@@ -35,6 +35,7 @@ CANCEL = {
     "label": "Abo kündigen",  # i18n-allow: a page label
     "context": PAGE_TEXT,
     "field": "",
+    "in_dialog": "1",
 }
 
 
@@ -130,6 +131,19 @@ def test_the_card_says_what_is_clicked_where_and_what_the_page_says():
     step = commit_step("click", {"index": 7}, CANCEL, PLAY)
     assert step.summary.startswith('Click "Abo kündigen" on play.google.com: ')  # i18n-allow
     assert "SuperGrok 33,99 €/Monat" in step.summary
+
+
+def test_the_card_quotes_a_dialog_or_a_typed_message_but_not_a_forms_field_labels():
+    """Seen live: a form's text is its field labels, which says nothing about the click."""
+    form = _button("Submit order", "Customer name: Telephone: E-mail address: Submit order")
+    step = commit_step("click", {"index": 9}, form, "https://httpbin.org/forms/post")
+    assert step.kind == "send" and step.context == ""
+    assert step.summary == 'Click "Submit order" on httpbin.org'
+    message = _button("Enter", "See you at eight", type="composer", field="textbox")
+    typed = commit_step("send_keys", {"keys": "Enter"}, message, PLAY)
+    # Enter in a message box with text in it sends that text: the card quotes it.
+    assert typed.kind == "send" and typed.context == "See you at eight"
+    assert typed.summary == "Press Enter on play.google.com: See you at eight"
 
 
 def test_one_yes_covers_the_confirming_click_of_the_same_action_only():
