@@ -245,7 +245,8 @@ def run(
             else:
                 self.picker = RecordingPicker(app)
                 self.picker.start()
-                emit("selection_ready")
+                # ``at`` lets the parent log press-to-visible across processes.
+                emit("selection_ready", at=time.time())
 
         def start_capture(self) -> None:
             from PySide6.QtMultimedia import QMediaCaptureSession, QScreenCapture, QVideoSink
@@ -559,11 +560,42 @@ def run(
             logging.getLogger(__name__).exception("appshot: capture initialization failed")
             session.fail("Screen capture could not start. Check desktop support and permissions.")
 
+    def warm_up() -> None:
+        """Pay Qt's first-window cost in standby, so the press opens the picker at once.
+
+        The first overlay, the first hint pill, fonts, style sheets and the
+        screen-grant read cost several hundred milliseconds once. Everything is
+        built off the glass (``WA_DontShowOnScreen``): no pixels are read, no
+        window appears and no permission is asked.
+        """
+        if session is not None or closing or is_wayland():
+            return
+        try:
+            RecordingPicker(app).warm_up()  # Reads the grant; paints one overlay off the glass.
+            probe = QWidget()
+            probe.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen)
+            box = QVBoxLayout(probe)
+            box.addWidget(QLabel(labels["portal"]))
+            box.addWidget(QPushButton(labels["cancel"]))
+            hint = RecordingHint(probe, dict(labels), lambda: None, probe.devicePixelRatioF())
+            hint.show()
+            probe.show()
+            app.processEvents()
+            probe.repaint()
+            probe.close()
+            probe.deleteLater()
+            app.processEvents()
+            # The picker takes the keyboard through this module on every press.
+            importlib.import_module("dodaios.platform.window_state")
+        except Exception as exc:  # noqa: BLE001 - only the first press pays the cost
+            sys.stderr.write(f"appshot-recording: warm-up failed ({exc!r}).\n")
+
     pipe.stop.connect(stop)
     pipe.start.connect(begin)
     threading.Thread(target=pipe.read, name="appshot-recording-parent", daemon=True).start()
     if standby:
-        emit("ready")  # No Session, windows, timers, pixels or permission prompts in standby.
+        emit("ready")  # No Session, timers, pixels or permission prompts in standby.
+        QTimer.singleShot(0, warm_up)
     else:
         QTimer.singleShot(0, begin)
     return app.exec()
