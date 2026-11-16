@@ -4380,9 +4380,9 @@ class AgentChatService:
                 if shown and shown in permission_ids(ladder) and shown not in PLAN_MODES:
                     build = shown
                 else:
-                    build = mode_after_plan(
-                        ladder, session.permission_mode, session.build_mode or card.build_mode
-                    )
+                    # The card's mode came from ``mode_after_plan`` when the
+                    # plan was finished: never the ladder's top rung by default.
+                    build = session.build_mode or card.build_mode
             if session is not None and build and build not in PLAN_MODES:
                 self.store.update_session(session_id, permission_mode=build)
                 await self._emit(
