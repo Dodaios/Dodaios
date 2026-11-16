@@ -37,11 +37,11 @@
 </div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/hero.webp" alt="A 33-second recording of Dodaios at work. In the chat, the person asks the assistant, Nova, to review the new pull requests of a project with one Sonnet agent each and to put the verdicts on a slide deck. Agent threads start under Nova's answer. One click opens the first in the Agentic IDE, and two more open beside it: three coding agents read diffs and run commands side by side, then finish their reviews. Back in the chat, Nova answers under the card of a slide deck. The deck opens, the title of its second slide is changed by hand to What we merge this week, and the deck is presented." width="100%" />
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/hero.webp" alt="A 16-second recording of Dodaios at work. In a chat that is already in use, the person types to the assistant, Nova: Have a Sonnet agent add a --csv flag to ledger's list command and run the tests. Nova answers that it will put a Sonnet 5 agent on it, and a link to the agent's thread appears in its answer. One click opens that thread in the Agentic IDE, where the coding agent edits files and runs the tests: all 12 pass, and a card lists the three files it changed. Back in the chat, Nova reports that ledger list --csv now prints every invoice, that it reran the tests and all 12 pass, and that nothing is committed." width="100%" />
 </p>
 
 <p align="center">
-  <sub>A real recording. The waits for the models are cut out, and the rest plays 1.18 times as fast. The assistant, Nova, runs on Claude Opus 5.5 and starts five Claude Code agents on Sonnet 5.5, signed in to a Claude plan. The pull requests, the reviews and the deck are real. <a href="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.mp4"><b>Download it as a video</b></a> (MP4, 4 MB)</sub>
+  <sub>A real recording at 60 frames a second, played at the speed it was filmed. The waits for the models are cut out. The assistant, Nova, runs on Claude Opus 5.5 and starts one Claude Code agent on Claude Sonnet 5, signed in to a Claude plan. The code change and the test run are real. <a href="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.mp4"><b>Download it as a video</b></a> (MP4, 2 MB)</sub>
 </p>
 
 ## Install
@@ -137,7 +137,7 @@ away. Each has its own section under [What it does](#what-it-does).
 ### The assistant
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/assistant.webp" alt="A 15-second recording. The Plugins catalog shows GitHub installed and connected. In the chat, the person asks Nova: Which acme-notes PRs are still open, and which should I look at first? While Nova works, the line under its name in the side panel says Working in GitHub. The answer lists the five open pull requests as GitHub links and says to start with #9, the only bug fix and the smallest." width="100%" />
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/assistant.webp" alt="A 12-second recording. In a conversation that is already in use, the person types to Nova: How much did I spend on groceries each month this year? The bank export is in Documents. Nova says it will look for the bank export, reads the file on the computer and answers that 4,571.65 euros went on groceries from January to October, with July the highest and February the lowest. Under the answer the chat draws a column chart, Groceries per month, 2026, with one column per month; the pointer moves along the columns and each one shows its amount, ending on July at 600.7 euros." width="100%" />
 </p>
 
 You name the assistant, and the name is also its wake word (Nova in these
@@ -158,7 +158,7 @@ and reads its report.
 ### Your coding agents
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/agents.webp" alt="A 15-second recording of the Agentic IDE. From the thread list, two more threads open side by side, until three coding agents work on three pull requests in three columns, and the first review arrives with findings by file and line. Then the agent and model control of a thread opens on its rail of coding agents: the models of Claude Code, then those of Codex, with OpenCode and more below." width="100%" />
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/agents.webp" alt="A 12-second recording of the Agentic IDE in Dodaios. Two coding agents work in two columns; from the thread list a third thread is opened beside them, so three Claude Code agents work side by side on three small tasks in two sample projects. The middle agent fixes how VAT is rounded, reports that all 7 tests pass and lists the two files it edited; then all three have finished, each with its card of edited files. Last, the agent and model picker of a thread opens and shows the other coding agents down its side, with the models of Codex." width="100%" />
 </p>
 
 **Claude Code · Codex · Cursor CLI · OpenCode · Kimi Code · GLM Coding Plan · Grok Build · Antigravity · DeepSeek Harness**
@@ -192,7 +192,7 @@ and no account.
 ### Docs, decks, sheets and whiteboards
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/nodes.webp" alt="A 16-second recording of the chat with the assistant, Nova. The person types: Put our launch plan on a whiteboard: research, build, beta, launch. The card of a whiteboard comes in, four boxes joined by arrows, and Nova says it is ready. The card opens the whiteboard in the editor; the person drags the Launch box below Beta, renames Beta to Private beta, and the board saves itself." width="100%" />
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/nodes.webp" alt="A 14-second recording of the chat with the assistant, Nova. The person types: Make a four-slide deck on brewing pour-over coffee. The card of a slide deck comes into the chat, showing its title slide, Brewing great pour-over coffee, and Nova's answer appears under it. A click on the card opens the deck large. A click on its title opens the deck's editor, with the slides in a strip on the left and the title's fields on the right. The person selects the title, types Pour-over, step by step, the strip and the fields change with it, and the editor says Saved." width="100%" />
 </p>
 
 Ask for a doc, a slide deck, a sheet or a whiteboard, and it arrives filled
@@ -205,7 +205,8 @@ browser such as Chrome or Edge is installed.
 
 ### Away from your desk
 
-<img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/phone.webp" alt="A 13-second recording of the phone app in a phone-sized window. The conversation with Nova began at the desk: a rounding fault in a small invoicing project, and a test that catches it. On the phone the person types: Go ahead, fix it and run the tests. A card asks to allow an edit of invoice.py, and a tap allows it. A second card asks to run the tests, and a tap allows that too. Nova answers that the fault is fixed and all seven tests pass." width="34%" align="right" />
+<!-- The recording of this section is a real conversation through Telegram;
+     it goes here once it is filmed (assets/demo/readme/README.md). -->
 
 The conversation with the assistant goes with you, and what you said on the
 way is in the desktop chat when you come back.

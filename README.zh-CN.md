@@ -38,11 +38,11 @@
 </div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/hero.webp" alt="一段 33 秒的 Dodaios 工作录屏。用户在对话中请助手 Nova 审阅一个项目里新的拉取请求，每个拉取请求派一个 Sonnet 智能体，并把结论做成一份幻灯片。智能体线程在 Nova 的回答下方启动。点一下，第一个线程在 Agentic IDE 中打开，另外两个并排打开：三个编程智能体并排阅读差异、运行命令，然后完成审阅。回到对话，Nova 在一份幻灯片的卡片下作答。幻灯片打开，第二张的标题被手动改为 What we merge this week，然后开始放映。" width="100%" />
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/hero.webp" alt="一段 16 秒的 Dodaios 工作录屏。在一段已在使用中的对话里，用户对助手 Nova 输入：Have a Sonnet agent add a --csv flag to ledger's list command and run the tests. Nova 回答说会派一个 Sonnet 5 智能体来做，回答里出现该智能体线程的链接。点一下，线程在 Agentic IDE 中打开：编码智能体修改文件并运行测试，12 个测试全部通过，一张卡片列出它改动的三个文件。回到对话，Nova 报告 ledger list --csv 现在会列出每张发票，它重新跑了测试，12 个全部通过，且没有提交任何内容。" width="100%" />
 </p>
 
 <p align="center">
-  <sub>真实录屏。等待模型的时间被剪掉，其余部分以 1.18 倍速播放。助手 Nova 使用 Claude Opus 5.5，并启动五个使用 Sonnet 5.5 的 Claude Code 智能体，登录的是 Claude 套餐。拉取请求、审阅和幻灯片都是真实的。<a href="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.mp4"><b>下载视频</b></a>（MP4，4 MB）</sub>
+  <sub>真实录屏，每秒 60 帧，按拍摄时的速度播放。等待模型的时间被剪掉。助手 Nova 使用 Claude Opus 5.5，并启动一个使用 Claude Sonnet 5 的 Claude Code 智能体，登录的是 Claude 套餐。代码改动和测试运行都是真实的。<a href="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.mp4"><b>下载视频</b></a>（MP4，2 MB）</sub>
 </p>
 
 ## 为什么选 Dodaios
@@ -114,7 +114,7 @@ Dodaios 运行在 64 位的 Windows、macOS 和基于 glibc 的 Linux 上。终�
 ### 助手
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/assistant.webp" alt="一段 15 秒的录屏。插件目录显示 GitHub 已安装并已连接。用户在对话中问 Nova：Which acme-notes PRs are still open, and which should I look at first? Nova 工作时，侧栏中它名字下方的一行显示 Working in GitHub。回答以 GitHub 链接列出五个打开的拉取请求，并建议先看 #9：唯一的错误修复，也是最小的一个。" width="100%" />
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/assistant.webp" alt="一段 12 秒的录屏。在一段已在使用中的对话里，用户对 Nova 输入：How much did I spend on groceries each month this year? The bank export is in Documents. Nova 说会去找银行导出文件，读取电脑上的文件后回答：1 月到 10 月共在食品杂货上花了 4,571.65 欧元，7 月最多，2 月最少。回答下方，对话里画出一张柱状图 Groceries per month, 2026，每月一根柱子；鼠标沿柱子移动，每根柱子显示金额，最后停在 7 月的 600.7 欧元。" width="100%" />
 </p>
 
 你给助手起名字，这个名字也是它的唤醒词（在这些录屏里叫 Nova）。它通过 48 个插件在你的应用里工作，比如 GitHub、Slack、Notion 和 Gmail，其中大多数仍标为“Preview”（预览版）；它也可以通过任何 MCP 服务器工作。它在自己的浏览器里浏览，用鼠标和键盘操作桌面应用，还会记下关于你和你工作的笔记，你可以查看和更正。编程工作它交给编程智能体，回答智能体的提问，并阅读它的报告。
@@ -129,7 +129,7 @@ Dodaios 运行在 64 位的 Windows、macOS 和基于 glibc 的 Linux 上。终�
 ### 你的编程智能体
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/agents.webp" alt="一段 15 秒的 Agentic IDE 录屏。从线程列表中又并排打开两个线程，三个编程智能体在三栏里分别审阅三个拉取请求，第一份审阅带着精确到文件和行的问题出现。随后，一个线程的智能体与模型选择器在编程智能体栏上打开：先是 Claude Code 的模型，然后是 Codex 的模型，下面还有 OpenCode 等。" width="100%" />
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/agents.webp" alt="一段 12 秒的 Dodaios Agentic IDE 录屏。两个编码智能体在两栏中工作；从线程列表中再打开第三个线程放在旁边，于是三个 Claude Code 智能体在两个示例项目的三个小任务上并排工作。中间的智能体修正了增值税的舍入方式，报告 7 个测试全部通过，并列出它修改的两个文件；随后三个都完成了，各自带有修改文件的卡片。最后，一个线程的智能体与模型选择器打开，侧边显示其他编码智能体，以及 Codex 的模型。" width="100%" />
 </p>
 
 **Claude Code · Codex · Cursor CLI · OpenCode · Kimi Code · GLM Coding Plan · Grok Build · Antigravity · DeepSeek Harness**
@@ -155,7 +155,7 @@ Agentic IDE 会在智能体工作时显示它的工具调用、diff、计划和�
 ### 文档、幻灯片、表格和白板
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/nodes.webp" alt="一段 16 秒的录屏：与助手 Nova 的对话。用户输入：Put our launch plan on a whiteboard: research, build, beta, launch。一张白板卡片出现，四个方框由箭头相连，Nova 说白板已经做好。点开卡片后，白板在编辑器中打开；用户把 Launch 方框拖到 Beta 下面，把 Beta 改名为 Private beta，白板随即自动保存。" width="100%" />
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/nodes.webp" alt="一段 14 秒的录屏：与助手 Nova 的对话。用户输入：Make a four-slide deck on brewing pour-over coffee. 一张幻灯片的卡片进入对话，显示标题页 Brewing great pour-over coffee，Nova 的回答出现在下方。点一下卡片，幻灯片大幅打开。点一下标题，打开幻灯片编辑器，左侧是幻灯片缩略条，右侧是标题的字段。用户选中标题，输入 Pour-over, step by step，缩略条和字段随之变化，编辑器显示 Saved。" width="100%" />
 </p>
 
 要一份文档、幻灯片、表格或白板，它到手时内容已经填好。每种都有自己的编辑器，你可以手动修改：在文字里打字，改单元格，拖动方框。在白板上，你和助手在同一块画布上画。所有内容都可以导出为 HTML；装有 Chrome、Edge 等 Chromium 浏览器时，还可以导出为 PDF 或 PNG。
@@ -164,7 +164,8 @@ Agentic IDE 会在智能体工作时显示它的工具调用、diff、计划和�
 
 ### 离开电脑时
 
-<img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/phone.webp" alt="一段 13 秒的录屏：手机尺寸窗口中的手机应用。与 Nova 的对话从电脑前开始：一个小型开票项目里的舍入错误，以及一个能发现它的测试。用户在手机上输入：Go ahead, fix it and run the tests。一张卡片请求允许修改 invoice.py，点按一下即允许。第二张卡片请求运行测试，也点按允许。Nova 回答：错误已修复，七个测试全部通过。" width="34%" align="right" />
+<!-- The recording of this section is a real conversation through Telegram;
+     it goes here once it is filmed (assets/demo/readme/README.md). -->
 
 你和助手的对话会跟着你走，你在路上说过的话，回来时就在桌面端的聊天里。
 

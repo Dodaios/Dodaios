@@ -65,7 +65,7 @@ changes, Git, files and a browser preview sit beside every thread.
 
 ### Nodes: what it makes, kept current
 
-<img src="../assets/demo/readme/nodes.webp" alt="A 16-second recording of the chat with the assistant, Nova. The person types: Put our launch plan on a whiteboard: research, build, beta, launch. The card of a whiteboard comes in, four boxes joined by arrows, and Nova says it is ready. The card opens the whiteboard in the editor; the person drags the Launch box below Beta, renames Beta to Private beta, and the board saves itself." width="100%" />
+<img src="../assets/demo/readme/nodes.webp" alt="A 14-second recording of the chat with the assistant, Nova. The person types: Make a four-slide deck on brewing pour-over coffee. The card of a slide deck comes into the chat, showing its title slide, Brewing great pour-over coffee, and Nova's answer appears under it. A click on the card opens the deck large. A click on its title opens the deck's editor, with the slides in a strip on the left and the title's fields on the right. The person selects the title, types Pour-over, step by step, the strip and the fields change with it, and the editor says Saved." width="100%" />
 
 Ask for a report, a deck, a budget or a dashboard, and Dodaios makes it as a
 node: a page you can open, present and share, and that it can change again
