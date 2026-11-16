@@ -90,6 +90,7 @@ export function ComposerBrainPicker({
   chevron = true,
   testId = "composer-model",
   onLocalModelReady,
+  onBrowse,
 }: {
   value: string;
   /** One group per provider, its id equal to that provider's section id. */
@@ -113,10 +114,23 @@ export function ComposerBrainPicker({
    * nothing is connected yet; called with the model once it answers.
    */
   onLocalModelReady?: (model: string) => void;
+  /**
+   * Called with a provider's id when its page is shown, so a provider that
+   * lists its models live (Ollama, OpenRouter) can fetch them. Without it a
+   * browsed provider that is not the current one shows no models.
+   */
+  onBrowse?: (sectionId: string) => void;
 }) {
   const t = useT();
   const [favorites, toggleFavorite] = useFavoriteModels();
-  const [section, setSection] = useState(currentSection);
+  const [section, setSectionState] = useState(currentSection);
+  const setSection = useCallback(
+    (next: string) => {
+      setSectionState(next);
+      if (next !== FAVORITES) onBrowse?.(next);
+    },
+    [onBrowse],
+  );
   const [access, rememberAccess] = useModelAccess();
   const [providerOrder, moveProvider] = useProviderOrder();
   const families = useMemo(() => {
@@ -194,7 +208,7 @@ export function ComposerBrainPicker({
     (open: boolean) => {
       if (open) setSection(sections.some((s) => s.id === currentSection) ? currentSection : (sections[0]?.id ?? ""));
     },
-    [sections, currentSection],
+    [sections, currentSection, setSection],
   );
 
   const rail = (

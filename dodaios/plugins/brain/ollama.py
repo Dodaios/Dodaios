@@ -499,6 +499,9 @@ class OllamaBrain:
         # ``tools_fallback``: the capability probe fails open, so a model
         # without tool support can still reach the server with tools; its
         # "does not support tools" refusal is then answered without them.
+        # ``thoughts``: what the model reasoned this round. Never shown while
+        # it streams; only read when the round ends with nothing to show.
+        thoughts: list[str] = []
         stream = stream_complete(
             client,
             call.run_model,
@@ -507,8 +510,13 @@ class OllamaBrain:
             send_temperature=send_temperature,
             tools_fallback=True,
             hold_think_prefix=True,
+            on_reasoning=thoughts.append,
         )
         reported: int | None = None
+        # A round that only thought: its finish is held back until the round
+        # has been asked again without thinking (``_answer_without_thinking``).
+        held_finish: str | None = None
+        spoke = False
         try:
             first = True
             async for delta in stream:
@@ -532,7 +540,24 @@ class OllamaBrain:
                 first = False
                 if delta.usage:
                     reported = local_context.reported_prompt_tokens(delta.usage)
+                if delta.content or delta.tool_call:
+                    spoke = True
+                elif (
+                    delta.finish_reason
+                    and not spoke
+                    and thoughts
+                    and req.reasoning_effort != "none"
+                ):
+                    held_finish = delta.finish_reason
+                    if delta.usage:
+                        yield BrainDelta(usage=delta.usage)
+                    continue
                 yield delta
+            if held_finish is not None:
+                async for delta in self._answer_without_thinking(
+                    client, call.run_model, req, send_temperature, "".join(thoughts), held_finish
+                ):
+                    yield delta
         except local_context.LocalContextError:
             raise
         except Exception as exc:
@@ -549,6 +574,68 @@ class OllamaBrain:
             # No profile and a server that does not report its window: judge
             # it by what it says it read.
             self._judge_reported_prompt(req, root, model, reported)
+
+    async def _answer_without_thinking(
+        self,
+        client: Any,
+        run_model: str,
+        req: BrainRequest,
+        send_temperature: bool | None,
+        thoughts: str,
+        finish: str,
+    ) -> AsyncIterator[BrainDelta]:
+        """Ask a round again with thinking off, after it ended with only thoughts.
+
+        Qwen 3.5 on Ollama's ``/v1`` endpoint can put its whole final answer
+        into the ``reasoning`` field: ``content`` stays empty, no tool call
+        comes, the finish is ``stop`` (live 2026-11-16, after tool results).
+        The turn then ended with nothing to show, and the tool call the
+        answer still needed (writing the file) never happened. The same
+        request with ``reasoning_effort="none"`` answers properly, with its
+        tool call, so the round is asked once more that way. Only when that
+        round is empty too do the thoughts stand in as the answer: the
+        person sees what the model came up with rather than nothing.
+        """
+        log.warning(
+            "ollama: %s ended a round with only reasoning (%d chars); asking again "
+            "with thinking off",
+            run_model,
+            len(thoughts),
+        )
+        retry = stream_complete(
+            client,
+            run_model,
+            replace(req, reasoning_effort="none"),
+            supports_vision=True,
+            send_temperature=send_temperature,
+            tools_fallback=True,
+            hold_think_prefix=True,
+        )
+        spoke = False
+        try:
+            async for delta in retry:
+                if delta.content or delta.tool_call:
+                    spoke = True
+                if delta.finish_reason:
+                    # Held until the end: the thoughts may still have to come
+                    # before it.
+                    finish = delta.finish_reason
+                    delta = replace(delta, finish_reason=None)
+                    if delta == BrainDelta():
+                        continue
+                yield delta
+        except (asyncio.CancelledError, local_context.LocalContextError):
+            raise
+        except Exception as exc:  # noqa: BLE001 — the first round's thoughts still stand
+            if spoke:
+                raise
+            log.warning("ollama: the round without thinking failed (%s)", exc)
+        finally:
+            await retry.aclose()
+        if not spoke and thoughts.strip():
+            log.warning("ollama: %s answered only in its reasoning; showing it", run_model)
+            yield BrainDelta(content=thoughts.strip())
+        yield BrainDelta(finish_reason=finish)
 
     def _judge_reported_prompt(
         self, req: BrainRequest, root: str, model: str, reported: int | None
