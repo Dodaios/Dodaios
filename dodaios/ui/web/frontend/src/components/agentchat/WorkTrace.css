@@ -214,3 +214,25 @@
 .trace-note > .trace-flag {
   transform: translateY(-1px);
 }
+/* The same in a messenger conversation: one quiet line under the
+   messages, like a messenger's "Not delivered". No card, no second
+   "Failed" line: the mark and the reason say it. */
+.trace-fail {
+  display: flex;
+  min-width: 0;
+  max-width: 34rem;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 2px 4px;
+  font-size: 13px;
+  line-height: 20px;
+  color: hsl(var(--muted-foreground));
+  overflow-wrap: anywhere;
+}
+.trace-fail > svg {
+  height: 14px;
+  width: 14px;
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: hsl(var(--destructive));
+}
