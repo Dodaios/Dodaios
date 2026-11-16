@@ -39,7 +39,7 @@ def standin():
 
     thread = threading.Thread(target=run, daemon=True)
     thread.start()
-    ready.wait(10)
+    assert ready.wait(30), "the Slack stand-in did not start within 30 s"
     yield holder["s"]
     asyncio.run_coroutine_threadsafe(holder["s"].stop(), loop).result(10)
     loop.call_soon_threadsafe(loop.stop)
