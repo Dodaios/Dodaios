@@ -492,12 +492,18 @@ async def test_a_reply_language_never_stands_in_for_the_leads_identity(
     # question goes; a created agent's briefing says that itself.
     card_line = dodaios_harness.QUESTION_CARD_LINE
     assert "question card (society_ask_user)" in card_line
+    # And the shape of a chat message: hundreds of earlier document-like
+    # replies outweigh the reply style far above them (2026-11-16).
+    shape_line = dodaios_harness.REPLY_SHAPE_LINE
+    for phrase in ("short chat message, not a document", "No headings, no bold", "write_report"):
+        assert phrase in shape_line, phrase
     if surface == "jarvis":
         assert seen["prompt"] == (
-            "Was steht heute an?" + card_line + "\nRespond in this language: de"
+            "Was steht heute an?" + shape_line + card_line + "\nRespond in this language: de"
         )
     else:
         assert card_line not in str(seen["prompt"])
+        assert shape_line not in str(seen["prompt"])
 
 
 async def test_a_slash_command_of_the_lead_goes_out_without_the_question_card_line(monkeypatch):

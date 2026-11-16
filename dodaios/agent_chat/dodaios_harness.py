@@ -127,6 +127,25 @@ CHAT_MESSAGES: Final[str] = (
 #: kept writing its questions into the reply (replayed 2026-11-13 on a copy of
 #: such a conversation: text without this line, the question card with it).
 #: Small talk is not a question the assistant needs answered and stays text.
+#: Rides on every message of the assistant's own chat, in front of the question
+#: card line, for the same reason: the reply style (``REPLY_STYLE``: no headings,
+#: no bold labels, a few short sentences) stands far above hundreds of earlier
+#: turns that were small documents with headings, bold labels and lists of what
+#: was assumed, and those won (maintainer, 2026-11-16: "text deserts"; the
+#: lead's replies that day ran to a median of about 1,000 characters). The shape
+#: comes from the assistant the maintainer pointed at as the model: the answer
+#: or recommendation first, plain short paragraphs, a list only for parallel
+#: items, one closing sentence.
+REPLY_SHAPE_LINE: Final[str] = (
+    "\nWrite this reply as a short chat message, not a document. The first sentence is the "
+    "answer or your recommendation. Then at most two short paragraphs with only what they "
+    "need to decide or do; leave out background, what you assumed and how you worked, and "
+    "say what you could not check in half a sentence. No headings, no bold, no emoji "
+    "labels; a list only for several parallel items, one line each, at most five. End with "
+    "at most one sentence on the next step or one question. A longer answer goes into "
+    "write_report, and the reply gives its gist."
+)
+
 QUESTION_CARD_LINE: Final[str] = (
     "\nA question you need answered goes on the question card (society_ask_user), all "
     "your questions in one call, not into your reply."
@@ -913,6 +932,7 @@ __all__ = [
     "ACTING_PREAMBLE",
     "CHAT_MESSAGES",
     "QUESTION_CARD_LINE",
+    "REPLY_SHAPE_LINE",
     "SECRET_FIELD_LINE",
     "COMPACT_MAX_CHARS",
     "HEADER_NAME",
