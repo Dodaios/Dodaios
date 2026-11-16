@@ -760,6 +760,8 @@ export interface SentMessage {
   steered?: boolean;
   queued?: boolean;
   queue_id?: string;
+  /** The lead answers the message beside its running turn, in this side thread. */
+  side_thread?: string;
   /**
    * The id of the ritual the message started. Its card in the conversation is
    * the answer: no turn was started for the message.

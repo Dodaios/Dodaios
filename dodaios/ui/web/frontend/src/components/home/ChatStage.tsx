@@ -14,6 +14,7 @@ import { AgentComposer } from "@/components/agentchat/AgentComposer";
 import { AgentTimeline } from "@/components/agentchat/AgentTimeline";
 import { withoutAnsweredResults } from "@/components/agentchat/agentResults";
 import { withoutBackgroundNotices } from "@/components/agentchat/backgroundNotices";
+import { withOutbox } from "@/components/agentchat/outbox";
 import { STEER_PREFIX, type TimelineItem } from "@/components/agentchat/reduce";
 import { rosterFaces } from "@/components/agentchat/InternalMessageRun";
 import { useCachedRosterAgents } from "@/components/society/data";
@@ -180,7 +181,11 @@ function ChatStageContent() {
   const view = useTranscriptView(surface === "jarvis" ? activeSessionId : null, unanswered);
   // Background records (a learned memory, a watchdog finding, a routine run
   // that failed) stay in the log; the conversation shows what was said.
-  const items = useMemo(() => withoutBackgroundNotices(view.items), [view.items]);
+  const recorded = useMemo(() => withoutBackgroundNotices(view.items), [view.items]);
+  // A message just sent stands at the foot at once, before the backend has
+  // recorded it (components/agentchat/outbox).
+  const outbox = useAgentChat((s) => s.outbox);
+  const items = useMemo(() => withOutbox(recorded, outbox, activeSessionId), [recorded, outbox, activeSessionId]);
   const catalog = useAgentChat((s) => s.catalog);
   const catalogStale = useAgentChat((s) => s.catalogStale);
   const sending = useAgentChat((s) => s.busy);
