@@ -44,40 +44,6 @@
   <sub>A real recording. The waits for the models are cut out, and the rest plays 1.18 times as fast. The assistant, Nova, runs on Claude Opus 5.5 and starts five Claude Code agents on Sonnet 5.5, signed in to a Claude plan. The pull requests, the reviews and the deck are real. <a href="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.mp4"><b>Download it as a video</b></a> (MP4, 4 MB)</sub>
 </p>
 
-## Why Dodaios
-
-If you work with AI every day, your work is probably spread out. Claude Code
-runs in one terminal and Codex in another. The chat assistant is in a browser
-tab, dictation is a separate app, and your documents are somewhere else. None
-of them knows what the others did. So you keep track yourself: which agent is
-done, which one is waiting for an answer, and what to copy where.
-
-Dodaios puts all of it in one app on your computer, and its assistant keeps
-track for you.
-
-- **Hand off work, get a result.** Say what you want done. The assistant
-  writes the brief for one or more coding agents, answers their questions and
-  tells you how it went.
-- **Every coding agent in one window.** Claude Code, Codex, Cursor CLI,
-  OpenCode, Grok Build, Antigravity, Kimi Code, GLM Coding Plan and DeepSeek
-  Harness, as chat threads or in terminals, up to four side by side.
-- **No new subscription.** Dodaios sells no model access. Each coding agent
-  runs on the plan or key you already have, such as a Claude or ChatGPT plan.
-- **Talk instead of typing.** Say the wake word and talk to the assistant, or
-  hold a key and dictate into any app. The wake word and dictation can run on
-  your computer, with no key and no account.
-- **Documents you can edit.** Ask for a doc, a slide deck, a sheet or a
-  whiteboard. It arrives filled in, and you change it by hand in its own
-  editor.
-- **Away from your desk.** The same conversation goes on in the phone app, in
-  Telegram and in your own Slack app, with voice notes and Allow and Deny
-  buttons.
-- **Work that runs without you.** While Dodaios runs, routines start on a
-  schedule, an event or a webhook, and a standing task keeps an eye on
-  something like a project's tests or an inbox.
-- **Yours.** Apache 2.0, no Dodaios account, no paid tier. Your chats, memory
-  and documents are files on your computer.
-
 ## Install
 
 macOS and Linux:
@@ -139,6 +105,32 @@ is optional.
 [Running it on a server](https://github.com/Dodaios/Dodaios/blob/main/docs/headless-vps-deployment.md)
 
 </details>
+
+## Why Dodaios
+
+If you work with AI every day, your work is probably spread out. Claude Code
+runs in one terminal and Codex in another. The chat assistant is in a browser
+tab, dictation is a separate app, and your documents are somewhere else. None
+of them knows what the others did. So you keep track yourself: which agent is
+done, which one is waiting for an answer, and what to copy where.
+
+Dodaios puts all of it in one app on your computer, and its assistant keeps
+track for you.
+
+- **Hand off work, get a result.** Say what you want done. The assistant
+  writes the brief for one or more coding agents, answers their questions and
+  tells you how it went.
+- **Every coding agent in one window.** Claude Code, Codex, Cursor CLI,
+  OpenCode, Grok Build, Antigravity, Kimi Code, GLM Coding Plan and DeepSeek
+  Harness, as chat threads or in terminals, up to four side by side.
+- **No new subscription.** Dodaios sells no model access. Each coding agent
+  runs on the plan or key you already have, such as a Claude or ChatGPT plan.
+- **Yours.** Apache 2.0, no Dodaios account, no paid tier. Your chats, memory
+  and documents are files on your computer.
+
+It also talks and listens, makes docs, decks, sheets and whiteboards, goes
+with you to your phone, Telegram and Slack, and runs routines while you are
+away. Each has its own section under [What it does](#what-it-does).
 
 ## What it does
 
