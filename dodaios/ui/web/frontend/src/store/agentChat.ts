@@ -53,6 +53,7 @@ import { openQuestionOf } from "@/components/agentchat/questions/questionModel";
 import { jitteredDelay, requestConnect } from "../lib/connectBudget";
 import { HISTORY_CHANGED, reuseHistoryRows } from "@/lib/historyRequests";
 import { offerUndo } from "@/lib/undoToast";
+import { outboxEntry, recordedEntries, type OutboxEntry } from "@/components/agentchat/outbox";
 import { bestModelId } from "@/lib/modelRanking";
 
 /**
@@ -113,6 +114,12 @@ export const FRAME_IDLE_MS = 45_000;
 export const TURN_START_GRACE_MS = 60_000;
 /** Wait before asking again for a session list whose reads were all invalidated. */
 const LIST_RETRY_MS = 750;
+/**
+ * A sent message whose own `user_message` never came back (the backend wrote
+ * it differently, or the socket missed it) stops being drawn after this long;
+ * the next read of the conversation shows what was recorded.
+ */
+const OUTBOX_GIVE_UP_MS = 30_000;
 /** Focus and visibility events closer together than this resync only once. */
 const WAKE_RESYNC_MIN_MS = 3_000;
 
@@ -193,6 +200,12 @@ export interface AgentChatStore {
   socketState: "idle" | "connecting" | "open" | "closed";
   draft: ComposerDraft;
   busy: boolean;
+  /**
+   * Messages sent and not yet in the timeline, drawn at the foot of their
+   * chat until their own `user_message` arrives (components/agentchat/outbox).
+   * Absent on stores that do not draw them.
+   */
+  outbox?: OutboxEntry[];
   lastError: string | null;
   /**
    * The picks this chat cannot take, each with the sentence that says why —
@@ -717,6 +730,11 @@ export function createAgentChatStore(
       }, FRAME_IDLE_MS);
     }
 
+    function dropOutgoing(id: string): void {
+      const outbox = get().outbox ?? [];
+      if (outbox.some((entry) => entry.id === id)) set({ outbox: outbox.filter((entry) => entry.id !== id) });
+    }
+
     function connect(sessionId: string, afterSeq: number): void {
       if (typeof WebSocket === "undefined") return;
       closeSocket();
@@ -862,6 +880,7 @@ export function createAgentChatStore(
       socketState: "idle",
       draft: readDraft(DRAFT_KEY),
       busy: false,
+      outbox: [],
       lastError: null,
 
       loadCatalog: async () => {
@@ -1292,7 +1311,10 @@ export function createAgentChatStore(
           : get().activeSessionId === null && newChatLane === lane;
         const previous = lane.tail;
         lane.pending += 1;
-        set({ busy: true, lastError: null });
+        // The message shows in the chat now, not when the backend has
+        // prepared its turn and the socket brought it back a second later.
+        const outgoing = isVisible() ? outboxEntry(lane.sessionId, content, attachments, Date.now()) : null;
+        set({ busy: true, lastError: null, ...(outgoing ? { outbox: [...(get().outbox ?? []), outgoing] } : {}) });
         // Serialize transport admission, not agent execution. A second send
         // shares an unfinished session creation and reaches the server in order.
         const submission = previous.catch(() => undefined).then(async () => {
@@ -1319,6 +1341,10 @@ export function createAgentChatStore(
             }
             lane.sessionId = session.session_id;
             sendLanes.set(session.session_id, lane);
+            if (outgoing) {
+              outgoing.sessionId = session.session_id;
+              set({ outbox: (get().outbox ?? []).map((entry) => entry.id === outgoing.id ? { ...outgoing } : entry) });
+            }
             set({ sessions: [session, ...get().sessions.filter((s) => s.session_id !== session.session_id)] });
             onSessionCreated?.(session);
             if (visible) {
@@ -1333,6 +1359,10 @@ export function createAgentChatStore(
           // bouncing off the busy session.
           await stopping.get(sid);
           const sent = await sendAgentChatMessage(sid, content, attachments, toolChoices, delivery);
+          // A message steered into the running turn, answered beside it or
+          // waiting in a queue is drawn there, never as a message of its own.
+          if (outgoing && (sent.ritual || sent.steered || sent.queued || sent.side_thread)) dropOutgoing(outgoing.id);
+          else if (outgoing) setTimeout(() => dropOutgoing(outgoing.id), OUTBOX_GIVE_UP_MS);
           if (sent.ritual) {
             // The message was a ritual's phrase: its card is the answer and no
             // turn is on the way, so nothing here pretends one is.
@@ -1357,6 +1387,8 @@ export function createAgentChatStore(
           if (get().activeSessionId === sid) void get().loadSessions();
           return isVisible() ? "sent" as const : "stale" as const;
         } catch (err) {
+          // The composer puts the words back in the box; the chat does not keep a copy.
+          if (outgoing) dropOutgoing(outgoing.id);
           if (isVisible()) set({ lastError: errorText(err) });
           return "failed" as const;
         } finally {
@@ -1543,6 +1575,13 @@ export function createAgentChatStore(
         set({ socketState: "idle" });
       },
     };
+  });
+  // A sent message leaves the outbox when its own message is in the timeline.
+  chatStore.subscribe((state, before) => {
+    const sid = state.activeSessionId;
+    if (state.timeline === before.timeline || !sid || !state.outbox?.length) return;
+    const done = recordedEntries(state.outbox.filter((entry) => entry.sessionId === sid), state.timeline.items);
+    if (done.size) chatStore.setState({ outbox: state.outbox.filter((entry) => !done.has(entry.id)) });
   });
   return chatStore;
 }
