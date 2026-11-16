@@ -98,3 +98,16 @@ def test_words_written_before_the_list_stay_before_it():
     events = _run(_text("I will plan this first."), _plan(("Read the code", "pending")))
     kinds = [event["kind"] for event in events if event["kind"] != "text_delta"]
     assert kinds == ["assistant_text", "tool_call", "tool_result"]
+
+
+def test_a_turn_run_twice_tells_its_lists_under_new_ids():
+    # The same turn on a second process (a model switch, a recovery) counted
+    # its lists from 1 again; the thread kept the first run's checklist.
+    ids = []
+    for tag in ("aaaaaa", "bbbbbb"):
+        turn = AcpTurn(turn_id="t7", cwd=".", prompt_text="hi")
+        turn.run = tag
+        io = _IO()
+        asyncio.run(turn.on_message(_plan(("Read the code", "pending")), io))
+        ids += [e["payload"]["call_id"] for e in io.events if e["kind"] == "tool_call"]
+    assert ids == ["plan-t7-aaaaaa-1", "plan-t7-bbbbbb-1"]

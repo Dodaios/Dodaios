@@ -371,12 +371,17 @@ def test_when_every_model_is_limited_the_turn_stops_once_with_the_reset_time() -
     assert len(exhausted) == 1
     assert [m["label"] for m in exhausted[0]["models"]] == ["Fable", "Opus", "Sonnet"]
     assert exhausted[0]["resets_at"] == RESET
+    # No switch went through: the thread stays on the model it had, not on
+    # the last one the walk tried.
+    assert after.session.model == "claude-fable-5-2"
+    assert after.control_service.store.updates == []
+    assert not [e for e in events if e["kind"] == "session_updated"]
 
-    # The next turn on the now-Sonnet thread does not walk the chain again.
+    # The next turn on the thread does not walk the chain again.
     events2: list[dict[str, Any]] = []
     result2, _after2, runs2 = _run(
         _handle(events2, model=after.session.model),
-        _limited("claude-sonnet-5-5", family="Sonnet"),
+        _limited("claude-fable-5-2", family="Fable"),
         [],
     )
     assert runs2 == []
@@ -387,13 +392,152 @@ def test_when_every_model_is_limited_the_turn_stops_once_with_the_reset_time() -
 
 def test_another_failure_after_the_switch_stands() -> None:
     events: list[dict[str, Any]] = []
+    handle = _handle(events)
     broke = runner_cli._Outcome("error", "Something else broke", {}, None, "conv-1")
-    result, _after, runs = _run(
-        _handle(events), _limited("claude-fable-5-2", family="Fable"), [broke]
-    )
+    result, after, runs = _run(handle, _limited("claude-fable-5-2", family="Fable"), [broke])
     assert len(runs) == 1
     assert result.error == "Something else broke"
     assert not [n for n in _notices(events) if n["kind"] == mf.EXHAUSTED_KIND]
+    # The model that broke is not kept: the next message runs where the thread was.
+    assert after.session.model == "claude-fable-5-2"
+    assert handle.control_service.store.updates == []
+
+
+_NO_SUCH_MODEL = (
+    "There's an issue with the selected model (claude-opus-5-5). It may not exist or you "
+    "may not have access to it. Run --model to pick a different model."
+)
+
+
+def test_a_model_the_cli_cannot_run_is_skipped_and_never_kept() -> None:
+    # A Sonnet thread went up to Fable, which failed with this sentence; the
+    # thread was left stored on Fable and every later turn failed.
+    events: list[dict[str, Any]] = []
+    handle = _handle(events)
+    unusable = runner_cli._Outcome("error", _NO_SUCH_MODEL, {}, None, "conv-1")
+    done = runner_cli._Outcome("done", None, {}, None, "conv-2")
+    result, after, runs = _run(
+        handle, _limited("claude-fable-5-2", family="Fable"), [unusable, done]
+    )
+    assert [model for model, _p, _c in runs] == ["claude-opus-5-5", "claude-sonnet-5-5"]
+    assert result.status == "done"
+    assert after.session.model == "claude-sonnet-5-5"
+    # Only the model that worked was stored.
+    assert handle.control_service.store.updates == [
+        {"session_id": "s1", "model": "claude-sonnet-5-5"}
+    ]
+
+
+def test_a_thread_whose_only_fallbacks_cannot_run_stays_on_its_model() -> None:
+    events: list[dict[str, Any]] = []
+    handle = _handle(events)
+    unusable = runner_cli._Outcome("error", _NO_SUCH_MODEL, {}, None, "conv-1")
+    result, after, runs = _run(
+        handle, _limited("claude-fable-5-2", family="Fable"), [unusable, unusable]
+    )
+    assert len(runs) == 2 and result.status == "error"
+    assert after.session.model == "claude-fable-5-2"
+    assert handle.control_service.store.updates == []
+
+
+@pytest.mark.parametrize(
+    ("current", "family", "expected"),
+    [
+        # Down the chain, never up: an Opus limit is no reason to pay for Fable.
+        ("claude-opus-5-5", "Opus", ["claude-sonnet-5-5"]),
+        ("claude-sonnet-5-5", "Sonnet", []),
+        ("claude-fable-5-2", "Fable", ["claude-opus-5-5", "claude-sonnet-5-5"]),
+        # An alias of a chain model sits where its family does.
+        ("opus", "Opus", ["claude-sonnet-5-5"]),
+        # A model outside the chain tries it from the top.
+        ("claude-haiku-4-5", "Haiku", ["claude-fable-5-2", "claude-opus-5-5", "claude-sonnet-5-5"]),
+    ],
+)
+def test_a_limited_thread_walks_down_the_chain_from_its_own_model(
+    current: str, family: str, expected: list[str]
+) -> None:
+    hit = mf.LimitHit("usage", family, RESET)
+    assert mf.candidates("claude-cli", current, hit=hit) == expected
+
+
+def test_an_opus_thread_at_its_limit_goes_on_on_sonnet_not_fable() -> None:
+    events: list[dict[str, Any]] = []
+    done = runner_cli._Outcome("done", None, {}, None, "conv-2")
+    _result, after, runs = _run(
+        _handle(events, model="claude-opus-5-5"),
+        _limited("claude-opus-5-5", family="Opus"),
+        [done],
+    )
+    assert [model for model, _p, _c in runs] == ["claude-sonnet-5-5"]
+    assert after.session.model == "claude-sonnet-5-5"
+
+
+def _rate_burst() -> runner_cli._Outcome:
+    signal = mf.LimitSignal(rate_limited=True)
+    return runner_cli._Outcome("error", "API Error: 429 rate_limit_error", {}, None, "c", signal)
+
+
+@pytest.mark.parametrize(
+    "first",
+    [
+        # The whole account is out: every model of the chain shares it.
+        _limited("claude-fable-5-2", family=""),
+        # A burst of requests: it passes in a minute or two.
+        _rate_burst(),
+    ],
+    ids=["account-wide", "rate-burst"],
+)
+def test_a_limit_another_model_would_not_help_with_keeps_the_model(
+    first: runner_cli._Outcome,
+) -> None:
+    events: list[dict[str, Any]] = []
+    handle = _handle(events)
+    result, after, runs = _run(handle, first, [])
+    assert result is first and runs == [] and events == []
+    assert after.session.model == "claude-fable-5-2"
+    assert handle.control_service.store.updates == []
+
+
+def test_a_tools_limit_text_is_not_the_models_limit() -> None:
+    # A tool's own output ("npm ERR! 429", a sub-agent's "Fable limit") became
+    # the turn's error when the CLI ended without words of its own.
+    events: list[dict[str, Any]] = []
+    tool_said = runner_cli._Outcome(
+        "error",
+        "You've hit your Fable limit · resets Nov 17 at 12am (Europe/Berlin).",
+        {},
+        None,
+        "conv-1",
+        None,
+        tool_error=True,
+    )
+    result, after, runs = _run(_handle(events), tool_said, [])
+    assert result is tool_said and runs == [] and events == []
+    assert mf.limited_until("claude-cli", "seat-a", "claude-fable-5-2") is None
+
+
+def test_a_family_named_by_the_limit_window_counts() -> None:
+    signal = mf.LimitSignal(rejected=True, limit_type="seven_day_opus", resets_at=RESET)
+    hit = mf.detect("You've hit your limit", signal, model="claude-opus-5-5")
+    assert hit is not None and hit.family == "Opus" and mf.switch_helps(hit)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        _NO_SUCH_MODEL,
+        '{"type":"error","error":{"type":"not_found_error","message":"model: claude-x"}}',
+        "OAuth token has expired. Please obtain a new token or refresh your existing token.",
+        "Invalid API key · Please run /login",
+    ],
+)
+def test_a_model_or_login_the_cli_cannot_use_is_told_apart(error: str) -> None:
+    assert mf.model_unusable(error)
+
+
+@pytest.mark.parametrize("error", ["Something else broke", "", None, "npm ERR! 429"])
+def test_other_failures_are_not_an_unusable_model(error: str | None) -> None:
+    assert not mf.model_unusable(error)
 
 
 def test_with_the_setting_off_the_limit_stands(monkeypatch: pytest.MonkeyPatch) -> None:
