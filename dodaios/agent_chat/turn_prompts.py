@@ -61,7 +61,9 @@ ASK_PROTOCOL: Final[str] = (
     f"{ASK_FENCE} block: "
     '{"questions": [{"question": "...", "options": [{"label": "...", "description": "..."}], '
     f'"recommendation_reason": "..."}}]}} with 1-{MAX_QUESTIONS} questions, '
-    f"{MIN_OPTIONS}-{MAX_OPTIONS} options each, recommended option first. Add \"multi\": true "
+    f"{MIN_OPTIONS}-{MAX_OPTIONS} options each, recommended option first. Where no option is "
+    'really better (a plain fact or taste only the person knows), add "recommended": null so '
+    'none is marked. Add "multi": true '
     "where several options may be picked. Then stop; the answers arrive as your next message.\n\n"
 )
 

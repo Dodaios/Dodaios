@@ -59,7 +59,7 @@ export const QuestionStep = forwardRef<HTMLTextAreaElement, {
           />
         ) : null}
       </div>
-      {item.recommendationReason && item.options.length ? (
+      {item.recommendationReason && item.recommendedCount > 0 ? (
         <>
           <button type="button" className="qc-why" aria-expanded={why} aria-controls={reasonId} onClick={() => setWhy((open) => !open)}>
             <span>{t("question_card.why_toggle")}</span>

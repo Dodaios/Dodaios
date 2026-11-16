@@ -427,3 +427,45 @@ def test_a_stored_multi_payload_parses_back_to_the_same_question() -> None:
     (spec,) = parse_questions(_FEATURES)
     (again,) = parse_questions({"questions": [spec.to_payload()]})
     assert again == spec
+
+
+# -- a question that recommends nothing ---------------------------------------
+
+
+@pytest.mark.parametrize("value", [None, -1, "none", "null", []])
+def test_a_question_may_recommend_nothing(value: Any) -> None:
+    (spec,) = parse_questions(
+        {"question": "Which is your favourite colour?", "options": ["Red", "Blue", "Green"],
+         "recommended": value}
+    )
+    assert [o.label for o in spec.options] == ["Red", "Blue", "Green"]
+    assert spec.recommended is None
+    assert spec.recommended_indices == ()
+    assert spec.to_payload()["recommended"] is None
+
+
+def test_a_missing_recommended_key_still_means_the_first_option() -> None:
+    (spec,) = parse_questions(_DB)
+    assert spec.recommended is not None and spec.recommended.label == "SQLite"
+    assert spec.to_payload()["recommended"] == 0
+
+
+def test_a_stored_card_without_a_recommendation_stays_unmarked() -> None:
+    (spec,) = parse_questions({**_DB, "recommended": None})
+    (again,) = parse_questions({"questions": [spec.to_payload()]})
+    assert again.recommended is None and again.to_payload()["recommended"] is None
+
+
+@pytest.mark.parametrize("kind", [SINGLE, MULTI])
+def test_silence_on_a_question_without_a_recommendation_leaves_it_to_the_agent(
+    kind: str,
+) -> None:
+    (spec,) = parse_questions(
+        {"question": "Which pets do you have?", "options": ["Cat", "Dog", "Fish"],
+         "kind": kind, "recommended": None}
+    )
+    answer = recommended_answer(spec, "timeout")
+    assert (answer.answer, answer.option_index, answer.option_indices) == ("", None, ())
+    from dodaios.agent_chat.questions import for_agent
+
+    assert "recommended nothing" in for_agent(answer)["note"]

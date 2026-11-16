@@ -125,7 +125,10 @@ def event_from_chat(session_id: str, event: dict[str, Any]) -> UrgentEvent | Non
         first = questions[0]
         options = first.get("options") if isinstance(first.get("options"), list) else []
         label = ""
-        plain = len(questions) == 1 and not first.get("kind")
+        # "Yes" needs a recommended answer: a question that recommends
+        # nothing (``recommended: None``) gets no yes/no call.
+        recommends = first.get("recommended", 0) is not None
+        plain = len(questions) == 1 and not first.get("kind") and recommends
         if plain and options and isinstance(options[0], dict):
             label = _line(options[0].get("label"), 120)
         return UrgentEvent(

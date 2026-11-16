@@ -283,7 +283,7 @@ function QuestionPanel({ timeline }: { timeline: Timeline }) {
             className="flex w-full items-start gap-2 rounded-lg border border-border px-3 py-2 text-left text-sm hover:bg-secondary disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <span className="min-w-0 flex-1"><span className="text-foreground">{option.label}</span>
               {option.description && <span className="block text-xs text-muted-foreground">{option.description}</span>}</span>
-            {optionIndex === 0 && <span className="shrink-0 text-xs text-accent">{t("ide_git.recommended")}</span>}
+            {optionIndex < item.recommendedCount && <span className="shrink-0 text-xs text-accent">{t("ide_git.recommended")}</span>}
           </button>)}
         </div>
         <form className="mt-2 flex gap-2" onSubmit={(event) => { event.preventDefault(); if (text.trim()) void answer({ text: text.trim() }); }}>

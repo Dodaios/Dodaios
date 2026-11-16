@@ -2,7 +2,8 @@
 
 The open standard of chat agents: when a decision genuinely belongs to the
 person, the agent asks with a few prepared answers per question, marks the
-one it recommends, and the person taps an answer (or types their own). One
+one it recommends (if one is better than the others), and the person taps an
+answer (or types their own). One
 call may carry a short series of related questions; the card walks through
 them as "question 1 of 3". The card lives in the chat timeline as events —
 ``question_required``, one ``question_progress`` per answered step and
@@ -23,10 +24,13 @@ option or the person's own words; ``multi`` takes any number of options, and
 its answer reaches the agent as one label per line; ``text`` takes the
 person's own words only, with the options (if any) offered as suggestions.
 Every kind keeps a default answer for the timeout, so nothing ever stalls:
-the recommended option(s), or an empty answer for a ``text`` question with no
-options. The person may also skip one question (``declined``), answer from
-the chat composer (``message``), or move on so that older open questions
-fall back to their recommendations (``moved_on``).
+the recommended option(s), or an empty answer ("decide yourself") for a
+question that recommends nothing. A question recommends nothing when the
+agent says so (``recommended: null``): a plain fact or taste that only the
+person knows has no better option, and a mark on one would be noise. The
+person may also skip one question (``declined``), answer from the chat
+composer (``message``), or move on so that older open questions fall back to
+their recommendations (``moved_on``).
 
 A question is never put to the person twice. When the agent asks again what
 the person already answered (the same question with the same options) in this
@@ -96,11 +100,12 @@ class QuestionOption:
 
 @dataclass(frozen=True, slots=True)
 class QuestionSpec:
-    """One validated question: the recommended option is always index 0.
+    """One validated question: the recommended option, if any, is index 0.
 
     A ``multi`` question may recommend several options; they lead the list
-    and ``recommended_count`` says how many. A ``text`` question may have no
-    options at all.
+    and ``recommended_count`` says how many. ``recommended_count`` is 0 when
+    the question recommends nothing. A ``text`` question may have no options
+    at all.
     """
 
     question: str
@@ -117,20 +122,21 @@ class QuestionSpec:
 
     @property
     def recommended(self) -> QuestionOption | None:
-        return self.options[0] if self.options else None
+        return self.options[0] if self.options and self.recommended_count else None
 
     @property
     def recommended_indices(self) -> tuple[int, ...]:
-        if not self.options:
+        if not self.options or self.recommended_count < 1:
             return ()
         count = self.recommended_count if self.kind == MULTI else 1
-        return tuple(range(max(1, min(count, len(self.options)))))
+        return tuple(range(min(count, len(self.options))))
 
     def to_payload(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "question": self.question,
             "options": [{"label": o.label, "description": o.description} for o in self.options],
-            "recommended": 0,
+            # ``None``: the question recommends nothing (no mark on the card).
+            "recommended": 0 if self.recommended_indices else None,
             "recommendation_reason": self.recommendation_reason,
         }
         # Only what differs from the classic card, so older readers and
@@ -205,9 +211,30 @@ def _kind(raw: dict[str, Any]) -> str:
     return SINGLE
 
 
+#: What an agent sends for "no option is better than the others".
+_NO_RECOMMENDATION: Final[frozenset[str]] = frozenset({"", "none", "null", "-1"})
+
+
+def _no_recommendation(raw: Any) -> bool:
+    """``recommended`` says the question recommends nothing: ``null``, ``-1``,
+    ``"none"`` or an empty list."""
+    if raw is None or (isinstance(raw, list) and not raw):
+        return True
+    if isinstance(raw, bool):
+        return False
+    if isinstance(raw, int):
+        return raw == -1
+    return isinstance(raw, str) and raw.strip().casefold() in _NO_RECOMMENDATION
+
+
 def _recommended(raw: Any, count: int, kind: str) -> list[int]:
-    """The recommended option indices, in the agent's order; raises on a bad index."""
+    """The recommended option indices, in the agent's order; raises on a bad index.
+
+    Empty when the question recommends nothing. A missing ``recommended``
+    key means the first option (older cards and agents)."""
     if not count:  # a text question without suggestions recommends nothing
+        return []
+    if _no_recommendation(raw):
         return []
     values = raw if isinstance(raw, list) and kind == MULTI else [raw]
     picked: list[int] = []
@@ -280,7 +307,7 @@ def _parse_one(raw: dict[str, Any]) -> QuestionSpec:
         # A text question is nothing but the person's own words.
         allow_custom=True if kind == TEXT else _flag(raw.get("allow_custom"), True),
         dismiss_on_move_on=_flag(raw.get("dismiss_on_move_on"), True),
-        recommended_count=len(picked) if kind == MULTI else 1,
+        recommended_count=len(picked) if kind == MULTI else min(1, len(picked)),
     )
 
 
@@ -289,7 +316,9 @@ def parse_questions(args: dict[str, Any]) -> tuple[QuestionSpec, ...]:
 
     Takes ``questions: [...]`` (the series) or a single question's fields at
     the top level. ``recommended`` moves that option to the front, so every
-    consumer can rely on index 0 being the recommendation.
+    consumer can rely on index 0 being the recommendation when there is one
+    (``QuestionSpec.recommended_count``); ``recommended: null`` keeps the
+    options in the agent's order and marks none.
     """
     raw = args.get("questions")
     items: list[Any] = raw if isinstance(raw, list) else [args]
@@ -352,8 +381,8 @@ def answer_from(
 
 def recommended_answer(spec: QuestionSpec, source: str) -> QuestionAnswer:
     """The default the agent proposed: its recommended option(s), or an empty
-    answer for a ``text`` question that offered none."""
-    if not spec.options:
+    answer ("decide yourself") for a question that recommends nothing."""
+    if not spec.recommended_indices:
         return QuestionAnswer("", None, source)
     if spec.kind == MULTI:
         picks = spec.recommended_indices
@@ -491,6 +520,14 @@ def for_agent(answer: QuestionAnswer) -> dict[str, Any]:
             "note": (
                 "No card was shown: the person never saw this question. This is your "
                 "own assumption; say so, and never say they chose it or left it unanswered."
+            ),
+        }
+    if answer.source in DEFAULTED and not answer.answer:
+        return {
+            "person_answered": False,
+            "note": (
+                "The person did not answer and you recommended nothing: decide yourself "
+                "and say what you assumed. Never say they chose it."
             ),
         }
     if answer.source in DEFAULTED:

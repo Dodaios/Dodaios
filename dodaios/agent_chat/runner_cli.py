@@ -1036,8 +1036,9 @@ def claude_question_rows(rows: list[Any]) -> list[Any]:
     The CLI's model writes its recommendation into the label ("Via Singapore
     (Recommended)"). The card has its own mark for that, on the first row: the
     suffix comes off and the option is named as the recommended one, so the
-    card moves it to the front instead of showing the words twice, or the mark
-    on an option the model did not recommend.
+    card moves it to the front instead of showing the words twice. A question
+    with no such suffix recommends nothing (``recommended: None``), so the
+    card puts no mark on an option the model did not recommend.
     """
     out: list[Any] = []
     for row in rows:
@@ -1055,7 +1056,7 @@ def claude_question_rows(rows: list[Any]) -> list[Any]:
                 if recommended is None:
                     recommended = index
             cleaned.append(option)
-        out.append({**row, "options": cleaned, "recommended": recommended or 0})
+        out.append({**row, "options": cleaned, "recommended": recommended})
     return out
 
 
@@ -5617,7 +5618,11 @@ async def _drive_cli(
         picked = {
             str(row.get("question") or ""): (
                 as_line(a.answer) or "No preference; decide yourself."
-            ) + (" (the person did not answer; your default)" if a.source in DEFAULTED else "")
+            ) + (
+                (" (the person did not answer; your default)" if a.answer else
+                 " (the person did not answer)")
+                if a.source in DEFAULTED else ""
+            )
             for row, a in zip(rows, answers, strict=True)
         }
         return {"behavior": "allow", "updatedInput": {**tool_input, "answers": picked}}

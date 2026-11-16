@@ -6,7 +6,7 @@ import { AgentChatStoreProvider } from "./AgentChatStoreContext";
 import { QuestionCard } from "./QuestionCard";
 import { EMPTY_TIMELINE, reduceEvents, type QuestionState, type ToolBlock, type TurnItem } from "./reduce";
 import { EMPTY_DRAFT, useQuestionDrafts } from "./questions/questionDraftStore";
-import { answeredByMessage, ownWords, pickedIndices } from "./questions/questionModel";
+import { answeredByMessage, ownWords, pickedIndices, recommendationOf } from "./questions/questionModel";
 import { resetQuestionKeyboard } from "./questions/useQuestionKeyboard";
 
 let seq = 0;
@@ -195,6 +195,19 @@ describe("QuestionCard", () => {
     fireEvent.click(why);
     expect(why.getAttribute("aria-expanded")).toBe("true");
     expect(card.textContent).toContain("No server to run.");
+  });
+
+  it("marks no option when the agent recommends none", () => {
+    const COLOUR = { question: "Which is your favourite colour?", options: [{ label: "Red" }, { label: "Blue" }], recommended: null, recommendation_reason: "" };
+    const q = questionOf(asking([], [COLOUR]));
+    expect(q.questions[0].recommendedCount).toBe(0);
+    draw(q);
+    const card = screen.getByTestId("question-card");
+    const rows = rowsOf(card);
+    expect(rows.map((r) => r.getAttribute("data-recommended"))).toEqual(["false", "false"]);
+    expect(card.textContent).not.toContain("Recommended");
+    expect(within(card).queryByRole("button", { name: /why this recommendation/i })).toBeNull();
+    expect(recommendationOf(q.questions[0], "skipped")).toEqual({ text: "", optionIndex: null, source: "skipped" });
   });
 
   it("settles at once on a pick and sends the whole card", async () => {
