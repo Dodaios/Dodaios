@@ -505,8 +505,7 @@ async def test_a_reply_language_never_stands_in_for_the_leads_identity(
             + shape_line
             + dodaios_harness.BRIEF_LINE
             + card_line
-            + "
-Respond in this language: de"
+            + "\nRespond in this language: de"
         )
     else:
         assert card_line not in str(seen["prompt"])
