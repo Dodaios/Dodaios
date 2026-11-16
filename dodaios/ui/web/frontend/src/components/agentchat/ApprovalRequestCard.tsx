@@ -4,14 +4,29 @@ import { openAgent } from "@/views/society/agentNavigation";
 import { requestAgentBrowserStage } from "@/components/home/chatBrowser/openEvent";
 import type { NoticeItem } from "./reduce";
 
-/** Answer one row of the approvals table; every surface answers the same row. */
-async function answer(approvalId: string, approve: boolean): Promise<boolean> {
+/**
+ * Answer one row of the approvals table; every surface answers the same row.
+ * Returns how the row stands afterwards ("approved" | "declined"), or "" when
+ * the answer did not arrive. A row that was already answered elsewhere keeps
+ * that answer, and the card shows it.
+ */
+async function answer(approvalId: string, approve: boolean): Promise<string> {
   const response = await fetch(`/api/society/approvals/${encodeURIComponent(approvalId)}/resolve`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ approve }),
   });
-  return response.ok;
+  if (!response.ok) return "";
+  let state = "";
+  try {
+    const body = (await response.json()) as { approval?: { state?: string } };
+    state = String(body?.approval?.state ?? "");
+  } catch {
+    state = "";
+  }
+  if (state === "approved") return "approved";
+  if (state === "denied" || state === "blocked") return "declined";
+  return approve ? "approved" : "declined";
 }
 
 /**
@@ -30,22 +45,29 @@ export function ApprovalRequestCard({ item }: { item: NoticeItem }) {
   const label = String(item.data.label ?? "");
   const where = String(item.data.where ?? "");
   const detail = String(item.data.detail ?? "");
-  const closed = item.resolved !== "";
+  // The timeline closes the card when the work reports how it ended. The
+  // person's own click closes it at once, so it never keeps live buttons when
+  // that report does not come (the app restarted while the work waited).
+  const [answered, setAnswered] = useState("");
+  const resolved = item.resolved || answered;
+  const closed = resolved !== "";
   const title = label
     ? t(where ? "society.chat.approval_request_click_on" : "society.chat.approval_request_click")
         .replace("{label}", label)
         .replace("{where}", where)
     : t("society.chat.approval_request_title");
   const closedKey =
-    item.resolved === "approved" ? "society.chat.approval_request_approved"
-    : item.resolved === "declined" ? "society.chat.approval_request_declined"
+    resolved === "approved" ? "society.chat.approval_request_approved"
+    : resolved === "declined" ? "society.chat.approval_request_declined"
     : "society.chat.approval_request_expired";
   const decide = async (approve: boolean) => {
     if (busy || !approvalId) return;
     setBusy(true);
     setFailed(false);
     try {
-      if (!(await answer(approvalId, approve))) setFailed(true);
+      const state = await answer(approvalId, approve);
+      if (state) setAnswered(state);
+      else setFailed(true);
     } catch {
       setFailed(true);
     } finally {

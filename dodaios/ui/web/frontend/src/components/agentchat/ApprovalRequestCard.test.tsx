@@ -20,7 +20,7 @@ const card = (resolved = "", data: Record<string, unknown> = {}): NoticeItem => 
 });
 
 it("names the click, the site and what the page says, and a yes answers the row", async () => {
-  const fetchMock = vi.fn(async () => ({ ok: true }) as Response);
+  const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }) as Response);
   vi.stubGlobal("fetch", fetchMock);
   render(<ApprovalRequestCard item={card()} />);
   const title = screen.getByTestId("approval-request-title").textContent ?? "";
@@ -35,13 +35,27 @@ it("names the click, the site and what the page says, and a yes answers the row"
 });
 
 it("a no answers the same row with a refusal", async () => {
-  const fetchMock = vi.fn(async () => ({ ok: true }) as Response);
+  const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }) as Response);
   vi.stubGlobal("fetch", fetchMock);
   render(<ApprovalRequestCard item={card()} />);
   fireEvent.click(screen.getByTestId("approval-request-no"));
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
   expect(JSON.parse(String(init.body))).toEqual({ approve: false });
+});
+
+it("closes at once on the person's own click, and shows an answer given elsewhere", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ approval: { state: "approved" } }) }) as Response));
+  const { unmount } = render(<ApprovalRequestCard item={card()} />);
+  fireEvent.click(screen.getByTestId("approval-request-yes"));
+  await waitFor(() => expect(screen.getByTestId("approval-request-closed")).toBeTruthy());
+  expect(screen.queryByTestId("approval-request-yes")).toBeNull();
+  unmount();
+  // The row was already declined on another surface: a late yes does not read as approved.
+  vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ approval: { state: "denied" } }) }) as Response));
+  render(<ApprovalRequestCard item={card()} />);
+  fireEvent.click(screen.getByTestId("approval-request-yes"));
+  await waitFor(() => expect(screen.getByTestId("approval-request-closed").textContent).toMatch(/Declined/));
 });
 
 it("says so when the answer did not arrive and keeps the buttons", async () => {
