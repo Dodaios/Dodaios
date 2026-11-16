@@ -23,9 +23,7 @@ Answer them before they are asked:
 
 ## Do not claim
 
-- That Dodaios is better than a named product, or modelled on one. The
-  promise "Your AI-native office" names no office suite, and no text says
-  that Dodaios replaces one.
+- That Dodaios is better than a named product, or modelled on one.
 - Slack as a chat channel that anybody in a workspace can use. Only the
   owner of the Slack app gets answers, and the person creates that app
   themselves (one click from a manifest, then two keys). Until the first
@@ -44,7 +42,10 @@ Answer them before they are asked:
 - Rituals as a finished feature. In 5.3.3 a spoken or typed phrase starts
   one and the assistant writes them; the panel and the dialog that writes one
   came after that release (#1721).
-- That a new chat asks before it acts.
+- That a new chat asks before it acts. The trust layer's hard limits
+  (money, credentials, permanent deletion, first contact) ask in every mode
+  except Bypass permissions, which a new chat starts in; say so wherever
+  the limits are named.
 - That macOS and Linux are checked as thoroughly as Windows 11.
 - That a model maker approves of its plan being used this way. The person's
   use of each service follows that service's terms.
@@ -59,9 +60,7 @@ Answer them before they are asked:
   Claude Code or Codex. Do not call the assistant an agent in the same
   sentence.
 - **Node** is a document the assistant made. Say "docs, decks, sheets and
-  whiteboards" first, and "node" after that. The one exception is the
-  promise's definition ("Nodes for docs, slides and sheets"), which names
-  both at once.
+  whiteboards" first, and "node" after that.
 - Say what Dodaios is before what it holds ("Dodaios is an open-source
   desktop app"), and the reader's problem before the features. A list of
   features in one sentence is not a definition.

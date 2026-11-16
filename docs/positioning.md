@@ -1,6 +1,7 @@
 # Positioning: what Dodaios stands for
 
-Decided by the maintainer on 15 November 2026. The README, the website and
+Decided by the maintainer on 15 November 2026; the promise was last changed on
+16 November 2026 (evening). The README, the website and
 every launch text follow this page. What a public text may and may not say is
 in [positioning-claims.md](positioning-claims.md).
 
@@ -16,42 +17,73 @@ three places, and none knows what happened in the others.
 
 ## The promise
 
-> **Your AI-native office. Talk, write, build.**
+> **One voice-driven assistant that directs your models, your coding agents and your computer.**
 
 Use it word for word, and never alone: the definition always follows.
 
-> Dodaios brings everything together: a voice assistant that knows your work,
-> Nodes for docs, slides and sheets, and coding agents it runs for you.
-> Open source, on your desktop, with the models you already use.
+> Dodaios is a locally installed, open-source Python program that runs as a
+> desktop app or as a headless server with a browser UI on Windows, macOS and
+> Linux. It turns a personal AI assistant into the control center for the work
+> you do on your computer.
+>
+> At its core is a "lead" assistant you can talk to by voice (wake word,
+> dictation, real-time spoken conversation and, as an early preview, phone
+> calls), by chat or from a paired phone. It isn't tied to one provider and
+> works with Claude, OpenAI, Gemini or local Ollama models. It handles tasks
+> itself through tools, computer use, plugins, CLIs and MCP servers. Above all,
+> it hands work off to coding agents. They run side by side in a built-in
+> Agentic IDE as real Claude Code or Codex terminals, on your computer or on
+> your own servers over SSH, each with a call sign you can address by name, plus
+> Git integration and task splitting. There is also a "society" of persistent,
+> named agents that message each other.
+>
+> Long-running work is covered by memory (about you, the people around you and
+> the assistant's own persona), standing tasks, workflows, skills and opt-in
+> life admin. The assistant also makes its own outputs, such as documents,
+> slides, sheets and dashboards, and can propose and build the skills, routines
+> and agents it is missing. A trust layer sets hard limits: outside Bypass
+> permissions, moving money, handling credentials, permanent deletion and first
+> contact with someone new always need your confirmation. In short, Dodaios is
+> a voice-driven, locally running operating system for AI agents that makes one
+> assistant the conductor of your models, your coding agents and your own
+> computer.
 
-The maintainer settled on it on 16 November 2026, in the evening. It presents
-Dodaios as one connected set of tools for working with AI, the way an office
-suite joined writing, slides and sheets for working on a PC. The three verbs
-are the three pillars a reader meets first: **talk** (the assistant and the
-voice), **write** (docs, decks, sheets and whiteboards) and **build** (the
-coding agents the assistant runs). Do not name an office suite or any other
-product as the comparison, and do not claim that Dodaios replaces one: nodes
-neither import nor export Office files ([positioning-claims.md](positioning-claims.md)).
+The maintainer wrote the definition himself and settled on it late in the
+evening of 16 November 2026. The one-liner is taken from its last sentence. It
+presents Dodaios as one connected system: one assistant, reached by voice,
+that directs the models, the coding agents and the computer. A few places were
+adjusted so that each sentence is true in the code on main: phone calls are a
+preview, the coding agents (not the assistant) reach servers over SSH, life
+admin is opt-in, the self-building loop makes skills, routines and agents, and
+the hard limits do not hold in a chat set to Bypass permissions
+([positioning-claims.md](positioning-claims.md)). "Operating system for AI
+agents" is a figure of speech for what the app coordinates. Do not use it to
+say that Dodaios is an operating system, and do not name another product as
+the comparison.
+
+The README is built on it and kept short: the one-liner, the definition, one
+recording that shows the definition at work, the install commands, and a few
+lines on plans and keys, data, approvals and what is not finished. Everything
+else is in `docs/`.
 
 Earlier promises:
 
+- Earlier in the evening of 16 November 2026: "Your AI-native office. Talk,
+  write, build.", with the definition "Dodaios brings everything together: a
+  voice assistant that knows your work, Nodes for docs, slides and sheets, and
+  coding agents it runs for you. Open source, on your desktop, with the models
+  you already use." The maintainer replaced it with his own definition, which
+  says what the program is before what it holds.
 - Until the evening of 16 November 2026: "Talk to one assistant. It runs your
-  coding agents for you.", with the definition "Dodaios is an open-source
-  desktop app. You tell its assistant what you need, and it does the work
-  itself or hands it to Claude Code, Codex and your other coding agents." The
-  maintainer found that it reduced Dodaios to one coding feature, while the
-  point is how the parts work together.
+  coding agents for you." It reduced Dodaios to one coding feature.
 - Until the morning of 16 November 2026: "One workspace for everything you do
-  with AI." Before that, the promise was followed by a list of features in one
-  sentence, which said neither what Dodaios is nor which problem it solves.
+  with AI.", followed by a list of features in one sentence.
 
-Then comes the problem it solves, in the reader's own day: the work is spread
-over a chat app, a dictation app, a documents tool and a terminal per coding
-agent; none of them knows what the others did; so the person copies between
-them and keeps track. Dodaios puts it in one app on the computer, around one
-assistant that keeps track. The README says this under "Why Dodaios", with one
-short line each for Talk, Write, Build and Yours, and its "What it does"
-sections follow the same three verbs.
+The problem it solves, in the reader's own day: the work is spread over a chat
+app, a dictation app, a documents tool and a terminal per coding agent; none
+of them knows what the others did; so the person copies between them and keeps
+track. Dodaios puts it in one app on the computer, around one assistant that
+keeps track.
 
 Promise, definition and problem together hold the three things a model
 maker's own app does not offer:
