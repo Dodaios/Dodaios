@@ -5,12 +5,12 @@ for each pillar. They are in this folder:
 
 | File | Where it plays | What it shows |
 |---|---|---|
-| `hero.webp` | at the top | One request to the assistant crosses the chat, the Agentic IDE with three coding agents side by side, and a slide deck changed by hand. 33 s, 1120 x 630, 24 frames a second |
-| `dodaios-demo.mp4` | linked under the clip at the top, as a download | The same recording as a video, 1920 x 1080, 60 frames a second, without sound. GitHub shows no player for it on the file's page (too large to show), and `raw.githubusercontent.com` sends it as a download |
-| `assistant.webp` | An assistant that does the work | The assistant answers a question with the GitHub plugin. 15 s, 1280 x 720 |
-| `agents.webp` | Your coding agents, side by side | Three coding agents side by side, then the rail of coding agents in a thread's picker. 15 s, 1280 x 720 |
-| `nodes.webp` | Docs, decks, sheets and whiteboards | A whiteboard made from a sentence and changed by hand. 16 s, 1280 x 720 |
-| `phone.webp` | With you when you leave the desk | The phone app: a request, two approvals tapped, the answer. 13 s, 420 x 908, 30 frames a second |
+| `hero.webp` | at the top | One request to the assistant hands a code change to a coding agent; its thread opens in the Agentic IDE, the tests pass, and the assistant reports. 16 s, 1120 x 630, 60 frames a second |
+| `dodaios-demo.mp4` | linked under the clip at the top, as a download | The same recording as a video, 1920 x 1080, 60 frames a second, without sound. GitHub shows no player for it on the file's page, and `raw.githubusercontent.com` sends it as a download |
+| `assistant.webp` | The assistant | A question about a bank export on the computer, answered with the sums and a column chart. 12 s, 1120 x 630, 60 frames a second |
+| `agents.webp` | Your coding agents | Three coding agents side by side, then the rail of coding agents in a thread's picker. 12 s, 1120 x 630, 60 frames a second |
+| `nodes.webp` | Docs, decks, sheets and whiteboards | A slide deck made from one sentence, and its title changed by hand. 14 s, 1120 x 630, 60 frames a second |
+| `telegram.webp` | Away from your desk | Not recorded yet: a real conversation with the assistant through Telegram ([The Telegram clip](#the-telegram-clip)). The phone-app clip that stood here until 16 November 2026 looked like a native app and was taken out |
 | `voice.webp` | Your voice, in every app | Not recorded yet: it needs a real voice and microphone ([The voice clip](#the-voice-clip)) |
 | `dodaios-demo.gif` | nowhere since 15 November 2026 | The clip that stood at the top before. The project page on PyPI of every release up to 5.3.3 still shows it from this path. Delete it once a newer release is on PyPI |
 
@@ -58,87 +58,81 @@ and the assistant is called Nova.
 
 ## The clips
 
-All were filmed on 15 November 2026 from `main` (between 5.3.2 and 5.3.3), in throwaway
-instances started by `demo-instance.sh` that were stopped afterwards. Nova ran
-on Claude Opus 5.5 through Claude Code, signed in to a Claude plan; the coding
-agents in the hero take ran on Claude Sonnet 5.5 the same way. Every answer,
-review, edit and test run is real. The models' answers differ from take to
+All were filmed on 16 November 2026 from `main` (5.5.0), on Linux, in
+throwaway instances started by `demo-instance.sh` that were stopped
+afterwards. Nova ran on Claude Opus 5.5 through Claude Code, signed in to a
+Claude plan; the coding agents ran on Claude Sonnet 5 the same way. Every
+answer, edit and test run is real. The models' answers differ from take to
 take, so a new recording does not match these word for word.
+
+The maintainer found the clips of 15 November too busy and not smooth
+enough (the one at the top played at 24 frames a second). These follow
+stricter rules: one idea per clip, 8 to 16 seconds, a small window so the
+text reads at README size, every stretch filmed and played at 60 frames a
+second at the speed it was filmed, waits for a model cut out with a short
+dissolve. 60 is the most an animated WebP can show: browsers draw a frame
+that lasts 10 ms or less for 100 ms.
+
+The instances ran as root, which shows a notice that dictation apps cannot
+type into the window; every take closes it with a click before it films.
+The scrub that replaces the account name in the picture must skip `<style>`
+and `<script>` text: as root it turned a node page's `:root` rule into
+`:alex`, and decks showed unstyled. `clip-nodes2-common.cjs` and
+`clip-assistant2-common.cjs` have that fix; `nodes-plugins-common.cjs` does
+not yet.
 
 ### The clip at the top (`hero.webp`, `dodaios-demo.mp4`)
 
-33 seconds, cut from a take of about three minutes: one request crosses the
-chat, the Agentic IDE and a slide deck.
+16 seconds. In a conversation that is already in use, the request "Have a
+Sonnet agent add a --csv flag to ledger's list command and run the tests." is
+typed. Nova answers that it puts a Sonnet 5 agent on it, with a link to the
+agent's thread; one click opens the thread in the Agentic IDE, where the agent
+edits the files and runs the tests (all 12 pass). Back in the chat, Nova
+reports. The warm-up tells Nova once to start agents on `claude-sonnet-5`: on
+Sonnet 5.5 the agents did all their work in single shell commands, so the
+thread showed no edits.
 
-1. In a conversation that is already in use, the request is typed: "Review
-   the new PRs in acme-notes, one Sonnet agent per PR, and put the verdicts
-   on a slide deck." Five coding agents start and show up under "Recent
-   activity".
-2. A click opens the first agent's thread in the Agentic IDE, and "Open side
-   by side" puts two more beside it: three agents read the diffs and run the
-   tests, then finish.
-3. Back in the chat, Nova answers under the card of the slide deck it made.
-4. The deck opens, goes a slide on, and the title of that slide is changed by
-   hand to "What we merge this week". Then the deck is presented.
+Scripts: `clip-hero-record.cjs` (parts `setup`, `warmup`, `warmup-hero`,
+`onehero`), cut with
+`FILM_EDIT=clip-hero-edit-hero.js FILM_FPS=60 FILM_CRF=14 node clip-hero-render.cjs <take> hero-master.mp4`,
+measured with `clip-hero-measure.py`.
 
-The deck's end was filmed a second time on the same instance, with no model
-at work: in the first take the model had copied the author of the pull
-requests into a slide's speaker notes, where the scrub did not reach yet.
+### Your coding agents (`agents.webp`)
 
-Make it again: `record.cjs` with `DEMO_PARTS=setup,warmup,warmup-hero,picker,hero`
-films the footage (its header lists the settings; the instance needs
-`DEMO_PR_REPO`, a repository with a few open pull requests), and
-`FILM_EDIT=edit-hero.js FILM_FPS=60 FILM_CRF=14 node render.cjs <take> hero-master.mp4`
-cuts it. `measure-hero.py` measures the movement and lays out a contact
-sheet. `DEMO_PARTS=deck` films only the deck's end again, with no model at
-work.
+12 seconds from the same instance (`DEMO_PARTS=agents`): a third thread opens
+beside two others, three Claude Code agents work in three columns on three
+small tasks in the sample projects, the middle one finishes, then all three;
+last, the thread's agent and model picker shows the rail of coding agents and
+the models of Codex. The cut is `clip-hero-edit-agents.js`.
 
-### Your coding agents, side by side (`agents.webp`)
+### The assistant (`assistant.webp`)
 
-15 seconds from the same take: two more threads open beside the first, three
-agents work on three pull requests in three columns, and the first review
-arrives; then the agent and model control of a thread shows its rail of
-coding agents (Claude Code, Codex, OpenCode and more) and their models. It
-plays at the speed it was filmed at and loops without a jump. The cut is
-`edit-agents.js` (`FILM_EDIT=edit-agents.js` for `render.cjs`).
-
-### An assistant that does the work (`assistant.webp`)
-
-15 seconds: the Plugins catalog with GitHub connected, then "Which acme-notes
-PRs are still open, and which should I look at first?" in the chat. While
-Nova works, the line under its name in the side panel says "Working in
-GitHub" (the conversation itself draws no steps); the answer lists the five
-pull requests as GitHub links and says where to start. The instance reaches
-GitHub only through the plugin: `plugins_connect.py` puts a token into the
-instance's own credential file, never into the system keychain.
+12 seconds: "How much did I spend on groceries each month this year? The bank
+export is in Documents." Nova reads `Documents/bank-2026.csv`, a made-up bank
+export with fictional shops that `clip-assistant2-bank.py` writes into the
+instance's home folder before the warm-up, and answers with the sums and a
+column chart; the pointer moves along the columns. Scripts:
+`clip-assistant2-setup.cjs` (first run and warm-up),
+`clip-assistant2-assistant.cjs` (the take), `clip-assistant2-cut.cjs` with
+`clip-assistant2-edit.cjs`, `clip-assistant2-measure.cjs`, and
+`clip-assistant2-ocr.py`, which checks the page's text for private values on
+Linux (it does not see what is drawn on a canvas).
 
 ### Docs, decks, sheets and whiteboards (`nodes.webp`)
 
-16 seconds: "Put our launch plan on a whiteboard: research, build, beta,
-launch". The whiteboard's card comes into the chat; the card opens the board
-in its editor; the Launch box is dragged below Beta, Beta is renamed "Private
-beta", and the board saves itself. The feature tour shows the same clip.
+14 seconds: "Make a four-slide deck on brewing pour-over coffee". The deck's
+card comes into the chat, opens large, a click on the title opens the editor,
+and the title is typed over with "Pour-over, step by step"; the editor saves.
+Scripts: `clip-nodes2-setup.cjs`, `clip-nodes2-take.cjs`, `clip-nodes2-cut.cjs`
+with `clip-nodes2-edit.cjs`, `clip-nodes2-measure.cjs`. After a click on a
+node card the stage shows "Nothing here yet" for about 0.2 s before it draws
+the deck; the cut leaves that out.
 
-The Nodes and assistant clips share one instance and one set of scripts:
-`nodes-plugins-setup.cjs` (first run and a warm-up), `seed_nodes.py
---workspace` (sample nodes for the library), `clip-nodes.cjs` and
-`clip-assistant.cjs` (the takes), `nodes-plugins-cut.cjs` with the cuts in
-`nodes-plugins-edit.cjs`, `nodes-plugins-measure.cjs`, and
-`nodes-plugins-ocr.py`, which reads every frame for names that must not be in
-it. They film a 1024 x 576 window at a device scale of 1.875.
+### Earlier clips of 15 November 2026
 
-### With you when you leave the desk (`phone.webp`)
-
-13 seconds of the phone app in a phone-sized browser (390 x 844 at scale 2),
-paired with the instance by a code. The conversation began at the desk: Nova
-found a rounding fault in a small invoicing project and added a test that
-catches it. On the phone: "Go ahead, fix it and run the tests." Two approval
-cards come up, an edit of `invoice.py` and the test run, and each is allowed
-with a tap; Nova answers that all seven tests pass. For the cards, the
-conversation was set to "Ask before acting" (a new chat starts at "Bypass
-permissions", where nothing asks). Taps and drags are real touch events.
-Scripts: `phone-take.cjs`, `edit-phone.js`, `phone-film.html`,
-`phone-render.cjs`, `phone-measure.py`.
+The clips they replaced were made with `record.cjs` (parts `hero`, `picker`),
+`edit-hero.js`, `edit-agents.js`, `clip-assistant.cjs`, `clip-nodes.cjs` and
+`phone-take.cjs`; their last versions are in the history of this folder.
 
 ### The Telegram clip
 
