@@ -12,7 +12,8 @@
  * - words typed in place in the preview come back as markup; a shortcut
  *   pressed in the preview reaches the editor,
  * - colours are written as theme tokens; the page's accent goes into the spec,
- * - a design emptied of every block holds its save with the reason.
+ * - a blank design (what "New" makes) opens with a hint and takes a first block;
+ *   a design emptied of every block is saved as a blank page.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -197,13 +198,33 @@ describe("DesignEditor", () => {
     expect(puts[puts.length - 1]!.spec.accent).toBe("green");
   });
 
-  it("holds the save of a design emptied of every block", async () => {
+  it("opens a blank design with a hint and adds a first block to it", async () => {
+    open({ html: "", css: "", fit: "page", background: "" });
+    const empty = "This design has no blocks yet. Add one from the toolbar.";
+    expect(screen.queryByRole("tree")).toBeNull();
+    expect(screen.getByTestId("design-preview-hint").textContent).toBe(empty);
+    expect(screen.getByTestId("design-page-inspector")).toBeTruthy();
+    await waitFor(() => expect(previews).toBeGreaterThan(0), { timeout: 3000 });
+
+    fireEvent.click(screen.getByTestId("design-add"));
+    fireEvent.click(screen.getByTestId("design-add-heading"));
+    expect(rows()).toEqual(["Heading"]);
+    expect(screen.getAllByTestId("design-layer")[0]!.getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("design-element-inspector")).toBeTruthy();
+    expect(screen.getByTestId("design-preview-hint").textContent).toBe("Click a block to select it. Double-click a text to type.");
+    await waitFor(() => expect(puts.length).toBeGreaterThan(0), { timeout: 3000 });
+    expect(lastHtml()).toBe("<h2>Heading</h2>");
+  });
+
+  it("saves a design emptied of every block as a blank page", async () => {
     open({ html: "<h1>Only</h1>", css: "", fit: "page", background: "" });
     fireEvent.click(screen.getAllByTestId("design-layer")[0]!);
     fireEvent.click(screen.getByTestId("design-delete"));
-    expect(screen.getByText("This design has no blocks yet. Add one from the toolbar.")).toBeTruthy();
-    await waitFor(() => expect(screen.getByTestId("node-editor-save-state").getAttribute("data-state")).toBe("held"), { timeout: 3000 });
-    expect(puts).toHaveLength(0);
+    expect(screen.queryByRole("tree")).toBeNull();
+    expect(screen.getByTestId("design-page-inspector")).toBeTruthy();
+    await waitFor(() => expect(puts.length).toBeGreaterThan(0), { timeout: 3000 });
+    expect(lastHtml()).toBe("");
+    await waitFor(() => expect(screen.getByTestId("node-editor-save-state").getAttribute("data-state")).toBe("saved"), { timeout: 3000 });
     fireEvent.click(screen.getByTestId("node-editor-undo"));
     expect(rows()).toEqual(["Only"]);
   });

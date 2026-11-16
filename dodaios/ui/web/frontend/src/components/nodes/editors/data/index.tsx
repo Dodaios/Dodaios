@@ -14,10 +14,12 @@
  * in the shared chart editor. "Page" shows the real page the server draws
  * from the unsaved spec.
  *
- * Two rules come from `data.py` and are kept here so a save never fails
- * under the person's hands: the dashboard keeps at least one metric, chart
- * or table (the last one cannot be deleted), and a tile needs a label and a
- * value (an empty one holds the save, with the reason, until it is filled).
+ * Everything can be deleted: an emptied dashboard is saved like a new one,
+ * and the only section is emptied rather than removed, so there is always a
+ * place to add to. One rule comes from `data.py` and is kept here so a save
+ * never fails under the person's hands: a tile needs a label and a value,
+ * and a table a column name (an empty one holds the save, with the reason,
+ * until it is filled).
  */
 import { useCallback, useMemo, useState, type DragEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { BarChart3, Database, Eye, LayoutDashboard, Plus, Rows3, SquarePen, Table2 } from "lucide-react";
@@ -50,6 +52,7 @@ import {
   addItem,
   addSection,
   canAdd,
+  canRemoveSection,
   chartRowSpans,
   duplicateItem,
   duplicateSection,
@@ -61,7 +64,6 @@ import {
   readDashSpec,
   removeItem,
   removeSection,
-  wouldEmpty,
   type DashChart,
   type DashSelection,
   type DashSpec,
@@ -184,12 +186,8 @@ export default function DataEditor({ node, initial, onDone }: NodeEditorProps) {
     if (gone) setSelection(selected.kind === "section" ? null : { kind: "section", section: selected.section });
   };
 
-  const canRemove = (selected: DashSelection): boolean => {
-    if (selected.kind !== "section") return !wouldEmpty(spec, 1);
-    const section = spec.sections[selected.section];
-    if (!section || spec.sections.length === 1) return false;
-    return !wouldEmpty(spec, PARTS.reduce((n, part) => n + section[part].length, 0));
-  };
+  const canRemove = (selected: DashSelection): boolean =>
+    selected.kind === "section" ? canRemoveSection(spec, selected.section) : true;
 
   const addSectionAfter = (after: number) => {
     let at = -1;

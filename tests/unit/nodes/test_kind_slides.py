@@ -293,11 +293,15 @@ def test_a_layout_without_its_content_becomes_the_one_the_fields_fit() -> None:
                 {"layout": "stats", "title": "No numbers", "bullets": ["but points"]},
                 {"layout": "chart", "title": "No chart"},
                 {"layout": "quote", "title": "T", "columns": [{"title": "only one"}]},
+                # A chart, table, picture or columns slide is nothing without its content.
+                {"layout": "table", "title": "No table"},
+                {"layout": "image", "title": "No picture"},
+                {"layout": "columns", "title": "No columns"},
             ]
         }
     )
 
-    assert [slide["layout"] for slide in spec["slides"]] == ["bullets", "section", "section"]
+    assert [slide["layout"] for slide in spec["slides"]] == ["bullets", *["section"] * 5]
     assert spec["slides"][0]["bullets"] == ["but points"]
 
 
@@ -368,10 +372,105 @@ def test_a_slide_that_names_its_layout_and_fits_no_other_keeps_it() -> None:
     assert html.count('aria-roledescription="slide"') == 3
 
 
-def test_a_slide_with_nothing_of_its_layout_is_still_dropped() -> None:
-    spec = normalize({"slides": [{"title": "Opening"}, {"layout": "title", "notes": "only notes"}]})
+#: Every layout as the editor leaves it when the person deletes all its texts
+#: (an emptied list item stays "" until it is removed; a column or a step
+#: whose texts are gone is ``{}``), and what the deck keeps of it. A chart and
+#: a picture are not texts: they stay.
+_EMPTIED: list[tuple[dict[str, Any], dict[str, Any]]] = [
+    ({"layout": "title", "kicker": "", "notes": "Kept."}, {"layout": "title", "notes": "Kept."}),
+    ({"layout": "section", "title": "", "subtitle": ""}, {"layout": "section"}),
+    ({"layout": "bullets", "bullets": ["", ""]}, {"layout": "bullets"}),
+    (
+        {"layout": "columns", "columns": [{}, {"bullets": [""]}, {}]},
+        {"layout": "columns", "columns": [{}, {}, {}]},
+    ),
+    ({"layout": "quote", "quote": "", "by": ""}, {"layout": "quote"}),
+    (
+        {"layout": "stats", "stats": [{"value": ""}, {"value": "", "label": ""}]},
+        {"layout": "stats"},
+    ),
+    ({"layout": "chart", "chart": CHART}, {"layout": "chart", "chart": CHART}),
+    (
+        {"layout": "table", "table": {"columns": ["", ""], "rows": [["", ""], ["", ""]]}},
+        {"layout": "table", "table": {"columns": ["", ""], "rows": [["", ""], ["", ""]]}},
+    ),
+    ({"layout": "image", "image": PIXEL}, {"layout": "image", "image": PIXEL}),
+    ({"layout": "steps", "steps": [{}, {"title": ""}]}, {"layout": "steps"}),
+    ({"layout": "closing", "bullets": [""]}, {"layout": "closing"}),
+]
 
-    assert len(spec["slides"]) == 1
+
+@pytest.mark.parametrize(("emptied", "kept"), _EMPTIED, ids=[e["layout"] for e, _ in _EMPTIED])
+def test_a_slide_the_person_empties_keeps_its_place_and_layout(
+    emptied: dict[str, Any], kept: dict[str, Any]
+) -> None:
+    spec = normalize(
+        {"slides": [{"title": "Opening"}, emptied, {"title": "End", "bullets": ["x"]}]}
+    )
+
+    assert spec["slides"][1] == kept
+    assert [slide["layout"] for slide in spec["slides"]] == ["title", kept["layout"], "bullets"]
+    assert normalize(spec) == spec
+    html = render(_node(spec))
+    assert html.count('aria-roledescription="slide"') == 3
+    # A picture without a title fills its slide.
+    drawn_as = "l-bleed" if kept["layout"] == "image" else f"l-{kept['layout']}"
+    assert f'class="sl {drawn_as}' in html
+    _fields(spec)
+    # Emptied as the deck's only slide, it is still a deck that saves.
+    alone = normalize({"slides": [emptied]})
+    assert alone["slides"] == [kept]
+    assert render(_node(alone)).count('aria-roledescription="slide"') == 1
+
+
+def test_a_layout_that_may_be_blank_keeps_it_while_it_holds_only_its_own_fields() -> None:
+    blank = [{"layout": layout} for layout in LAYOUTS]
+
+    spec = normalize({"slides": [*blank, {"layout": "stats", "title": "Figures follow"}]})
+
+    # A chart, table or picture slide holding nothing has nothing to draw.
+    assert [slide["layout"] for slide in spec["slides"]] == [
+        "title",
+        "section",
+        "bullets",
+        "quote",
+        "stats",
+        "steps",
+        "closing",
+        "stats",
+    ]
+    assert render(_node(spec)).count('aria-roledescription="slide"') == 8
+
+
+def test_an_emptied_column_keeps_its_place_beside_the_others() -> None:
+    spec = normalize(
+        {"slides": [{"title": "Two ways", "columns": [{"title": "A"}, "", {"title": "C"}]}]}
+    )
+
+    assert spec["slides"][0]["columns"] == [{"title": "A"}, {}, {"title": "C"}]
+    assert normalize(spec) == spec
+    assert _drawn(render(_node(spec))).count('<div class="sl-col">') == 3
+
+
+def test_an_emptied_table_keeps_its_grid_and_an_emptied_row_still_goes() -> None:
+    def table(value: dict[str, Any]) -> dict[str, Any]:
+        spec = normalize({"slides": [{"title": "T", "table": value}]})
+        assert normalize(spec) == spec
+        _fields(spec)
+        return spec["slides"][0]["table"]
+
+    # Every cell emptied: the grid stays, headers and all.
+    assert table({"columns": ["Plan", "Price"], "rows": [["", ""], [None, ""]]}) == {
+        "columns": ["Plan", "Price"],
+        "rows": [["", ""], ["", ""]],
+    }
+    # The headers emptied: the cells stay.
+    assert table({"columns": ["", ""], "rows": [["Solo", "9 €"]]}) == {
+        "columns": ["", ""],
+        "rows": [["Solo", "9 €"]],
+    }
+    # One row emptied among filled ones goes, as before.
+    assert table({"columns": ["a"], "rows": [["x"], [""], ["y"]]})["rows"] == [["x"], ["y"]]
 
 
 def test_an_image_slide_may_show_all_of_its_picture() -> None:
@@ -793,14 +892,23 @@ def test_preview_is_bounded_and_reads_the_theme() -> None:
     assert preview({}) == {"title": "", "subtitle": "", "count": 0, "dark": False, "accent": ""}
 
 
-def test_starter_is_a_small_valid_deck_named_after_the_node() -> None:
+def test_starter_is_one_blank_opening_slide_without_any_text() -> None:
     spec = starter("Offsite plan", "de")
 
+    # Empty as a new presentation: no sample text, not even the node's name.
+    assert spec == {"theme": "auto", "slides": [{"layout": "title"}]}
+    assert starter("", "en") == spec
     assert normalize(spec) == spec
-    assert [slide["layout"] for slide in spec["slides"]] == ["title", "bullets", "closing"]
-    assert spec["slides"][0]["title"] == "Offsite plan"
-    assert starter("", "en")["slides"][0]["title"]
-    assert "Offsite plan" in render(_node(spec, title="Offsite plan"))
+    html = render(_node(spec, title="Offsite plan"))
+    slide = _SECTION_RE.findall(_drawn(html))
+    assert slide == [
+        '<section class="sl l-title" aria-roledescription="slide" aria-label="Slide 1">'
+        '<div class="sl-hero"><i class="sl-rule"></i><h1 class="sl-big" data-len="1"></h1>'
+        "</div></section>"
+    ]
+    # The deck's name is in the bar, where it always is, and the only field.
+    assert [field.at for field in _fields(spec, title="Offsite plan")] == ["@title"]
+    assert preview(spec) == {"title": "", "subtitle": "", "count": 1, "dark": False, "accent": ""}
 
 
 def test_the_guide_is_compact_and_its_example_is_a_valid_deck() -> None:

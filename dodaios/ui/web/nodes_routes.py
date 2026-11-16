@@ -312,7 +312,7 @@ async def get_node(node_id: str, spec: bool = True) -> dict[str, Any]:
 
 @router.post("")
 async def create_node(body: CreateBody) -> dict[str, Any]:
-    """A new node of ``type``, filled with the type's starter content."""
+    """A new node of ``type`` from the type's starter (an empty node)."""
     try:
         name = node_type(body.type)
         node = await asyncio.to_thread(

@@ -916,13 +916,18 @@ def test_preview_of_nothing_is_empty_and_never_raises() -> None:
 # --------------------------------------------------------- starter and guide
 
 
-def test_the_starter_is_a_text_a_number_and_a_status_column() -> None:
-    spec = starter("Budget", "en")
+def test_a_new_sheet_is_an_empty_grid_of_lettered_columns() -> None:
+    spec = starter("Budget", "de")
     assert normalize(spec) == spec
+    assert len(spec["sheets"]) == 1
     sheet = spec["sheets"][0]
-    assert [c["type"] for c in sheet["columns"]] == ["text", "number", "status"]
-    assert len(sheet["rows"]) == 3 and len(spec["sheets"]) == 1
-    assert "<tfoot>" in render(_node(spec, title="Budget"))
+    # Only the letters a spreadsheet app shows, no sample data.
+    assert [c["label"] for c in sheet["columns"]] == ["A", "B", "C", "D", "E", "F"]
+    assert all(set(c) == {"key", "label"} for c in sheet["columns"])
+    assert sheet["rows"] == [] and "charts" not in sheet and "note" not in spec
+    assert preview(spec)["count"] == 0 and preview(spec)["rows"] == []
+    page = render(_node(spec, title="Budget"))
+    assert "<tfoot>" not in page and "No rows yet" in page
 
 
 def test_the_guide_is_compact_and_its_example_is_a_valid_sheet() -> None:

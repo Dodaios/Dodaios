@@ -1,7 +1,7 @@
 /**
  * The clip editor as a whole: scene actions through the toolbar and the
  * inspector, one shared undo history, texts written in the preview, and a
- * save that waits while a scene lacks what its type needs.
+ * save that takes a blank scene and waits only for a chart that would not draw.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -97,17 +97,26 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function open() {
+function open(spec: Record<string, unknown> = SPEC) {
   const onDone = vi.fn();
   render(
     <MotionEditor
       node={NODE}
-      initial={{ spec: structuredClone(SPEC), version: 3, updated_at: 2 }}
+      initial={{ spec: structuredClone(spec), version: 3, updated_at: 2 }}
       onDone={onDone}
     />,
   );
   return { onDone };
 }
+
+/** A new clip as the server's starter makes it: one blank title card. */
+const BLANK = {
+  format: "wide",
+  theme: "dark",
+  accent: "",
+  loop: false,
+  scenes: [{ type: "title", seconds: 4, transition: "fade" }],
+};
 
 const blocks = () => screen.getAllByRole("option");
 
@@ -175,15 +184,33 @@ describe("MotionEditor", () => {
     expect((screen.getByTestId("motion-field-title") as HTMLInputElement).value).toBe("Hello");
   });
 
-  it("holds the save while a scene lacks what its type needs, and says which", async () => {
+  it("saves a scene whose every word was deleted, without marking it", async () => {
     open();
     fireEvent.change(screen.getByTestId("motion-field-title"), { target: { value: "" } });
-    await waitFor(() => expect(screen.getByTestId("node-editor-save-state").getAttribute("data-state")).toBe("held"), {
-      timeout: 3000,
-    });
-    expect(screen.getByTestId("node-editor-save-state").textContent).toBe("nodes.editor.motion.needs");
+    await waitFor(() => expect(saves.length).toBe(1), { timeout: 3000 });
+    expect((saves[0].spec.scenes as { title: string }[])[0].title).toBe("");
+    expect(screen.getByTestId("node-editor-save-state").getAttribute("data-state")).not.toBe("held");
+    expect(blocks()[0].getAttribute("aria-invalid")).toBeNull();
+    expect(screen.getByTestId("motion-field-title").getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it("opens a new clip blank, and saves it again after its words are written and deleted", async () => {
+    open(BLANK);
+    expect(blocks()).toHaveLength(1);
+    expect(blocks()[0].getAttribute("aria-invalid")).toBeNull();
+    for (const field of ["kicker", "title", "text"]) {
+      expect((screen.getByTestId(`motion-field-${field}`) as HTMLInputElement).value).toBe("");
+    }
+    // Nothing changed, nothing to save.
     expect(saves).toEqual([]);
-    expect(blocks()[0].getAttribute("aria-invalid")).toBe("true");
+
+    const title = screen.getByTestId("motion-field-title");
+    fireEvent.change(title, { target: { value: "Q" } });
+    await waitFor(() => expect(saves.length).toBe(1), { timeout: 3000 });
+    fireEvent.change(title, { target: { value: "" } });
+    await waitFor(() => expect(saves.length).toBe(2), { timeout: 3000 });
+    expect((saves[1].spec.scenes as { title: string }[])[0].title).toBe("");
+    expect(screen.getByTestId("node-editor-save-state").getAttribute("data-state")).not.toBe("held");
   });
 
   it("takes a text written in the preview as one step, and answers the page", async () => {

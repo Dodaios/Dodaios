@@ -71,11 +71,9 @@ export default function DesignEditor({ node, initial, onDone }: NodeEditorProps)
   const t = useT();
   const nodeId = node.id ?? "";
   const start = useMemo(() => ({ ...initial, spec: readDesignSpec(initial.spec) }), [initial]);
-  const prepare = useCallback(
-    (spec: DesignSpec) => (spec.html.trim() ? spec : { error: t("nodes.editor.design.empty") }),
-    [t],
-  );
-  const editor = useNodeSpecEditor<DesignSpec>(nodeId, start, { prepare });
+  // An empty design is a blank page: a new one starts so, and one emptied of
+  // every block is saved as it is.
+  const editor = useNodeSpecEditor<DesignSpec>(nodeId, start);
   const { spec, apply } = editor;
 
   // A read-only parse of the markup for the layers and the inspector; every
@@ -515,8 +513,12 @@ export default function DesignEditor({ node, initial, onDone }: NodeEditorProps)
                 {preview.error}
               </p>
             ) : (
-              <p className="rounded-md bg-background/85 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur">
-                {t("nodes.editor.design.preview_hint")}
+              <p
+                className="rounded-md bg-background/85 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur"
+                data-testid="design-preview-hint"
+              >
+                {/* A blank page has no block to click yet: say where the first one comes from. */}
+                {layers.length ? t("nodes.editor.design.preview_hint") : t("nodes.editor.design.layers.empty")}
               </p>
             )}
           </div>

@@ -162,6 +162,8 @@ export function readDashSpec(raw: unknown): DashSpec {
   const spec: DashSpec = { summary: text(source.summary), sections };
   const sources = list(source.sources, (name) => text(name) || null);
   if (sources.length) spec.sources = sources;
+  // A new or emptied dashboard is saved without a section (`normalize` drops
+  // an empty one): the editor gives it one to add parts to.
   if (spec.sections.length === 0) spec.sections.push(emptySection());
   return spec;
 }
@@ -182,18 +184,18 @@ export function newTable(title: string, columns: [string, string]): DashTable {
 
 /* ------------------------------------------------------------ inspecting */
 
-/** How many metrics, charts and tables the whole dashboard holds. */
-export function partCount(spec: DashSpec): number {
-  return spec.sections.reduce((sum, section) => sum + PARTS.reduce((n, part) => n + section[part].length, 0), 0);
+/** Whether a section holds nothing: no title, no text, no part. */
+export function isBlankSection(section: DashSection): boolean {
+  return !section.title.trim() && !section.text.trim() && PARTS.every((part) => section[part].length === 0);
 }
 
 /**
- * Whether removing `count` parts would leave nothing to show. The server
- * refuses a dashboard without a single metric, chart or table, so the editor
- * keeps the last one rather than letting the save fail.
+ * Whether deleting a section changes anything: any section among several,
+ * and the only one while it still holds something (it is emptied then).
  */
-export function wouldEmpty(spec: DashSpec, count: number): boolean {
-  return partCount(spec) - count <= 0;
+export function canRemoveSection(spec: DashSpec, index: number): boolean {
+  const section = spec.sections[index];
+  return !!section && (spec.sections.length > 1 || !isBlankSection(section));
 }
 
 export function canAdd(spec: DashSpec, section: number, part: Part): boolean {
@@ -279,13 +281,15 @@ export function duplicateSection(spec: DashSpec, index: number): number {
   return index + 1;
 }
 
-/** Remove a section, unless it holds the dashboard's last parts. */
+/**
+ * Remove a section. The only section is emptied instead, so the editor
+ * always has a section to add parts to; the dashboard is then empty, which
+ * the server keeps like a new one.
+ */
 export function removeSection(spec: DashSpec, index: number): boolean {
-  const section = spec.sections[index];
-  if (!section) return false;
-  const holds = PARTS.reduce((n, part) => n + section[part].length, 0);
-  if (wouldEmpty(spec, holds) || spec.sections.length === 1) return false;
-  spec.sections.splice(index, 1);
+  if (!canRemoveSection(spec, index)) return false;
+  if (spec.sections.length === 1) spec.sections[index] = emptySection();
+  else spec.sections.splice(index, 1);
   return true;
 }
 
@@ -305,10 +309,10 @@ export function duplicateItem(spec: DashSpec, section: number, part: Part, index
   return index + 1;
 }
 
-/** Remove one item, unless it is the dashboard's last part. */
+/** Remove one item; the dashboard's last one too (an empty dashboard is kept). */
 export function removeItem(spec: DashSpec, section: number, part: Part, index: number): boolean {
   const items = spec.sections[section]?.[part] as unknown[] | undefined;
-  if (!items || index < 0 || index >= items.length || wouldEmpty(spec, 1)) return false;
+  if (!items || index < 0 || index >= items.length) return false;
   items.splice(index, 1);
   return true;
 }

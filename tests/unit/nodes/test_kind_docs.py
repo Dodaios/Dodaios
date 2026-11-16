@@ -107,7 +107,7 @@ def test_normalize_is_idempotent_and_bounded() -> None:
 
 @pytest.mark.parametrize(
     "spec",
-    [None, "just text", ["markdown"], {}, {"markdown": ""}, {"markdown": "  \n "}, {"markdown": 3}],
+    [None, "just text", ["markdown"], {}, {"summary": "Only a summary"}, {"markdown": 3}],
 )
 def test_an_unusable_spec_is_refused_with_what_to_send(spec: Any) -> None:
     with pytest.raises(NodeError) as raised:
@@ -117,10 +117,28 @@ def test_an_unusable_spec_is_refused_with_what_to_send(spec: Any) -> None:
     assert message.count(".") == 1 and message.endswith(".")
 
 
-def test_starter_and_example_are_valid_specs() -> None:
-    starter = docs.starter("My notes", "en")
+@pytest.mark.parametrize("body", ["", "  \n ", "\n\n\t"])
+def test_an_empty_body_is_a_document_the_person_may_keep(body: str) -> None:
+    # Deleting every word in the editor must save, as in any word processor.
+    clean = docs.normalize({"summary": "", "markdown": body})
+    assert clean == {"summary": "", "markdown": ""}
+    assert docs.normalize(clean) == clean
+
+
+def test_a_new_document_starts_empty() -> None:
+    starter = docs.starter("My notes", "de")
+    assert starter == {"summary": "", "markdown": ""}
     assert docs.normalize(starter) == starter
-    assert docs.preview(starter)["heading"]
+    assert docs.preview(starter) == {"heading": "", "lines": [], "bullets": False}
+    page = docs.render(_node(starter, title="My notes"))
+    assert '<h1 data-at="@title">My notes</h1>' in page
+    assert 'class="lead"' not in page
+    # The empty body is a blank page a click can open for writing.
+    assert re.search(r'<article class="report" data-at="/markdown"[^>]*></article>', page)
+    assert ".doc .report:empty{" in page
+
+
+def test_the_example_is_a_valid_spec() -> None:
     example = docs.normalize(docs.EXAMPLE)
     assert docs.normalize(example) == example
     assert 'class="card chart"' in docs.render(_node(example))
@@ -301,10 +319,8 @@ _EDITOR_FIXTURES = (
 )
 
 
-def test_the_editor_keeps_the_example_and_the_starter_as_written() -> None:
+def test_the_editor_keeps_the_example_as_written() -> None:
     assert (_EDITOR_FIXTURES / "example.md").read_text().strip() == docs.EXAMPLE["markdown"].strip()
-    starter = docs.starter("Plan", "en")["markdown"]
-    assert (_EDITOR_FIXTURES / "starter.md").read_text().strip() == starter.strip()
 
 
 def test_the_editors_markdown_draws_every_block_of_the_original() -> None:

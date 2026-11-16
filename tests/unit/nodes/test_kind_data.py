@@ -210,16 +210,65 @@ def test_table_rows_are_fitted_to_the_columns() -> None:
     ]
 
 
-@pytest.mark.parametrize(
-    "spec",
-    [None, "numbers", [], {}, {"summary": "only words"}, {"sections": [{"title": "Empty"}]}],
-)
-def test_a_spec_with_nothing_to_show_is_refused(spec: Any) -> None:
+@pytest.mark.parametrize("spec", [None, "numbers", [], 12])
+def test_a_spec_that_is_not_an_object_is_refused(spec: Any) -> None:
     with pytest.raises(NodeError) as raised:
         data.normalize(spec)
     message = str(raised.value)
     assert "'sections'" not in message and '"sections"' in message
     assert message.count(". ") == 0 and message.endswith(".")
+    # An empty dashboard is allowed, so the sentence asks for no part.
+    assert "at least" not in message
+
+
+@pytest.mark.parametrize(
+    ("spec", "expected"),
+    [
+        ({}, {"summary": "", "sections": []}),
+        ({"sections": []}, {"summary": "", "sections": []}),
+        ({"summary": "only words"}, {"summary": "only words", "sections": []}),
+        # What the editor saves after every part was deleted.
+        (
+            {
+                "summary": "",
+                "sections": [{"title": "", "text": "", "metrics": [], "charts": [], "tables": []}],
+            },
+            {"summary": "", "sections": []},
+        ),
+        (
+            {"sections": [{"title": "Empty", "metrics": [], "charts": [], "tables": []}]},
+            {
+                "summary": "",
+                "sections": [
+                    {"title": "Empty", "text": "", "metrics": [], "charts": [], "tables": []}
+                ],
+            },
+        ),
+        # A table emptied of its rows keeps its columns.
+        (
+            {"tables": [{"columns": ["Item", "Value"], "rows": []}]},
+            {
+                "summary": "",
+                "sections": [
+                    {
+                        "title": "",
+                        "text": "",
+                        "metrics": [],
+                        "charts": [],
+                        "tables": [{"title": "", "columns": ["Item", "Value"], "rows": []}],
+                    }
+                ],
+            },
+        ),
+    ],
+    ids=["nothing", "no-sections", "summary-only", "emptied", "titled-section", "rowless-table"],
+)
+def test_an_emptied_dashboard_is_kept(spec: dict[str, Any], expected: dict[str, Any]) -> None:
+    clean = data.normalize(spec)
+    assert clean == expected
+    assert data.normalize(clean) == clean
+    html = data.render(_node(clean))
+    assert html.startswith("<!doctype html>") and html.rstrip().endswith("</html>")
 
 
 @pytest.mark.parametrize(
@@ -301,10 +350,24 @@ def test_a_part_of_the_wrong_shape_is_refused_by_name(spec: Any, expected: str) 
 def test_starter_and_example_are_valid_specs() -> None:
     starter = data.starter("My numbers", "en")
     assert data.normalize(starter) == starter
-    assert '<div class="metrics"' in data.render(_node(starter))
     example = data.normalize(data.EXAMPLE)
     assert data.normalize(example) == example
     assert data.render(_node(example)).count('class="tile') == 2
+
+
+@pytest.mark.parametrize("language", ["en", "de", "zh"])
+def test_a_new_dashboard_is_empty(language: str) -> None:
+    starter = data.starter("My numbers", language)
+    # Nothing but the empty shape: no summary, no section, no sample value.
+    assert starter == {"summary": "", "sections": []}
+    assert data.normalize(starter) == starter
+    assert data.preview(starter) == {"metrics": [], "bars": [], "chart": "bar"}
+    body = _body(data.render(_node(starter, title="My numbers", language=language)))
+    # The page is the title alone: no text, no number, no part, no filler.
+    assert body == (
+        '<main class="page wide dash"><header class="dash-head"><h1>My numbers</h1></header>'
+    )
+    assert re.sub(r"<[^>]+>", "", body) == "My numbers"
 
 
 def test_guide_is_compact_and_carries_the_example() -> None:

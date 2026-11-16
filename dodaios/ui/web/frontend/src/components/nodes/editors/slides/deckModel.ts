@@ -276,10 +276,11 @@ export function sampleTable(t: Translate): Table {
 
 /**
  * A new slide of `layout`, filled with short sample texts in the person's
- * language. Why samples and not empty placeholders: the server drops empty
- * fields and a slide without its layout's main field changes layout, so an
- * empty new slide would not survive its first save. The editor selects the
- * sample title of a new slide, so typing replaces it at once.
+ * language. Why samples: a chart, table, image or columns slide without its
+ * main field turns into a section slide on the server, and the samples show
+ * what the layout holds. (A new deck itself starts with one blank title
+ * slide, which the server keeps.) The editor selects the sample title of a
+ * new slide, so typing replaces it at once.
  */
 export function blankSlide(layout: Layout, t: Translate): Slide {
   const title = t(`${K}title`);

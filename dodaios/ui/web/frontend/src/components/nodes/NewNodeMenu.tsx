@@ -1,8 +1,8 @@
 /**
  * "New" in the Nodes library: a short menu of the kinds, like "New" in an
- * office suite. A kind starts a blank node of that kind at once (the kind's
- * designed starter) and opens it, ready to be typed into; nothing has to be
- * described first. The last entry still lets the reader describe what they
+ * office suite. A kind starts an empty node of that kind at once (no sample
+ * content, only the editor's greyed hints) and opens it, ready to be typed
+ * into; nothing has to be described first. The last entry still lets the reader describe what they
  * want and have the assistant build it.
  */
 import {

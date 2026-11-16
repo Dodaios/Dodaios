@@ -2107,29 +2107,20 @@ def preview(spec: dict[str, Any]) -> dict[str, Any]:
 # ------------------------------------------------------------ starter and guide
 
 
+#: How many empty columns a new sheet starts with, named A, B, C, … as in
+#: any spreadsheet app (the editor names columns it inserts the same way).
+STARTER_COLUMNS: Final[int] = 6
+
+
 def starter(title: str, language: str) -> dict[str, Any]:
-    """A fresh sheet: a text, a number and a status column with three rows to replace."""
-    del title, language  # the page already carries the title; the words here are few
-    return normalize(
-        {
-            "sheets": [
-                {
-                    "name": "Sheet 1",
-                    "columns": [
-                        {"key": "item", "label": "Item", "type": "text"},
-                        {"key": "amount", "label": "Amount", "type": "number", "total": "sum"},
-                        {"key": "status", "label": "Status", "type": "status"},
-                    ],
-                    "rows": [
-                        {"item": "First item", "amount": 120, "status": "Open"},
-                        {"item": "Second item", "amount": 80, "status": "Draft"},
-                        {"item": "Third item", "amount": 45, "status": "Done"},
-                    ],
-                    "freeze": 1,
-                }
-            ]
-        }
-    )
+    """A fresh sheet: an empty grid, like a new workbook in a spreadsheet app.
+
+    Its columns carry only their letters and it has no rows; the editor
+    offers empty rows below the last one by itself.
+    """
+    del title, language  # the page already carries the title
+    letters = [chr(ord("A") + index) for index in range(STARTER_COLUMNS)]
+    return normalize({"sheets": [{"name": "Sheet 1", "columns": letters, "rows": []}]})
 
 
 EXAMPLE: Final[dict[str, Any]] = {

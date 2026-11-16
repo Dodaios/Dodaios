@@ -4,7 +4,7 @@
  *
  * The spec's grammar lives in `dodaios/nodes/kinds/motion.py`; this module
  * mirrors the parts the editor needs so a change is right BEFORE it reaches
- * the server: which fields a scene type keeps, what it cannot do without,
+ * the server: which fields a scene type keeps, which values it would refuse,
  * the bounds of a scene's length, how long a scene runs by default. The
  * server's `normalize` stays the judge (a save returns the spec as it was
  * kept); the mirror only saves the person a refused save.
@@ -127,20 +127,6 @@ export const FIELDS: Record<SceneKind, readonly SceneField[]> = {
   image: ["image", "caption"],
   chart: ["kicker", "title", "chart"],
   end: ["kicker", "title", "text"],
-};
-
-/** What a scene type cannot do without (`_NEEDS`): the server refuses the spec otherwise. */
-export const NEEDS: Record<SceneKind, SceneField> = {
-  title: "title",
-  text: "text",
-  bullets: "bullets",
-  stat: "value",
-  bars: "items",
-  quote: "quote",
-  steps: "steps",
-  image: "image",
-  chart: "chart",
-  end: "title",
 };
 
 // --- reading -------------------------------------------------------------------
@@ -271,16 +257,18 @@ export function formatSeconds(seconds: number, language = "en"): string {
 /**
  * Why the server would refuse this scene, or null. The editor marks such a
  * scene and says what it needs before the save fails with the type's sentence.
+ *
+ * A blank scene is never refused (`_FORMS` in motion.py): a new clip is one
+ * blank card, and deleting every word of a scene must not stop the save. What
+ * the server refuses is a value given in a form it cannot read; of those only
+ * a chart can reach the editor (bar values are always numbers here, and a
+ * picture is always a data URI), so a chart that would not draw is the one
+ * problem left.
  */
 export function sceneProblem(scene: Scene): SceneField | null {
-  const needed = NEEDS[scene.type];
-  const value = scene[needed];
-  if (needed === "items") return (scene.items ?? []).length > 0 ? null : needed;
-  if (needed === "bullets") return (scene.bullets ?? []).some((point) => point.trim()) ? null : needed;
-  if (needed === "steps") return (scene.steps ?? []).some((step) => step.title.trim() || step.text.trim()) ? null : needed;
+  if (scene.type !== "chart" || !isRecord(scene.chart) || Object.keys(scene.chart).length === 0) return null;
   // A chart scene's chart is the shared grammar: the same check the chart editor runs.
-  if (needed === "chart") return validateChart(value).errors.length === 0 ? null : needed;
-  return typeof value === "string" && value.trim() ? null : needed;
+  return validateChart(scene.chart).errors.length === 0 ? null : "chart";
 }
 
 /** The first text a scene shows: what its block on the timeline is named by. */
@@ -300,9 +288,8 @@ export function sceneSummary(scene: Scene): string {
 // --- making scenes -------------------------------------------------------------
 
 /**
- * The words a new scene starts with, in the person's language. They make a new
- * scene valid at once (the server refuses an empty one) and are meant to be
- * written over.
+ * The words a scene added in the editor starts with, in the person's
+ * language: they show what the type holds and are meant to be written over.
  */
 export interface SceneSamples {
   title: string;

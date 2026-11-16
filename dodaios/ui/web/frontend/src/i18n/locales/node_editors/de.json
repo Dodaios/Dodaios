@@ -535,7 +535,6 @@
           "empty": "Hier erscheinen die Überschriften."
         },
         "errors": {
-          "empty": "Das Dokument braucht etwas Text, bevor es gespeichert werden kann.",
           "too_long": "Das Dokument ist zu lang zum Speichern. Entferne etwas Text oder Bilder."
         }
       },
@@ -672,7 +671,6 @@
           "move": "Block verschieben",
           "text": "Text bearbeiten"
         },
-        "empty": "Ein Design braucht mindestens einen Block. Füge einen hinzu oder mache es rückgängig.",
         "preview": "Vorschau von {0}",
         "preview_hint": "Klicke einen Block an, um ihn zu wählen. Doppelklick auf einen Text, um zu tippen."
       },
@@ -697,8 +695,7 @@
           "up": "{0} nach oben",
           "down": "{0} nach unten",
           "duplicate": "{0} duplizieren",
-          "delete": "{0} löschen",
-          "keep_last": "Das Dashboard behält mindestens eine Kennzahl, ein Diagramm oder eine Tabelle"
+          "delete": "{0} löschen"
         },
         "grip": "{0} verschieben (ziehen oder Pfeiltasten)",
         "held": "Jede Kennzahl braucht eine Bezeichnung und einen Wert, jede Tabelle einen Spaltennamen. Fülle sie aus, um zu speichern.",

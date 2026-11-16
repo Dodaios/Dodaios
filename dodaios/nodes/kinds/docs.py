@@ -70,8 +70,11 @@ def _line(value: Any, limit: int) -> str:
 def normalize(spec: Any) -> dict[str, Any]:
     """The document's clean spec: ``{"summary", "markdown"}``.
 
+    An empty body is a document too: a new one starts empty, and the person
+    may delete every word of it, as in any word processor.
+
     Raises:
-        NodeError: the spec is not an object, or it carries no text.
+        NodeError: the spec is not an object, or its ``markdown`` is not text.
     """
     if not isinstance(spec, dict):
         raise NodeError(_WHAT_TO_SEND)
@@ -80,8 +83,6 @@ def normalize(spec: Any) -> dict[str, Any]:
         raise NodeError(_WHAT_TO_SEND)
     text = _CONTROL_RE.sub("", body.replace("\r\n", "\n").replace("\r", "\n"))
     text = shell.clean_block(text, MAX_BODY_CHARS).rstrip()
-    if not text:
-        raise NodeError(_WHAT_TO_SEND)
     return {"summary": _line(spec.get("summary"), MAX_SUMMARY_CHARS), "markdown": text}
 
 
@@ -214,6 +215,7 @@ _CSS: Final[str] = _PAGE_CSS + """
 .doc-head .node-meta{margin-top:16px}
 .doc>.toc{margin-top:28px}
 .doc .report{margin-top:36px;padding-top:36px;border-top:1px solid var(--line);line-height:1.65}
+.doc .report:empty{min-height:40vh}
 .doc .report>:first-child{margin-top:0}
 .doc .report>p,.doc .report li,.doc .report dd{text-wrap:pretty}
 .doc .report>:where(h5,h6){font-size:14px;line-height:20px;color:var(--ink-2)}
@@ -402,32 +404,13 @@ def preview(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def starter(title: str, language: str) -> dict[str, Any]:
-    """A fresh document: three short parts that show what a document holds.
+    """A fresh document: empty, like a new page in a word processor.
 
-    The page shows the title itself, and the few placeholder words are the
-    same in every language, so neither argument changes the text.
+    The page shows the title itself, and the editor shows greyed hints where
+    the summary and the text go, so the node holds no words of its own.
     """
-    return normalize(
-        {
-            "summary": "A short summary: what this document is about and what it concludes.",
-            "markdown": (
-                "## Overview\n\n"
-                "Write the opening here. Ask the assistant to fill this document, "
-                "to revise a part of it, or to keep it current.\n\n"
-                "> [!NOTE]\n"
-                "> **Good to know** A document can hold tables, charts, key figures, "
-                "notes like this one, steps and sources.\n\n"
-                "## Details\n\n"
-                "| Item | Status | Owner |\n"
-                "| --- | --- | --- |\n"
-                "| First item | Open | – |\n"
-                "| Second item | Open | – |\n\n"
-                "## Next steps\n\n"
-                "1. **First step** What happens first.\n"
-                "2. **Second step** What follows.\n"
-            ),
-        }
-    )
+    del title, language
+    return {"summary": "", "markdown": ""}
 
 
 # ---------------------------------------------------------------------- guide

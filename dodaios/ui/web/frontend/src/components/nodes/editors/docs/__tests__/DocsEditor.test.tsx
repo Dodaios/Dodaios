@@ -270,17 +270,29 @@ describe("DocsEditor", () => {
     });
   });
 
-  it("holds the save with a sentence when the body is emptied", async () => {
+  it("saves a body the person emptied", async () => {
     const remote = server("Only line");
     const { editor } = mount(remote);
     act(() => {
       editor.commands.setTextSelection({ from: editor.state.doc.child(0).nodeSize + 1, to: editor.state.doc.content.size - 1 });
       editor.commands.deleteSelection();
     });
-    await waitFor(() => expect(screen.getByTestId("node-editor-save-state").getAttribute("data-state")).toBe("held"), {
-      timeout: 3000,
-    });
-    expect(screen.getByTestId("node-editor-save-state").textContent).toContain("nodes.editor.docs.errors.empty");
+    await waitFor(() => expect(remote.last()?.markdown).toBe(""), { timeout: 3000 });
+    expect(screen.getByTestId("node-editor-save-state").getAttribute("data-state")).not.toBe("held");
+  });
+
+  it("opens an empty document with the caret on its first line and only greyed hints", async () => {
+    const remote = server("");
+    remote.state.spec.summary = "";
+    const { editor } = mount(remote);
+    const content = screen.getByTestId("docs-editor-content");
+    // No words of its own: the hints are drawn by CSS from data attributes.
+    expect(content.textContent).toBe("");
+    const bodyStart = editor.state.doc.child(0).nodeSize + 1;
+    await waitFor(() => expect(editor.state.selection.from).toBe(bodyStart));
+    expect(editor.isFocused).toBe(true);
+    expect(content.querySelector("p.doc-summary")?.getAttribute("data-placeholder")).toBe("nodes.editor.docs.placeholder.summary");
+    expect(content.querySelector("p:not(.doc-summary)")?.getAttribute("data-placeholder")).toBe("nodes.editor.docs.placeholder.body");
     expect(remote.puts).toHaveLength(0);
   });
 

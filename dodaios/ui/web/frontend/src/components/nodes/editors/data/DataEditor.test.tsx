@@ -6,8 +6,10 @@
  * Contracts worth pinning:
  * - the dashboard opens with every section, tile, chart and table of its spec,
  * - typing a value is one undo step, and the save sends the edited spec,
+ * - a new, empty dashboard opens with one empty section and its hints,
  * - tiles, charts and tables are added, moved (from the keyboard), duplicated
- *   and deleted, and the last part of the dashboard cannot be deleted,
+ *   and deleted; deleting the last part, or the only section, saves the
+ *   emptied dashboard,
  * - the inspector's "lower is better" and "full width" change the spec,
  * - a new chart comes from the chart editor; an edited chart keeps its width,
  * - a tile without a label holds the save with the reason instead of failing,
@@ -182,13 +184,48 @@ describe("DataEditor", () => {
     expect(labels()).toEqual(["Revenue", "Orders"]);
   });
 
-  it("keeps the dashboard's last part", () => {
+  it("opens a new, empty dashboard with one empty section and its hints", () => {
+    open({ summary: "", sections: [] });
+    const summary = screen.getByTestId("data-summary") as HTMLTextAreaElement;
+    expect(summary.value).toBe("");
+    expect(summary.placeholder).toBe("A short summary: what these numbers cover and as of when.");
+    expect(screen.getAllByTestId("data-section")).toHaveLength(1);
+    expect((screen.getByTestId("data-section-title") as HTMLInputElement).placeholder).toBe("Section title");
+    expect(screen.queryByTestId("data-metric")).toBeNull();
+    expect(screen.queryByTestId("data-chart")).toBeNull();
+    expect(screen.queryByTestId("data-table")).toBeNull();
+    for (const add of ["data-add-metric", "data-add-chart", "data-add-table"]) {
+      expect((screen.getByTestId(add) as HTMLButtonElement).disabled).toBe(false);
+    }
+    // Nothing to delete in the empty section.
+    expect((screen.getByRole("button", { name: "Delete Section 1" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("deletes the dashboard's last part and saves the emptied dashboard", async () => {
     open({ sections: [{ metrics: [{ label: "Only", value: "1" }] }] });
     fireEvent.mouseDown(screen.getByTestId("data-metric"));
-    const keep = screen.getAllByRole("button", { name: "The dashboard keeps at least one metric, chart or table" });
-    expect(keep.every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+    expect((screen.getByRole("button", { name: "Delete Only" }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.keyDown(screen.getByTestId("data-canvas"), { key: "Delete" });
-    expect(labels()).toEqual(["Only"]);
+    expect(screen.queryByTestId("data-metric")).toBeNull();
+    await waitFor(() => expect(puts.length).toBeGreaterThan(0), { timeout: 3000 });
+    expect(lastSaved().sections).toEqual([{ title: "", text: "", metrics: [], charts: [], tables: [] }]);
+    await waitFor(() => expect(screen.getByTestId("node-editor-save-state").getAttribute("data-state")).toBe("saved"), { timeout: 3000 });
+  });
+
+  it("empties the only section on delete and saves it", async () => {
+    open();
+    fireEvent.mouseDown(screen.getByTestId("data-section"));
+    fireEvent.click(screen.getByRole("button", { name: "Delete October" }));
+    expect(screen.getAllByTestId("data-section")).toHaveLength(1);
+    expect((screen.getByTestId("data-section-title") as HTMLInputElement).value).toBe("");
+    expect(screen.queryByTestId("data-metric")).toBeNull();
+    expect(screen.queryByTestId("data-chart")).toBeNull();
+    expect(screen.queryByTestId("data-table")).toBeNull();
+    await waitFor(() => expect(puts.length).toBeGreaterThan(0), { timeout: 3000 });
+    expect(lastSaved().sections).toEqual([{ title: "", text: "", metrics: [], charts: [], tables: [] }]);
+    // The summary and the sources are the dashboard's, not the section's.
+    expect(lastSaved().summary).toBe("Sales through October.");
+    await waitFor(() => expect(screen.getByTestId("node-editor-save-state").getAttribute("data-state")).toBe("saved"), { timeout: 3000 });
   });
 
   it("flips a delta's reading from the inspector", async () => {

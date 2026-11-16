@@ -157,11 +157,13 @@ describe("Timeline", () => {
     expect(screen.getByTestId("motion-playhead").style.left).toBe("262px");
   });
 
-  it("marks a scene the server would refuse", () => {
+  it("marks a scene the server would refuse, never a blank one", () => {
     const spec = film();
+    spec.scenes[1] = { type: "chart", chart: { type: "line", x: ["a"], series: [] }, seconds: 4, transition: "fade" };
     spec.scenes[2] = { ...spec.scenes[2], title: "" };
     setup({ spec });
-    expect(screen.getByTestId("motion-scene-2").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByTestId("motion-scene-1").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByTestId("motion-scene-2").getAttribute("aria-invalid")).toBeNull();
     expect(screen.getByTestId("motion-scene-0").getAttribute("aria-invalid")).toBeNull();
   });
 });

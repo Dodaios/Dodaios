@@ -119,7 +119,8 @@ _FIELDS: Final[dict[str, tuple[str, ...]]] = {
 }
 
 #: The field a layout cannot do without. A slide that asks for a layout but
-#: lacks it gets the layout its fields do fit.
+#: lacks it gets the layout its fields do fit, unless it may stay blank
+#: (``_BLANK_LAYOUTS``).
 _CORE: Final[dict[str, tuple[str, ...]]] = {
     "title": ("title",),
     "section": ("title",),
@@ -133,6 +134,16 @@ _CORE: Final[dict[str, tuple[str, ...]]] = {
     "steps": ("steps",),
     "closing": ("title",),
 }
+
+#: Layouts a slide keeps while it holds nothing of them yet (the blank opening
+#: of a new deck, a slide whose texts the person deleted): their page draws
+#: them blank, and the editor writes into them again. A chart, table or image
+#: slide is nothing without its content, and a columns slide takes no single
+#: column, so those keep their content instead: an emptied column or table
+#: cell keeps its place (``_columns``, ``_table``).
+_BLANK_LAYOUTS: Final[frozenset[str]] = frozenset(
+    {"title", "section", "bullets", "quote", "stats", "steps", "closing"}
+)
 
 #: Layouts named after their one structured field, most specific first: this
 #: is the order a slide without a ``layout`` is matched in.
@@ -233,6 +244,8 @@ def _bullets(value: Any, where: str) -> list[str]:
 
 
 def _columns(value: Any, where: str) -> list[dict[str, Any]]:
+    """2 or 3 columns. A column whose texts were deleted keeps its place as
+    ``{}``: dropping it would leave one column, which a columns slide refuses."""
     found: list[dict[str, Any]] = []
     for raw in as_list(value, 12):
         if isinstance(raw, str):
@@ -247,8 +260,7 @@ def _columns(value: Any, where: str) -> list[dict[str, Any]]:
         bullets = _texts(raw.get("bullets"), MAX_COLUMN_BULLETS, COLUMN_BULLET_CHARS)
         if bullets:
             column["bullets"] = bullets
-        if column:
-            found.append(column)
+        found.append(column)
     if len(found) == 1:
         raise NodeError(
             f'{where}: "columns" needs 2 or 3 columns, each {{"title", "text", "bullets"}}; '
@@ -300,11 +312,15 @@ def _table(value: Any, where: str) -> dict[str, Any]:
     )
     if not isinstance(value, dict):
         raise NodeError(hint)
-    names = value.get("columns") or value.get("headers")
-    columns = [_text(name, 32) for name in as_list(names, MAX_TABLE_COLUMNS)]
-    if not any(columns):
+    names = as_list(value.get("columns") or value.get("headers"), MAX_TABLE_COLUMNS)
+    # A name whose text was deleted is still a column; names that are no text are no table.
+    if not any(
+        isinstance(name, (str, int, float)) and not isinstance(name, bool) for name in names
+    ):
         raise NodeError(hint)
+    columns = [_text(name, 32) for name in names]
     rows: list[list[str]] = []
+    blank: list[list[str]] = []
     for raw in as_list(value.get("rows"), 4 * MAX_TABLE_ROWS):
         if isinstance(raw, dict):
             cells = [raw.get(name) for name in columns]
@@ -314,11 +330,12 @@ def _table(value: Any, where: str) -> dict[str, Any]:
             continue
         row = [_text(cell, CELL_CHARS) for cell in cells]
         row += [""] * (len(columns) - len(row))
-        if any(row):
-            rows.append(row)
-    if not rows:
+        (rows if any(row) else blank).append(row)
+    if not rows and not blank:
         raise NodeError(hint)
-    return {"columns": columns, "rows": rows[:MAX_TABLE_ROWS]}
+    # An empty row is dropped, unless every row is empty: a table whose texts
+    # the person deleted keeps its grid, to be written into again.
+    return {"columns": columns, "rows": (rows or blank)[:MAX_TABLE_ROWS]}
 
 
 def _image(value: Any, where: str) -> str:
@@ -430,7 +447,8 @@ def _infer(found: dict[str, Any], first: bool) -> str:
 
 
 def _slide(raw: Any, position: int, first: bool) -> dict[str, Any] | None:
-    """One clean slide, or ``None`` for an entry with nothing to show."""
+    """One clean slide, or ``None`` for an entry that names no layout and
+    holds nothing to show."""
     if isinstance(raw, str):
         raw = {"title": raw}
     if not isinstance(raw, dict):
@@ -447,11 +465,16 @@ def _slide(raw: Any, position: int, first: bool) -> dict[str, Any] | None:
         if value:
             found[key] = value
     layout = asked if asked and any(found.get(key) for key in _CORE[asked]) else ""
+    # A slide that names a layout it may be drawn blank in, and holds nothing
+    # that layout leaves out, keeps it with whatever it holds, even nothing: a
+    # new deck's blank opening, a slide whose texts the person deleted, an
+    # opening whose title is being written anew. Dropping or re-laying it
+    # would take it from under the person's hands in the middle of an edit.
+    if not layout and asked in _BLANK_LAYOUTS and all(key in _FIELDS[asked] for key in found):
+        layout = asked
     layout = layout or _infer(found, first)
-    # A slide that names its layout and holds some of that layout's texts, but
-    # fits no layout (an opening whose title the person is writing anew, a
-    # quote with only its author yet), keeps its layout: dropping it would
-    # lose what it holds in the middle of an edit.
+    # So does a slide that names another layout and holds some of its texts
+    # but fits no layout (a picture slide with only its caption yet).
     if not layout and asked and any(found.get(key) for key in _FIELDS[asked]):
         layout = asked
     if not layout:
@@ -481,10 +504,14 @@ def _accent(value: Any) -> str:
 def normalize(spec: Any) -> dict[str, Any]:
     """A clean deck: known fields only, texts clipped, lists capped.
 
+    A deck may be blank: a slide that names its layout stays even when it
+    holds no text (see ``_BLANK_LAYOUTS``), so deleting texts never makes a
+    deck unsaveable.
+
     Raises:
-        NodeError: with one sentence that says what to send, when there is no
-            slide to show or a slide's chart, table, columns or image cannot
-            be drawn.
+        NodeError: with one sentence that says what to send, when no entry is
+            a slide (none names a layout or holds a text) or a slide's chart,
+            table, columns or image cannot be drawn.
     """
     if isinstance(spec, (list, tuple)):
         spec = {"slides": list(spec)}
@@ -526,25 +553,14 @@ def preview(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def starter(title: str, language: str) -> dict[str, Any]:
-    """A fresh deck: an opening slide, one with points, a closing one.
+    """A fresh deck, empty as a new presentation: one blank opening slide.
 
-    The placeholder words are English in every language; they are few and
-    the first edit replaces them.
+    It holds no text, not even the node's name (the stage and the slides'
+    footers name the deck themselves); the editor shows its greyed prompts in
+    the empty fields, and they are no content.
     """
-    del language
-    return normalize(
-        {
-            "slides": [
-                {"layout": "title", "title": title or "Untitled deck", "subtitle": "Subtitle"},
-                {
-                    "layout": "bullets",
-                    "title": "The point of this slide",
-                    "bullets": ["First point", "Second point", "Third point"],
-                },
-                {"layout": "closing", "title": "Next steps", "subtitle": "What happens now"},
-            ]
-        }
-    )
+    del title, language
+    return normalize({"slides": [{"layout": "title"}]})
 
 
 EXAMPLE: Final[dict[str, Any]] = {
