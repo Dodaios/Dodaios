@@ -208,7 +208,7 @@ export function AgentBrowserPreview({ agent }: { agent: SocietyAgent }) {
         {t(state.handback.typed ? "society.browser_takeover.handed_back_typed" : "society.browser_takeover.handed_back")}
       </p>}
       {state.approval && <div className="mt-2 text-xs">
-        <p>{t("society.browser_live.approval")} {state.approval.action}</p>
+        <p>{t("society.browser_live.approval")} {state.approval.summary || state.approval.action}</p>
         <button className={buttonClass} onClick={() => void approve(true)}>{t("society.browser_live.allow")}</button>
         <button className={buttonClass} onClick={() => void approve(false)}>{t("society.browser_live.deny")}</button>
       </div>}

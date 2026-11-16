@@ -25,7 +25,8 @@ export interface BrowserViewState {
   target: string;
   error: string;
   pointer?: BrowserPointerState;
-  approval?: { id: string; action: string };
+  /** `summary`: what the step is in words (a committing click names its button and site). */
+  approval?: { id: string; action: string; summary?: string };
   dialog?: { type: string; message: string };
   /** The agent asked the person to take over (CAPTCHA, sign-in, a second factor). */
   takeoverRequest?: { id: string; reason: string };
@@ -275,7 +276,7 @@ export function useBrowserView(agentId: string, enabled = true) {
             } else if (event.kind === "control_pending") {
               setState((s) => ({ ...s, controlPending: true }));
             } else if (event.kind === "approval") {
-              setState((s) => ({ ...s, approval: { id: event.id, action: event.action } }));
+              setState((s) => ({ ...s, approval: { id: event.id, action: event.action, summary: typeof event.summary === "string" ? event.summary : undefined } }));
             } else if (event.kind === "dialog") {
               setState((s) => ({ ...s, dialog: event }));
             } else if (event.kind === "approval_cleared") {
