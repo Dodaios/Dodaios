@@ -12,10 +12,16 @@ no key or token ever leaves the computer in it (``core.redact``).
 
 from __future__ import annotations
 
+import html
+
 from dodaios.core.redact import redact_secrets
 from dodaios.speech.hangup import END_CALL_SIGNAL
 
-__all__ = ["readable_text"]
+__all__ = ["readable_text", "telegram_html", "without_fences"]
+
+#: The line that opens and closes a code block in an approval's text.
+_FENCE = "```"
+_NL = "\n"
 
 
 def readable_text(text: str) -> str:
@@ -26,3 +32,36 @@ def readable_text(text: str) -> str:
     """
     out = (text or "").replace(END_CALL_SIGNAL, "")
     return redact_secrets(out).strip()
+
+
+def telegram_html(text: str) -> str:
+    """``text`` for Telegram's HTML parse mode: escaped, each fenced block as ``<pre>``.
+
+    Only ``&``, ``<`` and ``>`` are escaped, so the command inside a block is
+    the very command that runs. A block left open runs to the end.
+    """
+    out: list[str] = []
+    block: list[str] | None = None
+    for line in (text or "").split(_NL):
+        if line.strip() == _FENCE:
+            if block is None:
+                block = []
+            else:
+                out.append(_pre(block))
+                block = None
+        elif block is not None:
+            block.append(line)
+        else:
+            out.append(html.escape(line, quote=False))
+    if block is not None:
+        out.append(_pre(block))
+    return _NL.join(out)
+
+
+def without_fences(text: str) -> str:
+    """``text`` with the fence lines of its code blocks left out (plain text)."""
+    return _NL.join(line for line in (text or "").split(_NL) if line.strip() != _FENCE)
+
+
+def _pre(lines: list[str]) -> str:
+    return "<pre>" + html.escape(_NL.join(lines), quote=False) + "</pre>"

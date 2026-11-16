@@ -17,6 +17,7 @@ Regression tests for:
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 from types import SimpleNamespace
 from typing import Any
@@ -234,8 +235,11 @@ async def test_a_telegram_approval_shows_the_whole_command() -> None:
     bridge.install()
     service.emit("s1", "approval_required", _shell("ap3", TRACEBACK_COMMAND))
     await _settled(service, bridge)
-    text = bot.send_message.await_args.kwargs["text"]
-    assert TRACEBACK_COMMAND in text and "```" not in text
+    sent = bot.send_message.await_args.kwargs
+    # A code block in Telegram's HTML: the command escaped for HTML, nothing else.
+    assert sent["parse_mode"] == "HTML"
+    assert f"<pre>{html.escape(TRACEBACK_COMMAND, quote=False)}</pre>" in sent["text"]
+    assert "```" not in sent["text"]
 
 
 # --- approvals settle --------------------------------------------------------------
