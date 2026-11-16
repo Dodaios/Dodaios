@@ -26,7 +26,7 @@ import { DiffStat, DiffView } from "./ThreadDiff";
 import { FileTypeIcon } from "@/components/agentic/sidePanel/explorer/FileTypeIcon";
 import { MagicWordText } from "./MagicWordText";
 import { PlanCard, PlanList, planParts, planText } from "./ThreadPlan";
-import { compactionInfo } from "@/components/agentchat/compaction";
+import { compactionInfo, isCompaction } from "@/components/agentchat/compaction";
 import "./threadCompaction.css";
 
 /**
@@ -1010,7 +1010,9 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
   // above reads finished, so the live line says what it still waits for.
   const waitingOn = running ? turn.waitingOn ?? [] : [];
   const extraRows = extras ?? [];
-  const folded = !running && (work.length > 0 || extraRows.length > 0);
+  // A turn that only compacted the conversation (`/compact`): its line is the whole turn.
+  const onlyCompaction = turn.blocks.length > 0 && turn.blocks.every(isCompaction);
+  const folded = !running && !onlyCompaction && (work.length > 0 || extraRows.length > 0);
   const duration = turn.durationMs != null ? traceDuration(turn.durationMs) : "";
   const timed = (key: string) => duration ? fill(t(`thread_turn.${key}_after`), { duration }) : t(`thread_turn.${key}`);
   const workedFor = duration ? fill(t("thread_turn.worked_for"), { duration }) : "";
@@ -1019,7 +1021,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
       : workedFor || t("thread_turn.worked");
   const closing = turn.status === "cancelled" ? timed("stopped")
     : turn.status === "error" ? timed("failed")
-      : answer ? workedFor : timed("no_answer");
+      : answer || onlyCompaction ? workedFor : timed("no_answer");
   const renderRows = (list: readonly ThreadRow[]) => joinStretches(joinAgentRuns(list), { t, lang, running, titles: turn.toolTitles, thoughtsApart: true }).map((row) =>
     row.kind === "stretch" ? <StretchView key={row.id} stretch={row} running={running} />
       : row.kind === "agents" ? <SubagentRun key={row.id} blocks={row.blocks} turn={turn} /> : renderRow(row));

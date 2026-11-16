@@ -66,6 +66,19 @@ describe("a thread turn whose agent compacts its conversation", () => {
     expect(line.getAttribute("title")).toBe("Too big");
   });
 
+  it("stays in view on a turn that only compacted (/compact), with no missing-answer note", () => {
+    const turn = turnOf([
+      ev("turn_started", { turn_id: "t9", provider: "claude-cli" }),
+      ev("compaction", { turn_id: "t9", call_id: "k9", phase: "started" }),
+      ev("compaction", { turn_id: "t9", call_id: "k9", phase: "done", trigger: "manual", tokens_before: 63_600, tokens_after: 17_900 }),
+      ev("turn_finished", { turn_id: "t9", status: "done", duration_ms: 15_000 }),
+    ]);
+    render(<ThreadTurn turn={turn} />);
+    expect(screen.getByTestId("thread-compaction").textContent).toContain("63.6k → 17.9k tokens");
+    expect(screen.queryByTestId("thread-worked-for")).toBeNull();
+    expect(screen.getByTestId("thread-turn-closing").textContent).not.toMatch(/without an answer/i);
+  });
+
   it("folds with the work once the turn is finished", () => {
     const turn = turnOf([
       ...compacted(),
