@@ -499,7 +499,12 @@ async def test_a_reply_language_never_stands_in_for_the_leads_identity(
         assert phrase in shape_line, phrase
     if surface == "jarvis":
         assert seen["prompt"] == (
-            "Was steht heute an?" + shape_line + card_line + "\nRespond in this language: de"
+            "Was steht heute an?"
+            # ... and to take a task on in a line of its own before the first tool.
+            + dodaios_harness.FIRST_LINE
+            + shape_line
+            + card_line
+            + "\nRespond in this language: de"
         )
     else:
         assert card_line not in str(seen["prompt"])
@@ -648,4 +653,57 @@ async def test_a_lead_message_about_a_secret_names_the_secure_field(monkeypatch,
     line = dodaios_harness.SECRET_FIELD_LINE
     assert "society_request_credential" in line
     assert (line in str(seen["prompt"])) is carries
+    assert str(seen["prompt"]).endswith(dodaios_harness.QUESTION_CARD_LINE)
+
+
+@pytest.mark.parametrize("continuation", [False, True])
+async def test_the_lead_is_told_beside_the_message_to_take_the_task_on_first(
+    monkeypatch, continuation
+):
+    """The line before the first tool call is asked for beside the message.
+
+    The reply style asks for it in the system prompt; a model that reasons and
+    then reaches for its tool wrote none (tried 2026-11-16), and the person
+    watched an empty chat until the result came. A turn that carries a running
+    task on has already taken it on and does not get the line again.
+    """
+    from types import SimpleNamespace
+
+    from dodaios.agent_chat import dodaios_harness, runner_cli
+    from dodaios.agent_chat.runner_api import TurnHandle
+
+    seen: dict[str, object] = {}
+
+    async def build_identity(**kwargs):
+        return dodaios_harness.Identity(kwargs["session_id"], "id", "id")
+
+    async def once(handle, prompt, runner, resume, **kwargs):
+        seen["prompt"] = prompt
+        return runner_cli._Outcome("done", None, {}, None, resume)  # noqa: SLF001
+
+    async def emit(_event):
+        return None
+
+    async def deny(*_args):
+        return "deny"
+
+    async def no_identity(_session):
+        return None
+
+    monkeypatch.setattr(runner_cli, "_surface_identity", no_identity)
+    monkeypatch.setattr(dodaios_harness, "build_identity", build_identity)
+    monkeypatch.setattr(runner_cli, "_run_cli_once", once)
+    handle = TurnHandle(
+        session=SimpleNamespace(
+            surface="jarvis", session_id="lead-1", vendor_session="vendor-1", account_id="",
+        ),
+        turn_id="t1", emit=emit, request_approval=deny, cancel=asyncio.Event(),
+        surface="jarvis", stance="ask", continuation=continuation,
+    )
+    await runner_cli.run_cli_turn(handle, "Find me a train", "claude-cli", identity=True)
+
+    line = dodaios_harness.FIRST_LINE
+    assert "one short line that takes the task on" in line
+    assert "then call the tool in the same step" in line
+    assert (line in str(seen["prompt"])) is (not continuation)
     assert str(seen["prompt"]).endswith(dodaios_harness.QUESTION_CARD_LINE)

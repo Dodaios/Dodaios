@@ -155,6 +155,18 @@ QUESTION_CARD_LINE: Final[str] = (
     "(society_ask_user), all your questions in one call, not into your reply."
 )
 
+#: Rides on every message of the assistant's own chat, like the question card
+#: line and for the same reason. The reply style asks for a line that takes the
+#: task on before the first tool call; a model that reasons and then reaches
+#: for its tool wrote none, and the person watched an empty chat until the
+#: result came (tried 2026-11-16 in the Dev app: reasoning, tool, no message).
+FIRST_LINE: Final[str] = (
+    "\nIf this needs a tool: first write one short line that takes the task on and "
+    "repeats its concrete details, as a message of its own, then call the tool in the "
+    "same step. The result follows as the next message; what comes below about the "
+    "reply is about that result."
+)
+
 #: Beside a lead message that mentions a secret (an API key, a token, a password …):
 #: the long lead conversation holds turns that sent the person to a settings page
 #: for a key, and a rule in the system prompt alone loses against those (see the
@@ -935,6 +947,7 @@ async def build_identity(
 __all__ = [
     "ACTING_PREAMBLE",
     "CHAT_MESSAGES",
+    "FIRST_LINE",
     "QUESTION_CARD_LINE",
     "REPLY_SHAPE_LINE",
     "SECRET_FIELD_LINE",
