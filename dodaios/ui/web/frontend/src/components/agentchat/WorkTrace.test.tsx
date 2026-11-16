@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { groupTrace, groupActivityTrace, livePetState, splitConversationTurn, WorkTrace, traceDuration } from "./WorkTrace";
 import { traceToolIdentity } from "./traceActivity";
 import { failureReason } from "./traceEntries";
-import type { TextBlock, ToolBlock, TurnBlock, TurnStatus } from "./reduce";
+import { EMPTY_TIMELINE, reduceEvents, type TextBlock, type ToolBlock, type TurnBlock, type TurnItem, type TurnStatus } from "./reduce";
+import type { AgentChatEvent } from "@/lib/agentChatApi";
 
 const tool = (id: string, over: Partial<ToolBlock> = {}): ToolBlock => ({
   kind: "tool", callId: id, name: "read_file", input: { path: `${id}.ts` }, output: `Contents of ${id}`,
@@ -289,6 +290,28 @@ describe("work trace", () => {
       error="The model stopped answering." blocks={[reply("r", "Half an answer.")]} />);
     expect(screen.getByRole("alert").className).toContain("trace-fail");
     expect(screen.getByRole("status").className).toBe("sr-only");
+  });
+
+  it("keeps nothing of an answered question card in a messenger conversation, while the turn works on or after", () => {
+    const ev = (seq: number, kind: string, payload: Record<string, unknown>) => ({ seq, ts_ms: 1000, kind, payload }) as AgentChatEvent;
+    const answered = [
+      ev(1, "turn_started", { turn_id: "t1" }),
+      ev(2, "tool_call", { turn_id: "t1", call_id: "c1", name: "mcp__dodaios__society_ask_user", input: {} }),
+      ev(3, "question_required", { turn_id: "t1", question_id: "q1", asker: "Dodaios",
+        questions: [{ question: "Which class?", options: [{ label: "First" }, { label: "Business" }], recommended: 0 }] }),
+      ev(4, "question_resolved", { turn_id: "t1", question_id: "q1", answers: [{ answer: "Business", option_index: 1, source: "person" }] }),
+    ];
+    const blocksOf = (events: AgentChatEvent[]) => (reduceEvents(EMPTY_TIMELINE, events).items.find((item) => item.type === "turn") as TurnItem).blocks;
+    const answer = (text: string) => <p>{text}</p>;
+    const { container, rerender } = render(<WorkTrace {...props} status="running" durationMs={null} messenger renderAnswer={answer} blocks={blocksOf(answered)} />);
+    expect(container.querySelector("[data-settled]")).toBeNull();
+    expect(container.textContent).not.toContain("Business");
+    rerender(<WorkTrace {...props} messenger renderAnswer={answer} blocks={blocksOf([...answered, ev(5, "assistant_text", { turn_id: "t1", text: "Thanks." })])} />);
+    expect(container.querySelector("[data-settled]")).toBeNull();
+    expect(container.textContent).not.toContain("Business");
+    // A work view keeps its one quiet line with the answers.
+    rerender(<WorkTrace {...props} status="running" durationMs={null} blocks={blocksOf(answered)} />);
+    expect(container.querySelector("[data-settled]")).not.toBeNull();
   });
 
   it("rests without a state line in a messenger conversation, and keeps it for a turn that needs one", () => {

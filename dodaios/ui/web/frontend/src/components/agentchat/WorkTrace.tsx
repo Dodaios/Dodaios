@@ -12,7 +12,7 @@ import { ApprovalActionCard, type ApprovalDecide } from "./actionCard/ApprovalAc
 import { billedPerToken, hasPersonCard, isCredentialTool, isQuestionTool, waitsInBackground, waitsOnCard, type ReasoningBlock, type TextBlock, type ToolBlock, type ToolReceipt, type TurnBlock, type TurnItem, type TurnStatus } from "./reduce";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { CredentialCard } from "./CredentialCard";
-import { QuestionCard } from "./QuestionCard";
+import { QuestionCard, QuestionSettledContext } from "./QuestionCard";
 import { TypingBubble } from "./TypingBubble";
 import { toolDiff } from "./toolDiff";
 import { formatTokens, outputTokens } from "./toolView";
@@ -637,7 +637,10 @@ const NO_BLOCKS: TurnBlock[] = [];
 const NO_TEXT: TextBlock[] = [];
 
 export function WorkTrace({ look = "rail", ...props }: WorkTraceProps & { look?: TraceLook }) {
-  return <TraceLookContext.Provider value={look}><WorkTraceBody {...props} /></TraceLookContext.Provider>;
+  const body = <TraceLookContext.Provider value={look}><WorkTraceBody {...props} /></TraceLookContext.Provider>;
+  // A messenger conversation keeps nothing of a card the person answered:
+  // no line of answer chips under the question (maintainer, 2026-11-16).
+  return props.messenger ? <QuestionSettledContext.Provider value="hidden">{body}</QuestionSettledContext.Provider> : body;
 }
 
 type WorkTraceProps = {

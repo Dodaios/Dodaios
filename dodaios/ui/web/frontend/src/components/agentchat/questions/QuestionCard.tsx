@@ -1,4 +1,4 @@
-import { memo, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
+import { createContext, memo, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from "react";
 import { CircleAlert, CornerDownLeft, MoreHorizontal, Sparkles } from "lucide-react";
 import { useT } from "@/i18n";
 import type { QuestionState } from "../reduce";
@@ -21,6 +21,15 @@ import { ChatReplyBubble, Dots, SettledQuestion } from "./SettledQuestion";
 import { useQuestionActions } from "./useQuestionActions";
 import { useQuestionKeyboard } from "./useQuestionKeyboard";
 import "./questionCard.css";
+
+export type QuestionSettled = "summary" | "hidden";
+
+/**
+ * What an answered card leaves where it is drawn, for the cards of a whole
+ * view: the Dodaios conversation draws its turns' cards through the work
+ * trace and keeps none of them once answered (maintainer, 2026-11-16).
+ */
+export const QuestionSettledContext = createContext<QuestionSettled>("summary");
 
 /**
  * An agent's question card (dodaios/agent_chat/questions.py).
@@ -46,12 +55,14 @@ import "./questionCard.css";
  */
 export const QuestionCard = memo(function QuestionCard({
   question,
-  settled = "summary",
+  settled: asked,
 }: {
   question: QuestionState;
-  settled?: "summary" | "hidden";
+  settled?: QuestionSettled;
 }) {
   const t = useT();
+  const around = useContext(QuestionSettledContext);
+  const settled = asked ?? around;
   const draft = useQuestionDraft(question.questionId);
   const look = useAskerLook(question.asker);
   const agentName = question.asker || t("question_card.fallback_agent");
