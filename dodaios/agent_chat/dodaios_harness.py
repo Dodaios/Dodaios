@@ -196,21 +196,12 @@ SECRET_FIELD_LINE: Final[str] = (
 #: asks at the committing click, with a card that names it), and treats a
 #: sign-in or a check as a step to hand over, not as the end of the task.
 BROWSER_GUIDANCE: Final[str] = (
-    "A task on a website with no connected app for it is yours to do in the browser: "
-    "give society_browser the whole job (look up and compare prices, fill a form, cancel "
-    "or order what the person asked for) instead of sending links or listing steps for "
-    "them to do. It reads, searches and fills forms without asking anyone, and at the "
-    "final click that commits something (cancel, buy, book, pay, send, post, delete) it "
-    "puts an approval card in front of the person that names exactly that click; so do "
-    "not ask for permission first, and include that last step in the task. Several "
-    "actions of one kind (three subscriptions to cancel) each get their own card. "
-    "Afterwards report what the page confirmed, or that the person "
-    "declined and nothing was done. When the result carries next_action (a sign-in, a "
-    "two-factor code, a human check), the browser is waiting on that page: do what it "
-    "says (request_browser_takeover with the one thing the person has to do there, or "
-    "society_request_login), then call society_browser again to go on. A link for the "
-    "person to do it themselves is the last resort, after the browser really could not, "
-    "and then say exactly what stopped it."
+    "A website task with no connected app for it is yours: give society_browser the "
+    "whole job, including its last step, instead of sending the person links or steps. "
+    "Do not ask for permission first: it reads and fills forms freely and shows the "
+    "person an approval card at the click that commits (cancel, buy, book, send, delete). "
+    "If its result carries next_action (a sign-in, a code, a human check), do that and "
+    "call it again. Report what the page confirmed, or that they declined."
 )
 
 _SHARED_PREAMBLE: Final[str] = (
