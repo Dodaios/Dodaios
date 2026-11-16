@@ -148,9 +148,9 @@ def test_the_plain_ask_tool_only_requires_the_question():
     spec = openclaw_gate.ask_spec("dodaios")
     items = spec["schema"]["properties"]["questions"]["items"]
     assert items["required"] == ["question"]
-    assert AskUserTool.schema["properties"]["questions"]["items"]["required"] == [
-        "question", "recommendation_reason",
-    ]  # Dodaios' own schema is untouched
+    # Dodaios' own schema asks for the question only too: a question may
+    # recommend nothing, so it has no reason to give.
+    assert AskUserTool.schema["properties"]["questions"]["items"]["required"] == ["question"]
     asked = {"questions": [{"id": "color-pref", "header": "Colour", "question": "Which colour?",
                             "options": [{"label": "red"}, {"label": "green"}],
                             "multiSelect": False}]}
@@ -571,6 +571,8 @@ def test_the_plugins_ask_call_passes_dodaios_mcp_endpoint(monkeypatch):
         assert seen and seen[0]["questions"][0]["question"] == "Which colour?"
         bare = call("tools/call", {"name": "society_ask_user",
                                    "arguments": {"questions": [question]}})
-        assert bare["result"]["isError"] is True  # why the plugin fills the reason in
+        # A question without a reason reaches the card as well; the plugin still
+        # fills the reason in for older Dodaios builds that require it.
+        assert bare["result"]["isError"] is False, bare
     source = openclaw_gate.source()
     assert 'next.recommendation_reason = ""' in source
