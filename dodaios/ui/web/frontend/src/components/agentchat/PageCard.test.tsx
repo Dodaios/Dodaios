@@ -3,6 +3,9 @@ import { afterEach, expect, it, vi } from "vitest";
 
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key }));
 vi.mock("@/hooks/useTheme", () => ({ useThemeValue: () => "light" }));
+// The window's chunk is fetched ahead of the click; here only the asking counts.
+const preloadNodePeek = vi.hoisted(() => vi.fn());
+vi.mock("@/components/nodes/peek/peekFrame", () => ({ preloadNodePeek }));
 
 import { useAgentChatStore } from "@/store/agentChat";
 import { useNodePeek } from "@/store/nodePeek";
@@ -12,6 +15,7 @@ import type { NoticeItem, TimelineItem } from "./reduce";
 afterEach(() => {
   cleanup();
   useNodePeek.setState({ peek: null, touched: {} });
+  preloadNodePeek.mockClear();
 });
 
 const PAGE = "run-1::tasks/report/artifacts/files/plan.html";
@@ -49,6 +53,20 @@ it("shows a page as a link when the turn made several", () => {
   expect(screen.queryByTestId("page-card")).toBeNull();
   fireEvent.click(screen.getByTestId("page-link"));
   expect(useNodePeek.getState().peek?.ref).toBe(PAGE);
+});
+
+it("fetches the window's code when the pointer or the keyboard reaches a card or a link, before the click", () => {
+  render(<PageCard item={notice({ artifact: PAGE })} />);
+  expect(preloadNodePeek).not.toHaveBeenCalled();
+  fireEvent.pointerEnter(screen.getByTestId("page-card"));
+  expect(preloadNodePeek).toHaveBeenCalledTimes(1);
+  fireEvent.focus(screen.getByTestId("page-card-title"));
+  expect(preloadNodePeek).toHaveBeenCalledTimes(2);
+  cleanup();
+  preloadNodePeek.mockClear();
+  render(<PageLink pageRef={PAGE} label="Plan" />);
+  fireEvent.pointerEnter(screen.getByTestId("page-link"));
+  expect(preloadNodePeek).toHaveBeenCalledTimes(1);
 });
 
 it("draws the preview again once the page's window was closed, so an edit made there shows", () => {

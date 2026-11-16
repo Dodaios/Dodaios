@@ -1138,12 +1138,20 @@ function ArtifactStage({
   const saving = useRef(0);
   const heldRevision = useRef<number | null>(null);
   const [editState, setEditState] = useState<{ saving: number; error: string }>({ saving: 0, error: "" });
+  /* What the watcher said last. Its first word about a page is the revision
+   * that page was just loaded in, not a change: drawing the page again for
+   * it loaded every typed node twice, with an empty frame in between. */
+  const knownRevision = useRef<number | null>(null);
   useEffect(() => {
     ownRevisions.current.clear();
     heldRevision.current = null;
+    knownRevision.current = null;
     setEditState({ saving: 0, error: "" });
   }, [id]);
   const onNodeUpdated = useCallback((updatedAt: number) => {
+    const known = knownRevision.current;
+    knownRevision.current = updatedAt;
+    if (known === null || known === updatedAt) return;
     if (ownRevisions.current.has(updatedAt)) return;
     // While a save is on its way the revision it makes may be reported first.
     if (saving.current > 0) {

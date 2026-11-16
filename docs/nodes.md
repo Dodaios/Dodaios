@@ -824,6 +824,22 @@ page link in an answer, and from a result card. A change of section closes
 it. The store is `store/nodePeek.ts`; `openNodePeek(ref, { chat })` opens a
 `slug::path` address beside the chat store it is given.
 
+The window is on screen at the click. Four things make that so:
+
+| What | Where |
+|------|-------|
+| The window's code is fetched while the app idles after its start, and again when the pointer reaches a card. | `preloadNodePeek` in `peek/peekFrame.ts` |
+| A click that is faster than that still gets the frame, the node's name and a close button at once. The content takes its place in the same frame. | `NodePeekFrame` in `peek/NodePeekHost.tsx` |
+| The conversation is not drawn a second time. The front page offers the element its conversation is drawn in, and the window moves that element beside the node and puts it back when it closes. The reader keeps their place. | `lender` in `store/nodePeek.ts`, `peek/moveKeepingPlace.ts`, `views/HomeView.tsx` |
+| The first frame is the window and the node. The conversation follows right after it. Nothing fades in and nothing is blurred. | `peek/NodePeekWindow.tsx` |
+
+A conversation the front page does not offer (a pane's chat in the IDE, an
+agent's chat) is drawn in the window, after the node.
+
+The stage loads a typed node's page once. The watcher's first answer names
+the revision that page already shows; only a later answer draws the page
+again.
+
 ## HTTP API
 
 All routes are in `dodaios/ui/web/nodes_routes.py`.

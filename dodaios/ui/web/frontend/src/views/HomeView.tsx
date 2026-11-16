@@ -1,6 +1,10 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useLayoutEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 
+import { useAgentChatStore } from "@/store/agentChat";
 import { useHomeStore } from "@/store/home";
+import { useNodePeek } from "@/store/nodePeek";
+import { moveKeepingPlace } from "@/components/nodes/peek/moveKeepingPlace";
 import { AssistantChat } from "@/components/home/AssistantChat";
 import { startNewTextChat } from "@/lib/newChat";
 import { useAgentBrowserStaged } from "@/components/home/chatBrowser/slot";
@@ -18,12 +22,50 @@ const AssistantPanel = lazy(() => import("@/components/home/AssistantPanel"));
  * now, the ways to reach it, its computers, the chats it handed a task to
  * and the files it made (components/home/AssistantPanel). A running call
  * shows as a card over the conversation.
+ *
+ * The conversation is drawn into an element of its own, which stands in its
+ * column here and is offered to the node window (`lender` in
+ * store/nodePeek). When a node is opened from the conversation, the window
+ * moves that element beside the node, as it is: nothing is drawn twice, so
+ * the window is there at the click however long the conversation is. The
+ * window puts it back when it closes.
  */
 export function HomeView() {
   const agentChatId = useHomeStore((s) => s.agentChatId);
   // The assistant's browser stage, opened large, takes the panel's place.
   const browserStaged = useAgentBrowserStaged();
   const showPanel = !agentChatId && !browserStaged;
+
+  /* The conversation's own element. Made once; React draws into it through a
+   * portal, so moving it in the page moves the conversation and keeps every
+   * state in it (what is typed, a running call, where the reader is). */
+  const conversation = useMemo(() => {
+    const element = document.createElement("div");
+    element.className = "relative flex min-h-0 min-w-0 flex-1 flex-col";
+    element.dataset.testid = "home-conversation";
+    return element;
+  }, []);
+  const home = useRef<HTMLDivElement>(null);
+  /* Only the one conversation with the assistant is lent: an agent's own chat
+   * reads another store, and the chat beside its browser is two columns. */
+  const lendable = showPanel;
+  const setLender = useNodePeek((s) => s.setLender);
+  // Into its column once; from then on only the window moves it, and back.
+  useLayoutEffect(() => {
+    if (home.current) home.current.appendChild(conversation);
+    return () => conversation.remove();
+  }, [conversation]);
+  useLayoutEffect(() => {
+    const column = home.current;
+    if (!lendable || !column) return;
+    setLender({ chat: useAgentChatStore, element: conversation, home: column });
+    return () => {
+      setLender(null);
+      // No longer on offer (an agent's chat took the column, the page is
+      // leaving): the conversation is here again before anything else is drawn.
+      moveKeepingPlace(conversation, column);
+    };
+  }, [conversation, lendable, setLender]);
   /** From an earlier chat on the stage back to the one conversation. */
   const backToConversation = () => {
     useHomeStore.getState().setSurface("chat");
@@ -31,8 +73,8 @@ export function HomeView() {
   };
   return (
     <div className="flex h-full min-h-0" data-testid="home-view">
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-        <AssistantChat />
+      <div ref={home} className="relative flex min-h-0 min-w-0 flex-1 flex-col" data-testid="home-conversation-column">
+        {createPortal(<AssistantChat />, conversation)}
       </div>
       {showPanel && (
         <div data-testid="assistant-panel-frame" className="hidden lg:flex">

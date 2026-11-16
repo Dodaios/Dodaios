@@ -20,8 +20,16 @@
  * out of everything portaled to <body>, which is where the composer's menus,
  * the editors' menus and the tooltips live. The window keeps focus to itself
  * by hand instead (`keepFocusInside`).
+ *
+ * It is on screen at the click, with no fade and no blur behind it: the
+ * first frame is the window and the node. The conversation follows right
+ * after that frame, and it is not drawn a second time: the one that is
+ * already on the page behind the window is moved into it (`BorrowedChat`,
+ * `moveKeepingPlace`), which costs one layout. Only a conversation that is
+ * drawn nowhere the window can borrow it from is drawn here
+ * (`useAfterFirstPaint`).
  */
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Maximize2, PanelRight, PanelRightClose, X } from "lucide-react";
 
@@ -39,8 +47,10 @@ import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useAgentChatStore, type AgentChatStoreHook } from "@/store/agentChat";
 import { useEventStore } from "@/store/events";
-import { useNodePeek, type NodePeekRequest } from "@/store/nodePeek";
+import { useNodePeek, type LentConversation, type NodePeekRequest } from "@/store/nodePeek";
 import { EmptyStage, Stage, isTypingTarget, visualOf, type StageChrome } from "@/views/VisualizationView";
+import { moveKeepingPlace } from "./moveKeepingPlace";
+import { PEEK_FRAME_CLASS, PEEK_SCRIM_CLASS } from "./peekFrame";
 import {
   CHAT_DEFAULT_WIDTH,
   CHAT_MIN_WIDTH,
@@ -167,6 +177,16 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
     onCollapse: hideChat,
   });
 
+  /* The conversation behind the window is this one: it is moved here as it
+   * is. Any other is drawn here. Either way after the node: the window's
+   * first frame waits for no conversation, however long it is. */
+  const lender = useNodePeek((s) => s.lender);
+  const borrowed = lender !== null && lender.chat === chat ? lender : null;
+  const painted = useAfterFirstPaint();
+  /* Moving is one layout and happens at once. Drawing a conversation here is
+   * long work: it waits its turn behind whatever the person does meanwhile. */
+  const drawHere = useDeferredValue(painted);
+
   /* --- keys and focus ---------------------------------------------------- */
 
   const [editorOpen, setEditorOpen] = useState(false);
@@ -273,7 +293,7 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
         aria-hidden
         onClick={requestClose}
         data-testid="node-peek-scrim"
-        className="absolute inset-0 bg-scrim/55 backdrop-blur-[2px] animate-in fade-in-0 duration-200"
+        className={PEEK_SCRIM_CLASS}
       />
       <div
         ref={frame}
@@ -283,12 +303,7 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
         tabIndex={-1}
         data-testid="node-peek-window"
         data-narrow={narrow ? "true" : "false"}
-        className={cn(
-          // Under the window caption (32px), then the same margin on every side.
-          "absolute inset-x-3 bottom-3 top-11 flex overflow-hidden rounded-2xl border border-border-strong bg-background shadow-float outline-none",
-          "sm:inset-x-6 sm:bottom-6 sm:top-14 xl:inset-x-10 xl:bottom-9 xl:top-[68px]",
-          "animate-in fade-in-0 zoom-in-[0.985] duration-200",
-        )}
+        className={PEEK_FRAME_CLASS}
       >
         <section className="relative flex min-h-0 min-w-0 flex-1 flex-col" data-testid="node-peek-stage">
           {visual === null && run === null ? (
@@ -355,7 +370,13 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
               narrow && "absolute inset-y-0 right-0 z-40 w-[min(100%,420px)] border-l border-border shadow-float animate-in slide-in-from-right-6 fade-in-0 duration-200",
             )}
           >
-            <PeekChat chat={chat} onHide={narrow ? hideChat : null} onClose={requestClose} />
+            <PeekChat
+              chat={chat}
+              borrowed={borrowed}
+              ready={borrowed !== null ? painted : drawHere}
+              onHide={narrow ? hideChat : null}
+              onClose={requestClose}
+            />
           </aside>
         )}
       </div>
@@ -371,10 +392,16 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
  */
 function PeekChat({
   chat,
+  borrowed,
+  ready,
   onHide,
   onClose,
 }: {
   chat: AgentChatStoreHook;
+  /** The conversation is on the page behind the window and is moved here; null when it is not. */
+  borrowed: LentConversation | null;
+  /** False for the window's first frame: the column is there, a conversation drawn here follows. */
+  ready: boolean;
   /** Over the node (a narrow window): the header puts the column away. Null beside it. */
   onHide: (() => void) | null;
   /** Beside the node, the header carries the window's close button. */
@@ -417,19 +444,65 @@ function PeekChat({
           </button>
         )}
       </header>
-      <div className="flex min-h-0 flex-1 flex-col" data-testid="node-peek-conversation">
-        <Suspense
-          fallback={
-            <div role="status" className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted-foreground">
-              {t("common.loading")}
-            </div>
-          }
-        >
-          <ChatStage />
-        </Suspense>
-      </div>
+      {borrowed !== null ? (
+        <BorrowedChat lent={borrowed} ready={ready} />
+      ) : (
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="node-peek-conversation" data-ready={ready ? "true" : "false"}>
+          {ready && (
+            <Suspense fallback={null}>
+              <ChatStage />
+            </Suspense>
+          )}
+        </div>
+      )}
     </AgentChatStoreProvider>
   );
+}
+
+/**
+ * The conversation from the page behind the window, moved here once the
+ * window's first frame is on screen, and put back where it came from before
+ * this place leaves the page. Putting it back happens in a layout cleanup on
+ * purpose: that runs while the conversation is still on the page, so the
+ * reader's place in it can be read and kept.
+ */
+function BorrowedChat({ lent, ready }: { lent: LentConversation; ready: boolean }) {
+  const place = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (ready && place.current) moveKeepingPlace(lent.element, place.current);
+  }, [lent, ready]);
+  useLayoutEffect(
+    () => () => {
+      if (lent.home.isConnected) moveKeepingPlace(lent.element, lent.home);
+    },
+    [lent],
+  );
+  return (
+    <div
+      ref={place}
+      className="flex min-h-0 min-w-0 flex-1 flex-col"
+      data-testid="node-peek-conversation"
+      data-borrowed="true"
+      data-ready={ready ? "true" : "false"}
+    />
+  );
+}
+
+/** False while the component's first frame is drawn, true right after it. */
+function useAfterFirstPaint(): boolean {
+  const [painted, setPainted] = useState(false);
+  useEffect(() => {
+    let timer: number | undefined;
+    // The frame callback runs before the paint; the timer it sets, after it.
+    const frame = window.requestAnimationFrame(() => {
+      timer = window.setTimeout(() => setPainted(true), 0);
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, []);
+  return painted;
 }
 
 /** Asked before the window closes on comments that were left and not sent. */

@@ -36,6 +36,17 @@ export interface NodePeekOptions {
   title?: string;
 }
 
+/**
+ * A conversation that is drawn on the page behind the window and can be
+ * moved into it: whose it is, the element it is drawn in, and the place on
+ * its own page it goes back to.
+ */
+export interface LentConversation {
+  chat: AgentChatStoreHook;
+  element: HTMLElement;
+  home: HTMLElement;
+}
+
 interface NodePeekState {
   peek: NodePeekRequest | null;
   /** The conversation column is shown. Remembered across restarts. */
@@ -45,9 +56,17 @@ interface NodePeekState {
    * preview again after that, so it shows what was edited in the window.
    */
   touched: Record<string, number>;
+  /**
+   * The conversation on the page behind the window, offered to it, or null
+   * when there is none. The window shows that conversation by moving its
+   * element beside the node, never by drawing it a second time: see
+   * `components/nodes/peek/moveKeepingPlace`.
+   */
+  lender: LentConversation | null;
   open: (ref: string, options?: NodePeekOptions) => void;
   close: () => void;
   setChatOpen: (open: boolean) => void;
+  setLender: (lent: LentConversation | null) => void;
 }
 
 function readChatOpen(): boolean {
@@ -70,6 +89,10 @@ export const useNodePeek = create<NodePeekState>((set, get) => ({
   peek: null,
   chatOpen: readChatOpen(),
   touched: {},
+  lender: null,
+  setLender: (lent) => {
+    if (get().lender !== lent) set({ lender: lent });
+  },
   open: (ref, options = {}) => {
     const parts = splitNodeRef(ref);
     if (parts === null) {

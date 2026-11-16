@@ -180,6 +180,15 @@ function installFetchMock(
   return fetchMock;
 }
 
+/**
+ * The watcher has had its first word about a typed node on stage: the
+ * revision the frame was loaded in. Only what it says after that is a change.
+ */
+async function watcherSettled(client: QueryClient, slug: string = NODE.slug) {
+  await waitFor(() => expect(client.getQueryData(["node-upkeep", slug])).toBeTruthy());
+  await act(async () => {});
+}
+
 /** Previous / next, the views and the file actions live behind "More". */
 function openMore() {
   fireEvent.click(screen.getByTestId("visualization-more"));
@@ -818,8 +827,12 @@ describe("VisualizationView", () => {
     // The watcher asks for the node's state, without its content …
     const watched = `/api/nodes/by-slug/${NODE.slug}?spec=0`;
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url) === watched)).toBe(true));
-    // … and the frame is addressed by the revision it shows.
-    await waitFor(() => expect(frameSrc()).toMatch(/&v=1700000000$/));
+    // … and its first answer is the revision the frame already shows: the
+    // page is not loaded a second time for it.
+    const frame = screen.getByTestId("visualization-frame");
+    await watcherSettled(client);
+    expect(frameSrc()).toMatch(/&v=0$/);
+    expect(screen.getByTestId("visualization-frame")).toBe(frame);
 
     // The assistant revises the node while it is open: the next look at its
     // state draws the page again.
@@ -865,7 +878,8 @@ describe("VisualizationView", () => {
     const { client } = renderView();
 
     fireEvent.click(await findCard(NODE.key));
-    await waitFor(() => expect(frameSrc()).toMatch(/&v=1700000000$/));
+    await screen.findByTestId("visualization-frame");
+    await watcherSettled(client);
     const frame = screen.getByTestId("visualization-frame") as HTMLIFrameElement;
     const posted = vi.spyOn(frame.contentWindow as Window, "postMessage");
     const toggle = screen.getByTestId("visualization-comment");
@@ -950,7 +964,8 @@ describe("VisualizationView", () => {
     const { client } = renderView();
 
     fireEvent.click(await findCard(NODE.key));
-    await waitFor(() => expect(frameSrc()).toMatch(/&v=1700000000$/));
+    await screen.findByTestId("visualization-frame");
+    await watcherSettled(client);
     const frame = screen.getByTestId("visualization-frame") as HTMLIFrameElement;
     const posted = vi.spyOn(frame.contentWindow as Window, "postMessage");
     // Always the frame on screen: a page drawn again is a new frame.
@@ -978,7 +993,7 @@ describe("VisualizationView", () => {
     // … and the watcher's report of that very revision leaves the page as it is.
     await client.invalidateQueries({ queryKey: ["node-upkeep", NODE.slug] });
     await waitFor(() => expect(note()).toBe("editing"));
-    expect(frameSrc()).toMatch(/&v=1700000000$/);
+    expect(frameSrc()).toMatch(/&v=0$/);
 
     // A field that needs it is drawn again at once.
     fromPage({ type: "dodaios-node-edit", id: 2, path: "/markdown", value: "## New", as: "text", refresh: true });

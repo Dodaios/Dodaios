@@ -111,7 +111,9 @@ export function ChatWithBrowser({ children, agentId = ASSISTANT_BROWSER_AGENT }:
   return (
     <div className="relative flex min-h-0 flex-1 flex-row" data-testid="chat-with-browser">
       <div className={cn("relative flex min-h-0 flex-col",
-        staged ? "w-[40%] min-w-[340px] max-w-[560px] shrink-0" : "flex-1")}>
+        // min-w-0: a row item is otherwise as wide as its widest line at least,
+        // and beside a node (the node window) the chat stands in a narrow column.
+        staged ? "w-[40%] min-w-[340px] max-w-[560px] shrink-0" : "min-w-0 flex-1")}>
         {children}
       </div>
       {live && (
