@@ -100,6 +100,7 @@ def test_expected_builtin_count() -> None:
         "control-api",
         "cli-gcloud",
         "dodaios-doc-author",
+        "agent-brief",
     }
     assert base.issubset(set(BUILTIN_SKILL_NAMES)), (
         f"missing base skill(s): {base - set(BUILTIN_SKILL_NAMES)}"

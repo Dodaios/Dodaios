@@ -11,6 +11,7 @@ List of bundled skills:
   - deep-work-mode    DND + focus timer via hotkey/voice
   - memory-save       "remember that ..." saved to memory-MCP
   - skill-creator     meta-skill for building further skills
+  - agent-brief       how Dodaios writes the prompt it hands to another agent
   - plugin-<id>       Paired skills for marketplace plugins (2026-06-07): each
                       teaches the router which voice/chat intents reach the
                       connected plugin's tools (gmail, github, stripe, ...).
@@ -97,6 +98,7 @@ BUILTIN_SKILL_NAMES: tuple[str, ...] = (
     # copied to the user skills dir and never loaded — the same dead-bundle
     # defect the plugin list carries its own warning about.
     "dodaios-doc-author",
+    "agent-brief",
 ) + _PLUGIN_PAIRED_SKILLS
 
 
