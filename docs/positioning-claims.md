@@ -58,6 +58,12 @@ Answer them before they are asked:
   sentence.
 - **Node** is a document the assistant made. Say "docs, decks, sheets and
   whiteboards" first, and "node" after that.
+- Say what Dodaios is before what it holds ("Dodaios is an open-source
+  desktop app"), and the reader's problem before the features. A list of
+  features in one sentence is not a definition.
+- Keep caveats where a reader looks for them: a short question and answer, or
+  the section of the part they belong to. A caveat in every sentence of the
+  opening makes the whole text sound unsure.
 - Plain words. No "revolutionary", "seamless", "supercharge", "10x". No
   "Jarvis": it is a third party's registered trademark. The one exception is
   the former name, Personal Jarvis, in a rename note.
