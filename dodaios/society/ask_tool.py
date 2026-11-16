@@ -101,12 +101,24 @@ _QUESTION_SCHEMA: Final[dict[str, Any]] = {
                 "(optional for kind text)."
             ),
         },
+        "recommended": {
+            "type": ["integer", "null"],
+            "description": (
+                "Index of the option you recommend (default 0, the first). null when no "
+                "option is better than the others: a plain fact or taste only the user "
+                "knows (their favourite, which of their accounts, a name). Then no option "
+                "is marked as recommended and an unanswered question is left to you."
+            ),
+        },
         "recommendation_reason": {
             "type": "string",
-            "description": "One sentence: why the first option beats the runner-up.",
+            "description": (
+                "One sentence: why the recommended option beats the runner-up. "
+                "Leave it out when recommended is null."
+            ),
         },
     },
-    "required": ["question", "recommendation_reason"],
+    "required": ["question"],
 }
 
 
@@ -126,6 +138,9 @@ class AskUserTool:
         f"{MIN_OPTIONS}-{MAX_OPTIONS} concrete, mutually exclusive answers with your "
         "recommendation FIRST and recommendation_reason saying why it beats the "
         "runner-up; set kind 'multi' only when several answers can be combined. "
+        "Recommend only where one answer is really better (safer, cheaper, the usual "
+        "choice); for a plain fact or taste only the user knows, set recommended to "
+        "null so no option is marked. "
         "The user may also type their own answer. If nobody answers within "
         f"{_MINUTES} minutes, your recommendations are applied, so recommend the safest "
         "sensible choice. Never ask for permission to do what you were asked, never ask "
@@ -497,7 +512,7 @@ def _result(specs: tuple[QuestionSpec, ...], answers: list[QuestionAnswer]) -> T
         if answer.option_indices:
             row["picked"] = [spec.options[i].label for i in answer.option_indices]
         if answer.option_index is not None:
-            row["recommended"] = answer.option_index == 0
+            row["recommended"] = answer.option_index == 0 and bool(spec.recommended_indices)
             description = spec.options[answer.option_index].description
             if description:
                 row["option_description"] = description

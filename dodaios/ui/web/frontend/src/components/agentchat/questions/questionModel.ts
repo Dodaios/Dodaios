@@ -178,7 +178,7 @@ export function openQuestionOf(timeline: Pick<Timeline, "items">): { block: Tool
 
 /** The agent's own default for one question, as "let the agent decide" applies it. */
 export function recommendationOf(item: QuestionItem, source: string): QuestionAnswerState {
-  if (!item.options.length) return { text: "", optionIndex: null, source };
+  if (!item.options.length || item.recommendedCount < 1) return { text: "", optionIndex: null, source };
   if (item.kind === "multi") {
     const picks = Array.from({ length: item.recommendedCount }, (_, i) => i);
     return { text: picks.map((i) => item.options[i].label).join("\n"), optionIndex: null, source, optionIndices: picks };

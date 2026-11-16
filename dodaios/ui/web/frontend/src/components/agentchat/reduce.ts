@@ -86,7 +86,7 @@ export interface QuestionOption {
 /** How a question is answered: one option, any number of them, or own words. */
 export type QuestionKind = "single" | "multi" | "text";
 
-/** One question of a card. Option 0 is always the agent's recommendation. */
+/** One question of a card. Option 0 is the agent's recommendation when `recommendedCount` > 0. */
 export interface QuestionItem {
   question: string;
   options: QuestionOption[];
@@ -95,7 +95,7 @@ export interface QuestionItem {
   kind: QuestionKind;
   /** The person may type their own answer (always true for `text`). */
   allowCustom: boolean;
-  /** How many leading options a `multi` question recommends (1 otherwise). */
+  /** How many leading options are recommended: up to all but one for `multi`, else 1; 0 when none is. */
   recommendedCount: number;
 }
 
@@ -636,7 +636,9 @@ function questionItem(entry: unknown): QuestionItem | null {
     recommendationReason: str(row.recommendation_reason),
     kind,
     allowCustom: kind === "text" || row.allow_custom !== false,
-    recommendedCount: kind === "multi" ? Math.max(1, Math.min(options.length, num(row.recommended_count) ?? 1)) : 1,
+    // `recommended: null`: the agent recommends nothing, so no option is marked.
+    recommendedCount: row.recommended === null || !options.length ? 0
+      : kind === "multi" ? Math.max(1, Math.min(options.length, num(row.recommended_count) ?? 1)) : 1,
   };
 }
 

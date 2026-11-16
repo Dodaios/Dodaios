@@ -21,7 +21,7 @@ import pytest
 from dodaios.agent_chat import runner_cli as rc
 from dodaios.agent_chat import turn_prompts
 from dodaios.agent_chat.events import make_event
-from dodaios.agent_chat.questions import QuestionAnswer
+from dodaios.agent_chat.questions import QuestionAnswer, parse_questions
 from dodaios.agent_chat.runner_api import TurnHandle
 from dodaios.agent_chat.service import AgentChatService
 from dodaios.agent_chat.store import AgentChatSession, AgentChatStore
@@ -484,9 +484,12 @@ def test_claudes_recommended_suffix_becomes_the_cards_own_mark(
     assert answers[0]["updatedInput"]["answers"] == {question["question"]: "Via Singapore"}
 
 
-def test_rows_without_a_recommended_suffix_keep_their_order() -> None:
+def test_rows_without_a_recommended_suffix_keep_their_order_and_mark_nothing() -> None:
     rows = [{"question": "Which colour?", "options": [{"label": "Red"}, {"label": "Blue"}]}]
-    assert rc.claude_question_rows(rows) == [{**rows[0], "recommended": 0}]
+    assert rc.claude_question_rows(rows) == [{**rows[0], "recommended": None}]
+    (spec,) = parse_questions({"questions": rc.claude_question_rows(rows)})
+    assert [o.label for o in spec.options] == ["Red", "Blue"]
+    assert spec.recommended is None and spec.to_payload()["recommended"] is None
     assert rc.claude_question_rows(["broken", {"question": "x"}]) == ["broken", {"question": "x"}]
 
 
