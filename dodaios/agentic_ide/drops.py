@@ -48,10 +48,15 @@ from loguru import logger
 #: Where copies of pasted/dropped bytes land, relative to the workspace root.
 DROP_DIRNAME = ".jarvis/drops"
 
-#: Free space a drop must leave behind. Filling the disk to the last byte breaks
-#: far more than the drop (the agent, the app's own database, the OS), so a drop
-#: that would cross this line is refused instead.
+#: Most free space a drop must leave behind. Filling the disk to the last byte
+#: breaks far more than the drop (the agent, the app's own database, the OS), so
+#: a drop that would cross the line is refused instead. The line scales with the
+#: drop (see ``_reserve_for``): a big recording keeps this much free, while a
+#: screenshot on a nearly full disk still goes through.
 DISK_RESERVE_BYTES = 512 * 1024 * 1024
+
+#: Least free space any drop must leave behind, however small it is.
+MIN_DISK_RESERVE_BYTES = 32 * 1024 * 1024
 
 #: Largest file whose bytes are read back for an analysis (image description,
 #: text/PDF extraction). A bigger file is still stored and referenced - the
@@ -155,6 +160,17 @@ def _write(source: DropSource, target: Path) -> None:
         shutil.copyfileobj(source, out, _COPY_CHUNK)
 
 
+def _reserve_for(needed: int) -> int:
+    """Free space a drop of ``needed`` bytes must leave behind.
+
+    As much as the drop itself, between ``MIN_DISK_RESERVE_BYTES`` and
+    ``DISK_RESERVE_BYTES``. A flat 512 MB refused a 1 MB screenshot with
+    290 MB free, which protects nothing: the screenshot cannot be what fills
+    the disk.
+    """
+    return max(MIN_DISK_RESERVE_BYTES, min(DISK_RESERVE_BYTES, needed))
+
+
 def _ensure_room(target: Path, needed: int) -> None:
     """Refuse a drop that would leave the disk nearly full."""
     try:
@@ -164,12 +180,15 @@ def _ensure_room(target: Path, needed: int) -> None:
         # loudly (and cleans up) if the disk really is full.
         logger.debug("Agentic IDE: free-space check skipped: {}", exc)
         return
-    if needed + DISK_RESERVE_BYTES > free:
-        need_mb = -(-needed // (1024 * 1024))
-        free_mb = free // (1024 * 1024)
+    reserve = _reserve_for(needed)
+    if needed + reserve > free:
+        mb = 1024 * 1024
+        need_mb = -(-needed // mb)
+        free_mb = free // mb
         raise DropError(
-            f"Not enough free disk space for that drop ({need_mb} MB needed, "
-            f"{free_mb} MB free)."
+            f"Not enough free disk space for that drop: the disk is nearly full "
+            f"({free_mb} MB free). The drop needs {need_mb} MB and must leave "
+            f"{reserve // mb} MB free. Free up disk space and try again."
         )
 
 
@@ -359,6 +378,7 @@ __all__ = [
     "DROP_DIRNAME",
     "KEEP_SECONDS",
     "DISK_RESERVE_BYTES",
+    "MIN_DISK_RESERVE_BYTES",
     "MAX_ANALYSIS_BYTES",
     "MAX_FILES",
     "DropError",

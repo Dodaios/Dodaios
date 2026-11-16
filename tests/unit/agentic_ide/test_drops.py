@@ -106,9 +106,33 @@ def test_analysis_reads_only_files_small_enough_to_describe() -> None:
 def test_a_drop_that_would_fill_the_disk_is_refused(
     workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(drops, "MIN_DISK_RESERVE_BYTES", 1 << 62)
     monkeypatch.setattr(drops, "DISK_RESERVE_BYTES", 1 << 62)
     with pytest.raises(drops.DropError, match="free disk space"):
         drops.store(workspace, [("recording.mp4", b"x")])
+
+
+def test_a_screenshot_goes_through_on_a_nearly_full_disk(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 1 MB screenshot, 292 MB free: the disk is short of the 512 MB a big
+    # recording must leave, but a screenshot cannot be what fills it.
+    mb = 1024 * 1024
+    usage = drops.shutil.disk_usage(workspace)
+    monkeypatch.setattr(
+        drops.shutil,
+        "disk_usage",
+        lambda _path: usage._replace(free=292 * mb),
+    )
+    stored = drops.store(workspace, [("screenshot.png", b"x" * mb)])
+    assert len(stored) == 1
+
+
+def test_the_reserve_scales_with_the_drop() -> None:
+    mb = 1024 * 1024
+    assert drops._reserve_for(1 * mb) == drops.MIN_DISK_RESERVE_BYTES
+    assert drops._reserve_for(200 * mb) == 200 * mb
+    assert drops._reserve_for(4096 * mb) == drops.DISK_RESERVE_BYTES
 
 
 def test_bad_drops_are_refused_with_a_readable_message(workspace: Path) -> None:
