@@ -10,12 +10,13 @@
 <h1>Dodaios</h1>
 
 <!-- the promise and the definition, translated (English word for word in README.md; docs/positioning.md) -->
-<p><b>One workspace for everything you do with AI.</b><br />
-一个工作区，容纳你用 AI 做的一切。</p>
+<p><b>Your AI-native office. Talk, write, build.</b><br />
+你的 AI 原生办公套件。对话、写作、构建。</p>
 
 <p>
-  Dodaios 是一款开源桌面应用。你告诉它的助手你需要什么，<br />
-  它会自己把事情做完，或者交给 Claude Code、Codex 和你的其他编程智能体。
+  Dodaios 把一切连在一起：一个了解你工作的语音助手，<br />
+  用于文档、幻灯片和表格的 Nodes，以及由它替你运行的编程智能体。<br />
+  开源，运行在你的桌面上，使用你已经在用的模型。
 </p>
 
 <p>
@@ -47,18 +48,16 @@
 
 ## 为什么选 Dodaios
 
-如果你每天都在用 AI 工作，你的工作多半分散在好几个地方：Claude Code 在一个终端里，Codex 在另一个终端里；聊天助手在浏览器标签页里，听写是一个单独的应用，文档又在别处。它们互相不知道对方做了什么。于是你只能自己盯着：哪个智能体做完了，哪个在等你回答，什么东西该复制到哪里。
+如果你每天都在用 AI 工作，你的工作多半分散在好几个地方：聊天助手在浏览器标签页里，听写是一个单独的应用，文档又在别处，每个编程智能体还各自运行在一个终端里。它们互相不知道对方做了什么，于是你只能在它们之间复制粘贴，自己盯着进度。
 
-Dodaios 把这一切放进你电脑上的一个应用里，由它的助手替你盯着。
+Dodaios 把这一切放进你电脑上的一个应用里，围绕一个替你盯着进度的助手。
 
-- **交出工作，拿回结果。** 说出你想做的事。助手为一个或多个编程智能体写好任务说明，回答它们的提问，并告诉你结果如何。
-- **所有编程智能体，一个窗口。** Claude Code、Codex、Cursor CLI、OpenCode、Grok Build、Antigravity、Kimi Code、GLM Coding Plan 和 DeepSeek Harness，以聊天线程或终端的形式运行，最多四个并排。
-- **不用再多订阅一份。** Dodaios 不出售模型访问权限。每个编程智能体都用你已有的套餐或密钥运行，比如 Claude 或 ChatGPT 套餐。
-- **用说的，不用打字。** 说出唤醒词和助手对话，或者按住一个键，在任何应用里听写。唤醒词和听写可以在你的电脑上运行，不需要密钥，也不需要账号。
-- **能编辑的文档。** 要一份文档、幻灯片、表格或白板，它到手时内容已经填好，你再在它自己的编辑器里手动修改。
-- **离开电脑也能继续。** 同一场对话在手机应用、Telegram 和你自己的 Slack 应用里继续，支持语音消息以及“Allow”和“Deny”按钮。
-- **不用你在场的工作。** Dodaios 运行时，例行任务会按时间表、事件或 webhook 启动，长期任务会一直照看某件事，比如项目的测试或收件箱。
-- **属于你。** Apache 2.0，没有 Dodaios 账号，没有付费版。你的聊天、记忆和文档都是你电脑上的文件。
+- **对话。** 给助手打字，或者说出它的名字直接说话。它会回答，通过插件在你的应用里工作，并记住你告诉它的事。按住一个键，就能在任何其他应用里听写。
+- **写作。** 要一份文档、幻灯片、表格或白板，它到手时内容已经填好。每种都有自己的编辑器，你可以手动修改。
+- **构建。** 助手把编程工作交给 Claude Code、Codex 和另外七个编程智能体，回答它们的提问，并告诉你结果如何。最多四个并排运行。
+- **属于你。** Apache 2.0，没有 Dodaios 账号，没有付费版。Dodaios 不出售模型访问权限：每个智能体都用你已有的套餐或密钥运行。你的聊天、记忆和文档都是你电脑上的文件。
+
+它还能跟你到手机、Telegram 和 Slack 上，并在你不在时运行例行任务。每一部分在“它能做什么”下都有自己的小节。
 
 ## 安装
 
@@ -111,7 +110,7 @@ Dodaios 运行在 64 位的 Windows、macOS 和基于 glibc 的 Linux 上。终�
 
 ## 它能做什么
 
-### 助手
+### 对话：助手和你的语音
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/assistant.webp" alt="一段 12 秒的录屏。在一段已在使用中的对话里，用户对 Nova 输入：How much did I spend on groceries each month this year? The bank export is in Documents. Nova 说会去找银行导出文件，读取电脑上的文件后回答：1 月到 10 月共在食品杂货上花了 4,571.65 欧元，7 月最多，2 月最少。回答下方，对话里画出一张柱状图 Groceries per month, 2026，每月一根柱子；鼠标沿柱子移动，每根柱子显示金额，最后停在 7 月的 600.7 欧元。" width="100%" />
@@ -126,7 +125,26 @@ Dodaios 运行在 64 位的 Windows、macOS 和基于 glibc 的 Linux 上。终�
 [例行任务](https://github.com/Dodaios/Dodaios/blob/main/docs/routines.md) ·
 [长期任务](https://github.com/Dodaios/Dodaios/blob/main/docs/standing-tasks.md)
 
-### 你的编程智能体
+<!-- The voice recording (voice.webp) needs a real voice and microphone; it is made
+     with scripts/readme_demo/voice_take.py (assets/demo/readme/README.md). -->
+
+说出唤醒词或按下你的通话快捷键，然后说话，助手会开口回答。在任何应用里按住听写键，你说的话就会连同标点一起打在那里。英语、德语、西班牙语和葡萄牙语里的“嗯”“呃”之类会被去掉。唤醒词和听写可以在你的电脑上运行，不需要密钥，也不需要账号。
+
+[语音对话](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md) ·
+[听写](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/dictation.md) ·
+[唤醒词](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/audio-and-wake-word.md)
+
+### 写作：文档、幻灯片、表格和白板
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/nodes.webp" alt="一段 14 秒的录屏：与助手 Nova 的对话。用户输入：Make a four-slide deck on brewing pour-over coffee. 一张幻灯片的卡片进入对话，显示标题页 Brewing great pour-over coffee，Nova 的回答出现在下方。点一下卡片，幻灯片大幅打开。点一下标题，打开幻灯片编辑器，左侧是幻灯片缩略条，右侧是标题的字段。用户选中标题，输入 Pour-over, step by step，缩略条和字段随之变化，编辑器显示 Saved。" width="100%" />
+</p>
+
+要一份文档、幻灯片、表格或白板，它到手时内容已经填好。每种都有自己的编辑器，你可以手动修改：在文字里打字，改单元格，拖动方框。在白板上，你和助手在同一块画布上画。所有内容都可以导出为 HTML；装有 Chrome、Edge 等 Chromium 浏览器时，还可以导出为 PDF 或 PNG。
+
+[节点](https://github.com/Dodaios/Dodaios/blob/main/docs/nodes.md)
+
+### 构建：你的编程智能体
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/agents.webp" alt="一段 12 秒的 Dodaios Agentic IDE 录屏。两个编码智能体在两栏中工作；从线程列表中再打开第三个线程放在旁边，于是三个 Claude Code 智能体在两个示例项目的三个小任务上并排工作。中间的智能体修正了增值税的舍入方式，报告 7 个测试全部通过，并列出它修改的两个文件；随后三个都完成了，各自带有修改文件的卡片。最后，一个线程的智能体与模型选择器打开，侧边显示其他编码智能体，以及 Codex 的模型。" width="100%" />
@@ -139,28 +157,6 @@ Agentic IDE 会在智能体工作时显示它的工具调用、diff、计划和�
 [Agentic IDE](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md) ·
 [线程](https://github.com/Dodaios/Dodaios/blob/main/docs/agentic-ide-threads.md) ·
 [团队线程](https://github.com/Dodaios/Dodaios/blob/main/docs/agentic-ide-team-threads.md)
-
-### 语音
-
-<!-- The recording of this section needs a real voice and microphone; it is made
-     with scripts/readme_demo/voice_take.py (assets/demo/readme/README.md) and
-     goes here as voice.webp. -->
-
-说出唤醒词或按下你的通话快捷键，然后说话，助手会开口回答。在任何应用里按住听写键，你说的话就会连同标点一起打在那里。英语、德语、西班牙语和葡萄牙语里的“嗯”“呃”之类会被去掉。唤醒词和听写可以在你的电脑上运行，不需要密钥，也不需要账号。
-
-[语音对话](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md) ·
-[听写](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/dictation.md) ·
-[唤醒词](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/audio-and-wake-word.md)
-
-### 文档、幻灯片、表格和白板
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/nodes.webp" alt="一段 14 秒的录屏：与助手 Nova 的对话。用户输入：Make a four-slide deck on brewing pour-over coffee. 一张幻灯片的卡片进入对话，显示标题页 Brewing great pour-over coffee，Nova 的回答出现在下方。点一下卡片，幻灯片大幅打开。点一下标题，打开幻灯片编辑器，左侧是幻灯片缩略条，右侧是标题的字段。用户选中标题，输入 Pour-over, step by step，缩略条和字段随之变化，编辑器显示 Saved。" width="100%" />
-</p>
-
-要一份文档、幻灯片、表格或白板，它到手时内容已经填好。每种都有自己的编辑器，你可以手动修改：在文字里打字，改单元格，拖动方框。在白板上，你和助手在同一块画布上画。所有内容都可以导出为 HTML；装有 Chrome、Edge 等 Chromium 浏览器时，还可以导出为 PDF 或 PNG。
-
-[节点](https://github.com/Dodaios/Dodaios/blob/main/docs/nodes.md)
 
 ### 离开电脑时
 
