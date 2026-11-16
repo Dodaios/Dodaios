@@ -215,7 +215,9 @@ async def test_after_the_pairing_window_nobody_can_claim_the_app(
 async def test_a_paired_owner_needs_no_pairing_and_a_mention_is_answered_in_its_thread(
     slack: SlackStandIn, keys: dict[str, str], saved_owners: list[str]
 ) -> None:
-    channel = _channel(slack, allowed_user_ids=[OWNER], pair_on_first_dm=False)
+    channel = _channel(
+        slack, allowed_user_ids=[OWNER], pair_on_first_dm=False, answer_mentions=True
+    )
     await channel.start()
     try:
         ts = await slack.mention(OWNER, "sum up this channel")
@@ -237,6 +239,23 @@ async def test_a_paired_owner_needs_no_pairing_and_a_mention_is_answered_in_its_
         await slack.mention(STRANGER, "me too")
         assert await _nothing(channel)
         assert saved_owners == []
+    finally:
+        await channel.stop()
+
+
+async def test_a_mention_in_a_channel_is_not_answered_unless_the_owner_turned_it_on(
+    slack: SlackStandIn, keys: dict[str, str]
+) -> None:
+    # The answer would come from the owner's private conversation, readable
+    # by everyone in the channel: off until the owner chooses it.
+    assert SlackChannelConfig().answer_mentions is False
+    channel = _channel(slack, allowed_user_ids=[OWNER], pair_on_first_dm=False)
+    await channel.start()
+    try:
+        await slack.mention(OWNER, "what did my doctor say?")
+        assert await _nothing(channel)
+        await slack.dm(OWNER, "hello")
+        assert (await _next(channel)).content == "hello"
     finally:
         await channel.stop()
 
