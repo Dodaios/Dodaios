@@ -218,8 +218,10 @@ class DelegateTool:
         "says; a wait that runs out reports it as still running. A name that is not clearly "
         "one agent returns needs_clarification with a question to ask first. Not for answers "
         "you can give yourself, knowledge questions, or status reads (work_board, "
-        "society_status). Turn the user's intent into a brief: objective, known target, "
-        "context, constraints and completion evidence. Target-specific extras go in options "
+        "society_status). The agent sees only your brief, never this chat: state the outcome "
+        "and why it matters, what it cannot see (quoted symptoms, files, decisions already "
+        "made), a checkable done and only the limits the person drew; never a step script or "
+        "a guessed fix (the full guide: skill:agent-brief). Target-specific extras go in options "
         "(coding_agent: cli, model, effort, count, folder or project or workspace, and mode "
         "grid ONLY when the user asked for a terminal, a pane or the grid; "
         "pane: workspace_id, request_id, while_busy; team_thread: cwd, seats, mode, title; "
@@ -241,16 +243,23 @@ class DelegateTool:
             "task": {
                 "type": "string",
                 "description": (
-                    "The actionable brief: objective, scope, constraints, completion evidence."
+                    "The brief the agent receives: the outcome and why, the facts it cannot see, "
+                    "the person's limits. The goal, not the steps."
                 ),
             },
             "context": {
                 "type": "string",
-                "description": "Relevant prior decisions and facts; omit secrets.",
+                "description": (
+                    "What the agent cannot see: verbatim symptoms or errors, repro, starting "
+                    "files, decisions made, approaches ruled out. Omit secrets."
+                ),
             },
             "completion_criteria": {
                 "type": "string",
-                "description": "The output required and the evidence that shows it is done.",
+                "description": (
+                    "Checkable proof of done: a test that passes, a command and its output, "
+                    "visible behaviour, a PR state."
+                ),
             },
             "reply": REPLY_POLICY_SCHEMA,
             "wait": {

@@ -14,7 +14,7 @@ from contextvars import ContextVar
 from typing import Final
 
 #: Hard ceiling, checked by a test: the block rides in every lead turn.
-LEAD_DOCTRINE_MAX_CHARS: Final[int] = 2_350
+LEAD_DOCTRINE_MAX_CHARS: Final[int] = 2_480
 
 LEAD_DOCTRINE: Final[str] = (
     "LEAD ROLE\n"
@@ -24,6 +24,8 @@ LEAD_DOCTRINE: Final[str] = (
     "- Answer small things yourself. Hand other work off with delegate (target agent:<name>, "
     "coding_agent, pane:<id>, team_thread, mission, routine or skill:<slug>); it always "
     "returns a job id. The older hand-off tools wait behind find_tools.\n"
+    "- A brief is all the agent sees: write it by skill:agent-brief (outcome and why, "
+    "facts it cannot see, a checkable done, no step script); load it when it is not here.\n"
     "- 'Agent' means a coding agent unless they say otherwise. A new one is delegate target "
     "coding_agent: it opens as a chat thread in the Agentic IDE, a terminal only when they "
     "ask for one.\n"
