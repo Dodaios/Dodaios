@@ -193,6 +193,35 @@ def capture_frame(port: int, key: str, output: Path) -> dict:
     raise TimeoutError("Frozen browser did not produce a frame within 60 seconds")
 
 
+def check_setup_name_save(port: int, key: str) -> dict:
+    """The setup wizard's first step on a fresh install: save the name.
+
+    The name is the wake word, so the wizard PUTs it to the wake-word route.
+    A frozen app once answered that with HTTP 500 (issue #1734); the status and
+    the body land in the report so a failure says what broke.
+    """
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=60)
+    try:
+        connection.request(
+            "PUT",
+            "/api/settings/wake-word",
+            body=json.dumps({"persist": True, "phrase": "Jarvis", "engine": "auto"}),
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+                "Origin": f"http://127.0.0.1:{port}",
+            },
+        )
+        response = connection.getresponse()
+        body = response.read().decode("utf-8", "replace")
+    finally:
+        connection.close()
+    print(f"setup name save: HTTP {response.status} {body[:600]}", flush=True)
+    if response.status != 200:
+        raise RuntimeError(f"Saving the setup name failed: HTTP {response.status} {body[:600]}")
+    return {"setup_name_save": json.loads(body).get("resolved_engine", "")}
+
+
 def boot(executable: Path, profile: Path, output: Path, key: str, timeout: float) -> dict:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -222,6 +251,7 @@ def boot(executable: Path, profile: Path, output: Path, key: str, timeout: float
                         if health.get("instance") != "dev":
                             raise RuntimeError("Frozen probe reached the wrong app instance")
                         report["healthy_seconds"] = round(time.monotonic() - started, 3)
+                        report.update(check_setup_name_save(port, key))
                     if "permissions" not in report and "healthy_seconds" in report:
                         report["permissions"] = check_macos_permissions(port, key)
                     status = request_json(port, "/api/society/browser/status", key)
