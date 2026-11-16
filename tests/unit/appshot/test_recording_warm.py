@@ -237,7 +237,7 @@ async def test_picker_visible_log_uses_the_recorder_clock(setup_service, caplog)
             processes[0].stdout.feed_data(
                 (json.dumps({"phase": "selection_ready", "at": at}) + "\n").encode()
             )
-            time.sleep(0.3)  # the loop is "busy" before it reads the line
+            time.sleep(0.3)  # noqa: ASYNC251 - the loop is "busy" before it reads the line
             processes[0].finish("cancelled")
             await service._reader
         line = next(r.getMessage() for r in caplog.records if "picker visible" in r.getMessage())
