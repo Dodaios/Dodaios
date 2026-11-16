@@ -177,6 +177,39 @@ describe("the node window", () => {
     expect(screen.getByTestId("node-peek-window")).toBeTruthy();
   });
 
+  it("renames a typed node and takes its last change back from the window's menu", async () => {
+    const fetchMock = installFetchMock([DOC]);
+    mount();
+    await openWindow(DOC_REF, "Launch notes");
+    await screen.findByTestId("visualization-edit");
+
+    fireEvent.click(screen.getByTestId("visualization-more"));
+    fireEvent.click(screen.getByTestId("visualization-rename"));
+    // The dialog is drawn over the window, with the node's name in its field.
+    const dialog = await screen.findByTestId("node-rename-dialog");
+    expect(dialog.querySelector("input")?.value).toBe("Launch notes");
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    // Its Escape was its own: the window is still there.
+    expect(screen.getByTestId("node-peek-window")).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("visualization-more"));
+    fireEvent.click(screen.getByTestId("visualization-revert"));
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url, init]) => String(url) === "/api/nodes/doc-1/revert" && init?.method === "POST")).toBe(true),
+    );
+  });
+
+  it("offers neither for a page that is no node", async () => {
+    installFetchMock();
+    mount();
+    await openWindow(PLAN);
+    await screen.findByTestId("visualization-frame");
+    fireEvent.click(screen.getByTestId("visualization-more"));
+    expect(screen.queryByTestId("visualization-rename")).toBeNull();
+    expect(screen.queryByTestId("visualization-revert")).toBeNull();
+    expect(screen.queryByTestId("visualization-ask-change")).toBeNull();
+  });
+
   it("closes on Escape and on a click beside it, but not while a text is typed", async () => {
     installFetchMock();
     mount();

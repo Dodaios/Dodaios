@@ -47,8 +47,9 @@ export function ToastLayer({ children }: { children?: ReactNode } = {}) {
   // (320 px). The stack stands beside it rather than over its head.
   const besidePanel = useEventStore((s) => s.activeSection === "chats");
   // The node window (components/nodes/peek) has its buttons in its top right
-  // corner, where this stack stands. While it is open the stack moves under
-  // the window's title row, inside its margin.
+  // corner, where this stack stands. While it is open the toasts move under
+  // the window's title row, inside its margin, and the standing notices wait
+  // until it is closed.
   const underNodeWindow = useNodePeek((s) => s.peek !== null);
 
   return createPortal(
@@ -144,7 +145,9 @@ export function ToastLayer({ children }: { children?: ReactNode } = {}) {
           </div>
         );
       })}
-      {children}
+      {/* Standing notices wait while the node window is open: they would hang
+          over the conversation beside the node until someone dismissed them. */}
+      {!underNodeWindow && children}
     </div>,
     document.body,
   );

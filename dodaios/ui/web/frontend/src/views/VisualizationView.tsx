@@ -37,7 +37,8 @@ import {
 } from "@/components/nodes/nodeBridge";
 import { useNodeCommentDraft } from "@/components/nodes/nodeCommentDraft";
 import { useNodeCommentDictation } from "@/components/nodes/nodeCommentDictation";
-import { NodesApiError, saveNodeField } from "@/components/nodes/useNodes";
+import { RenameNodeDialog } from "@/components/nodes/RenameNodeDialog";
+import { NodesApiError, saveNodeField, useNodeActions } from "@/components/nodes/useNodes";
 import { isNodeSlug, isTypedNode, type NodeCard } from "@/components/nodes/nodeModel";
 import { NODE_TYPE_LABEL_KEY } from "@/components/nodes/nodeTheme";
 import { isEditableType, type EditableType, type NodeEditorStart } from "@/components/nodes/editors/types";
@@ -670,6 +671,10 @@ function ArtifactToolbar({
 }) {
   const t = useT();
   const windowed = chrome?.layout === "window";
+  /* A typed node keeps its name and its last revision: both can be changed
+   * from where the node is open, not only from its card in the library. */
+  const nodeActions = useNodeActions();
+  const [renaming, setRenaming] = useState<NodeCard | null>(null);
   const { favorites, toggle: toggleFavorite } = useArtifactFavorites();
   // The same key the library's card carries, so a star set here shows there.
   const favoriteKey = visual ? visualId(visual) : run ? `run:${run.slug}` : null;
@@ -682,6 +687,17 @@ function ArtifactToolbar({
     const sent = await useNodeCommentDraft.getState().sendAll(node);
     if (!sent) pushToast("error", t("nodes.comment.failed"));
   }, [node, pushToast, t]);
+  const undoLastChange = useCallback(() => {
+    if (node === null || !isTypedNode(node)) return;
+    // The page is drawn again by the stage's watcher once the node went back.
+    nodeActions.revertNode(node.id).then(
+      () => pushToast("success", t("nodes.revert.done")),
+      (failure: unknown) => {
+        const nothing = failure instanceof NodesApiError && failure.status === 400;
+        pushToast(nothing ? "info" : "error", t(nothing ? "nodes.revert.nothing" : "nodes.revert.failed"));
+      },
+    );
+  }, [node, nodeActions, pushToast, t]);
   const capabilities = useOutputsCapabilities();
   const parsed = parseArtifactUtterance(visual?.utterance ?? run?.utterance);
   const slug = visual?.slug ?? run?.slug ?? "";
@@ -752,6 +768,14 @@ function ArtifactToolbar({
     .join(" · ");
 
   return (
+    <>
+    <RenameNodeDialog
+      card={renaming}
+      onClose={() => setRenaming(null)}
+      onRename={async (card, name) => {
+        if (isTypedNode(card)) await nodeActions.renameNode(card.id, name);
+      }}
+    />
     <StageBar
       onClose={nav.onBack}
       layout={chrome?.layout}
@@ -872,6 +896,28 @@ function ArtifactToolbar({
                     {t("nodes.menu.ask")}
                   </MenuItem>
                 )}
+                {node !== null && isTypedNode(node) && (
+                  <>
+                    <MenuItem
+                      onSelect={() => {
+                        close();
+                        setRenaming(node);
+                      }}
+                      testId="visualization-rename"
+                    >
+                      {t("nodes.menu.rename")}
+                    </MenuItem>
+                    <MenuItem
+                      onSelect={() => {
+                        close();
+                        undoLastChange();
+                      }}
+                      testId="visualization-revert"
+                    >
+                      {t("nodes.menu.revert")}
+                    </MenuItem>
+                  </>
+                )}
                 {mode === "run" && slug && (
                   <MenuItem
                     onSelect={() => {
@@ -950,6 +996,7 @@ function ArtifactToolbar({
         </>
       }
     />
+    </>
   );
 }
 
