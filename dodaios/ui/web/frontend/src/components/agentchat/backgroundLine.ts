@@ -33,6 +33,7 @@ export const OWN_NOTICE_KINDS: ReadonlySet<string> = new Set([
   "coding_result",
   "seat_trouble",
   "browser_takeover",
+  "approval_request",
   "reminder_due",
   "tasks_captured",
   "standing_proposal",

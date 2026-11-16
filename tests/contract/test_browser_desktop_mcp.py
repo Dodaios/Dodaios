@@ -357,9 +357,13 @@ async def test_page_work_runs_without_a_card_and_an_upload_still_asks(tmp_path, 
         await rt.close()
 
 
-def test_a_task_that_sends_or_buys_asks_once_up_front(tmp_path):
+def test_only_the_one_shot_runner_asks_up_front_for_a_task_that_buys(tmp_path):
+    """The live browser asks at the committing click (test_browser_commit_gate.py)."""
     from dodaios.society.browser.tool import BrowserTool
 
-    tool = BrowserTool(SimpleNamespace(), "jarvis", SimpleNamespace(_python=None))
-    assert tool.risk_tier_for_args({"task": "Book the cheapest flight and pay"}) == "ask"
-    assert tool.risk_tier_for_args({"task": "Look at flights to Dubai"}) is None
+    task = {"task": "Book the cheapest flight and pay"}
+    live = BrowserTool(SimpleNamespace(), "jarvis", SimpleNamespace(_python=None))
+    assert live.risk_tier_for_args(task) is None
+    one_shot = BrowserTool(SimpleNamespace(), "jarvis", SimpleNamespace(_python="python"))
+    assert one_shot.risk_tier_for_args(task) == "ask"
+    assert one_shot.risk_tier_for_args({"task": "Look at flights to Dubai"}) is None

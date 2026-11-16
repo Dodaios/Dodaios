@@ -1193,9 +1193,15 @@ class Worker:
                     current_url = current.url
                 else:
                     current_url = await browser_session.get_current_page_url()
+                from commit_target import describe_target  # type: ignore[import-not-found]
+
+                # The host asks the person before a click that commits something
+                # (cancel, buy, send, delete); it reads that from the control's
+                # own label, so the label travels with the proposal.
+                target = await describe_target(proposal, browser_session, worker.focused)
                 answer = await worker.rpc(
                     "action",
-                    {"action": proposal, "url": current_url},
+                    {"action": proposal, "url": current_url, "target": target},
                 )
                 if not answer.get("ok"):
                     raise asyncio.CancelledError(answer.get("error", "Browser action denied"))
@@ -1268,7 +1274,16 @@ class Worker:
                 "has no CAPTCHA solver, whatever library guidance says: on human verification "
                 "stop with success=false and ask the person to take browser control. "
                 "Cookie banners and consent walls are refused automatically before each "
-                "step; do not spend steps on them unless one is still in the way."
+                "step; do not spend steps on them unless one is still in the way. "
+                "Reading, searching and filling forms need nobody's permission: do them. "
+                "For an action that commits something (cancel, buy, book, pay, send, post, "
+                "delete), do every step up to the final confirming control and then press "
+                "it: the person is asked about exactly that click and it runs when they "
+                "agree. If it is declined, stop with success=false and do not look for "
+                "another way. After a committing click, read the page and quote in your "
+                "result the text that confirms what happened. At a sign-in, a two-factor "
+                "code or a human check you cannot pass, stay on that page and stop with "
+                "success=false, naming the page and what the person has to enter there."
             ),
         )
 

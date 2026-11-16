@@ -113,6 +113,8 @@ datas.append((str(PROJECT_ROOT / "dodaios/society/browser/window_actions.py"), "
 datas.append((str(PROJECT_ROOT / "dodaios/society/browser/pointer.py"), "dodaios/society/browser"))
 datas.append((str(PROJECT_ROOT / "dodaios/society/browser/consent_walls.py"), "dodaios/society/browser"))
 datas.append((str(PROJECT_ROOT / "dodaios/society/browser/model_reply.py"), "dodaios/society/browser"))
+# What a click is about to press, for the approval card before a committing step.
+datas.append((str(PROJECT_ROOT / "dodaios/society/browser/commit_target.py"), "dodaios/society/browser"))
 # The worker cannot start without its request check (public websites only).
 datas.append((str(PROJECT_ROOT / "dodaios/society/browser/request_guard.py"), "dodaios/society/browser"))
 # The Hermes / OpenClaw pins (agent_runtimes/versions.py). The package-data

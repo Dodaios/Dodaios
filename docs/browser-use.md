@@ -77,10 +77,28 @@ network.
   that just appeared shows the current page at once (the stream sends only
   changes). Hiding it keeps it away until the next task; a request for a hand
   brings the stage up by itself, and the takeover card's button opens it there.
-- **No card per click.** Working a page (click, type, choose, press a key)
-  runs without an approval card. A task whose text sends, buys, deletes,
-  publishes or books asks once before it starts (none in Bypass). Uploading a
-  file or running script on a page still asks each time.
+- **No card per click, one card at the committing click.** Reading, searching,
+  navigating and filling a form run without an approval card. The browser asks
+  at the one control that commits something for the person (cancel, buy, book,
+  send, post, delete, confirm): it works up to that control, then a card in the
+  conversation names exactly that click, the site and what the page says about
+  it, with Yes and No. Yes runs that click and the run goes on; No clicks
+  nothing, ends the browser work of that turn and the result says which click
+  was refused. One yes covers the confirming click of the same action on the
+  same page for two minutes ("Cancel subscription", then "Yes, cancel"), so
+  one action is one card. The decision is read from the control's own label
+  and its dialog (`commit_gate.py`, labels in English and German), never from
+  the wording of the task: "do not book anything" is a read. An agent whose
+  mode is Bypass, or whose rules always allow `core:browser:commit`, commits
+  without a card; the result still lists the click under `consequential`.
+  Uploading a file or running script on a page still asks each time.
+- **Never a dead end.** A call whose rules want a person raises that card
+  itself and waits for the answer; it used to end in "fresh approval required"
+  with no card when the chat was in Bypass. An unanswered card returns
+  `approval_required` with the approval id and what was asked. A run that
+  stops at a sign-in, a two-factor code or a human check stays on that page and
+  returns `blocked_on` and `next_action`, which names `request_browser_takeover`
+  and `society_request_login`.
 - **The arrow.** Every agent click is shown as the arrow travelling to the
   target on a slight arc that starts gently and settles, then pressing. The
   worker announces the point first (the first move of a session enters in

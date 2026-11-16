@@ -93,6 +93,9 @@ _OWN_PREFIX: Final[str] = "society_"
 #: The lead's own hand in its unattended runs (``society_tools``): kept regardless of
 #: grants like the ``society_`` tools, under the name it has in the lead's chat.
 _LEAD_OWN: Final[frozenset[str]] = frozenset({"standing_task"})
+#: How long a call waits for the person's answer to the card it raised itself
+#: (``_GatedTool._ask_in_place``): the same ten minutes a browser step waits.
+IN_PLACE_APPROVAL_TIMEOUT_S: Final[float] = 600.0
 #: Tools a society session never gets even in ``all`` mode: the agent writes
 #: notes only through its namespaced note tool and runs commands only
 #: through its own contained shell (never the free-cwd shell tools).
@@ -574,8 +577,122 @@ class _GatedTool:
         if verdict is Verdict.BLOCK:
             return ToolResult(False, {"reason": "blocked_by_policy"}, "tool class is blocked")
         if verdict is Verdict.QUEUE and getattr(ctx, "approved_by", None) != "user":
-            return ToolResult(False, {"reason": "blocked_by_policy"}, "fresh approval required")
+            refused = await self._ask_in_place(live, args, ctx)
+            if refused is not None:
+                return refused
         return await self._inner.execute(args, ctx)
+
+    def _what(self, args: dict[str, Any]) -> str:
+        """The call in words, for the card that asks about it."""
+        described: Any = None
+        describe = getattr(self._inner, "describe_args", None)
+        if callable(describe):
+            try:
+                described = describe(args)
+            except Exception:  # noqa: BLE001 — the card still names the tool
+                described = None
+        source = described if isinstance(described, dict) and described else args
+        parts = [
+            " ".join(str(value).split())[:200]
+            for value in source.values()
+            if isinstance(value, (str, int, float)) and str(value).strip()
+        ]
+        verb = _verb_of(args)
+        head = f"{self.name} ({verb})" if verb else self.name
+        return f"{head}: {'; '.join(parts[:3])}" if parts else head
+
+    async def _ask_in_place(
+        self, live: AgentRecord, args: dict[str, Any], ctx: Any
+    ) -> ToolResult | None:
+        """Ask the person about this call here, and wait for the answer.
+
+        The agent's rules want a person's yes, and the surface that ran the
+        call did not ask one (a chat in Bypass answers its own ticket, a
+        whitelist or an unattended bridge answers for nobody). That used to
+        end in a bare "fresh approval required": no card, nothing the agent
+        could do next. Now the call itself puts the card in front of the
+        person, says what it is about, and runs on their yes. ``None`` means
+        approved; otherwise the result says what was asked and what happened.
+        """
+        what = self._what(args)
+        # A routine runs with nobody watching: its request waits in the
+        # person's queue and their answer wakes the agent (``Approvals.resolve``).
+        unattended = is_routine_session(self._session_id)
+        try:
+            item = await self._runtime.approvals.enqueue(
+                agent_id=live.agent_id,
+                trace_id=str(getattr(ctx, "trace_id", "") or ""),
+                capability=self._capability_id,
+                action={
+                    "tool": self.name,
+                    "what": what,
+                    "chat_session_id": self._session_id,
+                    **({} if unattended else {"resume_in_place": True}),
+                },
+                summary=what[:500],
+            )
+            if unattended:
+                return ToolResult(
+                    False,
+                    {
+                        "reason": "approval_required",
+                        "approval_id": item.id,
+                        "what": what,
+                        "next_action": (
+                            "The request is in the person's approval queue. End this run; "
+                            "you are told when they answer."
+                        ),
+                    },
+                    f"approval_required: the person has to allow: {what}",
+                )
+            from .approval_cards import close_card, open_card
+
+            await open_card(self._runtime, live, item.id, what=what, where=self.name)
+            decision = "declined"
+            try:
+                decision = await self._runtime.approvals.wait_decision(
+                    item.id, timeout_s=IN_PLACE_APPROVAL_TIMEOUT_S
+                )
+            finally:
+                await close_card(
+                    self._runtime, live, item.id,
+                    "expired" if decision == "timeout" else decision,
+                )
+        except Exception:  # noqa: BLE001 — no card can be shown: say so, never run unasked
+            log.warning("society gate: could not ask about %s", self.name, exc_info=True)
+            return ToolResult(
+                False,
+                {
+                    "reason": "approval_required",
+                    "what": what,
+                    "next_action": (
+                        f"Ask the person in the chat whether you may run: {what}. "
+                        "Call the tool again after they agree."
+                    ),
+                },
+                f"approval_required: the person has to allow: {what}",
+            )
+        if decision == "approved":
+            return None
+        if decision == "declined":
+            return ToolResult(
+                False,
+                {"reason": "declined", "approval_id": item.id, "what": what},
+                f"The person declined: {what}. It was not run; do not try another way.",
+            )
+        return ToolResult(
+            False,
+            {
+                "reason": "approval_required",
+                "approval_id": item.id,
+                "what": what,
+                "next_action": (
+                    f"Nobody answered the approval card for: {what}. Tell the person what "
+                    "is waiting for their yes and call the tool again when they answer."
+                ),
+            },
+            f"approval_required: nobody answered the approval for: {what}",
+        )
 
 
 async def remember_always_allow(session: Any, tool_name: str, args: dict[str, Any]) -> bool:

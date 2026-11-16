@@ -17,6 +17,7 @@ import { ChainResultCard } from "./ChainResultCard";
 import { PAGE_NOTICE_KIND, PageCard, pageNoticeModes } from "./PageCard";
 import { AgentResultLine } from "./AgentResultLine";
 import { AGENT_RESULT_KIND } from "./agentResults";
+import { ApprovalRequestCard } from "./ApprovalRequestCard";
 import { BrowserTakeoverNotice } from "./BrowserTakeoverNotice";
 import { SeatTroubleNotice } from "./SeatTroubleNotice";
 import { StandingPausedNotice, StandingProposalCard } from "./StandingProposalCard";
@@ -383,6 +384,7 @@ export function AgentTimeline({
       if (item.kind === AGENT_RESULT_KIND) return <AgentResultLine key={item.id} item={item} />;
       if (item.kind === "seat_trouble") return <SeatTroubleNotice key={item.id} item={item} />;
       if (item.kind === "browser_takeover") return <BrowserTakeoverNotice key={item.id} item={item} />;
+      if (item.kind === "approval_request") return <ApprovalRequestCard key={item.id} item={item} />;
       // A reminder or appointment that came due: the assistant says it, with Done / Open right under it.
       if (item.kind === REMINDER_DUE_KIND) return <ReminderDueMessage key={item.id} item={item} />;
       if (item.kind === "tasks_captured") return <TasksCapturedCard key={item.id} item={item} />;

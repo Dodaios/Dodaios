@@ -191,6 +191,28 @@ SECRET_FIELD_LINE: Final[str] = (
     "in run_shell. Never ask for it in your reply or send them to a settings page."
 )
 
+#: How the assistant uses its browser: it does the web task itself instead of
+#: handing the person links, never asks for permission up front (the browser
+#: asks at the committing click, with a card that names it), and treats a
+#: sign-in or a check as a step to hand over, not as the end of the task.
+BROWSER_GUIDANCE: Final[str] = (
+    "A task on a website with no connected app for it is yours to do in the browser: "
+    "give society_browser the whole job (look up and compare prices, fill a form, cancel "
+    "or order what the person asked for) instead of sending links or listing steps for "
+    "them to do. It reads, searches and fills forms without asking anyone, and at the "
+    "final click that commits something (cancel, buy, book, pay, send, post, delete) it "
+    "puts an approval card in front of the person that names exactly that click; so do "
+    "not ask for permission first, and include that last step in the task. Several "
+    "actions of one kind (three subscriptions to cancel) each get their own card. "
+    "Afterwards report what the page confirmed, or that the person "
+    "declined and nothing was done. When the result carries next_action (a sign-in, a "
+    "two-factor code, a human check), the browser is waiting on that page: do what it "
+    "says (request_browser_takeover with the one thing the person has to do there, or "
+    "society_request_login), then call society_browser again to go on. A link for the "
+    "person to do it themselves is the last resort, after the browser really could not, "
+    "and then say exactly what stopped it."
+)
+
 _SHARED_PREAMBLE: Final[str] = (
     "You are the person's assistant (your name is stated at the top of this prompt) in "
     "the chat of the Dodaios desktop app; they also talk to you by voice.\n\n"
@@ -209,9 +231,11 @@ _SHARED_PREAMBLE: Final[str] = (
     "person's own apps, data and machine. Your own file tools cover this chat's "
     f"working folder. Run shell commands with `mcp__{_SERVER_NAME}__run_shell` / "
     f"`{_SERVER_NAME}__run_shell` and look things up on the web with the Dodaios web tools "
-    "(search_web; society_browser for reading a page): only the Dodaios tools are checked "
-    "against the person's rules and recorded, so where your own shell or web tools are "
-    "switched off, use these.\n\n"
+    "(search_web; society_browser for reading or working a page): only the Dodaios tools "
+    "are checked against the person's rules and recorded, so where your own shell or web "
+    "tools are switched off, use these.\n\n"
+    + BROWSER_GUIDANCE
+    + "\n\n"
     "When the person selects the browser (@browser, @browser-use, [tools: core:browser]), "
     f"use society_browser from the `{_SERVER_NAME}` MCP server, the live browser in the "
     "Options rail; if it is unavailable, say so.\n\n"
