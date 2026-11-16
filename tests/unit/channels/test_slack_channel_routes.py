@@ -32,14 +32,23 @@ def standin():
 
     def run() -> None:
         asyncio.set_event_loop(loop)
-        holder["s"] = SlackStandIn()
-        loop.run_until_complete(holder["s"].start())
+        try:
+            holder["s"] = SlackStandIn()
+            loop.run_until_complete(holder["s"].start())
+        except BaseException as exc:  # handed to the test thread below
+            holder["error"] = exc
+            ready.set()
+            return
         ready.set()
         loop.run_forever()
 
     thread = threading.Thread(target=run, daemon=True)
     thread.start()
-    ready.wait(10)
+    # A stand-in that is not up yet would hand the routes port 0; say so
+    # instead of letting them fail with "Slack is not reachable".
+    assert ready.wait(30), "the Slack stand-in did not start within 30 s"
+    if "error" in holder:
+        raise holder["error"]
     yield holder["s"]
     asyncio.run_coroutine_threadsafe(holder["s"].stop(), loop).result(10)
     loop.call_soon_threadsafe(loop.stop)

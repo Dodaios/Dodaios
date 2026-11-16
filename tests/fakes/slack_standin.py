@@ -28,6 +28,7 @@ import itertools
 import json
 import logging
 import socket
+import socketserver
 import threading
 import time
 import uuid
@@ -41,6 +42,25 @@ from typing import Any
 FAKE_BOT_TOKEN = "xoxb" + "-000000000001-000000000002-StandInBotKeyForTestsOnly"
 FAKE_APP_TOKEN = "xapp" + "-1-A0STANDIN1-000000000003-standinappkeyfortestsonly0123"
 FAKE_USER_TOKEN = "xoxp" + "-000000000001-000000000004-StandInUserKeyForTests"
+
+
+class _HTTPServer(ThreadingHTTPServer):
+    """``ThreadingHTTPServer`` without the reverse DNS lookup in ``server_bind``.
+
+    ``HTTPServer.server_bind`` resolves ``socket.getfqdn("127.0.0.1")``, which
+    stalls about 35 s on the hosted macOS runners (see tests/fakes/fake_openclaw.py).
+    The stand-in starts inside the test's event loop, so that lookup held the
+    loop: the routes tests read port 0 and their teardown timed out. The name
+    is never used, so the plain TCP bind is all the stand-in needs.
+    """
+
+    daemon_threads = True
+
+    def server_bind(self) -> None:
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = str(host)
+        self.server_port = int(port)
 
 
 def _free_port() -> int:
@@ -148,8 +168,7 @@ class SlackStandIn:
             return
         handler = _make_handler(self)
         port = self.http_port or 0
-        server = ThreadingHTTPServer(("127.0.0.1", port), handler)
-        server.daemon_threads = True
+        server = _HTTPServer(("127.0.0.1", port), handler)
         self.http_port = int(server.server_address[1])
         self._http = server
         self._http_thread = threading.Thread(target=server.serve_forever, daemon=True)
