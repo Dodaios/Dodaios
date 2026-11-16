@@ -10,6 +10,7 @@ All functions are no-ops on non-Windows platforms.
 """
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 from pathlib import Path
@@ -512,10 +513,82 @@ def _interpreter_runtime_dlls(src_dir: Path) -> list[Path]:
     ``python3.dll``), which the loader resolves from the exe's own directory —
     a copy outside the base dir dies at process start without them.
     ``vcruntime140*.dll`` is python3XX.dll's own dependency and not guaranteed
-    to be in ``System32``. Everything else (stdlib, ``DLLs/*.pyd``) is resolved
-    through ``__PYVENV_LAUNCHER__`` path bootstrapping, not the exe location.
+    to be in ``System32``. Everything else (stdlib, ``DLLs/*.pyd``, the base
+    ``site-packages``) is found through the ``pyvenv.cfg`` written beside the
+    copy (see ``_write_relocated_home_cfg``), or through ``__PYVENV_LAUNCHER__``
+    when the re-exec hands one over.
     """
     return sorted({*src_dir.glob("python3*.dll"), *src_dir.glob("vcruntime140*.dll")})
+
+
+def _relocated_home_cfg_text(base_dir: Path) -> str:
+    version = ".".join(str(part) for part in sys.version_info[:3])
+    return (
+        f"home = {base_dir}\n"
+        "include-system-site-packages = true\n"
+        f"version = {version}\n"
+    )
+
+
+def _write_relocated_home_cfg(target_dir: Path, base_dir: Path) -> None:
+    """Point a relocated branded copy at the interpreter it was copied from.
+
+    A ``pythonw`` copy outside its install folder finds no ``Lib/os.py`` beside
+    it, so Python falls back to the CURRENT DIRECTORY as its prefix: the
+    standard library still loads (through the registry), but the base
+    ``site-packages`` drops out of ``sys.path`` and ``pip`` installs into
+    ``<cwd>/Lib/site-packages``. Every start that hands no
+    ``__PYVENV_LAUNCHER__`` lands there: the in-app restart, the helper
+    processes and a pinned taskbar button. A package that lives only in the
+    base ``site-packages`` then looks missing (2026-11-16: screen recordings
+    with system audio failed with "requires the desktop audio package" while
+    ``soundcard`` was installed).
+
+    A ``pyvenv.cfg`` with ``home`` set to the base folder gives the copy the
+    same paths as the base interpreter, user site included. When the re-exec
+    hands over ``__PYVENV_LAUNCHER__``, Python reads that venv's own
+    ``pyvenv.cfg`` instead, so a venv run is unchanged.
+    """
+    cfg = target_dir / "pyvenv.cfg"
+    text = _relocated_home_cfg_text(base_dir)
+    with contextlib.suppress(OSError):
+        if cfg.read_text(encoding="utf-8") == text:
+            return
+    cfg.write_text(text, encoding="utf-8")
+
+
+def heal_running_relocated_copy() -> None:
+    """Give the RUNNING relocated branded copy its ``pyvenv.cfg`` if it lacks one.
+
+    A copy built before ``_write_relocated_home_cfg`` existed starts with the
+    wrong prefix, and inside it ``sys.base_prefix`` names the current directory,
+    so ``ensure_branded_launcher_exe`` cannot find the base interpreter to
+    rebuild from. The standard library's own location still names the base
+    folder. Takes effect at the next start of the copy; best-effort.
+    """
+    if sys.platform != "win32":
+        return
+    exe = Path(sys.executable)
+    names = {
+        name.lower() for name in (BRANDED_LAUNCHER_EXE_NAME, *LEGACY_BRANDED_LAUNCHER_EXE_NAMES)
+    }
+    if exe.name.lower() not in names:
+        return
+    folder = exe.parent
+    # Only a relocated copy carries the runtime DLLs; a copy next to its base
+    # interpreter or inside a venv already finds its environment.
+    if not any(folder.glob("python3*.dll")) or (folder.parent / "pyvenv.cfg").is_file():
+        return
+    if (folder / "Lib" / "os.py").is_file() or (folder / "pyvenv.cfg").is_file():
+        return
+    base_dir = Path(os.__file__).resolve().parent.parent
+    if not (base_dir / "Lib" / "os.py").is_file():
+        return
+    try:
+        _write_relocated_home_cfg(folder, base_dir)
+        logger.info("Branded launcher now finds its base interpreter: {}", base_dir)
+    except OSError as exc:
+        logger.debug("branded copy home could not be written in {}: {}", folder, exc)
 
 
 def _branded_copy_boots(exe: Path) -> bool:
@@ -616,6 +689,9 @@ def _ensure_branded_copy_at(src: Path, target: Path, ico: Path) -> Path | None:
     try:
         dlls = _interpreter_runtime_dlls(src.parent) if relocated else []
         newest_input = max(ico.stat().st_mtime, src.stat().st_mtime)
+        if relocated and target.is_file():
+            # Before the freshness check, so a copy built earlier heals too.
+            _write_relocated_home_cfg(target.parent, src.parent)
         fresh = target.is_file() and target.stat().st_mtime >= newest_input
         if fresh and relocated:
             fresh = all((target.parent / d.name).is_file() for d in dlls)
@@ -631,6 +707,8 @@ def _ensure_branded_copy_at(src: Path, target: Path, ico: Path) -> Path | None:
         shutil.copy2(src, target)
         for dll in dlls:
             shutil.copy2(dll, target.parent / dll.name)
+        if relocated:
+            _write_relocated_home_cfg(target.parent, src.parent)
         if not _replace_exe_icon(target, ico):
             # A copy without the branded icon is pointless (still shows Python);
             # remove it so the caller falls through to the next home / bare pythonw.
@@ -684,6 +762,10 @@ def maybe_reexec_through_branded_launcher(argv: list[str]) -> int | None:
     """
     if sys.platform != "win32":
         return None
+    try:
+        heal_running_relocated_copy()
+    except Exception as exc:  # noqa: BLE001 — never let branding block boot
+        logger.debug("branded copy self-heal failed: {}", exc)
     # Loop guard: the env marker (set on the re-exec child) is authoritative —
     # under ``__PYVENV_LAUNCHER__`` ``sys.executable`` is the venv pythonw, so the
     # real running image is ``sys._base_executable`` (our branded copy).
