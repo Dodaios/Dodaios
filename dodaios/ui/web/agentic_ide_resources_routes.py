@@ -75,6 +75,22 @@ def signatures() -> list[AgentSignature]:
     return found
 
 
+def _runner_agent(runner: str) -> str:
+    """The Agentic IDE agent a thread runner drives (``claude-cli`` -> ``claude``).
+
+    A thread names the runner that executes its turn; the view draws marks and
+    labels by the IDE registry's key. Without this a thread row showed a
+    two-letter monogram ("CL") where every pane showed the brand mark. A runner
+    no provider row claims (a custom CLI) stays as it is.
+    """
+    from dodaios.agent_chat.catalog import PROVIDER_ROWS
+
+    for row in PROVIDER_ROWS:
+        if row.runner == runner and row.agent:
+            return row.agent
+    return runner
+
+
 def _agent_label(agent: str) -> str:
     from dodaios.workspace.agents import get_agent
 
@@ -111,7 +127,7 @@ def _thread_roots(app_state: Any) -> tuple[list[KnownRoot], int]:
     seen: set[str] = set()
     for pid, meta in processes:
         session_id = str(meta.get("session_id") or "")
-        runner = str(meta.get("runner") or "")
+        runner = _runner_agent(str(meta.get("runner") or ""))
         title = ""
         if service is not None and session_id:
             row = service.store.get_session(session_id)
