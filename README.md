@@ -10,7 +10,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise and the definition: word for word everywhere (docs/positioning.md) -->
-<p><b>One workspace for everything you do with AI.</b></p>
+<p><b>Talk to one assistant. It runs your coding agents for you.</b></p>
 
 <p>
   Dodaios is an open-source desktop app. You tell its assistant what you need,<br />
