@@ -332,7 +332,7 @@ function BrowserSurface({ view, layout, onLayout, onHide }: SurfaceProps) {
             )}
             {state.approval && (
               <div role="alert" className="flex items-center gap-2 text-[12.5px]">
-                <span>{t("agent_browser.approval")} {state.approval.action}</span>
+                <span>{t("agent_browser.approval")} {state.approval.summary || state.approval.action}</span>
                 <button type="button" className="rounded-full bg-foreground px-3 py-1 text-background" onClick={() => void approve(true)}>{t("agent_browser.allow")}</button>
                 <button type="button" className="rounded-full bg-secondary px-3 py-1" onClick={() => void approve(false)}>{t("agent_browser.deny")}</button>
               </div>

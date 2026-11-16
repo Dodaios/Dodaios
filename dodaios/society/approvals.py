@@ -271,6 +271,38 @@ class Approvals:
         assert got is not None
         return got
 
+    async def wait_decision(
+        self, approval_id: str, *, timeout_s: float = 600.0, poll_s: float = 0.5
+    ) -> str:
+        """Wait for the person's answer to one item: ``approved``, ``declined`` or ``timeout``.
+
+        For a caller that holds its work in place until the card is answered.
+        A wait that runs out closes the item, so no card stays open for a call
+        that has already returned; the caller says what is still wanted.
+        """
+        import asyncio
+
+        try:
+            async with asyncio.timeout(timeout_s):
+                while True:
+                    row = await self.get(approval_id)
+                    if row is None:
+                        return "declined"
+                    if row.state is ApprovalState.APPROVED:
+                        return "approved"
+                    if row.state in (ApprovalState.DENIED, ApprovalState.BLOCKED):
+                        return "declined"
+                    await asyncio.sleep(poll_s)
+        except TimeoutError:
+            log.info(
+                "approvals: nobody answered %s within %.0f s; the item is closed", approval_id,
+                timeout_s,
+            )
+            row = await self.get(approval_id)
+            if row is not None and row.state is ApprovalState.PENDING:
+                await self.resolve(approval_id, approve=False, note="No answer in time")
+            return "timeout"
+
     async def expire_due(self, *, now: int | None = None) -> int:
         """Pending items past their expiry become ``blocked`` — parked, never
         dropped. Returns how many flipped."""

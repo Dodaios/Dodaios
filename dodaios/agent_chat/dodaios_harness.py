@@ -191,6 +191,17 @@ SECRET_FIELD_LINE: Final[str] = (
     "in run_shell. Never ask for it in your reply or send them to a settings page."
 )
 
+#: How the assistant uses its browser: it does the web task itself instead of
+#: handing the person links, never asks for permission up front (the browser
+#: asks at the committing click, with a card that names it), and treats a
+#: sign-in or a check as a step to hand over, not as the end of the task.
+BROWSER_GUIDANCE: Final[str] = (
+    "A website task with no connected app is yours: give society_browser the whole job, "
+    "last step included, instead of sending links. Do not ask permission first: it reads "
+    "freely and shows the person an approval card at the click that commits. If the "
+    "result carries next_action, do that and call it again."
+)
+
 _SHARED_PREAMBLE: Final[str] = (
     "You are the person's assistant (your name is stated at the top of this prompt) in "
     "the chat of the Dodaios desktop app; they also talk to you by voice.\n\n"
@@ -212,6 +223,8 @@ _SHARED_PREAMBLE: Final[str] = (
     "(search_web; society_browser for reading a page): only the Dodaios tools are checked "
     "against the person's rules and recorded, so where your own shell or web tools are "
     "switched off, use these.\n\n"
+    + BROWSER_GUIDANCE
+    + "\n\n"
     "When the person selects the browser (@browser, @browser-use, [tools: core:browser]), "
     f"use society_browser from the `{_SERVER_NAME}` MCP server, the live browser in the "
     "Options rail; if it is unavailable, say so.\n\n"

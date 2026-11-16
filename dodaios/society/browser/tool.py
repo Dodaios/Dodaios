@@ -3,10 +3,16 @@
 One call = one browser-use run in the agent's own profile (or its attached
 Chrome), capped in steps and time, one at a time per agent. The run is
 observable: a ``DIGEST`` per step batch and a final ``DIGEST`` with the cost
-land on the board, so the chat, the ledger and the world see it. Tasks whose
-wording sends, buys, deletes or publishes escalate to ``ask``; the agent's
-approval rules and ceiling apply through ``approvals.decide`` on the
-capability ``core:browser``.
+land on the board, so the chat, the ledger and the world see it.
+
+Reading, searching, navigating and filling a form run without a card. The
+live browser asks at the one control that commits something for the person
+(cancel, buy, send, delete): the run works up to it, the card names exactly
+that click, and a yes runs it (``commit_gate.py``, ``bridge.py``). The wording
+of the task decides nothing there: "do not book anything" is a read. Only the
+one-shot runner, which cannot pause inside a run, still asks up front for a
+task whose wording commits something. The agent's approval rules and ceiling
+apply through ``approvals.decide`` on the capability ``core:browser``.
 """
 
 from __future__ import annotations
@@ -106,12 +112,24 @@ class BrowserTool:
     name: str = BROWSER_TOOL_NAME
     risk_tier: str = "monitor"
     description: str = (
-        "Use YOUR browser to do something on the web: read a page, search, fill a form, "
-        "collect information from a site, work inside a web app the user is logged into. "
+        "Use YOUR browser to do something on the web yourself: read a page, search, compare "
+        "prices, fill a form, collect information from a site, work inside a web app the "
+        "user is logged into, cancel or order what they asked for. "
         "Give one clear task (what to achieve, where, what to return) and optionally the "
         "URL to start at. The run is capped (max_steps); it returns the final result, the "
-        "pages visited and any errors. Tasks that send, buy, delete or publish ask the user "
-        "first. This is the live browser shown in your Options rail. Call it even when "
+        "pages visited and any errors. Reading, searching, navigating and filling forms "
+        "run without asking anyone. An action that commits something (cancel, buy, book, "
+        "pay, send, post, delete) is worked up to its final confirming click; the user then "
+        "gets an approval card that names exactly that click, and their yes runs it. So "
+        "hand over the whole job including that last step: do not ask the user for "
+        "permission first, and do not send them a link to do it themselves. The result "
+        "lists each committing click and the user's answer under `consequential`; when "
+        "they declined, nothing was clicked: report that and do not try another way. "
+        "When the result carries `next_action` (a sign-in, a two-factor code, a human "
+        "check), the browser is waiting on that page: do what it says "
+        "(request_browser_takeover or society_request_login), then call this tool again "
+        "to go on from there. This is the live browser shown in your Options rail. Call it "
+        "even when "
         "the browser or its panel is closed: the managed browser prepares and starts "
         "automatically on demand, including for scheduled routines. Use this tool "
         "when the user selects Browser or asks to operate the visible browser, and "
@@ -162,8 +180,13 @@ class BrowserTool:
             )
 
     def risk_tier_for_args(self, args: dict[str, Any]) -> str | None:
-        # The page work inside a task runs without cards (``bridge.py``), so
-        # a task that sends, buys, deletes or publishes asks once, up front.
+        # The live browser asks at the committing click itself, with the
+        # control's own label on the card (``bridge.py``); a keyword in the
+        # task text gated whole read tasks ("do not book anything") before
+        # they started. Only the one-shot runner cannot pause inside a run,
+        # so a task whose wording commits something asks once, up front.
+        if getattr(self._jobs, "_python", None) is None:
+            return None
         return "ask" if task_needs_approval(str(args.get("task") or "")) else None
 
     def describe_args(self, args: dict[str, Any]) -> dict[str, str] | None:

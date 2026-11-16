@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -13,7 +14,53 @@ from uuid import UUID, uuid4
 
 from dodaios.core.protocols import BrainMessage, BrainRequest, ImageBlock, ToolResult
 
+from ..approval_cards import close_card, open_card
+from .commit_gate import COMMIT_VERB, CommitMemory, CommitStep, blocker_hint, commit_step
+
 log = logging.getLogger(__name__)
+
+#: The tools that hand the page to the person (``takeover_tool.py``, ``login_tool.py``).
+_TAKEOVER_TOOL = "request_browser_takeover"
+_LOGIN_TOOL = "society_request_login"
+
+
+def _not_approved(step: CommitStep, outcome: str) -> str:
+    """What the browser model and the calling agent read when a commit did not run."""
+    if outcome == "timeout":
+        return (
+            f"Nobody answered the approval for: {step.summary}. Nothing was clicked and the "
+            "browser is still on that page. Tell the person what is waiting for their yes "
+            "and call society_browser again when they answer."
+        )
+    return (
+        f"The person declined: {step.summary}. Nothing was clicked. Do not try another "
+        "way to do it; report that it was not done."
+    )
+
+
+def _refusal(commits: CommitMemory, result: dict | None = None) -> ToolResult | None:
+    """The run's result when it ended on the person's answer to a committing click.
+
+    It names which click was not made and keeps what the run did before it,
+    so the caller reports exactly that instead of a bare "stopped".
+    """
+    refused = next((row for row in reversed(commits.record) if row["decision"] != "approved"), None)
+    if refused is None:
+        return None
+    step = CommitStep(
+        refused["kind"], refused["label"], refused["host"], refused["url"], refused["context"]
+    )
+    done = result or {}
+    kept = {key: done[key] for key in ("urls", "steps", "final_result") if key in done}
+    return ToolResult(
+        False,
+        {
+            **kept,
+            "reason": "declined" if refused["by"] == "declined" else "approval_required",
+            "consequential": list(commits.record),
+        },
+        _not_approved(step, refused["by"]),
+    )
 
 
 def brain_messages(rows: list[dict[str, Any]]) -> tuple[BrainMessage, ...]:
@@ -88,6 +135,59 @@ async def wait_for_browser_approval(runtime: Any, approval_id: str, session: Any
         row = await runtime.approvals.get(approval_id)
         if row and str(row.state) == "pending":
             await runtime.approvals.resolve(approval_id, approve=False, note="Browser task ended")
+
+
+async def ask_commit(
+    runtime: Any, caller: Any, session: Any, step: Any, proposal: dict, *, trace_id: str,
+    chat_session_id: str,
+) -> str:
+    """Ask the person about one committing click: ``approved``, ``declined`` or ``timeout``.
+
+    The row in the approvals table is the truth; the browser panel, the
+    needs-you list and the chat that started the task each show it. The card
+    says what is about to be clicked, where, and what the page says about it.
+    """
+    approval = await runtime.approvals.enqueue(
+        agent_id=caller.agent_id,
+        trace_id=trace_id,
+        capability="core:browser",
+        action={
+            "action": proposal,
+            "commit": step.to_dict(),
+            "chat_session_id": chat_session_id,
+            "resume_in_place": True,
+        },
+        summary=f"Browser: {step.summary}"[:500],
+    )
+    if session:
+        session.publish(
+            {
+                "kind": "approval",
+                "id": approval.id,
+                "action": next(iter(proposal), "click"),
+                "summary": step.summary,
+                "commit": step.to_dict(),
+            }
+        )
+    await open_card(
+        runtime, caller, approval.id, what=step.summary, where=step.host,
+        detail="" if step.context.lower() == step.label.lower() else step.context,
+        label="" if step.is_key else step.label, browser=True,
+    )
+    outcome = "declined"
+    try:
+        if await wait_for_browser_approval(runtime, approval.id, session):
+            outcome = "approved"
+        else:
+            row = await runtime.approvals.get(approval.id)
+            # ``wait_for_browser_approval`` closes an unanswered row with this note.
+            if row is not None and str(row.note) == "Browser task ended":
+                outcome = "timeout"
+    finally:
+        await close_card(
+            runtime, caller, approval.id, "expired" if outcome == "timeout" else outcome
+        )
+    return outcome
 
 
 async def stored_logins(agent_id: str) -> dict[str, dict[str, str]]:
@@ -243,6 +343,7 @@ async def execute_live(
         return {"ok": True, "text": text, "usage": usage, "vision_available": vision_available}
 
     denied = False
+    commits = CommitMemory()
 
     async def action(payload: dict) -> dict:
         nonlocal denied
@@ -312,19 +413,47 @@ async def execute_live(
             }
         # Working a page (click, type, choose, press a key) is the browser's
         # job and runs without a card: one card per click made the browser
-        # unusable (the person, 2026-11-13). A task that sends, buys, deletes
-        # or publishes asks once, before it starts (``BrowserTool``). What
-        # hands the person's own files or code to a website still asks.
+        # unusable (the person, 2026-11-13). What asks is the one control that
+        # commits something for the person (cancel, buy, send, delete): the
+        # run works up to it and the card names exactly that click
+        # (``commit_gate``). What hands the person's own files or code to a
+        # website still asks.
+        step = (
+            None
+            if name in read_actions
+            else commit_step(name, parameters, payload.get("target"), str(payload.get("url") or ""))
+        )
+        verb = name
         if name in read_actions:
             tier = "safe" if read_only else "monitor"
+        elif step is not None:
+            tier, verb = "ask", COMMIT_VERB
         else:
             tier = "ask" if _hands_over_files_or_code(name) else "monitor"
-        verdict = decide(current, "core:browser", tier, verb=name)
+        verdict = decide(current, "core:browser", tier, verb=verb)
         if verdict is Verdict.BLOCK:
             denied = True
             return {"ok": False, "error": "Browser action blocked by agent policy"}
         trace = getattr(ctx, "trace_id", uuid4())
-        if verdict is Verdict.QUEUE:
+        if step is not None and verdict is Verdict.QUEUE:
+            now = time.monotonic()
+            if not commits.covers(step, now):
+                outcome = await ask_commit(
+                    runtime, caller, live.sessions.get(caller.agent_id), step, proposal,
+                    trace_id=str(trace), chat_session_id=chat_session_id,
+                )
+                if outcome != "approved":
+                    denied = True
+                    commits.note(step, approved=False, now=now, by=outcome)
+                    if outcome == "declined":
+                        live.stop_turn(caller.agent_id, turn_trace)
+                    return {"ok": False, "error": _not_approved(step, outcome)}
+            commits.note(step, approved=True, now=time.monotonic())
+        elif step is not None:
+            # The agent's own rules let this run: a standing "always allow" or
+            # its Bypass mode. The result still names what was committed.
+            commits.note(step, approved=True, now=time.monotonic(), by="rule")
+        elif verdict is Verdict.QUEUE:
             approval = await runtime.approvals.enqueue(
                 agent_id=caller.agent_id,
                 trace_id=str(trace),
@@ -335,7 +464,20 @@ async def execute_live(
             session = live.sessions.get(caller.agent_id)
             if session:
                 session.publish({"kind": "approval", "id": approval.id, "action": name})
-            if not await wait_for_browser_approval(runtime, approval.id, session):
+            host = (urlsplit(str(payload.get("url") or "")).hostname or "").removeprefix("www.")
+            await open_card(
+                runtime, caller, approval.id,
+                what=f"Browser: {name}" + (f" on {host}" if host else ""),
+                where=host, browser=True,
+            )
+            allowed = False
+            try:
+                allowed = await wait_for_browser_approval(runtime, approval.id, session)
+            finally:
+                await close_card(
+                    runtime, caller, approval.id, "approved" if allowed else "declined"
+                )
+            if not allowed:
                 denied = True
                 live.stop_turn(caller.agent_id, turn_trace)
                 return {"ok": False, "error": stopped_message}
@@ -394,11 +536,19 @@ async def execute_live(
         if broker_logins is not None:
             message = broker_logins.redact(message)
             broker_logins.release()
+        refused = _refusal(commits)
+        if refused is not None:
+            return refused
         return ToolResult(
             False,
             None,
             stopped_message if (caller.agent_id, turn_trace) in live.stopped_turns else message,
         )
+    if commits.record:
+        result["consequential"] = list(commits.record)
+    hint = blocker_hint(result, takeover_tool=_TAKEOVER_TOOL, login_tool=_LOGIN_TOOL)
+    if hint is not None:
+        result.update(hint)
     if broker_logins is not None:
         result = broker_logins.redact(result)
         broker_logins.release()
@@ -413,6 +563,11 @@ async def execute_live(
     result["usage"] = usage_total
     result["provider"] = provider
     result["model"] = caller.model
+    # A run that ended on a declined or unanswered commit is not a success,
+    # whatever the browser model wrote: say which click was not made.
+    refused = _refusal(commits, result)
+    if refused is not None:
+        return refused
 
     def contained_artifacts() -> tuple[str, ...]:
         return tuple(

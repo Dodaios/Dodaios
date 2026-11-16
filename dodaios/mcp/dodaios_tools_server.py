@@ -418,12 +418,19 @@ def build_server() -> Any:
                 # A partial browser run may already have submitted a form.
                 # Preserve its observed outcome so a planner can inspect the
                 # current page instead of blindly repeating a side effect.
+                # A run that needs the person (an approval nobody answered, a
+                # sign-in, a human check) says what to do next; the planner
+                # gets that instead of a bare "retry".
+                output = getattr(result, "output", None)
+                next_action = output.get("next_action") if isinstance(output, dict) else None
                 text = json.dumps(
                     {
                         "ok": False,
                         "error": getattr(result, "error", None),
-                        "result": getattr(result, "output", None),
-                        "retry": "Inspect current state before repeating any action.",
+                        "result": output,
+                        "retry": str(
+                            next_action or "Inspect current state before repeating any action."
+                        ),
                     },
                     ensure_ascii=False,
                     default=str,
