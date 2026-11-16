@@ -19,14 +19,28 @@ three places, and none knows what happened in the others.
 > **One workspace for everything you do with AI.**
 
 Use it word for word, and never alone. "One place for everything" is what
-the big model makers already say about their own apps, so this sentence always
-follows:
+the big model makers already say about their own apps, so the definition
+always follows:
 
-> Claude Code, Codex, Cursor CLI and six more coding agents side by side, one
-> assistant that runs them, voice and dictation, and docs, decks and sheets.
-> Open source, on your computer, on the plans and keys you already have.
+> Dodaios is an open-source desktop app. You tell its assistant what you need,
+> and it does the work itself or hands it to Claude Code, Codex and your other
+> coding agents.
 
-It holds the three things a model maker's own app does not offer:
+Then comes the problem it solves, in the reader's own day: the work is spread
+over a terminal per coding agent, a chat app, a dictation app and a documents
+tool; none of them knows what the others did; so the person keeps track of
+which agent is done, which one waits for an answer and what to copy where.
+Dodaios puts it in one app on the computer, and its assistant keeps track. The
+README says this under "Why Dodaios", followed by one short line per pillar.
+
+Until 16 November 2026 the promise was followed by a list of features in one
+sentence ("Claude Code, Codex, Cursor CLI and six more coding agents side by
+side, one assistant that runs them, voice and dictation, and docs, decks and
+sheets"). The maintainer found that it said neither what Dodaios is nor which
+problem it solves, and that it read like generated text.
+
+Promise, definition and problem together hold the three things a model
+maker's own app does not offer:
 
 1. **Not one maker's.** Nine coding agents and eleven families of model
    providers work in one window.
