@@ -3,4 +3,4 @@
  * settled view, drafts and the keyboard target). This path stays for the
  * chats that import it: the society messenger, the front page and the IDE.
  */
-export { QuestionCard } from "./questions/QuestionCard";
+export { QuestionCard, QuestionSettledContext, type QuestionSettled } from "./questions/QuestionCard";
