@@ -73,7 +73,8 @@ export function MediaViewerContent({ src, label, kind = "image" }: { src: string
  * `bare` draws only the picture itself (no margin, no download line): a
  * thread's screenshot under its line. In a transcript that lists its pictures
  * as files, an image is its download link alone. `thumb` draws the picture
- * small, the way a sent picture stands above the person's message.
+ * as a small fixed tile, cropped to fill it, the way a sent picture stands
+ * above the person's message; a click opens it in full.
  */
 export function MediaPreview({ src, label, kind, bare = false, thumb = false }: { src: string; label: string; kind: MediaKind; bare?: boolean; thumb?: boolean }) {
   const t = useT();
@@ -105,10 +106,13 @@ export function MediaPreview({ src, label, kind, bare = false, thumb = false }: 
       {safe ? <button type="button" onClick={() => { setFailedSource(null); setRevision(value => value + 1); }} className="shrink-0 rounded px-2 py-1 text-foreground underline focus-visible:ring-2 focus-visible:ring-ring">{t("chat_media.retry")}</button> : null}
     </span> : kind === "image" ? <Dialog.Trigger asChild><button type="button"
       aria-label={t("chat_media.expand").replace("{file}", label)}
-      className="group relative block max-w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      className={cn("group relative block max-w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        // A thumbnail is a fixed tile, so the row never moves while the
+        // picture loads, however wide or tall the picture is.
+        thumb && "h-32 w-44 overflow-hidden border border-border/60 bg-muted/30")}>
       <img key={revision} src={safe!} alt={label} loading="lazy" decoding="async" onError={() => { setFailedSource(src); setExpanded(false); }}
-        className={cn("m-0 max-w-full rounded-lg object-contain", thumb ? "max-h-[260px] max-w-[min(100%,360px)] border border-border/70" : bare ? "max-h-[440px] border border-border/70" : "max-h-[520px]")} />
-      <Maximize2 aria-hidden className="absolute bottom-2 right-2 h-6 w-6 rounded bg-background/90 p-1 text-foreground opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
+        className={cn("m-0 max-w-full", thumb ? "h-full w-full object-cover" : cn("rounded-lg object-contain", bare ? "max-h-[440px] border border-border/70" : "max-h-[520px]"))} />
+      <Maximize2 aria-hidden className={cn("absolute rounded bg-background/90 p-1 text-foreground opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100", thumb ? "bottom-1.5 right-1.5 h-5 w-5" : "bottom-2 right-2 h-6 w-6")} />
     </button></Dialog.Trigger> : kind === "video" ? <video ref={node => { playerRef.current = node; }} key={`${revision}:${safe}`} src={safe!} aria-label={label} controls playsInline preload="metadata"
       onError={() => { setFailedSource(src); setExpanded(false); }} className="max-h-[520px] w-full rounded-lg bg-muted" />
       : <audio ref={node => { playerRef.current = node; }} key={`${revision}:${safe}`} src={safe!} aria-label={label} controls preload="metadata" onError={() => { setFailedSource(src); setExpanded(false); }} className="w-full" />}
