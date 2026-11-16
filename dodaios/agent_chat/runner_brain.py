@@ -356,6 +356,12 @@ def _receipt_of(event: Any) -> dict[str, str] | None:
     }
 
 
+def _exec_id(event: Any) -> str:
+    """The executor's id for the call an action event is about, or ``""``."""
+    value = getattr(event, "call_id", "")
+    return value if isinstance(value, str) else ""
+
+
 class _StepMirror:
     """Turns THIS turn's bus events into the timeline's step rows.
 
@@ -372,8 +378,12 @@ class _StepMirror:
     * ``ToolCallStarted`` / ``ToolCallCompleted`` -> the same for the paths
       that publish those instead.
 
-    Rows are paired per tool name, oldest open first. Read-only and
-    defensive: a malformed event never reaches the brain (AP-18).
+    A result is paired with its row by the executor's ``call_id``: parallel
+    reads of one tool finish in any order, and pairing by name showed one
+    file's contents under another file's call (live 2026-11-16). Events
+    without a call id (other publishers, older code) fall back to the oldest
+    open row of the same tool name. Read-only and defensive: a malformed
+    event never reaches the brain (AP-18).
     """
 
     __slots__ = ("_bus", "_children", "_emit", "_open", "_seen_text", "_trace_id", "_turn_id")
@@ -383,7 +393,8 @@ class _StepMirror:
         self._turn_id = turn_id
         self._bus = bus
         self._trace_id = trace_id
-        self._open: list[tuple[str, str]] = []  # (tool name, call id)
+        # (tool name, row id, the executor's call id or "")
+        self._open: list[tuple[str, str, str]] = []
         self._children: set[UUID] = set()
         self._seen_text: set[str] = set()
 
@@ -400,9 +411,9 @@ class _StepMirror:
 
     def open_call_id(self, tool_name: str) -> str:
         """The open row for ``tool_name`` (the bridge's card hangs off it), else ""."""
-        for name, call_id in self._open:
+        for name, row_id, _ in self._open:
             if name == tool_name:
-                return call_id
+                return row_id
         return ""
 
     async def _on_event(self, event: Any) -> None:
@@ -414,9 +425,9 @@ class _StepMirror:
     def _mine(self, event: Any) -> bool:
         return getattr(event, "trace_id", None) == self._trace_id
 
-    async def _open_call(self, tool_name: str, args: Any) -> None:
+    async def _open_call(self, tool_name: str, args: Any, exec_id: str = "") -> None:
         call_id = uuid.uuid4().hex
-        self._open.append((tool_name, call_id))
+        self._open.append((tool_name, call_id, exec_id))
         if isinstance(args, dict):
             payload_in: Any = args
         elif args:
@@ -436,13 +447,14 @@ class _StepMirror:
         output: str,
         duration_ms: Any,
         receipt: dict[str, str] | None = None,
+        exec_id: str = "",
     ) -> None:
-        index = next((i for i, (name, _) in enumerate(self._open) if name == tool_name), None)
+        index = self._row_index(tool_name, exec_id)
         if index is None:
             # A result with no row of its own (another path's, or a report
             # without a start) would draw a headless row; drop it.
             return
-        _, call_id = self._open.pop(index)
+        _, call_id, _ = self._open.pop(index)
         await self._emit(
             "tool_result",
             {
@@ -455,6 +467,21 @@ class _StepMirror:
             },
         )
 
+    def _row_index(self, tool_name: str, exec_id: str) -> int | None:
+        """The open row a result belongs to: its own call by id, else by name.
+
+        A result that names its call never takes a row opened for another
+        call; only rows without an id are left to the name.
+        """
+        if exec_id:
+            for i, (_, _, row_exec) in enumerate(self._open):
+                if row_exec == exec_id:
+                    return i
+        for i, (name, _, row_exec) in enumerate(self._open):
+            if name == tool_name and not (exec_id and row_exec):
+                return i
+        return None
+
     async def _translate(self, event: Any) -> None:
         name = type(event).__name__
         if name == "ActionProposed" and self._mine(event):
@@ -463,7 +490,9 @@ class _StepMirror:
                 self._seen_text.add(text)
                 await self._emit("reasoning_delta", {"turn_id": self._turn_id, "text": text})
             await self._open_call(
-                getattr(event, "tool_name", "") or "tool", getattr(event, "args", None)
+                getattr(event, "tool_name", "") or "tool",
+                getattr(event, "args", None),
+                _exec_id(event),
             )
         elif name == "ActionExecuted" and self._mine(event):
             await self._close_call(
@@ -472,6 +501,7 @@ class _StepMirror:
                 output=getattr(event, "error", None) or getattr(event, "output_preview", "") or "",
                 duration_ms=getattr(event, "duration_ms", 0),
                 receipt=_receipt_of(event),
+                exec_id=_exec_id(event),
             )
         elif name == "ActionDenied" and self._mine(event):
             await self._close_call(
@@ -479,6 +509,7 @@ class _StepMirror:
                 ok=False,
                 output=str(getattr(event, "reason", "") or "denied"),
                 duration_ms=0,
+                exec_id=_exec_id(event),
             )
         elif (
             name == "ToolCallStarted" and getattr(event, "parent_trace_id", None) == self._trace_id
