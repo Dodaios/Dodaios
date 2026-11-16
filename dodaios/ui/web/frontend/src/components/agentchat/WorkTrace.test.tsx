@@ -274,6 +274,23 @@ describe("work trace", () => {
     expect(container.querySelector(".text-destructive")).toBeNull();
   });
 
+  it("says a failed messenger turn in one quiet line, with no card and no second \"Failed\"", () => {
+    const answer = (text: string) => <p>{text}</p>;
+    const { container, rerender } = render(<WorkTrace {...props} status="error" messenger renderAnswer={answer}
+      error="The app restarted while this turn was running. Send it again." blocks={[]} />);
+    const line = screen.getByRole("alert");
+    expect(line.className).toContain("trace-fail");
+    expect(line.textContent).toBe("The app restarted while this turn was running. Send it again.");
+    expect(container.querySelector(".trace-note")).toBeNull();
+    // The reason says it failed: the state line is only read out.
+    expect(screen.getByRole("status").className).toBe("sr-only");
+    // The same under an answer.
+    rerender(<WorkTrace {...props} status="error" messenger renderAnswer={answer}
+      error="The model stopped answering." blocks={[reply("r", "Half an answer.")]} />);
+    expect(screen.getByRole("alert").className).toContain("trace-fail");
+    expect(screen.getByRole("status").className).toBe("sr-only");
+  });
+
   it("rests without a state line in a messenger conversation, and keeps it for a turn that needs one", () => {
     const answer = (text: string, _id: string, live: boolean) => <p data-testid="own-reply" data-live={String(live)}>{text}</p>;
     const { rerender } = render(<WorkTrace {...props} messenger renderAnswer={answer} blocks={[tool("a"), reply("done", "All set.")]} receipt={<span>219 tokens</span>} />);
