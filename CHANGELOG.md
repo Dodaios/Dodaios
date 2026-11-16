@@ -11,6 +11,20 @@ versioning per [SemVer](https://semver.org/).
 
 ---
 
+## [5.5.0] — 2026-11-16
+
+### Added
+
+- Slack is a conversation channel: a direct message to the owner's own Slack app continues the one conversation, with pictures, voice clips and approval buttons (#1735)
+- A checked entry of the agent's to-do list says how long it took (#1731)
+
+### Fixed
+
+- A new node opens empty, and whatever the person empties in an editor saves (#1744)
+- A channel whose start fails for a passing reason starts again by itself, so Telegram comes back after a login without network (#1732)
+
+---
+
 ## [5.3.4] — 2026-11-15
 
 ### Added
