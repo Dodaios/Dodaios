@@ -28,6 +28,7 @@ import itertools
 import json
 import logging
 import socket
+import socketserver
 import threading
 import time
 import uuid
@@ -41,6 +42,21 @@ from typing import Any
 FAKE_BOT_TOKEN = "xoxb" + "-000000000001-000000000002-StandInBotKeyForTestsOnly"
 FAKE_APP_TOKEN = "xapp" + "-1-A0STANDIN1-000000000003-standinappkeyfortestsonly0123"
 FAKE_USER_TOKEN = "xoxp" + "-000000000001-000000000004-StandInUserKeyForTests"
+
+
+class _LocalHTTPServer(ThreadingHTTPServer):
+    """A loopback HTTP server that binds without a reverse DNS lookup.
+
+    ``HTTPServer.server_bind`` calls ``socket.getfqdn`` on the host. On macOS
+    runners that lookup of ``127.0.0.1`` can block for many seconds, which held
+    the stand-in's start (and the event loop it runs on) past the tests' waits.
+    """
+
+    def server_bind(self) -> None:
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = str(host)
+        self.server_port = int(port)
 
 
 def _free_port() -> int:
@@ -148,7 +164,7 @@ class SlackStandIn:
             return
         handler = _make_handler(self)
         port = self.http_port or 0
-        server = ThreadingHTTPServer(("127.0.0.1", port), handler)
+        server = _LocalHTTPServer(("127.0.0.1", port), handler)
         server.daemon_threads = True
         self.http_port = int(server.server_address[1])
         self._http = server
