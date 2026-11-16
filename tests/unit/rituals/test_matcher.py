@@ -71,3 +71,32 @@ def test_what_makes_a_phrase_unusable() -> None:
     # The wake word, the name or a "please" alone would start it on anything said.
     for only_address in ("Hey Nova", "nova", "please", "hey"):
         assert "address" in matcher.phrase_problem(only_address, wake_phrase=WAKE)
+
+
+@pytest.mark.parametrize(
+    ("said", "phrase"),
+    [
+        ("What's up", "Whats up"),
+        ("whats up", "What’s up"),
+        ("Gruess Gott", "Grüß Gott"),  # i18n-allow: spoken-input vocabulary
+        ("Gruss Gott", "Grüß Gott"),  # i18n-allow: spoken-input vocabulary
+        ("Schoenen Tag", "Schönen Tag"),  # i18n-allow: spoken-input vocabulary
+        ("Schönen Tag", "Schonen Tag"),  # i18n-allow: spoken-input vocabulary
+        ("Guten Morgen, guten Morgen", "Guten Morgen"),  # i18n-allow: spoken-input vocabulary
+        ("good morning good morning, Nova", "Good morning"),
+    ],
+)
+def test_spellings_of_the_same_words_start_the_ritual(said: str, phrase: str) -> None:
+    assert matcher.says(said, phrase, wake_phrase=WAKE)
+
+
+def test_a_name_with_an_umlaut_is_address_in_either_spelling() -> None:
+    spellings = ("Hey Jürgen, guten Morgen", "hey juergen guten morgen")  # i18n-allow: spoken input
+    wake, phrase = "Hey Jürgen", "Guten Morgen"  # i18n-allow: spoken input
+    for said in spellings:
+        assert matcher.says(said, phrase, wake_phrase=wake)
+
+
+def test_a_repeated_phrase_is_still_no_question() -> None:
+    assert not matcher.says("good morning good morning how are you", "Good morning")
+    assert matcher.same_phrase("What's up", "Whats up")

@@ -14,6 +14,7 @@ from dodaios.agent_chat.runner_brain import brain_history_from_events
 from dodaios.agent_chat.store import AgentChatStore
 from dodaios.orchestrator import jobs
 from dodaios.plugins.tool.recall_tool import RecallTool
+from dodaios.tasks.context import client_timezone
 
 LONG_REPORT = "Finding one: the build is green. " + ("detail " * 700)  # about 5000 chars
 
@@ -364,11 +365,16 @@ def test_a_reminder_told_in_the_chat_is_in_the_leads_history(store):
         location="Main St 1",
     )
     _add(store, sid, "user_message", text="move it to tomorrow")
-    history = brain_history_from_events(store.list_events(sid), recall_ids=True)
+    token = client_timezone.set("Europe/Berlin")
+    try:
+        history = brain_history_from_events(store.list_events(sid), recall_ids=True)
+    finally:
+        client_timezone.reset(token)
     assert [m.role for m in history] == ["assistant", "user"]
     told = history[0].content
     assert told.startswith("Reminder you posted in the chat [ev:1] (calendar appointment): Dentist")
-    assert "2026-11-10T10:00:00+00:00" in told and "Main St 1" in told and "mem_1" in told
+    # Kept in UTC, told on the person's clock with its offset: 10:00 UTC is 11:00 in Berlin.
+    assert "due 2026-11-10T11:00+01:00" in told and "Main St 1" in told and "mem_1" in told
 
 
 def test_a_busy_only_reminder_names_no_title_and_an_old_one_its_text(store):

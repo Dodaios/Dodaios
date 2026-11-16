@@ -35,6 +35,7 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Any, Final
 
+from . import days as ritual_days
 from .models import (
     NOUN,
     TAG_PREFIX,
@@ -75,6 +76,9 @@ _TERMINAL: Final[frozenset[str]] = frozenset({"completed", "cancelled", "failed"
 _runs: dict[str, tuple[str, str]] = {}
 #: When the last try of a ritual began (``time.monotonic``), by ritual id.
 _tried_at: dict[str, float] = {}
+#: Rituals whose gathering is being set up right now (between the first look
+#: and the run's start), so a second start in that moment starts no second run.
+_starting: set[str] = set()
 _background: set[asyncio.Task[None]] = set()
 
 
@@ -109,6 +113,11 @@ def _moment(now: datetime | None) -> datetime:
 
 def _day_of(moment: datetime) -> str:
     return moment.strftime("%Y-%m-%d")
+
+
+def _gather_day(ritual: Ritual, moment: datetime) -> str:
+    """The day a gathering at ``moment`` is for: the window that is open, else the next one."""
+    return ritual_days.gather_day(ritual, moment).isoformat()
 
 
 def _line(text: Any, limit: int) -> str:
@@ -293,7 +302,7 @@ async def precheck_skip(tags: Sequence[str]) -> str:
         _runs.pop(ritual_id, None)
         return f"the {NOUN} no longer exists"
     if not ritual.steps_at("ahead"):
-        _settle(ritual_id, prep_state="", prep_error="")
+        _settle(ritual, prep_state="", prep_error="")
         return f"the {NOUN} has nothing to gather"
     return ""
 
@@ -307,8 +316,9 @@ async def run_context(tags: Sequence[str]) -> str:
     if ritual is None:
         return ""
     if ritual_id not in _runs:
-        # Started from outside the clock (the routine's own "Run now"): it counts for today.
-        _begin(ritual, _day_of(_moment(None)))
+        # Started from outside the clock (the routine's own "Run now"): it counts for
+        # the window that is open, else the next one.
+        _begin(ritual, _gather_day(ritual, _moment(None)))
     return work_order(ritual)
 
 
@@ -364,10 +374,11 @@ async def after_run(
 
 async def _after_run(ritual_id: str, answer: str, session_id: str, error: str) -> None:
     store = get_store()
-    day, fingerprint = _runs.pop(ritual_id, (_day_of(_moment(None)), ""))
+    entry = _runs.pop(ritual_id, None)
     ritual = store.get(ritual_id)
     if ritual is None:
         return
+    day, fingerprint = entry if entry is not None else (_gather_day(ritual, _moment(None)), "")
     if error == CANCELLED:
         store.patch_day(ritual_id, day, prep_state="", prep_error="")
         return
@@ -384,10 +395,17 @@ async def _after_run(ritual_id: str, answer: str, session_id: str, error: str) -
         prep_session=session_id,
     )
     log.info("rituals: %s gathered (%d characters)", ritual_id, len(written))
-    if _owed(ritual, row):
-        from . import service
+    if not _owed(ritual, row):
+        return
+    if not usable(ritual, row):
+        # The steps were changed while the run gathered for the old ones: the
+        # waiting start gets what its steps ask for now, not a failure.
+        log.info("rituals: steps of %s changed during the gathering; gathering again", ritual_id)
+        request(ritual_id, day)
+        return
+    from . import service
 
-        await service.deliver_late(ritual, day)
+    await service.deliver_late(ritual, day)
 
 
 def _owed(ritual: Ritual, row: RitualDay | None) -> bool:
@@ -440,7 +458,12 @@ async def ensure_routine(ritual: Ritual, services: tuple[Any, Any, Any, Any]) ->
     )
     spec = spec.model_copy(update={"tags": (*spec.tags, TAG_PREFIX + ritual.id, QUIET_TAG)})
     task_id = str(await create_routine(task_store, scheduler, spec))
-    stored = get_store().get(ritual.id) or ritual
+    stored = get_store().get(ritual.id)
+    if stored is None:
+        # Removed while its routine was being set up: the routine goes too, and
+        # the ritual is not written back.
+        await drop_routine(replace(ritual, task_id=task_id))
+        raise RitualError("not_found", f"The {NOUN} {ritual.id!r} was removed.")
     changed = replace(stored, task_id=task_id)
     get_store().save(changed)
     return changed
@@ -479,9 +502,28 @@ def _begin(ritual: Ritual, day: str) -> RitualDay:
     )
 
 
-def _settle(ritual_id: str, **fields: Any) -> None:
-    day, _ = _runs.pop(ritual_id, (_day_of(_moment(None)), ""))
-    get_store().patch_day(ritual_id, day, **fields)
+def _settle(ritual: Ritual, **fields: Any) -> None:
+    entry = _runs.pop(ritual.id, None)
+    day = entry[0] if entry is not None else _gather_day(ritual, _moment(None))
+    get_store().patch_day(ritual.id, day, **fields)
+
+
+async def _start_failed(ritual: Ritual, day: str, reason: str) -> None:
+    """A start waits for ``day`` and its gathering cannot begin: it hears that now.
+
+    Otherwise its card would say for good that the rest follows. Nothing is
+    marked when no start waits: the clock tries again.
+    """
+    try:
+        row = get_store().day(ritual.id, day)
+        if not _owed(ritual, row):
+            return
+        get_store().patch_day(ritual.id, day, prep_state="failed", prep_error=_line(reason, 300))
+        from . import service
+
+        await service.deliver_late(ritual, day)
+    except Exception:  # noqa: BLE001 — the caller hears of the failure itself
+        log.warning("rituals: failed start of %s not handed over", ritual.id, exc_info=True)
 
 
 async def start(
@@ -498,22 +540,41 @@ async def start(
     clicked): it runs on the ritual's seat as chosen. ``again`` gathers anew
     although today's result is still good. ``day`` names the day the result
     is for when a start of the ritual is waiting for it: a start just before
-    midnight still gets its answer.
-    """
-    from dodaios.core.protocols import started_by_user
-    from dodaios.tasks.scheduler import TaskStateConflict
+    midnight still gets its answer. Without it the day is the one of the
+    window that is open, else of the next one to open.
 
+    Two starts in the same moment start one run. When the run cannot begin
+    and a start is waiting for it, that start's second card says so.
+    """
     ritual = get_store().get(str(ritual_id or "").strip())
     if ritual is None:
         raise RitualError("not_found", f"There is no {NOUN} {ritual_id!r}.")
     if not ritual.steps_at("ahead"):
         raise RitualError("state", f'The {NOUN} "{ritual.name}" has nothing to gather ahead.')
-    day = day or _day_of(_moment(now))
+    day = day or _gather_day(ritual, _moment(now))
     row = get_store().day(ritual.id, day)
     if row is not None and row.prep_state == "running" and ritual.id in _runs:
         return False
     if usable(ritual, row) and not again:
         return False
+    if ritual.id in _starting:
+        # Another start is setting the run up this moment; that run counts.
+        return False
+    _starting.add(ritual.id)
+    try:
+        return await _start_run(ritual, day, by_user=by_user)
+    except RitualError as exc:
+        await _start_failed(ritual, day, exc.message)
+        raise
+    finally:
+        _starting.discard(ritual.id)
+
+
+async def _start_run(ritual: Ritual, day: str, *, by_user: bool) -> bool:
+    """Set up the backing routine and start its run for ``day``."""
+    from dodaios.core.protocols import started_by_user
+    from dodaios.tasks.scheduler import TaskStateConflict
+
     services = await _services()
     try:
         ritual = await ensure_routine(ritual, services)
@@ -537,7 +598,7 @@ async def start(
         return False
     except Exception as exc:
         log.warning("rituals: gathering for %s could not start", ritual.id, exc_info=True)
-        _settle(ritual.id, prep_state="failed", prep_error="The run could not be started.")
+        _settle(ritual, prep_state="failed", prep_error="The run could not be started.")
         raise RitualError("unavailable", "The gathering run could not be started.") from exc
     log.info("rituals: gathering for %s started (%s)", ritual.id, "asked" if by_user else "clock")
     return True
@@ -592,7 +653,8 @@ def due(ritual: Ritual, moment: datetime, row: RitualDay | None) -> bool:
     """Whether the clock should start gathering for ``ritual`` at ``moment``."""
     if not ritual.enabled or not ritual.steps_at("ahead"):
         return False
-    if ritual.weekdays and moment.weekday() not in ritual.weekdays:
+    # The weekday of the start it gathers for: the window that is open, else the next one.
+    if ritual.weekdays and ritual_days.gather_day(ritual, moment).weekday() not in ritual.weekdays:
         return False
     if not _gather_window(ritual, moment):
         return False
@@ -660,7 +722,6 @@ async def tick(now: datetime | None = None) -> list[str]:
     started: list[str] = []
     try:
         moment = _moment(now)
-        day = _day_of(moment)
         rituals = [r for r in get_store().list() if r.enabled and r.steps_at("ahead")]
         if not rituals:
             return started
@@ -668,6 +729,7 @@ async def tick(now: datetime | None = None) -> list[str]:
         task_store = runtime.task_services()[0] if runtime is not None else None
         awake: bool | None = None
         for ritual in rituals:
+            day = _gather_day(ritual, moment)
             row = await _clear_stale(ritual, get_store().day(ritual.id, day), task_store)
             if not due(ritual, moment, row):
                 continue
@@ -677,7 +739,7 @@ async def tick(now: datetime | None = None) -> list[str]:
                 return started
             try:
                 # ``due`` decided it: also a result that is too old is gathered anew.
-                if await start(ritual.id, again=True, now=moment):
+                if await start(ritual.id, again=True, day=day):
                     started.append(ritual.id)
             except RitualError as exc:
                 log.info("rituals: gathering for %s not started (%s)", ritual.id, exc.message)

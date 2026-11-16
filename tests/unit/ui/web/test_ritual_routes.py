@@ -109,7 +109,8 @@ def test_run_now_starts_it_whatever_the_clock_says(world) -> None:
         missing = client.post(f"{BASE}/rit_missing/run")
     assert first.status_code == 200 and second.status_code == 200
     assert first.json()["today"]["fired_via"] == "button"
-    assert [card["ritual_id"] for card in world.notices] == [ritual["id"]] * 2
+    starts = [card for card in world.notices if not card.get("late")]
+    assert [card["ritual_id"] for card in starts] == [ritual["id"]] * 2
     # One ritual's page carries what was gathered for today as well.
     assert shown["today"]["fired_via"] == "button" and shown["today"]["written"] == ""
     assert missing.status_code == 404

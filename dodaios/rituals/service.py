@@ -30,6 +30,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any, Final
 
+from . import days as ritual_days
 from . import matcher
 from .models import (
     FIRED_VIA,
@@ -48,7 +49,6 @@ from .models import (
     RitualError,
     RitualStep,
     clock,
-    minutes_of,
     new_ritual_id,
     new_step_id,
     now_ms,
@@ -127,7 +127,12 @@ def _one_line(text: Any) -> str:
 # --------------------------------------------------------------- validation
 
 
-def _clean_phrases(raw: Any, *, wake_phrase: str) -> tuple[str, ...]:
+def _clean_phrases(
+    raw: Any, *, wake_phrase: str, known: Sequence[str] = ()
+) -> tuple[str, ...]:
+    """The phrases as they are kept. ``known`` are the ones the ritual already
+    has: they were checked when they were written, and a later change of the
+    wake word does not take them away, so a switch or a rename still saves."""
     if isinstance(raw, str):
         raw = [raw]
     if not isinstance(raw, Iterable):
@@ -136,6 +141,10 @@ def _clean_phrases(raw: Any, *, wake_phrase: str) -> tuple[str, ...]:
     for item in raw:
         text = _one_line(item)
         if not text:
+            continue
+        if any(matcher.same_phrase(text, kept) for kept in known):
+            if not any(matcher.same_phrase(text, kept) for kept in phrases):
+                phrases.append(text)
             continue
         problem = matcher.phrase_problem(text, wake_phrase=wake_phrase)
         if problem:
@@ -165,7 +174,14 @@ def _is_brief_request(text: str) -> bool:
         return False
 
 
-def _clean_steps(raw: Any) -> tuple[RitualStep, ...]:
+def _clean_steps(
+    raw: Any, *, known_calls: dict[str, dict[str, Any]] | None = None
+) -> tuple[RitualStep, ...]:
+    """The steps as they are kept. ``known_calls`` are the calls the ritual
+    already carries, by step id: one that comes back unchanged is not checked
+    against the tools again, so a tool that went away (a plugin that was
+    disconnected) does not stop a switch or a rename. Its step goes to a turn
+    at the start, as for any call that cannot be made."""
     if not isinstance(raw, Iterable) or isinstance(raw, str | bytes | dict):
         raise RitualError("invalid", "steps must be a list.")
     steps: list[RitualStep] = []
@@ -191,7 +207,8 @@ def _clean_steps(raw: Any) -> tuple[RitualStep, ...]:
         if not step_id or step_id in seen:
             step_id = new_step_id()
         seen.add(step_id)
-        steps.append(RitualStep(id=step_id, when=when, text=text, call=_clean_call(item, when)))
+        call = _clean_call(item, when, known=(known_calls or {}).get(step_id))
+        steps.append(RitualStep(id=step_id, when=when, text=text, call=call))
     if not steps:
         raise RitualError("invalid", f"A {NOUN} needs at least one step.")
     if len(steps) > MAX_STEPS:
@@ -199,8 +216,14 @@ def _clean_steps(raw: Any) -> tuple[RitualStep, ...]:
     return tuple(steps)
 
 
-def _clean_call(item: dict[str, Any], when: str) -> dict[str, Any] | None:
-    """The one tool call a ``now`` step comes down to, checked against the app's tools."""
+def _clean_call(
+    item: dict[str, Any], when: str, *, known: dict[str, Any] | None = None
+) -> dict[str, Any] | None:
+    """The one tool call a ``now`` step comes down to, checked against the app's tools.
+
+    ``known`` is the call the step already had; the same call again is kept
+    without a second look at the tools.
+    """
     from . import instant
 
     try:
@@ -213,6 +236,8 @@ def _clean_call(item: dict[str, Any], when: str) -> dict[str, Any] | None:
         raise RitualError(
             "invalid", "Only a step for the moment itself ('now') can carry a call."
         )
+    if known is not None and call == known:
+        return call
     why = instant.problem(call)
     if why:
         raise RitualError(
@@ -243,7 +268,10 @@ def _clean_clock(value: Any, what: str) -> str:
         raise RitualError("invalid", f"{what}: {exc}.") from exc
 
 
-def _validated(fields: dict[str, Any], *, wake_phrase: str) -> dict[str, Any]:
+def _validated(
+    fields: dict[str, Any], *, wake_phrase: str, current: Ritual | None = None
+) -> dict[str, Any]:
+    """The fields as they are kept. ``current`` is the ritual being changed."""
     name = _one_line(fields.get("name"))
     if not name:
         raise RitualError("invalid", f"A {NOUN} needs a name.")
@@ -255,16 +283,34 @@ def _validated(fields: dict[str, Any], *, wake_phrase: str) -> dict[str, Any]:
         raise RitualError("invalid", "A time window needs both its start and its end.")
     if window_from and window_from == window_to:
         raise RitualError("invalid", "The time window starts and ends at the same minute.")
+    prepare_from = _clean_clock(fields.get("prepare_from"), "prepare_from")
+    times = (window_from, window_to, prepare_from)
+    unchanged = current is not None and times == (
+        current.window_from, current.window_to, current.prepare_from
+    )
+    # Times a ritual already had stay as they are: a switch or a rename still saves.
+    problem = "" if unchanged else ritual_days.prepare_problem(*times)
+    if problem:
+        raise RitualError("invalid", problem)
+    known_calls = (
+        {step.id: step.call for step in current.steps if step.call is not None}
+        if current is not None
+        else None
+    )
     return {
         "name": name,
-        "phrases": _clean_phrases(fields.get("phrases"), wake_phrase=wake_phrase),
+        "phrases": _clean_phrases(
+            fields.get("phrases"),
+            wake_phrase=wake_phrase,
+            known=current.phrases if current is not None else (),
+        ),
         "enabled": bool(fields.get("enabled", True)),
         "window_from": window_from,
         "window_to": window_to,
         "weekdays": _clean_weekdays(fields.get("weekdays")),
         "once_per_day": bool(fields.get("once_per_day", True)),
-        "prepare_from": _clean_clock(fields.get("prepare_from"), "prepare_from"),
-        "steps": _clean_steps(fields.get("steps")),
+        "prepare_from": prepare_from,
+        "steps": _clean_steps(fields.get("steps"), known_calls=known_calls),
     }
 
 
@@ -326,7 +372,7 @@ async def update(ritual_id: str, **changes: Any) -> Ritual:
         "steps": [step.to_dict() for step in current.steps],
         **changes,
     }
-    clean = _validated(merged, wake_phrase=_wake_phrase())
+    clean = _validated(merged, wake_phrase=_wake_phrase(), current=current)
     _check_unique(clean, ignore_id=current.id)
     changed = replace(current, updated_ms=now_ms(), **clean)
     get_store().save(changed)
@@ -366,22 +412,30 @@ def find(ref: str) -> Ritual | None:
     return next((r for r in get_store().list() if r.name.casefold() == folded), None)
 
 
+def ritual_day_of(ritual: Ritual, moment: datetime) -> str:
+    """The ritual's day ``moment`` counts for (``YYYY-MM-DD``): the morning part
+    of a window over midnight belongs to the evening before."""
+    return ritual_days.ritual_day(ritual, moment).isoformat()
+
+
 def today_of(ritual_id: str, *, now: datetime | None = None) -> RitualDay | None:
-    return get_store().day(ritual_id, day_of(_moment(now)))
+    moment = _moment(now)
+    ritual = get(ritual_id)
+    day = ritual_day_of(ritual, moment) if ritual is not None else day_of(moment)
+    return get_store().day(ritual_id, day)
 
 
 def overview(*, now: datetime | None = None) -> dict[str, Any]:
     """Every ritual with where it stands today, and the limits a form needs."""
-    today = {row.ritual_id: row for row in get_store().days(day_of(_moment(now)))}
+    moment = _moment(now)
+    store = get_store()
+    rituals = []
+    for ritual in store.list():
+        today = store.day(ritual.id, ritual_day_of(ritual, moment))
+        rituals.append({**ritual.to_dict(), "today": today.to_dict() if today else None})
     return {
         "available": True,
-        "rituals": [
-            {
-                **ritual.to_dict(),
-                "today": today[ritual.id].to_dict() if ritual.id in today else None,
-            }
-            for ritual in get_store().list()
-        ],
+        "rituals": rituals,
         "limits": {
             "max_rituals": MAX_RITUALS,
             "max_name_chars": MAX_NAME_CHARS,
@@ -398,17 +452,6 @@ def overview(*, now: datetime | None = None) -> dict[str, Any]:
 # ---------------------------------------------------------- does it start now
 
 
-def _inside_window(ritual: Ritual, moment: datetime) -> bool:
-    if not ritual.window_from:
-        return True
-    minute = moment.hour * 60 + moment.minute
-    start, end = minutes_of(ritual.window_from), minutes_of(ritual.window_to)
-    if start <= end:
-        return start <= minute <= end
-    # A window over midnight (22:00 to 02:00).
-    return minute >= start or minute <= end
-
-
 def why_not(ritual: Ritual, moment: datetime, *, phrase_used: bool) -> str:
     """Why its phrase does not start ``ritual`` at ``moment``; ``""`` when it does.
 
@@ -418,9 +461,11 @@ def why_not(ritual: Ritual, moment: datetime, *, phrase_used: bool) -> str:
     """
     if not ritual.enabled:
         return "off"
-    if ritual.weekdays and moment.weekday() not in ritual.weekdays:
+    # The weekday of a window over midnight is the one of the evening it opened on.
+    day = ritual_days.ritual_day(ritual, moment)
+    if ritual.weekdays and day.weekday() not in ritual.weekdays:
         return "day"
-    if not _inside_window(ritual, moment):
+    if not ritual_days.inside_window(ritual, moment):
         return "time"
     if ritual.once_per_day and phrase_used:
         return "done_today"
@@ -447,14 +492,25 @@ def find_match(
         return None
     wake = _wake_phrase() if wake_phrase is None else wake_phrase
     moment = _moment(now)
+    found: list[Match] = []
     for ritual in get_store().list():
-        for phrase in ritual.phrases:
-            if matcher.says(said, phrase, wake_phrase=wake):
-                blocked = why_not(
-                    ritual, moment, phrase_used=_phrase_used(ritual.id, day_of(moment))
-                )
-                return Match(ritual=ritual, phrase=phrase, blocked=blocked)
-    return None
+        # The ritual's longest phrase that was said: "good morning Nova" over "good morning".
+        phrase = max(
+            (p for p in ritual.phrases if matcher.says(said, p, wake_phrase=wake)),
+            key=lambda p: len(matcher.words(p)),
+            default=None,
+        )
+        if phrase is None:
+            continue
+        used = _phrase_used(ritual.id, ritual_day_of(ritual, moment))
+        blocked = why_not(ritual, moment, phrase_used=used)
+        found.append(Match(ritual=ritual, phrase=phrase, blocked=blocked))
+    if not found:
+        return None
+    # A ritual that starts now wins over one that is held back, so a ritual
+    # outside its window does not hide another one the sentence names; then
+    # the one whose phrase is the longer part of the sentence.
+    return max(found, key=lambda match: (match.fires, len(matcher.words(match.phrase))))
 
 
 # -------------------------------------------------------------------- start
@@ -547,6 +603,9 @@ async def deliver_late(ritual: Ritual, day: str) -> None:
     row = store.day(ritual.id, day)
     if row is None or row.fired_ms is None or row.delivered_ms is not None:
         return
+    # Claimed first: two hand-overs in the same moment post one card.
+    if not store.claim_delivery(ritual.id, day, now_ms()):
+        return
     if prepare.usable(ritual, row):
         await _post(ritual, {"via": row.fired_via, "late": True, "text": card_text(row)})
         from . import said
@@ -558,7 +617,6 @@ async def deliver_late(ritual: Ritual, day: str) -> None:
         await _post(
             ritual, {"via": row.fired_via, "late": True, "status": "failed", "text": reason}
         )
-    store.patch_day(ritual.id, day, delivered_ms=now_ms())
 
 
 async def _run_now_steps(ritual: Ritual, steps: Sequence[RitualStep]) -> None:
@@ -577,9 +635,11 @@ async def _run_now_steps(ritual: Ritual, steps: Sequence[RitualStep]) -> None:
         session = lead_session(svc) if svc is not None else None
     except Exception:  # noqa: BLE001 — without a conversation the steps cannot run; say so in the log
         log.warning("rituals: no conversation for the steps of %s", ritual.id, exc_info=True)
+        await _steps_not_run(ritual, steps)
         return
     if session is None:
         log.warning("rituals: no conversation for the steps of %s", ritual.id)
+        await _steps_not_run(ritual, steps)
         return
     session_id = str(session.session_id)
     prompt = now_prompt(ritual, steps)
@@ -594,6 +654,7 @@ async def _run_now_steps(ritual: Ritual, steps: Sequence[RitualStep]) -> None:
                 log.debug("rituals: the conversation was taken first; trying again")
             except NoSuchSession:
                 log.warning("rituals: the conversation is gone; steps of %s not run", ritual.id)
+                await _steps_not_run(ritual, steps)
                 return
             else:
                 return
@@ -601,8 +662,18 @@ async def _run_now_steps(ritual: Ritual, steps: Sequence[RitualStep]) -> None:
             log.warning(
                 "rituals: the conversation stayed busy; steps of %s not run", ritual.id
             )
+            await _steps_not_run(ritual, steps)
             return
         await asyncio.sleep(_POLL_S)
+
+
+async def _steps_not_run(ritual: Ritual, steps: Sequence[RitualStep]) -> None:
+    """Tell the person which steps did not run: the card said the ritual started."""
+    lines = "\n".join(f"{index}. {step.text}" for index, step in enumerate(steps, 1))
+    await _post(
+        ritual,
+        {"late": True, "status": "failed", "steps_not_run": True, "text": lines[:_MAX_CARD_CHARS]},
+    )
 
 
 async def _do_now_steps(ritual: Ritual, steps: Sequence[RitualStep], day: str) -> None:
@@ -616,10 +687,10 @@ async def _do_now_steps(ritual: Ritual, steps: Sequence[RitualStep], day: str) -
         if step.call is None:
             left.append(step)
             continue
-        done, said = await instant.run(step.call, sentence=step.text)
-        lines.append(said)
-        if not done:
-            log.info("rituals: a step of %s goes to a turn (%s)", ritual.id, said)
+        outcome = await instant.run(step.call, sentence=step.text)
+        lines.append(outcome.line)
+        if outcome.to_turn:
+            log.info("rituals: a step of %s goes to a turn (%s)", ritual.id, outcome.line)
             left.append(step)
     if lines:
         try:
@@ -687,7 +758,7 @@ async def fire(
     # A start nobody would see or hear of is refused before the day is claimed.
     await _lead_chat()
     moment = _moment(now)
-    day = day_of(moment)
+    day = ritual_day_of(ritual, moment)
     store = get_store()
     stamp = now_ms()
     if force:

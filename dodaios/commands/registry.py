@@ -275,7 +275,8 @@ def _ritual_properties() -> dict[str, Any]:
         },
         "prepare_from": _str_param(
             f"Optional. From when the 'ahead' steps are gathered, {clock}. Default: the "
-            "start of the window. It gathers as soon as the computer is awake from then on."
+            "start of the window. A time inside the window or at most 12 hours before it "
+            "opens. It gathers as soon as the computer is awake from then on."
         ),
     }
 

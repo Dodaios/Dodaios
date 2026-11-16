@@ -193,6 +193,22 @@ class RitualStore:
             )
             self._conn.commit()
 
+    def claim_delivery(self, ritual_id: str, day: str, at_ms: int) -> bool:
+        """Mark what a start is owed as handed over; ``False`` when it was already.
+
+        One conditional update, so of two hand-overs in the same moment exactly
+        one posts its card.
+        """
+        with self._lock:
+            cursor = self._conn.execute(
+                "UPDATE ritual_days SET delivered_ms = ? "
+                "WHERE ritual_id = ? AND day = ? AND fired_ms IS NOT NULL "
+                "AND delivered_ms IS NULL",
+                (int(at_ms), str(ritual_id), str(day)),
+            )
+            self._conn.commit()
+            return cursor.rowcount == 1
+
     def patch_day(self, ritual_id: str, day: str, **fields: Any) -> RitualDay:
         """Write ``fields`` on the day's row (created when missing) and return it."""
         unknown = set(fields) - _DAY_FIELDS

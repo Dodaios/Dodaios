@@ -12,20 +12,37 @@ every tool call of the app (``ToolExecutor``), on the surface where nobody can
 be asked: a call that would need a question does not run, and its step is done
 by an ordinary turn instead, where the usual approval applies. The same holds
 for a call that fails or names a tool that is gone.
+
+A call that gives no answer in time is not handed to a turn: it may well have
+happened (the music started, the answer was only slow), and a turn would do
+it a second time. Its line says it is unclear.
 """
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from typing import Any, Final
+from typing import Any, Final, NamedTuple
 from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
 MAX_SAYS_CHARS: Final[int] = 160
-#: How long one call may take before its step is left to a turn.
+#: How long the start waits for one call's answer.
 CALL_TIMEOUT_S: Final[float] = 20.0
+
+
+class Outcome(NamedTuple):
+    """What became of one call."""
+
+    #: The call answered that it worked.
+    done: bool
+    #: One line about it, for the person.
+    line: str
+    #: Whether an ordinary turn should do the step instead: the call surely
+    #: did not happen. ``False`` when it worked, and when it gave no answer in
+    #: time, because then it may have happened.
+    to_turn: bool
 
 
 def _gateway() -> Any | None:
@@ -95,8 +112,8 @@ def line(call: Mapping[str, Any]) -> str:
     return str(call.get("says") or "").strip() or str(call.get("tool") or "")
 
 
-async def run(call: Mapping[str, Any], *, sentence: str) -> tuple[bool, str]:
-    """Make the call; ``(done, one line about it)``. Never raises.
+async def run(call: Mapping[str, Any], *, sentence: str) -> Outcome:
+    """Make the call and say what became of it. Never raises.
 
     ``sentence`` is the step in the person's words: what they asked for.
     """
@@ -107,7 +124,7 @@ async def run(call: Mapping[str, Any], *, sentence: str) -> tuple[bool, str]:
     label = line(call)
     gateway = _gateway()
     if gateway is None:
-        return False, f"{label}: the tools are not ready"
+        return Outcome(False, f"{label}: the tools are not ready", True)
     request = SupervisorToolRequest(
         trace_id=uuid4(),
         origin="ritual",
@@ -124,14 +141,15 @@ async def run(call: Mapping[str, Any], *, sentence: str) -> tuple[bool, str]:
         )
     except TimeoutError:
         log.info("rituals: call %s gave no answer in %.0f s", call.get("tool"), CALL_TIMEOUT_S)
-        return False, f"{label}: no answer in time"
+        # It may have happened all the same: not done a second time by a turn.
+        return Outcome(False, f"{label}: no answer in time, not tried again", False)
     except Exception as exc:  # noqa: BLE001 — the step goes to a turn, with the reason kept
         log.warning("rituals: call %s failed", call.get("tool"), exc_info=True)
-        return False, f"{label}: {type(exc).__name__}"
+        return Outcome(False, f"{label}: {type(exc).__name__}", True)
     if getattr(result, "success", False):
-        return True, label
+        return Outcome(True, label, False)
     reason = " ".join(str(getattr(result, "error", "") or "it did not work").split())[:200]
-    return False, f"{label}: {reason}"
+    return Outcome(False, f"{label}: {reason}", True)
 
 
-__all__ = ["CALL_TIMEOUT_S", "MAX_SAYS_CHARS", "clean", "line", "problem", "run"]
+__all__ = ["CALL_TIMEOUT_S", "MAX_SAYS_CHARS", "Outcome", "clean", "line", "problem", "run"]
