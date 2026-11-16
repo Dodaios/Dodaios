@@ -16,11 +16,19 @@ three places, and none knows what happened in the others.
 
 ## The promise
 
-> **One workspace for everything you do with AI.**
+> **Say what you want. Dodaios runs Claude Code, Codex and seven more coding
+> agents on your own plans, checks their work, and tells you what is done.**
 
-Use it word for word, and never alone. "One place for everything" is what
-the big model makers already say about their own apps, so the definition
-always follows:
+Use it word for word, and never alone: the definition always follows.
+
+It names one problem a reader already has (running several coding agents by
+hand) and the part other tools that run coding agents do not promise: the
+assistant checks the work before it reports. The maintainer chose it on
+16 November 2026. Until then the promise was "One workspace for everything
+you do with AI." It described an ecosystem rather than a problem, and model
+makers say nearly the same about their own apps.
+
+The definition:
 
 > Dodaios is an open-source desktop app. You tell its assistant what you need,
 > and it does the work itself or hands it to Claude Code, Codex and your other

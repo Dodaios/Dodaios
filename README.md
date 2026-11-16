@@ -10,7 +10,7 @@
 <h1>Dodaios</h1>
 
 <!-- the promise and the definition: word for word everywhere (docs/positioning.md) -->
-<p><b>One workspace for everything you do with AI.</b></p>
+<p><b>Say what you want. Dodaios runs Claude Code, Codex and seven more coding agents on your own plans, checks their work, and tells you what is done.</b></p>
 
 <p>
   Dodaios is an open-source desktop app. You tell its assistant what you need,<br />
