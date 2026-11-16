@@ -105,7 +105,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   window.localStorage.clear();
-  useNodePeek.setState({ peek: null, touched: {}, chatOpen: true });
+  useNodePeek.setState({ peek: null, touched: {}, chatOpen: true, lender: null });
   useNodeCommentDraft.setState({ nodeKey: null, pending: [], sending: false, working: 0, outcome: null });
   useAgentChatStore.setState({ timeline: EMPTY_TIMELINE });
   useEventStore.setState({ activeSection: "chats", solo: false });
@@ -134,11 +134,61 @@ describe("the node window", () => {
     expect(frame.getAttribute("src")).toContain(`/api/outputs/run-1/files/${PLAN_FILE.path}/page`);
     expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
     expect(screen.getByTestId("visualization-title").textContent).toBe("Business plan v1");
-    // The conversation beside it, on the store the click came from.
+    // The conversation beside it, on the store the click came from. Its
+    // column is there with the window; the conversation itself is drawn
+    // right after the window's first frame, so it never holds the node back.
+    expect(screen.getByTestId("node-peek-chat")).toBeTruthy();
     expect((await screen.findByTestId("chat-stage-stub")).getAttribute("data-surface")).toBe("jarvis");
+    expect(screen.getByTestId("node-peek-conversation").getAttribute("data-ready")).toBe("true");
+    // On screen at once: nothing fades or zooms in, nothing is blurred.
+    expect(windowEl.className).not.toContain("animate-");
+    expect(screen.getByTestId("node-peek-scrim").className).not.toContain("blur");
     // The section did not change.
     expect(useEventStore.getState().activeSection).toBe("chats");
     expect(useEventStore.getState().visualStage).toBeNull();
+  });
+
+  it("moves the conversation that is on the page behind it instead of drawing it again", async () => {
+    installFetchMock();
+    // The front page offers its conversation: the element it is drawn in, and its column.
+    const home = document.body.appendChild(document.createElement("div"));
+    const element = home.appendChild(document.createElement("div"));
+    useNodePeek.setState({ lender: { chat: useAgentChatStore, element, home } });
+    mount();
+    await openWindow(PLAN);
+    const place = screen.getByTestId("node-peek-conversation");
+    expect(place.getAttribute("data-borrowed")).toBe("true");
+    // Right after the window's first frame the conversation stands beside the node.
+    await waitFor(() => expect(place.contains(element)).toBe(true));
+    // No second conversation is drawn.
+    expect(screen.queryByTestId("chat-stage-stub")).toBeNull();
+
+    // Put away, it is back in its own column; shown again, beside the node at once.
+    fireEvent.click(screen.getByTestId("node-peek-chat-toggle"));
+    expect(home.contains(element)).toBe(true);
+    fireEvent.click(screen.getByTestId("node-peek-chat-toggle"));
+    expect(screen.getByTestId("node-peek-conversation").contains(element)).toBe(true);
+
+    // Closed: home again, and never off the page on the way.
+    fireEvent.keyDown(screen.getByTestId("node-peek-window"), { key: "Escape" });
+    expect(screen.queryByTestId("node-peek")).toBeNull();
+    expect(home.contains(element)).toBe(true);
+    home.remove();
+  });
+
+  it("draws a conversation the page behind it does not have, after the node", async () => {
+    installFetchMock();
+    // The page behind offers another chat than the one the node was opened from.
+    const home = document.body.appendChild(document.createElement("div"));
+    const element = home.appendChild(document.createElement("div"));
+    useNodePeek.setState({ lender: { chat: (() => undefined) as never, element, home } });
+    mount();
+    await openWindow(PLAN);
+    expect(screen.getByTestId("node-peek-conversation").getAttribute("data-borrowed")).toBeNull();
+    expect(await screen.findByTestId("chat-stage-stub")).toBeTruthy();
+    // The other conversation stays where it is.
+    expect(home.contains(element)).toBe(true);
+    home.remove();
   });
 
   it("has one close button: on the conversation's header beside the node, on the node's bar without it", async () => {

@@ -13,6 +13,7 @@ import { fill, useT } from "@/i18n";
 import { fetchLeadFiles, type LeadFile } from "@/lib/agentChatApi";
 import { openLocalPath } from "@/lib/openLocalPath";
 import { openNodePeek } from "@/store/nodePeek";
+import { preloadNodePeek } from "@/components/nodes/peek/peekFrame";
 
 /** How many files show before the rest folds away, and how many unfold. */
 export const OUTPUTS_SHOWN = 6;
@@ -186,7 +187,8 @@ export function PanelOutputs({ name }: { name: string }) {
     <PanelSection id="outputs" title={t("sidebar.outputs")}>
       {shown.map((row) => (
         <button key={`${row.slug}::${row.path}`} type="button" data-testid="assistant-output" data-kind={row.kind}
-          data-source={row.slug ? "run" : "chat"} onClick={() => openRow(row)} title={row.slug ? row.path.split("/").pop() : row.path}
+          data-source={row.slug ? "run" : "chat"} onClick={() => openRow(row)}
+          onPointerEnter={row.slug ? preloadNodePeek : undefined} title={row.slug ? row.path.split("/").pop() : row.path}
           className={PANEL_ROW_BUTTON}>
           <OutputIcon kind={row.kind} />
           <span className="min-w-0 flex-1 truncate text-sm text-foreground">{row.label}</span>

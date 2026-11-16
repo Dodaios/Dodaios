@@ -28,6 +28,7 @@ import { artifactPageUrl } from "@/hooks/useVisualArtifacts";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useNodePeek } from "@/store/nodePeek";
+import { preloadNodePeek } from "@/components/nodes/peek/peekFrame";
 import { NODE_TYPE_LABEL_KEY } from "@/components/nodes/nodeTheme";
 import { isNodeType, type NodeType } from "@/components/nodes/nodeModel";
 import { useAgentChatApi } from "./AgentChatStoreContext";
@@ -132,6 +133,10 @@ export function PageLink({ pageRef, label, className }: { pageRef: string; label
       type="button"
       data-testid="page-link"
       onClick={() => openPeek(pageRef, { chat, title: label.trim() })}
+      // The window's code is fetched while the app idles; the pointer on its
+      // way to the click makes sure of it.
+      onPointerEnter={preloadNodePeek}
+      onFocus={preloadNodePeek}
       title={`${t("reports.open")}: ${name}`}
       className={cn(
         "inline-flex max-w-full items-baseline gap-1.5 rounded-sm text-left align-baseline text-foreground",
@@ -215,6 +220,8 @@ export function PageCard({ item, mode = "preview" }: { item: NoticeItem; mode?: 
       data-message-id={item.id}
       data-testid="page-card"
       data-open={isOpen ? "true" : undefined}
+      onPointerEnter={preloadNodePeek}
+      onFocus={preloadNodePeek}
       className={cn(
         "group w-full max-w-[720px] overflow-hidden rounded-2xl border bg-card shadow-rim transition-colors",
         isOpen ? "border-primary/60" : "border-border hover:border-border-strong",
