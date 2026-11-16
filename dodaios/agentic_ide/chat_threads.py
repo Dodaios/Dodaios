@@ -139,6 +139,17 @@ class _ImagePlace:
         return folder
 
 
+def _picture_row(item: Any) -> dict[str, str]:
+    """A handed-over picture as a message attachment.
+
+    The note is what an agent that cannot take the picture itself reads; a CLI
+    that sees images replaces it with its own (``service._seen_directly``).
+    """
+    row = item.to_dict()
+    row["note"] = row.get("note") or "An image file in this folder; open it to see it."
+    return row
+
+
 @dataclass(slots=True)
 class _Tracked:
     """A turn Dodaios started in a thread, until its result was reported."""
@@ -338,7 +349,7 @@ class ChatThreads:
                 "input_written": False,
                 "completed": False,
             }
-        image_brief, receipts = "", []
+        image_brief, pictures, receipts = "", [], []
         if images:
             from dodaios.agent_chat.catalog import provider_row
             from dodaios.core.image_references import ImageReferenceError
@@ -350,7 +361,7 @@ class ChatThreads:
                 folder=session.cwd, agent=provider.agent if provider is not None else ""
             )
             try:
-                image_brief, _attachments, receipts = await prepare(place, place, images)
+                image_brief, pictures, receipts = await prepare(place, place, images)
             except ImageReferenceError as exc:  # the receipt carries the reason back
                 return {
                     "status": "not_accepted",
@@ -363,7 +374,17 @@ class ChatThreads:
         tracked = self._track(session_id, label, prompt, origin, started_ms)
         self._listen(service)
         try:
-            await service.send(session_id, prompt + image_brief, author=self._author(service))
+            # The pictures go as the message's own attachments, as a person's
+            # drop does: the thread draws them above the prompt, and a CLI that
+            # reads images gets the pixels. The bubble shows the prompt alone;
+            # the file list beneath it is for the agent.
+            await service.send(
+                session_id,
+                prompt + image_brief,
+                [_picture_row(item) for item in pictures] or None,
+                author=self._author(service),
+                **({"display_text": prompt} if pictures else {}),
+            )
         except (NoSuchSession, SessionBusy, ValueError) as exc:
             # Refused before anything was written to the thread.
             self._tracked.pop(session_id, None)
