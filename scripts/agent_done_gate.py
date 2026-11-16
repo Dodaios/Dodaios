@@ -20,6 +20,9 @@ DONE means all of:
        commit that contains it)
     D5 the local main checkout contains the merge commit (the gate
        fast-forwards it; a checkout with local edits is left alone and noted)
+    D6 every issue the pull request fixes is closed. An open PR that names an
+       open issue must say whether it fixes it (``Fixes #<n>``, which closes
+       the issue on merge) or only refers to it (``Refs #<n>``)
 
 Which branches belong to a session: the branch checked out in the hook's
 ``cwd`` plus every branch the session created or pushed, read from the
@@ -181,6 +184,16 @@ _BRANCH_PATTERNS = (
     re.compile(r"\bpush\b(?:\s+-{1,2}[\w-]+)*\s+[\w.-]+\s+(?:HEAD:)?(?:refs/heads/)?([\w./-]+)"),
 )
 _COMMAND_KEYS = {"command", "cmd", "arguments"}
+
+# GitHub's closing keywords ("Fixes #12" closes issue 12 when the PR merges).
+_CLOSING_RE = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+#(\d+)", re.IGNORECASE)
+# The PR only refers to the issue and must not close it.
+_REFERS_RE = re.compile(
+    r"\b(?:refs?|references?|related\s+to|part\s+of|see)\b:?\s+#(\d+)", re.IGNORECASE
+)
+_MENTION_RE = re.compile(r"(?<![\w/&])#(\d+)\b")
+#: An open PR names at most this many numbers the gate looks up on GitHub.
+_MAX_ISSUE_LOOKUPS = 10
 
 
 class GateError(Exception):
@@ -589,6 +602,49 @@ def sync_local_main(ctx: Ctx, sha: str) -> tuple[bool, str]:
     )
 
 
+def _numbers(pattern: re.Pattern[str], text: str) -> list[int]:
+    seen: list[int] = []
+    for match in pattern.finditer(text):
+        number = int(match.group(1))
+        if number not in seen:
+            seen.append(number)
+    return seen
+
+
+def _pr_text(pr: dict) -> str:
+    return "\n".join((str(pr.get("title") or ""), str(pr.get("body") or "")))
+
+
+def fixed_issues(pr: dict) -> list[int]:
+    """Issues the PR says it fixes: GitHub's own list plus closing keywords."""
+    numbers: list[int] = []
+    for ref in pr.get("closingIssuesReferences") or []:
+        number = ref.get("number") if isinstance(ref, dict) else None
+        if isinstance(number, int) and number not in numbers:
+            numbers.append(number)
+    text = _pr_text(pr)
+    for number in _numbers(_CLOSING_RE, text):
+        if number not in numbers:
+            numbers.append(number)
+    return numbers
+
+
+def open_issue(ctx: Ctx, number: int) -> bool:
+    """True for an open issue of this repository; False for a PR, closed, unknown."""
+    found = ctx.gh_json_soft(["api", f"repos/{ctx.repo}/issues/{number}"])
+    if not isinstance(found, dict) or found.get("pull_request"):
+        return False
+    return str(found.get("state") or "").lower() == "open"
+
+
+def undecided_issues(ctx: Ctx, pr: dict) -> list[int]:
+    """Open issues the PR names without saying whether it fixes them."""
+    text = _pr_text(pr)
+    decided = set(fixed_issues(pr)) | set(_numbers(_REFERS_RE, text))
+    named = [n for n in _numbers(_MENTION_RE, text) if n not in decided and n != pr.get("number")]
+    return [n for n in named[:_MAX_ISSUE_LOOKUPS] if open_issue(ctx, n)]
+
+
 def evaluate_branch(ctx: Ctx, branch: str, worktree: Path | None) -> Verdict:
     base = ctx.base
     held = read_hold(ctx, branch)
@@ -632,7 +688,8 @@ def evaluate_branch(ctx: Ctx, branch: str, worktree: Path | None) -> Verdict:
             "5",
             "--json",
             "number,state,isDraft,labels,headRefOid,mergeCommit,mergeStateStatus,"
-            "autoMergeRequest,statusCheckRollup,title,isCrossRepository",
+            "autoMergeRequest,statusCheckRollup,title,isCrossRepository,"
+            "body,closingIssuesReferences",
         ]
     )
     # A fork's PR can share the branch name; only this repository's own count.
@@ -720,6 +777,20 @@ def evaluate_branch(ctx: Ctx, branch: str, worktree: Path | None) -> Verdict:
             return Verdict(
                 "HOLD", f"PR #{number} is {why}", branch=branch, pr=number, checks=checks
             )
+        undecided = undecided_issues(ctx, pr)
+        if undecided:
+            listed = ", ".join(f"#{n}" for n in undecided)
+            first = undecided[0]
+            verdict.verdict = "FIX"
+            verdict.reason = (
+                f"PR #{number} names open issue {listed} but does not say whether it fixes it"
+            )
+            verdict.next = (
+                f"If PR #{number} fixes issue #{first}, put `Fixes #{first}` in its body "
+                f"(`gh pr edit {number} --body-file <file>`) so the merge closes the issue; "
+                f"if it only refers to it, write `Refs #{first}` instead."
+            )
+            return verdict
         required = [str(name) for name in ctx.config.get("required_checks") or []]
         failed, pending, green = classify_checks(pr.get("statusCheckRollup") or [], required)
         merge_state = str(pr.get("mergeStateStatus") or "")
@@ -792,6 +863,21 @@ def evaluate_branch(ctx: Ctx, branch: str, worktree: Path | None) -> Verdict:
             f"PR #{number} merged; CI on {base} is still running for {sha[:10]} ({detail})"
         )
         verdict.next = f"Wait for it: `{GATE_HINT} --wait`."
+        return verdict
+    still_open = [n for n in fixed_issues(pr) if open_issue(ctx, n)]
+    checks["D6"] = not still_open
+    if still_open:
+        first = still_open[0]
+        verdict.verdict = "FIX"
+        verdict.reason = (
+            f"PR #{number} merged and fixes issue "
+            + ", ".join(f"#{n}" for n in still_open)
+            + ", which is still open"
+        )
+        verdict.next = (
+            f"Close it: `gh issue close {first} -R {ctx.repo} --reason completed "
+            f'--comment "Fixed by #{number}."`'
+        )
         return verdict
     ok, note = sync_local_main(ctx, sha)
     checks["D5"] = ok

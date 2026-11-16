@@ -37,6 +37,8 @@ class FakeWorld:
         self.freeze_events: dict[int, list[dict]] = {}
         self.parked: list[dict] = []
         self.queued: set[int] = set()
+        # number -> the issue as GitHub's REST API answers it.
+        self.issues: dict[int, dict] = {}
         self.ff_works = True
         self.is_repo = True
         self.commands: list[list[str]] = []
@@ -108,8 +110,10 @@ class FakeWorld:
         if args[:2] == ["pr", "list"] and "--label" in args:
             return self.ok(cmd, self.freeze_prs)
         if args[0] == "api" and args[1].startswith(f"repos/{REPO}/issues/"):
-            number = int(args[1].split("/")[4])
-            return self.ok(cmd, self.freeze_events.get(number, []))
+            number = int(args[1].split("/")[4].split("?")[0])
+            if "/events" in args[1]:
+                return self.ok(cmd, self.freeze_events.get(number, []))
+            return self.ok(cmd, self.issues[number]) if number in self.issues else self.fail(cmd)
         if args[0] == "api" and "actions/runs?branch=" in args[1]:
             return self.ok(cmd, {"workflow_runs": self.main_runs})
         if args[0] == "api" and "actions/runs?head_sha=" in args[1]:
@@ -389,7 +393,14 @@ def test_merged_green_on_main_and_local_main_fast_forwarded_is_done(world: FakeW
     world.main_runs = [main_run(MERGE_SHA, "success")]
     verdict = run_gate(world, ["claude/x"])
     assert verdict.verdict == "DONE"
-    assert verdict.checks == {"D1": True, "D2": True, "D3": True, "D4": True, "D5": True}
+    assert verdict.checks == {
+        "D1": True,
+        "D2": True,
+        "D3": True,
+        "D4": True,
+        "D6": True,
+        "D5": True,
+    }
     assert ["git", "merge", "--ff-only", "--quiet", "origin/main"] in world.commands
 
 
@@ -755,3 +766,87 @@ def test_the_gate_runs_when_started_by_an_old_interpreter_on_this_machine() -> N
     )
     assert done.returncode == 0
     assert "Traceback" not in done.stderr
+
+
+# --------------------------------------------------------------------------
+# D6: the issues a pull request fixes get closed
+# --------------------------------------------------------------------------
+
+
+def _issue(state: str = "open", *, is_pr: bool = False) -> dict:
+    issue: dict = {"state": state}
+    if is_pr:
+        issue["pull_request"] = {"url": "https://example.invalid/pr"}
+    return issue
+
+
+def test_an_open_pull_request_naming_an_open_issue_must_say_whether_it_fixes_it(
+    world: FakeWorld,
+) -> None:
+    world.branch("claude/x")
+    world.pr("claude/x", body="The setup wizard answered HTTP 500 (#41).")
+    world.issues[41] = _issue()
+    verdict = run_gate(world, ["claude/x"])
+    assert verdict.verdict == "FIX"
+    assert "#41" in verdict.reason
+    assert "Fixes #41" in verdict.next and "Refs #41" in verdict.next
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Fixes #41",
+        "closes: #41",
+        "Resolved #41 for good.",
+        "Refs #41, the root cause is elsewhere.",
+        "Part of #41",
+        "Since #40 the sweep failed.",  # a pull request, not an issue
+        "Issue #42 was closed already.",
+    ],
+)
+def test_a_pull_request_that_says_what_it_does_with_an_issue_goes_on(
+    world: FakeWorld, body: str
+) -> None:
+    world.branch("claude/x")
+    world.pr("claude/x", body=body, statusCheckRollup=[gate_ci("SUCCESS")], autoMergeRequest={})
+    world.issues[40] = _issue(is_pr=True)
+    world.issues[41] = _issue()
+    world.issues[42] = _issue("closed")
+    verdict = run_gate(world, ["claude/x"])
+    assert verdict.verdict == "WAIT", verdict.reason
+
+
+def test_github_s_own_list_of_closed_issues_counts_as_saying_it(world: FakeWorld) -> None:
+    world.branch("claude/x")
+    world.pr(
+        "claude/x",
+        body="See the issue #41 for the screenshot.",
+        closingIssuesReferences=[{"number": 41}],
+        statusCheckRollup=[gate_ci("SUCCESS")],
+        autoMergeRequest={},
+    )
+    world.issues[41] = _issue()
+    assert run_gate(world, ["claude/x"]).verdict == "WAIT"
+
+
+def test_a_merged_pull_request_whose_fixed_issue_is_still_open_must_close_it(
+    world: FakeWorld,
+) -> None:
+    world.branch("claude/x")
+    world.pr("claude/x", state="MERGED", mergeCommit={"oid": MERGE_SHA}, body="Fixes #41")
+    world.main_runs = [main_run(MERGE_SHA, "success")]
+    world.issues[41] = _issue()
+    verdict = run_gate(world, ["claude/x"])
+    assert verdict.verdict == "FIX"
+    assert verdict.checks["D6"] is False
+    assert f"gh issue close 41 -R {REPO} --reason completed" in verdict.next
+
+
+def test_a_merged_pull_request_whose_fixed_issue_closed_is_done(world: FakeWorld) -> None:
+    world.branch("claude/x")
+    world.pr("claude/x", state="MERGED", mergeCommit={"oid": MERGE_SHA}, body="Fixes #41")
+    world.main_runs = [main_run(MERGE_SHA, "success")]
+    world.issues[41] = _issue("closed")
+    verdict = run_gate(world, ["claude/x"])
+    assert verdict.verdict == "DONE"
+    assert verdict.checks["D6"] is True
