@@ -268,9 +268,13 @@ export function AgentTimeline({
         >
           {pictures.length > 0 && (
             <PictureDisplayContext.Provider value="shown">
+              {/* One row of small tiles beside each other, right-aligned over
+                  the words; a row that runs out of room wraps. The tiles
+                  are all the same size, so the rows line up (maintainer,
+                  2026-11-16: the pictures stood huge and stacked). */}
               <div data-testid="agent-message-pictures" className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
-                {pictures.map((file) => (
-                  <span key={file.name} data-testid="agent-message-image" className="min-w-0 max-w-full">
+                {pictures.map((file, index) => (
+                  <span key={`${index}:${file.name}`} data-testid="agent-message-image" className="min-w-0 max-w-full shrink-0">
                     <MediaPreview src={file.url!} label={file.name} kind="image" bare thumb />
                   </span>
                 ))}
