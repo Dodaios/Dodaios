@@ -89,6 +89,9 @@ class RecordingService:
         self._warm_enabled = False
         self._warm_task: asyncio.Task[None] | None = None
         self._requested: float | None = None
+        #: Wall clock of the press and of the start command sent to the recorder.
+        self._pressed = 0.0
+        self._requested_wall = 0.0
 
     async def set_warm(self, enabled: bool) -> None:
         """Prepare after boot; disabling/reloading shortcuts never stops an active video."""
@@ -130,9 +133,11 @@ class RecordingService:
     async def start(self) -> dict[str, Any]:
         from dodaios.core.config import load_config
 
+        pressed = time.time()
         async with self._lock:
             if self._process is not None:
                 return self.status()
+            self._pressed = pressed
             config = await asyncio.to_thread(load_config)
             if not config.screen_context.enabled:
                 raise ValueError("Enable AppShots before starting a screen recording.")
@@ -163,6 +168,7 @@ class RecordingService:
             self._started = None
             self._state = {"phase": "selecting", "id": recording_id, "message": ""}
             self._requested = time.perf_counter()
+            self._requested_wall = time.time()
             try:
                 self._process = await self._runtime.take(
                     folder / f"{recording_id}.mp4", str(getattr(config.ui, "language", "en")),
@@ -178,6 +184,23 @@ class RecordingService:
             self._reader = asyncio.create_task(self._read(self._process), name="appshot-recording")
             return self.status()
 
+    def _log_picker_visible(self, event: dict[str, Any]) -> None:
+        """Split press-to-picker into the checks here and the recorder's own part.
+
+        ``at`` is the recorder's wall clock when the picker was on the glass, so
+        a busy event loop that reads the line late does not inflate the number.
+        """
+        now = time.time()
+        at = event.get("at")
+        visible = at if isinstance(at, int | float) and 0 <= now - at < 60 else now
+        log.info(
+            "appshot: recording picker visible %.0f ms after the press "
+            "(checks %.0f ms, recorder %.0f ms)",
+            (visible - self._pressed) * 1000,
+            (self._requested_wall - self._pressed) * 1000,
+            (visible - self._requested_wall) * 1000,
+        )
+
     async def _read(self, process: asyncio.subprocess.Process) -> None:
         assert process.stdout is not None
         preview = None
@@ -192,10 +215,7 @@ class RecordingService:
                     continue
                 phase = event.get("phase")
                 if phase == "selection_ready" and self._requested is not None:
-                    log.info(
-                        "appshot: recording picker visible in %.1f ms",
-                        (time.perf_counter() - self._requested) * 1000,
-                    )
+                    self._log_picker_visible(event)
                     continue
                 if phase not in {"selecting", "recording", "saved", "cancelled", "error"}:
                     continue

@@ -220,3 +220,29 @@ async def test_standby_timeout_reaps_worker_and_allows_retry(setup_service, monk
         await service.close()
 
 
+
+
+async def test_picker_visible_log_uses_the_recorder_clock(setup_service, caplog):
+    """A busy loop reads selection_ready late; the logged time must not grow with it."""
+    import logging
+    import time
+
+    service, processes = setup_service
+    await service.set_warm(True)
+    await service._warm_task
+    try:
+        with caplog.at_level(logging.INFO, logger=recording.log.name):
+            await service.start()
+            at = service._requested_wall + 0.05
+            processes[0].stdout.feed_data(
+                (json.dumps({"phase": "selection_ready", "at": at}) + "\n").encode()
+            )
+            time.sleep(0.3)  # noqa: ASYNC251 - the loop is "busy" before it reads the line
+            processes[0].finish("cancelled")
+            await service._reader
+        line = next(r.getMessage() for r in caplog.records if "picker visible" in r.getMessage())
+        total = int(line.split("visible ")[1].split(" ms")[0])
+        assert total < 250, line
+        assert "recorder 50 ms" in line, line
+    finally:
+        await service.close()
