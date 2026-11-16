@@ -74,6 +74,49 @@ describe("the person's turn with files", () => {
     expect(pictures.contains(words)).toBe(false);
   });
 
+  it("draws several pictures as small tiles side by side in one row", () => {
+    // The person's request (2026-11-16): two app shots stood huge and
+    // stacked over the message. Every picture is the same small tile,
+    // cropped to fill it, in one row that wraps; a click opens it in full.
+    const shots = [
+      SHOT,
+      { ...SHOT, url: `${SHOT.url}&n=2` },
+      { ...SHOT, name: "wide.png", url: "/api/outputs/wide.png" },
+      { ...SHOT, name: "tall.png", url: "/api/outputs/tall.png" },
+    ];
+    draw([ev("user_message", { text: "compare these", attachments: shots })], "files");
+    const turn = screen.getByTestId("agent-message-user");
+    const row = within(turn).getByTestId("agent-message-pictures");
+    expect(row.className).toContain("flex-wrap");
+    expect(row.className).toContain("justify-end");
+    // A picture sent twice under one name is still drawn twice.
+    const tiles = within(row).getAllByTestId("agent-message-image");
+    expect(tiles).toHaveLength(4);
+    for (const tile of tiles) {
+      const button = within(tile).getByRole("button");
+      expect(button.className).toContain("h-32");
+      expect(button.className).toContain("w-44");
+      const image = within(tile).getByRole("img");
+      expect(image.className).toContain("object-cover");
+      expect(image.className).not.toContain("object-contain");
+    }
+    fireEvent.click(within(tiles[2]).getByRole("button"));
+    expect(within(screen.getByRole("dialog")).getByRole("img", { name: "wide.png" }).className)
+      .toContain("object-contain");
+  });
+
+  it("keeps a tile in the row for a picture that will not load", () => {
+    draw([ev("user_message", { text: "two", attachments: [SHOT, { ...SHOT, name: "gone.png", url: "/api/outputs/gone.png" }] })], "files");
+    const tiles = within(screen.getByTestId("agent-message-pictures")).getAllByTestId("agent-message-image");
+    fireEvent.error(within(tiles[1]).getByRole("img"));
+    const broken = within(tiles[1]).getByRole("status");
+    expect(broken.className).toContain("h-32");
+    expect(broken.className).toContain("w-44");
+    expect(broken.textContent).toContain("gone.png");
+    expect(within(broken).getByRole("button")).toBeTruthy();
+    expect(within(tiles[0]).getByRole("img", { name: "shot.png" })).toBeTruthy();
+  });
+
   it("draws a picture sent without words and no empty bubble", () => {
     draw([ev("user_message", { text: "", attachments: [SHOT] })], "files");
     const turn = screen.getByTestId("agent-message-user");

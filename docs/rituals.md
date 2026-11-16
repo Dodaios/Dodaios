@@ -23,17 +23,29 @@ that ready".
 - Optional conditions: a time window (`window_from`, `window_to`, may run over midnight),
   `weekdays` (Monday is 0), and `once_per_day` (default): the phrase starts it only the first
   time on a day. Outside these the phrase is an ordinary greeting.
+- A ritual's day is the day its window opens on. With a window over midnight (22:00 to 02:00),
+  00:30 still belongs to the evening before: `once_per_day` holds for the whole evening, and
+  `weekdays` name the evening the window opened on.
 - `steps`, each a sentence in the owner's own words:
   - `now`: happens the moment the phrase is said. It may ask for anything the assistant can do.
   - `ahead`: gathered before that moment and kept back until then.
 - `prepare_from`: from when the `ahead` steps are gathered; default is the start of the window.
+  It is a time inside the window or at most 12 hours before it opens; any other time is refused.
+  A gathering before the window is for the window that opens next (from 23:00 for a 06:00
+  window gathers for the next morning).
 - At most 20 rituals, 12 steps each.
 
 ## When a phrase starts a ritual
 
 No model reads the sentence. The phrase has to carry it: after the wake word, the assistant's
 name and courtesy words are peeled off both ends, what is left must be the phrase, word for
-word. "Good morning, how is the weather" is a question and starts nothing.
+word (said once or more). "Good morning, how is the weather" is a question and starts nothing.
+Words are compared without case, accents and punctuation; an apostrophe inside a word is no
+break ("What's" is "Whats"), and an umlaut matches its two-letter spelling and its plain vowel
+(an o-umlaut matches "oe" and "o", a sharp s matches "ss").
+
+When a sentence names more than one ritual, one that may start now wins over one its
+conditions hold back, then the one whose phrase is the longer part of the sentence.
 
 The phrase starts its ritual only inside its conditions. A click on "Run now" or a start the
 assistant makes on request (`ritual-run`) always runs, and does not use up the phrase's one
@@ -53,9 +65,13 @@ start of the day.
      and the call in plain words). The assistant works it out once, when it writes the ritual
      on request. At the start the call is made directly, with no model. It goes through the
      same gate as every tool call, on the surface where nobody can be asked: a call that would
-     need a question, fails, or names a tool that is gone leaves its step to a turn.
+     need a question, fails, or names a tool that is gone leaves its step to a turn. A call that
+     gives no answer within 20 seconds is not repeated by a turn, because it may have happened.
+     A call is checked against the app's tools when it is written; a switch or a rename later
+     keeps it as it is, even when its tool is gone for now.
    - Every other step runs in one turn of the assistant's conversation, with the owner's
-     standing and nothing typed.
+     standing and nothing typed. When the conversation stays busy for ten minutes, a second
+     card names the steps that did not run.
 3. By voice, what was gathered is said in its short form. With nothing gathered yet the voice
    says one line; what arrives later is said when the call is still open.
 
@@ -80,7 +96,10 @@ The `ahead` steps are worked through by a quiet lead routine, one per ritual, ta
   the conversation before the ritual starts.
 - **A start that came first.** If nothing is ready (the machine slept, the phrase came early),
   the card says so, the gathering starts at once, and its result follows in a second card. A
-  failure is tried once more, then said.
+  failure is tried once more, then said. A run that cannot even begin (no scheduler, the
+  routine cannot be set up) is said at once. When the `ahead` steps were changed while the run
+  gathered, it gathers again for the steps as they are now.
+- **One run.** Two starts in the same moment (a click and the clock) start one run.
 
 ## Who may write one
 

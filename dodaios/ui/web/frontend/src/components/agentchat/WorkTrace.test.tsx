@@ -275,6 +275,23 @@ describe("work trace", () => {
     expect(container.querySelector(".text-destructive")).toBeNull();
   });
 
+  it("says a failed messenger turn in one quiet line, with no card and no second \"Failed\"", () => {
+    const answer = (text: string) => <p>{text}</p>;
+    const { container, rerender } = render(<WorkTrace {...props} status="error" messenger renderAnswer={answer}
+      error="The app restarted while this turn was running. Send it again." blocks={[]} />);
+    const line = screen.getByRole("alert");
+    expect(line.className).toContain("trace-fail");
+    expect(line.textContent).toBe("The app restarted while this turn was running. Send it again.");
+    expect(container.querySelector(".trace-note")).toBeNull();
+    // The reason says it failed: the state line is only read out.
+    expect(screen.getByRole("status").className).toBe("sr-only");
+    // The same under an answer.
+    rerender(<WorkTrace {...props} status="error" messenger renderAnswer={answer}
+      error="The model stopped answering." blocks={[reply("r", "Half an answer.")]} />);
+    expect(screen.getByRole("alert").className).toContain("trace-fail");
+    expect(screen.getByRole("status").className).toBe("sr-only");
+  });
+
   it("keeps nothing of an answered question card in a messenger conversation, while the turn works on or after", () => {
     const ev = (seq: number, kind: string, payload: Record<string, unknown>) => ({ seq, ts_ms: 1000, kind, payload }) as AgentChatEvent;
     const answered = [

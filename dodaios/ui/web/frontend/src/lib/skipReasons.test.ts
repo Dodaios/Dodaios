@@ -66,6 +66,8 @@ describe("skip and wait reasons", () => {
     expect(societyResultHeadline(t, card({ pending: true }))).toBe("“Good morning” started");
     expect(societyResultHeadline(t, card({ late: true }))).toBe("“Good morning”: what was gathered");
     expect(societyResultHeadline(t, card({ late: true }, "failed"))).toBe("“Good morning”: gathering failed");
+    // Steps for the moment that never got the conversation are named as such, not as a failed gathering.
+    expect(societyResultHeadline(t, card({ late: true, steps_not_run: true }, "failed"))).toBe("“Good morning”: these steps did not run");
     expect(societyResultHeadline(translator(de), card())).toBe("„Good morning“ gestartet"); // i18n-allow: German locale check
     // The title stands as the person wrote it, whatever signs it has.
     expect(societyResultHeadline(t, card({ ritual_title: "Costs $& more" }))).toBe("“Costs $& more” started");

@@ -113,8 +113,8 @@ def test_without_a_running_app_nothing_is_refused() -> None:
 
 
 async def test_the_call_is_made_where_nobody_can_be_asked(gateway: Gateway) -> None:
-    done, said = await instant.run(PLAY, sentence="Play my favourite music.")
-    assert (done, said) == (True, "Music: liked songs")
+    outcome = await instant.run(PLAY, sentence="Play my favourite music.")
+    assert outcome == (True, "Music: liked songs", False)
     (call,) = gateway.calls
     assert (call["name"], call["args"]) == ("music", {"action": "play", "what": "liked"})
     request = call["request"]
@@ -127,9 +127,13 @@ async def test_a_call_that_does_not_work_says_why_and_never_raises(
     gateway: Gateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     gateway.answers["music"] = ToolResult(success=False, output=None, error="No active device.")
-    assert await instant.run(PLAY, sentence="x") == (False, "Music: liked songs: No active device.")
+    assert await instant.run(PLAY, sentence="x") == (
+        False, "Music: liked songs: No active device.", True,
+    )
     gateway.answers["music"] = RuntimeError("boom")
-    assert await instant.run(PLAY, sentence="x") == (False, "Music: liked songs: RuntimeError")
+    assert await instant.run(PLAY, sentence="x") == (
+        False, "Music: liked songs: RuntimeError", True,
+    )
 
     async def never() -> ToolResult:
         await asyncio.sleep(5)
@@ -137,10 +141,13 @@ async def test_a_call_that_does_not_work_says_why_and_never_raises(
 
     gateway.answers["music"] = never
     monkeypatch.setattr(instant, "CALL_TIMEOUT_S", 0.05)
-    assert await instant.run(PLAY, sentence="x") == (False, "Music: liked songs: no answer in time")
+    # No answer in time: it may have happened, so no turn does it a second time.
+    assert await instant.run(PLAY, sentence="x") == (
+        False, "Music: liked songs: no answer in time, not tried again", False,
+    )
     runtime_refs.set_supervisor_tool_gateway(None)
     assert await instant.run(PLAY, sentence="x") == (
-        False, "Music: liked songs: the tools are not ready",
+        False, "Music: liked songs: the tools are not ready", True,
     )
 
 
@@ -233,3 +240,48 @@ async def test_a_call_that_fails_leaves_its_step_to_the_turn(society, gateway: G
     assert get_store().day(ritual.id, "2026-03-02").results == (
         "Music: liked songs: No active device.",
     )
+
+
+async def test_a_call_that_answers_too_late_is_not_done_a_second_time(
+    society, gateway: Gateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def slow() -> ToolResult:
+        # The music starts, but the answer comes after the start stopped waiting.
+        await asyncio.sleep(0.2)
+        return ToolResult(success=True, output="ok")
+
+    gateway.answers["music"] = slow
+    monkeypatch.setattr(instant, "CALL_TIMEOUT_S", 0.05)
+    ritual = await service.create(
+        **_ritual({"when": "now", "text": "Play my favourite music.", "call": PLAY})
+    )
+    await service.fire(ritual.id, via="voice", now=MONDAY_0830)
+    await settle()
+    assert [call["name"] for call in gateway.calls] == ["music"]
+    # No turn plays it again.
+    assert society.chat.sent == []
+    assert get_store().day(ritual.id, "2026-03-02").results == (
+        "Music: liked songs: no answer in time, not tried again",
+    )
+
+
+async def test_a_switch_or_a_rename_saves_when_a_steps_tool_went_away(
+    society, gateway: Gateway
+) -> None:
+    ritual = await service.create(
+        **_ritual({"when": "now", "text": "Play my favourite music.", "call": PLAY})
+    )
+    # The plugin behind the tool was disconnected.
+    gateway.tools = [tool for tool in gateway.tools if tool.name != "music"]
+    switched = await service.update(ritual.id, enabled=False)
+    assert switched.enabled is False and switched.steps[0].call == PLAY
+    renamed = await service.update(ritual.id, name="Morning")
+    assert renamed.name == "Morning" and renamed.steps[0].call == PLAY
+    # A new call is still checked against the tools the app has.
+    code, message = await _code(
+        service.update(
+            ritual.id,
+            steps=[{"when": "now", "text": "Play.", "call": {**PLAY, "args": {"action": "stop"}}}],
+        )
+    )
+    assert code == "invalid" and "no tool named 'music'" in message

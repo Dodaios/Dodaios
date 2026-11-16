@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta
+from typing import Any
 
 import pytest
 
@@ -500,6 +502,109 @@ async def test_removing_a_ritual_removes_its_routine(scheduled) -> None:
     await service.remove(ritual.id)
     row = await scheduled.task_store.get(task_id)
     assert row is None or row["state"] == "cancelled"
+
+
+async def test_a_start_whose_gathering_cannot_begin_hears_that_at_once(society) -> None:
+    # No scheduler behind the assistant: nothing can be gathered.
+    ritual = await service.create(**MORNING)
+    result = await service.fire(ritual.id, via="chat", now=MONDAY_0830)
+    await settle()
+    assert result["pending"] is True
+    first, second = society.cards()
+    assert first["pending"] is True
+    # The card that said "the rest follows" is not left waiting for good.
+    assert second["late"] is True and second["status"] == "failed"
+    assert second["text"] == "The task scheduler is not running."
+    row = get_store().day(ritual.id, DAY)
+    assert row.delivered_ms is not None and row.prep_state == "failed"
+
+
+async def test_a_gathering_run_that_cannot_be_started_is_said_while_a_start_waits(
+    scheduled, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def broken(task_id: str) -> None:
+        raise OSError("scheduler hiccup")
+
+    monkeypatch.setattr(scheduled.scheduler, "run_now", broken)
+    ritual = await service.create(**MORNING)
+    await service.fire(ritual.id, via="voice", now=MONDAY_0830)
+    await settle(scheduled)
+    for minutes in (1, 30, 120):
+        await prepare.tick(MONDAY_0830 + timedelta(minutes=minutes))
+        await settle(scheduled)
+    first, second = scheduled.cards()
+    assert first["pending"] is True
+    assert second["late"] is True and second["status"] == "failed"
+    assert second["text"] == "The gathering run could not be started."
+    assert get_store().day(ritual.id, DAY).delivered_ms is not None
+
+
+async def test_a_gathering_that_cannot_begin_marks_nothing_when_nobody_waits(society) -> None:
+    ritual = await service.create(**MORNING)
+    assert await _code(prepare.start(ritual.id, now=MONDAY_0830)) == "unavailable"
+    assert get_store().day(ritual.id, DAY) is None and society.cards() == []
+
+
+async def test_two_starts_in_the_same_moment_start_one_run(scheduled) -> None:
+    ritual = await service.create(**MORNING)
+    results = await asyncio.gather(
+        prepare.start(ritual.id, by_user=True, again=True, now=MONDAY_0830),
+        prepare.start(ritual.id, by_user=True, again=True, now=MONDAY_0830),
+    )
+    await settle(scheduled)
+    assert sorted(results) == [False, True]
+    # One routine and one run, and the try is counted once.
+    assert len(await scheduled.task_store.list(limit=100)) == 1
+    assert scheduled.runner.ran == [service.get(ritual.id).task_id]
+    assert get_store().day(ritual.id, DAY).prep_attempts == 1
+
+
+async def test_a_ritual_removed_while_its_routine_is_set_up_stays_removed(
+    scheduled, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import dodaios.society.routines as routines
+
+    ritual = await service.create(**MORNING)
+    real = routines.create_routine
+
+    async def removed_meanwhile(task_store: Any, scheduler: Any, spec: Any) -> str:
+        task_id = await real(task_store, scheduler, spec)
+        # The person removes the ritual while its routine is being set up.
+        get_store().delete(ritual.id)
+        return task_id
+
+    monkeypatch.setattr(routines, "create_routine", removed_meanwhile)
+    assert await _code(prepare.start(ritual.id, now=MONDAY_0830)) == "not_found"
+    await settle(scheduled)
+    assert get_store().get(ritual.id) is None
+    # The routine set up for it went with it, and no run started.
+    assert await scheduled.task_store.list(limit=100) == []
+    assert scheduled.runner.ran == []
+
+
+async def test_steps_changed_while_a_start_waits_are_gathered_again_not_failed(
+    scheduled,
+) -> None:
+    ritual = await service.create(**MORNING)
+    await service.fire(ritual.id, via="chat", now=MONDAY_0830)
+    await settle(scheduled)
+    await service.update(
+        ritual.id,
+        steps=[
+            {"when": "now", "text": "Play my favourite music."},
+            {"when": "ahead", "text": "The weather."},
+        ],
+    )
+    # The run answers for the steps it was started with.
+    await prepare.after_run(_tags(ritual), answer=ANSWER, session_id="run-chat")
+    await settle(scheduled)
+    assert [card.get("late", False) for card in scheduled.cards()] == [False]
+    # It gathers again for the steps as they are now, and that is what the start gets.
+    assert len(scheduled.runner.ran) == 2
+    await prepare.after_run(_tags(ritual), answer=ANSWER, session_id="run-chat-2")
+    first, second = scheduled.cards()
+    assert second["late"] is True and second["status"] == "done"
+    assert second["text"].startswith("## News")
 
 
 # ── the clock ───────────────────────────────────────────────────────────────────

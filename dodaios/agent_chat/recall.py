@@ -35,6 +35,7 @@ import logging
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Final
 
 log = logging.getLogger(__name__)
@@ -161,6 +162,37 @@ def trigger_notice_replay(seq: int, payload: dict[str, Any]) -> str:
     return f"Event notice you wrote [{event_id(seq)}]{related}: {text}"
 
 
+def local_moment(value: Any) -> str:
+    """A stored moment on the person's clock, with its offset: ``2026-11-16T10:00+01:00``.
+
+    A reminder is kept in UTC; told back that way, "due 09:00Z" reads as nine
+    o'clock to the person an hour east of it. The zone is the one the chat
+    reported, else this computer's. A date without a time, or text that is no
+    moment, stays as it is.
+    """
+    text = str(value or "").strip()
+    if "T" not in text:
+        return text
+    try:
+        moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:  # not a moment after all: it is told as it was stored
+        return text
+    if moment.tzinfo is None:
+        return text
+    zone = None
+    try:
+        from zoneinfo import ZoneInfo
+
+        from dodaios.tasks.context import turn_timezone
+
+        name = turn_timezone()
+        zone = ZoneInfo(name) if name else None
+    except Exception:  # noqa: BLE001 — an unknown zone name: this computer's clock
+        zone = None
+    local = moment.astimezone(zone) if zone is not None else moment.astimezone()
+    return local.isoformat(timespec="minutes")
+
+
 def reminder_replay(seq: int, payload: dict[str, Any], *, with_id: bool = True) -> str:
     """How a reminder told in the chat reads in the lead's history.
 
@@ -173,7 +205,7 @@ def reminder_replay(seq: int, payload: dict[str, Any], *, with_id: bool = True) 
     if not title:
         return ""
     kind = "reminder" if payload.get("reminder") else "calendar appointment"
-    when = str(payload.get("start") or payload.get("due_at") or "")
+    when = local_moment(payload.get("start") or payload.get("due_at"))
     facts = [f"due {when}" if when else "", "all day" if payload.get("all_day") else ""]
     place = one_line(payload.get("location") or payload.get("calendar"), 120)
     if place:

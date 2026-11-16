@@ -763,7 +763,8 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
     // answer says so. A turn at work needs no "Working" either: three dots
     // in a bubble say it, and a reply being written says it by growing. The
     // line is then only read out by assistive technology.
-    const resting = messenger && (working || (outcome === "done" && answered));
+    // A failed turn whose reason stands above needs no "Failed" under it.
+    const resting = messenger && (working || (outcome === "done" && answered) || (failed && Boolean(visibleError)));
     // Read from the turn's own blocks: a thought is not drawn here, but the
     // model thinking after a message is the assistant typing again. A turn
     // that only waits for an agent it sent out is not typing, and neither is
@@ -789,8 +790,13 @@ function WorkTraceBody({ blocks: rawBlocks, status, startedMs, durationMs, error
       </span>
     </div>;
     const statusItem: RailItem = { key: "trace:status", node: statusLine, rail: statusOnRail };
+    // In a messenger conversation a failed turn is one quiet line under the
+    // messages, the way a messenger says a message did not go through: a
+    // small mark in the fault colour and the reason, no card around it.
     const errorItem = (text: string, key: string): RailItem => ({ key, rail: false,
-      node: <div className="py-1"><p role="alert" className="trace-note"><span aria-hidden className="trace-flag" /><span className="min-w-0">{text}</span></p></div> });
+      node: messenger
+        ? <p role="alert" className="trace-fail" data-testid="trace-fail"><CircleAlert aria-hidden /><span className="min-w-0">{text}</span></p>
+        : <div className="py-1"><p role="alert" className="trace-note"><span aria-hidden className="trace-flag" /><span className="min-w-0">{text}</span></p></div> });
     const renderers: TimelineRenderers = {
       renderLive: (block) => block.kind === "tool" ? <TraceTool block={block} status={status} onDecide={onDecide} />
         : block.kind === "reasoning" ? <ReasoningTrace block={block} turnLive={live} compact={conversation} />

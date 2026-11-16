@@ -265,9 +265,13 @@ async def test_a_start_posts_the_card_and_runs_the_steps_for_this_moment(society
     assert result["ritual"]["id"] == ritual.id
     assert result["today"]["fired_via"] == "voice" and result["today"]["day"] == "2026-03-02"
     # Nothing was gathered for the news yet: the card says more follows.
-    assert result["pending"] is True and result["today"]["delivered_ms"] is None
-    (card,) = society.notices
+    assert result["pending"] is True
+    (card, late) = society.notices
     assert card["pending"] is True
+    # No scheduler is behind this world, so nothing can be gathered: the start
+    # hears that in a second card instead of waiting for good.
+    assert late["late"] is True and late["status"] == "failed"
+    assert late["text"] == "The task scheduler is not running."
     assert card["kind"] == "society_result" and card["status"] == "done"
     assert card["source"] == "ritual" and card["via"] == "voice"
     assert (card["ritual_id"], card["ritual_title"]) == (ritual.id, "Good morning")
@@ -347,6 +351,10 @@ async def test_the_steps_give_up_on_a_conversation_that_stays_busy(
     assert society.chat.sent == []
     # The start itself counted.
     assert service.today_of(ritual.id, now=MONDAY_0830).fired_via == "button"
+    # The card said it started; the person also hears which steps did not run.
+    (dropped,) = [card for card in society.cards() if card.get("steps_not_run")]
+    assert dropped["late"] is True and dropped["status"] == "failed"
+    assert dropped["text"] == "1. Play my favourite music."
 
 
 async def test_a_phrase_does_not_start_what_its_conditions_hold_back(society) -> None:
@@ -355,7 +363,7 @@ async def test_a_phrase_does_not_start_what_its_conditions_hold_back(society) ->
     await service.fire(ritual.id, via="voice", now=MONDAY_0830)
     assert await _code(service.fire(ritual.id, via="chat", now=_at(9, 0))) == "state"
     await settle()
-    assert len(society.notices) == 1 and len(society.chat.sent) == 1
+    assert len(society.start_cards()) == 1 and len(society.chat.sent) == 1
     assert await _code(service.fire(ritual.id, via="telepathy", now=MONDAY_0830)) == "invalid"
     assert await _code(service.fire("rit_missing", via="voice", now=MONDAY_0830)) == "not_found"
 
@@ -371,7 +379,7 @@ async def test_a_click_does_not_use_up_the_phrase(society) -> None:
     await service.fire(ritual.id, via="button", force=True, now=_at(9, 30))
     assert service.find_match("Good morning", now=_at(9, 45)).blocked == "done_today"
     await settle()
-    assert [card["via"] for card in society.notices] == ["button", "voice", "button"]
+    assert [card["via"] for card in society.start_cards()] == ["button", "voice", "button"]
 
 
 async def test_a_click_starts_it_whatever_the_clock_says_and_again(society) -> None:
@@ -381,7 +389,7 @@ async def test_a_click_starts_it_whatever_the_clock_says_and_again(society) -> N
     await service.fire(ritual.id, via="button", force=True, now=_at(13, 0))
     await service.fire(ritual.id, via="button", force=True, now=_at(13, 5))
     await settle()
-    assert len(society.notices) == 2 and len(society.chat.sent) == 2
+    assert len(society.start_cards()) == 2 and len(society.chat.sent) == 2
 
 
 async def test_two_starts_in_the_same_moment_do_not_both_go_through(society) -> None:
@@ -450,3 +458,29 @@ async def test_the_prompt_for_this_moments_steps_numbers_them(society) -> None:
     prompt = service.now_prompt(ritual, ritual.steps_at("now"))
     assert '"Focus"' in prompt
     assert prompt.endswith("1. Pause the music.\n2. Open my notes.]")
+
+
+async def test_a_ritual_held_back_does_not_hide_another_ones_exact_phrase(society) -> None:
+    await service.create(**{**MORNING, "window_from": "06:00", "window_to": "07:00"})
+    other = await service.create(
+        name="Other", phrases=["Good morning Nova"], steps=[{"when": "now", "text": "x"}]
+    )
+    found = service.find_match("Good morning Nova", wake_phrase=WAKE_PHRASE, now=MONDAY_0830)
+    assert found is not None and found.fires
+    assert found.ritual.id == other.id and found.phrase == "Good morning Nova"
+    # Both start now: the longer phrase is the one that was said.
+    early = MONDAY_0830.replace(hour=6, minute=30)
+    found = service.find_match("Good morning Nova", wake_phrase=WAKE_PHRASE, now=early)
+    assert found is not None and found.ritual.id == other.id
+    # "Good morning" alone is still the first one's, held back by its window.
+    found = service.find_match("Good morning", wake_phrase=WAKE_PHRASE, now=MONDAY_0830)
+    assert found is not None and found.ritual.name == "Good morning" and found.blocked == "time"
+
+
+async def test_a_switch_keeps_working_after_the_wake_word_changed(society) -> None:
+    ritual = await service.create(**{**MORNING, "phrases": ["Good morning", "Morning Max"]})
+    # The wake word is now "Hey Max": "Morning Max" alone would no longer be accepted
+    # as new, but the ritual already has it, so a switch still saves.
+    society.wake_phrase = "Hey Morning Max"
+    switched = await service.update(ritual.id, enabled=False)
+    assert switched.enabled is False and switched.phrases == ("Good morning", "Morning Max")

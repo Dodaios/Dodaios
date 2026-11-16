@@ -586,6 +586,7 @@
     "started": "“{title}” iniciado",
     "card_late": "“{title}”: o que foi preparado",
     "card_failed": "“{title}”: a preparação falhou",
+    "card_steps_not_run": "“{title}”: estes passos não foram feitos",
     "card_pending": "O resto está a ser preparado e segue em breve."
   },
   "extensions": {

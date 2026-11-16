@@ -6,19 +6,23 @@ the phrase, word for word. "Good morning, how is the weather" is a question
 with a greeting in it and starts nothing; "Hey Nova, good morning" does.
 
 Words are compared the way the wake word is: lower case, accents folded away,
-punctuation ignored. The assistant's name is compared by sound as well, because
-speech recognition spells a name in more than one way.
+punctuation ignored. An apostrophe inside a word is no break ("What's up" is
+"Whats up"), and an umlaut reads the same as its two-letter spelling and as
+its plain vowel (an o-umlaut as "oe" and as "o", a sharp s as "ss"). Saying the
+phrase twice ("good morning, good morning") is still the phrase. The assistant's name is
+compared by sound as well, because speech recognition spells a name in more
+than one way.
 """
 
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 from typing import Final
 
 from dodaios.speech.wake_constants import (
     WAKE_PREFIXES,
     normalize_phrase_for_match,
-    phrase_core_for_match,
     sound_fold,
 )
 
@@ -36,18 +40,38 @@ _COURTESY: Final[frozenset[str]] = frozenset(
 )
 #: What the product and its assistant have been called; people keep saying it.
 _PRODUCT_NAMES: Final[frozenset[str]] = frozenset({"dodaios", "jarvis"})
-_ADDRESS: Final[frozenset[str]] = WAKE_PREFIXES | _COURTESY | _PRODUCT_NAMES
+
+#: An apostrophe between two letters: "What's", "let’s", "geht`s".
+_INNER_APOSTROPHE: Final[re.Pattern[str]] = re.compile(r"(?<=\w)['\u2019\u2018`\u00b4](?=\w)")
+#: An umlaut's two-letter spelling, after the accents were folded away ("ue" is "u").
+_DIGRAPH: Final[re.Pattern[str]] = re.compile(r"([aou])e")
+
+
+def _fold(token: str) -> str:
+    """One spelling for an umlaut, its two-letter spelling and its plain vowel."""
+    return _DIGRAPH.sub(r"\1", token)
+
+
+#: Folded the way :func:`words` folds what was said.
+_ADDRESS: Final[frozenset[str]] = frozenset(
+    _fold(word) for word in WAKE_PREFIXES | _COURTESY | _PRODUCT_NAMES
+)
 
 
 def words(text: str) -> tuple[str, ...]:
     """``text`` as the words that are compared."""
-    return tuple(normalize_phrase_for_match(text))
+    joined = _INNER_APOSTROPHE.sub("", str(text or ""))
+    return tuple(_fold(token) for token in normalize_phrase_for_match(joined))
 
 
 @lru_cache(maxsize=16)
 def _name_sounds(wake_phrase: str) -> frozenset[str]:
     """The assistant's name (the wake phrase without its "hey"), by sound."""
-    return frozenset(sound_fold(token) for token in phrase_core_for_match(wake_phrase))
+    tokens = list(words(wake_phrase))
+    core = list(tokens)
+    while core and core[0] in WAKE_PREFIXES:
+        core.pop(0)
+    return frozenset(sound_fold(token) for token in core or tokens)
 
 
 def _is_address(token: str, names: frozenset[str]) -> bool:
@@ -55,19 +79,22 @@ def _is_address(token: str, names: frozenset[str]) -> bool:
 
 
 def says(utterance: str, phrase: str, *, wake_phrase: str = "") -> bool:
-    """Whether ``utterance`` is ``phrase`` with nothing but address around it."""
+    """Whether ``utterance`` is ``phrase`` (once or more) with nothing but address around it."""
     said, wanted = words(utterance), words(phrase)
     if not wanted or len(said) < len(wanted):
         return False
     names = _name_sounds(wake_phrase)
     size = len(wanted)
-    for start in range(len(said) - size + 1):
-        if said[start : start + size] != wanted:
+    index = hits = 0
+    while index < len(said):
+        if said[index : index + size] == wanted:
+            hits += 1
+            index += size
             continue
-        around = (*said[:start], *said[start + size :])
-        if all(_is_address(token, names) for token in around):
-            return True
-    return False
+        if not _is_address(said[index], names):
+            return False
+        index += 1
+    return hits > 0
 
 
 def same_phrase(first: str, second: str) -> bool:
