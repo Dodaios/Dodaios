@@ -196,12 +196,10 @@ SECRET_FIELD_LINE: Final[str] = (
 #: asks at the committing click, with a card that names it), and treats a
 #: sign-in or a check as a step to hand over, not as the end of the task.
 BROWSER_GUIDANCE: Final[str] = (
-    "A website task with no connected app for it is yours: give society_browser the "
-    "whole job, including its last step, instead of sending the person links or steps. "
-    "Do not ask for permission first: it reads and fills forms freely and shows the "
-    "person an approval card at the click that commits (cancel, buy, book, send, delete). "
-    "If its result carries next_action (a sign-in, a code, a human check), do that and "
-    "call it again. Report what the page confirmed, or that they declined."
+    "A website task with no connected app is yours: give society_browser the whole job, "
+    "last step included, instead of sending links. Do not ask permission first: it reads "
+    "freely and shows the person an approval card at the click that commits. If the "
+    "result carries next_action, do that and call it again."
 )
 
 _SHARED_PREAMBLE: Final[str] = (
@@ -222,9 +220,9 @@ _SHARED_PREAMBLE: Final[str] = (
     "person's own apps, data and machine. Your own file tools cover this chat's "
     f"working folder. Run shell commands with `mcp__{_SERVER_NAME}__run_shell` / "
     f"`{_SERVER_NAME}__run_shell` and look things up on the web with the Dodaios web tools "
-    "(search_web; society_browser for reading or working a page): only the Dodaios tools "
-    "are checked against the person's rules and recorded, so where your own shell or web "
-    "tools are switched off, use these.\n\n"
+    "(search_web; society_browser for reading a page): only the Dodaios tools are checked "
+    "against the person's rules and recorded, so where your own shell or web tools are "
+    "switched off, use these.\n\n"
     + BROWSER_GUIDANCE
     + "\n\n"
     "When the person selects the browser (@browser, @browser-use, [tools: core:browser]), "
