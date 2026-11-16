@@ -990,6 +990,10 @@ class AgentChatService:
             surface=session.surface,
             stance=session.permission_mode if kit.uses_stance else "",
             control_service=self,
+            # The CLI still reads its stdin after the restart: without this, a
+            # message sent mid-turn could not reach it, and "Send now" stopped
+            # the whole turn, its sub-agents with it.
+            on_steer=lambda writer: self._set_steerer(session_id, turn_id, writer),
             on_conversation=lambda vendor: self._keep_conversation(session_id, vendor),
         )
         superseded = self._hold_unanswered_approvals(session_id, turn_id, handle.history)

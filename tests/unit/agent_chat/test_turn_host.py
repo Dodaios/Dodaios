@@ -1204,6 +1204,57 @@ async def _carried_on(svc: AgentChatService, session_id: str) -> dict[str, Any]:
     return svc.store.list_events(session_id)[-1]
 
 
+async def test_a_message_reaches_a_turn_carried_on_across_a_restart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, app_host_mode: Any
+) -> None:
+    """A turn that outlived an app restart takes a message mid-turn ("Send now").
+
+    The carried-on turn had no way to take a message mid-turn, so "Send now"
+    stopped it and every sub-agent it waited for died with it (2026-11-16).
+    """
+    from types import SimpleNamespace
+
+    from dodaios.agent_chat import runner_cli
+    from dodaios.ui.web import agent_chat_routes
+
+    written: list[str] = []
+    steering = asyncio.Event()
+    done = asyncio.Event()
+
+    async def carried_on(handle: Any, proc: Any) -> str | None:
+        async def writer(text: str, images: tuple[str, ...] = ()) -> bool:
+            written.append(text)
+            done.set()
+            return True
+
+        assert handle.on_steer is not None
+        handle.on_steer(writer)
+        steering.set()
+        await done.wait()
+        handle.on_steer(None)
+        await handle.emit(
+            {"kind": "turn_finished", "payload": {"turn_id": handle.turn_id, "status": "done"}}
+        )
+        return None
+
+    monkeypatch.setattr(runner_cli, "resume_hosted_cli_turn", carried_on)
+    db, session_id = _a_turn_the_host_kept(tmp_path, monkeypatch)
+    state = SimpleNamespace(
+        agent_chat=None, agent_chat_factory=lambda: AgentChatService(AgentChatStore(db))
+    )
+    request = SimpleNamespace(app=SimpleNamespace(state=state))
+    svc = await agent_chat_routes._async_service(request)  # type: ignore[arg-type]
+    await svc.wait_reattached()
+    await asyncio.wait_for(steering.wait(), timeout=10)
+
+    assert svc.can_steer(session_id)
+    assert await svc.steer(session_id, "a link to localhost, please")
+    assert written == ["a link to localhost, please"]
+    await _carried_on(svc, session_id)
+    assert not svc.can_steer(session_id)
+    svc.store.close()
+
+
 async def test_the_first_request_after_a_restart_carries_on_the_turns_the_host_kept(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, app_host_mode: Any
 ) -> None:
