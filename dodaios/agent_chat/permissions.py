@@ -344,6 +344,27 @@ def _stance(runner: str, mode: str) -> int:
     return _STANCE.get(mode, 1)
 
 
+#: The lowest stance any ladder gives the word "auto": Claude Code's classifier
+#: and Codex's workspace sandbox are 2, OpenCode's, Kimi's and the API
+#: runner's full access are 3.
+_AUTO_LOWEST: Final[int] = min(_STANCE["auto_codex"], _STANCE["auto_claude"], _STANCE["auto"])
+
+
+def _source_stance(source: str, mode: str) -> int:
+    """The stance ``mode`` had where it came from.
+
+    With the source runner known, its own reading of the word. Without it, an
+    ambiguous word counts as its lowest reading: "auto" from Claude Code is
+    stance 2, and reading it as OpenCode's full access would grant more than
+    the person picked.
+    """
+    if source:
+        return _stance(source, mode)
+    if mode == "auto":
+        return _AUTO_LOWEST
+    return _STANCE.get(mode, 1)
+
+
 def ladder_key(surface: str, runner: str) -> str:
     """Which ladder a session shows: the runner's own on the agent surface,
     the one Jarvis ladder on the front page's chat."""
@@ -375,6 +396,18 @@ def is_permission_mode(runner: str, mode: str) -> bool:
     return mode in permission_ids(runner)
 
 
+def lowest_permission(runner: str) -> str:
+    """The mode of ``runner``'s ladder that lets the agent do the least, Plan aside.
+
+    Where an approved plan goes on when nobody recorded the mode the person
+    picked: asking is a click away, an unasked "bypass" is not undone.
+    """
+    ids = [m for m in permission_ids(runner) if m not in PLAN_MODES]
+    if not ids:
+        return default_permission(runner)
+    return min(ids, key=lambda m: (_stance(runner, m), ids.index(m)))
+
+
 #: The modes in which an agent only reads and plans.
 PLAN_MODES: Final[frozenset[str]] = frozenset({"plan", "read-only"})
 
@@ -383,8 +416,11 @@ def mode_after_plan(ladder: str, permission_mode: str, build_mode: str = "") -> 
     """The access mode a session works in once its plan is approved.
 
     A session the person switched to Plan goes back to the mode its
-    permission pill names: ``build_mode``, folded onto ``ladder``, or the
-    ladder's default when none was recorded. A session that is not in Plan
+    permission pill names: ``build_mode``, folded onto ``ladder``. When none
+    was recorded (a thread forked or taken over from a grid pane before the
+    mode travelled with it), the ladder's LOWEST mode, never its default:
+    the default of a coding ladder is "bypass", and approving a plan must not
+    hand out more than the person picked. A session that is not in Plan
     keeps its own mode: the agent entered plan mode on its own, and approving
     its plan must never change what the person picked.
     """
@@ -396,7 +432,7 @@ def mode_after_plan(ladder: str, permission_mode: str, build_mode: str = "") -> 
         folded = normalize_permission(ladder, picked)
         if folded not in PLAN_MODES:
             return folded
-    return default_permission(ladder)
+    return lowest_permission(ladder)
 
 
 def society_mode_supported(runner: str, mode: str) -> bool:
@@ -421,26 +457,30 @@ def society_mode_supported(runner: str, mode: str) -> bool:
     return False
 
 
-def normalize_permission(runner: str, mode: str | None) -> str:
+def normalize_permission(runner: str, mode: str | None, source: str = "") -> str:
     """Fold ``mode`` onto the closest mode ``runner`` accepts.
 
-    A mode the runner offers passes through. ``plan`` passes through wherever
-    a ladder has it. Anything else (a mode from another runner's ladder, or
-    the legacy ``ask``/``auto`` pair) snaps to the mode of the same stance,
-    else the nearest LOWER stance — moving to a runner that cannot express
-    "edits yes, commands ask" must not silently grant everything.
+    ``source`` is the runner (ladder key) ``mode`` was picked on, when it is
+    another one: a session moving between providers. The same word means
+    different things on different ladders ("auto" is Claude Code's classifier,
+    stance 2, but OpenCode's full access, stance 3), so the fold goes by the
+    stance the mode had on ``source``, and never lands above it.
+
+    A mode the runner offers passes through when it means the same there.
+    ``plan`` passes through wherever a ladder has it. Anything else (a mode
+    from another runner's ladder, or the legacy ``ask``/``auto`` pair) snaps
+    to the mode of the same stance, else the nearest LOWER stance — moving to
+    a runner that cannot express "edits yes, commands ask" must not silently
+    grant everything.
     """
     picked = (mode or "").strip()
     ids = permission_ids(runner)
     if not picked:
         return default_permission(runner)
-    if picked in ids:
+    origin = source if source and source != runner else ""
+    if picked in ids and (not origin or _stance(runner, picked) == _source_stance(origin, picked)):
         return picked
-    # Legacy ask/auto from before the ladders (store rows written by the
-    # first draft of this package).
-    want = _stance(runner, picked) if picked in _STANCE else 1
-    if picked == "auto":
-        want = 3
+    want = _source_stance(origin, picked) if picked in _STANCE or origin else 1
     # Plan / read-only are only ever the target when that is what was asked
     # for: folding "ask" onto a read-only sandbox would silently take the
     # hands away.
@@ -459,6 +499,7 @@ __all__ = [
     "default_permission",
     "is_permission_mode",
     "ladder_key",
+    "lowest_permission",
     "mode_after_plan",
     "normalize_permission",
     "permission_ids",

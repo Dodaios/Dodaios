@@ -277,7 +277,8 @@ export interface AgentChatStore {
    */
   answerByMessage?: (text: string) => Promise<boolean>;
   /** Answer a coding agent's plan card in the active session; throws so the card can say why. */
-  resolvePlan: (turnId: string, decision: PlanDecision) => Promise<void>;
+  /** `buildMode`: the mode the permission pill shows, which Build goes on in. */
+  resolvePlan: (turnId: string, decision: PlanDecision, buildMode?: string) => Promise<void>;
   /** Tests and the socket: fold one event into the active timeline. */
   ingest: (event: AgentChatEvent) => void;
   disconnect: () => void;
@@ -1517,10 +1518,10 @@ export function createAgentChatStore(
         }
       },
 
-      resolvePlan: async (turnId, decision) => {
+      resolvePlan: async (turnId, decision, buildMode) => {
         const sid = get().activeSessionId;
         if (!sid) throw new Error("no open chat");
-        await resolveAgentChatPlan(sid, turnId, decision);
+        await resolveAgentChatPlan(sid, turnId, decision, buildMode);
       },
 
       ingest: (event) => {

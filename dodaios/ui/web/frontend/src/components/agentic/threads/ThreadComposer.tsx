@@ -217,7 +217,7 @@ function PlanPanel({ timeline, provider, draft }: { timeline: Timeline; provider
     setSending(true);
     setError("");
     try {
-      await chat.getState().resolvePlan(turn.id, decision);
+      await chat.getState().resolvePlan(turn.id, decision, buildMode);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

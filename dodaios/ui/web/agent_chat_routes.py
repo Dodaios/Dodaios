@@ -87,6 +87,7 @@ from dodaios.agent_chat.service import (
     NoSuchSession,
     SessionBusy,
     resolve_runner,
+    session_runner,
 )
 from dodaios.agent_chat.speed import normalize_speed
 from dodaios.agent_chat.surface_kits import kit_for
@@ -291,6 +292,9 @@ class FromTerminalBody(BaseModel):
     #: The grid pane's call-sign and workspace.
     name: str = Field(min_length=1, max_length=120)
     workspace_id: str | None = None
+    #: For a pane in Plan: the mode its permission pill shows, where an
+    #: approved plan goes on.
+    build_mode: str | None = Field(default=None, max_length=40)
 
 
 class PatchSessionBody(BaseModel):
@@ -384,6 +388,9 @@ class PlanBody(BaseModel):
     turn_id: str
     #: ``build`` (switch to the build mode and go) or ``keep`` (keep planning).
     decision: str
+    #: The mode the permission pill shows, which the card names: an approved
+    #: plan goes on in exactly that mode.
+    build_mode: str | None = Field(default=None, max_length=40)
 
 
 class PickFolderBody(BaseModel):
@@ -1797,16 +1804,19 @@ async def thread_from_terminal(body: FromTerminalBody, request: Request) -> dict
         vendor = clean_vendor_session(row.runner, handle.id)
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
+    pane_mode = (term.permission_mode or "").strip()
     session = svc.create_session(
         provider=row.id,
         model=term.model or "",
         effort=term.effort or None,
         cwd=_validate_cwd(term.cwd(workspace.folder)),
-        permission_mode=normalize_permission(
-            ladder_key("agent", row.runner), term.permission_mode or ""
-        ),
+        permission_mode=normalize_permission(ladder_key("agent", row.runner), pane_mode),
         account_id=term.account or "",
         surface="agent",
+        # A pane in Plan names the mode its plan goes on in, when the person
+        # picked one; without it an approved plan takes the lowest mode
+        # (``mode_after_plan``), never the ladder's default "bypass".
+        build_mode=(body.build_mode or "") if pane_mode in PLAN_MODES else "",
     )
     session = svc.store.update_session(session.session_id, vendor_session=vendor) or session
     d = session.to_dict()
@@ -2028,10 +2038,18 @@ async def patch_session(
                 detail=f"{runner} cannot provide an actionable approval for {body.permission_mode}",
             )
         fields["permission_mode"] = body.permission_mode
-    elif "provider" in fields:
+    old_ladder = ladder_key(current.surface, session_runner(current))
+    if body.permission_mode is None and "provider" in fields:
         # A provider change folds the old mode onto the new runner's ladder
-        # (a no-op on the Jarvis surface, whose ladder is the same for all).
-        fields["permission_mode"] = normalize_permission(ladder, current.permission_mode)
+        # by what it meant on the old one, never above it (a no-op on the
+        # Jarvis surface, whose ladder is the same for all).
+        fields["permission_mode"] = normalize_permission(
+            ladder, current.permission_mode, source=old_ladder
+        )
+    if "provider" in fields and current.build_mode and not body.build_mode:
+        # The mode an approved plan goes on in moves with it, folded the same way.
+        build = normalize_permission(ladder, current.build_mode, source=old_ladder)
+        fields["build_mode"] = "" if build in PLAN_MODES else build
     if body.build_mode and fields.get("permission_mode", current.permission_mode) in PLAN_MODES:
         # The pill while Plan is on: where an approved plan goes on.
         build = normalize_permission(ladder, body.build_mode)
@@ -2675,7 +2693,9 @@ async def decline_credential(session_id: str, request_id: str, request: Request)
 async def resolve_plan(session_id: str, body: PlanBody, request: Request) -> dict[str, Any]:
     svc = (await _async_service(request))
     try:
-        ok = await svc.resolve_turn_plan(session_id, body.turn_id, body.decision)
+        ok = await svc.resolve_turn_plan(
+            session_id, body.turn_id, body.decision, build_mode=body.build_mode or ""
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except SessionBusy as exc:

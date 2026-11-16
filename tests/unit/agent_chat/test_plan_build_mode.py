@@ -45,14 +45,15 @@ from tests.unit.agent_chat.test_turn_prompts import _can_use, _fake_claude
         ("claude-cli", "plan", "default", "default"),
         ("claude-cli", "plan", "auto", "auto"),
         ("codex-cli", "plan", "approve-for-me", "approve-for-me"),
-        # Nothing recorded (a session from before the column): the ladder's default.
-        ("claude-cli", "plan", "", "bypassPermissions"),
-        ("codex-cli", "plan", "", "full-access"),
+        # Nothing recorded (a fork or a pane taken over before the mode travelled
+        # with it): the ladder's lowest mode, never its default "bypass".
+        ("claude-cli", "plan", "", "default"),
+        ("codex-cli", "plan", "", "approve-for-me"),
         # A mode the ladder dropped folds onto the same stance, never onto more.
         ("claude-cli", "plan", "acceptEdits", "auto"),
         ("claude-cli", "plan", "dontAsk", "default"),
         # Plan is never where Build goes.
-        ("claude-cli", "plan", "plan", "bypassPermissions"),
+        ("claude-cli", "plan", "plan", "default"),
         # Not in Plan: the agent planned on its own, the person's pick stands.
         ("claude-cli", "default", "", "default"),
         ("claude-cli", "default", "bypassPermissions", "default"),
@@ -457,11 +458,10 @@ def test_a_planning_thread_that_returns_to_bypass_starts_with_bypass_on_offer(
     # Once is enough.
     rc.allow_bypass_after_plan(argv, "claude-cli", _thread("plan", "bypassPermissions"))
     assert argv.count(rc.CLAUDE_ALLOW_BYPASS_FLAG) == 1
-    # Nothing recorded: the ladder's default is bypass, on GLM's ladder too.
-    for runner in ("claude-cli", "glm-cli"):
-        argv = _argv("plan")
-        rc.allow_bypass_after_plan(argv, runner, _thread("plan"))
-        assert rc.CLAUDE_ALLOW_BYPASS_FLAG in argv, runner
+    # GLM's ladder too.
+    argv = _argv("plan")
+    rc.allow_bypass_after_plan(argv, "glm-cli", _thread("plan", "bypassPermissions"))
+    assert rc.CLAUDE_ALLOW_BYPASS_FLAG in argv
 
 
 @pytest.mark.parametrize(
@@ -471,6 +471,9 @@ def test_a_planning_thread_that_returns_to_bypass_starts_with_bypass_on_offer(
         ("claude-cli", "plan", _thread("plan", "default")),
         ("claude-cli", "plan", _thread("plan", "auto")),
         ("glm-cli", "plan", _thread("plan", "acceptEdits")),
+        # Nothing recorded: the plan goes on in the lowest mode, not in bypass.
+        ("claude-cli", "plan", _thread("plan")),
+        ("glm-cli", "plan", _thread("plan")),
         # Not a planning turn.
         ("claude-cli", "default", _thread("default")),
         ("claude-cli", "bypassPermissions", _thread("bypassPermissions")),

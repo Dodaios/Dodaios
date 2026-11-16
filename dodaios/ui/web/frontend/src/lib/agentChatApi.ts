@@ -1098,17 +1098,22 @@ export async function declineAgentChatCredential(sessionId: string, requestId: s
 /** A coding agent's plan card: `build` switches to building and sends the go-ahead. */
 export type PlanDecision = "build" | "keep";
 
-/** Answer the plan card of `turnId`. */
+/**
+ * Answer the plan card of `turnId`. `buildMode` is the mode the permission
+ * pill shows (the one the card names): Build goes on in exactly that mode.
+ */
 export async function resolveAgentChatPlan(
   sessionId: string,
   turnId: string,
   decision: PlanDecision,
+  buildMode?: string,
 ): Promise<void> {
+  const build = decision === "build" && buildMode && buildMode !== "plan" ? { build_mode: buildMode } : {};
   await json(
     await fetch(`/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/plan`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ turn_id: turnId, decision }),
+      body: JSON.stringify({ turn_id: turnId, decision, ...build }),
     }),
     "plan-failed",
   );

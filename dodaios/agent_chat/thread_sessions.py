@@ -80,6 +80,9 @@ def fork_session(
         speed=source.speed,
         cwd=cwd or source.cwd,
         permission_mode=source.permission_mode,
+        # In Plan, where an approved plan goes on: without it the copy built
+        # in the ladder's default (bypass) while its pill named another mode.
+        build_mode=source.build_mode,
         title=title or source.title,
         surface=source.surface,
         account_id=source.account_id,

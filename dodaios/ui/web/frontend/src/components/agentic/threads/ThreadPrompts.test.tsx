@@ -146,7 +146,7 @@ describe("a coding agent's questions and plans in a thread", () => {
     const card = await screen.findByTestId("thread-plan");
     expect(card.textContent).toContain("switches access to Auto");
     await act(async () => { fireEvent.click(screen.getByTestId("thread-plan-build")); });
-    expect(api.resolveAgentChatPlan).toHaveBeenCalledWith("s1", "t1", "build");
+    expect(api.resolveAgentChatPlan).toHaveBeenCalledWith("s1", "t1", "build", "auto");
     feed([["plan_resolved", { turn_id: "t1", decision: "build" }]]);
     expect(screen.queryByTestId("thread-plan")).toBeNull();
   });
@@ -162,6 +162,22 @@ describe("a coding agent's questions and plans in a thread", () => {
     ]);
     const card = await screen.findByTestId("thread-plan");
     expect(card.textContent).toContain("switches access to Full access");
+  });
+
+  it("builds in the mode the card names, not the one the thread fell back to", async () => {
+    // A forked thread had no build mode: the pill and the card said one mode,
+    // and an approved plan went on in the ladder's default (full access).
+    await openThread();
+    feed([
+      ["assistant_text", { turn_id: "t1", message_id: "m1", text: "1. Add the table" }],
+      ["turn_finished", { turn_id: "t1", status: "done", duration_ms: 1000 }],
+      ["plan_ready", { turn_id: "t1", build_mode: "full-access" }],
+      ["session_updated", { build_mode: "auto" }],
+    ]);
+    const card = await screen.findByTestId("thread-plan");
+    expect(card.textContent).toContain("switches access to Auto");
+    await act(async () => { fireEvent.click(screen.getByTestId("thread-plan-build")); });
+    expect(api.resolveAgentChatPlan).toHaveBeenCalledWith("s1", "t1", "build", "auto");
   });
 
   it("tells the thread the mode picked on the pill while Plan Mode is on", async () => {
