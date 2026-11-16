@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Check, ChevronRight, CircleDashed, CircleDot, LoaderCircle } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import { planProgress, type PlanItem, type PlanStatus, type PlanView } from "@/components/agentchat/agentPlan";
 import { plural, traceDuration } from "@/components/agentchat/traceEntries";
 import { fill, useT } from "@/i18n";
@@ -7,11 +7,13 @@ import { cn } from "@/lib/utils";
 
 /**
  * The to-do list a coding agent keeps for itself, as a checklist: one row per
- * entry with its state in front — a check once it is done, a turning ring on
- * the one the agent works on, a dashed ring on what is still open. A thread
- * shows it as a card where the agent last touched the list; an opened step of
- * the work log shows the same rows smaller, as the list stood at that step.
- * A checked entry says at its right end how long it took.
+ * entry with a small box in front — filled with a check once it is done, with
+ * a breathing core in the signal colour on the one the agent works on, empty
+ * on what is still open. A thread shows it without a frame where the agent
+ * last touched the list, under a head that counts the entries and draws one
+ * bar segment per entry; an opened step of the work log shows the same rows
+ * smaller, as the list stood at that step. A checked entry says at its right
+ * end how long it took.
  */
 
 /** How many entries a card shows before the finished ones on top and the far ones below fold. */
@@ -19,16 +21,22 @@ export const PLAN_SHOWN = 8;
 
 type Translate = (key: string) => string;
 
-/** An entry's state as its mark. The ring turns only while the turn itself still works. */
+/** An entry's state as its mark. The core breathes only while the turn itself still works. */
 function Mark({ status, running, compact }: { status: PlanStatus; running: boolean; compact: boolean }) {
-  const box = compact ? "h-3.5 w-3.5" : "h-4 w-4";
-  if (status === "completed") return <Check aria-hidden strokeWidth={2.25} className={cn(box, "text-muted-foreground/80")} />;
-  if (status === "in_progress") {
-    return running
-      ? <LoaderCircle aria-hidden className={cn(box, "animate-spin text-foreground-secondary motion-reduce:animate-none")} />
-      : <CircleDot aria-hidden className={cn(box, "text-foreground-secondary")} />;
+  const box = cn("flex shrink-0 items-center justify-center rounded-[4px]", compact ? "h-3 w-3" : "h-3.5 w-3.5");
+  if (status === "completed") {
+    return <span aria-hidden data-plan-mark="completed" className={cn(box, "bg-muted-foreground/25")}>
+      <Check strokeWidth={3.5} className={cn(compact ? "h-2 w-2" : "h-2.5 w-2.5", "text-foreground-secondary")} />
+    </span>;
   }
-  return <CircleDashed aria-hidden className={cn(box, "text-muted-foreground/80")} />;
+  if (status === "in_progress") {
+    return <span aria-hidden data-plan-mark="in_progress" data-live={running || undefined}
+      className={cn(box, "border-[1.5px]", running ? "border-accent" : "border-foreground-secondary")}>
+      <span className={cn("rounded-[1.5px]", compact ? "h-1 w-1" : "h-1.5 w-1.5",
+        running ? "animate-pulse bg-accent motion-reduce:animate-none" : "bg-foreground-secondary")} />
+    </span>;
+  }
+  return <span aria-hidden data-plan-mark="pending" className={cn(box, "border-[1.5px] border-muted-foreground/45")} />;
 }
 
 /**
@@ -104,22 +112,44 @@ export function PlanList({ items, running, compact = false }: {
     if (bottom === 1) bottom = 0;
   }
   const shown = items.slice(top, items.length - bottom);
-  const box = compact ? "h-3.5 w-3.5" : "h-4 w-4";
   return <ul role="list" aria-label={`${t("thread_turn.plan.label")}, ${fill(t("thread_turn.plan.progress"), { done, total })}`}
     data-testid="thread-plan-list" className={cn("m-0 flex min-w-0 list-none flex-col p-0", compact ? "gap-1" : "gap-2.5")}>
     {top > 0 && <FoldRow compact={compact} onClick={() => setAll(true)}
-      icon={<Check strokeWidth={2.25} className={cn(box, "text-muted-foreground/80")} />}
+      icon={<Mark status="completed" running={false} compact={compact} />}
       label={fill(t(`thread_turn.plan.done_hidden_${plural(lang, top)}`), { count: top })} />}
     {shown.map((item) => <Row key={item.id} item={item} running={running} compact={compact} t={t} />)}
     {bottom > 0 && <FoldRow compact={compact} onClick={() => setAll(true)}
-      icon={<CircleDashed className={cn(box, "text-muted-foreground/80")} />}
+      icon={<Mark status="pending" running={false} compact={compact} />}
       label={fill(t(`thread_turn.plan.more_hidden_${plural(lang, bottom)}`), { count: bottom })} />}
   </ul>;
 }
 
-/** The agent's list as a card of the thread, where the agent last touched it. */
+/** The bar of a list: one segment per entry, in the entry's state. */
+const SEGMENT: Record<PlanStatus, string> = {
+  completed: "bg-foreground-secondary/70",
+  in_progress: "bg-accent",
+  pending: "bg-muted-foreground/20",
+};
+
+/**
+ * The agent's list in the thread, where the agent last touched it: a head
+ * with the count and the bar, the rows under it. No frame; the bar is what
+ * sets it apart from the lines around it.
+ */
 export function PlanCard({ plan, running }: { plan: PlanView; running: boolean }) {
-  return <section data-testid="thread-plan" className="min-w-0 rounded-xl border border-border bg-card px-4 py-3.5">
+  const t = useT();
+  const { done, total } = planProgress(plan.items);
+  return <section data-testid="thread-plan" className="min-w-0 py-1">
+    <div aria-hidden className="mb-3">
+      <div className="flex items-baseline justify-between gap-3 text-[13px] leading-5 text-muted-foreground">
+        <span className="truncate">{t("thread_turn.plan.label")}</span>
+        <span data-testid="thread-plan-count" className="shrink-0 tabular-nums">{fill(t("thread_turn.plan.progress"), { done, total })}</span>
+      </div>
+      <div data-testid="thread-plan-bar" className="mt-1.5 flex gap-[3px]">
+        {plan.items.map((item) => <span key={item.id} data-status={item.status}
+          className={cn("h-[3px] min-w-0 flex-1 rounded-full", item.status === "in_progress" && !running ? "bg-foreground-secondary/40" : SEGMENT[item.status])} />)}
+      </div>
+    </div>
     <PlanList items={plan.items} running={running} />
   </section>;
 }

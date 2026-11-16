@@ -27,7 +27,7 @@ const tookOf = (list: HTMLElement) => [...list.querySelectorAll("li[data-status]
 afterEach(cleanup);
 
 describe("the agent's to-do list in a thread", () => {
-  it("draws the list as one card where the agent last touched it, the entry in work turning", () => {
+  it("draws the list once where the agent last touched it, the entry in work breathing", () => {
     show(turn([
       tool("p1", "TodoWrite", todos(["Read the repo", "in_progress"], ["Write the drafts", "pending"], ["Open the pull request", "pending"])),
       bash("c1", "git log"),
@@ -39,7 +39,12 @@ describe("the agent's to-do list in a thread", () => {
     const card = screen.getByTestId("thread-plan");
     expect(screen.getAllByTestId("thread-plan")).toHaveLength(1);
     expect(rowsOf(card)).toEqual(["completed:Read the repo", "in_progress:Write the drafts", "pending:Open the pull request"]);
-    expect(card.querySelector("li[data-status=in_progress] svg")?.getAttribute("class")).toContain("animate-spin");
+    // The entry in work has a box whose core breathes; the head counts and draws one bar segment per entry.
+    expect(card.querySelector("li[data-status=in_progress] [data-plan-mark=in_progress]")?.hasAttribute("data-live")).toBe(true);
+    expect(card.querySelector("li[data-status=completed] [data-plan-mark=completed] svg")).toBeTruthy();
+    expect(card.querySelector("svg circle")).toBeNull();
+    expect(within(card).getByTestId("thread-plan-count").textContent).toBe("1 of 3 done");
+    expect([...within(card).getByTestId("thread-plan-bar").children].map((part) => part.getAttribute("data-status"))).toEqual(["completed", "in_progress", "pending"]);
     expect(within(card).getByRole("list").getAttribute("aria-label")).toBe("To-do list, 1 of 3 done");
     // The work before the card and the work after it are lines of their own; the list is no work.
     const before = screen.getByRole("button", { name: /^Ran 2 commands/ });
@@ -53,8 +58,9 @@ describe("the agent's to-do list in a thread", () => {
     expect(step.textContent).toContain("Made a to-do list with 3 items");
     fireEvent.click(within(step).getByRole("button"));
     expect(rowsOf(step)).toEqual(["in_progress:Read the repo", "pending:Write the drafts", "pending:Open the pull request"]);
-    // A list of the past does not turn.
-    expect(step.querySelector(".animate-spin")).toBeNull();
+    // A list of the past does not breathe, and has no head of its own.
+    expect(step.querySelector("[data-live]")).toBeNull();
+    expect(within(step).queryByTestId("thread-plan-bar")).toBeNull();
   });
 
   it("names a line by the list change when the agent did nothing else between two things it said", () => {
@@ -71,7 +77,7 @@ describe("the agent's to-do list in a thread", () => {
     expect(rowsOf(screen.getByTestId("thread-plan"))).toEqual(["completed:Read the repo", "completed:Write the drafts"]);
   });
 
-  it("folds the card into a finished turn's work and stops the ring", () => {
+  it("folds the list into a finished turn's work and stops the mark", () => {
     show(turn([
       tool("p1", "TodoWrite", todos(["Read the repo", "completed"], ["Write the drafts", "in_progress"])),
       bash("c1", "git log"),
@@ -82,7 +88,7 @@ describe("the agent's to-do list in a thread", () => {
     fireEvent.click(screen.getByTestId("thread-worked-for"));
     const card = screen.getByTestId("thread-plan");
     expect(rowsOf(card)).toEqual(["completed:Read the repo", "in_progress:Write the drafts"]);
-    expect(card.querySelector(".animate-spin")).toBeNull();
+    expect(card.querySelector("[data-live]")).toBeNull();
   });
 
   it("keeps the answer in view when the agent ticks its last entry after writing it", () => {
