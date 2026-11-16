@@ -11,6 +11,36 @@ versioning per [SemVer](https://semver.org/).
 
 ---
 
+## [5.5.1] — 2026-11-16
+
+### Added
+
+- Dodaios writes agent briefs by the frontier labs' own prompting guidance (#1756)
+- A coding agent is done only when the issues its pull request fixes are closed (#1752)
+- Slack is a conversation channel: a direct message to the owner's own Slack app continues the one conversation, with pictures, voice clips and approval buttons (#1735)
+- A checked entry of the agent's to-do list says how long it took (#1731)
+
+### Fixed
+
+- Pictures Dodaios hands to a coding thread show in the thread's message (#1773)
+- A thread at its model's limit goes on on the next model down, keeps the model that worked, and its to-do list follows every run (#1771)
+- A slow chat-history write no longer freezes the app, so the Dodaios Bar keeps moving and a dictation still pastes (#1764)
+- Apt adds universe when the runner's sources lack it, so Linux jobs pass on the Ubuntu 26.04 image (#1768)
+- The assistant's replies read like chat messages again, not small documents (#1766)
+- A failed turn reads as one quiet line under the messages, not a boxed card with a second "Failed" (#1765)
+- A waiting start always hears what became of its gathering, and a night ritual is one evening (#1761)
+- Pictures the person sends stand as small tiles side by side above the message (#1763)
+- Saving the assistant's name in the setup wizard no longer ends in a bare HTTP 500 (#1755)
+- Approvals and replies in Slack and Telegram show the command and the links as they are, a decision always settles the message, and one channel runs at a time (#1760)
+- A host the agent was given with a port or in capitals opens in the in-app browser (#1754)
+- A screenshot goes through on a nearly full disk: the free-space reserve scales with the drop (#1751)
+- The Slack stand-in starts at once on macOS, so the macOS main sweep is green again (#1749)
+- A sent message shows in the chat the moment Enter is pressed, with the assistant typing under it (#1750)
+- A new node opens empty, and whatever the person empties in an editor saves (#1744)
+- A channel whose start fails for a passing reason starts again by itself, so Telegram comes back after a login without network (#1732)
+
+---
+
 ## [5.5.0] — 2026-11-16
 
 ### Added
