@@ -202,6 +202,106 @@ def test_relocated_copy_missing_a_dll_is_rebuilt(
     assert (target.parent / "python311.dll").is_file()
 
 
+def _cfg_home(folder: Path) -> str:
+    lines = (folder / "pyvenv.cfg").read_text(encoding="utf-8").splitlines()
+    values = dict(line.split(" = ", 1) for line in lines)
+    assert values["include-system-site-packages"] == "true"
+    return values["home"]
+
+
+def test_relocated_copy_points_at_its_base_interpreter(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Without a pyvenv.cfg a relocated copy takes the current directory as its
+    prefix and loses the base site-packages (soundcard went missing)."""
+    _brandable(monkeypatch)
+    src_dir = _fake_interpreter_dir(tmp_path)
+    ico = tmp_path / "dodaios.ico"
+    ico.write_bytes(b"ico")
+    target = tmp_path / "user" / "bin" / icon_utils.BRANDED_LAUNCHER_EXE_NAME
+
+    assert icon_utils._ensure_branded_copy_at(src_dir / "pythonw.exe", target, ico) == target
+    assert _cfg_home(target.parent) == str(src_dir)
+
+
+def test_a_fresh_relocated_copy_without_its_cfg_heals(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _brandable(monkeypatch)
+    src_dir = _fake_interpreter_dir(tmp_path)
+    ico = tmp_path / "dodaios.ico"
+    ico.write_bytes(b"ico")
+    target = tmp_path / "user" / "bin" / icon_utils.BRANDED_LAUNCHER_EXE_NAME
+    icon_utils._ensure_branded_copy_at(src_dir / "pythonw.exe", target, ico)
+    (target.parent / "pyvenv.cfg").unlink()
+
+    assert icon_utils._ensure_branded_copy_at(src_dir / "pythonw.exe", target, ico) == target
+    assert _cfg_home(target.parent) == str(src_dir)
+
+
+def test_a_copy_beside_its_base_gets_no_cfg(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Next to the base interpreter the copy already finds Lib/os.py; a cfg
+    there would turn the whole base install into a venv."""
+    _brandable(monkeypatch)
+    src_dir = _fake_interpreter_dir(tmp_path)
+    ico = tmp_path / "dodaios.ico"
+    ico.write_bytes(b"ico")
+    target = src_dir / icon_utils.BRANDED_LAUNCHER_EXE_NAME
+
+    assert icon_utils._ensure_branded_copy_at(src_dir / "pythonw.exe", target, ico) == target
+    assert not (src_dir / "pyvenv.cfg").exists()
+
+
+def _running_copy(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Path, Path]:
+    """A relocated branded copy as the running image, plus a fake base install."""
+    folder = tmp_path / "user" / "bin"
+    folder.mkdir(parents=True)
+    exe = folder / icon_utils.BRANDED_LAUNCHER_EXE_NAME
+    exe.write_bytes(b"MZ")
+    (folder / "python311.dll").write_bytes(b"dll")
+    base = tmp_path / "base"
+    (base / "Lib").mkdir(parents=True)
+    (base / "Lib" / "os.py").write_text("", encoding="utf-8")
+    monkeypatch.setattr(icon_utils.sys, "platform", "win32")
+    monkeypatch.setattr(icon_utils.sys, "executable", str(exe))
+    monkeypatch.setattr(icon_utils.os, "__file__", str(base / "Lib" / "os.py"))
+    return folder, base
+
+
+def test_the_running_relocated_copy_heals_itself(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Inside a broken copy sys.base_prefix names the current directory, so the
+    rebuild path cannot run; the stdlib location still names the base."""
+    folder, base = _running_copy(monkeypatch, tmp_path)
+
+    icon_utils.heal_running_relocated_copy()
+
+    assert _cfg_home(folder) == str(base.resolve())
+
+
+def test_heal_leaves_a_plain_interpreter_alone(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    folder, _base = _running_copy(monkeypatch, tmp_path)
+    monkeypatch.setattr(icon_utils.sys, "executable", str(folder / "pythonw.exe"))
+
+    icon_utils.heal_running_relocated_copy()
+
+    assert not (folder / "pyvenv.cfg").exists()
+
+
+def test_heal_keeps_an_existing_cfg(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    folder, _base = _running_copy(monkeypatch, tmp_path)
+    (folder / "pyvenv.cfg").write_text("home = elsewhere\n", encoding="utf-8")
+
+    icon_utils.heal_running_relocated_copy()
+
+    assert (folder / "pyvenv.cfg").read_text(encoding="utf-8") == "home = elsewhere\n"
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-only branding")
 def test_unwritable_first_home_falls_through_to_the_user_dir(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
