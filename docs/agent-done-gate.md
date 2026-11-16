@@ -14,16 +14,17 @@ sent back to work with one imperative next step.
 | D3 | the branch's pull request is merged into `main` |
 | D4 | the `main_workflows` are green on `main` for the merge commit (or for a later `main` commit that contains it) |
 | D5 | the local `main` checkout contains the merge commit; the gate fast-forwards it (never killed on a short timer), and a checkout with local edits, or with an `index.lock` (another git command is writing it), is left alone and noted |
+| D6 | every issue the pull request fixes is closed: GitHub closes an issue the PR body names with `Fixes #<n>` when the PR merges, and the gate asks the agent to close one that stayed open |
 
 ## Verdicts
 
 | Verdict | Meaning | Stop? |
 |---------|---------|-------|
-| DONE | D1–D5 hold | yes |
+| DONE | D1–D6 hold | yes |
 | NONE | no branch work in this session | yes |
 | HOLD | draft PR, opt-out label (`wip`, `needs-human`, `do-not-merge`, `no-auto-merge`), or `--hold` | yes |
 | WAIT | CI running, PR queued, merge freeze, main CI running | no |
-| FIX | red checks, conflicts, unpushed commits, auto-merge missing, parked CI run, red main CI for the merge commit | no |
+| FIX | red checks, conflicts, unpushed commits, auto-merge missing, parked CI run, red main CI for the merge commit, an open issue the PR names without `Fixes #<n>` or `Refs #<n>`, a fixed issue still open after the merge | no |
 | STUCK | WAIT longer than `wait_budget_hours` or the same FIX more than `fix_budget_blocks` times | yes, with a report |
 
 The gate fails open: if it cannot check (no `gh`, no network, a bug), the
@@ -36,6 +37,14 @@ checkout's `.venv`, for a worktree the `.venv` of the checkout it belongs to,
 then `python3.14` down to `python3.11` on `PATH`. Until 2026-11-12 it crashed
 at import there and the hook swallowed the crash, so on such a machine no
 agent was checked at all.
+
+## Issues
+
+A pull request that fixes an issue says `Fixes #<n>` in its body, so the merge
+closes the issue. One that only touches it says `Refs #<n>`. While an open PR
+names an open issue of this repository without either, the gate answers FIX:
+the agent decides which it is. After the merge, an issue the PR fixes that is
+still open is a FIX too, with the `gh issue close` command to run.
 
 ## Which branches
 
