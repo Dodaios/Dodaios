@@ -22,6 +22,10 @@ rules:
       # against the API), checks out nothing, uses no action, and reads the
       # run's job names and links as data.
       - nightly-alert.yml
+      # Runs on a merged PR but checks out `main` only and executes nothing
+      # from the pull request; the script reads its title and body as data
+      # through the API and closes issues with the job token.
+      - close-fixed-issues.yml
   unpinned-uses:
     config:
       policies:
