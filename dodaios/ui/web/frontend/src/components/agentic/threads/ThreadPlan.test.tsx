@@ -39,12 +39,14 @@ describe("the agent's to-do list in a thread", () => {
     const card = screen.getByTestId("thread-plan");
     expect(screen.getAllByTestId("thread-plan")).toHaveLength(1);
     expect(rowsOf(card)).toEqual(["completed:Read the repo", "in_progress:Write the drafts", "pending:Open the pull request"]);
-    // The entry in work has a box whose core breathes; the head counts and draws one bar segment per entry.
+    // The list stands in a thin square frame; the entry in work has a box whose core breathes; the head counts, with no bar.
     expect(card.querySelector("li[data-status=in_progress] [data-plan-mark=in_progress]")?.hasAttribute("data-live")).toBe(true);
     expect(card.querySelector("li[data-status=completed] [data-plan-mark=completed] svg")).toBeTruthy();
     expect(card.querySelector("svg circle")).toBeNull();
     expect(within(card).getByTestId("thread-plan-count").textContent).toBe("1 of 3 done");
-    expect([...within(card).getByTestId("thread-plan-bar").children].map((part) => part.getAttribute("data-status"))).toEqual(["completed", "in_progress", "pending"]);
+    expect(card.className).toContain("border");
+    expect(card.className).not.toMatch(/rounded-(md|lg|xl|full)/);
+    expect(within(card).queryByTestId("thread-plan-bar")).toBeNull();
     expect(within(card).getByRole("list").getAttribute("aria-label")).toBe("To-do list, 1 of 3 done");
     // The work before the card and the work after it are lines of their own; the list is no work.
     const before = screen.getByRole("button", { name: /^Ran 2 commands/ });
@@ -58,9 +60,10 @@ describe("the agent's to-do list in a thread", () => {
     expect(step.textContent).toContain("Made a to-do list with 3 items");
     fireEvent.click(within(step).getByRole("button"));
     expect(rowsOf(step)).toEqual(["in_progress:Read the repo", "pending:Write the drafts", "pending:Open the pull request"]);
-    // A list of the past does not breathe, and has no head of its own.
+    // A list of the past does not breathe, has no head of its own, and stands in the same frame.
     expect(step.querySelector("[data-live]")).toBeNull();
-    expect(within(step).queryByTestId("thread-plan-bar")).toBeNull();
+    expect(within(step).queryByTestId("thread-plan-count")).toBeNull();
+    expect(within(step).getByTestId("thread-plan-list").className).toContain("border");
   });
 
   it("names a line by the list change when the agent did nothing else between two things it said", () => {
