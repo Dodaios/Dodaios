@@ -129,3 +129,77 @@ def test_the_seat_a_turn_runs_on_is_remembered_and_watched() -> None:
     assert seats == {"codex": "codex:x"}
     assert seat_switch._outside_seats() == {"codex": {"codex:x"}}
     seat_switch.reset()
+
+
+def _thread(model: str) -> Any:
+    return SimpleNamespace(session_id="s1", surface="agent", model=model)
+
+
+FABLE_LIMIT = (
+    "You've hit your Fable limit · resets Nov 17 at 12am (Europe/Berlin). Switch to another "
+    "model, or manage usage credits at https://claude.ai/settings/usage, to continue."
+)
+
+
+def _run_thread(
+    monkeypatch: pytest.MonkeyPatch, model: str, error: str
+) -> tuple[runner_cli._Outcome, list[str], runner_cli._Outcome]:
+    from dodaios.agent_chat import model_fallback as mf
+
+    mf.reset()
+    asked: list[str] = []
+
+    async def fail_over(platform: str, account_id: str, *, error: str = "") -> str | None:
+        asked.append(f"{platform}:{account_id}")
+        return "seat-b"
+
+    async def run_again(prompt: str, conversation: str | None) -> runner_cli._Outcome:
+        return runner_cli._Outcome("done", None, {}, None, conversation)
+
+    async def emit(_event: dict[str, Any]) -> None:
+        return None
+
+    monkeypatch.setattr(seat_switch, "fail_over", fail_over)
+    refused = runner_cli._Outcome("error", error, {}, None, "conv-2")
+    handle = SimpleNamespace(turn_id="t1", session=_thread(model), emit=emit)
+    result = asyncio.run(
+        runner_cli._continue_on_next_seat(
+            handle,
+            refused,
+            "claude-cli",
+            {"claude": "seat-a"},
+            started_work=True,
+            run_again=run_again,
+            user_text="fix the bug",
+            resume="conv-1",
+        )
+    )
+    return result, asked, refused
+
+
+def test_one_spent_model_family_does_not_take_the_whole_seat_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A Fable limit marked the subscription (and every seat of the same
+    # login) exhausted and moved every pane off it, Opus and Sonnet ones too.
+    # The thread's next model goes on on the same seat instead.
+    result, asked, refused = _run_thread(monkeypatch, "claude-fable-5-2", FABLE_LIMIT)
+    assert asked == []
+    assert result is refused
+
+
+@pytest.mark.parametrize(
+    ("model", "error"),
+    [
+        # The whole subscription is out: another seat is the way on.
+        ("claude-fable-5-2", "You've hit your limit · resets Nov 17 at 12am (Europe/Berlin)"),
+        # The last model of the chain: no model is left to switch to.
+        ("claude-sonnet-5-5", FABLE_LIMIT.replace("Fable", "Sonnet")),
+    ],
+)
+def test_a_limit_no_other_model_answers_still_switches_seats(
+    monkeypatch: pytest.MonkeyPatch, model: str, error: str
+) -> None:
+    result, asked, _refused = _run_thread(monkeypatch, model, error)
+    assert asked == ["claude:seat-a"]
+    assert result.status == "done"

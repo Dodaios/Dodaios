@@ -56,6 +56,7 @@ the active subscription seat is the one that answers.
 from __future__ import annotations
 
 import asyncio
+import copy
 import hashlib
 import json
 import logging
@@ -3010,6 +3011,31 @@ class _CodexState:
     #: The agent's to-do list as it was last told, and how often it was told.
     plan: list[dict[str, str]] = field(default_factory=list)
     plan_calls: int = 0
+    #: This run's tag (:func:`run_tag`). Codex numbers its items from
+    #: ``item_0`` in every process, so a turn it ran twice (after a limit, a
+    #: recovery) reused the first run's ids, and the chat kept the first
+    #: run's to-do list, messages and tool rows instead of the second's.
+    run: str = ""
+    #: The output of the last tool call that failed: never the turn's own
+    #: words about a limit (``_Outcome.tool_error``).
+    last_tool_error: str | None = None
+
+
+def run_tag(proc: Any) -> str:
+    """A short tag of one CLI process, the same when the app reattaches to it.
+
+    A hosted CLI keeps its host id across an app restart, a child process
+    its pid; the replayed lines then rebuild the very ids the timeline holds.
+    """
+    ident = str(getattr(proc, "host_id", "") or getattr(proc, "pid", "") or "")
+    if not ident:
+        ident = uuid.uuid4().hex
+    return hashlib.sha1(ident.encode("utf-8"), usedforsecurity=False).hexdigest()[:6]
+
+
+def _codex_item_id(st: _CodexState, item: dict[str, Any]) -> str:
+    raw = str(item.get("id") or uuid.uuid4().hex)
+    return f"{raw}-{st.run}" if st.run else raw
 
 
 #: Codex's word for a sub-agent that is still working.
@@ -3025,7 +3051,7 @@ def _codex_collab_events(item: dict[str, Any], phase: str, st: _CodexState) -> l
     stream a sub-agent's own steps — the card carries its task and its answer.
     """
     out: list[dict[str, Any]] = []
-    item_id = str(item.get("id") or uuid.uuid4().hex)
+    item_id = _codex_item_id(st, item)
     tool = str(item.get("tool") or "agent")
     prompt = str(item.get("prompt") or "")
     receivers = [str(t) for t in item.get("receiver_thread_ids") or [] if t]
@@ -3150,7 +3176,7 @@ def translate_codex_line(obj: dict[str, Any], st: _CodexState) -> list[dict[str,
         return out
 
     item = obj.get("item") or {}
-    item_id = str(item.get("id") or uuid.uuid4().hex)
+    item_id = _codex_item_id(st, item)
     itype = str(item.get("type") or "")
     phase = kind.split(".", 1)[1]  # started | updated | completed
 
@@ -3199,7 +3225,8 @@ def translate_codex_line(obj: dict[str, Any], st: _CodexState) -> list[dict[str,
             return out
         st.plan = steps
         st.plan_calls += 1
-        return plan_update_events(st.turn_id, f"plan-{st.turn_id}-{st.plan_calls}", steps)
+        run = f"{st.run}-" if st.run else ""
+        return plan_update_events(st.turn_id, f"plan-{st.turn_id}-{run}{st.plan_calls}", steps)
     if itype in {"command_execution", "file_change", "mcp_tool_call", "web_search"}:
         if itype == "command_execution":
             name, args = "RunCommand", {"command": str(item.get("command") or "")}
@@ -3258,7 +3285,7 @@ def translate_codex_line(obj: dict[str, Any], st: _CodexState) -> list[dict[str,
                 )
                 if is_error:
                     st.failed_tools.add(name)
-                    st.last_error = f"{name} failed: {output[:300]}"
+                    st.last_error = st.last_tool_error = f"{name} failed: {output[:300]}"
                 else:
                     st.failed_tools.discard(name)
             else:
@@ -3988,6 +4015,9 @@ class _Outcome:
     vendor_session: str | None
     #: The stream's limit signal of the run (``model_fallback``), if any.
     limit: LimitSignal | None = None
+    #: ``error`` is a tool's output or the CLI's stderr, not the CLI's own
+    #: words: a 429 a tool hit is not the model's limit.
+    tool_error: bool = False
 
 
 # Error text the CLIs print when the conversation we try to resume is gone
@@ -4155,7 +4185,12 @@ def _merge_cli_outcome(first: _Outcome, second: _Outcome) -> _Outcome:
         cost,
         second.vendor_session or first.vendor_session,
         second.limit,
+        second.tool_error,
     )
+
+
+#: How a Codex turn that left a tool failure unresolved says so.
+_UNRESOLVED_TOOLS: Final[str] = "Unresolved tool failure: "
 
 
 #: The thread notice that says a turn moved to the next subscription.
@@ -4199,6 +4234,11 @@ async def _continue_on_next_seat(
     platform = pair[0]
     spent = turn_seats.get(platform)
     if not spent:
+        return outcome
+    if _model_fallback_takes(handle, outcome, runner, spent):
+        # One model family is spent ("your Fable limit"), not the whole
+        # subscription: the thread's other models still run on this seat.
+        # Taking the seat out of rotation would move every pane off it.
         return outcome
     try:
         from dodaios.agentic_ide import seat_switch
@@ -4246,6 +4286,38 @@ async def _continue_on_next_seat(
 _MODEL_FALLBACK_SURFACES: Final[frozenset[str]] = frozenset({"agent"})
 
 
+def _model_fallback_takes(handle: TurnHandle, outcome: _Outcome, runner: str, seat: str) -> bool:
+    """Whether the model switch, not the subscription switch, answers this limit.
+
+    So when the limit names one model family and the thread has a model of
+    another family left to go on with on the same seat.
+    """
+    from dodaios.agent_chat import model_fallback as mf
+
+    session = handle.session
+    if getattr(session, "surface", "") not in _MODEL_FALLBACK_SURFACES:
+        return False
+    current = str(getattr(session, "model", "") or "")
+    hit = mf.detect(None if outcome.tool_error else outcome.error, outcome.limit, model=current)
+    if hit is None or not mf.switch_helps(hit):
+        return False
+    chain = mf.chain_for(runner)
+    if not chain or not mf.enabled():
+        return False
+    return bool(mf.candidates(runner, current, hit=hit, seat=seat, chain=chain))
+
+
+def _on_model(handle: TurnHandle, model: str) -> TurnHandle:
+    """``handle`` for a run on ``model``; the thread itself is not changed yet."""
+    session = handle.session
+    try:
+        moved = replace(session, model=model)
+    except TypeError:  # not a session record (a test double): a copy with the field set
+        moved = copy.copy(session)
+        moved.model = model
+    return replace(handle, session=moved)
+
+
 async def _switch_thread_model(handle: TurnHandle, model: str) -> TurnHandle:
     """Put the thread on ``model``: stored, told to the composer, used from here on."""
     session = handle.session
@@ -4254,15 +4326,10 @@ async def _switch_thread_model(handle: TurnHandle, model: str) -> TurnHandle:
     if callable(update):
         try:
             await asyncio.to_thread(update, session.session_id, model=model)
-        except Exception as exc:  # noqa: BLE001 - this turn still runs on the new model
+        except Exception as exc:  # noqa: BLE001 - this turn still ran on the new model
             log.warning("agent chat %s: model switch not stored (%s)", handle.turn_id, exc)
     await handle.emit(make_event("session_updated", {"model": model}))
-    try:
-        moved = replace(session, model=model)
-    except TypeError:  # not a session record (a test double): set the field itself
-        session.model = model
-        moved = session
-    return replace(handle, session=moved)
+    return _on_model(handle, model)
 
 
 def _fallback_spent(runner: str, seat: str, spent: list[Any], chain: tuple[str, ...]) -> list[Any]:
@@ -4294,16 +4361,21 @@ async def _continue_on_fallback_model(
 ) -> tuple[_Outcome, TurnHandle]:
     """Carry a thread whose model hit its limit on to the next model of the chain.
 
-    Detection reads the stream's own limit signal first and the error text
-    only as a fallback (:func:`model_fallback.detect`). The thread's model is
-    switched in place (stored, ``session_updated`` for the composer, a
-    ``model_fallback`` notice in the thread) and the SAME conversation
-    resumes: a turn that already worked is told to continue, one refused
-    before it started gets the person's message again. Each model is tried
-    at most once per turn and models known to be out are skipped; when none
-    is left the turn stops once, with a ``model_fallback_exhausted`` notice
-    and an error that names the first reset. Off with
-    ``[agentic_ide] model_fallback = false`` (the limit is still noted).
+    Detection reads the stream's own limit signal first and the CLI's own
+    error text only as a fallback (:func:`model_fallback.detect`), never a
+    tool's output or the stderr tail (``_Outcome.tool_error``). Only a limit
+    of one model family is switched around (:func:`model_fallback.switch_helps`):
+    an account-wide limit or a short rate limit leaves the model alone. The
+    SAME conversation resumes on the next model down the chain, with a
+    ``model_fallback`` notice: a turn that already worked is told to continue,
+    one refused before it started gets the person's message again. The thread
+    keeps the new model (stored, ``session_updated`` for the composer) only
+    once a run on it went through; a model the CLI cannot use at all is
+    skipped. Each model is tried at most once per turn and models known to be
+    out are skipped; when none is left the turn stops once, on the model it
+    had, with a ``model_fallback_exhausted`` notice and an error that names
+    the first reset. Off with ``[agentic_ide] model_fallback = false`` (the
+    limit is still noted).
     """
     from dodaios.agent_chat import model_fallback as mf
 
@@ -4311,15 +4383,17 @@ async def _continue_on_fallback_model(
     if getattr(session, "surface", "") not in _MODEL_FALLBACK_SURFACES:
         return outcome, handle
     current = str(getattr(session, "model", "") or "")
-    hit = mf.detect(outcome.error, outcome.limit, model=current)
+    hit = mf.detect(None if outcome.tool_error else outcome.error, outcome.limit, model=current)
     if hit is None:
         return outcome, handle
     pair = _SEAT_CONVERSATIONS.get(runner)
     seat = turn_seats.get(pair[0], "") if pair else ""
     until = mf.note_limited(runner, seat, current, hit)
     chain = mf.chain_for(runner)
-    if not chain or not mf.enabled():
+    if not chain or not mf.enabled() or not mf.switch_helps(hit):
         return outcome, handle
+    #: The thread as it is: it stays on its model unless a switch goes through.
+    original = handle
     spent: list[mf.Spent] = [mf.Spent(current, mf.limit_label(hit, current), until)]
     tried: set[str] = {current}
     conversation = outcome.vendor_session or resume
@@ -4338,7 +4412,6 @@ async def _continue_on_fallback_model(
             break
         target = options[0]
         tried.add(target)
-        handle = await _switch_thread_model(handle, target)
         await handle.emit(
             make_event(
                 "notice",
@@ -4351,19 +4424,28 @@ async def _continue_on_fallback_model(
             if started_work() and conversation
             else user_text
         )
-        again = await run_again(handle, prompt, conversation)
+        again = await run_again(_on_model(original, target), prompt, conversation)
         outcome = _merge_cli_outcome(outcome, again)
         conversation = again.vendor_session or conversation
         if again.status != "error":
-            return outcome, handle
-        following = mf.detect(again.error, again.limit, model=target)
+            return outcome, await _switch_thread_model(original, target)
+        said = None if again.tool_error else again.error
+        if again.limit is None and mf.model_unusable(said):
+            # The CLI cannot run this model at all (not on this plan, a
+            # retired id): the next one down may still work.
+            log.info("agent chat %s: %r is not usable here; skipping it", handle.turn_id, target)
+            current = target
+            continue
+        following = mf.detect(said, again.limit, model=target)
         if following is None:
-            return outcome, handle  # another failure: its own error stands
+            return outcome, original  # another failure: its own error stands
         until = mf.note_limited(runner, seat, target, following)
         spent.append(mf.Spent(target, mf.limit_label(following, target), until))
+        if not mf.switch_helps(following):
+            break  # the whole account is out: no other model helps
         current, hit = target, following
     if handle.cancel.is_set():
-        return outcome, handle
+        return outcome, original
     spent = _fallback_spent(runner, seat, spent, chain)
     log.info(
         "agent chat %s: every fallback model of %s is limited (%s); stopping",
@@ -4374,7 +4456,7 @@ async def _continue_on_fallback_model(
     await handle.emit(
         make_event("notice", {**mf.exhausted_notice(spent), "turn_id": handle.turn_id})
     )
-    return replace(outcome, error=mf.exhausted_error(spent)), handle
+    return replace(outcome, error=mf.exhausted_error(spent), tool_error=False), original
 
 
 async def _surface_identity(session: Any) -> str | None:
@@ -5167,9 +5249,12 @@ async def _drive_cli(
     if plan.acp is not None:
         state: Any = plan.acp
         translate: Any = None
+        state.run = run_tag(proc)
     else:
         make_state, translate = _SHAPES[plan.shape]
         state = make_state(handle.turn_id, vendor_session)
+        if isinstance(state, _CodexState):
+            state.run = run_tag(proc)
         if runner == "grok-cli" and isinstance(state, _ClaudeState):
             state.grok = True
         elif runner == "claude-cli" and isinstance(state, _ClaudeState):
@@ -5909,6 +5994,8 @@ async def _drive_cli(
         if getattr(proc, "host_lost", False) and not handle.cancel.is_set():
             status = "error"
             error_text = "The process that ran this agent stopped unexpectedly."
+    #: The stderr tail when it became the error: never read for a limit.
+    stderr_said = ""
     if handle.cancel.is_set():
         status = "cancelled"
     elif provider_error := _provider_error():
@@ -5924,7 +6011,7 @@ async def _drive_cli(
             plan.acp is not None and plan.acp.saw_result
         ):
             status = "error"
-            raw_tail = "\n".join(stderr_tail[-8:]).strip()
+            raw_tail = stderr_said = "\n".join(stderr_tail[-8:]).strip()
             if raw_tail:
                 from dodaios.agent_chat.turn_errors import redact
 
@@ -5943,7 +6030,7 @@ async def _drive_cli(
             )
         elif plan.shape == "codex" and state.failed_tools:
             status = "error"
-            error_text = "Unresolved tool failure: " + ", ".join(sorted(state.failed_tools))
+            error_text = _UNRESOLVED_TOOLS + ", ".join(sorted(state.failed_tools))
         elif (runner in {"claude-cli", "glm-cli"} or plan.acp is not None) and not state.saw_result:
             status = "error"
             error_text = f"{runner} exited without a terminal result; its output may be incomplete."
@@ -6012,6 +6099,7 @@ async def _drive_cli(
             error_text = "A generated image could not be added to the chat artifacts."
 
     signal = getattr(state, "limit", None)
+    not_the_cli = {getattr(state, "last_tool_error", None), stderr_said} - {None, ""}
     return _Outcome(
         status,
         error_text,
@@ -6019,6 +6107,8 @@ async def _drive_cli(
         cost_usd,
         vendor_session,
         signal if isinstance(signal, LimitSignal) and signal.hit else None,
+        tool_error=bool(error_text)
+        and (error_text in not_the_cli or error_text.startswith(_UNRESOLVED_TOOLS)),
     )
 
 

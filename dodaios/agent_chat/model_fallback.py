@@ -39,9 +39,10 @@ NOTICE_KIND: Final[str] = "model_fallback"
 EXHAUSTED_KIND: Final[str] = "model_fallback_exhausted"
 
 #: Each CLI's fallback chain, most preferred first. A thread on a model of
-#: the chain moves to the next one that is not limited; a thread on a model
-#: outside it tries the chain in order. CLIs without an entry do not fall
-#: back unless ``[agentic_ide] model_fallback_chains`` names one.
+#: the chain moves down it, to the next one that is not limited, never up to
+#: a model before it; a thread on a model outside it tries the chain in
+#: order. CLIs without an entry do not fall back unless
+#: ``[agentic_ide] model_fallback_chains`` names one.
 DEFAULT_CHAINS: Final[dict[str, tuple[str, ...]]] = {
     "claude-cli": ("claude-fable-5-2", "claude-opus-5-5", "claude-sonnet-5-5"),
     "codex-cli": ("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"),
@@ -65,6 +66,14 @@ _MAX_RESET_S: Final[float] = 31 * 24 * 3600.0
 _FAMILIES: Final[tuple[str, ...]] = ("fable", "opus", "sonnet", "haiku")
 _FAMILY_LIMIT = re.compile(
     r"\b(?P<family>fable|opus|sonnet|haiku)(?:\s+weekly)?\s+limit\b", re.IGNORECASE
+)
+#: A model the CLI cannot run at all (Claude Code: "There's an issue with the
+#: selected model"), or a login it cannot use: the next model of the chain
+#: may still work, so the switch goes on past it.
+_UNUSABLE_MODEL = re.compile(
+    r"issue with the selected model|model_not_found|not_found_error|"
+    r"(?:oauth )?token has expired|invalid api key|please run /login",
+    re.IGNORECASE,
 )
 _MONTHS: Final[dict[str, int]] = {
     name: index
@@ -290,6 +299,10 @@ def detect(
     text = str(error or "")
     family_match = _FAMILY_LIMIT.search(text)
     family = family_match.group("family").capitalize() if family_match else ""
+    if not family and signal is not None:
+        # Claude Code's ``rateLimitType`` names a model's own window
+        # ("seven_day_opus") where the sentence does not.
+        family = family_of(signal.limit_type)
     if signal is not None and signal.hit:
         long_wait = (
             signal.resets_at is not None and signal.resets_at - time.time() > _RATE_DEFAULT_S
@@ -317,6 +330,40 @@ def detect(
     else:
         return None
     return LimitHit(kind=kind, family=family, resets_at=parse_reset(text), message=text)
+
+
+def switch_helps(hit: LimitHit) -> bool:
+    """Whether another model can carry on past ``hit``.
+
+    Only a spent allowance of one model family ("You've hit your Fable
+    limit") is left behind by switching. A limit that names no family is the
+    whole account's (every model of the chain shares it), and a rate limit is
+    a burst that passes in a minute or two: switching would only walk the
+    chain and leave the thread on a lesser model for nothing.
+    """
+    return hit.kind == "usage" and bool(hit.family)
+
+
+def model_unusable(error: str | None) -> bool:
+    """Whether a run failed because its model (or the login) cannot be used at all.
+
+    Such a model is skipped and the next one of the chain is tried; any other
+    failure ends the switch with its own error.
+    """
+    text = str(error or "")
+    if not text:
+        return False
+    if _UNUSABLE_MODEL.search(text):
+        return True
+    try:
+        from dodaios.brain import seat_health
+
+        return seat_health.classify_seat_failure(text) in {
+            seat_health.CLASS_MODEL,
+            seat_health.CLASS_AUTH,
+        }
+    except Exception:  # noqa: BLE001 — no classifier: the failure stands
+        return False
 
 
 # ------------------------------------------------------------- the setting
@@ -415,11 +462,17 @@ def candidates(
 ) -> list[str]:
     """The models a limited thread may move to, in the order to try them.
 
-    Never the current model, one tried this turn, one of the family the limit
-    names (a "Fable limit" spends every Fable model), or one still known to
-    be out on this seat.
+    Down the chain from the current model: a thread on Opus goes on to Sonnet,
+    never up to Fable (its limit is no reason to pay for a larger model). A
+    model outside the chain tries the chain from the top. Never the current
+    model, one tried this turn, one of the family the limit names (a "Fable
+    limit" spends every Fable model), or one still known to be out on this
+    seat.
     """
     order = chain_for(runner) if chain is None else chain
+    at = _position(order, current)
+    if at is not None:
+        order = order[at + 1 :]
     spent = {current, *tried}
     families = {family_of(m) for m in spent if family_of(m)}
     if hit is not None and hit.family:
@@ -436,6 +489,18 @@ def candidates(
             continue
         out.append(model)
     return out
+
+
+def _position(chain: tuple[str, ...], model: str) -> int | None:
+    """Where ``model`` sits in ``chain``: by id, else by its family."""
+    if model in chain:
+        return chain.index(model)
+    family = family_of(model)
+    if family:
+        for index, entry in enumerate(chain):
+            if family_of(entry) == family:
+                return index
+    return None
 
 
 # ------------------------------------------------------------- the words
@@ -588,9 +653,11 @@ __all__ = [
     "limit_label",
     "limited_until",
     "model_label",
+    "model_unusable",
     "note_limited",
     "parse_reset",
     "report_line",
     "reset",
+    "switch_helps",
     "switch_notice",
 ]
