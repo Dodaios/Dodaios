@@ -24,6 +24,9 @@ wide as the window (a one-pager, a landing page); ``canvas`` puts it on an
 artboard of an exact pixel size and scales the artboard to the window with
 one transform (a poster, a card), so the design is laid out once and looks
 the same at every size.
+
+An empty ``html`` is a blank page: a new design starts as one, and a person
+who deletes every block in the editor can save what is left.
 """
 
 from __future__ import annotations
@@ -125,6 +128,9 @@ _INPUT_TYPES: Final[frozenset[str]] = frozenset(
 _LIST_TYPES: Final[frozenset[str]] = frozenset({"1", "a", "A", "i", "I"})
 
 _CONTROL_RE: Final = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+#: The start of an element: markup that had one and is empty after cleaning
+#: was all scripts or frames, not a blank page.
+_ELEMENT_RE: Final = re.compile(r"<[a-zA-Z]")
 _DATA_ATTR_RE: Final = re.compile(r"(?:data|aria)-[a-z0-9_.\-]+")
 _FRAGMENT_RE: Final = re.compile(r"#[\w\-.:]*")
 
@@ -425,7 +431,7 @@ def normalize(spec: Any) -> dict[str, Any]:
     if not isinstance(spec, dict):
         raise NodeError(_SPEC_HINT)
     markup = spec.get("html")
-    if not isinstance(markup, str) or not markup.strip():
+    if not isinstance(markup, str):
         raise NodeError(_SPEC_HINT)
     too_long = (
         f"'html' is too long: keep the design's markup under {MAX_HTML_CHARS} characters "
@@ -434,7 +440,9 @@ def normalize(spec: Any) -> dict[str, Any]:
     if len(markup) > MAX_HTML_CHARS:
         raise NodeError(too_long)
     html = clean_html(markup)
-    if not html:
+    # Nothing at all (or only blanks, comments, an entity) is a blank page;
+    # elements that all went in cleaning are a mistake worth a sentence.
+    if not html and _ELEMENT_RE.search(markup):
         raise NodeError(
             "Nothing of 'html' is left after cleaning: send visible body markup (text, "
             "boxes, inline SVG), not scripts or embedded frames."
@@ -597,59 +605,20 @@ def preview(spec: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-_STARTER_HTML: Final[str] = (
-    '<section class="cover">'
-    '<svg class="cover-art" viewBox="0 0 400 400" aria-hidden="true">'
-    '<circle cx="400" cy="0" r="130"/><circle cx="400" cy="0" r="230"/>'
-    '<circle cx="400" cy="0" r="330"/><circle class="dot" cx="237.4" cy="162.6" r="9"/>'
-    "</svg>"
-    '<div class="cover-body"><h1>{title}</h1>'
-    '<p class="cover-lead">One line that says what this is.</p></div>'
-    '<dl class="cover-facts">'
-    "<div><dt>When</dt><dd>Date</dd></div>"
-    "<div><dt>Where</dt><dd>Place</dd></div>"
-    "<div><dt>Who</dt><dd>Name</dd></div>"
-    "</dl></section>"
-)
-
-_STARTER_CSS: Final[str] = (
-    ".cover{position:relative;display:grid;grid-template-rows:1fr auto;"
-    "gap:clamp(32px,7vh,72px);min-height:100vh;padding:clamp(24px,6vw,88px);overflow:hidden}"
-    ".cover-art{position:absolute;top:0;right:0;width:min(58vw,84vh);height:min(58vw,84vh)}"
-    ".cover-art circle{fill:none;stroke:var(--line-2);stroke-width:1.5;"
-    "vector-effect:non-scaling-stroke}"
-    ".cover-art .dot{fill:var(--accent);stroke:none}"
-    ".cover-body{position:relative;align-self:end}"
-    ".cover h1{max-width:14em;font-size:clamp(40px,VWvw,MAXpx);line-height:1;font-weight:650;"
-    "letter-spacing:-.04em}"
-    ".cover-lead{max-width:32em;margin-top:clamp(16px,2.4vw,28px);"
-    "font-size:clamp(17px,1.6vw,22px);line-height:1.45;color:var(--ink-2)}"
-    ".cover-facts{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));"
-    "gap:24px;padding-top:20px;border-top:1px solid var(--line-2);font-size:14px;"
-    "line-height:20px}"
-    ".cover-facts dt{color:var(--ink-2)}"
-    ".cover-facts dd{margin-top:2px;font-weight:500}"
-)
+#: A new design's only style: a page margin, as a word processor's blank page has.
+STARTER_CSS: Final[str] = ".design{padding:clamp(24px,6vw,88px)}"
 
 
 def starter(title: str, language: str) -> dict[str, Any]:
-    """A one-screen cover that shows the node's title.
+    """A blank page, like a new document: no markup and no words.
 
-    ``language`` is accepted for the contract; the few placeholder words are
-    English and are replaced with the first real edit.
+    Its one style is the page's margin (it draws nothing), so the first block
+    the person adds does not sit against the window's edge. ``title`` and
+    ``language`` are accepted for the contract; the node's title is on its
+    card and in the editor, not on the page.
     """
-    name = shell.clean(title, 120) or "Untitled"
-    # A short title is set large; a long one steps down so it stays a few lines.
-    scale, largest = ("8.6", "128") if len(name) <= 18 else ("6.4", "96")
-    if len(name) > 44:
-        scale, largest = "4.6", "68"
-    return normalize(
-        {
-            "html": _STARTER_HTML.replace("{title}", esc(name)),
-            "css": _STARTER_CSS.replace("VW", scale).replace("MAX", largest),
-            "fit": "page",
-        }
-    )
+    del title, language
+    return normalize({"html": "", "css": STARTER_CSS, "fit": "page"})
 
 
 EXAMPLE: Final[dict[str, Any]] = {

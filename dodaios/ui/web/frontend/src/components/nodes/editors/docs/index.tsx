@@ -43,9 +43,9 @@ export default function DocsEditor({ node, initial, startAt = null, onDone }: No
   const t = useT();
   const prepare = useCallback(
     (value: DocsSpec): DocsSpec | { error: string } => {
-      // The server refuses a document without a body and clips one past its
-      // limit; holding the save with a sentence is kinder than either.
-      if (!value.markdown.trim()) return { error: t("nodes.editor.docs.errors.empty") };
+      // The server clips a body past its limit; holding the save with a
+      // sentence is kinder. An empty body saves: the person may delete
+      // every word, as in any word processor.
       if (value.markdown.length > MAX_BODY_CHARS) return { error: t("nodes.editor.docs.errors.too_long") };
       return value;
     },
@@ -169,14 +169,19 @@ export default function DocsEditor({ node, initial, startAt = null, onDone }: No
 
   /* Opened by a click into the page: the caret goes where the reader
    * clicked, and that spot is scrolled to the middle, so they can type at
-   * once. Only when the editor opens; a revision later does not move it. */
+   * once. An empty document (a new one) opens with the caret on its first
+   * line, where the greyed hint says what to do, like a new page in a word
+   * processor. Only when the editor opens; a revision later does not move it. */
   const startRef = useRef(startAt);
   useEffect(() => {
     const start = startRef.current;
     startRef.current = null;
-    if (!editor || editor.isDestroyed || start === null) return;
+    if (!editor || editor.isDestroyed) return;
     const { doc } = editor.state;
-    const at = caretFor(doc, start) ?? startOf(doc, start.path);
+    let at: number;
+    if (start !== null) at = caretFor(doc, start) ?? startOf(doc, start.path);
+    else if (sessionRef.current!.spec.markdown.trim() === "") at = startOf(doc, "/markdown");
+    else return;
     const selection = Selection.near(doc.resolve(Math.max(0, Math.min(at, doc.content.size))));
     editor.view.dispatch(editor.state.tr.setSelection(selection));
     editor.view.focus();

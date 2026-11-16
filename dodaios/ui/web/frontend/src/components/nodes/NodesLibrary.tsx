@@ -162,7 +162,8 @@ export function NodesLibrary({
   /**
    * A new node of `type` from the menu or an empty shelf. An analysis is made
    * from data, so Analytics asks where the data comes from (and whether to keep
-   * it current) instead of opening a dashboard of placeholder figures.
+   * it current) before a dashboard is made; its "Start with an empty one"
+   * still opens an empty dashboard.
    */
   const startNew = useCallback(
     (type: NodeType) => (type === "data" ? setNewType(type) : void startBlank(type)),

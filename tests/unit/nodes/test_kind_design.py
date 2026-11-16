@@ -100,9 +100,9 @@ def test_background_is_a_color_or_nothing() -> None:
         (None, "'html'"),
         (["<p>x</p>"], "'html'"),
         ({}, "'html'"),
-        ({"html": "   "}, "'html'"),
         ({"html": 42}, "'html'"),
         ({"html": "<script>alert(1)</script><iframe src='x'></iframe>"}, "left after cleaning"),
+        ({"html": "  <style></style><object data='x'></object> "}, "left after cleaning"),
         ({"html": "<p>" + "x" * design.MAX_HTML_CHARS + "</p>"}, "too long"),
     ],
 )
@@ -113,6 +113,23 @@ def test_an_unusable_spec_is_refused_with_one_sentence(spec: Any, needle: str) -
     message = str(raised.value)
     assert needle in message
     assert message.endswith(".") and "\n" not in message
+
+
+EMPTY = {"html": "", "css": "", "fit": "page", "background": ""}
+
+
+@pytest.mark.parametrize("markup", ["", "   ", "\n\t", "<!-- nothing -->", "&nbsp;"])
+def test_an_empty_html_is_a_blank_page(markup: str) -> None:
+    # A new design starts blank, and deleting every block in the editor
+    # leaves this: neither may make the save fail.
+    spec = design.normalize({"html": markup})
+
+    assert spec == EMPTY
+    assert design.normalize(spec) == spec
+    assert design.normalize(markup) == EMPTY
+    canvas = design.normalize({"html": markup, "fit": "canvas", "css": ".a{color:red}"})
+    assert (canvas["html"], canvas["width"], canvas["height"]) == ("", 1080, 1350)
+    assert design.normalize(canvas) == canvas
 
 
 def test_css_is_clipped_to_its_limit() -> None:
@@ -516,15 +533,28 @@ def test_preview_has_exactly_the_cards_values() -> None:
     assert all(isinstance(canvas[key], int) for key in ("width", "height"))
 
 
-def test_starter_is_a_one_screen_page_that_shows_the_title() -> None:
-    spec = design.starter("Autumn <b>open</b> house", "en")
+@pytest.mark.parametrize(("title", "language"), [("Autumn <b>open</b> house", "en"), ("", "de")])
+def test_starter_is_a_blank_page(title: str, language: str) -> None:
+    spec = design.starter(title, language)
 
-    assert spec["fit"] == "page" and design.normalize(spec) == spec
-    assert "<h1>Autumn &lt;b&gt;open&lt;/b&gt; house</h1>" in spec["html"]
-    assert "<svg" in spec["html"] and "var(--accent)" in spec["css"]
-    assert "clamp(40px,6.4vw,96px)" in spec["css"]
-    assert "clamp(40px,8.6vw,128px)" in design.starter("Short", "en")["css"]
-    assert "<h1>Untitled</h1>" in design.starter("", "en")["html"]
+    # No markup, no sample words and not the title either; only a page margin.
+    assert spec == {**EMPTY, "css": design.STARTER_CSS}
+    assert design.normalize(spec) == spec
+    assert design.preview(spec) == {"background": "", "fit": "page", "width": 1280, "height": 800}
+
+
+@pytest.mark.parametrize("theme", ["auto", "light", "dark"])
+def test_a_blank_page_renders_in_either_theme(theme: str) -> None:
+    page = design.render(_node(design.normalize({**design.starter("Blank", "en"), "theme": theme})))
+    canvas = design.render(_node({"html": "", "fit": "canvas", "theme": theme}))
+
+    assert '<main class="design"></main>' in page
+    # The node's title is in the tab, not on the page.
+    assert "Blank" not in page.split("<body>")[1]
+    assert '<main class="design design-art" style="width:1080px;height:1350px"></main>' in canvas
+    if theme != "auto":
+        lock = f'document.documentElement.setAttribute("data-theme","{theme}");'
+        assert lock in page and lock in canvas
 
 
 def test_guide_is_compact_names_the_tokens_and_its_example_is_a_valid_spec() -> None:

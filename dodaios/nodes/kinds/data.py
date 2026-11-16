@@ -61,8 +61,7 @@ PREVIEW_BARS: Final[int] = 8
 _PARTS: Final[tuple[str, ...]] = ("metrics", "charts", "tables")
 _WHAT_TO_SEND: Final[str] = (
     "A data node's spec is an object {\"summary\": \"…\", \"sources\": [\"…\"], \"sections\": "
-    "[{\"title\", \"text\", \"metrics\": [...], \"charts\": [...], \"tables\": [...]}]} with at "
-    "least one metric, chart or table."
+    "[{\"title\", \"text\", \"metrics\": [...], \"charts\": [...], \"tables\": [...]}]}."
 )
 _CHART_RULES: Final[str] = (
     "'type' is line, area, column, bar, pie or donut; 'x' (the labels) and every series' "
@@ -242,11 +241,13 @@ def normalize(spec: Any) -> dict[str, Any]:
 
     Top-level ``metrics`` / ``charts`` / ``tables`` become one untitled first
     section. A section that holds nothing is left out. ``sources`` is kept
-    only when the spec names one.
+    only when the spec names one. A spec that holds nothing at all is an
+    empty dashboard (a new one, or one the person emptied in the editor) and
+    is kept as ``{"summary": "", "sections": []}``.
 
     Raises:
-        NodeError: the spec is not an object, a part has the wrong shape, a
-            chart cannot be drawn, or nothing is left to show.
+        NodeError: the spec is not an object, a part has the wrong shape, or
+            a chart cannot be drawn.
     """
     if not isinstance(spec, dict):
         raise NodeError(_WHAT_TO_SEND)
@@ -261,8 +262,6 @@ def normalize(spec: Any) -> dict[str, Any]:
             sections.append(section)
         if len(sections) == MAX_SECTIONS:
             break
-    if not any(section[key] for section in sections for key in _PARTS):
-        raise NodeError(_WHAT_TO_SEND)
     clean: dict[str, Any] = {"summary": _line(spec.get("summary"), MAX_SUMMARY_CHARS)}
     sources = _sources(spec.get("sources"))
     if sources:
@@ -753,40 +752,13 @@ def preview(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def starter(title: str, language: str) -> dict[str, Any]:
-    """A fresh dashboard: one row of values, one chart, one table.
+    """A fresh dashboard: empty, like a new document.
 
-    The page shows the title itself, and the few placeholder words are the
-    same in every language, so neither argument changes the content.
+    No summary, no section, no sample value: the editor shows its greyed
+    hints and add buttons in one empty section of its own, and the page
+    shows the title alone. Neither argument changes the content.
     """
-    return normalize(
-        {
-            "summary": "A short summary: what these numbers cover and as of when.",
-            "sections": [
-                {
-                    "metrics": [
-                        {"label": "First value", "value": "0"},
-                        {"label": "Second value", "value": "0"},
-                        {"label": "Third value", "value": "0"},
-                    ],
-                    "charts": [
-                        {
-                            "type": "column",
-                            "title": "A first chart",
-                            "x": ["Mon", "Tue", "Wed", "Thu", "Fri"],
-                            "data": [3, 5, 4, 6, 5],
-                            "note": "Sample values. Ask the assistant to fill this dashboard.",
-                        }
-                    ],
-                    "tables": [
-                        {
-                            "columns": ["Item", "Value"],
-                            "rows": [["First item", 0], ["Second item", 0]],
-                        }
-                    ],
-                }
-            ],
-        }
-    )
+    return normalize({})
 
 
 # ---------------------------------------------------------------------- guide

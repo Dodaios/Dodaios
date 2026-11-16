@@ -217,7 +217,7 @@ describe("NewNodeDialog", () => {
     expect(calls.find((call) => call.method === "POST")).toEqual({
       url: "/api/nodes",
       method: "POST",
-      body: { type: "sheets", language: "en" },
+      body: { type: "sheets", title: "Untitled sheet", language: "en" },
     });
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onRequested).not.toHaveBeenCalled();

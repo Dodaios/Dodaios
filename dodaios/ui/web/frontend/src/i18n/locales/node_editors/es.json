@@ -535,7 +535,6 @@
           "empty": "Aquí aparecen los títulos."
         },
         "errors": {
-          "empty": "El documento necesita algo de texto para poder guardarse.",
           "too_long": "El documento es demasiado largo para guardarlo. Quita algo de texto o imágenes."
         }
       },
@@ -672,7 +671,6 @@
           "move": "Mover bloque",
           "text": "Editar texto"
         },
-        "empty": "Un diseño necesita al menos un bloque. Añade uno o deshaz.",
         "preview": "Vista previa de {0}",
         "preview_hint": "Haz clic en un bloque para seleccionarlo. Doble clic en un texto para escribir."
       },
@@ -697,8 +695,7 @@
           "up": "Subir {0}",
           "down": "Bajar {0}",
           "duplicate": "Duplicar {0}",
-          "delete": "Eliminar {0}",
-          "keep_last": "El panel conserva al menos un indicador, gráfico o tabla"
+          "delete": "Eliminar {0}"
         },
         "grip": "Mover {0} (arrastra o usa las flechas)",
         "held": "Cada indicador necesita una etiqueta y un valor, y cada tabla un nombre de columna. Rellénalos para guardar.",

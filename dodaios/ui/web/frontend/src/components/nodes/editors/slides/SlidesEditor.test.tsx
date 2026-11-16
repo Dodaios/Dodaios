@@ -279,6 +279,33 @@ describe("SlidesEditor", () => {
     expect(field("title").textContent).toBe("Plan");
   });
 
+  it("opens a new, empty deck on a blank slide with greyed prompts and saves it emptied again", async () => {
+    // The server's starter: one opening slide that holds no text.
+    render(<SlidesEditor node={NODE} initial={{ spec: { theme: "auto", slides: [{ layout: "title" }] }, version: 3, updated_at: 2 }} onDone={() => {}} />);
+    await screen.findByTestId("slides-canvas");
+    const title = field("title");
+    expect(title.textContent).toBe("");
+    expect(title.getAttribute("data-placeholder")).toBe("Title");
+    expect(field("subtitle").textContent).toBe("");
+    expect(field("subtitle").getAttribute("data-placeholder")).toBe("Subtitle");
+
+    act(() => title.focus());
+    title.textContent = "Kickoff";
+    fireEvent.input(title);
+    title.textContent = "";
+    fireEvent.input(title);
+    act(() => title.blur());
+    // Deleting everything is not held back: the blank slide is what is saved.
+    await waitFor(
+      () => {
+        const puts = calls.filter((call) => call.method === "PUT");
+        expect(puts.at(-1)?.body.spec.slides).toEqual([{ layout: "title" }]);
+      },
+      { timeout: 3000 },
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("keeps speaker notes per slide", async () => {
     await open();
     const notes = screen.getByTestId("slides-notes") as HTMLTextAreaElement;

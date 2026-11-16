@@ -5,8 +5,9 @@
  * Contracts worth pinning:
  * - a hand-written spec reads like `data.normalize` reads it (top-level parts
  *   become the first section, rows are fitted to the columns),
- * - the dashboard never loses its last metric, chart or table (the server
- *   would refuse it), and a new section is never one `normalize` drops,
+ * - every part can be deleted, the last one too (the server keeps an empty
+ *   dashboard), the only section is emptied rather than removed, and a new
+ *   section is never one `normalize` drops,
  * - the limits of `data.py` hold for every list,
  * - moving, duplicating and moving between sections keep everything else,
  * - the row layout mirrors the page's (`_metrics`, `_charts`),
@@ -22,10 +23,12 @@ import {
   addRow,
   addSection,
   canAdd,
+  canRemoveSection,
   cellFromInput,
   chartRowSpans,
   duplicateItem,
   duplicateSection,
+  emptySection,
   findProblems,
   metricsPerRow,
   moveColumn,
@@ -91,6 +94,10 @@ describe("readDashSpec", () => {
 
   it("gives an empty spec one section to work in", () => {
     expect(readDashSpec(null).sections).toHaveLength(1);
+    // The spec of a new dashboard (`data.starter`) reads as one empty section and no problem.
+    const fresh = readDashSpec({ summary: "", sections: [] });
+    expect(fresh).toEqual({ summary: "", sections: [emptySection()] });
+    expect(findProblems(fresh)).toEqual([]);
   });
 });
 
@@ -114,18 +121,23 @@ describe("structure", () => {
     expect(base.sections).toHaveLength(2);
   });
 
-  it("never removes the dashboard's last part, nor its only section", () => {
-    const lone = readDashSpec({ sections: [{ metrics: [{ label: "A", value: "1" }] }] });
-    produce(lone, (draft) => {
-      expect(removeItem(draft, 0, "metrics", 0)).toBe(false);
-      expect(removeSection(draft, 0)).toBe(false);
-    });
+  it("removes the dashboard's last part, and empties its only section instead of removing it", () => {
+    const lone = readDashSpec({ sections: [{ title: "Lone", metrics: [{ label: "A", value: "1" }] }] });
+    const noPart = produce(lone, (draft) => void expect(removeItem(draft, 0, "metrics", 0)).toBe(true));
+    expect(noPart.sections).toEqual([{ ...emptySection(), title: "Lone" }]);
+    expect(canRemoveSection(lone, 0)).toBe(true);
+    const emptied = produce(lone, (draft) => void expect(removeSection(draft, 0)).toBe(true));
+    expect(emptied.sections).toEqual([emptySection()]);
+    // An empty only section is the editor's place to add to: nothing to delete.
+    expect(canRemoveSection(emptied, 0)).toBe(false);
+    produce(emptied, (draft) => void expect(removeSection(draft, 0)).toBe(false));
+
     const two = readDashSpec({ sections: [{ metrics: [{ label: "A", value: "1" }] }, { title: "Empty" }] });
     const next = produce(two, (draft) => {
-      expect(removeSection(draft, 0)).toBe(false); // it holds the last part
-      expect(removeSection(draft, 1)).toBe(true);
+      expect(removeSection(draft, 0)).toBe(true); // the section with the last part goes too
     });
-    expect(next.sections).toHaveLength(1);
+    expect(next.sections.map((section) => section.title)).toEqual(["Empty"]);
+    expect(findProblems(next)).toEqual([]);
   });
 
   it("adds items up to each list's limit", () => {

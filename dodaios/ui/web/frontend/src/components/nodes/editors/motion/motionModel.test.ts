@@ -203,10 +203,19 @@ describe("new scenes and type switches", () => {
 });
 
 describe("checking and naming", () => {
-  it("says what a scene lacks", () => {
-    expect(sceneProblem({ type: "title", title: "  ", seconds: 4, transition: "fade" })).toBe("title");
-    expect(sceneProblem({ type: "bullets", bullets: ["", " "], seconds: 4, transition: "fade" })).toBe("bullets");
-    expect(sceneProblem({ type: "bars", items: [], seconds: 4, transition: "fade" })).toBe("items");
+  it("keeps every blank scene, as the server does, and marks only a chart that would not draw", () => {
+    // A new clip's one card, and every type with each of its words deleted.
+    const blank = readMotionSpec({ scenes: [{ type: "title" }] }).scenes[0];
+    expect(sceneProblem(blank)).toBeNull();
+    for (const kind of SCENE_KINDS) expect(sceneProblem({ type: kind, seconds: 4, transition: "fade" })).toBeNull();
+    expect(sceneProblem({ type: "title", kicker: "", title: "  ", text: "", seconds: 4, transition: "fade" })).toBeNull();
+    expect(sceneProblem({ type: "bullets", bullets: ["", " "], seconds: 4, transition: "fade" })).toBeNull();
+    expect(sceneProblem({ type: "stat", value: "", unit: "", seconds: 4, transition: "fade" })).toBeNull();
+    expect(sceneProblem({ type: "quote", quote: "", by: "", seconds: 4, transition: "fade" })).toBeNull();
+    expect(sceneProblem({ type: "steps", steps: [{ title: "", text: "" }], seconds: 4, transition: "fade" })).toBeNull();
+    expect(sceneProblem({ type: "bars", items: [], seconds: 4, transition: "fade" })).toBeNull();
+    expect(sceneProblem({ type: "chart", chart: {}, seconds: 4, transition: "fade" })).toBeNull();
+
     expect(sceneProblem({ type: "chart", chart: { type: "line", x: ["a"], series: [] }, seconds: 4, transition: "fade" })).toBe("chart");
     expect(sceneProblem(newScene("chart", SAMPLES))).toBeNull();
   });

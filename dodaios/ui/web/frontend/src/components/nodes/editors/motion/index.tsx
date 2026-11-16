@@ -16,8 +16,9 @@
  * the background, the accent colour and looping.
  *
  * Every change goes through `useNodeSpecEditor`, so undo and redo cover all
- * three parts alike and the work saves itself. A save waits while a scene
- * lacks what its type needs (the server would refuse it), and says which.
+ * three parts alike and the work saves itself. A blank scene saves like any
+ * other (a new clip is one); only a chart that would not draw holds the save
+ * (the server would refuse it), and the save state says which scene.
  */
 import { useCallback, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Moon, Play, Plus, Repeat, Square, Sun } from "lucide-react";
@@ -121,9 +122,9 @@ export default function MotionEditor({ node, initial, onDone }: NodeEditorProps)
   // A Play only ends once the page said it is playing: the first report after
   // the switch may still describe the standing film.
   const sawPlaying = useRef(false);
-  // The preview draws the last spec the server can draw: while a scene lacks
-  // what its type needs, the film stays as it was and the save state says why
-  // (the server's own sentence is written for the assistant, not the person).
+  // The preview draws the last spec the server can draw: while a chart would
+  // not draw, the film stays as it was and the save state says why (the
+  // server's own sentence is written for the assistant, not the person).
   const drawable = useRef(spec);
   if (spec.scenes.every((each) => sceneProblem(each) === null)) drawable.current = spec;
 

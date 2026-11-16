@@ -158,7 +158,7 @@ export function ItemActions({
         onClick={onDuplicate}
       />
       <ToolbarButton
-        label={canRemove ? named("nodes.editor.data.actions.delete") : t("nodes.editor.data.actions.keep_last")}
+        label={named("nodes.editor.data.actions.delete")}
         icon={<Trash2 aria-hidden />}
         disabled={!canRemove}
         onClick={onRemove}

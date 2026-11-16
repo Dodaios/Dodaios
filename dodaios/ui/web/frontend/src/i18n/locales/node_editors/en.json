@@ -535,7 +535,6 @@
           "empty": "Headings appear here."
         },
         "errors": {
-          "empty": "The document needs some text before it can be saved.",
           "too_long": "The document is too long to save. Remove some text or pictures."
         }
       },
@@ -672,7 +671,6 @@
           "move": "Move block",
           "text": "Edit text"
         },
-        "empty": "A design needs at least one block. Add one, or undo.",
         "preview": "Preview of {0}",
         "preview_hint": "Click a block to select it. Double-click a text to type."
       },
@@ -697,8 +695,7 @@
           "up": "Move {0} up",
           "down": "Move {0} down",
           "duplicate": "Duplicate {0}",
-          "delete": "Delete {0}",
-          "keep_last": "The dashboard keeps at least one metric, chart or table"
+          "delete": "Delete {0}"
         },
         "grip": "Move {0} (drag, or use the arrow keys)",
         "held": "Every metric needs a label and a value, and every table a column name. Fill them in to save.",

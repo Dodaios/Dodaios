@@ -247,12 +247,10 @@ def test_total_duration_is_the_sum_of_the_scenes() -> None:
         ({"scenes": [42]}, "Scene 1 must be an object"),
         ({"scenes": [{"title": "ok"}, {"seconds": 3}]}, "Scene 2 has nothing to show"),
         ({"scenes": [{"type": "bars", "items": [{"label": "x", "value": "many"}]}]}, "'items'"),
-        ({"scenes": [{"type": "bullets", "title": "No points"}]}, "'bullets'"),
-        ({"scenes": [{"type": "stat", "label": "no number"}]}, "'value'"),
+        ({"scenes": [{"type": "bars", "items": "North 420"}]}, "'items'"),
         ({"scenes": [{"type": "image", "image": "https://example.org/a.png"}]}, "data:image"),
-        ({"scenes": [{"type": "steps", "steps": [{}]}]}, "'steps'"),
-        ({"scenes": [{"type": "chart", "title": "No chart"}]}, "'chart'"),
         ({"scenes": [{"type": "chart", "chart": {"x": ["a"], "data": [1]}}]}, "'chart'"),
+        ({"scenes": [{"type": "chart", "chart": [1, 2]}]}, "'chart'"),
     ],
 )
 def test_an_unusable_spec_is_refused_with_one_sentence(spec: Any, needle: str) -> None:
@@ -262,6 +260,77 @@ def test_an_unusable_spec_is_refused_with_one_sentence(spec: Any, needle: str) -
     message = str(raised.value)
     assert needle in message
     assert message.endswith(".") and "\n" not in message
+
+
+#: Every scene type as a person leaves it after deleting every word in the
+#: editor (the fields still there, holding nothing), and as the model or a new
+#: film may write it (only the type).
+_EMPTIED: tuple[dict[str, Any], ...] = (
+    {"type": "title", "kicker": "", "title": "", "text": ""},
+    {"type": "text", "kicker": " ", "text": ""},
+    {"type": "bullets", "kicker": "", "title": "", "bullets": ["", " ", ""]},
+    {"type": "stat", "kicker": "", "value": "", "unit": "", "label": "", "detail": ""},
+    {"type": "bars", "kicker": "", "title": "", "unit": "", "items": []},
+    {"type": "quote", "quote": "", "by": ""},
+    {"type": "steps", "kicker": "", "title": "", "steps": [{"title": "", "text": ""}, {}]},
+    {"type": "image", "image": "", "caption": ""},
+    {"type": "chart", "kicker": "", "title": "", "chart": {}},
+    {"type": "end", "kicker": "", "title": "", "text": ""},
+)
+
+
+@pytest.mark.parametrize("scene", [*_EMPTIED, *({"type": s["type"]} for s in _EMPTIED)])
+def test_a_scene_emptied_of_every_word_is_kept_as_a_blank_card(scene: dict[str, Any]) -> None:
+    spec = motion.normalize({"scenes": [scene]})
+
+    assert spec["scenes"] == [
+        {
+            "type": scene["type"],
+            "seconds": spec["scenes"][0]["seconds"],
+            "transition": "fade",
+        }
+    ]
+    assert motion.MIN_SECONDS <= spec["scenes"][0]["seconds"] <= motion.MAX_SECONDS
+    assert motion.normalize(spec) == spec
+
+
+def test_a_film_of_blank_cards_draws_plays_and_offers_nothing_to_edit() -> None:
+    spec = motion.normalize({"scenes": list(_EMPTIED)})
+    for film_format in motion.FORMATS:
+        for language in ("en", "de"):
+            page = motion.render(_node(spec | {"format": film_format}, language=language))
+            parsed = _tags(page)
+
+            assert [tag for tag, _ in parsed.tags].count("section") == len(_EMPTIED)
+            assert all(float(a["data-sec"]) >= motion.MIN_SECONDS
+                       for tag, a in parsed.tags if tag == "section")  # fmt: skip
+            # No place the spec does not hold, and no picture without a source.
+            assert check_editable(page, spec, "Film") == []
+            assert not any(tag == "img" for tag, _ in parsed.tags)
+            assert re.search(r"\b(?:nan|inf|None)\b", _drawn(page)) is None
+    card = motion.preview(spec)
+    assert (card["title"], card["subtitle"]) == ("", "")
+    assert card["seconds"] == sum(scene["seconds"] for scene in spec["scenes"])
+
+
+def test_a_partly_emptied_scene_keeps_what_is_left() -> None:
+    spec = _film(
+        {"type": "stat", "value": "", "unit": "%", "label": "share"},
+        {"type": "quote", "quote": "", "by": "Someone"},
+        {"type": "end", "kicker": "Bye", "title": ""},
+        {"type": "chart", "title": "Trend"},
+    )
+    page = motion.render(_node(spec))
+    fields = check_editable(page, spec, "Film")
+
+    assert {field.at for field in fields} == {
+        "/scenes/0/unit",
+        "/scenes/0/label",
+        "/scenes/1/by",
+        "/scenes/2/kicker",
+        "/scenes/3/title",
+    }
+    assert "f-chart" not in _drawn(page)
 
 
 # ------------------------------------------------------------------- render
@@ -469,14 +538,25 @@ def test_preview_reads_the_first_scene_that_says_something() -> None:
     assert motion.preview({})["seconds"] == 0.0
 
 
-def test_starter_is_a_three_scene_film_around_the_title() -> None:
-    spec = motion.starter("Quarterly <review>", "en")
+def test_starter_is_one_blank_card_without_a_word() -> None:
+    spec = motion.starter("Quarterly <review>", "de")
 
-    assert [scene["type"] for scene in spec["scenes"]] == ["title", "bullets", "end"]
-    assert spec["scenes"][0]["title"] == "Quarterly <review>"
+    assert spec == {
+        "format": "wide",
+        "theme": "dark",
+        "accent": "",
+        "loop": False,
+        "scenes": [{"type": "title", "seconds": 4.0, "transition": "fade"}],
+    }
+    assert motion.starter("", "en") == spec
     assert motion.normalize(spec) == spec
-    assert "<review>" not in motion.render(_node(spec))
-    assert motion.starter("", "en")["scenes"][0]["title"]
+    page = motion.render(_node(spec, title="Quarterly <review>", language="de"))
+    # The node's name is the page's own title only, never a text of the film.
+    assert "review" not in _drawn(page)
+    assert check_editable(page, spec, "Quarterly <review>") == []
+    assert 'aria-valuemax="4.0"' in page and 'class="f-tick"' not in page
+    card = motion.preview(spec)
+    assert (card["title"], card["subtitle"], card["seconds"]) == ("", "", 4.0)
 
 
 def test_guide_is_compact_and_its_example_is_a_valid_spec() -> None:
@@ -527,11 +607,10 @@ def _every_type() -> dict[str, Any]:
     "spec",
     [
         motion.normalize(motion.EXAMPLE),
-        motion.starter("Quarterly review", "en"),
         _every_type(),
         _every_type() | {"format": "tall"},
     ],
-    ids=["example", "starter", "every-type", "every-type-tall"],
+    ids=["example", "every-type", "every-type-tall"],
 )
 def test_every_text_offered_for_editing_is_the_value_the_spec_holds(spec: dict[str, Any]) -> None:
     for language in ("en", "de"):

@@ -24,7 +24,10 @@ tool accepts them as type names too.
 
 In the library a type's tile narrows the list to the nodes of that type; it
 does not make a node. A new node starts from the "New" button, which opens on
-the type the reader is looking at.
+the type the reader is looking at. A new node is empty, like a new file in an
+office app: no sample text and no sample figures, only the editor's greyed
+hints where content goes (each type's `starter`). Whatever the person empties
+in an editor saves.
 
 The list is `NODE_TYPES` in `dodaios/nodes/types.py`. The same file holds the
 other names a person may use for a type (`deck`, `spreadsheet`, `dashboard`).
@@ -224,8 +227,10 @@ accent.
   its theme) and loop.
 
 Every change is an undo step of the shared editor history and saves itself.
-A save waits while a scene lacks what its type needs (a title card without a
-title) and the save state says which scene and what.
+A scene may be blank: a new clip is one title card with no text, and a scene
+whose words are all deleted saves as it is (a blank card plays as an empty
+frame). A save waits only while a chart scene's chart cannot be drawn, and
+the save state says which scene and what.
 
 The editor steers the page in two messages of the film's own, accepted only
 from the parent frame: `dodaios-film-seek` `{t, play}` moves the clock (and
@@ -364,8 +369,10 @@ an address is its description.
   summary included. The frame's buttons and keys use it. Saving, conflicts
   and the assistant's revisions are the shared `useNodeSpecEditor`. A
   revision taken while open replaces the content, and one undo brings the
-  person's version back. A save waits with a sentence when the body is empty
-  or longer than the server keeps.
+  person's version back. A save waits with a sentence when the body is
+  longer than the server keeps. An empty body saves: a new document starts
+  empty, with the caret on its first line and greyed hints for the summary
+  and the text.
 
 **How the Markdown survives.** The editor reads the body with markdown-it
 (`markdown/parse.ts`) and writes it back with its own writer
@@ -459,7 +466,9 @@ class="design">` (`designDoc.ts`):
   artboard's size (presets or width and height), ground, accent, theme and
   the style sheet itself.
 
-A save waits while the design holds no block at all, and says so.
+A design with no block at all saves: a new one is a blank page (no markup,
+only a page margin in its style sheet, `STARTER_CSS`), and the person may
+delete every block. The blank preview says to add one from the toolbar.
 
 ## Analytics
 
@@ -495,8 +504,9 @@ where it stands.
   the summary and the sources.
 * "See the page" shows the real page drawn from the unsaved spec.
 
-The dashboard keeps at least one tile, chart or table: the last one cannot
-be deleted. A save waits, with the reason, while a tile lacks its label or
+Every part can be deleted, the last one too: an empty dashboard saves (a new
+one starts empty), and deleting the only section empties it instead, so
+there is always a place to add to. A save waits, with the reason, while a tile lacks its label or
 value or a table its column names. The status of a kept-current dashboard
 is the stage's upkeep bar above the editor; the inspector adds that a
 refresh may replace values typed by hand and keeps the layout.
@@ -521,9 +531,10 @@ Two things the grammar holds besides the layouts:
 
 A slide that names its layout but lacks the layout's main field still takes
 the layout its fields fit (a `chart` slide without a chart becomes a
-section). When no layout fits but the slide holds some of its layout's texts
-(an opening whose title is being rewritten), it keeps its layout instead of
-being dropped.
+section). A layout that can be drawn blank (`title`, `section`, `bullets`,
+`quote`, `stats`, `steps`, `closing`) keeps its place and layout even when
+every text was deleted: a new deck is one blank title slide, and an emptied
+deck saves. An emptied column or table grid keeps its place too.
 
 **The deck editor.** "Edit" on a deck opens the native editor
 (`frontend/src/components/nodes/editors/slides/`):

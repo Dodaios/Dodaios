@@ -9,8 +9,9 @@
  * the editor's undo (`data-spec-undo`): Cmd/Ctrl+Z inside a field undoes the
  * spec, the same history the timeline and the preview write into.
  *
- * A field the scene type cannot do without is marked when it is empty; the
- * save waits until it is filled (the editor's `prepare`).
+ * Any field may be left empty: a blank scene saves. Only a value the server
+ * would refuse is marked (a chart that would not draw), and the save waits
+ * for it (the editor's `prepare`).
  */
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, BarChart3, Copy, ImageUp, Plus, Trash2, Wand2, X } from "lucide-react";

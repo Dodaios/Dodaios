@@ -102,26 +102,22 @@ _FIELDS: Final[dict[str, tuple[str, ...]]] = {
     "end": ("kicker", "title", "text"),
 }
 
-#: What a scene type cannot do without, and how to say so to the model.
-_NEEDS: Final[dict[str, tuple[tuple[str, ...], str]]] = {
-    "title": (("title",), "a 'title'"),
-    "text": (("text",), "a 'text'"),
-    "bullets": (("bullets",), "'bullets': a list of 1 to 5 short points"),
-    "stat": (("value",), "a 'value' such as 42 or \"38 %\""),
-    "bars": (("items",), '\'items\': 1 to 8 objects {"label", "value": number}'),
-    "quote": (("quote",), "a 'quote'"),
-    "steps": (("steps",), '\'steps\': 1 to 5 objects {"title", "text"}'),
+#: The values that have a form of their own, and how to say it to the model.
+#: A scene may be blank (a new film is one blank card, and a person who
+#: deletes every word of a scene must still be able to save it), so a missing
+#: or empty value is no error. A value of this kind that WAS given but cannot
+#: be read (bars without numbers, a picture that is no data URI, a chart
+#: outside the grammar) is refused, because dropping it would lose it silently.
+_FORMS: Final[dict[str, str]] = {
+    "items": '\'items\': 1 to 8 objects {"label", "value": number}',
     "image": (
-        ("image",),
         "an 'image' as a data:image/png|jpeg|webp;base64 URI of at most "
-        f"{shell.MAX_IMAGE_CHARS} characters",
+        f"{shell.MAX_IMAGE_CHARS} characters"
     ),
     "chart": (
-        ("chart",),
         'a \'chart\' in the chart grammar: {"type", "x": 2 or more labels, '
-        '"series": [{"name", "data": one number per label}]}',
+        '"series": [{"name", "data": one number per label}]}'
     ),
-    "end": (("title",), "a 'title'"),
 }
 
 #: Which field decides the type of a scene that names none, first match wins.
@@ -247,19 +243,30 @@ def _chart(value: Any) -> dict[str, Any]:
     return kept
 
 
+def _blank(value: Any) -> bool:
+    """Whether a value from the spec holds nothing: missing, empty, or only spaces."""
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    if isinstance(value, (list, tuple, dict)):
+        return not value
+    return False
+
+
 def _default_seconds(scene: dict[str, Any]) -> float:
     """How long a scene runs when the spec does not say: its entrance plus a hold."""
     kind = scene["type"]
     if kind == "bullets":
-        return min(6.0, 3.0 + 0.6 * len(scene["bullets"]))
+        return min(6.0, 3.0 + 0.6 * len(scene.get("bullets", [])))
     if kind == "bars":
-        return min(6.0, 3.4 + 0.3 * len(scene["items"]))
+        return min(6.0, 3.4 + 0.3 * len(scene.get("items", [])))
     if kind == "steps":
-        return min(6.5, 3.0 + 0.8 * len(scene["steps"]))
+        return min(6.5, 3.0 + 0.8 * len(scene.get("steps", [])))
     if kind == "text":
-        return min(7.0, 3.0 + len(scene["text"]) / 45)
+        return min(7.0, 3.0 + len(scene.get("text", "")) / 45)
     if kind == "quote":
-        return min(8.0, 3.5 + len(scene["quote"]) / 45)
+        return min(8.0, 3.5 + len(scene.get("quote", "")) / 45)
     if kind in ("image", "chart"):
         return 5.0
     return 4.0
@@ -307,9 +314,11 @@ def _scene(raw: Any, index: int) -> dict[str, Any]:
         found["title"], found["text"] = found["text"][:120], ""
     if kind == "text" and not found["text"]:
         found["text"] = found["title"]
-    needed, hint = _NEEDS[kind]
-    if not all(found[field] for field in needed):
-        raise NodeError(f"{where} ('{kind}') needs {hint}.")
+    # An empty field is a blank part of the card; a given value that cannot be
+    # read is a mistake worth a sentence (see ``_FORMS``).
+    for field, hint in _FORMS.items():
+        if field in _FIELDS[kind] and not found[field] and not _blank(raw.get(field)):
+            raise NodeError(f"{where} ('{kind}') needs {hint}.")
     scene: dict[str, Any] = {"type": kind}
     scene.update({field: found[field] for field in _FIELDS[kind] if found[field]})
     seconds = shell.bounded(raw.get("seconds"), MIN_SECONDS, MAX_SECONDS, _default_seconds(scene))
@@ -434,15 +443,19 @@ def _split(base: str, field: str, text: str, kind: str, start: float, step: floa
 
 def _title_scene(scene: dict[str, Any], at: float, base: str, *, closing: bool) -> str:
     html, at = _kicker(scene, at, base)
-    title = scene["title"]
+    # A blank card (a new film, or every word deleted) draws no heading: a
+    # field the spec does not hold is never offered for editing.
+    title = scene.get("title", "")
     if closing:
         html = f"<div {_cue('draw', at, 0.7, 'f-rule')}></div>" + html
         at += 0.1
-    words, last = _words(title, at, 0.08)
-    html += (
-        f'<h2 class="f-title" {_sized("end" if closing else "title", title)}'
-        f"{_split(base, 'title', title, 'w', at, 0.08)}>{words}</h2>"
-    )
+    last = at
+    if title:
+        words, last = _words(title, at, 0.08)
+        html += (
+            f'<h2 class="f-title" {_sized("end" if closing else "title", title)}'
+            f"{_split(base, 'title', title, 'w', at, 0.08)}>{words}</h2>"
+        )
     if scene.get("text"):
         html += (
             f"<p {_cue('rise', last + 0.28, 0.8, 'f-text')}{_at(base, 'text')}>"
@@ -453,7 +466,9 @@ def _title_scene(scene: dict[str, Any], at: float, base: str, *, closing: bool) 
 
 def _text_scene(scene: dict[str, Any], at: float, base: str) -> str:
     html, at = _kicker(scene, at, base)
-    text = scene["text"]
+    text = scene.get("text", "")
+    if not text:
+        return html
     # Every word starts at the same cue; the script reads which line each word
     # landed on and delays the lines one after another (``data-lines``).
     words, _ = _words(text, at, 0.0)
@@ -482,10 +497,10 @@ def _points_size(points: list[str], room: tuple[float, float], head: bool) -> in
 
 def _bullets_scene(scene: dict[str, Any], at: float, base: str, room: tuple[float, float]) -> str:
     html, at = _head(scene, at, base)
-    points = scene["bullets"]
+    points = scene.get("bullets", [])
     size = _points_size(points, room, bool(html))
     # The points arrive far enough apart to be read, as far as the scene allows.
-    gap = max(0.22, min(0.7, (scene["seconds"] - at - 2.0) / len(points)))
+    gap = max(0.22, min(0.7, (scene["seconds"] - at - 2.0) / max(1, len(points))))
     rows = "".join(
         f"<li {_cue('rise', at + index * gap, 0.7)}{_at(base, 'bullets', index)}>{esc(point)}</li>"
         for index, point in enumerate(points)
@@ -559,26 +574,29 @@ def _localized(value: str, language: str) -> str:
 
 def _stat_scene(scene: dict[str, Any], at: float, base: str, language: str = "en") -> str:
     html, at = _kicker(scene, at, base)
-    value, unit = _localized(scene["value"], language), scene.get("unit", "")
-    counted = _counted(value)
-    if counted is None:
-        figure = esc(value)
-    else:
-        before, token, after, target, decimals, group, point = counted
+    value, unit = _localized(scene.get("value", ""), language), scene.get("unit", "")
+    figure = ""
+    if value:
+        counted = _counted(value)
+        if counted is None:
+            figure = esc(value)
+        else:
+            before, token, after, target, decimals, group, point = counted
+            figure = (
+                f'{esc(before)}<span {_cue("count", at, 1.5)} data-e="cub" '
+                f'data-to="{target:.4f}" data-dec="{decimals}" data-g="{attr(group)}" '
+                f'data-pt="{attr(point)}">{esc(token)}</span>{esc(after)}'
+            )
+        # The value is one field however it is drawn: the stored text is what it
+        # shows while edited, and the count starts again from ``data-cs`` after a save.
         figure = (
-            f'{esc(before)}<span {_cue("count", at, 1.5)} data-e="cub" '
-            f'data-to="{target:.4f}" data-dec="{decimals}" data-g="{attr(group)}" '
-            f'data-pt="{attr(point)}">{esc(token)}</span>{esc(after)}'
+            f'<span class="f-num"{_at(base, "value")} data-src="{attr(scene["value"])}" '
+            f'data-cs="{at:.2f}">{figure}</span>'
         )
-    # The value is one field however it is drawn: the stored text is what it
-    # shows while edited, and the count starts again from ``data-cs`` after a save.
-    figure = (
-        f'<span class="f-num"{_at(base, "value")} data-src="{attr(scene["value"])}" '
-        f'data-cs="{at:.2f}">{figure}</span>'
-    )
     if unit:
         figure += f'<span class="f-unit"{_at(base, "unit")}>{esc(unit)}</span>'
-    html += f"<p {_cue('rise', at, 0.9, 'f-stat')} {_sized('stat', value + unit)}>{figure}</p>"
+    if figure:
+        html += f"<p {_cue('rise', at, 0.9, 'f-stat')} {_sized('stat', value + unit)}>{figure}</p>"
     if scene.get("label"):
         html += (
             f"<p {_cue('rise', at + 0.5, 0.8, 'f-label')}{_at(base, 'label')}>"
@@ -594,18 +612,18 @@ def _stat_scene(scene: dict[str, Any], at: float, base: str, language: str = "en
 
 def _bars_scene(scene: dict[str, Any], at: float, base: str) -> str:
     html, at = _head(scene, at, base)
-    items, unit = scene["items"], scene.get("unit", "")
-    top = max(abs(float(item["value"])) for item in items) or 1.0
+    items, unit = scene.get("items", []), scene.get("unit", "")
+    top = max((abs(float(item["value"])) for item in items), default=0.0) or 1.0
     size, gap, height = (34, 30, 24) if len(items) <= 4 else (30, 24, 20)
     if len(items) > 6:
         size, gap, height = 25, 16, 15
     # The label column is as wide as the longest label needs, so the bars
     # start close to their names.
-    label = min(18, max(len(item["label"]) for item in items) + 1)
+    label = min(18, max((len(item["label"]) for item in items), default=0) + 1)
     texts = [_plain(float(item["value"])) for item in items]
     # Room for the longest number plus the marks a locale adds, so the column
     # of values does not move while the numbers count up.
-    width = max(len(text) for text in texts) + 1 + (len(unit) + 1 if unit else 0)
+    width = max((len(text) for text in texts), default=0) + 1 + (len(unit) + 1 if unit else 0)
     suffix = f'<span class="f-unit">{esc(unit)}</span>' if unit else ""
     rows = []
     for index, (item, text) in enumerate(zip(items, texts, strict=True)):
@@ -630,33 +648,34 @@ def _bars_scene(scene: dict[str, Any], at: float, base: str) -> str:
 
 
 def _quote_scene(scene: dict[str, Any], at: float, base: str) -> str:
-    quote = scene["quote"]
+    quote = scene.get("quote", "")
     parts = quote.split()
     # The quote is revealed word by word, at reading pace but never slower
     # than two seconds for the whole of it.
-    gap = max(0.03, min(0.09, 2.0 / len(parts)))
+    gap = max(0.03, min(0.09, 2.0 / max(1, len(parts))))
     words = " ".join(
         f"<span {_cue('rise', at + 0.2 + index * gap, 0.6, 'f-word')}>{esc(word)}</span>"
         for index, word in enumerate(parts)
     )
-    html = (
-        f"<div {_cue('draw', at, 0.7, 'f-rule')}></div>"
-        f'<blockquote class="f-quote" {_sized("quote", quote)}'
-        f"{_split(base, 'quote', quote, 'q', at + 0.2, 0.0)}>{words}</blockquote>"
-    )
+    html = f"<div {_cue('draw', at, 0.7, 'f-rule')}></div>"
+    if quote:
+        html += (
+            f'<blockquote class="f-quote" {_sized("quote", quote)}'
+            f"{_split(base, 'quote', quote, 'q', at + 0.2, 0.0)}>{words}</blockquote>"
+        )
     if scene.get("by"):
-        after = at + 0.2 + gap * (len(parts) - 1) + 0.45
+        after = at + 0.2 + gap * max(0, len(parts) - 1) + 0.45
         html += f"<p {_cue('rise', after, 0.8, 'f-by')}{_at(base, 'by')}>{esc(scene['by'])}</p>"
     return html
 
 
 def _steps_scene(scene: dict[str, Any], at: float, base: str, *, row: bool) -> str:
     html, at = _head(scene, at, base)
-    steps = scene["steps"]
+    steps = scene.get("steps", [])
     count = len(steps)
     # All steps arrive dimmed, then light up one after another over the scene.
     first = at + 0.9
-    gap = max(0.35, min(0.9, (scene["seconds"] - first - 1.2) / count))
+    gap = max(0.35, min(0.9, (scene["seconds"] - first - 1.2) / max(1, count)))
     size = 36 if count <= 3 else 30 if count == 4 else 25
     if any(len(step["text"]) > 90 or len(step["title"]) > 32 for step in steps):
         size -= 5
@@ -690,12 +709,16 @@ def _steps_scene(scene: dict[str, Any], at: float, base: str, *, row: bool) -> s
 def _image_scene(scene: dict[str, Any], at: float, base: str) -> str:
     caption = scene.get("caption", "")
     # The push-in runs on the scene's own clock, from its first to its last
-    # frame, at constant speed: a slow drift, not an entrance.
-    picture = (
-        f"<div {_cue('fade', at, 0.9, 'f-shot-frame')}>"
+    # frame, at constant speed: a slow drift, not an entrance. A scene without
+    # a picture yet keeps its empty frame.
+    image = scene.get("image", "")
+    shot = (
         f'<img {_cue("push", 0.0, scene["seconds"])} data-e="lin" '
-        f'src="{attr(scene["image"])}" alt="{attr(caption)}"></div>'
+        f'src="{attr(image)}" alt="{attr(caption)}">'
+        if image
+        else ""
     )
+    picture = f"<div {_cue('fade', at, 0.9, 'f-shot-frame')}>{shot}</div>"
     if not caption:
         return f'<figure class="f-shot bleed">{picture}</figure>'
     return (
@@ -716,11 +739,11 @@ def _chart_scene(scene: dict[str, Any], at: float, base: str, language: str) -> 
     the width the kit draws it and scaled by the page script to fill the room
     under the heading, so every chart form keeps its proportions on every
     format. The stored chart always parses again: :func:`_chart` keeps it in
-    the parser's own reading.
+    the parser's own reading. A scene without a chart yet shows its heading.
     """
     html, at = _head(scene, at, base)
-    chart = parse_chart(json.dumps(scene["chart"], ensure_ascii=False))
-    if chart is None:  # pragma: no cover - normalize only keeps charts that parse
+    chart = parse_chart(json.dumps(scene.get("chart") or {}, ensure_ascii=False))
+    if chart is None:
         return html
     entrance = "fade" if chart["type"] in _ROUND_CHARTS else "reveal"
     # A lone series wears the film's accent; several series, or the slices of a
@@ -1409,25 +1432,14 @@ def preview(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def starter(title: str, language: str) -> dict[str, Any]:
-    """A three-scene film around the node's title.
+    """A new film: one blank title card, with no word on it.
 
-    ``language`` is accepted for the contract; the few placeholder words are
-    English and are replaced with the first real edit.
+    It opens empty, like a new document: the editor and the stage show the
+    node's name themselves, so the film holds nothing until the person writes
+    it. The one card is there because the editor and the player need a scene
+    to stand on. ``title`` and ``language`` are accepted for the contract.
     """
-    name = shell.clean(title, 120) or "Untitled"
-    return normalize(
-        {
-            "scenes": [
-                {"type": "title", "title": name},
-                {
-                    "type": "bullets",
-                    "title": "Key points",
-                    "bullets": ["First point", "Second point", "Third point"],
-                },
-                {"type": "end", "title": name},
-            ]
-        }
-    )
+    return normalize({"scenes": [{"type": "title"}]})
 
 
 EXAMPLE: Final[dict[str, Any]] = {

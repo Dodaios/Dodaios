@@ -20,8 +20,10 @@ names, so the store, the tool and the library treat all types alike:
     ``frontend/src/components/nodes/covers``). Small and bounded.
 
 ``starter(title, language) -> dict``
-    The spec of a fresh node of this type made from the library's "new" row:
-    a handful of placeholder parts that show what the type can hold.
+    The spec of a fresh node of this type made from the library's "New"
+    menu: empty, like a new file in an office app. No sample text and no
+    sample figures; the editor shows greyed hints where content goes, and
+    ``normalize`` accepts the spec again after the person empties a node.
 
 ``GUIDE``
     The grammar of the spec as text for the model, with one compact example.
@@ -48,7 +50,7 @@ from typing import Any, Final
 from dodaios.nodes.types import NODE_TYPES, node_type
 
 #: Raise by one when any renderer's output changes.
-RENDER_REVISION: Final[int] = 8
+RENDER_REVISION: Final[int] = 9
 
 
 @dataclass(frozen=True)
