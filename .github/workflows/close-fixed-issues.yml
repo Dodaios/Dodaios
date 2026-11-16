@@ -1,0 +1,76 @@
+# Close the issues a merged fix already solved, and the nightly reports whose
+# findings are all closed (scripts/ci/close_fixed_issues.py).
+#
+# GitHub closes an issue on merge only for `Fixes #<n>` in the pull request
+# body. A fix that names its issue in the title only, `fix(x): ... (#1698)`,
+# left the issue open for days. This is the safety net behind the keyword.
+#
+# `pull_request_target` rather than `pull_request`: a fork's pull request gets
+# a read-only token under `pull_request`, and this job writes issues. That is
+# only safe because the job checks out `main` and runs nothing from the pull
+# request; it reads the pull request's title and body through the API.
+#
+# An issue closed by this job's own token starts no new workflow run, so the
+# same run also closes the reports its closures finished. The daily run and
+# the `issues: closed` trigger catch reports whose findings were closed by
+# hand or by a closing keyword.
+name: Close fixed issues
+
+on:
+  pull_request_target:
+    types: [closed]
+  issues:
+    types: [closed]
+  schedule:
+    - cron: "41 5 * * *"
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "A merged pull request to check (empty = only the reports)"
+        required: false
+        type: string
+      dry_run:
+        description: "Report only; close nothing."
+        type: boolean
+        default: true
+
+permissions: {}
+
+# Closing is read-modify-write on the same issues; never let two run at once.
+concurrency:
+  group: close-fixed-issues
+  cancel-in-progress: false
+
+jobs:
+  close:
+    name: close fixed issues and finished reports
+    if: >-
+      github.repository_owner == 'Dodaios' &&
+      (github.event_name != 'pull_request_target' || github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+      - name: Close
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number || inputs.pr }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          flags=()
+          [ "$DRY_RUN" = "true" ] && flags+=(--dry-run)
+          case "$PR" in
+            ('') python scripts/ci/close_fixed_issues.py "${flags[@]}" reports ;;
+            (*[!0-9]*) echo "::error::not a pull request number: $PR"; exit 1 ;;
+            (*) python scripts/ci/close_fixed_issues.py "${flags[@]}" pr "$PR" ;;
+          esac

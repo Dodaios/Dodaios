@@ -195,6 +195,21 @@ older run by hand with
 recorded is never counted twice. Logic and tests: `scripts/ci/flaky_report.py`,
 `tests/unit/ci/test_flaky_report.py`.
 
+### Fixed issues close themselves
+
+GitHub closes an issue on merge only for `Fixes #<n>` in the pull request
+body. `.github/workflows/close-fixed-issues.yml` is the safety net behind it.
+When a pull request merges into main and its title is a fix
+(`fix(scope): ... (#1698)`) or says `fixes #<n>`, every open issue the title
+names is closed with a note that names the pull request. An issue the body
+only refers to (`Refs #<n>`) stays open. The same run, a daily run and every
+closed issue also close the nightly review reports whose "Verified findings"
+are all closed. The job checks out main and only reads the pull request
+through the API. Check a past pull request by hand with
+`gh workflow run close-fixed-issues.yml -f pr=<number>` (a dry run unless
+`dry_run` is switched off). Logic and tests: `scripts/ci/close_fixed_issues.py`,
+`tests/unit/ci/test_close_fixed_issues.py`.
+
 Static gates include repository workflow policy (immutable action pins, the
 complete aggregate dependency graph, tag-only PyPI publication and draft-only
 asset producers). CI additionally runs pinned Actionlint for workflow syntax,
