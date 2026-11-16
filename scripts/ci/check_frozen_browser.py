@@ -18,6 +18,7 @@ import http.client
 import io
 import json
 import os
+import re
 import secrets
 import socket
 import subprocess
@@ -70,8 +71,17 @@ def isolated_env(profile: Path, port: int, key: str) -> dict[str, str]:
     ):
         env[name] = str(profile)
     config = profile / "jarvis.toml"
+    port_line = f"admin_api_port = {port - DEV_PORT_OFFSET}"
+    port_re = re.compile(r"(?m)^admin_api_port\s*=.*$")
     with _WRITE_LOCK:
-        _atomic_write(config, f"[ui]\nadmin_api_port = {port - DEV_PORT_OFFSET}\n")
+        # The restart boot keeps what the first boot saved (the setup name's
+        # [trigger] section); only the port moves to this boot's free one.
+        text = config.read_text(encoding="utf-8") if config.exists() else ""
+        if port_re.search(text):
+            text = port_re.sub(port_line, text, count=1)
+        else:
+            text = f"[ui]\n{port_line}\n" + text
+        _atomic_write(config, text)
     env.update(
         JARVIS_INSTANCE="dev",
         JARVIS_CONFIG=str(config),

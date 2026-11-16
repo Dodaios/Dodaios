@@ -408,6 +408,12 @@ class WebServer:
             public_urls=public_urls,
         )
 
+        # An error no route handled answers with its type and the log file,
+        # not a bare "Internal Server Error" the UI can only show as "HTTP 500".
+        from .internal_error import install_internal_error_answer
+
+        install_internal_error_answer(app)
+
         self._register_rest_routes(app)
         self._register_ws_route(app)
 

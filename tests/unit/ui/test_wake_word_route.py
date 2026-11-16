@@ -299,3 +299,28 @@ def test_activation_reports_persisted_on_success(monkeypatch) -> None:
 
     assert body["persisted"] is True
     assert body["message"] == ""
+
+
+def test_a_failing_wake_plan_preview_still_saves_the_name(monkeypatch) -> None:
+    # Issue #1734: the setup wizard's first step saves the name here. A failure
+    # in the plan preview must not end that save with HTTP 500.
+    import dodaios.core.config_writer as config_writer
+    import dodaios.speech.wake_phrase as wake_phrase
+
+    def broken_plan(*_args, **_kwargs):
+        raise RuntimeError("no wake plan on this machine")
+
+    saved: list[str] = []
+    monkeypatch.setattr(wake_phrase, "resolve_wake_plan", broken_plan)
+    monkeypatch.setattr(config_writer, "set_wake_word", lambda phrase, **_kw: saved.append(phrase))
+    pipe = _FakePipeline()
+    resp = _client(pipeline=pipe).put(
+        "/api/settings/wake-word",
+        json={"phrase": "Jarvis", "engine": "auto", "persist": True},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["ok"] is True and body["persisted"] is True
+    assert saved == ["Jarvis"]
+    assert body["resolved_engine"] == "none" and body["wake_available"] is False
+    assert pipe.applied is None and body["restart_required"] is True
