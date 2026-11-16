@@ -48,14 +48,17 @@ _ACTIVE_SCRIPT = """() => {
       type: "submit", role: "", href: "",
       label: squash(submit ? (submit.innerText || submit.value
         || submit.getAttribute("aria-label")) : "").slice(0, 160),
-      context, field: squash(field + " " + role),
+      context, field: squash(field + " " + role), in_dialog: around && around !== form ? "1" : "",
     };
   }
   const composer = tag === "textarea" || el.isContentEditable;
   if (!composer) return null;
   const typed = squash(el.value || el.innerText).slice(0, 600);
   if (!typed) return null;
-  return {tag, type: "composer", role: "", href: "", label: "Enter", context: typed, field};
+  return {
+    tag, type: "composer", role: "", href: "", label: "Enter", context: typed, field,
+    in_dialog: "",
+  };
 }"""
 
 
@@ -81,6 +84,7 @@ _POINT_SCRIPT = """([x, y]) => {
       || control.getAttribute("title") || control.getAttribute("alt")).slice(0, 160),
     context: squash(around ? around.innerText : "").slice(0, 600),
     field: "",
+    in_dialog: around && around.tagName.toLowerCase() !== "form" ? "1" : "",
   };
 }"""
 
@@ -123,6 +127,7 @@ def describe_node(node: Any) -> dict[str, str] | None:
         or str(attrs.get("alt") or "")
     )
     context = ""
+    in_dialog = False
     parent = getattr(node, "parent_node", None)
     for _ in range(_ANCESTOR_DEPTH):
         if parent is None:
@@ -136,6 +141,7 @@ def describe_node(node: Any) -> dict[str, str] | None:
             "alertdialog",
         }:
             context = _children_text(parent)
+            in_dialog = parent_tag != "form"
             break
         parent = getattr(parent, "parent_node", None)
     return {
@@ -146,6 +152,7 @@ def describe_node(node: Any) -> dict[str, str] | None:
         "label": _squash(label, _LABEL_CHARS),
         "context": _squash(context, _CONTEXT_CHARS),
         "field": "",
+        "in_dialog": "1" if in_dialog else "",
     }
 
 

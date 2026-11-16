@@ -111,11 +111,10 @@ _KINDS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
     ),
 )
 
-#: A plain yes: it commits only what the dialog around it is about.
-_AFFIRM: Final[re.Pattern[str]] = re.compile(
-    r"^(yes|ok|okay|continue|proceed|done|ja|weiter|fortfahren|fertig)\b",  # i18n-allow
-    re.I,
-)
+#: A plain yes: it commits only what the dialog around it is about. "Next" and
+#: "Continue" are steps of a form and never ask; its last step has a label of
+#: its own.
+_AFFIRM: Final[re.Pattern[str]] = re.compile(r"^(yes|ok|okay|ja)\b", re.I)  # i18n-allow
 #: "Confirm" is a commit by its own meaning, with or without a dialog.
 _CONFIRM: Final[re.Pattern[str]] = re.compile(
     r"^(confirm|bestätigen)\b|\bbestätigen$", re.I  # i18n-allow
@@ -191,7 +190,7 @@ def commit_step(
     """The commit this action is, or ``None`` for ordinary page work.
 
     ``target`` is what the worker read about the control the action presses:
-    ``{tag, type, role, href, label, context, field}``. Without it (an older
+    ``{tag, type, role, href, label, context, field, in_dialog}``. Without it (an older
     worker, a control that is gone) nothing can be said about the click and it
     runs as page work, as every click did before.
     """
@@ -214,7 +213,7 @@ def commit_step(
     kind = _kind_of(label)
     if not kind and _CONFIRM.search(label):
         kind = _kind_of(context) or "confirm"
-    if not kind and _AFFIRM.match(label):
+    if not kind and _AFFIRM.match(label) and target.get("in_dialog"):
         kind = _kind_of(context)
     if not kind:
         return None

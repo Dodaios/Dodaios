@@ -85,9 +85,17 @@ def test_ordinary_page_work_is_not_a_commit(label):
 
 def test_a_plain_yes_commits_only_what_its_dialog_is_about():
     assert commit_step("click", {}, _button("Yes"), PLAY) is None
-    assert commit_step("click", {}, _button("OK", "Your filters were saved."), PLAY) is None
-    step = commit_step("click", {}, _button("Yes", "Cancel subscription? SuperGrok"), PLAY)
+    saved = _button("OK", "Your filters were saved.", in_dialog="1")
+    assert commit_step("click", {}, saved, PLAY) is None
+    asked = _button("Yes", "Cancel subscription? SuperGrok", in_dialog="1")
+    step = commit_step("click", {}, asked, PLAY)
     assert step is not None and step.kind == "cancel"
+    # The same words around a step of a form are not a question to answer.
+    in_form = _button("OK", "Cancel subscription or keep it")
+    assert commit_step("click", {}, in_form, PLAY) is None
+    for label in ("Continue", "Next", "Weiter"):  # i18n-allow: page labels
+        step_of_form = _button(label, "Jetzt buchen und bezahlen", in_dialog="1")  # i18n-allow
+        assert commit_step("click", {}, step_of_form, PLAY) is None
 
 
 def test_a_link_that_only_opens_a_page_is_not_a_commit():
@@ -128,7 +136,8 @@ def test_one_yes_covers_the_confirming_click_of_the_same_action_only():
     memory = CommitMemory(window_s=120)
     first = commit_step("click", {}, CANCEL, PLAY)
     memory.note(first, approved=True, now=10.0)
-    confirm = commit_step("click", {}, _button("Yes", "Abo kündigen?"), PLAY)  # i18n-allow
+    yes = _button("Yes", "Abo kündigen?", in_dialog="1")  # i18n-allow: page text
+    confirm = commit_step("click", {}, yes, PLAY)
     assert memory.covers(confirm, now=20.0)
     assert not memory.covers(confirm, now=200.0)
     other_page = commit_step("click", {}, CANCEL, PLAY + "/google-one")
@@ -160,6 +169,9 @@ def test_the_worker_reads_label_and_dialog_text_from_the_page():
     assert target["context"] == "Abo kündigen? SuperGrok 33,99 €/Monat"  # i18n-allow
     icon = describe_node(_node("button", "", {"aria-label": "Delete"}, ax_name="Delete"))
     assert icon["label"] == "Delete" and icon["context"] == ""
+    assert target["in_dialog"] == "1" and icon["in_dialog"] == ""
+    form = _node("form", "Name Send", {})
+    assert describe_node(_node("button", "Send", parent=form))["in_dialog"] == ""
 
 
 async def test_the_worker_describes_an_indexed_click_and_never_fails_the_action():
