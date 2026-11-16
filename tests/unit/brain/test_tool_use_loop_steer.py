@@ -100,3 +100,53 @@ async def test_a_broken_steer_inbox_never_breaks_the_turn():
         [BrainMessage(role="user", content="check my mail")]
     )
     assert out.text == "Two unread mails."
+
+
+async def test_the_act_phase_falls_between_a_rounds_words_and_its_tools():
+    """The order a chat relies on to send the line before a tool as its own message.
+
+    The words a round writes reach the consumer first, then the ``act`` phase
+    is reported, and only then the round's tool runs. The loop returns every
+    round's words as one string; the chat takes the ones it already sent off
+    the front (``runner_brain.closing_text``).
+    """
+    order: list[str] = []
+
+    class _SaysThenLooks(_ToolThenAnswer):
+        async def complete(self, req: BrainRequest) -> AsyncIterator[BrainDelta]:
+            self.requests.append(req)
+            if len(self.requests) == 1:
+                yield BrainDelta(content="On it, checking your mail.")
+                yield BrainDelta(tool_call={"id": "c1", "name": "gmail", "input": {}})
+                yield BrainDelta(finish_reason="tool_use")
+                return
+            yield BrainDelta(content="Two unread mails.")
+            yield BrainDelta(finish_reason="stop")
+
+    class _Watched(_Executor):
+        async def execute(self, tool: Any, args: dict[str, Any], **kw: Any) -> ToolResult:
+            order.append("tool")
+            return await super().execute(tool, args, **kw)
+
+    async def on_phase(phase: str, _detail: str) -> None:
+        order.append(phase)
+
+    loop = ToolUseLoop(
+        _SaysThenLooks(),
+        {"gmail": _Tool()},
+        _Watched(),
+        loop_control=LoopControl(on_phase=on_phase),
+    )
+    out = await loop.run(
+        [BrainMessage(role="user", content="check my mail")],
+        text_consumer=lambda chunk: order.append(f"text:{chunk}"),
+    )
+    assert order == [
+        "gather",
+        "text:On it, checking your mail.",
+        "act",
+        "tool",
+        "gather",
+        "text:Two unread mails.",
+    ]
+    assert out.text == "On it, checking your mail.Two unread mails."

@@ -37,6 +37,17 @@ describe("paletteTokens", () => {
     expect(light("--border")).toBeLessThan(light("--secondary"));
   });
 
+  it("keeps the person's bubble in the assistant's conversation grey unless the design names a colour", () => {
+    for (const palette of [DARK, LIGHT]) {
+      const t = paletteTokens(palette);
+      // A quiet lift off the room, not the accent the other chats wear.
+      expect(t["--lead-bubble-out"]).not.toBe(t["--chat-bubble-out"]);
+      expect(contrast(rgbOf(t["--lead-bubble-out-foreground"]), rgbOf(t["--lead-bubble-out"]))).toBeGreaterThan(4.5);
+    }
+    const named = paletteTokens({ ...DARK, bubble_out: "#ff5500" });
+    expect(named["--lead-bubble-out"]).toBe(named["--chat-bubble-out"]);
+  });
+
   it("keeps every ink readable on the room", () => {
     for (const palette of [DARK, LIGHT]) {
       const t = paletteTokens(palette);

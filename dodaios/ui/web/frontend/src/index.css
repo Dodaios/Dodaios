@@ -666,6 +666,13 @@ label,
        Memory = the wiki) carry their own gradient pair. */
     --chat-bubble-out: 212 92% 45%;
     --chat-bubble-out-foreground: 0 0% 100%;
+    /* The person's own bubble in the assistant's one conversation: a quiet
+       grey, a step darker than the assistant's (.lead-bubble-own). To get the
+       signal blue back, set both to the --chat-bubble-out pair:
+       --lead-bubble-out: var(--chat-bubble-out);
+       --lead-bubble-out-foreground: var(--chat-bubble-out-foreground); */
+    --lead-bubble-out: 0 0% 88%; /* #E0E0E0 */
+    --lead-bubble-out-foreground: 0 0% 9%;
     /* An agent chat's incoming bubble: a neutral grey lift that sits
        beside any agent colour the outgoing bubble wears. */
     --chat-bubble-in: 0 0% 93%; /* #EDEDED */
@@ -919,6 +926,8 @@ label,
     --user-bubble-foreground: 0 0% 98%;
     --chat-bubble-out: 212 100% 56%;
     --chat-bubble-out-foreground: 0 0% 100%;
+    --lead-bubble-out: 0 0% 20%; /* #333333 — see :root */
+    --lead-bubble-out-foreground: 0 0% 98%;
     --chat-bubble-in: 0 0% 15%; /* #262626 — see :root */
     --chat-bubble-in-foreground: 0 0% 95%;
     --soul-from: 347 86% 56%;

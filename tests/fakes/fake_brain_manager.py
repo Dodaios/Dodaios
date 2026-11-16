@@ -24,6 +24,7 @@ class FakeBrainManager:
         chunks: tuple[str, ...] = ("Hello ", "from ", "Jarvis"),
         tool: tuple[str, dict[str, Any]] | None = None,
         hold: asyncio.Event | None = None,
+        before_tool: tuple[str, ...] = (),
         fail: Exception | None = None,
         fast_model: str = "fake-fast",
     ) -> None:
@@ -32,6 +33,8 @@ class FakeBrainManager:
         self.chunks = chunks
         self.tool = tool
         self.hold = hold
+        #: What the model writes in the round that ends in the tool call.
+        self.before_tool = before_tool
         self.fail = fail
         self.fast_model = fast_model
         self.calls: list[tuple[str, dict[str, Any]]] = []
@@ -61,6 +64,14 @@ class FakeBrainManager:
             await self.hold.wait()
         if self.fail is not None:
             raise self.fail
+        if callable(consumer):
+            for chunk in self.before_tool:
+                consumer(chunk)
+                await asyncio.sleep(0)
+        control = getattr(override, "loop_control", None)
+        if self.tool is not None and control is not None and control.on_phase is not None:
+            # The tool loop reports the ``act`` phase right before a round's tools run.
+            await control.on_phase("act", self.tool[0])
         if self.tool is not None and self.bus is not None:
             name, args = self.tool
             trace_id = kwargs.get("trace_id")

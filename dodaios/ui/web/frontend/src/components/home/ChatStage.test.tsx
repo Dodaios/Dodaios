@@ -1180,6 +1180,49 @@ describe("ChatStage (agent chat)", () => {
     expect(within(trace).getByRole("status").className).toBe("sr-only");
   });
 
+  it("sends each message the moment it is written while the turn still works", () => {
+    // The brain writes the line that takes the task on, calls its tool, sends a
+    // short status and comes back with the result: three messages, each in the
+    // conversation as soon as it is written, not one block at the end.
+    const base = [
+      ev("user_message", { text: "Find me business flights to San Francisco" }),
+      ev("turn_started", { turn_id: "t9", provider: "openai", model: "gpt-x", effort: "high", runner: "brain" }),
+      ev("assistant_text", { turn_id: "t9", message_id: "m1", text: "On it, I'm looking for business flights to San Francisco." }),
+      ev("tool_call", { turn_id: "t9", call_id: "c1", name: "search_web", input: { query: "flights" } }),
+    ];
+    useAgentChatStore.setState({ activeSessionId: "s9", busy: true, timeline: reduceEvents(EMPTY_TIMELINE, base) });
+    render(<ChatStage />);
+
+    const texts = () => screen.getAllByTestId("lead-bubble").map((node) => node.textContent);
+    expect(texts()).toEqual(["On it, I'm looking for business flights to San Francisco."]);
+
+    const more = [
+      ...base,
+      ev("tool_result", { turn_id: "t9", call_id: "c1", output: "ok", is_error: false }),
+      ev("assistant_text", { turn_id: "t9", message_id: "m2", text: "I'm comparing the direct flights now. Do you need a return flight too?" }),
+      ev("tool_call", { turn_id: "t9", call_id: "c2", name: "search_web", input: { query: "direct" } }),
+    ];
+    act(() => useAgentChatStore.setState({ timeline: reduceEvents(EMPTY_TIMELINE, more) }));
+    expect(texts()).toHaveLength(2);
+
+    const done = [
+      ...more,
+      ev("tool_result", { turn_id: "t9", call_id: "c2", output: "ok", is_error: false }),
+      ev("assistant_text", { turn_id: "t9", message_id: "m3", text: "I would take the direct flight at 16:35." }),
+      ev("turn_finished", { turn_id: "t9", status: "done", duration_ms: 9000, usage: {} }),
+    ];
+    act(() => useAgentChatStore.setState({ busy: false, timeline: reduceEvents(EMPTY_TIMELINE, done) }));
+    expect(texts()).toEqual([
+      "On it, I'm looking for business flights to San Francisco.",
+      "I'm comparing the direct flights now. Do you need a return flight too?",
+      "I would take the direct flight at 16:35.",
+    ]);
+    // One turn, one voice: the three messages stand in the same turn.
+    expect(screen.getAllByTestId("work-trace")).toHaveLength(1);
+    // The person's own bubble takes its colour from the conversation's own token.
+    expect(screen.getByTestId("agent-message-user").querySelector(".lead-bubble-own")).not.toBeNull();
+  });
+
   it("shows nobody typing under an old message that never got an answer", () => {
     const sent = reduceEvents(EMPTY_TIMELINE, [ev("user_message", { text: "hello" })]);
     useAgentChatStore.setState({ activeSessionId: "s1", busy: false, timeline: sent });

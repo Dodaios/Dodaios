@@ -2224,7 +2224,9 @@ _CORE_CONTRACT = (
 # answer that is read on screen.
 _WRITTEN_CHAT_STYLE = (
     "WRITTEN CHAT STYLE: this turn is typed and read on screen, so the SPOKEN OUTPUT "
-    "rules do not apply; Markdown and digits are fine where they help. No emojis."
+    "rules do not apply; Markdown and digits are fine where they help. No emojis. The "
+    "short line before your first tool call (below) is wanted here: write it and call the "
+    "tool in the same step."
 )
 
 # The written-only rules, for a prompt that already carries the shared policy

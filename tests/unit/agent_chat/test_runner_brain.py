@@ -165,6 +165,68 @@ async def test_a_jarvis_turn_runs_on_the_brain_with_the_sessions_pick(
     assert not svc.is_running(session.session_id)
 
 
+async def test_what_the_brain_writes_before_a_tool_is_a_message_of_its_own(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_cli
+):
+    # The brain hands back everything it wrote in the turn as one string. The
+    # line before the tool call is sent when the tool starts, under its own
+    # message id, and the closing message holds only what came after.
+    bus = EventBus()
+    fake = FakeBrainManager(
+        bus=bus,
+        tool=("open-app", {"name": "Notes"}),
+        before_tool=("On it, ", "opening Notes."),
+        chunks=("Notes ", "is open."),
+        reply="On it, opening Notes.Notes is open.",
+    )
+    monkeypatch.setattr(runner_brain, "brain_manager", lambda: fake)
+    monkeypatch.setattr(runner_brain, "_agent_secret", lambda _r, _p: "k-agent")
+    svc = _service(bus)
+    session = _jarvis_session(svc, tmp_path)
+    q = svc.subscribe(session.session_id)
+
+    await svc.send(session.session_id, "Open my notes please")
+    events = await _drain(q, "turn_finished")
+
+    texts = [e["payload"] for e in events if e["kind"] == "assistant_text"]
+    assert [t["text"] for t in texts] == ["On it, opening Notes.", "Notes is open."]
+    first, last = texts[0]["message_id"], texts[1]["message_id"]
+    assert first != last
+    deltas = [
+        (e["payload"]["message_id"], e["payload"]["text"])
+        for e in events
+        if e["kind"] == "text_delta"
+    ]
+    assert deltas == [
+        (first, "On it, "),
+        (first, "opening Notes."),
+        (last, "Notes "),
+        (last, "is open."),
+    ]
+    # The first message is out before the tool runs, not at the end of the turn.
+    kinds = [e["kind"] for e in events]
+    assert kinds.index("assistant_text") < kinds.index("tool_result")
+    assert events[-1]["payload"]["status"] == "done"
+    # Reloading reads the stored log: both messages are in it, in order.
+    stored = [
+        e["payload"]["text"]
+        for e in svc.store.list_events(session.session_id)
+        if e["kind"] == "assistant_text"
+    ]
+    assert stored == ["On it, opening Notes.", "Notes is open."]
+
+
+def test_closing_text_takes_off_only_what_was_already_sent():
+    closing = runner_brain.closing_text
+    assert closing("On it.The answer.", ["On it."]) == "The answer."
+    assert closing("One.\n\nTwo.\n\nThree.", ["One.", "Two."]) == "Three."
+    assert closing("The answer.", []) == "The answer."
+    # A turn that ended on a tool call's line has nothing left to say.
+    assert closing("On it.", ["On it."]) == ""
+    # A reply rewritten on its way out (a revision, a guard) stays whole.
+    assert closing("I could not open it.", ["On it."]) == "I could not open it."
+
+
 async def test_history_is_the_sessions_own_log_in_prose(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_cli
 ):

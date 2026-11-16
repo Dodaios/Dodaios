@@ -118,10 +118,14 @@
   padding-top: 0;
 }
 
-/* The person's own message mirrors the stack: its tight corner faces them. */
+/* The person's own message mirrors the stack: its tight corner faces them.
+   It is grey like the assistant's, a step apart, so the conversation reads
+   as one calm surface; the colour is a token pair of its own (index.css). */
 .lead-bubble-own {
   border-radius: 20px;
   border-bottom-right-radius: 6px;
+  background: hsl(var(--lead-bubble-out));
+  color: hsl(var(--lead-bubble-out-foreground));
 }
 
 @media (prefers-reduced-motion: reduce) {
