@@ -35,13 +35,30 @@ LOOKUP_THREADS = 32
 REFUSAL = "Failed"
 
 
-def named_hosts(allowed_domains: Iterable[Any]) -> set[str]:
-    """Hosts the agent was given by name; they may lie inside the local network."""
-    return {
-        str(pattern).split("://")[-1].split("/")[0]
-        for pattern in allowed_domains
-        if "*" not in str(pattern).split("://")[-1]
-    }
+def named_hosts(allowed_domains: Iterable[Any]) -> set[tuple[str, int | None]]:
+    """Hosts the agent was given by name; they may lie inside the local network.
+
+    Each is ``(host, port)``: the host in lower case, the port when the grant
+    names one (``localhost:3000``), else ``None`` for any port. Read the way
+    ``window_actions.navigation_allowed`` reads the same grants, so a page the
+    agent may open is never refused here for its port or its capitals.
+    """
+    named: set[tuple[str, int | None]] = set()
+    for pattern in allowed_domains:
+        address = str(pattern).split("://")[-1]
+        if "*" in address:
+            continue
+        try:
+            target = urlsplit("https://" + address)
+            host, port = (target.hostname or "").lower(), target.port
+        except ValueError:
+            continue
+        if host:
+            named.add((host, port))
+    return named
+
+
+_DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
 class RequestGuard:
@@ -119,7 +136,11 @@ class RequestGuard:
             return False
         if navigation and not self.navigation_allowed(url):
             return False
-        if host in self.named_hosts:
+        port = parsed.port or _DEFAULT_PORTS[parsed.scheme]
+        if any(
+            host.lower() == named and named_port in (None, port)
+            for named, named_port in self.named_hosts
+        ):
             return True
         return await self.public(host)
 

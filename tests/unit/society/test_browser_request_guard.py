@@ -132,8 +132,8 @@ async def test_a_redirect_into_the_local_network_is_refused(lookups):
 
 async def test_a_host_the_agent_was_given_by_name_may_be_local(lookups):
     assert named_hosts(["http*://127.0.0.1", "https://*.example.org", "intranet.home/app"]) == {
-        "127.0.0.1",
-        "intranet.home",
+        ("127.0.0.1", None),
+        ("intranet.home", None),
     }
     guard = RequestGuard(allowed_domains=["http*://127.0.0.1"])
     try:
@@ -141,6 +141,39 @@ async def test_a_host_the_agent_was_given_by_name_may_be_local(lookups):
         assert lookups == []
         # Another local address stays closed.
         assert await guard.permits("http://localhost:8000/", navigation=False) is False
+    finally:
+        guard.close()
+
+
+async def test_a_named_host_with_a_port_or_capitals_is_the_same_host(lookups):
+    """A grant reads like the navigation check reads it: port and case as written."""
+    assert named_hosts(["http://localhost:3000", "MyNAS.local", "192.168.1.20:8080/app"]) == {
+        ("localhost", 3000),
+        ("mynas.local", None),
+        ("192.168.1.20", 8080),
+    }
+    guard = RequestGuard(
+        allowed_domains=["http://localhost:3000", "MyNAS.local", "192.168.1.20:8080/app"]
+    )
+    try:
+        assert await guard.permits("http://localhost:3000/", navigation=True) is True
+        assert await guard.permits("http://mynas.local/", navigation=True) is True
+        assert await guard.permits("http://MyNAS.local:5000/share", navigation=False) is True
+        assert await guard.permits("http://192.168.1.20:8080/app", navigation=True) is True
+        assert lookups == []
+        # Another port of a host granted with one stays closed.
+        assert await guard.permits("http://localhost:3001/", navigation=False) is False
+        assert await guard.permits("http://192.168.1.20/", navigation=False) is False
+    finally:
+        guard.close()
+
+
+async def test_a_named_port_matches_the_scheme_default_when_the_address_has_none(lookups):
+    guard = RequestGuard(allowed_domains=["router.home:443", "http://printer.home:80"])
+    try:
+        assert await guard.permits("https://router.home/", navigation=True) is True
+        assert await guard.permits("http://printer.home/", navigation=True) is True
+        assert await guard.permits("http://router.home/", navigation=False) is False
     finally:
         guard.close()
 
