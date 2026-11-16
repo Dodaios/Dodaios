@@ -69,6 +69,10 @@ Kinds (``payload`` keys in brackets):
 ``setup_step``         [turn_id, step, where?, host?, cli?] — a thread placed on another
                         computer: which setup step began (connect | fetch | send | unpack |
                         start), shown until the agent's first output
+``compaction``         [turn_id, call_id, phase, trigger?, tokens_before?, tokens_after?,
+                        duration_ms?, error?] — the coding agent compacts its own
+                        conversation: ``phase`` is started | done | failed, ``trigger``
+                        auto | manual; one ``call_id`` per compaction
 ``turn_finished``      [turn_id, status, duration_ms, usage, error, cost_usd]
                         status: done | cancelled | error
 ``session_updated``    [title?, provider?, model?, effort?, cwd?, permission_mode?,

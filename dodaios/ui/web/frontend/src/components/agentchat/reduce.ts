@@ -5,6 +5,7 @@ import { hideMeetingPass } from "./meetingPass";
 import { readToolChoices, type ToolChoice } from "./toolChoices";
 import { parseApprovalCard, parseSavedRule, type ApprovalCardInfo, type ApprovalEdits, type RuleScope, type SavedApprovalRule } from "./actionCard/approvalInfo";
 import { userAttachments, type UserAttachment } from "./userAttachment";
+import { COMPACTION_TOOL } from "./compaction";
 
 export { userAttachments, type UserAttachment };
 
@@ -1429,6 +1430,27 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
           };
         }),
       );
+    }
+
+    case "compaction": {
+      // Filed as a call of its own, so it sits in the work where it happened.
+      const callId = str(p.call_id);
+      if (!turnId || !callId) return base;
+      const phase = str(p.phase);
+      const called = reduceEvent(tl, {
+        ...ev,
+        kind: "tool_call",
+        payload: { turn_id: turnId, call_id: callId, name: COMPACTION_TOOL, input: {} },
+      });
+      if (phase !== "done" && phase !== "failed") return called;
+      const output = JSON.stringify({
+        trigger: str(p.trigger), tokens_before: num(p.tokens_before), tokens_after: num(p.tokens_after), error: str(p.error),
+      });
+      return reduceEvent(called, {
+        ...ev,
+        kind: "tool_result",
+        payload: { turn_id: turnId, call_id: callId, output, is_error: phase === "failed", duration_ms: p.duration_ms },
+      });
     }
 
     case "background_wait": {

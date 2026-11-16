@@ -22,6 +22,7 @@ import { joinPlanViews, type PlanView } from "@/components/agentchat/agentPlan";
 import type { ReasoningBlock, TextBlock, ToolBlock, TurnBlock, TurnStatus } from "@/components/agentchat/reduce";
 import { buildTimeline, summarize, type Call, type CallKind, type Translate } from "@/components/agentchat/traceEntries";
 import { isSubagentCall } from "./subagents";
+import { isCompaction } from "@/components/agentchat/compaction";
 
 /**
  * One step of a group: a tool call, the wordless thought a running turn is
@@ -58,14 +59,16 @@ export type ThreadRow =
   /** A sub-agent the turn spawned: a card of its own that opens its conversation. */
   | { kind: "agent"; id: string; block: ToolBlock }
   /** The agent's to-do list as it stands after the turn's newest list call. */
-  | { kind: "plan"; id: string; plan: PlanView; calls: Call[] };
+  | { kind: "plan"; id: string; plan: PlanView; calls: Call[] }
+  /** The agent compacted its own conversation here: a line across the turn. */
+  | { kind: "compaction"; id: string; block: ToolBlock };
 
 /**
- * A row that is bookkeeping, not work: a thought, the to-do list, or a line
- * whose only steps are list calls.
+ * A row that is bookkeeping, not work: a thought, the to-do list, a
+ * compaction, or a line whose only steps are list calls.
  */
 export function isBookkeeping(row: ThreadRow): boolean {
-  return row.kind === "thought" || row.kind === "plan"
+  return row.kind === "thought" || row.kind === "plan" || row.kind === "compaction"
     || (row.kind === "work" && row.items.every((item) => item.kind === "plan"));
 }
 
@@ -177,7 +180,10 @@ export function buildThreadRows(
           }
           continue;
         }
-        if (isSubagentCall(call.block)) {
+        if (isCompaction(call.block)) {
+          flush();
+          rows.push({ kind: "compaction", id: `compaction:${call.id}`, block: call.block });
+        } else if (isSubagentCall(call.block)) {
           flush();
           rows.push({ kind: "agent", id: `agent:${call.id}`, block: call.block });
         } else {
