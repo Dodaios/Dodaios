@@ -10,9 +10,9 @@ description: >-
   boundaries the person drew, and then get out of the way. Step scripts,
   guessed fixes and shouted rules make current models worse.
 when_to_use: >-
-  Load before you write a brief for another agent (delegate to coding_agent,
-  pane, team_thread, mission, routine or agent) when this guide is not already
-  in the conversation. Not for replies to the person.
+  Use when you are about to write a brief for another agent (delegate to
+  coding_agent, pane, team_thread, mission, routine or agent) and this guide
+  is not already in the conversation. Not for replies to the person.
 category: meta
 tags: [meta, delegation, prompting, coding-agents, briefs]
 author: builtin
