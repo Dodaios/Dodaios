@@ -150,6 +150,20 @@ REPLY_SHAPE_LINE: Final[str] = (
     "write_report, and the reply gives its gist."
 )
 
+#: Beside every message of the assistant's own chat, for the same reason as the
+#: two lines around it: the brief rule (``core.agent_brief``) sits in the tool
+#: field and the system prompt, and hundreds of earlier briefs outweighed it
+#: (maintainer, 2026-11-16: "the prompts are exactly the same as before").
+#: Replayed on a copy of that conversation, same request: without this line the
+#: brief was 3,096 characters of suspected causes and a procedure; with it, the
+#: goal first, the person's words quoted, a checkable done, no route.
+BRIEF_LINE: Final[str] = (
+    "\nIf you hand work to an agent this turn: the brief is all it sees. Lead with the "
+    "outcome and why, then what it cannot see (the person's words, files, decisions), a "
+    "checkable done and only their limits; no list of suspected causes, no step-by-step "
+    "procedure, no prescribed fix."
+)
+
 QUESTION_CARD_LINE: Final[str] = (
     "\nA question you need answered before you can go on goes on the question card "
     "(society_ask_user), all your questions in one call, not into your reply."
@@ -947,6 +961,7 @@ async def build_identity(
 __all__ = [
     "ACTING_PREAMBLE",
     "CHAT_MESSAGES",
+    "BRIEF_LINE",
     "FIRST_LINE",
     "QUESTION_CARD_LINE",
     "REPLY_SHAPE_LINE",
