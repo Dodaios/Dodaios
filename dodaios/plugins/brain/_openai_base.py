@@ -11,7 +11,7 @@ import inspect
 import json
 import logging
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 import httpx
@@ -530,6 +530,7 @@ async def stream_complete(
     send_temperature: bool | None = None,
     tools_fallback: bool = False,
     hold_think_prefix: bool = False,
+    on_reasoning: Callable[[str], None] | None = None,
 ) -> AsyncIterator[BrainDelta]:
     """Streaming run against OpenAI-compatible Chat-Completions.
 
@@ -549,7 +550,9 @@ async def stream_complete(
     calls for the tools offered in ``req``. ``hold_think_prefix`` (local
     servers) additionally holds the start of a reply from a model of unknown
     habit back until it is clear the reply does not open mid-reasoning.
-    ``reasoning_content`` / ``reasoning`` delta fields are never read.
+    ``reasoning_content`` / ``reasoning`` delta fields never become answer
+    text; ``on_reasoning`` (local servers) is handed them, so a caller can
+    tell a round that only thought from a round that said nothing at all.
 
     `supports_vision` is passed through to the message builder — when `False`,
     `BrainMessage.images` are dropped and a WARN is logged.
@@ -752,7 +755,13 @@ async def stream_complete(
 
             # Only ``content`` is the answer. ``reasoning_content`` /
             # ``reasoning`` (vLLM, LM Studio, Ollama, DeepSeek) are the
-            # model's thoughts and are deliberately never read.
+            # model's thoughts and never become answer text here.
+            if on_reasoning is not None:
+                thought = getattr(delta, "reasoning", None) or getattr(
+                    delta, "reasoning_content", None
+                )
+                if isinstance(thought, str) and thought:
+                    on_reasoning(thought)
             content = getattr(delta, "content", None)
             if content:
                 visible = markup.feed(content)
