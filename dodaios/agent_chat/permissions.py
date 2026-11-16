@@ -379,14 +379,29 @@ def is_permission_mode(runner: str, mode: str) -> bool:
 PLAN_MODES: Final[frozenset[str]] = frozenset({"plan", "read-only"})
 
 
+def safest_mode(ladder: str) -> str:
+    """The lowest-stance mode of ``ladder`` that is not Plan: its "ask" rung.
+
+    Where an approved plan goes on when the session recorded no mode to go
+    back to. Never the ladder's default, which is its top rung on most
+    coding ladders: a thread nobody set to "Bypass permissions" must not end
+    up there because a field was empty.
+    """
+    ids = [m for m in permission_ids(ladder) if m not in PLAN_MODES]
+    if not ids:
+        return default_permission(ladder)
+    return min(enumerate(ids), key=lambda pair: (_stance(ladder, pair[1]), pair[0]))[1]
+
+
 def mode_after_plan(ladder: str, permission_mode: str, build_mode: str = "") -> str:
     """The access mode a session works in once its plan is approved.
 
     A session the person switched to Plan goes back to the mode its
     permission pill names: ``build_mode``, folded onto ``ladder``, or the
-    ladder's default when none was recorded. A session that is not in Plan
-    keeps its own mode: the agent entered plan mode on its own, and approving
-    its plan must never change what the person picked.
+    ladder's lowest rung (:func:`safest_mode`) when none was recorded. A
+    session that is not in Plan keeps its own mode: the agent entered plan
+    mode on its own, and approving its plan must never change what the
+    person picked.
     """
     mode = (permission_mode or "").strip()
     if mode and mode not in PLAN_MODES:
@@ -396,7 +411,7 @@ def mode_after_plan(ladder: str, permission_mode: str, build_mode: str = "") -> 
         folded = normalize_permission(ladder, picked)
         if folded not in PLAN_MODES:
             return folded
-    return default_permission(ladder)
+    return safest_mode(ladder)
 
 
 def society_mode_supported(runner: str, mode: str) -> bool:
@@ -421,26 +436,35 @@ def society_mode_supported(runner: str, mode: str) -> bool:
     return False
 
 
-def normalize_permission(runner: str, mode: str | None) -> str:
+def normalize_permission(runner: str, mode: str | None, source: str = "") -> str:
     """Fold ``mode`` onto the closest mode ``runner`` accepts.
 
-    A mode the runner offers passes through. ``plan`` passes through wherever
-    a ladder has it. Anything else (a mode from another runner's ladder, or
-    the legacy ``ask``/``auto`` pair) snaps to the mode of the same stance,
-    else the nearest LOWER stance — moving to a runner that cannot express
-    "edits yes, commands ask" must not silently grant everything.
+    ``source`` is the ladder ``mode`` was picked on, when it is known. The
+    same word means different things on different ladders: Claude Code's and
+    Codex's "auto" ask before risky actions, OpenCode's, Kimi's, Cursor's and
+    the API runner's "auto" is full access. So a mode passes through only
+    when ``runner`` offers it with the same stance it had on ``source``.
+    Without a ``source`` a mode ``runner`` offers passes through, and a bare
+    "auto" from an unknown ladder counts as the lower of its meanings.
+    ``plan`` passes through wherever a ladder has it. Anything else (a mode
+    from another runner's ladder, or the legacy ``ask``/``auto`` pair) snaps
+    to the mode of the same stance, else the nearest LOWER stance: moving to
+    a runner that cannot express "edits yes, commands ask" must not silently
+    grant everything.
     """
     picked = (mode or "").strip()
     ids = permission_ids(runner)
     if not picked:
         return default_permission(runner)
-    if picked in ids:
+    origin = source if source and source != runner else ""
+    if picked in ids and (not origin or _stance(origin, picked) == _stance(runner, picked)):
         return picked
-    # Legacy ask/auto from before the ladders (store rows written by the
-    # first draft of this package).
-    want = _stance(runner, picked) if picked in _STANCE else 1
-    if picked == "auto":
-        want = 3
+    if origin:
+        want = _stance(origin, picked)
+    elif picked == "auto":
+        want = _STANCE["auto_claude"]  # the lower meaning of a word whose ladder is unknown
+    else:
+        want = _STANCE.get(picked, 1)
     # Plan / read-only are only ever the target when that is what was asked
     # for: folding "ask" onto a read-only sandbox would silently take the
     # hands away.
@@ -463,6 +487,7 @@ __all__ = [
     "normalize_permission",
     "permission_ids",
     "permission_modes",
+    "safest_mode",
     "society_mode_supported",
     "stance_of",
 ]

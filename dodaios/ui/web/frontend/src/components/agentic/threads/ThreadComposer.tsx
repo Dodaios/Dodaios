@@ -10,7 +10,7 @@ import { useComposerDictation } from "@/components/agentchat/useComposerDictatio
 import { useComposerTypeahead } from "@/components/agentchat/useComposerTypeahead";
 import { fill, useT } from "@/i18n";
 import { fetchAgentChatQueue, type AgentChatSession, type ApprovalDecision, type ChatAttachment, type PlanDecision, type SendDelivery } from "@/lib/agentChatApi";
-import { joinProviderOptions, type ComposerDraft, type ProviderOption } from "@/store/agentChat";
+import { joinProviderOptions, planReturnMode, type ComposerDraft, type ProviderOption } from "@/store/agentChat";
 import { cn } from "@/lib/utils";
 import { effortLadder, snapEffort } from "@/lib/effortLadder";
 import { AccessPicker, AgentModelPicker, EffortPicker, modelsOf } from "./ThreadPickers";
@@ -211,13 +211,14 @@ function PlanPanel({ timeline, provider, draft }: { timeline: Timeline; provider
   if (!turn?.plan) return null;
   // Build goes to the mode the permission pill shows now; the card's own mode
   // is what it showed when the plan was finished.
-  const buildMode = (draft.permissionMode === "plan" ? draft.buildMode : draft.permissionMode) || turn.plan.buildMode;
+  const buildMode = (draft.permissionMode === "plan" ? planReturnMode(draft, provider) : draft.permissionMode) || turn.plan.buildMode;
   const mode = provider?.permission_modes?.find((row) => row.id === buildMode);
   const decide = async (decision: PlanDecision) => {
     setSending(true);
     setError("");
     try {
-      await chat.getState().resolvePlan(turn.id, decision);
+      // Build goes on in the mode the button names, not one the server guesses.
+      await chat.getState().resolvePlan(turn.id, decision, decision === "build" ? buildMode : undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

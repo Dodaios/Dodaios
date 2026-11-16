@@ -45,14 +45,19 @@ from tests.unit.agent_chat.test_turn_prompts import _can_use, _fake_claude
         ("claude-cli", "plan", "default", "default"),
         ("claude-cli", "plan", "auto", "auto"),
         ("codex-cli", "plan", "approve-for-me", "approve-for-me"),
-        # Nothing recorded (a session from before the column): the ladder's default.
-        ("claude-cli", "plan", "", "bypassPermissions"),
-        ("codex-cli", "plan", "", "full-access"),
+        # Nothing recorded (a fork, a thread from a grid pane, a session from
+        # before the column): the ladder's ask rung, never its default, which
+        # is "Bypass permissions" / "Full access".
+        ("claude-cli", "plan", "", "default"),
+        ("codex-cli", "plan", "", "approve-for-me"),
+        ("glm-cli", "plan", "", "default"),
+        ("agy-cli", "plan", "", "accept-edits"),
+        ("api", "plan", "", "ask"),
         # A mode the ladder dropped folds onto the same stance, never onto more.
         ("claude-cli", "plan", "acceptEdits", "auto"),
         ("claude-cli", "plan", "dontAsk", "default"),
         # Plan is never where Build goes.
-        ("claude-cli", "plan", "plan", "bypassPermissions"),
+        ("claude-cli", "plan", "plan", "default"),
         # Not in Plan: the agent planned on its own, the person's pick stands.
         ("claude-cli", "default", "", "default"),
         ("claude-cli", "default", "bypassPermissions", "default"),
@@ -306,6 +311,8 @@ def _claude_thread_turn(
     mode: str,
     build: str = "",
     on_plan_card: Any = None,
+    plan_decision: str = "allow",
+    rules: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str], AgentChatStore, str, list[dict[str, Any]]]:
     """One Claude Code turn of a thread held in a real store; the plan card says Build."""
     out = tmp_path / "answers.json"
@@ -329,8 +336,10 @@ def _claude_thread_turn(
 
     async def ask(_call_id: str, name: str, *_: object) -> str:
         asked.append(name)
-        if name == "ExitPlanMode" and on_plan_card is not None:
-            on_plan_card(store, sid)
+        if name == "ExitPlanMode":
+            if on_plan_card is not None:
+                on_plan_card(store, sid)
+            return plan_decision
         return "allow"
 
     handle = TurnHandle(
@@ -339,7 +348,9 @@ def _claude_thread_turn(
         emit=emit,
         request_approval=ask,
         cancel=asyncio.Event(),
-        control_service=SimpleNamespace(store=store),
+        control_service=SimpleNamespace(
+            store=store, cli_session_rules=lambda _sid: rules if rules is not None else []
+        ),
     )
     # The service marks a planning chat read-only when its turn starts.
     set_chat_read_only(sid, mode == "plan")
@@ -411,6 +422,146 @@ def test_a_pick_made_while_the_plan_was_written_decides(
     assert store.get_session(sid).permission_mode == "default"
 
 
+def test_a_thread_with_no_recorded_build_mode_never_builds_in_bypass(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # A forked thread, or one made from a grid pane, in Plan with no mode
+    # recorded went on in "Bypass permissions" while its pill said "Ask".
+    answers, asked, store, sid, _ = _claude_thread_turn(
+        monkeypatch, tmp_path, _BUILDING, mode="plan", build=""
+    )
+    assert answers[0]["updatedPermissions"] == _set_mode("default")
+    assert asked == ["ExitPlanMode", "Bash", "Edit"]
+    assert store.get_session(sid).permission_mode == "default"
+
+
+def _with_suggestions(request: dict[str, Any], suggestions: list[dict[str, Any]]) -> dict[str, Any]:
+    return {**request, "request": {**request["request"], "permission_suggestions": suggestions}}
+
+
+def test_always_allow_on_a_plan_grants_no_more_than_the_pill(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Claude Code offers its own "yes, and bypass permissions" with a plan.
+    # "Always allow" on the plan card kept that rule for the session, and
+    # every later call of an "Ask" thread ran without a card.
+    kept: list[dict[str, Any]] = []
+    plan_card = _with_suggestions(_BUILDING[0], _set_mode("bypassPermissions"))
+    answers, asked, store, sid, _ = _claude_thread_turn(
+        monkeypatch,
+        tmp_path,
+        [plan_card, *_BUILDING[1:]],
+        mode="plan",
+        build="default",
+        plan_decision="allow_always",
+        rules=kept,
+    )
+    assert answers[0]["updatedPermissions"] == _set_mode("default")
+    assert asked == ["ExitPlanMode", "Bash", "Edit"]
+    assert kept == []
+    assert store.get_session(sid).permission_mode == "default"
+
+
+def test_one_card_never_switches_the_session_to_bypass() -> None:
+    rules = rc.claude_session_rules(
+        "Edit", _set_mode("bypassPermissions") + _set_mode("acceptEdits")
+    )
+    assert rules == _set_mode("acceptEdits")
+    # A bypass rule an older build kept covers nothing.
+    assert not rc.claude_rules_cover(_set_mode("bypassPermissions"), "Bash", {"command": "rm x"})
+    assert rc.claude_rules_cover(_set_mode("acceptEdits"), "Edit", {})
+
+
+def test_a_fork_builds_where_its_source_would(tmp_path: Path) -> None:
+    from dodaios.agent_chat.thread_sessions import fork_session
+
+    svc = AgentChatService(AgentChatStore(":memory:"))
+    source = svc.create_session(
+        provider="openai-codex",
+        cwd=str(tmp_path),
+        permission_mode="plan",
+        build_mode="approve-for-me",
+        surface="agent",
+    )
+    fork = fork_session(svc, source, runner="codex-cli")
+    assert (fork.permission_mode, fork.build_mode) == ("plan", "approve-for-me")
+
+
+def test_build_goes_on_in_the_mode_the_pill_showed(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        svc, sid, _ = await _service(tmp_path, mode="plan", build="full-access")
+        await _finish_turn(svc, sid, "1. Add the table")
+        await svc._open_turn_prompts(sid, "t1", "codex-cli")
+        assert await svc.resolve_turn_plan(sid, "t1", "build", build_mode="approve-for-me")
+        assert svc.store.get_session(sid).permission_mode == "approve-for-me"
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("shown", ["plan", "bypassPermissions", "nonsense"])
+def test_a_mode_the_ladder_does_not_offer_is_not_where_build_goes(
+    tmp_path: Path, shown: str
+) -> None:
+    async def scenario() -> None:
+        svc, sid, _ = await _service(tmp_path, mode="plan", build="approve-for-me")
+        await _finish_turn(svc, sid, "1. Add the table")
+        await svc._open_turn_prompts(sid, "t1", "codex-cli")
+        assert await svc.resolve_turn_plan(sid, "t1", "build", build_mode=shown)
+        assert svc.store.get_session(sid).permission_mode == "approve-for-me"
+
+    asyncio.run(scenario())
+
+
+def test_the_plan_route_takes_the_pill_s_mode(tmp_path: Path) -> None:
+    app, service = _chat_app(tmp_path)
+    sent: list[str] = []
+
+    async def send(_sid: str, text: str, **_: Any) -> None:
+        sent.append(text)
+
+    service.send = send  # type: ignore[method-assign]
+    with TestClient(app) as client:
+        created = client.post(
+            "/api/agent-chat/sessions",
+            json={
+                "provider": "openai-codex",
+                "cwd": str(tmp_path),
+                "permission_mode": "plan",
+                "surface": "agent",
+            },
+        )
+        sid = created.json()["session_id"]
+        asyncio.run(_finish_turn(service, sid, "1. Add the table"))
+        asyncio.run(service._open_turn_prompts(sid, "t1", "codex-cli"))
+        answered = client.post(
+            f"/api/agent-chat/sessions/{sid}/plan",
+            json={"turn_id": "t1", "decision": "build", "build_mode": "auto"},
+        )
+        assert answered.status_code == 200, answered.text
+        assert service.store.get_session(sid).permission_mode == "auto"
+        assert sent == [turn_prompts.PLAN_GO_AHEAD]
+
+
+def test_a_provider_change_reads_the_mode_in_the_old_ladder_s_words(tmp_path: Path) -> None:
+    app, _ = _chat_app(tmp_path)
+    with TestClient(app) as client:
+        created = client.post(
+            "/api/agent-chat/sessions",
+            json={
+                "provider": "openai-codex",
+                "cwd": str(tmp_path),
+                "permission_mode": "plan",
+                "build_mode": "auto",
+                "surface": "agent",
+            },
+        )
+        sid = created.json()["session_id"]
+        moved = client.patch(f"/api/agent-chat/sessions/{sid}", json={"provider": "opencode"})
+        assert moved.status_code == 200, moved.text
+        # Codex's workspace "auto" is not OpenCode's full-access "auto".
+        assert (moved.json()["permission_mode"], moved.json()["build_mode"]) == ("plan", "default")
+
+
 @pytest.mark.parametrize(
     ("mode", "asked_after"),
     [("default", ["Bash", "Edit"]), ("bypassPermissions", [])],
@@ -457,11 +608,12 @@ def test_a_planning_thread_that_returns_to_bypass_starts_with_bypass_on_offer(
     # Once is enough.
     rc.allow_bypass_after_plan(argv, "claude-cli", _thread("plan", "bypassPermissions"))
     assert argv.count(rc.CLAUDE_ALLOW_BYPASS_FLAG) == 1
-    # Nothing recorded: the ladder's default is bypass, on GLM's ladder too.
+    # Nothing recorded: the plan returns to the ladder's ask rung, so bypass
+    # is not on offer, on GLM's ladder either.
     for runner in ("claude-cli", "glm-cli"):
         argv = _argv("plan")
         rc.allow_bypass_after_plan(argv, runner, _thread("plan"))
-        assert rc.CLAUDE_ALLOW_BYPASS_FLAG in argv, runner
+        assert rc.CLAUDE_ALLOW_BYPASS_FLAG not in argv, runner
 
 
 @pytest.mark.parametrize(

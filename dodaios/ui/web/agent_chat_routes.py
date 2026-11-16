@@ -384,6 +384,9 @@ class PlanBody(BaseModel):
     turn_id: str
     #: ``build`` (switch to the build mode and go) or ``keep`` (keep planning).
     decision: str
+    #: The mode the permission pill shows: where ``build`` goes on. Empty
+    #: leaves it to the mode the session recorded.
+    build_mode: str = Field(default="", max_length=64)
 
 
 class PickFolderBody(BaseModel):
@@ -2030,8 +2033,22 @@ async def patch_session(
         fields["permission_mode"] = body.permission_mode
     elif "provider" in fields:
         # A provider change folds the old mode onto the new runner's ladder
-        # (a no-op on the Jarvis surface, whose ladder is the same for all).
-        fields["permission_mode"] = normalize_permission(ladder, current.permission_mode)
+        # (a no-op on the Jarvis surface, whose ladder is the same for all),
+        # read in the old ladder's words: Claude Code's "auto" is not
+        # OpenCode's "auto" (full access).
+        before = ladder_key(
+            current.surface,
+            resolve_runner(
+                current.provider,
+                surface=current.surface,
+                runtime=str(getattr(current, "runtime", "") or ""),
+            ),
+        )
+        fields["permission_mode"] = normalize_permission(
+            ladder, current.permission_mode, source=before
+        )
+        if current.build_mode and not body.build_mode:
+            fields["build_mode"] = normalize_permission(ladder, current.build_mode, source=before)
     if body.build_mode and fields.get("permission_mode", current.permission_mode) in PLAN_MODES:
         # The pill while Plan is on: where an approved plan goes on.
         build = normalize_permission(ladder, body.build_mode)
@@ -2675,7 +2692,9 @@ async def decline_credential(session_id: str, request_id: str, request: Request)
 async def resolve_plan(session_id: str, body: PlanBody, request: Request) -> dict[str, Any]:
     svc = (await _async_service(request))
     try:
-        ok = await svc.resolve_turn_plan(session_id, body.turn_id, body.decision)
+        ok = await svc.resolve_turn_plan(
+            session_id, body.turn_id, body.decision, build_mode=body.build_mode
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except SessionBusy as exc:

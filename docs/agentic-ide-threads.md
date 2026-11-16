@@ -150,6 +150,15 @@ before edits" asks as it did before the plan. When the agent enters plan mode
 on its own, in a thread the person never switched to Plan Mode, approving its
 plan leaves the thread's access mode as it is.
 
+A thread in Plan Mode that kept no mode to return to (one from before the
+field existed) shows and returns to the lowest rung of its ladder ("Ask before
+edits" on Claude Code), never the ladder's default "Bypass permissions". A
+fork keeps its source's mode. **Build it** sends the mode the pill shows, so
+the button's words are what runs. "Always allow" on the plan card approves
+the plan only: the CLI's own suggestion to switch the session to another
+mode is not kept. No card switches a session to "Bypass permissions"; only
+the pill does.
+
 The question card is the question and nothing else: no header row. It shows
 the question, the agent's options as lettered rows (its recommendation first)
 and a row for a typed answer behind the next letter. Its foot holds **Skip**,

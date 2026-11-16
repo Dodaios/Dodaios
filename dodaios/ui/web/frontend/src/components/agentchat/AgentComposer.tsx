@@ -21,7 +21,7 @@ import { Combobox, type ComboboxGroup, type ComboboxOption } from "@/components/
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { useAgentChat, useAgentChatApi } from "@/components/agentchat/AgentChatStoreContext";
-import type { ProviderOption } from "@/store/agentChat";
+import { planReturnMode, type ProviderOption } from "@/store/agentChat";
 import { useEventStore } from "@/store/events";
 import { folderLeaf } from "@/lib/folderPath";
 import { effortLadder, snapEffort } from "@/lib/effortLadder";
@@ -652,7 +652,7 @@ export function AgentComposer({ autoFocus = false }: { autoFocus?: boolean }) {
     [permissionModes],
   );
   // While Plan is on, the permission pill shows the mode Build would return to.
-  const permissionValue = planOn ? draft.buildMode || provider?.default_permission_mode || "" : draft.permissionMode;
+  const permissionValue = planOn ? planReturnMode(draft, provider) : draft.permissionMode;
   const permissionDescription =
     (provider?.permission_modes ?? []).find((m) => m.id === draft.permissionMode)?.description ?? "";
   const permissionLabel = permissionModes.find((m) => m.id === permissionValue)?.label ?? "";
