@@ -1,0 +1,28 @@
+/*
+ * The stage bar inside the node window (components/nodes/peek).
+ *
+ * There the bar is as wide as the node's column, which the person resizes
+ * and which a small app window squeezes. It measures itself, not the
+ * viewport: below the first width the title loses its second line of detail,
+ * below the second the labelled buttons fall back to their glyphs.
+ */
+.stage-bar-window {
+  container-type: inline-size;
+  container-name: stage-bar;
+}
+
+@container stage-bar (max-width: 760px) {
+  .stage-bar-window .stage-bar-detail {
+    display: none;
+  }
+}
+
+@container stage-bar (max-width: 640px) {
+  .stage-bar-window .stage-bar-label {
+    display: none;
+  }
+  .stage-bar-window .stage-bar-button {
+    width: 2.25rem;
+    padding-inline: 0;
+  }
+}

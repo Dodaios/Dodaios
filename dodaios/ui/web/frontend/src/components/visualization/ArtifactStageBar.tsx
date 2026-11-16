@@ -14,6 +14,7 @@ import { robustCopy } from "@/lib/clipboard";
 import { anchorOf, canNativeShare, shareFilesNatively } from "@/lib/nativeShare";
 import { shareArtifact, type ShareFormat } from "@/hooks/useOutputs";
 import { useEventStore } from "@/store/events";
+import "./stageBar.css";
 
 /**
  * The Artifacts stage's one bar, kept quiet on purpose.
@@ -23,9 +24,16 @@ import { useEventStore } from "@/store/events";
  * code, files, run —, the star, open in the browser, save a copy, show in
  * folder, previous / next), and a round close button that goes back to the
  * library. No status word for a run that simply succeeded, no icon row.
+ *
+ * In the node window (`layout="window"`, components/nodes/peek) the same bar
+ * is a window's title row: the name on the left, the same actions on the
+ * right, then the window's own buttons (`trailing`) and its close button.
  */
 
-const ROUND_BUTTON =
+/** Where the bar stands: the Nodes section's stage, or the node window. */
+export type StageBarLayout = "section" | "window";
+
+export const ROUND_BUTTON =
   "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/70 text-muted-foreground " +
   "transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 " +
   "focus-visible:ring-ring [&_svg]:h-[18px] [&_svg]:w-[18px]";
@@ -39,14 +47,56 @@ export function StageBar({
   onClose,
   center,
   actions,
+  layout = "section",
+  trailing,
+  closeButton = true,
 }: {
   onClose: () => void;
   /** The title pill (and a run's own actions while it works). */
   center?: ReactNode;
   /** Share and the overflow menu, left of the close button. */
   actions?: ReactNode;
+  layout?: StageBarLayout;
+  /** The window's own buttons, between the actions and the close button. */
+  trailing?: ReactNode;
+  /**
+   * False where something right of the bar carries the window's close button
+   * (the conversation column of the node window): a window has one, in its
+   * top right corner.
+   */
+  closeButton?: boolean;
 }) {
   const t = useT();
+  const close = !closeButton ? null : (
+    <button
+      type="button"
+      onClick={onClose}
+      aria-label={t("visualization.close")}
+      title={layout === "window" ? t("visualization.close") : undefined}
+      data-testid="visualization-back"
+      className={ROUND_BUTTON}
+    >
+      <X aria-hidden />
+    </button>
+  );
+  if (layout === "window") {
+    return (
+      // Above the node under it: an editor's own layers must not cover the
+      // bar's menus (the container query makes the bar a stacking context).
+      <div
+        className="stage-bar-window relative z-20 flex shrink-0 items-center gap-3 border-b border-border py-2.5 pl-4 pr-3"
+        data-testid="visualization-stage-bar"
+        data-layout="window"
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-2">{center}</div>
+        <div className="flex shrink-0 items-center justify-end gap-2">
+          {actions}
+          {trailing}
+          {close}
+        </div>
+      </div>
+    );
+  }
   return (
     <div
       className="grid shrink-0 grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-3 border-b border-border px-4 py-2.5"
@@ -56,15 +106,7 @@ export function StageBar({
       <div className="flex min-w-0 items-center justify-center gap-2">{center}</div>
       <div className="flex shrink-0 items-center justify-end gap-2">
         {actions}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t("visualization.close")}
-          data-testid="visualization-back"
-          className={ROUND_BUTTON}
-        >
-          <X aria-hidden />
-        </button>
+        {close}
       </div>
     </div>
   );
@@ -76,6 +118,8 @@ export function TitlePill({
   picture,
   suffix,
   status,
+  plain = false,
+  detail,
 }: {
   title: string;
   /** A picture gets a picture glyph; everything else a document. */
@@ -84,18 +128,33 @@ export function TitlePill({
   suffix?: string;
   /** A run's state when it is worth saying (running, failed, …). */
   status?: ReactNode;
+  /** A window's title: the name alone, no pill round it. */
+  plain?: boolean;
+  /** What it is and when it changed, quieter, after the name (window title only). */
+  detail?: string;
 }) {
   const Icon = picture ? ImageIcon : FileText;
   return (
-    <div className="inline-flex h-10 min-w-0 max-w-[min(40rem,56vw)] items-center gap-2.5 rounded-full border border-border/70 bg-secondary/40 px-4">
+    <div
+      className={cn(
+        "inline-flex h-10 min-w-0 items-center gap-2.5",
+        plain ? "px-1" : "max-w-[min(40rem,56vw)] rounded-full border border-border/70 bg-secondary/40 px-4",
+      )}
+    >
       <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden />
       <span
         className="truncate text-base font-medium text-foreground-strong"
         data-testid="visualization-title"
+        title={plain ? title : undefined}
       >
         {title}
       </span>
       {suffix && <span className="shrink-0 text-base text-muted-foreground">· {suffix}</span>}
+      {plain && detail && (
+        <span className="stage-bar-detail shrink-0 text-sm text-muted-foreground" data-testid="visualization-title-detail">
+          {detail}
+        </span>
+      )}
       {status}
     </div>
   );

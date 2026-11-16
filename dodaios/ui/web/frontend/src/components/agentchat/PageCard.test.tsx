@@ -1,20 +1,17 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-const requestVisual = vi.fn();
-
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key }));
 vi.mock("@/hooks/useTheme", () => ({ useThemeValue: () => "light" }));
-vi.mock("@/store/events", () => ({
-  useEventStore: (select: (s: { requestVisual: typeof requestVisual }) => unknown) => select({ requestVisual }),
-}));
 
+import { useAgentChatStore } from "@/store/agentChat";
+import { useNodePeek } from "@/store/nodePeek";
 import { PageCard, PageLink, pageCardData, pageNoticeModes, splitPageRef } from "./PageCard";
 import type { NoticeItem, TimelineItem } from "./reduce";
 
 afterEach(() => {
   cleanup();
-  requestVisual.mockReset();
+  useNodePeek.setState({ peek: null, touched: {} });
 });
 
 const PAGE = "run-1::tasks/report/artifacts/files/plan.html";
@@ -26,14 +23,22 @@ const notice = (data: Record<string, unknown>, text = "Business plan v1", id = "
 
 const user = (id: string): TimelineItem => ({ type: "user", id } as TimelineItem);
 
-it("shows one page as a preview card that opens the page and offers the file", () => {
+it("shows one page as a preview card that opens the page beside its conversation and offers the file", () => {
   render(<PageCard item={notice({ summary: "Three decisions are open.", artifact: PAGE, sections: 9 })} />);
   expect(screen.getByText("Business plan v1")).toBeTruthy();
   // What the thing is, in one word under its name.
   expect(screen.getByText("reports.page")).toBeTruthy();
+  expect(screen.getByTestId("page-card").getAttribute("data-open")).toBeNull();
   fireEvent.click(screen.getByTestId("page-card-preview"));
+  // The node window, not the Nodes section: with the page, its name, and the
+  // chat the card stands in (the front page's, with no provider round it).
+  const first = useNodePeek.getState().peek;
+  expect(first).toMatchObject({ ref: PAGE, slug: "run-1", path: "tasks/report/artifacts/files/plan.html", title: "Business plan v1" });
+  expect(first?.chat).toBe(useAgentChatStore);
+  // The card of the page that is open says so.
+  expect(screen.getByTestId("page-card").getAttribute("data-open")).toBe("true");
   fireEvent.click(screen.getByTestId("page-card-title"));
-  expect(requestVisual.mock.calls).toEqual([[PAGE], [PAGE]]);
+  expect(useNodePeek.getState().peek?.seq).toBe((first?.seq ?? 0) + 1);
   const download = screen.getByTestId("page-card-download") as HTMLAnchorElement;
   expect(download.getAttribute("href")).toBe("/api/outputs/run-1/files/tasks/report/artifacts/files/plan.html/download?disposition=attachment");
   expect(download.getAttribute("download")).toBe("plan.html");
@@ -43,7 +48,18 @@ it("shows a page as a link when the turn made several", () => {
   render(<PageCard item={notice({ artifact: PAGE })} mode="link" />);
   expect(screen.queryByTestId("page-card")).toBeNull();
   fireEvent.click(screen.getByTestId("page-link"));
-  expect(requestVisual).toHaveBeenCalledWith(PAGE);
+  expect(useNodePeek.getState().peek?.ref).toBe(PAGE);
+});
+
+it("draws the preview again once the page's window was closed, so an edit made there shows", () => {
+  render(<PageCard item={notice({ artifact: PAGE })} />);
+  // jsdom lays nothing out, so the frame itself is not mounted; the card's
+  // address for it is what changes.
+  useNodePeek.getState().open(PAGE);
+  expect(useNodePeek.getState().touched[PAGE]).toBeUndefined();
+  useNodePeek.getState().close();
+  expect(useNodePeek.getState().touched[PAGE]).toBeGreaterThan(0);
+  expect(screen.getByTestId("page-card").getAttribute("data-open")).toBeNull();
 });
 
 const SHEET = "run-2__node__abc::tasks/node/artifacts/files/costs.html";

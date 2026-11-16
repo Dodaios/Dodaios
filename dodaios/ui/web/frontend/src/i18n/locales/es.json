@@ -11954,6 +11954,21 @@
     "ask": {
       "change_draft": "Cambia el node «{0}» (id {1}): "
     },
+    "peek": {
+      "window": "Nodo",
+      "conversation": "Conversación",
+      "open_in_nodes": "Abrir en Nodes",
+      "show_chat": "Mostrar la conversación",
+      "hide_chat": "Ocultar la conversación",
+      "resize": "Arrastra para ensanchar o estrechar la conversación. Doble clic para el ancho habitual.",
+      "unsent_title": "Comentarios sin enviar",
+      "unsent_one": "1 comentario aún no se ha enviado",
+      "unsent_many": "{0} comentarios aún no se han enviado",
+      "unsent_body": "Envíalos ahora a {name}, o cierra y descártalos.",
+      "unsent_send": "Enviar y cerrar",
+      "unsent_discard": "Descartar",
+      "unsent_keep": "Quedarme aquí"
+    },
     "states": {
       "loading": "Cargando tus nodes",
       "empty": "Aún no hay nada. Empieza con Nuevo y {name} lo crea contigo.",

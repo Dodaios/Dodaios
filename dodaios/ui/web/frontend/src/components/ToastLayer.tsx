@@ -11,6 +11,7 @@ import {
   GripVertical,
 } from "lucide-react";
 import { useEventStore, type Toast } from "@/store/events";
+import { useNodePeek } from "@/store/nodePeek";
 import { cn } from "@/lib/utils";
 import { openDownloadedFile, revealInFolder } from "@/lib/fileActions";
 import { canNativeDrag, startNativeFileDrag } from "@/lib/nativeDrag";
@@ -45,6 +46,10 @@ export function ToastLayer({ children }: { children?: ReactNode } = {}) {
   // On wide windows the conversation has the assistant's panel on its right
   // (320 px). The stack stands beside it rather than over its head.
   const besidePanel = useEventStore((s) => s.activeSection === "chats");
+  // The node window (components/nodes/peek) has its buttons in its top right
+  // corner, where this stack stands. While it is open the stack moves under
+  // the window's title row, inside its margin.
+  const underNodeWindow = useNodePeek((s) => s.peek !== null);
 
   return createPortal(
     // z-[115]: above the first-run setup spotlight (z-110), whose scrim takes
@@ -57,7 +62,12 @@ export function ToastLayer({ children }: { children?: ReactNode } = {}) {
     // top-12: below the caption strip — at the top edge a toast covered the
     // restart and window buttons whose outcome it reports.
     <div data-testid="toast-layer"
-      className={cn("pointer-events-none fixed right-4 top-12 z-[115] flex flex-col items-end gap-2", besidePanel && "lg:right-[336px]")}>
+      data-under-node-window={underNodeWindow ? "true" : undefined}
+      className={cn(
+        "pointer-events-none fixed right-4 top-12 z-[115] flex flex-col items-end gap-2",
+        besidePanel && !underNodeWindow && "lg:right-[336px]",
+        underNodeWindow && "right-6 top-[112px] sm:right-9 sm:top-[124px] xl:right-[52px] xl:top-[136px]",
+      )}>
       {toasts.map((toast) => {
         const Icon = ICON_FOR_KIND[toast.kind];
         // A saved-file toast in the desktop shell is a native drag handle: press

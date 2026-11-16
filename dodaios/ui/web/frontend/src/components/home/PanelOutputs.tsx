@@ -12,7 +12,7 @@ import { classifyVisual, toVisuals } from "@/hooks/useVisualArtifacts";
 import { fill, useT } from "@/i18n";
 import { fetchLeadFiles, type LeadFile } from "@/lib/agentChatApi";
 import { openLocalPath } from "@/lib/openLocalPath";
-import { useEventStore } from "@/store/events";
+import { openNodePeek } from "@/store/nodePeek";
 
 /** How many files show before the rest folds away, and how many unfold. */
 export const OUTPUTS_SHOWN = 6;
@@ -113,8 +113,9 @@ export function withLibraryTypes(rows: OutputRow[], cards: { key: string; type: 
  * What the assistant made, the newest file first — pages, pictures, videos,
  * documents, spreadsheets, code. Two sources feed it:
  *
- * - the files of its newest finished runs. A row opens the file on the
- *   Artifacts page (a file that page cannot draw opens its run there). Read
+ * - the files of its newest finished runs. A row opens the file in the node
+ *   window, beside the conversation (a file the stage cannot draw opens its
+ *   run there). Read
  *   under the keys the navigation rail and the Artifacts page read under, so
  *   the three share one answer.
  * - the files it handed over in the conversation itself ("The file is ready:
@@ -123,7 +124,6 @@ export function withLibraryTypes(rows: OutputRow[], cards: { key: string; type: 
  */
 export function PanelOutputs({ name }: { name: string }) {
   const t = useT();
-  const requestVisual = useEventStore((s) => s.requestVisual);
   const [open, setOpen] = useState(false);
   const runs = useQuery<OutputSummary[]>({
     queryKey: ["outputs"],
@@ -177,7 +177,8 @@ export function PanelOutputs({ name }: { name: string }) {
   );
   const shown = files.slice(0, open ? OUTPUTS_UNFOLDED : OUTPUTS_SHOWN);
   const openRow = (row: OutputRow) => {
-    if (row.slug) requestVisual(`${row.slug}::${row.path}`);
+    // In the node window, beside the conversation the panel stands next to.
+    if (row.slug) openNodePeek(`${row.slug}::${row.path}`, { chat: null, title: row.label });
     else void openLocalPath(row.path);
   };
 

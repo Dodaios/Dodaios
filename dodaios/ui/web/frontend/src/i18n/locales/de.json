@@ -11954,6 +11954,21 @@
     "ask": {
       "change_draft": "Ändere den Node „{0}“ (ID {1}): "
     },
+    "peek": {
+      "window": "Node",
+      "conversation": "Unterhaltung",
+      "open_in_nodes": "In Nodes öffnen",
+      "show_chat": "Unterhaltung einblenden",
+      "hide_chat": "Unterhaltung ausblenden",
+      "resize": "Ziehen, um die Unterhaltung breiter oder schmaler zu machen. Doppelklick für die übliche Breite.",
+      "unsent_title": "Kommentare nicht gesendet",
+      "unsent_one": "1 Kommentar ist noch nicht gesendet",
+      "unsent_many": "{0} Kommentare sind noch nicht gesendet",
+      "unsent_body": "Schick sie jetzt an {name}, oder schließ das Fenster und verwirf sie.",
+      "unsent_send": "Senden und schließen",
+      "unsent_discard": "Verwerfen",
+      "unsent_keep": "Hier bleiben"
+    },
     "states": {
       "loading": "Deine Nodes werden geladen",
       "empty": "Noch nichts da. Beginne mit „Neu“, und {name} erstellt es mit dir.",

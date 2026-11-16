@@ -1,21 +1,18 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-const requestVisual = vi.fn();
 const openExternalUrl = vi.fn(async (_url: string) => true);
 
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key }));
 vi.mock("@/lib/openExternal", () => ({ openExternalUrl: (url: string) => openExternalUrl(url) }));
-vi.mock("@/store/events", () => ({
-  useEventStore: (select: (s: { requestVisual: typeof requestVisual }) => unknown) => select({ requestVisual }),
-}));
 
+import { useNodePeek } from "@/store/nodePeek";
 import { ChainResultCard, chainResultRows } from "./ChainResultCard";
 import type { NoticeItem } from "./reduce";
 
 afterEach(() => {
   cleanup();
-  requestVisual.mockReset();
+  useNodePeek.setState({ peek: null, touched: {} });
   openExternalUrl.mockClear();
 });
 
@@ -39,7 +36,8 @@ it("lists what was made with its state and opens each in its place", () => {
   fireEvent.click(opens[0]);
   expect(openExternalUrl).toHaveBeenCalledWith("https://cal.example/e/1");
   fireEvent.click(opens[1]);
-  expect(requestVisual).toHaveBeenCalledWith("run-1::tasks/living/artifacts/files/p.html");
+  // A page opens in the node window, beside this conversation.
+  expect(useNodePeek.getState().peek).toMatchObject({ ref: "run-1::tasks/living/artifacts/files/p.html", title: "My parcels" });
 });
 
 it("drops unsafe links, unknown kinds and empty rows", () => {

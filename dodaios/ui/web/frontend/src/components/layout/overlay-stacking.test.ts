@@ -127,4 +127,26 @@ describe("overlay stacking guard", () => {
     expect(toasts).toBeGreaterThan(spotlight);
     expect(toasts).toBeLessThan(caption);
   });
+
+  it("keeps the node window over the app and under everything a click in it opens", () => {
+    // The window (components/nodes/peek) holds a chat composer and the node
+    // editors. Their menus, the tooltips and every dialog are portaled to
+    // <body> at z-70 and above; a window at or over that level would cover
+    // the very menu a click in it opened. The nav column (z-20) and the
+    // sections' own layers (up to z-50) stay under it.
+    const zOf = (path: string, pattern: RegExp): number => {
+      const match = pattern.exec(read(path));
+      expect(match, `${path} no longer carries ${pattern}`).not.toBeNull();
+      return Number(match![1]);
+    };
+    const nodeWindow = zOf("components/nodes/peek/NodePeekWindow.tsx", /fixed inset-0 z-\[(\d+)\]/);
+    const typeahead = zOf("components/agentchat/ComposerTypeahead.tsx", /fixed z-\[(\d+)\]/);
+    const addMenu = zOf("components/agentchat/ComposerAddMenu.tsx", /fixed z-\[(\d+)\]/);
+    const caption = zOf("components/layout/TopBar.tsx", /fixed inset-x-0 top-0 z-\[(\d+)\]/);
+
+    expect(nodeWindow).toBeGreaterThan(50);
+    expect(nodeWindow).toBeLessThan(typeahead);
+    expect(nodeWindow).toBeLessThan(addMenu);
+    expect(nodeWindow).toBeLessThan(caption);
+  });
 });
