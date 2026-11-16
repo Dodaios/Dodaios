@@ -178,6 +178,9 @@ export default function NodePeekWindow({ peek }: { peek: NodePeekRequest }) {
       const target = event.target;
       const inWindow = target instanceof Node && frame.current?.contains(target) === true;
       if (!inWindow && target !== document.body) return;
+      // The node's own content keeps its keys: a whiteboard moves what is
+      // selected with the arrows and leaves a tool with Escape.
+      if (target instanceof Element && target.closest('[data-testid="visualization-stage"]')) return;
       if (event.key === "Escape") {
         if (confirming) setConfirming(false);
         // A text being typed and an open editor keep their Escape.

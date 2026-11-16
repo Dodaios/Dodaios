@@ -234,6 +234,12 @@ describe("the node window", () => {
     // A dialog portaled to <body> is not in the window: its Escape is its own.
     fireEvent.keyDown(screen.getByTestId("behind"), { key: "Escape" });
     expect(screen.getByTestId("node-peek-window")).toBeTruthy();
+    // The node's own content keeps its keys too (a whiteboard's arrows and Escape).
+    const content = await screen.findByTestId("visualization-stage");
+    fireEvent.keyDown(content, { key: "Escape" });
+    fireEvent.keyDown(content, { key: "ArrowRight" });
+    expect(screen.getByTestId("node-peek-window")).toBeTruthy();
+    expect(useNodePeek.getState().peek?.ref).toBe(PLAN);
   });
 
   it("asks before it drops comments that were left and not sent", async () => {
