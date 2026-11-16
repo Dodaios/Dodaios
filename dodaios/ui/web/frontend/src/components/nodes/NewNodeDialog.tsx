@@ -155,7 +155,8 @@ function NewNodeForm({
     try {
       card = await actions.createNode({
         type,
-        title: request === "" ? undefined : request.slice(0, MAX_TITLE_CHARS),
+        // Nothing typed: the same name in the reader's language as "New" gives.
+        title: request === "" ? t(`nodes.new.untitled.${type}`) : request.slice(0, MAX_TITLE_CHARS),
         language,
       });
     } catch {
