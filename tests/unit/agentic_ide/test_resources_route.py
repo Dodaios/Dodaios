@@ -79,7 +79,7 @@ def test_a_poll_hands_the_sampler_the_panes_it_can_name(client, sampler, monkeyp
         ],
     )
     monkeypatch.setattr(registry, "runtime_status", lambda: {"host_pid": 77})
-    turn = (5151, {"session_id": "s1", "runner": "codex", "cwd": "C:/work/api"})
+    turn = (5151, {"session_id": "s1", "runner": "codex-cli", "cwd": "C:/work/api"})
     monkeypatch.setattr(turn_host_client, "live_processes", lambda: (88, [turn]))
 
     response = client.get("/api/agentic-ide/resources")
@@ -147,3 +147,23 @@ def test_a_registry_lists_only_panes_with_a_process_on_this_computer(tmp_path) -
         assert registry.pane_processes() == []
     finally:
         ide.reset_registry()
+
+
+def test_a_thread_is_named_by_the_agent_its_runner_drives(client, sampler, monkeypatch) -> None:
+    """A thread's runner (``claude-cli``) maps to the IDE agent (``claude``), so
+    the row draws the brand mark instead of a "CL" monogram."""
+    registry = ide.get_registry()
+    monkeypatch.setattr(registry, "pane_processes", lambda: [])
+    monkeypatch.setattr(registry, "runtime_status", lambda: {"host_pid": 0})
+    turns = [
+        (6001, {"session_id": "a", "runner": "claude-cli", "cwd": ""}),
+        (6002, {"session_id": "b", "runner": "custom-cli", "cwd": ""}),
+    ]
+    monkeypatch.setattr(turn_host_client, "live_processes", lambda: (0, turns))
+
+    assert client.get("/api/agentic-ide/resources").status_code == 200
+
+    (context,) = sampler.contexts
+    claude, custom = context.known_roots
+    assert (claude.agent, claude.agent_label) == ("claude", "Claude Code")
+    assert custom.agent == "custom-cli"
