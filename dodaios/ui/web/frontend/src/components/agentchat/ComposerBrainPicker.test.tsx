@@ -70,6 +70,30 @@ describe("ComposerBrainPicker", () => {
     expect(onChange).toHaveBeenCalledWith("grok\u0001grok-5");
   });
 
+  it("asks for a provider's models when its page is shown", async () => {
+    const onBrowse = vi.fn();
+    render(
+      <ComposerBrainPicker
+        value={"claude\u0001opus"}
+        groups={GROUPS}
+        sections={SECTIONS}
+        currentSection="claude"
+        onChange={vi.fn()}
+        onBrowse={onBrowse}
+        ariaLabel="Model"
+        fallbackLabel="Model"
+        searchPlaceholder="Search models…"
+      />,
+    );
+    fireEvent.click(screen.getByTestId("composer-model"));
+    const panel = await screen.findByTestId("composer-model-panel");
+    expect(onBrowse).toHaveBeenLastCalledWith("claude");
+    fireEvent.click(within(panel).getByTestId("composer-model-rail-grok"));
+    expect(onBrowse).toHaveBeenLastCalledWith("grok");
+    fireEvent.click(within(panel).getByTestId("composer-model-rail-favorites"));
+    expect(onBrowse).not.toHaveBeenCalledWith("favorites");
+  });
+
   it("searches every provider whatever the rail shows", async () => {
     renderPicker();
     fireEvent.click(screen.getByTestId("composer-model"));
