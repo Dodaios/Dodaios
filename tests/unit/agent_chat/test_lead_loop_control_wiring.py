@@ -41,7 +41,7 @@ async def test_a_lead_turn_verifies_and_takes_typed_messages_mid_turn(
     assert not svc.can_steer(session.session_id), "the steerer is gone with the turn"
 
 
-async def test_a_non_lead_brain_turn_has_no_loop_control(
+async def test_a_non_lead_brain_turn_neither_verifies_nor_takes_steering(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_cli  # noqa: F811
 ):
     fake = FakeBrainManager()
@@ -52,4 +52,9 @@ async def test_a_non_lead_brain_turn_has_no_loop_control(
     q = svc.subscribe(session.session_id)
     await svc.send(session.session_id, "hi")
     await _drain(q, "turn_finished")
-    assert fake.calls[0][1]["turn_override"].loop_control is None
+    # Every brain turn listens for the phases (the line written before a tool
+    # is sent when the tool starts); verification and steering are the lead's.
+    control = fake.calls[0][1]["turn_override"].loop_control
+    assert control is not None and control.on_phase is not None
+    assert control.verify is None and control.drain_steer is None
+    assert not svc.can_steer(session.session_id)

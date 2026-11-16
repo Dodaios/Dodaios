@@ -4561,6 +4561,9 @@ async def run_cli_turn(
 
         if SECRET_NOUN.search(user_text):
             user_text += dodaios_harness.SECRET_FIELD_LINE
+        if not handle.continuation:
+            # A turn that carries a running task on has already taken it on.
+            user_text += dodaios_harness.FIRST_LINE
         user_text += dodaios_harness.REPLY_SHAPE_LINE + dodaios_harness.QUESTION_CARD_LINE
     if getattr(handle, "output_language", "") and not user_text.startswith("/goal"):
         user_text += reply_language_line(session.surface, handle.output_language)

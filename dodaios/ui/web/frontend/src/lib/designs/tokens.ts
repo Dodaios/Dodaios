@@ -129,6 +129,9 @@ export function paletteTokens(palette: DesignPalette): Record<string, string> {
   const primaryRgb = hslToRgb(primary);
   const userBubble = pick("user_bubble", step(bg, dark ? 12 : 5, dark));
   const bubbleOut = pick("bubble_out", accent);
+  // The person's bubble in the assistant's conversation is grey by default; a
+  // design that names its own outgoing colour keeps it there too.
+  const leadOut = pick("bubble_out", step(bg, dark ? 16 : 12, dark));
   const bubbleIn = pick("bubble_in", step(bg, dark ? 11 : 8, dark));
 
   const tokens: Record<string, string> = {
@@ -160,6 +163,8 @@ export function paletteTokens(palette: DesignPalette): Record<string, string> {
     "--user-bubble-foreground": triple(fg),
     "--chat-bubble-out": triple(bubbleOut),
     "--chat-bubble-out-foreground": triple(inkOn(hslToRgb(bubbleOut))),
+    "--lead-bubble-out": triple(leadOut),
+    "--lead-bubble-out-foreground": triple(inkOn(hslToRgb(leadOut))),
     "--chat-bubble-in": triple(bubbleIn),
     "--chat-bubble-in-foreground": triple(fg),
     "--accent-rgb": accentRgb.join(" "),

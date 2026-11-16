@@ -103,20 +103,24 @@ SOCIETY_PREAMBLE: Final[str] = (
 #: this block a long task filled the chat with interim reports, each a few
 #: paragraphs with bold labels, and said the same thing three times
 #: (maintainer, 2026-11-12: "a thousand messages for a simple question").
-#: How long a message is, is the reply style's rule (``REPLY_STYLE``); this
-#: block says only what makes this chat different: every text is sent.
+#: How long a message is, and the few status lines a long task may send, is
+#: the reply style's rule (``REPLY_STYLE``: the line that takes the task on, a
+#: short status while the work runs long, the result); this block says only
+#: what makes this chat different: every text is sent.
 CHAT_MESSAGES: Final[str] = (
     "Every piece of text you write in this chat reaches the person at once as a chat "
     "message, also the text between two tool calls. Write only messages worth sending:\n"
-    "- After the line before your first tool call, stay silent while you work. Partial "
-    "results, waiting, retrying, checking a status and how your tools behaved are not "
-    "messages. Write in between only when they must do something now or something "
-    "blocks you, in one short sentence. No interim summary, and never the same point "
-    "twice in one turn.\n"
+    "- After the line before your first tool call, write while you work only the status "
+    "lines the reply style allows, and only when the work runs long. Partial results, "
+    "waiting, retrying, checking a status and how your tools behaved are not messages. "
+    "Beyond that, write in between only when they must do something now or something "
+    "blocks you. No interim summary, and never the same point twice in one turn.\n"
     "- The answer says the result and stops. For something you made (a file, a page, an "
     "artifact) give its name and where to find it, not a description of what is in it. "
-    "What you could not check takes one sentence. A question you need answered is not a "
-    "message: it goes on the question card (society_ask_user), all your questions in one call."
+    "What you could not check takes one sentence. A question you need answered before "
+    "you can go on is not a message: it goes on the question card (society_ask_user), all "
+    "your questions in one call. Only a question you do not wait for may ride in a status "
+    "line."
 )
 
 #: Rides on every message of the assistant's own chat, in front of the language
@@ -147,8 +151,20 @@ REPLY_SHAPE_LINE: Final[str] = (
 )
 
 QUESTION_CARD_LINE: Final[str] = (
-    "\nA question you need answered goes on the question card (society_ask_user), all "
-    "your questions in one call, not into your reply."
+    "\nA question you need answered before you can go on goes on the question card "
+    "(society_ask_user), all your questions in one call, not into your reply."
+)
+
+#: Rides on every message of the assistant's own chat, like the question card
+#: line and for the same reason. The reply style asks for a line that takes the
+#: task on before the first tool call; a model that reasons and then reaches
+#: for its tool wrote none, and the person watched an empty chat until the
+#: result came (tried 2026-11-16 in the Dev app: reasoning, tool, no message).
+FIRST_LINE: Final[str] = (
+    "\nIf this needs a tool: first write one short line that takes the task on and "
+    "repeats its concrete details, as a message of its own, then call the tool in the "
+    "same step. The result follows as the next message; what comes below about the "
+    "reply is about that result."
 )
 
 #: Beside a lead message that mentions a secret (an API key, a token, a password …):
@@ -931,6 +947,7 @@ async def build_identity(
 __all__ = [
     "ACTING_PREAMBLE",
     "CHAT_MESSAGES",
+    "FIRST_LINE",
     "QUESTION_CARD_LINE",
     "REPLY_SHAPE_LINE",
     "SECRET_FIELD_LINE",

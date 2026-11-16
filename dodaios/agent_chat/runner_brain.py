@@ -30,6 +30,7 @@ import logging
 import time
 import uuid
 from collections.abc import Callable, Mapping
+from concurrent.futures import Future
 from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, get_args
@@ -43,6 +44,7 @@ from dodaios.agent_chat.runner_api import messages_from_events
 from dodaios.agent_chat.surface_kits import kit_for
 from dodaios.agent_chat.tool_catalog import ToolChoice
 from dodaios.agent_chat.tools import summarize_call
+from dodaios.brain.loop_control import PHASE_ACT, LoopControl
 from dodaios.brain.turn_override import TurnOverride
 from dodaios.core.protocols import BrainMessage, ReasoningEffort, Tool, current_chat_turn
 from dodaios.i18n import is_known_language, is_supported_locale
@@ -657,6 +659,45 @@ async def run_brain_turn(
             steer_open = True
             handle.on_steer(_steer)
 
+    # What the brain writes before it reaches for a tool is a message of its
+    # own, sent the moment the tool starts: "On it, I'm looking for ..." reaches
+    # the person while the search runs, and the answer follows as the next
+    # message. Each model round writes into its own text block; the loop's
+    # ``act`` phase (it fires right before a round's tools run) closes it.
+    loop = asyncio.get_running_loop()
+    seen: list[str] = []  # the chunks of the block being written
+    sent: list[str] = []  # the blocks already sent as messages, in order
+    pending: list[Future[None]] = []  # this block's deltas still on their way
+
+    async def close_block(phase: str, _detail: str) -> None:
+        nonlocal message_id
+        if phase != PHASE_ACT:
+            return
+        # The deltas were handed to the loop one by one; the finished block
+        # must not overtake them.
+        waiting, pending[:] = list(pending), []
+        for sending in waiting:
+            try:
+                await asyncio.wrap_future(sending)
+            except Exception:  # noqa: BLE001 — a lost delta never costs the message
+                log.debug("brain chat turn %s: a text delta failed", turn_id, exc_info=True)
+        said = "".join(seen).strip()
+        if not said:
+            return
+        seen.clear()
+        sent.append(said)
+        await emit("assistant_text", {"turn_id": turn_id, "message_id": message_id, "text": said})
+        message_id = uuid.uuid4().hex
+
+    override = replace(
+        override,
+        loop_control=(
+            replace(override.loop_control, on_phase=close_block)
+            if override.loop_control is not None
+            else LoopControl(on_phase=close_block)
+        ),
+    )
+
     if bridge is not None:
         from dodaios.society.surface import requires_explicit_approval
 
@@ -683,19 +724,19 @@ async def run_brain_turn(
     await emit("reasoning_started", {"turn_id": turn_id, "message_id": message_id})
     mirror.start()
 
-    loop = asyncio.get_running_loop()
-    seen: list[str] = []
-
     def feed(chunk: str) -> None:
         """Called by the brain as the answer is produced — a CHUNK, not the whole so far."""
         if not chunk:
             return
         seen.append(chunk)
+        pending[:] = [sending for sending in pending if not sending.done()]
         # The consumer is synchronous (the brain's contract); hand the emit
         # back to the loop rather than blocking the producer.
-        asyncio.run_coroutine_threadsafe(
-            emit("text_delta", {"turn_id": turn_id, "message_id": message_id, "text": chunk}),
-            loop,
+        pending.append(
+            asyncio.run_coroutine_threadsafe(
+                emit("text_delta", {"turn_id": turn_id, "message_id": message_id, "text": chunk}),
+                loop,
+            )
         )
 
     status = "done"
@@ -742,7 +783,7 @@ async def run_brain_turn(
         )
         status, error = "error", provider_down_reason(override.receipt.provider_down_cause)
     elif status == "done":
-        answer = (reply or "").strip() or "".join(seen).strip()
+        answer = closing_text((reply or "").strip(), sent) or "".join(seen).strip()
         if answer:
             await emit(
                 "assistant_text", {"turn_id": turn_id, "message_id": message_id, "text": answer}
@@ -753,6 +794,23 @@ async def run_brain_turn(
             status = "error"
             error = override.receipt.failure_reason or "guarded_response"
     await finish(status, override.receipt.usage(), error)
+
+
+def closing_text(reply: str, sent: list[str]) -> str:
+    """The part of a turn's reply that was not already sent as a message of its own.
+
+    The brain returns everything it wrote in the turn as one string, round
+    after round. The rounds that ended in a tool call were sent while the
+    turn ran (``sent``), so they are taken off the front; what is left is the
+    answer. A reply that does not start with them was rewritten on its way
+    out (a revision, a guard's explanation) and stays whole.
+    """
+    rest = reply.strip()
+    for said in sent:
+        if not said or not rest.startswith(said):
+            break
+        rest = rest[len(said) :].lstrip()
+    return rest
 
 
 async def _generate(

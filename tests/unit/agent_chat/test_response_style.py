@@ -44,6 +44,20 @@ def test_reply_style_keeps_the_person_oriented_without_a_persona() -> None:
         "No headings",
     ):
         assert phrase in CONVERSATIONAL_RESPONSE_STYLE, phrase
+    # A task that needs tools is answered in separate messages: the line that
+    # takes it on, a short status only while the work runs long, the result.
+    for phrase in (
+        "answered in separate messages, each sent the moment you write it",
+        "in the same step as that call",
+        "repeats its concrete details",
+        "Never send this line without the tool call",
+        "Only while the work runs long",
+        "you do not wait for the answer",
+        "At most two status lines in a turn; none for a quick lookup",
+        "your recommendation first",
+        "one closing sentence on the next step",
+    ):
+        assert phrase in CONVERSATIONAL_RESPONSE_STYLE, phrase
     # A general style: no persona, name or flirt register leaks in.
     for leak in ("Jenny", "flirt", "Discord"):
         assert leak not in CONVERSATIONAL_RESPONSE_STYLE

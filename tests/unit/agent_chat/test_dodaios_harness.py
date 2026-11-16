@@ -235,12 +235,16 @@ def test_the_assistants_own_chat_writes_short_messages_and_no_interim_reports():
     assert "characters" not in rules and "sentences" not in rules
     for phrase in (
         "also the text between two tool calls",
-        "After the line before your first tool call, stay silent while you work",
+        # A long task may send the reply style's short status lines, nothing more.
+        "write while you work only the status lines the reply style allows",
+        "only when the work runs long",
+        "how your tools behaved are not messages",
         "No interim summary",
         "never the same point twice in one turn",
         "not a description of what is in it",
         # A question is asked on the card, not written as a message.
-        "A question you need answered is not a message",
+        "A question you need answered before you can go on is not a message",
+        "Only a question you do not wait for may ride in a status line",
         "question card (society_ask_user), all your questions in one call",
     ):
         assert phrase in rules, phrase
