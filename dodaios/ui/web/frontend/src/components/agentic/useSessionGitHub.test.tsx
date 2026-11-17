@@ -1,7 +1,8 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
-  resetSessionGitHubForTests, useSessionGitHub, useSessionGitHubPane, type SessionGitHubStatus,
+  gitHubTargetId, peekGitHubReading, resetSessionGitHubForTests, threadGitHubTarget, useGitHubReadings,
+  useSessionGitHub, useSessionGitHubPane, type SessionGitHubStatus,
 } from "./useSessionGitHub";
 import { resetConnectBudgetForTests } from "@/lib/connectBudget";
 
@@ -214,4 +215,43 @@ it("asks the backend to hold a follow-up until its read lands", async () => {
   expect(String(fetcher.mock.calls[0][0])).not.toContain("wait=");
   expect(String(fetcher.mock.calls[0][0])).toContain("instant=1");
   expect(String(fetcher.mock.calls[1][0])).toContain("wait=4");
+});
+
+it("reads many threads and panes at once, and a target that joins does not restart the others", async () => {
+  const fetcher = vi.fn(async (url: string) => ({
+    ok: true,
+    json: async () => (url.includes("thread-status")
+      ? { panes: { thread: { ...value, number: url.includes("session_id=a") ? 1 : 2 } } }
+      : { panes: { t1: { ...value, number: 9 } } }),
+  }));
+  vi.stubGlobal("fetch", fetcher);
+  const a = threadGitHubTarget("a");
+  const b = threadGitHubTarget("b");
+  const pane = { key: "w", pane: "t1" };
+  const hook = renderHook(({ targets }) => useGitHubReadings(targets), { initialProps: { targets: [a, pane] } });
+  expect(hook.result.current.get(gitHubTargetId(a))).toMatchObject({ status: null, answered: false, readAt: null });
+  await act(() => vi.advanceTimersByTimeAsync(300));
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(hook.result.current.get(gitHubTargetId(a))).toMatchObject({ answered: true, status: { number: 1 } });
+  expect(hook.result.current.get(gitHubTargetId(pane))?.status?.number).toBe(9);
+
+  hook.rerender({ targets: [a, pane, b] });
+  await act(() => vi.advanceTimersByTimeAsync(300));
+  // Only the new thread was asked about.
+  expect(fetcher).toHaveBeenCalledTimes(3);
+  expect(hook.result.current.get(gitHubTargetId(b))?.status?.number).toBe(2);
+});
+
+it("shows a quiet target from what was read last and does not ask about it again", async () => {
+  const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ panes: { thread: { ...value, state: "merged" } } }) });
+  vi.stubGlobal("fetch", fetcher);
+  const hook = renderHook(({ quiet }) => useGitHubReadings([threadGitHubTarget("a", quiet)]), { initialProps: { quiet: false } });
+  await act(() => vi.advanceTimersByTimeAsync(300));
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  hook.rerender({ quiet: true });
+  await act(() => vi.advanceTimersByTimeAsync(120_000));
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(hook.result.current.get(gitHubTargetId(threadGitHubTarget("a")))?.status?.state).toBe("merged");
+  expect(peekGitHubReading(threadGitHubTarget("a")).answered).toBe(true);
+  hook.unmount();
 });

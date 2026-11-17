@@ -37,13 +37,6 @@ export function stateKeyFor(pane: WorkspacePaneRow, kind: AgentDotKind = dotKind
   return pane.worked ? "done" : "idle";
 }
 
-export const DOT_STYLE: Record<AgentDotKind, { dot: string; ping: boolean }> = {
-  working: { dot: "bg-accent", ping: false },
-  waiting: { dot: "bg-warning", ping: true },
-  idle: { dot: "bg-muted-foreground/40", ping: false },
-  error: { dot: "bg-destructive", ping: false },
-};
-
 /** Summary order: what needs the user first, then what is busy, then the rest. */
 export const SUMMARY_ORDER: readonly AgentDotKind[] = ["waiting", "working", "error", "idle"];
 
@@ -60,12 +53,10 @@ export function workspaceAgents(panes: WorkspacePaneRow[], workspaceId: string |
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 }
 
-/** Which agents the Agents tab lists: the workspace at the front, or its whole project folder. */
-export type AgentScope = "workspace" | "folder";
-
 /**
  * The coding agents of every workspace that shares `workspaceId`'s project
- * folder — the active workspace first, then the others by name.
+ * folder — the active workspace first, then the others by name. The Agents
+ * board lists these while it does not know the projects yet.
  *
  * `folder` is the project folder the sidebar groups by; when the caller cannot
  * name it, the active workspace's own rows supply it.
@@ -86,36 +77,4 @@ export function folderAgents(
         a.workspace_name.localeCompare(b.workspace_name, undefined, { numeric: true }) ||
         a.name.localeCompare(b.name, undefined, { numeric: true }),
     );
-}
-
-/** "42s" / "3m" / "2h" / "1d" since an epoch-seconds moment; "" when unknown. */
-export function compactSince(at: number | null | undefined, nowMs: number = Date.now()): string {
-  if (!at) return "";
-  const seconds = Math.max(0, Math.round(nowMs / 1000 - at));
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h`;
-  return `${Math.floor(seconds / 86_400)}d`;
-}
-
-/** The three columns of the Agents tab, top to bottom. */
-export type AgentColumn = "done" | "working" | "reviewed";
-
-export const COLUMN_ORDER: readonly AgentColumn[] = ["done", "working", "reviewed"];
-
-/**
- * Where one agent belongs.
- *
- * Working is the live reading. Anything settled — finished, asking, failed —
- * is Done until the user looks at it, and Reviewed once a look is newer than
- * the moment it settled (`activity_since`), so a reviewed agent that finishes
- * another job comes back to Done. A pane never given a job has nothing to
- * review and waits under Reviewed.
- */
-export function columnFor(pane: WorkspacePaneRow, reviewedAt: number | undefined): AgentColumn {
-  const kind = dotKindFor(pane);
-  if (kind === "working") return "working";
-  if (kind === "idle" && !pane.worked) return "reviewed";
-  if (reviewedAt !== undefined && reviewedAt >= (pane.activity_since || 0)) return "reviewed";
-  return "done";
 }
