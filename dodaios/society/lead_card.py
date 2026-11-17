@@ -130,6 +130,12 @@ def render_lead_card(
     if not team and not team_lines and not names:
         return ""
     by_id = {row.id: row for row in catalog if row.connected}
+    if not team and not team_lines:
+        # No team to lead (named agents are retired): no society rule either,
+        # only the open coding terminals.
+        return (
+            "Coding terminals open in the Agentic IDE right now: " + ", ".join(names) + "."
+        )
     parts: list[str] = [CARD_TITLE, _rule_block(lead_name)]
     if team:
         lines = ["Agents (name — title · tier · state · hands):"]

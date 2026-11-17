@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
-import { useAgentNavigation } from "@/views/society/agentNavigation";
+import { useEventStore } from "@/store/events";
 import { BrowserTakeoverNotice } from "./BrowserTakeoverNotice";
 import { EMPTY_TIMELINE, reduceEvents } from "./reduce";
 import type { NoticeItem } from "./reduce";
@@ -14,10 +14,13 @@ const card = (resolved = ""): NoticeItem => ({
 });
 
 it("shows the reason and opens the agent's live browser", () => {
+  useEventStore.setState({ activeSection: "memory" });
   render(<BrowserTakeoverNotice item={card()} />);
   expect(screen.getByText(/Solve the CAPTCHA/)).toBeTruthy();
   fireEvent.click(screen.getByTestId("browser-takeover-open"));
-  expect(useAgentNavigation.getState().request?.agentId).toBe("lead");
+  // No live browser stage in this test: it falls back to the conversation,
+  // never to the retired Agents page.
+  expect(useEventStore.getState().activeSection).toBe("chats");
 });
 
 it("only says it was handed back once answered", () => {

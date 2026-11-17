@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import { useAgentChatStore } from "@/store/agentChat";
 import { useEventStore } from "@/store/events";
 
 /**
@@ -12,6 +13,9 @@ import { useEventStore } from "@/store/events";
  * marks it for a moment. Nothing here knows how a chat is laid out: a card is
  * found by its `data-card-ref`, or else as the newest open card of its kind.
  */
+
+/** The roster's fixed lead id: the assistant, whose chat is the front page. */
+const LEAD_AGENT_ID = "jarvis";
 
 export type CardKind = "question" | "approval" | "credential" | "proposal";
 
@@ -39,18 +43,27 @@ interface AgentNavigationState {
 
 export const useAgentNavigation = create<AgentNavigationState>(() => ({ request: null, onScreen: null }));
 
-let nonce = 0;
-
-/** Open `agentId` in the Agents section and reveal `cardRef` once it renders. */
+/**
+ * Bring the card an agent's notice points at on screen.
+ *
+ * Named agents are retired (2026-11-11) and the Agents page with them: the one
+ * agent left is the assistant, whose cards live in its conversation. So every
+ * caller (a "needs you" notice, a desktop notification, a status row, an
+ * approval card) lands in the conversation and marks the card there; it never
+ * opens the old Agents page.
+ */
 export function openAgent(
   agentId: string,
   opts: { sessionId?: string; cardRef?: string; kind?: CardKind } = {},
 ): void {
   if (!agentId) return;
-  nonce += 1;
-  useAgentNavigation.setState({ request: { agentId, ...opts, nonce } });
-  const events = useEventStore.getState();
-  if (events.activeSection !== "agents") events.setActiveSection("agents");
+  useEventStore.getState().setActiveSection("chats");
+  // A `society:` id names the conversation itself, which is already the one on stage.
+  if (opts.sessionId && !opts.sessionId.startsWith("society:")) {
+    const chat = useAgentChatStore.getState();
+    if (chat.activeSessionId !== opts.sessionId) chat.openSession(opts.sessionId);
+  }
+  void revealCard({ cardRef: opts.cardRef, kind: opts.kind });
 }
 
 /** Take the pending request (once): the caller is about to honour it. */
@@ -69,8 +82,10 @@ export function setAgentOnScreen(next: AgentOnScreen | null): void {
 
 /** Whether the person is looking at `agentId` right now. */
 export function isAgentOnScreen(agentId: string): boolean {
-  const { onScreen } = useAgentNavigation.getState();
   const section = useEventStore.getState().activeSection;
+  // The assistant's conversation is the front page.
+  if (agentId === LEAD_AGENT_ID) return section === "chats";
+  const { onScreen } = useAgentNavigation.getState();
   return section === "agents" && onScreen?.agentId === agentId;
 }
 

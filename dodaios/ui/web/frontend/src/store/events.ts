@@ -193,20 +193,39 @@ export function isSectionId(value: unknown): value is SectionId {
  *   its flat theme colour only. A remembered link lands in Settings, where
  *   the page used to live.
  * - "tasks": the Automations section was removed (2026-10-01); scheduled work
- *   lives on agents now, as each agent's routines.
+ *   is the assistant's routines, shown beside its conversation.
  */
 export const LEGACY_SECTION_ALIASES: Readonly<Record<string, SectionId>> = {
   run_inspector: "sessions",
   outputs: "visualization",
   wallpaper: "settings",
-  tasks: "agents",
+  tasks: "chats",
 };
+
+/**
+ * Sections whose id still exists (it crosses many layers, see
+ * test_section_id_parity) but that are no longer shown, and where a request
+ * for them lands instead.
+ *
+ * - "agents": named agents are no longer part of the product (2026-11-11).
+ *   Their page stays unreachable: the assistant's routines and cards live in
+ *   its conversation, so every way that led to the Agents page (a notice, a
+ *   status row, a spoken "go to", a remembered link) lands there.
+ */
+export const RETIRED_SECTIONS: Readonly<Partial<Record<SectionId, SectionId>>> = {
+  agents: "chats",
+};
+
+/** The section a request for `id` shows: `id` itself unless it is retired. */
+export function landingSection(id: SectionId): SectionId {
+  return RETIRED_SECTIONS[id] ?? id;
+}
 
 /** The section an id names today — itself, its successor, or null. */
 export function resolveSectionId(value: unknown): SectionId | null {
-  if (isSectionId(value)) return value;
+  if (isSectionId(value)) return landingSection(value);
   if (typeof value === "string" && value in LEGACY_SECTION_ALIASES) {
-    return LEGACY_SECTION_ALIASES[value];
+    return landingSection(LEGACY_SECTION_ALIASES[value]);
   }
   return null;
 }
@@ -777,7 +796,7 @@ export const useEventStore = create<EventStore>((set, get) => ({
   setConnected: (c) => set({ connected: c }),
   setWarming: (warming) => set({ wsWarming: warming }),
   clearEvents: () => set({ events: [] }),
-  setActiveSection: (s) => set({ activeSection: s }),
+  setActiveSection: (s) => set({ activeSection: landingSection(s) }),
 
   requestVisual: (target = "latest") =>
     set((state) => ({

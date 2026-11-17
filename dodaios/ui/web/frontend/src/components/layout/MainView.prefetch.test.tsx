@@ -17,7 +17,7 @@ vi.mock("@/views/society/SocietyView", () => {
 });
 vi.mock("@/views/MemoryView", () => {
   loads.push("memory");
-  return { MemoryView: () => null };
+  return { MemoryView: () => <div>memory ready</div> };
 });
 vi.mock("@/views/PluginsDialog", () => {
   loads.push("plugins");
@@ -81,10 +81,10 @@ test("an idle home window loads no unused sections or speculative data; navigati
   expect(screen.getByText("home")).toBeDefined();
 
   await act(async () => {
-    useEventStore.getState().setActiveSection("agents");
+    useEventStore.getState().setActiveSection("memory");
     await vi.dynamicImportSettled();
   });
-  expect(loads).toEqual(["agents"]);
-  expect(screen.getByText("agents ready")).toBeDefined();
+  expect(loads).toEqual(["memory"]);
+  expect(screen.getByText("memory ready")).toBeDefined();
   client.clear();
 }, 30_000);

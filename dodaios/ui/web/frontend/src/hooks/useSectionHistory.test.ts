@@ -8,7 +8,7 @@ import {
   useSectionNavHistory,
 } from "./useSectionHistory";
 
-function visit(section: "chats" | "agents" | "dictation" | "board"): void {
+function visit(section: "chats" | "profile" | "dictation" | "board"): void {
   act(() => useEventStore.getState().setActiveSection(section));
 }
 
@@ -26,7 +26,7 @@ describe("useSectionHistory", () => {
 
   it("goes back to the previously visited section", () => {
     const { result } = renderHook(() => useSectionHistory());
-    visit("agents");
+    visit("profile");
     visit("dictation");
 
     expect(result.current.canGoBack).toBe(true);
@@ -36,13 +36,13 @@ describe("useSectionHistory", () => {
       target = result.current.goBack();
     });
 
-    expect(target).toBe("agents");
-    expect(useEventStore.getState().activeSection).toBe("agents");
+    expect(target).toBe("profile");
+    expect(useEventStore.getState().activeSection).toBe("profile");
   });
 
   it("keeps forward disabled until a step was undone", () => {
     const { result } = renderHook(() => useSectionHistory());
-    visit("agents");
+    visit("profile");
     visit("dictation");
 
     // Forward leads nowhere before any back step — a section never visited
@@ -67,7 +67,7 @@ describe("useSectionHistory", () => {
 
   it("clears the redo stack on a new visit", () => {
     const { result } = renderHook(() => useSectionHistory());
-    visit("agents");
+    visit("profile");
     visit("dictation");
 
     act(() => {
@@ -82,7 +82,7 @@ describe("useSectionHistory", () => {
 
   it("walks several steps back and forward in order", () => {
     const { result } = renderHook(() => useSectionHistory());
-    visit("agents");
+    visit("profile");
     visit("dictation");
     visit("board");
 
@@ -94,7 +94,7 @@ describe("useSectionHistory", () => {
     act(() => {
       result.current.goBack();
     });
-    expect(useEventStore.getState().activeSection).toBe("agents");
+    expect(useEventStore.getState().activeSection).toBe("profile");
     expect(result.current.canGoBack).toBe(true);
 
     act(() => {
@@ -106,10 +106,10 @@ describe("useSectionHistory", () => {
     act(() => {
       result.current.goForward();
     });
-    expect(useEventStore.getState().activeSection).toBe("agents");
+    expect(useEventStore.getState().activeSection).toBe("profile");
   });
 
-  it.each(["agents", "dictation", "board"] as const)("leaves a freshly opened %s section for the front page", (section) => {
+  it.each(["profile", "dictation", "board"] as const)("leaves a freshly opened %s section for the front page", (section) => {
     useEventStore.setState({ activeSection: section });
     const { result } = renderHook(() => useSectionHistory());
 
@@ -142,8 +142,8 @@ describe("useSectionHistory", () => {
 
   it("does not record re-selecting the same section", () => {
     const { result } = renderHook(() => useSectionHistory());
-    visit("agents");
-    visit("agents");
+    visit("profile");
+    visit("profile");
 
     act(() => {
       result.current.goBack();

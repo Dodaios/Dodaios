@@ -54,7 +54,6 @@ from .roster import (
 )
 from .scheduler import DeliverHook, SocietyScheduler
 from .seat_preflight import preflight_seat
-from .seeds import seed_first_run
 from .store import SocietyStore
 from .world_feed import WorldFeed
 
@@ -182,8 +181,8 @@ class SocietyRuntime:
         deliver: DeliverHook | None = None,
         chat_service: Callable[[], Any | None] | None = None,
         cfg: Callable[[], Any] | None = None,
-        # Only Jarvis is on the roster by default (maintainer, 2026-09-02); the
-        # starter team is offered as seed proposals instead.
+        # Ignored: named agents are retired (2026-11-11), so no starter team is
+        # seeded; only the lead is on the roster. Kept so callers need not change.
         seed_starter_team: bool = False,
         event_publish: Callable[[Any], Any] | None = None,
         app_bus: Any = None,
@@ -210,7 +209,6 @@ class SocietyRuntime:
         self._get_chat = chat_service or (lambda: None)
         self._get_cfg = cfg or (lambda: None)
         self.task_services = task_services or (lambda: (None, None))
-        self._seed_starter_team = seed_starter_team
         self._watchers: set[asyncio.Task[None]] = set()
         self.store = SocietyStore(self._data_dir / _DB_NAME)
         self.roster = Roster(self.store)
@@ -355,14 +353,15 @@ class SocietyRuntime:
         self.world_feed.attach()
         await self.seed_lead()
         self._require_open_owner()
-        if self._seed_starter_team:
-            created = await seed_first_run(self.roster, self.store)
-            if created:
-                log.info("society: starter team seeded: %s", ", ".join(created))
         # Warm the roster snapshot so the lead card (lead_card.py) — a
         # synchronous reader on the brain's prompt build — sees the team from
         # the first turn, not from the first REST listing.
         await self.roster.refresh()
+        # Named agents are retired: only the lead stays on the roster.
+        from .retirement import retire_named_agents
+
+        if await retire_named_agents(self):
+            await self.roster.refresh()
         # Work a previous process left claimed can never report; close it now.
         from .boot_sweep import sweep_interrupted_runs
 

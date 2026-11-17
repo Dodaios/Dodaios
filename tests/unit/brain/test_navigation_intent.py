@@ -20,13 +20,13 @@ from dodaios.brain.navigation_intent import match_navigation_intent
         ("zeig die Socials", "socials"),
         ("zeige mir die Socials", "socials"),
         ("öffne die Einstellungen", "settings"),
-        ("geh zu den Aufgaben", "agents"),
+        ("geh zu den Aufgaben", "chats"),
         ("wechsel zu den Notizen", "memory"),
-        ("show the agents", "agents"),
+        ("show the agents", "agentic-ide"),
         ("open settings", "settings"),
         ("go to the board", "board"),
         ("navigate to socials", "socials"),
-        ("zeig mir die sub-agents", "agents"),
+        ("zeig mir die sub-agents", "agentic-ide"),
     ],
 )
 def test_positive_navigation(text: str, expected: str) -> None:
@@ -100,7 +100,7 @@ def test_unbound_cue_and_section_do_not_navigate(text: str) -> None:
     [
         # An article and a filler between verb and target still binds.
         ("zeig mir doch bitte die Einstellungen", "settings"),
-        ("geh zu den offenen Aufgaben", "agents"),
+        ("geh zu den offenen Aufgaben", "chats"),
         ("open the settings", "settings"),
     ],
 )

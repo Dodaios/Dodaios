@@ -64,7 +64,7 @@ describe("useSocietyWarmup", () => {
 
     agents = ["scout", "writer", "newcomer"];
     vi.setSystemTime(Date.now() + 60_000);
-    act(() => useEventStore.getState().setActiveSection("agents"));
+    act(() => useEventStore.setState({ activeSection: "agents" }));
 
     await waitFor(() => expect(client.getQueryData<RosterData>(ROSTER_KEY)?.agents).toHaveLength(3));
     await waitFor(() => expect(count(TEAMS_URL)).toBe(2));
@@ -74,7 +74,7 @@ describe("useSocietyWarmup", () => {
     renderHook(() => useSocietyWarmup(), { wrapper });
     await waitFor(() => expect(count(TEAMS_URL)).toBe(1));
 
-    act(() => useEventStore.getState().setActiveSection("agents"));
+    act(() => useEventStore.setState({ activeSection: "agents" }));
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
 
     expect(count(ROSTER_URL)).toBe(1);

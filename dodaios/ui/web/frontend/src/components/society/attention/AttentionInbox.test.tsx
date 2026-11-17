@@ -118,15 +118,14 @@ describe("AttentionInbox", () => {
     expect(useAttentionStore.getState().list?.items).toHaveLength(3);
   });
 
-  it("opens the agent at its card and closes", async () => {
+  it("opens the conversation at the card and closes", async () => {
     stubList();
     const onClose = vi.fn();
     render(<AttentionInbox onClose={onClose} />);
     const credential = (await screen.findAllByTestId("attention-item")).find((i) => i.dataset.kind === "credential")!;
     fireEvent.click(within(credential).getByText("GitHub token"));
-    expect(useAgentNavigation.getState().request).toMatchObject({
-      agentId: "scout", sessionId: "society:scout", cardRef: "c1", kind: "credential",
-    });
+    // The Agents page is retired: the card is shown in the assistant's conversation.
+    expect(useEventStore.getState().activeSection).toBe("chats");
     expect(onClose).toHaveBeenCalled();
   });
 
