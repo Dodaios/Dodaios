@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from types import SimpleNamespace
 from typing import Any
 
@@ -120,6 +121,29 @@ def test_place_passes_the_rectangle(monkeypatch: pytest.MonkeyPatch) -> None:
         "panel-1", 4242, {"x": 10.0, "y": 20.0, "width": 300.0, "height": 400.0}, 1.5, True,
     ))]
     assert desktop.seen == [None]
+
+
+def test_place_has_threads_of_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A hide sent while another section loads must not queue behind its work."""
+    embed, threads = FakeEmbed(), []
+    record = embed.place
+
+    def place(*args: Any) -> dict[str, Any]:
+        threads.append(threading.current_thread().name)
+        return record(*args)
+
+    embed.place = place  # type: ignore[method-assign]
+    client = _client(_desktop(), embed, monkeypatch)
+    client.post("/api/ide-browser/place", json={"owner": "p", "visible": False})
+    assert len(threads) == 1 and threads[0].startswith("ide-browser-place")
+
+
+def test_place_without_a_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    embed = FakeEmbed()
+    client = _client(_desktop(hwnd=None), embed, monkeypatch)
+    body = client.post("/api/ide-browser/place", json={"owner": "p", "visible": False}).json()
+    assert body["reason"] == "no_desktop_shell"
+    assert embed.calls == []
 
 
 def test_place_rejects_a_bad_ratio(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
+import { SidePanelOnScreen } from "../sidePanelOnScreen";
 import { BrowserTab } from "./BrowserTab";
 import { openLinkInIdeBrowser, useIdeBrowserLinkStore } from "./ideBrowserLinks";
 import { initialChoice, type NativeBrowser } from "./nativeBrowserApi";
@@ -36,6 +37,15 @@ describe("placement helpers", () => {
     panel.getBoundingClientRect = () => rect(0, 0, 0, 0);
     expect(measurePanel(panel, "p").visible).toBe(false);
     expect(measurePanel(null, "p").visible).toBe(false);
+    panel.remove();
+  });
+
+  it("reports the panel hidden while the IDE is off screen, whatever its box", () => {
+    const panel = document.createElement("div");
+    document.body.appendChild(panel);
+    panel.getBoundingClientRect = () => rect(100, 100, 400, 400);
+    expect(measurePanel(panel, "p", false, true).visible).toBe(true);
+    expect(measurePanel(panel, "p", false, false).visible).toBe(false);
     panel.remove();
   });
 
@@ -185,5 +195,64 @@ describe("links clicked in the IDE", () => {
     await waitFor(() => expect(bodies(fetchMock, "/launch")).toHaveLength(1));
     expect(bodies(fetchMock, "/launch")[0]).toMatchObject({ browser: "chrome", profile: "Profile 3", url: "https://github.com/o/r/pulls" });
     expect(bodies(fetchMock, "/open")).toEqual([]);
+  });
+});
+
+describe("leaving the IDE for another section", () => {
+  const host = window as unknown as { __JARVIS_EMBEDDED_DESKTOP?: boolean };
+  const realRect = HTMLElement.prototype.getBoundingClientRect;
+  const STATUS = { available: true, reason: "", state: "embedded", browser: "chrome", profile: "Profile 3", browsers: BROWSERS };
+
+  beforeEach(() => {
+    localStorage.clear();
+    useIdeBrowserLinkStore.setState({ pending: null });
+    host.__JARVIS_EMBEDDED_DESKTOP = true;
+    HTMLElement.prototype.getBoundingClientRect = () => rect(0, 0, 400, 300);
+  });
+
+  afterEach(() => {
+    cleanup();
+    delete host.__JARVIS_EMBEDDED_DESKTOP;
+    HTMLElement.prototype.getBoundingClientRect = realRect;
+    vi.unstubAllGlobals();
+  });
+
+  /** `/place` answers only when `answer` is called; everything else at once. */
+  function setup() {
+    const waiting: Array<() => void> = [];
+    const fetchMock = vi.fn((url: string, _init?: RequestInit) => {
+      const response = { ok: true, json: async () => (url.endsWith("/status") ? STATUS : { ...STATUS, ok: true }) };
+      if (!url.endsWith("/place")) return Promise.resolve(response);
+      return new Promise((resolve) => waiting.push(() => resolve(response)));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = (onScreen: boolean) => (
+      <QueryClientProvider client={client}>
+        <SidePanelOnScreen.Provider value={onScreen}><BrowserTab /></SidePanelOnScreen.Provider>
+      </QueryClientProvider>
+    );
+    const rendered = render(view(true));
+    const places = () => fetchMock.mock.calls.filter(([url]) => url.endsWith("/place"))
+      .map(([, init]) => JSON.parse(String(init?.body)) as { visible: boolean });
+    return { places, waiting, hideIde: () => rendered.rerender(view(false)) };
+  }
+
+  it("hides the window in the same commit, even with a move still on its way", async () => {
+    const { places, waiting, hideIde } = setup();
+    await waitFor(() => expect(places().some((place) => place.visible)).toBe(true));
+    expect(waiting.length).toBeGreaterThan(0); // the shown placement has not answered yet
+    const before = places().length;
+    act(() => hideIde());
+    // No frame passed: the hide went out with the commit, not behind the move.
+    expect(places().slice(before)).toEqual([expect.objectContaining({ visible: false, rect: null })]);
+  });
+
+  it("sends the hide once while it is on its way", async () => {
+    const { places, hideIde } = setup();
+    await waitFor(() => expect(places().some((place) => place.visible)).toBe(true));
+    act(() => hideIde());
+    await new Promise((resolve) => setTimeout(resolve, 600)); // several hidden checks
+    expect(places().filter((place) => !place.visible)).toHaveLength(1);
   });
 });
