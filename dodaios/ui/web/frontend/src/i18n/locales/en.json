@@ -3528,6 +3528,24 @@
       "reset_done": "Reset to the default system prompt",
       "applies_next_turn": "Applies on your assistant's next message — no restart needed."
     },
+    "agent_briefs": {
+      "title": "Agent briefs",
+      "description": "How your assistant writes the prompts for your coding agents. You can also just tell it in the chat, for example “I want to approve every PR myself”.",
+      "default_badge": "Default",
+      "custom_badge": "Your wishes",
+      "default_label": "Without wishes:",
+      "default_text": "Your agents finish the job. They check their own work and, when tests and CI are green, push and merge it themselves.",
+      "limits_label": "Always kept:",
+      "limits_text": "Nothing is posted or sent in your name, no payments, no untrusted code runs with your real logins, unless you ask for exactly that.",
+      "editor_label": "Your wishes, one per line",
+      "placeholder": "For example:\nI want to approve every PR myself\nAlways with tests\nWrite the prompts in English",
+      "chars": "{count} / {max} characters",
+      "chat_hint": "Applies to the next brief, no restart needed.",
+      "save": "Save wishes",
+      "saved": "Your wishes for agent briefs are saved",
+      "reset": "Back to default",
+      "reset_done": "Agent briefs use the default again"
+    },
     "quick_switch": {
       "title": "Quick switcher",
       "description": "A search that opens over everything: type a section's name and press Enter to go there. Works while the Dodaios window is in front.",

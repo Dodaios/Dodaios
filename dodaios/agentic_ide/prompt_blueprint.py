@@ -104,8 +104,15 @@ workspace tree, one reason each), `## Context` (up to three facts the excerpts \
 show, symbol and file), `## Done when` (only outcomes the user stated or the \
 repository defines)."""
 
+# The default end of a change (``core.agent_brief.SHIP_DEFAULT``): the agent
+# checks its own work and ships it; the person's wishes can ask for less.
 _KIND_RULES: dict[str, str] = {
-    KIND_IMPLEMENT: "Kind: implementation.",
+    KIND_IMPLEMENT: (
+        "Kind: implementation. Unless the person's wishes say otherwise, the change ends "
+        "shipped: `## Done when` closes with the agent's own review and, with tests and CI "
+        "green, commit, push and merge the way the repository lands work. No git limits "
+        "the user did not ask for."
+    ),
     KIND_REVIEW: (
         "Kind: review. Ask for every finding with severity and file:line; "
         "findings are filtered later. No fixes."
@@ -175,6 +182,7 @@ def user_block(
     attachments: list | None = None,
     conversation: Sequence[tuple[str, str]] | None = None,
     tree: str = "",
+    wishes: str = "",
 ) -> str:
     """Everything the composer knows, laid out for one model call.
 
@@ -188,6 +196,10 @@ def user_block(
     ordinals point AT. Without it "above all points two and three" is
     unresolvable and travels into the brief as a pointer the agent cannot
     follow (live 2026-07-29).
+
+    ``wishes`` are the person's standing wishes for every brief
+    (``dodaios.core.brief_wishes``), in their own words; they sit beside the
+    request, where the writer reads them last.
     """
     parts: list[str] = []
 
@@ -234,6 +246,11 @@ def user_block(
             "see any of it)\n" + spoken
         )
 
+    if wishes.strip():
+        parts.append(
+            "THE PERSON'S STANDING WISHES FOR EVERY BRIEF (their words; they win over the "
+            "rules in your instructions)\n" + wishes.strip()
+        )
     parts.append(f"Target: {agent_display} in terminal {terminal_name}.")
     parts.append(f"WHAT THE USER SAID (speech transcript)\n{utterance}")
     if instruction and instruction != utterance:

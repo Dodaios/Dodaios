@@ -3528,6 +3528,24 @@
       "reset_done": "Prompt de sistema reposto para a predefinição",
       "applies_next_turn": "Aplica-se na próxima mensagem do teu assistente — sem reiniciar."
     },
+    "agent_briefs": {
+      "title": "Tarefas para agentes",
+      "description": "Como o teu assistente escreve as tarefas para os teus agentes de código. Também lhe podes dizer no chat, por exemplo «Quero aprovar eu cada PR».",
+      "default_badge": "Predefinição",
+      "custom_badge": "Os teus desejos",
+      "default_label": "Sem desejos:",
+      "default_text": "Os teus agentes terminam o trabalho. Verificam o próprio trabalho e, com os testes e a CI a verde, fazem push e merge sozinhos.",
+      "limits_label": "Mantém-se sempre:",
+      "limits_text": "Nada é publicado ou enviado em teu nome, não há pagamentos e nenhum código não fiável corre com as tuas credenciais reais, a menos que peças exatamente isso.",
+      "editor_label": "Os teus desejos, um por linha",
+      "placeholder": "Por exemplo:\nQuero aprovar eu cada PR\nSempre com testes\nEscreve os prompts em inglês",
+      "chars": "{count} / {max} caracteres",
+      "chat_hint": "Aplica-se a partir da próxima tarefa, sem reiniciar.",
+      "save": "Guardar desejos",
+      "saved": "Os teus desejos para as tarefas foram guardados",
+      "reset": "Voltar à predefinição",
+      "reset_done": "As tarefas voltam a usar a predefinição"
+    },
     "quick_switch": {
       "title": "Navegação rápida",
       "description": "Uma pesquisa que abre por cima de tudo: escreve o nome de uma secção e prime Enter para lá ires. Funciona enquanto a janela do Dodaios está à frente.",

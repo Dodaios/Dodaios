@@ -14,6 +14,7 @@ from uuid import uuid4
 
 from dodaios.brain.identity import name_directive
 from dodaios.core.agent_brief import AGENT_BRIEF_RULE
+from dodaios.core.brief_wishes import wishes_rule
 from dodaios.core.paths import user_data_dir
 from dodaios.core.runtime_refs import get_supervisor_tool_gateway
 from dodaios.core.tool_budget import VOICE_TOOL_BUDGET_S
@@ -266,6 +267,7 @@ class NativeLiveVoiceSession(LiveVoiceSession):
                     + ON_SCREEN_RULE
                     + TEAM_TALK_RULE
                     + AGENT_BRIEF_RULE
+                    + wishes_rule()
                 ),
                 history=tuple(
                     {"role": item["role"], "text": item["delta"]} for item in self._initial_seed

@@ -1,14 +1,16 @@
 ---
 schema_version: "1"
 name: agent-brief
-version: "1.0.0"
+version: "1.1.0"
 description: >-
   How Dodaios writes the prompt it hands to another agent: a coding agent, a
   pane, a team thread, a mission worker or a routine. Distilled from the
   frontier labs' own prompting guides for their current models: give the
   outcome and the reason, what the agent cannot see, a checkable "done", the
-  boundaries the person drew, and then get out of the way. Step scripts,
-  guessed fixes and shouted rules make current models worse.
+  boundaries the person drew, and then get out of the way. By default the
+  agent finishes the job: it checks its own work and ships it. Step scripts,
+  guessed fixes, shouted rules and git brakes nobody asked for make current
+  models worse.
 when_to_use: >-
   Use when you are about to write a brief for another agent (the prompt of
   workspace-orchestrate, or delegate to coding_agent, pane, team_thread,
@@ -58,15 +60,17 @@ with no access to this chat, do excellent work from this text alone?
    output it shows, a page that shows X, a merged PR with green checks. Use
    the project's own gate or test command when you know it; do not invent
    one. Ask that every claim of progress rests on a result from this run, and
-   that anything not verified is named as not verified.
+   that anything not verified is named as not verified. A change ends
+   shipped (see "Finishing" below).
 5. **Boundaries.** Only the limits the person drew or the situation needs,
    usually one to three lines. For example: what must not change (an API, a
    public behaviour, other people's branches); what needs approval first (an
-   irreversible or outward-facing step: deleting data, publishing, sending
-   messages, spending money, force-pushing); and the scope ("keep the fix
-   minimal" only when that is what they want). Write approvals as conditions
-   ("ask before you delete files"), not as absolutes. The agent takes "never"
-   literally.
+   irreversible step outside the repository: deleting data, sending messages,
+   spending money, force-pushing over someone's work); and the scope ("keep
+   the fix minimal" only when that is what they want). Write approvals as
+   conditions ("ask before you delete files"), not as absolutes. The agent
+   takes "never" literally. Git is not a boundary by default: see
+   "Finishing".
 6. **Autonomy.** When nobody will watch the run, say so: "You are working
    autonomously; the person is not watching and cannot answer mid-task. Take
    the reversible steps that follow from this request without asking. Stop
@@ -76,6 +80,35 @@ with no access to this chat, do excellent work from this text alone?
 7. **What to report.** "Lead with the outcome: what happened or what you
    found. Then the evidence and what is still open." Ask for a plain report
    that a reader without context can follow.
+
+## Finishing: the agent ships
+
+Many people no longer read, write or review code; they trust the agent. So
+unless the person said otherwise, a change ends shipped: the agent reviews
+its own work, runs the tests, and when they and CI are green it commits,
+pushes and merges, the way the repository lands work (a pull request and its
+checks where there is one). Its own review is part of the job; the person does
+not read the diff.
+
+- Write no git brakes the person did not ask for: no "do not push", "do not
+  merge", "open the PR with a hold label for a human", "work in your own
+  worktree, change nothing in the main folder" or "do not prune worktrees".
+  How to branch, where to work and how to land is the repository's rules and
+  the agent's call.
+- When other agents work in the same repository, say who works on what; the
+  agent decides how to keep out of their way.
+- The person may want more caution ("I approve every PR myself") or other
+  habits ("always with tests", "write the prompts in English"). Their
+  standing brief wishes are kept with `agent-briefs-set` and reach you beside
+  each message; they win over this default. A limit the person sets in the
+  request wins too.
+- The real limits stay whenever a task touches them, whatever the wishes
+  say, unless the person asked for that very step: nothing posted or sent in
+  the person's name (a post, a mail, a review comment), no payments, no
+  untrusted code (a stranger's pull request, a downloaded script) run with
+  the person's real credentials.
+- Work that changes nothing (a review, an investigation, a question) has
+  nothing to ship; its deliverable is the report.
 
 ## What makes results worse
 
@@ -136,7 +169,8 @@ anything the person will read, such as a report or a message.
   write a fixed command list. The tools and the data change between runs, and
   the judgement does not.
 - **Several agents at once.** Give each agent its own outcome and its own
-  files, and tell each one what the others own, so they do not collide.
+  files, and tell each one what the others own, so they do not collide. How
+  each keeps out of the others' way (a branch, a worktree) is its own call.
 
 ## Shape (adapt; drop what does not apply)
 
@@ -149,10 +183,12 @@ Context: <verbatim symptoms or errors, repro steps, starting files, decisions
 already made, approaches ruled out.>
 
 Done when: <checkable results: test, command output, visible behaviour, PR
-state.> Back each claim of progress with a result from this run; name what
-you could not verify.
+state.> Review your own work; with tests and CI green, commit, push and merge.
+Back each claim of progress with a result from this run; name what you could
+not verify.
 
-Boundaries: <only the limits that matter, and what needs approval first.>
+Boundaries: <only the limits the person set, and the real limits the task
+touches.>
 
 <Autonomy line if nobody is watching.>
 Report: lead with the outcome, then the evidence and what is still open.
@@ -168,9 +204,9 @@ Strong: "Uploads to the sync server fail about one time in five on a slow
 connection, and the person loses notes when that happens. The log line is
 `UploadError: timed out after 10s` (sync/client.py). Make uploads survive a
 slow or flaky connection without losing or duplicating a note. Done when a test
-that simulates a timeout passes and the existing sync tests stay green. Do not
-change the server API. Report the cause you found and how the test proves the
-fix."
+that simulates a timeout passes, the existing sync tests stay green and the fix
+is merged with CI green. Do not change the server API. Report the cause you
+found and how the test proves the fix."
 
 ## Before you send
 
@@ -179,4 +215,7 @@ fix."
 - "Done" can be checked by the agent itself.
 - No step script, no guessed fix, no shouting, no request to show reasoning.
 - The boundaries are the person's, not a list of generic rules.
+- No git brake they did not ask for; a change ends shipped unless their
+  wishes or the request say otherwise.
+- Their standing brief wishes are applied.
 - Autonomy is set if nobody will watch.

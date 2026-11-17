@@ -9,6 +9,7 @@ import { AppSettingsGroup } from "@/views/settings/AppSettingsGroup";
 import { VolumeGroup } from "@/views/settings/VolumeGroup";
 import { AudioDevicesGroup } from "@/views/settings/AudioDevicesGroup";
 import { SystemPromptGroup } from "@/views/settings/SystemPromptGroup";
+import { AgentBriefsGroup } from "@/views/settings/AgentBriefsGroup";
 import { SelfBuildGroup } from "@/views/settings/SelfBuildGroup";
 import { ApprovalModesGroup } from "@/views/settings/ApprovalModesGroup";
 import { SettingsGroupBoundary } from "@/views/settings/SettingsGroupBoundary";
@@ -152,6 +153,7 @@ const SECTIONS: readonly { id: string; render: () => React.ReactNode }[] = [
   { id: "voice", render: () => <VoiceSettingsGroup /> },
   { id: "wake-word", render: () => <WakeWordPanel /> },
   { id: "system-prompt", render: () => <SystemPromptGroup /> },
+  { id: "agent-briefs", render: () => <AgentBriefsGroup /> },
   { id: "approvals", render: () => <ApprovalModesGroup /> },
   { id: "self-build", render: () => <SelfBuildGroup /> },
   { id: "music", render: () => <MusicGroup /> },

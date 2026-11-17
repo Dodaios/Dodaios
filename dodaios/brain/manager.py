@@ -4090,6 +4090,18 @@ class BrainManager:
         except Exception:  # noqa: BLE001
             pass
 
+        # How the person wants agents briefed ("I approve every PR myself",
+        # "always with tests"), saved with agent-briefs-set. Read fresh each turn;
+        # no block without wishes, so the cached prefix stays as it was.
+        try:
+            from dodaios.core.brief_wishes import prompt_block as _brief_wishes_block
+
+            wishes_block = _brief_wishes_block()
+            if wishes_block:
+                parts.append(wishes_block)
+        except Exception:  # noqa: BLE001 - a wishes fault never breaks a prompt build
+            log.debug("agent brief wishes block unavailable", exc_info=True)
+
         if self._user_profile is not None:
             try:
                 parts.append(self._user_profile.render_for_prompt())

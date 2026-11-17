@@ -20,6 +20,7 @@ vi.mock("@/views/settings/AppSettingsGroup", () => ({
 vi.mock("@/views/settings/VolumeGroup", () => ({ VolumeGroup: stub("volume") }));
 vi.mock("@/views/settings/AudioDevicesGroup", () => ({ AudioDevicesGroup: stub("audio-devices") }));
 vi.mock("@/views/settings/SystemPromptGroup", () => ({ SystemPromptGroup: stub("system-prompt") }));
+vi.mock("@/views/settings/AgentBriefsGroup", () => ({ AgentBriefsGroup: stub("agent-briefs") }));
 vi.mock("@/views/settings/SelfBuildGroup", () => ({ SelfBuildGroup: stub("self-build") }));
 vi.mock("@/views/settings/ApprovalModesGroup", () => ({ ApprovalModesGroup: stub("approvals") }));
 

@@ -157,12 +157,33 @@ REPLY_SHAPE_LINE: Final[str] = (
 #: Replayed on a copy of that conversation, same request: without this line the
 #: brief was 3,096 characters of suspected causes and a procedure; with it, the
 #: goal first, the person's words quoted, a checkable done, no route.
+#: The same history taught the lead to hold agents back with git brakes of its
+#: own ("do not merge", "needs-human label", "own worktree, nothing in the main
+#: folder"); the maintainer wants the agent to check its work and ship it
+#: (2026-11-17). So the line says the default end of a change and the limits that
+#: stay, and ``brief_line`` adds the person's own wishes when they set some.
 BRIEF_LINE: Final[str] = (
     "\nIf you hand work to an agent this turn: the brief is all it sees. Lead with the "
     "outcome and why, then what it cannot see (the person's words, files, decisions), a "
     "checkable done and only their limits; no list of suspected causes, no step-by-step "
-    "procedure, no prescribed fix."
+    "procedure, no prescribed fix. By default the agent finishes: it reviews its own work "
+    "and, with tests and CI green, commits, pushes and merges itself; write no git limits "
+    "(no push or merge, hold labels, worktree or folder rules) they did not ask for. Name "
+    "the real limits a task touches: nothing posted or sent in their name, no payments, no "
+    "untrusted code run with their real credentials. When they say how agents should be "
+    "briefed from now on, save the whole new list with agent-briefs-set."
 )
+
+
+def brief_line() -> str:
+    """``BRIEF_LINE`` plus the person's standing brief wishes, read fresh for each message."""
+    from dodaios.core.brief_wishes import wishes_line
+
+    try:
+        return BRIEF_LINE + wishes_line()
+    except Exception:  # noqa: BLE001 - a wishes fault must never fail a turn
+        log.warning("agent chat: brief wishes unavailable this turn", exc_info=True)
+        return BRIEF_LINE
 
 QUESTION_CARD_LINE: Final[str] = (
     "\nA question you need answered before you can go on goes on the question card "
@@ -975,6 +996,7 @@ __all__ = [
     "ACTING_PREAMBLE",
     "CHAT_MESSAGES",
     "BRIEF_LINE",
+    "brief_line",
     "FIRST_LINE",
     "QUESTION_CARD_LINE",
     "REPLY_SHAPE_LINE",
