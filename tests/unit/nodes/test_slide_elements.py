@@ -321,3 +321,17 @@ def test_a_deck_has_room_for_several_pictures_within_a_save() -> None:
 
     assert SPEC_BYTES_BY_TYPE["slides"] >= 8 * MAX_IMAGE_CHARS
     assert SPEC_BYTES_BY_TYPE["slides"] < MAX_SPEC_BODY
+
+
+def test_an_animation_rule_names_its_animation_where_it_plays() -> None:
+    from dodaios.nodes.kinds.slide_elements import ELEMENT_CSS
+
+    # One rule carries the name and the timing (a shorthand alone would reset the name).
+    rule = ELEMENT_CSS.split('.ed-stage.is-presenting .el[data-anim="rise"].is-built', 1)[1]
+    assert rule.startswith("{animation:el-rise .62s")
+    assert "animation-name:" not in ELEMENT_CSS
+
+
+def test_home_and_end_land_on_a_shown_slide() -> None:
+    html = render(_node({"slides": [{"title": "A", "hidden": True}, {"title": "B"}]}))
+    assert 'k==="Home")show(seen(0,1)%n)' in html

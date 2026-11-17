@@ -11,7 +11,7 @@
  * Every change is one labelled undo step of the deck; typing into a number
  * or a text is one step per run.
  */
-import { type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   AlignCenter,
   AlignCenterHorizontal,
@@ -788,21 +788,19 @@ export function ElementInspector({
         </Row>
       )}
       {single && (
-        <Input
+        <LinkField
+          key={single.id ?? index}
           value={single.link ?? ""}
-          placeholder={L("el.link")}
-          aria-label={L("el.link")}
-          className="h-8 px-2 text-sm"
-          onChange={(event) => {
-            const value = event.target.value.trim();
+          label={L("el.link")}
+          invalid={L("el.link_invalid")}
+          onCommit={(value) =>
             onChange(L("step.link"), (list) => {
               const target = list[index];
               if (!target) return;
-              if (/^(https?:\/\/|mailto:)\S+$/i.test(value)) target.link = value;
+              if (value) target.link = value;
               else delete target.link;
-            }, `link:${index}`);
-          }}
-          data-testid="slides-el-link"
+            })
+          }
         />
       )}
     </Section>
@@ -822,6 +820,39 @@ export function ElementInspector({
       {position}
       {arrange}
       {motionSection}
+    </div>
+  );
+}
+
+/** A link typed freely and taken on Enter or when the field is left (a web or mail address, or nothing). */
+function LinkField({ value, label, invalid, onCommit }: { value: string; label: string; invalid: string; onCommit: (value: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const clean = draft.trim();
+  const ok = !clean || /^(https?:\/\/|mailto:)\S+$/i.test(clean);
+  const take = () => {
+    if (!ok) return;
+    if (clean !== value) onCommit(clean);
+  };
+  return (
+    <div className="flex flex-col gap-1">
+      <Input
+        value={draft}
+        placeholder={label}
+        aria-label={label}
+        aria-invalid={!ok || undefined}
+        className={cn("h-8 px-2 text-sm", !ok && "border-destructive")}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={take}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            take();
+          }
+        }}
+        data-testid="slides-el-link"
+      />
+      {!ok && <p className="text-xs text-destructive">{invalid}</p>}
     </div>
   );
 }

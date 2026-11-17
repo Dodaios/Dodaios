@@ -1254,7 +1254,8 @@
           "anim_on": "开始方式",
           "anim_enter": "随幻灯片",
           "anim_click": "单击时",
-          "link": "链接 (https://…)"
+          "link": "链接 (https://…)",
+          "link_invalid": "链接需以 https://、http:// 或 mailto: 开头。"
         },
         "anim": {
           "none": "无",

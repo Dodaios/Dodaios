@@ -1254,7 +1254,8 @@
           "anim_on": "Empieza",
           "anim_enter": "Con la diapositiva",
           "anim_click": "Al hacer clic",
-          "link": "Enlace (https://…)"
+          "link": "Enlace (https://…)",
+          "link_invalid": "Un enlace empieza por https://, http:// o mailto:."
         },
         "anim": {
           "none": "Ninguna",

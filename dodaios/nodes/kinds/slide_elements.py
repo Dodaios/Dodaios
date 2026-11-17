@@ -1024,6 +1024,20 @@ FONT_CSS: Final[str] = (
     )
 )
 
+#: Where an element's animation plays: the current slide of the page's player
+#: (not in the overview, nor in a picture of one slide) and the editor's
+#: presentation; an element that waits for a click only once it is built.
+_PLAYING_PAGE: Final[str] = (
+    '.dk.is-ready:not(.is-overview):not(.is-still) .dk-cell.is-current .el[data-anim="{name}"]'
+)
+_PLAYING_EDITOR: Final[str] = '.ed-stage.is-presenting .el[data-anim="{name}"]'
+_PLAYING: Final[str] = ",".join(
+    f"{where}{state}"
+    for where in (_PLAYING_PAGE, _PLAYING_EDITOR)
+    for state in (":not([data-click])", ".is-built")
+)
+_ANIMATE: Final[str] = "{{animation:el-{name} .62s cubic-bezier(.2,.7,.2,1) var(--ad,0ms) both}}"
+
 ELEMENT_CSS: Final[str] = """
 .sl{isolation:isolate}
 .sl-bg{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
@@ -1086,11 +1100,6 @@ ELEMENT_CSS: Final[str] = """
 @keyframes el-zoom{from{opacity:0;scale:.82}}
 @keyframes el-pop{0%{opacity:0;scale:.5}70%{opacity:1;scale:1.05}100%{scale:1}}
 @keyframes el-wipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
-.dk.is-ready:not(.is-overview):not(.is-still) .dk-cell.is-current .el[data-anim]:not([data-click]),
-.dk.is-ready:not(.is-overview):not(.is-still) .dk-cell.is-current .el[data-anim].is-built,
-.ed-stage.is-presenting .el[data-anim]:not([data-click]),
-.ed-stage.is-presenting .el[data-anim].is-built{
-  animation:.62s cubic-bezier(.2,.7,.2,1) var(--ad,0ms) both}
 .dk:not(.is-overview):not(.is-still) .el[data-click]:not(.is-built),
 .ed-stage.is-presenting .el[data-click]:not(.is-built){visibility:hidden}
 :root[data-node-mode] .dk .el[data-click]{visibility:visible}
@@ -1113,11 +1122,7 @@ ELEMENT_CSS: Final[str] = """
 @media print{.el{animation:none!important;visibility:visible!important}
 .dk-cell.is-hidden{display:none!important}}
 @media (prefers-reduced-motion:reduce){.el{animation:none!important}}
-""" + "".join(
-    f'.dk-cell.is-current .el[data-anim="{name}"],'
-    f'.ed-stage.is-presenting .el[data-anim="{name}"]{{animation-name:el-{name}}}'
-    for name in ANIMATIONS
-)
+""" + "".join(_PLAYING.format(name=name) + _ANIMATE.format(name=name) for name in ANIMATIONS)
 
 
 #: The tokens a slide of a fixed tone carries on itself.

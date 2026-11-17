@@ -201,6 +201,8 @@ function slideOf(path: string | undefined): number {
 /** What the editor copies: elements, kept for pasting into any slide or deck. */
 const CLIPBOARD_MARK = "dodaios-slide-elements";
 let clipboard: SlideElement[] = [];
+/** Whether the system clipboard holds the editor's last copy (writing it may be refused). */
+let clipboardSynced = false;
 
 function elementsFromText(text: string): SlideElement[] | null {
   try {
@@ -230,7 +232,7 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
 
   // The hook keeps whatever the stage handed over; the editor reads it as a deck once.
   const [start] = useState(() => ({ ...initial, spec: withIds(readDeck(initial.spec)) }));
-  const editor = useNodeSpecEditor<Deck>(nodeId, start);
+  const editor = useNodeSpecEditor<Deck>(nodeId, start, { adopt: (spec) => withIds(readDeck(spec)) });
   const deck = editor.spec;
   const slides = useMemo(() => deck.slides ?? [], [deck.slides]);
   const count = slides.length;
@@ -586,11 +588,18 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
     (cut: boolean) => {
       if (!selectedIdx.length) return;
       clipboard = selectedIdx.map((i) => JSON.parse(JSON.stringify(elements[i])) as SlideElement);
-      try {
-        void navigator.clipboard?.writeText(JSON.stringify({ [CLIPBOARD_MARK]: clipboard }));
-      } catch {
-        /* the system clipboard is not ours to use here; the editor's own copy is kept */
-      }
+      clipboardSynced = false;
+      // The system clipboard may refuse; then a paste takes the editor's own copy.
+      Promise.resolve()
+        .then(() => navigator.clipboard?.writeText(JSON.stringify({ [CLIPBOARD_MARK]: clipboard })))
+        .then(
+          () => {
+            clipboardSynced = !!navigator.clipboard;
+          },
+          () => {
+            clipboardSynced = false;
+          },
+        );
       if (cut) removeSelected();
     },
     [elements, removeSelected, selectedIdx],
@@ -646,17 +655,19 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
         // A text box left empty goes, as in any presentation program.
         const element = slides[current]?.elements?.[index];
         if (element?.type === "text" && !element.text?.trim()) {
+          const gone = elementKey(element, index);
           queueMicrotask(() =>
             changeElements(
               L("step.type"),
               (list) => {
-                const target = list[index];
-                if (target?.type === "text" && !target.text?.trim()) list.splice(index, 1);
+                const at = list.findIndex((e, i) => elementKey(e, i) === gone);
+                const target = list[at];
+                if (target?.type === "text" && !target.text?.trim()) list.splice(at, 1);
               },
               `eltext:${current}:${index}`,
             ),
           );
-          setSelection([]);
+          setSelection((keys) => keys.filter((key) => key !== gone));
         }
       }
       return -1;
@@ -743,6 +754,12 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
       return;
     }
     const text = event.clipboardData.getData("text/plain");
+    if (!clipboardSynced && clipboard.length && !elementsFromText(text)) {
+      // A copy the system clipboard did not take: the editor's own copy is the newest.
+      event.preventDefault();
+      pasteElements(clipboard);
+      return;
+    }
     const ours = text ? elementsFromText(text) : null;
     if (ours?.length) {
       event.preventDefault();
@@ -777,6 +794,8 @@ export default function SlidesEditor({ node, initial, startAt, onDone }: NodeEdi
   // --- keys on the slide -----------------------------------------------------------------------------
   const onCanvasKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
+    // Only keys pressed on the slide itself: a menu of the format bar keeps its own.
+    if (event.defaultPrevented || !target.closest("[data-testid='slides-canvas-editor']")) return;
     if (target.closest("input, textarea, [contenteditable], [role='textbox']")) return;
     const mod = event.metaKey || event.ctrlKey;
     const key = event.key;

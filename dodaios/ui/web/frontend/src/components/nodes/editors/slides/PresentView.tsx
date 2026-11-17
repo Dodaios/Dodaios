@@ -166,15 +166,19 @@ export function PresentView({
   }, []);
 
   // Leaving full screen with the system's own key or gesture ends the presentation too.
+  const atRef = useRef(at);
+  atRef.current = at;
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     let was = false;
     const onChange = () => {
       if (document.fullscreenElement) was = true;
-      else if (was) onClose(at);
+      else if (was) closeRef.current(atRef.current);
     };
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
-  }, [at, onClose]);
+  }, []);
 
   useEffect(() => {
     const el = root.current;
@@ -196,7 +200,10 @@ export function PresentView({
     } else if (key === "ArrowRight" || key === "ArrowDown" || key === "PageDown" || key === "Enter" || (key === " " && !event.shiftKey)) forward();
     else if (key === "ArrowLeft" || key === "ArrowUp" || key === "PageUp" || key === "Backspace" || (key === " " && event.shiftKey)) back();
     else if (key === "Home") go(visible(0, 1) % Math.max(1, count));
-    else if (key === "End") go(count - 1);
+    else if (key === "End") {
+      const last = visible(count - 1, -1);
+      go(last < 0 ? count - 1 : last);
+    }
     else if (key === "n" || key === "N") setNotes((on) => !on);
     else if (key === "p" || key === "P") setPresenter((on) => !on);
     else if (key === "b" || key === "B" || key === ".") setBlank((b) => (b === "black" ? "" : "black"));

@@ -1144,7 +1144,8 @@ d.addEventListener("keydown",function(e){
   if(k===" "&&held)return;
   if(k==="ArrowRight"||k==="ArrowDown"||k==="PageDown"||(k===" "&&!e.shiftKey))forward();
   else if(k==="ArrowLeft"||k==="ArrowUp"||k==="PageUp"||(k===" "&&e.shiftKey))back();
-  else if(k==="Home")show(0);else if(k==="End")show(n-1);else return;
+  else if(k==="Home")show(seen(0,1)%n);
+  else if(k==="End"){var e=seen(n-1,-1);show(e<0?n-1:e);}else return;
   e.preventDefault();});
 var leaving=false;
 d.addEventListener("pointerdown",function(){

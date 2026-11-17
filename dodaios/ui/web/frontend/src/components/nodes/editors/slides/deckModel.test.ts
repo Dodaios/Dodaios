@@ -139,6 +139,25 @@ describe("a free canvas", () => {
   });
 });
 
+describe("a free canvas keeps a layout's media", () => {
+  it("turns a picture, a chart and a table into elements", () => {
+    const image = switchLayout({ layout: "image", title: "Shot", image: "data:image/png;base64,AA==", fit: "contain" }, "blank", t);
+    expect(image.elements?.map((e) => e.type)).toEqual(["image", "text"]);
+    expect(image.elements?.[0]).toMatchObject({ fit: "contain", x: 640, w: 640 });
+    const chart = switchLayout({ layout: "chart", title: "C", chart: { type: "pie", x: ["a", "b"], series: [{ data: [1, 2] }] } }, "blank", t);
+    expect(chart.elements?.[0]).toMatchObject({ type: "chart", chart: { type: "pie" } });
+    const table = switchLayout({ layout: "table", title: "T", table: { columns: ["A", "B"], rows: [["1", "2"]] } }, "blank", t);
+    expect(table.elements?.[0]).toMatchObject({ type: "table", rows: [["A", "B"], ["1", "2"]] });
+  });
+
+  it("keeps the slide's limit, with the elements already there on top", () => {
+    const own = Array.from({ length: 39 }, (_, i) => ({ type: "text" as const, id: `t${i}`, x: 0, y: 0, w: 10, h: 10, text: String(i) }));
+    const next = switchLayout({ layout: "bullets", title: "Plan", bullets: ["a", "b"], elements: own }, "blank", t);
+    expect(next.elements).toHaveLength(40);
+    expect(next.elements?.slice(1).map((e) => e.id)).toEqual(own.map((e) => e.id));
+  });
+});
+
 describe("moves", () => {
   it("moves a slide and follows any index through the move", () => {
     const deck: Deck = { theme: "auto", slides: ["a", "b", "c", "d"].map((title) => ({ layout: "section" as const, title })) };

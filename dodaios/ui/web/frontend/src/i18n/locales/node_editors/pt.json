@@ -1254,7 +1254,8 @@
           "anim_on": "Começa",
           "anim_enter": "Com o slide",
           "anim_click": "Ao clicar",
-          "link": "Link (https://…)"
+          "link": "Link (https://…)",
+          "link_invalid": "Um link começa com https://, http:// ou mailto:."
         },
         "anim": {
           "none": "Nenhuma",

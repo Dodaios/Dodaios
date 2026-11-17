@@ -36,8 +36,11 @@ export function stylesOf(html: string): string {
     .join("\n");
 }
 
-/** The smallest deck the server accepts: only its stylesheet is wanted. */
-const STYLE_PROBE = { slides: [{ layout: "title", title: "·" }] };
+/**
+ * The smallest deck the server accepts: only its stylesheet is wanted. Its
+ * slide has a tone, so the rules of a slide drawn light or dark come with it.
+ */
+const STYLE_PROBE = { slides: [{ layout: "title", title: "·", tone: "dark" }] };
 
 let stylesheet: Promise<string> | null = null;
 

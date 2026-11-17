@@ -1254,7 +1254,8 @@
           "anim_on": "Startet",
           "anim_enter": "Mit der Folie",
           "anim_click": "Bei Klick",
-          "link": "Link (https://…)"
+          "link": "Link (https://…)",
+          "link_invalid": "Ein Link beginnt mit https://, http:// oder mailto:."
         },
         "anim": {
           "none": "Keine",

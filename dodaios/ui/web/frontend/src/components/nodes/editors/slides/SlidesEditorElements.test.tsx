@@ -245,6 +245,27 @@ describe("selecting and changing elements", () => {
   });
 });
 
+describe("review fixes", () => {
+  it("takes a link typed letter by letter once the field is left", async () => {
+    await open();
+    press(0);
+    const link = screen.getByTestId("slides-el-link") as HTMLInputElement;
+    for (const part of ["h", "ht", "https://example.org"]) fireEvent.change(link, { target: { value: part } });
+    expect(link.value).toBe("https://example.org");
+    fireEvent.blur(link);
+    const spec = await saved();
+    expect((spec.slides[0].elements as { link?: string }[])[0].link).toBe("https://example.org");
+  });
+
+  it("leaves the slide alone while a menu of the format bar takes the arrow keys", async () => {
+    await open();
+    press(1);
+    const before = el(1).style.left;
+    fireEvent.keyDown(screen.getByTestId("slides-format-bar"), { key: "ArrowRight" });
+    expect(el(1).style.left).toBe(before);
+  });
+});
+
 describe("the slide and the deck", () => {
   it("hides a slide from the format bar and marks it in the strip", async () => {
     await open();

@@ -122,6 +122,15 @@ function rad(deg: number): number {
   return (deg * Math.PI) / 180;
 }
 
+/** Where an element of a drag's start is in the list now (it may have moved by a removal). */
+function placeOf(list: readonly SlideElement[], index: number, original: SlideElement): number {
+  if (original.id && list[index]?.id !== original.id) {
+    const found = list.findIndex((element) => element.id === original.id);
+    if (found >= 0) return found;
+  }
+  return index;
+}
+
 let dragCounter = 0;
 
 export function CanvasEditor({
@@ -282,10 +291,11 @@ export function CanvasEditor({
         labels.move,
         (list) => {
           current.snapshot.forEach((original, i) => {
-            if (!list[i]) return;
+            const at = placeOf(list, i, original);
+            if (!list[at]) return;
             const moved = JSON.parse(JSON.stringify(original)) as SlideElement;
             translate(moved, dx, dy);
-            list[i] = moved;
+            list[at] = moved;
           });
         },
         current.id,
@@ -349,7 +359,7 @@ export function CanvasEditor({
         onChange(
           labels.resize,
           (list) => {
-            const target = list[index];
+            const target = list[placeOf(list, index, original)];
             if (!target || target.type === "line") return;
             target.x = round1(cx - w / 2);
             target.y = round1(cy - h / 2);
@@ -362,7 +372,8 @@ export function CanvasEditor({
       }
       // Several: the frame around them scales, from the opposite corner.
       const start = unionOf(indices.map((i) => boundsOf(current.snapshot.get(i)!)));
-      if (!start) return;
+      // A frame without width or height (lines on one axis) cannot scale.
+      if (!start || start.w < 1 || start.h < 1) return;
       let w = Math.max(8, start.w + hx * dx);
       let h = Math.max(8, start.h + hy * dy);
       if (event.shiftKey || (hx && hy)) {
@@ -378,11 +389,12 @@ export function CanvasEditor({
         labels.resize,
         (list) => {
           current.snapshot.forEach((original, i) => {
-            if (!list[i]) return;
+            const at = placeOf(list, i, original);
+            if (!list[at]) return;
             const b = boundsOf(original);
             const next = JSON.parse(JSON.stringify(original)) as SlideElement;
             placeIn(next, b, { x: x + (b.x - start.x) * sx, y: y + (b.y - start.y) * sy, w: b.w * sx, h: b.h * sy });
-            list[i] = next;
+            list[at] = next;
           });
         },
         current.id,
@@ -397,7 +409,7 @@ export function CanvasEditor({
       onChange(
         labels.rotate,
         (list) => {
-          const target = list[current.index];
+          const target = list[placeOf(list, current.index, current.snapshot)];
           if (!target || target.type === "line") return;
           if (angle) target.rotate = angle;
           else delete target.rotate;
@@ -435,7 +447,7 @@ export function CanvasEditor({
       onChange(
         labels.resize,
         (list) => {
-          const target = list[current.index];
+          const target = list[placeOf(list, current.index, current.snapshot)];
           if (!target || target.type !== "line") return;
           if (current.which === 1) {
             target.x1 = round1(x);
@@ -503,7 +515,10 @@ export function CanvasEditor({
     event.preventDefault();
     const at = toSlide(event.clientX, event.clientY);
     const snapshot = new Map<number, SlideElement>();
-    selected.forEach((i) => snapshot.set(i, elements[i]));
+    selected.forEach((i) => {
+      if (!elements[i].locked) snapshot.set(i, elements[i]);
+    });
+    if (!snapshot.size) return;
     startDrag({ kind: "resize", handle, startX: at.x, startY: at.y, snapshot, id: `resize:${++dragCounter}` }, event);
   };
 
