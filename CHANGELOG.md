@@ -11,6 +11,57 @@ versioning per [SemVer](https://semver.org/).
 
 ---
 
+## [5.6.0] — 2026-11-17
+
+### Added
+
+- A picture sent with a message opens in full on a click (#1828)
+- A clicked edit opens beside the conversation as its change, drawn like the Changes view (#1827)
+- The Agents tab is a board of every thread and terminal agent, by pull request state (#1825)
+- /btw side questions, and slash commands run again with an effort picked (#1821)
+- The lead judges for itself how much a task needs; every node guide says how to work (#1824)
+- The whiteboard gets a tool lock, a gold laser pointer, a lasso, a paint bucket and draw to shape (#1822)
+- A multi-track video editor that Dodaios drives too (#1814)
+- A presentation-program deck editor with free elements, backgrounds, design looks and a presenter view (#1812)
+- Agents finish their own work by default, and each person sets how Dodaios briefs them (#1811)
+- The whiteboard gets its own canvas: a tool dock, an inspector, gliding zoom, and the assistant drawing live (#1808)
+- Remove the Visuals node type (#1809)
+- A slash command shows in blue in the box and in the sent message (#1806)
+- A file or folder an answer names opens beside the conversation (#1803)
+- Show when a coding agent compacts its conversation (#1791)
+- The agent's to-do list is simpler: a thin square frame around it, square boxes, no progress bar (#1783)
+
+### Changed
+
+- An engine on this computer reads the dictation while the person speaks (#1818)
+- The recording picker opens at once on the shortcut (#1780)
+
+### Fixed
+
+- The side panel's File tab wraps long lines instead of scrolling sideways (#1830)
+- Retired named agents no longer reach the lead or open the old Agents page (#1813)
+- Ignore release dates in Hermes version detection (#1799)
+- A registered word is found by its sound, however the recognizer spelled it (#1810)
+- Read Claude logins and usage from the macOS Keychain (#1804)
+- The browser window hides the moment Dodaios replaces the IDE (#1805)
+- The Dodaios Bar draws sharp edges on Windows (#1800)
+- The Dodaios chat opens at its last message after a restart and after another section (#1795)
+- Two tests that broke on the calendar keep their clock fixed (#1801)
+- Parallel calls of one tool show their own results in the trace (#1794)
+- A round that only thought is asked again with thinking off, so the turn never ends empty (#1793)
+- The model picker lists a browsed provider's local models (Ollama) before it is picked (#1792)
+- The browser reads without asking and asks at the click that commits, with a card in the conversation (#1784)
+- A turn carried on across an app restart takes a message mid-turn, so Send now no longer stops it and its sub-agents (#1789)
+- The conversation beside a node no longer waits for a frame that may not come (#1790)
+- A question card marks an option as recommended only when the agent recommends one (#1785)
+- The node window is on screen at the click: its code is fetched ahead, its frame is drawn at once, and the conversation is moved beside the node instead of drawn again (#1787)
+- The brief rules reach the lead where it writes, so its prompts to agents change (#1781)
+- A Telegram approval shows the command and the diff in a code block, escaped for HTML only (#1772)
+- Every loopback stand-in binds without the host name lookup that stalls on macOS (#1759)
+- A thread row shows its agent's brand mark instead of a "CL" monogram (#1779)
+
+---
+
 ## [5.5.1] — 2026-11-16
 
 ### Added
