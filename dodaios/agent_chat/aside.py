@@ -188,9 +188,9 @@ async def _answer(svc: Any, session_id: str, aside_id: str, question: str, runne
             outcome = {"status": "failed", "error": "The agent gave no answer."}
         else:
             outcome = {"status": "done", "answer": answer[:ANSWER_CHARS]}
-    except asyncio.CancelledError:
+    except asyncio.CancelledError:  # dismissed: its card is gone, nothing is left to tell
         return
-    except TimeoutError:
+    except TimeoutError:  # told on the card: "no answer within four minutes"
         outcome = {"status": "failed", "error": "No answer within four minutes."}
     except Exception as exc:  # noqa: BLE001 — the card says what went wrong; the thread runs on
         log.warning("agent chat %s: side question failed", session_id, exc_info=True)
@@ -299,7 +299,7 @@ async def _run(plan: Any, cwd: Path) -> tuple[str, str]:
                 break
             try:
                 obj = json.loads(raw)
-            except ValueError:
+            except ValueError:  # a non-JSON line (a CLI warning) carries no answer
                 continue
             if not isinstance(obj, dict):
                 continue
@@ -342,12 +342,12 @@ async def _run(plan: Any, cwd: Path) -> tuple[str, str]:
             proc.stdin.close()
         try:
             await asyncio.wait_for(proc.wait(), timeout=10)
-        except TimeoutError:
+        except TimeoutError:  # the copy did not exit after its answer: it is killed
             proc.kill()
             await proc.wait()
         try:
             err = await asyncio.wait_for(stderr, timeout=2)
-        except (TimeoutError, asyncio.CancelledError):
+        except (TimeoutError, asyncio.CancelledError):  # stderr only words a failure
             err = b""
     if result is None:
         tail = err.decode("utf-8", "replace").strip().splitlines()[-1:] or ["the agent stopped"]
