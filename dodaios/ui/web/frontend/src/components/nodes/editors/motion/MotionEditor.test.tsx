@@ -117,7 +117,6 @@ const BLANK = {
   scenes: [{ type: "title", seconds: 4, transition: "fade" }],
 };
 
-const blocks = () => screen.getAllByRole("option");
 
 /** Wait for the preview page and let it say it is ready: it becomes the page on screen. */
 async function previewReady(): Promise<HTMLIFrameElement> {
