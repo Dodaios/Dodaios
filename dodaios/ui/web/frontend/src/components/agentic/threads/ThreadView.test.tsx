@@ -218,6 +218,24 @@ describe("ThreadView", () => {
     await waitFor(() => expect(within(screen.getByTestId("thread-user-message")).getByTestId("command-word").textContent).toBe("/goal"));
   });
 
+  it("asks for the command list again when the first read failed", async () => {
+    api.fetchAgentChatCatalog.mockResolvedValue({ ...CATALOG, providers: [{ ...CATALOG.providers[0], typeahead: ["/", "@"] }] });
+    api.fetchTypeahead.mockRejectedValueOnce(new Error("cli starting")).mockResolvedValue({ trigger: "/", truncated: false,
+      items: [{ value: "goal", label: "goal", hint: "Set a goal", kind: "command", group: "cli" }] });
+    useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
+    api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
+    render(<ThreadView onScreen />);
+    await waitFor(() => expect(useThreadChatStore.getState().draft.provider).toBe("claude-api"));
+    const box = screen.getByTestId("thread-composer-input");
+    // Pasted whole: the caret never sits in the command, so no list opens.
+    fireEvent.change(box, { target: { value: "/goal ship the release" } });
+    await waitFor(() => expect(api.fetchTypeahead).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId("thread-composer-magic")).toBeNull();
+    fireEvent.change(box, { target: { value: "/goal ship the release now" } });
+    const backdrop = await screen.findByTestId("thread-composer-magic");
+    expect(within(backdrop).getByTestId("command-word").textContent).toBe("/goal");
+  });
+
   it("says a message reaches a Claude turn that only waits for its background tasks", async () => {
     useIdeThreadsStore.setState({ selection: { projectId: "p1", sessionId: "s1" } });
     api.fetchAgentChatSessions.mockResolvedValue([sessionRow()]);
