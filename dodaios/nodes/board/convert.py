@@ -12,12 +12,16 @@ Two things become elements here:
   turns it into a scene laid out the same way, notes as yellow sticky boxes,
   groups as frames, links as bound arrows.
 
-Why a diagram looks the same every time: the nodes of one kind get one size
-(the largest label decides, within a cap, longer labels wrap), positions sit
-on the editor's 20 px grid, gaps are fixed, and a shape's colour follows its
-kind unless the model names one (boxes blue, decisions yellow, start and end
-green, notes yellow), each a stroke in the palette's strong shade over a fill
-in its light one. So a board made of several diagrams still reads as one.
+Why a diagram looks the same every time: the nodes of one kind get one width
+(the widest label decides, within a cap, longer labels wrap; a label of
+several lines may run wider), each height follows its own label and is shared
+only where boxes stand side by side (a row of a grid, one group), positions
+sit on the editor's 20 px grid, gaps are fixed, and a shape's colour follows
+its kind unless the model names one (boxes blue, decisions yellow, start and
+end green, notes yellow), each a stroke in the palette's strong shade over a
+fill in its light one. Lines are clean and labels use the sans font unless the
+model asks for the sketchy look. So a board made of several diagrams still
+reads as one.
 
 The shared builders (:func:`build_node`, :func:`arrow_between`,
 :func:`route`, :func:`parse_style`) are what the scene actions use for single
@@ -137,6 +141,17 @@ MAX_TEXT_WIDTH: Final[dict[str, float]] = {
     "note": 168.0,
     "text": 520.0,
 }
+#: How wide the label of a box with several lines ("389 stars" over "+44 this
+#: week") may run: a stat card reads better wide than as a tall narrow column.
+MULTILINE_TEXT_WIDTH: Final[float] = 300.0
+#: The kinds a row of a grid may stretch to one height (an ellipse or a
+#: diamond would change its shape).
+STRETCH_KINDS: Final[frozenset[str]] = frozenset({"box", "rect", "rounded", "note"})
+#: Room around a label inside its container (each side; the editor's own
+#: padding comes on top), as :func:`elements.fit_container` measures it.
+LABEL_PADDING: Final[float] = 16.0
+#: The widest a heading text runs before it wraps.
+MAX_HEADING_WIDTH: Final[float] = 1_200.0
 NOTE_WIDTH: Final[float] = 200.0
 LABEL_SIZE: Final[float] = 20.0
 EDGE_LABEL_SIZE: Final[float] = 16.0
@@ -259,38 +274,69 @@ def _is_palette(name: str) -> bool:
 
 
 def label_font(style: dict[str, Any], default_size: float = LABEL_SIZE) -> tuple[float, int]:
-    return float(style.get("size", default_size)), int(style.get("font", el.FONT_HAND))
+    return float(style.get("size", default_size)), int(style.get("font", el.DEFAULT_FONT))
 
 
-def node_size(kind: str, label: str, style: dict[str, Any]) -> tuple[float, float]:
-    """The size a node of ``kind`` needs for ``label``, on the grid."""
+def text_width_for(kind: str, label: str) -> float:
+    """How wide the label of a ``kind`` may run before it wraps."""
+    limit = MAX_TEXT_WIDTH.get(kind, MAX_TEXT_WIDTH["box"])
+    several_lines = "\n" in (label or "").strip()
+    if several_lines and kind != "note" and KIND_SHAPE.get(kind) == "rectangle":
+        return max(limit, MULTILINE_TEXT_WIDTH)
+    return limit
+
+
+def label_text_room(shape_kind: str, width: float) -> float:
+    """How wide a label may run in a ``shape_kind`` of ``width`` (the inverse of
+    :func:`elements.fit_container` with :data:`LABEL_PADDING`)."""
+    pad = el.BOUND_TEXT_PADDING * 2
+    if shape_kind == "ellipse":
+        inner = width / 2 * math.sqrt(2)
+    elif shape_kind == "diamond":
+        inner = width / 2
+    else:
+        inner = width
+    return inner - pad - 2 * LABEL_PADDING
+
+
+def node_size(
+    kind: str, label: str, style: dict[str, Any], *, width: float | None = None
+) -> tuple[float, float]:
+    """The size a node of ``kind`` needs for ``label``, on the grid.
+
+    With ``width`` the node is that wide and only its height is measured: the
+    label wrapped in the room that width leaves.
+    """
     size, family = label_font(style)
     if kind == "text":
-        wrapped = el.wrap_text(label, MAX_TEXT_WIDTH["text"], size, family)
+        # A heading runs as wide as a body text holds characters, so a title
+        # stays on one line instead of wrapping at a body text's width.
+        room = min(MAX_HEADING_WIDTH, MAX_TEXT_WIDTH["text"] * max(1.0, size / LABEL_SIZE))
+        wrapped = el.wrap_text(label, room, size, family)
         return el.estimate_text(wrapped, size, family)
     if kind == "image":
         return MIN_SIZE["image"]
-    if kind == "note":
-        _, height = el.fit_container(
-            "rectangle",
-            label or " ",
-            font_size=size,
-            font_family=family,
-            min_size=MIN_SIZE["note"],
-            max_text_width=MAX_TEXT_WIDTH["note"],
-        )
-        return NOTE_WIDTH, height
-    width, height = el.fit_container(
-        KIND_SHAPE[kind],
+    shape_kind = KIND_SHAPE[kind]
+    if width is not None:
+        text_room = max(size, label_text_room(shape_kind, width))
+    else:
+        text_room = text_width_for(kind, label)
+    need_w, height = el.fit_container(
+        shape_kind,
         label or " ",
         font_size=size,
         font_family=family,
         min_size=MIN_SIZE[kind],
-        max_text_width=MAX_TEXT_WIDTH[kind],
+        max_text_width=text_room,
+        padding=LABEL_PADDING,
     )
+    if width is not None:
+        need_w = width
+    elif kind == "note":
+        need_w = NOTE_WIDTH
     if kind == "circle":
-        width = height = max(width, height)
-    return width, height
+        need_w = height = max(need_w, height)
+    return need_w, height
 
 
 def build_node(
@@ -749,23 +795,31 @@ def normalize_diagram(raw: Any) -> dict[str, Any]:
 
 
 def _uniform_sizes(nodes: list[dict[str, Any]]) -> dict[str, tuple[float, float]]:
-    """One size per kind (and font size): the largest a label needs, within the caps."""
+    """One width per kind (and font size), the widest a label needs within the caps;
+    each height measured for its own label at that width.
+
+    Sharing the width keeps a diagram even; sharing the height as well gave a
+    one-line box the room of the longest label on the board. Heights are
+    evened out only where boxes stand side by side (a row of a grid, one
+    group): :func:`layout_diagram`.
+    """
     need = {n["id"]: node_size(n["kind"], n["label"], n["style"]) for n in nodes}
-    shared: dict[tuple[str, float], tuple[float, float]] = {}
+    shared: dict[tuple[str, float], float] = {}
     for n in nodes:
         if n["kind"] in ("text", "image"):
             continue
         key = (n["kind"], float(n["style"].get("size", LABEL_SIZE)))
-        w, h = need[n["id"]]
-        old = shared.get(key, (0.0, 0.0))
-        shared[key] = (max(old[0], w), max(old[1], h))
+        shared[key] = max(shared.get(key, 0.0), need[n["id"]][0])
     sizes: dict[str, tuple[float, float]] = {}
     for n in nodes:
         if n["kind"] in ("text", "image"):
             w, h = need[n["id"]]
         else:
-            w, h = shared[(n["kind"], float(n["style"].get("size", LABEL_SIZE)))]
-        sizes[n["id"]] = (float(n.get("w", w)), float(n.get("h", h)))
+            w = float(n.get("w", shared[(n["kind"], float(n["style"].get("size", LABEL_SIZE)))]))
+            _, h = node_size(n["kind"], n["label"], n["style"], width=w)
+            if n["kind"] == "circle" and "w" not in n:
+                w = h = max(w, h)
+        sizes[n["id"]] = (float(w), float(n.get("h", h)))
     return sizes
 
 
@@ -794,6 +848,9 @@ def layout_diagram(diagram: dict[str, Any]) -> dict[str, Any]:
     """
     nodes = diagram["nodes"]
     sizes = _uniform_sizes(nodes)
+    # Boxes that may take the height of their row (or group): rectangles whose
+    # height the model did not set.
+    stretchable = {n["id"] for n in nodes if n["kind"] in STRETCH_KINDS and "h" not in n}
     member_of = {member: g["id"] for g in diagram["groups"] for member in g["nodes"]}
     pinned = [n for n in nodes if "x" in n and "y" in n and n["id"] not in member_of]
     pinned_ids = {n["id"] for n in pinned}
@@ -811,6 +868,11 @@ def layout_diagram(diagram: dict[str, Any]) -> dict[str, Any]:
         inside = set(group["nodes"])
         internal = [(s, e) for s, e in edges if s in inside and e in inside]
         if internal and kind != "grid":
+            # The steps of one group share a height, so the group reads as one band.
+            even = [m for m in members if m.key in stretchable]
+            tallest = max((m.h for m in even), default=0.0)
+            for m in even:
+                m.h = tallest
             w, h = lay.arrange(
                 members,
                 internal,
@@ -820,7 +882,11 @@ def layout_diagram(diagram: dict[str, Any]) -> dict[str, Any]:
                 root=diagram["root"] if diagram["root"] in inside else None,
             )
         else:
-            w, h = lay.grid(members, columns=columns or (None if kind == "grid" else len(members)))
+            w, h = lay.grid(
+                members,
+                columns=columns or (None if kind == "grid" else len(members)),
+                stretch=stretchable,
+            )
         name_w = len(group["label"]) * 9 + 2 * FRAME_PAD
         # Whole grid steps: a frame's corner is snapped to the grid below, and
         # an odd width would let that snap eat into the gap to its neighbour.
@@ -830,8 +896,10 @@ def layout_diagram(diagram: dict[str, Any]) -> dict[str, Any]:
             _grid_up(max(h + 2 * FRAME_PAD, group.get("h", 0))),
             top=FRAME_NAME_ROOM,
         )
+        # Members start at the frame's top-left padding (a frame wider than
+        # its contents, for its name or a set size, keeps the room on the right).
         for member in members:
-            member.x += FRAME_PAD + (box.w - 2 * FRAME_PAD - w) / 2
+            member.x += FRAME_PAD
             member.y += FRAME_PAD
         inner[group["id"]] = members
         frame_boxes[group["id"]] = box
@@ -851,11 +919,21 @@ def layout_diagram(diagram: dict[str, Any]) -> dict[str, Any]:
             lifted.append((a, b))
     root = member_of.get(diagram["root"], diagram["root"]) if diagram["root"] else None
     if top_boxes:
-        lay.arrange(top_boxes, lifted, kind=kind, direction=direction, gap=gap, root=root)
+        lay.arrange(
+            top_boxes,
+            lifted,
+            kind=kind,
+            direction=direction,
+            # A grid without arrows keeps the grid's own gutters (cards close
+            # together, panels a little further apart).
+            gap=None if kind == "grid" and not lifted else gap,
+            root=root,
+            stretch=stretchable,
+        )
     title_at: tuple[float, float] | None = None
     if diagram["title"]:
         size = el.FONT_SIZES["xl"]
-        _, title_h = el.estimate_text(diagram["title"], size, el.FONT_HAND)
+        _, title_h = el.estimate_text(diagram["title"], size, el.DEFAULT_FONT)
         for box in top_boxes:
             box.y += title_h + lay.CROSS_GAP
         title_at = (0.0, 0.0)
@@ -1023,7 +1101,7 @@ def diagram_to_elements(
                 y=oy + ty,
                 now_ms=when,
                 font_size=el.FONT_SIZES["xl"],
-                font_family=el.FONT_HAND,
+                font_family=el.DEFAULT_FONT,
             )
         )
     for group in spec["groups"]:
@@ -1339,7 +1417,7 @@ def legacy_to_scene(
                 y=top,
                 now_ms=when,
                 font_size=size,
-                font_family=el.FONT_HAND,
+                font_family=el.DEFAULT_FONT,
                 element_id=item["id"],
             )
             heading_elements.append(heading_text)
@@ -1362,7 +1440,7 @@ def legacy_to_scene(
                 y=top,
                 now_ms=when,
                 font_size=size,
-                font_family=el.FONT_HAND,
+                font_family=el.DEFAULT_FONT,
                 element_id=item["id"],
             )
             elements.append(line)

@@ -695,6 +695,7 @@ def test_actions_run_on_the_board_and_save_one_revision(
         "version": 2,
         "report": ["added new"],
         "summary": {"elements": 1, "bounds": [10, 20, 90, 60]},
+        "check": [],
     }
     assert seen[0][1] == [{"do": "add"}] and seen[0][0]["format"] == "scene"
     run_dir = boards.dir_of(node.id)

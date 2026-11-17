@@ -224,6 +224,26 @@ async def test_edit_applies_actions_as_a_new_version(tmp_path: Path, cards) -> N
     assert len(cards) == 1 and cards[0][1]["node_type"] == "whiteboard"
 
 
+async def test_create_and_edit_end_with_the_boards_self_check(tmp_path: Path, cards) -> None:
+    tool, store = _tool(tmp_path)
+    created = await tool.execute({"operation": "create", "title": "Plan", "mermaid": FLOW}, _ctx())
+    assert created.success
+    assert "\nCheck: all clear (no overlaps, labels fit, frames aligned)." in created.output
+    board = store.list_nodes()[0].id
+    edited = await tool.execute(
+        {
+            "operation": "edit",
+            "board": board,
+            "actions": [{"do": "move", "ids": ["C"], "to": [0, 0]}],
+        },
+        _ctx(),
+    )
+    assert edited.success
+    tail = edited.output.split("\nCheck: ", 1)[1]
+    assert tail.startswith("1 issue") or tail.startswith("2 issues"), tail
+    assert "overlap: A and C" in tail
+
+
 async def test_edit_works_on_what_is_stored_now(tmp_path: Path, cards) -> None:
     """A stroke the person saved after the model's last read is kept."""
     tool, store = _tool(tmp_path)
