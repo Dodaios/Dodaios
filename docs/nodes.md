@@ -123,6 +123,29 @@ licence) instead of the page. The assistant draws on the same board with the
 arrow between two things, a frame, a whole diagram, a Mermaid flowchart, a
 layout. Several boards are several nodes; "New whiteboard" makes another.
 
+**The canvas.** The editor is the engine; its own toolbars are hidden and the
+board draws its own controls in the app's look
+(`dodaios/ui/web/frontend/src/components/nodes/whiteboard/canvas/`): a tool
+dock at the bottom (select, move, frame, shapes, arrow, line, pen, text,
+sticky note, picture, eraser; N adds a sticky note), an inspector on the
+right for the selection (colour, fill, stroke, corners, clean or sketched
+lines, font, size, alignment, opacity, layers, duplicate, lock, delete), a
+menu (export, save and open a file, find, grid, shortcuts, background,
+clear), undo and redo, and the zoom. What the person draws is clean by
+default: no sketched lines, the normal font, round corners. The ground is
+the app's dotted stage; a board with a background colour of its own shows
+that colour instead. The view glides: a mouse wheel notch or a zoom button
+moves it over a few frames, a trackpad's own stream is followed at once,
+and Ctrl or Cmd with the wheel zooms around the pointer.
+
+**Watching the assistant draw.** The open board asks every one and a half
+seconds whether the node changed. When the assistant drew something, its
+new pieces land one at a time (frames first, then each box with its label,
+then the arrows, in under three seconds) while the assistant's cursor, with
+its name, moves to each piece. A board opened within a minute and a half of
+the assistant's drawing plays that drawing the same way. The tool marks what
+it draws with `customData: {"by": "assistant"}`.
+
 **The spec is the editor's scene** (`dodaios/nodes/board/scene.py`):
 
 ```json
