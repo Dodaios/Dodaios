@@ -33,7 +33,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 # Minimum remaining lifetime for a login to count as live. An isolated
 # mission worker holds no refresh token, so a bearer dying seconds after the
@@ -113,6 +113,11 @@ def _parse_oauth_file(
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+    return _parse_oauth_data(data)
+
+
+def _parse_oauth_data(data: Any) -> tuple[str, str | None, float | None, bool] | None:
+    """:func:`_parse_oauth_file` on already-loaded JSON (file or Keychain item)."""
     oauth = data.get("claudeAiOauth") if isinstance(data, dict) else None
     if not isinstance(oauth, dict):
         return None
@@ -131,8 +136,110 @@ def _parse_oauth_file(
     return token, sub_type, expires_s, refresh_present
 
 
+def keychain_service_for(config_dir: Path) -> str:
+    """The macOS Keychain item Claude Code keeps THIS config dir's login in.
+
+    The default ``~/.claude`` uses the bare service name; a directory reached
+    through ``CLAUDE_CONFIG_DIR`` gets the first 8 hex digits of the SHA-256 of
+    its path as a suffix (verified 2026-11-16 against Claude Code's own items).
+    """
+    import hashlib
+
+    if Path(config_dir).expanduser() == Path.home() / ".claude":
+        return "Claude Code-credentials"
+    digest = hashlib.sha256(str(config_dir).encode()).hexdigest()[:8]
+    return f"Claude Code-credentials-{digest}"
+
+
+def _keychain_item_exists(service: str) -> bool:
+    """Whether the login Keychain holds ``service``; reads metadata, never the secret."""
+    import subprocess
+    import sys
+
+    if sys.platform != "darwin":
+        return False
+    try:
+        done = subprocess.run(
+            ["/usr/bin/security", "find-generic-password", "-s", service],
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return done.returncode == 0
+
+
+def _keychain_secret(service: str) -> str | None:
+    """The Keychain item's secret, read by the same ``security`` tool Claude Code uses."""
+    import subprocess
+    import sys
+
+    if sys.platform != "darwin":
+        return None
+    try:
+        done = subprocess.run(
+            ["/usr/bin/security", "find-generic-password", "-s", service, "-w"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout.strip() if done.returncode == 0 and done.stdout.strip() else None
+
+
+def keychain_bearer(
+    config_dir: Path,
+    *,
+    reader: Callable[[str], str | None] | None = None,
+    now_fn: Callable[[], float] = time.time,
+) -> str | None:
+    """The live OAuth bearer Claude Code keeps in the Keychain for ``config_dir``.
+
+    Only for reading plan usage from Anthropic (2026-11-17: without it no seat
+    was ever measured, so automatic switching never moved a spent seat). Never
+    logged; an expired bearer is ``None`` because only the CLI can refresh it.
+    """
+    raw = (reader or _keychain_secret)(keychain_service_for(config_dir))
+    if not raw:
+        return None
+    try:
+        parsed = _parse_oauth_data(json.loads(raw))
+    except ValueError:
+        return None
+    if parsed is None:
+        return None
+    token, _sub_type, expires_s, _refresh = parsed
+    if expires_s is not None and expires_s <= now_fn() + OAUTH_EXPIRY_SLACK_S:
+        return None
+    return token
+
+
+_ORG_TYPE_TO_TIER = {
+    "claude_max": "max",
+    "claude_pro": "pro",
+    "claude_team": "team",
+    "claude_enterprise": "enterprise",
+}
+
+
+def _tier_from_identity(config_dir: Path) -> str | None:
+    try:
+        data = json.loads((Path(config_dir) / ".claude.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    account = data.get("oauthAccount") if isinstance(data, dict) else None
+    org_type = account.get("organizationType") if isinstance(account, dict) else None
+    return _ORG_TYPE_TO_TIER.get(str(org_type or ""))
+
+
 def claude_login_in(
-    config_dir: Path, *, now_fn: Callable[[], float] = time.time
+    config_dir: Path,
+    *,
+    now_fn: Callable[[], float] = time.time,
+    keychain_probe: Callable[[str], bool] | None = None,
 ) -> ClaudeOAuthSnapshot:
     """The login stored in ONE specific config dir, without cross-dir search.
 
@@ -147,6 +254,17 @@ def claude_login_in(
     """
     parsed = _parse_oauth_file(config_dir / ".credentials.json")
     if parsed is None:
+        # macOS: Claude Code stores the login in the Keychain and writes no file,
+        # so every account read as signed out and the seat switcher never moved
+        # a spent seat (2026-11-16). The item's presence is the login; its
+        # secret is never read (no prompt), and the CLI refreshes it itself.
+        probe = keychain_probe or _keychain_item_exists
+        if probe(keychain_service_for(config_dir)):
+            return ClaudeOAuthSnapshot(
+                status="valid",
+                subscription_type=_tier_from_identity(config_dir),
+                config_dir=config_dir,
+            )
         return ClaudeOAuthSnapshot(status="absent", config_dir=config_dir)
     token, sub_type, expires_s, refresh_present = parsed
     if expires_s is not None and expires_s <= now_fn() + OAUTH_EXPIRY_SLACK_S:
@@ -226,4 +344,5 @@ __all__ = [
     "claude_config_dirs",
     "claude_login_in",
     "freshest_claude_oauth",
+    "keychain_bearer",
 ]

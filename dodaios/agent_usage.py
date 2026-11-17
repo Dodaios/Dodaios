@@ -916,17 +916,36 @@ def note_claude_rate_limit(config_dir: str, info: Any) -> None:
         logger.debug("Agent usage: stream limits not remembered ({})", type(exc).__name__)
 
 
+def _claude_keychain_bearer(config_dir: Path) -> str | None:
+    """Seam for tests: the seat's bearer from the macOS Keychain."""
+    from dodaios.claude_credentials import keychain_bearer
+
+    return keychain_bearer(config_dir)
+
+
+def _claude_account_file(config_dir: Path) -> Path:
+    """Without CLAUDE_CONFIG_DIR, Claude Code keeps its account file beside ~/.claude."""
+    inside = config_dir / ".claude.json"
+    if not inside.exists() and config_dir == Path.home() / ".claude":
+        return Path.home() / ".claude.json"
+    return inside
+
+
 def _claude_usage(account: AgentAccount) -> AccountUsage:
     """Usage for ONE Claude seat: the live endpoint, else its own disk cache."""
     from dodaios.claude_credentials import claude_login_in
 
-    claude_json = _read_json_file(account.config_dir / ".claude.json")
+    claude_json = _read_json_file(_claude_account_file(account.config_dir))
     plan = _claude_plan_name(claude_json)
     login = claude_login_in(account.config_dir)
+    bearer = login.access_token
+    if login.status == "valid" and not bearer:
+        # macOS keeps the login only in the Keychain (no .credentials.json).
+        bearer = _claude_keychain_bearer(account.config_dir)
 
-    if login.status == "valid" and login.access_token:
+    if login.status == "valid" and bearer:
         headers = {
-            "Authorization": f"Bearer {login.access_token}",
+            "Authorization": f"Bearer {bearer}",
             "anthropic-beta": _CLAUDE_OAUTH_BETA,
             "Accept": "application/json",
         }
