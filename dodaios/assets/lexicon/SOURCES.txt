@@ -1,0 +1,22 @@
+common_words.bloom
+==================
+
+A Bloom filter over about one million German and English words (4 to 24
+letters, inflected forms included). The speech dictionary uses it to tell an
+ordinary word from a spelling a speech recognizer invented; see
+dodaios/speech/common_words.py.
+
+Built by scripts/build_common_words.py from two public-domain word lists,
+each pinned to one commit:
+
+German   https://github.com/enz/german-wordlist
+         commit 1071d87d9535b57b80ec076c699f2578a28ee9dc, file "words"
+         License: CC0 1.0 Universal (public domain dedication)
+
+English  https://github.com/dwyl/english-words
+         commit 20f5cc9b3f0ccc8ce45d814c532b7c2031bba31c, file "words_alpha.txt"
+         License: The Unlicense (public domain dedication)
+
+The file holds no word in readable form, only hash bits. To rebuild it:
+
+    python scripts/build_common_words.py

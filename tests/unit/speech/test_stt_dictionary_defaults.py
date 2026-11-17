@@ -166,3 +166,50 @@ def test_the_defaults_carry_no_personal_data() -> None:
             assert not any(ch.isdigit() for ch in value)
     slugs = [t.slug for t in DEFAULT_TERMS]
     assert len(slugs) == len(set(slugs))
+
+
+@pytest.mark.parametrize(
+    ("heard", "meant"),
+    [
+        # Reported 2026-11-17: the recognizer swallows the first syllable.
+        ("Ein Agent in unser Dios Projekt.", "Ein Agent in unser Dodaios Projekt."),  # i18n-allow
+        ("Die Website für Dodios neu bauen.", "Die Website für Dodaios neu bauen."),  # i18n-allow
+        ("I talk to Dios about my work.", "I talk to Dodaios about my work."),
+    ],
+)
+def test_the_product_name_survives_a_swallowed_first_syllable(
+    store: DictionaryStore, heard: str, meant: str
+) -> None:
+    assert get_corrector(store).correct(heard) == meant
+
+
+def test_the_swallowed_syllable_rule_stays_out_of_other_languages(
+    store: DictionaryStore,
+) -> None:
+    corrector = get_corrector(store)
+    assert corrector.correct("Dios mío, otra vez.") == "Dios mío, otra vez."
+    assert corrector.correct("Gracias a Dios por todo.", "es") == "Gracias a Dios por todo."
+
+
+def test_an_edited_default_keeps_the_swallowed_syllable_rule(store: DictionaryStore) -> None:
+    store.update(f"{DEFAULT_ID_PREFIX}dodaios", misheard=["Duda OS"], misheard_set=True)
+
+    assert get_corrector(store).correct("in unser Dios Projekt", "de") == (  # i18n-allow
+        "in unser Dodaios Projekt"  # i18n-allow
+    )
+
+
+def test_a_user_word_for_that_spelling_wins(store: DictionaryStore) -> None:
+    store.add("Dios")
+
+    assert get_corrector(store).correct("in unser Dios Projekt", "de") == (  # i18n-allow
+        "in unser Dios Projekt"  # i18n-allow
+    )
+
+
+def test_a_user_mishearing_for_that_spelling_wins(store: DictionaryStore) -> None:
+    store.add("Adios", ["Dios"])
+
+    assert get_corrector(store).correct("in unser Dios Projekt", "de") == (  # i18n-allow
+        "in unser Adios Projekt"  # i18n-allow
+    )
